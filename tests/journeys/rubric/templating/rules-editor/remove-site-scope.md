@@ -1,0 +1,26 @@
+# Rules-editor remove-site-scope rubric
+
+## Latency budgets
+
+- Site chip click -> storage write: <= 150ms.
+
+## State expectations
+
+- Step 1: a rule is seeded with `scope.sites = ['example.com']`; the example.com site chip is visible in the Advanced row.
+- Step 2 (click the example.com site chip in Advanced): the chip is removed from the display; `scope.sites` is removed (empty array or deleted key) from storage.
+- Step 3: the rule row no longer shows any site scope indicator.
+
+## Visible affordances
+
+- Site scope chips are visible inside the Advanced disclosure.
+- Each site chip has a remove (x) affordance.
+
+## Failure-mode expectations
+
+- Storage write failure restores the site chip; an inline error appears.
+- Removing all site scope chips results in the rule applying to all sites (no site restriction).
+
+## Cautions
+
+- An empty `scope.sites` array and a missing `scope.sites` key are functionally equivalent (global scope); the storage write may use either form — both are correct.
+- Removing the site scope from a rule does NOT disable the rule.

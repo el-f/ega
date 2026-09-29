@@ -1,0 +1,11 @@
+@import '../shared/tokens.css';
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  font-family: var(--font-ui);
+  color: var(--color-fg);
+  background: var(--color-bg);
+  line-height: var(--lh-body);
+}

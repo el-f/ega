@@ -1,0 +1,26 @@
+# Page-translate replaced-block-styled rubric
+
+## Latency budgets
+
+- Page sheet injected before the first wrapper is attached: no visible unstyled flash.
+
+## State expectations
+
+- Step 1: a `<style id="ega-page-styles">` element exists in the page document, exactly one.
+- Step 2: each `[data-ega-replaced]` wrapper resolves a non-transparent background, a 1px dashed bottom border and `cursor: help`.
+- Step 3: an errored block's retry control (`[data-ega-retry-block]`) is styled as a bare glyph button, not native browser chrome.
+
+## Visible affordances
+
+- The replaced run reads as "changed by Ega" — tinted background plus dashed underline — without hiding the page's own typography.
+- The retry control stays invisible until the errored block is hovered or the control is focused.
+
+## Failure-mode expectations
+
+- The sheet carries no `var(--…)` custom properties: the page document declares none of ours, so a token reference resolves to nothing and the rule dies silently.
+- Colors are translucent, so the wrapper stays readable on a light page and a dark page alike.
+
+## Cautions
+
+- These wrappers live in the PAGE DOM. Rules added only to `src/content/styles.css` (the shadow-root sheet) never reach them — that is the defect this journey guards.
+- A page may already define its own `#ega-page-styles`; the injector keeps its own reference rather than adopting whatever carries that id.

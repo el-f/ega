@@ -1,0 +1,234 @@
+[
+  {
+    "name": "Advanced",
+    "bytes": 66147
+  },
+  {
+    "name": "base",
+    "bytes": 13066
+  },
+  {
+    "name": "batch-progress",
+    "bytes": 3725
+  },
+  {
+    "name": "build-config",
+    "bytes": 1166
+  },
+  {
+    "name": "Button",
+    "bytes": 6180
+  },
+  {
+    "name": "cancel-token",
+    "bytes": 16273
+  },
+  {
+    "name": "command-registry",
+    "bytes": 29211
+  },
+  {
+    "name": "diff-words",
+    "bytes": 1652
+  },
+  {
+    "name": "EmptyState",
+    "bytes": 2022
+  },
+  {
+    "name": "err-labels",
+    "bytes": 804
+  },
+  {
+    "name": "error-fix-toast",
+    "bytes": 1842
+  },
+  {
+    "name": "error-policy",
+    "bytes": 1056
+  },
+  {
+    "name": "Glossary",
+    "bytes": 9726
+  },
+  {
+    "name": "IconButton",
+    "bytes": 3937
+  },
+  {
+    "name": "index",
+    "bytes": 219607
+  },
+  {
+    "name": "index.html",
+    "bytes": 326067
+  },
+  {
+    "name": "index.ts",
+    "bytes": 43428
+  },
+  {
+    "name": "index.ts-loader",
+    "bytes": 341
+  },
+  {
+    "name": "inlineReplace",
+    "bytes": 3943
+  },
+  {
+    "name": "InspectorDrawer",
+    "bytes": 11081
+  },
+  {
+    "name": "LanguagePicker",
+    "bytes": 2928
+  },
+  {
+    "name": "languages",
+    "bytes": 22029
+  },
+  {
+    "name": "messages",
+    "bytes": 26856
+  },
+  {
+    "name": "omitUndef",
+    "bytes": 288
+  },
+  {
+    "name": "open-options-tab",
+    "bytes": 4035
+  },
+  {
+    "name": "pending-popup-handoff",
+    "bytes": 2137
+  },
+  {
+    "name": "perf-history",
+    "bytes": 393
+  },
+  {
+    "name": "picker",
+    "bytes": 2309
+  },
+  {
+    "name": "PickerOverlay",
+    "bytes": 502
+  },
+  {
+    "name": "RecipesGallery",
+    "bytes": 21707
+  },
+  {
+    "name": "RulesEditor",
+    "bytes": 19727
+  },
+  {
+    "name": "SectionReset",
+    "bytes": 1297
+  },
+  {
+    "name": "Select",
+    "bytes": 4004
+  },
+  {
+    "name": "selection-cap-copy",
+    "bytes": 15049
+  },
+  {
+    "name": "SelectionBubble",
+    "bytes": 9687
+  },
+  {
+    "name": "sessionSelection",
+    "bytes": 652
+  },
+  {
+    "name": "settings-bus",
+    "bytes": 508
+  },
+  {
+    "name": "settings-defaults",
+    "bytes": 23168
+  },
+  {
+    "name": "storage",
+    "bytes": 10418
+  },
+  {
+    "name": "template-rewrite",
+    "bytes": 4116
+  },
+  {
+    "name": "TemplateEditor",
+    "bytes": 34094
+  },
+  {
+    "name": "Templates",
+    "bytes": 54766
+  },
+  {
+    "name": "templates-handlers",
+    "bytes": 16261
+  },
+  {
+    "name": "Textarea",
+    "bytes": 1666
+  },
+  {
+    "name": "theme",
+    "bytes": 640
+  },
+  {
+    "name": "theme-apply",
+    "bytes": 3105
+  },
+  {
+    "name": "ThemeToggle",
+    "bytes": 3515
+  },
+  {
+    "name": "tipState.svelte",
+    "bytes": 26876
+  },
+  {
+    "name": "toastStore",
+    "bytes": 554
+  },
+  {
+    "name": "Translate",
+    "bytes": 48885
+  },
+  {
+    "name": "translate-ui",
+    "bytes": 4491
+  },
+  {
+    "name": "vendor-bits-ui",
+    "bytes": 195311
+  },
+  {
+    "name": "vendor-bits-ui-menu",
+    "bytes": 28272
+  },
+  {
+    "name": "vendor-dompurify",
+    "bytes": 29400
+  },
+  {
+    "name": "vendor-lucide",
+    "bytes": 27456
+  },
+  {
+    "name": "vendor-marked",
+    "bytes": 45577
+  },
+  {
+    "name": "vendor-svelte",
+    "bytes": 56895
+  },
+  {
+    "name": "vendor-svelte-extras",
+    "bytes": 76398
+  }
+]

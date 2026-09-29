@@ -1,0 +1,24 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "ignoreDependencies": ["@secretlint/secretlint-rule-preset-recommend"],
+  "ignoreBinaries": ["reg"],
+  "ignore": ["native-host/**"],
+  "ignoreExportsUsedInFile": {
+    "interface": true,
+    "type": true
+  },
+  "workspaces": {
+    ".": {
+      "entry": [
+        "src/background/index.ts!",
+        "src/content/index.ts!",
+        "src/popup/main.ts!",
+        "src/options/main.ts!",
+        "src/sidepanel/index.ts!",
+        "tests/**/*.test.ts",
+        "tests/e2e/**/*.spec.ts"
+      ],
+      "project": ["src/**/*.ts", "src/**/*.svelte", "scripts/**/*.ts", "scripts/**/*.mjs"]
+    }
+  }
+}

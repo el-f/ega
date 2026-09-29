@@ -1,0 +1,1478 @@
+<script lang="ts">
+  // Shell only. Every interaction is a turn; `state/conversation.svelte.ts` owns
+  // dispatch and chunk routing.
+
+  import { onDestroy, onMount, tick } from 'svelte';
+  import { getSettings, onSettingsChanged } from '@/shared/storage';
+  import { ALL_ERR_CODES, type Settings, type ErrCode } from '@/shared/types';
+  import { errCodeLabel } from '@/shared/err-labels';
+  import { selectionTrimmedMessage } from '@/shared/selection-cap-copy';
+  import { auditSurfaceLabel } from './audit-surface-label';
+  import { optionsTabForMessage } from '@/shared/error-policy';
+  import { asLangSelection } from '@/shared/brands';
+  import {
+    DEFAULT_CONFIDENCE_PILL_THRESHOLD,
+    IMAGE_TURN_PLACEHOLDER,
+    settingsSaveFailedMessage,
+  } from '@/shared/constants';
+  import { drainPendingImageSeeds, removePendingImageSeed } from '@/shared/pending-image-seed';
+  import { openOptionsTab } from '@/shared/open-options-tab';
+  import { loadMarkdownRenderer } from '@/shared/components/markdown-loader';
+  import {
+    drainPendingPopupHandoff,
+    PENDING_POPUP_HANDOFF_KEY,
+  } from '@/shared/pending-popup-handoff';
+  import { applyTheme, type ThemePref } from '@/shared/theme';
+  import { Toaster } from 'svelte-sonner';
+  import CommandPalette from '@/shared/components/CommandPalette.svelte';
+  import ShortcutOverlay from '@/shared/components/ShortcutOverlay.svelte';
+  import BrandMark from '@/shared/components/BrandMark.svelte';
+  import ActiveBackendChip from '@/shared/components/ActiveBackendChip.svelte';
+  import HeaderMoreMenu from './HeaderMoreMenu.svelte';
+  import IconButton from '@/shared/ui/IconButton.svelte';
+  import Popover from '@/shared/ui/Popover.svelte';
+  import SettingsIcon from '@lucide/svelte/icons/settings';
+  import CircleStopIcon from '@lucide/svelte/icons/circle-stop';
+  import SquarePenIcon from '@lucide/svelte/icons/square-pen';
+  import SearchIcon from '@lucide/svelte/icons/search';
+  import XIcon from '@lucide/svelte/icons/x';
+  import { confirmDialog } from '@/shared/components/confirmDialog';
+  import { buildRegistry, type Command } from '@/shared/command-registry';
+  import { listVarieties } from '@/shared/varieties';
+  import type { Variety } from '@/shared/types';
+  import { hasKnownKind, isFromOwnBackground, sendTabMsg } from '@/shared/messages';
+  import AppShell from '@/shared/ui/AppShell.svelte';
+  import type { Task, Tone } from '@/shared/task-prompts';
+  import ConversationStream from './conversation/ConversationStream.svelte';
+  import InputRow from './conversation/InputRow.svelte';
+  import { createConversation } from './state/conversation.svelte';
+  import { INDEX_KEY } from './state/conversation-store';
+  import { visibleTurns, searchTurns } from './state/conversation';
+  import { exportMarkdown, exportJson } from './state/conversation-export';
+  import { getActiveOrigin, getPanelWindowId, startOriginFollower } from './state/active-origin';
+  import {
+    clearComposerDraft,
+    clearComposerDraftImage,
+    pruneOrphanDrafts,
+    readComposerDraft,
+    readComposerDraftImage,
+    writeComposerDraft,
+    writeComposerDraftImage,
+  } from './state/composer-draft';
+  import { debugCatch } from '@/shared/logger';
+  import { toastStore } from '@/shared/components/toastStore';
+  import { patchSettings } from '@/shared/settings-bus';
+  import { imageStuckTimeoutMs, stuckTimeoutMs } from '@/shared/stuck-timeout';
+  import type { PageContext } from '@/shared/types';
+
+  // Same ceilings as the tooltip's stuck guard, read at dispatch so a settings edit applies to the next send.
+  const conversation = createConversation({
+    stallMs: (hasImage) => (hasImage ? imageStuckTimeoutMs(settings) : stuckTimeoutMs(settings)),
+  });
+
+  let varieties: Variety[] = $state([]);
+  let sourceText = $state('');
+  let sourceLang = $state<string>('auto');
+  let targetLang = $state<string>('en');
+  let task = $state<Task>('translate');
+  let tone = $state<Tone>('neutral');
+  let streamingPref = $state<boolean>(true);
+  let pageContextLevel = $state<'minimal' | 'rich'>('minimal');
+  let attachedImage = $state<string | null>(null);
+  let focusedTurnId = $state<string | null>(null);
+  // The id, not a flag: a tab switch swaps the thread, so "drop the last exchange" would hit another site's turns.
+  let editingTurnId = $state<string | null>(null);
+
+  // Reported by the backend chip, which already resolves the chain and probes the key-less backends.
+  let backendReady = $state<boolean | null>(null);
+  let bookmarkFilter = $state(false);
+  let searchOpen = $state(false);
+  let searchQuery = $state('');
+  let searchInputEl: HTMLInputElement | null = $state(null);
+
+  // A new exchange is never bookmarked and never matches the old query, so either filter would hide the answer.
+  // Escape, the X and the header magnifier are one action; focus returns to the toggle.
+  function closeSearch(): void {
+    searchQuery = '';
+    searchOpen = false;
+    document.querySelector<HTMLElement>('[data-ega-search-toggle]')?.focus();
+  }
+
+  async function toggleSearch(): Promise<void> {
+    if (searchOpen) {
+      closeSearch();
+      return;
+    }
+    searchOpen = true;
+    await tick();
+    searchInputEl?.focus();
+  }
+
+  function clearFilters(): void {
+    bookmarkFilter = false;
+    searchQuery = '';
+    searchOpen = false;
+  }
+
+  // Refreshed on storage change, so the backend chip tracks pinning writes made on another surface.
+  let settings = $state<Settings | null>(null);
+  let settingsUnsub: (() => void) | null = null;
+  // Resolved after mount; undefined until then, and every window check fails open on undefined.
+  let panelWindowId: number | undefined;
+  /** advanced.retryCount, editable here without opening Settings; saved through the settings bus like any setting. */
+  let retryCount = $state<number>(1);
+  let retryAnchor: HTMLElement | null = $state(null);
+  let retryPopoverOpen = $state<boolean>(false);
+
+  // Composer swap only. The stream's ↔ re-runs a past turn, so it gates on that turn, not the picker.
+  const swapDisabled = $derived(sourceLang === 'auto');
+  const latestTurnId = $derived(conversation.turns.at(-1)?.id ?? null);
+  const turnSwapDisabled = $derived(latestTurnId === null || !conversation.canSwap(latestTurnId));
+  const hasInflight = $derived(conversation.inflightId !== null);
+  // One gate for New and both export items: disabled until there is a thread.
+  const isEmptyThread = $derived(conversation.turns.length === 0);
+
+  const baseTurns = $derived(visibleTurns(conversation.turns, bookmarkFilter));
+  const filteredTurns = $derived(searchTurns(baseTurns, searchQuery));
+  const matchCount = $derived(
+    searchQuery.trim() ? filteredTurns.filter((t) => t.role === 'user').length : 0,
+  );
+  // Both halves of a bookmarked pair survive the filter, so counting turns would say "2" for one message.
+  const bookmarkCount = $derived(baseTurns.filter((t) => t.role === 'user').length);
+  const emptySearch = $derived(searchQuery.trim().length > 0 && filteredTurns.length === 0);
+  const emptyBookmarkFilter = $derived(
+    !searchQuery.trim() && bookmarkFilter && baseTurns.length === 0,
+  );
+  /** What the stream's announcer reads out when a filter narrows the thread. */
+  const filterSummary = $derived.by(() => {
+    if (searchQuery.trim()) return `${matchCount} ${matchCount === 1 ? 'match' : 'matches'}`;
+    if (bookmarkFilter)
+      return `${bookmarkCount} ${bookmarkCount === 1 ? 'message' : 'messages'} bookmarked`;
+    return null;
+  });
+
+  function onSwap(): void {
+    const ns = targetLang;
+    targetLang = sourceLang;
+    sourceLang = ns;
+  }
+
+  /** One re-translate per settled pick: keyboard-scrolling the target list must not fire one dispatch per option. */
+  const TARGET_CHANGE_DEBOUNCE_MS = 500;
+  let targetChangeTimer: ReturnType<typeof setTimeout> | null = null;
+  function cancelPendingTargetChange(): void {
+    if (targetChangeTimer !== null) clearTimeout(targetChangeTimer);
+    targetChangeTimer = null;
+  }
+  function onTargetChange(): void {
+    cancelPendingTargetChange();
+    targetChangeTimer = setTimeout(() => {
+      targetChangeTimer = null;
+      void conversation.langVariant(asLangSelection(targetLang));
+    }, TARGET_CHANGE_DEBOUNCE_MS);
+  }
+
+  /** Adds a sibling variant and re-sends with the refinement for this request only; it is never written to settings. */
+  async function onRefine(args: {
+    turnId: string;
+    refinementBody: string;
+    refinementLabel?: string;
+  }): Promise<boolean> {
+    return conversation.refine({
+      turnId: args.turnId,
+      refinementBody: args.refinementBody,
+      ...(args.refinementLabel !== undefined ? { refinementLabel: args.refinementLabel } : {}),
+    });
+  }
+
+  // All sidepanel settings writes go through the SW (settings:update), so one
+  // realm owns the read-modify-write and a concurrent options/content write cannot be lost.
+  /** A rejected write must not leave the panel showing a value nothing stored, so `revert` puts the control back. */
+  async function commitSettings(patch: Partial<Settings>, revert: () => void): Promise<void> {
+    const ack = await patchSettings(patch);
+    if (ack.ok) return;
+    revert();
+    toastStore.push({ message: settingsSaveFailedMessage(ack.reason), variant: 'danger' });
+  }
+
+  async function setPageContextLevel(level: 'minimal' | 'rich'): Promise<void> {
+    const previous = pageContextLevel;
+    pageContextLevel = level;
+    await commitSettings({ pageContextLevel: level }, () => (pageContextLevel = previous));
+  }
+
+  async function collectActiveTabContext(): Promise<PageContext | null> {
+    try {
+      const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+      const tabId = tabs[0]?.id;
+      if (!tabId) return null;
+      const level = pageContextLevel ?? 'minimal';
+      const reply = await sendTabMsg(tabId, { kind: 'ega:get-page-context', level });
+      return reply?.context ?? null;
+    } catch (e) {
+      debugCatch(e, 'sidepanel.collectActiveTabContext');
+      return null;
+    }
+  }
+
+  /** `contextEnabled` is the off-switch: no collection runs when it is off. */
+  async function currentPageContext(): Promise<PageContext | null> {
+    return settings?.contextEnabled ? await collectActiveTabContext() : null;
+  }
+
+  // inflightId only flips after the context-collection await, so a fast double send would dispatch twice.
+  let sending = false;
+
+  async function sendTurn(): Promise<void> {
+    const text = sourceText.trim();
+    if (!text && !attachedImage) return;
+    if (sending || conversation.inflightId !== null) return;
+    sending = true;
+    clearFilters();
+    try {
+      // Read the page before touching the thread, and bail if the thread moved meanwhile: the edit belongs to the site it was typed on.
+      const originBefore = conversation.activeOrigin;
+      const context = await currentPageContext();
+      if (conversation.activeOrigin !== originBefore) return;
+      // The previous turn is in the composer, so drop it or the re-send appends a duplicate.
+      let preservedResponse: string | undefined;
+      if (editingTurnId !== null) {
+        if (conversation.lastUserTurn()?.id === editingTurnId) {
+          const prior = conversation.turns.find(
+            (t) => t.role === 'assistant' && t.attachedToTurnId === editingTurnId,
+          );
+          if (prior?.status === 'done' && prior.content) preservedResponse = prior.content;
+          conversation.dropLastUserExchange();
+        }
+        editingTurnId = null;
+        draftBeforeEdit = '';
+      }
+      const content = text || IMAGE_TURN_PLACEHOLDER;
+      // 'explain' keeps its own kind so the router takes the vision-explain arm instead of plain OCR.
+      const kind = attachedImage && task !== 'explain' ? 'image-translate' : task;
+      const img = attachedImage;
+      await conversation.send({
+        content,
+        kind,
+        ...(preservedResponse !== undefined ? { preservedResponse } : {}),
+        ...(img ? { imageDataUrl: img } : {}),
+        sourceLang: asLangSelection(sourceLang),
+        targetLang: asLangSelection(targetLang),
+        stream: streamingPref,
+        tone,
+        context,
+      });
+      sourceText = '';
+      attachedImage = null;
+      void clearComposerDraftImage();
+    } finally {
+      sending = false;
+    }
+  }
+
+  function cancelInflight(): void {
+    conversation.cancel();
+  }
+
+  /** Aborts in-flight translates from every surface (tooltip, popup, batch). */
+  function cancelAllInflight(): void {
+    chrome.runtime.sendMessage({ kind: 'translate:cancel-all' }).catch(() => {
+      /* SW asleep — no in-flight to cancel anyway. */
+    });
+    // Cancel local conversation too so the sidepanel's own turns transition
+    // out of streaming state without waiting for the SW round-trip.
+    conversation.cancel();
+  }
+
+  /** Composer text the edit replaced, so Escape puts it back instead of clearing to ''. */
+  let draftBeforeEdit = '';
+
+  function focusComposer(): void {
+    document.getElementById('sp-text')?.focus();
+  }
+
+  // Called from the window keydown handler when focus is on the stream and the user presses 'e'.
+  function pullLastUserTurnIntoInput(): void {
+    if (conversation.inflightId !== null) {
+      toastStore.push({ message: 'Edit when this reply finishes.', variant: 'warning' });
+      return;
+    }
+    if (editingTurnId !== null) return;
+    const last = conversation.lastUserTurn();
+    if (!last) return;
+    // The pencil is hidden for image turns, but 'e' does not go through it.
+    // Keyed on the image, not the kind: an Explain send carries one too.
+    if (last.hasImage) {
+      toastStore.push({
+        message: 'An image message cannot be edited. Send the image again to change it.',
+        variant: 'warning',
+      });
+      return;
+    }
+    // 'e' is one bare keypress; it must not silently replace something the user typed.
+    if (sourceText.trim() && sourceText !== last.content) {
+      toastStore.push({
+        message: 'Clear the message box first to edit your last message.',
+        variant: 'warning',
+      });
+      return;
+    }
+    draftBeforeEdit = sourceText;
+    sourceText = last.content;
+    editingTurnId = last.id;
+  }
+
+  // A mid-history turn needs a confirm before truncating; the last turn reuses pullLastUserTurnIntoInput.
+  async function onEditTurn(turnId: string): Promise<void> {
+    if (conversation.inflightId !== null) return;
+    const userTurns = conversation.turns.filter((t) => t.role === 'user');
+    const lastUserTurn = userTurns[userTurns.length - 1];
+    if (turnId === lastUserTurn?.id) {
+      pullLastUserTurnIntoInput();
+      return;
+    }
+    const turnIdx = conversation.turns.findIndex((t) => t.id === turnId);
+    if (turnIdx === -1) return;
+    const later = conversation.turns.length - turnIdx - 1;
+    const ok = await confirmDialog({
+      title: 'Edit message',
+      body: `Edit this message? This removes the ${later} later message${later === 1 ? '' : 's'}.`,
+      confirmLabel: 'Edit',
+      danger: true,
+    });
+    if (!ok) return;
+    const text = conversation.editFrom(turnId);
+    if (text === null) return;
+    sourceText = text;
+    editingTurnId = null;
+    await tick();
+    focusComposer();
+  }
+
+  const onRuntimeMessage = (raw: unknown, sender?: chrome.runtime.MessageSender): boolean => {
+    if (!isFromOwnBackground(sender)) return false;
+    if (!hasKnownKind(raw)) return false;
+    // Seed the turn pair before the router streams, or applyChunk finds no matching turn and renders nothing.
+    if (raw.kind === 'sidepanel:seed-image-translate') {
+      // Another window's click must not cancel this panel's reply; fail open while either window id is unknown.
+      if (
+        raw.windowId !== undefined &&
+        panelWindowId !== undefined &&
+        raw.windowId !== panelWindowId
+      ) {
+        return false;
+      }
+      warnIfStoppingInflight();
+      conversation.seedExternalImageTurn(
+        raw.requestId,
+        raw.imageUrl,
+        {
+          sourceLang: asLangSelection('auto'),
+          targetLang: asLangSelection(targetLang),
+          stream: streamingPref,
+        },
+        raw.task,
+      );
+      // Consume the queued copy, or a remount within 60s rebuilds this turn as a stuck spinner.
+      removePendingImageSeed(raw.requestId).catch(() => {});
+      return false;
+    }
+    // Any surface that fails a translate pushes an audit entry; success entries are filtered upstream.
+    if (raw.kind === 'audit:append') {
+      const err = raw.entry.error;
+      if (err) {
+        // This panel's own failures already render inline, so a toast would show the same error twice.
+        if (conversation.ownsRequest(raw.entry.requestId)) return false;
+        // A sibling window's panel renders it inline in its own thread — one copy is enough.
+        if (raw.entry.surface === 'sidepanel') return false;
+        // The code can be one this build does not know: errCodeLabel asserts on the union.
+        const code = (ALL_ERR_CODES as readonly string[]).includes(err.code)
+          ? (err.code as ErrCode)
+          : null;
+        const label = code === null ? null : errCodeLabel(code);
+        const body =
+          label === null || code === 'UNKNOWN'
+            ? err.message || errCodeLabel('UNKNOWN')
+            : err.message
+              ? `${label}: ${err.message}`
+              : label;
+        const where = auditSurfaceLabel(raw.entry.surface);
+        const tab = code === null ? undefined : optionsTabForMessage(err.message, code);
+        toastStore.push({
+          message: where === null ? body : `${where} — ${body}`,
+          variant: 'danger',
+          ...(tab !== undefined
+            ? { action: { label: 'Open settings', onClick: () => openOptionsTab(tab) } }
+            : {}),
+        });
+      }
+      return false;
+    }
+    if (raw.kind === 'translate:chunk') {
+      conversation.applyChunk(raw.chunk);
+    }
+    return false;
+  };
+
+  // One window keydown owner: turn navigation is delegated so no second svelte:window listener is needed.
+  let streamKeydownHandler: ((e: KeyboardEvent) => void) | null = null;
+  let paletteOpen = $state(false);
+  let shortcutsOpen = $state(false);
+  let paletteCommands: readonly Command[] = $state([]);
+  let themePref: ThemePref = $state('system');
+
+  async function setTheme(to: ThemePref): Promise<void> {
+    const previous = themePref;
+    themePref = to;
+    applyTheme(to);
+    await commitSettings({ theme: to }, () => {
+      themePref = previous;
+      applyTheme(previous);
+    });
+  }
+
+  async function buildPaletteRegistry(): Promise<readonly Command[]> {
+    return buildRegistry({
+      onOpenOptions: () => openOptionsTab(),
+      onSwapTheme: (to) => {
+        void setTheme(to);
+      },
+      onSetBubbleMode: (m) => {
+        void commitSettings({ bubbleMode: m }, () => {});
+      },
+      onSetTask: (t) => {
+        task = t;
+      },
+      onShowShortcuts: () => {
+        shortcutsOpen = true;
+      },
+      // Rebuilt on every Ctrl+K, so a key absent here is an action the header disables right now.
+      panelActions: {
+        ...(isEmptyThread
+          ? {}
+          : {
+              'conversation.new': () => void onNewConversation(),
+              'conversation.export.markdown': () => void copyMarkdown(),
+              'conversation.export.json': downloadJson,
+            }),
+        'conversation.search': () => void toggleSearch(),
+        'conversation.bookmarks': () => (bookmarkFilter = !bookmarkFilter),
+        ...(hasInflight ? { 'conversation.cancel-all': cancelAllInflight } : {}),
+      },
+      currentTheme: themePref,
+    });
+  }
+
+  /** Escape asks before it discards an edit the user changed. */
+  async function cancelEditing(): Promise<void> {
+    const original = conversation.turns.find((t) => t.id === editingTurnId)?.content ?? '';
+    if (sourceText.trim() && sourceText !== original) {
+      const ok = await confirmDialog({
+        title: 'Discard this edit?',
+        body: 'What you typed here is not saved anywhere else.',
+        confirmLabel: 'Discard',
+        danger: true,
+      });
+      if (!ok) return;
+    }
+    editingTurnId = null;
+    sourceText = draftBeforeEdit;
+    draftBeforeEdit = '';
+  }
+
+  /** The edit target left the thread. Keep what the user typed — it just sends as a new message now. */
+  function detachEdit(): void {
+    if (editingTurnId === null) return;
+    editingTurnId = null;
+    draftBeforeEdit = '';
+    toastStore.push({
+      message: 'The conversation changed, so your edit will send as a new message.',
+      variant: 'warning',
+    });
+  }
+
+  $effect(() => {
+    const id = editingTurnId;
+    if (id !== null && !conversation.turns.some((t) => t.id === id)) detachEdit();
+  });
+
+  // A turn that is gone — deleted, or left behind by an origin switch — cannot keep the ring: `r` would act on it.
+  $effect(() => {
+    const id = focusedTurnId;
+    if (id !== null && !conversation.turns.some((t) => t.id === id)) focusedTurnId = null;
+  });
+
+  /** Deleting a turn is the only destructive action in the panel with no confirm, so it gets Undo. */
+  function onDeleteTurn(turnId: string): void {
+    const slice = conversation.deleteTurn(turnId);
+    if (!slice || slice.removed.length === 0) return;
+    toastStore.push({
+      message: slice.removed.length > 1 ? 'Exchange removed.' : 'Message removed.',
+      variant: 'info',
+      duration: 8000,
+      action: {
+        label: 'Undo',
+        onClick: () => {
+          if (!conversation.restoreTurns(slice)) {
+            toastStore.push({
+              message: 'Cannot undo — this conversation is no longer open.',
+              variant: 'warning',
+            });
+          }
+        },
+      },
+    });
+  }
+
+  /** Every bare-key shortcut is off while the user is typing. */
+  function isTextEntry(target: EventTarget | null): boolean {
+    return (
+      // A native select owns its own arrow keys and letter type-ahead.
+      target instanceof HTMLSelectElement ||
+      target instanceof HTMLTextAreaElement ||
+      target instanceof HTMLInputElement ||
+      (target instanceof HTMLElement && target.isContentEditable)
+    );
+  }
+
+  // A bits-ui dialog (palette, confirm, shortcut sheet) owns its own keys while it is open.
+  function dialogOpen(): boolean {
+    return document.querySelector('[role="dialog"]') !== null;
+  }
+
+  function onWindowKeyDown(e: KeyboardEvent): void {
+    if (e.key === 'Escape' && shortcutsOpen) {
+      shortcutsOpen = false;
+      return;
+    }
+    if (
+      e.key === 'Escape' &&
+      editingTurnId !== null &&
+      conversation.inflightId === null &&
+      !dialogOpen()
+    ) {
+      void cancelEditing();
+      return;
+    }
+    // A bits-ui dialog owns its own Escape, so one role=dialog query covers palette, sheet and confirm.
+    if (e.key === 'Escape' && hasInflight && !isTextEntry(e.target) && !dialogOpen()) {
+      e.preventDefault();
+      cancelInflight();
+      return;
+    }
+    // The command palette's footer advertises this key, so the panel has to answer it.
+    if (e.key === '?' && !isTextEntry(e.target) && !dialogOpen()) {
+      e.preventDefault();
+      shortcutsOpen = true;
+      return;
+    }
+    const isModK = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k';
+    if (isModK) {
+      e.preventDefault();
+      void buildPaletteRegistry().then((cmds) => {
+        paletteCommands = cmds;
+        paletteOpen = true;
+      });
+      return;
+    }
+    // A long thread puts ~10 tab stops per exchange between the reader and the message box.
+    if (e.key === 'c' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (isTextEntry(e.target) || dialogOpen()) return;
+      e.preventDefault();
+      focusComposer();
+      return;
+    }
+    // 'e' — edit last user turn. Only fires when focus is OUT of an
+    // input/textarea (matches the conversation-stream nav guard).
+    if (e.key === 'e' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (isTextEntry(e.target) || dialogOpen()) return;
+      e.preventDefault();
+      pullLastUserTurnIntoInput();
+      return;
+    }
+    // Turn navigation is delegated to ConversationStream, which owns the turns state these keys read.
+    streamKeydownHandler?.(e);
+  }
+
+  /** Set once the stored draft is read, so the first render cannot save an empty box over it.
+   *  Reactive: text typed during the mount awaits still has to reach storage. */
+  let draftHydrated = $state(false);
+  let draftSaveTimer: ReturnType<typeof setTimeout> | null = null;
+  const DRAFT_SAVE_DEBOUNCE_MS = 150;
+
+  function saveDraftNow(text: string): void {
+    const write = text.length === 0 ? clearComposerDraft() : writeComposerDraft(text);
+    write.catch((e: unknown) => debugCatch(e, 'sidepanel.saveDraft'));
+  }
+
+  function scheduleDraftSave(): void {
+    if (!draftHydrated) return;
+    // The composer holds the turn being edited; the stored draft is the text the edit will restore.
+    if (editingTurnId !== null) return;
+    if (draftSaveTimer !== null) clearTimeout(draftSaveTimer);
+    draftSaveTimer = setTimeout(() => {
+      draftSaveTimer = null;
+      saveDraftNow(sourceText);
+    }, DRAFT_SAVE_DEBOUNCE_MS);
+  }
+
+  /** A close inside the debounce window is the exact case the stored draft exists for. */
+  function flushDraftSave(): void {
+    if (draftSaveTimer === null) return;
+    clearTimeout(draftSaveTimer);
+    draftSaveTimer = null;
+    saveDraftNow(sourceText);
+  }
+
+  $effect(() => {
+    void sourceText;
+    scheduleDraftSave();
+  });
+
+  onMount(async () => {
+    chrome.runtime.onMessage.addListener(onRuntimeMessage);
+    // Warm the marked+dompurify chunk: an answer that finishes before it lands paints as plain text first.
+    void loadMarkdownRenderer();
+    // The shared subscription drops an older snapshot that resolves after a newer one.
+    settingsUnsub = onSettingsChanged(applySettings);
+    void getPanelWindowId().then((id) => {
+      panelWindowId = id;
+    });
+    try {
+      const s = await getSettings();
+      applySettings(s);
+      // Composer state, seeded once: a later settings change must not reset the pair the user picked.
+      sourceLang = s.defaultLang;
+      targetLang = s.defaultTargetLang;
+      task = s.defaultTask;
+      tone = s.defaultTone;
+    } catch (e) {
+      debugCatch(e, 'sidepanel.onMount.getSettings');
+    }
+    // Before the handoff drain: a half-typed thought outranks anything queued for this panel.
+    const draft = await readComposerDraft();
+    if (draft !== null && sourceText === '') sourceText = draft;
+    const draftImage = await readComposerDraftImage();
+    if (draftImage !== null && attachedImage === null) attachedImage = draftImage;
+    draftHydrated = true;
+    void pruneOrphanDrafts();
+    try {
+      varieties = await listVarieties();
+    } catch (e) {
+      debugCatch(e, 'sidepanel.onMount.listVarieties');
+    }
+    // Load the active tab's origin thread first so queued seeds / handoffs
+    // append to the restored conversation rather than a blank one.
+    try {
+      const origin = await getActiveOrigin();
+      await conversation.setActiveOrigin(origin);
+    } catch (e) {
+      debugCatch(e, 'sidepanel.onMount.setActiveOrigin');
+    }
+    // Registered before the drains below: every await here is a window where a tab switch or a
+    // foreign write goes unheard, and the drains are the longest stretch of them.
+    if (destroyed) return;
+    chrome.storage.onChanged.addListener(onStorageChanged);
+    originFollowerUnsub = startOriginFollower((origin) => {
+      // A pick that has not fired yet belongs to the thread the user was looking at, not the next one.
+      cancelPendingTargetChange();
+      void conversation.setActiveOrigin(origin);
+    });
+    window.addEventListener('pagehide', persistNow);
+    // One inflight slot: each seed takes it from the previous, which lands as Canceled rather than a dead spinner.
+    try {
+      // The drain fails open on an unknown window, so the id is awaited here even though the early lookup usually won.
+      if (panelWindowId === undefined) panelWindowId = await getPanelWindowId();
+      const seeds = await drainPendingImageSeeds(panelWindowId);
+      for (const seed of seeds) {
+        conversation.seedExternalImageTurn(
+          seed.requestId,
+          seed.imageUrl,
+          {
+            sourceLang: asLangSelection('auto'),
+            targetLang: asLangSelection(targetLang),
+            stream: streamingPref,
+          },
+          seed.task,
+        );
+      }
+    } catch (e) {
+      debugCatch(e, 'sidepanel.onMount.drainPendingImageSeed');
+    }
+    await drainPopupHandoffs();
+    if (destroyed) return;
+    // A fresh panel puts the caret in the box; a restored thread leaves it out, so j/k/e/r still fire.
+    const focusedNow = document.activeElement;
+    if (
+      conversation.turns.length === 0 &&
+      conversation.inflightId === null &&
+      (focusedNow === null || focusedNow === document.body)
+    ) {
+      focusComposer();
+    }
+  });
+
+  // Set true in onDestroy. onMount reads it after each await to skip
+  // registering the deferred listeners once teardown has already run.
+  let destroyed = false;
+  let originFollowerUnsub: (() => void) | null = null;
+  function persistNow(): void {
+    flushDraftSave();
+    // Nothing will render the rest of the stream; stopping it saves a settled turn instead of a loading one.
+    if (conversation.inflightId !== null) conversation.cancel();
+    conversation.flush().catch((e: unknown) => debugCatch(e, 'sidepanel.persistNow'));
+  }
+
+  /** Same argument assembly as the composer, so a handoff ships the page context a typed message does. */
+  async function sendFromHandoff(handoff: {
+    sourceText: string;
+    sourceLang: string;
+    targetLang: string;
+    task: Task;
+    tone: Tone;
+    explain?: string;
+  }): Promise<void> {
+    await conversation.send({
+      content: handoff.sourceText,
+      kind: handoff.task,
+      sourceLang: asLangSelection(handoff.sourceLang),
+      targetLang: asLangSelection(handoff.targetLang),
+      stream: streamingPref,
+      tone: handoff.tone,
+      context: await currentPageContext(),
+      ...(handoff.explain ? { explain: handoff.explain } : {}),
+    });
+  }
+
+  /** A handoff takes the one inflight slot, so the running reply lands as Canceled — say why. */
+  function warnIfStoppingInflight(): void {
+    if (conversation.inflightId === null) return;
+    toastStore.push({
+      message: 'Stopped the current reply to answer your new selection.',
+      variant: 'warning',
+    });
+  }
+
+  async function drainPopupHandoffs(): Promise<void> {
+    try {
+      const prevPickers = { sourceLang, targetLang, task, tone };
+      const handoffs = await drainPendingPopupHandoff(await getPanelWindowId());
+      for (const handoff of handoffs) {
+        if (handoff.sourceText.trim().length === 0) continue;
+        clearFilters();
+        if (handoff.trimmed) {
+          toastStore.push({
+            message: selectionTrimmedMessage('selection'),
+            variant: 'warning',
+          });
+        }
+        if (handoff.imageDropped) {
+          toastStore.push({
+            message:
+              'The image was too large to open in the side panel, so only the text came through.',
+            variant: 'warning',
+          });
+        }
+        sourceLang = asLangSelection(handoff.sourceLang);
+        targetLang = asLangSelection(handoff.targetLang);
+        task = handoff.task;
+        tone = handoff.tone;
+        // Open-image carries a finished payload, so it lands as a completed
+        // exchange. Pin instead re-dispatches below with its explanation attached.
+        if (handoff.response !== undefined || handoff.imageDataUrl !== undefined) {
+          conversation.seedDeliveredTurn({
+            // An OCR result is not a Task-shaped turn: refine and retry would
+            // both no-op on it, and the chips gate on the turn's kind.
+            kind: handoff.imageDataUrl === undefined ? handoff.task : 'image-translate',
+            sourceText: handoff.sourceText,
+            response: handoff.response ?? handoff.ocrText ?? '',
+            ...(handoff.imageDataUrl ? { imageDataUrl: handoff.imageDataUrl } : {}),
+            sourceLang: asLangSelection(handoff.sourceLang),
+            targetLang: asLangSelection(handoff.targetLang),
+            stream: streamingPref,
+            ...(handoff.tone ? { tone: handoff.tone } : {}),
+          });
+          continue;
+        }
+        warnIfStoppingInflight();
+        await sendFromHandoff(handoff);
+      }
+      const pickersMoved =
+        prevPickers.sourceLang !== sourceLang ||
+        prevPickers.targetLang !== targetLang ||
+        prevPickers.task !== task ||
+        prevPickers.tone !== tone;
+      if (pickersMoved) {
+        toastStore.push({
+          message: 'Language, task and tone set from your selection',
+          variant: 'info',
+          duration: 8000,
+          action: {
+            label: 'Undo',
+            onClick: () => {
+              sourceLang = prevPickers.sourceLang;
+              targetLang = prevPickers.targetLang;
+              task = prevPickers.task;
+              tone = prevPickers.tone;
+            },
+          },
+        });
+      }
+    } catch (e) {
+      debugCatch(e, 'sidepanel.drainPopupHandoffs');
+    }
+  }
+
+  function onStorageChanged(
+    changes: Record<string, chrome.storage.StorageChange>,
+    area: chrome.storage.AreaName,
+  ): void {
+    if (area === 'session') {
+      const change = changes[PENDING_POPUP_HANDOFF_KEY];
+      if (change !== undefined && change.newValue !== undefined) {
+        void drainPopupHandoffs();
+      }
+      return;
+    }
+    if (area !== 'local') return;
+    conversation.onStorageChanged(changes);
+    // "Delete all data" clears storage, and the panel would otherwise write its live thread straight back.
+    const indexChange = changes[INDEX_KEY];
+    if (indexChange !== undefined && indexChange.newValue === undefined) {
+      conversation.resetAfterPurge();
+      focusedTurnId = null;
+      editingTurnId = null;
+    }
+  }
+
+  /** The one list of settings this panel mirrors. A field missing here is a
+   *  field a second window can silently overwrite. */
+  function applySettings(s: Settings): void {
+    settings = s;
+    themePref = s.theme;
+    streamingPref = s.streaming !== false;
+    pageContextLevel = s.pageContextLevel;
+    retryCount = s.advanced.retryCount;
+  }
+
+  onDestroy(() => {
+    destroyed = true;
+    settingsUnsub?.();
+    chrome.runtime.onMessage.removeListener(onRuntimeMessage);
+    chrome.storage.onChanged.removeListener(onStorageChanged);
+    window.removeEventListener('pagehide', persistNow);
+    originFollowerUnsub?.();
+    cancelPendingTargetChange();
+    // Cancel first so the write records the canceled turn and clears the debounce it schedules.
+    conversation.cancel();
+    persistNow();
+  });
+
+  async function onNewConversation(): Promise<void> {
+    if (conversation.turns.length === 0) return;
+    const ok = await confirmDialog({
+      title: 'New conversation',
+      body: 'Start a new conversation? This clears the conversation for this site.',
+      confirmLabel: 'Clear & start new',
+      danger: true,
+    });
+    if (!ok) return;
+    await conversation.clearActiveThread();
+    focusedTurnId = null;
+    editingTurnId = null;
+    draftBeforeEdit = '';
+  }
+
+  function commitRetryCount(next: number): void {
+    if (!Number.isInteger(next) || next < 0 || next > 3) return;
+    // The slider's oninput already moved the readout; the last saved value is what a failed write rolls back to.
+    const previous = settings?.advanced.retryCount ?? retryCount;
+    retryCount = next;
+    void commitSettings(
+      { advanced: { retryCount: next } } as Partial<Settings>,
+      () => (retryCount = previous),
+    );
+  }
+
+  let savingAgain = $state(false);
+
+  /** The toast is gone in 8 seconds; the banner is the only way back once storage has room again. */
+  async function retrySave(): Promise<void> {
+    savingAgain = true;
+    try {
+      await conversation.flush();
+      toastStore.push({ message: 'Conversation saved.', variant: 'success' });
+    } catch (e) {
+      debugCatch(e, 'sidepanel.retrySave');
+      // The banner stays up either way; without this the second failure looks like a dead button.
+      toastStore.push({
+        message: conversation.saveFailedQuota
+          ? 'Still out of space. Start a new conversation to free some.'
+          : 'Still could not save. Try again in a moment.',
+        variant: 'danger',
+      });
+    } finally {
+      savingAgain = false;
+    }
+  }
+
+  async function copyMarkdown(): Promise<void> {
+    const md = exportMarkdown(conversation.turns);
+    try {
+      await navigator.clipboard.writeText(md);
+      toastStore.push({ message: 'Copied as Markdown', variant: 'success' });
+    } catch {
+      toastStore.push({ message: 'Could not copy to clipboard', variant: 'danger' });
+    }
+  }
+
+  function downloadJson(): void {
+    const json = exportJson(conversation.turns);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = exportFileName();
+    a.click();
+    URL.revokeObjectURL(url);
+    toastStore.push({ message: `Saved ${a.download}`, variant: 'success' });
+  }
+
+  /** Names the site and the day, so a folder of exports is readable. */
+  function exportFileName(): string {
+    const site = conversation.activeOrigin
+      .replace(/^https?:\/\//, '')
+      .replace(/[^a-z0-9.-]/gi, '-')
+      .slice(0, 40);
+    const day = new Date().toISOString().slice(0, 10);
+    return `ega-${site || 'conversation'}-${day}.json`;
+  }
+</script>
+
+<svelte:window onkeydown={onWindowKeyDown} />
+
+<div class="sp-root">
+  <AppShell>
+    {#snippet header()}
+      <a
+        href="#sp-text"
+        class="ega-sr-only sp-skip-link"
+        data-ega-skip-to-composer
+        onclick={(e) => {
+          e.preventDefault();
+          focusComposer();
+        }}>Skip to the message box</a
+      >
+      <div class="sp-header">
+        <h1 class="sp-title"><BrandMark size={16} /></h1>
+        <div class="sp-header-spacer"></div>
+        <IconButton
+          icon={SquarePenIcon}
+          ariaLabel="New conversation"
+          size="sm"
+          disabled={isEmptyThread}
+          dataAttrs={{ 'data-ega-new-conversation': 'true' }}
+          onclick={() => void onNewConversation()}
+        />
+        <IconButton
+          icon={SearchIcon}
+          ariaLabel={searchOpen ? 'Close search' : 'Search conversation'}
+          size="sm"
+          dataAttrs={{ 'data-ega-search-toggle': 'true', 'aria-pressed': String(searchOpen) }}
+          onclick={() => void toggleSearch()}
+        />
+        {#if settings}
+          <ActiveBackendChip
+            {settings}
+            onJump={() => openOptionsTab('backends')}
+            onReadyChange={(ready) => (backendReady = ready)}
+          />
+        {/if}
+        <!-- Hidden, not unmounted: an unmount reflows the row and slides the retry icon under the settled pointer. -->
+        <span class="sp-cancel-slot" class:visible={hasInflight}>
+          <IconButton
+            icon={CircleStopIcon}
+            ariaLabel="Cancel all requests"
+            size="sm"
+            dataAttrs={{ 'data-ega-cancel-all': 'true' }}
+            onclick={cancelAllInflight}
+          />
+        </span>
+        <HeaderMoreMenu
+          {isEmptyThread}
+          bind:bookmarkFilter
+          theme={themePref}
+          {retryCount}
+          bind:trigger={retryAnchor}
+          onCopyMarkdown={() => void copyMarkdown()}
+          onDownloadJson={downloadJson}
+          onSetTheme={(to) => void setTheme(to)}
+          onOpenRetry={() => (retryPopoverOpen = true)}
+        />
+        <Popover
+          open={retryPopoverOpen}
+          anchor={retryAnchor}
+          title="Fallback backends"
+          placement="bottom-end"
+          onClose={() => (retryPopoverOpen = false)}
+        >
+          <div class="sp-retry-popover">
+            <input
+              type="range"
+              min="0"
+              max="3"
+              step="1"
+              value={retryCount}
+              aria-label="Fallback backends"
+              data-ega-retry-budget
+              oninput={(e) => (retryCount = Number((e.currentTarget as HTMLInputElement).value))}
+              onchange={(e) =>
+                commitRetryCount(Number((e.currentTarget as HTMLInputElement).value))}
+            />
+            <div class="sp-retry-readout">
+              <span class="sp-retry-value">{retryCount}</span>
+              <span class="sp-retry-caption">0–3 more backends to try when the first fails</span>
+            </div>
+          </div>
+        </Popover>
+        <IconButton
+          icon={SettingsIcon}
+          ariaLabel="Open settings"
+          size="sm"
+          onclick={() => openOptionsTab()}
+        />
+      </div>
+      {#if searchOpen}
+        <div class="sp-search-bar" role="search">
+          <input
+            bind:this={searchInputEl}
+            bind:value={searchQuery}
+            type="search"
+            dir="auto"
+            aria-label="Search conversation"
+            placeholder="Search…"
+            data-ega-search
+            onkeydown={(e) => {
+              if (e.key === 'Escape') closeSearch();
+            }}
+          />
+          {#if searchQuery.trim()}
+            <!-- The stream's announcer reads the count; a second live region would say it twice. -->
+            <span class="sp-search-count">
+              {matchCount}
+              {matchCount === 1 ? 'match' : 'matches'}
+            </span>
+          {/if}
+          <button
+            type="button"
+            class="sp-search-clear"
+            aria-label="Close search"
+            data-tooltip="Close search · Esc"
+            data-tooltip-placement="bottom"
+            onclick={closeSearch}
+          >
+            <XIcon size={14} />
+          </button>
+        </div>
+      {/if}
+      {#if bookmarkFilter && !searchOpen}
+        <div class="sp-search-bar">
+          <span class="sp-search-count"
+            >{bookmarkCount} {bookmarkCount === 1 ? 'message' : 'messages'} bookmarked</span
+          >
+          <!-- The empty state brings its own "Show all messages". -->
+          {#if !emptyBookmarkFilter}
+            <button
+              type="button"
+              class="sp-filter-clear"
+              data-ega-bookmark-clear
+              onclick={() => (bookmarkFilter = false)}>Show all</button
+            >
+          {/if}
+        </div>
+      {/if}
+    {/snippet}
+
+    <ConversationStream
+      turns={filteredTurns}
+      {emptyBookmarkFilter}
+      {emptySearch}
+      {latestTurnId}
+      {focusedTurnId}
+      {filterSummary}
+      {varieties}
+      inflight={hasInflight}
+      confidencePill={settings?.confidencePill ?? true}
+      confidencePillThreshold={settings?.confidencePillThreshold ??
+        DEFAULT_CONFIDENCE_PILL_THRESHOLD}
+      onFocusChange={(id) => (focusedTurnId = id)}
+      onClearSearch={() => {
+        searchQuery = '';
+        searchInputEl?.focus();
+      }}
+      onClearBookmarkFilter={() => (bookmarkFilter = false)}
+      {backendReady}
+      onSetUpBackend={() => openOptionsTab('backends')}
+      onRetry={(id) => void conversation.retry(id)}
+      onRefine={(args) => onRefine(args)}
+      onSelectVariant={(turnId, idx) => conversation.selectVariant(turnId, idx)}
+      onSwap={(id) => void conversation.swapVariant(id)}
+      onTaskSwitch={(id, t) => void conversation.taskVariant(id, t)}
+      swapDisabled={turnSwapDisabled}
+      onRegisterKeydownHandler={(h) => {
+        streamKeydownHandler = h;
+      }}
+      onRegenerate={(id) => void conversation.regenerateVariant(id)}
+      onBookmark={(id) => conversation.toggleBookmark(id)}
+      onDelete={onDeleteTurn}
+      onEdit={(id) => void onEditTurn(id)}
+    />
+
+    {#if conversation.saveFailed}
+      <div class="sp-save-failed" data-ega-save-failed role="status">
+        <span class="sp-save-failed-text"
+          >Not saved. Switching sites or closing the panel will lose these messages.</span
+        >
+        {#if conversation.saveFailedQuota}
+          <span class="sp-save-failed-hint"
+            >Storage is full — start a new conversation to free space.</span
+          >
+        {/if}
+        <button
+          type="button"
+          class="sp-save-failed-retry"
+          data-ega-save-failed-retry
+          disabled={savingAgain}
+          onclick={() => void retrySave()}
+        >
+          Try again
+        </button>
+      </div>
+    {/if}
+
+    {#if editingTurnId !== null}
+      <div class="sp-editing-banner" data-ega-editing-banner role="status">
+        <SquarePenIcon size={14} aria-hidden="true" />
+        <span class="sp-editing-text"
+          >Editing your last message. When you send, the old reply is kept as a variant.</span
+        >
+        <button
+          type="button"
+          class="sp-editing-cancel"
+          aria-label="Cancel editing"
+          data-ega-editing-cancel
+          data-tooltip="Cancel editing · Esc"
+          data-tooltip-placement="top-end"
+          onclick={() => void cancelEditing()}
+        >
+          <XIcon size={14} />
+        </button>
+      </div>
+    {/if}
+
+    <InputRow
+      bind:value={sourceText}
+      bind:sourceLang
+      bind:targetLang
+      bind:task
+      bind:tone
+      {swapDisabled}
+      {varieties}
+      {pageContextLevel}
+      contextEnabled={settings?.contextEnabled !== false}
+      onOpenOptions={() => openOptionsTab()}
+      {attachedImage}
+      turns={conversation.turns}
+      inflight={conversation.inflightId !== null}
+      onContextLevelChange={(level) => void setPageContextLevel(level)}
+      {onSwap}
+      {onTargetChange}
+      onAttachImage={(dataUrl) => {
+        attachedImage = dataUrl;
+        void writeComposerDraftImage(dataUrl).then((kept) => {
+          if (!kept) {
+            toastStore.push({
+              message: 'That image is too large to keep if you close the panel.',
+              variant: 'warning',
+            });
+          }
+        });
+      }}
+      onClearAttachedImage={() => {
+        attachedImage = null;
+        void clearComposerDraftImage();
+      }}
+      streaming={streamingPref}
+      onToggleStreaming={(next) => {
+        const previous = streamingPref;
+        streamingPref = next;
+        void commitSettings({ streaming: next }, () => (streamingPref = previous));
+      }}
+      onSend={() => void sendTurn()}
+      onCancel={cancelInflight}
+    />
+  </AppShell>
+</div>
+
+<CommandPalette
+  open={paletteOpen}
+  commands={paletteCommands}
+  onClose={() => (paletteOpen = false)}
+/>
+
+<ShortcutOverlay
+  open={shortcutsOpen}
+  surface="sidepanel"
+  onClose={() => (shortcutsOpen = false)}
+  shortcut={settings?.shortcut}
+  pickerShortcut={settings?.pickerShortcut}
+/>
+
+<Toaster
+  position="top-center"
+  offset={{ top: '84px' }}
+  mobileOffset={{ top: '84px' }}
+  theme={themePref}
+/>
+
+<style>
+  .sp-root {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  /* AppShell renders `.ega-app-shell`; this makes the panel height-bounded so the stream scrolls. */
+  .sp-root :global(.ega-app-shell) {
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  /* Lets the stream shrink below its content and own the scrollbar. */
+  .sp-root :global(.ega-app-shell-body) {
+    min-height: 0;
+  }
+  /* Stays out of flow in both states: appearing must not push the header down. */
+  .sp-skip-link {
+    position: absolute;
+    z-index: 20;
+  }
+  .sp-skip-link:focus {
+    inset-inline-start: var(--space-2);
+    inset-block-start: var(--space-2);
+    width: auto;
+    height: auto;
+    margin: 0;
+    overflow: visible;
+    clip: auto;
+    clip-path: none;
+    white-space: nowrap;
+    display: inline-block;
+    padding: var(--space-1) var(--space-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-elevated);
+    color: var(--color-fg);
+    font-size: var(--fs-xs);
+    text-decoration: none;
+  }
+  .sp-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    width: 100%;
+    min-width: 0;
+  }
+  .sp-header > :global(*) {
+    flex-shrink: 0;
+  }
+  /* One row at Chrome's 400px default: the chip is the only part that gives up width. */
+  .sp-header > :global(.active-backend-chip) {
+    flex-shrink: 1;
+    min-width: 0;
+  }
+  .sp-title {
+    display: flex;
+    align-items: center;
+    margin: 0;
+    font-size: var(--fs-md);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    line-height: 1;
+  }
+  .sp-header-spacer {
+    flex: 1 1 auto;
+  }
+  /* Chrome opens the panel at 400px; the model tail is the widest optional part of the row. */
+  @media (max-width: 480px) {
+    .sp-header :global(.chip-sep),
+    .sp-header :global(.chip-model) {
+      display: none;
+    }
+  }
+  .sp-cancel-slot {
+    display: inline-flex;
+    visibility: hidden;
+  }
+  .sp-cancel-slot.visible {
+    visibility: visible;
+    animation: sp-cancel-in 160ms var(--ease-out) both;
+  }
+  @keyframes sp-cancel-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .sp-cancel-slot.visible {
+      animation: none;
+    }
+  }
+  .sp-retry-popover {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    min-width: 180px;
+  }
+  .sp-retry-popover input[type='range'] {
+    width: 100%;
+    cursor: pointer;
+  }
+  .sp-retry-readout {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-2);
+    font-size: var(--fs-xs);
+    color: var(--color-fg-subtle);
+  }
+  .sp-retry-value {
+    font-weight: 600;
+    color: var(--color-fg);
+    font-variant-numeric: tabular-nums;
+  }
+  .sp-retry-caption {
+    color: var(--color-muted);
+  }
+  .sp-save-failed {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-3);
+    border-top: 1px solid var(--color-border);
+    background: var(--color-danger-bg-soft);
+    color: var(--color-danger-fg);
+    font-size: var(--fs-xs);
+  }
+  .sp-save-failed-text {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .sp-save-failed-hint {
+    flex: 1 1 100%;
+    font-size: var(--fs-xs);
+    color: var(--color-muted);
+  }
+  .sp-save-failed-retry {
+    background: none;
+    border: 1px solid currentColor;
+    border-radius: var(--radius-sm);
+    color: inherit;
+    cursor: pointer;
+    padding: 0 var(--space-2);
+    flex-shrink: 0;
+  }
+  .sp-save-failed-retry:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+  .sp-editing-banner {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-3);
+    border-top: 1px solid var(--color-border);
+    background: var(--color-accent-bg-soft);
+    color: var(--color-accent-hover);
+    font-size: var(--fs-xs);
+  }
+  .sp-editing-text {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .sp-editing-cancel {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    color: inherit;
+    box-sizing: border-box;
+    padding: var(--space-1);
+    min-width: 24px;
+    min-height: 24px;
+    flex-shrink: 0;
+  }
+  .sp-search-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-3);
+    border-top: 1px solid var(--color-border);
+  }
+  .sp-search-bar input[type='search'] {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: var(--fs-sm);
+    background: var(--color-bg-subtle);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-1) var(--space-2);
+    color: var(--color-fg);
+  }
+  .sp-search-bar input[type='search']:focus {
+    border-color: var(--color-accent);
+  }
+  .sp-search-count {
+    font-size: var(--fs-xs);
+    color: var(--color-fg-subtle);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .sp-search-clear {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    color: var(--color-fg-subtle);
+    box-sizing: border-box;
+    padding: var(--space-1);
+    min-width: 24px;
+    min-height: 24px;
+    flex-shrink: 0;
+  }
+  .sp-search-clear:hover {
+    color: var(--color-fg);
+  }
+  .sp-filter-clear {
+    margin-left: auto;
+    background: none;
+    border: 0;
+    padding: var(--space-1);
+    color: var(--color-accent);
+    font-size: var(--fs-xs);
+    cursor: pointer;
+  }
+  .sp-filter-clear:hover {
+    text-decoration: underline;
+  }
+</style>

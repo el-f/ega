@@ -1,0 +1,99 @@
+# lefthook.yml — pre-commit + pre-push quality gates.
+#
+# Design:
+# - Pre-commit runs FAST checks only. If a hook takes more than ~5s on an
+#   average change, move it to pre-push. A slow commit loop is the thing to avoid.
+# - Pre-push runs unit tests, svelte-check, the host tests and a build for the bundle budget. E2E is CI-only.
+#
+# To skip hooks in an emergency:  LEFTHOOK=0 git commit
+# To reinstall:                   pnpm install   (the `prepare` script runs it)
+
+pre-commit:
+  parallel: true
+  commands:
+    lint:
+      # Run over the whole tree (eslint cache keeps it fast). Passing
+      # {staged_files} blows past Windows ARG_MAX on tree-wide refactors
+      # like `prettier --write .`; whole-tree scan side-steps that.
+      glob: '*.{ts,tsx,js,mjs,cjs,svelte}'
+      run: pnpm exec eslint --cache --max-warnings 0 .
+    typecheck:
+      # TS half of `pnpm typecheck` — faster than you'd expect via incremental
+      # tsc. The svelte-check half runs pre-push (~19s, too slow for commit).
+      # Only fires when TS-ish files are staged.
+      glob: '*.{ts,tsx,svelte}'
+      run: pnpm tsc --noEmit
+    lint-tokens:
+      # Ban raw #hex color literals outside src/shared/tokens.css. Runs
+      # when Svelte SFCs or surface-level CSS change.
+      glob: 'src/**/*.{svelte,css}'
+      run: pnpm lint:tokens
+    shadow-css-lint:
+      glob: 'src/content/**/*.svelte'
+      run: pnpm lint:shadow-css
+    lint-hover:
+      # Ban :hover/:focus/:active rules that resize an in-flow element — the
+      # siblings below jump as the cursor crosses them. See scripts/hover-lint.ts.
+      glob: 'src/**/*.{svelte,css}'
+      run: pnpm lint:hover
+    lint-reactivity:
+      # Catch Svelte 5 reactivity traps (use:directive fed a $derived array,
+      # $effect feedback loops, a dndzone/dragHandleZone tag missing
+      # onconsider or onfinalize) before they hit master. See
+      # scripts/reactivity-lint.ts for the rules and
+      # docs/conventions/svelte-reactivity.md for the discipline.
+      glob: 'src/**/*.svelte'
+      run: pnpm lint:reactivity
+    lint-secrets:
+      # Skips .secretlintignore (the lockfile) to stay fast; CI runs lint:secrets:full over everything.
+      run: pnpm lint:secrets
+
+commit-msg:
+  commands:
+    commitlint:
+      # Enforce Conventional Commits — feat / fix / chore / types / audit …
+      # Skip with LEFTHOOK=0 git commit in an emergency.
+      run: pnpm exec commitlint --edit {1}
+
+pre-push:
+  commands:
+    vitest:
+      run: pnpm vitest run --reporter=dot
+    svelte-check:
+      # The .svelte half of `pnpm typecheck`. ~19s, so it lives here and not in
+      # pre-commit. Without it the SFCs get no type checking before CI.
+      run: pnpm exec svelte-check --threshold warning
+    test-host:
+      # native-host has its own node:test suite that `pnpm vitest` never sees.
+      run: pnpm test:host
+    coverage-flows:
+      # Mirror of the release-gate flow-coverage check. Drift here means a spec's
+      # `coverage:` marker disagrees with tests/e2e/flows/coverage.ts.
+      run: pnpm coverage:flows
+    lint-docs:
+      # Living docs cite code as `path#symbol`. Fails when the file or the symbol is
+      # gone, and on a `path:12` line number — those rot on the next edit. Audits,
+      # plans and ADRs are records of a past tree, so they are out of scope.
+      run: pnpm lint:docs
+    third-party-notices:
+      # THIRD_PARTY.md ships inside the zip, so a dependency change without a regen
+      # means the packaged extension carries the wrong notices. Runs in ~1s.
+      run: pnpm gen:third-party:check
+    bundle-budget:
+      # `pnpm bundle:budget` rebuilds, then runs five checks (see docs/ARCHITECTURE.md).
+      # `--warn-only` downgrades just the per-chunk >10% drift against
+      # `.bundle-baseline.json`, because vendor bumps (bits-ui) drift on their
+      # own — refresh with `pnpm bundle:budget --set` when a bump is intentional.
+      # The other four still fail the push: no `content_scripts[].css` and no
+      # web-accessible stylesheet (both reach every page a user visits), and the
+      # eager content-script and popup preload byte budgets. No `|| true` — that swallowed them.
+      run: pnpm bundle:budget --warn-only
+    lint-deadcode:
+      # Hard gate: the corpus is at zero findings, so any new dead export fails the push.
+      run: pnpm exec knip --reporter=compact --include=files,exports
+    affordance-audit:
+      # Hard gate, ratchet-shaped. Fails on a NEW user-facing affordance (data-ega-* /
+      # data-testid) in src/ with no flow spec and no baseline entry, AND on a baseline
+      # entry that is now covered or deleted. `--update-baseline` only prunes, so it can
+      # never turn this green; freezing new debt takes the explicit `--accept-drift`.
+      run: pnpm audit:affordances

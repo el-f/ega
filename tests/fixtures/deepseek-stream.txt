@@ -1,0 +1,15 @@
+# SYNTHETIC FIXTURE — compare against vendor docs if parser drift is suspected
+# DeepSeek Chat Completions matches OpenAI's SSE shape; see
+# https://api-docs.deepseek.com/api/create-chat-completion
+data: {"id":"ds-1","object":"chat.completion.chunk","created":1713456800,"model":"deepseek-chat","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}
+
+data: {"id":"ds-1","object":"chat.completion.chunk","created":1713456800,"model":"deepseek-chat","choices":[{"index":0,"delta":{"content":"{\"translation\":\"thanks"},"finish_reason":null}]}
+
+data: {"id":"ds-1","object":"chat.completion.chunk","created":1713456800,"model":"deepseek-chat","choices":[{"index":0,"delta":{"content":"\",\"confidence\":0.76"},"finish_reason":null}]}
+
+data: {"id":"ds-1","object":"chat.completion.chunk","created":1713456800,"model":"deepseek-chat","choices":[{"index":0,"delta":{"content":",\"detectedLang\":\"arabizi\"}"},"finish_reason":null}]}
+
+data: {"id":"ds-1","object":"chat.completion.chunk","created":1713456800,"model":"deepseek-chat","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}
+
+data: [DONE]
+

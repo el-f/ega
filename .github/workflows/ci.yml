@@ -1,0 +1,297 @@
+name: CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+# Cancel prior runs of the same ref if a new one comes in.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint-types:
+    name: Lint + Types
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm format:check
+      # `pnpm typecheck`, not bare tsc — tsc cannot parse .svelte, so the
+      # SFCs are checked only by the svelte-check half.
+      - run: pnpm typecheck
+
+  vitest:
+    name: Vitest
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:cov
+      # Reads the json-summary `test:cov` just wrote; vite.config.ts holds the aggregate half.
+      - run: pnpm coverage:floor
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        continue-on-error: true # diagnostic only — a storage-quota hit must not redden the gate
+        with:
+          name: coverage-${{ github.sha }}
+          path: coverage/
+          retention-days: 14
+          if-no-files-found: ignore
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+      - if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: pnpm exec playwright install --with-deps chromium
+      - if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: pnpm exec playwright install-deps chromium
+      - run: pnpm gen:icons
+      - run: pnpm build
+      # Same flags as pre-push: drift is advisory (vite renames chunks on its own), the other four checks are hard.
+      - run: pnpm exec tsx scripts/bundle-budget.ts --warn-only
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        continue-on-error: true # diagnostic only — a storage-quota hit must not redden the gate
+        with:
+          name: ega-dist-${{ github.sha }}
+          path: dist/
+          retention-days: 7
+
+  e2e:
+    # Sharded across 4 runners. Each spec calls chromium.launchPersistentContext
+    # itself (MV3 extensions can't use browser.newPage), so a single worker
+    # accumulates Chromium handles and the persistent context collapses after
+    # ~400 launches — the whole-suite run went to mass "Target page closed"
+    # timeouts. ~280 specs / 4 shards ≈ 70 launches per runner stays well under
+    # that ceiling, and the shards run in parallel.
+    name: Playwright E2E (shard ${{ matrix.shard }}/4)
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+      - if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: pnpm exec playwright install --with-deps chromium
+      - if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: pnpm exec playwright install-deps chromium
+      - run: pnpm gen:icons
+      - run: pnpm exec playwright test --shard=${{ matrix.shard }}/4 --reporter=list
+        env:
+          CI: '1'
+      - if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        continue-on-error: true # diagnostic only — a storage-quota hit must not redden the gate
+        with:
+          name: playwright-report-${{ github.sha }}-shard${{ matrix.shard }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  gates:
+    # Hooks do not run on a fork PR or a clone installed with --ignore-scripts,
+    # so the lint set has to run server-side too.
+    name: Lint gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint:tokens
+      - run: pnpm lint:shadow-css
+      - run: pnpm lint:hover
+      - run: pnpm lint:reactivity
+      # :full drops .secretlintignore for .gitignore, so store/ and the
+      # lockfile get scanned too. ~50s vs ~5s — too slow for the commit hook.
+      - run: pnpm lint:secrets:full
+      - run: pnpm coverage:flows
+      - run: pnpm lint:docs
+      - run: pnpm lint:spelling
+      # Resolves every `uses: …@<sha> # <tag>` through the API. Warns instead of failing
+      # when the API does not answer, so a GitHub outage cannot redden the gate.
+      - run: pnpm lint:actions
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      # Also runs here, not just in the pre-push hook a `--no-verify` skips.
+      - run: pnpm audit:affordances
+      - run: pnpm lint:deadcode
+      # MIT/ISC notices must ship with the zip. One second, and nothing else regenerates them.
+      - run: pnpm gen:third-party:check
+      # Hard gate: --prod covers only what the packed extension ships.
+      - run: pnpm audit --prod --audit-level=high
+      # Advisory report only. Every current finding is dev-toolchain, none reach
+      # the packed extension, so a new upstream CVE must not redden the gate.
+      - run: pnpm audit --audit-level=high
+        continue-on-error: true
+
+  native-host:
+    name: Native-host node:test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:host
+
+  macos:
+    # Not a matrix leg: lint, types and the build are platform-independent and run on
+    # ubuntu. Only the parts that differ on macOS run here — the installer writes into
+    # ~/Library/Application Support, and the launcher must find node with no login shell.
+    name: macOS (unit + native host)
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # No --coverage: the ubuntu leg reports it, a second run adds minutes and no signal.
+      - run: pnpm test
+      - run: pnpm test:host
+      # Generates both installers, runs the shared one for real, and pings the host it wrote.
+      - run: pnpm test:install
+      # The macos and linux installers differ in one place — the NativeMessagingHosts list — and nothing else runs it.
+      - name: Register and unregister the macOS native host in a temp HOME
+        run: |
+          cat > "$RUNNER_TEMP/macos-native-host.mjs" <<'CHECK'
+          import { readFileSync, existsSync, mkdtempSync, writeFileSync } from 'node:fs';
+          import { spawnSync } from 'node:child_process';
+          import { pathToFileURL } from 'node:url';
+          import path from 'node:path';
+          import os from 'node:os';
+
+          const lib = await import(pathToFileURL(path.resolve('scripts/lib/nativeHostInstall.mjs')).href);
+          const read = (...p) => readFileSync(path.join('native-host', ...p), 'utf8');
+          const host = lib.bundleHostSource(read('ega-host.mjs'), {
+            protocolClaude: read('lib', 'protocol-claude.mjs'),
+            protocolCodex: read('lib', 'protocol-codex.mjs'),
+            cliSession: read('lib', 'cli-session.mjs'),
+            classifyCliError: read('lib', 'classify-cli-error.mjs'),
+          });
+
+          const HOME = mkdtempSync(path.join(os.tmpdir(), 'ega-macos-'));
+          const bash = (name, body) => {
+            const file = path.join(HOME, name);
+            writeFileSync(file, body, 'utf8');
+            return spawnSync('bash', [file], { env: { ...process.env, HOME }, encoding: 'utf8' });
+          };
+          const BROWSERS = ['Google/Chrome', 'Chromium', 'BraveSoftware/Brave-Browser', 'Microsoft Edge'];
+          const manifestIn = (b) =>
+            path.join(HOME, 'Library/Application Support', b, 'NativeMessagingHosts/com.ega.host.json');
+
+          let failed = 0;
+          const check = (label, ok, extra = '') => {
+            console.log(`${ok ? 'ok  ' : 'FAIL'} ${label}${!ok && extra ? ' - ' + extra : ''}`);
+            if (!ok) failed++;
+          };
+
+          const id = 'macoscheckaaaaaaaaaaaaaaaaaaaaaa';
+          const install = bash('install.sh', lib.unixInstallCommand('macos', id, host));
+          check('install exits 0', install.status === 0, String(install.stderr).slice(0, 300));
+          for (const b of BROWSERS) check(`registers ${b}`, existsSync(manifestIn(b)));
+
+          const remove = bash('uninstall.sh', lib.unixUninstallCommand('macos'));
+          check('uninstall exits 0', remove.status === 0, String(remove.stderr).slice(0, 300));
+          for (const b of BROWSERS) check(`unregisters ${b}`, !existsSync(manifestIn(b)));
+
+          process.exit(failed === 0 ? 0 : 1);
+          CHECK
+          node "$RUNNER_TEMP/macos-native-host.mjs"
+
+  windows:
+    # The PowerShell installer, the .cmd launcher and the HKCU registration have no other
+    # runner. A throwaway VM is the only safe place to run them — the live test rewrites
+    # HKCU\Software\*\NativeMessagingHosts\com.ega.host.
+    name: Windows (native host + installer)
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:host
+      - run: pnpm test:install
+
+  ok:
+    name: CI OK
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [lint-types, vitest, build, e2e, gates, native-host, macos, windows]
+    # Runs even when a dependency failed, so it can fail: branch protection reads a skipped required check as passed.
+    if: always()
+    steps:
+      - env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          if echo "$RESULTS" | grep -Eq '"result": "(failure|cancelled)"'; then
+            echo "$RESULTS"
+            exit 1
+          fi
+          echo "All required jobs passed."

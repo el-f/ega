@@ -1,0 +1,32 @@
+{
+  "at": "2026-05-20T16:49:39.400Z",
+  "date": "2026-05-19",
+  "rows": [
+    {
+      "coverage": "a.b.c",
+      "verdict": {
+        "severity": "ok",
+        "findings": [],
+        "suggestions": []
+      },
+      "judgeModel": "test",
+      "at": "2026-05-20T00:00:00Z"
+    },
+    {
+      "coverage": "d.e.f",
+      "verdict": {
+        "severity": "major",
+        "findings": [
+          {
+            "axis": "motion",
+            "where": "step 1",
+            "issue": "jank"
+          }
+        ],
+        "suggestions": ["fix easing"]
+      },
+      "judgeModel": "test",
+      "at": "2026-05-20T00:00:00Z"
+    }
+  ]
+}

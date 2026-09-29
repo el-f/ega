@@ -1,0 +1,290 @@
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import type { Rule, RuleCategory } from '@/shared/rules';
+  import { detectCategory, normaliseSiteEntry } from '@/shared/rules';
+  import { uuid } from '@/shared/uuid';
+  import type { Task } from '@/shared/task-prompts';
+  import { getSettings } from '@/shared/storage';
+  import DescribeYourChange from '@/shared/components/DescribeYourChange.svelte';
+  import { toastStore } from '@/shared/components/toastStore';
+  import { confirmDialog } from '@/shared/components/confirmDialog';
+  import RulesEditorPillList from './RulesEditorPillList.svelte';
+  import RulesEditorManualForm from './RulesEditorManualForm.svelte';
+  import RulesEditorRow from './RulesEditorRow.svelte';
+  import RulesEditorEmpty from './RulesEditorEmpty.svelte';
+  import { RULES_DISCLOSURE_KEY } from '@/options/local-ui-keys';
+
+  interface Props {
+    rules: readonly Rule[];
+    onUpdate: (rules: readonly Rule[]) => void | Promise<void>;
+    onJumpToRecipes?: () => void;
+  }
+
+  const { rules, onUpdate, onJumpToRecipes }: Props = $props();
+
+  let flashRuleId = $state<string | null>(null);
+
+  function handleNewRuleId(id: string): void {
+    flashRuleId = id;
+    setTimeout(() => (flashRuleId = null), 650);
+  }
+
+  let advancedOpen = $state(false);
+
+  // Disclosure state survives across navigation. Hydrated once on mount —
+  // re-reading from localStorage on every effect cycle is dead weight.
+  onMount(() => {
+    try {
+      advancedOpen = globalThis.localStorage?.getItem(RULES_DISCLOSURE_KEY) === '1';
+    } catch {
+      advancedOpen = false;
+    }
+  });
+
+  function persistAdvancedOpen(open: boolean): void {
+    try {
+      globalThis.localStorage?.setItem(RULES_DISCLOSURE_KEY, open ? '1' : '0');
+    } catch {
+      // localStorage may be unavailable (private mode / extension context); ignore.
+    }
+  }
+
+  async function commit(next: readonly Rule[]): Promise<void> {
+    await onUpdate(next);
+  }
+
+  async function appendRule(rule: Rule): Promise<void> {
+    await commit([...rules, rule]);
+  }
+
+  async function patchRule(id: string, patch: Partial<Rule>): Promise<void> {
+    const next = rules.map((r) => (r.id === id ? { ...r, ...patch } : r));
+    await commit(next);
+  }
+
+  async function deleteRuleById(id: string): Promise<void> {
+    const targetIdx = rules.findIndex((r) => r.id === id);
+    if (targetIdx < 0) return;
+    const target = rules[targetIdx];
+    if (!target) return;
+    const ok = await confirmDialog({
+      title: 'Delete rule',
+      body: `Delete rule "${target.body.slice(0, 80)}${target.body.length > 80 ? '…' : ''}"?`,
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
+    const snapshot = target;
+    const insertAt = targetIdx;
+    await commit(rules.filter((r) => r.id !== id));
+    toastStore.push({
+      message: 'Rule deleted.',
+      variant: 'success',
+      action: {
+        label: 'Undo',
+        // Re-read at click time: the closed-over prop is a stale snapshot, and Undo would drop the deletes since.
+        onClick: () => {
+          void (async () => {
+            const s = await getSettings();
+            const current = s.advanced.rules;
+            const next = [...current];
+            const clampedIdx = Math.min(insertAt, next.length);
+            next.splice(clampedIdx, 0, snapshot);
+            await commit(next);
+          })();
+        },
+      },
+    });
+  }
+
+  async function toggleEnabledById(id: string): Promise<void> {
+    const r = rules.find((x) => x.id === id);
+    if (!r) return;
+    await patchRule(id, { enabled: !r.enabled });
+  }
+
+  function pushScopeUndo(id: string, priorScope: Rule['scope'], message: string): void {
+    toastStore.push({
+      message,
+      variant: 'success',
+      action: {
+        label: 'Undo',
+        // Re-read canonical rules at click-time so the restore patches the
+        // live rule, not the closed-over `rules` prop snapshot.
+        onClick: () => {
+          void (async () => {
+            const s = await getSettings();
+            const next = s.advanced.rules.map((r) =>
+              r.id === id ? { ...r, scope: priorScope } : r,
+            );
+            await commit(next);
+          })();
+        },
+      },
+    });
+  }
+
+  async function toggleTaskOnRule(id: string, task: Task): Promise<void> {
+    const r = rules.find((x) => x.id === id);
+    if (!r) return;
+    const has = r.scope.tasks.includes(task);
+    const tasks = has ? r.scope.tasks.filter((t) => t !== task) : [...r.scope.tasks, task];
+    const nextScope: Rule['scope'] =
+      r.scope.sites !== undefined ? { tasks, sites: r.scope.sites } : { tasks };
+    const priorScope = r.scope;
+    await patchRule(id, { scope: nextScope });
+    if (has) pushScopeUndo(id, priorScope, 'Task removed from rule.');
+  }
+
+  async function removeSiteFromRule(id: string, site: string): Promise<void> {
+    const r = rules.find((x) => x.id === id);
+    if (!r || !r.scope.sites) return;
+    const sites = r.scope.sites.filter((s) => s !== site);
+    const nextScope: Rule['scope'] =
+      sites.length === 0 ? { tasks: r.scope.tasks } : { tasks: r.scope.tasks, sites };
+    const priorScope = r.scope;
+    await patchRule(id, { scope: nextScope });
+    pushScopeUndo(id, priorScope, 'Site removed from rule.');
+  }
+
+  async function submitManual(payload: {
+    body: string;
+    tasks: readonly Task[];
+    sites: readonly string[];
+  }): Promise<void> {
+    const sites = [...new Set(payload.sites.map(normaliseSiteEntry).filter((s) => s !== ''))];
+    const scope: Rule['scope'] =
+      sites.length > 0 ? { tasks: [...payload.tasks], sites } : { tasks: [...payload.tasks] };
+    const rule: Rule = {
+      id: uuid(),
+      body: payload.body,
+      category: detectCategory(payload.body),
+      scope,
+      source: 'manual',
+      addedAt: new Date().toISOString(),
+      enabled: true,
+    };
+    await appendRule(rule);
+  }
+</script>
+
+<div class="rules-editor" data-ega-rules-editor>
+  <section class="describe-block" aria-label="Describe a rule">
+    <DescribeYourChange
+      task="global"
+      onRuleAdded={appendRule}
+      onNewRuleId={handleNewRuleId}
+      placeholder="Tell Ega what to do differently…"
+    />
+  </section>
+
+  {#if rules.length === 0}
+    <RulesEditorEmpty {onJumpToRecipes} />
+  {:else if !advancedOpen}
+    <!-- The Advanced rows below are the single representation while the disclosure is open. -->
+    <div class="active-rules">
+      <h4 class="active-rules-heading">Active rules ({rules.length})</h4>
+      <RulesEditorPillList
+        {rules}
+        newRuleId={flashRuleId}
+        onDelete={deleteRuleById}
+        onToggleEnabled={toggleEnabledById}
+      />
+    </div>
+  {/if}
+
+  <details
+    class="advanced-rules"
+    data-ega-advanced-rules
+    bind:open={advancedOpen}
+    ontoggle={(e) => persistAdvancedOpen((e.currentTarget as HTMLDetailsElement).open)}
+  >
+    <summary class="advanced-rules-summary">
+      <span>Advanced rules</span>
+      <span class="advanced-rules-hint">edit the text, category and scope by hand</span>
+    </summary>
+    <div class="advanced-rules-body">
+      <RulesEditorManualForm onSubmit={submitManual} />
+      {#if rules.length > 0}
+        <ul class="rule-list" role="list">
+          {#each rules as r (r.id)}
+            <RulesEditorRow
+              rule={r}
+              onBodyChange={(body) => patchRule(r.id, { body })}
+              onCategoryChange={(category: RuleCategory) => patchRule(r.id, { category })}
+              onToggleEnabled={() => patchRule(r.id, { enabled: !r.enabled })}
+              onToggleTask={(t) => toggleTaskOnRule(r.id, t)}
+              onRemoveSite={(s) => removeSiteFromRule(r.id, s)}
+              onDelete={() => deleteRuleById(r.id)}
+            />
+          {/each}
+        </ul>
+      {/if}
+    </div>
+  </details>
+</div>
+
+<style>
+  .rules-editor {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+  .describe-block {
+    display: flex;
+    flex-direction: column;
+  }
+  .active-rules {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+  .active-rules-heading {
+    margin: 0;
+    font-size: var(--fs-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 600;
+    color: var(--color-fg-subtle);
+  }
+  .advanced-rules {
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-elevated);
+  }
+  .advanced-rules-summary {
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    cursor: pointer;
+    list-style: none;
+    width: 100%;
+    user-select: none;
+    font-size: var(--fs-sm);
+    color: var(--color-fg);
+  }
+  .advanced-rules-summary::-webkit-details-marker {
+    display: none;
+  }
+  .advanced-rules-hint {
+    font-size: var(--fs-xs);
+    color: var(--color-fg-subtle);
+    margin-left: auto;
+  }
+  .advanced-rules-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    border-top: 1px solid var(--color-border);
+  }
+  .rule-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+</style>
