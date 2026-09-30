@@ -1370,6 +1370,48 @@ describe('storage', () => {
       expect(Object.keys(s.sitePrefs)).toHaveLength(0);
     });
 
+    it('a full-snapshot write keeps disabledVarieties written by another writer', async () => {
+      await updateSettings({ disabledVarieties: ['arabizi'] });
+      await updateSettings({ ...(await getSettings()), theme: 'dark' });
+      const s = await getSettings();
+      expect(s.theme).toBe('dark');
+      expect(s.disabledVarieties).toEqual(['arabizi']);
+    });
+
+    it('a full-snapshot write keeps sitePrefs from the stored row', async () => {
+      await chrome.storage.local.set({
+        [STORAGE_KEYS.settings]: {
+          schemaVersion: 4,
+          sitePrefs: { 'https://example.com': { disabled: true } },
+        },
+      });
+      await updateSettings({ ...(await getSettings()), theme: 'dark' });
+      const s = await getSettings();
+      expect(s.sitePrefs['https://example.com']?.disabled).toBe(true);
+    });
+
+    it('Reset-all (advanced defaults + replaceSitePrefs({})) keeps API keys and perPresetTemplates', async () => {
+      await updateSettings({
+        anthropicApiKey: 'sk-ant-x',
+        advanced: {
+          ...DEFAULT_SETTINGS.advanced,
+          perPresetTemplates: { arabizi: { system: 'keep', user: 'me' } },
+        },
+      });
+      // The partial advanced patch the Advanced tab's Reset button sends.
+      await updateSettings({
+        advanced: {
+          promptTemplate: { ...DEFAULT_PROMPT_TEMPLATE },
+          temperature: DEFAULT_SETTINGS.advanced.temperature,
+          maxTokens: DEFAULT_SETTINGS.advanced.maxTokens,
+        } as Settings['advanced'],
+      });
+      await replaceSitePrefs({});
+      const s = await getSettings();
+      expect(s.anthropicApiKey).toBe('sk-ant-x');
+      expect(s.advanced.perPresetTemplates['arabizi']).toEqual({ system: 'keep', user: 'me' });
+    });
+
     it('replaceSnippets called N times with the same map is idempotent', async () => {
       const map = { a: 'alpha', b: 'beta' };
       await replaceSnippets(map);
