@@ -19,7 +19,7 @@ Three drag zones ship, in two components. All use `dragHandleZone` plus a `use:d
 
 `dragHandleZone` starts a pointer drag only when the press lands on an element marked `use:dragHandle`. A press anywhere else on the row starts nothing, so the buttons, checkboxes and text inputs inside a row keep working.
 
-A drag still re-renders the whole zone, so keep anything with its own pointer gesture outside it. `src/options/components/LocalBackendTuningSection.svelte` sits outside `BackendList.svelte` for that reason: a drag re-render unmounts its slider mid-drag.
+A drag still re-renders the whole zone, so keep anything with its own pointer gesture outside it. `src/options/components/sections/LocalBackendTuningSection.svelte` sits outside `BackendList.svelte` for that reason: a drag re-render unmounts its slider mid-drag.
 
 The option bag both components pass:
 

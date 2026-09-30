@@ -11,7 +11,7 @@
   import BackendList from '../components/BackendList.svelte';
   import NativeBackendCard from '../components/NativeBackendCard.svelte';
   import OllamaBackendRow from '../components/OllamaBackendRow.svelte';
-  import LocalBackendTuningSection from '../components/LocalBackendTuningSection.svelte';
+  import LocalBackendTuningSection from '../components/sections/LocalBackendTuningSection.svelte';
   import LoadingState from '@/shared/components/LoadingState.svelte';
   import TabHeader from '@/shared/components/TabHeader.svelte';
 

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
-import LocalBackendTuningSection from '@/options/components/LocalBackendTuningSection.svelte';
+import LocalBackendTuningSection from '@/options/components/sections/LocalBackendTuningSection.svelte';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 
 describe('LocalBackendTuningSection', () => {
