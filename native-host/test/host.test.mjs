@@ -1,4 +1,4 @@
-import test from 'node:test';
+import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
@@ -9,6 +9,9 @@ import { CODEX_SAFETY_ARGS } from '../lib/protocol-codex.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const HOST = path.join(__dirname, '..', 'ega-host.mjs');
+// Outside test/, so node --test never collects a leftover fixture.
+const FIXTURES = mkdtempSync(path.join(tmpdir(), 'ega-host-fixtures-'));
+after(() => rmSync(FIXTURES, { recursive: true, force: true }));
 
 function encode(obj) {
   const body = Buffer.from(JSON.stringify(obj), 'utf8');
@@ -30,7 +33,7 @@ function decodeFrames(buf) {
 
 // A fixture must read stdin and stay alive until the host sends SIGTERM.
 function writeFixture(name, body) {
-  const p = path.join(__dirname, name);
+  const p = path.join(FIXTURES, name);
   writeFileSync(p, body);
   return p;
 }
@@ -901,7 +904,7 @@ test('canceling one codex translate ends only that request while another one ans
 });
 
 test('warm-session for codex answers done and starts no codex process', async () => {
-  const log = path.join(__dirname, 'ega-host.codex-warm.log');
+  const log = path.join(FIXTURES, 'ega-host.codex-warm.log');
   rmSync(log, { force: true });
   // The fake logs every start, so a warm spawn would show up beside the translate's own.
   const fixture = codexExecFixture('ega-host.fake-codex-warm.mjs', `() => 'ok'`, [
@@ -1189,7 +1192,7 @@ test('mid-translate CLI crash synthesizes NATIVE_SPAWN_FAIL for the in-flight id
 test('a silent-but-alive claude child times out and the next translate recovers', async () => {
   // The first child hangs (and drops a marker); the respawn sees the marker and answers.
   // Cancel cannot clear a claude head, so only the per-request deadline can recover this.
-  const marker = path.join(__dirname, 'ega-host.deadline-marker');
+  const marker = path.join(FIXTURES, 'ega-host.deadline-marker');
   rmSync(marker, { force: true });
   const fixture = writeFixture(
     'ega-host.fake-claude-deadline.mjs',
@@ -1340,7 +1343,7 @@ test('cancel + late terminal frame emits EXACTLY ONE error for the canceled id',
 
 test('a cancel that lands while the image is still being written ends the request and never runs the CLI', async () => {
   // The fixture drops a marker when it starts, so "never spawned" is measured, not assumed.
-  const marker = path.join(__dirname, 'ega-host.img-cancel-early.marker');
+  const marker = path.join(FIXTURES, 'ega-host.img-cancel-early.marker');
   rmSync(marker, { force: true });
   const fixture = writeFixture(
     'ega-host.fake-claude-img-early.mjs',

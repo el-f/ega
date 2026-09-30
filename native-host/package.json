@@ -1,12 +1,8 @@
 {
   "name": "ega-native-host",
-  "version": "0.1.0",
   "private": true,
   "type": "module",
-  "bin": {
-    "ega-host": "./ega-host.mjs"
-  },
   "scripts": {
-    "test": "node --test test/host.test.mjs test/cli-session.test.mjs test/protocol-claude.test.mjs test/protocol-codex.test.mjs test/static-models.test.mjs test/classify-cli-error.test.mjs"
+    "test": "node --test \"test/*.test.mjs\""
   }
 }
