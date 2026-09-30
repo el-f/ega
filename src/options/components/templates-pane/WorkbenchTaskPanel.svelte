@@ -88,7 +88,7 @@
     {@const maxTokOverride = s.taskMaxTokens?.[taskKey] != null}
     <SectionCard
       title="Per-task overrides"
-      description={`Override the backend, temperature and max tokens for ${TASK_LABELS[taskKey]} only. Leave a field blank to use the global setting.`}
+      description={`Set backend, temperature and max tokens for ${TASK_LABELS[taskKey]}; empty fields use global values.`}
     >
       <div class="param-row" data-ega-task-params={taskKey}>
         <label class="param">

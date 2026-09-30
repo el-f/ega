@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, waitFor } from '@testing-library/svelte';
 import About from '@/options/tabs/About.svelte';
-import { resetChromeMock } from '../../mocks/chrome';
+import { chromeMock, resetChromeMock } from '../../mocks/chrome';
 import pkg from '../../../package.json' with { type: 'json' };
 
 describe('About — version card', () => {
@@ -16,6 +16,22 @@ describe('About — version card', () => {
       `v${pkg.version}`,
     );
     expect(container.querySelector('a[href*="CHANGELOG"]')).toBeNull();
+  });
+
+  it('shows the full pre-release version_name, not the numeric version', async () => {
+    const spy = vi
+      .spyOn(chromeMock.runtime, 'getManifest')
+      .mockReturnValue({ version: '0.1.0', version_name: '0.1.0-rc.1' });
+    try {
+      const { container } = render(About);
+      await waitFor(() =>
+        expect(container.querySelector('[data-ega-about-version]')?.textContent).toContain(
+          'v0.1.0-rc.1',
+        ),
+      );
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
 
