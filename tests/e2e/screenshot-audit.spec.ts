@@ -14,23 +14,18 @@ import {
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { buildPaths } from '../../scripts/visual-judge/config';
+import type { ShotMeta } from '../../scripts/visual-judge/judge/types';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const SCREENSHOT_DIR = path.resolve(__dirname, '..', 'screenshots', 'audit');
-const CURRENT_DIR = path.join(SCREENSHOT_DIR, 'current');
-const META_DIR = path.join(SCREENSHOT_DIR, 'meta');
+const {
+  auditDir: SCREENSHOT_DIR,
+  currentDir: CURRENT_DIR,
+  metaDir: META_DIR,
+} = buildPaths(path.resolve(__dirname, '..', '..'));
 /** What Chrome actually gives the side panel; the 1200px launch canvas hides wrapping and overflow. */
 const NARROW_SIDEPANEL = { width: 380, height: 760 };
-
-interface ShotMeta {
-  surface: string;
-  state: string;
-  theme?: 'light' | 'dark';
-  userAction?: string;
-  expectations?: string[];
-  viewport?: { width: number; height: number };
-}
 
 // Run via `pnpm visual:capture`; every shot costs judge tokens, so each one added lengthens `pnpm visual:judge`.
 
@@ -74,7 +69,7 @@ async function parkCursor(page: Page): Promise<void> {
 async function shot(
   page: Page,
   name: string,
-  meta: ShotMeta = { surface: 'unknown', state: 'default' },
+  meta: Omit<ShotMeta, 'name'> = { surface: 'unknown', state: 'default' },
   opts: { skipPark?: boolean } = {},
 ): Promise<void> {
   // Picker shots skip this: the picker repaints its outline on every mousemove, so parking would re-outline (0, 900).
@@ -92,7 +87,7 @@ async function shot(
   await page.screenshot({ path: currentFile, fullPage: true });
   // Mirror to flat layout for backward-compat with downstream consumers.
   fs.copyFileSync(currentFile, flatFile);
-  const sidecar: ShotMeta & { name: string } = { name, ...meta };
+  const sidecar: ShotMeta = { name, ...meta };
   fs.writeFileSync(path.join(META_DIR, `${name}.meta.json`), JSON.stringify(sidecar, null, 2));
 }
 

@@ -49,7 +49,7 @@
     "visual:audit": "tsx scripts/visual-judge/index.ts audit",
     "visual:audit:tools": "tsx scripts/visual-judge/index.ts audit --tools",
     "visual:propose": "tsx scripts/visual-judge/index.ts propose",
-    "visual:baseline": "tsx scripts/visual-baseline.ts",
+    "visual:baseline": "tsx scripts/visual-judge/index.ts baseline",
     "visual": "pnpm visual:capture && pnpm visual:judge",
     "visual:strict": "pnpm visual:capture && pnpm visual:judge --strict",
     "ux:judge": "tsx scripts/ux-judge/index.ts",

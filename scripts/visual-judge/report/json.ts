@@ -1,4 +1,4 @@
-/** Writes report.json, read by visual:baseline. */
+/** Writes report.json, read by `cli/baseline.ts`. */
 import { writeFile } from 'node:fs/promises';
 import type { BatchReport, FileVerdict } from '../judge/types';
 

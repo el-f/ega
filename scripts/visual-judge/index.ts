@@ -2,6 +2,7 @@
 import { execFileSync } from 'node:child_process';
 import { runCheck } from './cli/check';
 import { runAudit } from './cli/audit';
+import { runBaseline } from './cli/baseline';
 import { FEATURES } from './features';
 
 function claudeOnPath(): boolean {
@@ -44,6 +45,7 @@ function printUsage(): void {
       '  audit                 feature-level audit across all features',
       '  propose <feature-id>  audit a single feature',
       '  features              list known feature ids',
+      '  baseline              promote current/ shots and their verdicts to the baseline',
       '',
       'Common flags:',
       '  --strict              (check)  fail on any major',
@@ -52,6 +54,7 @@ function printUsage(): void {
       '  --tools               (audit/propose)  enable Read/Grep/Glob/WebFetch',
       '  --feature <id>        (audit)  limit to one feature (repeatable)',
       '  --timeout <ms>        (audit/propose)  per-feature CLI timeout',
+      '  --shot <name>         (baseline)  promote one shot only',
       '',
       'Known features:',
       ...FEATURES.map((f) => `  ${f.id.padEnd(22)} ${f.label}`),
@@ -72,6 +75,10 @@ async function main(): Promise<void> {
   if (sub === 'features') {
     for (const f of FEATURES) console.log(`${f.id}\t${f.label}`);
     process.exit(0);
+  }
+  if (sub === 'baseline') {
+    const { exitCode } = await runBaseline(arg(rest, '--shot'));
+    process.exit(exitCode);
   }
   if (!claudeOnPath()) {
     console.error(
