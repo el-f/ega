@@ -27,10 +27,13 @@ one runs, and you can say no and keep everything else.
 
 ## `storage`
 
-Two areas, both local to this browser profile. This section is the full list of
-what Ega stores, and it is the one the other docs point at: `docs/PRIVACY.md`
-says what each store means for you, `docs/THREAT_MODEL.md` says what an attacker
-gets from it, and both defer here for key names, limits and code.
+Two areas, both local to this browser profile. This section says what each
+`chrome.storage` key holds, its limits and the code behind it. The full key list,
+with the Settings page's `localStorage` and `sessionStorage` keys, is the Storage
+shape table in [docs/ARCHITECTURE.md](ARCHITECTURE.md#storage-shape);
+`tests/unit/privacy/storage-keys.test.ts` fails when a key in `src/` is missing
+from it. `docs/PRIVACY.md` says what each store means for you, and
+`docs/THREAT_MODEL.md` says what an attacker gets from it.
 
 ### `chrome.storage.local` — survives a browser restart
 
