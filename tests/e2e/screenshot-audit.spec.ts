@@ -1587,7 +1587,7 @@ test('Templating — snippets + per-preset + per-site', async () => {
   await page.waitForTimeout(400); // wait for sub-tab panel mount animation (no observable end state)
   await expect(page.locator('[data-ega-site-overrides-review]')).toBeVisible({ timeout: 5_000 });
   await shot(page, 'site-overrides-review-populated', {
-    surface: 'options-data',
+    surface: 'options',
     state: 'site-overrides-review-populated',
     theme: 'light',
     userAction:

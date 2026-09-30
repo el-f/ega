@@ -1,8 +1,10 @@
 import { describe, expect, it, beforeEach, afterEach } from 'vitest';
+import { existsSync, readFileSync } from 'node:fs';
 import { mkdtemp, writeFile, mkdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { loadRubric, loadFeatureRubric } from '../../../scripts/visual-judge/loader/rubric';
+import { buildPaths } from '../../../scripts/visual-judge/config';
 
 let dir: string;
 
@@ -46,5 +48,16 @@ describe('loadFeatureRubric', () => {
   it('ignores unknown surfaces silently (base remains)', async () => {
     const text = await loadFeatureRubric(dir, ['mystery']);
     expect(text.trim()).toBe('# base');
+  });
+});
+
+describe('screenshot-audit surfaces', () => {
+  it('every shot surface names a rubric file', () => {
+    const spec = readFileSync('tests/e2e/screenshot-audit.spec.ts', 'utf8');
+    const surfaces = new Set([...spec.matchAll(/surface: '([^']+)'/g)].map((m) => m[1] ?? ''));
+    expect(surfaces.size).toBeGreaterThan(0);
+    const { rubricDir } = buildPaths();
+    const missing = [...surfaces].filter((s) => !existsSync(path.join(rubricDir, `${s}.md`)));
+    expect(missing).toEqual([]);
   });
 });
