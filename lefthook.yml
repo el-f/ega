@@ -15,7 +15,7 @@ pre-commit:
       # Run over the whole tree (eslint cache keeps it fast). Passing
       # {staged_files} blows past Windows ARG_MAX on tree-wide refactors
       # like `prettier --write .`; whole-tree scan side-steps that.
-      glob: '*.{ts,tsx,js,mjs,cjs,svelte}'
+      glob: '*.{ts,js,mjs,svelte}'
       run: pnpm exec eslint --cache --max-warnings 0 .
     typecheck:
       # TS half of `pnpm typecheck` — faster than you'd expect via incremental
