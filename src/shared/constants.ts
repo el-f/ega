@@ -29,6 +29,8 @@ export const DEFAULT_SESSION_SELECTION_TTL_MS = 60_000;
 export const DEFAULT_TRANSLATE_TIMEOUT_MS = 60_000;
 export const DEFAULT_IMAGE_TRANSLATE_TIMEOUT_MS = 120_000;
 export const DEFAULT_LOCAL_BACKEND_TIMEOUT_MS = 800;
+/** Floor for a ping that has to start the host (Chrome -> cmd.exe -> node): measured 0.1-3.5s under load; a missing host still fails at once by disconnect. */
+export const NATIVE_COLD_BOOT_TIMEOUT_MS = 5_000;
 /** Catches a native host that answers `ping` but never the translate frame; must stay well above a cold CLI spawn (~7.6s). */
 export const NATIVE_FIRST_FRAME_TIMEOUT_MS = 30_000;
 export const DESCRIBE_CHANGE_TIMEOUT_MS = 30_000;

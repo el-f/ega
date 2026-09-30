@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { Mock } from 'vitest';
 import { probeNativeHost, _resetProbeNativeHostForTest } from '@/options/probeNativeHost';
 import { EXPECTED_HOST_VERSION } from '@/options/nativeHostInstall';
+import { NATIVE_COLD_BOOT_TIMEOUT_MS } from '@/shared/constants';
 
 type PortStub = {
   postMessage: Mock;
@@ -133,10 +134,26 @@ describe('probeNativeHost', () => {
     const port = mockPort();
     (chrome.runtime.connectNative as unknown as Mock).mockReturnValueOnce(port);
     const p = probeNativeHost(50);
-    vi.advanceTimersByTime(60);
+    vi.advanceTimersByTime(NATIVE_COLD_BOOT_TIMEOUT_MS + 10);
     const r = await p;
     expect(r.status).toBe('not_installed');
     expect(r.errorMessage).toBeUndefined();
+    vi.useRealTimers();
+  });
+
+  it('a host that boots slower than the configured timeout still reads installed', async () => {
+    vi.useFakeTimers();
+    const port = mockPort();
+    let postedId: string | undefined;
+    port.postMessage = vi.fn((m: unknown) => {
+      postedId = (m as { id?: string }).id;
+    });
+    (chrome.runtime.connectNative as unknown as Mock).mockReturnValueOnce(port);
+    const p = probeNativeHost(800);
+    vi.advanceTimersByTime(2_000);
+    port._emit({ v: 1, id: postedId, type: 'done', hostVersion: EXPECTED_HOST_VERSION });
+    const r = await p;
+    expect(r.status).toBe('installed');
     vi.useRealTimers();
   });
 
@@ -152,7 +169,7 @@ describe('probeNativeHost', () => {
     const p = probeNativeHost(50);
     await Promise.resolve();
     port._emit({ v: 1, id: 'stale-id', type: 'done', hostVersion: 99 });
-    vi.advanceTimersByTime(60);
+    vi.advanceTimersByTime(NATIVE_COLD_BOOT_TIMEOUT_MS + 10);
     const r = await p;
     expect(r.status).toBe('not_installed');
     expect(r.installedVersion).toBeUndefined();

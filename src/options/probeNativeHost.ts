@@ -1,4 +1,4 @@
-import { DEFAULT_LOCAL_BACKEND_TIMEOUT_MS } from '@/shared/constants';
+import { DEFAULT_LOCAL_BACKEND_TIMEOUT_MS, NATIVE_COLD_BOOT_TIMEOUT_MS } from '@/shared/constants';
 import { EXPECTED_HOST_VERSION } from './nativeHostInstall';
 import { requestNativeHostOnce } from './nativeHostOnce';
 import { uuid } from '@/shared/uuid';
@@ -29,22 +29,24 @@ export function probeNativeHost(
   timeoutMs: number = DEFAULT_LOCAL_BACKEND_TIMEOUT_MS,
   opts: { fresh?: boolean } = {},
 ): Promise<ProbeResult> {
+  // Every probe starts a new host, so it always pays a cold boot.
+  const budget = Math.max(timeoutMs, NATIVE_COLD_BOOT_TIMEOUT_MS);
   // An explicit Recheck shares nothing; the user just installed something and wants to know.
   if (!opts.fresh) {
-    if (inflight && inflight.timeoutMs >= timeoutMs) return inflight.promise;
-    if (last && last.timeoutMs >= timeoutMs && Date.now() - last.at < SHARE_WINDOW_MS) {
+    if (inflight && inflight.timeoutMs >= budget) return inflight.promise;
+    if (last && last.timeoutMs >= budget && Date.now() - last.at < SHARE_WINDOW_MS) {
       return Promise.resolve(last.result);
     }
   }
-  const promise: Promise<ProbeResult> = probeNativeHostOnce(timeoutMs)
+  const promise: Promise<ProbeResult> = probeNativeHostOnce(budget)
     .then((result) => {
-      last = { at: Date.now(), timeoutMs, result };
+      last = { at: Date.now(), timeoutMs: budget, result };
       return result;
     })
     .finally(() => {
       if (inflight?.promise === promise) inflight = null;
     });
-  inflight = { timeoutMs, promise };
+  inflight = { timeoutMs: budget, promise };
   return promise;
 }
 
