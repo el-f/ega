@@ -308,6 +308,10 @@ user's config would add (`native-host/lib/protocol-claude.mjs#CLAUDE_SAFETY_ARGS
 used by both the warm session and the one-shot image path). It runs with its working
 directory set to the home directory, not whatever directory Chrome happened to launch
 from (the `cwd` the host hands `CliSessionManager`, `native-host/ega-host.mjs#homedir`).
+It also runs with `--no-session-persistence` and with `CLAUDE_CHILD_ENV` set
+(`native-host/lib/protocol-claude.mjs#CLAUDE_CHILD_ENV`). The CLI then does not save the page
+text in its transcript files, and does not add your own memory or `CLAUDE.md` files to the
+prompt.
 
 ### A hostile prompt making the `codex` child touch your machine
 

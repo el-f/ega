@@ -1,7 +1,21 @@
 // Adapter: ega's normalized {system, user} ↔ claude `--input-format stream-json`.
 
 // Page text can carry injected instructions, so the child gets no tools: `--tools ""` also strips the MCP tools `--strict-mcp-config` leaves. Needs claude >= 2.x.
-export const CLAUDE_SAFETY_ARGS = ['--tools', '', '--strict-mcp-config', '--setting-sources', ''];
+// --no-session-persistence keeps page text out of the CLI's on-disk transcripts.
+export const CLAUDE_SAFETY_ARGS = [
+  '--tools',
+  '',
+  '--strict-mcp-config',
+  '--setting-sources',
+  '',
+  '--no-session-persistence',
+];
+
+// Without these the CLI adds the user's own memory and CLAUDE.md files to every prompt.
+export const CLAUDE_CHILD_ENV = {
+  CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1',
+  CLAUDE_CODE_DISABLE_CLAUDE_MDS: '1',
+};
 
 export const CLAUDE_SPAWN_ARGS = [
   '--input-format',

@@ -1,6 +1,11 @@
 import { spawn as nodeSpawn } from 'node:child_process';
 import { homedir } from 'node:os';
-import { CLAUDE_SPAWN_ARGS, encodeClaudePrompt, parseClaudeFrame } from './protocol-claude.mjs';
+import {
+  CLAUDE_CHILD_ENV,
+  CLAUDE_SPAWN_ARGS,
+  encodeClaudePrompt,
+  parseClaudeFrame,
+} from './protocol-claude.mjs';
 import { classifyCliError } from './classify-cli-error.mjs';
 
 const DEFAULT_IDLE_TIMEOUT_MS = 5 * 60 * 1000;
@@ -147,6 +152,7 @@ export class CliSessionManager {
   #spawnChild(bin, args) {
     return this.#spawn(bin, args, {
       cwd: this.#cwd,
+      env: { ...process.env, ...CLAUDE_CHILD_ENV },
       stdio: ['pipe', 'pipe', 'pipe'],
       windowsHide: true,
     });

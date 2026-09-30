@@ -29,7 +29,7 @@ import {
 
 // Bumped on any protocol or behavior change; the options page compares it against
 // EXPECTED_HOST_VERSION and prompts a re-install.
-const HOST_VERSION = 2;
+const HOST_VERSION = 3;
 
 // Chrome never passes this flag, so the hooks below cannot be turned on in an
 // installed host — an environment variable alone is not enough.

@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   CLAUDE_SAFETY_ARGS,
+  CLAUDE_CHILD_ENV,
   CLAUDE_SPAWN_ARGS,
   encodeClaudePrompt,
   parseClaudeFrame,
@@ -19,6 +20,7 @@ test('CLAUDE_SPAWN_ARGS matches the spike-documented invocation', () => {
     '--strict-mcp-config',
     '--setting-sources',
     '',
+    '--no-session-persistence',
   ]);
 });
 
@@ -29,9 +31,17 @@ test('CLAUDE_SAFETY_ARGS leaves the child no tools, no MCP servers and no settin
     '--strict-mcp-config',
     '--setting-sources',
     '',
+    '--no-session-persistence',
   ]);
   // No `--mcp-config` anywhere, or `--strict-mcp-config` would allow that file's servers.
   assert.equal(CLAUDE_SPAWN_ARGS.includes('--mcp-config'), false);
+});
+
+test('CLAUDE_CHILD_ENV keeps the user memory and CLAUDE.md files out of the prompt', () => {
+  assert.deepEqual(CLAUDE_CHILD_ENV, {
+    CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1',
+    CLAUDE_CODE_DISABLE_CLAUDE_MDS: '1',
+  });
 });
 
 test('encodeClaudePrompt produces one NDJSON line wrapping system + user', () => {

@@ -141,8 +141,12 @@ test('getOrSpawn("claude") spawns claude with CLAUDE_SPAWN_ARGS', async () => {
     '--strict-mcp-config',
     '--setting-sources',
     '',
+    '--no-session-persistence',
   ]);
   assert.notEqual(f.calls[0].opts.shell, true);
+  assert.equal(f.calls[0].opts.env.CLAUDE_CODE_DISABLE_AUTO_MEMORY, '1');
+  assert.equal(f.calls[0].opts.env.CLAUDE_CODE_DISABLE_CLAUDE_MDS, '1');
+  assert.equal(f.calls[0].opts.env.PATH, process.env.PATH);
   mgr.closeAll();
 });
 

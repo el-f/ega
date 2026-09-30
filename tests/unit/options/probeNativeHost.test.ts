@@ -34,7 +34,7 @@ describe('probeNativeHost', () => {
 
   // Bumped with HOST_VERSION in native-host/ega-host.mjs; a 0 here means the extraction regex broke.
   it('reads the bundled host version', () => {
-    expect(EXPECTED_HOST_VERSION).toBe(2);
+    expect(EXPECTED_HOST_VERSION).toBe(3);
   });
 
   it('returns installed + version when host matches EXPECTED_HOST_VERSION', async () => {
