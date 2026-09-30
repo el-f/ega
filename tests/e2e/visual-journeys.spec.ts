@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { test, type Page } from '@playwright/test';
 import { CONFIG } from '../../scripts/ux-judge/config';
-import { launchExtension, type ExtensionHandle } from './helpers';
+import { launchExtension, mockAnthropic, seedSettings, type ExtensionHandle } from './helpers';
 
 interface JourneyStep {
   label: string;
@@ -75,25 +75,32 @@ test('journey: options.context-menu.manage', async () => {
 });
 
 test('journey: translation.sidepanel.input-send', async () => {
+  await seedSettings(ext.context, ext.extensionId, { anthropicApiKey: 'sk-test', streaming: true });
+  mockAnthropic(ext.context, { translation: 'Welcome, my friend.', delayMs: 600 });
   const page = await ext.context.newPage();
   await captureJourney(page, 'translation.sidepanel.input-send', [
     {
-      label: 'Open the side panel (empty state)',
+      label: 'Open the side panel and type a phrase into the composer',
       run: async (p) => {
         await p.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
         await p.locator('#sp-text').waitFor({ state: 'visible', timeout: 8_000 });
+        await p.locator('#sp-text').fill('marhaba sadiqi');
       },
     },
     {
-      label: 'Type a phrase into the composer',
+      label: 'Click Translate (the answer is still streaming)',
       run: async (p) => {
-        await p.locator('#sp-text').fill('habibi let us go');
+        await p.getByRole('button', { name: /^Translate$/ }).click();
+        await p.locator('.ega-assistant-turn').waitFor({ state: 'visible', timeout: 5_000 });
       },
     },
     {
-      label: 'Toggle streaming off',
+      label: 'The answer lands',
       run: async (p) => {
-        await p.locator('.ega-streaming-toggle').click();
+        await p
+          .locator('.ega-assistant-body', { hasText: 'Welcome' })
+          .waitFor({ state: 'visible', timeout: 10_000 });
+        await p.locator('.ega-cursor').first().waitFor({ state: 'detached', timeout: 5_000 });
       },
     },
   ]);
