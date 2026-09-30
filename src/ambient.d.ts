@@ -6,16 +6,6 @@ declare module '*.css?inline' {
   export default css;
 }
 
-declare module '*.svg' {
-  const url: string;
-  export default url;
-}
-
-declare module '*.svg?raw' {
-  const raw: string;
-  export default raw;
-}
-
 declare module '*?raw' {
   const raw: string;
   export default raw;

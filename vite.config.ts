@@ -101,7 +101,6 @@ export default defineConfig({
       ],
       exclude: [
         'src/**/*.d.ts',
-        'src/ambient.d.ts',
         // The three mount bootstraps: `mount(Component, target)` and nothing else.
         'src/sidepanel/index.ts',
         'src/options/main.ts',
