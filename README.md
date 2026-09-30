@@ -260,7 +260,7 @@ Architecture in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 Version 0.0.1, alpha. The settings schema still changes between versions.
 
-Issues are off, and pull requests are not reviewed. You can read the code, use it and
+Issues, discussions and outside pull requests are off. You can read the code, use it and
 fork it under the MIT license.
 
 ## License
