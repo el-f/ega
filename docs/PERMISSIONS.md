@@ -106,7 +106,9 @@ Eight slots:
 - `ega.sidepanelDraftImage:<window>` — an image you attached in the composer and
   have not sent, as a data URL, up to 256 KB
   (`src/sidepanel/state/composer-draft.ts#writeComposerDraftImage`). Both draft
-  slots are one key per browser window; keys left by closed windows are swept
+  slots are one key per browser window, or the bare `ega.sidepanelDraft` /
+  `ega.sidepanelDraftImage` key when the panel cannot read its window id. Keys
+  left by closed windows are swept
   when a panel mounts (`src/sidepanel/state/composer-draft.ts#pruneOrphanDrafts`),
 - `ega.audit-log.filters` — your request-log filters on the Settings page,
   including what you typed in its search box,
