@@ -17,10 +17,12 @@
 
 ## Failure-mode expectations
 
-- SectionReset ONLY resets the knobs for the currently active display mode; `defaultDisplayMode` itself is never reset by this control.
+- SectionReset resets the active mode's knobs plus the shared confidence pill knobs; `defaultDisplayMode` itself is never reset by this control.
 - Storage write failure surfaces an inline error toast; knobs retain their prior modified values.
 
 ## Cautions
 
 - Reset reverts to DEFAULT_SETTINGS constants, not to the last-saved state — it is a full reset to the shipped defaults.
-- SectionReset does not reset other Display section settings (e.g. image-translate surface, confidence pill threshold).
+- In Tooltip mode, SectionReset resets Show original selection, Click outside to dismiss, Drag-to-move tooltip, Confidence pill and Confidence threshold.
+- In Inline mode, it resets only Confidence pill and Confidence threshold.
+- It never resets the display mode or "Image translation opens in" (`imageTranslateSurface`), and neither one counts as modified. Switching modes changes which settings count, so it can show or hide the button.

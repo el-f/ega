@@ -1804,13 +1804,13 @@ test('Smart-bubble — digit-less + short-suppressed + dark', async () => {
   });
   await digitless.close();
 
-  // Short arabizi (3 chars) should suppress — false-positive guard.
+  // A selection shorter than DEFAULT_SMART_BUBBLE_MIN_LENGTH must not mount the bubble.
   const shortPage = await ext.context.newPage();
   await shortPage.goto(`${ext.serverUrl}/selection-page.html`);
   await waitForTestHooks(shortPage);
   await shortPage.evaluate(() => {
     const p = document.createElement('p');
-    p.id = 'short-arabizi';
+    p.id = 'below-min-length';
     p.textContent = 'hi';
     document.body.appendChild(p);
     const range = document.createRange();
@@ -1823,12 +1823,12 @@ test('Smart-bubble — digit-less + short-suppressed + dark', async () => {
   });
   // Negative test: bubble must NOT appear. 800ms covers debounce + content-script propagation.
   await shortPage.waitForTimeout(800); // wait for selectionchange debounce + content-script settle (negative check)
-  await shot(shortPage, 'smart-bubble-short-arabizi-suppressed', {
+  await shot(shortPage, 'smart-bubble-below-min-length-suppressed', {
     surface: 'smart-bubble',
-    state: 'short-arabizi-suppressed',
+    state: 'below-min-length-suppressed',
     theme: 'light',
     userAction:
-      'user selected a 2-character string; smart bubble must NOT mount (false-positive guard)',
+      'user selected a 2-character string, below the minimum length; smart bubble must NOT mount',
     expectations: [
       'NO bubble visible in or around the selection',
       'page renders normally',
