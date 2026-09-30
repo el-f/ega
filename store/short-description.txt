@@ -1,1 +1,0 @@
-Translate informal text — Arabizi, slang, Elvish, custom languages — with any LLM. Page-context aware. No telemetry.

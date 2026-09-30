@@ -25,7 +25,7 @@
     "lint:hover": "tsx scripts/hover-lint.ts",
     "lint:secrets": "secretlint --secretlintignore .secretlintignore \"**/*\"",
     "lint:secrets:full": "secretlint --secretlintignore .gitignore \"**/*\"",
-    "lint:spelling": "cspell --no-progress \"docs/**/*.md\" \"native-host/*.md\" \"store/**/*.md\" \"store/*.txt\" \"README.md\"",
+    "lint:spelling": "cspell --no-progress \"docs/**/*.md\" \"native-host/*.md\" \"README.md\"",
     "lint:docs": "tsx scripts/doc-links.ts",
     "lint:actions": "node scripts/lint-actions.mjs",
     "coverage:flows": "tsx scripts/flow-coverage.ts",
