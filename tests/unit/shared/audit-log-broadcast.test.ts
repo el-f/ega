@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Mock } from 'vitest';
 import { pushAuditEntry, clearAuditLog } from '@/shared/audit-log';
-import { chromeMock } from '../mocks/chrome';
+import { chromeMock } from '@tests/mocks/chrome';
 import { asBackendIdUnsafe } from '@/shared/brands';
 
 describe('pushAuditEntry — broadcast', () => {

@@ -6,7 +6,7 @@ import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import { readAuditLog, clearAuditLog } from '@/shared/audit-log';
 import type { Settings, TranslationChunk, TranslationRequest } from '@/shared/types';
 import type { Rule } from '@/shared/rules';
-import { resetChromeMock } from '../mocks/chrome';
+import { resetChromeMock } from '@tests/mocks/chrome';
 import { asBackendIdUnsafe } from '@/shared/brands';
 import { testManifest } from '@tests/_helpers/backend';
 

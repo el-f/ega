@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { escalateToSidepanel } from '@/content/tooltip/handoff';
-import { chromeMock } from '../mocks/chrome';
+import { chromeMock } from '@tests/mocks/chrome';
 
 describe('escalateToSidepanel', () => {
   let lastMessage: { kind: string; handoff?: Record<string, unknown> } | null = null;

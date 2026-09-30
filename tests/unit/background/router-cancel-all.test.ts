@@ -4,7 +4,7 @@ import { createRouter, type RouterDeps } from '@/background/router';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import { clearAuditLog } from '@/shared/audit-log';
 import type { Settings, TranslationRequest } from '@/shared/types';
-import { resetChromeMock } from '../mocks/chrome';
+import { resetChromeMock } from '@tests/mocks/chrome';
 import { asBackendIdUnsafe } from '@/shared/brands';
 import type { TranslationBackend } from '@/shared/backends/base';
 import { testManifest } from '@tests/_helpers/backend';

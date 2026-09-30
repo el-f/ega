@@ -210,6 +210,12 @@ describe('httpErrorMessage', () => {
   it('has no advice line for a status the user cannot act on', () => {
     expect(httpErrorMessage('anthropic', res(500))).toBe('anthropic HTTP 500');
   });
+
+  it('puts the advice first, then a newline, then label + status + detail', () => {
+    expect(httpErrorMessage('Anthropic', res(401), '{"error":{"message":"bad key"}}')).toBe(
+      'The backend rejected the API key. Check it in Settings → Backends.\nAnthropic HTTP 401: bad key',
+    );
+  });
 });
 
 describe('the sentences a user actually reads', () => {
