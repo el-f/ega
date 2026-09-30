@@ -23,4 +23,4 @@
 ## Cautions
 
 - Reset reverts to DEFAULT_SETTINGS constants, not to the last-saved state — it is a full reset to the shipped defaults.
-- SectionReset does not reset other Display tab settings (e.g. image-translate surface, confidence pill threshold).
+- SectionReset does not reset other Display section settings (e.g. image-translate surface, confidence pill threshold).

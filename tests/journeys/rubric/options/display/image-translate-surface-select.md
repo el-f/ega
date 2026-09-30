@@ -6,7 +6,7 @@
 
 ## State expectations
 
-- Step 1: Display tab is open; the "Image translation opens in" select shows the current value.
+- Step 1: Translate tab, Display section is open; the "Image translation opens in" select shows the current value.
 - Step 2 (change selection): `imageTranslateSurface` writes to storage with the new value.
 - Step 3: subsequent image-translate results open in the newly selected surface.
 

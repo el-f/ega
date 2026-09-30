@@ -7,7 +7,7 @@
 
 ## State expectations
 
-- Step 1: Display tab is open; the Confidence pill toggle is visible.
+- Step 1: Translate tab, Display section is open; the Confidence pill toggle is visible.
 - Step 2 (enable toggle): `confidencePill` writes `true`; the threshold slider expands below the toggle.
 - Step 3 (disable toggle): `confidencePill` writes `false`; the threshold slider collapses and is removed from the DOM.
 
