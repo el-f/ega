@@ -17,8 +17,12 @@ import {
   replaceSitePrefs,
 } from '@/shared/storage';
 import { handleSiteToggleClick, installContextMenus, refreshSiteToggleLabel } from './contextMenu';
-import { DEFAULT_CONTEXT_MENU_ITEMS, resolveMenuAction } from '@/shared/context-menu';
-import { decodeCustomMenuId, withEncodedMenuIds } from './menu-id';
+import {
+  DEFAULT_CONTEXT_MENU_ITEMS,
+  decodeCustomMenuId,
+  resolveMenuAction,
+  withEncodedMenuIds,
+} from '@/shared/context-menu';
 import { pushAuditEntry, clearAuditLog, type AuditSurface } from '@/shared/audit-log';
 import { createLogger, debugCatch, setLogLevel } from '@/shared/logger';
 import { asLangIdUnsafe } from '@/shared/brands';

@@ -2,9 +2,9 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import type { Mock } from 'vitest';
 import { chromeMock, resetChromeMock } from '@tests/mocks/chrome';
 import { installContextMenus } from '@/background/contextMenu';
-import { decodeCustomMenuId } from '@/background/menu-id';
 import {
   buildMenuTree,
+  decodeCustomMenuId,
   DEFAULT_CONTEXT_MENU_ITEMS,
   type ContextMenuItem,
 } from '@/shared/context-menu';
