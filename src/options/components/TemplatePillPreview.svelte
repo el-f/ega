@@ -21,11 +21,11 @@
 <script lang="ts">
   import {
     SLOT_RE,
-    SNIPPET_RE,
     isBuiltInSlot,
     requiredMissingSlots,
     SLOT_REGISTRY,
   } from '@/shared/slot-registry';
+  import { SNIPPET_RE } from '@/shared/snippets';
   import Tooltip from '@/shared/ui/Tooltip.svelte';
 
   const { task, system, user, resolvedValues }: TemplatePillPreviewProps = $props();

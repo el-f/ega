@@ -132,7 +132,6 @@ export interface SlotValidationResult {
 }
 
 export const SLOT_RE = /\{\{(\w+)\}\}/g;
-export const SNIPPET_RE = /(?<!\\)@@(\w+)@@/g;
 
 export function validateAgainstSlots(template: PromptTemplate, task: Task): SlotValidationResult {
   const errors: SlotValidationResult['errors'] = [];

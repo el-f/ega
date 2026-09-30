@@ -1,6 +1,6 @@
 export const MAX_DEPTH = 3;
 
-const SNIPPET_RE = /(?<!\\)@@(\w+)@@/g;
+export const SNIPPET_RE = /(?<!\\)@@(\w+)@@/g;
 
 /** MAX_DEPTH passes max — a ref still unresolved by then stays literal, so a cycle cannot explode. */
 export function resolveSnippets(input: string, snippets: Record<string, string>): string {
