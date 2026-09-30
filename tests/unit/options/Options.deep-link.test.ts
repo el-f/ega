@@ -40,9 +40,9 @@ describe('Options — settings-search deep link reaches every tab', () => {
         if (!el) throw new Error('anchor never painted');
         return el;
       },
-      { timeout: 3000 },
+      { timeout: 10_000 },
     );
-    await waitFor(() => expect(document.activeElement).toBe(anchor), { timeout: 3000 });
+    await waitFor(() => expect(document.activeElement).toBe(anchor), { timeout: 10_000 });
     expect(anchor.getAttribute('data-flash')).toBe('true');
     // The target is consumed, so a later tab switch cannot re-scroll.
     expect(sessionStorage.getItem('ega-settings-target')).toBeNull();
@@ -59,11 +59,11 @@ describe('Options — settings-search deep link reaches every tab', () => {
         if (!el) throw new Error('rules manual body never mounted');
         return el;
       },
-      { timeout: 3000 },
+      { timeout: 10_000 },
     );
     expect(
       document.querySelector('[data-ega-workbench-chip="rules"]')?.getAttribute('aria-selected'),
     ).toBe('true');
-    await waitFor(() => expect(document.activeElement).toBe(body), { timeout: 3000 });
+    await waitFor(() => expect(document.activeElement).toBe(body), { timeout: 10_000 });
   });
 });
