@@ -1,5 +1,7 @@
 # Smart-bubble surface rubric
 
+"Smart bubble" is the selection bubble (Settings → Selection & picker) in its default Smart mode. This surface also covers the Always and Never modes.
+
 The smart bubble is a small chip that mounts in the content-script shadow host when the user selects eligible text (arabizi, etc.). It offers a one-click promotion to the full tooltip.
 
 ## Invariants
