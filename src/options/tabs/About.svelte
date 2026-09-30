@@ -7,7 +7,6 @@
   import { confirmDialog } from '@/shared/components/confirmDialog';
   import { OPTIONS_LOCAL_UI_KEYS } from '@/options/local-ui-keys';
   import { clearAllStorage } from '@/shared/storage';
-  import pkg from '../../../package.json' with { type: 'json' };
 
   import Code from '@lucide/svelte/icons/code';
   import Scale from '@lucide/svelte/icons/scale';
@@ -16,14 +15,8 @@
   import FileX from '@lucide/svelte/icons/file-x';
   import Sparkles from '@lucide/svelte/icons/sparkles';
 
-  // `chrome.runtime` is absent in unit tests, so the build-time string is the fallback.
-  const extVersion = ((): string => {
-    try {
-      return chrome.runtime.getManifest().version;
-    } catch {
-      return pkg.version;
-    }
-  })();
+  const manifest = chrome.runtime.getManifest();
+  const extVersion = manifest.version_name ?? manifest.version;
 
   let clearingCache = $state(false);
   let purging = $state(false);

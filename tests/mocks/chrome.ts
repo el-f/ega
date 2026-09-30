@@ -1,4 +1,5 @@
 import { vi } from 'vitest';
+import pkg from '../../package.json' with { type: 'json' };
 
 type Listener<T extends unknown[]> = (...args: T) => void;
 
@@ -98,6 +99,7 @@ export const chromeMock = {
     id: 'ega-test',
     lastError: undefined as chrome.runtime.LastError | undefined,
     getURL: (p: string) => `chrome-extension://ega-test/${p}`,
+    getManifest: () => ({ version: pkg.version, version_name: pkg.version }),
     sendMessage: vi.fn(async (msg: unknown) => (await applySettingsUpdate(msg)) ?? { ok: true }),
     onMessage: makeEvent<[unknown, chrome.runtime.MessageSender, (r: unknown) => void]>(),
     connect: vi.fn(),

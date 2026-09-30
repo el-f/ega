@@ -17,13 +17,6 @@ describe('About — version card', () => {
     );
     expect(container.querySelector('a[href*="CHANGELOG"]')).toBeNull();
   });
-
-  it('falls back to package.json version when chrome.runtime is unavailable', async () => {
-    // No getManifest here, so the fallback runs and must read package.json.
-    const { container } = render(About);
-    await new Promise((r) => setTimeout(r, 50));
-    expect(container.textContent).toContain(`v${pkg.version}`);
-  });
 });
 
 describe('About — duplicate captureResultMeta toggle stripped', () => {
