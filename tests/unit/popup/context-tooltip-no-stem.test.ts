@@ -37,17 +37,6 @@ describe('Context tooltip stem resets the global cascade', () => {
     expect(body).toMatch(/top:\s*calc\(100%\s*\+\s*4px\)/);
   });
 
-  it('local .ega-icon-btn ::after resets bottom + transform from global tokens', () => {
-    const styles = readStyles();
-    const body = extractRuleBody(
-      styles,
-      ".ega-icon-btn[data-tooltip]:not([data-tooltip='']):hover::after",
-    );
-    expect(body).toMatch(/bottom:\s*auto/);
-    expect(body).toMatch(/transform:\s*none/);
-    expect(body).toMatch(/top:\s*calc\(100%\s*\+\s*4px\)/);
-  });
-
   it('tokens.css still positions the default tooltip ABOVE — local must override', () => {
     const tokens = readTokens();
     const body = extractRuleBody(tokens, "[data-tooltip]:not([data-tooltip='']):hover::after");

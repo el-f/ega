@@ -73,7 +73,7 @@ function styleBlock(source: string): string | null {
   const open = source.search(/^<style/m);
   if (open === -1) return null;
   const close = source.indexOf('</style>', open);
-  return source.slice(open, close === -1 ? undefined : close);
+  return source.slice(source.indexOf('>', open) + 1, close === -1 ? undefined : close);
 }
 
 /** Class selectors only — comments and quoted values are stripped so `url("…w3.org…")` and prose do not count. */
@@ -93,17 +93,95 @@ function stripComments(css: string): string {
   return css.replace(/\/\*[\s\S]*?\*\//g, ' ');
 }
 
-/** Flat `selector { body }` pairs. An `@media` prelude never matches, so its inner rules come through on their own. */
-function rules(css: string): { selectors: string[]; body: string }[] {
-  const out: { selectors: string[]; body: string }[] = [];
-  for (const m of stripComments(css).matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-    const prelude = (m[1] ?? '').trim();
-    if (prelude.startsWith('@')) continue;
-    const selectors = prelude
-      .split(',')
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0);
-    if (selectors.length > 0) out.push({ selectors, body: m[2] ?? '' });
+/** Splits on `sep` outside quotes and parentheses, so `:not(.a, .b)` and a data-URI `;` stay whole. */
+function splitTop(text: string, sep: string): string[] {
+  const out: string[] = [];
+  let depth = 0;
+  let quote: string | null = null;
+  let start = 0;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (quote !== null) {
+      if (ch === '\\') i++;
+      else if (ch === quote) quote = null;
+    } else if (ch === '"' || ch === "'") quote = ch;
+    else if (ch === '(') depth++;
+    else if (ch === ')') depth--;
+    else if (ch === sep && depth === 0) {
+      out.push(text.slice(start, i));
+      start = i + 1;
+    }
+  }
+  out.push(text.slice(start));
+  return out.map((s) => s.trim()).filter((s) => s.length > 0);
+}
+
+/** `:global(x)` unwrapped, one quote style, one space around combinators — so a component selector and its sheet copy compare equal. */
+function normalizeSelector(selector: string): string {
+  let out = selector;
+  for (let prev = ''; prev !== out;) {
+    prev = out;
+    out = out.replace(/:global\(((?:[^()]|\([^()]*\))*)\)/g, '$1');
+  }
+  return out
+    .replace(/"/g, "'")
+    .replace(/\s*([>+~])\s*/g, ' $1 ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+interface CssRule {
+  /** Enclosing at-rule preludes, e.g. `@media (forced-colors: active)`; empty at top level. */
+  context: string;
+  selectors: string[];
+  decls: Map<string, string>;
+}
+
+/** Style rules with their at-rule context. Braces and `;` inside quotes do not count. */
+export function parseRules(css: string): CssRule[] {
+  const src = stripComments(css);
+  const out: CssRule[] = [];
+  const preludes: string[] = [];
+  let buf = '';
+  let quote: string | null = null;
+  for (let i = 0; i < src.length; i++) {
+    const ch = src[i] as string;
+    if (quote !== null) {
+      buf += ch;
+      if (ch === '\\') buf += src[++i] ?? '';
+      else if (ch === quote) quote = null;
+    } else if (ch === '"' || ch === "'") {
+      quote = ch;
+      buf += ch;
+    } else if (ch === '{') {
+      preludes.push(
+        buf
+          .slice(buf.lastIndexOf(';') + 1)
+          .trim()
+          .replace(/\s+/g, ' '),
+      );
+      buf = '';
+    } else if (ch === '}') {
+      const prelude = preludes.pop() ?? '';
+      if (!prelude.startsWith('@')) {
+        const decls = new Map<string, string>();
+        for (const decl of splitTop(buf, ';')) {
+          const colon = decl.indexOf(':');
+          if (colon === -1) continue;
+          decls.set(
+            decl.slice(0, colon).trim(),
+            decl
+              .slice(colon + 1)
+              .trim()
+              .replace(/\s+/g, ' '),
+          );
+        }
+        const context = preludes.filter((p) => p.startsWith('@')).join(' ');
+        const selectors = splitTop(prelude, ',').map(normalizeSelector);
+        if (selectors.length > 0) out.push({ context, selectors, decls });
+      }
+      buf = '';
+    } else buf += ch;
   }
   return out;
 }
@@ -111,9 +189,45 @@ function rules(css: string): { selectors: string[]; body: string }[] {
 /** The class must be in a real rule's selector, outside :not(); a comment, a value or a longer class name does not count. */
 export function sheetDeclares(sheet: string, className: string): boolean {
   const hit = new RegExp(`\\.${escapeClass(className)}(?![\\w-])`);
-  return rules(sheet).some((rule) =>
+  return parseRules(sheet).some((rule) =>
     rule.selectors.some((sel) => hit.test(sel.replace(/:not\([^)]*\)/g, ''))),
   );
+}
+
+/**
+ * Where the sheet's copy of a component's rules differs from the component. A component rule is mirrored
+ * when the sheet has the same selector, alone or under one of the component's own single-class rules
+ * (`.root .x`), in the same at-rule. Extra declarations in a copy are allowed: they reset host-page
+ * defaults inside the shadow root. A sheet rule that starts with a root class but mirrors no component
+ * rule is a stale copy.
+ */
+export function mirrorDrift(componentCss: string, sheet: string): string[] {
+  const own = parseRules(componentCss);
+  const copies = parseRules(sheet);
+  const ownSelectors = new Set(own.flatMap((r) => r.selectors));
+  const roots = [...ownSelectors].filter((s) => /^\.[\w-]+$/.test(s));
+  const out: string[] = [];
+  for (const sel of copies.flatMap((c) => c.selectors)) {
+    const root = /^\.[\w-]+/.exec(sel)?.[0];
+    if (root === undefined || !roots.includes(root) || ownSelectors.has(sel)) continue;
+    if (sel.startsWith(`${root} `) && ownSelectors.has(sel.slice(root.length + 1))) continue;
+    out.push(`${sel} — in the sheet, not in the component`);
+  }
+  for (const rule of own) {
+    for (const sel of rule.selectors) {
+      const forms = new Set([sel, ...roots.filter((r) => r !== sel).map((r) => `${r} ${sel}`)]);
+      const matched = copies.filter(
+        (c) => c.context === rule.context && c.selectors.some((s) => forms.has(s)),
+      );
+      if (matched.length === 0) continue;
+      const sheetDecls = new Map(matched.flatMap((c) => [...c.decls]));
+      for (const [prop, value] of rule.decls) {
+        const got = sheetDecls.get(prop);
+        if (got !== value) out.push(`${sel} { ${prop}: ${value} } — sheet has ${got ?? 'none'}`);
+      }
+    }
+  }
+  return out;
 }
 
 const CSS_IMPORT_RE = /@import\s+(?:url\(\s*)?['"]([^'"]+)['"][\s)]*;/g;
@@ -166,6 +280,7 @@ async function main(): Promise<void> {
   const inContentDir: string[] = [];
   const unportedShared: { file: string; classes: string[] }[] = [];
   const unstyledMarkup: { file: string; classes: string[] }[] = [];
+  const driftedCopies: { file: string; lines: string[] }[] = [];
 
   for (const abs of files) {
     const source = await readFile(abs, 'utf8');
@@ -191,6 +306,8 @@ async function main(): Promise<void> {
       (c) => !exempt.has(c) && !sheetDeclares(shadowSheet, c),
     );
     if (missing.length > 0) unportedShared.push({ file: rel, classes: missing.sort() });
+    const drift = mirrorDrift(block, shadowSheet);
+    if (drift.length > 0) driftedCopies.push({ file: rel, lines: drift });
   }
 
   let failed = false;
@@ -224,6 +341,19 @@ async function main(): Promise<void> {
     console.error('  Port the missing rules into that sheet — the component keeps its <style>.');
     for (const { file, classes } of unportedShared.sort((a, b) => a.file.localeCompare(b.file))) {
       console.error(`  ${file}: ${classes.join(', ')}`);
+    }
+  }
+  if (driftedCopies.length > 0) {
+    failed = true;
+    console.error(
+      '✗ Shadow-CSS lint: the src/content/styles.css copy of these shared components differs from the component <style>.',
+    );
+    console.error(
+      '  Give the copy every declaration the component has, and delete copied rules the component no longer has.',
+    );
+    for (const { file, lines } of driftedCopies.sort((a, b) => a.file.localeCompare(b.file))) {
+      console.error(`  ${file}:`);
+      for (const line of lines) console.error(`    ${line}`);
     }
   }
   if (failed) process.exit(1);

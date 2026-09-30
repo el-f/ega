@@ -6,6 +6,8 @@ import {
   sheetDeclares,
   markupClasses,
   readSheet,
+  parseRules,
+  mirrorDrift,
 } from '../../../scripts/shadow-css-lint';
 
 describe('classSelectors', () => {
@@ -75,6 +77,78 @@ describe('sheetDeclares', () => {
 
   it('counts a rule nested in an at-rule', () => {
     expect(sheetDeclares('@media (min-width: 10px) { .a { color: red } }', 'a')).toBe(true);
+  });
+});
+
+describe('parseRules', () => {
+  it('keeps a quoted semicolon or brace inside one declaration', () => {
+    const [rule] = parseRules(
+      `.a { background: url("data:image/svg+xml;utf8,<svg>{}</svg>"); color: red }`,
+    );
+    expect([...(rule?.decls.keys() ?? [])]).toEqual(['background', 'color']);
+  });
+
+  it('does not split a selector list inside :not()', () => {
+    expect(parseRules('.a:not(.b, .c), .d { color: red }')[0]?.selectors).toEqual([
+      '.a:not(.b, .c)',
+      '.d',
+    ]);
+  });
+
+  it('records the enclosing at-rule and skips a statement at-rule before a rule', () => {
+    const [rule] = parseRules('@layer base; @media (forced-colors: active) { .a { color: red } }');
+    expect(rule?.context).toBe('@media (forced-colors: active)');
+    expect(rule?.selectors).toEqual(['.a']);
+  });
+});
+
+describe('mirrorDrift', () => {
+  it('passes a copy that matches the component, :global() unwrapped', () => {
+    expect(
+      mirrorDrift(
+        ":global(.a[aria-pressed='true']) { color: red; }",
+        '.a[aria-pressed="true"] { color: red; }',
+      ),
+    ).toEqual([]);
+  });
+
+  it('allows extra declarations in the copy', () => {
+    expect(mirrorDrift('.a { color: red }', '.a { color: red; font: inherit }')).toEqual([]);
+  });
+
+  it('flags a changed or missing declaration', () => {
+    expect(mirrorDrift('.a { color: red; gap: 2px }', '.a { color: blue }')).toEqual([
+      '.a { color: red } — sheet has blue',
+      '.a { gap: 2px } — sheet has none',
+    ]);
+  });
+
+  it('compares a rule copied under the component root class', () => {
+    expect(mirrorDrift('.root {} .row dd { margin: 0 }', '.root .row dd { margin: 1px }')).toEqual([
+      '.row dd { margin: 0 } — sheet has 1px',
+    ]);
+  });
+
+  it('flags a copied rule the component no longer has', () => {
+    expect(
+      mirrorDrift('.root { color: red }', '.root { color: red } .root.gone { color: red }'),
+    ).toEqual(['.root.gone — in the sheet, not in the component']);
+  });
+
+  it('compares rules only inside the same at-rule', () => {
+    const component =
+      '.a { color: red } @media (forced-colors: active) { .a { color: CanvasText } }';
+    expect(mirrorDrift(component, '.a { color: red }')).toEqual([]);
+    expect(
+      mirrorDrift(
+        component,
+        '.a { color: red } @media (forced-colors: active) { .a { color: red } }',
+      ),
+    ).toEqual(['.a { color: CanvasText } — sheet has red']);
+  });
+
+  it('ignores a component rule the sheet does not copy', () => {
+    expect(mirrorDrift('.a { color: red } .b { color: red }', '.a { color: red }')).toEqual([]);
   });
 });
 
