@@ -21,7 +21,7 @@ pre-commit:
       # TS half of `pnpm typecheck` — faster than you'd expect via incremental
       # tsc. The svelte-check half runs pre-push (~19s, too slow for commit).
       # Only fires when TS-ish files are staged.
-      glob: '*.{ts,tsx,svelte}'
+      glob: '*.{ts,svelte}'
       run: pnpm tsc --noEmit
     lint-tokens:
       # Ban raw #hex color literals outside src/shared/tokens.css. Runs
@@ -29,7 +29,7 @@ pre-commit:
       glob: 'src/**/*.{svelte,css}'
       run: pnpm lint:tokens
     shadow-css-lint:
-      glob: 'src/content/**/*.svelte'
+      glob: 'src/**/*.{svelte,css}'
       run: pnpm lint:shadow-css
     lint-hover:
       # Ban :hover/:focus/:active rules that resize an in-flow element — the
