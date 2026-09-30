@@ -1,5 +1,6 @@
 import { ALL_TASKS, TASK_LABELS, type Task } from './task-prompts';
 import type { PromptTemplate } from './types';
+import { SLOT_RE } from './snippets';
 
 export interface SlotSpec {
   readonly name: string;
@@ -130,8 +131,6 @@ export interface SlotValidationResult {
   errors: { message: string; slot?: string }[];
   warnings: { message: string; slot?: string }[];
 }
-
-export const SLOT_RE = /\{\{(\w+)\}\}/g;
 
 export function validateAgainstSlots(template: PromptTemplate, task: Task): SlotValidationResult {
   const errors: SlotValidationResult['errors'] = [];

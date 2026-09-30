@@ -4,8 +4,7 @@ import { toSingleLine } from './utils/single-line';
 import { DEFAULT_DESCRIPTION_CONTEXT_CAP } from './constants';
 import { DEFAULT_PROMPT_TEMPLATE } from './settings-defaults';
 import { labelFor } from './languages';
-import { resolveSnippets } from './snippets';
-import { SLOT_RE } from './slot-registry';
+import { resolveSnippets, SLOT_RE } from './snippets';
 import { TONE_PHRASE, type Tone } from './task-prompts';
 
 /** Models otherwise name a country from a pan-dialect phrase, or from the page's topic. */
@@ -113,9 +112,7 @@ function renderContext(req: TranslationRequest, descCap: number, explain: boolea
 
 function substitute(tpl: string, vars: Record<string, string>): string {
   // hasOwn guard: `{{constructor}}` in a user template must not leak an Object.prototype value.
-  return tpl.replace(SLOT_RE, (_, k: string) =>
-    Object.hasOwn(vars, k) ? (vars[k] ?? '') : '',
-  );
+  return tpl.replace(SLOT_RE, (_, k: string) => (Object.hasOwn(vars, k) ? (vars[k] ?? '') : ''));
 }
 
 // Stops a crafted selection from closing the template's `"""` fence and smuggling in instructions.
