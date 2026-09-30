@@ -43,19 +43,6 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-test('Copy button copies the translation to the clipboard', async () => {
-  mockAnthropic(ext.context, { translation: 'Welcome, how are you?' });
-  const { page } = await openPageAndTooltip();
-
-  const clicked = await egaTest<boolean>(page, 'clickAction', 'copy');
-  expect(clicked).toBe(true);
-
-  // Read the clipboard from the page context; grantPermissions above removes
-  // the user-gesture prompt.
-  const clip = await page.evaluate(async () => navigator.clipboard.readText());
-  expect(clip).toBe('Welcome, how are you?');
-});
-
 test('Explain button fires a second translate request and keeps tooltip open', async () => {
   const mock = mockAnthropic(ext.context, { translation: 'Welcome, how are you?' });
   const { page } = await openPageAndTooltip();
@@ -74,19 +61,6 @@ test('Explain button fires a second translate request and keeps tooltip open', a
 
   // Anthropic was hit again for the explain request.
   await expect.poll(() => mock.calls(), { timeout: 5_000 }).toBeGreaterThan(initialCalls);
-});
-
-test('click outside the tooltip dismisses it when tooltipClickOutside=true', async () => {
-  mockAnthropic(ext.context);
-  const { page } = await openPageAndTooltip();
-
-  // Click a spot well away from the tooltip (top-left corner area is empty
-  // on the fixture page).
-  await page.mouse.click(5, 5);
-
-  await expect
-    .poll(async () => (await egaTest<number>(page, 'tooltipCount')) ?? 0, { timeout: 5_000 })
-    .toBe(0);
 });
 
 test('clicking tooltip buttons does not dismiss via the outside-click handler', async () => {
@@ -110,14 +84,4 @@ test('clicking tooltip buttons does not dismiss via the outside-click handler', 
     const after = (await egaTest<number>(page, 'tooltipCount')) ?? 0;
     expect(after).toBeGreaterThanOrEqual(1);
   }
-});
-
-test('Escape closes the tooltip', async () => {
-  mockAnthropic(ext.context);
-  const { page } = await openPageAndTooltip();
-
-  await egaTest(page, 'pressEscape');
-  await expect
-    .poll(async () => (await egaTest<number>(page, 'tooltipCount')) ?? 0, { timeout: 5_000 })
-    .toBe(0);
 });

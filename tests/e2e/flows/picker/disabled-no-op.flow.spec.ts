@@ -16,6 +16,7 @@ test.beforeEach(async () => {
   await seedSettings(ext.context, ext.extensionId, {
     anthropicApiKey: 'test-key',
     pickerEnabled: false,
+    pickerShortcut: 'Ctrl+Shift+E',
   });
 });
 
@@ -45,5 +46,20 @@ test('picker:enter is a no-op when pickerEnabled=false', async () => {
     async () => (await egaTest<boolean>(page, 'pickerIsActive')) ?? false,
     false,
     { windowMs: 600, message: 'picker must stay inactive when pickerEnabled=false' },
+  );
+});
+
+test('pickerEnabled=false makes the hotkey a no-op', async () => {
+  const page = await ext.context.newPage();
+  await page.goto(`${ext.serverUrl}/picker-page.html`);
+  await waitForTestHooks(page);
+
+  await page.locator('body').focus();
+  await page.keyboard.press('Control+Shift+E');
+
+  await assertStaysStable(
+    async () => (await egaTest<boolean>(page, 'pickerIsActive')) ?? false,
+    false,
+    { windowMs: 1_500, message: 'pickerEnabled=false must keep the hotkey a no-op' },
   );
 });
