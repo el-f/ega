@@ -5,7 +5,7 @@
 
 <script lang="ts">
   import AlertTriangle from '@lucide/svelte/icons/alert-triangle';
-  import OnboardingBanner from '../OnboardingBanner.svelte';
+  import OnboardingBanner from './OnboardingBanner.svelte';
 
   interface Props {
     kind: StatusKind | null;

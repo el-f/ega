@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
 import { render } from '@testing-library/svelte';
-import OnboardingBanner from '@/options/OnboardingBanner.svelte';
+import OnboardingBanner from '@/options/components/OnboardingBanner.svelte';
 
 describe('OnboardingBanner', () => {
   it('renders the two onboarding buttons (Gemini + dismiss)', () => {
