@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  groupShots,
-  groupShotsExclusive,
-  sampleShots,
-} from '../../../scripts/visual-judge/audit/grouping';
+import { groupShots, sampleShots } from '../../../scripts/visual-judge/audit/grouping';
 import type { Feature } from '../../../scripts/visual-judge/features';
 
 const features: Feature[] = [
@@ -41,32 +37,6 @@ describe('groupShots', () => {
   it('sorts shots inside the group deterministically', () => {
     const groups = groupShots(['tooltip-zzz.png', 'tooltip-aaa.png', 'tooltip-mmm.png'], features);
     expect(groups[0]?.shots).toEqual(['tooltip-aaa.png', 'tooltip-mmm.png', 'tooltip-zzz.png']);
-  });
-});
-
-describe('groupShotsExclusive', () => {
-  it('assigns each shot to the first matching feature only', () => {
-    const first = features[0];
-    if (!first) throw new Error('fixture features[0] missing');
-    const overlap: Feature[] = [
-      { ...first, shotPrefixes: ['tooltip-'] },
-      {
-        id: 'mega',
-        label: '',
-        surfaces: [],
-        shotPrefixes: ['tooltip-'],
-        codePaths: [],
-        researchTopics: [],
-      },
-    ];
-    const { groups } = groupShotsExclusive(['tooltip-a.png'], overlap);
-    expect(groups[0]?.shots).toEqual(['tooltip-a.png']);
-    expect(groups[1]?.shots).toEqual([]);
-  });
-
-  it('reports unmatched shots', () => {
-    const { unmatched } = groupShotsExclusive(['tooltip-a.png', 'mystery.png'], features);
-    expect(unmatched).toEqual(['mystery.png']);
   });
 });
 

@@ -1,5 +1,9 @@
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { PNG } from 'pngjs';
 import { describe, expect, it } from 'vitest';
-import { diffPctSync } from '../../../scripts/visual-judge/diff/pixel';
+import { diffPct, diffPctSync } from '../../../scripts/visual-judge/diff/pixel';
 
 function solid(width: number, height: number, r: number, g: number, b: number): Uint8Array {
   const out = new Uint8Array(width * height * 4);
@@ -34,5 +38,28 @@ describe('diffPctSync', () => {
     const b = solid(4, 4, 255, 255, 255);
     const pct = diffPctSync({ data: a, width: 4, height: 4 }, { data: b, width: 4, height: 4 });
     expect(pct).toBeGreaterThan(50);
+  });
+});
+
+describe('diffPct', () => {
+  async function writePng(file: string, rgb: number): Promise<void> {
+    const png = new PNG({ width: 4, height: 4 });
+    png.data = Buffer.from(solid(4, 4, rgb, rgb, rgb));
+    await writeFile(file, PNG.sync.write(png));
+  }
+
+  it('decodes two PNG files and compares them', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'ega-vj-diff-'));
+    try {
+      await writePng(path.join(dir, 'a.png'), 0);
+      await writePng(path.join(dir, 'b.png'), 0);
+      await writePng(path.join(dir, 'c.png'), 255);
+      expect(await diffPct(path.join(dir, 'a.png'), path.join(dir, 'b.png'))).toBe(0);
+      expect(await diffPct(path.join(dir, 'a.png'), path.join(dir, 'c.png'))).toBeGreaterThan(50);
+      await writeFile(path.join(dir, 'bad.png'), 'not a png');
+      expect(await diffPct(path.join(dir, 'a.png'), path.join(dir, 'bad.png'))).toBeNull();
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 });

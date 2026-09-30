@@ -26,27 +26,6 @@ export function groupShots(shots: string[], features: Feature[]): FeatureGroup[]
   }));
 }
 
-/** Each shot lands in at most one feature (first-match wins). */
-export function groupShotsExclusive(
-  shots: string[],
-  features: Feature[],
-): { groups: FeatureGroup[]; unmatched: string[] } {
-  const assigned = new Set<string>();
-  const groups: FeatureGroup[] = features.map((feature) => {
-    const owned: string[] = [];
-    for (const s of shots) {
-      if (assigned.has(s)) continue;
-      if (matchesFeature(s, feature)) {
-        owned.push(s);
-        assigned.add(s);
-      }
-    }
-    return { feature, shots: owned.sort() };
-  });
-  const unmatched = shots.filter((s) => !assigned.has(s)).sort();
-  return { groups, unmatched };
-}
-
 /** Even-sample a shot list down to `max` entries, keeping the first and last. */
 export function sampleShots(shots: string[], max: number): string[] {
   if (shots.length <= max) return [...shots];

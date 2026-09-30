@@ -1,4 +1,4 @@
-import type { FileVerdict, Issue } from './types';
+import type { FeatureProposal, FileVerdict, Issue, ProposalItem } from './types';
 
 /** Longest balanced `{...}` that parses: a regex matches an inner object and drops `overall`. */
 export function extractOuterJson(text: string): string | null {
@@ -57,7 +57,8 @@ function isGrade(v: unknown): v is 'ok' | 'minor' | 'major' {
   return v === 'ok' || v === 'minor' || v === 'major';
 }
 
-export function parseClaudeStream(stream: string): Omit<FileVerdict, 'file' | 'surface' | 'state'> {
+/** Joins the assistant text of a stream-json run and notes whether its result envelope flagged an error. */
+function assistantText(stream: string): { text: string; cliError: boolean } {
   const lines = stream.split('\n').filter((l) => l.trim().length);
   let text = '';
   let cliError = false;
@@ -77,6 +78,11 @@ export function parseClaudeStream(stream: string): Omit<FileVerdict, 'file' | 's
       /* skip non-JSON */
     }
   }
+  return { text, cliError };
+}
+
+export function parseClaudeStream(stream: string): Omit<FileVerdict, 'file' | 'surface' | 'state'> {
+  const { text, cliError } = assistantText(stream);
   if (cliError && !text) return { issues: [], overall: 'cli-error', raw: stream };
   const m = extractOuterJson(text);
   if (!m) return { issues: [], overall: 'unparseable', raw: stream };
@@ -97,8 +103,6 @@ export function parseClaudeStream(stream: string): Omit<FileVerdict, 'file' | 's
 }
 
 // --- Feature proposal parser ---------------------------------------------
-
-import type { FeatureProposal, ProposalItem } from './types';
 
 function coerceProposalItems(v: unknown): ProposalItem[] {
   if (!Array.isArray(v)) return [];
@@ -126,25 +130,7 @@ function coerceProposalItems(v: unknown): ProposalItem[] {
 }
 
 export function parseFeatureProposal(featureId: string, stream: string): FeatureProposal {
-  const lines = stream.split('\n').filter((l) => l.trim().length);
-  let text = '';
-  let cliError = false;
-  for (const line of lines) {
-    try {
-      const msg = JSON.parse(line) as Record<string, unknown>;
-      if (msg['type'] === 'result' && msg['is_error'] === true) cliError = true;
-      if (msg['type'] === 'assistant') {
-        const content = (
-          msg['message'] as { content?: { type: string; text?: string }[] } | undefined
-        )?.content;
-        if (content)
-          for (const c of content)
-            if (c.type === 'text' && typeof c.text === 'string') text += c.text;
-      }
-    } catch {
-      /* skip non-JSON */
-    }
-  }
+  const { text, cliError } = assistantText(stream);
   const base: FeatureProposal = {
     feature: featureId,
     generated_at: new Date().toISOString(),

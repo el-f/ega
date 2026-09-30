@@ -23,13 +23,9 @@ export async function diffPct(currentPath: string, baselinePath: string): Promis
   const a = await loadPng(currentPath);
   const b = await loadPng(baselinePath);
   if (!a || !b) return null;
-  if (a.width !== b.width || a.height !== b.height) return 100;
-  const total = a.width * a.height;
-  const diff = pixelmatch(a.data, b.data, undefined, a.width, a.height, { threshold: 0.1 });
-  return (diff / total) * 100;
+  return diffPctSync(a, b);
 }
 
-/** Pure version used by tests — accepts decoded buffers directly. */
 export function diffPctSync(a: Decoded, b: Decoded): number {
   if (a.width !== b.width || a.height !== b.height) return 100;
   const total = a.width * a.height;
