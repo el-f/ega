@@ -109,17 +109,20 @@ describe('updateSettings merge semantics', () => {
     );
   });
 
-  it('model merge: patch without model key preserves all cur model fields', () => {
+  it('model merge: a partial model patch keeps the cur model fields it omits', () => {
     fc.assert(
       fc.property(fc.string({ minLength: 1, maxLength: 60 }), (modelStr) => {
         const cur: Settings = {
           ...DEFAULT_SETTINGS,
           model: { ...DEFAULT_SETTINGS.model, anthropic: modelStr },
         };
-        // `model` is absent from the patch, so the spread falls back to `cur.model`.
-        const patch: Partial<Settings> = { streaming: false };
+        const patch: Partial<Settings> = {
+          streaming: false,
+          model: { openai: 'x' } as Settings['model'],
+        };
         const result = mergeSettingsPatch(cur, patch);
         expect(result.model.anthropic).toBe(modelStr);
+        expect(result.model.openai).toBe('x');
         expect(result.streaming).toBe(false);
       }),
     );
@@ -134,11 +137,11 @@ describe('updateSettings merge semantics', () => {
           streaming,
         };
         const patch: Partial<Settings> = {
-          advanced: { ...DEFAULT_SETTINGS.advanced, temperature: 0.5 },
+          advanced: { temperature: 0.5 } as Settings['advanced'],
         };
         const result = mergeSettingsPatch(cur, patch);
-        // `patch.advanced` is a full object, so it overwrites `cur.advanced.retryCount` with the default.
         expect(result.advanced.temperature).toBe(0.5);
+        expect(result.advanced.retryCount).toBe(retryCount);
         expect(result.streaming).toBe(streaming);
       }),
     );
