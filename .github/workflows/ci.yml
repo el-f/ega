@@ -156,8 +156,8 @@ jobs:
       - run: pnpm lint:shadow-css
       - run: pnpm lint:hover
       - run: pnpm lint:reactivity
-      # :full drops .secretlintignore for .gitignore, so store/ and the
-      # lockfile get scanned too. ~50s vs ~5s — too slow for the commit hook.
+      # :full drops .secretlintignore, so it also scans the lockfile. Both modes
+      # skip what .gitignore skips, store/*.zip included.
       - run: pnpm lint:secrets:full
       - run: pnpm coverage:flows
       - run: pnpm lint:docs

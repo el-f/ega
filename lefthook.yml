@@ -45,7 +45,7 @@ pre-commit:
       glob: 'src/**/*.svelte'
       run: pnpm lint:reactivity
     lint-secrets:
-      # Skips .secretlintignore (the lockfile) to stay fast; CI runs lint:secrets:full over everything.
+      # Skips the lockfile (.secretlintignore); CI runs lint:secrets:full, which also scans it.
       run: pnpm lint:secrets
 
 commit-msg:
