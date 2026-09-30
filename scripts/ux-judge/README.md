@@ -17,8 +17,8 @@ pnpm install
 
 The judge uses the `@anthropic-ai/sdk` already present in the repo. No
 additional setup beyond exporting `ANTHROPIC_API_KEY` in any shell that
-actually wants to grade (a hand run, or the `UX Judge` workflow). Without the
-key, `audit` and `baseline` exit 1 with an error; only `diff` skips.
+actually wants to grade. Without the key, `audit` and `baseline` exit 1 with an
+error; only `diff` skips.
 
 ## Env vars
 
@@ -59,18 +59,11 @@ set. `--warn-only` is the explicit spelling of the default and is a no-op.
 Single-pass (no ensemble) for ad-hoc review. Cheaper than baseline; not
 intended for gating.
 
-## CI vs local invocation
+## When to run
 
 - **Local** — hand-run only. A push cannot afford the Playwright run that
   produces the sidecars, so there is no pre-push hook; run the two-step recipe
   under "Sidecar recording" below, then `pnpm ux:judge:diff`.
-- **PR workflow (`.github/workflows/ux-judge.yml`)** — triggers on
-  `pull_request` to `master` when the diff touches `tests/e2e/flows/**`,
-  `tests/journeys/rubric/**`, or `scripts/ux-judge/**`. Runs
-  `pnpm ux:judge:diff --warn-only --base origin/master`, uploads the report
-  as an artifact, and comments on the PR with the severity counts + top 5
-  findings. Missing `secrets.ANTHROPIC_API_KEY` logs a warning and exits 0
-  — fork PRs without the secret never fail.
 - **Quarterly baseline refresh** — manual `pnpm ux:judge:baseline` on a clean
   master, commit the promoted `current.json` under `tests/journeys/baseline/`.
   Not wired into CI to keep token spend visible.

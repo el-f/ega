@@ -5,7 +5,7 @@ import { diff } from './cli/diff';
 const [, , subcommand, ...rest] = process.argv;
 
 async function main(): Promise<void> {
-  // diff skips on its own when the key is missing (the CI job is warn-only); audit and baseline are manual runs.
+  // diff skips on its own when the key is missing; audit and baseline are manual runs.
   if ((subcommand === 'audit' || subcommand === 'baseline') && !process.env['ANTHROPIC_API_KEY']) {
     console.error(`ux-judge ${subcommand} needs ANTHROPIC_API_KEY set to an Anthropic API key.`);
     process.exit(1);
