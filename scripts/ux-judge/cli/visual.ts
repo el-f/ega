@@ -133,38 +133,45 @@ export function renderReport(coverage: string, verdict: JudgeVerdict): string {
   return lines.join('\n');
 }
 
-export async function visual(args: ReadonlyArray<string>): Promise<void> {
+export async function visual(
+  args: ReadonlyArray<string>,
+  roots: { framesRoot: string; reportRoot: string } = CONFIG,
+): Promise<void> {
   const strict = args.includes('--strict');
   const fi = args.indexOf('--filter');
   const filter = fi >= 0 ? args[fi + 1] : undefined;
 
-  const manifests = await discoverManifests(CONFIG.framesRoot, filter);
+  const manifests = await discoverManifests(roots.framesRoot, filter);
   if (manifests.length === 0) {
     console.log(
-      `ux-judge visual: no journeys under ${CONFIG.framesRoot}. ` +
+      `ux-judge visual: no journeys under ${roots.framesRoot}. ` +
         'Run `pnpm visual:journeys:capture` first.',
     );
     return;
   }
 
-  const reportDir = path.join(CONFIG.reportRoot, 'visual');
+  const reportDir = path.join(roots.reportRoot, 'visual');
   await fs.mkdir(reportDir, { recursive: true });
   const summary: Array<{ coverage: string; severity: JudgeVerdict['severity']; findings: number }> =
     [];
+  const failed: string[] = [];
   let worst = 0;
 
   for (const { manifest, dir } of manifests) {
-    const rubric = await composeRubric(manifest.coverage);
-    const frames = await loadFrames(manifest, dir);
-    const user = buildVisualContent(manifest.coverage, rubric, frames);
     let verdict: JudgeVerdict;
     try {
+      const rubric = await composeRubric(manifest.coverage).catch((e: unknown) => {
+        throw new Error(`${(e as Error).message} (stale capture? delete ${dir})`);
+      });
+      const frames = await loadFrames(manifest, dir);
+      const user = buildVisualContent(manifest.coverage, rubric, frames);
       verdict = await callJudge(
         { system: [{ type: 'text', text: systemPrompt() }], user },
         'baseline',
       );
     } catch (e) {
       console.error(`✗ ${manifest.coverage}: ${(e as Error).message}`);
+      failed.push(manifest.coverage);
       continue;
     }
     await fs.writeFile(
@@ -185,6 +192,10 @@ export async function visual(args: ReadonlyArray<string>): Promise<void> {
 
   await fs.writeFile(path.join(reportDir, 'summary.json'), JSON.stringify(summary, null, 2));
 
+  if (failed.length > 0) {
+    console.error(`ux-judge visual: ${failed.length} journey(s) not judged: ${failed.join(', ')}`);
+    process.exit(1);
+  }
   if (strict && worst >= SEVERITY_ORDER.blocker) {
     console.error('ux-judge visual: blocker findings present (--strict).');
     process.exit(1);

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -8,10 +8,14 @@ import {
   renderReport,
   discoverManifests,
   loadFrames,
+  visual,
   type LoadedFrame,
   type JourneyManifest,
 } from '../../../scripts/ux-judge/cli/visual';
 import { composeRubric } from '../../../scripts/ux-judge/loader/rubric';
+import { callJudge } from '../../../scripts/ux-judge/judge/call';
+
+vi.mock('../../../scripts/ux-judge/judge/call', () => ({ callJudge: vi.fn() }));
 
 // 1x1 transparent PNG — the smallest valid frame for the round-trip test.
 const PNG_1x1_B64 =
@@ -125,6 +129,54 @@ describe('ux-judge visual — pure logic', () => {
     ]);
 
     await fs.rm(root, { recursive: true, force: true });
+  });
+});
+
+describe('ux-judge visual — run', () => {
+  it('a journey with no rubric fails the run, and the other journeys are still judged', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'ega-vjj-run-'));
+    const framesRoot = path.join(root, 'frames');
+    const reportRoot = path.join(root, 'report');
+    const good = 'translation.sidepanel.input-send';
+    const stale = 'translation.sidepanel.a-stale-capture';
+    for (const cov of [good, stale]) {
+      const dir = path.join(framesRoot, cov.replace(/\./g, '--'));
+      await fs.mkdir(dir, { recursive: true });
+      await fs.writeFile(path.join(dir, '00.png'), Buffer.from(PNG_1x1_B64, 'base64'));
+      const manifest: JourneyManifest = {
+        coverage: cov,
+        steps: [{ idx: 0, label: 'open', frame: '00.png' }],
+      };
+      await fs.writeFile(path.join(dir, 'journey.json'), JSON.stringify(manifest));
+    }
+    vi.mocked(callJudge).mockResolvedValue({ severity: 'ok', findings: [], suggestions: [] });
+    const errors: string[] = [];
+    const logs = [
+      vi.spyOn(console, 'log').mockImplementation(() => {}),
+      vi.spyOn(console, 'error').mockImplementation((msg: unknown) => {
+        errors.push(String(msg));
+      }),
+    ];
+    const exit = vi.spyOn(process, 'exit').mockImplementation((code) => {
+      throw new Error(`exit ${String(code)}`);
+    });
+    try {
+      await expect(visual([], { framesRoot, reportRoot })).rejects.toThrow('exit 1');
+
+      expect(callJudge).toHaveBeenCalledTimes(1);
+      const judged = vi.mocked(callJudge).mock.calls[0]?.[0].user;
+      expect(JSON.stringify(judged)).toContain(good);
+      const summary = JSON.parse(
+        await fs.readFile(path.join(reportRoot, 'visual', 'summary.json'), 'utf-8'),
+      ) as Array<{ coverage: string }>;
+      expect(summary.map((s) => s.coverage)).toEqual([good]);
+      const staleDir = path.join(framesRoot, stale.replace(/\./g, '--'));
+      expect(errors.some((e) => e.includes(stale) && e.includes(`delete ${staleDir}`))).toBe(true);
+    } finally {
+      exit.mockRestore();
+      for (const s of logs) s.mockRestore();
+      await fs.rm(root, { recursive: true, force: true });
+    }
   });
 });
 

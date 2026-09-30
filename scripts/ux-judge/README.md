@@ -66,7 +66,8 @@ Grades the ordered screenshots of each journey that
 `tests/e2e/visual-journeys.spec.ts` captures into `tests/journeys/frames/`.
 Writes one Markdown verdict per journey plus `summary.json` under
 `tests/journeys/report/visual/`. `--filter` takes a coverage-id glob; `--strict`
-exits 1 on a `blocker`.
+exits 1 on a `blocker`. A journey that cannot be judged (missing rubric or a judge
+error) fails the run with exit 1.
 
 ## When to run
 
