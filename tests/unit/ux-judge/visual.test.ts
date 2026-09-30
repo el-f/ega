@@ -131,8 +131,10 @@ describe('ux-judge visual — pure logic', () => {
 describe('visual-journeys capture spec', () => {
   it('captures only coverage ids that have a rubric', async () => {
     const spec = await fs.readFile('tests/e2e/visual-journeys.spec.ts', 'utf-8');
-    const ids = [...spec.matchAll(/captureJourney\(page, '([^']+)'/g)].map((m) => m[1] ?? '');
-    expect(ids.length).toBeGreaterThan(0);
+    const calls = spec.match(/(?<!function )captureJourney\(/g) ?? [];
+    const ids = [...spec.matchAll(/captureJourney\(\s*\w+,\s*'([^']+)'/g)].map((m) => m[1] ?? '');
+    expect(calls.length).toBeGreaterThan(0);
+    expect(ids).toHaveLength(calls.length);
     for (const id of ids) await expect(composeRubric(id), id).resolves.toContain('---');
   });
 });
