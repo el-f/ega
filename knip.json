@@ -16,9 +16,19 @@
         "src/options/main.ts!",
         "src/sidepanel/index.ts!",
         "tests/**/*.test.ts",
-        "tests/e2e/**/*.spec.ts"
+        "tests/e2e/**/*.spec.ts",
+        "tests/setup.ts"
       ],
-      "project": ["src/**/*.ts", "src/**/*.svelte", "scripts/**/*.ts", "scripts/**/*.mjs"]
+      "project": [
+        "src/**/*.ts",
+        "src/**/*.svelte",
+        "scripts/**/*.ts",
+        "scripts/**/*.mjs",
+        "tests/**/*.ts",
+        "!tests/e2e/**",
+        "!tests/explore/**",
+        "!tests/journeys/**"
+      ]
     }
   }
 }
