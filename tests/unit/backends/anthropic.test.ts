@@ -155,6 +155,36 @@ describe('AnthropicBackend', () => {
     ]);
   });
 
+  const withModel = (anthropic: string) => ({
+    ...baseConfig,
+    model: { ...baseConfig.model, anthropic },
+  });
+
+  it('keeps temperature for a model that accepts it', async () => {
+    const body = captureBody();
+    await new AnthropicBackend().translate(mkArgs({ config: withModel('claude-haiku-4-5') }));
+    expect(body.current?.['temperature']).toBe(0.2);
+  });
+
+  it.each(['claude-sonnet-5', 'claude-opus-4-7', 'claude-opus-5-5', 'claude-fable-5-1'])(
+    'omits temperature for %s, which rejects it with a 400',
+    async (model) => {
+      const text = captureBody();
+      await new AnthropicBackend().translate(mkArgs({ config: withModel(model) }));
+      expect(text.current).not.toHaveProperty('temperature');
+      const image = captureBody();
+      await new AnthropicBackend().translateImage({
+        imageBase64: 'AAAA',
+        mediaType: 'image/png',
+        requestId: 'r1',
+        cancel: noopCancel(),
+        config: withModel(model),
+        onChunk: () => {},
+      });
+      expect(image.current).not.toHaveProperty('temperature');
+    },
+  );
+
   it('discoverModels sends the same auth headers the messages endpoint sends', async () => {
     // Without the browser-access header /v1/models 400s for a key that streams fine.
     let headers: Record<string, string> = {};

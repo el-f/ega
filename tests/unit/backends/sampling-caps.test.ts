@@ -43,6 +43,34 @@ describe('isOpenAIReasoningModel', () => {
     });
   });
 
+  it.each([
+    'claude-haiku-4-5',
+    'claude-haiku-4-5-20251001',
+    'claude-sonnet-4-6',
+    'claude-opus-4-6',
+    'claude-opus-4-1-20250805',
+    'claude-sonnet-4-20250514',
+    'claude-3-7-sonnet-latest',
+  ])('Claude %s still takes temperature', (id) => {
+    expect(resolveSamplingSupport('anthropic', id).temperature).toBe(true);
+  });
+
+  it.each([
+    'claude-opus-4-7',
+    'claude-opus-4-8',
+    'claude-opus-5',
+    'claude-opus-5-5',
+    'claude-sonnet-5',
+    'claude-fable-5-1',
+    'claude-mythos-5-1',
+  ])('Claude %s rejects temperature', (id) => {
+    expect(resolveSamplingSupport('anthropic', id)).toEqual({
+      temperature: false,
+      maxTokens: true,
+      reasoningEffort: false,
+    });
+  });
+
   it('tolerates provider prefixes', () => {
     expect(isOpenAIReasoningModel('openai/o3-mini')).toBe(true);
     expect(isOpenAIReasoningModel('openai/gpt-5')).toBe(true);

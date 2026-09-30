@@ -15,6 +15,7 @@ import { asBackendIdUnsafe } from '../brands';
 import { getCloudProfile } from './provider-profiles';
 import { iterSseDataPayloads } from './sseParser';
 import { emitMissingKeyError } from './transportError';
+import { resolveSamplingSupport } from './sampling-caps';
 
 const API = 'https://api.anthropic.com/v1/messages';
 const LABEL = getCloudProfile('anthropic').label;
@@ -27,6 +28,12 @@ function authHeaders(key: string): Record<string, string> {
     'anthropic-version': ANTHROPIC_VERSION,
     'anthropic-dangerous-direct-browser-access': 'true',
   };
+}
+
+function temperatureField(cfg: BackendConfig): { temperature?: number } {
+  return resolveSamplingSupport('anthropic', cfg.model.anthropic).temperature
+    ? { temperature: cfg.advanced.temperature }
+    : {};
 }
 
 // System goes as a one-block array, not a string, so `cache_control` can mark the prefix cacheable.
@@ -162,7 +169,7 @@ export class AnthropicBackend implements TranslationBackend {
       {
         model: a.config.model.anthropic,
         max_tokens: a.config.advanced.maxTokens,
-        temperature: a.config.advanced.temperature,
+        ...temperatureField(a.config),
         system: cachedSystem(a.system),
         messages: a.history?.length
           ? [
@@ -199,7 +206,7 @@ export class AnthropicBackend implements TranslationBackend {
       {
         model: a.config.model.anthropic,
         max_tokens: a.config.advanced.maxTokens,
-        temperature: a.config.advanced.temperature,
+        ...temperatureField(a.config),
         system: cachedSystem(a.system ?? OCR_SYSTEM_PROMPT),
         messages: [
           {

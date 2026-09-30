@@ -9,6 +9,9 @@ export function isOpenAIReasoningModel(modelId: string): boolean {
   return OPENAI_REASONING_RE.test(bare);
 }
 
+// Claude 3 and 4.x through 4.6 take temperature; Opus 4.7 and every later model return 400 on it.
+const ANTHROPIC_SAMPLING_RE = /^claude-(?:3[-.]|(?:opus|sonnet|haiku)-4(?:-[0-6])?(?:-\d{8})?$)/;
+
 export interface SamplingSupport {
   temperature: boolean;
   maxTokens: boolean;
@@ -19,6 +22,10 @@ export interface SamplingSupport {
 export function resolveSamplingSupport(backendId: string, modelId: string): SamplingSupport {
   if (backendId === 'native') {
     return { temperature: false, maxTokens: false, reasoningEffort: false };
+  }
+  if (backendId === 'anthropic') {
+    const temperature = ANTHROPIC_SAMPLING_RE.test(modelId.trim().toLowerCase());
+    return { temperature, maxTokens: true, reasoningEffort: false };
   }
   if (backendId === 'openai' && isOpenAIReasoningModel(modelId)) {
     return { temperature: false, maxTokens: true, reasoningEffort: true };
