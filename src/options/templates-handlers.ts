@@ -117,7 +117,7 @@ function newRecipeId(): string {
   return `user-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function recipeRulesToRules(recipe: Recipe): Rule[] {
+export function recipeRulesToRules(recipe: Recipe): Rule[] {
   return (recipe.rules ?? []).map((r) => ({
     id: uuid(),
     body: r.body,
@@ -134,7 +134,7 @@ function recipeRulesToRules(recipe: Recipe): Rule[] {
 }
 
 /** Drops recipe rules that match an active rule on (recipeId, body, category); bodies are trimmed before comparing. */
-function filterDupeRecipeRules(candidates: Rule[], priorRules: readonly Rule[]): Rule[] {
+export function filterDupeRecipeRules(candidates: Rule[], priorRules: readonly Rule[]): Rule[] {
   const existing = new Set(
     priorRules
       .filter((r) => r.source === 'recipe' && r.recipeId !== undefined)

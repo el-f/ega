@@ -43,29 +43,33 @@ export async function getSettings(): Promise<Settings> {
 // A content script's navigator.locks belongs to the page origin and cannot join this one, so content writes go through the SW.
 const withSettingsLock = makeCrossContextLock('ega:settings');
 
+export function mergeSettingsPatch(cur: Settings, patch: Partial<Settings>): Settings {
+  const merged: Settings = {
+    ...cur,
+    ...patch,
+    model: { ...cur.model, ...patch.model },
+    advanced: { ...cur.advanced, ...patch.advanced },
+    // Map fields deep-merge, so replacing one wholesale needs the full map passed in.
+    sitePrefs: { ...cur.sitePrefs, ...patch.sitePrefs },
+    taskBackends: { ...cur.taskBackends, ...patch.taskBackends },
+    taskTemperatures: { ...cur.taskTemperatures, ...patch.taskTemperatures },
+    taskMaxTokens: { ...cur.taskMaxTokens, ...patch.taskMaxTokens },
+    taskReasoningEfforts: { ...cur.taskReasoningEfforts, ...patch.taskReasoningEfforts },
+    varietyOverrides: { ...cur.varietyOverrides, ...patch.varietyOverrides },
+  };
+  const next: Settings = { ...merged, backendOrder: normaliseBackendOrder(merged.backendOrder) };
+  const disabled = new Set<string>(merged.disabledBackends);
+  // Only a patch that touches the chain can be refused for it; a theme toggle must still save on a row an old import left all-disabled.
+  const touchesChain = 'backendOrder' in patch || 'disabledBackends' in patch;
+  if (touchesChain && next.backendOrder.every((id) => disabled.has(id))) {
+    throw new Error('At least one backend must stay enabled');
+  }
+  return next;
+}
+
 export function updateSettings(patch: Partial<Settings>): Promise<Settings> {
   return withSettingsLock(async () => {
-    const cur = await getSettings();
-    const merged: Settings = {
-      ...cur,
-      ...patch,
-      model: { ...cur.model, ...patch.model },
-      advanced: { ...cur.advanced, ...patch.advanced },
-      // Map fields deep-merge, so replacing one wholesale needs the full map passed in.
-      sitePrefs: { ...cur.sitePrefs, ...patch.sitePrefs },
-      taskBackends: { ...cur.taskBackends, ...patch.taskBackends },
-      taskTemperatures: { ...cur.taskTemperatures, ...patch.taskTemperatures },
-      taskMaxTokens: { ...cur.taskMaxTokens, ...patch.taskMaxTokens },
-      taskReasoningEfforts: { ...cur.taskReasoningEfforts, ...patch.taskReasoningEfforts },
-      varietyOverrides: { ...cur.varietyOverrides, ...patch.varietyOverrides },
-    };
-    const next: Settings = { ...merged, backendOrder: normaliseBackendOrder(merged.backendOrder) };
-    const disabled = new Set<string>(merged.disabledBackends);
-    // Only a patch that touches the chain can be refused for it; a theme toggle must still save on a row an old import left all-disabled.
-    const touchesChain = 'backendOrder' in patch || 'disabledBackends' in patch;
-    if (touchesChain && next.backendOrder.every((id) => disabled.has(id))) {
-      throw new Error('At least one backend must stay enabled');
-    }
+    const next = mergeSettingsPatch(await getSettings(), patch);
     await writeLocal(STORAGE_KEYS.settings, next);
     return next;
   });

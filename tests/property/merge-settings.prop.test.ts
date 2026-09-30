@@ -3,21 +3,7 @@ import * as fc from 'fast-check';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import type { Settings } from '@/shared/types';
 import { asBackendIdUnsafe } from '@/shared/brands';
-
-// Mirrors the in-memory merge `updateSettings` performs, so properties run without a storage mock per case.
-function merge(cur: Settings, patch: Partial<Settings>): Settings {
-  return {
-    ...cur,
-    ...patch,
-    model: { ...cur.model, ...patch.model },
-    advanced: { ...cur.advanced, ...patch.advanced },
-    sitePrefs: { ...cur.sitePrefs, ...patch.sitePrefs },
-    taskBackends: { ...cur.taskBackends, ...patch.taskBackends },
-    taskTemperatures: { ...cur.taskTemperatures, ...patch.taskTemperatures },
-    taskMaxTokens: { ...cur.taskMaxTokens, ...patch.taskMaxTokens },
-    varietyOverrides: { ...cur.varietyOverrides, ...patch.varietyOverrides },
-  };
-}
+import { mergeSettingsPatch } from '@/shared/storage';
 
 const arbScalarPatch = fc
   .record({
@@ -43,8 +29,8 @@ describe('updateSettings merge semantics', () => {
     fc.assert(
       fc.property(arbScalarPatch, arbScalarPatch, (patchB, patchC) => {
         const base = DEFAULT_SETTINGS;
-        const bc = merge(merge(base, patchB), patchC);
-        const cb = merge(merge(base, patchC), patchB);
+        const bc = mergeSettingsPatch(mergeSettingsPatch(base, patchB), patchC);
+        const cb = mergeSettingsPatch(mergeSettingsPatch(base, patchC), patchB);
 
         if (patchC.cacheEnabled !== undefined) {
           expect(bc.cacheEnabled).toBe(patchC.cacheEnabled);
@@ -79,7 +65,7 @@ describe('updateSettings merge semantics', () => {
       fc.property(fc.boolean(), fc.boolean(), (curValue, patchValue) => {
         const cur = { ...DEFAULT_SETTINGS, cacheEnabled: curValue };
         const patch: Partial<Settings> = { cacheEnabled: patchValue };
-        const result = merge(cur, patch);
+        const result = mergeSettingsPatch(cur, patch);
         expect(result.cacheEnabled).toBe(patchValue);
       }),
     );
@@ -99,7 +85,7 @@ describe('updateSettings merge semantics', () => {
 
           // Case 1: an empty map patch spreads to nothing, so cur's keys survive.
           const patchEmpty: Partial<Settings> = { sitePrefs: {}, taskBackends: {} };
-          const afterEmpty = merge(cur, patchEmpty);
+          const afterEmpty = mergeSettingsPatch(cur, patchEmpty);
           expect(afterEmpty.sitePrefs[siteKey]).toEqual({ disabled: true });
           expect(afterEmpty.taskBackends[task as 'translate']).toBe(asBackendIdUnsafe('anthropic'));
 
@@ -108,7 +94,7 @@ describe('updateSettings merge semantics', () => {
           const patchOther: Partial<Settings> = {
             sitePrefs: { [otherKey]: { disabled: false } },
           };
-          const afterOther = merge(cur, patchOther);
+          const afterOther = mergeSettingsPatch(cur, patchOther);
           expect(afterOther.sitePrefs[siteKey]).toEqual({ disabled: true });
           expect(afterOther.sitePrefs[otherKey]).toEqual({ disabled: false });
 
@@ -116,7 +102,7 @@ describe('updateSettings merge semantics', () => {
           const patchOverride: Partial<Settings> = {
             sitePrefs: { [siteKey]: { disabled: false } },
           };
-          const afterOverride = merge(cur, patchOverride);
+          const afterOverride = mergeSettingsPatch(cur, patchOverride);
           expect(afterOverride.sitePrefs[siteKey]).toEqual({ disabled: false });
         },
       ),
@@ -132,7 +118,7 @@ describe('updateSettings merge semantics', () => {
         };
         // `model` is absent from the patch, so the spread falls back to `cur.model`.
         const patch: Partial<Settings> = { streaming: false };
-        const result = merge(cur, patch);
+        const result = mergeSettingsPatch(cur, patch);
         expect(result.model.anthropic).toBe(modelStr);
         expect(result.streaming).toBe(false);
       }),
@@ -150,7 +136,7 @@ describe('updateSettings merge semantics', () => {
         const patch: Partial<Settings> = {
           advanced: { ...DEFAULT_SETTINGS.advanced, temperature: 0.5 },
         };
-        const result = merge(cur, patch);
+        const result = mergeSettingsPatch(cur, patch);
         // `patch.advanced` is a full object, so it overwrites `cur.advanced.retryCount` with the default.
         expect(result.advanced.temperature).toBe(0.5);
         expect(result.streaming).toBe(streaming);

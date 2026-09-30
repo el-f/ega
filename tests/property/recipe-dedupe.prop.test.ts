@@ -2,34 +2,7 @@ import { describe, it, expect } from 'vitest';
 import * as fc from 'fast-check';
 import { arbRule, arbRecipe } from './setup';
 import type { Rule } from '@/shared/rules';
-import type { Recipe } from '@/shared/recipes';
-import { uuid } from '@/shared/uuid';
-
-// Copies of the private helpers in src/options/templates-handlers.ts — keep both in sync.
-function recipeRulesToRules(recipe: Recipe): Rule[] {
-  return (recipe.rules ?? []).map((r) => ({
-    id: uuid(),
-    body: r.body,
-    category: r.category,
-    scope:
-      r.scopeSites && r.scopeSites.length > 0
-        ? { tasks: [recipe.task], sites: [...r.scopeSites] }
-        : { tasks: [recipe.task] },
-    source: 'recipe' as const,
-    recipeId: recipe.id,
-    addedAt: new Date().toISOString(),
-    enabled: true,
-  }));
-}
-
-function filterDupeRecipeRules(candidates: Rule[], priorRules: readonly Rule[]): Rule[] {
-  const existing = new Set(
-    priorRules
-      .filter((r) => r.source === 'recipe' && r.recipeId !== undefined)
-      .map((r) => `${r.recipeId}${r.category}${r.body.trim()}`),
-  );
-  return candidates.filter((c) => !existing.has(`${c.recipeId}${c.category}${c.body.trim()}`));
-}
+import { filterDupeRecipeRules, recipeRulesToRules } from '@/options/templates-handlers';
 
 describe('recipeRulesToRules', () => {
   it('every output rule has source === recipe', () => {
