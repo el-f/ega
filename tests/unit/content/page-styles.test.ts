@@ -6,7 +6,7 @@ import { ensurePageStyles, resetPageStyles } from '@/content/page-styles';
 
 // Read from disk: the `?inline` CSS transform does not run under vitest, so the import is empty.
 const pageCss = readFileSync(resolve('src/content/page-styles.css'), 'utf8');
-const shadowCss = readFileSync(resolve('src/content/styles.css'), 'utf8');
+const shadowCss = readFileSync(resolve('src/content/shadow.css'), 'utf8');
 
 /** Each selector matches an element created in the PAGE DOM, which the shadow sheet cannot reach. */
 const PAGE_DOM_SELECTORS = [

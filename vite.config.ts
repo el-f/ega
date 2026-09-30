@@ -4,7 +4,7 @@ import { svelte } from '@sveltejs/vite-plugin-svelte';
 import path from 'node:path';
 import manifest from './manifest.config';
 
-// CRXJS lifts component CSS imported by the content entry into page-level content_scripts.css (and, from 3.0, into web_accessible_resources); the in-page UI reads only styles.css?inline inside its shadow root, so those sheets would just leak !important rules onto every site.
+// CRXJS lifts component CSS imported by the content entry into page-level content_scripts.css (and, from 3.0, into web_accessible_resources); the in-page UI reads only shadow.css?inline inside its shadow root, so those sheets would just leak !important rules onto every site.
 function stripContentScriptCss(): CrxPlugin {
   return {
     name: 'ega-strip-content-script-css',

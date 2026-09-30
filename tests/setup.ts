@@ -3,7 +3,7 @@ import { vi, beforeEach } from 'vitest';
 import { chromeMock, resetChromeMock } from './mocks/chrome';
 import { installFetchMock, clearFetchHandler } from './mocks/fetch';
 
-vi.mock('@/content/styles.css?inline', () => ({ default: '' }));
+vi.mock('@/content/shadow.css?inline', () => ({ default: '' }));
 
 // @ts-expect-error — inject chrome.* into globalThis for modules under test
 globalThis.chrome = chromeMock;

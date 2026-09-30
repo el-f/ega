@@ -1,4 +1,4 @@
-import css from './styles.css?inline';
+import css from './shadow.css?inline';
 
 const HOST_ID = 'ega-shadow-host';
 let host: HTMLDivElement | null = null;

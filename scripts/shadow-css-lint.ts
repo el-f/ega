@@ -2,7 +2,7 @@ import { readFile, readdir, access } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-// A component `<style>` compiles to a page-document asset that never crosses the shadow boundary; src/content/styles.css is the sheet shadowHost.ts injects. Imports are followed transitively, so a shared component mounted into the shadow root is checked too.
+// A component `<style>` compiles to a page-document asset that never crosses the shadow boundary; src/content/shadow.css is the sheet shadowHost.ts injects. Imports are followed transitively, so a shared component mounted into the shadow root is checked too.
 
 const ALLOW_MARKER = 'shadow-css-lint-allow';
 const ALLOW_CLASSES_RE = /shadow-css-lint-allow:\s*([^*\n]+)/g;
@@ -270,7 +270,7 @@ async function main(): Promise<void> {
   const entries: string[] = [];
   await walk(contentDir, entries);
   const files = await collectReachable(entries, root);
-  const shadowSheet = await readSheet(path.join(contentDir, 'styles.css'));
+  const shadowSheet = await readSheet(path.join(contentDir, 'shadow.css'));
   // multi-select.ts injects its own sheet into the same root; page-styles.css goes to document.head instead.
   const rootSheets =
     shadowSheet +
@@ -317,7 +317,7 @@ async function main(): Promise<void> {
       '✗ Shadow-CSS lint: these shadow-reachable components use an ega- class that no sheet reaching the shadow root declares.',
     );
     console.error(
-      '  Add the rule to src/content/styles.css (or src/shared/tokens.css), or add /* shadow-css-lint-allow: <class> — reason */.',
+      '  Add the rule to src/content/shadow.css (or src/shared/tokens.css), or add /* shadow-css-lint-allow: <class> — reason */.',
     );
     for (const { file, classes } of unstyledMarkup.sort((a, b) => a.file.localeCompare(b.file))) {
       console.error(`  ${file}: ${classes.join(', ')}`);
@@ -329,14 +329,14 @@ async function main(): Promise<void> {
       '✗ Shadow-CSS lint: these content components carry a <style> block that never reaches the shadow root.',
     );
     console.error(
-      '  Move the rules into src/content/styles.css, or add /* shadow-css-lint-allow */.',
+      '  Move the rules into src/content/shadow.css, or add /* shadow-css-lint-allow */.',
     );
     for (const f of inContentDir.sort()) console.error(`  ${f}`);
   }
   if (unportedShared.length > 0) {
     failed = true;
     console.error(
-      '✗ Shadow-CSS lint: these shared components are mounted into the shadow root, but some of their classes have no rule in src/content/styles.css.',
+      '✗ Shadow-CSS lint: these shared components are mounted into the shadow root, but some of their classes have no rule in src/content/shadow.css.',
     );
     console.error('  Port the missing rules into that sheet — the component keeps its <style>.');
     for (const { file, classes } of unportedShared.sort((a, b) => a.file.localeCompare(b.file))) {
@@ -346,7 +346,7 @@ async function main(): Promise<void> {
   if (driftedCopies.length > 0) {
     failed = true;
     console.error(
-      '✗ Shadow-CSS lint: the src/content/styles.css copy of these shared components differs from the component <style>.',
+      '✗ Shadow-CSS lint: the src/content/shadow.css copy of these shared components differs from the component <style>.',
     );
     console.error(
       '  Give the copy every declaration the component has, and delete copied rules the component no longer has.',

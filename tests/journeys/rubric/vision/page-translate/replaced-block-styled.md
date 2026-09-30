@@ -22,5 +22,5 @@
 
 ## Cautions
 
-- These wrappers live in the PAGE DOM. Rules added only to `src/content/styles.css` (the shadow-root sheet) never reach them — that is the defect this journey guards.
+- These wrappers live in the PAGE DOM. Rules added only to `src/content/shadow.css` (the shadow-root sheet) never reach them — that is the defect this journey guards.
 - A page may already define its own `#ega-page-styles`; the injector keeps its own reference rather than adopting whatever carries that id.

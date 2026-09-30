@@ -208,7 +208,7 @@ describe('readSheet', () => {
   const root = path.resolve(__dirname, '../../..');
 
   it('inlines @import so tokens.css rules count as reaching the shadow root', async () => {
-    const sheet = await readSheet(path.join(root, 'src/content/styles.css'));
+    const sheet = await readSheet(path.join(root, 'src/content/shadow.css'));
     expect(sheet).not.toMatch(/@import\s+(?:url\(\s*)?['"]/);
     expect(sheetDeclares(sheet, 'ega-sr-only')).toBe(true);
   });

@@ -1,4 +1,4 @@
-/* Translate-areas toolbar. Injected into the shadow root next to styles.css, so the :host tokens apply. */
+/* Translate-areas toolbar. Injected into the shadow root next to shadow.css, so the :host tokens apply. */
 
 .ega-ms-toolbar {
   position: fixed;

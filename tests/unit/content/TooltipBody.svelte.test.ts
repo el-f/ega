@@ -162,8 +162,8 @@ describe('TooltipBody', () => {
       expect(container.querySelector('.body-diff-faded')).not.toBeNull();
     });
 
-    it('styles.css removes del spans in the faded state, so old words leave the text flow', () => {
-      const css = readFileSync('src/content/styles.css', 'utf8');
+    it('shadow.css removes del spans in the faded state, so old words leave the text flow', () => {
+      const css = readFileSync('src/content/shadow.css', 'utf8');
       expect(css).toMatch(/\.body-diff-faded \.diff-del\s*\{[^}]*display:\s*none/);
     });
   });

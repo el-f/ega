@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Carries no <style>: content surfaces only receive styles.css inside their shadow root,
+  // Carries no <style>: content surfaces only receive shadow.css inside their shadow root,
   // so each surface styles .body-diff/.diff-* itself.
   import { diffWords, type DiffOp } from '@/shared/diff-words';
 
