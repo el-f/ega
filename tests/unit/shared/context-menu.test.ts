@@ -8,9 +8,9 @@ import {
   nextMenuItemId,
   resolveMenuAction,
   withImageSurface,
-  decodeCustomMenuId,
   type ContextMenuItem,
 } from '@/shared/context-menu';
+import { decodeCustomMenuId } from '@/shared/context-menu-ids';
 
 describe('DEFAULT_CONTEXT_MENU_ITEMS', () => {
   it('contains the built-in ids', () => {

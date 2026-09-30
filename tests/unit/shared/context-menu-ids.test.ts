@@ -1,10 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import {
-  DEFAULT_CONTEXT_MENU_ITEMS,
-  decodeCustomMenuId,
-  withEncodedMenuIds,
-  type ContextMenuItem,
-} from '@/shared/context-menu';
+import { DEFAULT_CONTEXT_MENU_ITEMS, type ContextMenuItem } from '@/shared/context-menu';
+import { decodeCustomMenuId, withEncodedMenuIds } from '@/shared/context-menu-ids';
 
 describe('decodeCustomMenuId', () => {
   it.each([

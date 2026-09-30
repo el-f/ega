@@ -4,10 +4,10 @@ import { chromeMock, resetChromeMock } from '@tests/mocks/chrome';
 import { installContextMenus } from '@/background/contextMenu';
 import {
   buildMenuTree,
-  decodeCustomMenuId,
   DEFAULT_CONTEXT_MENU_ITEMS,
   type ContextMenuItem,
 } from '@/shared/context-menu';
+import { decodeCustomMenuId } from '@/shared/context-menu-ids';
 
 const SETTINGS_KEY = 'ega.settings';
 

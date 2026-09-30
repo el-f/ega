@@ -1,9 +1,6 @@
 import { getSettings } from '@/shared/storage';
-import {
-  buildMenuTree,
-  DEFAULT_CONTEXT_MENU_ITEMS,
-  withEncodedMenuIds,
-} from '@/shared/context-menu';
+import { buildMenuTree, DEFAULT_CONTEXT_MENU_ITEMS } from '@/shared/context-menu';
+import { withEncodedMenuIds } from '@/shared/context-menu-ids';
 import { debugCatch } from '@/shared/logger';
 import { makeAsyncLock } from '@/shared/utils/async-lock';
 import type { Settings } from '@/shared/types';

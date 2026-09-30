@@ -3,10 +3,10 @@ import type { Mock } from 'vitest';
 import { chromeMock, resetChromeMock } from '@tests/mocks/chrome';
 import {
   DEFAULT_CONTEXT_MENU_ITEMS,
-  withEncodedMenuIds,
   withImageSurface,
   type ContextMenuItem,
 } from '@/shared/context-menu';
+import { withEncodedMenuIds } from '@/shared/context-menu-ids';
 import type { Settings } from '@/shared/types';
 import { flushAsync } from '@tests/_helpers/async';
 
