@@ -19,7 +19,13 @@ const ROOT_FILES = new Set([
 ]);
 
 /** Docs that must match master. Everything else is skipped. */
-const LIVE_DOC_GLOBS = ['README.md', 'docs/*.md', 'docs/conventions/**/*.md'];
+const LIVE_DOC_GLOBS = [
+  'README.md',
+  'docs/*.md',
+  'docs/conventions/**/*.md',
+  'scripts/**/*.md',
+  'tests/e2e/flows/README.md',
+];
 
 export interface Issue {
   line: number;
@@ -70,8 +76,8 @@ export function findCodeRefs(content: string): CodeRef[] {
       const head = span.split('/')[0] ?? '';
       const rootFile = span.replace(/[:#].*$/, '');
       if (!REPO_DIRS.includes(head) && !ROOT_FILES.has(rootFile)) continue;
-      // A glob, a brace set or an `.../` ellipsis names a family or a shape, not one file.
-      if (/[*{}\s]/.test(span) || span.includes('...')) continue;
+      // A glob, a brace set, a `<placeholder>` or an `.../` ellipsis names a family or a shape, not one file.
+      if (/[*{}\s]|<[^<>]+>/.test(span) || span.includes('...')) continue;
       const withLine = /^(.+?):(\d+(?:-\d+)?)$/.exec(span);
       if (withLine) {
         out.push({ line: i + 1, target: withLine[1] ?? '', lineRef: withLine[2] ?? '' });
@@ -187,12 +193,16 @@ function globToRe(glob: string): RegExp {
   return new RegExp(`^${body}$`);
 }
 
-/** Tracked files, so the result matches CI; a checkout with no .git (a ZIP download) falls back to walking the tree. */
+/** Tracked files that still exist, so the result matches CI; a checkout with no .git (a ZIP download) falls back to walking the tree. */
 function repoFiles(root: string): string[] {
   try {
-    return execFileSync('git', ['ls-files', '-z'], { cwd: root, encoding: 'utf8', timeout: 30_000 })
+    return execFileSync('git', ['ls-files', '-z'], {
+      cwd: root,
+      encoding: 'utf8',
+      timeout: 30_000,
+    })
       .split('\0')
-      .filter(Boolean);
+      .filter((f) => f !== '' && fs.existsSync(path.join(root, f)));
   } catch {
     const all: string[] = [];
     listFiles(root, '', all);

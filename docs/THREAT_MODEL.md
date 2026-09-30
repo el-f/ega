@@ -106,7 +106,7 @@ another origin (`src/shared/sessionSelection.ts#getFreshSelection`).
 A second slot, `ega.pendingPopupHandoff`, carries more: the text you sent, the
 model's answer, the explain brief, text read out of an image, and the image
 itself as a data URL (`src/shared/pending-popup-handoff.ts`).
-`docs/PERMISSIONS.md` lists the full session storage set.
+The Storage shape table in `docs/ARCHITECTURE.md` lists the full session storage set.
 
 ---
 

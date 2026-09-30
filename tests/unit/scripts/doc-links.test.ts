@@ -48,6 +48,16 @@ describe('doc-links', () => {
     ).toEqual([]);
   });
 
+  it('ignores a span with a <placeholder> — it names a shape, not a file', () => {
+    expect(
+      kinds('`tests/journeys/rubric/<family>/<surface>/<action>.md` `scripts/<name>.ts#run`'),
+    ).toEqual([]);
+  });
+
+  it('still checks a real path beside a placeholder span', () => {
+    expect(kinds('`scripts/<name>.ts` and `src/gone.ts`')).toEqual(['missing-file']);
+  });
+
   it('ignores a code span that is not a repo path', () => {
     expect(kinds('`chrome.storage.local` and `@/shared/storage` and `a/b`')).toEqual([]);
   });

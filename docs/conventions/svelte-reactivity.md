@@ -173,7 +173,7 @@ Stage each half, seed the missing half from the current shadow state, then commi
 
 ## Testing a `use:` integration
 
-**Unit test, for the handler wiring.** Dispatch real `consider` and `finalize` `CustomEvent`s at the zone element. `dragHandleZone` reads `e.detail.info.source` and `e.detail.info.trigger` in its own listeners, so a dispatch without an `info` object throws a `TypeError`. Build the detail with the helper the committed test uses, `tests/unit/shared/BackendList.svelte.test.ts#dndDetail`:
+**Unit test, for the handler wiring.** Dispatch real `consider` and `finalize` `CustomEvent`s at the zone element. `dragHandleZone` reads `e.detail.info.source` and `e.detail.info.trigger` in its own listeners, so a dispatch without an `info` object throws a `TypeError`. Build the detail with the helper the committed test uses, `tests/unit/options/BackendList.svelte.test.ts#dndDetail`:
 
 ```ts
 function dndDetail(items: { id: string; isDndShadowItem?: boolean }[]) {
