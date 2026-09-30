@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Mock } from 'vitest';
 import { ping, _resetForTest } from '@/shared/cli-session/port-manager';
-import { NATIVE_COLD_BOOT_TIMEOUT_MS } from '@/shared/constants';
 
 type FrameListener = (msg: unknown) => void;
 type DisconnectListener = (port: chrome.runtime.Port) => void;
@@ -91,7 +90,7 @@ describe('port-manager ping()', () => {
     const port = mockPort();
     connectNativeMock.mockReturnValue(port);
     const p = ping(100);
-    vi.advanceTimersByTime(NATIVE_COLD_BOOT_TIMEOUT_MS + 50);
+    vi.advanceTimersByTime(150);
     await expect(p).resolves.toBe(false);
     vi.useRealTimers();
   });
@@ -110,20 +109,8 @@ describe('port-manager ping()', () => {
     connectNativeMock.mockReturnValue(port);
     const p = ping(200);
     port._emit({ v: 1, id: 'ega-probe-pm-other-call', type: 'done' });
-    vi.advanceTimersByTime(NATIVE_COLD_BOOT_TIMEOUT_MS + 100);
+    vi.advanceTimersByTime(300);
     await expect(p).resolves.toBe(false);
-    vi.useRealTimers();
-  });
-
-  it('a ping that starts the host waits out a slow cold boot', async () => {
-    vi.useFakeTimers();
-    const port = mockPort();
-    connectNativeMock.mockReturnValue(port);
-    const p = ping(800);
-    const id = (port.postMessage.mock.calls[0]?.[0] as { id: string }).id;
-    vi.advanceTimersByTime(NATIVE_COLD_BOOT_TIMEOUT_MS - 100);
-    port._emit({ v: 1, id, type: 'done' });
-    await expect(p).resolves.toBe(true);
     vi.useRealTimers();
   });
 

@@ -1,4 +1,4 @@
-import { NATIVE_COLD_BOOT_TIMEOUT_MS, NATIVE_HOST_NAME } from '@/shared/constants';
+import { NATIVE_HOST_NAME } from '@/shared/constants';
 import { uuid } from '@/shared/uuid';
 
 type FrameHandler = (msg: unknown) => void;
@@ -143,12 +143,10 @@ export function warm(
 /** Uses the shared port: a port per isAvailable call would let two clicks spawn two racing hosts. */
 export function ping(timeoutMs: number): Promise<boolean> {
   const probeId = `ega-probe-pm-${uuid()}`;
-  // Until the host has answered once, this ping waits on its boot.
-  const booted = current?.alive === true && current.receivedFrame;
   return request<boolean>(
     { v: 1, kind: 'ping', id: probeId },
     {
-      timeoutMs: booted ? timeoutMs : Math.max(timeoutMs, NATIVE_COLD_BOOT_TIMEOUT_MS),
+      timeoutMs,
       timeoutValue: false,
       onFrame: (m, settle) => {
         const f = m as { id?: string; type?: string } | null;

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { createProbeCache } from '@/background/probe-cache';
+import { createProbeCache, NEGATIVE_PROBE_TTL_MS } from '@/background/probe-cache';
 import type { TranslationBackend, BackendConfig } from '@/shared/backends/base';
 
 /** The probe cache memoizes isAvailable for 30s, so a translate does not probe every backend. */
@@ -127,6 +127,31 @@ describe('createProbeCache', () => {
     const c = cfg({ apiKeys: { openai: 'sk-test' } });
     expect(await cache.probe(b, c)).toBe(false);
     expect(await cache.probe(b, c)).toBe(false);
+    expect(b.isAvailable).toHaveBeenCalledTimes(1);
+  });
+
+  it('a failed native probe is re-run after a few seconds; a passed one stays cached', async () => {
+    const cache = createProbeCache();
+    let up = false;
+    const down = makeBackend('native', async () => up);
+    const ok = makeBackend('openai', async () => true);
+    const c = cfg({ apiKeys: { openai: 'sk-test' } });
+    expect(await cache.probe(down, c)).toBe(false);
+    await cache.probe(ok, c);
+    up = true;
+    vi.advanceTimersByTime(NEGATIVE_PROBE_TTL_MS + 1);
+    expect(await cache.probe(down, c)).toBe(true);
+    await cache.probe(ok, c);
+    expect(down.isAvailable).toHaveBeenCalledTimes(2);
+    expect(ok.isAvailable).toHaveBeenCalledTimes(1);
+  });
+
+  it('a failed Ollama probe stays cached for the full TTL', async () => {
+    const cache = createProbeCache();
+    const b = makeBackend('ollama', async () => false);
+    await cache.probe(b, cfg());
+    vi.advanceTimersByTime(NEGATIVE_PROBE_TTL_MS + 1);
+    await cache.probe(b, cfg());
     expect(b.isAvailable).toHaveBeenCalledTimes(1);
   });
 
