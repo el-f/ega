@@ -236,6 +236,11 @@ export const COVERAGE: readonly Family[] = [
             description: 'Page tile runs full-page translate on active tab',
             flows: ['popup/translate-page.flow.spec.ts'],
           },
+          {
+            id: 'open-settings',
+            description: 'Header gear opens the options page in a tab',
+            flows: ['popup/open-settings.flow.spec.ts'],
+          },
         ],
       },
       {

@@ -7,7 +7,7 @@ import {
   waitForTestHooks,
   type ExtensionHandle,
 } from '../../helpers';
-import { createTimeline, waitForVisibleText } from '../_harness';
+import { assertRequestShape, createTimeline, waitForVisibleText } from '../_harness';
 
 let ext: ExtensionHandle;
 
@@ -18,7 +18,6 @@ test.beforeEach(async () => {
     bubbleMode: 'smart',
     streaming: true,
   });
-  mockAnthropic(ext.context, { translation: 'Welcome, how are you?' });
 });
 
 test.afterEach(async () => {
@@ -26,6 +25,7 @@ test.afterEach(async () => {
 });
 
 test('clicking the smart bubble opens the translation tooltip', async () => {
+  const mock = mockAnthropic(ext.context, { translation: 'Welcome, how are you?' });
   const timeline = createTimeline();
   const page = await ext.context.newPage();
   await page.goto(`${ext.serverUrl}/selection-page.html`);
@@ -68,4 +68,7 @@ test('clicking the smart bubble opens the translation tooltip', async () => {
   const steps = timeline.report();
   const tipStep = steps.find((s) => s.name === 'tooltip-visible');
   expect(tipStep).toBeDefined();
+
+  // Regex form: the target language sits inside generated prompt text, not a fixed field.
+  assertRequestShape(mock, /(target|to)[^a-z]*en/i);
 });

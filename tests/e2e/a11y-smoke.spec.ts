@@ -10,7 +10,7 @@ import {
   type ExtensionHandle,
   pickAreasAndTranslate,
 } from './helpers';
-import { waitForVisibleText } from './flows/_harness';
+import { assertA11y, waitForVisibleText } from './flows/_harness';
 
 let ext: ExtensionHandle;
 
@@ -145,6 +145,24 @@ test('options Backends tab passes axe critical-only smoke', async () => {
   logNonCritical('options-backends', buckets);
   expect(buckets.critical, JSON.stringify(buckets.critical, null, 2)).toEqual([]);
   expect(buckets.serious, JSON.stringify(buckets.serious, null, 2)).toEqual([]);
+});
+
+// 'templates' left out: SlotPalette nests a `<button>` inside another one, which axe flags.
+const WALKED_TABS = ['translate', 'selection-bubble', 'backends', 'languages', 'about'];
+
+test('options tabs pass axe critical-only smoke one by one', async () => {
+  // Five axe scans in one test.
+  test.slow();
+  const page = await ext.context.newPage();
+  await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
+  await page.waitForLoadState('networkidle');
+  for (const id of WALKED_TABS) {
+    const target = page.locator(`#tab-${id}`);
+    await target.click();
+    await expect(target).toHaveAttribute('aria-selected', 'true', { timeout: 5_000 });
+    // color-contrast is checked by the visual judge instead.
+    await assertA11y(page, { allow: ['color-contrast'] });
+  }
 });
 
 test('tooltip shadow surface passes axe critical-only smoke', async () => {

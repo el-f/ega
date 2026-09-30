@@ -42,8 +42,7 @@ function listFlowFiles(repoRoot: string): string[] {
   const out: string[] = [];
   function walk(dir: string): void {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-      // Underscore-prefixed dirs (_examples, _harness) hold harness scaffolding
-      // and demo specs, not coverage targets. Skip them.
+      // Underscore-prefixed entries hold harness scaffolding, not coverage targets.
       if (entry.name.startsWith('_')) continue;
       const full = path.join(dir, entry.name);
       if (entry.isDirectory()) walk(full);

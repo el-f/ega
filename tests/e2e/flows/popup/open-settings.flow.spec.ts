@@ -1,4 +1,4 @@
-/* example: crossSurfaceFlow — popup → options surface handoff */
+/* coverage: translation.popup.open-settings */
 import { test, expect } from '@playwright/test';
 import { launchExtension, seedSettings, type ExtensionHandle } from '../../helpers';
 import { crossSurfaceFlow, createTimeline } from '../_harness';

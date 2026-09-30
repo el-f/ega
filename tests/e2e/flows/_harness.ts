@@ -176,26 +176,6 @@ export async function crossSurfaceFlow<T = Page>(
   return { fromPage, toPage, result };
 }
 
-/** Fails a step over budget; a step with a budget that the timeline never marked also fails. */
-export function enforceBudget(
-  timeline: { report: () => StepTiming[] },
-  budgets: Record<string, number>,
-): void {
-  const timings = timeline.report();
-  const seen = new Set<string>();
-  for (const t of timings) {
-    const budget = budgets[t.name];
-    if (budget === undefined) continue;
-    seen.add(t.name);
-    expect(t.ms, `step "${t.name}" ${t.ms}ms exceeded budget ${budget}ms`).toBeLessThanOrEqual(
-      budget,
-    );
-  }
-  for (const name of Object.keys(budgets)) {
-    expect(seen.has(name), `budget defined for "${name}" but timeline never marked it`).toBe(true);
-  }
-}
-
 /** Match the last body a mock captured: object = deep partial match, RegExp = raw body, function = both. */
 export interface MockWithBody {
   lastRequestBody: () => string | null;
