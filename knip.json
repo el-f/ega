@@ -16,8 +16,7 @@
         "src/options/main.ts!",
         "src/sidepanel/index.ts!",
         "tests/**/*.test.ts",
-        "tests/e2e/**/*.spec.ts",
-        "tests/setup.ts"
+        "tests/e2e/**/*.spec.ts"
       ],
       "project": [
         "src/**/*.ts",
