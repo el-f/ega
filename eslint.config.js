@@ -31,6 +31,10 @@ const STORAGE_MUTATORS = [
   'importBundle',
 ];
 const NO_DIRECT_SETTINGS_WRITE = ['content', 'popup', 'sidepanel'];
+const AREAS = ['shared', ...SURFACES].join('|');
+// The bans above match the `@/` spelling only, so a relative path into another area would slip past them.
+const RELATIVE_AREA_MESSAGE =
+  'Import another src/ area through @/, so the surface and settings-writer bans see it.';
 
 const crossSurfaceBans = ['shared', ...SURFACES].map((layer) => {
   const banned = SURFACES.filter((s) => s !== layer);
@@ -57,7 +61,10 @@ const crossSurfaceBans = ['shared', ...SURFACES].map((layer) => {
         'error',
         {
           paths,
-          patterns: [{ group: banned.flatMap((s) => [`@/${s}/*`, `@/${s}/*/**`]), message }],
+          patterns: [
+            { group: banned.flatMap((s) => [`@/${s}/*`, `@/${s}/*/**`]), message },
+            { regex: `^(?:\\.\\./)+(?:${AREAS})/`, message: RELATIVE_AREA_MESSAGE },
+          ],
         },
       ],
       'no-restricted-syntax': [
@@ -65,6 +72,10 @@ const crossSurfaceBans = ['shared', ...SURFACES].map((layer) => {
         {
           selector: `ImportExpression > Literal[value=/^@\\u002f(?:${banned.join('|')})\\u002f/]`,
           message,
+        },
+        {
+          selector: `ImportExpression > Literal[value=/^(?:\\.\\.\\u002f)+(?:${AREAS})\\u002f/]`,
+          message: RELATIVE_AREA_MESSAGE,
         },
       ],
     },
