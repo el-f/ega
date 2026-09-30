@@ -1,25 +1,17 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { readdirSync, readFileSync } from 'node:fs';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { dirname } from 'node:path';
 
 // SectionCard descriptions stay at or under 90 chars.
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const REPO_ROOT = join(__dirname, '..', '..', '..');
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 
-const FILES: readonly string[] = [
-  'src/options/components/AdvancedTemplatesPane.svelte',
-  'src/options/components/AdvancedDiagnosticsPane.svelte',
-  'src/options/components/AdvancedDataPane.svelte',
-  'src/options/components/SectionReset.svelte',
-  'src/options/components/templates-pane/WorkbenchTaskPanel.svelte',
-  'src/options/tabs/Languages.svelte',
-  'src/options/tabs/About.svelte',
-  'src/options/tabs/Advanced.svelte',
-  'src/options/OptionsTabContent.svelte',
-];
+const FILES: readonly string[] = readdirSync(path.join(REPO_ROOT, 'src'), {
+  recursive: true,
+  withFileTypes: true,
+})
+  .filter((e) => e.isFile() && e.name.endsWith('.svelte'))
+  .map((e) => path.relative(REPO_ROOT, path.join(e.parentPath, e.name)).replace(/\\/g, '/'));
 
 const MAX_LEN = 90;
 const SC_BLOCK = /<SectionCard\b([\s\S]*?)>/g;
@@ -34,7 +26,7 @@ interface Violation {
 function scan(): readonly Violation[] {
   const out: Violation[] = [];
   for (const f of FILES) {
-    const txt = readFileSync(join(REPO_ROOT, f), 'utf8');
+    const txt = readFileSync(path.join(REPO_ROOT, f), 'utf8');
     let m: RegExpExecArray | null;
     SC_BLOCK.lastIndex = 0;
     while ((m = SC_BLOCK.exec(txt)) !== null) {
