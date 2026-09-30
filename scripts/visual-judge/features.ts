@@ -107,7 +107,8 @@ export const FEATURES: Feature[] = [
     shotPrefixes: ['picker-', 'page-translate-', 'image-translate-', 'inline-replace-'],
     codePaths: [
       'src/content/picker.ts',
-      'src/content/batch.ts',
+      'src/content/page-translate-v2',
+      'src/content/batch-progress.ts',
       'src/content/inlineReplace.ts',
       'src/background/imageTranslateDispatch.ts',
     ],

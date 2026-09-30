@@ -1,5 +1,4 @@
 /** Reads each `codePaths` entry into ordered snippets, trimming every file's head-share to fit the byte budget. */
-import { existsSync } from 'node:fs';
 import { readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { MAX_CODE_BYTES_PER_FEATURE } from '../config';
@@ -12,6 +11,7 @@ export interface CodeSnippet {
 
 const TEXT_EXTS = new Set([
   '',
+  '.ts',
   '.tsx',
   '.js',
   '.mjs',
@@ -25,7 +25,6 @@ const TEXT_EXTS = new Set([
 
 async function listFiles(root: string, p: string): Promise<string[]> {
   const abs = path.resolve(root, p);
-  if (!existsSync(abs)) return [];
   const s = await stat(abs);
   if (s.isFile()) return [abs];
   if (!s.isDirectory()) return [];
