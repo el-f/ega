@@ -54,10 +54,6 @@ export const EXCEPTIONS: Readonly<Record<string, Exception>> = {
     metrics: ['branches'],
     reason: 'options component with no unit test yet',
   },
-  'src/options/tabs/Advanced.svelte': {
-    metrics: ['lines', 'statements'],
-    reason: 'no direct unit test for these paths',
-  },
   'src/options/tabs/SelectionBubble.svelte': {
     metrics: ['statements', 'branches'],
     reason: 'no direct unit test for these paths',
