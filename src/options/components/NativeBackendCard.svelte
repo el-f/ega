@@ -1,3 +1,8 @@
+<script lang="ts" module>
+  // Module scope, so the install panel keeps its open state across a tab switch; a reload resets it.
+  let savedNhInstallOpen = false;
+</script>
+
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
   import type { Settings } from '@/shared/types';
@@ -30,7 +35,6 @@
     DEFAULT_NATIVE_CLI,
     isKnownNativeCli,
   } from '@/shared/native-cli-registry';
-  import { getNhInstallOpen, setNhInstallOpen } from '../tabs/_backends-session';
 
   interface Props {
     settings: Settings;
@@ -118,9 +122,9 @@
     }
   }
 
-  let nhInstallOpen = $state<boolean>(untrack(() => getNhInstallOpen() ?? false));
+  let nhInstallOpen = $state(savedNhInstallOpen);
   $effect(() => {
-    setNhInstallOpen(nhInstallOpen);
+    savedNhInstallOpen = nhInstallOpen;
   });
 
   const nhState: 'probing' | 'installed' | 'outdated' | 'missing' = $derived.by(() => {

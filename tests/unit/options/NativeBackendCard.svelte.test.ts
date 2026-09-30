@@ -156,6 +156,30 @@ describe('NativeBackendCard', () => {
     expect(panel.open).toBe(false);
   });
 
+  it('keeps the install panel open across a remount, as on a tab switch', async () => {
+    const ctor = chrome.runtime.connectNative as unknown as Mock;
+    ctor.mockReturnValue(healthyPort());
+    const setOpen = async (panel: HTMLDetailsElement, open: boolean) => {
+      panel.open = open;
+      panel.dispatchEvent(new Event('toggle'));
+      await new Promise((r) => setTimeout(r, 10));
+    };
+
+    const first = render(NativeBackendCard, baseProps());
+    await new Promise((r) => setTimeout(r, 30));
+    await setOpen(first.getByTestId('nh-install-panel') as HTMLDetailsElement, true);
+    first.unmount();
+
+    const second = render(NativeBackendCard, baseProps());
+    await new Promise((r) => setTimeout(r, 30));
+    const panel = second.getByTestId('nh-install-panel') as HTMLDetailsElement;
+    try {
+      expect(panel.open).toBe(true);
+    } finally {
+      await setOpen(panel, false);
+    }
+  });
+
   it('does NOT render a persistent-session toggle', () => {
     const ctor = chrome.runtime.connectNative as unknown as Mock;
     ctor.mockReturnValue(healthyPort());
