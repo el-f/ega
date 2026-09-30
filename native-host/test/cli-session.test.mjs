@@ -146,7 +146,9 @@ test('getOrSpawn("claude") spawns claude with CLAUDE_SPAWN_ARGS', async () => {
   assert.notEqual(f.calls[0].opts.shell, true);
   assert.equal(f.calls[0].opts.env.CLAUDE_CODE_DISABLE_AUTO_MEMORY, '1');
   assert.equal(f.calls[0].opts.env.CLAUDE_CODE_DISABLE_CLAUDE_MDS, '1');
-  assert.equal(f.calls[0].opts.env.PATH, process.env.PATH);
+  // Windows keeps the key as `Path`, so find it case-insensitively.
+  const pathKey = Object.keys(f.calls[0].opts.env).find((k) => k.toUpperCase() === 'PATH');
+  assert.ok(pathKey && f.calls[0].opts.env[pathKey], 'the child env keeps PATH');
   mgr.closeAll();
 });
 

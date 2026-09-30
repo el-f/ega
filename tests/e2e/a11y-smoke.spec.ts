@@ -43,6 +43,8 @@ async function scan(
   minor: AxeViolation[];
 }> {
   const page = await ext.context.newPage();
+  // A mount fade caught mid-way reads as low contrast; measure the settled page.
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto(url);
   await page.waitForLoadState('domcontentloaded');
   // Wait for Svelte to mount and for the settings read that fills the first render.
