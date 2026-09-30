@@ -20,7 +20,7 @@ export default {
     // Cache identity — a wrong key serves one user's text for another's request
     'src/background/cache.ts',
     'src/shared/backend-params.ts',
-    // Stored-settings repair: the clamp that decides whether a bad row degrades or wipes
+    // Stored-settings repair: drops dangling ids, normalizes sitePrefs origin keys, appends new backends to backendOrder, keeps or drops bad custom-language rows
     'src/shared/storage/sanitise.ts',
     // Conversation persistence — user data with no trash and no server copy
     'src/sidepanel/state/conversation.ts',
