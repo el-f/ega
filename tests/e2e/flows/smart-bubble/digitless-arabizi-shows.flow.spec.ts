@@ -8,8 +8,6 @@ import {
 } from '../../helpers';
 import { createTimeline } from '../_harness';
 
-// smart-bubble-digitless-arabizi.spec.ts checks bubbleCount; this one checks the shadow DOM.
-
 let ext: ExtensionHandle;
 
 test.beforeEach(async () => {

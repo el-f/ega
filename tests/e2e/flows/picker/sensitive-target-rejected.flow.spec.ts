@@ -64,7 +64,7 @@ test('clicking a password field in picker mode is a safe no-op', async () => {
       return active && mock.calls() === 0;
     },
     true,
-    { windowMs: 500, message: 'picker must stay active and fire no translate' },
+    { windowMs: 1_500, message: 'picker must stay active and fire no translate' },
   );
 
   // Cleanup so afterEach doesn't deadlock on a stuck overlay.
