@@ -49,6 +49,9 @@ describe('eslint.config.js relative imports', () => {
       "  import { a } from '@tests/_helpers/page-translate';",
       "  import { b } from './perf-timings.test-utils';",
       "  import { c } from '../../tests/mocks/chrome';",
+      "  void import('@tests/_helpers/page-translate');",
+      "  void import('./perf-timings.test-utils');",
+      "  void import('../../tests/mocks/chrome');",
       '  void a;',
       '  void b;',
       '  void c;',
@@ -62,6 +65,9 @@ describe('eslint.config.js relative imports', () => {
       [2, expect.stringContaining('must not import test code')],
       [3, expect.stringContaining('must not import test code')],
       [4, expect.stringContaining('must not import test code')],
+      [5, expect.stringContaining('must not import test code')],
+      [6, expect.stringContaining('must not import test code')],
+      [7, expect.stringContaining('must not import test code')],
     ]);
   }, 60_000);
 });

@@ -35,6 +35,8 @@ const AREAS = ['shared', ...SURFACES].join('|');
 // The bans above match the `@/` spelling only, so a relative path into another area would slip past them.
 const RELATIVE_AREA_MESSAGE =
   'Import another src/ area through @/, so the surface and settings-writer bans see it.';
+const TEST_CODE = '^@tests/|(?:^|/)tests/|\\.test-utils$';
+const TEST_CODE_MESSAGE = 'src/ must not import test code.';
 
 const crossSurfaceBans = ['shared', ...SURFACES].map((layer) => {
   const banned = SURFACES.filter((s) => s !== layer);
@@ -64,10 +66,7 @@ const crossSurfaceBans = ['shared', ...SURFACES].map((layer) => {
           patterns: [
             { group: banned.flatMap((s) => [`@/${s}/*`, `@/${s}/*/**`]), message },
             { regex: `^(?:\\.\\./)+(?:${AREAS})/`, message: RELATIVE_AREA_MESSAGE },
-            {
-              regex: '^@tests/|(?:^|/)tests/|\\.test-utils$',
-              message: 'src/ must not import test code.',
-            },
+            { regex: TEST_CODE, message: TEST_CODE_MESSAGE },
           ],
         },
       ],
@@ -80,6 +79,10 @@ const crossSurfaceBans = ['shared', ...SURFACES].map((layer) => {
         {
           selector: `ImportExpression > Literal[value=/^(?:\\.\\.\\u002f)+(?:${AREAS})\\u002f/]`,
           message: RELATIVE_AREA_MESSAGE,
+        },
+        {
+          selector: `ImportExpression > Literal[value=/${TEST_CODE.replaceAll('/', '\\u002f')}/]`,
+          message: TEST_CODE_MESSAGE,
         },
       ],
     },
