@@ -154,9 +154,7 @@ export async function visual(args: ReadonlyArray<string>): Promise<void> {
   let worst = 0;
 
   for (const { manifest, dir } of manifests) {
-    const rubric = await composeRubric(manifest.coverage).catch(
-      () => '(no rubric found for this coverage id)',
-    );
+    const rubric = await composeRubric(manifest.coverage);
     const frames = await loadFrames(manifest, dir);
     const user = buildVisualContent(manifest.coverage, rubric, frames);
     let verdict: JudgeVerdict;

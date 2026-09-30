@@ -74,9 +74,9 @@ test('journey: options.context-menu.manage', async () => {
   ]);
 });
 
-test('journey: sidepanel.empty.compose', async () => {
+test('journey: translation.sidepanel.input-send', async () => {
   const page = await ext.context.newPage();
-  await captureJourney(page, 'sidepanel.empty.compose', [
+  await captureJourney(page, 'translation.sidepanel.input-send', [
     {
       label: 'Open the side panel (empty state)',
       run: async (p) => {

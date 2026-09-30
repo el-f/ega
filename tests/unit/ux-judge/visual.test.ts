@@ -11,6 +11,7 @@ import {
   type LoadedFrame,
   type JourneyManifest,
 } from '../../../scripts/ux-judge/cli/visual';
+import { composeRubric } from '../../../scripts/ux-judge/loader/rubric';
 
 // 1x1 transparent PNG — the smallest valid frame for the round-trip test.
 const PNG_1x1_B64 =
@@ -34,7 +35,7 @@ describe('ux-judge visual — pure logic', () => {
 
   it('buildVisualContent interleaves one image block per step + rubric + closing instruction', () => {
     const frames = [frame('open'), frame('type'), frame('send')];
-    const blocks = buildVisualContent('sidepanel.empty.compose', 'RUBRIC BODY', frames);
+    const blocks = buildVisualContent('translation.sidepanel.input-send', 'RUBRIC BODY', frames);
 
     const images = blocks.filter((b) => b.type === 'image');
     expect(images).toHaveLength(3);
@@ -47,7 +48,7 @@ describe('ux-judge visual — pure logic', () => {
     const first = blocks[0];
     expect(first?.type).toBe('text');
     if (first?.type === 'text') {
-      expect(first.text).toContain('sidepanel.empty.compose');
+      expect(first.text).toContain('translation.sidepanel.input-send');
       expect(first.text).toContain('RUBRIC BODY');
     }
 
@@ -83,12 +84,12 @@ describe('ux-judge visual — pure logic', () => {
 
   it('discoverManifests + loadFrames round-trip a captured journey from disk', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'ega-vjj-'));
-    const dir = path.join(root, 'sidepanel--empty--compose');
+    const dir = path.join(root, 'translation--sidepanel--input-send');
     await fs.mkdir(dir, { recursive: true });
     await fs.writeFile(path.join(dir, '00.png'), Buffer.from(PNG_1x1_B64, 'base64'));
     await fs.writeFile(path.join(dir, '01.png'), Buffer.from(PNG_1x1_B64, 'base64'));
     const manifest: JourneyManifest = {
-      coverage: 'sidepanel.empty.compose',
+      coverage: 'translation.sidepanel.input-send',
       steps: [
         { idx: 1, label: 'type', frame: '01.png' },
         { idx: 0, label: 'open', frame: '00.png' },
@@ -98,7 +99,7 @@ describe('ux-judge visual — pure logic', () => {
 
     const found = await discoverManifests(root);
     expect(found).toHaveLength(1);
-    expect(found[0]?.manifest.coverage).toBe('sidepanel.empty.compose');
+    expect(found[0]?.manifest.coverage).toBe('translation.sidepanel.input-send');
 
     // loadFrames sorts by idx, so 'open' (0) comes before 'type' (1).
     const frames = await loadFrames(manifest, dir);
@@ -110,7 +111,7 @@ describe('ux-judge visual — pure logic', () => {
 
   it('discoverManifests filters by coverage glob', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'ega-vjj-'));
-    for (const cov of ['sidepanel.empty.compose', 'options.context-menu.manage']) {
+    for (const cov of ['translation.sidepanel.input-send', 'options.context-menu.manage']) {
       const dir = path.join(root, cov.replace(/\./g, '--'));
       await fs.mkdir(dir, { recursive: true });
       await fs.writeFile(
@@ -118,9 +119,20 @@ describe('ux-judge visual — pure logic', () => {
         JSON.stringify({ coverage: cov, steps: [] }),
       );
     }
-    const sidepanelOnly = await discoverManifests(root, 'sidepanel.*');
-    expect(sidepanelOnly.map((m) => m.manifest.coverage)).toEqual(['sidepanel.empty.compose']);
+    const translationOnly = await discoverManifests(root, 'translation.*');
+    expect(translationOnly.map((m) => m.manifest.coverage)).toEqual([
+      'translation.sidepanel.input-send',
+    ]);
 
     await fs.rm(root, { recursive: true, force: true });
+  });
+});
+
+describe('visual-journeys capture spec', () => {
+  it('captures only coverage ids that have a rubric', async () => {
+    const spec = await fs.readFile('tests/e2e/visual-journeys.spec.ts', 'utf-8');
+    const ids = [...spec.matchAll(/captureJourney\(page, '([^']+)'/g)].map((m) => m[1] ?? '');
+    expect(ids.length).toBeGreaterThan(0);
+    for (const id of ids) await expect(composeRubric(id), id).resolves.toContain('---');
   });
 });
