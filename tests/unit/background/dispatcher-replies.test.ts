@@ -114,6 +114,20 @@ describe('background dispatcher replies', () => {
     expect(reply).toEqual({ ok: false, reason: 'schema' });
   });
 
+  it.each([
+    ['QUOTA_BYTES quota exceeded', 'quota'],
+    ['disk full', 'unknown'],
+  ])('settings:update reports a failed write (%s) as %s', async (error, reason) => {
+    const set = vi.spyOn(chromeMock.storage.local, 'set').mockRejectedValueOnce(new Error(error));
+    try {
+      const reply = await ask({ kind: 'settings:update', patch: { theme: 'dark' } });
+      expect(reply).toEqual({ ok: false, reason });
+      expect(set).toHaveBeenCalledTimes(1);
+    } finally {
+      set.mockRestore();
+    }
+  });
+
   it('translate:start fills the default target language and hands the batch flag through', async () => {
     const reply = await ask(
       {
