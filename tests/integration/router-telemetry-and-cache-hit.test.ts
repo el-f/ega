@@ -15,7 +15,7 @@ import { readAuditLog } from '@/shared/audit-log';
 import { getPerfEntries, clearPerfBuffer } from '@/shared/perf-history';
 import type * as PerfHistoryModule from '@/shared/perf-history';
 import type * as LoggerModule from '@/shared/logger';
-import { baseDeps } from '@tests/_helpers/router';
+import { baseDeps, mkSettings as mkRouterSettings } from '@tests/_helpers/router';
 
 // Timing assertions pin an exact ms so an operator swap shows up.
 
@@ -61,14 +61,7 @@ function mkBackend(opts: {
 }
 
 function mkSettings(patch: Partial<Settings> = {}): Settings {
-  return {
-    ...DEFAULT_SETTINGS,
-    anthropicApiKey: 'k',
-    openaiApiKey: 'k',
-    geminiApiKey: 'k',
-    disabledBackends: [],
-    ...patch,
-  };
+  return mkRouterSettings({ openaiApiKey: 'k', geminiApiKey: 'k', ...patch });
 }
 
 const REQ: TranslationRequest = {

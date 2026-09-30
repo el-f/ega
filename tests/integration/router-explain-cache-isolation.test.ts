@@ -8,6 +8,7 @@ import type { TranslationChunk } from '@/shared/types';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import { asBackendIdUnsafe } from '@/shared/brands';
 import { testManifest } from '@tests/_helpers/backend';
+import { baseDeps as routerDeps } from '@tests/_helpers/router';
 
 const bid = (s: string) => asBackendIdUnsafe(s);
 
@@ -31,7 +32,7 @@ function explainAwareBackend(calls: string[]): TranslationBackend {
 }
 
 function mkDeps(cache: TranslationCache, backend: TranslationBackend): RouterDeps {
-  return {
+  return routerDeps({
     backends: [backend],
     getSettings: async () => ({
       ...DEFAULT_SETTINGS,
@@ -39,8 +40,7 @@ function mkDeps(cache: TranslationCache, backend: TranslationBackend): RouterDep
       anthropicApiKey: 'k',
     }),
     cache,
-    logger: { debug() {}, info() {}, warn() {}, error() {} },
-  };
+  });
 }
 
 const TEXT = 'kapara aleha';

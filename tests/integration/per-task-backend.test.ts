@@ -3,10 +3,9 @@ import { sel } from '@tests/_helpers/lang';
 import { createRouter } from '@/background/router';
 import type { TranslationBackend, TranslateCallArgs } from '@/shared/backends/base';
 import type { Settings } from '@/shared/types';
-import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import { asBackendIdUnsafe } from '@/shared/brands';
 import { testManifest } from '@tests/_helpers/backend';
-import { baseDeps } from '@tests/_helpers/router';
+import { baseDeps, mkSettings as mkRouterSettings } from '@tests/_helpers/router';
 
 const bid = (s: string) => asBackendIdUnsafe(s);
 
@@ -30,14 +29,7 @@ function mkBackend(id: string): { backend: TranslationBackend; called: { count: 
 }
 
 function mkSettings(patch: Partial<Settings> = {}): Settings {
-  return {
-    ...DEFAULT_SETTINGS,
-    anthropicApiKey: 'k',
-    openaiApiKey: 'k',
-    geminiApiKey: 'k',
-    disabledBackends: [],
-    ...patch,
-  };
+  return mkRouterSettings({ openaiApiKey: 'k', geminiApiKey: 'k', ...patch });
 }
 
 describe('per-task-backend', () => {

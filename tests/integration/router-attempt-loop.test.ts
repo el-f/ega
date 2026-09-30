@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { sel } from '@tests/_helpers/lang';
-import { createRouter, type RouterDeps } from '@/background/router';
+import { createRouter } from '@/background/router';
 import { TRANSLATE_TIMED_OUT } from '@/background/router-chunks';
 import type { TranslateCallArgs, TranslationBackend } from '@/shared/backends/base';
 import type { TranslationChunk } from '@/shared/types';
@@ -8,7 +8,7 @@ import type { ChatTurn } from '@/shared/chat-history';
 import type * as AuditLog from '@/shared/audit-log';
 import { asBackendIdUnsafe } from '@/shared/brands';
 import { testManifest } from '@tests/_helpers/backend';
-import { mkSettings } from '@tests/_helpers/router';
+import { baseDeps, mkSettings } from '@tests/_helpers/router';
 
 const { auditSpy } = vi.hoisted(() => ({
   auditSpy: vi.fn<(entry: unknown) => Promise<void>>(async () => {}),
@@ -48,18 +48,6 @@ function mkBackend(opts: {
         onChunk({ type: 'delta', requestId: req.id, text: '{"translation":"hola"}' });
         onChunk({ type: 'done', requestId: req.id, confidence: 1 });
       }),
-  };
-}
-
-function baseDeps(overrides: Partial<RouterDeps> = {}): RouterDeps {
-  return {
-    backends: overrides.backends ?? [],
-    getSettings: overrides.getSettings ?? (async () => mkSettings()),
-    cache: overrides.cache ?? { get: async () => undefined, set: async () => {} },
-    logger: overrides.logger ?? { debug() {}, info() {}, warn() {}, error() {} },
-    ...(overrides.translateTimeoutMs !== undefined
-      ? { translateTimeoutMs: overrides.translateTimeoutMs }
-      : {}),
   };
 }
 

@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { sel } from '@tests/_helpers/lang';
-import { createRouter, type RouterDeps } from '@/background/router';
+import { createRouter } from '@/background/router';
 import type { TranslateCallArgs, TranslationBackend } from '@/shared/backends/base';
 import type { TranslationChunk } from '@/shared/types';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import { asBackendIdUnsafe } from '@/shared/brands';
 import { testManifest } from '@tests/_helpers/backend';
+import { baseDeps } from '@tests/_helpers/router';
 
 const bid = (s: string) => asBackendIdUnsafe(s);
 
@@ -30,31 +31,6 @@ function mkBackend(opts: {
   };
   if (opts.translateImage) backend.translateImage = opts.translateImage;
   return backend;
-}
-
-function baseDeps(overrides: Partial<RouterDeps> = {}): RouterDeps {
-  return {
-    backends: overrides.backends ?? [],
-    getSettings:
-      overrides.getSettings ??
-      (async () => ({
-        ...DEFAULT_SETTINGS,
-        backend: bid('anthropic'),
-        anthropicApiKey: 'k',
-      })),
-    ...(overrides.getCustomLanguages ? { getCustomLanguages: overrides.getCustomLanguages } : {}),
-    cache: overrides.cache ?? {
-      get: async () => undefined,
-      set: async () => {},
-    },
-    logger: overrides.logger ?? { debug() {}, info() {}, warn() {}, error() {} },
-    ...(overrides.translateTimeoutMs !== undefined
-      ? { translateTimeoutMs: overrides.translateTimeoutMs }
-      : {}),
-    ...(overrides.imageTranslateTimeoutMs !== undefined
-      ? { imageTranslateTimeoutMs: overrides.imageTranslateTimeoutMs }
-      : {}),
-  };
 }
 
 const REQ = {

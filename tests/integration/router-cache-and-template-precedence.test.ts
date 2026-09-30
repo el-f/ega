@@ -11,6 +11,7 @@ import type { TranslationChunk, Settings } from '@/shared/types';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import { asBackendIdUnsafe } from '@/shared/brands';
 import { testManifest } from '@tests/_helpers/backend';
+import { baseDeps } from '@tests/_helpers/router';
 
 const bid = (s: string) => asBackendIdUnsafe(s);
 
@@ -46,16 +47,12 @@ function mkSettings(patch: Partial<Settings> = {}): Settings {
 }
 
 function mkDeps(overrides: Partial<RouterDeps> = {}): RouterDeps {
-  return {
-    backends: overrides.backends ?? [captureBackend()],
-    getSettings: overrides.getSettings ?? (async () => mkSettings()),
-    ...(overrides.getCustomLanguages ? { getCustomLanguages: overrides.getCustomLanguages } : {}),
-    cache: overrides.cache ?? {
-      get: vi.fn(async () => undefined),
-      set: vi.fn(async () => {}),
-    },
-    logger: overrides.logger ?? { debug() {}, info() {}, warn() {}, error() {} },
-  };
+  return baseDeps({
+    backends: [captureBackend()],
+    getSettings: async () => mkSettings(),
+    cache: { get: vi.fn(async () => undefined), set: vi.fn(async () => {}) },
+    ...overrides,
+  });
 }
 
 const REQ = {

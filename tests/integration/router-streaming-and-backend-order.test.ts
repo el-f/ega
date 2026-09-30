@@ -6,6 +6,7 @@ import type { Settings, TranslationChunk } from '@/shared/types';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import { asBackendIdUnsafe } from '@/shared/brands';
 import { testManifest } from '@tests/_helpers/backend';
+import { baseDeps as routerDeps } from '@tests/_helpers/router';
 
 /** Seventh router mutation-kill batch: the delta-buffer wrapper (L114-149) and
  *  backend order resolution (L187-218) of src/background/router.ts. */
@@ -61,12 +62,7 @@ function mkSettings(patch: Partial<Settings> = {}): Settings {
 }
 
 function baseDeps(backends: TranslationBackend[], settings: Settings): RouterDeps {
-  return {
-    backends,
-    getSettings: async () => settings,
-    cache: { get: async () => undefined, set: async () => {} },
-    logger: { debug() {}, info() {}, warn() {}, error() {} },
-  };
+  return routerDeps({ backends, getSettings: async () => settings });
 }
 
 const deltaTexts = (cs: TranslationChunk[]): string[] =>

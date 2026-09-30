@@ -1,10 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
-import { createRouter, type RouterDeps } from '@/background/router';
+import { createRouter } from '@/background/router';
 import type { TranslationBackend, TranslateCallArgs } from '@/shared/backends/base';
 import type { Settings, TranslationChunk } from '@/shared/types';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import { asBackendIdUnsafe, asLangIdUnsafe } from '@/shared/brands';
 import { testManifest } from '@tests/_helpers/backend';
+import { baseDeps, mkSettings as mkRouterSettings } from '@tests/_helpers/router';
 
 const bid = (s: string) => asBackendIdUnsafe(s);
 
@@ -22,22 +23,7 @@ function mkBackend(
 }
 
 function mkSettings(patch: Partial<Settings> = {}): Settings {
-  return {
-    ...DEFAULT_SETTINGS,
-    anthropicApiKey: 'k',
-    backendOrder: [bid('a'), bid('b'), bid('c'), bid('d')],
-    disabledBackends: [],
-    ...patch,
-  };
-}
-
-function baseDeps(backends: TranslationBackend[], settings: Settings): RouterDeps {
-  return {
-    backends,
-    getSettings: async () => settings,
-    cache: { get: async () => undefined, set: async () => {} },
-    logger: { debug() {}, info() {}, warn() {}, error() {} },
-  };
+  return mkRouterSettings({ backendOrder: [bid('a'), bid('b'), bid('c'), bid('d')], ...patch });
 }
 
 describe('router probe quota counts results, not candidates', () => {
@@ -61,7 +47,7 @@ describe('router probe quota counts results, not candidates', () => {
     const settings = mkSettings({
       backendOrder: [bid('a'), bid('b'), bid('c'), bid('d'), bid('e')],
     });
-    const router = createRouter(baseDeps(backends, settings));
+    const router = createRouter(baseDeps({ backends, getSettings: async () => settings }));
 
     const chunks: TranslationChunk[] = [];
     await router.handleTranslate(
@@ -97,7 +83,7 @@ describe('router probe quota counts results, not candidates', () => {
     const settings = mkSettings({
       backendOrder: [bid('a'), bid('b'), bid('c'), bid('d'), bid('e')],
     });
-    await createRouter(baseDeps(backends, settings)).handleTranslate(
+    await createRouter(baseDeps({ backends, getSettings: async () => settings })).handleTranslate(
       {
         id: 'r-quota-2',
         text: 'hello',
@@ -135,7 +121,7 @@ describe('router probeLimit = maxAttempts', () => {
     // the probe window must include d so it's available as the 4th attempt.
     const backends = [makeTransient('a'), makeTransient('b'), makeTransient('c'), makeOk('d')];
     const settings = mkSettings({ advanced: { ...DEFAULT_SETTINGS.advanced, retryCount: 3 } });
-    const router = createRouter(baseDeps(backends, settings));
+    const router = createRouter(baseDeps({ backends, getSettings: async () => settings }));
 
     const chunks: TranslationChunk[] = [];
     await router.handleTranslate(
@@ -169,7 +155,7 @@ describe('router probeLimit = maxAttempts', () => {
 
     const backends = [makeOk('a'), makeOk('b'), makeOk('c')];
     const settings = mkSettings({ advanced: { ...DEFAULT_SETTINGS.advanced, retryCount: 0 } });
-    const router = createRouter(baseDeps(backends, settings));
+    const router = createRouter(baseDeps({ backends, getSettings: async () => settings }));
 
     await router.handleTranslate(
       {
@@ -223,7 +209,7 @@ describe('the image chain probes without the text limit', () => {
       backendOrder: ['a', 'b', 'c', 'd', 'e'].map(bid),
       advanced: { ...DEFAULT_SETTINGS.advanced, retryCount: 0 },
     });
-    const router = createRouter(baseDeps(backends, settings));
+    const router = createRouter(baseDeps({ backends, getSettings: async () => settings }));
     vi.stubGlobal(
       'fetch',
       vi.fn(

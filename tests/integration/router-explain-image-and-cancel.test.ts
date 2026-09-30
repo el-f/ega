@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { createRouter, type RouterDeps } from '@/background/router';
+import { createRouter } from '@/background/router';
 import { IMAGE_TIMED_OUT } from '@/background/router-chunks';
 import type {
   TranslateCallArgs,
@@ -11,22 +11,12 @@ import { CANCEL_PRE_REG_CAP } from '@/shared/constants';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import { asBackendIdUnsafe, asLangIdUnsafe } from '@/shared/brands';
 import { testManifest } from '@tests/_helpers/backend';
-import { mkSettings } from '@tests/_helpers/router';
+import { baseDeps, mkSettings } from '@tests/_helpers/router';
 
 const bid = (s: string) => asBackendIdUnsafe(s);
 const IMAGE_URL = 'https://i.redd.it/x.png';
 const UNSUPPORTED_MSG =
   'No backend that reads images is set up. Open Settings → Backends and set up one that supports images.';
-
-function baseDeps(patch: Partial<RouterDeps> = {}): RouterDeps {
-  return {
-    backends: [],
-    getSettings: async () => mkSettings(),
-    cache: { get: async () => undefined, set: async () => {} },
-    logger: { debug() {}, info() {}, warn() {}, error() {} },
-    ...patch,
-  };
-}
 
 /** Vision manifest and the `translateImage` method are decoupled on purpose:
  *  L853's second operand only fires for a canVision backend WITHOUT the method. */

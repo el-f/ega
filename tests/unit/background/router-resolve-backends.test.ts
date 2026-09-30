@@ -5,6 +5,7 @@ import type { BackendCapabilities } from '@/shared/backends/base';
 import type { Settings, TranslationChunk } from '@/shared/types';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import { asBackendIdUnsafe } from '@/shared/brands';
+import { baseDeps as routerDeps } from '@tests/_helpers/router';
 
 const bid = (s: string) => asBackendIdUnsafe(s);
 
@@ -49,12 +50,7 @@ function mkSettings(patch: Partial<Settings> = {}): Settings {
 }
 
 function baseDeps(backends: TranslationBackend[], settings: Settings): RouterDeps {
-  return {
-    backends,
-    getSettings: async () => settings,
-    cache: { get: async () => undefined, set: async () => {} },
-    logger: { debug() {}, info() {}, warn() {}, error() {} },
-  };
+  return routerDeps({ backends, getSettings: async () => settings });
 }
 
 const IMAGE_URL = 'https://example.com/img.png';

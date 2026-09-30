@@ -1,11 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
 import { sel } from '@tests/_helpers/lang';
-import { createRouter, type RouterDeps } from '@/background/router';
+import { createRouter } from '@/background/router';
 import type { TranslateCallArgs, TranslationBackend } from '@/shared/backends/base';
 import type { TranslationChunk } from '@/shared/types';
 import { asBackendIdUnsafe } from '@/shared/brands';
 import { testManifest } from '@tests/_helpers/backend';
-import { mkSettings } from '@tests/_helpers/router';
+import { baseDeps, mkSettings } from '@tests/_helpers/router';
 
 const bid = (s: string) => asBackendIdUnsafe(s);
 
@@ -29,16 +29,6 @@ function captureUser(id = 'anthropic'): {
     },
   };
   return { backend, calls };
-}
-
-function baseDeps(overrides: Partial<RouterDeps> = {}): RouterDeps {
-  return {
-    backends: overrides.backends ?? [],
-    getSettings: overrides.getSettings ?? (async () => mkSettings()),
-    cache: overrides.cache ?? { get: async () => undefined, set: async () => {} },
-    logger: overrides.logger ?? { debug() {}, info() {}, warn() {}, error() {} },
-    ...(overrides.getCustomLanguages ? { getCustomLanguages: overrides.getCustomLanguages } : {}),
-  };
 }
 
 describe('router — custom-languages warning on a fetch failure', () => {

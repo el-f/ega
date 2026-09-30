@@ -10,6 +10,7 @@ import type { LangSelection, TranslationChunk, Settings } from '@/shared/types';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import { asBackendIdUnsafe } from '@/shared/brands';
 import { testManifest } from '@tests/_helpers/backend';
+import { baseDeps as routerDeps } from '@tests/_helpers/router';
 
 const bid = (s: string) => asBackendIdUnsafe(s);
 
@@ -40,15 +41,7 @@ function mkSettings(patch: Partial<Settings> = {}): Settings {
 }
 
 function baseDeps(overrides: Partial<RouterDeps> = {}): RouterDeps {
-  return {
-    backends: overrides.backends ?? [],
-    getSettings: overrides.getSettings ?? (async () => mkSettings()),
-    cache: overrides.cache ?? {
-      get: async () => undefined,
-      set: async () => {},
-    },
-    logger: overrides.logger ?? { debug() {}, info() {}, warn() {}, error() {} },
-  };
+  return routerDeps({ getSettings: async () => mkSettings(), ...overrides });
 }
 
 describe('router — image Content-Type regex', () => {

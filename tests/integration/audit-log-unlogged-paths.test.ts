@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { createRouter, type RouterDeps } from '@/background/router';
+import { createRouter } from '@/background/router';
 import { buildBackendConfig as settingsToConfig } from '@/shared/backends/build-config';
 import type { TranslationBackend } from '@/shared/backends/base';
-import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
+import type { Settings } from '@/shared/types';
 import {
   readAuditLog,
   clearAuditLog,
@@ -14,6 +14,7 @@ import { asBackendIdUnsafe } from '@/shared/brands';
 import { testManifest } from '@tests/_helpers/backend';
 import type * as RegistryModule from '@/shared/backends/registry';
 import { flushAudit } from '@tests/_helpers/async';
+import { baseDeps, mkSettings } from '@tests/_helpers/router';
 
 const bid = (s: string) => asBackendIdUnsafe(s);
 
@@ -89,23 +90,10 @@ function visionBackend(
   };
 }
 
-function settings(): typeof DEFAULT_SETTINGS {
-  return {
-    ...DEFAULT_SETTINGS,
-    backendOrder: [bid('anthropic')],
-    disabledBackends: [],
-    anthropicApiKey: 'k',
-  };
-}
+const settings = (): Settings => mkSettings({ backendOrder: [bid('anthropic')] });
 
 function routerWith(backend: TranslationBackend): ReturnType<typeof createRouter> {
-  const deps: RouterDeps = {
-    backends: [backend],
-    getSettings: async () => settings(),
-    cache: { get: async () => undefined, set: async () => {} },
-    logger: { debug() {}, info() {}, warn() {}, error() {} },
-  };
-  return createRouter(deps);
+  return createRouter(baseDeps({ backends: [backend], getSettings: async () => settings() }));
 }
 
 describe('audit log covers the image paths', () => {

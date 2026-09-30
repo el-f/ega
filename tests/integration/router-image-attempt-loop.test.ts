@@ -6,6 +6,7 @@ import type { Settings, TranslationChunk } from '@/shared/types';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import { asBackendIdUnsafe } from '@/shared/brands';
 import { testManifest } from '@tests/_helpers/backend';
+import { baseDeps as routerDeps, mkSettings as mkRouterSettings } from '@tests/_helpers/router';
 
 const bid = (s: string) => asBackendIdUnsafe(s);
 
@@ -62,23 +63,11 @@ function mkTextOnly(id: string): TranslationBackend {
 }
 
 function mkSettings(patch: Partial<Settings> = {}): Settings {
-  return {
-    ...DEFAULT_SETTINGS,
-    anthropicApiKey: 'k',
-    openaiApiKey: 'k',
-    disabledBackends: [],
-    ...patch,
-  };
+  return mkRouterSettings({ openaiApiKey: 'k', ...patch });
 }
 
 function baseDeps(patch: Partial<RouterDeps> = {}): RouterDeps {
-  return {
-    backends: [],
-    getSettings: async () => mkSettings(),
-    cache: { get: async () => undefined, set: async () => {} },
-    logger: { debug() {}, info() {}, warn() {}, error() {} },
-    ...patch,
-  };
+  return routerDeps({ getSettings: async () => mkSettings(), ...patch });
 }
 
 function errorsOf(chunks: TranslationChunk[]): ErrorChunk[] {

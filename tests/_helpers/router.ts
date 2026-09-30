@@ -12,12 +12,13 @@ export function mkSettings(patch: Partial<Settings> = {}): Settings {
   };
 }
 
-/** Router deps with no backends, `mkSettings()`, a no-op cache and a silent logger. */
+/** Router deps with no backends, `mkSettings()`, a no-op cache and a silent logger; any other field passes through. */
 export function baseDeps(overrides: Partial<RouterDeps> = {}): RouterDeps {
   return {
-    backends: overrides.backends ?? [],
-    getSettings: overrides.getSettings ?? (async () => mkSettings()),
-    cache: overrides.cache ?? { get: async () => undefined, set: async () => {} },
-    logger: overrides.logger ?? { debug() {}, info() {}, warn() {}, error() {} },
+    backends: [],
+    getSettings: async () => mkSettings(),
+    cache: { get: async () => undefined, set: async () => {} },
+    logger: { debug() {}, info() {}, warn() {}, error() {} },
+    ...overrides,
   };
 }

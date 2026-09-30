@@ -10,6 +10,7 @@ import { clearPerfBuffer, getPerfEntries } from '@/shared/perf-history';
 import { resetChromeMock } from '../mocks/chrome';
 import { testManifest } from '@tests/_helpers/backend';
 import { flushAudit } from '@tests/_helpers/async';
+import { baseDeps, mkSettings } from '@tests/_helpers/router';
 
 const bid = (s: string) => asBackendIdUnsafe(s);
 const IMAGE_URL = 'https://example.com/pic.png';
@@ -32,24 +33,15 @@ const answer: ImageImpl = async (a) => {
 };
 
 function settings(patch: Partial<Settings> = {}): Settings {
-  return {
-    ...DEFAULT_SETTINGS,
-    anthropicApiKey: 'k',
+  return mkSettings({
     openaiApiKey: 'k',
     backendOrder: [bid('anthropic'), bid('openai')],
-    disabledBackends: [],
     ...patch,
-  };
+  });
 }
 
 function deps(backends: TranslationBackend[], patch: Partial<RouterDeps> = {}): RouterDeps {
-  return {
-    backends,
-    getSettings: async () => settings(),
-    cache: { get: async () => undefined, set: async () => {} },
-    logger: { debug() {}, info() {}, warn() {}, error() {} },
-    ...patch,
-  };
+  return baseDeps({ backends, getSettings: async () => settings(), ...patch });
 }
 
 function imageReq(over: Partial<TranslationRequest> = {}): TranslationRequest {

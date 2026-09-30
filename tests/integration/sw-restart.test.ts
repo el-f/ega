@@ -6,13 +6,14 @@ import type { TranslationChunk } from '@/shared/types';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import { asBackendIdUnsafe } from '@/shared/brands';
 import { testManifest } from '@tests/_helpers/backend';
+import { baseDeps as routerDeps } from '@tests/_helpers/router';
 
 const bid = (s: string) => asBackendIdUnsafe(s);
 
 // An evicted MV3 worker looks like a backend that stops emitting: no `done`, no `error`, so only the wall-clock timeout ends the request.
 
 function baseDeps(backend: TranslationBackend, translateTimeoutMs: number): RouterDeps {
-  return {
+  return routerDeps({
     backends: [backend],
     getSettings: async () => ({
       ...DEFAULT_SETTINGS,
@@ -20,10 +21,8 @@ function baseDeps(backend: TranslationBackend, translateTimeoutMs: number): Rout
       anthropicApiKey: 'k',
       backendFallbackChain: [],
     }),
-    cache: { get: async () => undefined, set: async () => {} },
-    logger: { debug() {}, info() {}, warn() {}, error() {} },
     translateTimeoutMs,
-  };
+  });
 }
 
 describe('router MV3 service-worker eviction resilience', () => {

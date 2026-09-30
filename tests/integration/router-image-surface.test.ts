@@ -7,6 +7,7 @@ import type { Settings, TranslationChunk } from '@/shared/types';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import { asBackendIdUnsafe } from '@/shared/brands';
 import { testManifest } from '@tests/_helpers/backend';
+import { baseDeps as routerDeps } from '@tests/_helpers/router';
 
 const bid = (s: string) => asBackendIdUnsafe(s);
 
@@ -53,13 +54,11 @@ function mkSettings(patch: Partial<Settings> = {}): Settings {
 }
 
 function baseDeps(patch: Partial<RouterDeps> = {}): RouterDeps {
-  return {
+  return routerDeps({
     backends: [mkImageBackend()],
     getSettings: async () => mkSettings(),
-    cache: { get: async () => undefined, set: async () => {} },
-    logger: { debug() {}, info() {}, warn() {}, error() {} },
     ...patch,
-  };
+  });
 }
 
 const IMAGE_URL = 'https://example.com/img.png';
