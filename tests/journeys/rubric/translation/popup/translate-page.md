@@ -8,7 +8,7 @@
 ## State expectations
 
 - Step 1: popup is mounted with the page tile enabled.
-- Step 2 (click tile): `page:translateAll` is dispatched to the active tab; popup closes; the content script enumerates paragraphs and starts batched translates.
+- Step 2 (click tile): `page:translateAll` is dispatched to the active tab; popup closes; the content script opens translate-areas mode so the user can pick blocks.
 - Step 3: sidepanel may surface a notification of the batch progress (optional).
 
 ## Visible affordances
@@ -17,7 +17,7 @@
 
 ## Failure-mode expectations
 
-- Page has no eligible paragraphs -> a toast surfaces on the page ("Nothing to translate on this page").
+- Every picked block is empty or too long -> a toast surfaces on the page ("Nothing to translate in the selected areas.").
 - Backend failure on the batch -> per-paragraph errors are surfaced inline (paragraph stays in source language); the page is not torn down.
 
 ## Cautions
