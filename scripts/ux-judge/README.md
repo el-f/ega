@@ -17,14 +17,14 @@ pnpm install
 
 The judge uses the `@anthropic-ai/sdk` already present in the repo. No
 additional setup beyond exporting `ANTHROPIC_API_KEY` in any shell that
-actually wants to grade. Without the key, `audit` and `baseline` exit 1 with an
-error; only `diff` skips.
+actually wants to grade. Without the key, `audit`, `baseline` and `visual` exit 1
+with an error; only `diff` skips.
 
 ## Env vars
 
 | Var                       | Effect                                                                                                          |
 | ------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `ANTHROPIC_API_KEY`       | Required to call the judge. Missing → `audit` and `baseline` exit 1; `diff` skips with a log line.              |
+| `ANTHROPIC_API_KEY`       | Required to call the judge. Missing → `audit`, `baseline` and `visual` exit 1; `diff` skips with a log line.    |
 | `EGA_UX_RECORD=1`         | Set when running flow specs to emit journey sidecars under `tests/journeys/runs/`. Off by default.              |
 | `EGA_UX_JUDGE_BUDGET_USD` | Per-mode cost ceiling (defaults `2.5` baseline, `0.3` diff). Read into `CONFIG.budgetUsd` but not enforced yet. |
 | `EGA_UX_JUDGE_STRICT=1`   | Promotes `--warn-only` (default) to `--strict` — non-zero exit on any `blocker` finding.                        |
@@ -38,6 +38,7 @@ pnpm ux:judge:diff --warn-only              # grade only journeys whose flow spe
 pnpm ux:judge:diff --base origin/master     # override the diff base ref
 pnpm ux:judge:diff --strict                 # exit non-zero on blocker findings
 pnpm ux:judge:audit --filter "translation.tooltip.*"  # single-pass ad-hoc audit for rubric iteration
+pnpm visual:journeys                        # capture journey screenshots, then grade them (ux:judge visual)
 ```
 
 ### `baseline`
@@ -58,6 +59,14 @@ set. `--warn-only` is the explicit spelling of the default and is a no-op.
 
 Single-pass (no ensemble) for ad-hoc review. Cheaper than baseline; not
 intended for gating.
+
+### `visual`
+
+Grades the ordered screenshots of each journey that
+`tests/e2e/visual-journeys.spec.ts` captures into `tests/journeys/frames/`.
+Writes one Markdown verdict per journey plus `summary.json` under
+`tests/journeys/report/visual/`. `--filter` takes a coverage-id glob; `--strict`
+exits 1 on a `blocker`.
 
 ## When to run
 

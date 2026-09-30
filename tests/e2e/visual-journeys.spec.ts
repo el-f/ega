@@ -2,9 +2,8 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { test, type Page } from '@playwright/test';
+import { CONFIG } from '../../scripts/ux-judge/config';
 import { launchExtension, type ExtensionHandle } from './helpers';
-
-const FRAMES_ROOT = path.resolve('tests/journeys/frames');
 
 interface JourneyStep {
   label: string;
@@ -17,7 +16,7 @@ async function captureJourney(
   coverage: string,
   steps: ReadonlyArray<JourneyStep>,
 ): Promise<void> {
-  const dir = path.join(FRAMES_ROOT, coverage.replace(/\./g, '--'));
+  const dir = path.join(CONFIG.framesRoot, coverage.replace(/\./g, '--'));
   await fs.mkdir(dir, { recursive: true });
   const manifestSteps: Array<{ idx: number; label: string; frame: string }> = [];
   for (const [i, step] of steps.entries()) {

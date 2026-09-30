@@ -1,16 +1,12 @@
-#!/usr/bin/env tsx
-// Grades a journey's ORDERED screenshots, which the sibling judges never see: pnpm visual:journeys:judge [--filter "sidepanel.*"] [--strict]
+/** Grades a journey's ORDERED screenshots, which the other judges never see: pnpm visual:journeys:judge [--filter "translation.*"] [--strict] */
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
-import Anthropic from '@anthropic-ai/sdk';
-import { CONFIG } from './ux-judge/config';
-import { globToRegex } from './ux-judge/loader/journeys';
-import { composeRubric } from './ux-judge/loader/rubric';
-import { parseJudgeVerdict, type JudgeVerdict } from './ux-judge/judge/parse';
-
-export const FRAMES_ROOT = path.resolve('tests/journeys/frames');
-export const VISUAL_REPORT_ROOT = path.resolve('tests/journeys/report/visual');
+import { CONFIG, SEVERITY_ORDER } from '../config';
+import { globToRegex } from '../loader/journeys';
+import { composeRubric } from '../loader/rubric';
+import { callJudge } from '../judge/call';
+import type { JudgeVerdict } from '../judge/parse';
+import type { JudgeUserBlock } from '../judge/prompt';
 
 /** One captured step of a journey: a label + the screenshot taken right after it. */
 export interface JourneyFrameStep {
@@ -32,11 +28,6 @@ export interface LoadedFrame {
   mediaType: 'image/png';
   base64: string;
 }
-
-/** Anthropic content blocks accepted by `messages.create` (text | image). */
-type ContentBlock =
-  | { type: 'text'; text: string }
-  | { type: 'image'; source: { type: 'base64'; media_type: 'image/png'; data: string } };
 
 /** Asks for the same JSON shape `parseJudgeVerdict` expects, so both judges write one report format. */
 export function systemPrompt(): string {
@@ -63,8 +54,8 @@ export function buildVisualContent(
   coverage: string,
   rubric: string,
   frames: ReadonlyArray<LoadedFrame>,
-): ContentBlock[] {
-  const blocks: ContentBlock[] = [
+): JudgeUserBlock[] {
+  const blocks: JudgeUserBlock[] = [
     {
       type: 'text',
       text:
@@ -90,7 +81,7 @@ export function buildVisualContent(
 
 /** Discover every `<coverage>/journey.json` under the frames root. */
 export async function discoverManifests(
-  framesRoot = FRAMES_ROOT,
+  framesRoot = CONFIG.framesRoot,
   filter?: string,
 ): Promise<Array<{ manifest: JourneyManifest; dir: string }>> {
   const dirents = await fs.readdir(framesRoot, { withFileTypes: true }).catch(() => []);
@@ -142,50 +133,22 @@ export function renderReport(coverage: string, verdict: JudgeVerdict): string {
   return lines.join('\n');
 }
 
-async function callVisualJudge(content: ContentBlock[]): Promise<JudgeVerdict> {
-  const client = new Anthropic({ apiKey: process.env['ANTHROPIC_API_KEY'] });
-  const resp = await client.messages.create({
-    model: CONFIG.judgeModel.baseline,
-    max_tokens: CONFIG.maxTokens,
-    system: systemPrompt(),
-    // Cast: the SDK's content-block union is wider than our text|image subset.
-    messages: [{ role: 'user', content: content as never }],
-  });
-  const text = resp.content
-    .filter((b): b is Extract<typeof b, { type: 'text' }> => b.type === 'text')
-    .map((b) => b.text)
-    .join('\n');
-  return parseJudgeVerdict(text);
-}
-
-const SEVERITY_RANK: Record<JudgeVerdict['severity'], number> = {
-  ok: 0,
-  minor: 1,
-  major: 2,
-  blocker: 3,
-};
-
-async function main(): Promise<void> {
-  const args = process.argv.slice(2);
+export async function visual(args: ReadonlyArray<string>): Promise<void> {
   const strict = args.includes('--strict');
   const fi = args.indexOf('--filter');
   const filter = fi >= 0 ? args[fi + 1] : undefined;
 
-  if (!process.env['ANTHROPIC_API_KEY']) {
-    console.log('visual-journey-judge: no ANTHROPIC_API_KEY — skipping (clean).');
-    return;
-  }
-
-  const manifests = await discoverManifests(FRAMES_ROOT, filter);
+  const manifests = await discoverManifests(CONFIG.framesRoot, filter);
   if (manifests.length === 0) {
     console.log(
-      `visual-journey-judge: no journeys under ${FRAMES_ROOT}. ` +
+      `ux-judge visual: no journeys under ${CONFIG.framesRoot}. ` +
         'Run `pnpm visual:journeys:capture` first.',
     );
     return;
   }
 
-  await fs.mkdir(VISUAL_REPORT_ROOT, { recursive: true });
+  const reportDir = path.join(CONFIG.reportRoot, 'visual');
+  await fs.mkdir(reportDir, { recursive: true });
   const summary: Array<{ coverage: string; severity: JudgeVerdict['severity']; findings: number }> =
     [];
   let worst = 0;
@@ -195,16 +158,19 @@ async function main(): Promise<void> {
       () => '(no rubric found for this coverage id)',
     );
     const frames = await loadFrames(manifest, dir);
-    const content = buildVisualContent(manifest.coverage, rubric, frames);
+    const user = buildVisualContent(manifest.coverage, rubric, frames);
     let verdict: JudgeVerdict;
     try {
-      verdict = await callVisualJudge(content);
+      verdict = await callJudge(
+        { system: [{ type: 'text', text: systemPrompt() }], user },
+        'baseline',
+      );
     } catch (e) {
       console.error(`✗ ${manifest.coverage}: ${(e as Error).message}`);
       continue;
     }
     await fs.writeFile(
-      path.join(VISUAL_REPORT_ROOT, `${manifest.coverage.replace(/\./g, '--')}.md`),
+      path.join(reportDir, `${manifest.coverage.replace(/\./g, '--')}.md`),
       renderReport(manifest.coverage, verdict),
     );
     summary.push({
@@ -212,31 +178,17 @@ async function main(): Promise<void> {
       severity: verdict.severity,
       findings: verdict.findings.length,
     });
-    worst = Math.max(worst, SEVERITY_RANK[verdict.severity]);
+    worst = Math.max(worst, SEVERITY_ORDER[verdict.severity]);
     const mark = verdict.severity === 'ok' ? '✓' : '•';
     console.log(
       `${mark} ${manifest.coverage} — ${verdict.severity} (${verdict.findings.length} findings)`,
     );
   }
 
-  await fs.writeFile(
-    path.join(VISUAL_REPORT_ROOT, 'summary.json'),
-    JSON.stringify(summary, null, 2),
-  );
+  await fs.writeFile(path.join(reportDir, 'summary.json'), JSON.stringify(summary, null, 2));
 
-  if (strict && worst >= SEVERITY_RANK.blocker) {
-    console.error('visual-journey-judge: blocker findings present (--strict).');
+  if (strict && worst >= SEVERITY_ORDER.blocker) {
+    console.error('ux-judge visual: blocker findings present (--strict).');
     process.exit(1);
   }
 }
-
-// Only auto-run as the entry script; importing for tests must not call the API.
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  main().catch((e: unknown) => {
-    console.error(e);
-    process.exit(1);
-  });
-}
-
-// Re-export for callers that want the resolved entry path.
-export const __entry = fileURLToPath(import.meta.url);

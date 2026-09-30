@@ -1,11 +1,4 @@
-import type { Severity } from '../config';
-
-const SEVERITY_ORDER: Record<Severity, number> = {
-  ok: 0,
-  minor: 1,
-  major: 2,
-  blocker: 3,
-};
+import { SEVERITY_ORDER, type Severity } from '../config';
 
 /** Majority verdict. A tie picks the higher severity, so a 1-1-1 split never downgrades. */
 export function ensemble(verdicts: ReadonlyArray<Severity>): Severity {

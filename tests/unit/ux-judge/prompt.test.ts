@@ -20,7 +20,8 @@ describe('composeJudgePrompt', () => {
 
   it('serializes the journey into the user turn', () => {
     const p = composeJudgePrompt('R', journey);
-    const u = JSON.parse(p.user) as JourneyRecord;
+    expect(typeof p.user).toBe('string');
+    const u = JSON.parse(p.user as string) as JourneyRecord;
     expect(u.coverage).toBe(journey.coverage);
     expect(u.outcome).toBe('passed');
     expect(u.steps).toHaveLength(1);

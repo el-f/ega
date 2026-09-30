@@ -3,6 +3,13 @@ import path from 'node:path';
 export type JudgeMode = 'baseline' | 'diff' | 'audit';
 export type Severity = 'ok' | 'minor' | 'major' | 'blocker';
 
+export const SEVERITY_ORDER: Record<Severity, number> = {
+  ok: 0,
+  minor: 1,
+  major: 2,
+  blocker: 3,
+};
+
 function envNumber(name: string, fallback: number): number {
   const raw = process.env[name];
   if (!raw) return fallback;
@@ -15,6 +22,7 @@ export const CONFIG = {
   runsRoot: path.resolve('tests/journeys/runs'),
   baselineRoot: path.resolve('tests/journeys/baseline'),
   reportRoot: path.resolve('tests/journeys/report'),
+  framesRoot: path.resolve('tests/journeys/frames'),
   // Sonnet 4.6 pins without a date; Haiku 4.5 pins with one. Both forms are correct.
   judgeModel: {
     baseline: 'claude-sonnet-4-6',

@@ -57,7 +57,7 @@
     "ux:judge:diff": "tsx scripts/ux-judge/index.ts diff",
     "ux:judge:audit": "tsx scripts/ux-judge/index.ts audit",
     "visual:journeys:capture": "playwright test tests/e2e/visual-journeys.spec.ts --reporter=line",
-    "visual:journeys:judge": "tsx scripts/visual-journey-judge.ts",
+    "visual:journeys:judge": "tsx scripts/ux-judge/index.ts visual",
     "visual:journeys": "pnpm visual:journeys:capture && pnpm visual:journeys:judge",
     "test:ci": "pnpm lint && pnpm tsc --noEmit && pnpm vitest run && pnpm build && pnpm exec playwright test",
     "test:fast": "pnpm lint && pnpm tsc --noEmit && pnpm vitest run",

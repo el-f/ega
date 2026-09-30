@@ -10,7 +10,7 @@ import {
   loadFrames,
   type LoadedFrame,
   type JourneyManifest,
-} from '../../../scripts/visual-journey-judge.js';
+} from '../../../scripts/ux-judge/cli/visual';
 
 // 1x1 transparent PNG — the smallest valid frame for the round-trip test.
 const PNG_1x1_B64 =
@@ -22,7 +22,7 @@ const frame = (label: string): LoadedFrame => ({
   base64: PNG_1x1_B64,
 });
 
-describe('visual-journey-judge — pure logic', () => {
+describe('ux-judge visual — pure logic', () => {
   it('systemPrompt names the JSON verdict contract', () => {
     const s = systemPrompt();
     expect(s).toContain('severity');

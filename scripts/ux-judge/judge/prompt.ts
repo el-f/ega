@@ -11,9 +11,13 @@ export interface JudgeSystemBlock {
   cache_control?: CacheControl;
 }
 
+export type JudgeUserBlock =
+  | { type: 'text'; text: string }
+  | { type: 'image'; source: { type: 'base64'; media_type: 'image/png'; data: string } };
+
 export interface JudgePrompt {
   system: ReadonlyArray<JudgeSystemBlock>;
-  user: string;
+  user: string | ReadonlyArray<JudgeUserBlock>;
 }
 
 const SYSTEM_INSTRUCTION =

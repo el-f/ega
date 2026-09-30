@@ -1,12 +1,14 @@
 import { audit } from './cli/audit';
 import { baseline } from './cli/baseline';
 import { diff } from './cli/diff';
+import { visual } from './cli/visual';
 
 const [, , subcommand, ...rest] = process.argv;
 
 async function main(): Promise<void> {
-  // diff skips on its own when the key is missing; audit and baseline are manual runs.
-  if ((subcommand === 'audit' || subcommand === 'baseline') && !process.env['ANTHROPIC_API_KEY']) {
+  // diff skips on its own when the key is missing; the other modes are manual runs.
+  const needsKey = subcommand === 'audit' || subcommand === 'baseline' || subcommand === 'visual';
+  if (needsKey && !process.env['ANTHROPIC_API_KEY']) {
     console.error(`ux-judge ${subcommand} needs ANTHROPIC_API_KEY set to an Anthropic API key.`);
     process.exit(1);
   }
@@ -17,8 +19,10 @@ async function main(): Promise<void> {
       return baseline(rest);
     case 'diff':
       return diff(rest);
+    case 'visual':
+      return visual(rest);
     default:
-      console.error('Usage: pnpm ux:judge <audit|baseline|diff> [options]');
+      console.error('Usage: pnpm ux:judge <audit|baseline|diff|visual> [options]');
       process.exit(2);
   }
 }

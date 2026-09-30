@@ -22,7 +22,9 @@ export async function callJudge(prompt: JudgePrompt, mode: JudgeMode): Promise<J
       text: b.text,
       ...(b.cache_control ? { cache_control: b.cache_control } : {}),
     })),
-    messages: [{ role: 'user', content: prompt.user }],
+    messages: [
+      { role: 'user', content: typeof prompt.user === 'string' ? prompt.user : [...prompt.user] },
+    ],
   });
   const text = resp.content
     .filter((b): b is Extract<typeof b, { type: 'text' }> => b.type === 'text')
