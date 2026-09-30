@@ -1,7 +1,6 @@
 /* coverage: integration.popup-sidepanel-handoff.handoff-stale-payload-rejected */
 import { test, expect } from '@playwright/test';
 import { launchExtension, seedSettings, type ExtensionHandle } from '../../../helpers';
-import { plantStaleHandoff } from '../../fixtures/handoff-stale';
 import { createTimeline } from '../../_harness';
 
 let ext: ExtensionHandle;
@@ -20,11 +19,25 @@ test.afterEach(async () => {
 
 test('stale handoff entry is dropped via wall-clock gate; sidepanel mounts clean', async () => {
   const timeline = createTimeline();
-  // Every field is valid; only the fixture's ts (90s old) trips the 60s age gate.
-  await plantStaleHandoff(ext.context, ext.extensionId, {
-    sourceText: 'stale text',
-    sourceLang: 'es',
+  // Every field is valid; only the 90s-old ts trips the 60s age gate in decodeEntry.
+  const planter = await ext.context.newPage();
+  await planter.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
+  await planter.evaluate(async () => {
+    // Map shape, so the read path takes the loop branch, not the bare-payload promotion.
+    await chrome.storage.session.set({
+      'ega.pendingPopupHandoff': {
+        'planted-stale': {
+          sourceText: 'stale text',
+          task: 'translate',
+          tone: 'neutral',
+          sourceLang: 'es',
+          targetLang: 'en',
+          ts: Date.now() - 90_000,
+        },
+      },
+    });
   });
+  await planter.close();
   timeline.markStep('handoff-planted');
 
   const sp = await ext.context.newPage();
