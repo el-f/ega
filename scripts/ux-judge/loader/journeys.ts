@@ -25,7 +25,7 @@ export interface JourneyRecord {
   tracePath?: string;
 }
 
-/** Coverage-id glob for `--filter`: `*` matches dots too, so `sidepanel.*` covers every `sidepanel.<surface>.<action>`. */
+/** Coverage-id glob for `--filter`: `*` matches dots too, so `translation.*` covers every `translation.<surface>.<action>`. */
 export function globToRegex(g: string): RegExp {
   const escaped = g.replace(/[.+^${}()|[\]\\?]/g, '\\$&').replace(/\*/g, '.*');
   return new RegExp(`^${escaped}$`);
@@ -33,7 +33,7 @@ export function globToRegex(g: string): RegExp {
 
 export async function loadJourneys(
   filter?: string,
-  root: string = process.env['EGA_UX_RUNS_OVERRIDE'] ?? CONFIG.runsRoot,
+  root: string = process.env['EGA_UX_RECORD_DIR'] ?? CONFIG.runsRoot,
 ): Promise<JourneyRecord[]> {
   const dirents = await fs.readdir(root, { withFileTypes: true }).catch(() => []);
   const files = dirents.filter((d) => d.isFile() && d.name.endsWith('.json'));

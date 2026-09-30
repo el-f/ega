@@ -3,6 +3,7 @@ import { loadJourneys } from '../loader/journeys';
 import { composeRubric } from '../loader/rubric';
 import { composeJudgePrompt } from '../judge/prompt';
 import { callJudge } from '../judge/call';
+import { CONFIG } from '../config';
 import { writeRunJson, type RunRow } from '../report/json';
 import { writeRunMarkdown } from '../report/md';
 
@@ -21,7 +22,7 @@ export async function audit(args: ReadonlyArray<string>): Promise<void> {
     rows.push({
       coverage: j.coverage,
       verdict,
-      judgeModel: 'audit',
+      judgeModel: CONFIG.judgeModel.baseline,
       at: new Date().toISOString(),
     });
   }

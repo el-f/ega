@@ -22,13 +22,13 @@ with an error; only `diff` skips.
 
 ## Env vars
 
-| Var                       | Effect                                                                                                          |
-| ------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `ANTHROPIC_API_KEY`       | Required to call the judge. Missing → `audit`, `baseline` and `visual` exit 1; `diff` skips with a log line.    |
-| `EGA_UX_RECORD=1`         | Set when running flow specs to emit journey sidecars under `tests/journeys/runs/`. Off by default.              |
-| `EGA_UX_JUDGE_BUDGET_USD` | Per-mode cost ceiling (defaults `2.5` baseline, `0.3` diff). Read into `CONFIG.budgetUsd` but not enforced yet. |
-| `EGA_UX_JUDGE_STRICT=1`   | Promotes `--warn-only` (default) to `--strict` — non-zero exit on any `blocker` finding.                        |
-| `EGA_LIVE_SMOKE=1`        | Runs the two live API smoke tests inside `pnpm test`. The key alone does not.                                   |
+| Var                     | Effect                                                                                                       |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `ANTHROPIC_API_KEY`     | Required to call the judge. Missing → `audit`, `baseline` and `visual` exit 1; `diff` skips with a log line. |
+| `EGA_UX_RECORD=1`       | Set when running flow specs to emit journey sidecars under `tests/journeys/runs/`. Off by default.           |
+| `EGA_UX_RECORD_DIR`     | Folder the flow harness writes sidecars to and the judge reads them from. Default `tests/journeys/runs/`.    |
+| `EGA_UX_JUDGE_STRICT=1` | Promotes `--warn-only` (default) to `--strict` — non-zero exit on any `blocker` finding.                     |
+| `EGA_LIVE_SMOKE=1`      | Runs the two live API smoke tests inside `pnpm test`. The key alone does not.                                |
 
 ## Modes
 
@@ -79,11 +79,11 @@ exits 1 on a `blocker`.
 
 ## Cost ceiling guardrails
 
-- Default per-roll model: `claude-sonnet-4-6` for baseline / audit,
+- Default per-roll model: `claude-sonnet-4-6` for baseline, audit and visual,
   `claude-haiku-4-5-20251001` for diff (cheaper, narrower).
 - System + rubric prefix carry `cache_control: ephemeral` — rolls of the same
   journey hit Anthropic prompt caching after the first call.
-- `EGA_UX_JUDGE_BUDGET_USD` is parsed but not enforced: nothing tracks spend or stops the run.
+- Nothing tracks spend or stops a run at a cost limit.
 - `CONFIG.concurrency` in `scripts/ux-judge/config.ts` runs 8 parallel calls for diff and 4 for baseline.
   Lower it if your Anthropic plan is rate-limited.
 

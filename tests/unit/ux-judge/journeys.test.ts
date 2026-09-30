@@ -43,10 +43,10 @@ describe('loadJourneys', () => {
   it('returns empty array when runs dir missing', async () => {
     const oldRoot = CONFIG.runsRoot;
     // Aim at a deliberately absent path via override.
-    process.env['EGA_UX_RUNS_OVERRIDE'] = path.resolve('no-such-dir-' + Date.now());
+    process.env['EGA_UX_RECORD_DIR'] = path.resolve('no-such-dir-' + Date.now());
     const empty = await loadJourneys('nothing.matches.me');
     expect(empty).toEqual([]);
-    delete process.env['EGA_UX_RUNS_OVERRIDE'];
+    delete process.env['EGA_UX_RECORD_DIR'];
     expect(oldRoot).toBe(CONFIG.runsRoot);
   });
 
@@ -59,7 +59,7 @@ describe('loadJourneys', () => {
       JSON.stringify({ coverage: 'iso.good.one', steps: [], latencies: [], outcome: 'passed' }),
     );
     await fs.writeFile(badFile, '{ not valid json }');
-    process.env['EGA_UX_RUNS_OVERRIDE'] = isolateRoot;
+    process.env['EGA_UX_RECORD_DIR'] = isolateRoot;
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     try {
       const records = await loadJourneys();
@@ -72,7 +72,7 @@ describe('loadJourneys', () => {
       expect(msg).toMatch(/skipped 1/);
     } finally {
       warn.mockRestore();
-      delete process.env['EGA_UX_RUNS_OVERRIDE'];
+      delete process.env['EGA_UX_RECORD_DIR'];
       await fs.rm(isolateRoot, { recursive: true, force: true });
     }
   });

@@ -1,6 +1,6 @@
 import path from 'node:path';
 
-export type JudgeMode = 'baseline' | 'diff' | 'audit';
+export type JudgeMode = 'baseline' | 'diff';
 export type Severity = 'ok' | 'minor' | 'major' | 'blocker';
 
 export const SEVERITY_ORDER: Record<Severity, number> = {
@@ -9,13 +9,6 @@ export const SEVERITY_ORDER: Record<Severity, number> = {
   major: 2,
   blocker: 3,
 };
-
-function envNumber(name: string, fallback: number): number {
-  const raw = process.env[name];
-  if (!raw) return fallback;
-  const n = Number(raw);
-  return Number.isFinite(n) ? n : fallback;
-}
 
 export const CONFIG = {
   rubricRoot: path.resolve('tests/journeys/rubric'),
@@ -32,11 +25,6 @@ export const CONFIG = {
     baseline: 4,
     diff: 8,
   } as const,
-  budgetUsd: {
-    baseline: envNumber('EGA_UX_JUDGE_BUDGET_USD', 2.5),
-    diff: envNumber('EGA_UX_JUDGE_BUDGET_USD', 0.3),
-  } as const,
-  rolls: { baseline: 3, diff: 1 } as const,
-  preJudgePixelDiffSkipBelowPct: 0.5,
+  rolls: { baseline: 3 } as const,
   maxTokens: 800,
 } as const;
