@@ -91,6 +91,15 @@ export async function lintCoverage(repoRoot: string): Promise<LintResult> {
             continue;
           }
           const key = `${fam.id}.${surf.id}.${act.id}`;
+          const dirs = [surf.id, `${fam.id}-${surf.id}`, `${fam.id}/${surf.id}`];
+          if (
+            path.posix.basename(flow) !== `${act.id}.flow.spec.ts` ||
+            !dirs.includes(path.posix.dirname(flow))
+          ) {
+            errors.push(
+              `${key}: ${flow} must be ${act.id}.flow.spec.ts in one of ${dirs.map((d) => `${d}/`).join(', ')}`,
+            );
+          }
           let bucket = expectedMarkers.get(flow);
           if (!bucket) {
             bucket = new Set();

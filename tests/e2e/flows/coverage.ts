@@ -33,7 +33,7 @@ export const COVERAGE: readonly Family[] = [
           {
             id: 'task-switch',
             description: 'Header task picker switches task and re-runs',
-            flows: ['tooltip/tooltip-task-switch.flow.spec.ts'],
+            flows: ['tooltip/task-switch.flow.spec.ts'],
           },
           {
             id: 'tone-switch',
@@ -48,7 +48,7 @@ export const COVERAGE: readonly Family[] = [
           {
             id: 'drag-to-move',
             description: 'Drag handle moves the tooltip to a new screen pos',
-            flows: ['tooltip/drag-tooltip.flow.spec.ts'],
+            flows: ['tooltip/drag-to-move.flow.spec.ts'],
           },
           {
             id: 'close-x',
@@ -73,17 +73,17 @@ export const COVERAGE: readonly Family[] = [
           {
             id: 'keyboard-esc',
             description: 'Esc dismisses the tooltip',
-            flows: ['tooltip/tooltip-keyboard.flow.spec.ts'],
+            flows: ['tooltip/keyboard-esc.flow.spec.ts'],
           },
           {
             id: 'scroll-tracks',
             description: 'Tooltip stays anchored when the page scrolls',
-            flows: ['tooltip/tooltip-scroll-tracks.flow.spec.ts'],
+            flows: ['tooltip/scroll-tracks.flow.spec.ts'],
           },
           {
             id: 'theme-respects',
             description: 'Tooltip honors light/dark/system theme',
-            flows: ['tooltip/tooltip-theme-respects.flow.spec.ts'],
+            flows: ['tooltip/theme-respects.flow.spec.ts'],
           },
           {
             id: 'confidence-pill-shown',
@@ -167,9 +167,10 @@ export const COVERAGE: readonly Family[] = [
             flows: ['smart-bubble/digitless-arabizi-shows.flow.spec.ts'],
           },
           {
-            id: 'short-arabizi-suppresses',
-            description: 'Short arabizi suppresses the bubble (false-positive guard)',
-            flows: ['smart-bubble/short-arabizi-bubble.flow.spec.ts'],
+            id: 'short-arabizi-shows',
+            description:
+              'Short arabizi still mounts the bubble; the English check does not claim it',
+            flows: ['smart-bubble/short-arabizi-shows.flow.spec.ts'],
           },
           {
             id: 'click-opens-tooltip',
@@ -179,7 +180,7 @@ export const COVERAGE: readonly Family[] = [
           {
             id: 'dismiss-toggle-persists',
             description: 'Dismiss toggle persists per-site',
-            flows: ['smart-bubble/dismiss-toggle.flow.spec.ts'],
+            flows: ['smart-bubble/dismiss-toggle-persists.flow.spec.ts'],
           },
           {
             id: 'per-site-disabled',
@@ -189,7 +190,7 @@ export const COVERAGE: readonly Family[] = [
           {
             id: 'bubble-latency',
             description: 'Bubble first-paint latency under budget',
-            flows: ['smart-bubble/perf-bubble-latency.flow.spec.ts'],
+            flows: ['smart-bubble/bubble-latency.flow.spec.ts'],
           },
         ],
       },
@@ -265,7 +266,7 @@ export const COVERAGE: readonly Family[] = [
           {
             id: 'drop-text',
             description: 'Drop plain text onto the composer appends to value',
-            flows: ['sidepanel/composer-drop-text.flow.spec.ts'],
+            flows: ['sidepanel/drop-text.flow.spec.ts'],
           },
           {
             id: 'input-send',
@@ -1327,12 +1328,12 @@ export const COVERAGE: readonly Family[] = [
           {
             id: 'clear-host',
             description: 'Per-row clear removes the host entry from sitePrefs',
-            flows: ['options-data/clear-site-override.flow.spec.ts'],
+            flows: ['options-site-overrides-review/clear-host.flow.spec.ts'],
           },
           {
             id: 'clear-all',
             description: 'Clear-all empties sitePrefs after confirm',
-            flows: ['options-data/clear-all-site-overrides.flow.spec.ts'],
+            flows: ['options-site-overrides-review/clear-all.flow.spec.ts'],
           },
         ],
       },
@@ -1422,7 +1423,7 @@ export const COVERAGE: readonly Family[] = [
             id: 'mode-toggle',
             description:
               'DisplaySurfaceSection toggle swaps defaultDisplayMode and reveals mode-specific knobs',
-            flows: ['options-display/mode-toggle-reveals-knobs.flow.spec.ts'],
+            flows: ['options-display/mode-toggle.flow.spec.ts'],
           },
           {
             id: 'image-translate-surface-select',

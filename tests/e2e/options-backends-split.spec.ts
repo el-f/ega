@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { launchExtension, onlyBackends, seedSettings, type ExtensionHandle } from './helpers';
 
-// Lives outside tests/e2e/flows/ because the options-shell family has no entry in coverage.ts yet.
+// A layout check of the Backends tab, not a user journey, so it stays outside tests/e2e/flows/.
 
 let ext: ExtensionHandle;
 

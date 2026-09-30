@@ -1,4 +1,4 @@
-/* coverage: translation.smart-bubble.short-arabizi-suppresses */
+/* coverage: translation.smart-bubble.short-arabizi-shows */
 import { test, expect } from '@playwright/test';
 import {
   launchExtension,
@@ -28,7 +28,7 @@ test('short Arabizi → bubble appears', async () => {
   await waitForTestHooks(page);
   timeline.markStep('page-ready');
 
-  // Two tokens: short enough for looksLikeEnglish's short-input branch to claim English.
+  // Two tokens: the short Arabizi that looksLikeEnglish must not read as English.
   await page.evaluate(() => {
     const el = document.getElementById('arabizi-short');
     if (!el) throw new Error('arabizi-short paragraph missing');
