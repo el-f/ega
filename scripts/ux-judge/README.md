@@ -4,7 +4,8 @@ LLM-graded UX evaluation against per-action rubrics under
 `tests/journeys/rubric/`. Reads journey sidecars recorded by the flow harness,
 sends each to an Anthropic model, and emits a Markdown verdict
 (`ok` / `minor` / `major` / `blocker`) plus a JSON row dump under
-`tests/journeys/{report,runs}/`.
+`tests/journeys/report/`. Both that folder and the sidecar folder
+`tests/journeys/runs/` are gitignored.
 
 ## Install
 
@@ -42,8 +43,9 @@ pnpm ux:judge:audit --filter "translation.tooltip.*"  # single-pass ad-hoc audit
 ### `baseline`
 
 Run quarterly or after a major UX sweep. Grades every journey with a 3-roll
-ensemble, writes `tests/journeys/baseline/current.json` atomically (archives
-the prior to `history/`).
+ensemble and writes `current.json` under `tests/journeys/baseline/` (the prior
+one moves to `history/`). No mode reads the baseline yet: `diff` does not
+compare against it.
 
 ### `diff`
 
@@ -70,8 +72,8 @@ intended for gating.
   findings. Missing `secrets.ANTHROPIC_API_KEY` logs a warning and exits 0
   — fork PRs without the secret never fail.
 - **Quarterly baseline refresh** — manual `pnpm ux:judge:baseline` on a clean
-  master, commit the promoted `tests/journeys/baseline/current.json`. Not
-  wired into CI to keep token spend visible.
+  master, commit the promoted `current.json` under `tests/journeys/baseline/`.
+  Not wired into CI to keep token spend visible.
 
 ## Cost ceiling guardrails
 

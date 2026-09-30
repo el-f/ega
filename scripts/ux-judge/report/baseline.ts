@@ -4,11 +4,15 @@ import { CONFIG } from '../config';
 import type { RunRow } from './json';
 
 /** Promote a run to the baseline. `current.json` is swapped by rename, so a reader never sees a half-written file. */
-export async function promoteBaseline(rows: ReadonlyArray<RunRow>, date: string): Promise<string> {
-  const historyDir = path.join(CONFIG.baselineRoot, 'history');
+export async function promoteBaseline(
+  rows: ReadonlyArray<RunRow>,
+  date: string,
+  root: string = CONFIG.baselineRoot,
+): Promise<string> {
+  const historyDir = path.join(root, 'history');
   await fs.mkdir(historyDir, { recursive: true });
   const archive = path.join(historyDir, `${date}.json`);
-  const current = path.join(CONFIG.baselineRoot, 'current.json');
+  const current = path.join(root, 'current.json');
   const now = new Date().toISOString();
   const body = JSON.stringify({ at: now, date, rows }, null, 2);
   // Archive prior current (if any) before overwriting.

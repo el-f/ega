@@ -1,28 +1,27 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import fs from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import { loadJourneys } from '../../../scripts/ux-judge/loader/journeys';
 import { CONFIG } from '../../../scripts/ux-judge/config';
 
-const A_B_C = path.join(CONFIG.runsRoot, 'a--b--c.json');
-const A_X_C = path.join(CONFIG.runsRoot, 'a--x--c.json');
-const D_E_F = path.join(CONFIG.runsRoot, 'd--e--f.json');
+let root: string;
 
 describe('loadJourneys', () => {
   beforeAll(async () => {
-    await fs.mkdir(CONFIG.runsRoot, { recursive: true });
+    root = await fs.mkdtemp(path.join(os.tmpdir(), 'ega-ux-runs-'));
     const mk = (coverage: string) => ({ coverage, steps: [], latencies: [], outcome: 'passed' });
-    await fs.writeFile(A_B_C, JSON.stringify(mk('a.b.c')));
-    await fs.writeFile(A_X_C, JSON.stringify(mk('a.x.c')));
-    await fs.writeFile(D_E_F, JSON.stringify(mk('d.e.f')));
+    await fs.writeFile(path.join(root, 'a--b--c.json'), JSON.stringify(mk('a.b.c')));
+    await fs.writeFile(path.join(root, 'a--x--c.json'), JSON.stringify(mk('a.x.c')));
+    await fs.writeFile(path.join(root, 'd--e--f.json'), JSON.stringify(mk('d.e.f')));
   });
 
   afterAll(async () => {
-    for (const f of [A_B_C, A_X_C, D_E_F]) await fs.rm(f, { force: true });
+    await fs.rm(root, { recursive: true, force: true });
   });
 
   it('discovers JSON files under runsRoot', async () => {
-    const all = await loadJourneys();
+    const all = await loadJourneys(undefined, root);
     const ids = all.map((j) => j.coverage);
     expect(ids).toContain('a.b.c');
     expect(ids).toContain('a.x.c');
@@ -30,13 +29,13 @@ describe('loadJourneys', () => {
   });
 
   it('filters by glob (a.*.c matches a.b.c and a.x.c, not d.e.f)', async () => {
-    const filtered = await loadJourneys('a.*.c');
+    const filtered = await loadJourneys('a.*.c', root);
     const ids = filtered.map((j) => j.coverage).sort();
     expect(ids).toEqual(['a.b.c', 'a.x.c']);
   });
 
   it('lets * cross dots, the same as the journey visual judge (a.* matches a.b.c)', async () => {
-    const filtered = await loadJourneys('a.*');
+    const filtered = await loadJourneys('a.*', root);
     const ids = filtered.map((j) => j.coverage).sort();
     expect(ids).toEqual(['a.b.c', 'a.x.c']);
   });
@@ -52,8 +51,7 @@ describe('loadJourneys', () => {
   });
 
   it('isolates malformed JSON: skips bad file, loads the rest, warns once', async () => {
-    const isolateRoot = path.resolve('runs-isolate-' + Date.now());
-    await fs.mkdir(isolateRoot, { recursive: true });
+    const isolateRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'ega-ux-isolate-'));
     const goodFile = path.join(isolateRoot, 'good.json');
     const badFile = path.join(isolateRoot, 'malformed.json');
     await fs.writeFile(

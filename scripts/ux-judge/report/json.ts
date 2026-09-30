@@ -10,9 +10,13 @@ export interface RunRow {
   at: string;
 }
 
-export async function writeRunJson(rows: ReadonlyArray<RunRow>, runId: string): Promise<string> {
-  await fs.mkdir(CONFIG.reportRoot, { recursive: true });
-  const file = path.join(CONFIG.reportRoot, `${runId}.json`);
+export async function writeRunJson(
+  rows: ReadonlyArray<RunRow>,
+  runId: string,
+  root: string = CONFIG.reportRoot,
+): Promise<string> {
+  await fs.mkdir(root, { recursive: true });
+  const file = path.join(root, `${runId}.json`);
   await fs.writeFile(file, JSON.stringify({ runId, rows }, null, 2));
   return file;
 }

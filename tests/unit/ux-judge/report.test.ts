@@ -1,18 +1,20 @@
-/** Writes to the real tests/journeys/report and baseline folders and cleans up afterwards. */
-import { describe, it, expect, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import fs from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import { writeRunMarkdown } from '../../../scripts/ux-judge/report/md';
 import { writeRunJson, type RunRow } from '../../../scripts/ux-judge/report/json';
 import { promoteBaseline } from '../../../scripts/ux-judge/report/baseline';
-import { CONFIG } from '../../../scripts/ux-judge/config';
 
 const RUN_ID = 'unit-test-report';
-const HISTORY = path.join(CONFIG.baselineRoot, 'history');
-const CURRENT = path.join(CONFIG.baselineRoot, 'current.json');
-// promoteBaseline writes into the real baseline dir — a date matching a committed fixture overwrites it.
 const D1 = '1999-01-01';
 const D2 = '1999-01-02';
+
+let root: string;
+let reportRoot: string;
+let baselineRoot: string;
+let history: string;
+let current: string;
 
 const rows: RunRow[] = [
   {
@@ -33,19 +35,21 @@ const rows: RunRow[] = [
   },
 ];
 
+beforeAll(async () => {
+  root = await fs.mkdtemp(path.join(os.tmpdir(), 'ega-ux-report-'));
+  reportRoot = path.join(root, 'report');
+  baselineRoot = path.join(root, 'baseline');
+  history = path.join(baselineRoot, 'history');
+  current = path.join(baselineRoot, 'current.json');
+});
+
 afterAll(async () => {
-  await fs.rm(path.join(CONFIG.reportRoot, `${RUN_ID}.md`), { force: true });
-  await fs.rm(path.join(CONFIG.reportRoot, `${RUN_ID}.json`), { force: true });
-  await fs.rm(CURRENT, { force: true });
-  for (const d of [D1, D2]) {
-    await fs.rm(path.join(HISTORY, `${d}.json`), { force: true });
-    await fs.rm(path.join(HISTORY, `${d}-prior.json`), { force: true });
-  }
+  await fs.rm(root, { recursive: true, force: true });
 });
 
 describe('reporters', () => {
   it('writeRunMarkdown drops summary + section per non-ok row', async () => {
-    const file = await writeRunMarkdown(rows, RUN_ID);
+    const file = await writeRunMarkdown(rows, RUN_ID, reportRoot);
     const body = await fs.readFile(file, 'utf-8');
     expect(body).toContain('Summary: ok 1');
     expect(body).toContain('blocker 0');
@@ -55,7 +59,7 @@ describe('reporters', () => {
   });
 
   it('writeRunJson produces parseable JSON with runId + rows', async () => {
-    const file = await writeRunJson(rows, RUN_ID);
+    const file = await writeRunJson(rows, RUN_ID, reportRoot);
     const parsed = JSON.parse(await fs.readFile(file, 'utf-8')) as {
       runId: string;
       rows: RunRow[];
@@ -65,13 +69,13 @@ describe('reporters', () => {
   });
 
   it('promoteBaseline writes current.json + history/<date>.json atomically', async () => {
-    await fs.rm(CURRENT, { force: true });
-    await fs.rm(path.join(HISTORY, `${D2}.json`), { force: true });
-    const file = await promoteBaseline(rows, D2);
-    expect(file).toBe(CURRENT);
-    const cur = JSON.parse(await fs.readFile(CURRENT, 'utf-8')) as { rows: RunRow[] };
+    await fs.rm(current, { force: true });
+    await fs.rm(path.join(history, `${D2}.json`), { force: true });
+    const file = await promoteBaseline(rows, D2, baselineRoot);
+    expect(file).toBe(current);
+    const cur = JSON.parse(await fs.readFile(current, 'utf-8')) as { rows: RunRow[] };
     expect(cur.rows).toHaveLength(2);
-    const archive = JSON.parse(await fs.readFile(path.join(HISTORY, `${D2}.json`), 'utf-8')) as {
+    const archive = JSON.parse(await fs.readFile(path.join(history, `${D2}.json`), 'utf-8')) as {
       rows: RunRow[];
     };
     expect(archive.rows).toHaveLength(2);
@@ -79,10 +83,10 @@ describe('reporters', () => {
 
   it('promoteBaseline moves prior current into history before overwriting', async () => {
     // First promotion plants a prior current.
-    await promoteBaseline(rows, D1);
+    await promoteBaseline(rows, D1, baselineRoot);
     // Now promote a different date and confirm the prior pointer lands in history.
-    await promoteBaseline(rows, D2);
-    const priorPath = path.join(HISTORY, `${D1}-prior.json`);
+    await promoteBaseline(rows, D2, baselineRoot);
+    const priorPath = path.join(history, `${D1}-prior.json`);
     const exists = await fs
       .stat(priorPath)
       .then(() => true)

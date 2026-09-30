@@ -31,8 +31,10 @@ export function globToRegex(g: string): RegExp {
   return new RegExp(`^${escaped}$`);
 }
 
-export async function loadJourneys(filter?: string): Promise<JourneyRecord[]> {
-  const root = process.env['EGA_UX_RUNS_OVERRIDE'] ?? CONFIG.runsRoot;
+export async function loadJourneys(
+  filter?: string,
+  root: string = process.env['EGA_UX_RUNS_OVERRIDE'] ?? CONFIG.runsRoot,
+): Promise<JourneyRecord[]> {
   const dirents = await fs.readdir(root, { withFileTypes: true }).catch(() => []);
   const files = dirents.filter((d) => d.isFile() && d.name.endsWith('.json'));
   const records: JourneyRecord[] = [];

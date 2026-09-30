@@ -8,8 +8,9 @@ import type { RunRow } from './json';
 export async function writeRunMarkdown(
   rows: ReadonlyArray<RunRow>,
   runId: string,
+  root: string = CONFIG.reportRoot,
 ): Promise<string> {
-  await fs.mkdir(CONFIG.reportRoot, { recursive: true });
+  await fs.mkdir(root, { recursive: true });
   const buckets: Record<Severity, number> = { ok: 0, minor: 0, major: 0, blocker: 0 };
   for (const r of rows) buckets[r.verdict.severity] += 1;
   const lines: string[] = [];
@@ -32,7 +33,7 @@ export async function writeRunMarkdown(
     }
     lines.push('');
   }
-  const file = path.join(CONFIG.reportRoot, `${runId}.md`);
+  const file = path.join(root, `${runId}.md`);
   await fs.writeFile(file, lines.join('\n'));
   return file;
 }
