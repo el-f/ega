@@ -2,13 +2,13 @@ import type { BackendId, LangSelection, PageContext } from '@/shared/types';
 import type { Task, Tone } from '@/shared/task-prompts';
 import type { ChatTurn } from '@/shared/chat-history';
 import { instantiateAll } from '@/shared/backends/registry';
-import { probeAll } from '@/shared/backendSelector';
+import { probeAll } from '@/shared/backends/probe-all';
 import { resolveChainForTask } from '@/shared/backends/select';
 import { buildBackendConfig } from '@/shared/backends/build-config';
 import { getSettings } from '@/shared/storage';
 import type { Msg } from '@/shared/messages';
 
-// Backend wiring for translate, shared between Popup.svelte and SidePanel.svelte.
+// Backend wiring for translate: the service worker probes through it, the side panel sends through it.
 
 export interface ProbeResult {
   /** Per-backend availability — keyed by registered backend id. */

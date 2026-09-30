@@ -1,4 +1,4 @@
-import type { BackendConfig, TranslationBackend } from '@/shared/backends/base';
+import type { BackendConfig, TranslationBackend } from './base';
 
 /** Probes all backends in parallel; every id is a key, so map[id] is never undefined. */
 export async function probeAll(

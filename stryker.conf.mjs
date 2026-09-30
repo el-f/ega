@@ -16,7 +16,7 @@ export default {
     'src/background/router-lifecycle.ts',
     'src/shared/backends/select.ts',
     'src/shared/backends/transportError.ts',
-    'src/shared/backendSelector.ts',
+    'src/shared/backends/probe-all.ts',
     // Cache identity — a wrong key serves one user's text for another's request
     'src/background/cache.ts',
     'src/shared/backend-params.ts',

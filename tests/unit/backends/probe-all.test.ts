@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { probeAll } from '@/shared/backendSelector';
+import { probeAll } from '@/shared/backends/probe-all';
 import type { TranslationBackend, BackendConfig } from '@/shared/backends/base';
 import { asBackendIdUnsafe } from '@/shared/brands';
 import { testManifest } from '@tests/_helpers/backend';

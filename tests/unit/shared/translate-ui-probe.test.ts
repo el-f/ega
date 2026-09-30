@@ -7,7 +7,7 @@ const probeAll = vi.fn();
 const instantiateAll = vi.fn();
 
 vi.mock('@/shared/storage', () => ({ getSettings: () => getSettings() }));
-vi.mock('@/shared/backendSelector', () => ({
+vi.mock('@/shared/backends/probe-all', () => ({
   probeAll: (...a: unknown[]) => probeAll(...a),
 }));
 vi.mock('@/shared/backends/registry', () => ({ instantiateAll: () => instantiateAll() }));
