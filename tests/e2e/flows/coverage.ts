@@ -1422,25 +1422,25 @@ export const COVERAGE: readonly Family[] = [
           {
             id: 'image-translate-surface-select',
             description:
-              'Display tab → change "Image translation opens in" select → imageTranslateSurface persists',
+              'Translate tab, Display section → change "Image translation opens in" select → imageTranslateSurface persists',
             flows: ['options-display/image-translate-surface-select.flow.spec.ts'],
           },
           {
             id: 'tooltip-knobs-toggle',
             description:
-              'Display tab (tooltip mode) → toggle Show-original / Click-outside / Drag-to-move → each persists',
+              'Translate tab, Display section (tooltip mode) → toggle Show-original / Click-outside / Drag-to-move → each persists',
             flows: ['options-display/tooltip-knobs-toggle.flow.spec.ts'],
           },
           {
             id: 'confidence-pill-toggle',
             description:
-              'Display tab → toggle Confidence pill → when enabled slider appears; when disabled it collapses',
+              'Translate tab, Display section → toggle Confidence pill → when enabled slider appears; when disabled it collapses',
             flows: ['options-display/confidence-pill-toggle.flow.spec.ts'],
           },
           {
             id: 'section-reset',
             description:
-              'Display tab → modify a tooltip knob → SectionReset appears → click → knobs revert to DEFAULT_SETTINGS',
+              'Translate tab, Display section → modify a tooltip knob → SectionReset appears → click → knobs revert to DEFAULT_SETTINGS',
             flows: ['options-display/section-reset.flow.spec.ts'],
           },
         ],

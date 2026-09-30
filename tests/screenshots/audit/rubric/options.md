@@ -17,7 +17,7 @@ The options shell (`src/options`) is the full-page settings surface. The top tab
 - **translate** / **selection-bubble** / **backends** / **languages** / **templates** / **about** — each top tab. Captured light and dark.
 - **subtab-diagnostics** / **subtab-data** / **subtab-labs** — the Advanced sub-tabs.
 - **settings-search-empty** / **settings-search-temperature** — search modal with an empty query / mid-query.
-- **onboarding-banner-display** / **onboarding-banner-backends** — the first-run banner on those tabs.
+- **onboarding-banner-display** / **onboarding-banner-backends** — the first-run banner, shot on the Translate tab and on the Backends tab.
 - **toast-success** / **toast-error** — a toast after a save succeeds / fails.
 
 ## Severity overrides
