@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 /** Rotates the RSA keypair and patches the new key + id into manifest.config.ts. Changes the extension ID. */
 import { createHash, generateKeyPairSync, type KeyObject } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -172,6 +172,7 @@ async function main(): Promise<void> {
 
   mkdirSync(path.dirname(pemPath), { recursive: true });
   writeFileSync(pemPath, privatePem, { encoding: 'utf8', mode: 0o600 });
+  chmodSync(pemPath, 0o600);
   writeFileSync(MANIFEST_PATH, patched, { encoding: 'utf8' });
 
   console.log(`✓ Rotated extension key.
