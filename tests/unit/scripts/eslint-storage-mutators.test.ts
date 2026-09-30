@@ -42,4 +42,26 @@ describe('eslint.config.js relative imports', () => {
       [3, 'no-restricted-syntax'],
     ]);
   }, 60_000);
+
+  it('bans test code from src', async () => {
+    const source = [
+      '<script lang="ts">',
+      "  import { a } from '@tests/_helpers/page-translate';",
+      "  import { b } from './perf-timings.test-utils';",
+      "  import { c } from '../../tests/mocks/chrome';",
+      '  void a;',
+      '  void b;',
+      '  void c;',
+      '</script>',
+      '',
+    ].join('\n');
+    const [result] = await new ESLint({ cwd: root }).lintText(source, {
+      filePath: 'src/shared/Zz.svelte',
+    });
+    expect(result?.messages.map((m) => [m.line, m.message])).toEqual([
+      [2, expect.stringContaining('must not import test code')],
+      [3, expect.stringContaining('must not import test code')],
+      [4, expect.stringContaining('must not import test code')],
+    ]);
+  }, 60_000);
 });

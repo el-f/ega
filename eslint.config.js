@@ -64,6 +64,10 @@ const crossSurfaceBans = ['shared', ...SURFACES].map((layer) => {
           patterns: [
             { group: banned.flatMap((s) => [`@/${s}/*`, `@/${s}/*/**`]), message },
             { regex: `^(?:\\.\\./)+(?:${AREAS})/`, message: RELATIVE_AREA_MESSAGE },
+            {
+              regex: '^@tests/|(?:^|/)tests/|\\.test-utils$',
+              message: 'src/ must not import test code.',
+            },
           ],
         },
       ],
