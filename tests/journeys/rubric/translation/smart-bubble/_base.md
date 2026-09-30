@@ -9,8 +9,8 @@
 
 ## Heuristics
 
-- Heuristic gates (script detection, digit count, length thresholds) are conservative — false-positive bubbles on English / short-digitless tokens are bugs, not edge cases.
-- Digitless arabizi is the canonical positive case; short pure-Latin is the canonical negative case.
+- Heuristic gates: minimum length, script detection, digit count, English check. A bubble on confidently English text, or on a selection below the minimum length, is a bug, not an edge case.
+- Arabizi is the canonical positive case, with or without digits, and also when short but at or above the minimum length. English text and selections below the minimum length are the canonical negative cases.
 
 ## Dismissal + persistence
 
