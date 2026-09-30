@@ -1,54 +1,57 @@
-#!/usr/bin/env node
 // Cold vs warm TTFT bench for the native host. Needs the BENCH_PROVIDER CLI installed and logged in; manual only, never CI.
 
-import { spawn } from 'node:child_process';
+import { spawn, type ChildProcessByStdio } from 'node:child_process';
 import { performance } from 'node:perf_hooks';
 import path from 'node:path';
 import process from 'node:process';
+import type { Readable, Writable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 
 // --- Pure helpers (exported for unit tests) --------------------------------
 
 /** Encode an object as a Chrome native-messaging frame: 4-byte LE length + UTF-8 JSON body. */
-export function frame(obj) {
+export function frame(obj: unknown): Buffer {
   const body = Buffer.from(JSON.stringify(obj), 'utf8');
   const len = Buffer.alloc(4);
   len.writeUInt32LE(body.length, 0);
   return Buffer.concat([len, body]);
 }
 
-/**
- * Parse every complete frame in `state.buf + chunk`; a partial tail stays in `state.buf`.
- * @typedef {{ buf: Buffer }} FrameParserState
- * @param {FrameParserState} state
- * @param {Buffer} chunk
- * @returns {unknown[]}
- */
-export function parseFrames(state, chunk) {
+export interface FrameParserState {
+  buf: Buffer;
+}
+
+/** Parse every complete frame in `state.buf + chunk`; a partial tail stays in `state.buf`. */
+export function parseFrames(state: FrameParserState, chunk: Buffer): unknown[] {
   state.buf = state.buf.length === 0 ? chunk : Buffer.concat([state.buf, chunk]);
-  const out = [];
+  const out: unknown[] = [];
   while (state.buf.length >= 4) {
     const len = state.buf.readUInt32LE(0);
     if (state.buf.length < 4 + len) break;
-    const body = state.buf.slice(4, 4 + len).toString('utf8');
-    state.buf = state.buf.slice(4 + len);
+    const body = state.buf.subarray(4, 4 + len).toString('utf8');
+    state.buf = state.buf.subarray(4 + len);
     out.push(JSON.parse(body));
   }
   return out;
 }
 
-/** @param {number[]} xs */
-export function median(xs) {
+export function median(xs: readonly number[]): number {
   if (xs.length === 0) throw new Error('median of empty array');
   const sorted = [...xs].sort((a, b) => a - b);
   const mid = sorted.length >> 1;
-  return sorted.length % 2 === 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+  const hi = sorted[mid] ?? 0;
+  return sorted.length % 2 === 1 ? hi : ((sorted[mid - 1] ?? 0) + hi) / 2;
 }
 
-/**
- * @param {{ provider: string, coldMs: number, warmMs: number[], coldHostMs?: number|null, warmHostMs?: Array<number|null> }} r
- */
-export function formatReport(r) {
+interface BenchReport {
+  provider: string;
+  coldMs: number;
+  warmMs: number[];
+  coldHostMs?: number | null;
+  warmHostMs?: (number | null)[];
+}
+
+export function formatReport(r: BenchReport): string {
   const warmMedian = median(r.warmMs);
   const ratio = warmMedian === 0 ? 'n/a' : `${(r.coldMs / warmMedian).toFixed(1)}x`;
   const lines = [
@@ -58,48 +61,59 @@ export function formatReport(r) {
     `Warm median: ${Math.round(warmMedian)}ms`,
     `Cold/warm ratio: ${ratio}`,
   ];
-  const hostWarm = (r.warmHostMs ?? []).filter((x) => typeof x === 'number');
-  if (typeof r.coldHostMs === 'number' || hostWarm.length > 0) {
-    if (typeof r.coldHostMs === 'number') {
-      lines.push(`Host cold TTFT: ${Math.round(r.coldHostMs)}ms`);
-    }
-    if (hostWarm.length > 0) {
-      lines.push(`Host warm median: ${Math.round(median(hostWarm))}ms`);
-    }
+  const hostWarm = (r.warmHostMs ?? []).filter((x): x is number => typeof x === 'number');
+  if (typeof r.coldHostMs === 'number') {
+    lines.push(`Host cold TTFT: ${Math.round(r.coldHostMs)}ms`);
+  }
+  if (hostWarm.length > 0) {
+    lines.push(`Host warm median: ${Math.round(median(hostWarm))}ms`);
   }
   return lines.join('\n');
 }
 
 // --- Runner ----------------------------------------------------------------
 
-const N_WARM = Number(process.env.BENCH_N) || 4;
-const PROVIDER = process.env.BENCH_PROVIDER || 'claude';
-const PROMPT = process.env.BENCH_PROMPT || 'translate to english: hola';
+const N_WARM = Number(process.env['BENCH_N']) || 4;
+const PROVIDER = process.env['BENCH_PROVIDER'] || 'claude';
+const PROMPT = process.env['BENCH_PROMPT'] || 'translate to english: hola';
 
-function spawnHost() {
+type Host = ChildProcessByStdio<Writable, Readable, null>;
+
+interface HostFrame {
+  id?: string;
+  type?: string;
+  message?: string;
+  ttftMs?: number;
+}
+
+function spawnHost(): Host {
   const here = path.dirname(fileURLToPath(import.meta.url));
   const host = path.resolve(here, '..', 'native-host', 'ega-host.mjs');
   return spawn(process.execPath, [host], { stdio: ['pipe', 'pipe', 'inherit'] });
 }
 
-function ttftOne(child, id, provider, prompt) {
+function ttftOne(
+  child: Host,
+  id: string,
+  provider: string,
+  prompt: string,
+): Promise<{ wallMs: number; hostMs: number | null }> {
   return new Promise((resolve, reject) => {
-    const state = { buf: Buffer.alloc(0) };
-    let firstDelta = null;
-    let hostTtftMs = null;
-    const onData = (chunk) => {
-      let frames;
+    const state: FrameParserState = { buf: Buffer.alloc(0) };
+    let firstDelta: number | null = null;
+    let hostTtftMs: number | null = null;
+    const onData = (chunk: Buffer): void => {
+      let frames: unknown[];
       try {
         frames = parseFrames(state, chunk);
       } catch (e) {
         cleanup();
-        reject(e);
+        reject(e instanceof Error ? e : new Error(String(e)));
         return;
       }
       for (const f of frames) {
         if (!f || typeof f !== 'object') continue;
-        const msg =
-          /** @type {{ id?: string, type?: string, message?: string, ttftMs?: number }} */ (f);
+        const msg = f as HostFrame;
         if (msg.id !== id) continue;
         if (msg.type === 'delta' && firstDelta === null) {
           firstDelta = performance.now();
@@ -121,7 +135,7 @@ function ttftOne(child, id, provider, prompt) {
         }
       }
     };
-    const cleanup = () => {
+    const cleanup = (): void => {
       child.stdout.off('data', onData);
     };
     child.stdout.on('data', onData);
@@ -140,7 +154,7 @@ function ttftOne(child, id, provider, prompt) {
   });
 }
 
-async function main() {
+async function main(): Promise<void> {
   const child = spawnHost();
   child.on('error', (e) => {
     console.error('host spawn failed:', e.message);
@@ -149,8 +163,8 @@ async function main() {
 
   try {
     const cold = await ttftOne(child, 'bench-cold', PROVIDER, PROMPT);
-    const warmMs = [];
-    const warmHostMs = [];
+    const warmMs: number[] = [];
+    const warmHostMs: (number | null)[] = [];
     for (let i = 0; i < N_WARM; i++) {
       const w = await ttftOne(child, `bench-warm-${i}`, PROVIDER, PROMPT);
       warmMs.push(w.wallMs);
@@ -166,23 +180,16 @@ async function main() {
       }) + '\n',
     );
   } finally {
-    try {
-      child.stdin.end();
-    } catch {
-      /* noop */
-    }
-    try {
-      child.kill('SIGTERM');
-    } catch {
-      /* noop */
-    }
+    child.stdin.end();
+    child.kill('SIGTERM');
   }
 }
 
-const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+const isMain =
+  !!process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
 if (isMain) {
-  main().catch((e) => {
-    console.error(e.message);
+  main().catch((e: unknown) => {
+    console.error(e instanceof Error ? e.message : String(e));
     process.exit(1);
   });
 }

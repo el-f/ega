@@ -23,10 +23,10 @@ export default defineConfig({
   ignoreSnapshots: process.platform !== 'linux' && process.platform !== 'win32',
   // A missing baseline fails instead of being written, then passing on the retry. CLI --update-snapshots still wins.
   updateSnapshots: 'none',
-  reporter: process.env.CI ? [['list'], ['github']] : 'list',
+  reporter: process.env['CI'] ? [['list'], ['github']] : 'list',
   globalSetup: './tests/e2e/globalSetup.ts',
   testIgnore:
-    captureSpecNamed || process.env.EGA_E2E_CAPTURE
+    captureSpecNamed || process.env['EGA_E2E_CAPTURE']
       ? []
       : CAPTURE_SPECS.map((spec) => `**/${spec}.spec.ts`),
   use: {

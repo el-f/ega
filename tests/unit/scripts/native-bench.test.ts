@@ -6,7 +6,7 @@ import {
   median,
   type FrameParserState,
   formatReport,
-} from '../../../scripts/native-bench.mjs';
+} from '../../../scripts/native-bench';
 
 describe('native-bench framing', () => {
   it('frame() emits 4-byte LE length prefix + JSON body', () => {

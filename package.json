@@ -66,7 +66,7 @@
     "bundle:budget": "pnpm build && tsx scripts/bundle-budget.ts",
     "zip": "node scripts/zip-extension.mjs",
     "test:install": "node scripts/live-test-install.mjs",
-    "bench:native": "node scripts/native-bench.mjs",
+    "bench:native": "tsx scripts/native-bench.ts",
     "explore": "tsx tests/explore/index.ts",
     "rotate-extension-key": "tsx scripts/rotate-extension-key.ts",
     "verify": "pnpm format:check && pnpm typecheck && pnpm lint && pnpm lint:reactivity && pnpm lint:tokens && pnpm lint:shadow-css && pnpm lint:hover && pnpm lint:docs && pnpm lint:spelling && pnpm lint:actions && pnpm audit:affordances && pnpm test:all:cov && pnpm gen:icons && pnpm gen:third-party:check && pnpm build && tsx scripts/bundle-budget.ts --warn-only && pnpm zip && pnpm test:install && pnpm lint:deadcode && pnpm coverage:flows && pnpm lint:secrets:full && pnpm audit --prod --audit-level=high",
