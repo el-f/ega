@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { perfRecord, perfDump, perfStart } from '@/shared/perf-timings';
-import { resetPerfTimings } from '@/shared/perf-timings.test-utils';
+import { resetPerfTimings } from '@tests/_helpers/perf-timings.test-utils';
 
 describe('perf-ring', () => {
   beforeEach(() => {

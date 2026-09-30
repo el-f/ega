@@ -13,7 +13,7 @@ interface PerfRecord {
 
 const RING_SIZE = 128;
 
-/** Exported only so the sibling `.test-utils.ts` can reset it between tests. */
+/** Exported only so tests can reset it between cases. */
 export const perfTimingsInternal: {
   ring: (PerfRecord | undefined)[];
   writeIndex: number;

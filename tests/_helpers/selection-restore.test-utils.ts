@@ -3,7 +3,7 @@ import {
   onUserInput,
   onVisibilityOrFocus,
   selectionRestoreInternal,
-} from './selection-restore';
+} from '@/content/selection-restore';
 
 /** Resets module state and removes the document listeners so each test starts clean. */
 export function resetSelectionRestore(): void {

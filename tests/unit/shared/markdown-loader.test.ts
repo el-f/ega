@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { loadMarkdownRenderer } from '@/shared/components/markdown-loader';
-import { resetMarkdownLoaderCache } from '@/shared/components/markdown-loader.test-utils';
+import { resetMarkdownLoaderCache } from '@tests/_helpers/markdown-loader.test-utils';
 
 describe('loadMarkdownRenderer', () => {
   beforeEach(() => {

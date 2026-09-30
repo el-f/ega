@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach, beforeEach } from 'vitest';
 import { looksLikeEnglish, looksLikeEnglishAsync } from '@/content/looks-like-english';
-import { resetDetectorCache } from '@/content/looks-like-english.test-utils';
+import { resetDetectorCache } from '@tests/_helpers/looks-like-english.test-utils';
 
 describe('looksLikeEnglish', () => {
   describe('plain English → true (bubble hides)', () => {

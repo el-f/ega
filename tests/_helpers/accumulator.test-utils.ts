@@ -1,4 +1,4 @@
-import { accumulatorInternal } from './accumulator';
+import { accumulatorInternal } from '@/content/accumulator';
 
 /** Resets module state so each test starts clean. */
 export function resetAccumulator(): void {

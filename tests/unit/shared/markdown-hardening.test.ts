@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render as renderComponent } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { loadMarkdownRenderer, SANITIZE_CONFIG } from '@/shared/components/markdown-loader';
-import { resetMarkdownLoaderCache } from '@/shared/components/markdown-loader.test-utils';
+import { resetMarkdownLoaderCache } from '@tests/_helpers/markdown-loader.test-utils';
 import Markdown from '@/shared/components/Markdown.svelte';
 
 async function waitForReady(container: HTMLElement, timeout = 2000): Promise<void> {

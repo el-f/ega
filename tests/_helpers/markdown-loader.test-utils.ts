@@ -1,4 +1,4 @@
-import { markdownLoaderInternal } from './markdown-loader';
+import { markdownLoaderInternal } from '@/shared/components/markdown-loader';
 
 /** Test-only: drop the memoized renderer so the next loadMarkdownRenderer
  *  call re-imports `marked` + `dompurify`. Imported only by tests. */

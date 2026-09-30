@@ -4,7 +4,7 @@ import { render } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import SidePanel from '@/sidepanel/SidePanel.svelte';
 import { markdownLoaderInternal } from '@/shared/components/markdown-loader';
-import { resetMarkdownLoaderCache } from '@/shared/components/markdown-loader.test-utils';
+import { resetMarkdownLoaderCache } from '@tests/_helpers/markdown-loader.test-utils';
 
 beforeEach(async () => {
   await chrome.storage.local.clear();

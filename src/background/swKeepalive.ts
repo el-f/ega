@@ -2,7 +2,7 @@
 
 const KEEPALIVE_INTERVAL_MS = 20_000;
 
-/** Exported so the sibling `.test-utils.ts` can snapshot it; prod callers ignore this. */
+/** Exported so tests can snapshot it; prod callers ignore this. */
 export const swKeepaliveInternal: {
   timer: ReturnType<typeof setInterval> | null;
   inflightCount: number;

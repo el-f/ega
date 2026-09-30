@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { installSelectionRestore, selectionRestoreInternal } from '@/content/selection-restore';
-import { resetSelectionRestore } from '@/content/selection-restore.test-utils';
+import { resetSelectionRestore } from '@tests/_helpers/selection-restore.test-utils';
 
 function selectParagraph(): void {
   const p = document.getElementById('target');

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { add, clear, list, size, onChange } from '@/content/accumulator';
-import { resetAccumulator } from '@/content/accumulator.test-utils';
+import { resetAccumulator } from '@tests/_helpers/accumulator.test-utils';
 
 describe('accumulator', () => {
   beforeEach(() => {

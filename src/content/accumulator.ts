@@ -7,7 +7,7 @@ interface AccumulatedSelection {
 
 const TTL_MS = 90_000;
 
-// Exported only so the sibling test-utils module can reset it; production callers use the functions below.
+// Exported only so tests can reset it; production callers use the functions below.
 export const accumulatorInternal: {
   queue: AccumulatedSelection[];
   listeners: Set<() => void>;

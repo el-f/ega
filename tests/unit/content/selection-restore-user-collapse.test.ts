@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { installSelectionRestore } from '@/content/selection-restore';
-import { resetSelectionRestore } from '@/content/selection-restore.test-utils';
+import { resetSelectionRestore } from '@tests/_helpers/selection-restore.test-utils';
 import { mountShadowHost, getContainer } from '@/content/shadowHost';
 
 // The cache lives for five minutes, so an un-dropped range comes back on any later window focus.

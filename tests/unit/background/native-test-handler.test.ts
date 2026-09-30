@@ -11,7 +11,7 @@ import type { Msg, NativeTestReply } from '@/shared/messages';
 import type { BackendConfig, TranslateCallArgs, TranslationBackend } from '@/shared/backends/base';
 import { asBackendIdUnsafe } from '@/shared/brands';
 import { testManifest } from '@tests/_helpers/backend';
-import { swKeepaliveState } from '@/background/swKeepalive.test-utils';
+import { swKeepaliveState } from '@tests/_helpers/swKeepalive.test-utils';
 
 type NativeTestMsg = Extract<Msg, { kind: 'native:test' }>;
 

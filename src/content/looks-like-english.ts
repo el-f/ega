@@ -42,7 +42,7 @@ interface LanguageDetectorFactory {
 }
 
 /** The dictionary decides; LanguageDetector may only overturn an English verdict at >=0.7, since it calls digit-less Arabizi English. */
-// create() warms an on-device model, so one detector per tab; the holder is exported only so test-utils can reset it.
+// create() warms an on-device model, so one detector per tab; the holder is exported only so tests can reset it.
 export const detectorCacheInternal: {
   promise: Promise<LanguageDetectorInstance | null> | null;
 } = { promise: null };

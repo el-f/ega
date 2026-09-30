@@ -7,7 +7,7 @@ const TTL_MS = 5 * 60 * 1000;
 // A collapse this soon after a click or keypress came from the user, not from the browser.
 const USER_COLLAPSE_WINDOW_MS = 300;
 
-// Exported only so test-utils can reset it between cases.
+// Exported only so tests can reset it between cases.
 export const selectionRestoreInternal: {
   cached: { range: Range; ts: number } | null;
   graceUntil: number;

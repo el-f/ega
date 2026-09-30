@@ -18,7 +18,7 @@ vi.mock('@/shared/backends/select', () => ({
 }));
 
 import { describeChange } from '@/background/describe-change';
-import { swKeepaliveState } from '@/background/swKeepalive.test-utils';
+import { swKeepaliveState } from '@tests/_helpers/swKeepalive.test-utils';
 
 function settings(): Settings {
   return { ...DEFAULT_SETTINGS };

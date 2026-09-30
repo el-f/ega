@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import { trackInflight, swKeepaliveInternal } from '@/background/swKeepalive';
-import { swKeepaliveState } from '@/background/swKeepalive.test-utils';
+import { swKeepaliveState } from '@tests/_helpers/swKeepalive.test-utils';
 
 /** Refcount invariants: a leak keeps the SW awake forever, an early release drops it mid-fetch. */
 
