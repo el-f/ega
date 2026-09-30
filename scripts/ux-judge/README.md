@@ -71,6 +71,10 @@ error) fails the run with exit 1.
 
 ## When to run
 
+No flow spec calls `createJourneyRecorder` yet, so `audit`, `baseline` and `diff` have
+no journey records to grade. Only `visual` grades real input today (the frames from
+`tests/e2e/visual-journeys.spec.ts`). The steps below take effect once a spec records.
+
 - **Local** — hand-run only. A push cannot afford the Playwright run that
   produces the sidecars, so there is no pre-push hook; run the two-step recipe
   under "Sidecar recording" below, then `pnpm ux:judge:diff`.

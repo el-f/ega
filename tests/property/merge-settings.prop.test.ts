@@ -71,7 +71,7 @@ describe('updateSettings merge semantics', () => {
     );
   });
 
-  it('merge shallow-merges map fields: patch empty-map clears; patch with keys wins; cur keys survive when patch omits them', () => {
+  it('map fields merge: an empty patch map keeps cur keys; patch keys win; omitted cur keys survive', () => {
     fc.assert(
       fc.property(
         fc.string({ minLength: 1, maxLength: 40 }).filter((s) => s !== '__proto__'),
