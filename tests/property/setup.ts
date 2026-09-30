@@ -1,19 +1,16 @@
 // Shared fast-check arbitraries; not a vitest setupFile.
 import * as fc from 'fast-check';
-import { asBackendIdUnsafe, asLangIdUnsafe, asLangPresetIdUnsafe } from '@/shared/brands';
+import { asLangIdUnsafe, asLangPresetIdUnsafe } from '@/shared/brands';
 import type { Rule } from '@/shared/rules';
 import type { GlossaryEntry } from '@/shared/glossary';
 import type { CustomLanguage } from '@/shared/types';
 import type { Recipe, RecipeRule } from '@/shared/recipes';
-import { ALL_TASKS, ALL_TONES, type Task, type Tone } from '@/shared/task-prompts';
-import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
+import { ALL_TASKS, type Task } from '@/shared/task-prompts';
 
 // ---------------------------------------------------------------------------
 // Primitive arbitraries
 
 export const arbTask: fc.Arbitrary<Task> = fc.constantFrom(...(ALL_TASKS as readonly Task[]));
-
-export const arbTone: fc.Arbitrary<Tone> = fc.constantFrom(...(ALL_TONES as readonly Tone[]));
 
 const arbShortStr = fc.string({ minLength: 1, maxLength: 80 }).filter((s) => s.trim().length > 0);
 
@@ -84,7 +81,7 @@ export const arbGlossaryEntry: fc.Arbitrary<GlossaryEntry> = fc
     return e;
   });
 
-export { arbLangOrAuto, brandLang };
+export { arbLangOrAuto };
 
 // ---------------------------------------------------------------------------
 // CustomLanguage
@@ -136,12 +133,3 @@ export const arbRecipe: fc.Arbitrary<Recipe> = fc
     if (hasRules && rules.length > 0) r.rules = rules;
     return r;
   });
-
-// ---------------------------------------------------------------------------
-// Settings fragments
-
-export { DEFAULT_SETTINGS };
-
-export const arbBackendId = fc
-  .constantFrom('anthropic', 'openai', 'gemini', 'groq', 'deepseek', 'ollama', 'native')
-  .map((s) => asBackendIdUnsafe(s));
