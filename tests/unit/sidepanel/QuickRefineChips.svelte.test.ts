@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
 import { fireEvent, render, waitFor } from '@testing-library/svelte';
-import QuickRefineChips from '@/sidepanel/components/QuickRefineChips.svelte';
+import QuickRefineChips from '@/sidepanel/conversation/QuickRefineChips.svelte';
 
 describe('QuickRefineChips', () => {
   it('renders three fixed chips and the Refine chip', () => {

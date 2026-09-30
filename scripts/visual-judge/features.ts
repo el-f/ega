@@ -45,7 +45,6 @@ export const FEATURES: Feature[] = [
     codePaths: [
       'src/sidepanel/SidePanel.svelte',
       'src/sidepanel/conversation',
-      'src/sidepanel/components',
       'src/sidepanel/state',
     ],
     researchTopics: [

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
 import { fireEvent, render, waitFor } from '@testing-library/svelte';
-import QuickRefineChips from '@/sidepanel/components/QuickRefineChips.svelte';
+import QuickRefineChips from '@/sidepanel/conversation/QuickRefineChips.svelte';
 
 describe('QuickRefineChips — translate task wiring', () => {
   it('chip click emits onRefine with a refinementBody and no persisted rule', async () => {

@@ -37,7 +37,7 @@
   import { ALL_ERR_CODES, type ErrCode, type Variety } from '@/shared/types';
   import { labelFor } from '@/shared/languages';
   import { openOptionsTab } from '@/shared/open-options-tab';
-  import QuickRefineChips from '@/sidepanel/components/QuickRefineChips.svelte';
+  import QuickRefineChips from './QuickRefineChips.svelte';
 
   interface Props {
     turn: Turn;
