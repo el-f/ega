@@ -19,11 +19,9 @@ import type { ShotMeta } from '../../scripts/visual-judge/judge/types';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const {
-  auditDir: SCREENSHOT_DIR,
-  currentDir: CURRENT_DIR,
-  metaDir: META_DIR,
-} = buildPaths(path.resolve(__dirname, '..', '..'));
+const { currentDir: CURRENT_DIR, metaDir: META_DIR } = buildPaths(
+  path.resolve(__dirname, '..', '..'),
+);
 /** What Chrome actually gives the side panel; the 1200px launch canvas hides wrapping and overflow. */
 const NARROW_SIDEPANEL = { width: 380, height: 760 };
 
@@ -32,7 +30,6 @@ const NARROW_SIDEPANEL = { width: 380, height: 760 };
 let ext: ExtensionHandle;
 
 test.beforeAll(async () => {
-  fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
   fs.mkdirSync(CURRENT_DIR, { recursive: true });
   fs.mkdirSync(META_DIR, { recursive: true });
   ext = await launchExtension();
@@ -82,11 +79,8 @@ async function shot(
   // Scroll to top, or `fullPage` stamps `position: fixed` overlays at the current scroll offset instead of y=0.
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.waitForTimeout(50); // wait for fixed overlays to repaint at y=0 (no observable end state)
-  const flatFile = path.join(SCREENSHOT_DIR, `${name}.png`);
   const currentFile = path.join(CURRENT_DIR, `${name}.png`);
   await page.screenshot({ path: currentFile, fullPage: true });
-  // Mirror to flat layout for backward-compat with downstream consumers.
-  fs.copyFileSync(currentFile, flatFile);
   const sidecar: ShotMeta = { name, ...meta };
   fs.writeFileSync(path.join(META_DIR, `${name}.meta.json`), JSON.stringify(sidecar, null, 2));
 }

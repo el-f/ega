@@ -30,7 +30,7 @@ export async function runCheck(opts: CheckOptions = {}): Promise<{ exitCode: num
   await mkdir(paths.auditDir, { recursive: true });
   const shots = await listCurrentShots(paths);
   if (!shots.length) {
-    console.error('No PNGs in current/ or audit dir — run `pnpm visual:capture` first.');
+    console.error('No PNGs in current/ — run `pnpm visual:capture` first.');
     return { exitCode: 2 };
   }
 
