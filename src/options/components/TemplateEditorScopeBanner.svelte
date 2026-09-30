@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Scope } from '@/shared/template-scope';
+  import type { Scope } from '@/shared/template-scope.types';
   import { getPreset } from '@/shared/presets';
   import { TASK_LABELS } from '@/shared/task-prompts';
 

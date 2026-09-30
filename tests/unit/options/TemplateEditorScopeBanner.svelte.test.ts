@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
 import { render } from '@testing-library/svelte';
-import type { Scope } from '@/shared/template-scope';
+import type { Scope } from '@/shared/template-scope.types';
 import TemplateEditorScopeBanner from '@/options/components/TemplateEditorScopeBanner.svelte';
 
 function bannerText(scope: Scope): string | null {

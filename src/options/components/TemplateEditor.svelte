@@ -1,5 +1,5 @@
 <script lang="ts" module>
-  import type { Scope } from '@/shared/template-scope';
+  import type { Scope } from '@/shared/template-scope.types';
   import type {
     LangPreset,
     PromptTemplate,

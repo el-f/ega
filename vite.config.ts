@@ -107,7 +107,6 @@ export default defineConfig({
         'src/popup/main.ts',
         // Type-only modules emit no runtime code, so v8 reports them at 0% forever.
         'src/**/*.types.ts',
-        'src/shared/template-scope.ts',
       ],
       // Global floors sit 1-2 points under measured coverage (90.6 lines / 89.0 statements / 89.7 fns / 81.3 branches, vitest 4 counts), .svelte included.
       thresholds: {

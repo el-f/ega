@@ -1,5 +1,5 @@
 import { describe, it, expectTypeOf } from 'vitest';
-import type { Scope } from '@/shared/template-scope';
+import type { Scope } from '@/shared/template-scope.types';
 
 describe('Scope', () => {
   it('only contains global | task | preset variants', () => {
