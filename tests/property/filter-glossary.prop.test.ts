@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import * as fc from 'fast-check';
 import { filterGlossaryForRequest } from '@/shared/glossary';
 import type { GlossaryEntry } from '@/shared/glossary';
-import { arbGlossaryEntry, arbLangOrAuto } from './setup';
+import { arbGlossaryEntry, arbLangOrAuto } from './arbitraries';
 import { asLangIdUnsafe } from '@/shared/brands';
 
 const arbLangCode = arbLangOrAuto;

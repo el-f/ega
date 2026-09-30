@@ -1,4 +1,3 @@
-// Shared fast-check arbitraries; not a vitest setupFile.
 import * as fc from 'fast-check';
 import { asLangIdUnsafe, asLangPresetIdUnsafe } from '@/shared/brands';
 import type { Rule } from '@/shared/rules';

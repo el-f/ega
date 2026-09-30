@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import * as fc from 'fast-check';
 import { glossaryDigest } from '@/shared/glossary-digest';
 import type { GlossaryEntry } from '@/shared/glossary';
-import { arbGlossaryEntry } from './setup';
+import { arbGlossaryEntry } from './arbitraries';
 
 function shuffle<T>(arr: T[], seed: number): T[] {
   const a = [...arr];

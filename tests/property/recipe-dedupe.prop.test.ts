@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as fc from 'fast-check';
-import { arbRule, arbRecipe } from './setup';
+import { arbRule, arbRecipe } from './arbitraries';
 import type { Rule } from '@/shared/rules';
 import { filterDupeRecipeRules, recipeRulesToRules } from '@/options/templates-handlers';
 

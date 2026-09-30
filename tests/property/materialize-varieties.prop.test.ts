@@ -3,7 +3,7 @@ import * as fc from 'fast-check';
 import { materializeVarieties } from '@/shared/varieties';
 import { BUILT_IN_PRESETS } from '@/shared/presets';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
-import { arbCustomLanguage } from './setup';
+import { arbCustomLanguage } from './arbitraries';
 import type { CustomLanguage } from '@/shared/types';
 
 const builtinCount = BUILT_IN_PRESETS.length;

@@ -124,11 +124,11 @@ export default defineConfig({
     },
     server: { deps: { inline: ['svelte'] } },
     include: [
-      'tests/unit/**/*.test.{ts,svelte.test.ts}',
-      'tests/integration/**/*.test.{ts,svelte.test.ts}',
+      'tests/unit/**/*.test.ts',
+      'tests/integration/**/*.test.ts',
       // The explore agent's unit tests live beside its tools in tests/explore/.
       'tests/explore/**/*.test.ts',
-      'tests/property/**/*.prop.test.ts',
+      'tests/property/**/*.test.ts',
     ],
   },
 });

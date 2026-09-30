@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import * as fc from 'fast-check';
 import { filterRulesForRequest } from '@/shared/rules';
 import type { Rule } from '@/shared/rules';
-import { arbRule, arbTask } from './setup';
+import { arbRule, arbTask } from './arbitraries';
 
 describe('filterRulesForRequest', () => {
   it('result is a subset of the input rules', () => {
