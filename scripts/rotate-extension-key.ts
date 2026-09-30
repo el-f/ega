@@ -1,14 +1,14 @@
 #!/usr/bin/env tsx
 /** Rotates the RSA keypair and patches the new key + id into manifest.config.ts. Changes the extension ID. */
 import { createHash, generateKeyPairSync, type KeyObject } from 'node:crypto';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const PEM_PATH = path.join(ROOT, 'scripts', 'ega-extension-key.pem');
 const MANIFEST_PATH = path.join(ROOT, 'manifest.config.ts');
 
 // The ID anchor is strict so a mention of the id inside a comment never matches.
@@ -16,6 +16,11 @@ const KEY_ANCHOR = /(const\s+EGA_EXTENSION_KEY\s*=\s*)(['"])([A-Za-z0-9+/=]+)\2/
 const ID_ANCHOR = /(export\s+const\s+EGA_STABLE_EXTENSION_ID\s*=\s*)(['"])([a-p]{32})\2/g;
 
 // ---------- pure helpers (exported for unit tests) ----------
+
+/** The private key lives outside the repo; EGA_EXTENSION_KEY_PEM overrides the default path. */
+export function resolvePemPath(env: NodeJS.ProcessEnv = process.env): string {
+  return env['EGA_EXTENSION_KEY_PEM'] || path.join(homedir(), '.ega', 'ega-extension-key.pem');
+}
 
 /** Chrome's id rule: first 32 hex digits of sha256(spki der), each mapped 0-f to a-p. */
 export function deriveExtensionId(der: Buffer): string {
@@ -105,7 +110,7 @@ async function confirm(): Promise<boolean> {
 
 function generateKeypair(): { privatePem: string; publicKey: KeyObject } {
   const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
-  // PKCS#8 PEM matches the format already on disk at scripts/ega-extension-key.pem.
+  // PKCS#8 PEM, the format the existing key uses.
   let privatePem = privateKey.export({ type: 'pkcs8', format: 'pem' }) as string;
   privatePem = privatePem.replace(/\r\n/g, '\n');
   if (!privatePem.endsWith('\n')) privatePem += '\n';
@@ -118,6 +123,7 @@ function spkiDer(publicKey: KeyObject): Buffer {
 
 async function main(): Promise<void> {
   const opts = parseCli(process.argv.slice(2));
+  const pemPath = resolvePemPath();
 
   if (!existsSync(MANIFEST_PATH)) {
     console.error(`✗ ${MANIFEST_PATH} not found`);
@@ -158,19 +164,20 @@ async function main(): Promise<void> {
 
   New extension ID: ${newId}
   Public key (base64, ${newKeyB64.length} chars): ${newKeyB64.slice(0, 32)}...
-  Private key:      ${PEM_PATH} (would be overwritten — NOT written in dry-run)
+  Private key:      ${pemPath} (would be overwritten — NOT written in dry-run)
   manifest.config.ts: would be patched (NOT written in dry-run)
 `);
     return;
   }
 
-  writeFileSync(PEM_PATH, privatePem, { encoding: 'utf8' });
+  mkdirSync(path.dirname(pemPath), { recursive: true });
+  writeFileSync(pemPath, privatePem, { encoding: 'utf8', mode: 0o600 });
   writeFileSync(MANIFEST_PATH, patched, { encoding: 'utf8' });
 
   console.log(`✓ Rotated extension key.
   New extension ID: ${newId}
   Public key:       ${newKeyB64.slice(0, 32)}...
-  Private key:      ${path.relative(ROOT, PEM_PATH)} (gitignored)
+  Private key:      ${pemPath}
 
 IMPORTANT — migration steps:
   1. Reload the unpacked extension from chrome://extensions → "Reload" or "Update".

@@ -1,15 +1,20 @@
 import { describe, it, expect } from 'vitest';
 import { createPublicKey } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import path from 'node:path';
-import { deriveExtensionId, patchManifest } from '../../../scripts/rotate-extension-key';
+import {
+  deriveExtensionId,
+  patchManifest,
+  resolvePemPath,
+} from '../../../scripts/rotate-extension-key';
 
-// The key is gitignored, so this runs only where it exists; it must reproduce the id pinned in manifest.config.ts.
-const pemPath = path.resolve(__dirname, '../../../scripts/ega-extension-key.pem');
+// The key lives outside the repo, so this runs only where it exists; it must reproduce the id pinned in manifest.config.ts.
+const pemPath = resolvePemPath();
 const pemExists = existsSync(pemPath);
 if (!pemExists) {
   console.warn(
-    'rotate-extension-key: scripts/ega-extension-key.pem is absent, the 3 deriveExtensionId tests are skipped.',
+    `rotate-extension-key: no key at ${pemPath} (set EGA_EXTENSION_KEY_PEM), the 3 deriveExtensionId tests are skipped.`,
   );
 }
 
@@ -20,6 +25,16 @@ function fixtureDer(): Buffer {
   const pub = createPublicKey(pem);
   return pub.export({ type: 'spki', format: 'der' });
 }
+
+describe('resolvePemPath', () => {
+  it('defaults to ~/.ega, outside the repo', () => {
+    expect(resolvePemPath({})).toBe(path.join(homedir(), '.ega', 'ega-extension-key.pem'));
+  });
+
+  it('lets EGA_EXTENSION_KEY_PEM override the path', () => {
+    expect(resolvePemPath({ EGA_EXTENSION_KEY_PEM: '/keys/ega.pem' })).toBe('/keys/ega.pem');
+  });
+});
 
 describe.skipIf(!pemExists)('deriveExtensionId', () => {
   it('reproduces the pinned ID from the on-disk fixture key', () => {

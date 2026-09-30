@@ -42,14 +42,9 @@ playwright-report/
 test-results/
 .stryker-tmp/
 reports/mutation/
-# Private key for the extension's stable `key` in manifest.config.ts.
-# The PUBLIC half is committed in the manifest (safe — it's public). The
-# PRIVATE PEM here is only needed to sign a packed .crx with the same
-# identity; it's NOT required for unpacked dev loads (Chrome derives the
-# extension ID from the public key alone). Keep it out of git as a
-# courtesy / future-proofing for signed builds.
-scripts/ega-extension-key.pem
-scripts/*.pem
+# Private keys never belong in git. The extension signing key defaults to
+# ~/.ega (scripts/rotate-extension-key.ts); this catches a copy left in the tree.
+*.pem
 # LLM exploration agent — per-session transcripts + repros are large and
 # machine-local. The session directory is the only on-disk side effect
 # the agent produces outside its source files.
