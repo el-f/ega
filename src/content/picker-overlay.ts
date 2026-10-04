@@ -25,6 +25,7 @@ function lazyPicker(): Promise<{
 let pickerOverlayHandle: ReturnType<typeof mount> | null = null;
 let pickerOverlayAnchor: HTMLDivElement | null = null;
 let pickerHovered: Element | null = null;
+let pickerBlocked = false;
 let pickerSingleton: PickerController | null = null;
 let PickerOverlayComp: typeof PickerOverlayDefault | null = null;
 
@@ -51,6 +52,7 @@ function unmountPickerOverlay(): void {
     pickerOverlayAnchor = null;
   }
   pickerHovered = null;
+  pickerBlocked = false;
 }
 
 // exit() runs onExit -> unmountPickerOverlay; leaving the picker armed with no outline is worse than dropping the mode.
@@ -63,6 +65,11 @@ onShadowHostRemount(() => {
 function patchPickerOutline(): void {
   const outline = pickerOverlayAnchor?.querySelector<HTMLElement>('[data-ega-picker-outline]');
   if (!outline) return;
+  outline.classList.toggle('is-blocked', pickerBlocked);
+  const hintDefault = pickerOverlayAnchor?.querySelector<HTMLElement>('.picker-hint-default');
+  const hintBlocked = pickerOverlayAnchor?.querySelector<HTMLElement>('.picker-hint-blocked');
+  if (hintDefault) hintDefault.hidden = pickerBlocked;
+  if (hintBlocked) hintBlocked.hidden = !pickerBlocked;
   if (!pickerHovered) {
     outline.hidden = true;
     return;
@@ -100,6 +107,7 @@ async function ensurePicker(onPick: (r: PickResult) => void): Promise<PickerCont
       },
       onHover: (h) => {
         pickerHovered = h?.element ?? null;
+        pickerBlocked = h?.blocked === true;
         if (!pickerOverlayAnchor) return;
         // rAF-gated: 60fps mouse moves would otherwise write the outline style on every event.
         schedulePickerRepaint();

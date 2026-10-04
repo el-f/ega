@@ -1038,7 +1038,7 @@ test('Picker — overlay empty + hover outline', async () => {
       theme: 'light',
       userAction: 'user pressed Ctrl+Shift+E to enter picker mode; no hover yet',
       expectations: [
-        'hint banner ("Click or use arrow keys + Enter to translate · Esc to cancel") readable at the bottom center',
+        'hint banner ("Click an area to translate it, or move with the arrow keys and press Enter · Esc to cancel") readable at the bottom center',
         'no element outline (no hover)',
         'full-viewport dim layer covers the page — deliberate, it is what marks picker mode',
       ],
@@ -1071,6 +1071,7 @@ test('Picker — overlay empty + hover outline', async () => {
       expectations: [
         'outline visible around the hovered #pick-me element only',
         'outline sized to the paragraph, not the entire body',
+        'the hovered paragraph is as bright as the undimmed page; the rest of the page is dimmed around it',
         'hint banner still readable at the bottom center',
       ],
     },

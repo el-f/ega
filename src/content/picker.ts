@@ -7,6 +7,8 @@ import { isUserGesture } from './user-gesture';
 import { ensurePageStyles } from './page-styles';
 
 const PICKING_ATTR = 'data-ega-picking';
+export const PRIVATE_FIELD_REASON =
+  'Ega does not read password, card or other private fields, or text you can edit.';
 
 export interface PickResult {
   text: string;
@@ -17,8 +19,8 @@ export interface PickResult {
 export interface PickerOpts {
   onPick: (r: PickResult) => void;
   onExit: () => void;
-  /** `null` clears the highlight — the cursor sits on a non-pickable target. The listener measures the element itself. */
-  onHover?: (h: { element: Element } | null) => void;
+  /** `null` clears the highlight (the cursor is on Ega's own UI); `blocked` marks a private field Ega will not read. The listener measures the element itself. */
+  onHover?: (h: { element: Element; blocked?: true } | null) => void;
 }
 
 export interface PickerController {
@@ -50,7 +52,8 @@ export function createPicker(opts: PickerOpts): PickerController {
     if (!isPickable(el)) {
       // Clearing the cursor too: Enter must not pick an element the outline no longer marks.
       cursor = null;
-      opts.onHover?.(null);
+      // A private field is marked as refused, not skipped in silence, so the user learns why.
+      opts.onHover?.(isInsideEgaHost(el) ? null : { element: el, blocked: true });
       return;
     }
     cursor = el;
@@ -81,7 +84,7 @@ export function createPicker(opts: PickerOpts): PickerController {
     e.preventDefault();
     e.stopPropagation();
     if (isSensitiveTarget(el)) {
-      showToast('Ega does not read password, card or other private fields, or text you can edit.');
+      showToast(PRIVATE_FIELD_REASON);
       return;
     }
     pick(el);

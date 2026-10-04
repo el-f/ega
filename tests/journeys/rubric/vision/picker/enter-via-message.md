@@ -12,7 +12,7 @@
 
 ## Visible affordances
 
-- A hint pill at the bottom center reads "Click or use arrow keys + Enter to translate · Esc to cancel".
+- A hint pill at the bottom center reads "Click an area to translate it, or move with the arrow keys and press Enter · Esc to cancel".
 - Esc dismisses the overlay per `escape-cancels` rubric.
 
 ## Failure-mode expectations

@@ -810,9 +810,18 @@
   z-index: 2147483646;
   pointer-events: none;
   border: 2px solid var(--color-accent);
-  background: var(--color-accent-bg-hover);
   border-radius: 2px;
-  box-shadow: 0 0 0 1px var(--color-picker-border);
+  /* A spotlight: the spread shadow dims everything but the target, which stays as bright as the page around it. */
+  box-shadow:
+    0 0 0 1px var(--color-picker-border),
+    0 0 0 100vmax rgba(0, 0, 0, 0.3); /* token-lint-allow: the dimmer's own color, cut out around the target */
+}
+.picker-outline:not([hidden]) + .picker-dimmer {
+  background: transparent;
+}
+/* A private field Ega will not read; the hint says why. */
+.picker-outline.is-blocked {
+  border-color: var(--color-danger);
 }
 .picker-hint {
   position: fixed;
@@ -833,6 +842,12 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
+  max-width: calc(100vw - 32px);
+  box-sizing: border-box;
+  text-align: center;
+}
+.picker-hint .picker-hint-blocked {
+  color: var(--color-danger-fg, var(--color-danger));
 }
 .picker-hint .picker-hint-sep {
   color: var(--color-muted);

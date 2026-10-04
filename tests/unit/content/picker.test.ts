@@ -116,7 +116,7 @@ describe('picker state machine', () => {
     expect(onExit).toHaveBeenCalledTimes(1);
   });
 
-  it('mousemove over a sensitive (password) input clears the hover highlight', () => {
+  it('mousemove over a sensitive (password) input marks it as refused, not pickable', () => {
     mockEnvironment();
     const onHover = vi.fn();
     const p = createPicker({ onPick: vi.fn(), onExit: vi.fn(), onHover });
@@ -124,7 +124,7 @@ describe('picker state machine', () => {
     const pw = document.getElementById('pw');
     if (!pw) throw new Error('test setup: #pw');
     pw.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
-    expect(onHover).toHaveBeenCalledWith(null);
+    expect(onHover).toHaveBeenCalledWith({ element: pw, blocked: true });
     p.exit();
   });
 
@@ -139,7 +139,7 @@ describe('picker state machine', () => {
     if (!para || !pw) throw new Error('test setup');
     para.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
     pw.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
-    expect(onHover.mock.calls.at(-1)?.[0]).toBeNull();
+    expect(onHover.mock.calls.at(-1)?.[0]).toEqual({ element: pw, blocked: true });
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
     expect(onPick).not.toHaveBeenCalled();
     p.exit();

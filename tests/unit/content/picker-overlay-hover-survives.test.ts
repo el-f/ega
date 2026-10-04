@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest';
 
-type HoverArg = { element: Element } | null;
+type HoverArg = { element: Element; blocked?: true } | null;
 let onHover: ((a: HoverArg) => void) | undefined;
 
 vi.mock('@/content/picker', () => ({
+  PRIVATE_FIELD_REASON: 'Ega does not read private fields.',
   createPicker: (opts: { onHover?: (a: HoverArg) => void }) => {
     onHover = opts.onHover;
     return { enter: vi.fn(), exit: vi.fn(), isActive: () => false };
@@ -86,5 +87,27 @@ describe('picker-overlay — a hover repaints without remounting', () => {
     frames.shift()?.(0);
 
     expect(outline?.style.top).toBe('300px');
+  });
+
+  it('marks a refused private field in red and swaps the hint to the reason', async () => {
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
+      cb(0);
+      return 0;
+    });
+    await enterPickerMode(vi.fn());
+    const outline = container.querySelector<HTMLElement>('[data-ega-picker-outline]');
+    const hintDefault = container.querySelector<HTMLElement>('.picker-hint-default');
+    const hintBlocked = container.querySelector<HTMLElement>('.picker-hint-blocked');
+
+    onHover?.({ element: boxed(0, 0, 100, 20).el, blocked: true });
+    expect(outline?.hidden).toBe(false);
+    expect(outline?.classList.contains('is-blocked')).toBe(true);
+    expect(hintDefault?.hidden).toBe(true);
+    expect(hintBlocked?.hidden).toBe(false);
+
+    onHover?.({ element: boxed(0, 40, 100, 20).el });
+    expect(outline?.classList.contains('is-blocked')).toBe(false);
+    expect(hintDefault?.hidden).toBe(false);
+    expect(hintBlocked?.hidden).toBe(true);
   });
 });

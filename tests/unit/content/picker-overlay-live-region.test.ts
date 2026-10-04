@@ -18,8 +18,16 @@ describe('PickerOverlay — picker hint live region', () => {
     const { container } = render(PickerOverlay);
     const hint = container.querySelector('.picker-hint');
     const text = hint?.textContent.replace(/\s+/g, ' ') ?? '';
-    expect(text).toContain('Click or use arrow keys + Enter to translate');
-    expect(text).toContain('Esc');
+    expect(text).toContain('Click an area to translate it');
+    expect(text).toContain('move with the arrow keys and press Enter');
+    expect(text).toContain('Esc to cancel');
+  });
+
+  it('keeps the private-field reason in the live region, hidden until a private field is hovered', () => {
+    const { container } = render(PickerOverlay);
+    const blocked = container.querySelector<HTMLElement>('.picker-hint .picker-hint-blocked');
+    expect(blocked?.hidden).toBe(true);
+    expect(blocked?.textContent).toMatch(/does not read password/);
   });
 
   it('ships the dimmer and a hidden outline so a hover never remounts the tree', () => {
