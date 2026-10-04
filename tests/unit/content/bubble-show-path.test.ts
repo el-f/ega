@@ -77,6 +77,17 @@ describe('the selection bubble show path', () => {
     expect(firstRunPatches()).toEqual([]);
   });
 
+  it('stores the first-run flag once across selections made before the settings re-read lands', async () => {
+    await seed({ bubbleFirstRunSeen: false });
+    selectWord();
+    expect((await mountedBubble()).classList.contains('is-first-run')).toBe(true);
+
+    hideBubble();
+    selectWord();
+    expect((await mountedBubble()).classList.contains('is-first-run')).toBe(true);
+    expect(firstRunPatches()).toEqual([{ bubbleFirstRunSeen: true }]);
+  });
+
   it('logs why the bubble showed when the debug flag is on', async () => {
     const debug = vi.spyOn(console, 'debug').mockImplementation(() => {});
     localStorage.setItem('ega-debug', '1');

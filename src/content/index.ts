@@ -171,6 +171,7 @@ window.addEventListener('beforeunload', teardownPageV2);
 window.addEventListener('pagehide', teardownPageV2);
 
 let selectionChangeSeq = 0;
+let firstRunPatchedFor: Settings | null = null;
 function isLatestSelectionChange(seq: number): boolean {
   return seq === selectionChangeSeq;
 }
@@ -236,7 +237,9 @@ function handleSelectionChange(): void {
       return;
     }
     const isFirstRun = !s.bubbleFirstRunSeen;
-    if (isFirstRun) {
+    // A drag fires many selectionchange ticks before the stored write comes back; write once per settings read.
+    if (isFirstRun && firstRunPatchedFor !== s) {
+      firstRunPatchedFor = s;
       void chrome.runtime
         .sendMessage({
           kind: 'settings:update',
