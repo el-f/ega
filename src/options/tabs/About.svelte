@@ -7,6 +7,7 @@
   import { confirmDialog } from '@/shared/components/confirmDialog';
   import { OPTIONS_LOCAL_UI_KEYS } from '@/options/local-ui-keys';
   import { clearAllStorage } from '@/shared/storage';
+  import { toastStore } from '@/shared/components/toastStore';
 
   import Code from '@lucide/svelte/icons/code';
   import Scale from '@lucide/svelte/icons/scale';
@@ -33,8 +34,13 @@
     try {
       // The live cache is an in-memory Map in the service worker.
       await chrome.runtime.sendMessage({ kind: 'cache:clear' });
+      toastStore.push({ message: 'Translation cache cleared.', variant: 'success' });
     } catch (e) {
       debugCatch(e, 'options.tabs.About.1');
+      toastStore.push({
+        message: `Could not clear the cache: ${(e as Error).message}. Try again.`,
+        variant: 'danger',
+      });
     } finally {
       clearingCache = false;
     }
@@ -59,9 +65,15 @@
       for (const key of OPTIONS_LOCAL_UI_KEYS) globalThis.localStorage?.removeItem(key);
     } catch (e) {
       debugCatch(e, 'options.tabs.About.2');
-    } finally {
       purging = false;
+      toastStore.push({
+        message: `Some data was not deleted: ${(e as Error).message}. Press Delete all data again.`,
+        variant: 'danger',
+      });
+      return;
     }
+    // This page still holds the old settings and unsaved drafts in memory; a reload starts it clean.
+    location.reload();
   }
 </script>
 

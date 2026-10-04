@@ -49,4 +49,5 @@ test('About tab Clear cache confirms then sends cache:clear to the service worke
       ),
     )
     .toBe(true);
+  await expect(page.getByText('Translation cache cleared.')).toBeVisible({ timeout: 5_000 });
 });
