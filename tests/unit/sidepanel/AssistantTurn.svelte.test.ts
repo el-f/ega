@@ -201,7 +201,7 @@ describe('AssistantTurn.svelte', () => {
     });
     const pill = container.querySelector('[data-ega-confidence]');
     expect(pill).not.toBeNull();
-    expect(pill?.textContent.trim()).toBe('90% sure');
+    expect(pill?.textContent.trim()).toBe('90% confident');
     // aria-label on a role-less span is a prohibited naming target; the visible text names it now.
     expect(pill?.getAttribute('aria-label')).toBeNull();
   });
@@ -230,7 +230,7 @@ describe('AssistantTurn.svelte', () => {
     };
     expect(pillText(turn(0.9), false)).toBeNull();
     expect(pillText(turn(0))).toBeNull();
-    expect(pillText(turn(0.9))).toBe('90% sure');
+    expect(pillText(turn(0.9))).toBe('90% confident');
   });
 
   it('paints is-latest card chrome only when isLatest=true', () => {

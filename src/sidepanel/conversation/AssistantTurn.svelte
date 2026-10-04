@@ -592,7 +592,7 @@
             class="ega-pill"
             data-ega-confidence
             data-tooltip="How sure the model is about this reply"
-            data-tooltip-placement="top">{pct}% sure</span
+            data-tooltip-placement="top">{pct}% confident</span
           >
         {/if}
         {#if multiVarietyPills}
@@ -643,6 +643,8 @@
             onclick={() => (inspectorOpen = !inspectorOpen)}
           />
         {/if}
+        <!-- Delete sits apart at the row's end, away from Copy. -->
+        <span class="ega-turn-action-end"></span>
         <IconButton
           icon={Trash2}
           ariaLabel="Delete this reply and its message"
@@ -924,6 +926,9 @@
   .ega-turn-actions {
     min-height: 28px;
     margin-top: var(--space-1);
+  }
+  .ega-turn-action-end {
+    margin-left: auto;
   }
   .ega-assistant-turn.is-latest > .ega-assistant-actions:not(.ega-turn-actions) {
     padding-top: var(--space-2);

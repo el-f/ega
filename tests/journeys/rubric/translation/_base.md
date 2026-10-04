@@ -14,5 +14,5 @@
 
 ## Confidence + tone
 
-- Tooltip confidence pill uses success / warning / danger tokens (>=80% / >=60% / lower); the side panel shows a neutral "N% sure" pill. Light theme and the dark success/warning pills clear 4.5:1 contrast; the dark danger pill (<60%) does not (~3.6:1, uses --color-danger instead of the AA-safe --color-danger-fg).
+- Tooltip confidence pill uses success / warning / danger tokens (>=80% / >=60% / lower); the side panel shows a neutral "N% confident" pill. Light theme and the dark success/warning pills clear 4.5:1 contrast; the dark danger pill (<60%) does not (~3.6:1, uses --color-danger instead of the AA-safe --color-danger-fg).
 - Tone selector retains its value across re-opens of the same surface in a session.

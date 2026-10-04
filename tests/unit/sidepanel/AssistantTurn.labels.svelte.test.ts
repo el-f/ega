@@ -76,7 +76,7 @@ describe('AssistantTurn — context preview, labels and tooltips', () => {
       props: { turn: baseTurn({ confidence: 0.9 }), onRetry: vi.fn(), isLatest: true },
     });
     const pill = container.querySelector('[data-ega-confidence]');
-    expect(pill?.textContent.trim()).toBe('90% sure');
+    expect(pill?.textContent.trim()).toBe('90% confident');
     expect(pill?.getAttribute('data-tooltip')).toBe('How sure the model is about this reply');
     expect(pill?.getAttribute('title')).toBeNull();
   });
