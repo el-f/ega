@@ -335,7 +335,15 @@
     flex-direction: column;
     gap: var(--space-1);
     font-size: var(--fs-sm);
-    color: var(--color-muted);
+    font-weight: 500;
+    color: var(--color-fg);
+    /* The global label rule belongs on the text, as on Input labels, not on the wrapper and its select. */
+    margin: 0;
+    opacity: 1;
+  }
+  .glossary-lang-field > span {
+    margin: var(--space-2) 0 var(--space-1);
+    opacity: 0.8;
   }
   .glossary-scope-help {
     grid-column: 1 / -1;
