@@ -547,6 +547,8 @@ export class CliSessionManager {
     const tail = entry.stderrTail.trim().slice(-500);
     const said = entry.cliError.trim().slice(0, 500);
     const hint = startupFailureMessage(entry.provider, tail);
+    // Before the terminal frame: the extension may read the request as over the moment it lands.
+    entry.cleanup();
     this.#endAll(
       entry,
       code === 0
