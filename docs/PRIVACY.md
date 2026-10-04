@@ -286,7 +286,7 @@ tooltip shows it but never saves it.
 
 A task with page context off on the Tasks tab never sends it: the service worker drops it before
 the request. The saved turn can still hold the context the page collected, but neither the side
-panel nor the tooltip lists it under "Show what was sent".
+panel nor the tooltip shows it in a reply's details panel ("About this reply").
 
 The snapshot is stored as it was sent. Nothing cuts it again at rest, and no setting removes it
 from a thread that already holds it. Turning "Send page context" off stops the next request from

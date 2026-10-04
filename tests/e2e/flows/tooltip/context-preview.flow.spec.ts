@@ -42,7 +42,7 @@ test('Context icon button reveals the captured PageContext entries', async () =>
   await waitForVisibleText(page, '.tooltip .body', 'Welcome');
   timeline.markStep('body-visible');
 
-  // ContextPreview starts closed in the tooltip variant, so the dl is absent.
+  // The details panel starts closed, so the page excerpt is absent.
   const closedListCount = await page.evaluate(() => {
     const host = document.querySelector('#ega-shadow-host');
     const root = (host as HTMLElement | null)?.shadowRoot;
@@ -54,9 +54,9 @@ test('Context icon button reveals the captured PageContext entries', async () =>
     const host = document.querySelector('#ega-shadow-host');
     const root = (host as HTMLElement | null)?.shadowRoot;
     const btn = root?.querySelector<HTMLButtonElement>(
-      '.tooltip button[aria-label="Show what was sent"]',
+      '.tooltip button[aria-label="Show details about this reply"]',
     );
-    if (!btn) throw new Error('context toggle button missing');
+    if (!btn) throw new Error('details button missing');
     btn.click();
   });
   timeline.markStep('toggle-clicked');
@@ -73,12 +73,28 @@ test('Context icon button reveals the captured PageContext entries', async () =>
     )
     .toBe(true);
 
-  // At minimal level the page URL is always captured, so the list is never empty.
-  const entries = await page.evaluate(() => {
+  // At minimal level the text around the selection is captured, with the selection marked in it.
+  const marked = await page.evaluate(() => {
     const host = document.querySelector('#ega-shadow-host');
     const root = (host as HTMLElement | null)?.shadowRoot;
-    const dts = Array.from(root?.querySelectorAll('[data-ega-context-list] dt') ?? []);
-    return dts.map((d) => d.textContent.trim()).filter(Boolean);
+    return root?.querySelector('[data-ega-context-list] mark')?.textContent ?? '';
   });
-  expect(entries.length).toBeGreaterThan(0);
+  expect(marked.length).toBeGreaterThan(0);
+
+  // Every page field opens on request, the full address among them.
+  const allFields = await page.evaluate(() => {
+    const host = document.querySelector('#ega-shadow-host');
+    const root = (host as HTMLElement | null)?.shadowRoot;
+    const more = Array.from(
+      root?.querySelectorAll<HTMLButtonElement>('[data-ega-inspector] .rd-link') ?? [],
+    ).find((b) => b.textContent.trim() === 'Show all page info');
+    more?.click();
+    return new Promise<string>((resolve) =>
+      setTimeout(
+        () => resolve(root?.querySelector('[data-ega-context-all]')?.textContent ?? ''),
+        100,
+      ),
+    );
+  });
+  expect(allFields).toContain('Address');
 });

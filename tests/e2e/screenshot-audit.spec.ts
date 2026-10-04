@@ -687,7 +687,7 @@ test('Tooltip — default + inspector + context preview', async () => {
     const host = document.querySelector('#ega-shadow-host');
     const root = (host as HTMLElement | null)?.shadowRoot;
     const btn = root?.querySelector<HTMLButtonElement>(
-      '.tooltip button[aria-label="Show inspector"]',
+      '.tooltip button[aria-label="Show details about this reply"]',
     );
     btn?.click();
   });
@@ -696,8 +696,11 @@ test('Tooltip — default + inspector + context preview', async () => {
     surface: 'tooltip',
     state: 'inspector-open',
     theme: 'light',
-    userAction: 'user clicked the inspector affordance on the tooltip topbar',
-    expectations: ['inspector drawer mounts below the body', 'ResultMeta fields visible'],
+    userAction: 'user clicked Details (i) on the tooltip',
+    expectations: [
+      'About this reply panel mounts below the body',
+      'answered by, time and what Ega sent visible',
+    ],
   });
 
   // Toggle context preview open.
@@ -705,7 +708,7 @@ test('Tooltip — default + inspector + context preview', async () => {
     const host = document.querySelector('#ega-shadow-host');
     const root = (host as HTMLElement | null)?.shadowRoot;
     const btn = root?.querySelector<HTMLButtonElement>(
-      '.tooltip button[aria-label="Show what was sent"]',
+      '.tooltip [data-ega-inspector] .rd-link[aria-expanded]',
     );
     btn?.click();
   });
@@ -714,8 +717,8 @@ test('Tooltip — default + inspector + context preview', async () => {
     surface: 'tooltip',
     state: 'context-preview',
     theme: 'light',
-    userAction: 'user expanded the context-preview affordance',
-    expectations: ['context block visible in footer', 'block readable but compact'],
+    userAction: 'user opened Show all page info in the details panel',
+    expectations: ['every page field listed', 'panel scrolls inside the tooltip cap'],
   });
   await page.close();
 });

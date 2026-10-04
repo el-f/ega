@@ -188,7 +188,7 @@
         </dd>
       </div>
       {#if historyLine}
-        <div class="rd-row" data-ega-details-history>
+        <div class="rd-row">
           <dt>Earlier messages</dt>
           <dd>{historyLine}</dd>
         </div>
@@ -237,7 +237,7 @@
   </div>
 
   <footer class="rd-foot">
-    <button type="button" class="rd-copy" onclick={() => void copyJson()} data-ega-details-copy>
+    <button type="button" class="rd-copy" onclick={() => void copyJson()}>
       {copied ? 'Copied' : 'Copy as JSON'}
     </button>
     <span class="ega-sr-only" role="status" aria-live="polite">{copied ? 'Copied' : ''}</span>

@@ -112,12 +112,12 @@ export const COVERAGE: readonly Family[] = [
           },
           {
             id: 'inspector-drawer',
-            description: 'Inspector drawer opens with ResultMeta',
+            description: 'Details panel opens with how the reply was answered',
             flows: ['tooltip/inspector-drawer.flow.spec.ts'],
           },
           {
             id: 'context-preview',
-            description: 'ContextPreview footer renders when contextSent set',
+            description: 'Details panel shows the page text sent, with the selection marked',
             flows: ['tooltip/context-preview.flow.spec.ts'],
           },
           {

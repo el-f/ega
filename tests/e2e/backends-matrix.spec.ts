@@ -113,13 +113,10 @@ for (const id of CLOUD_PROVIDER_IDS) {
     await expect(page.locator('.tooltip .meta .lang:not([data-ega-direction])')).toHaveText(
       'Arabizi — Levantine',
     );
-    await page.locator('.tooltip button[aria-label="Show inspector"]').click();
+    await page.locator('.tooltip button[aria-label="Show details about this reply"]').click();
     const inspector = page.locator('[data-ega-inspector]');
-    await expect(inspector.locator('.inspector-row', { hasText: 'Input tokens' })).toContainText(
-      String(MOCK_USAGE.input),
-    );
-    await expect(inspector.locator('.inspector-row', { hasText: 'Output tokens' })).toContainText(
-      String(MOCK_USAGE.output),
-    );
+    const tokens = inspector.locator('.rd-row', { hasText: 'Tokens' });
+    await expect(tokens).toContainText(`${MOCK_USAGE.input} in`);
+    await expect(tokens).toContainText(`${MOCK_USAGE.output} out`);
   });
 }

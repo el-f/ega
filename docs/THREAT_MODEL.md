@@ -529,9 +529,10 @@ Anthropic, Google, OpenAI and the rest see everything you send them. You
 agreed to that when you picked the provider. Ega's job is to show you what
 leaves your device, not to prevent the send.
 
-The tooltip's context preview shows the PAGE CONTEXT block only
-(`src/shared/components/ContextPreview.svelte`, used in
-`src/content/Tooltip.svelte#ContextPreview`). It does not show the selected text, the glossary block, the rules block, or an attached image.
+Each reply's details panel ("About this reply", `src/shared/components/ReplyDetails.svelte`, in the
+tooltip and the side panel) shows what Ega sent: the text, the task prompt by name, how many earlier
+messages, and the PAGE CONTEXT block. It does not show the glossary block, the rules block, or an
+attached image.
 
 Open **Settings → Advanced → Diagnostics → Request audit log**: it keeps the last 50 system
 and user prompts, each clamped to 200 characters (1000 when the request

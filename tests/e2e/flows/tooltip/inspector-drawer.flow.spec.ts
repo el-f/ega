@@ -55,7 +55,9 @@ test('Inspector ⓘ button opens the InspectorDrawer with backend/latency rows',
         await page.evaluate(() => {
           const host = document.querySelector('#ega-shadow-host');
           const root = (host as HTMLElement | null)?.shadowRoot;
-          return !!root?.querySelector('.tooltip button[aria-label="Show inspector"]');
+          return !!root?.querySelector(
+            '.tooltip button[aria-label="Show details about this reply"]',
+          );
         }),
       { timeout: 5_000 },
     )
@@ -65,7 +67,7 @@ test('Inspector ⓘ button opens the InspectorDrawer with backend/latency rows',
     const host = document.querySelector('#ega-shadow-host');
     const root = (host as HTMLElement | null)?.shadowRoot;
     const btn = root?.querySelector<HTMLButtonElement>(
-      '.tooltip button[aria-label="Show inspector"]',
+      '.tooltip button[aria-label="Show details about this reply"]',
     );
     if (!btn) throw new Error('inspector toggle missing');
     btn.click();
@@ -91,6 +93,7 @@ test('Inspector ⓘ button opens the InspectorDrawer with backend/latency rows',
       .map((d) => d.textContent.trim())
       .filter(Boolean);
   });
-  expect(labels).toContain('Backend');
-  expect(labels).toContain('Total time');
+  expect(labels).toContain('Answered by');
+  expect(labels).toContain('Time');
+  expect(labels).toContain('Your text');
 });
