@@ -22,7 +22,7 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-test('Send to panel with cold sidepanel: cold-start drains slot and seeds the conversation', async () => {
+test('Open in side panel with cold sidepanel: cold-start drains slot and seeds the conversation', async () => {
   const timeline = createTimeline();
   mockAnthropic(ext.context, { translation: 'Bonjour le monde' });
 
@@ -47,7 +47,7 @@ test('Send to panel with cold sidepanel: cold-start drains slot and seeds the co
 
   await popup.locator('[data-ega-freeform-collapsed]').click();
   await popup.locator('[data-ega-freeform-textarea]').fill('translate hello to french');
-  await popup.getByRole('button', { name: /Send to panel/i }).click();
+  await popup.getByRole('button', { name: /Open in side panel/i }).click();
   timeline.markStep('send-clicked');
 
   // Confirm the handoff is in storage before mounting the sidepanel.

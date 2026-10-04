@@ -46,10 +46,26 @@ describe('Popup launcher shell', () => {
     expect(await findByRole('region', { name: /Notifications/i })).toBeTruthy();
   });
 
-  it('mounts the cycle theme toggle in the popup header', async () => {
+  it('offers backend setup when no backend is ready, and keeps the tiles usable', async () => {
+    const { container, findByRole } = render(Popup);
+    const banner = await vi.waitFor(() => {
+      const el = container.querySelector('[data-ega-popup-no-backend]');
+      if (!el) throw new Error('no banner yet');
+      return el;
+    });
+    expect(banner.textContent).toMatch(/needs a model/i);
+    expect(
+      ((await findByRole('button', { name: /Set up a backend/i })) as HTMLElement).tagName,
+    ).toBe('BUTTON');
+    expect(
+      (await findByRole('button', { name: /Translate this page/i })).hasAttribute('disabled'),
+    ).toBe(false);
+  });
+
+  it('leaves the theme to Options, so the header has no theme toggle', async () => {
     const { container, findByRole } = render(Popup);
     await findByRole('button', { name: /Translate this page/i });
-    expect(container.querySelector('[data-ega-theme-toggle]')).not.toBeNull();
+    expect(container.querySelector('[data-ega-theme-toggle]')).toBeNull();
   });
 });
 
@@ -61,10 +77,10 @@ describe('Popup freeform expand', () => {
     await tick();
     const ta = container.querySelector('[data-ega-freeform-textarea]') as HTMLTextAreaElement;
     expect(ta).not.toBeNull();
-    expect(await findByRole('button', { name: /Send to panel/i })).toBeTruthy();
+    expect(await findByRole('button', { name: /Open in side panel/i })).toBeTruthy();
   });
 
-  it('Send to panel writes the handoff slot + opens the sidepanel', async () => {
+  it('Open in side panel writes the handoff slot + opens the sidepanel', async () => {
     const tabsQuery = chrome.tabs.query as unknown as Mock;
     tabsQuery.mockResolvedValue([{ id: 77, url: 'https://example.com/' }]);
     const sidePanelOpen = vi.fn().mockResolvedValue(undefined);
@@ -80,7 +96,7 @@ describe('Popup freeform expand', () => {
     await tick();
     const ta = container.querySelector('[data-ega-freeform-textarea]') as HTMLTextAreaElement;
     await fireEvent.input(ta, { target: { value: 'ahlan sadeeqi' } });
-    await fireEvent.click(await findByRole('button', { name: /Send to panel/i }));
+    await fireEvent.click(await findByRole('button', { name: /Open in side panel/i }));
 
     await vi.waitFor(() => expect(sidePanelOpen).toHaveBeenCalledWith({ tabId: 77 }));
     const entries = await handoffEntries<{ sourceText: string; task: string; tone: string }>();
@@ -115,7 +131,7 @@ describe('Popup freeform expand', () => {
       expect(armed['ega.popupDraft']?.text).toBe('ana bahibbak');
     });
 
-    const send = await findByRole('button', { name: /Send to panel/i });
+    const send = await findByRole('button', { name: /Open in side panel/i });
     const draftText = async (): Promise<string> => {
       const stored = (await chrome.storage.session.get('ega.popupDraft')) as Record<
         string,
@@ -166,7 +182,7 @@ describe('Popup freeform expand', () => {
     await tick();
     const ta = container.querySelector('[data-ega-freeform-textarea]') as HTMLTextAreaElement;
     await fireEvent.input(ta, { target: { value: 'x'.repeat(MAX_SELECTION_CHARS + 100) } });
-    await fireEvent.click(await findByRole('button', { name: /Send to panel/i }));
+    await fireEvent.click(await findByRole('button', { name: /Open in side panel/i }));
     // close() would follow open() in the same chain, so one flush after open is enough to see it.
     await vi.waitFor(() => expect(sidePanelOpen).toHaveBeenCalled());
     await flushAsync();
@@ -216,7 +232,7 @@ describe('Popup freeform expand', () => {
     await tick();
     const ta = container.querySelector('[data-ega-freeform-textarea]') as HTMLTextAreaElement;
     await fireEvent.input(ta, { target: { value: '   \n  ' } });
-    const send = (await findByRole('button', { name: /Send to panel/i })) as HTMLButtonElement;
+    const send = (await findByRole('button', { name: /Open in side panel/i })) as HTMLButtonElement;
     expect(send.disabled).toBe(true);
   });
 });
@@ -423,7 +439,7 @@ describe('Popup handoff tone', () => {
       await tick();
       const ta = container.querySelector('[data-ega-freeform-textarea]') as HTMLTextAreaElement;
       await fireEvent.input(ta, { target: { value: 'ahlan' } });
-      await fireEvent.click(await findByRole('button', { name: /Send to panel/i }));
+      await fireEvent.click(await findByRole('button', { name: /Open in side panel/i }));
     } else {
       (navigator.clipboard.readText as unknown as Mock).mockResolvedValueOnce('ahlan');
       await fireEvent.click(await findByRole('button', { name: /Translate clipboard contents/i }));

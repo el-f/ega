@@ -22,7 +22,7 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-test('Send to panel with warm sidepanel: live mount drains slot on storage.onChanged', async () => {
+test('Open in side panel with warm sidepanel: live mount drains slot on storage.onChanged', async () => {
   const timeline = createTimeline();
   mockAnthropic(ext.context, { translation: 'Hallo Welt' });
 
@@ -50,7 +50,7 @@ test('Send to panel with warm sidepanel: live mount drains slot on storage.onCha
   await popup.goto(`chrome-extension://${ext.extensionId}/src/popup/index.html`);
   await popup.locator('[data-ega-freeform-collapsed]').click();
   await popup.locator('[data-ega-freeform-textarea]').fill('hello in german');
-  await popup.getByRole('button', { name: /Send to panel/i }).click();
+  await popup.getByRole('button', { name: /Open in side panel/i }).click();
   timeline.markStep('send-clicked');
 
   // The warm sidepanel picks the turn up without a remount.

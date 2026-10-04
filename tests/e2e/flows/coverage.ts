@@ -1516,7 +1516,7 @@ export const COVERAGE: readonly Family[] = [
           {
             id: 'theme-change-cross-surface',
             description:
-              'Theme toggle in popup; sidepanel + tooltip + options flip data-theme in one frame',
+              'Theme written to storage; sidepanel + options flip data-theme in one frame',
             flows: [
               'integration/settings-runtime-propagation/theme-change-cross-surface.flow.spec.ts',
             ],

@@ -47,7 +47,7 @@ test('source picker change persists into the pendingPopupHandoff', async () => {
 
   await popup.locator('[data-ega-freeform-collapsed]').click();
   await popup.locator('[data-ega-freeform-textarea]').fill('hola mundo');
-  await popup.getByRole('button', { name: /Send to panel/i }).click();
+  await popup.getByRole('button', { name: /Open in side panel/i }).click();
   timeline.markStep('send-clicked');
 
   // The map is keyed by `${ts}-${counter}`, so match the first value's shape, not a known key.

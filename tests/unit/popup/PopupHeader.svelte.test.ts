@@ -6,9 +6,7 @@ import PopupHeader from '@/popup/PopupHeader.svelte';
 describe('PopupHeader', () => {
   const baseProps = {
     settings: null,
-    theme: 'system' as const,
     onOpenOptions: vi.fn(),
-    onSetTheme: vi.fn(),
   };
 
   it('renders brand text', () => {
@@ -37,9 +35,7 @@ describe('PopupHeader', () => {
     const { container } = render(PopupHeader, {
       props: {
         settings: DEFAULT_SETTINGS,
-        theme: 'system' as const,
         onOpenOptions: vi.fn(),
-        onSetTheme: vi.fn(),
       },
     });
 

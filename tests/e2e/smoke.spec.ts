@@ -39,7 +39,7 @@ test('popup launcher renders lang pickers + collapsed freeform composer', async 
   await expect(page.getByPlaceholder(/Paste or type/i)).toHaveCount(0);
   await page.locator('[data-ega-freeform-collapsed]').click();
   await expect(page.getByPlaceholder(/Paste or type/i)).toBeVisible();
-  await expect(page.getByRole('button', { name: /^Send to panel$/ })).toBeDisabled();
+  await expect(page.getByRole('button', { name: /^Open in side panel$/ })).toBeDisabled();
 });
 
 test('side panel: translate populates history + conversation', async () => {

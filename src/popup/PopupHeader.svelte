@@ -1,23 +1,21 @@
 <script lang="ts">
   import BrandMark from '@/shared/components/BrandMark.svelte';
   import IconButton from '@/shared/ui/IconButton.svelte';
-  import ThemeToggle from '@/shared/components/ThemeToggle.svelte';
   import ActiveBackendChip from '@/shared/components/ActiveBackendChip.svelte';
   import Settings from '@lucide/svelte/icons/settings';
-  import type { ThemePref } from '@/shared/theme';
   import type { Settings as SettingsT } from '@/shared/types';
   import { openOptionsTab } from '@/shared/open-options-tab';
 
   interface Props {
-    /** Live settings — drives the active backend chip + theme readout.
+    /** Live settings — drives the active backend chip.
      *  Null on first paint before storage hydrates. */
     settings: SettingsT | null;
-    theme: ThemePref;
     onOpenOptions: () => void;
-    onSetTheme: (next: ThemePref) => void;
+    /** Readiness of the backend chain; null while the chip is still checking. */
+    onBackendReadyChange?: (ready: boolean | null) => void;
   }
 
-  let { settings, theme, onOpenOptions, onSetTheme }: Props = $props();
+  let { settings, onOpenOptions, onBackendReadyChange }: Props = $props();
 
   function jumpToBackends(): void {
     openOptionsTab('backends');
@@ -28,9 +26,12 @@
   <h1 class="popup-header-brand"><BrandMark size={16} /></h1>
   <div class="popup-header-actions">
     {#if settings}
-      <ActiveBackendChip {settings} onJump={jumpToBackends} />
+      <ActiveBackendChip
+        {settings}
+        onJump={jumpToBackends}
+        {...onBackendReadyChange ? { onReadyChange: onBackendReadyChange } : {}}
+      />
     {/if}
-    <ThemeToggle {theme} {onSetTheme} cycle />
     <IconButton icon={Settings} ariaLabel="Open settings" size="sm" onclick={onOpenOptions} />
   </div>
 </div>

@@ -34,6 +34,7 @@
   let pickerEnabled = $state(true);
   let liveSettings: Settings | null = $state(null);
   let theme: ThemePref = $state('system');
+  let backendReady = $state<boolean | null>(null);
 
   let freeformText = $state('');
   let freeformExpanded = $state(false);
@@ -290,7 +291,7 @@
     } catch (e) {
       debugCatch(e, 'popup.onMount.getSettings');
     }
-    // Picks up settings written by another surface, so the backend chip and theme readout stay in sync.
+    // Picks up settings written by another surface, so the backend chip and the toaster theme stay in sync.
     settingsUnsub = onSettingsChanged((next) => {
       liveSettings = next;
       theme = next.theme;
@@ -356,15 +357,6 @@
       toastStore.push({ message: settingsSaveFailedMessage(ack.reason), variant: 'warning' });
     }
   }
-  async function persistTheme(next: ThemePref): Promise<void> {
-    const previous = theme;
-    theme = next;
-    const ack = await patchSettings({ theme: next });
-    if (!ack.ok) {
-      theme = previous;
-      toastStore.push({ message: settingsSaveFailedMessage(ack.reason), variant: 'warning' });
-    }
-  }
 </script>
 
 <div class="popup-root">
@@ -373,9 +365,8 @@
       <div class="popup-header-slot">
         <PopupHeader
           settings={liveSettings}
-          {theme}
           onOpenOptions={() => openOptionsTab()}
-          onSetTheme={(t) => void persistTheme(t)}
+          onBackendReadyChange={(ready) => (backendReady = ready)}
         />
       </div>
     {/snippet}
@@ -392,6 +383,17 @@
         void swapDirection();
       }}
     />
+
+    {#if backendReady === false}
+      <div class="popup-no-backend" role="status" data-ega-popup-no-backend>
+        <p>
+          Ega needs a model to translate with. Add an API key, or set up Ollama or the native host.
+        </p>
+        <Button variant="primary" onclick={() => openOptionsTab('backends')}
+          >Set up a backend</Button
+        >
+      </div>
+    {/if}
 
     <PopupTools
       onTranslatePage={() => void onTranslatePage()}
@@ -427,7 +429,7 @@
           <Button
             variant="primary"
             disabled={freeformText.trim().length === 0}
-            onclick={() => void onSendFreeform()}>Send to panel</Button
+            onclick={() => void onSendFreeform()}>Open in side panel</Button
           >
         </div>
       {/if}
@@ -446,6 +448,20 @@
     align-items: center;
     width: 100%;
   }
+  .popup-no-backend {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-sunken);
+    font-size: var(--fs-sm);
+  }
+  .popup-no-backend p {
+    margin: 0;
+  }
   .popup-freeform {
     display: flex;
     flex-direction: column;
@@ -456,9 +472,9 @@
     width: 100%;
     text-align: left;
     padding: var(--space-3) var(--space-3);
-    border: 1px dashed var(--color-border);
+    border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
-    background: transparent;
+    background: var(--color-bg-elevated);
     color: var(--color-muted);
     cursor: text;
     font-size: var(--fs-sm);

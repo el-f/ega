@@ -48,7 +48,7 @@ describe('Popup — nothing to act on', () => {
     await tick();
     const ta = container.querySelector('[data-ega-freeform-textarea]') as HTMLTextAreaElement;
     await fireEvent.input(ta, { target: { value: 'hola' } });
-    await fireEvent.click(await findByRole('button', { name: /Send to panel/i }));
+    await fireEvent.click(await findByRole('button', { name: /Open in side panel/i }));
     expect(await findByText(/The side panel needs a browser tab/i)).toBeTruthy();
     expect(await findByText(/Your text is kept/i)).toBeTruthy();
   });
@@ -91,7 +91,7 @@ describe('Popup — nothing to act on', () => {
     const ta = container.querySelector('[data-ega-freeform-textarea]') as HTMLTextAreaElement;
     await fireEvent.input(ta, { target: { value: 'keep me too' } });
     await draftSaved('keep me too');
-    await fireEvent.click(await findByRole('button', { name: /Send to panel/i }));
+    await fireEvent.click(await findByRole('button', { name: /Open in side panel/i }));
 
     expect(await findByText(/Could not open the side panel/i)).toBeTruthy();
     // The toast comes from the failed send itself, so one flush lets that send finish.
@@ -112,7 +112,7 @@ describe('Popup — nothing to act on', () => {
     await fireEvent.input(ta, { target: { value: 'keep me' } });
     // The draft write is debounced; let it land before the failing send.
     await draftSaved('keep me');
-    await fireEvent.click(await findByRole('button', { name: /Send to panel/i }));
+    await fireEvent.click(await findByRole('button', { name: /Open in side panel/i }));
     expect(await findByText(/The side panel needs a browser tab/i)).toBeTruthy();
     await flushAsync();
     expect((await readPopupDraft())?.text).toBe('keep me');

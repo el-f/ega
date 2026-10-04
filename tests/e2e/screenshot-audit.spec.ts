@@ -349,10 +349,10 @@ test('Popup — default + popover + palette + shortcuts + mid-flight + dark', as
     theme: 'light',
     userAction: 'user clicked the toolbar action button to open the popup',
     expectations: [
-      'four trigger tiles (Page / Pick / Clipboard / Panel) form the visual focus',
+      'Translate this page is the one primary tile; Pick / Clipboard / Panel sit below it',
       'lang pair (source + target + swap) visible above the grid',
       'collapsed "Translate something…" entry reachable below the grid',
-      'header carries the brand mark, the theme toggle and the Options gear',
+      'header carries the brand mark, the backend chip and the Options gear',
       'no Toaster / StatusPill leaked',
     ],
     viewport: { width: 380, height: 600 },
@@ -372,6 +372,23 @@ test('Popup — default + popover + palette + shortcuts + mid-flight + dark', as
       'four trigger tiles render in dark surface tokens',
       'lang pair primitives honor dark theme',
       'parity with light variant in structure',
+    ],
+    viewport: { width: 380, height: 600 },
+  });
+
+  // No backend: the key is gone and no local backend answers.
+  await seedSettings(ext.context, ext.extensionId, { anthropicApiKey: '' });
+  const popupNoBackend = await ext.context.newPage();
+  await popupNoBackend.goto(`chrome-extension://${ext.extensionId}/src/popup/index.html`);
+  await popupNoBackend.waitForSelector('[data-ega-popup-no-backend]');
+  await shot(popupNoBackend, 'popup-no-backend', {
+    surface: 'popup',
+    state: 'no-backend',
+    theme: 'light',
+    userAction: 'user opened the popup before adding any API key',
+    expectations: [
+      'a banner says Ega needs a model and offers Set up a backend',
+      'the tiles and the lang pair stay usable: a cold native host can read as not ready',
     ],
     viewport: { width: 380, height: 600 },
   });

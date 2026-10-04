@@ -47,7 +47,7 @@ test('handoff entry persists across popup close; cold-start sidepanel drains it'
   await popup.goto(`chrome-extension://${ext.extensionId}/src/popup/index.html`);
   await popup.locator('[data-ega-freeform-collapsed]').click();
   await popup.locator('[data-ega-freeform-textarea]').fill('hello in portuguese');
-  await popup.getByRole('button', { name: /Send to panel/i }).click();
+  await popup.getByRole('button', { name: /Open in side panel/i }).click();
 
   // The entry must land before the popup closes, else the test proves nothing.
   await expect

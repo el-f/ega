@@ -16,7 +16,7 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-test('Send to panel writes the handoff slot + opens the sidepanel', async () => {
+test('Open in side panel writes the handoff slot + opens the sidepanel', async () => {
   const timeline = createTimeline();
   const popup = await ext.context.newPage();
   await popup.addInitScript(() => {
@@ -50,7 +50,7 @@ test('Send to panel writes the handoff slot + opens the sidepanel', async () => 
   await ta.fill('hand me off to the sidepanel');
   timeline.markStep('freeform-filled');
 
-  await popup.getByRole('button', { name: /Send to panel/i }).click();
+  await popup.getByRole('button', { name: /Open in side panel/i }).click();
   timeline.markStep('send-clicked');
 
   await expect

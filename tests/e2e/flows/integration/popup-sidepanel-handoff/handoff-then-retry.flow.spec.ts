@@ -64,7 +64,7 @@ test('seeded turn enters error state; Retry re-dispatches and lands success body
   await popup.goto(`chrome-extension://${ext.extensionId}/src/popup/index.html`);
   await popup.locator('[data-ega-freeform-collapsed]').click();
   await popup.locator('[data-ega-freeform-textarea]').fill('translate hello to french');
-  await popup.getByRole('button', { name: /Send to panel/i }).click();
+  await popup.getByRole('button', { name: /Open in side panel/i }).click();
   timeline.markStep('send-clicked');
 
   await expect

@@ -6,7 +6,7 @@
 
 ## State expectations
 
-- Step 1: popup freeform Send to panel queues `ega.pendingPopupHandoff`; sidepanel mounts and drains it — the seeded UserTurn + completed AssistantTurn are visible.
+- Step 1: popup freeform Open in side panel queues `ega.pendingPopupHandoff`; sidepanel mounts and drains it — the seeded UserTurn + completed AssistantTurn are visible.
 - Step 2: user clicks a quick-refine chip below the seeded assistant turn.
 - Step 3: a variant AssistantTurn spawns in place (not a new UserTurn); the original seeded content is preserved alongside the variant.
 

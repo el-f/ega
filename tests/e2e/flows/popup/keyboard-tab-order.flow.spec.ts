@@ -38,7 +38,6 @@ test('Tab walks the popup top to bottom with a visible ring; Esc closes the back
   // The swap button is disabled while the source is auto, so Tab skips it.
   expect(stops.map((s) => s.name)).toEqual([
     expect.stringMatching(/^Active backend: Anthropic/),
-    expect.stringMatching(/theme\. Click to switch/),
     'Open settings',
     'Source language',
     'Target language',

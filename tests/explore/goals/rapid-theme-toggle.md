@@ -6,7 +6,7 @@ shadow-host attribute desync, or a stuck MutationObserver.
 
 ## Surfaces in scope
 
-- options ThemeToggle + popup cycle-theme button
+- options ThemeToggle + the side panel More actions theme items
 - content-script shadow host (data-theme on documentElement → mirrored
   into shadow root)
 - prefers-color-scheme media query
@@ -17,7 +17,7 @@ shadow-host attribute desync, or a stuck MutationObserver.
    referencing a theme not present on documentElement.
 2. Toggling system → light → system reattaches the prefers-color-scheme
    listener twice, causing a doubled re-render on the next OS change.
-3. Closing the popup mid-toggle drops the in-flight theme write,
+3. Closing the side panel mid-toggle drops the in-flight theme write,
    reverting the next session.
 
 ## Done condition

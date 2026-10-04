@@ -26,6 +26,8 @@
     readonly disabled: boolean;
     /** Always-visible reason for a disabled tile. */
     readonly hint?: string | undefined;
+    /** The one action most opens the popup for. */
+    readonly primary?: boolean;
   }
 
   const PICKER_OFF_HINT = 'Turn on in Settings → Selection & picker';
@@ -38,6 +40,7 @@
       aria: 'Translate this page',
       onclick: onTranslatePage,
       disabled: false,
+      primary: true,
     },
     {
       key: 'pick',
@@ -72,6 +75,7 @@
     <button
       type="button"
       class="tile"
+      class:primary={tile.primary}
       aria-label={tile.aria}
       disabled={tile.disabled}
       onclick={tile.onclick}
@@ -88,8 +92,8 @@
 <style>
   .popup-tools {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: var(--space-3);
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-2);
     padding-top: var(--space-2);
   }
   .tile {
@@ -98,7 +102,8 @@
     align-items: center;
     justify-content: center;
     gap: var(--space-2);
-    padding: var(--space-4) var(--space-3);
+    padding: var(--space-3) var(--space-2);
+    text-align: center;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
     background: var(--color-bg-elevated);
@@ -108,6 +113,23 @@
       background var(--motion-fast) var(--ease-out),
       border-color var(--motion-fast) var(--ease-out),
       transform var(--motion-fast) var(--ease-out);
+  }
+  .tile.primary {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    padding: var(--space-3);
+    border-color: var(--color-accent);
+    background: var(--color-accent);
+    color: var(--color-accent-fg);
+  }
+  .tile.primary .tile-icon,
+  .tile.primary .tile-label,
+  .tile.primary .tile-hint {
+    color: inherit;
+  }
+  .tile.primary:hover:not(:disabled) {
+    background: var(--color-accent-hover);
+    border-color: var(--color-accent-hover);
   }
   .tile:hover:not(:disabled) {
     background: var(--color-bg-hover);
@@ -132,7 +154,10 @@
   .tile-label {
     font-size: var(--fs-sm);
     color: var(--color-fg);
-    line-height: 1;
+    line-height: 1.2;
+  }
+  .tile.primary .tile-label {
+    font-weight: 600;
   }
   .tile-hint {
     font-size: var(--fs-xs);
