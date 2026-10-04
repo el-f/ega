@@ -7,7 +7,7 @@
 </script>
 
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import TabHeader from '@/shared/components/TabHeader.svelte';
   import SectionCard from '@/shared/ui/SectionCard.svelte';
   import IconButton from '@/shared/ui/IconButton.svelte';
@@ -22,13 +22,16 @@
   import { makeAsyncLock } from '@/shared/utils/async-lock';
   import { asLangIdUnsafe } from '@/shared/brands';
   import { listVarieties } from '@/shared/varieties';
-  import { GLOSSARY_MAX } from '@/shared/settings-schema';
+  import { GLOSSARY_FIELD_MAX, GLOSSARY_MAX } from '@/shared/settings-schema';
   import { exportGlossary } from '@/shared/storage/backup';
   import { count, importBundleFile, type ImportStatus } from '@/options/import-bundle';
   import { downloadJsonFile } from '@/shared/download-file';
   import BackupRestoreRow from '@/options/components/BackupRestoreRow.svelte';
   import type { Settings, LangSelection, Variety } from '@/shared/types';
   import Trash2 from '@lucide/svelte/icons/trash-2';
+  import Pencil from '@lucide/svelte/icons/pencil';
+  import BookText from '@lucide/svelte/icons/book-text';
+  import { openOptionsTab } from '@/shared/open-options-tab';
 
   type GlossaryEntry = Settings['glossary'][number];
 
@@ -46,6 +49,9 @@
     targetLang: '',
     caseSensitive: false,
   });
+  /** The row loaded into the form. Set while editing; null while adding. */
+  let editing: GlossaryEntry | null = $state(null);
+  let formEl = $state<HTMLDivElement | null>(null);
   let query = $state('');
   let saveError: string | null = $state(null);
   let varieties: Variety[] = $state([]);
@@ -98,8 +104,8 @@
   const LIMIT_MESSAGE = `Glossary limit is ${GLOSSARY_MAX} entries — delete one before adding another.`;
 
   class SkippedWrite extends Error {
-    reason: 'full' | 'unchanged';
-    constructor(reason: 'full' | 'unchanged') {
+    reason: 'full' | 'unchanged' | 'duplicate';
+    constructor(reason: 'full' | 'unchanged' | 'duplicate') {
       super(reason);
       this.reason = reason;
     }
@@ -107,8 +113,8 @@
 
   // Read-modify-write inside the settings lock, so a change another surface made since this tab's read survives.
   async function writeGlossary(
-    apply: (cur: GlossaryEntry[]) => GlossaryEntry[] | 'full' | 'unchanged',
-  ): Promise<'saved' | 'full' | 'unchanged' | 'failed'> {
+    apply: (cur: GlossaryEntry[]) => GlossaryEntry[] | 'full' | 'unchanged' | 'duplicate',
+  ): Promise<'saved' | 'full' | 'unchanged' | 'duplicate' | 'failed'> {
     try {
       await replaceSettings((cur) => {
         const next = apply(cur.glossary);
@@ -135,17 +141,47 @@
     );
   }
 
+  // Same scope and the same term; case only separates two entries when both match case.
+  function isDuplicate(a: GlossaryEntry, b: GlossaryEntry): boolean {
+    if (a.sourceLang !== b.sourceLang || a.targetLang !== b.targetLang) return false;
+    if (a.term === b.term) return true;
+    return !a.caseSensitive && !b.caseSensitive && a.term.toLowerCase() === b.term.toLowerCase();
+  }
+
+  const DUPLICATE_MESSAGE = 'This term is already in the glossary for that language scope.';
+
+  function resetForm(): void {
+    editing = null;
+    saveError = null;
+    draft = { term: '', translation: '', sourceLang: '', targetLang: '', caseSensitive: false };
+  }
+
+  async function startEdit(entry: GlossaryEntry): Promise<void> {
+    saveError = null;
+    editing = entry;
+    draft = {
+      term: entry.term,
+      translation: entry.translation,
+      sourceLang: entry.sourceLang ?? '',
+      targetLang: entry.targetLang ?? '',
+      caseSensitive: entry.caseSensitive,
+    };
+    await tick();
+    formEl?.scrollIntoView({ block: 'nearest' });
+    formEl?.querySelector<HTMLInputElement>('input')?.focus();
+  }
+
   async function addEntry(): Promise<void> {
     saveError = null;
     const term = draft.term.trim();
     const translation = draft.translation.trim();
     if (!term || !translation) return;
-    if (term.length > 100) {
-      saveError = 'Term is too long (max 100 characters).';
+    if (term.length > GLOSSARY_FIELD_MAX) {
+      saveError = `Term is too long (max ${GLOSSARY_FIELD_MAX} characters).`;
       return;
     }
-    if (translation.length > 100) {
-      saveError = 'Translation is too long (max 100 characters).';
+    if (translation.length > GLOSSARY_FIELD_MAX) {
+      saveError = `Translation is too long (max ${GLOSSARY_FIELD_MAX} characters).`;
       return;
     }
     const sourceLang = clampLangSelection(draft.sourceLang);
@@ -157,12 +193,30 @@
       ...(sourceLang !== undefined ? { sourceLang } : {}),
       ...(targetLang !== undefined ? { targetLang } : {}),
     };
+    const original = editing;
+    if (original && sameEntry(original, entry)) {
+      resetForm();
+      return;
+    }
     const result = await writeLock(() =>
-      writeGlossary((cur) => (cur.length >= GLOSSARY_MAX ? 'full' : [...cur, entry])),
+      writeGlossary((cur) => {
+        if (!original) {
+          if (cur.length >= GLOSSARY_MAX) return 'full';
+          return cur.some((g) => isDuplicate(g, entry)) ? 'duplicate' : [...cur, entry];
+        }
+        const at = cur.findIndex((g) => sameEntry(g, original));
+        if (at < 0) return 'unchanged';
+        if (cur.some((g, i) => i !== at && isDuplicate(g, entry))) return 'duplicate';
+        return cur.map((g, i) => (i === at ? entry : g));
+      }),
     );
     if (result === 'full') saveError = LIMIT_MESSAGE;
+    if (result === 'duplicate') saveError = DUPLICATE_MESSAGE;
+    if (result === 'unchanged') {
+      saveError = 'This entry changed in another window. Cancel, then edit it again.';
+    }
     if (result !== 'saved') return;
-    draft = { term: '', translation: '', sourceLang: '', targetLang: '', caseSensitive: false };
+    resetForm();
   }
 
   // Position is not identity: another surface can rewrite the glossary while this tab sits open.
@@ -175,6 +229,7 @@
       }),
     );
     if (result !== 'saved') return;
+    if (editing && sameEntry(editing, entry)) resetForm();
     toastStore.push({
       message: `Removed "${entry.term}".`,
       variant: 'success',
@@ -221,17 +276,20 @@
 
 <TabHeader tab="glossary" />
 
-<SectionCard
-  title="Backup & restore"
-  description="Share your glossary as a file. Import adds only the terms you do not have yet."
->
-  <BackupRestoreRow onExport={doExport} onImport={doImport} status={shareStatus} scope="glossary" />
-</SectionCard>
-
-<SectionCard title="Add entry">
-  <div class="glossary-add" data-ega-glossary-add>
-    <Input bind:value={draft.term} label="Term" placeholder="Firebolt" />
-    <Input bind:value={draft.translation} label="Translation" placeholder="Saeta de Fuego" />
+<SectionCard title={editing ? 'Edit entry' : 'Add entry'}>
+  <div class="glossary-add" data-ega-glossary-add bind:this={formEl}>
+    <Input
+      bind:value={draft.term}
+      label="Term"
+      placeholder="Firebolt"
+      maxlength={GLOSSARY_FIELD_MAX}
+    />
+    <Input
+      bind:value={draft.translation}
+      label="Translation"
+      placeholder="Saeta de Fuego"
+      maxlength={GLOSSARY_FIELD_MAX}
+    />
     <label class="glossary-lang-field">
       <span>Source language</span>
       <Select
@@ -248,25 +306,35 @@
         ariaLabel="Target language scope"
       />
     </label>
-    <Checkbox
-      id="glossary-case-sensitive"
-      bind:checked={draft.caseSensitive}
-      ariaLabel="Case-sensitive match"
-      label="Match case"
-    />
+    <Checkbox id="glossary-case-sensitive" bind:checked={draft.caseSensitive} label="Match case" />
     <p class="glossary-scope-help" data-ega-glossary-scope-help>
       Scope matches the language picked for the request, not the detected one. While the source is
-      Auto-detect, only entries scoped to Any or Auto-detect apply.
+      Auto-detect, only entries scoped to Any or Auto-detect apply. Entries apply to every task that
+      has Use glossary on;
+      <button type="button" class="glossary-link" onclick={() => openOptionsTab('tasks')}>
+        set that per task on the Tasks tab</button
+      >.
     </p>
     <div class="glossary-add-row">
-      <Button
-        variant="primary"
-        iconKind="add"
-        disabled={!draft.term.trim() || !draft.translation.trim()}
-        onclick={addEntry}
-      >
-        Add entry
-      </Button>
+      {#if editing}
+        <Button
+          variant="primary"
+          disabled={!draft.term.trim() || !draft.translation.trim()}
+          onclick={addEntry}
+        >
+          Save entry
+        </Button>
+        <Button variant="secondary" onclick={resetForm}>Cancel</Button>
+      {:else}
+        <Button
+          variant="primary"
+          iconKind="add"
+          disabled={!draft.term.trim() || !draft.translation.trim()}
+          onclick={addEntry}
+        >
+          Add entry
+        </Button>
+      {/if}
       {#if saveError}
         <span class="glossary-error" role="alert">{saveError}</span>
       {/if}
@@ -279,7 +347,7 @@
     <EmptyState
       title="No glossary entries"
       description="Add brand names, character names, or technical jargon here so they translate consistently."
-      icon="📒"
+      icon={BookText}
     />
   {:else}
     {#if entries.length > 10}
@@ -295,7 +363,7 @@
     {/if}
     <ul class="glossary-list" data-ega-glossary-list>
       {#each filtered as e (e)}
-        <li class="glossary-row">
+        <li class="glossary-row" class:is-editing={editing !== null && sameEntry(editing, e)}>
           <div class="glossary-cell glossary-cell-term" dir="auto"><b>{e.term}</b></div>
           <div class="glossary-cell glossary-cell-arrow" aria-hidden="true">→</div>
           <div class="glossary-cell glossary-cell-translation" dir="auto">{e.translation}</div>
@@ -305,9 +373,16 @@
             <span>{scopeLabel(e.targetLang)}</span>
           </div>
           <div class="glossary-cell glossary-cell-flags">
-            {#if e.caseSensitive}<span class="badge">Aa</span>{/if}
+            {#if e.caseSensitive}<span class="badge">Match case</span>{/if}
           </div>
           <div class="glossary-cell glossary-cell-actions">
+            <IconButton
+              icon={Pencil}
+              ariaLabel="Edit entry {e.term}"
+              tooltip="Edit"
+              size="sm"
+              onclick={() => void startEdit(e)}
+            />
             <IconButton
               icon={Trash2}
               ariaLabel="Delete entry {e.term}"
@@ -321,6 +396,13 @@
       {/each}
     </ul>
   {/if}
+</SectionCard>
+
+<SectionCard
+  title="Backup & restore"
+  description="Share your glossary as a file. Import adds only the terms you do not have yet."
+>
+  <BackupRestoreRow onExport={doExport} onImport={doImport} status={shareStatus} scope="glossary" />
 </SectionCard>
 
 <style>
@@ -383,6 +465,22 @@
     border-radius: var(--radius-sm);
     background: var(--color-bg-elevated);
     font-size: var(--fs-sm);
+  }
+  .glossary-row.is-editing {
+    border-color: var(--color-accent);
+  }
+  .glossary-cell-actions {
+    display: inline-flex;
+    gap: 2px;
+  }
+  .glossary-link {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--color-accent);
+    font: inherit;
+    text-decoration: underline;
+    cursor: pointer;
   }
   .glossary-cell-arrow {
     color: var(--color-muted);

@@ -107,3 +107,51 @@ describe('Glossary tab — filter box', () => {
     });
   });
 });
+
+describe('Glossary tab — editing an entry', () => {
+  beforeEach(() => {
+    resetChromeMock();
+  });
+
+  it('the pencil loads the row into the form, and Save entry replaces it in place', async () => {
+    seedEntries(3);
+    const { getByLabelText, findByRole, getByRole } = render(Glossary);
+
+    await fireEvent.click(await findByRole('button', { name: 'Edit entry term-1' }));
+    const term = getByLabelText('Term') as HTMLInputElement;
+    await waitFor(() => expect(term.value).toBe('term-1'));
+    await fireEvent.input(getByLabelText('Translation'), { target: { value: 'fixed' } });
+    await fireEvent.click(getByRole('button', { name: 'Save entry' }));
+
+    await waitFor(async () => {
+      const stored = (await getSettings()).glossary;
+      expect(stored.map((e) => [e.term, e.translation])).toEqual([
+        ['term-0', 'trans-0'],
+        ['term-1', 'fixed'],
+        ['term-2', 'trans-2'],
+      ]);
+    });
+    expect(getByRole('button', { name: /Add entry/i })).toBeTruthy();
+    expect(term.value).toBe('');
+  });
+
+  it('refuses a duplicate term in the same scope, case-insensitively', async () => {
+    seedEntries(2);
+    const { getByLabelText, getByRole, findByRole } = render(Glossary);
+    await findByRole('button', { name: 'Edit entry term-0' });
+
+    await fireEvent.input(getByLabelText('Term'), { target: { value: 'TERM-0' } });
+    await fireEvent.input(getByLabelText('Translation'), { target: { value: 'other' } });
+    await fireEvent.click(getByRole('button', { name: /Add entry/i }));
+
+    expect((await findByRole('alert')).textContent).toMatch(/already in the glossary/i);
+    expect((await getSettings()).glossary).toHaveLength(2);
+  });
+
+  it('caps the term and translation fields at the stored limit while typing', () => {
+    chromeMock.storage.local._raw.set(SETTINGS_KEY, parseSettings({}));
+    const { getByLabelText } = render(Glossary);
+    expect(getByLabelText('Term').getAttribute('maxlength')).toBe('100');
+    expect(getByLabelText('Translation').getAttribute('maxlength')).toBe('100');
+  });
+});

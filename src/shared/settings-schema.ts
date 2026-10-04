@@ -33,6 +33,7 @@ export const CUSTOM_LANG_EXAMPLES_MAX = 50;
 export const DETECT_PATTERN_MAX = 500;
 export const DETECT_FLAGS_MAX = 10;
 export const GLOSSARY_MAX = 200;
+export const GLOSSARY_FIELD_MAX = 100;
 
 // Accepts a BCP-47 code, an Ega preset id, or 'auto'; both brands erase to `LangSelection` at runtime.
 const langSelectionSchema = v.union([LangIdSchema, LangPresetIdSchema, v.literal('auto')]);
@@ -380,13 +381,13 @@ export const glossaryEntrySchema = v.strictObject({
   term: v.pipe(
     v.string(),
     v.minLength(1),
-    v.maxLength(100, 'glossary term max 100 chars'),
+    v.maxLength(GLOSSARY_FIELD_MAX, `glossary term max ${GLOSSARY_FIELD_MAX} chars`),
     v.transform(toSingleLine),
   ),
   translation: v.pipe(
     v.string(),
     v.minLength(1),
-    v.maxLength(100, 'glossary translation max 100 chars'),
+    v.maxLength(GLOSSARY_FIELD_MAX, `glossary translation max ${GLOSSARY_FIELD_MAX} chars`),
     v.transform(toSingleLine),
   ),
   sourceLang: v.optional(langSelectionSchema),

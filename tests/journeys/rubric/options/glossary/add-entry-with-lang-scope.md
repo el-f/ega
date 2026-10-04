@@ -14,7 +14,7 @@
 
 - Source and target lang dropdowns default to "Any" (no language restriction).
 - "Match case" checkbox defaults off.
-- Row shows the lang scope as small muted text, source → target (e.g. "en → fr"; "any" when unset; a variety shows its label); a case-sensitive entry shows an "Aa" badge.
+- Row shows the lang scope as small muted text, source → target (e.g. "en → fr"; "any" when unset; a variety shows its label); a case-sensitive entry shows a "Match case" badge.
 
 ## Failure-mode expectations
 
