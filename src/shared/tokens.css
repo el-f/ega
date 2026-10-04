@@ -274,6 +274,11 @@
   }
 }
 
+/* Chrome gives form controls their own font (Arial); zero specificity so any component font still wins. */
+:where(button, input, select, textarea) {
+  font-family: inherit;
+}
+
 button:not(:disabled):active {
   transform: scale(0.97);
   transition: transform 60ms var(--ease-out);
