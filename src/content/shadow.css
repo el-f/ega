@@ -85,7 +85,7 @@
 }
 /* Scrolls the detail region, NOT `.tooltip` — a scroll container on the card itself clips the buttons' position:fixed hover-labels. */
 .tooltip .ega-tooltip-details {
-  max-height: 50vh;
+  max-height: 45vh;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -1157,6 +1157,10 @@
 }
 .rd-mono {
   font-family: var(--font-mono);
+}
+.rd-sep {
+  margin-inline: var(--space-1);
+  color: var(--color-muted);
 }
 .rd-link {
   padding: 0;

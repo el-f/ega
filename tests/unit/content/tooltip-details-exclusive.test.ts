@@ -77,12 +77,12 @@ describe('Tooltip — scrollable detail wrapper', () => {
     expect(wrap?.querySelector('[data-ega-context-preview]')).toBeTruthy();
   });
 
-  it('shadow.css caps .ega-tooltip-details and scrolls it (not .tooltip)', async () => {
+  it('shadow.css caps .ega-tooltip-details at 45vh and scrolls it (not .tooltip)', async () => {
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
     const css = await fs.readFile(path.resolve(process.cwd(), 'src/content/shadow.css'), 'utf8');
     expect(css).toMatch(
-      /\.tooltip \.ega-tooltip-details\s*\{[^}]*max-height:\s*50vh[^}]*overflow-y:\s*auto/,
+      /\.tooltip \.ega-tooltip-details\s*\{[^}]*max-height:\s*45vh[^}]*overflow-y:\s*auto/,
     );
   });
 });

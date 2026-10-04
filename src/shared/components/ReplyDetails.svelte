@@ -181,9 +181,8 @@
       <div class="rd-row">
         <dt>Instructions</dt>
         <dd>
-          {taskLabel} prompt{#if onViewPrompt}
-            ·
-            <button type="button" class="rd-link" onclick={onViewPrompt}>View in Settings</button>
+          {taskLabel} prompt{#if onViewPrompt}<span class="rd-sep" aria-hidden="true">·</span
+            ><button type="button" class="rd-link" onclick={onViewPrompt}>View in Settings</button>
           {/if}
         </dd>
       </div>
@@ -343,6 +342,10 @@
   }
   .rd-mono {
     font-family: var(--font-mono);
+  }
+  .rd-sep {
+    margin-inline: var(--space-1);
+    color: var(--color-muted);
   }
   .rd-link {
     padding: 0;
