@@ -448,7 +448,7 @@
 
 <SectionCard
   title="All languages"
-  description="The checkbox shows a language in the pickers. Click a name to edit its hint, examples and prompt."
+  description="The checkbox shows a language in the pickers; click a name to edit it."
 >
   {#snippet headerActions()}
     <IconButton
