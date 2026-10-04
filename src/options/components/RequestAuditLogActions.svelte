@@ -1,5 +1,6 @@
 <script lang="ts">
   import GitCompare from '@lucide/svelte/icons/git-compare';
+  import Button from '@/shared/ui/Button.svelte';
 
   interface Props {
     count: number;
@@ -99,24 +100,24 @@
     {/if}
   </div>
   <div class="primary-actions">
-    <button
-      type="button"
-      class="ghost-btn"
+    <Button
+      variant="secondary"
+      size="sm"
       disabled={!hasEntries}
+      dataAttrs={{ 'data-ega-audit-export': true }}
       onclick={() => void onExport()}
-      data-ega-audit-export
     >
       Export as JSON
-    </button>
-    <button
-      type="button"
-      class="danger-btn"
+    </Button>
+    <Button
+      variant="danger"
+      size="sm"
       disabled={!hasEntries}
+      dataAttrs={{ 'data-ega-audit-clear': true }}
       onclick={() => void onClear()}
-      data-ega-audit-clear
     >
       Clear
-    </button>
+    </Button>
   </div>
 </header>
 
@@ -150,8 +151,7 @@
     text-decoration: underline;
   }
   /* Hover and focus looked the same here; a keyboard user needs the ring every other button has. */
-  .count-refresh:focus-visible,
-  .ghost-btn:focus-visible:not(:disabled) {
+  .count-refresh:focus-visible {
     outline: 2px solid var(--color-accent);
     outline-offset: 2px;
   }
@@ -229,43 +229,5 @@
   .primary-actions {
     display: inline-flex;
     gap: var(--space-2);
-  }
-  .ghost-btn {
-    background: transparent;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    color: var(--color-fg);
-    padding: var(--space-1) var(--space-2);
-    font-size: var(--fs-xs);
-    cursor: pointer;
-  }
-  .ghost-btn:hover:not(:disabled),
-  .ghost-btn:focus-visible:not(:disabled) {
-    border-color: var(--color-accent);
-    color: var(--color-accent);
-  }
-  .ghost-btn:disabled {
-    color: var(--color-fg-subtle);
-    cursor: not-allowed;
-  }
-  .danger-btn {
-    background: transparent;
-    color: var(--color-danger);
-    border: 1px solid var(--color-danger);
-    border-radius: var(--radius-sm);
-    padding: var(--space-1) var(--space-2);
-    font-size: var(--fs-xs);
-    cursor: pointer;
-  }
-  .danger-btn:hover:not(:disabled),
-  .danger-btn:focus-visible:not(:disabled) {
-    background: var(--color-danger);
-    color: var(--color-bg);
-    outline: none;
-  }
-  .danger-btn:disabled {
-    color: var(--color-fg-subtle);
-    border-color: var(--color-border);
-    cursor: not-allowed;
   }
 </style>

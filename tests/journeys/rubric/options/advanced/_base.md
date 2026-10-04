@@ -7,8 +7,8 @@
 
 ## Data pane
 
-- Hosts Backup & restore (export/import), the Site overrides list, and "Reset Advanced settings" (template, Effort, temperature, max answer length, site overrides only).
-- Destructive operations ask in a danger confirm dialog; Reset Advanced settings and exporting with API keys also require typing RESET / EXPORT KEYS. Cancel leaves storage untouched.
+- Hosts Backup & restore (export/import), the Site overrides list, and "Reset prompt and generation settings" (the Translate prompt, Effort, temperature, max answer length and site overrides; the card names the tab each lives on).
+- Destructive operations ask in a danger confirm dialog; Reset to defaults and exporting with API keys also require typing RESET / EXPORT KEYS. Cancel leaves storage untouched.
 
 ## Labs pane
 

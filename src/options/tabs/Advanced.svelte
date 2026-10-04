@@ -116,11 +116,10 @@
     if (saved) onSetSettings(saved);
   }
 
-  // Reset Advanced settings (template, sampling, per-site overrides) to defaults
   async function resetAllToDefaults(): Promise<void> {
     if (!s) return;
     const confirmed = await confirmDialog({
-      title: 'Reset Advanced settings',
+      title: 'Reset prompt and generation settings',
       body: 'Reset the prompt template, Effort, temperature, max answer length and per-site overrides to defaults. Per-language prompt overrides and API keys are not affected. Type RESET to confirm.',
       confirmLabel: 'Reset',
       danger: true,

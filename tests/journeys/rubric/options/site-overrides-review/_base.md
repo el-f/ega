@@ -2,7 +2,7 @@
 
 ## Mount + render
 
-- Surface lists `sitePrefs` as read-only rows (an http/https pair with equal prefs merges into one bare-host row); each row shows the bare host (or the full origin when unmerged), an "off" pill when disabled, a "lang:" pill when set, and a × Clear button.
+- Surface lists `sitePrefs` as read-only rows (an http/https pair with equal prefs merges into one bare-host row); each row shows the bare host (or the full origin when unmerged), an "Ega off" pill when disabled, a "Source: <language name>" pill when a source language is set, and an X icon button (danger tone) to clear it. Clear all is a danger Button; Export is a secondary Button.
 - At 10 or more rows a "Filter sites" box narrows the list by host (case-insensitive); no match says so. Clear all still clears every row.
 - Empty state reads "No site overrides yet" and points the user at right-click > "Disable Ega on this site".
 

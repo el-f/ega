@@ -7,7 +7,7 @@
 
 ## State expectations
 
-- Step 1: user clicks "Reset these settings to defaults" in Advanced > Data; a type-to-confirm "Reset Advanced settings" dialog appears.
+- Step 1: user clicks "Reset to defaults" in the "Reset prompt and generation settings" card of Advanced > Data; a type-to-confirm "Reset prompt and generation settings" dialog appears.
 - Step 2: user types the exact phrase "RESET".
 - Step 3: Reset button enables; user clicks it; the prompt template, Effort, temperature, max answer length and site overrides revert to defaults; a toast confirms.
 

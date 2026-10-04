@@ -47,7 +47,7 @@ describe('AdvancedDataPane', () => {
     const text = container.textContent;
     expect(text).toContain('site overrides');
     expect(text).toContain(
-      'Resets the template, Effort, temperature, max answer length and site overrides only.',
+      'Resets the Translate prompt, Effort, temperature, answer length and site overrides.',
     );
     // resetAllToDefaults wipes sitePrefs, so only per-language prompt overrides may be promised to survive.
     expect(text).not.toMatch(/(?<!prompt )\boverrides\b[^.]+\b(?:kept|stay)/i);

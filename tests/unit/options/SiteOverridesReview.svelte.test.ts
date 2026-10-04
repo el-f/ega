@@ -257,3 +257,22 @@ describe('SiteOverridesReview — host filter', () => {
     expect(container.textContent).toMatch(/No sites match "nowhere"/);
   });
 });
+
+describe('SiteOverridesReview — plain row copy', () => {
+  it('names the source language instead of its code', async () => {
+    const { container } = render(SiteOverridesReview, {
+      props: {
+        settings: settingsWith({ 'a.test': { disabled: true, defaultLang: sel('es') } }),
+        onClearKeys: vi.fn().mockResolvedValue(undefined),
+        onClearAll: vi.fn().mockResolvedValue(undefined),
+      },
+    });
+    const row = container.querySelector('[data-ega-site-override-row]');
+    expect(row?.querySelector('[data-ega-site-pill-paused]')?.textContent.trim()).toBe('Ega off');
+    await waitFor(() =>
+      expect(row?.querySelector('[data-ega-site-pill-lang]')?.textContent.trim()).toBe(
+        'Source: Spanish',
+      ),
+    );
+  });
+});

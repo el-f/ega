@@ -40,7 +40,7 @@
 <div data-ega-per-site-card data-ega-setting="advanced.siteOverrides">
   <SectionCard
     title="Site overrides"
-    description="Sites where Ega is turned off, and their last direction; right-click a page to toggle Ega."
+    description="Sites where Ega is off or has its own source language; right-click a page to change it."
   >
     <SiteOverridesReview
       settings={s}
@@ -61,9 +61,13 @@
 
 <div data-ega-setting="advanced.resetEverything">
   <SectionCard
-    title="Reset Advanced settings"
-    description="Resets the template, Effort, temperature, max answer length and site overrides only."
+    title="Reset prompt and generation settings"
+    description="Resets the Translate prompt, Effort, temperature, answer length and site overrides."
   >
+    <p class="reset-where">
+      The prompt is on the Tasks tab; Effort, temperature and answer length are on the Translate
+      tab. Language prompts, API keys and the audit log are kept.
+    </p>
     <div class="row">
       <Button
         variant="danger"
@@ -71,13 +75,18 @@
         dataAttrs={{ 'data-ega-reset-defaults': true }}
         onclick={onResetAllToDefaults}
       >
-        Reset these settings to defaults
+        Reset to defaults
       </Button>
     </div>
   </SectionCard>
 </div>
 
 <style>
+  .reset-where {
+    margin: 0 0 var(--space-2);
+    font-size: var(--fs-sm);
+    color: var(--color-muted);
+  }
   .row {
     display: flex;
     align-items: center;

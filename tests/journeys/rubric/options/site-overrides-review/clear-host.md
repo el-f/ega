@@ -12,7 +12,7 @@
 
 ## Visible affordances
 
-- The Clear button is a × glyph in the subtle fg color that turns danger-tone on hover/focus, with aria-label "Clear override for <host>".
+- The Clear control is a danger-tone X IconButton with the tooltip "Clear" and aria-label "Clear override for <host>".
 
 ## Failure-mode expectations
 

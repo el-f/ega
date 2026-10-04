@@ -26,7 +26,7 @@ describe('Advanced tab — Reset clears sitePrefs', () => {
     }
   });
 
-  it('Reset Advanced settings wipes sitePrefs entries and resets Effort', async () => {
+  it('Reset prompt and generation settings wipes sitePrefs entries and resets Effort', async () => {
     // Seed: settings with an existing sitePref that reset should clear.
     const seeded = {
       ...DEFAULT_SETTINGS,

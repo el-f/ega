@@ -30,7 +30,7 @@ test('Reset to defaults clears sitePrefs and shows the Defaults restored toast',
 
   await page.locator('[data-ega-reset-defaults]').click();
 
-  const dialog = page.locator('.ega-dialog', { hasText: 'Reset Advanced settings' });
+  const dialog = page.locator('.ega-dialog', { hasText: 'Reset prompt and generation settings' });
   await expect(dialog).toBeVisible({ timeout: 5_000 });
 
   const confirmBtn = dialog.getByRole('button', { name: 'Reset', exact: true });

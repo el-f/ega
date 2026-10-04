@@ -92,7 +92,7 @@ test('Reset to defaults restores temperature + maxTokens to shipped values', asy
 
   await selectSubTab(page, 'data');
   await page.locator('[data-ega-reset-defaults]').click();
-  const dialog = page.locator('.ega-dialog', { hasText: 'Reset Advanced settings' });
+  const dialog = page.locator('.ega-dialog', { hasText: 'Reset prompt and generation settings' });
   await expect(dialog).toBeVisible();
   await dialog.locator('#confirm-input').fill('RESET');
   await dialog.getByRole('button', { name: 'Reset', exact: true }).click();

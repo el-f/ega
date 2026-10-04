@@ -875,7 +875,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'advanced.siteOverrides',
     label: 'Site overrides',
-    description: 'Sites where Ega is turned off, and their last direction. Review and clear them.',
+    description: 'Sites where Ega is off or uses its own source language. Review and clear them.',
     keywords: ['site', 'host', 'override', 'per-site', 'domain', 'paused', 'disabled'],
     tab: 'advanced',
     subTab: 'data',
@@ -905,9 +905,9 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   },
   {
     id: 'advanced.resetEverything',
-    label: 'Reset Advanced settings',
+    label: 'Reset prompt and generation settings',
     description:
-      'Resets the prompt template, Effort, temperature, max answer length and site overrides. Per-language overrides, API keys and the audit log are kept.',
+      'Resets the Translate prompt (Tasks tab), Effort, temperature and max answer length (Translate tab), and site overrides. Language prompts, API keys and the audit log are kept.',
     keywords: ['reset', 'wipe', 'clear', 'destructive', 'factory'],
     tab: 'advanced',
     subTab: 'data',
