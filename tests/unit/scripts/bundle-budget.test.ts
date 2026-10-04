@@ -5,6 +5,7 @@ import {
   contentEntryFromLoader,
   eagerDynamicImports,
   injectedContentCss,
+  orphanCss,
   pagePreloadAssets,
   staticImportSpecifiers,
   walkStaticGraph,
@@ -258,5 +259,23 @@ describe('eagerDynamicImports', () => {
 
   it('reads nothing from code it cannot parse', () => {
     expect(eagerDynamicImports('import(')).toEqual([]);
+  });
+});
+
+describe('orphanCss', () => {
+  it('names a stylesheet no page, script or manifest references', () => {
+    const files = new Map([
+      ['dist/assets/Translate-aaaaaaaa.css', '.ds-card{}'],
+      ['dist/assets/Advanced-bbbbbbbb.css', '.adv{}'],
+      ['dist/assets/index-cccccccc.js', 'm.f=["./Advanced-bbbbbbbb.css"]'],
+      ['dist/src/options/index.html', '<link href="/assets/Shell-dddddddd.css">'],
+      ['dist/assets/Shell-dddddddd.css', '.shell{}'],
+    ]);
+    expect(orphanCss(files)).toEqual(['dist/assets/Translate-aaaaaaaa.css']);
+  });
+
+  it('does not count a stylesheet naming itself as a reference', () => {
+    const files = new Map([['dist/assets/A-aaaaaaaa.css', '/* A-aaaaaaaa.css */']]);
+    expect(orphanCss(files)).toEqual(['dist/assets/A-aaaaaaaa.css']);
   });
 });

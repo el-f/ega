@@ -224,6 +224,23 @@ export function compareTotalBytes(
   return { ok: true, message: `ok total ${now}B / ${before}B baseline.` };
 }
 
+/** Stylesheets no html, script or manifest names: their component renders unstyled, because nothing ever loads them. */
+export function orphanCss(files: ReadonlyMap<string, string>): string[] {
+  const texts = [...files].filter(([name]) => !name.endsWith('.css'));
+  return [...files.keys()]
+    .filter((name) => name.endsWith('.css'))
+    .filter((css) => !texts.some(([, text]) => text.includes(path.basename(css))));
+}
+
+function readDistTexts(dir: string, out = new Map<string, string>()): Map<string, string> {
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) readDistTexts(p, out);
+    else if (/\.(?:js|css|html|json)$/.test(e.name)) out.set(p, readFileSync(p, 'utf8'));
+  }
+  return out;
+}
+
 function measureDist(distDir: string): BundleEntry[] {
   const assetsDir = path.join(distDir, 'assets');
   if (!existsSync(assetsDir)) return [];
@@ -344,6 +361,16 @@ async function main(): Promise<void> {
     );
   } else {
     console.log('ok web_accessible_resources lists no stylesheet.');
+  }
+
+  const orphans = orphanCss(readDistTexts(distDir));
+  if (orphans.length > 0) {
+    failed = true;
+    console.error(
+      `x ${orphans.length} stylesheet(s) that nothing loads:\n  ${orphans.map((f) => path.relative(distDir, f)).join('\n  ')}`,
+    );
+  } else {
+    console.log('ok every stylesheet is loaded by a page, script or the manifest.');
   }
 
   const eager = measureEagerContentScript(distDir, manifest);

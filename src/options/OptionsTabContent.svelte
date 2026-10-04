@@ -8,19 +8,19 @@
   type LazyId = 'advanced' | 'translate' | 'tasks' | 'selection-bubble' | 'glossary';
   const lazyCache: Partial<Record<LazyId, Promise<Component>>> = {};
 
+  // One arrow per import: vite 8 gave a ternary of imports one preload list (the last branch's), so the other tabs loaded without their CSS.
+  const LOADERS: Record<LazyId, () => Promise<{ default: unknown }>> = {
+    translate: () => import('./tabs/Translate.svelte'),
+    tasks: () => import('./tabs/Tasks.svelte'),
+    'selection-bubble': () => import('./tabs/SelectionBubble.svelte'),
+    glossary: () => import('./tabs/Glossary.svelte'),
+    advanced: () => import('./tabs/Advanced.svelte'),
+  };
+
   export function loadLazyTab(id: LazyId): Promise<Component> {
     const cached = lazyCache[id];
     if (cached !== undefined) return cached;
-    const p =
-      id === 'translate'
-        ? import('./tabs/Translate.svelte').then((m) => m.default as Component)
-        : id === 'tasks'
-          ? import('./tabs/Tasks.svelte').then((m) => m.default as Component)
-          : id === 'selection-bubble'
-            ? import('./tabs/SelectionBubble.svelte').then((m) => m.default as Component)
-            : id === 'glossary'
-              ? import('./tabs/Glossary.svelte').then((m) => m.default as Component)
-              : import('./tabs/Advanced.svelte').then((m) => m.default as Component);
+    const p = LOADERS[id]().then((m) => m.default as Component);
     lazyCache[id] = p;
     return p;
   }
