@@ -1,7 +1,4 @@
 <script lang="ts">
-  import TypeIcon from '@lucide/svelte/icons/type';
-  import ImageIcon from '@lucide/svelte/icons/image';
-
   type Status = 'unknown' | 'ready' | 'needs-config' | 'unavailable';
 
   interface Props {
@@ -9,38 +6,52 @@
     supportsImage: boolean;
     routeIsText: boolean;
     routeIsImage: boolean;
+    /** An API-key backend is only "ready" because a key is stored; it is Verified once Test passes. */
+    keyOnly?: boolean;
+    verified?: boolean;
   }
 
-  const { beStatus, supportsImage, routeIsText, routeIsImage }: Props = $props();
+  const {
+    beStatus,
+    supportsImage,
+    routeIsText,
+    routeIsImage,
+    keyOnly = false,
+    verified = false,
+  }: Props = $props();
 
-  // The route icons stay decorative, so this text is what gives the marker an accessible name.
+  const saved = $derived(beStatus === 'ready' && keyOnly && !verified);
+  const label = $derived(
+    saved
+      ? 'Key saved'
+      : beStatus === 'ready'
+        ? keyOnly
+          ? 'Verified'
+          : 'Ready'
+        : beStatus === 'needs-config'
+          ? 'Needs setup'
+          : beStatus === 'unavailable'
+            ? 'Unavailable'
+            : 'Checking…',
+  );
+
+  // The visible tag is hidden from screen readers; this text names the route.
   const routeSummary = $derived(
     [routeIsText ? 'text' : null, routeIsImage ? 'images' : null].filter(Boolean).join(' and '),
   );
 </script>
 
-<span class="be-dot be-dot-{beStatus}" aria-hidden="true"></span>
-<span class="be-status be-status-{beStatus}">
-  {#if beStatus === 'ready'}Ready{:else if beStatus === 'needs-config'}Needs setup{:else if beStatus === 'unavailable'}Unavailable{:else}Checking…{/if}
-</span>
+<span class="be-dot be-dot-{saved ? 'saved' : beStatus}" aria-hidden="true"></span>
+<span class="be-status be-status-{saved ? 'saved' : beStatus}">{label}</span>
 {#if !supportsImage}
   <span class="be-tag" title="This backend does not support image translation">text-only</span>
 {/if}
-<span
-  class="be-routes"
-  data-tooltip={routeSummary
-    ? `First choice for ${routeSummary}`
-    : 'Not the first choice for any request'}
-  data-tooltip-placement="left"
->
-  {#if routeSummary}
-    <span class="ega-sr-only">First choice for {routeSummary}</span>
-  {/if}
-  <TypeIcon size={12} class={routeIsText ? 'be-route-on' : 'be-route-off'} aria-hidden="true" />
-  {#if supportsImage}
-    <ImageIcon size={12} class={routeIsImage ? 'be-route-on' : 'be-route-off'} aria-hidden="true" />
-  {/if}
-</span>
+{#if routeSummary}
+  <span class="be-tag be-tag-first" aria-hidden="true"
+    >{routeIsText ? 'First choice' : 'First for images'}</span
+  >
+  <span class="ega-sr-only">First choice for {routeSummary}</span>
+{/if}
 
 <style>
   .be-tag {
@@ -87,6 +98,9 @@
   .be-dot-unavailable {
     background: var(--color-danger);
   }
+  .be-dot-saved {
+    background: var(--color-muted);
+  }
   .be-dot-unknown {
     background: var(--color-muted);
   }
@@ -114,20 +128,15 @@
     color: var(--color-danger-fg);
     border-color: var(--color-danger);
   }
+  .be-status-saved,
   .be-status-unknown {
     color: var(--color-muted);
   }
-  .be-routes {
-    display: inline-flex;
-    gap: 4px;
+  .be-tag-first {
     margin-right: 6px;
-  }
-  :global(.be-route-on) {
+    text-transform: none;
+    letter-spacing: 0;
     color: var(--color-accent);
-    opacity: 0.9;
-  }
-  :global(.be-route-off) {
-    color: var(--color-muted);
-    opacity: 0.15;
+    border-color: var(--color-accent);
   }
 </style>

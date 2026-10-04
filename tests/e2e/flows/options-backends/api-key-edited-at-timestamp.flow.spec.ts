@@ -21,10 +21,8 @@ test('Pasting a new API key writes apiKeyEditedAt and shows "Edited just now"', 
   await page.locator('#tab-backends').click();
   timeline.markStep('tab-active');
 
-  // Anthropic card auto-opens when key is empty (needs-config status).
   const card = page.locator('details[data-backend-id="anthropic"]');
   await expect(card).toBeVisible({ timeout: 5_000 });
-  // The card may already be open from needs-config auto-open.
   const isOpen = await card.evaluate((el) => (el as HTMLDetailsElement).open);
   if (!isOpen) {
     await card.locator('summary').click();

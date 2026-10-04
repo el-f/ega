@@ -181,7 +181,6 @@
                 {id}
                 label={card.label}
                 settings={ss}
-                disabled={!enabled}
                 routeIsText={id === resolvedTextId}
                 routeIsImage={id === resolvedImageId}
                 onPatch={(p) => void patch(p)}
@@ -194,7 +193,6 @@
                 {id}
                 label={card.label}
                 settings={ss}
-                disabled={!enabled}
                 routeIsText={id === resolvedTextId}
                 routeIsImage={id === resolvedImageId}
                 onPatch={(p) => void patch(p)}

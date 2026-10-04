@@ -33,8 +33,6 @@
     label: string;
     /** Current Settings snapshot, used to build a fresh BackendConfig for probes. */
     settings: Settings;
-    /** Live disabled state for this backend (falsy = enabled). */
-    disabled: boolean;
     /** Provider-specific config inputs (API key field, URL, model, etc). */
     children?: Snippet;
     /** True when this backend is the resolved winner for the text route. */
@@ -47,7 +45,6 @@
     id,
     label,
     settings,
-    disabled,
     children,
     routeIsText = false,
     routeIsImage = false,
@@ -62,23 +59,8 @@
   let testPrefillMs: number | null = $state(null);
   let testDecodeMs: number | null = $state(null);
 
-  // The auto-open heuristic drives the state only until the user toggles the card.
-  let userToggledOpen = $state<boolean | null>(null);
-  const autoOpen = $derived(!disabled && beStatus === 'needs-config');
-  const open = $derived(userToggledOpen !== null ? userToggledOpen : autoOpen);
-
-  function onDetailsToggle(e: Event): void {
-    const d = e.currentTarget as HTMLDetailsElement;
-    // A flip that matches the state we passed down is programmatic, not user intent.
-    if (d.open !== open) {
-      userToggledOpen = d.open;
-    }
-  }
-
-  // Focus inside the body (key input, Test) latches the card open, so a key edit flipping the probe to ready can't slam it shut mid-flow.
-  function onBodyFocusIn(): void {
-    if (open) userToggledOpen = true;
-  }
+  // Closed until the user (or a jump from the welcome banner) opens it; a wall of open cards hides the one that matters.
+  let open = $state(false);
 
   const ollama403 = $derived(
     id === 'ollama' &&
@@ -140,6 +122,8 @@
     const key = probeKey;
     if (key === lastProbeKey) return;
     lastProbeKey = key;
+    // A passed Test belongs to the key it ran with.
+    testSucceeded = false;
     const backend = resolveBackend(id);
     if (!backend) {
       beStatus = 'unavailable';
@@ -313,12 +297,19 @@
 </script>
 
 <div class="backend-card-wrap">
-  <CollapsibleCard {open} title={label} backendId={id} ontoggle={onDetailsToggle}>
+  <CollapsibleCard bind:open title={label} backendId={id}>
     {#snippet status()}
-      <BackendCardStatus {beStatus} {supportsImage} {routeIsText} {routeIsImage} />
+      <BackendCardStatus
+        {beStatus}
+        {supportsImage}
+        {routeIsText}
+        {routeIsImage}
+        keyOnly={backendNeedsKey(id)}
+        verified={testSucceeded}
+      />
     {/snippet}
 
-    <div class="be-body" onfocusin={onBodyFocusIn}>
+    <div class="be-body">
       {#if children}{@render children()}{/if}
     </div>
 

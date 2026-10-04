@@ -32,7 +32,6 @@ describe('BackendCard test row', () => {
           id: asBackendIdUnsafe('anthropic'),
           label: 'Anthropic',
           settings: s,
-          disabled: false,
         },
       });
       await settle();
@@ -60,7 +59,7 @@ describe('BackendCard test row', () => {
     };
     try {
       const { container } = render(BackendCard, {
-        props: { id: asBackendIdUnsafe('ollama'), label: 'Ollama', settings: s, disabled: false },
+        props: { id: asBackendIdUnsafe('ollama'), label: 'Ollama', settings: s },
       });
       await settle();
       container.querySelector<HTMLButtonElement>('.be-test-btn')?.click();

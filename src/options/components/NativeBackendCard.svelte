@@ -320,7 +320,6 @@
   id={asBackendIdUnsafe('native')}
   label={backendLabel('native')}
   {settings}
-  {disabled}
   {routeIsText}
   {routeIsImage}
 >

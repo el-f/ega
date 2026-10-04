@@ -12,15 +12,13 @@
     id: BackendId;
     label: string;
     settings: Settings;
-    disabled: boolean;
     routeIsText: boolean;
     routeIsImage: boolean;
     onPatch: (next: Partial<Settings>) => void;
     onModelChange: (next: string) => void;
   }
 
-  let { id, label, settings, disabled, routeIsText, routeIsImage, onPatch, onModelChange }: Props =
-    $props();
+  let { id, label, settings, routeIsText, routeIsImage, onPatch, onModelChange }: Props = $props();
 
   const PRESETS = [
     { name: 'LM Studio', port: '1234', url: 'http://127.0.0.1:1234' },
@@ -59,7 +57,7 @@
   }
 </script>
 
-<BackendCard {id} {label} {settings} {disabled} {routeIsText} {routeIsImage}>
+<BackendCard {id} {label} {settings} {routeIsText} {routeIsImage}>
   <div class="ls-panel">
     <section class="ls-step">
       <div class="ls-step-head">

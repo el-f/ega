@@ -49,7 +49,6 @@ function renderNative(patch: Partial<Settings> = {}) {
       id: asBackendIdUnsafe('native'),
       label: 'Native host',
       settings: { ...(structuredClone(DEFAULT_SETTINGS) as Settings), ...patch },
-      disabled: false,
     },
   });
 }

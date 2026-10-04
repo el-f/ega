@@ -28,7 +28,7 @@ export const SETTINGS_TABS = [
     id: 'backends',
     label: 'Backends',
     description:
-      'Pick which backends Ega uses: a cloud API with your key, a server on this computer (Ollama, LM Studio, llama-server), or the native host. The dot shows status: green = Ready, amber = Needs setup, red = Unavailable. For an API-key backend, green means a key is saved; press Test now to check that it works.',
+      'Pick which backends Ega uses: a cloud API with your key, a server on this computer (Ollama, LM Studio, llama-server), or the native host. Each card shows its status. An API-key backend says "Key saved" until you press Test now, and "Verified" after the test passes.',
   },
   {
     id: 'languages',

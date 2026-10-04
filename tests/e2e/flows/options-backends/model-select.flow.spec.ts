@@ -22,7 +22,7 @@ test('Anthropic model combobox persists settings.model.anthropic', async () => {
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
   await page.locator('#tab-backends').click();
 
-  // A card with a key starts collapsed (autoOpen fires only for needs-config), so expand it first.
+  // Cards start collapsed, so expand it first.
   const card = page.locator('details[data-backend-id="anthropic"]');
   await expect(card).toBeVisible({ timeout: 5_000 });
   await card.locator('summary').click();

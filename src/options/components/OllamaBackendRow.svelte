@@ -18,15 +18,13 @@
     id: BackendId;
     label: string;
     settings: Settings;
-    disabled: boolean;
     routeIsText: boolean;
     routeIsImage: boolean;
     onPatch: (next: Partial<Settings>) => void;
     onModelChange: (next: string) => void;
   }
 
-  let { id, label, settings, disabled, routeIsText, routeIsImage, onPatch, onModelChange }: Props =
-    $props();
+  let { id, label, settings, routeIsText, routeIsImage, onPatch, onModelChange }: Props = $props();
 
   const extId = chrome.runtime.id;
   const ollamaOrigin = `chrome-extension://${extId}`;
@@ -98,7 +96,7 @@
   }
 </script>
 
-<BackendCard {id} {label} {settings} {disabled} {routeIsText} {routeIsImage}>
+<BackendCard {id} {label} {settings} {routeIsText} {routeIsImage}>
   <div class="ollama-panel">
     <section class="ollama-step">
       <div class="ollama-step-head">

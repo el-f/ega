@@ -36,7 +36,7 @@ test('Backends tab: every registered cloud + local backend renders a card', asyn
   ).toBeVisible();
 });
 
-test('Backends tab: disabled cards stay collapsed; needs-config auto-opens', async () => {
+test('Backends tab: every card starts collapsed, including one that needs setup', async () => {
   await seedSettings(ext.context, ext.extensionId, {
     anthropicApiKey: '',
     disabledBackends: [...DEFAULT_SETTINGS.disabledBackends],
@@ -51,7 +51,8 @@ test('Backends tab: disabled cards stay collapsed; needs-config auto-opens', asy
   await expect(anthropicCard).toBeVisible();
   await expect(openaiCard).toBeVisible();
 
-  // Anthropic ships enabled with a blank key, so it lands at needs-config.
-  await expect(anthropicCard).toHaveAttribute('open', '', { timeout: 5_000 });
-  await expect(openaiCard).not.toHaveAttribute('open', '', { timeout: 5_000 });
+  // Anthropic ships enabled with a blank key (needs setup) and still starts collapsed.
+  await expect(anthropicCard.locator('.be-status-needs-config')).toBeVisible({ timeout: 5_000 });
+  await expect(anthropicCard).not.toHaveAttribute('open', '');
+  await expect(openaiCard).not.toHaveAttribute('open', '');
 });

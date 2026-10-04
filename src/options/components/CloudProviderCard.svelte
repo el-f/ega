@@ -123,7 +123,7 @@
   }
 </script>
 
-<BackendCard {id} {label} {settings} {disabled} {routeIsText} {routeIsImage}>
+<BackendCard {id} {label} {settings} {routeIsText} {routeIsImage}>
   <div class="cp-section">
     <div class="cp-section-head">
       <span class="cp-section-num">1</span>

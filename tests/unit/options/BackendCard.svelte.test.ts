@@ -45,7 +45,6 @@ describe('BackendCard collapse behavior', () => {
         id: asBackendIdUnsafe('anthropic'),
         label: 'Anthropic',
         settings: baseSettings(),
-        disabled: true,
       },
     });
     await waitForProbe();
@@ -53,9 +52,7 @@ describe('BackendCard collapse behavior', () => {
     expect(details.open).toBe(false);
   });
 
-  it('enabled backend with needs-config auto-opens', async () => {
-    // No anthropicApiKey ⇒ AnthropicBackend.isAvailable returns false ⇒
-    // status becomes 'needs-config' ⇒ auto-open heuristic kicks in.
+  it('enabled backend that needs setup stays collapsed until the user opens it', async () => {
     const s = baseSettings();
     s.anthropicApiKey = '';
     const { container } = render(BackendCard, {
@@ -63,58 +60,88 @@ describe('BackendCard collapse behavior', () => {
         id: asBackendIdUnsafe('anthropic'),
         label: 'Anthropic',
         settings: s,
-        disabled: false,
+      },
+    });
+    await waitForProbe();
+    expect(container.querySelector('.be-status-needs-config')).not.toBeNull();
+    expect(getDetailsFor(container, 'anthropic').open).toBe(false);
+  });
+
+  it('keeps a card open once the user opened it, even when the key flips it to ready', async () => {
+    const s = baseSettings();
+    s.anthropicApiKey = '';
+    const { container, rerender } = render(BackendCard, {
+      props: {
+        id: asBackendIdUnsafe('anthropic'),
+        label: 'Anthropic',
+        settings: s,
       },
     });
     await waitForProbe();
     const details = getDetailsFor(container, 'anthropic');
-    expect(details.open).toBe(true);
-  });
-
-  it('re-probes when the key appears, so the needs-config card settles closed', async () => {
-    const s = baseSettings();
-    s.anthropicApiKey = '';
-    const { container, rerender } = render(BackendCard, {
-      props: {
-        id: asBackendIdUnsafe('anthropic'),
-        label: 'Anthropic',
-        settings: s,
-        disabled: false,
-      },
-    });
-    await waitForProbe();
-    expect(getDetailsFor(container, 'anthropic').open).toBe(true);
-
-    const withKey = baseSettings();
-    withKey.anthropicApiKey = 'sk-ant-test';
-    await rerender({ settings: withKey });
-    await waitForProbe();
-    expect(getDetailsFor(container, 'anthropic').open).toBe(false);
-  });
-
-  it('stays open when the key flips the status to ready mid-edit (body has focus)', async () => {
-    const s = baseSettings();
-    s.anthropicApiKey = '';
-    const { container, rerender } = render(BackendCard, {
-      props: {
-        id: asBackendIdUnsafe('anthropic'),
-        label: 'Anthropic',
-        settings: s,
-        disabled: false,
-      },
-    });
-    await waitForProbe();
-    expect(getDetailsFor(container, 'anthropic').open).toBe(true);
-
-    const body = container.querySelector('.be-body');
-    if (!body) throw new Error('no .be-body');
-    await fireEvent.focusIn(body);
+    details.open = true;
+    await fireEvent(details, new Event('toggle'));
 
     const withKey = baseSettings();
     withKey.anthropicApiKey = 'sk-ant-test';
     await rerender({ settings: withKey });
     await waitForProbe();
     expect(getDetailsFor(container, 'anthropic').open).toBe(true);
+  });
+});
+
+describe('BackendCard key status', () => {
+  it('says "Key saved" until Test passes, then "Verified"', async () => {
+    const s = baseSettings();
+    s.anthropicApiKey = 'sk-ant-test';
+    const backend = resolveBackend(asBackendIdUnsafe('anthropic'));
+    if (!backend) throw new Error('anthropic backend not registered');
+    const origAvailable = backend.isAvailable;
+    const origTranslate = backend.translate;
+    backend.isAvailable = async () => true;
+    backend.translate = async ({ req, onChunk }) => {
+      onChunk({ type: 'delta', requestId: req.id, text: 'hello' });
+      onChunk({ type: 'done', requestId: req.id });
+    };
+    try {
+      const { container } = render(BackendCard, {
+        props: {
+          id: asBackendIdUnsafe('anthropic'),
+          label: 'Anthropic',
+          settings: s,
+        },
+      });
+      await waitForProbe();
+      const pill = (): string => container.querySelector('.be-status')?.textContent.trim() ?? '';
+      expect(pill()).toBe('Key saved');
+
+      container.querySelector<HTMLButtonElement>('.be-test-btn')?.click();
+      await waitForProbe();
+      expect(pill()).toBe('Verified');
+    } finally {
+      backend.isAvailable = origAvailable;
+      backend.translate = origTranslate;
+    }
+  });
+
+  it('keeps "Ready" for a backend that needs no key', async () => {
+    const backend = resolveBackend(asBackendIdUnsafe('ollama'));
+    if (!backend) throw new Error('ollama backend not registered');
+    const origAvailable = backend.isAvailable;
+    backend.isAvailable = async () => true;
+    try {
+      const { container } = render(BackendCard, {
+        props: {
+          id: asBackendIdUnsafe('ollama'),
+          label: 'Ollama',
+          settings: baseSettings(),
+        },
+      });
+      await waitForProbe();
+      expect(container.querySelector('.be-status')?.textContent.trim()).toBe('Ready');
+    } finally {
+      backend.isAvailable = origAvailable;
+    }
   });
 });
 
@@ -125,7 +152,6 @@ describe('BackendCard text-only tag', () => {
         id: asBackendIdUnsafe('native'),
         label: 'Native host',
         settings: baseSettings(),
-        disabled: false,
       },
     });
     expect(queryByText(/text-only/i)).toBeNull();
@@ -137,7 +163,6 @@ describe('BackendCard text-only tag', () => {
         id: asBackendIdUnsafe('ollama'),
         label: 'Ollama',
         settings: baseSettings(),
-        disabled: false,
       },
     });
     expect(queryByText(/text-only/i)).toBeNull();
@@ -151,7 +176,6 @@ describe('BackendCard test button label', () => {
         id: asBackendIdUnsafe('anthropic'),
         label: 'Anthropic',
         settings: baseSettings(),
-        disabled: false,
       },
     });
     await waitForProbe();
@@ -183,7 +207,6 @@ describe('BackendCard "Test now" writes an audit entry', () => {
           id: asBackendIdUnsafe('anthropic'),
           label: 'Anthropic',
           settings: s,
-          disabled: false,
         },
       });
       await waitForProbe();
@@ -247,7 +270,6 @@ describe('BackendCard "Test now" spinner always clears', () => {
           id: asBackendIdUnsafe('native'),
           label: 'Native host',
           settings: s,
-          disabled: false,
         },
       });
       await waitForProbe();
@@ -304,7 +326,6 @@ describe('BackendCard native "Test now" audit row', () => {
           id: asBackendIdUnsafe('native'),
           label: 'Native host',
           settings: s,
-          disabled: false,
         },
       });
       await waitForProbe();
@@ -376,7 +397,6 @@ describe('BackendCard builds the same config the router does', () => {
           id: asBackendIdUnsafe('ollama'),
           label: 'Ollama',
           settings: s,
-          disabled: false,
         },
       });
       await waitForProbe();
@@ -405,7 +425,6 @@ describe('BackendCard builds the same config the router does', () => {
           id: asBackendIdUnsafe('anthropic'),
           label: 'Anthropic',
           settings: s,
-          disabled: false,
         },
       });
       await waitForProbe();

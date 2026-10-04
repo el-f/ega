@@ -12,7 +12,6 @@ function props(over: Partial<Settings> = {}, onPatch = vi.fn(), onModelChange = 
     id: asBackendIdUnsafe('localserver'),
     label: 'Local server (OpenAI-compatible)',
     settings: { ...DEFAULT_SETTINGS, ...over },
-    disabled: false,
     routeIsText: false,
     routeIsImage: false,
     onPatch,
