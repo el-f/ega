@@ -183,6 +183,11 @@ export const COVERAGE: readonly Family[] = [
             flows: ['smart-bubble/short-arabizi-shows.flow.spec.ts'],
           },
           {
+            id: 'english-heading-hides',
+            description: 'Short English headings hide the bubble once the English word list loads',
+            flows: ['smart-bubble/english-heading-hides.flow.spec.ts'],
+          },
+          {
             id: 'click-opens-tooltip',
             description: 'Click on bubble opens the translation tooltip',
             flows: ['smart-bubble/click-opens-tooltip.flow.spec.ts'],
