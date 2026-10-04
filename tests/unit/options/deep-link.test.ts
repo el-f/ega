@@ -68,6 +68,21 @@ describe('options deep-link', () => {
     expect(readPendingDeepLink()).toBeNull();
   });
 
+  it('opens the closed disclosures a target sits in', async () => {
+    const outer = document.createElement('details');
+    const inner = document.createElement('details');
+    const el = document.createElement('div');
+    el.setAttribute('data-ega-setting', 'advanced.selectionContextCap');
+    inner.appendChild(el);
+    outer.appendChild(inner);
+    document.body.appendChild(outer);
+    setPendingDeepLink('advanced.selectionContextCap');
+    revealPendingSetting();
+    await vi.waitFor(() => expect(document.activeElement).toBe(el));
+    expect(inner.open).toBe(true);
+    expect(outer.open).toBe(true);
+  });
+
   it('waits for a lazily-mounted tab to paint its anchor', async () => {
     setPendingDeepLink('advanced.temperature');
     revealPendingSetting();

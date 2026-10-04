@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
 import type { Mock } from 'vitest';
-import { render, fireEvent } from '@testing-library/svelte';
+import { render, fireEvent, waitFor } from '@testing-library/svelte';
 import type { ComponentProps } from 'svelte';
 import ContextMenuManager from '@/options/components/ContextMenuManager.svelte';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
@@ -62,20 +62,28 @@ describe('ContextMenuManager', () => {
     expect(downBtns.length).toBe(DEFAULT_CONTEXT_MENU_ITEMS.length);
   });
 
-  it('renders delete buttons, disabled for singletons', () => {
+  it('renders a delete button on every row but the built-in singletons', () => {
     const { container } = render(ContextMenuManager, { props: makeProps() });
-    const delBtns = container.querySelectorAll<HTMLButtonElement>('[data-ega-cm-delete]');
-    expect(delBtns.length).toBe(DEFAULT_CONTEXT_MENU_ITEMS.length);
-
     const singletonKinds = ['page-translate', 'pick-element', 'site-toggle'] as const;
-    DEFAULT_CONTEXT_MENU_ITEMS.forEach((item, i) => {
-      const btn = delBtns[i];
+    for (const item of DEFAULT_CONTEXT_MENU_ITEMS) {
+      const row = container.querySelector(`[data-ega-cm-id="${item.id}"]`);
+      const del = row?.querySelector<HTMLButtonElement>('[data-ega-cm-delete]');
       if (singletonKinds.includes(item.kind as (typeof singletonKinds)[number])) {
-        expect(btn?.disabled, `delete for ${item.kind} should be disabled`).toBe(true);
+        expect(del, `no delete for ${item.kind}`).toBeNull();
       } else {
-        expect(btn?.disabled, `delete for ${item.kind} should be enabled`).toBe(false);
+        expect(del?.disabled, `delete for ${item.kind} should be enabled`).toBe(false);
       }
-    });
+    }
+  });
+
+  it('names the default target in the Into picker', async () => {
+    const { container } = render(ContextMenuManager, { props: makeProps() });
+    const picker = container.querySelector<HTMLSelectElement>('[data-ega-cm-targetlang] select');
+    await waitFor(() =>
+      expect(picker?.querySelector('option[value="auto"]')?.textContent).toMatch(
+        /^Default target (.+)$/,
+      ),
+    );
   });
 
   it('renders [data-ega-cm-add] button', () => {

@@ -23,33 +23,24 @@
 
   const pillThreshold = $derived(s.confidencePillThreshold ?? DEFAULT_CONFIDENCE_PILL_THRESHOLD);
 
-  const SHARED_IDS = ['display.confidencePill', 'display.confidencePillThreshold'] as const;
-  // `imageTranslateSurface` is shared across modes, so the per-mode reset leaves it alone.
-  const TOOLTIP_IDS = [
+  // The mode and the image surface are picks, not options, so the reset leaves them alone whatever the mode.
+  const RESET_IDS = [
+    'display.confidencePill',
+    'display.confidencePillThreshold',
     'display.tooltipShowSource',
     'display.tooltipClickOutside',
     'display.tooltipDraggable',
-    ...SHARED_IDS,
   ] as const;
-  const modified = $derived(
-    (mode === 'tooltip' ? TOOLTIP_IDS : SHARED_IDS).some((id) => isFieldModified(id, s)),
-  );
+  const modified = $derived(RESET_IDS.some((id) => isFieldModified(id, s)));
 
-  async function resetActiveMode(): Promise<void> {
-    if (mode === 'tooltip') {
-      await onPatch({
-        tooltipShowSource: DEF.tooltipShowSource,
-        tooltipClickOutside: DEF.tooltipClickOutside,
-        tooltipDraggable: DEF.tooltipDraggable,
-        confidencePill: DEF.confidencePill,
-        confidencePillThreshold: DEFAULT_CONFIDENCE_PILL_THRESHOLD,
-      });
-    } else {
-      await onPatch({
-        confidencePill: DEF.confidencePill,
-        confidencePillThreshold: DEFAULT_CONFIDENCE_PILL_THRESHOLD,
-      });
-    }
+  async function resetOptions(): Promise<void> {
+    await onPatch({
+      tooltipShowSource: DEF.tooltipShowSource,
+      tooltipClickOutside: DEF.tooltipClickOutside,
+      tooltipDraggable: DEF.tooltipDraggable,
+      confidencePill: DEF.confidencePill,
+      confidencePillThreshold: DEFAULT_CONFIDENCE_PILL_THRESHOLD,
+    });
   }
 
   function pickMode(next: Settings['defaultDisplayMode']): void {
@@ -90,8 +81,9 @@
   {#snippet headerActions()}
     <SectionReset
       {modified}
-      onReset={resetActiveMode}
-      ariaLabel={`Reset ${mode === 'tooltip' ? 'Tooltip' : 'Inline'} mode to defaults`}
+      onReset={resetOptions}
+      label="Reset pill and tooltip options"
+      ariaLabel="Reset the confidence pill and tooltip options to defaults"
     />
   {/snippet}
 
@@ -142,10 +134,11 @@
   </div>
 
   <div class="ds-shared-knob ds-knob-stack">
+    <h4 class="ds-group">Tooltip and side panel</h4>
     <div data-ega-setting="display.confidencePill">
       <Checkbox
         id="confidence-pill"
-        label="Confidence pill (tooltip and side panel)"
+        label="Confidence pill"
         checked={s.confidencePill}
         modified={isFieldModified('display.confidencePill', s)}
         onchange={(next) => void onPatch({ confidencePill: next })}
@@ -173,6 +166,7 @@
       <div class="ds-knob-fade">
         {#if mode === 'tooltip'}
           <div class="ds-knob-stack" data-ega-knobs="tooltip">
+            <h4 class="ds-group">Tooltip only</h4>
             <div data-ega-setting="display.tooltipShowSource">
               <Checkbox
                 id="tooltip-show-source"
@@ -271,6 +265,12 @@
     display: flex;
     flex-direction: column;
     gap: var(--row-gap);
+  }
+  .ds-group {
+    margin: 0;
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    color: var(--color-muted);
   }
   .ds-knob-note {
     margin: 0;

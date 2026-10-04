@@ -8,9 +8,16 @@
     modified: boolean;
     onReset: () => void | Promise<void>;
     ariaLabel?: string;
+    /** Visible text, when the reset covers less than the whole section. */
+    label?: string;
   }
 
-  const { modified, onReset, ariaLabel = 'Reset section to defaults' }: Props = $props();
+  const {
+    modified,
+    onReset,
+    ariaLabel = 'Reset section to defaults',
+    label = 'Reset section',
+  }: Props = $props();
 </script>
 
 {#if modified}
@@ -24,7 +31,7 @@
     onclick={() => void onReset()}
   >
     <RotateCcw size={12} aria-hidden="true" />
-    <span>Reset section</span>
+    <span>{label}</span>
   </button>
 {/if}
 

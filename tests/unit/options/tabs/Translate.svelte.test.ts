@@ -99,7 +99,9 @@ describe('Translate tab — section composition', () => {
     await probeSettled();
 
     expect(
-      container.querySelector('[data-ega-setting="advanced.temperature"] .ega-slider'),
+      container.querySelector(
+        '[data-ega-setting="advanced.temperature"] .ega-slider:not(.disabled)',
+      ),
     ).toBeNull();
     expect(container.querySelector('[data-ega-effort-note]')?.textContent.trim()).toBe(
       'o3-mini has no Off level, so it runs at Low.',
@@ -126,7 +128,9 @@ describe('Translate tab — section composition', () => {
     await probeSettled();
 
     expect(
-      container.querySelector('[data-ega-setting="advanced.temperature"] .ega-slider'),
+      container.querySelector(
+        '[data-ega-setting="advanced.temperature"] .ega-slider:not(.disabled)',
+      ),
     ).not.toBeNull();
     expect(container.querySelector('[data-ega-effort-note]')?.textContent.trim()).toBe(
       'gpt-4o has no effort setting, so Effort does not change it.',
@@ -151,7 +155,9 @@ describe('Translate tab — section composition', () => {
     await probeSettled();
 
     expect(
-      container.querySelector('[data-ega-setting="advanced.temperature"] .ega-slider'),
+      container.querySelector(
+        '[data-ega-setting="advanced.temperature"] .ega-slider:not(.disabled)',
+      ),
     ).toBeNull();
     expect(
       container.querySelector('[data-ega-setting="advanced.maxTokens"] .ega-slider.disabled'),
@@ -183,7 +189,9 @@ describe('Translate tab — section composition', () => {
     });
     await probeSettled();
     expect(
-      container.querySelector('[data-ega-setting="advanced.temperature"] .ega-slider'),
+      container.querySelector(
+        '[data-ega-setting="advanced.temperature"] .ega-slider:not(.disabled)',
+      ),
     ).not.toBeNull();
     expect(container.querySelector('[data-ega-effort-note]')?.textContent.trim()).toBe(
       'gpt-4o has no effort setting, so Effort does not change it.',
@@ -193,7 +201,9 @@ describe('Translate tab — section composition', () => {
     await rerender({ s: reasoning, onSetSettings: () => {} });
     await probeSettled();
     expect(
-      container.querySelector('[data-ega-setting="advanced.temperature"] .ega-slider'),
+      container.querySelector(
+        '[data-ega-setting="advanced.temperature"] .ega-slider:not(.disabled)',
+      ),
     ).toBeNull();
     expect(container.querySelector('[data-ega-effort-note]')?.textContent.trim()).toBe(
       'o3-mini has no Off level, so it runs at Low.',
@@ -304,7 +314,9 @@ describe('Translate tab — the backend the card describes', () => {
     const { container } = mountTab(seeded);
     await vi.waitFor(() =>
       expect(
-        container.querySelector('[data-ega-setting="advanced.temperature"] .ega-slider'),
+        container.querySelector(
+          '[data-ega-setting="advanced.temperature"] .ega-slider:not(.disabled)',
+        ),
       ).not.toBeNull(),
     );
     expect(container.querySelector('[data-ega-effort-note]')?.textContent).not.toMatch(/native/i);

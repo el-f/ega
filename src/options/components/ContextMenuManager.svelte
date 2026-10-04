@@ -21,6 +21,8 @@
   import SectionCard from '@/shared/ui/SectionCard.svelte';
   import RadioGroup from '@/shared/ui/RadioGroup.svelte';
   import IconButton from '@/shared/ui/IconButton.svelte';
+  import Button from '@/shared/ui/Button.svelte';
+  import { labelFor } from '@/shared/languages';
   import Checkbox from '@/shared/ui/Checkbox.svelte';
   import Select from '@/shared/ui/Select.svelte';
   import SectionReset from '@/options/components/SectionReset.svelte';
@@ -127,6 +129,11 @@
   const isModified = $derived(layout !== 'nested' || JSON.stringify(items) !== DEFAULT_ITEMS_JSON);
 
   let varieties: Variety[] = $state([]);
+  // An item with no language of its own uses the default target, so the picker names it.
+  const defaultTargetLabel = $derived.by(() => {
+    const id = String(s.defaultTargetLang ?? 'en');
+    return varieties.find((v) => v.id === id)?.label ?? labelFor(id);
+  });
   onMount(async () => {
     void getCustomTasks().then((rows) => {
       customTasks = rows;
@@ -343,23 +350,20 @@
         onReset={resetDefaults}
         ariaLabel="Reset context menu to defaults"
       />
-      <IconButton
-        icon={Plus}
-        ariaLabel="Add text action"
-        tooltip="Add text-selection action"
+      <Button
+        variant="secondary"
         size="sm"
-        variant="primary"
+        leadingIcon={Plus}
         dataAttrs={{ 'data-ega-cm-add': true }}
-        onclick={() => addItem('task')}
-      />
-      <IconButton
-        icon={Image}
-        ariaLabel="Add image action"
-        tooltip="Add image action"
+        onclick={() => addItem('task')}>Add text action</Button
+      >
+      <Button
+        variant="secondary"
         size="sm"
+        leadingIcon={Image}
         dataAttrs={{ 'data-ega-cm-add-image': true }}
-        onclick={() => addItem('image-task')}
-      />
+        onclick={() => addItem('image-task')}>Add image action</Button
+      >
     </span>
   {/snippet}
 
@@ -464,18 +468,19 @@
               />
             </span>
 
-            <IconButton
-              icon={Trash2}
-              ariaLabel={isSingleton(item)
-                ? `${item.label} is built-in — cannot delete`
-                : `Delete ${item.label}`}
-              tooltip={isSingleton(item) ? 'Built-in — cannot delete' : 'Delete item'}
-              size="sm"
-              variant="danger"
-              disabled={isSingleton(item)}
-              dataAttrs={{ 'data-ega-cm-delete': true }}
-              onclick={() => deleteItem(item.id)}
-            />
+            {#if isSingleton(item)}
+              <span class="cm-builtin">Built-in</span>
+            {:else}
+              <IconButton
+                icon={Trash2}
+                ariaLabel={`Delete ${item.label}`}
+                tooltip="Delete item"
+                size="sm"
+                variant="danger"
+                dataAttrs={{ 'data-ega-cm-delete': true }}
+                onclick={() => deleteItem(item.id)}
+              />
+            {/if}
           </div>
 
           {#if item.kind === 'task' || item.kind === 'image-task'}
@@ -513,6 +518,7 @@
                     id="cm-lang-{item.id}"
                     {varieties}
                     includeAuto
+                    autoLabel={`Default target (${defaultTargetLabel})`}
                     value={item.targetLang ?? 'auto'}
                     ariaLabel="Target language for {item.label}"
                     onchange={(v) => setTargetLang(item.id, v)}
@@ -651,6 +657,10 @@
     flex: 0 0 auto;
   }
 
+  .cm-builtin {
+    font-size: var(--fs-xs);
+    color: var(--color-muted);
+  }
   .cm-reorder {
     display: inline-flex;
     gap: 2px;

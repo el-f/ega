@@ -57,9 +57,8 @@
           ? 'This model does not take temperature. Use Effort.'
           : 'This model does not take temperature.',
   );
-  const maxTokDisabledReason = $derived(
-    caps.maxTokens ? null : 'Native CLI manages its own sampling.',
-  );
+  // On native both sliders are off for one reason, so it is said once, under Temperature.
+  const nativeSampling = $derived(!caps.maxTokens);
 
   // What the chosen level does on the backend that runs first; the setting itself applies to every backend.
   const effortNote = $derived.by(() => {
@@ -120,9 +119,9 @@
           step={16}
           help={`Room for the answer. A thinking model gets extra room on top when it runs above Off. Default ${DEF.advanced.maxTokens}. Below 256 tokens, long answers can get cut short.`}
           modified={isFieldModified('advanced.maxTokens', s)}
-          disabled={!caps.maxTokens}
-          {...maxTokDisabledReason !== null
-            ? { describedById: 'gen-maxtok-disabled' }
+          disabled={nativeSampling}
+          {...nativeSampling
+            ? { describedById: 'gen-temp-disabled' }
             : {
                 onReset: () => void onSetGlobalMaxTokens(DEF.advanced.maxTokens),
                 resetAriaLabel: 'Reset max answer length',
@@ -134,35 +133,36 @@
             void onSetGlobalMaxTokens(v);
           }}
         />
-        {#if maxTokDisabledReason !== null}
-          <p id="gen-maxtok-disabled" class="disabled-reason" data-ega-disabled-reason>
-            {maxTokDisabledReason}
-          </p>
-        {/if}
       </div>
 
       <div data-ega-setting="advanced.temperature">
-        {#if tempDisabledReason === null}
-          <Slider
-            label="Temperature"
-            value={temperatureDrag ?? s.advanced.temperature}
-            min={0}
-            max={2}
-            step={0.05}
-            help={`0 = most predictable, 2 = most varied. Default ${DEF.advanced.temperature}. Above ~1.2 answers can come back broken; 0 may loop on some backends.`}
-            modified={isFieldModified('advanced.temperature', s)}
-            onReset={() => void onSetGlobalTemperature(DEF.advanced.temperature)}
-            resetAriaLabel="Reset temperature"
-            resetInheritedLabel={`Default ${DEF.advanced.temperature}`}
-            onchange={(v) => (temperatureDrag = v)}
-            oncommit={(v) => {
-              temperatureDrag = null;
-              void onSetGlobalTemperature(v);
-            }}
-          />
-        {:else}
-          <p class="disabled-reason" data-ega-disabled-reason>
-            Temperature: {tempDisabledReason}
+        <Slider
+          label="Temperature"
+          value={temperatureDrag ?? s.advanced.temperature}
+          min={0}
+          max={2}
+          step={0.05}
+          help={`0 = most predictable, 2 = most varied. Default ${DEF.advanced.temperature}. Above ~1.2 answers can come back broken; 0 may loop on some backends.`}
+          modified={isFieldModified('advanced.temperature', s)}
+          disabled={tempDisabledReason !== null}
+          {...tempDisabledReason !== null
+            ? { describedById: 'gen-temp-disabled' }
+            : {
+                onReset: () => void onSetGlobalTemperature(DEF.advanced.temperature),
+                resetAriaLabel: 'Reset temperature',
+                resetInheritedLabel: `Default ${DEF.advanced.temperature}`,
+              }}
+          onchange={(v) => (temperatureDrag = v)}
+          oncommit={(v) => {
+            temperatureDrag = null;
+            void onSetGlobalTemperature(v);
+          }}
+        />
+        {#if tempDisabledReason !== null}
+          <p id="gen-temp-disabled" class="disabled-reason" data-ega-disabled-reason>
+            {nativeSampling
+              ? 'Native CLI manages its own sampling, so answer length and temperature do not apply.'
+              : tempDisabledReason}
           </p>
         {/if}
       </div>

@@ -13,7 +13,7 @@
 
 ## Visible affordances
 
-- Toggle uses the project's Checkbox primitive with the label "Confidence pill (tooltip and side panel)".
+- Toggle uses the project's Checkbox primitive with the label "Confidence pill", under the group heading "Tooltip and side panel".
 - Threshold slider only renders when the toggle is enabled; it slides open and closed.
 - Slider carries `aria-valuemin/max/now` and a numeric readout.
 

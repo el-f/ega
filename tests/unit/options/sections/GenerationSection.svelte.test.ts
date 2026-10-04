@@ -160,32 +160,27 @@ describe('GenerationSection', () => {
   });
 
   describe('native backend (no caps)', () => {
-    it('temperature shows the native reason instead of a slider', () => {
+    it('keeps both sliders, disabled, and says why once', () => {
       const { container } = render(GenerationSection, {
         props: makeGenerationSectionProps({ caps: NATIVE_CAPS, activeBackend: 'native' }),
       });
       const tempWrap = container.querySelector('[data-ega-setting="advanced.temperature"]');
-      expect(tempWrap?.querySelector('.ega-slider')).toBeNull();
-      expect(tempWrap?.textContent).toMatch(/native cli manages its own sampling/i);
-    });
-
-    it('max answer length disabled with the native note', () => {
-      const { container } = render(GenerationSection, {
-        props: makeGenerationSectionProps({ caps: NATIVE_CAPS, activeBackend: 'native' }),
-      });
       const maxWrap = container.querySelector('[data-ega-setting="advanced.maxTokens"]');
+      expect(tempWrap?.querySelector('.ega-slider.disabled')).not.toBeNull();
       expect(maxWrap?.querySelector('.ega-slider.disabled')).not.toBeNull();
-      expect(maxWrap?.textContent).toMatch(/native cli manages its own sampling/i);
+      const reasons = container.querySelectorAll('[data-ega-disabled-reason]');
+      expect(reasons).toHaveLength(1);
+      expect(reasons[0]?.textContent).toMatch(/native cli manages its own sampling/i);
     });
   });
 
   describe('reasoning model (effort caps)', () => {
-    it('temperature shows the reasoning reason instead of a slider', () => {
+    it('temperature stays, disabled, with the reasoning reason', () => {
       const { container } = render(GenerationSection, {
         props: makeGenerationSectionProps({ caps: REASONING_CAPS }),
       });
       const tempWrap = container.querySelector('[data-ega-setting="advanced.temperature"]');
-      expect(tempWrap?.querySelector('.ega-slider')).toBeNull();
+      expect(tempWrap?.querySelector('.ega-slider.disabled')).not.toBeNull();
       expect(tempWrap?.textContent).toMatch(/this model does not take temperature. use effort/i);
     });
 

@@ -43,6 +43,8 @@ function scrollBehavior(): 'auto' | 'smooth' {
 }
 
 function reveal(el: HTMLElement): void {
+  for (let d = el.closest('details'); d; d = d.parentElement?.closest('details') ?? null)
+    d.open = true;
   // tabindex=-1 makes a section or div focusable; preventScroll leaves scrollIntoView in charge.
   if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '-1');
   try {

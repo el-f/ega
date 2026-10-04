@@ -9,6 +9,8 @@
     varieties: readonly Variety[];
     /** Add an "Auto-detect" entry. Source pickers only. */
     includeAuto?: boolean;
+    /** Text of the "auto" entry when it means something else, like the default target. */
+    autoLabel?: string;
     /** id for the <select>, so callers can point a `<label for>` at it. */
     id: string;
     /** Accessible name when the surface renders no visible label. Falls back to source/target from `includeAuto`. */
@@ -25,6 +27,7 @@
     value = $bindable(),
     varieties,
     includeAuto = false,
+    autoLabel = 'Auto-detect',
     id,
     ariaLabel,
     suppressAriaLabel = false,
@@ -78,7 +81,7 @@
   onchange={(e) => onchange?.(e.currentTarget.value)}
 >
   {#if includeAuto}
-    <option value="auto" dir="auto">Auto-detect</option>
+    <option value="auto" dir="auto">{autoLabel}</option>
   {/if}
   {#if orphan !== null}
     <option {value} dir="auto" data-ega-lang-orphan>{orphan}</option>

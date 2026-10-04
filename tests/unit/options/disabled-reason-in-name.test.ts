@@ -15,14 +15,13 @@ const { default: NativeBackendCard } =
 // A tooltip never opens on a disabled control, so the reason has to ride on the name.
 
 describe('a disabled control says why in its accessible name', () => {
-  it('the built-in context-menu rows cannot be deleted', () => {
+  it('a built-in context-menu row shows "Built-in" instead of a delete it cannot use', () => {
     const s: Settings = { ...DEFAULT_SETTINGS, contextMenuItems: DEFAULT_CONTEXT_MENU_ITEMS };
     const { container } = render(ContextMenuManager, { props: { s, onPatch: vi.fn() } });
 
     const builtIn = container.querySelector('[data-ega-cm-id="ega-pick-element"]');
-    const del = builtIn?.querySelector<HTMLButtonElement>('[data-ega-cm-delete]');
-    expect(del?.disabled).toBe(true);
-    expect(del?.getAttribute('aria-label') ?? '').toMatch(/built-in/i);
+    expect(builtIn?.querySelector('[data-ega-cm-delete]')).toBeNull();
+    expect(builtIn?.textContent).toContain('Built-in');
   });
 
   it('a deletable row keeps the plain label', () => {

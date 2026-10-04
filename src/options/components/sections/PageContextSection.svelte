@@ -68,72 +68,82 @@
       />
     </div>
 
-    <div data-ega-setting="advanced.pageContextPayload">
-      <div data-ega-setting="advanced.selectionContextCap">
-        <Slider
-          label="Selection window"
-          value={s.selectionContextCap ?? DEFAULT_SELECTION_CONTEXT_CAP}
-          min={50}
-          max={800}
-          step={10}
-          unit=" chars"
-          help="Before/after text snippet captured around the selection."
-          modified={isFieldModified('advanced.selectionContextCap', s)}
-          onchange={(v) => void onPatch({ selectionContextCap: v })}
-        />
-      </div>
-      <div data-ega-setting="advanced.descriptionContextCap">
-        <Slider
-          label="Page description"
-          value={s.descriptionContextCap ?? DEFAULT_DESCRIPTION_CONTEXT_CAP}
-          min={100}
-          max={500}
-          step={10}
-          unit=" chars"
-          help="Longest page description sent with Rich context."
-          modified={isFieldModified('advanced.descriptionContextCap', s)}
-          onchange={(v) => void onPatch({ descriptionContextCap: v })}
-        />
-      </div>
-      <div data-ega-setting="advanced.headingTrailDepth">
-        <Slider
-          label="Heading trail depth"
-          value={s.headingTrailDepth ?? DEFAULT_HEADING_TRAIL_DEPTH}
-          min={1}
-          max={10}
-          step={1}
-          help="Rich-context only. Up to N nearest h1–h6 headings."
-          modified={isFieldModified('advanced.headingTrailDepth', s)}
-          onchange={(v) => void onPatch({ headingTrailDepth: v })}
-        />
-      </div>
-      <div data-ega-setting="advanced.headingTrailEntryCap">
-        <Slider
-          label="Heading trail entry cap"
-          value={s.headingTrailEntryCap ?? DEFAULT_HEADING_TRAIL_ENTRY_CAP}
-          min={50}
-          max={200}
-          step={5}
-          unit=" chars"
-          help="Maximum length of any single heading in the trail."
-          modified={isFieldModified('advanced.headingTrailEntryCap', s)}
-          onchange={(v) => void onPatch({ headingTrailEntryCap: v })}
-        />
-      </div>
-      <div class="redact-status" data-ega-setting="advanced.redactContext">
-        <span class="redact-status-icon" aria-hidden="true">
-          <Icon icon={ShieldCheck} size={16} />
-        </span>
-        <div class="redact-status-body">
-          <span class="redact-status-label">
-            Redact secrets in page context
-            <span class="redact-status-badge">Always on</span>
-          </span>
-          <span class="redact-status-help">
-            API keys, tokens, and other secrets are stripped from page context before it leaves your
-            machine.
-          </span>
+    <details class="fine-tune" data-ega-setting="advanced.pageContextPayload">
+      <summary>Fine-tune what is sent</summary>
+      <div class="fine-tune-body">
+        <div data-ega-setting="advanced.selectionContextCap">
+          <Slider
+            label="Selection window"
+            value={s.selectionContextCap ?? DEFAULT_SELECTION_CONTEXT_CAP}
+            min={50}
+            max={800}
+            step={10}
+            unit=" chars"
+            help="Text sent from before and after the selection."
+            modified={isFieldModified('advanced.selectionContextCap', s)}
+            onchange={(v) => void onPatch({ selectionContextCap: v })}
+          />
         </div>
+        {#if s.pageContextLevel !== 'rich'}
+          <p class="setting-help rich-only-note">
+            Set Context depth to Rich to change the description and heading limits.
+          </p>
+        {/if}
+        <CollapsibleField open={s.pageContextLevel === 'rich'}>
+          <div data-ega-setting="advanced.descriptionContextCap">
+            <Slider
+              label="Page description"
+              value={s.descriptionContextCap ?? DEFAULT_DESCRIPTION_CONTEXT_CAP}
+              min={100}
+              max={500}
+              step={10}
+              unit=" chars"
+              help="Longest page description sent."
+              modified={isFieldModified('advanced.descriptionContextCap', s)}
+              onchange={(v) => void onPatch({ descriptionContextCap: v })}
+            />
+          </div>
+          <div data-ega-setting="advanced.headingTrailDepth">
+            <Slider
+              label="Headings sent"
+              value={s.headingTrailDepth ?? DEFAULT_HEADING_TRAIL_DEPTH}
+              min={1}
+              max={10}
+              step={1}
+              help="How many of the nearest page headings are sent."
+              modified={isFieldModified('advanced.headingTrailDepth', s)}
+              onchange={(v) => void onPatch({ headingTrailDepth: v })}
+            />
+          </div>
+          <div data-ega-setting="advanced.headingTrailEntryCap">
+            <Slider
+              label="Longest heading"
+              value={s.headingTrailEntryCap ?? DEFAULT_HEADING_TRAIL_ENTRY_CAP}
+              min={50}
+              max={200}
+              step={5}
+              unit=" chars"
+              help="Longer headings are cut to this length."
+              modified={isFieldModified('advanced.headingTrailEntryCap', s)}
+              onchange={(v) => void onPatch({ headingTrailEntryCap: v })}
+            />
+          </div>
+        </CollapsibleField>
+      </div>
+    </details>
+    <div class="redact-status" data-ega-setting="advanced.redactContext">
+      <span class="redact-status-icon" aria-hidden="true">
+        <Icon icon={ShieldCheck} size={16} />
+      </span>
+      <div class="redact-status-body">
+        <span class="redact-status-label">
+          Redact secrets in page context
+          <span class="redact-status-badge">Always on</span>
+        </span>
+        <span class="redact-status-help">
+          API keys, tokens, and other secrets are stripped from page context before it leaves your
+          machine.
+        </span>
       </div>
     </div>
   </CollapsibleField>
@@ -145,6 +155,22 @@
     font-size: var(--fs-xs);
     color: var(--color-muted);
     line-height: var(--lh-body);
+  }
+  .rich-only-note {
+    margin-left: 0;
+  }
+  .fine-tune-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--row-gap);
+  }
+  .fine-tune > summary {
+    cursor: pointer;
+    font-size: var(--fs-sm);
+    color: var(--color-fg);
+  }
+  .fine-tune[open] > summary {
+    margin-bottom: var(--row-gap);
   }
   .redact-status {
     display: flex;

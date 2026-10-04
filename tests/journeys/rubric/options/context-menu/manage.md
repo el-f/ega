@@ -11,7 +11,7 @@
 
 - Toggle/reorder/add/delete/target-lang each persist to `contextMenuItems` (or `contextMenuLayout`) via `onPatch` immediately; label edits persist after a 400 ms debounce or on blur.
 - Order renormalizes to a clean 0..n-1 sequence on every reorder (drag, up/down, add).
-- Target language "Auto-detect" clears the per-item `targetLang` so the click inherits `defaultTargetLang`; a concrete pick stores it.
+- Target language "Default target (<language>)" clears the per-item `targetLang` so the click inherits `defaultTargetLang`; a concrete pick stores it.
 
 ## Visible affordances
 

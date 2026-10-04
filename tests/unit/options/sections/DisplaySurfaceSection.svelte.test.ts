@@ -49,7 +49,8 @@ describe('DisplaySurfaceSection', () => {
         expect(rows[0]?.closest('[data-ega-knobs]')).toBeNull();
       }
       const pillRow = container.querySelector('[data-ega-setting="display.confidencePill"]');
-      expect(pillRow?.textContent).toContain('Confidence pill (tooltip and side panel)');
+      expect(pillRow?.textContent).toContain('Confidence pill');
+      expect(pillRow?.parentElement?.textContent).toContain('Tooltip and side panel');
     });
   }
 
@@ -89,7 +90,7 @@ describe('DisplaySurfaceSection', () => {
     expect(tooltipCard.classList.contains('active')).toBe(false);
   });
 
-  it('reset clears mode-specific tooltip knobs only', async () => {
+  it('reset clears the pill and tooltip options, never the mode', async () => {
     const onPatch = vi.fn<OnPatch>();
     const { container } = render(DisplaySurfaceSection, {
       props: makeSectionProps({
@@ -111,6 +112,21 @@ describe('DisplaySurfaceSection', () => {
     expect(patch).not.toHaveProperty('defaultDisplayMode');
     expect(patch).toHaveProperty('tooltipShowSource', false);
     expect(patch).toHaveProperty('tooltipDraggable', false);
+  });
+
+  it('in inline mode the reset still names and covers the tooltip options', async () => {
+    const onPatch = vi.fn<OnPatch>();
+    const { container } = render(DisplaySurfaceSection, {
+      props: makeSectionProps({
+        s: { defaultDisplayMode: 'inline', tooltipDraggable: true },
+        onPatch,
+      }),
+    });
+    const resetBtn = container.querySelector<HTMLButtonElement>('[data-ega-section-reset]');
+    if (!resetBtn) throw new Error('reset missing while a tooltip option is changed');
+    expect(resetBtn.textContent).toContain('Reset pill and tooltip options');
+    await fireEvent.click(resetBtn);
+    expect(onPatch.mock.calls[0]?.[0]).toHaveProperty('tooltipDraggable', false);
   });
 
   it('does not render reset button when no tooltip knobs are modified', () => {

@@ -17,9 +17,19 @@ describe('PageContextSection', () => {
     expect(container.querySelector('[data-ega-setting="advanced.pageContextPayload"]')).toBeNull();
   });
 
-  it('shows the 4 payload sliders when contextEnabled is true', () => {
+  it('shows only the selection slider under Minimal, and says how to get the rest', () => {
+    const { container, getByText } = render(PageContextSection, {
+      props: makeSectionProps({ s: { contextEnabled: true, pageContextLevel: 'minimal' } }),
+    });
+    const wrapper = container.querySelector('[data-ega-setting="advanced.pageContextPayload"]');
+    expect(wrapper?.querySelectorAll('[role="slider"]').length).toBe(1);
+    expect(container.querySelector('[data-ega-setting="advanced.headingTrailDepth"]')).toBeNull();
+    expect(getByText(/Set Context depth to Rich/)).toBeTruthy();
+  });
+
+  it('shows the 4 payload sliders under Rich', () => {
     const { container } = render(PageContextSection, {
-      props: makeSectionProps({ s: { contextEnabled: true } }),
+      props: makeSectionProps({ s: { contextEnabled: true, pageContextLevel: 'rich' } }),
     });
     const wrapper = container.querySelector('[data-ega-setting="advanced.pageContextPayload"]');
     expect(wrapper).not.toBeNull();
