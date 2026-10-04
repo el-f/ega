@@ -35,11 +35,12 @@ test('Tab walks the popup top to bottom with a visible ring; Esc closes the back
     if (stop === null) break;
     stops.push(stop);
   }
-  // The swap button is disabled while the source is auto, so Tab skips it.
+  // The swap is blocked while the source is auto, but stays a tab stop so its reason can be read.
   expect(stops.map((s) => s.name)).toEqual([
     expect.stringMatching(/^Active backend: Anthropic/),
     'Open settings',
     'Source language',
+    'Pick a source language to swap',
     'Target language',
     'Translate this page',
     'Pick element',

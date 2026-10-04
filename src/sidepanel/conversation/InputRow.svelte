@@ -360,16 +360,19 @@
   <div class="ega-meta-row">
     <div class="ega-lang-pair">
       <LanguagePicker id="sp-conv-source" {varieties} includeAuto bind:value={sourceLang} />
+      <!-- aria-disabled, not disabled: a disabled button cannot take focus, so its reason would be hover-only. -->
       <button
         type="button"
         class="swap"
         aria-label={swapDisabled
           ? 'Swap source and target — pick a source language first'
           : 'Swap source and target'}
+        aria-disabled={swapDisabled}
         data-tooltip={swapDisabled ? 'Pick a source language first' : 'Swap source and target'}
         data-tooltip-placement="top"
-        disabled={swapDisabled}
-        onclick={onSwap}><ArrowLeftRight size={14} /></button
+        onclick={() => {
+          if (!swapDisabled) onSwap();
+        }}><ArrowLeftRight size={16} /></button
       >
       <LanguagePicker
         id="sp-conv-target"
@@ -562,8 +565,8 @@
     background: transparent;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
-    width: 28px;
-    height: 28px;
+    width: 32px;
+    height: 32px;
     cursor: pointer;
     color: var(--color-fg);
     flex: 0 0 auto;
@@ -571,10 +574,10 @@
     align-items: center;
     justify-content: center;
   }
-  .ega-lang-pair .swap:hover:not(:disabled) {
+  .ega-lang-pair .swap:hover:not([aria-disabled='true']) {
     background: var(--color-bg-sunken);
   }
-  .ega-lang-pair .swap:disabled {
+  .ega-lang-pair .swap[aria-disabled='true'] {
     background: var(--color-bg-disabled);
     color: var(--color-fg-disabled);
     border-color: var(--color-border-disabled);

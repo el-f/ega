@@ -107,7 +107,7 @@ describe('InputRow — disabled swap and the send tooltip', () => {
   const src = readFileSync('src/sidepanel/conversation/InputRow.svelte', 'utf8');
 
   it('uses the disabled tokens for swap, not opacity', () => {
-    const rule = /\.ega-lang-pair \.swap:disabled \{([^}]*)\}/.exec(src)?.[1] ?? '';
+    const rule = /\.ega-lang-pair \.swap\[aria-disabled='true'\] \{([^}]*)\}/.exec(src)?.[1] ?? '';
     expect(rule).not.toMatch(/opacity\s*:/);
     expect(rule).toMatch(/background:\s*var\(--color-bg-disabled\)/);
     expect(rule).toMatch(/color:\s*var\(--color-fg-disabled\)/);
@@ -144,8 +144,17 @@ describe('InputRow — disabled swap and the send tooltip', () => {
     expect(rule).toMatch(/outline-offset:\s*-2px/);
   });
 
-  it('keeps a disabled swap button as the rule subject', () => {
-    const { container } = render(InputRow, { props: { ...baseProps(), swapDisabled: true } });
-    expect(container.querySelector<HTMLButtonElement>('.ega-lang-pair .swap')?.disabled).toBe(true);
+  it('keeps a blocked swap focusable, says why, and ignores the click', async () => {
+    const onSwap = vi.fn();
+    const { container } = render(InputRow, {
+      props: { ...baseProps(), swapDisabled: true, onSwap },
+    });
+    const swap = container.querySelector<HTMLButtonElement>('.ega-lang-pair .swap');
+    if (!swap) throw new Error('swap missing');
+    expect(swap.disabled).toBe(false);
+    expect(swap.getAttribute('aria-disabled')).toBe('true');
+    expect(swap.getAttribute('aria-label')).toMatch(/pick a source language first/);
+    await fireEvent.click(swap);
+    expect(onSwap).not.toHaveBeenCalled();
   });
 });

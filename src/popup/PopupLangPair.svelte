@@ -38,12 +38,15 @@
     <span class="ega-sr-only">From</span>
     <LanguagePicker id="pop-lang" {varieties} includeAuto value={sourceLang} onchange={setSource} />
   </label>
+  <!-- aria-disabled, not disabled: a disabled button cannot take focus, so its reason would be hover-only. -->
   <IconButton
     icon={ArrowLeftRight}
     ariaLabel={swapDisabled ? 'Pick a source language to swap' : 'Swap languages'}
     size="sm"
-    disabled={swapDisabled}
-    onclick={onSwap}
+    dataAttrs={{ 'aria-disabled': swapDisabled ? 'true' : undefined }}
+    onclick={() => {
+      if (!swapDisabled) onSwap();
+    }}
   />
   <label class="lang-label" for="pop-target">
     <span class="ega-sr-only">To</span>
@@ -65,5 +68,14 @@
   }
   .lang-label :global(.ega-lang-picker) {
     width: 100%;
+  }
+  /* Same look as IconButton's own :disabled, which an aria-disabled button does not match. */
+  .popup-lang-pair :global(.ega-icon-btn[aria-disabled='true']) {
+    cursor: var(--cursor-disabled);
+    opacity: 0.55;
+  }
+  .popup-lang-pair :global(.ega-icon-btn[aria-disabled='true']:hover) {
+    background: transparent;
+    color: var(--color-fg-subtle);
   }
 </style>

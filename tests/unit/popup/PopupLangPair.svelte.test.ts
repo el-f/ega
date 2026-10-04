@@ -54,10 +54,18 @@ describe('PopupLangPair', () => {
     expect(onSwap).toHaveBeenCalled();
   });
 
-  it('disables the swap button when swapDisabled is set (source = auto)', () => {
-    const { getByRole } = render(PopupLangPair, { props: { ...base, swapDisabled: true } });
-    // Disabled swap exposes a reason as its accessible name ("Pick a source language to swap").
-    expect((getByRole('button', { name: /swap/i }) as HTMLButtonElement).disabled).toBe(true);
+  it('blocks the swap when swapDisabled is set (source = auto), but keeps it focusable with its reason', async () => {
+    const onSwap = vi.fn();
+    const { getByRole } = render(PopupLangPair, {
+      props: { ...base, swapDisabled: true, onSwap },
+    });
+    const swap = getByRole('button', {
+      name: 'Pick a source language to swap',
+    }) as HTMLButtonElement;
+    expect(swap.disabled).toBe(false);
+    expect(swap.getAttribute('aria-disabled')).toBe('true');
+    await fireEvent.click(swap);
+    expect(onSwap).not.toHaveBeenCalled();
   });
 
   it('routes each picker change to its own callback', async () => {
