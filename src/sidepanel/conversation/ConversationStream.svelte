@@ -20,7 +20,6 @@
   import { taskGerund } from '@/shared/task-prompts';
   import type { TaskId, TaskView } from '@/shared/task-view';
   import type { Variety } from '@/shared/types';
-  import { isMacLike } from '@/shared/utils/platform';
 
   interface Props {
     turns: readonly Turn[];
@@ -78,6 +77,8 @@
     backendReady?: boolean | null;
     /** Opens Settings → Backends from the empty state. */
     onSetUpBackend?: () => void;
+    /** Opens the shortcuts overlay from the empty state. */
+    onShowShortcuts?: () => void;
   }
 
   const {
@@ -108,6 +109,7 @@
     taskViews,
     backendReady = null,
     onSetUpBackend,
+    onShowShortcuts,
   }: Props = $props();
 
   /** Turns mounted at once; older ones mount via "Show earlier" so a 300-turn restore is not one Markdown pass. */
@@ -280,8 +282,6 @@
     el.scrollTo({ top: el.scrollHeight, behavior: reduced ? 'auto' : 'smooth' });
   }
 
-  const modKLabel = isMacLike() ? '⌘K' : 'Ctrl+K';
-
   // Registering a window listener here too would give two competing owners.
   $effect(() => {
     onRegisterKeydownHandler?.(handleKeydown);
@@ -367,10 +367,11 @@
         icon={Languages}
       />
     {/if}
-    <p class="ega-kbd-hints" data-ega-kbd-hints>
-      <kbd>{modKLabel}</kbd> commands · <kbd>?</kbd> all keys · <kbd>j</kbd>/<kbd>k</kbd> move ·
-      <kbd>e</kbd> edit last · <kbd>r</kbd> retry
-    </p>
+    {#if onShowShortcuts}
+      <button type="button" class="ega-kbd-link" data-ega-kbd-hints onclick={onShowShortcuts}>
+        Keyboard shortcuts
+      </button>
+    {/if}
   </div>
 {:else}
   <div class="ega-conv-shell">
@@ -488,19 +489,19 @@
     background: var(--color-bg-hover, var(--color-bg-sunken));
     color: var(--color-fg);
   }
-  .ega-kbd-hints {
+  .ega-kbd-link {
     margin: var(--space-2) 0 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
     font-size: var(--fs-xs);
     color: var(--color-muted);
-    text-align: center;
+    text-decoration: underline;
+    cursor: pointer;
   }
-  .ega-kbd-hints kbd {
-    font-family: var(--font-mono, monospace);
-    font-size: inherit;
-    padding: 0 3px;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    background: var(--color-bg-sunken);
+  .ega-kbd-link:hover {
+    color: var(--color-fg);
   }
   .ega-conv-stream {
     flex: 1 1 auto;

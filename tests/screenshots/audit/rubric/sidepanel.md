@@ -13,7 +13,7 @@ The sidepanel is the right-edge persistent surface (`src/sidepanel`) — wider t
 
 ## States
 
-- **empty** — no turns; "Start a conversation" empty state with hint text and key hints (when no backend is ready it reads "Add a backend to start" with a "Set up a backend" CTA instead); input footer focused.
+- **empty** — no turns; "Start a conversation" empty state with hint text and a "Keyboard shortcuts" link (when no backend is ready it reads "Add a backend to start" with a "Set up a backend" CTA instead); input footer focused.
 - **streaming** — first turn mid-flight; shimmer or cursor visible.
 - **first-turn-done** — assistant body filled; cursor gone; quick-refine chips visible.
 - **quick-refine** — close-up of the chip strip (Shorter, Less formal, Keep slang, Refine).

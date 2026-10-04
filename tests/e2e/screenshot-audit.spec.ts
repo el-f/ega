@@ -421,7 +421,11 @@ test('Sidepanel — empty + streaming + multi-turn + refine + error + popover + 
     theme: 'light',
     viewport: NARROW_SIDEPANEL,
     userAction: 'user opened the side panel at its real width with no prior conversation',
-    expectations: ['header wraps without clipping', 'shortcut hints fit', 'no horizontal scroll'],
+    expectations: [
+      'header wraps without clipping',
+      'one Keyboard shortcuts link, no key legend',
+      'no horizontal scroll',
+    ],
   });
   await sp.setViewportSize({ width: 1200, height: 800 });
 

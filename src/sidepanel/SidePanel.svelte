@@ -990,6 +990,7 @@
       onClearBookmarkFilter={() => (bookmarkFilter = false)}
       {backendReady}
       onSetUpBackend={() => openOptionsTab('backends')}
+      onShowShortcuts={() => (shortcutsOpen = true)}
       onRetry={(id) => void conversation.retry(id)}
       onRefine={(args) => onRefine(args)}
       onSelectVariant={(turnId, idx) => conversation.selectVariant(turnId, idx)}

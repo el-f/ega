@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
-import { render } from '@testing-library/svelte';
+import { render, fireEvent } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import ConversationStream from '@/sidepanel/conversation/ConversationStream.svelte';
 import type { Turn } from '@/sidepanel/state/conversation';
@@ -50,6 +50,22 @@ describe('ConversationStream.svelte', () => {
     expect(text).toContain('translate');
     expect(text).toContain('explain');
     expect(text).toContain('reword');
+  });
+
+  it('empty state links to the shortcuts overlay instead of listing keys', async () => {
+    const onShowShortcuts = vi.fn();
+    const { container, getByRole } = render(ConversationStream, {
+      props: {
+        turns: [],
+        focusedTurnId: null,
+        onRetry: vi.fn(),
+        onFocusChange: vi.fn(),
+        onShowShortcuts,
+      },
+    });
+    expect(container.querySelector('kbd')).toBeNull();
+    await fireEvent.click(getByRole('button', { name: 'Keyboard shortcuts' }));
+    expect(onShowShortcuts).toHaveBeenCalledTimes(1);
   });
 
   it('empty placeholder is NOT nested inside the role=log live region', () => {
