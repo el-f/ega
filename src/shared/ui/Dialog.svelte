@@ -107,12 +107,19 @@
     max-height: 90vh;
     overflow-y: auto;
   }
+  /* A long dialog scrolls under its title and buttons; the negative offsets cover the dialog's own padding. */
   .ega-dialog-head {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
     gap: var(--space-2);
-    margin-bottom: var(--space-3);
+    margin: calc(-1 * var(--space-4)) 0 var(--space-3);
+    padding-top: var(--space-4);
+    padding-bottom: var(--space-1);
+    position: sticky;
+    top: calc(-1 * var(--space-4));
+    z-index: 1;
+    background: var(--color-bg);
   }
   .ega-dialog-title {
     margin: 0;
@@ -147,7 +154,12 @@
     display: flex;
     gap: var(--space-2);
     justify-content: flex-end;
-    margin-top: var(--space-4);
+    margin: var(--space-4) 0 calc(-1 * var(--space-4));
+    padding: var(--space-3) 0 var(--space-4);
+    position: sticky;
+    bottom: calc(-1 * var(--space-4));
+    z-index: 1;
+    background: var(--color-bg);
   }
   :global(.ega-dialog.pos-center) {
     top: 50%;
