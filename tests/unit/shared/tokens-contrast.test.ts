@@ -31,6 +31,7 @@ function token(decls: string, name: string): string {
 
 const THEMES: Record<string, string> = {
   'dark (default)': block(':root,'),
+  'light (OS)': block(':root,', css.indexOf('@media (prefers-color-scheme: light)')),
   light: block("[data-theme='light'],"),
   'dark (explicit)': block("[data-theme='dark'],"),
 };
