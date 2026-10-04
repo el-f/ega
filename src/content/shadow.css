@@ -617,7 +617,7 @@
   /* The card pads its bottom by only --space-1, so without this the pill sits on the corner's lower edge. */
   padding-bottom: var(--space-1);
   font-size: var(--fs-xs);
-  opacity: 0.85;
+  /* No opacity on the row: a child cannot undo a parent's, and it took the 10px pills below 4.5:1. The labels mute themselves. */
   pointer-events: none;
   min-width: 0;
   max-width: 100%;
@@ -645,10 +645,8 @@
   padding: 1px var(--space-1);
   border-radius: var(--radius-pill);
   background: var(--color-accent-bg-soft);
-  /* 11px is normal text, so this needs 4.5:1, not the 3:1 large-text bar. The hover
-     accent clears it on the soft tint; opacity:1 escapes the .meta row's 0.85. */
+  /* 11px is normal text, so this needs 4.5:1, not the 3:1 large-text bar. The hover accent clears it on the soft tint. */
   color: var(--color-accent-hover);
-  opacity: 1;
 }
 .tooltip .pill {
   display: inline-block;
@@ -666,7 +664,8 @@
 }
 .pill.lo {
   background: var(--color-danger-bg-soft);
-  color: var(--color-danger);
+  /* The -fg shade: the base danger red on its soft tint measures 3.0:1 in dark, under the 4.5:1 a 10px label needs. */
+  color: var(--color-danger-fg);
 }
 
 .banner {

@@ -33,3 +33,13 @@ describe('tooltip chrome', () => {
     ).toBe('none');
   });
 });
+
+describe('tooltip meta row contrast', () => {
+  it('puts no opacity on the row, which no child pill could undo', () => {
+    expect(rule('.tooltip .meta')?.getPropertyValue('opacity')).toBe('');
+  });
+
+  it('colors the low-confidence pill with the -fg shade that clears 4.5:1', () => {
+    expect(rule('.pill.lo')?.getPropertyValue('color')).toBe('var(--color-danger-fg)');
+  });
+});
