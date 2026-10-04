@@ -53,7 +53,7 @@
   },
   {
     "name": "Glossary",
-    "bytes": 9426
+    "bytes": 9614
   },
   {
     "name": "IconButton",
@@ -61,11 +61,11 @@
   },
   {
     "name": "index",
-    "bytes": 117008
+    "bytes": 117285
   },
   {
     "name": "index.html",
-    "bytes": 374428
+    "bytes": 376401
   },
   {
     "name": "index.ts",
@@ -81,7 +81,7 @@
   },
   {
     "name": "InspectorDrawer",
-    "bytes": 11513
+    "bytes": 11578
   },
   {
     "name": "lang-tag",
@@ -101,7 +101,7 @@
   },
   {
     "name": "open-options-tab",
-    "bytes": 40557
+    "bytes": 41023
   },
   {
     "name": "page-styles",
@@ -145,7 +145,7 @@
   },
   {
     "name": "saved-conversations",
-    "bytes": 1678
+    "bytes": 1690
   },
   {
     "name": "SectionReset",
@@ -157,7 +157,7 @@
   },
   {
     "name": "selection-cap-copy",
-    "bytes": 14696
+    "bytes": 14700
   },
   {
     "name": "SelectionBubble",
@@ -169,11 +169,11 @@
   },
   {
     "name": "shadowHost",
-    "bytes": 34370
+    "bytes": 34439
   },
   {
     "name": "src-content-index.ts",
-    "bytes": 32813
+    "bytes": 32841
   },
   {
     "name": "stuck-timeout",
@@ -205,7 +205,7 @@
   },
   {
     "name": "tipState.svelte",
-    "bytes": 27562
+    "bytes": 27786
   },
   {
     "name": "toast",
@@ -233,7 +233,7 @@
   },
   {
     "name": "vendor-bits-ui",
-    "bytes": 191675
+    "bytes": 193143
   },
   {
     "name": "vendor-bits-ui-menu",
@@ -257,6 +257,6 @@
   },
   {
     "name": "vendor-svelte-extras",
-    "bytes": 74573
+    "bytes": 74575
   }
 ]

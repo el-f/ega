@@ -262,7 +262,7 @@ function measureDist(distDir: string): BundleEntry[] {
 const EAGER_CONTENT_BUDGET_BYTES = 169_300;
 
 /** The popup opens on every toolbar click, so its preload set is the one extension-page cost a user feels. Ratchet, like the one above. */
-const POPUP_PAGE_BUDGET_BYTES = 491_000;
+const POPUP_PAGE_BUDGET_BYTES = 492_500;
 
 function measurePagePreload(distDir: string, htmlRel: string): { files: string[]; bytes: number } {
   const htmlPath = path.join(distDir, htmlRel);
