@@ -63,6 +63,18 @@ describe('maybeShowSmartBannerOnce', () => {
     expect(arg.message).not.toMatch(/detects something worth/);
   });
 
+  it('offers Open settings, which goes to the Selection & picker tab', async () => {
+    const { maybeShowSmartBannerOnce } = await load();
+    const send = vi.spyOn(chrome.runtime, 'sendMessage').mockResolvedValue(undefined);
+    maybeShowSmartBannerOnce(smartSettings());
+    const arg = mocks.showBanner.mock.calls[0]?.[0] as {
+      action?: { label: string; run: () => void };
+    };
+    expect(arg.action?.label).toBe('Open settings');
+    arg.action?.run();
+    expect(send).toHaveBeenCalledWith({ kind: 'ui:open-options', tab: 'selection-bubble' });
+  });
+
   it('waits for an in-flight translate to settle before showing', async () => {
     const { maybeShowSmartBannerOnce, pending } = await load();
     pending.set('r1', {});

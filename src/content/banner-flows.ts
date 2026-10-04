@@ -3,6 +3,8 @@ import { patchSettings } from '@/shared/settings-bus';
 import { pending } from './request-state';
 import { isExtensionContextValid } from './context-guard';
 import type { Settings } from '@/shared/types';
+import { sendMsg } from '@/shared/messages';
+import { debugCatch } from '@/shared/logger';
 
 let smartBannerShownThisSession = false;
 let pollTimer: ReturnType<typeof setTimeout> | null = null;
@@ -15,6 +17,16 @@ export function cancelSmartBannerPoll(): void {
   if (pollTimer) {
     clearTimeout(pollTimer);
     pollTimer = null;
+  }
+}
+
+function openSelectionSettings(): void {
+  try {
+    void sendMsg({ kind: 'ui:open-options', tab: 'selection-bubble' }).catch((e: unknown) =>
+      debugCatch(e, 'content.smartBanner.openOptions'),
+    );
+  } catch (e) {
+    debugCatch(e, 'content.smartBanner.openOptions');
   }
 }
 
@@ -33,6 +45,7 @@ export function maybeShowSmartBannerOnce(s: Settings): void {
       message:
         'The translate button appears only on text Ega can translate. Change this in Settings → Selection & picker.',
       onDismiss: persist,
+      action: { label: 'Open settings', run: openSelectionSettings },
     });
   };
   // A translate is often streaming when this fires — wait for it to settle instead of competing with it.

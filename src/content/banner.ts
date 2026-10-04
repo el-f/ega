@@ -5,7 +5,9 @@ import { getContainer, peekContainer, onShadowHostRemount } from './shadowHost';
 
 interface BannerOpts {
   message: string;
+  /** Called when the banner closes, by Dismiss or by the action. */
   onDismiss?: () => void;
+  action?: { label: string; run: () => void };
 }
 
 let currentHandle: ReturnType<typeof mount> | null = null;
@@ -25,6 +27,16 @@ export function showBanner(o: BannerOpts): void {
         o.onDismiss?.();
         hideBanner(anchor);
       },
+      ...(o.action
+        ? {
+            actionLabel: o.action.label,
+            onaction: () => {
+              o.onDismiss?.();
+              hideBanner(anchor);
+              o.action?.run();
+            },
+          }
+        : {}),
     },
   });
 }

@@ -1708,7 +1708,7 @@ test('Smart-bubble — digit-less + short-suppressed + dark', async () => {
     expectations: [
       'NO bubble visible around the selection',
       'notice card top-right says the button appears only on text Ega can translate',
-      'notice names Settings → Selection & picker and has a dismiss control',
+      'notice names Settings → Selection & picker, with an Open settings button and a Dismiss button',
     ],
   });
   await bannerPage.close();
