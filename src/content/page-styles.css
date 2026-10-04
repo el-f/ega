@@ -1,0 +1,98 @@
+/* Page-document sheet — the shadow sheet and its tokens never reach the page DOM. Translucent literals read on any page background. */
+
+[data-ega-replaced] {
+  background-color: rgba(0, 144, 255, 0.12); /* token-lint-allow page sheet */
+  border-bottom: 1px dashed rgba(88, 166, 255, 0.4); /* token-lint-allow page sheet */
+  cursor: help;
+}
+[data-ega-replaced][data-ega-error='true'] {
+  background-color: rgba(255, 149, 146, 0.12); /* token-lint-allow page sheet */
+  border-bottom: 1px dashed rgba(255, 149, 146, 0.6); /* token-lint-allow page sheet */
+}
+[data-ega-replaced][data-ega-pending] {
+  opacity: 0.6;
+}
+
+[data-ega-tx] {
+  border-left: 2px solid rgba(88, 166, 255, 0.55); /* token-lint-allow page sheet */
+  padding-left: 0.5em;
+}
+
+[data-ega-tx-error] {
+  margin-left: 0.4em;
+  padding: 0 0.4em;
+  border-radius: 999px;
+  background: rgba(255, 149, 146, 0.18); /* token-lint-allow page sheet */
+  color: #8c1d18; /* token-lint-allow page sheet */
+  font-size: 0.85em;
+  white-space: nowrap;
+  user-select: none;
+}
+
+[data-ega-tx-state='error'] [data-ega-retry-block] {
+  opacity: 0;
+  transition: opacity 0.12s;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  padding: 0 4px;
+  font: inherit;
+  color: inherit;
+}
+[data-ega-tx-state='error']:hover [data-ega-retry-block],
+[data-ega-tx-state='error'] [data-ega-retry-block]:focus-visible {
+  opacity: 1;
+}
+/* The block shows a static … until its first words land; the pulse tells a slow block from a stuck one. */
+[data-ega-tx-state='streaming'] {
+  animation: ega-tx-pulse 1.4s ease-in-out infinite;
+}
+@keyframes ega-tx-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-ega-tx-state='error'] [data-ega-retry-block] {
+    transition: none;
+  }
+  [data-ega-tx-state='streaming'] {
+    animation: none;
+  }
+}
+
+/* Element picker: !important beats a page's own cursor rules, which would otherwise hide the mode. */
+html[data-ega-picking] * {
+  cursor: crosshair !important;
+}
+
+/* Translate-areas mode: hover cue + persistent selection outline with a 1-based order badge. */
+[data-ega-ms-hover] {
+  outline: 2px dashed rgba(88, 166, 255, 0.8); /* token-lint-allow page sheet */
+  outline-offset: 2px;
+  cursor: pointer;
+}
+/* Keyboard cursor: an inner ring, never an outline — the selection owns the outline and both
+   states are true at once. Magenta clears 3:1 against white and against black. */
+[data-ega-ms-cursor] {
+  box-shadow: inset 0 0 0 3px #a21caf; /* token-lint-allow page sheet */
+}
+[data-ega-ms-selected] {
+  outline: 2px solid rgba(0, 144, 255, 0.9); /* token-lint-allow page sheet */
+  outline-offset: 2px;
+  background-color: rgba(0, 144, 255, 0.08); /* token-lint-allow page sheet */
+  cursor: pointer;
+}
+[data-ega-ms-selected]::after {
+  content: attr(data-ega-ms-selected);
+  display: inline-block;
+  margin-left: 0.4em;
+  padding: 0 0.45em;
+  border-radius: 999px;
+  background: rgba(0, 144, 255, 0.9); /* token-lint-allow page sheet */
+  color: #fff; /* token-lint-allow page sheet */
+  font:
+    700 0.75em/1.5 system-ui,
+    sans-serif;
+  vertical-align: middle;
+}

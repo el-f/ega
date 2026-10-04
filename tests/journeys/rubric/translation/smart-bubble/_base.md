@@ -1,0 +1,23 @@
+# Smart-bubble surface rubric
+
+"Smart bubble" is the selection bubble (Settings → Selection & picker) in its default Smart mode. This surface also covers the Always and Never modes.
+
+## Mount + position
+
+- Bubble first paint: <= 200ms of `selectionchange` with eligible text.
+- Bubble sits below the selection's bounding rect (above it when there is no room below). It is placed on each selectionchange and does not follow page scroll.
+
+## Heuristics
+
+- Heuristic gates: minimum length, script detection, digit count, English check. A bubble on confidently English text, or on a selection below the minimum length, is a bug, not an edge case.
+- Arabizi is the canonical positive case, with or without digits, and also when short but at or above the minimum length. English text and selections below the minimum length are the canonical negative cases.
+
+## Dismissal + persistence
+
+- Click outside dismisses without firing a translate.
+- Per-site off is the context-menu item "Disable Ega on this site" (`sitePrefs[origin].disabled`). Re-enable via "Enable Ega on this site" or by removing the row in Options > Advanced site overrides, not a re-selection trick.
+- `bubbleMode === 'never'` OR `sitePrefs[origin].disabled` — bubble does NOT mount. `pickerEnabled` affects only the element picker.
+
+## Click target
+
+- Click on the bubble opens the tooltip seeded with the current selection.

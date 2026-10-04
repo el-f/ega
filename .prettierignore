@@ -1,0 +1,9 @@
+dist/
+coverage/
+reports/
+pnpm-lock.yaml
+tests/screenshots/
+tests/journeys/frames/
+# Local tool state in hidden folders; .github is the only tracked one.
+/.*/
+!/.github/

@@ -1,0 +1,76 @@
+/* coverage: translation.popup.open-picker */
+import { test, expect } from '@playwright/test';
+import { launchExtension, seedSettings, type ExtensionHandle } from '../../helpers';
+import { createTimeline } from '../_harness';
+
+let ext: ExtensionHandle;
+
+test.beforeEach(async () => {
+  ext = await launchExtension();
+  await seedSettings(ext.context, ext.extensionId, {
+    anthropicApiKey: 'test-key',
+    pickerEnabled: true,
+  });
+});
+
+test.afterEach(async () => {
+  await ext.close();
+});
+
+test('"Pick element" sends picker:enter to the resolved content tab', async () => {
+  const timeline = createTimeline();
+  const popup = await ext.context.newPage();
+  await popup.addInitScript(() => {
+    const g = globalThis as unknown as {
+      chrome?: {
+        tabs?: {
+          query: (q: unknown) => Promise<Array<{ id: number; url: string }>>;
+          sendMessage: (tabId: number, msg: { kind: string }) => Promise<unknown>;
+        };
+      };
+      __ega_tabs_sent?: Array<{ tabId: number; kind: string }>;
+    };
+    if (!g.chrome?.tabs) return;
+    const sent: Array<{ tabId: number; kind: string }> = [];
+    g.__ega_tabs_sent = sent;
+    g.chrome.tabs.query = async () => [{ id: 31, url: 'https://example.com/' }];
+    g.chrome.tabs.sendMessage = async (tabId, msg) => {
+      sent.push({ tabId, kind: msg.kind });
+      return { ok: true };
+    };
+    // openPicker() calls window.close() after dispatch — neuter it so the page survives.
+    (window as unknown as { close: () => void }).close = () => {};
+  });
+  await popup.goto(`chrome-extension://${ext.extensionId}/src/popup/index.html`);
+  timeline.markStep('popup-opened');
+
+  await popup.getByRole('button', { name: 'Pick element' }).click();
+  timeline.markStep('picker-clicked');
+
+  await expect
+    .poll(
+      async () =>
+        await popup.evaluate(() => {
+          const sent =
+            (
+              globalThis as unknown as {
+                __ega_tabs_sent?: Array<{ tabId: number; kind: string }>;
+              }
+            ).__ega_tabs_sent ?? [];
+          return sent.find((m) => m.kind === 'picker:enter') ?? null;
+        }),
+      { timeout: 5_000 },
+    )
+    .not.toBeNull();
+
+  const dispatched = await popup.evaluate(
+    () =>
+      (
+        globalThis as unknown as {
+          __ega_tabs_sent?: Array<{ tabId: number; kind: string }>;
+        }
+      ).__ega_tabs_sent ?? [],
+  );
+  const picker = dispatched.find((m) => m.kind === 'picker:enter');
+  expect(picker?.tabId).toBe(31);
+});

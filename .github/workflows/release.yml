@@ -1,0 +1,141 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (e.g. v0.4.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  # The provenance step signs with the job's OIDC token and stores the attestation on the repo.
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Build the tag, not whichever branch the dispatch dropdown had selected.
+          ref: ${{ inputs.tag || github.ref }}
+          # `git describe --tags --abbrev=0 <tag>^` needs full history to
+          # find the previous tag when composing release notes.
+          fetch-depth: 0
+          # Nothing after checkout needs git auth; the release step uses its own token input.
+          persist-credentials: false
+      # The provenance names GITHUB_SHA, so the commit built here must be that commit.
+      - name: Built commit is the attested commit
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          if [ "$(git rev-parse HEAD)" != "$GITHUB_SHA" ]; then
+            echo "Run this workflow from the tag itself (Use workflow from → Tags → $TAG): the attestation names $GITHUB_SHA, not the commit of $TAG."
+            exit 1
+          fi
+      - name: Tag matches package.json
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          V="v$(node -p "require('./package.json').version")"
+          if [ "$V" != "$TAG" ]; then
+            echo "package.json is $V but the tag is $TAG"
+            exit 1
+          fi
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Reruns lint, types, unit + host tests, build and e2e; the ci.yml gates job, coverage floor and OS legs do not run here.
+      - run: pnpm gen:icons
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm vitest run
+      - run: pnpm test:host
+      - run: pnpm build
+      - run: pnpm exec tsx scripts/bundle-budget.ts --warn-only
+      - run: pnpm exec playwright install --with-deps chromium
+      # Sharded sequentially — each `--shard` is a fresh playwright process that
+      # releases its Chromium handles on exit, so the persistent-context
+      # collapse that hit the single whole-suite run (~400+ launches in one
+      # process → "Target page closed" timeouts) never builds up here.
+      - run: pnpm exec playwright test --shard=1/4
+      - run: pnpm exec playwright test --shard=2/4
+      - run: pnpm exec playwright test --shard=3/4
+      - run: pnpm exec playwright test --shard=4/4
+
+      # Rebuild first: the e2e shards above rebuilt dist/ with test hooks, and
+      # the zip script refuses to pack a hooks build.
+      # EGA_STORE_BUILD drops the dev `key`, so the Web Store can assign its own id.
+      - run: pnpm build
+        env:
+          EGA_STORE_BUILD: '1'
+      # THIRD_PARTY.md ships inside the zip; this is its only freshness check here.
+      - run: pnpm gen:third-party:check
+      - run: pnpm zip
+      # Anyone can check a downloaded zip with `gh attestation verify <zip> -R el-f/ega`.
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: store/ega-*.zip
+
+      - name: Resolve tag
+        id: tag
+        env:
+          DISPATCH_TAG: ${{ inputs.tag }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then TAG="$DISPATCH_TAG"; else TAG="$GITHUB_REF_NAME"; fi
+          # Random delimiter: a value carrying a newline cannot open a second output key.
+          D="d$(openssl rand -hex 16)"
+          {
+            echo "ref<<$D"
+            echo "$TAG"
+            echo "$D"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Collect release notes
+        id: notes
+        env:
+          TAG: ${{ steps.tag.outputs.ref }}
+        run: |
+          # Commit subjects since the previous tag, in chronological order.
+          # First tag in the repo? Fall back to the whole history.
+          PREV=$(git describe --tags --abbrev=0 "$TAG^" 2>/dev/null || echo "")
+          if [ -n "$PREV" ]; then
+            NOTES=$(git log --pretty=format:'- %s' "$PREV".."$TAG")
+          else
+            NOTES=$(git log --pretty=format:'- %s' "$TAG")
+          fi
+          D="d$(openssl rand -hex 16)"
+          {
+            echo "notes<<$D"
+            echo "$NOTES"
+            echo "$D"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          tag_name: ${{ steps.tag.outputs.ref }}
+          name: Ega ${{ steps.tag.outputs.ref }}
+          body: ${{ steps.notes.outputs.notes }}
+          draft: true
+          prerelease: ${{ contains(steps.tag.outputs.ref, '-') }}
+          files: |
+            store/ega-*.zip
+            store/ega-*.zip.sha256

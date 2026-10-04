@@ -1,0 +1,77 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    ignore:
+      # svelte-sonner 1.2 leaks its toast store across unit tests; vitest 5 breaks the Stryker runner (stryker-js#6210).
+      - dependency-name: svelte-sonner
+        update-types: ['version-update:semver-minor', 'version-update:semver-major']
+      - dependency-name: vitest
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@vitest/*'
+        update-types: ['version-update:semver-major']
+      # Typed to the lowest Node in package.json engines, so a newer API fails tsc instead of a user's install.
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
+    groups:
+      # Every group is minor + patch only, so each major lands in its own PR.
+      svelte:
+        patterns:
+          - 'svelte'
+          - '@sveltejs/*'
+          - 'svelte-*'
+          - 'prettier-plugin-svelte'
+          - 'eslint-plugin-svelte'
+        update-types:
+          - minor
+          - patch
+      vite:
+        patterns:
+          - 'vite'
+          - '@vitest/*'
+          - 'vitest'
+          - '@crxjs/*'
+        update-types:
+          - minor
+          - patch
+      eslint:
+        patterns:
+          - 'eslint'
+          - '@eslint/*'
+          - 'typescript-eslint'
+        update-types:
+          - minor
+          - patch
+      testing:
+        patterns:
+          - '@testing-library/*'
+          - '@playwright/*'
+          - 'jsdom'
+          - 'fake-indexeddb'
+        update-types:
+          - minor
+          - patch
+      # First matching group wins, so these catch-alls must stay last.
+      production:
+        dependency-type: production
+        update-types:
+          - minor
+          - patch
+      development:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 1
+    groups:
+      actions:
+        patterns:
+          - '*'

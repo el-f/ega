@@ -1,0 +1,162 @@
+@import '../shared/tokens.css';
+
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: var(--fs-md);
+  background: var(--color-bg);
+  color: var(--color-fg);
+  line-height: var(--lh-body);
+}
+h3 {
+  margin: var(--space-5) 0 var(--space-2);
+  font-size: var(--fs-md);
+  line-height: var(--lh-heading);
+}
+label {
+  display: block;
+  margin: var(--space-2) 0 var(--space-1);
+  font-size: var(--fs-sm);
+  opacity: 0.8;
+}
+input[type='text'],
+input[type='password'],
+input[type='number'],
+select,
+textarea {
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-bg-sunken);
+  color: var(--color-fg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--fs-base);
+  font-family: inherit;
+}
+textarea {
+  min-height: 140px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+}
+button {
+  background: var(--color-bg-hover);
+  color: var(--color-fg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-1) var(--space-3);
+  cursor: pointer;
+  font-size: var(--fs-base);
+}
+button.primary {
+  background: var(--color-success);
+  border-color: var(--color-success);
+  color: var(--color-accent-fg);
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.row {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  margin: var(--space-1) 0;
+  flex-wrap: wrap;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: var(--space-3);
+}
+th,
+td {
+  padding: var(--space-1) var(--space-2);
+  text-align: left;
+  border-bottom: 1px solid var(--color-border-subtle);
+  font-size: var(--fs-base);
+  vertical-align: top;
+}
+.help {
+  font-size: var(--fs-sm);
+  /* No extra opacity: --color-muted already clears AA; 0.7 on top drops help text below 4.5:1 in light. */
+  color: var(--color-muted);
+  margin-top: var(--space-1);
+}
+/* Two label+control pairs side by side; stacks below 560px. */
+.field-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2) var(--space-4);
+  align-items: start;
+}
+.field-pair > .field-cluster {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.field-pair > .field-cluster > label {
+  margin: 0;
+}
+.field-pair > .field-cluster > .help {
+  margin-top: 0;
+}
+@container options (max-width: 560px) {
+  .field-pair {
+    grid-template-columns: 1fr;
+  }
+}
+.warn {
+  color: var(--color-warning-fg);
+  font-size: var(--fs-sm);
+}
+.err {
+  color: var(--color-danger);
+  font-size: var(--fs-sm);
+  margin-top: var(--space-1);
+}
+/* .field-invalid changes only the border, so the layout does not shift. */
+.field-error {
+  color: var(--color-danger-fg);
+  font-size: var(--fs-sm);
+  margin: var(--space-1) 0 0;
+}
+input.field-invalid,
+textarea.field-invalid,
+select.field-invalid {
+  border-color: var(--color-danger);
+}
+.ok {
+  color: var(--color-success-fg);
+  font-size: var(--fs-sm);
+  margin-top: var(--space-1);
+}
+.badge {
+  display: inline-block;
+  padding: 1px var(--space-1);
+  border-radius: var(--radius-pill);
+  /* 11px (--fs-xs), not 10px — the larger-text WCAG bar (3:1) is easier
+     to clear for the accent-on-soft-tint badge, helping both themes. */
+  font-size: var(--fs-xs);
+  background: var(--color-accent-bg-soft);
+  /* Opaque accent: the translucent --color-accent-soft would be ~1.36:1 on the light card. blue.11 is 4.65:1 on white, AA on the soft tint. */
+  color: var(--color-accent);
+  margin-left: var(--space-1);
+  vertical-align: middle;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.badge.custom {
+  background: var(--color-warning-bg-soft);
+  color: var(--color-warning-fg);
+}
+
+/* Compact select variant. Applied to bare <select> elements in
+   Display + Defaults tabs to align height with neighbouring checkboxes. */
+select.select-sm {
+  height: 32px;
+  padding: 0 var(--space-2);
+  font-size: var(--fs-sm);
+}

@@ -1,0 +1,133 @@
+<script lang="ts">
+  import TypeIcon from '@lucide/svelte/icons/type';
+  import ImageIcon from '@lucide/svelte/icons/image';
+
+  type Status = 'unknown' | 'ready' | 'needs-config' | 'unavailable';
+
+  interface Props {
+    beStatus: Status;
+    supportsImage: boolean;
+    routeIsText: boolean;
+    routeIsImage: boolean;
+  }
+
+  const { beStatus, supportsImage, routeIsText, routeIsImage }: Props = $props();
+
+  // The route icons stay decorative, so this text is what gives the marker an accessible name.
+  const routeSummary = $derived(
+    [routeIsText ? 'text' : null, routeIsImage ? 'images' : null].filter(Boolean).join(' and '),
+  );
+</script>
+
+<span class="be-dot be-dot-{beStatus}" aria-hidden="true"></span>
+<span class="be-status be-status-{beStatus}">
+  {#if beStatus === 'ready'}Ready{:else if beStatus === 'needs-config'}Needs setup{:else if beStatus === 'unavailable'}Unavailable{:else}Checking…{/if}
+</span>
+{#if !supportsImage}
+  <span class="be-tag" title="This backend does not support image translation">text-only</span>
+{/if}
+<span
+  class="be-routes"
+  data-tooltip={routeSummary
+    ? `First choice for ${routeSummary}`
+    : 'Not the first choice for any request'}
+  data-tooltip-placement="left"
+>
+  {#if routeSummary}
+    <span class="ega-sr-only">First choice for {routeSummary}</span>
+  {/if}
+  <TypeIcon size={12} class={routeIsText ? 'be-route-on' : 'be-route-off'} aria-hidden="true" />
+  {#if supportsImage}
+    <ImageIcon size={12} class={routeIsImage ? 'be-route-on' : 'be-route-off'} aria-hidden="true" />
+  {/if}
+</span>
+
+<style>
+  .be-tag {
+    font-size: var(--fs-xs);
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: var(--color-bg-elevated);
+    color: var(--color-muted);
+    border: 1px solid var(--color-border);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .be-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 999px;
+    display: inline-block;
+    background: var(--color-dot-idle);
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  .be-dot-ready {
+    background: var(--color-success-fg);
+    box-shadow: 0 0 6px rgba(86, 211, 100, 0.55);
+    animation: be-ready-pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes be-ready-pulse {
+    0%,
+    100% {
+      box-shadow: 0 0 6px rgba(86, 211, 100, 0.55);
+    }
+    50% {
+      box-shadow: 0 0 10px rgba(86, 211, 100, 0);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .be-dot-ready {
+      animation-duration: 0.01ms;
+    }
+  }
+  .be-dot-needs-config {
+    background: var(--color-warning-fg);
+  }
+  .be-dot-unavailable {
+    background: var(--color-danger);
+  }
+  .be-dot-unknown {
+    background: var(--color-muted);
+  }
+  .be-status {
+    font-size: 11px;
+    padding: 1px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--color-border);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .be-status-ready {
+    background: rgba(86, 211, 100, 0.12);
+    color: var(--color-success-fg);
+    border-color: var(--color-success);
+  }
+  .be-status-needs-config {
+    background: rgba(227, 179, 65, 0.12);
+    color: var(--color-warning-fg);
+    border-color: var(--color-warning-border);
+  }
+  /* danger-fg, not danger: #e5484d on the tinted dark pill is ~4:1 — below AA for 11px text. */
+  .be-status-unavailable {
+    background: rgba(248, 81, 73, 0.1);
+    color: var(--color-danger-fg);
+    border-color: var(--color-danger);
+  }
+  .be-status-unknown {
+    color: var(--color-muted);
+  }
+  .be-routes {
+    display: inline-flex;
+    gap: 4px;
+    margin-right: 6px;
+  }
+  :global(.be-route-on) {
+    color: var(--color-accent);
+    opacity: 0.9;
+  }
+  :global(.be-route-off) {
+    color: var(--color-muted);
+    opacity: 0.15;
+  }
+</style>

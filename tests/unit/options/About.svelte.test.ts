@@ -1,0 +1,50 @@
+// @vitest-environment jsdom
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { render, waitFor } from '@testing-library/svelte';
+import About from '@/options/tabs/About.svelte';
+import { chromeMock, resetChromeMock } from '../../mocks/chrome';
+import pkg from '../../../package.json' with { type: 'json' };
+
+describe('About — version card', () => {
+  it('renders the version row with no changelog link', async () => {
+    const { container } = render(About);
+    await waitFor(
+      () => expect(container.querySelector('[data-ega-about-version]')).not.toBeNull(),
+      { timeout: 5000 },
+    );
+    expect(container.querySelector('[data-ega-about-version]')?.textContent).toContain(
+      `v${pkg.version}`,
+    );
+    expect(container.querySelector('a[href*="CHANGELOG"]')).toBeNull();
+  });
+
+  it('shows the full pre-release version_name, not the numeric version', async () => {
+    const spy = vi
+      .spyOn(chromeMock.runtime, 'getManifest')
+      .mockReturnValue({ version: '0.1.0', version_name: '0.1.0-rc.1' });
+    try {
+      const { container } = render(About);
+      await waitFor(() =>
+        expect(container.querySelector('[data-ega-about-version]')?.textContent).toContain(
+          'v0.1.0-rc.1',
+        ),
+      );
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});
+
+describe('About — duplicate captureResultMeta toggle stripped', () => {
+  beforeEach(() => {
+    resetChromeMock();
+  });
+
+  it('does NOT render a captureResultMeta Checkbox (Diagnostics owns it)', async () => {
+    const { container } = render(About);
+    // The tab renders in one pass with nothing loaded later, so the version row proves it is up.
+    expect(container.querySelector('[data-ega-about-version]')).not.toBeNull();
+    expect(container.querySelector('#priv-capture-result-meta')).toBeNull();
+    expect(container.textContent).not.toMatch(/Keep recent translation details/i);
+  });
+});

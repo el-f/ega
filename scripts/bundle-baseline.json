@@ -1,0 +1,262 @@
+[
+  {
+    "name": "Advanced",
+    "bytes": 62057
+  },
+  {
+    "name": "batch-progress",
+    "bytes": 3602
+  },
+  {
+    "name": "bubble",
+    "bytes": 3478
+  },
+  {
+    "name": "build-config",
+    "bytes": 33365
+  },
+  {
+    "name": "cancel-token",
+    "bytes": 17997
+  },
+  {
+    "name": "command-registry",
+    "bytes": 29640
+  },
+  {
+    "name": "customs-cache",
+    "bytes": 1195
+  },
+  {
+    "name": "diff-words",
+    "bytes": 1609
+  },
+  {
+    "name": "EffortSegmented",
+    "bytes": 1970
+  },
+  {
+    "name": "EmptyState",
+    "bytes": 2031
+  },
+  {
+    "name": "err-labels",
+    "bytes": 15117
+  },
+  {
+    "name": "error-fix-toast",
+    "bytes": 407
+  },
+  {
+    "name": "error-policy",
+    "bytes": 1026
+  },
+  {
+    "name": "Glossary",
+    "bytes": 9426
+  },
+  {
+    "name": "IconButton",
+    "bytes": 3891
+  },
+  {
+    "name": "index",
+    "bytes": 117008
+  },
+  {
+    "name": "index.html",
+    "bytes": 374428
+  },
+  {
+    "name": "index.ts",
+    "bytes": 41304
+  },
+  {
+    "name": "index.ts-loader",
+    "bytes": 353
+  },
+  {
+    "name": "inlineReplace",
+    "bytes": 3840
+  },
+  {
+    "name": "InspectorDrawer",
+    "bytes": 11513
+  },
+  {
+    "name": "lang-tag",
+    "bytes": 293
+  },
+  {
+    "name": "language-prompt",
+    "bytes": 471
+  },
+  {
+    "name": "LanguagePicker",
+    "bytes": 4316
+  },
+  {
+    "name": "languages",
+    "bytes": 2288
+  },
+  {
+    "name": "open-options-tab",
+    "bytes": 40557
+  },
+  {
+    "name": "page-styles",
+    "bytes": 1723
+  },
+  {
+    "name": "page-translate-v2",
+    "bytes": 18970
+  },
+  {
+    "name": "pending-popup-handoff",
+    "bytes": 2065
+  },
+  {
+    "name": "perf-history",
+    "bytes": 362
+  },
+  {
+    "name": "picker",
+    "bytes": 2466
+  },
+  {
+    "name": "PickerOverlay",
+    "bytes": 514
+  },
+  {
+    "name": "rolldown-runtime",
+    "bytes": 158
+  },
+  {
+    "name": "rules-budget",
+    "bytes": 2264
+  },
+  {
+    "name": "safe-regex",
+    "bytes": 26881
+  },
+  {
+    "name": "safety",
+    "bytes": 1394
+  },
+  {
+    "name": "saved-conversations",
+    "bytes": 1678
+  },
+  {
+    "name": "SectionReset",
+    "bytes": 1313
+  },
+  {
+    "name": "Select",
+    "bytes": 4005
+  },
+  {
+    "name": "selection-cap-copy",
+    "bytes": 14696
+  },
+  {
+    "name": "SelectionBubble",
+    "bytes": 8965
+  },
+  {
+    "name": "settings-bus",
+    "bytes": 495
+  },
+  {
+    "name": "shadowHost",
+    "bytes": 34370
+  },
+  {
+    "name": "src-content-index.ts",
+    "bytes": 32813
+  },
+  {
+    "name": "stuck-timeout",
+    "bytes": 262
+  },
+  {
+    "name": "task-view",
+    "bytes": 6136
+  },
+  {
+    "name": "Tasks",
+    "bytes": 44840
+  },
+  {
+    "name": "TemplateEditor",
+    "bytes": 27936
+  },
+  {
+    "name": "theme",
+    "bytes": 6590
+  },
+  {
+    "name": "theme-apply",
+    "bytes": 3111
+  },
+  {
+    "name": "ThemeToggle",
+    "bytes": 3542
+  },
+  {
+    "name": "tipState.svelte",
+    "bytes": 27562
+  },
+  {
+    "name": "toast",
+    "bytes": 1102
+  },
+  {
+    "name": "toastStore",
+    "bytes": 588
+  },
+  {
+    "name": "Translate",
+    "bytes": 40991
+  },
+  {
+    "name": "translate-handlers",
+    "bytes": 5494
+  },
+  {
+    "name": "translate-ui",
+    "bytes": 4448
+  },
+  {
+    "name": "user-gesture",
+    "bytes": 52
+  },
+  {
+    "name": "vendor-bits-ui",
+    "bytes": 191675
+  },
+  {
+    "name": "vendor-bits-ui-menu",
+    "bytes": 28020
+  },
+  {
+    "name": "vendor-dompurify",
+    "bytes": 28153
+  },
+  {
+    "name": "vendor-lucide",
+    "bytes": 26320
+  },
+  {
+    "name": "vendor-marked",
+    "bytes": 45437
+  },
+  {
+    "name": "vendor-svelte",
+    "bytes": 58460
+  },
+  {
+    "name": "vendor-svelte-extras",
+    "bytes": 74573
+  }
+]
