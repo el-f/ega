@@ -6,11 +6,9 @@
     task: TaskId;
     /** Every task, on or off, in list order; the current task shows even when it is off. */
     views?: readonly TaskView[] | undefined;
-    /** `false` keeps the chips on one row for a parent that scrolls horizontally. */
-    wrap?: boolean;
   }
 
-  let { task = $bindable(), views = SHIPPED_TASK_VIEWS, wrap = true }: Props = $props();
+  let { task = $bindable(), views = SHIPPED_TASK_VIEWS }: Props = $props();
 
   const taskList = $derived(views.filter((v) => !v.disabled || v.id === task));
 
@@ -30,7 +28,7 @@
     onkeydown={stopNavKeys}
   >
     {#snippet child({ props })}
-      <div {...props} class="row" class:nowrap={!wrap}>
+      <div {...props} class="row">
         {#each taskList as v (v.id)}
           <RadioGroup.Item value={v.id} aria-label={`Task: ${v.label}`} data-ega-task={v.id}>
             {#snippet child({ props: itemProps, checked })}
@@ -59,11 +57,6 @@
     flex-wrap: wrap;
     width: 100%;
   }
-  /* wrap=false: the parent's overflow-x container drives layout. */
-  .row.nowrap {
-    flex-wrap: nowrap;
-    width: max-content;
-  }
   .seg {
     /* Content-driven basis: `flex: 1 1 0` truncates every label at the popup's 360px. */
     flex: 0 1 auto;
@@ -82,8 +75,10 @@
     background: var(--ega-hover, rgba(127, 127, 127, 0.15));
   }
   .seg.active {
-    /* Border-only: a filled accent background lands at 4-4.4:1, borderline WCAG AA. */
+    /* The soft tint plus accent-hover text clears 4.5:1; a solid accent fill does not. */
     border: 2px solid var(--ega-active, var(--color-accent));
+    background: var(--color-accent-bg-soft);
+    color: var(--color-accent-hover);
     padding: 3px 9px; /* compensate for +1px border on each side */
   }
 </style>

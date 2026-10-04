@@ -59,26 +59,6 @@ describe('InputRow — accessible names and tooltips', () => {
     expect(mic?.getAttribute('data-tooltip-placement')).toBe('top-end');
   });
 
-  it('streaming toggle reflects on/off in visible text, not color alone', () => {
-    const on = baseProps();
-    const { container, rerender } = render(InputRow, { props: { ...on, streaming: true } });
-    const toggle = () => container.querySelector('[data-ega-streaming-toggle]');
-    expect(toggle()?.textContent).toContain('Stream: On');
-    void rerender({ ...baseProps(), streaming: false });
-    expect(toggle()?.textContent).toContain('Stream: Off');
-  });
-
-  // WCAG 2.5.3: the visible "Stream: On/Off" must be the accessible name, so no aria-label.
-  it('streaming toggle has no aria-label override, so visible text is its accessible name', () => {
-    const { container } = render(InputRow, { props: { ...baseProps(), streaming: true } });
-    const toggle = container.querySelector('[data-ega-streaming-toggle]');
-    expect(toggle).not.toBeNull();
-    expect(toggle?.hasAttribute('aria-label')).toBe(false);
-    // The name carries the state, so aria-pressed would say it a second time.
-    expect(toggle?.hasAttribute('aria-pressed')).toBe(false);
-    expect(toggle?.textContent).toContain('Stream: On');
-  });
-
   // Composer swap button migrated from native `title` to the
   // shared data-tooltip mechanism so it matches its row-mates' styling.
   it('composer swap button uses data-tooltip, not native title', () => {

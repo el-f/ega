@@ -254,87 +254,6 @@ describe('InputRow.svelte', () => {
     });
   });
 
-  it('context indicator is absent with no prior turns', () => {
-    const props = baseProps();
-    const { container } = render(InputRow, { props: { ...props, turns: [] } });
-    expect(container.querySelector('.ega-context-label')).toBeNull();
-  });
-
-  it('context indicator shows message count after a completed exchange', () => {
-    const props = baseProps();
-    const turns = [
-      { role: 'user' as const, status: 'idle', content: 'hola' },
-      { role: 'assistant' as const, status: 'done', content: 'hello' },
-    ];
-    const { container } = render(InputRow, { props: { ...props, turns } });
-    const label = container.querySelector('.ega-context-label');
-    expect(label).not.toBeNull();
-    expect(label?.textContent).toMatch(/Using 2 earlier messages/);
-  });
-
-  it('context indicator hides while an image is attached, since an image send drops history', () => {
-    const props = baseProps();
-    const turns = [
-      { role: 'user' as const, status: 'idle', content: 'hola' },
-      { role: 'assistant' as const, status: 'done', content: 'hello' },
-    ];
-    const { container } = render(InputRow, {
-      props: { ...props, turns, attachedImage: PIXEL },
-    });
-    expect(container.querySelector('.ega-context-label')).toBeNull();
-  });
-
-  describe('streaming toggle', () => {
-    // The name already says On/Off; aria-pressed on top made a screen reader announce the state twice.
-    it.each([true, false])(
-      '[data-ega-streaming-toggle] streaming=%s shows its state once',
-      (on) => {
-        const props = baseProps();
-        const { container } = render(InputRow, { props: { ...props, streaming: on } });
-        const toggle = container.querySelector('[data-ega-streaming-toggle]');
-        expect(toggle).not.toBeNull();
-        expect(toggle?.hasAttribute('aria-pressed')).toBe(false);
-        expect(toggle?.classList.contains('is-on')).toBe(on);
-      },
-    );
-
-    // The visible label already says On/Off, so the tooltip has to add the scope of the switch.
-    it('carries a hover tooltip that says where the setting applies', () => {
-      const on = baseProps();
-      const { container, rerender } = render(InputRow, {
-        props: { ...on, streaming: true },
-      });
-      const toggle = () => container.querySelector('[data-ega-streaming-toggle]');
-      expect(toggle()?.getAttribute('data-tooltip')).toBe(
-        'Streaming on — applies to every send, saved in Settings',
-      );
-      void rerender({ ...baseProps(), streaming: false });
-      expect(toggle()?.getAttribute('data-tooltip')).toBe(
-        'Streaming off — applies to every send, saved in Settings',
-      );
-    });
-
-    it('clicking toggle when streaming=true calls onToggleStreaming(false)', async () => {
-      const props = baseProps();
-      const { container } = render(InputRow, { props: { ...props, streaming: true } });
-      const toggle = container.querySelector('[data-ega-streaming-toggle]');
-      if (!toggle) throw new Error('[data-ega-streaming-toggle] not found');
-      await fireEvent.click(toggle);
-      expect(props.onToggleStreaming).toHaveBeenCalledTimes(1);
-      expect(props.onToggleStreaming).toHaveBeenCalledWith(false);
-    });
-
-    it('clicking toggle when streaming=false calls onToggleStreaming(true)', async () => {
-      const props = baseProps();
-      const { container } = render(InputRow, { props: { ...props, streaming: false } });
-      const toggle = container.querySelector('[data-ega-streaming-toggle]');
-      if (!toggle) throw new Error('[data-ega-streaming-toggle] not found');
-      await fireEvent.click(toggle);
-      expect(props.onToggleStreaming).toHaveBeenCalledTimes(1);
-      expect(props.onToggleStreaming).toHaveBeenCalledWith(true);
-    });
-  });
-
   describe('image file-picker', () => {
     it('[data-ega-attach-image] button is present', () => {
       const props = baseProps();
@@ -460,8 +379,8 @@ describe('InputRow — nothing is dropped in silence', () => {
   it('a drop anywhere in the composer counts, not only on the textarea', async () => {
     const props = baseProps();
     const { container } = render(InputRow, { props });
-    const strip = container.querySelector('.ega-task-strip');
-    if (!strip) throw new Error('strip not found');
+    const strip = container.querySelector('.ega-task-chips');
+    if (!strip) throw new Error('task chips not found');
     const file = new File(['x'], 'p.png', { type: 'image/png' });
     const fakeDt = { files: [file], getData: () => '' } as unknown as DataTransfer;
     await fireEvent.drop(strip, { dataTransfer: fakeDt });
@@ -478,24 +397,32 @@ describe('InputRow — nothing is dropped in silence', () => {
   });
 });
 
-describe('InputRow — page context switched off', () => {
-  it('shows the level picker by default', () => {
-    const { container } = render(InputRow, { props: baseProps() });
-    expect(container.querySelector('[data-ega-ctx-level]')).not.toBeNull();
-    expect(container.querySelector('[data-ega-ctx-off]')).toBeNull();
+describe('InputRow — earlier-messages note in the options popover', () => {
+  const turns = [
+    { role: 'user' as const, status: 'idle', content: 'hola' },
+    { role: 'assistant' as const, status: 'done', content: 'hello' },
+  ];
+
+  async function openOptions(container: HTMLElement): Promise<void> {
+    const btn = container.querySelector('[data-ega-composer-options]');
+    if (!btn) throw new Error('options button not found');
+    await fireEvent.click(btn);
+    await vi.waitFor(() => expect(document.querySelector('[role="dialog"]')).not.toBeNull());
+  }
+
+  it('counts the earlier messages after a completed exchange', async () => {
+    const { container } = render(InputRow, { props: { ...baseProps(), turns } });
+    await openOptions(container);
+    expect(document.querySelector('.ega-context-label')?.textContent).toMatch(
+      /Using 2 earlier messages/,
+    );
   });
 
-  it('replaces the picker with a route to the setting that turned it off', async () => {
-    const onOpenOptions = vi.fn();
+  it('says nothing while an image is attached, since an image send drops history', async () => {
     const { container } = render(InputRow, {
-      props: { ...baseProps(), contextEnabled: false, onOpenOptions },
+      props: { ...baseProps(), turns, attachedImage: PIXEL },
     });
-    expect(container.querySelector('[data-ega-ctx-level]')).toBeNull();
-    const off = container.querySelector('[data-ega-ctx-off]');
-    if (!off) throw new Error('off button not found');
-    expect(off.textContent.trim()).toBe('Context: Off');
-    expect(off.getAttribute('aria-label')).toContain('Context: Off');
-    await fireEvent.click(off);
-    expect(onOpenOptions).toHaveBeenCalledTimes(1);
+    await openOptions(container);
+    expect(document.querySelector('.ega-context-label')).toBeNull();
   });
 });

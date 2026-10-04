@@ -21,9 +21,6 @@ describe('side-panel cues survive forced colors', () => {
     for (const sel of ['\\.sp-editing-cancel', '\\.sp-search-clear']) {
       expect(rule(sidePanel, sel)).toMatch(/border:\s*1px solid transparent/);
     }
-    expect(rule(read('src/sidepanel/conversation/InputRow.svelte'), '\\.ega-strip-nav')).toMatch(
-      /border:\s*1px solid transparent/,
-    );
     expect(
       rule(read('src/shared/components/CommandPalette.svelte'), ':global\\(\\.ega-palette-item\\)'),
     ).toMatch(/border:\s*1px solid transparent/);

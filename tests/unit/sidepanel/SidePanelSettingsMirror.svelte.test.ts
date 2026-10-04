@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import type { Mock } from 'vitest';
-import { render } from '@testing-library/svelte';
+import { render, fireEvent } from '@testing-library/svelte';
 import SidePanel from '@/sidepanel/SidePanel.svelte';
 import { STORAGE_KEYS } from '@/shared/constants';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
@@ -28,8 +28,8 @@ async function writeSettings(patch: Record<string, unknown>): Promise<void> {
   await drainAsync();
 }
 
-function contextLevelButtons(container: HTMLElement): HTMLButtonElement[] {
-  return [...container.querySelectorAll<HTMLButtonElement>('[data-ega-ctx-level-value]')];
+function contextLevelButtons(): HTMLButtonElement[] {
+  return [...document.querySelectorAll<HTMLButtonElement>('[data-ega-ctx-level-value]')];
 }
 
 describe('SidePanel mirrors every settings field it renders', () => {
@@ -37,16 +37,17 @@ describe('SidePanel mirrors every settings field it renders', () => {
     await writeSettings({ pageContextLevel: 'minimal', contextEnabled: true });
     const { container } = render(SidePanel);
     await drainAsync();
-    const before = contextLevelButtons(container).find(
-      (b) => b.getAttribute('aria-pressed') === 'true',
-    );
+    // The level picker lives in the composer's options popover.
+    const opener = container.querySelector('[data-ega-composer-options]');
+    if (!opener) throw new Error('options button not found');
+    await fireEvent.click(opener);
+    await drainAsync();
+    const before = contextLevelButtons().find((b) => b.getAttribute('aria-pressed') === 'true');
     expect(before?.dataset['egaCtxLevelValue']).toBe('minimal');
 
     await writeSettings({ pageContextLevel: 'rich', contextEnabled: true });
 
-    const after = contextLevelButtons(container).find(
-      (b) => b.getAttribute('aria-pressed') === 'true',
-    );
+    const after = contextLevelButtons().find((b) => b.getAttribute('aria-pressed') === 'true');
     expect(after?.dataset['egaCtxLevelValue']).toBe('rich');
   });
 });

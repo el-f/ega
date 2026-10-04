@@ -4,7 +4,7 @@
   import { toastStore } from '@/shared/components/toastStore';
   import LanguagePicker from '@/shared/components/LanguagePicker.svelte';
   import TaskPicker from '@/shared/components/TaskPicker.svelte';
-  import ContextLevelPicker from '@/shared/components/ContextLevelPicker.svelte';
+  import ComposerOptions from './ComposerOptions.svelte';
   import ImagePreview from '@/shared/components/ImagePreview.svelte';
   import IconButton from '@/shared/ui/IconButton.svelte';
   import Select from '@/shared/ui/Select.svelte';
@@ -13,10 +13,7 @@
   import StopCircle from '@lucide/svelte/icons/circle-stop';
   import Paperclip from '@lucide/svelte/icons/paperclip';
   import Mic from '@lucide/svelte/icons/mic';
-  import Zap from '@lucide/svelte/icons/zap';
   import ArrowLeftRight from '@lucide/svelte/icons/arrow-left-right';
-  import ChevronLeft from '@lucide/svelte/icons/chevron-left';
-  import ChevronRight from '@lucide/svelte/icons/chevron-right';
   import type { Variety } from '@/shared/types';
   import { ALL_TONES, TONE_LABELS, type Tone } from '@/shared/task-prompts';
   import { SHIPPED_TASK_VIEWS, taskLabel, type TaskId, type TaskView } from '@/shared/task-view';
@@ -115,7 +112,6 @@
   }: Props = $props();
 
   let dragActive = $state(false);
-  let taskStripEl: HTMLDivElement | null = $state(null);
   let textareaEl: HTMLTextAreaElement | null = $state(null);
   let imageInputEl: HTMLInputElement | null = $state(null);
   let recognizing = $state(false);
@@ -205,68 +201,6 @@
         ? 'Images support Translate and Explain'
         : sendShortcutLabel,
   );
-
-  $effect(() => {
-    void task;
-    if (!taskStripEl) return;
-    const target = taskStripEl.querySelector<HTMLElement>(`[data-ega-task="${task}"]`);
-    if (!target) return;
-    const reduced =
-      typeof window !== 'undefined' &&
-      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    target.scrollIntoView({
-      inline: 'nearest',
-      block: 'nearest',
-      behavior: reduced ? 'auto' : 'smooth',
-    });
-  });
-
-  let stripHasMore = $state(false);
-  let stripAtStart = $state(true);
-
-  // Each edge fades only when content sits past it — flat at the edges so the active chip stays sharp.
-  function measureStrip(el: HTMLElement): void {
-    const maxScroll = el.scrollWidth - el.clientWidth;
-    const more = el.scrollLeft < maxScroll - 1;
-    const atStart = el.scrollLeft <= 0;
-    el.style.setProperty('--strip-fade-left', atStart ? '0px' : '24px');
-    el.style.setProperty('--strip-fade-right', more ? '24px' : '0px');
-    stripHasMore = more;
-    stripAtStart = atStart;
-  }
-
-  $effect(() => {
-    if (!taskStripEl) return;
-    const el = taskStripEl;
-    const update = (): void => measureStrip(el);
-    update();
-    el.addEventListener('scroll', update, { passive: true });
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    return () => {
-      el.removeEventListener('scroll', update);
-      ro.disconnect();
-    };
-  });
-
-  // The chip count follows the task list and the current task, but the strip's own box does not, so the observer stays quiet.
-  $effect(() => {
-    void taskViews;
-    void task;
-    const el = taskStripEl;
-    if (!el) return;
-    void tick().then(() => measureStrip(el));
-  });
-
-  function scrollStripBy(direction: 1 | -1): void {
-    const el = taskStripEl;
-    if (!el) return;
-    const reduced =
-      typeof window !== 'undefined' &&
-      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    const step = Math.max(120, el.clientWidth / 2);
-    el.scrollBy({ left: direction * step, behavior: reduced ? 'auto' : 'smooth' });
-  }
 
   function handleKeyDown(e: KeyboardEvent): void {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
@@ -444,35 +378,15 @@
         onchange={(v) => onTargetChange?.(v)}
       />
     </div>
-    {#if contextEnabled}
-      <ContextLevelPicker
-        value={pageContextLevel}
-        onchange={(level) => onContextLevelChange(level)}
-      />
-    {:else}
-      <button
-        type="button"
-        class="ega-context-off"
-        data-ega-ctx-off
-        aria-label="Context: Off — open settings"
-        data-tooltip="Page context is off. Turn it on in Settings."
-        data-tooltip-placement="top"
-        onclick={() => onOpenOptions?.()}>Context: Off</button
-      >
-    {/if}
-    <button
-      type="button"
-      class="ega-streaming-toggle"
-      class:is-on={streaming}
-      data-tooltip={`Streaming ${streaming ? 'on' : 'off'} — applies to every send, saved in Settings`}
-      data-tooltip-placement="top"
-      data-ega-streaming-toggle
-      onclick={() => onToggleStreaming(!streaming)}
-      ><Zap size={14} /><span>Stream: {streaming ? 'On' : 'Off'}</span></button
-    >
-    {#if contextLabel !== null}
-      <span class="ega-context-label">{contextLabel}</span>
-    {/if}
+    <ComposerOptions
+      {pageContextLevel}
+      {contextEnabled}
+      historyLabel={contextLabel}
+      {streaming}
+      {onContextLevelChange}
+      {onToggleStreaming}
+      onOpenOptions={() => onOpenOptions?.()}
+    />
   </div>
 
   {#if attachedImage}
@@ -487,50 +401,85 @@
     </div>
   {/if}
 
-  <!-- dir=auto: Hebrew, Arabic or Arabizi typed here must align by its own first strong character. -->
-  <textarea
-    id="sp-text"
-    class="ega-input-textarea"
-    dir="auto"
-    aria-label="Message"
-    placeholder={attachedImage
-      ? `Press ${sendKeyLabel} to translate the image, or add notes…`
-      : `Translate, ask, reword, explain — drop text or an image. ${sendKeyLabel} to send.`}
-    rows="3"
-    bind:this={textareaEl}
-    bind:value
-    onkeydown={handleKeyDown}
-    onpaste={handlePaste}></textarea>
+  <div class="ega-input-box">
+    <!-- dir=auto: Hebrew, Arabic or Arabizi typed here must align by its own first strong character. -->
+    <textarea
+      id="sp-text"
+      class="ega-input-textarea"
+      dir="auto"
+      aria-label="Message"
+      placeholder={attachedImage
+        ? `Press ${sendKeyLabel} to translate the image, or add notes…`
+        : `Translate, ask, reword, explain — drop text or an image. ${sendKeyLabel} to send.`}
+      rows="2"
+      bind:this={textareaEl}
+      bind:value
+      onkeydown={handleKeyDown}
+      onpaste={handlePaste}></textarea>
 
-  <div class="ega-task-strip-wrap">
-    <div class="ega-task-strip" bind:this={taskStripEl}>
-      <TaskPicker bind:task views={taskViews} wrap={false} />
+    <div class="ega-send-row">
+      {#if nearCap}
+        <!-- A blocked Send is not focusable, so the count is what a screen reader gets. -->
+        <span class="ega-char-count" class:over={overCap} aria-live="polite"
+          >{value.length}/{MAX_SELECTION_CHARS}</span
+        >
+      {/if}
+      <IconButton
+        icon={Paperclip}
+        ariaLabel="Attach image"
+        size="md"
+        dataAttrs={{ 'data-ega-attach-image': true }}
+        onclick={() => imageInputEl?.click()}
+      />
+      {#if SpeechRecognitionCtor}
+        <button
+          type="button"
+          class="ega-mic-btn"
+          aria-label={recognizing ? 'Stop dictation' : `Dictate in ${dictationLabel}`}
+          aria-pressed={recognizing}
+          data-tooltip={recognizing ? 'Stop dictation' : `Dictate in ${dictationLabel}`}
+          data-tooltip-placement="top-end"
+          data-ega-mic
+          onclick={toggleDictation}
+        >
+          {#if recognizing}<StopCircle size={16} />{:else}<Mic size={16} />{/if}
+        </button>
+      {/if}
+      <!-- One element across the swap: with two buttons, activating Send would unmount the focused node. -->
+      <button
+        type="button"
+        class="ega-send"
+        class:danger={inflight}
+        aria-label={inflight ? 'Stop' : sendLabel}
+        data-tooltip={inflight ? 'Stop · Esc' : sendTooltip}
+        data-tooltip-placement="top-end"
+        disabled={!inflight && ((!value.trim() && !attachedImage) || overCap)}
+        onclick={() => {
+          if (inflight) {
+            onCancel();
+            // The button is about to swap back to Send and disable itself on an empty composer.
+            textareaEl?.focus();
+            return;
+          }
+          onSend();
+          // The next message is typed in the box, so focus goes there, not to a button that changed label.
+          textareaEl?.focus();
+        }}
+      >
+        {#if inflight}
+          <StopCircle size={16} /><span>Stop</span>
+        {:else}
+          <Send size={16} /><span>{sendLabel}</span>
+        {/if}
+      </button>
     </div>
-    {#if !stripAtStart}
-      <button
-        type="button"
-        class="ega-strip-nav ega-strip-less"
-        aria-label="Scroll to earlier tasks"
-        data-ega-strip-less
-        onclick={() => scrollStripBy(-1)}
-      >
-        <ChevronLeft size={14} />
-      </button>
-    {/if}
-    {#if stripHasMore}
-      <button
-        type="button"
-        class="ega-strip-nav ega-strip-more"
-        aria-label="Scroll to more tasks"
-        data-ega-strip-more
-        onclick={() => scrollStripBy(1)}
-      >
-        <ChevronRight size={14} />
-      </button>
-    {/if}
   </div>
 
-  <!-- Kept out of TaskPicker so it sits below the chip strip, not inside its overflow container. -->
+  <div class="ega-task-chips">
+    <TaskPicker bind:task views={taskViews} />
+  </div>
+
+  <!-- Kept out of TaskPicker so it sits below the task chips. -->
   {#if usesTone}
     <label class="ega-tone-row">
       <span class="tone-lbl">Tone</span>
@@ -557,70 +506,13 @@
     }}
     hidden
   />
-
-  <div class="ega-send-row">
-    {#if nearCap}
-      <!-- A blocked Send is not focusable, so the count is what a screen reader gets. -->
-      <span class="ega-char-count" class:over={overCap} aria-live="polite"
-        >{value.length}/{MAX_SELECTION_CHARS}</span
-      >
-    {/if}
-    <IconButton
-      icon={Paperclip}
-      ariaLabel="Attach image"
-      size="sm"
-      dataAttrs={{ 'data-ega-attach-image': true }}
-      onclick={() => imageInputEl?.click()}
-    />
-    {#if SpeechRecognitionCtor}
-      <button
-        type="button"
-        class="ega-mic-btn"
-        aria-label={recognizing ? 'Stop dictation' : `Dictate in ${dictationLabel}`}
-        aria-pressed={recognizing}
-        data-tooltip={recognizing ? 'Stop dictation' : `Dictate in ${dictationLabel}`}
-        data-tooltip-placement="top-end"
-        data-ega-mic
-        onclick={toggleDictation}
-      >
-        {#if recognizing}<StopCircle size={16} />{:else}<Mic size={16} />{/if}
-      </button>
-    {/if}
-    <!-- One element across the swap: with two buttons, activating Send would unmount the focused node. -->
-    <button
-      type="button"
-      class="ega-send"
-      class:danger={inflight}
-      aria-label={inflight ? 'Stop' : sendLabel}
-      data-tooltip={inflight ? 'Stop · Esc' : sendTooltip}
-      data-tooltip-placement="top-end"
-      disabled={!inflight && ((!value.trim() && !attachedImage) || overCap)}
-      onclick={() => {
-        if (inflight) {
-          onCancel();
-          // The button is about to swap back to Send and disable itself on an empty composer.
-          textareaEl?.focus();
-          return;
-        }
-        onSend();
-        // The next message is typed in the box, so focus goes there, not to a button that changed label.
-        textareaEl?.focus();
-      }}
-    >
-      {#if inflight}
-        <StopCircle size={16} /><span>Stop</span>
-      {:else}
-        <Send size={16} /><span>{sendLabel}</span>
-      {/if}
-    </button>
-  </div>
 </div>
 
 <style>
   .ega-input-row {
     display: flex;
     flex-direction: column;
-    /* Fixed chrome: shrinking it spills the send row over the task strip. */
+    /* Fixed chrome: shrinking it spills the send row over the task chips. */
     flex: 0 0 auto;
     gap: var(--space-2);
     /* The header rule bleeds to the panel edge, so this one does too; the shell padding is added back inside. */
@@ -635,7 +527,7 @@
     outline: 2px dashed var(--color-accent);
     outline-offset: -2px;
   }
-  .ega-input-row.drag-active .ega-input-textarea {
+  .ega-input-row.drag-active .ega-input-box {
     background: var(--color-accent-bg-soft);
     outline: 2px dashed var(--color-accent);
     outline-offset: -2px;
@@ -644,61 +536,15 @@
     display: flex;
     gap: var(--space-2);
     align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-  }
-  .ega-streaming-toggle {
-    background: transparent;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    height: 24px;
-    padding: 0 var(--space-2);
-    gap: 4px;
-    cursor: pointer;
-    color: var(--color-muted);
-    font-size: var(--fs-xs);
-    flex: 0 0 auto;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-  /* No aria-pressed: the visible name already says On or Off. */
-  .ega-streaming-toggle.is-on {
-    /* accent drops to 3.96:1 on the soft-tint bg below; accent-hover lands at 5.43:1. */
-    color: var(--color-accent-hover);
-    border-color: var(--color-accent);
-    background: var(--color-accent-bg-soft);
-  }
-  .ega-context-off {
-    background: transparent;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    height: 24px;
-    padding: 0 var(--space-2);
-    cursor: pointer;
-    color: var(--color-muted);
-    font-size: var(--fs-xs);
-    flex: 0 0 auto;
-    display: inline-flex;
-    align-items: center;
-  }
-  .ega-context-off:hover {
-    color: var(--color-fg);
   }
   .ega-char-count {
-    margin-right: auto;
+    margin-left: auto;
     align-self: center;
     font-size: var(--fs-xs);
     color: var(--color-muted);
   }
   .ega-char-count.over {
     color: var(--color-danger-fg);
-  }
-  .ega-context-label {
-    font-size: var(--fs-xs);
-    color: var(--color-muted);
-    white-space: nowrap;
-    flex-shrink: 0;
   }
   .ega-lang-pair {
     display: flex;
@@ -710,7 +556,7 @@
   }
   /* Same shape as PopupLangPair: the picker fills its share instead of clipping the label. */
   .ega-lang-pair :global(.ega-lang-picker) {
-    flex: 1 1 140px;
+    flex: 1 1 100px;
   }
   .ega-lang-pair .swap {
     background: transparent;
@@ -739,22 +585,35 @@
     align-items: flex-start;
     gap: var(--space-2);
   }
+  /* The box owns the frame so Attach, Dictate and Send sit inside the edge of the text. */
+  .ega-input-box {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-elevated);
+  }
+  .ega-input-box:has(.ega-input-textarea:focus-visible) {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 1px;
+  }
   .ega-input-textarea {
     width: 100%;
     box-sizing: border-box;
     padding: var(--space-2);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    background: var(--color-bg-elevated);
+    border: 0;
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+    background: transparent;
     color: var(--color-fg);
     font: inherit;
     font-size: var(--fs-sm);
     line-height: var(--lh-body);
     resize: vertical;
     field-sizing: content;
-    /* Three rows at rest, six before it scrolls: the send row must stay on screen at 380px. */
-    min-height: calc(3 * var(--lh-body) * var(--fs-sm) + 2 * var(--space-2) + 2px);
-    max-height: calc(6 * var(--lh-body) * var(--fs-sm) + 2 * var(--space-2) + 2px);
+    outline: none;
+    /* Two rows at rest, six before it scrolls: the send row must stay on screen at 380px. */
+    min-height: calc(2 * var(--lh-body) * var(--fs-sm) + 2 * var(--space-2));
+    max-height: calc(6 * var(--lh-body) * var(--fs-sm) + 2 * var(--space-2));
     overflow-y: auto;
   }
   /* :global — svelte cannot see an inline style the template never writes. An inline height means
@@ -762,71 +621,10 @@
   .ega-input-row :global(.ega-input-textarea[style*='height']) {
     max-height: none;
   }
-  .ega-input-textarea:focus-visible {
-    outline: 2px solid var(--color-accent);
-    outline-offset: 1px;
-  }
-  .ega-task-strip-wrap {
-    position: relative;
-    width: 100%;
-  }
-  /* Overlaid on the faded edge — absolute, so showing/hiding it never reflows the strip. */
-  .ega-strip-nav {
-    position: absolute;
-    box-sizing: border-box;
-    min-width: 24px;
-    min-height: 24px;
-    background: var(--color-bg);
-    border-radius: var(--radius-sm);
-    top: 50%;
-    transform: translateY(-50%);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 4px;
-    border: 1px solid transparent;
-    color: var(--color-fg-subtle);
-    cursor: pointer;
-    line-height: 0;
-  }
-  .ega-strip-more {
-    right: 0;
-  }
-  .ega-strip-less {
-    left: 0;
-  }
-  .ega-strip-nav:hover {
-    color: var(--color-fg);
-  }
-  /* --strip-fade-left / --strip-fade-right are set by the scroll effect above. */
-  .ega-task-strip {
-    display: block;
-    width: 100%;
-    overflow-x: auto;
-    overflow-y: hidden;
-    -webkit-overflow-scrolling: touch;
-    scroll-snap-type: x proximity;
-    mask-image: linear-gradient(
-      90deg,
-      transparent 0,
-      black var(--strip-fade-left, 0px),
-      black calc(100% - var(--strip-fade-right, 0px)),
-      transparent
-    );
-    -webkit-mask-image: linear-gradient(
-      90deg,
-      transparent 0,
-      black var(--strip-fade-left, 0px),
-      black calc(100% - var(--strip-fade-right, 0px)),
-      transparent
-    );
-    scrollbar-width: none;
-  }
-  .ega-task-strip::-webkit-scrollbar {
-    display: none;
-  }
-  .ega-task-strip :global([data-ega-task]) {
-    scroll-snap-align: start;
+  .ega-task-chips {
+    /* Three chip rows, then scroll: a long custom task list must not push the textarea off screen. */
+    max-height: 96px;
+    overflow-y: auto;
   }
   .ega-tone-row {
     display: flex;
@@ -849,18 +647,23 @@
   }
   .ega-send-row {
     display: flex;
-    justify-content: flex-end;
-    padding-top: var(--space-2);
-    border-top: 1px solid var(--color-border-subtle);
-    position: sticky;
-    bottom: 0;
-    background: var(--color-bg);
+    align-items: center;
+    gap: var(--space-1);
+    padding: 0 var(--space-1) var(--space-1);
+  }
+  .ega-send-row .ega-send {
+    margin-left: auto;
+  }
+  .ega-char-count + .ega-send {
+    margin-left: var(--space-2);
   }
   .ega-send {
     position: relative;
     display: inline-flex;
     align-items: center;
     gap: 6px;
+    box-sizing: border-box;
+    min-height: 32px;
     padding: var(--space-1) var(--space-3);
     border-radius: var(--radius-sm);
     border: 1px solid var(--color-accent);
@@ -908,8 +711,8 @@
     background: transparent;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
-    width: 28px;
-    height: 28px;
+    width: 32px;
+    height: 32px;
     cursor: pointer;
     color: var(--color-muted);
     display: inline-flex;

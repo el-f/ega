@@ -14,7 +14,6 @@ const TARGETS: [string, string][] = [
   ['src/sidepanel/conversation/AssistantTurn.svelte', '\\.ega-variant-action-btn'],
   ['src/sidepanel/SidePanel.svelte', '\\.sp-search-clear'],
   ['src/sidepanel/SidePanel.svelte', '\\.sp-editing-cancel'],
-  ['src/sidepanel/conversation/InputRow.svelte', '\\.ega-strip-nav'],
 ];
 
 describe('small glyph buttons are at least 24px', () => {

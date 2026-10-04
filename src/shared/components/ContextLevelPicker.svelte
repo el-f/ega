@@ -25,6 +25,8 @@
     },
   ];
 
+  const activeHint = $derived(LEVELS.find((l) => l.id === value)?.hint ?? '');
+
   function selectLevel(next: Level): void {
     if (next !== value) onchange(next);
   }
@@ -32,17 +34,20 @@
 
 <div class="ctx-level" data-ega-ctx-level>
   <div class="ctx-level-row">
-    <span class="ctx-level-label" id="ctx-level-label">Context</span>
+    <span class="ctx-level-label" id="ctx-level-label">Page info</span>
     <!-- aria-pressed, not aria-checked: aria-checked would need the container to be a radiogroup. -->
-    <div class="ctx-level-toggle" role="group" aria-labelledby="ctx-level-label">
+    <div
+      class="ctx-level-toggle"
+      role="group"
+      aria-labelledby="ctx-level-label"
+      aria-describedby="ctx-level-hint"
+    >
       {#each LEVELS as lvl (lvl.id)}
         <button
           type="button"
           aria-pressed={value === lvl.id}
           class:active={value === lvl.id}
           data-ega-ctx-level-value={lvl.id}
-          data-tooltip={lvl.hint}
-          data-tooltip-placement="bottom"
           onclick={() => selectLevel(lvl.id)}
         >
           {lvl.label}
@@ -50,13 +55,19 @@
       {/each}
     </div>
   </div>
+  <p class="ctx-level-hint" id="ctx-level-hint">{activeHint}</p>
 </div>
 
 <style>
   .ctx-level {
     display: flex;
-    align-items: center;
-    gap: var(--space-2);
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+  .ctx-level-hint {
+    margin: 0;
+    font-size: var(--fs-xs);
+    color: var(--color-muted);
   }
   .ctx-level-row {
     display: inline-flex;
