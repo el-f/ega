@@ -1844,10 +1844,17 @@ test('stdin closing mid-stream aborts the live translate and the host exits', as
 
 test('translateImage still answers when stdin ends in the same tick', async () => {
   // Chrome closing the port right after the frame must not strand the request.
-  const env = { ...process.env, PATH: path.join(__dirname, 'no-such-dir-for-spawn') };
+  // Its own temp dir: another test's host can still write an image into the shared one.
+  const tmp = mkdtempSync(path.join(tmpdir(), 'ega-img-eof-'));
+  const env = {
+    ...process.env,
+    PATH: path.join(__dirname, 'no-such-dir-for-spawn'),
+    TMPDIR: tmp,
+    TEMP: tmp,
+    TMP: tmp,
+  };
   delete env.EGA_FAKE_CLI_BIN_CLAUDE;
   const p = spawn(process.execPath, [HOST], { env });
-  const imagesBefore = new Set(readdirSync(tmpdir()).filter((f) => f.startsWith('ega-img-')));
   const chunks = [];
   p.stdout.on('data', (c) => chunks.push(c));
   p.stdin.write(
@@ -1869,9 +1876,8 @@ test('translateImage still answers when stdin ends in the same tick', async () =
     (f) => f.id === 'img-eof' && (f.type === 'done' || f.type === 'error'),
   );
   assert.ok(terminal, `expected a terminal frame before exit; got ${JSON.stringify(frames)}`);
-  const leaked = readdirSync(tmpdir()).filter(
-    (f) => f.startsWith('ega-img-') && !imagesBefore.has(f),
-  );
+  const leaked = readdirSync(tmp).filter((f) => f.startsWith('ega-img-'));
+  rmSync(tmp, { recursive: true, force: true });
   assert.deepEqual(leaked, [], 'the image temp file is deleted before the host exits');
 });
 
