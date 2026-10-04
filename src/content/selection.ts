@@ -194,7 +194,13 @@ function collectContextAfter(range: Range, budget: number): string {
     }
   }
   const walker = createContextWalker(root);
-  walker.currentNode = end;
+  // A range ending on an element (a triple-click) covers its first endOffset children; start after them, not inside them.
+  let from: Node = end;
+  if (end.nodeType === Node.ELEMENT_NODE && range.endOffset > 0) {
+    from = end.childNodes[range.endOffset - 1] ?? end;
+    while (from.lastChild) from = from.lastChild;
+  }
+  walker.currentNode = from;
   let visited = 0;
   while (total < budget && ++visited <= MAX_CONTEXT_NODES) {
     const node = walker.nextNode();

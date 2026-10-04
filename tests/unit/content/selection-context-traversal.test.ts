@@ -48,6 +48,16 @@ describe('cross-block context traversal', () => {
     expect(info?.afterText).toBe('Third paragraph after.');
   });
 
+  // A triple-click selects the whole block: the range ends on the element, not inside its text.
+  it('a range ending on an element does not repeat the selection in afterText', () => {
+    const p2 = document.getElementById('p2');
+    if (!p2) throw new Error('fixture #p2 missing');
+    selectIn(p2, 0, p2.childNodes.length);
+    const info = getSelectionInfo();
+    expect(info?.text).toBe('Second paragraph starts here.');
+    expect(info?.afterText).toBe('Third paragraph after.');
+  });
+
   it('mid-block selection keeps the same-block slices on both sides', () => {
     selectIn(textNode('p2'), 7, 16);
     const info = getSelectionInfo();
