@@ -71,6 +71,8 @@
   /* Border-box so max-width includes padding and border. */
   box-sizing: border-box;
   max-width: 360px;
+  /* The card sizes to its content, so a narrow loading state would jump wider when the answer lands. */
+  min-width: 220px;
   /* No max-height or overflow here on purpose: Chrome tethers `position: fixed` descendants to the nearest scroll container, which would clip the buttons' hover-label ::after pseudos at the card's bottom edge. repositionIfOverflow handles viewport edges instead. */
   background: var(--color-bg);
   color: var(--color-fg);
@@ -88,6 +90,11 @@
   max-height: 45vh;
   overflow-y: auto;
   overscroll-behavior: contain;
+}
+/* The panel takes focus so Esc works; it is not a control, so it gets no ring. */
+.tooltip:focus,
+.tooltip:focus-visible {
+  outline: none;
 }
 /* Only the 6px gutter starts a drag. A whole-panel handle would turn ordinary hover, scroll and click into drags. `is-draggable` marks the gutter's presence; it does not change the panel cursor. */
 .tooltip.is-draggable {
@@ -329,6 +336,22 @@
 .tooltip .tooltip-error-body {
   color: var(--color-danger-fg, var(--color-danger));
 }
+.tooltip .tooltip-error-title {
+  display: block;
+  font-weight: 600;
+}
+.tooltip .tooltip-error-details {
+  margin-top: var(--space-1);
+  font-size: var(--fs-xs);
+  color: var(--color-muted);
+}
+.tooltip .tooltip-error-details summary {
+  cursor: pointer;
+}
+.tooltip .tooltip-error-details code {
+  font-family: var(--font-mono, monospace);
+  overflow-wrap: anywhere;
+}
 .tooltip .tooltip-error-line {
   color: var(--color-danger-fg, var(--color-danger));
   margin-top: 6px;
@@ -389,6 +412,11 @@
   padding: var(--space-1) var(--space-2) var(--space-1);
   min-height: 32px;
 }
+.tooltip .tooltip-topbar-title {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--color-muted);
+}
 /* Close button inside the topbar flows inline; neutralise the absolute
    positioning that the standalone rule below sets. */
 .tooltip .tooltip-topbar .tooltip-close {
@@ -437,6 +465,17 @@
 }
 .tooltip .actions button:hover {
   text-decoration: underline;
+}
+/* Cancel is the only classless action button; it reads as a button, not a link. */
+.tooltip .actions button:not([class]) {
+  min-height: 28px;
+  padding: 2px var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.tooltip .actions button:not([class]):hover {
+  text-decoration: none;
+  background: var(--color-bg-hover);
 }
 .tooltip .actions .icon-btn {
   /* 32×32 hit target for every action, Copy included. */

@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { ErrCode } from '@/shared/types';
-  import { errCodeLabel } from '@/shared/err-labels';
+  import { errorTurnParts } from '@/shared/error-parts';
   import { optionsTabForMessage } from '@/shared/error-policy';
   import type { SettingsTab } from '@/shared/settings-tabs';
   import type { TaskId } from '@/shared/task-view';
@@ -29,6 +29,8 @@
     imageUrl?: string;
     /** Opens the Options surface on the tab the error names. Used by the error-recovery CTA. */
     onOpenOptions?: (tab?: SettingsTab) => void;
+    /** A failed image has no text to continue with, so this opens the side panel, where the file can be attached. */
+    onOpenPanel?: () => void;
     /** Prior body; once settled, a word diff shows for ~4s. Skipped when identical. */
     diffAgainst?: string;
     /** The diff renders only after the terminal frame, so streaming text stays plain. */
@@ -49,6 +51,7 @@
     error,
     imageUrl,
     onOpenOptions,
+    onOpenPanel,
     diffAgainst,
     settled,
     bodyLang,
@@ -92,8 +95,10 @@
 
   // `loading` flips false on the first token, so announcing before `settled` repeats every token.
   const announcedBody = $derived(settled && !error ? body : '');
+  // The same split the side panel uses: a heading, the sentence that says what to do, and the provider's words behind Details.
+  const errorParts = $derived(error ? errorTurnParts(error) : undefined);
   const liveMessage = $derived(
-    error ? `${errCodeLabel(error.code)}: ${error.message}` : announcedBody,
+    errorParts ? `${errorParts.title}. ${errorParts.body}` : announcedBody,
   );
 
   const optionsTab = $derived(error ? optionsTabForMessage(error.message, error.code) : undefined);
@@ -134,13 +139,20 @@
     <!-- Keep whatever streamed in before the error, so the user can still read and copy it. -->
     <div class="body" dir="auto" lang={bodyLang}>{body}</div>
     <div class="src tooltip-error-line">
-      {errCodeLabel(error.code)}: {error.message} (partial result above)
+      {errorParts?.title}: {errorParts?.body} (partial result above)
     </div>
   {:else}
     <!-- The danger token here, or an error body reads like a normal translation. -->
     <div class="body tooltip-error-body" dir="auto">
-      {errCodeLabel(error.code)}: {error.message}
+      <strong class="tooltip-error-title">{errorParts?.title}</strong>
+      {#if errorParts?.body}<span class="tooltip-error-text">{errorParts.body}</span>{/if}
     </div>
+  {/if}
+  {#if errorParts?.detail !== undefined}
+    <details class="tooltip-error-details">
+      <summary>Details</summary>
+      <code>{errorParts.detail}</code>
+    </details>
   {/if}
   {#if optionsTab !== undefined && onOpenOptions}
     <button
@@ -150,6 +162,11 @@
       onclick={() => onOpenOptions?.(optionsTab)}
     >
       Open settings
+    </button>
+  {/if}
+  {#if imageUrl && onOpenPanel}
+    <button type="button" class="tooltip-error-cta tooltip-error-panel" onclick={onOpenPanel}>
+      Open in side panel
     </button>
   {/if}
 {:else}

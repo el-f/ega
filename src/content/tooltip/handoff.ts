@@ -5,7 +5,7 @@ import { sendMsg } from '@/shared/messages';
 import { IMAGE_TURN_PLACEHOLDER } from '@/shared/constants';
 import { currentSettings } from '@/content/settings-cache';
 
-export type EscalationKind = 'continue' | 'pin' | 'open-image';
+export type EscalationKind = 'continue' | 'pin' | 'open-image' | 'open-panel';
 
 export interface EscalateArgs {
   subKind: EscalationKind;
@@ -26,6 +26,14 @@ export interface EscalateArgs {
 
 /** The SW writes the handoff slot before it opens the panel, so a mount during the open call still sees it. True only when the worker says the panel opened with it. */
 export async function escalateToSidepanel(args: EscalateArgs): Promise<boolean> {
+  // A failed image has nothing to hand over; the panel just opens so the user can attach the file there.
+  if (args.subKind === 'open-panel') {
+    try {
+      return (await sendMsg({ kind: 'ui:open-sidepanel' }))?.ok === true;
+    } catch {
+      return false;
+    }
+  }
   // Image-OCR tooltips have no page selection, so the OCR text becomes the source.
   const sourceText =
     args.subKind === 'open-image' && args.text.trim().length === 0

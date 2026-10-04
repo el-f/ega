@@ -14,7 +14,7 @@ import type { Tone } from '@/shared/task-prompts';
 import type { TaskId } from '@/shared/task-view';
 import type { SettingsTab } from '@/shared/settings-tabs';
 import { stuckTimeoutMs } from '@/shared/stuck-timeout';
-import { escalateToSidepanel } from './tooltip/handoff';
+import { escalateToSidepanel, type EscalationKind } from './tooltip/handoff';
 import { showToast } from './toast';
 
 interface OpenOpts {
@@ -230,7 +230,7 @@ function buildTooltipProps(o: OpenOpts, state: TipState): ComponentProps<typeof 
     },
     onexplain: () => o.onExplain?.(),
     ...(o.onOpenOptions ? { onopenoptions: (tab?: SettingsTab) => o.onOpenOptions?.(tab) } : {}),
-    onescalate: (kind: 'continue' | 'pin' | 'open-image'): void => {
+    onescalate: (kind: EscalationKind): void => {
       void escalateToSidepanel({
         subKind: kind,
         text: state.srcText,

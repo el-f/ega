@@ -126,6 +126,18 @@ describe('escalateToSidepanel', () => {
     ).resolves.toBe(true);
   });
 
+  it('open-panel opens the panel with no handoff, since a failed image has nothing to hand over', async () => {
+    await expect(
+      escalateToSidepanel({
+        subKind: 'open-panel',
+        text: '',
+        sourceLang: 'auto',
+        targetLang: 'en',
+      }),
+    ).resolves.toBe(true);
+    expect(lastMessage).toEqual({ kind: 'ui:open-sidepanel' });
+  });
+
   it('reports a not-ok reply as false', async () => {
     chromeMock.runtime.sendMessage = vi.fn().mockResolvedValue({ ok: false });
     await expect(

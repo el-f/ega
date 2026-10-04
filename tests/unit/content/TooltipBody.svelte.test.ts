@@ -210,4 +210,72 @@ describe('TooltipBody', () => {
     });
     expect(container.querySelector('[data-ega-diff]')).toBeNull();
   });
+
+  describe('error copy matches the side panel', () => {
+    it('shows a title and a plain sentence, and keeps the provider text behind Details', () => {
+      const { container } = render(TooltipBody, {
+        props: {
+          body: '',
+          loading: false,
+          task: 'translate',
+          error: {
+            code: 'RATE_LIMIT',
+            message: [
+              'The backend is busy. Wait a moment.',
+              'HTTP 429 {"error":"rate_limited"}',
+            ].join('\n'),
+          },
+        },
+      });
+      expect(container.querySelector('.tooltip-error-title')?.textContent).toBe(
+        'Rate limit reached',
+      );
+      expect(container.querySelector('.tooltip-error-body')?.textContent).toContain(
+        'The backend is busy. Wait a moment.',
+      );
+      expect(container.querySelector('.tooltip-error-body')?.textContent).not.toContain('HTTP 429');
+      const details = container.querySelector('details.tooltip-error-details');
+      expect(details?.querySelector('summary')?.textContent).toBe('Details');
+      expect(details?.querySelector('code')?.textContent).toContain('HTTP 429');
+    });
+
+    it('has no Details disclosure when the message is one sentence', () => {
+      const { container } = render(TooltipBody, {
+        props: {
+          body: '',
+          loading: false,
+          task: 'translate',
+          error: { code: 'NETWORK', message: 'Down.' },
+        },
+      });
+      expect(container.querySelector('.tooltip-error-details')).toBeNull();
+    });
+  });
+
+  describe('a failed image has a way out', () => {
+    const failed = {
+      body: '',
+      loading: false,
+      task: 'translate' as const,
+      imageUrl: 'https://example.test/a.png',
+      error: { code: 'IMAGE_UNSUPPORTED' as const, message: 'Save it and attach the file.' },
+    };
+
+    it('offers Open in side panel and wires it', async () => {
+      const onOpenPanel = vi.fn();
+      const { container } = render(TooltipBody, { props: { ...failed, onOpenPanel } });
+      const btn = container.querySelector<HTMLButtonElement>('.tooltip-error-panel');
+      expect(btn?.textContent.trim()).toBe('Open in side panel');
+      btn?.click();
+      expect(onOpenPanel).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not offer it for a text error', () => {
+      const { imageUrl: _drop, ...textError } = failed;
+      const { container } = render(TooltipBody, {
+        props: { ...textError, onOpenPanel: () => {} },
+      });
+      expect(container.querySelector('.tooltip-error-panel')).toBeNull();
+    });
+  });
 });

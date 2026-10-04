@@ -38,7 +38,7 @@
     /** Absent on surfaces that cannot open Settings, so no Settings link renders. */
     onopenoptions?: (tab?: SettingsTab) => void;
     /** Tooltip → sidepanel handoff; the parent assembles the payload. */
-    onescalate?: (kind: 'continue' | 'pin' | 'open-image') => void;
+    onescalate?: (kind: 'continue' | 'pin' | 'open-image' | 'open-panel') => void;
   }
 
   let {
@@ -142,6 +142,10 @@
           tone={tip.tone ?? 'neutral'}
           onTaskChange={ontaskchange}
         />
+      {:else if tip.imageUrl}
+        <span class="tooltip-topbar-title"
+          >{tip.task === 'explain' ? 'Image explanation' : 'Image translation'}</span
+        >
       {/if}
       {#if !clickOutsideDismiss || tip.imageUrl}
         <button
@@ -177,6 +181,7 @@
     {bodyLang}
     {notesLang}
     {...onopenoptions ? { onOpenOptions: onopenoptions } : {}}
+    {...onescalate ? { onOpenPanel: () => onescalate('open-panel') } : {}}
   />
 
   <TooltipActions

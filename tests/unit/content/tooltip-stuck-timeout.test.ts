@@ -67,7 +67,8 @@ describe('tooltip stuck-timeout', () => {
     await Promise.resolve();
     await Promise.resolve();
     const text = getContainer().textContent;
-    expect(text).toContain('Timed out: No reply in time. Try again.');
+    expect(text).toContain('Timed out');
+    expect(text).toContain('No reply in time. Try again.');
     expect(text).not.toMatch(/network issue/i);
   });
 

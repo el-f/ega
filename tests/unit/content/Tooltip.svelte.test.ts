@@ -785,6 +785,25 @@ describe('Continue in side panel — only when there is text to carry', () => {
     expect(container.querySelector('button[data-ega-retry]')).toBeTruthy();
   });
 
+  it('a failed image routes Open in side panel through the open-panel handoff', async () => {
+    const { getByRole, onescalate } = mountEscalatable({
+      srcText: '',
+      imageUrl: 'https://example.test/sign.png',
+      error: { code: 'IMAGE_UNSUPPORTED', message: 'Save it and attach the file.' },
+    });
+    await fireEvent.click(getByRole('button', { name: 'Open in side panel' }));
+    expect(onescalate).toHaveBeenCalledWith('open-panel');
+  });
+
+  it('names an image tooltip in its header, so the close row is not an empty bar', () => {
+    const { container } = mountEscalatable({
+      srcText: '',
+      loading: true,
+      imageUrl: 'https://example.test/sign.png',
+    });
+    expect(container.querySelector('.tooltip-topbar')?.textContent).toContain('Image translation');
+  });
+
   it('hides Continue when the source text is whitespace only', () => {
     const { container } = mountEscalatable({
       srcText: '   ',
