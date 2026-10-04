@@ -91,7 +91,7 @@ describe('BackendCard collapse behavior', () => {
 });
 
 describe('BackendCard key status', () => {
-  it('says "Key saved" until Test passes, then "Verified"', async () => {
+  it('says "Key saved" until Test passes, then "Verified" until the key changes', async () => {
     const s = baseSettings();
     s.anthropicApiKey = 'sk-ant-test';
     const backend = resolveBackend(asBackendIdUnsafe('anthropic'));
@@ -104,7 +104,7 @@ describe('BackendCard key status', () => {
       onChunk({ type: 'done', requestId: req.id });
     };
     try {
-      const { container } = render(BackendCard, {
+      const { container, rerender } = render(BackendCard, {
         props: {
           id: asBackendIdUnsafe('anthropic'),
           label: 'Anthropic',
@@ -118,6 +118,10 @@ describe('BackendCard key status', () => {
       container.querySelector<HTMLButtonElement>('.be-test-btn')?.click();
       await waitForProbe();
       expect(pill()).toBe('Verified');
+
+      await rerender({ settings: { ...s, anthropicApiKey: 'sk-ant-other' } });
+      await waitForProbe();
+      expect(pill()).toBe('Key saved');
     } finally {
       backend.isAvailable = origAvailable;
       backend.translate = origTranslate;

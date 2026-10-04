@@ -52,8 +52,16 @@
   const editedAgo = $derived(
     typeof editedAt === 'number' ? relativeTime(editedAt, Date.now()) : null,
   );
-  // While the field has focus the typed text wins over a settings snapshot that lands under the caret.
-  let keyDraft = $state<string | null>(null);
+  // Typing edits a local copy; a stored key that changes underneath (import, another window) replaces it.
+  let keyDraft = $derived(apiKey);
+  // The key commits on blur or Enter, not per keystroke, so a half-typed key never reaches storage.
+  let keySaved = $state(false);
+
+  function commitKey(): void {
+    if (keyDraft === apiKey) return;
+    onApiKeyChange(keyDraft);
+    keySaved = true;
+  }
 
   import { onMount } from 'svelte';
   import {
@@ -144,13 +152,12 @@
         autocomplete="off"
         spellcheck="false"
         placeholder={keyPlaceholder ?? 'Paste API key here'}
-        value={keyDraft ?? apiKey}
+        value={keyDraft}
         oninput={(e) => {
-          const v = (e.currentTarget as HTMLInputElement).value;
-          keyDraft = v;
-          onApiKeyChange(v);
+          keyDraft = (e.currentTarget as HTMLInputElement).value;
+          keySaved = false;
         }}
-        onblur={() => (keyDraft = null)}
+        onchange={commitKey}
       />
       <IconButton
         icon={keyVisible ? EyeOff : Eye}
@@ -159,11 +166,15 @@
         onclick={() => (keyVisible = !keyVisible)}
       />
     </div>
-    {#if apiKey && editedAgo}
-      <div class="cp-key-meta">
+    <div class="cp-key-meta" role="status">
+      {#if keySaved && keyDraft === apiKey}
+        <small class="cp-saved">{keyDraft ? 'Key saved.' : 'Key removed.'}</small>
+      {:else if apiKey && editedAgo}
         <small class="cp-edited">Edited {editedAgo}</small>
-      </div>
-    {/if}
+      {:else if !keyDraft}
+        <small class="cp-edited">Saved when you leave the field or press Enter.</small>
+      {/if}
+    </div>
   </div>
 
   {#if !disabled}
@@ -173,7 +184,9 @@
         <div class="cp-section-meta">
           <b>Model</b>
           <small>
-            {#if discoveredModels.length > 0}
+            {#if !apiKey}
+              Add an API key first. The model list comes from the backend.
+            {:else if discoveredModels.length > 0}
               {discoveredModels.length} discovered. Type or pick.
             {:else}
               Type a model id, or click refresh to pull the backend's list.
@@ -305,6 +318,10 @@
     font-size: var(--fs-xs);
     color: var(--color-muted);
     font-variant-numeric: tabular-nums;
+  }
+  .cp-saved {
+    font-size: var(--fs-xs);
+    color: var(--color-success-fg);
   }
   .cp-model-row {
     display: flex;

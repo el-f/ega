@@ -3,6 +3,7 @@
   import { asLangIdUnsafe, asLangPresetIdUnsafe } from '@/shared/brands';
   import { backendNeedsKey, backendHasRequiredKey } from '@/shared/backends/key-presence';
   import { resolveBackend } from '@/shared/backends/registry';
+  import { apiKeyField } from '@/shared/provider-ids';
   import {
     parseJsonResponse,
     type BackendConfig,
@@ -94,7 +95,8 @@
   // Only the fields this backend's isAvailable reads.
   const probeKey = $derived(
     [
-      backendNeedsKey(id) ? String(backendHasRequiredKey(id, settings)) : '',
+      // The key itself, not its presence: a passed Test must not carry over to a different key.
+      backendNeedsKey(id) ? (settings[apiKeyField(id)] ?? '') : '',
       id === 'ollama' ? (settings.ollamaUrl ?? '') : '',
       id === 'localserver' ? (settings.localServerUrl ?? '') : '',
       id === 'ollama' || id === 'localserver' || id === 'native'

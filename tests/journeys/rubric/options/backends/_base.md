@@ -7,7 +7,7 @@
 
 ## Persistence
 
-- API-key edits write on every keystroke to the provider's key field (e.g. `anthropicApiKey`); no blur commit, no debounce.
+- API-key edits commit on blur or Enter to the provider's key field (e.g. `anthropicApiKey`), never per keystroke; a "Key saved." line confirms. Without a key, the Model section says to add a key first.
 - The Disable/Enable button (or a drag across the divider) updates `disabledBackends` immediately.
 - The model combobox writes `settings.model[provider]` on each keystroke or list pick.
 
