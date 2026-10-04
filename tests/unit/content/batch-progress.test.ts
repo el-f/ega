@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest';
 
 function shadowQuery(selector: string): Element | null {
   const host = document.getElementById('ega-shadow-host') as HTMLElement | null;
@@ -14,6 +14,11 @@ function shadowQueryAll(selector: string): Element[] {
 }
 
 describe('batch-progress lifecycle', () => {
+  // The first import transforms the whole shadow host; on a loaded box that alone outlasts a test's 5 s.
+  beforeAll(async () => {
+    await import('@/content/batch-progress');
+  }, 60_000);
+
   beforeEach(() => {
     document.body.innerHTML = '';
     // The host lives on documentElement, so clearing body keeps it; dismiss() clears `active`, so the next toast mounts clean.
@@ -87,7 +92,7 @@ describe('batch-progress lifecycle', () => {
     btn.click();
     expect(seen).toEqual([true]);
     expect(btn.textContent).toBe('Show translation');
-    expect(btn.getAttribute('aria-label')).toBe('Show the translated page text');
+    expect(btn.getAttribute('aria-label')).toBe('Show translation on the page');
 
     btn.click();
     expect(seen).toEqual([true, false]);

@@ -120,6 +120,25 @@ describe('Stop on a running page translation', () => {
     expect(isPageV2Active()).toBe(false);
   });
 
+  it('a second Stop during a retry counts every dropped area', async () => {
+    const rig = await run(['a', 'b', 'c']);
+    routePageV2Chunk({ type: 'error', requestId: rig.ids[0] ?? '', code: 'AUTH', message: 'no' });
+    finishBlock(rig.ids[1], 'Two.');
+    await flush();
+    rig.stop();
+    await flush();
+    expect(rig.settle).toHaveBeenLastCalledWith(expect.objectContaining({ total: 2, stopped: 1 }));
+
+    rig.retryFailed();
+    await flush();
+    rig.stop();
+    await flush();
+
+    expect(rig.settle).toHaveBeenLastCalledWith(expect.objectContaining({ total: 1, stopped: 2 }));
+    expect(document.getElementById('a')?.textContent).toBe('これは最初の段落です。');
+    expect(document.getElementById('b')?.textContent).toBe('Two.');
+  });
+
   it('does not queue a block that was still waiting for a worker slot', async () => {
     document.body.innerHTML += '<p id="d">四つ目の段落です。</p><p id="e">五つ目の段落です。</p>';
     const rig = await run(['a', 'b', 'c', 'd', 'e']);

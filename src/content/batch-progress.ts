@@ -82,8 +82,8 @@ function patchVisible(): void {
       'aria-label',
       active.settled
         ? active.showingOriginal
-          ? 'Show the translated page text'
-          : 'Show the original page text'
+          ? 'Show translation on the page'
+          : 'Show original page text'
         : 'Stop translating and keep the finished areas',
     );
   }

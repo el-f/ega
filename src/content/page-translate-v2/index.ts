@@ -405,7 +405,8 @@ function stopSession(sess: Session): void {
   sess.pending = [];
   sess.inFlight.clear();
   sess.retrying.clear();
-  sess.skipped = sess.total - sess.terminal.size;
+  // `+=`: a Stop during a manual retry after an earlier Stop adds to the areas already dropped.
+  sess.skipped += sess.total - sess.terminal.size;
   sess.total = sess.terminal.size;
   maybeSettle(sess);
 }

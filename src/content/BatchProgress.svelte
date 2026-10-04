@@ -59,7 +59,12 @@
     </button>
     <!-- The buttons below are always mounted and only hidden: a late one would shift the row. -->
     <button type="button" class="retry-failed" hidden onclick={onRetryFailed}>Retry failed</button>
-    <button type="button" class="undo" aria-label="Undo the page translation" onclick={onUndo}>
+    <button
+      type="button"
+      class="undo"
+      aria-label="Undo all and put back the original page"
+      onclick={onUndo}
+    >
       Undo all
     </button>
     <button
