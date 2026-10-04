@@ -31,6 +31,8 @@
     align?: 'start' | 'center' | 'end';
     /** False keeps the popover on the requested side even when it overflows the viewport. */
     avoidCollisions?: boolean;
+    /** Positions against this element instead of the trigger. */
+    anchor?: HTMLElement | null;
     /** Hard cap on the picker width. Default 320. */
     maxWidth?: number;
     /** Hard cap on the list scroll height. Default 280. */
@@ -49,6 +51,7 @@
     side = 'bottom',
     align = 'start',
     avoidCollisions = true,
+    anchor,
     maxWidth = 320,
     maxListHeight = 280,
   }: Props = $props();
@@ -104,6 +107,7 @@
       {side}
       {align}
       {avoidCollisions}
+      customAnchor={anchor ?? null}
       sideOffset={12}
       class="ega-command-popover"
       style="max-width: {maxWidth}px; --ega-cmd-list-h: {maxListHeight}px;"

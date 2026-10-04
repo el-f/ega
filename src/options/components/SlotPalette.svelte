@@ -44,6 +44,7 @@
   const requiredMissing = $derived(requiredMissingSlots(task, template.user));
 
   let insertPickerOpen = $state(false);
+  let paletteEl: HTMLElement | null = $state(null);
 
   function previewValue(name: string): string {
     const v = resolvedValues[name];
@@ -104,7 +105,7 @@
   }
 </script>
 
-<div class="slot-palette" data-ega-slot-palette>
+<div class="slot-palette" data-ega-slot-palette bind:this={paletteEl}>
   <div class="palette-header-row">
     <div class="palette-heading">Variables</div>
     <CommandPicker
@@ -114,8 +115,9 @@
       label="Insert variable"
       placeholder="Search variables…"
       emptyText="No matching variable."
-      side="top"
+      side="bottom"
       align="end"
+      anchor={paletteEl}
       maxWidth={240}
       maxListHeight={180}
     >
