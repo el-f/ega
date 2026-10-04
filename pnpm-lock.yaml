@@ -12,11 +12,11 @@ importers:
   .:
     dependencies:
       '@lucide/svelte':
-        specifier: ^1.28.0
-        version: 1.48.0(svelte@5.57.1(@typescript-eslint/types@8.70.1))
+        specifier: ^1.49.0
+        version: 1.49.0(svelte@5.57.1(@typescript-eslint/types@8.70.1))
       bits-ui:
-        specifier: ^2.18.1
-        version: 2.19.3(@internationalized/date@3.12.1)(svelte@5.57.1(@typescript-eslint/types@8.70.1))
+        specifier: ^2.19.4
+        version: 2.19.4(@internationalized/date@3.12.1)(svelte@5.57.1(@typescript-eslint/types@8.70.1))
       dompurify:
         specifier: ^3.4.13
         version: 3.4.16
@@ -1137,8 +1137,8 @@ packages:
   '@keyv/serialize@1.1.1':
     resolution: {integrity: sha512-dXn3FZhPv0US+7dtJsIi2R+c7qWYiReoEh5zUntWCf4oSpMNib8FDhSoed6m3QyZdx5hK7iLFkYk3rNxwt8vTA==}
 
-  '@lucide/svelte@1.48.0':
-    resolution: {integrity: sha512-bLimVDjehxu3fpu9XEUpqEkBk2sJAHAT2sVcLHhlM70EdNsXuj9ZnYENWv5xgw3+05h4i5TirAxTiTgnZZf8gw==}
+  '@lucide/svelte@1.49.0':
+    resolution: {integrity: sha512-RFH6Vx7dj6hshcBa1qJ0nKAWwkh385jJbDwF1WVg7yflC89310BsA55SEmJnaSRfr03dAyZMMLUC1EMGBu0Z0Q==}
     peerDependencies:
       svelte: ^5
 
@@ -1872,8 +1872,8 @@ packages:
     resolution: {integrity: sha512-sXnYK/Ij80TO3lcqZVV2YgfKN5QjUWIRk/XSm2J/4bd/lPko3lvk0O4ZppH6m+6hB2/GTu+ptNwVFe1xh+QLQw==}
     engines: {node: '>=4'}
 
-  bits-ui@2.19.3:
-    resolution: {integrity: sha512-04COIqqht1h0YRnVTJVHy3+F8NhzS5x0eSM8eqvavaWmK/GLDTgYJW2h1CA//8hh9vSk4rG7rOvJ3QAIpCuYIw==}
+  bits-ui@2.19.4:
+    resolution: {integrity: sha512-HTnJAqqxYq6u30c9jrxMjsV4xZfJsUb/KEzmdiENLgC3LEAaSXdDscpx/EKyk48YKmzO2z1+GQ6r/UO1POA6Wg==}
     engines: {node: '>=20'}
     peerDependencies:
       '@internationalized/date': ^3.8.1
@@ -4719,7 +4719,7 @@ snapshots:
 
   '@keyv/serialize@1.1.1': {}
 
-  '@lucide/svelte@1.48.0(svelte@5.57.1(@typescript-eslint/types@8.70.1))':
+  '@lucide/svelte@1.49.0(svelte@5.57.1(@typescript-eslint/types@8.70.1))':
     dependencies:
       svelte: 5.57.1(@typescript-eslint/types@8.70.1)
 
@@ -5423,7 +5423,7 @@ snapshots:
     dependencies:
       editions: 6.22.0
 
-  bits-ui@2.19.3(@internationalized/date@3.12.1)(svelte@5.57.1(@typescript-eslint/types@8.70.1)):
+  bits-ui@2.19.4(@internationalized/date@3.12.1)(svelte@5.57.1(@typescript-eslint/types@8.70.1)):
     dependencies:
       '@floating-ui/core': 1.8.0
       '@floating-ui/dom': 1.8.0

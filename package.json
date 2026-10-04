@@ -73,8 +73,8 @@
     "gen:third-party:check": "tsx scripts/gen-third-party.ts --check"
   },
   "dependencies": {
-    "@lucide/svelte": "^1.28.0",
-    "bits-ui": "^2.18.1",
+    "@lucide/svelte": "^1.49.0",
+    "bits-ui": "^2.19.4",
     "dompurify": "^3.4.13",
     "marked": "^18.0.9",
     "svelte": "^5.56.8",
