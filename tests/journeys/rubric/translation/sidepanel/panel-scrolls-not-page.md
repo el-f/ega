@@ -11,12 +11,12 @@
 - The header fits on one row inside the panel width. Chrome opens the panel at 400px. Export,
   the bookmark filter, theme and the fallback budget live in the "More actions" (⋯) menu, and the
   active-backend chip is the one element that shrinks.
-- The task strip scrolls sideways on purpose; content past its own edge is reachable by scrolling
-  and is not a layout failure.
+- The task chips wrap; past three rows they scroll inside their own box, which is not a layout
+  failure.
 
 ## Failure-mode expectations
 
-- The send row must never paint over the task strip.
+- The message box and its buttons must never paint over the task chips.
 - No control may sit outside the panel box, where it cannot be clicked.
 
 ## Cautions

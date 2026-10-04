@@ -369,6 +369,12 @@ export const COVERAGE: readonly Family[] = [
             flows: ['sidepanel/edit-last-keyboard.flow.spec.ts'],
           },
           {
+            id: 'composer-options',
+            description:
+              'Message options popover → pick Rich + turn off live reply → both saved; Esc returns focus',
+            flows: ['sidepanel/composer-options.flow.spec.ts'],
+          },
+          {
             id: 'cancel-all-inflight',
             description:
               'Cancel-all button appears while streaming → click → button gone + turn exits streaming',

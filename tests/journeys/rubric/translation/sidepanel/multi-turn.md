@@ -17,7 +17,7 @@
 
 ## Failure-mode expectations
 
-- History past the 4000-token budget -> oldest messages drop out of the prompt (never summarized); the composer's "Using N earlier messages" label shows how many are sent.
+- History past the 4000-token budget -> oldest messages drop out of the prompt (never summarized); the composer's Message options popover says how many ("Using N earlier messages").
 - Backend failure on turn 2 leaves turn 1 untouched; retry replaces turn 2's assistant only.
 
 ## Cautions

@@ -535,7 +535,7 @@ test('Sidepanel — empty + streaming + multi-turn + refine + error + popover + 
     userAction: 'multi-turn conversation in dark theme at side-panel width',
     expectations: [
       'turn actions fit on one row',
-      'task strip overflow is signposted',
+      'task chips wrap instead of clipping',
       'no clipped text',
     ],
   });
@@ -548,10 +548,29 @@ test('Sidepanel — empty + streaming + multi-turn + refine + error + popover + 
     userAction: 'multi-turn conversation at side-panel width',
     expectations: [
       'header wraps without clipping',
-      'task strip overflow is signposted',
+      'task chips wrap instead of clipping',
+      'composer is three rows: languages, message box with its buttons, task chips',
       'no horizontal scroll',
     ],
   });
+  await sp.setViewportSize(NARROW_SIDEPANEL);
+  await sp.locator('[data-ega-composer-options]').click();
+  await sp.getByRole('dialog', { name: 'Message options' }).waitFor({ state: 'visible' });
+  await sp.waitForTimeout(300); // wait for popover position recompute (no observable end state)
+  await shot(sp, 'sidepanel-narrow-composer-options', {
+    surface: 'sidepanel',
+    state: 'composer-options',
+    theme: 'light',
+    viewport: NARROW_SIDEPANEL,
+    userAction: 'user opened Message options from the composer at side-panel width',
+    expectations: [
+      'Page info Minimal / Rich with the picked level explained in visible text',
+      'a "Show the reply as it is written" checkbox',
+      'the earlier-messages line when history goes with the next send',
+    ],
+  });
+  await sp.keyboard.press('Escape');
+  await expect(sp.getByRole('dialog')).toHaveCount(0);
 
   // The 401 route takes no `times`, or a retry falls through to a stale 200.
   await resetRoutes(ext.context, 'wait');
