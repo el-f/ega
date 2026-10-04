@@ -14,7 +14,7 @@
 ## Visible affordances
 
 - Pill carries a CPU icon, no status dot; health dots and badges live on the popover's chain rows.
-- Popover ("Fallback order") is view-only — no input or reorder lives here; a "Manage backends" icon button in its footer jumps to Options > Backends.
+- Popover ("Backends") is view-only — no input or reorder lives here; a "Manage backends" text button in its footer jumps to Options > Backends, and a "no key" row has its own "Set up" button.
 
 ## Failure-mode expectations
 

@@ -180,12 +180,12 @@
     ? 'Checking backends'
     : resolvedId === null
       ? 'No backend configured — click to set one up'
-      : `Active backend: ${backendName}${modelLabel ? ` (${modelLabel})` : ''} — click for the fallback order`}
+      : `Active backend: ${backendName}${modelLabel ? ` (${modelLabel})` : ''} — click to see your backends`}
   data-tooltip={checking
     ? 'Checking backends…'
     : resolvedId === null
       ? 'No backend configured — open Backends'
-      : `Active backend: ${backendName}${modelLabel ? ` (${modelLabel})` : ''} — see the fallback order`}
+      : `Active backend: ${backendName}${modelLabel ? ` (${modelLabel})` : ''} — see your backends`}
   data-tooltip-placement="bottom"
   aria-haspopup={resolvedId === null && !checking ? undefined : 'dialog'}
   aria-expanded={popoverOpen}
@@ -224,7 +224,7 @@
     display: inline-flex;
     align-items: center;
     gap: var(--space-1);
-    max-width: 28ch;
+    max-width: 36ch;
     padding: 2px var(--space-2);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-pill);
@@ -272,8 +272,11 @@
     color: var(--color-muted);
     border-style: dashed;
   }
+  /* Squeezed, the model id gives way first: the provider name is the part that tells chips apart. */
   .chip-name {
     font-weight: 500;
+    flex-shrink: 0;
+    max-width: 100%;
   }
   /* A parent that squeezes the chip truncates the label, never the icon. */
   .chip-name,

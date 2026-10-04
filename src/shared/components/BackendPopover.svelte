@@ -1,7 +1,5 @@
 <script lang="ts">
   import Popover from '@/shared/ui/Popover.svelte';
-  import IconButton from '@/shared/ui/IconButton.svelte';
-  import Settings2 from '@lucide/svelte/icons/settings-2';
   import type { BackendId } from '@/shared/types';
   import type { ProbeResult } from '@/shared/translate-ui';
   import { computeBackendOrder } from '@/shared/backends/select';
@@ -105,14 +103,7 @@
 </script>
 
 {#if anchor}
-  <Popover
-    {open}
-    {anchor}
-    onClose={handleClose}
-    placement="bottom-end"
-    title="Fallback order"
-    scrim
-  >
+  <Popover {open} {anchor} onClose={handleClose} placement="bottom-end" title="Backends" scrim>
     <div class="backend-detail">
       <section class="chain-section">
         {#if probe === null}
@@ -123,6 +114,7 @@
             <button type="button" class="setup-btn" onclick={onManageClick}>Set up backends</button>
           </div>
         {/if}
+        <p class="chain-help">Ega tries them in this order.</p>
         <ol class="chain-list" aria-live="polite">
           {#each chainIds as id, i (id)}
             {@const badge = chainBadge(id)}
@@ -134,6 +126,12 @@
                 <span class="badge badge-active">active</span>
               {:else if badge === 'no-key'}
                 <span class="badge badge-muted">no key</span>
+                <button
+                  type="button"
+                  class="setup-btn"
+                  aria-label={`Set up ${backendLabel(id)}`}
+                  onclick={onManageClick}>Set up</button
+                >
               {:else if badge === 'not-running'}
                 <span class="badge badge-muted">not running</span>
               {:else if badge === 'error'}
@@ -152,15 +150,9 @@
       </section>
 
       <div class="footer-row">
-        <IconButton
-          icon={Settings2}
-          ariaLabel="Manage backends"
-          tooltip="Manage backends"
-          tooltipPlacement="top"
-          size="sm"
-          onclick={onManageClick}
-          dataAttrs={{ 'data-ega-manage-chain': true }}
-        />
+        <button type="button" class="setup-btn" data-ega-manage-chain onclick={onManageClick}
+          >Manage backends</button
+        >
       </div>
     </div>
   </Popover>
@@ -190,6 +182,12 @@
     padding: 2px var(--space-1);
     border-radius: var(--radius-sm);
     line-height: 1.4;
+  }
+  .chain-help {
+    margin: 0 0 var(--space-1);
+    padding: 0 var(--space-1);
+    color: var(--color-muted);
+    font-size: var(--fs-xs);
   }
   .chain-off {
     margin: var(--space-1) 0 0;

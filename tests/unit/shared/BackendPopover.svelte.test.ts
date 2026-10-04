@@ -194,7 +194,7 @@ describe('BackendPopover — chain visualization', () => {
     expect(document.body.textContent).not.toContain('No backend ready');
   });
 
-  it('heading names the fallback order, not "chain"', async () => {
+  it('heading says Backends, not "chain"', async () => {
     const anchor = makeAnchor();
     render(BackendPopover, {
       props: { ...DEFAULT_PROPS, anchor, probe: makeProbe() },
@@ -202,7 +202,7 @@ describe('BackendPopover — chain visualization', () => {
     await waitForRows();
     // The dialog's own title carries it now, so the popover has an accessible name and one heading.
     const title = document.body.querySelector('.ega-popover-title');
-    expect(title?.textContent).toBe('Fallback order');
+    expect(title?.textContent).toBe('Backends');
     expect(document.body.querySelector('.section-heading')).toBeNull();
   });
 
@@ -230,6 +230,28 @@ describe('BackendPopover — badge split (unconfigured vs failing)', () => {
     expect(anthropicRow?.querySelector('.badge-error')).toBeNull();
     expect(anthropicRow?.querySelector('.badge-muted')?.textContent).toBe('no key');
     expect(anthropicRow?.getAttribute('aria-label')).toBe('Anthropic, no API key');
+  });
+
+  it('a "no key" row offers Set up, which opens the backend settings', async () => {
+    const anchor = makeAnchor();
+    const onManage = vi.fn();
+    render(BackendPopover, {
+      props: {
+        ...DEFAULT_PROPS,
+        anchor,
+        onManage,
+        probe: makeProbe({ anthropic: false }),
+        missingKeyIds: [bid('anthropic')] as readonly BackendId[],
+      },
+    });
+    const rows = await waitForRows();
+    const anthropicRow = rows.find((r) => /Anthropic/.test(String(r.textContent)));
+    const setUp = anthropicRow?.querySelector('button');
+    expect(setUp?.textContent).toBe('Set up');
+    expect(setUp?.getAttribute('aria-label')).toBe('Set up Anthropic');
+    if (!setUp) throw new Error('Set up missing');
+    await fireEvent.click(setUp);
+    expect(onManage).toHaveBeenCalledTimes(1);
   });
 
   it('an unreachable key-less backend reads "not running", not error', async () => {
