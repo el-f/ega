@@ -6,7 +6,7 @@
 
 ## State expectations
 
-- Step 1: user opens the "Add a rule" section below the rules list.
+- Step 1: with no rules, user clicks the empty state's "Add a rule" button; with rules, the "Add a rule" section below the list.
 - Step 2: user types the rule text (tasks and sites are optional); a line under the text shows the category guessed from it. User clicks "Add rule".
 - Step 3: a new rule row appears at the bottom of the rules list with the entered values, scrolls into view and pulses once; the form clears and closes.
 

@@ -7,7 +7,7 @@
 
 ## State expectations
 
-- Step 1: Reword has edits; its dialog's "Reset to built-in" is enabled.
+- Step 1: Reword has edits; its dialog's "Reset whole task" is enabled.
 - Step 2 (Reset): `taskOverrides.reword` is removed, the dialog closes, and the row loses its "Edited" badge.
 - Step 3 (Undo on the toast): the removed edit comes back exactly as it was.
 

@@ -28,7 +28,7 @@ test('manual add form persists a rule with source=manual to storage', async () =
   await expect(page.locator('[data-ega-rules-empty]')).toContainText('No rules yet');
   timeline.markStep('rules-mounted');
 
-  await page.locator('details.manual-block > summary').click();
+  await page.locator('[data-ega-rules-empty]').getByRole('button', { name: 'Add a rule' }).click();
   await page.locator('[data-ega-manual-body]').fill(BODY);
   await page.locator('[data-ega-manual-submit]').click();
   timeline.markStep('submitted');

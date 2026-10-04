@@ -11,7 +11,7 @@
 
 ## Visible affordances
 
-- Translate's checkbox is disabled, and its row says "always on".
+- Translate's checkbox is disabled, and its row has an "Always on" badge.
 - Every row has an Edit button named "Edit <task>".
 
 ## Failure-mode expectations

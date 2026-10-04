@@ -287,11 +287,18 @@
   </div>
   {#snippet actions()}
     {#if row}
-      <Button
-        variant="danger"
-        dataAttrs={{ 'data-ega-custom-task-delete': true }}
-        onclick={() => void remove()}>Delete</Button
-      >
+      <span class="custom-task-start">
+        <Button
+          variant="danger"
+          dataAttrs={{ 'data-ega-custom-task-delete': true }}
+          onclick={() => void remove()}>Delete</Button
+        >
+      </span>
+    {/if}
+    {#if !canSave}
+      <span class="custom-task-reason">
+        {draft.label.length === 0 ? 'Add a name to save.' : 'Fix the message to save.'}
+      </span>
     {/if}
     <Button variant="secondary" onclick={() => void close()}>Cancel</Button>
     <Button
@@ -334,6 +341,14 @@
     margin: 0;
     font-size: var(--fs-sm);
     color: var(--color-warning);
+  }
+  .custom-task-start {
+    margin-right: auto;
+  }
+  .custom-task-reason {
+    align-self: center;
+    font-size: var(--fs-xs);
+    color: var(--color-muted);
   }
   .custom-task-inputs {
     margin: 0;

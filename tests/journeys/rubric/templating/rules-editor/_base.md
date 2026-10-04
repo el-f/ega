@@ -4,7 +4,7 @@
 
 - Rules list renders one editable row per rule: body text with a visible pencil, category select, scope chips, an "On" checkbox and a delete control. No disclosure hides the rows.
 - A rule that is off shows an "Off" badge and a dashed border; its text keeps full contrast.
-- Empty state shows "No rules yet" with an "Add a rule" button that opens the add form.
+- Empty state shows "No rules yet" with an "Add a rule" button that opens the add form; the form's own "Add a rule" row shows only once rules exist or the form is open.
 
 ## Add / edit / delete
 

@@ -31,6 +31,8 @@
   import Select from '@/shared/ui/Select.svelte';
   import Checkbox from '@/shared/ui/Checkbox.svelte';
   import Button from '@/shared/ui/Button.svelte';
+  import EmptyState from '@/shared/components/EmptyState.svelte';
+  import ListPlus from '@lucide/svelte/icons/list-plus';
   import TaskEditDialog from '@/options/components/TaskEditDialog.svelte';
   import RulesEditor from '@/options/components/RulesEditor.svelte';
   import { createTemplatesHandlers } from '@/options/templates-handlers';
@@ -126,18 +128,6 @@
   <TabHeader tab="tasks" />
   {#if s}
     {@const settings = s}
-    <SectionCard
-      title="Backup & restore"
-      description="Export tasks, edits (Translate prompt too) and on/off state. Import to restore or share."
-    >
-      <BackupRestoreRow
-        onExport={doExport}
-        onImport={doImport}
-        status={backupState}
-        scope="tasks"
-      />
-    </SectionCard>
-
     <SectionCard title="Defaults">
       <div data-ega-setting="defaults.defaultTask">
         <Select
@@ -163,7 +153,7 @@
           modified={isFieldModified('defaults.defaultTone', settings)}
           onchange={(v) => void patch({ defaultTone: v as Tone })}
         />
-        <p class="tasks-help">Used by tasks whose prompt has {'{{tone}}'}, like Reword.</p>
+        <p class="tasks-help">Used by tasks that write in a tone, like Reword.</p>
       </div>
     </SectionCard>
 
@@ -186,8 +176,7 @@
                 inputAttrs={{ 'data-ega-task-toggle': t, disabled: t === 'translate' }}
                 onchange={(on) => void toggle(t, on)}
               />
-              <span class="badge">Built-in</span>
-              {#if t === 'translate'}<span class="task-note">always on</span>{/if}
+              {#if t === 'translate'}<span class="badge badge-off">Always on</span>{/if}
               {#if edited}<span class="badge badge-edited">Edited</span>{/if}
               {#if view.disabled}<span class="badge badge-off">Off</span>{/if}
               <span class="task-spacer"></span>
@@ -216,7 +205,13 @@
         >
       {/snippet}
       {#if customViews.length === 0}
-        <p class="tasks-help">No tasks of your own yet.</p>
+        <EmptyState
+          title="No tasks of your own yet"
+          description="Write a prompt once and run it on any text, like: Turn this into a polite email reply."
+          icon={ListPlus}
+          ctaLabel="New task"
+          onCta={() => (editingCustom = 'new')}
+        />
       {:else}
         <ul class="task-list" data-ega-custom-task-list>
           {#each customViews as v (v.id)}
@@ -228,7 +223,6 @@
                 inputAttrs={{ 'data-ega-task-toggle': v.id }}
                 onchange={(on) => void toggle(v.id, on)}
               />
-              <span class="badge">Custom</span>
               {#if v.disabled}<span class="badge badge-off">Off</span>{/if}
               <span class="task-spacer"></span>
               <Button
@@ -262,6 +256,18 @@
           taskViews={views}
         />
       </div>
+    </SectionCard>
+
+    <SectionCard
+      title="Backup & restore"
+      description="Export tasks, edits (Translate prompt too) and on/off state. Import to restore or share."
+    >
+      <BackupRestoreRow
+        onExport={doExport}
+        onImport={doImport}
+        status={backupState}
+        scope="tasks"
+      />
     </SectionCard>
 
     {#if editingCustom}
@@ -320,10 +326,6 @@
     border: 1px solid var(--color-border-subtle);
     border-radius: var(--radius-sm);
     background: var(--color-bg-elevated);
-  }
-  .task-note {
-    font-size: var(--fs-xs);
-    color: var(--color-muted);
   }
   .task-spacer {
     flex: 1 1 auto;

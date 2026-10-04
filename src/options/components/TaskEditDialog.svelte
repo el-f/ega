@@ -54,6 +54,11 @@
   );
   let diffOpen = $state(false);
   let promptDirty = $state(false);
+  const canReset = $derived(view.hasOverrides || promptEdited);
+  // Effort and the inputs save on change, unlike the prompt; this line says when one landed.
+  let autoSaved = $state(false);
+  let autoSavedTimer: ReturnType<typeof setTimeout> | undefined;
+  $effect(() => () => clearTimeout(autoSavedTimer));
 
   // Done, Escape, the x and a click outside all close the dialog, and the prompt draft lives only in the editor.
   async function close(): Promise<void> {
@@ -86,7 +91,11 @@
 
   async function save(write: () => Promise<Settings>): Promise<void> {
     const next = await saveVia(write);
-    if (next) onSaved(next);
+    if (!next) return;
+    onSaved(next);
+    autoSaved = true;
+    clearTimeout(autoSavedTimer);
+    autoSavedTimer = setTimeout(() => (autoSaved = false), 2000);
   }
 
   function setEffort(v: string): void {
@@ -133,6 +142,9 @@
 <Dialog open title={`${label} task`} onClose={() => void close()} size="lg">
   <div class="task-edit" data-ega-task-dialog={task}>
     {#if task === 'translate'}
+      <p class="task-edit-shared">
+        Explain and every language without its own prompt use this prompt too.
+      </p>
       <TemplateVersionBanner
         userVersion={s.advanced.templateVersion}
         currentVersion={CURRENT_TEMPLATE_VERSION}
@@ -150,13 +162,10 @@
         settings={s}
         onSave={handlers.saveGlobalTemplate}
         onReset={handlers.resetGlobalTemplate}
-        inheritedLabel="Reset prompt"
+        inheritedLabel="Reset prompt only"
         fieldResetLabel="Use built-in"
         onDirtyChange={(d) => (promptDirty = d)}
       />
-      <p class="task-edit-note">
-        Explain and every language without its own prompt use this prompt too.
-      </p>
     {:else if hasOwnPrompt(task)}
       <TemplateEditor
         scope={{ scope: 'task', task }}
@@ -166,7 +175,7 @@
         settings={s}
         onSave={(tpl) => handlers.setTaskTemplate(task, tpl)}
         onReset={() => handlers.setTaskTemplate(task, null)}
-        inheritedLabel="Reset prompt"
+        inheritedLabel="Reset prompt only"
         fieldResetLabel="Use built-in"
         onDirtyChange={(d) => (promptDirty = d)}
       />
@@ -176,7 +185,8 @@
         instructions.
       </p>
     {/if}
-    <dl class="task-edit-facts">
+    <dl class="task-edit-facts" aria-label="Fixed for this task">
+      <div class="task-edit-facts-head">Fixed for this task</div>
       <div>
         <dt>Answer</dt>
         <dd>{view.output === 'card' ? 'Answer with notes' : 'Answer only'}</dd>
@@ -186,6 +196,9 @@
         <dd>{view.image ? 'Takes images' : 'Text only'}</dd>
       </div>
     </dl>
+    <p class="task-edit-note task-edit-autosave" role="status">
+      {autoSaved ? 'Saved.' : 'Effort and inputs save as soon as you change them.'}
+    </p>
     <div data-ega-task-effort>
       <Select
         label="Effort"
@@ -215,11 +228,14 @@
     </fieldset>
   </div>
   {#snippet actions()}
+    {#if !canReset}
+      <span class="task-edit-note task-edit-reason">Nothing to reset: this task is built-in.</span>
+    {/if}
     <Button
       variant="secondary"
-      disabled={!view.hasOverrides && !promptEdited}
+      disabled={!canReset}
       dataAttrs={{ 'data-ega-task-reset': true }}
-      onclick={() => void reset()}>Reset to built-in</Button
+      onclick={() => void reset()}>Reset whole task</Button
     >
     <Button onclick={() => void close()}>Done</Button>
   {/snippet}
@@ -251,6 +267,11 @@
     display: flex;
     gap: var(--space-2);
   }
+  .task-edit-facts-head {
+    flex-basis: 100%;
+    font-size: var(--fs-xs);
+    color: var(--color-muted);
+  }
   .task-edit-facts dt {
     font-weight: 500;
   }
@@ -269,6 +290,18 @@
     margin: 0;
     font-size: var(--fs-xs);
     color: var(--color-muted);
+  }
+  .task-edit-shared {
+    margin: 0;
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-md);
+    background: var(--color-accent-bg-soft);
+    color: var(--color-fg);
+    font-size: var(--fs-sm);
+  }
+  .task-edit-reason {
+    align-self: center;
+    margin-right: auto;
   }
   .task-edit-inputs {
     margin: 0;

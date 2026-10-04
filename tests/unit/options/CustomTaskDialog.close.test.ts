@@ -58,3 +58,12 @@ describe('closing the custom task dialog', () => {
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
   });
 });
+
+describe('why Save is off', () => {
+  it('says to add a name, and the line goes once there is one', async () => {
+    open();
+    expect(document.body.textContent).toContain('Add a name to save.');
+    await fireEvent.input(nameInput(), { target: { value: 'Polite reply' } });
+    await waitFor(() => expect(document.body.textContent).not.toContain('Add a name to save.'));
+  });
+});

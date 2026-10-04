@@ -26,7 +26,7 @@ test('the Tasks tab lists the built-ins with their state', async () => {
   timeline.markStep('rows-rendered');
 
   await expect(page.locator('[data-ega-task-toggle="translate"]')).toBeDisabled();
-  await expect(page.locator('[data-ega-task-item="translate"]')).toContainText('always on');
+  await expect(page.locator('[data-ega-task-item="translate"]')).toContainText('Always on');
   await expect(page.locator('[data-ega-task-item="summarize"]')).toContainText('Edited');
   await expect(page.locator('[data-ega-task-item="ask"]')).toContainText('Off');
   await expect(page.locator('[data-ega-task-toggle="ask"]')).not.toBeChecked();

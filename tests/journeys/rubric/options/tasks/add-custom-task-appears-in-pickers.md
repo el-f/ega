@@ -15,7 +15,7 @@
 ## Visible affordances
 
 - Save is disabled while the name is empty or the message has no `{{text}}`.
-- The list row has an on/off checkbox, a Custom badge and an Edit button.
+- The list row has an on/off checkbox and an Edit button.
 
 ## Failure-mode expectations
 

@@ -732,7 +732,7 @@ export const COVERAGE: readonly Family[] = [
           },
           {
             id: 'reset-builtin-undo',
-            description: 'Reset to built-in drops the task edit; the toast Undo restores it',
+            description: 'Reset whole task drops the task edit; the toast Undo restores it',
             flows: ['options-tasks/reset-builtin-undo.flow.spec.ts'],
           },
           {

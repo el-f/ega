@@ -176,11 +176,14 @@
     </div>
   {/if}
 
-  <RulesEditorManualForm
-    bind:open={formOpen}
-    onSubmit={submitManual}
-    {...taskViews.length > 0 ? { taskViews } : {}}
-  />
+  <!-- With no rules the empty state's button is the way in, so a second "Add a rule" row would repeat it. -->
+  {#if rules.length > 0 || formOpen}
+    <RulesEditorManualForm
+      bind:open={formOpen}
+      onSubmit={submitManual}
+      {...taskViews.length > 0 ? { taskViews } : {}}
+    />
+  {/if}
 </div>
 
 <style>

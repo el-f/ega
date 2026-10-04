@@ -12,7 +12,7 @@
 
 ## Visible affordances
 
-- Default tone is always visible, with help text that says it is used by tasks whose prompt has {{tone}}.
+- Default tone is always visible, with help text that says it is used by tasks that write in a tone, like Reword.
 - The Default task list holds only tasks that are on; an off default task shows as Translate.
 
 ## Failure-mode expectations

@@ -36,7 +36,8 @@ describe('Tasks tab', () => {
       '[data-ega-task-toggle="translate"]',
     );
     expect(translate?.disabled).toBe(true);
-    expect(row(container, 'translate').textContent).toContain('always on');
+    expect(row(container, 'translate').textContent).toContain('Always on');
+    expect(row(container, 'summarize').textContent).not.toMatch(/built-in/i);
   });
 
   it('a toggle writes disabledTasks and the row shows Off', async () => {

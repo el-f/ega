@@ -121,27 +121,25 @@ describe('RulesEditor', () => {
   });
 
   it('the empty state offers Add a rule, which opens the form', async () => {
-    const { container, getAllByRole } = render(RulesEditor, {
+    const { container, getByRole } = render(RulesEditor, {
       props: { rules: [], onUpdate: () => {} },
     });
-    const form = container.querySelector<HTMLDetailsElement>('details.manual-block');
-    expect(form?.open).toBe(false);
-    const cta = getAllByRole('button', { name: 'Add a rule' })[0];
-    if (!cta) throw new Error('expected CTA');
-    await fireEvent.click(cta);
-    await waitFor(() => expect(form?.open).toBe(true));
+    expect(container.querySelector('details.manual-block')).toBeNull();
+    await fireEvent.click(getByRole('button', { name: 'Add a rule' }));
+    await waitFor(() =>
+      expect(container.querySelector<HTMLDetailsElement>('details.manual-block')?.open).toBe(true),
+    );
   });
 
   it('Cancel closes the add form and clears it', async () => {
-    const { container, getByRole, getAllByRole } = render(RulesEditor, {
-      props: { rules: [], onUpdate: () => {} },
+    const { container, getByRole } = render(RulesEditor, {
+      props: { rules: [rule({ id: 'r1' })], onUpdate: () => {} },
     });
     const form = container.querySelector<HTMLDetailsElement>('details.manual-block');
     if (!form) throw new Error('expected form');
-    const cta = getAllByRole('button', { name: 'Add a rule' })[0];
-    if (!cta) throw new Error('expected CTA');
-    await fireEvent.click(cta);
-    await waitFor(() => expect(form.open).toBe(true));
+    // jsdom fires no toggle event for a summary click, so open it the way bind:open listens.
+    form.open = true;
+    await fireEvent(form, new Event('toggle'));
     const body = container.querySelector<HTMLTextAreaElement>('[data-ega-manual-body]');
     if (!body) throw new Error('expected body');
     await fireEvent.input(body, { target: { value: 'Never invent words.' } });
@@ -157,9 +155,10 @@ describe('RulesEditor', () => {
       props: { rules: [], onUpdate },
     });
 
-    const manualOpen = container.querySelector<HTMLDetailsElement>('details.manual-block');
-    if (!manualOpen) throw new Error('expected manual-block details');
-    manualOpen.open = true;
+    const cta = container.querySelector<HTMLButtonElement>('[data-ega-rules-empty] button');
+    if (!cta) throw new Error('expected the empty-state button');
+    await fireEvent.click(cta);
+    await waitFor(() => expect(container.querySelector('[data-ega-manual-body]')).not.toBeNull());
 
     const bodyInput = container.querySelector<HTMLTextAreaElement>('[data-ega-manual-body]');
     const sitesInput = container.querySelector<HTMLInputElement>('[data-ega-manual-sites]');
