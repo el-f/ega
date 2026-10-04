@@ -7,7 +7,7 @@
 
 ## Dismiss
 
-- The "Advanced / skip" button sets `onboardingDismissed = true`; banner does not reappear on next mount.
+- The "Skip for now" button sets `onboardingDismissed = true`; banner does not reappear on next mount.
 - Dismiss is per-extension-install, not per-session.
 
 ## CTAs

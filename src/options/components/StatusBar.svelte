@@ -51,6 +51,9 @@
 
 <style>
   .status-bar-slot {
+    /* Same column as the tab content below it. */
+    max-width: 640px;
+    margin-inline: auto;
     overflow: hidden;
     transition:
       max-height var(--motion-normal) var(--ease-out),

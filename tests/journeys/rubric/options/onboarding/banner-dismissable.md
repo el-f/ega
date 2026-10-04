@@ -8,12 +8,12 @@
 ## State expectations
 
 - Step 1: onboarding banner is mounted.
-- Step 2 (click "Advanced / skip"): banner unmounts at once; `onboardingDismissed = true` writes to storage.
+- Step 2 (click "Skip for now"): banner unmounts at once; `onboardingDismissed = true` writes to storage.
 - Step 3 (next mount of Options): banner does NOT re-render.
 
 ## Visible affordances
 
-- Dismiss control is a ghost button labeled "Advanced / skip", beside the Gemini CTA.
+- Dismiss control is a ghost button labeled "Skip for now", beside the Gemini CTA.
 
 ## Failure-mode expectations
 

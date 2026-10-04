@@ -256,8 +256,10 @@
     };
   });
 
+  // Welcome copy belongs where a backend gets picked; elsewhere the short needs-key bar covers it.
   const showOnboarding = $derived.by((): boolean => {
     const s = liveSettings;
+    if (active !== 'translate' && active !== 'backends') return false;
     if (onboardingHidden || !s || s.onboardingDismissed === true) return false;
     return !hasUsableBackend;
   });

@@ -8,12 +8,12 @@
 
 - Step 1: no enabled backend is usable (no key, Ollama URL, reachable Ollama or native host) AND `onboardingDismissed` is not true.
 - Step 2: Options shell mounts; the banner renders at the top of the active panel.
-- Step 3: the banner carries a one-line body, one "Add a Gemini key" CTA, and an "Advanced / skip" button.
+- Step 3: the banner carries a one-line body, one "Add a Gemini key" CTA, and a "Skip for now" button.
 
 ## Visible affordances
 
-- Banner uses the warning tone tokens (warning border, deep warning bg, warning fg).
-- The Gemini CTA uses the accent tokens; "Advanced / skip" is a transparent ghost button.
+- Banner is informational: accent border and soft accent background, the same width as the tab content. It shows on the Translate and Backends tabs only.
+- The Gemini CTA uses the accent tokens; "Skip for now" is a transparent ghost button.
 
 ## Failure-mode expectations
 

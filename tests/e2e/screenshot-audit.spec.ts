@@ -1587,7 +1587,7 @@ test('Onboarding — banner on display + backends tabs', async () => {
     expectations: [
       'onboarding banner visible at the top of the panel',
       'Welcome / Pick a backend copy legible',
-      'primary "Add a Gemini key" CTA distinguishable from "Advanced / skip"',
+      'primary "Add a Gemini key" CTA distinguishable from "Skip for now"',
       'sub-label under the primary CTA legible',
     ],
   });

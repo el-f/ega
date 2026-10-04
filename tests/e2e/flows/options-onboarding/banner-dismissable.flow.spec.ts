@@ -14,7 +14,7 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-test('Advanced / skip flips onboardingDismissed and hides the banner', async () => {
+test('Skip for now flips onboardingDismissed and hides the banner', async () => {
   const timeline = createTimeline();
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
