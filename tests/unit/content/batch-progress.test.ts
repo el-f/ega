@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest';
 
 function shadowQuery(selector: string): Element | null {
@@ -237,6 +239,30 @@ describe('batch-progress lifecycle', () => {
     h.setOnClose(() => {});
     expect(close.dataset['ready']).toBe('true');
     h.dismiss();
+  });
+
+  it('a toast shown with the pill up is lifted above it, and drops back once the pill goes', async () => {
+    const { showBatchProgress } = await import('@/content/batch-progress');
+    const { showToast, dismissToast } = await import('@/content/toast');
+    const h = showBatchProgress(3, () => {});
+    const pill = shadowQuery('[data-ega-batch-progress]') as HTMLElement;
+    Object.defineProperty(pill, 'offsetHeight', { configurable: true, value: 72 });
+    h.update(1);
+    showToast('Setup needed');
+    const root = shadowQuery('[data-ega-root]') as HTMLElement;
+    expect(root.style.getPropertyValue('--ega-batch-progress-h')).toBe('72px');
+    const sheet = readFileSync(resolve('src/content/batch-progress.css'), 'utf8');
+    expect(sheet).toMatch(
+      /\.ega-root:has\(> \[data-ega-batch-progress-wrap\]\) \.ega-toast\s*\{[^}]*var\(--ega-batch-progress-h/,
+    );
+    // The rule's DOM shape: the pill wrap is a direct child of the root that holds the toast.
+    expect(pill.closest('[data-ega-batch-progress-wrap]')?.parentElement).toBe(root);
+    expect(root.querySelector('.ega-toast')).not.toBeNull();
+
+    h.dismiss();
+    expect(root.style.getPropertyValue('--ega-batch-progress-h')).toBe('');
+    expect(root.querySelector('[data-ega-batch-progress-wrap]')).toBeNull();
+    dismissToast();
   });
 
   it('setLiveMessage updates the aria-live region without remounting', async () => {

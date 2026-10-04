@@ -22,6 +22,8 @@ interface ActiveProgress {
   showingOriginal: boolean;
 }
 
+const HEIGHT_VAR = '--ega-batch-progress-h';
+
 let active: ActiveProgress | null = null;
 let closeHandler: (() => void) | null = null;
 let undoHandler: (() => void) | null = null;
@@ -101,6 +103,9 @@ function patchVisible(): void {
     bar.setAttribute('aria-valuemax', String(active.total));
     bar.setAttribute('aria-valuenow', String(active.done));
   }
+  // The pill wraps to more rows as its buttons change, and a toast must clear all of them.
+  const pill = active.anchor.firstElementChild as HTMLElement | null;
+  active.anchor.parentElement?.style.setProperty(HEIGHT_VAR, `${pill?.offsetHeight ?? 0}px`);
 }
 
 function tearDown(): void {
@@ -110,6 +115,7 @@ function tearDown(): void {
   } catch (e) {
     debugCatch(e, 'content.batch-progress.unmount');
   }
+  active.anchor.parentElement?.style.removeProperty(HEIGHT_VAR);
   active.anchor.remove();
   active = null;
   closeHandler = null;
