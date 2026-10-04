@@ -13,6 +13,9 @@ import {
   type DoneMeta,
 } from './request-state';
 import { showFixToast } from './error-fix-toast';
+import { showToast } from './toast';
+import { currentSettings } from './settings-cache';
+import { patchSettings } from '@/shared/settings-bus';
 
 /** Only in-flight translates live here; a settled one is dropped so the page can detach it. */
 interface InlineEntry {
@@ -152,6 +155,20 @@ export function finishInline(requestId: string, _meta?: DoneMeta): void {
   wrapper.addEventListener('mouseup', showTranslation);
   wrapper.addEventListener('mouseleave', showTranslation);
   settle(requestId, e.stuckTimerId);
+  maybeShowUndoHint(requestId);
+}
+
+let undoHintShown = false;
+
+/** Esc is the only undo on the page itself, so the first replace says so once, with a button for it. */
+function maybeShowUndoHint(requestId: string): void {
+  if (undoHintShown || currentSettings()?.inlineUndoHintShown !== false) return;
+  undoHintShown = true;
+  showToast('Translated in place. Press Esc twice to put the original back.', {
+    label: 'Undo',
+    run: () => restoreInline(requestId),
+  });
+  void patchSettings({ inlineUndoHintShown: true });
 }
 
 export function errorInline(requestId: string, err: { code: ErrCode; message: string }): void {

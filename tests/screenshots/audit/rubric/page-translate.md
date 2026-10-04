@@ -25,7 +25,8 @@
 
 - **progress** — in-place page-translate wrappers mid-flight; wrappers still show the `…` placeholder (or partial text once a chunk lands).
 - **done** — in-place page translate: every wrapper carries translated text and `data-ega-tx-state="ok"`. No `…` placeholders.
-- **inline-replace-progress** — inline-mode single selection mid-translate.
+- **inline-replace-progress** — inline-mode single selection mid-translate; the dimmed original carries a small spinning ring.
+- **inline-replace-done-hint** — the first inline replace finished; a toast says to press Esc twice to undo, with an Undo button.
 - **v2-bilingual** — v2 bilingual done: sibling rows below each original paragraph, all `data-ega-tx-state="ok"`.
 - **v2-inplace** — v2 in-place done: wrappers replaced paragraph content, all `data-ega-tx-state="ok"`.
 - **v2-streaming** — v2 bilingual mid-flight: at least one sibling in `streaming` state showing `…`.

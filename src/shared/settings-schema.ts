@@ -519,6 +519,8 @@ export const settingsSchema = v.strictObject({
   bubbleMode: v.optional(bubbleMode, 'smart'),
   smartBubbleBannerShown: v.optional(v.boolean(), false),
   bubbleFirstRunSeen: v.optional(v.boolean(), false),
+  /** The first in-place replace shows how to undo it; later ones stay quiet. */
+  inlineUndoHintShown: v.optional(v.boolean(), false),
   onboardingDismissed: v.optional(v.boolean(), false),
   shortcut: v.optional(trimmedString, 'Ctrl+Shift+L'),
   sitePrefs: v.optional(v.record(v.pipe(v.string(), v.maxLength(2048)), sitePrefPatch), () => ({})),

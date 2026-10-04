@@ -1265,7 +1265,25 @@ test('Page-translate — progress + done + inline-replace progress', async () =>
     expectations: [
       'one wrapper visible around the selected text',
       'original text stays visible, dimmed, inside the wrapper',
+      'a small spinning ring sits right after the dimmed original',
       'rest of the page untouched',
+    ],
+  });
+  await inlinePage.waitForFunction(
+    () => {
+      const w = document.querySelector('[data-ega-replaced]');
+      return !!w && !w.hasAttribute('data-ega-pending') && w.textContent.includes('TRANSLATED');
+    },
+    { timeout: 10_000, polling: 250 },
+  );
+  await shot(inlinePage, 'inline-replace-done-hint', {
+    surface: 'page-translate',
+    state: 'inline-replace-done-hint',
+    theme: 'light',
+    userAction: 'first inline replace on this install finished',
+    expectations: [
+      'the wrapper shows the translated text, no spinner',
+      'a toast at the bottom says to press Esc twice to put the original back, with an Undo button',
     ],
   });
   await inlinePage.close();

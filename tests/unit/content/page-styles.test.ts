@@ -196,3 +196,27 @@ describe('page translate — error blocks on any page theme', () => {
     expect(pageCss).not.toMatch(/\[data-ega-retry-block\][^{]*\{[^}]*opacity:\s*0/);
   });
 });
+
+describe('inline replace — a pending wrapper shows that a reply is coming', () => {
+  function topLevel(selector: string): CSSStyleDeclaration | undefined {
+    document.head.innerHTML = `<style>${pageCss}</style>`;
+    const rules = Array.from(document.styleSheets[0]?.cssRules ?? []);
+    return rules.find(
+      (r): r is CSSStyleRule => r instanceof CSSStyleRule && r.selectorText === selector,
+    )?.style;
+  }
+
+  it('draws a spinning ring after the dimmed original', () => {
+    const style = topLevel('[data-ega-replaced][data-ega-pending]::after');
+    expect(style?.getPropertyValue('content')).toMatch(/^(''|"")$/);
+    expect(style?.getPropertyValue('animation')).toMatch(/ega-inline-spin/);
+  });
+
+  it('holds the ring still under reduced motion', () => {
+    const style = underMedia(
+      'prefers-reduced-motion: reduce',
+      '[data-ega-replaced][data-ega-pending]::after',
+    );
+    expect(style?.getPropertyValue('animation')).toBe('none');
+  });
+});

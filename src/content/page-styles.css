@@ -12,6 +12,24 @@
 [data-ega-replaced][data-ega-pending] {
   opacity: 0.6;
 }
+/* Inline replace keeps the original showing until the first words land; the spinner says a reply is on its way. */
+[data-ega-replaced][data-ega-pending]::after {
+  content: '';
+  display: inline-block;
+  width: 0.7em;
+  height: 0.7em;
+  margin-left: 0.35em;
+  vertical-align: -0.05em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: ega-inline-spin 0.8s linear infinite;
+}
+@keyframes ega-inline-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 /* A settled page-translate block drops the tint after a pause, so a long page is not a wall of blue. Hover brings it back. */
 [data-ega-replaced][data-ega-tx-state='ok'] {
   background-color: transparent;
@@ -68,6 +86,9 @@
 @media (prefers-reduced-motion: reduce) {
   [data-ega-replaced][data-ega-tx-state='ok'] {
     transition: none;
+  }
+  [data-ega-replaced][data-ega-pending]::after {
+    animation: none;
   }
   [data-ega-tx-state='streaming'] {
     animation: none;

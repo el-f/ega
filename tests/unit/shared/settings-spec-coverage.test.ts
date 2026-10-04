@@ -20,6 +20,7 @@ const INTERNAL_KEYS: ReadonlySet<string> = new Set([
   'onboardingDismissed',
   'smartBubbleBannerShown',
   'bubbleFirstRunSeen',
+  'inlineUndoHintShown',
   'advanced.templateVersion',
   'advanced.templateVersionAcknowledged',
   // Kept only while a prompt is too long to write the snippets into; nothing edits it.
