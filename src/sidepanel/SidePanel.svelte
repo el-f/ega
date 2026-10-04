@@ -25,7 +25,6 @@
   import IconButton from '@/shared/ui/IconButton.svelte';
   import Popover from '@/shared/ui/Popover.svelte';
   import SettingsIcon from '@lucide/svelte/icons/settings';
-  import CircleStopIcon from '@lucide/svelte/icons/circle-stop';
   import SquarePenIcon from '@lucide/svelte/icons/square-pen';
   import SearchIcon from '@lucide/svelte/icons/search';
   import XIcon from '@lucide/svelte/icons/x';
@@ -864,21 +863,12 @@
             onReadyChange={(ready) => (backendReady = ready)}
           />
         {/if}
-        <!-- Hidden, not unmounted: an unmount reflows the row and slides the retry icon under the settled pointer. -->
-        <span class="sp-cancel-slot" class:visible={hasInflight}>
-          <IconButton
-            icon={CircleStopIcon}
-            ariaLabel="Cancel all requests"
-            size="sm"
-            dataAttrs={{ 'data-ega-cancel-all': 'true' }}
-            onclick={cancelAllInflight}
-          />
-        </span>
         <HeaderMoreMenu
           {isEmptyThread}
           bind:bookmarkFilter
           theme={themePref}
           {retryCount}
+          onCancelAll={hasInflight ? cancelAllInflight : undefined}
           bind:trigger={retryAnchor}
           onCopyMarkdown={() => void copyMarkdown()}
           onDownloadJson={downloadJson}
@@ -1188,27 +1178,6 @@
     .sp-header :global(.chip-sep),
     .sp-header :global(.chip-model) {
       display: none;
-    }
-  }
-  .sp-cancel-slot {
-    display: inline-flex;
-    visibility: hidden;
-  }
-  .sp-cancel-slot.visible {
-    visibility: visible;
-    animation: sp-cancel-in 160ms var(--ease-out) both;
-  }
-  @keyframes sp-cancel-in {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .sp-cancel-slot.visible {
-      animation: none;
     }
   }
   .sp-retry-popover {

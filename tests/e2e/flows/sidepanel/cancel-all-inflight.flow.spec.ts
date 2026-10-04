@@ -18,7 +18,7 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-test('cancel-all button visible while streaming → click → button hides in place + turn exits streaming', async () => {
+test('More actions offers Cancel all requests while streaming → pick it → item gone + turn exits streaming', async () => {
   const timeline = createTimeline();
 
   // The route hangs until the test releases it, so the in-flight state stays observable.
@@ -49,31 +49,25 @@ test('cancel-all button visible while streaming → click → button hides in pl
 
   await expect(page.locator('.ega-assistant-turn')).toHaveCount(1, { timeout: 5_000 });
 
-  const cancelBtn = page.locator('[data-ega-cancel-all]');
-  await expect(cancelBtn).toBeVisible({ timeout: 5_000 });
-  timeline.markStep('cancel-btn-visible');
+  // The composer's Stop is the one stop control on screen; the header has none.
+  await expect(page.getByRole('button', { name: 'Stop' })).toBeVisible({ timeout: 5_000 });
+  await expect(page.locator('.sp-header [data-ega-cancel-all]')).toHaveCount(0);
 
-  // The header row must not move when the cancel affordance leaves.
-  const headerBoxesBefore = await page.evaluate(() =>
-    [...document.querySelectorAll<HTMLElement>('.sp-header button')].map(
-      (b) => `${b.offsetLeft},${b.offsetTop}`,
-    ),
-  );
+  await page.locator('[data-ega-header-more]').click();
+  const cancelItem = page.locator('[data-ega-cancel-all]');
+  await expect(cancelItem).toBeVisible({ timeout: 5_000 });
+  timeline.markStep('cancel-item-visible');
 
-  await cancelBtn.click();
+  await cancelItem.click();
   timeline.markStep('cancel-clicked');
 
-  // Hidden in place — the slot keeps its width so sibling icons do not slide.
-  await expect(cancelBtn).toBeHidden({ timeout: 5_000 });
-  timeline.markStep('cancel-btn-hidden');
-
-  const headerBoxesAfter = await page.evaluate(() =>
-    [...document.querySelectorAll<HTMLElement>('.sp-header button')].map(
-      (b) => `${b.offsetLeft},${b.offsetTop}`,
-    ),
-  );
-  expect(headerBoxesAfter).toEqual(headerBoxesBefore);
-  timeline.markStep('header-stable');
+  // The menu closes on select, and a fresh open no longer offers the item.
+  await expect(cancelItem).toHaveCount(0, { timeout: 5_000 });
+  await page.locator('[data-ega-header-more]').click();
+  await expect(page.locator('[data-ega-export-markdown]')).toBeVisible();
+  await expect(page.locator('[data-ega-cancel-all]')).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  timeline.markStep('cancel-item-gone');
 
   await assertStaysStable(() => page.locator('.ega-cursor').count(), 0, {
     windowMs: 1_000,

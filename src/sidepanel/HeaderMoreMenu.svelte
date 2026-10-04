@@ -6,6 +6,7 @@
   import DownloadIcon from '@lucide/svelte/icons/download';
   import BookmarkIcon from '@lucide/svelte/icons/bookmark';
   import RepeatIcon from '@lucide/svelte/icons/repeat';
+  import CircleStopIcon from '@lucide/svelte/icons/circle-stop';
   import CheckIcon from '@lucide/svelte/icons/check';
   import LaptopIcon from '@lucide/svelte/icons/laptop';
   import SunIcon from '@lucide/svelte/icons/sun';
@@ -23,6 +24,8 @@
     onDownloadJson: () => void;
     onSetTheme: (to: ThemePref) => void;
     onOpenRetry: () => void;
+    /** Set only while a request is in flight; it stops requests from every surface, not just this panel. */
+    onCancelAll?: (() => void) | undefined;
   }
 
   let {
@@ -35,6 +38,7 @@
     onDownloadJson,
     onSetTheme,
     onOpenRetry,
+    onCancelAll,
   }: Props = $props();
 
   const THEMES = [
@@ -55,6 +59,13 @@
   </DropdownMenu.Trigger>
   <DropdownMenu.Portal>
     <DropdownMenu.Content class="sp-menu" align="end" sideOffset={6}>
+      {#if onCancelAll}
+        <DropdownMenu.Item class="sp-menu-item" onSelect={onCancelAll} data-ega-cancel-all>
+          <Icon icon={CircleStopIcon} size={16} />
+          <span class="sp-menu-label">Cancel all requests</span>
+        </DropdownMenu.Item>
+        <DropdownMenu.Separator class="sp-menu-sep" />
+      {/if}
       <DropdownMenu.Item
         class="sp-menu-item"
         disabled={isEmptyThread}

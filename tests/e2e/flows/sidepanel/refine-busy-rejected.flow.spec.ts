@@ -66,7 +66,7 @@ test('refine chip click while translate in-flight shows warning toast and does n
 
   await page.locator('#sp-text').fill('gracias');
   await page.getByRole('button', { name: /^Translate$/ }).click();
-  await expect(page.locator('[data-ega-cancel-all]')).toBeVisible({ timeout: 5_000 });
+  await expect(page.getByRole('button', { name: 'Stop' })).toBeVisible({ timeout: 5_000 });
   timeline.markStep('second-send-in-flight');
 
   // refine() bails while inflightId !== null; the first turn's chips stay on screen.

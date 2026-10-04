@@ -377,7 +377,7 @@ export const COVERAGE: readonly Family[] = [
           {
             id: 'cancel-all-inflight',
             description:
-              'Cancel-all button appears while streaming → click → button gone + turn exits streaming',
+              'More actions offers Cancel all requests while streaming → pick it → item gone + turn exits streaming',
             flows: ['sidepanel/cancel-all-inflight.flow.spec.ts'],
           },
           {

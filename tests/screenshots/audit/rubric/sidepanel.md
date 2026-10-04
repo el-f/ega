@@ -4,7 +4,7 @@ The sidepanel is the right-edge persistent surface (`src/sidepanel`) — wider t
 
 ## Invariants
 
-- Header fits on one row: New conversation, search, the active-backend chip, cancel-all (only while a request is in flight), a "More actions" (⋯) menu, and the settings cog. Export, the bookmark filter, theme and the fallback budget live in the More actions menu, not as header buttons.
+- Header fits on one row: New conversation, search, the active-backend chip, a "More actions" (⋯) menu, and the settings cog. Export, the bookmark filter, theme, the fallback budget and (only while a request is in flight) "Cancel all requests" live in the More actions menu, not as header buttons. The composer's Stop is the one stop control on screen.
 - Conversation stream: `UserTurn` cards alternate with `AssistantTurn` cards top-to-bottom; latest at the bottom; the input footer is sticky at the bottom edge.
 - Multi-turn rendering: every prior assistant turn keeps its content + meta (task/tone) visible — no "collapsed history" state in default mode.
 - Streaming: while the SSE is in flight, the assistant turn shows the labelled shimmer (`.ega-stream-skeleton`) THEN plain streamed text with the blinking cursor (`.ega-cursor`); Markdown renders once done. The skeleton must vanish once the first chunk lands.

@@ -58,7 +58,8 @@ test('sidepanel Cancel-all aborts an in-flight tooltip translate', async () => {
   await sp.locator('#sp-text').fill('marhaba');
   await sp.getByRole('button', { name: /^Translate$/ }).click();
 
-  // Cancel-all only mounts while the panel has its own translate in flight; the cancel it sends is global.
+  // Cancel-all is offered only while the panel has its own translate in flight; the cancel it sends is global.
+  await sp.locator('[data-ega-header-more]').click();
   await sp.locator('[data-ega-cancel-all]').click();
 
   // data-ega-retry renders only in the error / no-body state.

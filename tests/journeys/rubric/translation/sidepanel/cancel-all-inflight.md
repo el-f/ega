@@ -6,18 +6,18 @@
 
 ## State expectations
 
-- Step 1: at least one AssistantTurn is actively streaming; a cancel-all button is visible in the sidepanel header or stream area.
+- Step 1: at least one AssistantTurn is actively streaming; the "More actions" (⋯) menu offers "Cancel all requests" at its top.
 - Step 2 (click Cancel): the panel sends `translate:cancel-all`, the service worker aborts every in-flight request, and the panel cancels its own turn at once.
-- Step 3: the Cancel button disappears; the streaming AssistantTurn exits streaming state and renders a partial or canceled label; no further tokens arrive.
+- Step 3: the menu closes and no longer offers the item; the streaming AssistantTurn exits streaming state and renders a partial or canceled label; no further tokens arrive.
 
 ## Visible affordances
 
-- The header cancel-all is a plain circle-stop icon button that fades in while a request runs; the composer's Stop button is the danger-toned one.
+- The composer's Stop button is the one stop control on screen; Cancel all requests lives in the More actions menu and the command palette, and only while a request runs.
 - After cancel, the turn shows a "Canceled" indicator or the partial tokens with a stopped marker.
 
 ## Failure-mode expectations
 
-- Cancel signal failure -> stream continues; the button remains visible; the user can try again.
+- Cancel signal failure -> stream continues; the menu item is still offered; the user can try again.
 - A cancel on an already-completed turn -> no-op; no error surfaced.
 
 ## Cautions
