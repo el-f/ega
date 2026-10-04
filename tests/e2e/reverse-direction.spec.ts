@@ -128,5 +128,5 @@ test('bubble shows the detected variety when default source is "auto"', async ()
     .toBeGreaterThan(0);
 
   const dir = (await egaTest<string>(page, 'bubbleDirection')) ?? '';
-  expect(dir).toBe('arabizi→en');
+  expect(dir).toBe('Arabizi → English');
 });

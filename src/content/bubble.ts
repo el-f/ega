@@ -64,7 +64,8 @@ function placeBubble(rect: DOMRect): { left: number; top: number } {
     const aboveTop = rect.top - BUBBLE_HEIGHT - 8;
     if (aboveTop >= 4) top = aboveTop;
   }
-  return { left: Math.min(window.innerWidth - 90, desiredLeft), top };
+  // Room for the mark plus a 160px direction label, so the bubble never runs off the right edge.
+  return { left: Math.max(8, Math.min(window.innerWidth - 210, desiredLeft)), top };
 }
 
 function directionKey(d: BubbleOpts['direction']): string {

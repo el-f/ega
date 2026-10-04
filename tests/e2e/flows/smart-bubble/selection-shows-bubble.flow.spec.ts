@@ -61,7 +61,7 @@ test('eligible Arabizi selection -> smart bubble mounts in shadow host', async (
     const root = (host as HTMLElement | null)?.shadowRoot;
     return root?.querySelector('.bubble .direction')?.textContent.trim() ?? null;
   });
-  expect(pillText).toBe('arabizi→en');
+  expect(pillText).toBe('Arabizi → English');
 
   const steps = timeline.report();
   const bubbleStep = steps.find((s) => s.name === 'bubble-visible');

@@ -8,7 +8,7 @@ The smart bubble is a small chip that mounts in the content-script shadow host w
 
 - Mounted in `#ega-shadow-host` under `[data-ega-bubble-wrap]`.
 - Anchored at `selection.bottom + 8px` (default). When the would-be landing site has body text immediately below the selection, `showBubble` pushes the bubble PAST that line — it must NOT cover the next line of text under the selection.
-- Shows the detected source language pill (e.g. "auto → en") + chip body.
+- Shows the direction with language names (e.g. "Arabizi → English", or "→ English" when nothing was detected) + chip body.
 - Per-site disabled mode: bubble must NOT mount.
 - Theme parity: light + dark must render the same primitive shape.
 
@@ -23,4 +23,4 @@ The smart bubble is a small chip that mounts in the content-script shadow host w
 - Bubble overlapping the line of body text immediately below the selection (when that text was not part of the selection itself): **major** primitive_coherence. The `elementsFromPoint` push-past-line fix exists for a reason.
 - Per-site-disabled state that nonetheless renders a bubble: **major** primitive_coherence (negative regression).
 - Bubble that renders without the source-lang pill: **minor** copy.
-- **Carve-out: digitless-arabizi pill reads "auto→en".** The detector (`src/content/detect.ts`) tags arabizi via the digit-sandwich heuristic; digitless strings fall through to the looksLikeEnglish branch. The bubble correctly renders the detector's actual classification, not an aspirational one. Mark this as **not a finding** until the detector lands an n-gram / orthographic classifier — separate design pass.
+- **Carve-out: digitless-arabizi pill reads "→ English" (no source).** The detector (`src/content/detect.ts`) tags arabizi via the digit-sandwich heuristic; digitless strings fall through to the looksLikeEnglish branch. The bubble correctly renders the detector's actual classification, not an aspirational one. Mark this as **not a finding** until the detector lands an n-gram / orthographic classifier — separate design pass.

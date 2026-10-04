@@ -26,7 +26,18 @@ describe('Bubble — indicator + click', () => {
         onclick,
       },
     });
-    expect(container.querySelector('.direction')?.textContent.trim()).toContain('en→es');
+    expect(container.querySelector('.direction')?.textContent.trim()).toBe('English → Spanish');
+  });
+
+  it.each([
+    [{ source: 'auto', target: 'en' }, '→ English'],
+    [{ source: 'arabizi', target: 'en' }, 'Arabizi → English'],
+    [{ source: 'other', target: 'he' }, 'other → Hebrew'],
+  ])('names the languages, never the raw ids: %o', (direction, text) => {
+    const { container } = render(Bubble, {
+      props: { left: 10, top: 20, queued: 0, direction, onclick: vi.fn() },
+    });
+    expect(container.querySelector('.direction')?.textContent.trim()).toBe(text);
   });
 
   it('clicking the bubble fires onclick', async () => {

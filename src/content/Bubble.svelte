@@ -1,6 +1,8 @@
 <script lang="ts">
   import BrandMark from '@/shared/components/BrandMark.svelte';
   import { isUserGesture } from './user-gesture';
+  import { varietyLabel } from './tooltip/variety-label';
+  import { cachedCustomLanguages } from './customs-cache';
 
   interface Direction {
     source: string;
@@ -20,6 +22,26 @@
   let { left, top, queued, direction, firstRun = false, onclick }: Props = $props();
 
   let focusedFrom: HTMLElement | null | undefined;
+
+  // A raw id (`en`, a custom UUID) means nothing to a reader; the browser names ISO codes at no bundle cost.
+  const isoNames = new Intl.DisplayNames(['en'], { type: 'language' });
+  function languageName(id: string): string {
+    const label = varietyLabel(id, cachedCustomLanguages());
+    if (label !== id) return label;
+    try {
+      return isoNames.of(id) ?? id;
+    } catch {
+      return id;
+    }
+  }
+  // An undetected source adds nothing, so only the target shows.
+  const directionText = $derived.by(() => {
+    if (!direction) return '';
+    const target = languageName(direction.target);
+    return direction.source === 'auto'
+      ? `→ ${target}`
+      : `${languageName(direction.source)} → ${target}`;
+  });
 </script>
 
 <!-- mousedown must not steal focus: the editable-selection re-read needs the field to stay activeElement. -->
@@ -44,9 +66,7 @@
   {#if queued > 0}
     <span class="badge">+{queued}</span>
   {/if}
-  {#if direction}
-    <span class="direction" aria-hidden="true">
-      {direction.source}→{direction.target}
-    </span>
+  {#if directionText}
+    <span class="direction" aria-hidden="true">{directionText}</span>
   {/if}
 </button>
