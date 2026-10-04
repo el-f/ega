@@ -41,7 +41,8 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    emptyOutDir: true,
+    // crxjs empties outDir on every serve-mode config resolve, svelte-check's included; null still empties on build.
+    emptyOutDir: process.env['npm_lifecycle_event'] === 'dev' ? true : null,
     // Source maps expose your un-minified logic to any page via
     // web_accessible_resources. Keep production builds opaque.
     sourcemap: process.env['NODE_ENV'] === 'development',
