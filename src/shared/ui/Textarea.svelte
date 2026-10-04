@@ -71,7 +71,7 @@
     box-sizing: border-box;
     background: var(--color-bg-elevated);
     color: var(--color-fg);
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--color-control-border);
     border-radius: var(--radius-sm);
     outline: none;
     font-family: var(--font-ui);

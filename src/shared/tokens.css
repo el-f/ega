@@ -57,10 +57,12 @@
   --color-muted: #b0b4ba; /* slate.11 */
   --color-border: #363a3f; /* slate.6 */
   --color-border-subtle: #2e3135; /* slate.5 */
+  /* The edge of a form control: 3.4:1 on --color-bg-elevated, the WCAG 1.4.11 floor for a UI boundary. */
+  --color-control-border: #696e77; /* slate.9 */
   --color-accent: #0090ff; /* blue.9 */
   --color-accent-soft: #70b8ff; /* blue.11 */
   --color-accent-hover: #4ea1ff;
-  --color-accent-fg: #ffffff; /* white keeps contrast on blue.9 solid */
+  --color-accent-fg: #111113; /* slate.1: white on blue.9 is 3.3:1, this is 5.4:1 */
   --color-accent-bg-soft: rgba(0, 144, 255, 0.18);
   --color-accent-bg-hover: rgba(0, 144, 255, 0.12);
   /* Disabled-state tokens. Used by Button/Input/Select/Card.
@@ -114,10 +116,12 @@
     --color-muted: #60646c; /* slate.11 */
     --color-border: #d9d9e0; /* slate.6 */
     --color-border-subtle: #e0e1e6; /* slate.5 */
+    --color-control-border: #8b8d98; /* slate.9 light, 3.1:1 on --color-bg-elevated */
     /* blue.11, not blue.9: blue.9 is 3.07:1 on white, blue.11 is 4.65:1 (AA). */
     --color-accent: #0d74ce; /* blue.11 light */
     --color-accent-soft: rgba(13, 116, 206, 0.25);
     --color-accent-hover: #0a5fa8; /* darker accent for primary hover on light */
+    --color-accent-fg: #ffffff;
     --color-accent-bg-soft: rgba(13, 116, 206, 0.12);
     --color-accent-bg-hover: rgba(13, 116, 206, 0.08);
     --color-bg-disabled: rgba(0, 0, 0, 0.03);
@@ -161,9 +165,11 @@
   --color-muted: #60646c;
   --color-border: #d9d9e0;
   --color-border-subtle: #e0e1e6;
+  --color-control-border: #8b8d98;
   --color-accent: #0d74ce; /* blue.11 light — 4.65:1 on white, matches @media block */
   --color-accent-soft: rgba(13, 116, 206, 0.25);
   --color-accent-hover: #0a5fa8;
+  --color-accent-fg: #ffffff;
   --color-accent-bg-soft: rgba(13, 116, 206, 0.12);
   --color-accent-bg-hover: rgba(13, 116, 206, 0.08);
   --color-bg-disabled: rgba(0, 0, 0, 0.03);
@@ -202,9 +208,11 @@
   --color-muted: #b0b4ba;
   --color-border: #363a3f;
   --color-border-subtle: #2e3135;
+  --color-control-border: #696e77;
   --color-accent: #0090ff;
   --color-accent-soft: #70b8ff;
   --color-accent-hover: #4ea1ff;
+  --color-accent-fg: #111113;
   --color-accent-bg-soft: rgba(0, 144, 255, 0.18);
   --color-accent-bg-hover: rgba(0, 144, 255, 0.12);
   --color-bg-disabled: rgba(255, 255, 255, 0.04);

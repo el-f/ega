@@ -92,7 +92,7 @@
     height: 16px;
     margin: 0;
     background-color: var(--color-bg-elevated);
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--color-control-border);
     border-radius: var(--radius-sm);
     cursor: pointer;
     position: relative;
@@ -117,23 +117,26 @@
     border-color: var(--color-accent);
     box-shadow: 0 0 0 3px var(--color-accent-bg-soft);
   }
-  .ega-checkbox-input:checked {
-    background-color: var(--color-accent);
-    border-color: var(--color-accent);
-    /* Check glyph: inline SVG painted on the bg. Stroke is white because
-       --color-accent-fg is always white-on-blue.9/blue.11, both themes. */
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M3.5 8.5l3 3 6-6' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>");
-    background-repeat: no-repeat;
-    background-position: center;
-    background-size: 12px 12px;
-  }
+  .ega-checkbox-input:checked,
   .ega-checkbox-input:indeterminate {
     background-color: var(--color-accent);
     border-color: var(--color-accent);
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M3.5 8h9' fill='none' stroke='white' stroke-width='2' stroke-linecap='round'/></svg>");
-    background-repeat: no-repeat;
-    background-position: center;
-    background-size: 12px 12px;
+  }
+  /* The glyph is a mask painted in --color-accent-fg, which is dark on the dark theme's bright blue. */
+  .ega-checkbox-input:checked::after,
+  .ega-checkbox-input:indeterminate::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-color: var(--color-accent-fg);
+    -webkit-mask: var(--ega-check-glyph) center / 12px 12px no-repeat;
+    mask: var(--ega-check-glyph) center / 12px 12px no-repeat;
+  }
+  .ega-checkbox-input:checked {
+    --ega-check-glyph: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M3.5 8.5l3 3 6-6' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  }
+  .ega-checkbox-input:indeterminate {
+    --ega-check-glyph: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M3.5 8h9' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'/></svg>");
   }
   .ega-modified-dot {
     display: inline-block;

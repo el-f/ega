@@ -100,7 +100,7 @@
     align-items: stretch;
     gap: var(--space-1);
     background: var(--color-bg-elevated);
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--color-control-border);
     border-radius: var(--radius-sm);
     padding: 2px;
     transition: border-color var(--motion-fast) var(--ease-out);

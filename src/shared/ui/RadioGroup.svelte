@@ -116,7 +116,7 @@
     margin: 2px 0 0;
     padding: 0;
     background: var(--color-bg-elevated);
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--color-control-border);
     border-radius: 9999px;
     cursor: pointer;
     display: inline-flex;

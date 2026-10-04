@@ -47,7 +47,7 @@
     display: inline-flex;
     gap: 2px;
     padding: 2px;
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--color-control-border);
     border-radius: var(--radius-md);
     background: var(--color-bg-elevated);
   }
@@ -66,8 +66,9 @@
       color var(--motion-fast) var(--ease-out);
   }
   .effort-seg button.active {
-    background: var(--color-bg-hover);
+    background: var(--color-accent-bg-soft);
     color: var(--color-fg);
+    box-shadow: inset 0 0 0 1px var(--color-accent);
   }
   .effort-seg button:hover:not(.active) {
     color: var(--color-fg);
