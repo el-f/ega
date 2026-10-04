@@ -19,6 +19,8 @@
     taskViews?: readonly TaskView[] | undefined;
     /** True for the focused turn in the keyboard cycle; drives the focus ring. */
     focused?: boolean;
+    /** The newest user message keeps its actions in view; older ones show them on hover or focus. */
+    latest?: boolean;
     onBookmark?: ((id: string) => void) | undefined;
     onDelete?: ((id: string) => void) | undefined;
     onEdit?: ((id: string) => void) | undefined;
@@ -31,6 +33,7 @@
   const {
     turn,
     focused = false,
+    latest = false,
     onBookmark,
     onDelete,
     onEdit,
@@ -54,10 +57,13 @@
   // `article` is not name-from-content, so without a label a j/k-focused turn is announced as a bare "article".
   const srLabel = $derived(`You · ${baseLabel} · ${relativeTime(turn.createdAt, now)}`);
 
+  // Hidden, not disabled, while a reply streams: a disabled button cannot take focus to say why.
+  const canEdit = $derived(!isImageTurn(turn) && !inflight);
+
   const actionKeys = $derived<readonly string[]>([
     ...(hasText ? ['copy'] : []),
     'bookmark',
-    ...(!isImageTurn(turn) && !inflight ? ['edit'] : []),
+    ...(canEdit ? ['edit'] : []),
     'delete',
   ]);
 
@@ -112,6 +118,7 @@
 <article
   class="ega-user-turn"
   class:focused
+  class:quiet={!latest && !focused && turn.bookmarked !== true}
   tabindex="-1"
   aria-label={srLabel}
   data-turn-id={turn.id}
@@ -152,7 +159,7 @@
         <IconButton
           icon={copied ? Check : Copy}
           ariaLabel={copied ? 'Copied' : 'Copy source text'}
-          size="sm"
+          size="md"
           dataAttrs={{
             'data-ega-copy-source': 'true',
             'data-ega-action': 'copy',
@@ -165,7 +172,7 @@
     <IconButton
       icon={Star}
       ariaLabel={turn.bookmarked ? 'Remove bookmark' : 'Bookmark this message'}
-      size="sm"
+      size="md"
       dataAttrs={{
         'data-ega-bookmark': 'true',
         'aria-pressed': String(turn.bookmarked === true),
@@ -174,13 +181,12 @@
       }}
       onclick={() => onBookmark?.(turn.id)}
     />
-    {#if !isImageTurn(turn)}
+    {#if canEdit}
       <!-- The composer holds no image, so editing an image turn would send the "[image]" marker as text. -->
       <IconButton
         icon={Pencil}
-        ariaLabel={inflight ? 'Edit when this reply finishes' : 'Edit this message'}
-        disabled={inflight}
-        size="sm"
+        ariaLabel="Edit this message"
+        size="md"
         dataAttrs={{
           'data-ega-edit': 'true',
           'data-ega-action': 'edit',
@@ -192,7 +198,7 @@
     <IconButton
       icon={Trash2}
       ariaLabel="Delete this message and its reply"
-      size="sm"
+      size="md"
       variant="danger"
       dataAttrs={{
         'data-ega-delete': 'true',
@@ -254,13 +260,20 @@
     white-space: pre-wrap;
     overflow-wrap: anywhere;
   }
-  /* Always visible; buttons rest muted (IconButton default) and gain emphasis per button on hover/focus. */
+  /* Buttons rest muted (IconButton default) and gain emphasis per button on hover/focus. */
   .ega-turn-actions {
     display: flex;
     align-items: center;
     gap: var(--space-1);
-    min-height: 28px;
+    min-height: 32px;
     margin-top: var(--space-1);
+    transition: opacity var(--motion-fast) var(--ease-out);
+  }
+  /* Opacity, not display: the row keeps its height and its tab stop, so focus can still reveal it. */
+  @media (hover: hover) {
+    .ega-user-turn.quiet:not(:hover):not(:focus-within) .ega-turn-actions {
+      opacity: 0;
+    }
   }
   .ega-copy-btn-wrap {
     display: inline-flex;

@@ -42,7 +42,7 @@ describe('a blocked re-run says so instead of doing nothing', () => {
     expect(push.mock.calls[0]?.[0]?.message).toMatch(/Wait for the current reply/);
   });
 
-  it('disables the pencil while a reply streams, and says when it comes back', () => {
+  it('hides the pencil while a reply streams, and brings it back after', async () => {
     const turn: Turn = {
       createdAt: 1,
       id: 'u1',
@@ -51,10 +51,12 @@ describe('a blocked re-run says so instead of doing nothing', () => {
       status: 'idle',
       content: 'hola',
     };
-    const { container } = render(UserTurn, { props: { turn, inflight: true } });
+    const { container, rerender } = render(UserTurn, { props: { turn, inflight: true } });
+    expect(container.querySelector('[data-ega-edit]')).toBeNull();
+    await rerender({ turn, inflight: false });
     const pencil = container.querySelector<HTMLButtonElement>('[data-ega-edit]');
-    expect(pencil?.disabled).toBe(true);
-    expect(pencil?.getAttribute('aria-label')).toBe('Edit when this reply finishes');
+    expect(pencil?.disabled).toBe(false);
+    expect(pencil?.getAttribute('aria-label')).toBe('Edit this message');
   });
 });
 

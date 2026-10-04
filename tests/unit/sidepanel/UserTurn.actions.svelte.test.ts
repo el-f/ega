@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, render } from '@testing-library/svelte';
+import { readFileSync } from 'node:fs';
 import UserTurn from '@/sidepanel/conversation/UserTurn.svelte';
 import type { UserTurnData } from '@/sidepanel/state/conversation';
 
@@ -19,6 +20,24 @@ function mkTurn(overrides: Partial<UserTurnData> = {}): UserTurnData {
 describe('UserTurn — per-turn actions', () => {
   beforeEach(() => {
     vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined);
+  });
+
+  it('an older message hides its actions until hover or focus; a bookmarked one keeps them', () => {
+    const article = (props: Record<string, unknown>): Element | null =>
+      render(UserTurn, { props: { turn: mkTurn(), ...props } }).container.querySelector('article');
+    expect(article({})?.classList.contains('quiet')).toBe(true);
+    expect(article({ latest: true })?.classList.contains('quiet')).toBe(false);
+    expect(article({ focused: true })?.classList.contains('quiet')).toBe(false);
+    expect(
+      render(UserTurn, { props: { turn: mkTurn({ bookmarked: true }) } })
+        .container.querySelector('article')
+        ?.classList.contains('quiet'),
+    ).toBe(false);
+    // jsdom runs no media queries, so the hiding rule itself is checked in the source.
+    const src = readFileSync('src/sidepanel/conversation/UserTurn.svelte', 'utf8');
+    expect(src).toMatch(
+      /\.ega-user-turn\.quiet:not\(:hover\):not\(:focus-within\) \.ega-turn-actions \{\s*opacity: 0;/,
+    );
   });
 
   it('renders copy-source button', () => {

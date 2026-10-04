@@ -52,6 +52,21 @@ describe('ConversationStream.svelte', () => {
     expect(text).toContain('reword');
   });
 
+  it('only the newest user message keeps its actions in view', () => {
+    const { container } = render(ConversationStream, {
+      props: {
+        turns: [u('u1', 'hola'), a('a1', 'hi', 'u1'), u('u2', 'adios'), a('a2', 'bye', 'u2')],
+        focusedTurnId: null,
+        onRetry: vi.fn(),
+        onFocusChange: vi.fn(),
+      },
+    });
+    const quiet = (id: string): boolean | undefined =>
+      container.querySelector(`.ega-user-turn[data-turn-id="${id}"]`)?.classList.contains('quiet');
+    expect(quiet('u1')).toBe(true);
+    expect(quiet('u2')).toBe(false);
+  });
+
   it('empty state links to the shortcuts overlay instead of listing keys', async () => {
     const onShowShortcuts = vi.fn();
     const { container, getByRole } = render(ConversationStream, {

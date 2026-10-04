@@ -120,6 +120,7 @@
 
   // One pass per turns change; a per-turn findRetryTarget scan would make mount O(n²).
   const retryableIds = $derived(retryableTurnIds(turns));
+  const latestUserTurnId = $derived(turns.filter((t) => t.role === 'user').at(-1)?.id ?? null);
   const imageBackedIds = $derived(imageBackedTurnIds(turns));
   const answerLangPairs = $derived(answerLangs(turns));
 
@@ -403,6 +404,7 @@
             {turn}
             {taskViews}
             focused={turn.id === focusedTurnId}
+            latest={turn.id === latestUserTurnId}
             {now}
             {inflight}
             {onBookmark}
