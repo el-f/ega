@@ -5,6 +5,8 @@ import { createTimeline } from '../_harness';
 
 const GENERAL_THREAD_KEY = 'ega:conv:t:general';
 const CONV_INDEX_KEY = 'ega:conv:index';
+// The worker rebuilds the context menus from defaults after the wipe and records that they exist; it holds no user data.
+const MENUS_BUILT_KEY = 'ega.menusBuilt';
 
 let ext: ExtensionHandle;
 
@@ -55,11 +57,11 @@ test('Delete all data clears both storage.local and storage.session after typing
         const p2 = await ext.context.newPage();
         try {
           await p2.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
-          const [localEmpty, sessionEmpty] = await p2.evaluate(async () => {
+          const [localEmpty, sessionEmpty] = await p2.evaluate(async (key) => {
             const local = await chrome.storage.local.get(null);
             const session = await chrome.storage.session.get(null);
-            return [Object.keys(local).length === 0, Object.keys(session).length === 0];
-          });
+            return [Object.keys(local).length === 0, Object.keys(session).every((k) => k === key)];
+          }, MENUS_BUILT_KEY);
           return localEmpty && sessionEmpty;
         } finally {
           await p2.close();
