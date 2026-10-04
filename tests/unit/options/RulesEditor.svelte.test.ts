@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { fireEvent, render, waitFor } from '@testing-library/svelte';
+import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { SHIPPED_TASK_VIEWS } from '@/shared/task-view';
 import RulesEditor from '@/options/components/RulesEditor.svelte';
 import type { Rule } from '@/shared/rules';
@@ -255,6 +255,64 @@ describe('RulesEditor', () => {
       expect(chip?.textContent).toContain('Deleted task');
       expect(chip?.tagName).not.toBe('BUTTON');
       expect(chip?.querySelector('button')).toBeNull();
+    });
+
+    it('the last task chip stays: the rule is not widened to every task, and a toast says how', async () => {
+      const captured: ToastMsg[] = [];
+      const pushSpy = vi.spyOn(toastStore, 'push').mockImplementation((entry) => {
+        captured.push(entry);
+      });
+      const r1 = rule({ id: 'r1', scope: { tasks: ['translate'] } });
+      const onUpdate = vi.fn<(next: readonly Rule[]) => void>();
+      const { container } = render(RulesEditor, { props: { rules: [r1], onUpdate } });
+      await openAdvancedRow(container, 'r1');
+
+      const chip = container.querySelector<HTMLButtonElement>(
+        '[data-ega-rule-row][data-rule-id="r1"] [data-ega-rule-task-chip="translate"]',
+      );
+      if (!chip) throw new Error('expected task chip');
+      await fireEvent.click(chip);
+
+      await waitFor(() => expect(captured.length).toBe(1));
+      expect(captured[0]?.message).toMatch(/at least one task/i);
+      expect(captured[0]?.message).toMatch(/edit scope/i);
+      expect(onUpdate).not.toHaveBeenCalled();
+      pushSpy.mockRestore();
+    });
+
+    it('Edit scope adds a task back to an all-tasks rule', async () => {
+      const r1 = rule({ id: 'r1', scope: { tasks: [] } });
+      const onUpdate = vi.fn<(next: readonly Rule[]) => void>();
+      const { container } = render(RulesEditor, { props: { rules: [r1], onUpdate } });
+      await openAdvancedRow(container, 'r1');
+
+      const edit = container.querySelector<HTMLButtonElement>(
+        '[data-ega-rule-row][data-rule-id="r1"] [data-ega-rule-edit-scope]',
+      );
+      if (!edit) throw new Error('expected Edit scope button');
+      await fireEvent.click(edit);
+
+      const box = await screen.findByRole('checkbox', { name: 'Translate' });
+      await fireEvent.click(box);
+      await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
+      expect(onUpdate.mock.calls[0]?.[0][0]?.scope.tasks).toEqual(['translate']);
+    });
+
+    it('Edit scope keeps the last checked task checked; All tasks is the explicit way to widen', async () => {
+      const r1 = rule({ id: 'r1', scope: { tasks: ['translate'] } });
+      const onUpdate = vi.fn<(next: readonly Rule[]) => void>();
+      const { container } = render(RulesEditor, { props: { rules: [r1], onUpdate } });
+      await openAdvancedRow(container, 'r1');
+      const edit = container.querySelector<HTMLButtonElement>('[data-ega-rule-edit-scope]');
+      if (!edit) throw new Error('expected Edit scope button');
+      await fireEvent.click(edit);
+
+      const last = await screen.findByRole('checkbox', { name: 'Translate' });
+      expect((last as HTMLInputElement).disabled).toBe(true);
+
+      await fireEvent.click(screen.getByRole('checkbox', { name: 'All tasks' }));
+      await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
+      expect(onUpdate.mock.calls[0]?.[0][0]?.scope.tasks).toEqual([]);
     });
 
     it('removing a site chip pushes an Undo toast that restores the scope', async () => {

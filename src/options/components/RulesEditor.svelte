@@ -121,12 +121,33 @@
     const r = rules.find((x) => x.id === id);
     if (!r) return;
     const has = r.scope.tasks.includes(task);
+    if (has && r.scope.tasks.length === 1) {
+      // An empty task list means every task, so removing the last chip would widen the rule.
+      toastStore.push({
+        message: 'A rule needs at least one task. Use Edit scope to apply it to all tasks.',
+        variant: 'info',
+      });
+      return;
+    }
     const tasks = has ? r.scope.tasks.filter((t) => t !== task) : [...r.scope.tasks, task];
+    await setRuleTasks(id, tasks, has ? 'Task removed from rule.' : null);
+  }
+
+  /** An empty list is the explicit "all tasks" scope. */
+  async function setRuleTasks(
+    id: string,
+    tasks: readonly string[],
+    undoMessage: string | null,
+  ): Promise<void> {
+    const r = rules.find((x) => x.id === id);
+    if (!r) return;
     const nextScope: Rule['scope'] =
-      r.scope.sites !== undefined ? { tasks, sites: r.scope.sites } : { tasks };
+      r.scope.sites !== undefined
+        ? { tasks: [...tasks], sites: r.scope.sites }
+        : { tasks: [...tasks] };
     const priorScope = r.scope;
     await patchRule(id, { scope: nextScope });
-    if (has) pushScopeUndo(id, priorScope, 'Task removed from rule.');
+    if (undoMessage !== null) pushScopeUndo(id, priorScope, undoMessage);
   }
 
   async function removeSiteFromRule(id: string, site: string): Promise<void> {
@@ -200,6 +221,7 @@
               onCategoryChange={(category: RuleCategory) => patchRule(r.id, { category })}
               onToggleEnabled={() => patchRule(r.id, { enabled: !r.enabled })}
               onToggleTask={(t) => toggleTaskOnRule(r.id, t)}
+              onSetTasks={(tasks, undoMessage) => setRuleTasks(r.id, tasks, undoMessage)}
               onRemoveSite={(s) => removeSiteFromRule(r.id, s)}
               onDelete={() => deleteRuleById(r.id)}
             />

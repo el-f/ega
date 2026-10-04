@@ -5,6 +5,8 @@
   import IconButton from '@/shared/ui/IconButton.svelte';
   import Badge from '@/shared/ui/Badge.svelte';
   import Select from '@/shared/ui/Select.svelte';
+  import Checkbox from '@/shared/ui/Checkbox.svelte';
+  import Popover from '@/shared/ui/Popover.svelte';
   import Textarea from '@/shared/ui/Textarea.svelte';
   import { RULE_BODY_MAX } from '@/shared/settings-schema';
   import Trash2 from '@lucide/svelte/icons/trash-2';
@@ -17,6 +19,8 @@
     onCategoryChange: (category: RuleCategory) => void | Promise<void>;
     onToggleEnabled: () => void | Promise<void>;
     onToggleTask: (task: string) => void | Promise<void>;
+    /** An empty list is the explicit "all tasks" scope; a message adds an Undo toast. */
+    onSetTasks: (tasks: readonly string[], undoMessage: string | null) => void | Promise<void>;
     /** Every task, on or off; names custom tasks. */
     taskViews?: readonly TaskView[];
     onRemoveSite: (site: string) => void | Promise<void>;
@@ -29,6 +33,7 @@
     onCategoryChange,
     onToggleEnabled,
     onToggleTask,
+    onSetTasks,
     taskViews = [],
     onRemoveSite,
     onDelete,
@@ -54,6 +59,17 @@
   function cancelEdit(): void {
     editing = false;
     editingDraft = '';
+  }
+
+  let scopeAnchor = $state<HTMLElement | null>(null);
+  let scopeOpen = $state(false);
+  const allTasks = $derived(rule.scope.tasks.length === 0);
+
+  function toggleScopeTask(id: string, on: boolean): void {
+    void onSetTasks(
+      on ? [...rule.scope.tasks, id] : rule.scope.tasks.filter((t) => t !== id),
+      null,
+    );
   }
 
   function categoryLabel(c: RuleCategory): string {
@@ -137,6 +153,50 @@
             {/if}
           {/each}
         {/if}
+        <span class="scope-edit" bind:this={scopeAnchor}>
+          <Button
+            variant="ghost"
+            size="sm"
+            extraClass="scope-edit-btn"
+            dataAttrs={{ 'data-ega-rule-edit-scope': 'true' }}
+            onclick={() => (scopeOpen = !scopeOpen)}
+          >
+            Edit scope
+          </Button>
+        </span>
+        <Popover
+          open={scopeOpen}
+          anchor={scopeAnchor}
+          title="Applies to"
+          onClose={() => (scopeOpen = false)}
+        >
+          <div class="scope-pop" role="group" aria-label="Tasks this rule applies to">
+            <Checkbox
+              size="sm"
+              label="All tasks"
+              checked={allTasks}
+              inputAttrs={{ disabled: allTasks }}
+              onchange={(on) => {
+                if (on) void onSetTasks([], 'Rule now applies to all tasks.');
+              }}
+            />
+            {#each taskViews as v (v.id)}
+              {@const on = rule.scope.tasks.includes(v.id)}
+              <Checkbox
+                size="sm"
+                label={v.label}
+                checked={on}
+                inputAttrs={{ disabled: on && rule.scope.tasks.length === 1 }}
+                onchange={(next) => toggleScopeTask(v.id, next)}
+              />
+            {/each}
+            <p class="scope-pop-hint">
+              {allTasks
+                ? 'Check a task to limit the rule to it.'
+                : 'A rule keeps at least one task. Check All tasks to apply it everywhere.'}
+            </p>
+          </div>
+        </Popover>
         {#if rule.scope.sites && rule.scope.sites.length > 0}
           <!-- Keyed by index, not by site: a stored rule can hold a duplicate site, and a duplicate key throws. -->
           {#each rule.scope.sites as s, i (i)}
@@ -271,6 +331,17 @@
   }
   .scope-chips :global(.ega-btn.scope-chip.site) {
     font-family: var(--font-mono);
+  }
+  .scope-pop {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    max-width: 240px;
+  }
+  .scope-pop-hint {
+    margin: 0;
+    font-size: var(--fs-xs);
+    color: var(--color-muted);
   }
   .rule-actions {
     display: inline-flex;

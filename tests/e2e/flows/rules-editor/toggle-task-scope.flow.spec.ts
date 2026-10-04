@@ -37,7 +37,7 @@ test.afterEach(async () => {
 
 test.slow();
 
-test('translate scope chip click removes task → scope.tasks becomes []', async () => {
+test('the last task chip stays; Edit scope > All tasks widens the rule on purpose', async () => {
   const timeline = createTimeline();
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
@@ -58,7 +58,13 @@ test('translate scope chip click removes task → scope.tasks becomes []', async
   timeline.markStep('chip-visible');
 
   await translateChip.click();
-  timeline.markStep('chip-clicked');
+  await expect(page.getByText(/needs at least one task/i)).toBeVisible({ timeout: 5_000 });
+  await expect(translateChip).toBeVisible();
+  timeline.markStep('last-chip-kept');
+
+  await row.locator('[data-ega-rule-edit-scope]').click();
+  await page.getByRole('checkbox', { name: 'All tasks' }).check();
+  timeline.markStep('all-tasks-picked');
 
   await expect
     .poll(
