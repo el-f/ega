@@ -245,9 +245,7 @@ function handleSelectionChange(): void {
           kind: 'settings:update',
           patch: { bubbleFirstRunSeen: true },
         })
-        .catch(() => {
-          /* best effort */
-        });
+        .catch(() => (firstRunPatchedFor = null));
     }
     // Re-detect for the pill: a matched variety beats showing a permanent `auto→en`.
     const displayDirection =

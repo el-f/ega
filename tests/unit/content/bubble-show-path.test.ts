@@ -88,6 +88,28 @@ describe('the selection bubble show path', () => {
     expect(firstRunPatches()).toEqual([{ bubbleFirstRunSeen: true }]);
   });
 
+  it('sends the first-run flag again on the next selection when the first send failed', async () => {
+    const send = chromeMock.runtime.sendMessage as Mock;
+    let failed = false;
+    send.mockImplementation((msg: { kind?: string }, ...rest: unknown[]) => {
+      if (msg.kind === 'settings:update' && !failed) {
+        failed = true;
+        return Promise.reject(new Error('worker restarting'));
+      }
+      return (workerReply as (...a: unknown[]) => unknown)(msg, ...rest);
+    });
+    await seed({ bubbleFirstRunSeen: false });
+    selectWord();
+    await mountedBubble();
+    await vi.waitFor(() => expect(failed).toBe(true));
+    await Promise.resolve();
+
+    hideBubble();
+    selectWord();
+    await mountedBubble();
+    expect(firstRunPatches()).toEqual([{ bubbleFirstRunSeen: true }, { bubbleFirstRunSeen: true }]);
+  });
+
   it('logs why the bubble showed when the debug flag is on', async () => {
     const debug = vi.spyOn(console, 'debug').mockImplementation(() => {});
     localStorage.setItem('ega-debug', '1');
