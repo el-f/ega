@@ -150,7 +150,8 @@
         settings={s}
         onSave={handlers.saveGlobalTemplate}
         onReset={handlers.resetGlobalTemplate}
-        inheritedLabel="Use built-in"
+        inheritedLabel="Reset prompt"
+        fieldResetLabel="Use built-in"
         onDirtyChange={(d) => (promptDirty = d)}
       />
       <p class="task-edit-note">
@@ -165,7 +166,8 @@
         settings={s}
         onSave={(tpl) => handlers.setTaskTemplate(task, tpl)}
         onReset={() => handlers.setTaskTemplate(task, null)}
-        inheritedLabel="Use built-in"
+        inheritedLabel="Reset prompt"
+        fieldResetLabel="Use built-in"
         onDirtyChange={(d) => (promptDirty = d)}
       />
     {:else}
@@ -174,9 +176,16 @@
         instructions.
       </p>
     {/if}
-    <p class="task-edit-line">
-      Answer: {view.output === 'card' ? 'Answer with notes' : 'Answer only'} (fixed for this task)
-    </p>
+    <dl class="task-edit-facts">
+      <div>
+        <dt>Answer</dt>
+        <dd>{view.output === 'card' ? 'Answer with notes' : 'Answer only'}</dd>
+      </div>
+      <div>
+        <dt>Images</dt>
+        <dd>{view.image ? 'Takes images' : 'Text only'}</dd>
+      </div>
+    </dl>
     <div data-ega-task-effort>
       <Select
         label="Effort"
@@ -204,9 +213,6 @@
         onchange={(on) => void save(() => updateTask(task, { glossary: on }))}
       />
     </fieldset>
-    <p class="task-edit-line">
-      Images: {view.image ? 'this task takes images' : 'this task does not take images'}
-    </p>
   </div>
   {#snippet actions()}
     <Button
@@ -232,6 +238,24 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
+  }
+  .task-edit-facts {
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-1) var(--space-5);
+    font-size: var(--fs-sm);
+  }
+  .task-edit-facts > div {
+    display: flex;
+    gap: var(--space-2);
+  }
+  .task-edit-facts dt {
+    font-weight: 500;
+  }
+  .task-edit-facts dd {
+    margin: 0;
   }
   .task-edit-line {
     margin: 0;

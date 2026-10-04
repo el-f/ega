@@ -42,7 +42,7 @@ test('deleting {{text}} blocks Save and leaves storage unchanged', async () => {
   timeline.markStep('save-clicked');
 
   // Other role="alert" nodes exist (an empty live region, the palette badge), so match by text.
-  await expect(page.locator('[role="alert"]', { hasText: /must include/i })).toBeVisible({
+  await expect(page.locator('[role="alert"]', { hasText: /must contain/i })).toBeVisible({
     timeout: 5_000,
   });
 

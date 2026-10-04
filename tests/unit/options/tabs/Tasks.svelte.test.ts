@@ -221,6 +221,27 @@ describe('Tasks tab — your own tasks', () => {
     await waitFor(() => expect(container.textContent).toContain('Tweet summary'));
   });
 
+  it('a variable chip inserts at the caret of the field focused last', async () => {
+    const { container } = await mount();
+    const add = container.querySelector<HTMLElement>('[data-ega-custom-task-new]');
+    if (!add) throw new Error('no new button');
+    await fireEvent.click(add);
+    const sys = await waitFor(() => {
+      const el = document.querySelector<HTMLTextAreaElement>('[data-ega-custom-task-system]');
+      if (!el) throw new Error('no instructions field');
+      return el;
+    });
+    await fill('[data-ega-custom-task-system]', 'Reply in .');
+    sys.setSelectionRange(9, 9);
+    await fireEvent.focusIn(sys);
+    const chip = document.querySelector<HTMLElement>('[data-ega-slot-chip="targetLangLabel"]');
+    if (!chip) throw new Error('no targetLangLabel chip');
+    await fireEvent.click(chip);
+    await waitFor(() => expect(sys.value).toBe('Reply in {{targetLangLabel}}.'));
+    const user = document.querySelector<HTMLTextAreaElement>('[data-ega-custom-task-user]');
+    expect(user?.value).toBe('TEXT:\n"""\n{{text}}\n"""');
+  });
+
   it('the preview shows the custom prompt and its contract line', async () => {
     const { addCustomTask } = await import('@/shared/tasks');
     const added = await addCustomTask({
@@ -239,16 +260,11 @@ describe('Tasks tab — your own tasks', () => {
     const edit = container.querySelector<HTMLElement>(`[data-ega-task-edit="${added.id}"]`);
     if (!edit) throw new Error('no edit');
     await fireEvent.click(edit);
-    const preview = await waitFor(() => {
-      const el = document.querySelector<HTMLElement>('[data-ega-custom-task-preview]');
-      if (!el) throw new Error('no preview button');
-      return el;
-    });
-    await fireEvent.click(preview);
     const { PLAIN_CONTRACT } = await import('@/shared/prompts');
     await waitFor(() => {
       const sys =
-        document.querySelector('[data-ega-custom-task-preview-system]')?.textContent ?? '';
+        document.querySelector('[data-ega-custom-task-dialog] [data-ega-preview-system]')
+          ?.textContent ?? '';
       expect(sys).toContain('Write a haiku.');
       expect(sys).toContain(PLAIN_CONTRACT);
     });

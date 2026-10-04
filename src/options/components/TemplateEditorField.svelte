@@ -103,10 +103,8 @@
     gap: var(--space-2);
   }
   .editor-label {
-    font-size: var(--fs-xs);
-    color: var(--color-fg-subtle);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    font-size: var(--fs-sm);
+    color: var(--color-fg);
     font-weight: 500;
   }
   .ta-wrapper {

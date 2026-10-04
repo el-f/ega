@@ -37,17 +37,25 @@ test('a new task from the Tasks tab shows in the chip strip and the tooltip sele
   await expect(dialog).toBeVisible({ timeout: 5_000 });
   await dialog.locator('[data-ega-custom-task-name]').fill('Tweet summary');
   await dialog.locator('[data-ega-custom-task-system]').fill('Summarize as one tweet.');
+  // A variable chip inserts at the caret of the field focused last, here the Instructions.
+  await dialog.locator('[data-ega-custom-task-system]').focus();
+  await dialog.locator('[data-ega-custom-task-system]').press('End');
+  await dialog.locator('[data-ega-slot-chip="targetLangLabel"]').click();
+  await expect(dialog.locator('[data-ega-custom-task-system]')).toHaveValue(
+    'Summarize as one tweet.{{targetLangLabel}}',
+  );
   await dialog.locator('[data-ega-custom-task-user]').fill('Thread: {{text}}');
   await dialog.locator('[data-ega-custom-task-output]').getByText('Answer with notes').click();
   await dialog.locator('[data-ega-custom-task-effort] select').selectOption('low');
   await dialog.locator('[data-ega-custom-task-page-context]').check();
   await dialog.locator('[data-ega-custom-task-image]').check();
   await dialog.locator('[data-ega-custom-task-glossary]').check();
-  await dialog.locator('[data-ega-custom-task-preview]').click();
-  await expect(dialog.locator('[data-ega-custom-task-preview-system]')).toContainText(
+  await dialog.locator('[data-ega-compile-preview] summary').click();
+  await expect(dialog.locator('[data-ega-preview-system]')).toContainText(
     'Summarize as one tweet.',
   );
-  await expect(dialog.locator('[data-ega-custom-task-preview-user]')).toContainText('Thread:');
+  await expect(dialog.locator('[data-ega-preview-history]')).toBeVisible();
+  await expect(dialog.locator('[data-ega-preview-user]')).toContainText('Thread:');
   timeline.markStep('previewed');
   await options.locator('[data-ega-custom-task-save]').click();
   await expect
@@ -65,7 +73,7 @@ test('a new task from the Tasks tab shows in the chip strip and the tooltip sele
     .toEqual([
       {
         label: 'Tweet summary',
-        system: 'Summarize as one tweet.',
+        system: 'Summarize as one tweet.{{targetLangLabel}}',
         user: 'Thread: {{text}}',
         output: 'card',
         effort: 'low',

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, untrack } from 'svelte';
+  import { onMount, tick, untrack } from 'svelte';
   import type { Settings, Variety } from '@/shared/types';
   import {
     CUSTOM_TASK_LABEL_MAX,
@@ -8,7 +8,7 @@
     type CustomTask,
     type TaskEffort,
   } from '@/shared/settings-schema';
-  import { validateAgainstSlots } from '@/shared/slot-registry';
+  import { slotsFor, validateAgainstSlots } from '@/shared/slot-registry';
   import { EFFORT_LABEL } from '@/options/components/EffortSegmented.svelte';
   import {
     addCustomTask,
@@ -17,7 +17,9 @@
     type CustomTaskInput,
   } from '@/shared/tasks';
   import { listVarieties } from '@/shared/varieties';
-  import { buildCustomPreviewPrompt } from '@/options/preview-prompt';
+  import { buildCustomPreviewPrompt, PREVIEW_SAMPLE_TEXT } from '@/options/preview-prompt';
+  import SlotPalette from '@/options/components/SlotPalette.svelte';
+  import TemplateEditorCompiledPreview from '@/options/components/TemplateEditorCompiledPreview.svelte';
   import { saveVia } from '@/options/storage-with-toast';
   import { confirmDialog } from '@/shared/components/confirmDialog';
   import { toastStore } from '@/shared/components/toastStore';
@@ -39,10 +41,9 @@
 
   const { s, row, onClose, onSaved }: Props = $props();
 
-  const INSERTS = ['text', 'targetLangLabel', 'langLabel', 'tone', 'context'] as const;
-
   // The form edits a copy: a row change from another window must not overwrite what the user is typing.
   const initial = untrack(() => row);
+  const taskId = initial?.id ?? 'custom';
   let label = $state(initial?.label ?? '');
   let system = $state(initial?.system ?? '');
   let user = $state(initial?.user ?? 'TEXT:\n"""\n{{text}}\n"""');
@@ -51,7 +52,6 @@
   let pageContext = $state(initial?.pageContext ?? false);
   let image = $state(initial?.image ?? false);
   let glossary = $state(initial?.glossary ?? false);
-  let previewShown = $state(false);
   let saving = $state(false);
   let varieties = $state.raw<Variety[]>([]);
   let saveError = $state<string | null>(null);
@@ -108,7 +108,7 @@
     glossary,
     ...(effort !== '' ? { effort: effort as TaskEffort } : {}),
   });
-  const check = $derived(validateAgainstSlots({ system, user }, row?.id ?? 'custom'));
+  const check = $derived(validateAgainstSlots({ system, user }, taskId));
   const canSave = $derived(draft.label.length > 0 && check.ok);
 
   const effortOptions = $derived([
@@ -116,22 +116,42 @@
     ...EFFORT_LEVELS.map((e) => ({ value: e, label: EFFORT_LABEL[e] })),
   ]);
 
-  function insert(slot: string): void {
-    user = `${user}{{${slot}}}`;
+  const resolvedValues = Object.fromEntries(slotsFor(taskId).map((x) => [x.name, x.example]));
+
+  // The palette inserts at the caret of the field focused last; the Message holds {{text}}, so it is the default.
+  let lastField: 'system' | 'user' = 'user';
+  const fieldEls: Partial<Record<'system' | 'user', HTMLTextAreaElement>> = {};
+  function trackFocus(e: FocusEvent): void {
+    if (!(e.target instanceof HTMLTextAreaElement)) return;
+    lastField = e.target.hasAttribute('data-ega-custom-task-system') ? 'system' : 'user';
+    fieldEls[lastField] = e.target;
   }
 
-  // Follows the draft while shown, so it never shows a prompt the user has since changed.
+  function insert(token: string): void {
+    const which = lastField;
+    const el = fieldEls[which];
+    const cur = which === 'system' ? system : user;
+    const start = el?.selectionStart ?? cur.length;
+    const end = el?.selectionEnd ?? cur.length;
+    const next = cur.slice(0, start) + token + cur.slice(end);
+    if (which === 'system') system = next;
+    else user = next;
+    const caret = start + token.length;
+    void tick().then(() => {
+      el?.focus();
+      el?.setSelectionRange(caret, caret);
+    });
+  }
+
   const preview = $derived(
-    previewShown
-      ? buildCustomPreviewPrompt(s, {
-          id: row?.id ?? 'custom',
-          row: draft,
-          text: 'Hello world (sample text for preview).',
-          sourceLang: 'auto',
-          targetLang: s.defaultTargetLang ?? 'en',
-          varieties,
-        })
-      : null,
+    buildCustomPreviewPrompt(s, {
+      id: taskId,
+      row: draft,
+      text: PREVIEW_SAMPLE_TEXT,
+      sourceLang: 'auto',
+      targetLang: s.defaultTargetLang ?? 'en',
+      varieties,
+    }),
   );
   const contextUnused = $derived(
     !pageContext && (system.includes('{{context}}') || user.includes('{{context}}')),
@@ -185,27 +205,25 @@
       maxlength={CUSTOM_TASK_LABEL_MAX}
       dataAttrs={{ 'data-ega-custom-task-name': true }}
     />
-    <Textarea
-      label="Instructions"
-      bind:value={system}
-      rows={4}
-      mono
-      maxlength={TEMPLATE_MAX}
-      dataAttrs={{ 'data-ega-custom-task-system': true }}
-    />
-    <Textarea
-      label={'Message (must contain {{text}})'}
-      bind:value={user}
-      rows={3}
-      mono
-      maxlength={TEMPLATE_MAX}
-      dataAttrs={{ 'data-ega-custom-task-user': true }}
-    />
-    <div class="custom-task-inserts" role="group" aria-label="Insert a variable">
-      <span>Insert:</span>
-      {#each INSERTS as slot (slot)}
-        <Button variant="ghost" size="sm" onclick={() => insert(slot)}>{`{{${slot}}}`}</Button>
-      {/each}
+    <SlotPalette task={taskId} template={{ system, user }} {resolvedValues} onInsert={insert} />
+    <div class="custom-task-fields" onfocusin={trackFocus}>
+      <Textarea
+        label="Instructions"
+        placeholder="What the model should do with the text, for example: Turn it into a polite email reply."
+        bind:value={system}
+        rows={4}
+        mono
+        maxlength={TEMPLATE_MAX}
+        dataAttrs={{ 'data-ega-custom-task-system': true }}
+      />
+      <Textarea
+        label="Message"
+        bind:value={user}
+        rows={3}
+        mono
+        maxlength={TEMPLATE_MAX}
+        dataAttrs={{ 'data-ega-custom-task-user': true }}
+      />
     </div>
     {#each check.errors as e (e.message)}
       <p class="custom-task-error" role="alert">{e.message}</p>
@@ -258,18 +276,11 @@
         inputAttrs={{ 'data-ega-custom-task-glossary': true }}
       />
     </fieldset>
-    <div>
-      <Button
-        variant="secondary"
-        size="sm"
-        dataAttrs={{ 'data-ega-custom-task-preview': true }}
-        onclick={() => (previewShown = true)}>Preview prompt</Button
-      >
-    </div>
-    {#if preview}
-      <pre class="custom-task-preview" data-ega-custom-task-preview-system>{preview.system}</pre>
-      <pre class="custom-task-preview" data-ega-custom-task-preview-user>{preview.user}</pre>
-    {/if}
+    <TemplateEditorCompiledPreview
+      previewSys={preview.system}
+      previewUsr={preview.user}
+      sampleText={PREVIEW_SAMPLE_TEXT}
+    />
     {#if saveError}
       <p class="custom-task-error" role="alert">{saveError}</p>
     {/if}
@@ -298,7 +309,11 @@
     flex-direction: column;
     gap: var(--space-3);
   }
-  .custom-task-inserts,
+  .custom-task-fields {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
   .custom-task-row {
     display: flex;
     flex-wrap: wrap;
@@ -333,15 +348,5 @@
     margin-bottom: var(--space-1);
     font-size: var(--fs-sm);
     font-weight: 500;
-  }
-  .custom-task-preview {
-    margin: 0;
-    padding: var(--space-2);
-    max-height: 200px;
-    overflow: auto;
-    white-space: pre-wrap;
-    font-size: var(--fs-xs);
-    background: var(--color-bg-sunken);
-    border-radius: var(--radius-sm);
   }
 </style>

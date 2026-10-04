@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   SLOT_REGISTRY,
+  slotsFor,
   slotsForTask,
   validateAgainstSlots,
   extractCustomSlots,
@@ -10,6 +11,23 @@ import {
 import { ALL_TASKS } from '@/shared/task-prompts';
 
 describe('slot-registry', () => {
+  it('slotsFor a custom task id offers only the slots every task fills', () => {
+    const names = slotsFor('custom-1700000000000').map((s) => s.name);
+    expect(names).toContain('text');
+    expect(names).toContain('tone');
+    expect(names).not.toContain('explainInstr');
+    expect(names).not.toContain('detectiveInstr');
+    expect(names).toEqual(
+      Object.values(SLOT_REGISTRY)
+        .filter((s) => ALL_TASKS.every((t) => s.filledFor.includes(t)))
+        .map((s) => s.name),
+    );
+  });
+
+  it('slotsFor a built-in task matches slotsForTask', () => {
+    expect(slotsFor('explain')).toEqual(slotsForTask('explain'));
+  });
+
   it('exposes built-in slots with description + filledFor', () => {
     const text = SLOT_REGISTRY['text'];
     expect(text).toBeDefined();
@@ -57,7 +75,7 @@ describe('slot-registry', () => {
     const res = validateAgainstSlots({ system: 'sys', user: 'just user' }, 'translate');
     expect(res.ok).toBe(false);
     // The message explains the slot and names the recovery path.
-    expect(res.errors[0]?.message).toMatch(/must include \{\{text\}\}/);
+    expect(res.errors[0]?.message).toMatch(/must contain \{\{text\}\}/);
     expect(res.errors[0]?.message).toMatch(/selected text/);
     expect(res.errors[0]?.message).toMatch(/Insert variable/);
   });

@@ -15,7 +15,7 @@
 
 ## Task editor (your own tasks)
 
-- New task and Edit open an editor: Name, Instructions, Message (must contain {{text}}), insert buttons, Answer (Answer only / Answer with notes), Effort, the three Inputs checkboxes and Preview prompt.
+- New task and Edit open an editor: Name, Instructions, Message (must contain {{text}}), the same Variables chips and Insert variable picker as the built-in editor (insert at the caret of the field focused last), Answer (Answer only / Answer with notes), Effort, the three Inputs checkboxes and the "Preview what the model receives" section.
 - Save writes the row and closes the editor; Cancel closes it with no write; Delete asks first, then removes the task.
 
 ## A11y

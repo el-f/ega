@@ -5,7 +5,7 @@ There is no Templates tab any more. Prompts are edited in each task's edit dialo
 ## Invariants
 
 - The Translate dialog edits the Translate prompt, which Explain and every language without its own prompt use. Summarize, Reword, Grammar, Reply ideas and Ask each edit their own prompt. Explain shows a line that names the prompt it uses, and no editor.
-- The editor is two plain textareas (System / User template) that always show the raw template, with a collapsed compiled preview beneath.
+- The editor is two plain textareas (Instructions / Message) that always show the raw template, with a collapsed "Preview what the model receives" section beneath.
 - Slot palette ("Variables") sits above the editor, always open; hover on a slot pill shows a registry tooltip.
 - Insert-variable popover anchors to the trigger button and must NOT cover the slot palette above it, and must stay usable inside the dialog.
 - Rules empty state explains how to add a rule; the "Add a rule" form sits below it.

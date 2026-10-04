@@ -17,7 +17,7 @@
 
 ## Failure-mode expectations
 
-- A missing required slot blocks Save: an inline alert says the user template must include `{{text}}`, and nothing is written.
+- A missing required slot blocks Save: an inline alert says the message must contain `{{text}}`, and nothing is written.
 
 ## Cautions
 

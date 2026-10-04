@@ -109,6 +109,13 @@ export function slotsForTask(task: Task): readonly SlotSpec[] {
   return Object.values(SLOT_REGISTRY).filter((s) => s.filledFor.includes(task));
 }
 
+/** A built-in task's slots; for a custom task id, the slots every task fills. */
+export function slotsFor(task: string): readonly SlotSpec[] {
+  const builtIn = builtInTask(task);
+  if (builtIn) return slotsForTask(builtIn);
+  return Object.values(SLOT_REGISTRY).filter((s) => ALL.every((t) => s.filledFor.includes(t)));
+}
+
 /** Every registered slot. The global template spans all tasks, so its palette
  *  must offer slots no single task fills — `explainInstr`, `explainField`. */
 export function allSlots(): readonly SlotSpec[] {
@@ -119,11 +126,9 @@ export function isBuiltInSlot(name: string): boolean {
   return Object.hasOwn(SLOT_REGISTRY, name);
 }
 
-export function requiredMissingSlots(task: Task, userTemplate: string): readonly string[] {
-  return Object.values(SLOT_REGISTRY)
-    .filter(
-      (s) => s.required && s.filledFor.includes(task) && !userTemplate.includes(`{{${s.name}}}`),
-    )
+export function requiredMissingSlots(task: string, userTemplate: string): readonly string[] {
+  return slotsFor(task)
+    .filter((s) => s.required && !userTemplate.includes(`{{${s.name}}}`))
     .map((s) => s.name);
 }
 
@@ -138,17 +143,11 @@ export function validateAgainstSlots(template: PromptTemplate, task: string): Sl
   const errors: SlotValidationResult['errors'] = [];
   const warnings: SlotValidationResult['warnings'] = [];
   const builtIn = builtInTask(task);
-  const missing = builtIn
-    ? requiredMissingSlots(builtIn, template.user)
-    : template.user.includes('{{text}}')
-      ? []
-      : ['text'];
+  const missing = requiredMissingSlots(task, template.user);
 
   for (const name of missing) {
     errors.push({
-      message: builtIn
-        ? `The user template must include {{${name}}} — it marks where the selected text goes. Add it with Insert variable.`
-        : `The message must contain {{${name}}}. It marks where the selected text goes. Add it with the {{${name}}} button.`,
+      message: `The message must contain {{${name}}}. It marks where the selected text goes. Add it with Insert variable.`,
       slot: name,
     });
   }

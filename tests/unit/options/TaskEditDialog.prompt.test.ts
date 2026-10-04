@@ -49,7 +49,7 @@ describe('the prompt editor inside a task dialog', () => {
       taskOverrides: { summarize: { system: 'My system.', user: 'My user {{text}}' } },
     });
     await open('summarize');
-    await click('[data-ega-reset-field][aria-label^="Reset system"]');
+    await click('[data-ega-reset-field][aria-label^="Reset instructions"]');
 
     await waitFor(async () =>
       expect((await getSettings()).taskOverrides.summarize).toEqual({ user: 'My user {{text}}' }),

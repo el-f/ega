@@ -1,63 +1,81 @@
 <script lang="ts">
-  import type { Task } from '@/shared/task-prompts';
+  import { CHAT_HISTORY_TOKEN_BUDGET } from '@/shared/chat-history';
   import Checkbox from '@/shared/ui/Checkbox.svelte';
 
   interface Props {
-    task: Task;
     previewSys: string;
     previewUsr: string;
-    previewExplain: boolean;
-    onPreviewExplainChange: (next: boolean) => void;
+    sampleText: string;
+    /** Set for the prompts Explain also runs, so the preview can show its extra instructions. */
+    explain?: { checked: boolean; onChange: (next: boolean) => void } | undefined;
   }
 
-  const { task, previewSys, previewUsr, previewExplain, onPreviewExplainChange }: Props = $props();
+  const { previewSys, previewUsr, sampleText, explain }: Props = $props();
+
+  const historyBudget = CHAT_HISTORY_TOKEN_BUDGET.toLocaleString('en-US');
+  let details: HTMLDetailsElement | null = $state(null);
+
+  // Opened at the bottom of a scrolling dialog, the preview would land out of sight.
+  function onToggle(): void {
+    if (details?.open) details.scrollIntoView({ block: 'nearest' });
+  }
 </script>
 
-<details class="compile-preview" data-ega-compile-preview>
-  <summary class="preview-heading">
+<details class="prompt-preview" data-ega-compile-preview bind:this={details} ontoggle={onToggle}>
+  <summary class="preview-summary">
     <span class="preview-chevron" aria-hidden="true"></span>
-    <span class="preview-pill" aria-hidden="true">Read-only</span>
-    Compiled preview
+    Preview what the model receives
   </summary>
-  {#if task === 'translate' || task === 'explain'}
-    <span class="preview-toggle">
-      <Checkbox checked={previewExplain} size="sm" onchange={onPreviewExplainChange}>
-        Explain mode (drives <code>{`{{explainField}}`}</code> +
-        <code>{`{{explainInstr}}`}</code>)
-      </Checkbox>
-    </span>
+  <p class="preview-note">
+    With the sample text “{sampleText}” and your current settings. You cannot edit it here.
+  </p>
+  {#if explain}
+    <Checkbox checked={explain.checked} size="sm" onchange={explain.onChange}>
+      Preview as Explain (adds its notes instructions)
+    </Checkbox>
   {/if}
-  <div class="preview-block">
-    <div class="preview-label">System</div>
+  <section class="preview-part">
+    <h3 class="preview-label">Instructions</h3>
     <pre class="preview-pre" data-ega-preview-system>{previewSys}</pre>
-  </div>
-  <div class="preview-block">
-    <div class="preview-label">User</div>
+  </section>
+  <section class="preview-part" data-ega-preview-history>
+    <h3 class="preview-label">Earlier messages</h3>
+    <p class="preview-slot">
+      From the side panel, the most recent earlier messages of the conversation go here, up to about {historyBudget}
+      tokens. Tooltip and image requests send none.
+    </p>
+  </section>
+  <section class="preview-part">
+    <h3 class="preview-label">Message</h3>
     <pre class="preview-pre" data-ega-preview-user>{previewUsr}</pre>
-  </div>
+  </section>
 </details>
 
 <style>
-  .compile-preview {
-    border: 1px dashed var(--color-border);
+  .prompt-preview {
+    border: 1px solid var(--color-border-subtle);
     border-radius: var(--radius-md);
     background: var(--color-bg-sunken);
     padding: var(--space-2) var(--space-3);
   }
-  .compile-preview[open] {
+  .prompt-preview[open] {
     display: flex;
     flex-direction: column;
-    gap: var(--space-2);
+    gap: var(--space-3);
+    padding-bottom: var(--space-3);
   }
-  .compile-preview > summary {
+  .preview-summary {
     cursor: pointer;
     list-style: none;
     user-select: none;
     display: inline-flex;
     align-items: center;
     gap: var(--space-2);
+    font-size: var(--fs-sm);
+    font-weight: 500;
+    color: var(--color-fg);
   }
-  .compile-preview > summary::-webkit-details-marker {
+  .preview-summary::-webkit-details-marker {
     display: none;
   }
   .preview-chevron {
@@ -69,54 +87,23 @@
     transform: rotate(-45deg);
     transition: transform var(--motion-fast) var(--ease-out);
   }
-  .compile-preview[open] > summary > .preview-chevron {
+  .prompt-preview[open] .preview-chevron {
     transform: rotate(45deg);
   }
-  .compile-preview > summary:hover {
-    color: var(--color-fg);
-  }
-  .preview-heading {
+  .preview-note {
+    margin: 0;
     font-size: var(--fs-xs);
-    color: var(--color-fg-subtle);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    font-weight: 500;
+    color: var(--color-muted);
   }
-  .preview-pill {
-    padding: 1px var(--space-2);
-    border-radius: var(--radius-pill);
-    background: var(--color-bg-elevated);
-    border: 1px solid var(--color-border-subtle);
-    color: var(--color-fg-subtle);
-    font-size: var(--fs-xs);
-    text-transform: none;
-    letter-spacing: 0;
-    font-weight: 400;
-  }
-  .preview-toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-2);
-    font-size: var(--fs-sm);
-    color: var(--color-fg);
-    cursor: pointer;
-    user-select: none;
-  }
-  .preview-toggle code {
-    font-family: var(--font-mono);
-    font-size: var(--fs-xs);
-    padding: 0 4px;
-    background: var(--color-bg-elevated);
-    border-radius: var(--radius-sm);
-    color: var(--color-accent);
-  }
-  .preview-block {
+  .preview-part {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--space-1);
   }
   .preview-label {
+    margin: 0;
     font-size: var(--fs-xs);
+    font-weight: 500;
     color: var(--color-fg-subtle);
   }
   .preview-pre {
@@ -133,5 +120,13 @@
     word-break: break-word;
     max-height: 14rem;
     overflow: auto;
+  }
+  .preview-slot {
+    margin: 0;
+    padding: var(--space-2);
+    border: 1px dashed var(--color-border);
+    border-radius: var(--radius-sm);
+    font-size: var(--fs-xs);
+    color: var(--color-muted);
   }
 </style>

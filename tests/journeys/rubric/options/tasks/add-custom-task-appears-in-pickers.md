@@ -6,7 +6,7 @@
 
 ## State expectations
 
-- Step 1: the user opens New task, types a name, instructions and a message with `{{text}}`, picks "Answer with notes", an effort and the three inputs, and opens Preview prompt.
+- Step 1: the user opens New task, types a name, instructions and a message with `{{text}}`, picks "Answer with notes", an effort and the three inputs, and opens "Preview what the model receives".
 - Step 2: the preview shows the instructions and the message as the router builds them.
 - Step 3 (Save): `ega.customTasks` holds one row with every field the user set; the "Your tasks" list shows it.
 - Step 4: a side panel opened next shows the task as a chip in the strip.

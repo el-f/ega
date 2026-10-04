@@ -69,7 +69,7 @@ describe('TemplateEditor — blocked save', () => {
     });
     const alerts = container.querySelectorAll('[role="alert"]');
     expect(alerts.length).toBe(1);
-    expect(alerts[0]?.textContent).toMatch(/must include \{\{text\}\}/);
+    expect(alerts[0]?.textContent).toMatch(/must contain \{\{text\}\}/);
     expect(alerts[0]?.textContent).toMatch(/Insert variable/);
     expect(onSave).not.toHaveBeenCalled();
   });

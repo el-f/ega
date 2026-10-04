@@ -160,5 +160,5 @@ The user's text cannot be trusted to keep the JSON shape the parser needs, so th
 line after the Instructions, picked by the task's Answer setting:
 `src/shared/prompts.ts#PLAIN_CONTRACT` for "Answer only" and
 `src/shared/prompts.ts#CARD_CONTRACT` for "Answer with notes". Built-in prompts never get this
-line; each keeps its own `Return JSON ONLY` sentence. The editor's Preview prompt button shows
+line; each keeps its own `Return JSON ONLY` sentence. The editor's "Preview what the model receives" section shows
 the exact system and user text the router sends, contract line included.

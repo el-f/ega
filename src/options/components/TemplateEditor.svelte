@@ -17,7 +17,7 @@
   import { isBuiltInSlot, validateAgainstSlots, slotsForTask } from '@/shared/slot-registry';
   import { expandSnippets } from '@/shared/snippets';
   import { TEMPLATE_MAX } from '@/shared/settings-schema';
-  import { buildPreviewPrompt } from '@/options/preview-prompt';
+  import { buildPreviewPrompt, PREVIEW_SAMPLE_TEXT } from '@/options/preview-prompt';
   import { listVarieties } from '@/shared/varieties';
   import { asLangPresetIdUnsafe } from '@/shared/brands';
 
@@ -91,7 +91,7 @@
         task,
         explain: previewExplain,
         template: draft,
-        text: 'Hello world (sample text for preview).',
+        text: PREVIEW_SAMPLE_TEXT,
         sourceLang: presetScope ? asLangPresetIdUnsafe(presetScope) : 'auto',
         targetLang: settings.defaultTargetLang ?? 'en',
         varieties,
@@ -178,7 +178,7 @@
     usr = inheritedTemplate.user;
     await onReset();
     lastKey = `${sys}\x00${usr}`;
-    saveOk = inheritedLabel;
+    saveOk = 'Reset';
   }
 
   // ── Per-field reset — auto-persists ───────────────────────────────
@@ -239,12 +239,12 @@
 
   <TemplateEditorField
     id="te-sys"
-    labelText="System template"
+    labelText="Instructions"
     value={sys}
-    placeholder="System template"
+    placeholder="What the model should do"
     showReset={sysShowReset}
     inheritedLabel={fieldResetLabel}
-    resetAriaLabel={`Reset system — ${fieldResetLabel}`}
+    resetAriaLabel={`Reset instructions — ${fieldResetLabel}`}
     wrapperDataAttr="data-ega-template-system"
     onValueChange={(next) => (sys = next)}
     onFocus={() => (lastFocused = 'sys')}
@@ -254,12 +254,12 @@
 
   <TemplateEditorField
     id="te-usr"
-    labelText="User template"
+    labelText="Message"
     value={usr}
-    placeholder="User template"
+    placeholder={'The message around {{text}}'}
     showReset={usrShowReset}
     inheritedLabel={fieldResetLabel}
-    resetAriaLabel={`Reset user — ${fieldResetLabel}`}
+    resetAriaLabel={`Reset message — ${fieldResetLabel}`}
     wrapperDataAttr="data-ega-template-user"
     onValueChange={(next) => (usr = next)}
     onFocus={() => (lastFocused = 'usr')}
@@ -282,11 +282,12 @@
   />
 
   <TemplateEditorCompiledPreview
-    {task}
     {previewSys}
     {previewUsr}
-    {previewExplain}
-    onPreviewExplainChange={(next) => (previewExplain = next)}
+    sampleText={PREVIEW_SAMPLE_TEXT}
+    explain={task === 'translate' || task === 'explain'
+      ? { checked: previewExplain, onChange: (next) => (previewExplain = next) }
+      : undefined}
   />
 </div>
 

@@ -1,11 +1,9 @@
 <script lang="ts" module>
-  import type { Task } from '@/shared/task-prompts';
   import type { PromptTemplate } from '@/shared/types';
 
   export interface SlotPaletteProps {
-    /** Drives `slotsForTask` so users only see chips that actually fill in
-     *  for the current task. */
-    task: Task;
+    /** A built-in task or a custom task id: users only see chips that fill in for it. */
+    task: string;
     /** Global scope spans every task — offer the whole registry, not one task's subset. */
     allTaskSlots?: boolean;
     /** Live draft template — used to detect custom `{{xyz}}` slots not in
@@ -21,7 +19,7 @@
 
 <script lang="ts">
   import {
-    slotsForTask,
+    slotsFor,
     allSlots,
     extractCustomSlots,
     requiredMissingSlots,
@@ -39,7 +37,7 @@
     onInsert,
   }: SlotPaletteProps = $props();
 
-  const builtInSlots = $derived(allTaskSlots ? allSlots() : slotsForTask(task));
+  const builtInSlots = $derived(allTaskSlots ? allSlots() : slotsFor(task));
   const customDetected = $derived(extractCustomSlots(template));
 
   const requiredMissing = $derived(requiredMissingSlots(task, template.user));

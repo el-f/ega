@@ -15,6 +15,8 @@ import type {
   Variety,
 } from '@/shared/types';
 
+export const PREVIEW_SAMPLE_TEXT = 'Hello world (sample text for preview).';
+
 export interface PreviewInput {
   task: Task;
   explain: boolean;

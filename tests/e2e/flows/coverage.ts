@@ -740,7 +740,7 @@ export const COVERAGE: readonly Family[] = [
           },
           {
             id: 'compiled-preview',
-            description: 'Compiled preview renders the resolved system + user',
+            description: 'The prompt preview renders the resolved instructions + message',
             flows: ['options-tasks/compiled-preview.flow.spec.ts'],
           },
           {

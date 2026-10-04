@@ -47,7 +47,7 @@ test('removing {{text}} shows required badge on chip AND blocks Save with alert'
   timeline.markStep('save-clicked');
 
   // Match by text — a bare [role="alert"].first() picks up the hidden live region.
-  await expect(page.locator('[role="alert"]', { hasText: /must include/i })).toBeVisible({
+  await expect(page.locator('[role="alert"]', { hasText: /must contain/i })).toBeVisible({
     timeout: 5_000,
   });
   timeline.markStep('alert-shown');
