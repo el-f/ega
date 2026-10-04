@@ -2314,7 +2314,7 @@ test('Page-translate v2 — bilingual + inplace + streaming + error-block', asyn
     userAction: 'backend returned 500 for all blocks; v2 bilingual siblings show the error state',
     expectations: [
       'sibling blocks show data-ega-tx-state="error"',
-      'retry button (↻) hidden at rest; it shows on hover or keyboard focus',
+      'retry button (↻) always visible next to the error chip',
       'error text or code visible in the sibling',
     ],
   });

@@ -18,7 +18,7 @@
 - **In-place mode**: `data-ega-replaced` wrapper replaces the original children. No bilingual sibling row.
 - Streaming state: `data-ega-tx-state="streaming"` — sibling carries `…` placeholder or partial translation text (never raw JSON), and its opacity pulses until it settles (no pulse under reduced motion).
 - Done state: `data-ega-tx-state="ok"` — sibling carries final translated text. No `…` placeholder.
-- Error state: `data-ega-tx-state="error"` — block shows a `⚠ <error label>` chip (`[data-ega-tx-error]`); the `↻` retry button (`[data-ega-retry-block]`) stays invisible until hover or focus.
+- Error state: `data-ega-tx-state="error"` — block shows a `⚠ <error label>` chip (`[data-ega-tx-error]`); the `↻` retry button (`[data-ega-retry-block]`) is always visible.
 - Blocks only around the areas the user picked — never around unpicked metadata (`class="meta"`, `time`, `.score`, etc.).
 
 ## States

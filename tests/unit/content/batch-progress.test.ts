@@ -128,7 +128,7 @@ describe('batch-progress lifecycle', () => {
     const h = showBatchProgress(5, () => {});
     h.settle({ done: 5, total: 5, complete: false, failed: 2 });
     const label = shadowQuery('[data-ega-batch-label]');
-    expect(label?.textContent).toBe('Finished 5 / 5 · 2 failed');
+    expect(label?.textContent).toBe('2 of 5 areas failed');
     h.dismiss();
   });
 
@@ -137,7 +137,7 @@ describe('batch-progress lifecycle', () => {
     const h = showBatchProgress(5, () => {});
     h.settle({ done: 5, total: 5, complete: false, failed: 5, failedLabel: 'Setup needed' });
     expect(shadowQuery('[data-ega-batch-label]')?.textContent).toBe(
-      'Finished 5 / 5 · 5 failed — Setup needed',
+      'All 5 areas failed: Setup needed',
     );
     h.dismiss();
   });
@@ -158,14 +158,79 @@ describe('batch-progress lifecycle', () => {
     h.setOnToggleOriginal(() => {});
 
     h.update(3);
-    expect(shadowQuery('[data-ega-batch-label]')?.textContent).toBe('Translating 3 / 4…');
+    expect(shadowQuery('[data-ega-batch-label]')?.textContent).toBe('Translating 3 of 4 areas…');
     const btn = shadowQuery('[data-ega-batch-cancel]') as HTMLButtonElement;
-    expect(btn.textContent).toBe('Cancel');
+    expect(btn.textContent.trim()).toBe('Stop');
 
     // Re-settling after the retry finishes puts the toggle back.
     h.settle({ done: 4, total: 4, complete: true, failed: 0 });
     expect(shadowQuery('[data-ega-batch-label]')?.textContent).toBe('Page translated');
     expect(btn.textContent).toBe('Show original');
+    h.dismiss();
+  });
+
+  it('shows Retry failed only when a settled batch has failures, and wires it', async () => {
+    const { showBatchProgress } = await import('@/content/batch-progress');
+    const onRetry = vi.fn();
+    const h = showBatchProgress(4, () => {});
+    h.setOnRetryFailed(onRetry);
+    const btn = shadowQuery('.retry-failed') as HTMLButtonElement;
+    expect(btn.hidden).toBe(true);
+
+    h.settle({ done: 4, total: 4, complete: false, failed: 1 });
+    expect(btn.hidden).toBe(false);
+    btn.click();
+    expect(onRetry).toHaveBeenCalledTimes(1);
+
+    h.settle({ done: 4, total: 4, complete: true, failed: 0 });
+    expect(btn.hidden).toBe(true);
+    h.dismiss();
+  });
+
+  it('turns the bar red once a settled batch has failures', async () => {
+    const { showBatchProgress } = await import('@/content/batch-progress');
+    const h = showBatchProgress(4, () => {});
+    const fill = shadowQuery('[data-ega-batch-bar-fill]') as HTMLElement;
+    expect(fill.dataset['tone']).toBeUndefined();
+    h.settle({ done: 4, total: 4, complete: false, failed: 2 });
+    expect(fill.dataset['tone']).toBe('failed');
+    h.dismiss();
+  });
+
+  it('Undo all calls its handler both while running and after settle', async () => {
+    const { showBatchProgress } = await import('@/content/batch-progress');
+    const onUndo = vi.fn();
+    const onCancel = vi.fn();
+    const h = showBatchProgress(3, onCancel);
+    h.setOnUndoAll(onUndo);
+    const btn = shadowQuery('.undo') as HTMLButtonElement;
+    btn.click();
+    h.settle({ done: 3, total: 3, complete: true, failed: 0 });
+    btn.click();
+    expect(onUndo).toHaveBeenCalledTimes(2);
+    expect(onCancel).not.toHaveBeenCalled();
+    h.dismiss();
+  });
+
+  it('a stopped batch says how many areas were kept out of the ones picked', async () => {
+    const { showBatchProgress } = await import('@/content/batch-progress');
+    const h = showBatchProgress(5, () => {});
+    h.settle({ done: 2, total: 2, complete: false, failed: 0, stopped: 3 });
+    expect(shadowQuery('[data-ega-batch-label]')?.textContent).toBe(
+      'Stopped · 2 of 5 areas translated',
+    );
+    expect(shadowQuery('[data-ega-batch-bar]')?.getAttribute('aria-valuemax')).toBe('2');
+    h.dismiss();
+  });
+
+  it('Hide is a labeled button that appears once the batch can close', async () => {
+    const { showBatchProgress } = await import('@/content/batch-progress');
+    const h = showBatchProgress(2, () => {});
+    const close = shadowQuery('[data-ega-batch-close]') as HTMLButtonElement;
+    expect(close.textContent.trim()).toBe('Hide');
+    expect(close.dataset['ready']).toBe('false');
+    h.setOnClose(() => {});
+    expect(close.dataset['ready']).toBe('true');
     h.dismiss();
   });
 

@@ -39,6 +39,7 @@ export interface RenderHandle {
 }
 
 const PLACEHOLDER = '…';
+const PEEK_HINT = 'Hold the mouse button down to see the original';
 
 /** The attribute mirrors the phase for the page stylesheet and the e2e probes. */
 function setPhase(handle: RenderHandle, phase: BlockPhase): void {
@@ -216,6 +217,8 @@ export function finish(handle: RenderHandle): void {
   if (handle.phase !== 'streaming') return;
   render(handle);
   setPhase(handle, 'ok');
+  // Only the in-place wrapper has the press-to-peek gesture; bilingual keeps the original on the page.
+  if (handle.mode === 'inplace') handle.target.title = PEEK_HINT;
 }
 
 export function mountError(

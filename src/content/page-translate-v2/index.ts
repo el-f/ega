@@ -40,7 +40,13 @@ export function pageRetryJitterMs(): number {
   return Math.floor(globalThis.Math.random() * 400);
 }
 
-export function pageSettleMessage(done: number, total: number, failed: number): string {
+export function pageSettleMessage(
+  done: number,
+  total: number,
+  failed: number,
+  stopped = 0,
+): string {
+  if (stopped > 0) return `Stopped. Translated ${done - failed} of ${total + stopped}.`;
   if (failed === 0) return 'Page translated.';
   return `Translated ${done - failed} of ${total}. ${failed} failed.`;
 }
@@ -53,10 +59,15 @@ export interface ProgressHandle {
     complete: boolean;
     failed: number;
     failedLabel?: string;
+    /** Areas Stop left untranslated; `total` then counts only the kept ones. */
+    stopped?: number;
   }): void;
   setLiveMessage(text: string): void;
   setOnClose(handler: () => void): void;
   setOnToggleOriginal?(handler: (showOriginal: boolean) => void): void;
+  /** Puts every block back, finished ones too. */
+  setOnUndoAll?(handler: () => void): void;
+  setOnRetryFailed?(handler: () => void): void;
   dismiss(): void;
 }
 
@@ -98,6 +109,8 @@ interface Session {
   concurrency: number;
   stallMs: number;
   total: number;
+  /** Areas that Stop dropped before they finished. */
+  skipped: number;
   pending: Block[];
   inFlight: Set<string>;
   terminal: Set<string>;
@@ -191,8 +204,11 @@ async function startSession(
 
   const progress =
     deps.mountProgress?.(blocks.length, () => {
-      void cancelPageTranslateV2();
+      if (active) stopSession(active);
     }) ?? null;
+  progress?.setOnUndoAll?.(() => {
+    void cancelPageTranslateV2();
+  });
 
   const startUrl = location.pathname + location.search;
   const checkUrlChange = (): void => {
@@ -216,6 +232,7 @@ async function startSession(
     // Sits above the router's own ceiling, so it only fires when the SW dies without a terminal chunk.
     stallMs: timeoutMs + 60_000,
     total: blocks.length,
+    skipped: 0,
     pending: [...blocks],
     inFlight: new Set(),
     terminal: new Set(),
@@ -286,7 +303,7 @@ async function dispatchBlock(sess: Session, block: Block): Promise<void> {
     // A failed dispatch must unregister, or cancel iterates a ghost request the router never received.
     sess.deps.onUnregister(requestId);
     sess.registered.delete(requestId);
-    if (sess !== active) return;
+    if (sess !== active || sess.handles.get(block.id) !== handle) return;
     const err = {
       code: 'NETWORK' as const,
       message: isContextInvalidatedError(e) ? CONTEXT_INVALIDATED_MESSAGE : SEND_FAILED_MESSAGE,
@@ -295,7 +312,8 @@ async function dispatchBlock(sess: Session, block: Block): Promise<void> {
     failBlock(sess, block.id, err);
     return;
   }
-  if (sess !== active) return;
+  // Stop or a re-dispatch replaced this attempt while the send was in flight.
+  if (sess !== active || sess.handles.get(block.id) !== handle) return;
   sess.store.bindRequest(block.id, requestId);
   if (sess.terminal.has(block.id)) return;
   armStall(sess, block.id);
@@ -330,11 +348,12 @@ function maybeSettle(sess: Session): void {
   p.settle?.({
     done: sess.total,
     total: sess.total,
-    complete: failed === 0,
+    complete: failed === 0 && sess.skipped === 0,
     failed,
     ...(codes.size === 1 && onlyCode !== undefined ? { failedLabel: errCodeLabel(onlyCode) } : {}),
+    ...(sess.skipped > 0 ? { stopped: sess.skipped } : {}),
   });
-  p.setLiveMessage(pageSettleMessage(sess.total, sess.total, failed));
+  p.setLiveMessage(pageSettleMessage(sess.total, sess.total, failed, sess.skipped));
   if (sess.settledOnce) return;
   sess.settledOnce = true;
   p.setOnToggleOriginal?.((showOriginal) => {
@@ -347,9 +366,48 @@ function maybeSettle(sess: Session): void {
     });
     p.setLiveMessage(showOriginal ? 'Showing the original page.' : 'Showing the translation.');
   });
+  p.setOnRetryFailed?.(() => {
+    for (const blockId of [...sess.failed.keys()]) retryBlock(blockId);
+  });
   p.setOnClose(() => {
     closeSession(sess);
   });
+}
+
+/** Stop keeps what is already translated, drops the rest and settles the pill on the kept blocks. */
+function stopSession(sess: Session): void {
+  if (sess !== active || isSettled(sess)) return;
+  // Nothing finished means nothing to keep, so Stop is the same as Undo all.
+  if (sess.terminal.size === 0) {
+    void cancelPageTranslateV2();
+    return;
+  }
+  for (const t of sess.stallTimers.values()) clearTimeout(t);
+  sess.stallTimers.clear();
+  for (const t of sess.backoffTimers) clearTimeout(t);
+  sess.backoffTimers.clear();
+  if (sess.cooldownTimer) clearTimeout(sess.cooldownTimer);
+  sess.cooldownTimer = null;
+  for (const id of sess.registered) {
+    sess.deps.cancelRequest?.(id);
+    sess.deps.onUnregister(id);
+  }
+  sess.registered.clear();
+  const dropped: string[] = [];
+  sess.store.forEach((entry) => {
+    if (!sess.terminal.has(entry.id)) dropped.push(entry.id);
+  });
+  for (const id of dropped) {
+    sess.handles.get(id)?.revert();
+    sess.handles.delete(id);
+    sess.store.delete(id);
+  }
+  sess.pending = [];
+  sess.inFlight.clear();
+  sess.retrying.clear();
+  sess.skipped = sess.total - sess.terminal.size;
+  sess.total = sess.terminal.size;
+  maybeSettle(sess);
 }
 
 /** Dismiss the pill and let go of the session, keeping every translation on the page. */

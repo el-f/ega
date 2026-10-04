@@ -48,6 +48,12 @@ export class PageStore {
     delete entry.requestId;
   }
 
+  /** Forgets a block and its request mapping, so a late chunk for it routes nowhere. */
+  delete(id: string): void {
+    this.unbindRequest(id);
+    this.byId.delete(id);
+  }
+
   has(id: string): boolean {
     return this.byId.has(id);
   }

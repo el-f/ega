@@ -37,6 +37,13 @@ describe('renderer — the block phase', () => {
     expect(handle.target.getAttribute('data-ega-tx-state')).toBe('ok');
   });
 
+  it('tells the reader how to peek at the original once an in-place block settles', () => {
+    const handle = mountInplace({ id: 'ph-h', element: host(rich), originalText: 'x' });
+    expect(handle.target.title).toBe('');
+    finish(handle);
+    expect(handle.target.title).toMatch(/Hold the mouse button/);
+  });
+
   it('settles to error on mountError', () => {
     const handle = mountBilingual({
       id: 'ph-2',

@@ -13,7 +13,8 @@
 ## Visible affordances
 
 - The replaced run reads as "changed by Ega" — tinted background plus dashed underline — without hiding the page's own typography.
-- The retry control stays invisible until the errored block is hovered or the control is focused.
+- The retry control is always visible on an errored block, and gains a tint on hover or focus.
+- A settled page-translate block (`data-ega-tx-state="ok"`) fades its tint after a short pause and shows it again on hover.
 
 ## Failure-mode expectations
 

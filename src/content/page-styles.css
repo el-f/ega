@@ -12,6 +12,19 @@
 [data-ega-replaced][data-ega-pending] {
   opacity: 0.6;
 }
+/* A settled page-translate block drops the tint after a pause, so a long page is not a wall of blue. Hover brings it back. */
+[data-ega-replaced][data-ega-tx-state='ok'] {
+  background-color: transparent;
+  border-bottom-color: rgba(88, 166, 255, 0.2); /* token-lint-allow page sheet */
+  transition:
+    background-color 1.2s ease 2s,
+    border-bottom-color 1.2s ease 2s;
+}
+[data-ega-replaced][data-ega-tx-state='ok']:hover {
+  background-color: rgba(0, 144, 255, 0.12); /* token-lint-allow page sheet */
+  border-bottom-color: rgba(88, 166, 255, 0.4); /* token-lint-allow page sheet */
+  transition-delay: 0s;
+}
 
 [data-ega-tx] {
   border-left: 2px solid rgba(88, 166, 255, 0.55); /* token-lint-allow page sheet */
@@ -22,26 +35,26 @@
   margin-left: 0.4em;
   padding: 0 0.4em;
   border-radius: 999px;
-  background: rgba(255, 149, 146, 0.18); /* token-lint-allow page sheet */
-  color: #8c1d18; /* token-lint-allow page sheet */
+  background: rgba(255, 149, 146, 0.22); /* token-lint-allow page sheet */
+  box-shadow: inset 0 0 0 1px rgba(255, 149, 146, 0.6); /* token-lint-allow page sheet */
+  color: inherit;
   font-size: 0.85em;
   white-space: nowrap;
   user-select: none;
 }
 
 [data-ega-tx-state='error'] [data-ega-retry-block] {
-  opacity: 0;
-  transition: opacity 0.12s;
   cursor: pointer;
   background: transparent;
   border: none;
   padding: 0 4px;
   font: inherit;
   color: inherit;
+  border-radius: 4px;
 }
-[data-ega-tx-state='error']:hover [data-ega-retry-block],
+[data-ega-tx-state='error'] [data-ega-retry-block]:hover,
 [data-ega-tx-state='error'] [data-ega-retry-block]:focus-visible {
-  opacity: 1;
+  background: rgba(255, 149, 146, 0.3); /* token-lint-allow page sheet */
 }
 /* The block shows a static … until its first words land; the pulse tells a slow block from a stuck one. */
 [data-ega-tx-state='streaming'] {
@@ -53,7 +66,7 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  [data-ega-tx-state='error'] [data-ega-retry-block] {
+  [data-ega-replaced][data-ega-tx-state='ok'] {
     transition: none;
   }
   [data-ega-tx-state='streaming'] {

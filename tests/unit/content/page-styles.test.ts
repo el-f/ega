@@ -148,8 +148,8 @@ function underMedia(media: string, selector: string): CSSStyleDeclaration | unde
 }
 
 describe('reduced motion — the page sheet stops its own motion', () => {
-  it('the retry button appears without a fade', () => {
-    const style = underMedia('prefers-reduced-motion: reduce', '[data-ega-retry-block]');
+  it('a settled block drops its tint at once', () => {
+    const style = underMedia('prefers-reduced-motion: reduce', "[data-ega-tx-state='ok']");
     expect(style?.getPropertyValue('transition')).toBe('none');
   });
 });
@@ -173,5 +173,26 @@ describe('page translate — a block still waiting on its reply moves', () => {
   it('reduced motion stops the pulse', () => {
     const style = underMedia('prefers-reduced-motion: reduce', "[data-ega-tx-state='streaming']");
     expect(style?.getPropertyValue('animation')).toBe('none');
+  });
+});
+
+describe('page translate — error blocks on any page theme', () => {
+  function rule(selector: string): CSSStyleDeclaration | undefined {
+    document.head.innerHTML = `<style>${pageCss}</style>`;
+    const rules = Array.from(document.styleSheets[0]?.cssRules ?? []);
+    return rules.find(
+      (r): r is CSSStyleRule => r instanceof CSSStyleRule && r.selectorText === selector,
+    )?.style;
+  }
+
+  it('the error chip takes the page text color, so it reads on a dark page', () => {
+    expect(rule('[data-ega-tx-error]')?.getPropertyValue('color')).toBe('inherit');
+  });
+
+  it('the retry button is never hidden at rest', () => {
+    expect(
+      rule("[data-ega-tx-state='error'] [data-ega-retry-block]")?.getPropertyValue('opacity'),
+    ).toBe('');
+    expect(pageCss).not.toMatch(/\[data-ega-retry-block\][^{]*\{[^}]*opacity:\s*0/);
   });
 });

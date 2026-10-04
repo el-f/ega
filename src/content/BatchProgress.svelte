@@ -4,9 +4,11 @@
     total: number;
     liveMessage: string;
     onCancel: () => void;
+    onUndo?: () => void;
+    onRetryFailed?: () => void;
     onClose?: () => void;
   }
-  let { done, total, liveMessage, onCancel, onClose }: Props = $props();
+  let { done, total, liveMessage, onCancel, onUndo, onRetryFailed, onClose }: Props = $props();
 
   function normaliseTotal(value: number): number {
     if (!Number.isFinite(value)) return 0;
@@ -26,7 +28,9 @@
 <div class="ega-batch-progress" aria-label="Translating page" data-ega-batch-progress>
   <!-- The visible count changes on every block, so it stays out of the live region and the sr-only span announces. -->
   <div class="meta">
-    <span class="label" data-ega-batch-label>Translating {done} / {total}…</span>
+    <span class="label" data-ega-batch-label
+      >Translating {done} of {total} {total === 1 ? 'area' : 'areas'}…</span
+    >
     <span class="ega-sr-only" role="status" aria-live="polite" data-ega-batch-live
       >{liveMessage}</span
     >
@@ -43,22 +47,28 @@
   >
     <div class="bar-fill" data-ega-batch-bar-fill style:width="{progressPercent}%"></div>
   </div>
-  <button
-    type="button"
-    class="cancel"
-    aria-label="Cancel page translation"
-    onclick={onCancel}
-    data-ega-batch-cancel
-  >
-    Cancel
-  </button>
-  <!-- Always mounted, only hidden: appending it later would shift the label, bar and Cancel button sideways. -->
-  <button
-    type="button"
-    class="close"
-    aria-label="Close (translation kept)"
-    onclick={onClose}
-    data-ega-batch-close
-    data-ready="false">×</button
-  >
+  <div class="actions">
+    <button
+      type="button"
+      class="cancel"
+      aria-label="Stop translating and keep the finished areas"
+      onclick={onCancel}
+      data-ega-batch-cancel
+    >
+      Stop
+    </button>
+    <!-- The buttons below are always mounted and only hidden: a late one would shift the row. -->
+    <button type="button" class="retry-failed" hidden onclick={onRetryFailed}>Retry failed</button>
+    <button type="button" class="undo" aria-label="Undo the page translation" onclick={onUndo}>
+      Undo all
+    </button>
+    <button
+      type="button"
+      class="close"
+      aria-label="Hide this bar (translation kept)"
+      onclick={onClose}
+      data-ega-batch-close
+      data-ready="false">Hide</button
+    >
+  </div>
 </div>
