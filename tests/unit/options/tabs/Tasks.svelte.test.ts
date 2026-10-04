@@ -364,7 +364,8 @@ describe('Tasks tab — a task deleted in another window', () => {
       const { container } = await mount(async (cur) =>
         updateSettings({ advanced: { ...cur.advanced, rules: scopedRules(added.id, 1) } }),
       );
-      const scope = () => container.querySelector('[data-ega-rule-pill-scope]')?.textContent ?? '';
+      const scope = () =>
+        container.querySelector('[data-ega-rule-row] .scope-chips')?.textContent ?? '';
       await waitFor(() => expect(scope()).toContain('Legal'));
       await updateCustomTask(added.id, { ...legal, label: 'Contracts' });
       await waitFor(() => expect(scope()).toContain('Contracts'));

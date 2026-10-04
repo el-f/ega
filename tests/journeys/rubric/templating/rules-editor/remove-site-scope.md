@@ -6,13 +6,13 @@
 
 ## State expectations
 
-- Step 1: a rule is seeded with `scope.sites = ['example.com']`; the example.com site chip is visible in the Advanced row.
-- Step 2 (click the example.com site chip in Advanced): the chip is removed from the display; `scope.sites` is removed (empty array or deleted key) from storage.
+- Step 1: a rule is seeded with `scope.sites = ['example.com']`; the example.com site chip is visible in the rule row.
+- Step 2 (click the example.com site chip): the chip is removed from the display; `scope.sites` is removed (empty array or deleted key) from storage.
 - Step 3: the rule row no longer shows any site scope indicator.
 
 ## Visible affordances
 
-- Site scope chips are visible inside the Advanced disclosure.
+- Site scope chips are visible in each rule row.
 - Each site chip has a remove (x) affordance.
 
 ## Failure-mode expectations

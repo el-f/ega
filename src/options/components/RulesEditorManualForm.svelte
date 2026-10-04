@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { detectCategory, ruleCategoryLabel } from '@/shared/rules';
   import { SHIPPED_TASK_VIEWS, type TaskId, type TaskView } from '@/shared/task-view';
   import Button from '@/shared/ui/Button.svelte';
   import Input from '@/shared/ui/Input.svelte';
@@ -14,11 +15,12 @@
     }) => void | Promise<void>;
     /** Every task, on or off, custom ones included. */
     taskViews?: readonly TaskView[];
+    /** The form's disclosure; the empty state opens it. */
+    open?: boolean;
   }
 
-  const { onSubmit, taskViews = SHIPPED_TASK_VIEWS }: Props = $props();
+  let { onSubmit, taskViews = SHIPPED_TASK_VIEWS, open = $bindable(false) }: Props = $props();
 
-  let manualOpen = $state(false);
   let manualBody = $state('');
   let manualTasks = $state<TaskId[]>([]);
   let manualSites = $state('');
@@ -40,17 +42,26 @@
       : [...manualTasks, task];
   }
 
-  async function submit(): Promise<void> {
-    const body = manualBody.trim();
-    if (body.length === 0) return;
-    await onSubmit({ body, tasks: [...manualTasks], sites: parseSites(manualSites) });
+  function reset(): void {
     manualBody = '';
     manualTasks = [];
     manualSites = '';
   }
+
+  function cancel(): void {
+    reset();
+    open = false;
+  }
+
+  async function submit(): Promise<void> {
+    const body = manualBody.trim();
+    if (body.length === 0) return;
+    await onSubmit({ body, tasks: [...manualTasks], sites: parseSites(manualSites) });
+    reset();
+  }
 </script>
 
-<details class="manual-block" bind:open={manualOpen}>
+<details class="manual-block" bind:open>
   <summary class="manual-summary">
     <Plus size={14} aria-hidden="true" />
     <span>Add a rule</span>
@@ -64,8 +75,14 @@
       placeholder="Always preserve URLs."
       dataAttrs={{ 'data-ega-manual-body': 'true' }}
     />
+    {#if manualBody.trim().length > 0}
+      <p class="category-guess">
+        Category: {ruleCategoryLabel(detectCategory(manualBody))} (guessed from the text; you can change
+        it after adding)
+      </p>
+    {/if}
     <div class="form-row">
-      <span class="form-label">Tasks (empty = all)</span>
+      <span class="form-label">Applies to</span>
       <div class="task-chip-row" role="group" aria-label="Tasks">
         {#each taskViews as v (v.id)}
           {@const t = v.id}
@@ -84,14 +101,19 @@
           </Button>
         {/each}
       </div>
+      <p class="field-hint">Pick none to apply the rule to all tasks.</p>
     </div>
     <Input
-      label="Sites (comma-separated, optional)"
+      label="Sites (optional, separated by commas)"
       bind:value={manualSites}
       placeholder="twitter.com, example.com"
       dataAttrs={{ 'data-ega-manual-sites': 'true' }}
     />
     <div class="form-actions">
+      {#if manualBody.trim().length === 0}
+        <span class="field-hint">Write the rule text to add it.</span>
+      {/if}
+      <Button variant="ghost" onclick={cancel}>Cancel</Button>
       <Button
         variant="primary"
         disabled={manualBody.trim().length === 0}
@@ -136,11 +158,15 @@
     gap: var(--space-1);
   }
   .form-label {
-    font-size: var(--fs-xs);
-    color: var(--color-fg-subtle);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    font-size: var(--fs-sm);
+    color: var(--color-fg);
     font-weight: 500;
+  }
+  .category-guess,
+  .field-hint {
+    margin: 0;
+    font-size: var(--fs-xs);
+    color: var(--color-muted);
   }
   .task-chip-row {
     display: flex;
@@ -154,5 +180,7 @@
   .form-actions {
     display: flex;
     justify-content: flex-end;
+    align-items: center;
+    gap: var(--space-2);
   }
 </style>

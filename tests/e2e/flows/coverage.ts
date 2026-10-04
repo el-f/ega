@@ -583,18 +583,14 @@ export const COVERAGE: readonly Family[] = [
           },
           {
             id: 'toggle-enabled',
-            description: 'Power toggle flips the enabled flag in storage',
+            description: 'The On checkbox flips the enabled flag in storage and shows an Off badge',
             flows: ['rules-editor/toggle-enabled.flow.spec.ts'],
           },
           {
-            id: 'delete-rule-confirms',
-            description: 'Delete confirms, removes rule, surfaces Undo toast',
-            flows: ['rules-editor/delete-rule-confirms.flow.spec.ts'],
-          },
-          {
-            id: 'advanced-disclosure-open',
-            description: 'Advanced rules summary shows the row editor; the add form stays outside',
-            flows: ['rules-editor/advanced-disclosure-open.flow.spec.ts'],
+            id: 'delete-rule',
+            description:
+              'Delete removes the rule at once, with no confirm, and surfaces an Undo toast',
+            flows: ['rules-editor/delete-rule.flow.spec.ts'],
           },
           {
             id: 'undo-delete',
@@ -605,19 +601,19 @@ export const COVERAGE: readonly Family[] = [
           {
             id: 'toggle-task-scope',
             description:
-              'Seed rule with scope.tasks=[translate] → click chip → tasks=[]; click again → translate re-added',
+              'Seed rule with scope.tasks=[translate] → click the last chip → kept; Edit scope → All tasks → tasks=[]',
             flows: ['rules-editor/toggle-task-scope.flow.spec.ts'],
           },
           {
-            id: 'edit-category-in-advanced',
+            id: 'edit-category',
             description:
-              'Seed rule category=always → Advanced → category select → never → storage reflects updated category',
-            flows: ['rules-editor/edit-category-in-advanced.flow.spec.ts'],
+              'Seed rule category=always → category select → never → storage reflects updated category',
+            flows: ['rules-editor/edit-category.flow.spec.ts'],
           },
           {
             id: 'remove-site-scope',
             description:
-              'Seed rule scope.sites=[example.com] → Advanced → click site chip → scope.sites removed',
+              'Seed rule scope.sites=[example.com] → click site chip → scope.sites removed',
             flows: ['rules-editor/remove-site-scope.flow.spec.ts'],
           },
           {

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { SHIPPED_TASK_VIEWS } from '@/shared/task-view';
 import RulesEditor from '@/options/components/RulesEditor.svelte';
@@ -30,11 +30,6 @@ function rule(overrides: Partial<Rule> = {}): Rule {
 }
 
 describe('RulesEditor', () => {
-  // Opening the disclosure persists to localStorage — scrub so every test starts closed.
-  afterEach(() => {
-    globalThis.localStorage.removeItem('ega.advanced-rules-disclosure');
-  });
-
   it('renders empty state when rules list is empty', () => {
     const { container, getByText } = render(RulesEditor, {
       props: { rules: [], onUpdate: () => {} },
@@ -43,19 +38,22 @@ describe('RulesEditor', () => {
     expect(getByText(/No rules yet/i)).toBeTruthy();
   });
 
-  it('renders one pill per rule under Active rules', () => {
+  it('renders every rule as an editable row, with no disclosure to open', () => {
     const r1 = rule({ id: 'r1', body: 'Always preserve URLs.', category: 'always' });
     const r2 = rule({ id: 'r2', body: 'Prefer short sentences.', category: 'prefer' });
     const { container } = render(RulesEditor, {
       props: { rules: [r1, r2], onUpdate: () => {} },
     });
-    const pills = container.querySelectorAll('[data-ega-rule-pill]');
-    expect(pills.length).toBe(2);
-    expect(pills[0]?.getAttribute('data-rule-id')).toBe('r1');
-    expect(pills[1]?.getAttribute('data-rule-id')).toBe('r2');
+    const rows = container.querySelectorAll('[data-ega-rule-row]');
+    expect(rows.length).toBe(2);
+    expect(rows[0]?.getAttribute('data-rule-id')).toBe('r1');
+    expect(rows[1]?.getAttribute('data-rule-id')).toBe('r2');
+    expect(container.querySelector('[data-ega-advanced-rules]')).toBeNull();
   });
 
-  it('Pill ✕ calls onUpdate with that rule removed', async () => {
+  it('Delete removes the rule at once, with no confirm, and offers Undo', async () => {
+    vi.mocked(confirmDialog).mockClear();
+    const pushSpy = vi.spyOn(toastStore, 'push').mockImplementation(() => {});
     const r1 = rule({ id: 'r1' });
     const r2 = rule({ id: 'r2' });
     const onUpdate = vi.fn<(next: readonly Rule[]) => void>();
@@ -63,82 +61,42 @@ describe('RulesEditor', () => {
       props: { rules: [r1, r2], onUpdate },
     });
     const delBtn = container.querySelector<HTMLButtonElement>(
-      '[data-ega-rule-pill][data-rule-id="r1"] [data-ega-rule-pill-delete]',
+      '[data-ega-rule-row][data-rule-id="r1"] [data-ega-rule-delete]',
     );
-    if (!delBtn) throw new Error('expected pill delete button');
+    if (!delBtn) throw new Error('expected delete button');
     await fireEvent.click(delBtn);
     await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
-    const next = onUpdate.mock.calls[0]?.[0];
-    expect(next?.length).toBe(1);
-    expect(next?.[0]?.id).toBe('r2');
+    expect(onUpdate.mock.calls[0]?.[0].map((r) => r.id)).toEqual(['r2']);
+    expect(confirmDialog).not.toHaveBeenCalled();
+    expect(pushSpy.mock.calls[0]?.[0].action?.label).toBe('Undo');
+    pushSpy.mockRestore();
   });
 
-  it('Pill ✕ asks for confirmation exactly once', async () => {
-    vi.mocked(confirmDialog).mockClear();
-    const r1 = rule({ id: 'r1' });
-    const onUpdate = vi.fn<(next: readonly Rule[]) => void>();
-    const { container } = render(RulesEditor, {
-      props: { rules: [r1], onUpdate },
-    });
-    const delBtn = container.querySelector<HTMLButtonElement>(
-      '[data-ega-rule-pill][data-rule-id="r1"] [data-ega-rule-pill-delete]',
-    );
-    if (!delBtn) throw new Error('expected pill delete button');
-    await fireEvent.click(delBtn);
-    await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
-    expect(confirmDialog).toHaveBeenCalledTimes(1);
-  });
-
-  it('open Advanced disclosure replaces the pill list — each rule renders once', async () => {
-    const r1 = rule({ id: 'r1' });
-    const { container } = render(RulesEditor, {
-      props: { rules: [r1], onUpdate: () => {} },
-    });
-    expect(container.querySelectorAll('[data-ega-rule-pill]').length).toBe(1);
-
-    const details = container.querySelector<HTMLDetailsElement>('[data-ega-advanced-rules]');
-    if (!details) throw new Error('expected advanced rules disclosure');
-    details.open = true;
-    await fireEvent(details, new Event('toggle'));
-
-    await waitFor(() => {
-      expect(container.querySelectorAll('[data-ega-rule-pill]').length).toBe(0);
-    });
-    expect(container.querySelector('[data-ega-rule-row][data-rule-id="r1"]')).not.toBeNull();
-  });
-
-  it('Pill ⏻ toggle calls onUpdate with enabled flipped to false', async () => {
+  it('the On checkbox keeps one name and flips enabled', async () => {
     const r1 = rule({ id: 'r1', enabled: true });
     const onUpdate = vi.fn<(next: readonly Rule[]) => void>();
-    const { container } = render(RulesEditor, {
+    const { container, getByRole } = render(RulesEditor, {
       props: { rules: [r1], onUpdate },
     });
-    const toggle = container.querySelector<HTMLButtonElement>(
-      '[data-ega-rule-pill][data-rule-id="r1"] [data-ega-rule-pill-disable]',
-    );
-    if (!toggle) throw new Error('expected pill toggle');
+    const toggle = getByRole('checkbox', { name: 'On' });
+    expect((toggle as HTMLInputElement).checked).toBe(true);
     await fireEvent.click(toggle);
     await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
-    const next = onUpdate.mock.calls[0]?.[0];
-    expect(next?.[0]?.enabled).toBe(false);
+    expect(onUpdate.mock.calls[0]?.[0][0]?.enabled).toBe(false);
+    expect(container.querySelector('[data-ega-rule-off]')).toBeNull();
   });
 
-  it('Advanced disclosure: inline body edit calls onUpdate with body changed', async () => {
+  it('a disabled rule shows an Off badge instead of fading', () => {
+    const r1 = rule({ id: 'r1', enabled: false });
+    const { container } = render(RulesEditor, { props: { rules: [r1], onUpdate: () => {} } });
+    expect(container.querySelector('[data-ega-rule-off]')?.textContent).toContain('Off');
+  });
+
+  it('inline body edit calls onUpdate with the body changed and shows Saved', async () => {
     const r1 = rule({ id: 'r1', body: 'Old body.' });
     const onUpdate = vi.fn<(next: readonly Rule[]) => void>();
-    const { container } = render(RulesEditor, {
+    const { container, findByText } = render(RulesEditor, {
       props: { rules: [r1], onUpdate },
-    });
-
-    // Open the Advanced rules disclosure first — the row editor only mounts inside it.
-    const details = container.querySelector<HTMLDetailsElement>('[data-ega-advanced-rules]');
-    if (!details) throw new Error('expected advanced rules disclosure');
-    details.open = true;
-
-    await waitFor(() => {
-      expect(
-        container.querySelector('[data-ega-rule-row][data-rule-id="r1"] [data-ega-rule-body]'),
-      ).not.toBeNull();
     });
 
     const bodyEl = container.querySelector<HTMLElement>(
@@ -159,15 +117,46 @@ describe('RulesEditor', () => {
     const next = onUpdate.mock.calls[0]?.[0];
     expect(next?.[0]?.body).toBe('New body.');
     expect(next?.[0]?.id).toBe('r1');
+    expect(await findByText('Saved')).toBeTruthy();
   });
 
-  it('Advanced disclosure: manual add form appends a rule with chosen scope', async () => {
+  it('the empty state offers Add a rule, which opens the form', async () => {
+    const { container, getAllByRole } = render(RulesEditor, {
+      props: { rules: [], onUpdate: () => {} },
+    });
+    const form = container.querySelector<HTMLDetailsElement>('details.manual-block');
+    expect(form?.open).toBe(false);
+    const cta = getAllByRole('button', { name: 'Add a rule' })[0];
+    if (!cta) throw new Error('expected CTA');
+    await fireEvent.click(cta);
+    await waitFor(() => expect(form?.open).toBe(true));
+  });
+
+  it('Cancel closes the add form and clears it', async () => {
+    const { container, getByRole, getAllByRole } = render(RulesEditor, {
+      props: { rules: [], onUpdate: () => {} },
+    });
+    const form = container.querySelector<HTMLDetailsElement>('details.manual-block');
+    if (!form) throw new Error('expected form');
+    const cta = getAllByRole('button', { name: 'Add a rule' })[0];
+    if (!cta) throw new Error('expected CTA');
+    await fireEvent.click(cta);
+    await waitFor(() => expect(form.open).toBe(true));
+    const body = container.querySelector<HTMLTextAreaElement>('[data-ega-manual-body]');
+    if (!body) throw new Error('expected body');
+    await fireEvent.input(body, { target: { value: 'Never invent words.' } });
+    expect(container.querySelector('.category-guess')?.textContent).toContain('never');
+    await fireEvent.click(getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(form.open).toBe(false));
+    expect(body.value).toBe('');
+  });
+
+  it('manual add form appends a rule with chosen scope', async () => {
     const onUpdate = vi.fn<(next: readonly Rule[]) => void>();
     const { container } = render(RulesEditor, {
       props: { rules: [], onUpdate },
     });
 
-    // The add form sits outside the Advanced disclosure; its own summary stays collapsed by default.
     const manualOpen = container.querySelector<HTMLDetailsElement>('details.manual-block');
     if (!manualOpen) throw new Error('expected manual-block details');
     manualOpen.open = true;
@@ -198,11 +187,8 @@ describe('RulesEditor', () => {
     expect(added?.source).toBe('manual');
   });
 
-  describe('Advanced row scope chips', () => {
+  describe('Row scope chips', () => {
     async function openAdvancedRow(container: HTMLElement, id: string): Promise<void> {
-      const details = container.querySelector<HTMLDetailsElement>('[data-ega-advanced-rules]');
-      if (!details) throw new Error('expected advanced rules disclosure');
-      details.open = true;
       await waitFor(() => {
         expect(container.querySelector(`[data-ega-rule-row][data-rule-id="${id}"]`)).not.toBeNull();
       });
@@ -418,7 +404,7 @@ describe('RulesEditor', () => {
 
       // Delete r1 — capture toast A.
       const del1 = container.querySelector<HTMLButtonElement>(
-        '[data-ega-rule-pill][data-rule-id="r1"] [data-ega-rule-pill-delete]',
+        '[data-ega-rule-row][data-rule-id="r1"] [data-ega-rule-delete]',
       );
       if (!del1) throw new Error('expected pill delete button for r1');
       await fireEvent.click(del1);
@@ -437,7 +423,7 @@ describe('RulesEditor', () => {
 
       // Delete r2 — second toast pushed.
       const del2 = container.querySelector<HTMLButtonElement>(
-        '[data-ega-rule-pill][data-rule-id="r2"] [data-ega-rule-pill-delete]',
+        '[data-ega-rule-row][data-rule-id="r2"] [data-ega-rule-delete]',
       );
       if (!del2) throw new Error('expected pill delete button for r2');
       await fireEvent.click(del2);

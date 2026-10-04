@@ -6,14 +6,14 @@
 
 ## State expectations
 
-- Step 1: rule row shows a power toggle with the rule's current `enabled` state.
-- Step 2 (click toggle): the `enabled` field flips; storage writes immediately.
-- Step 3: the rule's visual state (saturation / opacity) reflects the new state.
+- Step 1: rule row shows an "On" checkbox with the rule's current `enabled` state.
+- Step 2 (click the checkbox): the `enabled` field flips; storage writes immediately.
+- Step 3: an "Off" badge appears on the row and its border turns dashed.
 
 ## Visible affordances
 
-- Toggle is a Power icon button (aria-pressed); primary tone when enabled, default tone when disabled.
-- Disabled rules carry reduced opacity but remain legible — never struck-through.
+- The toggle is a checkbox whose label stays "On"; only its checked state changes.
+- Disabled rules keep full text contrast — no opacity, never struck-through.
 
 ## Failure-mode expectations
 

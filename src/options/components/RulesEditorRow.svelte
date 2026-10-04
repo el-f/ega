@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Rule, RuleCategory } from '@/shared/rules';
+  import { ruleCategoryLabel, type Rule, type RuleCategory } from '@/shared/rules';
   import { taskExists, taskLabel, type TaskView } from '@/shared/task-view';
   import Button from '@/shared/ui/Button.svelte';
   import IconButton from '@/shared/ui/IconButton.svelte';
@@ -11,7 +11,6 @@
   import { RULE_BODY_MAX } from '@/shared/settings-schema';
   import Trash2 from '@lucide/svelte/icons/trash-2';
   import Pencil from '@lucide/svelte/icons/pencil';
-  import Power from '@lucide/svelte/icons/power';
 
   interface Props {
     rule: Rule;
@@ -25,6 +24,8 @@
     taskViews?: readonly TaskView[];
     onRemoveSite: (site: string) => void | Promise<void>;
     onDelete: () => void | Promise<void>;
+    /** Pulse and scroll into view once: the row was just added. */
+    highlight?: boolean;
   }
 
   const {
@@ -37,6 +38,7 @@
     taskViews = [],
     onRemoveSite,
     onDelete,
+    highlight = false,
   }: Props = $props();
 
   const CATEGORIES: readonly RuleCategory[] = ['always', 'never', 'prefer', 'format', 'unknown'];
@@ -49,11 +51,24 @@
     editingDraft = rule.body;
   }
 
+  let saved = $state(false);
+  let savedTimer: ReturnType<typeof setTimeout> | undefined;
+  let rowEl = $state<HTMLElement | null>(null);
+
+  $effect(() => {
+    if (highlight) rowEl?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  });
+
+  $effect(() => () => clearTimeout(savedTimer));
+
   async function commitEdit(): Promise<void> {
     const trimmed = editingDraft.trim();
     editing = false;
     if (trimmed.length === 0 || trimmed === rule.body) return;
     await onBodyChange(trimmed);
+    saved = true;
+    clearTimeout(savedTimer);
+    savedTimer = setTimeout(() => (saved = false), 2000);
   }
 
   function cancelEdit(): void {
@@ -71,13 +86,16 @@
       null,
     );
   }
-
-  function categoryLabel(c: RuleCategory): string {
-    return c === 'unknown' ? 'unknown' : c;
-  }
 </script>
 
-<li class="rule-row" data-ega-rule-row data-rule-id={rule.id} class:disabled={!rule.enabled}>
+<li
+  class="rule-row"
+  bind:this={rowEl}
+  data-ega-rule-row
+  data-rule-id={rule.id}
+  class:disabled={!rule.enabled}
+  class:just-added={highlight}
+>
   <div class="rule-main">
     {#if editing}
       <Textarea
@@ -106,21 +124,24 @@
         onclick={startEdit}
         title="Click to edit"
         data-ega-rule-body
+        id="rule-body-{rule.id}"
       >
         {rule.body}
         <Pencil size={12} class="edit-glyph" aria-hidden="true" />
       </button>
     {/if}
+    <span class="saved" role="status">{saved ? 'Saved' : ''}</span>
     <div class="rule-meta">
       <Select
         value={rule.category}
-        options={CATEGORIES.map((c) => ({ value: c, label: categoryLabel(c) }))}
+        options={CATEGORIES.map((c) => ({ value: c, label: ruleCategoryLabel(c) }))}
         ariaLabel="Category"
         size="sm"
         selectClass="cat-select cat-{rule.category}"
         selectAttrs={{ 'data-ega-rule-category': true }}
         onchange={(v) => void onCategoryChange(v)}
       />
+      {#if !rule.enabled}<span data-ega-rule-off><Badge variant="muted">Off</Badge></span>{/if}
 
       <div class="scope-chips" aria-label="Scope">
         {#if rule.scope.tasks.length === 0}
@@ -218,17 +239,12 @@
   </div>
 
   <div class="rule-actions">
-    <IconButton
-      icon={Power}
-      ariaLabel={rule.enabled ? 'Disable rule' : 'Enable rule'}
-      tooltip={rule.enabled ? 'Disable' : 'Enable'}
+    <Checkbox
       size="sm"
-      variant={rule.enabled ? 'primary' : 'default'}
-      dataAttrs={{
-        'data-ega-rule-disable': 'true',
-        'aria-pressed': rule.enabled ? 'true' : 'false',
-      }}
-      onclick={() => void onToggleEnabled()}
+      label="On"
+      checked={rule.enabled}
+      inputAttrs={{ 'data-ega-rule-disable': 'true', 'aria-describedby': `rule-body-${rule.id}` }}
+      onchange={() => void onToggleEnabled()}
     />
     <IconButton
       icon={Trash2}
@@ -253,8 +269,14 @@
     background: var(--color-bg-elevated);
   }
   .rule-row.disabled {
-    opacity: 0.55;
     border-style: dashed;
+  }
+  .rule-row.just-added {
+    animation: ega-success-pulse 1.2s var(--ease-out) 1;
+  }
+  .saved {
+    font-size: var(--fs-xs);
+    color: var(--color-success-fg);
   }
   .rule-main {
     display: flex;
@@ -279,12 +301,10 @@
   }
   .body :global(.edit-glyph) {
     color: var(--color-fg-subtle);
-    opacity: 0;
-    transition: opacity var(--motion-fast) var(--ease-out);
   }
   .body:hover :global(.edit-glyph),
   .body:focus-visible :global(.edit-glyph) {
-    opacity: 1;
+    color: var(--color-accent);
   }
   .body:focus-visible {
     outline: 2px solid var(--color-accent);

@@ -48,11 +48,10 @@ test('clicking a rule body switches to edit mode and Ctrl+Enter persists', async
   await expect(page.locator('[data-ega-rules-editor]')).toBeVisible({ timeout: 5_000 });
   timeline.markStep('rules-mounted');
 
-  await page.locator('[data-ega-advanced-rules] > summary').click();
   await expect(page.locator(`[data-ega-rule-row][data-rule-id="${SEED_ID}"]`)).toBeVisible({
     timeout: 5_000,
   });
-  timeline.markStep('advanced-open');
+  timeline.markStep('row-visible');
 
   const row = page.locator(`[data-ega-rule-row][data-rule-id="${SEED_ID}"]`);
   await expect(row).toBeVisible({ timeout: 5_000 });

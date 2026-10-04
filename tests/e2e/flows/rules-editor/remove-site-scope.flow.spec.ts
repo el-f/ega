@@ -47,9 +47,6 @@ test('clicking site scope chip removes example.com from scope.sites', async () =
   await expect(page.locator('[data-ega-rules-editor]')).toBeVisible({ timeout: 5_000 });
   timeline.markStep('rules-mounted');
 
-  await page.locator('[data-ega-advanced-rules] > summary').click();
-  timeline.markStep('advanced-open');
-
   const row = page.locator(`[data-ega-rule-row][data-rule-id="${SEED_ID}"]`);
   await expect(row).toBeVisible({ timeout: 5_000 });
 

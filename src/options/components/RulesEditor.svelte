@@ -1,17 +1,13 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import type { Rule, RuleCategory } from '@/shared/rules';
   import { detectCategory, normaliseSiteEntry } from '@/shared/rules';
   import { uuid } from '@/shared/uuid';
   import { getSettings } from '@/shared/storage';
   import { SHIPPED_TASK_VIEWS, type TaskId, type TaskView } from '@/shared/task-view';
   import { toastStore } from '@/shared/components/toastStore';
-  import { confirmDialog } from '@/shared/components/confirmDialog';
-  import RulesEditorPillList from './RulesEditorPillList.svelte';
   import RulesEditorManualForm from './RulesEditorManualForm.svelte';
   import RulesEditorRow from './RulesEditorRow.svelte';
   import RulesEditorEmpty from './RulesEditorEmpty.svelte';
-  import { RULES_DISCLOSURE_KEY } from '@/options/local-ui-keys';
 
   interface Props {
     rules: readonly Rule[];
@@ -22,25 +18,9 @@
 
   const { rules, onUpdate, taskViews = SHIPPED_TASK_VIEWS }: Props = $props();
 
-  let advancedOpen = $state(false);
-
-  // Disclosure state survives across navigation. Hydrated once on mount —
-  // re-reading from localStorage on every effect cycle is dead weight.
-  onMount(() => {
-    try {
-      advancedOpen = globalThis.localStorage?.getItem(RULES_DISCLOSURE_KEY) === '1';
-    } catch {
-      advancedOpen = false;
-    }
-  });
-
-  function persistAdvancedOpen(open: boolean): void {
-    try {
-      globalThis.localStorage?.setItem(RULES_DISCLOSURE_KEY, open ? '1' : '0');
-    } catch {
-      // localStorage may be unavailable (private mode / extension context); ignore.
-    }
-  }
+  let formOpen = $state(false);
+  /** The row just added; it scrolls into view and pulses once. */
+  let justAddedId = $state<string | null>(null);
 
   async function commit(next: readonly Rule[]): Promise<void> {
     await onUpdate(next);
@@ -60,13 +40,6 @@
     if (targetIdx < 0) return;
     const target = rules[targetIdx];
     if (!target) return;
-    const ok = await confirmDialog({
-      title: 'Delete rule',
-      body: `Delete rule "${target.body.slice(0, 80)}${target.body.length > 80 ? '…' : ''}"?`,
-      confirmLabel: 'Delete',
-      danger: true,
-    });
-    if (!ok) return;
     const snapshot = target;
     const insertAt = targetIdx;
     await commit(rules.filter((r) => r.id !== id));
@@ -88,12 +61,6 @@
         },
       },
     });
-  }
-
-  async function toggleEnabledById(id: string): Promise<void> {
-    const r = rules.find((x) => x.id === id);
-    if (!r) return;
-    await patchRule(id, { enabled: !r.enabled });
   }
 
   function pushScopeUndo(id: string, priorScope: Rule['scope'], message: string): void {
@@ -179,57 +146,41 @@
       enabled: true,
     };
     await appendRule(rule);
+    justAddedId = rule.id;
+    formOpen = false;
   }
 </script>
 
 <div class="rules-editor" data-ega-rules-editor>
   {#if rules.length === 0}
-    <RulesEditorEmpty />
-  {:else if !advancedOpen}
-    <!-- The Advanced rows below are the single representation while the disclosure is open. -->
+    <RulesEditorEmpty onAdd={() => (formOpen = true)} />
+  {:else}
     <div class="active-rules">
-      <h4 class="active-rules-heading">Active rules ({rules.length})</h4>
-      <RulesEditorPillList
-        {rules}
-        {taskViews}
-        onDelete={deleteRuleById}
-        onToggleEnabled={toggleEnabledById}
-      />
+      <h4 class="active-rules-heading">Rules ({rules.length})</h4>
+      <ul class="rule-list" role="list">
+        {#each rules as r (r.id)}
+          <RulesEditorRow
+            rule={r}
+            {taskViews}
+            highlight={r.id === justAddedId}
+            onBodyChange={(body) => patchRule(r.id, { body })}
+            onCategoryChange={(category: RuleCategory) => patchRule(r.id, { category })}
+            onToggleEnabled={() => patchRule(r.id, { enabled: !r.enabled })}
+            onToggleTask={(t) => toggleTaskOnRule(r.id, t)}
+            onSetTasks={(tasks, undoMessage) => setRuleTasks(r.id, tasks, undoMessage)}
+            onRemoveSite={(s) => removeSiteFromRule(r.id, s)}
+            onDelete={() => deleteRuleById(r.id)}
+          />
+        {/each}
+      </ul>
     </div>
   {/if}
 
-  <RulesEditorManualForm onSubmit={submitManual} {...taskViews.length > 0 ? { taskViews } : {}} />
-
-  {#if rules.length > 0}
-    <details
-      class="advanced-rules"
-      data-ega-advanced-rules
-      bind:open={advancedOpen}
-      ontoggle={(e) => persistAdvancedOpen((e.currentTarget as HTMLDetailsElement).open)}
-    >
-      <summary class="advanced-rules-summary">
-        <span>Advanced rules</span>
-        <span class="advanced-rules-hint">edit the text, category and scope by hand</span>
-      </summary>
-      <div class="advanced-rules-body">
-        <ul class="rule-list" role="list">
-          {#each rules as r (r.id)}
-            <RulesEditorRow
-              rule={r}
-              {taskViews}
-              onBodyChange={(body) => patchRule(r.id, { body })}
-              onCategoryChange={(category: RuleCategory) => patchRule(r.id, { category })}
-              onToggleEnabled={() => patchRule(r.id, { enabled: !r.enabled })}
-              onToggleTask={(t) => toggleTaskOnRule(r.id, t)}
-              onSetTasks={(tasks, undoMessage) => setRuleTasks(r.id, tasks, undoMessage)}
-              onRemoveSite={(s) => removeSiteFromRule(r.id, s)}
-              onDelete={() => deleteRuleById(r.id)}
-            />
-          {/each}
-        </ul>
-      </div>
-    </details>
-  {/if}
+  <RulesEditorManualForm
+    bind:open={formOpen}
+    onSubmit={submitManual}
+    {...taskViews.length > 0 ? { taskViews } : {}}
+  />
 </div>
 
 <style>
@@ -250,38 +201,6 @@
     letter-spacing: 0.04em;
     font-weight: 600;
     color: var(--color-fg-subtle);
-  }
-  .advanced-rules {
-    border: 1px solid var(--color-border-subtle);
-    border-radius: var(--radius-md);
-    background: var(--color-bg-elevated);
-  }
-  .advanced-rules-summary {
-    display: inline-flex;
-    align-items: baseline;
-    gap: var(--space-2);
-    padding: var(--space-2) var(--space-3);
-    cursor: pointer;
-    list-style: none;
-    width: 100%;
-    user-select: none;
-    font-size: var(--fs-sm);
-    color: var(--color-fg);
-  }
-  .advanced-rules-summary::-webkit-details-marker {
-    display: none;
-  }
-  .advanced-rules-hint {
-    font-size: var(--fs-xs);
-    color: var(--color-fg-subtle);
-    margin-left: auto;
-  }
-  .advanced-rules-body {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-    padding: var(--space-3);
-    border-top: 1px solid var(--color-border);
   }
   .rule-list {
     list-style: none;

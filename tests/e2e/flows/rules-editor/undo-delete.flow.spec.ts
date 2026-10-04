@@ -56,15 +56,10 @@ test('delete rule A → Undo toast → click Undo → A re-inserted, B still pre
   await expect(page.locator('[data-ega-rules-editor]')).toBeVisible({ timeout: 5_000 });
   timeline.markStep('rules-mounted');
 
-  const pillA = page.locator(`[data-ega-rule-pill][data-rule-id="${ID_A}"]`);
-  await expect(pillA).toBeVisible({ timeout: 5_000 });
-  await pillA.locator('[data-ega-rule-pill-delete]').click();
+  const rowA = page.locator(`[data-ega-rule-row][data-rule-id="${ID_A}"]`);
+  await expect(rowA).toBeVisible({ timeout: 5_000 });
+  await rowA.locator('[data-ega-rule-delete]').click();
   timeline.markStep('delete-clicked');
-
-  const confirmDlg = page.locator('.ega-dialog', { hasText: 'Delete rule' });
-  await expect(confirmDlg).toBeVisible({ timeout: 5_000 });
-  await confirmDlg.getByRole('button', { name: 'Delete', exact: true }).click();
-  timeline.markStep('confirmed');
 
   await expect
     .poll(

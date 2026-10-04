@@ -18,11 +18,10 @@ There is no Templates tab any more. Prompts are edited in each task's edit dialo
 - **global-slot-hover** — hovering a slot pill to show the registry tooltip.
 - **insert-variable-open** — Insert-variable popover open.
 - **rules-empty** — the Rules section with no rules; empty state covered explicitly.
-- **confirm-delete-rule** — delete-rule confirm dialog open.
 
 ### Rules and per-language states
 
-- **rules-editor-populated** — rules list with host-scoped + task-scoped + always-disabled rules seeded. Scope chips (host name, task name) must be visible per row; disabled rows must be visually distinct from enabled rows (dim/strikethrough/opacity, not just an icon toggle).
+- **rules-editor-populated** — rules list with host-scoped + task-scoped + always-disabled rules seeded. Scope chips (host name, task name) must be visible per row; a rule that is off shows an "Off" badge and a dashed border, with its text at full contrast (no opacity).
 - **rules-editor-add-form-open** — the "Add a rule" `<details>` expanded. Body textarea + Tasks chip row + Sites input + Add rule CTA all visible inside the expanded panel.
 - **rules-editor-empty** — zero rules. The "No rules yet" empty-state card renders, with a hint on how to add one.
 - **per-preset-override-active** — the Arabizi row's prompt editor with an override seeded. The "Clear" reset action MUST be visible to show the language has its own prompt.

@@ -1,4 +1,4 @@
-/* coverage: templating.rules-editor.delete-rule-confirms */
+/* coverage: templating.rules-editor.delete-rule */
 import { test, expect } from '@playwright/test';
 import { launchExtension, readStorage, seedSettings, type ExtensionHandle } from '../../helpers';
 import type { Settings } from '../../../../src/shared/types';
@@ -39,7 +39,7 @@ test.afterEach(async () => {
 
 test.slow();
 
-test('Trash → Confirm removes the rule from storage', async () => {
+test('Trash removes the rule from storage at once, with an Undo toast', async () => {
   const timeline = createTimeline();
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
@@ -47,15 +47,15 @@ test('Trash → Confirm removes the rule from storage', async () => {
 
   await expect(page.locator('[data-ega-rules-editor]')).toBeVisible({ timeout: 5_000 });
 
-  const pill = page.locator(`[data-ega-rule-pill][data-rule-id="${SEED_ID}"]`);
-  await pill.locator('[data-ega-rule-pill-delete]').click();
+  const row = page.locator(`[data-ega-rule-row][data-rule-id="${SEED_ID}"]`);
+  await row.locator('[data-ega-rule-delete]').click();
   timeline.markStep('delete-clicked');
-
-  // confirmDialog mounts an .ega-dialog with title "Delete rule".
-  const dialog = page.locator('.ega-dialog', { hasText: 'Delete rule' });
-  await expect(dialog).toBeVisible({ timeout: 5_000 });
-  await dialog.getByRole('button', { name: 'Delete', exact: true }).click();
-  timeline.markStep('confirmed');
+  await expect(page.locator('.ega-dialog')).toHaveCount(0);
+  await expect(page.locator('[data-sonner-toast] button', { hasText: 'Undo' }).first()).toBeVisible(
+    {
+      timeout: 5_000,
+    },
+  );
 
   await expect
     .poll(

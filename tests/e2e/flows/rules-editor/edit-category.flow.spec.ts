@@ -1,4 +1,4 @@
-/* coverage: templating.rules-editor.edit-category-in-advanced */
+/* coverage: templating.rules-editor.edit-category */
 import { test, expect } from '@playwright/test';
 import { launchExtension, readStorage, seedSettings, type ExtensionHandle } from '../../helpers';
 import type { Settings } from '../../../../src/shared/types';
@@ -37,7 +37,7 @@ test.afterEach(async () => {
 
 test.slow();
 
-test('category select in Advanced rules updates storage from always → never', async () => {
+test('the category select in a rule row updates storage from always → never', async () => {
   const timeline = createTimeline();
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
@@ -45,9 +45,6 @@ test('category select in Advanced rules updates storage from always → never', 
 
   await expect(page.locator('[data-ega-rules-editor]')).toBeVisible({ timeout: 5_000 });
   timeline.markStep('rules-mounted');
-
-  await page.locator('[data-ega-advanced-rules] > summary').click();
-  timeline.markStep('advanced-open');
 
   const row = page.locator(`[data-ega-rule-row][data-rule-id="${SEED_ID}"]`);
   await expect(row).toBeVisible({ timeout: 5_000 });

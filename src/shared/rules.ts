@@ -20,6 +20,11 @@ export function detectCategory(body: string): RuleCategory {
   return 'unknown';
 }
 
+/** The word the editor shows; the stored value `unknown` reads as a fault. */
+export function ruleCategoryLabel(c: RuleCategory): string {
+  return c === 'unknown' ? 'other' : c;
+}
+
 /** `example.com` covers `www.example.com`; the stored entry is a host, never a URL. */
 export function siteMatches(site: string, host: string): boolean {
   const s = site.toLowerCase();

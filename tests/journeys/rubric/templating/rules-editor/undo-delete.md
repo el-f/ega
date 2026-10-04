@@ -7,7 +7,7 @@
 
 ## State expectations
 
-- Step 1: two rules seeded; user deletes the first rule via confirm.
+- Step 1: two rules seeded; user deletes the first rule (no confirm).
 - Step 2: the rule is removed from the list; a "Rule deleted." toast with an Undo button surfaces for about 3s.
 - Step 3 (click Undo): the deleted rule is re-inserted at its original index (index 0, not appended to the bottom).
 

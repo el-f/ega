@@ -46,10 +46,6 @@ test('the last task chip stays; Edit scope > All tasks widens the rule on purpos
   await expect(page.locator('[data-ega-rules-editor]')).toBeVisible({ timeout: 5_000 });
   timeline.markStep('rules-mounted');
 
-  // Scope chips live inside the Advanced rules disclosure.
-  await page.locator('[data-ega-advanced-rules] > summary').click();
-  timeline.markStep('advanced-open');
-
   const row = page.locator(`[data-ega-rule-row][data-rule-id="${SEED_ID}"]`);
   await expect(row).toBeVisible({ timeout: 5_000 });
 

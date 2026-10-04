@@ -1281,15 +1281,6 @@ async function showRules(page: Page): Promise<void> {
   await page.locator('[data-ega-setting="tasks.rules"]').scrollIntoViewIfNeeded();
 }
 
-/** The disclosure's open state persists in localStorage, so a blind summary click closes it after a sibling test opened it. */
-async function openAdvancedRules(page: Page): Promise<void> {
-  const details = page.locator('[data-ega-advanced-rules]');
-  if (!(await details.evaluate((d) => (d as HTMLDetailsElement).open))) {
-    await details.locator('> summary').click();
-  }
-  await page.locator('[data-ega-rule-row]').first().waitFor({ state: 'visible', timeout: 5_000 });
-}
-
 test('Templating — rules editor states', async () => {
   // 3 shots + 1 reload. Comfortably under slow().
   test.slow();
@@ -1345,8 +1336,7 @@ test('Templating — rules editor states', async () => {
   await showRules(page);
   await page.waitForTimeout(400); // wait for chip workbench mount animation (no observable end state)
   await expect(page.locator('[data-ega-rules-editor]')).toBeVisible({ timeout: 5_000 });
-  // The rows the sidecar declares live inside the collapsed "Advanced rules" details — expand first.
-  await openAdvancedRules(page);
+  await page.locator('[data-ega-rule-row]').first().waitFor({ state: 'visible', timeout: 5_000 });
   await expect(page.locator('[data-ega-rule-site-chip="twitter.com"]')).toBeVisible();
   await expect(page.locator('[data-ega-rule-task-chip="summarize"]')).toBeVisible();
   await expect(page.locator('[data-ega-rule-category]')).toHaveCount(3);
@@ -1355,17 +1345,17 @@ test('Templating — rules editor states', async () => {
     state: 'rules-editor-populated',
     theme: 'light',
     userAction:
-      'user opened the Rules chip with three rules seeded and expanded "Advanced rules" — host-scoped, task-scoped, and an always-rule that is disabled',
+      'user opened the Rules chip with three rules seeded — host-scoped, task-scoped, and an always-rule that is off',
     expectations: [
       'three rule rows visible',
       'host chip "twitter.com ×" rendered on the first row',
       'task chip "Summarize ×" rendered on the second row',
-      'third row visually marked as disabled (dim/strikethrough)',
+      'third row marked off with an "Off" badge and a dashed border, text at full contrast',
       'category select column reachable on each row',
     ],
   });
 
-  // --- Rules editor (add-form open) --- the add form sits above the "Advanced rules" disclosure.
+  // --- Rules editor (add-form open) --- the add form sits below the rule rows.
   await page.locator('details.manual-block > summary').click();
   await page.waitForTimeout(300); // wait for <details> expand animation (no observable end state)
   await shot(page, 'rules-editor-add-form-open', {
@@ -1374,11 +1364,11 @@ test('Templating — rules editor states', async () => {
     theme: 'light',
     userAction: 'user clicked "Add a rule" — the form details element is expanded',
     expectations: [
-      'Add a rule form is expanded above the Advanced rules disclosure, outside it',
+      'Add a rule form is expanded below the rule rows',
       'Rule text textarea visible',
-      'Task chip row labeled "Tasks (empty = all)" visible',
-      'Sites input labeled "Sites (comma-separated, optional)" visible',
-      'Add rule primary CTA visible and disabled while Rule text is empty',
+      'Task chip row labeled "Applies to" with a hint that no task means all tasks',
+      'Sites input labeled "Sites (optional, separated by commas)" visible',
+      'Add rule primary CTA disabled while Rule text is empty, with a visible reason; Cancel beside it',
     ],
   });
   await page.locator('details.manual-block > summary').click();
@@ -2091,62 +2081,6 @@ test('Sidepanel — retry after error', async () => {
   });
   await retry.close();
   await resetRoutes(ext.context);
-});
-
-test('Confirm dialog — delete rule', async () => {
-  test.slow();
-  await seedSettings(ext.context, ext.extensionId, {
-    anthropicApiKey: 'sk-test',
-    advanced: {
-      promptTemplate: { system: 'You are a helpful translator.', user: '{{text}}' },
-      perPresetTemplates: {},
-      rules: [
-        {
-          id: 'shot-rule-delete',
-          body: 'Always preserve URLs verbatim across every task.',
-          category: 'always' as const,
-          scope: { tasks: [] },
-          source: 'manual' as const,
-          addedAt: new Date().toISOString(),
-          enabled: true,
-        },
-      ],
-      snippets: {},
-      temperature: 0.2,
-      maxTokens: 2048,
-    },
-  });
-  const page = await ext.context.newPage();
-  await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
-  await page.waitForLoadState('networkidle');
-  await openTasksTab(page);
-  await showRules(page);
-  await openAdvancedRules(page);
-  await page
-    .locator('[data-ega-rule-row]')
-    .first()
-    .getByRole('button', { name: 'Delete rule' })
-    .click();
-  await page
-    .getByRole('dialog')
-    .getByRole('button', { name: 'Delete' })
-    .waitFor({ timeout: 5_000 });
-  await page.waitForTimeout(200); // wait for dialog entrance animation (no observable end state)
-  await shot(page, 'confirm-delete-rule', {
-    surface: 'templates',
-    state: 'confirm-delete-rule',
-    theme: 'light',
-    userAction: 'user clicked Delete on a rule — danger-tone confirm dialog open',
-    expectations: [
-      'modal dialog mounts with a title referencing the rule',
-      'primary Delete CTA uses the danger tone',
-      'secondary Cancel reachable',
-      'scrim covers the rules editor behind uniformly',
-    ],
-  });
-  await page.keyboard.press('Escape');
-  await page.waitForTimeout(200); // wait for dialog dismiss animation (no observable end state)
-  await page.close();
 });
 
 test('Toast — success', async () => {

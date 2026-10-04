@@ -37,7 +37,7 @@ test.afterEach(async () => {
 
 test.slow();
 
-test('Power icon toggles enabled flag in storage', async () => {
+test('the On checkbox toggles the enabled flag in storage and shows Off', async () => {
   const timeline = createTimeline();
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
@@ -45,8 +45,9 @@ test('Power icon toggles enabled flag in storage', async () => {
 
   await expect(page.locator('[data-ega-rules-editor]')).toBeVisible({ timeout: 5_000 });
 
-  const pill = page.locator(`[data-ega-rule-pill][data-rule-id="${SEED_ID}"]`);
-  await pill.locator('[data-ega-rule-pill-disable]').click();
+  const row = page.locator(`[data-ega-rule-row][data-rule-id="${SEED_ID}"]`);
+  await expect(row.locator('[data-ega-rule-off]')).toHaveCount(0);
+  await row.locator('[data-ega-rule-disable]').click();
   timeline.markStep('toggle-clicked');
 
   await expect
@@ -58,4 +59,5 @@ test('Power icon toggles enabled flag in storage', async () => {
       { timeout: 10_000 },
     )
     .toBe(false);
+  await expect(row.locator('[data-ega-rule-off]')).toBeVisible();
 });
