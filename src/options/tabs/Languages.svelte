@@ -1,3 +1,17 @@
+<script lang="ts" module>
+  /** A row's editable copy. Only customs carry a label: a built-in keeps its shipped one. An empty pattern means none. */
+  interface Draft {
+    label?: string;
+    hint: string;
+    examples: Array<{ src: string; tgt: string }>;
+    detect: { regex: string; flags: string; minScore: number };
+  }
+  // Module scope, so a draft outlives closing its row and leaving the tab; Save or Discard ends it.
+  const draft = $state<Record<string, Draft>>({});
+  // The normalized draft as it was created; a draft equal to it holds no edits and is rebuilt on open.
+  const draftBase = $state<Record<string, string>>({});
+</script>
+
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import type { Settings, Variety, VarietyEdit } from '@/shared/types';
@@ -39,6 +53,7 @@
   import X from '@lucide/svelte/icons/x';
   import Trash2 from '@lucide/svelte/icons/trash-2';
   import Plus from '@lucide/svelte/icons/plus';
+  import ChevronRight from '@lucide/svelte/icons/chevron-right';
   import Download from '@lucide/svelte/icons/download';
 
   interface Props {
@@ -54,6 +69,7 @@
   });
   /** The language whose prompt editor is open. */
   let promptOpen = $state<string | null>(null);
+  let promptDirty = $state(false);
 
   let all: Variety[] = $state.raw([]);
   let form = $state({ label: '', hint: '' });
@@ -69,14 +85,7 @@
     await tick();
     addFormEl?.querySelector<HTMLElement>('input, textarea')?.focus();
   }
-  /** A row's editable copy. Only customs carry a label: a built-in keeps its shipped one. An empty pattern means none. */
-  interface Draft {
-    label?: string;
-    hint: string;
-    examples: Array<{ src: string; tgt: string }>;
-    detect: { regex: string; flags: string; minScore: number };
-  }
-  let draft = $state<Record<string, Draft>>({});
+  let detectOpen = $state<Record<string, boolean>>({});
   let saved = $state<Record<string, boolean>>({});
   let flashId = $state<string | null>(null);
 
@@ -124,14 +133,49 @@
     return source ? 'source' : target ? 'target' : null;
   }
 
-  function startEdit(v: Variety): void {
+  // The prompt editor keeps its draft inside itself, so closing the row would drop it without asking.
+  async function startEdit(v: Variety): Promise<void> {
+    if (promptDirty && promptOpen === expanded) {
+      const discard = await confirmDialog({
+        title: 'Discard the unsaved prompt?',
+        body: 'Your changes to this language prompt are not saved.',
+        confirmLabel: 'Discard',
+        danger: true,
+      });
+      if (!discard) return;
+    }
+    promptDirty = false;
+    promptOpen = null;
     if (expanded === v.id) {
       expanded = null;
       return;
     }
     expanded = v.id;
-    draft[v.id] = draftOf(v);
+    if (!isDirty(v)) rebuildDraft(v.id);
   }
+
+  function normalized(d: Draft): string {
+    return JSON.stringify({
+      label: d.label,
+      hint: d.hint,
+      examples: d.examples.filter((e) => e.src.trim() || e.tgt.trim()).map((e) => [e.src, e.tgt]),
+      detect: { regex: d.detect.regex, flags: d.detect.flags, min: Number(d.detect.minScore) || 1 },
+    });
+  }
+
+  function isDirty(v: Variety): boolean {
+    const d = draft[v.id];
+    return d !== undefined && normalized(d) !== draftBase[v.id];
+  }
+
+  const anyDirty = $derived(promptDirty || all.some((v) => isDirty(v)));
+  // A closed tab or a reload would drop the drafts, so the browser gets to ask first.
+  $effect(() => {
+    if (!anyDirty) return;
+    const warn = (e: BeforeUnloadEvent): void => e.preventDefault();
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  });
 
   function draftOf(v: Variety): Draft {
     return {
@@ -166,6 +210,7 @@
     if (!d) return;
     const autoDetect = detectPatch(d.detect);
     if (autoDetect instanceof Error) {
+      detectOpen[v.id] = true;
       toastStore.push({
         message: `The detection pattern for "${v.label}" is not valid: ${autoDetect.message}`,
         variant: 'danger',
@@ -201,6 +246,7 @@
       return;
     }
     await refresh();
+    rebuildDraft(v.id);
     saved[v.id] = true;
     setTimeout(() => (saved[v.id] = false), 1500);
   }
@@ -215,8 +261,11 @@
   }
 
   function rebuildDraft(id: string): void {
-    const refreshed = all.find((x) => x.id === id);
-    if (refreshed) draft[id] = draftOf(refreshed);
+    const fresh = all.find((x) => x.id === id);
+    if (!fresh) return;
+    const d = draftOf(fresh);
+    draft[id] = d;
+    draftBase[id] = normalized(d);
   }
 
   async function reset(v: Variety): Promise<void> {
@@ -270,6 +319,8 @@
       return;
     }
     await refresh();
+    delete draft[v.id];
+    delete draftBase[v.id];
     if (expanded === v.id) expanded = null;
   }
 
@@ -357,7 +408,13 @@
     const status = await importBundleFile(file, ['varieties', 'language']);
     if (!status) return;
     backupState = status;
-    if (status.kind === 'ok') await refresh();
+    if (status.kind === 'ok') {
+      for (const id of Object.keys(draft)) {
+        delete draft[id];
+        delete draftBase[id];
+      }
+      await refresh();
+    }
   }
 
   function exampleCapFor(id: string): number {
@@ -390,20 +447,8 @@
 <TabHeader tab="languages" />
 
 <SectionCard
-  title="Backup & restore"
-  description="Export your custom languages, overrides and language prompts. Import to restore or share."
->
-  <BackupRestoreRow
-    onExport={doExportVarieties}
-    onImport={doImportVarieties}
-    status={backupState}
-    scope="languages"
-  />
-</SectionCard>
-
-<SectionCard
   title="All languages"
-  description="The checkbox shows a language in the pickers. The pencil edits its hint and examples."
+  description="The checkbox shows a language in the pickers. Click a name to edit its hint, examples and prompt."
 >
   {#snippet headerActions()}
     <IconButton
@@ -475,6 +520,8 @@
 
   {#each filtered as v (v.id)}
     {@const isCustom = v.kind === 'custom'}
+    {@const dirty = isDirty(v)}
+    {@const unsaved = dirty || (promptDirty && promptOpen === v.id)}
     <div class="variety-row" class:expanded={expanded === v.id} class:flash={flashId === v.id}>
       <div class="variety-row-head">
         <Checkbox
@@ -483,11 +530,17 @@
           ariaLabel="Enable {v.label}"
           onchange={() => toggleDisabled(v)}
         />
-        <label for="enable-{v.id}" class="variety-label-inline">
+        <button
+          type="button"
+          class="variety-label-inline"
+          aria-expanded={expanded === v.id}
+          onclick={() => void startEdit(v)}
+        >
           <b>{v.label}</b>
-          <span class="badge" class:custom={isCustom}>{isCustom ? 'Custom' : 'Built-in'}</span>
+          {#if isCustom}<span class="badge custom">Custom</span>{/if}
           {#if v.hasOverrides}<span class="badge badge-edited">edited</span>{/if}
-        </label>
+          {#if unsaved}<span class="badge badge-unsaved">Unsaved</span>{/if}
+        </button>
         <span class="variety-hint" title={v.hint}>{v.hint}</span>
         <span class="variety-count">{count(v.examples.length, 'example')}</span>
         <div class="variety-actions">
@@ -496,7 +549,7 @@
             ariaLabel={expanded === v.id ? 'Close editor' : 'Edit'}
             tooltip={expanded === v.id ? 'Close' : 'Edit'}
             size="sm"
-            onclick={() => startEdit(v)}
+            onclick={() => void startEdit(v)}
           />
           {#if v.kind === 'custom'}
             <IconButton
@@ -533,6 +586,7 @@
           <label class="field-label" for="hint-{v.id}">Hint</label>
           <textarea id="hint-{v.id}" dir="auto" maxlength={VARIETY_HINT_MAX} bind:value={d.hint}
           ></textarea>
+          <span class="variety-counter">{d.hint.length}/{VARIETY_HINT_MAX}</span>
           <div class="variety-examples-head">Examples</div>
           {#each d.examples as ex, i (ex)}
             <div class="row variety-example-row">
@@ -567,50 +621,63 @@
               Add another example
             </Button>
           </div>
-          <div class="variety-examples-head">Detection</div>
-          <p class="variety-detect-help">
-            When the source is Auto-detect, Ega picks this language if the pattern (a regular
-            expression) matches the text at least the minimum number of times. The flag i ignores
-            case. {isCustom
-              ? 'Leave the pattern empty to turn detection off.'
-              : 'Leave the pattern empty to use the built-in one.'}
-          </p>
-          <label class="field-label" for="detect-{v.id}">Pattern</label>
-          <input
-            id="detect-{v.id}"
-            class="variety-detect-pattern"
-            type="text"
-            dir="ltr"
-            spellcheck="false"
-            autocomplete="off"
-            maxlength={DETECT_PATTERN_MAX}
-            bind:value={d.detect.regex}
-          />
-          <div class="row variety-detect-row">
-            <label class="field-label" for="detect-flags-{v.id}">Flags</label>
+          <button
+            type="button"
+            class="variety-advanced-toggle"
+            aria-expanded={detectOpen[v.id] === true}
+            onclick={() => (detectOpen[v.id] = detectOpen[v.id] !== true)}
+          >
+            <ChevronRight size={14} class="variety-advanced-chevron" />
+            Advanced: auto-detect pattern
+          </button>
+          <CollapsibleField open={detectOpen[v.id] === true}>
+            <p class="variety-detect-help">
+              When the source is Auto-detect, Ega picks this language if the pattern (a regular
+              expression) matches the text at least the minimum number of times. The flag i ignores
+              case. {isCustom
+                ? 'Leave the pattern empty to turn detection off.'
+                : 'Leave the pattern empty to use the built-in one.'}
+            </p>
+            <label class="field-label" for="detect-{v.id}">Pattern</label>
             <input
-              id="detect-flags-{v.id}"
-              class="variety-detect-flags"
+              id="detect-{v.id}"
+              class="variety-detect-pattern"
               type="text"
               dir="ltr"
               spellcheck="false"
               autocomplete="off"
-              maxlength={DETECT_FLAGS_MAX}
-              bind:value={d.detect.flags}
+              maxlength={DETECT_PATTERN_MAX}
+              bind:value={d.detect.regex}
             />
-            <label class="field-label" for="detect-min-{v.id}">Minimum matches</label>
-            <input
-              id="detect-min-{v.id}"
-              class="variety-detect-min"
-              type="number"
-              min="1"
-              step="1"
-              bind:value={d.detect.minScore}
-            />
-          </div>
+            <div class="row variety-detect-row">
+              <label class="field-label" for="detect-flags-{v.id}">Flags</label>
+              <input
+                id="detect-flags-{v.id}"
+                class="variety-detect-flags"
+                type="text"
+                dir="ltr"
+                spellcheck="false"
+                autocomplete="off"
+                maxlength={DETECT_FLAGS_MAX}
+                bind:value={d.detect.flags}
+              />
+              <label class="field-label" for="detect-min-{v.id}">Minimum matches</label>
+              <input
+                id="detect-min-{v.id}"
+                class="variety-detect-min"
+                type="number"
+                min="1"
+                step="1"
+                bind:value={d.detect.minScore}
+              />
+            </div>
+          </CollapsibleField>
           <hr class="variety-editor-divider" />
           <div class="row variety-commit-row">
-            <Button variant="primary" onclick={() => save(v)}>Save</Button>
+            <Button variant="primary" onclick={() => save(v)}>Save language</Button>
+            {#if dirty}
+              <Button variant="ghost" onclick={() => rebuildDraft(v.id)}>Discard changes</Button>
+            {/if}
             {#if v.hasOverrides}
               <Button
                 variant="secondary"
@@ -642,6 +709,7 @@
                     onReset={() => handlers.clearPerPreset(v.id)}
                     inheritedLabel="Clear"
                     fieldResetLabel="Use the Translate prompt"
+                    onDirtyChange={(d) => (promptDirty = d)}
                   />
                 {/await}
               {:else}
@@ -672,6 +740,18 @@
       {/if}
     </p>
   {/each}
+</SectionCard>
+
+<SectionCard
+  title="Backup & restore"
+  description="Export your custom languages, overrides and language prompts. Import to restore or share."
+>
+  <BackupRestoreRow
+    onExport={doExportVarieties}
+    onImport={doImportVarieties}
+    status={backupState}
+    scope="languages"
+  />
 </SectionCard>
 
 <style>
@@ -733,8 +813,45 @@
     align-items: center;
     gap: var(--space-1);
     margin: 0;
+    padding: 0;
     flex: 0 0 auto;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: start;
     cursor: pointer;
+  }
+  .variety-advanced-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    margin-top: var(--space-3);
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--color-muted);
+    font: inherit;
+    font-size: var(--fs-sm);
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .variety-advanced-toggle :global(.variety-advanced-chevron) {
+    transition: transform var(--motion-fast) var(--ease-out);
+  }
+  .variety-advanced-toggle[aria-expanded='true'] :global(.variety-advanced-chevron) {
+    transform: rotate(90deg);
+  }
+  .variety-counter {
+    display: block;
+    text-align: end;
+    font-size: var(--fs-xs);
+    color: var(--color-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .badge-unsaved {
+    background: var(--color-warning-bg-soft);
+    color: var(--color-warning-fg);
   }
   .variety-hint {
     flex: 1 1 auto;

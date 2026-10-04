@@ -8,13 +8,13 @@
 ## State expectations
 
 - Step 1: user expands a variety row into edit mode; edits the hint field.
-- Step 2 (click Save): the updated hint persists to `varietyOverrides[id]` for a built-in, or the matching `customLanguages` entry for a custom.
-- Step 3: a brief "Saved ✓" inline ack appears next to the Save button; the editor stays open.
+- Step 2 (click Save language): the updated hint persists to `varietyOverrides[id]` for a built-in, or the matching `customLanguages` entry for a custom.
+- Step 3: a brief "Saved ✓" inline ack appears next to the Save language button; the editor stays open.
 
 ## Visible affordances
 
-- Edit mode surfaces a Hint field, an Examples list and a Detection block (Pattern, Flags, Minimum matches); custom rows also get a Label field.
-- Save button is primary; "Reset to built-in" is secondary and shows only on an edited built-in.
+- Edit mode surfaces a Hint field with a character counter, an Examples list and a collapsed "Advanced: auto-detect pattern" block (Pattern, Flags, Minimum matches) that opens on click or when Save finds an invalid pattern; custom rows also get a Label field.
+- "Save language" is primary; "Discard changes" shows while the draft differs from the saved language; "Reset to built-in" is secondary and shows only on an edited built-in.
 - "Saved ✓" ack uses the success tone tokens; auto-dismisses after ~1.5s.
 
 ## Failure-mode expectations

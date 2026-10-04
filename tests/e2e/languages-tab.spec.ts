@@ -46,7 +46,7 @@ test('editing a built-in creates a varietyOverrides entry; reset clears it', asy
   const hintArea = page.locator('#hint-arabizi');
   await hintArea.waitFor({ state: 'visible' });
   await hintArea.fill('CUSTOM HINT FOR TEST');
-  await card.getByRole('button', { name: /^Save$/ }).click();
+  await card.getByRole('button', { name: /^Save language$/ }).click();
 
   await expect
     .poll(

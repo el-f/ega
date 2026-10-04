@@ -268,13 +268,13 @@ describe('Languages tab — kind badge display copy', () => {
     vi.mocked(confirmDialog).mockResolvedValue(true);
   });
 
-  it('built-in varieties show "Built-in", not the raw enum', async () => {
+  it('built-in rows carry no kind badge', async () => {
     render(Languages);
     await waitFor(() => {
       expect(document.querySelectorAll('.variety-row').length).toBeGreaterThan(0);
     });
     const badges = [...document.querySelectorAll('.badge')].map((b) => b.textContent.trim());
-    expect(badges).toContain('Built-in');
+    expect(badges).not.toContain('Built-in');
     expect(badges).not.toContain('builtin');
   });
 
@@ -633,7 +633,7 @@ describe('Languages tab — editing a language deleted in another window', () =>
     const save = await waitFor(() => {
       const b = [
         ...document.querySelectorAll<HTMLButtonElement>('.variety-commit-row button'),
-      ].find((x) => x.textContent.trim() === 'Save');
+      ].find((x) => x.textContent.trim() === 'Save language');
       if (!b) throw new Error('save button not found');
       return b;
     });
@@ -720,6 +720,12 @@ describe('Languages tab — detection pattern editor', () => {
       return btn;
     });
     await fireEvent.click(editBtn);
+    const toggle = await waitFor(() => {
+      const t = document.querySelector<HTMLButtonElement>('.variety-advanced-toggle');
+      if (!t) throw new Error('advanced toggle not found');
+      return t;
+    });
+    await fireEvent.click(toggle);
   }
 
   const field = (id: string): HTMLInputElement => {
@@ -731,7 +737,7 @@ describe('Languages tab — detection pattern editor', () => {
   async function clickSave(): Promise<void> {
     const save = [
       ...document.querySelectorAll<HTMLButtonElement>('.variety-commit-row button'),
-    ].find((b) => b.textContent.trim() === 'Save');
+    ].find((b) => b.textContent.trim() === 'Save language');
     if (!save) throw new Error('save button not found');
     await fireEvent.click(save);
   }
@@ -920,12 +926,12 @@ describe('Languages tab — row copy and the add entry point', () => {
     );
   });
 
-  it('the list card says what the checkbox and the pencil do', async () => {
+  it('the list card says what the checkbox and the name do', async () => {
     const { findByRole } = render(Languages);
     const heading = await findByRole('heading', { level: 2, name: 'All languages' });
     const desc = heading.closest('header')?.querySelector('.ega-section-card-desc');
     expect(desc?.textContent).toMatch(/checkbox/i);
-    expect(desc?.textContent).toMatch(/pencil/i);
+    expect(desc?.textContent).toMatch(/click a name/i);
   });
 
   it('offers a visible add button while there is no custom language, and it opens the form', async () => {
@@ -945,5 +951,154 @@ describe('Languages tab — row copy and the add entry point', () => {
     const { queryByRole } = render(Languages);
     await waitFor(() => expect(rowOf('Mine')).toBeDefined());
     expect(queryByRole('button', { name: 'Add your own language' })).toBeNull();
+  });
+});
+
+describe('Languages tab — the row name and unsaved edits', () => {
+  // Drafts live at module scope, so every test uses its own language id.
+  beforeEach(() => {
+    resetChromeMock();
+    vi.restoreAllMocks();
+    vi.mocked(confirmDialog).mockResolvedValue(true);
+  });
+
+  let id = '';
+  let uid = 0;
+  function seed(): void {
+    uid += 1;
+    id = `draft-${uid}`;
+    chromeMock.storage.local._raw.set('ega.customLanguages', [
+      { id, label: `Draft Lang ${uid}`, hint: 'first hint', examples: [], createdAt: 1 },
+    ]);
+  }
+  const rowEl = (): Element | undefined =>
+    [...document.querySelectorAll('.variety-row')].find((r) =>
+      r.textContent.includes(`Draft Lang ${uid}`),
+    );
+  const nameBtn = (): HTMLButtonElement => {
+    const el = rowEl()?.querySelector<HTMLButtonElement>('button.variety-label-inline');
+    if (!el) throw new Error('name button not found');
+    return el;
+  };
+  const hint = (): HTMLTextAreaElement => {
+    const el = document.getElementById(`hint-${id}`);
+    if (!(el instanceof HTMLTextAreaElement)) throw new Error('hint field not found');
+    return el;
+  };
+
+  it('clicking the name opens the editor and leaves the language enabled', async () => {
+    seed();
+    render(Languages);
+    await waitFor(() => expect(rowEl()).toBeTruthy());
+    const box = document.getElementById(`enable-${id}`) as HTMLInputElement;
+    expect(box.checked).toBe(true);
+    await fireEvent.click(nameBtn());
+    await waitFor(() => expect(hint().value).toBe('first hint'));
+    expect(box.checked).toBe(true);
+    expect(nameBtn().getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('keeps an unsaved edit when the row closes, and tags the row', async () => {
+    seed();
+    render(Languages);
+    await waitFor(() => expect(rowEl()).toBeTruthy());
+    await fireEvent.click(nameBtn());
+    await waitFor(() => expect(hint().value).toBe('first hint'));
+    await fireEvent.input(hint(), { target: { value: 'edited hint' } });
+    await waitFor(() => expect(rowEl()?.querySelector('.badge-unsaved')).toBeTruthy());
+
+    await fireEvent.click(nameBtn());
+    await waitFor(() => expect(document.getElementById(`hint-${id}`)).toBeNull());
+    expect(rowEl()?.querySelector('.badge-unsaved')).toBeTruthy();
+
+    await fireEvent.click(nameBtn());
+    await waitFor(() => expect(hint().value).toBe('edited hint'));
+  });
+
+  it('Discard changes restores the saved hint and clears the tag', async () => {
+    seed();
+    render(Languages);
+    await waitFor(() => expect(rowEl()).toBeTruthy());
+    await fireEvent.click(nameBtn());
+    await waitFor(() => expect(hint().value).toBe('first hint'));
+    await fireEvent.input(hint(), { target: { value: 'edited hint' } });
+    const discard = await waitFor(() => {
+      const b = [
+        ...document.querySelectorAll<HTMLButtonElement>('.variety-commit-row button'),
+      ].find((x) => x.textContent.trim() === 'Discard changes');
+      if (!b) throw new Error('discard button not found');
+      return b;
+    });
+    await fireEvent.click(discard);
+    await waitFor(() => expect(hint().value).toBe('first hint'));
+    expect(rowEl()?.querySelector('.badge-unsaved')).toBeNull();
+  });
+
+  it('Save language clears the tag', async () => {
+    seed();
+    render(Languages);
+    await waitFor(() => expect(rowEl()).toBeTruthy());
+    await fireEvent.click(nameBtn());
+    await waitFor(() => expect(hint().value).toBe('first hint'));
+    await fireEvent.input(hint(), { target: { value: 'edited hint' } });
+    await waitFor(() => expect(rowEl()?.querySelector('.badge-unsaved')).toBeTruthy());
+    const save = [
+      ...document.querySelectorAll<HTMLButtonElement>('.variety-commit-row button'),
+    ].find((x) => x.textContent.trim() === 'Save language');
+    if (!save) throw new Error('save button not found');
+    await fireEvent.click(save);
+    await waitFor(() => expect(rowEl()?.querySelector('.badge-unsaved')).toBeNull());
+    expect((await getCustomLanguages())[0]?.hint).toBe('edited hint');
+  });
+
+  it('keeps an unsaved edit when the user leaves the tab and comes back', async () => {
+    seed();
+    const first = render(Languages);
+    await waitFor(() => expect(rowEl()).toBeTruthy());
+    await fireEvent.click(nameBtn());
+    await waitFor(() => expect(hint().value).toBe('first hint'));
+    await fireEvent.input(hint(), { target: { value: 'edited hint' } });
+    first.unmount();
+    await waitFor(() => expect(rowEl()).toBeUndefined());
+
+    render(Languages);
+    await waitFor(() => expect(rowEl()?.querySelector('.badge-unsaved')).toBeTruthy());
+    await fireEvent.click(nameBtn());
+    await waitFor(() => expect(hint().value).toBe('edited hint'));
+  });
+
+  it('asks before closing a row whose prompt has unsaved edits', async () => {
+    seed();
+    vi.mocked(confirmDialog).mockClear();
+    render(Languages, { props: { s: await getSettings() } });
+    await waitFor(() => expect(rowEl()).toBeTruthy());
+    await fireEvent.click(nameBtn());
+    const open = await waitFor(() => {
+      const b = rowEl()?.querySelector<HTMLButtonElement>('[data-ega-variety-prompt-open]');
+      if (!b) throw new Error('prompt open button not found');
+      return b;
+    });
+    await fireEvent.click(open);
+    const user = await waitFor(
+      () => {
+        const el = rowEl()?.querySelector<HTMLTextAreaElement>('[data-ega-template-user] textarea');
+        if (!el) throw new Error('prompt editor not found');
+        return el;
+      },
+      { timeout: 5_000 },
+    );
+    await fireEvent.input(user, { target: { value: 'My prompt {{text}}' } });
+    await waitFor(() => expect(rowEl()?.querySelector('.badge-unsaved')).toBeTruthy());
+
+    vi.mocked(confirmDialog).mockResolvedValueOnce(false);
+    await fireEvent.click(nameBtn());
+    await waitFor(() => expect(confirmDialog).toHaveBeenCalledTimes(1));
+    expect(user.isConnected).toBe(true);
+    expect(user.value).toBe('My prompt {{text}}');
+
+    await fireEvent.click(nameBtn());
+    await waitFor(() => expect(confirmDialog).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(user.isConnected).toBe(false));
+    expect(rowEl()?.querySelector('.badge-unsaved')).toBeNull();
   });
 });

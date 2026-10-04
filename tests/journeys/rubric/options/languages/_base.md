@@ -3,8 +3,10 @@
 ## Mount + render
 
 - Tab lists every language (built-in + custom) as rows, sorted by label; the Add form opens from the header "Add custom language" (+) button, or from the "Add your own language" button shown while no custom language exists.
-- The list card's description says what the checkbox and the pencil do.
-- Each row carries an enable checkbox, label, Built-in/Custom badge (+ "edited" when overridden), hint, example count spelled out ("1 example", "3 examples"), and Edit; custom rows also get Delete.
+- The list card's description says what the checkbox and a click on the name do.
+- Each row carries an enable checkbox, the name (a button that opens the editor and never toggles the checkbox), a Custom badge on custom rows only (+ "edited" when overridden, + "Unsaved" while the editor or the language prompt holds unsaved edits), hint, example count spelled out ("1 example", "3 examples"), and Edit; custom rows also get Delete.
+- Unsaved edits survive closing the row and leaving the tab; "Discard changes" drops them. Closing a row with an unsaved language prompt asks first. Reloading or closing the page with unsaved edits triggers the browser's leave-page prompt.
+- Backup & restore sits below the language list.
 
 ## Add / delete
 

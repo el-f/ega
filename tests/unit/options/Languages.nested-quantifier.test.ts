@@ -32,6 +32,13 @@ describe('Languages tab — a refused detection pattern', () => {
       return btn;
     });
     await fireEvent.click(editBtn);
+    await fireEvent.click(
+      await waitFor(() => {
+        const t = document.querySelector<HTMLButtonElement>('.variety-advanced-toggle');
+        if (!t) throw new Error('advanced toggle not found');
+        return t;
+      }),
+    );
     const pattern = await waitFor(() => {
       const el = document.getElementById('detect-nq-id');
       if (!(el instanceof HTMLInputElement)) throw new Error('pattern field not found');
@@ -40,7 +47,7 @@ describe('Languages tab — a refused detection pattern', () => {
     await fireEvent.input(pattern, { target: { value: '(a+)+' } });
     const save = Array.from(
       document.querySelectorAll<HTMLButtonElement>('.variety-commit-row button'),
-    ).find((b) => b.textContent.trim() === 'Save');
+    ).find((b) => b.textContent.trim() === 'Save language');
     if (!save) throw new Error('save button not found');
     await fireEvent.click(save);
 
