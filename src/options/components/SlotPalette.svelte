@@ -18,6 +18,7 @@
 </script>
 
 <script lang="ts">
+  import { tick } from 'svelte';
   import {
     slotsFor,
     allSlots,
@@ -97,8 +98,9 @@
     return items;
   });
 
+  // After the popover hands focus back to its trigger, or the insert's own focus is undone.
   function handlePicked(id: string): void {
-    onInsert(`{{${id}}}`);
+    void tick().then(() => onInsert(`{{${id}}}`));
   }
 </script>
 
@@ -114,7 +116,6 @@
       emptyText="No matching variable."
       side="top"
       align="end"
-      avoidCollisions={false}
       maxWidth={240}
       maxListHeight={180}
     >

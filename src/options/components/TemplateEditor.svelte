@@ -140,7 +140,8 @@
   let usrApi: TextareaApi | null = $state(null);
 
   function insertSlotToken(token: string): void {
-    const target = lastFocused === 'sys' ? sysApi : usrApi;
+    // {{text}} is required in the message, wherever the caret was last.
+    const target = token === '{{text}}' || lastFocused === 'usr' ? usrApi : sysApi;
     target?.insertAtCursor(token);
   }
 
@@ -178,7 +179,7 @@
     usr = inheritedTemplate.user;
     await onReset();
     lastKey = `${sys}\x00${usr}`;
-    saveOk = 'Reset';
+    saveOk = inheritedLabel === 'Clear' ? 'Cleared' : 'Reset';
   }
 
   // ── Per-field reset — auto-persists ───────────────────────────────

@@ -242,6 +242,27 @@ describe('Tasks tab — your own tasks', () => {
     expect(user?.value).toBe('TEXT:\n"""\n{{text}}\n"""');
   });
 
+  it('the text chip always inserts into the Message, where {{text}} is required', async () => {
+    const { container } = await mount();
+    const add = container.querySelector<HTMLElement>('[data-ega-custom-task-new]');
+    if (!add) throw new Error('no new button');
+    await fireEvent.click(add);
+    const sys = await waitFor(() => {
+      const el = document.querySelector<HTMLTextAreaElement>('[data-ega-custom-task-system]');
+      if (!el) throw new Error('no instructions field');
+      return el;
+    });
+    await fill('[data-ega-custom-task-system]', 'Be brief.');
+    await fill('[data-ega-custom-task-user]', 'Shorten: ');
+    await fireEvent.focusIn(sys);
+    const chip = document.querySelector<HTMLElement>('[data-ega-slot-chip="text"]');
+    if (!chip) throw new Error('no text chip');
+    await fireEvent.click(chip);
+    const user = document.querySelector<HTMLTextAreaElement>('[data-ega-custom-task-user]');
+    await waitFor(() => expect(user?.value).toContain('{{text}}'));
+    expect(sys.value).toBe('Be brief.');
+  });
+
   it('the preview shows the custom prompt and its contract line', async () => {
     const { addCustomTask } = await import('@/shared/tasks');
     const added = await addCustomTask({

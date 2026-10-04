@@ -106,6 +106,8 @@
     animation: ega-dialog-pop var(--motion-fast) var(--ease-out);
     max-height: 90vh;
     overflow-y: auto;
+    /* Keyboard focus and scrollIntoView stop clear of the sticky title and buttons. */
+    scroll-padding-block: 3.5rem 4.5rem;
   }
   /* A long dialog scrolls under its title and buttons; the negative offsets cover the dialog's own padding. */
   .ega-dialog-head {

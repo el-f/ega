@@ -128,7 +128,7 @@
   }
 
   function insert(token: string): void {
-    const which = lastField;
+    const which = token === '{{text}}' ? 'user' : lastField;
     const el = fieldEls[which];
     const cur = which === 'system' ? system : user;
     const start = el?.selectionStart ?? cur.length;

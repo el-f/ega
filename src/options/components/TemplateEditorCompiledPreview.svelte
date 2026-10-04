@@ -41,8 +41,8 @@
   <section class="preview-part" data-ega-preview-history>
     <h3 class="preview-label">Earlier messages</h3>
     <p class="preview-slot">
-      From the side panel, the most recent earlier messages of the conversation go here, up to about {historyBudget}
-      tokens. Tooltip and image requests send none.
+      For a follow-up sent in the side panel, the most recent earlier messages of the conversation
+      go here, up to about {historyBudget} tokens. Tooltip, image and Regenerate requests send none.
     </p>
   </section>
   <section class="preview-part">

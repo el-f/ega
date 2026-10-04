@@ -32,6 +32,27 @@ function saveButton(container: HTMLElement): HTMLButtonElement {
   return el;
 }
 
+describe('TemplateEditor — reset status', () => {
+  it.each([
+    ['Reset prompt', 'Reset'],
+    ['Clear', 'Cleared'],
+  ])('a %s click reports %s', async (inheritedLabel, status) => {
+    const { container } = render(TemplateEditor, {
+      props: baseProps({
+        inheritedLabel,
+        template: { system: 'Mine.', user: 'Mine: {{text}}' },
+        inheritedTemplate: { system: 'Built-in.', user: '{{text}}' },
+      }),
+    });
+    const reset = container.querySelector<HTMLButtonElement>('[data-ega-template-reset]');
+    if (!reset) throw new Error('no reset button');
+    await fireEvent.click(reset);
+    await waitFor(() => {
+      expect(container.querySelector('[role="status"]')?.textContent).toBe(status);
+    });
+  });
+});
+
 describe('TemplateEditor — saved status', () => {
   it('shows "Saved" after save, then clears it as soon as the draft diverges', async () => {
     const { container } = render(TemplateEditor, { props: baseProps() });
