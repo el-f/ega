@@ -67,6 +67,10 @@
     cursor: pointer;
     transition: background var(--motion-fast) var(--ease-out);
   }
+  /* One column width for every tab name, so the titles start on one line. */
+  .slv-item:has(.slv-tab-badge) {
+    grid-template-columns: 9rem 1fr auto;
+  }
   .slv-item[data-selected] {
     background: var(--color-accent-bg-soft);
     border-color: var(--color-border-subtle);
@@ -86,6 +90,7 @@
     font-variant-numeric: tabular-nums;
     line-height: 1.2;
     flex: 0 0 auto;
+    justify-self: start;
     margin-top: 2px;
   }
   /* The selected row is already tinted; a second tint under the badge pulls its text under 4.5:1. */

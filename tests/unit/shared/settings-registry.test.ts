@@ -104,6 +104,21 @@ describe('settings-registry', () => {
       expect(hits[0]?.score).toBeGreaterThanOrEqual(100);
     });
 
+    it('an action found only by its description or keywords ranks after every setting', () => {
+      for (const q of ['temperature', 'effort', 'cache', 'clear', 'site', 'data', 'prompt']) {
+        const hits = searchSettings(q);
+        const firstDemoted = hits.findIndex((h) => h.type === 'action' && h.score < 100);
+        if (firstDemoted < 0) continue;
+        const after = hits.slice(firstDemoted);
+        expect(
+          after.every((h) => h.type === 'action' && h.score < 100),
+          `query "${q}"`,
+        ).toBe(true);
+      }
+      const temp = searchSettings('temperature');
+      expect(temp.at(-1)?.id).toBe('advanced.resetEverything');
+    });
+
     it('matches via keyword synonyms when the label/desc do not contain the query', () => {
       // "heat" appears only in keywords, never in a label or description.
       const hits = searchSettings('heat');

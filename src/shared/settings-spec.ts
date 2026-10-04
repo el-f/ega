@@ -21,7 +21,8 @@ import type { Settings } from './types';
 
 export type { SettingsTab };
 
-export type SettingType = 'toggle' | 'slider' | 'select' | 'text' | 'template' | 'group';
+/** `action` is a button that does something once (reset, clear, delete), not a value. */
+export type SettingType = 'toggle' | 'slider' | 'select' | 'text' | 'template' | 'group' | 'action';
 
 export type AdvancedSubTab = 'diagnostics' | 'data' | 'labs';
 
@@ -279,7 +280,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
     id: 'defaults.defaultTone',
     label: 'Default tone',
     description:
-      'The tone a task uses unless you pick another, e.g. formal or casual. Only tasks whose prompt has {{tone}} use it, like Reword.',
+      'The tone a task uses unless you pick another, e.g. formal or casual. Only tasks that write in a tone use it, like Reword.',
     keywords: ['tone', 'reword', 'formal', 'casual', 'voice'],
     tab: 'tasks',
     targetSelector: '[data-ega-setting="defaults.defaultTone"]',
@@ -713,7 +714,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   },
   {
     id: 'advanced.descriptionContextCap',
-    label: 'Page description cap',
+    label: 'Page description length',
     description: 'Longest page description sent with Rich context.',
     keywords: ['description', 'meta', 'cap', 'context', 'chars', 'rich'],
     tab: 'translate',
@@ -727,7 +728,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   },
   {
     id: 'advanced.headingTrailDepth',
-    label: 'Heading trail depth',
+    label: 'Headings sent',
     description: 'How many nearby h1–h6 headings rich context carries.',
     keywords: ['heading', 'trail', 'depth', 'context', 'rich', 'h1'],
     tab: 'translate',
@@ -741,7 +742,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   },
   {
     id: 'advanced.headingTrailEntryCap',
-    label: 'Heading trail entry cap',
+    label: 'Longest heading',
     description: 'Longest single heading in the trail.',
     keywords: ['heading', 'trail', 'cap', 'chars', 'context'],
     tab: 'translate',
@@ -911,7 +912,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
     tab: 'advanced',
     subTab: 'data',
     targetSelector: '[data-ega-setting="advanced.resetEverything"]',
-    type: 'group',
+    type: 'action',
   },
 
   // ── About ────────────────────────────────────────────────────────
@@ -922,7 +923,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
       'Delete every cached translation. The next identical request goes to the backend again.',
     keywords: ['cache', 'clear', 'flush', 'translation'],
     tab: 'about',
-    type: 'group',
+    type: 'action',
   },
   {
     id: 'about.deleteAllData',
@@ -930,7 +931,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
     description: 'Delete everything Ega stores in this browser. This cannot be undone.',
     keywords: ['delete', 'wipe', 'purge', 'data', 'destructive'],
     tab: 'about',
-    type: 'group',
+    type: 'action',
   },
   {
     id: 'about.privacy',

@@ -6,6 +6,7 @@
   import Checkbox from '@/shared/ui/Checkbox.svelte';
   import Search from '@lucide/svelte/icons/search';
   import Kbd from '@/shared/ui/Kbd.svelte';
+  import Button from '@/shared/ui/Button.svelte';
   import {
     SETTINGS_SEARCH_MAX_RESULTS,
     SETTINGS_REGISTRY,
@@ -32,6 +33,8 @@
     const entry = SETTINGS_REGISTRY.find((e) => e.id === id);
     return entry ? [{ ...entry, score: 0, matchedTerm: entry.label }] : [];
   });
+
+  const EXAMPLES = ['temperature', 'cache', 'backend', 'shortcut'] as const;
 
   const RECENT_MAX = 5;
   function readRecent(): readonly string[] {
@@ -211,8 +214,10 @@
 
         {#if !query.trim()}
           <p class="ss-hint">
-            Search across every tab — try <Kbd>temperature</Kbd>, <Kbd>cache</Kbd>,
-            <Kbd>backend</Kbd>, <Kbd>shortcut</Kbd>.
+            Search across every tab. Try:
+            {#each EXAMPLES as ex (ex)}
+              <Button variant="secondary" size="sm" onclick={() => (query = ex)}>{ex}</Button>
+            {/each}
           </p>
         {/if}
 
@@ -299,6 +304,10 @@
     user-select: none;
   }
   .ss-hint {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-1) var(--space-2);
     margin: 0;
     font-size: var(--fs-sm);
     color: var(--color-muted);

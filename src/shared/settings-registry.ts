@@ -152,7 +152,10 @@ export function searchSettings(query: string, opts: SearchOptions = {}): readonl
     if (!m) continue;
     results.push({ ...entry, score: m.score, matchedTerm: m.matchedTerm });
   }
+  // An action found only through its description or keywords goes last: "temperature" wants the slider, not a reset.
+  const demoted = (r: SearchResult): number => (r.type === 'action' && r.score < 100 ? 1 : 0);
   results.sort((a, b) => {
+    if (demoted(a) !== demoted(b)) return demoted(a) - demoted(b);
     if (b.score !== a.score) return b.score - a.score;
     return a.label.localeCompare(b.label);
   });

@@ -166,6 +166,16 @@ describe('SettingsSearch — combobox ARIA on input element', () => {
     expect(root?.hasAttribute('tabindex')).toBe(false);
   });
 
+  it('an example in the hint is a button that runs that search', async () => {
+    const { getByRole } = render(SettingsSearch, {
+      props: { open: true, settings: DEFAULT_SETTINGS, onClose: () => {}, onJump: () => {} },
+    });
+    await fireEvent.click(getByRole('button', { name: 'temperature' }));
+    await waitFor(() =>
+      expect((getByRole('combobox') as HTMLInputElement).value).toBe('temperature'),
+    );
+  });
+
   it('input has an accessible name (aria-label)', () => {
     const { getByRole } = render(SettingsSearch, {
       props: {
