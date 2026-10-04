@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import type { ComponentProps } from 'svelte';
 import { describe, it, expect, vi } from 'vitest';
-import { render } from '@testing-library/svelte';
+import { render, fireEvent } from '@testing-library/svelte';
 import Tooltip from '@/content/Tooltip.svelte';
 
 type TipState = ComponentProps<typeof Tooltip>['tip'];
@@ -34,60 +34,57 @@ function mount(tip: TipState) {
   });
 }
 
-const ctxBtn = (c: ParentNode) => c.querySelector('button[data-tooltip="Context"]');
-const ctxPreview = (c: ParentNode) => c.querySelector('[data-ega-context-preview]');
+const detailsBtn = (c: ParentNode) =>
+  c.querySelector<HTMLButtonElement>('button[aria-label="Show details about this reply"]');
 
-describe('Tooltip — context-icon gate', () => {
+/** Opens the details panel and returns the Page info row's text. */
+async function pageInfo(c: HTMLElement): Promise<string> {
+  const btn = detailsBtn(c);
+  if (!btn) throw new Error('no details button');
+  await fireEvent.click(btn);
+  return c.querySelector('[data-ega-context-preview]')?.textContent ?? '';
+}
+
+const contextSent = { pageUrl: 'https://x.test', pageTitle: 'Page X', beforeText: 'foo' };
+
+describe('Tooltip — what the details panel says about page info', () => {
   it('an explain re-run follows the Explain switch, which is the one the router applies', async () => {
     const { updateTask } = await import('@/shared/tasks');
     const { ensureSettings, resetSettingsCacheForTest } = await import('@/content/settings-cache');
     await updateTask('explain', { pageContext: false });
     resetSettingsCacheForTest();
     await ensureSettings();
-    const contextSent = { pageUrl: 'https://x.test', pageTitle: 'X', beforeText: 'foo' };
     const rerun = mount({ ...baseTip(), task: 'translate', contextTask: 'explain', contextSent });
-    expect(ctxBtn(rerun.container)).toBeNull();
+    expect(await pageInfo(rerun.container)).toContain('Page info was off');
     rerun.unmount();
     const plain = mount({ ...baseTip(), task: 'translate', contextSent });
-    expect(ctxBtn(plain.container)).not.toBeNull();
+    expect(await pageInfo(plain.container)).toContain('Page X');
     plain.unmount();
     await updateTask('explain', { pageContext: true });
     resetSettingsCacheForTest();
   });
 
-  it('hides the Context icon for a task whose page context is off, and keeps it for Translate', async () => {
+  it('says page info was off for a task that does not send it, and shows it for Translate', async () => {
     const { ensureSettings } = await import('@/content/settings-cache');
     await ensureSettings();
-    const contextSent = { pageUrl: 'https://x.test', pageTitle: 'X', beforeText: 'foo' };
     const off = mount({ ...baseTip(), task: 'summarize', contextSent });
-    expect(ctxBtn(off.container)).toBeNull();
+    expect(await pageInfo(off.container)).toContain('Page info was off');
     off.unmount();
     const on = mount({ ...baseTip(), task: 'translate', contextSent });
-    expect(ctxBtn(on.container)).not.toBeNull();
+    expect(await pageInfo(on.container)).toContain('Page X');
   });
 
-  it('hides the Context icon when contextSent is null (image / context-off)', () => {
+  it('says page info was off when none was sent (image, context off)', async () => {
     const { container } = mount({
       ...baseTip(),
       contextSent: null,
       imageUrl: 'data:image/png;base64,AAAA',
     });
-    expect(ctxBtn(container)).toBeNull();
-    expect(ctxPreview(container)).toBeNull();
+    expect(await pageInfo(container)).toContain('Page info was off');
   });
 
-  it('hides the Context icon when contextSent is an empty object', () => {
-    const { container } = mount({ ...baseTip(), contextSent: {} });
-    expect(ctxBtn(container)).toBeNull();
-    expect(ctxPreview(container)).toBeNull();
-  });
-
-  it('shows the Context icon when real page context was sent', () => {
-    const { container } = mount({
-      ...baseTip(),
-      contextSent: { pageTitle: 'Example', pageUrl: 'https://example.test' },
-    });
-    expect(ctxBtn(container)).toBeTruthy();
-    expect(ctxPreview(container)).toBeTruthy();
+  it('has no details button when the reply recorded nothing at all', () => {
+    const { container } = mount(baseTip());
+    expect(detailsBtn(container)).toBeNull();
   });
 });

@@ -3,7 +3,6 @@
   import Check from '@lucide/svelte/icons/check';
   import CircleHelp from '@lucide/svelte/icons/help-circle';
   import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
-  import FileText from '@lucide/svelte/icons/file-text';
   import ArrowLeftRight from '@lucide/svelte/icons/arrow-left-right';
   import Info from '@lucide/svelte/icons/info';
   import PanelRightOpen from '@lucide/svelte/icons/panel-right-open';
@@ -26,10 +25,9 @@
     hasSwap: boolean;
     /** When true, the swap button is disabled (source === 'auto'). */
     swapDisabled: boolean;
-    /** Context preview availability + open state (parent owns both). */
-    hasContext: boolean;
-    contextOpen: boolean;
-    inspectorOpen?: boolean;
+    /** Something to show in the details panel (what was sent, or result data); parent owns the open state. */
+    hasDetails: boolean;
+    detailsOpen: boolean;
     /** Escalation affordances; parent owns the kind→payload mapping. */
     canEscalateContinue?: boolean;
     canEscalatePin?: boolean;
@@ -43,8 +41,7 @@
     /** Absent means this surface cannot re-dispatch, so no Retry is offered. */
     onRetry?: () => void;
     onSwap?: () => void;
-    onToggleContext: () => void;
-    onToggleInspector?: () => void;
+    onToggleDetails: () => void;
     onEscalate?: (kind: 'continue' | 'pin' | 'open-image') => void;
   }
 
@@ -54,9 +51,8 @@
     direction,
     hasSwap,
     swapDisabled,
-    hasContext,
-    contextOpen,
-    inspectorOpen = false,
+    hasDetails,
+    detailsOpen,
     canEscalateContinue = false,
     canEscalatePin = false,
     canEscalateOpenImage = false,
@@ -66,8 +62,7 @@
     onExplain,
     onRetry,
     onSwap,
-    onToggleContext,
-    onToggleInspector,
+    onToggleDetails,
     onEscalate,
   }: Props = $props();
 
@@ -83,7 +78,6 @@
   const detectedLang = $derived(tip.detectedLang);
   const detectedDetail = $derived(tip.detectedDetail);
   const detectedLangs = $derived(tip.detectedLangs);
-  const hasMeta = $derived(tip.meta !== undefined);
   // An image result has no source text to explain.
   const canExplain = $derived(explainOn && tip.imageUrl === undefined);
   // The body renders from the first token, but the request runs until the done frame — Cancel has to outlive `loading`.
@@ -134,6 +128,12 @@
       directionLabel !== '',
   );
 
+  const swapTip = $derived(
+    direction && direction.source !== 'auto'
+      ? `Translate back (${varietyLabel(direction.target, cachedCustomLanguages())} → ${varietyLabel(direction.source, cachedCustomLanguages())})`
+      : 'Translate back',
+  );
+
   // Terminal codes (bad key, out of credit, …) re-fail identically — mirror the sidepanel's gate.
   // ABORTED keeps Retry: a user cancel is neutral, and re-running is its natural recovery.
   const showRetry = $derived(
@@ -165,9 +165,6 @@
 {#snippet iconRetry()}
   <Icon icon={RotateCcw} size={ICON_SIZE} strokeWidth={ICON_STROKE} class="icon" />
 {/snippet}
-{#snippet iconContext()}
-  <Icon icon={FileText} size={ICON_SIZE} strokeWidth={ICON_STROKE} class="icon" />
-{/snippet}
 {#snippet iconSwap()}
   <Icon icon={ArrowLeftRight} size={ICON_SIZE} strokeWidth={ICON_STROKE} class="icon" />
 {/snippet}
@@ -184,10 +181,9 @@
       {#if pillVisible && typeof confidence === 'number'}
         <span
           class={pillClass}
-          title="Confidence"
           role="img"
-          aria-label={`Translation confidence ${(confidence * 100).toFixed(0)}%`}
-          >{(confidence * 100).toFixed(0)}%</span
+          aria-label={`${(confidence * 100).toFixed(0)}% confident in this translation`}
+          >{(confidence * 100).toFixed(0)}% confident</span
         >
       {/if}
       {#if multiVarietyPills !== null}
@@ -274,8 +270,8 @@
     {#if hasSwap && onSwap}
       <button
         class="icon-btn"
-        aria-label="Swap direction"
-        data-tooltip={swapDisabled ? 'Swap (pick a source language first)' : 'Swap'}
+        aria-label={swapDisabled ? 'Translate back (pick a source language first)' : swapTip}
+        data-tooltip={swapDisabled ? 'Translate back: pick a source language first' : swapTip}
         disabled={swapDisabled}
         onclick={swap}
       >
@@ -328,8 +324,8 @@
         {#if hasSwap && onSwap}
           <button
             class="icon-btn"
-            aria-label="Swap direction"
-            data-tooltip={swapDisabled ? 'Swap (pick a source language first)' : 'Swap'}
+            aria-label={swapDisabled ? 'Translate back (pick a source language first)' : swapTip}
+            data-tooltip={swapDisabled ? 'Translate back: pick a source language first' : swapTip}
             disabled={swapDisabled}
             onclick={swap}
           >
@@ -339,31 +335,20 @@
       </div>
     {/if}
 
-    {#if hasContext || (hasMeta && onToggleInspector)}
+    {#if hasDetails}
       <span class="action-divider" aria-hidden="true"></span>
       <div class="action-group">
-        {#if hasContext}
-          <button
-            class="icon-btn"
-            aria-label={contextOpen ? 'Hide what was sent' : 'Show what was sent'}
-            data-tooltip={contextOpen ? 'Hide context' : 'Context'}
-            aria-expanded={contextOpen}
-            onclick={onToggleContext}
-          >
-            {@render iconContext()}
-          </button>
-        {/if}
-        {#if hasMeta && onToggleInspector}
-          <button
-            class="icon-btn"
-            aria-label={inspectorOpen ? 'Hide inspector' : 'Show inspector'}
-            data-tooltip={inspectorOpen ? 'Hide details' : 'Details'}
-            aria-expanded={inspectorOpen}
-            onclick={onToggleInspector}
-          >
-            {@render iconInspector()}
-          </button>
-        {/if}
+        <button
+          class="icon-btn"
+          aria-label={detailsOpen
+            ? 'Hide details about this reply'
+            : 'Show details about this reply'}
+          data-tooltip={detailsOpen ? 'Hide details' : 'Details: what was sent'}
+          aria-expanded={detailsOpen}
+          onclick={onToggleDetails}
+        >
+          {@render iconInspector()}
+        </button>
       </div>
     {/if}
 

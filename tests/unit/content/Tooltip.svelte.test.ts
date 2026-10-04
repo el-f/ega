@@ -305,11 +305,11 @@ describe('Tooltip smoke', () => {
     });
     const copy = container.querySelector('button[aria-label="Copy translation"]');
     const explain = container.querySelector('button[aria-label="Explain this translation"]');
-    const swap = container.querySelector('button[aria-label="Swap direction"]');
+    const swap = container.querySelector('button[aria-label^="Translate back"]');
     const close = container.querySelector('button[aria-label="Close"]');
     expect(copy?.getAttribute('data-tooltip')).toBe('Copy');
     expect(explain?.getAttribute('data-tooltip')).toBe('Explain');
-    expect(swap?.getAttribute('data-tooltip')).toBe('Swap');
+    expect(swap?.getAttribute('data-tooltip')).toMatch(/^Translate back/);
     expect(close?.getAttribute('data-tooltip')).toBe('Close (Esc)');
   });
 
@@ -377,7 +377,7 @@ describe('Tooltip smoke', () => {
         ...handlers(),
       },
     });
-    expect(a.container.querySelector('button[aria-label="Swap direction"]')).toBeNull();
+    expect(a.container.querySelector('button[aria-label^="Translate back"]')).toBeNull();
     a.unmount();
     const h = handlers();
     const b = render(Tooltip, {
@@ -389,7 +389,7 @@ describe('Tooltip smoke', () => {
         ...h,
       },
     });
-    expect(b.container.querySelector('button[aria-label="Swap direction"]')).toBeTruthy();
+    expect(b.container.querySelector('button[aria-label^="Translate back"]')).toBeTruthy();
   });
 
   it('swap button fires onswap', async () => {
@@ -404,7 +404,7 @@ describe('Tooltip smoke', () => {
       },
     });
     const swap = container.querySelector(
-      'button[aria-label="Swap direction"]',
+      'button[aria-label^="Translate back"]',
     ) as HTMLButtonElement;
     await fireEvent.click(swap);
     expect(onswap).toHaveBeenCalledTimes(1);
@@ -422,7 +422,7 @@ describe('Tooltip smoke', () => {
       },
     });
     const swap = container.querySelector(
-      'button[aria-label="Swap direction"]',
+      'button[aria-label^="Translate back"]',
     ) as HTMLButtonElement;
     expect(swap).toBeTruthy();
     expect(swap.hasAttribute('disabled')).toBe(true);
@@ -442,7 +442,7 @@ describe('Tooltip smoke', () => {
         ...handlers(),
       },
     });
-    expect(container.querySelector('button[aria-label="Swap direction"]')).toBeTruthy();
+    expect(container.querySelector('button[aria-label^="Translate back"]')).toBeTruthy();
   });
 
   it('swap button renders in the error-only row too', () => {
@@ -455,7 +455,7 @@ describe('Tooltip smoke', () => {
         ...handlers(),
       },
     });
-    expect(container.querySelector('button[aria-label="Swap direction"]')).toBeTruthy();
+    expect(container.querySelector('button[aria-label^="Translate back"]')).toBeTruthy();
   });
 
   // testHooks `hasError` probes `[data-ega-retry]`, so both error rows need it.
@@ -625,7 +625,7 @@ describe('Tooltip smoke', () => {
   describe('inspector drawer', () => {
     it('hides the ⓘ icon when meta is absent', () => {
       const { queryByLabelText } = mountWith({ body: 'hello' });
-      expect(queryByLabelText('Show inspector')).toBeNull();
+      expect(queryByLabelText('Show details about this reply')).toBeNull();
     });
 
     it('shows the ⓘ icon when meta is present', () => {
@@ -635,7 +635,7 @@ describe('Tooltip smoke', () => {
         latencyMs: 250,
       };
       const { getByLabelText } = mountWith({ body: 'hello', meta });
-      expect(getByLabelText('Show inspector')).toBeTruthy();
+      expect(getByLabelText('Show details about this reply')).toBeTruthy();
     });
 
     it('clicking the ⓘ icon opens the drawer with meta rows', async () => {
@@ -645,7 +645,7 @@ describe('Tooltip smoke', () => {
         latencyMs: 250,
       };
       const { getByLabelText, getByText } = mountWith({ body: 'hello', meta });
-      await fireEvent.click(getByLabelText('Show inspector'));
+      await fireEvent.click(getByLabelText('Show details about this reply'));
       expect(getByLabelText('Close details')).toBeTruthy();
       expect(getByText('Anthropic')).toBeTruthy();
       expect(getByText('250 ms')).toBeTruthy();

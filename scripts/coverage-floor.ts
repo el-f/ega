@@ -38,10 +38,6 @@ export const EXCEPTIONS: Readonly<Record<string, Exception>> = {
     metrics: ['lines', 'statements', 'branches'],
     reason: 'recorder paths need real key events; no unit test yet',
   },
-  'src/shared/components/humanizeContext.ts': {
-    metrics: ['statements', 'branches'],
-    reason: 'no direct unit test for these paths',
-  },
   'src/shared/ui/Icon.svelte': {
     metrics: ['branches'],
     reason: 'no direct unit test for these paths',

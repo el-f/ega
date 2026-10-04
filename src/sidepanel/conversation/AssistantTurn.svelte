@@ -2,14 +2,13 @@
   import { debugCatch } from '@/shared/logger';
   import { relativeTime } from '@/shared/relative-time';
 
-  import ContextPreview from '@/shared/components/ContextPreview.svelte';
+  import ReplyDetails from '@/shared/components/ReplyDetails.svelte';
   import DiffFadeText from '@/shared/components/DiffFadeText.svelte';
   import Markdown from '@/shared/components/Markdown.svelte';
   import { formatDetectedLabel } from '@/shared/detected-label';
   import { langTag, replyLang } from '@/shared/lang-tag';
   import IconButton from '@/shared/ui/IconButton.svelte';
   import Select from '@/shared/ui/Select.svelte';
-  import InspectorDrawer from '@/shared/components/InspectorDrawer.svelte';
   import { backendLabel } from '@/shared/backends/provider-profiles';
   import Copy from '@lucide/svelte/icons/copy';
   import Check from '@lucide/svelte/icons/check';
@@ -96,6 +95,8 @@
     sourceLang?: LangSelection | undefined;
     /** Clock the stream ticks, so the relative timestamp does not freeze at "just now". */
     now?: number;
+    /** The message this reply answers, as it was sent. */
+    sentText?: string;
   }
 
   const {
@@ -121,6 +122,7 @@
     targetLang,
     sourceLang,
     now = Date.now(),
+    sentText = '',
   }: Props = $props();
 
   // image-translate has no Task mapping, and the vision arm never receives a refinement, so an image turn gets no chips.
@@ -277,7 +279,7 @@
     ...(speakable && turn.content !== '' ? ['speak'] : []),
     ...(canRetry && !inflight ? ['regenerate'] : []),
     'bookmark',
-    ...(turn.meta ? ['details'] : []),
+    ...(turn.meta || turn.contextSent !== undefined ? ['details'] : []),
     'delete',
   ]);
 
@@ -624,9 +626,13 @@
               data-tooltip-placement="top">{answeredBy}</span
             >
           {/if}
+        {/if}
+        {#if turn.meta || turn.contextSent !== undefined}
           <IconButton
             icon={Info}
-            ariaLabel={inspectorOpen ? 'Hide details' : 'Show details'}
+            ariaLabel={inspectorOpen
+              ? 'Hide details about this reply'
+              : 'Show details about this reply'}
             size="sm"
             dataAttrs={{
               'data-ega-inspector-toggle': 'true',
@@ -650,15 +656,16 @@
           onclick={() => onDelete?.(turn.id)}
         />
       </div>
-      {#if turn.meta}
-        <InspectorDrawer
+      {#if inspectorOpen && (turn.meta || turn.contextSent !== undefined)}
+        <ReplyDetails
           meta={turn.meta}
-          open={inspectorOpen}
+          context={turn.contextSent}
+          {sentText}
+          taskLabel={taskLabel(taskViews, currentTaskValue)}
+          onViewPrompt={() => openOptionsTab('tasks')}
+          surface="panel"
           onClose={() => (inspectorOpen = false)}
         />
-      {/if}
-      {#if turn.contextSent !== undefined && (isLatest || turn.contextSent !== null)}
-        <ContextPreview context={turn.contextSent} variant="panel" />
       {/if}
       {#if refinementBody}
         <button

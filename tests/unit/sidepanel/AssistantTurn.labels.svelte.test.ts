@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
-import { render } from '@testing-library/svelte';
+import { render, fireEvent } from '@testing-library/svelte';
 import AssistantTurn from '@/sidepanel/conversation/AssistantTurn.svelte';
 import type { AssistantTurnData } from '@/sidepanel/state/conversation';
 import type { PageContext } from '@/shared/types';
@@ -10,6 +10,13 @@ const ctx: PageContext = {
   pageTitle: 'X',
   beforeText: 'foo',
 };
+
+/** Opens the reply's details panel, where what was sent now lives. */
+async function openedPreview(container: HTMLElement): Promise<Element | null> {
+  const btn = container.querySelector<HTMLButtonElement>('[data-ega-inspector-toggle]');
+  if (btn) await fireEvent.click(btn);
+  return container.querySelector('[data-ega-context-preview]');
+}
 
 const baseTurn = (overrides: Partial<AssistantTurnData> = {}): AssistantTurnData => ({
   id: 'a1',
@@ -22,18 +29,18 @@ const baseTurn = (overrides: Partial<AssistantTurnData> = {}): AssistantTurnData
 });
 
 describe('AssistantTurn — context preview, labels and tooltips', () => {
-  it('renders ContextPreview only on the latest turn', () => {
+  it('renders what was sent only on the latest turn', async () => {
     const { container } = render(AssistantTurn, {
       props: { turn: baseTurn({ contextSent: ctx }), onRetry: vi.fn(), isLatest: true },
     });
-    expect(container.querySelector('[data-ega-context-preview]')).not.toBeNull();
+    expect(await openedPreview(container)).not.toBeNull();
   });
 
-  it('keeps ContextPreview on a history turn — every settled turn can show what was sent', () => {
+  it('keeps what was sent on a history turn — every settled turn can show what was sent', async () => {
     const { container } = render(AssistantTurn, {
       props: { turn: baseTurn({ contextSent: ctx }), onRetry: vi.fn(), isLatest: false },
     });
-    expect(container.querySelector('[data-ega-context-preview]')).not.toBeNull();
+    expect(await openedPreview(container)).not.toBeNull();
   });
 
   it('task-switch select carries a visible label, because a select never shows a tooltip', () => {

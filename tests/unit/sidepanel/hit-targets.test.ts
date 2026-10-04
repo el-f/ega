@@ -33,20 +33,21 @@ describe('small glyph buttons are at least 24px', () => {
     expect(body).toMatch(/min-height:\s*24px/);
   });
 
-  it('and the context preview drops its 9-10px type', () => {
-    const src = read('src/shared/components/ContextPreview.svelte');
+  it('and the reply details panel has no 9-10px type and 24px controls', () => {
+    const src = read('src/shared/components/ReplyDetails.svelte');
     expect(src).not.toMatch(/font-size:\s*(?:9|10)px/);
+    expect(rule(src, '\\.rd-copy')).toMatch(/min-height:\s*24px/);
+    expect(rule(src, '\\.rd-link')).toMatch(/min-height:\s*24px/);
   });
 });
 
 // The shadow root reads content/shadow.css; a component <style> never crosses that boundary.
 describe('the content-script tooltip gets the same sizes', () => {
-  it('has no 9-10px type left in the shared context preview', () => {
+  it('has no 9-10px type and 24px controls in the reply details copy', () => {
     const content = read('src/content/shadow.css');
-    const ctx = content.slice(content.indexOf('.ega-ctx-preview.ega-ctx-tooltip'));
-    const block = ctx.slice(0, ctx.indexOf('.ega-select-wrap'));
+    const block = content.slice(content.indexOf('.reply-details {'));
     expect(block).not.toMatch(/font-size:\s*(?:9|10)px/);
-    expect(block).toMatch(/min-height:\s*24px/);
+    expect(rule(block, '\\.rd-copy')).toMatch(/min-height:\s*24px/);
   });
 });
 

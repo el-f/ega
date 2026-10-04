@@ -28,7 +28,7 @@ describe('tooltip confidence pill', () => {
     });
     const pill = container.querySelector('.pill');
     expect(pill).not.toBeNull();
-    expect(pill?.getAttribute('aria-label')).toBe('Translation confidence 87%');
+    expect(pill?.getAttribute('aria-label')).toBe('87% confident in this translation');
     expect(pill?.getAttribute('role')).toBe('img');
   });
 });

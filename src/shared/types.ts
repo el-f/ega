@@ -114,6 +114,8 @@ export interface ResultMeta {
   cacheWriteTokens?: number;
   /** Thinking tokens, when the provider reports them apart; already part of outputTokens. */
   reasoningTokens?: number;
+  /** Earlier conversation messages the request carried; absent when it carried none. */
+  historyTurns?: number;
 }
 
 /** Provider token counts from the done chunk; any subset may be missing. */

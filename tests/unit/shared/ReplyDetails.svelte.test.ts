@@ -1,0 +1,210 @@
+// @vitest-environment jsdom
+import { describe, it, expect, vi } from 'vitest';
+import { render, fireEvent } from '@testing-library/svelte';
+import ReplyDetails from '@/shared/components/ReplyDetails.svelte';
+import { aroundText, shortUrl } from '@/shared/components/reply-details';
+import type { PageContext, ResultMeta } from '@/shared/types';
+import { asBackendIdUnsafe } from '@/shared/brands';
+
+function meta(overrides: Partial<ResultMeta> = {}): ResultMeta {
+  return {
+    backendId: asBackendIdUnsafe('anthropic'),
+    cacheHit: false,
+    latencyMs: 450,
+    ...overrides,
+  };
+}
+
+const CONTEXT: PageContext = {
+  pageTitle: 'Travel notes',
+  pageUrl: 'https://example.com/forum/beirut?x=1',
+  beforeText: 'The host texted me this on my first evening:',
+  afterText: 'Everyone answered right away.',
+  headingTrail: ['Forum', 'Beirut'],
+};
+
+function setup(props: Record<string, unknown> = {}) {
+  const onClose = vi.fn();
+  const onViewPrompt = vi.fn();
+  const r = render(ReplyDetails, {
+    props: {
+      meta: meta(),
+      context: CONTEXT,
+      sentText: 'mar7aba, kifak?',
+      taskLabel: 'Translate',
+      onViewPrompt,
+      surface: 'panel',
+      onClose,
+      ...props,
+    },
+  });
+  return { ...r, onClose, onViewPrompt };
+}
+
+function row(container: HTMLElement, label: string): string | null {
+  const dt = [...container.querySelectorAll('dt')].find((d) => d.textContent.trim() === label);
+  const dd = dt?.nextElementSibling;
+  return dd ? dd.textContent.replace(/\s+/g, ' ').trim() : null;
+}
+
+describe('ReplyDetails — result', () => {
+  it('names the backend and model, the direction, and the time', () => {
+    const { container } = setup({
+      meta: meta({
+        modelId: 'claude-haiku-4-5',
+        sourceLang: 'auto',
+        targetLang: 'en',
+        firstTokenMs: 120,
+        latencyMs: 1500,
+      }),
+    });
+    expect(row(container, 'Answered by')).toBe('Anthropic · claude-haiku-4-5');
+    expect(row(container, 'Direction')).toMatch(/^Auto-detect → /);
+    expect(row(container, 'Time')).toBe('1.5 s (first words after 120 ms)');
+  });
+
+  it('says a cached answer came from the cache, with no first-word time', () => {
+    const { container } = setup({ meta: meta({ cacheHit: true, firstTokenMs: 5 }) });
+    expect(row(container, 'Answered by')).toBe('Saved answer (cache)');
+    expect(row(container, 'Time')).toBe('450 ms');
+  });
+
+  it('shows every token count the provider reported, a zero cache read included', () => {
+    const { container } = setup({
+      meta: meta({
+        inputTokens: 42,
+        outputTokens: 9,
+        reasoningTokens: 3,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 7,
+      }),
+    });
+    expect(row(container, 'Tokens')).toBe(
+      '42 in · 9 out · 3 of them thinking · 0 read from cache · 7 written to cache',
+    );
+  });
+
+  it('has no Tokens row when the provider reported none', () => {
+    const { container } = setup();
+    expect(row(container, 'Tokens')).toBeNull();
+  });
+
+  it('lists the backends tried with a readable outcome', () => {
+    const { container } = setup({
+      meta: meta({
+        attempts: [
+          {
+            backendId: asBackendIdUnsafe('anthropic'),
+            status: 'error',
+            code: 'NETWORK',
+            latencyMs: 10,
+          },
+          { backendId: asBackendIdUnsafe('gemini'), status: 'ok', latencyMs: 20 },
+        ],
+      }),
+    });
+    const names = [...container.querySelectorAll('.rd-attempt-name')].map((e) => e.textContent);
+    expect(names).toEqual(['Anthropic', 'Gemini']);
+    const status = [...container.querySelectorAll('.rd-attempt-status')].map((e) => e.textContent);
+    expect(status[1]).toBe('answered');
+    expect(status[0]).not.toBe('NETWORK');
+  });
+
+  it('still shows what was sent when the reply carries no result data', () => {
+    const { container } = setup({ meta: undefined });
+    expect(row(container, 'Answered by')).toBeNull();
+    expect(row(container, 'Your text')).toBe('mar7aba, kifak?');
+  });
+});
+
+describe('ReplyDetails — what Ega sent', () => {
+  it('counts the earlier messages a side-panel reply carried', () => {
+    expect(row(setup({ meta: meta({ historyTurns: 4 }) }).container, 'Earlier messages')).toBe(
+      '4 from this conversation',
+    );
+  });
+
+  it('says None for a side-panel reply that carried none', () => {
+    expect(row(setup().container, 'Earlier messages')).toBe('None');
+  });
+
+  it('says the tooltip sends only the text', () => {
+    expect(row(setup({ surface: 'tooltip' }).container, 'Earlier messages')).toBe(
+      'None. The tooltip sends only your text.',
+    );
+  });
+
+  it('marks the sent text inside the page text around it', () => {
+    const { container } = setup();
+    const around = container.querySelector('[data-ega-context-list]');
+    expect(around?.querySelector('mark')?.textContent).toBe('mar7aba, kifak?');
+    expect(around?.textContent).toContain('first evening:');
+    expect(around?.textContent).toContain('Everyone answered');
+  });
+
+  it('opens every page field on request', async () => {
+    const { container, getByRole } = setup();
+    expect(container.querySelector('[data-ega-context-all]')).toBeNull();
+    await fireEvent.click(getByRole('button', { name: 'Show all page info' }));
+    const all = container.querySelector('[data-ega-context-all]');
+    expect(all?.textContent).toContain('https://example.com/forum/beirut?x=1');
+    expect(all?.textContent).toContain('Forum › Beirut');
+  });
+
+  it('tells apart page info that was off from page info nobody recorded', () => {
+    expect(
+      setup({ context: null }).container.querySelector('[data-ega-context-empty]')?.textContent,
+    ).toContain('Page info was off');
+    expect(
+      setup({ context: undefined }).container.querySelector('[data-ega-context-empty]')
+        ?.textContent,
+    ).toContain('Not recorded');
+  });
+
+  it('links the task prompt to Settings', async () => {
+    const { getByRole, onViewPrompt } = setup();
+    await fireEvent.click(getByRole('button', { name: 'View in Settings' }));
+    expect(onViewPrompt).toHaveBeenCalledOnce();
+  });
+
+  it('copies everything as JSON', async () => {
+    const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined);
+    const { getByRole } = setup({ meta: meta({ historyTurns: 2 }) });
+    await fireEvent.click(getByRole('button', { name: 'Copy as JSON' }));
+    const copied = JSON.parse(writeText.mock.calls[0]?.[0] as string) as Record<string, unknown>;
+    expect(copied['sentText']).toBe('mar7aba, kifak?');
+    expect((copied['result'] as ResultMeta).historyTurns).toBe(2);
+    expect((copied['page'] as PageContext).pageTitle).toBe('Travel notes');
+  });
+
+  it('closes', async () => {
+    const { getByRole, onClose } = setup();
+    await fireEvent.click(getByRole('button', { name: 'Close details' }));
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+});
+
+describe('aroundText / shortUrl', () => {
+  it('keeps the page text nearest the sent text and squashes whitespace', () => {
+    const long = 'a'.repeat(300);
+    const r = aroundText(
+      { beforeText: `${long}\n\nclose by`, afterText: `next\tline ${long}` },
+      'x',
+    );
+    expect(r?.before.startsWith('…')).toBe(true);
+    expect(r?.before.endsWith('close by')).toBe(true);
+    expect(r?.after.startsWith('next line')).toBe(true);
+    expect(r?.after.endsWith('…')).toBe(true);
+  });
+
+  it('has nothing to show without text on either side', () => {
+    expect(aroundText({ pageTitle: 't' }, 'x')).toBeNull();
+    expect(aroundText(null, 'x')).toBeNull();
+  });
+
+  it('shortens an address to host and path', () => {
+    expect(shortUrl('https://example.com/a/b?q=1#h')).toBe('example.com/a/b');
+    expect(shortUrl('https://example.com/')).toBe('example.com');
+    expect(shortUrl('not a url')).toBe('not a url');
+  });
+});

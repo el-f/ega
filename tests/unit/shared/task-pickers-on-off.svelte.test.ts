@@ -68,12 +68,12 @@ describe('tooltip', () => {
       mode: 'success' as const,
       hasSwap: false,
       swapDisabled: true,
-      hasContext: false,
-      contextOpen: false,
+      hasDetails: false,
+      detailsOpen: false,
       onCancel: vi.fn(),
       onCopy: vi.fn(),
       onExplain: vi.fn(),
-      onToggleContext: vi.fn(),
+      onToggleDetails: vi.fn(),
     };
     const on = render(TooltipActions, { props: base });
     expect(on.container.querySelector('[aria-label="Explain this translation"]')).not.toBeNull();

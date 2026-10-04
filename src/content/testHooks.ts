@@ -218,7 +218,9 @@ function run(op: OpName, arg?: string): unknown {
     }
     case 'expandTooltipContextPreview': {
       const r = getShadowRoot();
-      const btn = r.querySelector<HTMLButtonElement>('.tooltip .ega-ctx-toggle');
+      const btn = r.querySelector<HTMLButtonElement>(
+        '.tooltip button[aria-label="Show details about this reply"]',
+      );
       if (!btn) return false;
       btn.click();
       return true;

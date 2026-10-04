@@ -283,6 +283,7 @@ export function createRouter(deps: RouterDeps) {
       }).catch(() => {});
     }
     const attemptLog: ResultAttempt[] = [];
+    let historyTurns = 0;
 
     function attachMeta(
       chunk: TranslationChunk,
@@ -309,6 +310,8 @@ export function createRouter(deps: RouterDeps) {
           reasoningTokens: usage?.reasoningTokens,
         }),
         ...(attemptLog.length > 1 ? { attempts: [...attemptLog] } : {}),
+        // The image arm and a cache replay send the model no history.
+        ...(!cacheHit && historyTurns > 0 ? { historyTurns } : {}),
       };
       try {
         pushPerfEntry(meta);
@@ -348,6 +351,7 @@ export function createRouter(deps: RouterDeps) {
     }
     // An image with no image backend at all falls through to the text path.
     const visionUrl = visionChain.length > 0 ? imageUrl : undefined;
+    historyTurns = visionUrl === undefined ? (req.options.conversationHistory?.length ?? 0) : 0;
     // With no caption the text path would get only the "[image]" marker and translate that.
     if (imageUrl !== undefined && visionUrl === undefined) {
       const caption = req.text === IMAGE_TURN_PLACEHOLDER ? '' : req.text.trim();

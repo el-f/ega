@@ -123,6 +123,9 @@
   const latestUserTurnId = $derived(turns.filter((t) => t.role === 'user').at(-1)?.id ?? null);
   const imageBackedIds = $derived(imageBackedTurnIds(turns));
   const answerLangPairs = $derived(answerLangs(turns));
+  const userTextById = $derived(
+    Object.fromEntries(turns.filter((t) => t.role === 'user').map((t) => [t.id, t.content])),
+  );
 
   // Timestamps are strings computed at render; with no tick every turn reads "just now" for ever.
   let now = $state(Date.now());
@@ -419,6 +422,7 @@
             hasImage={imageBackedIds.has(turn.id)}
             targetLang={answerLangPairs.get(turn.id)?.targetLang}
             sourceLang={answerLangPairs.get(turn.id)?.sourceLang}
+            sentText={turn.attachedToTurnId ? (userTextById[turn.attachedToTurnId] ?? '') : ''}
             {confidencePill}
             {confidencePillThreshold}
             {onRetry}

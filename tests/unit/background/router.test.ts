@@ -163,6 +163,58 @@ describe('router — token usage on ResultMeta', () => {
       expect(done.meta?.cacheReadTokens).toBeUndefined();
     }
   });
+
+  async function doneMeta(
+    options: TranslationRequest['options'],
+    cacheHit = false,
+  ): Promise<NonNullable<Extract<TranslationChunk, { type: 'done' }>['meta']>> {
+    const router = createRouter({
+      backends: [usageBackend()],
+      getSettings: async () => mkSettings({ cacheEnabled: cacheHit }),
+      cache: {
+        get: async () =>
+          cacheHit ? { translation: 'Welcome', confidence: 0.9, ts: Date.now() } : undefined,
+        set: async () => undefined,
+      },
+      logger: { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} },
+    });
+    const chunks: TranslationChunk[] = [];
+    const req: TranslationRequest = {
+      id: 'req-history',
+      text: 'salam',
+      sourceLang: sel('arabizi'),
+      targetLang: sel('en'),
+      options,
+    };
+    await router.handleTranslate(req, (c) => chunks.push(c));
+    const done = chunks.find((c) => c.type === 'done');
+    if (done?.type !== 'done' || !done.meta) throw new Error('no done chunk with meta');
+    return done.meta;
+  }
+
+  const history = [
+    { role: 'user' as const, content: 'hi' },
+    { role: 'assistant' as const, content: 'hello' },
+  ];
+
+  it('counts the earlier messages the request carried to the model', async () => {
+    const meta = await doneMeta({ stream: true, explain: false, conversationHistory: history });
+    expect(meta.historyTurns).toBe(2);
+  });
+
+  it('records no earlier messages for a request without history', async () => {
+    const meta = await doneMeta({ stream: true, explain: false });
+    expect(meta.historyTurns).toBeUndefined();
+  });
+
+  it('records no earlier messages for a cache hit, which sent the model nothing', async () => {
+    const meta = await doneMeta(
+      { stream: true, explain: false, conversationHistory: history },
+      true,
+    );
+    expect(meta.cacheHit).toBe(true);
+    expect(meta.historyTurns).toBeUndefined();
+  });
 });
 
 describe('router — caller request immutability', () => {

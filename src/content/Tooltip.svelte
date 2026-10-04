@@ -5,10 +5,8 @@
   import type { Tone } from '@/shared/task-prompts';
   import type { SettingsTab } from '@/shared/settings-tabs';
   import type { TipState } from './tipState.svelte';
-  import ContextPreview from '@/shared/components/ContextPreview.svelte';
-  import { humanizeContext } from '@/shared/components/humanizeContext';
+  import ReplyDetails from '@/shared/components/ReplyDetails.svelte';
   import DraggablePanel from '@/shared/components/DraggablePanel.svelte';
-  import InspectorDrawer from '@/shared/components/InspectorDrawer.svelte';
   import TooltipHeader from '@/content/tooltip/TooltipHeader.svelte';
   import { materializeTasks, type TaskId } from '@/shared/task-view';
   import { taskUsesTone } from '@/shared/language-prompt';
@@ -58,10 +56,8 @@
     onescalate,
   }: Props = $props();
 
-  let contextOpen = $state<boolean>(untrack(() => tip.contextPreviewOpen ?? false));
-
   // Local, so reopening on a different translation always starts collapsed.
-  let inspectorOpen = $state<boolean>(false);
+  let detailsOpen = $state<boolean>(untrack(() => tip.contextPreviewOpen ?? false));
 
   // "Reverse" has no meaning without a concrete source variety.
   const swapDisabled = $derived(!!direction && direction.source === 'auto');
@@ -74,12 +70,15 @@
 
   const settingsNow = currentSettings();
   const taskViews = settingsNow ? materializeTasks(settingsNow, cachedCustomTasks()) : undefined;
-  // A null or empty context must not light the icon — clicking it would render "(no context)".
   // A task with page context off never sends it: the router drops it, so it is not shown as sent.
-  const hasContext = $derived(
-    tip.contextSent != null &&
-      (taskViews?.find((v) => v.id === (tip.contextTask ?? tip.task))?.pageContext ?? true) &&
-      humanizeContext(tip.contextSent).length > 0,
+  const contextShown = $derived(
+    (taskViews?.find((v) => v.id === (tip.contextTask ?? tip.task))?.pageContext ?? true)
+      ? tip.contextSent
+      : null,
+  );
+  const hasDetails = $derived(tip.meta !== undefined || tip.contextSent !== undefined);
+  const taskLabel = $derived(
+    taskViews?.find((v) => v.id === (tip.task ?? 'translate'))?.label ?? 'Translate',
   );
 
   // A failed image translate has no source text and no OCR text, and the panel drops an empty handoff.
@@ -177,9 +176,8 @@
     {...direction ? { direction } : {}}
     hasSwap={!!onswap}
     {swapDisabled}
-    {hasContext}
-    {contextOpen}
-    {inspectorOpen}
+    {hasDetails}
+    {detailsOpen}
     {canEscalateContinue}
     {canEscalatePin}
     {canEscalateOpenImage}
@@ -189,34 +187,22 @@
     onExplain={onexplain}
     {...onretry ? { onRetry: onretry } : {}}
     {...onswap ? { onSwap: onswap } : {}}
-    onToggleContext={() => {
-      contextOpen = !contextOpen;
-      if (contextOpen) inspectorOpen = false;
-    }}
-    onToggleInspector={() => {
-      inspectorOpen = !inspectorOpen;
-      if (inspectorOpen) contextOpen = false;
-    }}
+    onToggleDetails={() => (detailsOpen = !detailsOpen)}
     {...onescalate ? { onEscalate: onescalate } : {}}
   />
 
-  <div class="ega-tooltip-details">
-    {#if hasContext}
-      <ContextPreview
-        context={tip.contextSent ?? null}
-        bind:open={contextOpen}
-        hideToggle
-        variant="tooltip"
-        valueLang={pageLang}
-      />
-    {/if}
-
-    {#if tip.meta}
-      <InspectorDrawer
+  {#if detailsOpen && hasDetails}
+    <div class="ega-tooltip-details">
+      <ReplyDetails
         meta={tip.meta}
-        open={inspectorOpen}
-        onClose={() => (inspectorOpen = false)}
+        context={contextShown}
+        sentText={tip.srcText || '(an image)'}
+        {taskLabel}
+        onViewPrompt={() => onopenoptions('tasks')}
+        surface="tooltip"
+        valueLang={pageLang}
+        onClose={() => (detailsOpen = false)}
       />
-    {/if}
-  </div>
+    </div>
+  {/if}
 </DraggablePanel>

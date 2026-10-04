@@ -42,50 +42,36 @@ function mountBoth() {
   });
 }
 
-describe('Tooltip — context/inspector mutual exclusivity', () => {
-  it('opening inspector closes context, and vice versa', async () => {
+describe('Tooltip — one details panel', () => {
+  it('one button opens result data and what was sent together, and closes it again', async () => {
     const { container } = mountBoth();
-    const ctxBtn = container.querySelector('button[aria-expanded][data-tooltip="Context"]');
-    const inspBtn = container.querySelector('button[aria-label="Show inspector"]');
-    expect(ctxBtn).toBeTruthy();
-    expect(inspBtn).toBeTruthy();
-    if (!ctxBtn || !inspBtn) throw new Error('toggle buttons missing');
-
-    // Open context.
-    await fireEvent.click(ctxBtn);
-    expect(ctxBtn.getAttribute('aria-expanded')).toBe('true');
-
-    // Open inspector — context must close.
-    const inspBtnNow =
-      container.querySelector('button[aria-label="Hide inspector"]') ??
-      container.querySelector('button[aria-label="Show inspector"]');
-    if (!inspBtnNow) throw new Error('inspector toggle missing');
-    await fireEvent.click(inspBtnNow);
-    const inspExpanded = container.querySelector('button[aria-label="Hide inspector"]');
-    expect(inspExpanded).toBeTruthy();
-    expect(inspExpanded?.getAttribute('aria-expanded')).toBe('true');
-    const ctxAfter = container.querySelector('button[data-tooltip="Context"]');
-    expect(ctxAfter?.getAttribute('aria-expanded')).toBe('false');
-
-    // Re-open context — inspector must close.
-    if (!ctxAfter) throw new Error('context toggle missing after inspector open');
-    await fireEvent.click(ctxAfter);
-    const ctxReopened =
-      container.querySelector('button[data-tooltip="Hide context"]') ??
-      container.querySelector('button[aria-expanded]');
-    expect(
-      container
-        .querySelector('button[aria-label="Hide what was sent"]')
-        ?.getAttribute('aria-expanded'),
-    ).toBe('true');
-    expect(container.querySelector('button[aria-label="Show inspector"]')).toBeTruthy();
-    void ctxReopened;
+    const btn = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Show details about this reply"]',
+    );
+    if (!btn) throw new Error('no details button');
+    expect(container.querySelector('button[data-tooltip="Context"]')).toBeNull();
+    expect(btn.getAttribute('aria-expanded')).toBe('false');
+    expect(container.querySelector('[data-ega-inspector]')).toBeNull();
+    await fireEvent.click(btn);
+    const panel = container.querySelector('[data-ega-inspector]');
+    expect(panel?.textContent).toContain('Anthropic');
+    expect(panel?.querySelector('[data-ega-context-preview]')?.textContent).toContain('Example');
+    const open = container.querySelector('button[aria-label="Hide details about this reply"]');
+    expect(open?.getAttribute('aria-expanded')).toBe('true');
+    if (!(open instanceof HTMLButtonElement)) throw new Error('no open button');
+    await fireEvent.click(open);
+    expect(container.querySelector('[data-ega-inspector]')).toBeNull();
   });
 });
 
 describe('Tooltip — scrollable detail wrapper', () => {
-  it('wraps the preview + inspector in a single .ega-tooltip-details container', () => {
+  it('puts the open details panel in a single .ega-tooltip-details container', async () => {
     const { container } = mountBoth();
+    const btn = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Show details about this reply"]',
+    );
+    if (!btn) throw new Error('no details button');
+    await fireEvent.click(btn);
     const wrap = container.querySelector('.ega-tooltip-details');
     expect(wrap).toBeTruthy();
     expect(wrap?.querySelector('[data-ega-context-preview]')).toBeTruthy();
