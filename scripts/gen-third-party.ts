@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, 'THIRD_PARTY.md');
+const SCOWL_NOTICE = path.join(ROOT, 'scripts/english-lexicon/SCOWL-Copyright.txt');
 const LICENSE_FILES = ['LICENSE', 'LICENSE.md', 'LICENSE.txt', 'LICENCE', 'license', 'COPYING'];
 // dompurify offers a choice of two licenses; Apache-2.0 is the one Ega takes.
 const ELECTED: Record<string, string> = {
@@ -132,6 +133,16 @@ async function render(): Promise<string> {
     'licensed under the SIL Open Font License 1.1. The font file and its license text sit in',
     '`scripts/icon-font/` (repository only; the packaged extension carries the rendered PNGs, not the',
     'font). Images made with an OFL font are not bound by the OFL.',
+    '',
+    '## English word list (SCOWL 2020.12.07)',
+    '',
+    "The smart bubble's English check reads `src/content/english-lexicon.txt`, built by",
+    '`scripts/gen-english-lexicon.ts` from SCOWL (Spell Checker Oriented Word Lists),',
+    'http://wordlist.aspell.net/. The full SCOWL copyright and permission notice follows.',
+    '',
+    '```',
+    (await readFile(SCOWL_NOTICE, 'utf8')).trimEnd(),
+    '```',
     '',
   ];
   for (const key of names) {

@@ -69,6 +69,7 @@
     "explore": "tsx tests/explore/index.ts",
     "rotate-extension-key": "tsx scripts/rotate-extension-key.ts",
     "verify": "pnpm format:check && pnpm typecheck && pnpm lint && pnpm lint:reactivity && pnpm lint:tokens && pnpm lint:shadow-css && pnpm lint:hover && pnpm lint:docs && pnpm lint:spelling && pnpm lint:actions && pnpm audit:affordances && pnpm test:all:cov && pnpm gen:icons && pnpm gen:third-party:check && pnpm build && tsx scripts/bundle-budget.ts --warn-only && pnpm zip && pnpm test:install && pnpm lint:deadcode && pnpm coverage:flows && pnpm lint:secrets:full && pnpm audit --prod --audit-level=high",
+    "gen:english-lexicon": "tsx scripts/gen-english-lexicon.ts",
     "gen:third-party": "tsx scripts/gen-third-party.ts",
     "gen:third-party:check": "tsx scripts/gen-third-party.ts --check"
   },

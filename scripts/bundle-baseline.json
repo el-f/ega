@@ -20,8 +20,12 @@
     "bytes": 17997
   },
   {
+    "name": "chat-history",
+    "bytes": 837
+  },
+  {
     "name": "command-registry",
-    "bytes": 29640
+    "bytes": 29986
   },
   {
     "name": "customs-cache",
@@ -38,6 +42,10 @@
   {
     "name": "EmptyState",
     "bytes": 2031
+  },
+  {
+    "name": "english-lexicon",
+    "bytes": 597454
   },
   {
     "name": "err-labels",
@@ -65,7 +73,7 @@
   },
   {
     "name": "index.html",
-    "bytes": 376401
+    "bytes": 375684
   },
   {
     "name": "index.ts",
@@ -173,7 +181,7 @@
   },
   {
     "name": "src-content-index.ts",
-    "bytes": 32841
+    "bytes": 33126
   },
   {
     "name": "stuck-timeout",
@@ -185,11 +193,11 @@
   },
   {
     "name": "Tasks",
-    "bytes": 44840
+    "bytes": 45114
   },
   {
     "name": "TemplateEditor",
-    "bytes": 27936
+    "bytes": 27986
   },
   {
     "name": "theme",

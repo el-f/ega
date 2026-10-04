@@ -1,8 +1,13 @@
-import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
-import { looksLikeEnglish, looksLikeEnglishAsync } from '@/content/looks-like-english';
+import { describe, it, expect, afterAll, afterEach, beforeAll, beforeEach, vi } from 'vitest';
+import {
+  lexiconCacheInternal,
+  loadEnglishLexicon,
+  looksLikeEnglish,
+  looksLikeEnglishAsync,
+} from '@/content/looks-like-english';
 import { resetDetectorCache } from '@tests/_helpers/looks-like-english.test-utils';
 
-describe('looksLikeEnglish', () => {
+describe('looksLikeEnglish before the lexicon loads (top-500 fallback)', () => {
   describe('plain English → true (bubble hides)', () => {
     const cases = [
       'hello world this is a test',
@@ -78,12 +83,59 @@ describe('looksLikeEnglish', () => {
   });
 });
 
+describe('looksLikeEnglish with the lexicon loaded', () => {
+  beforeAll(async () => {
+    await loadEnglishLexicon();
+  });
+  afterAll(() => {
+    lexiconCacheInternal.mod = null;
+    lexiconCacheInternal.promise = null;
+  });
+
+  it.each(['Recently', 'HOMEMADE BURGERS', 'Opening hours', "Today's specials", "Don't miss it"])(
+    'English: %s',
+    (t) => {
+      expect(looksLikeEnglish(t)).toBe(true);
+    },
+  );
+
+  it.each(['kif halak', 'ana bas', 'ya ana', 'men fadlak', 'bonjour', 'law samaht'])(
+    'not English: %s',
+    (t) => {
+      expect(looksLikeEnglish(t)).toBe(false);
+    },
+  );
+
+  it('reads words that are both English and Arabizi as neither', () => {
+    // "add", "bad", "men" alone prove nothing, so a text of only those shows the bubble.
+    expect(looksLikeEnglish('add bad men')).toBe(false);
+    expect(looksLikeEnglish('Add to cart')).toBe(true);
+  });
+
+  it('treats numbers alone as nothing to translate', () => {
+    expect(looksLikeEnglish('12345')).toBe(true);
+    expect(looksLikeEnglish('')).toBe(true);
+  });
+
+  it('skips a capitalized name inside a sentence, not in a title-cased heading', () => {
+    expect(looksLikeEnglish('we visited Paris last summer')).toBe(true);
+    expect(looksLikeEnglish('Visit Paris')).toBe(false);
+  });
+
+  it('needs 80% of a longer text, and no Arabizi-shaped word', () => {
+    expect(looksLikeEnglish('please find attached the document for your review')).toBe(true);
+    // Four of five counted words are English, but "habibiii" is elongated.
+    expect(looksLikeEnglish('thank you so much for everything habibiii')).toBe(false);
+    expect(looksLikeEnglish('this rizz is bussin fr no cap')).toBe(false);
+  });
+});
+
 describe('looksLikeEnglishAsync', () => {
   const g = globalThis as unknown as { LanguageDetector?: unknown };
   const original = g.LanguageDetector;
+  const available = async (): Promise<string> => 'available';
 
-  // The detector is cached module-scope (single warm-up per tab in
-  // production). Reset between tests so each can install its own mock.
+  // One detector per tab in production; each test installs its own mock.
   beforeEach(() => {
     resetDetectorCache();
   });
@@ -91,6 +143,15 @@ describe('looksLikeEnglishAsync', () => {
   afterEach(() => {
     if (original === undefined) delete g.LanguageDetector;
     else g.LanguageDetector = original;
+  });
+
+  it('loads the lexicon on the first call', async () => {
+    lexiconCacheInternal.mod = null;
+    lexiconCacheInternal.promise = null;
+    delete g.LanguageDetector;
+    expect(looksLikeEnglish('Recently')).toBe(false);
+    expect(await looksLikeEnglishAsync('Recently')).toBe(true);
+    expect(looksLikeEnglish('Recently')).toBe(true);
   });
 
   it('falls back to the dictionary heuristic when LanguageDetector is absent', async () => {
@@ -101,6 +162,7 @@ describe('looksLikeEnglishAsync', () => {
 
   it('trusts the dictionary over LanguageDetector for digit-less Arabizi', async () => {
     g.LanguageDetector = {
+      availability: available,
       create: async () => ({
         detect: async () => [{ detectedLanguage: 'en', confidence: 0.95 }],
       }),
@@ -109,29 +171,38 @@ describe('looksLikeEnglishAsync', () => {
     expect(await looksLikeEnglishAsync('yarayt rase fade add rasak')).toBe(false);
   });
 
-  it('lets Chrome override an ambiguous English verdict when it is confidently non-English', async () => {
+  it('lets Chrome override an English verdict when it is confidently non-English', async () => {
     g.LanguageDetector = {
+      availability: available,
       create: async () => ({
         detect: async () => [{ detectedLanguage: 'fr', confidence: 0.9 }],
       }),
     };
-    // A string the dictionary narrowly thinks is English but Chrome
-    // pegs as French with high confidence → trust Chrome, return false.
     expect(await looksLikeEnglishAsync('today we work on new ideas')).toBe(false);
+  });
+
+  it('gives the detector no say under 20 characters', async () => {
+    const detect = vi.fn(async () => [{ detectedLanguage: 'fr', confidence: 0.99 }]);
+    g.LanguageDetector = { availability: available, create: async () => ({ detect }) };
+    expect(await looksLikeEnglishAsync('Opening hours')).toBe(true);
+    expect(detect).not.toHaveBeenCalled();
+    expect(await looksLikeEnglishAsync('today we work on new ideas')).toBe(false);
+    expect(detect).toHaveBeenCalledTimes(1);
   });
 
   it('trusts the dictionary English verdict when Chrome is uncertain', async () => {
     g.LanguageDetector = {
+      availability: available,
       create: async () => ({
         detect: async () => [{ detectedLanguage: 'fr', confidence: 0.3 }],
       }),
     };
-    // Low-confidence Chrome verdict → dictionary wins.
     expect(await looksLikeEnglishAsync('hello world this is a test')).toBe(true);
   });
 
   it('falls back to dictionary when the API throws', async () => {
     g.LanguageDetector = {
+      availability: available,
       create: async () => {
         throw new Error('boom');
       },
@@ -143,6 +214,7 @@ describe('looksLikeEnglishAsync', () => {
   it('retries detector creation after a transient rejection', async () => {
     let createCalls = 0;
     g.LanguageDetector = {
+      availability: available,
       create: async () => {
         createCalls++;
         if (createCalls === 1) throw new Error('not warmed yet');
@@ -151,15 +223,19 @@ describe('looksLikeEnglishAsync', () => {
         };
       },
     };
-    // First call rejects → dictionary fallback wins on the ambiguous case.
     expect(await looksLikeEnglishAsync('today we work on new ideas')).toBe(true);
     expect(createCalls).toBe(1);
-    // Yield so the cache-clear .then() fires (it runs after the resolved
-    // promise propagates).
+    // Yield so the cache-clear .then() fires.
     await new Promise((r) => setTimeout(r, 0));
-    // Second call retries — detector returns French confidently, flips verdict.
     expect(await looksLikeEnglishAsync('today we work on new ideas')).toBe(false);
     expect(createCalls).toBe(2);
+  });
+
+  it('never uses a detector whose API has no availability()', async () => {
+    const create = vi.fn();
+    g.LanguageDetector = { create };
+    expect(await looksLikeEnglishAsync('today we work on new ideas')).toBe(true);
+    expect(create).not.toHaveBeenCalled();
   });
 
   it('never calls create() when availability() says unavailable, and asks once per tab', async () => {
@@ -179,48 +255,31 @@ describe('looksLikeEnglishAsync', () => {
     expect(checks).toBe(1);
   });
 
-  it('asks again while the model is downloading, then uses it', async () => {
-    let state = 'downloading';
-    let createCalls = 0;
-    g.LanguageDetector = {
-      availability: async () => state,
-      create: async () => {
-        createCalls++;
-        if (state !== 'available') throw new Error('not ready');
-        return { detect: async () => [{ detectedLanguage: 'fr', confidence: 0.9 }] };
-      },
-    };
-    expect(await looksLikeEnglishAsync('today we work on new ideas')).toBe(true);
-    await new Promise((r) => setTimeout(r, 0));
-    state = 'available';
-    expect(await looksLikeEnglishAsync('today we work on new ideas')).toBe(false);
-    expect(createCalls).toBe(2);
-  });
-
-  it('answers from the dictionary when the model never finishes loading, and uses it once it does', async () => {
-    vi.useFakeTimers();
-    try {
-      let ready: (d: unknown) => void = () => {};
-      g.LanguageDetector = {
-        availability: async () => 'downloadable',
-        create: () => new Promise((r) => (ready = r)),
-      };
-      const first = looksLikeEnglishAsync('today we work on new ideas');
-      await vi.advanceTimersByTimeAsync(1000);
-      expect(await first).toBe(true);
-
-      ready({ detect: async () => [{ detectedLanguage: 'fr', confidence: 0.9 }] });
-      await vi.advanceTimersByTimeAsync(0);
+  it.each(['downloadable', 'downloading'])(
+    'never calls create() while %s, then uses the model once it is available',
+    async (pending) => {
+      let state = pending;
+      const create = vi.fn(async () => ({
+        detect: async () => [{ detectedLanguage: 'fr', confidence: 0.9 }],
+      }));
+      g.LanguageDetector = { availability: async () => state, create };
+      expect(await looksLikeEnglishAsync('today we work on new ideas')).toBe(true);
+      await new Promise((r) => setTimeout(r, 0));
+      expect(create).not.toHaveBeenCalled();
+      state = 'available';
       expect(await looksLikeEnglishAsync('today we work on new ideas')).toBe(false);
-    } finally {
-      vi.useRealTimers();
-    }
-  });
+      expect(create).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it('answers from the dictionary when detect() never answers', async () => {
+    await loadEnglishLexicon();
     vi.useFakeTimers();
     try {
-      g.LanguageDetector = { create: async () => ({ detect: () => new Promise(() => {}) }) };
+      g.LanguageDetector = {
+        availability: available,
+        create: async () => ({ detect: () => new Promise(() => {}) }),
+      };
       const verdict = looksLikeEnglishAsync('hello world this is a test');
       await vi.advanceTimersByTimeAsync(1000);
       expect(await verdict).toBe(true);

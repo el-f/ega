@@ -1,5 +1,6 @@
 import { debugCatch } from '@/shared/logger';
 import { ENGLISH_WORDS } from './english-words';
+import type * as LexiconMod from './english-lexicon';
 
 const MIN_TOKENS = 1;
 
@@ -15,8 +16,28 @@ export function hasNonEnglishDigitWord(text: string): boolean {
   );
 }
 
-/** True when enough tokens hit the top-500 English words, at any length (short Arabizi like 'Min hayde?' must not pass). Empty input is true. */
+// The ~60k-word lexicon is its own chunk, loaded on the first selection that reaches this check; exported for tests.
+export const lexiconCacheInternal: {
+  mod: typeof LexiconMod | null;
+  promise: Promise<typeof LexiconMod | null> | null;
+} = { mod: null, promise: null };
+
+export function loadEnglishLexicon(): Promise<typeof LexiconMod | null> {
+  lexiconCacheInternal.promise ??= import('./english-lexicon').then(
+    (m) => (lexiconCacheInternal.mod = m),
+    (e: unknown) => {
+      debugCatch(e, 'content.looks-like-english.lexicon');
+      lexiconCacheInternal.promise = null;
+      return null;
+    },
+  );
+  return lexiconCacheInternal.promise;
+}
+
+/** The lexicon decides once loaded; before that, half the tokens on the top-500 list. Empty input is true. */
 export function looksLikeEnglish(text: string): boolean {
+  const lexicon = lexiconCacheInternal.mod;
+  if (lexicon) return lexicon.readsAsEnglish(text, ENGLISH_DIGIT_WORD);
   // An English digit word is neither a hit nor a miss; split at the digit, "mp3" read as the non-word "mp".
   const words = text.toLowerCase().match(/[a-z\d]+/g) ?? [];
   const tokens = words.filter((w) => !ENGLISH_DIGIT_WORD.test(w));
@@ -53,18 +74,19 @@ function getDetector(): Promise<LanguageDetectorInstance | null> {
   if (detectorCacheInternal.promise) return detectorCacheInternal.promise;
   const api = (globalThis as unknown as { LanguageDetector?: LanguageDetectorFactory })
     .LanguageDetector;
-  if (!api || typeof api.create !== 'function') {
+  if (!api || typeof api.create !== 'function' || typeof api.availability !== 'function') {
     detectorCacheInternal.promise = Promise.resolve(null);
     return detectorCacheInternal.promise;
   }
   const create = api.create.bind(api);
+  const availability = api.availability.bind(api);
   const options = { expectedInputLanguages: ['en'] };
   let retryLater = true;
   const p = (async (): Promise<LanguageDetectorInstance | null> => {
-    // An unavailable model stays null for the tab, so each check does not pay for a failed create().
-    const state = typeof api.availability === 'function' ? await api.availability(options) : null;
-    retryLater = state === null || state === 'downloadable' || state === 'downloading';
-    if (state === 'unavailable') return null;
+    // create() on a downloadable model starts a download; only a model already on disk is used. Unavailable stays null.
+    const state = await availability(options);
+    retryLater = state !== 'unavailable';
+    if (state !== 'available') return null;
     return create(options);
   })().catch(() => null);
   detectorCacheInternal.promise = p;
@@ -77,16 +99,19 @@ function getDetector(): Promise<LanguageDetectorInstance | null> {
   return p;
 }
 
-// create() resolves only after a model download, so a selection never waits longer than this; the warm-up keeps going.
+// A selection never waits longer than this for the lexicon chunk or the detector; the load keeps going.
 const DETECTOR_WAIT_MS = 300;
+// The detector is unreliable on a few words, so it gets no say below this length.
+const DETECTOR_MIN_CHARS = 20;
 
 function within<T>(p: Promise<T>): Promise<T | null> {
   return Promise.race([p, new Promise<null>((r) => setTimeout(() => r(null), DETECTOR_WAIT_MS))]);
 }
 
 export async function looksLikeEnglishAsync(text: string): Promise<boolean> {
+  await within(loadEnglishLexicon());
   const dictVerdict = looksLikeEnglish(text);
-  if (!dictVerdict) return false; // dictionary is confident it's NOT English
+  if (!dictVerdict || text.length < DETECTOR_MIN_CHARS) return dictVerdict;
   try {
     const detector = await within(getDetector());
     if (!detector) return dictVerdict;
