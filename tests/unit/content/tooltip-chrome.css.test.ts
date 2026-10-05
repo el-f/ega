@@ -14,6 +14,21 @@ function rule(selector: string): CSSStyleDeclaration | undefined {
   )?.style;
 }
 
+function mediaRule(condition: string, selector: string): CSSStyleDeclaration | undefined {
+  document.head.innerHTML = `<style>${css}</style>`;
+  const media = Array.from(document.styleSheets[0]?.cssRules ?? []).filter(
+    (r): r is CSSMediaRule => r instanceof CSSMediaRule && r.media.mediaText === condition,
+  );
+  for (const m of media) {
+    const hit = Array.from(m.cssRules).find(
+      (r): r is CSSStyleRule =>
+        r instanceof CSSStyleRule && r.selectorText.replace(/\s+/g, ' ') === selector,
+    );
+    if (hit) return hit.style;
+  }
+  return undefined;
+}
+
 describe('tooltip chrome', () => {
   it('keeps a floor width, so the loading card does not jump wider when the answer lands', () => {
     expect(rule('.tooltip')?.getPropertyValue('min-width')).toBe('220px');
@@ -51,12 +66,42 @@ describe('tooltip meta row contrast', () => {
     expect(rule('.tooltip .actions .meta')?.getPropertyValue('margin-left')).toBe('auto');
   });
 
-  it('gives an aria-disabled action the disabled look', () => {
+  it('fades a disabled action, which cannot take focus', () => {
+    expect(rule('.tooltip .actions .icon-btn:disabled')?.getPropertyValue('opacity')).toBe('0.35');
+  });
+
+  // A blocked swap stays focusable; opacity would fade its focus ring and the label that says why it is blocked.
+  it('greys an aria-disabled action with the disabled color, not opacity', () => {
+    const blocked = rule(".tooltip .actions .icon-btn[aria-disabled='true']");
+    expect(blocked?.getPropertyValue('opacity')).toBe('');
+    expect(blocked?.getPropertyValue('color')).toBe('var(--color-fg-disabled)');
+  });
+
+  it('draws an aria-disabled action in GrayText under forced colors', () => {
     expect(
-      rule(
-        ".tooltip .actions .icon-btn:disabled, .tooltip .actions .icon-btn[aria-disabled='true']",
-      )?.getPropertyValue('opacity'),
-    ).toBe('0.35');
+      mediaRule(
+        '(forced-colors: active)',
+        ".tooltip .actions .icon-btn[aria-disabled='true']",
+      )?.getPropertyValue('color'),
+    ).toBe('graytext');
+  });
+
+  // The generic action-button hover underline outranks .icon-btn, and the enabled-only reset left a disabled Explain underlined.
+  it('never underlines a hovered icon button, disabled or not', () => {
+    expect(rule('.tooltip .actions .icon-btn:hover')?.getPropertyValue('text-decoration')).toBe(
+      'none',
+    );
+  });
+
+  // The swap labels name both languages, far past 160px; nowrap ran the text past its own background box.
+  it('wraps an action label inside its box', () => {
+    const label = rule(
+      ".tooltip .actions .icon-btn[data-tooltip]:not([data-tooltip='']):hover::after, .tooltip .actions .icon-btn[data-tooltip]:not([data-tooltip='']):focus-visible::after",
+    );
+    expect(label?.getPropertyValue('white-space')).toBe('normal');
+    expect(label?.getPropertyValue('max-width')).toBe('220px');
+    // The button's line-height: 1 would put a wrapped second line on the box edge.
+    expect(label?.getPropertyValue('line-height')).toBe('var(--lh-heading)');
   });
 
   it('colors the low-confidence pill with the -fg shade that clears 4.5:1', () => {

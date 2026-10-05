@@ -471,6 +471,10 @@
 .tooltip .actions button:hover {
   text-decoration: underline;
 }
+/* An icon button never underlines, disabled ones included: the rule above outranks .icon-btn, and a labeled one would show it. */
+.tooltip .actions .icon-btn:hover {
+  text-decoration: none;
+}
 /* Cancel is the only classless action button; it reads as a button, not a link. */
 .tooltip .actions button:not([class]) {
   min-height: 28px;
@@ -572,7 +576,6 @@
 }
 .tooltip .actions .icon-btn:hover:not(:disabled):not([aria-disabled='true']) {
   background-color: var(--color-accent-bg-hover);
-  text-decoration: none;
 }
 /* Scale the glyph, not the button: a shrinking hit box moves out from under the cursor and the click is lost. */
 .tooltip .actions .icon-btn:active:not(:disabled):not([aria-disabled='true']) {
@@ -581,11 +584,22 @@
 .tooltip .actions .icon-btn:active:not(:disabled):not([aria-disabled='true']) .icon {
   transform: scale(0.94);
 }
-/* aria-disabled keeps a blocked button focusable, so its reason is reachable; it gets the same look. */
-.tooltip .actions .icon-btn:disabled,
-.tooltip .actions .icon-btn[aria-disabled='true'] {
+.tooltip .actions .icon-btn:disabled {
   opacity: 0.35;
-  cursor: not-allowed;
+  cursor: var(--cursor-disabled);
+}
+/* aria-disabled keeps a blocked button focusable, so its reason is reachable. Disabled color, not opacity: opacity
+   would also fade its focus ring and its hover/focus label, which carries the reason. */
+.tooltip .actions .icon-btn[aria-disabled='true'] {
+  color: var(--color-fg-disabled);
+  background: transparent;
+  cursor: var(--cursor-disabled);
+}
+/* Forced colors draws only a real :disabled in GrayText; without this the blocked button looks enabled. */
+@media (forced-colors: active) {
+  .tooltip .actions .icon-btn[aria-disabled='true'] {
+    color: GrayText;
+  }
 }
 /* :not([data-tooltip='']) because Svelte renders data-tooltip='' for a missing prop, which would paint an empty label. */
 .tooltip .actions .icon-btn[data-tooltip]:not([data-tooltip='']):hover::after,
@@ -605,11 +619,15 @@
   padding: 2px var(--space-2);
   font-size: var(--fs-xs);
   border-radius: var(--radius-sm);
-  white-space: nowrap;
+  /* Wraps inside its box like the global label: the swap labels name both languages and run past 160px. */
+  white-space: normal;
+  overflow-wrap: anywhere;
+  /* The button's line-height: 1 would stack a wrapped second line flush against the box edge. */
+  line-height: var(--lh-heading);
   pointer-events: none;
   box-shadow: 0 1px 3px var(--color-shadow);
   z-index: 2147483647;
-  max-width: 160px;
+  max-width: 220px;
 }
 .tooltip .meta {
   /* `padding-inline-end` of one radius: a narrow image-inline tooltip auto-sizes small enough that the pill's right edge lands on the `--radius-lg` curve and pokes past it. `box-sizing: border-box` keeps `max-width: 100%` honest against that padding. */
