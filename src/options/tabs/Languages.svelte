@@ -368,6 +368,7 @@
       toastStore.push({
         message: `Could not reset "${v.label}": ${(e as Error).message}`,
         variant: 'danger',
+        action: { label: 'Try again', onClick: () => void reset(v) },
       });
       return;
     }
@@ -402,6 +403,7 @@
       toastStore.push({
         message: `Could not delete "${v.label}": ${(e as Error).message}`,
         variant: 'danger',
+        action: { label: 'Try again', onClick: () => void doDelete(v) },
       });
       return;
     }

@@ -71,6 +71,7 @@
       toastStore.push({
         message: `Some data was not deleted: ${(e as Error).message}. Press Delete all data again.`,
         variant: 'danger',
+        action: { label: 'Try again', onClick: () => void purge() },
       });
       return;
     }

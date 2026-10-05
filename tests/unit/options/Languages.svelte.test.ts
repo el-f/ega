@@ -379,6 +379,33 @@ describe('Languages tab — delete variety confirmation', () => {
     expect(stored.some((c) => c.id === 'custom-test-id')).toBe(false);
   });
 
+  it('a failed delete offers Try again, which asks and deletes again', async () => {
+    seedCustomVariety();
+    const push = vi.spyOn(toastStore, 'push').mockImplementation(() => {});
+    vi.spyOn(chromeMock.storage.local, 'set').mockRejectedValueOnce(new Error('quota'));
+    render(Languages);
+    const deleteBtn = await waitFor(() => {
+      const btn = document.querySelector<HTMLButtonElement>(
+        '.variety-actions button[aria-label="Delete custom language"]',
+      );
+      if (!btn) throw new Error('delete button not found');
+      return btn;
+    });
+
+    await fireEvent.click(deleteBtn);
+    await waitFor(() =>
+      expect(push).toHaveBeenCalledWith(
+        expect.objectContaining({ message: expect.stringMatching(/Could not delete "My Slang"/) }),
+      ),
+    );
+    const action = push.mock.calls.at(-1)?.[0].action;
+    expect(action?.label).toBe('Try again');
+
+    action?.onClick();
+    await waitFor(async () => expect(await getCustomLanguages()).toEqual([]));
+    expect(vi.mocked(confirmDialog)).toHaveBeenCalledTimes(2);
+  });
+
   it('canceling delete does not remove the variety', async () => {
     seedCustomVariety();
     vi.mocked(confirmDialog).mockResolvedValueOnce(false);
@@ -461,6 +488,41 @@ describe('Languages tab — Reset to built-in keeps section open', () => {
         }),
       );
     });
+  });
+
+  it('a failed reset offers Try again, which resets', async () => {
+    const id = seedVarietyOverride();
+    const push = vi.spyOn(toastStore, 'push').mockImplementation(() => {});
+    render(Languages);
+    const editBtn = await waitFor(() => {
+      const btn = document.querySelector<HTMLButtonElement>(
+        '.variety-actions button[aria-label="Edit"]',
+      );
+      if (!btn) throw new Error('edit button not found');
+      return btn;
+    });
+    await fireEvent.click(editBtn);
+    const resetBtn = await waitFor(() => {
+      const btn = document.querySelector<HTMLButtonElement>(
+        'button[title="Remove your saved edits and restore the built-in version"]',
+      );
+      if (!btn) throw new Error('reset button not found');
+      return btn;
+    });
+    vi.spyOn(chromeMock.storage.local, 'set').mockRejectedValueOnce(new Error('quota'));
+
+    await fireEvent.click(resetBtn);
+    await waitFor(() =>
+      expect(push).toHaveBeenCalledWith(
+        expect.objectContaining({ message: expect.stringMatching(/^Could not reset/) }),
+      ),
+    );
+    expect((await getSettings()).varietyOverrides[id]).toBeDefined();
+    const action = push.mock.calls.at(-1)?.[0].action;
+    expect(action?.label).toBe('Try again');
+
+    action?.onClick();
+    await waitFor(async () => expect((await getSettings()).varietyOverrides[id]).toBeUndefined());
   });
 
   it('the Undo action rewrites the override it removed', async () => {

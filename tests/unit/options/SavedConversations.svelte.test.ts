@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, fireEvent, waitFor } from '@testing-library/svelte';
 import { confirmDialog } from '@/shared/components/confirmDialog';
+import { toastStore } from '@/shared/components/toastStore';
 import SavedConversations from '@/options/components/SavedConversations.svelte';
 import { loadThreadResult, saveThread } from '@/sidepanel/state/conversation-store';
 import type { Turn } from '@/sidepanel/state/conversation';
@@ -62,6 +63,25 @@ describe('SavedConversations', () => {
     await waitFor(() => expect(vi.mocked(confirmDialog)).toHaveBeenCalled());
     expect((await loadThreadResult('https://stays.test')).turns).toHaveLength(1);
     expect(sites(container)).toEqual(['stays.test']);
+  });
+
+  it('a failed Delete offers Try again, which deletes without asking again', async () => {
+    await saveThread('https://retry.test', [userTurn('r1', 'one')]);
+    const { container, getByRole } = render(SavedConversations);
+    await waitFor(() => expect(sites(container)).toEqual(['retry.test']));
+    const push = vi.spyOn(toastStore, 'push').mockImplementation(() => {});
+    vi.spyOn(chrome.storage.local, 'set').mockRejectedValueOnce(new Error('quota'));
+
+    await fireEvent.click(getByRole('button', { name: 'Delete the conversation for retry.test' }));
+    await waitFor(() => expect(push).toHaveBeenCalledTimes(1));
+    expect(sites(container)).toEqual(['retry.test']);
+    const action = push.mock.calls[0]?.[0].action;
+    expect(action?.label).toBe('Try again');
+
+    action?.onClick();
+    await waitFor(() => expect(sites(container)).toEqual([]));
+    expect(vi.mocked(confirmDialog)).toHaveBeenCalledTimes(1);
+    push.mockRestore();
   });
 
   it('Clear all removes every thread and shows the empty state', async () => {

@@ -46,6 +46,7 @@
       toastStore.push({
         message: `Could not delete: ${(e as Error).message}`,
         variant: 'danger',
+        action: { label: 'Try again', onClick: () => void run(work) },
       });
     }
     await refresh();

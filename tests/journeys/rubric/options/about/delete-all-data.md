@@ -20,7 +20,7 @@
 ## Failure-mode expectations
 
 - Partial or wrong phrase -> Delete button stays disabled; no write.
-- A purge failure shows a danger toast with the error and tells the user to press Delete all data again; the page does not reload.
+- A purge failure shows a danger toast with the error and tells the user to press Delete all data again, with a Try again action that asks for the typed DELETE confirm again; the page does not reload.
 
 ## Cautions
 

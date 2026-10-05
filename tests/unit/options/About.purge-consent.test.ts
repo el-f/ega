@@ -117,4 +117,20 @@ describe('About — feedback after Clear cache and Delete all data', () => {
     );
     push.mockRestore();
   });
+
+  it('the purge failure toast offers Try again, which asks for the typed confirm again', async () => {
+    const push = vi.spyOn(toastStore, 'push').mockImplementation(() => {});
+    vi.spyOn(chrome.storage.local, 'clear').mockRejectedValueOnce(new Error('quota'));
+    confirmSpy.mockResolvedValueOnce(true);
+    const { container } = render(About);
+    await fireEvent.click(button(container, /delete all data/i));
+    await vi.waitFor(() => expect(push).toHaveBeenCalledTimes(1));
+    const action = push.mock.calls[0]?.[0].action;
+    expect(action?.label).toBe('Try again');
+
+    action?.onClick();
+    await vi.waitFor(() => expect(confirmSpy).toHaveBeenCalledTimes(2));
+    expect(confirmSpy.mock.calls[1]?.[0]).toMatchObject({ typeToConfirm: 'DELETE' });
+    push.mockRestore();
+  });
 });
