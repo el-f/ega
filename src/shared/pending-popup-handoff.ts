@@ -33,6 +33,8 @@ export interface PendingPopupHandoff {
   readonly trimmed?: boolean;
   /** Set by the reader when `imageDataUrl` was over IMAGE_DATA_URL_MAX_CHARS and dropped, so the panel can say so. */
   readonly imageDropped?: boolean;
+  /** A failed tooltip image: the panel puts `imageDataUrl` in the composer and sends nothing. */
+  readonly attachImage?: boolean;
   /** Browser window the send came from; only that window's panel drains it. */
   readonly windowId?: number;
 }
@@ -96,6 +98,7 @@ function decodeEntry(raw: unknown, now: number): PendingPopupHandoff | null {
     ts: tsRaw,
     ...(trimmed ? { trimmed: true } : {}),
     ...(imageDropped ? { imageDropped: true } : {}),
+    ...(r['attachImage'] === true ? { attachImage: true } : {}),
     ...(response !== undefined ? { response } : {}),
     ...(imageDataUrl !== undefined ? { imageDataUrl } : {}),
     ...(ocrText !== undefined ? { ocrText } : {}),

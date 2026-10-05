@@ -96,6 +96,39 @@ describe('openSidePanelWithHandoff', () => {
     expect(result).toEqual({ ok: true });
   });
 
+  it('writes an image for the composer only when the panel may render it', async () => {
+    const writeHandoff = vi.fn(() => Promise.resolve());
+    const deps = {
+      tabId: 5,
+      writeHandoff,
+      openSidePanel: () => Promise.resolve(),
+      queryActiveTabId: () => Promise.resolve(undefined),
+      logError: () => {},
+    };
+    const attach = (imageDataUrl: string): OpenSidePanelHandoff => ({
+      ...handoff,
+      sourceText: '',
+      imageDataUrl,
+      attachImage: true,
+    });
+
+    await openSidePanelWithHandoff({ ...deps, handoff: attach('https://example.com/a.png') });
+    await openSidePanelWithHandoff({ ...deps, handoff: attach('data:image/png;base64,AAAA') });
+    expect(writeHandoff).toHaveBeenCalledTimes(2);
+
+    writeHandoff.mockClear();
+    for (const bad of [
+      'javascript:alert(1)',
+      'data:image/svg+xml;base64,PHN2Zz4=',
+      'http://169.254.169.254/a.png',
+    ]) {
+      await expect(openSidePanelWithHandoff({ ...deps, handoff: attach(bad) })).resolves.toEqual({
+        ok: true,
+      });
+    }
+    expect(writeHandoff).not.toHaveBeenCalled();
+  });
+
   it('returns ok:false and logs when openSidePanel rejects', async () => {
     const err = new Error('may only be called in response to a user gesture');
     const logError = vi.fn();

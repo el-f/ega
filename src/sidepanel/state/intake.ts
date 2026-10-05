@@ -7,6 +7,7 @@ import { openOptionsTab } from '@/shared/open-options-tab';
 import { selectionTrimmedMessage } from '@/shared/selection-cap-copy';
 import { asLangSelection } from '@/shared/brands';
 import { debugCatch } from '@/shared/logger';
+import { isSafeRenderImageSrc } from '@/shared/image-url-guard';
 import { toastStore } from '@/shared/components/toastStore';
 import { hasKnownKind, isFromOwnBackground, type Msg } from '@/shared/messages';
 import { drainPendingImageSeeds, removePendingImageSeed } from '@/shared/pending-image-seed';
@@ -37,6 +38,8 @@ export interface IntakeDeps {
   pageContext: (task: TaskId) => Promise<PageContext | null>;
   /** A new exchange is never bookmarked and never matches an old query, so a filter would hide it. */
   clearFilters: () => void;
+  /** Puts an image in the composer, unsent, and focuses it. */
+  attachImage: (src: string) => void;
 }
 
 export interface Intake {
@@ -213,6 +216,13 @@ export function createIntake(deps: IntakeDeps): Intake {
     try {
       const before = deps.pickers();
       for (const handoff of await drainPendingPopupHandoff(await getPanelWindowId())) {
+        if (handoff.attachImage === true) {
+          // A failed tooltip image waits in the composer: the user picks the task, then sends.
+          if (!noteHandoffLosses(handoff)) continue;
+          const src = handoff.imageDataUrl;
+          if (src !== undefined && isSafeRenderImageSrc(src)) deps.attachImage(src);
+          continue;
+        }
         if (handoff.sourceText.trim().length === 0) continue;
         deps.clearFilters();
         if (!noteHandoffLosses(handoff)) continue;

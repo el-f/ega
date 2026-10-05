@@ -5,6 +5,7 @@ import {
   seedSettings,
   sendImageTranslatePending,
   sendImageTranslateResult,
+  suppressSidePanelOpen,
   waitForTestHooks,
   type ExtensionHandle,
 } from '../../helpers';
@@ -196,4 +197,34 @@ test('image error settings CTA opens the options page', async () => {
   expect(optionsPage.url()).toMatch(
     new RegExp(`^chrome-extension://${ext.extensionId}/src/options/`, 'i'),
   );
+});
+
+test('Open in side panel on a failed image puts the image in the composer, unsent', async () => {
+  await suppressSidePanelOpen(ext.context, ext.extensionId);
+  const page = await ext.context.newPage();
+  await page.goto(`${ext.serverUrl}/selection-page.html`);
+  await waitForTestHooks(page);
+
+  const opts = await ext.context.newPage();
+  await opts.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
+
+  const imageUrl = `${ext.serverUrl}/arabizi.png`;
+  const handle = await sendImageTranslatePending(opts, ext.serverUrl, imageUrl);
+  await sendImageTranslateResult(opts, handle, {
+    translation: '',
+    error: { code: 'NETWORK', message: 'mock network failure' },
+  });
+
+  await page.locator('.tooltip .tooltip-error-panel').click();
+  // The tooltip closes once the worker says the panel opened.
+  await expect(page.locator('.tooltip')).toHaveCount(0, { timeout: 5_000 });
+
+  const sp = await ext.context.newPage();
+  await sp.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
+  const preview = sp.getByAltText('Attached image');
+  await expect(preview).toBeVisible({ timeout: 10_000 });
+  await expect(preview).toHaveAttribute('src', imageUrl);
+  await expect(sp.locator('#sp-text')).toBeFocused();
+  // Nothing was sent: the user picks the task first.
+  await expect(sp.locator('.ega-user-turn')).toHaveCount(0);
 });

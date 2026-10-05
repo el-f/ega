@@ -126,7 +126,24 @@ describe('escalateToSidepanel', () => {
     ).resolves.toBe(true);
   });
 
-  it('open-panel opens the panel with no handoff, since a failed image has nothing to hand over', async () => {
+  it('open-panel carries the failed image to the composer, marked to wait unsent', async () => {
+    await escalateToSidepanel({
+      subKind: 'open-panel',
+      text: '',
+      sourceLang: 'auto',
+      targetLang: 'en',
+      imageDataUrl: 'https://example.test/sign.png',
+    });
+    expect(lastMessage?.handoff).toMatchObject({
+      imageDataUrl: 'https://example.test/sign.png',
+      attachImage: true,
+    });
+    // Nothing for the panel to send: no answer, no OCR text.
+    expect(lastMessage?.handoff?.['ocrText']).toBeUndefined();
+    expect(lastMessage?.handoff?.['response']).toBeUndefined();
+  });
+
+  it('open-panel with no image just opens the panel', async () => {
     await expect(
       escalateToSidepanel({
         subKind: 'open-panel',

@@ -26,6 +26,7 @@ function intakeFor(panelWindowId: number | undefined): {
     runnableTask: (t) => t,
     pageContext: () => Promise.resolve(null),
     clearFilters: () => {},
+    attachImage: () => {},
   });
   return { intake, conversation };
 }

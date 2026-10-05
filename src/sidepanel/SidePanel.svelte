@@ -314,6 +314,18 @@
     document.getElementById('sp-text')?.focus();
   }
 
+  function attachComposerImage(dataUrl: string): void {
+    attachedImage = dataUrl;
+    void writeComposerDraftImage(dataUrl).then((kept) => {
+      if (!kept) {
+        toastStore.push({
+          message: 'That image is too large to keep if you close the panel.',
+          variant: 'warning',
+        });
+      }
+    });
+  }
+
   // Called from the window keydown handler when focus is on the stream and the user presses 'e'.
   function pullLastUserTurnIntoInput(): void {
     if (conversation.inflightId !== null) {
@@ -389,6 +401,10 @@
     },
     pageContext: currentPageContext,
     clearFilters,
+    attachImage: (src) => {
+      attachComposerImage(src);
+      void tick().then(focusComposer);
+    },
   });
 
   // One window keydown owner: turn navigation is delegated so no second svelte:window listener is needed.
@@ -1059,17 +1075,7 @@
       onContextLevelChange={(level) => void setPageContextLevel(level)}
       {onSwap}
       {onTargetChange}
-      onAttachImage={(dataUrl) => {
-        attachedImage = dataUrl;
-        void writeComposerDraftImage(dataUrl).then((kept) => {
-          if (!kept) {
-            toastStore.push({
-              message: 'That image is too large to keep if you close the panel.',
-              variant: 'warning',
-            });
-          }
-        });
-      }}
+      onAttachImage={attachComposerImage}
       onClearAttachedImage={() => {
         attachedImage = null;
         void clearComposerDraftImage();

@@ -29,7 +29,7 @@
     imageUrl?: string;
     /** Opens the Options surface on the tab the error names. Used by the error-recovery CTA. */
     onOpenOptions?: (tab?: SettingsTab) => void;
-    /** A failed image has no text to continue with, so this opens the side panel, where the file can be attached. */
+    /** A failed image has no text to continue with, so this opens the side panel with the image waiting in its composer. */
     onOpenPanel?: () => void;
     /** Prior body; once settled, a word diff shows for ~4s. Skipped when identical. */
     diffAgainst?: string;

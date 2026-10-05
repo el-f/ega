@@ -26,10 +26,26 @@ export interface EscalateArgs {
 
 /** The SW writes the handoff slot before it opens the panel, so a mount during the open call still sees it. True only when the worker says the panel opened with it. */
 export async function escalateToSidepanel(args: EscalateArgs): Promise<boolean> {
-  // A failed image has nothing to hand over; the panel just opens so the user can attach the file there.
+  // A failed image goes into the panel's composer, ready to send again; it does not run on its own.
   if (args.subKind === 'open-panel') {
     try {
-      return (await sendMsg({ kind: 'ui:open-sidepanel' }))?.ok === true;
+      const reply = await sendMsg(
+        args.imageDataUrl
+          ? {
+              kind: 'ui:open-sidepanel',
+              handoff: {
+                sourceText: '',
+                sourceLang: args.sourceLang,
+                targetLang: args.targetLang,
+                task: 'translate',
+                tone: args.tone ?? currentSettings()?.defaultTone ?? 'neutral',
+                imageDataUrl: args.imageDataUrl,
+                attachImage: true,
+              },
+            }
+          : { kind: 'ui:open-sidepanel' },
+      );
+      return reply?.ok === true;
     } catch {
       return false;
     }
