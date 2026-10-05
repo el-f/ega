@@ -40,9 +40,19 @@ function killContext(): void {
 const FOREIGN = 'שלום עולם, מה שלומך היום?';
 const SHORTCUT = { key: 'L', ctrlKey: true, shiftKey: true };
 
-// The first import transforms the whole content script; on a loaded box that alone outlasts a test's 5 s.
+// Warms the cold transform (over 5 s on a loaded box) without booting index: a booted warm-up arms its own hint and could pass a test for the instance under test.
 beforeAll(async () => {
-  await import('@/content/index');
+  await Promise.all([
+    import('@/content/translate-handlers'),
+    import('@/content/lazy-tooltip'),
+    import('@/content/should-show-bubble'),
+    import('@/content/detect'),
+    import('@/content/picker-overlay'),
+    import('@/content/page-context-collector'),
+    import('@/content/bubble'),
+    import('@/content/banner-flows'),
+    import('@/content/selection-restore'),
+  ]);
 }, 60_000);
 
 beforeEach(() => {
