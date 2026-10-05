@@ -1,6 +1,6 @@
 <script lang="ts">
   import { dragHandleZone, dragHandle, DRAGGED_ELEMENT_ID, TRIGGERS } from 'svelte-dnd-action';
-  import type { Snippet } from 'svelte';
+  import { tick, type Snippet } from 'svelte';
   import type { Settings, BackendId } from '@/shared/types';
   import { isShadowRow } from '@/shared/dnd-shadow-row';
   import { useShadowSync } from '@/shared/svelte/useShadowSync.svelte';
@@ -14,21 +14,42 @@
   interface Props {
     settings: Settings;
     /** One write for both lists: a drag into the disabled zone changes order and disabled together. */
-    onChange: (next: {
-      backendOrder: BackendId[];
-      disabledBackends: BackendId[];
-    }) => void | Promise<void>;
+    onChange: (next: { backendOrder: BackendId[]; disabledBackends: BackendId[] }) => unknown;
     children?: Snippet<
       [id: BackendId, position: number | null, enabled: boolean, useSummary: typeof dragHandle]
     >;
     /** Moves an active backend one slot up (-1) or down (1); the buttons are the non-drag way to reorder. */
-    onMove?: (id: BackendId, delta: -1 | 1) => void;
+    onMove?: (id: BackendId, delta: -1 | 1) => unknown;
   }
   let { settings, onChange, children, onMove }: Props = $props();
 
-  function move(id: BackendId, delta: -1 | 1, from: number): void {
-    onMove?.(id, delta);
+  let listEl: HTMLElement | undefined = $state();
+  function focusRowButton(id: BackendId, ariaLabel: string): void {
+    listEl
+      ?.querySelector<HTMLElement>(`[data-testid="be-row-${id}"] [aria-label="${ariaLabel}"]`)
+      ?.focus();
+  }
+
+  // A move re-renders the row (down detaches it) and can disable the pressed arrow, so focus is put back by hand.
+  async function move(id: BackendId, delta: -1 | 1, from: number): Promise<void> {
     announcement = `${backendLabel(id)} moved to position ${from + delta + 1}`;
+    await onMove?.(id, delta);
+    await tick();
+    const at = enabledShadow.items.findIndex((r) => r.id === id);
+    const atEnd = delta === -1 ? at === 0 : at === enabledShadow.items.length - 1;
+    // At an end the pressed arrow is disabled and cannot hold focus, so the other arrow takes it.
+    const up = delta === -1 ? !atEnd : atEnd;
+    focusRowButton(id, `Move ${backendLabel(id)} ${up ? 'up' : 'down'}`);
+  }
+
+  // Ids of cards the user has open: Enable and Disable remount a card in the other list, and it must not snap shut.
+  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- read only when a card remounts, never rendered.
+  const openIds = new Set<string>();
+  function trackOpen(e: Event): void {
+    const d = e.target;
+    if (!(d instanceof HTMLDetailsElement) || !d.dataset['backendId']) return;
+    if (d.open) openIds.add(d.dataset['backendId']);
+    else openIds.delete(d.dataset['backendId']);
   }
 
   type Row = { id: BackendId };
@@ -103,10 +124,18 @@
       return;
     }
     announcement = `${backendLabel(id)} ${enabled ? 'enabled' : 'disabled'}`;
-    onChange({
-      backendOrder: [...settings.backendOrder],
-      disabledBackends: settings.backendOrder.filter((b) => disabled.includes(b)),
-    });
+    void (async () => {
+      await onChange({
+        backendOrder: [...settings.backendOrder],
+        disabledBackends: settings.backendOrder.filter((b) => disabled.includes(b)),
+      });
+      await tick();
+      // A just-enabled backend opens so its setup is in view; a disabled one keeps the state it had.
+      const card = listEl?.querySelector<HTMLDetailsElement>(`details[data-backend-id="${id}"]`);
+      if (card && (enabled || openIds.has(id))) card.open = true;
+      // The pressed button left with the old row; the moved row's own toggle takes focus.
+      focusRowButton(id, `${enabled ? 'Disable' : 'Enable'} ${backendLabel(id)}`);
+    })();
   }
 
   function handleEnabledConsider(
@@ -159,7 +188,13 @@
   }
 </script>
 
-<section class="be-list" class:be-dragging={dragging} data-testid="be-list">
+<section
+  class="be-list"
+  class:be-dragging={dragging}
+  data-testid="be-list"
+  bind:this={listEl}
+  ontogglecapture={trackOpen}
+>
   <header class="be-section-head be-section-head-active">
     <h2 class="be-section-title">Active backends</h2>
     <p class="be-section-help">
@@ -200,7 +235,7 @@
                 tooltip="Move up"
                 size="sm"
                 disabled={i === 0}
-                onclick={() => move(row.id, -1, i)}
+                onclick={() => void move(row.id, -1, i)}
               />
               <IconButton
                 icon={ArrowDown}
@@ -208,7 +243,7 @@
                 tooltip="Move down"
                 size="sm"
                 disabled={i === enabledShadow.items.length - 1}
-                onclick={() => move(row.id, 1, i)}
+                onclick={() => void move(row.id, 1, i)}
               />
             {/if}
             <Button

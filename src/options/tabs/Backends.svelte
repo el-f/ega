@@ -37,9 +37,10 @@
     routableOrder.find((id) => Boolean(resolveBackend(id)?.translateImage)) ?? null,
   );
 
-  async function patch(p: Partial<Settings>): Promise<void> {
+  async function patch(p: Partial<Settings>): Promise<boolean> {
     const next = await saveSettings(p);
     if (next) onSetSettings(next);
+    return next !== null;
   }
 
   async function patchModel(id: keyof Settings['model'], value: string): Promise<void> {
@@ -48,7 +49,7 @@
   }
 
   // Swap inside the group: crossing the enabled/disabled line moves the row to the other list.
-  function reorderById(id: string, delta: -1 | 1): void {
+  function reorderById(id: string, delta: -1 | 1): Promise<boolean> | undefined {
     if (!s) return;
     const disabled = new Set<string>(s.disabledBackends ?? []);
     const idDisabled = disabled.has(id);
@@ -62,17 +63,17 @@
     if (i < 0 || j < 0 || j >= group.length || a === undefined || b === undefined) return;
     group[i] = b;
     group[j] = a;
-    void patch({ backendOrder: [...enabled, ...disabledRows] });
+    return patch({ backendOrder: [...enabled, ...disabledRows] });
   }
 
   function onGutterKeydown(e: KeyboardEvent, id: string): void {
     if (!e.altKey) return;
     if (e.key === 'ArrowUp') {
       e.preventDefault();
-      reorderById(id, -1);
+      void reorderById(id, -1);
     } else if (e.key === 'ArrowDown') {
       e.preventDefault();
-      reorderById(id, 1);
+      void reorderById(id, 1);
     }
   }
 
@@ -114,8 +115,8 @@
   function cloudModel(settings: Settings, id: string): string {
     return (settings.model as Record<string, string>)[id] ?? '';
   }
-  async function onCloudApiKeyChange(id: string, value: string): Promise<void> {
-    if (!isCloudProviderId(id)) return;
+  async function onCloudApiKeyChange(id: string, value: string): Promise<boolean> {
+    if (!isCloudProviderId(id)) return false;
     const field = apiKeyField(id);
     const trimmed = value.trim();
     const prior = (s?.[field] ?? '').trim();
@@ -123,7 +124,7 @@
     if (trimmed && trimmed !== prior) {
       patchObj.apiKeyEditedAt = { ...s?.apiKeyEditedAt, [id]: Date.now() };
     }
-    await patch(patchObj);
+    return patch(patchObj);
   }
   function cloudEditedAt(settings: Settings, id: string): number | undefined {
     if (!isCloudProviderId(id)) return undefined;
@@ -136,7 +137,7 @@
 {:else}
   <TabHeader tab="backends" />
   {@const ss = s as Settings}
-  <BackendList settings={ss} onChange={(next) => void patch(next)} onMove={reorderById}>
+  <BackendList settings={ss} onChange={(next) => patch(next)} onMove={reorderById}>
     {#snippet children(id, position, enabled, useSummary)}
       {@const card = CARDS.find((c) => c.id === id)}
       {#if !card}
@@ -169,7 +170,7 @@
                 keyPlaceholder={cloudCard.keyPlaceholder}
                 editedAt={cloudEditedAt(ss, cloudCard.id)}
                 disabled={!enabled}
-                onApiKeyChange={(v) => void onCloudApiKeyChange(cloudCard.id, v)}
+                onApiKeyChange={(v) => onCloudApiKeyChange(cloudCard.id, v)}
                 onModelChange={(v) => void patchModel(cloudCard.id as keyof Settings['model'], v)}
                 routeIsText={cloudCard.id === resolvedTextId}
                 routeIsImage={cloudCard.id === resolvedImageId}

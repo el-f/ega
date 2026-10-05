@@ -23,7 +23,7 @@ const baseProps = {
   apiKey: 'sk-test',
   model: 'gpt-4o',
   disabled: false,
-  onApiKeyChange: vi.fn(),
+  onApiKeyChange: vi.fn(async () => true),
   onModelChange: vi.fn(),
 };
 
@@ -57,7 +57,7 @@ describe('CloudProviderCard', () => {
   });
 
   it('typing into the api-key input fires onApiKeyChange, then says the key is saved', async () => {
-    const onApiKeyChange = vi.fn();
+    const onApiKeyChange = vi.fn(async () => true);
     const { container, rerender, findByText } = render(CloudProviderCard, {
       props: { ...baseProps, onApiKeyChange, settings: settings() },
     });
@@ -68,6 +68,40 @@ describe('CloudProviderCard', () => {
 
     await rerender({ apiKey: 'sk-new' });
     expect((await findByText('Key saved.')).closest('[role="status"]')).toBeTruthy();
+  });
+
+  it('keeps one "Key saved." line while the user keeps typing, so it is announced once', async () => {
+    const pending: ((ok: boolean) => void)[] = [];
+    const onApiKeyChange = vi.fn(() => new Promise<boolean>((r) => pending.push(r)));
+    const { container, rerender } = render(CloudProviderCard, {
+      props: { ...baseProps, onApiKeyChange, settings: settings() },
+    });
+    await tick();
+    const input = container.querySelector('.cp-key-input') as HTMLInputElement;
+    const status = container.querySelector('[role="status"]') as HTMLElement;
+    await fireEvent.input(input, { target: { value: 'sk-a' } });
+    pending[0]?.(true);
+    await rerender({ apiKey: 'sk-a' });
+    await waitFor(() => expect(status.textContent).toContain('Key saved.'));
+    const line = status.querySelector('.cp-saved');
+
+    await fireEvent.input(input, { target: { value: 'sk-ab' } });
+    await tick();
+    // The next save is still in flight: the same node stays, so a screen reader hears nothing new.
+    expect(status.querySelector('.cp-saved')).toBe(line);
+  });
+
+  it('says the key was not saved when the write fails, also after the field loses focus', async () => {
+    const onApiKeyChange = vi.fn(async () => false);
+    const { container, findByText } = render(CloudProviderCard, {
+      props: { ...baseProps, onApiKeyChange, settings: settings() },
+    });
+    await tick();
+    const input = container.querySelector('.cp-key-input') as HTMLInputElement;
+    await fireEvent.input(input, { target: { value: 'sk-new' } });
+    await fireEvent.blur(input);
+    expect(await findByText(/Key not saved/)).toBeTruthy();
+    expect(container.textContent).not.toContain('Key saved.');
   });
 
   it('says why the model field waits when there is no key', async () => {

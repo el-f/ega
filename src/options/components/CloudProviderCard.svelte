@@ -25,7 +25,8 @@
     /** Wall-clock ms when this key was last edited. Absent for older keys. */
     editedAt?: number | undefined;
     disabled: boolean;
-    onApiKeyChange: (next: string) => void;
+    /** Saves the key; resolves false when the write did not land. */
+    onApiKeyChange: (next: string) => Promise<boolean>;
     onModelChange: (next: string) => void;
     /** Passed through to BackendCard for resolved-route markers. */
     routeIsText?: boolean;
@@ -55,7 +56,15 @@
   // While the field has focus the typed text wins over a settings snapshot that lands under the caret.
   let keyDraft = $state<string | null>(null);
   // Each edit saves at once, so Test now right after a paste runs with the new key.
-  let keySaved = $state(false);
+  // Set only when the latest save settles: the status line then changes once, not on every keystroke.
+  let keySave = $state<'idle' | 'saved' | 'removed' | 'failed'>('idle');
+  let keySaveGen = 0;
+  function saveKey(v: string): void {
+    const gen = ++keySaveGen;
+    void onApiKeyChange(v).then((ok) => {
+      if (gen === keySaveGen) keySave = !ok ? 'failed' : v.trim() ? 'saved' : 'removed';
+    });
+  }
 
   import { onMount } from 'svelte';
   import {
@@ -150,8 +159,7 @@
         oninput={(e) => {
           const v = (e.currentTarget as HTMLInputElement).value;
           keyDraft = v;
-          onApiKeyChange(v);
-          keySaved = true;
+          saveKey(v);
         }}
         onblur={() => (keyDraft = null)}
       />
@@ -163,8 +171,10 @@
       />
     </div>
     <div class="cp-key-meta" role="status">
-      {#if keySaved && (keyDraft ?? apiKey) === apiKey}
-        <small class="cp-saved">{apiKey ? 'Key saved.' : 'Key removed.'}</small>
+      {#if keySave === 'failed'}
+        <small class="cp-save-failed">Key not saved. Edit it again to retry.</small>
+      {:else if keySave !== 'idle'}
+        <small class="cp-saved">{keySave === 'saved' ? 'Key saved.' : 'Key removed.'}</small>
       {/if}
       {#if apiKey && editedAgo}
         <small class="cp-edited">Edited {editedAgo}</small>
@@ -317,6 +327,10 @@
   .cp-saved {
     font-size: var(--fs-xs);
     color: var(--color-success-fg);
+  }
+  .cp-save-failed {
+    font-size: var(--fs-xs);
+    color: var(--color-danger-fg);
   }
   .cp-model-row {
     display: flex;
