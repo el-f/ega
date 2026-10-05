@@ -64,7 +64,7 @@
       | undefined;
     /** Flip the active variant on this Turn. */
     onSelectVariant?: ((turnId: string, idx: number) => void) | undefined;
-    /** Gates the refine chips and the card chrome; history turns flatten to bare body. */
+    /** Gates the refine chips and the swap / task row; every reply keeps the same card. */
     isLatest?: boolean;
     /** False when the turn has no dispatch metadata to replay, so Retry stays hidden. */
     canRetry?: boolean;
@@ -401,7 +401,6 @@
 <article
   class="ega-assistant-turn"
   class:focused
-  class:is-latest={isLatest}
   class:is-answering={turn.status === 'pending' || turn.status === 'streaming'}
   tabindex="-1"
   aria-label={srLabel}
@@ -780,16 +779,13 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-md);
   }
   /* Floor on the card, not the skeleton: the skeleton unmounts at the first token and the card would snap in. */
   .ega-assistant-turn.is-answering {
     min-width: 12rem;
-  }
-  /* Card chrome only on the newest turn; history stays flat instead of nesting cards. */
-  .ega-assistant-turn.is-latest {
-    background: var(--color-bg-elevated);
-    border: 1px solid var(--color-border-subtle);
-    border-radius: var(--radius-md);
   }
   .ega-assistant-turn.focused {
     outline: 2px solid var(--color-accent);
@@ -944,11 +940,9 @@
     gap: var(--space-2);
   }
   .ega-timestamp {
+    margin-left: auto;
     font-size: var(--fs-xs);
     color: var(--color-muted);
-  }
-  .is-latest .ega-timestamp {
-    margin-left: auto;
   }
   /* Always visible; buttons rest muted (IconButton default) and gain emphasis per button on hover/focus. */
   .ega-turn-actions {
@@ -958,16 +952,16 @@
   .ega-turn-action-end {
     margin-left: auto;
   }
-  .ega-assistant-turn.is-latest > .ega-assistant-actions:not(.ega-turn-actions) {
+  .ega-assistant-turn > .ega-assistant-actions:not(.ega-turn-actions) {
     padding-top: var(--space-2);
     margin-top: 0;
     border-top: 1px solid var(--color-border-subtle);
   }
-  .ega-assistant-turn.is-latest > .ega-turn-actions {
+  .ega-assistant-turn > .ega-turn-actions {
     padding-top: var(--space-2);
     border-top: 1px solid var(--color-border-subtle);
   }
-  .ega-assistant-turn.is-latest > :global([data-ega-quick-refine]) {
+  .ega-assistant-turn > :global([data-ega-quick-refine]) {
     padding-top: var(--space-2);
     margin-top: 0;
     border-top: 1px solid var(--color-border-subtle);

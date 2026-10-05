@@ -235,7 +235,7 @@ describe('AssistantTurn.svelte', () => {
     expect(pillText(turn(0.9))).toBe('90% confident');
   });
 
-  it('paints is-latest card chrome only when isLatest=true', () => {
+  it('shows the swap / Try as row only on the latest reply', () => {
     const turn: Turn = {
       createdAt: 1,
       id: 'a1',
@@ -245,17 +245,15 @@ describe('AssistantTurn.svelte', () => {
       content: 'hello',
     };
     const latest = render(AssistantTurn, {
-      props: { turn, onRetry: vi.fn(), isLatest: true },
+      props: { turn, onRetry: vi.fn(), onSwap: vi.fn(), isLatest: true },
     });
-    const latestEl = latest.container.querySelector('.ega-assistant-turn');
-    expect(latestEl?.classList.contains('is-latest')).toBe(true);
+    expect(latest.container.querySelector('[data-ega-swap]')).not.toBeNull();
     latest.unmount();
 
     const history = render(AssistantTurn, {
-      props: { turn, onRetry: vi.fn(), isLatest: false },
+      props: { turn, onRetry: vi.fn(), onSwap: vi.fn(), isLatest: false },
     });
-    const historyEl = history.container.querySelector('.ega-assistant-turn');
-    expect(historyEl?.classList.contains('is-latest')).toBe(false);
+    expect(history.container.querySelector('[data-ega-swap]')).toBeNull();
     history.unmount();
   });
 

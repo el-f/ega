@@ -4,6 +4,7 @@ import { render, fireEvent } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import ConversationStream from '@/sidepanel/conversation/ConversationStream.svelte';
 import type { Turn } from '@/sidepanel/state/conversation';
+import { sel } from '@tests/_helpers/lang';
 
 const u = (id: string, content: string): Turn => ({
   createdAt: 1,
@@ -13,6 +14,12 @@ const u = (id: string, content: string): Turn => ({
   status: 'idle',
   content,
 });
+// Swap and Try as need a send to replay, so their user turn carries its dispatch.
+const ud = (id: string, content: string): Turn =>
+  ({
+    ...u(id, content),
+    dispatch: { sourceLang: sel('en'), targetLang: sel('es'), stream: false },
+  }) as Turn;
 const a = (id: string, content: string, attached: string): Turn => ({
   createdAt: 1,
   id,
@@ -125,11 +132,11 @@ describe('ConversationStream.svelte', () => {
     expect(container.querySelector('.ega-assistant-turn')).not.toBeNull();
   });
 
-  it('only the LAST assistant turn carries is-latest chrome', () => {
+  it('only the LAST assistant turn carries the swap / Try as row', () => {
     const turns: Turn[] = [
-      u('u1', 'hi'),
+      ud('u1', 'hi'),
       a('a1', 'first', 'u1'),
-      u('u2', 'hi again'),
+      ud('u2', 'hi again'),
       a('a2', 'second', 'u2'),
     ];
     const { container } = render(ConversationStream, {
@@ -139,19 +146,20 @@ describe('ConversationStream.svelte', () => {
         focusedTurnId: null,
         onRetry: vi.fn(),
         onFocusChange: vi.fn(),
+        onSwap: vi.fn(),
       },
     });
     const assistants = container.querySelectorAll('.ega-assistant-turn');
     expect(assistants).toHaveLength(2);
-    expect(assistants[0]?.classList.contains('is-latest')).toBe(false);
-    expect(assistants[1]?.classList.contains('is-latest')).toBe(true);
+    expect(assistants[0]?.querySelector('[data-ega-swap]')).toBeNull();
+    expect(assistants[1]?.querySelector('[data-ega-swap]')).not.toBeNull();
   });
 
-  it('bookmarked mid-turn does not get is-latest when filter narrows list', () => {
+  it('bookmarked mid-turn does not count as latest when filter narrows list', () => {
     // Full conversation: u1→a1→u2→a2. a2 is truly latest.
-    // Filter produces only [u1, a1] (a1 is bookmarked). a1 must NOT be is-latest.
+    // Filter produces only [u1, a1] (a1 is bookmarked). a1 must NOT be treated as latest.
     const turns: Turn[] = [
-      u('u1', 'first'),
+      ud('u1', 'first'),
       { ...a('a1', 'reply-one', 'u1'), bookmarked: true } as Turn,
     ];
     const { container } = render(ConversationStream, {
@@ -168,20 +176,19 @@ describe('ConversationStream.svelte', () => {
     const assistantTurn = container.querySelector('.ega-assistant-turn');
     expect(assistantTurn).not.toBeNull();
     if (!assistantTurn) throw new Error('assistant turn not rendered');
-    expect(assistantTurn.classList.contains('is-latest')).toBe(false);
     expect(container.querySelector('[data-ega-swap]')).toBeNull();
     expect(container.querySelector('[data-ega-task-switch]')).toBeNull();
   });
 
-  it('true latest turn gets is-latest when visible (filter off or matches)', () => {
+  it('true latest turn counts as latest when visible (filter off or matches)', () => {
     const turns: Turn[] = [
-      u('u1', 'first'),
+      ud('u1', 'first'),
       { ...a('a1', 'reply-one', 'u1'), bookmarked: true } as Turn,
     ];
     const { container } = render(ConversationStream, {
       props: {
         turns,
-        latestTurnId: 'a1', // a1 IS the true last turn — visible, so should be is-latest
+        latestTurnId: 'a1', // a1 IS the true last turn — visible, so it is latest
         focusedTurnId: null,
         onRetry: vi.fn(),
         onFocusChange: vi.fn(),
@@ -189,9 +196,7 @@ describe('ConversationStream.svelte', () => {
         onTaskSwitch: vi.fn(),
       },
     });
-    const assistantTurn = container.querySelector('.ega-assistant-turn');
-    if (!assistantTurn) throw new Error('assistant turn not rendered');
-    expect(assistantTurn.classList.contains('is-latest')).toBe(true);
+    expect(container.querySelector('[data-ega-swap]')).not.toBeNull();
   });
 
   it('auto-scrolls to bottom on new turn append', async () => {

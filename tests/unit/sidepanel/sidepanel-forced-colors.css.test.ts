@@ -16,6 +16,14 @@ describe('side-panel cues survive forced colors', () => {
     expect(body).toMatch(/border:\s*1px solid transparent/);
   });
 
+  it('keeps every reply in the same box, not only the newest one', () => {
+    const src = read('src/sidepanel/conversation/AssistantTurn.svelte');
+    expect(rule(src, '\\.ega-assistant-turn')).toMatch(
+      /border:\s*1px solid var\(--color-border-subtle\)/,
+    );
+    expect(src).not.toMatch(/is-latest/);
+  });
+
   it('leaves every panel button with a border to repaint', () => {
     const sidePanel = read('src/sidepanel/SidePanel.svelte');
     for (const sel of ['\\.sp-editing-cancel', '\\.sp-search-clear']) {

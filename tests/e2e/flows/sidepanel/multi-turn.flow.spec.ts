@@ -83,6 +83,14 @@ test('second turn retains the prior conversation state and re-fires the router',
   });
   timeline.markStep('turn-2-rendered');
 
+  // jsdom computes no styles, so only a real render can tell that an older reply kept its card.
+  const older = page.locator('.ega-assistant-turn').first();
+  const newest = page.locator('.ega-assistant-turn').last();
+  await expect(older).toHaveCSS('border-top-style', 'solid');
+  await expect(older).toHaveCSS('border-top-width', '1px');
+  const bg = (el: Element): string => getComputedStyle(el).backgroundColor;
+  expect(await older.evaluate(bg)).toBe(await newest.evaluate(bg));
+
   await expect(page.locator('.ega-user-turn').first()).toContainText('marhaba');
   expect(callCount).toBeGreaterThanOrEqual(2);
 });
