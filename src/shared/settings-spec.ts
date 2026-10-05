@@ -745,7 +745,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'advanced.headingTrailDepth',
     label: 'Headings sent',
-    description: 'How many nearby h1–h6 headings rich context carries.',
+    description: 'How many of the nearest page headings are sent with Rich context.',
     keywords: ['heading', 'trail', 'depth', 'context', 'rich', 'h1'],
     tab: 'translate',
     targetSelector: '[data-ega-setting="advanced.headingTrailDepth"]',
@@ -759,7 +759,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'advanced.headingTrailEntryCap',
     label: 'Longest heading',
-    description: 'Longest single heading in the trail.',
+    description: 'Longer headings are cut to this length.',
     keywords: ['heading', 'trail', 'cap', 'chars', 'context'],
     tab: 'translate',
     targetSelector: '[data-ega-setting="advanced.headingTrailEntryCap"]',
