@@ -1059,6 +1059,8 @@
     animation: ega-success-pulse 600ms ease-out;
   }
   .ega-error-action-btn {
+    box-sizing: border-box;
+    min-height: 32px;
     display: inline-flex;
     align-items: center;
     gap: 6px;

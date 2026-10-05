@@ -49,6 +49,12 @@ describe('a reply row matches the 32px of the user bubble and the composer', () 
     expect(rule(src, '\\.ega-turn-actions')).toMatch(/min-height:\s*32px/);
   });
 
+  it('gives the error card Retry and settings buttons 32px, like Copy partial reply beside them', () => {
+    const body = rule(src, '\\.ega-error-action-btn');
+    expect(body).toMatch(/min-height:\s*32px/);
+    expect(body).toMatch(/box-sizing:\s*border-box/);
+  });
+
   it('gives the variant arrows, the swap and Try as 32px', () => {
     for (const selector of [
       '\\.ega-variant-btn',
