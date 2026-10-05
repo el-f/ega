@@ -2,6 +2,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { fireEvent, render, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
+import { readFileSync } from 'node:fs';
 import AssistantTurn from '@/sidepanel/conversation/AssistantTurn.svelte';
 import type { AssistantTurnData } from '@/sidepanel/state/conversation';
 import { asBackendIdUnsafe } from '@/shared/brands';
@@ -133,6 +134,30 @@ describe('AssistantTurn — per-turn actions', () => {
     );
     const plain = render(AssistantTurn, { props: { turn: doneTurn(), onRetry: vi.fn() } });
     expect(plain.container.querySelector('[data-ega-bookmarked-mark]')).toBeNull();
+  });
+
+  // jsdom lays nothing out, so the gate is the shape: one group, same slots either way.
+  it('keeps the star slot beside the time, so bookmarking never reflows the header', () => {
+    const groupOf = (bookmarked: boolean): Element => {
+      const { container } = render(AssistantTurn, {
+        props: { turn: doneTurn({ bookmarked }), onRetry: vi.fn() },
+      });
+      const group = container.querySelector('[data-ega-timestamp]')?.parentElement;
+      if (!group) throw new Error('timestamp missing');
+      return group;
+    };
+    const on = groupOf(true);
+    const off = groupOf(false);
+    expect(on.classList.contains('ega-meta-when')).toBe(true);
+    expect(on.contains(on.querySelector('[data-ega-bookmarked-mark]'))).toBe(true);
+    expect(off.children.length).toBe(on.children.length);
+    const slot = off.lastElementChild;
+    expect(slot?.getAttribute('aria-hidden')).toBe('true');
+    expect(slot?.hasAttribute('data-ega-bookmarked-mark')).toBe(false);
+
+    const css = readFileSync('src/sidepanel/conversation/AssistantTurn.svelte', 'utf8');
+    expect(/\.ega-meta-when\s*\{[^}]*white-space:\s*nowrap/.test(css)).toBe(true);
+    expect(/\.ega-bookmarked-slot\s*\{[^}]*width:\s*12px/.test(css)).toBe(true);
   });
 
   it('Bookmark in the More menu fires onBookmark(id)', async () => {
