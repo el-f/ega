@@ -28,10 +28,22 @@ function baseTip(): TipState {
   };
 }
 
-function mount(tip: TipState) {
+function mount(tip: TipState, opts: { settings?: boolean } = {}) {
+  const { onopenoptions, ...rest } = handlers();
   return render(Tooltip, {
-    props: { tip, clickOutsideDismiss: true, showSource: false, ...handlers() },
+    props: {
+      tip,
+      clickOutsideDismiss: true,
+      showSource: false,
+      ...rest,
+      ...(opts.settings === false ? {} : { onopenoptions }),
+    },
   });
+}
+
+function row(c: HTMLElement, label: string): string | null {
+  const dt = [...c.querySelectorAll('dt')].find((d) => d.textContent.trim() === label);
+  return dt?.nextElementSibling?.textContent.replace(/\s+/g, ' ').trim() ?? null;
 }
 
 const detailsBtn = (c: ParentNode) =>
@@ -55,7 +67,9 @@ describe('Tooltip — what the details panel says about page info', () => {
     resetSettingsCacheForTest();
     await ensureSettings();
     const rerun = mount({ ...baseTip(), task: 'translate', contextTask: 'explain', contextSent });
-    expect(await pageInfo(rerun.container)).toContain('Page info was off');
+    expect(await pageInfo(rerun.container)).toContain('None sent.');
+    // The prompt named is the one the router ran, not the picked task.
+    expect(row(rerun.container, 'Instructions')).toMatch(/^Explain prompt/);
     rerun.unmount();
     const plain = mount({ ...baseTip(), task: 'translate', contextSent });
     expect(await pageInfo(plain.container)).toContain('Page X');
@@ -68,23 +82,47 @@ describe('Tooltip — what the details panel says about page info', () => {
     const { ensureSettings } = await import('@/content/settings-cache');
     await ensureSettings();
     const off = mount({ ...baseTip(), task: 'summarize', contextSent });
-    expect(await pageInfo(off.container)).toContain('Page info was off');
+    expect(await pageInfo(off.container)).toContain('None sent.');
     off.unmount();
     const on = mount({ ...baseTip(), task: 'translate', contextSent });
     expect(await pageInfo(on.container)).toContain('Page X');
   });
 
-  it('says page info was off when none was sent (image, context off)', async () => {
-    const { container } = mount({
-      ...baseTip(),
-      contextSent: null,
-      imageUrl: 'data:image/png;base64,AAAA',
-    });
-    expect(await pageInfo(container)).toContain('Page info was off');
+  it('says none was sent when the request carried no page info', async () => {
+    const { container } = mount({ ...baseTip(), contextSent: null });
+    expect(await pageInfo(container)).toContain('None sent.');
   });
 
-  it('has no details button when the reply recorded nothing at all', () => {
-    const { container } = mount(baseTip());
-    expect(detailsBtn(container)).toBeNull();
+  it('describes an image translate as the image and the built-in image prompt', async () => {
+    // An image result tooltip gets no Settings handler, so no Settings link may render.
+    const { container } = mount(
+      { ...baseTip(), srcText: '', contextSent: null, imageUrl: 'data:image/png;base64,AAAA' },
+      { settings: false },
+    );
+    expect(await pageInfo(container)).toContain('Not sent with images.');
+    expect(row(container, 'Your text')).toBe('An image');
+    expect(row(container, 'Instructions')).toBe('Image prompt (built in)');
+    expect(row(container, 'Earlier messages')).toBe('None');
+    expect(container.textContent).not.toContain('View in Settings');
+  });
+
+  it('names the Explain prompt for an image explain', async () => {
+    const { container } = mount({
+      ...baseTip(),
+      srcText: '',
+      contextSent: null,
+      contextTask: 'explain',
+      imageUrl: 'data:image/png;base64,AAAA',
+    });
+    expect(await pageInfo(container)).toContain('None sent.');
+    expect(row(container, 'Instructions')).toMatch(/^Explain prompt/);
+  });
+
+  it('says the tooltip sends no earlier messages', async () => {
+    const { container } = mount({ ...baseTip(), contextSent: null });
+    await pageInfo(container);
+    expect(row(container, 'Earlier messages')).toBe(
+      'None. The tooltip does not send earlier messages.',
+    );
   });
 });

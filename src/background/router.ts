@@ -310,8 +310,8 @@ export function createRouter(deps: RouterDeps) {
           reasoningTokens: usage?.reasoningTokens,
         }),
         ...(attemptLog.length > 1 ? { attempts: [...attemptLog] } : {}),
-        // The image arm and a cache replay send the model no history.
-        ...(!cacheHit && historyTurns > 0 ? { historyTurns } : {}),
+        // 0 on the image arm, which sends no history; absent on a cache replay, which sent nothing.
+        ...(!cacheHit ? { historyTurns } : {}),
       };
       try {
         pushPerfEntry(meta);

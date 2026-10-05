@@ -202,9 +202,10 @@ describe('router — token usage on ResultMeta', () => {
     expect(meta.historyTurns).toBe(2);
   });
 
-  it('records no earlier messages for a request without history', async () => {
+  // 0, not absent: the details panel reads absent as "not recorded" (a reply saved before the count existed).
+  it('records 0 earlier messages for a request without history', async () => {
     const meta = await doneMeta({ stream: true, explain: false });
-    expect(meta.historyTurns).toBeUndefined();
+    expect(meta.historyTurns).toBe(0);
   });
 
   it('records no earlier messages for a cache hit, which sent the model nothing', async () => {

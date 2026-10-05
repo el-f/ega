@@ -34,7 +34,8 @@
     onretry?: () => void;
     oncopy: () => void;
     onexplain: () => void;
-    onopenoptions: (tab?: SettingsTab) => void;
+    /** Absent on surfaces that cannot open Settings, so no Settings link renders. */
+    onopenoptions?: (tab?: SettingsTab) => void;
     /** Tooltip → sidepanel handoff; the parent assembles the payload. */
     onescalate?: (kind: 'continue' | 'pin' | 'open-image') => void;
   }
@@ -70,15 +71,17 @@
 
   const settingsNow = currentSettings();
   const taskViews = settingsNow ? materializeTasks(settingsNow, cachedCustomTasks()) : undefined;
+  // The task the router ran: Explain for an explain re-run, else the picked task.
+  const ranTask = $derived(tip.contextTask ?? tip.task ?? 'translate');
   // A task with page context off never sends it: the router drops it, so it is not shown as sent.
   const contextShown = $derived(
-    (taskViews?.find((v) => v.id === (tip.contextTask ?? tip.task))?.pageContext ?? true)
-      ? tip.contextSent
-      : null,
+    (taskViews?.find((v) => v.id === ranTask)?.pageContext ?? true) ? tip.contextSent : null,
   );
   const hasDetails = $derived(tip.meta !== undefined || tip.contextSent !== undefined);
-  const taskLabel = $derived(
-    taskViews?.find((v) => v.id === (tip.task ?? 'translate'))?.label ?? 'Translate',
+  const taskLabel = $derived(taskViews?.find((v) => v.id === ranTask)?.label ?? 'Translate');
+  // Translate reads an image with the built-in image prompt; Explain sends its own prompt with it.
+  const imageMode = $derived<'ocr' | 'task' | undefined>(
+    tip.imageUrl === undefined ? undefined : ranTask === 'translate' ? 'ocr' : 'task',
   );
 
   // A failed image translate has no source text and no OCR text, and the panel drops an empty handoff.
@@ -167,7 +170,7 @@
     settled={tip.settled === true}
     {bodyLang}
     {notesLang}
-    onOpenOptions={onopenoptions}
+    {...onopenoptions ? { onOpenOptions: onopenoptions } : {}}
   />
 
   <TooltipActions
@@ -196,9 +199,10 @@
       <ReplyDetails
         meta={tip.meta}
         context={contextShown}
-        sentText={tip.srcText || '(an image)'}
+        sentText={tip.srcText}
+        image={imageMode}
         {taskLabel}
-        onViewPrompt={() => onopenoptions('tasks')}
+        {...onopenoptions ? { onViewPrompt: () => onopenoptions?.('tasks') } : {}}
         surface="tooltip"
         valueLang={pageLang}
         onClose={() => (detailsOpen = false)}

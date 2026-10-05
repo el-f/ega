@@ -4,6 +4,7 @@ import { render, fireEvent } from '@testing-library/svelte';
 import AssistantTurn from '@/sidepanel/conversation/AssistantTurn.svelte';
 import type { Turn } from '@/sidepanel/state/conversation';
 import type { PageContext } from '@/shared/types';
+import { SHIPPED_TASK_VIEWS } from '@/shared/task-view';
 
 const ctx: PageContext = {
   pageUrl: 'https://x.test',
@@ -116,5 +117,68 @@ describe('AssistantTurn — what was sent parity', () => {
       props: { turn, onRetry: vi.fn() },
     });
     expect(await openedPreview(container)).toBeNull();
+  });
+});
+
+function row(c: HTMLElement, label: string): string | null {
+  const dt = [...c.querySelectorAll('dt')].find((d) => d.textContent.trim() === label);
+  return dt?.nextElementSibling?.textContent.replace(/\s+/g, ' ').trim() ?? null;
+}
+
+const doneTurn = (extra: Partial<Turn> = {}): Turn =>
+  ({
+    createdAt: 1,
+    id: 'a1',
+    role: 'assistant',
+    kind: 'translate',
+    status: 'done',
+    content: 'hello',
+    contextSent: ctx,
+    ...extra,
+  }) as Turn;
+
+// The router drops page info for a task with page context off, so the panel must not show the stored copy.
+describe('AssistantTurn — page info follows the task the shown reply ran', () => {
+  it('a variant re-run as a task without page context says none was sent', async () => {
+    const turn = doneTurn({
+      variants: [
+        { id: 'v0', status: 'done', content: 'hello' },
+        { id: 'v1', status: 'done', content: 'short', task: 'summarize' },
+      ],
+      activeVariantIdx: 1,
+    });
+    const { container } = render(AssistantTurn, { props: { turn, onRetry: vi.fn() } });
+    expect((await openedPreview(container))?.textContent).toContain('None sent.');
+    expect(container.textContent).not.toContain('x.test');
+  });
+
+  it('a reply whose task had page context turned off says none was sent', async () => {
+    const taskViews = SHIPPED_TASK_VIEWS.map((v) =>
+      v.id === 'translate' ? { ...v, pageContext: false } : v,
+    );
+    const { container } = render(AssistantTurn, {
+      props: { turn: doneTurn(), onRetry: vi.fn(), taskViews },
+    });
+    expect((await openedPreview(container))?.textContent).toContain('None sent.');
+  });
+
+  it('shows the page info for a task that sends it', async () => {
+    const { container } = render(AssistantTurn, { props: { turn: doneTurn(), onRetry: vi.fn() } });
+    expect((await openedPreview(container))?.textContent).toContain('x.test');
+  });
+
+  it('describes an image turn as an image read with the built-in prompt', async () => {
+    const { container } = render(AssistantTurn, {
+      props: {
+        turn: doneTurn({ contextSent: null }),
+        onRetry: vi.fn(),
+        hasImage: true,
+        sentText: '[image]',
+      },
+    });
+    await openedPreview(container);
+    expect(row(container, 'Your text')).toBe('An image');
+    expect(row(container, 'Instructions')).toBe('Image prompt (built in)');
+    expect(row(container, 'Page info')).toBe('Not sent with images.');
   });
 });

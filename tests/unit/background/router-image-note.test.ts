@@ -90,6 +90,26 @@ describe('router — notes typed beside an image reach the OCR prompt', () => {
     const without = await runImage(IMAGE_TURN_PLACEHOLDER);
     expect(withNote.system).toBe(without.system);
   });
+
+  it('records 0 earlier messages: the image arm sends the model no history', async () => {
+    stubImageFetch();
+    const router = createRouter({
+      backends: [visionBackend({})],
+      getSettings: async () => ({ ...DEFAULT_SETTINGS, cacheEnabled: false }),
+      cache: { get: async () => undefined, set: async () => undefined },
+      logger: { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} },
+    });
+    const chunks: TranslationChunk[] = [];
+    const req = imageRequest('note');
+    req.options.conversationHistory = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: 'hello' },
+    ];
+    await router.handleTranslate(req, (c) => chunks.push(c));
+    const done = chunks.find((c) => c.type === 'done');
+    if (done?.type !== 'done') throw new Error('no done chunk');
+    expect(done.meta?.historyTurns).toBe(0);
+  });
 });
 
 describe('buildOcrPrompt', () => {

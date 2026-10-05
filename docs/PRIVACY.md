@@ -285,13 +285,17 @@ It never holds the text around a selection. That window belongs to the page tool
 tooltip shows it but never saves it.
 
 A task with page context off on the Tasks tab never sends it: the service worker drops it before
-the request. The saved turn can still hold the context the page collected, but neither the side
-panel nor the tooltip shows it in a reply's details panel ("About this reply").
+the request. The saved turn can still hold the context the page collected. A reply's details panel
+("About this reply") in the side panel and the tooltip reads the current page context switch of
+the task that reply ran (a re-run as another task, or a regenerate after the switch went off). When
+that switch is off, it says "None sent." and does not show the saved context. The panel shows
+page info with secrets masked, the same way the service worker masks it before the request.
 
-The snapshot is stored as it was sent. Nothing cuts it again at rest, and no setting removes it
-from a thread that already holds it. Turning "Send page context" off stops the next request from
-collecting one; it does not touch what is already saved. **New conversation** for that site, its
-row in **Settings → Advanced → Data → Saved conversations**, or **Delete all data** removes it.
+The snapshot is stored as the page collected it; secrets are masked only in the copy that is
+sent. Nothing cuts it again at rest, and no setting removes it from a thread that already holds it.
+Turning "Send page context" off stops the next request from collecting one; it does not touch what
+is already saved. **New conversation** for that site, its row in
+**Settings → Advanced → Data → Saved conversations**, or **Delete all data** removes it.
 
 ### A long turn is cut down at 300 KB
 

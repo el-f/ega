@@ -46,6 +46,7 @@
   import { ALL_ERR_CODES, type ErrCode, type LangSelection, type Variety } from '@/shared/types';
   import { isIsoCode, labelFor } from '@/shared/languages';
   import { openOptionsTab } from '@/shared/open-options-tab';
+  import { IMAGE_TURN_PLACEHOLDER } from '@/shared/constants';
   import QuickRefineChips from './QuickRefineChips.svelte';
 
   interface Props {
@@ -162,6 +163,21 @@
   );
 
   const currentTaskValue = $derived(turnTaskValue(turn));
+  // The stored context is the turn's; a variant whose task has page context off never sent it (the router drops it).
+  const contextShown = $derived(
+    (taskViews.find((v) => v.id === currentTaskValue)?.pageContext ?? true)
+      ? turn.contextSent
+      : null,
+  );
+  // Translate reads an image with the built-in image prompt; any other task sends its own prompt with the image.
+  const imageMode = $derived<'ocr' | 'task' | undefined>(
+    hasImage || turn.kind === 'image-translate'
+      ? currentTaskValue === 'translate'
+        ? 'ocr'
+        : 'task'
+      : undefined,
+  );
+  const detailsText = $derived(sentText === IMAGE_TURN_PLACEHOLDER ? '' : sentText);
   // Only translate and explain reach the vision arm in router.ts; the rest would send the "[image]" marker as text.
   const taskOptions = $derived.by<readonly { id: TaskId; label: string; off: boolean }[]>(() => {
     const imageTurn = hasImage || turn.kind === 'image-translate';
@@ -664,8 +680,9 @@
       {#if inspectorOpen && (turn.meta || turn.contextSent !== undefined)}
         <ReplyDetails
           meta={turn.meta}
-          context={turn.contextSent}
-          {sentText}
+          context={contextShown}
+          sentText={detailsText}
+          image={imageMode}
           taskLabel={taskLabel(taskViews, currentTaskValue)}
           onViewPrompt={() => openOptionsTab('tasks')}
           surface="panel"

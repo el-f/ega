@@ -229,7 +229,7 @@ function buildTooltipProps(o: OpenOpts, state: TipState): ComponentProps<typeof 
         .catch(() => {});
     },
     onexplain: () => o.onExplain?.(),
-    onopenoptions: (tab?: SettingsTab) => o.onOpenOptions?.(tab),
+    ...(o.onOpenOptions ? { onopenoptions: (tab?: SettingsTab) => o.onOpenOptions?.(tab) } : {}),
     onescalate: (kind: 'continue' | 'pin' | 'open-image'): void => {
       void escalateToSidepanel({
         subKind: kind,

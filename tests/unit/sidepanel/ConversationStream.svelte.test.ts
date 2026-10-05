@@ -223,3 +223,27 @@ describe('ConversationStream.svelte', () => {
     expect(scroller.scrollTop).toBe(1000);
   });
 });
+
+// The details panel quotes the message the reply answers and names the prompt that wrapped it.
+describe('ConversationStream — the reply details show what was sent', () => {
+  it('passes the paired user text and the task name to the reply', async () => {
+    const reply = {
+      ...a('a1', 'Short version', 'u1'),
+      kind: 'summarize',
+      contextSent: null,
+    } as Turn;
+    const turns = [u('u1', 'a long article to shorten'), reply];
+    const { container } = render(ConversationStream, {
+      props: { turns, focusedTurnId: null, onRetry: vi.fn(), onFocusChange: vi.fn() },
+    });
+    await tick();
+    container.querySelector<HTMLButtonElement>('[data-ega-inspector-toggle]')?.click();
+    await tick();
+    const rowText = (label: string): string | undefined =>
+      [...container.querySelectorAll('.reply-details dt')]
+        .find((d) => d.textContent.trim() === label)
+        ?.nextElementSibling?.textContent.trim();
+    expect(rowText('Your text')).toBe('a long article to shorten');
+    expect(rowText('Instructions')).toMatch(/^Summarize prompt/);
+  });
+});

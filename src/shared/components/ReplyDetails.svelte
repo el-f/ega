@@ -7,14 +7,17 @@
   import { errCodeLabel } from '@/shared/err-labels';
   import { formatDetectedLabel } from '@/shared/detected-label';
   import type { ErrCode } from '@/shared/types';
+  import { redactContext } from '@/shared/redact';
 
   interface Props {
     /** Absent when result details are off in Settings, or the reply carried none. */
     meta?: ResultMeta | undefined;
-    /** undefined: the request recorded no page info; null: none was sent. */
+    /** undefined: the request recorded no page info; null: none was sent (off, or not readable on this tab). */
     context?: PageContext | null | undefined;
-    /** The text the request carried: the selection, or what the user typed. */
+    /** The text the request carried: the selection, or what the user typed. With an image, the caption or ''. */
     sentText: string;
+    /** The request carried an image. 'ocr': the built-in image prompt ran and took no page info; 'task': the task's own prompt ran with the image. */
+    image?: 'ocr' | 'task' | undefined;
     /** Name of the task whose prompt wrapped the text, e.g. "Translate". */
     taskLabel: string;
     /** Opens the task in Settings, where its prompt and preview live. */
@@ -30,6 +33,7 @@
     meta,
     context,
     sentText,
+    image,
     taskLabel,
     onViewPrompt,
     surface,
@@ -44,24 +48,26 @@
     return ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(1)} s`;
   }
 
-  const around = $derived(aroundText(context, sentText));
+  // The router scrubs secrets out of page info before it builds the prompt, so this shows and copies that version.
+  const page = $derived(context ? redactContext(context) : context);
+  const around = $derived(aroundText(page, sentText));
   const pageFields = $derived.by(() => {
-    if (!context) return [];
+    if (!page) return [];
     const out: Array<{ label: string; value: string; mono?: boolean }> = [];
-    if (context.pageTitle) out.push({ label: 'Title', value: context.pageTitle });
-    if (context.pageUrl) out.push({ label: 'Address', value: context.pageUrl, mono: true });
-    if (context.siteName) out.push({ label: 'Site', value: context.siteName });
-    if (context.pageLang) out.push({ label: 'Language', value: context.pageLang });
-    if (context.pageDescription) out.push({ label: 'Description', value: context.pageDescription });
-    if (context.headingTrail?.length) {
-      out.push({ label: 'Headings', value: context.headingTrail.join(' › ') });
+    if (page.pageTitle) out.push({ label: 'Title', value: page.pageTitle });
+    if (page.pageUrl) out.push({ label: 'Address', value: page.pageUrl, mono: true });
+    if (page.siteName) out.push({ label: 'Site', value: page.siteName });
+    if (page.pageLang) out.push({ label: 'Language', value: page.pageLang });
+    if (page.pageDescription) out.push({ label: 'Description', value: page.pageDescription });
+    if (page.headingTrail?.length) {
+      out.push({ label: 'Headings', value: page.headingTrail.join(' › ') });
     }
-    if (context.postText) out.push({ label: 'Post', value: context.postText });
-    if (context.beforeText) out.push({ label: 'Text before', value: context.beforeText });
-    if (context.afterText) out.push({ label: 'Text after', value: context.afterText });
+    if (page.postText) out.push({ label: 'Post', value: page.postText });
+    if (page.beforeText) out.push({ label: 'Text before', value: page.beforeText });
+    if (page.afterText) out.push({ label: 'Text after', value: page.afterText });
     return out;
   });
-  const pageSent = $derived(pageFields.length > 0);
+  const pageSent = $derived(image !== 'ocr' && pageFields.length > 0);
 
   const answeredBy = $derived.by(() => {
     if (!meta) return '';
@@ -78,10 +84,19 @@
       ? `${total} (first words after ${formatTime(meta.firstTokenMs)})`
       : total;
   });
+  // Some providers report only one side, so each count shows on its own.
   const tokenLine = $derived.by(() => {
-    if (!meta || meta.inputTokens === undefined || meta.outputTokens === undefined) return '';
-    const parts = [`${meta.inputTokens} in`, `${meta.outputTokens} out`];
-    if (meta.reasoningTokens !== undefined) parts.push(`${meta.reasoningTokens} of them thinking`);
+    if (!meta) return '';
+    const parts: string[] = [];
+    if (meta.inputTokens !== undefined) parts.push(`${meta.inputTokens} in`);
+    if (meta.outputTokens !== undefined) parts.push(`${meta.outputTokens} out`);
+    if (meta.reasoningTokens !== undefined) {
+      parts.push(
+        meta.outputTokens !== undefined
+          ? `${meta.reasoningTokens} of them thinking`
+          : `${meta.reasoningTokens} thinking`,
+      );
+    }
     if (meta.cacheReadTokens !== undefined) parts.push(`${meta.cacheReadTokens} read from cache`);
     if (meta.cacheWriteTokens !== undefined)
       parts.push(`${meta.cacheWriteTokens} written to cache`);
@@ -99,11 +114,17 @@
       : '',
   );
   const attempts = $derived(meta?.attempts ?? []);
+  // A cache hit and a reply saved before the count existed carry no count, so they say so.
   const historyLine = $derived.by(() => {
-    if (surface === 'tooltip') return 'None. The tooltip sends only your text.';
-    const n = meta?.historyTurns ?? 0;
-    if (!meta) return '';
+    if (image) return 'None';
+    if (surface === 'tooltip') return 'None. The tooltip does not send earlier messages.';
+    const n = meta?.historyTurns;
+    if (n === undefined) return 'Not recorded';
     return n === 0 ? 'None' : `${n} from this conversation`;
+  });
+  const emptyPage = $derived.by(() => {
+    if (image === 'ocr') return 'Not sent with images.';
+    return context === undefined ? 'Not recorded for this reply.' : 'None sent.';
   });
 
   function attemptStatus(a: { status: string; code?: string }): string {
@@ -112,7 +133,13 @@
   }
 
   async function copyJson(): Promise<void> {
-    const payload = { sentText, task: taskLabel, page: context ?? null, result: meta ?? null };
+    const payload = {
+      ...(image ? { image: true } : {}),
+      sentText,
+      task: image === 'ocr' ? 'Image prompt (built in)' : taskLabel,
+      page: image === 'ocr' ? null : (page ?? null),
+      result: meta ?? null,
+    };
     try {
       await navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
       copied = true;
@@ -172,17 +199,32 @@
   {/if}
 
   <div class="rd-sent">
-    <h4 class="rd-sub">What Ega sent</h4>
+    <h4 class="rd-sub">
+      {meta?.cacheHit ? 'What the saved answer was made from' : 'What Ega sent'}
+    </h4>
     <dl class="rd-rows">
       <div class="rd-row rd-row-block">
         <dt>Your text</dt>
-        <dd class="rd-quote" dir="auto" lang={valueLang}>{sentText}</dd>
+        {#if image}
+          <dd>
+            An image{#if sentText}, with the note:
+              <span class="rd-quote rd-caption" dir="auto" lang={valueLang}>{sentText}</span>
+            {/if}
+          </dd>
+        {:else}
+          <dd class="rd-quote" dir="auto" lang={valueLang}>{sentText}</dd>
+        {/if}
       </div>
       <div class="rd-row">
         <dt>Instructions</dt>
         <dd>
-          {taskLabel} prompt{#if onViewPrompt}<span class="rd-sep" aria-hidden="true">·</span
-            ><button type="button" class="rd-link" onclick={onViewPrompt}>View in Settings</button>
+          {#if image === 'ocr'}
+            Image prompt (built in)
+          {:else}
+            {taskLabel} prompt{#if onViewPrompt}<span class="rd-sep" aria-hidden="true">·</span
+              ><button type="button" class="rd-link" onclick={onViewPrompt}>View in Settings</button
+              >
+            {/if}
           {/if}
         </dd>
       </div>
@@ -196,14 +238,14 @@
         <dt>Page info</dt>
         {#if !pageSent}
           <dd class="rd-muted" data-ega-context-empty>
-            {context === undefined ? 'Not recorded for this reply.' : 'None. Page info was off.'}
+            {emptyPage}
           </dd>
         {:else}
           <dd>
-            {#if context?.pageTitle || context?.pageUrl}
+            {#if page?.pageTitle || page?.pageUrl}
               <p class="rd-page">
-                {#if context?.pageTitle}<span lang={valueLang}>{context.pageTitle}</span>{/if}
-                {#if context?.pageUrl}<span class="rd-url">{shortUrl(context.pageUrl)}</span>{/if}
+                {#if page?.pageTitle}<span lang={valueLang}>{page.pageTitle}</span>{/if}
+                {#if page?.pageUrl}<span class="rd-url">{shortUrl(page.pageUrl)}</span>{/if}
               </p>
             {/if}
             {#if around}
@@ -299,6 +341,10 @@
     white-space: pre-wrap;
     max-height: 6em;
     overflow: auto;
+  }
+  .rd-caption {
+    display: block;
+    margin-top: var(--space-1);
   }
   .rd-muted {
     color: var(--color-muted);

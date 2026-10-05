@@ -970,7 +970,7 @@
   letter-spacing: 0.2px;
 }
 
-/* More shadow-root copies: BrandMark icon, compact ContextPreview, Select. */
+/* More shadow-root copies: BrandMark icon, Select. */
 
 .ega-brand-mark-icon {
   width: var(--ega-brand-icon-size);
@@ -1114,6 +1114,10 @@
   white-space: pre-wrap;
   max-height: 6em;
   overflow: auto;
+}
+.rd-caption {
+  display: block;
+  margin-top: var(--space-1);
 }
 .rd-muted {
   color: var(--color-muted);

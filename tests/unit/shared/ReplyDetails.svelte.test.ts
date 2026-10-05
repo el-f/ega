@@ -84,6 +84,19 @@ describe('ReplyDetails — result', () => {
     );
   });
 
+  // Native reports each count on its own, so one side missing must not hide the rest.
+  it('shows a partial token report: input and cache read only', () => {
+    const { container } = setup({ meta: meta({ inputTokens: 0, cacheReadTokens: 900 }) });
+    expect(row(container, 'Tokens')).toBe('0 in · 900 read from cache');
+  });
+
+  it('shows a partial token report: output, thinking and cache write only', () => {
+    const { container } = setup({
+      meta: meta({ outputTokens: 50, reasoningTokens: 20, cacheWriteTokens: 300 }),
+    });
+    expect(row(container, 'Tokens')).toBe('50 out · 20 of them thinking · 300 written to cache');
+  });
+
   it('has no Tokens row when the provider reported none', () => {
     const { container } = setup();
     expect(row(container, 'Tokens')).toBeNull();
@@ -125,13 +138,63 @@ describe('ReplyDetails — what Ega sent', () => {
   });
 
   it('says None for a side-panel reply that carried none', () => {
-    expect(row(setup().container, 'Earlier messages')).toBe('None');
+    expect(row(setup({ meta: meta({ historyTurns: 0 }) }).container, 'Earlier messages')).toBe(
+      'None',
+    );
   });
 
-  it('says the tooltip sends only the text', () => {
+  // A reply saved before the count existed, or a cache hit, carries no count at all.
+  it('says Not recorded when the reply carries no count', () => {
+    expect(row(setup().container, 'Earlier messages')).toBe('Not recorded');
+  });
+
+  it('says the tooltip sends no earlier messages', () => {
     expect(row(setup({ surface: 'tooltip' }).container, 'Earlier messages')).toBe(
-      'None. The tooltip sends only your text.',
+      'None. The tooltip does not send earlier messages.',
     );
+  });
+
+  it('titles a cache hit by what the saved answer was made from', () => {
+    const live = setup().container.querySelector('.rd-sent h4')?.textContent.trim();
+    expect(live).toBe('What Ega sent');
+    const cached = setup({ meta: meta({ cacheHit: true }) }).container.querySelector('.rd-sent h4');
+    expect(cached?.textContent.trim()).toBe('What the saved answer was made from');
+  });
+
+  it('describes an image read with the built-in image prompt', () => {
+    const { container } = setup({
+      image: 'ocr',
+      sentText: '',
+      context: null,
+      onViewPrompt: undefined,
+    });
+    expect(row(container, 'Your text')).toBe('An image');
+    expect(row(container, 'Instructions')).toBe('Image prompt (built in)');
+    expect(row(container, 'Page info')).toBe('Not sent with images.');
+    expect(row(container, 'Earlier messages')).toBe('None');
+  });
+
+  it('keeps the note typed with an image, and the task prompt when a task ran with it', () => {
+    const { container } = setup({ image: 'task', sentText: 'the red sign', taskLabel: 'Explain' });
+    expect(row(container, 'Your text')).toBe('An image, with the note: the red sign');
+    expect(row(container, 'Instructions')).toBe('Explain prompt·View in Settings');
+  });
+
+  it('has no Settings link when no handler is given', () => {
+    const { queryByRole } = setup({ onViewPrompt: undefined });
+    expect(queryByRole('button', { name: 'View in Settings' })).toBeNull();
+  });
+
+  it('shows and copies page info with secrets scrubbed, as the router sends it', async () => {
+    // Built at runtime so secretlint does not flag the source.
+    const key = ['ghp', '0123456789abcdefABCDEF0123456789abcd'].join('_');
+    const secret = `https://example.com/reset?token=${key}`;
+    const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined);
+    const { container, getByRole } = setup({ context: { ...CONTEXT, pageUrl: secret } });
+    await fireEvent.click(getByRole('button', { name: 'Show all page info' }));
+    expect(container.textContent).not.toContain(key);
+    await fireEvent.click(getByRole('button', { name: 'Copy as JSON' }));
+    expect(writeText.mock.calls[0]?.[0]).not.toContain(key);
   });
 
   it('marks the sent text inside the page text around it', () => {
@@ -151,10 +214,11 @@ describe('ReplyDetails — what Ega sent', () => {
     expect(all?.textContent).toContain('Forum › Beirut');
   });
 
-  it('tells apart page info that was off from page info nobody recorded', () => {
+  // null also covers a restricted tab where collection failed, so it does not claim the switch was off.
+  it('tells apart page info that was not sent from page info nobody recorded', () => {
     expect(
       setup({ context: null }).container.querySelector('[data-ega-context-empty]')?.textContent,
-    ).toContain('Page info was off');
+    ).toContain('None sent.');
     expect(
       setup({ context: undefined }).container.querySelector('[data-ega-context-empty]')
         ?.textContent,

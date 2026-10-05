@@ -8,7 +8,7 @@
 
 - Step 1: the request carried surrounding-page `contextSent` (text fragments).
 - Step 2: one Details (i) button (`aria-label="Show details about this reply"`) shows in the action row; the panel starts closed.
-- Step 3 (click Details): an "About this reply" panel opens under the actions. Its "What Ega sent" part shows the user's text, the task prompt by name with a "View in Settings" link, "Earlier messages: None" in the tooltip, and the page info: title, short address, and the text around the selection with the selection marked. "Show all page info" lists every field; "Copy as JSON" copies it all.
+- Step 3 (click Details): an "About this reply" panel opens under the actions. Its "What Ega sent" part shows the user's text, the task prompt by name with a "View in Settings" link, "Earlier messages: None. The tooltip does not send earlier messages.", and the page info: title, short address, and the text around the selection with the selection marked. "Show all page info" lists every field; "Copy as JSON" copies it all.
 
 ## Visible affordances
 
@@ -17,7 +17,7 @@
 
 ## Failure-mode expectations
 
-- Page info that was off for the task reads "None. Page info was off."; a reply that recorded none reads "Not recorded for this reply."
+- Page info that was not sent (the task has page context off, or the tab could not be read) reads "None sent."; a reply that recorded none reads "Not recorded for this reply."; an image translate reads "Not sent with images." Page info shows with secrets masked, as the request carried it. A cached answer titles the part "What the saved answer was made from".
 
 ## Cautions
 

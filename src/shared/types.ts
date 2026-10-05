@@ -114,7 +114,7 @@ export interface ResultMeta {
   cacheWriteTokens?: number;
   /** Thinking tokens, when the provider reports them apart; already part of outputTokens. */
   reasoningTokens?: number;
-  /** Earlier conversation messages the request carried; absent when it carried none. */
+  /** Earlier conversation messages the request carried. Absent on a cache hit and on replies saved before it was recorded. */
   historyTurns?: number;
 }
 

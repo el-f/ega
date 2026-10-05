@@ -425,6 +425,7 @@ export function handleImageTranslateResult(
       confidencePill: false,
       imageUrl: msg.imageUrl,
       ...imageTipDisplay(),
+      ...omitUndef({ contextTask: msg.task }),
       onRetry,
       onOpenOptions: openOptionsFromContent,
     });
@@ -441,6 +442,7 @@ export function handleImageTranslateResult(
     ...omitUndef({ confidencePillThreshold: s?.confidencePillThreshold }),
     imageUrl: msg.imageUrl,
     ...imageTipDisplay(),
+    ...omitUndef({ contextTask: msg.task }),
     onRetry,
   });
   // One buffered result: set the body verbatim instead of feeding the JSON accumulator.
