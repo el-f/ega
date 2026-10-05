@@ -335,6 +335,8 @@
 }
 .tooltip .tooltip-error-body {
   color: var(--color-danger-fg, var(--color-danger));
+  /* The answer body keeps pre-wrap for its line breaks; here it would turn the markup's space between title and sentence into a blank line. */
+  white-space: normal;
 }
 .tooltip .tooltip-error-title,
 .tooltip .tooltip-error-text {

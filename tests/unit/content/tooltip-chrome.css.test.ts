@@ -43,3 +43,9 @@ describe('tooltip meta row contrast', () => {
     expect(rule('.pill.lo')?.getPropertyValue('color')).toBe('var(--color-danger-fg)');
   });
 });
+
+describe('tooltip error body', () => {
+  it('drops pre-wrap, so the space between the title and the sentence is not a blank line', () => {
+    expect(rule('.tooltip .tooltip-error-body')?.getPropertyValue('white-space')).toBe('normal');
+  });
+});
