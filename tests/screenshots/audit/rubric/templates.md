@@ -8,7 +8,7 @@ There is no Templates tab any more. Prompts are edited in each task's edit dialo
 - The editor is two plain textareas (Instructions / Message) that always show the raw template, with a collapsed "Preview what the model receives" section beneath.
 - Slot palette ("Variables") sits above the editor, always open; hover on a slot pill shows a registry tooltip.
 - Insert-variable popover anchors to the trigger button and must NOT cover the slot palette above it, and must stay usable inside the dialog.
-- Rules empty state explains how to add a rule; the "Add a rule" form sits below it.
+- Rules empty state explains how to add a rule and has an "Add a rule" button; no rule form shows until that button is pressed.
 - A language prompt opens inside its language row, under "Prompt for this language".
 
 ## States

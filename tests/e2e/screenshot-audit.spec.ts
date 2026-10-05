@@ -283,7 +283,11 @@ test('Advanced — every chip + sub-tab + key modal', async () => {
     state: 'rules-empty',
     theme: 'light',
     userAction: 'user scrolled to the Rules section of the Tasks tab with no rules defined',
-    expectations: ['empty state visible', 'Add a rule form visible below it', 'no bare empty pane'],
+    expectations: [
+      'empty state visible with an Add a rule button',
+      'no rule form shown until Add a rule is pressed',
+      'no bare empty pane',
+    ],
   });
 
   // No assertion: the PNGs above are the output, and `pnpm visual:judge` reads them.
