@@ -1812,9 +1812,17 @@ test('shutdown can wait for a prepare that is still writing, and its cleanup run
 test('preparesSettled gives up after its timeout', async () => {
   const f = makeSpawnFactory();
   const mgr = new CliSessionManager({ spawn: f.spawn, idleTimeoutMs: 10_000 });
-  oneShot(mgr, { prepare: () => new Promise(() => {}) });
+  let finish = () => {};
+  const one = oneShot(mgr, {
+    prepare: () =>
+      new Promise((r) => {
+        finish = () => r({ bin: 'claude', args: ['--print'], prompt: 'p' });
+      }),
+  });
   const t0 = Date.now();
   await mgr.preparesSettled(50);
   assert.ok(Date.now() - t0 < 2_000);
   mgr.closeAll();
+  finish();
+  await one.run;
 });

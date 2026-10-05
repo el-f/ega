@@ -439,10 +439,14 @@ export class CliSessionManager {
   /** Resolves once every prepare() in progress has finished and cleaned up, or after `ms`. */
   preparesSettled(ms) {
     if (this.#preparing.size === 0) return Promise.resolve();
+    // Not unref'd: with nothing else alive the loop would end before the timer, and the wait with it.
+    let timer;
     return Promise.race([
       Promise.all([...this.#preparing]),
-      new Promise((r) => setTimeout(r, ms).unref()),
-    ]);
+      new Promise((r) => {
+        timer = setTimeout(r, ms);
+      }),
+    ]).finally(() => clearTimeout(timer));
   }
 
   closeAll() {
