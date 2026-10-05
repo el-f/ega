@@ -798,7 +798,7 @@
 }
 
 
-/* Content-surface toast. Same shadow-boundary reason as the progress pill above. */
+/* Content-surface toast. Its rules live here because a component <style> never crosses the shadow boundary. */
 .ega-toast {
   position: fixed;
   bottom: 24px;
