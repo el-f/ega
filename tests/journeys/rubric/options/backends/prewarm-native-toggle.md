@@ -6,7 +6,7 @@
 
 ## State expectations
 
-- Step 1: user is on the Backends tab; the "Local-backend checks" section renders below the backend list.
+- Step 1: user is on the Backends tab and opens the Native host card; the toggle sits at the bottom of that card.
 - Step 2 (uncheck the toggle): `settings.preWarmNative` writes `false` to storage.
 - Step 3 (re-check): `settings.preWarmNative` writes `true`; subsequent SW boots fire the `warm-session` frame to the native host.
 - Default value when the row first paints is `true` (schema default).

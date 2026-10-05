@@ -43,6 +43,7 @@ export function scrollBehavior(): 'auto' | 'smooth' {
 }
 
 function reveal(el: HTMLElement): void {
+  // A target inside a collapsed card or disclosure cannot scroll into view: open every one around it.
   for (let d = el.closest('details'); d; d = d.parentElement?.closest('details') ?? null)
     d.open = true;
   // tabindex=-1 makes a section or div focusable; preventScroll leaves scrollIntoView in charge.

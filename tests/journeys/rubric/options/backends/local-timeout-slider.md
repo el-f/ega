@@ -14,7 +14,8 @@
 ## Visible affordances
 
 - Slider uses the project's Slider primitive with `aria-valuemin/max/now` and a unit label ("ms" or "s").
-- No reset control sits next to this slider; only the live "ms" readout does.
+- The readout is in seconds with one decimal ("0.8 s"); storage keeps whole milliseconds. The slider sits in a standard SectionCard titled "Local-backend checks".
+- No reset control sits next to this slider; only the live seconds readout does.
 
 ## Failure-mode expectations
 

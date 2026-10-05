@@ -219,7 +219,6 @@
   <LocalBackendTuningSection
     settings={ss}
     onChange={(v) => void patch({ localBackendTimeoutMs: v })}
-    onTogglePreWarm={(v) => void patch({ preWarmNative: v })}
   />
 {/if}
 

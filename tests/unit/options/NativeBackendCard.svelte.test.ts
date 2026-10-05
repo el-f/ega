@@ -215,3 +215,21 @@ describe('NativeBackendCard', () => {
     await waitFor(() => expect(ctor).toHaveBeenCalled());
   });
 });
+
+describe('NativeBackendCard — pre-warm toggle', () => {
+  beforeEach(() => {
+    resetProbeNativeHostForTest();
+  });
+
+  it('lives in the native card and writes preWarmNative', async () => {
+    const props = baseProps();
+    const { container } = render(NativeBackendCard, props);
+    const box = container.querySelector<HTMLInputElement>(
+      '[data-backend-id="native"] [data-ega-setting="backends.preWarmNative"]',
+    );
+    if (!box) throw new Error('pre-warm toggle not in the native card');
+    expect(box.checked).toBe(true);
+    await fireEvent.click(box);
+    expect(props.onPatch).toHaveBeenCalledWith({ preWarmNative: false });
+  });
+});

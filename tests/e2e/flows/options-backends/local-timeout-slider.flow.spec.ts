@@ -31,7 +31,7 @@ test('local-backend timeout slider persists localBackendTimeoutMs to storage', a
   await expect(thumb).toBeVisible({ timeout: 3_000 });
   await thumb.focus();
 
-  // Each ArrowRight step = 50 ms (step=50 on the Slider). Press 4× → +200 ms → 1000 ms.
+  // The slider shows seconds; each ArrowRight step is 0.1 s. Press 4× → 0.8 s + 0.4 s = 1200 ms.
   for (let i = 0; i < 4; i++) {
     await page.keyboard.press('ArrowRight');
   }

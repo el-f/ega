@@ -83,6 +83,18 @@ describe('options deep-link', () => {
     expect(outer.open).toBe(true);
   });
 
+  it('opens a collapsed card that holds the target before scrolling to it', async () => {
+    const card = document.createElement('details');
+    document.body.appendChild(card);
+    const el = document.createElement('input');
+    el.setAttribute('data-ega-setting', 'backends.preWarmNative');
+    card.appendChild(el);
+    setPendingDeepLink('backends.preWarmNative');
+    revealPendingSetting();
+    await vi.waitFor(() => expect(card.open).toBe(true));
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
+  });
+
   it('waits for a lazily-mounted tab to paint its anchor', async () => {
     setPendingDeepLink('advanced.temperature');
     revealPendingSetting();

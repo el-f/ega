@@ -355,6 +355,6 @@ describe('Backends tab — local-backend probe-timeout slider', () => {
       return (onSetSettings.mock.calls[0]?.[0] as Settings).localBackendTimeoutMs;
     });
     expect(saved).toBeGreaterThan(defaultSettings().localBackendTimeoutMs ?? 0);
-    expect((slider as HTMLElement).textContent).toMatch(/\d+\s*ms/);
+    expect((slider as HTMLElement).textContent).toMatch(/\d(\.\d)? s\b/);
   });
 });

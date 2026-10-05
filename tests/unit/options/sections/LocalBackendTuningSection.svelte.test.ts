@@ -42,3 +42,23 @@ describe('LocalBackendTuningSection', () => {
     expect(typeof captured).toBe('number');
   });
 });
+
+describe('LocalBackendTuningSection — seconds', () => {
+  it('shows the timeout in seconds and still stores whole milliseconds', async () => {
+    let captured: number | null = null;
+    const { container } = render(LocalBackendTuningSection, {
+      props: {
+        settings: { ...DEFAULT_SETTINGS, localBackendTimeoutMs: 800 },
+        onChange: (v: number) => {
+          captured = v;
+        },
+      },
+    });
+    expect(container.textContent).toContain('0.8 s');
+    const thumb = container.querySelector<HTMLElement>('[role="slider"]');
+    if (!thumb) throw new Error('no slider thumb');
+    thumb.focus();
+    await fireEvent.keyDown(thumb, { key: 'ArrowRight' });
+    expect(captured).toBe(900);
+  });
+});

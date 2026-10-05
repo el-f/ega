@@ -10,6 +10,7 @@
   import BackendCard from './BackendCard.svelte';
   import CollapsibleInstallPanel from './CollapsibleInstallPanel.svelte';
   import IconButton from '@/shared/ui/IconButton.svelte';
+  import Checkbox from '@/shared/ui/Checkbox.svelte';
   import RadioGroup from '@/shared/ui/RadioGroup.svelte';
   import Badge from '@/shared/ui/Badge.svelte';
   import ModelCombobox from './ModelCombobox.svelte';
@@ -457,10 +458,40 @@
         ? `Then click Recheck (the refresh icon above). The status should change to Installed v${EXPECTED_HOST_VERSION}.`
         : ''}
     />
+
+    <div class="prewarm-row" data-testid="prewarm-native-toggle">
+      <Checkbox
+        checked={settings.preWarmNative !== false}
+        size="sm"
+        label="Start the native CLI with the browser"
+        onchange={(next) => void onPatch({ preWarmNative: next })}
+        inputAttrs={{
+          'data-ega-setting': 'backends.preWarmNative',
+          'aria-describedby': 'ega-prewarm-hint',
+        }}
+      />
+      <span class="prewarm-hint" id="ega-prewarm-hint">
+        Starts the claude CLI when the browser starts, so the first translation skips a 7-12 s
+        warm-up. The codex CLI runs one process per translation, so it does not start early. Off
+        saves battery on machines that rarely translate.
+      </span>
+    </div>
   </div>
 </BackendCard>
 
 <style>
+  .prewarm-row {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  /* Lines the hint up under the label text: the box is 14px, then the checkbox gap. */
+  .prewarm-hint {
+    padding-inline-start: calc(14px + var(--space-2));
+    font-size: var(--fs-xs);
+    color: var(--color-fg-subtle);
+    line-height: 1.45;
+  }
   .nh-body {
     display: grid;
     gap: var(--space-2);

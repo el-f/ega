@@ -22,6 +22,8 @@ test('toggle off persists preWarmNative=false; toggle back on persists true', as
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
   await page.locator('#tab-backends').click();
+  // The toggle lives in the native card, which starts collapsed.
+  await page.locator('details[data-backend-id="native"] > summary').click();
 
   const toggle = page.getByTestId('prewarm-native-toggle').locator('input[type="checkbox"]');
   await expect(toggle).toBeVisible({ timeout: 5_000 });
