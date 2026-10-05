@@ -188,7 +188,12 @@ function run(op: OpName, arg?: string): unknown {
       const tip = r.querySelector<HTMLElement>('.tooltip');
       if (!tip) return null;
       const box = tip.getBoundingClientRect();
-      const ddList = Array.from(r.querySelectorAll<HTMLElement>('.tooltip .ega-ctx-list dd'));
+      // Every page-info value in the details panel, the full address row included.
+      const ddList = Array.from(
+        r.querySelectorAll<HTMLElement>(
+          '.tooltip .reply-details dd, .tooltip .reply-details .rd-url',
+        ),
+      );
       const ddOverflow = ddList.map((dd) => ({
         scrollWidth: dd.scrollWidth,
         offsetWidth: dd.offsetWidth,
@@ -223,7 +228,16 @@ function run(op: OpName, arg?: string): unknown {
       );
       if (!btn) return false;
       btn.click();
-      return true;
+      // The panel renders on the next tick; open every page field so the address row exists.
+      return new Promise<boolean>((resolve) => {
+        requestAnimationFrame(() => {
+          const all = Array.from(r.querySelectorAll<HTMLButtonElement>('.tooltip .rd-link')).find(
+            (b) => b.textContent.trim() === 'Show all page info',
+          );
+          all?.click();
+          requestAnimationFrame(() => resolve(true));
+        });
+      });
     }
     case 'tooltipRect': {
       const r = getShadowRoot();

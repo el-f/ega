@@ -124,7 +124,8 @@ test('tooltip clamps to the viewport when ContextPreview expands, and opens abov
   const heightBudget = Math.min(geometry.innerHeight * 0.8, 600);
   expect(geometry.tipHeight).toBeLessThanOrEqual(heightBudget + 2);
 
-  // Long URLs must wrap inside the card, not spill out of it.
+  // Long URLs must wrap inside the card, not spill out of it; an empty list would check nothing.
+  expect(geometry.ddOverflow.length).toBeGreaterThan(0);
   for (const dd of geometry.ddOverflow) {
     expect(dd.scrollWidth).toBeLessThanOrEqual(dd.offsetWidth + 2);
   }
