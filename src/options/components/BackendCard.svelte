@@ -22,7 +22,7 @@
   import BackendCardTestRow from '@/options/components/backend-card/BackendCardTestRow.svelte';
   import { buildBackendConfig } from '@/shared/backends/build-config';
   import { requestAuditEntry } from '@/shared/audit-log';
-  import { resolveModelId } from '@/shared/settings-schema';
+  import { lookupModelId, resolveModelId } from '@/shared/settings-schema';
 
   const TEST_PROMPT_TEXT = 'marhaba ya habibi kif halak el yom, kol shi tamam?';
   const TEST_SYSTEM_PROMPT =
@@ -104,6 +104,14 @@
         : '',
     ].join('\x00'),
   );
+  // A Test also sends the model, and native runs the chosen CLI; the status probe reads neither.
+  const testKey = $derived(
+    [
+      probeKey,
+      lookupModelId(settings.model, id),
+      id === 'native' ? (settings.nativeCli ?? '') : '',
+    ].join('\x00'),
+  );
   // Native pings on a one-shot port: this page's own port-manager copy would keep a host alive until the tab closes.
   function checkAvailable(
     backend: TranslationBackend,
@@ -151,10 +159,10 @@
 
   async function runTest(): Promise<void> {
     testRunning = true;
-    // A result belongs to the key and URL it ran with; one that lands after an edit says nothing about the new value.
-    const startKey = probeKey;
+    // A result belongs to the settings it ran with; one that lands after an edit says nothing about the new value.
+    const startKey = testKey;
     const settingsMoved = (): boolean => {
-      if (probeKey === startKey) return false;
+      if (testKey === startKey) return false;
       testSucceeded = false;
       testLatencyMs = null;
       testPrefillMs = null;
@@ -232,23 +240,24 @@
           ask,
           new Promise<undefined>((r) => setTimeout(() => r(undefined), timeoutMs + 5_000)),
         ]);
-        if (settingsMoved()) return;
         const total = reply?.totalMs ?? Math.round(performance.now() - start);
+        const result = reply?.ok
+          ? parseJsonResponse(reply.result ?? '')
+              .translation.trim()
+              .slice(0, 200) || '(empty result)'
+          : (reply?.error ??
+            'No answer from the native host. Click Recheck above, then test again.');
+        // The request went out whatever the settings did meanwhile, so the log records it.
+        if (reply?.ok) auditTest(result);
+        else auditTest('', { code: reply?.code ?? 'UNKNOWN', message: result });
+        if (settingsMoved()) return;
         testLatencyMs = total;
         // Prefill here is the availability ping: the host boots but no CLI spawns yet.
         testPrefillMs = probeMs;
         testDecodeMs =
           reply?.firstDeltaMs !== undefined ? Math.max(0, total - reply.firstDeltaMs) : null;
-        if (reply?.ok) {
-          const parsed = parseJsonResponse(reply.result ?? '');
-          testResult = parsed.translation.trim().slice(0, 200) || '(empty result)';
-          testSucceeded = true;
-          auditTest(testResult);
-        } else {
-          testResult =
-            reply?.error ?? 'No answer from the native host. Click Recheck above, then test again.';
-          auditTest('', { code: reply?.code ?? 'UNKNOWN', message: testResult });
-        }
+        testResult = result;
+        testSucceeded = reply?.ok === true;
         return;
       }
       let firstDeltaAt: number | null = null;
@@ -286,26 +295,29 @@
       } catch (e) {
         errMsg = (e as Error).message;
       }
-      if (settingsMoved()) return;
       const endAt = performance.now();
-      testLatencyMs = Math.round(endAt - start);
-      // Prefill = start to first delta (model load + prompt); decode = first delta to done.
-      testPrefillMs = firstDeltaAt === null ? null : Math.round(firstDeltaAt - start);
-      testDecodeMs = firstDeltaAt === null ? null : Math.round(endAt - firstDeltaAt);
+      let result: string;
       if (errMsg) {
-        testResult = errMsg;
+        result = errMsg;
         auditTest('', { code: errCode ?? 'UNKNOWN', message: errMsg });
       } else if (done) {
         // The model may answer with JSON even though the prompt asks for plain text.
         const scrub = createThinkScrubber();
         const parsed = parseJsonResponse(scrub.push(accumulated) + scrub.flush());
-        testResult = parsed.translation.trim().slice(0, 200) || '(empty result)';
-        testSucceeded = true;
-        auditTest(testResult);
+        result = parsed.translation.trim().slice(0, 200) || '(empty result)';
+        auditTest(result);
       } else {
-        testResult = '(no output)';
+        result = '(no output)';
         auditTest('', { code: 'UNKNOWN', message: 'no output' });
       }
+      // The log above records the request even when the settings moved; only the card's result is dropped.
+      if (settingsMoved()) return;
+      testLatencyMs = Math.round(endAt - start);
+      // Prefill = start to first delta (model load + prompt); decode = first delta to done.
+      testPrefillMs = firstDeltaAt === null ? null : Math.round(firstDeltaAt - start);
+      testDecodeMs = firstDeltaAt === null ? null : Math.round(endAt - firstDeltaAt);
+      testResult = result;
+      testSucceeded = !errMsg && done;
     } finally {
       testRunning = false;
     }

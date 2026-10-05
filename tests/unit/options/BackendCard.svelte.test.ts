@@ -474,3 +474,130 @@ describe('BackendCard builds the same config the router does', () => {
     }
   });
 });
+
+describe('BackendCard — a Test whose settings moved while it ran', () => {
+  /** Holds the anthropic request open until finish() runs; restore() puts the real backend back. */
+  function holdAnthropic(): { finish: () => void; restore: () => void } {
+    const backend = resolveBackend(asBackendIdUnsafe('anthropic'));
+    if (!backend) throw new Error('anthropic backend not registered');
+    const origAvailable = backend.isAvailable;
+    const origTranslate = backend.translate;
+    const held = { finish: () => {} };
+    backend.isAvailable = async () => true;
+    backend.translate = ({ req, onChunk }) =>
+      new Promise<void>((resolveTranslate) => {
+        held.finish = () => {
+          onChunk({ type: 'delta', requestId: req.id, text: 'hello' });
+          onChunk({ type: 'done', requestId: req.id });
+          resolveTranslate();
+        };
+      });
+    return {
+      finish: () => held.finish(),
+      restore: () => {
+        backend.isAvailable = origAvailable;
+        backend.translate = origTranslate;
+      },
+    };
+  }
+
+  it('drops a result that lands after the model changed', async () => {
+    const s = baseSettings();
+    s.anthropicApiKey = 'sk-ant-a';
+    const hold = holdAnthropic();
+    try {
+      const { container, rerender } = render(BackendCard, {
+        props: { id: asBackendIdUnsafe('anthropic'), label: 'Anthropic', settings: s },
+      });
+      await waitForProbe();
+      container.querySelector<HTMLButtonElement>('.be-test-btn')?.click();
+      await waitForProbe();
+      await rerender({ settings: { ...s, model: { ...s.model, anthropic: 'claude-other' } } });
+      await waitForProbe();
+      hold.finish();
+      await waitForProbe();
+      expect(container.querySelector('.be-status')?.textContent.trim()).toBe('Key saved');
+      expect(container.textContent).toContain('The settings changed while the test ran.');
+    } finally {
+      hold.restore();
+    }
+  });
+
+  it('still writes the request to the diagnostics log', async () => {
+    const sent: unknown[] = [];
+    chromeMock.runtime.sendMessage = vi.fn((m: unknown) => {
+      sent.push(m);
+      return Promise.resolve({ ok: true });
+    });
+    const s = baseSettings();
+    s.anthropicApiKey = 'sk-ant-a';
+    const hold = holdAnthropic();
+    try {
+      const { container, rerender } = render(BackendCard, {
+        props: { id: asBackendIdUnsafe('anthropic'), label: 'Anthropic', settings: s },
+      });
+      await waitForProbe();
+      container.querySelector<HTMLButtonElement>('.be-test-btn')?.click();
+      await waitForProbe();
+      await rerender({ settings: { ...s, anthropicApiKey: 'sk-ant-b' } });
+      await waitForProbe();
+      hold.finish();
+      await waitForProbe();
+      expect(container.textContent).toContain('The settings changed while the test ran.');
+      const pushes = sent.filter((m) => (m as { kind?: string }).kind === 'audit:push');
+      expect(pushes).toHaveLength(1);
+      expect((pushes[0] as { entry: { response: string } }).entry.response).toBe('hello');
+    } finally {
+      hold.restore();
+    }
+  });
+});
+
+describe('BackendCard — a native Test whose CLI changed while it ran', () => {
+  it('drops the result and still logs the request', async () => {
+    let answer: (r: unknown) => void = () => {};
+    const sent: unknown[] = [];
+    chromeMock.runtime.sendMessage = vi.fn((m: unknown) => {
+      sent.push(m);
+      return (m as { kind?: string }).kind === 'native:test'
+        ? new Promise((r) => (answer = r))
+        : Promise.resolve({ ok: true });
+    });
+    const s = baseSettings();
+    s.nativeCli = 'claude';
+    resetProbeNativeHostForTest();
+    const defaultConnect = chromeMock.runtime.connectNative.getMockImplementation();
+    chromeMock.runtime.connectNative.mockImplementation(() => {
+      const listeners: ((m: unknown) => void)[] = [];
+      return {
+        onMessage: { addListener: (f: (m: unknown) => void) => listeners.push(f) },
+        onDisconnect: { addListener: () => {} },
+        postMessage: (m: { id?: string }) =>
+          queueMicrotask(() =>
+            listeners.forEach((f) =>
+              f({ v: 1, id: m.id, type: 'done', hostVersion: EXPECTED_HOST_VERSION }),
+            ),
+          ),
+        disconnect: () => {},
+      } as unknown as chrome.runtime.Port;
+    });
+    try {
+      const { container, rerender } = render(BackendCard, {
+        props: { id: asBackendIdUnsafe('native'), label: 'Native host', settings: s },
+      });
+      await waitForProbe();
+      container.querySelector<HTMLButtonElement>('.be-test-btn')?.click();
+      await vi.waitFor(() =>
+        expect(sent).toContainEqual(expect.objectContaining({ kind: 'native:test' })),
+      );
+      await rerender({ settings: { ...s, nativeCli: 'codex' } });
+      await waitForProbe();
+      answer({ ok: true, result: 'hello', totalMs: 10 });
+      await waitForProbe();
+      expect(container.textContent).toContain('The settings changed while the test ran.');
+      expect(sent.filter((m) => (m as { kind?: string }).kind === 'audit:push')).toHaveLength(1);
+    } finally {
+      if (defaultConnect) chromeMock.runtime.connectNative.mockImplementation(defaultConnect);
+    }
+  });
+});
