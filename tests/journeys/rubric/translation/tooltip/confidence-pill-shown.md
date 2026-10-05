@@ -8,12 +8,12 @@
 
 - Step 1: backend response carries a `confidence` value > 0 and >= threshold (default 0, so any confidence shows).
 - Step 2: pill renders in the meta row under the actions with the success / warning / danger tone that matches the value.
-- Step 3: the pill text is the percentage (e.g. "93%"); its hover title reads "Confidence"; the detected variety is a separate label beside it.
+- Step 3: the pill reads "N% confident" (e.g. "93% confident"); the detected variety is a separate label beside it.
 
 ## Visible affordances
 
 - Pill color uses the design tokens: success >=0.8 (`hi`), warning 0.6-0.79 (`mid`), danger <0.6 (`lo`).
-- Pill is not focusable; screen readers get `aria-label="Translation confidence N%"`.
+- Pill is not focusable; screen readers get `aria-label="N% confident in this translation"`.
 
 ## Failure-mode expectations
 

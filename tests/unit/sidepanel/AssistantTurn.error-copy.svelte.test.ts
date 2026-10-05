@@ -28,6 +28,17 @@ describe('AssistantTurn — an error fixed in Settings can be retried', () => {
     expect(container.querySelector('[data-ega-sidepanel-open-options]')).not.toBeNull();
   });
 
+  // Terminal, and the message names no Settings tab: the same request fails the same way.
+  it.each(['REQUEST', 'UNKNOWN', 'IMAGE_UNSUPPORTED'])(
+    'hides Retry for %s when no Settings tab can fix it',
+    (code) => {
+      const { container } = render(AssistantTurn, {
+        props: { turn: errorTurn(code, 'It failed.'), onRetry: vi.fn(), canRetry: true },
+      });
+      expect(container.querySelector('.ega-retry-btn')).toBeNull();
+    },
+  );
+
   it('puts an alert icon in the error heading', () => {
     const { container } = render(AssistantTurn, {
       props: { turn: errorTurn('AUTH', AUTH_MESSAGE), onRetry: vi.fn() },

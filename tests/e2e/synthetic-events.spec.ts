@@ -91,7 +91,7 @@ test('a bubble click the page dispatches sends nothing; a real click sends', asy
 
 test('a Retry click the page dispatches sends nothing; a real click sends', async () => {
   let calls = 0;
-  // A retryable 500 on every call: a terminal code (401) hides Retry, and only the count matters here.
+  // A retryable 500 on every call: Retry shows for it, and only the count matters here.
   await ext.context.route('https://api.anthropic.com/v1/messages', async (route) => {
     calls += 1;
     await route.fulfill({

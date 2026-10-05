@@ -13,12 +13,12 @@
 
 ## Visible affordances
 
-- Swap control has `aria-label="Swap direction"` — never a bare arrow icon without context.
+- Swap control has `aria-label="Swap direction"` — never a bare arrow icon without context. Its hover text names the new pair: "Swap languages and translate again (es → en)". It re-sends the original selection with the pair flipped; it does not translate the reply back.
 - Direction labels update immediately, not after the new translation arrives.
 
 ## Failure-mode expectations
 
-- If detection failed and source language is `auto`, swap should disable itself or surface "Select source first" — never silently no-op.
+- If detection failed and source language is `auto`, swap is disabled and its hover text reads "Swap languages: pick a source language first" — never a silent no-op.
 
 ## Cautions
 

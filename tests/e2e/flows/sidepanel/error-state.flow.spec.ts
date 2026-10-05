@@ -39,10 +39,10 @@ test('error chunk renders inline + offers a retry button', async () => {
   await expect(errBlock).toHaveAttribute('role', 'alert');
   timeline.markStep('error-visible');
 
-  // AUTH is terminal — a retry with the same key just re-fails, so only "Open settings" is offered.
+  // AUTH points to Settings → Backends: the user fixes the key there, then retries, so both are offered.
   await expect(page.locator('[data-ega-sidepanel-open-options]')).toBeVisible({
     timeout: 5_000,
   });
-  await expect(page.locator('.ega-retry-btn', { hasText: /retry/i })).toHaveCount(0);
-  timeline.markStep('open-settings-visible-retry-absent');
+  await expect(page.locator('.ega-retry-btn', { hasText: /retry/i })).toHaveCount(1);
+  timeline.markStep('open-settings-and-retry-visible');
 });

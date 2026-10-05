@@ -9,7 +9,7 @@
   import Icon from '@/shared/ui/Icon.svelte';
   import type { TipState } from '../tipState.svelte';
   import { formatDetectedLabel } from '@/shared/detected-label';
-  import { isRetryable } from '@/shared/error-policy';
+  import { isRetryable, optionsTabForMessage } from '@/shared/error-policy';
   import { varietyLabel } from './variety-label';
   import { cachedCustomLanguages } from '../customs-cache';
   import { isUserGesture } from '../user-gesture';
@@ -128,16 +128,25 @@
       directionLabel !== '',
   );
 
-  const swapTip = $derived(
-    direction && direction.source !== 'auto'
-      ? `Translate back (${varietyLabel(direction.target, cachedCustomLanguages())} → ${varietyLabel(direction.source, cachedCustomLanguages())})`
-      : 'Translate back',
-  );
+  // Swap re-sends the original selection with the pair flipped; it does not translate the reply back.
+  const swapTip = $derived.by(() => {
+    if (swapDisabled) return 'Swap languages: pick a source language first';
+    if (!direction) return 'Swap languages and translate again';
+    const customs = cachedCustomLanguages();
+    return `Swap languages and translate again (${varietyLabel(direction.target, customs)} → ${varietyLabel(direction.source, customs)})`;
+  });
 
-  // Terminal codes (bad key, out of credit, …) re-fail identically — mirror the sidepanel's gate.
-  // ABORTED keeps Retry: a user cancel is neutral, and re-running is its natural recovery.
+  // Same gate as the side panel: a terminal code re-fails identically, unless the error names a Settings
+  // tab that fixes it (the body links there), so fix, then retry. ABORTED keeps Retry: a cancel is neutral.
+  const settingsTab = $derived(
+    tip.error ? optionsTabForMessage(tip.error.message, tip.error.code) : undefined,
+  );
   const showRetry = $derived(
-    !!onRetry && (errorCode === undefined || errorCode === 'ABORTED' || isRetryable(errorCode)),
+    !!onRetry &&
+      (errorCode === undefined ||
+        errorCode === 'ABORTED' ||
+        isRetryable(errorCode) ||
+        settingsTab !== undefined),
   );
 
   // Each of these starts a request, so a click the page dispatches into the open shadow root is ignored.
@@ -270,8 +279,8 @@
     {#if hasSwap && onSwap}
       <button
         class="icon-btn"
-        aria-label={swapDisabled ? 'Translate back (pick a source language first)' : swapTip}
-        data-tooltip={swapDisabled ? 'Translate back: pick a source language first' : swapTip}
+        aria-label="Swap direction"
+        data-tooltip={swapTip}
         disabled={swapDisabled}
         onclick={swap}
       >
@@ -324,8 +333,8 @@
         {#if hasSwap && onSwap}
           <button
             class="icon-btn"
-            aria-label={swapDisabled ? 'Translate back (pick a source language first)' : swapTip}
-            data-tooltip={swapDisabled ? 'Translate back: pick a source language first' : swapTip}
+            aria-label="Swap direction"
+            data-tooltip={swapTip}
             disabled={swapDisabled}
             onclick={swap}
           >

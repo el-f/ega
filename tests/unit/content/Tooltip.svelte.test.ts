@@ -114,18 +114,28 @@ describe('Tooltip smoke', () => {
     expect(container.querySelector('.shimmer')).toBeTruthy();
   });
 
-  it('AUTH error hides Retry (terminal — same key would fail again) and shows the Open settings CTA', () => {
+  // Same gate as the side panel: an error Settings can fix keeps Retry, so the user fixes it, then retries.
+  it('AUTH error keeps Retry beside the Open settings CTA', () => {
     const { container } = mountWith({ error: { code: 'AUTH', message: 'bad key' } });
-    expect(container.querySelector('button[aria-label="Retry"]')).toBeNull();
+    expect(container.querySelector('button[aria-label="Retry"]')).toBeTruthy();
     const cta = container.querySelector('[data-ega-tooltip-error-cta]');
     expect(cta).toBeTruthy();
     expect(cta?.textContent).toContain('Open settings');
   });
 
-  it('QUOTA error hides Retry too (mirrors the sidepanel gate)', () => {
+  it('QUOTA error keeps Retry too (mirrors the sidepanel gate)', () => {
     const { container } = mountWith({ error: { code: 'QUOTA', message: 'over limit' } });
-    expect(container.querySelector('button[aria-label="Retry"]')).toBeNull();
+    expect(container.querySelector('button[aria-label="Retry"]')).toBeTruthy();
   });
+
+  // Terminal, and no Settings tab fixes them: the same request fails the same way.
+  it.each(['REQUEST', 'UNKNOWN', 'IMAGE_UNSUPPORTED'] as const)(
+    '%s error with no Settings tab hides Retry',
+    (code) => {
+      const { container } = mountWith({ error: { code, message: 'it failed' } });
+      expect(container.querySelector('button[aria-label="Retry"]')).toBeNull();
+    },
+  );
 
   it.each(['NETWORK', 'SERVER', 'RATE_LIMIT', 'TIMEOUT'] as const)(
     'retryable %s error keeps Retry',
@@ -305,11 +315,11 @@ describe('Tooltip smoke', () => {
     });
     const copy = container.querySelector('button[aria-label="Copy translation"]');
     const explain = container.querySelector('button[aria-label="Explain this translation"]');
-    const swap = container.querySelector('button[aria-label^="Translate back"]');
+    const swap = container.querySelector('button[aria-label="Swap direction"]');
     const close = container.querySelector('button[aria-label="Close"]');
     expect(copy?.getAttribute('data-tooltip')).toBe('Copy');
     expect(explain?.getAttribute('data-tooltip')).toBe('Explain');
-    expect(swap?.getAttribute('data-tooltip')).toMatch(/^Translate back/);
+    expect(swap?.getAttribute('data-tooltip')).toBe('Swap languages and translate again');
     expect(close?.getAttribute('data-tooltip')).toBe('Close (Esc)');
   });
 
@@ -377,7 +387,7 @@ describe('Tooltip smoke', () => {
         ...handlers(),
       },
     });
-    expect(a.container.querySelector('button[aria-label^="Translate back"]')).toBeNull();
+    expect(a.container.querySelector('button[aria-label="Swap direction"]')).toBeNull();
     a.unmount();
     const h = handlers();
     const b = render(Tooltip, {
@@ -389,7 +399,7 @@ describe('Tooltip smoke', () => {
         ...h,
       },
     });
-    expect(b.container.querySelector('button[aria-label^="Translate back"]')).toBeTruthy();
+    expect(b.container.querySelector('button[aria-label="Swap direction"]')).toBeTruthy();
   });
 
   it('swap button fires onswap', async () => {
@@ -404,7 +414,7 @@ describe('Tooltip smoke', () => {
       },
     });
     const swap = container.querySelector(
-      'button[aria-label^="Translate back"]',
+      'button[aria-label="Swap direction"]',
     ) as HTMLButtonElement;
     await fireEvent.click(swap);
     expect(onswap).toHaveBeenCalledTimes(1);
@@ -422,7 +432,7 @@ describe('Tooltip smoke', () => {
       },
     });
     const swap = container.querySelector(
-      'button[aria-label^="Translate back"]',
+      'button[aria-label="Swap direction"]',
     ) as HTMLButtonElement;
     expect(swap).toBeTruthy();
     expect(swap.hasAttribute('disabled')).toBe(true);
@@ -442,7 +452,7 @@ describe('Tooltip smoke', () => {
         ...handlers(),
       },
     });
-    expect(container.querySelector('button[aria-label^="Translate back"]')).toBeTruthy();
+    expect(container.querySelector('button[aria-label="Swap direction"]')).toBeTruthy();
   });
 
   it('swap button renders in the error-only row too', () => {
@@ -455,7 +465,23 @@ describe('Tooltip smoke', () => {
         ...handlers(),
       },
     });
-    expect(container.querySelector('button[aria-label^="Translate back"]')).toBeTruthy();
+    expect(container.querySelector('button[aria-label="Swap direction"]')).toBeTruthy();
+  });
+
+  // Swap re-sends the selection with the pair flipped, so the hover text names the new pair.
+  it('swap hover text names the flipped pair', () => {
+    const { container } = render(Tooltip, {
+      props: {
+        tip: baseTip({ body: 'hi' }),
+        clickOutsideDismiss: true,
+        showSource: false,
+        onswap: vi.fn(),
+        direction: { source: 'en', target: 'es' },
+        ...handlers(),
+      },
+    });
+    const swap = container.querySelector('button[aria-label="Swap direction"]');
+    expect(swap?.getAttribute('data-tooltip')).toBe('Swap languages and translate again (es → en)');
   });
 
   // testHooks `hasError` probes `[data-ega-retry]`, so both error rows need it.

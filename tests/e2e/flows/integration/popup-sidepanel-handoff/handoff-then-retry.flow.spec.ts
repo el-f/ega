@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 import { launchExtension, seedSettings, type ExtensionHandle } from '../../../helpers';
 import { createTimeline, sseOk } from '../../_harness';
 
-// The first hit returns a retryable 500 on purpose: a terminal error (401) renders no Retry button.
+// The first hit returns a retryable 500 on purpose: it shows Retry with no Settings fix in the way.
 
 let ext: ExtensionHandle;
 

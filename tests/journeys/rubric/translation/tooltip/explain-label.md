@@ -18,7 +18,7 @@
 
 ## Failure-mode expectations
 
-- Explain failure shows the error in the body with a Retry icon (which re-runs the explain) unless the error is terminal (bad key, out of credit); the original translation is not kept.
+- Explain failure shows the error in the body with a Retry icon (which re-runs the explain) unless the error is terminal and no setting fixes it (a bad key or no credit keep Retry beside "Open settings": fix it, then retry); the original translation is not kept.
 
 ## Cautions
 

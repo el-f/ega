@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 import { launchExtension, seedSettings, type ExtensionHandle } from '../../helpers';
 import { createTimeline, sseOk } from '../_harness';
 
-// The first failure must be retryable: AssistantTurn hides Retry for AUTH/QUOTA/NATIVE_*.
+// The first failure must be retryable: AssistantTurn hides Retry for terminal codes no setting fixes.
 
 let ext: ExtensionHandle;
 
