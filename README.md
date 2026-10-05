@@ -177,8 +177,9 @@ Settings → Translate) sets how many areas go out at once.
 on a row, or drag it across the divider.
 
 The dot on each row is green for ready, amber for needs a key, red for unreachable.
-For a cloud provider it only checks that you saved a key — Ega sends that provider
-nothing until you translate. The one exception is OpenRouter: once its key is saved,
+A cloud provider with a saved key shows a grey dot and **Key saved**: Ega sends that
+provider nothing until you translate or press **Test now**, and a passed test turns the
+dot green and the label to **Verified**. The one exception is OpenRouter: once its key is saved,
 Ega reads its public model list (no key, no text) to learn which models think. Ollama, the local server and the native host are probed for real. **Test
 now** on any card runs a real request through it.
 
