@@ -472,7 +472,7 @@
     width: 100%;
     text-align: left;
     padding: var(--space-3) var(--space-3);
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--color-control-border);
     border-radius: var(--radius-md);
     background: var(--color-bg-elevated);
     color: var(--color-muted);
@@ -491,7 +491,7 @@
     width: 100%;
     min-height: 4.5rem;
     padding: var(--space-3);
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--color-control-border);
     border-radius: var(--radius-md);
     background: var(--color-bg-elevated);
     color: var(--color-fg);

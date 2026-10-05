@@ -599,7 +599,7 @@
   .ega-input-box {
     display: flex;
     flex-direction: column;
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--color-control-border);
     border-radius: var(--radius-md);
     background: var(--color-bg-elevated);
   }

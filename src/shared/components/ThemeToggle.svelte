@@ -108,8 +108,9 @@
       color var(--motion-fast) var(--ease-out);
   }
   .theme-toggle button.active {
-    background: var(--color-bg-hover);
+    background: var(--color-accent-bg-soft);
     color: var(--color-fg);
+    box-shadow: inset 0 0 0 1px var(--color-accent);
   }
   .theme-toggle button:hover:not(.active) {
     color: var(--color-fg);
