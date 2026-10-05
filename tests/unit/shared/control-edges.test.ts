@@ -16,8 +16,19 @@ describe('text-entry frames draw a 3:1 edge', () => {
     ['src/sidepanel/conversation/InputRow.svelte', '.ega-input-box'],
     ['src/popup/Popup.svelte', '.freeform-collapsed'],
     ['src/popup/Popup.svelte', '.freeform-textarea'],
+    ['src/shared/components/ConfirmDialog.svelte', '.confirm-input'],
+    ['src/shared/components/CommandPalette.svelte', ':global(.ega-palette-input)'],
+    ['src/options/components/ContextMenuManager.svelte', '.cm-label-input'],
+    ['src/sidepanel/SidePanel.svelte', ".sp-search-bar input[type='search']"],
   ])('%s %s uses --color-control-border', (file, selector) => {
     expect(rule(file, selector)).toMatch(/border: 1px solid var\(--color-control-border\)/);
+  });
+
+  // --color-accent-soft is about 1.4:1 in light, so a hover to it would fade the edge below 3:1.
+  it('the collapsed message box keeps a 3:1 edge on hover', () => {
+    expect(rule('src/popup/Popup.svelte', '.freeform-collapsed:hover')).toMatch(
+      /border-color: var\(--color-accent\);/,
+    );
   });
 });
 

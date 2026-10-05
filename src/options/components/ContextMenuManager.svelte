@@ -631,7 +631,7 @@
     font-family: var(--font-ui);
     color: var(--color-fg);
     background: var(--color-bg);
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--color-control-border);
     border-radius: var(--radius-sm);
     padding: 2px var(--space-2);
     outline: none;

@@ -79,7 +79,7 @@
   .confirm-input {
     width: 100%;
     padding: var(--space-2);
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--color-control-border);
     border-radius: var(--radius-sm);
     background: var(--color-bg-elevated);
     color: var(--color-fg);

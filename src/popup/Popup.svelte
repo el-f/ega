@@ -480,7 +480,7 @@
     font-size: var(--fs-sm);
   }
   .freeform-collapsed:hover {
-    border-color: var(--color-accent-soft);
+    border-color: var(--color-accent);
     color: var(--color-fg);
   }
   .freeform-collapsed:focus-visible {

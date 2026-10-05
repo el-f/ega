@@ -109,7 +109,7 @@
     padding: var(--space-2) var(--space-3);
     background: var(--color-bg-elevated);
     color: var(--color-fg);
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--color-control-border);
     border-radius: var(--radius-sm);
     font-family: var(--font-ui);
     font-size: var(--fs-base);
