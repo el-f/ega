@@ -427,6 +427,13 @@
   {#if variantCount > 1 || turn.status === 'done'}
     <header class="ega-assistant-meta">
       {#if turn.status === 'done'}
+        <time
+          class="ega-timestamp"
+          data-ega-timestamp
+          datetime={new Date(turn.createdAt).toISOString()}
+          data-tooltip={new Date(turn.createdAt).toLocaleString()}
+          data-tooltip-placement="top">{relativeTime(turn.createdAt, now)}</time
+        >
         {#if turn.bookmarked}
           <!-- Bookmark lives in the More menu, so the reply itself still shows that it is bookmarked. -->
           <span
@@ -438,13 +445,6 @@
             data-tooltip-placement="top"><Star size={12} aria-hidden="true" /></span
           >
         {/if}
-        <time
-          class="ega-timestamp"
-          data-ega-timestamp
-          datetime={new Date(turn.createdAt).toISOString()}
-          data-tooltip={new Date(turn.createdAt).toLocaleString()}
-          data-tooltip-placement="top">{relativeTime(turn.createdAt, now)}</time
-        >
       {/if}
       {#if variantCount > 1}
         <div class="ega-variant-nav" data-ega-variant-nav>
