@@ -151,6 +151,17 @@
 
   async function runTest(): Promise<void> {
     testRunning = true;
+    // A result belongs to the key and URL it ran with; one that lands after an edit says nothing about the new value.
+    const startKey = probeKey;
+    const settingsMoved = (): boolean => {
+      if (probeKey === startKey) return false;
+      testSucceeded = false;
+      testLatencyMs = null;
+      testPrefillMs = null;
+      testDecodeMs = null;
+      testResult = 'The settings changed while the test ran. Click Test now again.';
+      return true;
+    };
     try {
       testSucceeded = false;
       testResult = null;
@@ -171,6 +182,7 @@
       } catch {
         available = false;
       }
+      if (settingsMoved()) return;
       // A local server's own request error names the address and the fix, so it runs even when the probe failed.
       if (!available && id !== 'ollama' && id !== 'localserver') {
         beStatus =
@@ -220,6 +232,7 @@
           ask,
           new Promise<undefined>((r) => setTimeout(() => r(undefined), timeoutMs + 5_000)),
         ]);
+        if (settingsMoved()) return;
         const total = reply?.totalMs ?? Math.round(performance.now() - start);
         testLatencyMs = total;
         // Prefill here is the availability ping: the host boots but no CLI spawns yet.
@@ -273,6 +286,7 @@
       } catch (e) {
         errMsg = (e as Error).message;
       }
+      if (settingsMoved()) return;
       const endAt = performance.now();
       testLatencyMs = Math.round(endAt - start);
       // Prefill = start to first delta (model load + prompt); decode = first delta to done.

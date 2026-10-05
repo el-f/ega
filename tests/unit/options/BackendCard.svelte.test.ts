@@ -128,6 +128,42 @@ describe('BackendCard key status', () => {
     }
   });
 
+  it('does not show "Verified" for a key that changed while the test ran', async () => {
+    const s = baseSettings();
+    s.anthropicApiKey = 'sk-ant-a';
+    const backend = resolveBackend(asBackendIdUnsafe('anthropic'));
+    if (!backend) throw new Error('anthropic backend not registered');
+    const origAvailable = backend.isAvailable;
+    const origTranslate = backend.translate;
+    let finish: () => void = () => {};
+    backend.isAvailable = async () => true;
+    backend.translate = ({ req, onChunk }) =>
+      new Promise<void>((resolveTranslate) => {
+        finish = () => {
+          onChunk({ type: 'delta', requestId: req.id, text: 'hello' });
+          onChunk({ type: 'done', requestId: req.id });
+          resolveTranslate();
+        };
+      });
+    try {
+      const { container, rerender } = render(BackendCard, {
+        props: { id: asBackendIdUnsafe('anthropic'), label: 'Anthropic', settings: s },
+      });
+      await waitForProbe();
+      container.querySelector<HTMLButtonElement>('.be-test-btn')?.click();
+      await waitForProbe();
+      await rerender({ settings: { ...s, anthropicApiKey: 'sk-ant-b' } });
+      await waitForProbe();
+      finish();
+      await waitForProbe();
+      expect(container.querySelector('.be-status')?.textContent.trim()).toBe('Key saved');
+      expect(container.textContent).toContain('The settings changed while the test ran.');
+    } finally {
+      backend.isAvailable = origAvailable;
+      backend.translate = origTranslate;
+    }
+  });
+
   it('keeps "Ready" for a backend that needs no key', async () => {
     const backend = resolveBackend(asBackendIdUnsafe('ollama'));
     if (!backend) throw new Error('ollama backend not registered');
