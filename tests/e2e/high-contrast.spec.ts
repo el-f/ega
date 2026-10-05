@@ -62,16 +62,25 @@ test('options: picked states and keyboard focus keep a visible cue', async () =>
   await expectFocusRing(page);
 });
 
-test('popup: keyboard focus keeps a ring, and a disabled button is not dimmed twice', async () => {
+test('popup: keyboard focus keeps a ring, and a disabled button is greyed by color, not faded', async () => {
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/popup/index.html`);
   // Disabled while the source language is auto.
   const swap = page.getByRole('button', { name: 'Pick a source language to swap' });
   await expect(swap).toBeDisabled();
   const opacity = (): Promise<string> => swap.evaluate((n) => getComputedStyle(n).opacity);
-  expect(Number(await opacity())).toBeLessThan(1);
+  // The swap stays focusable, so it is greyed with the disabled color: opacity would fade its focus ring too.
+  expect(await opacity()).toBe('1');
+  const disabledFg = await page.evaluate(() => {
+    const probe = document.createElement('span');
+    probe.style.color = 'var(--color-fg-disabled)';
+    document.body.append(probe);
+    const c = getComputedStyle(probe).color;
+    probe.remove();
+    return c;
+  });
+  expect(await swap.evaluate((n) => getComputedStyle(n).color)).toBe(disabledFg);
   await forceColors(page);
-  // The mode already paints it GrayText; the 0.55 dim on top would fade it further.
   expect(await opacity()).toBe('1');
   await expectFocusRing(page);
 });

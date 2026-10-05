@@ -53,7 +53,7 @@ test('confidence pill renders when confidence >= threshold', async () => {
     };
   });
   expect(pill).not.toBeNull();
-  expect(pill?.text).toBe('93%');
+  expect(pill?.text).toBe('93% confident');
   // Confidence >= 0.8 is the `hi` tier.
   expect(pill?.className).toContain('hi');
 });
