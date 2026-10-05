@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { SHIPPED_TASK_VIEWS } from '@/shared/task-view';
 import RulesEditor from '@/options/components/RulesEditor.svelte';
@@ -448,5 +448,195 @@ describe('RulesEditor', () => {
 
       pushSpy.mockRestore();
     });
+  });
+});
+
+describe('RulesEditor — failed writes, focus and scope button', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  function rowPart(container: HTMLElement, id: string, part: string): HTMLElement {
+    const el = container.querySelector<HTMLElement>(
+      `[data-ega-rule-row][data-rule-id="${id}"] ${part}`,
+    );
+    if (!el) throw new Error(`missing ${part} on ${id}`);
+    return el;
+  }
+
+  it('the delete Undo toast stays up 8 s, since there is no confirm', async () => {
+    const pushSpy = vi.spyOn(toastStore, 'push').mockImplementation(() => {});
+    const { container } = render(RulesEditor, {
+      props: { rules: [rule({ id: 'r1' })], onUpdate: () => true },
+    });
+    await fireEvent.click(rowPart(container, 'r1', '[data-ega-rule-delete]'));
+    await waitFor(() => expect(pushSpy).toHaveBeenCalledTimes(1));
+    expect(pushSpy.mock.calls[0]?.[0]).toMatchObject({ duration: 8000 });
+  });
+
+  it('a failed delete offers no Undo', async () => {
+    const pushSpy = vi.spyOn(toastStore, 'push').mockImplementation(() => {});
+    const onUpdate = vi.fn(async () => false);
+    const { container } = render(RulesEditor, {
+      props: { rules: [rule({ id: 'r1' })], onUpdate },
+    });
+    await fireEvent.click(rowPart(container, 'r1', '[data-ega-rule-delete]'));
+    await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
+    await Promise.resolve();
+    expect(pushSpy).not.toHaveBeenCalled();
+  });
+
+  it('a body edit whose write fails does not say Saved', async () => {
+    const onUpdate = vi.fn(async () => false);
+    const { container } = render(RulesEditor, {
+      props: { rules: [rule({ id: 'r1', body: 'Old body.' })], onUpdate },
+    });
+    await fireEvent.click(rowPart(container, 'r1', '[data-ega-rule-body]'));
+    const editor = rowPart(container, 'r1', '[data-ega-rule-body-editor]');
+    await fireEvent.input(editor, { target: { value: 'New body.' } });
+    await fireEvent.blur(editor);
+    await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(rowPart(container, 'r1', '.saved').textContent).toBe('');
+  });
+
+  it('Cancel moves focus to the Add a rule summary', async () => {
+    const { container, getByRole } = render(RulesEditor, {
+      props: { rules: [rule({ id: 'r1' })], onUpdate: () => {} },
+    });
+    const form = container.querySelector<HTMLDetailsElement>('details.manual-block');
+    if (!form) throw new Error('expected form');
+    form.open = true;
+    await fireEvent(form, new Event('toggle'));
+    const cancel = getByRole('button', { name: 'Cancel' });
+    cancel.focus();
+    await fireEvent.click(cancel);
+    await waitFor(() =>
+      expect(document.activeElement).toBe(container.querySelector('summary.manual-summary')),
+    );
+  });
+
+  it('Cancel with no rules moves focus back to the empty state button', async () => {
+    const { container, getByRole } = render(RulesEditor, {
+      props: { rules: [], onUpdate: () => {} },
+    });
+    await fireEvent.click(getByRole('button', { name: 'Add a rule' }));
+    const cancel = getByRole('button', { name: 'Cancel' });
+    cancel.focus();
+    await fireEvent.click(cancel);
+    await waitFor(() =>
+      expect(document.activeElement).toBe(container.querySelector('[data-ega-rules-empty] button')),
+    );
+  });
+
+  it('Add rule moves focus to the new row', async () => {
+    const onUpdate = vi.fn(async (next: readonly Rule[]) => {
+      await rerender({ rules: next });
+      return true;
+    });
+    const { container, rerender } = render(RulesEditor, {
+      props: { rules: [rule({ id: 'r1' })], onUpdate },
+    });
+    const form = container.querySelector<HTMLDetailsElement>('details.manual-block');
+    if (!form) throw new Error('expected form');
+    form.open = true;
+    await fireEvent(form, new Event('toggle'));
+    const body = container.querySelector<HTMLTextAreaElement>('[data-ega-manual-body]');
+    const submit = container.querySelector<HTMLButtonElement>('[data-ega-manual-submit]');
+    if (!body || !submit) throw new Error('expected form controls');
+    await fireEvent.input(body, { target: { value: 'Keep product names.' } });
+    submit.focus();
+    await fireEvent.click(submit);
+    await waitFor(() => {
+      const rows = container.querySelectorAll('[data-ega-rule-row]');
+      expect(rows).toHaveLength(2);
+      expect(document.activeElement).toBe(rows[1]?.querySelector('[data-ega-rule-body]'));
+    });
+  });
+
+  it('a failed add keeps the form open with its text', async () => {
+    const { container } = render(RulesEditor, {
+      props: { rules: [rule({ id: 'r1' })], onUpdate: async () => false },
+    });
+    const form = container.querySelector<HTMLDetailsElement>('details.manual-block');
+    if (!form) throw new Error('expected form');
+    form.open = true;
+    await fireEvent(form, new Event('toggle'));
+    const body = container.querySelector<HTMLTextAreaElement>('[data-ega-manual-body]');
+    const submit = container.querySelector<HTMLButtonElement>('[data-ega-manual-submit]');
+    if (!body || !submit) throw new Error('expected form controls');
+    await fireEvent.input(body, { target: { value: 'Keep product names.' } });
+    await fireEvent.click(submit);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(form.open).toBe(true);
+    expect(body.value).toBe('Keep product names.');
+  });
+
+  it('Edit scope says it opens a dialog, whether it is open, and which rule it edits', async () => {
+    const { container } = render(RulesEditor, {
+      props: {
+        rules: [
+          rule({ id: 'r1', body: 'Always preserve URLs.' }),
+          rule({ id: 'r2', body: 'Prefer short sentences in every answer you give me.' }),
+        ],
+        onUpdate: () => {},
+      },
+    });
+    const b1 = rowPart(container, 'r1', '[data-ega-rule-edit-scope]');
+    const b2 = rowPart(container, 'r2', '[data-ega-rule-edit-scope]');
+    expect(b1.getAttribute('aria-label')).toBe('Edit scope: Always preserve URLs.');
+    expect(b2.getAttribute('aria-label')).toBe(
+      'Edit scope: Prefer short sentences in every answer y…',
+    );
+    expect(b1.getAttribute('aria-haspopup')).toBe('dialog');
+    expect(b1.getAttribute('aria-expanded')).toBe('false');
+    await fireEvent.click(b1);
+    expect(b1.getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it("the On checkbox's description still exists while the body is being edited", async () => {
+    const { container } = render(RulesEditor, {
+      props: { rules: [rule({ id: 'r1', body: 'Old body.' })], onUpdate: () => {} },
+    });
+    const on = rowPart(container, 'r1', '[data-ega-rule-disable]');
+    await fireEvent.click(rowPart(container, 'r1', '[data-ega-rule-body]'));
+    expect(container.querySelector('[data-ega-rule-body-editor]')).not.toBeNull();
+    const id = on.getAttribute('aria-describedby') ?? '';
+    expect(document.getElementById(id)?.textContent).toBe('Old body.');
+  });
+
+  it('the new row scrolls into view without smooth motion under reduced motion', async () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: query.includes('prefers-reduced-motion'),
+      media: query,
+      onchange: null,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+    }));
+    const scroll = vi.spyOn(Element.prototype, 'scrollIntoView');
+    const onUpdate = vi.fn(async (next: readonly Rule[]) => {
+      await rerender({ rules: next });
+      return true;
+    });
+    const { container, rerender } = render(RulesEditor, {
+      props: { rules: [rule({ id: 'r1' })], onUpdate },
+    });
+    const form = container.querySelector<HTMLDetailsElement>('details.manual-block');
+    if (!form) throw new Error('expected form');
+    form.open = true;
+    await fireEvent(form, new Event('toggle'));
+    const body = container.querySelector<HTMLTextAreaElement>('[data-ega-manual-body]');
+    const submit = container.querySelector<HTMLButtonElement>('[data-ega-manual-submit]');
+    if (!body || !submit) throw new Error('expected form controls');
+    await fireEvent.input(body, { target: { value: 'Keep product names.' } });
+    await fireEvent.click(submit);
+    await waitFor(() => expect(scroll).toHaveBeenCalled());
+    for (const call of scroll.mock.calls) {
+      expect(call[0]).toMatchObject({ behavior: 'auto' });
+    }
   });
 });

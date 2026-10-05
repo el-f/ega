@@ -38,7 +38,7 @@ export function advancedSubTabFor(entryId: string): AdvancedSubTab | null {
 }
 
 /** CSS `scroll-behavior` does not reach scrollIntoView, so the query is read here. */
-function scrollBehavior(): 'auto' | 'smooth' {
+export function scrollBehavior(): 'auto' | 'smooth' {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
 }
 

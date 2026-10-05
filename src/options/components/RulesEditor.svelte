@@ -4,6 +4,7 @@
   import { uuid } from '@/shared/uuid';
   import { getSettings } from '@/shared/storage';
   import { SHIPPED_TASK_VIEWS, type TaskId, type TaskView } from '@/shared/task-view';
+  import { tick } from 'svelte';
   import { toastStore } from '@/shared/components/toastStore';
   import RulesEditorManualForm from './RulesEditorManualForm.svelte';
   import RulesEditorRow from './RulesEditorRow.svelte';
@@ -11,7 +12,8 @@
 
   interface Props {
     rules: readonly Rule[];
-    onUpdate: (rules: readonly Rule[]) => void | Promise<void>;
+    /** Returns false when the write failed, so no Saved, Undo or new-row state follows it. */
+    onUpdate: (rules: readonly Rule[]) => void | boolean | Promise<void | boolean>;
     /** The tab's live task list, so a task made, renamed or turned off here shows at once. */
     taskViews?: readonly TaskView[];
   }
@@ -21,18 +23,30 @@
   let formOpen = $state(false);
   /** The row just added; it scrolls into view and pulses once. */
   let justAddedId = $state<string | null>(null);
+  let rootEl = $state<HTMLElement | null>(null);
 
-  async function commit(next: readonly Rule[]): Promise<void> {
-    await onUpdate(next);
+  /** Deleting has no confirm, so its Undo stays up as long as the side panel's Undo toasts. */
+  const DELETE_UNDO_MS = 8000;
+
+  async function commit(next: readonly Rule[]): Promise<boolean> {
+    return (await onUpdate(next)) !== false;
   }
 
-  async function appendRule(rule: Rule): Promise<void> {
-    await commit([...rules, rule]);
-  }
-
-  async function patchRule(id: string, patch: Partial<Rule>): Promise<void> {
+  async function patchRule(id: string, patch: Partial<Rule>): Promise<boolean> {
     const next = rules.map((r) => (r.id === id ? { ...r, ...patch } : r));
-    await commit(next);
+    return commit(next);
+  }
+
+  // The form closes around the focused button, so focus moves to a control that is still on screen.
+  async function focusInEditor(selector: string, opts?: { preventScroll: boolean }): Promise<void> {
+    await tick();
+    rootEl?.querySelector<HTMLElement>(selector)?.focus(opts);
+  }
+
+  function onFormCancel(): void {
+    void focusInEditor(
+      rules.length === 0 ? '[data-ega-rules-empty] button' : 'summary.manual-summary',
+    );
   }
 
   async function deleteRuleById(id: string): Promise<void> {
@@ -42,10 +56,11 @@
     if (!target) return;
     const snapshot = target;
     const insertAt = targetIdx;
-    await commit(rules.filter((r) => r.id !== id));
+    if (!(await commit(rules.filter((r) => r.id !== id)))) return;
     toastStore.push({
       message: 'Rule deleted.',
       variant: 'success',
+      duration: DELETE_UNDO_MS,
       action: {
         label: 'Undo',
         // Re-read at click time: the closed-over prop is a stale snapshot, and Undo would drop the deletes since.
@@ -113,7 +128,7 @@
         ? { tasks: [...tasks], sites: r.scope.sites }
         : { tasks: [...tasks] };
     const priorScope = r.scope;
-    await patchRule(id, { scope: nextScope });
+    if (!(await patchRule(id, { scope: nextScope }))) return;
     if (undoMessage !== null) pushScopeUndo(id, priorScope, undoMessage);
   }
 
@@ -124,7 +139,7 @@
     const nextScope: Rule['scope'] =
       sites.length === 0 ? { tasks: r.scope.tasks } : { tasks: r.scope.tasks, sites };
     const priorScope = r.scope;
-    await patchRule(id, { scope: nextScope });
+    if (!(await patchRule(id, { scope: nextScope }))) return;
     pushScopeUndo(id, priorScope, 'Site removed from rule.');
   }
 
@@ -132,7 +147,7 @@
     body: string;
     tasks: readonly TaskId[];
     sites: readonly string[];
-  }): Promise<void> {
+  }): Promise<boolean> {
     const sites = [...new Set(payload.sites.map(normaliseSiteEntry).filter((s) => s !== ''))];
     const scope: Rule['scope'] =
       sites.length > 0 ? { tasks: [...payload.tasks], sites } : { tasks: [...payload.tasks] };
@@ -145,13 +160,16 @@
       addedAt: new Date().toISOString(),
       enabled: true,
     };
-    await appendRule(rule);
+    if (!(await commit([...rules, rule]))) return false;
     justAddedId = rule.id;
     formOpen = false;
+    // The row's own effect scrolls it into view, honouring reduced motion.
+    void focusInEditor(`[data-rule-id="${rule.id}"] [data-ega-rule-body]`, { preventScroll: true });
+    return true;
   }
 </script>
 
-<div class="rules-editor" class:empty={rules.length === 0} data-ega-rules-editor>
+<div class="rules-editor" class:empty={rules.length === 0} data-ega-rules-editor bind:this={rootEl}>
   {#if rules.length === 0}
     <RulesEditorEmpty onAdd={() => (formOpen = true)} />
   {:else}
@@ -164,8 +182,8 @@
             {taskViews}
             highlight={r.id === justAddedId}
             onBodyChange={(body) => patchRule(r.id, { body })}
-            onCategoryChange={(category: RuleCategory) => patchRule(r.id, { category })}
-            onToggleEnabled={() => patchRule(r.id, { enabled: !r.enabled })}
+            onCategoryChange={(category: RuleCategory) => void patchRule(r.id, { category })}
+            onToggleEnabled={() => void patchRule(r.id, { enabled: !r.enabled })}
             onToggleTask={(t) => toggleTaskOnRule(r.id, t)}
             onSetTasks={(tasks, undoMessage) => setRuleTasks(r.id, tasks, undoMessage)}
             onRemoveSite={(s) => removeSiteFromRule(r.id, s)}
@@ -179,6 +197,7 @@
   <RulesEditorManualForm
     bind:open={formOpen}
     onSubmit={submitManual}
+    onCancel={onFormCancel}
     {...taskViews.length > 0 ? { taskViews } : {}}
   />
 </div>

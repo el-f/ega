@@ -333,7 +333,7 @@ describe('templates-handlers', () => {
         .spyOn(chromeMock.storage.local, 'set')
         .mockRejectedValue(new Error('QUOTA_BYTES quota exceeded'));
 
-      await handlers.updateRules([
+      const ok = await handlers.updateRules([
         {
           id: 'r-1',
           body: 'keep it short',
@@ -345,6 +345,7 @@ describe('templates-handlers', () => {
         },
       ]);
 
+      expect(ok).toBe(false);
       expect(current().advanced.rules).toHaveLength(0);
       set.mockRestore();
       toast.mockRestore();

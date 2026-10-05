@@ -12,14 +12,21 @@
       body: string;
       tasks: readonly TaskId[];
       sites: readonly string[];
-    }) => void | Promise<void>;
+    }) => void | boolean | Promise<void | boolean>;
+    /** Runs after Cancel closes the form, so the parent can move focus off the hidden button. */
+    onCancel?: () => void;
     /** Every task, on or off, custom ones included. */
     taskViews?: readonly TaskView[];
     /** The form's disclosure; the empty state opens it. */
     open?: boolean;
   }
 
-  let { onSubmit, taskViews = SHIPPED_TASK_VIEWS, open = $bindable(false) }: Props = $props();
+  let {
+    onSubmit,
+    onCancel,
+    taskViews = SHIPPED_TASK_VIEWS,
+    open = $bindable(false),
+  }: Props = $props();
 
   let manualBody = $state('');
   let manualTasks = $state<TaskId[]>([]);
@@ -51,12 +58,17 @@
   function cancel(): void {
     reset();
     open = false;
+    onCancel?.();
   }
 
   async function submit(): Promise<void> {
     const body = manualBody.trim();
     if (body.length === 0) return;
-    await onSubmit({ body, tasks: [...manualTasks], sites: parseSites(manualSites) });
+    // A failed write keeps the text, so the user can try again.
+    if (
+      (await onSubmit({ body, tasks: [...manualTasks], sites: parseSites(manualSites) })) === false
+    )
+      return;
     reset();
   }
 </script>

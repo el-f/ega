@@ -24,7 +24,8 @@ export interface TemplatesHandlers {
   setGlobalMaxTokens: (v: number) => Promise<void>;
   setGlobalEffort: (v: Effort) => Promise<void>;
   setTaskTemplate: (task: Task, tpl: PromptTemplate | null) => Promise<void>;
-  updateRules: (next: readonly Rule[]) => Promise<void>;
+  /** False when the write failed; the user has already been told. */
+  updateRules: (next: readonly Rule[]) => Promise<boolean>;
   savePerPreset: (presetId: string, tpl: PromptTemplate) => Promise<void>;
   clearPerPreset: (presetId: string) => Promise<void>;
 }
@@ -66,11 +67,12 @@ export function createTemplatesHandlers(ctx: TemplatesHandlerCtx): TemplatesHand
     if (next) setSettings(next);
   }
 
-  async function updateRules(next: readonly Rule[]): Promise<void> {
+  async function updateRules(next: readonly Rule[]): Promise<boolean> {
     const saved = await saveVia(() =>
       updateSettings({ advanced: { rules: [...next] } as Settings['advanced'] }),
     );
     if (saved) setSettings(saved);
+    return saved !== null;
   }
 
   // Stores only the halves that differ from the Translate prompt read under the lock; none left drops the language prompt.

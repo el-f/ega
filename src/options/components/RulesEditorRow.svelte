@@ -11,10 +11,12 @@
   import { RULE_BODY_MAX } from '@/shared/settings-schema';
   import Trash2 from '@lucide/svelte/icons/trash-2';
   import Pencil from '@lucide/svelte/icons/pencil';
+  import { scrollBehavior } from '@/options/deep-link';
 
   interface Props {
     rule: Rule;
-    onBodyChange: (body: string) => void | Promise<void>;
+    /** Returns false when the write failed, so the row does not say Saved. */
+    onBodyChange: (body: string) => void | boolean | Promise<void | boolean>;
     onCategoryChange: (category: RuleCategory) => void | Promise<void>;
     onToggleEnabled: () => void | Promise<void>;
     onToggleTask: (task: string) => void | Promise<void>;
@@ -56,7 +58,7 @@
   let rowEl = $state<HTMLElement | null>(null);
 
   $effect(() => {
-    if (highlight) rowEl?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    if (highlight) rowEl?.scrollIntoView({ block: 'nearest', behavior: scrollBehavior() });
   });
 
   $effect(() => () => clearTimeout(savedTimer));
@@ -65,7 +67,7 @@
     const trimmed = editingDraft.trim();
     editing = false;
     if (trimmed.length === 0 || trimmed === rule.body) return;
-    await onBodyChange(trimmed);
+    if ((await onBodyChange(trimmed)) === false) return;
     saved = true;
     clearTimeout(savedTimer);
     savedTimer = setTimeout(() => (saved = false), 2000);
@@ -79,6 +81,10 @@
   let scopeAnchor = $state<HTMLElement | null>(null);
   let scopeOpen = $state(false);
   const allTasks = $derived(rule.scope.tasks.length === 0);
+  // Every row has an Edit scope button, so its name carries the start of the rule.
+  const shortBody = $derived(
+    rule.body.length > 40 ? `${rule.body.slice(0, 40).trimEnd()}…` : rule.body,
+  );
 
   function toggleScopeTask(id: string, on: boolean): void {
     void onSetTasks(
@@ -124,12 +130,13 @@
         onclick={startEdit}
         title="Click to edit"
         data-ega-rule-body
-        id="rule-body-{rule.id}"
       >
         {rule.body}
         <Pencil size={12} class="edit-glyph" aria-hidden="true" />
       </button>
     {/if}
+    <!-- Present in edit mode too, so the On checkbox's description never points at nothing. -->
+    <span id="rule-body-{rule.id}" hidden>{rule.body}</span>
     <span class="saved" role="status">{saved ? 'Saved' : ''}</span>
     <div class="rule-meta">
       <Select
@@ -179,7 +186,12 @@
             variant="ghost"
             size="sm"
             extraClass="scope-edit-btn"
-            dataAttrs={{ 'data-ega-rule-edit-scope': 'true' }}
+            ariaLabel={`Edit scope: ${shortBody}`}
+            dataAttrs={{
+              'data-ega-rule-edit-scope': 'true',
+              'aria-haspopup': 'dialog',
+              'aria-expanded': scopeOpen ? 'true' : 'false',
+            }}
             onclick={() => (scopeOpen = !scopeOpen)}
           >
             Edit scope
