@@ -48,3 +48,26 @@ describe.each(Object.entries(THEMES))('%s theme contrast', (_name, decls) => {
     expect(ratio(fg, token(decls, '--color-accent'))).toBeGreaterThanOrEqual(4.5);
   });
 });
+
+describe('prefers-contrast: more', () => {
+  const start = css.indexOf('@media (prefers-contrast: more)');
+  const end = css.indexOf('/* 0.01ms', start);
+  const section = css.slice(start, end);
+  // One rule per theme selector; each must raise the control edge with the plain border.
+  const rules = [...section.matchAll(/\{([^{}]*--color-border:[^{}]*)\}/g)].map((m) => m[1] ?? '');
+
+  it('covers all four theme selectors', () => {
+    expect(rules).toHaveLength(4);
+  });
+
+  it.each(rules.map((r, i) => [i, r] as const))(
+    'rule %i draws a control edge at least as strong as a plain border',
+    (_i, decls) => {
+      const isLight = lum(token(decls, '--color-border')) > 0.18;
+      const bg = isLight ? '#ffffff' : '#111113';
+      expect(ratio(token(decls, '--color-control-border'), bg)).toBeGreaterThanOrEqual(
+        ratio(token(decls, '--color-border'), bg),
+      );
+    },
+  );
+});

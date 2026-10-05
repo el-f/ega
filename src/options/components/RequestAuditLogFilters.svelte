@@ -151,7 +151,7 @@
     appearance: none;
     background-color: var(--color-bg-elevated);
     color: var(--color-fg);
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--color-control-border);
     border-radius: var(--radius-sm);
     padding: var(--space-1) var(--space-2);
     font-size: var(--fs-sm);

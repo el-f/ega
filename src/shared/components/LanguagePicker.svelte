@@ -116,7 +116,7 @@
     /* Optgroups don't fit the Select primitive's flat option contract, so its rules are repeated here. */
     background: var(--color-bg-elevated);
     color: var(--color-fg);
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--color-control-border);
     border-radius: var(--radius-md);
     font-family: var(--font-ui);
     font-size: var(--fs-sm);

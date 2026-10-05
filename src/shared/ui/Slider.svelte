@@ -222,7 +222,7 @@
     flex: 1 1 auto;
     height: 6px;
     background: var(--color-bg-elevated);
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--color-control-border);
     border-radius: var(--radius-pill);
     overflow: visible;
   }

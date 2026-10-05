@@ -242,12 +242,14 @@
   --color-dot-neutral: #43484e;
 }
 
-/* Stronger borders for prefers-contrast: more (3:1 against --color-bg); dark block last so it wins on equal specificity. */
+/* Stronger borders for prefers-contrast: more (3:1 against --color-bg); dark block last so it wins on equal specificity.
+   A control edge stays at least as strong as a plain border. */
 @media (prefers-contrast: more) {
   :root,
   :host {
     --color-border-subtle: #5a6169; /* slate.8 dark — 3.01:1 on --color-bg */
     --color-border: #696e77; /* slate.9 dark — 3.68:1 */
+    --color-control-border: #777b84; /* slate.10 dark — 4.45:1 */
   }
 }
 @media (prefers-contrast: more) and (prefers-color-scheme: light) {
@@ -255,6 +257,7 @@
   :host {
     --color-border-subtle: #8b8d98; /* slate.9 light — 3.22:1 on --color-bg */
     --color-border: #80838d; /* slate.10 light — 3.69:1 */
+    --color-control-border: #60646c; /* slate.11 light — 5.79:1 */
   }
 }
 @media (prefers-contrast: more) {
@@ -262,11 +265,13 @@
   :host([data-theme='light']) {
     --color-border-subtle: #8b8d98;
     --color-border: #80838d;
+    --color-control-border: #60646c;
   }
   [data-theme='dark'],
   :host([data-theme='dark']) {
     --color-border-subtle: #5a6169;
     --color-border: #696e77;
+    --color-control-border: #777b84;
   }
 }
 

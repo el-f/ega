@@ -117,7 +117,7 @@
     max-height: min(48vh, 32rem);
     resize: vertical;
     padding: var(--space-2);
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--color-control-border);
     border-radius: var(--radius-md);
     background: var(--color-bg);
     color: var(--color-fg);

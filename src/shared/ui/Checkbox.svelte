@@ -138,6 +138,14 @@
   .ega-checkbox-input:indeterminate {
     --ega-check-glyph: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M3.5 8h9' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'/></svg>");
   }
+  /* High Contrast forces background-color to Canvas, which would paint the mask glyph invisible. */
+  @media (forced-colors: active) {
+    .ega-checkbox-input:checked::after,
+    .ega-checkbox-input:indeterminate::after {
+      forced-color-adjust: none;
+      background-color: CanvasText;
+    }
+  }
   .ega-modified-dot {
     display: inline-block;
     width: 4px;
