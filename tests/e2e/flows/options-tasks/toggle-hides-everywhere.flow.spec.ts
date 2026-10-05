@@ -74,6 +74,9 @@ test('turning Reword off hides it in the chip strip, palette, Try as and tooltip
   await expect(items.first()).toBeVisible();
   await panel.keyboard.press('ArrowDown');
   await panel.keyboard.press('ArrowDown');
+  // The panel's j/k navigation must not take the arrows: focus stays on an item, no turn gets the ring.
+  await expect(panel.locator('[data-ega-task-switch-item]:focus')).toHaveCount(1);
+  await expect(panel.locator('.ega-assistant-turn.focused, .ega-user-turn.focused')).toHaveCount(0);
   await panel.keyboard.press('Escape');
   await expect(items).toHaveCount(0);
   await expect(rerun).toBeFocused();

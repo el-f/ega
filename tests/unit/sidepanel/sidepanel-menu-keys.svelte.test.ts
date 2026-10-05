@@ -1,0 +1,125 @@
+// @vitest-environment jsdom
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import type { Mock } from 'vitest';
+import { render, fireEvent, waitFor } from '@testing-library/svelte';
+import { tick } from 'svelte';
+import SidePanel from '@/sidepanel/SidePanel.svelte';
+import type { Msg } from '@/shared/messages';
+import { openTaskMenu } from './_task-menu';
+
+const sendMessage = chrome.runtime.sendMessage as Mock;
+
+function startCalls(): Array<Record<string, unknown>> {
+  return (sendMessage.mock.calls as Array<[unknown]>)
+    .map(([m]) => m as Record<string, unknown>)
+    .filter((m) => m['kind'] === 'translate:start');
+}
+
+async function sendAndDrain(container: HTMLElement, text: string): Promise<void> {
+  const textarea = container.querySelector<HTMLTextAreaElement>('#sp-text');
+  if (!textarea) throw new Error('sp-text textarea not found');
+  await fireEvent.input(textarea, { target: { value: text } });
+  await tick();
+  const sendBtn = container.querySelector<HTMLButtonElement>('.ega-send');
+  if (!sendBtn) throw new Error('send button not found');
+  await fireEvent.click(sendBtn);
+  await tick();
+  const requestId = startCalls().at(-1)?.['requestId'] as string | undefined;
+  if (!requestId) throw new Error('no translate:start requestId found');
+  (chrome.runtime.onMessage as unknown as { emit: (...args: unknown[]) => void }).emit(
+    { kind: 'translate:chunk', chunk: { type: 'done', requestId, confidence: 0.9 } } satisfies Msg,
+    { id: chrome.runtime.id },
+    () => {},
+  );
+  await tick();
+  await tick();
+}
+
+/** onMount reads settings asynchronously; a send before it lands goes nowhere. */
+async function settleMount(container: HTMLElement): Promise<void> {
+  await waitFor(() => {
+    if (!container.querySelector('#sp-conv-source optgroup')) throw new Error('mount not settled');
+  });
+}
+
+/** Opens Try as… and waits for bits-ui to move focus onto the first item. */
+async function openMenuFocused(container: HTMLElement): Promise<HTMLElement> {
+  await openTaskMenu(container);
+  await waitFor(() => {
+    if (!document.activeElement?.hasAttribute('data-ega-task-switch-item'))
+      throw new Error('focus not in the menu');
+  });
+  return document.activeElement as HTMLElement;
+}
+
+const focusedRing = (container: HTMLElement): Element | null => container.querySelector('.focused');
+
+beforeEach(async () => {
+  await chrome.storage.local.clear();
+  await chrome.storage.session.clear();
+  sendMessage.mockResolvedValue({ ok: true });
+});
+
+afterEach(() => {
+  vi.clearAllMocks();
+});
+
+describe('SidePanel — keys typed inside a reply menu stay in the menu', () => {
+  it('ArrowDown, e and c in the Try as… menu do not walk the thread, edit or jump to the composer', async () => {
+    const { container } = render(SidePanel);
+    await settleMount(container);
+    await sendAndDrain(container, 'hola');
+    await waitFor(() => {
+      if (!container.querySelector('[data-ega-task-switch]')) throw new Error('reply not rendered');
+    });
+
+    const first = await openMenuFocused(container);
+
+    await fireEvent.keyDown(first, { key: 'ArrowDown' });
+    await tick();
+    expect(focusedRing(container)).toBeNull();
+    // bits-ui moved the highlight to the next item; the panel did not pull focus onto a turn.
+    expect(document.activeElement?.hasAttribute('data-ega-task-switch-item')).toBe(true);
+    expect(document.activeElement).not.toBe(first);
+
+    await fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'e' });
+    await fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'c' });
+    await tick();
+    expect(container.querySelector('.sp-editing-cancel')).toBeNull();
+    expect(document.activeElement?.id).not.toBe('sp-text');
+  });
+
+  it('r typed in the menu does not re-run the focused reply', async () => {
+    const { container } = render(SidePanel);
+    await settleMount(container);
+    await sendAndDrain(container, 'hola');
+    await openMenuFocused(container);
+    const before = startCalls().length;
+    // Keys go where focus is, as for a real user: two leaked arrows walk the ring to the reply, then 'r' retries it.
+    await fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'ArrowDown' });
+    await fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'ArrowDown' });
+    await fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'r' });
+    // A leaked retry reaches sendMessage a few awaits later; with the guard reverted this goes red.
+    await new Promise((r) => setTimeout(r, 50));
+
+    expect(startCalls().length).toBe(before);
+    expect(focusedRing(container)).toBeNull();
+  });
+
+  it('ArrowDown on the Try as… trigger opens the menu without walking the thread', async () => {
+    const { container } = render(SidePanel);
+    await settleMount(container);
+    await sendAndDrain(container, 'hola');
+    const trigger = container.querySelector<HTMLElement>('[data-ega-task-switch]');
+    if (!trigger) throw new Error('Try as trigger missing');
+    trigger.focus();
+
+    await fireEvent.keyDown(trigger, { key: 'ArrowDown' });
+    await tick();
+
+    expect(focusedRing(container)).toBeNull();
+    await waitFor(() => {
+      if (!document.querySelector('[data-ega-task-switch-item]')) throw new Error('menu not open');
+    });
+  });
+});

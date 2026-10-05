@@ -542,8 +542,9 @@
   /** Every bare-key shortcut is off while the user is typing. */
   function isTextEntry(target: EventTarget | null): boolean {
     return (
-      // A native select owns its own arrow keys and letter type-ahead.
+      // A native select or a bits-ui menu owns its own arrow keys and letter type-ahead.
       target instanceof HTMLSelectElement ||
+      (target instanceof Element && target.closest('[role="menu"]') !== null) ||
       target instanceof HTMLTextAreaElement ||
       target instanceof HTMLInputElement ||
       (target instanceof HTMLElement && target.isContentEditable)
