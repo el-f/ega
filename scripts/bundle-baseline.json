@@ -1,7 +1,7 @@
 [
   {
     "name": "Advanced",
-    "bytes": 62063
+    "bytes": 61209
   },
   {
     "name": "batch-progress",
@@ -13,11 +13,11 @@
   },
   {
     "name": "build-config",
-    "bytes": 33197
+    "bytes": 33187
   },
   {
     "name": "cancel-token",
-    "bytes": 17997
+    "bytes": 17987
   },
   {
     "name": "chat-history",
@@ -25,7 +25,7 @@
   },
   {
     "name": "command-registry",
-    "bytes": 33508
+    "bytes": 33458
   },
   {
     "name": "customs-cache",
@@ -37,7 +37,7 @@
   },
   {
     "name": "EffortSegmented",
-    "bytes": 2031
+    "bytes": 2021
   },
   {
     "name": "EmptyState",
@@ -65,11 +65,11 @@
   },
   {
     "name": "Glossary",
-    "bytes": 9614
+    "bytes": 12066
   },
   {
     "name": "IconButton",
-    "bytes": 3891
+    "bytes": 3901
   },
   {
     "name": "image-url-guard",
@@ -77,15 +77,15 @@
   },
   {
     "name": "index",
-    "bytes": 117576
+    "bytes": 117211
   },
   {
     "name": "index.html",
-    "bytes": 378088
+    "bytes": 384855
   },
   {
     "name": "index.ts",
-    "bytes": 39526
+    "bytes": 39511
   },
   {
     "name": "index.ts-loader",
@@ -108,20 +108,16 @@
     "bytes": 2288
   },
   {
-    "name": "open-options-tab",
-    "bytes": 41053
-  },
-  {
     "name": "page-styles",
     "bytes": 2474
   },
   {
     "name": "page-translate-v2",
-    "bytes": 19938
+    "bytes": 19940
   },
   {
     "name": "pending-popup-handoff",
-    "bytes": 2107
+    "bytes": 2097
   },
   {
     "name": "perf-history",
@@ -161,11 +157,15 @@
   },
   {
     "name": "saved-conversations",
-    "bytes": 1690
+    "bytes": 1680
   },
   {
     "name": "SectionReset",
     "bytes": 1376
+  },
+  {
+    "name": "select",
+    "bytes": 41053
   },
   {
     "name": "Select",
@@ -173,11 +173,11 @@
   },
   {
     "name": "selection-cap-copy",
-    "bytes": 11866
+    "bytes": 11856
   },
   {
     "name": "SelectionBubble",
-    "bytes": 9009
+    "bytes": 9330
   },
   {
     "name": "settings-bus",
@@ -205,15 +205,15 @@
   },
   {
     "name": "Tasks",
-    "bytes": 46095
+    "bytes": 46086
   },
   {
     "name": "TemplateEditor",
-    "bytes": 28038
+    "bytes": 28027
   },
   {
     "name": "theme",
-    "bytes": 6591
+    "bytes": 6581
   },
   {
     "name": "theme-apply",
@@ -233,7 +233,7 @@
   },
   {
     "name": "Translate",
-    "bytes": 43600
+    "bytes": 43589
   },
   {
     "name": "translate-handlers",
@@ -241,7 +241,7 @@
   },
   {
     "name": "translate-ui",
-    "bytes": 2794
+    "bytes": 2784
   },
   {
     "name": "types",
@@ -253,7 +253,7 @@
   },
   {
     "name": "vendor-bits-ui",
-    "bytes": 193143
+    "bytes": 193139
   },
   {
     "name": "vendor-bits-ui-menu",
@@ -265,7 +265,7 @@
   },
   {
     "name": "vendor-lucide",
-    "bytes": 26298
+    "bytes": 26608
   },
   {
     "name": "vendor-marked",
@@ -273,10 +273,10 @@
   },
   {
     "name": "vendor-svelte",
-    "bytes": 58460
+    "bytes": 58475
   },
   {
     "name": "vendor-svelte-extras",
-    "bytes": 74575
+    "bytes": 74573
   }
 ]
