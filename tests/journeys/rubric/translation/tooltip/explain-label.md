@@ -8,12 +8,12 @@
 ## State expectations
 
 - Step 1: tooltip shows the "Translating…" shimmer label, or the finished translation.
-- Step 2 (Explain: the "?" button, or task Explain): the tooltip reopens with a shimmer labeled "Explaining…"; the old body is gone.
-- Step 3: text streams into the body and the shimmer label goes away; an explanation from the "?" button shows under "Context & subtext" when the reply finishes.
+- Step 2 (Explain: the labeled "Explain" button, or task Explain): the tooltip reopens with a shimmer labeled "Explaining…"; the old body is gone.
+- Step 3: text streams into the body and the shimmer label goes away; an explanation from the "Explain" button shows under "Context & subtext" when the reply finishes.
 
 ## Visible affordances
 
-- Explain is a "?" icon button in the action row (`aria-label="Explain this translation"`), absent until the first text arrives (the loading row shows only Cancel); the topbar Task select also offers Explain.
+- Explain is a labeled button in the action row: a question-mark icon plus the visible word "Explain" (`aria-label="Explain this translation"`), absent until the first text arrives (the loading row shows only Cancel); the topbar Task select also offers Explain.
 - The shimmer label uses present-continuous ("Explaining…" not "Explain") consistent with copy-consistency rule.
 
 ## Failure-mode expectations
@@ -22,4 +22,4 @@
 
 ## Cautions
 
-- The "?" Explain button is HIDDEN on image-translate tooltips (`imageUrl` set) — there is no source text to explain.
+- The "Explain" button is HIDDEN on image-translate tooltips (`imageUrl` set) — there is no source text to explain.

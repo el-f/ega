@@ -15,7 +15,7 @@
 
 ## Failure-mode expectations
 
-- A selection shorter than the minimum length (Settings → Selection & picker → Smart mode) never mounts the bubble. That is a different case from this one.
+- A Latin-script selection shorter than the minimum length (Settings → Selection & picker → Smart mode) never mounts the bubble; two or more non-Latin letters show it at any length. That is a different case from this one.
 
 ## Cautions
 

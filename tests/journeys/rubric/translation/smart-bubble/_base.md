@@ -9,8 +9,8 @@
 
 ## Heuristics
 
-- Heuristic gates: minimum length, script detection, digit count, English check. A bubble on confidently English text, or on a selection below the minimum length, is a bug, not an edge case.
-- Arabizi is the canonical positive case, with or without digits, and also when short but at or above the minimum length. English text and selections below the minimum length are the canonical negative cases.
+- Heuristic gates, in order: script detection, minimum length, digit count, English check. Two or more non-Latin letters (Arabic, Hebrew, Cyrillic, CJK…) always show the bubble, at any minimum length; the minimum governs Latin-script text only. A bubble on confidently English text, or on a Latin-script selection below the minimum length, is a bug, not an edge case.
+- Arabizi is the canonical positive case, with or without digits, and also when short but at or above the minimum length. English text and Latin-script selections below the minimum length are the canonical negative cases.
 
 ## Dismissal + persistence
 
