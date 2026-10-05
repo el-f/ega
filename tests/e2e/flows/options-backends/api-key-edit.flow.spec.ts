@@ -23,6 +23,8 @@ test('Anthropic API-key input persists anthropicApiKey to storage', async () => 
 
   // CloudProviderCard renders an Input with placeholder = card.keyPlaceholder.
   // Anthropic placeholder is "sk-ant-…".
+  // Backend cards start collapsed, so open the Anthropic card first.
+  await page.locator('details[data-backend-id="anthropic"] > summary').click();
   const keyInput = page.locator('input[placeholder^="sk-ant-"]').first();
   await expect(keyInput).toBeVisible({ timeout: 5_000 });
   await keyInput.fill('sk-ant-test12345');

@@ -165,7 +165,8 @@
     <div class="cp-key-meta" role="status">
       {#if keySaved && (keyDraft ?? apiKey) === apiKey}
         <small class="cp-saved">{apiKey ? 'Key saved.' : 'Key removed.'}</small>
-      {:else if apiKey && editedAgo}
+      {/if}
+      {#if apiKey && editedAgo}
         <small class="cp-edited">Edited {editedAgo}</small>
       {/if}
     </div>
