@@ -132,10 +132,14 @@
   );
 
   // Swap re-sends the original selection with the pair flipped; it does not translate the reply back.
+  // The visible label starts with the accessible name, so a voice user can say what they see (WCAG 2.5.3).
+  const swapName = $derived(
+    swapDisabled ? 'Swap direction — pick a source language first' : 'Swap direction',
+  );
   const swapTip = $derived.by(() => {
-    if (swapDisabled) return 'Swap languages: pick a source language first';
-    if (!direction) return 'Swap languages and translate again';
-    return `Swap languages and translate again (${langName(direction.target)} → ${langName(direction.source)})`;
+    if (swapDisabled) return swapName;
+    if (!direction) return 'Swap direction and translate again';
+    return `Swap direction and translate again (${langName(direction.target)} → ${langName(direction.source)})`;
   });
 
   // Same gate as the side panel: a terminal code re-fails identically, unless the error names a Settings
@@ -326,9 +330,7 @@
           <!-- aria-disabled, not disabled: a disabled button cannot take focus, so its reason would be hover-only. -->
           <button
             class="icon-btn"
-            aria-label={swapDisabled
-              ? 'Swap direction — pick a source language first'
-              : 'Swap direction'}
+            aria-label={swapName}
             aria-disabled={swapDisabled}
             data-tooltip={swapTip}
             onclick={swap}

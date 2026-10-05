@@ -318,7 +318,7 @@ describe('Tooltip smoke', () => {
     const swap = container.querySelector('button[aria-label="Swap direction"]');
     const close = container.querySelector('button[aria-label="Close"]');
     expect(copy?.getAttribute('data-tooltip')).toBe('Copy');
-    expect(swap?.getAttribute('data-tooltip')).toBe('Swap languages and translate again');
+    expect(swap?.getAttribute('data-tooltip')).toBe('Swap direction and translate again');
     expect(close?.getAttribute('data-tooltip')).toBe('Close (Esc)');
   });
 
@@ -445,7 +445,8 @@ describe('Tooltip smoke', () => {
     expect(swap.getAttribute('aria-disabled')).toBe('true');
     swap.focus();
     expect(swap.ownerDocument.activeElement).toBe(swap);
-    expect(swap.getAttribute('data-tooltip')).toMatch(/pick a source language first/i);
+    // The visible reason is the accessible name, word for word (label in name).
+    expect(swap.getAttribute('data-tooltip')).toBe('Swap direction — pick a source language first');
     await fireEvent.click(swap);
     expect(onswap).not.toHaveBeenCalled();
   });
@@ -494,7 +495,7 @@ describe('Tooltip smoke', () => {
     });
     const swap = container.querySelector('button[aria-label="Swap direction"]');
     expect(swap?.getAttribute('data-tooltip')).toBe(
-      'Swap languages and translate again (Spanish → English)',
+      'Swap direction and translate again (Spanish → English)',
     );
   });
 
