@@ -6,12 +6,17 @@ import { chromeMock, resetChromeMock } from '../../mocks/chrome';
 import { confirmDialog } from '@/shared/components/confirmDialog';
 import { toastStore } from '@/shared/components/toastStore';
 import { getCustomLanguages, getSettings } from '@/shared/storage';
+import { updateVariety } from '@/shared/varieties';
 
 vi.mock('@/shared/components/confirmDialog', () => ({
   confirmDialog: vi.fn(async () => true),
 }));
 
-const Languages = (await import('@/options/tabs/Languages.svelte')).default;
+const languagesModule = await import('@/options/tabs/Languages.svelte');
+const Languages = languagesModule.default;
+// tsc reads a .svelte file through the ambient module type, which knows only the default export.
+const { discardAllDrafts } = languagesModule as unknown as { discardAllDrafts: () => void };
+const { default: About } = await import('@/options/tabs/About.svelte');
 
 const KEY = 'ega.customLanguages';
 let id = '';
@@ -241,6 +246,145 @@ describe('Languages tab — Save after the stored language moved', () => {
       ),
     );
     expect((await getCustomLanguages())[0]?.hint).toBe('their hint');
+    expect(hint().value).toBe('my hint');
+  });
+});
+
+describe('Languages tab — after a save conflict', () => {
+  beforeEach(() => {
+    resetChromeMock();
+    vi.restoreAllMocks();
+    vi.mocked(confirmDialog).mockResolvedValue(true);
+  });
+
+  it('Discard changes loads the stored version the toast names, and the next save lands', async () => {
+    seed();
+    const push = vi.spyOn(toastStore, 'push');
+    render(Languages);
+    await openAndEdit('my hint');
+    storeLang({ hint: 'their hint' });
+    await fireEvent.click(commitButton('Save language'));
+    await waitFor(() =>
+      expect(push).toHaveBeenCalledWith(
+        expect.objectContaining({ message: expect.stringContaining('Nothing was saved') }),
+      ),
+    );
+
+    await fireEvent.click(commitButton('Discard changes'));
+    await waitFor(() => expect(hint().value).toBe('their hint'));
+    await fireEvent.input(hint(), { target: { value: 'merged by hand' } });
+    await fireEvent.click(commitButton('Save language'));
+    await waitFor(async () => expect((await getCustomLanguages())[0]?.hint).toBe('merged by hand'));
+    await waitFor(() => expect(rowEl()?.querySelector('.badge-unsaved')).toBeNull());
+  });
+});
+
+describe('Languages tab — Save when storage already holds the edit', () => {
+  beforeEach(() => {
+    resetChromeMock();
+    vi.restoreAllMocks();
+    vi.mocked(confirmDialog).mockResolvedValue(true);
+  });
+
+  it('ends the draft: no Unsaved tag, no Discard button, no unload prompt', async () => {
+    render(Languages);
+    const row = await waitFor(() => {
+      const el = document.getElementById('enable-arabizi')?.closest('.variety-row');
+      if (!el) throw new Error('arabizi row not found');
+      return el;
+    });
+    const name = row.querySelector<HTMLButtonElement>('button.variety-label-inline');
+    if (!name) throw new Error('name button not found');
+    await fireEvent.click(name);
+    const field = await waitFor(() => {
+      const el = document.getElementById('hint-arabizi');
+      if (!(el instanceof HTMLTextAreaElement)) throw new Error('hint field not found');
+      return el;
+    });
+    await fireEvent.input(field, { target: { value: 'the same hint' } });
+    await waitFor(() => expect(row.querySelector('.badge-unsaved')).toBeTruthy());
+    // Another window saves the same text first.
+    await updateVariety('arabizi', { hint: 'the same hint' });
+
+    await fireEvent.click(commitButton('Save language'));
+    await waitFor(() => expect(row.querySelector('.badge-unsaved')).toBeNull());
+    expect(
+      [...row.querySelectorAll('.variety-commit-row button')].map((b) => b.textContent.trim()),
+    ).not.toContain('Discard changes');
+    expect(unloadBlocked()).toBe(false);
+  });
+});
+
+describe('Languages tab — Delete all data', () => {
+  beforeEach(() => {
+    resetChromeMock();
+    vi.restoreAllMocks();
+    vi.mocked(confirmDialog).mockResolvedValue(true);
+  });
+
+  it('discardAllDrafts takes the unload guard off before it returns', async () => {
+    seed();
+    const view = render(Languages);
+    await openAndEdit('my hint');
+    view.unmount();
+    await waitFor(() => expect(unloadBlocked()).toBe(true));
+    discardAllDrafts();
+    // No wait: the reload that follows it runs in the same task.
+    expect(unloadBlocked()).toBe(false);
+  });
+
+  it('leaves no draft to ask about before the page reloads', async () => {
+    seed();
+    const view = render(Languages);
+    await openAndEdit('my hint');
+    view.unmount();
+    await waitFor(() => expect(unloadBlocked()).toBe(true));
+
+    const about = render(About);
+    await fireEvent.click(await about.findByRole('button', { name: /Delete all data/i }));
+    await vi.waitFor(() =>
+      expect(chromeMock.runtime.sendMessage).toHaveBeenCalledWith({ kind: 'cache:clear' }),
+    );
+    await waitFor(() => expect(unloadBlocked()).toBe(false));
+  });
+});
+
+describe('Languages tab — import keeps drafts the file does not hold', () => {
+  beforeEach(() => {
+    resetChromeMock();
+    vi.restoreAllMocks();
+    vi.mocked(confirmDialog).mockResolvedValue(true);
+  });
+
+  it('a one-language file for another language does not ask, and the edit stays', async () => {
+    seed();
+    render(Languages);
+    await openAndEdit('my hint');
+    vi.mocked(confirmDialog).mockClear();
+    await importFile({
+      egaLanguage: {
+        v: 1,
+        language: { id: 'other-lang', label: 'Other Lang', hint: 'h', examples: [], createdAt: 2 },
+      },
+    });
+    await waitFor(async () =>
+      expect((await getCustomLanguages()).map((c) => c.id)).toContain('other-lang'),
+    );
+    expect(confirmDialog).not.toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Discard unsaved language edits?' }),
+    );
+    expect(hint().value).toBe('my hint');
+    expect(rowEl()?.querySelector('.badge-unsaved')).toBeTruthy();
+  });
+
+  it('a file that is not valid fails without asking to discard the edits', async () => {
+    seed();
+    render(Languages);
+    await openAndEdit('my hint');
+    vi.mocked(confirmDialog).mockClear();
+    await importFile({ notAnEgaFile: true });
+    await waitFor(() => expect(document.body.textContent).toContain('Import failed'));
+    expect(confirmDialog).not.toHaveBeenCalled();
     expect(hint().value).toBe('my hint');
   });
 });

@@ -1,4 +1,6 @@
 <script lang="ts" module>
+  import { flushSync } from 'svelte';
+
   /** A row's editable copy. Only customs carry a label: a built-in keeps its shipped one. An empty pattern means none. */
   interface Draft {
     label?: string;
@@ -46,6 +48,17 @@
       return () => window.removeEventListener('beforeunload', warn);
     });
   });
+
+  /** Drops every draft and removes the unload guard before returning, so a reload right after it does not ask. */
+  export function discardAllDrafts(): void {
+    for (const id of Object.keys(draft)) {
+      delete draft[id];
+      delete draftBase[id];
+    }
+    promptDirty = false;
+    // The guard comes off in an effect cleanup, which would otherwise run after the caller's reload.
+    flushSync();
+  }
 </script>
 
 <script lang="ts">
@@ -270,6 +283,8 @@
     const v = (await listVarieties()).find((x) => x.id === stale.id) ?? stale;
     const d = rebase(v.id, mine, v);
     if (!d) {
+      // Discard changes rebuilds from the list, so the list must hold the stored version the toast sends the user to.
+      await refresh();
       toastStore.push({
         message: `"${v.label}" changed in another window or in an import while you edited it, and so did a field you edited. Nothing was saved. Copy your text, press Discard changes to load the new version, then edit again.`,
         variant: 'danger',
@@ -295,6 +310,9 @@
     if (v.kind === 'custom' && d.label) patch.label = d.label;
     // An unchanged built-in would store an override that only shadows the preset.
     if (v.kind !== 'custom' && sameEdit(patch, v)) {
+      // Storage already holds this edit (another window saved it), so the draft ends here too.
+      await refresh();
+      rebuildDraft(v.id);
       saved[v.id] = true;
       setTimeout(() => (saved[v.id] = false), 1500);
       return;
@@ -476,33 +494,44 @@
   }
 
   async function doImportVarieties(file: File): Promise<void> {
-    if (promptDirty || Object.keys(draft).some(draftDirty)) {
-      const discard = await confirmDialog({
+    backupState = null;
+    // A one-language file adds or replaces that language; a full languages file replaces them all.
+    let touches: (id: string) => boolean = () => true;
+    const status = await importBundleFile(file, ['varieties', 'language'], async (bundle) => {
+      if (bundle.kind === 'language') {
+        const only = bundle.language.id;
+        touches = (id) => id === only;
+      }
+      const lost =
+        (promptDirty && promptOpen !== null && touches(promptOpen)) ||
+        Object.keys(draft).some((id) => touches(id) && draftDirty(id));
+      if (!lost) return true;
+      return confirmDialog({
         title: 'Discard unsaved language edits?',
-        body: 'An import replaces the languages it holds, so the edits you have not saved would be lost.',
+        body: 'An import replaces the languages it holds, so the edits you have not saved to them would be lost.',
         confirmLabel: 'Discard and import',
         danger: true,
       });
-      if (!discard) return;
-    }
-    backupState = null;
-    // A one-language file adds or replaces that language; a full languages file replaces them all.
-    const status = await importBundleFile(file, ['varieties', 'language']);
+    });
     if (!status) return;
     backupState = status;
     if (status.kind === 'ok') {
+      // Drafts of languages the file does not hold stay; Save merges them with storage anyway.
       for (const id of Object.keys(draft)) {
+        if (!touches(id)) continue;
         delete draft[id];
         delete draftBase[id];
       }
       // The import can rewrite the language prompts too, so an open prompt editor would show old text.
-      promptOpen = null;
-      promptDirty = false;
+      if (promptOpen !== null && touches(promptOpen)) {
+        promptOpen = null;
+        promptDirty = false;
+      }
       await refresh();
       // An open row needs a draft, or its editor renders empty.
       if (expanded !== null) {
-        if (all.some((v) => v.id === expanded)) rebuildDraft(expanded);
-        else expanded = null;
+        if (!all.some((v) => v.id === expanded)) expanded = null;
+        else if (!draft[expanded]) rebuildDraft(expanded);
       }
     }
   }

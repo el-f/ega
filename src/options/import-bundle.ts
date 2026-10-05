@@ -663,11 +663,13 @@ const KIND_LABEL: Record<ImportBundle['kind'], string> = {
 /**
  * Reads, sniffs and schema-checks the file before the destructive confirm, so a bad pick never asks for one.
  * `expectedKind` narrows a scoped row to the kinds its label promises; omit it on the whole-backup row.
+ * `askFirst` runs once the file is valid, before the import's own confirm; false cancels.
  * Null means canceled.
  */
 export async function importBundleFile(
   file: File,
   expectedKind?: ImportBundle['kind'] | readonly ImportBundle['kind'][],
+  askFirst?: (bundle: ImportBundle) => Promise<boolean>,
 ): Promise<ImportStatus | null> {
   let bundle: ImportBundle;
   try {
@@ -690,6 +692,7 @@ export async function importBundleFile(
         'Restore it from Advanced → Backup & restore.',
     };
   }
+  if (askFirst && !(await askFirst(bundle))) return null;
   const opts = await confirmImport(bundle);
   if (!opts) return null;
   try {
