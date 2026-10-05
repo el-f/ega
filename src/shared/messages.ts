@@ -171,7 +171,8 @@ export interface MsgReply {
   'hotkey:translate': { ok: true };
   'picker:enter': { ok: true };
   'ui:open-options': { ok: boolean };
-  'ui:open-sidepanel': { ok: boolean };
+  /** `imageLeftBehind`: the worker opened the panel without the attach image (unsafe, or over the reader's cap). */
+  'ui:open-sidepanel': { ok: boolean; imageLeftBehind?: true };
   'image:translate': { ok: true };
   'sidepanel:seed-image-translate': void;
   'content:image-translate-pending': { ok: true };

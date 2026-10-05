@@ -246,6 +246,7 @@ function buildTooltipProps(o: OpenOpts, state: TipState): ComponentProps<typeof 
           : {}),
         ...(state.imageUrl ? { imageDataUrl: state.imageUrl } : {}),
         ...(kind === 'open-image' ? { ocrText: state.body } : {}),
+        ...(state.error ? { errorCode: state.error.code } : {}),
       }).then((opened) => {
         if (!opened) {
           showToast('Could not open the side panel.');

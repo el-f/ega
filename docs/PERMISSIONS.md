@@ -110,7 +110,7 @@ Nine slots:
 - `ega.popupDraft` — your unsent popup draft,
 - `ega.sidepanelDraft:<window>` — your unsent side-panel composer draft,
 - `ega.sidepanelDraftImage:<window>` — an image you attached in the composer and
-  have not sent, as a data URL, up to 256 KB
+  have not sent, as a data URL up to 256 KB or the image's web address
   (`src/sidepanel/state/composer-draft.ts#writeComposerDraftImage`). Both draft
   slots are one key per browser window, or the bare `ega.sidepanelDraft` /
   `ega.sidepanelDraftImage` key when the panel cannot read its window id. Keys
@@ -235,7 +235,9 @@ Opens the side panel. Four kinds of trigger, every one started by your click:
 
 Every trigger that carries text or an image with it writes the handoff slot described
 under `storage` above, so the panel opens with your text already in it. A failed
-image lands in the composer and waits for you to send it. The
+image lands in the composer and waits for you to send it. When the image itself
+failed, or the panel cannot take it, the panel opens empty and the page asks
+you to attach the image there. The
 **Side panel** tile carries nothing and writes nothing.
 
 ## `host_permissions: <all_urls>`

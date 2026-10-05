@@ -3,6 +3,7 @@ import {
   openSidePanelWithHandoff,
   type OpenSidePanelHandoff,
 } from '@/background/openSidePanelHandoff';
+import { IMAGE_DATA_URL_MAX_CHARS } from '@/shared/constants';
 
 const handoff: OpenSidePanelHandoff = {
   sourceText: 'hola',
@@ -122,11 +123,45 @@ describe('openSidePanelWithHandoff', () => {
       'data:image/svg+xml;base64,PHN2Zz4=',
       'http://169.254.169.254/a.png',
     ]) {
+      // The panel still opens, and the reply says the image stayed behind so the page can say so.
       await expect(openSidePanelWithHandoff({ ...deps, handoff: attach(bad) })).resolves.toEqual({
         ok: true,
+        imageLeftBehind: true,
       });
     }
     expect(writeHandoff).not.toHaveBeenCalled();
+  });
+
+  it('does not write an image the panel reader would drop for size', async () => {
+    const writeHandoff = vi.fn(() => Promise.resolve());
+    const openSidePanel = vi.fn(() => Promise.resolve());
+    const deps = {
+      tabId: 5,
+      writeHandoff,
+      openSidePanel,
+      queryActiveTabId: () => Promise.resolve(undefined),
+      logError: () => {},
+    };
+    const head = 'data:image/png;base64,';
+    const sized = (chars: number): OpenSidePanelHandoff => ({
+      ...handoff,
+      sourceText: '',
+      imageDataUrl: head + 'A'.repeat(chars - head.length),
+      attachImage: true,
+    });
+
+    await expect(
+      openSidePanelWithHandoff({ ...deps, handoff: sized(IMAGE_DATA_URL_MAX_CHARS) }),
+    ).resolves.toEqual({ ok: true });
+    expect(writeHandoff).toHaveBeenCalledTimes(1);
+
+    writeHandoff.mockClear();
+    // Under the 5 MB fetch cap, so validateImageSrc alone lets it through.
+    await expect(
+      openSidePanelWithHandoff({ ...deps, handoff: sized(IMAGE_DATA_URL_MAX_CHARS + 1) }),
+    ).resolves.toEqual({ ok: true, imageLeftBehind: true });
+    expect(writeHandoff).not.toHaveBeenCalled();
+    expect(openSidePanel).toHaveBeenCalledTimes(2);
   });
 
   it('returns ok:false and logs when openSidePanel rejects', async () => {

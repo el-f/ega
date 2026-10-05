@@ -4,6 +4,9 @@ import type { TaskId } from '@/shared/task-view';
 import { sendMsg } from '@/shared/messages';
 import { IMAGE_TURN_PLACEHOLDER } from '@/shared/constants';
 import { currentSettings } from '@/content/settings-cache';
+import { canHandOffImage } from '@/shared/image-url-guard';
+import type { ErrCode } from '@/shared/types';
+import { showToast } from '../toast';
 
 export type EscalationKind = 'continue' | 'pin' | 'open-image' | 'open-panel';
 
@@ -22,15 +25,25 @@ export interface EscalateArgs {
   ocrText?: string;
   /** Pin mode — an explanation that rides along with the re-dispatch instead of replacing it. */
   explain?: string;
+  /** Open-panel mode — the code the image failed with. */
+  errorCode?: ErrCode;
 }
+
+const IMAGE_LEFT_BEHIND = 'Attach the image in the side panel. Ega cannot pass this one along.';
 
 /** The SW writes the handoff slot before it opens the panel, so a mount during the open call still sees it. True only when the worker says the panel opened with it. */
 export async function escalateToSidepanel(args: EscalateArgs): Promise<boolean> {
   // A failed image goes into the panel's composer, ready to send again; it does not run on its own.
   if (args.subKind === 'open-panel') {
+    const image = args.imageDataUrl;
+    // IMAGE_UNSUPPORTED is the image itself (format, size, an address Ega cannot fetch), so a re-send from the panel fails the same way.
+    const attach =
+      image !== undefined && args.errorCode !== 'IMAGE_UNSUPPORTED' && canHandOffImage(image)
+        ? image
+        : undefined;
     try {
       const reply = await sendMsg(
-        args.imageDataUrl
+        attach !== undefined
           ? {
               kind: 'ui:open-sidepanel',
               handoff: {
@@ -39,13 +52,18 @@ export async function escalateToSidepanel(args: EscalateArgs): Promise<boolean> 
                 targetLang: args.targetLang,
                 task: 'translate',
                 tone: args.tone ?? currentSettings()?.defaultTone ?? 'neutral',
-                imageDataUrl: args.imageDataUrl,
+                imageDataUrl: attach,
                 attachImage: true,
               },
             }
           : { kind: 'ui:open-sidepanel' },
       );
-      return reply?.ok === true;
+      if (reply?.ok !== true) return false;
+      // The worker re-checks the image and may leave it behind too; either way the panel opens empty.
+      if (image !== undefined && (attach === undefined || reply.imageLeftBehind === true)) {
+        showToast(IMAGE_LEFT_BEHIND);
+      }
+      return true;
     } catch {
       return false;
     }

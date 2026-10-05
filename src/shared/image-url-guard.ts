@@ -1,4 +1,4 @@
-import { IMAGE_FETCH_MAX_BYTES } from './constants';
+import { IMAGE_DATA_URL_MAX_CHARS, IMAGE_FETCH_MAX_BYTES } from './constants';
 /** Loopback and RFC1918 pass on purpose: the user could already render the image. */
 export function validateImageUrl(raw: string): { ok: true } | { ok: false; reason: string } {
   let url: URL;
@@ -81,6 +81,11 @@ export function validateImageSrc(raw: string): { ok: true } | { ok: false; reaso
 
 export function isSafeRenderImageSrc(raw: string): boolean {
   return validateImageSrc(raw).ok;
+}
+
+/** A tooltip image the side panel can take: safe to render, and under the cap the handoff reader keeps. */
+export function canHandOffImage(src: string): boolean {
+  return src.length <= IMAGE_DATA_URL_MAX_CHARS && validateImageSrc(src).ok;
 }
 
 /** Why a composer image cannot be sent, worded for the user; null when it can. */

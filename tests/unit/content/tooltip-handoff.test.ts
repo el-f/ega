@@ -3,11 +3,17 @@ import { escalateToSidepanel } from '@/content/tooltip/handoff';
 import { chromeMock } from '@tests/mocks/chrome';
 import { setSettings } from '@/content/settings-cache';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
+import { IMAGE_DATA_URL_MAX_CHARS } from '@/shared/constants';
+import type { ErrCode } from '@/shared/types';
+
+const toastMock = vi.hoisted(() => ({ showToast: vi.fn() }));
+vi.mock('@/content/toast', () => toastMock);
 
 describe('escalateToSidepanel', () => {
   let lastMessage: { kind: string; handoff?: Record<string, unknown> } | null = null;
 
   beforeEach(() => {
+    toastMock.showToast.mockClear();
     lastMessage = null;
     chromeMock.runtime.sendMessage = vi.fn(async (msg: unknown) => {
       lastMessage = msg as { kind: string; handoff?: Record<string, unknown> };
@@ -153,6 +159,69 @@ describe('escalateToSidepanel', () => {
       }),
     ).resolves.toBe(true);
     expect(lastMessage).toEqual({ kind: 'ui:open-sidepanel' });
+  });
+
+  describe('open-panel leaves an image behind when the panel cannot use it', () => {
+    const openPanel = (imageDataUrl: string, errorCode?: ErrCode): Promise<boolean> =>
+      escalateToSidepanel({
+        subKind: 'open-panel',
+        text: '',
+        sourceLang: 'auto',
+        targetLang: 'en',
+        imageDataUrl,
+        ...(errorCode ? { errorCode } : {}),
+      });
+    const leftBehind = (): boolean =>
+      toastMock.showToast.mock.calls.some(([m]) =>
+        /attach the image in the side panel/i.test(String(m)),
+      );
+
+    it.each([
+      ['an SVG data URL', 'data:image/svg+xml;base64,PHN2Zz4='],
+      ['a script URL', 'javascript:alert(1)'],
+      ['a metadata address', 'http://169.254.169.254/a.png'],
+      [
+        'a data URL over the panel reader cap',
+        'data:image/png;base64,' + 'A'.repeat(IMAGE_DATA_URL_MAX_CHARS),
+      ],
+    ])('%s: opens the panel without it and says to attach it there', async (_, src) => {
+      await expect(openPanel(src)).resolves.toBe(true);
+      expect(lastMessage).toEqual({ kind: 'ui:open-sidepanel' });
+      expect(leftBehind()).toBe(true);
+    });
+
+    it('an image the model cannot read is not attached: a re-send would fail the same way', async () => {
+      await expect(openPanel('https://example.test/a.png', 'IMAGE_UNSUPPORTED')).resolves.toBe(
+        true,
+      );
+      expect(lastMessage).toEqual({ kind: 'ui:open-sidepanel' });
+      expect(leftBehind()).toBe(true);
+    });
+
+    it.each<ErrCode>(['NETWORK', 'TIMEOUT', 'SERVER', 'AUTH', 'QUOTA', 'RATE_LIMIT', 'NO_BACKEND'])(
+      'a %s failure still attaches the image: the next try can work',
+      async (code) => {
+        await expect(openPanel('https://example.test/a.png', code)).resolves.toBe(true);
+        expect(lastMessage?.handoff).toMatchObject({ attachImage: true });
+        expect(toastMock.showToast).not.toHaveBeenCalled();
+      },
+    );
+
+    it('surfaces the worker leaving the image behind', async () => {
+      chromeMock.runtime.sendMessage = vi.fn(async (msg: unknown) => {
+        lastMessage = msg as { kind: string; handoff?: Record<string, unknown> };
+        return { ok: true, imageLeftBehind: true };
+      });
+      await expect(openPanel('https://example.test/a.png')).resolves.toBe(true);
+      expect(lastMessage?.handoff).toMatchObject({ attachImage: true });
+      expect(leftBehind()).toBe(true);
+    });
+
+    it('a panel that did not open shows no attach hint', async () => {
+      chromeMock.runtime.sendMessage = vi.fn().mockResolvedValue({ ok: false });
+      await expect(openPanel('javascript:alert(1)')).resolves.toBe(false);
+      expect(toastMock.showToast).not.toHaveBeenCalled();
+    });
   });
 
   it('reports a not-ok reply as false', async () => {
