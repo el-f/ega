@@ -365,6 +365,12 @@ button:focus:not(:focus-visible) {
   [aria-disabled='true'] {
     opacity: 1 !important;
   }
+  /* Only a native :disabled control gets GrayText from the mode; an aria-disabled one stays
+     focusable and would draw exactly like its enabled neighbour. */
+  [aria-disabled='true'] {
+    color: GrayText !important;
+    border-color: GrayText !important;
+  }
   /* Last, so a focused pressed control keeps the outside ring. */
   :focus-visible {
     outline: 2px solid Highlight !important;

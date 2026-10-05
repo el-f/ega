@@ -40,6 +40,14 @@ describe('side-panel cues survive forced colors', () => {
     expect(ctx).not.toMatch(/border:\s*0/);
   });
 
+  it('greys an aria-disabled control, which the mode does not do for it', () => {
+    const tokens = read('src/shared/tokens.css');
+    const block = tokens.slice(tokens.indexOf('@media (forced-colors: active)'));
+    expect(block).toMatch(
+      /\[aria-disabled='true'\]\s*\{\s*color:\s*GrayText !important;\s*border-color:\s*GrayText !important;/,
+    );
+  });
+
   it('draws the loading bar when the gradient goes, on both surfaces', () => {
     const src = read('src/sidepanel/conversation/AssistantTurn.svelte');
     expect(src).toMatch(
