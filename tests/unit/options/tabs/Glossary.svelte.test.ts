@@ -155,3 +155,55 @@ describe('Glossary tab — editing an entry', () => {
     expect(getByLabelText('Translation').getAttribute('maxlength')).toBe('100');
   });
 });
+
+describe('Glossary tab — duplicates follow the import rule', () => {
+  beforeEach(() => {
+    resetChromeMock();
+  });
+
+  function seedOne(term: string, caseSensitive: boolean): void {
+    chromeMock.storage.local._raw.set(SETTINGS_KEY, {
+      ...parseSettings({}),
+      glossary: [{ term, translation: 'x', caseSensitive }],
+    });
+  }
+
+  async function tryAdd(term: string): Promise<void> {
+    const { getByLabelText, getByRole, findByRole } = render(Glossary);
+    await findByRole('button', { name: /^Edit entry / });
+    await fireEvent.input(getByLabelText('Term'), { target: { value: term } });
+    await fireEvent.input(getByLabelText('Translation'), { target: { value: 'other' } });
+    await fireEvent.click(getByRole('button', { name: /Add entry/i }));
+    expect((await findByRole('alert')).textContent).toMatch(/already in the glossary/i);
+    expect((await getSettings()).glossary).toHaveLength(1);
+  }
+
+  it('refuses a term that differs only in case when just one side matches case', async () => {
+    seedOne('Apple', true);
+    await tryAdd('apple');
+  });
+
+  it('refuses the same word written with a combining accent', async () => {
+    // Stored composed (NFC), typed decomposed (NFD): the same text to a reader.
+    seedOne('Caf\u00e9', false);
+    await tryAdd('Cafe\u0301');
+  });
+});
+
+describe('Glossary tab — focus after leaving edit mode', () => {
+  beforeEach(() => {
+    resetChromeMock();
+  });
+
+  it.each(['Save entry', 'Cancel'])('"%s" puts focus on the Term field', async (label) => {
+    seedEntries(2);
+    const { getByLabelText, getByRole, findByRole } = render(Glossary);
+    await fireEvent.click(await findByRole('button', { name: 'Edit entry term-1' }));
+    await fireEvent.input(getByLabelText('Translation'), { target: { value: 'fixed' } });
+    const btn = getByRole('button', { name: label });
+    btn.focus();
+    await fireEvent.click(btn);
+    await waitFor(() => expect(document.activeElement).toBe(getByLabelText('Term')));
+    expect(getByRole('button', { name: /Add entry/i })).toBeTruthy();
+  });
+});

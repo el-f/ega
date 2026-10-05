@@ -140,8 +140,8 @@ type GlossaryEntry = Settings['glossary'][number];
 const scopesMeet = (x: string | undefined, y: string | undefined): boolean =>
   x === undefined || y === undefined || x === y;
 
-/** The terms match the same text, unless both are case-sensitive and differ in case. */
-function sameTerm(a: GlossaryEntry, b: GlossaryEntry): boolean {
+/** The terms match the same text, unless both are case-sensitive and differ in case. The glossary editor uses it too, so an entry it refuses is one an import would skip. */
+export function sameTerm(a: GlossaryEntry, b: GlossaryEntry): boolean {
   const ta = a.term.normalize('NFC');
   const tb = b.term.normalize('NFC');
   return a.caseSensitive && b.caseSensitive ? ta === tb : ta.toLowerCase() === tb.toLowerCase();

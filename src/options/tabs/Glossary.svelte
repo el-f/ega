@@ -23,7 +23,7 @@
   import { asLangIdUnsafe } from '@/shared/brands';
   import { listVarieties } from '@/shared/varieties';
   import { GLOSSARY_FIELD_MAX, GLOSSARY_MAX } from '@/shared/settings-schema';
-  import { exportGlossary } from '@/shared/storage/backup';
+  import { exportGlossary, sameTerm } from '@/shared/storage/backup';
   import { count, importBundleFile, type ImportStatus } from '@/options/import-bundle';
   import { downloadJsonFile } from '@/shared/download-file';
   import BackupRestoreRow from '@/options/components/BackupRestoreRow.svelte';
@@ -141,11 +141,9 @@
     );
   }
 
-  // Same scope and the same term; case only separates two entries when both match case.
+  // Same scope and the same term by the rule import uses; case only separates two entries when both match case.
   function isDuplicate(a: GlossaryEntry, b: GlossaryEntry): boolean {
-    if (a.sourceLang !== b.sourceLang || a.targetLang !== b.targetLang) return false;
-    if (a.term === b.term) return true;
-    return !a.caseSensitive && !b.caseSensitive && a.term.toLowerCase() === b.term.toLowerCase();
+    return a.sourceLang === b.sourceLang && a.targetLang === b.targetLang && sameTerm(a, b);
   }
 
   const DUPLICATE_MESSAGE = 'This term is already in the glossary for that language scope.';
@@ -154,6 +152,13 @@
     editing = null;
     saveError = null;
     draft = { term: '', translation: '', sourceLang: '', targetLang: '', caseSensitive: false };
+  }
+
+  // Save entry and Cancel unmount with the edit mode, so focus goes to the form's first field.
+  async function leaveEdit(): Promise<void> {
+    resetForm();
+    await tick();
+    formEl?.querySelector<HTMLInputElement>('input')?.focus();
   }
 
   async function startEdit(entry: GlossaryEntry): Promise<void> {
@@ -195,7 +200,7 @@
     };
     const original = editing;
     if (original && sameEntry(original, entry)) {
-      resetForm();
+      await leaveEdit();
       return;
     }
     const result = await writeLock(() =>
@@ -216,7 +221,8 @@
       saveError = 'This entry changed in another window. Cancel, then edit it again.';
     }
     if (result !== 'saved') return;
-    resetForm();
+    if (original) await leaveEdit();
+    else resetForm();
   }
 
   // Position is not identity: another surface can rewrite the glossary while this tab sits open.
@@ -324,7 +330,7 @@
         >
           Save entry
         </Button>
-        <Button variant="secondary" onclick={resetForm}>Cancel</Button>
+        <Button variant="secondary" onclick={() => void leaveEdit()}>Cancel</Button>
       {:else}
         <Button
           variant="primary"
