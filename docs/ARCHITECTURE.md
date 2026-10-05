@@ -308,7 +308,7 @@ didn't the bubble appear".
       selection skips the detection battery and gets no bubble — there is nothing sane to
       offer it.
    4. `src/content/should-show-bubble.ts#shouldShowBubbleWithReasonAsync` — bubble mode,
-      non-Latin script (shows at any length), minimum length for Latin text, variety detection,
+      two or more non-Latin letters (shows at any minimum length), minimum length for Latin text, variety detection,
       English check. It returns `{ show, reason }`, so a
       hidden bubble is one debug line.
 
