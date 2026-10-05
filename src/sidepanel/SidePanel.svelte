@@ -57,7 +57,6 @@
   } from './state/composer-draft';
   import { debugCatch } from '@/shared/logger';
   import { toastStore } from '@/shared/components/toastStore';
-  import { attachedImageProblem } from '@/shared/image-url-guard';
   import { patchSettings } from '@/shared/settings-bus';
   import { imageStuckTimeoutMs, stuckTimeoutMs } from '@/shared/stuck-timeout';
   import type { PageContext } from '@/shared/types';
@@ -402,8 +401,29 @@
     pageContext: currentPageContext,
     clearFilters,
     attachImage: (src) => {
-      attachComposerImage(src);
-      void tick().then(focusComposer);
+      const attach = (): void => {
+        attachComposerImage(src);
+        void tick().then(focusComposer);
+      };
+      // An image would turn the edited text into an image send, so the edit stays as it is.
+      if (editingTurnId !== null) {
+        toastStore.push({
+          message: 'The page image was not attached because you are editing a message.',
+          variant: 'warning',
+        });
+        return;
+      }
+      // The user's own image wins until they say otherwise.
+      if (attachedImage !== null && attachedImage !== src) {
+        toastStore.push({
+          message: 'Replace the attached image with the one from the page?',
+          variant: 'info',
+          duration: 12_000,
+          action: { label: 'Replace', onClick: attach },
+        });
+        return;
+      }
+      attach();
     },
   });
 
@@ -650,14 +670,9 @@
     // Before the handoff drain: a half-typed thought outranks anything queued for this panel.
     const draft = await readComposerDraft();
     if (draft !== null && sourceText === '') sourceText = draft;
+    // The reader applies the same render check the attach paths do, so an http(s) image the page handed over comes back too.
     const draftImage = await readComposerDraftImage();
-    if (
-      draftImage !== null &&
-      attachedImage === null &&
-      attachedImageProblem(draftImage) === null
-    ) {
-      attachedImage = draftImage;
-    }
+    if (draftImage !== null && attachedImage === null) attachedImage = draftImage;
     draftHydrated = true;
     void pruneOrphanDrafts();
     try {
