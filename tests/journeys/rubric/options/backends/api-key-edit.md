@@ -7,7 +7,7 @@
 ## State expectations
 
 - Step 1: user enters / pastes their Anthropic API key.
-- Step 2: the value persists to `anthropicApiKey` once, on blur or Enter; typing alone writes nothing. The field stays masked unless the user revealed it.
+- Step 2: each edit persists the value to `anthropicApiKey` in storage, so Test now right after a paste uses the new key; the field stays masked unless the user revealed it.
 - Step 3: a "Key saved." status line appears under the field once storage holds the new key; `apiKeyEditedAt[provider]` updates. The card pill reads "Key saved" until Test now passes.
 
 ## Visible affordances
@@ -17,7 +17,7 @@
 
 ## Failure-mode expectations
 
-- Clearing the key and leaving the field writes the empty value and says "Key removed."; `apiKeyEditedAt` does not update.
+- Clearing the key writes the empty value and says "Key removed."; `apiKeyEditedAt` does not update.
 
 ## Cautions
 

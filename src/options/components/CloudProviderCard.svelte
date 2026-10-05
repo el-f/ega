@@ -52,16 +52,10 @@
   const editedAgo = $derived(
     typeof editedAt === 'number' ? relativeTime(editedAt, Date.now()) : null,
   );
-  // Typing edits a local copy; a stored key that changes underneath (import, another window) replaces it.
-  let keyDraft = $derived(apiKey);
-  // The key commits on blur or Enter, not per keystroke, so a half-typed key never reaches storage.
+  // While the field has focus the typed text wins over a settings snapshot that lands under the caret.
+  let keyDraft = $state<string | null>(null);
+  // Each edit saves at once, so Test now right after a paste runs with the new key.
   let keySaved = $state(false);
-
-  function commitKey(): void {
-    if (keyDraft === apiKey) return;
-    onApiKeyChange(keyDraft);
-    keySaved = true;
-  }
 
   import { onMount } from 'svelte';
   import {
@@ -152,12 +146,14 @@
         autocomplete="off"
         spellcheck="false"
         placeholder={keyPlaceholder ?? 'Paste API key here'}
-        value={keyDraft}
+        value={keyDraft ?? apiKey}
         oninput={(e) => {
-          keyDraft = (e.currentTarget as HTMLInputElement).value;
-          keySaved = false;
+          const v = (e.currentTarget as HTMLInputElement).value;
+          keyDraft = v;
+          onApiKeyChange(v);
+          keySaved = true;
         }}
-        onchange={commitKey}
+        onblur={() => (keyDraft = null)}
       />
       <IconButton
         icon={keyVisible ? EyeOff : Eye}
@@ -167,12 +163,10 @@
       />
     </div>
     <div class="cp-key-meta" role="status">
-      {#if keySaved && keyDraft === apiKey}
-        <small class="cp-saved">{keyDraft ? 'Key saved.' : 'Key removed.'}</small>
+      {#if keySaved && (keyDraft ?? apiKey) === apiKey}
+        <small class="cp-saved">{apiKey ? 'Key saved.' : 'Key removed.'}</small>
       {:else if apiKey && editedAgo}
         <small class="cp-edited">Edited {editedAgo}</small>
-      {:else if !keyDraft}
-        <small class="cp-edited">Saved when you leave the field or press Enter.</small>
       {/if}
     </div>
   </div>

@@ -36,13 +36,11 @@ describe('Backends — every cloud provider persists its key', () => {
 
       saveSpy.mockClear();
       await fireEvent.input(input as HTMLInputElement, { target: { value: `key-${id}` } });
-      // The key commits on change (blur or Enter), not per keystroke.
-      await fireEvent.change(input as HTMLInputElement);
       await new Promise((r) => setTimeout(r, 0));
 
       const patches = saveSpy.mock.calls.map((c) => c[0] as Record<string, unknown>);
       const hit = patches.find((p) => p[`${id}ApiKey`] === `key-${id}`);
-      expect(hit, `typing a key for ${id} committed no ${id}ApiKey patch`).toBeTruthy();
+      expect(hit, `typing a key for ${id} wrote no ${id}ApiKey patch`).toBeTruthy();
     }
   });
 });

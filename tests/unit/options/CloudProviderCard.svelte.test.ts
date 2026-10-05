@@ -56,34 +56,18 @@ describe('CloudProviderCard', () => {
     expect(input.type).toBe('text');
   });
 
-  it('commits the api key once on change (blur or Enter), not per keystroke, then says so', async () => {
+  it('typing into the api-key input fires onApiKeyChange, then says the key is saved', async () => {
     const onApiKeyChange = vi.fn();
     const { container, rerender, findByText } = render(CloudProviderCard, {
       props: { ...baseProps, onApiKeyChange, settings: settings() },
     });
     await tick();
     const input = container.querySelector('.cp-key-input') as HTMLInputElement;
-    await fireEvent.input(input, { target: { value: 'sk-n' } });
     await fireEvent.input(input, { target: { value: 'sk-new' } });
-    expect(onApiKeyChange).not.toHaveBeenCalled();
-
-    await fireEvent.change(input);
-    expect(onApiKeyChange).toHaveBeenCalledTimes(1);
     expect(onApiKeyChange).toHaveBeenCalledWith('sk-new');
 
     await rerender({ apiKey: 'sk-new' });
     expect((await findByText('Key saved.')).closest('[role="status"]')).toBeTruthy();
-    expect(input.value).toBe('sk-new');
-  });
-
-  it('a stored key that changes underneath replaces the field value', async () => {
-    const { container, rerender } = render(CloudProviderCard, {
-      props: { ...baseProps, settings: settings() },
-    });
-    const input = container.querySelector('.cp-key-input') as HTMLInputElement;
-    await fireEvent.input(input, { target: { value: 'sk-typed' } });
-    await rerender({ apiKey: 'sk-imported' });
-    expect(input.value).toBe('sk-imported');
   });
 
   it('says why the model field waits when there is no key', async () => {
