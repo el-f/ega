@@ -4,6 +4,7 @@
 
 - Advanced tab contains three sub-tabs in order: Diagnostics (default), Data, Labs.
 - Active sub-tab persists in sessionStorage for the duration of the Options tab.
+- A sub-tab with settings changed from the default shows a soft "N changed" pill; the word is visible, not only in a hover title.
 
 ## Data pane
 
@@ -12,7 +13,7 @@
 
 ## Labs pane
 
-- Hosts experimental settings, currently the backend status memory (probe TTL) slider.
+- Hosts experimental settings, currently the backend status memory (probe TTL) slider. Its card is titled "Backend status memory"; "Labs" appears only as the sub-tab name, and the card says the setting is experimental.
 - Labs settings write directly to `advanced.*` keys in storage via `updateSettings`.
 
 ## Safety

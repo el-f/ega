@@ -16,16 +16,12 @@ describe('LabsSection', () => {
     expect(container.textContent).not.toContain('Debug log level');
   });
 
-  it('renders a Labs badge on each knob row', () => {
+  it('says "experimental" once instead of repeating Labs on the card and the row', () => {
     const { container } = render(LabsSection, { props: makeLabsSectionProps() });
-    const rows = container.querySelectorAll('.labs-row');
-    expect(rows.length).toBe(1);
-    for (const row of rows) {
-      const labsBadges = Array.from(row.querySelectorAll('.ega-badge')).filter(
-        (b) => b.textContent.trim().toLowerCase() === 'labs',
-      );
-      expect(labsBadges).toHaveLength(1);
-    }
+    expect(container.querySelectorAll('.labs-row')).toHaveLength(1);
+    expect(container.querySelector('.ega-badge')).toBeNull();
+    expect(container.textContent).toMatch(/Experimental/);
+    expect(container.textContent).not.toContain('Labs');
   });
 
   it('renders a warning line on each knob row', () => {

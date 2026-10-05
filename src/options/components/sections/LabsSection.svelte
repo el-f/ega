@@ -2,7 +2,6 @@
   import type { Settings } from '@/shared/types';
   import { isFieldModified } from '@/shared/settings-registry';
   import SectionCard from '@/shared/ui/SectionCard.svelte';
-  import Badge from '@/shared/ui/Badge.svelte';
   import Slider from '@/shared/ui/Slider.svelte';
 
   interface Props {
@@ -17,14 +16,10 @@
 </script>
 
 <SectionCard
-  title="Labs"
-  description="Experimental settings. They may change or go away in a later release."
+  title="Backend status memory"
+  description="Experimental. It may change or go away in a later release."
 >
   <div class="labs-row" data-ega-setting="advanced.backendProbeTtlMs">
-    <div class="labs-row-head">
-      <span class="labs-row-title">Backend status memory</span>
-      <Badge variant="warning">Labs</Badge>
-    </div>
     <p id="labs-probe-warn" class="labs-warn">
       How long Ega remembers whether a backend is reachable before checking again. Lower means more
       network requests. Higher means Ega notices later that a backend is back online.
@@ -52,16 +47,6 @@
   .labs-row:first-child {
     border-top: 0;
     padding-top: 0;
-  }
-  .labs-row-head {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    margin-bottom: var(--space-1);
-  }
-  .labs-row-title {
-    font-weight: 500;
-    color: var(--color-fg);
   }
   .labs-warn {
     margin: 0 0 var(--space-2);

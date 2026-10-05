@@ -6,14 +6,13 @@ import SettingsListView from '@/options/components/SettingsListView.svelte';
 
 // A plain <span> has the generic role, and ARIA drops aria-label there.
 describe('aria-label needs a role to survive', () => {
-  it('the sub-tab count badge carries a role', () => {
+  it('the sub-tab count badge says what it counts in visible text', () => {
     const { container } = render(AdvancedSubTabs, {
       props: { active: 'diagnostics', modifiedCounts: { data: 3 }, onSelect: vi.fn() },
     });
     const badge = container.querySelector('[data-ega-subtab-modified-count="data"]');
     expect(badge).not.toBeNull();
-    expect(badge?.getAttribute('aria-label')).toBe('3 modified');
-    expect(badge?.getAttribute('role')).toBe('img');
+    expect(badge?.textContent.trim()).toBe('3 changed');
   });
 
   it('the modified badge carries a role', () => {

@@ -12,7 +12,7 @@
 
   interface Props {
     active: SubTabId;
-    /** Modified-settings count per sub-tab. Renders a count pill when > 0. */
+    /** Changed-settings count per sub-tab. Renders a "N changed" pill when > 0. */
     modifiedCounts?: Partial<Record<SubTabId, number>>;
     onSelect: (id: SubTabId) => void;
   }
@@ -41,11 +41,9 @@
           <span
             class="adv-sub-tab-count"
             data-ega-subtab-modified-count={t.id}
-            role="img"
-            aria-label="{count} modified"
-            title="{count} modified setting{count === 1 ? '' : 's'}"
+            title="{count} setting{count === 1 ? '' : 's'} changed from the default"
           >
-            {count}
+            {count} changed
           </span>
         {/if}
       </Tabs.Trigger>
@@ -107,10 +105,10 @@
     padding: 0 6px;
     height: 16px;
     border-radius: var(--radius-pill);
-    background: var(--color-accent);
-    color: var(--color-accent-fg);
+    background: var(--color-accent-bg-soft);
+    color: var(--color-accent);
     font-size: 11px;
-    font-weight: 600;
+    font-weight: 500;
     line-height: 1;
     font-variant-numeric: tabular-nums;
   }
