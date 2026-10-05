@@ -59,12 +59,22 @@
   // Set only when the latest save settles: the status line then changes once, not on every keystroke.
   let keySave = $state<'idle' | 'saved' | 'removed' | 'failed'>('idle');
   let keySaveGen = 0;
+  let keySettledGen = 0;
+  let keySavedValue = '';
   function saveKey(v: string): void {
     const gen = ++keySaveGen;
     void onApiKeyChange(v).then((ok) => {
-      if (gen === keySaveGen) keySave = !ok ? 'failed' : v.trim() ? 'saved' : 'removed';
+      if (gen !== keySaveGen) return;
+      keySettledGen = gen;
+      keySavedValue = v;
+      keySave = !ok ? 'failed' : v.trim() ? 'saved' : 'removed';
     });
   }
+  // Another window can change the key; the line about this page's last save would then sit over a value it never wrote.
+  $effect(() => {
+    const k = apiKey;
+    if (keySettledGen === keySaveGen && k.trim() !== keySavedValue.trim()) keySave = 'idle';
+  });
 
   import { onMount } from 'svelte';
   import {

@@ -104,6 +104,23 @@ describe('CloudProviderCard', () => {
     expect(container.textContent).not.toContain('Key saved.');
   });
 
+  it('drops "Key saved." when another window clears the key', async () => {
+    const onApiKeyChange = vi.fn(async () => true);
+    const { container, rerender, findByText } = render(CloudProviderCard, {
+      props: { ...baseProps, onApiKeyChange, settings: settings() },
+    });
+    await tick();
+    const input = container.querySelector('.cp-key-input') as HTMLInputElement;
+    await fireEvent.input(input, { target: { value: 'sk-new' } });
+    await fireEvent.blur(input);
+    await rerender({ apiKey: 'sk-new' });
+    expect(await findByText('Key saved.')).toBeTruthy();
+
+    await rerender({ apiKey: '' });
+    await waitFor(() => expect(container.textContent).not.toContain('Key saved.'));
+    expect(input.value).toBe('');
+  });
+
   it('says why the model field waits when there is no key', async () => {
     const { findByText } = render(CloudProviderCard, {
       props: { ...baseProps, apiKey: '', settings: settings() },

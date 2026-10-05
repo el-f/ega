@@ -92,6 +92,16 @@ describe('BackendList — move buttons', () => {
     ).toBe(true);
   });
 
+  it('does not say a backend moved when the save failed', async () => {
+    const onMove = vi.fn(async () => false);
+    const { findByRole, container } = render(BackendList, {
+      props: { settings: makeSettings(), onChange: vi.fn(), onMove, children: rowChild() },
+    });
+    await fireEvent.click(await findByRole('button', { name: 'Move OpenAI up' }));
+    await waitFor(() => expect(container.textContent).toContain('OpenAI was not moved'));
+    expect(container.textContent).not.toContain('moved to position');
+  });
+
   it('labels the enable buttons with the backend name, not its id', async () => {
     const { findByRole } = render(BackendList, {
       props: { settings: makeSettings(), onChange: vi.fn(), children: rowChild() },

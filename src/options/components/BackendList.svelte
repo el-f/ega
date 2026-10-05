@@ -32,8 +32,12 @@
 
   // A move re-renders the row (down detaches it) and can disable the pressed arrow, so focus is put back by hand.
   async function move(id: BackendId, delta: -1 | 1, from: number): Promise<void> {
-    announcement = `${backendLabel(id)} moved to position ${from + delta + 1}`;
-    await onMove?.(id, delta);
+    // onMove resolves false when the write did not land; the failure toast says why.
+    const ok = await onMove?.(id, delta);
+    announcement =
+      ok === false
+        ? `${backendLabel(id)} was not moved`
+        : `${backendLabel(id)} moved to position ${from + delta + 1}`;
     await tick();
     const at = enabledShadow.items.findIndex((r) => r.id === id);
     const atEnd = delta === -1 ? at === 0 : at === enabledShadow.items.length - 1;
