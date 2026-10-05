@@ -40,9 +40,25 @@ function killContext(): void {
 const FOREIGN = 'שלום עולם, מה שלומך היום?';
 const SHORTCUT = { key: 'L', ctrlKey: true, shiftKey: true };
 
-// Warms the cold transform (over 5 s on a loaded box) without booting index: a booted warm-up arms its own hint and could pass a test for the instance under test.
+// Warms every module index imports (over 5 s cold on a loaded box) without booting index, whose own armed hint could pass a test; stored-changes-boot runs on import, so its dependency stands in.
 beforeAll(async () => {
   await Promise.all([
+    import('@/shared/stored-changes'),
+    import('@/content/shadowHost'),
+    import('@/content/testHooks'),
+    import('@/content/selection'),
+    import('@/content/safety'),
+    import('@/content/accumulator'),
+    import('@/content/hotkey'),
+    import('@/content/context-guard'),
+    import('@/content/customs-cache'),
+    import('@/content/memo-direction'),
+    import('@/content/request-state'),
+    import('@/content/settings-cache'),
+    import('@/content/toast'),
+    import('@/content/user-gesture'),
+    import('@/shared/site-profile'),
+    import('@/shared/theme-apply'),
     import('@/content/translate-handlers'),
     import('@/content/lazy-tooltip'),
     import('@/content/should-show-bubble'),
