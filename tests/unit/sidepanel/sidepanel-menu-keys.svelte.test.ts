@@ -90,6 +90,22 @@ describe('SidePanel — keys typed inside a reply menu stay in the menu', () => 
     expect(document.activeElement?.id).not.toBe('sp-text');
   });
 
+  // Only the stream's role=menu guard stops these: bits-ui never preventDefaults a type-ahead letter.
+  it('j and k typed in the Try as… menu do not walk the thread', async () => {
+    const { container } = render(SidePanel);
+    await settleMount(container);
+    await sendAndDrain(container, 'hola');
+    const first = await openMenuFocused(container);
+
+    await fireEvent.keyDown(first, { key: 'j' });
+    await tick();
+    expect(focusedRing(container)).toBeNull();
+    await fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'k' });
+    await tick();
+    expect(focusedRing(container)).toBeNull();
+    expect(document.activeElement?.hasAttribute('data-ega-task-switch-item')).toBe(true);
+  });
+
   it('r typed in the menu does not re-run the focused reply', async () => {
     const { container } = render(SidePanel);
     await settleMount(container);
@@ -100,7 +116,7 @@ describe('SidePanel — keys typed inside a reply menu stay in the menu', () => 
     await fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'ArrowDown' });
     await fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'ArrowDown' });
     await fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'r' });
-    // A leaked retry reaches sendMessage a few awaits later; with the guard reverted this goes red.
+    // Red only with BOTH stream guards (defaultPrevented, role=menu) reverted; either alone stops the arrows.
     await drainAsync();
 
     expect(startCalls().length).toBe(before);
