@@ -57,10 +57,9 @@ describe('RequestAuditLog — Clear', () => {
     const { btn } = await renderWithOneEntry();
     btn.click();
     await waitFor(() =>
-      expect(push).toHaveBeenCalledWith({
-        message: 'Could not clear the audit log.',
-        variant: 'danger',
-      }),
+      expect(push).toHaveBeenCalledWith(
+        expect.objectContaining({ message: 'Could not clear the audit log.', variant: 'danger' }),
+      ),
     );
   });
 
@@ -69,10 +68,26 @@ describe('RequestAuditLog — Clear', () => {
     const { btn } = await renderWithOneEntry();
     btn.click();
     await waitFor(() =>
-      expect(push).toHaveBeenCalledWith({
-        message: 'Could not clear the audit log.',
-        variant: 'danger',
-      }),
+      expect(push).toHaveBeenCalledWith(
+        expect.objectContaining({ message: 'Could not clear the audit log.', variant: 'danger' }),
+      ),
+    );
+  });
+
+  it('the failure toast offers Try again, which runs the clear again', async () => {
+    const send = vi.fn(async (_msg: unknown): Promise<unknown> => ({ ok: false }));
+    chromeMock.runtime.sendMessage = send;
+    const { btn } = await renderWithOneEntry();
+    btn.click();
+    await waitFor(() => expect(push).toHaveBeenCalledTimes(1));
+    const action = (push.mock.calls[0]?.[0] as { action?: { label: string; onClick: () => void } })
+      .action;
+    expect(action?.label).toBe('Try again');
+    action?.onClick();
+    await waitFor(() =>
+      expect(
+        send.mock.calls.filter((c) => (c[0] as { kind?: string }).kind === 'audit:clear'),
+      ).toHaveLength(2),
     );
   });
 

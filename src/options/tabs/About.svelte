@@ -38,8 +38,9 @@
     } catch (e) {
       debugCatch(e, 'options.tabs.About.1');
       toastStore.push({
-        message: `Could not clear the cache: ${(e as Error).message}. Try again.`,
+        message: `Could not clear the cache: ${(e as Error).message}`,
         variant: 'danger',
+        action: { label: 'Try again', onClick: () => void clearCache() },
       });
     } finally {
       clearingCache = false;

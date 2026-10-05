@@ -32,6 +32,7 @@
   import { confirmDialog } from '@/shared/components/confirmDialog';
   import { toastStore } from '@/shared/components/toastStore';
   import { downloadJsonFile } from '@/shared/download-file';
+  import { openOptionsTab } from '@/shared/open-options-tab';
   import TabHeader from '@/shared/components/TabHeader.svelte';
   import SectionCard from '@/shared/ui/SectionCard.svelte';
   import IconButton from '@/shared/ui/IconButton.svelte';
@@ -121,6 +122,7 @@
         toastStore.push({
           message: `"${v.label}" is your default ${role} language. Ega still uses it until you pick another default on the Translate tab.`,
           variant: 'warning',
+          action: { label: 'Open Translate tab', onClick: () => openOptionsTab('translate') },
         });
       }
     });

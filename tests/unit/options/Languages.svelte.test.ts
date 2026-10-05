@@ -687,6 +687,27 @@ describe('Languages tab — turning off a default language', () => {
     await flushAsync();
     expect(pushed).toHaveLength(2);
   });
+
+  it('the warning offers a way to the Translate tab, where the default is picked', async () => {
+    chromeMock.storage.local._raw.set(STORAGE_KEYS.settings, {
+      ...DEFAULT_SETTINGS,
+      defaultLang: 'arabizi',
+    });
+    const pushed: Array<{ action?: { label: string; onClick: (e: MouseEvent) => void } }> = [];
+    vi.spyOn(toastStore, 'push').mockImplementation((m) => {
+      pushed.push(m);
+    });
+    render(Languages);
+    await toggle('arabizi');
+    await waitFor(() => expect(pushed).toHaveLength(1));
+    expect(pushed[0]?.action?.label).toBe('Open Translate tab');
+    pushed[0]?.action?.onClick(new MouseEvent('click'));
+    await vi.waitFor(async () =>
+      expect(
+        (await chrome.storage.local.get('ega.pendingOptionsTab'))['ega.pendingOptionsTab'],
+      ).toBe('translate'),
+    );
+  });
 });
 
 describe('Languages tab — detection pattern editor', () => {

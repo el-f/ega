@@ -19,7 +19,7 @@
 ## Failure-mode expectations
 
 - Cancel sends no cache:clear message; the cache stays intact.
-- A failed cache:clear message shows a danger toast with the error and "Try again."
+- A failed cache:clear message shows a danger toast with the error and a "Try again" action that asks again.
 
 ## Cautions
 

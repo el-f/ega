@@ -252,7 +252,13 @@
     });
     if (!ok) return;
     const r = await sendMsg({ kind: 'audit:clear' }).catch(() => undefined);
-    if (!r?.ok) toastStore.push({ message: 'Could not clear the audit log.', variant: 'danger' });
+    if (!r?.ok) {
+      toastStore.push({
+        message: 'Could not clear the audit log.',
+        variant: 'danger',
+        action: { label: 'Try again', onClick: () => void handleClear() },
+      });
+    }
     await refresh();
     expanded = {};
   }
