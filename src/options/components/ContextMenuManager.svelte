@@ -348,7 +348,7 @@
       <SectionReset
         modified={isModified}
         onReset={resetDefaults}
-        ariaLabel="Reset context menu to defaults"
+        ariaLabel="Reset section: Context menu"
       />
       <Button
         variant="secondary"

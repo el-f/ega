@@ -91,7 +91,7 @@
         <SectionReset
           modified={genModified}
           onReset={resetGeneration}
-          ariaLabel="Reset Generation section to defaults"
+          ariaLabel="Reset section: Generation"
         />
       {/snippet}
       <div data-ega-setting="advanced.effort" class="effort-block">

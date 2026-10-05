@@ -218,7 +218,7 @@ describe('GenerationSection', () => {
         },
       });
       const { getByRole } = render(GenerationSection, { props });
-      await fireEvent.click(getByRole('button', { name: 'Reset Generation section to defaults' }));
+      await fireEvent.click(getByRole('button', { name: 'Reset section: Generation' }));
       await waitFor(() =>
         expect(props.onSetGlobalEffort).toHaveBeenCalledWith(DEFAULT_SETTINGS.advanced.effort),
       );
@@ -235,8 +235,7 @@ describe('GenerationSection', () => {
         }),
       });
       expect(
-        (getByRole('button', { name: 'Reset Generation section to defaults' }) as HTMLButtonElement)
-          .disabled,
+        (getByRole('button', { name: 'Reset section: Generation' }) as HTMLButtonElement).disabled,
       ).toBe(false);
     });
 

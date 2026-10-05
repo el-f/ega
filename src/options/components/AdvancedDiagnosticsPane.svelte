@@ -76,7 +76,7 @@
     <SectionReset
       modified={toolsModified}
       onReset={resetTools}
-      ariaLabel="Reset Diagnostics tools section to defaults"
+      ariaLabel="Reset section: Diagnostics tools"
     />
   {/snippet}
   <div class="capture-meta" data-ega-setting="advanced.captureResultMeta">

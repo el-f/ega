@@ -83,7 +83,7 @@
       {modified}
       onReset={resetOptions}
       label="Reset pill and tooltip options"
-      ariaLabel="Reset the confidence pill and tooltip options to defaults"
+      ariaLabel="Reset pill and tooltip options to defaults"
     />
   {/snippet}
 
