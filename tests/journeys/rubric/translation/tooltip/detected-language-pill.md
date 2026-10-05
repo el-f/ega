@@ -7,7 +7,7 @@
 ## State expectations
 
 - Step 1: the backend answer names one language (`detectedLang`) and a detail (`detectedDetail`).
-- Step 2: the meta row under the actions shows one `.lang` pill: the preset label, a dash, then the detail ("Arabizi — Levantine").
+- Step 2: the meta pills at the end of the action row show one `.lang` pill: the preset label, a dash, then the detail ("Arabizi — Levantine").
 - Step 3: no multi-variety cluster renders; the single pill covers the one-language case.
 
 ## Visible affordances

@@ -10,7 +10,6 @@
   import type { TipState } from '../tipState.svelte';
   import { formatDetectedLabel } from '@/shared/detected-label';
   import { isRetryable, optionsTabForMessage } from '@/shared/error-policy';
-  import { varietyLabel } from './variety-label';
   import { cachedCustomLanguages } from '../customs-cache';
   import { isUserGesture } from '../user-gesture';
 
@@ -23,7 +22,7 @@
     direction?: { source: string; target: string };
     /** True when an onswap handler is wired; drives visibility of the swap button. */
     hasSwap: boolean;
-    /** When true, the swap button is disabled (source === 'auto'). */
+    /** When true, the swap button is blocked (source === 'auto'); it stays focusable and says why. */
     swapDisabled: boolean;
     /** Something to show in the details panel (what was sent, or result data); parent owns the open state. */
     hasDetails: boolean;
@@ -114,12 +113,16 @@
     return list.map((v) => formatDetectedLabel(v.id, v.detail, cachedCustomLanguages()));
   });
 
+  // A language name, never a raw ISO code or a custom variety's uuid.
+  const langName = (id: string): string =>
+    formatDetectedLabel(id, undefined, cachedCustomLanguages());
+
   // Hidden while the source is 'auto' — the detected pill already names the language.
-  const directionLabel = $derived.by(() => {
-    if (!direction || direction.source === 'auto') return '';
-    const customs = cachedCustomLanguages();
-    return `${varietyLabel(direction.source, customs)}→${varietyLabel(direction.target, customs)}`;
-  });
+  const directionLabel = $derived(
+    !direction || direction.source === 'auto'
+      ? ''
+      : `${langName(direction.source)} → ${langName(direction.target)}`,
+  );
 
   const hasMetaChip = $derived(
     pillVisible ||
@@ -132,8 +135,7 @@
   const swapTip = $derived.by(() => {
     if (swapDisabled) return 'Swap languages: pick a source language first';
     if (!direction) return 'Swap languages and translate again';
-    const customs = cachedCustomLanguages();
-    return `Swap languages and translate again (${varietyLabel(direction.target, customs)} → ${varietyLabel(direction.source, customs)})`;
+    return `Swap languages and translate again (${langName(direction.target)} → ${langName(direction.source)})`;
   });
 
   // Same gate as the side panel: a terminal code re-fails identically, unless the error names a Settings
@@ -154,7 +156,7 @@
     if (isUserGesture(e)) onRetry?.();
   };
   const swap = (e: Event): void => {
-    if (isUserGesture(e)) onSwap?.();
+    if (!swapDisabled && isUserGesture(e)) onSwap?.();
   };
   const explain = (e: Event): void => {
     if (isUserGesture(e)) onExplain();
@@ -228,8 +230,8 @@
 {#if mode === 'loading'}
   <div class="actions">
     <button onclick={onCancel}>Cancel</button>
+    {@render metaChip()}
   </div>
-  {@render metaChip()}
 {:else if mode === 'error'}
   <div class="actions">
     {#if hasBody}
@@ -276,10 +278,10 @@
         Continue in side panel
       </button>
     {/if}
+    {@render metaChip()}
   </div>
-  {@render metaChip()}
 {:else}
-  <!-- Grouped by intent: primary, then secondary, then meta. Close lives in the parent header, not in this row. -->
+  <!-- Grouped by intent: primary, then secondary, then the meta pills at the row's end. Close lives in the parent header. -->
   <div class="actions">
     <div class="action-group">
       {#if unsettled}
@@ -298,14 +300,15 @@
         {/if}
       </button>
       {#if canExplain}
+        <!-- A visible word: the "?" glyph alone reads as Help. -->
         <button
-          class="icon-btn"
+          class="icon-btn icon-btn-labeled"
           aria-label="Explain this translation"
-          data-tooltip="Explain"
           disabled={loading || !hasBody}
           onclick={explain}
         >
           {@render iconExplain()}
+          <span>Explain</span>
         </button>
       {/if}
     </div>
@@ -320,11 +323,14 @@
           </button>
         {/if}
         {#if hasSwap && onSwap}
+          <!-- aria-disabled, not disabled: a disabled button cannot take focus, so its reason would be hover-only. -->
           <button
             class="icon-btn"
-            aria-label="Swap direction"
+            aria-label={swapDisabled
+              ? 'Swap direction — pick a source language first'
+              : 'Swap direction'}
+            aria-disabled={swapDisabled}
             data-tooltip={swapTip}
-            disabled={swapDisabled}
             onclick={swap}
           >
             {@render iconSwap()}
@@ -377,6 +383,6 @@
         {/if}
       </div>
     {/if}
+    {@render metaChip()}
   </div>
-  {@render metaChip()}
 {/if}

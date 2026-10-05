@@ -561,7 +561,7 @@
     transform: translateY(4px);
   }
 }
-.tooltip .actions .icon-btn:hover:not(:disabled) {
+.tooltip .actions .icon-btn:hover:not(:disabled):not([aria-disabled='true']) {
   color: var(--color-fg);
 }
 .tooltip .actions .icon-btn .icon {
@@ -570,18 +570,20 @@
   display: block;
   transition: transform 80ms var(--ease-out);
 }
-.tooltip .actions .icon-btn:hover:not(:disabled) {
+.tooltip .actions .icon-btn:hover:not(:disabled):not([aria-disabled='true']) {
   background-color: var(--color-accent-bg-hover);
   text-decoration: none;
 }
 /* Scale the glyph, not the button: a shrinking hit box moves out from under the cursor and the click is lost. */
-.tooltip .actions .icon-btn:active:not(:disabled) {
+.tooltip .actions .icon-btn:active:not(:disabled):not([aria-disabled='true']) {
   transform: none;
 }
-.tooltip .actions .icon-btn:active:not(:disabled) .icon {
+.tooltip .actions .icon-btn:active:not(:disabled):not([aria-disabled='true']) .icon {
   transform: scale(0.94);
 }
-.tooltip .actions .icon-btn:disabled {
+/* aria-disabled keeps a blocked button focusable, so its reason is reachable; it gets the same look. */
+.tooltip .actions .icon-btn:disabled,
+.tooltip .actions .icon-btn[aria-disabled='true'] {
   opacity: 0.35;
   cursor: not-allowed;
 }
@@ -622,10 +624,14 @@
   /* The card pads its bottom by only --space-1, so without this the pill sits on the corner's lower edge. */
   padding-bottom: var(--space-1);
   font-size: var(--fs-xs);
-  /* No opacity on the row: a child cannot undo a parent's, and it took the 10px pills below 4.5:1. The labels mute themselves. */
-  pointer-events: none;
+  /* No opacity on the row: a child cannot undo a parent's, and it took the pills below 4.5:1. The labels mute themselves. */
   min-width: 0;
   max-width: 100%;
+}
+/* The pills end the action row; flex-wrap on .actions moves them to their own line when they do not fit. */
+.tooltip .actions .meta {
+  margin-left: auto;
+  margin-top: 0;
 }
 .tooltip .meta .lang,
 .tooltip .meta .lang-pill {
@@ -655,7 +661,7 @@
 }
 .tooltip .pill {
   display: inline-block;
-  font-size: 10px;
+  font-size: var(--fs-xs);
   padding: 2px var(--space-1);
   border-radius: var(--radius-pill);
 }
@@ -669,7 +675,7 @@
 }
 .pill.lo {
   background: var(--color-danger-bg-soft);
-  /* The -fg shade: the base danger red on its soft tint measures 3.0:1 in dark, under the 4.5:1 a 10px label needs. */
+  /* The -fg shade: the base danger red on its soft tint measures 3.0:1 in dark, under the 4.5:1 an 11px label needs. */
   color: var(--color-danger-fg);
 }
 

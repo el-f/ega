@@ -53,7 +53,7 @@ test('swap button reverses source<->target and re-fires translate', async () => 
   expect(firstBody).toContain('Spanish');
 
   // The meta row shows the active pair, so the swap has a visible readout.
-  expect(await egaTest<string>(page, 'tooltipDirection')).toBe('en→es');
+  expect(await egaTest<string>(page, 'tooltipDirection')).toBe('English → Spanish');
 
   // A real click: the swap button ignores a click the page dispatches.
   await page.locator('.tooltip button[aria-label="Swap direction"]').click();
@@ -67,5 +67,5 @@ test('swap button reverses source<->target and re-fires translate', async () => 
   // The pill flips with the swap.
   await expect
     .poll(async () => await egaTest<string>(page, 'tooltipDirection'), { timeout: 10_000 })
-    .toBe('es→en');
+    .toBe('Spanish → English');
 });

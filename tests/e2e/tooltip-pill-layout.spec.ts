@@ -65,23 +65,23 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-test('meta chip (confidence + lang pill) sits on its own row, below the icon buttons', async () => {
+// One action row: the pills end it, and wrap onto their own line only when the row is full.
+test('meta chip (confidence + lang pill) ends the action row, right-aligned, never above the icons', async () => {
   const { page } = await openTooltipWithPill();
 
   const geo = await egaTest<MetaGeometry>(page, 'tooltipMetaGeometry');
   expect(geo).not.toBeNull();
   if (!geo) throw new Error('tooltipMetaGeometry missing');
 
-  expect(geo.metaParentClass.split(/\s+/)).not.toContain('actions');
-
-  // `margin-left:auto` on the meta chip puts it on the icon flex line — this catches that.
+  expect(geo.metaParentClass.split(/\s+/)).toContain('actions');
+  if (!geo.actionsRect) throw new Error('actions row missing');
+  // margin-left:auto pushes the pills to the row's right end; 0.5px covers sub-pixel rounding.
+  expect(geo.metaRect.right).toBeLessThanOrEqual(geo.actionsRect.right + 0.5);
+  expect(geo.actionsRect.right - geo.metaRect.right).toBeLessThan(1);
   if (geo.firstIconRect) {
-    const icon = geo.firstIconRect;
-    const meta = geo.metaRect;
-    const verticallySeparate =
-      meta.top >= icon.bottom - 0.5 || // meta is below the icon row
-      icon.top >= meta.bottom - 0.5; // or above (unusual but still separate)
-    expect(verticallySeparate, 'meta chip must not share a flex row with icons').toBe(true);
+    expect(geo.metaRect.top, 'meta chip must not sit above the icons').toBeGreaterThanOrEqual(
+      geo.firstIconRect.top - 0.5,
+    );
   }
 });
 

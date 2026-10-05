@@ -7,8 +7,8 @@
 ## State expectations
 
 - Step 1: backend response carries `confidence < threshold` OR `confidence` is undefined / null.
-- Step 2: pill is NOT rendered; the meta row under the actions shows only the detected-language / direction labels, if any.
-- Step 3: no layout placeholder remains where the pill would be; with no other meta the meta row is not rendered.
+- Step 2: pill is NOT rendered; the meta pills at the end of the action row show only the detected-language / direction labels, if any.
+- Step 3: no layout placeholder remains where the pill would be; with no other meta the meta group is not rendered.
 
 ## Visible affordances
 

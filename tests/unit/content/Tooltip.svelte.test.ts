@@ -303,7 +303,7 @@ describe('Tooltip smoke', () => {
     expect(close?.getAttribute('title')).toBeNull();
   });
 
-  it('icon buttons carry data-tooltip for CSS hover label', () => {
+  it('icon-only buttons carry data-tooltip for CSS hover label', () => {
     const { container } = render(Tooltip, {
       props: {
         tip: baseTip({ body: 'hi' }),
@@ -315,13 +315,19 @@ describe('Tooltip smoke', () => {
       },
     });
     const copy = container.querySelector('button[aria-label="Copy translation"]');
-    const explain = container.querySelector('button[aria-label="Explain this translation"]');
     const swap = container.querySelector('button[aria-label="Swap direction"]');
     const close = container.querySelector('button[aria-label="Close"]');
     expect(copy?.getAttribute('data-tooltip')).toBe('Copy');
-    expect(explain?.getAttribute('data-tooltip')).toBe('Explain');
     expect(swap?.getAttribute('data-tooltip')).toBe('Swap languages and translate again');
     expect(close?.getAttribute('data-tooltip')).toBe('Close (Esc)');
+  });
+
+  // The "?" glyph alone reads as Help, so Explain carries its word and needs no hover label.
+  it('Explain shows its word, not just the icon', () => {
+    const { getByRole } = mountWith({ body: 'hi' });
+    const explain = getByRole('button', { name: 'Explain this translation' });
+    expect(explain.textContent.trim()).toBe('Explain');
+    expect(explain.hasAttribute('data-tooltip')).toBe(false);
   });
 
   it('copied state flips the copy button data-tooltip to "Copied"', () => {
@@ -421,23 +427,27 @@ describe('Tooltip smoke', () => {
     expect(onswap).toHaveBeenCalledTimes(1);
   });
 
-  it('swap button is disabled when direction.source is "auto"', () => {
-    const { container } = render(Tooltip, {
+  // aria-disabled, not disabled: a disabled button cannot take focus, so the reason would be hover-only.
+  it('a blocked swap stays focusable, names its reason and does nothing on click', async () => {
+    const onswap = vi.fn();
+    const { getByRole } = render(Tooltip, {
       props: {
         tip: baseTip({ body: 'hi' }),
         clickOutsideDismiss: true,
         showSource: false,
-        onswap: vi.fn(),
+        onswap,
         direction: { source: 'auto', target: 'en' },
         ...handlers(),
       },
     });
-    const swap = container.querySelector(
-      'button[aria-label="Swap direction"]',
-    ) as HTMLButtonElement;
-    expect(swap).toBeTruthy();
-    expect(swap.hasAttribute('disabled')).toBe(true);
+    const swap = getByRole('button', { name: 'Swap direction — pick a source language first' });
+    expect(swap.hasAttribute('disabled')).toBe(false);
+    expect(swap.getAttribute('aria-disabled')).toBe('true');
+    swap.focus();
+    expect(swap.ownerDocument.activeElement).toBe(swap);
     expect(swap.getAttribute('data-tooltip')).toMatch(/pick a source language first/i);
+    await fireEvent.click(swap);
+    expect(onswap).not.toHaveBeenCalled();
   });
 
   // Swapping re-sends the same text; it does not fix an error, so the error row offers Try again only.
@@ -483,7 +493,9 @@ describe('Tooltip smoke', () => {
       },
     });
     const swap = container.querySelector('button[aria-label="Swap direction"]');
-    expect(swap?.getAttribute('data-tooltip')).toBe('Swap languages and translate again (es → en)');
+    expect(swap?.getAttribute('data-tooltip')).toBe(
+      'Swap languages and translate again (Spanish → English)',
+    );
   });
 
   // testHooks `hasError` probes `[data-ega-retry]`, so both error rows need it.
@@ -912,7 +924,17 @@ describe('direction pill (meta row)', () => {
   it('renders the active pair when the source is concrete', () => {
     const { container } = mountWithDirection({ body: 'Hola' }, { source: 'en', target: 'es' });
     const pill = container.querySelector('[data-ega-direction]');
-    expect(pill?.textContent).toBe('en→es');
+    expect(pill?.textContent).toBe('English → Spanish');
+  });
+
+  // One action row: the pills end it instead of taking a second row under it.
+  it.each([
+    ['success', { body: 'Hola' }],
+    ['loading', { loading: true, body: '' }],
+    ['error', { error: { code: 'SERVER' as const, message: 'HTTP 500' } }],
+  ])('sits inside the action row in %s mode', (_mode, state) => {
+    const { container } = mountWithDirection(state, { source: 'en', target: 'es' });
+    expect(container.querySelector('.actions .meta [data-ega-direction]')).not.toBeNull();
   });
 
   it('hides the pill when the source is auto', () => {
@@ -930,12 +952,12 @@ describe('direction pill (meta row)', () => {
       { error: { code: 'SERVER', message: 'HTTP 500' } },
       { source: 'es', target: 'en' },
     );
-    expect(container.querySelector('[data-ega-direction]')?.textContent).toBe('es→en');
+    expect(container.querySelector('[data-ega-direction]')?.textContent).toBe('Spanish → English');
   });
 
   it('names a built-in variety instead of its id', () => {
     const { container } = mountWithDirection({ body: 'Hi' }, { source: 'arabizi', target: 'en' });
-    expect(container.querySelector('[data-ega-direction]')?.textContent).toBe('Arabizi→en');
+    expect(container.querySelector('[data-ega-direction]')?.textContent).toBe('Arabizi → English');
   });
 
   it('names a custom variety instead of its 36-char id', async () => {
@@ -952,7 +974,7 @@ describe('direction pill (meta row)', () => {
     await ensureCustomLanguages();
     const { container } = mountWithDirection({ body: 'Hi' }, { source: customId, target: 'en' });
     expect(container.querySelector('[data-ega-direction]')?.textContent).toBe(
-      'Lebanese Arabizi→en',
+      'Lebanese Arabizi → English',
     );
     resetCustomLanguagesCache();
   });

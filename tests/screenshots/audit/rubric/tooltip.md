@@ -8,7 +8,7 @@ The translation tooltip lives inside the content-script shadow host on the page 
 - Anchored near the selection; selection-adjacent text overlap is EXPECTED.
 - Header (topbar) carries: task picker (tone picker only for Reword) and, when shown, close (X). Swap direction sits in the footer actions; the drag gutter is a thin strip on the card's left edge.
 - Body renders the translation as plain text.
-- Footer (`.meta`) carries the confidence pill (when shown) + copy / explain / etc. action icons.
+- One footer action row: copy, a labeled "Explain" button, the other action icons, then the meta pills (`.meta`: confidence, detected language, direction by name) pushed to its end. The pills wrap onto their own line only when the row is full.
 - Confidence pill (success >=0.8, warning >=0.6, danger below, soft bg) must clear WCAG AA in BOTH themes.
 - Inspector drawer + context-preview footer are opt-in expansions that grow the card downward.
 - Max width is a fixed 360px, independent of the selection; min width must keep the topbar legible.

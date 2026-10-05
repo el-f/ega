@@ -39,6 +39,26 @@ describe('tooltip meta row contrast', () => {
     expect(rule('.tooltip .meta')?.getPropertyValue('opacity')).toBe('');
   });
 
+  it('leaves pointer events on, so the hover titles on the pills work', () => {
+    expect(rule('.tooltip .meta')?.getPropertyValue('pointer-events')).toBe('');
+  });
+
+  it('sizes the confidence pill with the 11px token, not a raw 10px', () => {
+    expect(rule('.tooltip .pill')?.getPropertyValue('font-size')).toBe('var(--fs-xs)');
+  });
+
+  it('pushes the pills to the end of the action row', () => {
+    expect(rule('.tooltip .actions .meta')?.getPropertyValue('margin-left')).toBe('auto');
+  });
+
+  it('gives an aria-disabled action the disabled look', () => {
+    expect(
+      rule(
+        ".tooltip .actions .icon-btn:disabled, .tooltip .actions .icon-btn[aria-disabled='true']",
+      )?.getPropertyValue('opacity'),
+    ).toBe('0.35');
+  });
+
   it('colors the low-confidence pill with the -fg shade that clears 4.5:1', () => {
     expect(rule('.pill.lo')?.getPropertyValue('color')).toBe('var(--color-danger-fg)');
   });

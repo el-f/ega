@@ -294,7 +294,7 @@ function run(op: OpName, arg?: string): unknown {
       const metaRect = meta.getBoundingClientRect();
       const actionsRect = actions?.getBoundingClientRect() ?? null;
       const metaParentClass = meta.parentElement?.className ?? '';
-      // Proxy for the icon cluster: a wrapped `.actions` box grows to hold the meta row.
+      // The first icon marks the action row; the meta pills end that row or wrap below it.
       const firstIcon = r.querySelector<HTMLElement>('.tooltip .actions .icon-btn');
       const firstIconRect = firstIcon?.getBoundingClientRect() ?? null;
       return {
