@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
 import { setRuntimeId } from '@tests/_helpers/runtime';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import type { Settings } from '@/shared/types';
@@ -39,6 +39,11 @@ function killContext(): void {
 
 const FOREIGN = 'שלום עולם, מה שלומך היום?';
 const SHORTCUT = { key: 'L', ctrlKey: true, shiftKey: true };
+
+// The first import transforms the whole content script; on a loaded box that alone outlasts a test's 5 s.
+beforeAll(async () => {
+  await import('@/content/index');
+}, 60_000);
 
 beforeEach(() => {
   document.body.innerHTML = '';
