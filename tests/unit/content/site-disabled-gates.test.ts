@@ -6,6 +6,8 @@ import { STORAGE_KEYS } from '@/shared/constants';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import { ensureSettings, resetSettingsCacheForTest } from '@/content/settings-cache';
 import { flushAsync } from '@tests/_helpers/async';
+// Static so the lazy tooltip import resolves off the warm module graph, not mid-teardown.
+import '@/content/tipState.svelte';
 
 const enterPickerImpl = vi.fn().mockResolvedValue(undefined);
 vi.mock('@/content/picker-overlay', () => ({
