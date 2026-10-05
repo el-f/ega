@@ -17,14 +17,20 @@ describe('PageContextSection', () => {
     expect(container.querySelector('[data-ega-setting="advanced.pageContextPayload"]')).toBeNull();
   });
 
-  it('shows only the selection slider under Minimal, and says how to get the rest', () => {
+  it('keeps the Rich-only limits on screen but off under Minimal, and says why', () => {
     const { container, getByText } = render(PageContextSection, {
       props: makeSectionProps({ s: { contextEnabled: true, pageContextLevel: 'minimal' } }),
     });
-    const wrapper = container.querySelector('[data-ega-setting="advanced.pageContextPayload"]');
-    expect(wrapper?.querySelectorAll('[role="slider"]').length).toBe(1);
-    expect(container.querySelector('[data-ega-setting="advanced.headingTrailDepth"]')).toBeNull();
-    expect(getByText(/Set Context depth to Rich/)).toBeTruthy();
+    const note = getByText(/Set Context depth to Rich/);
+    for (const id of ['descriptionContextCap', 'headingTrailDepth', 'headingTrailEntryCap']) {
+      const anchor = container.querySelector(`[data-ega-setting="advanced.${id}"]`);
+      expect(anchor, id).not.toBeNull();
+      const thumb = anchor?.querySelector('[role="slider"]');
+      expect(thumb?.hasAttribute('data-disabled')).toBe(true);
+      expect(thumb?.getAttribute('aria-describedby')).toContain(note.id);
+    }
+    const selection = container.querySelector('[data-ega-setting="advanced.selectionContextCap"]');
+    expect(selection?.querySelector('[role="slider"]')?.hasAttribute('data-disabled')).toBe(false);
   });
 
   it('shows the 4 payload sliders under Rich', () => {

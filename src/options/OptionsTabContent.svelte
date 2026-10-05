@@ -24,6 +24,11 @@
     lazyCache[id] = p;
     return p;
   }
+
+  /** Resolves once the tab's code is loaded, so a caller can start a short wait for one of its nodes only then. */
+  export function tabReady(id: TabId): Promise<unknown> {
+    return id in LOADERS ? loadLazyTab(id as LazyId).catch(() => undefined) : Promise.resolve();
+  }
 </script>
 
 <script lang="ts">

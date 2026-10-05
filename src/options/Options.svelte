@@ -3,7 +3,7 @@
   import AppShell from '@/shared/ui/AppShell.svelte';
   import OptionsNav from './OptionsNav.svelte';
   import OptionsHeader from './OptionsHeader.svelte';
-  import OptionsTabContent, { type TabId } from './OptionsTabContent.svelte';
+  import OptionsTabContent, { tabReady, type TabId } from './OptionsTabContent.svelte';
   import StatusBar, { type StatusKind } from './components/StatusBar.svelte';
   import ShortcutOverlay from '@/shared/components/ShortcutOverlay.svelte';
   import CommandPalette from '@/shared/components/CommandPalette.svelte';
@@ -104,11 +104,14 @@
    *  Cmd+Shift+R chord and the "Add a rule" command-palette entry. */
   function focusAddRule(): void {
     active = 'tasks';
-    whenPresent('[data-ega-manual-body]', (body) => {
-      const block = body.closest('details.manual-block');
-      if (block instanceof HTMLDetailsElement) block.open = true;
-      if (body instanceof HTMLTextAreaElement) body.focus();
-    });
+    // A cold tab chunk can take longer than the whole whenPresent budget, so the budget starts once the code is in.
+    void tabReady('tasks').then(() =>
+      whenPresent('[data-ega-manual-body]', (body) => {
+        const block = body.closest('details.manual-block');
+        if (block instanceof HTMLDetailsElement) block.open = true;
+        if (body instanceof HTMLTextAreaElement) body.focus();
+      }),
+    );
   }
 
   // main.ts already subscribes to onSettingsChanged, so writing the theme here propagates to every open surface.
@@ -422,7 +425,7 @@
     active = tab;
     // A same-tab jump does not remount the pane, so it needs an explicit re-resolve signal.
     if (sameTab) document.dispatchEvent(new CustomEvent(DEEP_LINK_EVENT));
-    revealPendingSetting();
+    void tabReady(tab).then(() => revealPendingSetting());
   }
   async function openSettingsSearch(): Promise<void> {
     try {

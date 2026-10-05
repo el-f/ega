@@ -21,6 +21,9 @@
     onPatch: (p: Partial<Settings>) => Promise<void> | void;
   }
   const { s, onPatch }: Props = $props();
+
+  // Mounted under Minimal too, so a settings search for these limits always has a target.
+  const richOnly = $derived(s.pageContextLevel !== 'rich');
 </script>
 
 <SectionCard
@@ -84,51 +87,55 @@
             onchange={(v) => void onPatch({ selectionContextCap: v })}
           />
         </div>
-        {#if s.pageContextLevel !== 'rich'}
-          <p class="setting-help rich-only-note">
+        {#if richOnly}
+          <p id="page-context-rich-only" class="setting-help rich-only-note">
             Set Context depth to Rich to change the description and heading limits.
           </p>
         {/if}
-        <CollapsibleField open={s.pageContextLevel === 'rich'}>
-          <div data-ega-setting="advanced.descriptionContextCap">
-            <Slider
-              label="Page description"
-              value={s.descriptionContextCap ?? DEFAULT_DESCRIPTION_CONTEXT_CAP}
-              min={100}
-              max={500}
-              step={10}
-              unit=" chars"
-              help="Longest page description sent."
-              modified={isFieldModified('advanced.descriptionContextCap', s)}
-              onchange={(v) => void onPatch({ descriptionContextCap: v })}
-            />
-          </div>
-          <div data-ega-setting="advanced.headingTrailDepth">
-            <Slider
-              label="Headings sent"
-              value={s.headingTrailDepth ?? DEFAULT_HEADING_TRAIL_DEPTH}
-              min={1}
-              max={10}
-              step={1}
-              help="How many of the nearest page headings are sent."
-              modified={isFieldModified('advanced.headingTrailDepth', s)}
-              onchange={(v) => void onPatch({ headingTrailDepth: v })}
-            />
-          </div>
-          <div data-ega-setting="advanced.headingTrailEntryCap">
-            <Slider
-              label="Longest heading"
-              value={s.headingTrailEntryCap ?? DEFAULT_HEADING_TRAIL_ENTRY_CAP}
-              min={50}
-              max={200}
-              step={5}
-              unit=" chars"
-              help="Longer headings are cut to this length."
-              modified={isFieldModified('advanced.headingTrailEntryCap', s)}
-              onchange={(v) => void onPatch({ headingTrailEntryCap: v })}
-            />
-          </div>
-        </CollapsibleField>
+        <div data-ega-setting="advanced.descriptionContextCap">
+          <Slider
+            label="Page description"
+            value={s.descriptionContextCap ?? DEFAULT_DESCRIPTION_CONTEXT_CAP}
+            min={100}
+            max={500}
+            step={10}
+            unit=" chars"
+            help="Longest page description sent."
+            modified={isFieldModified('advanced.descriptionContextCap', s)}
+            disabled={richOnly}
+            {...richOnly ? { describedById: 'page-context-rich-only' } : {}}
+            onchange={(v) => void onPatch({ descriptionContextCap: v })}
+          />
+        </div>
+        <div data-ega-setting="advanced.headingTrailDepth">
+          <Slider
+            label="Headings sent"
+            value={s.headingTrailDepth ?? DEFAULT_HEADING_TRAIL_DEPTH}
+            min={1}
+            max={10}
+            step={1}
+            help="How many of the nearest page headings are sent."
+            modified={isFieldModified('advanced.headingTrailDepth', s)}
+            disabled={richOnly}
+            {...richOnly ? { describedById: 'page-context-rich-only' } : {}}
+            onchange={(v) => void onPatch({ headingTrailDepth: v })}
+          />
+        </div>
+        <div data-ega-setting="advanced.headingTrailEntryCap">
+          <Slider
+            label="Longest heading"
+            value={s.headingTrailEntryCap ?? DEFAULT_HEADING_TRAIL_ENTRY_CAP}
+            min={50}
+            max={200}
+            step={5}
+            unit=" chars"
+            help="Longer headings are cut to this length."
+            modified={isFieldModified('advanced.headingTrailEntryCap', s)}
+            disabled={richOnly}
+            {...richOnly ? { describedById: 'page-context-rich-only' } : {}}
+            onchange={(v) => void onPatch({ headingTrailEntryCap: v })}
+          />
+        </div>
       </div>
     </details>
     <div class="redact-status" data-ega-setting="advanced.redactContext">
