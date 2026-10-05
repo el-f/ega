@@ -469,29 +469,13 @@
             >
           {/if}
         {/if}
-        <!-- Time and star wrap as one unit, and an empty slot holds the star's place, so Bookmark never reflows the header. -->
-        <span class="ega-meta-when">
-          <time
-            class="ega-timestamp"
-            data-ega-timestamp
-            datetime={new Date(turn.createdAt).toISOString()}
-            data-tooltip={new Date(turn.createdAt).toLocaleString()}
-            data-tooltip-placement="top">{relativeTime(turn.createdAt, now)}</time
-          >
-          {#if turn.bookmarked}
-            <!-- Bookmark lives in the More menu, so the reply itself still shows that it is bookmarked. -->
-            <span
-              class="ega-bookmarked-mark"
-              data-ega-bookmarked-mark
-              role="img"
-              aria-label="Bookmarked"
-              data-tooltip="Bookmarked"
-              data-tooltip-placement="top"><Star size={12} aria-hidden="true" /></span
-            >
-          {:else}
-            <span class="ega-bookmarked-slot" aria-hidden="true"></span>
-          {/if}
-        </span>
+        <time
+          class="ega-timestamp"
+          data-ega-timestamp
+          datetime={new Date(turn.createdAt).toISOString()}
+          data-tooltip={new Date(turn.createdAt).toLocaleString()}
+          data-tooltip-placement="top">{relativeTime(turn.createdAt, now)}</time
+        >
       {/if}
       {#if variantCount > 1}
         <div class="ega-variant-nav" data-ega-variant-nav>
@@ -691,7 +675,19 @@
           />
         {/if}
         <!-- Bookmark and Delete sit in a menu at the row's end, so the row fits 400px and Delete stays away from Copy. -->
-        <span class="ega-turn-action-end"></span>
+        <!-- The star shows a bookmark without opening the menu; the spacer already takes the free width, so it shifts nothing. -->
+        <span class="ega-turn-action-end">
+          {#if turn.bookmarked}
+            <span
+              class="ega-bookmarked-mark"
+              data-ega-bookmarked-mark
+              role="img"
+              aria-label="Bookmarked"
+              data-tooltip="Bookmarked"
+              data-tooltip-placement="top"><Star size={12} aria-hidden="true" /></span
+            >
+          {/if}
+        </span>
         <DropdownMenu.Root>
           <DropdownMenu.Trigger
             class="ega-icon-btn variant-default size-md"
@@ -1001,14 +997,8 @@
     align-items: center;
     gap: var(--space-2);
   }
-  .ega-meta-when {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-2);
-    margin-left: auto;
-    white-space: nowrap;
-  }
   .ega-timestamp {
+    margin-left: auto;
     font-size: var(--fs-xs);
     color: var(--color-muted);
   }
@@ -1018,15 +1008,12 @@
     margin-top: var(--space-1);
   }
   .ega-turn-action-end {
+    display: inline-flex;
     margin-left: auto;
   }
   .ega-bookmarked-mark {
     display: inline-flex;
     color: var(--color-accent);
-  }
-  /* The Star icon's 12px, kept empty on an unbookmarked reply. */
-  .ega-bookmarked-slot {
-    width: 12px;
   }
   /* :global — the menu renders in a portal on <body>, outside this component's scope hash. */
   :global(.sp-menu-item.ega-menu-item-danger) {

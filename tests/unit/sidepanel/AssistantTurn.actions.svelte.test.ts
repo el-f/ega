@@ -136,28 +136,26 @@ describe('AssistantTurn — per-turn actions', () => {
     expect(plain.container.querySelector('[data-ega-bookmarked-mark]')).toBeNull();
   });
 
-  // jsdom lays nothing out, so the gate is the shape: one group, same slots either way.
-  it('keeps the star slot beside the time, so bookmarking never reflows the header', () => {
-    const groupOf = (bookmarked: boolean): Element => {
-      const { container } = render(AssistantTurn, {
-        props: { turn: doneTurn({ bookmarked }), onRetry: vi.fn() },
-      });
-      const group = container.querySelector('[data-ega-timestamp]')?.parentElement;
-      if (!group) throw new Error('timestamp missing');
-      return group;
-    };
-    const on = groupOf(true);
-    const off = groupOf(false);
-    expect(on.classList.contains('ega-meta-when')).toBe(true);
-    expect(on.contains(on.querySelector('[data-ega-bookmarked-mark]'))).toBe(true);
-    expect(off.children.length).toBe(on.children.length);
-    const slot = off.lastElementChild;
-    expect(slot?.getAttribute('aria-hidden')).toBe('true');
-    expect(slot?.hasAttribute('data-ega-bookmarked-mark')).toBe(false);
+  // jsdom lays nothing out, so the gate is the shape: the header never holds a star or a slot for one.
+  it('puts the star in the action row spacer, so bookmarking never changes the header', () => {
+    const turnOf = (bookmarked: boolean): HTMLElement =>
+      render(AssistantTurn, { props: { turn: doneTurn({ bookmarked }), onRetry: vi.fn() } })
+        .container;
+    const on = turnOf(true);
+    const off = turnOf(false);
+    for (const c of [on, off]) {
+      // The time ends the header on every reply, so it sits flush with the card edge.
+      expect(c.querySelector('.ega-assistant-meta')?.lastElementChild?.tagName).toBe('TIME');
+    }
+    const mark = on.querySelector('[data-ega-bookmarked-mark]');
+    expect(mark?.parentElement?.classList.contains('ega-turn-action-end')).toBe(true);
+    // Not a toolbar stop: arrows and Tab skip it.
+    expect(mark?.hasAttribute('data-ega-action')).toBe(false);
+    expect(mark?.hasAttribute('tabindex')).toBe(false);
+    expect(off.querySelector('.ega-turn-action-end')?.children.length).toBe(0);
 
     const css = readFileSync('src/sidepanel/conversation/AssistantTurn.svelte', 'utf8');
-    expect(/\.ega-meta-when\s*\{[^}]*white-space:\s*nowrap/.test(css)).toBe(true);
-    expect(/\.ega-bookmarked-slot\s*\{[^}]*width:\s*12px/.test(css)).toBe(true);
+    expect(/\.ega-turn-action-end\s*\{[^}]*margin-left:\s*auto/.test(css)).toBe(true);
   });
 
   it('Bookmark in the More menu fires onBookmark(id)', async () => {
