@@ -50,6 +50,12 @@ describe('PerfHistogram', () => {
     expect(getByText(/^Slowest 5%: over \d+ ms$/)).toBeTruthy();
   });
 
+  it('says "request" for one entry', async () => {
+    stubReply(entriesOf(120));
+    const { getByText } = render(PerfHistogram);
+    await waitFor(() => expect(getByText('1 finished of the last 1 request')).toBeTruthy());
+  });
+
   it('renders SVG histogram bars from the fetched entries', async () => {
     stubReply(entriesOf(...Array.from({ length: 20 }, (_, i) => i + 1)));
     const { container } = render(PerfHistogram);

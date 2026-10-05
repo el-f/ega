@@ -22,7 +22,8 @@
   import BackupRestoreRow from '@/options/components/BackupRestoreRow.svelte';
   import { getCustomTasks, getSettings as readSettings } from '@/shared/storage';
   import { exportTasks } from '@/shared/storage/backup';
-  import { count, importBundleFile, type ImportStatus } from '@/options/import-bundle';
+  import { importBundleFile, type ImportStatus } from '@/options/import-bundle';
+  import { count } from '@/shared/utils/count';
   import { downloadJsonFile } from '@/shared/download-file';
   import { saveSettings, saveVia } from '@/options/storage-with-toast';
   import TabHeader from '@/shared/components/TabHeader.svelte';

@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { computePercentiles, type PerfEntry } from '@/shared/perf-history';
   import { sendMsg } from '@/shared/messages';
+  import { count } from '@/shared/utils/count';
 
   // The buffer lives in the service worker's module instance — ask it, never read the local copy.
   let entries = $state<readonly PerfEntry[]>([]);
@@ -51,7 +52,7 @@
 <div class="perf" data-ega-perf-histogram>
   {#if stats.n > 0 || failed > 0}
     <div class="perf-stats">
-      <span>{stats.n} finished of the last {entries.length} requests</span>
+      <span>{stats.n} finished of the last {count(entries.length, 'request')}</span>
       <span title="Half of the translations finished faster than this (median)."
         >Typical: {Math.round(stats.p50)} ms</span
       >
@@ -63,8 +64,8 @@
   {/if}
   {#if histogram.bins.length > 0}
     <svg viewBox="0 0 200 60" class="perf-svg" role="img" aria-label="Latency histogram">
-      {#each histogram.bins as count, i (i)}
-        {@const h = maxBin === 0 ? 0 : (count / maxBin) * 55}
+      {#each histogram.bins as bin, i (i)}
+        {@const h = maxBin === 0 ? 0 : (bin / maxBin) * 55}
         <rect x={i * 20 + 2} y={60 - h} width={16} height={h} fill="var(--color-accent)" />
       {/each}
     </svg>

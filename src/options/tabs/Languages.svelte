@@ -62,7 +62,8 @@
   } from '@/shared/varieties';
   import { getSettings } from '@/shared/storage';
   import { exportLanguage, exportVarieties } from '@/shared/storage/backup';
-  import { count, importBundleFile, type ImportStatus } from '@/options/import-bundle';
+  import { importBundleFile, type ImportStatus } from '@/options/import-bundle';
+  import { count } from '@/shared/utils/count';
   import { saveSettings } from '@/options/storage-with-toast';
   import { makeAsyncLock } from '@/shared/utils/async-lock';
   import { confirmDialog } from '@/shared/components/confirmDialog';

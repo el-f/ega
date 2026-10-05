@@ -24,7 +24,8 @@
   import { listVarieties } from '@/shared/varieties';
   import { GLOSSARY_FIELD_MAX, GLOSSARY_MAX } from '@/shared/settings-schema';
   import { exportGlossary, sameTerm } from '@/shared/storage/backup';
-  import { count, importBundleFile, type ImportStatus } from '@/options/import-bundle';
+  import { importBundleFile, type ImportStatus } from '@/options/import-bundle';
+  import { count } from '@/shared/utils/count';
   import { downloadJsonFile } from '@/shared/download-file';
   import BackupRestoreRow from '@/options/components/BackupRestoreRow.svelte';
   import type { Settings, LangSelection, Variety } from '@/shared/types';

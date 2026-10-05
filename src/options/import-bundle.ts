@@ -1,4 +1,5 @@
 import { isSlowPattern } from '@/shared/regex-risk';
+import { count } from '@/shared/utils/count';
 import * as valibot from 'valibot';
 import { confirmDialog } from '@/shared/components/confirmDialog';
 import { getCustomLanguages, getCustomTasks, readCustomLanguages } from '@/shared/storage';
@@ -484,10 +485,6 @@ function listOf(items: readonly string[]): string {
   return items.length <= 1
     ? (items[0] ?? '')
     : `${items.slice(0, -1).join(', ')} and ${items.at(-1) ?? ''}`;
-}
-
-export function count(n: number, singular: string, plural = `${singular}s`): string {
-  return `${n} ${n === 1 ? singular : plural}`;
 }
 
 const PATTERN_DROPPED =
