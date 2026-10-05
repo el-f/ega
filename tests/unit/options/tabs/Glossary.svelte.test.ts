@@ -207,3 +207,90 @@ describe('Glossary tab — focus after leaving edit mode', () => {
     expect(getByRole('button', { name: /Add entry/i })).toBeTruthy();
   });
 });
+
+describe('Glossary tab — editing beside a near-duplicate', () => {
+  beforeEach(() => {
+    resetChromeMock();
+  });
+
+  function seedPair(): void {
+    // Two entries the duplicate rule calls the same term; older data can hold both.
+    chromeMock.storage.local._raw.set(SETTINGS_KEY, {
+      ...parseSettings({}),
+      glossary: [
+        { term: 'Apple', translation: 'x', caseSensitive: true },
+        { term: 'apple', translation: 'y', caseSensitive: false },
+        { term: 'Pear', translation: 'z', caseSensitive: false },
+      ],
+    });
+  }
+
+  it('saves an edit to one of the pair', async () => {
+    seedPair();
+    const { getByLabelText, getByRole, findAllByRole } = render(Glossary);
+    const [first] = await findAllByRole('button', { name: 'Edit entry Apple' });
+    if (!first) throw new Error('edit button not found');
+    await fireEvent.click(first);
+    await fireEvent.input(getByLabelText('Translation'), { target: { value: 'fixed' } });
+    await fireEvent.click(getByRole('button', { name: 'Save entry' }));
+    await waitFor(async () =>
+      expect((await getSettings()).glossary.map((e) => e.translation)).toEqual(['fixed', 'y', 'z']),
+    );
+  });
+
+  it('still refuses an edit that makes a new duplicate', async () => {
+    seedPair();
+    const { getByLabelText, getByRole, findByRole } = render(Glossary);
+    await fireEvent.click(await findByRole('button', { name: 'Edit entry Pear' }));
+    await fireEvent.input(getByLabelText('Term'), { target: { value: 'APPLE' } });
+    await fireEvent.click(getByRole('button', { name: 'Save entry' }));
+    expect((await findByRole('alert')).textContent).toMatch(/already in the glossary/i);
+    expect((await getSettings()).glossary.map((e) => e.term)).toEqual(['Apple', 'apple', 'Pear']);
+  });
+});
+
+describe('Glossary tab — focus after Delete', () => {
+  beforeEach(() => {
+    resetChromeMock();
+  });
+
+  it.each([
+    ['term-1', 'Delete entry term-2'],
+    ['term-2', 'Delete entry term-1'],
+  ])('deleting %s puts focus on "%s"', async (term, expected) => {
+    seedEntries(3);
+    const { findByRole, getByRole } = render(Glossary);
+    const del = await findByRole('button', { name: `Delete entry ${term}` });
+    del.focus();
+    await fireEvent.click(del);
+    await waitFor(async () => expect((await getSettings()).glossary).toHaveLength(2));
+    await waitFor(() =>
+      expect(document.activeElement).toBe(getByRole('button', { name: expected })),
+    );
+  });
+
+  it('deleting the last entry puts focus on the Term field', async () => {
+    seedEntries(1);
+    const { findByRole, getByLabelText } = render(Glossary);
+    const del = await findByRole('button', { name: 'Delete entry term-0' });
+    del.focus();
+    await fireEvent.click(del);
+    await waitFor(() => expect(document.activeElement).toBe(getByLabelText('Term')));
+  });
+
+  it('a delete that did not land keeps focus on the same row', async () => {
+    seedEntries(2);
+    const { findByRole, getByRole } = render(Glossary);
+    const del = await findByRole('button', { name: 'Delete entry term-0' });
+    // Another window removed it first, so this tab's write finds nothing to remove.
+    chromeMock.storage.local._raw.set(SETTINGS_KEY, {
+      ...parseSettings({}),
+      glossary: [{ term: 'term-1', translation: 'trans-1', caseSensitive: false }],
+    });
+    del.focus();
+    await fireEvent.click(del);
+    await waitFor(() =>
+      expect(document.activeElement).toBe(getByRole('button', { name: 'Delete entry term-1' })),
+    );
+  });
+});

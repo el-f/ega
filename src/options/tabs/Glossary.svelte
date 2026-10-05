@@ -53,6 +53,7 @@
   /** The row loaded into the form. Set while editing; null while adding. */
   let editing: GlossaryEntry | null = $state(null);
   let formEl = $state<HTMLDivElement | null>(null);
+  let listEl = $state<HTMLUListElement | null>(null);
   let query = $state('');
   let saveError: string | null = $state(null);
   let varieties: Variety[] = $state([]);
@@ -212,7 +213,9 @@
         }
         const at = cur.findIndex((g) => sameEntry(g, original));
         if (at < 0) return 'unchanged';
-        if (cur.some((g, i) => i !== at && isDuplicate(g, entry))) return 'duplicate';
+        // A near-duplicate the original already had (cs "Apple" beside ci "apple") must not block editing it.
+        if (cur.some((g, i) => i !== at && isDuplicate(g, entry) && !isDuplicate(g, original)))
+          return 'duplicate';
         return cur.map((g, i) => (i === at ? entry : g));
       }),
     );
@@ -228,6 +231,7 @@
 
   // Position is not identity: another surface can rewrite the glossary while this tab sits open.
   async function removeEntry(entry: GlossaryEntry): Promise<void> {
+    const shownAt = filtered.indexOf(entry);
     let removedAt = -1;
     const result = await writeLock(() =>
       writeGlossary((cur) => {
@@ -235,6 +239,14 @@
         return removedAt < 0 ? 'unchanged' : cur.filter((_, i) => i !== removedAt);
       }),
     );
+    // Every write rebuilds the entries, so every row remounts and the pressed button is gone; the row now in its place takes focus.
+    await tick();
+    const deletes =
+      listEl?.querySelectorAll<HTMLElement>('button[aria-label^="Delete entry "]') ?? [];
+    (
+      deletes[Math.min(shownAt, deletes.length - 1)] ??
+      formEl?.querySelector<HTMLInputElement>('input')
+    )?.focus();
     if (result !== 'saved') return;
     if (editing && sameEntry(editing, entry)) resetForm();
     toastStore.push({
@@ -368,7 +380,7 @@
         />
       </div>
     {/if}
-    <ul class="glossary-list" data-ega-glossary-list>
+    <ul class="glossary-list" data-ega-glossary-list bind:this={listEl}>
       {#each filtered as e (e)}
         <li class="glossary-row" class:is-editing={editing !== null && sameEntry(editing, e)}>
           <div class="glossary-cell glossary-cell-term" dir="auto"><b>{e.term}</b></div>
