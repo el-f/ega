@@ -6,7 +6,7 @@
 
 ## State expectations
 
-- Step 1: at least one AssistantTurn is actively streaming; the "More actions" (⋯) menu offers "Cancel all requests" at its top.
+- Step 1: at least one AssistantTurn is actively streaming; the "More actions" (⋯) menu offers "Cancel all requests" as its last item.
 - Step 2 (click Cancel): the panel sends `translate:cancel-all`, the service worker aborts every in-flight request, and the panel cancels its own turn at once.
 - Step 3: the menu closes and no longer offers the item; the streaming AssistantTurn exits streaming state and renders a partial or canceled label; no further tokens arrive.
 

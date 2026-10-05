@@ -59,13 +59,6 @@
   </DropdownMenu.Trigger>
   <DropdownMenu.Portal>
     <DropdownMenu.Content class="sp-menu" align="end" sideOffset={6}>
-      {#if onCancelAll}
-        <DropdownMenu.Item class="sp-menu-item" onSelect={onCancelAll} data-ega-cancel-all>
-          <Icon icon={CircleStopIcon} size={16} />
-          <span class="sp-menu-label">Cancel all requests</span>
-        </DropdownMenu.Item>
-        <DropdownMenu.Separator class="sp-menu-sep" />
-      {/if}
       <DropdownMenu.Item
         class="sp-menu-item"
         disabled={isEmptyThread}
@@ -124,6 +117,14 @@
         <Icon icon={RepeatIcon} size={16} />
         <span class="sp-menu-label">Fallback backends: {retryCount}…</span>
       </DropdownMenu.Item>
+      <!-- Last, not first: a keyboard open lands on the first item, and a second Enter must not cancel. -->
+      {#if onCancelAll}
+        <DropdownMenu.Separator class="sp-menu-sep" />
+        <DropdownMenu.Item class="sp-menu-item" onSelect={onCancelAll} data-ega-cancel-all>
+          <Icon icon={CircleStopIcon} size={16} />
+          <span class="sp-menu-label">Cancel all requests</span>
+        </DropdownMenu.Item>
+      {/if}
     </DropdownMenu.Content>
   </DropdownMenu.Portal>
 </DropdownMenu.Root>
