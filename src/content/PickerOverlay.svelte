@@ -9,7 +9,11 @@
 <div class="picker-dimmer" aria-hidden="true"></div>
 <div class="picker-hint" role="status" aria-live="polite">
   <span class="picker-hint-default">
-    Click an area to translate it, or move with the arrow keys and press
+    <!-- Down goes into a smaller block and Tab to the next one (pick-cursor.ts), not across the page. -->
+    Click an area to translate it, or use
+    <span class="picker-hint-kbd">↑</span>
+    <span class="picker-hint-kbd">↓</span>
+    to make it larger or smaller and <span class="picker-hint-kbd">Tab</span> for the next one, then
     <span class="picker-hint-kbd">Enter</span>
     <span class="picker-hint-sep">·</span>
     <span class="picker-hint-kbd">Esc</span> to cancel

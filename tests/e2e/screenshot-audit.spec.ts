@@ -1042,7 +1042,7 @@ test('Picker — overlay empty + hover outline', async () => {
       theme: 'light',
       userAction: 'user pressed Ctrl+Shift+E to enter picker mode; no hover yet',
       expectations: [
-        'hint banner ("Click an area to translate it, or move with the arrow keys and press Enter · Esc to cancel") readable at the bottom center',
+        'hint banner ("Click an area to translate it, or use ↑ ↓ to make it larger or smaller and Tab for the next one, then Enter · Esc to cancel") readable at the bottom center',
         'no element outline (no hover)',
         'full-viewport dim layer covers the page — deliberate, it is what marks picker mode',
       ],

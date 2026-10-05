@@ -19,7 +19,10 @@ describe('PickerOverlay — picker hint live region', () => {
     const hint = container.querySelector('.picker-hint');
     const text = hint?.textContent.replace(/\s+/g, ' ') ?? '';
     expect(text).toContain('Click an area to translate it');
-    expect(text).toContain('move with the arrow keys and press Enter');
+    // Down goes into a smaller block, not across the page; Tab is the only key that reaches the next one.
+    expect(text).toContain(
+      'use ↑ ↓ to make it larger or smaller and Tab for the next one, then Enter',
+    );
     expect(text).toContain('Esc to cancel');
   });
 

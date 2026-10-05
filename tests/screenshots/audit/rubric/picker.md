@@ -8,7 +8,7 @@ Element-picker overlay (`src/content/PickerOverlay.svelte`) mounts in the conten
 - Hovered element gets an outline drawn at its bounding rect (`.picker-outline`), and the dim is cut out around it: the target is as bright as the page, everything else is dimmed.
 - Escape exits without firing a translate.
 - Sensitive targets (password, card, one-time-code fields, editable text) get a red outline and the hint swaps to the reason Ega will not read them; clicking one shows a toast and translates nothing.
-- A hint banner pinned to the BOTTOM center reads "Click an area to translate it, or move with the arrow keys and press Enter · Esc to cancel".
+- A hint banner pinned to the BOTTOM center reads "Click an area to translate it, or use ↑ ↓ to make it larger or smaller and Tab for the next one, then Enter · Esc to cancel".
 - The overlay mounts once per picker session. A hover repaints the outline in place — it must not replace the hint node, or the `aria-live` region is destroyed on every mouse move.
 
 ## States
