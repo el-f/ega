@@ -194,6 +194,18 @@ describe('batch-progress lifecycle', () => {
     h.dismiss();
   });
 
+  it('drops Show original when nothing was translated, since there is no other view', async () => {
+    const { showBatchProgress } = await import('@/content/batch-progress');
+    const h = showBatchProgress(3, () => {});
+    h.setOnToggleOriginal(() => {});
+    const toggle = shadowQuery('[data-ega-batch-cancel]') as HTMLButtonElement;
+    h.settle({ done: 3, total: 3, complete: false, failed: 3 });
+    expect(toggle.hidden).toBe(true);
+    h.settle({ done: 3, total: 3, complete: false, failed: 2 });
+    expect(toggle.hidden).toBe(false);
+    h.dismiss();
+  });
+
   it('turns the bar red once a settled batch has failures', async () => {
     const { showBatchProgress } = await import('@/content/batch-progress');
     const h = showBatchProgress(4, () => {});

@@ -336,8 +336,11 @@
 .tooltip .tooltip-error-body {
   color: var(--color-danger-fg, var(--color-danger));
 }
-.tooltip .tooltip-error-title {
+.tooltip .tooltip-error-title,
+.tooltip .tooltip-error-text {
   display: block;
+}
+.tooltip .tooltip-error-title {
   font-weight: 600;
 }
 .tooltip .tooltip-error-details {

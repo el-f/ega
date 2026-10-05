@@ -89,6 +89,8 @@ function patchVisible(): void {
         : 'Stop translating and keep the finished areas',
     );
   }
+  // With nothing translated there is no other view to switch to.
+  if (cancel) cancel.hidden = active.settled && active.done - active.failed <= 0;
   const retry = active.anchor.querySelector<HTMLElement>('.retry-failed');
   if (retry) retry.hidden = !(active.settled && active.failed > 0);
   const bar = active.anchor.querySelector<HTMLElement>('[data-ega-batch-bar]');
