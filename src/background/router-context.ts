@@ -11,7 +11,7 @@ import type { BackendConfig } from '@/shared/backends/base';
 import type { Logger } from '@/shared/logger';
 import { buildBackendConfig } from '@/shared/backends/build-config';
 import { DEFAULT_STREAMING_FLUSH_MS } from '@/shared/constants';
-import { buildTaskPrompt, CARD_CONTRACT, PLAIN_CONTRACT } from '@/shared/prompts';
+import { buildTaskPrompt, CARD_CONTRACT, PLAIN_CONTRACT, readsPageContext } from '@/shared/prompts';
 import { labelFor } from '@/shared/languages';
 import { redactContext } from '@/shared/redact';
 import { builtInTask, type Task, type Tone } from '@/shared/task-prompts';
@@ -225,6 +225,14 @@ export function createContextResolver(deps: ContextDeps) {
 
 /** Everything the prompt is built from: the context without the prompt and the key derived from it. */
 type PromptInputs = Omit<TranslateCtx, 'prompt' | 'key'>;
+
+/** Page info reaches the model only when the request kept it and the prompt renders it: a {{context}} slot, or the block a slotless task gets. */
+export function rendersPageContext(ctx: PromptInputs): boolean {
+  return (
+    ctx.reqView.context !== undefined &&
+    (ctx.contextBlockIfNoSlot || readsPageContext(ctx.tpl, ctx.snippets))
+  );
+}
 
 export function buildSystemAndUser(
   ctx: PromptInputs,

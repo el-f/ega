@@ -210,13 +210,14 @@ describe('router — token usage on ResultMeta', () => {
     expect(meta.historyTurns).toBe(0);
   });
 
-  it('records no earlier messages for a cache hit, which sent the model nothing', async () => {
+  // The cache key hashes the history, so the saved answer was made from the same messages.
+  it('keeps the earlier-message count on a cache hit', async () => {
     const meta = await doneMeta(
       { stream: true, explain: false, conversationHistory: history },
       true,
     );
     expect(meta.cacheHit).toBe(true);
-    expect(meta.historyTurns).toBeUndefined();
+    expect(meta.historyTurns).toBe(2);
   });
 
   // Recorded at send time: the details panel must not read a task switch the user flipped later.

@@ -126,6 +126,39 @@ describe('router — notes typed beside an image reach the OCR prompt', () => {
     const done = chunks.find((c) => c.type === 'done');
     if (done?.type !== 'done') throw new Error('no done chunk');
     expect(done.meta?.pageContextSent).toBe(false);
+    expect(done.meta?.imageArm).toBe('ocr');
+  });
+
+  // No backend reads images, so the caption goes down the text path: the details must not describe an image.
+  it('records the text arm, with history and page info, when no backend reads images', async () => {
+    stubImageFetch();
+    const textOnly: TranslationBackend = {
+      id: asBackendIdUnsafe('anthropic'),
+      manifest: testManifest('anthropic'),
+      isAvailable: async () => true,
+      translate: async ({ req, onChunk }) => {
+        onChunk(makeDoneChunk(req.id, { translation: 'HELLO', confidence: 0.9 }));
+      },
+    };
+    const router = createRouter({
+      backends: [textOnly],
+      getSettings: async () => ({ ...DEFAULT_SETTINGS, cacheEnabled: false }),
+      cache: { get: async () => undefined, set: async () => undefined },
+      logger: { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} },
+    });
+    const chunks: TranslationChunk[] = [];
+    const req = imageRequest('what does this sign say?');
+    req.context = { pageTitle: 'Forum' };
+    req.options.conversationHistory = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: 'hello' },
+    ];
+    await router.handleTranslate(req, (c) => chunks.push(c));
+    const done = chunks.find((c) => c.type === 'done');
+    if (done?.type !== 'done') throw new Error('no done chunk');
+    expect(done.meta?.imageArm).toBe('text');
+    expect(done.meta?.historyTurns).toBe(2);
+    expect(done.meta?.pageContextSent).toBe(true);
   });
 });
 

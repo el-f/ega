@@ -118,6 +118,12 @@ describe('Tooltip — what the details panel says about page info', () => {
     expect(row(container, 'Instructions')).toMatch(/^Explain prompt/);
   });
 
+  // Image tooltips set no contextSent and carry no meta: they get no Details button at all.
+  it('has no details button when the reply recorded nothing at all', () => {
+    const { container } = mount(baseTip());
+    expect(detailsBtn(container)).toBeNull();
+  });
+
   it('says the tooltip sends no earlier messages', async () => {
     const { container } = mount({ ...baseTip(), contextSent: null });
     await pageInfo(container);

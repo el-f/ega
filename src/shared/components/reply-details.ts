@@ -1,4 +1,14 @@
-import type { PageContext } from '@/shared/types';
+import type { PageContext, ResultMeta } from '@/shared/types';
+
+/** What read the image, from what the router recorded; replies saved before it was recorded fall back to the surface's guess. */
+export function imageModeOf(
+  meta: ResultMeta | undefined,
+  guess: 'ocr' | 'task' | undefined,
+): 'ocr' | 'task' | undefined {
+  const arm = meta?.imageArm;
+  if (arm === undefined) return guess;
+  return arm === 'text' ? undefined : arm;
+}
 
 const AROUND_CHARS = 140;
 const SENT_CHARS = 160;

@@ -285,11 +285,13 @@ It never holds the text around a selection. That window belongs to the page tool
 tooltip shows it but never saves it.
 
 A task with page context off on the Tasks tab never sends it: the service worker drops it before
-the request. The saved turn can still hold the context the page collected. A reply's details panel
-("About this reply") in the side panel and the tooltip reads the current page context switch of
-the task that reply ran (a re-run as another task, or a regenerate after the switch went off). When
-that switch is off, it says "None sent." and does not show the saved context. The panel shows
-page info with secrets masked, the same way the service worker masks it before the request.
+the request. The saved turn can still hold the context the page collected. The service worker
+records with each reply whether page info went with it: only when the task kept it and its prompt
+renders it, and never with the built-in image prompt. A reply's details panel ("About this reply")
+in the side panel and the tooltip reads that record. When nothing went, it says "None sent." and
+does not show the saved context. A reply saved before the record existed falls back to the
+current page context switch of the task it ran. The panel shows page info with secrets masked, the
+same way the service worker masks it before the request.
 
 The snapshot is stored as the page collected it; secrets are masked only in the copy that is
 sent. Nothing cuts it again at rest, and no setting removes it from a thread that already holds it.

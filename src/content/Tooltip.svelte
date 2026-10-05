@@ -6,6 +6,7 @@
   import type { SettingsTab } from '@/shared/settings-tabs';
   import type { TipState } from './tipState.svelte';
   import ReplyDetails from '@/shared/components/ReplyDetails.svelte';
+  import { imageModeOf } from '@/shared/components/reply-details';
   import DraggablePanel from '@/shared/components/DraggablePanel.svelte';
   import TooltipHeader from '@/content/tooltip/TooltipHeader.svelte';
   import { materializeTasks, type TaskId } from '@/shared/task-view';
@@ -82,8 +83,11 @@
   const hasDetails = $derived(tip.meta !== undefined || tip.contextSent !== undefined);
   const taskLabel = $derived(taskViews?.find((v) => v.id === ranTask)?.label ?? 'Translate');
   // Translate reads an image with the built-in image prompt; Explain sends its own prompt with it.
-  const imageMode = $derived<'ocr' | 'task' | undefined>(
-    tip.imageUrl === undefined ? undefined : ranTask === 'translate' ? 'ocr' : 'task',
+  const imageMode = $derived(
+    imageModeOf(
+      tip.meta,
+      tip.imageUrl === undefined ? undefined : ranTask === 'translate' ? 'ocr' : 'task',
+    ),
   );
 
   // A failed image translate has no source text and no OCR text, and the panel drops an empty handoff.

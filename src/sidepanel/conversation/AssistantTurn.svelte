@@ -3,6 +3,7 @@
   import { relativeTime } from '@/shared/relative-time';
 
   import ReplyDetails from '@/shared/components/ReplyDetails.svelte';
+  import { imageModeOf } from '@/shared/components/reply-details';
   import DiffFadeText from '@/shared/components/DiffFadeText.svelte';
   import Markdown from '@/shared/components/Markdown.svelte';
   import { formatDetectedLabel } from '@/shared/detected-label';
@@ -172,12 +173,15 @@
       : null,
   );
   // Translate reads an image with the built-in image prompt; any other task sends its own prompt with the image.
-  const imageMode = $derived<'ocr' | 'task' | undefined>(
-    hasImage || turn.kind === 'image-translate'
-      ? currentTaskValue === 'translate'
-        ? 'ocr'
-        : 'task'
-      : undefined,
+  const imageMode = $derived(
+    imageModeOf(
+      turn.meta,
+      hasImage || turn.kind === 'image-translate'
+        ? currentTaskValue === 'translate'
+          ? 'ocr'
+          : 'task'
+        : undefined,
+    ),
   );
   const detailsText = $derived(sentText === IMAGE_TURN_PLACEHOLDER ? '' : sentText);
   // Only translate and explain reach the vision arm in router.ts; the rest would send the "[image]" marker as text.

@@ -118,6 +118,8 @@ export interface ResultMeta {
   historyTurns?: number;
   /** Whether page info went with the request, decided at send time. Absent on replies saved before it was recorded. */
   pageContextSent?: boolean;
+  /** Set when the request carried an image: 'ocr' the built-in image prompt read it, 'task' the task's own prompt did, 'text' no backend could read images, so only the caption went. */
+  imageArm?: 'ocr' | 'task' | 'text';
 }
 
 /** Provider token counts from the done chunk; any subset may be missing. */

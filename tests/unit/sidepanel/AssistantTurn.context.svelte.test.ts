@@ -202,4 +202,29 @@ describe('AssistantTurn — page info follows the task the shown reply ran', () 
     expect(row(container, 'Instructions')).toBe('Image prompt (built in)');
     expect(row(container, 'Page info')).toBe('Not sent with images.');
   });
+
+  // No backend could read the image, so only the caption went, as text, with history and page info.
+  it('describes the caption, not an image, when the router sent it down the text path', async () => {
+    const meta = {
+      backendId: asBackendIdUnsafe('anthropic'),
+      cacheHit: false,
+      latencyMs: 1,
+      imageArm: 'text' as const,
+      historyTurns: 2,
+      pageContextSent: true,
+    };
+    const { container } = render(AssistantTurn, {
+      props: {
+        turn: doneTurn({ meta }),
+        onRetry: vi.fn(),
+        hasImage: true,
+        sentText: 'what does this sign say?',
+      },
+    });
+    await openedPreview(container);
+    expect(row(container, 'Your text')).toBe('what does this sign say?');
+    expect(row(container, 'Instructions')).toMatch(/^Translate prompt/);
+    expect(row(container, 'Earlier messages')).toBe('2 from this conversation');
+    expect(container.textContent).toContain('x.test');
+  });
 });
