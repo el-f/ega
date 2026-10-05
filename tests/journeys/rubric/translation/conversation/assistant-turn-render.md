@@ -9,7 +9,7 @@
 
 - Step 1: assistant turn mounts with a skeleton: a task label (e.g. "Translating…") and a shimmer bar.
 - Step 2: streamed content lands progressively as plain text with a blinking caret.
-- Step 3: on stream end, the caret goes and Markdown renders; the action row appears (Copy, Regenerate, Bookmark, confidence and language pills, Info, Delete); Info opens a Details drawer with backend, model, cache hit and latency.
+- Step 3: on stream end, the caret goes and Markdown renders; the action row appears (Copy, Regenerate, confidence and language pills, Info, and a More (⋯) menu holding Bookmark and Delete); Info opens a Details drawer with backend, model, cache hit and latency.
 
 ## Visible affordances
 

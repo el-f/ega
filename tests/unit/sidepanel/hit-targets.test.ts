@@ -10,11 +10,6 @@ const rule = (src: string, selector: string): string => {
 };
 
 const TARGETS: [string, string][] = [
-  ['src/sidepanel/conversation/AssistantTurn.svelte', '\\.ega-variant-btn'],
-  [
-    'src/sidepanel/conversation/AssistantTurn.svelte',
-    '\\.ega-variant-actions :global\\(\\.ega-variant-action-btn\\)',
-  ],
   ['src/sidepanel/SidePanel.svelte', '\\.sp-search-clear'],
   ['src/sidepanel/SidePanel.svelte', '\\.sp-editing-cancel'],
 ];
@@ -41,6 +36,28 @@ describe('small glyph buttons are at least 24px', () => {
     expect(src).not.toMatch(/font-size:\s*(?:9|10)px/);
     expect(rule(src, '\\.rd-copy')).toMatch(/min-height:\s*24px/);
     expect(rule(src, '\\.rd-link')).toMatch(/min-height:\s*24px/);
+  });
+});
+
+// The user bubble's actions and the composer swap are 32px; a reply's dense rows match them.
+describe('a reply row matches the 32px of the user bubble and the composer', () => {
+  const src = read('src/sidepanel/conversation/AssistantTurn.svelte');
+
+  it('sizes every reply icon button md, not the 28px sm', () => {
+    expect(src).not.toMatch(/size="sm"/);
+    expect(src).toMatch(/size-md/);
+    expect(rule(src, '\\.ega-turn-actions')).toMatch(/min-height:\s*32px/);
+  });
+
+  it('gives the variant arrows, the swap and Try as 32px', () => {
+    for (const selector of [
+      '\\.ega-variant-btn',
+      '\\.ega-variant-actions :global\\(\\.ega-variant-action-btn\\)',
+    ]) {
+      const body = rule(src, selector);
+      expect(body).toMatch(/min-width:\s*32px/);
+      expect(body).toMatch(/min-height:\s*32px/);
+    }
   });
 });
 

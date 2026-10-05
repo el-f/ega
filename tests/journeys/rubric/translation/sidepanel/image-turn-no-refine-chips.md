@@ -13,7 +13,7 @@
 ## Visible affordances
 
 - The source image thumbnail renders (`.ega-imgprev img`), not just the OCR text.
-- The footer carries Copy, Regenerate, Bookmark and Delete. Copy is present only when the turn holds text of its own — the `[image]` marker alone is not text.
+- The footer carries Copy, Regenerate and a More (⋯) menu with Bookmark and Delete. Copy is present only when the turn holds text of its own — the `[image]` marker alone is not text.
 - The swap control is disabled: an image has no source language to swap from.
 
 ## Failure-mode expectations

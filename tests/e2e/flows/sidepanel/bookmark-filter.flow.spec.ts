@@ -40,4 +40,16 @@ test('the More menu turns the bookmark filter on and Show all turns it off', asy
 
   await more.click();
   await expect(item).toHaveAttribute('aria-checked', 'false');
+  await page.keyboard.press('Escape');
+
+  // A reply keeps Bookmark in its own More menu and shows the state on the reply itself.
+  const reply = page.locator('.ega-assistant-turn').first();
+  await reply.getByRole('button', { name: 'More actions for this reply' }).click();
+  await page.getByRole('menuitemcheckbox', { name: 'Bookmark' }).click();
+  await expect(reply.locator('[data-ega-bookmarked-mark]')).toBeVisible();
+  await reply.getByRole('button', { name: 'More actions for this reply' }).click();
+  await expect(page.getByRole('menuitemcheckbox', { name: 'Bookmark' })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
 });

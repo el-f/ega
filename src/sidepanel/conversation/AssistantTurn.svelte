@@ -23,6 +23,7 @@
   import ChevronLeft from '@lucide/svelte/icons/chevron-left';
   import ChevronRight from '@lucide/svelte/icons/chevron-right';
   import ChevronDown from '@lucide/svelte/icons/chevron-down';
+  import Ellipsis from '@lucide/svelte/icons/ellipsis';
   import ArrowLeftRight from '@lucide/svelte/icons/arrow-left-right';
   import Volume2 from '@lucide/svelte/icons/volume-2';
   import Square from '@lucide/svelte/icons/square';
@@ -314,9 +315,8 @@
     'copy',
     ...(speakable && turn.content !== '' ? ['speak'] : []),
     ...(canRetry && !inflight ? ['regenerate'] : []),
-    'bookmark',
     ...(turn.meta || turn.contextSent !== undefined ? ['details'] : []),
-    'delete',
+    'more',
   ]);
 
   let actionsEl: HTMLElement | null = $state(null);
@@ -422,6 +422,17 @@
   {#if variantCount > 1 || turn.status === 'done'}
     <header class="ega-assistant-meta">
       {#if turn.status === 'done'}
+        {#if turn.bookmarked}
+          <!-- Bookmark lives in the More menu, so the reply itself still shows that it is bookmarked. -->
+          <span
+            class="ega-bookmarked-mark"
+            data-ega-bookmarked-mark
+            role="img"
+            aria-label="Bookmarked"
+            data-tooltip="Bookmarked"
+            data-tooltip-placement="top"><Star size={12} aria-hidden="true" /></span
+          >
+        {/if}
         <time
           class="ega-timestamp"
           data-ega-timestamp
@@ -496,7 +507,7 @@
           <IconButton
             icon={copied ? Check : Copy}
             ariaLabel={copied ? 'Copied' : 'Copy partial reply'}
-            size="sm"
+            size="md"
             onclick={() => void copyToClipboard()}
           />
         </span>
@@ -577,7 +588,7 @@
           <IconButton
             icon={copied ? Check : Copy}
             ariaLabel={copied ? 'Copied' : 'Copy reply'}
-            size="sm"
+            size="md"
             dataAttrs={{
               'data-ega-action': 'copy',
               tabindex: activeAction === 'copy' ? 0 : -1,
@@ -589,7 +600,7 @@
           <IconButton
             icon={speaking ? Square : Volume2}
             ariaLabel={speaking ? 'Stop reading' : 'Read aloud'}
-            size="sm"
+            size="md"
             dataAttrs={{
               'data-ega-action': 'speak',
               tabindex: activeAction === 'speak' ? 0 : -1,
@@ -602,7 +613,7 @@
           <IconButton
             icon={RefreshCw}
             ariaLabel="Regenerate"
-            size="sm"
+            size="md"
             dataAttrs={{
               'data-ega-regenerate': 'true',
               'data-ega-action': 'regenerate',
@@ -611,18 +622,6 @@
             onclick={() => onRegenerate?.(turn.id)}
           />
         {/if}
-        <IconButton
-          icon={Star}
-          ariaLabel={turn.bookmarked ? 'Remove bookmark' : 'Bookmark this message'}
-          size="sm"
-          dataAttrs={{
-            'data-ega-bookmark': 'true',
-            'aria-pressed': String(turn.bookmarked === true),
-            'data-ega-action': 'bookmark',
-            tabindex: activeAction === 'bookmark' ? 0 : -1,
-          }}
-          onclick={() => onBookmark?.(turn.id)}
-        />
         {#if confidencePill && typeof turn.confidence === 'number' && turn.confidence > 0 && turn.confidence >= confidencePillThreshold}
           {@const pct = (turn.confidence * 100).toFixed(0)}
           <span
@@ -670,7 +669,7 @@
             ariaLabel={inspectorOpen
               ? 'Hide details about this reply'
               : 'Show details about this reply'}
-            size="sm"
+            size="md"
             dataAttrs={{
               'data-ega-inspector-toggle': 'true',
               'data-ega-action': 'details',
@@ -680,20 +679,44 @@
             onclick={() => (inspectorOpen = !inspectorOpen)}
           />
         {/if}
-        <!-- Delete sits apart at the row's end, away from Copy. -->
+        <!-- Bookmark and Delete sit in a menu at the row's end, so a 400px row does not wrap and Delete stays away from Copy. -->
         <span class="ega-turn-action-end"></span>
-        <IconButton
-          icon={Trash2}
-          ariaLabel="Delete this reply and its message"
-          size="sm"
-          variant="danger"
-          dataAttrs={{
-            'data-ega-delete': 'true',
-            'data-ega-action': 'delete',
-            tabindex: activeAction === 'delete' ? 0 : -1,
-          }}
-          onclick={() => onDelete?.(turn.id)}
-        />
+        <DropdownMenu.Root>
+          <DropdownMenu.Trigger
+            class="ega-icon-btn variant-default size-md"
+            aria-label="More actions for this reply"
+            data-ega-action="more"
+            tabindex={activeAction === 'more' ? 0 : -1}
+          >
+            <Ellipsis size={16} aria-hidden="true" />
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Portal>
+            <DropdownMenu.Content class="sp-menu" align="end" sideOffset={6}>
+              <DropdownMenu.CheckboxItem
+                class="sp-menu-item"
+                checked={turn.bookmarked === true}
+                onCheckedChange={() => onBookmark?.(turn.id)}
+                data-ega-bookmark
+              >
+                {#snippet children({ checked })}
+                  <Star size={16} aria-hidden="true" />
+                  <span class="sp-menu-label">Bookmark</span>
+                  {#if checked}<Check size={16} aria-hidden="true" />{/if}
+                {/snippet}
+              </DropdownMenu.CheckboxItem>
+              <DropdownMenu.Separator class="sp-menu-sep" />
+              <!-- Last, not first: a keyboard open lands on the first item, and a second Enter must not delete. -->
+              <DropdownMenu.Item
+                class="sp-menu-item ega-menu-item-danger"
+                onSelect={() => onDelete?.(turn.id)}
+                data-ega-delete
+              >
+                <Trash2 size={16} aria-hidden="true" />
+                <span class="sp-menu-label">Delete this reply and its message</span>
+              </DropdownMenu.Item>
+            </DropdownMenu.Content>
+          </DropdownMenu.Portal>
+        </DropdownMenu.Root>
       </div>
       {#if inspectorOpen && (turn.meta || turn.contextSent !== undefined)}
         <ReplyDetails
@@ -973,11 +996,19 @@
   }
   /* Always visible; buttons rest muted (IconButton default) and gain emphasis per button on hover/focus. */
   .ega-turn-actions {
-    min-height: 28px;
+    min-height: 32px;
     margin-top: var(--space-1);
   }
   .ega-turn-action-end {
     margin-left: auto;
+  }
+  .ega-bookmarked-mark {
+    display: inline-flex;
+    color: var(--color-accent);
+  }
+  /* :global — the menu renders in a portal on <body>, outside this component's scope hash. */
+  :global(.sp-menu-item.ega-menu-item-danger) {
+    color: var(--color-danger-fg);
   }
   .ega-assistant-turn > .ega-assistant-actions:not(.ega-turn-actions) {
     padding-top: var(--space-2);
@@ -1045,8 +1076,8 @@
   }
   .ega-variant-btn {
     box-sizing: border-box;
-    min-width: 24px;
-    min-height: 24px;
+    min-width: 32px;
+    min-height: 32px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -1154,8 +1185,8 @@
   /* :global — the Try as trigger is bits-ui's button, outside this component's scope hash. */
   .ega-variant-actions :global(.ega-variant-action-btn) {
     box-sizing: border-box;
-    min-width: 24px;
-    min-height: 24px;
+    min-width: 32px;
+    min-height: 32px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
