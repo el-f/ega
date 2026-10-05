@@ -1,19 +1,19 @@
 [
   {
     "name": "Advanced",
-    "bytes": 62057
+    "bytes": 62063
   },
   {
     "name": "batch-progress",
-    "bytes": 3602
+    "bytes": 8472
   },
   {
     "name": "bubble",
-    "bytes": 3478
+    "bytes": 3247
   },
   {
     "name": "build-config",
-    "bytes": 33365
+    "bytes": 33197
   },
   {
     "name": "cancel-token",
@@ -25,7 +25,7 @@
   },
   {
     "name": "command-registry",
-    "bytes": 29986
+    "bytes": 33508
   },
   {
     "name": "customs-cache",
@@ -37,7 +37,7 @@
   },
   {
     "name": "EffortSegmented",
-    "bytes": 1970
+    "bytes": 2031
   },
   {
     "name": "EmptyState",
@@ -45,7 +45,7 @@
   },
   {
     "name": "english-lexicon",
-    "bytes": 597454
+    "bytes": 598043
   },
   {
     "name": "err-labels",
@@ -53,7 +53,11 @@
   },
   {
     "name": "error-fix-toast",
-    "bytes": 407
+    "bytes": 412
+  },
+  {
+    "name": "error-parts",
+    "bytes": 13914
   },
   {
     "name": "error-policy",
@@ -68,16 +72,20 @@
     "bytes": 3891
   },
   {
+    "name": "image-url-guard",
+    "bytes": 4013
+  },
+  {
     "name": "index",
-    "bytes": 117285
+    "bytes": 117576
   },
   {
     "name": "index.html",
-    "bytes": 375684
+    "bytes": 378088
   },
   {
     "name": "index.ts",
-    "bytes": 41304
+    "bytes": 39526
   },
   {
     "name": "index.ts-loader",
@@ -85,23 +93,15 @@
   },
   {
     "name": "inlineReplace",
-    "bytes": 3840
-  },
-  {
-    "name": "InspectorDrawer",
-    "bytes": 11578
+    "bytes": 4209
   },
   {
     "name": "lang-tag",
     "bytes": 293
   },
   {
-    "name": "language-prompt",
-    "bytes": 471
-  },
-  {
     "name": "LanguagePicker",
-    "bytes": 4316
+    "bytes": 4333
   },
   {
     "name": "languages",
@@ -109,19 +109,19 @@
   },
   {
     "name": "open-options-tab",
-    "bytes": 41023
+    "bytes": 41053
   },
   {
     "name": "page-styles",
-    "bytes": 1723
+    "bytes": 2474
   },
   {
     "name": "page-translate-v2",
-    "bytes": 18970
+    "bytes": 19938
   },
   {
     "name": "pending-popup-handoff",
-    "bytes": 2065
+    "bytes": 2107
   },
   {
     "name": "perf-history",
@@ -129,11 +129,19 @@
   },
   {
     "name": "picker",
-    "bytes": 2466
+    "bytes": 2537
+  },
+  {
+    "name": "picker-overlay",
+    "bytes": 1401
   },
   {
     "name": "PickerOverlay",
-    "bytes": 514
+    "bytes": 774
+  },
+  {
+    "name": "Popover",
+    "bytes": 3546
   },
   {
     "name": "rolldown-runtime",
@@ -141,7 +149,7 @@
   },
   {
     "name": "rules-budget",
-    "bytes": 2264
+    "bytes": 2316
   },
   {
     "name": "safe-regex",
@@ -157,31 +165,35 @@
   },
   {
     "name": "SectionReset",
-    "bytes": 1313
+    "bytes": 1376
   },
   {
     "name": "Select",
-    "bytes": 4005
+    "bytes": 4013
   },
   {
     "name": "selection-cap-copy",
-    "bytes": 14700
+    "bytes": 11866
   },
   {
     "name": "SelectionBubble",
-    "bytes": 8965
+    "bytes": 9009
   },
   {
     "name": "settings-bus",
     "bytes": 495
   },
   {
+    "name": "settings-cache",
+    "bytes": 721
+  },
+  {
     "name": "shadowHost",
-    "bytes": 34439
+    "bytes": 31072
   },
   {
     "name": "src-content-index.ts",
-    "bytes": 33126
+    "bytes": 34267
   },
   {
     "name": "stuck-timeout",
@@ -193,31 +205,27 @@
   },
   {
     "name": "Tasks",
-    "bytes": 45114
+    "bytes": 46095
   },
   {
     "name": "TemplateEditor",
-    "bytes": 27986
+    "bytes": 28038
   },
   {
     "name": "theme",
-    "bytes": 6590
+    "bytes": 6591
   },
   {
     "name": "theme-apply",
     "bytes": 3111
   },
   {
-    "name": "ThemeToggle",
-    "bytes": 3542
-  },
-  {
     "name": "tipState.svelte",
-    "bytes": 27786
+    "bytes": 29108
   },
   {
     "name": "toast",
-    "bytes": 1102
+    "bytes": 1140
   },
   {
     "name": "toastStore",
@@ -225,15 +233,19 @@
   },
   {
     "name": "Translate",
-    "bytes": 40991
+    "bytes": 43600
   },
   {
     "name": "translate-handlers",
-    "bytes": 5494
+    "bytes": 5540
   },
   {
     "name": "translate-ui",
-    "bytes": 4448
+    "bytes": 2794
+  },
+  {
+    "name": "types",
+    "bytes": 682
   },
   {
     "name": "user-gesture",
@@ -253,7 +265,7 @@
   },
   {
     "name": "vendor-lucide",
-    "bytes": 26320
+    "bytes": 26298
   },
   {
     "name": "vendor-marked",

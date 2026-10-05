@@ -797,7 +797,6 @@
   background: var(--color-danger-bg-soft);
 }
 
-
 /* Content-surface toast. Its rules live here because a component <style> never crosses the shadow boundary. */
 .ega-toast {
   position: fixed;
