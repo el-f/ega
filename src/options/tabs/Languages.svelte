@@ -10,6 +10,42 @@
   const draft = $state<Record<string, Draft>>({});
   // The normalized draft as it was created; a draft equal to it holds no edits and is rebuilt on open.
   const draftBase = $state<Record<string, string>>({});
+  // True while an open prompt editor holds edits. The editor keeps its text inside itself, so this resets whenever it unmounts.
+  let promptDirty = $state(false);
+
+  /** The compared form of a draft: blank example rows and an unparsable minimum do not count as edits. */
+  function parts(d: Draft): {
+    label: string | undefined;
+    hint: string;
+    examples: string[][];
+    detect: { regex: string; flags: string; min: number };
+  } {
+    return {
+      label: d.label,
+      hint: d.hint,
+      examples: d.examples.filter((e) => e.src.trim() || e.tgt.trim()).map((e) => [e.src, e.tgt]),
+      detect: { regex: d.detect.regex, flags: d.detect.flags, min: Number(d.detect.minScore) || 1 },
+    };
+  }
+
+  function normalized(d: Draft): string {
+    return JSON.stringify(parts(d));
+  }
+
+  function draftDirty(id: string): boolean {
+    const d = draft[id];
+    return d !== undefined && normalized(d) !== draftBase[id];
+  }
+
+  // Drafts outlive the tab (switching tabs unmounts it), so the unload guard lives with them, not with the component.
+  $effect.root(() => {
+    $effect(() => {
+      if (!promptDirty && !Object.keys(draft).some(draftDirty)) return;
+      const warn = (e: BeforeUnloadEvent): void => e.preventDefault();
+      window.addEventListener('beforeunload', warn);
+      return () => window.removeEventListener('beforeunload', warn);
+    });
+  });
 </script>
 
 <script lang="ts">
@@ -70,7 +106,6 @@
   });
   /** The language whose prompt editor is open. */
   let promptOpen = $state<string | null>(null);
-  let promptDirty = $state(false);
 
   let all: Variety[] = $state.raw([]);
   let form = $state({ label: '', hint: '' });
@@ -100,10 +135,21 @@
 
   async function refresh(): Promise<void> {
     all = await listVarieties();
+    // A draft for a language that is gone can never be saved; keeping it would hold the unload guard forever.
+    for (const id of Object.keys(draft)) {
+      if (!all.some((v) => v.id === id)) {
+        delete draft[id];
+        delete draftBase[id];
+      }
+    }
   }
 
   onMount(() => {
     void refresh();
+    // The prompt editor and its text go away with the tab.
+    return () => {
+      promptDirty = false;
+    };
   });
 
   // Two fast checkbox flips interleave their read-modify-write, so they queue behind the same tail promise storage uses.
@@ -156,28 +202,9 @@
     if (!isDirty(v)) rebuildDraft(v.id);
   }
 
-  function normalized(d: Draft): string {
-    return JSON.stringify({
-      label: d.label,
-      hint: d.hint,
-      examples: d.examples.filter((e) => e.src.trim() || e.tgt.trim()).map((e) => [e.src, e.tgt]),
-      detect: { regex: d.detect.regex, flags: d.detect.flags, min: Number(d.detect.minScore) || 1 },
-    });
-  }
-
   function isDirty(v: Variety): boolean {
-    const d = draft[v.id];
-    return d !== undefined && normalized(d) !== draftBase[v.id];
+    return draftDirty(v.id);
   }
-
-  const anyDirty = $derived(promptDirty || all.some((v) => isDirty(v)));
-  // A closed tab or a reload would drop the drafts, so the browser gets to ask first.
-  $effect(() => {
-    if (!anyDirty) return;
-    const warn = (e: BeforeUnloadEvent): void => e.preventDefault();
-    window.addEventListener('beforeunload', warn);
-    return () => window.removeEventListener('beforeunload', warn);
-  });
 
   function draftOf(v: Variety): Draft {
     return {
@@ -207,9 +234,48 @@
     };
   }
 
-  async function save(v: Variety): Promise<void> {
-    const d = draft[v.id];
-    if (!d) return;
+  type DraftField = 'label' | 'hint' | 'examples' | 'detect';
+  const DRAFT_FIELDS: readonly DraftField[] = ['label', 'hint', 'examples', 'detect'];
+
+  /**
+   * The draft to save once the stored language moved since the draft was made (an import, another window).
+   * Fields the user did not touch take the stored value; null when a field the user changed also changed in storage.
+   */
+  function rebase(id: string, mine: Draft, stored: Variety): Draft | null {
+    const baseJson = draftBase[id];
+    const theirs = draftOf(stored);
+    if (baseJson === undefined || normalized(theirs) === baseJson) return mine;
+    const base = JSON.parse(baseJson) as ReturnType<typeof parts>;
+    const m = parts(mine);
+    const t = parts(theirs);
+    const merged: Draft = { ...theirs };
+    const take = <K extends DraftField>(k: K): void => {
+      merged[k] = mine[k];
+    };
+    for (const k of DRAFT_FIELDS) {
+      const was = JSON.stringify(base[k]);
+      if (JSON.stringify(m[k]) === was) continue;
+      if (JSON.stringify(t[k]) !== was && JSON.stringify(t[k]) !== JSON.stringify(m[k]))
+        return null;
+      take(k);
+    }
+    return merged;
+  }
+
+  async function save(stale: Variety): Promise<void> {
+    const mine = draft[stale.id];
+    if (!mine) return;
+    // The row's copy can be older than storage; an edit must not write back fields it never touched.
+    const v = (await listVarieties()).find((x) => x.id === stale.id) ?? stale;
+    const d = rebase(v.id, mine, v);
+    if (!d) {
+      toastStore.push({
+        message: `"${v.label}" changed in another window or in an import while you edited it, and so did a field you edited. Nothing was saved. Copy your text, press Discard changes to load the new version, then edit again.`,
+        variant: 'danger',
+        duration: 12000,
+      });
+      return;
+    }
     const autoDetect = detectPatch(d.detect);
     if (autoDetect instanceof Error) {
       detectOpen[v.id] = true;
@@ -324,6 +390,10 @@
     delete draft[v.id];
     delete draftBase[v.id];
     if (expanded === v.id) expanded = null;
+    if (promptOpen === v.id) {
+      promptOpen = null;
+      promptDirty = false;
+    }
   }
 
   let addError = $state<string | null>(null);
@@ -405,6 +475,15 @@
   }
 
   async function doImportVarieties(file: File): Promise<void> {
+    if (promptDirty || Object.keys(draft).some(draftDirty)) {
+      const discard = await confirmDialog({
+        title: 'Discard unsaved language edits?',
+        body: 'An import replaces the languages it holds, so the edits you have not saved would be lost.',
+        confirmLabel: 'Discard and import',
+        danger: true,
+      });
+      if (!discard) return;
+    }
     backupState = null;
     // A one-language file adds or replaces that language; a full languages file replaces them all.
     const status = await importBundleFile(file, ['varieties', 'language']);
@@ -415,8 +494,32 @@
         delete draft[id];
         delete draftBase[id];
       }
+      // The import can rewrite the language prompts too, so an open prompt editor would show old text.
+      promptOpen = null;
+      promptDirty = false;
       await refresh();
+      // An open row needs a draft, or its editor renders empty.
+      if (expanded !== null) {
+        if (all.some((v) => v.id === expanded)) rebuildDraft(expanded);
+        else expanded = null;
+      }
     }
+  }
+
+  // The pressed button unmounts once the draft is clean, so focus goes back to the row's name.
+  async function discard(v: Variety, row: Element | null): Promise<void> {
+    rebuildDraft(v.id);
+    await tick();
+    row?.querySelector<HTMLElement>('.variety-label-inline')?.focus();
+  }
+
+  let addToggleEl = $state<HTMLSpanElement | null>(null);
+  // Cancel unmounts with the form, so focus goes to the add button in the card header.
+  async function cancelAdd(): Promise<void> {
+    showAddForm = false;
+    addError = null;
+    await tick();
+    addToggleEl?.querySelector<HTMLElement>('button')?.focus();
   }
 
   function exampleCapFor(id: string): number {
@@ -453,13 +556,15 @@
   description="The checkbox shows a language in the pickers; click a name to edit it."
 >
   {#snippet headerActions()}
-    <IconButton
-      icon={showAddForm ? X : Plus}
-      ariaLabel={showAddForm ? 'Cancel adding language' : 'Add custom language'}
-      tooltip={showAddForm ? 'Cancel' : 'Add custom language'}
-      size="sm"
-      onclick={() => (showAddForm = !showAddForm)}
-    />
+    <span class="add-toggle" bind:this={addToggleEl}>
+      <IconButton
+        icon={showAddForm ? X : Plus}
+        ariaLabel={showAddForm ? 'Cancel adding language' : 'Add custom language'}
+        tooltip={showAddForm ? 'Cancel' : 'Add custom language'}
+        size="sm"
+        onclick={() => (showAddForm = !showAddForm)}
+      />
+    </span>
   {/snippet}
 
   {#if showAddForm}
@@ -492,13 +597,7 @@
         >
           Add
         </Button>
-        <Button
-          variant="secondary"
-          onclick={() => {
-            showAddForm = false;
-            addError = null;
-          }}>Cancel</Button
-        >
+        <Button variant="secondary" onclick={() => void cancelAdd()}>Cancel</Button>
       </div>
     </div>
   {/if}
@@ -678,7 +777,12 @@
           <div class="row variety-commit-row">
             <Button variant="primary" onclick={() => save(v)}>Save language</Button>
             {#if dirty}
-              <Button variant="ghost" onclick={() => rebuildDraft(v.id)}>Discard changes</Button>
+              <Button
+                variant="ghost"
+                onclick={(e) =>
+                  void discard(v, (e.currentTarget as HTMLElement).closest('.variety-row'))}
+                >Discard changes</Button
+              >
             {/if}
             {#if v.hasOverrides}
               <Button
@@ -757,6 +861,10 @@
 </SectionCard>
 
 <style>
+  /* A ref holder only: the header lays out the button as if the wrapper were not there. */
+  .add-toggle {
+    display: contents;
+  }
   .variety-filter {
     margin: var(--space-1) 0 var(--space-2);
   }
