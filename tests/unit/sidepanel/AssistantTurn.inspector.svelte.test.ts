@@ -84,12 +84,12 @@ describe('AssistantTurn — inspector drawer', () => {
     expect(drawer?.textContent).toContain('Anthropic');
   });
 
-  it('names the backend that answered in the actions row, without opening the drawer', () => {
+  it('names the backend that answered beside the time, without opening the drawer', () => {
     const turn = baseTurn({ meta: { ...testMeta, backendId: 'gemini' as BackendId } });
     const { container } = render(AssistantTurn, {
       props: { turn, onRetry: vi.fn() },
     });
-    const pill = container.querySelector('.ega-turn-actions .ega-backend-pill');
+    const pill = container.querySelector('.ega-assistant-meta .ega-backend-pill');
     expect(pill?.textContent.trim()).toBe('Gemini');
   });
 

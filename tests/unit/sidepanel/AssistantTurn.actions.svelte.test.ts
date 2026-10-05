@@ -4,6 +4,7 @@ import { fireEvent, render, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import AssistantTurn from '@/sidepanel/conversation/AssistantTurn.svelte';
 import type { AssistantTurnData } from '@/sidepanel/state/conversation';
+import { asBackendIdUnsafe } from '@/shared/brands';
 
 function doneTurn(overrides: Partial<AssistantTurnData> = {}): AssistantTurnData {
   return {
@@ -87,8 +88,24 @@ describe('AssistantTurn — per-turn actions', () => {
     expect(footer?.querySelector('[data-ega-bookmark]')).toBeNull();
     expect(footer?.querySelector('[data-ega-delete]')).toBeNull();
     const more = footer?.querySelector('[data-ega-action="more"]');
-    expect(more?.getAttribute('aria-label')).toBe('More actions for this reply');
+    expect(more?.getAttribute('aria-label')).toBe('More reply actions');
     expect(more?.getAttribute('aria-haspopup')).toBe('menu');
+  });
+
+  it('keeps the pills beside the time, so the action row holds only buttons', () => {
+    const { container } = render(AssistantTurn, {
+      props: {
+        turn: doneTurn({
+          confidence: 0.93,
+          detectedLang: 'ar',
+          meta: { backendId: asBackendIdUnsafe('anthropic'), latencyMs: 1, cacheHit: false },
+        }),
+        onRetry: vi.fn(),
+      },
+    });
+    const footer = container.querySelector('.ega-turn-actions');
+    expect(footer?.querySelector('.ega-pill')).toBeNull();
+    expect(container.querySelectorAll('.ega-assistant-meta .ega-pill').length).toBe(3);
   });
 
   it('the More menu checks Bookmark when the reply is bookmarked', async () => {

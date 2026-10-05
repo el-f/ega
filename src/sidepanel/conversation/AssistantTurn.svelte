@@ -427,6 +427,48 @@
   {#if variantCount > 1 || turn.status === 'done'}
     <header class="ega-assistant-meta">
       {#if turn.status === 'done'}
+        <!-- What answered and how sure it was sit with the time, so the action row holds only buttons and fits 400px. -->
+        {#if confidencePill && typeof turn.confidence === 'number' && turn.confidence > 0 && turn.confidence >= confidencePillThreshold}
+          {@const pct = (turn.confidence * 100).toFixed(0)}
+          <span
+            class="ega-pill"
+            data-ega-confidence
+            data-tooltip="How sure the model is about this reply"
+            data-tooltip-placement="top">{pct}% confident</span
+          >
+        {/if}
+        {#if multiVarietyPills}
+          <span class="ega-lang-cluster" data-ega-multi-variety>
+            {#each multiVarietyPills as label, i (i)}
+              <span class="ega-pill ega-lang-pill" data-tooltip={label} data-tooltip-placement="top"
+                >{label}</span
+              >
+            {/each}
+          </span>
+        {:else if detectedLabel}
+          <span
+            class="ega-pill ega-lang-pill"
+            data-tooltip={detectedLabel}
+            data-tooltip-placement="top">{detectedLabel}</span
+          >
+        {/if}
+        {#if turn.meta}
+          <!-- A cache hit records no backend, so it says where the answer came from instead. -->
+          {#if turn.meta.cacheHit}
+            <span
+              class="ega-pill ega-backend-pill"
+              data-tooltip="Answered from the cache"
+              data-tooltip-placement="top">Cached</span
+            >
+          {:else if turn.meta.backendId !== 'unknown'}
+            {@const answeredBy = backendLabel(turn.meta.backendId)}
+            <span
+              class="ega-pill ega-backend-pill"
+              data-tooltip={`Answered by ${answeredBy}`}
+              data-tooltip-placement="top">{answeredBy}</span
+            >
+          {/if}
+        {/if}
         <time
           class="ega-timestamp"
           data-ega-timestamp
@@ -627,47 +669,6 @@
             onclick={() => onRegenerate?.(turn.id)}
           />
         {/if}
-        {#if confidencePill && typeof turn.confidence === 'number' && turn.confidence > 0 && turn.confidence >= confidencePillThreshold}
-          {@const pct = (turn.confidence * 100).toFixed(0)}
-          <span
-            class="ega-pill"
-            data-ega-confidence
-            data-tooltip="How sure the model is about this reply"
-            data-tooltip-placement="top">{pct}% confident</span
-          >
-        {/if}
-        {#if multiVarietyPills}
-          <span class="ega-lang-cluster" data-ega-multi-variety>
-            {#each multiVarietyPills as label, i (i)}
-              <span class="ega-pill ega-lang-pill" data-tooltip={label} data-tooltip-placement="top"
-                >{label}</span
-              >
-            {/each}
-          </span>
-        {:else if detectedLabel}
-          <span
-            class="ega-pill ega-lang-pill"
-            data-tooltip={detectedLabel}
-            data-tooltip-placement="top">{detectedLabel}</span
-          >
-        {/if}
-        {#if turn.meta}
-          <!-- A cache hit records no backend, so it says where the answer came from instead. -->
-          {#if turn.meta.cacheHit}
-            <span
-              class="ega-pill ega-backend-pill"
-              data-tooltip="Answered from the cache"
-              data-tooltip-placement="top">Cached</span
-            >
-          {:else if turn.meta.backendId !== 'unknown'}
-            {@const answeredBy = backendLabel(turn.meta.backendId)}
-            <span
-              class="ega-pill ega-backend-pill"
-              data-tooltip={`Answered by ${answeredBy}`}
-              data-tooltip-placement="top">{answeredBy}</span
-            >
-          {/if}
-        {/if}
         {#if turn.meta || turn.contextSent !== undefined}
           <IconButton
             icon={Info}
@@ -684,12 +685,12 @@
             onclick={() => (inspectorOpen = !inspectorOpen)}
           />
         {/if}
-        <!-- Bookmark and Delete sit in a menu at the row's end, so a 400px row does not wrap and Delete stays away from Copy. -->
+        <!-- Bookmark and Delete sit in a menu at the row's end, so the row fits 400px and Delete stays away from Copy. -->
         <span class="ega-turn-action-end"></span>
         <DropdownMenu.Root>
           <DropdownMenu.Trigger
             class="ega-icon-btn variant-default size-md"
-            aria-label="More actions for this reply"
+            aria-label="More reply actions"
             data-ega-action="more"
             tabindex={activeAction === 'more' ? 0 : -1}
           >
@@ -991,6 +992,7 @@
   }
   .ega-assistant-meta {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: var(--space-2);
   }

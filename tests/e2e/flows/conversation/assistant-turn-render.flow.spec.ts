@@ -42,7 +42,8 @@ test('assistant turn renders streamed content + meta footer', async () => {
   await turn.hover();
   const actions = turn.locator('.ega-assistant-actions');
   await expect(actions).toBeVisible();
-  await expect(actions.locator('.ega-pill', { hasText: '87%' })).toHaveCount(1);
+  // The pills sit beside the time, so the action row holds only buttons and fits a narrow panel.
+  await expect(turn.locator('.ega-assistant-meta .ega-pill', { hasText: '87%' })).toHaveCount(1);
 
   await expect(actions.getByRole('button', { name: 'Copy reply' })).toBeVisible();
   // Retry left the done footer: it and Regenerate were the same action drawn twice.
