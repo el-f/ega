@@ -86,5 +86,7 @@ test('adding a custom language shows it in the list', async () => {
   await page.locator('#new-hint').fill('for tests');
   await page.getByRole('button', { name: /^Add$/ }).click();
 
-  await expect(page.locator('label').filter({ hasText: 'Mock Variety' })).toBeVisible();
+  await expect(
+    page.locator('button.variety-label-inline', { hasText: 'Mock Variety' }),
+  ).toBeVisible();
 });
