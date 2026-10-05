@@ -14,18 +14,16 @@
   const { s, onPatch }: Props = $props();
 </script>
 
-<SectionCard
-  title="Streaming"
-  description="Stream tokens as the model produces them, instead of waiting for the full result."
->
+<SectionCard title="Streaming and cache" description="How fast answers show up.">
   <div data-ega-setting="display.streaming">
     <Checkbox
       id="streaming-toggle"
-      label="Stream tokens live"
+      label="Stream the answer live"
       checked={s.streaming}
       modified={isFieldModified('display.streaming', s)}
       onchange={(next) => void onPatch({ streaming: next })}
     />
+    <p class="setting-help">Show the answer as the model writes it, instead of all at the end.</p>
   </div>
 
   <CollapsibleField open={s.streaming}>
@@ -43,4 +41,28 @@
       />
     </div>
   </CollapsibleField>
+
+  <div data-ega-setting="advanced.cacheEnabled" data-ega-cache-card>
+    <Checkbox
+      id="cache-enabled-toggle"
+      label="Reuse recent translations"
+      checked={s.cacheEnabled}
+      modified={isFieldModified('advanced.cacheSettings', s)}
+      onchange={(next) => void onPatch({ cacheEnabled: next })}
+    />
+    <p class="setting-help">
+      The same text gets the same answer at once, for up to 5 minutes (500 entries). The cache lives
+      in memory only, so it clears when Chrome stops Ega's background worker, for example when Ega
+      is idle or the browser restarts.
+    </p>
+  </div>
 </SectionCard>
+
+<style>
+  .setting-help {
+    margin: 2px 0 0 var(--space-5);
+    font-size: var(--fs-xs);
+    color: var(--color-muted);
+    line-height: var(--lh-body);
+  }
+</style>

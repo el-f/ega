@@ -69,7 +69,7 @@
   }
   /* One column width for every tab name, so the titles start on one line. */
   .slv-item:has(.slv-tab-badge) {
-    grid-template-columns: 9rem 1fr auto;
+    grid-template-columns: 8rem 1fr auto;
   }
   .slv-item[data-selected] {
     background: var(--color-accent-bg-soft);

@@ -163,14 +163,26 @@
     display: flex;
     flex-direction: column;
     gap: var(--row-gap);
+    padding-top: var(--space-2);
   }
   .fine-tune > summary {
     cursor: pointer;
+    color: var(--color-muted);
     font-size: var(--fs-sm);
-    color: var(--color-fg);
+    padding: var(--space-1) 0;
+    list-style: none;
   }
-  .fine-tune[open] > summary {
-    margin-bottom: var(--row-gap);
+  .fine-tune > summary::-webkit-details-marker {
+    display: none;
+  }
+  .fine-tune > summary::before {
+    content: '▸';
+    display: inline-block;
+    margin-right: var(--space-1);
+    transition: transform var(--motion-fast) var(--ease-out);
+  }
+  .fine-tune[open] > summary::before {
+    transform: rotate(90deg);
   }
   .redact-status {
     display: flex;

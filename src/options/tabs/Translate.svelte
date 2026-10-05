@@ -17,7 +17,6 @@
   import DisplaySurfaceSection from '@/options/components/sections/DisplaySurfaceSection.svelte';
   import StreamingSection from '@/options/components/sections/StreamingSection.svelte';
   import PageContextSection from '@/options/components/sections/PageContextSection.svelte';
-  import CacheSection from '@/options/components/sections/CacheSection.svelte';
   import PageTranslateSection from '@/options/components/sections/PageTranslateSection.svelte';
   import RoutingSection from '@/options/components/sections/RoutingSection.svelte';
   import GenerationSection from '@/options/components/sections/GenerationSection.svelte';
@@ -118,32 +117,52 @@
 <section data-ega-tab="translate">
   <TabHeader tab="translate" />
   {#if s}
-    <DisplaySurfaceSection {s} onPatch={patch} />
-    <LangDefaultsSection {s} onPatch={patch} />
-    <StreamingSection {s} onPatch={patch} />
-    <CacheSection {s} onPatch={patch} />
-    <PageContextSection {s} onPatch={patch} />
-    <PageTranslateSection {s} onPatch={patch} />
-    <RoutingSection {s} onPatch={patch} onPatchAdvanced={handlers.patchAdvanced} />
-    <GenerationSection
-      {s}
-      {caps}
-      onSetGlobalTemperature={handlers.setGlobalTemperature}
-      onSetGlobalMaxTokens={handlers.setGlobalMaxTokens}
-      {activeBackend}
-      {activeModel}
-      onSetGlobalEffort={handlers.setGlobalEffort}
-    />
-    <ContextMenuManager {s} onPatch={patch} />
+    <div class="tab-group" role="group" aria-labelledby="tg-results">
+      <p id="tg-results" class="tab-group-label">Answers</p>
+      <DisplaySurfaceSection {s} onPatch={patch} />
+      <LangDefaultsSection {s} onPatch={patch} />
+      <StreamingSection {s} onPatch={patch} />
+    </div>
+    <div class="tab-group" role="group" aria-labelledby="tg-requests">
+      <p id="tg-requests" class="tab-group-label">What Ega sends and to whom</p>
+      <PageContextSection {s} onPatch={patch} />
+      <RoutingSection {s} onPatch={patch} onPatchAdvanced={handlers.patchAdvanced} />
+      <GenerationSection
+        {s}
+        {caps}
+        onSetGlobalTemperature={handlers.setGlobalTemperature}
+        onSetGlobalMaxTokens={handlers.setGlobalMaxTokens}
+        {activeBackend}
+        {activeModel}
+        onSetGlobalEffort={handlers.setGlobalEffort}
+      />
+    </div>
+    <div class="tab-group" role="group" aria-labelledby="tg-page">
+      <p id="tg-page" class="tab-group-label">Whole pages and the right-click menu</p>
+      <PageTranslateSection {s} onPatch={patch} />
+      <ContextMenuManager {s} onPatch={patch} />
+    </div>
   {:else}
     <LoadingState rows={6} label="Loading translation settings…" />
   {/if}
 </section>
 
 <style>
-  section {
+  section,
+  .tab-group {
     display: flex;
     flex-direction: column;
     gap: var(--card-gap);
+  }
+  .tab-group + .tab-group {
+    margin-top: var(--space-4);
+  }
+  .tab-group-label {
+    margin: 0;
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-muted);
   }
 </style>

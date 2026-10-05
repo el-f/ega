@@ -13,7 +13,7 @@ describe('StreamingSection', () => {
 
   it('describes streaming for all surfaces, not just the tooltip', () => {
     const { container } = render(StreamingSection, { props: makeSectionProps() });
-    expect(container.textContent).toContain('as the model produces them');
+    expect(container.textContent).toContain('as the model writes it');
     expect(container.textContent).not.toContain('to the tooltip');
   });
 
@@ -59,5 +59,25 @@ describe('StreamingSection — modified dot', () => {
     const { container } = render(StreamingSection, { props: { s, onPatch: () => {} } });
     const row = container.querySelector('[data-ega-setting="display.streaming"]');
     expect(row?.querySelector('[data-ega-modified="true"]')).toBeTruthy();
+  });
+});
+
+describe('StreamingSection — cache', () => {
+  it('renders the cacheEnabled toggle in the same card', () => {
+    const { container } = render(StreamingSection, { props: makeSectionProps() });
+    const card = container.querySelector('.ega-section-card');
+    expect(card?.querySelector('[data-ega-setting="advanced.cacheEnabled"]')).not.toBeNull();
+    expect(card?.querySelector('[data-ega-setting="display.streaming"]')).not.toBeNull();
+  });
+
+  it('fires onPatch when toggling cacheEnabled', async () => {
+    const onPatch = vi.fn<OnPatch>();
+    const { container } = render(StreamingSection, {
+      props: makeSectionProps({ s: { cacheEnabled: true }, onPatch }),
+    });
+    const cb = container.querySelector<HTMLInputElement>('#cache-enabled-toggle');
+    if (!cb) throw new Error('no cache-enabled checkbox');
+    await fireEvent.click(cb);
+    expect(onPatch).toHaveBeenCalledWith({ cacheEnabled: false });
   });
 });

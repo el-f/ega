@@ -12,7 +12,7 @@
 
 ## Visible affordances
 
-- Checkbox labeled "Reuse recent translations" in the "Cache" card (up to 5 minutes, 500 entries); a muted hint says the cache is memory-only and clears when Chrome stops Ega's background worker.
+- Checkbox labeled "Reuse recent translations" in the "Streaming and cache" card (up to 5 minutes, 500 entries); a muted hint says the cache is memory-only and clears when Chrome stops Ega's background worker.
 - No confirm is required — disabling is low risk and easily reversible.
 
 ## Failure-mode expectations

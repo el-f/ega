@@ -21,7 +21,7 @@ test('cache checkbox toggle persists cacheEnabled in both directions', async () 
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
   await page.locator('#tab-translate').click();
 
-  // CacheSection renders the checkbox.
+  // The Streaming and cache card renders the checkbox.
   const cacheCheckbox = page.locator('[data-ega-cache-card] input[type="checkbox"]');
   await expect(cacheCheckbox).toBeVisible({ timeout: 5_000 });
   await expect(cacheCheckbox).toBeChecked();

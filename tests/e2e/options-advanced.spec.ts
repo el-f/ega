@@ -174,7 +174,7 @@ test('Advanced: SettingsSearch deep-link to cache/settings lands on Translate ta
 
   const list = page.getByRole('listbox', { name: /Settings results/i });
   await expect(list).toBeVisible();
-  // advanced.cacheSettings deep-links to the top-level Translate tab, where CacheSection lives.
+  // advanced.cacheSettings deep-links to the top-level Translate tab, where the Streaming and cache card lives.
   const cacheOption = list
     .getByRole('option')
     .filter({ hasText: /^.*Cache settings/i })

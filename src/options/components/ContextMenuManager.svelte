@@ -468,19 +468,21 @@
               />
             </span>
 
-            {#if isSingleton(item)}
-              <span class="cm-builtin">Built-in</span>
-            {:else}
-              <IconButton
-                icon={Trash2}
-                ariaLabel={`Delete ${item.label}`}
-                tooltip="Delete item"
-                size="sm"
-                variant="danger"
-                dataAttrs={{ 'data-ega-cm-delete': true }}
-                onclick={() => deleteItem(item.id)}
-              />
-            {/if}
+            <span class="cm-end">
+              {#if isSingleton(item)}
+                <span class="cm-builtin">Built-in</span>
+              {:else}
+                <IconButton
+                  icon={Trash2}
+                  ariaLabel={`Delete ${item.label}`}
+                  tooltip="Delete item"
+                  size="sm"
+                  variant="danger"
+                  dataAttrs={{ 'data-ega-cm-delete': true }}
+                  onclick={() => deleteItem(item.id)}
+                />
+              {/if}
+            </span>
           </div>
 
           {#if item.kind === 'task' || item.kind === 'image-task'}
@@ -657,6 +659,13 @@
     flex: 0 0 auto;
   }
 
+  /* One width for the trash and the "Built-in" text, so every label field ends at one line. */
+  .cm-end {
+    flex: 0 0 auto;
+    width: 3.5rem;
+    display: inline-flex;
+    justify-content: flex-end;
+  }
   .cm-builtin {
     font-size: var(--fs-xs);
     color: var(--color-muted);
