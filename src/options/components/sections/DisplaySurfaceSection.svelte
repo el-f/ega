@@ -134,7 +134,7 @@
   </div>
 
   <div class="ds-shared-knob ds-knob-stack">
-    <h4 class="ds-group">Tooltip and side panel</h4>
+    <h3 class="ds-group">Tooltip and side panel</h3>
     <div data-ega-setting="display.confidencePill">
       <Checkbox
         id="confidence-pill"
@@ -166,7 +166,7 @@
       <div class="ds-knob-fade">
         {#if mode === 'tooltip'}
           <div class="ds-knob-stack" data-ega-knobs="tooltip">
-            <h4 class="ds-group">Tooltip only</h4>
+            <h3 class="ds-group">Tooltip only</h3>
             <div data-ega-setting="display.tooltipShowSource">
               <Checkbox
                 id="tooltip-show-source"
