@@ -42,6 +42,10 @@
       ? `→ ${target}`
       : `${languageName(direction.source)} → ${target}`;
   });
+  // The name carries the visible pair, so a voice user can say what they see.
+  const name = $derived(
+    directionText ? `Translate ${directionText} with Ega` : 'Translate with Ega',
+  );
 </script>
 
 <!-- mousedown must not steal focus: the editable-selection re-read needs the field to stay activeElement. -->
@@ -59,7 +63,7 @@
     if (!e.detail) focusedFrom?.focus();
     onclick(e);
   }}
-  aria-label="Translate with Ega"
+  aria-label={name}
   title="{queued > 0 ? `${queued} queued. ` : ''}Shift-click to queue more"
 >
   <BrandMark size={16} />

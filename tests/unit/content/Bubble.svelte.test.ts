@@ -73,9 +73,19 @@ describe('Bubble — indicator + click', () => {
     const { getByRole, rerender } = render(Bubble, {
       props: { left: 10, top: 20, queued: 0, direction: { source: 'en', target: 'es' }, onclick },
     });
-    expect(getByRole('button', { name: 'Translate with Ega' })).toBeTruthy();
+    // The name holds the visible pair, so a voice user can say what they see.
+    const named = getByRole('button', { name: 'Translate English → Spanish with Ega' });
+    expect(named.textContent).toContain('English → Spanish');
+    await rerender({
+      left: 10,
+      top: 20,
+      queued: 0,
+      direction: { source: 'auto', target: 'es' },
+      onclick,
+    });
+    expect(getByRole('button', { name: 'Translate → Spanish with Ega' })).toBeTruthy();
     await rerender({ left: 10, top: 20, queued: 2, onclick });
-    const queuedBtn = getByRole('button', { name: 'Translate with Ega' });
+    const queuedBtn = getByRole('button', { name: 'Translate → Spanish with Ega' });
     // The count rides in the description, which a screen reader reads after the name.
     expect(queuedBtn.getAttribute('title')).toBe('2 queued. Shift-click to queue more');
   });
