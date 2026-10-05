@@ -45,6 +45,12 @@
     // preventScroll: closing must not scroll-jump the page back to the trigger.
     const target = priorFocus as { focus?: (opts?: { preventScroll: boolean }) => void } | null;
     priorFocus = null;
+    // A click outside already moved focus somewhere on purpose (the message box); leave it there.
+    const now = document.activeElement;
+    if (now && now !== document.body && now !== target && !contentEl?.contains(now)) {
+      e.preventDefault();
+      return;
+    }
     if (target && typeof target.focus === 'function') {
       e.preventDefault();
       try {
@@ -78,6 +84,7 @@
       aria-label={title}
       onOpenAutoFocus={rememberFocus}
       onCloseAutoFocus={restoreFocus}
+      trapFocus={scrim}
     >
       <div class="ega-popover-head">
         {#if title}<span class="ega-popover-title">{title}</span>{:else}<span></span>{/if}

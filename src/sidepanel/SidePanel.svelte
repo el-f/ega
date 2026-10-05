@@ -524,6 +524,8 @@
       shortcutsOpen = false;
       return;
     }
+    // A bits-ui menu or popover already handled this Escape; it must not also cancel the reply.
+    if (e.key === 'Escape' && e.defaultPrevented) return;
     if (
       e.key === 'Escape' &&
       editingTurnId !== null &&

@@ -148,4 +148,36 @@ describe('Popover', () => {
     focusSpy.mockRestore();
     trigger.remove();
   });
+
+  it('leaves focus where an outside click put it, so typing in the message box keeps working', async () => {
+    const trigger = document.createElement('button');
+    trigger.type = 'button';
+    const field = document.createElement('textarea');
+    document.body.append(trigger, field);
+    trigger.focus();
+
+    const props = {
+      open: false,
+      anchor: document.body,
+      onClose: () => {},
+      children: buttonSnippet('inner'),
+    };
+    const { rerender, baseElement } = render(Popover, { props });
+    await rerender({ ...props, open: true });
+    const popover = baseElement.querySelector('.ega-popover');
+    await waitFor(() => {
+      expect(popover?.contains(document.activeElement)).toBe(true);
+    });
+
+    // A popover without a scrim does not trap focus: the click into the field keeps it.
+    field.focus();
+    await waitFor(() => {
+      expect(document.activeElement).toBe(field);
+    });
+    await rerender({ ...props, open: false });
+    expect(document.activeElement).toBe(field);
+
+    trigger.remove();
+    field.remove();
+  });
 });

@@ -69,13 +69,11 @@
   .lang-label :global(.ega-lang-picker) {
     width: 100%;
   }
-  /* Same look as IconButton's own :disabled, which an aria-disabled button does not match. */
-  .popup-lang-pair :global(.ega-icon-btn[aria-disabled='true']) {
-    cursor: var(--cursor-disabled);
-    opacity: 0.55;
-  }
+  /* Disabled tokens, not opacity: the button stays focusable, and opacity would fade its focus ring. */
+  .popup-lang-pair :global(.ega-icon-btn[aria-disabled='true']),
   .popup-lang-pair :global(.ega-icon-btn[aria-disabled='true']:hover) {
+    cursor: var(--cursor-disabled);
     background: transparent;
-    color: var(--color-fg-subtle);
+    color: var(--color-fg-disabled);
   }
 </style>

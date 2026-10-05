@@ -7,7 +7,7 @@
 ## State expectations
 
 - Step 1: the shadow host carries `data-theme="light|dark"` for an explicit setting; `system` removes it so the media query decides; a page's own `<html data-theme>` wins.
-- Step 2 (user flips theme in popup / options): the mounted tooltip's `data-theme` attribute updates without remount; all tokens (color, shadow, border) flip in one frame.
+- Step 2 (user flips theme in Options or the side panel): the mounted tooltip's `data-theme` attribute updates without remount; all tokens (color, shadow, border) flip in one frame.
 - Step 3: the tooltip stays anchored; no content reflow.
 
 ## Visible affordances
