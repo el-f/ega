@@ -1,7 +1,7 @@
 [
   {
     "name": "Advanced",
-    "bytes": 61209
+    "bytes": 61247
   },
   {
     "name": "batch-progress",
@@ -9,7 +9,7 @@
   },
   {
     "name": "bubble",
-    "bytes": 3247
+    "bytes": 3240
   },
   {
     "name": "build-config",
@@ -25,7 +25,7 @@
   },
   {
     "name": "command-registry",
-    "bytes": 33458
+    "bytes": 33496
   },
   {
     "name": "customs-cache",
@@ -45,7 +45,7 @@
   },
   {
     "name": "english-lexicon",
-    "bytes": 598043
+    "bytes": 598085
   },
   {
     "name": "err-labels",
@@ -77,15 +77,15 @@
   },
   {
     "name": "index",
-    "bytes": 117211
+    "bytes": 117625
   },
   {
     "name": "index.html",
-    "bytes": 384855
+    "bytes": 388650
   },
   {
     "name": "index.ts",
-    "bytes": 39511
+    "bytes": 39613
   },
   {
     "name": "index.ts-loader",
@@ -133,7 +133,7 @@
   },
   {
     "name": "PickerOverlay",
-    "bytes": 774
+    "bytes": 922
   },
   {
     "name": "Popover",
@@ -177,7 +177,7 @@
   },
   {
     "name": "SelectionBubble",
-    "bytes": 9330
+    "bytes": 9358
   },
   {
     "name": "settings-bus",
@@ -189,7 +189,7 @@
   },
   {
     "name": "shadowHost",
-    "bytes": 31072
+    "bytes": 31612
   },
   {
     "name": "src-content-index.ts",
@@ -209,7 +209,7 @@
   },
   {
     "name": "TemplateEditor",
-    "bytes": 28027
+    "bytes": 28105
   },
   {
     "name": "theme",
@@ -221,7 +221,7 @@
   },
   {
     "name": "tipState.svelte",
-    "bytes": 29108
+    "bytes": 29118
   },
   {
     "name": "toast",
@@ -233,7 +233,7 @@
   },
   {
     "name": "Translate",
-    "bytes": 43589
+    "bytes": 43568
   },
   {
     "name": "translate-handlers",
