@@ -5,6 +5,7 @@ import { render, fireEvent, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import SidePanel from '@/sidepanel/SidePanel.svelte';
 import type { Msg } from '@/shared/messages';
+import { drainAsync } from '@tests/_helpers/async';
 import { openTaskMenu } from './_task-menu';
 
 const sendMessage = chrome.runtime.sendMessage as Mock;
@@ -100,7 +101,7 @@ describe('SidePanel — keys typed inside a reply menu stay in the menu', () => 
     await fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'ArrowDown' });
     await fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'r' });
     // A leaked retry reaches sendMessage a few awaits later; with the guard reverted this goes red.
-    await new Promise((r) => setTimeout(r, 50));
+    await drainAsync();
 
     expect(startCalls().length).toBe(before);
     expect(focusedRing(container)).toBeNull();
