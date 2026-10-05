@@ -198,6 +198,11 @@
     return out;
   });
 
+  // With a fallback chain the user cannot tell which key to fix unless the card names the backend.
+  const failedBackend = $derived(
+    turn.error?.backendId === undefined ? '' : ` (${backendLabel(turn.error.backendId)})`,
+  );
+
   // A deliberate stop is not a failure: no red, no "Error:" prefix, no alert role.
   const isCancelled = $derived(isCancelledError(turn.error?.code));
 
@@ -488,7 +493,7 @@
       {@const parts = errorTurnParts(turn.error)}
       <div class="ega-assistant-error" role="alert">
         <strong class="ega-error-title"
-          ><CircleAlert size={14} aria-hidden="true" />{parts.title}</strong
+          ><CircleAlert size={14} aria-hidden="true" />{parts.title}{failedBackend}</strong
         >
         {#if parts.body}
           <span class="ega-error-body">{parts.body}</span>

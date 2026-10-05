@@ -39,6 +39,28 @@ describe('AssistantTurn — an error fixed in Settings can be retried', () => {
     },
   );
 
+  it('names the backend that failed in the heading, so the user knows which key to fix', () => {
+    const turn = errorTurn('AUTH', AUTH_MESSAGE);
+    const named = render(AssistantTurn, {
+      props: {
+        turn: {
+          ...turn,
+          error: { code: 'AUTH', message: AUTH_MESSAGE, backendId: 'anthropic' },
+        } as Turn,
+        onRetry: vi.fn(),
+      },
+    });
+    expect(named.container.querySelector('.ega-error-title')?.textContent).toBe(
+      'Authentication failed (Anthropic)',
+    );
+    named.unmount();
+    // No backend ran (none set up), or the thread was saved before the field existed.
+    const plain = render(AssistantTurn, { props: { turn, onRetry: vi.fn() } });
+    expect(plain.container.querySelector('.ega-error-title')?.textContent).toBe(
+      'Authentication failed',
+    );
+  });
+
   it('puts an alert icon in the error heading', () => {
     const { container } = render(AssistantTurn, {
       props: { turn: errorTurn('AUTH', AUTH_MESSAGE), onRetry: vi.fn() },

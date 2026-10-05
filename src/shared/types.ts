@@ -170,6 +170,8 @@ export type TranslationChunk =
       message: string;
       /** Server Retry-After on 429/503/529; page translate uses it as a backoff floor. */
       retryAfterMs?: number;
+      /** The backend that failed last; absent when no backend ran (e.g. none is set up). */
+      backendId?: BackendId;
     };
 
 export interface LangPreset {

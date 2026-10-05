@@ -79,6 +79,8 @@ describe('runTranslateAttempt', () => {
     const errChunk = errCalls[0]?.[0] as Extract<TranslationChunk, { type: 'error' }>;
     expect(errChunk.code).toBe('UNKNOWN');
     expect(errChunk.requestId).toBe('r1');
+    // The panel names the backend that failed, so the user knows which key or model to fix.
+    expect(errChunk.backendId).toBe('anthropic');
   });
 
   it('does NOT synth an UNKNOWN error on a USER cancel (only on a genuine no-terminal backend)', async () => {
@@ -145,6 +147,9 @@ describe('runTranslateAttempt', () => {
     const errCalls = onChunk.mock.calls.filter((c) => (c[0] as TranslationChunk).type === 'error');
     expect(errCalls).toHaveLength(1);
     expect((errCalls[0]?.[0] as Extract<TranslationChunk, { type: 'error' }>).code).toBe('UNKNOWN');
+    expect((errCalls[0]?.[0] as Extract<TranslationChunk, { type: 'error' }>).backendId).toBe(
+      'anthropic',
+    );
   });
 
   it('falls through to the next backend when translate() THROWS and not last', async () => {
@@ -340,6 +345,9 @@ describe('runTranslateAttempt', () => {
     // Exactly one error chunk — the backend's, not a synth.
     expect(errCalls).toHaveLength(1);
     expect((errCalls[0]?.[0] as Extract<TranslationChunk, { type: 'error' }>).code).toBe('AUTH');
+    expect((errCalls[0]?.[0] as Extract<TranslationChunk, { type: 'error' }>).backendId).toBe(
+      'anthropic',
+    );
   });
 
   it('falls through on AUTH when not the last backend (rotate policy)', async () => {

@@ -152,7 +152,13 @@ describe('router — attempt loop terminal handling', () => {
     const chunks: TranslationChunk[] = [];
     await createRouter(deps).handleTranslate(REQ, (c) => chunks.push(c));
     expect(chunks).toEqual([
-      { type: 'error', requestId: 'r1', code: 'PARSE', message: 'bad json' },
+      {
+        type: 'error',
+        requestId: 'r1',
+        code: 'PARSE',
+        message: 'bad json',
+        backendId: 'anthropic',
+      },
     ]);
   });
 

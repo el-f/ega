@@ -63,3 +63,18 @@ describe('retry() applies the gates the Retry button shows', () => {
     expect(startCalls()).toHaveLength(2);
   });
 });
+
+// The router stamps the failed backend on the error chunk; the card reads it off the turn.
+describe('a failed reply keeps the backend that failed', () => {
+  it('copies the backend id from the error chunk onto the turn', async () => {
+    const { c, assistantId } = await sendThenFail('AUTH', { backendId: 'openai' });
+    expect(c.turns.find((t) => t.id === assistantId)?.error?.backendId).toBe('openai');
+  });
+
+  it('leaves it off when no backend ran', async () => {
+    const { c, assistantId } = await sendThenFail('NO_BACKEND');
+    const error = c.turns.find((t) => t.id === assistantId)?.error;
+    expect(error?.code).toBe('NO_BACKEND');
+    expect(error && 'backendId' in error).toBe(false);
+  });
+});

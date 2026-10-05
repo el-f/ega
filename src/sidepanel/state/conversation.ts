@@ -51,6 +51,8 @@ interface TurnError {
   message: string;
   /** Epoch ms until which Retry honors the server's Retry-After window. */
   retryUntil?: number;
+  /** The backend that failed last, so the card can say which key or model to fix. */
+  backendId?: string;
 }
 
 /** One response under an assistant Turn; refines append siblings. The active
@@ -546,7 +548,12 @@ function applyChunkToVariant(variant: Variant, c: TranslationChunk, parse: Parse
     delete variant.rawAcc;
   } else {
     variant.status = 'error';
-    variant.error = { code: c.code, message: c.message, ...retryWindow(c) };
+    variant.error = {
+      code: c.code,
+      message: c.message,
+      ...retryWindow(c),
+      ...(c.backendId !== undefined ? { backendId: c.backendId } : {}),
+    };
     delete variant.rawAcc;
   }
 }

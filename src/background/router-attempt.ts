@@ -143,6 +143,7 @@ export async function runTranslateAttempt(deps: AttemptDeps): Promise<AttemptOut
           requestId: reqId,
           code: 'TIMEOUT',
           message: timedOutMessage,
+          backendId: backend.id,
         });
         return;
       }
@@ -164,7 +165,7 @@ export async function runTranslateAttempt(deps: AttemptDeps): Promise<AttemptOut
         const priorErrors = attemptLog.filter((e) => e.status === 'error');
         const message = priorErrors.length > 1 ? chainErrorMessage(priorErrors, c) : c.message;
         fsm.send({ type: 'error', code: c.code, message });
-        onChunk({ ...c, message });
+        onChunk({ ...c, message, backendId: backend.id });
       }
     }
   };
@@ -213,7 +214,13 @@ export async function runTranslateAttempt(deps: AttemptDeps): Promise<AttemptOut
         logger.info(`backend ${backend.id} threw (${message}); falling back`);
       } else {
         fsm.send({ type: 'error', code: 'UNKNOWN', message });
-        onChunk({ type: 'error', requestId: reqId, code: 'UNKNOWN', message });
+        onChunk({
+          type: 'error',
+          requestId: reqId,
+          code: 'UNKNOWN',
+          message,
+          backendId: backend.id,
+        });
       }
     }
     // isAbort: the wallclock / user cancel owns the terminal (router finally
@@ -238,6 +245,7 @@ export async function runTranslateAttempt(deps: AttemptDeps): Promise<AttemptOut
         requestId: reqId,
         code: 'UNKNOWN',
         message: 'backend resolved without terminal',
+        backendId: backend.id,
       });
     }
     return { kind: 'final_error_emitted' };

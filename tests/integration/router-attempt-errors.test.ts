@@ -124,6 +124,7 @@ describe('router-attempt — transient log and chain summary', () => {
       requestId: 'r1',
       code: 'REQUEST',
       message: summary,
+      backendId: 'anthropic',
     });
     expect(r.fsm.context().finalError).toEqual({ code: 'REQUEST', message: summary });
   });
@@ -172,7 +173,13 @@ describe('router-attempt — throw path', () => {
       },
     });
     expect(r.errors).toEqual([
-      { type: 'error', requestId: 'r1', code: 'UNKNOWN', message: 'socket hang up' },
+      {
+        type: 'error',
+        requestId: 'r1',
+        code: 'UNKNOWN',
+        message: 'socket hang up',
+        backendId: 'anthropic',
+      },
     ]);
     expect(r.fsm.context().finalError).toEqual({ code: 'UNKNOWN', message: 'socket hang up' });
     expect(r.outcome.kind).toBe('final_error_emitted');
@@ -235,7 +242,13 @@ describe('router-attempt — throw path', () => {
       },
     });
     expect(r.errors).toEqual([
-      { type: 'error', requestId: 'r1', code: 'REQUEST', message: 'bad request' },
+      {
+        type: 'error',
+        requestId: 'r1',
+        code: 'REQUEST',
+        message: 'bad request',
+        backendId: 'anthropic',
+      },
     ]);
     expect(r.attemptLog).toHaveLength(1);
     expect(r.outcome.kind).toBe('final_error_emitted');
@@ -269,6 +282,7 @@ describe('router-attempt — synthesized terminal', () => {
         requestId: 'r1',
         code: 'UNKNOWN',
         message: 'backend resolved without terminal',
+        backendId: 'anthropic',
       },
     ]);
     expect(r.outcome.kind).toBe('final_error_emitted');

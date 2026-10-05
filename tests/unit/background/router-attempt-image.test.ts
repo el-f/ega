@@ -105,7 +105,13 @@ describe('runTranslateAttempt — vision attempt', () => {
     expect(outcome).toEqual({ kind: 'final_error_emitted' });
     expect(b.translate).not.toHaveBeenCalled();
     expect(d.chunks).toEqual([
-      { type: 'error', requestId: 'r1', code: 'UNKNOWN', message: 'anthropic cannot read images' },
+      {
+        type: 'error',
+        requestId: 'r1',
+        code: 'UNKNOWN',
+        message: 'anthropic cannot read images',
+        backendId: 'anthropic',
+      },
     ]);
   });
 
@@ -120,7 +126,13 @@ describe('runTranslateAttempt — vision attempt', () => {
     await runTranslateAttempt(d);
 
     expect(d.chunks).toEqual([
-      { type: 'error', requestId: 'r1', code: 'TIMEOUT', message: IMAGE_TIMED_OUT },
+      {
+        type: 'error',
+        requestId: 'r1',
+        code: 'TIMEOUT',
+        message: IMAGE_TIMED_OUT,
+        backendId: 'anthropic',
+      },
     ]);
   });
 });
