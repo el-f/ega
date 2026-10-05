@@ -12,7 +12,7 @@
 
 ## Visible affordances
 
-- Reorder in Options > Backends uses a drag handle, or Alt+Arrow keys on the focused handle; commit happens on drop / key press.
+- Reorder in Options > Backends uses the Move up / Move down arrow buttons, a drag handle, or Alt+Arrow keys on the focused handle; commit happens on click, drop or key press.
 
 ## Failure-mode expectations
 

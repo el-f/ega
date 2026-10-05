@@ -105,3 +105,23 @@ describe('Backends — keyboard reorder', () => {
     expect([...order].sort()).toEqual([...base.backendOrder].sort());
   });
 });
+
+describe('Backends — move buttons', () => {
+  beforeEach(() => {
+    updateSpy.mockReset();
+    updateSpy.mockImplementation(async (p: Partial<Settings>) => ({ ...settings(), ...p }));
+  });
+
+  it('the down arrow on the first active backend swaps it with the next one', async () => {
+    const base = settings();
+    const { container, findByRole } = render(Backends, {
+      props: { s: base, onSetSettings: () => {} },
+    });
+    await waitForRows(container);
+    await fireEvent.click(await findByRole('button', { name: 'Move Anthropic down' }));
+
+    expect(updateSpy).toHaveBeenCalledTimes(1);
+    const order = (updateSpy.mock.calls[0]?.[0] as Partial<Settings>).backendOrder ?? [];
+    expect(order.slice(0, 2)).toEqual(['gemini', 'anthropic']);
+  });
+});

@@ -6,6 +6,10 @@
   import { useShadowSync } from '@/shared/svelte/useShadowSync.svelte';
   import BackendListAria from './BackendListAria.svelte';
   import Button from '@/shared/ui/Button.svelte';
+  import IconButton from '@/shared/ui/IconButton.svelte';
+  import ArrowUp from '@lucide/svelte/icons/arrow-up';
+  import ArrowDown from '@lucide/svelte/icons/arrow-down';
+  import { backendLabel } from '@/shared/backends/provider-profiles';
 
   interface Props {
     settings: Settings;
@@ -17,8 +21,15 @@
     children?: Snippet<
       [id: BackendId, position: number | null, enabled: boolean, useSummary: typeof dragHandle]
     >;
+    /** Moves an active backend one slot up (-1) or down (1); the buttons are the non-drag way to reorder. */
+    onMove?: (id: BackendId, delta: -1 | 1) => void;
   }
-  let { settings, onChange, children }: Props = $props();
+  let { settings, onChange, children, onMove }: Props = $props();
+
+  function move(id: BackendId, delta: -1 | 1, from: number): void {
+    onMove?.(id, delta);
+    announcement = `${backendLabel(id)} moved to position ${from + delta + 1}`;
+  }
 
   type Row = { id: BackendId };
   // svelte-dnd-action mutates its items array mid-drag; mirror every consider/finalize back or rows vanish.
@@ -91,7 +102,7 @@
       announcement = 'At least one backend must stay enabled';
       return;
     }
-    announcement = `${id} ${enabled ? 'enabled' : 'disabled'}`;
+    announcement = `${backendLabel(id)} ${enabled ? 'enabled' : 'disabled'}`;
     onChange({
       backendOrder: [...settings.backendOrder],
       disabledBackends: settings.backendOrder.filter((b) => disabled.includes(b)),
@@ -152,8 +163,8 @@
   <header class="be-section-head be-section-head-active">
     <h2 class="be-section-title">Active backends</h2>
     <p class="be-section-help">
-      Listed in fallback order. Drag the ⋮⋮ handle to reorder. Press Disable to take one out of the
-      fallback order.
+      Listed in fallback order. Use the arrows or drag the ⋮⋮ handle to reorder. Press Disable to
+      take one out of the fallback order.
     </p>
   </header>
   <div
@@ -182,10 +193,28 @@
         {:else}
           {@render children?.(row.id, i + 1, true, dragHandle)}
           <span class="be-toggle">
+            {#if onMove}
+              <IconButton
+                icon={ArrowUp}
+                ariaLabel="Move {backendLabel(row.id)} up"
+                tooltip="Move up"
+                size="sm"
+                disabled={i === 0}
+                onclick={() => move(row.id, -1, i)}
+              />
+              <IconButton
+                icon={ArrowDown}
+                ariaLabel="Move {backendLabel(row.id)} down"
+                tooltip="Move down"
+                size="sm"
+                disabled={i === enabledShadow.items.length - 1}
+                onclick={() => move(row.id, 1, i)}
+              />
+            {/if}
             <Button
               variant="ghost"
               size="sm"
-              ariaLabel="Disable {row.id}"
+              ariaLabel="Disable {backendLabel(row.id)}"
               onclick={() => setEnabled(row.id, false)}>Disable</Button
             >
           </span>
@@ -230,7 +259,7 @@
             <Button
               variant="secondary"
               size="sm"
-              ariaLabel="Enable {row.id}"
+              ariaLabel="Enable {backendLabel(row.id)}"
               onclick={() => setEnabled(row.id, true)}>Enable</Button
             >
           </span>
@@ -258,7 +287,10 @@
   }
   .be-toggle {
     flex: 0 0 auto;
-    padding-top: 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding-top: 8px;
   }
   /* svelte-dnd-action injects this row at the slot the dragged card will land in. */
   .be-row.is-shadow {

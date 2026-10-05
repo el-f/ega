@@ -73,3 +73,29 @@ describe('BackendList — per-row enable toggle', () => {
     );
   });
 });
+
+describe('BackendList — move buttons', () => {
+  it('moves an active backend with the arrows and names it by label', async () => {
+    const onMove = vi.fn();
+    const { findByRole, getByRole, container } = render(BackendList, {
+      props: { settings: makeSettings(), onChange: vi.fn(), onMove, children: rowChild() },
+    });
+    await fireEvent.click(await findByRole('button', { name: 'Move OpenAI up' }));
+    expect(onMove).toHaveBeenCalledWith('openai', -1);
+    expect(container.textContent).toContain('OpenAI moved to position 1');
+
+    expect((getByRole('button', { name: 'Move Anthropic up' }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
+    expect(
+      (getByRole('button', { name: /Move Native host .* down/ }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+  });
+
+  it('labels the enable buttons with the backend name, not its id', async () => {
+    const { findByRole } = render(BackendList, {
+      props: { settings: makeSettings(), onChange: vi.fn(), children: rowChild() },
+    });
+    expect(await findByRole('button', { name: 'Enable Gemini' })).toBeTruthy();
+  });
+});

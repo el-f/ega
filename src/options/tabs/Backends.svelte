@@ -136,7 +136,7 @@
 {:else}
   <TabHeader tab="backends" />
   {@const ss = s as Settings}
-  <BackendList settings={ss} onChange={(next) => void patch(next)}>
+  <BackendList settings={ss} onChange={(next) => void patch(next)} onMove={reorderById}>
     {#snippet children(id, position, enabled, useSummary)}
       {@const card = CARDS.find((c) => c.id === id)}
       {#if !card}
