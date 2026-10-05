@@ -109,7 +109,7 @@ function within<T>(p: Promise<T>): Promise<T | null> {
 }
 
 export async function looksLikeEnglishAsync(text: string): Promise<boolean> {
-  await within(loadEnglishLexicon());
+  if (!lexiconCacheInternal.mod) await within(loadEnglishLexicon());
   const dictVerdict = looksLikeEnglish(text);
   if (!dictVerdict || text.length < DETECTOR_MIN_CHARS) return dictVerdict;
   try {

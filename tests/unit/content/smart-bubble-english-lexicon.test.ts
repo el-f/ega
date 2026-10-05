@@ -1,4 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { beforeAll, describe, it, expect } from 'vitest';
+import { readsAsEnglish } from '@/content/english-lexicon';
+import raw from '@/content/english-lexicon.txt?raw';
+import { loadEnglishLexicon, looksLikeEnglish } from '@/content/looks-like-english';
 import { shouldShowBubbleWithReasonAsync } from '@/content/should-show-bubble';
 import { BUILT_IN_PRESETS } from '@/shared/presets';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
@@ -120,6 +123,13 @@ const PRESET_EXAMPLES = BUILT_IN_PRESETS.filter((p) => p.id === 'arabizi').flatM
 );
 
 const OTHER = [
+  'ma fish had',
+  'fen el bet',
+  'anti fen',
+  'sale chat',
+  'mare e sole',
+  'salsa picante',
+  'hum log',
   'bonjour',
   'merci beaucoup',
   'gracias amigo',
@@ -127,6 +137,68 @@ const OTHER = [
   'elen sila lumenn omentielvo meldir',
   'this rizz is bussin fr no cap',
 ];
+
+// Short phrases a lone 3+ letter English word used to decide; none of them is English.
+const SHORT_NON_ENGLISH = [
+  'ya rabbi',
+  'ya sheikh',
+  'ya pasha',
+  'ya imam',
+  'ya sultan',
+  'ya mama',
+  'ma fi had',
+  'ma fish',
+  'ma fish had',
+  'fen el bet',
+  'anti fen',
+  'hum fen',
+  'fen Ali',
+  'el mar',
+  'la red',
+  'el sol',
+  'mi mesa',
+  'con pan',
+  'el mayor',
+  'salsa picante',
+  'le chat',
+  'la main',
+  'sale chat',
+  'mare e sole',
+  'la dove',
+  'ken ken',
+  'ma ken',
+  'hum log',
+];
+
+// A cold import of the 600 KB lexicon can outrun the 300 ms wait, and the first test would read the fallback list.
+beforeAll(async () => {
+  await loadEnglishLexicon();
+});
+
+describe('english lexicon — short non-English phrases read as not English', () => {
+  for (const text of SHORT_NON_ENGLISH) {
+    it(`not English: ${JSON.stringify(text)}`, () => {
+      expect(looksLikeEnglish(text)).toBe(false);
+    });
+  }
+});
+
+describe('english lexicon — binary search finds every word', () => {
+  const lines = raw.split('\n').filter((l) => l !== '' && !l.startsWith('#'));
+  const common = lines.filter((l) => !l.startsWith('~') && l.length >= 5);
+  const ambiguous = lines.filter((l) => l.startsWith('~')).map((l) => l.slice(1));
+
+  it('reads every common word of five letters or more as English, and a near miss as not', () => {
+    expect(common.length).toBeGreaterThan(40000);
+    expect(common.filter((w) => !readsAsEnglish(w, /^\d+$/))).toEqual([]);
+    expect(common.filter((w) => readsAsEnglish(`${w}qx`, /^\d+$/))).toEqual([]);
+  });
+
+  it('reads an ambiguous word as neither side', () => {
+    expect(ambiguous).toContain('sheikh');
+    expect(ambiguous.filter((w) => readsAsEnglish(w, /^\d+$/))).toEqual([]);
+  });
+});
 
 describe('smart bubble — English that must hide', () => {
   for (const text of ENGLISH_HEADINGS) {

@@ -3,7 +3,7 @@
 # Lists: words and contractions up to size 50; upper-case words and abbreviations up to size 35.
 # Copyright 2000-2018 by Kevin Atkinson, and the authors named in the SCOWL Copyright file.
 # License: SCOWL permissive license; full notice in THIRD_PARTY.md.
-# 63627 common words, then 21 ambiguous ones (~) that are common Arabizi too.
+# 63594 common words, then 54 ambiguous ones (~) that are common Arabizi too.
 aardvark
 aardvarks
 aback
@@ -1672,7 +1672,6 @@ amiss
 amity
 ammeter
 ammeters
-ammo
 ammonia
 ammunition
 amnesia
@@ -2118,7 +2117,6 @@ anthropologists
 anthropology
 anthropomorphic
 anthropomorphism
-anti
 antiabortion
 antiaircraft
 antibiotic
@@ -7058,7 +7056,6 @@ bursting
 bursts
 bury
 burying
-bus
 busbies
 busboy
 busboys
@@ -8945,7 +8942,6 @@ chewiest
 chewing
 chews
 chewy
-chi
 chiaroscuro
 chic
 chicaneries
@@ -18225,7 +18221,6 @@ eminence
 eminences
 eminent
 eminently
-emir
 emirate
 emirates
 emirs
@@ -20366,7 +20361,6 @@ fantastically
 fantasy
 fantasying
 fanzine
-far
 faraway
 farce
 farces
@@ -20441,7 +20435,6 @@ fasting
 fastness
 fastnesses
 fasts
-fat
 fatal
 fatalism
 fatalist
@@ -20673,7 +20666,6 @@ feminists
 femoral
 femur
 femurs
-fen
 fence
 fenced
 fencer
@@ -20982,7 +20974,6 @@ filtrated
 filtrates
 filtrating
 filtration
-fin
 finagle
 finagled
 finagler
@@ -21144,7 +21135,6 @@ firths
 fiscal
 fiscally
 fiscals
-fish
 fishbowl
 fishbowls
 fished
@@ -24991,7 +24981,6 @@ hacksaw
 hacksaws
 hacktivist
 hacktivists
-had
 haddock
 haddocks
 hadn't
@@ -25011,7 +25000,6 @@ haemorrhoids
 hafnium
 haft
 hafts
-hag
 haggard
 haggle
 haggled
@@ -25473,7 +25461,6 @@ hastily
 hastiness
 hasting
 hasty
-hat
 hatch
 hatchback
 hatchbacks
@@ -26865,7 +26852,6 @@ hullabaloos
 hulled
 hulling
 hulls
-hum
 human
 humane
 humanely
@@ -27460,7 +27446,6 @@ imagined
 imagines
 imaging
 imagining
-imam
 imams
 imbalance
 imbalanced
@@ -30040,7 +30025,6 @@ jawbreakers
 jawed
 jawing
 jaws
-jay
 jays
 jaywalk
 jaywalked
@@ -30654,7 +30638,6 @@ kidneys
 kids
 kielbasa
 kielbasas
-kill
 killdeer
 killdeers
 killed
@@ -33159,7 +33142,6 @@ maltreatment
 maltreats
 malts
 malware
-mama
 mamas
 mambo
 mamboed
@@ -33502,7 +33484,6 @@ marshmallows
 marshy
 marsupial
 marsupials
-mart
 marten
 martens
 martial
@@ -33630,7 +33611,6 @@ masturbated
 masturbates
 masturbating
 masturbation
-mat
 matador
 matadors
 match
@@ -34182,7 +34162,6 @@ merrymaker
 merrymakers
 merrymaking
 mes
-mesa
 mesas
 mescal
 mescaline
@@ -39577,7 +39556,6 @@ parvenu
 parvenus
 pas
 paschal
-pasha
 pashas
 pass
 passable
@@ -40799,7 +40777,6 @@ pianos
 piazza
 piazzas
 pica
-picante
 picaresque
 picayune
 piccalilli
@@ -44361,7 +44338,6 @@ quotient
 quotients
 quoting
 quran
-rabbi
 rabbinate
 rabbinical
 rabbis
@@ -48135,7 +48111,6 @@ sabbath
 sabbaths
 sabbatical
 sabbaticals
-saber
 sabers
 sable
 sables
@@ -48267,7 +48242,6 @@ saints
 saith
 sake
 saki
-salaam
 salaamed
 salaaming
 salaams
@@ -48327,7 +48301,6 @@ salon
 salons
 saloon
 saloons
-salsa
 salsas
 salt
 saltcellar
@@ -50068,7 +50041,6 @@ shampooing
 shampoos
 shamrock
 shamrocks
-shams
 shan't
 shandy
 shanghai
@@ -50189,7 +50161,6 @@ sheeting
 sheets
 sheikdom
 sheikdoms
-sheikh
 sheikhs
 shekel
 shekels
@@ -54923,7 +54894,6 @@ sulphuric
 sulphuring
 sulphurous
 sulphurs
-sultan
 sultana
 sultanas
 sultanate
@@ -57233,7 +57203,6 @@ timorously
 timpani
 timpanist
 timpanists
-tin
 tincture
 tinctured
 tinctures
@@ -57525,7 +57494,6 @@ tonsuring
 tony
 too
 took
-tool
 toolbar
 toolbars
 toolbox
@@ -62223,7 +62191,6 @@ welcome
 welcomed
 welcomes
 welcoming
-weld
 welded
 welder
 welders
@@ -63633,22 +63600,55 @@ zygotes
 études
 ~add
 ~allah
+~ammo
 ~ante
+~anti
 ~bad
 ~bade
 ~bass
 ~bet
+~bus
+~chi
+~emir
 ~fade
+~far
+~fat
+~fen
+~fin
+~fish
+~had
+~hag
+~hat
 ~hay
 ~hob
 ~hone
+~hum
 ~ilk
+~imam
 ~into
+~jay
+~kill
 ~lama
 ~law
+~mama
+~mart
+~mat
 ~men
+~mesa
 ~mesh
+~pasha
+~picante
+~rabbi
+~saber
+~salaam
+~salsa
+~shams
+~sheikh
 ~sit
+~sultan
 ~tab
+~tin
+~tool
 ~ward
+~weld
 ~wen

@@ -1,12 +1,36 @@
 import raw from './english-lexicon.txt?raw';
 
-const COMMON = new Set<string>();
-const AMBIGUOUS = new Set<string>();
-for (const line of raw.split(/\r?\n/)) {
-  if (line === '' || line.startsWith('#')) continue;
-  if (line.startsWith('~')) AMBIGUOUS.add(line.slice(1));
-  else COMMON.add(line);
+// One sorted word per line, then the ambiguous ones (~). Binary search over the raw text builds no per-word objects.
+const COMMON_START = raw.indexOf('\n', raw.lastIndexOf('\n#') + 1) + 1;
+const COMMON_END = raw.indexOf('\n~') + 1;
+const AMBIGUOUS = new Set(
+  raw
+    .slice(COMMON_END)
+    .split('\n')
+    .filter(Boolean)
+    .map((l) => l.slice(1)),
+);
+
+function inCommon(w: string): boolean {
+  let lo = COMMON_START;
+  let hi = COMMON_END;
+  while (lo < hi) {
+    const start = raw.lastIndexOf('\n', ((lo + hi) >>> 1) - 1) + 1;
+    const end = raw.indexOf('\n', start);
+    const line = raw.slice(start, end);
+    if (line === w) return true;
+    if (line < w) lo = end + 1;
+    else hi = start;
+  }
+  return false;
 }
+
+// Two-letter words are English only from here (not "be" "an" "am", Arabizi too, or "no"); each word here proves a short phrase.
+const FUNCTION_WORDS = new Set(
+  'of to in is it on at as by do go he if me my or so up us we ok oh hi our the and for you your more'.split(
+    ' ',
+  ),
+);
 
 const WORD = /[\p{L}\d]+(?:['’]\p{L}+)*/gu;
 const PROPER_NOUN = /^\p{Lu}\p{Ll}+$/u;
@@ -14,10 +38,12 @@ const STARTS_LOWER = /^\p{Ll}/u;
 // A letter tripled, an Arabic-sound digraph, or a pronoun ending (-ak "your", -ni "me").
 const ARABIZI_SHAPE = /(\p{L})\1\1|kh|gh|dh|\d|(?:ak|ik|ek|kom|kum|ni)$/u;
 const MAX_SHORT = 3;
+// A short phrase needs a word this long or a FUNCTION_WORDS word: "sale chat", "mare e sole" are English words too.
+const PROOF_LENGTH = 5;
 const LONG_RATIO = 0.8;
 
 function isCommon(w: string): boolean {
-  return COMMON.has(w) || (w.endsWith("'s") && COMMON.has(w.slice(0, -2)));
+  return inCommon(w) || (w.endsWith("'s") && inCommon(w.slice(0, -2)));
 }
 
 /** English only on positive evidence; the digit rule is passed in, as importing it would split looks-like-english into an eager chunk. */
@@ -28,23 +54,29 @@ export function readsAsEnglish(text: string, englishDigitWord: RegExp): boolean 
   let english = 0;
   let other = 0;
   let marked = false;
+  let proof = false;
   let counted = 0;
   for (const [i, word] of words.entries()) {
     const w = word.toLowerCase().replace(/’/g, "'");
     if (englishDigitWord.test(w)) continue;
     counted++;
-    if (w.length <= 2 || AMBIGUOUS.has(w)) continue;
-    if (isCommon(w)) english++;
-    else if (i > 0 && hasLower && PROPER_NOUN.test(word)) continue;
+    if (w.length === 1 || AMBIGUOUS.has(w)) continue;
+    if (FUNCTION_WORDS.has(w)) {
+      english++;
+      proof = true;
+    } else if (w.length > 2 && isCommon(w)) {
+      english++;
+      if (w.length >= PROOF_LENGTH) proof = true;
+    } else if (i > 0 && hasLower && PROPER_NOUN.test(word)) continue;
     else {
       other++;
       if (ARABIZI_SHAPE.test(w)) marked = true;
     }
   }
-  // Nothing but numbers is nothing to translate; nothing but short or ambiguous words is unknown, so show.
+  // Nothing but numbers is nothing to translate; nothing but one-letter or ambiguous words is unknown, so show.
   if (counted === 0) return true;
   const scored = english + other;
   if (scored === 0) return false;
-  if (scored <= MAX_SHORT) return other === 0;
+  if (scored <= MAX_SHORT) return other === 0 && proof;
   return !marked && english / scored >= LONG_RATIO;
 }

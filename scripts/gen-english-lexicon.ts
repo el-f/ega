@@ -32,7 +32,8 @@ const LISTS: Record<string, number> = {
   'british-abbreviations': 35,
 };
 
-// Arabizi tokens from Ega's presets, few-shots and tests plus common Arabizi words; the lexicon's overlap is ambiguous.
+// Arabizi tokens from Ega's presets, few-shots and tests, common Arabizi words, Arabic titles and a few
+// Spanish loanwords; the lexicon's overlap is ambiguous.
 const ARABIZI_SEED = `
 ahla ahlan ahl akh akhi akhoya al ala alla allah ana anta ante aw aya aywa aiwa ayez b ba2a bad bade badi
 baddi badak badna bardo bas bass be bel bet beit bi bel bukra da dar di dol e eh ehna el eli elli ely enta
@@ -41,6 +42,8 @@ heik hek hiya hiye hon hone howa huwa illi ilk inni inta inti into intu kam kama
 kif kifak kifik kol kul la lal lama lamma law leh lesh ma mafi mafeesh mabrouk mesh min mish men msh mn nas
 nem noor nour rah ras rase sabah sahlan sar salam shu sho tab tamam tayeb w wa wala walla wallah wein wen
 wled ya yalla yani yom zay zei zalame shabab sadiqi sadeeqi jama ya3ni add sit hob mot ward
+had fen fin hat mat fat far jay hum fish mama anti mart chi rabbi sheikh pasha imam emir sultan saber tool
+shams salaam weld kill tin bus hag ammo mesa salsa picante
 `;
 
 /** The few tar fields this needs: ustar name/prefix, size, and the 512-byte record walk. */
@@ -79,7 +82,7 @@ async function main(): Promise<void> {
       if (!m || Number(m[1]) > max) continue;
       for (const raw of data.toString('latin1').split('\n')) {
         const w = raw.trim().toLowerCase();
-        // Possessives are matched by stripping 's at lookup; one- and two-letter words are neutral anyway.
+        // Possessives are matched by stripping 's at lookup; short words are judged by a closed list in english-lexicon.ts.
         if (w.length < 3 || w.endsWith("'s") || !/^\p{L}+(?:'\p{L}+)*$/u.test(w)) continue;
         words.add(w);
       }
