@@ -92,7 +92,9 @@
             <td>{codeLabel(row.code)} <code>{row.code}</code></td>
             <td class="num">{row.count}</td>
             <td class="msg" class:canceled title={row.latestMessage}
-              >{canceled ? 'Canceled by you' : row.latestMessage}</td
+              >{canceled
+                ? 'Stopped before it finished: a cancel or a closed tab'
+                : row.latestMessage}</td
             >
             <td>{relativeTime(row.lastSeen, nowTs)}</td>
           </tr>

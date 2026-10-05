@@ -40,6 +40,15 @@ describe('AttemptFailureBreakdown', () => {
     });
   });
 
+  it('does not blame the user for an ABORTED row: closing a tab cancels too', async () => {
+    seed([makeEntry({ id: 'x', error: { code: 'ABORTED', message: 'cancelled' } })]);
+    const { container } = render(AttemptFailureBreakdown);
+    await waitFor(() => expect(container.querySelector('.breakdown')).not.toBeNull());
+    const msg = container.querySelector('tbody td.msg')?.textContent ?? '';
+    expect(msg).toContain('a cancel or a closed tab');
+    expect(msg).not.toMatch(/by you/);
+  });
+
   it('aggregates errors by code with counts + latest message', async () => {
     const now = Date.now();
     seed([

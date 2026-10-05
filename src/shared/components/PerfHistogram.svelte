@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { computePercentiles, PERF_BUFFER_MAX, type PerfEntry } from '@/shared/perf-history';
+  import { computePercentiles, type PerfEntry } from '@/shared/perf-history';
   import { sendMsg } from '@/shared/messages';
 
   // The buffer lives in the service worker's module instance — ask it, never read the local copy.
@@ -51,7 +51,7 @@
 <div class="perf" data-ega-perf-histogram>
   {#if stats.n > 0 || failed > 0}
     <div class="perf-stats">
-      <span>{stats.n} of the last {PERF_BUFFER_MAX}</span>
+      <span>{stats.n} finished of the last {entries.length} requests</span>
       <span title="Half of the translations finished faster than this (median)."
         >Typical: {Math.round(stats.p50)} ms</span
       >

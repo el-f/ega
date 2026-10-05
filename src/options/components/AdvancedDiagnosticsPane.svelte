@@ -51,7 +51,7 @@
 <div data-ega-setting="advanced.perBackendStats">
   <SectionCard
     title="Response times"
-    description="Typical and slowest times of the last 128 translations since Ega last started."
+    description="Typical and slowest times of recent translations (up to 128) since Ega last started."
   >
     <div data-ega-debug-section>
       <PerfHistogram />

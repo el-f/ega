@@ -45,7 +45,7 @@ describe('PerfHistogram', () => {
   it('renders the typical and slowest-5% times in plain words', async () => {
     stubReply(entriesOf(...Array.from({ length: 50 }, (_, i) => i + 1)));
     const { getByText } = render(PerfHistogram);
-    await waitFor(() => expect(getByText(/^50 of the last/)).toBeTruthy());
+    await waitFor(() => expect(getByText('50 finished of the last 50 requests')).toBeTruthy());
     expect(getByText(/^Typical: \d+ ms$/)).toBeTruthy();
     expect(getByText(/^Slowest 5%: over \d+ ms$/)).toBeTruthy();
   });
