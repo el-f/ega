@@ -73,8 +73,14 @@ test('bilingual mode inserts a marked sibling under each area the user picked', 
   const sibling = page.locator('[data-ega-tx]').first();
   const styles = await sibling.evaluate((el) => {
     const cs = getComputedStyle(el);
-    return { borderLeftWidth: cs.borderLeftWidth, borderLeftStyle: cs.borderLeftStyle };
+    return {
+      borderLeftWidth: cs.borderLeftWidth,
+      borderLeftStyle: cs.borderLeftStyle,
+      background: cs.backgroundColor,
+    };
   });
   expect(styles.borderLeftStyle).toBe('solid');
-  expect(styles.borderLeftWidth).toBe('2px');
+  expect(styles.borderLeftWidth).toBe('3px');
+  // A light tint, so the translation does not read as the page's own text.
+  expect(styles.background).not.toBe('rgba(0, 0, 0, 0)');
 });

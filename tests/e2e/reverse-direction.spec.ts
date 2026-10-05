@@ -55,7 +55,7 @@ test('tooltip ↔ swaps source/target; translate uses swapped direction and pers
     .poll(async () => (await egaTest<number>(page, 'bubbleCount')) ?? 0, { timeout: 5_000 })
     .toBeGreaterThan(0);
   const before = (await egaTest<string>(page, 'bubbleDirection')) ?? '';
-  expect(before).toBe('en→es');
+  expect(before).toBe('English → Spanish');
 
   const clicked = await egaTest<boolean>(page, 'clickBubble');
   expect(clicked).toBe(true);
