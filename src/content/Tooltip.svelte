@@ -73,9 +73,11 @@
   const taskViews = settingsNow ? materializeTasks(settingsNow, cachedCustomTasks()) : undefined;
   // The task the router ran: Explain for an explain re-run, else the picked task.
   const ranTask = $derived(tip.contextTask ?? tip.task ?? 'translate');
-  // A task with page context off never sends it: the router drops it, so it is not shown as sent.
+  // The router records whether page info went; before that arrives, a task with page context off never sends it.
   const contextShown = $derived(
-    (taskViews?.find((v) => v.id === ranTask)?.pageContext ?? true) ? tip.contextSent : null,
+    (tip.meta?.pageContextSent ?? taskViews?.find((v) => v.id === ranTask)?.pageContext ?? true)
+      ? tip.contextSent
+      : null,
   );
   const hasDetails = $derived(tip.meta !== undefined || tip.contextSent !== undefined);
   const taskLabel = $derived(taskViews?.find((v) => v.id === ranTask)?.label ?? 'Translate');

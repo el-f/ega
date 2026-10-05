@@ -284,6 +284,7 @@ export function createRouter(deps: RouterDeps) {
     }
     const attemptLog: ResultAttempt[] = [];
     let historyTurns = 0;
+    let pageContextSent = false;
 
     function attachMeta(
       chunk: TranslationChunk,
@@ -312,6 +313,7 @@ export function createRouter(deps: RouterDeps) {
         ...(attemptLog.length > 1 ? { attempts: [...attemptLog] } : {}),
         // 0 on the image arm, which sends no history; absent on a cache replay, which sent nothing.
         ...(!cacheHit ? { historyTurns } : {}),
+        pageContextSent,
       };
       try {
         pushPerfEntry(meta);
@@ -352,6 +354,10 @@ export function createRouter(deps: RouterDeps) {
     // An image with no image backend at all falls through to the text path.
     const visionUrl = visionChain.length > 0 ? imageUrl : undefined;
     historyTurns = visionUrl === undefined ? (req.options.conversationHistory?.length ?? 0) : 0;
+    // The OCR prompt takes no page info; every other prompt renders what reqView kept.
+    pageContextSent =
+      reqView.context !== undefined &&
+      !(visionUrl !== undefined && requestedTask === 'translate' && !reqOptions.explain);
     // With no caption the text path would get only the "[image]" marker and translate that.
     if (imageUrl !== undefined && visionUrl === undefined) {
       const caption = req.text === IMAGE_TURN_PLACEHOLDER ? '' : req.text.trim();

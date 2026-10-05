@@ -116,6 +116,8 @@ export interface ResultMeta {
   reasoningTokens?: number;
   /** Earlier conversation messages the request carried. Absent on a cache hit and on replies saved before it was recorded. */
   historyTurns?: number;
+  /** Whether page info went with the request, decided at send time. Absent on replies saved before it was recorded. */
+  pageContextSent?: boolean;
 }
 
 /** Provider token counts from the done chunk; any subset may be missing. */

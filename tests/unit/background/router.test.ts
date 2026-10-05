@@ -167,6 +167,7 @@ describe('router — token usage on ResultMeta', () => {
   async function doneMeta(
     options: TranslationRequest['options'],
     cacheHit = false,
+    context?: TranslationRequest['context'],
   ): Promise<NonNullable<Extract<TranslationChunk, { type: 'done' }>['meta']>> {
     const router = createRouter({
       backends: [usageBackend()],
@@ -185,6 +186,7 @@ describe('router — token usage on ResultMeta', () => {
       sourceLang: sel('arabizi'),
       targetLang: sel('en'),
       options,
+      ...(context ? { context } : {}),
     };
     await router.handleTranslate(req, (c) => chunks.push(c));
     const done = chunks.find((c) => c.type === 'done');
@@ -215,6 +217,21 @@ describe('router — token usage on ResultMeta', () => {
     );
     expect(meta.cacheHit).toBe(true);
     expect(meta.historyTurns).toBeUndefined();
+  });
+
+  // Recorded at send time: the details panel must not read a task switch the user flipped later.
+  it('records whether page info went with the request', async () => {
+    const page = { pageTitle: 'Forum' };
+    const sent = await doneMeta({ stream: true, explain: false }, false, page);
+    expect(sent.pageContextSent).toBe(true);
+    const dropped = await doneMeta(
+      { stream: true, explain: false, task: 'summarize' },
+      false,
+      page,
+    );
+    expect(dropped.pageContextSent).toBe(false);
+    const none = await doneMeta({ stream: true, explain: false });
+    expect(none.pageContextSent).toBe(false);
   });
 });
 

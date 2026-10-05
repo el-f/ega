@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { asBackendIdUnsafe } from '@/shared/brands';
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
 import AssistantTurn from '@/sidepanel/conversation/AssistantTurn.svelte';
@@ -160,6 +161,26 @@ describe('AssistantTurn — page info follows the task the shown reply ran', () 
       props: { turn: doneTurn(), onRetry: vi.fn(), taskViews },
     });
     expect((await openedPreview(container))?.textContent).toContain('None sent.');
+  });
+
+  it('trusts what the router recorded at send time over the switch as it is now', async () => {
+    const taskViews = SHIPPED_TASK_VIEWS.map((v) =>
+      v.id === 'translate' ? { ...v, pageContext: false } : v,
+    );
+    const meta = { backendId: asBackendIdUnsafe('anthropic'), cacheHit: false, latencyMs: 1 };
+    const sent = render(AssistantTurn, {
+      props: {
+        turn: doneTurn({ meta: { ...meta, pageContextSent: true } }),
+        onRetry: vi.fn(),
+        taskViews,
+      },
+    });
+    expect((await openedPreview(sent.container))?.textContent).toContain('x.test');
+    sent.unmount();
+    const dropped = render(AssistantTurn, {
+      props: { turn: doneTurn({ meta: { ...meta, pageContextSent: false } }), onRetry: vi.fn() },
+    });
+    expect((await openedPreview(dropped.container))?.textContent).toContain('None sent.');
   });
 
   it('shows the page info for a task that sends it', async () => {

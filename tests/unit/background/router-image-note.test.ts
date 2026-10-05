@@ -110,6 +110,23 @@ describe('router — notes typed beside an image reach the OCR prompt', () => {
     if (done?.type !== 'done') throw new Error('no done chunk');
     expect(done.meta?.historyTurns).toBe(0);
   });
+
+  it('records no page info for an image read with the OCR prompt, which takes none', async () => {
+    stubImageFetch();
+    const router = createRouter({
+      backends: [visionBackend({})],
+      getSettings: async () => ({ ...DEFAULT_SETTINGS, cacheEnabled: false }),
+      cache: { get: async () => undefined, set: async () => undefined },
+      logger: { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} },
+    });
+    const chunks: TranslationChunk[] = [];
+    const req = imageRequest('note');
+    req.context = { pageTitle: 'Forum' };
+    await router.handleTranslate(req, (c) => chunks.push(c));
+    const done = chunks.find((c) => c.type === 'done');
+    if (done?.type !== 'done') throw new Error('no done chunk');
+    expect(done.meta?.pageContextSent).toBe(false);
+  });
 });
 
 describe('buildOcrPrompt', () => {

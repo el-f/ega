@@ -163,9 +163,11 @@
   );
 
   const currentTaskValue = $derived(turnTaskValue(turn));
-  // The stored context is the turn's; a variant whose task has page context off never sent it (the router drops it).
+  // The stored context is the turn's; the router records per reply whether it went. Older replies fall back to the task's switch.
   const contextShown = $derived(
-    (taskViews.find((v) => v.id === currentTaskValue)?.pageContext ?? true)
+    (turn.meta?.pageContextSent ??
+      taskViews.find((v) => v.id === currentTaskValue)?.pageContext ??
+      true)
       ? turn.contextSent
       : null,
   );
