@@ -9,11 +9,13 @@
     saveErr: string | null;
     saveOk: string | null;
     inheritedLabel: string;
+    saveLabel: string;
     onSave: () => void | Promise<void>;
     onReset: () => void | Promise<void>;
   }
 
-  const { dirty, canReset, saveErr, saveOk, inheritedLabel, onSave, onReset }: Props = $props();
+  const { dirty, canReset, saveErr, saveOk, inheritedLabel, saveLabel, onSave, onReset }: Props =
+    $props();
 </script>
 
 <div class="action-row">
@@ -24,7 +26,7 @@
     dataAttrs={{ 'data-ega-template-save': 'true' }}
     onclick={() => void onSave()}
   >
-    Save
+    {saveLabel}
   </Button>
   <Button
     variant="secondary"

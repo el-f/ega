@@ -149,6 +149,28 @@ describe('Languages tab — the unload guard follows the drafts, not the tab', (
     );
   });
 
+  it('the prompt editor names its Save apart from Save language', async () => {
+    seed();
+    render(Languages, { props: { s: await getSettings() } });
+    await waitFor(() => expect(rowEl()).toBeTruthy());
+    await fireEvent.click(nameBtn());
+    const open = await waitFor(() => {
+      const b = rowEl()?.querySelector<HTMLButtonElement>('[data-ega-variety-prompt-open]');
+      if (!b) throw new Error('prompt open button not found');
+      return b;
+    });
+    await fireEvent.click(open);
+    const save = await waitFor(
+      () => {
+        const el = rowEl()?.querySelector<HTMLButtonElement>('[data-ega-template-save]');
+        if (!el) throw new Error('prompt editor not found');
+        return el;
+      },
+      { timeout: 5_000 },
+    );
+    expect(save.textContent.trim()).toBe('Save prompt');
+  });
+
   it('a deleted row with an unsaved prompt leaves no unload prompt behind', async () => {
     seed();
     render(Languages, { props: { s: await getSettings() } });

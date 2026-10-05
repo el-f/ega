@@ -847,6 +847,7 @@
                     onReset={() => handlers.clearPerPreset(v.id)}
                     inheritedLabel="Clear"
                     fieldResetLabel="Use the Translate prompt"
+                    saveLabel="Save prompt"
                     onDirtyChange={(d) => (promptDirty = d)}
                   />
                 {/await}

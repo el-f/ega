@@ -33,6 +33,8 @@
     inheritedLabel: string;
     /** The per-half reset label, when it differs from the whole-prompt one. */
     fieldResetLabel?: string;
+    /** Primary button text; a container with another Save nearby names what this one saves. */
+    saveLabel?: string;
     /** Tells a container that can close the editor whether a draft is unsaved. */
     onDirtyChange?: (dirty: boolean) => void;
   }
@@ -47,6 +49,7 @@
     onReset,
     inheritedLabel,
     fieldResetLabel = inheritedLabel,
+    saveLabel = 'Save',
     onDirtyChange,
   }: Props = $props();
 
@@ -278,6 +281,7 @@
     {saveErr}
     saveOk={dirty ? null : saveOk}
     {inheritedLabel}
+    {saveLabel}
     onSave={save}
     onReset={reset}
   />

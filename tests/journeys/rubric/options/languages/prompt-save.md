@@ -7,13 +7,13 @@
 ## State expectations
 
 - Step 1: the user opens the Languages tab and edits one language row (Save a language prompt).
-- Step 2: the user edits the System field in the Arabizi prompt editor and presses Save.
+- Step 2: the user edits the System field in the Arabizi prompt editor and presses Save prompt.
 - Step 3: `perPresetTemplates.arabizi` holds the edited text; the Translate prompt is unchanged.
 
 ## Visible affordances
 
-- "Prompt for this language" sits at the bottom of the language row, below Save and Reset to built-in.
-- The prompt editor has its own Save; it does not save the hint or examples.
+- "Prompt for this language" sits at the bottom of the language row, below Save language and Reset to built-in.
+- The prompt editor has its own Save prompt button; it does not save the hint or examples.
 
 ## Failure-mode expectations
 

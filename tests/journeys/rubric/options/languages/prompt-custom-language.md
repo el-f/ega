@@ -7,13 +7,13 @@
 ## State expectations
 
 - Step 1: the user opens the Languages tab and edits one language row (Prompt for a custom language).
-- Step 2: the custom language row has the same Prompt for this language section; Save stores the prompt under the custom id.
+- Step 2: the custom language row has the same Prompt for this language section; Save prompt stores the prompt under the custom id.
 - Step 3: `perPresetTemplates[<custom id>]` holds the text.
 
 ## Visible affordances
 
-- "Prompt for this language" sits at the bottom of the language row, below Save and Reset to built-in.
-- The prompt editor has its own Save; it does not save the hint or examples.
+- "Prompt for this language" sits at the bottom of the language row, below Save language and Reset to built-in.
+- The prompt editor has its own Save prompt button; it does not save the hint or examples.
 
 ## Failure-mode expectations
 

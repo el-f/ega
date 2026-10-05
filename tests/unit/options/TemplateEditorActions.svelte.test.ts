@@ -10,6 +10,7 @@ function baseProps(over: Record<string, unknown> = {}) {
     saveErr: null as string | null,
     saveOk: null as string | null,
     inheritedLabel: 'Reset to default',
+    saveLabel: 'Save',
     onSave: vi.fn(),
     onReset: vi.fn(),
     ...over,
