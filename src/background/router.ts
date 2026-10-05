@@ -456,9 +456,17 @@ export function createRouter(deps: RouterDeps) {
           : translateTimeoutMs;
       // Explain-with-image runs under the image timeout too, so it names that setting.
       const timedOutMessage = visionUrl === undefined ? TRANSLATE_TIMED_OUT : IMAGE_TIMED_OUT;
+      // The wall clock usually fires here, not in the attempt, so this is what names the hung backend.
+      let runningBackendId: TranslationBackend['id'] | undefined;
       const timedOut = (): void => {
         fsm.send({ type: 'error', code: 'TIMEOUT', message: timedOutMessage });
-        onChunk({ type: 'error', requestId: req.id, code: 'TIMEOUT', message: timedOutMessage });
+        onChunk({
+          type: 'error',
+          requestId: req.id,
+          code: 'TIMEOUT',
+          message: timedOutMessage,
+          ...(runningBackendId !== undefined ? { backendId: runningBackendId } : {}),
+        });
       };
 
       fsm.send({ type: 'start' });
@@ -502,6 +510,7 @@ export function createRouter(deps: RouterDeps) {
               for (let i = 0; i < chain.length; i++) {
                 const backend = chain[i];
                 if (!backend) continue;
+                runningBackendId = backend.id;
                 const outcome = await runTranslateAttempt({
                   backend,
                   isLast: i === chain.length - 1,

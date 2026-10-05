@@ -64,6 +64,8 @@ const TIMEOUT_CHUNK = {
   requestId: 'r1',
   code: 'TIMEOUT',
   message: TRANSLATE_TIMED_OUT,
+  // The wall clock and the ceiling both fire while the backend hangs, so the card can name it.
+  backendId: 'anthropic',
 };
 
 // Ceiling is translateTimeoutMs + 30_000 and is registered before the wall-clock timer, so 0ms fires it first and the cancel reason stays 'user'.
@@ -219,6 +221,26 @@ describe('router — attempt loop terminal handling', () => {
     await createRouter(deps).handleTranslate(REQ, (c) => chunks.push(c));
     expect(chunks.filter((c) => c.type === 'done')).toHaveLength(1);
     expect(lastAudit().backend).toBe('openai');
+  });
+
+  it('a wall-clock timeout names the backend it hung on, not the one that fell through', async () => {
+    const a = mkBackend({
+      id: 'anthropic',
+      translate: async ({ req, onChunk }) => {
+        onChunk({ type: 'error', requestId: req.id, code: 'RATE_LIMIT', message: '429' });
+      },
+    });
+    const b = mkBackend({ id: 'openai', translate: () => new Promise<void>(() => {}) });
+    const deps = baseDeps({
+      backends: [a, b],
+      translateTimeoutMs: 20,
+      getSettings: async () => mkSettings({ openaiApiKey: 'k' }),
+    });
+    const chunks: TranslationChunk[] = [];
+    await createRouter(deps).handleTranslate(REQ, (c) => chunks.push(c));
+    expect(chunks.filter((c) => c.type === 'error')).toEqual([
+      { ...TIMEOUT_CHUNK, backendId: 'openai' },
+    ]);
   });
 
   it('persists detectedLang, detectedDetail and explain with the translation', async () => {
