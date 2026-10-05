@@ -9,6 +9,7 @@
 - Step 1: a v2 batch has mounted translation blocks (bilingual siblings or in-place wrappers).
 - Step 2: the user clicks Cancel on the progress widget (wired to `cancelPageTranslateV2`).
 - Step 3: every mounted block reverts — bilingual siblings are removed, in-place wrappers restore the captured original — and the store is cleared.
+- Stop mid-batch keeps the finished areas, drops the rest, and the pill reads "Stopped · N of M areas translated" with a bar that shows N of M in a neutral tone; Undo all then reverts the kept areas and removes the pill.
 
 ## Visible affordances
 
