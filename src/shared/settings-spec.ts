@@ -838,8 +838,8 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   },
   {
     id: 'advanced.perBackendStats',
-    label: 'Latency histogram',
-    description: 'P50 / P95 translate latency over recent requests.',
+    label: 'Response times',
+    description: 'Typical and slowest translate times over recent requests.',
     keywords: ['stats', 'latency', 'histogram', 'p50', 'p95', 'performance'],
     tab: 'advanced',
     subTab: 'diagnostics',

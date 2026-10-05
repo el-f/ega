@@ -51,10 +51,14 @@
 <div class="perf" data-ega-perf-histogram>
   {#if stats.n > 0 || failed > 0}
     <div class="perf-stats">
-      <span>n: {stats.n} / {PERF_BUFFER_MAX}</span>
-      <span>P50: {Math.round(stats.p50)} ms</span>
-      <span>P95: {Math.round(stats.p95)} ms</span>
-      {#if failed > 0}<span>failed: {failed}</span>{/if}
+      <span>{stats.n} of the last {PERF_BUFFER_MAX}</span>
+      <span title="Half of the translations finished faster than this (median)."
+        >Typical: {Math.round(stats.p50)} ms</span
+      >
+      <span title="95 of 100 translations finished faster than this (95th percentile)."
+        >Slowest 5%: over {Math.round(stats.p95)} ms</span
+      >
+      {#if failed > 0}<span>Failed: {failed}</span>{/if}
     </div>
   {/if}
   {#if histogram.bins.length > 0}

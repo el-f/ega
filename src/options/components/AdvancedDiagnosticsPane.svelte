@@ -50,8 +50,8 @@
 
 <div data-ega-setting="advanced.perBackendStats">
   <SectionCard
-    title="Latency histogram"
-    description="P50 / P95 over the last 128 translations since the background worker last started."
+    title="Response times"
+    description="Typical and slowest times of the last 128 translations since Ega last started."
   >
     <div data-ega-debug-section>
       <PerfHistogram />

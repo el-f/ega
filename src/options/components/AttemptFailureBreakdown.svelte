@@ -4,6 +4,15 @@
   import { readAuditLog, type AuditEntry } from '@/shared/audit-log';
   import EmptyState from '@/shared/components/EmptyState.svelte';
   import { relativeTime } from '@/shared/relative-time';
+  import { errCodeLabel } from '@/shared/err-labels';
+  import { ALL_ERR_CODES, type ErrCode } from '@/shared/types';
+
+  // An old log row can carry a code this build no longer knows.
+  function codeLabel(code: string): string {
+    return (ALL_ERR_CODES as readonly string[]).includes(code)
+      ? errCodeLabel(code as ErrCode)
+      : 'Error';
+  }
 
   const HOUR_MS = 3_600_000;
 
@@ -70,7 +79,7 @@
     <table class="breakdown">
       <thead>
         <tr>
-          <th scope="col">Code</th>
+          <th scope="col">Error</th>
           <th scope="col" class="num">Count</th>
           <th scope="col">Latest message</th>
           <th scope="col">Last seen</th>
@@ -78,10 +87,13 @@
       </thead>
       <tbody>
         {#each rows as row (row.code)}
+          {@const canceled = row.code === 'ABORTED'}
           <tr>
-            <td><code>{row.code}</code></td>
+            <td>{codeLabel(row.code)} <code>{row.code}</code></td>
             <td class="num">{row.count}</td>
-            <td class="msg" title={row.latestMessage}>{row.latestMessage}</td>
+            <td class="msg" class:canceled title={row.latestMessage}
+              >{canceled ? 'Canceled by you' : row.latestMessage}</td
+            >
             <td>{relativeTime(row.lastSeen, nowTs)}</td>
           </tr>
         {/each}
@@ -126,6 +138,9 @@
   }
   .breakdown tbody tr:last-child td {
     border-bottom: 0;
+  }
+  .breakdown td.msg.canceled {
+    color: var(--color-muted);
   }
   .breakdown td.msg {
     color: var(--color-danger);

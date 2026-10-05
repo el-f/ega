@@ -87,7 +87,9 @@
       {#if entry.cacheHit}
         <span class="pill pill-cache">cache</span>
       {/if}
-      {#if entry.error}
+      {#if entry.error?.code === 'ABORTED'}
+        <span class="pill" title={entry.error.message}>canceled</span>
+      {:else if entry.error}
         <span class="pill pill-error" title={entry.error.message}>error</span>
       {/if}
     </button>

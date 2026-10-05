@@ -66,6 +66,22 @@ describe('RequestAuditLogEntry', () => {
     expect(container.querySelector('.pill-error')).not.toBeNull();
   });
 
+  it('a request the user canceled gets a neutral "canceled" pill, not the red error pill', () => {
+    const { container } = render(RequestAuditLogEntry, {
+      props: {
+        entry: makeEntry({ id: 'c', error: { code: 'ABORTED', message: 'aborted' } }),
+        isOpen: false,
+        compareSelected: false,
+        formatTs: fmtTs,
+        formatLatency: fmtLat,
+        onToggle: vi.fn(),
+        onCompareClick: vi.fn(),
+      },
+    });
+    expect(container.querySelector('.pill-error')).toBeNull();
+    expect(container.textContent).toContain('canceled');
+  });
+
   it('toggle button fires onToggle; compare button fires onCompareClick', async () => {
     const onToggle = vi.fn();
     const onCompareClick = vi.fn();
