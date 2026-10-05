@@ -131,6 +131,13 @@
     };
   });
 
+  let chipsEl = $state<HTMLDivElement | null>(null);
+  // The chips box scrolls past three rows; a task set by a handoff or the palette must not land out of view.
+  $effect(() => {
+    const target = chipsEl?.querySelector<HTMLElement>(`[data-ega-task="${task}"]`);
+    target?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  });
+
   function dictationErrorMessage(code: string): string {
     switch (code) {
       case 'not-allowed':
@@ -478,7 +485,7 @@
     </div>
   </div>
 
-  <div class="ega-task-chips">
+  <div class="ega-task-chips" bind:this={chipsEl}>
     <TaskPicker bind:task views={taskViews} />
   </div>
 

@@ -63,3 +63,15 @@ describe('tone select', () => {
     expect(container.querySelector('[data-ega-tone-select]')).toBeNull();
   });
 });
+
+describe('task chips', () => {
+  it('scrolls a task set from outside into view', async () => {
+    const spy = vi.spyOn(Element.prototype, 'scrollIntoView');
+    const { rerender } = render(InputRow, { props: baseProps() });
+    spy.mockClear();
+    await rerender({ ...baseProps(), task: 'summarize' as const });
+    const scrolled = spy.mock.contexts.map((el) => (el as Element).getAttribute('data-ega-task'));
+    expect(scrolled).toContain('summarize');
+    spy.mockRestore();
+  });
+});
