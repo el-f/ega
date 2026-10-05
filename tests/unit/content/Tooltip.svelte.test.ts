@@ -29,6 +29,7 @@ interface TipState {
   left: number;
   top: number;
   task?: Task;
+  contextTask?: Task;
   meta?: ResultMeta;
   imageUrl?: string;
   retryBlocked?: boolean;
@@ -802,6 +803,20 @@ describe('Continue in side panel — only when there is text to carry', () => {
       imageUrl: 'https://example.test/sign.png',
     });
     expect(container.querySelector('.tooltip-topbar')?.textContent).toContain('Image translation');
+  });
+
+  // Only the pending tooltip passes task; a result or error carries the task it ran as contextTask.
+  it.each([
+    ['result', { body: 'A stop sign.' }],
+    ['error', { error: { code: 'NETWORK' as const, message: 'offline' } }],
+  ])('heads an image Explain %s "Image explanation"', (_name, state) => {
+    const { container } = mountEscalatable({
+      srcText: '',
+      imageUrl: 'https://example.test/sign.png',
+      contextTask: 'explain',
+      ...state,
+    });
+    expect(container.querySelector('.tooltip-topbar')?.textContent).toContain('Image explanation');
   });
 
   it('hides Continue when the source text is whitespace only', () => {

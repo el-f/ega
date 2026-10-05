@@ -144,7 +144,7 @@
         />
       {:else if tip.imageUrl}
         <span class="tooltip-topbar-title"
-          >{tip.task === 'explain' ? 'Image explanation' : 'Image translation'}</span
+          >{ranTask === 'explain' ? 'Image explanation' : 'Image translation'}</span
         >
       {/if}
       {#if !clickOutsideDismiss || tip.imageUrl}
