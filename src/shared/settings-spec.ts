@@ -82,7 +82,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   },
   {
     id: 'display.shortcut',
-    label: 'Translate shortcut',
+    label: 'In-page translate shortcut',
     description: 'Keyboard shortcut that translates the selection on a web page.',
     keywords: ['shortcut', 'keybinding', 'hotkey', 'translate', 'key'],
     tab: 'selection-bubble',
@@ -659,7 +659,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   },
   {
     id: 'advanced.smartBubbleMinLength',
-    label: 'Smart-bubble min length',
+    label: 'Smart bubble minimum length',
     description: 'Below this length, smart mode hides the bubble.',
     keywords: ['smart', 'bubble', 'length', 'short', 'min'],
     tab: 'selection-bubble',

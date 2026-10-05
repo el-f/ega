@@ -77,3 +77,15 @@ describe('ElementPickerSection', () => {
     expect(getByRole('button', { name: 'Clear translate shortcut' })).toBeTruthy();
   });
 });
+
+describe('ElementPickerSection — the browser-wide shortcut', () => {
+  it('opens Chrome shortcuts from a button, since a chrome:// link cannot be clicked', async () => {
+    // The shared chrome mock has no tabs.create, so the test supplies one.
+    const create = vi.fn();
+    Object.assign(chrome.tabs, { create });
+    const { getByRole } = render(ElementPickerSection, { props: makeSectionProps() });
+    await fireEvent.click(getByRole('button', { name: /Open Chrome shortcuts/ }));
+    expect(create).toHaveBeenCalledWith({ url: 'chrome://extensions/shortcuts' });
+    Reflect.deleteProperty(chrome.tabs, 'create');
+  });
+});

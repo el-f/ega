@@ -4,7 +4,6 @@
 
   import TabHeader from '@/shared/components/TabHeader.svelte';
   import SelectionBubbleModeSection from '@/options/components/sections/SelectionBubbleModeSection.svelte';
-  import SmartBubbleSection from '@/options/components/sections/SmartBubbleSection.svelte';
   import ElementPickerSection from '@/options/components/sections/ElementPickerSection.svelte';
 
   interface Props {
@@ -24,7 +23,6 @@
   <TabHeader tab="selection-bubble" />
   {#if s}
     <SelectionBubbleModeSection {s} onPatch={patch} />
-    <SmartBubbleSection {s} onPatch={patch} />
     <ElementPickerSection {s} onPatch={patch} />
   {/if}
 </section>

@@ -5,6 +5,7 @@
   import Checkbox from '@/shared/ui/Checkbox.svelte';
   import CollapsibleField from '@/shared/ui/CollapsibleField.svelte';
   import ShortcutInput from '@/shared/components/ShortcutInput.svelte';
+  import Button from '@/shared/ui/Button.svelte';
   import { validateKeyCombo } from '@/shared/utils/keyCombo';
 
   interface Props {
@@ -62,7 +63,7 @@
   <div data-ega-setting="display.shortcut">
     <ShortcutInput
       value={s.shortcut ?? ''}
-      label="Translate shortcut"
+      label="In-page translate shortcut"
       ariaLabel="Record keyboard shortcut"
       clearAriaLabel="Clear translate shortcut"
       modified={isFieldModified('display.shortcut', s)}
@@ -72,8 +73,17 @@
       <p class="field-error" role="alert">{shortcutErr}</p>
     {/if}
     <div class="help">
-      Ega's browser-wide shortcut is set at chrome://extensions/shortcuts. This one only works while
-      a web page has focus.
+      Works while a web page has focus. Ega's browser-wide shortcut is set in Chrome.
+    </div>
+    <div class="row">
+      <Button
+        variant="secondary"
+        size="sm"
+        iconKind="external-link"
+        onclick={() => void chrome.tabs.create({ url: 'chrome://extensions/shortcuts' })}
+      >
+        Open Chrome shortcuts
+      </Button>
     </div>
   </div>
 </SectionCard>

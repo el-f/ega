@@ -1,7 +1,11 @@
 <script lang="ts">
   import type { Settings } from '@/shared/types';
+  import { isFieldModified } from '@/shared/settings-registry';
+  import { DEFAULT_SMART_BUBBLE_MIN_LENGTH } from '@/shared/constants';
   import SectionCard from '@/shared/ui/SectionCard.svelte';
   import RadioGroup from '@/shared/ui/RadioGroup.svelte';
+  import Slider from '@/shared/ui/Slider.svelte';
+  import CollapsibleField from '@/shared/ui/CollapsibleField.svelte';
   import Sparkles from '@lucide/svelte/icons/sparkles';
   import InfinityIcon from '@lucide/svelte/icons/infinity';
   import EyeOff from '@lucide/svelte/icons/eye-off';
@@ -44,4 +48,20 @@
     ]}
     onValueChange={(next) => void onPatch({ bubbleMode: next as Settings['bubbleMode'] })}
   />
+
+  <CollapsibleField open={s.bubbleMode === 'smart'}>
+    <div data-ega-setting="advanced.smartBubbleMinLength">
+      <Slider
+        label="Minimum selection length"
+        value={s.smartBubbleMinLength ?? DEFAULT_SMART_BUBBLE_MIN_LENGTH}
+        min={3}
+        max={15}
+        step={1}
+        unit=" chars"
+        help="Smart mode hides the bubble on shorter selections, even on non-English text."
+        modified={isFieldModified('advanced.smartBubbleMinLength', s)}
+        onchange={(v) => void onPatch({ smartBubbleMinLength: v })}
+      />
+    </div>
+  </CollapsibleField>
 </SectionCard>

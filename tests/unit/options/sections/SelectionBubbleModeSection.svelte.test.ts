@@ -45,3 +45,21 @@ describe('SelectionBubbleModeSection', () => {
     expect(onPatch).toHaveBeenCalledWith({ bubbleMode: 'always' });
   });
 });
+
+describe('SelectionBubbleModeSection — the smart minimum length', () => {
+  const slider = '[data-ega-setting="advanced.smartBubbleMinLength"]';
+
+  it('shows the minimum-length slider inside the card when the mode is smart', () => {
+    const { container } = render(SelectionBubbleModeSection, {
+      props: makeSectionProps({ s: { bubbleMode: 'smart' as const } }),
+    });
+    expect(container.querySelector(slider)?.closest('section, .ega-section-card')).toBeTruthy();
+  });
+
+  it.each(['always', 'never'] as const)('hides the slider when the mode is %s', (mode) => {
+    const { container } = render(SelectionBubbleModeSection, {
+      props: makeSectionProps({ s: { bubbleMode: mode } }),
+    });
+    expect(container.querySelector(slider)).toBeNull();
+  });
+});
