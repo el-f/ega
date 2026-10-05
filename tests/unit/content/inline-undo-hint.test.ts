@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import type { Mock } from 'vitest';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import type { Settings } from '@/shared/types';
 
@@ -48,6 +49,42 @@ describe('inline replace — the first replace says how to undo it', () => {
     toast()?.querySelector<HTMLButtonElement>('[data-ega-toast-action]')?.click();
     expect(document.getElementById('p')?.textContent).toBe('mar7aba ya 5ayye');
     expect(document.querySelector('[data-ega-replaced]')).toBeNull();
+  });
+
+  it('writes the shown flag before the toast appears', async () => {
+    let toastAtWrite: HTMLElement | null | undefined;
+    (chrome.runtime.sendMessage as Mock).mockImplementation((msg: unknown) => {
+      if ((msg as { kind?: string }).kind === 'settings:update') toastAtWrite = toast();
+      return Promise.resolve(undefined);
+    });
+    await translateInPlace({ ...DEFAULT_SETTINGS, inlineUndoHintShown: false });
+
+    expect(toast()).not.toBeNull();
+    expect(toastAtWrite).toBeNull();
+  });
+
+  it('the toast Undo puts the last wrapper back and lets go of the page-wide Esc listener', async () => {
+    vi.spyOn(chrome.runtime, 'sendMessage').mockResolvedValue(undefined);
+    await translateInPlace({ ...DEFAULT_SETTINGS, inlineUndoHintShown: false });
+    const removed = vi.spyOn(document, 'removeEventListener');
+
+    toast()?.querySelector<HTMLButtonElement>('[data-ega-toast-action]')?.click();
+
+    expect(document.querySelector('[data-ega-replaced]')).toBeNull();
+    expect(removed).toHaveBeenCalledWith('keydown', expect.any(Function), true);
+    expect(removed).toHaveBeenCalledWith('mouseover', expect.any(Function), true);
+  });
+
+  it('Esc twice puts the page back and takes the toast Undo away with it', async () => {
+    vi.spyOn(chrome.runtime, 'sendMessage').mockResolvedValue(undefined);
+    await translateInPlace({ ...DEFAULT_SETTINGS, inlineUndoHintShown: false });
+    expect(toast()?.querySelector('[data-ega-toast-action]')).not.toBeNull();
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+
+    expect(document.getElementById('p')?.textContent).toBe('mar7aba ya 5ayye');
+    expect(toast()?.querySelector('[data-ega-toast-action]') ?? null).toBeNull();
   });
 
   it('stays quiet once the hint was shown', async () => {

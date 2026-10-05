@@ -29,8 +29,12 @@ const TTL_MS = 3000;
 // An action has to be read and clicked, so it outlives a plain notice.
 const ACTION_TTL_MS = 12_000;
 
-export function showToast(message: string, action?: { label: string; run: () => void }): void {
-  if (!message) return;
+/** Returns a dismiss that only removes this toast, not a later one that replaced it. */
+export function showToast(
+  message: string,
+  action?: { label: string; run: () => void },
+): () => void {
+  if (!message) return () => {};
   tearDown();
   const anchor = document.createElement('div');
   anchor.setAttribute('data-ega-toast-wrap', '');
@@ -56,7 +60,11 @@ export function showToast(message: string, action?: { label: string; run: () => 
     },
     action ? ACTION_TTL_MS : TTL_MS,
   );
-  active = { handle, anchor, timeoutId };
+  const mine: ActiveToast = { handle, anchor, timeoutId };
+  active = mine;
+  return () => {
+    if (active === mine) tearDown();
+  };
 }
 
 /** Test-only: dismiss any active toast immediately. */

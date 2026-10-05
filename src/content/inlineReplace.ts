@@ -125,7 +125,11 @@ function settle(requestId: string, timerId: ReturnType<typeof setTimeout>): void
   entries.delete(requestId);
   // Inline has no Retry or Explain, so nothing needs the request rows after this point.
   releaseRequest(requestId);
-  // Esc stays armed while settled wrappers remain, so it can still put the page back.
+  releaseEscIfIdle();
+}
+
+/** Esc stays armed while settled wrappers remain, so it can still put the page back. */
+function releaseEscIfIdle(): void {
   if (entries.size === 0 && settledWrappers().length === 0) removeEscListener();
 }
 
@@ -159,16 +163,18 @@ export function finishInline(requestId: string, _meta?: DoneMeta): void {
 }
 
 let undoHintShown = false;
+let dismissUndoHint: (() => void) | null = null;
 
 /** Esc is the only undo on the page itself, so the first replace says so once, with a button for it. */
 function maybeShowUndoHint(requestId: string): void {
   if (undoHintShown || currentSettings()?.inlineUndoHintShown !== false) return;
   undoHintShown = true;
-  showToast('Translated in place. Press Esc twice to put the original back.', {
+  // Flag first, so a tab that reads it sooner shows no second hint; a true race across tabs still can.
+  void patchSettings({ inlineUndoHintShown: true });
+  dismissUndoHint = showToast('Translated in place. Press Esc twice to put the original back.', {
     label: 'Undo',
     run: () => restoreInline(requestId),
   });
-  void patchSettings({ inlineUndoHintShown: true });
 }
 
 export function errorInline(requestId: string, err: { code: ErrCode; message: string }): void {
@@ -207,6 +213,7 @@ function restoreSettledWrapper(requestId: string): void {
   );
   if (!wrapper) return;
   restoreWrapper(wrapper);
+  releaseEscIfIdle();
 }
 
 /** The saved fragment brings links, emphasis and inline images back; flat text is the fallback. */
@@ -225,6 +232,9 @@ export function restoreAllInline(): void {
   for (const id of Array.from(entries.keys())) endRequest(id, 'esc');
   for (const w of settledWrappers()) restoreWrapper(w);
   removeEscListener();
+  // Nothing is left for the hint's Undo to put back.
+  dismissUndoHint?.();
+  dismissUndoHint = null;
 }
 
 /** The extension context died: unhook the page and put back anything still waiting on a worker that is gone. */
