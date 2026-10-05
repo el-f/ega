@@ -105,18 +105,17 @@ describe('settings-registry', () => {
     });
 
     it('an action found only by its description or keywords ranks after every setting', () => {
-      for (const q of ['temperature', 'effort', 'cache', 'clear', 'site', 'data', 'prompt']) {
-        const hits = searchSettings(q);
-        const firstDemoted = hits.findIndex((h) => h.type === 'action' && h.score < 100);
-        if (firstDemoted < 0) continue;
-        const after = hits.slice(firstDemoted);
-        expect(
-          after.every((h) => h.type === 'action' && h.score < 100),
-          `query "${q}"`,
-        ).toBe(true);
+      // "effort" is only in the reset's description; on the score tie its label would sort it first.
+      const ids = searchSettings('effort').map((h) => h.id);
+      expect(ids.indexOf('tasks.overrides')).toBeGreaterThanOrEqual(0);
+      expect(ids.indexOf('tasks.overrides')).toBeLessThan(ids.indexOf('advanced.resetEverything'));
+      expect(ids.at(-1)).toBe('advanced.resetEverything');
+    });
+
+    it('an action whose label holds a query word keeps its score rank', () => {
+      for (const q of ['reset settings', 'reset effort']) {
+        expect(searchSettings(q)[0]?.id, q).toBe('advanced.resetEverything');
       }
-      const temp = searchSettings('temperature');
-      expect(temp.at(-1)?.id).toBe('advanced.resetEverything');
     });
 
     it('matches via keyword synonyms when the label/desc do not contain the query', () => {

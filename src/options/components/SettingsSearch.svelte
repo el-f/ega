@@ -127,6 +127,15 @@
     scrollOptionIntoView('[role="option"]');
   });
 
+  // The examples unmount once the query is set, so focus goes back to the input, not the page.
+  function pickExample(e: MouseEvent, ex: string): void {
+    (e.currentTarget as HTMLElement)
+      .closest('.ss-root')
+      ?.querySelector<HTMLInputElement>('input[aria-label="Search settings"]')
+      ?.focus();
+    query = ex;
+  }
+
   function jump(r: SearchResult): void {
     pushRecent(r.id);
     onJump(r.tab, r.id);
@@ -216,7 +225,8 @@
           <p class="ss-hint">
             Search across every tab. Try:
             {#each EXAMPLES as ex (ex)}
-              <Button variant="secondary" size="sm" onclick={() => (query = ex)}>{ex}</Button>
+              <Button variant="secondary" size="sm" onclick={(e) => pickExample(e, ex)}>{ex}</Button
+              >
             {/each}
           </p>
         {/if}

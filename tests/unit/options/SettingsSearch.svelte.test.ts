@@ -170,10 +170,15 @@ describe('SettingsSearch — combobox ARIA on input element', () => {
     const { getByRole } = render(SettingsSearch, {
       props: { open: true, settings: DEFAULT_SETTINGS, onClose: () => {}, onJump: () => {} },
     });
-    await fireEvent.click(getByRole('button', { name: 'temperature' }));
+    const example = getByRole('button', { name: 'temperature' });
+    example.focus();
+    await fireEvent.click(example);
     await waitFor(() =>
       expect((getByRole('combobox') as HTMLInputElement).value).toBe('temperature'),
     );
+    // The example unmounts with the hint, so focus must not fall to the page.
+    expect(example.isConnected).toBe(false);
+    expect(document.activeElement).toBe(getByRole('combobox'));
   });
 
   it('input has an accessible name (aria-label)', () => {

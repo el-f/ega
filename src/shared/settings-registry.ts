@@ -86,21 +86,28 @@ export interface SearchOptions {
   readonly settings?: Settings;
 }
 
+interface EntryMatch {
+  score: number;
+  matchedTerm: string;
+  /** Some query word hit the label or id, not only the description or keywords. */
+  byName: boolean;
+}
+
 /** label 100, id 80, description 50, keyword 30; first hit wins; null = no match. */
-function scoreEntry(entry: SettingEntry, q: string): { score: number; matchedTerm: string } | null {
+function scoreEntry(entry: SettingEntry, q: string): EntryMatch | null {
   const labelLc = entry.label.toLowerCase();
   if (labelLc.includes(q)) {
     // Prefix matches rank first, then shorter labels, so "temperature" lands on the global row.
     const prefixBonus = labelLc.startsWith(q) ? 20 : 0;
     const exactBonus = labelLc === q ? 10 : 0;
-    return { score: 100 + prefixBonus + exactBonus, matchedTerm: entry.label };
+    return { score: 100 + prefixBonus + exactBonus, matchedTerm: entry.label, byName: true };
   }
   const idLc = entry.id.toLowerCase();
-  if (idLc.includes(q)) return { score: 80, matchedTerm: entry.id };
+  if (idLc.includes(q)) return { score: 80, matchedTerm: entry.id, byName: true };
   const descLc = entry.description.toLowerCase();
-  if (descLc.includes(q)) return { score: 50, matchedTerm: entry.description };
+  if (descLc.includes(q)) return { score: 50, matchedTerm: entry.description, byName: false };
   for (const kw of entry.keywords) {
-    if (kw.toLowerCase().includes(q)) return { score: 30, matchedTerm: kw };
+    if (kw.toLowerCase().includes(q)) return { score: 30, matchedTerm: kw, byName: false };
   }
 
   // Every token must appear across label, id, desc or keywords, so "key cache" still finds "Cache key explainer".
@@ -109,6 +116,7 @@ function scoreEntry(entry: SettingEntry, q: string): { score: number; matchedTer
   if (tokens.length >= 2) {
     let tokenScore = 0;
     let allHit = true;
+    let byName = false;
     for (const t of tokens) {
       let hit = 0;
       if (labelLc.includes(t)) hit = labelLc.startsWith(t) ? 14 : 10;
@@ -119,18 +127,21 @@ function scoreEntry(entry: SettingEntry, q: string): { score: number; matchedTer
         allHit = false;
         break;
       }
+      if (hit >= 8) byName = true;
       tokenScore += hit;
     }
-    if (allHit) return { score: tokenScore, matchedTerm: entry.label };
+    if (allHit) return { score: tokenScore, matchedTerm: entry.label, byName };
   }
 
   // Typo fallback — the length + density gates keep short or scattered queries from matching everything.
   if (q.length >= 4) {
     const hit = fuzzyMatch(q, labelLc);
-    if (hit && hit.score >= 0.55) return { score: hit.score * 20, matchedTerm: entry.label };
+    if (hit && hit.score >= 0.55)
+      return { score: hit.score * 20, matchedTerm: entry.label, byName: true };
     for (const kw of entry.keywords) {
       const kwHit = fuzzyMatch(q, kw.toLowerCase());
-      if (kwHit && kwHit.score >= 0.55) return { score: kwHit.score * 15, matchedTerm: kw };
+      if (kwHit && kwHit.score >= 0.55)
+        return { score: kwHit.score * 15, matchedTerm: kw, byName: false };
     }
   }
   return null;
@@ -141,7 +152,8 @@ export function searchSettings(query: string, opts: SearchOptions = {}): readonl
   const q = query.trim().toLowerCase();
   if (!q) return [];
 
-  const results: SearchResult[] = [];
+  // An action found only through its description or keywords goes last: "temperature" wants the slider, not a reset.
+  const ranked: { r: SearchResult; demoted: number }[] = [];
   for (const entry of SETTINGS_REGISTRY) {
     if (opts.modifiedOnly) {
       if (!opts.settings) continue;
@@ -150,16 +162,17 @@ export function searchSettings(query: string, opts: SearchOptions = {}): readonl
     }
     const m = scoreEntry(entry, q);
     if (!m) continue;
-    results.push({ ...entry, score: m.score, matchedTerm: m.matchedTerm });
+    ranked.push({
+      r: { ...entry, score: m.score, matchedTerm: m.matchedTerm },
+      demoted: entry.type === 'action' && !m.byName ? 1 : 0,
+    });
   }
-  // An action found only through its description or keywords goes last: "temperature" wants the slider, not a reset.
-  const demoted = (r: SearchResult): number => (r.type === 'action' && r.score < 100 ? 1 : 0);
-  results.sort((a, b) => {
-    if (demoted(a) !== demoted(b)) return demoted(a) - demoted(b);
-    if (b.score !== a.score) return b.score - a.score;
-    return a.label.localeCompare(b.label);
+  ranked.sort((a, b) => {
+    if (a.demoted !== b.demoted) return a.demoted - b.demoted;
+    if (b.r.score !== a.r.score) return b.r.score - a.r.score;
+    return a.r.label.localeCompare(b.r.label);
   });
-  return results;
+  return ranked.map((x) => x.r);
 }
 
 export const SETTINGS_SEARCH_MAX_RESULTS = MAX_RESULTS;
