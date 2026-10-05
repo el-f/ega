@@ -132,6 +132,8 @@ export class CliSessionManager {
   #oneShots = new Map();
   // Canceled children that have not exited on SIGTERM yet: off the maps, but still ours to release.
   #dying = new Set();
+  // A prepare() still writing a temp file: shutdown waits for it, or the file outlives the host.
+  #preparing = new Set();
   #idleTimeoutMs;
   #killGraceMs;
   #requestTimeoutMs;
@@ -434,6 +436,15 @@ export class CliSessionManager {
     this.#releaseDying();
   }
 
+  /** Resolves once every prepare() in progress has finished and cleaned up, or after `ms`. */
+  preparesSettled(ms) {
+    if (this.#preparing.size === 0) return Promise.resolve();
+    return Promise.race([
+      Promise.all([...this.#preparing]),
+      new Promise((r) => setTimeout(r, ms).unref()),
+    ]);
+  }
+
   closeAll() {
     // Shutdown path: process.exit runs before an unref'd SIGTERM→SIGKILL grace timer can
     // fire, so a CLI that ignores SIGTERM would outlive the host — SIGKILL directly.
@@ -507,17 +518,25 @@ export class CliSessionManager {
     };
     this.#oneShots.set(extId, entry);
     let invocation;
+    let settle = () => {};
+    const preparing = new Promise((r) => (settle = r));
+    this.#preparing.add(preparing);
     try {
-      invocation = await prepare();
-    } catch (e) {
-      this.#endAll(entry, { kind: 'error', code: 'NATIVE_SPAWN_FAIL', message: e.message });
-      this.#drop(entry);
-      return;
-    }
-    // Ended while preparing: the entry is already gone, but a temp file written since may not be.
-    if (slot.state !== 'pending') {
-      cleanup();
-      return;
+      try {
+        invocation = await prepare();
+      } catch (e) {
+        this.#endAll(entry, { kind: 'error', code: 'NATIVE_SPAWN_FAIL', message: e.message });
+        this.#drop(entry);
+        return;
+      }
+      // Ended while preparing: the entry is already gone, but a temp file written since may not be.
+      if (slot.state !== 'pending') {
+        cleanup();
+        return;
+      }
+    } finally {
+      this.#preparing.delete(preparing);
+      settle();
     }
     try {
       entry.child = this.#spawnChild(invocation.bin, invocation.args);

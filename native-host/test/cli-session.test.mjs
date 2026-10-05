@@ -1780,3 +1780,41 @@ test('a one-shot keeps a typed REQUEST instead of the dead-child remap', async (
   await nextTick();
   assert.deepEqual(codes(r.frames), ['REQUEST']);
 });
+
+test('shutdown can wait for a prepare that is still writing, and its cleanup runs before the wait ends', async () => {
+  // The port closes while the image temp file is being written: exiting then would leave the file behind.
+  const f = makeSpawnFactory();
+  const mgr = new CliSessionManager({ spawn: f.spawn, idleTimeoutMs: 10_000 });
+  let finishWrite = () => {};
+  const one = oneShot(mgr, {
+    prepare: () =>
+      new Promise((r) => {
+        finishWrite = () => r({ bin: 'claude', args: ['--print'], prompt: 'p' });
+      }),
+  });
+  mgr.failAll('ABORTED', 'port closed');
+  mgr.closeAll();
+  let settled = false;
+  const wait = mgr.preparesSettled(5_000).then(() => (settled = true));
+  await new Promise((r) => setImmediate(r));
+  assert.equal(settled, false, 'the wait holds while the write is still running');
+  const before = one.cleanups;
+  finishWrite();
+  await wait;
+  assert.ok(
+    one.cleanups > before,
+    'the file written after the abort is removed before the wait ends',
+  );
+  assert.equal(f.calls.length, 0, 'an aborted request never spawns');
+  await one.run;
+});
+
+test('preparesSettled gives up after its timeout', async () => {
+  const f = makeSpawnFactory();
+  const mgr = new CliSessionManager({ spawn: f.spawn, idleTimeoutMs: 10_000 });
+  oneShot(mgr, { prepare: () => new Promise(() => {}) });
+  const t0 = Date.now();
+  await mgr.preparesSettled(50);
+  assert.ok(Date.now() - t0 < 2_000);
+  mgr.closeAll();
+});

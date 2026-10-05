@@ -188,11 +188,14 @@ function sendFrame(obj) {
 function shutdown(code) {
   sessions.closeAll();
   const leave = () => process.exit(code);
-  if (process.stdout.writableLength === 0) leave();
-  else {
-    process.stdout.write('', leave);
-    setTimeout(leave, 2000).unref();
-  }
+  // A request still writing its image temp file removes it when the write ends; exiting first leaks the file.
+  void sessions.preparesSettled(2000).then(() => {
+    if (process.stdout.writableLength === 0) leave();
+    else {
+      process.stdout.write('', leave);
+      setTimeout(leave, 2000).unref();
+    }
+  });
 }
 
 // Tracks how many requests still owe a reply so we don't exit on stdin-end while a
