@@ -194,16 +194,16 @@ primitives under `src/shared/` and never import each other.
 Settings tabs, as the navigation lists them. The page title is "Settings"; Chrome's own
 menus call it the Options page.
 
-| Tab                | Owns                                                                                    |
-| ------------------ | --------------------------------------------------------------------------------------- |
-| Translate          | Tooltip, streaming, page context, page translation and generation settings.             |
-| Tasks              | Each task: its prompt, switches and on/off; your own tasks; rules.                      |
-| Selection & picker | When the selection bubble appears, and the element picker.                              |
-| Backends           | Which LLM Ega routes to: API keys, models, ordering.                                    |
-| Languages          | Built-in and custom languages, presets, and a prompt per language.                      |
-| Glossary           | Term and translation pairs Ega adds when they appear in the text.                       |
-| Advanced           | Three sub-tabs: diagnostics (with the request audit log), data import and export, labs. |
-| About              | Version, privacy, source.                                                               |
+| Tab                | Owns                                                                                              |
+| ------------------ | ------------------------------------------------------------------------------------------------- |
+| Translate          | Tooltip, streaming, page context, page translation, the right-click menu and generation settings. |
+| Tasks              | Each task: its prompt, switches and on/off; your own tasks; rules.                                |
+| Selection & picker | When the selection bubble appears, and the element picker.                                        |
+| Backends           | Which LLM Ega routes to: API keys, models, ordering.                                              |
+| Languages          | Built-in and custom languages, presets, and a prompt per language.                                |
+| Glossary           | Term and translation pairs Ega adds when they appear in the text.                                 |
+| Advanced           | Three sub-tabs: diagnostics (with the request audit log), data import and export, labs.           |
+| About              | Version, privacy, source.                                                                         |
 
 #### `src/sidepanel/state/`
 

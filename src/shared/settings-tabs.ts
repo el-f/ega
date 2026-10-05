@@ -12,7 +12,7 @@ export const SETTINGS_TABS = [
     id: 'translate',
     label: 'Translate',
     description:
-      'How translations behave: tooltip, streaming, page context, page translation and generation settings.',
+      'How translations behave: tooltip, streaming, page context, page translation, the right-click menu and generation settings.',
   },
   {
     id: 'tasks',
