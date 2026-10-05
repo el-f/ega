@@ -87,6 +87,10 @@
   display: inline-block;
   visibility: hidden;
 }
+.ega-batch-progress .cancel[hidden] {
+  display: inline-block;
+  visibility: hidden;
+}
 .ega-batch-progress .cancel:hover,
 .ega-batch-progress .undo:hover,
 .ega-batch-progress .retry-failed:hover {

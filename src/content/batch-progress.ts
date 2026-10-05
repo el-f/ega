@@ -22,7 +22,7 @@ interface ActiveProgress {
   showingOriginal: boolean;
   /** Date.now of the last Stop press; Stop turns into Show original under the pointer. */
   stopPressedAt: number;
-  /** What had focus before it last moved into the pill; null when nothing did. */
+  /** The last page element focus came into the pill from; null until one does. */
   focusReturn: HTMLElement | null;
 }
 
@@ -184,8 +184,10 @@ export function showBatchProgress(
   anchor.addEventListener('focusin', (e) => {
     if (active?.anchor !== anchor) return;
     const from = e.relatedTarget;
-    if (from instanceof Node && anchor.contains(from)) return;
-    active.focusReturn = from instanceof HTMLElement ? from : null;
+    // A window refocus has no relatedTarget and must not wipe the last good one. A shadow host
+    // (focus came out of another shadow tree) is kept: focusing the host is close enough.
+    if (!(from instanceof HTMLElement) || !from.isConnected || anchor.contains(from)) return;
+    active.focusReturn = from;
   });
 
   const handle = mount(BatchProgress, {

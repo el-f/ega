@@ -353,6 +353,52 @@ describe('batch-progress lifecycle', () => {
     },
   );
 
+  it('a window refocus inside the pill keeps where focus came from', async () => {
+    const { showBatchProgress } = await import('@/content/batch-progress');
+    const field = document.createElement('input');
+    document.body.appendChild(field);
+    const h = showBatchProgress(2, () => {});
+    h.setOnUndoAll(() => h.dismiss());
+    field.focus();
+    const undo = shadowQuery('.undo') as HTMLButtonElement;
+    undo.focus();
+    // Coming back to the window refocuses the pill button with no relatedTarget.
+    undo.dispatchEvent(
+      new FocusEvent('focusin', { bubbles: true, composed: true, relatedTarget: null }),
+    );
+    // A node that has since left the page is no place to send focus either.
+    undo.dispatchEvent(
+      new FocusEvent('focusin', {
+        bubbles: true,
+        composed: true,
+        relatedTarget: document.createElement('button'),
+      }),
+    );
+
+    undo.click();
+
+    expect(document.activeElement).toBe(field);
+  });
+
+  it('focus that came out of another shadow tree goes back to its host', async () => {
+    const { showBatchProgress } = await import('@/content/batch-progress');
+    const host = document.createElement('div');
+    host.tabIndex = 0;
+    host.attachShadow({ mode: 'open' });
+    document.body.appendChild(host);
+    const h = showBatchProgress(2, () => {});
+    h.setOnClose(() => h.dismiss());
+    const close = shadowQuery('[data-ega-batch-close]') as HTMLButtonElement;
+    close.focus();
+    close.dispatchEvent(
+      new FocusEvent('focusin', { bubbles: true, composed: true, relatedTarget: host }),
+    );
+
+    close.click();
+
+    expect(document.activeElement).toBe(host);
+  });
+
   it('a pill that does not hold focus leaves focus alone when it goes', async () => {
     const { showBatchProgress } = await import('@/content/batch-progress');
     const field = document.createElement('input');
@@ -368,9 +414,10 @@ describe('batch-progress lifecycle', () => {
     expect(document.activeElement).toBe(other);
   });
 
-  it('Hide and Retry failed keep their place in the row while hidden', () => {
+  it('Hide, Stop and Retry failed keep their place in the row while hidden', () => {
     for (const sel of [
       '.ega-batch-progress .retry-failed[hidden]',
+      '.ega-batch-progress .cancel[hidden]',
       ".ega-batch-progress .close[data-ready='false']",
     ]) {
       expect(cssRule(sel), sel).toContain('visibility: hidden');
