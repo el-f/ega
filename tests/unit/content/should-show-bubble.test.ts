@@ -110,9 +110,24 @@ describe('shouldShowBubble — smart mode', () => {
     expect(shouldShowBubble({ text: 'hi' }, m('smart'), NO_CUSTOMS)).toBe(false);
   });
 
-  it('hides texts shorter than 6 chars after trim', () => {
-    expect(shouldShowBubble({ text: 'hello' }, m('smart'), NO_CUSTOMS)).toBe(false);
-    expect(shouldShowBubble({ text: '   abc  ' }, m('smart'), NO_CUSTOMS)).toBe(false);
+  it('hides Latin text below the minimum length after trim', () => {
+    const tooShort = { show: false, reason: 'too-short' };
+    expect(shouldShowBubbleWithReason({ text: '   abc  ' }, m('smart'), NO_CUSTOMS)).toEqual(
+      tooShort,
+    );
+    expect(shouldShowBubbleWithReason({ text: 'xqz' }, m('smart'), NO_CUSTOMS)).toEqual(tooShort);
+    // At the default minimum of 4 exactly, the length gate lets it through.
+    expect(shouldShowBubbleWithReason({ text: 'xqzw' }, m('smart'), NO_CUSTOMS).reason).not.toBe(
+      'too-short',
+    );
+  });
+
+  // Past the length gate at the default of 4, so the English check is what hides it.
+  it('hides a five-letter English word as English, not as too short', () => {
+    expect(shouldShowBubbleWithReason({ text: 'hello' }, m('smart'), NO_CUSTOMS)).toEqual({
+      show: false,
+      reason: 'english',
+    });
   });
 
   it('hides numbers-only selections', () => {
