@@ -13,7 +13,7 @@
 ## Visible affordances
 
 - The seeded image turn renders the source image thumbnail above the OCR/translated body.
-- The turn footer has no chip row; the standard action row (copy, regenerate, bookmark, delete) still renders.
+- The turn footer has no chip row; the standard action row (Copy, Regenerate, and a More (⋯) menu with Bookmark and Delete) still renders.
 
 ## Failure-mode expectations
 
