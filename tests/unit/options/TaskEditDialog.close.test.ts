@@ -87,6 +87,6 @@ describe('what saves on its own', () => {
     open();
     const reset = document.querySelector<HTMLButtonElement>('[data-ega-task-reset]');
     expect(reset?.disabled).toBe(true);
-    expect(document.body.textContent).toContain('Nothing to reset: this task is built-in.');
+    expect(document.body.textContent).toContain('Nothing to reset: this task has no edits.');
   });
 });

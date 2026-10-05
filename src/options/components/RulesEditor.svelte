@@ -151,7 +151,7 @@
   }
 </script>
 
-<div class="rules-editor" data-ega-rules-editor>
+<div class="rules-editor" class:empty={rules.length === 0} data-ega-rules-editor>
   {#if rules.length === 0}
     <RulesEditorEmpty onAdd={() => (formOpen = true)} />
   {:else}
@@ -176,14 +176,11 @@
     </div>
   {/if}
 
-  <!-- With no rules the empty state's button is the way in, so a second "Add a rule" row would repeat it. -->
-  {#if rules.length > 0 || formOpen}
-    <RulesEditorManualForm
-      bind:open={formOpen}
-      onSubmit={submitManual}
-      {...taskViews.length > 0 ? { taskViews } : {}}
-    />
-  {/if}
+  <RulesEditorManualForm
+    bind:open={formOpen}
+    onSubmit={submitManual}
+    {...taskViews.length > 0 ? { taskViews } : {}}
+  />
 </div>
 
 <style>
@@ -191,6 +188,10 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
+  }
+  /* With no rules the empty state's button is the way in; the closed form stays in the DOM for the Add-a-rule shortcut. */
+  .rules-editor.empty :global(details.manual-block:not([open])) {
+    display: none;
   }
   .active-rules {
     display: flex;

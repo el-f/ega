@@ -124,7 +124,7 @@ describe('RulesEditor', () => {
     const { container, getByRole } = render(RulesEditor, {
       props: { rules: [], onUpdate: () => {} },
     });
-    expect(container.querySelector('details.manual-block')).toBeNull();
+    expect(container.querySelector<HTMLDetailsElement>('details.manual-block')?.open).toBe(false);
     await fireEvent.click(getByRole('button', { name: 'Add a rule' }));
     await waitFor(() =>
       expect(container.querySelector<HTMLDetailsElement>('details.manual-block')?.open).toBe(true),

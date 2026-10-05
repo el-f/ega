@@ -185,8 +185,8 @@
         instructions.
       </p>
     {/if}
+    <p class="task-edit-note">Fixed for this task:</p>
     <dl class="task-edit-facts" aria-label="Fixed for this task">
-      <div class="task-edit-facts-head">Fixed for this task</div>
       <div>
         <dt>Answer</dt>
         <dd>{view.output === 'card' ? 'Answer with notes' : 'Answer only'}</dd>
@@ -229,7 +229,7 @@
   </div>
   {#snippet actions()}
     {#if !canReset}
-      <span class="task-edit-note task-edit-reason">Nothing to reset: this task is built-in.</span>
+      <span class="task-edit-note task-edit-reason">Nothing to reset: this task has no edits.</span>
     {/if}
     <Button
       variant="secondary"
@@ -266,11 +266,6 @@
   .task-edit-facts > div {
     display: flex;
     gap: var(--space-2);
-  }
-  .task-edit-facts-head {
-    flex-basis: 100%;
-    font-size: var(--fs-xs);
-    color: var(--color-muted);
   }
   .task-edit-facts dt {
     font-weight: 500;
