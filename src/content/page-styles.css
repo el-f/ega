@@ -87,8 +87,11 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
+  /* No fade, but the tint still waits 2s, or a reduced-motion user never sees what changed. */
   [data-ega-replaced][data-ega-tx-state='ok'] {
-    transition: none;
+    transition:
+      background-color 0s 2s,
+      border-bottom-color 0s 2s;
   }
   [data-ega-replaced][data-ega-pending]::after {
     animation: none;

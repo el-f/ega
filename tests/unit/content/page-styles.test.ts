@@ -148,9 +148,11 @@ function underMedia(media: string, selector: string): CSSStyleDeclaration | unde
 }
 
 describe('reduced motion — the page sheet stops its own motion', () => {
-  it('a settled block drops its tint at once', () => {
+  it('a settled block drops its tint without a fade, after the same 2 s', () => {
     const style = underMedia('prefers-reduced-motion: reduce', "[data-ega-tx-state='ok']");
-    expect(style?.getPropertyValue('transition')).toBe('none');
+    const transition = style?.getPropertyValue('transition') ?? '';
+    expect(transition).toMatch(/background-color 0s 2s/);
+    expect(transition).toMatch(/border-bottom-color 0s 2s/);
   });
 });
 
