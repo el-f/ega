@@ -10,6 +10,12 @@ import type { CustomLanguage } from '@/shared/types';
 const smart = { bubbleMode: 'smart' as const, smartBubbleMinLength: 6 };
 const bubble = (text: string) => shouldShowBubbleWithReason({ text }, smart, []);
 
+describe('the script check runs before the length gate', () => {
+  it('shows a two-letter Hebrew word even at a minimum of 6', () => {
+    expect(bubble('כן')).toEqual({ show: true, reason: 'non-ascii' });
+  });
+});
+
 // Ordinals, units, versions, hashes and identifiers carry a digit between letters too.
 describe('English with digits is not Arabizi or leetspeak', () => {
   it.each([

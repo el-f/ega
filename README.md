@@ -65,7 +65,8 @@ install.
 ## It didn't work
 
 **No bubble on the text I selected.** The bubble ships in smart mode, which hides it on
-text under six characters (two in Chinese, Japanese and Korean) and on text made mostly of
+text under four characters in Latin letters (two in Arabic, Hebrew, Cyrillic, Chinese,
+Japanese, Korean and other scripts) and on text made mostly of
 common English words. Settings →
 **Selection & picker** → **Selection bubble** → **Always** shows it on every selection.
 

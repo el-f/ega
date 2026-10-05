@@ -7,7 +7,7 @@ const smartSettings = { ...DEFAULT_SETTINGS, bubbleMode: 'smart' as const };
 const noCustoms: CustomLanguage[] = [];
 
 describe('shouldShowBubble — English vs Arabizi matrix', () => {
-  // All ≥ 6 chars, so they pass the length gate and reach the no-match branch.
+  // All above the minimum length, so they pass the length gate and reach the English check.
   const english = [
     'hello world',
     'thank you so much',
@@ -39,11 +39,23 @@ describe('shouldShowBubble — English vs Arabizi matrix', () => {
     });
   }
 
-  it('hides on < 6 chars', () => {
-    const { show, reason } = shouldShowBubbleWithReason({ text: 'hi' }, smartSettings, noCustoms);
-    expect(show).toBe(false);
-    expect(reason).toBe('too-short');
-  });
+  for (const text of ['hi', 'shu', 'la2', 'π']) {
+    it(`hides Latin text below the minimum length: ${JSON.stringify(text)}`, () => {
+      const { show, reason } = shouldShowBubbleWithReason({ text }, smartSettings, noCustoms);
+      expect(show).toBe(false);
+      expect(reason).toBe('too-short');
+    });
+  }
+
+  // Abjad and other non-Latin scripts skip the length gate: two letters are already a word.
+  for (const text of ['يلا', 'כן', 'да']) {
+    it(`shows a short non-Latin word: ${JSON.stringify(text)}`, () => {
+      expect(shouldShowBubbleWithReason({ text }, smartSettings, noCustoms)).toEqual({
+        show: true,
+        reason: 'non-ascii',
+      });
+    });
+  }
 
   it('shows on non-ASCII (Arabic script)', () => {
     const { show, reason } = shouldShowBubbleWithReason(

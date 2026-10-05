@@ -58,7 +58,7 @@
         max={15}
         step={1}
         unit=" chars"
-        help="Smart mode hides the bubble on shorter selections, even on non-English text."
+        help="Smart mode hides the bubble on shorter selections in Latin letters. Other scripts need only two letters."
         modified={isFieldModified('advanced.smartBubbleMinLength', s)}
         onchange={(v) => void onPatch({ smartBubbleMinLength: v })}
       />

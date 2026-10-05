@@ -41,6 +41,7 @@ const STARTS_LOWER = /^\p{Ll}/u;
 const ARABIZI_SHAPE = /(\p{L})\1\1|kh|gh|dh|\d|(?:ak|ik|ek|kom|kum|ni)$/u;
 const MAX_SHORT = 3;
 // A short phrase needs a word this long or a FUNCTION_WORDS word: "sale chat", "mare e sole" are English words too.
+// A lone common word needs only four letters, and its 's form does not count (Dutch "auto's", "menu's" are not proof).
 const PROOF_LENGTH = 5;
 const LONG_RATIO = 0.8;
 
@@ -59,6 +60,7 @@ export function readsAsEnglish(text: string, englishDigitWord: RegExp): boolean 
   let proof = false;
   let weakProof = false;
   let hasFourLetterWord = false;
+  let bareFour = false;
   let counted = 0;
   for (const [i, word] of words.entries()) {
     const w = word.toLowerCase().replace(/’/g, "'");
@@ -75,6 +77,7 @@ export function readsAsEnglish(text: string, englishDigitWord: RegExp): boolean 
       // Measured without the 's: Dutch plurals "auto's", "menu's" are not proof.
       if (stem.length >= PROOF_LENGTH) proof = true;
       if (stem.length >= 4) hasFourLetterWord = true;
+      if (stem === w && w.length >= 4) bareFour = true;
     } else if (i > 0 && hasLower && PROPER_NOUN.test(word)) continue;
     else {
       other++;
@@ -85,6 +88,7 @@ export function readsAsEnglish(text: string, englishDigitWord: RegExp): boolean 
   if (counted === 0) return true;
   const scored = english + other;
   if (scored === 0) return false;
-  if (scored <= MAX_SHORT) return other === 0 && (proof || (weakProof && hasFourLetterWord));
+  if (scored <= MAX_SHORT)
+    return other === 0 && (proof || (weakProof && hasFourLetterWord) || (scored === 1 && bareFour));
   return !marked && english / scored >= LONG_RATIO;
 }

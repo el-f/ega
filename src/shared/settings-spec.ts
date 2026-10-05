@@ -676,8 +676,8 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'advanced.smartBubbleMinLength',
     label: 'Smart bubble minimum length',
-    description: 'Below this length, smart mode hides the bubble.',
-    keywords: ['smart', 'bubble', 'length', 'short', 'min'],
+    description: 'Below this length, smart mode hides the bubble on Latin-script text.',
+    keywords: ['smart', 'bubble', 'length', 'short', 'min', 'characters'],
     tab: 'selection-bubble',
     targetSelector: '[data-ega-setting="advanced.smartBubbleMinLength"]',
     type: 'slider',

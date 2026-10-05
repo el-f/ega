@@ -224,10 +224,38 @@ describe('english lexicon — binary search finds every word', () => {
     expect(common.filter((w) => readsAsEnglish(`${w}qx`, /^\d+$/))).toEqual([]);
   });
 
+  it('reads every bare common four-letter word as English on its own', () => {
+    const four = lines.filter((l) => !l.startsWith('~') && l.length === 4);
+    expect(four.length).toBeGreaterThan(1000);
+    expect(four.filter((w) => !readsAsEnglish(w, /^\d+$/))).toEqual([]);
+  });
+
   it('reads an ambiguous word as neither side', () => {
     expect(ambiguous).toContain('sheikh');
     expect(ambiguous.filter((w) => readsAsEnglish(w, /^\d+$/))).toEqual([]);
   });
+});
+
+describe('smart bubble — four letters at default settings', () => {
+  for (const text of ['Menu', 'Home', 'Sale', 'Help', 'Save', 'Edit', 'also', 'just']) {
+    it(`hides a lone common word: ${JSON.stringify(text)}`, async () => {
+      expect(await shouldShowBubbleWithReasonAsync({ text }, smart, noCustoms)).toEqual({
+        show: false,
+        reason: 'english',
+      });
+    });
+  }
+  for (const text of ['yalla', 'tamam', 'mashi', 'inta', 'wein', 'ktir', 'akid', '3ala']) {
+    it(`shows short Arabizi: ${JSON.stringify(text)}`, async () => {
+      expect(await shows(text)).toBe(true);
+    });
+  }
+  // A lone word proves English at four letters; its 's form and a short phrase still need five (99049a2).
+  for (const text of ["auto's", "menu's", 'sale chat', 'home page']) {
+    it(`still shows: ${JSON.stringify(text)}`, async () => {
+      expect(await shows(text)).toBe(true);
+    });
+  }
 });
 
 describe('smart bubble — English that must hide', () => {

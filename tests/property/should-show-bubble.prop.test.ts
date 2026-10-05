@@ -118,6 +118,26 @@ describe('shouldShowBubbleWithReason — property invariants', () => {
     );
   });
 
+  it('2-3 non-Latin letters show at every minimum length (the script check runs first)', () => {
+    const arbShortForeign = fc
+      .array(fc.constantFrom(...'لوあい中文नमשכдя'.split('')), { minLength: 2, maxLength: 3 })
+      .map((chars) => chars.join(''));
+    fc.assert(
+      fc.property(
+        arbShortForeign,
+        fc.integer({ min: 3, max: 15 }),
+        (text, smartBubbleMinLength) => {
+          const d = shouldShowBubbleWithReason(
+            { text },
+            { ...smartSettings, smartBubbleMinLength },
+            [...noCustoms],
+          );
+          expect(d).toEqual({ show: true, reason: 'non-ascii' });
+        },
+      ),
+    );
+  });
+
   it('Latin text with diacritics falls through to the detector, never the non-ascii short-circuit', () => {
     const LATIN_MARKS = 'éàüñçøåß';
     const arbLatinMarks = fc

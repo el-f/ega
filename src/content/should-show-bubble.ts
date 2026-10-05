@@ -18,7 +18,8 @@ type BubbleSettings = Pick<Settings, 'bubbleMode' | 'smartBubbleMinLength'> &
 // Two non-Latin letters, so one "π", "µ" or "Ω" in English is not a foreign script; marks between them keep vocalized Arabic.
 const FOREIGN_SCRIPT = /(?!\p{Script=Latin})\p{L}\p{M}*(?!\p{Script=Latin})\p{L}/u;
 
-// Two characters are already a phrase in these scripts ("谢谢", "사랑해요").
+// Two characters are already a phrase in these scripts ("谢谢", "사랑해요"). Abjad scripts (Arabic, Hebrew) drop short
+// vowels, so two letters are already a word there too: any non-Latin script skips the length gate below.
 const CJK = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u;
 const CJK_MIN_LENGTH = 2;
 
@@ -55,11 +56,11 @@ export function shouldShowBubbleWithReason(
   if (mode === 'always') return { show: true, reason: 'mode-always' };
 
   // smart:
+  if (FOREIGN_SCRIPT.test(trimmed)) return { show: true, reason: 'non-ascii' };
   const minLen = CJK.test(trimmed)
     ? CJK_MIN_LENGTH
     : (settings.smartBubbleMinLength ?? DEFAULT_SMART_BUBBLE_MIN_LENGTH);
   if (trimmed.length < minLen) return { show: false, reason: 'too-short' };
-  if (FOREIGN_SCRIPT.test(trimmed)) return { show: true, reason: 'non-ascii' };
   const hit = detectLang(trimmed, { settings, customs });
   if (hit) {
     const isCustom = customs.some((l) => l.id === hit.id);
