@@ -206,6 +206,7 @@
     role="list"
     aria-label="Active backends, drag to reorder, drag below the divider to disable"
     data-testid="be-list-active"
+    data-ega-setting="backends.backendOrder"
     use:dragHandleZone={{ items: enabledShadow.items, dragDisabled: false, flipDurationMs: 180 }}
     onconsider={handleEnabledConsider}
     onfinalize={handleEnabledFinalize}
@@ -269,6 +270,7 @@
     role="list"
     aria-label="Available backends, drag above the divider to enable"
     data-testid="be-list-available"
+    data-ega-setting="backends.disabledBackends"
     use:dragHandleZone={{ items: disabledShadow.items, dragDisabled: false, flipDurationMs: 180 }}
     onconsider={handleDisabledConsider}
     onfinalize={handleDisabledFinalize}

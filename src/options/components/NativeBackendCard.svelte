@@ -325,7 +325,11 @@
   {routeIsImage}
 >
   <div class="nh-body">
-    <div class="row nh-status-row">
+    <!-- The CLI choice exists only once the host is installed; until then a search for it lands on the install status. -->
+    <div
+      class="row nh-status-row"
+      data-ega-setting={nhState === 'installed' ? null : 'backends.nativeCli'}
+    >
       {#if currentCli === 'codex' && portStatus !== 'disconnected'}
         <Badge variant="muted" dot>One process per translation</Badge>
       {:else}
@@ -398,7 +402,10 @@
           onValueChange={(next) =>
             // A model id belongs to one CLI; the other CLI would reject it.
             void onPatch({ nativeCli: next, model: { ...settings.model, native: '' } })}
-          dataAttrs={{ 'aria-labelledby': 'nh-cli-label' }}
+          dataAttrs={{
+            'aria-labelledby': 'nh-cli-label',
+            'data-ega-setting': 'backends.nativeCli',
+          }}
         />
       </div>
       {#if missingCli}

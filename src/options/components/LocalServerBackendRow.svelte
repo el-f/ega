@@ -70,6 +70,7 @@
       <label for="be-url-ls">Server URL</label>
       <input
         id="be-url-ls"
+        data-ega-setting="backends.localServerUrl"
         type="text"
         dir="auto"
         placeholder={DEFAULT_LOCAL_SERVER_URL}

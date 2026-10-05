@@ -109,6 +109,7 @@
       <label for="be-url-ol">Ollama URL</label>
       <input
         id="be-url-ol"
+        data-ega-setting="backends.ollamaUrl"
         type="text"
         dir="auto"
         placeholder={DEFAULT_OLLAMA_URL}

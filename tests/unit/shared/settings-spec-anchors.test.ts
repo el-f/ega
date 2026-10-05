@@ -18,7 +18,10 @@ function svelteSources(dir: string): string[] {
 const SOURCES = svelteSources(resolve('src'));
 
 /** Attributes whose value is bound at runtime (`attr={id}` inside an each block). */
-const DYNAMIC_VALUE_ATTRS: ReadonlySet<string> = new Set(['data-ega-task-item']);
+const DYNAMIC_VALUE_ATTRS: ReadonlySet<string> = new Set([
+  'data-ega-task-item',
+  'data-ega-api-key',
+]);
 
 interface ParsedSelector {
   readonly attr: string;

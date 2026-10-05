@@ -152,6 +152,7 @@
         type={keyVisible ? 'text' : 'password'}
         dir="auto"
         aria-label={`${label} API key`}
+        data-ega-api-key={id}
         autocomplete="off"
         spellcheck="false"
         placeholder={keyPlaceholder ?? 'Paste API key here'}

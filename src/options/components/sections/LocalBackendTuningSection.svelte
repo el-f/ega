@@ -23,7 +23,7 @@
 </script>
 
 <!-- Outside any dndzone, because a drag re-render inside BackendList unmounts the slider mid-drag. -->
-<div data-testid="local-backend-timeout-slider">
+<div data-testid="local-backend-timeout-slider" data-ega-setting="backends.localBackendTimeoutMs">
   <SectionCard
     title="Local-backend checks"
     description="How long Ega waits to hear back from a local backend before it moves on."
