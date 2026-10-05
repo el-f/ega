@@ -61,7 +61,7 @@ export function readsAsEnglish(text: string, englishDigitWord: RegExp): boolean 
     if (englishDigitWord.test(w)) continue;
     counted++;
     if (w.length === 1 || AMBIGUOUS.has(w)) continue;
-    if (FUNCTION_WORDS.has(w)) {
+    if (FUNCTION_WORDS.has(w.endsWith("'s") ? w.slice(0, -2) : w)) {
       english++;
       proof = true;
     } else if (w.length > 2 && isCommon(w)) {

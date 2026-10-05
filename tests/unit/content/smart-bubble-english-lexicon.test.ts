@@ -183,6 +183,13 @@ describe('english lexicon — short non-English phrases read as not English', ()
   }
 });
 
+describe('english lexicon — a short word with an apostrophe', () => {
+  it('reads "it\'s late" as English, though two-letter words are not in the list', () => {
+    expect(looksLikeEnglish("it's late")).toBe(true);
+    expect(looksLikeEnglish('it’s late')).toBe(true);
+  });
+});
+
 describe('english lexicon — binary search finds every word', () => {
   const lines = raw.split('\n').filter((l) => l !== '' && !l.startsWith('#'));
   const common = lines.filter((l) => !l.startsWith('~') && l.length >= 5);
