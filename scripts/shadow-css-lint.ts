@@ -271,13 +271,15 @@ async function main(): Promise<void> {
   await walk(contentDir, entries);
   const files = await collectReachable(entries, root);
   const shadowSheet = await readSheet(path.join(contentDir, 'shadow.css'));
-  // multi-select.ts and batch-progress.ts inject their own sheets into the same root; page-styles.css goes to document.head instead.
+  // multi-select.ts, batch-progress.ts and picker-overlay.ts inject their own sheets into the same root; page-styles.css goes to document.head instead.
   const rootSheets =
     shadowSheet +
     '\n' +
     (await readSheet(path.join(contentDir, 'page-translate-v2', 'multi-select.css'))) +
     '\n' +
-    (await readSheet(path.join(contentDir, 'batch-progress.css')));
+    (await readSheet(path.join(contentDir, 'batch-progress.css'))) +
+    '\n' +
+    (await readSheet(path.join(contentDir, 'picker-overlay.css')));
 
   const inContentDir: string[] = [];
   const unportedShared: { file: string; classes: string[] }[] = [];

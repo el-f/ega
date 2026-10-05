@@ -2,7 +2,7 @@ import { debugCatch } from '@/shared/logger';
 import { mount, unmount } from 'svelte';
 import BatchProgress from './BatchProgress.svelte';
 import progressCss from './batch-progress.css?inline';
-import { getContainer, getShadowRoot, onShadowHostRemount } from './shadowHost';
+import { ensureShadowSheet, getContainer, onShadowHostRemount } from './shadowHost';
 
 // Progress toast for whole-page translate. Unlike showToast it has no TTL — the runner dismisses it.
 
@@ -138,24 +138,13 @@ function onActionClick(outerCancel: () => void): void {
   patchVisible();
 }
 
-const STYLE_ID = 'ega-batch-progress-styles';
-
-function ensureProgressStyles(): void {
-  const root = getShadowRoot();
-  if (root.querySelector(`#${STYLE_ID}`)) return;
-  const style = document.createElement('style');
-  style.id = STYLE_ID;
-  style.textContent = progressCss;
-  root.appendChild(style);
-}
-
 export function showBatchProgress(
   total: number,
   onCancel: () => void,
   liveMessage = `Translating ${total} ${total === 1 ? 'area' : 'areas'}…`,
 ): BatchProgressHandle {
   tearDown();
-  ensureProgressStyles();
+  ensureShadowSheet('ega-batch-progress-styles', progressCss);
   const anchor = document.createElement('div');
   anchor.setAttribute('data-ega-batch-progress-wrap', '');
   getContainer().appendChild(anchor);

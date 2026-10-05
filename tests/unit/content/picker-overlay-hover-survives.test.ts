@@ -16,6 +16,7 @@ const container = document.createElement('div');
 vi.mock('@/content/shadowHost', () => ({
   getContainer: () => container,
   onShadowHostRemount: () => {},
+  ensureShadowSheet: () => {},
 }));
 
 import { enterPickerMode } from '@/content/picker-overlay';

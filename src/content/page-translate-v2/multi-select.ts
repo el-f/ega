@@ -1,6 +1,6 @@
 import { mount, unmount } from 'svelte';
 import { debugCatch } from '@/shared/logger';
-import { getContainer, getShadowRoot, onShadowHostRemount } from '../shadowHost';
+import { ensureShadowSheet, getContainer, onShadowHostRemount } from '../shadowHost';
 import { isPickable, isInsideEgaHost } from '../picker';
 import { CURSOR_NAV_KEYS, nextCursorTarget } from '../pick-cursor';
 import { isSensitiveTarget } from '../safety';
@@ -140,15 +140,6 @@ function selectReject(el: Element): string | null {
 function countLabel(n: number): string {
   if (n === 0) return 'No areas selected';
   return n === 1 ? '1 area selected' : `${n} areas selected`;
-}
-
-function ensureToolbarStyles(): void {
-  const root = getShadowRoot();
-  if (root.querySelector(`#${STYLE_ID}`)) return;
-  const style = document.createElement('style');
-  style.id = STYLE_ID;
-  style.textContent = toolbarCss;
-  root.appendChild(style);
 }
 
 function announce(text: string): void {
@@ -345,7 +336,7 @@ onShadowHostRemount(() => {
 export function enterMultiSelect(opts: MultiSelectOpts): void {
   if (ms) return;
   ensurePageStyles();
-  ensureToolbarStyles();
+  ensureShadowSheet(STYLE_ID, toolbarCss);
   const anchor = document.createElement('div');
   anchor.setAttribute('data-ega-ms-wrap', '');
   getContainer().appendChild(anchor);

@@ -25,6 +25,7 @@ vi.mock('@/content/PickerOverlay.svelte', () => ({
 vi.mock('@/content/shadowHost', () => ({
   getContainer: () => document.createElement('div'),
   onShadowHostRemount: () => {},
+  ensureShadowSheet: () => {},
 }));
 
 import { enterPickerMode } from '@/content/picker-overlay';

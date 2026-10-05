@@ -797,74 +797,7 @@
   background: var(--color-danger-bg-soft);
 }
 
-.picker-dimmer {
-  position: fixed;
-  inset: 0;
-  z-index: 2147483645;
-  pointer-events: none;
-  background: rgba(0, 0, 0, 0.3);
-}
-.picker-outline {
-  transition:
-    left 60ms linear,
-    top 60ms linear,
-    width 60ms linear,
-    height 60ms linear;
-  position: fixed;
-  z-index: 2147483646;
-  pointer-events: none;
-  border: 2px solid var(--color-accent);
-  border-radius: 2px;
-  /* A spotlight: the spread shadow dims everything but the target, which stays as bright as the page around it. */
-  box-shadow:
-    0 0 0 1px var(--color-picker-border),
-    0 0 0 100vmax rgba(0, 0, 0, 0.3); /* token-lint-allow: the dimmer's own color, cut out around the target */
-}
-.picker-outline:not([hidden]) + .picker-dimmer {
-  background: transparent;
-}
-/* A private field Ega will not read; the hint says why. */
-.picker-outline.is-blocked {
-  border-color: var(--color-danger);
-}
-.picker-hint {
-  position: fixed;
-  z-index: 2147483647;
-  pointer-events: none;
-  bottom: var(--space-4);
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--color-bg);
-  color: var(--color-fg);
-  border: 1px solid var(--color-border);
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-pill);
-  font-size: var(--fs-sm);
-  font-family: var(--font-ui);
-  box-shadow: 0 4px 12px var(--color-shadow-soft);
-  user-select: none;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  max-width: calc(100vw - 32px);
-  box-sizing: border-box;
-  text-align: center;
-}
-.picker-hint .picker-hint-blocked {
-  color: var(--color-danger-fg, var(--color-danger));
-}
-.picker-hint .picker-hint-sep {
-  color: var(--color-muted);
-}
-.picker-hint .picker-hint-kbd {
-  padding: 0 4px;
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-  background: var(--color-bg-sunken);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  line-height: 1.2;
-}
+
 /* Content-surface toast. Same shadow-boundary reason as the progress pill above. */
 .ega-toast {
   position: fixed;

@@ -49,6 +49,16 @@ export function mountShadowHost(): HTMLDivElement {
   return host;
 }
 
+/** A lazily loaded surface brings its own sheet; a host rebuilt by the page loses it, so each mount checks again. */
+export function ensureShadowSheet(id: string, css: string): void {
+  const r = getShadowRoot();
+  if (r.querySelector(`#${id}`)) return;
+  const style = document.createElement('style');
+  style.id = id;
+  style.textContent = css;
+  r.appendChild(style);
+}
+
 /** The theme helper sets data-theme here; the shadow tree inherits the tokens. */
 export function getShadowHostElement(): HTMLDivElement | null {
   return host;

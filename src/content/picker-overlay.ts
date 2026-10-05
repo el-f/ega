@@ -1,24 +1,25 @@
 import { mount, unmount } from 'svelte';
 import { debugCatch } from '@/shared/logger';
-import { getContainer, onShadowHostRemount } from './shadowHost';
+import { ensureShadowSheet, getContainer, onShadowHostRemount } from './shadowHost';
 import type { PickResult, PickerController } from './picker';
 import type * as PickerMod from './picker';
 import type PickerOverlayDefault from './PickerOverlay.svelte';
 
-let pickerBundleP: Promise<{
+interface PickerBundle {
   pickerMod: typeof PickerMod;
   PickerOverlay: typeof PickerOverlayDefault;
-}> | null = null;
-function lazyPicker(): Promise<{
-  pickerMod: typeof PickerMod;
-  PickerOverlay: typeof PickerOverlayDefault;
-}> {
+  overlayCss: string;
+}
+let pickerBundleP: Promise<PickerBundle> | null = null;
+function lazyPicker(): Promise<PickerBundle> {
   return (pickerBundleP ??= (async () => {
-    const [pickerMod, overlayMod] = await Promise.all([
+    // The sheet rides the lazy chunk, so the overlay's rules cost the eager content script nothing.
+    const [pickerMod, overlayMod, cssMod] = await Promise.all([
       import('./picker'),
       import('./PickerOverlay.svelte'),
+      import('./picker-overlay.css?inline'),
     ]);
-    return { pickerMod, PickerOverlay: overlayMod.default };
+    return { pickerMod, PickerOverlay: overlayMod.default, overlayCss: cssMod.default };
   })());
 }
 
@@ -28,9 +29,11 @@ let pickerHovered: Element | null = null;
 let pickerBlocked = false;
 let pickerSingleton: PickerController | null = null;
 let PickerOverlayComp: typeof PickerOverlayDefault | null = null;
+let pickerOverlayCss = '';
 
 function mountPickerOverlay(): void {
   if (!PickerOverlayComp) return;
+  ensureShadowSheet('ega-picker-styles', pickerOverlayCss);
   const c = getContainer();
   pickerOverlayAnchor = document.createElement('div');
   pickerOverlayAnchor.setAttribute('data-ega-picker-wrap', '');
@@ -98,8 +101,9 @@ let pickerEnsureP: Promise<PickerController> | null = null;
 async function ensurePicker(onPick: (r: PickResult) => void): Promise<PickerController> {
   if (pickerSingleton) return pickerSingleton;
   return (pickerEnsureP ??= (async () => {
-    const { pickerMod, PickerOverlay } = await lazyPicker();
+    const { pickerMod, PickerOverlay, overlayCss } = await lazyPicker();
     PickerOverlayComp = PickerOverlay;
+    pickerOverlayCss = overlayCss;
     pickerSingleton = pickerMod.createPicker({
       onPick,
       onExit: () => {
