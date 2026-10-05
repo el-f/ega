@@ -13,7 +13,7 @@
 
 ## Visible affordances
 
-- Retry is an icon button (aria-label "Retry"); during a Retry-After window it is disabled and shows "Retry in Ns".
+- Retry is a "Try again" button (icon plus the word); during a Retry-After window it is disabled and shows "Retry in Ns". The error row has no Swap button.
 - A "Continue in side panel" text button hands the source text to the side panel.
 
 ## Failure-mode expectations

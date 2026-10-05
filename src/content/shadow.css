@@ -453,6 +453,12 @@
   transition: background-color var(--motion-fast) var(--ease-out);
   color: var(--color-muted);
 }
+/* An icon with its word: the error row's one recovery action must read without a hover. */
+.tooltip .actions .icon-btn-labeled {
+  gap: 4px;
+  padding: 0 var(--space-2);
+  color: var(--color-accent);
+}
 /* Copy is styled like every other action on purpose: its press feedback (bounce + swap to ✓) is signal enough without an accent tint. */
 .tooltip .actions .icon-btn-primary {
   min-width: 32px;

@@ -18,7 +18,7 @@
 
 ## Failure-mode expectations
 
-- An error result has no Details button: the error row offers only Copy (for partial text), Retry, "Continue in side panel" and Swap.
+- An error result has no Details button: the error row offers only Copy (for partial text), "Try again" and "Continue in side panel".
 
 ## Cautions
 

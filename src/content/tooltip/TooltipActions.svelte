@@ -249,17 +249,17 @@
     {#if showRetry}
       <button
         data-ega-retry
-        class="icon-btn"
-        aria-label="Retry"
+        class="icon-btn icon-btn-labeled"
         data-tooltip={retryBlocked
           ? retryRemainingSec > 0
             ? `Retry in ${retryRemainingSec}s`
             : 'Wait a moment'
-          : 'Retry'}
+          : 'Send it again'}
         disabled={retryBlocked}
         onclick={retry}
       >
         {@render iconRetry()}
+        <span>Try again</span>
       </button>
       {#if retryBlocked && retryRemainingSec > 0}
         <span class="retry-wait" data-ega-retry-wait aria-live="polite"
@@ -274,17 +274,6 @@
         onclick={() => onEscalate?.('continue')}
       >
         Continue in side panel
-      </button>
-    {/if}
-    {#if hasSwap && onSwap}
-      <button
-        class="icon-btn"
-        aria-label="Swap direction"
-        data-tooltip={swapTip}
-        disabled={swapDisabled}
-        onclick={swap}
-      >
-        {@render iconSwap()}
       </button>
     {/if}
   </div>

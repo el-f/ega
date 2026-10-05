@@ -117,7 +117,7 @@ describe('Tooltip smoke', () => {
   // Same gate as the side panel: an error Settings can fix keeps Retry, so the user fixes it, then retries.
   it('AUTH error keeps Retry beside the Open settings CTA', () => {
     const { container } = mountWith({ error: { code: 'AUTH', message: 'bad key' } });
-    expect(container.querySelector('button[aria-label="Retry"]')).toBeTruthy();
+    expect(container.querySelector('button[data-ega-retry]')).toBeTruthy();
     const cta = container.querySelector('[data-ega-tooltip-error-cta]');
     expect(cta).toBeTruthy();
     expect(cta?.textContent).toContain('Open settings');
@@ -125,7 +125,7 @@ describe('Tooltip smoke', () => {
 
   it('QUOTA error keeps Retry too (mirrors the sidepanel gate)', () => {
     const { container } = mountWith({ error: { code: 'QUOTA', message: 'over limit' } });
-    expect(container.querySelector('button[aria-label="Retry"]')).toBeTruthy();
+    expect(container.querySelector('button[data-ega-retry]')).toBeTruthy();
   });
 
   // Terminal, and no Settings tab fixes them: the same request fails the same way.
@@ -133,7 +133,7 @@ describe('Tooltip smoke', () => {
     '%s error with no Settings tab hides Retry',
     (code) => {
       const { container } = mountWith({ error: { code, message: 'it failed' } });
-      expect(container.querySelector('button[aria-label="Retry"]')).toBeNull();
+      expect(container.querySelector('button[data-ega-retry]')).toBeNull();
     },
   );
 
@@ -141,20 +141,20 @@ describe('Tooltip smoke', () => {
     'retryable %s error keeps Retry',
     (code) => {
       const { container } = mountWith({ error: { code, message: 'transient' } });
-      expect(container.querySelector('button[aria-label="Retry"]')).toBeTruthy();
+      expect(container.querySelector('button[data-ega-retry]')).toBeTruthy();
     },
   );
 
   it('ABORTED (user cancel) keeps Retry — re-running is the natural recovery', () => {
     const { container } = mountWith({ error: { code: 'ABORTED', message: 'canceled' } });
-    expect(container.querySelector('button[aria-label="Retry"]')).toBeTruthy();
+    expect(container.querySelector('button[data-ega-retry]')).toBeTruthy();
   });
 
   it('does not show the Open settings CTA on NETWORK error', () => {
     const { container } = mountWith({
       error: { code: 'NETWORK', message: 'offline' },
     });
-    expect(container.querySelector('button[aria-label="Retry"]')).toBeTruthy();
+    expect(container.querySelector('button[data-ega-retry]')).toBeTruthy();
     expect(container.querySelector('[data-ega-tooltip-error-cta]')).toBeNull();
   });
 
@@ -177,7 +177,7 @@ describe('Tooltip smoke', () => {
         ...h,
       },
     });
-    const retry = container.querySelector<HTMLButtonElement>('button[aria-label="Retry"]');
+    const retry = container.querySelector<HTMLButtonElement>('button[data-ega-retry]');
     expect(retry).toBeTruthy();
     expect(retry?.hasAttribute('disabled')).toBe(true);
   });
@@ -439,7 +439,8 @@ describe('Tooltip smoke', () => {
     expect(swap.getAttribute('data-tooltip')).toMatch(/pick a source language first/i);
   });
 
-  it('swap button renders in the error-with-body row too', () => {
+  // Swapping re-sends the same text; it does not fix an error, so the error row offers Try again only.
+  it('swap button is hidden in the error-with-body row', () => {
     const { container } = render(Tooltip, {
       props: {
         tip: baseTip({
@@ -452,10 +453,10 @@ describe('Tooltip smoke', () => {
         ...handlers(),
       },
     });
-    expect(container.querySelector('button[aria-label="Swap direction"]')).toBeTruthy();
+    expect(container.querySelector('button[aria-label="Swap direction"]')).toBeNull();
   });
 
-  it('swap button renders in the error-only row too', () => {
+  it('swap button is hidden in the error-only row', () => {
     const { container } = render(Tooltip, {
       props: {
         tip: baseTip({ body: '', error: { code: 'NETWORK', message: 'offline' } }),
@@ -465,7 +466,7 @@ describe('Tooltip smoke', () => {
         ...handlers(),
       },
     });
-    expect(container.querySelector('button[aria-label="Swap direction"]')).toBeTruthy();
+    expect(container.querySelector('button[aria-label="Swap direction"]')).toBeNull();
   });
 
   // Swap re-sends the selection with the pair flipped, so the hover text names the new pair.
@@ -492,7 +493,7 @@ describe('Tooltip smoke', () => {
     const { container } = mountWith({ body, error: { code: 'NETWORK', message: 'offline' } });
     const retry = container.querySelector('[data-ega-retry]');
     expect(retry).toBeTruthy();
-    expect(retry?.getAttribute('aria-label')).toBe('Retry');
+    expect(retry?.textContent.trim()).toBe('Try again');
   });
 
   it('task select renders inside a .task-row flex wrapper so labels can wrap rather than truncate', () => {
@@ -781,7 +782,7 @@ describe('Continue in side panel — only when there is text to carry', () => {
       error: { code: 'NETWORK', message: 'offline' },
     });
     expect(container.querySelector('button[data-ega-escalate="continue"]')).toBeNull();
-    expect(container.querySelector('button[aria-label="Retry"]')).toBeTruthy();
+    expect(container.querySelector('button[data-ega-retry]')).toBeTruthy();
   });
 
   it('hides Continue when the source text is whitespace only', () => {
