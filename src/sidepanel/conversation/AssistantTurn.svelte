@@ -15,6 +15,7 @@
   import Info from '@lucide/svelte/icons/info';
   import RefreshCw from '@lucide/svelte/icons/refresh-cw';
   import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
+  import CircleAlert from '@lucide/svelte/icons/circle-alert';
   import Star from '@lucide/svelte/icons/star';
   import Trash2 from '@lucide/svelte/icons/trash-2';
   import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
@@ -202,12 +203,12 @@
   );
 
   // A cancel is neutral, so it keeps Retry like the tooltip does; codes outside the policy
-  // table ('unknown') keep it rather than lose it.
+  // table ('unknown') keep it rather than lose it. An error Settings can fix keeps it too: fix, then retry.
   const showRetry = $derived.by(() => {
     if (!canRetry) return false;
     if (turn.error?.code === undefined) return false;
     if (isCancelled) return true;
-    return knownCode === null || isRetryable(knownCode);
+    return knownCode === null || isRetryable(knownCode) || optionsTab !== undefined;
   });
 
   // `article` is not name-from-content, so without a label a j/k-focused reply is announced as a bare "article".
@@ -441,7 +442,9 @@
     {:else}
       {@const parts = errorTurnParts(turn.error)}
       <div class="ega-assistant-error" role="alert">
-        <strong class="ega-error-title">{parts.title}</strong>
+        <strong class="ega-error-title"
+          ><CircleAlert size={14} aria-hidden="true" />{parts.title}</strong
+        >
         {#if parts.body}
           <span class="ega-error-body">{parts.body}</span>
         {/if}
@@ -781,7 +784,9 @@
     line-height: var(--lh-body);
   }
   .ega-error-title {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
     font-weight: 600;
   }
   .ega-error-details {

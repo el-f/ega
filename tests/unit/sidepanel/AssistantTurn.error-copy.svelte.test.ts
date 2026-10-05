@@ -19,6 +19,23 @@ function errorTurn(code: string, message: string): Turn {
 const AUTH_MESSAGE =
   'The backend rejected the API key. Check it in Settings → Backends.\nAnthropic HTTP 401: bad key';
 
+describe('AssistantTurn — an error fixed in Settings can be retried', () => {
+  it('offers Retry beside Open settings for a rejected key, so the fixed key can be tried', () => {
+    const { container } = render(AssistantTurn, {
+      props: { turn: errorTurn('AUTH', AUTH_MESSAGE), onRetry: vi.fn(), canRetry: true },
+    });
+    expect(container.querySelector('.ega-retry-btn')).not.toBeNull();
+    expect(container.querySelector('[data-ega-sidepanel-open-options]')).not.toBeNull();
+  });
+
+  it('puts an alert icon in the error heading', () => {
+    const { container } = render(AssistantTurn, {
+      props: { turn: errorTurn('AUTH', AUTH_MESSAGE), onRetry: vi.fn() },
+    });
+    expect(container.querySelector('.ega-error-title svg')).not.toBeNull();
+  });
+});
+
 describe('AssistantTurn — a failed turn reads as heading, body, details', () => {
   it('puts the label in the heading, the advice in the body, and the HTTP fragment behind Details', () => {
     const { container } = render(AssistantTurn, {

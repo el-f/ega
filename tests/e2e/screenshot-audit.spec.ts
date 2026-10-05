@@ -597,7 +597,7 @@ test('Sidepanel — empty + streaming + multi-turn + refine + error + popover + 
   // No `.catch()` here — silencing this lets a success-state capture ship under the error-state name.
   await spErr.locator('.ega-assistant-error').waitFor({ state: 'visible', timeout: 10_000 });
   await spErr.waitForTimeout(300); // wait for error block CSS entrance animation (no observable end state)
-  await expect(spErr.locator('.ega-retry-btn')).toHaveCount(0);
+  await expect(spErr.locator('.ega-retry-btn')).toBeVisible();
   await expect(spErr.locator('[data-ega-sidepanel-open-options]')).toBeVisible();
   await shot(spErr, 'sidepanel-error-state', {
     surface: 'sidepanel',
@@ -606,8 +606,7 @@ test('Sidepanel — empty + streaming + multi-turn + refine + error + popover + 
     userAction: 'user submitted a turn; backend returned 401 — assistant turn shows error',
     expectations: [
       'inline error block visible inside the assistant turn',
-      'NO Retry button — AUTH is terminal, retrying the same key cannot succeed',
-      '"Open settings" action reachable instead',
+      'Retry beside "Open settings": fix the key, then retry',
       'error tone token applied (danger family)',
     ],
   });
@@ -2035,7 +2034,7 @@ test('Sidepanel — retry after error', async () => {
     cacheEnabled: false,
     disabledBackends: ['native'],
   });
-  // 503, not 401: AUTH is terminal and shows "Open settings" instead of a Retry button.
+  // 503, not 401: a retryable error, so this capture shows Retry without the Settings link.
   await resetRoutes(ext.context);
   await ext.context.route(
     'https://api.anthropic.com/v1/messages',

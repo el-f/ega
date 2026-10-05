@@ -96,7 +96,8 @@ describe('AssistantTurn.svelte', () => {
     }
   });
 
-  it('hides Retry on NON-retryable error codes (AUTH / QUOTA / NATIVE_*)', () => {
+  // Retrying the same request cannot succeed, but each of these is fixed in Settings → Backends, after which Retry works.
+  it('keeps Retry on terminal codes Settings can fix (AUTH / QUOTA / NATIVE_*)', () => {
     for (const code of ['AUTH', 'QUOTA', 'NATIVE_NOT_INSTALLED', 'NATIVE_SPAWN_FAIL'] as const) {
       const turn: Turn = {
         createdAt: 1,
@@ -110,7 +111,8 @@ describe('AssistantTurn.svelte', () => {
       const { container, unmount } = render(AssistantTurn, {
         props: { turn, onRetry: vi.fn(), canRetry: true },
       });
-      expect(container.querySelector('.ega-retry-btn')).toBeNull();
+      expect(container.querySelector('.ega-retry-btn')).not.toBeNull();
+      expect(container.querySelector('[data-ega-sidepanel-open-options]')).not.toBeNull();
       unmount();
     }
   });
