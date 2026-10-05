@@ -61,6 +61,8 @@ describe('InputRow — text past the cap is stopped in the composer, not cut in 
     const nearCount = near.container.querySelector('.ega-char-count');
     expect(nearCount?.textContent).toBe(`1700/${MAX_SELECTION_CHARS}`);
     expect(nearCount?.classList.contains('over')).toBe(false);
+    // Next to Send, so Attach and Dictate stay where they were when the count appears.
+    expect(nearCount?.nextElementSibling?.classList.contains('ega-send')).toBe(true);
     near.unmount();
 
     const over = render(InputRow, {

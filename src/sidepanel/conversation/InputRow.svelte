@@ -421,12 +421,6 @@
       onpaste={handlePaste}></textarea>
 
     <div class="ega-send-row">
-      {#if nearCap}
-        <!-- A blocked Send is not focusable, so the count is what a screen reader gets. -->
-        <span class="ega-char-count" class:over={overCap} aria-live="polite"
-          >{value.length}/{MAX_SELECTION_CHARS}</span
-        >
-      {/if}
       <IconButton
         icon={Paperclip}
         ariaLabel="Attach image"
@@ -447,6 +441,12 @@
         >
           {#if recognizing}<StopCircle size={16} />{:else}<Mic size={16} />{/if}
         </button>
+      {/if}
+      {#if nearCap}
+        <!-- A blocked Send is not focusable, so the count is what a screen reader gets. -->
+        <span class="ega-char-count" class:over={overCap} aria-live="polite"
+          >{value.length}/{MAX_SELECTION_CHARS}</span
+        >
       {/if}
       <!-- One element across the swap: with two buttons, activating Send would unmount the focused node. -->
       <button
