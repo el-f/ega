@@ -53,13 +53,15 @@ describe('SidePanel — j moves the real focus, not only a ring', () => {
   });
 });
 
-describe('a disabled swap button says why in its label', () => {
+describe('a blocked swap button says why in its label', () => {
   it('the composer swap carries the reason', async () => {
     const { container } = render(SidePanel);
     await tick();
     const swap = container.querySelector<HTMLButtonElement>('.ega-lang-pair .swap');
     if (!swap) throw new Error('composer swap not found');
-    expect(swap.disabled).toBe(true);
+    // aria-disabled keeps it a tab stop, so the label is reachable from the keyboard.
+    expect(swap.disabled).toBe(false);
+    expect(swap.getAttribute('aria-disabled')).toBe('true');
     expect(swap.getAttribute('aria-label')).toContain('source language');
   });
 
