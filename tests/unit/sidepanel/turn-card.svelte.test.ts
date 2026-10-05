@@ -163,7 +163,7 @@ describe('the re-run controls say what they do', () => {
       },
     });
     const swap = container.querySelector<HTMLButtonElement>('[data-ega-swap]');
-    expect(swap?.disabled).toBe(true);
+    expect(swap?.getAttribute('aria-disabled')).toBe('true');
     expect(swap?.getAttribute('data-tooltip')).toBe('Images have no source language to swap');
   });
 

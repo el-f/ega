@@ -36,6 +36,14 @@ describe('AssistantTurn — per-turn actions', () => {
     expect(onRegenerate).toHaveBeenCalledWith('a1');
   });
 
+  it('hides regenerate while another reply runs, instead of a disabled button with a hidden reason', () => {
+    const { container } = render(AssistantTurn, {
+      props: { turn: doneTurn(), onRetry: vi.fn(), canRetry: true, inflight: true },
+    });
+    expect(container.querySelector('[data-ega-regenerate]')).toBeNull();
+    expect(container.querySelector('.ega-turn-actions button:disabled')).toBeNull();
+  });
+
   it('omits regenerate button when canRetry=false', () => {
     const { container } = render(AssistantTurn, {
       props: { turn: doneTurn(), onRetry: vi.fn(), canRetry: false },

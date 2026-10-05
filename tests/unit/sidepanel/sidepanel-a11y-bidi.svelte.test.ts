@@ -85,7 +85,7 @@ describe('a blocked swap button says why in its label', () => {
     });
     const swap = container.querySelector<HTMLButtonElement>('[data-ega-swap]');
     if (!swap) throw new Error('turn swap not found');
-    expect(swap.disabled).toBe(true);
+    expect(swap.getAttribute('aria-disabled')).toBe('true');
     expect(swap.getAttribute('aria-label')).toContain('source language');
   });
 });

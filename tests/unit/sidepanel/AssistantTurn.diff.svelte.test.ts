@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render } from '@testing-library/svelte';
 import AssistantTurn from '@/sidepanel/conversation/AssistantTurn.svelte';
 import type { AssistantTurnData } from '@/sidepanel/state/conversation';
+import { checkedTask } from './_task-menu';
 
 const baseTurn = (overrides: Partial<AssistantTurnData> = {}): AssistantTurnData => ({
   id: 'a1',
@@ -105,8 +106,8 @@ describe('AssistantTurn — word-diff on variant supersede', () => {
   });
 });
 
-describe('AssistantTurn — task-switch select value', () => {
-  it('select reflects turn kind when task is valid', () => {
+describe('AssistantTurn — Try as menu checked task', () => {
+  it('checks the turn kind when the task is valid', async () => {
     const turn = baseTurn({ kind: 'summarize' });
     const { container } = render(AssistantTurn, {
       props: {
@@ -117,12 +118,10 @@ describe('AssistantTurn — task-switch select value', () => {
         onTaskSwitch: vi.fn(),
       },
     });
-    const sel = container.querySelector('[data-ega-task-switch]') as HTMLSelectElement | null;
-    expect(sel).not.toBeNull();
-    expect(sel?.value).toBe('summarize');
+    expect(await checkedTask(container)).toBe('summarize');
   });
 
-  it('select defaults to translate for non-Task turn kinds', () => {
+  it('checks translate for non-Task turn kinds', async () => {
     const turn = baseTurn({ kind: 'image-translate' });
     const { container } = render(AssistantTurn, {
       props: {
@@ -133,9 +132,7 @@ describe('AssistantTurn — task-switch select value', () => {
         onTaskSwitch: vi.fn(),
       },
     });
-    const sel = container.querySelector('[data-ega-task-switch]') as HTMLSelectElement | null;
-    expect(sel).not.toBeNull();
-    expect(sel?.value).toBe('translate');
+    expect(await checkedTask(container)).toBe('translate');
   });
 });
 

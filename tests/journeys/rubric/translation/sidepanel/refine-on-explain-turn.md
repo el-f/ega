@@ -13,7 +13,7 @@
 ## Visible affordances
 
 - Chips render for explain turns — the same fixed set as translate turns.
-- The variant keeps task=explain — the streaming label reads "Explaining…" and the "Re-run as" picker still shows Explain.
+- The variant keeps task=explain — the streaming label reads "Explaining…" and the "Try as…" menu still shows Explain checked.
 
 ## Failure-mode expectations
 

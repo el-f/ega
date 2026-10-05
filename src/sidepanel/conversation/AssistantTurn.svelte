@@ -9,7 +9,7 @@
   import { formatDetectedLabel } from '@/shared/detected-label';
   import { langTag, replyLang } from '@/shared/lang-tag';
   import IconButton from '@/shared/ui/IconButton.svelte';
-  import Select from '@/shared/ui/Select.svelte';
+  import { DropdownMenu } from 'bits-ui';
   import { backendLabel } from '@/shared/backends/provider-profiles';
   import Copy from '@lucide/svelte/icons/copy';
   import Check from '@lucide/svelte/icons/check';
@@ -22,6 +22,7 @@
   import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
   import ChevronLeft from '@lucide/svelte/icons/chevron-left';
   import ChevronRight from '@lucide/svelte/icons/chevron-right';
+  import ChevronDown from '@lucide/svelte/icons/chevron-down';
   import ArrowLeftRight from '@lucide/svelte/icons/arrow-left-right';
   import Volume2 from '@lucide/svelte/icons/volume-2';
   import Square from '@lucide/svelte/icons/square';
@@ -88,7 +89,7 @@
     inflight?: boolean;
     /** Enabled varieties — labels the language chip on a language-change variant. */
     varieties?: readonly Variety[];
-    /** Every task, on or off. Re-run offers the ones that are on; the turn's own task, when off or deleted, shows disabled. */
+    /** Every task, on or off. Try as offers the ones that are on; the turn's own task, when off or deleted, shows disabled. */
     taskViews?: readonly TaskView[] | undefined;
     /** True when the paired user turn carries an image, whatever kind the send used. */
     hasImage?: boolean;
@@ -200,15 +201,27 @@
   const isCancelled = $derived(isCancelledError(turn.error?.code));
 
   // canSwap() folds inflight and an 'auto' source into one boolean, so the reason comes from `inflight`.
-  const swapHint = $derived(
+  const swapReason = $derived(
     inflight
-      ? 'Wait for this reply to finish'
+      ? 'wait for this reply to finish'
       : hasImage
-        ? 'Images have no source language to swap'
+        ? 'images have no source language to swap'
         : swapDisabled
-          ? 'No source language to swap from yet'
-          : 'Swap languages and re-run',
+          ? 'no source language to swap from yet'
+          : undefined,
   );
+  const swapBlocked = $derived(swapReason !== undefined);
+  const swapTooltip = $derived(
+    swapReason === undefined
+      ? 'Swap languages and re-run'
+      : swapReason.charAt(0).toUpperCase() + swapReason.slice(1),
+  );
+  // The name starts with the visible "Swap", and a blocked button says why, since aria-disabled keeps it focusable.
+  const swapLabel = $derived(
+    swapReason === undefined ? 'Swap languages and re-run' : `Swap languages — ${swapReason}`,
+  );
+  // Bound through a setter, so a busy reply cannot open the menu: bits writes its own open before onOpenChange runs.
+  let taskMenuOpen = $state(false);
 
   const knownCode = $derived.by<ErrCode | null>(() => {
     const code = turn.error?.code;
@@ -584,12 +597,12 @@
             onclick={() => void toggleSpeech()}
           />
         {/if}
-        {#if canRetry}
+        <!-- Hidden, not disabled, while another reply runs: a disabled button cannot take focus, so its reason was hover-only. -->
+        {#if canRetry && !inflight}
           <IconButton
             icon={RefreshCw}
-            ariaLabel={inflight ? 'Regenerate when this reply finishes' : 'Regenerate'}
+            ariaLabel="Regenerate"
             size="sm"
-            disabled={inflight}
             dataAttrs={{
               'data-ega-regenerate': 'true',
               'data-ega-action': 'regenerate',
@@ -721,7 +734,7 @@
       {#if activeVariant?.task !== undefined}
         <span
           class="ega-refinement-chip ega-task-chip"
-          data-tooltip={`Re-run as ${taskLabel(taskViews, activeVariant.task)}`}
+          data-tooltip={`Answered as ${taskLabel(taskViews, activeVariant.task)}`}
           data-tooltip-placement="top"
         >
           {taskLabel(taskViews, activeVariant.task)}
@@ -733,37 +746,60 @@
     {/if}
     {#if isLatest && turn.status === 'done' && onSwap && canRetry}
       <div class="ega-variant-actions">
+        <!-- aria-disabled, not disabled: a disabled button cannot take focus, so its reason would be hover-only. -->
         <button
           type="button"
-          class="ega-variant-action-btn"
+          class="ega-variant-action-btn ega-swap-btn"
           data-ega-swap
-          aria-label={swapHint}
-          data-tooltip={swapHint}
+          aria-label={swapLabel}
+          aria-disabled={swapBlocked}
+          data-tooltip={swapTooltip}
           data-tooltip-placement="top"
-          disabled={swapDisabled || hasImage || inflight}
-          onclick={() => onSwap(turn.id)}
+          onclick={() => {
+            if (!swapBlocked) onSwap(turn.id);
+          }}
         >
-          <ArrowLeftRight size={14} />
+          <ArrowLeftRight size={14} aria-hidden="true" /><span>Swap</span>
         </button>
         {#if onTaskSwitch}
-          <!-- A native select draws no ::after, so the busy reason sits on a wrapper. -->
-          <span
-            class="ega-task-switch-wrap"
-            data-tooltip={inflight ? 'Wait for this reply to finish' : ''}
-            data-tooltip-placement="top"
-          >
-            <label class="ega-task-switch-label" for={`ega-task-switch-${turn.id}`}>Re-run as</label
+          <!-- A menu, not a select: Chrome commits a select on every arrow key, and each commit is a paid re-run. -->
+          <DropdownMenu.Root bind:open={() => taskMenuOpen, (v) => (taskMenuOpen = v && !inflight)}>
+            <DropdownMenu.Trigger
+              class="ega-variant-action-btn ega-task-trigger"
+              data-ega-task-switch
+              aria-disabled={inflight}
+              aria-label={inflight ? 'Try as… — wait for this reply to finish' : undefined}
+              data-tooltip={inflight ? 'Wait for this reply to finish' : ''}
+              data-tooltip-placement="top"
             >
-            <Select
-              id={`ega-task-switch-${turn.id}`}
-              value={currentTaskValue}
-              options={taskOptions.map((o) => ({ value: o.id, label: o.label, disabled: o.off }))}
-              size="sm"
-              selectClass="ega-task-switch"
-              selectAttrs={{ 'data-ega-task-switch': true, disabled: inflight }}
-              onchange={(v) => onTaskSwitch(turn.id, v)}
-            />
-          </span>
+              Try as…<ChevronDown size={12} aria-hidden="true" />
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Portal>
+              <DropdownMenu.Content class="sp-menu" align="start" sideOffset={6}>
+                <!-- Arrow keys only move the highlight; picking the task that already answered re-runs nothing. -->
+                <DropdownMenu.RadioGroup
+                  value={currentTaskValue}
+                  onValueChange={(v) => {
+                    if (v !== currentTaskValue) onTaskSwitch(turn.id, v as TaskId);
+                  }}
+                >
+                  {#each taskOptions as o (o.id)}
+                    <DropdownMenu.RadioItem
+                      class="sp-menu-item"
+                      value={o.id}
+                      disabled={o.off}
+                      data-ega-task-switch-item={o.id}
+                    >
+                      {#snippet children({ checked })}
+                        <span class="sp-menu-label">{o.label}</span>
+                        {#if checked}<Check size={16} aria-hidden="true" />{/if}
+                      {/snippet}
+                    </DropdownMenu.RadioItem>
+                  {/each}
+                </DropdownMenu.RadioGroup>
+              </DropdownMenu.Content>
+            </DropdownMenu.Portal>
+          </DropdownMenu.Root>
         {/if}
       </div>
     {/if}
@@ -841,15 +877,6 @@
     text-transform: uppercase;
     letter-spacing: 0.04em;
     margin-bottom: var(--space-1);
-  }
-  .ega-task-switch-wrap {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-2);
-  }
-  .ega-task-switch-label {
-    font-size: var(--fs-xs);
-    color: var(--color-muted);
   }
   .ega-assistant-explain {
     padding: var(--space-2);
@@ -1124,30 +1151,32 @@
     padding-top: var(--space-2);
     border-top: 1px solid var(--color-border-subtle);
   }
-  .ega-variant-action-btn {
+  /* :global — the Try as trigger is bits-ui's button, outside this component's scope hash. */
+  .ega-variant-actions :global(.ega-variant-action-btn) {
     box-sizing: border-box;
     min-width: 24px;
     min-height: 24px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 2px;
+    gap: 4px;
+    padding: 2px 6px;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
     background: transparent;
     color: var(--color-fg);
+    font-size: var(--fs-xs);
+    line-height: 1;
     cursor: pointer;
-    line-height: 0;
   }
-  .ega-variant-action-btn:hover:not(:disabled) {
+  .ega-variant-actions :global(.ega-variant-action-btn:hover:not([aria-disabled='true'])) {
     background: var(--color-bg-sunken);
   }
-  .ega-variant-action-btn:disabled {
-    opacity: 0.35;
-    cursor: default;
-  }
-  /* The select is the shared Select's; this keeps it at the row's small size. */
-  .ega-task-switch-wrap :global(select.ega-select.ega-task-switch) {
-    font-size: var(--fs-xs);
+  /* The composer swap's disabled look, so both swap buttons read the same. */
+  .ega-variant-actions :global(.ega-variant-action-btn[aria-disabled='true']) {
+    background: var(--color-bg-disabled);
+    color: var(--color-fg-disabled);
+    border-color: var(--color-border-disabled);
+    cursor: var(--cursor-disabled);
   }
 </style>

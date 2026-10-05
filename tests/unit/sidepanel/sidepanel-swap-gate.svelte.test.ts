@@ -106,7 +106,7 @@ describe('SidePanel — the swap button mirrors what swapVariant can do', () => 
     await setSourceLang(container, 'es');
 
     // The turn went out with sourceLang 'auto', so swapVariant cannot replay it.
-    expect(swapButton(container).disabled).toBe(true);
+    expect(swapButton(container).getAttribute('aria-disabled') === 'true').toBe(true);
   });
 
   it('is live on a thread restored from storage, because the turn carries its dispatch', async () => {
@@ -118,7 +118,7 @@ describe('SidePanel — the swap button mirrors what swapVariant can do', () => 
 
     await setSourceLang(container, 'es');
 
-    expect(swapButton(container).disabled).toBe(false);
+    expect(swapButton(container).getAttribute('aria-disabled') === 'true').toBe(false);
   });
 
   it('stays enabled when the picker moves to auto after a variety-source send', async () => {
@@ -129,7 +129,7 @@ describe('SidePanel — the swap button mirrors what swapVariant can do', () => 
     expect(startCalls().at(-1)?.['sourceLang']).toBe('es');
 
     await setSourceLang(container, 'auto');
-    expect(swapButton(container).disabled).toBe(false);
+    expect(swapButton(container).getAttribute('aria-disabled') === 'true').toBe(false);
 
     const before = startCalls().length;
     await fireEvent.click(swapButton(container));

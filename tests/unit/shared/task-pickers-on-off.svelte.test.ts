@@ -10,6 +10,7 @@ import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import type { Turn } from '@/sidepanel/state/conversation';
 import type { Settings } from '@/shared/types';
 import { SHIPPED_TASK_VIEWS, type TaskView } from '@/shared/task-view';
+import { openTaskMenu, taskMenuItems } from '../sidepanel/_task-menu';
 
 const onlyOn = (ids: readonly string[]): TaskView[] =>
   SHIPPED_TASK_VIEWS.map((v) => ({ ...v, disabled: !ids.includes(v.id) }));
@@ -82,7 +83,7 @@ describe('tooltip', () => {
   });
 });
 
-describe('Re-run as', () => {
+describe('Try as', () => {
   const turn: Turn = {
     id: 'a1',
     role: 'assistant',
@@ -92,7 +93,7 @@ describe('Re-run as', () => {
     content: 'short',
   };
 
-  it('offers on tasks; the turn own task, when off, stays as a disabled option', () => {
+  it('offers on tasks; the turn own task, when off, stays as a disabled item', async () => {
     const { container } = render(AssistantTurn, {
       props: {
         turn,
@@ -104,7 +105,8 @@ describe('Re-run as', () => {
         taskViews: onlyOn(['translate', 'grammar']),
       },
     });
-    expect(options(container.querySelector('[data-ega-task-switch]'))).toEqual([
+    await openTaskMenu(container);
+    expect(taskMenuItems()).toEqual([
       ['translate', false],
       ['summarize', true],
       ['grammar', false],

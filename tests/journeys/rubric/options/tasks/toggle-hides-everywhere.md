@@ -8,7 +8,7 @@
 
 - Step 1 (uncheck Reword): `disabledTasks` becomes ["reword"] and the row shows "Off".
 - Step 2: a side panel opened after that has no Reword chip in the task strip.
-- Step 3: after one translation, the Re-run select lists no Reword option.
+- Step 3: after one translation, the "Try as…" menu lists no Reword item. Arrowing through that menu starts no re-run, and Escape puts focus back on its button.
 - Step 4: the command palette lists no "Switch task: Reword".
 - Step 5: the tooltip's task select lists every built-in except Reword.
 

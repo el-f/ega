@@ -43,7 +43,7 @@ describe('AssistantTurn — context preview, labels and tooltips', () => {
     expect(await openedPreview(container)).not.toBeNull();
   });
 
-  it('task-switch select carries a visible label, because a select never shows a tooltip', () => {
+  it('the task menu trigger says what it does in visible text, and has no idle tooltip', () => {
     const { container } = render(AssistantTurn, {
       props: {
         turn: baseTurn(),
@@ -53,13 +53,11 @@ describe('AssistantTurn — context preview, labels and tooltips', () => {
         onTaskSwitch: vi.fn(),
       },
     });
-    const select = container.querySelector('[data-ega-task-switch]');
-    // The busy reason lives on a wrapper, empty while idle: the global [data-tooltip] rule
-    // ignores an empty value, and the visible <label> is the name.
-    expect(select?.hasAttribute('data-tooltip')).toBe(false);
-    expect(select?.closest('[data-tooltip]')?.getAttribute('data-tooltip')).toBe('');
-    const label = container.querySelector(`label[for="${select?.getAttribute('id') ?? ''}"]`);
-    expect(label?.textContent.trim()).toBe('Re-run as');
+    const trigger = container.querySelector('[data-ega-task-switch]');
+    // The global [data-tooltip] rule ignores an empty value, and the visible text is the name.
+    expect(trigger?.getAttribute('data-tooltip')).toBe('');
+    expect(trigger?.getAttribute('aria-label')).toBeNull();
+    expect(trigger?.textContent.trim()).toBe('Try as…');
   });
 
   it('timestamp uses data-tooltip (not native title)', () => {

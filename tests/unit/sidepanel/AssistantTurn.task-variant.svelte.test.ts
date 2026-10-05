@@ -2,6 +2,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render } from '@testing-library/svelte';
 import AssistantTurn from '@/sidepanel/conversation/AssistantTurn.svelte';
+import { checkedTask, openTaskMenu, taskMenuItems } from './_task-menu';
 import type { AssistantTurnData } from '@/sidepanel/state/conversation';
 
 const singleTurn = (overrides: Partial<AssistantTurnData> = {}): AssistantTurnData => ({
@@ -35,6 +36,10 @@ describe('AssistantTurn — a task-switch variant says which task answered', () 
       props: { turn: turnWithVariants(), onRetry: vi.fn(), isLatest: true },
     });
     expect(container.querySelector('.ega-task-chip')?.textContent.trim()).toBe('Explain');
+    // It states what answered, like the language chip; "Re-run as" read as a control.
+    expect(container.querySelector('.ega-task-chip')?.getAttribute('data-tooltip')).toBe(
+      'Answered as Explain',
+    );
   });
 
   it('drops the chip when the original variant is active again', () => {
@@ -66,7 +71,7 @@ describe('AssistantTurn — a task-switch variant says which task answered', () 
     );
   });
 
-  it('the task select shows the variant task', () => {
+  it('the Try as menu shows the variant task checked', async () => {
     const { container } = render(AssistantTurn, {
       props: {
         turn: turnWithVariants(),
@@ -76,13 +81,12 @@ describe('AssistantTurn — a task-switch variant says which task answered', () 
         onTaskSwitch: vi.fn(),
       },
     });
-    const select = container.querySelector<HTMLSelectElement>('[data-ega-task-switch]');
-    expect(select?.value).toBe('explain');
+    expect(await checkedTask(container)).toBe('explain');
   });
 });
 
 describe('AssistantTurn — image turns only offer the tasks that reach the vision model', () => {
-  it('offers translate and explain only', () => {
+  it('offers translate and explain only', async () => {
     const { container } = render(AssistantTurn, {
       props: {
         turn: singleTurn({ kind: 'image-translate' }),
@@ -92,13 +96,12 @@ describe('AssistantTurn — image turns only offer the tasks that reach the visi
         onTaskSwitch: vi.fn(),
       },
     });
-    const values = [...container.querySelectorAll('[data-ega-task-switch] option')].map(
-      (o) => (o as HTMLOptionElement).value,
-    );
+    await openTaskMenu(container);
+    const values = taskMenuItems().map(([id]) => id);
     expect(values).toEqual(['translate', 'explain']);
   });
 
-  it('restricts an Explain turn whose paired user turn carried an image', () => {
+  it('restricts an Explain turn whose paired user turn carried an image', async () => {
     // The assistant turn's own kind is 'explain'; the stream tells it about the image.
     const { container } = render(AssistantTurn, {
       props: {
@@ -110,13 +113,12 @@ describe('AssistantTurn — image turns only offer the tasks that reach the visi
         onTaskSwitch: vi.fn(),
       },
     });
-    const values = [...container.querySelectorAll('[data-ega-task-switch] option')].map(
-      (o) => (o as HTMLOptionElement).value,
-    );
+    await openTaskMenu(container);
+    const values = taskMenuItems().map(([id]) => id);
     expect(values).toEqual(['translate', 'explain']);
   });
 
-  it('still offers every task on a text turn', () => {
+  it('still offers every task on a text turn', async () => {
     const { container } = render(AssistantTurn, {
       props: {
         turn: singleTurn(),
@@ -126,9 +128,8 @@ describe('AssistantTurn — image turns only offer the tasks that reach the visi
         onTaskSwitch: vi.fn(),
       },
     });
-    const values = [...container.querySelectorAll('[data-ega-task-switch] option')].map(
-      (o) => (o as HTMLOptionElement).value,
-    );
+    await openTaskMenu(container);
+    const values = taskMenuItems().map(([id]) => id);
     expect(values.length).toBeGreaterThan(2);
     expect(values).toContain('summarize');
   });

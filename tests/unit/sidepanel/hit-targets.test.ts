@@ -11,7 +11,10 @@ const rule = (src: string, selector: string): string => {
 
 const TARGETS: [string, string][] = [
   ['src/sidepanel/conversation/AssistantTurn.svelte', '\\.ega-variant-btn'],
-  ['src/sidepanel/conversation/AssistantTurn.svelte', '\\.ega-variant-action-btn'],
+  [
+    'src/sidepanel/conversation/AssistantTurn.svelte',
+    '\\.ega-variant-actions :global\\(\\.ega-variant-action-btn\\)',
+  ],
   ['src/sidepanel/SidePanel.svelte', '\\.sp-search-clear'],
   ['src/sidepanel/SidePanel.svelte', '\\.sp-editing-cancel'],
 ];

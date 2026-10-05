@@ -27,7 +27,7 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-test('turning Reword off hides it in the chip strip, palette, Re-run and tooltip', async () => {
+test('turning Reword off hides it in the chip strip, palette, Try as and tooltip', async () => {
   const timeline = createTimeline();
   mockAnthropic(ext.context, { translation: 'Hello', confidence: 0.9 });
 
@@ -56,12 +56,30 @@ test('turning Reword off hides it in the chip strip, palette, Re-run and tooltip
   await panel.getByRole('button', { name: /^Translate$/ }).click();
   const rerun = panel.locator('[data-ega-task-switch]');
   await expect(rerun).toBeVisible({ timeout: 10_000 });
-  const rerunValues = await rerun
-    .locator('option')
-    .evaluateAll((os) => os.map((o) => (o as HTMLOptionElement).value));
+  await rerun.click();
+  const items = panel.locator('[data-ega-task-switch-item]');
+  await expect(items.first()).toBeVisible();
+  const rerunValues = await items.evaluateAll((os) =>
+    os.map((o) => o.getAttribute('data-ega-task-switch-item')),
+  );
   expect(rerunValues).toContain('summarize');
   expect(rerunValues).not.toContain('reword');
+  await panel.keyboard.press('Escape');
+  await expect(items).toHaveCount(0);
   timeline.markStep('rerun');
+
+  // Arrowing through the menu only moves the highlight: no re-run starts, and Escape returns focus.
+  await rerun.focus();
+  await panel.keyboard.press('Enter');
+  await expect(items.first()).toBeVisible();
+  await panel.keyboard.press('ArrowDown');
+  await panel.keyboard.press('ArrowDown');
+  await panel.keyboard.press('Escape');
+  await expect(items).toHaveCount(0);
+  await expect(rerun).toBeFocused();
+  await expect(panel.locator('[data-ega-variant-nav]')).toHaveCount(0);
+  await expect(panel.locator('.ega-assistant-turn')).toHaveCount(1);
+  timeline.markStep('rerun-keyboard');
 
   await panel.keyboard.press(process.platform === 'darwin' ? 'Meta+k' : 'Control+k');
   const input = panel.getByRole('combobox', { name: 'Command palette' });

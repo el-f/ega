@@ -12,6 +12,7 @@ import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import type { CustomTask } from '@/shared/settings-schema';
 import type { Settings } from '@/shared/types';
 import { sel } from '@tests/_helpers/lang';
+import { openTaskMenu } from './_task-menu';
 import {
   cachedCustomTasks,
   ensureCustomTasks,
@@ -80,25 +81,30 @@ describe('a custom-task turn', () => {
     expect(exportMarkdown([userTurn], builtInsOnly)).toContain('**You (Deleted task):**');
   });
 
-  it('Re-run lists the custom task, and a deleted one only as a disabled option', () => {
-    const select = (taskViews: TaskView[]) =>
-      [
-        ...(render(AssistantTurn, {
-          props: {
-            turn: assistantTurn,
-            isLatest: true,
-            onRetry: vi.fn(),
-            onTaskSwitch: vi.fn(),
-            onSwap: vi.fn(),
-            canRetry: true,
-            taskViews,
-          },
-        })
-          .container.querySelector('[data-ega-task-switch]')
-          ?.querySelectorAll('option') ?? []),
-      ].map((o) => [o.value, o.textContent.trim(), o.disabled]);
-    expect(select(views)).toContainEqual(['c-tweet', 'Tweet summary', false]);
-    const gone = select(materializeTasks({ ...DEFAULT_SETTINGS } as Settings, []));
+  it('Try as lists the custom task, and a deleted one only as a disabled item', async () => {
+    const select = async (taskViews: TaskView[]) => {
+      const r = render(AssistantTurn, {
+        props: {
+          turn: assistantTurn,
+          isLatest: true,
+          onRetry: vi.fn(),
+          onTaskSwitch: vi.fn(),
+          onSwap: vi.fn(),
+          canRetry: true,
+          taskViews,
+        },
+      });
+      await openTaskMenu(r.container);
+      const items = [...document.querySelectorAll('[data-ega-task-switch-item]')].map((o) => [
+        o.getAttribute('data-ega-task-switch-item'),
+        o.textContent.trim(),
+        o.getAttribute('aria-disabled') === 'true',
+      ]);
+      r.unmount();
+      return items;
+    };
+    expect(await select(views)).toContainEqual(['c-tweet', 'Tweet summary', false]);
+    const gone = await select(materializeTasks({ ...DEFAULT_SETTINGS } as Settings, []));
     expect(gone).toContainEqual(['c-tweet', 'Deleted task', true]);
   });
 

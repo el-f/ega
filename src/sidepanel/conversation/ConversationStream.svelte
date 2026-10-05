@@ -71,7 +71,7 @@
     inflight?: boolean;
     /** Enabled varieties — labels the language chip on a language-change variant. */
     varieties?: readonly Variety[];
-    /** Every task, on or off: names custom tasks and fills Re-run. */
+    /** Every task, on or off: names custom tasks and fills Try as. */
     taskViews?: readonly TaskView[] | undefined;
     /** False when no backend is ready; null while the check runs. Drives the first-run CTA. */
     backendReady?: boolean | null;
