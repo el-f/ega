@@ -46,7 +46,10 @@ export function pageSettleMessage(
   failed: number,
   stopped = 0,
 ): string {
-  if (stopped > 0) return `Stopped. Translated ${done - failed} of ${total + stopped}.`;
+  if (stopped > 0) {
+    const kept = `Stopped. Translated ${done - failed} of ${total + stopped}.`;
+    return failed > 0 ? `${kept} ${failed} failed.` : kept;
+  }
   if (failed === 0) return 'Page translated.';
   return `Translated ${done - failed} of ${total}. ${failed} failed.`;
 }

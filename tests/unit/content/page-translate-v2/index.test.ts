@@ -637,6 +637,11 @@ describe('pageSettleMessage', () => {
   it('counts failures', () => {
     expect(pageSettleMessage(4, 4, 1)).toBe('Translated 3 of 4. 1 failed.');
   });
+
+  it('a stop names the kept areas and the failed ones', () => {
+    expect(pageSettleMessage(2, 2, 0, 3)).toBe('Stopped. Translated 2 of 5.');
+    expect(pageSettleMessage(3, 3, 1, 2)).toBe('Stopped. Translated 2 of 5. 1 failed.');
+  });
 });
 
 describe('page-translate-v2 — a dispatch that never reached the worker', () => {

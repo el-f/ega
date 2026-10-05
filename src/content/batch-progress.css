@@ -52,6 +52,10 @@
 .ega-batch-progress .bar-fill[data-tone='failed'] {
   background: var(--color-danger);
 }
+/* Stopped is the user's own choice, not progress and not an error. */
+.ega-batch-progress .bar-fill[data-tone='stopped'] {
+  background: var(--color-muted);
+}
 @media (prefers-reduced-motion: reduce) {
   .ega-batch-progress .bar-fill {
     transition: none;
@@ -78,8 +82,10 @@
 .ega-batch-progress .retry-failed {
   color: var(--color-danger-fg);
 }
+/* Hidden but still laid out: the row keeps its shape when the button appears. */
 .ega-batch-progress .retry-failed[hidden] {
-  display: none;
+  display: inline-block;
+  visibility: hidden;
 }
 .ega-batch-progress .cancel:hover,
 .ega-batch-progress .undo:hover,
@@ -93,7 +99,7 @@
   outline-offset: 2px;
 }
 .ega-batch-progress .close[data-ready='false'] {
-  display: none;
+  visibility: hidden;
 }
 .ega-batch-progress .close {
   background: transparent;

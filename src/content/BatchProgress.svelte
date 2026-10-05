@@ -48,6 +48,8 @@
     <div class="bar-fill" data-ega-batch-bar-fill style:width="{progressPercent}%"></div>
   </div>
   <div class="actions">
+    <!-- Retry failed and Hide are always mounted and only hidden, so the row never shifts; Retry sits first so its empty slot joins the space on the left. -->
+    <button type="button" class="retry-failed" hidden onclick={onRetryFailed}>Retry failed</button>
     <button
       type="button"
       class="cancel"
@@ -57,8 +59,6 @@
     >
       Stop
     </button>
-    <!-- The buttons below are always mounted and only hidden: a late one would shift the row. -->
-    <button type="button" class="retry-failed" hidden onclick={onRetryFailed}>Retry failed</button>
     <button
       type="button"
       class="undo"

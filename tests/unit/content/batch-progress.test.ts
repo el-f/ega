@@ -9,6 +9,22 @@ function shadowQuery(selector: string): Element | null {
   return root?.querySelector(selector) ?? null;
 }
 
+/** Past the guard that keeps a double-click on Stop from also pressing Show original. */
+function pastToggleGuard(): void {
+  vi.setSystemTime(Date.now() + 500);
+}
+
+function shadowActive(): Element | null {
+  return document.getElementById('ega-shadow-host')?.shadowRoot?.activeElement ?? null;
+}
+
+/** The declarations of one rule in the pill sheet. */
+function cssRule(selector: string): string {
+  const sheet = readFileSync(resolve('src/content/batch-progress.css'), 'utf8');
+  const start = sheet.indexOf(`${selector} {`);
+  return start === -1 ? '' : sheet.slice(start, sheet.indexOf('}', start));
+}
+
 function shadowQueryAll(selector: string): Element[] {
   const host = document.getElementById('ega-shadow-host') as HTMLElement | null;
   const root = host?.shadowRoot;
@@ -27,6 +43,7 @@ describe('batch-progress lifecycle', () => {
   });
 
   afterEach(async () => {
+    vi.useRealTimers();
     const mod = await import('@/content/batch-progress');
     if (mod.isBatchProgressActive()) {
       const h = mod.showBatchProgress(1, () => {});
@@ -238,8 +255,127 @@ describe('batch-progress lifecycle', () => {
     expect(shadowQuery('[data-ega-batch-label]')?.textContent).toBe(
       'Stopped · 2 of 5 areas translated',
     );
-    expect(shadowQuery('[data-ega-batch-bar]')?.getAttribute('aria-valuemax')).toBe('2');
+    // The bar agrees with the label: 2 kept out of the 5 picked, in a neutral tone.
+    const bar = shadowQuery('[data-ega-batch-bar]');
+    expect(bar?.getAttribute('aria-valuemax')).toBe('5');
+    expect(bar?.getAttribute('aria-valuenow')).toBe('2');
+    const fill = shadowQuery('[data-ega-batch-bar-fill]') as HTMLElement;
+    expect(fill.style.width).toBe('40%');
+    expect(fill.dataset['tone']).toBe('stopped');
     h.dismiss();
+  });
+
+  it('a stopped batch with failures counts them too', async () => {
+    const { showBatchProgress } = await import('@/content/batch-progress');
+    const h = showBatchProgress(5, () => {});
+    h.settle({ done: 3, total: 3, complete: false, failed: 1, stopped: 2 });
+    expect(shadowQuery('[data-ega-batch-label]')?.textContent).toBe(
+      'Stopped · 2 of 5 areas translated · 1 failed',
+    );
+    expect(shadowQuery('[data-ega-batch-bar]')?.getAttribute('aria-valuenow')).toBe('2');
+    h.dismiss();
+  });
+
+  it('a double-click on Stop stops, and the second click does not show the original', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    const { showBatchProgress } = await import('@/content/batch-progress');
+    const seen: boolean[] = [];
+    let h: ReturnType<typeof showBatchProgress> | null = null;
+    const onCancel = vi.fn(() => {
+      h?.settle({ done: 2, total: 2, complete: false, failed: 0, stopped: 1 });
+      h?.setOnToggleOriginal((s) => seen.push(s));
+    });
+    h = showBatchProgress(3, onCancel);
+    const btn = shadowQuery('[data-ega-batch-cancel]') as HTMLButtonElement;
+
+    btn.click();
+    btn.click();
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    expect(seen).toEqual([]);
+    expect(btn.textContent).toBe('Show original');
+
+    pastToggleGuard();
+    btn.click();
+    expect(seen).toEqual([true]);
+    h.dismiss();
+  });
+
+  it('Retry failed hiding itself hands focus to Stop, not the page', async () => {
+    const { showBatchProgress } = await import('@/content/batch-progress');
+    const h = showBatchProgress(4, () => {});
+    h.settle({ done: 4, total: 4, complete: false, failed: 1 });
+    h.setOnRetryFailed(() => h.update(3));
+    const retry = shadowQuery('.retry-failed') as HTMLButtonElement;
+    retry.focus();
+
+    retry.click();
+
+    expect(retry.hidden).toBe(true);
+    const cancel = shadowQuery('[data-ega-batch-cancel]') as HTMLButtonElement;
+    expect(cancel.textContent.trim()).toBe('Stop');
+    expect(shadowActive()).toBe(cancel);
+    h.dismiss();
+  });
+
+  it('Stop that leaves nothing translated hands focus to Retry failed', async () => {
+    const { showBatchProgress } = await import('@/content/batch-progress');
+    let h: ReturnType<typeof showBatchProgress> | null = null;
+    h = showBatchProgress(3, () =>
+      h?.settle({ done: 1, total: 1, complete: false, failed: 1, stopped: 2 }),
+    );
+    const cancel = shadowQuery('[data-ega-batch-cancel]') as HTMLButtonElement;
+    cancel.focus();
+
+    cancel.click();
+
+    expect(cancel.hidden).toBe(true);
+    expect(shadowActive()).toBe(shadowQuery('.retry-failed'));
+    h.dismiss();
+  });
+
+  it.each(['.undo', '[data-ega-batch-close]'])(
+    '%s takes the pill away and focus goes back where it was',
+    async (selector) => {
+      const { showBatchProgress } = await import('@/content/batch-progress');
+      const field = document.createElement('input');
+      document.body.appendChild(field);
+      const h = showBatchProgress(2, () => {});
+      h.setOnUndoAll(() => h.dismiss());
+      h.setOnClose(() => h.dismiss());
+      field.focus();
+      const btn = shadowQuery(selector) as HTMLButtonElement;
+      btn.focus();
+      expect(document.activeElement).not.toBe(field);
+
+      btn.click();
+
+      expect(document.activeElement).toBe(field);
+    },
+  );
+
+  it('a pill that does not hold focus leaves focus alone when it goes', async () => {
+    const { showBatchProgress } = await import('@/content/batch-progress');
+    const field = document.createElement('input');
+    const other = document.createElement('input');
+    document.body.append(field, other);
+    const h = showBatchProgress(2, () => {});
+    field.focus();
+    (shadowQuery('.undo') as HTMLButtonElement).focus();
+    other.focus();
+
+    h.dismiss();
+
+    expect(document.activeElement).toBe(other);
+  });
+
+  it('Hide and Retry failed keep their place in the row while hidden', () => {
+    for (const sel of [
+      '.ega-batch-progress .retry-failed[hidden]',
+      ".ega-batch-progress .close[data-ready='false']",
+    ]) {
+      expect(cssRule(sel), sel).toContain('visibility: hidden');
+      expect(cssRule(sel), sel).not.toContain('display: none');
+    }
   });
 
   it('Hide is a labeled button that appears once the batch can close', async () => {
