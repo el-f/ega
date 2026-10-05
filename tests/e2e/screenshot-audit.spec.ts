@@ -2154,6 +2154,8 @@ test('Confirm dialog — delete all data (dark)', async () => {
   await page.keyboard.press('Escape');
   await expect(dialog).toBeHidden();
   await page.close();
+  // One shared context: leaving `theme: 'dark'` seeded would stamp the next shots dark.
+  await seedSettings(ext.context, ext.extensionId, { theme: 'light' });
 });
 
 test('Page-translate v2 — bilingual + inplace + streaming + error-block', async () => {

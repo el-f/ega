@@ -67,7 +67,12 @@
     const trimmed = editingDraft.trim();
     editing = false;
     if (trimmed.length === 0 || trimmed === rule.body) return;
-    if ((await onBodyChange(trimmed)) === false) return;
+    // A failed write reopens the editor with the text, as a failed add keeps its form.
+    if ((await onBodyChange(trimmed)) === false) {
+      editing = true;
+      editingDraft = trimmed;
+      return;
+    }
     saved = true;
     clearTimeout(savedTimer);
     savedTimer = setTimeout(() => (saved = false), 2000);

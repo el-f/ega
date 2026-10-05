@@ -499,6 +499,9 @@ describe('RulesEditor — failed writes, focus and scope button', () => {
     await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
     await new Promise((r) => setTimeout(r, 0));
     expect(rowPart(container, 'r1', '.saved').textContent).toBe('');
+    expect(
+      rowPart(container, 'r1', '[data-ega-rule-body-editor]') as HTMLTextAreaElement,
+    ).toHaveProperty('value', 'New body.');
   });
 
   it('Cancel moves focus to the Add a rule summary', async () => {

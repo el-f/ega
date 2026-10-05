@@ -28,6 +28,8 @@ describe('PageContextSection', () => {
       const thumb = anchor?.querySelector('[role="slider"]');
       expect(thumb?.hasAttribute('data-disabled')).toBe(true);
       expect(thumb?.getAttribute('aria-describedby')).toContain(note.id);
+      // A search jump can scroll the shared note away, so each slider's own help says it too.
+      expect(anchor?.textContent).toContain('Rich only.');
     }
     const selection = container.querySelector('[data-ega-setting="advanced.selectionContextCap"]');
     expect(selection?.querySelector('[role="slider"]')?.hasAttribute('data-disabled')).toBe(false);
@@ -41,6 +43,7 @@ describe('PageContextSection', () => {
     expect(wrapper).not.toBeNull();
     const sliders = wrapper?.querySelectorAll('[role="slider"]') ?? [];
     expect(sliders.length).toBeGreaterThanOrEqual(4);
+    expect(wrapper?.textContent).not.toContain('Rich only.');
   });
 
   it('fires onPatch when toggling contextEnabled', async () => {

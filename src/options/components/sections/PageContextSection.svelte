@@ -24,6 +24,8 @@
 
   // Mounted under Minimal too, so a settings search for these limits always has a target.
   const richOnly = $derived(s.pageContextLevel !== 'rich');
+  // A search jump lands on one slider and can scroll the note above out of view, so each says why it is off.
+  const richHelp = (text: string): string => (richOnly ? `Rich only. ${text}` : text);
 </script>
 
 <SectionCard
@@ -100,7 +102,7 @@
             max={500}
             step={10}
             unit=" chars"
-            help="Longest page description sent."
+            help={richHelp('Longest page description sent.')}
             modified={isFieldModified('advanced.descriptionContextCap', s)}
             disabled={richOnly}
             {...richOnly ? { describedById: 'page-context-rich-only' } : {}}
@@ -114,7 +116,7 @@
             min={1}
             max={10}
             step={1}
-            help="How many of the nearest page headings are sent."
+            help={richHelp('How many of the nearest page headings are sent.')}
             modified={isFieldModified('advanced.headingTrailDepth', s)}
             disabled={richOnly}
             {...richOnly ? { describedById: 'page-context-rich-only' } : {}}
@@ -129,7 +131,7 @@
             max={200}
             step={5}
             unit=" chars"
-            help="Longer headings are cut to this length."
+            help={richHelp('Longer headings are cut to this length.')}
             modified={isFieldModified('advanced.headingTrailEntryCap', s)}
             disabled={richOnly}
             {...richOnly ? { describedById: 'page-context-rich-only' } : {}}
