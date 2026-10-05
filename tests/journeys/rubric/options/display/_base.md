@@ -14,5 +14,5 @@
 
 ## Reset
 
-- A per-mode Reset Section affordance appears when any knob differs from default.
-- Reset restores the active mode's knobs plus the confidence pill and threshold; it never resets `defaultDisplayMode` or `imageTranslateSurface`.
+- One Reset Section affordance, "Reset pill and tooltip options", appears in either mode when any of its knobs differs from default.
+- Reset restores the tooltip knobs plus the confidence pill and threshold in both modes; it never resets `defaultDisplayMode` or `imageTranslateSurface`.

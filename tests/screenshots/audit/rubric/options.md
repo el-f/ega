@@ -18,6 +18,7 @@ The options shell (`src/options`) is the full-page settings surface. The left na
 - **settings-search-empty** / **settings-search-temperature** — search modal with an empty query / mid-query.
 - **onboarding-banner-display** / **onboarding-banner-backends** — the first-run banner, shot on the Translate tab and on the Backends tab.
 - **toast-success** — a toast after an action succeeds.
+- **confirm-delete-all-data** — the About tab's Delete all data confirm, shot in dark with DELETE typed. The danger CTA is enabled and its label is dark text on red.
 
 ## Severity overrides
 

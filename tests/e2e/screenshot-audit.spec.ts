@@ -2119,6 +2119,43 @@ test('Toast — success', async () => {
   await successPage.close();
 });
 
+// The danger CTA is the one place the dark theme's dark --color-accent-fg sits on red, so it is shot in dark.
+test('Confirm dialog — delete all data (dark)', async () => {
+  test.slow();
+  await seedSettings(ext.context, ext.extensionId, {
+    anthropicApiKey: 'sk-test',
+    onboardingDismissed: true,
+    theme: 'dark',
+  });
+  const page = await ext.context.newPage();
+  await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
+  await page.waitForLoadState('networkidle');
+  await page.locator('#tab-about').click();
+  await page.getByRole('button', { name: 'Delete all data' }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.locator('#confirm-input').fill('DELETE');
+  await expect(dialog.getByRole('button', { name: 'Delete all data' })).toBeEnabled();
+  await applyThemeOnPage(page, 'dark');
+  await page.waitForTimeout(200); // wait for dialog entrance animation (no observable end state)
+  await shot(page, 'confirm-delete-all-data-dark', {
+    surface: 'options',
+    state: 'confirm-delete-all-data',
+    theme: 'dark',
+    userAction:
+      'user clicked Delete all data on the About tab and typed DELETE — danger confirm dialog open',
+    expectations: [
+      'modal dialog titled "Delete all data" with the list of what gets deleted',
+      'type-to-confirm field holds DELETE',
+      'Delete all data CTA uses the danger tone and is enabled, its label readable dark text on red',
+      'secondary Cancel reachable',
+      'scrim covers the About tab behind it',
+    ],
+  });
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await page.close();
+});
+
 test('Page-translate v2 — bilingual + inplace + streaming + error-block', async () => {
   test.slow();
   await resetRoutes(ext.context);
