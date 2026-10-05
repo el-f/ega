@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
-import { render, fireEvent } from '@testing-library/svelte';
+import { render, fireEvent, waitFor } from '@testing-library/svelte';
+import { toastStore } from '@/shared/components/toastStore';
 import ElementPickerSection from '@/options/components/sections/ElementPickerSection.svelte';
 import { makeSectionProps, type OnPatch } from './_helpers';
 
@@ -81,11 +82,30 @@ describe('ElementPickerSection', () => {
 describe('ElementPickerSection — the browser-wide shortcut', () => {
   it('opens Chrome shortcuts from a button, since a chrome:// link cannot be clicked', async () => {
     // The shared chrome mock has no tabs.create, so the test supplies one.
-    const create = vi.fn();
+    const create = vi.fn(async () => ({}));
     Object.assign(chrome.tabs, { create });
     const { getByRole } = render(ElementPickerSection, { props: makeSectionProps() });
     await fireEvent.click(getByRole('button', { name: /Open Chrome shortcuts/ }));
     expect(create).toHaveBeenCalledWith({ url: 'chrome://extensions/shortcuts' });
     Reflect.deleteProperty(chrome.tabs, 'create');
+  });
+
+  it('says how to get there by hand when Chrome refuses to open the tab', async () => {
+    Object.assign(chrome.tabs, { create: vi.fn(async () => Promise.reject(new Error('nope'))) });
+    const push = vi.spyOn(toastStore, 'push').mockImplementation(() => {});
+    try {
+      const { getByRole } = render(ElementPickerSection, { props: makeSectionProps() });
+      await fireEvent.click(getByRole('button', { name: /Open Chrome shortcuts/ }));
+      await waitFor(() =>
+        expect(push).toHaveBeenCalledWith(
+          expect.objectContaining({
+            message: expect.stringContaining('chrome://extensions/shortcuts'),
+          }),
+        ),
+      );
+    } finally {
+      push.mockRestore();
+      Reflect.deleteProperty(chrome.tabs, 'create');
+    }
   });
 });

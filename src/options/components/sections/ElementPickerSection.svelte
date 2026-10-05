@@ -7,6 +7,18 @@
   import ShortcutInput from '@/shared/components/ShortcutInput.svelte';
   import Button from '@/shared/ui/Button.svelte';
   import { validateKeyCombo } from '@/shared/utils/keyCombo';
+  import { toastStore } from '@/shared/components/toastStore';
+
+  const SHORTCUTS_URL = 'chrome://extensions/shortcuts';
+  function openChromeShortcuts(): void {
+    chrome.tabs.create({ url: SHORTCUTS_URL }).catch(() => {
+      toastStore.push({
+        message: `Could not open Chrome shortcuts. Type ${SHORTCUTS_URL} in the address bar.`,
+        variant: 'warning',
+        duration: 8000,
+      });
+    });
+  }
 
   interface Props {
     s: Settings;
@@ -76,12 +88,7 @@
       Works while a web page has focus. Ega's browser-wide shortcut is set in Chrome.
     </div>
     <div class="row">
-      <Button
-        variant="secondary"
-        size="sm"
-        iconKind="external-link"
-        onclick={() => void chrome.tabs.create({ url: 'chrome://extensions/shortcuts' })}
-      >
+      <Button variant="secondary" size="sm" iconKind="external-link" onclick={openChromeShortcuts}>
         Open Chrome shortcuts
       </Button>
     </div>
