@@ -27,10 +27,12 @@ function inCommon(w: string): boolean {
 
 // Two-letter words are English only from here (not "be" "an" "am", Arabizi too, or "no"); each word here proves a short phrase.
 const FUNCTION_WORDS = new Set(
-  'of to in is it on at as by do go he if me my or so up us we ok oh hi our the and for you your more'.split(
+  'of to in is it on at as by do go he if me my or so up us we ok oh hi our the and for you your more not now all out with this that what from have they'.split(
     ' ',
   ),
 );
+// Also a particle elsewhere (Hindi "us din", Persian "to man", Vietnamese "cam on"): proof only beside a 4+ letter word.
+const WEAK_PROOF = new Set('to do me us in on he hi so is we at go my by'.split(' '));
 
 const WORD = /[\p{L}\d]+(?:['’]\p{L}+)*/gu;
 const PROPER_NOUN = /^\p{Lu}\p{Ll}+$/u;
@@ -55,18 +57,24 @@ export function readsAsEnglish(text: string, englishDigitWord: RegExp): boolean 
   let other = 0;
   let marked = false;
   let proof = false;
+  let weakProof = false;
+  let hasFourLetterWord = false;
   let counted = 0;
   for (const [i, word] of words.entries()) {
     const w = word.toLowerCase().replace(/’/g, "'");
     if (englishDigitWord.test(w)) continue;
     counted++;
     if (w.length === 1 || AMBIGUOUS.has(w)) continue;
-    if (FUNCTION_WORDS.has(w.endsWith("'s") ? w.slice(0, -2) : w)) {
+    const stem = w.endsWith("'s") ? w.slice(0, -2) : w;
+    if (FUNCTION_WORDS.has(stem)) {
       english++;
-      proof = true;
+      if (WEAK_PROOF.has(stem)) weakProof = true;
+      else proof = true;
     } else if (w.length > 2 && isCommon(w)) {
       english++;
-      if (w.length >= PROOF_LENGTH) proof = true;
+      // Measured without the 's: Dutch plurals "auto's", "menu's" are not proof.
+      if (stem.length >= PROOF_LENGTH) proof = true;
+      if (stem.length >= 4) hasFourLetterWord = true;
     } else if (i > 0 && hasLower && PROPER_NOUN.test(word)) continue;
     else {
       other++;
@@ -77,6 +85,6 @@ export function readsAsEnglish(text: string, englishDigitWord: RegExp): boolean 
   if (counted === 0) return true;
   const scored = english + other;
   if (scored === 0) return false;
-  if (scored <= MAX_SHORT) return other === 0 && proof;
+  if (scored <= MAX_SHORT) return other === 0 && (proof || (weakProof && hasFourLetterWord));
   return !marked && english / scored >= LONG_RATIO;
 }

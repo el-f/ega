@@ -183,6 +183,29 @@ describe('english lexicon — short non-English phrases read as not English', ()
   }
 });
 
+describe('english lexicon — a two-letter particle is weak proof', () => {
+  // Particles in Hindi, Persian, Vietnamese, Turkish, German: each partner word is in the English list.
+  for (const text of [
+    'us din',
+    'do pal',
+    'to man',
+    'man in',
+    'cam on',
+    'on gun',
+    'in arm',
+    "auto's",
+  ]) {
+    it(`not English: ${JSON.stringify(text)}`, () => {
+      expect(looksLikeEnglish(text)).toBe(false);
+    });
+  }
+  for (const text of ['Shop now', 'View all', 'Log out', 'Sign in', 'Add to cart', 'Back to top']) {
+    it(`English: ${JSON.stringify(text)}`, () => {
+      expect(looksLikeEnglish(text)).toBe(true);
+    });
+  }
+});
+
 describe('english lexicon — a short word with an apostrophe', () => {
   it('reads "it\'s late" as English, though two-letter words are not in the list', () => {
     expect(looksLikeEnglish("it's late")).toBe(true);
