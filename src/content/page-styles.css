@@ -44,8 +44,11 @@
   transition-delay: 0s;
 }
 
+/* A bilingual translation sits in the page's own font, so a tint and a firmer bar mark it as Ega's, not the page's. */
 [data-ega-tx] {
-  border-left: 2px solid rgba(88, 166, 255, 0.55); /* token-lint-allow page sheet */
+  border-left: 3px solid rgba(88, 166, 255, 0.8); /* token-lint-allow page sheet */
+  background-color: rgba(0, 144, 255, 0.06); /* token-lint-allow page sheet */
+  border-radius: 0 4px 4px 0;
   padding-left: 0.5em;
 }
 

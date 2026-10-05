@@ -220,3 +220,15 @@ describe('inline replace — a pending wrapper shows that a reply is coming', ()
     expect(style?.getPropertyValue('animation')).toBe('none');
   });
 });
+
+describe('bilingual — a translation reads as added, not as page text', () => {
+  it('tints the translation and gives it a firm side bar', () => {
+    document.head.innerHTML = `<style>${pageCss}</style>`;
+    const rules = Array.from(document.styleSheets[0]?.cssRules ?? []);
+    const style = rules.find(
+      (r): r is CSSStyleRule => r instanceof CSSStyleRule && r.selectorText === '[data-ega-tx]',
+    )?.style;
+    expect(style?.getPropertyValue('background-color')).toMatch(/rgba\(0, 144, 255/);
+    expect(style?.getPropertyValue('border-left')).toMatch(/^3px solid/);
+  });
+});
