@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { expect, type Page } from '@playwright/test';
 import { GATE_PREFIX, recordGateKey, recordRefusal } from './design-rules-gate';
 
-// The countable design rules (STANDARDS R9/R16/R20, ui-design-quality.md), checked on the real layout jsdom cannot give.
+// The countable design rules (STANDARDS R9/R16/R17/R20, ui-design-quality.md), checked on the real layout jsdom cannot give.
 //
 // Baseline keys. screenshot-audit shot names hold what a builder's machine finds: check locally with `pnpm visual:capture`.
 // `gate-` keys belong to design-rules.spec.ts, which compares them on Linux only. The CI runner draws DejaVu Sans, 14-22%
@@ -21,7 +21,9 @@ if (recordRefused !== null) throw new Error(recordRefused);
  * Ega's own UI on the page: the whole document on an extension page, the shadow root on a web page (never the host page's DOM).
  * Returns one line per broken rule, stable across runs so a baseline can list known debt:
  * - `clip <element>`: a control, tab, option, heading or link whose text is wider than its box, or any text an
- *   ellipsis actually shortens (a span inside a button included).
+ *   ellipsis actually shortens (a span inside a button included). R17: an ellipsis passes only when the element or an
+ *   ancestor carries `data-ega-truncates` and the full text is in a written name (aria-label, the text an
+ *   aria-labelledby points at, or title) of the element or of its nearest interactive or labelled ancestor.
  * - `clip-y <element>`: a control whose content is taller than its box.
  * - `font <px> <element>`: text whose computed size is not one of the --fs-* tokens.
  */
@@ -54,20 +56,42 @@ export async function designRuleViolations(page: Page): Promise<string[]> {
       el.checkVisibility({ visibilityProperty: true, opacityProperty: false }) &&
       el.getBoundingClientRect().width > 1;
 
+    const squash = (s: string | null): string => (s ?? '').replace(/\s+/g, ' ').trim();
+    // The names an author wrote for an element: aria-label, the text aria-labelledby points at, and title.
+    const writtenNames = (el: Element): string[] => {
+      const scope = el.getRootNode() as Document | ShadowRoot;
+      const ids = (el.getAttribute('aria-labelledby') ?? '').split(/\s+/).filter(Boolean);
+      const labelled = ids.map((id) => scope.getElementById(id)?.textContent ?? '').join(' ');
+      return [el.getAttribute('aria-label'), labelled, el.getAttribute('title')]
+        .map(squash)
+        .filter((name) => name !== '');
+    };
+    const named =
+      'button, a[href], select, input, textarea, summary, [role="button"], [role="link"], [role="tab"], [role="option"], [role="menuitem"], [aria-label], [aria-labelledby], [title]';
+    const ellipsisCut = (el: Element): boolean =>
+      getComputedStyle(el).textOverflow === 'ellipsis' && el.scrollWidth > el.clientWidth + 1;
+    const truncationDeclared = (el: Element): boolean => {
+      if (el.closest('[data-ega-truncates]') === null) return false;
+      const full = squash(el.textContent);
+      return [el, el.parentElement?.closest(named) ?? null].some(
+        (holder) => holder !== null && writtenNames(holder).some((name) => name.includes(full)),
+      );
+    };
+
     const out = new Set<string>();
     const controls =
       'button, select, label, [role="tab"], [role="option"], h1, h2, h3, h4, h5, h6, a';
     for (const el of root.querySelectorAll(controls)) {
       if (!visible(el)) continue;
-      if (el.scrollWidth > el.clientWidth + 1) out.add(`clip ${describe(el)}`);
+      if (el.scrollWidth > el.clientWidth + 1 && !(ellipsisCut(el) && truncationDeclared(el))) {
+        out.add(`clip ${describe(el)}`);
+      }
       if (el.scrollHeight > el.clientHeight + 1) out.add(`clip-y ${describe(el)}`);
     }
     for (const el of root.querySelectorAll('*')) {
       if (!visible(el)) continue;
       const style = getComputedStyle(el);
-      if (style.textOverflow === 'ellipsis' && el.scrollWidth > el.clientWidth + 1) {
-        out.add(`clip ${describe(el)}`);
-      }
+      if (ellipsisCut(el) && !truncationDeclared(el)) out.add(`clip ${describe(el)}`);
       const ownText = [...el.childNodes].some(
         (n) => n.nodeType === Node.TEXT_NODE && (n.textContent ?? '').trim() !== '',
       );

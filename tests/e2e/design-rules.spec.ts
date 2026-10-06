@@ -80,14 +80,16 @@ test.describe('gate', () => {
   }
 });
 
-test('flags cut-off control text and off-scale font sizes, and nothing else', async () => {
+test('flags cut-off text, undeclared ellipsis and off-scale font sizes, and nothing else', async () => {
   ext = await launchExtension();
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/popup/index.html`);
   await page.locator('#pop-lang').waitFor();
-  expect(await designRuleViolations(page)).toEqual([]);
+  // Text widths differ by platform, so the popup's own findings do too; the probe checks only what it adds.
+  const popupOwn = await designRuleViolations(page);
 
   await page.evaluate(() => {
+    const ellipsis = 'display:block;overflow:hidden;white-space:nowrap;text-overflow:ellipsis';
     const box = document.createElement('div');
     box.innerHTML = [
       '<button data-ega-probe-clip style="width:40px;overflow:hidden;white-space:nowrap;font-size:var(--fs-sm)">Translate this page</button>',
@@ -98,14 +100,27 @@ test('flags cut-off control text and off-scale font sizes, and nothing else', as
       '<div role="tab" data-ega-probe-tab style="width:30px;overflow:hidden;white-space:nowrap;font-size:var(--fs-sm)">Appearance</div>',
       '<button data-ega-probe-tall style="width:200px;height:12px;overflow:hidden;font-size:var(--fs-sm)">Two words</button>',
       '<span style="display:block;width:300px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:var(--fs-sm)">Short</span>',
+      // R17: an ellipsis passes only on text marked data-ega-truncates whose full text is in a written name.
+      `<button aria-label="Open: A label far too long for this button" style="width:120px;font-size:var(--fs-sm)"><span data-ega-probe-ok-aria data-ega-truncates style="${ellipsis}">A label far too long for this button</span></button>`,
+      `<span data-ega-probe-ok-title data-ega-truncates title="A title far too long for its box" style="${ellipsis};width:100px;font-size:var(--fs-sm)">A title far too long for its box</span>`,
+      '<span id="ega-probe-name" class="ega-sr-only">A name far too long for its box</span>',
+      `<span data-ega-probe-ok-labelledby data-ega-truncates aria-labelledby="ega-probe-name" style="${ellipsis};width:100px;font-size:var(--fs-sm)">A name far too long for its box</span>`,
+      `<button data-ega-truncates aria-label="Row: A conversation title far too long" style="width:120px;font-size:var(--fs-sm)"><span data-ega-probe-ok-ancestor style="${ellipsis}">A conversation title far too long</span></button>`,
+      `<button aria-label="Open" style="width:120px;font-size:var(--fs-sm)"><span data-ega-probe-partial-name data-ega-truncates style="${ellipsis}">Another label far too long here</span></button>`,
+      `<span data-ega-probe-no-name data-ega-truncates style="${ellipsis};width:100px;font-size:var(--fs-sm)">An unnamed label far too long</span>`,
+      `<button aria-label="A label far too long for this button" style="width:120px;font-size:var(--fs-sm)"><span data-ega-probe-no-marker style="${ellipsis}">A label far too long for this button</span></button>`,
     ].join('');
     document.body.prepend(box);
   });
 
-  expect(await designRuleViolations(page)).toEqual([
+  const added = (await designRuleViolations(page)).filter((v) => !popupOwn.includes(v));
+  expect(added).toEqual([
     'clip button[data-ega-probe-clip] "Translate this page"',
     'clip div[data-ega-probe-tab] "Appearance"',
     'clip span[data-ega-probe-ellipsis] "A label far too long for this button"',
+    'clip span[data-ega-probe-no-marker] "A label far too long for this button"',
+    'clip span[data-ega-probe-no-name] "An unnamed label far too long"',
+    'clip span[data-ega-probe-partial-name] "Another label far too long here"',
     'clip-y button[data-ega-probe-tall] "Two words"',
     'font 11px span[data-ega-probe-tiny] "Tiny meta"',
   ]);
