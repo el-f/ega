@@ -32,8 +32,7 @@ function tearDown(): void {
 
 export interface ToastOptions {
   kind?: ToastKind;
-  /** `expires`: run writes a snapshot taken now, so the toast hides after a while. Default: true for "Undo". */
-  action?: { label: string; run: () => void; expires?: boolean };
+  action?: { label: string; run: () => void };
 }
 
 /** One toast at a time. Returns a dismiss that only removes this toast, not a later one that replaced it. */
@@ -64,7 +63,6 @@ export function showToast(message: string, opts: ToastOptions = {}): () => void 
       ...(action
         ? {
             actionLabel: action.label,
-            actionExpires: action.expires,
             onaction: () => {
               dismiss();
               action.run();

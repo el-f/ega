@@ -121,14 +121,14 @@ describe('toast lifetime', () => {
     expect(toastEl('Message removed.')).toBeNull();
   });
 
-  it('an action that writes a snapshot can opt into the Undo lifetime', async () => {
+  it('an offer that holds data only the toast has stays until it is used or dismissed', async () => {
     toastStore.push({
-      message: 'Replace the attached image?',
+      message: 'Replace the attached image with the one from the page?',
       variant: 'info',
-      action: { label: 'Replace', onClick: () => {}, expires: true },
+      action: { label: 'Replace', onClick: () => {} },
     });
-    await advance(8100);
-    expect(toastEl('Replace the attached image?')).toBeNull();
+    await advance(30_000);
+    expect(toastEl('Replace the attached image')).not.toBeNull();
   });
 
   it('a countdown toast lives exactly as long as its countdown, pointer or not', async () => {

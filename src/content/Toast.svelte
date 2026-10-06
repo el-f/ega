@@ -7,19 +7,15 @@
     /** Pairs with `onaction`. Absent = a notice with nothing to click. */
     actionLabel?: string;
     onaction?: () => void;
-    /** The action writes a snapshot taken when the toast opened. Default: true for "Undo". */
-    actionExpires?: boolean | undefined;
     ondismiss: () => void;
   }
-  let { message, kind = 'info', actionLabel, onaction, actionExpires, ondismiss }: Props = $props();
+  let { message, kind = 'info', actionLabel, onaction, ondismiss }: Props = $props();
 
   const hasAction = $derived(actionLabel !== undefined && onaction !== undefined);
   const lifetimeMs = $derived(
     toastLifetimeMs(
       kind,
-      hasAction && actionLabel !== undefined
-        ? { label: actionLabel, expires: actionExpires }
-        : undefined,
+      hasAction && actionLabel !== undefined ? { label: actionLabel } : undefined,
     ),
   );
   let hovered = $state(false);

@@ -4,8 +4,6 @@ import { actionExpires, toastLifetimeMs, type ToastKind } from '@/shared/toast-p
 export interface ToastAction {
   label: string;
   onClick: () => void;
-  /** The handler writes state captured when the toast opened, so the toast expires. Default: true for "Undo". */
-  expires?: boolean;
 }
 
 export interface ToastMsg {

@@ -9,7 +9,6 @@ import { IMAGE_DATA_URL_MAX_CHARS } from '@/shared/constants';
 import type { Msg } from '@/shared/messages';
 import { drainAsync } from '@tests/_helpers/async';
 import { writeComposerDraftImage } from '@/sidepanel/state/composer-draft';
-import { toastStore } from '@/shared/components/toastStore';
 
 const sendMessage = chrome.runtime.sendMessage as Mock;
 const PNG = 'data:image/png;base64,iVBORw0KGgo=';
@@ -119,7 +118,6 @@ describe('SidePanel — a failed tooltip image opened in the panel', () => {
   it("keeps the user's own image and offers to replace it", async () => {
     await writeComposerDraftImage(PNG);
     await attachHandoff(HTTP_IMAGE);
-    const push = vi.spyOn(toastStore, 'push');
 
     const { container } = render(SidePanel);
 
@@ -129,9 +127,6 @@ describe('SidePanel — a failed tooltip image opened in the panel', () => {
       ),
     );
     expect(screen.getByAltText('Attached image').getAttribute('src')).toBe(PNG);
-    // The button holds this page image, so a late click must not replace one attached since.
-    expect(push.mock.calls.at(-1)?.[0]?.action?.expires).toBe(true);
-    push.mockRestore();
 
     await fireEvent.click(screen.getByRole('button', { name: 'Replace' }));
 

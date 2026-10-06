@@ -418,8 +418,7 @@
         toastStore.push({
           message: 'Replace the attached image with the one from the page?',
           variant: 'info',
-          // attach() holds this page image; a late click would replace an image attached since.
-          action: { label: 'Replace', onClick: attach, expires: true },
+          action: { label: 'Replace', onClick: attach },
         });
         return;
       }
