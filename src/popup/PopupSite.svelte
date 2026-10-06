@@ -101,8 +101,9 @@
   }
   /* The shared Checkbox draws a box; as a switch it gets a track and a thumb. */
   .switch-row :global(.ega-checkbox-input[role='switch']) {
-    width: 36px;
-    height: 20px;
+    /* 24px tall: the switch is a target of its own. */
+    width: 40px;
+    height: 24px;
     border-radius: var(--radius-pill);
   }
   .switch-row :global(.ega-checkbox-input[role='switch'])::after {
@@ -111,8 +112,8 @@
     inset: auto;
     inset-block-start: 2px;
     inset-inline-start: 2px;
-    width: 14px;
-    height: 14px;
+    width: 18px;
+    height: 18px;
     border-radius: 50%;
     background-color: var(--color-muted);
     -webkit-mask: none;

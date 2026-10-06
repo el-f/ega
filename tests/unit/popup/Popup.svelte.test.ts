@@ -565,3 +565,34 @@ describe('Popup handoff tone', () => {
     Object.defineProperty(chrome, 'sidePanel', { configurable: true, value: realSidePanel });
   });
 });
+
+describe('Popup — where focus starts', () => {
+  it('starts on the site switch when the site is off, not on the blocked main action', async () => {
+    await chrome.storage.local.set({
+      'ega.settings': {
+        anthropicApiKey: 'k',
+        sitePrefs: { 'https://example.com': { disabled: true } },
+      },
+    });
+    (chrome.tabs.query as unknown as Mock).mockResolvedValue([
+      { id: 42, url: 'https://example.com/' },
+    ]);
+    const { findByRole } = render(Popup);
+    const sw = await findByRole('switch', { name: 'Ega on example.com' });
+    await vi.waitFor(() => expect(document.activeElement).toBe(sw));
+  });
+});
+
+describe('Popup — focus on a page that needs a reload', () => {
+  it('starts on Reload page, the action that unblocks the page', async () => {
+    (chrome.tabs.query as unknown as Mock).mockResolvedValue([
+      { id: 42, url: 'https://example.com/' },
+    ]);
+    (chrome.tabs.sendMessage as unknown as Mock).mockRejectedValue(
+      new Error('Could not establish connection. Receiving end does not exist.'),
+    );
+    const { findByRole } = render(Popup);
+    const reload = await findByRole('button', { name: 'Reload page' });
+    await vi.waitFor(() => expect(document.activeElement).toBe(reload));
+  });
+});

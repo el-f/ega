@@ -379,7 +379,13 @@
     }
     if (prefilledText !== null && freeformText === prefilledText) freeformTextarea?.focus();
     else if (document.activeElement === document.body) {
-      document.querySelector<HTMLElement>('[data-ega-popup-primary]')?.focus();
+      // A blocked main action is no place to start; the switch or the status action that unblocks it is.
+      const start =
+        pageBlockedBy === undefined
+          ? document.querySelector<HTMLElement>('[data-ega-popup-primary]')
+          : (document.querySelector<HTMLElement>('[data-ega-popup-status] button') ??
+            document.querySelector<HTMLElement>('[data-ega-site-switch]'));
+      start?.focus();
     }
   });
 
