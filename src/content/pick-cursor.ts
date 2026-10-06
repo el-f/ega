@@ -3,6 +3,32 @@ export type PickableTest = (el: Element | null) => boolean;
 
 export const CURSOR_NAV_KEYS = new Set(['ArrowDown', 'ArrowRight', 'ArrowUp', 'ArrowLeft', 'Tab']);
 
+/** The element under the pointer now, from the browser's own hover state; null when the pointer is off the page. */
+export function hoveredElement(): Element | null {
+  const el = [...document.querySelectorAll(':hover')].at(-1) ?? null;
+  return el === document.documentElement || el === document.body ? null : el;
+}
+
+const TEXT_BLOCKS =
+  'p, li, h1, h2, h3, h4, h5, h6, td, th, blockquote, figcaption, dd, dt, summary';
+
+/** The first text block whose top edge is in view: where the keyboard starts when no pointer is on the page. */
+export function firstBlockInView(ok: PickableTest): Element | null {
+  for (const el of document.body.querySelectorAll(TEXT_BLOCKS)) {
+    const r = el.getBoundingClientRect();
+    if (
+      r.height > 0 &&
+      r.top >= 0 &&
+      r.top < window.innerHeight &&
+      el.textContent.trim() &&
+      ok(el)
+    ) {
+      return el;
+    }
+  }
+  return null;
+}
+
 function firstPickableChild(el: Element, ok: PickableTest): Element | null {
   for (const child of Array.from(el.children)) {
     if (ok(child)) return child;

@@ -187,6 +187,39 @@ describe('picker state machine', () => {
     p.exit();
   });
 
+  it('outlines the block under the pointer at once, before any mouse move', () => {
+    mockEnvironment();
+    const para = document.getElementById('para') as HTMLElement;
+    const real = document.querySelectorAll.bind(document);
+    // jsdom keeps no hover state; the browser's is the chain from <html> down to the element under the pointer.
+    const spy = vi.spyOn(document, 'querySelectorAll').mockImplementation(((sel: string) =>
+      sel === ':hover'
+        ? [document.documentElement, document.body, para.parentElement, para]
+        : real(sel)) as typeof document.querySelectorAll);
+    const onHover = vi.fn();
+    const p = createPicker({ onPick: vi.fn(), onExit: vi.fn(), onHover });
+    try {
+      p.enter();
+      expect(onHover).toHaveBeenLastCalledWith({ element: para });
+    } finally {
+      p.exit();
+      spy.mockRestore();
+    }
+  });
+
+  it('with no pointer on the page, the first block in view gets the outline and Enter picks it', () => {
+    mockEnvironment();
+    const para = document.getElementById('para') as HTMLElement;
+    para.getBoundingClientRect = () => ({ top: 40, height: 20 }) as DOMRect;
+    const onHover = vi.fn();
+    const onPick = vi.fn();
+    const p = createPicker({ onPick, onExit: vi.fn(), onHover });
+    p.enter();
+    expect(onHover).toHaveBeenLastCalledWith({ element: para });
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    expect(onPick).toHaveBeenCalledWith(expect.objectContaining({ element: para }));
+  });
+
   it('exit() removes listeners (subsequent events do not fire callbacks)', () => {
     mockEnvironment();
     const onPick = vi.fn();

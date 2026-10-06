@@ -142,6 +142,24 @@ describe('multi-select — selection behavior', () => {
     expect(a.hasAttribute('data-ega-ms-hover')).toBe(false);
     expect(b.hasAttribute('data-ega-ms-hover')).toBe(true);
   });
+
+  it('marks the block under the pointer at once, before any mouse move', () => {
+    const b = document.getElementById('b') as Element;
+    const real = document.querySelectorAll.bind(document);
+    // jsdom keeps no hover state; the browser's is the chain from <html> down to the element under the pointer.
+    const spy = vi
+      .spyOn(document, 'querySelectorAll')
+      .mockImplementation(((sel: string) =>
+        sel === ':hover'
+          ? [document.documentElement, document.body, b.parentElement, b]
+          : real(sel)) as typeof document.querySelectorAll);
+    try {
+      enterMultiSelect(opts());
+      expect(b.hasAttribute('data-ega-ms-hover')).toBe(true);
+    } finally {
+      spy.mockRestore();
+    }
+  });
 });
 
 describe('multi-select — toolbar', () => {

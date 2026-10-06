@@ -2,7 +2,7 @@ import { isSensitiveTarget } from './safety';
 import { MAX_SELECTION_CHARS } from '@/shared/constants';
 import { showToast } from './toast';
 import { getShadowHostElement } from './shadowHost';
-import { CURSOR_NAV_KEYS, nextCursorTarget } from './pick-cursor';
+import { CURSOR_NAV_KEYS, firstBlockInView, hoveredElement, nextCursorTarget } from './pick-cursor';
 import { isUserGesture } from './user-gesture';
 import { ensurePageStyles } from './page-styles';
 
@@ -46,9 +46,7 @@ export function createPicker(opts: PickerOpts): PickerController {
   let active = false;
   let cursor: Element | null = null;
 
-  const onMouseMove = (e: MouseEvent): void => {
-    const el = e.target as Element | null;
-    if (!el) return;
+  function hover(el: Element): void {
     if (!isPickable(el)) {
       // Clearing the cursor too: Enter must not pick an element the outline no longer marks.
       cursor = null;
@@ -58,6 +56,10 @@ export function createPicker(opts: PickerOpts): PickerController {
     }
     cursor = el;
     opts.onHover?.({ element: el });
+  }
+
+  const onMouseMove = (e: MouseEvent): void => {
+    if (e.target instanceof Element) hover(e.target);
   };
 
   function pick(el: Element): void {
@@ -127,6 +129,10 @@ export function createPicker(opts: PickerOpts): PickerController {
     document.addEventListener('mousemove', onMouseMove, true);
     document.addEventListener('click', onClick, true);
     document.addEventListener('keydown', onKeyDown, true);
+    // The outline shows at once: the block under the pointer, or for the keyboard the first block in view.
+    const under = hoveredElement();
+    if (under) hover(under);
+    else moveCursor(firstBlockInView(isPickable));
   }
 
   function exit(): void {

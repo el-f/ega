@@ -1,6 +1,6 @@
 import { onShadowHostRemount } from '../shadowHost';
 import { isPickable, isInsideEgaHost } from '../picker';
-import { CURSOR_NAV_KEYS, nextCursorTarget } from '../pick-cursor';
+import { CURSOR_NAV_KEYS, hoveredElement, nextCursorTarget } from '../pick-cursor';
 import { isSensitiveTarget } from '../safety';
 import { showToast } from '../toast';
 import { ensurePageStyles } from '../page-styles';
@@ -247,14 +247,17 @@ function fire(): void {
   opts.onFire(blocks, mode);
 }
 
-const onMouseMove = (e: MouseEvent): void => {
+function hoverBlock(el: Element | null): void {
   if (!ms) return;
-  const el = e.target as Element | null;
   const next = isNavigableBlock(el) ? el : null;
   if (ms.hovered === next) return;
   ms.hovered?.removeAttribute(HOVER_ATTR);
   ms.hovered = next;
   next?.setAttribute(HOVER_ATTR, '');
+}
+
+const onMouseMove = (e: MouseEvent): void => {
+  hoverBlock(e.target as Element | null);
 };
 
 const onClick = (e: MouseEvent): void => {
@@ -340,6 +343,8 @@ export function enterMultiSelect(opts: MultiSelectOpts): void {
   document.addEventListener('mousemove', onMouseMove, true);
   document.addEventListener('click', onClick, true);
   document.addEventListener('keydown', onKeyDown, true);
+  // The block under the pointer is outlined at once, before the first mouse move.
+  hoverBlock(hoveredElement());
 }
 
 export function exitMultiSelect(): void {
