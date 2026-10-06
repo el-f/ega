@@ -74,12 +74,6 @@ const BASELINE_PATH = path.join(
 const baseline: Record<string, string[]> = fs.existsSync(BASELINE_PATH)
   ? (JSON.parse(fs.readFileSync(BASELINE_PATH, 'utf8')) as Record<string, string[]>)
   : {};
-const checked = new Set<string>();
-
-/** Baseline keys under `prefix` that no capture in this run checked: stale once every capture ran. */
-export function uncheckedBaselineKeys(prefix: string): string[] {
-  return Object.keys(baseline).filter((k) => k.startsWith(prefix) && !checked.has(k));
-}
 
 /**
  * A soft failure on a design-rule break the baseline does not list, and on a listed one that is gone (a ratchet), so
@@ -87,7 +81,6 @@ export function uncheckedBaselineKeys(prefix: string): string[] {
  * one, so the baseline only shrinks.
  */
 export async function checkDesignRules(page: Page, shotName: string): Promise<void> {
-  checked.add(shotName);
   const found = await designRuleViolations(page);
   const known = baseline[shotName] ?? [];
   if (process.env['EGA_DESIGN_RULES_UPDATE'] === '1') {

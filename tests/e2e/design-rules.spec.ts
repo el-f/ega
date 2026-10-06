@@ -1,19 +1,18 @@
 import { test, expect, type Page } from '@playwright/test';
 import { launchExtension, mockAnthropic, seedSettings, type ExtensionHandle } from './helpers';
-import { checkDesignRules, designRuleViolations, uncheckedBaselineKeys } from './design-rules';
+import { checkDesignRules, designRuleViolations } from './design-rules';
+import {
+  GATE_SURFACES,
+  GATE_THEMES,
+  GATE_WIDTHS,
+  gateKey,
+  optionsSurface,
+} from './design-rules-gate';
 import { SETTINGS_TABS } from '../../src/shared/settings-tabs';
 
 // The design-rules gate: every main surface at the side panel's width and at desktop width, light and dark.
 
-const WIDTHS = [
-  { name: '400', width: 400, height: 760 },
-  { name: 'desktop', width: 1280, height: 800 },
-] as const;
-const THEMES = ['light', 'dark'] as const;
-const GATE = 'gate-';
-
 let ext: ExtensionHandle | undefined;
-let gateRuns = 0;
 
 test.afterEach(async () => {
   await ext?.close();
@@ -22,17 +21,17 @@ test.afterEach(async () => {
 
 /** Checks the page at each width under one baseline key per width. */
 async function checkAtEveryWidth(page: Page, surface: string, theme: string): Promise<void> {
-  for (const w of WIDTHS) {
+  for (const w of GATE_WIDTHS) {
     await page.setViewportSize({ width: w.width, height: w.height });
     // A resize settles in the next frames; two rAFs see the new layout.
     await page.evaluate(
       () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))),
     );
-    await checkDesignRules(page, `${GATE}${surface}-${w.name}-${theme}`);
+    await checkDesignRules(page, gateKey(surface, w.name, theme));
   }
 }
 
-for (const theme of THEMES) {
+for (const theme of GATE_THEMES) {
   test(`popup, side panel and every options tab keep the design rules (${theme})`, async () => {
     test.slow();
     ext = await launchExtension({ colorScheme: theme });
@@ -41,20 +40,20 @@ for (const theme of THEMES) {
     const popup = await ext.context.newPage();
     await popup.goto(`chrome-extension://${ext.extensionId}/src/popup/index.html`);
     await popup.locator('#pop-lang').waitFor();
-    await checkAtEveryWidth(popup, 'popup', theme);
+    await checkAtEveryWidth(popup, GATE_SURFACES.popup, theme);
     await popup.close();
 
     mockAnthropic(ext.context, { translation: 'Hello, friend.' });
     const panel = await ext.context.newPage();
     await panel.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
     await expect(panel.locator('[data-ega-empty-state]')).toBeVisible();
-    await checkAtEveryWidth(panel, 'sidepanel-empty', theme);
+    await checkAtEveryWidth(panel, GATE_SURFACES.sidepanelEmpty, theme);
     await panel.locator('#sp-text').fill('hola amigo');
     await panel.getByRole('button', { name: /^Translate$/ }).click();
     await expect(panel.locator('.ega-assistant-body').first()).toContainText('Hello, friend.', {
       timeout: 10_000,
     });
-    await checkAtEveryWidth(panel, 'sidepanel-exchange', theme);
+    await checkAtEveryWidth(panel, GATE_SURFACES.sidepanelExchange, theme);
     await panel.close();
 
     const options = await ext.context.newPage();
@@ -64,18 +63,11 @@ for (const theme of THEMES) {
       await expect(
         options.locator(`#tabpanel-${tab.id}`).getByRole('heading', { name: tab.label }).first(),
       ).toBeVisible();
-      await checkAtEveryWidth(options, `options-${tab.id}`, theme);
-      await options.setViewportSize({ width: WIDTHS[1].width, height: WIDTHS[1].height });
+      await checkAtEveryWidth(options, optionsSurface(tab.id), theme);
+      await options.setViewportSize({ width: GATE_WIDTHS[1].width, height: GATE_WIDTHS[1].height });
     }
-    gateRuns += 1;
   });
 }
-
-test.afterAll(() => {
-  // Only a run that captured every surface can tell a stale key from a skipped one.
-  if (gateRuns < THEMES.length) return;
-  expect(uncheckedBaselineKeys(GATE), 'baseline keys no capture checks any more').toEqual([]);
-});
 
 test('flags cut-off control text and off-scale font sizes, and nothing else', async () => {
   ext = await launchExtension();

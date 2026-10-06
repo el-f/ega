@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { GATE_PREFIX, staleGateKeys } from '../../e2e/design-rules-gate';
 
 const E2E = join('tests', 'e2e');
 
@@ -17,17 +18,21 @@ function auditShotPatterns(): RegExp[] {
   });
 }
 
+const baseline = JSON.parse(
+  readFileSync(join(E2E, 'design-rules-baseline.json'), 'utf8'),
+) as Record<string, string[]>;
+
 describe('design-rules baseline', () => {
-  it('lists only captures that still exist', () => {
-    // The gate keys (gate-*) are checked at the end of a full design-rules.spec run instead.
-    const baseline = JSON.parse(
-      readFileSync(join(E2E, 'design-rules-baseline.json'), 'utf8'),
-    ) as Record<string, string[]>;
+  it('lists only audit captures that still exist', () => {
     const patterns = auditShotPatterns();
     expect(patterns.length).toBeGreaterThan(50);
     const stale = Object.keys(baseline).filter(
-      (k) => !k.startsWith('gate-') && !patterns.some((p) => p.test(k)),
+      (k) => !k.startsWith(GATE_PREFIX) && !patterns.some((p) => p.test(k)),
     );
     expect(stale).toEqual([]);
+  });
+
+  it('lists only gate keys that design-rules.spec.ts still captures', () => {
+    expect(staleGateKeys(baseline)).toEqual([]);
   });
 });
