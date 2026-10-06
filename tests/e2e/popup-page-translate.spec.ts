@@ -39,13 +39,8 @@ test('popup "Translate page" button wraps content on a tooltip-default site', as
   await content.bringToFront();
   await popup.getByRole('button', { name: 'Translate page' }).click();
 
-  // The tile opens translate-areas mode on the content tab; the user picks from there.
-  await expect
-    .poll(async () => egaTest<boolean>(content, 'msIsActive'), { timeout: 10_000 })
-    .toBe(true);
-
-  expect(await egaTest<boolean>(content, 'msSelectById', 'c1')).toBe(true);
-  expect(await egaTest<boolean>(content, 'msFire')).toBe(true);
+  // Translate page runs the whole page: no area picking first.
+  expect(await egaTest<boolean>(content, 'msIsActive')).toBe(false);
   await expect
     .poll(async () => (await egaTest<number>(content, 'inlineCount')) ?? 0, { timeout: 10_000 })
     .toBeGreaterThan(0);

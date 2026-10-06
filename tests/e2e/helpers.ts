@@ -758,7 +758,7 @@ export async function pickAreasAndTranslate(
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
     const tabId = tabs[0]?.id;
     if (!tabId) throw new Error('no tab');
-    await chrome.tabs.sendMessage(tabId, { kind: 'page:translateAll' });
+    await chrome.tabs.sendMessage(tabId, { kind: 'page:chooseAreas' });
   });
   const deadline = Date.now() + 5_000;
   while (Date.now() < deadline) {

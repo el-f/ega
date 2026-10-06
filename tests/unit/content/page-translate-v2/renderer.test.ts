@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { retryButton, chipText } from '@tests/_helpers/page-translate';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   mountBilingual,
@@ -8,7 +9,6 @@ import {
   mountError,
   setGlobalOriginalView,
 } from '@/content/page-translate-v2/renderer';
-import { errCodeLabel } from '@/shared/err-labels';
 
 function block(tag: string, text: string): HTMLElement {
   document.body.innerHTML = `<${tag} id="orig">${text}</${tag}>`;
@@ -104,10 +104,10 @@ describe('renderer — bilingual mode', () => {
     // The raw transport error must NOT become the block's translation text.
     expect(handle.target.textContent).not.toContain('too slow');
     expect(handle.target.textContent).not.toContain('TIMEOUT');
-    // …the detail stays on the chip's title, behind the human label — never the bare code.
+    // …the chip names the cause from the catalog, with no hover-only title and never the bare code.
     const chip = handle.target.querySelector('[data-ega-tx-error]');
-    expect(chip?.getAttribute('title')).toBe(`${errCodeLabel('TIMEOUT')}: too slow`);
-    expect(chip?.textContent).toContain(errCodeLabel('TIMEOUT'));
+    expect(chip?.hasAttribute('title')).toBe(false);
+    expect(chipText(handle.target)).toBe('No answer in time');
     // Original stays intact above the failed sibling.
     expect(original.textContent).toBe('これは段落です。');
   });
@@ -137,9 +137,17 @@ describe('renderer — mountError retry button', () => {
     const handle = mountBilingual({ id: 'b-r1', element: el, originalText: 'これは段落です。' });
     const onRetry = vi.fn();
     mountError(handle, { code: 'TIMEOUT', message: 'too slow' }, { onRetry });
-    const btn = handle.target.querySelector('[data-ega-retry-block]');
+    const btn = retryButton(handle.target);
     expect(btn).not.toBeNull();
-    expect(btn?.getAttribute('aria-label')).toBe('Retry translation');
+    expect(btn?.textContent).toBe('Try again');
+    // The button is described by the chip's title, so the cause is read with it.
+    const title =
+      btn?.getRootNode() instanceof ShadowRoot
+        ? (btn.getRootNode() as ShadowRoot).getElementById(
+            btn.getAttribute('aria-describedby') ?? '',
+          )
+        : null;
+    expect(title?.textContent).toBe('No answer in time');
     (btn as HTMLButtonElement).click();
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
@@ -149,7 +157,7 @@ describe('renderer — mountError retry button', () => {
     const el = document.getElementById('orig') as HTMLElement;
     const handle = mountBilingual({ id: 'b-r2', element: el, originalText: 'これは段落です。' });
     mountError(handle, { code: 'TIMEOUT', message: 'too slow' });
-    const btn = handle.target.querySelector('[data-ega-retry-block]');
+    const btn = retryButton(handle.target);
     expect(btn).toBeNull();
   });
 });
@@ -219,14 +227,9 @@ describe('renderer — in-place mode', () => {
     // Reader sees the original, not "RATE_LIMIT: gemini: RATE_LIMIT".
     expect(handle.target.textContent).toContain('これは元の段落です。');
     expect(handle.target.textContent).not.toContain('RATE_LIMIT');
-    expect(handle.target.querySelector('[data-ega-retry-block]')).not.toBeNull();
-    expect(handle.target.querySelector('[data-ega-tx-error]')?.getAttribute('title')).toBe(
-      `${errCodeLabel('RATE_LIMIT')}: gemini: RATE_LIMIT`,
-    );
-    // In-place too: a bare ⚠ next to the page's own text names nothing.
-    expect(handle.target.querySelector('[data-ega-tx-error]')?.textContent).toContain(
-      errCodeLabel('RATE_LIMIT'),
-    );
+    expect(retryButton(handle.target)).not.toBeNull();
+    // In-place too: the chip names the cause in the catalog's words.
+    expect(chipText(handle.target)).toContain('Too many requests');
   });
 
   it('revert is idempotent — a second call does not double-insert the original', () => {
@@ -308,7 +311,7 @@ describe('renderer — pill view toggle (showOriginal / showTranslation)', () =>
     mountError(handle, { code: 'NETWORK', message: 'x' }, { onRetry: () => {} });
     handle.showOriginal();
     expect(handle.target.querySelector('[data-ega-tx-error]')).not.toBeNull();
-    expect(handle.target.querySelector('[data-ega-retry-block]')).not.toBeNull();
+    expect(retryButton(handle.target)).not.toBeNull();
     expect(handle.target.textContent).toContain('これは元の段落です。');
   });
 });
@@ -423,5 +426,53 @@ describe('renderer — global original view suspends per-wrapper peek (inplace)'
     expect(handle.target.textContent).toBe('これは元の段落テキスト。');
     handle.target.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
     expect(handle.target.textContent).toContain('Translation text.');
+  });
+});
+
+describe('renderer — one pending look in both modes', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('Replace text keeps the original readable, dimmed, until the first words land', () => {
+    document.body.innerHTML = '<p id="o">これは<b>元の</b>段落です。</p>';
+    const el = document.getElementById('o') as HTMLElement;
+    const handle = mountInplace({ id: 'pend-1', element: el, originalText: el.textContent });
+    expect(handle.target.hasAttribute('data-ega-pending')).toBe(true);
+    expect(handle.target.textContent).toBe('これは元の段落です。');
+    expect(handle.target.querySelector('b')).not.toBeNull();
+    appendDelta(handle, '{"translation":"');
+    expect(handle.target.hasAttribute('data-ega-pending')).toBe(true);
+    appendDelta(handle, 'This is');
+    expect(handle.target.hasAttribute('data-ega-pending')).toBe(false);
+    expect(handle.target.textContent).toBe('This is');
+  });
+
+  it('Show both starts with an empty, pending sibling and sizes a heading translation at 85%', () => {
+    document.body.innerHTML = '<h2 id="h" style="font-size: 20px">見出し</h2>';
+    const el = document.getElementById('h') as HTMLElement;
+    const handle = mountBilingual({ id: 'pend-2', element: el, originalText: '見出し' });
+    expect(handle.target.hasAttribute('data-ega-pending')).toBe(true);
+    expect(handle.target.textContent).toBe('');
+    expect(handle.target.style.fontSize).toBe('17px');
+    finish(handle);
+    expect(handle.target.hasAttribute('data-ega-pending')).toBe(false);
+  });
+});
+
+describe('renderer — the chip offers the fix the catalog names first', () => {
+  it('a failure a setting fixes offers Open settings, never a retry that would fail the same way', async () => {
+    document.body.innerHTML = '<p id="o">これは段落です。</p>';
+    const el = document.getElementById('o') as HTMLElement;
+    const handle = mountBilingual({ id: 'fix-1', element: el, originalText: 'これは段落です。' });
+    const send = vi.spyOn(chrome.runtime, 'sendMessage').mockResolvedValue(undefined);
+    mountError(handle, { code: 'AUTH', message: '401 bad key' }, { onRetry: vi.fn() });
+    expect(chipText(handle.target)).toBe('API key rejectedOpen settings');
+    expect(retryButton(handle.target)).toBeNull();
+    const btn = handle.target
+      .querySelector('[data-ega-tx-error]')
+      ?.shadowRoot?.querySelector<HTMLButtonElement>('[data-ega-chip-settings]');
+    btn?.click();
+    expect(send).toHaveBeenCalledWith({ kind: 'ui:open-options', tab: 'backends' });
   });
 });

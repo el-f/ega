@@ -67,11 +67,11 @@ test('a replaced block gets its styling from the page-level sheet', async () => 
     };
   });
 
-  // Unstyled is the defect: transparent background, no border, default cursor.
+  // Unstyled is the defect: transparent background, no border. No help cursor: a hover hint is meaning a keyboard user never gets.
   expect(styles.background).not.toBe('rgba(0, 0, 0, 0)');
   expect(styles.borderBottomStyle).toBe('dashed');
   expect(styles.borderBottomWidth).toBe('1px');
-  expect(styles.cursor).toBe('help');
+  expect(styles.cursor).not.toBe('help');
 
   const sheetCount = await page.locator('style#ega-page-styles').count();
   expect(sheetCount).toBe(1);

@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { retryButton } from '@tests/_helpers/page-translate';
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
   mountInplace,
@@ -37,11 +38,11 @@ describe('renderer — the block phase', () => {
     expect(handle.target.getAttribute('data-ega-tx-state')).toBe('ok');
   });
 
-  it('tells the reader how to peek at the original once an in-place block settles', () => {
+  // Press-and-hold peek is a mouse extra; Show original on the pill is the documented path, so no hover-only hint.
+  it('a settled in-place block carries no title', () => {
     const handle = mountInplace({ id: 'ph-h', element: host(rich), originalText: 'x' });
-    expect(handle.target.title).toBe('');
     finish(handle);
-    expect(handle.target.title).toMatch(/Hold the mouse button/);
+    expect(handle.target.hasAttribute('title')).toBe(false);
   });
 
   it('settles to error on mountError', () => {
@@ -85,7 +86,7 @@ describe('renderer — the block phase', () => {
 
     expect(handle.phase).toBe('error');
     expect(handle.target.querySelector('[data-ega-tx-error]')).not.toBeNull();
-    expect(handle.target.querySelector('[data-ega-retry-block]')).not.toBeNull();
+    expect(retryButton(handle.target)).not.toBeNull();
     expect(handle.target.querySelector('a')?.getAttribute('href')).toBe('https://x.test');
   });
 

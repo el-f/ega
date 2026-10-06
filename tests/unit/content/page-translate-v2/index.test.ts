@@ -7,13 +7,13 @@ import {
   isPageV2Active,
   pageBackoffMs,
   pageRetryJitterMs,
-  pageSettleMessage,
   type ProgressHandle,
 } from '@/content/page-translate-v2';
 import { isMultiSelectActive } from '@/content/page-translate-v2/multi-select';
 import { beginRequest, releaseRequest, rendererFor, rendererOwner } from '@/content/request-state';
 import { CONTEXT_INVALIDATED_MESSAGE, SEND_FAILED_MESSAGE } from '@/content/context-guard';
-import { deps, flush, enterAndFire } from '@tests/_helpers/page-translate';
+import { deps, flush, enterAndFire, retryButton, chipText } from '@tests/_helpers/page-translate';
+import type { PageProgress } from '@/content/page-translate-v2/progress';
 
 function click(el: Element): void {
   el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
@@ -26,7 +26,6 @@ function pressEnter(): void {
 function progressHandle(over: Partial<ProgressHandle> = {}): ProgressHandle {
   return {
     update: vi.fn(),
-    settle: vi.fn(),
     setLiveMessage: vi.fn(),
     setOnClose: vi.fn(),
     setOnToggleOriginal: vi.fn(),
@@ -199,15 +198,17 @@ describe('page-translate-v2 — settle, close and the Show original toggle', () 
       deps({ mountProgress: () => p, dispatch }, { pageTranslateMode: 'inplace' }),
       ['src'],
     );
-    routePageV2Chunk({ type: 'error', requestId: captured, code: 'AUTH', message: 'bad key' });
+    routePageV2Chunk({ type: 'error', requestId: captured, code: 'UNKNOWN', message: 'bad key' });
     await flush();
 
-    const retry = document.querySelector('[data-ega-retry-block]');
+    const retry = retryButton();
     expect(retry).not.toBeNull();
     click(retry as Element);
     await flush();
-    // Mid-retry the block shows the streaming placeholder, not its own text.
-    expect(document.getElementById('src')?.textContent).not.toBe(original);
+    // Mid-retry the block shows the pending look: its own words, dimmed, inside Ega's wrapper.
+    expect(document.querySelector('[data-ega-replaced]')?.hasAttribute('data-ega-pending')).toBe(
+      true,
+    );
 
     closeHandler?.();
     expect(document.getElementById('src')?.textContent).toBe(original);
@@ -222,10 +223,10 @@ describe('page-translate-v2 — settle, close and the Show original toggle', () 
       captured = requestId;
       return Promise.resolve();
     });
-    const settle = vi.fn();
+    const update = vi.fn();
     const dismiss = vi.fn();
     const p = progressHandle({
-      settle,
+      update,
       dismiss,
       setOnClose: vi.fn((h: () => void) => {
         closeHandler = h;
@@ -240,7 +241,9 @@ describe('page-translate-v2 — settle, close and the Show original toggle', () 
     routePageV2Chunk({ type: 'delta', requestId: captured, text: '{"translation":"x"}' });
     routePageV2Chunk({ type: 'done', requestId: captured, confidence: 1 });
 
-    expect(settle).toHaveBeenCalledWith({ done: 1, total: 1, complete: true, failed: 0 });
+    expect(update).toHaveBeenLastCalledWith(
+      expect.objectContaining({ done: 1, total: 1, failed: 0, settled: true }),
+    );
     expect(closeHandler).toBeDefined();
     expect(dismiss).not.toHaveBeenCalled();
 
@@ -358,9 +361,9 @@ describe('page-translate-v2 — errors and retry', () => {
     const setLiveMessage = vi.fn();
     const p = progressHandle({ setLiveMessage });
     await enterAndFire(deps({ mountProgress: () => p, dispatch }), ['src']);
-    routePageV2Chunk({ type: 'error', requestId: captured, code: 'AUTH', message: 'bad key' });
-    expect(document.querySelector('[data-ega-retry-block]')).not.toBeNull();
-    expect(setLiveMessage).toHaveBeenCalledWith('Translated 0 of 1. 1 failed.');
+    routePageV2Chunk({ type: 'error', requestId: captured, code: 'UNKNOWN', message: 'bad key' });
+    expect(retryButton()).not.toBeNull();
+    expect(setLiveMessage).toHaveBeenCalledWith("Couldn't translate 1 of 1 area.");
   });
 
   it('a transient error re-dispatches after the backoff delay', async () => {
@@ -414,7 +417,7 @@ describe('page-translate-v2 — errors and retry', () => {
       await vi.advanceTimersByTimeAsync(60_000);
       await flush();
       expect(dispatch).toHaveBeenCalledTimes(2);
-      expect(document.querySelector('[data-ega-retry-block]')).not.toBeNull();
+      expect(retryButton()).not.toBeNull();
     } finally {
       vi.useRealTimers();
       vi.restoreAllMocks();
@@ -544,7 +547,7 @@ describe('page-translate-v2 — errors and retry', () => {
       // Budget = translateTimeoutMs + 60s grace.
       await vi.advanceTimersByTimeAsync(61_001);
       const wrapper = document.querySelector('[data-ega-replaced]') as HTMLElement;
-      expect(wrapper.querySelector('[data-ega-retry-block]')).not.toBeNull();
+      expect(retryButton(wrapper)).not.toBeNull();
     } finally {
       vi.useRealTimers();
     }
@@ -629,38 +632,27 @@ describe('pageRetryJitterMs — destagger term', () => {
   });
 });
 
-describe('pageSettleMessage', () => {
-  it('says done when nothing failed', () => {
-    expect(pageSettleMessage(4, 4, 0)).toBe('Page translated.');
-  });
-
-  it('counts failures', () => {
-    expect(pageSettleMessage(4, 4, 1)).toBe('Translated 3 of 4. 1 failed.');
-  });
-
-  it('a stop names the kept areas and the failed ones', () => {
-    expect(pageSettleMessage(2, 2, 0, 3)).toBe('Stopped. Translated 2 of 5.');
-    expect(pageSettleMessage(3, 3, 1, 2)).toBe('Stopped. Translated 2 of 5. 1 failed.');
-  });
-});
-
 describe('page-translate-v2 — a dispatch that never reached the worker', () => {
   it('says the same thing the tooltip says when the extension was updated mid-run', async () => {
     document.body.innerHTML = '<p id="a">これは日本語の段落です。</p>';
     const dispatch = vi.fn(() => Promise.reject(new Error('Extension context invalidated.')));
-    await enterAndFire(deps({ dispatch }), ['a']);
+    const update = vi.fn();
+    await enterAndFire(deps({ dispatch, mountProgress: () => progressHandle({ update }) }), ['a']);
 
-    const chip = document.querySelector('[data-ega-tx-error]');
-    expect(chip?.getAttribute('title')).toContain(CONTEXT_INVALIDATED_MESSAGE);
+    // The chip names the cause; the raw sentence is for Error details on the pill.
+    expect(chipText()).toContain('No connection');
+    const last = update.mock.lastCall?.[0] as PageProgress;
+    expect(last.failure?.details).toEqual([CONTEXT_INVALIDATED_MESSAGE]);
   });
 
   it('uses the one send-failure sentence for any other transport error', async () => {
     document.body.innerHTML = '<p id="a">これは日本語の段落です。</p>';
     const dispatch = vi.fn(() => Promise.reject(new Error('port closed')));
-    await enterAndFire(deps({ dispatch }), ['a']);
+    const update = vi.fn();
+    await enterAndFire(deps({ dispatch, mountProgress: () => progressHandle({ update }) }), ['a']);
 
-    const chip = document.querySelector('[data-ega-tx-error]');
-    expect(chip?.getAttribute('title')).toContain(SEND_FAILED_MESSAGE);
+    const last = update.mock.lastCall?.[0] as PageProgress;
+    expect(last.failure?.details).toEqual([SEND_FAILED_MESSAGE]);
   });
 
   it('still mints a request id where the platform withholds crypto.randomUUID', async () => {
@@ -715,9 +707,9 @@ describe('page-translate-v2 — retry guards and backoff jitter', () => {
       return Promise.resolve();
     });
     await enterAndFire(deps({ dispatch }), ['src']);
-    routePageV2Chunk({ type: 'error', requestId: seen[0] ?? '', code: 'AUTH', message: 'no' });
+    routePageV2Chunk({ type: 'error', requestId: seen[0] ?? '', code: 'UNKNOWN', message: 'no' });
 
-    const retry = document.querySelector<HTMLButtonElement>('[data-ega-retry-block]');
+    const retry = retryButton();
     retry?.click();
     retry?.click();
     await flush();
@@ -733,11 +725,11 @@ describe('page-translate-v2 — retry guards and backoff jitter', () => {
       .mockResolvedValue(undefined);
     await enterAndFire(deps({ dispatch }), ['a']);
 
-    document.querySelector<HTMLButtonElement>('[data-ega-retry-block]')?.click();
+    retryButton()?.click();
     await flush();
 
     expect(dispatch).toHaveBeenCalledTimes(2);
-    expect(document.querySelector('[data-ega-retry-block]')).toBeNull();
+    expect(retryButton()).toBeNull();
   });
 
   it('the router adapter settles the block on a done call', async () => {
@@ -748,17 +740,19 @@ describe('page-translate-v2 — retry guards and backoff jitter', () => {
       return Promise.resolve();
     });
     const onRegister = vi.fn((requestId: string) => beginRequest(requestId, 'page-v2'));
-    const settle = vi.fn();
-    const p = progressHandle({ settle });
+    const update = vi.fn();
+    const p = progressHandle({ update });
     await enterAndFire(
       deps({ dispatch, onRegister, onUnregister: releaseRequest, mountProgress: () => p }),
       ['src'],
     );
-    expect(settle).not.toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalledWith(expect.objectContaining({ settled: true }));
 
     rendererFor(captured)?.finish(captured, { confidence: 1 });
 
-    expect(settle).toHaveBeenCalledWith({ done: 1, total: 1, complete: true, failed: 0 });
+    expect(update).toHaveBeenLastCalledWith(
+      expect.objectContaining({ done: 1, total: 1, failed: 0, settled: true }),
+    );
   });
 
   it('the router adapter turns an error chunk into the block error chip', async () => {
@@ -773,10 +767,10 @@ describe('page-translate-v2 — retry guards and backoff jitter', () => {
 
     const renderer = rendererFor(captured);
     expect(renderer).toBeDefined();
-    renderer?.error(captured, { code: 'AUTH', message: 'bad key' });
+    renderer?.error(captured, { code: 'UNKNOWN', message: 'bad key' });
 
-    expect(document.querySelector('[data-ega-tx-error]')?.textContent).toContain('Authentication');
-    expect(document.querySelector('[data-ega-retry-block]')).not.toBeNull();
+    expect(chipText()).toContain('Something went wrong');
+    expect(retryButton()).not.toBeNull();
   });
 });
 
@@ -791,8 +785,13 @@ describe('page-translate-v2 — the detected source language', () => {
     await enterAndFire(deps({ dispatch, detectLang: () => 'ja' }), ['src']);
     expect(calls.map((c) => c.lang)).toEqual(['ja']);
 
-    routePageV2Chunk({ type: 'error', requestId: calls[0]?.id ?? '', code: 'AUTH', message: 'no' });
-    document.querySelector<HTMLButtonElement>('[data-ega-retry-block]')?.click();
+    routePageV2Chunk({
+      type: 'error',
+      requestId: calls[0]?.id ?? '',
+      code: 'UNKNOWN',
+      message: 'no',
+    });
+    retryButton()?.click();
     await flush();
 
     expect(calls.map((c) => c.lang)).toEqual(['ja', 'ja']);

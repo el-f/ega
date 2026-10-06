@@ -36,6 +36,11 @@ function isReloadFailure(e: unknown): boolean {
   return /dynamically imported module|failed to fetch/i.test(msg);
 }
 
+/** What a send that never reached the worker says: an extension update needs a reload, anything else a retry. */
+export function sendFailureMessage(e: unknown): string {
+  return isContextInvalidatedError(e) ? CONTEXT_INVALIDATED_MESSAGE : SEND_FAILED_MESSAGE;
+}
+
 export function showReloadToast(): void {
   showToast(CONTEXT_INVALIDATED_MESSAGE, {
     action: { label: 'Reload page', run: () => location.reload() },
@@ -91,9 +96,7 @@ export async function fireTranslate(
   } catch (e) {
     log.warn('sendMessage failed', e);
     // An extension reload orphans the injected script, and only a page reload re-injects a live one.
-    const message = isContextInvalidatedError(e)
-      ? CONTEXT_INVALIDATED_MESSAGE
-      : SEND_FAILED_MESSAGE;
+    const message = sendFailureMessage(e);
     // The renderer that owns the request paints the failure; an inline span would otherwise shimmer to its stall guard.
     rendererFor(req.id)?.error(req.id, { code: 'NETWORK', message });
   }

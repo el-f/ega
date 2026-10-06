@@ -1,8 +1,7 @@
 <script lang="ts">
   import BrandMark from '@/shared/components/BrandMark.svelte';
   import { isUserGesture } from './user-gesture';
-  import { varietyLabel } from './tooltip/variety-label';
-  import { cachedCustomLanguages } from './customs-cache';
+  import { languageName } from './language-name';
 
   interface Direction {
     source: string;
@@ -25,17 +24,6 @@
 
   let focusedFrom: HTMLElement | null | undefined;
 
-  // A raw id (`en`, a custom UUID) means nothing to a reader; the browser names ISO codes at no bundle cost.
-  const isoNames = new Intl.DisplayNames(['en'], { type: 'language' });
-  function languageName(id: string): string {
-    const label = varietyLabel(id, cachedCustomLanguages());
-    if (label !== id) return label;
-    try {
-      return isoNames.of(id) ?? id;
-    } catch {
-      return id;
-    }
-  }
   // The source is left out, so nothing dangles; the tooltip names it.
   const label = $derived.by(() => {
     const count = queued > 0 ? ` ${queued + 1}` : '';

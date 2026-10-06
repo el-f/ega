@@ -4,11 +4,10 @@ import type { Mock } from 'vitest';
 import {
   cancelPageTranslateV2,
   isPageV2Active,
-  pageSettleMessage,
   routePageV2Chunk,
   type ProgressHandle,
 } from '@/content/page-translate-v2';
-import { deps, flush, enterAndFire } from '@tests/_helpers/page-translate';
+import { deps, flush, enterAndFire, trackSettle } from '@tests/_helpers/page-translate';
 
 interface Captured {
   close?: () => void;
@@ -25,14 +24,13 @@ function progress(): Captured {
   const settle = vi.fn();
   const dismiss = vi.fn();
   const live = vi.fn();
-  const update = vi.fn();
+  const update = vi.fn(trackSettle(settle));
   out.update = update;
   out.settle = settle;
   out.dismiss = dismiss;
   out.live = live;
   out.handle = {
     update,
-    settle,
     setLiveMessage: live,
     setOnClose: vi.fn((h: () => void) => {
       out.close = h;
@@ -83,7 +81,9 @@ describe('settling a batch', () => {
     routePageV2Chunk({ type: 'done', requestId: ids[1] ?? '', confidence: 1 });
     await flush();
     expect(p.settle).toHaveBeenCalledTimes(1);
-    expect(p.settle).toHaveBeenCalledWith({ done: 2, total: 2, complete: true, failed: 0 });
+    expect(p.settle).toHaveBeenCalledWith(
+      expect.objectContaining({ done: 2, total: 2, failed: 0, skipped: 0 }),
+    );
   });
 
   it('reports the failure count and is not complete when a block errored', async () => {
@@ -102,23 +102,27 @@ describe('settling a batch', () => {
     );
 
     routePageV2Chunk({ type: 'done', requestId: ids[0] ?? '', confidence: 1 });
-    // AUTH is terminal in the error policy; a retryable code would go to backoff instead.
+    // UNKNOWN is terminal in the error policy; a retryable code would go to backoff instead.
     routePageV2Chunk({
       type: 'error',
       requestId: ids[1] ?? '',
-      code: 'AUTH',
+      code: 'UNKNOWN',
       message: 'the key was refused',
     });
     await flush();
 
-    expect(p.settle).toHaveBeenCalledWith({
-      done: 2,
-      total: 2,
-      complete: false,
-      failed: 1,
-      failedLabel: 'Authentication failed',
-    });
-    expect(p.live).toHaveBeenCalledWith(pageSettleMessage(2, 2, 1));
+    expect(p.settle).toHaveBeenCalledWith(
+      expect.objectContaining({
+        done: 2,
+        total: 2,
+        failed: 1,
+        failure: expect.objectContaining({
+          body: 'Ega could not finish this translation.',
+          details: ['the key was refused'],
+        }),
+      }),
+    );
+    expect(p.live).toHaveBeenCalledWith("Couldn't translate 1 of 2 areas.");
   });
 });
 
@@ -189,7 +193,7 @@ describe('canceling a batch', () => {
 
     await cancelPageTranslateV2();
 
-    expect(p.live).toHaveBeenCalledWith('Page translation canceled.');
+    expect(p.live).toHaveBeenCalledWith('Translation removed.');
     expect(p.dismiss).toHaveBeenCalled();
     expect(onUnregister).toHaveBeenCalledTimes(2);
     expect(cancelRequest).toHaveBeenCalledTimes(2);
@@ -258,7 +262,7 @@ describe('a repeated terminal chunk', () => {
     routePageV2Chunk({ type: 'done', requestId: ids[0] ?? '', confidence: 1 });
 
     expect(p.settle).toHaveBeenCalledTimes(1);
-    expect(p.update).toHaveBeenCalledTimes(1);
+    expect(p.update).toHaveBeenLastCalledWith(expect.objectContaining({ done: 1, total: 1 }));
   });
 });
 
@@ -315,7 +319,7 @@ describe('the chunk router', () => {
 
     routePageV2Chunk({ type: 'done', requestId: ids[0] ?? '', confidence: 1 });
     expect(onUnregister).toHaveBeenLastCalledWith(ids[0]);
-    routePageV2Chunk({ type: 'error', requestId: ids[1] ?? '', code: 'AUTH', message: 'no' });
+    routePageV2Chunk({ type: 'error', requestId: ids[1] ?? '', code: 'UNKNOWN', message: 'no' });
     expect(onUnregister).toHaveBeenLastCalledWith(ids[1]);
     // A transient error goes to backoff; the old request is over all the same.
     routePageV2Chunk({ type: 'error', requestId: ids[2] ?? '', code: 'NETWORK', message: 'x' });

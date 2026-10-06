@@ -152,7 +152,6 @@ describe('reduced motion — the page sheet stops its own motion', () => {
     const style = underMedia('prefers-reduced-motion: reduce', "[data-ega-tx-state='ok']");
     const transition = style?.getPropertyValue('transition') ?? '';
     expect(transition).toMatch(/background-color 0s 2s/);
-    expect(transition).toMatch(/border-bottom-color 0s 2s/);
   });
 });
 
@@ -166,15 +165,19 @@ describe('page translate — a block still waiting on its reply moves', () => {
     )?.style;
   }
 
-  it('a streaming block pulses, so a slow block does not read as stuck', () => {
-    expect(topLevel("[data-ega-tx-state='streaming']")?.getPropertyValue('animation')).toMatch(
-      /^ega-tx-pulse .* infinite$/,
-    );
+  it('a pending block, in either mode, shows one spinner at its inline end', () => {
+    const style = topLevel('[data-ega-pending]::after');
+    expect(style?.getPropertyValue('animation')).toMatch(/^ega-inline-spin .* infinite$/);
+    expect(style?.getPropertyValue('margin-inline-start')).toBe('0.35em');
   });
 
-  it('reduced motion stops the pulse', () => {
-    const style = underMedia('prefers-reduced-motion: reduce', "[data-ega-tx-state='streaming']");
+  it('reduced motion holds the spinner still', () => {
+    const style = underMedia('prefers-reduced-motion: reduce', '[data-ega-pending]::after');
     expect(style?.getPropertyValue('animation')).toBe('none');
+  });
+
+  it('a pending Show-both sibling keeps a line of height, so the bar shows before any words', () => {
+    expect(topLevel('[data-ega-tx][data-ega-pending]')?.getPropertyValue('min-height')).toBe('1em');
   });
 });
 
@@ -187,8 +190,14 @@ describe('page translate — error blocks on any page theme', () => {
     )?.style;
   }
 
-  it('the error chip takes the page text color, so it reads on a dark page', () => {
-    expect(rule('[data-ega-tx-error]')?.getPropertyValue('color')).toBe('inherit');
+  it('the chip host takes no page styles of its own; its shadow root draws it', () => {
+    const style = rule('[data-ega-tx-error]');
+    expect(style?.getPropertyValue('display')).toBe('inline-flex');
+    expect(style?.getPropertyValue('font-size')).toBe('');
+  });
+
+  it('no translated block carries a help cursor', () => {
+    expect(pageCss).not.toMatch(/cursor:\s*help/);
   });
 
   it('the retry button is never hidden at rest', () => {
@@ -209,16 +218,13 @@ describe('inline replace — a pending wrapper shows that a reply is coming', ()
   }
 
   it('draws a spinning ring after the dimmed original', () => {
-    const style = topLevel('[data-ega-replaced][data-ega-pending]::after');
+    const style = topLevel('[data-ega-pending]::after');
     expect(style?.getPropertyValue('content')).toMatch(/^(''|"")$/);
     expect(style?.getPropertyValue('animation')).toMatch(/ega-inline-spin/);
   });
 
   it('holds the ring still under reduced motion', () => {
-    const style = underMedia(
-      'prefers-reduced-motion: reduce',
-      '[data-ega-replaced][data-ega-pending]::after',
-    );
+    const style = underMedia('prefers-reduced-motion: reduce', '[data-ega-pending]::after');
     expect(style?.getPropertyValue('animation')).toBe('none');
   });
 });
@@ -231,6 +237,6 @@ describe('bilingual — a translation reads as added, not as page text', () => {
       (r): r is CSSStyleRule => r instanceof CSSStyleRule && r.selectorText === '[data-ega-tx]',
     )?.style;
     expect(style?.getPropertyValue('background-color')).toMatch(/rgba\(0, 144, 255/);
-    expect(style?.getPropertyValue('border-left')).toMatch(/^3px solid/);
+    expect(style?.getPropertyValue('border-inline-start')).toMatch(/^3px solid/);
   });
 });

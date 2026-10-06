@@ -1,9 +1,8 @@
 import { createMemoizedJsonParser, streamingTranslation } from '@/shared/backends/base';
 import type { ErrCode } from '@/shared/types';
-import { errCodeLabel } from '@/shared/err-labels';
 import { ensurePageStyles } from '../page-styles';
 import { markLang } from '@/shared/lang-tag';
-import { isUserGesture } from '../user-gesture';
+import { mountErrorChip } from '../page-chip';
 import type { RenderMode } from './store';
 
 export interface MountArgs {
@@ -38,13 +37,12 @@ export interface RenderHandle {
   phase: BlockPhase;
 }
 
-const PLACEHOLDER = '…';
-const PEEK_HINT = 'Hold the mouse button down to see the original';
-
 /** The attribute mirrors the phase for the page stylesheet and the e2e probes. */
 function setPhase(handle: RenderHandle, phase: BlockPhase): void {
   handle.phase = phase;
   handle.target.setAttribute('data-ega-tx-state', phase);
+  // One pending look until the first words land: the original dimmed (or an empty bar) with one spinner.
+  if (phase !== 'streaming') handle.target.removeAttribute('data-ega-pending');
 }
 
 interface InplaceSwap {
@@ -128,7 +126,12 @@ export function mountBilingual(args: MountArgs): RenderHandle {
   // dir="auto" gives an RTL translation correct bidi on an LTR page; the original keeps the page's direction.
   sibling.setAttribute('dir', 'auto');
   markLang(sibling, args.lang);
-  sibling.textContent = PLACEHOLDER;
+  sibling.setAttribute('data-ega-pending', '');
+  // A heading's translation reads as a heading at 85% of its size, so the two do not compete.
+  if (/^H[1-6]$/.test(args.element.tagName)) {
+    const px = Number.parseFloat(globalThis.getComputedStyle(args.element).fontSize);
+    if (px > 0) sibling.style.fontSize = `${Math.round(px * 0.85)}px`;
+  }
   args.element.after(sibling);
   const handle: RenderHandle = {
     id: args.id,
@@ -165,7 +168,9 @@ export function mountInplace(args: MountArgs): RenderHandle {
   // translation correct bidi on the LTR host page.
   wrapper.setAttribute('dir', 'auto');
   markLang(wrapper, args.lang);
-  wrapper.textContent = PLACEHOLDER;
+  wrapper.setAttribute('data-ega-pending', '');
+  // The page keeps its own words, dimmed, until the translation starts to arrive.
+  wrapper.appendChild(fragment.cloneNode(true));
   host.appendChild(wrapper);
   const handle: RenderHandle = {
     id: args.id,
@@ -198,12 +203,9 @@ function render(handle: RenderHandle): void {
   if (handle.phase !== 'streaming') return;
   const parsed = handle.parseJson(handle.rawAcc);
   const text = streamingTranslation(handle.rawAcc, parsed);
-  // Empty during the JSON-envelope phase — keep the placeholder so the block
-  // never collapses to zero text (the same discipline as inlineReplace).
-  if (text.length === 0) {
-    if (handle.target.textContent !== PLACEHOLDER) handle.target.textContent = PLACEHOLDER;
-    return;
-  }
+  // Empty during the JSON-envelope phase: the pending look stays, so the block never collapses to nothing.
+  if (text.length === 0) return;
+  handle.target.removeAttribute('data-ega-pending');
   handle.target.textContent = text;
 }
 
@@ -217,19 +219,16 @@ export function finish(handle: RenderHandle): void {
   if (handle.phase !== 'streaming') return;
   render(handle);
   setPhase(handle, 'ok');
-  // Only the in-place wrapper has the press-to-peek gesture; bilingual keeps the original on the page.
-  if (handle.mode === 'inplace') handle.target.title = PEEK_HINT;
 }
 
 export function mountError(
   handle: RenderHandle,
   err: { code: ErrCode; message: string },
-  opts?: { onRetry?: () => void },
+  opts?: { onRetry?: () => void; backend?: string },
 ): void {
   if (handle.phase !== 'streaming') return;
   const { target } = handle;
-  const detail = `${errCodeLabel(err.code)}: ${err.message}`;
-  // A raw transport error must never become the block's text; the detail goes in `title` instead.
+  // A raw transport error must never become the block's text; the page keeps its own words and the chip names the cause.
   if (handle.mode === 'inplace' && handle.originalNodes) {
     target.replaceChildren(handle.originalNodes.cloneNode(true));
   } else {
@@ -238,24 +237,10 @@ export function mountError(
   setPhase(handle, 'error');
   // The page's own text and our error chip are not in the target language.
   markLang(target, undefined);
-
-  const chip = document.createElement('span');
-  chip.setAttribute('data-ega-tx-error', '');
-  chip.title = detail;
-  chip.textContent = `⚠ ${errCodeLabel(err.code)}`;
-  target.appendChild(chip);
-
-  if (opts?.onRetry) {
-    const { onRetry } = opts;
-    const btn = document.createElement('button');
-    btn.setAttribute('data-ega-retry-block', '');
-    btn.setAttribute('aria-label', 'Retry translation');
-    btn.title = detail;
-    btn.textContent = '↻';
-    // The button lives in the page's own DOM, so a page script can click it; only a real click re-dispatches.
-    btn.onclick = (e) => {
-      if (isUserGesture(e)) onRetry();
-    };
-    target.appendChild(btn);
-  }
+  target.appendChild(
+    mountErrorChip(err, {
+      ...(opts?.onRetry ? { onRetry: opts.onRetry } : {}),
+      ...(opts?.backend ? { backend: opts.backend } : {}),
+    }),
+  );
 }

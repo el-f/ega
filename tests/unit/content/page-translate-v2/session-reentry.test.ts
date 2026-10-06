@@ -10,7 +10,13 @@ import {
 } from '@/content/page-translate-v2';
 import { isMultiSelectActive } from '@/content/page-translate-v2/multi-select';
 import type { Settings } from '@/shared/types';
-import { deps, flush, enterAndFire } from '@tests/_helpers/page-translate';
+import {
+  deps,
+  flush,
+  enterAndFire,
+  retryButton,
+  trackSettle,
+} from '@tests/_helpers/page-translate';
 
 interface Captured {
   close?: () => void;
@@ -27,7 +33,7 @@ function progress(): Captured {
   const out: Partial<Captured> = {};
   const settle = vi.fn();
   const dismiss = vi.fn();
-  const update = vi.fn();
+  const update = vi.fn(trackSettle(settle));
   const onClose = vi.fn((h: () => void) => {
     out.close = h;
   });
@@ -41,7 +47,6 @@ function progress(): Captured {
   out.onToggle = onToggle;
   out.handle = {
     update,
-    settle,
     setLiveMessage: vi.fn(),
     setOnClose: onClose,
     setOnToggleOriginal: onToggle,
@@ -108,11 +113,11 @@ describe('page-translate-v2 — closing removes controls that no longer work', (
     });
     const p = progress();
     await enterAndFire(deps({ mountProgress: () => p.handle, dispatch }), ['a']);
-    routePageV2Chunk({ type: 'error', requestId: captured, code: 'AUTH', message: 'bad key' });
-    expect(document.querySelector('[data-ega-retry-block]')).not.toBeNull();
+    routePageV2Chunk({ type: 'error', requestId: captured, code: 'UNKNOWN', message: 'bad key' });
+    expect(retryButton()).not.toBeNull();
 
     p.close?.();
-    expect(document.querySelector('[data-ega-retry-block]')).toBeNull();
+    expect(retryButton()).toBeNull();
     // The error chip stays: it still explains why that block is untranslated.
     expect(document.querySelector('[data-ega-tx-error]')).not.toBeNull();
   });
@@ -128,10 +133,10 @@ describe('page-translate-v2 — a retried block joins the current page view', ()
     });
     const p = progress();
     await enterAndFire(deps({ mountProgress: () => p.handle, dispatch }), ['a']);
-    routePageV2Chunk({ type: 'error', requestId: seen[0] ?? '', code: 'AUTH', message: 'no' });
+    routePageV2Chunk({ type: 'error', requestId: seen[0] ?? '', code: 'UNKNOWN', message: 'no' });
     p.toggle?.(true);
 
-    (document.querySelector('[data-ega-retry-block]') as HTMLButtonElement).click();
+    (retryButton() as HTMLButtonElement).click();
     await flush();
     expect(dispatch).toHaveBeenCalledTimes(2);
     const retryId = seen[1] ?? '';
@@ -153,12 +158,12 @@ describe('page-translate-v2 — a retried block joins the current page view', ()
     });
     const p = progress();
     await enterAndFire(deps({ mountProgress: () => p.handle, dispatch }), ['a']);
-    routePageV2Chunk({ type: 'error', requestId: seen[0] ?? '', code: 'AUTH', message: 'no' });
+    routePageV2Chunk({ type: 'error', requestId: seen[0] ?? '', code: 'UNKNOWN', message: 'no' });
     p.update.mockClear();
 
-    (document.querySelector('[data-ega-retry-block]') as HTMLButtonElement).click();
+    (retryButton() as HTMLButtonElement).click();
     await flush();
-    expect(p.update).toHaveBeenCalledWith(0);
+    expect(p.update).toHaveBeenCalledWith(expect.objectContaining({ done: 0, settled: false }));
   });
 });
 
@@ -187,8 +192,8 @@ describe('page-translate-v2 — the retry budget is finite', () => {
       }
 
       expect(dispatch).toHaveBeenCalledTimes(3);
-      expect(document.querySelector('[data-ega-retry-block]')).not.toBeNull();
-      expect(setLiveMessage).toHaveBeenCalledWith('Translated 0 of 1. 1 failed.');
+      expect(retryButton()).not.toBeNull();
+      expect(setLiveMessage).toHaveBeenCalledWith("Couldn't translate 1 of 1 area.");
     } finally {
       vi.useRealTimers();
       vi.restoreAllMocks();
@@ -273,22 +278,17 @@ describe('page-translate-v2 — overlapping entries', () => {
 });
 
 describe('page-translate-v2 — the pill', () => {
-  it('its Cancel button cancels the batch and puts the page text back', async () => {
+  it('its Remove translation cancels the batch and puts the page text back', async () => {
     document.body.innerHTML = '<p id="a">これは最初の段落です。</p>';
-    let onCancel: (() => void) | undefined;
+    let remove: (() => void) | undefined;
     const p = progress();
-    await enterAndFire(
-      deps({
-        mountProgress: (_total, cancel) => {
-          onCancel = cancel;
-          return p.handle;
-        },
-      }),
-      ['a'],
-    );
+    p.handle.setOnUndoAll = (h: () => void) => {
+      remove = h;
+    };
+    await enterAndFire(deps({ mountProgress: () => p.handle }), ['a']);
     expect(document.querySelector('[data-ega-replaced]')).not.toBeNull();
 
-    onCancel?.();
+    remove?.();
     await flush();
 
     expect(isPageV2Active()).toBe(false);
@@ -340,10 +340,10 @@ describe('page-translate-v2 — the pill', () => {
       }),
       ['a'],
     );
-    routePageV2Chunk({ type: 'error', requestId: seen[0] ?? '', code: 'AUTH', message: 'no' });
+    routePageV2Chunk({ type: 'error', requestId: seen[0] ?? '', code: 'UNKNOWN', message: 'no' });
     expect(p.settle).toHaveBeenCalledTimes(1);
 
-    (document.querySelector('[data-ega-retry-block]') as HTMLButtonElement).click();
+    (retryButton() as HTMLButtonElement).click();
     await flush();
     routePageV2Chunk({ type: 'done', requestId: seen[1] ?? '', confidence: 1 });
 

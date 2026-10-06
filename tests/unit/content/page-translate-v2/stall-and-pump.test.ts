@@ -9,7 +9,7 @@ import {
   type ProgressHandle,
 } from '@/content/page-translate-v2';
 import type { Settings } from '@/shared/types';
-import { enterAndFire } from '@tests/_helpers/page-translate';
+import { enterAndFire, retryButton, chipText } from '@tests/_helpers/page-translate';
 
 const TIMEOUT_MS = 1_000;
 /** The session arms its stall at translateTimeoutMs + 60s. */
@@ -18,7 +18,6 @@ const STALL_MS = TIMEOUT_MS + 60_000;
 function progress(): ProgressHandle {
   return {
     update: vi.fn(),
-    settle: vi.fn(),
     setLiveMessage: vi.fn(),
     setOnClose: vi.fn(),
     setOnToggleOriginal: vi.fn(),
@@ -54,7 +53,7 @@ async function flush(rounds = 10): Promise<void> {
 }
 
 function errorChipText(): string {
-  return document.body.textContent;
+  return chipText();
 }
 
 beforeEach(async () => {
@@ -77,7 +76,7 @@ describe('the stall timer', () => {
     await vi.advanceTimersByTimeAsync(STALL_MS + 1);
     await flush();
 
-    expect(errorChipText()).toContain('Timed out');
+    expect(errorChipText()).toContain('No answer in time');
   });
 
   it('does not fire before the deadline', async () => {
@@ -87,12 +86,12 @@ describe('the stall timer', () => {
 
     await vi.advanceTimersByTimeAsync(STALL_MS - 1);
     await flush();
-    expect(errorChipText()).not.toContain('Timed out');
+    expect(errorChipText()).not.toContain('No answer in time');
 
     // Proves the timer was armed all along, rather than never having been set.
     await vi.advanceTimersByTimeAsync(2);
     await flush();
-    expect(errorChipText()).toContain('Timed out');
+    expect(errorChipText()).toContain('No answer in time');
   });
 
   it('a streaming delta re-arms it, so a slow answer is not called stalled', async () => {
@@ -116,12 +115,12 @@ describe('the stall timer', () => {
       await flush();
     }
 
-    expect(errorChipText()).not.toContain('Timed out');
+    expect(errorChipText()).not.toContain('No answer in time');
 
     // And once the deltas stop, the re-armed timer still fires — it was live, not canceled.
     await vi.advanceTimersByTimeAsync(STALL_MS + 1);
     await flush();
-    expect(errorChipText()).toContain('Timed out');
+    expect(errorChipText()).toContain('No answer in time');
   });
 
   it('a finished block never stalls, however long the page stays open', async () => {
@@ -147,7 +146,7 @@ describe('the stall timer', () => {
     await vi.advanceTimersByTimeAsync(STALL_MS * 3);
     await flush();
 
-    expect(errorChipText()).not.toContain('Timed out');
+    expect(errorChipText()).not.toContain('No answer in time');
   });
 });
 
@@ -160,8 +159,9 @@ describe('the stall timer — guards', () => {
 
     await vi.advanceTimersByTimeAsync(STALL_MS + 1);
     await flush();
-    const retry = document.querySelector<HTMLButtonElement>('[data-ega-retry-block]');
-    expect(retry?.title).toBe('Timed out: No reply in time. Try again.');
+    const retry = retryButton();
+    expect(errorChipText()).toBe('No answer in timeTry again');
+    expect(retry?.hasAttribute('title')).toBe(false);
 
     retry?.click();
     await flush();

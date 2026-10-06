@@ -35,23 +35,14 @@ test('after settle, Show original toggles the view instead of destroying it', as
   await waitForTestHooks(page);
 
   await pickAreasAndTranslate(ext, page, ['c1', 'c2']);
-  timeline.markStep('translateAll-dispatched');
+  timeline.markStep('areas-sent');
 
   await expect
     .poll(async () => (await egaTest<number>(page, 'pageV2TxCount')) ?? 0, { timeout: 10_000 })
     .toBe(2);
 
-  const actionButtonLabel = (): Promise<string> =>
-    page.evaluate(() => {
-      const host = document.getElementById('ega-shadow-host');
-      const btn = host?.shadowRoot?.querySelector<HTMLButtonElement>('[data-ega-batch-cancel]');
-      return btn ? btn.textContent.trim() : '';
-    });
-  const clickActionButton = (): Promise<void> =>
-    page.evaluate(() => {
-      const host = document.getElementById('ega-shadow-host');
-      host?.shadowRoot?.querySelector<HTMLButtonElement>('[data-ega-batch-cancel]')?.click();
-    });
+  const pill = page.locator('[data-ega-batch-progress]');
+  const original = pill.getByRole('button', { name: 'Show original' });
   const allSiblingsHidden = (): Promise<boolean> =>
     page.evaluate(() => {
       const sibs = Array.from(document.querySelectorAll<HTMLElement>('[data-ega-tx]'));
@@ -59,27 +50,27 @@ test('after settle, Show original toggles the view instead of destroying it', as
     });
 
   // The batch settles shortly after the last block completes.
-  await expect.poll(actionButtonLabel, { timeout: 10_000 }).toBe('Show original');
+  await expect(original).toHaveAttribute('aria-pressed', 'false', { timeout: 10_000 });
 
-  await clickActionButton();
+  await original.click();
   timeline.markStep('show-original-clicked');
 
-  // Translations are hidden, not destroyed — and the pill offers the way back.
+  // Translations are hidden, not destroyed; the same button, pressed, is the way back.
   await expect.poll(allSiblingsHidden, { timeout: 5_000 }).toBe(true);
   expect((await egaTest<number>(page, 'pageV2TxCount')) ?? 0).toBe(2);
-  expect(await actionButtonLabel()).toBe('Show translation');
+  await expect(original).toHaveAttribute('aria-pressed', 'true');
 
-  await clickActionButton();
+  await original.click();
   timeline.markStep('show-translation-clicked');
 
   await expect.poll(allSiblingsHidden, { timeout: 5_000 }).toBe(false);
-  expect(await actionButtonLabel()).toBe('Show original');
+  await expect(original).toHaveAttribute('aria-pressed', 'false');
 
   // The original stays on the page throughout (bilingual leaves it untouched).
   expect(await egaTest<string>(page, 'inlineTextAt', 'c1')).toContain('mar7aba');
 });
 
-test('Stop keeps the finished area, then Undo all puts the page back', async () => {
+test('Stop lets the areas in flight end, then Remove translation puts the page back', async () => {
   // One reply lands; the others wait, so Stop catches the batch mid-way.
   let release = (): void => {};
   const held = new Promise<void>((r) => (release = r));
@@ -99,17 +90,19 @@ test('Stop keeps the finished area, then Undo all puts the page back', async () 
     timeout: 10_000,
   });
 
-  await pill.locator('[data-ega-batch-cancel]').click();
+  await pill.getByRole('button', { name: 'Stop' }).click();
+  // The two held requests end in a network failure; a retry is a new start, so Stop puts those areas back.
+  release();
 
   await expect(pill.locator('[data-ega-batch-label]')).toHaveText(
-    'Stopped · 1 of 3 areas translated',
+    'Stopped. Translated 1 of 3 areas.',
+    { timeout: 10_000 },
   );
-  await expect(pill.locator('[data-ega-batch-cancel]')).toHaveText('Show original');
   expect((await egaTest<number>(page, 'pageV2TxCount')) ?? 0).toBe(1);
 
-  await pill.locator('.undo').click();
+  await pill.getByRole('button', { name: 'More' }).click();
+  await pill.getByRole('menuitem', { name: 'Remove translation' }).click();
 
   await expect(pill).toHaveCount(0);
   expect((await egaTest<number>(page, 'pageV2TxCount')) ?? 0).toBe(0);
-  release();
 });

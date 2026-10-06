@@ -53,7 +53,7 @@ async function until(cond: () => boolean, what: string): Promise<void> {
 
 /** Opens translate-areas from the worker message, picks every paragraph and sends them. */
 async function translateAll(): Promise<string[]> {
-  emit({ kind: 'page:translateAll' });
+  emit({ kind: 'page:chooseAreas' });
   await until(() => isMultiSelectActive(), 'translate-areas mode');
   for (const id of ['a', 'b', 'c']) {
     document.getElementById(id)?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
@@ -89,49 +89,90 @@ afterEach(async () => {
   document.body.innerHTML = '';
 });
 
+function pillButton(name: string): HTMLButtonElement | null {
+  const root = document.getElementById('ega-shadow-host')?.shadowRoot;
+  const all = [
+    ...(root?.querySelectorAll<HTMLButtonElement>('[data-ega-batch-progress] button') ?? []),
+  ];
+  return all.find((b) => (b.getAttribute('aria-label') ?? b.textContent.trim()) === name) ?? null;
+}
+
 describe('page translate through the content script and the real pill', () => {
-  it('Stop keeps the finished area, cancels the rest and says so on the pill', async () => {
+  it('Stop lets the areas in flight finish, then says how many were kept', async () => {
     const [first, second, third] = await translateAll();
     finish(first ?? '', 'First paragraph.');
     await until(() => text('a') === 'First paragraph.', 'the first block');
 
     pill('[data-ega-batch-cancel]')?.click();
+    expect(sent('translate:cancel')).toEqual([]);
+    finish(second ?? '', 'Second.');
+    finish(third ?? '', 'Third.');
 
-    expect(pill('[data-ega-batch-label]')?.textContent).toBe('Stopped · 1 of 3 areas translated');
-    expect(pill('[data-ega-batch-cancel]')?.textContent).toBe('Show original');
-    const canceled = sent('translate:cancel').map((m) => m.requestId);
-    expect(canceled).toEqual(expect.arrayContaining([second, third]));
-    expect(canceled).not.toContain(first);
-    expect([text('a'), text('b'), text('c')]).toEqual([
-      'First paragraph.',
-      ORIGINALS[1],
-      ORIGINALS[2],
-    ]);
+    await until(
+      () => pill('[data-ega-batch-label]')?.textContent === 'Page translated to English',
+      'the settled pill',
+    );
+    expect(pill('[data-ega-batch-cancel]')).toBeNull();
+    expect([text('a'), text('b'), text('c')]).toEqual(['First paragraph.', 'Second.', 'Third.']);
   });
 
-  it('Undo all puts every area back and takes the pill away', async () => {
-    const [first] = await translateAll();
-    finish(first ?? '', 'First paragraph.');
-    await until(() => text('a') === 'First paragraph.', 'the first block');
+  it('Remove translation puts every area back and takes the pill away', async () => {
+    const [first, second, third] = await translateAll();
+    for (const id of [first, second, third]) finish(id ?? '', 'Done.');
+    await until(() => pillButton('More') !== null, 'the settled pill');
 
-    pill('.undo')?.click();
+    pillButton('More')?.click();
+    await until(() => pill('[data-ega-batch-remove]') !== null, 'the More menu');
+    pill('[data-ega-batch-remove]')?.click();
 
-    await until(() => pill('.undo') === null, 'the pill to go');
+    await until(() => pill('[data-ega-batch-label]') === null, 'the pill to go');
     expect([text('a'), text('b'), text('c')]).toEqual(ORIGINALS);
   });
 
-  it('Retry failed sends the failed area again', async () => {
+  it('Try again sends the failed area again', async () => {
     const [first, second, third] = await translateAll();
     finish(first ?? '', 'One.');
     finish(third ?? '', 'Three.');
-    chunk({ type: 'error', requestId: second ?? '', code: 'AUTH', message: 'bad key' });
-    await until(() => pill('.retry-failed')?.hidden === false, 'Retry failed');
+    chunk({ type: 'error', requestId: second ?? '', code: 'UNKNOWN', message: 'bad key' });
+    await until(() => pillButton('Try again, 1 failed area') !== null, 'Try again');
+    expect(pill('[data-ega-batch-label]')?.textContent).toBe(
+      "Couldn't translate 1 of 3 areas. Ega could not finish this translation.",
+    );
     const before = sent('translate:start').length;
 
-    pill('.retry-failed')?.click();
+    pillButton('Try again, 1 failed area')?.click();
 
     await until(() => sent('translate:start').length === before + 1, 'the retry send');
     expect(sent('translate:start').at(-1)?.text).toBe(ORIGINALS[1]);
-    expect(pill('[data-ega-batch-label]')?.textContent).toBe('Translating 2 of 3 areas…');
+    await until(
+      () => pill('[data-ega-batch-label]')?.textContent === 'Translating 2 of 3 areas…',
+      'the running pill',
+    );
+  });
+});
+
+describe('Translate page from the popup or the right-click menu', () => {
+  it('translates the whole page, without asking the user to pick areas', async () => {
+    // Every block is in view: the observer reports each one near as soon as it is watched.
+    class InView {
+      constructor(private readonly cb: IntersectionObserverCallback) {}
+      observe(target: Element): void {
+        this.cb(
+          [{ target, isIntersecting: true } as IntersectionObserverEntry],
+          this as unknown as IntersectionObserver,
+        );
+      }
+      unobserve(): void {}
+      disconnect(): void {}
+    }
+    vi.stubGlobal('IntersectionObserver', InView);
+    try {
+      emit({ kind: 'page:translateAll' });
+      await until(() => sent('translate:start').length === 3, 'three translate:start');
+      expect(isMultiSelectActive()).toBe(false);
+      expect(sent('translate:start').map((m) => m.text)).toEqual(ORIGINALS);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

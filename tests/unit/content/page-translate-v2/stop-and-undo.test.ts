@@ -7,7 +7,7 @@ import {
   routePageV2Chunk,
   type ProgressHandle,
 } from '@/content/page-translate-v2';
-import { deps, flush, enterAndFire } from '@tests/_helpers/page-translate';
+import { deps, flush, enterAndFire, trackSettle } from '@tests/_helpers/page-translate';
 
 interface Rig {
   stop: () => void;
@@ -26,8 +26,7 @@ async function run(blockIds: string[]): Promise<Rig> {
   const cancelRequest = vi.fn();
   const rig: Partial<Rig> = { settle, dismiss, cancelRequest, ids: [] };
   const handle: ProgressHandle = {
-    update: vi.fn(),
-    settle,
+    update: vi.fn(trackSettle(settle)),
     setLiveMessage: vi.fn(),
     setOnClose: vi.fn(),
     setOnToggleOriginal: vi.fn(),
@@ -78,40 +77,69 @@ afterEach(async () => {
 });
 
 describe('Stop on a running page translation', () => {
-  it('keeps the finished blocks, puts back the unfinished ones, and cancels their requests', async () => {
-    const rig = await run(['a', 'b']);
-    finishBlock(rig.ids[0], 'One.');
-    await flush();
+  it('lets blocks in flight finish, starts nothing new, and settles on what is done', async () => {
+    document.body.innerHTML += '<p id="d">四つ目の段落です。</p>';
+    const rig = await run(['a', 'b', 'c', 'd']);
+    // Three slots: d waits for one.
+    expect(rig.ids).toHaveLength(3);
 
     rig.stop();
     await flush();
+    expect(rig.cancelRequest).not.toHaveBeenCalled();
+    expect(rig.settle).not.toHaveBeenCalled();
 
-    expect(document.getElementById('a')?.textContent).toBe('One.');
-    expect(document.getElementById('b')?.textContent).toBe('二つ目の段落です。');
-    expect(document.querySelector('[data-ega-replaced]')?.textContent).toBe('One.');
-    expect(rig.cancelRequest).toHaveBeenCalledTimes(1);
-    expect(rig.cancelRequest).toHaveBeenCalledWith(rig.ids[1]);
-    expect(rig.dismiss).not.toHaveBeenCalled();
+    finishBlock(rig.ids[0], 'One.');
+    finishBlock(rig.ids[1], 'Two.');
+    finishBlock(rig.ids[2], 'Three.');
+    await flush();
+
+    // The block that was waiting for a slot never started.
+    expect(rig.ids).toHaveLength(3);
+    expect(document.getElementById('c')?.textContent).toBe('Three.');
+    expect(document.getElementById('d')?.textContent).toBe('四つ目の段落です。');
     expect(rig.settle).toHaveBeenCalledWith(
-      expect.objectContaining({ done: 1, total: 1, complete: false, failed: 0, stopped: 1 }),
+      expect.objectContaining({ done: 3, total: 3, failed: 0, skipped: 1 }),
+    );
+    expect(rig.dismiss).not.toHaveBeenCalled();
+  });
+
+  it('puts back a block whose retryable failure lands after Stop, since a retry is a new start', async () => {
+    const rig = await run(['a', 'b']);
+    finishBlock(rig.ids[0], 'One.');
+    rig.stop();
+    await flush();
+
+    routePageV2Chunk({
+      type: 'error',
+      requestId: rig.ids[1] ?? '',
+      code: 'SERVER',
+      message: '503',
+    });
+    await flush();
+
+    expect(document.getElementById('b')?.textContent).toBe('二つ目の段落です。');
+    expect(rig.settle).toHaveBeenCalledWith(
+      expect.objectContaining({ done: 1, total: 1, skipped: 1, failed: 0 }),
     );
   });
 
-  it('ignores a late chunk for a stopped block', async () => {
+  it('with nothing finished and nothing in flight it removes the translation', async () => {
     const rig = await run(['a', 'b']);
-    finishBlock(rig.ids[0], 'One.');
-    rig.stop();
+    routePageV2Chunk({
+      type: 'error',
+      requestId: rig.ids[0] ?? '',
+      code: 'SERVER',
+      message: '503',
+    });
+    routePageV2Chunk({
+      type: 'error',
+      requestId: rig.ids[1] ?? '',
+      code: 'SERVER',
+      message: '503',
+    });
     await flush();
 
-    finishBlock(rig.ids[1], 'Two.');
-    await flush();
-
-    expect(document.getElementById('b')?.textContent).toBe('二つ目の段落です。');
-  });
-
-  it('with nothing finished it undoes the page, as there is nothing to keep', async () => {
-    const rig = await run(['a', 'b']);
-
+    // Both wait out a backoff: nothing is done and nothing is in flight.
     rig.stop();
     await flush();
 
@@ -122,40 +150,39 @@ describe('Stop on a running page translation', () => {
 
   it('a second Stop during a retry counts every dropped area', async () => {
     const rig = await run(['a', 'b', 'c']);
-    routePageV2Chunk({ type: 'error', requestId: rig.ids[0] ?? '', code: 'AUTH', message: 'no' });
+    routePageV2Chunk({
+      type: 'error',
+      requestId: rig.ids[0] ?? '',
+      code: 'UNKNOWN',
+      message: 'no',
+    });
     finishBlock(rig.ids[1], 'Two.');
     await flush();
     rig.stop();
+    finishBlock(rig.ids[2], 'Three.');
     await flush();
-    expect(rig.settle).toHaveBeenLastCalledWith(expect.objectContaining({ total: 2, stopped: 1 }));
+    expect(rig.settle).toHaveBeenLastCalledWith(
+      expect.objectContaining({ total: 3, failed: 1, skipped: 0 }),
+    );
 
     rig.retryFailed();
     await flush();
     rig.stop();
+    routePageV2Chunk({
+      type: 'error',
+      requestId: rig.ids[3] ?? '',
+      code: 'SERVER',
+      message: '503',
+    });
     await flush();
 
-    expect(rig.settle).toHaveBeenLastCalledWith(expect.objectContaining({ total: 1, stopped: 2 }));
+    expect(rig.settle).toHaveBeenLastCalledWith(expect.objectContaining({ total: 2, skipped: 1 }));
     expect(document.getElementById('a')?.textContent).toBe('これは最初の段落です。');
     expect(document.getElementById('b')?.textContent).toBe('Two.');
   });
-
-  it('does not queue a block that was still waiting for a worker slot', async () => {
-    document.body.innerHTML += '<p id="d">四つ目の段落です。</p><p id="e">五つ目の段落です。</p>';
-    const rig = await run(['a', 'b', 'c', 'd', 'e']);
-    expect(rig.ids).toHaveLength(3);
-    finishBlock(rig.ids[0], 'One.');
-    await flush();
-    const sent = rig.ids.length;
-
-    rig.stop();
-    await flush();
-
-    expect(rig.ids).toHaveLength(sent);
-    expect(document.getElementById('e')?.textContent).toBe('五つ目の段落です。');
-  });
 });
 
-describe('Undo all', () => {
+describe('Remove translation', () => {
   it('puts every block back after the batch settled', async () => {
     const rig = await run(['a']);
     finishBlock(rig.ids[0], 'One.');
@@ -185,8 +212,18 @@ describe('Undo all', () => {
 describe('Retry failed', () => {
   it('retries every failed block at once', async () => {
     const rig = await run(['a', 'b']);
-    routePageV2Chunk({ type: 'error', requestId: rig.ids[0] ?? '', code: 'AUTH', message: 'no' });
-    routePageV2Chunk({ type: 'error', requestId: rig.ids[1] ?? '', code: 'AUTH', message: 'no' });
+    routePageV2Chunk({
+      type: 'error',
+      requestId: rig.ids[0] ?? '',
+      code: 'UNKNOWN',
+      message: 'no',
+    });
+    routePageV2Chunk({
+      type: 'error',
+      requestId: rig.ids[1] ?? '',
+      code: 'UNKNOWN',
+      message: 'no',
+    });
     await flush();
     expect(rig.settle).toHaveBeenCalledWith(expect.objectContaining({ failed: 2 }));
     const before = rig.ids.length;

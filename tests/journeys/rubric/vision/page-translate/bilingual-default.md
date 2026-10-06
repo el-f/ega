@@ -17,7 +17,7 @@
 
 ## Failure-mode expectations
 
-- A per-block failure empties that block's sibling and shows a ⚠ error chip (detail on hover) with a retry button; surrounding blocks continue.
+- A per-block failure empties that block's sibling and shows the error chip (catalog title, no hover-only detail) with Try again, or Open settings when a setting fixes it; surrounding blocks continue. The raw provider text is in the pill's Error details.
 
 ## Cautions
 

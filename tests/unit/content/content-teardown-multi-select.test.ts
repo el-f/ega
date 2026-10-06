@@ -36,7 +36,7 @@ beforeEach(async () => {
 describe('a dead context must not leave translate-areas mode armed', () => {
   it('exits the mode, so the page takes clicks again', async () => {
     chromeMock.runtime.onMessage.emit(
-      { kind: 'page:translateAll' },
+      { kind: 'page:chooseAreas' },
       { id: chromeMock.runtime.id },
       () => {},
     );

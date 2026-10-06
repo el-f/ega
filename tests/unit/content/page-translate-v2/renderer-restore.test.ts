@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { retryButton } from '@tests/_helpers/page-translate';
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
   mountBilingual,
@@ -102,7 +103,7 @@ describe('renderer — the saved markup comes back, not flattened text', () => {
     });
     mountError(handle, { code: 'TIMEOUT', message: 'slow' }, { onRetry: () => {} });
     expect(handle.target.querySelector('a')?.getAttribute('href')).toBe('https://x.test');
-    expect(handle.target.querySelector('[data-ega-retry-block]')).not.toBeNull();
+    expect(retryButton(handle.target)).not.toBeNull();
   });
 
   it('revert after a failed block still puts the page back exactly once', () => {

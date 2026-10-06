@@ -7,13 +7,13 @@
 ## State expectations
 
 - Step 1: a `<style id="ega-page-styles">` element exists in the page document, exactly one.
-- Step 2: each `[data-ega-replaced]` wrapper resolves a non-transparent background, a 1px dashed bottom border and `cursor: help`.
-- Step 3: an errored block's retry control (`[data-ega-retry-block]`) is styled as a bare glyph button, not native browser chrome.
+- Step 2: each `[data-ega-replaced]` wrapper resolves a non-transparent background and a 1px dashed bottom border, with no help cursor. An inline-replace wrapper keeps the original text as its `title` (page content); a page-translate block has none.
+- Step 3: an errored block shows the error chip (`[data-ega-tx-error]`, its own shadow root): the catalog title on a fixed red and a 24px Try again button.
 
 ## Visible affordances
 
 - The replaced run reads as "changed by Ega" — tinted background plus dashed underline — without hiding the page's own typography.
-- The retry control is always visible on an errored block, and gains a tint on hover or focus.
+- The chip keeps its own font, size and button styles whatever the host page's CSS says.
 - A settled page-translate block (`data-ega-tx-state="ok"`) fades its tint after a short pause and shows it again on hover.
 
 ## Failure-mode expectations

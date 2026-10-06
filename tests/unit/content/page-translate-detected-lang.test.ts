@@ -47,7 +47,7 @@ afterEach(() => {
 describe('page translate — per-block detected language', () => {
   it('sends the detected variety as the source language, not "auto"', async () => {
     chromeMock.runtime.onMessage.emit(
-      { kind: 'page:translateAll' },
+      { kind: 'page:chooseAreas' },
       { id: chromeMock.runtime.id },
       () => {},
     );

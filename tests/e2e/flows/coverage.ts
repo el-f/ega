@@ -620,8 +620,14 @@ export const COVERAGE: readonly Family[] = [
           },
           {
             id: 'revert-all',
-            description: 'Cancel reverts every inserted sibling + restores DOM',
+            description: 'Show original toggles the view; Remove translation restores the DOM',
             flows: ['page-translate/revert-all.flow.spec.ts'],
+          },
+          {
+            id: 'whole-page-lazy',
+            description:
+              'Translate page sends the blocks near the viewport first and the rest as the user scrolls',
+            flows: ['page-translate/whole-page-lazy.flow.spec.ts'],
           },
           {
             id: 'abort-on-nav',

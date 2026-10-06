@@ -24,7 +24,7 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-test('page:translateAll wraps all non-English paragraphs inline', async () => {
+test('Choose areas wraps only the picked paragraphs inline', async () => {
   mockAnthropic(ext.context, { translation: 'TRANSLATED' });
   const page = await ext.context.newPage();
   await page.goto(`${ext.serverUrl}/batch-page.html`);

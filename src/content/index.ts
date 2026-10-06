@@ -4,6 +4,7 @@ import { installTestHooks } from './testHooks';
 import { getSelectionInfo, isEditableRange } from './selection';
 import { isSensitiveRange, isSensitiveTarget, selectionIsSensitive } from './safety';
 import { showBubble, hideBubble, loadBubbleMenu } from './bubble';
+import { looksLikeEnglish } from './looks-like-english';
 import { installSelectionRestore, uninstallSelectionRestore } from './selection-restore';
 import * as accum from './accumulator';
 import { openTooltip, finishTooltipDirect, errorTooltip, closeTooltip } from './lazy-tooltip';
@@ -570,7 +571,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (m.kind === 'translate:chunk') {
       handleChunk(m.chunk);
     } else if (m.kind === 'page:translateAll' || m.kind === 'page:chooseAreas') {
-      void dispatchPageTranslate().catch((e) => reportEntryFailure(e, 'content.pageTranslate'));
+      void dispatchPageTranslate(m.kind === 'page:translateAll' ? 'whole' : 'areas').catch((e) =>
+        reportEntryFailure(e, 'content.pageTranslate'),
+      );
       sendResponse({ ok: true } satisfies MsgReply['page:translateAll' | 'page:chooseAreas']);
       return true;
     } else if (m.kind === 'content:image-translate-pending') {
@@ -588,7 +591,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
 const handlerDeps: HandlerDeps = { ensureSettings };
 
-async function dispatchPageTranslate(): Promise<void> {
+/** Translate page runs the whole page; Choose areas opens area picking. */
+async function dispatchPageTranslate(scope: 'whole' | 'areas'): Promise<void> {
   closeStickyToast();
   hideBubble();
   const settings = await ensureSettings();
@@ -601,7 +605,8 @@ async function dispatchPageTranslate(): Promise<void> {
   const { showBatchProgress } = await import('./batch-progress');
 
   const detectOpts = { settings, customs: await ensureCustomLanguages() };
-  await mod.runPageTranslateV2({
+  const run = scope === 'whole' ? mod.runWholePageTranslate : mod.runPageTranslateV2;
+  await run({
     getSettings: ensureSettings,
     detectLang: (text) => detectLang(text, detectOpts)?.id,
     dispatch: async (requestId, text, detectedLang) => {
@@ -625,6 +630,7 @@ async function dispatchPageTranslate(): Promise<void> {
     cancelRequest: (requestId) => endRequest(requestId, 'page-teardown'),
     mountProgress: (total, onCancel) => showBatchProgress(total, onCancel),
     target: eff.direction.target,
+    looksLikeEnglish,
   });
 }
 

@@ -3,32 +3,25 @@ import { mount, unmount } from 'svelte';
 import BatchProgress from './BatchProgress.svelte';
 import progressCss from './batch-progress.css?inline';
 import { ensureShadowSheet, getContainer, onShadowHostRemount } from './shadowHost';
+import type { PageProgress } from './page-translate-v2/progress';
+import type { SettingsTab } from '@/shared/settings-tabs';
 
-// Progress toast for whole-page translate. Unlike showToast it has no TTL — the runner dismisses it.
+// The page-translate pill sits in the bottom bar slot. Unlike a toast it has no lifetime: the session dismisses it.
 
 interface ActiveProgress {
-  handle: ReturnType<typeof mount>;
+  handle: ReturnType<typeof mount<Record<string, never>, PillExports>>;
   anchor: HTMLDivElement;
-  total: number;
-  onCancel: () => void;
-  done: number;
-  settled: boolean;
-  complete: boolean;
-  failed: number;
-  /** Set when every failure shares one error code. */
-  failedLabel: string | undefined;
-  /** Areas Stop dropped; `total` counts only the kept ones. */
-  stopped: number;
-  showingOriginal: boolean;
-  /** Date.now of the last Stop press; Stop turns into Show original under the pointer. */
-  stopPressedAt: number;
   /** The last page element focus came into the pill from; null until one does. */
   focusReturn: HTMLElement | null;
+  tab: SettingsTab;
+}
+
+interface PillExports {
+  set: (p: PageProgress) => void;
+  setLive: (text: string) => void;
 }
 
 const HEIGHT_VAR = '--ega-batch-progress-h';
-/** The second click of a double-click on Stop lands on Show original and must not revert the page. */
-const TOGGLE_GUARD_MS = 400;
 
 let active: ActiveProgress | null = null;
 let closeHandler: (() => void) | null = null;
@@ -37,46 +30,15 @@ let retryFailedHandler: (() => void) | null = null;
 let toggleHandler: ((showOriginal: boolean) => void) | null = null;
 
 export interface BatchProgressHandle {
-  update(done: number): void;
-  /** Leave the active "Translating…" state. Lazy dispatch goes idle with done < total, so `complete` is true only when every block finished. */
-  settle(opts: {
-    done: number;
-    total: number;
-    complete: boolean;
-    failed: number;
-    failedLabel?: string;
-    stopped?: number;
-  }): void;
-  /** Swap the aria-live text without remounting. */
+  /** One snapshot of the session; the pill derives its words and buttons from it. */
+  update(p: PageProgress): void;
+  /** Swap the polite announcement without remounting. */
   setLiveMessage(text: string): void;
   setOnClose(handler: () => void): void;
   setOnUndoAll(handler: () => void): void;
   setOnRetryFailed(handler: () => void): void;
-  /** Once settled, the action button toggles Show original ⇄ Show translation through this. */
   setOnToggleOriginal(handler: (showOriginal: boolean) => void): void;
   dismiss(): void;
-}
-
-function areas(n: number): string {
-  return n === 1 ? 'area' : 'areas';
-}
-
-function labelText(a: ActiveProgress): string {
-  if (!a.settled) return `Translating ${a.done} of ${a.total} ${areas(a.total)}…`;
-  if (a.complete) return 'Page translated';
-  // `done` counts blocks that reached a terminal state, so it must not read as "translated" when some failed.
-  if (a.stopped > 0) {
-    const picked = a.total + a.stopped;
-    const kept = `Stopped · ${a.done - a.failed} of ${picked} ${areas(picked)} translated`;
-    return a.failed > 0 ? `${kept} · ${a.failed} failed` : kept;
-  }
-  const count =
-    a.failed === a.total
-      ? a.total === 1
-        ? '1 area failed'
-        : `All ${a.total} areas failed`
-      : `${a.failed} of ${a.total} ${areas(a.total)} failed`;
-  return a.failedLabel ? `${count}: ${a.failedLabel}` : count;
 }
 
 /** The pill control that has focus; the shadow root tracks it, `document` only sees the host. */
@@ -85,54 +47,9 @@ function focusedIn(anchor: HTMLElement): HTMLElement | null {
   return el instanceof HTMLElement && anchor.contains(el) ? el : null;
 }
 
-function patchVisible(): void {
+/** The pill grows a row when its text wraps or Error details opens, and a toast must clear all of it. */
+function measure(): void {
   if (!active) return;
-  const focused = focusedIn(active.anchor);
-  const label = active.anchor.querySelector<HTMLElement>('[data-ega-batch-label]');
-  if (label) label.textContent = labelText(active);
-  // Once settled the button no longer cancels anything — it toggles the view.
-  const cancel = active.anchor.querySelector<HTMLElement>('[data-ega-batch-cancel]');
-  if (cancel) {
-    const settledLabel = active.showingOriginal ? 'Show translation' : 'Show original';
-    cancel.textContent = active.settled ? settledLabel : 'Stop';
-    cancel.setAttribute(
-      'aria-label',
-      active.settled
-        ? active.showingOriginal
-          ? 'Show translation on the page'
-          : 'Show original page text'
-        : 'Stop translating and keep the finished areas',
-    );
-  }
-  // With nothing translated there is no other view to switch to.
-  if (cancel) cancel.hidden = active.settled && active.done - active.failed <= 0;
-  const retry = active.anchor.querySelector<HTMLElement>('.retry-failed');
-  if (retry) retry.hidden = !(active.settled && active.failed > 0);
-  const bar = active.anchor.querySelector<HTMLElement>('[data-ega-batch-bar]');
-  const fill = active.anchor.querySelector<HTMLElement>('[data-ega-batch-bar-fill]');
-  // A stopped bar measures what was kept against everything picked, so it matches the label.
-  const stopped = active.settled && active.stopped > 0;
-  const max = stopped ? active.total + active.stopped : active.total;
-  const now = stopped ? active.done - active.failed : active.done;
-  const pct = max > 0 ? Math.min(100, (now / max) * 100) : 0;
-  if (fill) {
-    fill.style.width = `${pct}%`;
-    if (stopped) fill.dataset['tone'] = 'stopped';
-    else if (active.settled && active.failed > 0) fill.dataset['tone'] = 'failed';
-    else delete fill.dataset['tone'];
-  }
-  if (bar) {
-    bar.setAttribute('aria-valuemax', String(max));
-    bar.setAttribute('aria-valuenow', String(now));
-  }
-  // A pressed button that just hid itself would drop focus to the page; the next live control takes it.
-  if (focused?.hidden) {
-    const next = [cancel, retry, active.anchor.querySelector<HTMLElement>('.undo')].find(
-      (b) => b && !b.hidden,
-    );
-    next?.focus({ preventScroll: true });
-  }
-  // The pill wraps to more rows as its buttons change, and a toast must clear all of them.
   const pill = active.anchor.firstElementChild as HTMLElement | null;
   active.anchor.parentElement?.style.setProperty(HEIGHT_VAR, `${pill?.offsetHeight ?? 0}px`);
 }
@@ -153,28 +70,20 @@ function tearDown(): void {
   undoHandler = null;
   retryFailedHandler = null;
   toggleHandler = null;
-  // Undo all and Hide remove the button that was pressed; focus goes back to where it came from.
+  // Remove translation and Close bar take the pressed button away; focus goes back to where it came from.
   if (hadFocus && focusReturn?.isConnected) focusReturn.focus({ preventScroll: true });
 }
 
-/** Cancel while running; after settle the same button flips the page view instead. */
-function onActionClick(outerCancel: () => void): void {
-  if (!active) return;
-  if (!active.settled || !toggleHandler) {
-    active.stopPressedAt = Date.now();
-    outerCancel();
-    return;
-  }
-  if (Date.now() - active.stopPressedAt < TOGGLE_GUARD_MS) return;
-  active.showingOriginal = !active.showingOriginal;
-  toggleHandler(active.showingOriginal);
-  patchVisible();
+function openSettings(tab: SettingsTab): void {
+  void chrome.runtime
+    .sendMessage({ kind: 'ui:open-options', tab })
+    .catch((e: unknown) => debugCatch(e, 'content.batch-progress.openSettings'));
 }
 
 export function showBatchProgress(
   total: number,
-  onCancel: () => void,
-  liveMessage = `Translating ${total} ${total === 1 ? 'area' : 'areas'}…`,
+  onStop: () => void,
+  liveMessage = 'Translating the page.',
 ): BatchProgressHandle {
   tearDown();
   ensureShadowSheet('ega-batch-progress-styles', progressCss);
@@ -184,8 +93,7 @@ export function showBatchProgress(
   anchor.addEventListener('focusin', (e) => {
     if (active?.anchor !== anchor) return;
     const from = e.relatedTarget;
-    // A window refocus has no relatedTarget and must not wipe the last good one. A shadow host
-    // (focus came out of another shadow tree) is kept: focusing the host is close enough.
+    // A window refocus has no relatedTarget; a shadow host (focus from another shadow tree) is kept.
     if (!(from instanceof HTMLElement) || !from.isConnected || anchor.contains(from)) return;
     active.focusReturn = from;
   });
@@ -193,93 +101,60 @@ export function showBatchProgress(
   const handle = mount(BatchProgress, {
     target: anchor,
     props: {
-      done: 0,
-      total,
+      initial: {
+        done: 0,
+        failed: 0,
+        total,
+        waiting: 0,
+        inFlight: 0,
+        queued: total,
+        skipped: 0,
+        settled: false,
+      },
       liveMessage,
-      onCancel: () => onActionClick(onCancel),
-      onUndo: () => undoHandler?.(),
+      onStop,
+      onRemove: () => undoHandler?.(),
       onRetryFailed: () => retryFailedHandler?.(),
+      onOpenSettings: () => {
+        if (active) openSettings(active.tab);
+      },
+      onToggleOriginal: (showOriginal: boolean) => toggleHandler?.(showOriginal),
       onClose: () => closeHandler?.(),
     },
-  });
-  active = {
-    handle,
-    anchor,
-    total,
-    onCancel,
-    done: 0,
-    settled: false,
-    complete: false,
-    failed: 0,
-    failedLabel: undefined,
-    stopped: 0,
-    showingOriginal: false,
-    stopPressedAt: 0,
-    focusReturn: null,
-  };
+  }) as ActiveProgress['handle'];
+  const mine: ActiveProgress = { handle, anchor, focusReturn: null, tab: 'backends' };
+  active = mine;
+  measure();
 
   return {
-    update(done: number): void {
-      if (!active) return;
-      // A retry un-terminals a block, so a settled pill must go back to reporting progress.
-      if (active.settled) {
-        if (done >= active.total) return;
-        active.settled = false;
-        active.complete = false;
-      }
-      // Patching textContent avoids a Svelte remount per resolved segment.
-      active.done = done;
-      patchVisible();
-    },
-    settle(opts: {
-      done: number;
-      total: number;
-      complete: boolean;
-      failed: number;
-      failedLabel?: string;
-      stopped?: number;
-    }): void {
-      if (!active) return;
-      active.done = opts.done;
-      active.total = opts.total;
-      active.settled = true;
-      active.complete = opts.complete;
-      active.failed = opts.failed;
-      active.failedLabel = opts.failedLabel;
-      active.stopped = opts.stopped ?? 0;
-      patchVisible();
+    update(p: PageProgress): void {
+      if (active !== mine) return;
+      if (p.failure) mine.tab = p.failure.tab;
+      mine.handle.set(p);
+      queueMicrotask(measure);
     },
     setLiveMessage(text: string): void {
-      if (!active) return;
-      const region = active.anchor.querySelector<HTMLElement>('[data-ega-batch-live]');
-      if (region) region.textContent = text;
+      if (active === mine) mine.handle.setLive(text);
     },
     setOnClose(handler: () => void): void {
-      if (!active) return;
-      // Revealing beats remounting: a remount replays the slide-up and shifts the pill.
-      closeHandler = handler;
-      const btn = active.anchor.querySelector<HTMLElement>('[data-ega-batch-close]');
-      if (btn) btn.dataset['ready'] = 'true';
+      if (active === mine) closeHandler = handler;
     },
     setOnUndoAll(handler: () => void): void {
-      if (!active) return;
-      undoHandler = handler;
+      if (active === mine) undoHandler = handler;
     },
     setOnRetryFailed(handler: () => void): void {
-      if (!active) return;
-      retryFailedHandler = handler;
+      if (active === mine) retryFailedHandler = handler;
     },
     setOnToggleOriginal(handler: (showOriginal: boolean) => void): void {
-      if (!active) return;
-      toggleHandler = handler;
+      if (active === mine) toggleHandler = handler;
     },
     dismiss(): void {
-      tearDown();
+      if (active === mine) tearDown();
     },
   };
 }
 
-/** Test-only: surface whether a batch progress toast is currently mounted. */
+/** Test-only: surface whether a batch progress pill is currently mounted. */
 export function isBatchProgressActive(): boolean {
   return active !== null;
 }
