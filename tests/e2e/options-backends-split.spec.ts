@@ -27,8 +27,8 @@ test('Backends renders Active + Available section headings', async () => {
   });
   const page = await openBackends();
 
-  await expect(page.getByRole('heading', { name: /^Active backends$/ })).toBeVisible();
-  await expect(page.getByRole('heading', { name: /^Available backends$/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /^Backends in use$/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /^Not in use$/ })).toBeVisible();
 
   await expect(page.getByText(/^DISABLED$/)).toHaveCount(0);
 });
@@ -60,7 +60,7 @@ test('Active list ARIA reflects the new labeling', async () => {
   const page = await openBackends();
 
   const active = page.locator('[data-testid="be-list-active"]');
-  await expect(active).toHaveAttribute('aria-label', /Active backends/);
+  await expect(active).toHaveAttribute('aria-label', /Backends in use/);
   const available = page.locator('[data-testid="be-list-available"]');
-  await expect(available).toHaveAttribute('aria-label', /Available backends/);
+  await expect(available).toHaveAttribute('aria-label', /Backends not in use/);
 });

@@ -15,7 +15,7 @@ async function settle(): Promise<void> {
 }
 
 describe('BackendCard test row', () => {
-  it('shows the error label a user can read, not the raw code', async () => {
+  it('shows a plain title and sentence, with the backend own words only under Details', async () => {
     const s = structuredClone(DEFAULT_SETTINGS) as Settings;
     s.anthropicApiKey = 'sk-ant-test';
     const backend = resolveBackend(asBackendIdUnsafe('anthropic'));
@@ -35,10 +35,21 @@ describe('BackendCard test row', () => {
         },
       });
       await settle();
-      container.querySelector<HTMLButtonElement>('.be-test-btn')?.click();
+      container.querySelector<HTMLButtonElement>('[data-testid^="backend-card-test-"]')?.click();
       await settle();
-      const result = container.querySelector('.be-testresult')?.textContent ?? '';
-      expect(result).toBe('Rate limit reached: slow down');
+      const failure = container.querySelector('[data-ega-test-failure]');
+      expect(failure?.getAttribute('data-ega-test-failure')).toBe('RATE_LIMIT');
+      expect(failure?.querySelector('.be-fail-title')?.textContent.trim()).toBe(
+        'Too many requests',
+      );
+      expect(failure?.querySelector('.be-fail-text')?.textContent.trim()).toBe(
+        'Anthropic is limiting requests right now.',
+      );
+      // The raw message and the code sit under Details, not in the main text.
+      const details = failure?.querySelector('details');
+      expect(details?.open).toBe(false);
+      expect(details?.textContent).toContain('slow down');
+      expect(details?.textContent).toContain('RATE_LIMIT');
     } finally {
       backend.isAvailable = origAvailable;
       backend.translate = origTranslate;
@@ -62,7 +73,7 @@ describe('BackendCard test row', () => {
         props: { id: asBackendIdUnsafe('ollama'), label: 'Ollama', settings: s },
       });
       await settle();
-      container.querySelector<HTMLButtonElement>('.be-test-btn')?.click();
+      container.querySelector<HTMLButtonElement>('[data-testid^="backend-card-test-"]')?.click();
       await settle();
       const result = container.querySelector('.be-testresult')?.textContent ?? '';
       expect(result).toBe('Hello, my dear');

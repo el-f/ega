@@ -61,8 +61,6 @@ describe('Answers tab — composition', () => {
       'Page context',
       'Generation',
       'Streaming and cache',
-      // Moves to Backends with the timeouts.
-      'Routing & timeouts',
       'Page translate',
     ]);
     expect(container.textContent).not.toMatch(/What Ega sends and to whom|Whole pages/);
@@ -259,9 +257,7 @@ describe('Answers tab — one source for hints (OC-12)', () => {
     const seeded = seedDefaults({ contextEnabled: true, confidencePill: true, streaming: true });
     const { container } = mountTab(seeded);
     await probeSettled();
-    const hints = [...container.querySelectorAll<HTMLElement>('[data-ega-hint]')].filter(
-      (h) => h.closest('section')?.querySelector('h2')?.textContent.trim() !== 'Routing & timeouts',
-    );
+    const hints = [...container.querySelectorAll<HTMLElement>('[data-ega-hint]')];
     expect(hints.length).toBeGreaterThan(8);
     for (const hint of hints) {
       // SettingHint names its setting; a slider's own hint sits inside its setting's anchor.

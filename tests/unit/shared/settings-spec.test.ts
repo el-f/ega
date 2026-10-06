@@ -51,7 +51,7 @@ describe('settings-spec — WARN captions', () => {
   const warnCases: ReadonlyArray<[string, RegExp]> = [
     ['advanced.temperature', /1\.2|deterministic/i],
     ['advanced.maxTokens', /cut short/i],
-    ['advanced.translateTimeoutMs', /tight|GPT-4o|Summarize/i],
+    ['advanced.translateTimeoutMs', /reasoning models/i],
     ['advanced.debugLogLevel', /debug.*streaming|every.*chunk/i],
     ['display.streamingFlushMs', /above 100 ms streaming looks stuck/i],
   ];

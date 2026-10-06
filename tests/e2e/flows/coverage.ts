@@ -783,11 +783,6 @@ export const COVERAGE: readonly Family[] = [
             flows: ['options-advanced/diagnostics-tools-reset.flow.spec.ts'],
           },
           {
-            id: 'labs-probe-ttl-slider',
-            description: 'Labs → probe TTL slider ArrowRight → advanced.backendProbeTtlMs persists',
-            flows: ['options-advanced/labs-probe-ttl-slider.flow.spec.ts'],
-          },
-          {
             id: 'saved-conversations',
             description:
               'Data lists saved side panel threads; Delete empties an open panel, Clear all removes every thread',
@@ -1069,6 +1064,12 @@ export const COVERAGE: readonly Family[] = [
         id: 'backends',
         actions: [
           {
+            id: 'labs-probe-ttl-slider',
+            description:
+              'Timeouts and checks: "Remember backend status for" (Experimental) persists advanced.backendProbeTtlMs',
+            flows: ['options-backends/labs-probe-ttl-slider.flow.spec.ts'],
+          },
+          {
             id: 'api-key-edit',
             description: 'Anthropic API key persists anthropicApiKey',
             flows: ['options-backends/api-key-edit.flow.spec.ts'],
@@ -1091,7 +1092,7 @@ export const COVERAGE: readonly Family[] = [
           },
           {
             id: 'install-info-tooltip',
-            description: '(i) icon on native card opens tooltip with install/uninstall summary',
+            description: '(i) on the native row opens the shared InfoTip with the install summary',
             flows: ['options-backends/install-info-tooltip.flow.spec.ts'],
           },
           {

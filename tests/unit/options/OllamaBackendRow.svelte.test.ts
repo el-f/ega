@@ -2,33 +2,81 @@
 import { describe, it, expect } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
 import OllamaBackendRow from '@/options/components/OllamaBackendRow.svelte';
+import OllamaOriginSteps from '@/options/components/backend-card/OllamaOriginSteps.svelte';
 import { DEFAULT_MODEL, DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import { setFetchHandler } from '@tests/mocks/fetch';
 import { asBackendIdUnsafe } from '@/shared/brands';
 
 describe('OllamaBackendRow', () => {
-  it('mounts and exposes the Discover models button + ollama-step sections', () => {
-    const { container } = render(OllamaBackendRow, {
+  it('shows two numbered steps, Address and Model, with the Discover models button', () => {
+    const { container, getByRole } = render(OllamaBackendRow, {
       props: {
         id: asBackendIdUnsafe('ollama'),
         label: 'Ollama (local)',
         settings: DEFAULT_SETTINGS,
-        routeIsText: false,
-        routeIsImage: false,
         onPatch: () => {},
         onModelChange: () => {},
       },
     });
-    // Two-step panel: Connection + Model.
-    expect(container.querySelectorAll('.ollama-step').length).toBe(2);
+    expect(getByRole('heading', { level: 3, name: 'Address' })).toBeTruthy();
+    expect(getByRole('heading', { level: 3, name: 'Model' })).toBeTruthy();
     // Discover models button is the user-facing affordance.
     const discoverBtn = Array.from(container.querySelectorAll('button')).find(
       (b) => b.textContent.trim() === 'Discover models',
     );
     expect(discoverBtn).toBeDefined();
     expect(discoverBtn?.disabled).toBe(false);
-    // Origin disclosure carries the OLLAMA_ORIGINS guidance.
-    expect(container.querySelector('.ollama-access')).not.toBeNull();
+    // The OLLAMA_ORIGINS steps show only once Ollama has blocked Ega.
+    expect(container.querySelector('[data-ega-ollama-origin-steps]')).toBeNull();
+  });
+
+  it('a model list that Ollama answers but /api/chat refuses says Ollama blocked Ega, steps behind Show steps', async () => {
+    setFetchHandler(async (_url, init) =>
+      init?.method === 'OPTIONS'
+        ? new Response(null, { status: 403 })
+        : Response.json({ models: [{ name: 'gemma4:e4b' }] }),
+    );
+    const { getByRole, findByRole } = render(OllamaBackendRow, {
+      props: {
+        id: asBackendIdUnsafe('ollama'),
+        label: 'Ollama (local)',
+        settings: DEFAULT_SETTINGS,
+        onPatch: () => {},
+        onModelChange: () => {},
+      },
+    });
+    await fireEvent.click(getByRole('button', { name: 'Discover models' }));
+    const alert = await findByRole('alert');
+    expect(alert.textContent.trim()).toBe('Ollama blocked the request from Ega');
+    const steps = alert.parentElement?.querySelector('details');
+    expect(steps?.querySelector('summary')?.textContent.trim()).toBe('Show steps');
+    expect(steps?.querySelector('[data-ega-ollama-origin-steps]')?.textContent).toContain(
+      'chrome-extension://',
+    );
+  });
+
+  it('no answer at the address marks the URL field and keeps the browser words under Details', async () => {
+    setFetchHandler(async () => {
+      throw new TypeError('Failed to fetch');
+    });
+    const { getByRole, getByLabelText, findByRole } = render(OllamaBackendRow, {
+      props: {
+        id: asBackendIdUnsafe('ollama'),
+        label: 'Ollama (local)',
+        settings: DEFAULT_SETTINGS,
+        onPatch: () => {},
+        onModelChange: () => {},
+      },
+    });
+    await fireEvent.click(getByRole('button', { name: 'Discover models' }));
+    const alert = await findByRole('alert');
+    expect(alert.textContent.trim()).toBe(
+      'Ollama did not answer at this address. Check that it is running.',
+    );
+    const url = getByLabelText('Ollama URL');
+    expect(url.getAttribute('aria-invalid')).toBe('true');
+    expect(url.getAttribute('aria-describedby')).toBe(alert.id);
+    expect(alert.parentElement?.querySelector('details')?.textContent).toContain('Failed to fetch');
   });
 
   it.each(['gemma4:cloud', 'gpt-oss:120b-cloud'])(
@@ -39,8 +87,6 @@ describe('OllamaBackendRow', () => {
           id: asBackendIdUnsafe('ollama'),
           label: 'Ollama (local)',
           settings: { ...DEFAULT_SETTINGS, model: { ...DEFAULT_SETTINGS.model, ollama: model } },
-          routeIsText: false,
-          routeIsImage: false,
           onPatch: () => {},
           onModelChange: () => {},
         },
@@ -55,8 +101,6 @@ describe('OllamaBackendRow', () => {
         id: asBackendIdUnsafe('ollama'),
         label: 'Ollama (local)',
         settings: DEFAULT_SETTINGS,
-        routeIsText: false,
-        routeIsImage: false,
         onPatch: () => {},
         onModelChange: () => {},
       },
@@ -71,8 +115,6 @@ describe('OllamaBackendRow', () => {
         id: asBackendIdUnsafe('ollama'),
         label: 'Ollama (local)',
         settings: DEFAULT_SETTINGS,
-        routeIsText: false,
-        routeIsImage: false,
         onPatch: () => {},
         onModelChange: () => {},
       },
@@ -95,8 +137,6 @@ describe('the empty-state pull hint', () => {
         id: asBackendIdUnsafe('ollama'),
         label: 'Ollama (local)',
         settings,
-        routeIsText: false,
-        routeIsImage: false,
         onPatch: () => {},
         onModelChange: () => {},
       },
@@ -111,8 +151,6 @@ describe('the discovered model list', () => {
     id: asBackendIdUnsafe('ollama'),
     label: 'Ollama (local)',
     settings: { ...DEFAULT_SETTINGS, model: { ...DEFAULT_SETTINGS.model, ollama } },
-    routeIsText: false,
-    routeIsImage: false,
     onPatch: () => {},
     onModelChange: () => {},
   });
@@ -156,20 +194,12 @@ describe('the discovered model list', () => {
 
 describe('the Linux OLLAMA_ORIGINS steps', () => {
   it('gives the whole systemd edit, not only the Environment line', () => {
-    const { container } = render(OllamaBackendRow, {
-      props: {
-        id: asBackendIdUnsafe('ollama'),
-        label: 'Ollama (local)',
-        settings: DEFAULT_SETTINGS,
-        routeIsText: false,
-        routeIsImage: false,
-        onPatch: () => {},
-        onModelChange: () => {},
-      },
+    const { container } = render(OllamaOriginSteps, {
+      props: { origin: 'chrome-extension://abc' },
     });
-    const linux = [...container.querySelectorAll('.ollama-command-grid > div')].find((d) =>
-      d.querySelector('b')?.textContent.includes('Linux'),
-    );
+    const linux = [...container.querySelectorAll('dt')].find((d) =>
+      d.textContent.includes('Linux'),
+    )?.nextElementSibling;
     const text = linux?.textContent ?? '';
     expect(text).toContain('sudo systemctl edit ollama.service');
     expect(text).toContain('[Service]');

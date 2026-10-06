@@ -60,7 +60,7 @@ describe('router — ABORTED passes through when the wall clock did not fire', (
 });
 
 describe('router — TIMEOUT message content', () => {
-  it('timeout names the text answer timeout and points at Settings → Answers', async () => {
+  it('timeout names the text answer timeout and points at Settings → Backends', async () => {
     const b = mkBackend('anthropic', async (a: TranslateCallArgs) => {
       await new Promise<void>((resolve) => {
         a.cancel.signal.addEventListener(
@@ -94,9 +94,9 @@ describe('router — TIMEOUT message content', () => {
     if (err?.type === 'error') {
       expect(err.code).toBe('TIMEOUT');
       expect(err.message).toBe(
-        'No answer before the text answer timeout. Try again, or raise it in Settings → Answers.',
+        'No answer before the text answer timeout. Try again, or raise it in Settings → Backends.',
       );
-      expect(optionsTabForMessage(err.message, err.code)).toBe('translate');
+      expect(optionsTabForMessage(err.message, err.code)).toBe('backends');
     } else {
       throw new Error('expected error chunk');
     }

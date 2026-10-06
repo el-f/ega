@@ -20,7 +20,8 @@ test('Diagnostics tools reset reverts log level and captureResultMeta to default
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
   await page.locator('#tab-advanced').click();
 
-  // Diagnostics sub-tab is the default — pane must be visible.
+  // Data is the default sub-tab; Diagnostics is one click away.
+  await page.locator('[data-ega-subtab="diagnostics"]').click();
   await expect(page.locator('#adv-pane-diagnostics')).toBeVisible({ timeout: 5_000 });
   timeline.markStep('diagnostics-open');
 

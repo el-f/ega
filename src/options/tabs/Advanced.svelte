@@ -19,7 +19,6 @@
   import { DEEP_LINK_EVENT, advancedSubTabFor, readPendingDeepLink } from '@/options/deep-link';
   import AdvancedDiagnosticsPane from '@/options/components/AdvancedDiagnosticsPane.svelte';
   import AdvancedDataPane from '@/options/components/AdvancedDataPane.svelte';
-  import LabsSection from '@/options/components/sections/LabsSection.svelte';
 
   interface Props {
     s: Settings | null;
@@ -40,24 +39,23 @@
   function readSubTab(): SubTabId {
     try {
       const raw = sessionStorage.getItem(SUBTAB_KEY);
-      if (raw === 'diagnostics' || raw === 'data' || raw === 'labs') return raw;
+      if (raw === 'diagnostics' || raw === 'data') return raw;
     } catch {
       // sandbox sessionStorage may throw; fall through
     }
-    return pendingSubTab() ?? 'diagnostics';
+    return pendingSubTab() ?? 'data';
   }
 
   let activeSubTab: SubTabId = $state(readSubTab());
 
   // One pass over SETTINGS_REGISTRY feeds the modified-count pill on every sub-tab trigger.
-  const VALID_SUB_TABS: readonly SubTabId[] = ['diagnostics', 'data', 'labs'];
+  const VALID_SUB_TABS: readonly SubTabId[] = ['data', 'diagnostics'];
   // Partition once per mount so modifiedBySubTab does not re-scan ~90 entries on every settings change.
   const ADVANCED_ENTRIES = SETTINGS_REGISTRY.filter((e) => e.tab === 'advanced');
   const modifiedBySubTab = $derived.by((): Record<SubTabId, number> => {
     const out: Record<SubTabId, number> = {
       diagnostics: 0,
       data: 0,
-      labs: 0,
     };
     const cur = s;
     if (!cur) return out;
@@ -203,10 +201,6 @@
           onClearAllSitePrefs={clearAllSitePrefs}
           onResetAllToDefaults={resetAllToDefaults}
         />
-      {:else if activeSubTab === 'labs'}
-        <section data-ega-subtab="labs">
-          <LabsSection {s} onPatchAdvanced={patchAdvanced} />
-        </section>
       {/if}
     </div>
   </div>

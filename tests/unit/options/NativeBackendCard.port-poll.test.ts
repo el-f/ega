@@ -17,8 +17,6 @@ function baseProps() {
   return {
     settings: structuredClone(DEFAULT_SETTINGS) as Settings,
     disabled: false,
-    routeIsText: false,
-    routeIsImage: false,
     onPatch: vi.fn(),
     onPatchModel: vi.fn(),
   };

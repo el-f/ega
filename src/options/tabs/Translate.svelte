@@ -17,7 +17,6 @@
   import StreamingSection from '@/options/components/sections/StreamingSection.svelte';
   import PageContextSection from '@/options/components/sections/PageContextSection.svelte';
   import PageTranslateSection from '@/options/components/sections/PageTranslateSection.svelte';
-  import RoutingSection from '@/options/components/sections/RoutingSection.svelte';
   import GenerationSection from '@/options/components/sections/GenerationSection.svelte';
 
   interface Props {
@@ -100,7 +99,6 @@
       onResetCard={resetCard}
     />
     <StreamingSection {s} onPatch={patch} />
-    <RoutingSection {s} onPatch={patch} onPatchAdvanced={handlers.patchAdvanced} />
     <PageTranslateSection {s} onPatch={patch} />
   {:else}
     <LoadingState rows={6} label="Loading answer settings…" />

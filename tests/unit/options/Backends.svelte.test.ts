@@ -26,10 +26,14 @@ async function waitForLoaded(container: HTMLElement): Promise<void> {
   await waitFor(() => expect(container.textContent).toMatch(/Anthropic/));
 }
 
-/** sr-only "First choice for text" lives on the card that wins the text route. */
-function cardResolvesText(container: HTMLElement, backendId: string): boolean {
+/** The route tag a row shows: First choice, Backup n, Not reached, Skipped or Checking... */
+function routeOf(container: HTMLElement, backendId: string): string | null {
   const card = container.querySelector(`[data-backend-id="${backendId}"]`);
-  return card !== null && /First choice for .*text/i.test(card.textContent);
+  return (
+    card
+      ?.querySelector('[data-ega-route]:not([data-ega-route="first-for-images"])')
+      ?.textContent.trim() ?? null
+  );
 }
 
 describe('Backends tab — provider cards', () => {
@@ -44,20 +48,67 @@ describe('Backends tab — provider cards', () => {
   });
 });
 
-describe('Backends tab — route markers gate on key presence', () => {
-  // A key-less anthropic is dropped by the router, so native serves the text route.
-  it('does NOT mark a key-less anthropic as the text route; native wins instead', async () => {
+describe('Backends tab — route tags say what the router does (T-R2)', () => {
+  it('a backend with no key is Skipped, never First choice; a host that is not installed too', async () => {
     const { container } = mountBackends();
     await waitForLoaded(container);
-    expect(cardResolvesText(container, 'anthropic')).toBe(false);
-    expect(cardResolvesText(container, 'native')).toBe(true);
+    expect(routeOf(container, 'anthropic')).toBe('Skipped');
+    await waitFor(() => expect(routeOf(container, 'native')).toBe('Skipped'));
+    expect(container.querySelector('[data-ega-route="first"]')).toBeNull();
   });
 
-  it('marks anthropic as the text route once its key is present', async () => {
+  it('the first ready backend is First choice once its key is present', async () => {
     const { container } = mountBackendsWith({ anthropicApiKey: 'sk-ant-test' });
     await waitForLoaded(container);
-    expect(cardResolvesText(container, 'anthropic')).toBe(true);
-    expect(cardResolvesText(container, 'native')).toBe(false);
+    expect(routeOf(container, 'anthropic')).toBe('First choice');
+    expect(container.querySelectorAll('[data-ega-route="first"]')).toHaveLength(1);
+  });
+
+  it('ready rows past "Try up to" read Not reached; the ones inside are numbered backups', async () => {
+    const s = parseSettings({
+      anthropicApiKey: 'a',
+      openaiApiKey: 'o',
+      geminiApiKey: 'g',
+      disabledBackends: [],
+      advanced: { ...parseSettings({}).advanced, retryCount: 1 },
+    });
+    const { container } = render(Backends, { props: { s, onSetSettings: () => {} } });
+    await waitForLoaded(container);
+    const order = s.backendOrder.filter((id) => ['anthropic', 'openai', 'gemini'].includes(id));
+    expect(order.map((id) => routeOf(container, id))).toEqual([
+      'First choice',
+      'Backup 1',
+      'Not reached',
+    ]);
+  });
+});
+
+describe('Backends tab — Try up to (T-R6)', () => {
+  it('writes retryCount as N minus 1, and reads it back', async () => {
+    const onSetSettings = vi.fn();
+    const s = parseSettings({ advanced: { ...parseSettings({}).advanced, retryCount: 2 } });
+    const { container } = render(Backends, { props: { s, onSetSettings } });
+    await waitForLoaded(container);
+    const three = container.querySelector('[data-ega-depth="3"]');
+    expect(three?.getAttribute('aria-checked')).toBe('true');
+    await fireEvent.click(container.querySelector('[data-ega-depth="1"]') as HTMLElement);
+    await waitFor(() => expect(onSetSettings).toHaveBeenCalled());
+    expect((onSetSettings.mock.calls[0]?.[0] as Settings).advanced.retryCount).toBe(0);
+  });
+
+  it('says so when fewer backends are ready than it may try', async () => {
+    const s = parseSettings({
+      anthropicApiKey: 'a',
+      disabledBackends: ['native', 'ollama', 'localserver'],
+      advanced: { ...parseSettings({}).advanced, retryCount: 3 },
+    });
+    const { container } = render(Backends, { props: { s, onSetSettings: () => {} } });
+    await waitForLoaded(container);
+    await waitFor(() =>
+      expect(container.querySelector('[data-ega-depth-note]')?.textContent.trim()).toBe(
+        'Only 1 backend is ready, so Ega has nothing to fall back on',
+      ),
+    );
   });
 });
 
@@ -99,24 +150,14 @@ describe('Backends grouping', () => {
     });
   });
 
-  it('text-only chip appears on groq and deepseek cards (no translateImage) but not on vision-capable cards', async () => {
+  it('"Text only" is plain text on groq and deepseek (no image method), not on vision-capable rows', async () => {
     const { container } = mountBackends();
     await waitForLoaded(container);
-    const groqCard = container.querySelector('[data-backend-id="groq"]');
-    expect(groqCard).not.toBeNull();
-    const groqChip = (groqCard as Element).querySelector('.be-tag');
-    expect(groqChip).not.toBeNull();
-    expect(groqChip?.textContent).toMatch(/text-only/i);
-
-    const deepseekCard = container.querySelector('[data-backend-id="deepseek"]');
-    expect(deepseekCard).not.toBeNull();
-    const deepseekChip = (deepseekCard as Element).querySelector('.be-tag');
-    expect(deepseekChip).not.toBeNull();
-    expect(deepseekChip?.textContent).toMatch(/text-only/i);
-
-    const anthropicCard = container.querySelector('[data-backend-id="anthropic"]');
-    expect(anthropicCard).not.toBeNull();
-    expect((anthropicCard as Element).querySelector('.be-tag')).toBeNull();
+    for (const id of ['groq', 'deepseek']) {
+      const card = container.querySelector(`[data-backend-id="${id}"]`);
+      expect(card?.querySelector('.be-text-only')?.textContent.trim(), id).toBe('Text only');
+    }
+    expect(container.querySelector('[data-backend-id="anthropic"] .be-text-only')).toBeNull();
   });
 
   it('local section contains ollama card', async () => {
@@ -342,13 +383,14 @@ describe('Backends tab — local-backend probe-timeout slider', () => {
     const onSetSettings = vi.fn();
     const { container } = render(Backends, { props: { s: defaultSettings(), onSetSettings } });
     await waitForLoaded(container);
-    const slider = container.querySelector('[data-testid="local-backend-timeout-slider"]');
+    const slider = container.querySelector('[data-ega-setting="backends.localBackendTimeoutMs"]');
     const thumb = (slider as HTMLElement).querySelector<HTMLElement>('[role="slider"]');
     expect(thumb).not.toBeNull();
     if (thumb) {
       thumb.focus();
       // Step size is not the contract — only that the readout follows the new value.
       await fireEvent.keyDown(thumb, { key: 'ArrowRight' });
+      await fireEvent.keyUp(thumb, { key: 'ArrowRight' });
     }
     const saved = await waitFor(() => {
       expect(onSetSettings).toHaveBeenCalled();

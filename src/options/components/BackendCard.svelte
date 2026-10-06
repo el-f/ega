@@ -17,8 +17,9 @@
   import type { Snippet } from 'svelte';
   import CollapsibleCard from '@/shared/components/CollapsibleCard.svelte';
   import { assertNever } from '@/shared/invariants';
-  import { errCodeLabel } from '@/shared/err-labels';
   import BackendCardStatus from '@/options/components/backend-card/BackendCardStatus.svelte';
+  import { getBackendRouteContext } from '@/options/backend-route-context';
+  import { clearVerified, markVerified, readVerified } from '@/options/backend-verified';
   import BackendCardTestRow from '@/options/components/backend-card/BackendCardTestRow.svelte';
   import { buildBackendConfig } from '@/shared/backends/build-config';
   import { requestAuditEntry } from '@/shared/audit-log';
@@ -36,29 +37,33 @@
     settings: Settings;
     /** Provider-specific config inputs (API key field, URL, model, etc). */
     children?: Snippet;
-    /** True when this backend is the resolved winner for the text route. */
-    routeIsText?: boolean;
-    /** True when this backend is the resolved winner for the image route. */
-    routeIsImage?: boolean;
   }
 
-  let {
-    id,
-    label,
-    settings,
-    children,
-    routeIsText = false,
-    routeIsImage = false,
-  }: Props = $props();
+  let { id, label, settings, children }: Props = $props();
+
+  const route = getBackendRouteContext();
+  const kind = $derived(backendNeedsKey(id) ? 'cloud' : id === 'native' ? 'native' : 'local');
 
   type Status = 'unknown' | 'ready' | 'needs-config' | 'unavailable';
   let beStatus = $state<Status>('unknown');
   let testRunning = $state(false);
   let testSucceeded = $state(false);
   let testResult: string | null = $state(null);
+  let testErrCode: string | null = $state(null);
+  /** A plain line instead of a result: the settings moved while the test ran, so it proves nothing. */
+  let testNote: string | null = $state(null);
   let testLatencyMs: number | null = $state(null);
-  let testPrefillMs: number | null = $state(null);
-  let testDecodeMs: number | null = $state(null);
+  // A passed key test outlives a reload; it belongs to the key, model and address it ran with.
+  let verifiedAt: number | null = $state(null);
+  let nativeOutdated = $state(false);
+  const testFailed = $derived(!testRunning && testResult !== null && !testSucceeded);
+
+  // The route is drawn from these answers, so every row reports its own probe.
+  $effect(() => {
+    const readiness =
+      beStatus === 'ready' ? 'ready' : beStatus === 'unknown' ? 'unknown' : 'not-ready';
+    route?.report(id, readiness);
+  });
 
   // Closed until the user (or a jump from the welcome banner) opens it; a wall of open cards hides the one that matters.
   let open = $state(false);
@@ -68,22 +73,7 @@
       testResult !== null &&
       (/\b403\b/.test(testResult) || /OLLAMA_ORIGINS/.test(testResult)),
   );
-  const testLatencyLabel = $derived(
-    testLatencyMs === null
-      ? null
-      : testLatencyMs >= 1000
-        ? `${(testLatencyMs / 1000).toFixed(1)}s`
-        : `${testLatencyMs}ms`,
-  );
-  const latencyTone = $derived<'fast' | 'normal' | 'slow' | null>(
-    testLatencyMs === null
-      ? null
-      : testLatencyMs < 500
-        ? 'fast'
-        : testLatencyMs > 2000
-          ? 'slow'
-          : 'normal',
-  );
+  const ollamaOrigin = `chrome-extension://${chrome.runtime.id}`;
   const slowFirstShotNote = $derived.by<string | null>(() => {
     if (id !== 'ollama' && id !== 'localserver') return null;
     if (testLatencyMs === null || testLatencyMs < 5000) return null;
@@ -119,9 +109,10 @@
     fresh = false,
   ): Promise<boolean> {
     if (id !== 'native') return backend.isAvailable(cfg);
-    return probeNativeHost(settings.localBackendTimeoutMs, { fresh }).then(
-      (r) => r.status === 'installed' || r.status === 'outdated',
-    );
+    return probeNativeHost(settings.localBackendTimeoutMs, { fresh }).then((r) => {
+      nativeOutdated = r.status === 'outdated';
+      return r.status === 'installed' || r.status === 'outdated';
+    });
   }
 
   // The effect body reads the whole snapshot, so probeKey is what stops a re-probe.
@@ -134,6 +125,8 @@
     lastProbeKey = key;
     // A passed Test belongs to the key it ran with.
     testSucceeded = false;
+    testResult = null;
+    testErrCode = null;
     const backend = resolveBackend(id);
     if (!backend) {
       beStatus = 'unavailable';
@@ -157,25 +150,60 @@
       });
   });
 
+  // A stored pass reads back only while the key, model and address are the ones it ran with.
+  let lastVerifiedKey: string | null = null;
+  $effect(() => {
+    const key = testKey;
+    if (key === lastVerifiedKey) return;
+    lastVerifiedKey = key;
+    verifiedAt = null;
+    if (kind !== 'cloud') return;
+    void readVerified(id, settings).then((at) => {
+      if (testKey === key) verifiedAt = at;
+    });
+  });
+
+  async function recordTest(ok: boolean): Promise<void> {
+    if (kind !== 'cloud') return;
+    try {
+      if (ok) {
+        const at = Date.now();
+        await markVerified(id, settings, at);
+        verifiedAt = at;
+      } else {
+        await clearVerified(id);
+        verifiedAt = null;
+      }
+    } catch {
+      // The mark is a convenience; the test result on screen stands either way.
+    }
+  }
+
   async function runTest(): Promise<void> {
+    if (backendNeedsKey(id) && !backendHasRequiredKey(id, settings)) {
+      testSucceeded = false;
+      testErrCode = 'NO_BACKEND';
+      testResult = 'Add an API key above, then test again.';
+      return;
+    }
     testRunning = true;
+    testErrCode = null;
+    testNote = null;
     // A result belongs to the settings it ran with; one that lands after an edit says nothing about the new value.
     const startKey = testKey;
     const settingsMoved = (): boolean => {
       if (testKey === startKey) return false;
       testSucceeded = false;
       testLatencyMs = null;
-      testPrefillMs = null;
-      testDecodeMs = null;
-      testResult = 'The settings changed while the test ran. Click Test now again.';
+      testResult = null;
+      testErrCode = null;
+      testNote = 'The settings changed while the test ran. Test again.';
       return true;
     };
     try {
       testSucceeded = false;
       testResult = null;
       testLatencyMs = null;
-      testPrefillMs = null;
-      testDecodeMs = null;
       const backend = resolveBackend(id);
       if (!backend) {
         testResult = 'Backend not registered';
@@ -198,10 +226,12 @@
             ? 'needs-config'
             : 'unavailable';
         testLatencyMs = Math.round(performance.now() - probeStart);
+        testErrCode = id === 'native' ? 'NATIVE_NOT_INSTALLED' : 'NETWORK';
         testResult =
           id === 'native'
             ? 'The native host did not answer. Follow the install steps above, then click Recheck.'
             : 'Cannot reach this backend. Check the API key, the URL or the local server above.';
+        void recordTest(false);
         return;
       }
       beStatus = available ? 'ready' : 'unavailable';
@@ -224,7 +254,6 @@
       };
       // Native goes through the SW so the CLI subprocess lands in the port manager the chip polls.
       if (id === 'native') {
-        const probeMs = Math.round(performance.now() - probeStart);
         const text = TEST_PROMPT_TEXT;
         const timeoutMs = settings.translateTimeoutMs ?? DEFAULT_TRANSLATE_TIMEOUT_MS;
         const ask = sendMsg({
@@ -252,15 +281,11 @@
         else auditTest('', { code: reply?.code ?? 'UNKNOWN', message: result });
         if (settingsMoved()) return;
         testLatencyMs = total;
-        // Prefill here is the availability ping: the host boots but no CLI spawns yet.
-        testPrefillMs = probeMs;
-        testDecodeMs =
-          reply?.firstDeltaMs !== undefined ? Math.max(0, total - reply.firstDeltaMs) : null;
         testResult = result;
         testSucceeded = reply?.ok === true;
+        testErrCode = reply?.ok === true ? null : (reply?.code ?? 'UNKNOWN');
         return;
       }
-      let firstDeltaAt: number | null = null;
       let accumulated = '';
       let done = false;
       let errMsg: string | null = null;
@@ -283,12 +308,11 @@
           config: testCfg,
           onChunk: (c) => {
             if (c.type === 'delta') {
-              if (firstDeltaAt === null) firstDeltaAt = performance.now();
               accumulated += c.text;
             } else if (c.type === 'done') done = true;
             else if (c.type === 'error') {
               errCode = c.code;
-              errMsg = `${errCodeLabel(c.code)}: ${c.message}`;
+              errMsg = c.message;
             } else assertNever(c);
           },
         });
@@ -313,11 +337,10 @@
       // The log above records the request even when the settings moved; only the card's result is dropped.
       if (settingsMoved()) return;
       testLatencyMs = Math.round(endAt - start);
-      // Prefill = start to first delta (model load + prompt); decode = first delta to done.
-      testPrefillMs = firstDeltaAt === null ? null : Math.round(firstDeltaAt - start);
-      testDecodeMs = firstDeltaAt === null ? null : Math.round(endAt - firstDeltaAt);
       testResult = result;
       testSucceeded = !errMsg && done;
+      testErrCode = testSucceeded ? null : (errCode ?? 'UNKNOWN');
+      void recordTest(testSucceeded);
     } finally {
       testRunning = false;
     }
@@ -325,15 +348,17 @@
 </script>
 
 <div class="backend-card-wrap">
-  <CollapsibleCard bind:open title={label} backendId={id}>
+  <CollapsibleCard bind:open title={label} backendId={id} flat>
     {#snippet status()}
       <BackendCardStatus
+        {kind}
         {beStatus}
         {supportsImage}
-        {routeIsText}
-        {routeIsImage}
-        keyOnly={backendNeedsKey(id)}
-        verified={testSucceeded}
+        {verifiedAt}
+        {testFailed}
+        outdated={nativeOutdated}
+        route={route?.label(id) ?? null}
+        firstForImages={route?.firstForImages(id) ?? false}
       />
     {/snippet}
 
@@ -343,18 +368,15 @@
 
     <BackendCardTestRow
       {id}
-      {settings}
-      {beStatus}
       {testRunning}
       {testSucceeded}
       {testResult}
+      {testErrCode}
+      {testNote}
       {testLatencyMs}
-      {testPrefillMs}
-      {testDecodeMs}
       {slowFirstShotNote}
-      {testLatencyLabel}
-      {latencyTone}
       {ollama403}
+      {ollamaOrigin}
       onTest={runTest}
     />
   </CollapsibleCard>

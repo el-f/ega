@@ -1,9 +1,8 @@
 <script lang="ts" module>
-  export type SubTabId = 'diagnostics' | 'data' | 'labs';
+  export type SubTabId = 'data' | 'diagnostics';
   export const SUB_TABS: readonly { id: SubTabId; label: string }[] = [
-    { id: 'diagnostics', label: 'Diagnostics' },
     { id: 'data', label: 'Data' },
-    { id: 'labs', label: 'Labs' },
+    { id: 'diagnostics', label: 'Diagnostics' },
   ];
 </script>
 

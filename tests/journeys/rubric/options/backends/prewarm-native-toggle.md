@@ -13,8 +13,8 @@
 
 ## Visible affordances
 
-- A standard HTML checkbox with the label "Start the native CLI with the browser".
-- A muted hint paragraph beneath the label explaining the 7-12s cold-spawn rationale + battery trade-off.
+- A standard HTML checkbox with the label "Start the native host with Chrome".
+- One muted line under the label: "Faster first answer, uses some battery". It is the same text the settings search shows.
 - Wrapper carries `data-testid="prewarm-native-toggle"`; the checkbox itself carries `data-ega-setting="backends.preWarmNative"`.
 
 ## Failure-mode expectations

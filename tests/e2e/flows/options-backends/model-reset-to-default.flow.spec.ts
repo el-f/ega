@@ -59,7 +59,7 @@ test('ResetField arrow reverts model to provider default', async () => {
   timeline.markStep('non-default-visible');
 
   // ResetField button appears because model !== defaultModelId.
-  const resetBtn = card.getByRole('button', { name: 'Reset model id to default' });
+  const resetBtn = card.getByRole('button', { name: 'Use the default model' });
   await expect(resetBtn).toBeVisible({ timeout: 5_000 });
   await resetBtn.click();
   timeline.markStep('reset-clicked');

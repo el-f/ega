@@ -12,8 +12,6 @@ function props(over: Partial<Settings> = {}, onPatch = vi.fn(), onModelChange = 
     id: asBackendIdUnsafe('localserver'),
     label: 'Local server',
     settings: { ...DEFAULT_SETTINGS, ...over },
-    routeIsText: false,
-    routeIsImage: false,
     onPatch,
     onModelChange,
   };
@@ -89,15 +87,24 @@ describe('LocalServerBackendRow', () => {
     expect(seen.some((s) => s.endsWith('+auth'))).toBe(false);
   });
 
-  it('a refresh that cannot reach the server names the address and says to start it', async () => {
+  it('a refresh that reaches no server marks the URL field, with the address under Details', async () => {
     recordFetches(() => {
       throw new TypeError('Failed to fetch');
     });
-    const { getByRole, findByText } = render(LocalServerBackendRow, {
+    const { getByRole, getByLabelText, findByRole } = render(LocalServerBackendRow, {
       props: props({ localServerUrl: 'http://localhost:8080' }),
     });
     await fireEvent.click(getByRole('button', { name: 'Refresh model list from the backend' }));
-    await findByText(/Cannot list the models at http:\/\/localhost:8080 .*Start the server/);
+    const alert = await findByRole('alert');
+    expect(alert.textContent.trim()).toBe(
+      'No server answered at this address. Check that it is running.',
+    );
+    const url = getByLabelText('Server URL');
+    expect(url.getAttribute('aria-invalid')).toBe('true');
+    expect(url.getAttribute('aria-describedby')).toBe(alert.id);
+    expect(alert.parentElement?.querySelector('details')?.textContent).toContain(
+      'http://localhost:8080: Failed to fetch',
+    );
   });
 
   it('Test now on a stopped server shows the request error, not the generic probe sentence', async () => {

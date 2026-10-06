@@ -16,7 +16,7 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-test('Test now button fires, renders latency badge and result text', async () => {
+test('Test now says how fast the backend answered, shows the answer, and the pill turns Verified', async () => {
   const timeline = createTimeline();
   mockAnthropic(ext.context, { translation: 'Hello dear, how are you today?' });
 
@@ -38,15 +38,26 @@ test('Test now button fires, renders latency badge and result text', async () =>
   await testBtn.click();
   timeline.markStep('clicked');
 
-  // Latency badge renders once the test call resolves.
-  const latencyBadge = card.locator('.be-latency').first();
-  await expect(latencyBadge).toBeVisible({ timeout: 15_000 });
+  await expect(card.locator('.be-latency')).toContainText('Answered in', { timeout: 15_000 });
   timeline.markStep('latency-visible');
 
-  // The error path renders latency and a result too, so only the mocked text proves success.
-  const resultText = card.locator('.be-testresult');
-  await expect(resultText).toContainText('Hello dear', { timeout: 5_000 });
+  // Only the mocked text proves success.
+  await expect(card.locator('[data-ega-test-answer]')).toContainText('Hello dear', {
+    timeout: 5_000,
+  });
+  await expect(card.locator('[data-ega-backend-status]')).toHaveAttribute(
+    'data-ega-backend-status',
+    'Verified',
+  );
   timeline.markStep('result-visible');
+
+  // Verified is stored for this key, so it survives a reload.
+  await page.reload();
+  await page.locator('#tab-backends').click();
+  await expect(
+    page.locator('details[data-backend-id="anthropic"] [data-ega-backend-status]'),
+  ).toHaveAttribute('data-ega-backend-status', 'Verified', { timeout: 5_000 });
+  timeline.markStep('verified-after-reload');
 
   timeline.report();
 });

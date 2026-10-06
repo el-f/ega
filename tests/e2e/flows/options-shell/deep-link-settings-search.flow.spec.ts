@@ -25,8 +25,8 @@ test('Settings search result deep-links into Advanced tab at correct sub-tab wit
   await expect(input).toBeVisible({ timeout: 5_000 });
   timeline.markStep('search-open');
 
-  // Search for "Backend probe TTL" — this entry lives under Advanced > Labs.
-  await input.fill('probe ttl');
+  // "Record request details" lives on Advanced > Diagnostics, not the Data sub-tab Advanced opens on.
+  await input.fill('record request details');
   // The suggestions share the list id, so wait on the results listbox before Enter.
   await expect(page.getByRole('listbox', { name: 'Settings results' })).toBeVisible({
     timeout: 5_000,
@@ -43,13 +43,13 @@ test('Settings search result deep-links into Advanced tab at correct sub-tab wit
     timeout: 5_000,
   });
 
-  // The Labs sub-tab must be the active pane.
-  await expect(page.locator('#adv-pane-labs')).toBeVisible({ timeout: 5_000 });
-  timeline.markStep('advanced-labs-visible');
+  // The Diagnostics sub-tab must be the active pane.
+  await expect(page.locator('#adv-pane-diagnostics')).toBeVisible({ timeout: 5_000 });
+  timeline.markStep('advanced-diagnostics-visible');
 
-  // The target card (backendProbeTtlMs) must eventually carry data-flash="true"
+  // The target card (captureResultMeta) must eventually carry data-flash="true"
   // and then have it removed (~800 ms). Assert it appears at some point.
-  const targetCard = page.locator('[data-ega-setting="advanced.backendProbeTtlMs"]');
+  const targetCard = page.locator('[data-ega-setting="advanced.captureResultMeta"]');
   await expect(targetCard).toBeVisible({ timeout: 5_000 });
   await expect
     .poll(

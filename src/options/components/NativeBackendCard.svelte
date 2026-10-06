@@ -14,10 +14,10 @@
   import RadioGroup from '@/shared/ui/RadioGroup.svelte';
   import Badge from '@/shared/ui/Badge.svelte';
   import ModelCombobox from './ModelCombobox.svelte';
+  import SettingHint from './SettingHint.svelte';
   import RefreshCw from '@lucide/svelte/icons/refresh-cw';
-  import Info from '@lucide/svelte/icons/info';
-  import Tooltip from '@/shared/ui/Tooltip.svelte';
-  import Icon from '@/shared/ui/Icon.svelte';
+  import InfoTip from '@/shared/ui/InfoTip.svelte';
+  import Disclosure from './Disclosure.svelte';
   import type { PortStatus } from '@/shared/cli-session/port-manager';
   import { sendMsg } from '@/shared/messages';
   import {
@@ -41,20 +41,11 @@
   interface Props {
     settings: Settings;
     disabled: boolean;
-    routeIsText?: boolean;
-    routeIsImage?: boolean;
     onPatch: (p: Partial<Settings>) => Promise<void> | void;
     onPatchModel: (id: keyof Settings['model'], v: string) => Promise<void> | void;
   }
 
-  let {
-    settings,
-    disabled,
-    routeIsText = false,
-    routeIsImage = false,
-    onPatch,
-    onPatchModel,
-  }: Props = $props();
+  let { settings, disabled, onPatch, onPatchModel }: Props = $props();
 
   const extId = chrome.runtime.id;
   const nhPlatform: Platform = detectPlatform();
@@ -231,7 +222,7 @@
       return 'The registry entry is missing. Quit and restart the browser, then click Recheck.';
     }
     if (/exit|crashed|terminated/i.test(msg)) {
-      return 'The host crashed at start. Check that Node.js is on PATH, then run the install command again.';
+      return 'The native host stopped as it started. Check that Node.js 20 or later is installed, then run the install command again.';
     }
     return '';
   }
@@ -312,18 +303,11 @@
           : 'Cold — the first translation starts the CLI',
   );
 
-  // The Tooltip primitive is `pre-line`, so single newlines render as line breaks.
   const NATIVE_INSTALL_INFO =
-    'Native install creates a native messaging host so the extension can run the local Claude / Codex CLI on your machine without API keys.\n\nSteps:\n- Detect Node.js (>= 20 required).\n- Write a manifest file Chrome, Edge, Brave and Chromium look up by extension id.\n- Copy ega-host.mjs to a known runtime path.\n- Check that the host answers.\n\nUninstall removes the manifest + runtime files; the CLI itself stays.';
+    'The install command adds a small helper that lets Chrome run the Claude Code or Codex CLI on this computer, with no API key. It needs Node.js 20 or later; uninstall removes the helper and keeps the CLI.';
 </script>
 
-<BackendCard
-  id={asBackendIdUnsafe('native')}
-  label={backendLabel('native')}
-  {settings}
-  {routeIsText}
-  {routeIsImage}
->
+<BackendCard id={asBackendIdUnsafe('native')} label={backendLabel('native')} {settings}>
   <!-- The CLI choice appears only once the probe says installed, so the search lands on the section that holds both it and the install status. -->
   <div class="nh-body" data-ega-setting="backends.nativeCli">
     <div class="row nh-status-row">
@@ -358,18 +342,7 @@
         disabled={nhState === 'probing'}
         onclick={() => void recheckNative(true)}
       />
-      <Tooltip text={NATIVE_INSTALL_INFO} side="bottom">
-        {#snippet trigger()}
-          <span
-            class="nh-info-btn"
-            aria-label="About native install"
-            data-ega-install-info={NATIVE_INSTALL_INFO}
-            data-testid="nh-install-info"
-          >
-            <Icon icon={Info} size={16} />
-          </span>
-        {/snippet}
-      </Tooltip>
+      <InfoTip label="About the native host install" text={NATIVE_INSTALL_INFO} />
     </div>
 
     {#if justRecovered}
@@ -391,7 +364,7 @@
             // A failed probe leaves both maps empty, so the description stays blank.
             ...(Object.prototype.hasOwnProperty.call(cliProbe.cli, entry.id) &&
             cliProbe.cli[entry.id] === null
-              ? { description: 'Not found on PATH' }
+              ? { description: 'Not found' }
               : cliProbe.loggedIn[entry.id] === false
                 ? { description: 'Not logged in' }
                 : {}),
@@ -403,14 +376,26 @@
         />
       </div>
       {#if missingCli}
-        <div class="warn nh-status-msg" role="status" data-testid="nh-cli-missing-banner">
-          {missingCli.label} CLI is not on the native host's PATH. Install it (and restart your browser
-          if needed) before translating.
+        <div class="warn nh-status-msg" data-testid="nh-cli-missing-banner">
+          <p class="nh-msg-title" role="status">
+            {missingCli.label} was not found on this computer
+          </p>
+          <Disclosure label="Show steps">
+            <p class="nh-steps">
+              Install {missingCli.label}, then restart Chrome and click Recheck. The native host
+              looks for it in the folders on your PATH.
+            </p>
+          </Disclosure>
         </div>
       {:else if cliProbe.loggedIn[currentCli] === false && currentCliEntry}
-        <div class="warn nh-status-msg" role="status" data-testid="nh-cli-logged-out-banner">
-          {currentCliEntry.label} is not logged in. Run <code>{currentCliEntry.loginCommand}</code> in
-          a terminal once and log in.
+        <div class="warn nh-status-msg" data-testid="nh-cli-logged-out-banner">
+          <p class="nh-msg-title" role="status">{currentCliEntry.label} is not logged in</p>
+          <Disclosure label="Show steps">
+            <p class="nh-steps">
+              Run <code>{currentCliEntry.loginCommand}</code> in a terminal once and log in, then click
+              Recheck.
+            </p>
+          </Disclosure>
         </div>
       {/if}
       <div class="nh-model-row">
@@ -429,20 +414,17 @@
         {/if}
       </div>
     {:else if nhState === 'outdated'}
-      <div class="warn nh-status-msg">
-        Native host is installed but out of date (got
-        <b>v{nhInstalledVersion ?? '?'}</b>, this build expects
-        <b>v{EXPECTED_HOST_VERSION}</b>). Re-run the install command.
-      </div>
+      <p class="warn nh-status-msg nh-msg-title">
+        The native host is out of date: v{nhInstalledVersion ?? '?'} is installed, Ega needs v{EXPECTED_HOST_VERSION}
+      </p>
     {:else if nhState === 'missing' && nhProbeError}
-      <div class="warn nh-status-msg" role="status">
-        <div class="nh-err-line">
-          <b>Chrome reported:</b>
-          <code class="nh-err-msg" title={nhProbeError}>{nhProbeError}</code>
-        </div>
-        {#if nhErrorHint(nhProbeError)}
-          <span class="nh-err-hint">{nhErrorHint(nhProbeError)}</span>
-        {/if}
+      <div class="warn nh-status-msg">
+        <p class="nh-msg-title" role="status">
+          {nhErrorHint(nhProbeError) || 'Chrome could not start the native host.'}
+        </p>
+        <Disclosure label="Details">
+          <p class="nh-steps">Chrome reported: <code>{nhProbeError}</code></p>
+        </Disclosure>
       </div>
     {/if}
 
@@ -463,19 +445,12 @@
     <div class="prewarm-row" data-testid="prewarm-native-toggle">
       <Checkbox
         checked={settings.preWarmNative !== false}
-        size="sm"
-        label="Start the native CLI with the browser"
+        label="Start the native host with Chrome"
+        describedBy="ega-prewarm-hint"
         onchange={(next) => void onPatch({ preWarmNative: next })}
-        inputAttrs={{
-          'data-ega-setting': 'backends.preWarmNative',
-          'aria-describedby': 'ega-prewarm-hint',
-        }}
+        inputAttrs={{ 'data-ega-setting': 'backends.preWarmNative' }}
       />
-      <span class="prewarm-hint" id="ega-prewarm-hint">
-        Starts the claude CLI when the browser starts, so the first translation skips a 7-12 s
-        warm-up. The codex CLI runs one process per translation, so it does not start early. Off
-        saves battery on machines that rarely translate.
-      </span>
+      <SettingHint setting="backends.preWarmNative" id="ega-prewarm-hint" indent />
     </div>
   </div>
 </BackendCard>
@@ -485,13 +460,6 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
-  }
-  /* Lines the hint up under the label text: the box is 14px, then the checkbox gap. */
-  .prewarm-hint {
-    padding-inline-start: calc(14px + var(--space-2));
-    font-size: var(--fs-xs);
-    color: var(--color-fg-subtle);
-    line-height: 1.45;
   }
   .nh-body {
     display: grid;
@@ -578,23 +546,17 @@
   .nh-status-row {
     margin-top: var(--space-2);
   }
-  /* Matches IconButton size-sm (28x28) so the trigger does not change the row height. */
-  .nh-info-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    border-radius: var(--radius-sm);
-    color: var(--color-fg-subtle);
-    cursor: help;
-  }
-  .nh-info-btn:hover {
-    background: var(--color-bg-hover);
-    color: var(--color-fg);
-  }
   .nh-status-msg {
     margin-top: var(--space-2);
+  }
+  .nh-msg-title {
+    margin: 0;
+  }
+  .nh-steps {
+    margin: 0;
+    font-size: var(--fs-base);
+    line-height: var(--lh-body);
+    color: var(--color-muted);
   }
   .nh-cli-row {
     margin-top: var(--space-2);
@@ -603,37 +565,6 @@
   .nh-cli-label {
     font-size: var(--fs-sm);
     color: var(--color-muted);
-  }
-  .nh-err-line {
-    display: flex;
-    align-items: baseline;
-    gap: var(--space-2);
-    max-width: 100%;
-  }
-  .nh-err-line b {
-    flex: 0 0 auto;
-  }
-  .nh-err-msg {
-    display: inline-block;
-    flex: 1 1 auto;
-    min-width: 0;
-    padding: 2px var(--space-2);
-    border-radius: var(--radius-sm);
-    background: var(--color-bg-sunken);
-    font-family: var(--font-mono);
-    font-size: var(--fs-xs);
-    color: var(--color-fg);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 100%;
-  }
-  .nh-err-hint {
-    display: block;
-    margin-top: var(--space-1);
-    font-size: var(--fs-xs);
-    color: var(--color-muted);
-    line-height: 1.4;
   }
   .nh-model-row {
     display: grid;

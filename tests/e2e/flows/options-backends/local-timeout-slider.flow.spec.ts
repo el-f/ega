@@ -23,7 +23,7 @@ test('local-backend timeout slider persists localBackendTimeoutMs to storage', a
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
   await page.locator('#tab-backends').click();
 
-  const section = page.getByTestId('local-backend-timeout-slider');
+  const section = page.locator('[data-ega-setting="backends.localBackendTimeoutMs"]');
   await expect(section).toBeVisible({ timeout: 5_000 });
   timeline.markStep('section-visible');
 
@@ -32,6 +32,7 @@ test('local-backend timeout slider persists localBackendTimeoutMs to storage', a
   await thumb.focus();
 
   // The slider shows seconds; each ArrowRight step is 0.1 s. Press 4× → 0.8 s + 0.4 s = 1200 ms.
+  // The write lands on release (each press is a down and an up), so storage follows the last step.
   for (let i = 0; i < 4; i++) {
     await page.keyboard.press('ArrowRight');
   }

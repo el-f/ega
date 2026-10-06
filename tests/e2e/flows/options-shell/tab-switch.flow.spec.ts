@@ -29,7 +29,7 @@ test('clicking a tab swaps the active panel + tab aria state', async () => {
   await expect(page.locator('#tab-translate')).toHaveAttribute('aria-selected', 'false');
   timeline.markStep('backends-active');
 
-  await expect(page.locator('h1, h2, h3').filter({ hasText: /^Backends/ })).toBeVisible({
+  await expect(page.getByRole('heading', { level: 1, name: 'Backends' })).toBeVisible({
     timeout: 5_000,
   });
 });

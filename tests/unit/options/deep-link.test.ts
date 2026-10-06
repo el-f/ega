@@ -51,8 +51,8 @@ describe('options deep-link', () => {
   it('resolves the advanced sub-tab an entry lives on', () => {
     expect(advancedSubTabFor('advanced.auditLog')).toBe('diagnostics');
     expect(advancedSubTabFor('advanced.resetEverything')).toBe('data');
-    expect(advancedSubTabFor('advanced.backendProbeTtlMs')).toBe('labs');
-    // Not an Advanced entry, and not an entry at all.
+    // Moved to Backends with Labs gone, so no Advanced sub-tab; not an entry at all either.
+    expect(advancedSubTabFor('advanced.backendProbeTtlMs')).toBeNull();
     expect(advancedSubTabFor('display.streaming')).toBeNull();
     expect(advancedSubTabFor('nope')).toBeNull();
   });

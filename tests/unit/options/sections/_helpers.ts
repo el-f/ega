@@ -34,23 +34,6 @@ export function makeResetSectionProps(
   };
 }
 
-export interface LabsSectionPropsOverrides {
-  s?: Partial<Settings>;
-  onPatchAdvanced?: Mock;
-}
-
-/** LabsSection props: onPatchAdvanced instead of onPatch. */
-export function makeLabsSectionProps(overrides: LabsSectionPropsOverrides = {}): {
-  s: Settings;
-  onPatchAdvanced: Mock;
-} {
-  const s = { ...DEFAULT_SETTINGS, ...overrides.s } as Settings;
-  return {
-    s,
-    onPatchAdvanced: overrides.onPatchAdvanced ?? vi.fn(),
-  };
-}
-
 import type { GenerationNotes } from '@/options/generation-notes';
 
 const NO_NOTES: GenerationNotes = { effort: [], maxTokens: [], temperature: [] };

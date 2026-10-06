@@ -66,12 +66,13 @@ deletes the whole `%LOCALAPPDATA%\Ega` folder (Windows) or `$HOME/.ega` folder
 - **Node.js 20 or newer** on your `PATH`. The command checks this first and
   stops with a clear message if the version is too old or `node` is missing.
 - `claude` or `codex` installed and logged in. Either one is enough. The card
-  shows a radio per CLI and marks one "Not found on PATH" if the host cannot
-  see it. It marks one "Not logged in" when the CLI's own check says so: the
+  shows a radio per CLI and marks one "Not found" if the host cannot
+  see it; a line under the radios then says the CLI was not found on this
+  computer, and **Show steps** under it says what to do. It marks one "Not logged in" when the CLI's own check says so: the
   host runs `claude auth status` or `codex login status` and reads only the
   exit code (`native-host/ega-host.mjs#cliLoggedIn`). When the selected CLI is
-  not logged in, a banner under the radios names the command to run once in a
-  terminal. These markers only appear when the host is new enough to answer the
+  not logged in, a line under the radios says so, and **Show steps** names the
+  command to run once in a terminal. These markers only appear when the host is new enough to answer the
   CLI check and answers it in time; an old host or a check that times out
   leaves both radios unmarked, so a missing marker is not proof the CLI is
   there and logged in. With `ANTHROPIC_API_KEY` (for `claude`) or
@@ -92,7 +93,7 @@ Chrome closes that connection, and its CLI children go with it.
 When the native host is your active backend and `claude` is the selected CLI,
 Ega connects each time its service worker starts and asks the host to start `claude` right
 away, so the first translation skips a 7-12 second warm-up. This is on by
-default. Turn it off with **Start the native CLI with the browser** in the
+default. Turn it off with **Start the native host with Chrome** in the
 Backends tab; with it off, the first translation starts `claude`. With `codex`
 the setting changes nothing: the host runs one `codex` process per translation
 and keeps none warm.
@@ -122,13 +123,13 @@ Ega's — see [PRIVACY.md](PRIVACY.md).
 
 ## Troubleshooting
 
-The card prints Chrome's own error under a red pill, plus a short hint. Read
-that first — whether the error line is there at all is what separates the top
-two rows below.
+The card prints a short hint under a red pill, with Chrome's own error under
+**Details**. Read that first — whether that line is there at all is what
+separates the top two rows below.
 
 | Symptom                                                          | Cause                                                                                                                                           | Fix                                                                                                                                                                                             |
 | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Red pill with a **Chrome reported:** line under it               | Chrome found no registration, rejected this extension id, or the host exited at start.                                                          | Follow the hint the card prints under that line. A full browser restart fixes most of them — Chrome reads the registration at startup.                                                          |
+| Red pill with a line and **Details** under it                    | Chrome found no registration, rejected this extension id, or the host exited at start.                                                          | Follow the hint the card prints; **Details** holds Chrome's own words. A full browser restart fixes most of them — Chrome reads the registration at startup.                                    |
 | Red pill with nothing under it                                   | The host started but did not answer. The card waits at least 5 s for the host to start (`src/shared/constants.ts#NATIVE_COLD_BOOT_TIMEOUT_MS`). | Click **Recheck**. If it stays red, restart the browser, then run the install command again.                                                                                                    |
 | The command stopped with `[FAIL] step 1`                         | `node` is missing from that terminal's `PATH`, or it is older than 20.                                                                          | Install Node.js 20 or newer, open a new terminal, run the command again.                                                                                                                        |
 | Linux: every step printed `ok`, the pill is still red            | A snap or flatpak browser cannot read `~/.config`, which is where the command registers the manifest.                                           | Copy `com.ega.host.json` from `$HOME/.ega/native-host` into that browser's own config directory inside its sandbox, then restart it. The sandbox may block the launcher under `$HOME/.ega` too. |
@@ -137,5 +138,5 @@ two rows below.
 | PowerShell reports a base64 or syntax error                      | The paste was cut short. The command carries the whole host in one line of over 80 KB.                                                          | Use **Download .cmd installer** instead. It splits the payload and reassembles it with `certutil`.                                                                                              |
 | PowerShell blocks the command                                    | Execution policy. The copied snippet is inline statements, not a script file, so this is rare.                                                  | Prefix it with `Set-ExecutionPolicy -Scope Process Bypass -Force;`. The downloaded `.cmd` already runs PowerShell with `-ExecutionPolicy Bypass`.                                               |
 | The pill is amber                                                | The installed host is older than this build expects.                                                                                            | Re-run the install command from the Backends tab.                                                                                                                                               |
-| `claude` or `codex` shows "Not found on PATH"                    | The host looks for the CLI on the `PATH` it was started with — the one the installer recorded on macOS and Linux, Chrome's on Windows.          | Run the install command again from a terminal where the CLI works, mise and nvm shims included.                                                                                                 |
-| `claude` or `codex` shows "Not logged in"                        | `claude auth status` or `codex login status` exited with an error when the host ran it.                                                         | Run the command the banner names (`claude`, or `codex login`) once in a terminal and log in. Then click **Recheck**.                                                                            |
+| `claude` or `codex` shows "Not found"                            | The host looks for the CLI on the `PATH` it was started with — the one the installer recorded on macOS and Linux, Chrome's on Windows.          | Run the install command again from a terminal where the CLI works, mise and nvm shims included.                                                                                                 |
+| `claude` or `codex` shows "Not logged in"                        | `claude auth status` or `codex login status` exited with an error when the host ran it.                                                         | Run the command under **Show steps** (`claude`, or `codex login`) once in a terminal and log in. Then click **Recheck**.                                                                        |

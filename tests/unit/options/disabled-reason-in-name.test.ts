@@ -61,8 +61,6 @@ describe('the native-host recheck button announces that it is busy', () => {
       props: {
         settings: structuredClone(DEFAULT_SETTINGS) as Settings,
         disabled: false,
-        routeIsText: false,
-        routeIsImage: false,
         onPatch: vi.fn(),
         onPatchModel: vi.fn(),
       },

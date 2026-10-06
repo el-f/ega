@@ -25,7 +25,7 @@ function mountAdvanced(s: Settings) {
 
 let seeded: Settings = parseSettings({});
 
-describe('Advanced tab — V2 IA (diagnostics / data / labs)', () => {
+describe('Advanced tab — Data and Diagnostics', () => {
   beforeEach(() => {
     resetChromeMock();
     seeded = seedDefaults();
@@ -43,14 +43,14 @@ describe('Advanced tab — V2 IA (diagnostics / data / labs)', () => {
     expect(container).toBeTruthy();
   });
 
-  it('renders only diagnostics/data/labs sub-tabs', async () => {
+  it('renders only the Data and Diagnostics sub-tabs; Labs moved to Backends', async () => {
     const { container, findByRole } = mountAdvanced(seeded);
     await findByRole('tablist', { name: /Advanced sub-section/i });
     await tick();
-    for (const id of ['diagnostics', 'data', 'labs']) {
+    for (const id of ['diagnostics', 'data']) {
       expect(container.querySelector(`[data-ega-subtab="${id}"]`), `sub-tab ${id}`).toBeTruthy();
     }
-    for (const id of ['templates', 'generation', 'tunables']) {
+    for (const id of ['templates', 'generation', 'tunables', 'labs']) {
       expect(
         container.querySelector(`[data-ega-subtab="${id}"]`),
         `sub-tab ${id} (should be absent)`,
@@ -58,25 +58,24 @@ describe('Advanced tab — V2 IA (diagnostics / data / labs)', () => {
     }
   });
 
-  it('defaults to diagnostics when no persisted choice + no deep-link', async () => {
+  it('opens on Data when there is no remembered choice and no deep link', async () => {
     const { container, findByRole } = mountAdvanced(seeded);
     await findByRole('tablist', { name: /Advanced sub-section/i });
     await tick();
-    const diag = container.querySelector(
-      '[data-ega-subtab="diagnostics"]',
-    ) as HTMLButtonElement | null;
-    expect(diag?.getAttribute('aria-selected')).toBe('true');
+    const data = container.querySelector('[data-ega-subtab="data"]') as HTMLButtonElement | null;
+    expect(data?.getAttribute('aria-selected')).toBe('true');
   });
 
-  it('redirects to diagnostics when persisted value is V1-only', async () => {
-    sessionStorage.setItem('ega-advanced-subtab', 'templates');
-    const { container, findByRole } = mountAdvanced(seeded);
-    await findByRole('tablist', { name: /Advanced sub-section/i });
-    await tick();
-    const diag = container.querySelector(
-      '[data-ega-subtab="diagnostics"]',
-    ) as HTMLButtonElement | null;
-    expect(diag?.getAttribute('aria-selected')).toBe('true');
+  it('a remembered sub-tab that no longer exists (Labs, or a V1 one) falls back to Data', async () => {
+    for (const old of ['templates', 'labs']) {
+      sessionStorage.setItem('ega-advanced-subtab', old);
+      const { container, findByRole, unmount } = mountAdvanced(seeded);
+      await findByRole('tablist', { name: /Advanced sub-section/i });
+      await tick();
+      const data = container.querySelector('[data-ega-subtab="data"]') as HTMLButtonElement | null;
+      expect(data?.getAttribute('aria-selected'), old).toBe('true');
+      unmount();
+    }
   });
 
   it('clicking Data shows the Reset button', async () => {
@@ -88,17 +87,6 @@ describe('Advanced tab — V2 IA (diagnostics / data / labs)', () => {
     await new Promise((r) => setTimeout(r, 0));
 
     expect(container.querySelector('[data-ega-reset-defaults]')).toBeTruthy();
-  });
-
-  it('Labs sub-tab renders the placeholder section', async () => {
-    const { container, findByRole } = mountAdvanced(seeded);
-    await findByRole('tablist', { name: /Advanced sub-section/i });
-    await tick();
-    const labs = container.querySelector('[data-ega-subtab="labs"]') as HTMLButtonElement;
-    expect(labs).toBeTruthy();
-    await fireEvent.click(labs);
-    await new Promise((r) => setTimeout(r, 0));
-    expect(container.querySelector('section[data-ega-subtab="labs"]')).toBeTruthy();
   });
 
   it('entry-id deep-link (advanced.auditLog) lands on Diagnostics and marks the audit-log card', async () => {

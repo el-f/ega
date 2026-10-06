@@ -12,8 +12,6 @@ function baseProps(overrides: Partial<Settings> = {}) {
   return {
     settings: { ...structuredClone(DEFAULT_SETTINGS), ...overrides } as Settings,
     disabled: false,
-    routeIsText: false,
-    routeIsImage: false,
     onPatch: vi.fn(),
     onPatchModel: vi.fn(),
   };

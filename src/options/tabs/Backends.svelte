@@ -8,21 +8,28 @@
 </script>
 
 <script lang="ts">
+  import { untrack } from 'svelte';
+  import { SvelteMap } from 'svelte/reactivity';
   import GetStartedCard from '../components/GetStartedCard.svelte';
   import { saveSettings } from '@/options/storage-with-toast';
   import type { Settings, BackendId } from '@/shared/types';
   import { asBackendIdUnsafe } from '@/shared/brands';
   import CloudProviderCard from '../components/CloudProviderCard.svelte';
-  import { resolveBackend } from '@/shared/backends/registry';
+  import { getRegisteredBackendIds } from '@/shared/backends/registry';
   import { computeBackendOrder } from '@/shared/backends/select';
   import { backendNeedsKey, backendHasRequiredKey } from '@/shared/backends/key-presence';
+  import { routePlan, type Readiness } from '@/shared/route-plan';
+  import { imageAbility } from '@/options/route-state.svelte';
+  import { setBackendRouteContext } from '@/options/backend-route-context';
+  import Segmented from '@/shared/ui/Segmented.svelte';
+  import GripVertical from '@lucide/svelte/icons/grip-vertical';
   import { CLOUD_PROVIDER_IDS, apiKeyField, type CloudProviderId } from '@/shared/provider-ids';
   import { CLOUD_PROFILES, backendLabel } from '@/shared/backends/provider-profiles';
   import BackendList from '../components/BackendList.svelte';
   import NativeBackendCard from '../components/NativeBackendCard.svelte';
   import OllamaBackendRow from '../components/OllamaBackendRow.svelte';
   import LocalServerBackendRow from '../components/LocalServerBackendRow.svelte';
-  import LocalBackendTuningSection from '../components/sections/LocalBackendTuningSection.svelte';
+  import BackendChecksSection from '../components/sections/BackendChecksSection.svelte';
   import LoadingState from '@/shared/components/LoadingState.svelte';
   import TabHeader from '@/shared/components/TabHeader.svelte';
 
@@ -35,18 +42,45 @@
 
   const { s, onSetSettings, getStarted = null }: Props = $props();
 
-  // computeBackendOrder keeps key-less ids the router skips; drop them or the markers show backends that never run.
-  const routableOrder = $derived(
-    s
-      ? computeBackendOrder(s).filter(
-          (id) => !(backendNeedsKey(id) && !backendHasRequiredKey(id, s)),
-        )
-      : [],
+  // Each row reports its own probe; a cloud key decides at once. routePlan turns these into the route tags.
+  const probed = new SvelteMap<BackendId, Readiness>();
+  const plan = $derived.by(() => {
+    if (!s) return null;
+    const order = computeBackendOrder(s, getRegisteredBackendIds());
+    const readiness = new Map(
+      order.map((id): [BackendId, Readiness] => [
+        id,
+        backendNeedsKey(id)
+          ? backendHasRequiredKey(id, s)
+            ? 'ready'
+            : 'not-ready'
+          : (probed.get(id) ?? 'unknown'),
+      ]),
+    );
+    return {
+      order,
+      readiness,
+      ...routePlan(order, readiness, 1 + s.advanced.retryCount, imageAbility),
+    };
+  });
+  const readyCount = $derived(
+    plan ? [...plan.readiness.values()].filter((r) => r === 'ready').length : 0,
   );
-  const resolvedTextId = $derived(routableOrder[0] ?? null);
-  const resolvedImageId = $derived(
-    routableOrder.find((id) => Boolean(resolveBackend(id)?.translateImage)) ?? null,
-  );
+  const depth = $derived(s ? 1 + s.advanced.retryCount : 1);
+  // Only once every row in use has answered: a row still checking may yet be ready.
+  const settled = $derived(plan ? ![...plan.readiness.values()].includes('unknown') : false);
+  setBackendRouteContext({
+    label: (id) => plan?.rows.find((r) => r.id === id)?.label ?? null,
+    firstForImages: (id) => {
+      if (!plan || plan.firstForImages !== id) return false;
+      return plan.rows.find((r) => r.id === id)?.label.kind !== 'first';
+    },
+    // Untracked: a row's report effect must depend on its own probe only, or two copies of a row mid-drag ping-pong.
+    report: (id, readiness) => {
+      if (untrack(() => probed.get(id)) !== readiness) probed.set(id, readiness);
+    },
+  });
+  const DEPTHS = [1, 2, 3, 4].map((n) => ({ value: String(n), label: String(n) }));
 
   async function patch(p: Partial<Settings>): Promise<boolean> {
     const next = await saveSettings(p);
@@ -146,12 +180,41 @@
 {#if !s}
   <LoadingState rows={5} label="Loading backend configuration…" />
 {:else}
-  <TabHeader tab="backends" />
+  <TabHeader
+    tab="backends"
+    info={{
+      label: 'About backends',
+      text: 'Cloud backends use your API key; local ones run on this computer. A key reads "Key saved" until a test passes, then "Verified".',
+    }}
+  />
   {#if getStarted}
     <GetStartedCard {...getStarted} />
   {/if}
   {@const ss = s as Settings}
   <BackendList settings={ss} onChange={(next) => patch(next)} onMove={reorderById}>
+    {#snippet inUseHeader()}
+      <div class="be-depth" data-ega-setting="advanced.retryCount">
+        <span class="be-depth-label" id="be-depth-label">Try up to</span>
+        <Segmented
+          value={String(depth)}
+          options={DEPTHS}
+          ariaLabelledby="be-depth-label be-depth-unit"
+          itemAttr="data-ega-depth"
+          onchange={(v) =>
+            void patch({ advanced: { retryCount: Number(v) - 1 } as Settings['advanced'] })}
+        />
+        <span class="be-depth-label" id="be-depth-unit">backends per request</span>
+      </div>
+      {#if settled && readyCount < depth}
+        <p class="be-depth-note" data-ega-depth-note>
+          {readyCount === 0
+            ? 'No backend is ready, so Ega cannot answer yet'
+            : readyCount === 1
+              ? 'Only 1 backend is ready, so Ega has nothing to fall back on'
+              : `Only ${readyCount} backends are ready, so Ega tries ${readyCount}`}
+        </p>
+      {/if}
+    {/snippet}
     {#snippet children(id, position, enabled, useSummary)}
       {@const card = CARDS.find((c) => c.id === id)}
       {#if !card}
@@ -168,8 +231,10 @@
             use:useSummary
             onkeydown={(e) => onGutterKeydown(e, id)}
           >
-            <span class="be-drag" aria-hidden="true">⋮⋮</span>
-            <span class="be-pos">{position ?? '—'}</span>
+            <span class="be-drag" aria-hidden="true"
+              ><GripVertical size={16} strokeWidth={1.75} /></span
+            >
+            {#if position !== null}<span class="be-pos">{position}</span>{/if}
           </span>
           {#if card.kind === 'cloud'}
             {@const cloudCard = CLOUD_CARDS.find((c) => c.id === id) as CloudCardDef}
@@ -186,8 +251,6 @@
                 disabled={!enabled}
                 onApiKeyChange={(v) => onCloudApiKeyChange(cloudCard.id, v)}
                 onModelChange={(v) => void patchModel(cloudCard.id as keyof Settings['model'], v)}
-                routeIsText={cloudCard.id === resolvedTextId}
-                routeIsImage={cloudCard.id === resolvedImageId}
               />
             </div>
           {:else if card.kind === 'local'}
@@ -196,8 +259,6 @@
                 {id}
                 label={card.label}
                 settings={ss}
-                routeIsText={id === resolvedTextId}
-                routeIsImage={id === resolvedImageId}
                 onPatch={(p) => void patch(p)}
                 onModelChange={(v) => void patchModel('ollama', v)}
               />
@@ -208,8 +269,6 @@
                 {id}
                 label={card.label}
                 settings={ss}
-                routeIsText={id === resolvedTextId}
-                routeIsImage={id === resolvedImageId}
                 onPatch={(p) => void patch(p)}
                 onModelChange={(v) => void patchModel('localserver', v)}
               />
@@ -219,8 +278,6 @@
               <NativeBackendCard
                 settings={ss}
                 disabled={!enabled}
-                routeIsText={id === resolvedTextId}
-                routeIsImage={id === resolvedImageId}
                 onPatch={(p) => void patch(p)}
                 onPatchModel={(k, v) => void patchModel(k, v)}
               />
@@ -231,53 +288,58 @@
     {/snippet}
   </BackendList>
 
-  <LocalBackendTuningSection
-    settings={ss}
-    onChange={(v) => void patch({ localBackendTimeoutMs: v })}
-  />
+  <BackendChecksSection s={ss} onPatch={patch} />
 {/if}
 
 <style>
+  .be-depth {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+  }
+  .be-depth-label {
+    font-size: var(--fs-base);
+  }
+  .be-depth-note {
+    margin: 0;
+    font-size: var(--fs-base);
+    color: var(--color-warning-fg);
+  }
   .be-row {
     display: flex;
     align-items: flex-start;
     gap: var(--space-2);
-    margin-bottom: var(--space-2);
   }
-  /* No opacity dim: group opacity drags the status pills below WCAG AA, and the Available-backends divider already marks disabled rows. */
+  /* Handle and position number on one line, at the row's text line. */
   .be-gutter {
-    display: flex;
-    flex-direction: column;
+    display: inline-flex;
     align-items: center;
-    justify-content: flex-start;
     gap: 2px;
-    width: 24px;
-    flex: 0 0 24px;
-    align-self: stretch;
-    padding-top: 10px;
-    opacity: 0.55;
+    min-width: 32px;
+    min-height: 44px;
+    flex: 0 0 auto;
+    color: var(--color-muted);
     user-select: none;
     cursor: grab;
-    background: transparent;
-    border: 0;
+    border-radius: var(--radius-sm);
   }
   .be-gutter:hover {
-    opacity: 0.95;
+    color: var(--color-fg);
   }
   .be-gutter:active {
     cursor: grabbing;
   }
+  .be-gutter:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
   .be-drag {
-    font-size: var(--fs-md);
-    line-height: 1;
-    letter-spacing: -2px;
-    color: var(--color-muted);
+    display: inline-flex;
   }
   .be-pos {
-    font-size: var(--fs-xs);
+    font-size: var(--fs-base);
     font-variant-numeric: tabular-nums;
-    color: var(--color-muted);
-    line-height: 1;
   }
   .be-card-wrap {
     flex: 1;

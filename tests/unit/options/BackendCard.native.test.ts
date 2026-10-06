@@ -75,10 +75,12 @@ describe('BackendCard — native host', () => {
   it('points an unreachable host at the install steps, not at an API key', async () => {
     const { container } = renderNative();
     await settle();
-    container.querySelector<HTMLButtonElement>('.be-test-btn')?.click();
+    container.querySelector<HTMLButtonElement>('[data-testid="backend-card-test-native"]')?.click();
     await settle();
-    const result = container.querySelector('.be-testresult')?.textContent ?? '';
-    expect(result).toBe(
+    const failure = container.querySelector('[data-ega-test-failure]');
+    expect(failure?.getAttribute('data-ega-test-failure')).toBe('NATIVE_NOT_INSTALLED');
+    expect(failure?.textContent).not.toMatch(/API key/i);
+    expect(failure?.querySelector('details')?.textContent).toContain(
       'The native host did not answer. Follow the install steps above, then click Recheck.',
     );
   });
@@ -88,7 +90,7 @@ describe('BackendCard — native host', () => {
     chromeMock.runtime.sendMessage = vi.fn(async (_msg: unknown) => undefined as never);
     const { container } = renderNative({ nativeCli: 'codex' });
     await settle();
-    container.querySelector<HTMLButtonElement>('.be-test-btn')?.click();
+    container.querySelector<HTMLButtonElement>('[data-testid="backend-card-test-native"]')?.click();
     await settle();
     expect(chromeMock.runtime.sendMessage).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -96,7 +98,12 @@ describe('BackendCard — native host', () => {
         cfg: expect.objectContaining({ nativeCli: 'codex' }),
       }),
     );
-    const result = container.querySelector('.be-testresult')?.textContent ?? '';
-    expect(result).toBe('No answer from the native host. Click Recheck above, then test again.');
+    const failure = container.querySelector('[data-ega-test-failure]');
+    expect(failure?.querySelector('.be-fail-title')?.textContent.trim()).toBe(
+      'Something went wrong',
+    );
+    expect(failure?.querySelector('details')?.textContent).toContain(
+      'No answer from the native host. Click Recheck above, then test again.',
+    );
   });
 });

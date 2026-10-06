@@ -14,7 +14,7 @@
 ## Visible affordances
 
 - Slider uses the project's Slider primitive with `aria-valuemin/max/now` and a unit label ("ms" or "s").
-- The readout is in seconds with one decimal ("0.8 s"); storage keeps whole milliseconds. The slider sits in a standard SectionCard titled "Local-backend checks".
+- The readout is in seconds with one decimal ("0.8 s"); storage keeps whole milliseconds. The slider "Local check timeout" sits in the "Timeouts and checks" card, with its default shown as a tick on the track.
 - No reset control sits next to this slider; only the live seconds readout does.
 
 ## Failure-mode expectations

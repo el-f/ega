@@ -82,8 +82,9 @@ another extension already holds the combo. Ega owns the other, at Settings →
 `Command+Shift+L` if you want that listener to fire too.
 
 **Ollama answers 403.** `ollama serve` refuses the extension's origin until
-`OLLAMA_ORIGINS` names it. Open **Extension access** on the Ollama card in Settings →
-Backends: it shows the exact origin to copy and the command for Windows, macOS and
+`OLLAMA_ORIGINS` names it. When **Test now** or **Discover models** on the Ollama row in
+Settings → Backends meets the 403, the row says "Ollama blocked the request from Ega", and
+**Show steps** under it has the exact origin to copy and the command for Windows, macOS and
 Linux.
 
 **The local server does not answer.** Start it first: turn the server on in LM Studio, or

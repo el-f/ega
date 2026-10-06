@@ -1,142 +1,136 @@
+<script lang="ts" module>
+  export type BackendStatus = 'unknown' | 'ready' | 'needs-config' | 'unavailable';
+  export type BackendKind = 'cloud' | 'local' | 'native';
+</script>
+
 <script lang="ts">
-  type Status = 'unknown' | 'ready' | 'needs-config' | 'unavailable';
+  /** The collapsed row's facts: "Text only", one status pill (icon plus word) and the route tag. */
+  import Check from '@lucide/svelte/icons/check';
+  import KeyRound from '@lucide/svelte/icons/key-round';
+  import AlertTriangle from '@lucide/svelte/icons/alert-triangle';
+  import CircleX from '@lucide/svelte/icons/circle-x';
+  import LoaderCircle from '@lucide/svelte/icons/loader-circle';
+  import Badge from '@/shared/ui/Badge.svelte';
+  import type { RouteLabel } from '@/shared/route-plan';
 
   interface Props {
-    beStatus: Status;
+    kind: BackendKind;
+    beStatus: BackendStatus;
     supportsImage: boolean;
-    routeIsText: boolean;
-    routeIsImage: boolean;
-    /** An API-key backend is only "ready" because a key is stored; it is Verified once Test passes. */
-    keyOnly?: boolean;
-    verified?: boolean;
+    /** When a key test last passed with the current key and model; null when it has not. */
+    verifiedAt: number | null;
+    /** The last key test failed. */
+    testFailed: boolean;
+    /** The native host answered but runs an older version. */
+    outdated: boolean;
+    /** Null when the backend is not in use. */
+    route: RouteLabel | null;
+    firstForImages: boolean;
   }
 
   const {
+    kind,
     beStatus,
     supportsImage,
-    routeIsText,
-    routeIsImage,
-    keyOnly = false,
-    verified = false,
+    verifiedAt,
+    testFailed,
+    outdated,
+    route,
+    firstForImages,
   }: Props = $props();
 
-  const saved = $derived(beStatus === 'ready' && keyOnly && !verified);
-  const label = $derived(
-    saved
-      ? 'Key saved'
-      : beStatus === 'ready'
-        ? keyOnly
-          ? 'Verified'
-          : 'Ready'
-        : beStatus === 'needs-config'
-          ? 'Needs setup'
-          : beStatus === 'unavailable'
-            ? 'Unavailable'
-            : 'Checking…',
-  );
+  type Pill = {
+    word: string;
+    variant: 'default' | 'success' | 'warning' | 'danger' | 'muted';
+    icon: typeof Check;
+  };
 
-  // The visible tag is hidden from screen readers; this text names the route.
-  const routeSummary = $derived(
-    [routeIsText ? 'text' : null, routeIsImage ? 'images' : null].filter(Boolean).join(' and '),
-  );
+  const pill = $derived.by((): Pill => {
+    if (beStatus === 'unknown')
+      return { word: 'Checking...', variant: 'muted', icon: LoaderCircle };
+    if (kind === 'cloud') {
+      if (beStatus === 'needs-config')
+        return { word: 'Needs setup', variant: 'warning', icon: AlertTriangle };
+      if (testFailed) return { word: 'Test failed', variant: 'danger', icon: CircleX };
+      if (verifiedAt !== null) return { word: 'Verified', variant: 'success', icon: Check };
+      return { word: 'Key saved', variant: 'default', icon: KeyRound };
+    }
+    if (kind === 'native') {
+      if (beStatus !== 'ready') return { word: 'Not installed', variant: 'danger', icon: CircleX };
+      return outdated
+        ? { word: 'Update needed', variant: 'warning', icon: AlertTriangle }
+        : { word: 'Installed', variant: 'success', icon: Check };
+    }
+    return beStatus === 'ready'
+      ? { word: 'Running', variant: 'success', icon: Check }
+      : { word: 'Not running', variant: 'danger', icon: CircleX };
+  });
+
+  function ago(at: number): string {
+    const minutes = Math.round((Date.now() - at) / 60_000);
+    if (minutes < 1) return 'just now';
+    if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
+    const hours = Math.round(minutes / 60);
+    if (hours < 48) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+    const days = Math.round(hours / 24);
+    return `${days} days ago`;
+  }
+
+  const routeText = $derived.by((): string | null => {
+    if (route === null) return null;
+    switch (route.kind) {
+      case 'first':
+        return 'First choice';
+      case 'backup':
+        return `Backup ${route.n}`;
+      case 'not-reached':
+        return 'Not reached';
+      case 'skipped':
+        return 'Skipped';
+      case 'unknown':
+        return 'Checking...';
+    }
+  });
 </script>
 
-<span class="be-dot be-dot-{saved ? 'saved' : beStatus}" aria-hidden="true"></span>
-<span class="be-status be-status-{saved ? 'saved' : beStatus}">{label}</span>
-{#if !supportsImage}
-  <span class="be-tag" title="This backend does not support image translation">text-only</span>
-{/if}
-{#if routeSummary}
-  <span class="be-tag be-tag-first" aria-hidden="true"
-    >{routeIsText ? 'First choice' : 'First for images'}</span
+{#if !supportsImage}<span class="be-text-only">Text only</span>{/if}
+<span class="be-pill" data-ega-backend-status={pill.word}>
+  <Badge variant={pill.variant} icon={pill.icon}>
+    {pill.word}{#if pill.word === 'Verified' && verifiedAt !== null}<span class="ega-sr-only"
+        >{` ${ago(verifiedAt)}`}</span
+      >{/if}
+  </Badge>
+</span>
+{#if routeText !== null}
+  <span
+    class="be-route"
+    class:first={route?.kind === 'first'}
+    class:quiet={route?.kind !== 'first' && route?.kind !== 'backup'}
+    data-ega-route={route?.kind}>{routeText}</span
   >
-  <span class="ega-sr-only">First choice for {routeSummary}</span>
+{/if}
+{#if firstForImages}
+  <span class="be-route" data-ega-route="first-for-images">First for images</span>
 {/if}
 
 <style>
-  .be-tag {
-    font-size: var(--fs-xs);
-    padding: 1px 6px;
-    border-radius: 999px;
-    background: var(--color-bg-elevated);
-    color: var(--color-muted);
-    border: 1px solid var(--color-border);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-  }
-  .be-dot {
-    width: 9px;
-    height: 9px;
-    border-radius: 999px;
-    display: inline-block;
-    background: var(--color-dot-idle);
-    margin-right: 6px;
-    vertical-align: middle;
-  }
-  .be-dot-ready {
-    background: var(--color-success-fg);
-    box-shadow: 0 0 6px rgba(86, 211, 100, 0.55);
-    animation: be-ready-pulse 2.4s ease-in-out infinite;
-  }
-  @keyframes be-ready-pulse {
-    0%,
-    100% {
-      box-shadow: 0 0 6px rgba(86, 211, 100, 0.55);
-    }
-    50% {
-      box-shadow: 0 0 10px rgba(86, 211, 100, 0);
-    }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .be-dot-ready {
-      animation-duration: 0.01ms;
-    }
-  }
-  .be-dot-needs-config {
-    background: var(--color-warning-fg);
-  }
-  .be-dot-unavailable {
-    background: var(--color-danger);
-  }
-  .be-dot-saved {
-    background: var(--color-muted);
-  }
-  .be-dot-unknown {
-    background: var(--color-muted);
-  }
-  .be-status {
-    font-size: var(--fs-xs);
-    padding: 1px 8px;
-    border-radius: 999px;
-    border: 1px solid var(--color-border);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-  .be-status-ready {
-    background: rgba(86, 211, 100, 0.12);
-    color: var(--color-success-fg);
-    border-color: var(--color-success);
-  }
-  .be-status-needs-config {
-    background: rgba(227, 179, 65, 0.12);
-    color: var(--color-warning-fg);
-    border-color: var(--color-warning-border);
-  }
-  /* danger-fg, not danger: #e5484d on the tinted dark pill is ~4:1 — below AA for 11px text. */
-  .be-status-unavailable {
-    background: rgba(248, 81, 73, 0.1);
-    color: var(--color-danger-fg);
-    border-color: var(--color-danger);
-  }
-  .be-status-saved,
-  .be-status-unknown {
+  .be-text-only {
+    font-size: var(--fs-base);
     color: var(--color-muted);
   }
-  .be-tag-first {
-    margin-right: 6px;
-    text-transform: none;
-    letter-spacing: 0;
-    color: var(--color-accent);
-    border-color: var(--color-accent);
+  .be-pill {
+    display: inline-flex;
+  }
+  .be-route {
+    font-size: var(--fs-base);
+    color: var(--color-fg);
+    white-space: nowrap;
+  }
+  .be-route.first {
+    color: var(--color-accent-hover);
+    font-weight: 600;
+  }
+  .be-route.quiet {
+    color: var(--color-muted);
   }
 </style>

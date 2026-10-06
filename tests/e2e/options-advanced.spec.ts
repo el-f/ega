@@ -10,7 +10,7 @@ import { CURRENT_TEMPLATE_VERSION } from '../../src/shared/settings-schema';
 import type { Settings } from '../../src/shared/types';
 import { DEFAULT_SETTINGS } from '../../src/shared/settings-defaults';
 
-// V2 IA: Advanced holds three sub-tabs (Diagnostics / Data / Labs); the Translate prompt lives in the Translate task dialog.
+// Advanced holds two sub-tabs (Data / Diagnostics); the Translate prompt lives in the Translate task dialog.
 
 let ext: ExtensionHandle;
 
@@ -42,15 +42,15 @@ async function selectSubTab(page: Page, id: string): Promise<void> {
 
 test('Advanced: 3 sub-tabs render at top', async () => {
   const page = await openAdvanced();
-  for (const id of ['diagnostics', 'data', 'labs']) {
+  for (const id of ['data', 'diagnostics']) {
     await expect(page.locator(`[data-ega-subtab="${id}"]`)).toBeVisible({ timeout: 5_000 });
   }
 });
 
-test('Advanced: default sub-tab is Diagnostics', async () => {
+test('Advanced: default sub-tab is Data', async () => {
   const page = await openAdvanced();
-  const diagBtn = page.locator('[data-ega-subtab="diagnostics"]');
-  await expect(diagBtn).toHaveAttribute('aria-selected', 'true', { timeout: 5_000 });
+  const dataBtn = page.locator('[data-ega-subtab="data"]');
+  await expect(dataBtn).toHaveAttribute('aria-selected', 'true', { timeout: 5_000 });
 });
 
 test('Advanced: clicking Diagnostics shows the debug section', async () => {
@@ -165,25 +165,23 @@ test('Advanced: Cmd/Ctrl+, opens the SettingsSearch modal', async () => {
   await expect(search).toBeVisible({ timeout: 5_000 });
 });
 
-test('Advanced: SettingsSearch deep-link to cache/settings lands on Translate tab (V2 IA)', async () => {
+test('Advanced: SettingsSearch deep-link to the answer cache lands on the Answers tab', async () => {
   const page = await openAdvanced();
   await page.keyboard.press('Control+,');
   const input = page.getByPlaceholder(/Search settings/i);
   await expect(input).toBeVisible({ timeout: 5_000 });
-  await input.fill('cache settings');
+  await input.fill('reuse recent answers');
 
   const list = page.getByRole('listbox', { name: /Settings results/i });
   await expect(list).toBeVisible();
-  // advanced.cacheSettings deep-links to the top-level Translate tab, where the Streaming and cache card lives.
+  // advanced.cacheSettings deep-links to the Answers tab, where the Streaming and cache card lives.
   const cacheOption = list
     .getByRole('option')
-    .filter({ hasText: /^.*Cache settings/i })
+    .filter({ hasText: /Reuse recent answers/i })
     .first();
   await cacheOption.click();
 
-  await expect(page.locator('button[data-tooltip="Translate"]')).toHaveAttribute(
-    'aria-selected',
-    'true',
-    { timeout: 5_000 },
-  );
+  await expect(page.locator('#tab-translate')).toHaveAttribute('aria-selected', 'true', {
+    timeout: 5_000,
+  });
 });

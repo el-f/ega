@@ -67,10 +67,10 @@ describe('CloudProviderCard', () => {
     expect(onApiKeyChange).toHaveBeenCalledWith('sk-new');
 
     await rerender({ apiKey: 'sk-new' });
-    expect((await findByText('Key saved.')).closest('[role="status"]')).toBeTruthy();
+    expect((await findByText('Key saved')).closest('[role="status"]')).toBeTruthy();
   });
 
-  it('keeps one "Key saved." line while the user keeps typing, so it is announced once', async () => {
+  it('keeps one "Key saved" line while the user keeps typing, so it is announced once', async () => {
     const pending: ((ok: boolean) => void)[] = [];
     const onApiKeyChange = vi.fn(() => new Promise<boolean>((r) => pending.push(r)));
     const { container, rerender } = render(CloudProviderCard, {
@@ -82,7 +82,7 @@ describe('CloudProviderCard', () => {
     await fireEvent.input(input, { target: { value: 'sk-a' } });
     pending[0]?.(true);
     await rerender({ apiKey: 'sk-a' });
-    await waitFor(() => expect(status.textContent).toContain('Key saved.'));
+    await waitFor(() => expect(status.textContent).toContain('Key saved'));
     const line = status.querySelector('.cp-saved');
 
     await fireEvent.input(input, { target: { value: 'sk-ab' } });
@@ -100,11 +100,11 @@ describe('CloudProviderCard', () => {
     const input = container.querySelector('.cp-key-input') as HTMLInputElement;
     await fireEvent.input(input, { target: { value: 'sk-new' } });
     await fireEvent.blur(input);
-    expect(await findByText(/Key not saved/)).toBeTruthy();
-    expect(container.textContent).not.toContain('Key saved.');
+    expect(await findByText(/Not saved\. Edit the key to try again\./)).toBeTruthy();
+    expect(container.textContent).not.toContain('Key saved');
   });
 
-  it('drops "Key saved." when another window clears the key', async () => {
+  it('drops "Key saved" when another window clears the key', async () => {
     const onApiKeyChange = vi.fn(async () => true);
     const { container, rerender, findByText } = render(CloudProviderCard, {
       props: { ...baseProps, onApiKeyChange, settings: settings() },
@@ -114,10 +114,10 @@ describe('CloudProviderCard', () => {
     await fireEvent.input(input, { target: { value: 'sk-new' } });
     await fireEvent.blur(input);
     await rerender({ apiKey: 'sk-new' });
-    expect(await findByText('Key saved.')).toBeTruthy();
+    expect(await findByText('Key saved')).toBeTruthy();
 
     await rerender({ apiKey: '' });
-    await waitFor(() => expect(container.textContent).not.toContain('Key saved.'));
+    await waitFor(() => expect(container.textContent).not.toContain('Key saved'));
     expect(input.value).toBe('');
   });
 
@@ -141,7 +141,7 @@ describe('CloudProviderCard', () => {
     await tick();
     const refresh = getByRole('button', { name: /Refresh model list/i });
     await fireEvent.click(refresh);
-    await waitFor(() => expect(container.textContent).toMatch(/2 discovered/i));
+    await waitFor(() => expect(container.textContent).toMatch(/2 models found/i));
   });
 
   it('renders a discovery error when the provider 401s', async () => {
@@ -176,12 +176,14 @@ describe('CloudProviderCard', () => {
     );
   });
 
-  it('shows the Get key signup link with the supplied URL', async () => {
+  it('shows the Get a key link with the supplied URL', async () => {
     const { container } = render(CloudProviderCard, {
       props: { ...baseProps, settings: settings() },
     });
     await tick();
-    const link = container.querySelector('a.cp-signup') as HTMLAnchorElement;
+    const link = [...container.querySelectorAll<HTMLAnchorElement>('a.cp-link')].find((a) =>
+      a.textContent.includes('Get a key'),
+    ) as HTMLAnchorElement;
     expect(link.href).toBe('https://platform.openai.com/api-keys');
     expect(link.target).toBe('_blank');
   });

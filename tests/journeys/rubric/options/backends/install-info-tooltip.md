@@ -2,28 +2,25 @@
 
 ## Latency budgets
 
-- Hover/focus on the (i) icon -> tooltip mount: <= 250ms (Bits UI delayDuration default ~200ms).
+- Focus or click on the (i) -> bubble visible: immediate; a mouse hover waits 300 ms so a passing pointer does not flash it.
 
 ## State expectations
 
-- Step 1: user is on the Backends tab with the native card visible in the active list.
-- Step 2: the (i) icon sits inside the native card's status row, adjacent to the recheck button.
-- Step 3 (hover the icon): a portaled tooltip with role="tooltip" appears carrying the install/uninstall summary.
-- The tooltip body MUST mention: (a) "native messaging host", (b) "Node.js" (with the >= 20 requirement implicit), (c) "manifest", (d) "Uninstall".
+- Step 1: user is on the Backends tab with the native row open.
+- Step 2: the (i) sits in the native row's status line, next to the Recheck button.
+- Step 3: focus or click opens the shared (i) bubble with two short sentences: what the install adds (a small helper Chrome runs for the Claude Code or Codex CLI, no API key) and that it needs Node.js 20 or later; uninstall keeps the CLI.
 
 ## Visible affordances
 
-- A 16px Info icon (`@lucide/svelte/icons/info`) inside a 28x28 hit area so it matches IconButton sizing and doesn't bump the row height.
-- The trigger carries `data-testid="nh-install-info"` and `data-ega-install-info` with the verbatim tooltip body (testable contract).
-- Tooltip body preserves single-newline structure (Tooltip primitive uses `white-space: pre-line`).
+- The (i) is the shared InfoTip button, named "About the native host install". It takes focus with Tab.
+- No step list in the bubble; the install commands live in the install panel below.
 
 ## Failure-mode expectations
 
-- Tooltip MUST work in both light and dark theme (Tooltip primitive uses `--color-bg-elevated` + `--color-border` tokens).
-- Hover dismiss on pointer-leave; focus dismiss on blur.
-- Tooltip MUST NOT block the click target of the adjacent recheck IconButton.
+- Esc closes the bubble; a click pins it until a click outside.
+- The bubble works in light and dark theme (shared InfoTip tokens).
+- The bubble does not cover the Recheck button's click target.
 
 ## Cautions
 
 - Body copy is non-marketing: short sentences, present tense, no claims about safety or convenience beyond the literal mechanism.
-- The trigger MUST NOT change the card's status pill placement or stacking order on the status row.

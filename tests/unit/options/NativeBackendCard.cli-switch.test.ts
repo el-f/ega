@@ -29,8 +29,6 @@ function props(over: Partial<Settings> = {}) {
   return {
     settings: { ...structuredClone(DEFAULT_SETTINGS), ...over } as Settings,
     disabled: false,
-    routeIsText: false,
-    routeIsImage: false,
     onPatch: vi.fn(),
     onPatchModel: vi.fn(),
   };
@@ -68,7 +66,11 @@ describe('NativeBackendCard CLI switch', () => {
   });
 });
 
-function probingPort(loggedIn: Record<string, boolean | null>, onCliAnswered = (): void => {}) {
+function probingPort(
+  loggedIn: Record<string, boolean | null>,
+  onCliAnswered = (): void => {},
+  cli: Record<string, string | null> = { claude: 'C:/bin/claude.exe', codex: 'C:/bin/codex.cmd' },
+) {
   let replyFn: ((m: unknown) => void) | undefined;
   return {
     postMessage: vi.fn((m: unknown) => {
@@ -81,7 +83,7 @@ function probingPort(loggedIn: Record<string, boolean | null>, onCliAnswered = (
             v: 1,
             id,
             type: 'cli-presence',
-            cli: { claude: 'C:/bin/claude.exe', codex: 'C:/bin/codex.cmd' },
+            cli,
           });
           fn({ v: 1, id, type: 'cli-login', loggedIn });
         }
@@ -117,6 +119,33 @@ describe('NativeBackendCard login state', () => {
     expect(banner.textContent).toContain('Claude Code is not logged in');
     expect(banner.textContent).toContain('claude');
     expect(getByText('Not logged in')).toBeTruthy();
+  });
+
+  it('says a missing CLI was not found on this computer and keeps PATH in the steps', async () => {
+    vi.stubGlobal('chrome', {
+      ...globalThis.chrome,
+      runtime: {
+        ...globalThis.chrome.runtime,
+        connectNative: vi.fn(
+          () =>
+            probingPort({ claude: null, codex: null }, () => {}, {
+              claude: null,
+              codex: 'C:/bin/codex.cmd',
+            }) as unknown as chrome.runtime.Port,
+        ),
+      },
+    });
+    const { findByTestId, getByRole } = render(NativeBackendCard, { props: props() });
+
+    const banner = await findByTestId('nh-cli-missing-banner');
+    expect(banner.querySelector('.nh-msg-title')?.textContent).toBe(
+      'Claude Code was not found on this computer',
+    );
+    const steps = banner.querySelector('details');
+    expect(steps?.open).toBe(false);
+    expect(steps?.querySelector('summary')?.textContent).toContain('Show steps');
+    expect(steps?.textContent).toContain('PATH');
+    expect(getByRole('radio', { name: /^Claude Code\s+Not found$/ })).toBeTruthy();
   });
 
   it('shows no login banner when the host cannot tell', async () => {

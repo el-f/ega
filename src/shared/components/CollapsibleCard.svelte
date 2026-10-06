@@ -13,6 +13,8 @@
     status?: Snippet;
     actions?: Snippet;
     children?: Snippet;
+    /** A row inside a list card: no box of its own, so text sits inside the card's border only. */
+    flat?: boolean;
   }
 
   let {
@@ -23,10 +25,11 @@
     status,
     actions,
     children,
+    flat = false,
   }: Props = $props();
 </script>
 
-<details class="cc-root" bind:open data-backend-id={backendId ?? null} {ontoggle}>
+<details class="cc-root" class:flat bind:open data-backend-id={backendId ?? null} {ontoggle}>
   <summary class="cc-summary">
     <span class="cc-chevron" aria-hidden="true"></span>
     <span class="cc-title">{title}</span>
@@ -61,6 +64,25 @@
     list-style: none;
     user-select: none;
   }
+  .cc-root.flat {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+  .cc-root.flat > .cc-summary {
+    flex-wrap: wrap;
+    padding: var(--space-3) 0;
+    min-height: 44px;
+  }
+  .cc-root.flat > .cc-body {
+    padding: 0 0 var(--space-4);
+    border-top: 0;
+  }
+  .cc-summary:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
   .cc-summary::-webkit-details-marker {
     display: none;
   }
@@ -77,12 +99,19 @@
     transform: rotate(45deg);
   }
   .cc-title {
+    font-size: var(--fs-base);
     font-weight: 600;
-    flex: 0 0 auto;
+    flex: 0 1 auto;
+    min-width: 0;
   }
   .cc-status {
-    flex: 0 0 auto;
+    flex: 0 1 auto;
     margin-left: auto;
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--space-2);
   }
   .cc-actions {
     flex: 0 0 auto;

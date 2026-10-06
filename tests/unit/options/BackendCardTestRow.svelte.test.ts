@@ -1,171 +1,97 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, cleanup } from '@testing-library/svelte';
+import { describe, it, expect, vi } from 'vitest';
+import { fireEvent, render } from '@testing-library/svelte';
 import BackendCardTestRow from '@/options/components/backend-card/BackendCardTestRow.svelte';
-import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
-import type { Settings } from '@/shared/types';
 import { asBackendIdUnsafe } from '@/shared/brands';
 
-function baseProps(overrides: Partial<{ testSucceeded: boolean }> = {}) {
+function props(over: Record<string, unknown> = {}) {
   return {
     id: asBackendIdUnsafe('anthropic'),
-    settings: structuredClone(DEFAULT_SETTINGS) as Settings,
-    beStatus: 'ready' as const,
     testRunning: false,
     testSucceeded: false,
     testResult: null,
+    testErrCode: null,
     testLatencyMs: null,
-    testPrefillMs: null,
-    testDecodeMs: null,
-    testLatencyLabel: null,
     ollama403: false,
     onTest: vi.fn(),
-    ...overrides,
+    ...over,
   };
 }
 
-describe('BackendCardTestRow — disabled state + reason', () => {
-  afterEach(() => {
-    cleanup();
-    vi.restoreAllMocks();
-  });
-
-  it('disables Test and gives a key reason when a key-backed backend has no key', () => {
-    // anthropic needs a key; DEFAULT_SETTINGS has none.
-    const { getByTestId } = render(BackendCardTestRow, { props: baseProps() });
+describe('BackendCardTestRow', () => {
+  it('"Test now" calls back, and reads "Testing..." while a test runs', async () => {
+    const p = props();
+    const { getByTestId, rerender } = render(BackendCardTestRow, { props: p });
     const btn = getByTestId('backend-card-test-anthropic') as HTMLButtonElement;
-    expect(btn.disabled).toBe(true);
-    expect(btn.getAttribute('title')).toMatch(/Add an API key/i);
-    expect(btn.getAttribute('aria-label')).toMatch(/Add an API key/i);
+    expect(btn.textContent.trim()).toBe('Test now');
+    await fireEvent.click(btn);
+    expect(p.onTest).toHaveBeenCalledTimes(1);
+    await rerender({ ...p, testRunning: true });
+    expect(btn.textContent.trim()).toBe('Testing...');
   });
 
-  it('enables Test and clears the reason once the key is present', () => {
-    const settings = structuredClone(DEFAULT_SETTINGS) as Settings;
-    settings.anthropicApiKey = 'sk-ant-test';
-    const { getByTestId } = render(BackendCardTestRow, {
-      props: { ...baseProps(), settings },
-    });
-    const btn = getByTestId('backend-card-test-anthropic') as HTMLButtonElement;
-    expect(btn.disabled).toBe(false);
-    expect(btn.getAttribute('title')).toBe('');
-    expect(btn.getAttribute('aria-label')).toBeNull();
-  });
-
-  it('renders the missing-key reason as visible inline text, not just in the tooltip', () => {
-    // anthropic needs a key; DEFAULT_SETTINGS has none.
-    const { container } = render(BackendCardTestRow, { props: baseProps() });
-    const reason = container.querySelector('.be-disabled-reason');
-    expect(reason).not.toBeNull();
-    expect(reason?.textContent).toMatch(/Add an API key/i);
-  });
-
-  it('hides the inline reason once the key is present', () => {
-    const settings = structuredClone(DEFAULT_SETTINGS) as Settings;
-    settings.anthropicApiKey = 'sk-ant-test';
+  it('a pass says how fast it answered and shows the answer', () => {
     const { container } = render(BackendCardTestRow, {
-      props: { ...baseProps(), settings },
+      props: props({ testSucceeded: true, testResult: 'Hello', testLatencyMs: 812 }),
     });
-    expect(container.querySelector('.be-disabled-reason')).toBeNull();
+    expect(container.querySelector('.be-latency')?.textContent.trim()).toBe('Answered in 812 ms');
+    expect(container.querySelector('[data-ega-test-answer]')?.textContent).toBe('Hello');
+    expect(container.querySelector('[data-ega-test-failure]')).toBeNull();
   });
 
-  it('shows the re-probe reason for an unavailable backend that has its key', () => {
-    const settings = structuredClone(DEFAULT_SETTINGS) as Settings;
-    settings.anthropicApiKey = 'sk-ant-test';
-    const { getByTestId } = render(BackendCardTestRow, {
-      props: { ...baseProps(), settings, beStatus: 'unavailable' as const },
-    });
-    const btn = getByTestId('backend-card-test-anthropic') as HTMLButtonElement;
-    expect(btn.disabled).toBe(false);
-    expect(btn.getAttribute('title')).toMatch(/checks again/i);
-  });
-});
-
-describe('BackendCardTestRow — popTimer lifecycle', () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-  });
-
-  afterEach(() => {
-    cleanup();
-    vi.useRealTimers();
-    vi.restoreAllMocks();
-  });
-
-  it('cancels in-flight popTimer when component unmounts', async () => {
-    const clearSpy = vi.spyOn(globalThis, 'clearTimeout');
-
-    const { rerender, unmount } = render(BackendCardTestRow, { props: baseProps() });
-
-    await rerender({ testSucceeded: true });
-    // tick() inside the effect is a microtask — flush it
-    await Promise.resolve();
-
-    // popTimer is now scheduled; advance partway (timer fires at 600ms)
-    vi.advanceTimersByTime(100);
-
-    unmount();
-
-    expect(clearSpy).toHaveBeenCalled();
-  });
-
-  it('arms no timer when unmounted before the tick() continuation runs', async () => {
-    const setSpy = vi.spyOn(globalThis, 'setTimeout');
-    // Mounting already-succeeded arms the continuation inside the sync mount flush.
-    const { unmount } = render(BackendCardTestRow, {
-      props: baseProps({ testSucceeded: true }),
-    });
-    setSpy.mockClear();
-    unmount();
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(setSpy).not.toHaveBeenCalled();
-  });
-
-  it('does not fire justSucceeded reset after unmount', async () => {
-    const { rerender, unmount } = render(BackendCardTestRow, { props: baseProps() });
-
-    await rerender({ testSucceeded: true });
-    await Promise.resolve();
-
-    vi.advanceTimersByTime(100);
-    unmount();
-
-    // If cleanup didn't cancel, advancing past 600ms would throw (writing to
-    // dead $state). With fake timers + cleanup, this should be a no-op.
-    expect(() => vi.advanceTimersByTime(700)).not.toThrow();
-  });
-});
-
-describe('BackendCardTestRow — latency tier in words', () => {
-  afterEach(() => cleanup());
-
-  function latencyText(props: Record<string, unknown>): string | undefined {
-    const settings = structuredClone(DEFAULT_SETTINGS) as Settings;
-    settings.anthropicApiKey = 'sk-ant-test';
+  it('seconds read with one decimal', () => {
     const { container } = render(BackendCardTestRow, {
-      props: { ...baseProps(), settings, testLatencyMs: 1, ...props },
+      props: props({ testSucceeded: true, testResult: 'x', testLatencyMs: 2345 }),
     });
-    return container.querySelector('.be-latency')?.textContent.replace(/\s+/g, ' ').trim();
-  }
-
-  it('names a fast and a slow tier, so the color is not the only signal', () => {
-    expect(latencyText({ testLatencyLabel: '300ms', latencyTone: 'fast' })).toBe('300ms · fast');
-    cleanup();
-    expect(latencyText({ testLatencyLabel: '2.5s', latencyTone: 'slow' })).toBe('2.5s · slow');
+    expect(container.querySelector('.be-latency')?.textContent.trim()).toBe('Answered in 2.3 s');
   });
 
-  it('adds no word to the uncolored middle tier', () => {
-    expect(latencyText({ testLatencyLabel: '1.2s', latencyTone: 'normal' })).toBe('1.2s');
+  it('a failure is a plain title and sentence; the code and raw text only under Details', () => {
+    const { container } = render(BackendCardTestRow, {
+      props: props({ testResult: 'HTTP 401 invalid x-api-key', testErrCode: 'AUTH' }),
+    });
+    const failure = container.querySelector('[data-ega-test-failure]');
+    expect(failure?.getAttribute('role')).toBe('alert');
+    expect(failure?.querySelector('.be-fail-title')?.textContent.trim()).toBe('API key rejected');
+    expect(failure?.querySelector('.be-fail-text')?.textContent.trim()).toBe(
+      'Anthropic did not accept the saved API key.',
+    );
+    const main = [...(failure?.querySelectorAll('.be-fail-title, .be-fail-text') ?? [])]
+      .map((n) => n.textContent)
+      .join(' ');
+    expect(main).not.toMatch(/AUTH|401/);
+    expect(failure?.querySelector('details')?.textContent).toContain('HTTP 401 invalid x-api-key');
   });
 
-  it('says slow when the model-load note colors the pill slow', () => {
-    expect(
-      latencyText({
-        testLatencyLabel: '6.0s',
-        latencyTone: 'normal',
-        slowFirstShotNote: 'Connected. First run after idle is usually the slowest.',
+  it('an Ollama 403 says Ollama blocked Ega, with copy-ready steps behind Show steps', async () => {
+    const write = vi.fn(async () => {});
+    Object.assign(navigator, { clipboard: { writeText: write } });
+    const { container, getByRole } = render(BackendCardTestRow, {
+      props: props({
+        id: asBackendIdUnsafe('ollama'),
+        testResult: 'HTTP 403 forbidden',
+        testErrCode: 'REQUEST',
+        ollama403: true,
+        ollamaOrigin: 'chrome-extension://abc',
       }),
-    ).toBe('6.0s · slow');
+    });
+    const help = container.querySelector('[data-testid="ollama-403-help"]');
+    expect(help?.querySelector('.be-fail-title')?.textContent.trim()).toBe(
+      'Ollama blocked the request from Ega',
+    );
+    expect(help?.querySelector('summary')?.textContent.trim()).toBe('Show steps');
+    expect(container.querySelector('[data-ega-test-failure]')).toBeNull();
+    await fireEvent.click(getByRole('button', { name: 'Copy', hidden: true }));
+    expect(write).toHaveBeenCalledWith('chrome-extension://abc');
+  });
+
+  it('a note is a plain line, neither a pass nor a failure', () => {
+    const { container } = render(BackendCardTestRow, {
+      props: props({ testNote: 'The settings changed while the test ran. Test again.' }),
+    });
+    expect(container.querySelector('[data-ega-test-note]')?.textContent).toBe(
+      'The settings changed while the test ran. Test again.',
+    );
+    expect(container.querySelector('[data-ega-test-failure]')).toBeNull();
   });
 });

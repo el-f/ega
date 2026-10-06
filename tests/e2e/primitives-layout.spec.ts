@@ -180,9 +180,11 @@ test('Button leading icon is separated from label by gap >= 4px', async () => {
 test('Select chevron is within select row bounds', async () => {
   const page = await openOptions();
 
-  const translateTab = page.locator('button[data-tooltip="Translate"]');
-  await translateTab.click();
-  await expect(translateTab).toHaveAttribute('aria-selected', 'true', { timeout: 5_000 });
+  // The Answers tab has no select left; Tasks keeps two.
+  const tasksTab = page.locator('#tab-tasks');
+  await tasksTab.click();
+  await expect(tasksTab).toHaveAttribute('aria-selected', 'true', { timeout: 5_000 });
+  await page.locator('.ega-select').first().waitFor();
 
   const hasSelect = await page.evaluate(
     (): boolean => document.querySelector('.ega-select') !== null,

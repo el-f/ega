@@ -60,8 +60,8 @@ test('Ollama URL edit persists to storage; Discover models shows result or error
   await expect(card).toBeVisible({ timeout: 5_000 });
   const isOpen = await card.evaluate((el) => (el as HTMLDetailsElement).open);
   if (!isOpen) {
-    // The card contains an inner <details> (Extension access section) that also
-    // has a <summary>. Use the CollapsibleCard's own summary (.cc-summary).
+    // The card can hold inner <details> (Show steps, Details) with their own
+    // <summary>. Use the CollapsibleCard's own summary (.cc-summary).
     await card.locator('summary.cc-summary').click();
   }
 
@@ -95,9 +95,9 @@ test('Ollama URL edit persists to storage; Discover models shows result or error
   await expect
     .poll(
       async () => {
-        const errorVisible = await card.locator('.help-danger').count();
-        const foundText = await card.locator('.help').allTextContents();
-        return errorVisible > 0 || foundText.some((t) => /Found|Connected|models/i.test(t));
+        const errorVisible = await card.locator('[role="alert"]').count();
+        const text = (await card.textContent()) ?? '';
+        return errorVisible > 0 || /Found \d+ local model|Connected, but no models/.test(text);
       },
       { timeout: 10_000 },
     )

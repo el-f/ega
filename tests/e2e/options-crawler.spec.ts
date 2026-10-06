@@ -111,7 +111,6 @@ async function crawlDataEgaClickables(
     'data-ega-tpl-overwrite', // destructive
     'data-ega-clear-cache', // side-effect OK but not per-crawl
     'data-ega-source-link', // external navigation
-    'data-ega-install-info', // external navigation / download
     'data-ega-manage-rules', // jumps to another tab
     'data-ega-delegation-jump', // jumps to another tab
     'data-ega-status-jump-backends', // jumps to another tab
@@ -442,7 +441,7 @@ test('Advanced: all 3 sub-tabs mount without console errors', async () => {
     await clickTab(page, 'Advanced');
   });
 
-  for (const subTabId of ['diagnostics', 'data', 'labs'] as const) {
+  for (const subTabId of ['data', 'diagnostics'] as const) {
     await test.step(`click ${subTabId} sub-tab`, async () => {
       const subTab = page.locator(`[data-ega-subtab="${subTabId}"]`);
       await expect(subTab).toBeVisible({ timeout: 5_000 });

@@ -7,8 +7,11 @@
   import BackendListAria from './BackendListAria.svelte';
   import Button from '@/shared/ui/Button.svelte';
   import IconButton from '@/shared/ui/IconButton.svelte';
+  import SectionCard from '@/shared/ui/SectionCard.svelte';
+  import EmptyState from '@/shared/components/EmptyState.svelte';
   import ArrowUp from '@lucide/svelte/icons/arrow-up';
   import ArrowDown from '@lucide/svelte/icons/arrow-down';
+  import ServerOff from '@lucide/svelte/icons/server-off';
   import { backendLabel } from '@/shared/backends/provider-profiles';
 
   interface Props {
@@ -20,8 +23,10 @@
     >;
     /** Moves an active backend one slot up (-1) or down (1); the buttons are the non-drag way to reorder. */
     onMove?: (id: BackendId, delta: -1 | 1) => unknown;
+    /** Rows above the in-use list: the "Try up to" control and its line. */
+    inUseHeader?: Snippet;
   }
-  let { settings, onChange, children, onMove }: Props = $props();
+  let { settings, onChange, children, onMove, inUseHeader }: Props = $props();
 
   let listEl: HTMLElement | undefined = $state();
   function focusRowButton(id: BackendId, ariaLabel: string): void {
@@ -120,6 +125,7 @@
     });
   }
 
+  // The storage writer refuses an all-off chain, so the last backend in use cannot leave.
   function setEnabled(id: BackendId, enabled: boolean): void {
     const current = settings.disabledBackends ?? [];
     const disabled = enabled ? current.filter((b) => b !== id) : [...current, id];
@@ -190,137 +196,187 @@
       pendingEnabled = enabledShadow.items.filter((r) => !isShadowRow(r));
     commitPending();
   }
+  // One Tab stop per toolbar: arrows move between its buttons, skipping a disabled one (it cannot take focus).
+  function toolbarKeys(e: KeyboardEvent): void {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Home' && e.key !== 'End')
+      return;
+    const bar = e.currentTarget as HTMLElement;
+    const items = [...bar.querySelectorAll<HTMLButtonElement>('button')].filter((b) => !b.disabled);
+    if (items.length === 0) return;
+    e.preventDefault();
+    const at = items.indexOf(document.activeElement as HTMLButtonElement);
+    const next =
+      e.key === 'Home'
+        ? 0
+        : e.key === 'End'
+          ? items.length - 1
+          : (at + (e.key === 'ArrowRight' ? 1 : -1) + items.length) % items.length;
+    for (const b of items) b.tabIndex = -1;
+    const target = items[next];
+    if (target) {
+      target.tabIndex = 0;
+      target.focus();
+    }
+  }
+  // The roving stop must sit on an enabled button: the first one that can take focus.
+  function rovingStop(node: HTMLElement): void {
+    const items = [...node.querySelectorAll<HTMLButtonElement>('button')];
+    const first = items.find((b) => !b.disabled);
+    for (const b of items) b.tabIndex = b === first ? 0 : -1;
+  }
 </script>
 
-<section
+<div
   class="be-list"
   class:be-dragging={dragging}
   data-testid="be-list"
   bind:this={listEl}
   ontogglecapture={trackOpen}
 >
-  <header class="be-section-head be-section-head-active">
-    <h2 class="be-section-title">Active backends</h2>
-    <p class="be-section-help">
-      Listed in fallback order. Use the arrows or drag the ⋮⋮ handle to reorder. Press Disable to
-      take one out of the fallback order.
-    </p>
-  </header>
-  <div
-    role="list"
-    aria-label="Active backends, drag to reorder, drag below the divider to disable"
-    data-testid="be-list-active"
-    data-ega-setting="backends.backendOrder"
-    use:dragHandleZone={{ items: enabledShadow.items, dragDisabled: false, flipDurationMs: 180 }}
-    onconsider={handleEnabledConsider}
-    onfinalize={handleEnabledFinalize}
+  <SectionCard
+    title="Backends in use"
+    info={{
+      label: 'About the order',
+      text: 'Ega asks the first ready backend and, if it fails, the next ready one. Backends that are not set up or not running are skipped.',
+    }}
   >
-    {#each enabledShadow.items as row, i (row.id)}
-      <div
-        class="be-row"
-        class:is-shadow={isShadowRow(row)}
-        data-testid="be-row-{row.id}"
-        role="listitem"
-      >
-        {#if isShadowRow(row)}
-          <div
-            class="be-shadow-slot"
-            aria-hidden="true"
-            style:min-height={slotHeight === null ? undefined : `${slotHeight}px`}
-          >
-            Drop here
-          </div>
-        {:else}
-          {@render children?.(row.id, i + 1, true, dragHandle)}
-          <span class="be-toggle">
-            {#if onMove}
-              <IconButton
-                icon={ArrowUp}
-                ariaLabel="Move {backendLabel(row.id)} up"
-                tooltip="Move up"
-                size="sm"
-                disabled={i === 0}
-                onclick={() => void move(row.id, -1, i)}
-              />
-              <IconButton
-                icon={ArrowDown}
-                ariaLabel="Move {backendLabel(row.id)} down"
-                tooltip="Move down"
-                size="sm"
-                disabled={i === enabledShadow.items.length - 1}
-                onclick={() => void move(row.id, 1, i)}
-              />
-            {/if}
-            <Button
-              variant="ghost"
-              size="sm"
-              ariaLabel="Disable {backendLabel(row.id)}"
-              onclick={() => setEnabled(row.id, false)}>Disable</Button
+    {#if inUseHeader}{@render inUseHeader()}{/if}
+    {#if settings.backendOrder.every((id) => (settings.disabledBackends ?? []).includes(id))}
+      <EmptyState
+        title="No backend in use"
+        description="Press Enable on a backend below"
+        icon={ServerOff}
+      />
+    {/if}
+    <div
+      class="be-rows"
+      role="list"
+      aria-label="Backends in use, in the order Ega tries them; drag a row to the list below to stop using it"
+      data-testid="be-list-active"
+      data-ega-setting="backends.backendOrder"
+      use:dragHandleZone={{ items: enabledShadow.items, dragDisabled: false, flipDurationMs: 180 }}
+      onconsider={handleEnabledConsider}
+      onfinalize={handleEnabledFinalize}
+    >
+      {#each enabledShadow.items as row, i (row.id)}
+        <div
+          class="be-row"
+          class:is-shadow={isShadowRow(row)}
+          data-testid="be-row-{row.id}"
+          role="listitem"
+        >
+          {#if isShadowRow(row)}
+            <div
+              class="be-shadow-slot"
+              aria-hidden="true"
+              style:min-height={slotHeight === null ? undefined : `${slotHeight}px`}
             >
-          </span>
-        {/if}
-      </div>
-    {/each}
-  </div>
+              Drop here
+            </div>
+          {:else}
+            {@render children?.(row.id, i + 1, true, dragHandle)}
+            {#key `${i}/${enabledShadow.items.length}`}
+              <span
+                class="be-toggle"
+                role="toolbar"
+                aria-label="{backendLabel(row.id)} order"
+                tabindex="-1"
+                use:rovingStop
+                onkeydown={toolbarKeys}
+              >
+                {#if onMove}
+                  <IconButton
+                    icon={ArrowUp}
+                    ariaLabel="Move {backendLabel(row.id)} up"
+                    size="sm"
+                    disabled={i === 0}
+                    onclick={() => void move(row.id, -1, i)}
+                  />
+                  <IconButton
+                    icon={ArrowDown}
+                    ariaLabel="Move {backendLabel(row.id)} down"
+                    size="sm"
+                    disabled={i === enabledShadow.items.length - 1}
+                    onclick={() => void move(row.id, 1, i)}
+                  />
+                {/if}
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  ariaLabel="Disable {backendLabel(row.id)}"
+                  onclick={() => setEnabled(row.id, false)}>Disable</Button
+                >
+              </span>
+            {/key}
+          {/if}
+        </div>
+      {/each}
+    </div>
+  </SectionCard>
 
-  <header class="be-section-head be-section-head-available">
-    <h2 class="be-section-title">Available backends</h2>
-    <p class="be-section-help">
-      Not in the fallback order. Press Enable to add one, or drag it above the divider.
-    </p>
-  </header>
-
-  <div
-    role="list"
-    aria-label="Available backends, drag above the divider to enable"
-    data-testid="be-list-available"
-    data-ega-setting="backends.disabledBackends"
-    use:dragHandleZone={{ items: disabledShadow.items, dragDisabled: false, flipDurationMs: 180 }}
-    onconsider={handleDisabledConsider}
-    onfinalize={handleDisabledFinalize}
-  >
-    {#each disabledShadow.items as row (row.id)}
-      <div
-        class="be-row"
-        class:is-shadow={isShadowRow(row)}
-        data-testid="be-row-{row.id}"
-        role="listitem"
-      >
-        {#if isShadowRow(row)}
-          <div
-            class="be-shadow-slot"
-            aria-hidden="true"
-            style:min-height={slotHeight === null ? undefined : `${slotHeight}px`}
-          >
-            Drop here
-          </div>
-        {:else}
-          {@render children?.(row.id, null, false, dragHandle)}
-          <span class="be-toggle">
-            <Button
-              variant="secondary"
-              size="sm"
-              ariaLabel="Enable {backendLabel(row.id)}"
-              onclick={() => setEnabled(row.id, true)}>Enable</Button
+  <SectionCard title="Not in use" description="Ega never sends text to these">
+    <div
+      class="be-rows"
+      role="list"
+      aria-label="Backends not in use; drag a row to the list above to use it"
+      data-testid="be-list-available"
+      data-ega-setting="backends.disabledBackends"
+      use:dragHandleZone={{ items: disabledShadow.items, dragDisabled: false, flipDurationMs: 180 }}
+      onconsider={handleDisabledConsider}
+      onfinalize={handleDisabledFinalize}
+    >
+      {#each disabledShadow.items as row (row.id)}
+        <div
+          class="be-row"
+          class:is-shadow={isShadowRow(row)}
+          data-testid="be-row-{row.id}"
+          role="listitem"
+        >
+          {#if isShadowRow(row)}
+            <div
+              class="be-shadow-slot"
+              aria-hidden="true"
+              style:min-height={slotHeight === null ? undefined : `${slotHeight}px`}
             >
-          </span>
-        {/if}
-      </div>
-    {/each}
-  </div>
+              Drop here
+            </div>
+          {:else}
+            {@render children?.(row.id, null, false, dragHandle)}
+            <span class="be-toggle">
+              <Button
+                variant="secondary"
+                size="sm"
+                ariaLabel="Enable {backendLabel(row.id)}"
+                onclick={() => setEnabled(row.id, true)}>Enable</Button
+              >
+            </span>
+          {/if}
+        </div>
+      {/each}
+    </div>
+  </SectionCard>
 
   <BackendListAria message={announcement} />
-</section>
+</div>
 
 <style>
   /* user-select inherits, so one rule covers every card while a drag is live. */
   .be-dragging {
     user-select: none;
   }
+  .be-rows {
+    display: flex;
+    flex-direction: column;
+    min-height: 8px;
+  }
+  /* Rows are separated by a hairline, never a box per row: text sits inside the card's border only. */
   .be-row {
     display: flex;
     align-items: flex-start;
     gap: var(--space-2);
+  }
+  .be-row + .be-row {
+    border-top: 1px solid var(--color-border-subtle);
   }
   .be-row > :global(:first-child) {
     flex: 1 1 auto;
@@ -330,8 +386,8 @@
     flex: 0 0 auto;
     display: inline-flex;
     align-items: center;
-    gap: 2px;
-    padding-top: 8px;
+    gap: var(--space-1);
+    min-height: 44px;
   }
   /* svelte-dnd-action injects this row at the slot the dragged card will land in. */
   .be-row.is-shadow {
@@ -348,33 +404,6 @@
     background: var(--color-accent-bg-soft, var(--color-bg-elevated));
     color: var(--color-accent);
     font-family: var(--font-ui);
-    font-size: var(--fs-sm);
-    font-weight: 500;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-  }
-  .be-section-head {
-    margin: 0 0 var(--space-2);
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-  .be-section-head-available {
-    margin-top: var(--space-4);
-    padding-top: var(--space-3);
-    border-top: 1px dashed var(--color-border);
-  }
-  .be-section-title {
-    margin: 0;
-    font-size: var(--fs-sm);
-    font-weight: 600;
-    color: var(--color-fg);
-    letter-spacing: 0.02em;
-  }
-  .be-section-help {
-    margin: 0;
-    font-size: var(--fs-xs);
-    color: var(--color-muted);
-    line-height: 1.4;
+    font-size: var(--fs-base);
   }
 </style>

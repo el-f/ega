@@ -60,10 +60,9 @@ test('Refresh model list populates discovered models; picking one persists to st
   await refreshBtn.click();
   timeline.markStep('refresh-clicked');
 
-  // Two .cp-section-meta elements exist (auth and model); take the one that says "discovered".
-  await expect(
-    card.locator('.cp-section-meta small').filter({ hasText: 'discovered' }),
-  ).toBeVisible({ timeout: 10_000 });
+  await expect(card.getByRole('status').filter({ hasText: /models found/ })).toBeVisible({
+    timeout: 10_000,
+  });
   timeline.markStep('discovery-done');
 
   // Open the combobox dropdown and pick a model.

@@ -1,4 +1,4 @@
-/* coverage: options.advanced.labs-probe-ttl-slider */
+/* coverage: options.backends.labs-probe-ttl-slider */
 import { test, expect } from '@playwright/test';
 import { launchExtension, readStorage, type ExtensionHandle } from '../../helpers';
 import { createTimeline } from '../_harness';
@@ -14,14 +14,17 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-test('Backend probe TTL slider persists advanced.backendProbeTtlMs', async () => {
+test('"Remember backend status for" on the Backends tab persists advanced.backendProbeTtlMs', async () => {
   const timeline = createTimeline();
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
-  await page.locator('#tab-advanced').click();
-  await page.locator('[data-ega-subtab="labs"]').click();
-  await expect(page.locator('#adv-pane-labs')).toBeVisible({ timeout: 5_000 });
-  timeline.markStep('labs-open');
+  await page.locator('#tab-backends').click();
+  await expect(page.getByRole('heading', { name: 'Timeouts and checks' })).toBeVisible({
+    timeout: 5_000,
+  });
+  // Labs is gone; the slider carries an "Experimental" pill instead of a paragraph.
+  await expect(page.locator('#tab-advanced')).toBeVisible();
+  timeline.markStep('checks-card-visible');
 
   // The probe-TTL slider is inside the [data-ega-setting="advanced.backendProbeTtlMs"] wrapper.
   const sliderContainer = page.locator('[data-ega-setting="advanced.backendProbeTtlMs"]');
@@ -32,7 +35,8 @@ test('Backend probe TTL slider persists advanced.backendProbeTtlMs', async () =>
   await expect(thumb).toBeVisible({ timeout: 3_000 });
   await thumb.focus();
 
-  // Default is 30 s (30_000 ms). Step = 5 s. Press ArrowRight 2× → 40 s.
+  await expect(sliderContainer).toContainText('Experimental');
+  // Default is 30 s (30_000 ms). Step = 5 s. Press ArrowRight 2× → 40 s; the write lands on release.
   await page.keyboard.press('ArrowRight');
   await page.keyboard.press('ArrowRight');
   timeline.markStep('slider-advanced');
@@ -48,7 +52,7 @@ test('Backend probe TTL slider persists advanced.backendProbeTtlMs', async () =>
     )
     .toBe(40_000);
 
-  // Modified dot should be visible (slider renders it when value != default).
+  // The word "Changed" shows once the value differs from the default.
   await expect(sliderContainer.locator('[data-ega-modified="true"]')).toBeVisible({
     timeout: 3_000,
   });

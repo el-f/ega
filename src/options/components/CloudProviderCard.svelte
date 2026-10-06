@@ -9,6 +9,8 @@
   import BackendCard from './BackendCard.svelte';
   import ModelCombobox from './ModelCombobox.svelte';
   import ResetField from '@/shared/ui/ResetField.svelte';
+  import Badge from '@/shared/ui/Badge.svelte';
+  import BackendStep from './backend-card/BackendStep.svelte';
   import { DEFAULT_MODEL } from '@/shared/settings-schema';
   import { relativeTime } from '@/shared/relative-time';
 
@@ -28,10 +30,6 @@
     /** Saves the key; resolves false when the write did not land. */
     onApiKeyChange: (next: string) => Promise<boolean>;
     onModelChange: (next: string) => void;
-    /** Passed through to BackendCard for resolved-route markers. */
-    routeIsText?: boolean;
-    /** Passed through to BackendCard for resolved-route markers. */
-    routeIsImage?: boolean;
   }
 
   let {
@@ -46,8 +44,6 @@
     disabled,
     onApiKeyChange,
     onModelChange,
-    routeIsText = false,
-    routeIsImage = false,
   }: Props = $props();
 
   const editedAgo = $derived(
@@ -144,28 +140,38 @@
   }
 </script>
 
-<BackendCard {id} {label} {settings} {routeIsText} {routeIsImage}>
-  <div class="cp-section">
-    <div class="cp-section-head">
-      <span class="cp-section-num">1</span>
-      <div class="cp-section-meta">
-        <b>Authentication</b>
-        <small>API key from your account with this backend.</small>
-      </div>
-      <a class="cp-signup" href={signupUrl} target="_blank" rel="noopener noreferrer">
-        Get key <ExternalLink size={12} />
+<BackendCard {id} {label} {settings}>
+  <BackendStep n={1} title="API key">
+    {#if id === 'gemini'}
+      <p class="cp-line">A free key takes about a minute at Google AI Studio</p>
+    {/if}
+    <div class="cp-links">
+      <a class="cp-link" href={signupUrl} target="_blank" rel="noopener noreferrer">
+        Get a key <ExternalLink size={14} aria-hidden="true" />
       </a>
+      {#if id === 'gemini'}
+        <a
+          class="cp-link"
+          href="https://ai.google.dev/gemini-api/terms"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Google's terms <ExternalLink size={14} aria-hidden="true" />
+        </a>
+      {/if}
     </div>
+    <label class="cp-label" for="cp-key-{id}">API key</label>
     <div class="cp-key-row">
       <input
+        id="cp-key-{id}"
         class="cp-key-input"
         type={keyVisible ? 'text' : 'password'}
         dir="auto"
-        aria-label={`${label} API key`}
         data-ega-api-key={id}
+        aria-label="{label} API key"
         autocomplete="off"
         spellcheck="false"
-        placeholder={keyPlaceholder ?? 'Paste API key here'}
+        placeholder={keyPlaceholder ?? 'Paste the key here'}
         value={keyDraft ?? apiKey}
         oninput={(e) => {
           const v = (e.currentTarget as HTMLInputElement).value;
@@ -183,123 +189,88 @@
     </div>
     <div class="cp-key-meta" role="status">
       {#if keySave === 'failed'}
-        <small class="cp-save-failed">Key not saved. Edit it again to retry.</small>
+        <span class="cp-save-failed">Not saved. Edit the key to try again.</span>
       {:else if keySave !== 'idle'}
-        <small class="cp-saved">{keySave === 'saved' ? 'Key saved.' : 'Key removed.'}</small>
+        <span class="cp-saved">{keySave === 'saved' ? 'Key saved' : 'Key removed'}</span>
       {/if}
       {#if apiKey && editedAgo}
-        <small class="cp-edited">Edited {editedAgo}</small>
+        <span class="cp-edited">Edited {editedAgo}</span>
       {/if}
     </div>
-  </div>
+  </BackendStep>
 
-  {#if !disabled}
-    <div class="cp-section">
-      <div class="cp-section-head">
-        <span class="cp-section-num">2</span>
-        <div class="cp-section-meta">
-          <b>Model</b>
-          <small>
-            {#if !apiKey}
-              Add an API key first. The model list comes from the backend.
-            {:else if discoveredModels.length > 0}
-              {discoveredModels.length} discovered. Type or pick.
-            {:else}
-              Type a model id, or click refresh to pull the backend's list.
-            {/if}
-          </small>
-        </div>
-      </div>
-      <div class="cp-model-row">
-        <ModelCombobox
-          value={model}
-          placeholder="e.g. {label.toLowerCase()}'s flagship model id"
-          options={discoveredModels}
-          loading={discoverLoading}
-          error={discoverError}
-          disabled={!apiKey}
-          onValueChange={onModelChange}
-          onDiscover={() => void refreshModels()}
+  <BackendStep n={2} title="Model">
+    {#if disabled}
+      <p class="cp-line" id="cp-model-why-{id}" data-ega-disabled-reason>
+        Enable this backend to pick a model
+      </p>
+    {:else if !apiKey}
+      <p class="cp-line" id="cp-model-why-{id}" data-ega-disabled-reason>
+        Add an API key first; the model list comes from {label}
+      </p>
+    {/if}
+    {#if discoveredModels.length > 0}
+      <p class="cp-line" role="status">{discoveredModels.length} models found</p>
+    {/if}
+    <div class="cp-model-row">
+      <ModelCombobox
+        value={model || (defaultModelId ?? '')}
+        options={discoveredModels}
+        loading={discoverLoading}
+        error={discoverError}
+        disabled={disabled || !apiKey}
+        onValueChange={onModelChange}
+        onDiscover={() => void refreshModels()}
+      />
+      {#if defaultModelId !== undefined && (model === '' || model === defaultModelId)}
+        <Badge variant="muted">Default</Badge>
+      {:else if defaultModelId !== undefined}
+        <ResetField
+          differsFromInherited={true}
+          onReset={() => onModelChange(defaultModelId)}
+          ariaLabel="Use the default model"
+          inheritedLabel={`Default ${defaultModelId}`}
         />
-        {#if defaultModelId !== undefined}
-          <ResetField
-            differsFromInherited={model !== defaultModelId}
-            onReset={() => onModelChange(defaultModelId)}
-            ariaLabel="Reset model id to default"
-            inheritedLabel={`Default ${defaultModelId}`}
-          />
-        {/if}
-      </div>
+      {/if}
     </div>
-  {/if}
+  </BackendStep>
 </BackendCard>
 
 <style>
-  .cp-section {
-    border: 1px solid var(--color-border-subtle);
-    border-radius: var(--radius-md);
-    background: var(--color-bg-elevated);
-    padding: var(--space-3);
-    margin-bottom: var(--space-2);
-  }
-  .cp-section:last-child {
-    margin-bottom: 0;
-  }
-  .cp-section-head {
-    display: flex;
-    align-items: flex-start;
-    gap: var(--space-2);
-    margin-bottom: var(--space-2);
-  }
-  .cp-section-num {
-    flex: 0 0 auto;
-    width: 22px;
-    height: 22px;
-    border-radius: var(--radius-pill);
-    background: var(--color-accent-bg-soft);
-    color: var(--color-accent);
-    font-size: var(--fs-xs);
-    font-weight: 600;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .cp-section-meta {
-    flex: 1 1 auto;
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-  }
-  .cp-section-meta b {
-    font-size: var(--fs-sm);
-    color: var(--color-fg);
-  }
-  .cp-section-meta small {
-    font-size: var(--fs-xs);
+  .cp-line {
+    margin: 0;
+    font-size: var(--fs-base);
+    line-height: var(--lh-body);
     color: var(--color-muted);
   }
-  .cp-signup {
-    flex: 0 0 auto;
+  .cp-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+  }
+  .cp-link {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    color: var(--color-accent);
-    font-size: var(--fs-xs);
-    text-decoration: none;
-    border: 1px solid var(--color-border);
-    padding: 2px var(--space-2);
+    gap: var(--space-1);
+    min-height: 24px;
+    color: var(--color-accent-hover);
+    font-size: var(--fs-base);
+  }
+  .cp-link:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
     border-radius: var(--radius-sm);
   }
-  .cp-signup:hover {
-    background: var(--color-accent-bg-hover);
-    color: var(--color-accent);
+  .cp-label {
+    font-size: var(--fs-base);
   }
   .cp-key-row {
     display: flex;
     align-items: stretch;
     gap: var(--space-1);
+    max-width: 32rem;
     background: var(--color-bg);
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--color-control-border);
     border-radius: var(--radius-sm);
     padding: 2px;
     transition: border-color var(--motion-fast) var(--ease-out);
@@ -309,13 +280,14 @@
   }
   .cp-key-input {
     flex: 1 1 auto;
+    min-height: 28px;
     border: 0;
     outline: none;
     background: transparent;
     color: var(--color-fg);
     font-family: var(--font-mono);
     font-size: var(--fs-sm);
-    padding: var(--space-1) var(--space-2);
+    padding: 0 var(--space-2);
     caret-color: var(--color-accent);
   }
   .cp-key-input::placeholder {
@@ -324,29 +296,26 @@
   }
   .cp-key-meta {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: var(--space-1);
-    margin-top: var(--space-1);
-    font-size: var(--fs-xs);
+    gap: var(--space-2);
+    font-size: var(--fs-base);
     color: var(--color-muted);
   }
   .cp-edited {
-    font-size: var(--fs-xs);
-    color: var(--color-muted);
     font-variant-numeric: tabular-nums;
   }
   .cp-saved {
-    font-size: var(--fs-xs);
     color: var(--color-success-fg);
   }
   .cp-save-failed {
-    font-size: var(--fs-xs);
     color: var(--color-danger-fg);
   }
   .cp-model-row {
     display: flex;
-    align-items: flex-start;
-    gap: var(--space-1);
+    align-items: center;
+    gap: var(--space-2);
+    max-width: 32rem;
   }
   .cp-model-row > :global(:first-child) {
     flex: 1 1 auto;

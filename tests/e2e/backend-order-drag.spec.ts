@@ -26,7 +26,7 @@ async function openBackends(page: Page): Promise<void> {
   await expect(page.getByTestId('be-row-anthropic')).toContainText(/needs setup/i, {
     timeout: 5_000,
   });
-  await expect(page.getByTestId('be-row-native')).toContainText(/unavailable/i);
+  await expect(page.getByTestId('be-row-native')).toContainText(/not installed/i);
 }
 
 /** Presses the ⋮⋮ grip (the only drag handle) and starts the drag with a short move; small steps let svelte-dnd-action run its consider cycle. */

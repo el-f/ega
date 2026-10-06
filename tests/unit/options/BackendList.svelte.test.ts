@@ -365,3 +365,39 @@ describe('BackendList — drop slot', () => {
     });
   });
 });
+
+describe('BackendList — row toolbar (K-10)', () => {
+  it('Move up, Move down and Disable are one toolbar with one Tab stop, skipping a disabled arrow', async () => {
+    const { container } = render(BackendList, {
+      props: {
+        settings: makeSettings(),
+        onChange: () => {},
+        onMove: () => true,
+        children: rowChild(),
+      },
+    });
+    await zonesReady(container);
+    const first = container.querySelector('[data-testid="be-row-anthropic"] [role="toolbar"]');
+    expect(first).not.toBeNull();
+    const buttons = [...(first?.querySelectorAll('button') ?? [])];
+    // The first row cannot move up: that arrow is disabled and never holds the Tab stop.
+    expect(buttons[0]?.disabled).toBe(true);
+    expect(buttons.map((b) => b.tabIndex)).toEqual([-1, 0, -1]);
+    buttons[1]?.focus();
+    buttons[1]?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    expect(document.activeElement).toBe(buttons[2]);
+    buttons[2]?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    // Wraps past the disabled Move up to Move down.
+    expect(document.activeElement).toBe(buttons[1]);
+    expect(buttons[2]?.textContent.trim()).toBe('Disable');
+  });
+
+  it('the in-use and not-in-use lists are two cards, with plain titles', async () => {
+    const { container } = render(BackendList, {
+      props: { settings: makeSettings(), onChange: () => {}, children: rowChild() },
+    });
+    await zonesReady(container);
+    const titles = [...container.querySelectorAll('h2')].map((h) => h.textContent.trim());
+    expect(titles).toEqual(['Backends in use', 'Not in use']);
+  });
+});

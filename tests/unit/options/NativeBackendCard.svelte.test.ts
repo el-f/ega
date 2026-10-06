@@ -2,7 +2,7 @@
 import { resetProbeNativeHostForTest } from '@/options/probeNativeHost';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { Mock } from 'vitest';
-import { fireEvent, render, waitFor } from '@testing-library/svelte';
+import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import NativeBackendCard from '@/options/components/NativeBackendCard.svelte';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
@@ -12,8 +12,6 @@ function baseProps() {
   return {
     settings: structuredClone(DEFAULT_SETTINGS) as Settings,
     disabled: false,
-    routeIsText: false,
-    routeIsImage: false,
     onPatch: vi.fn(),
     onPatchModel: vi.fn(),
   };
@@ -71,7 +69,9 @@ async function settled(root: HTMLElement, state: 'installed' | 'missing'): Promi
     expect(root.querySelector('[data-testid="nh-status-pill"]')?.classList).toContain(
       `nh-${state}`,
     );
-    expect(root.querySelector('.be-status')?.textContent).not.toContain('Checking');
+    expect(
+      root.querySelector('[data-ega-backend-status]')?.getAttribute('data-ega-backend-status'),
+    ).not.toBe('Checking...');
   });
 }
 
@@ -231,5 +231,13 @@ describe('NativeBackendCard — pre-warm toggle', () => {
     expect(box.checked).toBe(true);
     await fireEvent.click(box);
     expect(props.onPatch).toHaveBeenCalledWith({ preWarmNative: false });
+  });
+
+  it('names the toggle in plain words and describes it with the search hint', () => {
+    render(NativeBackendCard, baseProps());
+    const box = screen.getByRole('checkbox', { name: 'Start the native host with Chrome' });
+    const hint = document.getElementById('ega-prewarm-hint');
+    expect(box.getAttribute('aria-describedby')?.split(' ')).toContain('ega-prewarm-hint');
+    expect(hint?.textContent).toBe('Faster first answer, uses some battery');
   });
 });

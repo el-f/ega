@@ -1,7 +1,5 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { render, fireEvent } from '@testing-library/svelte';
 import BackendCard from '@/options/components/BackendCard.svelte';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
@@ -63,7 +61,9 @@ describe('BackendCard collapse behavior', () => {
       },
     });
     await waitForProbe();
-    expect(container.querySelector('.be-status-needs-config')).not.toBeNull();
+    expect(
+      container.querySelector('[data-ega-backend-status]')?.getAttribute('data-ega-backend-status'),
+    ).toBe('Needs setup');
     expect(getDetailsFor(container, 'anthropic').open).toBe(false);
   });
 
@@ -112,16 +112,23 @@ describe('BackendCard key status', () => {
         },
       });
       await waitForProbe();
-      const pill = (): string => container.querySelector('.be-status')?.textContent.trim() ?? '';
+      const pill = (): string =>
+        container
+          .querySelector('[data-ega-backend-status]')
+          ?.getAttribute('data-ega-backend-status') ?? '';
       expect(pill()).toBe('Key saved');
 
-      container.querySelector<HTMLButtonElement>('.be-test-btn')?.click();
+      container.querySelector<HTMLButtonElement>('[data-testid^="backend-card-test-"]')?.click();
       await waitForProbe();
       expect(pill()).toBe('Verified');
 
       await rerender({ settings: { ...s, anthropicApiKey: 'sk-ant-other' } });
       await waitForProbe();
       expect(pill()).toBe('Key saved');
+
+      // A reload with the tested key shows Verified again: the pass is stored for that key.
+      await rerender({ settings: s });
+      await vi.waitFor(() => expect(pill()).toBe('Verified'));
     } finally {
       backend.isAvailable = origAvailable;
       backend.translate = origTranslate;
@@ -150,21 +157,27 @@ describe('BackendCard key status', () => {
         props: { id: asBackendIdUnsafe('anthropic'), label: 'Anthropic', settings: s },
       });
       await waitForProbe();
-      container.querySelector<HTMLButtonElement>('.be-test-btn')?.click();
+      container.querySelector<HTMLButtonElement>('[data-testid^="backend-card-test-"]')?.click();
       await waitForProbe();
       await rerender({ settings: { ...s, anthropicApiKey: 'sk-ant-b' } });
       await waitForProbe();
       finish();
       await waitForProbe();
-      expect(container.querySelector('.be-status')?.textContent.trim()).toBe('Key saved');
-      expect(container.textContent).toContain('The settings changed while the test ran.');
+      expect(
+        container
+          .querySelector('[data-ega-backend-status]')
+          ?.getAttribute('data-ega-backend-status'),
+      ).toBe('Key saved');
+      expect(container.textContent).toContain(
+        'The settings changed while the test ran. Test again.',
+      );
     } finally {
       backend.isAvailable = origAvailable;
       backend.translate = origTranslate;
     }
   });
 
-  it('keeps "Ready" for a backend that needs no key', async () => {
+  it('says "Running" for a local backend that answered', async () => {
     const backend = resolveBackend(asBackendIdUnsafe('ollama'));
     if (!backend) throw new Error('ollama backend not registered');
     const origAvailable = backend.isAvailable;
@@ -178,7 +191,11 @@ describe('BackendCard key status', () => {
         },
       });
       await waitForProbe();
-      expect(container.querySelector('.be-status')?.textContent.trim()).toBe('Ready');
+      expect(
+        container
+          .querySelector('[data-ega-backend-status]')
+          ?.getAttribute('data-ega-backend-status'),
+      ).toBe('Running');
     } finally {
       backend.isAvailable = origAvailable;
     }
@@ -219,7 +236,7 @@ describe('BackendCard test button label', () => {
       },
     });
     await waitForProbe();
-    const btn = container.querySelector('.be-test-btn');
+    const btn = container.querySelector('[data-testid^="backend-card-test-"]');
     expect(btn?.textContent.trim()).toBe('Test now');
   });
 });
@@ -250,7 +267,7 @@ describe('BackendCard "Test now" writes an audit entry', () => {
         },
       });
       await waitForProbe();
-      const btn = container.querySelector<HTMLButtonElement>('.be-test-btn');
+      const btn = container.querySelector<HTMLButtonElement>('[data-testid^="backend-card-test-"]');
       if (!btn) throw new Error('Test now button not rendered');
       btn.click();
       await waitForProbe();
@@ -313,7 +330,7 @@ describe('BackendCard "Test now" spinner always clears', () => {
         },
       });
       await waitForProbe();
-      const btn = container.querySelector<HTMLButtonElement>('.be-test-btn');
+      const btn = container.querySelector<HTMLButtonElement>('[data-testid^="backend-card-test-"]');
       if (!btn) throw new Error('Test now button not rendered');
       btn.click();
       await waitForProbe();
@@ -369,7 +386,7 @@ describe('BackendCard native "Test now" audit row', () => {
         },
       });
       await waitForProbe();
-      const btn = container.querySelector<HTMLButtonElement>('.be-test-btn');
+      const btn = container.querySelector<HTMLButtonElement>('[data-testid^="backend-card-test-"]');
       if (!btn) throw new Error('Test now button not rendered');
       btn.click();
       await waitForProbe();
@@ -382,40 +399,6 @@ describe('BackendCard native "Test now" audit row', () => {
     } finally {
       if (defaultConnect) chromeMock.runtime.connectNative.mockImplementation(defaultConnect);
     }
-  });
-});
-
-describe('BackendCard footer emphasis (.be-actions)', () => {
-  it('styles .be-actions as a distinct footer band with top border + recessed bg', () => {
-    const sfcPath = resolve(
-      process.cwd(),
-      'src/options/components/backend-card/BackendCardTestRow.svelte',
-    );
-    const source = readFileSync(sfcPath, 'utf8');
-    const actionsRule = source.match(/\.be-actions\s*\{[^}]*\}/);
-    expect(actionsRule, 'expected a .be-actions CSS block').not.toBeNull();
-    if (!actionsRule) return;
-    const body = actionsRule[0];
-    expect(body).toMatch(/border-top:\s*1px\s+solid\s+var\(--color-border-subtle\)/);
-    // bg-hover diverges from bg-elevated in BOTH themes (bg-sunken
-    // collapses to bg-elevated in light, which would hide the band).
-    expect(body).toMatch(/background:\s*var\(--color-bg-hover\)/);
-  });
-
-  it('full-bleeds .be-actions when it is the last child so the footer rounds into the card corners', () => {
-    const sfcPath = resolve(
-      process.cwd(),
-      'src/options/components/backend-card/BackendCardTestRow.svelte',
-    );
-    const source = readFileSync(sfcPath, 'utf8');
-    const lastChildRule = source.match(/\.be-actions:last-child\s*\{[^}]*\}/);
-    expect(lastChildRule, 'expected a .be-actions:last-child CSS block').not.toBeNull();
-    if (!lastChildRule) return;
-    const body = lastChildRule[0];
-    // Negative side margins bleed past CollapsibleCard's --space-3
-    // body padding so the band runs edge to edge.
-    expect(body).toMatch(/margin:\s*var\(--space-3\)\s+calc\(-1\s*\*\s*var\(--space-3\)\)/);
-    expect(body).toMatch(/border-radius:\s*0\s+0\s+var\(--radius-md\)\s+var\(--radius-md\)/);
   });
 });
 
@@ -510,14 +493,20 @@ describe('BackendCard — a Test whose settings moved while it ran', () => {
         props: { id: asBackendIdUnsafe('anthropic'), label: 'Anthropic', settings: s },
       });
       await waitForProbe();
-      container.querySelector<HTMLButtonElement>('.be-test-btn')?.click();
+      container.querySelector<HTMLButtonElement>('[data-testid^="backend-card-test-"]')?.click();
       await waitForProbe();
       await rerender({ settings: { ...s, model: { ...s.model, anthropic: 'claude-other' } } });
       await waitForProbe();
       hold.finish();
       await waitForProbe();
-      expect(container.querySelector('.be-status')?.textContent.trim()).toBe('Key saved');
-      expect(container.textContent).toContain('The settings changed while the test ran.');
+      expect(
+        container
+          .querySelector('[data-ega-backend-status]')
+          ?.getAttribute('data-ega-backend-status'),
+      ).toBe('Key saved');
+      expect(container.textContent).toContain(
+        'The settings changed while the test ran. Test again.',
+      );
     } finally {
       hold.restore();
     }
@@ -537,13 +526,15 @@ describe('BackendCard — a Test whose settings moved while it ran', () => {
         props: { id: asBackendIdUnsafe('anthropic'), label: 'Anthropic', settings: s },
       });
       await waitForProbe();
-      container.querySelector<HTMLButtonElement>('.be-test-btn')?.click();
+      container.querySelector<HTMLButtonElement>('[data-testid^="backend-card-test-"]')?.click();
       await waitForProbe();
       await rerender({ settings: { ...s, anthropicApiKey: 'sk-ant-b' } });
       await waitForProbe();
       hold.finish();
       await waitForProbe();
-      expect(container.textContent).toContain('The settings changed while the test ran.');
+      expect(container.textContent).toContain(
+        'The settings changed while the test ran. Test again.',
+      );
       const pushes = sent.filter((m) => (m as { kind?: string }).kind === 'audit:push');
       expect(pushes).toHaveLength(1);
       expect((pushes[0] as { entry: { response: string } }).entry.response).toBe('hello');
@@ -586,7 +577,7 @@ describe('BackendCard — a native Test whose CLI changed while it ran', () => {
         props: { id: asBackendIdUnsafe('native'), label: 'Native host', settings: s },
       });
       await waitForProbe();
-      container.querySelector<HTMLButtonElement>('.be-test-btn')?.click();
+      container.querySelector<HTMLButtonElement>('[data-testid^="backend-card-test-"]')?.click();
       await vi.waitFor(() =>
         expect(sent).toContainEqual(expect.objectContaining({ kind: 'native:test' })),
       );
@@ -594,7 +585,9 @@ describe('BackendCard — a native Test whose CLI changed while it ran', () => {
       await waitForProbe();
       answer({ ok: true, result: 'hello', totalMs: 10 });
       await waitForProbe();
-      expect(container.textContent).toContain('The settings changed while the test ran.');
+      expect(container.textContent).toContain(
+        'The settings changed while the test ran. Test again.',
+      );
       expect(sent.filter((m) => (m as { kind?: string }).kind === 'audit:push')).toHaveLength(1);
     } finally {
       if (defaultConnect) chromeMock.runtime.connectNative.mockImplementation(defaultConnect);

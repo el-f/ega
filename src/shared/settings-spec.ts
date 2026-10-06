@@ -24,7 +24,7 @@ export type { SettingsTab };
 /** `action` is a button that does something once (reset, clear, delete), not a value. */
 export type SettingType = 'toggle' | 'slider' | 'select' | 'text' | 'template' | 'group' | 'action';
 
-export type AdvancedSubTab = 'diagnostics' | 'data' | 'labs';
+export type AdvancedSubTab = 'diagnostics' | 'data';
 
 /** `fallback` is the shipped default the stored value is compared against by value.
  *  `custom.paths` lists what `fn` reads — the coverage gate cannot see inside it. */
@@ -309,8 +309,9 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   // ── Backends ─────────────────────────────────────────────────────
   {
     id: 'backends.backendOrder',
-    label: 'Backend order',
-    description: 'The order Ega tries backends in. Drag to reorder.',
+    label: 'Backends in use',
+    description:
+      'The backends Ega tries, from the top of the list; drag or use the arrows to reorder',
     keywords: ['backend', 'order', 'priority', 'fallback', 'chain', 'drag'],
     tab: 'backends',
     targetSelector: '[data-ega-setting="backends.backendOrder"]',
@@ -319,8 +320,8 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   },
   {
     id: 'backends.disabledBackends',
-    label: 'Disabled backends',
-    description: 'Backends Ega never tries, even when they are set up.',
+    label: 'Backends not in use',
+    description: 'Ega never sends text to these',
     keywords: ['disabled', 'backend', 'exclude', 'off'],
     tab: 'backends',
     targetSelector: '[data-ega-setting="backends.disabledBackends"]',
@@ -489,8 +490,8 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   },
   {
     id: 'backends.localBackendTimeoutMs',
-    label: 'Local-backend check timeout',
-    description: 'How long Ega waits when checking that a local backend is reachable.',
+    label: 'Local check timeout',
+    description: 'Raise it if local backends time out after the computer wakes',
     keywords: ['local', 'native', 'ollama', 'server', 'timeout', 'check', 'reachable'],
     tab: 'backends',
     targetSelector: '[data-ega-setting="backends.localBackendTimeoutMs"]',
@@ -503,9 +504,8 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   },
   {
     id: 'backends.preWarmNative',
-    label: 'Start the native CLI with the browser',
-    description:
-      'Starts the claude CLI when the browser starts, so the first translation skips a 7-12 s warm-up. The codex CLI runs one process per translation, so it does not start early. Off saves battery on machines that rarely translate.',
+    label: 'Start the native host with Chrome',
+    description: 'Faster first answer, uses some battery',
     keywords: ['pre-warm', 'prewarm', 'warm', 'native', 'cold', 'start', 'boot', 'spawn'],
     tab: 'backends',
     targetSelector: '[data-ega-setting="backends.preWarmNative"]',
@@ -758,10 +758,10 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   },
   {
     id: 'advanced.retryCount',
-    label: 'Fallback depth',
-    description: 'How many more backends to try after the first one fails.',
+    label: 'Try up to N backends',
+    description: 'How many backends one request may try, from the top of the list',
     keywords: ['retry', 'fallback', 'chain', 'rate-limit', 'network', 'attempts'],
-    tab: 'translate',
+    tab: 'backends',
     targetSelector: '[data-ega-setting="advanced.retryCount"]',
     type: 'slider',
     defaultValue: String(DEFAULT_SETTINGS.advanced.retryCount),
@@ -769,11 +769,10 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   },
   {
     id: 'advanced.backendProbeTtlMs',
-    label: 'Backend status memory',
-    description: 'How long Ega remembers whether a backend is reachable before checking again.',
+    label: 'Remember backend status for',
+    description: 'Lower checks more often; higher notices a backend coming back later',
     keywords: ['status', 'ttl', 'available', 'health', 'cache', 'check'],
-    tab: 'advanced',
-    subTab: 'labs',
+    tab: 'backends',
     targetSelector: '[data-ega-setting="advanced.backendProbeTtlMs"]',
     type: 'slider',
     defaultValue: `${DEFAULT_SETTINGS.advanced.backendProbeTtlMs}`,
@@ -791,11 +790,10 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   },
   {
     id: 'advanced.translateTimeoutMs',
-    label: 'Text translate timeout',
-    description:
-      'How long Ega waits for a text reply. 30 s is tight for a reasoning model or a long Summarize or Explain.',
+    label: 'Text answer timeout',
+    description: 'Raise it for reasoning models and long summaries',
     keywords: ['timeout', 'budget', 'wall-clock', 'text', 'translate'],
-    tab: 'translate',
+    tab: 'backends',
     targetSelector: '[data-ega-setting="advanced.translateTimeoutMs"]',
     type: 'slider',
     isModified: {
@@ -806,10 +804,10 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   },
   {
     id: 'advanced.imageTranslateTimeoutMs',
-    label: 'Image translate timeout',
-    description: 'How long Ega waits for an image reply.',
+    label: 'Image answer timeout',
+    description: 'Images take longer than text',
     keywords: ['ocr', 'vision', 'image', 'timeout', 'budget'],
-    tab: 'translate',
+    tab: 'backends',
     targetSelector: '[data-ega-setting="advanced.imageTranslateTimeoutMs"]',
     type: 'slider',
     isModified: {
