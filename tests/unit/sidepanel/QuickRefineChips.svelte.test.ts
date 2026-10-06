@@ -4,7 +4,7 @@ import { fireEvent, render, waitFor } from '@testing-library/svelte';
 import QuickRefineChips from '@/sidepanel/conversation/QuickRefineChips.svelte';
 
 describe('QuickRefineChips', () => {
-  it('renders three fixed chips and the Refine chip', () => {
+  it('renders three fixed chips and the Write your own chip', () => {
     const { container } = render(QuickRefineChips, {
       props: {
         onRefine: vi.fn(),
@@ -13,7 +13,7 @@ describe('QuickRefineChips', () => {
     const shorter = container.querySelector('[data-ega-refine-chip="shorter"]');
     const less = container.querySelector('[data-ega-refine-chip="less-formal"]');
     const slang = container.querySelector('[data-ega-refine-chip="keep-slang"]');
-    const refine = container.querySelector('[data-ega-refine-chip="refine"]');
+    const refine = container.querySelector('[data-ega-refine-chip="custom"]');
     expect(shorter).not.toBeNull();
     expect(less).not.toBeNull();
     expect(slang).not.toBeNull();
@@ -22,7 +22,7 @@ describe('QuickRefineChips', () => {
 
   it('the refine field lays out by its own first strong character', async () => {
     const { container } = render(QuickRefineChips, { props: { onRefine: vi.fn() } });
-    const toggle = container.querySelector<HTMLButtonElement>('[data-ega-refine-chip="refine"]');
+    const toggle = container.querySelector<HTMLButtonElement>('[data-ega-refine-chip="custom"]');
     if (!toggle) throw new Error('refine chip missing');
     await fireEvent.click(toggle);
     await waitFor(() => {
@@ -62,13 +62,13 @@ describe('QuickRefineChips', () => {
     expect(onRefine.mock.calls[0]?.[0]?.refinementBody.toLowerCase()).toContain('slang');
   });
 
-  it('Refine chip toggles aria-expanded — drives the open-state CSS', async () => {
+  it('Write your own toggles aria-expanded — drives the open-state CSS', async () => {
     const { container } = render(QuickRefineChips, {
       props: {
         onRefine: vi.fn(),
       },
     });
-    const refine = container.querySelector<HTMLButtonElement>('[data-ega-refine-chip="refine"]');
+    const refine = container.querySelector<HTMLButtonElement>('[data-ega-refine-chip="custom"]');
     if (!refine) throw new Error('refine chip missing');
     // Resting: closed.
     expect(refine.getAttribute('aria-expanded')).toBe('false');
@@ -86,7 +86,7 @@ describe('QuickRefineChips', () => {
       },
     });
     expect(container.querySelector('[data-ega-refine-text]')).toBeNull();
-    const refine = container.querySelector<HTMLButtonElement>('[data-ega-refine-chip="refine"]');
+    const refine = container.querySelector<HTMLButtonElement>('[data-ega-refine-chip="custom"]');
     if (!refine) throw new Error('refine chip missing');
     await fireEvent.click(refine);
     await waitFor(() => {
@@ -107,7 +107,7 @@ describe('QuickRefineChips', () => {
   it('inline free-text Apply emits onRefine with the typed body, no rule persisted', async () => {
     const onRefine = vi.fn();
     const { container } = render(QuickRefineChips, { props: { onRefine } });
-    const toggle = container.querySelector<HTMLButtonElement>('[data-ega-refine-chip="refine"]');
+    const toggle = container.querySelector<HTMLButtonElement>('[data-ega-refine-chip="custom"]');
     if (!toggle) throw new Error('refine chip missing');
     await fireEvent.click(toggle);
     const input = await waitFor(() => {

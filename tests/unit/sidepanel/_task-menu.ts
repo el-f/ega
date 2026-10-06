@@ -3,11 +3,11 @@ import { tick } from 'svelte';
 
 const trigger = (container: HTMLElement): HTMLElement => {
   const el = container.querySelector<HTMLElement>('[data-ega-task-switch]');
-  if (!el) throw new Error('Try as trigger missing');
+  if (!el) throw new Error('Re-run as trigger missing');
   return el;
 };
 
-/** Opens a reply's Try as menu from the keyboard; its items render in a portal on document.body. */
+/** Opens a reply's Re-run as menu from the keyboard; its items render in a portal on document.body. */
 export async function openTaskMenu(container: HTMLElement): Promise<void> {
   await fireEvent.keyDown(trigger(container), { key: 'Enter' });
   await waitFor(() => {
@@ -15,7 +15,7 @@ export async function openTaskMenu(container: HTMLElement): Promise<void> {
   });
 }
 
-/** The swap item at the top of the open Try as menu. */
+/** The swap item at the top of the open Re-run as menu. */
 export function swapItem(): HTMLElement {
   const el = document.querySelector<HTMLElement>('[data-ega-swap-item]');
   if (!el) throw new Error('swap item missing; open the menu first');

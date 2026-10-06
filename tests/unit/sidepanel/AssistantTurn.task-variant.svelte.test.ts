@@ -71,7 +71,7 @@ describe('AssistantTurn — a task-switch variant says which task answered', () 
     );
   });
 
-  it('the Try as menu shows the variant task checked', async () => {
+  it('the Re-run as menu shows the variant task checked', async () => {
     const { container } = render(AssistantTurn, {
       props: {
         turn: turnWithVariants(),
@@ -136,7 +136,7 @@ describe('AssistantTurn — image turns only offer the tasks that reach the visi
 });
 
 describe('AssistantTurn — re-run controls need a dispatch to replay', () => {
-  it('hides Try as (swap and task re-runs) when the turn cannot be retried', () => {
+  it('hides Re-run as (swap and task re-runs) when the turn cannot be retried', () => {
     const { container } = render(AssistantTurn, {
       props: {
         turn: singleTurn(),

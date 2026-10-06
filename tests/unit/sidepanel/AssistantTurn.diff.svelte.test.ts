@@ -106,7 +106,7 @@ describe('AssistantTurn — word-diff on variant supersede', () => {
   });
 });
 
-describe('AssistantTurn — Try as menu checked task', () => {
+describe('AssistantTurn — Re-run as menu checked task', () => {
   it('checks the turn kind when the task is valid', async () => {
     const turn = baseTurn({ kind: 'summarize' });
     const { container } = render(AssistantTurn, {

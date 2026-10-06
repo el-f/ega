@@ -38,7 +38,7 @@ async function sendAndDrain(container: HTMLElement, text: string): Promise<void>
   await tick();
 }
 
-/** The swap item in the reply's Try as menu; opens the menu when it is closed. */
+/** The swap item in the reply's Re-run as menu; opens the menu when it is closed. */
 async function swapButton(container: HTMLElement): Promise<HTMLElement> {
   if (!document.querySelector('[data-ega-swap-item]')) await openTaskMenu(container);
   return swapItem();

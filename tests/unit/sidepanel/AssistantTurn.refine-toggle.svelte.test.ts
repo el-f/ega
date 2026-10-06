@@ -67,6 +67,87 @@ describe('AssistantTurn — the Refine button opens the refine chips', () => {
     expect(document.activeElement).toBe(getByRole('button', { name: 'Refine this reply' }));
   });
 
+  it('Escape on the pressed Refine button closes the row and does not reach the panel', async () => {
+    const { container, getByRole } = latest();
+    await openRefine(container);
+    const btn = getByRole('button', { name: 'Refine this reply' });
+    btn.focus();
+    const esc = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    btn.dispatchEvent(esc);
+    await tick();
+    expect(chips(container)).toBeNull();
+    expect(btn.getAttribute('aria-expanded')).toBe('false');
+    // The panel cancels a running reply on an Escape nobody handled.
+    expect(esc.defaultPrevented).toBe(true);
+  });
+
+  it('keeps a typed request when the row closes, until it is sent', async () => {
+    const onRefine = vi.fn().mockResolvedValue(true);
+    const { container, getByRole } = latest({ onRefine });
+    const btn = getByRole('button', { name: 'Refine this reply' });
+    const field = (): HTMLInputElement | null =>
+      container.querySelector<HTMLInputElement>('[data-ega-refine-text]');
+    await openRefine(container);
+    const custom = container.querySelector<HTMLElement>('[data-ega-refine-chip="custom"]');
+    if (!custom) throw new Error('Write your own chip missing');
+    expect(custom.textContent.trim()).toBe('Write your own…');
+    await fireEvent.click(custom);
+    await tick();
+    const input = field();
+    if (!input) throw new Error('field missing');
+    await fireEvent.input(input, { target: { value: 'more poetic' } });
+    await fireEvent.click(btn);
+    await tick();
+    expect(chips(container)).toBeNull();
+    await openRefine(container);
+    expect(field()?.value).toBe('more poetic');
+    const apply = container.querySelector<HTMLElement>('[data-ega-refine-apply]');
+    if (!apply) throw new Error('Apply missing');
+    await fireEvent.click(apply);
+    await waitFor(() => expect(chips(container)).toBeNull());
+    expect(onRefine).toHaveBeenCalledWith(
+      expect.objectContaining({ turnId: 'a1', refinementBody: 'more poetic' }),
+    );
+    // Sent, so the next open starts with the field closed and empty.
+    await openRefine(container);
+    expect(field()).toBeNull();
+  });
+
+  it('a re-run keeps focus on the reply card instead of dropping it to the page', async () => {
+    const { container, rerender } = latest();
+    const regen = container.querySelector<HTMLElement>('[data-ega-regenerate]');
+    if (!regen) throw new Error('Regenerate missing');
+    regen.focus();
+    // The action row unmounts while the new answer is pending, taking the focused button with it.
+    await rerender({ turn: turn({ status: 'pending', content: '' }) });
+    await tick();
+    expect(container.querySelector('[data-ega-regenerate]')).toBeNull();
+    const card = container.querySelector('article');
+    expect(document.activeElement).toBe(card);
+    expect(card?.getAttribute('aria-label')).toBe('Ega reply');
+  });
+
+  it('takes focus only on the step into answering, not when it mounts mid-answer or starts streaming', async () => {
+    const { container, rerender } = latest({ turn: turn({ status: 'pending', content: '' }) });
+    await tick();
+    const card = container.querySelector('article');
+    expect(document.activeElement).not.toBe(card);
+    await rerender({ turn: turn({ status: 'streaming', content: 'he' }) });
+    await tick();
+    expect(document.activeElement).not.toBe(card);
+  });
+
+  it('a re-run leaves focus alone when it is somewhere else', async () => {
+    const { rerender } = latest();
+    const outside = document.createElement('textarea');
+    document.body.append(outside);
+    outside.focus();
+    await rerender({ turn: turn({ status: 'pending', content: '' }) });
+    await tick();
+    expect(document.activeElement).toBe(outside);
+    outside.remove();
+  });
+
   it('closes after a chip refine dispatches', async () => {
     const onRefine = vi.fn().mockResolvedValue(true);
     const { container } = latest({ onRefine });
@@ -103,10 +184,10 @@ describe('AssistantTurn — the Refine button opens the refine chips', () => {
     expect(chips(container)).toBeNull();
   });
 
-  it('keeps the free-text Refine chip working', async () => {
+  it('keeps the Write your own chip working', async () => {
     const { container } = latest();
     await openRefine(container);
-    const freeform = container.querySelector<HTMLElement>('[data-ega-refine-chip="refine"]');
+    const freeform = container.querySelector<HTMLElement>('[data-ega-refine-chip="custom"]');
     if (!freeform) throw new Error('free-text chip missing');
     await fireEvent.click(freeform);
     await tick();

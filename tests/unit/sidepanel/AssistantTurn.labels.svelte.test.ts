@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
-import { render, fireEvent } from '@testing-library/svelte';
+import { render, fireEvent, waitFor } from '@testing-library/svelte';
 import AssistantTurn from '@/sidepanel/conversation/AssistantTurn.svelte';
 import type { AssistantTurnData } from '@/sidepanel/state/conversation';
 import type { PageContext } from '@/shared/types';
@@ -43,7 +43,7 @@ describe('AssistantTurn — context preview, labels and tooltips', () => {
     expect(await openedPreview(container)).not.toBeNull();
   });
 
-  it('the Try as icon button names itself and shows a short tooltip', () => {
+  it('the Re-run as icon button names itself and shows the same bits tooltip as its neighbours', async () => {
     const { container } = render(AssistantTurn, {
       props: {
         turn: baseTurn(),
@@ -53,9 +53,16 @@ describe('AssistantTurn — context preview, labels and tooltips', () => {
         onTaskSwitch: vi.fn(),
       },
     });
-    const trigger = container.querySelector('[data-ega-task-switch]');
-    expect(trigger?.getAttribute('data-tooltip')).toBe('Try as…');
-    expect(trigger?.getAttribute('aria-label')).toBe('Try as another task');
+    const trigger = container.querySelector<HTMLElement>('[data-ega-task-switch]');
+    // Not the page-wide data-tooltip: the IconButtons beside it use bits' Tooltip, and both must look the same.
+    expect(trigger?.hasAttribute('data-tooltip')).toBe(false);
+    trigger?.focus();
+    await waitFor(() => {
+      expect(document.querySelector('.ega-icon-btn-tooltip')?.textContent.trim()).toBe(
+        'Re-run as…',
+      );
+    });
+    expect(trigger?.getAttribute('aria-label')).toBe('Re-run with another task or language');
     expect(trigger?.textContent.trim()).toBe('');
   });
 

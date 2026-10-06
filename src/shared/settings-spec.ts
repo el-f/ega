@@ -291,7 +291,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
     id: 'tasks.enabled',
     label: 'Tasks on and off',
     description:
-      'Turn a task off to hide it in the side panel, tooltip, Try as, palette and right-click menu.',
+      'Turn a task off to hide it in the side panel, tooltip, Re-run as menu, palette and right-click menu.',
     keywords: ['task', 'off', 'hide', 'disable', 'picker'],
     tab: 'tasks',
     targetSelector: '[data-ega-setting="tasks.enabled"]',

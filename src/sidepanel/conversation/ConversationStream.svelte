@@ -50,7 +50,7 @@
     onSwap?: (turnId: string) => void;
     /** Re-dispatch with a different task on the latest turn. */
     onTaskSwitch?: (turnId: string, task: TaskId) => void;
-    /** True when the latest turn has no swap to run (`canSwap` is false). */
+    /** True when the latest turn has no swap to run (`swapPair` is null). */
     swapDisabled?: boolean;
     /** The pair the latest turn's swap would run with; names it in the menu. */
     swapPair?: SwapPair | null;
@@ -74,7 +74,7 @@
     inflight?: boolean;
     /** Enabled varieties — labels the language chip on a language-change variant. */
     varieties?: readonly Variety[];
-    /** Every task, on or off: names custom tasks and fills Try as. */
+    /** Every task, on or off: names custom tasks and fills Re-run as. */
     taskViews?: readonly TaskView[] | undefined;
     /** False when no backend is ready; null while the check runs. Drives the first-run CTA. */
     backendReady?: boolean | null;
@@ -301,6 +301,7 @@
     const target = e.target as HTMLElement | null;
     if (
       // A native select or a bits-ui menu owns its own arrow keys and letter type-ahead; the open refine row keeps its keys too.
+      // The reply's action buttons do not: from them j/k/c/e/? stay the panel's navigation; the chip row holds a text field.
       target instanceof HTMLSelectElement ||
       (target instanceof Element &&
         target.closest('[role="menu"], [data-ega-quick-refine]') !== null) ||

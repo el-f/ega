@@ -44,13 +44,12 @@ const focusedMenuItem = (): HTMLElement => {
   return el;
 };
 
-describe('AssistantTurn — the Try as menu holds swap and the task re-runs', () => {
+describe('AssistantTurn — the Re-run as menu holds swap and the task re-runs', () => {
   it('is one icon button in the action row, with no separate swap row', () => {
     const { container, getByRole } = latest();
-    const trigger = getByRole('button', { name: 'Try as another task' });
+    const trigger = getByRole('button', { name: 'Re-run with another task or language' });
     expect(trigger.hasAttribute('data-ega-task-switch')).toBe(true);
     expect(trigger.closest('[role="toolbar"]')).not.toBeNull();
-    expect(trigger.getAttribute('data-tooltip')).toBe('Try as…');
     // The swap lives in the menu now; nothing renders it in the card itself.
     expect(container.querySelector('[data-ega-swap]')).toBeNull();
     expect(container.querySelector('.ega-variant-actions')).toBeNull();
@@ -88,8 +87,9 @@ describe('AssistantTurn — the Try as menu holds swap and the task re-runs', ()
     const onSwap = vi.fn();
     const { container } = latest({ onSwap, swapDisabled: true });
     await openTaskMenu(container);
-    // A keyboard open lands on the first item; bits' own disabled would have skipped it.
+    // A keyboard open lands on the checked task; one ArrowUp reaches the swap, which bits' own disabled would skip.
     await waitFor(focusedMenuItem);
+    await fireEvent.keyDown(focusedMenuItem(), { key: 'ArrowUp' });
     expect(focusedMenuItem()).toBe(swapItem());
     expect(swapItem().getAttribute('aria-disabled')).toBe('true');
     expect(swapItem().hasAttribute('data-disabled')).toBe(false);
@@ -101,6 +101,39 @@ describe('AssistantTurn — the Try as menu holds swap and the task re-runs', ()
     expect(onSwap).not.toHaveBeenCalled();
     // A blocked pick keeps the menu open, so the reason stays on screen.
     expect(document.querySelector('[data-ega-swap-item]')).not.toBeNull();
+  });
+
+  it('a swap a reply already ran says so and sends nothing', async () => {
+    const onSwap = vi.fn();
+    const { container } = latest({
+      onSwap,
+      swapPair: { sourceLang: 'en', targetLang: 'es', blocked: 'answered' },
+    });
+    await openTaskMenu(container);
+    expect(swapItem().getAttribute('aria-disabled')).toBe('true');
+    expect(swapItem().querySelector('[data-ega-swap-note]')?.textContent).toBe(
+      'Already answered this way',
+    );
+    await fireEvent.click(swapItem());
+    await tick();
+    expect(onSwap).not.toHaveBeenCalled();
+  });
+
+  it('a pair of one language says why instead of offering "Hebrew → Hebrew"', async () => {
+    const onSwap = vi.fn();
+    const { container } = latest({
+      onSwap,
+      swapPair: { sourceLang: 'he', targetLang: 'he', blocked: 'same-language' },
+    });
+    await openTaskMenu(container);
+    expect(swapItem().getAttribute('aria-disabled')).toBe('true');
+    expect(swapItem().textContent).not.toContain('Hebrew');
+    expect(swapItem().querySelector('[data-ega-swap-note]')?.textContent).toBe(
+      'Source and target are the same language',
+    );
+    await fireEvent.click(swapItem());
+    await tick();
+    expect(onSwap).not.toHaveBeenCalled();
   });
 
   it('an image turn says why it has no swap', async () => {
@@ -139,6 +172,27 @@ describe('AssistantTurn — the Try as menu holds swap and the task re-runs', ()
     expect(onTaskSwitch).toHaveBeenCalledWith('a1', id);
   });
 
+  // Swap sits first, so landing on the first item made Enter, Enter a paid re-run; the More menu keeps Delete last for the same reason.
+  it('a keyboard open focuses the checked task, so Enter then Enter re-runs nothing', async () => {
+    const onTaskSwitch = vi.fn();
+    const onSwap = vi.fn();
+    const { container } = latest({
+      onTaskSwitch,
+      onSwap,
+      swapPair: { sourceLang: 'en', targetLang: 'es' },
+    });
+    await openTaskMenu(container);
+    await waitFor(() => {
+      expect(focusedMenuItem().getAttribute('data-ega-task-switch-item')).toBe('translate');
+    });
+    expect(focusedMenuItem().getAttribute('aria-checked')).toBe('true');
+    expect(document.querySelector('[role="menu"]')?.firstElementChild).toBe(swapItem());
+    await fireEvent.keyDown(focusedMenuItem(), { key: 'Enter' });
+    await tick();
+    expect(onSwap).not.toHaveBeenCalled();
+    expect(onTaskSwitch).not.toHaveBeenCalled();
+  });
+
   it('picking the task that already answered re-runs nothing', async () => {
     const onTaskSwitch = vi.fn();
     const { container } = latest({ onTaskSwitch });
@@ -146,16 +200,21 @@ describe('AssistantTurn — the Try as menu holds swap and the task re-runs', ()
     expect(onTaskSwitch).not.toHaveBeenCalled();
   });
 
-  it('a busy Try as stays focusable, names its reason, and opens no menu', async () => {
+  it('a busy Re-run as stays focusable, names its reason, and opens no menu', async () => {
     const { container } = latest({ inflight: true });
     const trigger = container.querySelector<HTMLButtonElement>('[data-ega-task-switch]');
     if (!trigger) throw new Error('trigger missing');
     expect(trigger.disabled).toBe(false);
     expect(trigger.getAttribute('aria-disabled')).toBe('true');
-    expect(trigger.getAttribute('data-tooltip')).toBe('Wait for this reply to finish');
     expect(trigger.getAttribute('aria-label')).toBe(
-      'Try as another task — wait for this reply to finish',
+      'Re-run with another task or language — wait for this reply to finish',
     );
+    trigger.focus();
+    await waitFor(() => {
+      expect(document.querySelector('.ega-icon-btn-tooltip')?.textContent.trim()).toBe(
+        'Wait for this reply to finish',
+      );
+    });
     // One gesture at a time: a key then a click would toggle twice and close an open menu.
     const menuOpens = (): Promise<void> =>
       waitFor(
@@ -185,7 +244,7 @@ describe('AssistantTurn — the Try as menu holds swap and the task re-runs', ()
   // Gated on latest+done+onSwap, NOT on task=translate, so the copy must stay task-neutral.
   it('keeps the copy task-neutral on a non-translate turn', async () => {
     const { container, getByRole } = latest({ turn: baseTurn({ kind: 'explain' }) });
-    expect(getByRole('button', { name: 'Try as another task' })).toBeTruthy();
+    expect(getByRole('button', { name: 'Re-run with another task or language' })).toBeTruthy();
     await openTaskMenu(container);
     expect(swapItem().textContent.trim()).toBe('Swap languages');
   });

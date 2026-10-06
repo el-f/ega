@@ -3,7 +3,8 @@
   import { toastStore } from '@/shared/components/toastStore';
   import Button from '@/shared/ui/Button.svelte';
   import Input from '@/shared/ui/Input.svelte';
-  import Sparkles from '@lucide/svelte/icons/sparkles';
+  import PencilLine from '@lucide/svelte/icons/pencil-line';
+  import { untrack } from 'svelte';
 
   interface Props {
     /** Returns false when the refine bails — another request is in flight, or there is no target turn. */
@@ -15,12 +16,14 @@
     inflight?: boolean;
     /** The row's id, so the button that opens it can point at it with aria-controls. */
     id?: string;
+    /** The typed request; the parent keeps it, so closing the row does not lose it before it is sent. */
+    draft?: string;
   }
 
-  const { onRefine, inflight = false, id }: Props = $props();
+  let { onRefine, inflight = false, id, draft = $bindable('') }: Props = $props();
 
-  let refineOpen = $state(false);
-  let refineText = $state('');
+  // A kept draft reopens with its field showing, or the text would sit hidden behind the chip.
+  let refineOpen = $state(untrack(() => draft) !== '');
   let busy = $state(false);
   /** Chip currently in flight; null when idle. Drives the per-chip spinner. */
   let busyKind = $state<ChipKind | null>(null);
@@ -62,13 +65,13 @@
   }
 
   async function applyInline(): Promise<void> {
-    const body = refineText.trim();
+    const body = draft.trim();
     if (body.length === 0 || busy) return;
     busy = true;
     try {
       const ok = await onRefine({ refinementBody: body });
       if (ok) {
-        refineText = '';
+        draft = '';
         refineOpen = false;
       } else {
         toastStore.push({ message: 'Wait for the current reply to finish.', variant: 'warning' });
@@ -109,24 +112,24 @@
     <Button
       variant="ghost"
       size="sm"
-      leadingIcon={Sparkles}
+      leadingIcon={PencilLine}
       extraClass="refine-toggle"
       disabled={inflight}
       dataAttrs={{
-        'data-ega-refine-chip': 'refine',
+        'data-ega-refine-chip': 'custom',
         'aria-expanded': refineOpen ? 'true' : 'false',
         'aria-controls': 'quick-refine-input',
       }}
       onclick={() => (refineOpen = !refineOpen)}
     >
-      Refine
+      Write your own…
     </Button>
   </div>
   {#if refineOpen}
     <div id="quick-refine-input" class="refine-input">
       <div class="refine-input-grow">
         <Input
-          bind:value={refineText}
+          bind:value={draft}
           onkeydown={onInlineKeydown}
           placeholder="Tell Ega what to change…"
           disabled={busy}
@@ -142,7 +145,7 @@
         variant="primary"
         size="sm"
         loading={busy}
-        disabled={refineText.trim().length === 0}
+        disabled={draft.trim().length === 0}
         dataAttrs={{ 'data-ega-refine-apply': 'true' }}
         onclick={() => void applyInline()}
       >
@@ -159,9 +162,10 @@
     gap: var(--space-2);
     margin-top: var(--space-2);
   }
+  /* Two by two at every width: one line needs ~380px of card, more than a 380-400px panel gives, and a wrap left Write your own alone. */
   .chip-row {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(max-content, 1fr));
     gap: var(--space-2);
   }
   /* The ghost variant's border is transparent at rest, so the chips read as static text without this. */
@@ -169,7 +173,7 @@
     background: var(--color-bg-sunken);
     border-color: var(--color-border-subtle);
   }
-  /* Refine shares its chrome with the other chips, so the open state needs an accent fill to stand out. */
+  /* Write your own shares its chrome with the other chips, so the open state needs an accent fill to stand out. */
   .chip-row :global(.ega-btn.refine-toggle[aria-expanded='true']) {
     background: var(--color-accent-bg-soft);
     /* accent lands under 4.5:1 on the soft accent tint; accent-hover clears it in both themes. */

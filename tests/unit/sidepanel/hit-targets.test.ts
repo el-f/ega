@@ -61,7 +61,7 @@ describe('a reply row matches the 32px of the user bubble and the composer', () 
     expect(body).toMatch(/min-height:\s*32px/);
   });
 
-  it('draws the Try as and More menu buttons as md icon buttons, like the IconButtons beside them', () => {
+  it('draws the Re-run as and More menu buttons as md icon buttons, like the IconButtons beside them', () => {
     expect(src.match(/class="ega-icon-btn variant-default size-md"/g)).toHaveLength(2);
   });
 });

@@ -235,7 +235,7 @@ describe('AssistantTurn.svelte', () => {
     expect(pillText(turn(0.9))).toBe('90% confident');
   });
 
-  it('shows the Try as button only on the latest reply', () => {
+  it('shows the Re-run as button only on the latest reply', () => {
     const turn: Turn = {
       createdAt: 1,
       id: 'a1',

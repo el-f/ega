@@ -10,7 +10,7 @@
   import { langTag, replyLang } from '@/shared/lang-tag';
   import IconButton from '@/shared/ui/IconButton.svelte';
   import Icon from '@/shared/ui/Icon.svelte';
-  import { DropdownMenu } from 'bits-ui';
+  import { DropdownMenu, Tooltip } from 'bits-ui';
   import { backendLabel } from '@/shared/backends/provider-profiles';
   import Copy from '@lucide/svelte/icons/copy';
   import Check from '@lucide/svelte/icons/check';
@@ -29,7 +29,7 @@
   import WandSparkles from '@lucide/svelte/icons/wand-sparkles';
   import Volume2 from '@lucide/svelte/icons/volume-2';
   import Square from '@lucide/svelte/icons/square';
-  import { onDestroy, tick } from 'svelte';
+  import { onDestroy, tick, untrack } from 'svelte';
   import { canSpeak, pickLocalVoice, speakWith, stopSpeaking } from '../speech';
   import { toastStore } from '@/shared/components/toastStore';
   import {
@@ -69,7 +69,7 @@
       | undefined;
     /** Flip the active variant on this Turn. */
     onSelectVariant?: ((turnId: string, idx: number) => void) | undefined;
-    /** Gates the Refine and Try as buttons; every reply keeps the same card. */
+    /** Gates the Refine and Re-run as buttons; every reply keeps the same card. */
     isLatest?: boolean;
     /** False when the turn has no dispatch metadata to replay, so Retry stays hidden. */
     canRetry?: boolean;
@@ -95,7 +95,7 @@
     inflight?: boolean;
     /** Enabled varieties — labels the language chip on a language-change variant. */
     varieties?: readonly Variety[];
-    /** Every task, on or off. Try as offers the ones that are on; the turn's own task, when off or deleted, shows disabled. */
+    /** Every task, on or off. Re-run as offers the ones that are on; the turn's own task, when off or deleted, shows disabled. */
     taskViews?: readonly TaskView[] | undefined;
     /** True when the paired user turn carries an image, whatever kind the send used. */
     hasImage?: boolean;
@@ -210,15 +210,19 @@
   // A deliberate stop is not a failure: no red, no "Error:" prefix, no alert role.
   const isCancelled = $derived(isCancelledError(turn.error?.code));
 
-  // canSwap() folds inflight and an 'auto' source into one boolean, so the reason comes from `inflight`.
+  // A null swapPair folds a running reply, an image and an unknown source into one value, so the reason reads the props that tell them apart.
   const swapReason = $derived(
     inflight
       ? 'wait for this reply to finish'
       : hasImage
         ? 'images have no source language to swap'
-        : swapDisabled
-          ? 'no source language to swap from yet'
-          : undefined,
+        : swapPair?.blocked === 'same-language'
+          ? 'source and target are the same language'
+          : swapPair?.blocked === 'answered'
+            ? 'already answered this way'
+            : swapDisabled
+              ? 'no source language to swap from yet'
+              : undefined,
   );
   const swapBlocked = $derived(swapReason !== undefined);
   // The reason is visible text in the item, not a tooltip: a menu item has no hover label.
@@ -236,9 +240,20 @@
   );
   // A setter keeps a busy reply from opening it (bits writes open first); a pick closes it, as the re-run unmounts it before bits can.
   let taskMenuOpen = $state(false);
+  let taskMenuEl: HTMLElement | null = $state(null);
+
+  // bits lands on the first item, Swap, so Enter then Enter would start a paid re-run. The checked task re-runs nothing.
+  function onTaskMenuOpenFocus(e: Event): void {
+    const checked = taskMenuEl?.querySelector<HTMLElement>('[aria-checked="true"]');
+    if (!checked) return;
+    e.preventDefault();
+    checked.focus({ preventScroll: true });
+  }
 
   // The chips stay hidden until asked for, so the newest reply is not followed by a row of buttons.
   let refineOpen = $state(false);
+  // Lives here, not in the chips, so closing the row keeps what the user typed until it is sent.
+  let refineDraft = $state('');
   const refineRowId = $derived(`ega-refine-${turn.id}`);
   // A refine that dispatched turns the reply pending, and a newer reply takes the chips away: both close the row.
   $effect(() => {
@@ -284,6 +299,21 @@
     if (turn.error?.code === undefined) return false;
     if (isCancelled) return true;
     return knownCode === null || isRetryable(knownCode) || optionsTab !== undefined;
+  });
+
+  // A re-run unmounts the action row with the button or menu item that started it, and focus would drop to <body>.
+  // Only on the step into answering, so a card that mounts mid-answer or a pending → streaming tick takes nothing.
+  let articleEl: HTMLElement | null = $state(null);
+  const answering = $derived(turn.status === 'pending' || turn.status === 'streaming');
+  let wasAnswering = untrack(() => answering);
+  $effect(() => {
+    const now = answering;
+    const el = articleEl;
+    const started = now && !wasAnswering;
+    wasAnswering = now;
+    if (!started || el === null) return;
+    const active = document.activeElement;
+    if (active === null || active === document.body) el.focus({ preventScroll: true });
   });
 
   // `article` is not name-from-content, so without a label a j/k-focused reply is announced as a bare "article".
@@ -377,6 +407,16 @@
 
   // One tab stop per turn instead of one per button; arrows move inside the row.
   function onActionsKeydown(e: KeyboardEvent): void {
+    // Escape on the pressed Refine button closes its row; the panel's Escape would cancel a running reply.
+    if (
+      e.key === 'Escape' &&
+      refineOpen &&
+      (e.target as HTMLElement | null)?.closest('[data-ega-refine-toggle]')
+    ) {
+      e.preventDefault();
+      refineOpen = false;
+      return;
+    }
     const idx = actionKeys.indexOf(activeAction);
     let next: number;
     if (e.key === 'ArrowRight') next = (idx + 1) % actionKeys.length;
@@ -459,6 +499,7 @@
   tabindex="-1"
   aria-label={srLabel}
   data-turn-id={turn.id}
+  bind:this={articleEl}
 >
   {#if variantCount > 1 || turn.status === 'done'}
     <header class="ega-assistant-meta">
@@ -729,22 +770,40 @@
         {#if showTryAs && onSwap}
           <!-- A menu, not a select: Chrome commits a select on every arrow key, and each commit is a paid re-run. -->
           <DropdownMenu.Root bind:open={() => taskMenuOpen, (v) => (taskMenuOpen = v && !inflight)}>
-            <DropdownMenu.Trigger
-              class="ega-icon-btn variant-default size-md"
-              data-ega-task-switch
-              data-ega-action="try-as"
-              tabindex={activeAction === 'try-as' ? 0 : -1}
-              aria-disabled={inflight}
-              aria-label={inflight
-                ? 'Try as another task — wait for this reply to finish'
-                : 'Try as another task'}
-              data-tooltip={inflight ? 'Wait for this reply to finish' : 'Try as…'}
-              data-tooltip-placement="bottom"
-            >
-              <Icon icon={ListChecks} size={20} />
-            </DropdownMenu.Trigger>
+            <!-- The bits Tooltip IconButton uses, so the hover label looks like the ones beside it. -->
+            <Tooltip.Provider delayDuration={150} disableHoverableContent>
+              <Tooltip.Root>
+                <DropdownMenu.Trigger
+                  class="ega-icon-btn variant-default size-md"
+                  data-ega-task-switch
+                  data-ega-action="try-as"
+                  tabindex={activeAction === 'try-as' ? 0 : -1}
+                  aria-disabled={inflight}
+                  aria-label={inflight
+                    ? 'Re-run with another task or language — wait for this reply to finish'
+                    : 'Re-run with another task or language'}
+                >
+                  {#snippet child({ props })}
+                    <Tooltip.Trigger {...props}>
+                      <Icon icon={ListChecks} size={20} />
+                    </Tooltip.Trigger>
+                  {/snippet}
+                </DropdownMenu.Trigger>
+                <Tooltip.Portal>
+                  <Tooltip.Content side="bottom" sideOffset={6} class="ega-icon-btn-tooltip">
+                    {inflight ? 'Wait for this reply to finish' : 'Re-run as…'}
+                  </Tooltip.Content>
+                </Tooltip.Portal>
+              </Tooltip.Root>
+            </Tooltip.Provider>
             <DropdownMenu.Portal>
-              <DropdownMenu.Content class="sp-menu" align="end" sideOffset={6}>
+              <DropdownMenu.Content
+                class="sp-menu"
+                align="end"
+                sideOffset={6}
+                bind:ref={taskMenuEl}
+                onOpenAutoFocus={onTaskMenuOpenFocus}
+              >
                 <!-- Not bits' disabled: that drops the item from arrow keys, and a blocked swap must still be read. -->
                 <DropdownMenu.Item
                   closeOnSelect={!swapBlocked}
@@ -905,6 +964,7 @@
         <QuickRefineChips
           id={refineRowId}
           {inflight}
+          bind:draft={refineDraft}
           onRefine={async (args) => {
             const ok = await onRefine({ turnId: turn.id, ...args });
             if (ok) refineOpen = false;
@@ -1115,13 +1175,13 @@
   .ega-refine-row > :global([data-ega-quick-refine]) {
     margin-top: 0;
   }
-  /* The open chip row reads like a pressed button; border-color only, so it costs no reflow. */
+  /* Open, the Refine button reads as pressed, like IconButton's aria-pressed; border-color, not border, so it costs no reflow. */
   .ega-turn-actions :global([data-ega-refine-toggle][aria-expanded='true']) {
     color: var(--color-accent-hover);
     border-color: var(--color-accent);
     background: var(--color-accent-bg-soft);
   }
-  /* :global — the Try as trigger is bits-ui's button. Busy, it stays focusable, so it is greyed rather than disabled. */
+  /* :global — the Re-run as trigger is bits-ui's button. Busy, it stays focusable, so it is greyed rather than disabled. */
   .ega-turn-actions :global([data-ega-task-switch][aria-disabled='true']) {
     color: var(--color-fg-disabled);
     cursor: var(--cursor-disabled);

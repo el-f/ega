@@ -45,7 +45,7 @@ async function settleMount(container: HTMLElement): Promise<void> {
 
 const inMenu = (): boolean => document.activeElement?.closest('[role="menu"]') != null;
 
-/** Opens Try as… and waits for bits-ui to move focus onto the first item. */
+/** Opens Re-run as… and waits for bits-ui to move focus onto the first item. */
 async function openMenuFocused(container: HTMLElement): Promise<HTMLElement> {
   await openTaskMenu(container);
   await waitFor(() => {
@@ -67,7 +67,7 @@ afterEach(() => {
 });
 
 describe('SidePanel — keys typed inside a reply menu stay in the menu', () => {
-  it('ArrowDown, e and c in the Try as… menu do not walk the thread, edit or jump to the composer', async () => {
+  it('ArrowDown, e and c in the Re-run as… menu do not walk the thread, edit or jump to the composer', async () => {
     const { container } = render(SidePanel);
     await settleMount(container);
     await sendAndDrain(container, 'hola');
@@ -92,7 +92,7 @@ describe('SidePanel — keys typed inside a reply menu stay in the menu', () => 
   });
 
   // Only the stream's role=menu guard stops these: bits-ui never preventDefaults a type-ahead letter.
-  it('j and k typed in the Try as… menu do not walk the thread', async () => {
+  it('j and k typed in the Re-run as… menu do not walk the thread', async () => {
     const { container } = render(SidePanel);
     await settleMount(container);
     await sendAndDrain(container, 'hola');
@@ -141,12 +141,12 @@ describe('SidePanel — keys typed inside a reply menu stay in the menu', () => 
     expect(document.activeElement).toBe(chip);
   });
 
-  it('ArrowDown on the Try as… trigger opens the menu without walking the thread', async () => {
+  it('ArrowDown on the Re-run as… trigger opens the menu without walking the thread', async () => {
     const { container } = render(SidePanel);
     await settleMount(container);
     await sendAndDrain(container, 'hola');
     const trigger = container.querySelector<HTMLElement>('[data-ega-task-switch]');
-    if (!trigger) throw new Error('Try as trigger missing');
+    if (!trigger) throw new Error('Re-run as trigger missing');
     trigger.focus();
 
     await fireEvent.keyDown(trigger, { key: 'ArrowDown' });

@@ -14,7 +14,7 @@ const u = (id: string, content: string): Turn => ({
   status: 'idle',
   content,
 });
-// Swap and Try as need a send to replay, so their user turn carries its dispatch.
+// Swap and Re-run as need a send to replay, so their user turn carries its dispatch.
 const ud = (id: string, content: string): Turn =>
   ({
     ...u(id, content),
@@ -132,7 +132,7 @@ describe('ConversationStream.svelte', () => {
     expect(container.querySelector('.ega-assistant-turn')).not.toBeNull();
   });
 
-  it('only the LAST assistant turn carries the Try as button', () => {
+  it('only the LAST assistant turn carries the Re-run as button', () => {
     const turns: Turn[] = [
       ud('u1', 'hi'),
       a('a1', 'first', 'u1'),

@@ -138,7 +138,7 @@
   let retryAnchor: HTMLElement | null = $state(null);
   let retryPopoverOpen = $state<boolean>(false);
 
-  // Composer swap only. The stream's ↔ re-runs a past turn, so it gates on that turn, not the picker.
+  // Composer swap only. A reply's Re-run as menu swaps a past turn, so it gates on that turn, not the picker.
   const swapDisabled = $derived(sourceLang === 'auto');
   const latestTurnId = $derived(conversation.turns.at(-1)?.id ?? null);
   const turnSwapPair = $derived(latestTurnId === null ? null : conversation.swapPair(latestTurnId));
@@ -543,6 +543,7 @@
   function isTextEntry(target: EventTarget | null): boolean {
     return (
       // A native select or a bits-ui menu owns its own arrow keys and letter type-ahead; the open refine row keeps its keys too.
+      // The reply's action buttons do not: from them j/k/c/e/? stay the panel's navigation; the chip row holds a text field.
       target instanceof HTMLSelectElement ||
       (target instanceof Element &&
         target.closest('[role="menu"], [data-ega-quick-refine]') !== null) ||

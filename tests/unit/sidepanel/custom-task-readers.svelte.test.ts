@@ -81,7 +81,7 @@ describe('a custom-task turn', () => {
     expect(exportMarkdown([userTurn], builtInsOnly)).toContain('**You (Deleted task):**');
   });
 
-  it('Try as lists the custom task, and a deleted one only as a disabled item', async () => {
+  it('Re-run as lists the custom task, and a deleted one only as a disabled item', async () => {
     const select = async (taskViews: TaskView[]) => {
       const r = render(AssistantTurn, {
         props: {

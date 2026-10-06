@@ -83,7 +83,7 @@ describe('tooltip', () => {
   });
 });
 
-describe('Try as', () => {
+describe('Re-run as', () => {
   const turn: Turn = {
     id: 'a1',
     role: 'assistant',
