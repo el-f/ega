@@ -205,6 +205,12 @@ describe('token-lint font sizes', () => {
     expect(lintCss(allowed, 'x.css')).toEqual([]);
   });
 
+  it('lets the allow marker skip every check on its line, not one declaration', () => {
+    const src = '.a { font-size: 9px; color: #ff0000; } /* token-lint-allow page sheet */';
+    expect(lintCss(src, 'x.css')).toEqual([]);
+    expect(lintCss(src.replace(' /* token-lint-allow page sheet */', ''), 'x.css')).toHaveLength(1);
+  });
+
   it('uses the custom properties other files feed into a font-size', () => {
     expect(lintCss('.a { --reader-fs: 13px; }', 'x.css')).toEqual([]);
     expect(lintCss('.a { --reader-fs: 13px; }', 'x.css', new Set(['--reader-fs']))).toHaveLength(1);
