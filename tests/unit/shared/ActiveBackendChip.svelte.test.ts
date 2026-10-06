@@ -8,9 +8,9 @@ import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import ActiveBackendChip from '@/shared/components/ActiveBackendChip.svelte';
 import { readFileSync } from 'node:fs';
 
-// The visible label drops the date/version tail; the full id stays in the custom tooltip, never a native title.
-describe('ActiveBackendChip — model label trim', () => {
-  function chipModel(anthropicModel: string): HTMLElement {
+// The model shows on each reply; the chip names the backend only, and never cuts the name (P1-5, SP2-02).
+describe('ActiveBackendChip — name only, never cut', () => {
+  function chip(anthropicModel: string): HTMLButtonElement {
     const s = parseSettings({
       backendOrder: ['anthropic'],
       disabledBackends: [],
@@ -18,45 +18,28 @@ describe('ActiveBackendChip — model label trim', () => {
       model: { ...DEFAULT_SETTINGS.model, anthropic: anthropicModel },
     });
     const { container } = render(ActiveBackendChip, { props: { settings: s, onJump: () => {} } });
-    const el = container.querySelector<HTMLElement>('.chip-model');
-    if (!el) throw new Error('.chip-model not rendered');
+    const el = container.querySelector<HTMLButtonElement>('[data-ega-backend-chip]');
+    if (!el) throw new Error('chip not rendered');
     return el;
   }
 
-  it('strips a trailing -YYYYMMDD date suffix from the visible label', () => {
-    const model = chipModel('claude-haiku-4-5-20251001');
-    expect(model.textContent.trim()).toBe('claude-haiku-4-5');
-    // Raw id preserved on hover, on the one tooltip the button already owns.
-    expect(model.getAttribute('title')).toBeNull();
-    expect(model.closest('button')?.getAttribute('data-tooltip')).toContain(
-      'claude-haiku-4-5-20251001',
-    );
+  it('shows a dot and the backend name, with no model id', () => {
+    const el = chip('claude-haiku-4-5-20251001');
+    expect(el.querySelector('.chip-name')?.textContent).toBe('Anthropic');
+    expect(el.querySelector('.chip-dot')).not.toBeNull();
+    expect(el.textContent).not.toContain('claude-haiku');
   });
 
-  it('strips a trailing -YYYY-MM-DD date suffix', () => {
-    const model = chipModel('gpt-some-model-2024-06-20');
-    expect(model.textContent.trim()).toBe('gpt-some-model');
-    expect(model.closest('button')?.getAttribute('data-tooltip')).toContain(
-      'gpt-some-model-2024-06-20',
-    );
+  it('carries the full sentence in its name and hover label, so the collapsed dot says the same', () => {
+    const el = chip('claude-haiku-4-5');
+    expect(el.getAttribute('aria-label')).toBe('Anthropic is ready. Show backends');
+    expect(el.getAttribute('data-tooltip')).toBe('Anthropic is ready. Show backends');
   });
 
-  it('leaves a dateless model id unchanged', () => {
-    const model = chipModel('llama-3.2-3b');
-    expect(model.textContent.trim()).toBe('llama-3.2-3b');
-  });
-});
-
-// Hover, focus and open recolor the chip; the model tail must inherit, not stay gray.
-describe('ActiveBackendChip — hover recolors the model tail too', () => {
-  it('resets .chip-model and .chip-sep to inherit in every accent state', () => {
+  it('has no ellipsis rule: the label fits or collapses to the dot', () => {
     const src = readFileSync('src/shared/components/ActiveBackendChip.svelte', 'utf8');
-    for (const state of [':hover', ':focus-visible', "[aria-expanded='true']"]) {
-      for (const part of ['.chip-model', '.chip-sep']) {
-        expect(src).toContain(`.active-backend-chip${state} ${part}`);
-      }
-    }
-    expect(src).toMatch(/\.chip-sep \{\s*color: inherit;/);
+    expect(src).not.toContain('text-overflow');
+    expect(src).toContain('@container ega-header (max-width: 359px)');
   });
 });
 

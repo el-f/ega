@@ -31,8 +31,8 @@ describe('ActiveBackendChip — key presence', () => {
       openaiApiKey: '',
     });
     const { container } = render(ActiveBackendChip, { props: { settings: s, onJump: () => {} } });
-    expect(container.querySelector('.empty-label')?.textContent).toBe('No backend — set one up');
-    expect(container.querySelector('.chip-name')).toBeNull();
+    expect(container.querySelector('.chip-name')?.textContent).toBe('Set up backend');
+    expect(container.querySelector('.chip-dot')).toBeNull();
   });
 
   it('names the first backend that has a key', () => {
@@ -45,13 +45,14 @@ describe('ActiveBackendChip — key presence', () => {
     });
     const { container } = render(ActiveBackendChip, { props: { settings: s, onJump: () => {} } });
     expect(container.querySelector('.chip-name')?.textContent.trim()).toBe('OpenAI');
-    expect(container.querySelector('.chip-model')?.textContent.trim()).toBe('gpt-5-mini');
+    // The model shows on each reply, so the chip never carries a raw id.
+    expect(container.textContent).not.toContain('gpt-5-mini');
   });
 });
 
 // For key-less backends (native, ollama) reachability, not key presence, is readiness.
 describe('ActiveBackendChip — key-less backends need the probe', () => {
-  it('shows "Checking…" while the probe is in flight, never the backend name', async () => {
+  it('shows "Checking" while the probe is in flight, never the backend name', async () => {
     probeMock.mockReturnValue(new Promise(() => {}));
     const s = parseSettings({
       backendOrder: ['native'],
@@ -59,8 +60,7 @@ describe('ActiveBackendChip — key-less backends need the probe', () => {
     });
     const { container } = render(ActiveBackendChip, { props: { settings: s, onJump: () => {} } });
     await tick();
-    expect(container.querySelector('.empty-label')?.textContent).toBe('Checking…');
-    expect(container.querySelector('.chip-name')).toBeNull();
+    expect(container.querySelector('.chip-name')?.textContent).toBe('Checking');
   });
 
   it('falls to the empty state when the probe finds nothing reachable', async () => {
@@ -71,9 +71,9 @@ describe('ActiveBackendChip — key-less backends need the probe', () => {
     });
     const { container } = render(ActiveBackendChip, { props: { settings: s, onJump: () => {} } });
     await waitFor(() => {
-      expect(container.querySelector('.empty-label')?.textContent).toBe('No backend — set one up');
+      expect(container.querySelector('.chip-name')?.textContent).toBe('Set up backend');
     });
-    expect(container.querySelector('.chip-name')).toBeNull();
+    expect(container.querySelector('.chip-dot')).toBeNull();
   });
 
   it('names a key-less backend once the probe saw it reachable', async () => {
@@ -87,7 +87,7 @@ describe('ActiveBackendChip — key-less backends need the probe', () => {
     });
     const { container } = render(ActiveBackendChip, { props: { settings: s, onJump: () => {} } });
     await waitFor(() => {
-      expect(container.querySelector('.chip-name')?.textContent).toContain('Native');
+      expect(container.querySelector('.chip-name')?.textContent).toContain('Claude Code or Codex');
     });
   });
 
@@ -102,7 +102,7 @@ describe('ActiveBackendChip — key-less backends need the probe', () => {
       props: { settings: s, onJump: () => {} },
     });
     await waitFor(() => {
-      expect(container.querySelector('.empty-label')?.textContent).toBe('No backend — set one up');
+      expect(container.querySelector('.chip-name')?.textContent).toBe('Set up backend');
     });
     await rerender({ settings: { ...s, ollamaUrl: 'http://127.0.0.1:11435' }, onJump: () => {} });
     await waitFor(() => {
@@ -126,10 +126,10 @@ describe('ActiveBackendChip — key-less backends need the probe', () => {
     });
     answerFirst({ available: { native: true }, active: asBackendIdUnsafe('native') });
     await waitFor(() => {
-      expect(container.querySelector('.empty-label')?.textContent).toBe('No backend — set one up');
+      expect(container.querySelector('.chip-name')?.textContent).toBe('Set up backend');
     });
     expect(probeMock).toHaveBeenCalledTimes(2);
-    expect(container.querySelector('.chip-name')).toBeNull();
+    expect(container.querySelector('.chip-dot')).toBeNull();
   });
 
   it("popover badges a keyed backend missing its key as 'no key'", async () => {

@@ -264,14 +264,10 @@ describe('BackendPopover — badge split (unconfigured vs failing)', () => {
       },
     });
     const rows = await waitForRows();
-    const nativeRow = rows.find((r) =>
-      /Native host \(Claude Code \/ Codex\)/.test(String(r.textContent)),
-    );
+    const nativeRow = rows.find((r) => /Claude Code or Codex/.test(String(r.textContent)));
     expect(nativeRow?.querySelector('.badge-error')).toBeNull();
     expect(nativeRow?.querySelector('.badge-muted')?.textContent).toBe('not running');
-    expect(nativeRow?.getAttribute('aria-label')).toBe(
-      'Native host (Claude Code / Codex), not running',
-    );
+    expect(nativeRow?.getAttribute('aria-label')).toBe('Claude Code or Codex, not running');
   });
 
   it('labels every registered backend from the registry, never a raw lowercase id', async () => {

@@ -10,7 +10,7 @@ import type { Settings } from '@/shared/types';
 function props(over: Partial<Settings> = {}, onPatch = vi.fn(), onModelChange = vi.fn()) {
   return {
     id: asBackendIdUnsafe('localserver'),
-    label: 'Local server (OpenAI-compatible)',
+    label: 'Local server',
     settings: { ...DEFAULT_SETTINGS, ...over },
     routeIsText: false,
     routeIsImage: false,

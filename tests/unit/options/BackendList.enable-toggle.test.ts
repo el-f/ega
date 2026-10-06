@@ -88,7 +88,8 @@ describe('BackendList — move buttons', () => {
       true,
     );
     expect(
-      (getByRole('button', { name: /Move Native host .* down/ }) as HTMLButtonElement).disabled,
+      (getByRole('button', { name: /Move Claude Code or Codex down/ }) as HTMLButtonElement)
+        .disabled,
     ).toBe(true);
   });
 

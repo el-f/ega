@@ -77,7 +77,7 @@ describe('LocalServerBackend', () => {
   it('is the keyless, vision-capable "localserver" backend', () => {
     const b = new LocalServerBackend();
     expect(b.id).toBe('localserver');
-    expect(b.manifest.name).toBe('Local server (OpenAI-compatible)');
+    expect(b.manifest.name).toBe('Local server');
     expect(b.manifest.capabilities.canVision).toBe(true);
     expect(typeof b.translateImage).toBe('function');
   });

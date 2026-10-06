@@ -6,7 +6,6 @@
   import { BACKEND_IDS } from '@/shared/provider-ids';
   import { asBackendIdUnsafe } from '@/shared/brands';
   import { backendHasRequiredKey, backendNeedsKey } from '@/shared/backends/key-presence';
-  import Cpu from '@lucide/svelte/icons/cpu';
   import BackendPopover from '@/shared/components/BackendPopover.svelte';
   import type { ProbeResult } from '@/shared/translate-ui';
   import { sendMsg } from '@/shared/messages';
@@ -87,17 +86,13 @@
     return backendLabel(resolvedId);
   });
 
-  const modelLabel = $derived.by(() => {
-    if (resolvedId === null) return null;
-    const map = settings.model as Record<string, string | undefined>;
-    const raw = map[resolvedId];
-    if (!raw) return null;
-    return raw;
-  });
-
-  // Strip the trailing date tail so the model family shows before the chip truncates.
-  const modelLabelShort = $derived(
-    modelLabel?.replace(/-\d{6,}$/, '').replace(/-\d{4}-\d{2}-\d{2}$/, '') ?? null,
+  // One sentence for the name and the hover label, so the collapsed dot button says what the chip said.
+  const chipName = $derived(
+    checking
+      ? 'Checking backends'
+      : backendName === null
+        ? 'No backend set up. Open backend settings'
+        : `${backendName} is ready. Show backends`,
   );
 
   function isProbeResult(r: unknown): r is ProbeResult {
@@ -170,38 +165,26 @@
   }
 </script>
 
+<!-- Never truncated: the name fits, or under 360px of header the chip becomes its dot, named in full. -->
 <button
   bind:this={chip}
   type="button"
   class="active-backend-chip"
   class:empty={resolvedId === null && !checking}
   class:checking
-  aria-label={checking
-    ? 'Checking backends'
-    : resolvedId === null
-      ? 'No backend configured — click to set one up'
-      : `Active backend: ${backendName}${modelLabel ? ` (${modelLabel})` : ''} — click to see your backends`}
-  data-tooltip={checking
-    ? 'Checking backends…'
-    : resolvedId === null
-      ? 'No backend configured — open Backends'
-      : `Active backend: ${backendName}${modelLabel ? ` (${modelLabel})` : ''} — see your backends`}
+  aria-label={chipName}
+  data-tooltip={chipName}
   data-tooltip-placement="bottom"
+  data-ega-backend-chip
   aria-haspopup={resolvedId === null && !checking ? undefined : 'dialog'}
   aria-expanded={popoverOpen}
   onclick={onClick}
 >
-  <Cpu size={12} strokeWidth={1.75} aria-hidden="true" />
-  {#if checking}
-    <span class="empty-label">Checking…</span>
-  {:else if resolvedId === null}
-    <span class="empty-label">No backend — set one up</span>
+  {#if resolvedId === null && !checking}
+    <span class="chip-name">Set up backend</span>
   {:else}
-    <span class="chip-name">{backendName}</span>
-    {#if modelLabel}
-      <span class="chip-sep" aria-hidden="true">·</span>
-      <span class="chip-model">{modelLabelShort}</span>
-    {/if}
+    <span class="chip-dot" class:on={!checking} aria-hidden="true"></span>
+    <span class="chip-name">{checking ? 'Checking' : backendName}</span>
   {/if}
 </button>
 
@@ -221,86 +204,60 @@
 <style>
   .active-backend-chip {
     appearance: none;
+    flex-shrink: 0;
     display: inline-flex;
     align-items: center;
-    gap: var(--space-1);
-    max-width: 36ch;
-    padding: 2px var(--space-2);
+    gap: var(--space-2);
+    box-sizing: border-box;
+    block-size: 28px;
+    padding: 0 var(--space-2);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-pill);
-    background: var(--color-bg-elevated);
+    background: transparent;
     color: var(--color-fg);
     font-family: var(--font-ui);
-    font-size: var(--fs-xs);
-    line-height: 1.4;
+    font-size: var(--fs-sm);
+    font-weight: 400;
+    line-height: var(--lh-body);
+    white-space: nowrap;
     cursor: pointer;
-    transition:
-      background var(--motion-fast) var(--ease-out),
-      color var(--motion-fast) var(--ease-out),
-      border-color var(--motion-fast) var(--ease-out);
   }
-  /* accent lands under 4.5:1 on the soft accent tint; accent-hover clears it in both themes. */
-  .active-backend-chip:hover {
-    background: var(--color-accent-bg-soft);
-    color: var(--color-accent-hover);
-    border-color: var(--color-accent);
+  .active-backend-chip:hover,
+  .active-backend-chip[aria-expanded='true'] {
+    background: var(--color-bg-hover);
   }
   .active-backend-chip:focus-visible {
-    background: var(--color-accent-bg-soft);
-    color: var(--color-accent-hover);
-    border-color: var(--color-accent);
     outline: 2px solid var(--color-accent);
     outline-offset: 2px;
   }
-  .active-backend-chip[aria-expanded='true'] {
-    background: var(--color-accent-bg-soft);
-    color: var(--color-accent-hover);
-    border-color: var(--color-accent);
-  }
-  .active-backend-chip:hover .chip-model,
-  .active-backend-chip:hover .chip-sep,
-  .active-backend-chip:focus-visible .chip-model,
-  .active-backend-chip:focus-visible .chip-sep,
-  .active-backend-chip[aria-expanded='true'] .chip-model,
-  .active-backend-chip[aria-expanded='true'] .chip-sep {
-    color: inherit;
-  }
-  .active-backend-chip.checking {
-    color: var(--color-muted);
-  }
   .active-backend-chip.empty {
-    color: var(--color-muted);
+    color: var(--color-warning-fg);
     border-style: dashed;
   }
-  /* Squeezed, the model id gives way first: the provider name is the part that tells chips apart. */
-  .chip-name {
-    font-weight: 500;
+  .chip-dot {
     flex-shrink: 0;
-    max-width: 100%;
+    inline-size: 8px;
+    block-size: 8px;
+    border-radius: var(--radius-pill);
+    background: var(--color-warning);
   }
-  /* A parent that squeezes the chip truncates the label, never the icon. */
-  .chip-name,
-  .empty-label {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    min-width: 0;
+  .chip-dot.on {
+    background: var(--color-dot-on);
   }
-  .active-backend-chip :global(svg) {
-    flex-shrink: 0;
+  /* The header names itself `ega-header`; a header narrower than 360px keeps only the dot. Set up backend never collapses. */
+  @container ega-header (max-width: 359px) {
+    .active-backend-chip:not(.empty) {
+      inline-size: 28px;
+      padding: 0;
+      justify-content: center;
+    }
+    .active-backend-chip:not(.empty) .chip-name {
+      display: none;
+    }
   }
-  .chip-sep {
-    color: var(--color-muted);
-  }
-  .chip-model {
-    color: var(--color-muted);
-    font-family: var(--font-mono);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    min-width: 0;
-  }
-  .empty-label {
-    font-style: italic;
+  @media (forced-colors: active) {
+    .chip-dot {
+      border: 1px solid CanvasText;
+    }
   }
 </style>

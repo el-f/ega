@@ -12,7 +12,7 @@ build.
 1. Open Ega's **Settings** page. Chrome's menus call it Options: right-click
    the toolbar icon → Options, or `chrome://extensions` → Ega → Details →
    Extension options.
-2. Go to the **Backends** tab and find the **Native host (Claude Code / Codex)**
+2. Go to the **Backends** tab and find the **Claude Code or Codex**
    card.
 3. The status pill shows the current state: **Checking…** while it checks,
    then green **Installed** with the host version, amber **Outdated**, or red

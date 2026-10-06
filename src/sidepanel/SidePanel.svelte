@@ -1172,6 +1172,7 @@
     text-decoration: none;
   }
   .sp-header {
+    container: ega-header / inline-size;
     display: flex;
     align-items: center;
     gap: var(--space-2);
@@ -1180,11 +1181,6 @@
   }
   .sp-header > :global(*) {
     flex-shrink: 0;
-  }
-  /* One row at Chrome's 400px default: the chip is the only part that gives up width. */
-  .sp-header > :global(.active-backend-chip) {
-    flex-shrink: 1;
-    min-width: 0;
   }
   .sp-title {
     display: flex;
@@ -1197,13 +1193,6 @@
   }
   .sp-header-spacer {
     flex: 1 1 auto;
-  }
-  /* Chrome opens the panel at 400px; the model tail is the widest optional part of the row. */
-  @media (max-width: 480px) {
-    .sp-header :global(.chip-sep),
-    .sp-header :global(.chip-model) {
-      display: none;
-    }
   }
   .sp-retry-popover {
     display: flex;

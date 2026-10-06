@@ -168,9 +168,9 @@ export function getCloudProfile(id: CloudProviderId): CloudProviderProfile {
 }
 
 const LOCAL_BACKEND_LABELS: Readonly<Record<string, string>> = {
-  native: 'Native host (Claude Code / Codex)',
+  native: 'Claude Code or Codex',
   ollama: 'Ollama',
-  localserver: 'Local server (OpenAI-compatible)',
+  localserver: 'Local server',
 };
 
 /** A backend's display name without loading the backend, so the popup chip stays out of the registry chunk. An unknown id comes back as is. */
