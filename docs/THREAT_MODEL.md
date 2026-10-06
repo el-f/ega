@@ -43,19 +43,32 @@ In priority order:
 
 1. **Your API keys** — 10 providers. Most valuable: remote-abusable and
    billable.
-2. **Your browsing content** — much more than the selection. Three outbound
+2. **Your browsing content** — much more than the selection. Four outbound
    flows, widest first:
-   - **"Translate this page" sends the areas you click.** It is not automatic. The
-     menu item opens translate-areas mode: you hover, click each block you want, and
-     press Enter or the toolbar button (`src/content/page-translate-v2/multi-select.ts#enterMultiSelect`).
-     A block is refused at pick time when it is over
-     `src/shared/constants.ts#MAX_SELECTION_CHARS` characters, when it is empty, when it is
-     already translated, or when it is `<html>` / `<body>` / `<head>` or a structural tag
+   - **"Translate page" sends the page's text, one screen at a time.** It starts only
+     when you press **Translate page** in the popup or pick "Ega ▸ Translate this page"
+     (`src/content/page-translate-v2/index.ts#runWholePageTranslate`). Ega lists the
+     page's text blocks (paragraphs, list items, headings, table cells), up to
+     `src/content/page-translate-v2/collect.ts#MAX_PAGE_BLOCKS` of them. A block goes out
+     only when it is on screen or within one screen height of it, so text further down
+     is sent only if you scroll to it. Ega does not send a block over
+     `src/shared/constants.ts#MAX_SELECTION_CHARS` characters, a block already in the
+     target language, code, form fields, hidden text, text marked `translate="no"`, or
+     anything inside a field that `src/content/safety.ts#isSensitiveTarget` matches
+     (`src/content/page-translate-v2/collect.ts#collectBlocks`). Each block goes out as
+     its **own** request, `Settings.batchConcurrency` of them at a time
+     (`src/content/page-translate-v2/index.ts#createSession`). **Stop** sends nothing
+     more; the blocks already sent still finish. Scroll to the end of a long page and
+     the provider gets every block you scrolled past.
+   - **"Choose areas" sends only the blocks you click.** It opens translate-areas mode:
+     you hover, click each block you want, and press Enter or **Translate**
+     (`src/content/page-translate-v2/multi-select.ts#enterMultiSelect`). A block is
+     refused at pick time when it is over `src/shared/constants.ts#MAX_SELECTION_CHARS`
+     characters, when it is empty, when it is already translated, or when it is
+     `<html>` / `<body>` / `<head>` or a structural tag
      (`src/content/page-translate-v2/multi-select.ts#selectReject`). Each selected block
-     goes out as its **own** request, `Settings.batchConcurrency` of them at a time
-     (`src/content/page-translate-v2/index.ts#startSession`). Pick twenty paragraphs
-     and the provider gets twenty paragraphs — still the widest flow, but bounded by
-     what you clicked, not by the page.
+     goes out as its own request (`src/content/page-translate-v2/index.ts#startSession`).
+     Pick twenty paragraphs and the provider gets twenty paragraphs.
    - **The image path** sends the image itself, base64-encoded and up to 4 MB —
      the largest single request Ega makes — plus the text read out of it. On the
      native CLI backend the picture is also written to the OS temp folder as
@@ -245,6 +258,8 @@ fragment are dropped before the URL enters a prompt
   sits under `data-ega-skip` (`src/content/safety.ts#isSensitiveTarget`, used from
   `src/content/index.ts#handleSelectionChange`, `src/content/picker.ts#isPickable`
   and the click handler in `src/content/page-translate-v2/multi-select.ts`).
+  Whole-page translate leaves such a field, and everything inside it, out of the
+  blocks it collects (`src/content/page-translate-v2/collect.ts#collectBlocks`).
 - The name check covers `<textarea>` as well as `<input>`, and reads every string a
   page can label a field with: `name`, `id`, `aria-label`, `placeholder`, `title`,
   every `<label for>` and every `aria-labelledby` target. The pattern matches
@@ -278,8 +293,8 @@ key or CLI quota with page-chosen text, in a loop if the page wants.
 `src/content/user-gesture.ts#isUserGesture`, which passes only an event the browser
 marks `isTrusted`: the shortcut, the bubble click, the element picker, translate-areas
 selection and its toolbar, the tooltip's Retry / Swap / Explain buttons and task / tone
-selects, and the per-block Retry button that page translate places in the page's own
-DOM. A synthetic event reaches the listener and is dropped. Proof:
+selects, and the **Try again** / **Open settings** buttons on the error chip that page
+translate and inline replace place in the page's own DOM. A synthetic event reaches the listener and is dropped. Proof:
 `tests/e2e/synthetic-events.spec.ts` dispatches each of the shortcut, the bubble click,
 a Retry click and a task change from the page and asserts that nothing is sent, then
 sends the real one. Residual: the page can still read the answer out of the open shadow

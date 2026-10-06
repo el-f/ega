@@ -99,7 +99,7 @@ it there.
 There is no off switch. Every request Ega routes to a backend is recorded — see
 [What the audit log covers](#what-the-audit-log-covers).
 
-A page translate sends one request per selected area, so it could fill the log
+A page translate sends one request per text block, so it could fill the log
 by itself. It cannot: at most 10 of the 50 rows are page-translate blocks
 (`src/shared/audit-log.ts#AUDIT_BATCH_CAP`), so your interactive requests keep
 the other 40. The cap counts block rows in the log, not rows per page translate
@@ -247,7 +247,7 @@ under `storage` above, so the panel opens with your text already in it. A failed
 image lands in the composer and waits for you to send it. When the image itself
 failed, or the panel cannot take it, the panel opens empty and the page asks
 you to attach the image there. The
-**Side panel** tile carries nothing and writes nothing.
+**Open side panel** button carries nothing and writes nothing.
 
 ## `host_permissions: <all_urls>`
 
@@ -256,12 +256,21 @@ you to attach the image there. The
 **1. Content script on every page.** Selection, hotkey, element picker,
 inline replace and page translate all run in the page.
 
-"Translate this page" is the widest of these, and it is not automatic. The menu
-item opens translate-areas mode: you hover the page, click each block you want,
-and press Enter (`src/content/page-translate-v2/multi-select.ts#enterMultiSelect`).
-Each block you picked is sent as its own request. A block over 2000 characters,
-an empty one, an already-translated one, and `<html>` / `<body>` / `<head>` are
-refused at pick time with a toast
+Page translate is the widest of these. It starts only when you press
+**Translate page** in the popup or pick "Ega ▸ Translate this page"
+(`src/content/page-translate-v2/index.ts#runWholePageTranslate`). Ega sends the
+page's text blocks one screen at a time: a block goes out when it is on screen or
+within one screen height of it, so text you never scroll to is not sent. Each
+block is its own request. Code, form fields, hidden text, text marked
+`translate="no"`, password and card fields, and blocks over 2000 characters are
+not sent (`src/content/page-translate-v2/collect.ts#collectBlocks`). **Stop**
+sends nothing more.
+
+**Choose areas** in the popup is the narrow form: you hover the page, click each
+block you want, and press Enter
+(`src/content/page-translate-v2/multi-select.ts#enterMultiSelect`). A block over
+2000 characters, an empty one, an already-translated one, and `<html>` /
+`<body>` / `<head>` are refused when you click them
 (`src/content/page-translate-v2/multi-select.ts#selectReject`). Pick twenty
 paragraphs and twenty paragraphs go out; nothing you did not click is read.
 

@@ -23,14 +23,14 @@ Ega has several surfaces and they do not send the same thing. A side-panel send 
 tooltip send collect different context. This table is the short answer; the sections after
 it give the limits and the settings.
 
-| Surface                                                               | Text you picked                 | Page title + URL | Text around your selection | Rich extras                                | Earlier turns | Image bytes                                            | Saved in a thread |
-| --------------------------------------------------------------------- | ------------------------------- | ---------------- | -------------------------- | ------------------------------------------ | ------------- | ------------------------------------------------------ | ----------------- |
-| Selection bubble, keyboard shortcut, "Ega ▸ Translate"                | yes, cut to 2000                | yes              | yes                        | yes, taken around your selection           | no            | Explain only, and only if one image dominates the page | no                |
-| Element picker                                                        | yes, cut to 2000                | yes              | no                         | page language, description, site name only | no            | no                                                     | no                |
-| "Translate page"                                                      | one request per block you click | no               | no                         | no                                         | no            | no                                                     | no                |
-| Side panel — composer, "Ega ▸ Translate in side panel", popup handoff | yes, cut to 2000                | yes              | no                         | yes, taken from the top of the page        | yes           | when you attach one                                    | yes               |
-| Right-click "Ega ▸ Translate image" / "Ega ▸ Explain image"           | no, the picture only            | no               | no                         | no                                         | no            | yes, up to 4 MB                                        | yes, by default   |
-| Settings → Backends → **Test now**                                    | a fixed sample sentence         | no               | no                         | no                                         | no            | no                                                     | no                |
+| Surface                                                               | Text you picked            | Page title + URL | Text around your selection | Rich extras                                | Earlier turns | Image bytes                                            | Saved in a thread |
+| --------------------------------------------------------------------- | -------------------------- | ---------------- | -------------------------- | ------------------------------------------ | ------------- | ------------------------------------------------------ | ----------------- |
+| Selection bubble, keyboard shortcut, "Ega ▸ Translate"                | yes, cut to 2000           | yes              | yes                        | yes, taken around your selection           | no            | Explain only, and only if one image dominates the page | no                |
+| Element picker                                                        | yes, cut to 2000           | yes              | no                         | page language, description, site name only | no            | no                                                     | no                |
+| "Translate page", "Choose areas"                                      | one request per page block | no               | no                         | no                                         | no            | no                                                     | no                |
+| Side panel — composer, "Ega ▸ Translate in side panel", popup handoff | yes, cut to 2000           | yes              | no                         | yes, taken from the top of the page        | yes           | when you attach one                                    | yes               |
+| Right-click "Ega ▸ Translate image" / "Ega ▸ Explain image"           | no, the picture only       | no               | no                         | no                                         | no            | yes, up to 4 MB                                        | yes, by default   |
+| Settings → Backends → **Test now**                                    | a fixed sample sentence    | no               | no                         | no                                         | no            | no                                                     | no                |
 
 Four notes on that table.
 
@@ -68,14 +68,14 @@ and it needs a click — see "One button in Settings calls your backend".
 ## What leaves your device
 
 Ega sends your text only after you act: you select text and click the bubble, use the
-right-click menu, press the shortcut, click "Translate page", pick an element, translate the
+right-click menu, press the shortcut, click "Translate page" or "Choose areas", pick an element, translate the
 clipboard, or type in the side-panel composer (or attach or paste an image there) and press
 send. No text is sent in the background.
 
 | What is sent                              | When                                                                                                                                 | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | The text you picked                       | always                                                                                                                               | Cut to 2000 characters per request (`src/shared/constants.ts#MAX_SELECTION_CHARS`).                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| Page text, area by area                   | "Translate page" only                                                                                                                | Not automatic: the menu item opens translate-areas mode and you click the blocks you want. One request per block you picked. A block over 2000 characters is refused at pick time with a toast — Ega never sends it, and never cuts it. Nothing you did not click is read. These requests carry no page context.                                                                                                                                                                                                     |
+| Page text, block by block                 | "Translate page" and "Choose areas" only                                                                                             | "Translate page" sends the page's text blocks one screen at a time: a block goes out when it is on screen or within one screen height of it, so text you never scroll to is not sent. Code, form fields, hidden text and text marked `translate="no"` are not sent. "Choose areas" sends only the blocks you click. One request per block. A block over 2000 characters is never sent and never cut. These requests carry no page context.                                                                           |
 | Image bytes                               | image translation; Explain — see below; an image you attach or paste in the side-panel composer, including a file from your computer | Ega downloads a page image and sends the bytes, not the URL; an attached file is read from your disk. PNG, JPEG, WebP, or GIF, up to 4 MB.                                                                                                                                                                                                                                                                                                                                                                           |
 | Page context                              | when "Send page context" is on (default: on)                                                                                         | "Minimal", the default level, sends the page title, the page URL and the text around the selection. The URL is cut to origin and path; the query string and fragment are dropped. "Rich" also sends the page language, description, site name and headings (the ones above the selection, or the first few on the page for a side-panel send), and — on a selection — up to 800 characters of the post or article block. See the surface table for who sends what, and the next row for the surrounding-text window. |
 | The text before and after your selection  | page-selection surfaces only                                                                                                         | 200 characters on each side by default, set between 50 and 800 in Settings. Nine sites raise it — see below. This window exists only for a request that starts from a selection in the page: the bubble, the shortcut and the "Ega ▸ Translate" menu item. A send composed in the side panel or the popup carries no surrounding text at all (`src/content/selection.ts#ctxBudget`).                                                                                                                                 |
@@ -389,8 +389,8 @@ computer's default local voice.
 
 ## Sensitive inputs Ega will not read
 
-The selection bubble, the element picker and translate-areas mode skip an element when any of
-these is true (`src/content/safety.ts#isSensitiveTarget`):
+The selection bubble, the element picker, translate-areas mode and whole-page translate skip an
+element when any of these is true (`src/content/safety.ts#isSensitiveTarget`):
 
 - It is `<input type="password">`.
 - Its `autocomplete` is `cc-*`, `current-password`, `new-password`, or `one-time-code`.
@@ -412,15 +412,15 @@ the first three rules and `data-ega-skip`, but not `contenteditable` and not `ro
 pressing the shortcut translates it — you asked for it explicitly. Password, card and
 one-time-code fields stay blocked on every path.
 
-"Translate page" runs the same sensitive-field check on every click, and refuses more on top
+"Choose areas" runs the same sensitive-field check on every click, and refuses more on top
 of it. It will not select `<html>`, `<body>` or `<head>` — replacing one of those in place
 would detach the document. It will not select `<script>`, `<style>`, `<link>`, `<meta>`,
 `<base>`, `<title>`, `<template>`, `<noscript>`, `<iframe>`, `<object>`, `<embed>`, `<svg>`,
 `<canvas>`, `<audio>`, `<video>`, `<input>`, `<textarea>`, `<select>`, `<option>`,
 `<optgroup>`, or a table's structural tags (`<table>`, `<thead>`, `<tbody>`, `<tfoot>`,
 `<tr>`, `<col>`, `<colgroup>`). It will not select an area Ega already translated, an empty
-one, or one over 2000 characters. Each refusal shows a toast saying why, so nothing is
-skipped silently.
+one, or one over 2000 characters. Each refusal shows the reason in the picker bar, so nothing
+is skipped silently.
 
 ## Why Ega asks for every site
 

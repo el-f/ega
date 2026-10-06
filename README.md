@@ -171,10 +171,10 @@ most. Some failures stop the walk instead: a malformed reply, an unsupported req
 or any failure after the answer has started streaming.
 
 A cloud request is billed to your own key at that provider's price. "Translate page" sends one
-request per area you pick, and an area that hits a rate limit or a network error is sent up to
-two more times. A request that fails on one backend can go on to the next one in your chain,
+request per text block as you scroll to it, and a block that hits a rate limit or a network error
+is sent up to two more times. A request that fails on one backend can go on to the next one in your chain,
 which may be paid too. **Fallback depth** caps that walk, and **Batch concurrency** (also in
-Settings → Translate) sets how many areas go out at once.
+Settings → Translate) sets how many blocks go out at once.
 
 **Active backends** at the top of the tab is that order. Press **Enable** or **Disable**
 on a row, or drag it across the divider.
