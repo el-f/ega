@@ -30,6 +30,7 @@ import {
   type Turn,
   type TurnDispatch,
   type TurnKind,
+  type SwapPair,
   type VariantSeed,
 } from './conversation';
 import {
@@ -128,6 +129,8 @@ export interface ConversationContainer {
   }) => Promise<boolean>;
   /** True when `swapVariant(turnId)` would dispatch. Drives the ↔ button's enabled state. */
   canSwap: (turnId: string) => boolean;
+  /** The pair `swapVariant(turnId)` would send, or null when `canSwap` is false. Names the swap in the menu. */
+  swapPair: (turnId: string) => SwapPair | null;
   /** Re-dispatch with source and target langs swapped. False whenever `canSwap` is false. */
   swapVariant: (turnId: string) => Promise<boolean>;
   /** Re-dispatch the turn with a different task. False when inflight or unresolvable. */
@@ -745,20 +748,22 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     return isIsoCode(detected) ? asLangSelection(detected) : null;
   }
 
-  /** The ↔ button reads this, so an enabled button always has a swap to run. */
-  function canSwap(turnId: string): boolean {
-    if (state.inflightId !== null || ownedByBackground(turnId)) return false;
+  /** The swap item reads this, so an enabled item always has a swap to run, and its label names that run. */
+  function swapPair(turnId: string): SwapPair | null {
+    if (state.inflightId !== null || ownedByBackground(turnId)) return null;
     const target = resolveVariantTarget(turnId);
-    return target !== null && swapSource(target) !== null;
+    const source = target === null ? null : swapSource(target);
+    if (target === null || source === null) return null;
+    return { sourceLang: target.reuse.targetLang, targetLang: source };
+  }
+
+  function canSwap(turnId: string): boolean {
+    return swapPair(turnId) !== null;
   }
 
   async function swapVariant(turnId: string): Promise<boolean> {
-    if (state.inflightId !== null) return false;
-    const target = resolveVariantTarget(turnId);
-    if (target === null) return false;
-    const source = swapSource(target);
-    if (source === null) return false;
-    return dispatchVariant(turnId, { targetLang: source, sourceLang: target.reuse.targetLang });
+    const pair = swapPair(turnId);
+    return pair === null ? false : dispatchVariant(turnId, pair);
   }
 
   async function taskVariant(turnId: string, task: TaskId): Promise<boolean> {
@@ -1458,6 +1463,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     retry,
     refine,
     canSwap,
+    swapPair,
     swapVariant,
     taskVariant,
     langVariant,

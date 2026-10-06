@@ -65,10 +65,10 @@ test('external image-translate turn shows its image and Regenerate, but no refin
   });
   timeline.markStep('turn-completed');
 
-  // image-translate has no refine task, so the chips never derive one.
-  await assertStaysStable(() => sp.locator('[data-ega-quick-refine]').count(), 0, {
+  // image-translate has no refine task, so no Refine button opens chips.
+  await assertStaysStable(() => sp.locator('[data-ega-refine-toggle]').count(), 0, {
     windowMs: 1_000,
-    message: 'quick-refine chips must not mount on image-translate turn',
+    message: 'the Refine button must not mount on an image-translate turn',
   });
   timeline.markStep('no-refine-chips');
 

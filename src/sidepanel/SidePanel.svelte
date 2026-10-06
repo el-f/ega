@@ -141,7 +141,7 @@
   // Composer swap only. The stream's ↔ re-runs a past turn, so it gates on that turn, not the picker.
   const swapDisabled = $derived(sourceLang === 'auto');
   const latestTurnId = $derived(conversation.turns.at(-1)?.id ?? null);
-  const turnSwapDisabled = $derived(latestTurnId === null || !conversation.canSwap(latestTurnId));
+  const turnSwapPair = $derived(latestTurnId === null ? null : conversation.swapPair(latestTurnId));
   const hasInflight = $derived(conversation.inflightId !== null);
   // One gate for New and both export items: disabled until there is a thread.
   const isEmptyThread = $derived(conversation.turns.length === 0);
@@ -542,9 +542,10 @@
   /** Every bare-key shortcut is off while the user is typing. */
   function isTextEntry(target: EventTarget | null): boolean {
     return (
-      // A native select or a bits-ui menu owns its own arrow keys and letter type-ahead.
+      // A native select or a bits-ui menu owns its own arrow keys and letter type-ahead; the open refine row keeps its keys too.
       target instanceof HTMLSelectElement ||
-      (target instanceof Element && target.closest('[role="menu"]') !== null) ||
+      (target instanceof Element &&
+        target.closest('[role="menu"], [data-ega-quick-refine]') !== null) ||
       target instanceof HTMLTextAreaElement ||
       target instanceof HTMLInputElement ||
       (target instanceof HTMLElement && target.isContentEditable)
@@ -1020,7 +1021,8 @@
       onSelectVariant={(turnId, idx) => conversation.selectVariant(turnId, idx)}
       onSwap={(id) => void conversation.swapVariant(id)}
       onTaskSwitch={(id, t) => void conversation.taskVariant(id, t)}
-      swapDisabled={turnSwapDisabled}
+      swapDisabled={turnSwapPair === null}
+      swapPair={turnSwapPair}
       onRegisterKeydownHandler={(h) => {
         streamKeydownHandler = h;
       }}

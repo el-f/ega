@@ -111,7 +111,7 @@ describe('a custom-task turn', () => {
   it.each([
     [assistantTurn, false],
     [{ ...assistantTurn, taskId: undefined }, true],
-  ] as const)('refine chips: custom task %#', (turn, shown) => {
+  ] as const)('the Refine button: custom task %#', (turn, shown) => {
     const { container } = render(AssistantTurn, {
       props: {
         turn: turn as Turn,
@@ -121,7 +121,7 @@ describe('a custom-task turn', () => {
         taskViews: views,
       },
     });
-    expect(container.querySelector('[data-ega-quick-refine]') !== null).toBe(shown);
+    expect(container.querySelector('[data-ega-refine-toggle]') !== null).toBe(shown);
   });
 });
 

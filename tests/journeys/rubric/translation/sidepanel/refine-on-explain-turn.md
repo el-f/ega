@@ -7,7 +7,7 @@
 ## State expectations
 
 - Step 1: an explain task turn has completed in the sidepanel (AssistantTurn with `task=explain`).
-- Step 2: quick-refine chips render below the explain turn ([Shorter], [Less formal], [Keep slang], [Refine]).
+- Step 2: pressing the turn's Refine button opens the quick-refine chips below the explain turn ([Shorter], [Less formal], [Keep slang], [Refine]).
 - Step 3 (click [Shorter]): a variant AssistantTurn spawns; the outbound request carries `task=explain` and the [Shorter] modifier; the variant explains the same source text but in a shorter form.
 
 ## Visible affordances

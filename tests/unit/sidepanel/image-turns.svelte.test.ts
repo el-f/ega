@@ -23,12 +23,12 @@ function doneTurn(kind: Turn['kind']): Turn {
   };
 }
 
-describe('refine chips and image turns', () => {
-  it('a text turn offers chips', () => {
+describe('the Refine button and image turns', () => {
+  it('a text turn offers the Refine button', () => {
     const { container } = render(AssistantTurn, {
       props: { turn: doneTurn('translate'), onRetry: vi.fn(), onRefine: vi.fn(), isLatest: true },
     });
-    expect(container.querySelector('[data-ega-refine-chip]')).not.toBeNull();
+    expect(container.querySelector('[data-ega-refine-toggle]')).not.toBeNull();
   });
 
   it('an explain turn that carries an image offers none: the vision arm ignores a refinement', () => {
@@ -41,7 +41,7 @@ describe('refine chips and image turns', () => {
         hasImage: true,
       },
     });
-    expect(container.querySelector('[data-ega-refine-chip]')).toBeNull();
+    expect(container.querySelector('[data-ega-refine-toggle]')).toBeNull();
   });
 
   it('an image-translate turn offers none', () => {
@@ -53,7 +53,7 @@ describe('refine chips and image turns', () => {
         isLatest: true,
       },
     });
-    expect(container.querySelector('[data-ega-refine-chip]')).toBeNull();
+    expect(container.querySelector('[data-ega-refine-toggle]')).toBeNull();
   });
 });
 

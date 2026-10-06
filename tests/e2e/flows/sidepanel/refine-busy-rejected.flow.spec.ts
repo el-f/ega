@@ -1,6 +1,11 @@
 /* coverage: translation.sidepanel.refine-busy-rejected */
 import { test, expect } from '@playwright/test';
-import { launchExtension, seedSettings, type ExtensionHandle } from '../../helpers';
+import {
+  launchExtension,
+  seedSettings,
+  type ExtensionHandle,
+  openRefineChips,
+} from '../../helpers';
 import { assertStaysStable, createTimeline, sseOk } from '../_harness';
 
 let ext: ExtensionHandle;
@@ -61,6 +66,7 @@ test('refine chip click while translate in-flight shows warning toast and does n
   await expect(page.locator('.ega-assistant-body').first()).toContainText('Hello', {
     timeout: 10_000,
   });
+  await openRefineChips(page);
   await expect(page.locator('[data-ega-refine-chip="shorter"]')).toBeVisible({ timeout: 5_000 });
   timeline.markStep('first-turn-done');
 
@@ -68,6 +74,8 @@ test('refine chip click while translate in-flight shows warning toast and does n
   await page.getByRole('button', { name: /^Translate$/ }).click();
   await expect(page.getByRole('button', { name: 'Stop' })).toBeVisible({ timeout: 5_000 });
   timeline.markStep('second-send-in-flight');
+  // The first reply is no longer the newest, so its open chip row closes.
+  await expect(page.locator('[data-ega-quick-refine]')).toHaveCount(0);
 
   // refine() bails while inflightId !== null; the first turn's chips stay on screen.
   const shorter = page.locator('[data-ega-refine-chip="shorter"]').first();

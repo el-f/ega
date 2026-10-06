@@ -316,13 +316,20 @@ export const COVERAGE: readonly Family[] = [
           },
           {
             id: 'quick-refine-chip',
-            description: 'Quick-refine chip amends the last assistant turn',
+            description:
+              'Refine button opens the chips; a quick-refine chip amends the last assistant turn',
             flows: ['sidepanel/quick-refine-chip.flow.spec.ts'],
           },
           {
             id: 'task-switch-convo',
             description: 'Task switch within conversation re-routes prompts',
             flows: ['sidepanel/task-switch-convo.flow.spec.ts'],
+          },
+          {
+            id: 'try-as-swap',
+            description:
+              'Try as menu: Swap languages re-answers the last turn the other way; a blocked swap shows its reason',
+            flows: ['sidepanel/try-as-swap.flow.spec.ts'],
           },
           {
             id: 'tone-switch-convo',
@@ -400,7 +407,7 @@ export const COVERAGE: readonly Family[] = [
           {
             id: 'image-turn-no-refine-chips',
             description:
-              'External image-translate turn completes → thumbnail + Regenerate present, refine chips absent',
+              'External image-translate turn completes → thumbnail + Regenerate present, Refine button absent',
             flows: ['sidepanel/image-turn-no-refine-chips.flow.spec.ts'],
           },
         ],

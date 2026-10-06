@@ -7,6 +7,7 @@ import SidePanel from '@/sidepanel/SidePanel.svelte';
 import AssistantTurn from '@/sidepanel/conversation/AssistantTurn.svelte';
 import type { Turn } from '@/sidepanel/state/conversation';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
+import { openTaskMenu, swapItem } from './_task-menu';
 
 beforeEach(async () => {
   await chrome.storage.local.clear();
@@ -65,7 +66,7 @@ describe('a blocked swap button says why in its label', () => {
     expect(swap.getAttribute('aria-label')).toContain('source language');
   });
 
-  it('the turn swap carries the reason', () => {
+  it('the turn swap item carries the reason as text', async () => {
     const turn: Turn = {
       id: 'a1',
       role: 'assistant',
@@ -83,10 +84,9 @@ describe('a blocked swap button says why in its label', () => {
         swapDisabled: true,
       },
     });
-    const swap = container.querySelector<HTMLButtonElement>('[data-ega-swap]');
-    if (!swap) throw new Error('turn swap not found');
-    expect(swap.getAttribute('aria-disabled')).toBe('true');
-    expect(swap.getAttribute('aria-label')).toContain('source language');
+    await openTaskMenu(container);
+    expect(swapItem().getAttribute('aria-disabled')).toBe('true');
+    expect(swapItem().textContent).toContain('source language');
   });
 });
 

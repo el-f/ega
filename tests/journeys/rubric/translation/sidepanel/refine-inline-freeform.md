@@ -6,7 +6,7 @@
 
 ## State expectations
 
-- Step 1: an AssistantTurn has completed; a "Refine" button sits in the chip row below it; clicking it opens the freeform input.
+- Step 1: an AssistantTurn has completed; its Refine button opens the chip row, and the "Refine" chip in that row opens the freeform input.
 - Step 2: user types custom refinement text into the freeform input and submits (Enter or the Apply button).
 - Step 3: a variant AssistantTurn spawns; the outbound request carries the custom text as the refinement modifier; no new UserTurn appends.
 
@@ -14,7 +14,7 @@
 
 - The Refine input is distinct from the main composer — it is scoped to the last turn, not to the full conversation.
 - The Apply button or Enter triggers the variant; clicking Refine again collapses the input.
-- On submit the input clears and closes; the chip row is hidden while the variant streams.
+- On submit the input clears and the chip row closes; it stays closed after the variant finishes until Refine is pressed again.
 
 ## Failure-mode expectations
 

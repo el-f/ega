@@ -1,6 +1,12 @@
 /* coverage: translation.sidepanel.refine-inline-freeform */
 import { test, expect } from '@playwright/test';
-import { launchExtension, mockAnthropic, seedSettings, type ExtensionHandle } from '../../helpers';
+import {
+  launchExtension,
+  mockAnthropic,
+  seedSettings,
+  type ExtensionHandle,
+  openRefineChips,
+} from '../../helpers';
 import { createTimeline } from '../_harness';
 
 let ext: ExtensionHandle;
@@ -33,6 +39,7 @@ test('freeform [+ Refine] input submits custom refinement text and spawns a vari
   });
   timeline.markStep('first-turn-done');
 
+  await openRefineChips(page);
   const refineToggle = page.locator('[data-ega-refine-chip="refine"]');
   await expect(refineToggle).toBeVisible({ timeout: 5_000 });
 

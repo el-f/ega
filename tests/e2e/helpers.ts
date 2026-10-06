@@ -791,3 +791,11 @@ export async function openLanguagePrompt(page: Page, id: string, label: string):
   await row.locator(`[data-ega-variety-prompt-open="${id}"]`).click();
   await row.locator('[data-ega-template-editor]').waitFor({ timeout: 10_000 });
 }
+
+/** The refine chips stay hidden until the newest reply's Refine button opens them. */
+export async function openRefineChips(page: Page, timeout = 10_000): Promise<void> {
+  const toggle = page.locator('[data-ega-refine-toggle]');
+  await toggle.waitFor({ state: 'visible', timeout });
+  if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
+  await page.locator('[data-ega-quick-refine]').waitFor({ state: 'visible', timeout: 5_000 });
+}

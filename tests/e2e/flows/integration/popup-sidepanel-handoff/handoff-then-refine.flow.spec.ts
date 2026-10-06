@@ -5,6 +5,7 @@ import {
   mockAnthropic,
   seedSettings,
   type ExtensionHandle,
+  openRefineChips,
 } from '../../../helpers';
 import { createTimeline } from '../../_harness';
 
@@ -79,6 +80,7 @@ test('handoff seeds sidepanel; quick-refine chip on seeded turn spawns a variant
   });
   timeline.markStep('sidepanel-seeded');
 
+  await openRefineChips(sp);
   const shorter = sp.locator('[data-ega-refine-chip="shorter"]');
   await expect(shorter).toBeVisible({ timeout: 5_000 });
   timeline.markStep('chips-mounted');

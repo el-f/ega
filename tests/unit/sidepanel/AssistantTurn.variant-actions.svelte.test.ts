@@ -4,7 +4,7 @@ import { fireEvent, render, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import AssistantTurn from '@/sidepanel/conversation/AssistantTurn.svelte';
 import type { AssistantTurnData } from '@/sidepanel/state/conversation';
-import { openTaskMenu, pickTask } from './_task-menu';
+import { openTaskMenu, pickTask, swapItem } from './_task-menu';
 
 const baseTurn = (overrides: Partial<AssistantTurnData> = {}): AssistantTurnData => ({
   id: 'a1',
@@ -24,51 +24,95 @@ const baseTurn = (overrides: Partial<AssistantTurnData> = {}): AssistantTurnData
   ...overrides,
 });
 
-describe('AssistantTurn — swap + task-switch actions', () => {
-  it('renders swap button and the Try as menu when isLatest + done + onSwap provided', () => {
-    const onSwap = vi.fn();
-    const onTaskSwitch = vi.fn();
-    const { container } = render(AssistantTurn, {
-      props: {
-        turn: baseTurn(),
-        onRetry: vi.fn(),
-        isLatest: true,
-        onSwap,
-        onTaskSwitch,
-      },
-    });
-    expect(container.querySelector('[data-ega-swap]')).not.toBeNull();
-    expect(container.querySelector('[data-ega-task-switch]')).not.toBeNull();
+const latest = (props: Record<string, unknown> = {}) =>
+  render(AssistantTurn, {
+    props: {
+      turn: baseTurn(),
+      onRetry: vi.fn(),
+      isLatest: true,
+      onSwap: vi.fn(),
+      onTaskSwitch: vi.fn(),
+      ...props,
+    },
   });
 
-  it('clicking swap button calls onSwap(turnId)', async () => {
+const focusedMenuItem = (): HTMLElement => {
+  const el = document.activeElement;
+  if (!(el instanceof HTMLElement) || el.closest('[role="menu"]') === null) {
+    throw new Error('no menu item focused');
+  }
+  return el;
+};
+
+describe('AssistantTurn — the Try as menu holds swap and the task re-runs', () => {
+  it('is one icon button in the action row, with no separate swap row', () => {
+    const { container, getByRole } = latest();
+    const trigger = getByRole('button', { name: 'Try as another task' });
+    expect(trigger.hasAttribute('data-ega-task-switch')).toBe(true);
+    expect(trigger.closest('[role="toolbar"]')).not.toBeNull();
+    expect(trigger.getAttribute('data-tooltip')).toBe('Try as…');
+    // The swap lives in the menu now; nothing renders it in the card itself.
+    expect(container.querySelector('[data-ega-swap]')).toBeNull();
+    expect(container.querySelector('.ega-variant-actions')).toBeNull();
+  });
+
+  it('lists swap first, then a separator, then the tasks', async () => {
+    const { container } = latest();
+    await openTaskMenu(container);
+    const kids = [...(document.querySelector('[role="menu"]')?.children ?? [])];
+    expect(kids[0]?.hasAttribute('data-ega-swap-item')).toBe(true);
+    expect(kids[0]?.hasAttribute('data-ega-swap')).toBe(true);
+    expect(kids[1]?.getAttribute('role')).toBe('separator');
+    expect(kids[2]?.querySelector('[data-ega-task-switch-item]')).not.toBeNull();
+  });
+
+  it('the swap item calls onSwap(turnId) and closes the menu', async () => {
     const onSwap = vi.fn();
-    const { container } = render(AssistantTurn, {
-      props: {
-        turn: baseTurn(),
-        onRetry: vi.fn(),
-        isLatest: true,
-        onSwap,
-        onTaskSwitch: vi.fn(),
-      },
-    });
-    const btn = container.querySelector<HTMLButtonElement>('[data-ega-swap]');
-    if (!btn) throw new Error('swap btn missing');
-    await fireEvent.click(btn);
+    const { container } = latest({ onSwap });
+    await openTaskMenu(container);
+    await fireEvent.click(swapItem());
     expect(onSwap).toHaveBeenCalledWith('a1');
+    await waitFor(() => {
+      if (document.querySelector('[data-ega-swap-item]')) throw new Error('still open');
+    });
   });
 
-  it('picking a task in the Try as menu calls onTaskSwitch(turnId, task)', async () => {
+  it('names the pair the swap will run with', async () => {
+    const { container } = latest({ swapPair: { sourceLang: 'en', targetLang: 'es' } });
+    await openTaskMenu(container);
+    expect(swapItem().textContent.trim()).toBe('Swap languages (English → Spanish)');
+    expect(swapItem().getAttribute('aria-disabled')).toBe('false');
+  });
+
+  it('a blocked swap stays reachable by arrow keys, shows why as text, and does nothing', async () => {
+    const onSwap = vi.fn();
+    const { container } = latest({ onSwap, swapDisabled: true });
+    await openTaskMenu(container);
+    // A keyboard open lands on the first item; bits' own disabled would have skipped it.
+    await waitFor(focusedMenuItem);
+    expect(focusedMenuItem()).toBe(swapItem());
+    expect(swapItem().getAttribute('aria-disabled')).toBe('true');
+    expect(swapItem().hasAttribute('data-disabled')).toBe(false);
+    expect(swapItem().querySelector('[data-ega-swap-note]')?.textContent).toBe(
+      'No source language to swap from yet',
+    );
+    await fireEvent.click(swapItem());
+    await tick();
+    expect(onSwap).not.toHaveBeenCalled();
+    // A blocked pick keeps the menu open, so the reason stays on screen.
+    expect(document.querySelector('[data-ega-swap-item]')).not.toBeNull();
+  });
+
+  it('an image turn says why it has no swap', async () => {
+    const { container } = latest({ hasImage: true });
+    await openTaskMenu(container);
+    expect(swapItem().getAttribute('aria-disabled')).toBe('true');
+    expect(swapItem().textContent).toContain('Images have no source language to swap');
+  });
+
+  it('picking a task calls onTaskSwitch(turnId, task)', async () => {
     const onTaskSwitch = vi.fn();
-    const { container } = render(AssistantTurn, {
-      props: {
-        turn: baseTurn(),
-        onRetry: vi.fn(),
-        isLatest: true,
-        onSwap: vi.fn(),
-        onTaskSwitch,
-      },
-    });
+    const { container } = latest({ onTaskSwitch });
     await pickTask(container, 'explain');
     expect(onTaskSwitch).toHaveBeenCalledTimes(1);
     expect(onTaskSwitch).toHaveBeenCalledWith('a1', 'explain');
@@ -76,77 +120,47 @@ describe('AssistantTurn — swap + task-switch actions', () => {
 
   it('arrow keys only move the highlight; Enter on the highlighted task re-runs once', async () => {
     const onTaskSwitch = vi.fn();
-    const { container } = render(AssistantTurn, {
-      props: {
-        turn: baseTurn(),
-        onRetry: vi.fn(),
-        isLatest: true,
-        onSwap: vi.fn(),
-        onTaskSwitch,
-      },
-    });
+    const onSwap = vi.fn();
+    const { container } = latest({ onTaskSwitch, onSwap });
     await openTaskMenu(container);
-    // A keyboard open focuses the first item; arrows then move focus, and the highlight follows it.
-    const focusedItem = (): HTMLElement => {
-      const el = document.activeElement;
-      if (!(el instanceof HTMLElement) || !el.hasAttribute('data-ega-task-switch-item')) {
-        throw new Error('no task item focused');
-      }
-      return el;
-    };
-    await waitFor(focusedItem);
-    await fireEvent.keyDown(focusedItem(), { key: 'ArrowDown' });
-    await fireEvent.keyDown(focusedItem(), { key: 'ArrowDown' });
+    await waitFor(focusedMenuItem);
+    await fireEvent.keyDown(focusedMenuItem(), { key: 'ArrowDown' });
+    await fireEvent.keyDown(focusedMenuItem(), { key: 'ArrowDown' });
     await tick();
     expect(onTaskSwitch).not.toHaveBeenCalled();
-    const highlighted = focusedItem();
-    expect(highlighted.getAttribute('data-ega-task-switch-item')).not.toBe('translate');
+    expect(onSwap).not.toHaveBeenCalled();
+    const highlighted = focusedMenuItem();
+    const id = highlighted.getAttribute('data-ega-task-switch-item');
+    expect(id).not.toBeNull();
+    expect(id).not.toBe('translate');
     await fireEvent.keyDown(highlighted, { key: 'Enter' });
     await tick();
     expect(onTaskSwitch).toHaveBeenCalledTimes(1);
-    expect(onTaskSwitch).toHaveBeenCalledWith(
-      'a1',
-      highlighted.getAttribute('data-ega-task-switch-item'),
-    );
+    expect(onTaskSwitch).toHaveBeenCalledWith('a1', id);
   });
 
   it('picking the task that already answered re-runs nothing', async () => {
     const onTaskSwitch = vi.fn();
-    const { container } = render(AssistantTurn, {
-      props: {
-        turn: baseTurn(),
-        onRetry: vi.fn(),
-        isLatest: true,
-        onSwap: vi.fn(),
-        onTaskSwitch,
-      },
-    });
+    const { container } = latest({ onTaskSwitch });
     await pickTask(container, 'translate');
     expect(onTaskSwitch).not.toHaveBeenCalled();
   });
 
   it('a busy Try as stays focusable, names its reason, and opens no menu', async () => {
-    const { container } = render(AssistantTurn, {
-      props: {
-        turn: baseTurn(),
-        onRetry: vi.fn(),
-        isLatest: true,
-        onSwap: vi.fn(),
-        onTaskSwitch: vi.fn(),
-        inflight: true,
-      },
-    });
+    const { container } = latest({ inflight: true });
     const trigger = container.querySelector<HTMLButtonElement>('[data-ega-task-switch]');
     if (!trigger) throw new Error('trigger missing');
     expect(trigger.disabled).toBe(false);
     expect(trigger.getAttribute('aria-disabled')).toBe('true');
     expect(trigger.getAttribute('data-tooltip')).toBe('Wait for this reply to finish');
-    expect(trigger.getAttribute('aria-label')).toBe('Try as… — wait for this reply to finish');
+    expect(trigger.getAttribute('aria-label')).toBe(
+      'Try as another task — wait for this reply to finish',
+    );
     // One gesture at a time: a key then a click would toggle twice and close an open menu.
     const menuOpens = (): Promise<void> =>
       waitFor(
         () => {
-          if (!document.querySelector('[data-ega-task-switch-item]')) throw new Error('closed');
+          if (!document.querySelector('[data-ega-swap-item]')) throw new Error('closed');
         },
         { timeout: 300 },
       );
@@ -158,152 +172,21 @@ describe('AssistantTurn — swap + task-switch actions', () => {
     expect(trigger.getAttribute('aria-expanded')).toBe('false');
   });
 
-  it('does not render swap or task-switch when isLatest is false', () => {
-    const { container } = render(AssistantTurn, {
-      props: {
-        turn: baseTurn(),
-        onRetry: vi.fn(),
-        isLatest: false,
-        onSwap: vi.fn(),
-        onTaskSwitch: vi.fn(),
-      },
-    });
-    expect(container.querySelector('[data-ega-swap]')).toBeNull();
+  it('is absent on an older reply', () => {
+    const { container } = latest({ isLatest: false });
     expect(container.querySelector('[data-ega-task-switch]')).toBeNull();
   });
 
-  it('does not render when status is not done', () => {
-    const { container } = render(AssistantTurn, {
-      props: {
-        turn: baseTurn({ status: 'streaming', variants: [] }),
-        onRetry: vi.fn(),
-        isLatest: true,
-        onSwap: vi.fn(),
-        onTaskSwitch: vi.fn(),
-      },
-    });
-    expect(container.querySelector('[data-ega-swap]')).toBeNull();
+  it('is absent while the reply is still streaming', () => {
+    const { container } = latest({ turn: baseTurn({ status: 'streaming', variants: [] }) });
     expect(container.querySelector('[data-ega-task-switch]')).toBeNull();
   });
 
-  it('swap button is aria-disabled when swapDisabled is true', () => {
-    const { container } = render(AssistantTurn, {
-      props: {
-        turn: baseTurn(),
-        onRetry: vi.fn(),
-        isLatest: true,
-        onSwap: vi.fn(),
-        onTaskSwitch: vi.fn(),
-        swapDisabled: true,
-      },
-    });
-    const btn = container.querySelector<HTMLButtonElement>('[data-ega-swap]');
-    expect(btn?.getAttribute('aria-disabled')).toBe('true');
-  });
-
-  it('a blocked swap stays focusable, says why in its name, and does nothing on click', async () => {
-    const onSwap = vi.fn();
-    const { container } = render(AssistantTurn, {
-      props: {
-        turn: baseTurn(),
-        onRetry: vi.fn(),
-        isLatest: true,
-        onSwap,
-        onTaskSwitch: vi.fn(),
-        swapDisabled: true,
-      },
-    });
-    const btn = container.querySelector<HTMLButtonElement>('[data-ega-swap]');
-    if (!btn) throw new Error('swap btn missing');
-    expect(btn.hasAttribute('disabled')).toBe(false);
-    expect(btn.tabIndex).toBe(0);
-    expect(btn.textContent.trim()).toBe('Swap');
-    expect(btn.getAttribute('aria-label')).toBe(
-      'Swap languages — no source language to swap from yet',
-    );
-    await fireEvent.click(btn);
-    expect(onSwap).not.toHaveBeenCalled();
-  });
-
-  it('swap button is enabled when swapDisabled is false', () => {
-    const { container } = render(AssistantTurn, {
-      props: {
-        turn: baseTurn(),
-        onRetry: vi.fn(),
-        isLatest: true,
-        onSwap: vi.fn(),
-        onTaskSwitch: vi.fn(),
-        swapDisabled: false,
-      },
-    });
-    const btn = container.querySelector<HTMLButtonElement>('[data-ega-swap]');
-    expect(btn?.getAttribute('aria-disabled')).toBe('false');
-  });
-
-  it('disabled swap button explains why via data-tooltip', () => {
-    const { container } = render(AssistantTurn, {
-      props: {
-        turn: baseTurn(),
-        onRetry: vi.fn(),
-        isLatest: true,
-        onSwap: vi.fn(),
-        onTaskSwitch: vi.fn(),
-        swapDisabled: true,
-      },
-    });
-    const btn = container.querySelector<HTMLButtonElement>('[data-ega-swap]');
-    expect(btn?.getAttribute('data-tooltip')).toBe('No source language to swap from yet');
-  });
-
-  it('enabled swap button tooltip describes the action', () => {
-    const { container } = render(AssistantTurn, {
-      props: {
-        turn: baseTurn(),
-        onRetry: vi.fn(),
-        isLatest: true,
-        onSwap: vi.fn(),
-        onTaskSwitch: vi.fn(),
-        swapDisabled: false,
-      },
-    });
-    const btn = container.querySelector<HTMLButtonElement>('[data-ega-swap]');
-    expect(btn?.getAttribute('data-tooltip')).toBe('Swap languages and re-run');
-  });
-
-  // The block is gated on latest+done+onSwap, NOT on task=translate, so the
-  // copy must stay task-neutral — currentTaskValue can be explain/summarize.
-  it('swap + task-switch copy is task-neutral for a non-translate turn', () => {
-    const { container } = render(AssistantTurn, {
-      props: {
-        turn: baseTurn({ kind: 'explain' }),
-        onRetry: vi.fn(),
-        isLatest: true,
-        onSwap: vi.fn(),
-        onTaskSwitch: vi.fn(),
-        swapDisabled: false,
-      },
-    });
-    const swap = container.querySelector<HTMLButtonElement>('[data-ega-swap]');
-    expect(swap?.getAttribute('aria-label')).toBe('Swap languages and re-run');
-    expect(swap?.getAttribute('data-tooltip')).toBe('Swap languages and re-run');
-    const trigger = container.querySelector<HTMLButtonElement>('[data-ega-task-switch]');
-    // The visible text is the accessible name; an aria-label beside it would override the text.
-    expect(trigger?.getAttribute('aria-label')).toBeNull();
-    expect(trigger?.textContent.trim()).toBe('Try as…');
-  });
-
-  it('disabled swap tooltip is preserved (task-neutral did not break it)', () => {
-    const { container } = render(AssistantTurn, {
-      props: {
-        turn: baseTurn({ kind: 'summarize' }),
-        onRetry: vi.fn(),
-        isLatest: true,
-        onSwap: vi.fn(),
-        onTaskSwitch: vi.fn(),
-        swapDisabled: true,
-      },
-    });
-    const swap = container.querySelector<HTMLButtonElement>('[data-ega-swap]');
-    expect(swap?.getAttribute('data-tooltip')).toBe('No source language to swap from yet');
+  // Gated on latest+done+onSwap, NOT on task=translate, so the copy must stay task-neutral.
+  it('keeps the copy task-neutral on a non-translate turn', async () => {
+    const { container, getByRole } = latest({ turn: baseTurn({ kind: 'explain' }) });
+    expect(getByRole('button', { name: 'Try as another task' })).toBeTruthy();
+    await openTaskMenu(container);
+    expect(swapItem().textContent.trim()).toBe('Swap languages');
   });
 });

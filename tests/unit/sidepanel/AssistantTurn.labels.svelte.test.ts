@@ -43,7 +43,7 @@ describe('AssistantTurn — context preview, labels and tooltips', () => {
     expect(await openedPreview(container)).not.toBeNull();
   });
 
-  it('the task menu trigger says what it does in visible text, and has no idle tooltip', () => {
+  it('the Try as icon button names itself and shows a short tooltip', () => {
     const { container } = render(AssistantTurn, {
       props: {
         turn: baseTurn(),
@@ -54,10 +54,9 @@ describe('AssistantTurn — context preview, labels and tooltips', () => {
       },
     });
     const trigger = container.querySelector('[data-ega-task-switch]');
-    // The global [data-tooltip] rule ignores an empty value, and the visible text is the name.
-    expect(trigger?.getAttribute('data-tooltip')).toBe('');
-    expect(trigger?.getAttribute('aria-label')).toBeNull();
-    expect(trigger?.textContent.trim()).toBe('Try as…');
+    expect(trigger?.getAttribute('data-tooltip')).toBe('Try as…');
+    expect(trigger?.getAttribute('aria-label')).toBe('Try as another task');
+    expect(trigger?.textContent.trim()).toBe('');
   });
 
   it('timestamp uses data-tooltip (not native title)', () => {

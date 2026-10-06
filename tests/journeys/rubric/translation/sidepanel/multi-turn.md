@@ -14,7 +14,7 @@
 
 - Each turn carries its task/tone chips on the user side; ResultMeta on the assistant side.
 - Scroll position auto-sticks to the bottom while streaming.
-- Every assistant reply has the same card. Only the quick-refine chips and the swap / Try as row sit on the latest reply. A reply keeps its box when a newer turn arrives.
+- Every assistant reply has the same card. Only the latest reply has the Refine and Try as buttons in its action row. A reply keeps its box when a newer turn arrives.
 
 ## Failure-mode expectations
 

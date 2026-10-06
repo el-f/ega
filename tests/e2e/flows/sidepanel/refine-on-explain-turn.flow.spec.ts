@@ -1,6 +1,11 @@
 /* coverage: translation.sidepanel.refine-on-explain-turn */
 import { test, expect } from '@playwright/test';
-import { launchExtension, seedSettings, type ExtensionHandle } from '../../helpers';
+import {
+  launchExtension,
+  seedSettings,
+  type ExtensionHandle,
+  openRefineChips,
+} from '../../helpers';
 import { createTimeline } from '../_harness';
 
 let ext: ExtensionHandle;
@@ -66,6 +71,7 @@ test('explain turn done → chips mount → [Shorter] → variant with explain o
   });
   timeline.markStep('explain-turn-done');
 
+  await openRefineChips(page);
   const shorter = page.locator('[data-ega-refine-chip="shorter"]');
   await expect(shorter).toBeVisible({ timeout: 5_000 });
   timeline.markStep('chips-mounted');

@@ -7,14 +7,15 @@
 
 ## State expectations
 
-- Step 1: an assistant turn has completed; quick-refine chips render below it ("Shorter", "Less formal", "Keep slang", plus a "Refine" toggle).
+- Step 1: an assistant turn has completed; its action row has a Refine button and the chips are hidden. Pressing Refine opens them below the reply ("Shorter", "Less formal", "Keep slang", plus a "Refine" toggle) and focuses the first chip.
 - Step 2 (click chip): the last assistant turn gains a new variant (counter 2/2) that streams the refinement of the same source input; the earlier answer stays as variant 1.
 - Step 3: on success, the new assistant turn carries a small marker indicating which refinement was applied.
 
 ## Visible affordances
 
 - Chips are keyboard-activatable; carry clear labels (not just icons).
-- Chips are hidden during a stream (no chip-click mid-stream).
+- Chips are hidden during a stream (no chip-click mid-stream), and the row closes once a chip's refine goes out.
+- Escape inside the chip row closes it and puts focus back on Refine.
 
 ## Failure-mode expectations
 

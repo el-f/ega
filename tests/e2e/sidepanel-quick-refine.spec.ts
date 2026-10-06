@@ -5,6 +5,7 @@ import {
   readStorage,
   seedSettings,
   type ExtensionHandle,
+  openRefineChips,
 } from './helpers';
 import type { Settings } from '../../src/shared/types';
 
@@ -23,7 +24,7 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-test('sidepanel: quick-refine chips render below the result card after translate completes', async () => {
+test('sidepanel: the Refine button opens the quick-refine chips, and Escape closes them', async () => {
   mockAnthropic(ext.context);
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
@@ -32,14 +33,23 @@ test('sidepanel: quick-refine chips render below the result card after translate
   await page.locator('#sp-text').fill('hola amigo');
   await page.getByRole('button', { name: /^Translate$/ }).click();
 
-  // The chip strip mounts only once the turn stops loading and has no error.
+  // The Refine button mounts once the turn stops loading; the chips wait for it.
+  const toggle = page.getByRole('button', { name: 'Refine this reply' });
+  await expect(toggle).toBeVisible({ timeout: 10_000 });
   const chipRow = page.locator('[data-ega-quick-refine]');
-  await expect(chipRow).toBeVisible({ timeout: 10_000 });
-
-  await expect(page.locator('[data-ega-refine-chip="shorter"]')).toBeVisible();
+  await expect(chipRow).toHaveCount(0);
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(chipRow).toBeVisible();
+  await expect(page.locator('[data-ega-refine-chip="shorter"]')).toBeFocused();
   await expect(page.locator('[data-ega-refine-chip="less-formal"]')).toBeVisible();
   await expect(page.locator('[data-ega-refine-chip="keep-slang"]')).toBeVisible();
   await expect(page.locator('[data-ega-refine-chip="refine"]')).toBeVisible();
+
+  await page.keyboard.press('Escape');
+  await expect(chipRow).toHaveCount(0);
+  await expect(toggle).toBeFocused();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
 });
 
 test('sidepanel: clicking [Shorter] refines in place without persisting a rule', async () => {
@@ -51,7 +61,7 @@ test('sidepanel: clicking [Shorter] refines in place without persisting a rule',
   await page.locator('#sp-text').fill('hola amigo');
   await page.getByRole('button', { name: /^Translate$/ }).click();
 
-  await expect(page.locator('[data-ega-refine-chip="shorter"]')).toBeVisible({ timeout: 10_000 });
+  await openRefineChips(page);
   await page.locator('[data-ega-refine-chip="shorter"]').click();
 
   await expect(page.locator('[data-ega-variant-nav]')).toBeVisible({ timeout: 10_000 });

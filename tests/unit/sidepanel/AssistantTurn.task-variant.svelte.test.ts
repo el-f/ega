@@ -136,7 +136,7 @@ describe('AssistantTurn — image turns only offer the tasks that reach the visi
 });
 
 describe('AssistantTurn — re-run controls need a dispatch to replay', () => {
-  it('hides swap and task-switch when the turn cannot be retried', () => {
+  it('hides Try as (swap and task re-runs) when the turn cannot be retried', () => {
     const { container } = render(AssistantTurn, {
       props: {
         turn: singleTurn(),
@@ -147,7 +147,6 @@ describe('AssistantTurn — re-run controls need a dispatch to replay', () => {
         onTaskSwitch: vi.fn(),
       },
     });
-    expect(container.querySelector('[data-ega-swap]')).toBeNull();
     expect(container.querySelector('[data-ega-task-switch]')).toBeNull();
   });
 
@@ -162,7 +161,6 @@ describe('AssistantTurn — re-run controls need a dispatch to replay', () => {
         onTaskSwitch: vi.fn(),
       },
     });
-    expect(container.querySelector('[data-ega-swap]')).not.toBeNull();
     expect(container.querySelector('[data-ega-task-switch]')).not.toBeNull();
   });
 });

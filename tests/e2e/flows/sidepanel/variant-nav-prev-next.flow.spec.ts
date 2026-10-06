@@ -1,6 +1,11 @@
 /* coverage: translation.sidepanel.variant-nav-prev-next */
 import { test, expect } from '@playwright/test';
-import { launchExtension, seedSettings, type ExtensionHandle } from '../../helpers';
+import {
+  launchExtension,
+  seedSettings,
+  type ExtensionHandle,
+  openRefineChips,
+} from '../../helpers';
 import { createTimeline } from '../_harness';
 
 let ext: ExtensionHandle;
@@ -67,6 +72,7 @@ test('after refine spawns variant 2/2, prev nav reverts to 1/2 and body changes'
   });
   timeline.markStep('first-turn-done');
 
+  await openRefineChips(page);
   const shorter = page.locator('[data-ega-refine-chip="shorter"]');
   await expect(shorter).toBeVisible({ timeout: 5_000 });
   await shorter.click();

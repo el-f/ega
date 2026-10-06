@@ -8,6 +8,7 @@ import {
   selectArabiziParagraph,
   waitForTestHooks,
   type ExtensionHandle,
+  openRefineChips,
 } from '../../../helpers';
 import { createTimeline, waitForVisibleText } from '../../_harness';
 
@@ -96,6 +97,7 @@ test('tooltip Pin seeds sidepanel; quick-refine [Shorter] spawns a variant', asy
   await probe.close();
   timeline.markStep('sidepanel-seeded');
 
+  await openRefineChips(sp);
   const shorter = sp.locator('[data-ega-refine-chip="shorter"]');
   await expect(shorter).toBeVisible({ timeout: 5_000 });
   timeline.markStep('chips-mounted');

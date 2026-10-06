@@ -5,6 +5,7 @@ import {
   mockAnthropic,
   seedSettings,
   type ExtensionHandle,
+  openRefineChips,
 } from '../../../helpers';
 import { createTimeline } from '../../_harness';
 
@@ -61,6 +62,7 @@ test('warm sidepanel receives handoff via storage.onChanged; refine chip on deli
   });
   timeline.markStep('warm-turn-delivered');
 
+  await openRefineChips(sp);
   const shorter = sp.locator('[data-ega-refine-chip="shorter"]');
   await expect(shorter).toBeVisible({ timeout: 5_000 });
   timeline.markStep('chips-mounted');

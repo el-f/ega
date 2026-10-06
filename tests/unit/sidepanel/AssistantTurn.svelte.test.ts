@@ -235,7 +235,7 @@ describe('AssistantTurn.svelte', () => {
     expect(pillText(turn(0.9))).toBe('90% confident');
   });
 
-  it('shows the swap / Try as row only on the latest reply', () => {
+  it('shows the Try as button only on the latest reply', () => {
     const turn: Turn = {
       createdAt: 1,
       id: 'a1',
@@ -247,17 +247,17 @@ describe('AssistantTurn.svelte', () => {
     const latest = render(AssistantTurn, {
       props: { turn, onRetry: vi.fn(), onSwap: vi.fn(), isLatest: true },
     });
-    expect(latest.container.querySelector('[data-ega-swap]')).not.toBeNull();
+    expect(latest.container.querySelector('[data-ega-task-switch]')).not.toBeNull();
     latest.unmount();
 
     const history = render(AssistantTurn, {
       props: { turn, onRetry: vi.fn(), onSwap: vi.fn(), isLatest: false },
     });
-    expect(history.container.querySelector('[data-ega-swap]')).toBeNull();
+    expect(history.container.querySelector('[data-ega-task-switch]')).toBeNull();
     history.unmount();
   });
 
-  it('omits quick-refine chips on history turns (isLatest=false)', () => {
+  it('omits the Refine button and its chips on history turns (isLatest=false)', () => {
     const turn: Turn = {
       createdAt: 1,
       id: 'a1',
@@ -274,10 +274,11 @@ describe('AssistantTurn.svelte', () => {
         isLatest: false,
       },
     });
+    expect(container.querySelector('[data-ega-refine-toggle]')).toBeNull();
     expect(container.querySelector('[data-ega-quick-refine]')).toBeNull();
   });
 
-  it('renders quick-refine chips on latest turn (isLatest=true)', () => {
+  it('offers the Refine button on the latest turn, chips closed (isLatest=true)', () => {
     const turn: Turn = {
       createdAt: 1,
       id: 'a1',
@@ -294,6 +295,7 @@ describe('AssistantTurn.svelte', () => {
         isLatest: true,
       },
     });
-    expect(container.querySelector('[data-ega-quick-refine]')).not.toBeNull();
+    expect(container.querySelector('[data-ega-refine-toggle]')).not.toBeNull();
+    expect(container.querySelector('[data-ega-quick-refine]')).toBeNull();
   });
 });

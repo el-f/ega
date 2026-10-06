@@ -13,9 +13,11 @@
     }) => boolean | Promise<boolean>;
     /** True while another turn is streaming; every refine would bail. */
     inflight?: boolean;
+    /** The row's id, so the button that opens it can point at it with aria-controls. */
+    id?: string;
   }
 
-  const { onRefine, inflight = false }: Props = $props();
+  const { onRefine, inflight = false, id }: Props = $props();
 
   let refineOpen = $state(false);
   let refineText = $state('');
@@ -86,7 +88,7 @@
   }
 </script>
 
-<div class="quick-refine" data-ega-quick-refine>
+<div class="quick-refine" {id} data-ega-quick-refine>
   <div
     class="chip-row"
     role="group"

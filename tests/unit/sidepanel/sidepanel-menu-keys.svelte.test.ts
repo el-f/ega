@@ -6,7 +6,7 @@ import { tick } from 'svelte';
 import SidePanel from '@/sidepanel/SidePanel.svelte';
 import type { Msg } from '@/shared/messages';
 import { drainAsync } from '@tests/_helpers/async';
-import { openTaskMenu } from './_task-menu';
+import { openRefine, openTaskMenu } from './_task-menu';
 
 const sendMessage = chrome.runtime.sendMessage as Mock;
 
@@ -43,12 +43,13 @@ async function settleMount(container: HTMLElement): Promise<void> {
   });
 }
 
+const inMenu = (): boolean => document.activeElement?.closest('[role="menu"]') != null;
+
 /** Opens Try as… and waits for bits-ui to move focus onto the first item. */
 async function openMenuFocused(container: HTMLElement): Promise<HTMLElement> {
   await openTaskMenu(container);
   await waitFor(() => {
-    if (!document.activeElement?.hasAttribute('data-ega-task-switch-item'))
-      throw new Error('focus not in the menu');
+    if (!inMenu()) throw new Error('focus not in the menu');
   });
   return document.activeElement as HTMLElement;
 }
@@ -103,7 +104,7 @@ describe('SidePanel — keys typed inside a reply menu stay in the menu', () => 
     await fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'k' });
     await tick();
     expect(focusedRing(container)).toBeNull();
-    expect(document.activeElement?.hasAttribute('data-ega-task-switch-item')).toBe(true);
+    expect(inMenu()).toBe(true);
   });
 
   it('r typed in the menu does not re-run the focused reply', async () => {
@@ -121,6 +122,23 @@ describe('SidePanel — keys typed inside a reply menu stay in the menu', () => 
 
     expect(startCalls().length).toBe(before);
     expect(focusedRing(container)).toBeNull();
+  });
+
+  it('j and c typed on an open refine chip do not walk the thread or jump to the composer', async () => {
+    const { container } = render(SidePanel);
+    await settleMount(container);
+    await sendAndDrain(container, 'hola');
+    await openRefine(container);
+    const chip = container.querySelector<HTMLElement>('[data-ega-refine-chip="shorter"]');
+    if (!chip) throw new Error('chip missing');
+    chip.focus();
+
+    await fireEvent.keyDown(chip, { key: 'j' });
+    await tick();
+    expect(focusedRing(container)).toBeNull();
+    await fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'c' });
+    await tick();
+    expect(document.activeElement).toBe(chip);
   });
 
   it('ArrowDown on the Try as… trigger opens the menu without walking the thread', async () => {

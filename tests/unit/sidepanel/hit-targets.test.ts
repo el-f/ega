@@ -55,15 +55,14 @@ describe('a reply row matches the 32px of the user bubble and the composer', () 
     expect(body).toMatch(/box-sizing:\s*border-box/);
   });
 
-  it('gives the variant arrows, the swap and Try as 32px', () => {
-    for (const selector of [
-      '\\.ega-variant-btn',
-      '\\.ega-variant-actions :global\\(\\.ega-variant-action-btn\\)',
-    ]) {
-      const body = rule(src, selector);
-      expect(body).toMatch(/min-width:\s*32px/);
-      expect(body).toMatch(/min-height:\s*32px/);
-    }
+  it('gives the variant arrows 32px', () => {
+    const body = rule(src, '\\.ega-variant-btn');
+    expect(body).toMatch(/min-width:\s*32px/);
+    expect(body).toMatch(/min-height:\s*32px/);
+  });
+
+  it('draws the Try as and More menu buttons as md icon buttons, like the IconButtons beside them', () => {
+    expect(src.match(/class="ega-icon-btn variant-default size-md"/g)).toHaveLength(2);
   });
 });
 

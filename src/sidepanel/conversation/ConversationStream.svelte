@@ -15,6 +15,7 @@
     isCancelledError,
     retryableTurnIds,
     turnTaskValue,
+    type SwapPair,
     type Turn,
   } from '../state/conversation';
   import { taskGerund } from '@/shared/task-prompts';
@@ -51,6 +52,8 @@
     onTaskSwitch?: (turnId: string, task: TaskId) => void;
     /** True when the latest turn has no swap to run (`canSwap` is false). */
     swapDisabled?: boolean;
+    /** The pair the latest turn's swap would run with; names it in the menu. */
+    swapPair?: SwapPair | null;
     /** Regenerate a new variant for an assistant turn. */
     onRegenerate?: (turnId: string) => void;
     /** Bookmark toggle — both turn roles. */
@@ -96,6 +99,7 @@
     onSwap,
     onTaskSwitch,
     swapDisabled = false,
+    swapPair = null,
     onRegisterKeydownHandler,
     onRegenerate,
     onBookmark,
@@ -296,9 +300,10 @@
     if (windowTurns.length === 0 || e.defaultPrevented) return;
     const target = e.target as HTMLElement | null;
     if (
-      // A native select or a bits-ui menu owns its own arrow keys and letter type-ahead.
+      // A native select or a bits-ui menu owns its own arrow keys and letter type-ahead; the open refine row keeps its keys too.
       target instanceof HTMLSelectElement ||
-      (target instanceof Element && target.closest('[role="menu"]') !== null) ||
+      (target instanceof Element &&
+        target.closest('[role="menu"], [data-ega-quick-refine]') !== null) ||
       target instanceof HTMLTextAreaElement ||
       target instanceof HTMLInputElement ||
       (target instanceof HTMLElement && target.isContentEditable)
@@ -433,6 +438,7 @@
             {onSwap}
             {onTaskSwitch}
             {swapDisabled}
+            {swapPair}
             isLatest={turn.id === latestTurnId}
             {onRegenerate}
             {onBookmark}

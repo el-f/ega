@@ -13,7 +13,7 @@
 ## Visible affordances
 
 - Notice uses the muted tone, not the danger tone — nothing failed, the answer was empty.
-- Regenerate and the refine chips keep working on the turn.
+- Regenerate and the Refine button keep working on the turn.
 
 ## Failure-mode expectations
 

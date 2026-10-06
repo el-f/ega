@@ -439,6 +439,9 @@ export function turnTaskValue(turn: Turn): TaskId {
 export type StartArgs = Parameters<typeof sendTranslateStart>[0];
 
 /** A variant's own modifiers. An absent field falls back to the user turn's dispatch. */
+/** The pair a language swap re-runs with: the old target becomes the source. */
+export type SwapPair = Pick<TurnDispatch, 'sourceLang' | 'targetLang'>;
+
 export interface VariantSeed {
   refinementBody?: string;
   refinementLabel?: string;

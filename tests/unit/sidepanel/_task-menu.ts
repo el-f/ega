@@ -7,12 +7,19 @@ const trigger = (container: HTMLElement): HTMLElement => {
   return el;
 };
 
-/** Opens a reply's "Try as…" menu from the keyboard; its items render in a portal on document.body. */
+/** Opens a reply's Try as menu from the keyboard; its items render in a portal on document.body. */
 export async function openTaskMenu(container: HTMLElement): Promise<void> {
   await fireEvent.keyDown(trigger(container), { key: 'Enter' });
   await waitFor(() => {
-    if (!document.querySelector('[data-ega-task-switch-item]')) throw new Error('menu not open');
+    if (!document.querySelector('[data-ega-swap-item]')) throw new Error('menu not open');
   });
+}
+
+/** The swap item at the top of the open Try as menu. */
+export function swapItem(): HTMLElement {
+  const el = document.querySelector<HTMLElement>('[data-ega-swap-item]');
+  if (!el) throw new Error('swap item missing; open the menu first');
+  return el;
 }
 
 /** Each item as [task id, whether it is disabled], in menu order. Open the menu first. */
@@ -28,9 +35,7 @@ export async function checkedTask(container: HTMLElement): Promise<string | null
   await openTaskMenu(container);
   const item = document.querySelector('[data-ega-task-switch-item][aria-checked="true"]');
   const id = item?.getAttribute('data-ega-task-switch-item') ?? null;
-  await fireEvent.keyDown(document.querySelector('[data-ega-task-switch-item]') as HTMLElement, {
-    key: 'Escape',
-  });
+  await fireEvent.keyDown(swapItem(), { key: 'Escape' });
   await tick();
   return id;
 }
@@ -42,4 +47,14 @@ export async function pickTask(container: HTMLElement, id: string): Promise<void
   if (!item) throw new Error(`task item ${id} missing`);
   await fireEvent.click(item);
   await tick();
+}
+
+/** Opens the reply's refine chips with its Refine button. */
+export async function openRefine(container: HTMLElement): Promise<void> {
+  const btn = container.querySelector<HTMLElement>('[data-ega-refine-toggle]');
+  if (!btn) throw new Error('Refine button missing');
+  await fireEvent.click(btn);
+  await waitFor(() => {
+    if (!container.querySelector('[data-ega-quick-refine]')) throw new Error('chips not open');
+  });
 }

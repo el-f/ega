@@ -12,6 +12,7 @@ import {
   type ExtensionHandle,
   pickAreasAndTranslate,
   resetRoutes,
+  openRefineChips,
 } from './helpers';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -462,20 +463,26 @@ test('Sidepanel — empty + streaming + multi-turn + refine + error + popover + 
     state: 'first-turn-done',
     theme: 'light',
     userAction: 'first translation finished streaming; convo shows one user + one assistant turn',
-    expectations: ['assistant body filled', 'no in-flight cursor', 'quick-refine chips visible'],
+    expectations: [
+      'assistant body filled',
+      'no in-flight cursor',
+      'Refine and Try as icon buttons in the action row; quick-refine chips closed',
+    ],
   });
 
   // Unconditional on purpose: a capture behind `isVisible()` skipped silently for
   // months while the shot's own sidecar kept declaring the chips.
-  await sp
-    .locator('[data-ega-refine-chip="shorter"]')
-    .waitFor({ state: 'visible', timeout: 10_000 });
+  await openRefineChips(sp);
   await shot(sp, 'sidepanel-quick-refine', {
     surface: 'sidepanel',
     state: 'quick-refine',
     theme: 'light',
-    userAction: 'first translation done; quick-refine chip strip visible',
-    expectations: ['chips render with legible labels', 'chip row sits beneath the assistant turn'],
+    userAction: 'first translation done; user pressed Refine and the chip strip opened',
+    expectations: [
+      'chips render with legible labels',
+      'chip row sits beneath the assistant turn',
+      'the Refine button reads as pressed',
+    ],
   });
 
   // `times: 1` again so the 401 route registered further down cannot fight a stale handler.
@@ -558,6 +565,22 @@ test('Sidepanel — empty + streaming + multi-turn + refine + error + popover + 
     ],
   });
   await sp.setViewportSize(NARROW_SIDEPANEL);
+  await sp.locator('[data-ega-task-switch]').click();
+  await sp.locator('[data-ega-swap-item]').waitFor({ state: 'visible', timeout: 5_000 });
+  await shot(sp, 'sidepanel-narrow-try-as-menu', {
+    surface: 'sidepanel',
+    state: 'try-as-menu',
+    theme: 'light',
+    viewport: NARROW_SIDEPANEL,
+    userAction: 'user opened Try as on the newest reply at side-panel width',
+    expectations: [
+      'Swap languages first; a blocked swap shows its reason as text under the label',
+      'a separator, then the tasks with the current one checked',
+      'menu fits inside the panel, nothing clipped',
+    ],
+  });
+  await sp.keyboard.press('Escape');
+  await expect(sp.locator('[data-ega-swap-item]')).toHaveCount(0);
   await sp.locator('[data-ega-composer-options]').click();
   await sp.getByRole('dialog', { name: 'Message options' }).waitFor({ state: 'visible' });
   await sp.waitForTimeout(300); // wait for popover position recompute (no observable end state)
@@ -2014,8 +2037,8 @@ test('Sidepanel — quick-refine applied', async () => {
   // unrouteAll first, or the previous `times: 1` handler races the refine request and throws "Route is already handled".
   await resetRoutes(ext.context);
   mockAnthropic(ext.context, { translation: 'Hi.', times: 1 });
+  await openRefineChips(sp);
   const shorter = sp.locator('[data-ega-refine-chip="shorter"]');
-  await shorter.waitFor({ state: 'visible', timeout: 10_000 });
   await shorter.click();
   await expect(sp.locator('.ega-assistant-turn').last()).toContainText('Hi.', { timeout: 8_000 });
   await sp.waitForTimeout(300); // wait for post-stream CSS transition + refine state settle (no observable end state)
@@ -2031,7 +2054,7 @@ test('Sidepanel — quick-refine applied', async () => {
     expectations: [
       'assistant body shows the refined (shorter) translation',
       'prior assistant body no longer the active translation',
-      'quick-refine chip strip remains reachable for further refinement',
+      'the Refine button stays in the action row for a further refinement; the chips are closed',
     ],
   });
   await resetRoutes(ext.context);

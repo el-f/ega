@@ -6,6 +6,7 @@ import ConversationStream from '@/sidepanel/conversation/ConversationStream.svel
 import UserTurn from '@/sidepanel/conversation/UserTurn.svelte';
 import AssistantTurn from '@/sidepanel/conversation/AssistantTurn.svelte';
 import type { Turn, UserTurnData, AssistantTurnData } from '@/sidepanel/state/conversation';
+import { openTaskMenu, swapItem } from './_task-menu';
 
 const u = (over: Partial<UserTurnData> = {}): UserTurnData => ({
   createdAt: Date.now(),
@@ -151,7 +152,7 @@ describe('the re-run controls say what they do', () => {
     expect(footer?.querySelector('[data-ega-action="retry"]')).toBeNull();
   });
 
-  it('explains that an image has no source language to swap', () => {
+  it('explains that an image has no source language to swap', async () => {
     const { container } = render(AssistantTurn, {
       props: {
         turn: a(),
@@ -162,9 +163,11 @@ describe('the re-run controls say what they do', () => {
         hasImage: true,
       },
     });
-    const swap = container.querySelector<HTMLButtonElement>('[data-ega-swap]');
-    expect(swap?.getAttribute('aria-disabled')).toBe('true');
-    expect(swap?.getAttribute('data-tooltip')).toBe('Images have no source language to swap');
+    await openTaskMenu(container);
+    expect(swapItem().getAttribute('aria-disabled')).toBe('true');
+    expect(swapItem().querySelector('[data-ega-swap-note]')?.textContent).toBe(
+      'Images have no source language to swap',
+    );
   });
 
   it('labels the pinned explanation instead of leaving a gray block', () => {

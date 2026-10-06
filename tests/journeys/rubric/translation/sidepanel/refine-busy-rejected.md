@@ -7,7 +7,7 @@
 ## State expectations
 
 - Step 1: a translation is actively streaming (AssistantTurn in streaming state).
-- Step 2: the older turn loses its chips and the streaming turn has none, so no refine chip can be clicked.
+- Step 2: the older turn's open chip row closes and the streaming turn has no Refine button, so no refine chip can be clicked.
 - Step 3: no second variant stream starts; the in-flight stream continues; a refine that still reaches the state machine shows a "Wait for the current reply to finish." warning toast.
 
 ## Visible affordances

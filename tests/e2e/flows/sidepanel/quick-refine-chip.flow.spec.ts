@@ -6,6 +6,7 @@ import {
   readStorage,
   seedSettings,
   type ExtensionHandle,
+  openRefineChips,
 } from '../../helpers';
 import type { Settings } from '../../../../src/shared/types';
 import { createTimeline } from '../_harness';
@@ -40,13 +41,17 @@ test('clicking [Shorter] chip spawns a variant + injects an ephemeral refinement
   });
   timeline.markStep('first-turn-done');
 
-  // The chip strip only mounts on the most recent finished assistant turn.
+  // The chips stay hidden until the newest reply's Refine button opens them.
+  await expect(page.locator('[data-ega-quick-refine]')).toHaveCount(0);
+  await openRefineChips(page);
   const shorter = page.locator('[data-ega-refine-chip="shorter"]');
   await expect(shorter).toBeVisible({ timeout: 5_000 });
   timeline.markStep('chips-mounted');
 
   await shorter.click();
   timeline.markStep('chip-clicked');
+  // A refine that went out closes the row.
+  await expect(page.locator('[data-ega-quick-refine]')).toHaveCount(0);
 
   await expect(page.locator('[data-ega-variant-nav]')).toBeVisible({ timeout: 10_000 });
   await expect(page.locator('.ega-user-turn')).toHaveCount(1);

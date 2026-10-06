@@ -8,17 +8,17 @@
 
 - Step 1: an external image-translate turn is handed to the sidepanel (via `sidepanel-seed-then-stream` or direct image OCR dispatch); the user turn carries the image (`imageDataUrl`) and the AssistantTurn completes.
 - Step 2: the turn footer is inspected immediately after completion.
-- Step 3: NO quick-refine chips are present, and NO error-path Retry button (`.ega-retry-btn`) is present. The done-footer Regenerate IS present: the seed records a dispatch on the user turn, so the vision pass can re-run.
+- Step 3: NO Refine button and NO quick-refine chips are present, and NO error-path Retry button (`.ega-retry-btn`) is present. The done-footer Regenerate IS present: the seed records a dispatch on the user turn, so the vision pass can re-run.
 
 ## Visible affordances
 
 - The source image thumbnail renders (`.ega-imgprev img`), not just the OCR text.
 - The footer carries Copy, Regenerate and a More (⋯) menu with Bookmark and Delete. Copy is present only when the turn holds text of its own — the `[image]` marker alone is not text.
-- The swap control is disabled: an image has no source language to swap from.
+- The Swap languages item in the Try as menu is disabled and says why: an image has no source language to swap from.
 
 ## Failure-mode expectations
 
-- Quick-refine chips on an image turn are a regression — the test must fail explicitly.
+- A Refine button or quick-refine chips on an image turn are a regression — the test must fail explicitly.
 - A missing Regenerate on a seeded image turn is also a regression: an image turn is not a Task, but it does re-run.
 
 ## Cautions

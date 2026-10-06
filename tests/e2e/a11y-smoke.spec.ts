@@ -11,6 +11,7 @@ import {
   egaTest,
   type ExtensionHandle,
   pickAreasAndTranslate,
+  openRefineChips,
 } from './helpers';
 import { assertA11y, waitForVisibleText } from './flows/_harness';
 
@@ -312,6 +313,7 @@ test('side panel with a refined answer passes axe critical-only smoke', async ()
       timeout: 10_000,
     });
     mockAnthropic(ext.context, { translation: 'Hi all!', times: 1 });
+    await openRefineChips(page);
     await page.locator('[data-ega-refine-chip="shorter"]').click();
     await expect(page.locator('.ega-assistant-body').first()).toContainText('Hi all!', {
       timeout: 10_000,

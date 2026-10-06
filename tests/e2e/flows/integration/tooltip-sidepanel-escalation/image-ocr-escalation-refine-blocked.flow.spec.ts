@@ -98,9 +98,9 @@ test('image OCR sidepanel seed shows its image and Regenerate, but no refine chi
   await opts.close();
   timeline.markStep('sidepanel-seeded');
 
-  await assertStaysStable(async () => await sp.locator('[data-ega-refine-chip]').count(), 0, {
+  await assertStaysStable(async () => await sp.locator('[data-ega-refine-toggle]').count(), 0, {
     windowMs: 1_000,
-    message: 'refine chips must not appear on an image turn',
+    message: 'the Refine button must not appear on an image turn',
   });
   timeline.markStep('chips-absent');
 

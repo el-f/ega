@@ -6,7 +6,7 @@
 
 ## State expectations
 
-- Step 1: a refine chip was clicked; variant 2 of 2 is visible with a "2/2" indicator.
+- Step 1: Refine was pressed and a refine chip clicked; variant 2 of 2 is visible with a "2/2" indicator.
 - Step 2 (click prev): the variant indicator reads "1/2"; the assistant turn body reverts to the original (variant 1) content.
 - Step 3 (click next): indicator reads "2/2" again; body shows the refined variant content.
 

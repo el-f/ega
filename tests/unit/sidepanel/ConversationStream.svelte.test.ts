@@ -132,7 +132,7 @@ describe('ConversationStream.svelte', () => {
     expect(container.querySelector('.ega-assistant-turn')).not.toBeNull();
   });
 
-  it('only the LAST assistant turn carries the swap / Try as row', () => {
+  it('only the LAST assistant turn carries the Try as button', () => {
     const turns: Turn[] = [
       ud('u1', 'hi'),
       a('a1', 'first', 'u1'),
@@ -151,8 +151,8 @@ describe('ConversationStream.svelte', () => {
     });
     const assistants = container.querySelectorAll('.ega-assistant-turn');
     expect(assistants).toHaveLength(2);
-    expect(assistants[0]?.querySelector('[data-ega-swap]')).toBeNull();
-    expect(assistants[1]?.querySelector('[data-ega-swap]')).not.toBeNull();
+    expect(assistants[0]?.querySelector('[data-ega-task-switch]')).toBeNull();
+    expect(assistants[1]?.querySelector('[data-ega-task-switch]')).not.toBeNull();
   });
 
   it('bookmarked mid-turn does not count as latest when filter narrows list', () => {
@@ -176,7 +176,6 @@ describe('ConversationStream.svelte', () => {
     const assistantTurn = container.querySelector('.ega-assistant-turn');
     expect(assistantTurn).not.toBeNull();
     if (!assistantTurn) throw new Error('assistant turn not rendered');
-    expect(container.querySelector('[data-ega-swap]')).toBeNull();
     expect(container.querySelector('[data-ega-task-switch]')).toBeNull();
   });
 
@@ -196,7 +195,7 @@ describe('ConversationStream.svelte', () => {
         onTaskSwitch: vi.fn(),
       },
     });
-    expect(container.querySelector('[data-ega-swap]')).not.toBeNull();
+    expect(container.querySelector('[data-ega-task-switch]')).not.toBeNull();
   });
 
   it('auto-scrolls to bottom on new turn append', async () => {
