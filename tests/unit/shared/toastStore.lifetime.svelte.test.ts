@@ -191,4 +191,124 @@ describe('toast lifetime', () => {
     await advance(6500);
     expect(toastEl('Language reset')).toBeNull();
   });
+
+  it('a repeated confirmation gets a fresh 6 s, not the rest of the first one', async () => {
+    toastStore.push({ message: 'Copied as Markdown', variant: 'success' });
+    await advance(4000);
+    toastStore.push({ message: 'Copied as Markdown', variant: 'success' });
+    await advance(2100);
+    expect(toastEl('Copied as Markdown')).not.toBeNull();
+    await advance(4000);
+    expect(toastEl('Copied as Markdown')).toBeNull();
+  });
+
+  it('a repeated confirmation still waits under the pointer', async () => {
+    toastStore.push({ message: 'Copied as Markdown', variant: 'success' });
+    await advance(3000);
+    toastStore.push({ message: 'Copied as Markdown', variant: 'success' });
+    await advance(1000);
+    const el = toastEl('Copied as Markdown') as HTMLElement;
+    await fireEvent.pointerOver(el);
+    // Past the first push's 6 s.
+    await advance(3100);
+    expect(toastEl('Copied as Markdown')).not.toBeNull();
+    await fireEvent.pointerOut(el, { relatedTarget: document.body });
+    await advance(6100);
+    expect(toastEl('Copied as Markdown')).toBeNull();
+  });
+
+  it('a Try again that fails again at once shows the error again', async () => {
+    const MSG = 'Could not clear the translation cache.';
+    const fail = (): void => {
+      toastStore.push({
+        message: MSG,
+        variant: 'danger',
+        // The retry fails fast, inside sonner's exit animation of the clicked toast.
+        action: { label: 'Try again', onClick: () => void setTimeout(fail, 20) },
+      });
+    };
+    fail();
+    await advance(100);
+    toastEl(MSG)?.querySelector<HTMLButtonElement>('[data-button]')?.click();
+    await advance(1000);
+    expect(toastEl(MSG)).not.toBeNull();
+  });
+
+  it('close() takes the key a toast was pushed under, or its message', async () => {
+    const undo = { label: 'Undo', onClick: () => {} };
+    toastStore.push({ message: 'New conversation.', action: undo, key: 'new-conversation' });
+    toastStore.push({ message: 'New conversation.', action: undo, key: 'new-conversation' });
+    toastStore.push({ message: 'Wait for the current reply.', variant: 'warning' });
+    toastStore.push({ message: 'Saved.', variant: 'success' });
+    await advance(100);
+    toastStore.close('new-conversation');
+    toastStore.close('Wait for the current reply.');
+    await advance(1000);
+    expect(toastEl('New conversation.')).toBeNull();
+    expect(toastEl('Wait for the current reply.')).toBeNull();
+    expect(toastEl('Saved.')).not.toBeNull();
+  });
+
+  it('closeSticky closes every toast that waits for the user, one at a time, and keeps the timed ones', async () => {
+    const errors: unknown[] = [];
+    const onError = (e: unknown): void => void errors.push(e);
+    process.on('uncaughtException', onError);
+    try {
+      // Four older sticky toasts behind two timed ones: closed in one go, sonner 1.1.1 throws here.
+      toastStore.push({ message: 'Check the key.', variant: 'warning' });
+      toastStore.push({ message: 'Could not save.', variant: 'danger' });
+      toastStore.push({ message: 'Pick a language first.', variant: 'info' });
+      toastStore.push({
+        message: 'Could not reset.',
+        variant: 'danger',
+        action: { label: 'Try again', onClick: () => {} },
+      });
+      toastStore.push({
+        message: 'Rule deleted.',
+        variant: 'success',
+        action: { label: 'Undo', onClick: () => {} },
+      });
+      toastStore.push({ message: 'Saved.', variant: 'success' });
+      await advance(100);
+      toastStore.closeSticky();
+      await advance(1000);
+      for (const sticky of [
+        'Check the key.',
+        'Could not save.',
+        'Pick a language first.',
+        'Could not reset.',
+      ])
+        expect(toastEl(sticky)).toBeNull();
+      expect(toastEl('Saved.')).not.toBeNull();
+      expect(toastEl('Rule deleted.')).not.toBeNull();
+      await advance(8000);
+      expect(errors).toEqual([]);
+    } finally {
+      process.off('uncaughtException', onError);
+    }
+  });
+
+  it('a countdown re-pushed under one key stays one toast with the newest text and the first deadline', async () => {
+    const live = (): HTMLElement[] =>
+      [...document.querySelectorAll<HTMLElement>('[data-sonner-toast]')].filter(
+        (el) => el.dataset['removed'] !== 'true',
+      );
+    // The panel builds each push from the same deadline: 30 s, then 27 s and 24 s left.
+    for (const left of [30, 27, 24]) {
+      toastStore.push({
+        message: `Wait ${left}s before retrying.`,
+        variant: 'warning',
+        countdownMs: left * 1000,
+        key: 'retry-wait',
+      });
+      if (left > 24) await advance(3000);
+    }
+    await advance(100);
+    expect(live()).toHaveLength(1);
+    expect(live()[0]?.textContent).toContain('Wait 24s before retrying.');
+    await advance(23_800);
+    expect(live()).toHaveLength(1);
+    await advance(200);
+    expect(live()).toHaveLength(0);
+  });
 });

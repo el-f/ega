@@ -587,6 +587,8 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
           message: `Wait ${Math.ceil(waitMs / 1000)}s before retrying.`,
           variant: 'warning',
           countdownMs: waitMs,
+          // Each press refreshes one toast; its countdown still ends at the same retryUntil.
+          key: 'retry-wait',
         });
         return;
       }

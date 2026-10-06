@@ -60,6 +60,29 @@ describe('retry() applies the gates the Retry button shows', () => {
     expect(push.mock.calls[0]?.[0]?.countdownMs).toBeLessThanOrEqual(30_000);
   });
 
+  it('a press during the wait refreshes one countdown toast that ends at the same deadline', async () => {
+    vi.useFakeTimers();
+    try {
+      const push = vi.spyOn(toastStore, 'push').mockImplementation(() => {});
+      const { c, assistantId } = await sendThenFail('RATE_LIMIT', { retryAfterMs: 30_000 });
+      for (let press = 0; press < 3; press++) {
+        await c.retry(assistantId);
+        vi.advanceTimersByTime(3000);
+      }
+      const pushed = push.mock.calls.map(([m]) => m);
+      expect(pushed.map((m) => m.key)).toEqual(['retry-wait', 'retry-wait', 'retry-wait']);
+      expect(pushed.map((m) => m.message)).toEqual([
+        'Wait 30s before retrying.',
+        'Wait 27s before retrying.',
+        'Wait 24s before retrying.',
+      ]);
+      expect(pushed.map((m) => m.countdownMs)).toEqual([30_000, 27_000, 24_000]);
+      expect(startCalls()).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('still retries a retryable code', async () => {
     const { c, assistantId } = await sendThenFail('NETWORK');
     await c.retry(assistantId);
