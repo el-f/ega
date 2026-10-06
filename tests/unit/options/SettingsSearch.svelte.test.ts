@@ -161,24 +161,38 @@ describe('SettingsSearch — combobox ARIA on input element', () => {
       },
     });
     const root = container.querySelector('[data-command-root]');
-    expect(root?.querySelector('.ss-hint')).not.toBeNull();
+    expect(root?.querySelector('.ss-keys')).not.toBeNull();
     expect(root?.hasAttribute('role')).toBe(false);
     expect(root?.hasAttribute('tabindex')).toBe(false);
   });
 
-  it('an example in the hint is a button that runs that search', async () => {
-    const { getByRole } = render(SettingsSearch, {
+  it('no result says so with the query, and Clear search empties it and keeps focus in the field', async () => {
+    const { getByRole, getByPlaceholderText, getByText } = render(SettingsSearch, {
       props: { open: true, settings: DEFAULT_SETTINGS, onClose: () => {}, onJump: () => {} },
     });
-    const example = getByRole('button', { name: 'temperature' });
-    example.focus();
-    await fireEvent.click(example);
-    await waitFor(() =>
-      expect((getByRole('combobox') as HTMLInputElement).value).toBe('temperature'),
-    );
-    // The example unmounts with the hint, so focus must not fall to the page.
-    expect(example.isConnected).toBe(false);
+    const input = getByPlaceholderText('Search settings…') as HTMLInputElement;
+    await fireEvent.input(input, { target: { value: 'zzqqxx' } });
+    expect(getByText('No setting matches "zzqqxx"')).toBeTruthy();
+    const clear = getByRole('button', { name: 'Clear search' });
+    clear.focus();
+    await fireEvent.click(clear);
+    await waitFor(() => expect((getByRole('combobox') as HTMLInputElement).value).toBe(''));
+    // The button unmounts with the message, so focus must not fall to the page.
+    expect(clear.isConnected).toBe(false);
     expect(document.activeElement).toBe(getByRole('combobox'));
+  });
+
+  it('Theme lives in the header: its row says Header, and Enter passes that location', async () => {
+    const onJump = vi.fn();
+    const { container, getByPlaceholderText } = render(SettingsSearch, {
+      props: { open: true, settings: DEFAULT_SETTINGS, onClose: () => {}, onJump },
+    });
+    const input = getByPlaceholderText('Search settings…') as HTMLInputElement;
+    await fireEvent.input(input, { target: { value: 'theme' } });
+    const row = container.querySelector('[data-ega-settings-list-item="display.theme"]');
+    expect(row?.querySelector('.slv-tab-badge')?.textContent.trim()).toBe('Header');
+    await fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onJump).toHaveBeenCalledWith('about', 'display.theme', 'header');
   });
 
   it('input has an accessible name (aria-label)', () => {
@@ -409,7 +423,7 @@ describe('SettingsSearch — keyboard and pointer reach every option', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('Enter on the Clear button or the Modified only box is left to that control', async () => {
+  it('Enter on the Clear button or the Changed only box is left to that control', async () => {
     const { input, combobox, container, getByLabelText, onJump } = renderSearch();
     await fireEvent.input(input, { target: { value: 'timeout' } });
     expect(combobox.getAttribute('aria-activedescendant')).not.toBeNull();
@@ -417,7 +431,7 @@ describe('SettingsSearch — keyboard and pointer reach every option', () => {
     const clear = container.querySelector('.ega-input-clear');
     if (!clear) throw new Error('clear button missing');
     expect(await fireEvent.keyDown(clear, { key: 'Enter' })).toBe(true);
-    expect(await fireEvent.keyDown(getByLabelText('Modified only'), { key: 'Enter' })).toBe(true);
+    expect(await fireEvent.keyDown(getByLabelText('Changed only'), { key: 'Enter' })).toBe(true);
     expect(onJump).not.toHaveBeenCalled();
   });
 
@@ -471,7 +485,7 @@ describe('SettingsSearch — arrow-key selection', () => {
     expect(combobox.getAttribute('aria-activedescendant')).toBe(narrowed[0]?.id);
   });
 
-  it('toggling Modified only pins the active option back to the top match', async () => {
+  it('toggling Changed only pins the active option back to the top match', async () => {
     const { container, getByLabelText, getByRole, getByPlaceholderText } = render(SettingsSearch, {
       props: {
         open: true,
@@ -488,7 +502,7 @@ describe('SettingsSearch — arrow-key selection', () => {
     expect(combobox.getAttribute('aria-activedescendant')).toBe(options[1]?.id);
 
     // Nothing is modified at defaults, so the filter empties the list.
-    const toggle = getByLabelText('Modified only');
+    const toggle = getByLabelText('Changed only');
     await fireEvent.click(toggle);
     expect(container.querySelector('[data-ega-settings-list-item]')).toBeNull();
     await tick();
@@ -500,7 +514,7 @@ describe('SettingsSearch — arrow-key selection', () => {
     expect(combobox.getAttribute('aria-activedescendant')).toBe(restored[0]?.id);
   });
 
-  it('Modified only re-pins to the top match whether the active row stays or drops out', async () => {
+  it('Changed only re-pins to the top match whether the active row stays or drops out', async () => {
     const settings = {
       ...DEFAULT_SETTINGS,
       translateTimeoutMs: 123_000,
@@ -522,7 +536,7 @@ describe('SettingsSearch — arrow-key selection', () => {
       'advanced.translateTimeoutMs',
     ]);
     const active = (): string | null => combobox.getAttribute('aria-activedescendant');
-    const toggle = getByLabelText('Modified only');
+    const toggle = getByLabelText('Changed only');
 
     // The active row survives the filter but is no longer the top match.
     await fireEvent.keyDown(input, { key: 'ArrowDown' });
@@ -547,7 +561,7 @@ describe('SettingsSearch — arrow-key selection', () => {
   });
 });
 
-describe('SettingsSearch — Modified-only empty state', () => {
+describe('SettingsSearch — Changed-only empty state', () => {
   it('shows the filter-specific message when the query matches but nothing is modified', async () => {
     const { container, getByLabelText, getByPlaceholderText } = render(SettingsSearch, {
       props: {
@@ -560,10 +574,10 @@ describe('SettingsSearch — Modified-only empty state', () => {
     const input = getByPlaceholderText('Search settings…') as HTMLInputElement;
     await fireEvent.input(input, { target: { value: 'temperature' } });
     expect(container.querySelector('[data-ega-settings-list-item]')).not.toBeNull();
-    await fireEvent.click(getByLabelText('Modified only'));
+    await fireEvent.click(getByLabelText('Changed only'));
     const empty = container.querySelector('.ss-empty');
-    expect(empty?.textContent).toContain('No modified settings match');
-    expect(empty?.textContent).toContain('Modified only');
+    expect(empty?.textContent).toContain('No changed setting matches "temperature"');
+    expect(empty?.textContent).toContain('Show all');
   });
 });
 
@@ -576,10 +590,11 @@ describe('SettingsSearch — keyboard hint', () => {
     const { container, getByPlaceholderText } = render(SettingsSearch, {
       props: { open: true, settings: DEFAULT_SETTINGS, onClose: () => {}, onJump: () => {} },
     });
-    expect(keysShown(container)).toEqual(['↑↓', 'Enter', 'Esc']);
+    const legend = ['Enter', '↑↓', 'Esc', 'Ctrl+K', '?'];
+    expect(keysShown(container)).toEqual(legend);
     const input = getByPlaceholderText('Search settings…') as HTMLInputElement;
     await fireEvent.input(input, { target: { value: 'temperature' } });
-    expect(keysShown(container)).toEqual(['↑↓', 'Enter', 'Esc']);
+    expect(keysShown(container)).toEqual(legend);
     await fireEvent.input(input, { target: { value: 'zzqqxxnothing' } });
     expect(keysShown(container)).toEqual([]);
   });

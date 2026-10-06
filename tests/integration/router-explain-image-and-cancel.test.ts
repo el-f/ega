@@ -174,7 +174,7 @@ describe('router — explain timeout wording and ABORTED rewrite', () => {
   beforeEach(() => okPngFetch());
   afterEach(() => vi.unstubAllGlobals());
 
-  it('wallclock timeout synthesizes the image translate timeout message', async () => {
+  it('wallclock timeout synthesizes the image answer timeout message', async () => {
     // Emits nothing and ends only when the 5 ms wall clock aborts it.
     const stall = vi.fn<NonNullable<TranslationBackend['translateImage']>>(async ({ cancel }) => {
       await new Promise<void>((r) => cancel.signal.addEventListener('abort', () => r()));

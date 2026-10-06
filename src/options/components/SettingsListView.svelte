@@ -43,9 +43,7 @@
     <span class="slv-desc">{@render marked(descParts)}</span>
   </span>
   {#if item.modified}
-    <span class="slv-modified-badge" role="img" aria-label="Modified" title="Modified from default"
-      >●</span
-    >
+    <span class="slv-modified-badge" data-ega-modified="true">Changed</span>
   {/if}
 </div>
 
@@ -85,10 +83,10 @@
     border: 1px solid var(--color-accent-border, var(--color-border));
     /* accent lands under 4.5:1 on the soft accent tint; accent-hover clears it in both themes. */
     color: var(--color-accent-hover);
-    font-size: var(--fs-xs);
-    font-weight: 500;
+    font-size: var(--fs-base);
+    font-weight: 400;
     font-variant-numeric: tabular-nums;
-    line-height: 1.2;
+    line-height: var(--lh-body);
     flex: 0 0 auto;
     justify-self: start;
     margin-top: 2px;
@@ -104,23 +102,17 @@
     min-width: 0;
   }
   .slv-label {
-    font-weight: 500;
+    font-weight: 600;
     color: var(--color-fg);
   }
   .slv-desc {
-    font-size: var(--fs-sm);
+    font-size: var(--fs-base);
+    line-height: var(--lh-body);
     color: var(--color-muted);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    line-clamp: 3;
-    -webkit-box-orient: vertical;
   }
   .slv-modified-badge {
-    color: var(--color-accent);
-    font-size: var(--fs-xs);
-    margin-top: 4px;
+    color: var(--color-muted);
+    font-size: var(--fs-base);
     flex: 0 0 auto;
   }
   /* --color-accent-bg-soft is too faint to spot in light theme; 30% still passes contrast. */

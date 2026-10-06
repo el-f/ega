@@ -170,8 +170,8 @@ export function emitMaxTokensError(
     code: 'REQUEST',
     // Thinking models spend the same budget on reasoning, so an empty cut is not a long answer.
     message: answered
-      ? 'The answer hit the max-tokens limit and stopped early. Raise Max answer length in Settings → Translate.'
-      : 'The model hit the max-tokens limit before it wrote any answer; reasoning counts toward the limit. Raise Max answer length in Settings → Translate, or lower Effort there or for this task in Settings → Tasks.',
+      ? 'The answer hit the max-tokens limit and stopped early. Raise Longest answer in Settings → Answers.'
+      : 'The model hit the max-tokens limit before it wrote any answer; reasoning counts toward the limit. Raise Longest answer in Settings → Answers, or lower Effort there or for this task in Settings → Tasks.',
   });
 }
 

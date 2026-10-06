@@ -4,7 +4,7 @@
   import OptionsNav from './OptionsNav.svelte';
   import OptionsHeader from './OptionsHeader.svelte';
   import OptionsTabContent, { tabReady, type TabId } from './OptionsTabContent.svelte';
-  import StatusBar, { type StatusKind } from './components/StatusBar.svelte';
+  import StatusBar from './components/StatusBar.svelte';
   import ShortcutOverlay from '@/shared/components/ShortcutOverlay.svelte';
   import CommandPalette from '@/shared/components/CommandPalette.svelte';
   import SettingsSearch from './components/SettingsSearch.svelte';
@@ -256,20 +256,12 @@
     };
   });
 
-  // Welcome copy belongs where a backend gets picked; elsewhere the short needs-key bar covers it.
-  const showOnboarding = $derived.by((): boolean => {
-    const s = liveSettings;
-    if (active !== 'translate' && active !== 'backends') return false;
-    if (onboardingHidden || !s || s.onboardingDismissed === true) return false;
-    return !hasUsableBackend;
-  });
-
-  // Both are true on a fresh install, so onboarding wins; dismissing it clears the flag and the short bar takes over.
-  const statusKind = $derived.by((): StatusKind | null => {
-    if (showOnboarding) return 'onboarding';
-    if (needsKey) return 'needs-key';
-    return null;
-  });
+  // The Get started card replaces the notice on the Backends tab until the user skips it; the page never shows both.
+  // .by closures: as plain expressions TS narrows `active` and `liveSettings` to their initial values.
+  const showGetStarted = $derived.by(
+    () => needsKey && !onboardingHidden && liveSettings?.onboardingDismissed !== true,
+  );
+  const showNotice = $derived.by(() => needsKey && !(active === 'backends' && showGetStarted));
 
   const onKey = (e: KeyboardEvent): void => {
     const el = document.activeElement;
@@ -399,20 +391,44 @@
     });
   });
 
-  async function chooseGemini(): Promise<void> {
+  /** Opens one backend row and focuses its first field, or the row itself when it has none. */
+  function openBackendRow(id: string, focusSelector: string): void {
+    whenPresent(`details[data-backend-id='${id}']`, (el) => {
+      if (!(el instanceof HTMLDetailsElement)) return;
+      el.open = true;
+      el.scrollIntoView({ block: 'center' });
+      const target =
+        el.querySelector<HTMLElement>(focusSelector) ?? el.querySelector<HTMLElement>('summary');
+      target?.focus({ preventScroll: true });
+    });
+  }
+
+  function chooseGemini(): void {
     // Don't flip onboardingDismissed yet — let them complete the key entry.
     active = 'backends';
     onboardingHidden = true;
-    queueMicrotask(() => {
-      queueMicrotask(() => {
-        const card = document.querySelector<HTMLDetailsElement>(
-          "details[data-backend-id='gemini']",
-        );
-        if (!card) return;
-        card.open = true;
-        card.scrollIntoView({ block: 'center' });
-        card.querySelector<HTMLInputElement>('.cp-key-input')?.focus({ preventScroll: true });
-      });
+    openBackendRow('gemini', '.cp-key-input');
+  }
+
+  function chooseOtherKey(): void {
+    active = 'backends';
+    whenPresent('[data-testid="be-list-available"]', (list) => {
+      list.scrollIntoView({ block: 'start' });
+      list.querySelector<HTMLElement>('summary, button')?.focus({ preventScroll: true });
+    });
+  }
+
+  function chooseLocal(): void {
+    active = 'backends';
+    openBackendRow('ollama', 'input');
+  }
+
+  /** The notice's action: the Backends tab, on the Get started card while it shows. */
+  function setUpBackend(): void {
+    active = 'backends';
+    whenPresent(showGetStarted ? '[data-ega-get-started] h2' : '[data-testid="be-list"]', (el) => {
+      el.scrollIntoView({ block: 'start' });
+      el.focus({ preventScroll: true });
     });
   }
 
@@ -421,7 +437,12 @@
     if (!(await saveSettings({ onboardingDismissed: true }))) onboardingHidden = false;
   }
 
-  function jumpToSetting(tab: TabId, entryId: string): void {
+  function jumpToSetting(tab: TabId, entryId: string, location?: 'header'): void {
+    if (location === 'header') {
+      // After the dialog's own focus restore, so it does not pull focus back to the search button.
+      whenPresent('[data-ega-theme-toggle] [aria-checked="true"]', (el) => el.focus());
+      return;
+    }
     const sameTab = active === tab;
     if (entryId) setPendingDeepLink(entryId);
     active = tab;
@@ -487,16 +508,19 @@
         aria-labelledby={`tab-${active}`}
         tabindex="0"
       >
-        <StatusBar
-          kind={statusKind}
-          onChooseGemini={chooseGemini}
-          onDismissOnboarding={dismissOnboarding}
-          onJumpToBackends={() => (active = 'backends')}
-        />
+        <StatusBar show={showNotice} {...active === 'backends' ? {} : { onSetUp: setUpBackend }} />
         <OptionsTabContent
           {active}
           s={liveSettings}
           onSetSettings={(next) => (liveSettings = next)}
+          getStarted={showGetStarted
+            ? {
+                onUseGemini: chooseGemini,
+                onUseOtherKey: chooseOtherKey,
+                onRunLocal: chooseLocal,
+                onSkip: () => void dismissOnboarding(),
+              }
+            : null}
         />
       </div>
     </div>

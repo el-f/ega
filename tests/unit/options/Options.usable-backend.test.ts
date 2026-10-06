@@ -29,14 +29,15 @@ describe('Options.svelte — the no-backend warnings track what the router can u
     });
   });
 
-  it('keeps onboarding up when the only key sits on a disabled backend', async () => {
+  it('keeps Get started up when the only key sits on a disabled backend', async () => {
     seedSettings({ onboardingDismissed: false, openaiApiKey: 'sk-test' });
     const { container } = render(Options);
     await waitFor(() => {
-      expect(container.querySelector('[role="tab"]')).toBeTruthy();
+      expect(container.querySelector('#tab-backends')).toBeTruthy();
     });
+    await fireEvent.click(container.querySelector('#tab-backends') as HTMLElement);
     await waitFor(() => {
-      expect(container.querySelector('[data-ega-status-bar="onboarding"]')).toBeTruthy();
+      expect(container.querySelector('[data-ega-get-started]')).toBeTruthy();
     });
   });
 
@@ -46,7 +47,9 @@ describe('Options.svelte — the no-backend warnings track what the router can u
     await waitFor(() => {
       expect(container.querySelector('[role="tab"]')).toBeTruthy();
     });
-    expect(container.querySelector('[data-ega-status-bar="onboarding"]')).toBeFalsy();
+    await fireEvent.click(container.querySelector('#tab-backends') as HTMLElement);
+    await new Promise<void>((r) => setTimeout(r, 0));
+    expect(container.querySelector('[data-ega-get-started]')).toBeFalsy();
     expect(container.querySelector('[data-ega-status-bar="needs-key"]')).toBeFalsy();
   });
 

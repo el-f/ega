@@ -950,7 +950,7 @@ export const COVERAGE: readonly Family[] = [
           {
             id: 'manage',
             description:
-              'Selection & picker tab: three menu groups, add an image action, Move down inside a group keeps focus, Reset then Undo brings back an added row',
+              'Selection and picker tab: three menu groups, add an image action, Move down inside a group keeps focus, Reset then Undo brings back an added row',
             flows: ['options-context-menu/manage.flow.spec.ts'],
           },
           {
@@ -1230,17 +1230,19 @@ export const COVERAGE: readonly Family[] = [
         actions: [
           {
             id: 'banner-renders-on-first-run',
-            description: 'Welcome banner renders without keys or dismissed flag',
+            description:
+              'No backend: the notice on every tab, its button opens Get started on Backends',
             flows: ['options-onboarding/banner-renders-on-first-run.flow.spec.ts'],
           },
           {
             id: 'banner-dismissable',
-            description: 'Skip dismisses the banner + sets onboardingDismissed',
+            description:
+              'Skip for now hides Get started, sets onboardingDismissed, the notice stays',
             flows: ['options-onboarding/banner-dismissable.flow.spec.ts'],
           },
           {
             id: 'choose-gemini-jumps-to-backends',
-            description: 'Add-Gemini CTA jumps to the Backends tab',
+            description: 'Use a free Gemini key opens the Gemini row with its key field focused',
             flows: ['options-onboarding/choose-gemini-jumps-to-backends.flow.spec.ts'],
           },
         ],

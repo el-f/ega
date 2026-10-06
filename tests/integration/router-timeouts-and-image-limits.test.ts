@@ -60,7 +60,7 @@ describe('router — ABORTED passes through when the wall clock did not fire', (
 });
 
 describe('router — TIMEOUT message content', () => {
-  it('timeout names the text translate timeout and points at Settings → Translate', async () => {
+  it('timeout names the text answer timeout and points at Settings → Answers', async () => {
     const b = mkBackend('anthropic', async (a: TranslateCallArgs) => {
       await new Promise<void>((resolve) => {
         a.cancel.signal.addEventListener(
@@ -94,7 +94,7 @@ describe('router — TIMEOUT message content', () => {
     if (err?.type === 'error') {
       expect(err.code).toBe('TIMEOUT');
       expect(err.message).toBe(
-        'No answer before the text translate timeout. Try again, or raise it in Settings → Translate.',
+        'No answer before the text answer timeout. Try again, or raise it in Settings → Answers.',
       );
       expect(optionsTabForMessage(err.message, err.code)).toBe('translate');
     } else {
@@ -357,7 +357,7 @@ describe('router — image finally-block TIMEOUT message', () => {
   });
   afterEach(() => vi.unstubAllGlobals());
 
-  it('image translate TIMEOUT names the image translate timeout setting', async () => {
+  it('image TIMEOUT names the image answer timeout setting', async () => {
     const b = mkImageBackend('anthropic', async (a: TranslateImageArgs) => {
       await new Promise<void>((resolve) => {
         a.cancel.signal.addEventListener('abort', () => resolve(), { once: true });

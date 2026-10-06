@@ -43,7 +43,7 @@ test('journey: options.context-menu.manage', async () => {
   const page = await ext.context.newPage();
   await captureJourney(page, 'options.context-menu.manage', [
     {
-      label: 'Open Options (Selection & picker tab) and scroll to the Right-click menu card',
+      label: 'Open Options (Selection and picker tab) and scroll to the Right-click menu card',
       run: async (p) => {
         await p.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
         await p.locator('#tab-selection-bubble').click();

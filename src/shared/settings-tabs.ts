@@ -10,47 +10,43 @@ export interface SettingsTabSpec {
 export const SETTINGS_TABS = [
   {
     id: 'translate',
-    label: 'Translate',
-    description:
-      'How translations behave: tooltip, streaming, page context, page translation and generation settings.',
+    label: 'Answers',
+    description: 'How answers look, what Ega sends, and how the model writes',
   },
   {
     id: 'tasks',
     label: 'Tasks',
-    description: 'Which tasks show in the pickers, and what each task sends.',
+    description: 'Which tasks show in the pickers, and what each one sends',
   },
   {
     id: 'selection-bubble',
-    label: 'Selection & picker',
-    description: 'When the selection bubble appears, the element picker and the right-click menu.',
+    label: 'Selection and picker',
+    description: 'The selection bubble, the element picker and the right-click menu',
   },
   {
     id: 'backends',
     label: 'Backends',
-    description:
-      'Pick which backends Ega uses: a cloud API with your key, a server on this computer (Ollama, LM Studio, llama-server), or the native host. Each card shows its status. An API-key backend says "Key saved" until you press Test now, and "Verified" after the test passes.',
+    description: 'Where Ega sends text, tried from the top of the list',
   },
   {
     id: 'languages',
     label: 'Languages',
-    description:
-      'Built-in and custom languages. Set detection rules and translation examples for each.',
+    description: 'Default languages, and the slang and special languages Ega knows',
   },
   {
     id: 'glossary',
-    label: 'Glossary',
-    description:
-      'Term → translation pairs Ega adds when the term appears in the text, for every task with Use glossary on.',
+    label: 'Glossary and rules',
+    description: 'Words and instructions Ega adds to every prompt',
   },
   {
     id: 'advanced',
     label: 'Advanced',
-    description: 'Diagnostics, data, labs. Changes apply immediately.',
+    description: 'Backups, saved data and diagnostics',
   },
   {
     id: 'about',
     label: 'About',
-    description: 'Privacy, data controls, and credits.',
+    description: 'Privacy and credits',
   },
 ] as const satisfies readonly SettingsTabSpec[];
 

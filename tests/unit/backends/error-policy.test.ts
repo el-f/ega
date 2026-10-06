@@ -133,13 +133,17 @@ describe('the options tab per code — one map for every surface that offers "Op
   it('routes by labels that still exist in SETTINGS_TABS', async () => {
     const { SETTINGS_TABS } = await import('@/shared/settings-tabs');
     for (const [label, id] of [
-      ['Translate', 'translate'],
+      ['Answers', 'translate'],
       ['Backends', 'backends'],
     ] as const) {
       const row = SETTINGS_TABS.find((t) => t.id === id);
       expect(row?.label, `${id} tab is gone`).toBe(label);
       expect(optionsTabForMessage(`Fix it in Settings → ${label}.`, null)).toBe(id);
     }
+  });
+
+  it('an old stored message that names the Translate tab still opens its new name, Answers', () => {
+    expect(optionsTabForMessage('Raise it in Settings → Translate.', 'TIMEOUT')).toBe('translate');
   });
 
   it('leaves REQUEST to its message — one code covers three unrelated causes', () => {

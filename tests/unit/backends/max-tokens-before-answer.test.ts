@@ -18,7 +18,7 @@ describe('a max-tokens stop', () => {
       { type: 'stop', reason: 'max_tokens' },
     ]);
     expect(message).toMatch(/before it wrote any answer/);
-    expect(message).toMatch(/Settings → Translate/);
+    expect(message).toMatch(/Settings → Answers/);
     expect(message).toMatch(/for this task in Settings → Tasks/);
   });
 

@@ -13,16 +13,19 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-test('Add a Gemini key navigates to the Backends tab', async () => {
+test('Use a free Gemini key opens the Gemini row with its key field focused', async () => {
   const timeline = createTimeline();
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
+  await page.locator('#tab-backends').click();
 
   await expect(page.locator('[data-ega-onboard="gemini"]')).toBeVisible({ timeout: 5_000 });
   await page.locator('[data-ega-onboard="gemini"]').click();
   timeline.markStep('clicked');
 
-  await expect(page.locator('#tab-backends')).toHaveAttribute('aria-selected', 'true', {
+  await expect(page.locator('#tab-backends')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator("details[data-backend-id='gemini']")).toHaveAttribute('open', '');
+  await expect(page.locator("details[data-backend-id='gemini'] .cp-key-input")).toBeFocused({
     timeout: 5_000,
   });
 });

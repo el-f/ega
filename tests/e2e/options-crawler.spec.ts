@@ -189,12 +189,12 @@ async function crawlDataEgaClickables(
 // 1. Tab mount smoke + console errors
 
 const TOP_LEVEL_TABS = [
-  'Translate',
-  'Selection & picker',
+  'Answers',
+  'Selection and picker',
   'Backends',
   'Languages',
   'Tasks',
-  'Glossary',
+  'Glossary and rules',
   'Advanced',
   'About',
 ] as const;
@@ -260,7 +260,7 @@ test('glossary: empty state renders at 0 entries', async () => {
   const { page, errors } = await openOptions(ext.context, ext.extensionId);
 
   await test.step('navigate to Glossary', async () => {
-    await clickTab(page, 'Glossary');
+    await clickTab(page, 'Glossary and rules');
   });
 
   await test.step('no glossary-list visible when 0 entries', async () => {
@@ -277,7 +277,7 @@ test('glossary: add 1 entry — list appears and storage updated', async () => {
   const { page, errors } = await openOptions(ext.context, ext.extensionId);
 
   await test.step('navigate to Glossary', async () => {
-    await clickTab(page, 'Glossary');
+    await clickTab(page, 'Glossary and rules');
   });
 
   await test.step('fill and submit add-entry form', async () => {
@@ -306,7 +306,7 @@ test('glossary: add-entry button is disabled when fields empty', async () => {
   const { page, errors } = await openOptions(ext.context, ext.extensionId);
 
   await test.step('navigate to Glossary', async () => {
-    await clickTab(page, 'Glossary');
+    await clickTab(page, 'Glossary and rules');
   });
 
   await test.step('add button disabled with empty inputs', async () => {
@@ -330,7 +330,7 @@ test('glossary: cap message appears at 200 entries', async () => {
   const { page, errors } = await openOptions(ext.context, ext.extensionId);
 
   await test.step('navigate to Glossary', async () => {
-    await clickTab(page, 'Glossary');
+    await clickTab(page, 'Glossary and rules');
   });
 
   await test.step('200 entries render in list', async () => {
@@ -365,8 +365,8 @@ test('glossary: cap message appears at 200 entries', async () => {
 test('persistence: Display/Selection bubbleMode change survives page reload', async () => {
   const { page, errors } = await openOptions(ext.context, ext.extensionId);
 
-  await test.step('navigate to Selection & picker', async () => {
-    await clickTab(page, 'Selection & picker');
+  await test.step('navigate to Selection and picker', async () => {
+    await clickTab(page, 'Selection and picker');
   });
 
   await test.step('click "always" bubble mode radio', async () => {
@@ -391,7 +391,7 @@ test('persistence: Display/Selection bubbleMode change survives page reload', as
   await test.step('reload page', async () => {
     await page.reload();
     await page.waitForSelector('[role="tab"]', { timeout: 10_000 });
-    await clickTab(page, 'Selection & picker');
+    await clickTab(page, 'Selection and picker');
   });
 
   await test.step('bubbleMode "always" still selected after reload', async () => {
@@ -407,7 +407,7 @@ test('persistence: Glossary entry survives page reload', async () => {
   const { page: page1, errors: errors1 } = await openOptions(ext.context, ext.extensionId);
 
   await test.step('add glossary entry', async () => {
-    await clickTab(page1, 'Glossary');
+    await clickTab(page1, 'Glossary and rules');
     const addSection = page1.locator('[data-ega-glossary-add]');
     await addSection.getByLabel(/^Term/i).fill('PersistTest');
     await addSection.getByLabel(/^Translation/i).fill('PersistTranslation');
@@ -424,7 +424,7 @@ test('persistence: Glossary entry survives page reload', async () => {
   await test.step('reload and verify entry present', async () => {
     await page1.reload();
     await page1.waitForSelector('[role="tab"]', { timeout: 10_000 });
-    await clickTab(page1, 'Glossary');
+    await clickTab(page1, 'Glossary and rules');
     await expect(page1.locator('[data-ega-glossary-list]')).toContainText('PersistTest', {
       timeout: 5_000,
     });

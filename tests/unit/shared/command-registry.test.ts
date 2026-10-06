@@ -44,7 +44,7 @@ describe('buildRegistry', () => {
   it('labels show human names, never raw ids', () => {
     const cmds = buildRegistry(baseDeps({ onSetTask: vi.fn() }));
     const byId = new Map(cmds.map((c) => [c.id, c.label]));
-    expect(byId.get('options.open.selection-bubble')).toBe('Open Settings: Selection & picker');
+    expect(byId.get('options.open.selection-bubble')).toBe('Open Settings: Selection and picker');
     expect(byId.get('task.translate')).toBe('Switch task: Translate');
     expect(byId.get('task.reword')).toBe('Switch task: Reword');
     expect(byId.get('bubble.smart')).toBe('Selection bubble: Smart');

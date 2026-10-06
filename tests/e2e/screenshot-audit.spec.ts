@@ -428,7 +428,7 @@ test('Right-click menu card — default, edit, states, many, narrow, delete (lig
   await cardShot(
     'default',
     'default',
-    'user opened Selection & picker and scrolled to the Right-click menu card',
+    'user opened Selection and picker and scrolled to the Right-click menu card',
     [
       'three groups: Selected text, Images, Page, each box starting with "Ega ▸"',
       'automatic names, none ending in "with Ega"; no Layout control; Reset hidden',

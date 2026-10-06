@@ -33,7 +33,7 @@ async function openOptions(): Promise<{ page: Page; errors: string[] }> {
 
 test('Selection tab: mounts and toggling bubbleMode persists', async () => {
   const { page, errors } = await openOptions();
-  await page.getByRole('tab', { name: /^Selection & picker$/ }).click();
+  await page.getByRole('tab', { name: /^Selection and picker$/ }).click();
 
   const alwaysRadio = page.locator('[data-ega-bubble-mode] label').filter({ hasText: /Always/ });
   await expect(alwaysRadio).toBeVisible();
@@ -73,7 +73,7 @@ test('Translate tab: temperature slider thumb is focusable + keyboard-driven', a
     advanced: { temperature: 0.2, maxTokens: 2048 },
   });
   const { page, errors } = await openOptions();
-  await page.getByRole('tab', { name: /^Translate$/ }).click();
+  await page.getByRole('tab', { name: /^Answers$/ }).click();
 
   const tempRow = page.locator('[data-ega-setting="advanced.temperature"]');
   await expect(tempRow).toBeVisible({ timeout: 5_000 });

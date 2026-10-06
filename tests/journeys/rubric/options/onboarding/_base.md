@@ -2,19 +2,22 @@
 
 ## Mount conditions
 
-- Banner renders ONLY when no enabled backend is usable (no key, no Ollama URL, no enabled local server, no reachable native host or Ollama daemon) AND `onboardingDismissed` is not true.
-- Banner is the first row inside the active panel; it does not block the tablist.
+- "No backend can run" means no enabled backend is usable (no key, no Ollama URL, no enabled local server, no reachable native host or Ollama daemon).
+- While no backend can run, every tab shows ONE notice under the header: "No backend is set up yet, so Ega cannot translate" with a secondary "Set up a backend" button.
+- On the Backends tab the notice is replaced by the "Get started" card, until the user presses "Skip for now". The page never shows the notice and the card together.
 
 ## Dismiss
 
-- The "Skip for now" button sets `onboardingDismissed = true`; banner does not reappear on next mount.
-- Dismiss is per-extension-install, not per-session.
+- "Skip for now" sets `onboardingDismissed = true`; the card does not come back on the next mount.
+- After Skip, the notice shows on every tab, the Backends tab included, without its button there.
 
-## CTAs
+## Actions
 
-- The one backend CTA (Gemini) jumps to the Backends tab, opens the Gemini card, scrolls it into view and focuses its key field.
-- CTAs never silently configure a backend — the user lands on the card and fills the key themselves.
+- "Use a free Gemini key" opens the Gemini row and focuses its key field.
+- "Use another API key" scrolls to the "Not in use" list.
+- "Run on this computer" opens the Ollama row.
+- No action configures a backend by itself; the user fills the key or the address.
 
 ## A11y
 
-- Banner is a role=region with aria-label "Get started with Ega"; it has no visible heading.
+- The card is a SectionCard: an h2 "Get started" with one description line, then one row of buttons.

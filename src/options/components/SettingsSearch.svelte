@@ -23,7 +23,6 @@
   const POPULAR_IDS: readonly string[] = [
     'advanced.temperature',
     'advanced.translateTimeoutMs',
-    'advanced.cacheSettings',
     'display.bubbleMode',
     'display.theme',
     'backends.backendOrder',
@@ -33,8 +32,6 @@
     const entry = SETTINGS_REGISTRY.find((e) => e.id === id);
     return entry ? [{ ...entry, score: 0, matchedTerm: entry.label }] : [];
   });
-
-  const EXAMPLES = ['temperature', 'cache', 'backend', 'shortcut'] as const;
 
   const RECENT_MAX = 5;
   function readRecent(): readonly string[] {
@@ -63,8 +60,8 @@
     open: boolean;
     settings: Settings | null;
     onClose: () => void;
-    /** entryId is SettingEntry.id — e.g. 'advanced.temperature'. */
-    onJump: (tab: SettingsTab, entryId: string) => void;
+    /** entryId is SettingEntry.id — e.g. 'advanced.temperature'. A header setting (Theme) passes its location. */
+    onJump: (tab: SettingsTab, entryId: string, location?: 'header') => void;
   }
 
   let { open, settings, onClose, onJump }: Props = $props();
@@ -127,18 +124,18 @@
     scrollOptionIntoView('[role="option"]');
   });
 
-  // The examples unmount once the query is set, so focus goes back to the input, not the page.
-  function pickExample(e: MouseEvent, ex: string): void {
+  // The no-results line unmounts once the query clears, so focus goes back to the input, not the page.
+  function clearSearch(e: MouseEvent): void {
     (e.currentTarget as HTMLElement)
       .closest('.ss-root')
       ?.querySelector<HTMLInputElement>('input[aria-label="Search settings"]')
       ?.focus();
-    query = ex;
+    query = '';
   }
 
   function jump(r: SearchResult): void {
     pushRecent(r.id);
-    onJump(r.tab, r.id);
+    onJump(r.tab, r.id, r.location);
     onClose();
   }
 
@@ -148,7 +145,7 @@
       label: r.label,
       description: r.description,
       tab: r.tab,
-      tabLabel: TAB_LABELS[r.tab],
+      tabLabel: r.location === 'header' ? 'Header' : TAB_LABELS[r.tab],
       modified: r.isModified ? (settings ? r.isModified(settings) : false) : false,
     };
     if (opts.highlight) {
@@ -218,18 +215,8 @@
         </div>
 
         <div class="ss-modified-row">
-          <Checkbox bind:checked={modifiedOnly} label="Modified only" size="sm" />
+          <Checkbox bind:checked={modifiedOnly} label="Changed only" />
         </div>
-
-        {#if !query.trim()}
-          <p class="ss-hint">
-            Search across every tab. Try:
-            {#each EXAMPLES as ex (ex)}
-              <Button variant="secondary" size="sm" onclick={(e) => pickExample(e, ex)}>{ex}</Button
-              >
-            {/each}
-          </p>
-        {/if}
 
         {#if hasOptions}
           <Command.List
@@ -277,18 +264,19 @@
             </p>
           {/if}
           <p class="ss-keys">
-            <Kbd>↑↓</Kbd> move · <Kbd>Enter</Kbd> open · <Kbd>Esc</Kbd> close
+            <Kbd>Enter</Kbd> to open · <Kbd>↑↓</Kbd> to move · <Kbd>Esc</Kbd> to close ·
+            <Kbd>Ctrl+K</Kbd> for commands · <Kbd>?</Kbd> for all shortcuts
           </p>
         {:else if query.trim()}
-          {#if unfilteredHasMatches}
-            <p class="ss-empty" role="status">
-              No modified settings match — uncheck <b>Modified only</b>.
-            </p>
-          {:else}
-            <p class="ss-empty" role="status">
-              No settings match <b>"{query}"</b>. Check the spelling or try a different word.
-            </p>
-          {/if}
+          <div class="ss-empty" role="status">
+            {#if unfilteredHasMatches}
+              <span>No changed setting matches "{query.trim()}"</span>
+              <Button variant="ghost" onclick={() => (modifiedOnly = false)}>Show all</Button>
+            {:else}
+              <span>No setting matches "{query.trim()}"</span>
+              <Button variant="ghost" onclick={clearSearch}>Clear search</Button>
+            {/if}
+          </div>
         {/if}
       </div>
     {/snippet}
@@ -309,30 +297,23 @@
     display: inline-flex;
     align-items: center;
     gap: var(--space-2);
-    font-size: var(--fs-sm);
     color: var(--color-muted);
     user-select: none;
   }
-  .ss-hint {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--space-1) var(--space-2);
-    margin: 0;
-    font-size: var(--fs-sm);
-    color: var(--color-muted);
-    line-height: 1.5;
-  }
   .ss-keys {
     margin: 0;
-    font-size: var(--fs-xs);
+    font-size: var(--fs-base);
+    line-height: var(--lh-body);
     color: var(--color-muted);
   }
   .ss-empty {
-    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
     padding: var(--space-3);
     color: var(--color-muted);
-    font-size: var(--fs-sm);
+    font-size: var(--fs-base);
   }
   .ss-root :global([data-command-viewport]),
   .ss-root :global([data-command-group]) {
@@ -349,17 +330,15 @@
   .ss-root :global(.ss-popular-header) {
     margin-top: var(--space-2);
     padding: 0 var(--space-1);
-    font-size: var(--fs-xs);
-    color: var(--color-fg-subtle);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    font-weight: 500;
+    font-size: var(--fs-base);
+    color: var(--color-muted);
+    font-weight: 600;
   }
   .ss-overflow {
     margin: 0;
     padding-top: var(--space-2);
     border-top: 1px solid var(--color-border-subtle);
-    font-size: var(--fs-xs);
+    font-size: var(--fs-base);
     color: var(--color-muted);
     text-align: center;
   }

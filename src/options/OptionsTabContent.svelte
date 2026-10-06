@@ -36,6 +36,7 @@
   import Backends from './tabs/Backends.svelte';
   import Languages from './tabs/Languages.svelte';
   import About from './tabs/About.svelte';
+  import type { GetStartedActions } from './tabs/Backends.svelte';
 
   interface Props {
     active: TabId;
@@ -43,9 +44,11 @@
     s: Settings | null;
     /** Pushes the result into Options.svelte's live settings without waiting for storage.onChanged. */
     onSetSettings: (next: Settings) => void;
+    /** The Backends tab's Get started card, while no backend can run and the user has not skipped it. */
+    getStarted?: GetStartedActions | null;
   }
 
-  const { active, s, onSetSettings }: Props = $props();
+  const { active, s, onSetSettings, getStarted = null }: Props = $props();
 </script>
 
 <div class="options-pane">
@@ -53,7 +56,7 @@
   {#key active}
     <div class="tab-fade-in">
       {#if active === 'backends'}
-        <Backends {s} {onSetSettings} />
+        <Backends {s} {onSetSettings} {getStarted} />
       {:else if active === 'languages'}
         <Languages {s} {onSetSettings} />
       {:else if active === 'about'}

@@ -138,12 +138,10 @@
   .options-nav-group-label {
     margin: var(--space-4) 0 var(--space-1);
     padding: 0 var(--space-2);
-    font-size: var(--fs-xs);
-    font-weight: 600;
+    font-size: var(--fs-base);
+    font-weight: 400;
     color: var(--color-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    line-height: 1.4;
+    line-height: var(--lh-body);
   }
   .options-nav-group-label:first-child {
     margin-top: 0;
@@ -161,8 +159,8 @@
     border: 0;
     border-radius: var(--radius-sm);
     font-family: var(--font-ui);
-    font-size: var(--fs-sm);
-    line-height: 1.4;
+    font-size: var(--fs-base);
+    line-height: var(--lh-body);
     cursor: pointer;
     transition:
       background var(--motion-fast) var(--ease-out),
@@ -190,14 +188,11 @@
     color: currentColor;
     line-height: 0;
   }
+  /* Long labels wrap to two lines inside the rail; nothing is cut off. */
   .options-nav-label {
     flex: 1 1 auto;
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    /* Pads the line box so descenders clear the overflow:hidden clip. */
-    padding-block: 1px;
+    overflow-wrap: anywhere;
   }
   .options-nav-item:hover {
     background: var(--color-bg-hover);
@@ -210,7 +205,7 @@
   .options-nav-item.active {
     background: var(--color-bg-hover);
     color: var(--color-fg);
-    font-weight: 500;
+    font-weight: 600;
   }
   .options-nav-item.active::before {
     opacity: 1;
@@ -267,7 +262,7 @@
       border: 1px solid var(--color-border);
       border-radius: var(--radius-sm);
       padding: 2px var(--space-2);
-      font-size: var(--fs-xs);
+      font-size: var(--fs-base);
       font-family: var(--font-ui);
       white-space: nowrap;
       pointer-events: none;

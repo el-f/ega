@@ -64,7 +64,7 @@ describe('settings-tabs — every consumer reads the same row', () => {
 
   it('the search-result badge and the nav agree on the selection tab label', () => {
     const tab: SettingsTab = 'selection-bubble';
-    expect(TAB_LABELS[tab]).toBe('Selection & picker');
-    expect(TABS.find((t) => t.id === tab)?.label).toBe('Selection & picker');
+    expect(TAB_LABELS[tab]).toBe('Selection and picker');
+    expect(TABS.find((t) => t.id === tab)?.label).toBe('Selection and picker');
   });
 });

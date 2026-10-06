@@ -14,10 +14,11 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-test('Skip for now flips onboardingDismissed and hides the banner', async () => {
+test('Skip for now flips onboardingDismissed, hides Get started and leaves the notice', async () => {
   const timeline = createTimeline();
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
+  await page.locator('#tab-backends').click();
 
   await expect(page.locator('[data-ega-onboard="dismiss"]')).toBeVisible({ timeout: 5_000 });
   await page.locator('[data-ega-onboard="dismiss"]').click();
@@ -33,7 +34,8 @@ test('Skip for now flips onboardingDismissed and hides the banner', async () => 
     )
     .toBe(true);
 
-  await expect(page.getByRole('region', { name: 'Get started with Ega' })).not.toBeVisible({
-    timeout: 5_000,
-  });
+  await expect(page.locator('[data-ega-get-started]')).not.toBeVisible({ timeout: 5_000 });
+  // The page still says no backend can run, without a button that would point at the tab it is on.
+  await expect(page.locator('[data-ega-status-bar="needs-key"]')).toBeVisible();
+  await expect(page.locator('[data-ega-status-jump-backends]')).toHaveCount(0);
 });

@@ -34,6 +34,13 @@ function seedSettings(overrides: Record<string, unknown> = {}): void {
   chromeMock.storage.local._raw.set(SETTINGS_KEY, defaults);
 }
 
+async function openBackends(container: HTMLElement): Promise<void> {
+  await waitFor(() => {
+    expect(container.querySelector('#tab-backends')).toBeTruthy();
+  });
+  await fireEvent.click(container.querySelector('#tab-backends') as HTMLElement);
+}
+
 function tabLabels(container: HTMLElement): string[] {
   return Array.from(container.querySelectorAll('[role="tab"]')).map((el) =>
     (el.textContent as string).trim(),
@@ -51,10 +58,10 @@ describe('Options.svelte — V2 IA nav', () => {
     const { container } = render(Options);
     await waitFor(() => {
       const labels = tabLabels(container);
-      expect(labels).toContain('Translate');
+      expect(labels).toContain('Answers');
     });
     const labels = tabLabels(container);
-    expect(labels).toContain('Selection & picker');
+    expect(labels).toContain('Selection and picker');
     expect(labels).toContain('Tasks');
     expect(labels).not.toContain('Templates');
     expect(labels).toContain('Backends');
@@ -107,7 +114,6 @@ describe('Options.svelte — needs-key banner vs native host', () => {
   });
 
   it('shows the needs-key banner when no cloud key, no ollama, and native host is not installed', async () => {
-    // No native host, so the banner shows; dismiss onboarding, which outranks it.
     seedSettings({ onboardingDismissed: true });
     const { container } = render(Options);
     await waitFor(() => {
@@ -138,32 +144,65 @@ describe('Options.svelte — needs-key banner vs native host', () => {
   });
 });
 
-describe('Options.svelte — onboarding banner suppression', () => {
+describe('Options.svelte — the Get started card', () => {
   beforeEach(() => {
     resetProbeNativeHostForTest();
     resetChromeMock();
+    // clearAllMocks keeps an earlier test's installed-host stub; this block needs the default missing host.
+    chromeMock.runtime.connectNative.mockReset();
   });
 
-  it('with no backend at all, onboarding wins over needs-key (priority)', async () => {
-    // Fresh install: both banners qualify and onboarding wins.
+  it('with no backend at all: the notice on other tabs, Get started instead of it on Backends', async () => {
     seedSettings({ onboardingDismissed: false });
     const { container } = render(Options);
     await waitFor(() => {
-      expect(container.querySelector('[data-ega-status-bar="onboarding"]')).toBeTruthy();
+      expect(container.querySelector('[data-ega-status-bar="needs-key"]')).toBeTruthy();
+    });
+    expect(container.querySelector('[data-ega-get-started]')).toBeFalsy();
+    expect(container.querySelector('[data-ega-status-jump-backends]')).toBeTruthy();
+    await openBackends(container);
+    await waitFor(() => {
+      expect(container.querySelector('[data-ega-get-started]')).toBeTruthy();
     });
     expect(container.querySelector('[data-ega-status-bar="needs-key"]')).toBeFalsy();
   });
 
-  it('suppresses onboarding when the native host is installed (READY without a key)', async () => {
-    // A ready native host needs no key, so onboarding stays hidden.
-    mockNativeHostInstalled();
+  it('after Skip for now, the notice shows on Backends too, without its button', async () => {
+    seedSettings({ onboardingDismissed: false });
+    const { container } = render(Options);
+    await openBackends(container);
+    await waitFor(() => {
+      expect(container.querySelector('[data-ega-onboard="dismiss"]')).toBeTruthy();
+    });
+    await fireEvent.click(container.querySelector('[data-ega-onboard="dismiss"]') as HTMLElement);
+    await waitFor(() => {
+      expect(container.querySelector('[data-ega-get-started]')).toBeFalsy();
+      expect(container.querySelector('[data-ega-status-bar="needs-key"]')).toBeTruthy();
+    });
+    expect(container.querySelector('[data-ega-status-jump-backends]')).toBeFalsy();
+  });
+
+  it('the notice action opens the Backends tab and focuses the Get started card', async () => {
     seedSettings({ onboardingDismissed: false });
     const { container } = render(Options);
     await waitFor(() => {
-      expect(container.querySelector('[role="tab"]')).toBeTruthy();
+      expect(container.querySelector('[data-ega-status-jump-backends]')).toBeTruthy();
     });
+    await fireEvent.click(
+      container.querySelector('[data-ega-status-jump-backends]') as HTMLElement,
+    );
     await waitFor(() => {
-      expect(container.querySelector('[data-ega-status-bar="onboarding"]')).toBeFalsy();
+      expect(document.activeElement?.closest('[data-ega-get-started]')).toBeTruthy();
+    });
+  });
+
+  it('suppresses Get started when the native host is installed (READY without a key)', async () => {
+    mockNativeHostInstalled();
+    seedSettings({ onboardingDismissed: false });
+    const { container } = render(Options);
+    await openBackends(container);
+    await waitFor(() => {
+      expect(container.querySelector('[data-ega-get-started]')).toBeFalsy();
     });
   });
 
@@ -172,26 +211,28 @@ describe('Options.svelte — onboarding banner suppression', () => {
     mockNativeHostInstalled();
     seedSettings({ onboardingDismissed: false, disabledBackends: ['native'] });
     const { container } = render(Options);
+    await openBackends(container);
     await waitFor(() => {
-      expect(container.querySelector('[data-ega-status-bar="onboarding"]')).toBeTruthy();
+      expect(container.querySelector('[data-ega-get-started]')).toBeTruthy();
     });
 
     const gemini = container.querySelector<HTMLButtonElement>('[data-ega-onboard="gemini"]');
     expect(gemini).toBeTruthy();
     await fireEvent.click(gemini as HTMLButtonElement);
     await waitFor(() => {
-      expect(container.querySelector('[data-ega-status-bar="onboarding"]')).toBeFalsy();
+      expect(container.querySelector('[data-ega-get-started]')).toBeFalsy();
     });
 
     chromeMock.storage.local._fire({ 'ega.settings': { newValue: {} } });
     await new Promise<void>((r) => setTimeout(r, 0));
-    expect(container.querySelector('[data-ega-status-bar="onboarding"]')).toBeFalsy();
+    expect(container.querySelector('[data-ega-get-started]')).toBeFalsy();
   });
 
   it('the Gemini CTA lands on the Backends tab with the Gemini card open and its key input focused', async () => {
     mockNativeHostInstalled();
     seedSettings({ onboardingDismissed: false, disabledBackends: ['native'] });
     const { container } = render(Options);
+    await openBackends(container);
     await waitFor(() => {
       expect(container.querySelector('[data-ega-onboard="gemini"]')).toBeTruthy();
     });
@@ -209,7 +250,7 @@ describe('Options.svelte — onboarding banner suppression', () => {
     });
   });
 
-  it('suppresses onboarding when an ollama URL is set on an enabled ollama', async () => {
+  it('suppresses Get started when an ollama URL is set on an enabled ollama', async () => {
     // ollama ships disabled, so the URL alone is not a usable backend.
     seedSettings({
       onboardingDismissed: false,
@@ -220,8 +261,9 @@ describe('Options.svelte — onboarding banner suppression', () => {
     await waitFor(() => {
       expect(container.querySelector('[role="tab"]')).toBeTruthy();
     });
+    await openBackends(container);
     await new Promise<void>((r) => setTimeout(r, 0));
-    expect(container.querySelector('[data-ega-status-bar="onboarding"]')).toBeFalsy();
+    expect(container.querySelector('[data-ega-get-started]')).toBeFalsy();
   });
 });
 
@@ -274,5 +316,28 @@ describe('Options.svelte — palette lists custom tasks', () => {
       const opts = [...document.querySelectorAll('[role="option"]')].map((o) => o.textContent);
       expect(opts.some((t) => t.includes('Switch task: Tweet summary'))).toBe(true);
     });
+  });
+});
+
+describe('Options.svelte — search jumps to the header Theme control', () => {
+  beforeEach(() => {
+    resetProbeNativeHostForTest();
+    resetChromeMock();
+  });
+
+  it('Enter on "Theme" closes search and focuses the header theme control', async () => {
+    seedSettings();
+    const { container, findByPlaceholderText } = render(Options);
+    await waitFor(() => {
+      expect(container.querySelector('[data-ega-theme-toggle]')).toBeTruthy();
+    });
+    await fireEvent.keyDown(document, { key: ',', ctrlKey: true });
+    const input = (await findByPlaceholderText('Search settings…')) as HTMLInputElement;
+    await fireEvent.input(input, { target: { value: 'theme' } });
+    await fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => {
+      expect(document.activeElement?.closest('[data-ega-theme-toggle]')).toBeTruthy();
+    });
+    expect(document.activeElement?.getAttribute('aria-checked')).toBe('true');
   });
 });

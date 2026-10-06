@@ -4,35 +4,44 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { resetChromeMock } from '../../mocks/chrome';
 import Options from '@/options/Options.svelte';
 
-const WELCOME = { name: 'Get started with Ega' };
+const getStarted = (): Element | null => document.querySelector('[data-ega-get-started]');
+const notice = (): Element | null => document.querySelector('[data-ega-status-bar="needs-key"]');
 
-describe('Options — the welcome banner', () => {
+describe('Options — Get started and the notice', () => {
   beforeEach(() => {
     resetChromeMock();
   });
 
-  it('shows on Translate and Backends only; other tabs get the short needs-key bar', async () => {
+  it('Get started shows on Backends only, and the page never shows it and the notice together', async () => {
     render(Options);
     await waitFor(() => {
-      expect(screen.getByRole('region', WELCOME)).toBeTruthy();
+      expect(notice()).not.toBeNull();
     });
-
-    await fireEvent.click(screen.getByRole('tab', { name: /Tasks/ }));
-    await waitFor(() => {
-      expect(screen.queryByRole('region', WELCOME)).toBeNull();
-      expect(document.querySelector('[data-ega-status-bar="needs-key"]')).not.toBeNull();
-    });
+    expect(getStarted()).toBeNull();
 
     await fireEvent.click(screen.getByRole('tab', { name: /Backends/ }));
     await waitFor(() => {
-      expect(screen.getByRole('region', WELCOME)).toBeTruthy();
+      expect(getStarted()).not.toBeNull();
+    });
+    expect(notice()).toBeNull();
+
+    await fireEvent.click(screen.getByRole('tab', { name: /Tasks/ }));
+    await waitFor(() => {
+      expect(getStarted()).toBeNull();
+      expect(notice()).not.toBeNull();
     });
   });
 
-  it('offers "Skip for now" as the dismiss action', async () => {
+  it('offers the three ways to start and "Skip for now"', async () => {
     render(Options);
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Skip for now' })).toBeTruthy();
-    });
+    await fireEvent.click(await screen.findByRole('tab', { name: /Backends/ }));
+    for (const name of [
+      'Use a free Gemini key',
+      'Use another API key',
+      'Run on this computer',
+      'Skip for now',
+    ]) {
+      expect(await screen.findByRole('button', { name })).toBeTruthy();
+    }
   });
 });

@@ -43,6 +43,8 @@ export interface SettingEntrySpec {
   readonly keywords: readonly string[];
   readonly tab: SettingsTab;
   readonly subTab?: AdvancedSubTab;
+  /** Lives outside every tab: Enter in search focuses it there. */
+  readonly location?: 'header';
   readonly targetSelector?: string;
   readonly type: SettingType;
   readonly defaultValue?: string;
@@ -94,9 +96,10 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'display.theme',
     label: 'Theme',
-    description: 'Light, dark, or system color scheme. Toggle from the Settings header.',
+    description: 'Light, dark, or the same as your system',
     keywords: ['dark', 'light', 'colour', 'color', 'mode', 'theme'],
     tab: 'about',
+    location: 'header',
     type: 'select',
     isModified: { kind: 'eq', path: 'theme' },
   },
@@ -518,7 +521,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   // ── Languages ────────────────────────────────────────────────────
   {
     id: 'languages.varieties',
-    label: 'Language varieties',
+    label: 'Languages',
     description: 'Built-in and custom languages, with detection rules and translation examples.',
     keywords: ['variety', 'dialect', 'language', 'custom'],
     tab: 'languages',

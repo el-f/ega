@@ -2,24 +2,23 @@
 
 ## Latency budgets
 
-- Dismiss click -> banner unmount: <= 150ms.
+- Dismiss click -> card unmount: <= 150ms.
 - Storage write: <= 200ms.
 
 ## State expectations
 
-- Step 1: onboarding banner is mounted.
-- Step 2 (click "Skip for now"): banner unmounts at once; `onboardingDismissed = true` writes to storage.
-- Step 3 (next mount of Options): banner does NOT re-render.
+- Step 1: the Get started card is mounted on the Backends tab.
+- Step 2 (click "Skip for now"): the card unmounts at once; `onboardingDismissed = true` writes to storage.
+- Step 3: the notice shows on the Backends tab, without its "Set up a backend" button.
 
 ## Visible affordances
 
-- Dismiss control is a ghost button labeled "Skip for now", beside the Gemini CTA.
+- "Skip for now" is a ghost button at the end of the card's action row.
 
 ## Failure-mode expectations
 
-- Storage write failure -> banner reappears at once (the hide is rolled back); the user can dismiss again.
+- Storage write failure -> the card comes back at once (the hide is rolled back); the user can skip again.
 
 ## Cautions
 
-- Dismiss is per-extension-install, not per-session.
-- No onboarding-only reset exists; About > "Delete all data" brings it back but also wipes settings and keys.
+- Skip is per install, not per session.

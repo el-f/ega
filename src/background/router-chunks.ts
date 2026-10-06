@@ -3,9 +3,9 @@ import type { TranslationChunk } from '@/shared/types';
 /** Both the attempt's ABORTED rewrite and the router's own synthesis use this
  *  wording, so the surface cannot tell the two timeout sources apart. */
 export const TRANSLATE_TIMED_OUT =
-  'No answer before the text translate timeout. Try again, or raise it in Settings → Translate.';
+  'No answer before the text answer timeout. Try again, or raise it in Settings → Answers.';
 export const IMAGE_TIMED_OUT =
-  'No answer before the image translate timeout. Try again, or raise it in Settings → Translate.';
+  'No answer before the image answer timeout. Try again, or raise it in Settings → Answers.';
 
 /** One request's outbound chunk stream. Holds the invariant every surface
  *  relies on: at most one terminal chunk, and nothing after it. */

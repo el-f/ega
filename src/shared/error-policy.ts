@@ -46,8 +46,10 @@ export function isRetryable(code: ErrCode, attemptsMade = 1): boolean {
   return policy.retryable && attemptsMade < (policy.maxAttempts ?? Number.POSITIVE_INFINITY);
 }
 
-/** Two labels, not SETTINGS_TABS: a value import would pull the table into the content script (a test checks they match). */
+/** A copy, not SETTINGS_TABS: a value import would pull the table into the content script (a test checks they match). */
 const ERROR_TAB_LABELS: ReadonlyArray<readonly [label: string, tab: SettingsTab]> = [
+  ['Answers', 'translate'],
+  // The tab's old name, still inside messages kept in saved conversations and the request list.
   ['Translate', 'translate'],
   ['Backends', 'backends'],
 ];

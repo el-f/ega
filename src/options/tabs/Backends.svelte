@@ -1,4 +1,14 @@
+<script lang="ts" module>
+  export interface GetStartedActions {
+    onUseGemini: () => void;
+    onUseOtherKey: () => void;
+    onRunLocal: () => void;
+    onSkip: () => void;
+  }
+</script>
+
 <script lang="ts">
+  import GetStartedCard from '../components/GetStartedCard.svelte';
   import { saveSettings } from '@/options/storage-with-toast';
   import type { Settings, BackendId } from '@/shared/types';
   import { asBackendIdUnsafe } from '@/shared/brands';
@@ -20,9 +30,10 @@
     /** null while the initial load is in flight. */
     s: Settings | null;
     onSetSettings: (next: Settings) => void;
+    getStarted?: GetStartedActions | null;
   }
 
-  const { s, onSetSettings }: Props = $props();
+  const { s, onSetSettings, getStarted = null }: Props = $props();
 
   // computeBackendOrder keeps key-less ids the router skips; drop them or the markers show backends that never run.
   const routableOrder = $derived(
@@ -136,6 +147,9 @@
   <LoadingState rows={5} label="Loading backend configuration…" />
 {:else}
   <TabHeader tab="backends" />
+  {#if getStarted}
+    <GetStartedCard {...getStarted} />
+  {/if}
   {@const ss = s as Settings}
   <BackendList settings={ss} onChange={(next) => patch(next)} onMove={reorderById}>
     {#snippet children(id, position, enabled, useSummary)}
