@@ -87,6 +87,19 @@ describe('inline replace — the first replace says how to undo it', () => {
     expect(toast()?.querySelector('[data-ega-toast-action]') ?? null).toBeNull();
   });
 
+  it('Esc inside the toast closes the toast and is not counted toward the page restore', async () => {
+    vi.spyOn(chrome.runtime, 'sendMessage').mockResolvedValue(undefined);
+    await translateInPlace({ ...DEFAULT_SETTINGS, inlineUndoHintShown: false });
+    const dismiss = toast()?.querySelector<HTMLButtonElement>('[data-ega-toast-close]');
+    dismiss?.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true }),
+    );
+    expect(toast()).toBeNull();
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect(document.getElementById('p')?.textContent).toBe('Hello there');
+  });
+
   it('stays quiet once the hint was shown', async () => {
     await translateInPlace({ ...DEFAULT_SETTINGS, inlineUndoHintShown: true });
     expect(document.getElementById('p')?.textContent).toBe('Hello there');

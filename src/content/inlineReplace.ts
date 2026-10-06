@@ -14,6 +14,7 @@ import {
 } from './request-state';
 import { showFixToast } from './error-fix-toast';
 import { showToast } from './toast';
+import { getShadowHostElement } from './shadowHost';
 import { currentSettings } from './settings-cache';
 import { patchSettings } from '@/shared/settings-bus';
 
@@ -281,6 +282,9 @@ function onDocMouseOver(ev: MouseEvent): void {
 
 function onDocKeyDown(ev: KeyboardEvent): void {
   if (ev.key !== 'Escape') return;
+  // Esc inside Ega's own UI (the toast, the tooltip) belongs to that UI; this capture listener sees it first.
+  const host = getShadowHostElement();
+  if (host !== null && ev.composedPath().includes(host)) return;
   // An in-flight translate: Esc is a cancel, restore at once.
   if (entries.size > 0) {
     restoreAllInline();
