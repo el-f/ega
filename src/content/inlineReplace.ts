@@ -187,6 +187,7 @@ export function errorInline(
   // The same chip page translate uses names the cause; inline replace has no retry of its own.
   e.wrapper.appendChild(mountErrorChip(err));
   settle(requestId, e.stuckTimerId);
+  collapseSelectionAfter(e.wrapper);
 }
 
 export function restoreInline(requestId: string): void {
