@@ -2,8 +2,9 @@
 import { DEFAULT_CONTEXT_MENU_ITEMS, type ContextMenuItem, type MenuSurface } from './context-menu';
 
 /** A cold-SW click must decide sidePanel.open synchronously, and the id is the only data it can read without storage.
- *  `-as-<stored id>` is the alias for a row whose stored id does not encode its surface. */
-const CUSTOM_MENU_ID_RE = /^ega-custom-(txt|img)-(tt|sp)-(?:\d+|as-.+)$/;
+ *  `-as-<stored id>` is the alias for a row whose stored id does not encode its surface; an imported id may hold any
+ *  character, a line break too. */
+const CUSTOM_MENU_ID_RE = /^ega-custom-(txt|img)-(tt|sp)-(?:\d+|as-.+)$/s;
 
 export function decodeCustomMenuId(
   id: string,

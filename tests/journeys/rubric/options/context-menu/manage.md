@@ -9,10 +9,10 @@
 
 ## State expectations
 
-- The checkbox writes `contextMenuItems[].enabled` at once. Edit opens one row's options under it (Task, Opens in, Answer in for text rows, Name in menu); only one row is open at a time and Esc closes it with focus back on Edit. When the (i) tip is open, the first Esc closes only the tip.
+- The checkbox writes `contextMenuItems[].enabled` at once. Edit opens one row's options under it (Task, Opens in, Answer in for text rows, Name in menu); only one row is open at a time and Esc closes it with focus back on Edit. When the (i) tip is open, the first Esc closes only the tip; a shortcut field that is recording, a dialog the tip is not in, and IME composing keep their own Esc.
 - Move up and Move down reorder only inside the group. Focus stays on the pressed button of the moved row, and a status line says "{name} moved to position {k} of {n}".
 - "Add text action" and "Add image action" sit under their own group. A new row opens its options with focus on Task.
-- Reset section restores the 7 shipped rows and removes added rows; a toast "Right-click menu reset." offers Undo for 8 s, and focus moves to the first checkbox. Undo puts back the rows Reset changed and keeps what the user did inside the 8 s on other rows (a row added, a row hidden).
+- Reset section restores the 7 shipped rows and removes added rows; a toast "Right-click menu reset." offers Undo for 8 s, and focus moves to the first checkbox. Undo puts back the rows exactly as they were before the reset; a change made inside the 8 s is lost.
 
 ## Visible affordances
 

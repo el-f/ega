@@ -16,7 +16,8 @@
     description?: string;
     /** Optional leading icon (a lucide component). */
     icon?: LucideLike;
-    /** This one choice cannot be picked; the label should say why. */
+    /** This one choice cannot be picked; the label should say why. The checked choice stays enabled anyway:
+     *  it is the group's only tab stop, so disabling it would lock the keyboard out of the group. */
     disabled?: boolean;
   }
 
@@ -51,8 +52,9 @@
   {...dataAttrs ?? {}}
 >
   {#each options as option (option.value)}
-    <label class="ega-radio-row" class:disabled={disabled || option.disabled}>
-      <RadioGroup.Item value={option.value} disabled={option.disabled} class="ega-radio-item">
+    {@const off = option.disabled === true && option.value !== value}
+    <label class="ega-radio-row" class:disabled={disabled || off}>
+      <RadioGroup.Item value={option.value} disabled={off} class="ega-radio-item">
         {#snippet children({ checked })}
           <span class="ega-radio-dot" class:checked aria-hidden="true"></span>
         {/snippet}

@@ -8,6 +8,8 @@ describe('decodeCustomMenuId', () => {
     ['ega-custom-txt-tt-0', { kind: 'task', surface: 'tooltip' }],
     ['ega-custom-img-sp-12', { kind: 'image-task', surface: 'sidepanel' }],
     ['ega-custom-img-tt-7', { kind: 'image-task', surface: 'tooltip' }],
+    // An alias carries the stored id, and an imported one may hold a line break.
+    ['ega-custom-txt-sp-as-my\nrow', { kind: 'task', surface: 'sidepanel' }],
   ])('decodes %s', (id, expected) => {
     expect(decodeCustomMenuId(id)).toEqual(expected);
   });

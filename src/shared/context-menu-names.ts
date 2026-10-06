@@ -105,8 +105,9 @@ export function isMenuModified(items: readonly ContextMenuItem[]): boolean {
 }
 
 /** Gives a shipped row back its shipped id when an older version re-minted it on a surface change, so it stays undeletable.
- *  A re-mint kept the row's place, while an added row went to the end; so the claimed row must sort before every other
- *  added row. Older versions also gave an added image row the shipped image name, and this keeps that row deletable.
+ *  A re-mint kept the row's place, while an added row went to the end of its group; so the claimed row must sort before
+ *  every other added row of its kind. Rows of the other kind do not count: every write puts text rows before image
+ *  rows. Older versions also gave an added image row the shipped image name, and this keeps that row deletable.
  *  ponytail: a lone added row with a shipped name, whose shipped row was deleted, still reads as shipped; the stored
  *  data cannot tell them apart. */
 export function withShippedIds(items: readonly ContextMenuItem[]): ContextMenuItem[] {
@@ -116,9 +117,11 @@ export function withShippedIds(items: readonly ContextMenuItem[]): ContextMenuIt
       continue;
     }
     const legacy = LEGACY_SHIPPED_LABELS[def.id];
-    const first = out.filter((i) => !SHIPPED_IDS.has(i.id)).sort((a, b) => a.order - b.order)[0];
+    const first = out
+      .filter((i) => i.kind === def.kind && !SHIPPED_IDS.has(i.id))
+      .sort((a, b) => a.order - b.order)[0];
     if (
-      first?.kind !== def.kind ||
+      first === undefined ||
       !('task' in first) ||
       first.task !== def.task ||
       first.label !== legacy ||

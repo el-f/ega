@@ -91,6 +91,7 @@
     class="record-btn"
     aria-label={ariaLabel}
     aria-pressed={recording}
+    data-ega-owns-escape={recording || undefined}
     {disabled}
     onclick={toggle}
     onkeydown={onKey}

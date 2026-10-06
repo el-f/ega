@@ -41,6 +41,21 @@ describe('RadioGroup', () => {
     expect(items[1]?.getAttribute('aria-checked')).toBe('true');
   });
 
+  it('keeps a disabled option that is checked reachable by Tab, and disables the rest', () => {
+    const { getAllByRole } = render(RadioGroup, {
+      props: {
+        value: 'b',
+        options: sample.map((o) => ({ ...o, disabled: o.value !== 'a' })),
+        onValueChange: () => {},
+      },
+    });
+    const items = getAllByRole('radio') as HTMLButtonElement[];
+    // The checked item is the group's only tab stop.
+    const tabStops = items.filter((i) => !i.disabled && i.tabIndex >= 0);
+    expect(tabStops).toEqual([items[1]]);
+    expect(items.map((i) => i.disabled)).toEqual([false, false, true]);
+  });
+
   it('fires onValueChange with the new value when an option is clicked', async () => {
     let captured = '';
     const { getAllByRole } = render(RadioGroup, {

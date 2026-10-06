@@ -228,17 +228,39 @@ describe('withShippedIds', () => {
     expect(out.find((i) => i.id === 'ega-translate-image')?.order).toBe(2);
     expect(out).toContainEqual(added);
 
-    // With the shipped row deleted, an added row that sorts after another added row stays added.
+    // With the shipped row deleted, an added image row that sorts after another added image row stays added.
+    const other: ContextMenuItem = { ...added, id: 'ega-custom-img-sp-7', order: 7, label: '' };
+    expect(withShippedIds([...withoutShipped, other, added])).toContainEqual(added);
+  });
+
+  it('claims a re-minted image row back when an added text row sorts before it', () => {
+    // Every write puts the text rows first, so an added text row always sorts before the image rows.
     const text: ContextMenuItem = {
       id: 'ega-custom-txt-tt-7',
       kind: 'task',
       enabled: true,
-      order: 7,
-      label: 'New text action',
+      order: 2,
+      label: '',
       task: 'translate',
       surface: 'tooltip',
     };
-    expect(withShippedIds([...withoutShipped, text, added])).toContainEqual(added);
+    const items = [
+      ...DEFAULT_CONTEXT_MENU_ITEMS.filter((i) => i.kind === 'task'),
+      text,
+      ...DEFAULT_CONTEXT_MENU_ITEMS.filter((i) => i.kind !== 'task').map((i) =>
+        i.id === 'ega-translate-image'
+          ? {
+              ...i,
+              id: 'ega-custom-img-tt-8',
+              surface: 'tooltip' as const,
+              label: 'Translate image with Ega',
+            }
+          : i,
+      ),
+    ].map((i, order) => ({ ...i, order }));
+    const out = withShippedIds(items);
+    expect(out.find((i) => i.id === 'ega-translate-image')?.order).toBe(3);
+    expect(out).toContainEqual(text);
   });
 
   it('the settings search counts a re-minted shipped row as unchanged, as the card does', () => {

@@ -66,11 +66,16 @@
   }
 
   // Capture on window: the tip is the innermost layer, so one Esc closes it and nothing under it,
-  // wherever focus is (an open row of options, a dialog).
+  // wherever focus is (an open row of options). A modal the tip is not in sits on top of the tip,
+  // and a control that records keys owns its Esc; both keep it. An IME uses Esc to cancel composing.
   $effect(() => {
     if (!open) return;
     const onKeydown = (e: KeyboardEvent): void => {
-      if (e.key !== 'Escape') return;
+      if (e.key !== 'Escape' || e.isComposing) return;
+      const target = e.target instanceof Element ? e.target : null;
+      const modal = target?.closest('[role="dialog"], [role="alertdialog"], [aria-modal="true"]');
+      if (modal && !modal.contains(button)) return;
+      if (target?.closest('[data-ega-owns-escape]')) return;
       e.preventDefault();
       e.stopPropagation();
       close();

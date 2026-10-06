@@ -54,6 +54,15 @@ test('manage: groups, add an image action, move inside a group, reset then undo'
   await expect(bubble).toBeHidden();
   await info.click();
   await expect(bubble).toBeVisible();
+  // A pinned tip leaves Esc to a shortcut field that is recording: Esc cancels the recording.
+  const record = page.getByRole('button', { name: 'Record keyboard shortcut' });
+  await record.focus();
+  await page.keyboard.press('Enter');
+  await expect(record).toHaveAttribute('aria-pressed', 'true');
+  await expect(record).toHaveAttribute('data-ega-owns-escape');
+  await expect(bubble).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(record).toHaveAttribute('aria-pressed', 'false');
   await card.getByRole('heading', { name: 'Images', level: 3 }).click();
   await expect(bubble).toBeHidden();
 

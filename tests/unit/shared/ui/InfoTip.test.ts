@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, fireEvent, waitFor } from '@testing-library/svelte';
 import InfoTip from '@/shared/ui/InfoTip.svelte';
+import ShortcutInput from '@/shared/components/ShortcutInput.svelte';
 
 const TEXT = 'Chrome shows only the items that match what you right-click.';
 
@@ -96,5 +97,59 @@ describe('InfoTip — the (i) toggletip', () => {
     } finally {
       field.remove();
     }
+  });
+
+  it('leaves Esc to a dialog the tip is not in, such as the variables palette', async () => {
+    const closeDialog = vi.fn();
+    const dialog = document.createElement('div');
+    dialog.setAttribute('role', 'dialog');
+    dialog.setAttribute('aria-modal', 'true');
+    const field = document.createElement('input');
+    dialog.append(field);
+    dialog.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeDialog();
+    });
+    document.body.append(dialog);
+    try {
+      const { button } = setup();
+      await fireEvent.click(button);
+      field.focus();
+      await fireEvent.keyDown(field, { key: 'Escape' });
+      expect(closeDialog).toHaveBeenCalledOnce();
+    } finally {
+      dialog.remove();
+    }
+  });
+
+  it('leaves an Esc that ends IME composing to the field', async () => {
+    const outer = vi.fn();
+    const field = document.createElement('input');
+    field.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') outer();
+    });
+    document.body.append(field);
+    try {
+      const { button } = setup();
+      await fireEvent.click(button);
+      field.focus();
+      await fireEvent.keyDown(field, { key: 'Escape', isComposing: true });
+      expect(outer).toHaveBeenCalledOnce();
+    } finally {
+      field.remove();
+    }
+  });
+
+  it('leaves Esc to a shortcut field that is recording, so it cancels the recording', async () => {
+    const { button } = setup();
+    const shortcut = render(ShortcutInput, {
+      props: { value: '', ariaLabel: 'Record shortcut', onchange: vi.fn() },
+    });
+    const record = shortcut.getByRole('button', { name: 'Record shortcut' });
+    await fireEvent.click(button);
+    await fireEvent.click(record);
+    expect(record.getAttribute('aria-pressed')).toBe('true');
+    record.focus();
+    await fireEvent.keyDown(record, { key: 'Escape' });
+    expect(record.getAttribute('aria-pressed')).toBe('false');
   });
 });

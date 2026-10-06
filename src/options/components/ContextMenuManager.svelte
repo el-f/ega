@@ -239,8 +239,8 @@
     labelTimer = setTimeout(() => void patchItems(items), LABEL_DEBOUNCE_MS);
   }
 
-  function flushLabels(): void {
-    if (Object.keys(pendingLabels).length > 0) void patchItems(items);
+  function flushLabels(): Promise<void> {
+    return Object.keys(pendingLabels).length > 0 ? patchItems(items) : Promise.resolve();
   }
 
   // What the user typed, kept until the field loses focus: a saved name equal to an old shipped one
@@ -252,17 +252,21 @@
     updateLabel(id, value);
   }
 
-  function onLabelBlur(id: string): void {
-    flushLabels();
-    delete drafts[id];
+  // The draft goes once the write lands; before that the stored name is still the old one.
+  async function onLabelBlur(id: string): Promise<void> {
+    const typed = drafts[id];
+    await flushLabels();
+    // Typing again in the meantime makes a new draft, which stays.
+    if (drafts[id] === typed) delete drafts[id];
   }
 
   // A rename typed inside the debounce window would otherwise die with the page.
   $effect(() => {
-    window.addEventListener('pagehide', flushLabels);
+    const onPageHide = (): void => void flushLabels();
+    window.addEventListener('pagehide', onPageHide);
     return () => {
-      window.removeEventListener('pagehide', flushLabels);
-      flushLabels();
+      window.removeEventListener('pagehide', onPageHide);
+      void flushLabels();
     };
   });
 
@@ -426,7 +430,8 @@
 
   async function resetDefaults(): Promise<void> {
     takePendingLabels();
-    const before = items;
+    // The stored rows, not the card's view: the view gives re-minted rows their shipped ids back.
+    const before = $state.snapshot(s.contextMenuItems ?? DEFAULT_CONTEXT_MENU_ITEMS);
     openId = null;
     await onPatch({ contextMenuItems: structuredClone(DEFAULT_CONTEXT_MENU_ITEMS) });
     toastStore.push({
@@ -442,29 +447,11 @@
       ?.focus();
   }
 
-  // Order is not part of a row's content: every write renumbers it.
-  function sameRow(a: ContextMenuItem, b: ContextMenuItem): boolean {
-    const key = (i: ContextMenuItem): string =>
-      JSON.stringify({ ...i, order: 0 }, Object.keys(i).sort());
-    return key(a) === key(b);
-  }
-
-  /** Undo puts back what Reset changed and keeps what the user did since: rows added after the reset,
-   *  and edits to rows Reset left as they were. It re-reads like Delete's Undo; the prop is a snapshot. */
-  async function undoReset(before: readonly ContextMenuItem[]): Promise<void> {
-    const stored = (await getSettings()).contextMenuItems ?? DEFAULT_CONTEXT_MENU_ITEMS;
-    const now = new Map(stored.map((i) => [i.id, i]));
-    const restored = before.map((row) => {
-      const shipped = DEFAULT_CONTEXT_MENU_ITEMS.find((d) => d.id === row.id);
-      const current = now.get(row.id);
-      return shipped && current && sameRow(row, shipped) ? current : row;
-    });
-    const kept = new Set(before.map((i) => i.id));
-    const since = stored
-      .slice()
-      .sort((a, b) => a.order - b.order)
-      .filter((i) => !kept.has(i.id));
-    await patchItems([...restored, ...since]);
+  /** Undo puts back the rows exactly as they were before Reset (D38): an edit made in the Undo window is lost. */
+  async function undoReset(before: ContextMenuItem[]): Promise<void> {
+    // A rename still on the debounce would land on top of the undone rows.
+    takePendingLabels();
+    await onPatch({ contextMenuItems: before });
   }
 
   function setTask(id: string, val: string): void {
@@ -876,7 +863,7 @@
                                     item.id,
                                     (e.currentTarget as HTMLInputElement).value,
                                   )}
-                                onblur={() => onLabelBlur(item.id)}
+                                onblur={() => void onLabelBlur(item.id)}
                               />
                               <span class="cm-hint" id="cm-name-hint-{item.id}"
                                 >Leave empty to use "{autoMenuName(item, lookup)}"</span

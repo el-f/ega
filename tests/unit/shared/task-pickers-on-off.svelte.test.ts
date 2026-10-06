@@ -134,15 +134,23 @@ describe('context-menu manager', () => {
     expect(row?.querySelector('[data-ega-cm-status]')?.textContent.trim()).toBe(
       'Hidden: Reword is off in Tasks',
     );
-    // The image Task radios mark and disable an off task the same way.
-    const image = container.querySelector('[data-ega-cm-id="ega-explain-image"]');
-    await fireEvent.click(image?.querySelector('[data-ega-cm-edit]') as HTMLElement);
-    const radios = [...(image?.querySelectorAll('[data-ega-cm-task] [role="radio"]') ?? [])].map(
-      (r) => [r.closest('label')?.textContent.trim(), r.hasAttribute('disabled')],
-    );
-    expect(radios).toEqual([
+    // The image Task radios mark and disable an off task the same way...
+    const radiosOf = async (id: string): Promise<(string | boolean | undefined)[][]> => {
+      const image = container.querySelector(`[data-ega-cm-id="${id}"]`);
+      await fireEvent.click(image?.querySelector('[data-ega-cm-edit]') as HTMLElement);
+      return [...(image?.querySelectorAll('[data-ega-cm-task] [role="radio"]') ?? [])].map((r) => [
+        r.closest('label')?.textContent.trim(),
+        r.hasAttribute('disabled'),
+      ]);
+    };
+    expect(await radiosOf('ega-translate-image')).toEqual([
       ['Translate', false],
       ['Explain (off)', true],
+    ]);
+    // ...but not the row's own task: the checked radio is the group's only tab stop.
+    expect(await radiosOf('ega-explain-image')).toEqual([
+      ['Translate', false],
+      ['Explain (off)', false],
     ]);
   });
 });
