@@ -50,7 +50,7 @@
   {#if showSwitch}
     <div class="switch-row">
       <!-- The visible text may be shortened; the switch's own name carries the full host. -->
-      <label class="switch-label" for="ega-site-switch" aria-hidden="true"
+      <label class="switch-label" for="ega-site-switch" aria-hidden="true" data-ega-truncates
         >Ega on {host.short}</label
       >
       <Checkbox

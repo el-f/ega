@@ -67,7 +67,7 @@
     }}
   >
     <BrandMark size={16} label="" />
-    <span class="bubble-label">{label}</span>
+    <span class="bubble-label" data-ega-truncates>{label}</span>
   </button>
   <button
     type="button"

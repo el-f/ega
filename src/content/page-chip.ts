@@ -7,7 +7,7 @@ import { debugCatch } from '@/shared/logger';
 
 // Its own shadow root keeps the host page's font and button styles off it; one fixed red (6.2:1 under white) reads on any page background.
 const CHIP_CSS = `:host{all:initial;display:inline-flex;vertical-align:middle;margin-inline-start:.4em}
-.chip{display:inline-flex;align-items:center;gap:6px;padding:2px 2px 2px 8px;border-radius:999px;background:#b3242a;color:#fff;font:600 12px/16px system-ui,sans-serif;white-space:nowrap}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:2px 2px 2px 8px;border-radius:999px;background:#b3242a;color:#fff;font:600 12px/16px system-ui,sans-serif;white-space:nowrap} /* token-lint-allow page DOM, no tokens */
 .chip.bare{padding-inline-end:8px}
 button{all:unset;box-sizing:border-box;display:inline-flex;align-items:center;gap:4px;min-height:24px;padding:0 8px;border:1px solid rgb(255 255 255 / .6);border-radius:999px;color:#fff;font:inherit;cursor:pointer}
 button:hover{background:rgb(255 255 255 / .15)}

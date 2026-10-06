@@ -130,7 +130,7 @@ export function mountBilingual(args: MountArgs): RenderHandle {
   // A heading's translation reads as a heading at 85% of its size, so the two do not compete.
   if (/^H[1-6]$/.test(args.element.tagName)) {
     const px = Number.parseFloat(globalThis.getComputedStyle(args.element).fontSize);
-    if (px > 0) sibling.style.fontSize = `${Math.round(px * 0.85)}px`;
+    if (px > 0) sibling.style.fontSize = `${Math.round(px * 0.85)}px`; // token-lint-allow sized off the page's heading
   }
   args.element.after(sibling);
   const handle: RenderHandle = {
