@@ -61,7 +61,8 @@ describe('settings — contextMenuItems', () => {
   });
 });
 
-describe('settings — contextMenuLayout', () => {
+// The layout control is gone; the key stays readable so an old "flat" profile still loads.
+describe('settings — contextMenuLayout (kept for old profiles, ignored)', () => {
   it('empty storage defaults to nested', () => {
     const s = parse({});
     expect(s.contextMenuLayout).toBe('nested');

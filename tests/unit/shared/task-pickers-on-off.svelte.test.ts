@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
-import { render } from '@testing-library/svelte';
+import { render, fireEvent } from '@testing-library/svelte';
 import TaskPicker from '@/shared/components/TaskPicker.svelte';
 import TooltipHeader from '@/content/tooltip/TooltipHeader.svelte';
 import TooltipActions from '@/content/tooltip/TooltipActions.svelte';
@@ -115,7 +115,7 @@ describe('Re-run as', () => {
 });
 
 describe('context-menu manager', () => {
-  it('task selects list on tasks; an item on an off task keeps it, disabled', () => {
+  it('the Task select marks off tasks "(off)" and keeps the row own off task, disabled', async () => {
     const s: Settings = {
       ...DEFAULT_SETTINGS,
       disabledTasks: ['explain', 'reword'],
@@ -124,19 +124,16 @@ describe('context-menu manager', () => {
       ),
     };
     const { container } = render(ContextMenuManager, { props: { s, onPatch: vi.fn() } });
-    const selects = [...container.querySelectorAll('[data-ega-cm-task]')];
-    const byValue = (v: string) =>
-      selects.find((el) => (el as HTMLSelectElement).value === v) ?? null;
-    const rewordItem = options(byValue('reword'));
+    const row = container.querySelector('[data-ega-cm-id="ega-translate-selection"]');
+    await fireEvent.click(row?.querySelector('[data-ega-cm-edit]') as HTMLElement);
+    const rewordItem = options(row?.querySelector('select[data-ega-cm-task]') ?? null);
     expect(rewordItem).toContainEqual(['reword', true]);
-    expect(rewordItem.map(([t]) => t)).not.toContain('explain');
-    const imageExplain = options(
-      container.querySelector('[data-ega-cm-id="ega-explain-image"] [data-ega-cm-task]'),
+    expect(rewordItem).toContainEqual(['explain', true]);
+    expect(rewordItem).toContainEqual(['translate', false]);
+    // The row says why Chrome leaves it out.
+    expect(row?.querySelector('[data-ega-cm-status]')?.textContent.trim()).toBe(
+      'Hidden: Reword is off in Tasks',
     );
-    expect(imageExplain).toEqual([
-      ['translate', false],
-      ['explain', true],
-    ]);
   });
 });
 

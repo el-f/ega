@@ -143,7 +143,7 @@ describe('importBundleFile — parse before confirm', () => {
     expect((await getSettings()).theme).toBe('dark');
   });
 
-  it('stores a menu item whose surface no longer matches its id under an id that encodes it', async () => {
+  it('keeps a shipped menu item under its own id when its surface changed', async () => {
     const bundle = await exportAll();
     const items = bundle.settings.contextMenuItems.map((i) =>
       i.id === 'ega-translate-image' ? { ...i, surface: 'tooltip' as const } : i,
@@ -153,11 +153,10 @@ describe('importBundleFile — parse before confirm', () => {
     );
     expect(status?.kind).toBe('ok');
     const stored = (await getSettings()).contextMenuItems;
-    // The click decides the side panel from the id alone, so the stored id must say tooltip.
-    expect(stored.map((i) => i.id)).not.toContain('ega-translate-image');
-    expect(stored.find((i) => i.kind === 'image-task' && i.task === 'translate')?.id).toMatch(
-      /^ega-custom-img-tt-/,
-    );
+    // The id marks the row as shipped (hide, never delete); the worker registers an id that encodes the surface.
+    expect(stored.find((i) => i.id === 'ega-translate-image')).toMatchObject({
+      surface: 'tooltip',
+    });
   });
 
   it('a write that fails after the confirm reports Import failed', async () => {

@@ -1,7 +1,10 @@
-import { getCustomTasks, getSettings } from '@/shared/storage';
-import { buildMenuTree, DEFAULT_CONTEXT_MENU_ITEMS } from '@/shared/context-menu';
+import { getCustomLanguages, getCustomTasks, getSettings } from '@/shared/storage';
+import { buildMenuTree } from '@/shared/context-menu';
+import { menuItemName, SITE_TOGGLE_TITLES } from '@/shared/context-menu-names';
 import { withEncodedMenuIds } from '@/shared/context-menu-ids';
-import { materializeTasks } from '@/shared/task-view';
+import { materializeTasks, taskLabel } from '@/shared/task-view';
+import { materializeVarieties } from '@/shared/varieties';
+import { labelFor } from '@/shared/languages';
 import { debugCatch } from '@/shared/logger';
 import { makeAsyncLock } from '@/shared/utils/async-lock';
 import type { Settings } from '@/shared/types';
@@ -12,7 +15,7 @@ const SITE_TOGGLE_ID = 'ega-toggle-site';
 const MENU_DOCUMENT_PATTERNS = ['http://*/*', 'https://*/*', 'file://*/*'];
 
 export function computeSiteMenuTitle(disabled: boolean): string {
-  return disabled ? 'Enable Ega on this site' : 'Disable Ega on this site';
+  return disabled ? SITE_TOGGLE_TITLES.off : SITE_TOGGLE_TITLES.on;
 }
 
 /** One transform under the settings lock: a read-then-replace here would drop a memo-direction write that landed in between. Deleting an origin needs `replaceSitePrefs`, because `updateSettings` merges per key. */
@@ -54,14 +57,26 @@ export async function installContextMenus(opts: { skipIfBuilt?: boolean } = {}):
       const stored = await chrome.storage.session.get(MENUS_BUILT_KEY);
       if (stored[MENUS_BUILT_KEY] === true) return;
     }
-    const [s, customs] = await Promise.all([getSettings(), getCustomTasks()]);
+    const [s, customs, languages] = await Promise.all([
+      getSettings(),
+      getCustomTasks(),
+      getCustomLanguages(),
+    ]);
     await chrome.contextMenus.removeAll();
-    // Ids are minted against the full list, as the click handler does; an item whose task is off or gone is then left out.
-    const on = new Set(materializeTasks(s, customs, { enabledOnly: true }).map((v) => v.id));
-    const items = withEncodedMenuIds(s.contextMenuItems).filter(
-      (i) => (i.kind !== 'task' && i.kind !== 'image-task') || on.has(i.task),
-    );
-    const nodes = buildMenuTree(items, s.contextMenuLayout);
+    const views = materializeTasks(s, customs);
+    const on = new Set(views.filter((v) => !v.disabled).map((v) => v.id));
+    const varieties = materializeVarieties(s, languages);
+    const lookup = {
+      taskLabel: (id: string) => taskLabel(views, id),
+      langLabel: (id: string) => varieties.find((v) => v.id === id)?.label ?? labelFor(id),
+    };
+    // Ids are minted against the full list, as the click handler does; an item whose task is off or gone,
+    // and the picker item while the picker is off, are then left out instead of showing as dead entries.
+    const items = withEncodedMenuIds(s.contextMenuItems).filter((i) => {
+      if (i.kind === 'task' || i.kind === 'image-task') return on.has(i.task);
+      return i.kind !== 'pick-element' || s.pickerEnabled;
+    });
+    const nodes = buildMenuTree(items, (i) => menuItemName(i, lookup));
     for (const n of nodes) {
       chrome.contextMenus.create({
         id: n.id,
@@ -77,7 +92,7 @@ export async function installContextMenus(opts: { skipIfBuilt?: boolean } = {}):
       });
     }
     await chrome.storage.session.set({ [MENUS_BUILT_KEY]: true });
-    // The create loop used the stored label; recompute the site-toggle title for the tab in view.
+    // The create loop used the "Disable" title; recompute the site-toggle title for the tab in view.
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       const origin = parseToggleOrigin(tab?.url);
@@ -87,10 +102,6 @@ export async function installContextMenus(opts: { skipIfBuilt?: boolean } = {}):
     }
   });
 }
-
-const DEFAULT_SITE_TOGGLE_LABEL =
-  DEFAULT_CONTEXT_MENU_ITEMS.find((i) => i.kind === 'site-toggle')?.label ??
-  'Disable Ega on this site';
 
 /** `origin`, not `host`: the content script gates on `sitePrefs[location.origin]`. */
 function parseToggleOrigin(rawUrl: string | undefined): string | null {
@@ -108,10 +119,8 @@ function parseToggleOrigin(rawUrl: string | undefined): string | null {
 }
 
 async function updateSiteToggleTitle(s: Settings, origin: string): Promise<void> {
-  const siteToggleItem = s.contextMenuItems.find((i) => i.kind === 'site-toggle');
-  if (!siteToggleItem?.enabled) return;
-  // Custom label wins — don't overwrite what the user set in Options.
-  if (siteToggleItem.label !== DEFAULT_SITE_TOGGLE_LABEL) return;
+  // Always shown and never renamed: three help messages send users to it by the name it flips to.
+  if (!s.contextMenuItems.some((i) => i.kind === 'site-toggle')) return;
   const disabled = s.sitePrefs[origin]?.disabled === true;
   await chrome.contextMenus.update(SITE_TOGGLE_ID, {
     title: computeSiteMenuTitle(disabled),

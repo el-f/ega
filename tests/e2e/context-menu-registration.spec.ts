@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { launchExtension, type ExtensionHandle } from './helpers';
+import { launchExtension, seedSettings, type ExtensionHandle } from './helpers';
 
 let ext: ExtensionHandle;
 
@@ -123,4 +123,87 @@ test('the removed ega-translate-comments id is absent', async () => {
   const probe = await probeMenuId('ega-translate-comments');
   expect(probe.ok, 'ega-translate-comments should be absent (retired)').toBe(false);
   expect(probe.error ?? '').toMatch(/cannot find|unknown|invalid/i);
+});
+
+async function probeUntil(id: string, want: boolean): Promise<UpdateProbe> {
+  const deadline = Date.now() + 5_000;
+  let probe: UpdateProbe = { ok: !want, error: 'not yet probed' };
+  while (Date.now() < deadline) {
+    probe = await probeMenuId(id);
+    if (probe.ok === want) break;
+    await new Promise((r) => setTimeout(r, 150));
+  }
+  return probe;
+}
+
+test('a stored flat layout keeps the Ega root; the picker item leaves while the picker is off', async () => {
+  // Both keys in one write: pickerEnabled forces a rebuild, and that rebuild must ignore "flat".
+  await seedSettings(ext.context, ext.extensionId, {
+    contextMenuLayout: 'flat',
+    pickerEnabled: false,
+  });
+
+  const picker = await probeUntil('ega-pick-element', false);
+  expect(picker.ok, 'ega-pick-element should be absent while the picker is off').toBe(false);
+  expect((await probeUntil('ega-root', true)).ok, 'ega-root must stay registered').toBe(true);
+  expect((await probeUntil('ega-translate-page', true)).ok).toBe(true);
+
+  await seedSettings(ext.context, ext.extensionId, { pickerEnabled: true });
+  expect((await probeUntil('ega-pick-element', true)).ok, 'picker item is back').toBe(true);
+});
+
+test('menu titles are the automatic names, none ending in "with Ega"', async () => {
+  const prefix = `chrome-extension://${ext.extensionId}/`;
+  const sw = ext.context.serviceWorkers().find((w) => w.url().startsWith(prefix));
+  if (!sw) throw new Error('service worker not found');
+  // Record what the worker registers on its next rebuild.
+  const patched = await sw.evaluate(() => {
+    const g = self as unknown as {
+      __egaMenuLog?: { id: string; title: string }[];
+      chrome: {
+        contextMenus: { create: (p: { id: string; title: string }, cb?: () => void) => unknown };
+      };
+    };
+    g.__egaMenuLog = [];
+    const original = g.chrome.contextMenus.create.bind(g.chrome.contextMenus);
+    g.chrome.contextMenus.create = (p, cb) => {
+      g.__egaMenuLog?.push({ id: p.id, title: p.title });
+      return original(p, cb);
+    };
+    return g.chrome.contextMenus.create !== original;
+  });
+  expect(patched, 'could not observe contextMenus.create').toBe(true);
+  // Any menu-shaping write rebuilds; this one leaves the menu as shipped.
+  await sw.evaluate(async () => {
+    const cur = (await chrome.storage.local.get('ega.settings'))['ega.settings'] ?? {};
+    await chrome.storage.local.set({
+      'ega.settings': { ...cur, sitePrefs: { 'https://x.test': {} } },
+    });
+  });
+  await expect
+    .poll(
+      () =>
+        sw.evaluate(
+          () =>
+            (self as unknown as { __egaMenuLog?: { id: string; title: string }[] }).__egaMenuLog
+              ?.length ?? 0,
+        ),
+      { timeout: 5_000 },
+    )
+    .toBeGreaterThanOrEqual(8);
+  const titles = await sw.evaluate(() =>
+    (
+      (self as unknown as { __egaMenuLog?: { id: string; title: string }[] }).__egaMenuLog ?? []
+    ).map((e) => e.title),
+  );
+  expect(titles.slice(0, 8)).toEqual([
+    'Ega',
+    'Translate',
+    'Translate in side panel',
+    'Translate image in side panel',
+    'Explain image in side panel',
+    'Translate this page',
+    'Pick an element to translate',
+    'Disable Ega on this site',
+  ]);
 });

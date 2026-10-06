@@ -1,405 +1,512 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Mock } from 'vitest';
-import { render, fireEvent, waitFor } from '@testing-library/svelte';
+import { render, fireEvent, waitFor, within } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import type { ComponentProps } from 'svelte';
 import ContextMenuManager from '@/options/components/ContextMenuManager.svelte';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import { DEFAULT_CONTEXT_MENU_ITEMS } from '@/shared/context-menu';
+import { toastStore, type ToastMsg } from '@/shared/components/toastStore';
+import { resetChromeMock, chromeMock } from '../../mocks/chrome';
 import type { Settings } from '@/shared/types';
-import type { ContextMenuItem, MenuLayout } from '@/shared/context-menu';
+import type { ContextMenuItem } from '@/shared/context-menu';
 
 type OnPatch = ComponentProps<typeof ContextMenuManager>['onPatch'];
 
-function makeProps(
-  overrides: {
-    s?: Partial<Settings>;
-    onPatch?: Mock<OnPatch>;
-  } = {},
-): { s: Settings; onPatch: Mock<OnPatch> } {
+function makeProps(overrides: { s?: Partial<Settings>; onPatch?: Mock<OnPatch> } = {}): {
+  s: Settings;
+  onPatch: Mock<OnPatch>;
+} {
   return {
     s: { ...DEFAULT_SETTINGS, ...overrides.s } as Settings,
     onPatch: overrides.onPatch ?? vi.fn<OnPatch>(),
   };
 }
 
-describe('ContextMenuManager', () => {
-  it('renders one row per default item with [data-ega-cm-enabled] checkbox', () => {
-    const { container } = render(ContextMenuManager, { props: makeProps() });
-    const rows = container.querySelectorAll('[data-ega-cm-row]');
-    expect(rows.length).toBe(DEFAULT_CONTEXT_MENU_ITEMS.length);
-    for (const row of rows) {
-      expect(row.querySelector('[data-ega-cm-enabled]')).not.toBeNull();
+/** Renders the card with an onPatch that feeds each write back in, as the options tab does. */
+function renderLive(s: Partial<Settings> = {}) {
+  let current = makeProps({ s }).s;
+  const onPatch = vi.fn<OnPatch>(async (p: Partial<Settings>) => {
+    current = { ...current, ...p } as Settings;
+    await view.rerender({ s: current, onPatch });
+  });
+  const view = render(ContextMenuManager, { props: { s: current, onPatch } });
+  return { ...view, onPatch };
+}
+
+function written(onPatch: Mock<OnPatch>, call = -1): ContextMenuItem[] {
+  const p = onPatch.mock.calls.at(call)?.[0] as Partial<Settings> | undefined;
+  if (!p?.contextMenuItems) throw new Error('no contextMenuItems write');
+  return p.contextMenuItems;
+}
+
+function row(container: HTMLElement, id: string): HTMLElement {
+  const el = container.querySelector<HTMLElement>(`[data-ega-cm-id="${id}"]`);
+  if (!el) throw new Error(`row ${id} not found`);
+  return el;
+}
+
+function names(container: HTMLElement, group: string): string[] {
+  return Array.from(
+    container.querySelectorAll(`[data-ega-cm-group="${group}"] [data-ega-cm-name]`),
+  ).map((n) => n.textContent.trim());
+}
+
+const custom: ContextMenuItem = {
+  id: 'ega-custom-txt-tt-9',
+  kind: 'task',
+  enabled: true,
+  order: 7,
+  label: '',
+  task: 'explain',
+  surface: 'tooltip',
+};
+
+let pushed: ToastMsg[] = [];
+
+beforeEach(() => {
+  resetChromeMock();
+  pushed = [];
+  vi.spyOn(toastStore, 'push').mockImplementation((m) => {
+    pushed.push(m);
+  });
+});
+
+describe('ContextMenuManager — the card is the menu', () => {
+  it('draws one box per menu Chrome shows, each under "Ega ▸", with the automatic names', () => {
+    const { container, getByRole } = render(ContextMenuManager, { props: makeProps() });
+    expect(getByRole('heading', { name: 'Right-click menu' })).toBeTruthy();
+    for (const title of ['Selected text', 'Images', 'Page']) {
+      expect(getByRole('heading', { name: title, level: 3 })).toBeTruthy();
     }
+    expect(names(container, 'selection')).toEqual(['Translate', 'Translate in side panel']);
+    expect(names(container, 'image')).toEqual([
+      'Translate image in side panel',
+      'Explain image in side panel',
+    ]);
+    expect(names(container, 'page')).toEqual([
+      'Translate this page',
+      'Pick an element to translate',
+      'Disable Ega on this site',
+    ]);
+    const previews = Array.from(container.querySelectorAll('[data-ega-cm-preview]'));
+    expect(previews.map((p) => p.textContent.trim())).toEqual(['Ega ▸', 'Ega ▸', 'Ega ▸']);
   });
 
-  it('renders a label input per row', () => {
-    const { container } = render(ContextMenuManager, { props: makeProps() });
-    const inputs = container.querySelectorAll('[data-ega-cm-label]');
-    expect(inputs.length).toBe(DEFAULT_CONTEXT_MENU_ITEMS.length);
-  });
-
-  it('gives each label input a distinct accessible name, not one shared static label', () => {
-    const { container } = render(ContextMenuManager, { props: makeProps() });
-    const inputs = Array.from(container.querySelectorAll<HTMLInputElement>('[data-ega-cm-label]'));
-    // No static aria-label that would override the per-row <label> + sr-only text.
-    for (const input of inputs) {
-      expect(input.getAttribute('aria-label')).toBeNull();
-    }
-    // The wrapping <label> carries a per-item name, so the names differ across rows.
-    const names = inputs.map((input) => {
-      const wrap = input.closest('label');
-      return wrap?.querySelector('.ega-sr-only')?.textContent.trim() ?? '';
+  it('shows the new name to a profile that stored the old one', () => {
+    const items = DEFAULT_CONTEXT_MENU_ITEMS.map((i) =>
+      i.id === 'ega-translate-selection' ? { ...i, label: 'Translate selection with Ega' } : i,
+    );
+    const { container } = render(ContextMenuManager, {
+      props: makeProps({ s: { contextMenuItems: items } }),
     });
-    expect(new Set(names).size).toBe(inputs.length);
+    expect(names(container, 'selection')[0]).toBe('Translate');
+    expect(container.querySelector('[data-ega-section-reset]')).toBeNull();
   });
 
-  it('renders up/down reorder buttons per row', () => {
-    const { container } = render(ContextMenuManager, { props: makeProps() });
-    const upBtns = container.querySelectorAll('[data-ega-cm-up]');
-    const downBtns = container.querySelectorAll('[data-ega-cm-down]');
-    expect(upBtns.length).toBe(DEFAULT_CONTEXT_MENU_ITEMS.length);
-    expect(downBtns.length).toBe(DEFAULT_CONTEXT_MENU_ITEMS.length);
+  it('has no Layout control and a one-line description with the rest behind (i)', () => {
+    const { container, getByRole } = render(ContextMenuManager, { props: makeProps() });
+    expect(container.querySelector('[data-ega-cm-layout]')).toBeNull();
+    expect(container.textContent).not.toMatch(/Nested|Flat/);
+    expect(container.querySelector('.ega-section-card-desc')?.textContent.trim()).toBe(
+      'What Ega adds when you right-click a web page',
+    );
+    expect(getByRole('button', { name: 'About the right-click menu' })).toBeTruthy();
   });
 
-  it('renders a delete button on every row but the built-in singletons', () => {
+  it('gives each row two tab stops: its checkbox and one toolbar stop', async () => {
     const { container } = render(ContextMenuManager, { props: makeProps() });
-    const singletonKinds = ['page-translate', 'pick-element', 'site-toggle'] as const;
-    for (const item of DEFAULT_CONTEXT_MENU_ITEMS) {
-      const row = container.querySelector(`[data-ega-cm-id="${item.id}"]`);
-      const del = row?.querySelector<HTMLButtonElement>('[data-ega-cm-delete]');
-      if (singletonKinds.includes(item.kind as (typeof singletonKinds)[number])) {
-        expect(del, `no delete for ${item.kind}`).toBeNull();
-      } else {
-        expect(del?.disabled, `delete for ${item.kind} should be enabled`).toBe(false);
-      }
+    await tick();
+    const toolbars = Array.from(container.querySelectorAll<HTMLElement>('[role="toolbar"]'));
+    expect(toolbars).toHaveLength(6);
+    for (const bar of toolbars) {
+      const stops = bar.querySelectorAll('button[tabindex="0"]');
+      expect(stops).toHaveLength(1);
+      expect(stops[0]?.textContent).toContain('Edit');
+      expect(bar.getAttribute('aria-label')).toMatch(/^Actions for /);
+    }
+    // Defaults: 6 checkboxes + 6 toolbars + 2 site-toggle arrows + 2 Add buttons + (i).
+    const tabbable = Array.from(
+      container.querySelectorAll<HTMLElement>('button, input, select, [tabindex]'),
+    ).filter((el) => el.tabIndex >= 0 && !el.closest('[hidden]'));
+    expect(tabbable).toHaveLength(17);
+  });
+
+  it('keeps the drag grip out of the keyboard and screen-reader path', async () => {
+    const { container } = render(ContextMenuManager, { props: makeProps() });
+    // The drag library re-applies its own tabindex when its zone mounts; the grip takes it back.
+    await tick();
+    for (const grip of container.querySelectorAll<HTMLElement>('[data-ega-cm-handle]')) {
+      expect(grip.tabIndex).toBe(-1);
+      expect(grip.getAttribute('aria-hidden')).toBe('true');
+      expect(grip.hasAttribute('role')).toBe(false);
     }
   });
+});
 
-  it('names the default target in the Into picker', async () => {
+describe('ContextMenuManager — showing and hiding', () => {
+  it('the checkbox shows or hides a row and saves at once', async () => {
+    const onPatch = vi.fn<OnPatch>();
+    const { getByRole } = render(ContextMenuManager, { props: makeProps({ onPatch }) });
+    await fireEvent.click(getByRole('checkbox', { name: 'Show Translate' }));
+    expect(onPatch).toHaveBeenCalledOnce();
+    expect(written(onPatch).find((i) => i.id === 'ega-translate-selection')?.enabled).toBe(false);
+  });
+
+  it('a hidden row says "Hidden", and a group with nothing shown says so', () => {
+    const items = DEFAULT_CONTEXT_MENU_ITEMS.map((i) =>
+      i.kind === 'image-task' ? { ...i, enabled: false } : i,
+    );
+    const { container } = render(ContextMenuManager, {
+      props: makeProps({ s: { contextMenuItems: items } }),
+    });
+    const image = row(container, 'ega-translate-image');
+    expect(image.querySelector('[data-ega-cm-status]')?.textContent.trim()).toBe('Hidden');
+    const box = container.querySelector('[data-ega-cm-group="image"] [data-ega-cm-preview]');
+    expect(box?.textContent.trim()).toBe('Nothing from Ega shows here');
+  });
+
+  it('a row whose task is off says why, and its checkbox cannot bring it back', async () => {
+    const onPatch = vi.fn<OnPatch>();
+    const { container } = render(ContextMenuManager, {
+      props: makeProps({ onPatch, s: { disabledTasks: ['explain'] } }),
+    });
+    const explain = row(container, 'ega-explain-image');
+    const status = explain.querySelector('[data-ega-cm-status]');
+    expect(status?.textContent.trim()).toBe('Hidden: Explain is off in Tasks');
+    const box = explain.querySelector<HTMLInputElement>('[data-ega-cm-enabled]');
+    expect(box?.getAttribute('aria-disabled')).toBe('true');
+    expect(box?.getAttribute('aria-describedby')).toBe(status?.id);
+    // aria-disabled, not disabled: it stays focusable so the reason is read.
+    expect(box?.disabled).toBe(false);
+    if (!box) throw new Error('no checkbox');
+    await fireEvent.click(box);
+    expect(onPatch).not.toHaveBeenCalled();
+    expect(box.checked).toBe(true);
+  });
+
+  it('the picker item says it is hidden while the element picker is off', () => {
+    const { container } = render(ContextMenuManager, {
+      props: makeProps({ s: { pickerEnabled: false } }),
+    });
+    expect(
+      row(container, 'ega-pick-element').querySelector('[data-ega-cm-status]')?.textContent.trim(),
+    ).toBe('Hidden: the element picker is off');
+  });
+
+  it('the site toggle has no checkbox and no Edit, and explains its flip', () => {
     const { container } = render(ContextMenuManager, { props: makeProps() });
-    const picker = container.querySelector<HTMLSelectElement>('[data-ega-cm-targetlang] select');
-    await waitFor(() =>
-      expect(picker?.querySelector('option[value="auto"]')?.textContent).toMatch(
-        /^Default target (.+)$/,
-      ),
+    const site = row(container, 'ega-toggle-site');
+    expect(site.querySelector('[data-ega-cm-enabled]')).toBeNull();
+    expect(site.querySelector('[data-ega-cm-edit]')).toBeNull();
+    expect(site.querySelector('[data-ega-cm-site-note]')?.textContent.trim()).toBe(
+      'Shows "Enable Ega on this site" on sites where Ega is off',
     );
   });
 
-  it('renders [data-ega-cm-add] button', () => {
+  it('a custom-task row reads "Loading…" until the task list arrives, never "Deleted task"', async () => {
+    const tweet: ContextMenuItem = { ...custom, task: 'c-tweet' };
+    const { container } = render(ContextMenuManager, {
+      props: makeProps({ s: { contextMenuItems: [...DEFAULT_CONTEXT_MENU_ITEMS, tweet] } }),
+    });
+    const name = row(container, tweet.id).querySelector('[data-ega-cm-name]');
+    expect(name?.textContent.trim()).toBe('Loading…');
+    expect(container.textContent).not.toContain('Deleted task');
+    // The stored list has no c-tweet, so once it loads the row says its task is gone.
+    await waitFor(() =>
+      expect(
+        row(container, tweet.id).querySelector('[data-ega-cm-status]')?.textContent.trim(),
+      ).toBe('Hidden: its task was deleted'),
+    );
+  });
+});
+
+describe('ContextMenuManager — Edit', () => {
+  it('opens one row at a time and closes on Esc with focus back on Edit', async () => {
     const { container } = render(ContextMenuManager, { props: makeProps() });
-    expect(container.querySelector('[data-ega-cm-add]')).not.toBeNull();
+    const editA = row(container, 'ega-translate-selection').querySelector<HTMLElement>(
+      '[data-ega-cm-edit]',
+    );
+    const editB = row(container, 'ega-translate-image').querySelector<HTMLElement>(
+      '[data-ega-cm-edit]',
+    );
+    if (!editA || !editB) throw new Error('edit buttons missing');
+    expect(editA.getAttribute('aria-expanded')).toBe('false');
+    await fireEvent.click(editA);
+    expect(editA.getAttribute('aria-expanded')).toBe('true');
+    const region = container.querySelector<HTMLElement>(`#${editA.getAttribute('aria-controls')}`);
+    expect(region?.hidden).toBe(false);
+    await fireEvent.click(editB);
+    expect(editA.getAttribute('aria-expanded')).toBe('false');
+    expect(editB.getAttribute('aria-expanded')).toBe('true');
+
+    const field = row(container, 'ega-translate-image').querySelector<HTMLElement>(
+      '[data-ega-cm-label]',
+    );
+    if (!field) throw new Error('name field missing');
+    field.focus();
+    await fireEvent.keyDown(field, { key: 'Escape' });
+    expect(editB.getAttribute('aria-expanded')).toBe('false');
+    await waitFor(() => expect(document.activeElement).toBe(editB));
   });
 
-  it('renders [data-ega-cm-layout] RadioGroup with nested/flat options', () => {
-    const { container } = render(ContextMenuManager, { props: makeProps() });
-    const group = container.querySelector('[data-ega-cm-layout]');
-    expect(group).not.toBeNull();
-    const nested = group?.querySelector('[data-value="nested"]');
-    const flat = group?.querySelector('[data-value="flat"]');
-    expect(nested).not.toBeNull();
-    expect(flat).not.toBeNull();
+  it('text options: Task with off tasks marked, Opens in, Answer in and Name in menu', async () => {
+    const { container } = render(ContextMenuManager, {
+      props: makeProps({ s: { disabledTasks: ['reword'] } }),
+    });
+    const r = row(container, 'ega-translate-selection');
+    await fireEvent.click(r.querySelector('[data-ega-cm-edit]') as HTMLElement);
+    const ui = within(r);
+    const task = ui.getByLabelText('Task') as HTMLSelectElement;
+    const reword = Array.from(task.options).find((o) => o.value === 'reword');
+    expect([reword?.textContent.trim(), reword?.disabled]).toEqual(['Reword (off)', true]);
+    expect(ui.getByRole('radiogroup', { name: 'Opens in' })).toBeTruthy();
+    expect(
+      ui.getByText('On the page uses your Display surface choice: tooltip or inline'),
+    ).toBeTruthy();
+    const lang = ui.getByLabelText('Answer in') as HTMLSelectElement;
+    await waitFor(() =>
+      expect(lang.querySelector('option[value="auto"]')?.textContent).toMatch(/^Default \(.+\)$/),
+    );
+    expect(ui.getByLabelText('Name in menu')).toBeTruthy();
+    expect(ui.getByText('Leave empty to use "Translate"')).toBeTruthy();
+    // A shipped row can be hidden, never deleted.
+    expect(r.querySelector('[data-ega-cm-delete]')).toBeNull();
   });
 
-  it('toggling an item enable checkbox calls onPatch with mutated contextMenuItems', async () => {
+  it('changing Opens in keeps the row mounted and its id, so focus stays put', async () => {
     const onPatch = vi.fn<OnPatch>();
-    const { container } = render(ContextMenuManager, { props: makeProps({ onPatch }) });
-    const firstCb = container.querySelector<HTMLInputElement>('[data-ega-cm-enabled]');
-    if (!firstCb) throw new Error('[data-ega-cm-enabled] not found');
-    await fireEvent.click(firstCb);
-    expect(onPatch).toHaveBeenCalledOnce();
-    const rawCall: unknown = onPatch.mock.calls[0]?.[0];
-    const call = rawCall as Partial<Settings>;
-    expect(Array.isArray(call.contextMenuItems)).toBe(true);
-    const items = call.contextMenuItems as ContextMenuItem[];
-    const firstItem = items[0];
-    if (!firstItem) throw new Error('no first item in call');
-    expect(firstItem.enabled).toBe(!DEFAULT_CONTEXT_MENU_ITEMS[0]?.enabled);
+    const { container, rerender } = render(ContextMenuManager, {
+      props: makeProps({ onPatch }),
+    });
+    const before = row(container, 'ega-translate-selection');
+    await fireEvent.click(before.querySelector('[data-ega-cm-edit]') as HTMLElement);
+    const side = within(before).getByRole('radio', { name: 'Side panel' });
+    await fireEvent.click(side);
+    const items = written(onPatch);
+    const edited = items.find((i) => i.id === 'ega-translate-selection');
+    expect(edited?.kind === 'task' ? edited.surface : null).toBe('sidepanel');
+    await rerender(makeProps({ onPatch, s: { contextMenuItems: items } }));
+    expect(row(container, 'ega-translate-selection')).toBe(before);
+    expect(names(container, 'selection')[0]).toBe('Translate in side panel');
   });
 
-  it('editing a label input calls onPatch with updated label once the debounce fires', async () => {
+  it('a typed name saves after the debounce; an empty one means the automatic name', async () => {
     vi.useFakeTimers();
     try {
       const onPatch = vi.fn<OnPatch>();
       const { container } = render(ContextMenuManager, { props: makeProps({ onPatch }) });
-      const firstInput = container.querySelector<HTMLInputElement>('[data-ega-cm-label]');
-      if (!firstInput) throw new Error('[data-ega-cm-label] not found');
-      await fireEvent.input(firstInput, { target: { value: 'My custom label' } });
-      vi.advanceTimersByTime(400);
-      expect(onPatch).toHaveBeenCalledOnce();
-      const rawCall: unknown = onPatch.mock.calls[0]?.[0];
-      const call = rawCall as Partial<Settings>;
-      const items = call.contextMenuItems as ContextMenuItem[];
-      const firstItem = items[0];
-      if (!firstItem) throw new Error('no first item');
-      expect(firstItem.label).toBe('My custom label');
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it('a drag-reorder after a rename keeps the new label', async () => {
-    vi.useFakeTimers();
-    try {
-      const onPatch = vi.fn<OnPatch>();
-      const items: ContextMenuItem[] = DEFAULT_CONTEXT_MENU_ITEMS.map((i) => ({ ...i }));
-      const { container, rerender } = render(ContextMenuManager, {
-        props: makeProps({ onPatch, s: { contextMenuItems: items } }),
-      });
-      const firstInput = container.querySelector<HTMLInputElement>('[data-ega-cm-label]');
-      if (!firstInput) throw new Error('[data-ega-cm-label] not found');
-      await fireEvent.input(firstInput, { target: { value: 'Renamed' } });
-      vi.advanceTimersByTime(400);
-
-      // The rename is committed: settings now hold the new label.
-      const renamed = (onPatch.mock.calls[0]?.[0] as Partial<Settings>)
-        .contextMenuItems as ContextMenuItem[];
-      expect(renamed[0]?.label).toBe('Renamed');
-      onPatch.mockClear();
-      await rerender(makeProps({ onPatch, s: { contextMenuItems: renamed } }));
-
-      // svelte-dnd-action finalizes with ITS OWN row copies, captured before the rename.
-      const zone = container.querySelector('ul.cm-list');
-      if (!zone) throw new Error('dnd zone not found');
-      const stale = DEFAULT_CONTEXT_MENU_ITEMS.map((i) => ({ ...i }));
-      const dragged = [stale[1], stale[0], ...stale.slice(2)].filter(Boolean);
-      // The library's own finalize listener reads detail.info.source and throws without it.
-      await fireEvent(
-        zone,
-        new CustomEvent('finalize', {
-          detail: {
-            items: dragged,
-            info: { source: 'keyboard', trigger: 'droppedIntoZone', id: '' },
-          },
-        }),
-      );
-
-      const call = onPatch.mock.calls[0]?.[0] as Partial<Settings> | undefined;
-      if (!call) throw new Error('drag did not write settings');
-      const after = call.contextMenuItems as ContextMenuItem[];
-      expect(after.map((i) => i.id)).toEqual(dragged.map((i) => i?.id));
-      expect(after.find((i) => i.id === stale[0]?.id)?.label).toBe('Renamed');
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it('a burst of label keystrokes writes settings once, not once per keystroke', async () => {
-    vi.useFakeTimers();
-    try {
-      const onPatch = vi.fn<OnPatch>();
-      const { container } = render(ContextMenuManager, { props: makeProps({ onPatch }) });
-      const firstInput = container.querySelector<HTMLInputElement>('[data-ega-cm-label]');
-      if (!firstInput) throw new Error('[data-ega-cm-label] not found');
-      for (const value of ['R', 'Re', 'Ren', 'Rena', 'Renam', 'Rename']) {
-        await fireEvent.input(firstInput, { target: { value } });
+      const r = row(container, 'ega-translate-selection');
+      await fireEvent.click(r.querySelector('[data-ega-cm-edit]') as HTMLElement);
+      const input = r.querySelector<HTMLInputElement>('[data-ega-cm-label]');
+      if (!input) throw new Error('no name field');
+      expect(input.value).toBe('');
+      for (const value of ['M', 'My', 'My name']) {
+        await fireEvent.input(input, { target: { value } });
         vi.advanceTimersByTime(50);
       }
       expect(onPatch).not.toHaveBeenCalled();
       vi.advanceTimersByTime(400);
       expect(onPatch).toHaveBeenCalledOnce();
-      const call = onPatch.mock.calls[0]?.[0] as Partial<Settings>;
-      const items = call.contextMenuItems as ContextMenuItem[];
-      expect(items[0]?.label).toBe('Rename');
+      expect(written(onPatch).find((i) => i.id === 'ega-translate-selection')?.label).toBe(
+        'My name',
+      );
+      // No error state: an empty field is valid.
+      await fireEvent.input(input, { target: { value: '' } });
+      await fireEvent.blur(input);
+      expect(input.getAttribute('aria-invalid')).toBeNull();
+      expect(written(onPatch).find((i) => i.id === 'ega-translate-selection')?.label).toBe('');
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it('blur flushes a pending label edit immediately', async () => {
-    vi.useFakeTimers();
-    try {
-      const onPatch = vi.fn<OnPatch>();
-      const { container } = render(ContextMenuManager, { props: makeProps({ onPatch }) });
-      const firstInput = container.querySelector<HTMLInputElement>('[data-ega-cm-label]');
-      if (!firstInput) throw new Error('[data-ega-cm-label] not found');
-      await fireEvent.input(firstInput, { target: { value: 'Blurred' } });
-      await fireEvent.blur(firstInput);
-      expect(onPatch).toHaveBeenCalledOnce();
-      const call = onPatch.mock.calls[0]?.[0] as Partial<Settings>;
-      expect((call.contextMenuItems as ContextMenuItem[])[0]?.label).toBe('Blurred');
-      // The debounce must not fire a second write after the blur flush.
-      vi.advanceTimersByTime(400);
-      expect(onPatch).toHaveBeenCalledOnce();
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it('clicking another row while a label edit is pending keeps the typed label', async () => {
-    vi.useFakeTimers();
-    try {
-      const onPatch = vi.fn<OnPatch>();
-      const { container } = render(ContextMenuManager, { props: makeProps({ onPatch }) });
-      const firstInput = container.querySelector<HTMLInputElement>('[data-ega-cm-label]');
-      const checkboxes = container.querySelectorAll<HTMLInputElement>('[data-ega-cm-enabled]');
-      const secondCb = checkboxes[1];
-      if (!firstInput || !secondCb) throw new Error('row controls not found');
-      await fireEvent.input(firstInput, { target: { value: 'Not yet saved' } });
-      await fireEvent.click(secondCb);
-      expect(onPatch).toHaveBeenCalledOnce();
-      const call = onPatch.mock.calls[0]?.[0] as Partial<Settings>;
-      const items = call.contextMenuItems as ContextMenuItem[];
-      expect(items[0]?.label).toBe('Not yet saved');
-      expect(items[1]?.enabled).toBe(!DEFAULT_CONTEXT_MENU_ITEMS[1]?.enabled);
-      vi.advanceTimersByTime(400);
-      expect(onPatch).toHaveBeenCalledOnce();
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it('clicking Add appends a new task item via nextMenuItemId', async () => {
+  it('picking a language names the row after it and stores it', async () => {
     const onPatch = vi.fn<OnPatch>();
     const { container } = render(ContextMenuManager, { props: makeProps({ onPatch }) });
-    const addBtn = container.querySelector<HTMLButtonElement>('[data-ega-cm-add]');
-    if (!addBtn) throw new Error('[data-ega-cm-add] not found');
-    await fireEvent.click(addBtn);
-    expect(onPatch).toHaveBeenCalledOnce();
-    const rawCall: unknown = onPatch.mock.calls[0]?.[0];
-    const call = rawCall as Partial<Settings>;
-    const callItems = call.contextMenuItems as ContextMenuItem[];
-    expect(callItems.length).toBe(DEFAULT_CONTEXT_MENU_ITEMS.length + 1);
-    const newItem = callItems[callItems.length - 1];
-    if (!newItem) throw new Error('no new item');
-    expect(newItem.kind).toBe('task');
-    expect(newItem.id).not.toBeUndefined();
-    const existingIds = DEFAULT_CONTEXT_MENU_ITEMS.map((i) => i.id);
-    expect(existingIds.includes(newItem.id)).toBe(false);
+    const r = row(container, 'ega-translate-selection');
+    await fireEvent.click(r.querySelector('[data-ega-cm-edit]') as HTMLElement);
+    const lang = within(r).getByLabelText('Answer in') as HTMLSelectElement;
+    if (!Array.from(lang.options).some((o) => o.value === 'fr')) throw new Error('no French');
+    lang.value = 'fr';
+    await fireEvent.change(lang);
+    const item = written(onPatch).find((i) => i.id === 'ega-translate-selection');
+    expect(item?.kind === 'task' ? item.targetLang : null).toBe('fr');
   });
+});
 
-  it('changing layout radio fires onPatch with new contextMenuLayout', async () => {
-    const onPatch = vi.fn<OnPatch>();
-    const { container } = render(ContextMenuManager, { props: makeProps({ onPatch }) });
-    const flatOpt = container.querySelector<HTMLElement>(
-      '[data-ega-cm-layout] [role="radio"][data-value="flat"]',
+describe('ContextMenuManager — add, delete, move, reset', () => {
+  it('Add text action adds a row on the default task, on the page, and opens it on Task', async () => {
+    const { container, onPatch } = renderLive({ defaultTask: 'explain' });
+    await fireEvent.click(container.querySelector('[data-ega-cm-add]') as HTMLElement);
+    const added = written(onPatch).find(
+      (i) => !DEFAULT_CONTEXT_MENU_ITEMS.some((d) => d.id === i.id),
     );
-    if (!flatOpt) throw new Error('[data-value="flat"] not found');
-    await fireEvent.click(flatOpt);
-    expect(onPatch).toHaveBeenCalledOnce();
-    const rawCall: unknown = onPatch.mock.calls[0]?.[0];
-    const call = rawCall as Partial<Settings>;
-    expect(call.contextMenuLayout).toBe<MenuLayout>('flat');
-  });
-
-  it('clicking delete on a task item calls onPatch with that item removed', async () => {
-    const onPatch = vi.fn<OnPatch>();
-    const { container } = render(ContextMenuManager, { props: makeProps({ onPatch }) });
-    // First non-singleton item is task or image-task; find the first enabled delete button
-    const allDelBtns = Array.from(
-      container.querySelectorAll<HTMLButtonElement>('[data-ega-cm-delete]'),
+    expect(added).toMatchObject({ kind: 'task', task: 'explain', surface: 'tooltip', label: '' });
+    expect(added && DEFAULT_CONTEXT_MENU_ITEMS.some((i) => i.id === added.id)).toBe(false);
+    await waitFor(() =>
+      expect(document.activeElement?.hasAttribute('data-ega-cm-task')).toBe(true),
     );
-    const enabledDel = allDelBtns.find((b) => !b.disabled);
-    if (!enabledDel) throw new Error('no enabled delete button');
-    await fireEvent.click(enabledDel);
-    expect(onPatch).toHaveBeenCalledOnce();
-    const rawCall: unknown = onPatch.mock.calls[0]?.[0];
-    const call = rawCall as Partial<Settings>;
-    const callItems = call.contextMenuItems as ContextMenuItem[];
-    expect(callItems.length).toBe(DEFAULT_CONTEXT_MENU_ITEMS.length - 1);
+    expect(names(container, 'selection').at(-1)).toBe('Explain');
   });
 
-  it('clicking Move Up on second item moves it to index 0 with normalized order', async () => {
+  it('Add image action adds Translate in the side panel, in the Images group', async () => {
     const onPatch = vi.fn<OnPatch>();
     const { container } = render(ContextMenuManager, { props: makeProps({ onPatch }) });
-    const upBtns = Array.from(container.querySelectorAll<HTMLButtonElement>('[data-ega-cm-up]'));
-    const secondUp = upBtns[1];
-    if (!secondUp) throw new Error('second [data-ega-cm-up] not found');
-    const originallySecondId = DEFAULT_CONTEXT_MENU_ITEMS[1]?.id;
-    await fireEvent.click(secondUp);
-    expect(onPatch).toHaveBeenCalledOnce();
-    const rawCall: unknown = onPatch.mock.calls[0]?.[0];
-    const call = rawCall as Partial<Settings>;
-    const callItems = call.contextMenuItems as ContextMenuItem[];
-    expect(callItems[0]?.id).toBe(originallySecondId);
-    // order is renormalized to array index on every reorder.
-    callItems.forEach((it, i) => expect(it.order).toBe(i));
+    await fireEvent.click(container.querySelector('[data-ega-cm-add-image]') as HTMLElement);
+    const items = written(onPatch);
+    const images = items.filter((i) => i.kind === 'image-task');
+    expect(images.at(-1)).toMatchObject({ task: 'translate', surface: 'sidepanel' });
+    // Written group by group, so the new image row sits before the page rows.
+    expect(items.findIndex((i) => i === images.at(-1))).toBeLessThan(
+      items.findIndex((i) => i.kind === 'page-translate'),
+    );
   });
 
-  it('renders a drag handle per row', () => {
+  it('Delete is only on added rows; it offers Undo and moves focus to the next row', async () => {
+    const second: ContextMenuItem = { ...custom, id: 'ega-custom-txt-tt-10', order: 8 };
+    const items = [...DEFAULT_CONTEXT_MENU_ITEMS, custom, second];
+    chromeMock.storage.local._raw.set('ega.settings', { contextMenuItems: items });
+    const { container, onPatch } = renderLive({ contextMenuItems: items });
+    const r = row(container, custom.id);
+    await fireEvent.click(r.querySelector('[data-ega-cm-edit]') as HTMLElement);
+    const del = r.querySelector<HTMLElement>('[data-ega-cm-delete]');
+    expect(del?.getAttribute('aria-label')).toBe('Delete Explain');
+    await fireEvent.click(del as HTMLElement);
+    expect(written(onPatch).some((i) => i.id === custom.id)).toBe(false);
+    await waitFor(() => expect(pushed.at(-1)?.message).toBe('Removed "Explain".'));
+    expect(pushed.at(-1)?.duration).toBe(8000);
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        row(container, second.id).querySelector('[data-ega-cm-edit]'),
+      ),
+    );
+    pushed.at(-1)?.action?.onClick();
+    await waitFor(() => expect(written(onPatch).some((i) => i.id === custom.id)).toBe(true));
+  });
+
+  it('Move down reorders inside the group, keeps focus on the pressed button and says where', async () => {
+    const { container, onPatch } = renderLive();
+    const down = row(container, 'ega-translate-selection').querySelector<HTMLElement>(
+      '[data-ega-cm-down]',
+    );
+    await fireEvent.click(down as HTMLElement);
+    const items = written(onPatch);
+    expect(items.filter((i) => i.kind === 'task').map((i) => i.id)).toEqual([
+      'ega-sidepanel-selection',
+      'ega-translate-selection',
+    ]);
+    items.forEach((it, i) => expect(it.order).toBe(i));
+    expect(items).toHaveLength(DEFAULT_CONTEXT_MENU_ITEMS.length);
+    const moved = row(container, 'ega-translate-selection').querySelector<HTMLElement>(
+      '[data-ega-cm-down]',
+    );
+    await waitFor(() => expect(document.activeElement).toBe(moved));
+    // Now last in its group: the arrow stays focusable and says why it does nothing.
+    expect(moved?.getAttribute('aria-disabled')).toBe('true');
+    expect(moved?.getAttribute('aria-label')).toBe('Move Translate down, already last');
+    expect(container.querySelector('[role="status"]')?.textContent).toBe(
+      'Translate moved to position 2 of 2',
+    );
+  });
+
+  it('the last row of a group cannot move down into the next group', async () => {
+    const { container, onPatch } = renderLive();
+    // Stored order puts the image rows right after this one; Chrome draws them in another menu.
+    const down = row(container, 'ega-sidepanel-selection').querySelector<HTMLElement>(
+      '[data-ega-cm-down]',
+    );
+    expect(down?.getAttribute('aria-disabled')).toBe('true');
+    await fireEvent.click(down as HTMLElement);
+    expect(onPatch).not.toHaveBeenCalled();
+  });
+
+  it('arrow keys move inside a row toolbar and skip the arrow that cannot move', async () => {
     const { container } = render(ContextMenuManager, { props: makeProps() });
-    const handles = container.querySelectorAll('[data-ega-cm-handle]');
-    expect(handles.length).toBe(DEFAULT_CONTEXT_MENU_ITEMS.length);
-  });
-
-  it('renders a context chip per row labeling where the item appears', () => {
-    const { container } = render(ContextMenuManager, { props: makeProps() });
-    const chips = container.querySelectorAll('[data-ega-cm-context]');
-    expect(chips.length).toBe(DEFAULT_CONTEXT_MENU_ITEMS.length);
-    // The selection task → "Text selection"; image task → "Image"; page → "Page".
-    const texts = Array.from(chips).map((c) => c.textContent.trim());
-    expect(texts).toContain('Text selection');
-    expect(texts).toContain('Image');
-    expect(texts).toContain('Page');
-  });
-
-  it('Add image button appends an image-task item', async () => {
-    const onPatch = vi.fn<OnPatch>();
-    const { container } = render(ContextMenuManager, { props: makeProps({ onPatch }) });
-    const addImg = container.querySelector<HTMLButtonElement>('[data-ega-cm-add-image]');
-    if (!addImg) throw new Error('[data-ega-cm-add-image] not found');
-    await fireEvent.click(addImg);
-    expect(onPatch).toHaveBeenCalledOnce();
-    const call = onPatch.mock.calls[0]?.[0] as Partial<Settings>;
-    const callItems = call.contextMenuItems as ContextMenuItem[];
-    const newItem = callItems[callItems.length - 1];
-    expect(newItem?.kind).toBe('image-task');
-  });
-
-  it('reset is hidden at defaults and appears once a label is edited', async () => {
-    const onPatch = vi.fn<OnPatch>();
-    const { container, rerender } = render(ContextMenuManager, { props: makeProps({ onPatch }) });
-    expect(container.querySelector('[data-ega-section-reset]')).toBeNull();
-    // Simulate a non-default state by passing edited items.
-    const edited = DEFAULT_CONTEXT_MENU_ITEMS.map((it, i) =>
-      i === 0 ? { ...it, label: 'changed' } : it,
+    const bar = row(container, 'ega-translate-selection').querySelector<HTMLElement>(
+      '[role="toolbar"]',
     );
-    await rerender(makeProps({ onPatch, s: { contextMenuItems: edited } }));
-    expect(container.querySelector('[data-ega-section-reset]')).not.toBeNull();
+    const edit = bar?.querySelector<HTMLElement>('[data-ega-cm-edit]');
+    if (!bar || !edit) throw new Error('toolbar missing');
+    edit.focus();
+    await fireEvent.keyDown(edit, { key: 'ArrowRight' });
+    // First row: Move up cannot move, so the next stop after Edit wraps to Move down.
+    await waitFor(() =>
+      expect(document.activeElement).toBe(bar.querySelector('[data-ega-cm-down]')),
+    );
+    await fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'Home' });
+    await waitFor(() =>
+      expect(document.activeElement).toBe(bar.querySelector('[data-ega-cm-down]')),
+    );
+    await fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'End' });
+    await waitFor(() => expect(document.activeElement).toBe(edit));
   });
 
-  it('reset writes DEFAULT items and nested layout', async () => {
+  it('Reset restores the shipped menu with Undo and puts focus on the first checkbox', async () => {
+    const edited = [...DEFAULT_CONTEXT_MENU_ITEMS, custom];
+    const { container, onPatch } = renderLive({ contextMenuItems: edited });
+    const reset = container.querySelector<HTMLElement>('[data-ega-section-reset]');
+    if (!reset) throw new Error('reset hidden while modified');
+    await fireEvent.click(reset);
+    expect(written(onPatch)).toEqual(DEFAULT_CONTEXT_MENU_ITEMS);
+    expect(onPatch.mock.calls[0]?.[0]).not.toHaveProperty('contextMenuLayout');
+    expect(pushed.at(-1)?.message).toBe('Right-click menu reset.');
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        row(container, 'ega-translate-selection').querySelector('[data-ega-cm-enabled]'),
+      ),
+    );
+    pushed.at(-1)?.action?.onClick();
+    expect(written(onPatch).map((i) => i.id)).toContain(custom.id);
+  });
+
+  it('a long group asks the user to hide what they rarely use', () => {
+    const many = Array.from({ length: 12 }, (_, n) => ({
+      ...custom,
+      id: `ega-custom-txt-tt-${20 + n}`,
+      order: 20 + n,
+    }));
+    const { container } = render(ContextMenuManager, {
+      props: makeProps({ s: { contextMenuItems: [...DEFAULT_CONTEXT_MENU_ITEMS, ...many] } }),
+    });
+    expect(
+      container.querySelector('[data-ega-cm-group="selection"] [data-ega-cm-long]'),
+    ).not.toBeNull();
+    expect(container.querySelector('[data-ega-cm-group="image"] [data-ega-cm-long]')).toBeNull();
+  }, 20_000);
+});
+
+describe('ContextMenuManager — drag', () => {
+  it('a drag inside a group reorders it and keeps a label renamed since the drag began', async () => {
     const onPatch = vi.fn<OnPatch>();
-    const edited = DEFAULT_CONTEXT_MENU_ITEMS.map((it, i) =>
-      i === 0 ? { ...it, label: 'changed' } : it,
+    const renamed = DEFAULT_CONTEXT_MENU_ITEMS.map((i) =>
+      i.id === 'ega-translate-selection' ? { ...i, label: 'Renamed' } : { ...i },
     );
     const { container } = render(ContextMenuManager, {
-      props: makeProps({ onPatch, s: { contextMenuItems: edited, contextMenuLayout: 'flat' } }),
+      props: makeProps({ onPatch, s: { contextMenuItems: renamed } }),
     });
-    const resetBtn = container.querySelector<HTMLButtonElement>('[data-ega-section-reset]');
-    if (!resetBtn) throw new Error('reset button not found');
-    await fireEvent.click(resetBtn);
-    expect(onPatch).toHaveBeenCalledOnce();
-    const call = onPatch.mock.calls[0]?.[0] as Partial<Settings>;
-    expect(call.contextMenuLayout).toBe('nested');
-    const callItems = call.contextMenuItems as ContextMenuItem[];
-    expect(callItems).toEqual(DEFAULT_CONTEXT_MENU_ITEMS);
-  });
-
-  it('renders a target-language control only on text-task rows', () => {
-    const { container } = render(ContextMenuManager, { props: makeProps() });
-    const langWraps = container.querySelectorAll('[data-ega-cm-targetlang]');
-    const taskCount = DEFAULT_CONTEXT_MENU_ITEMS.filter((i) => i.kind === 'task').length;
-    expect(langWraps.length).toBe(taskCount);
-  });
-
-  it('selecting a specific target language sets targetLang on that item', async () => {
-    const onPatch = vi.fn<OnPatch>();
-    const { container } = render(ContextMenuManager, { props: makeProps({ onPatch }) });
-    const wrap = container.querySelector<HTMLElement>('[data-ega-cm-targetlang]');
-    if (!wrap) throw new Error('[data-ega-cm-targetlang] not found');
-    const select = wrap.querySelector('select');
-    if (!select) throw new Error('language select not found');
-    // Pick a concrete language (first non-auto option).
-    const opt = Array.from(select.options).find((o) => o.value !== 'auto');
-    if (!opt) throw new Error('no concrete language option');
-    select.value = opt.value;
-    await fireEvent.change(select);
-    expect(onPatch).toHaveBeenCalled();
-    const lastCall = onPatch.mock.calls.at(-1)?.[0] as Partial<Settings>;
-    const callItems = lastCall.contextMenuItems as ContextMenuItem[];
-    const firstTask = callItems.find((i) => i.kind === 'task') as
-      Extract<ContextMenuItem, { kind: 'task' }> | undefined;
-    expect(firstTask?.targetLang).toBe(opt.value);
+    const zone = container.querySelector('[data-ega-cm-group="selection"] ul');
+    if (!zone) throw new Error('selection zone missing');
+    // The zone keeps the list's own description; the drag library would replace it.
+    expect(zone.getAttribute('aria-describedby')).toBe('cm-group-selection-desc');
+    // svelte-dnd-action finalizes with ITS OWN row copies, captured before the rename.
+    const stale = DEFAULT_CONTEXT_MENU_ITEMS.filter((i) => i.kind === 'task').map((i) => ({
+      ...i,
+    }));
+    const dragged = [stale[1], stale[0]];
+    await fireEvent(
+      zone,
+      new CustomEvent('finalize', {
+        detail: { items: dragged, info: { source: 'pointer', trigger: 'droppedIntoZone', id: '' } },
+      }),
+    );
+    const after = written(onPatch);
+    expect(after.filter((i) => i.kind === 'task').map((i) => i.id)).toEqual([
+      'ega-sidepanel-selection',
+      'ega-translate-selection',
+    ]);
+    expect(after.find((i) => i.id === 'ega-translate-selection')?.label).toBe('Renamed');
+    expect(after).toHaveLength(DEFAULT_CONTEXT_MENU_ITEMS.length);
   });
 });

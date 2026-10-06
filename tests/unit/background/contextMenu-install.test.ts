@@ -7,6 +7,16 @@ import {
   DEFAULT_CONTEXT_MENU_ITEMS,
   type ContextMenuItem,
 } from '@/shared/context-menu';
+
+const tree = () => buildMenuTree(DEFAULT_CONTEXT_MENU_ITEMS, () => '');
+
+function created(): chrome.contextMenus.CreateProperties[] {
+  return (
+    (chromeMock.contextMenus.create as Mock).mock.calls as Array<
+      [chrome.contextMenus.CreateProperties]
+    >
+  ).map(([p]) => p);
+}
 import { decodeCustomMenuId } from '@/shared/context-menu-ids';
 
 const SETTINGS_KEY = 'ega.settings';
@@ -19,12 +29,11 @@ beforeEach(() => {
   resetChromeMock();
 });
 
-describe('installContextMenus — nested layout (default)', () => {
+describe('installContextMenus — the default menu', () => {
   it('calls removeAll then create for each node from buildMenuTree', async () => {
-    // empty storage → getSettings returns defaults (contextMenuLayout: 'nested')
     await installContextMenus();
 
-    const nodes = buildMenuTree(DEFAULT_CONTEXT_MENU_ITEMS, 'nested');
+    const nodes = tree();
     expect(nodes.length).toBeGreaterThan(1);
 
     expect(chromeMock.contextMenus.removeAll).toHaveBeenCalledOnce();
@@ -52,7 +61,7 @@ describe('installContextMenus — nested layout (default)', () => {
     >;
     const children = calls.slice(1).map(([p]) => p);
 
-    const nodes = buildMenuTree(DEFAULT_CONTEXT_MENU_ITEMS, 'nested').slice(1);
+    const nodes = tree().slice(1);
     expect(children).toHaveLength(nodes.length);
 
     for (let i = 0; i < nodes.length; i++) {
@@ -83,26 +92,57 @@ describe('installContextMenus — nested layout (default)', () => {
   });
 });
 
-describe('installContextMenus — flat layout', () => {
-  beforeEach(() => {
-    seedStorage({ contextMenuLayout: 'flat' });
+describe('installContextMenus — what Chrome shows', () => {
+  it('titles the default items with their automatic names, none ending in "with Ega"', async () => {
+    await installContextMenus();
+    expect(created().map((p) => p.title)).toEqual([
+      'Ega',
+      'Translate',
+      'Translate in side panel',
+      'Translate image in side panel',
+      'Explain image in side panel',
+      'Translate this page',
+      'Pick an element to translate',
+      'Disable Ega on this site',
+    ]);
   });
 
-  it('creates no root, items at top level with no parentId', async () => {
+  it('shows new names to a profile that stored the old ones', async () => {
+    seedStorage({
+      contextMenuItems: DEFAULT_CONTEXT_MENU_ITEMS.map((i) =>
+        i.id === 'ega-translate-selection' ? { ...i, label: 'Translate selection with Ega' } : i,
+      ),
+    });
     await installContextMenus();
+    expect(created().find((p) => p.id === 'ega-translate-selection')?.title).toBe('Translate');
+  });
 
-    const nodes = buildMenuTree(DEFAULT_CONTEXT_MENU_ITEMS, 'flat');
-    expect(chromeMock.contextMenus.create).toHaveBeenCalledTimes(nodes.length);
+  it('a stored flat layout still builds the Ega root: the setting is ignored', async () => {
+    seedStorage({ contextMenuLayout: 'flat' });
+    await installContextMenus();
+    const all = created();
+    expect(all[0]?.id).toBe('ega-root');
+    expect(all.slice(1).every((p) => p.parentId === 'ega-root')).toBe(true);
+  });
 
-    const calls = (chromeMock.contextMenus.create as Mock).mock.calls as Array<
-      [chrome.contextMenus.CreateProperties]
-    >;
-    for (const [p] of calls) {
-      expect(p.parentId).toBeUndefined();
-    }
+  it('leaves the picker item out while the element picker is off', async () => {
+    seedStorage({ pickerEnabled: false });
+    await installContextMenus();
+    const ids = created().map((p) => p.id);
+    expect(ids).not.toContain('ega-pick-element');
+    expect(ids).toContain('ega-translate-page');
+  });
 
-    const ids = calls.map(([p]) => p.id);
-    expect(ids).not.toContain('ega-root');
+  it('keeps the site toggle when an older version stored it hidden or renamed', async () => {
+    seedStorage({
+      contextMenuItems: DEFAULT_CONTEXT_MENU_ITEMS.map((i) =>
+        i.kind === 'site-toggle' ? { ...i, enabled: false, label: 'Off switch' } : i,
+      ),
+    });
+    await installContextMenus();
+    expect(created().find((p) => p.id === 'ega-toggle-site')?.title).toBe(
+      'Disable Ega on this site',
+    );
   });
 });
 
@@ -127,8 +167,8 @@ describe('installContextMenus — site-toggle title after rebuild', () => {
   });
 });
 
-describe('installContextMenus — all items disabled', () => {
-  it('calls removeAll and zero create calls', async () => {
+describe('installContextMenus — all items unchecked', () => {
+  it('registers only the site toggle under the root', async () => {
     const disabled: ContextMenuItem[] = DEFAULT_CONTEXT_MENU_ITEMS.map((item) => ({
       ...item,
       enabled: false,
@@ -138,7 +178,7 @@ describe('installContextMenus — all items disabled', () => {
     await installContextMenus();
 
     expect(chromeMock.contextMenus.removeAll).toHaveBeenCalledOnce();
-    expect(chromeMock.contextMenus.create).not.toHaveBeenCalled();
+    expect(created().map((p) => p.id)).toEqual(['ega-root', 'ega-toggle-site']);
   });
 });
 

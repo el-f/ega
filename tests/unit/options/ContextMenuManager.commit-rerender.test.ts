@@ -31,8 +31,8 @@ describe('ContextMenuManager — a settings change that keeps the row order stil
     );
     await rerender(makeProps({ onPatch, s: { contextMenuItems: renamed } }));
 
-    const first = container.querySelector<HTMLInputElement>('[data-ega-cm-label]');
-    expect(first?.value).toBe('Renamed elsewhere');
+    const first = container.querySelector('[data-ega-cm-name]');
+    expect(first?.textContent.trim()).toBe('Renamed elsewhere');
   });
 
   it('flips the checkbox when enabled changes under the component', async () => {

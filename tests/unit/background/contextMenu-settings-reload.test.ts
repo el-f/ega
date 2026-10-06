@@ -128,8 +128,8 @@ describe('tabs.onUpdated → site-toggle label', () => {
 
 describe('settings-change → re-register context menus', () => {
   const menuChange = {
-    oldValue: { contextMenuLayout: 'nested' },
-    newValue: { contextMenuLayout: 'flat' },
+    oldValue: { disabledTasks: [] },
+    newValue: { disabledTasks: ['explain'] },
   };
 
   it('calls installContextMenus when a menu-shaping key changes in local storage', async () => {
@@ -144,6 +144,30 @@ describe('settings-change → re-register context menus', () => {
     await flushAsync();
 
     expect(installContextMenusMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('rebuilds when the element picker is turned off, so its item leaves the menu', async () => {
+    chromeMock.storage.local._fire({
+      [STORAGE_KEYS.settings]: {
+        oldValue: { pickerEnabled: true },
+        newValue: { pickerEnabled: false },
+      },
+    });
+    await flushAsync();
+
+    expect(installContextMenusMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not rebuild for the layout key, which no longer shapes the menu', async () => {
+    chromeMock.storage.local._fire({
+      [STORAGE_KEYS.settings]: {
+        oldValue: { contextMenuLayout: 'nested' },
+        newValue: { contextMenuLayout: 'flat' },
+      },
+    });
+    await flushAsync();
+
+    expect(installContextMenusMock).not.toHaveBeenCalled();
   });
 
   it('rebuilds when contextMenuItems change', async () => {
@@ -274,7 +298,8 @@ describe('custom-language change → flush the translation cache', () => {
     await flushAsync();
 
     expect(cacheClearMock).toHaveBeenCalled();
-    expect(installContextMenusMock).not.toHaveBeenCalled();
+    // A language name can be in a menu title ("Translate into …"), so the menu rebuilds too.
+    expect(installContextMenusMock).toHaveBeenCalledTimes(1);
   });
 
   it('does NOT flush for custom-language changes in the sync area', async () => {

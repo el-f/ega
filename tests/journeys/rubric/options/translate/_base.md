@@ -2,7 +2,7 @@
 
 ## Mount + render
 
-- Translate tab renders three labeled groups: "Answers" (Display surface, Languages, Streaming and cache), "What Ega sends and to whom" (Page context, Routing & timeouts, Generation) and "Whole pages and the right-click menu" (Page translate, Context menu). Default task and tone live on the Tasks tab.
+- Translate tab renders three labeled groups: "Answers" (Display surface, Languages, Streaming and cache), "What Ega sends and to whom" (Page context, Routing & timeouts, Generation) and "Whole pages" (Page translate). Default task and tone live on the Tasks tab; the right-click menu card lives on the Selection & picker tab.
 - When the model cannot take temperature or answer length, the slider stays, disabled, with the reason under it; the native-CLI reason is said once.
 - Each knob writes to storage on change via `updateSettings`; no batch-submit required.
 

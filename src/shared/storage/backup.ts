@@ -21,7 +21,6 @@ import {
 } from '../settings-schema';
 import { ALL_TASKS } from '../task-prompts';
 import { CUSTOM_LANGUAGES_MAX } from './sanitise';
-import { withEncodedMenuIds } from '../context-menu-ids';
 import {
   getCustomLanguages,
   getCustomTasks,
@@ -388,8 +387,6 @@ export async function importBundle(
           withCustomTasksLock(async () => {
             // Copy first: the loop below writes and deletes fields the caller may still hold a reference to.
             const settings = { ...bundle.settings };
-            // A click decides the side panel from the id alone, so the stored id must encode the surface.
-            settings.contextMenuItems = withEncodedMenuIds(settings.contextMenuItems);
             if (!opts.includeApiKeys) {
               // The confirm dialog promises "use your current keys", so strip-keys mode re-attaches them before the write.
               const current = await getSettings();

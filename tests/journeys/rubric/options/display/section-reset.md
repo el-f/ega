@@ -24,4 +24,4 @@
 
 - Reset reverts to DEFAULT_SETTINGS constants, not to the last-saved state — it is a full reset to the shipped defaults.
 - In both modes, SectionReset resets Show original selection, Click outside to dismiss, Drag-to-move tooltip, Confidence pill and Confidence threshold. The card groups them under "Tooltip and side panel" and "Tooltip only".
-- It never resets the display mode or "Image translation opens in" (`imageTranslateSurface`), and neither one counts as modified.
+- It never resets the display mode, and the mode never counts as modified.

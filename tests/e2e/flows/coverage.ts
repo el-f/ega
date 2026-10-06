@@ -851,13 +851,26 @@ export const COVERAGE: readonly Family[] = [
           {
             id: 'manage',
             description:
-              'Add image action, drag-reorder, live preview, target-lang + reset persist to contextMenuItems/Layout',
+              'Selection & picker tab: three menu groups, add an image action, Move down inside a group keeps focus, Reset then Undo brings back an added row',
             flows: ['options-context-menu/manage.flow.spec.ts'],
           },
           {
             id: 'custom-task-item',
-            description: 'A text item can be set to a custom task; contextMenuItems stores its id',
+            description:
+              'Edit a text item and pick a custom task; contextMenuItems stores its id and the row takes the task name',
             flows: ['options-context-menu/custom-task-item.flow.spec.ts'],
+          },
+          {
+            id: 'hidden-reason',
+            description:
+              'Turn Explain off on the Tasks tab; its right-click row says "Hidden: Explain is off in Tasks"',
+            flows: ['options-context-menu/hidden-reason.flow.spec.ts'],
+          },
+          {
+            id: 'image-opens-in',
+            description:
+              'Edit an image action and pick "On the page"; its surface persists and its name drops "in side panel"',
+            flows: ['options-context-menu/image-opens-in.flow.spec.ts'],
           },
         ],
       },
@@ -1235,12 +1248,6 @@ export const COVERAGE: readonly Family[] = [
             description:
               'DisplaySurfaceSection toggle swaps defaultDisplayMode and reveals mode-specific knobs',
             flows: ['options-display/mode-toggle.flow.spec.ts'],
-          },
-          {
-            id: 'image-translate-surface-select',
-            description:
-              'Translate tab, Display section → change "Image translation opens in" select → imageTranslateSurface persists',
-            flows: ['options-display/image-translate-surface-select.flow.spec.ts'],
           },
           {
             id: 'tooltip-knobs-toggle',

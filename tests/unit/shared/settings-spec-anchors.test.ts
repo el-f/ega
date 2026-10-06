@@ -21,6 +21,7 @@ const SOURCES = svelteSources(resolve('src'));
 const DYNAMIC_VALUE_ATTRS: ReadonlySet<string> = new Set([
   'data-ega-task-item',
   'data-ega-api-key',
+  'data-ega-cm-group',
 ]);
 
 interface ParsedSelector {

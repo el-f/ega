@@ -7,155 +7,205 @@ import {
   contextsFor,
   nextMenuItemId,
   resolveMenuAction,
-  withImageSurface,
   type ContextMenuItem,
 } from '@/shared/context-menu';
-import { decodeCustomMenuId } from '@/shared/context-menu-ids';
+import {
+  autoMenuName,
+  customMenuLabel,
+  isMenuModified,
+  isShippedItem,
+  menuItemName,
+  withShippedIds,
+  type MenuNameLookup,
+} from '@/shared/context-menu-names';
+
+const TASKS: Record<string, string> = {
+  translate: 'Translate',
+  explain: 'Explain',
+  'c-tweet': 'Tweet',
+};
+const LANGS: Record<string, string> = { he: 'Hebrew', fr: 'French' };
+const LOOKUP: MenuNameLookup = {
+  taskLabel: (id) => TASKS[id] ?? id,
+  langLabel: (id) => LANGS[id] ?? id,
+};
+const titleOf = (i: ContextMenuItem): string => menuItemName(i, LOOKUP);
+
+function text(over: Partial<Extract<ContextMenuItem, { kind: 'task' }>> = {}): ContextMenuItem {
+  return {
+    id: 'x',
+    kind: 'task',
+    enabled: true,
+    order: 0,
+    label: '',
+    task: 'translate',
+    surface: 'tooltip',
+    ...over,
+  };
+}
 
 describe('DEFAULT_CONTEXT_MENU_ITEMS', () => {
   it('contains the built-in ids', () => {
     const ids = DEFAULT_CONTEXT_MENU_ITEMS.map((i) => i.id);
-    expect(ids).toContain('ega-translate-selection');
-    expect(ids).toContain('ega-translate-page');
-    expect(ids).toContain('ega-pick-element');
-    expect(ids).toContain('ega-translate-image');
-    expect(ids).toContain('ega-explain-image');
-    expect(ids).toContain('ega-toggle-site');
+    expect(ids).toEqual([
+      'ega-translate-selection',
+      'ega-sidepanel-selection',
+      'ega-translate-image',
+      'ega-explain-image',
+      'ega-translate-page',
+      'ega-pick-element',
+      'ega-toggle-site',
+    ]);
+    expect(DEFAULT_CONTEXT_MENU_ITEMS.every(isShippedItem)).toBe(true);
   });
 
-  it('contains new ega-sidepanel-selection as task/sidepanel', () => {
-    const item = DEFAULT_CONTEXT_MENU_ITEMS.find((i) => i.id === 'ega-sidepanel-selection');
-    expect(item).toBeDefined();
-    expect(item?.kind).toBe('task');
-    if (item?.kind === 'task') {
-      expect(item.surface).toBe('sidepanel');
-      expect(item.task).toBe('translate');
-    }
+  it('maps each kind to the one Chrome context it shows in', () => {
+    const by = (id: string) => DEFAULT_CONTEXT_MENU_ITEMS.find((i) => i.id === id);
+    expect(contextsFor(by('ega-translate-selection') as ContextMenuItem)).toEqual(['selection']);
+    expect(contextsFor(by('ega-translate-image') as ContextMenuItem)).toEqual(['image']);
+    expect(contextsFor(by('ega-toggle-site') as ContextMenuItem)).toEqual(['page']);
   });
 });
 
-describe('buildMenuTree — flat', () => {
-  it('returns enabled items as top-level nodes in order', () => {
-    const nodes = buildMenuTree(DEFAULT_CONTEXT_MENU_ITEMS, 'flat');
-    const enabledCount = DEFAULT_CONTEXT_MENU_ITEMS.filter((i) => i.enabled).length;
-    expect(nodes).toHaveLength(enabledCount);
-    expect(nodes.every((n) => n.parentId === undefined)).toBe(true);
-  });
-
-  it('items are sorted by order field', () => {
-    const nodes = buildMenuTree(DEFAULT_CONTEXT_MENU_ITEMS, 'flat');
-    const orders = nodes.map((n) => {
-      const item = DEFAULT_CONTEXT_MENU_ITEMS.find((i) => i.id === n.id);
-      return item?.order ?? -1;
+describe('buildMenuTree', () => {
+  it('puts every shown item under one Ega root, in order', () => {
+    const nodes = buildMenuTree(DEFAULT_CONTEXT_MENU_ITEMS, titleOf);
+    expect(nodes[0]).toEqual({
+      id: ROOT_MENU_ID,
+      title: 'Ega',
+      contexts: ['selection', 'image', 'page'],
     });
-    expect(orders).toEqual([...orders].sort((a, b) => a - b));
+    expect(nodes.slice(1).every((n) => n.parentId === ROOT_MENU_ID)).toBe(true);
+    expect(nodes.slice(1).map((n) => n.id)).toEqual(DEFAULT_CONTEXT_MENU_ITEMS.map((i) => i.id));
   });
 
-  it('task items use selection context', () => {
-    const selectionItem = DEFAULT_CONTEXT_MENU_ITEMS.find(
-      (i) => i.id === 'ega-translate-selection',
-    );
-    expect(selectionItem).toBeDefined();
-    if (selectionItem) {
-      expect(contextsFor(selectionItem)).toContain('selection');
-    }
+  it('titles every default item with its automatic name, none ending in "with Ega"', () => {
+    const titles = buildMenuTree(DEFAULT_CONTEXT_MENU_ITEMS, titleOf).map((n) => n.title);
+    expect(titles).toEqual([
+      'Ega',
+      'Translate',
+      'Translate in side panel',
+      'Translate image in side panel',
+      'Explain image in side panel',
+      'Translate this page',
+      'Pick an element to translate',
+      'Disable Ega on this site',
+    ]);
   });
 
-  it('image-task items use image context', () => {
-    const imageItem = DEFAULT_CONTEXT_MENU_ITEMS.find((i) => i.id === 'ega-translate-image');
-    expect(imageItem).toBeDefined();
-    if (imageItem) {
-      expect(contextsFor(imageItem)).toContain('image');
-    }
+  it('leaves hidden items out, and has no root when nothing shows', () => {
+    const hidden = text({ enabled: false });
+    expect(buildMenuTree([hidden], titleOf)).toEqual([]);
   });
 
-  it('page-kind items use page context', () => {
-    const pageItem = DEFAULT_CONTEXT_MENU_ITEMS.find((i) => i.id === 'ega-translate-page');
-    expect(pageItem).toBeDefined();
-    if (pageItem) {
-      expect(contextsFor(pageItem)).toContain('page');
-    }
-  });
-
-  it('excluded disabled items', () => {
-    const items: ContextMenuItem[] = [
-      {
-        id: 'ega-translate-selection',
-        kind: 'task',
-        enabled: false,
-        order: 0,
-        label: 'Translate',
-        task: 'translate',
-        surface: 'tooltip',
-      },
-      {
-        id: 'ega-translate-page',
-        kind: 'page-translate',
-        enabled: true,
-        order: 1,
-        label: 'Translate page',
-      },
-    ];
-    const nodes = buildMenuTree(items, 'flat');
-    expect(nodes).toHaveLength(1);
-    expect(nodes[0]?.id).toBe('ega-translate-page');
-  });
-
-  it('empty enabled set returns []', () => {
-    const items: ContextMenuItem[] = [
-      {
-        id: 'ega-translate-selection',
-        kind: 'task',
-        enabled: false,
-        order: 0,
-        label: 'Translate',
-        task: 'translate',
-        surface: 'tooltip',
-      },
-    ];
-    expect(buildMenuTree(items, 'flat')).toEqual([]);
+  it('keeps the site toggle when an older version stored it hidden', () => {
+    const items = DEFAULT_CONTEXT_MENU_ITEMS.map((i) => ({ ...i, enabled: false }));
+    expect(buildMenuTree(items, titleOf).map((n) => n.id)).toEqual([
+      ROOT_MENU_ID,
+      'ega-toggle-site',
+    ]);
   });
 });
 
-describe('buildMenuTree — nested', () => {
-  it('returns root node first with id ega-root and title Ega', () => {
-    const nodes = buildMenuTree(DEFAULT_CONTEXT_MENU_ITEMS, 'nested');
-    expect(nodes[0]?.id).toBe(ROOT_MENU_ID);
-    expect(nodes[0]?.title).toBe('Ega');
-    expect(nodes[0]?.parentId).toBeUndefined();
+describe('automatic names', () => {
+  it('names a text item after its task, its language and where it opens', () => {
+    expect(autoMenuName(text(), LOOKUP)).toBe('Translate');
+    expect(autoMenuName(text({ targetLang: 'he' as LangSelection }), LOOKUP)).toBe(
+      'Translate into Hebrew',
+    );
+    expect(autoMenuName(text({ task: 'explain', targetLang: 'fr' as LangSelection }), LOOKUP)).toBe(
+      'Explain in French',
+    );
+    expect(autoMenuName(text({ task: 'c-tweet', surface: 'sidepanel' }), LOOKUP)).toBe(
+      'Tweet in side panel',
+    );
   });
 
-  it('child nodes have parentId ega-root', () => {
-    const nodes = buildMenuTree(DEFAULT_CONTEXT_MENU_ITEMS, 'nested');
-    const children = nodes.slice(1);
-    expect(children.length).toBeGreaterThan(0);
-    expect(children.every((n) => n.parentId === ROOT_MENU_ID)).toBe(true);
+  it('follows the task: a row switched to Explain is no longer called Translate', () => {
+    expect(menuItemName(text({ task: 'explain' }), LOOKUP)).toBe('Explain');
   });
 
-  it('root contexts is union of all child contexts', () => {
-    const nodes = buildMenuTree(DEFAULT_CONTEXT_MENU_ITEMS, 'nested');
-    const root = nodes[0];
-    expect(root).toBeDefined();
-    if (root) {
-      expect(root.contexts).toContain('selection');
-      expect(root.contexts).toContain('image');
-      expect(root.contexts).toContain('page');
-    }
+  it('treats an old shipped label as no custom name, and a typed one as the name', () => {
+    const old = text({ label: 'Translate selection with Ega' });
+    expect(customMenuLabel(old)).toBe('');
+    expect(menuItemName(old, LOOKUP)).toBe('Translate');
+    expect(customMenuLabel(text({ label: 'New text action' }))).toBe('');
+    expect(menuItemName(text({ label: '  Mine ' }), LOOKUP)).toBe('Mine');
   });
 
-  it('empty enabled set returns [] — no root', () => {
-    const items: ContextMenuItem[] = [
-      {
-        id: 'ega-translate-selection',
-        kind: 'task',
-        enabled: false,
-        order: 0,
-        label: 'Translate',
-        task: 'translate',
-        surface: 'tooltip',
-      },
-    ];
-    expect(buildMenuTree(items, 'nested')).toEqual([]);
+  it('never renames the site toggle', () => {
+    const site: ContextMenuItem = {
+      id: 'ega-toggle-site',
+      kind: 'site-toggle',
+      enabled: true,
+      order: 0,
+      label: 'Turn it off',
+    };
+    expect(menuItemName(site, LOOKUP)).toBe('Disable Ega on this site');
+  });
+});
+
+describe('isMenuModified', () => {
+  it('is false for the shipped menu and for an old profile that stored the old names', () => {
+    expect(isMenuModified(DEFAULT_CONTEXT_MENU_ITEMS)).toBe(false);
+    const OLD: Record<string, string> = {
+      'ega-translate-selection': 'Translate selection with Ega',
+      'ega-sidepanel-selection': 'Send selection to side panel',
+      'ega-translate-page': 'Translate this page with Ega',
+      'ega-pick-element': 'Pick an element to translate',
+      'ega-translate-image': 'Translate image with Ega',
+      'ega-explain-image': 'Explain image with Ega',
+      'ega-toggle-site': 'Disable Ega on this site',
+    };
+    // Older versions stored the shipped names and put page rows before image rows.
+    const legacy = DEFAULT_CONTEXT_MENU_ITEMS.map((i, n) => ({
+      ...i,
+      label: OLD[i.id] ?? '',
+      order: i.kind === 'image-task' ? 10 + n : n,
+    }));
+    expect(isMenuModified(legacy)).toBe(false);
+  });
+
+  it('is true for a hidden row, a renamed row or a reorder inside a group', () => {
+    const [a, b, ...rest] = DEFAULT_CONTEXT_MENU_ITEMS;
+    if (!a || !b) throw new Error('defaults missing');
+    expect(isMenuModified([{ ...a, enabled: false }, b, ...rest])).toBe(true);
+    expect(isMenuModified([{ ...a, label: 'Mine' }, b, ...rest])).toBe(true);
+    expect(isMenuModified([{ ...b, order: 0 }, { ...a, order: 1 }, ...rest])).toBe(true);
+  });
+});
+
+describe('withShippedIds', () => {
+  it('gives back the shipped id an older version re-minted, so the row stays undeletable', () => {
+    const items = DEFAULT_CONTEXT_MENU_ITEMS.map((i) =>
+      i.id === 'ega-translate-image'
+        ? {
+            ...i,
+            id: 'ega-custom-img-tt-7',
+            surface: 'tooltip' as const,
+            label: 'Translate image with Ega',
+          }
+        : i,
+    );
+    const row = withShippedIds(items).find(
+      (i) => i.kind === 'image-task' && i.task === 'translate',
+    );
+    expect(row?.id).toBe('ega-translate-image');
+    // The surface the user picked is kept.
+    expect(row?.kind === 'image-task' ? row.surface : null).toBe('tooltip');
+  });
+
+  it('leaves a row the user added alone', () => {
+    const added: ContextMenuItem = {
+      id: 'ega-custom-img-sp-9',
+      kind: 'image-task',
+      enabled: true,
+      order: 9,
+      label: '',
+      task: 'translate',
+      surface: 'sidepanel',
+    };
+    expect(withShippedIds([...DEFAULT_CONTEXT_MENU_ITEMS, added])).toContainEqual(added);
   });
 });
 
@@ -238,56 +288,5 @@ describe('nextMenuItemId', () => {
     const id = nextMenuItemId([], 'image-task', 'sidepanel');
     expect(typeof id).toBe('string');
     expect(id.length).toBeGreaterThan(0);
-  });
-});
-
-describe('withImageSurface', () => {
-  it('re-mints every image id so the cold-SW click decodes the new surface', () => {
-    const out = withImageSurface(DEFAULT_CONTEXT_MENU_ITEMS, 'tooltip');
-    const imageIds = out.filter((i) => i.kind === 'image-task').map((i) => i.id);
-
-    expect(imageIds.length).toBe(2);
-    for (const id of imageIds) {
-      expect(decodeCustomMenuId(id)).toEqual({ kind: 'image-task', surface: 'tooltip' });
-    }
-  });
-
-  it('gives the two image items distinct ids', () => {
-    const out = withImageSurface(DEFAULT_CONTEXT_MENU_ITEMS, 'tooltip');
-    const imageIds = out.filter((i) => i.kind === 'image-task').map((i) => i.id);
-
-    expect(new Set(imageIds).size).toBe(imageIds.length);
-  });
-
-  it('does not collide with an existing custom id', () => {
-    const items: ContextMenuItem[] = [
-      ...DEFAULT_CONTEXT_MENU_ITEMS,
-      {
-        id: nextMenuItemId(DEFAULT_CONTEXT_MENU_ITEMS, 'image-task', 'tooltip'),
-        kind: 'image-task',
-        enabled: true,
-        order: 7,
-        label: 'Custom image',
-        task: 'translate',
-        surface: 'tooltip',
-      },
-    ];
-    const out = withImageSurface(items, 'tooltip');
-    const ids = out.map((i) => i.id);
-
-    expect(new Set(ids).size).toBe(ids.length);
-  });
-
-  it('changes nothing when the surface already matches', () => {
-    expect(withImageSurface(DEFAULT_CONTEXT_MENU_ITEMS, 'sidepanel')).toEqual(
-      DEFAULT_CONTEXT_MENU_ITEMS,
-    );
-  });
-
-  it('leaves non-image items untouched', () => {
-    const out = withImageSurface(DEFAULT_CONTEXT_MENU_ITEMS, 'tooltip');
-    const others = out.filter((i) => i.kind !== 'image-task');
-
-    expect(others).toEqual(DEFAULT_CONTEXT_MENU_ITEMS.filter((i) => i.kind !== 'image-task'));
   });
 });

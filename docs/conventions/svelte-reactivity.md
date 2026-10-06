@@ -10,12 +10,12 @@ The lint script is `scripts/reactivity-lint.ts`. It runs as `pnpm lint:reactivit
 
 ## The drag zone this repo uses
 
-Three drag zones ship, in two components. All use `dragHandleZone` plus a `use:dragHandle` grip. None use whole-card `dndzone`.
+Five drag zones ship, in two components. All use `dragHandleZone` plus a `use:dragHandle` grip. None use whole-card `dndzone`.
 
-| Component                                          | Zones                               | Grip                                               |
-| -------------------------------------------------- | ----------------------------------- | -------------------------------------------------- |
-| `src/options/components/BackendList.svelte`        | active backends, available backends | `.be-gutter` in `src/options/tabs/Backends.svelte` |
-| `src/options/components/ContextMenuManager.svelte` | right-click menu rows               | `.cm-handle` in the same file                      |
+| Component                                          | Zones                                                | Grip                                               |
+| -------------------------------------------------- | ---------------------------------------------------- | -------------------------------------------------- |
+| `src/options/components/BackendList.svelte`        | active backends, available backends                  | `.be-gutter` in `src/options/tabs/Backends.svelte` |
+| `src/options/components/ContextMenuManager.svelte` | one per menu group (`type` keeps a row in its group) | `.cm-handle` in the same file (pointer only)       |
 
 `dragHandleZone` starts a pointer drag only when the press lands on an element marked `use:dragHandle`. A press anywhere else on the row starts nothing, so the buttons, checkboxes and text inputs inside a row keep working.
 
@@ -29,7 +29,9 @@ use:dragHandleZone={{ items: shadow.items, dragDisabled: false, flipDurationMs: 
 
 - `items` — the array the library reads and replaces. It must be writable `$state` (Trap 1).
 - `dragDisabled: false` — the user-level switch, and already the default. The handle still gates every pointer drag.
-- `flipDurationMs` — the move animation. 180 in `BackendList.svelte`, 160 in `ContextMenuManager.svelte`.
+- `flipDurationMs` — the move animation. 180 in `BackendList.svelte`, 160 in `ContextMenuManager.svelte` (0 under reduced motion).
+
+`ContextMenuManager.svelte` adds `type` (a row cannot leave its group), `zoneTabIndex: -1` and `autoAriaDisabled: true`: its drag is pointer only, Move up and Move down are the keyboard path, so the zone takes no tab stop and keeps the list's own name and description.
 
 ---
 

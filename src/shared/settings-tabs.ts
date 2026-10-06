@@ -12,7 +12,7 @@ export const SETTINGS_TABS = [
     id: 'translate',
     label: 'Translate',
     description:
-      'How translations behave: tooltip, streaming, page context, page translation, the right-click menu and generation settings.',
+      'How translations behave: tooltip, streaming, page context, page translation and generation settings.',
   },
   {
     id: 'tasks',
@@ -22,7 +22,7 @@ export const SETTINGS_TABS = [
   {
     id: 'selection-bubble',
     label: 'Selection & picker',
-    description: 'When the selection bubble appears, and the element picker.',
+    description: 'When the selection bubble appears, the element picker and the right-click menu.',
   },
   {
     id: 'backends',

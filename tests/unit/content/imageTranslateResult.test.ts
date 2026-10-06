@@ -199,6 +199,8 @@ describe('image error tooltip — the recovery buttons do something', () => {
     expect(dispatched).toHaveLength(1);
     expect(dispatched[0]?.['imageUrl']).toBe('https://cdn.test/e.jpg');
     expect(dispatched[0]?.['requestId']).not.toBe('img-err');
+    // The retry lands in this tooltip again, not wherever the stored global points.
+    expect(dispatched[0]?.['surface']).toBe('tooltip');
   });
 
   it('the settings CTA asks the worker to open the options page', async () => {

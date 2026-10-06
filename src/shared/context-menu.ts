@@ -4,7 +4,6 @@ import type { LangSelection } from './types';
 import type { ImageTask } from './task-prompts';
 
 export type MenuSurface = 'tooltip' | 'sidepanel';
-export type MenuLayout = 'nested' | 'flat';
 
 export type ContextMenuItem =
   | {
@@ -38,27 +37,36 @@ export const ROOT_MENU_ID = 'ega-root';
 
 export type ContextType = `${chrome.contextMenus.ContextType}`;
 
-/** chrome.contextMenus contexts per item kind. */
-export function contextsFor(item: ContextMenuItem): ContextType[] {
+/** The three menus Chrome draws for Ega, one per right-click target. */
+export type MenuGroup = 'selection' | 'image' | 'page';
+
+/** Which of the three menus an item shows in. */
+export function menuGroupOf(item: ContextMenuItem): MenuGroup {
   switch (item.kind) {
     case 'task':
-      return ['selection'];
+      return 'selection';
     case 'image-task':
-      return ['image'];
+      return 'image';
     case 'page-translate':
     case 'pick-element':
     case 'site-toggle':
-      return ['page'];
+      return 'page';
   }
 }
 
+/** chrome.contextMenus contexts per item kind. */
+export function contextsFor(item: ContextMenuItem): ContextType[] {
+  return [menuGroupOf(item)];
+}
+
+// An empty label means "use the automatic name", so a new task or language renames the item by itself.
 export const DEFAULT_CONTEXT_MENU_ITEMS: ContextMenuItem[] = [
   {
     id: 'ega-translate-selection',
     kind: 'task',
     enabled: true,
     order: 0,
-    label: 'Translate selection with Ega',
+    label: '',
     task: 'translate',
     surface: 'tooltip',
   },
@@ -67,68 +75,32 @@ export const DEFAULT_CONTEXT_MENU_ITEMS: ContextMenuItem[] = [
     kind: 'task',
     enabled: true,
     order: 1,
-    label: 'Send selection to side panel',
+    label: '',
     task: 'translate',
     surface: 'sidepanel',
-  },
-  {
-    id: 'ega-translate-page',
-    kind: 'page-translate',
-    enabled: true,
-    order: 2,
-    label: 'Translate this page with Ega',
-  },
-  {
-    id: 'ega-pick-element',
-    kind: 'pick-element',
-    enabled: true,
-    order: 3,
-    label: 'Pick an element to translate',
   },
   {
     id: 'ega-translate-image',
     kind: 'image-task',
     enabled: true,
-    order: 4,
-    label: 'Translate image with Ega',
+    order: 2,
+    label: '',
     task: 'translate',
-    // Matches DEFAULT_SETTINGS.imageTranslateSurface — a fresh install must not disagree with itself.
     surface: 'sidepanel',
   },
   {
     id: 'ega-explain-image',
     kind: 'image-task',
     enabled: true,
-    order: 5,
-    label: 'Explain image with Ega',
+    order: 3,
+    label: '',
     task: 'explain',
     surface: 'sidepanel',
   },
-  {
-    id: 'ega-toggle-site',
-    kind: 'site-toggle',
-    enabled: true,
-    order: 6,
-    label: 'Disable Ega on this site',
-  },
+  { id: 'ega-translate-page', kind: 'page-translate', enabled: true, order: 4, label: '' },
+  { id: 'ega-pick-element', kind: 'pick-element', enabled: true, order: 5, label: '' },
+  { id: 'ega-toggle-site', kind: 'site-toggle', enabled: true, order: 6, label: '' },
 ];
-
-/** Stamp `surface` onto every image item. The Display-tab global and Reset defaults write through this. */
-export function withImageSurface(
-  items: readonly ContextMenuItem[],
-  surface: MenuSurface,
-): ContextMenuItem[] {
-  const out: ContextMenuItem[] = [];
-  for (const item of items) {
-    if (item.kind !== 'image-task' || item.surface === surface) {
-      out.push(item);
-      continue;
-    }
-    // Re-mint the id so it always encodes the surface — the cold-SW click decides from the id alone.
-    out.push({ ...item, surface, id: nextMenuItemId([...items, ...out], 'image-task', surface) });
-  }
-  return out;
-}
 
 export interface MenuNode {
   id: string;
@@ -137,23 +109,24 @@ export interface MenuNode {
   parentId?: string;
 }
 
-/** Ordered create() descriptors. nested → an Ega root first, then children. */
-export function buildMenuTree(items: readonly ContextMenuItem[], layout: MenuLayout): MenuNode[] {
-  const enabled = items
-    .filter((i) => i.enabled)
+/** Ordered create() descriptors: an "Ega" root first, then the shown items under it. Chrome groups an
+ *  extension's items under one parent anyway, so the root keeps that parent's name short and stable. */
+export function buildMenuTree(
+  items: readonly ContextMenuItem[],
+  titleOf: (item: ContextMenuItem) => string,
+): MenuNode[] {
+  const shown = items
+    .filter((i) => i.enabled || i.kind === 'site-toggle')
     .slice()
     .sort((a, b) => a.order - b.order);
-  if (enabled.length === 0) return [];
-  if (layout === 'flat') {
-    return enabled.map((i) => ({ id: i.id, title: i.label, contexts: contextsFor(i) }));
-  }
-  const union = Array.from(new Set(enabled.flatMap((i) => contextsFor(i))));
+  if (shown.length === 0) return [];
+  const union = Array.from(new Set(shown.flatMap((i) => contextsFor(i))));
   const root: MenuNode = { id: ROOT_MENU_ID, title: 'Ega', contexts: union };
   return [
     root,
-    ...enabled.map((i) => ({
+    ...shown.map((i) => ({
       id: i.id,
-      title: i.label,
+      title: titleOf(i),
       contexts: contextsFor(i),
       parentId: ROOT_MENU_ID,
     })),

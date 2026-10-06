@@ -11,7 +11,7 @@ export interface ImageTranslateDispatchDeps {
   /** Omit to have dispatch generate one. */
   requestId?: string;
   task?: ImageTask;
-  /** Per-item override from the clicked menu entry. Omit to use `Settings.imageTranslateSurface`. */
+  /** The clicked menu item's surface, or the tooltip Retry's. Only the e2e hook omits it and gets `Settings.imageTranslateSurface`. */
   surface?: MenuSurface;
   /** Browser window of the click; the side-panel seed is scoped to it. */
   windowId?: number;
@@ -33,7 +33,7 @@ export interface ImageTranslateDispatchDeps {
   logger: { error: (msg: string, err: unknown) => void };
 }
 
-/** The clicked menu item's `surface`, else `Settings.imageTranslateSurface`, picks between streaming to the side panel and one buffered result to the tab. */
+/** The request's `surface` picks between streaming to the side panel and one buffered result to the tab. */
 export async function dispatchImageTranslate(deps: ImageTranslateDispatchDeps): Promise<void> {
   const { tabId, imageUrl, getSettings, router, broadcast, sendToTab, logger } = deps;
   const settings = await getSettings();

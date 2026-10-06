@@ -1,30 +1,31 @@
-# Options context-menu manage rubric
+# Options right-click menu manage rubric
 
 ## Mount + render
 
-- The Translate tab renders ONE "Context menu" card: a Layout (Nested/Flat) radio at the top, then one row per `contextMenuItems` entry.
-- The Layout toggle and the "Reset section" control live in the SAME card — changing the layout must not flip a reset on a different section.
-- Each item row shows: drag handle, enable checkbox, kind icon, label input, a context chip ("Text selection" / "Image" / "Page"), up/down reorder, delete.
-- Task and image-task rows expand a detail row: Task select, "Open in" (Tooltip / Side panel), and for text actions an "Into" target-language picker.
+- The Selection & picker tab renders ONE "Right-click menu" card after "Element picker & shortcut": a title with an (i) button, one line "What Ega adds when you right-click a web page", then three groups.
+- The groups are "Selected text", "Images" and "Page", in that order. Each is one tinted box drawn like the menu Chrome shows: the first line reads "Ega ▸", or "Nothing from Ega shows here" when no row in the group shows.
+- A row is a drag grip, a checkbox, a kind icon, the name, then "Move up", "Move down" and "Edit". The site toggle row has no checkbox and no Edit; its line says it shows "Enable Ega on this site" on sites where Ega is off.
+- Names are automatic ("Translate", "Translate in side panel", "Translate image in side panel", "Translate this page"); no name ends in "with Ega". There is no Layout (Nested/Flat) control.
 
 ## State expectations
 
-- Toggle/reorder/add/delete/target-lang each persist to `contextMenuItems` (or `contextMenuLayout`) via `onPatch` immediately; label edits persist after a 400 ms debounce or on blur.
-- Order renormalizes to a clean 0..n-1 sequence on every reorder (drag, up/down, add).
-- Target language "Default target (<language>)" clears the per-item `targetLang` so the click inherits `defaultTargetLang`; a concrete pick stores it.
+- The checkbox writes `contextMenuItems[].enabled` at once. Edit opens one row's options under it (Task, Opens in, Answer in for text rows, Name in menu); only one row is open at a time and Esc closes it with focus back on Edit.
+- Move up and Move down reorder only inside the group. Focus stays on the pressed button of the moved row, and a status line says "{name} moved to position {k} of {n}".
+- "Add text action" and "Add image action" sit under their own group. A new row opens its options with focus on Task.
+- Reset section restores the 7 shipped rows and removes added rows; a toast "Right-click menu reset." offers Undo for 8 s, and focus moves to the first checkbox.
 
 ## Visible affordances
 
-- Drag handle reads as draggable (grab cursor) and is keyboard-focusable.
-- Reset-to-defaults appears only when items or layout differ from defaults; hides again at defaults.
-- Singleton items (whole-page, pick-element, site-toggle) have a disabled delete with an explanatory tooltip.
+- Shipped rows can be hidden but never deleted; Delete appears only in the options of a row the user added, and its toast offers Undo.
+- A hidden row reads "Hidden" in secondary text. A row whose task is off reads "Hidden: {Task} is off in Tasks"; the picker row reads "Hidden: the element picker is off" while the picker is off.
+- At the end of a group the arrow stays in place, dimmed, and its name says "already first" or "already last".
 
 ## Failure-mode expectations
 
-- An empty label flags visually but never crashes registration; the row stays editable.
-- Deleting down to zero non-singleton items still leaves the singletons; the menu never registers nothing unexpectedly.
+- An empty "Name in menu" is valid and means the automatic name; there is no error state.
+- A save failure shows the existing "Change not saved" toast and the card re-renders from storage.
 
 ## Cautions
 
-- Reorder must not drop or duplicate rows mid-drag (shadow-placeholder handling).
-- The image-surface setting also rewrites image items' surface in `contextMenuItems`; the background re-registers on any change to these keys.
+- Order is per group: Chrome draws three separate menus, so a row never moves into another group.
+- The image rows own where they open; the Display surface card has no image select.

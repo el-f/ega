@@ -5,6 +5,7 @@
   import TabHeader from '@/shared/components/TabHeader.svelte';
   import SelectionBubbleModeSection from '@/options/components/sections/SelectionBubbleModeSection.svelte';
   import ElementPickerSection from '@/options/components/sections/ElementPickerSection.svelte';
+  import ContextMenuManager from '@/options/components/ContextMenuManager.svelte';
 
   interface Props {
     s: Settings | null;
@@ -24,6 +25,7 @@
   {#if s}
     <SelectionBubbleModeSection {s} onPatch={patch} />
     <ElementPickerSection {s} onPatch={patch} />
+    <ContextMenuManager {s} onPatch={patch} />
   {/if}
 </section>
 

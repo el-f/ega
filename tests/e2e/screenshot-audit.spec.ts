@@ -334,6 +334,216 @@ test('Options — all top-level tabs (light + dark sampling)', async () => {
   }
 });
 
+// The card is the last on its tab and taller than the shell; a full-page shot is too small to judge it.
+test('Right-click menu card — default, edit, states, many, narrow, delete (light + dark)', async () => {
+  test.slow();
+  const page = await ext.context.newPage();
+  const card = page.locator('[data-ega-setting="contextMenu.items"]');
+  const shipped = [
+    'ega-translate-selection',
+    'ega-sidepanel-selection',
+    'ega-translate-image',
+    'ega-explain-image',
+    'ega-translate-page',
+    'ega-pick-element',
+    'ega-toggle-site',
+  ];
+  const base = (id: string, order: number): Record<string, unknown> => {
+    const kind =
+      order < 2
+        ? 'task'
+        : order < 4
+          ? 'image-task'
+          : (['page-translate', 'pick-element', 'site-toggle'][order - 4] ?? 'site-toggle');
+    if (kind === 'task')
+      return {
+        id,
+        kind,
+        enabled: true,
+        order,
+        label: '',
+        task: 'translate',
+        surface: order === 1 ? 'sidepanel' : 'tooltip',
+      };
+    if (kind === 'image-task')
+      return {
+        id,
+        kind,
+        enabled: true,
+        order,
+        label: '',
+        task: order === 3 ? 'explain' : 'translate',
+        surface: 'sidepanel',
+      };
+    return { id, kind, enabled: true, order, label: '' };
+  };
+  const defaults = shipped.map((id, i) => base(id, i));
+
+  async function openCard(patch: Record<string, unknown>): Promise<void> {
+    await seedSettings(ext.context, ext.extensionId, {
+      onboardingDismissed: true,
+      contextMenuItems: defaults,
+      disabledTasks: [],
+      pickerEnabled: true,
+      ...patch,
+    });
+    await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
+    await page.waitForLoadState('networkidle');
+    await page.locator('#tab-selection-bubble').click();
+    await card.waitFor({ state: 'visible', timeout: 8_000 });
+  }
+
+  async function cardShot(
+    name: string,
+    state: string,
+    userAction: string,
+    expectations: string[],
+    viewport?: { width: number; height: number },
+  ): Promise<void> {
+    for (const theme of ['light', 'dark'] as const) {
+      await applyThemeOnPage(page, theme);
+      await parkCursor(page);
+      await card.scrollIntoViewIfNeeded();
+      const file = `right-click-menu-${name}${theme === 'dark' ? '-dark' : ''}`;
+      await card.screenshot({ path: path.join(CURRENT_DIR, `${file}.png`) });
+      const meta: ShotMeta = {
+        name: file,
+        surface: 'options',
+        state: `right-click-menu-${state}`,
+        theme,
+        userAction,
+        expectations,
+        ...(viewport ? { viewport } : {}),
+      };
+      fs.writeFileSync(path.join(META_DIR, `${file}.meta.json`), JSON.stringify(meta, null, 2));
+    }
+    await applyThemeOnPage(page, 'light');
+  }
+
+  const ROW_RULES = [
+    'one control row per menu row: checkbox, name, then Move up, Move down, Edit on the same line',
+    'row text sits inside at most 2 borders: the card and its group box',
+    'reasons, hints and group labels are at least 12 px and readable',
+  ];
+
+  await page.setViewportSize({ width: 1200, height: 900 });
+  await openCard({});
+  await cardShot(
+    'default',
+    'default',
+    'user opened Selection & picker and scrolled to the Right-click menu card',
+    [
+      'three groups: Selected text, Images, Page, each box starting with "Ega ▸"',
+      'automatic names, none ending in "with Ega"; no Layout control; Reset hidden',
+      ...ROW_RULES,
+    ],
+  );
+
+  await card.locator('[data-ega-cm-id="ega-translate-selection"] [data-ega-cm-edit]').click();
+  await expect(
+    card.locator('[data-ega-cm-id="ega-translate-selection"] [data-ega-cm-options]'),
+  ).toBeVisible();
+  await cardShot('edit', 'edit', 'user pressed Edit on the Translate row', [
+    'the options open under the row: Task, Opens in, Answer in, Name in menu, one label column',
+    'Edit shows an up chevron and the row is tinted',
+    ...ROW_RULES,
+  ]);
+
+  const added = {
+    id: 'ega-custom-txt-tt-7',
+    kind: 'task',
+    enabled: true,
+    order: 2,
+    label: '',
+    task: 'summarize',
+    surface: 'tooltip',
+  };
+  await openCard({
+    contextMenuItems: [
+      defaults[0],
+      { ...defaults[1], enabled: false },
+      added,
+      ...defaults.slice(2).map((d) => ({ ...d, order: (d['order'] as number) + 1 })),
+    ],
+    disabledTasks: ['explain'],
+    pickerEnabled: false,
+  });
+  await expect(card.locator('[data-ega-cm-status]').first()).toBeVisible();
+  await cardShot(
+    'states',
+    'states',
+    'user hid one row, turned Explain off in Tasks and the element picker off',
+    [
+      '"Hidden", "Hidden: Explain is off in Tasks" and "Hidden: the element picker is off" in secondary text under the names',
+      'hidden names are in the secondary colour; the added Summarize row reads "Summarize"',
+      'Reset section shows in the header',
+      ...ROW_RULES,
+    ],
+  );
+
+  const many = Array.from({ length: 12 }, (_, n) => ({
+    ...added,
+    id: `ega-custom-txt-tt-${20 + n}`,
+    order: 20 + n,
+    task: ['summarize', 'explain', 'reword', 'grammar'][n % 4],
+  }));
+  await openCard({ contextMenuItems: [...defaults, ...many] });
+  await expect(card.locator('[data-ega-cm-long]')).toBeVisible();
+  await cardShot('many', 'many', 'user added 12 text actions', [
+    'the long-group note under Selected text: "Long menus are slow to scan. Hide the items you rarely use."',
+    'rows keep one line each; nothing overlaps',
+    ...ROW_RULES,
+  ]);
+
+  // At the 50-row cap both Add buttons say why they do nothing, in visible text.
+  const full = Array.from({ length: 43 }, (_, n) => ({
+    ...added,
+    id: `ega-custom-txt-tt-${40 + n}`,
+    order: 40 + n,
+  }));
+  await openCard({ contextMenuItems: [...defaults, ...full] });
+  await expect(card.locator('[data-ega-cm-full]')).toHaveCount(2);
+  await expect(card.locator('[data-ega-cm-add]')).toHaveAttribute('aria-disabled', 'true');
+
+  await page.setViewportSize({ width: 400, height: 900 });
+  await openCard({});
+  await card.locator('[data-ega-cm-id="ega-translate-image"] [data-ega-cm-edit]').click();
+  await cardShot(
+    'narrow',
+    'narrow',
+    'user opened the card at a 400 px wide options page and pressed Edit on an image row',
+    [
+      'row actions stay on the name line; long names wrap, never cut off',
+      'in the open options each label sits above its control',
+      ...ROW_RULES,
+    ],
+    { width: 400, height: 900 },
+  );
+  await page.setViewportSize({ width: 1200, height: 900 });
+
+  await openCard({ contextMenuItems: [...defaults, added] });
+  const row = card.locator(`[data-ega-cm-id="${added.id}"]`);
+  await row.locator('[data-ega-cm-edit]').click();
+  await row.locator('[data-ega-cm-delete]').click();
+  await page.locator('[data-sonner-toast]').first().waitFor({ state: 'visible', timeout: 5_000 });
+  await page.waitForTimeout(200); // wait for toast CSS entrance animation (no observable end state)
+  await shot(page, 'right-click-menu-delete-toast', {
+    surface: 'options',
+    state: 'right-click-menu-delete-toast',
+    theme: 'light',
+    userAction: 'user deleted the Summarize action they had added',
+    expectations: ['toast "Removed "Summarize"." with Undo', 'the row is gone from Selected text'],
+  });
+
+  // Leave the shared profile as shipped for the tests that follow.
+  await seedSettings(ext.context, ext.extensionId, {
+    contextMenuItems: defaults,
+    disabledTasks: [],
+    pickerEnabled: true,
+  });
+  await page.close();
+});
+
 // The popup hides its site button on a chrome:// tab, so each test opens a fixture-origin tab first.
 test('Popup — default + popover + palette + shortcuts + mid-flight + dark', async () => {
   // ~7 shots + a mid-flight wait + a fresh tab; well past the 30s default.

@@ -6,12 +6,12 @@
 
 ## State expectations
 
-- Step 1: the Task select of a text item lists the custom task by name.
-- Step 2 (pick it): the item's stored `task` is the custom task's id.
+- Step 1: Edit on a text item opens its options; the Task select lists the custom task by name.
+- Step 2 (pick it): the item's stored `task` is the custom task's id, and the row's automatic name becomes the task's name.
 
 ## Visible affordances
 
-- Image items still offer only Translate and Explain.
+- Image items still offer only Translate and Explain, as two radio choices.
 
 ## Failure-mode expectations
 
@@ -19,4 +19,4 @@
 
 ## Cautions
 
-- When the task is turned off or deleted, the right-click menu leaves the item out.
+- When the task is turned off or deleted, the right-click menu leaves the item out and the row says why.

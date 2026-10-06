@@ -43,9 +43,6 @@ const MUTATIONS: Record<string, (s: Settings) => void> = {
   'display.defaultDisplayMode': (s) => {
     s.defaultDisplayMode = s.defaultDisplayMode === 'tooltip' ? 'inline' : 'tooltip';
   },
-  'display.imageTranslateSurface': (s) => {
-    s.imageTranslateSurface = s.imageTranslateSurface === 'tooltip' ? 'sidepanel' : 'tooltip';
-  },
   'display.streaming': (s) => {
     s.streaming = !s.streaming;
   },
@@ -246,9 +243,6 @@ const MUTATIONS: Record<string, (s: Settings) => void> = {
     s.contextMenuItems = s.contextMenuItems.map((it, i) =>
       i === 0 ? { ...it, enabled: !it.enabled } : it,
     );
-  },
-  'contextMenu.layout': (s) => {
-    s.contextMenuLayout = s.contextMenuLayout === 'nested' ? 'flat' : 'nested';
   },
 };
 

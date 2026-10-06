@@ -25,6 +25,9 @@ const INTERNAL_KEYS: ReadonlySet<string> = new Set([
   'advanced.templateVersionAcknowledged',
   // Kept only while a prompt is too long to write the snippets into; nothing edits it.
   'advanced.snippets',
+  // Kept so an older profile still loads; the right-click menu card no longer writes either.
+  'imageTranslateSurface',
+  'contextMenuLayout',
 ]);
 
 function covered(path: string): boolean {

@@ -20,7 +20,6 @@
   import PageTranslateSection from '@/options/components/sections/PageTranslateSection.svelte';
   import RoutingSection from '@/options/components/sections/RoutingSection.svelte';
   import GenerationSection from '@/options/components/sections/GenerationSection.svelte';
-  import ContextMenuManager from '@/options/components/ContextMenuManager.svelte';
 
   interface Props {
     s: Settings | null;
@@ -138,9 +137,8 @@
       />
     </div>
     <div class="tab-group" role="group" aria-labelledby="tg-page">
-      <p id="tg-page" class="tab-group-label">Whole pages and the right-click menu</p>
+      <p id="tg-page" class="tab-group-label">Whole pages</p>
       <PageTranslateSection {s} onPatch={patch} />
-      <ContextMenuManager {s} onPatch={patch} />
     </div>
   {:else}
     <LoadingState rows={6} label="Loading translation settings…" />

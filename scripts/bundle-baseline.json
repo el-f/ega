@@ -1,7 +1,7 @@
 [
   {
     "name": "Advanced",
-    "bytes": 61247
+    "bytes": 61263
   },
   {
     "name": "batch-progress",
@@ -17,7 +17,7 @@
   },
   {
     "name": "cancel-token",
-    "bytes": 17987
+    "bytes": 19388
   },
   {
     "name": "chat-history",
@@ -25,7 +25,7 @@
   },
   {
     "name": "command-registry",
-    "bytes": 33496
+    "bytes": 33533
   },
   {
     "name": "customs-cache",
@@ -77,15 +77,15 @@
   },
   {
     "name": "index",
-    "bytes": 117625
+    "bytes": 118171
   },
   {
     "name": "index.html",
-    "bytes": 388650
+    "bytes": 391778
   },
   {
     "name": "index.ts",
-    "bytes": 39613
+    "bytes": 40189
   },
   {
     "name": "index.ts-loader",
@@ -113,7 +113,7 @@
   },
   {
     "name": "page-translate-v2",
-    "bytes": 19940
+    "bytes": 19939
   },
   {
     "name": "pending-popup-handoff",
@@ -149,7 +149,7 @@
   },
   {
     "name": "safe-regex",
-    "bytes": 26881
+    "bytes": 26845
   },
   {
     "name": "safety",
@@ -165,11 +165,11 @@
   },
   {
     "name": "select",
-    "bytes": 41053
+    "bytes": 40976
   },
   {
     "name": "Select",
-    "bytes": 4013
+    "bytes": 4012
   },
   {
     "name": "selection-cap-copy",
@@ -177,7 +177,7 @@
   },
   {
     "name": "SelectionBubble",
-    "bytes": 9358
+    "bytes": 31171
   },
   {
     "name": "settings-bus",
@@ -193,7 +193,7 @@
   },
   {
     "name": "src-content-index.ts",
-    "bytes": 34267
+    "bytes": 34300
   },
   {
     "name": "stuck-timeout",
@@ -205,11 +205,11 @@
   },
   {
     "name": "Tasks",
-    "bytes": 46086
+    "bytes": 46079
   },
   {
     "name": "TemplateEditor",
-    "bytes": 28105
+    "bytes": 28104
   },
   {
     "name": "theme",
@@ -233,7 +233,7 @@
   },
   {
     "name": "Translate",
-    "bytes": 43568
+    "bytes": 30468
   },
   {
     "name": "translate-handlers",
@@ -265,7 +265,7 @@
   },
   {
     "name": "vendor-lucide",
-    "bytes": 26608
+    "bytes": 26555
   },
   {
     "name": "vendor-marked",

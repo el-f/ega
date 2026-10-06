@@ -17,9 +17,6 @@ describe('DisplaySurfaceSection', () => {
       container.querySelector('[data-ega-setting="display.tooltipShowSource"]'),
     ).not.toBeNull();
     expect(container.querySelector('[data-ega-setting="display.tooltipDraggable"]')).not.toBeNull();
-    expect(
-      container.querySelector('[data-ega-setting="display.imageTranslateSurface"]'),
-    ).not.toBeNull();
   });
 
   it('shows InlineKnobs (not TooltipKnobs) when defaultDisplayMode is inline', () => {
@@ -31,10 +28,20 @@ describe('DisplaySurfaceSection', () => {
     expect(container.querySelector('#confidence-pill')).not.toBeNull();
     // tooltip-only knobs absent in inline mode
     expect(container.querySelector('[data-ega-setting="display.tooltipShowSource"]')).toBeNull();
-    // imageTranslateSurface is a SHARED knob above the mode-fork — present in both modes
-    expect(
-      container.querySelector('[data-ega-setting="display.imageTranslateSurface"]'),
-    ).not.toBeNull();
+  });
+
+  // Each right-click image action owns where it opens; a second control here could disagree with the rows.
+  it('has no image "opens in" select in either mode', () => {
+    for (const mode of ['tooltip', 'inline'] as const) {
+      const { container, unmount } = render(DisplaySurfaceSection, {
+        props: makeSectionProps({ s: { defaultDisplayMode: mode } }),
+      });
+      expect(
+        container.querySelector('[data-ega-setting="display.imageTranslateSurface"]'),
+      ).toBeNull();
+      expect(container.textContent).not.toContain('Image translation opens in');
+      unmount();
+    }
   });
 
   // Inline replace never draws a pill; the knobs govern the tooltip and the side panel in either mode.
@@ -236,25 +243,6 @@ describe('DisplaySurfaceSection — modified dots', () => {
     });
     const offRow = off.container.querySelector('[data-ega-setting="display.confidencePill"]');
     expect(offRow?.querySelector('[data-ega-modified="true"]')).toBeTruthy();
-  });
-
-  it('no image-surface dot at default, dot when changed', () => {
-    expect(DEFAULT_SETTINGS.imageTranslateSurface).toBe('sidepanel');
-    const def = render(DisplaySurfaceSection, {
-      props: { s: parseSettings({ imageTranslateSurface: 'sidepanel' }), onPatch: () => {} },
-    });
-    const defRow = def.container.querySelector(
-      '[data-ega-setting="display.imageTranslateSurface"]',
-    );
-    expect(defRow?.querySelector('[data-ega-modified="true"]')).toBeFalsy();
-
-    const changed = render(DisplaySurfaceSection, {
-      props: { s: parseSettings({ imageTranslateSurface: 'tooltip' }), onPatch: () => {} },
-    });
-    const changedRow = changed.container.querySelector(
-      '[data-ega-setting="display.imageTranslateSurface"]',
-    );
-    expect(changedRow?.querySelector('[data-ega-modified="true"]')).toBeTruthy();
   });
 
   describe('each knob patches its own settings key', () => {

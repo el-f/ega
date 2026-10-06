@@ -43,20 +43,19 @@ test('journey: options.context-menu.manage', async () => {
   const page = await ext.context.newPage();
   await captureJourney(page, 'options.context-menu.manage', [
     {
-      label: 'Open Options (Translate tab) and scroll to the Context menu card',
+      label: 'Open Options (Selection & picker tab) and scroll to the Right-click menu card',
       run: async (p) => {
         await p.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
-        await p
-          .locator('[data-ega-cm-layout]')
-          .first()
-          .waitFor({ state: 'visible', timeout: 8_000 });
-        await p.locator('[data-ega-cm-layout]').first().scrollIntoViewIfNeeded();
+        await p.locator('#tab-selection-bubble').click();
+        const card = p.locator('[data-ega-setting="contextMenu.items"]');
+        await card.waitFor({ state: 'visible', timeout: 8_000 });
+        await card.scrollIntoViewIfNeeded();
       },
     },
     {
-      label: 'Switch the layout to Flat',
+      label: 'Open the options of the first text action',
       run: async (p) => {
-        await p.locator('[data-ega-cm-layout] [role="radio"][data-value="flat"]').click();
+        await p.locator('[data-ega-cm-id="ega-translate-selection"] [data-ega-cm-edit]').click();
       },
     },
     {

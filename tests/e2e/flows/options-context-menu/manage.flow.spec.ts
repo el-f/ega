@@ -6,7 +6,6 @@ let ext: ExtensionHandle;
 
 interface CmSettings {
   contextMenuItems?: { id: string; kind: string; order: number; enabled: boolean }[];
-  contextMenuLayout?: string;
 }
 
 test.beforeEach(async () => {
@@ -17,56 +16,82 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-test('manage: preview, add-image, reorder, layout + reset persist', async () => {
+async function stored(): Promise<NonNullable<CmSettings['contextMenuItems']>> {
+  const s = await readStorage<CmSettings>(ext.context, ext.extensionId, 'ega.settings');
+  return (s?.contextMenuItems ?? []).slice().sort((a, b) => a.order - b.order);
+}
+
+test('manage: groups, add an image action, move inside a group, reset then undo', async () => {
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
+  await page.locator('#tab-selection-bubble').click();
 
-  // Translate tab is active by default; the manager mounts there.
-  const rows = page.locator('[data-ega-cm-row]');
-  await expect(rows.first()).toBeVisible({ timeout: 5_000 });
-  const initialCount = await rows.count();
-  expect(initialCount).toBeGreaterThan(0);
+  const card = page.locator('[data-ega-setting="contextMenu.items"]');
+  await expect(card.getByRole('heading', { name: 'Right-click menu' })).toBeVisible({
+    timeout: 5_000,
+  });
+  for (const title of ['Selected text', 'Images', 'Page']) {
+    await expect(card.getByRole('heading', { name: title, level: 3 })).toBeVisible();
+  }
+  await expect(card.locator('[data-ega-cm-layout]')).toHaveCount(0);
+  await expect(card.locator('[data-ega-cm-preview]')).toHaveText(['Ega ▸', 'Ega ▸', 'Ega ▸']);
+  await expect(card.locator('[data-ega-cm-site-note]')).toHaveText(
+    'Shows "Enable Ega on this site" on sites where Ega is off',
+  );
+  // The grip is pointer only: Move up and Move down are the keyboard path.
+  for (const grip of await card.locator('[data-ega-cm-handle]').all()) {
+    await expect(grip).toHaveAttribute('tabindex', '-1');
+    await expect(grip).toHaveAttribute('aria-hidden', 'true');
+  }
 
-  await expect(page.locator('[data-ega-cm-handle]')).toHaveCount(initialCount);
+  // The (i) opens on focus, closes on Esc, and a click pins it until a click outside.
+  const info = card.locator('[data-ega-infotip]');
+  await expect(info).toHaveAccessibleName('About the right-click menu');
+  const bubble = page.locator('[data-ega-infotip-text]');
+  await info.focus();
+  await expect(bubble).toContainText('you can delete only items you added');
+  await page.keyboard.press('Escape');
+  await expect(bubble).toBeHidden();
+  await info.click();
+  await expect(bubble).toBeVisible();
+  await card.getByRole('heading', { name: 'Images', level: 3 }).click();
+  await expect(bubble).toBeHidden();
 
-  await page.locator('[data-ega-cm-add-image]').click();
-  await expect(rows).toHaveCount(initialCount + 1);
+  // Add image action: the row lands in Images and opens on its Task.
+  const images = card.locator('[data-ega-cm-group="image"] [data-ega-cm-row]');
+  await expect(images).toHaveCount(2);
+  await card.locator('[data-ega-cm-add-image]').click();
+  await expect(images).toHaveCount(3);
   await expect
-    .poll(async () => {
-      const s = await readStorage<CmSettings>(ext.context, ext.extensionId, 'ega.settings');
-      return s?.contextMenuItems?.some(
-        (i) => i.kind === 'image-task' && i.id.startsWith('ega-custom-'),
-      );
-    })
+    .poll(async () =>
+      (await stored()).some((i) => i.kind === 'image-task' && i.id.startsWith('ega-custom-')),
+    )
     .toBe(true);
+  await expect(images.nth(2).locator('[data-ega-cm-edit]')).toHaveAttribute(
+    'aria-expanded',
+    'true',
+  );
 
-  const firstId = await rows.first().getAttribute('data-ega-cm-id');
-  expect(firstId).toBeTruthy();
-  await rows.first().locator('[data-ega-cm-down]').click();
+  // Move down inside Selected text; focus stays on the pressed button of the moved row.
+  const first = card.locator('[data-ega-cm-id="ega-translate-selection"]');
+  await first.getByRole('button', { name: 'Move Translate down' }).click();
   await expect
-    .poll(async () => {
-      const s = await readStorage<CmSettings>(ext.context, ext.extensionId, 'ega.settings');
-      const ordered = (s?.contextMenuItems ?? []).slice().sort((a, b) => a.order - b.order);
-      return ordered[1]?.id; // moved from index 0 to index 1
-    })
-    .toBe(firstId);
+    .poll(async () => (await stored()).filter((i) => i.kind === 'task').map((i) => i.id))
+    .toEqual(['ega-sidepanel-selection', 'ega-translate-selection']);
+  await expect(first.locator('[data-ega-cm-down]')).toBeFocused();
+  await expect(first.locator('[data-ega-cm-down]')).toHaveAttribute('aria-disabled', 'true');
 
-  await page.locator('[data-ega-cm-layout] [role="radio"][data-value="flat"]').click();
-  await expect
-    .poll(async () => {
-      const s = await readStorage<CmSettings>(ext.context, ext.extensionId, 'ega.settings');
-      return s?.contextMenuLayout;
-    })
-    .toBe('flat');
-
-  const reset = page.locator('[data-ega-section-reset]');
-  await expect(reset).toBeVisible();
+  // Reset drops the added row, then Undo brings it back.
+  const reset = card.locator('[data-ega-section-reset]');
   await reset.click();
-  await expect
-    .poll(async () => {
-      const s = await readStorage<CmSettings>(ext.context, ext.extensionId, 'ega.settings');
-      return s?.contextMenuLayout;
-    })
-    .toBe('nested');
+  await expect(images).toHaveCount(2);
   await expect(reset).toBeHidden();
+  await expect(
+    card.locator('[data-ega-cm-group="selection"] [data-ega-cm-enabled]').first(),
+  ).toBeFocused();
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect(images).toHaveCount(3);
+  await expect
+    .poll(async () => (await stored()).filter((i) => i.kind === 'image-task').length)
+    .toBe(3);
 });

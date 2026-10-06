@@ -25,8 +25,10 @@ test('a right-click item can run a custom task', async () => {
   const timeline = createTimeline();
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
-  await page.locator('#tab-translate').click();
-  const select = page.locator('[data-ega-cm-id="ega-translate-selection"] [data-ega-cm-task]');
+  await page.locator('#tab-selection-bubble').click();
+  const row = page.locator('[data-ega-cm-id="ega-translate-selection"]');
+  await row.getByRole('button', { name: 'Edit Translate' }).click();
+  const select = row.locator('select[data-ega-cm-task]');
   await expect(select).toBeVisible({ timeout: 5_000 });
   await expect(select.locator('option[value="c-tweet"]')).toHaveText('Tweet summary');
   await select.selectOption('c-tweet');
@@ -40,5 +42,7 @@ test('a right-click item can run a custom task', async () => {
     )
     .toMatchObject({ task: 'c-tweet' });
   timeline.markStep('saved');
+  // The automatic name follows the task.
+  await expect(row.locator('[data-ega-cm-name]')).toHaveText('Tweet summary');
   timeline.report();
 });

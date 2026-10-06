@@ -1,7 +1,6 @@
 <script lang="ts">
   import type { Settings } from '@/shared/types';
   import { isFieldModified } from '@/shared/settings-registry';
-  import { withImageSurface, type MenuSurface } from '@/shared/context-menu';
   import { DEFAULT_CONFIDENCE_PILL_THRESHOLD } from '@/shared/constants';
   import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
   import SectionCard from '@/shared/ui/SectionCard.svelte';
@@ -9,7 +8,6 @@
   import DisplayModeMock from '@/options/components/DisplayModeMock.svelte';
   import Checkbox from '@/shared/ui/Checkbox.svelte';
   import CollapsibleField from '@/shared/ui/CollapsibleField.svelte';
-  import Select from '@/shared/ui/Select.svelte';
   import Slider from '@/shared/ui/Slider.svelte';
 
   interface Props {
@@ -23,7 +21,7 @@
 
   const pillThreshold = $derived(s.confidencePillThreshold ?? DEFAULT_CONFIDENCE_PILL_THRESHOLD);
 
-  // The mode and the image surface are picks, not options, so the reset leaves them alone whatever the mode.
+  // The mode is a pick, not an option, so the reset leaves it alone whatever the mode.
   const RESET_IDS = [
     'display.confidencePill',
     'display.confidencePillThreshold',
@@ -113,24 +111,6 @@
         <span class="ds-card-hint">{m.hint}</span>
       </button>
     {/each}
-  </div>
-
-  <div class="ds-shared-knob" data-ega-setting="display.imageTranslateSurface">
-    <Select
-      label="Image translation opens in"
-      value={s.imageTranslateSurface}
-      modified={isFieldModified('display.imageTranslateSurface', s)}
-      options={[
-        { value: 'sidepanel', label: 'Side panel — full chat surface' },
-        { value: 'tooltip', label: 'Tooltip — anchored to the image' },
-      ]}
-      onchange={(v) =>
-        void onPatch({
-          imageTranslateSurface: v as Settings['imageTranslateSurface'],
-          // The context-menu items carry the authoritative surface, so the global writes through.
-          contextMenuItems: withImageSurface(s.contextMenuItems, v as MenuSurface),
-        })}
-    />
   </div>
 
   <div class="ds-shared-knob ds-knob-stack">

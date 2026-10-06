@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, waitFor } from '@testing-library/svelte';
+import { render, waitFor, fireEvent } from '@testing-library/svelte';
 import ContextMenuManager from '@/options/components/ContextMenuManager.svelte';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import { DEFAULT_CONTEXT_MENU_ITEMS } from '@/shared/context-menu';
@@ -15,16 +15,19 @@ const { default: NativeBackendCard } =
 // A tooltip never opens on a disabled control, so the reason has to ride on the name.
 
 describe('a disabled control says why in its accessible name', () => {
-  it('a built-in context-menu row shows "Built-in" instead of a delete it cannot use', () => {
+  it('a shipped context-menu row offers no delete at all; the (i) says only added rows delete', async () => {
     const s: Settings = { ...DEFAULT_SETTINGS, contextMenuItems: DEFAULT_CONTEXT_MENU_ITEMS };
     const { container } = render(ContextMenuManager, { props: { s, onPatch: vi.fn() } });
 
-    const builtIn = container.querySelector('[data-ega-cm-id="ega-pick-element"]');
+    const builtIn = container.querySelector('[data-ega-cm-id="ega-translate-selection"]');
+    await fireEvent.click(builtIn?.querySelector('[data-ega-cm-edit]') as HTMLElement);
     expect(builtIn?.querySelector('[data-ega-cm-delete]')).toBeNull();
-    expect(builtIn?.textContent).toContain('Built-in');
+    expect(
+      container.querySelector('[data-ega-infotip]')?.getAttribute('aria-describedby'),
+    ).toBeTruthy();
   });
 
-  it('a deletable row keeps the plain label', () => {
+  it('a deletable row keeps the plain label', async () => {
     const s: Settings = {
       ...DEFAULT_SETTINGS,
       contextMenuItems: [
@@ -40,6 +43,7 @@ describe('a disabled control says why in its accessible name', () => {
       ],
     };
     const { container } = render(ContextMenuManager, { props: { s, onPatch: vi.fn() } });
+    await fireEvent.click(container.querySelector('[data-ega-cm-edit]') as HTMLElement);
     const del = container.querySelector<HTMLButtonElement>('[data-ega-cm-delete]');
     expect(del?.disabled).toBe(false);
     expect(del?.getAttribute('aria-label') ?? '').not.toMatch(/built-in/i);

@@ -114,6 +114,8 @@ describe('Context-menu item delete is undoable', () => {
     const { container } = render(ContextMenuManager, { props: { s: seeded, onPatch } });
 
     const row = container.querySelector(`[data-ega-cm-id="${custom.id}"]`);
+    // Delete lives in the row's options, behind Edit.
+    await fireEvent.click(row?.querySelector('[data-ega-cm-edit]') as HTMLElement);
     const del = row?.querySelector<HTMLButtonElement>('[data-ega-cm-delete]');
     if (!del) throw new Error('delete button not found');
     await fireEvent.click(del);
@@ -124,7 +126,17 @@ describe('Context-menu item delete is undoable', () => {
     lastUndo()();
     await vi.waitFor(() => expect(onPatch.mock.calls.length).toBeGreaterThan(1));
     const restored = (onPatch.mock.calls.at(-1)?.[0] as Partial<Settings>).contextMenuItems;
-    expect(restored?.map((i) => i.id)).toEqual(seeded.contextMenuItems.map((i) => i.id));
+    // Back in its own group, after the shipped text rows; the card writes the rows group by group.
+    expect(restored?.map((i) => i.id)).toEqual([
+      'ega-translate-selection',
+      'ega-sidepanel-selection',
+      custom.id,
+      'ega-translate-image',
+      'ega-explain-image',
+      'ega-translate-page',
+      'ega-pick-element',
+      'ega-toggle-site',
+    ]);
     expect(restored?.map((i) => i.order)).toEqual(seeded.contextMenuItems.map((_, i) => i));
   });
 });

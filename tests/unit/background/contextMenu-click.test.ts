@@ -1,11 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Mock } from 'vitest';
 import { chromeMock, resetChromeMock } from '@tests/mocks/chrome';
-import {
-  DEFAULT_CONTEXT_MENU_ITEMS,
-  withImageSurface,
-  type ContextMenuItem,
-} from '@/shared/context-menu';
+import { DEFAULT_CONTEXT_MENU_ITEMS, type ContextMenuItem } from '@/shared/context-menu';
 import { withEncodedMenuIds } from '@/shared/context-menu-ids';
 import type { Settings } from '@/shared/types';
 import { flushAsync } from '@tests/_helpers/async';
@@ -274,8 +270,9 @@ describe('onClicked — image-task', () => {
   });
 
   it('a surface-edited image item does NOT open the side panel — the id is the only sync channel', () => {
-    const stored = withImageSurface(DEFAULT_CONTEXT_MENU_ITEMS, 'tooltip');
-    const imgId = stored.find((i) => i.kind === 'image-task')?.id ?? '';
+    // The editor keeps the shipped id; the worker registers an id that encodes the surface.
+    const stored = imageItemsWithSurface('tooltip');
+    const imgId = withEncodedMenuIds(stored).find((i) => i.kind === 'image-task')?.id ?? '';
     defaultSettingsStub.contextMenuItems = stored;
 
     emitClick(imgId, { srcUrl: 'https://example.com/img.png' });
@@ -284,8 +281,9 @@ describe('onClicked — image-task', () => {
   });
 
   it('the async path still resolves the stored tooltip item', async () => {
-    const stored = withImageSurface(DEFAULT_CONTEXT_MENU_ITEMS, 'tooltip');
-    const imgId = stored.find((i) => i.kind === 'image-task')?.id ?? '';
+    // The editor keeps the shipped id; the worker registers an id that encodes the surface.
+    const stored = imageItemsWithSurface('tooltip');
+    const imgId = withEncodedMenuIds(stored).find((i) => i.kind === 'image-task')?.id ?? '';
     defaultSettingsStub.contextMenuItems = stored;
 
     emitClick(imgId, { srcUrl: 'https://example.com/img.png' });

@@ -18,6 +18,7 @@ The options shell (`src/options`) is the full-page settings surface. The left na
 - **settings-search-empty** / **settings-search-temperature** — search modal with an empty query / mid-query.
 - **onboarding-banner-display** / **onboarding-banner-backends** — the first-run banner, shot on the Translate tab and on the Backends tab.
 - **toast-success** — a toast after an action succeeds.
+- **right-click-menu-*** — the Right-click menu card on Selection & picker, shot at the card: `default`, `edit` (one row's options open), `states` (a hidden row, a row whose task is off, the picker row while the picker is off, an added row), `many` (12 rows in Selected text), `narrow` (options page at 400 px, a row open), `delete-toast` (after deleting an added row). Light and dark. Fail on: more than one control row per menu row outside the open options, text inside more than 2 borders, a reason or label under 12 px, any clipped name or control at 400 px.
 - **confirm-delete-all-data** — the About tab's Delete all data confirm, shot in dark with DELETE typed. The danger CTA is enabled and its label is dark text on red.
 
 ## Severity overrides

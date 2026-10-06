@@ -394,13 +394,15 @@ export function handleImageTranslatePending(
   });
 }
 
-/** Re-runs the same vision arm under a fresh id; the background answers with a new pending + result pair. */
+/** Re-runs the same vision arm under a fresh id; the background answers with a new pending + result pair.
+ *  Only a tooltip-surface request lands in this tooltip, so the retry stays on the tooltip. */
 function retryImageTranslate(imageUrl: string, task?: ImageTask): void {
   sendFromEntry(
     {
       kind: 'image:translate',
       requestId: uuid(),
       imageUrl,
+      surface: 'tooltip',
       ...(task !== undefined ? { task } : {}),
     },
     'content.imageRetry',

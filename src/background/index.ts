@@ -238,12 +238,12 @@ function boundedContext(c: PageContext): PageContext {
 
 // Deny-list, not allow-list: an allow-list of prompt-shaping fields drifts as settings are added.
 const CACHE_SAFE_SETTINGS_KEYS = new Set(['sitePrefs', 'theme']);
-// Only these keys shape the menu tree or the site-toggle title.
+// Only these keys shape the menu tree or the site-toggle title; pickerEnabled drops the picker item.
 const MENU_SETTINGS_KEYS = [
   'contextMenuItems',
-  'contextMenuLayout',
   'sitePrefs',
   'disabledTasks',
+  'pickerEnabled',
 ] as const;
 
 function asRecord(v: unknown): Record<string, unknown> | null {
@@ -290,7 +290,11 @@ chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'local') return;
   tellTabsStoredChanged(changes);
   // An edited custom-language definition changes the prompt, so its old cached answers can go at once.
-  if (changes[STORAGE_KEYS.customLanguages]) void cache.clear();
+  // Its name can be in a menu title ("Translate into …"), so the menu rebuilds too.
+  if (changes[STORAGE_KEYS.customLanguages]) {
+    void cache.clear();
+    void installContextMenus();
+  }
   const tasksChanged = STORAGE_KEYS.customTasks in changes;
   // An edited custom task runs a new prompt under the same id, and its menu items may need to go.
   if (tasksChanged) {
@@ -493,6 +497,7 @@ chrome.runtime.onMessage.addListener((rawMsg, sender, sendResponse) => {
           imageUrl,
           requestId,
           ...(msg.task ? { task: msg.task } : {}),
+          ...(msg.surface ? { surface: msg.surface } : {}),
           ...(sender.tab?.windowId !== undefined ? { windowId: sender.tab.windowId } : {}),
           ...(senderTabId !== undefined ? { trackTab: trackRequestTab(senderTabId) } : {}),
           getSettings,

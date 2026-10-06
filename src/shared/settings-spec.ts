@@ -15,6 +15,7 @@ import {
   DEFAULT_TRANSLATE_TIMEOUT_MS,
 } from './constants';
 import { DEFAULT_SETTINGS } from './settings-defaults';
+import { isMenuModified } from './context-menu-names';
 import { DEFAULT_TEMPLATE } from './prompts';
 import type { SettingsTab } from './settings-tabs';
 import type { Settings } from './types';
@@ -108,16 +109,6 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
     targetSelector: '[data-ega-setting="display.defaultDisplayMode"]',
     type: 'select',
     isModified: { kind: 'eq', path: 'defaultDisplayMode' },
-  },
-  {
-    id: 'display.imageTranslateSurface',
-    label: 'Image translation surface',
-    description: 'Where image translation results appear — side panel or tooltip.',
-    keywords: ['image', 'ocr', 'sidepanel', 'tooltip', 'surface'],
-    tab: 'translate',
-    targetSelector: '[data-ega-setting="display.imageTranslateSurface"]',
-    type: 'select',
-    isModified: { kind: 'eq', path: 'imageTranslateSurface' },
   },
   {
     id: 'display.streaming',
@@ -994,30 +985,42 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
     isModified: { kind: 'nonEmpty', path: 'glossary' },
   },
 
-  // ── Context menu ─────────────────────────────────────────────────
+  // ── Right-click menu ─────────────────────────────────────────────
   {
     id: 'contextMenu.items',
-    label: 'Context menu items',
-    description: 'Enable, reorder, relabel, and manage right-click menu entries.',
-    keywords: ['context', 'menu', 'right-click', 'items', 'reorder', 'enable', 'label'],
-    tab: 'translate',
-    targetSelector: '[data-ega-cm-layout]',
+    label: 'Right-click menu',
+    description: "Show, hide, order and add the items Ega puts in Chrome's right-click menu.",
+    keywords: [
+      'context',
+      'context menu',
+      'menu',
+      'right-click',
+      'items',
+      'reorder',
+      'enable',
+      'label',
+      'image',
+      'side panel',
+      'tooltip',
+      'opens in',
+      'explain',
+    ],
+    tab: 'selection-bubble',
+    targetSelector: '[data-ega-setting="contextMenu.items"]',
     type: 'group',
-    isModified: { kind: 'jsonStringify', path: 'contextMenuItems' },
-  },
-  {
-    id: 'contextMenu.layout',
-    label: 'Context menu layout',
-    description:
-      'Nested groups items under an Ega ▸ submenu; flat places each item at the top level.',
-    keywords: ['context', 'menu', 'layout', 'nested', 'flat', 'submenu', 'right-click'],
-    tab: 'translate',
-    targetSelector: '[data-ega-cm-layout]',
-    type: 'select',
     isModified: {
       kind: 'custom',
-      paths: ['contextMenuLayout'],
-      fn: (s) => s.contextMenuLayout !== 'nested',
+      paths: ['contextMenuItems'],
+      fn: (s) => isMenuModified(s.contextMenuItems),
     },
+  },
+  {
+    id: 'contextMenu.images',
+    label: 'Where image actions open',
+    description: 'Side panel or a tooltip on the image, per right-click image action.',
+    keywords: ['image', 'ocr', 'sidepanel', 'tooltip', 'surface', 'opens in'],
+    tab: 'selection-bubble',
+    targetSelector: '[data-ega-cm-group="image"]',
+    type: 'group',
   },
 ];

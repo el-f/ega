@@ -8,6 +8,7 @@ import type {
   TranslationChunk,
 } from './types';
 import type { ImageTask, Tone } from './task-prompts';
+import type { MenuSurface } from './context-menu';
 import type { CustomTask } from './settings-schema';
 import type { TaskId } from './task-view';
 import type { AuditEntry, AuditSurface } from './audit-log';
@@ -82,8 +83,15 @@ export type Msg =
       /** The SW writes this to the handoff slot, so a content script needs no storage.session access. */
       handoff?: PendingPopupHandoff;
     }
-  /** Sent by the image tooltip's Retry and by the e2e hook; the context menu calls dispatchImageTranslate directly. */
-  | { kind: 'image:translate'; requestId: string; imageUrl: string; task?: ImageTask }
+  /** Sent by the image tooltip's Retry and by the e2e hook; the context menu calls dispatchImageTranslate directly.
+   *  The Retry sends 'tooltip', the surface of the answer it retries; omitted, the stored global decides. */
+  | {
+      kind: 'image:translate';
+      requestId: string;
+      imageUrl: string;
+      task?: ImageTask;
+      surface?: MenuSurface;
+    }
   /** Sent before a context-menu image translate: without a seeded turn the arriving chunks match nothing and vanish. */
   | {
       kind: 'sidepanel:seed-image-translate';
@@ -100,7 +108,7 @@ export type Msg =
       imageUrl: string;
       task?: ImageTask;
     }
-  /** Background → tooltip, with the full buffered result. Only when `Settings.imageTranslateSurface === 'tooltip'`. */
+  /** Background → tooltip, with the full buffered result. Only for a request on the tooltip surface. */
   | {
       kind: 'content:image-translate-result';
       requestId: string;

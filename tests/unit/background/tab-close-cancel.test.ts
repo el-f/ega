@@ -95,9 +95,18 @@ function startTranslate(requestId: string, tabId: number): void {
   );
 }
 
-function startImageTranslate(requestId: string, tabId: number): void {
+function startImageTranslate(
+  requestId: string,
+  tabId: number,
+  surface?: 'tooltip' | 'sidepanel',
+): void {
   chromeMock.runtime.onMessage.emit(
-    { kind: 'image:translate', requestId, imageUrl: 'https://i.redd.it/x.png' },
+    {
+      kind: 'image:translate',
+      requestId,
+      imageUrl: 'https://i.redd.it/x.png',
+      ...(surface ? { surface } : {}),
+    },
     { id: chromeMock.runtime.id, tab: { id: tabId, windowId: 1 } } as chrome.runtime.MessageSender,
     () => {},
   );
@@ -154,6 +163,18 @@ describe('closing a tab cancels the requests it started', () => {
     chromeMock.tabs.onRemoved.emit(9, { isWindowClosing: false, windowId: 1 });
 
     expect(cancel).toHaveBeenCalledWith('img-1');
+  });
+
+  it('a tooltip Retry stays on the tooltip whatever the stored global says', async () => {
+    // The Retry names its own surface; the global "opens in" is no longer shown anywhere.
+    settingsStub.imageTranslateSurface = 'sidepanel';
+    startImageTranslate('img-retry', 9, 'tooltip');
+    await flush();
+    expect(handleImageTranslate).toHaveBeenCalledTimes(1);
+
+    chromeMock.tabs.onRemoved.emit(9, { isWindowClosing: false, windowId: 1 });
+
+    expect(cancel).toHaveBeenCalledWith('img-retry');
   });
 
   it('leaves a side-panel image translate running when its tab closes', async () => {

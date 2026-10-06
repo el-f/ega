@@ -63,13 +63,18 @@ describe('ContextMenuManager add', () => {
     expect(onPatch).toHaveBeenCalledTimes(1);
   }, 20_000);
 
-  it('refuses to add past the cap and says why', async () => {
+  it('refuses to add past the cap and says why in visible text', async () => {
     const onPatch = vi.fn();
     const { container } = render(ContextMenuManager, {
       props: { s: settingsWith(CONTEXT_MENU_ITEMS_MAX), onPatch },
     });
+    const btn = container.querySelector('[data-ega-cm-add]');
+    // aria-disabled, not disabled: it stays focusable and its reason is read.
+    expect(btn?.getAttribute('aria-disabled')).toBe('true');
+    const note = container.querySelector(`#${btn?.getAttribute('aria-describedby') ?? 'x'}`);
+    expect(note?.textContent.trim()).toBe('Menu is full (50 items). Delete one to add another.');
     await addTextAction(container);
     expect(onPatch).not.toHaveBeenCalled();
-    expect(pushed[0]).toMatch(/50/);
+    expect(pushed).toEqual([]);
   }, 20_000);
 });

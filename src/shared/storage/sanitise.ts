@@ -211,6 +211,26 @@ function filterMenuTargets(parsed: ParsedSettings, v: RefValidators): Settings['
   });
 }
 
+/** A pre-v4 image row stored no surface and followed the global image surface. The options page no
+ *  longer shows that global, so such a row takes its stored value here: the place the user had before. */
+function withLegacyImageSurface(
+  items: Settings['contextMenuItems'],
+  stored: Record<string, unknown>,
+): Settings['contextMenuItems'] {
+  const global = stored['imageTranslateSurface'];
+  const raw = stored['contextMenuItems'];
+  if ((global !== 'tooltip' && global !== 'sidepanel') || !Array.isArray(raw)) return items;
+  const unset = new Set(
+    raw
+      .filter((r) => isPlainObject(r) && r['kind'] === 'image-task' && !('surface' in r))
+      .map((r) => (r as Record<string, unknown>)['id']),
+  );
+  if (unset.size === 0) return items;
+  return items.map((i) =>
+    i.kind === 'image-task' && unset.has(i.id) ? { ...i, surface: global } : i,
+  );
+}
+
 // Shared by the read and the write path; the shipped tail makes a newly registered provider appear without a migration.
 export function normaliseBackendOrder(ids: readonly unknown[]): BackendId[] {
   const seen = new Set<string>();
@@ -449,7 +469,7 @@ export function sanitiseStoredSettings(
     ...resolveLangDefaults(parsed, validators),
     sitePrefs: sanitiseSitePrefsMap(parsed, validators),
     glossary: filterGlossary(parsed.glossary, validators),
-    contextMenuItems: filterMenuTargets(parsed, validators),
+    contextMenuItems: withLegacyImageSurface(filterMenuTargets(parsed, validators), stored),
     disabledVarieties: refs.disabledVarieties,
     varietyOverrides: refs.varietyOverrides,
     backendOrder,

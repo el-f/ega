@@ -466,3 +466,39 @@ describe('a language prompt on read', () => {
     });
   });
 });
+
+// The options page no longer shows the layout radio or the Display card's image select.
+describe('an existing profile after the right-click menu redesign', () => {
+  it('still loads a stored flat layout, kept as stored and ignored by the menu', () => {
+    const out = sanitise({ contextMenuLayout: 'flat' });
+    expect(out.contextMenuLayout).toBe('flat');
+  });
+
+  it('gives a pre-v4 image row with no surface the global it followed before', () => {
+    const out = sanitise({
+      imageTranslateSurface: 'tooltip',
+      contextMenuItems: [
+        {
+          id: 'ega-translate-image',
+          kind: 'image-task',
+          enabled: true,
+          order: 0,
+          label: '',
+          task: 'translate',
+        },
+        {
+          id: 'ega-explain-image',
+          kind: 'image-task',
+          enabled: true,
+          order: 1,
+          label: '',
+          task: 'explain',
+          surface: 'sidepanel',
+        },
+      ],
+    });
+    const surfaces = out.contextMenuItems.map((i) => ('surface' in i ? i.surface : null));
+    // The row that had no surface takes the global; the row that chose its own keeps it.
+    expect(surfaces).toEqual(['tooltip', 'sidepanel']);
+  });
+});

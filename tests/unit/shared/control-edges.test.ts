@@ -18,7 +18,7 @@ describe('text-entry frames draw a 3:1 edge', () => {
     ['src/popup/Popup.svelte', '.freeform-textarea'],
     ['src/shared/components/ConfirmDialog.svelte', '.confirm-input'],
     ['src/shared/components/CommandPalette.svelte', ':global(.ega-palette-input)'],
-    ['src/options/components/ContextMenuManager.svelte', '.cm-label-input'],
+    ['src/shared/ui/Input.svelte', '.ega-input-row'],
     ['src/sidepanel/SidePanel.svelte', ".sp-search-bar input[type='search']"],
   ])('%s %s uses --color-control-border', (file, selector) => {
     expect(rule(file, selector)).toMatch(/border: 1px solid var\(--color-control-border\)/);
