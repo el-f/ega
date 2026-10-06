@@ -42,6 +42,28 @@
   }: Props = $props();
 
   const titleId = id('ega-dialog');
+
+  // The body is the only scroll container; a fade at an edge says more content sits past it.
+  let body = $state<HTMLDivElement | null>(null);
+  let content = $state<HTMLDivElement | null>(null);
+  let moreAbove = $state(false);
+  let moreBelow = $state(false);
+
+  function measure(): void {
+    if (body === null) return;
+    moreAbove = body.scrollTop > 1;
+    moreBelow = body.scrollTop + body.clientHeight < body.scrollHeight - 1;
+  }
+
+  // Content can grow while the body stays capped, so watch both boxes.
+  $effect(() => {
+    if (body === null || content === null) return;
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(body);
+    ro.observe(content);
+    return () => ro.disconnect();
+  });
 </script>
 
 {#if open}
@@ -74,7 +96,17 @@
       {#if help}
         <p class="ega-dialog-help">{@render help()}</p>
       {/if}
-      {@render children()}
+      <div class="ega-dialog-scroll">
+        <div class="ega-dialog-body" bind:this={body} onscroll={measure}>
+          <div bind:this={content}>{@render children()}</div>
+        </div>
+        {#if moreAbove}
+          <div class="ega-dialog-cue cue-top" aria-hidden="true"></div>
+        {/if}
+        {#if moreBelow}
+          <div class="ega-dialog-cue cue-bottom" aria-hidden="true"></div>
+        {/if}
+      </div>
       {#if actions}
         <div class="ega-dialog-actions">{@render actions()}</div>
       {/if}
@@ -100,28 +132,56 @@
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
     box-shadow: 0 16px 48px var(--color-shadow-strong);
-    padding: var(--space-4);
     z-index: 99999;
     outline: none;
     animation: ega-dialog-pop var(--motion-fast) var(--ease-out);
-    max-height: 90vh;
-    overflow-y: auto;
-    /* Keyboard focus and scrollIntoView stop clear of the sticky title and buttons. */
-    scroll-padding-block: 3.5rem 4.5rem;
+    max-height: calc(100vh - var(--space-8));
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
   }
-  /* A long dialog scrolls under its title and buttons; the negative offsets cover the dialog's own padding. */
   .ega-dialog-head {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
     gap: var(--space-2);
-    margin: calc(-1 * var(--space-4)) 0 var(--space-3);
+    padding: var(--space-4) var(--space-4) var(--space-1);
+    flex: 0 0 auto;
+  }
+  .ega-dialog-scroll {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .ega-dialog-body {
+    overflow-y: auto;
+    min-height: 0;
+    padding: 0 var(--space-4) var(--space-4);
+    /* A focused field never hides under the fade at either edge. */
+    scroll-padding-block: var(--space-3);
+  }
+  .ega-dialog-head + .ega-dialog-scroll .ega-dialog-body,
+  .ega-dialog-help + .ega-dialog-scroll .ega-dialog-body {
+    padding-top: var(--space-2);
+  }
+  .ega-dialog-scroll:first-child .ega-dialog-body {
     padding-top: var(--space-4);
-    padding-bottom: var(--space-1);
-    position: sticky;
-    top: calc(-1 * var(--space-4));
-    z-index: 1;
-    background: var(--color-bg);
+  }
+  .ega-dialog-cue {
+    position: absolute;
+    inset-inline: 0;
+    height: var(--space-3);
+    pointer-events: none;
+  }
+  .cue-top {
+    top: 0;
+    background: linear-gradient(var(--color-shadow), transparent);
+  }
+  .cue-bottom {
+    bottom: 0;
+    background: linear-gradient(transparent, var(--color-shadow));
   }
   .ega-dialog-title {
     margin: 0;
@@ -144,24 +204,25 @@
     color: var(--color-fg);
   }
   .ega-dialog-help {
-    margin: 0 0 var(--space-3);
+    margin: 0;
+    padding: 0 var(--space-4) var(--space-2);
     font-size: var(--fs-sm);
     color: var(--color-muted);
+    flex: 0 0 auto;
   }
-  /* Pull back under the head's own bottom margin; a help line on its own keeps the padding. */
-  .ega-dialog-head + .ega-dialog-help {
-    margin-top: calc(-1 * var(--space-2));
+  .ega-dialog-help:first-child {
+    padding-top: var(--space-4);
   }
+  /* Solid and outside the scroll container, so it never covers the last row. */
   .ega-dialog-actions {
     display: flex;
+    flex-wrap: wrap;
     gap: var(--space-2);
     justify-content: flex-end;
-    margin: var(--space-4) 0 calc(-1 * var(--space-4));
-    padding: var(--space-3) 0 var(--space-4);
-    position: sticky;
-    bottom: calc(-1 * var(--space-4));
-    z-index: 1;
+    padding: var(--space-3) var(--space-4);
+    border-top: 1px solid var(--color-border);
     background: var(--color-bg);
+    flex: 0 0 auto;
   }
   :global(.ega-dialog.pos-center) {
     top: 50%;
@@ -172,15 +233,16 @@
     top: 80px;
     left: 50%;
     transform: translateX(-50%);
+    max-height: calc(100vh - 80px - var(--space-6));
   }
   :global(.ega-dialog.size-sm) {
-    width: min(400px, 92vw);
+    width: min(400px, calc(100vw - var(--space-6)));
   }
   :global(.ega-dialog.size-md) {
-    width: min(560px, 92vw);
+    width: min(560px, calc(100vw - var(--space-6)));
   }
   :global(.ega-dialog.size-lg) {
-    width: min(720px, 92vw);
+    width: min(720px, calc(100vw - var(--space-6)));
   }
   :global(.ega-dialog.size-xl) {
     width: min(1120px, 96vw);
