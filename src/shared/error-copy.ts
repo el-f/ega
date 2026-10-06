@@ -157,11 +157,12 @@ export interface ErrorCopy {
   detail: string | undefined;
 }
 
-/** The REQUEST sub-row comes from the advice line the transport writes. */
+/** The REQUEST sub-row comes from the advice line the transport writes; the provider text after it never picks one. */
 function requestRow(message: string): ErrorCopyId {
-  if (/max-tokens limit/i.test(message)) return 'REQUEST_MAX_TOKENS';
-  if (/does not know this model|model_not_found/i.test(message)) return 'REQUEST_MODEL';
-  if (/too long/i.test(message)) return 'REQUEST_TOO_LONG';
+  const advice = message.split('\n')[0] ?? '';
+  if (/max-tokens limit/i.test(advice)) return 'REQUEST_MAX_TOKENS';
+  if (/does not know this model|model_not_found/i.test(advice)) return 'REQUEST_MODEL';
+  if (/too long/i.test(advice)) return 'REQUEST_TOO_LONG';
   return 'REQUEST';
 }
 

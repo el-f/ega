@@ -77,6 +77,12 @@ describe('errorCopy', () => {
       'backends',
     ],
     ['Mistral HTTP 422: bad parameter', 'REQUEST', 'backends'],
+    // The provider's own text on the next lines never picks a row.
+    [
+      'Mistral HTTP 400: bad parameter\n{"message":"field too long","code":"model_not_found","hint":"max-tokens limit"}',
+      'REQUEST',
+      'backends',
+    ],
   ])('picks the REQUEST row from the advice line: %s', (message, id, tab) => {
     const copy = errorCopy('REQUEST', message);
     expect(copy?.id).toBe(id);
