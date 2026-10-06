@@ -130,4 +130,20 @@ describe('bubble placement', () => {
 
     expect(bubbleTop()).toBe(68);
   });
+
+  it('stays below when the line above the selection would be covered too', () => {
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 1000 });
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1280 });
+    const gap = probeHit(rect(0, 900), 'the article').el;
+    const prev = probeHit(rect(60, 90), 'previous paragraph').el;
+    const next = probeHit(rect(126, 146), 'next paragraph').el;
+    // Dense text: a paragraph ends just above the selection and the next starts just below it.
+    (
+      document as unknown as { elementsFromPoint: (x: number, y: number) => Element[] }
+    ).elementsFromPoint = (_x, y) => (y >= 126 ? [next] : y <= 90 ? [prev] : [gap]);
+
+    showBubble({ rect: rect(100, 120), queued: 0, onClick: vi.fn() });
+
+    expect(bubbleTop()).toBe(124);
+  });
 });

@@ -56,25 +56,33 @@ function hasText(el: Element): boolean {
 
 /** `left` is the bubble's inline-start edge: its left side, or its right side on a right-to-left block. */
 function placeBubble(rect: DOMRect, rtl: boolean): { left: number; top: number } {
-  // Below the last line first; if that covers the next line of text or leaves the viewport, above the first line.
+  // Below the last line; above the first when below covers text or leaves the viewport and above covers none.
   const below = rect.bottom + 4;
   const above = rect.top - BUBBLE_HEIGHT - 4;
   const anchorX = rtl ? rect.right : rect.left;
   const probeX = Math.max(4, Math.min(window.innerWidth - 4, anchorX + (rtl ? -16 : 16)));
-  // Two probes, the bubble's middle and its bottom: a next line can start inside the bubble's lower half.
-  const coversText = [below + BUBBLE_HEIGHT / 2, below + BUBBLE_HEIGHT - 2].some((y) => {
-    // An open bubble or tooltip hits as our host, which holds no page text; look past it.
-    const hit = document
-      .elementsFromPoint(probeX, Math.min(window.innerHeight - 4, y))
-      .find((el) => el !== getShadowHostElement());
-    if (!hit) return false;
-    const hitRect = hit.getBoundingClientRect();
-    // Only an element that starts below the selection counts; the paragraph that holds it always overlaps.
-    return hitRect.top >= rect.bottom - 2 && hitRect.bottom > below && hasText(hit);
-  });
+  // ponytail: two probes per spot, text in other elements only; the selection's own paragraph needs a line-box probe.
+  const covers = (ys: number[], outside: (r: DOMRect) => boolean): boolean =>
+    ys.some((y) => {
+      // An open bubble or tooltip hits as our host, which holds no page text; look past it.
+      const hit = document
+        .elementsFromPoint(probeX, Math.min(window.innerHeight - 4, Math.max(0, y)))
+        .find((el) => el !== getShadowHostElement());
+      return !!hit && outside(hit.getBoundingClientRect()) && hasText(hit);
+    });
+  const belowCovers = covers(
+    [below + BUBBLE_HEIGHT / 2, below + BUBBLE_HEIGHT - 2],
+    (r) => r.top >= rect.bottom - 2 && r.bottom > below,
+  );
   const offBottom = below + BUBBLE_HEIGHT > window.innerHeight - 8;
+  const aboveFits =
+    above >= 4 &&
+    !covers(
+      [above + 2, above + BUBBLE_HEIGHT / 2],
+      (r) => r.bottom <= rect.top + 2 && r.top < above + BUBBLE_HEIGHT,
+    );
   const top =
-    (coversText || offBottom) && above >= 4 ? above : Math.min(window.innerHeight - 32, below);
+    (belowCovers || offBottom) && aboveFits ? above : Math.min(window.innerHeight - 32, below);
   const left = rtl
     ? Math.max(BUBBLE_WIDTH, Math.min(window.innerWidth - 8, anchorX))
     : Math.max(8, Math.min(window.innerWidth - BUBBLE_WIDTH, anchorX));
