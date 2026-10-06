@@ -212,14 +212,17 @@ describe('token-lint font sizes', () => {
 });
 
 describe('token-lint font sizes set from .ts', () => {
+  const fed = new Set(['--ega-md-fs']);
+
   it.each([
     ["el.style.fontSize = '12px';"],
     ['el.style.fontSize = `${n}px`;'],
     ["el.style.setProperty('font-size', '0.9em');"],
+    ["el.style.setProperty('font-size', '12px', 'important');"],
     ["el.style.cssText = 'color: red; font-size: 11px';"],
     ["el.style.setProperty('--ega-md-fs', '13px');"],
+    ["el.style.fontSize = 'var(--fs-sm)'; el.style.fontSize = '12px';"],
   ])('flags %s', (src) => {
-    const fed = new Set(['--ega-md-fs']);
     expect(lintTs(src, 'x.ts', fed).map((v) => v.kind)).toEqual(['font']);
   });
 
@@ -228,8 +231,24 @@ describe('token-lint font sizes set from .ts', () => {
     ["el.style.setProperty('--gap', '13px');"],
     ["// el.style.fontSize = '12px';"],
     ["const link = '#top'; // a hash in code is not a color"],
+    ["el.style.setProperty('--ega-md-fs', 'var(--fs-md)');"],
+    ["el.style.setProperty('font-size', 'var(--fs-sm)', 'important');"],
+    ["if (el.style.fontSize === 'var(--fs-sm)') reset();"],
+    ["if (el.style.fontSize === '12px') reset();"],
+    ["el.style.fontSize = '';"],
+    ['el.style.fontSize = "";'],
+    ["el.style.setProperty('font-size', '');"],
   ])('accepts %s', (src) => {
-    expect(lintTs(src, 'x.ts')).toEqual([]);
+    expect(lintTs(src, 'x.ts', fed)).toEqual([]);
+  });
+
+  it.each([
+    ["<button onclick={() => (el.style.fontSize = '12px')}>x</button>", ['font']],
+    ["<button onclick={() => (el.style.fontSize = 'var(--fs-sm)')}>x</button>", []],
+    ["<button onclick={() => el.style.setProperty('font-size', '12px')}>x</button>", ['font']],
+    ["<button onclick={() => el.style.setProperty('font-size', 'var(--fs-sm)')}>x</button>", []],
+  ])('reads a markup handler: %s', (src, kinds) => {
+    expect(lintSvelte(src, 'x.svelte', fed).map((v) => v.kind)).toEqual(kinds);
   });
 });
 

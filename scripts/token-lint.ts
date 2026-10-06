@@ -30,9 +30,11 @@ const CUSTOM_PROP_RE = new RegExp(`${DECL_START}(--[\\w-]+)${DECL_VALUE}`, 'g');
 // style:font-size="…" / style:--x={…}: quoted value or a {expression}.
 const DIRECTIVE_RE =
   /\bstyle:(font-size|--[\w-]+)(?:\|important)?\s*=\s*(?:"([^"]*)"|'([^']*)'|\{([^}]*)\})/g;
-// el.style.fontSize = …; el.style.setProperty('font-size' | '--x', …).
-const TS_FONT_SIZE_RE = /\.fontSize\s*=\s*([^;]+)/g;
-const TS_SET_PROPERTY_RE = /\.setProperty\(\s*['"\x60](font-size|--[\w-]+)['"\x60]\s*,\s*([^,)]+)/g;
+// el.style.fontSize = …; el.style.setProperty('font-size' | '--x', …). A quoted value is read whole, up to the char that ends it, so `'var(--fs-sm)'` keeps its `)`.
+const TS_FONT_SIZE_RE =
+  /\.fontSize\s*=(?!=)\s*((['"\x60])(?:\\.|(?!\2)[^\\])*\2(?=\s*(?:[;)}\]]|$))|[^;]+)/g;
+const TS_SET_PROPERTY_RE =
+  /\.setProperty\(\s*['"\x60](font-size|--[\w-]+)['"\x60]\s*,\s*((['"\x60])(?:\\.|(?!\3)[^\\])*\3(?=\s*[,)])|[^,)]+)/g;
 // A declaration whose value prettier moved to the next lines.
 const OPEN_DECL_RE = /(?:^|[\s;{])(?:font|font-size|--[\w-]+)\s*:\s*$/;
 const SCALE_VALUE_RE =
@@ -45,10 +47,10 @@ function onScale(value: string): boolean {
   return SCALE_VALUE_RE.test(value.trim());
 }
 
-// A code expression passes only when it is a plain string literal holding a scale value.
+// A code expression passes only when it is a plain string literal holding a scale value, or an empty one (it clears the override).
 function exprOnScale(expr: string): boolean {
   const lit = STRING_LITERAL_RE.exec(expr.trim());
-  return lit !== null && onScale(lit[2] ?? '');
+  return lit !== null && (lit[2] === '' || onScale(lit[2] ?? ''));
 }
 
 /** Custom properties a font-size reads (`font-size: var(--x, …)`): a literal assigned to one is an off-scale size. */
