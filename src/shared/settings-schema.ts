@@ -1,5 +1,5 @@
 import * as v from 'valibot';
-import { ALL_TASKS, ALL_TONES } from './task-prompts';
+import { ALL_TASKS, ALL_TONES, TRANSLATE_FORMAT } from './task-prompts';
 import { isKnownNativeCli } from './native-cli-registry';
 import { isLoopbackUrl } from './loopback-url';
 import {
@@ -113,9 +113,7 @@ export const DEFAULT_PROMPT_TEMPLATE: { system: string; user: string } = {
     '{{examples}}',
     '{{explainInstr}}',
     '{{detectiveInstr}}',
-    'Return JSON ONLY: {"translation": string, "confidence": number (0..1 — 1.0 = unambiguous, 0.8 = one clearly dominant reading, 0.5 = genuinely ambiguous between two readings, 0.2 = guessing — penalise for every [?…] token used), "detectedLang"?: string, "detectedDetail"?: string, "detectedLangs"?: Array<{id: string, detail?: string}>{{explainField}} }.',
-    'If the variety has meaningful sub-dialects / regional or temporal markers (e.g. Arabizi → Levantine; Elvish → Quenya vs Sindarin), put a short (≤ 80 chars) descriptive tag in "detectedDetail", following the tagging rule above: only what the words themselves show. Omit it when there\'s nothing to add beyond the preset name.',
-    'If and ONLY if the source clearly mixes multiple varieties (e.g. Arabizi mixed with Elvish, or Gen-Z slang interleaved with Spanglish), return a "detectedLangs" array with one entry per variety present — each entry is {id, detail?} with the same shape rules as detectedLang/detectedDetail. For a single-variety source, omit the field entirely.',
+    TRANSLATE_FORMAT.text,
   ].join('\n'),
   user: ['{{context}}', 'TEXT:', '"""', '{{text}}', '"""'].join('\n'),
 };

@@ -8,7 +8,8 @@ import { buildSystemAndUser, createContextResolver } from '@/background/router-c
 import { buildPreviewPrompt, PREVIEW_SAMPLE_TEXT } from '@/options/preview-prompt';
 import { materializeVarieties } from '@/shared/varieties';
 import { ownTaskPrompt } from '@/shared/task-view';
-import { ALL_TONES, type Task, type Tone } from '@/shared/task-prompts';
+import { ALL_TONES, buildTaskTemplate, type Task, type Tone } from '@/shared/task-prompts';
+import { DEFAULT_PROMPT_TEMPLATE } from '@/shared/settings-schema';
 import { asLangPresetIdUnsafe } from '@/shared/brands';
 import type { CustomLanguage, Settings, TranslationRequest } from '@/shared/types';
 
@@ -59,6 +60,7 @@ async function routerPrompt(
 }
 
 const OWN_PROMPT_TASKS: readonly Task[] = ['summarize', 'grammar', 'suggest-replies', 'ask'];
+const OWN_PROMPT_TASKS_ALL: readonly Task[] = [...OWN_PROMPT_TASKS, 'reword'];
 
 async function goldenCases(): Promise<Record<string, { system: string; user: string }>> {
   const s = mkSettings();
@@ -134,5 +136,22 @@ describe('golden prompts (v9, no user edits)', () => {
     const recorded = JSON.parse(readFileSync(FIXTURE, 'utf8')) as typeof actual;
     expect(Object.keys(actual).sort()).toEqual(Object.keys(recorded).sort());
     for (const k of Object.keys(recorded)) expect(actual[k], k).toEqual(recorded[k]);
+  });
+});
+
+const TEMPLATES = fileURLToPath(
+  new URL('../../fixtures/prompt-templates-v9.json', import.meta.url),
+);
+
+describe('shipped templates (v9)', () => {
+  it('T-F0: each shipped template plus its answer format is the recorded v9 text', () => {
+    const actual: Record<string, { system: string; user: string }> = {
+      translate: { ...DEFAULT_PROMPT_TEMPLATE },
+      ...Object.fromEntries(OWN_PROMPT_TASKS_ALL.map((t) => [t, buildTaskTemplate(t)])),
+    };
+    if (process.env['EGA_WRITE_GOLDEN'] === '1' || !existsSync(TEMPLATES)) {
+      writeFileSync(TEMPLATES, JSON.stringify(actual, null, 2) + '\n');
+    }
+    expect(actual).toEqual(JSON.parse(readFileSync(TEMPLATES, 'utf8')));
   });
 });
