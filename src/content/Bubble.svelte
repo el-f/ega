@@ -13,13 +13,15 @@
     left: number;
     top: number;
     queued: number;
-    /** Current translation direction. When present, a small `source→target` tag renders inside the bubble. */
+    /** Current translation direction; the label names its target. */
     direction?: Direction;
     /** Plays a 3-ring pulse once, on the first bubble of this install; the parent stores the seen flag. */
     firstRun?: boolean;
     onclick: (e: MouseEvent) => void;
+    /** Opens the bubble's menu under the chevron; `viaKeyboard` moves focus into it. */
+    onmenu: (chevron: HTMLButtonElement, viaKeyboard: boolean) => void;
   }
-  let { left, top, queued, direction, firstRun = false, onclick }: Props = $props();
+  let { left, top, queued, direction, firstRun = false, onclick, onmenu }: Props = $props();
 
   let focusedFrom: HTMLElement | null | undefined;
 
@@ -34,43 +36,57 @@
       return id;
     }
   }
-  // An undetected source adds nothing, so only the target shows.
-  const directionText = $derived.by(() => {
-    if (!direction) return '';
-    const target = languageName(direction.target);
-    return direction.source === 'auto'
-      ? `→ ${target}`
-      : `${languageName(direction.source)} → ${target}`;
+  // The source is left out, so nothing dangles; the tooltip names it.
+  const label = $derived.by(() => {
+    const count = queued > 0 ? ` ${queued + 1}` : '';
+    return direction
+      ? `Translate${count} to ${languageName(direction.target)}`
+      : `Translate${count}`;
   });
-  // The name carries the visible pair, so a voice user can say what they see.
-  const name = $derived(
-    directionText ? `Translate ${directionText} with Ega` : 'Translate with Ega',
-  );
 </script>
 
 <!-- mousedown must not steal focus: the editable-selection re-read needs the field to stay activeElement. -->
-<button
-  class="bubble"
+<div
+  class="bubble-group"
   class:is-first-run={firstRun}
   style:left="{left}px"
   style:top="{top}px"
-  onmousedown={(e) => e.preventDefault()}
-  onfocus={(e) => (focusedFrom = e.relatedTarget as HTMLElement | null)}
-  onclick={(e) => {
-    e.preventDefault();
-    if (!isUserGesture(e)) return;
-    // A keyboard click (detail 0) unmounts the focused button, so focus goes back first; the tooltip restores to it.
-    if (!e.detail) focusedFrom?.focus();
-    onclick(e);
-  }}
-  aria-label={name}
-  title="{queued > 0 ? `${queued} queued. ` : ''}Shift-click to queue more"
+  data-queued={queued}
 >
-  <BrandMark size={16} />
-  {#if queued > 0}
-    <span class="badge">+{queued}</span>
-  {/if}
-  {#if directionText}
-    <span class="direction" aria-hidden="true">{directionText}</span>
-  {/if}
-</button>
+  <button
+    type="button"
+    class="bubble"
+    onmousedown={(e) => e.preventDefault()}
+    onfocus={(e) => (focusedFrom = e.relatedTarget as HTMLElement | null)}
+    onclick={(e) => {
+      e.preventDefault();
+      if (!isUserGesture(e)) return;
+      // A keyboard click (detail 0) unmounts the focused button, so focus goes back first; the tooltip restores to it.
+      if (!e.detail) focusedFrom?.focus();
+      onclick(e);
+    }}
+  >
+    <BrandMark size={16} label="" />
+    <span class="bubble-label">{label}</span>
+  </button>
+  <button
+    type="button"
+    class="bubble-more"
+    aria-label="Bubble options"
+    aria-haspopup="menu"
+    aria-expanded="false"
+    onmousedown={(e) => e.preventDefault()}
+    onclick={(e) => {
+      e.preventDefault();
+      if (!isUserGesture(e)) return;
+      onmenu(e.currentTarget, e.detail === 0);
+    }}
+    onkeydown={(e) => {
+      if (e.key !== 'ArrowDown' || !isUserGesture(e)) return;
+      e.preventDefault();
+      onmenu(e.currentTarget, true);
+    }}
+  >
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+  </button>
+</div>

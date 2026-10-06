@@ -11,7 +11,7 @@ import {
 } from '../../helpers';
 import { assertStaysStable, createTimeline } from '../_harness';
 
-const SITE_OFF_MESSAGE = 'Ega is off for this site.';
+const SITE_OFF_MESSAGE = 'Ega is off on ';
 
 let ext: ExtensionHandle;
 

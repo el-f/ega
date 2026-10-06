@@ -200,13 +200,13 @@ describe('the bubble is moved, not remounted, while dragging', () => {
     expect(seen).toEqual(['second']);
   });
 
-  it('remounts when the badge count changes, so the label is never stale', () => {
+  it('remounts when the queue count changes, so the label is never stale', () => {
     showBubble({ rect: rect(10, 10), queued: 0, onClick: () => {} });
     const first = getContainer().querySelector('.bubble');
 
     showBubble({ rect: rect(10, 10), queued: 2, onClick: () => {} });
 
     expect(getContainer().querySelector('.bubble')).not.toBe(first);
-    expect(getContainer().querySelector('.badge')?.textContent).toBe('+2');
+    expect(getContainer().querySelector('.bubble')?.textContent.trim()).toBe('Translate 3');
   });
 });

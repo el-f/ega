@@ -1,6 +1,7 @@
 import { debugCatch } from '@/shared/logger';
 import { mount, unmount } from 'svelte';
 import Bubble from './Bubble.svelte';
+import type * as MenuMod from './bubble-menu';
 import {
   getContainer,
   getShadowHostElement,
@@ -29,8 +30,17 @@ interface Mounted {
 
 let current: Mounted | null = null;
 let currentOnClick: ((e: MouseEvent) => void) | null = null;
+// The menu loads on first open; most pages never open it.
+let menuMod: typeof MenuMod | null = null;
 
-const BUBBLE_HEIGHT = 24;
+/** The one import site for the menu chunk, so its preload list ships once in the eager script. */
+export function loadBubbleMenu(): Promise<typeof MenuMod> {
+  return import('./bubble-menu').then((m) => (menuMod = m));
+}
+
+const BUBBLE_HEIGHT = 28;
+/** The mark, a 160px label and the chevron. */
+const BUBBLE_WIDTH = 250;
 
 // A probe that lands between blocks hits `<body>` or `#app`, whose textContent is the whole page.
 function hasText(el: Element): boolean {
@@ -42,8 +52,8 @@ function hasText(el: Element): boolean {
 }
 
 function placeBubble(rect: DOMRect): { left: number; top: number } {
-  // The default +8 landing sits on the next line of a wrapped paragraph, so probe it and clear any text there.
-  const desiredTop = rect.bottom + 8;
+  // The default landing sits on the next line of a wrapped paragraph, so probe it and clear any text there.
+  const desiredTop = rect.bottom + 4;
   const desiredLeft = Math.max(8, rect.left);
   let top = Math.min(window.innerHeight - 32, desiredTop);
   const probeX = Math.min(window.innerWidth - 4, desiredLeft + 16);
@@ -56,16 +66,15 @@ function placeBubble(rect: DOMRect): { left: number; top: number } {
     const hitRect = hit.getBoundingClientRect();
     // Re-anchor only when the element below the selection would sit under the bubble, so nearby text stays readable.
     if (hitRect.top >= rect.bottom - 2 && hitRect.bottom > desiredTop && hasText(hit)) {
-      top = Math.min(window.innerHeight - 32, hitRect.bottom + 6);
+      top = Math.min(window.innerHeight - 32, hitRect.bottom + 4);
     }
   }
   // With no room below, the bubble pins to the viewport bottom and covers the last selected line, so flip it above.
   if (desiredTop + BUBBLE_HEIGHT > window.innerHeight - 8) {
-    const aboveTop = rect.top - BUBBLE_HEIGHT - 8;
+    const aboveTop = rect.top - BUBBLE_HEIGHT - 4;
     if (aboveTop >= 4) top = aboveTop;
   }
-  // Room for the mark plus a 160px direction label, so the bubble never runs off the right edge.
-  return { left: Math.max(8, Math.min(window.innerWidth - 210, desiredLeft)), top };
+  return { left: Math.max(8, Math.min(window.innerWidth - BUBBLE_WIDTH, desiredLeft)), top };
 }
 
 function directionKey(d: BubbleOpts['direction']): string {
@@ -82,7 +91,7 @@ function moveMounted(opts: BubbleOpts, left: number, top: number): boolean {
   ) {
     return false;
   }
-  const btn = current.anchor.querySelector<HTMLElement>('.bubble');
+  const btn = current.anchor.querySelector<HTMLElement>('.bubble-group');
   if (!btn?.isConnected) return false;
   btn.style.left = `${left}px`;
   btn.style.top = `${top}px`;
@@ -114,6 +123,11 @@ export function showBubble(opts: BubbleOpts): void {
         currentOnClick?.(e);
         hideBubble();
       },
+      onmenu: (chevron: HTMLButtonElement, viaKeyboard: boolean) => {
+        void loadBubbleMenu().then((m) =>
+          m.openBubbleMenu(chevron, { focusFirst: viaKeyboard, hideBubble }),
+        );
+      },
     },
   });
   current = {
@@ -127,6 +141,7 @@ export function showBubble(opts: BubbleOpts): void {
 
 export function hideBubble(): void {
   currentOnClick = null;
+  menuMod?.closeBubbleMenu();
   if (current) {
     try {
       void unmount(current.handle);

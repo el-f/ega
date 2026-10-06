@@ -3,7 +3,7 @@ import { getShadowHostElement, onShadowHostMounted } from './shadowHost';
 import { installTestHooks } from './testHooks';
 import { getSelectionInfo, isEditableRange } from './selection';
 import { isSensitiveRange, isSensitiveTarget, selectionIsSensitive } from './safety';
-import { showBubble, hideBubble } from './bubble';
+import { showBubble, hideBubble, loadBubbleMenu } from './bubble';
 import { installSelectionRestore, uninstallSelectionRestore } from './selection-restore';
 import * as accum from './accumulator';
 import { openTooltip, finishTooltipDirect, errorTooltip, closeTooltip } from './lazy-tooltip';
@@ -130,9 +130,13 @@ interface EgaWindow extends Window {
 }
 (window as EgaWindow).__egaPerfDump = () => JSON.stringify(perfDump(), null, 2);
 
-/** Every path that would move page text off the page checks this first. */
-export const SITE_OFF_MESSAGE =
-  'Ega is off for this site. Right-click empty page space, then choose Ega ▸ Enable Ega on this site.';
+/** Every path that would move page text off the page checks the site switch first, and says so with a way back. */
+export function showSiteOffToast(): void {
+  // The notice and its Turn on live with the bubble menu's chunk: a site-off page is rare.
+  void loadBubbleMenu()
+    .then((m) => m.showSiteOffToast())
+    .catch((e: unknown) => reportEntryFailure(e, 'content.siteOffToast'));
+}
 
 /** Sync so the two pull handlers can answer in the same tick. A null cache means the
  *  boot read has not landed, and an unknown answer must not be read as "site is on". */
@@ -586,10 +590,11 @@ const handlerDeps: HandlerDeps = { ensureSettings };
 
 async function dispatchPageTranslate(): Promise<void> {
   closeStickyToast();
+  hideBubble();
   const settings = await ensureSettings();
   const eff = resolveEffective(settings, location.origin);
   if (eff.disabled) {
-    showToast(SITE_OFF_MESSAGE);
+    showSiteOffToast();
     return;
   }
   const mod = await lazyPageV2();
@@ -632,10 +637,11 @@ export async function startTranslateText(
   forceInline = false,
   taskOverride?: TaskId,
 ): Promise<void> {
+  hideBubble();
   const s = await ensureSettings();
   const eff = resolveEffective(s, location.origin);
   if (eff.disabled) {
-    showToast(SITE_OFF_MESSAGE);
+    showSiteOffToast();
     return;
   }
   const trimmed = text.length > MAX_SELECTION_CHARS ? text.slice(0, MAX_SELECTION_CHARS) : text;
@@ -705,10 +711,17 @@ async function handleBubbleClick(
   if (e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
     accum.add({ text: info.text, rect: info.rect });
     hideBubble();
+    if (!queueExplained) {
+      queueExplained = true;
+      showToast('Added to the queue. Select more text, then click Translate to send it all.');
+    }
     return;
   }
   await startTranslateSelection();
 }
+
+/** The first Shift-click on this page says what the queue is; the label's count carries it after that. */
+let queueExplained = false;
 
 /** The popup's Translate anyway names a selection the popup itself cleared; anchor on the kept range. */
 function keptSelectionInfo(text: string | undefined): ReturnType<typeof getSelectionInfo> {
@@ -730,7 +743,8 @@ async function startTranslateSelection(
     targetLangOverride !== undefined ? { source: 'auto', target: targetLangOverride } : undefined;
   const info = getSelectionInfo(s?.selectionContextCap) ?? keptSelectionInfo(overrideText);
   if (selectionIsSensitive(info?.range, document.activeElement)) {
-    showToast('Ega does not read password, card or one-time-code fields.');
+    hideBubble();
+    showToast("Ega doesn't read password, card or code fields.");
     return;
   }
   const queued = accum.list();
@@ -753,7 +767,7 @@ async function startTranslateSelection(
     accum.clear();
     if (dropped > 0) {
       showToast(
-        `Sent ${parts.length - dropped} of ${parts.length} selections. The rest did not fit.`,
+        `Sent ${parts.length - dropped} of ${parts.length} selections. The rest didn't fit.`,
       );
     }
     await startTranslateText(
@@ -849,9 +863,11 @@ function handleChunk(c: TranslationChunk): void {
 
 export async function enterPickerMode(): Promise<void> {
   closeStickyToast();
+  hideBubble();
+  closeTooltip();
   const eff = resolveEffective(await ensureSettings(), location.origin);
   if (eff.disabled) {
-    showToast(SITE_OFF_MESSAGE);
+    showSiteOffToast();
     return;
   }
   await enterPickerModeImpl((text, rect) => {

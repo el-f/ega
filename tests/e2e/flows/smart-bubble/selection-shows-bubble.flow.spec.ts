@@ -55,13 +55,13 @@ test('eligible Arabizi selection -> smart bubble mounts in shadow host', async (
     .toBe(true);
   timeline.markStep('bubble-visible');
 
-  // The pill is the only surface that shows the detector fired: 'arabizi' here, not the 'auto' default.
+  // The label names only the target; the tooltip meta names the detected source.
   const pillText = await page.evaluate(() => {
     const host = document.querySelector('#ega-shadow-host');
     const root = (host as HTMLElement | null)?.shadowRoot;
-    return root?.querySelector('.bubble .direction')?.textContent.trim() ?? null;
+    return root?.querySelector('.bubble')?.textContent.trim() ?? null;
   });
-  expect(pillText).toBe('Arabizi → English');
+  expect(pillText).toBe('Translate to English');
 
   const steps = timeline.report();
   const bubbleStep = steps.find((s) => s.name === 'bubble-visible');

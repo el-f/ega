@@ -2,6 +2,14 @@
 
 :host {
   all: initial;
+  /* Every Ega layer sits inside the one host stacking context, bottom to top. */
+  --ega-layer-dimmer: 1;
+  --ega-layer-outline: 2;
+  --ega-layer-bar: 3;
+  --ega-layer-bubble: 4;
+  --ega-layer-tooltip: 5;
+  --ega-layer-toast: 6;
+  --ega-layer-label: 7;
 }
 .ega-root {
   font-family: var(--font-ui);
@@ -9,49 +17,91 @@
   color: var(--color-fg);
 }
 
-.bubble {
+.bubble-group {
   position: fixed;
-  z-index: 2147483647;
+  z-index: var(--ega-layer-bubble);
+  display: inline-flex;
+  align-items: stretch;
+  height: 28px;
   background: var(--color-bg);
-  color: var(--color-fg);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-control-border);
   border-radius: var(--radius-pill);
-  padding: var(--space-1) var(--space-2);
-  cursor: pointer;
   box-shadow: 0 4px 12px var(--color-shadow-soft);
-  font-weight: 600;
-  font-size: var(--fs-sm);
+  font-family: var(--font-ui);
   user-select: none;
-  transition:
-    transform var(--motion-fast) var(--ease-out),
-    opacity var(--motion-fast) var(--ease-out);
   /* The bubble is remounted per selection, so this fires once per pick. */
   animation: ega-bubble-pop var(--motion-fast) var(--ease-out) both;
 }
-.bubble:hover {
-  transform: translateY(-1px);
+.bubble,
+.bubble-more {
+  display: inline-flex;
+  align-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--color-fg);
+  font: inherit;
+  cursor: pointer;
+}
+.bubble {
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
+  border-start-start-radius: var(--radius-pill);
+  border-end-start-radius: var(--radius-pill);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+.bubble-label {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bubble-more {
+  justify-content: center;
+  width: 24px;
+  border-inline-start: 1px solid var(--color-border-subtle);
+  border-start-end-radius: var(--radius-pill);
+  border-end-end-radius: var(--radius-pill);
+}
+.bubble-more svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.bubble:hover,
+.bubble-more:hover {
+  background: var(--color-bg-hover);
+}
+.bubble:focus-visible,
+.bubble-more:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 /* First-run pulse: 3 rings, then it stops. A settings flag prevents replays. */
-.bubble.is-first-run {
-  animation:
-    ega-bubble-pop var(--motion-fast) var(--ease-out) both,
-    ega-bubble-first-run-pulse 1.1s var(--ease-out) 3;
+.bubble-group.is-first-run::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  pointer-events: none;
+  animation: ega-bubble-ring 1.1s var(--ease-out) 3;
 }
-@keyframes ega-bubble-first-run-pulse {
-  0% {
-    box-shadow:
-      0 4px 12px var(--color-shadow-soft),
-      0 0 0 0 rgba(0, 144, 255, 0.45);
+@keyframes ega-bubble-ring {
+  from {
+    box-shadow: 0 0 0 0 var(--color-accent);
   }
-  70% {
-    box-shadow:
-      0 4px 12px var(--color-shadow-soft),
-      0 0 0 12px rgba(0, 144, 255, 0);
+  to {
+    box-shadow: 0 0 0 12px transparent;
   }
-  100% {
-    box-shadow:
-      0 4px 12px var(--color-shadow-soft),
-      0 0 0 0 rgba(0, 144, 255, 0);
+}
+@media (prefers-reduced-motion: reduce) {
+  .bubble-group,
+  .bubble-group::after {
+    animation: none;
   }
 }
 @keyframes ega-bubble-pop {
@@ -63,40 +113,6 @@
     opacity: 1;
     transform: scale(1);
   }
-}
-
-.banner {
-  position: fixed;
-  top: var(--space-3);
-  right: var(--space-3);
-  z-index: 2147483647;
-  background: var(--color-bg);
-  color: var(--color-fg);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-2) var(--space-3);
-  box-shadow: 0 8px 24px var(--color-shadow);
-  max-width: 340px;
-}
-.banner .row {
-  display: flex;
-  gap: var(--space-2);
-  margin-top: var(--space-2);
-  flex-wrap: wrap;
-}
-.banner button {
-  background: var(--color-success);
-  color: var(--color-accent-fg);
-  border: 0;
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  font-size: var(--fs-sm);
-}
-.banner button.secondary {
-  background: transparent;
-  color: var(--color-accent);
-  border: 1px solid var(--color-border);
 }
 
 /* Content-surface toast. Its rules live here because a component <style> never crosses the shadow boundary. */
@@ -192,32 +208,10 @@
   }
 }
 
-/* Selection-bubble badge + direction. */
-/* One row, one gap: the mark is a row of its own inside the bubble's, so no child needs a margin. */
-.bubble,
+/* The mark is a row of its own inside the bubble's, so no child needs a margin. */
 .bubble .ega-brand-mark {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
-}
-.bubble .badge {
-  background: var(--color-success);
-  color: var(--color-on-accent, #fff); /* token-lint-allow */
-  border-radius: var(--radius-pill);
-  padding: 0 6px;
-  font-size: var(--fs-xs);
-  font-weight: 700;
-  line-height: 16px;
-}
-.bubble .direction {
-  font-size: var(--fs-xs);
-  font-weight: 500;
-  letter-spacing: 0.2px;
-  /* Language names, not codes: a long custom name truncates instead of widening the bubble off-screen. */
-  max-width: 160px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* Shadow-root copy of the BrandMark icon. The tooltip's copies live in tooltip/tooltip.css, which loads with the tooltip. */

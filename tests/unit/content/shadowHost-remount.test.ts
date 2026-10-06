@@ -2,7 +2,7 @@
 /** One case per onShadowHostRemount registrant: a missing one leaves its component in the detached root, holding listeners. */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mountShadowHost, getContainer, getShadowRoot } from '@/content/shadowHost';
-import { showBanner } from '@/content/banner';
+import { openBubbleMenu } from '@/content/bubble-menu';
 import { showBatchProgress, isBatchProgressActive } from '@/content/batch-progress';
 import { showBubble, hideBubble } from '@/content/bubble';
 import { showToast, dismissToast } from '@/content/toast';
@@ -56,13 +56,16 @@ describe('every shadow-host surface disposes on a remount', () => {
     vi.useRealTimers();
   });
 
-  it('banner', () => {
-    showBanner({ message: 'hello' });
-    expect(liveCount('[data-ega-banner]')).toBe(1);
+  it('bubble menu', () => {
+    showBubble({ rect: rect(), queued: 0, onClick: () => {} });
+    const chevron = getShadowRoot().querySelector<HTMLButtonElement>('.bubble-more');
+    if (!chevron) throw new Error('no chevron');
+    openBubbleMenu(chevron, { focusFirst: false, hideBubble });
+    expect(liveCount('[data-ega-bubble-menu]')).toBe(1);
 
     const orphaned = remountHost();
 
-    expect(orphaned.querySelectorAll('[data-ega-banner]')).toHaveLength(0);
+    expect(orphaned.querySelectorAll('[data-ega-bubble-menu]')).toHaveLength(0);
   });
 
   it('batch progress pill', () => {

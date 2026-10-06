@@ -50,7 +50,7 @@ test('Shift-click queues; plain-click translates all queued + current', async ()
   await selectById(page, 'first');
   await expect
     .poll(async () => (await egaTest<string>(page, 'bubbleLabel')) ?? '')
-    .toContain('Ega');
+    .toContain('Translate');
   const shifted = await egaTest<boolean>(page, 'shiftClickBubble');
   expect(shifted).toBe(true);
 
@@ -85,7 +85,7 @@ test('Plain-click with empty queue behaves as single-selection', async () => {
   await selectById(page, 'first');
   await expect
     .poll(async () => (await egaTest<string>(page, 'bubbleLabel')) ?? '')
-    .toContain('Ega');
+    .toContain('Translate');
   const clicked = await egaTest<boolean>(page, 'clickBubble');
   expect(clicked).toBe(true);
 

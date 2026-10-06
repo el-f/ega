@@ -33,7 +33,7 @@ test('first-run: selection shows the translate bubble on a plain page', async ()
     .poll(async () => (await egaTest<number>(page, 'bubbleCount')) ?? 0, { timeout: 5_000 })
     .toBeGreaterThan(0);
   const label = (await egaTest<string>(page, 'bubbleLabel')) ?? '';
-  expect(label).toContain('Ega');
+  expect(label).toContain('Translate');
 });
 
 test('first-run: clicking the bubble opens the tooltip with a translation', async () => {

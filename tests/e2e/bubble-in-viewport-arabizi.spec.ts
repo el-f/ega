@@ -60,7 +60,7 @@ test('bubble mounts inside the viewport on an Arabizi selection with an emoji', 
     .toBeGreaterThan(0);
 
   const label = await egaTest<string>(page, 'bubbleLabel');
-  expect(label).toMatch(/Ega/);
+  expect(label).toMatch(/^Translate/);
 
   const rect = await egaTest<BubbleRect>(page, 'bubbleRect');
   expect(rect).not.toBeNull();

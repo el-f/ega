@@ -37,7 +37,7 @@ function probeHit(box: DOMRect, text: string): { el: HTMLElement; textReads: () 
 }
 
 function bubbleTop(): number {
-  const btn = getContainer().querySelector<HTMLElement>('.bubble');
+  const btn = getContainer().querySelector<HTMLElement>('.bubble-group');
   return Number.parseFloat(btn?.style.top ?? 'NaN');
 }
 
@@ -55,7 +55,7 @@ describe('bubble placement', () => {
     showBubble({ rect: rect(100, 120), queued: 0, onClick: vi.fn() });
 
     expect(textReads()).toBe(0);
-    expect(bubbleTop()).toBe(128);
+    expect(bubbleTop()).toBe(124);
   });
 
   it('a text line right below the selection still pushes the bubble under it', () => {
@@ -65,7 +65,7 @@ describe('bubble placement', () => {
 
     showBubble({ rect: rect(100, 120), queued: 0, onClick: vi.fn() });
 
-    expect(bubbleTop()).toBe(148);
+    expect(bubbleTop()).toBe(146);
   });
 
   it('looks past an open Ega surface to the page text under the probe', () => {
@@ -81,7 +81,7 @@ describe('bubble placement', () => {
 
     showBubble({ rect: rect(100, 120), queued: 0, onClick: vi.fn() });
 
-    expect(bubbleTop()).toBe(148);
+    expect(bubbleTop()).toBe(146);
   });
 
   it('a blank element below the selection leaves the bubble where it was', () => {
@@ -91,6 +91,6 @@ describe('bubble placement', () => {
 
     showBubble({ rect: rect(100, 120), queued: 0, onClick: vi.fn() });
 
-    expect(bubbleTop()).toBe(128);
+    expect(bubbleTop()).toBe(124);
   });
 });

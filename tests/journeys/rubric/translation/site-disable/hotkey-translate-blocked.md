@@ -2,7 +2,7 @@
 
 ## Latency budgets
 
-- Hotkey press -> "Ega is off for this site." toast: <= 300ms. The gate is a settings read, not a
+- Hotkey press -> "Ega is off on {host}." toast: <= 300ms. The gate is a settings read, not a
   network call.
 
 ## State expectations

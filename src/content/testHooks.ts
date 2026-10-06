@@ -30,7 +30,6 @@ type OpName =
   | 'bubbleLabel'
   | 'bubbleRect'
   | 'bubbleQueuedBadge'
-  | 'bubbleDirection'
   | 'tooltipDirection'
   | 'clickBubble'
   | 'shiftClickBubble'
@@ -156,8 +155,10 @@ function run(op: OpName, arg?: string): unknown {
       };
     }
     case 'bubbleQueuedBadge': {
-      const badge = getShadowRoot().querySelector('.bubble .badge');
-      return badge ? badge.textContent.trim() : null;
+      const queued = Number(
+        getShadowRoot().querySelector<HTMLElement>('.bubble-group')?.dataset['queued'],
+      );
+      return queued > 0 ? `+${queued}` : null;
     }
     case 'clickBubble': {
       const btn = getShadowRoot().querySelector<HTMLButtonElement>('.bubble');
@@ -173,10 +174,6 @@ function run(op: OpName, arg?: string): unknown {
         new MouseEvent('click', { shiftKey: true, bubbles: true, cancelable: true }),
       );
       return true;
-    }
-    case 'bubbleDirection': {
-      const d = getShadowRoot().querySelector('.bubble .direction');
-      return d ? d.textContent.trim() : null;
     }
     case 'tooltipDirection': {
       const d = getShadowRoot().querySelector('.tooltip [data-ega-direction]');

@@ -34,7 +34,7 @@ function selectWord(): void {
 
 async function mountedBubble(): Promise<HTMLElement> {
   return vi.waitFor(() => {
-    const b = peekContainer()?.querySelector<HTMLElement>('.bubble');
+    const b = peekContainer()?.querySelector<HTMLElement>('.bubble-group');
     if (!b) throw new Error('no bubble yet');
     return b;
   });

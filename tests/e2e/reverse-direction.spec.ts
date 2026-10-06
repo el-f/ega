@@ -54,8 +54,8 @@ test('tooltip ↔ swaps source/target; translate uses swapped direction and pers
   await expect
     .poll(async () => (await egaTest<number>(page, 'bubbleCount')) ?? 0, { timeout: 5_000 })
     .toBeGreaterThan(0);
-  const before = (await egaTest<string>(page, 'bubbleDirection')) ?? '';
-  expect(before).toBe('English → Spanish');
+  const before = (await egaTest<string>(page, 'bubbleLabel')) ?? '';
+  expect(before).toBe('Translate to Spanish');
 
   const clicked = await egaTest<boolean>(page, 'clickBubble');
   expect(clicked).toBe(true);
@@ -129,6 +129,6 @@ test('bubble shows the detected variety when default source is "auto"', async ()
     .poll(async () => (await egaTest<number>(page, 'bubbleCount')) ?? 0, { timeout: 5_000 })
     .toBeGreaterThan(0);
 
-  const dir = (await egaTest<string>(page, 'bubbleDirection')) ?? '';
-  expect(dir).toBe('Arabizi → English');
+  const dir = (await egaTest<string>(page, 'bubbleLabel')) ?? '';
+  expect(dir).toBe('Translate to English');
 });

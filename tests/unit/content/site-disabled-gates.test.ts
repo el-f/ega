@@ -15,6 +15,7 @@ vi.mock('@/content/picker-overlay', () => ({
 }));
 
 const showToastMock = vi.fn();
+const SITE_OFF = 'Ega is off on localhost.';
 vi.mock('@/content/toast', () => ({
   showToast: (...a: unknown[]) => showToastMock(...a),
   dismissToast: vi.fn(),
@@ -88,18 +89,30 @@ describe('site disabled — no text leaves the page by any path', () => {
     enterPickerImpl.mockClear();
   });
 
-  it('the refusal names the way back on', () => {
-    expect(content.SITE_OFF_MESSAGE).toContain('Ega is off for this site.');
-    expect(content.SITE_OFF_MESSAGE).toContain('Enable Ega on this site');
-    // The page items show only on empty page space, inside the Ega submenu.
-    expect(content.SITE_OFF_MESSAGE).toContain('Right-click empty page space, then choose Ega ▸');
+  it('the refusal names the site and turns it back on in one click', async () => {
+    content.showSiteOffToast();
+    await vi.waitFor(() => expect(showToastMock).toHaveBeenCalled());
+    const [message, opts] = showToastMock.mock.calls[0] as [
+      string,
+      { kind: string; action: { label: string; run: () => void } },
+    ];
+    expect(message).toBe('Ega is off on localhost.');
+    expect(opts.kind).toBe('warning');
+    expect(opts.action.label).toBe('Turn on');
+    opts.action.run();
+    await vi.waitFor(() =>
+      expect(chromeMock.runtime.sendMessage).toHaveBeenCalledWith({
+        kind: 'site:set-enabled',
+        enabled: true,
+      }),
+    );
   });
 
   it('startTranslateText sends nothing and says why', async () => {
     await content.startTranslateText('hola mundo', RECT);
 
     expect(sentKinds()).not.toContain('translate:start');
-    expect(showToastMock).toHaveBeenCalledWith(content.SITE_OFF_MESSAGE);
+    await vi.waitFor(() => expect(showToastMock).toHaveBeenCalledWith(SITE_OFF, expect.anything()));
   });
 
   it('page:translateAll is refused', async () => {
@@ -108,7 +121,7 @@ describe('site disabled — no text leaves the page by any path', () => {
       { id: chromeMock.runtime.id },
       () => {},
     );
-    await vi.waitFor(() => expect(showToastMock).toHaveBeenCalledWith(content.SITE_OFF_MESSAGE));
+    await vi.waitFor(() => expect(showToastMock).toHaveBeenCalledWith(SITE_OFF, expect.anything()));
 
     expect(sentKinds()).not.toContain('translate:start');
   });
@@ -117,7 +130,7 @@ describe('site disabled — no text leaves the page by any path', () => {
     await content.enterPickerMode();
 
     expect(enterPickerImpl).not.toHaveBeenCalled();
-    expect(showToastMock).toHaveBeenCalledWith(content.SITE_OFF_MESSAGE);
+    await vi.waitFor(() => expect(showToastMock).toHaveBeenCalledWith(SITE_OFF, expect.anything()));
   });
 
   it('a selection is not kept for the popup once the page drops it', async () => {

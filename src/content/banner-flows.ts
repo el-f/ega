@@ -1,4 +1,4 @@
-import { showBanner } from './banner';
+import { showToast } from './toast';
 import { patchSettings } from '@/shared/settings-bus';
 import { pending } from './request-state';
 import { isExtensionContextValid } from './context-guard';
@@ -30,21 +30,17 @@ function openSelectionSettings(): void {
   }
 }
 
-/** Dismiss persists the flag, so later suppressions stay silent. */
+/** Once per install: the flag is stored when the notice shows, so later hold-backs stay silent. */
 export function maybeShowSmartBannerOnce(s: Settings): void {
   if (s.bubbleMode !== 'smart') return;
   if (s.smartBubbleBannerShown) return;
   if (smartBannerShownThisSession) return;
   smartBannerShownThisSession = true;
-  const persist = (): void => {
+  const show = (): void => {
     // Through the SW: a content-script write cannot join the extension-origin settings lock.
     void patchSettings({ smartBubbleBannerShown: true });
-  };
-  const show = (): void => {
-    showBanner({
-      message:
-        'The translate button appears only on text Ega can translate. Change this in Settings → Selection & picker.',
-      onDismiss: persist,
+    showToast("The bubble only shows on text that isn't English. Change this in Settings.", {
+      kind: 'info',
       action: { label: 'Open settings', run: openSelectionSettings },
     });
   };
