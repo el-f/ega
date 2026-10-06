@@ -468,6 +468,43 @@
   );
 </script>
 
+<!-- In the action row it is part of the toolbar's one tab stop; while a version runs or failed it stands alone,
+     so an earlier version can still be read. -->
+{#snippet pager(roving: boolean)}
+  <span class="ega-pager" data-ega-variant-nav>
+    <IconButton
+      icon={ChevronLeft}
+      ariaLabel="Previous version"
+      size="sm"
+      dataAttrs={{
+        'data-ega-variant-prev': 'true',
+        'data-ega-action': 'prev',
+        ...(roving ? { tabindex: tab('prev') } : {}),
+        ...(activeIdx <= 0 ? { 'aria-disabled': 'true' } : {}),
+      }}
+      onclick={() => {
+        if (activeIdx > 0) onSelectVariant?.(turn.id, activeIdx - 1);
+      }}
+    />
+    <span class="ega-pager-count" aria-hidden="true">{activeIdx + 1}/{variantCount}</span>
+    <span class="ega-sr-only" aria-live="polite">Version {activeIdx + 1} of {variantCount}</span>
+    <IconButton
+      icon={ChevronRight}
+      ariaLabel="Next version"
+      size="sm"
+      dataAttrs={{
+        'data-ega-variant-next': 'true',
+        'data-ega-action': 'next',
+        ...(roving ? { tabindex: tab('next') } : {}),
+        ...(activeIdx >= variantCount - 1 ? { 'aria-disabled': 'true' } : {}),
+      }}
+      onclick={() => {
+        if (activeIdx < variantCount - 1) onSelectVariant?.(turn.id, activeIdx + 1);
+      }}
+    />
+  </span>
+{/snippet}
+
 <article
   class="ega-reply"
   class:focused
@@ -488,14 +525,17 @@
     {/if}
     {#if isCancelled}
       <p class="ega-stopped" role="status" data-ega-cancelled>Stopped</p>
-      {#if canTryAgain}
+      {#if canTryAgain || variantCount > 1}
         <div class="ega-error-actions">
-          <Button
-            variant="ghost"
-            size="sm"
-            dataAttrs={{ 'data-ega-retry': 'true' }}
-            onclick={() => runErrorAction('try-again')}>{errorActionName('try-again')}</Button
-          >
+          {#if canTryAgain}
+            <Button
+              variant="ghost"
+              size="sm"
+              dataAttrs={{ 'data-ega-retry': 'true' }}
+              onclick={() => runErrorAction('try-again')}>{errorActionName('try-again')}</Button
+            >
+          {/if}
+          {#if variantCount > 1}{@render pager(false)}{/if}
         </div>
       {/if}
     {:else if copy}
@@ -538,6 +578,7 @@
               onclick={() => (detailsOpen = !detailsOpen)}>Details {detailsOpen ? '▾' : '▸'}</Button
             >
           {/if}
+          {#if variantCount > 1}{@render pager(false)}{/if}
         </div>
         {#if detailsOpen && copy.detail !== undefined}
           <pre class="ega-error-detail">{copy.detail}</pre>
@@ -646,42 +687,7 @@
           onBookmark={() => onBookmark?.(turn.id)}
           onDelete={() => onDelete?.(turn.id)}
         />
-        {#if variantCount > 1}
-          <span class="ega-pager" data-ega-variant-nav>
-            <IconButton
-              icon={ChevronLeft}
-              ariaLabel="Previous version"
-              size="sm"
-              dataAttrs={{
-                'data-ega-variant-prev': 'true',
-                'data-ega-action': 'prev',
-                tabindex: tab('prev'),
-                ...(activeIdx <= 0 ? { 'aria-disabled': 'true' } : {}),
-              }}
-              onclick={() => {
-                if (activeIdx > 0) onSelectVariant?.(turn.id, activeIdx - 1);
-              }}
-            />
-            <span class="ega-pager-count" aria-hidden="true">{activeIdx + 1}/{variantCount}</span>
-            <span class="ega-sr-only" aria-live="polite"
-              >Version {activeIdx + 1} of {variantCount}</span
-            >
-            <IconButton
-              icon={ChevronRight}
-              ariaLabel="Next version"
-              size="sm"
-              dataAttrs={{
-                'data-ega-variant-next': 'true',
-                'data-ega-action': 'next',
-                tabindex: tab('next'),
-                ...(activeIdx >= variantCount - 1 ? { 'aria-disabled': 'true' } : {}),
-              }}
-              onclick={() => {
-                if (activeIdx < variantCount - 1) onSelectVariant?.(turn.id, activeIdx + 1);
-              }}
-            />
-          </span>
-        {/if}
+        {#if variantCount > 1}{@render pager(true)}{/if}
       </div>
       {#if aboutOpen}
         <ReplyDetails
@@ -698,6 +704,8 @@
           onClose={() => void setAbout(false)}
         />
       {/if}
+    {:else if variantCount > 1}
+      <div class="ega-reply-actions-slot">{@render pager(false)}</div>
     {:else}
       <!-- The row's height is kept while the reply runs, so nothing jumps when it lands. -->
       <div class="ega-reply-actions-slot" aria-hidden="true"></div>
@@ -871,6 +879,8 @@
     gap: var(--space-1);
     min-block-size: 28px;
   }
+  .ega-reply-actions-slot :global([aria-disabled='true']),
+  .ega-error-actions :global(.ega-pager [aria-disabled='true']),
   .ega-reply-actions :global([aria-disabled='true']) {
     color: var(--color-fg-disabled);
     cursor: var(--cursor-disabled);

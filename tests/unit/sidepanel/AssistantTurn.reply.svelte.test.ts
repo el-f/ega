@@ -251,6 +251,50 @@ describe('versions', () => {
     await fireEvent.click(container.querySelector('[data-ega-variant-prev]') as HTMLElement);
     expect(props.onSelectVariant).toHaveBeenCalledTimes(2);
   });
+
+  it('a version that is still running keeps the pager, so the earlier one can be read', async () => {
+    const running = doneReply({
+      status: 'streaming',
+      content: 'Tw',
+      variants: [
+        { id: 'v1', status: 'done', content: 'One' },
+        { id: 'v2', status: 'streaming', content: 'Tw' },
+      ],
+      activeVariantIdx: 1,
+    });
+    const props = replyProps(running);
+    const { container } = render(AssistantTurn, { props });
+    // Only the pager: Copy, Regenerate, Refine and More wait for the reply to land.
+    expect(container.querySelector('[data-ega-action="copy"]')).toBeNull();
+    expect(container.querySelector('.ega-pager-count')?.textContent).toBe('2/2');
+    await fireEvent.click(container.querySelector('[data-ega-variant-prev]') as HTMLElement);
+    expect(props.onSelectVariant).toHaveBeenCalledWith('a1', 0);
+  });
+
+  it('a failed or stopped version keeps the pager beside its error actions', async () => {
+    const failed = doneReply({
+      status: 'error',
+      content: '',
+      error: { code: 'NETWORK', message: 'fetch failed' },
+      variants: [
+        { id: 'v1', status: 'done', content: 'One' },
+        { id: 'v2', status: 'error', content: '', error: { code: 'NETWORK', message: 'x' } },
+      ],
+      activeVariantIdx: 1,
+    });
+    const props = replyProps(failed);
+    const { container, rerender } = render(AssistantTurn, { props });
+    const row = container.querySelector('.ega-error-actions');
+    expect(row?.querySelector('[data-ega-retry]')).not.toBeNull();
+    expect(row?.querySelector('.ega-pager-count')?.textContent).toBe('2/2');
+    await fireEvent.click(row?.querySelector('[data-ega-variant-prev]') as HTMLElement);
+    expect(props.onSelectVariant).toHaveBeenCalledWith('a1', 0);
+
+    const stopped = { ...failed, error: { code: 'ABORTED' as const, message: '' } };
+    await rerender({ ...props, turn: stopped });
+    expect(container.querySelector('[data-ega-cancelled]')).not.toBeNull();
+    expect(container.querySelector('.ega-error-actions .ega-pager-count')?.textContent).toBe('2/2');
+  });
 });
 
 describe('focus after a re-run', () => {
