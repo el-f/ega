@@ -36,7 +36,7 @@
   let langTouched = $state(false);
   let varieties: Variety[] = $state([]);
   let pickerEnabled = $state(true);
-  let liveSettings: Settings | null = $state(null);
+  let liveSettings = $state<Settings | null>(null);
   let theme: ThemePref = $state('system');
   let backendReady = $state<boolean | null>(null);
 
