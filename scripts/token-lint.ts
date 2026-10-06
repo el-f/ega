@@ -2,6 +2,7 @@ import { readFile, readdir, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
+// Contract: font sizes come from the type scale — a `font-size` is var(--fs-*), a custom property that falls back to one, or inherit; a `font` shorthand carries no literal size. The same ALLOW_MARKER skips one line (page-DOM text sized in em on purpose).
 // Contract: raw color literals — #hex AND rgb()/rgba()/hsl()/hsla()/oklch()/oklab()/color-mix() — belong in src/shared/tokens.css only; elsewhere use var(--color-*). Append the ALLOW_MARKER below in a CSS comment to skip one line. Hex fails the gate. Color functions fail too, except the frozen set in token-lint-baseline.json; `--update-baseline` only prunes entries that are gone, so the set can shrink and never grow.
 
 // Non-global so .test() doesn't carry lastIndex between calls.
@@ -15,12 +16,26 @@ interface Violation {
   file: string;
   line: number;
   snippet: string;
-  kind: 'hex' | 'fn';
+  kind: 'hex' | 'fn' | 'font';
+}
+
+const FONT_SIZE_RE = /(?:^|[\s;{"])font-size\s*:\s*([^;}"]+)/i;
+const FONT_SHORTHAND_RE = /(?:^|[\s;{"])font\s*:\s*([^;}"]+)/i;
+const SCALE_VALUE_RE =
+  /^(?:inherit|var\(--fs-[\w-]+\)|var\(--[\w-]+,\s*var\(--fs-[\w-]+\)\))(?:\s*!important)?$/;
+const LITERAL_SIZE_RE = /\d(?:px|em|rem|pt|%)/;
+
+function offScale(line: string): boolean {
+  const size = FONT_SIZE_RE.exec(line)?.[1]?.trim();
+  if (size !== undefined && size !== '' && !SCALE_VALUE_RE.test(size)) return true;
+  const short = FONT_SHORTHAND_RE.exec(line)?.[1]?.trim();
+  return short !== undefined && LITERAL_SIZE_RE.test(short);
 }
 
 function classify(line: string): Violation['kind'] | null {
   if (HEX_RE.test(line)) return 'hex';
   if (COLOR_FN_RE.test(line)) return 'fn';
+  if (offScale(line)) return 'font';
   return null;
 }
 
@@ -104,6 +119,7 @@ async function main(): Promise<void> {
   }
 
   const hex = violations.filter((v) => v.kind === 'hex');
+  const fonts = violations.filter((v) => v.kind === 'font');
   const fns = violations.filter((v) => v.kind === 'fn');
 
   // Keyed on file + snippet, not line, so an unrelated edit above a frozen literal does not move it.
@@ -139,6 +155,13 @@ async function main(): Promise<void> {
       '✗ Token-lint: raw #hex literals found (use var(--color-*) or add `/* token-lint-allow */`):',
     );
     for (const v of hex) console.error(`  ${v.file}:${v.line}  ${v.snippet}`);
+    process.exit(1);
+  }
+  if (fonts.length > 0) {
+    console.error(
+      '✗ Token-lint: font size outside the type scale (use var(--fs-*) or inherit, or add `/* token-lint-allow */`):',
+    );
+    for (const v of fonts) console.error(`  ${v.file}:${v.line}  ${v.snippet}`);
     process.exit(1);
   }
   console.log(

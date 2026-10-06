@@ -119,3 +119,30 @@ describe('token-lint', () => {
     expect(lintCss(src, 'x.css')).toEqual([]);
   });
 });
+
+describe('token-lint font sizes', () => {
+  it.each([
+    '.a { font-size: 11px; }',
+    '.a { font-size: 0.9em; }',
+    '.a { font-size: 1rem; }',
+    '.a { font-size: var(--my-size); }',
+    '.a { font: 600 13px/1.5 system-ui; }',
+  ])('flags %s as kind font', (src) => {
+    expect(lintCss(src, 'x.css').map((v) => v.kind)).toEqual(['font']);
+  });
+
+  it.each([
+    '.a { font-size: var(--fs-sm); }',
+    '.a { font-size: var(--ega-md-fs, var(--fs-sm)); }',
+    '.a { font-size: inherit; }',
+    '.a { font: inherit; }',
+    '.a { font-weight: 600; }',
+    '.a { font-size: 0.95em; /* token-lint-allow inline code */ }',
+  ])('accepts %s', (src) => {
+    expect(lintCss(src, 'x.css')).toEqual([]);
+  });
+
+  it('flags a literal size in an inline style attribute', () => {
+    expect(lintSvelte('<span style="font-size: 10px">x</span>', 'x.svelte')).toHaveLength(1);
+  });
+});
