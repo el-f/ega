@@ -14,7 +14,8 @@ import {
   type IndexEntry,
 } from '@/shared/saved-conversations';
 import { omitUndef } from '@/shared/utils/omitUndef';
-import { IMAGE_DATA_URL_MAX_CHARS } from '@/shared/constants';
+import { IMAGE_DATA_URL_MAX_CHARS, INSTRUCTIONS_KEPT_REPLIES } from '@/shared/constants';
+import type { ResultMeta } from '@/shared/types';
 import {
   ALL_TURN_KINDS,
   dropOrphanHead,
@@ -97,13 +98,106 @@ function validateStoredTurn(t: unknown): Turn | null {
   const answer = e as unknown as AssistantTurnData;
   const rawStatus = e['status'] as string;
   if (VALID_STATUSES.has(rawStatus)) {
-    return withSeedVariant({ ...answer, status: rawStatus as AssistantTurnData['status'] });
+    return remirrorInstructions(
+      withSeedVariant({ ...answer, status: rawStatus as AssistantTurnData['status'] }),
+    );
   }
-  return withSeedVariant({
-    ...answer,
-    status: 'error',
-    error: { code: 'interrupted', message: 'The panel reloaded before this finished.' },
-  });
+  return remirrorInstructions(
+    withSeedVariant({
+      ...answer,
+      status: 'error',
+      error: { code: 'interrupted', message: 'The panel reloaded before this finished.' },
+    }),
+  );
+}
+
+type InstructionFields = Pick<ResultMeta, 'instructions' | 'instructionsLength'>;
+
+function withoutInstructions<M extends ResultMeta | undefined>(meta: M): M {
+  if (
+    meta === undefined ||
+    (meta.instructions === undefined && meta.instructionsLength === undefined)
+  ) {
+    return meta;
+  }
+  const { instructions: _i, instructionsLength: _l, ...rest } = meta;
+  void _i;
+  void _l;
+  return rest as M;
+}
+
+/** A stored instruction text that is not a string is dropped, never rendered. */
+function cleanInstructions(meta: ResultMeta | undefined): ResultMeta | undefined {
+  if (meta === undefined) return meta;
+  const ok = typeof meta.instructions === 'string';
+  if (ok && (meta.instructionsLength === undefined || Number.isFinite(meta.instructionsLength))) {
+    return meta;
+  }
+  if (!ok) return withoutInstructions(meta);
+  const { instructionsLength: _l, ...rest } = meta;
+  void _l;
+  return rest;
+}
+
+/** The store keeps one copy per reply, on the variant; the turn's top-level meta mirrors the active one again on load. */
+function remirrorInstructions(t: AssistantTurnData): AssistantTurnData {
+  const variants = t.variants?.map((v) =>
+    v.meta === undefined ? v : { ...v, meta: cleanInstructions(v.meta) as ResultMeta },
+  );
+  const active = variants?.[t.activeVariantIdx ?? 0];
+  let meta = cleanInstructions(t.meta);
+  const fields: InstructionFields | undefined = active?.meta;
+  if (meta !== undefined && fields?.instructions !== undefined) {
+    meta = {
+      ...meta,
+      instructions: fields.instructions,
+      ...(fields.instructionsLength !== undefined
+        ? { instructionsLength: fields.instructionsLength }
+        : {}),
+    };
+  }
+  return {
+    ...t,
+    ...(variants !== undefined ? { variants } : {}),
+    ...(meta !== undefined ? { meta } : {}),
+  };
+}
+
+/** Keeps the sent instructions on the `keep` newest replies only, and one copy per reply: a turn with variants keeps
+ *  them on its variants, not on its mirrored top-level meta. Every other field is untouched. */
+export function leanInstructions(
+  turns: readonly Turn[],
+  keep: number = INSTRUCTIONS_KEPT_REPLIES,
+): Turn[] {
+  let kept = 0;
+  const out = [...turns];
+  for (let i = out.length - 1; i >= 0; i--) {
+    const t = out[i];
+    if (t?.role !== 'assistant') continue;
+    const keepOne = (meta: ResultMeta | undefined): ResultMeta | undefined => {
+      if (meta?.instructions === undefined) return withoutInstructions(meta);
+      if (kept < keep) {
+        kept++;
+        return meta;
+      }
+      return withoutInstructions(meta);
+    };
+    if (t.variants === undefined) {
+      const meta = keepOne(t.meta);
+      if (meta !== t.meta) out[i] = { ...t, ...(meta !== undefined ? { meta } : {}) } as Turn;
+      continue;
+    }
+    const variants = [...t.variants];
+    for (let j = variants.length - 1; j >= 0; j--) {
+      const v = variants[j];
+      if (v === undefined) continue;
+      const meta = keepOne(v.meta);
+      if (meta !== v.meta) variants[j] = { ...v, ...(meta !== undefined ? { meta } : {}) };
+    }
+    const top = withoutInstructions(t.meta);
+    out[i] = { ...t, variants, ...(top !== undefined ? { meta: top } : {}) } as Turn;
+  }
+  return out;
 }
 
 /** `shrinkTurn` drops `variants` past the byte cap; every live assistant turn has a v1, so rebuild it here and nothing downstream has to special-case its absence. */
@@ -343,6 +437,13 @@ function capTurnSize(t: Turn): SizedTurn {
   }
   const bytes = estimateBytes(out);
   if (bytes <= MAX_TURN_BYTES) return { turn: out, bytes };
+  // The sent instructions are the cheapest thing to lose; the variants go only if that is not enough.
+  const lean = leanInstructions([out], 0)[0] ?? out;
+  if (lean !== out) {
+    const leanBytes = estimateBytes(lean);
+    if (leanBytes <= MAX_TURN_BYTES) return { turn: lean, bytes: leanBytes };
+    out = lean;
+  }
   const shrunk = shrinkTurn(out);
   return { turn: shrunk, bytes: estimateBytes(shrunk) };
 }
@@ -697,7 +798,7 @@ async function saveThreadLocked(
     base.length > MAX_TURNS_PER_THREAD
       ? dropOrphanHead(base.slice(-MAX_TURNS_PER_THREAD), base)
       : base;
-  const sized = fitThreadBytes(trimmed.map(capTurnSize));
+  const sized = fitThreadBytes(leanInstructions(trimmed).map(capTurnSize));
   const capped = sized.map((s) => s.turn);
   // `base` is already post-tombstone and post-merge, so a deliberate delete never counts here.
   const droppedTurns = base.length - capped.length;

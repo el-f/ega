@@ -122,6 +122,10 @@ export interface ResultMeta {
   pageContextSent?: boolean;
   /** Set when the request carried an image: 'ocr' the built-in image prompt read it, 'task' the task's own prompt did, 'text' no backend could read images, so only the caption went. */
   imageArm?: 'ocr' | 'task' | 'text';
+  /** The system prompt sent for this reply, cut at MAX_INSTRUCTIONS_CHARS. Only when "Record request details" is on. */
+  instructions?: string;
+  /** Full length, present only when `instructions` was cut. */
+  instructionsLength?: number;
 }
 
 /** Provider token counts from the done chunk; any subset may be missing. */
