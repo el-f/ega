@@ -19,7 +19,8 @@
 ## Failure-mode expectations
 
 - A selection in a form field or contenteditable, or one crossing partial element boundaries, falls back to the tooltip.
-- Backend failure -> the original text stays, tinted red with a "⚠ <error label>" chip; a fix toast ("Open settings" or "Reload page") shows only when the error maps to a settings tab (by its code, e.g. AUTH/QUOTA/NO_BACKEND, or a "Settings → …" mention) or its message mentions a reload.
+- Backend failure -> the original text stays, tinted red, with the shared error chip: the catalog title ("No connection", "API key rejected"), and Open settings on the chip when a setting fixes it. No toast and no raw error text.
+- Success -> a toast "Replaced with the translation." with Undo shows after every replace, and the selection collapses to the end of the replaced text.
 
 ## Cautions
 

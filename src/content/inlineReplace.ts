@@ -1,7 +1,6 @@
 import { createMemoizedJsonParser, streamingTranslation } from '@/shared/backends/base';
 import { ensurePageStyles } from './page-styles';
 import type { ErrCode } from '@/shared/types';
-import { errCodeLabel } from '@/shared/err-labels';
 import { langTag, markLang, replyLang } from '@/shared/lang-tag';
 import {
   beginRequest,
@@ -12,11 +11,9 @@ import {
   stopRequestStream,
   type DoneMeta,
 } from './request-state';
-import { showFixToast } from './error-fix-toast';
 import { showToast } from './toast';
 import { peekContainer } from './shadowHost';
-import { currentSettings } from './settings-cache';
-import { patchSettings } from '@/shared/settings-bus';
+import { mountErrorChip } from './page-chip';
 
 /** Only in-flight translates live here; a settled one is dropped so the page can detach it. */
 interface InlineEntry {
@@ -142,11 +139,7 @@ export function finishInline(requestId: string, _meta?: DoneMeta): void {
   const text = streamingTranslation(e.rawAcc, parsed);
   // A `done` with no text is a failure the user can retry from, not a shimmer that never ends.
   if (text.length === 0) {
-    errorInline(requestId, {
-      code: 'SERVER',
-      message:
-        'The backend returned no text. Try again, or pick another model in Settings → Backends.',
-    });
+    errorInline(requestId, { code: 'EMPTY', message: 'The backend returned no text.' });
     return;
   }
   settledOriginals.set(wrapper, e.original);
@@ -160,41 +153,40 @@ export function finishInline(requestId: string, _meta?: DoneMeta): void {
   wrapper.addEventListener('mouseup', showTranslation);
   wrapper.addEventListener('mouseleave', showTranslation);
   settle(requestId, e.stuckTimerId);
-  maybeShowUndoHint(requestId);
-}
-
-let undoHintShown = false;
-let dismissUndoHint: (() => void) | null = null;
-
-/** Esc is the only undo on the page itself, so the first replace says so once, with a button for it. */
-function maybeShowUndoHint(requestId: string): void {
-  if (undoHintShown || currentSettings()?.inlineUndoHintShown !== false) return;
-  undoHintShown = true;
-  // Flag first, so a tab that reads it sooner shows no second hint; a true race across tabs still can.
-  void patchSettings({ inlineUndoHintShown: true });
-  dismissUndoHint = showToast('Translated in place. Press Esc twice to put the original back.', {
+  collapseSelectionAfter(wrapper);
+  // Every replace offers Undo, not just the first: the page text changed and the way back must be in view.
+  dismissUndoHint = showToast('Replaced with the translation.', {
+    kind: 'success',
     action: { label: 'Undo', run: () => restoreInline(requestId) },
   });
 }
 
-export function errorInline(requestId: string, err: { code: ErrCode; message: string }): void {
+let dismissUndoHint: (() => void) | null = null;
+
+/** The selection would keep highlighting text that is no longer what the user picked. */
+function collapseSelectionAfter(wrapper: HTMLElement): void {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0 || !wrapper.isConnected) return;
+  const r = document.createRange();
+  r.selectNodeContents(wrapper);
+  r.collapse(false);
+  sel.removeAllRanges();
+  sel.addRange(r);
+}
+
+export function errorInline(
+  requestId: string,
+  err: { code: ErrCode | 'EMPTY'; message: string },
+): void {
   const e = entries.get(requestId);
   if (!e) return;
   settledOriginals.set(e.wrapper, e.original);
   e.wrapper.setAttribute('data-ega-error', 'true');
-  e.wrapper.setAttribute(
-    'title',
-    `${errCodeLabel(err.code)}: ${err.message}\nOriginal: ${truncateTitle(e.originalText)}`,
-  );
   // Error state surfaces the original text directly — nothing to translate.
   renderText(e.wrapper, e.originalText);
-  // Inline mode offers no Retry, so the reason has to read without a hover.
-  const chip = document.createElement('span');
-  chip.setAttribute('data-ega-tx-error', '');
-  chip.textContent = `⚠ ${errCodeLabel(err.code)}`;
-  e.wrapper.appendChild(chip);
+  // The same chip page translate uses names the cause; inline replace has no retry of its own.
+  e.wrapper.appendChild(mountErrorChip(err));
   settle(requestId, e.stuckTimerId);
-  showFixToast(err);
 }
 
 export function restoreInline(requestId: string): void {

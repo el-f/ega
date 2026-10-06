@@ -17,7 +17,7 @@
 ## Failure-mode expectations
 
 - An editable or partial-boundary selection is never replaced; it falls back to the tooltip.
-- A failure puts the original text back in the wrapper with a ⚠ error chip (and a fix toast when a setting or reload fixes it); no half-replacement.
+- A failure puts the original text back in the wrapper with the shared error chip (catalog title; Open settings on the chip when a setting fixes it); no half-replacement and no raw error text.
 
 ## Cautions
 

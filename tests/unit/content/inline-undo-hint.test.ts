@@ -1,8 +1,5 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
-import type { Mock } from 'vitest';
-import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
-import type { Settings } from '@/shared/types';
 
 const STUCK_MS = 90_000;
 
@@ -11,17 +8,16 @@ function toast(): HTMLElement | null {
   return root?.querySelector<HTMLElement>('.ega-toast') ?? null;
 }
 
-async function translateInPlace(settings: Settings): Promise<void> {
-  vi.resetModules();
-  const { setSettings } = await import('@/content/settings-cache');
-  setSettings(settings);
+async function translateInPlace(id = 'r1'): Promise<void> {
   const inline = await import('@/content/inlineReplace');
   const p = document.getElementById('p') as HTMLElement;
   const range = document.createRange();
   range.selectNodeContents(p);
-  inline.openInline({ requestId: 'r1', range, stuckTimeoutMs: STUCK_MS });
-  inline.appendInlineDelta('r1', '{"translation":"Hello there"}');
-  inline.finishInline('r1');
+  window.getSelection()?.removeAllRanges();
+  window.getSelection()?.addRange(range);
+  inline.openInline({ requestId: id, range, stuckTimeoutMs: STUCK_MS });
+  inline.appendInlineDelta(id, '{"translation":"Hello there"}');
+  inline.finishInline(id);
 }
 
 // The first import transforms the whole inline graph; on a busy machine that alone outruns a test's 5 s.
@@ -30,6 +26,7 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
+  vi.resetModules();
   document.body.innerHTML = '<p id="p">mar7aba ya 5ayye</p>';
 });
 
@@ -41,38 +38,38 @@ afterEach(async () => {
   document.getElementById('ega-shadow-host')?.remove();
 });
 
-describe('inline replace — the first replace says how to undo it', () => {
-  it('shows a toast naming Esc, with an Undo button that puts the original back', async () => {
-    const send = vi.spyOn(chrome.runtime, 'sendMessage').mockResolvedValue(undefined);
-    await translateInPlace({ ...DEFAULT_SETTINGS, inlineUndoHintShown: false });
+describe('inline replace — every replace offers Undo', () => {
+  it('says what happened, with an Undo that puts the original back', async () => {
+    await translateInPlace();
 
     expect(document.getElementById('p')?.textContent).toBe('Hello there');
-    expect(toast()?.textContent).toContain('Press Esc twice');
-    expect(send).toHaveBeenCalledWith({
-      kind: 'settings:update',
-      patch: { inlineUndoHintShown: true },
-    });
+    expect(toast()?.textContent).toContain('Replaced with the translation.');
+    expect(toast()?.dataset['kind']).toBe('success');
 
     toast()?.querySelector<HTMLButtonElement>('[data-ega-toast-action]')?.click();
     expect(document.getElementById('p')?.textContent).toBe('mar7aba ya 5ayye');
     expect(document.querySelector('[data-ega-replaced]')).toBeNull();
   });
 
-  it('writes the shown flag before the toast appears', async () => {
-    let toastAtWrite: HTMLElement | null | undefined;
-    (chrome.runtime.sendMessage as Mock).mockImplementation((msg: unknown) => {
-      if ((msg as { kind?: string }).kind === 'settings:update') toastAtWrite = toast();
-      return Promise.resolve(undefined);
-    });
-    await translateInPlace({ ...DEFAULT_SETTINGS, inlineUndoHintShown: false });
+  it('shows it again on the next replace, not only the first', async () => {
+    await translateInPlace('r1');
+    const { dismissToast } = await import('@/content/toast');
+    dismissToast();
+    document.body.innerHTML = '<p id="p">yalla bina</p>';
+    await translateInPlace('r2');
+    expect(toast()?.textContent).toContain('Replaced with the translation.');
+  });
 
-    expect(toast()).not.toBeNull();
-    expect(toastAtWrite).toBeNull();
+  it('moves the selection to the end of the replaced text', async () => {
+    await translateInPlace();
+    const sel = window.getSelection();
+    expect(sel?.isCollapsed).toBe(true);
+    const wrapper = document.querySelector('[data-ega-replaced]');
+    expect(sel?.anchorNode === wrapper || wrapper?.contains(sel?.anchorNode ?? null)).toBe(true);
   });
 
   it('the toast Undo puts the last wrapper back and lets go of the page-wide Esc listener', async () => {
-    vi.spyOn(chrome.runtime, 'sendMessage').mockResolvedValue(undefined);
-    await translateInPlace({ ...DEFAULT_SETTINGS, inlineUndoHintShown: false });
+    await translateInPlace();
     const removed = vi.spyOn(document, 'removeEventListener');
 
     toast()?.querySelector<HTMLButtonElement>('[data-ega-toast-action]')?.click();
@@ -83,8 +80,7 @@ describe('inline replace — the first replace says how to undo it', () => {
   });
 
   it('Esc twice puts the page back and takes the toast Undo away with it', async () => {
-    vi.spyOn(chrome.runtime, 'sendMessage').mockResolvedValue(undefined);
-    await translateInPlace({ ...DEFAULT_SETTINGS, inlineUndoHintShown: false });
+    await translateInPlace();
     expect(toast()?.querySelector('[data-ega-toast-action]')).not.toBeNull();
 
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
@@ -95,8 +91,7 @@ describe('inline replace — the first replace says how to undo it', () => {
   });
 
   it('Esc inside the toast closes the toast and is not counted toward the page restore', async () => {
-    vi.spyOn(chrome.runtime, 'sendMessage').mockResolvedValue(undefined);
-    await translateInPlace({ ...DEFAULT_SETTINGS, inlineUndoHintShown: false });
+    await translateInPlace();
     const dismiss = toast()?.querySelector<HTMLButtonElement>('[data-ega-toast-close]');
     dismiss?.dispatchEvent(
       new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true }),
@@ -108,8 +103,7 @@ describe('inline replace — the first replace says how to undo it', () => {
   });
 
   it('Esc on Ega UI with no Esc of its own (the bubble, a pill) still counts toward the restore', async () => {
-    vi.spyOn(chrome.runtime, 'sendMessage').mockResolvedValue(undefined);
-    await translateInPlace({ ...DEFAULT_SETTINGS, inlineUndoHintShown: true });
+    await translateInPlace();
     const { getContainer } = await import('@/content/shadowHost');
     const pill = document.createElement('button');
     getContainer().appendChild(pill);
@@ -121,8 +115,7 @@ describe('inline replace — the first replace says how to undo it', () => {
   });
 
   it('Esc inside the tooltip panel is the tooltip’s, and is not counted toward the page restore', async () => {
-    vi.spyOn(chrome.runtime, 'sendMessage').mockResolvedValue(undefined);
-    await translateInPlace({ ...DEFAULT_SETTINGS, inlineUndoHintShown: true });
+    await translateInPlace();
     // Same module graph as the inline code under test, which translateInPlace just reset.
     const { mount, unmount, createRawSnippet } = await import('svelte');
     const { default: DraggablePanel } = await import('@/shared/components/DraggablePanel.svelte');
@@ -167,8 +160,7 @@ describe('inline replace — the first replace says how to undo it', () => {
       },
     ],
   ])('Esc that ends %s leaves the page translated', async (_mode, enterMode) => {
-    vi.spyOn(chrome.runtime, 'sendMessage').mockResolvedValue(undefined);
-    await translateInPlace({ ...DEFAULT_SETTINGS, inlineUndoHintShown: true });
+    await translateInPlace();
     const active = await enterMode();
     // Picking moves the pointer over the translated text, which alone confirms a restore.
     document
@@ -180,12 +172,11 @@ describe('inline replace — the first replace says how to undo it', () => {
   });
 
   it('Esc that ends a picker opened before the translate leaves the page translated', async () => {
-    vi.spyOn(chrome.runtime, 'sendMessage').mockResolvedValue(undefined);
     // The picker's Esc listener is added first, so it runs before the inline one.
     const { createPicker } = await import('@/content/picker');
     const picker = createPicker({ onPick: () => {}, onExit: () => {} });
     picker.enter();
-    await translateInPlace({ ...DEFAULT_SETTINGS, inlineUndoHintShown: true });
+    await translateInPlace();
     document
       .querySelector('[data-ega-replaced]')
       ?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
@@ -195,11 +186,10 @@ describe('inline replace — the first replace says how to undo it', () => {
   });
 
   it('Esc that ends multi-select opened before the translate leaves the page translated', async () => {
-    vi.spyOn(chrome.runtime, 'sendMessage').mockResolvedValue(undefined);
     // Multi-select's Esc listener is added first, so it runs before the inline one.
     const ms = await import('@/content/page-translate-v2/multi-select');
     ms.enterMultiSelect({ initialMode: 'bilingual', onFire: () => {} });
-    await translateInPlace({ ...DEFAULT_SETTINGS, inlineUndoHintShown: true });
+    await translateInPlace();
     document
       .querySelector('[data-ega-replaced]')
       ?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
@@ -208,9 +198,4 @@ describe('inline replace — the first replace says how to undo it', () => {
     expect(document.getElementById('p')?.textContent).toBe('Hello there');
   });
 
-  it('stays quiet once the hint was shown', async () => {
-    await translateInPlace({ ...DEFAULT_SETTINGS, inlineUndoHintShown: true });
-    expect(document.getElementById('p')?.textContent).toBe('Hello there');
-    expect(toast()).toBeNull();
-  });
 });

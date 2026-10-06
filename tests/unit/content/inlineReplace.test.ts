@@ -16,7 +16,7 @@ import {
   type PendingReq,
 } from '@/content/request-state';
 import { invariant } from '@/shared/invariants';
-import { errCodeLabel } from '@/shared/err-labels';
+import { chipText } from '@tests/_helpers/page-translate';
 
 const INLINE_STUCK_MS = 90_000;
 
@@ -130,7 +130,7 @@ describe('inlineReplace', () => {
     finishInline('r1', { confidence: 0.5 });
     const wrap = document.querySelector('[data-ega-replaced="r1"]') as HTMLElement;
     expect(wrap.textContent).toContain(original);
-    expect(wrap.textContent).toContain('⚠');
+    expect(chipText(wrap)).toBe('Empty answer');
     expect(wrap.hasAttribute('data-ega-pending')).toBe(false);
   });
 
@@ -153,7 +153,7 @@ describe('inlineReplace', () => {
     expect(wrap.textContent).toBe('Hello');
   });
 
-  it('errorInline marks the span red and surfaces the human label in title', () => {
+  it('errorInline marks the span red and names the cause on the chip, never in a title', () => {
     const p = byId('p');
     openInline({
       requestId: 'r1',
@@ -163,10 +163,10 @@ describe('inlineReplace', () => {
     errorInline('r1', { code: 'NETWORK', message: 'offline' });
     const wrap = document.querySelector('[data-ega-replaced="r1"]') as HTMLElement;
     expect(wrap.getAttribute('data-ega-error')).toBe('true');
-    expect(wrap.getAttribute('title')).toContain(errCodeLabel('NETWORK'));
-    expect(wrap.getAttribute('title')).toContain('offline');
-    // The raw code never reaches the UI bare.
-    expect(wrap.getAttribute('title')).not.toContain('NETWORK:');
+    expect(chipText(wrap)).toBe('No connection');
+    // The raw text and the code never reach the UI.
+    expect(wrap.hasAttribute('title')).toBe(false);
+    expect(wrap.textContent).not.toContain('offline');
   });
 
   it('restoreInline puts the original DOM back and removes the wrapper', () => {
@@ -231,7 +231,7 @@ describe('inlineReplace', () => {
       vi.advanceTimersByTime(2_000);
       wrap = document.querySelector('[data-ega-replaced="r1"]') as HTMLElement;
       expect(wrap.getAttribute('data-ega-error')).toBe('true');
-      expect(wrap.getAttribute('title')).toContain(errCodeLabel('TIMEOUT'));
+      expect(chipText(wrap)).toBe('No answer in time');
     } finally {
       vi.useRealTimers();
     }
@@ -256,7 +256,7 @@ describe('inlineReplace', () => {
 
       vi.advanceTimersByTime(INLINE_STUCK_MS + 100);
       expect(wrap.getAttribute('data-ega-error')).toBe('true');
-      expect(wrap.getAttribute('title')).toContain(errCodeLabel('TIMEOUT'));
+      expect(chipText(wrap)).toBe('No answer in time');
     } finally {
       vi.useRealTimers();
     }

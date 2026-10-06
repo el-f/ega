@@ -9,7 +9,7 @@ import {
 } from '@/content/inlineReplace';
 import { dismissToast } from '@/content/toast';
 import { setStopStreamHook } from '@/content/request-state';
-import { errCodeLabel } from '@/shared/err-labels';
+import { chipText } from '@tests/_helpers/page-translate';
 
 // Inline replace has no Retry by design, so the reason is the only recovery signal.
 
@@ -52,21 +52,20 @@ describe('inline.error.shows-reason', () => {
     vi.advanceTimersByTime(1_100);
 
     const w = wrapper();
-    const chip = w.querySelector('[data-ega-tx-error]');
-    expect(chip?.textContent).toContain(errCodeLabel('TIMEOUT'));
+    expect(chipText(w)).toBe('No answer in time');
     // The page's own text stays readable beside the reason.
     expect(w.textContent).toContain('bonjour le monde');
   });
 
-  it('keeps the full detail on the title and adds no retry button', () => {
+  it('puts no raw error in a title, and adds no retry button', () => {
     const range = selectParagraph();
     setStopStreamHook(() => {});
     openInline({ requestId: 'i2', range, stuckTimeoutMs: 1_000 });
     vi.advanceTimersByTime(1_100);
 
     const w = wrapper();
-    expect(w.getAttribute('title')).toContain('No reply in time');
-    expect(w.querySelector('button')).toBeNull();
+    expect(w.hasAttribute('title')).toBe(false);
+    expect(w.querySelector('[data-ega-tx-error]')?.shadowRoot?.querySelector('button')).toBeNull();
   });
 
   it('restore puts the page text back, chip and all', () => {
@@ -90,7 +89,7 @@ describe('inline.done.empty-body', () => {
     finishInline('i-empty', { confidence: 1 });
     const el = wrapper();
     expect(el.getAttribute('data-ega-error')).toBe('true');
-    expect(el.textContent).toContain(errCodeLabel('SERVER'));
+    expect(chipText(el)).toBe('Empty answer');
   });
 });
 
@@ -100,15 +99,15 @@ describe('inline.error.fix-toast', () => {
     return root?.querySelector<HTMLElement>('[data-ega-toast-wrap]') ?? null;
   }
 
-  it('a failure a setting fixes says so on the page, with Open settings', () => {
+  it('a failure a setting fixes offers Open settings on the chip itself, not a toast', () => {
     const range = selectParagraph();
     openInline({ requestId: 'i-fix', range, stuckTimeoutMs: 1_000 });
     errorInline('i-fix', {
       code: 'NO_BACKEND',
       message: 'No backend is set up yet. Open Settings → Backends and add an API key.',
     });
-    expect(toast()?.textContent).toContain('Open Settings → Backends');
-    expect(toast()?.querySelector('[data-ega-toast-action]')?.textContent).toBe('Open settings');
+    expect(chipText(wrapper())).toBe('No backend set upOpen settings');
+    expect(toast()).toBeNull();
   });
 
   it('the stall timeout, which no setting fixes, adds no toast', () => {
