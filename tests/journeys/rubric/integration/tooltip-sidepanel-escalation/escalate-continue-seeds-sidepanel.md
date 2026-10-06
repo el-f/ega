@@ -17,7 +17,7 @@
 
 ## Failure-mode expectations
 
-- Sidepanel open failure -> tooltip stays mounted; a "Could not open the side panel." toast shows on the page.
+- Sidepanel open failure -> tooltip stays mounted; a "Ega couldn't open the side panel. Try again." toast shows on the page.
 - A fresh dispatch failure in the sidepanel -> error on the assistant slot with the standard retry affordance.
 
 ## Cautions

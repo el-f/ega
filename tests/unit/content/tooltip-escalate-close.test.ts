@@ -94,7 +94,7 @@ describe('Pin to side panel from a tooltip that is still streaming', () => {
 
     await vi.waitFor(() => {
       expect(getContainer().querySelector('[data-ega-toast-wrap]')?.textContent).toContain(
-        'Could not open the side panel',
+        "Ega couldn't open the side panel. Try again.",
       );
     });
     expect(wraps().length).toBe(1);

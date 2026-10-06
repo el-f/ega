@@ -19,7 +19,7 @@ export function isContextInvalidatedError(e: unknown): boolean {
 }
 
 /** Message shown when the context is gone — tells the user the one fix. */
-export const CONTEXT_INVALIDATED_MESSAGE = 'Ega was updated — reload the page to continue.';
+export const CONTEXT_INVALIDATED_MESSAGE = 'Ega was updated. Reload the page to keep using it.';
 
 /** Message shown when a request never reached the worker for any other reason. */
 export const SEND_FAILED_MESSAGE =

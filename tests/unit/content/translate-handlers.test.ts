@@ -564,6 +564,6 @@ describe('buildTooltipOpenOpts — the Open settings sender', () => {
     });
     const opts = buildTooltipOpenOpts(makeDeps(), DEFAULT_SETTINGS, seedPending('o2'));
     expect(() => opts.onOpenOptions?.()).not.toThrow();
-    expect(toastText()).toContain('reload the page');
+    expect(toastText()).toContain('Reload the page');
   });
 });

@@ -17,7 +17,7 @@
 
 ## Failure-mode expectations
 
-- Sidepanel open failure -> the tooltip stays mounted; a page toast says "Could not open the side panel."; Retry stays available.
+- Sidepanel open failure -> the tooltip stays mounted; a page toast says "Ega couldn't open the side panel. Try again."; Retry stays available.
 
 ## Cautions
 

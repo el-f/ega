@@ -29,7 +29,7 @@ export interface EscalateArgs {
   errorCode?: ErrCode;
 }
 
-const IMAGE_LEFT_BEHIND = 'Attach the image in the side panel. Ega cannot pass this one along.';
+const IMAGE_LEFT_BEHIND = "Attach the image in the side panel. Ega can't pass this one along.";
 
 /** The SW writes the handoff slot before it opens the panel, so a mount during the open call still sees it. True only when the worker says the panel opened with it. */
 export async function escalateToSidepanel(args: EscalateArgs): Promise<boolean> {
