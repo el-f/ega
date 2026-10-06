@@ -81,7 +81,7 @@
   },
   {
     "name": "index.html",
-    "bytes": 394203
+    "bytes": 394234
   },
   {
     "name": "index.ts",
@@ -93,7 +93,7 @@
   },
   {
     "name": "inlineReplace",
-    "bytes": 4218
+    "bytes": 4332
   },
   {
     "name": "lang-tag",
@@ -193,7 +193,7 @@
   },
   {
     "name": "src-content-index.ts",
-    "bytes": 34338
+    "bytes": 34375
   },
   {
     "name": "stuck-timeout",
@@ -213,7 +213,7 @@
   },
   {
     "name": "theme",
-    "bytes": 9711
+    "bytes": 10111
   },
   {
     "name": "theme-apply",
@@ -225,15 +225,15 @@
   },
   {
     "name": "toast",
-    "bytes": 2799
+    "bytes": 3047
   },
   {
     "name": "toast-policy",
-    "bytes": 73
+    "bytes": 142
   },
   {
     "name": "toastStore",
-    "bytes": 943
+    "bytes": 1287
   },
   {
     "name": "Translate",

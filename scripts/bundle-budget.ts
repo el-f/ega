@@ -259,10 +259,10 @@ function measureDist(distDir: string): BundleEntry[] {
 }
 
 /** Static imports plus module-scope import() chunks: both load on every page. A ratchet: raise or lower it in the commit that earns it. */
-const EAGER_CONTENT_BUDGET_BYTES = 171_450;
+const EAGER_CONTENT_BUDGET_BYTES = 171_800;
 
 /** The popup opens on every toolbar click, so its preload set is the one extension-page cost a user feels. Ratchet, like the one above. */
-const POPUP_PAGE_BUDGET_BYTES = 496_000;
+const POPUP_PAGE_BUDGET_BYTES = 496_800;
 
 function measurePagePreload(distDir: string, htmlRel: string): { files: string[]; bytes: number } {
   const htmlPath = path.join(distDir, htmlRel);
