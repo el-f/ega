@@ -11,7 +11,12 @@ import {
   updateSettings,
   replaceSitePrefs,
 } from '@/shared/storage';
-import { handleSiteToggleClick, installContextMenus, refreshSiteToggleLabel } from './contextMenu';
+import {
+  handleSiteToggleClick,
+  installContextMenus,
+  refreshSiteToggleLabel,
+  setSiteEnabled,
+} from './contextMenu';
 import { DEFAULT_CONTEXT_MENU_ITEMS, resolveMenuAction } from '@/shared/context-menu';
 import { decodeCustomMenuId, withEncodedMenuIds } from '@/shared/context-menu-ids';
 import { pushAuditEntry, clearAuditLog, type AuditSurface } from '@/shared/audit-log';
@@ -475,6 +480,24 @@ chrome.runtime.onMessage.addListener((rawMsg, sender, sendResponse) => {
         reply(msg.kind, { ok: false });
       }
       return false;
+    case 'site:set-enabled': {
+      // A content script may only switch its own frame's site; only an extension page names one.
+      const url = isExtensionPage(sender) ? msg.url : sender.tab ? sender.url : undefined;
+      if (typeof msg.enabled !== 'boolean') {
+        reply(msg.kind, { ok: false });
+        return false;
+      }
+      setSiteEnabled({ url, enabled: msg.enabled, replaceSitePrefs })
+        .then(async (ok) => {
+          reply(msg.kind, { ok });
+          if (ok) await refreshSiteToggleLabel(url);
+        })
+        .catch((e: unknown) => {
+          debugCatch(e, 'background.site:set-enabled');
+          reply(msg.kind, { ok: false });
+        });
+      return true;
+    }
     case 'backend:probe':
       // e2e waitForServiceWorker polls this to know onMessage is live before a real translate:start.
       reply(msg.kind, { ok: true });
@@ -598,6 +621,7 @@ chrome.runtime.onMessage.addListener((rawMsg, sender, sendResponse) => {
     case 'hotkey:translate':
     case 'ctx:translate-selection':
     case 'page:translateAll':
+    case 'page:chooseAreas':
     case 'picker:enter':
     case 'ega:get-selection':
     case 'ega:get-page-context':

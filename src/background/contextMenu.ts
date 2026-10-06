@@ -18,30 +18,47 @@ export function computeSiteMenuTitle(disabled: boolean): string {
   return disabled ? SITE_TOGGLE_TITLES.off : SITE_TOGGLE_TITLES.on;
 }
 
+/** The site's row with `disabled` set by `next(wasDisabled)`; a row that then holds nothing else is deleted. */
+export function withSiteDisabled(
+  cur: Settings['sitePrefs'],
+  origin: string,
+  next: (wasDisabled: boolean) => boolean,
+): Settings['sitePrefs'] {
+  const sitePrefs = { ...cur };
+  const existing = sitePrefs[origin] ?? { disabled: false };
+  const row = { ...existing, disabled: next(existing.disabled === true) };
+  if (row.disabled === false && row.defaultLang === undefined && row.lastDirection === undefined) {
+    delete sitePrefs[origin];
+  } else {
+    sitePrefs[origin] = row;
+  }
+  return sitePrefs;
+}
+
+type ReplaceSitePrefs = (
+  transform: (cur: Settings['sitePrefs']) => Settings['sitePrefs'],
+) => Promise<unknown>;
+
 /** One transform under the settings lock: a read-then-replace here would drop a memo-direction write that landed in between. Deleting an origin needs `replaceSitePrefs`, because `updateSettings` merges per key. */
 export async function handleSiteToggleClick(args: {
   url: string;
-  replaceSitePrefs: (
-    transform: (cur: Settings['sitePrefs']) => Settings['sitePrefs'],
-  ) => Promise<unknown>;
+  replaceSitePrefs: ReplaceSitePrefs;
 }): Promise<void> {
   const origin = parseToggleOrigin(args.url);
   if (origin === null) return;
-  await args.replaceSitePrefs((cur) => {
-    const sitePrefs = { ...cur };
-    const existing = sitePrefs[origin] ?? { disabled: false };
-    const next = { ...existing, disabled: !existing.disabled };
-    if (
-      next.disabled === false &&
-      next.defaultLang === undefined &&
-      next.lastDirection === undefined
-    ) {
-      delete sitePrefs[origin];
-    } else {
-      sitePrefs[origin] = next;
-    }
-    return sitePrefs;
-  });
+  await args.replaceSitePrefs((cur) => withSiteDisabled(cur, origin, (was) => !was));
+}
+
+/** A set, not a toggle, so a repeated or racing request lands on the same state. False when the URL names no site. */
+export async function setSiteEnabled(args: {
+  url: string | undefined;
+  enabled: boolean;
+  replaceSitePrefs: ReplaceSitePrefs;
+}): Promise<boolean> {
+  const origin = parseToggleOrigin(args.url);
+  if (origin === null) return false;
+  await args.replaceSitePrefs((cur) => withSiteDisabled(cur, origin, () => !args.enabled));
+  return true;
 }
 
 // Two overlapping runs interleave removeAll and create, so the later create hits a duplicate id.

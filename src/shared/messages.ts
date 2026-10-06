@@ -21,6 +21,14 @@ import type { PerfEntry } from './perf-history';
 import type { ProbeResult } from './translate-ui';
 import type { PendingPopupHandoff } from './pending-popup-handoff';
 
+/** Why the selection bubble stayed hidden for the last selection; the popup names it. */
+export type HeldBackReason = 'english' | 'too-short' | 'mode-never';
+export interface HeldBack {
+  reason: HeldBackReason;
+  /** too-short only: the length the selection fell under. */
+  minLength?: number;
+}
+
 export type Msg =
   | {
       kind: 'translate:start';
@@ -75,6 +83,10 @@ export type Msg =
   /** Popup / side panel → SW. Replies a `ProbeResult`; probing in the page would open a second native host. */
   | { kind: 'backend:probe-all' }
   | { kind: 'page:translateAll' }
+  /** Popup → content: open area picking (Choose areas). */
+  | { kind: 'page:chooseAreas' }
+  /** Popup or content → SW: set (never toggle) Ega on or off for a site. A content script's own URL wins over `url`. */
+  | { kind: 'site:set-enabled'; enabled: boolean; url?: string }
   | { kind: 'ctx:translate-selection'; text?: string; task?: TaskId; targetLang?: LangSelection }
   | { kind: 'hotkey:translate' }
   | { kind: 'picker:enter' }
@@ -133,7 +145,7 @@ export type Msg =
   | { kind: 'content:read-settings' }
   | { kind: 'content:read-languages' }
   | { kind: 'content:read-tasks' }
-  /** Popup → content-script. Replies `{ text: string }`; an empty string means no selection. */
+  /** Popup → content-script. Replies `{ text, heldBack? }`; an empty string means no selection. */
   | { kind: 'ega:get-selection' }
   /** Replies `{ context: PageContext | null }`. beforeText / afterText stay empty — the popup has no selection. */
   | { kind: 'ega:get-page-context'; level: 'minimal' | 'rich' }
@@ -180,6 +192,8 @@ export interface MsgReply {
   'backend:probe': { ok: true };
   'backend:probe-all': ProbeResult;
   'page:translateAll': { ok: true };
+  'page:chooseAreas': { ok: true };
+  'site:set-enabled': { ok: boolean };
   'ctx:translate-selection': { ok: true };
   'hotkey:translate': { ok: true };
   'picker:enter': { ok: true };
@@ -194,7 +208,7 @@ export interface MsgReply {
   'content:read-settings': Settings;
   'content:read-languages': CustomLanguage[];
   'content:read-tasks': CustomTask[];
-  'ega:get-selection': { text: string };
+  'ega:get-selection': { text: string; heldBack?: HeldBack };
   'ega:get-page-context': { context: PageContext | null };
   'native:get-port-status': { ok: true; status: PortStatus };
   'native:test': NativeTestReply;
@@ -235,6 +249,8 @@ const ALL_KINDS = [
   'audit:append',
   'backend:probe',
   'page:translateAll',
+  'page:chooseAreas',
+  'site:set-enabled',
   'ctx:translate-selection',
   'hotkey:translate',
   'picker:enter',
