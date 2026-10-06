@@ -24,9 +24,8 @@ pre-commit:
       glob: '*.{ts,svelte}'
       run: pnpm tsc --noEmit
     lint-tokens:
-      # Ban raw #hex color literals outside src/shared/tokens.css. Runs
-      # when Svelte SFCs or surface-level CSS change.
-      glob: 'src/**/*.{svelte,css}'
+      # Raw colors and font sizes off the --fs-* scale; .ts is in the glob because the lint reads style writes from code.
+      glob: 'src/**/*.{svelte,css,ts}'
       run: pnpm lint:tokens
     shadow-css-lint:
       glob: 'src/**/*.{svelte,css}'
