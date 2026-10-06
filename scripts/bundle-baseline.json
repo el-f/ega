@@ -1,7 +1,7 @@
 [
   {
     "name": "Advanced",
-    "bytes": 61263
+    "bytes": 61271
   },
   {
     "name": "batch-progress",
@@ -17,7 +17,7 @@
   },
   {
     "name": "cancel-token",
-    "bytes": 19388
+    "bytes": 19437
   },
   {
     "name": "chat-history",
@@ -25,7 +25,7 @@
   },
   {
     "name": "command-registry",
-    "bytes": 33533
+    "bytes": 35206
   },
   {
     "name": "customs-cache",
@@ -53,7 +53,7 @@
   },
   {
     "name": "error-fix-toast",
-    "bytes": 412
+    "bytes": 456
   },
   {
     "name": "error-parts",
@@ -77,15 +77,15 @@
   },
   {
     "name": "index",
-    "bytes": 118171
+    "bytes": 117040
   },
   {
     "name": "index.html",
-    "bytes": 391778
+    "bytes": 394203
   },
   {
     "name": "index.ts",
-    "bytes": 40189
+    "bytes": 40378
   },
   {
     "name": "index.ts-loader",
@@ -93,7 +93,7 @@
   },
   {
     "name": "inlineReplace",
-    "bytes": 4209
+    "bytes": 4218
   },
   {
     "name": "lang-tag",
@@ -137,7 +137,7 @@
   },
   {
     "name": "Popover",
-    "bytes": 3546
+    "bytes": 3513
   },
   {
     "name": "rolldown-runtime",
@@ -165,7 +165,7 @@
   },
   {
     "name": "select",
-    "bytes": 40976
+    "bytes": 41007
   },
   {
     "name": "Select",
@@ -177,7 +177,7 @@
   },
   {
     "name": "SelectionBubble",
-    "bytes": 31171
+    "bytes": 32746
   },
   {
     "name": "settings-bus",
@@ -189,11 +189,11 @@
   },
   {
     "name": "shadowHost",
-    "bytes": 31612
+    "bytes": 32476
   },
   {
     "name": "src-content-index.ts",
-    "bytes": 34300
+    "bytes": 34338
   },
   {
     "name": "stuck-timeout",
@@ -205,15 +205,15 @@
   },
   {
     "name": "Tasks",
-    "bytes": 46079
+    "bytes": 46060
   },
   {
     "name": "TemplateEditor",
-    "bytes": 28104
+    "bytes": 28105
   },
   {
     "name": "theme",
-    "bytes": 6581
+    "bytes": 9711
   },
   {
     "name": "theme-apply",
@@ -221,15 +221,19 @@
   },
   {
     "name": "tipState.svelte",
-    "bytes": 29118
+    "bytes": 29133
   },
   {
     "name": "toast",
-    "bytes": 1140
+    "bytes": 2799
+  },
+  {
+    "name": "toast-policy",
+    "bytes": 73
   },
   {
     "name": "toastStore",
-    "bytes": 588
+    "bytes": 943
   },
   {
     "name": "Translate",
@@ -237,11 +241,11 @@
   },
   {
     "name": "translate-handlers",
-    "bytes": 5540
+    "bytes": 5581
   },
   {
     "name": "translate-ui",
-    "bytes": 2784
+    "bytes": 2821
   },
   {
     "name": "types",
@@ -265,7 +269,7 @@
   },
   {
     "name": "vendor-lucide",
-    "bytes": 26555
+    "bytes": 26913
   },
   {
     "name": "vendor-marked",
