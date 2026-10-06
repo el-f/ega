@@ -102,7 +102,7 @@ describe('a fire-and-forget entry point never fails silently', () => {
       process.off('unhandledRejection', onUnhandled);
     }
     expect(seen).toEqual([]);
-    expect(toastText()).toContain('reload the page');
+    expect(toastText()).toContain('Reload the page');
     // Telling the user to reload without giving them the button is half an affordance.
     const action = getContainer().querySelector('[data-ega-toast-action]');
     expect(action?.textContent).toBe('Reload page');

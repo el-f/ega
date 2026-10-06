@@ -90,7 +90,7 @@ describe('an orphaned content script still says why Ega stopped', () => {
 
     select(FOREIGN);
     document.dispatchEvent(new MouseEvent('mouseup'));
-    expect(toast()?.textContent).toContain('reload the page');
+    expect(toast()?.textContent).toContain('Reload the page');
     expect(toast()?.querySelector('[data-ega-toast-action]')?.textContent).toBe('Reload page');
 
     toast()?.parentElement?.replaceChildren();
@@ -104,7 +104,7 @@ describe('an orphaned content script still says why Ega stopped', () => {
 
     document.dispatchEvent(new KeyboardEvent('keydown', SHORTCUT));
 
-    expect(toast()?.textContent).toContain('reload the page');
+    expect(toast()?.textContent).toContain('Reload the page');
   });
 
   it('an unrelated key or an English selection in smart mode does not nag, and the hint waits', async () => {
@@ -117,7 +117,7 @@ describe('an orphaned content script still says why Ega stopped', () => {
     expect(toast()).toBeNull();
 
     document.dispatchEvent(new KeyboardEvent('keydown', SHORTCUT));
-    expect(toast()?.textContent).toContain('reload the page');
+    expect(toast()?.textContent).toContain('Reload the page');
   });
 
   it('never hints on a site the user turned Ega off for', async () => {
