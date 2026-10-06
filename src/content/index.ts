@@ -9,7 +9,11 @@ import * as accum from './accumulator';
 import { openTooltip, finishTooltipDirect, errorTooltip, closeTooltip } from './lazy-tooltip';
 import { detectLang, resolveSourceLang } from './detect';
 import { maybeShowSmartBannerOnce, cancelSmartBannerPoll } from './banner-flows';
-import { shouldShowBubbleWithReason, shouldShowBubbleWithReasonAsync } from './should-show-bubble';
+import {
+  shouldShowBubbleWithReason,
+  shouldShowBubbleWithReasonAsync,
+  smartMinLength,
+} from './should-show-bubble';
 import { matchShortcut } from './hotkey';
 import {
   collectPageContext,
@@ -69,7 +73,13 @@ import {
   ensureCustomTasks,
   installCustomLanguagesInvalidator,
 } from './customs-cache';
-import { hasKnownKind, isFromOwnBackground, type Msg, type MsgReply } from '@/shared/messages';
+import {
+  hasKnownKind,
+  isFromOwnBackground,
+  type HeldBack,
+  type Msg,
+  type MsgReply,
+} from '@/shared/messages';
 import type { LangSelection, TranslationChunk, Settings } from '@/shared/types';
 import { runnableDefaultTask, type ImageTask } from '@/shared/task-prompts';
 import type { TaskId } from '@/shared/task-view';
@@ -138,9 +148,24 @@ function siteKnownOff(): boolean {
 }
 
 /** The last selection that passed the gates, kept in this page only: opening the popup drops the live one. */
-let recentSelection: { text: string; at: number } | null = null;
+let recentSelection: { text: string; at: number; heldBack?: HeldBack; range?: Range } | null = null;
 function rememberSelectionForPopup(text: string): void {
   recentSelection = { text, at: Date.now() };
+}
+
+function recentSelectionFresh(): typeof recentSelection {
+  if (recentSelection === null || Date.now() - recentSelection.at > RECENT_SELECTION_TTL_MS) {
+    return null;
+  }
+  return recentSelection;
+}
+
+/** Why the bubble stayed hidden, while the selection it was about is still the one the user sees. */
+function heldBackForPopup(): HeldBack | undefined {
+  const kept = recentSelectionFresh();
+  if (kept?.heldBack === undefined) return undefined;
+  const live = window.getSelection()?.toString() ?? '';
+  return live === '' || live === kept.text ? kept.heldBack : undefined;
 }
 
 /** What the popup may prefill: the live selection, else one the page dropped in the last minute. */
@@ -153,10 +178,7 @@ function selectionForPopup(): string {
     if (selectionIsSensitive(range, document.activeElement)) return '';
     return live.length > MAX_SELECTION_CHARS ? live.slice(0, MAX_SELECTION_CHARS) : live;
   }
-  if (recentSelection === null || Date.now() - recentSelection.at > RECENT_SELECTION_TTL_MS) {
-    return '';
-  }
-  return recentSelection.text;
+  return recentSelectionFresh()?.text ?? '';
 }
 
 // Chrome fires an empty selectionchange right after a visibility change, so the restore re-asserts.
@@ -233,6 +255,20 @@ function handleSelectionChange(): void {
     }
     if (!decision.show) {
       hideBubble();
+      if (
+        recentSelection !== null &&
+        (decision.reason === 'english' ||
+          decision.reason === 'too-short' ||
+          decision.reason === 'mode-never')
+      ) {
+        recentSelection.heldBack = {
+          reason: decision.reason,
+          ...(decision.reason === 'too-short'
+            ? { minLength: smartMinLength(capped.trim(), s) }
+            : {}),
+        };
+        recentSelection.range = info.range.cloneRange();
+      }
       maybeShowSmartBannerOnce(s);
       return;
     }
@@ -487,8 +523,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (a.kind === 'ega:get-selection') {
     // Answer in the same tick: opening the popup clears focus and the live selection.
     try {
+      const off = siteIsOff();
+      const heldBack = off ? undefined : heldBackForPopup();
       sendResponse({
-        text: siteIsOff() ? '' : selectionForPopup(),
+        text: off ? '' : selectionForPopup(),
+        ...(heldBack ? { heldBack } : {}),
       } satisfies MsgReply['ega:get-selection']);
     } catch (e) {
       debugCatch(e, 'content.getSelection');
@@ -526,9 +565,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     const m = msg as Msg;
     if (m.kind === 'translate:chunk') {
       handleChunk(m.chunk);
-    } else if (m.kind === 'page:translateAll') {
+    } else if (m.kind === 'page:translateAll' || m.kind === 'page:chooseAreas') {
       void dispatchPageTranslate().catch((e) => reportEntryFailure(e, 'content.pageTranslate'));
-      sendResponse({ ok: true } satisfies MsgReply['page:translateAll']);
+      sendResponse({ ok: true } satisfies MsgReply['page:translateAll' | 'page:chooseAreas']);
       return true;
     } else if (m.kind === 'content:image-translate-pending') {
       handleImageTranslatePending(m);
@@ -671,6 +710,15 @@ async function handleBubbleClick(
   await startTranslateSelection();
 }
 
+/** The popup's Translate anyway names a selection the popup itself cleared; anchor on the kept range. */
+function keptSelectionInfo(text: string | undefined): ReturnType<typeof getSelectionInfo> {
+  const kept = recentSelectionFresh();
+  if (text === undefined || kept?.range === undefined || kept.text !== text) return null;
+  const rect = kept.range.getBoundingClientRect();
+  if (rect.width + rect.height === 0) return null;
+  return { text, rect, range: kept.range, beforeText: '', afterText: '' };
+}
+
 async function startTranslateSelection(
   overrideText?: string,
   taskOverride?: TaskId,
@@ -680,7 +728,7 @@ async function startTranslateSelection(
   const s = currentSettings();
   const directionOverride: { source: LangSelection; target: LangSelection } | undefined =
     targetLangOverride !== undefined ? { source: 'auto', target: targetLangOverride } : undefined;
-  const info = getSelectionInfo(s?.selectionContextCap);
+  const info = getSelectionInfo(s?.selectionContextCap) ?? keptSelectionInfo(overrideText);
   if (selectionIsSensitive(info?.range, document.activeElement)) {
     showToast('Ega does not read password, card or one-time-code fields.');
     return;

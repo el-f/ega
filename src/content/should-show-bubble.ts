@@ -42,6 +42,13 @@ interface BubbleDecision {
   reason: BubbleReason;
 }
 
+/** The length smart mode wants before it shows the bubble for this text. */
+export function smartMinLength(trimmed: string, settings: BubbleSettings): number {
+  return CJK.test(trimmed)
+    ? CJK_MIN_LENGTH
+    : (settings.smartBubbleMinLength ?? DEFAULT_SMART_BUBBLE_MIN_LENGTH);
+}
+
 /** Runs on every `selectionchange` tick — keep it cheap. */
 export function shouldShowBubbleWithReason(
   c: BubbleCandidate,
@@ -57,10 +64,8 @@ export function shouldShowBubbleWithReason(
 
   // smart:
   if (FOREIGN_SCRIPT.test(trimmed)) return { show: true, reason: 'non-ascii' };
-  const minLen = CJK.test(trimmed)
-    ? CJK_MIN_LENGTH
-    : (settings.smartBubbleMinLength ?? DEFAULT_SMART_BUBBLE_MIN_LENGTH);
-  if (trimmed.length < minLen) return { show: false, reason: 'too-short' };
+  if (trimmed.length < smartMinLength(trimmed, settings))
+    return { show: false, reason: 'too-short' };
   const hit = detectLang(trimmed, { settings, customs });
   if (hit) {
     const isCustom = customs.some((l) => l.id === hit.id);
