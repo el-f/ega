@@ -412,7 +412,7 @@
         {#if historyLabel !== null}<span class="ega-next-item">{historyLabel}</span>{/if}
         {#if attachedImage}
           <span class="ega-next-item ega-next-image">
-            <img src={attachedImage} alt="Attachment" class="ega-next-thumb" />
+            <img src={attachedImage} alt="Attached image" class="ega-next-thumb" />
             <span aria-hidden="true">Image</span>
             <IconButton
               icon={X}
