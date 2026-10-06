@@ -133,6 +133,6 @@ html[data-ega-picking] * {
   color: #fff; /* token-lint-allow page sheet */
   font:
     700 0.75em/1.5 system-ui,
-    sans-serif;
+    sans-serif; /* token-lint-allow page sheet */
   vertical-align: middle;
 }
