@@ -23,14 +23,14 @@ Ega has several surfaces and they do not send the same thing. A side-panel send 
 tooltip send collect different context. This table is the short answer; the sections after
 it give the limits and the settings.
 
-| Surface                                                              | Text you picked                 | Page title + URL | Text around your selection | Rich extras                                | Earlier turns | Image bytes                                            | Saved in a thread |
-| -------------------------------------------------------------------- | ------------------------------- | ---------------- | -------------------------- | ------------------------------------------ | ------------- | ------------------------------------------------------ | ----------------- |
-| Selection bubble, keyboard shortcut, "Translate selection with Ega"  | yes, cut to 2000                | yes              | yes                        | yes, taken around your selection           | no            | Explain only, and only if one image dominates the page | no                |
-| Element picker                                                       | yes, cut to 2000                | yes              | no                         | page language, description, site name only | no            | no                                                     | no                |
-| "Translate page"                                                     | one request per block you click | no               | no                         | no                                         | no            | no                                                     | no                |
-| Side panel — composer, "Send selection to side panel", popup handoff | yes, cut to 2000                | yes              | no                         | yes, taken from the top of the page        | yes           | when you attach one                                    | yes               |
-| Right-click "Translate image with Ega" / "Explain image with Ega"    | no, the picture only            | no               | no                         | no                                         | no            | yes, up to 4 MB                                        | yes, by default   |
-| Settings → Backends → **Test now**                                   | a fixed sample sentence         | no               | no                         | no                                         | no            | no                                                     | no                |
+| Surface                                                               | Text you picked                 | Page title + URL | Text around your selection | Rich extras                                | Earlier turns | Image bytes                                            | Saved in a thread |
+| --------------------------------------------------------------------- | ------------------------------- | ---------------- | -------------------------- | ------------------------------------------ | ------------- | ------------------------------------------------------ | ----------------- |
+| Selection bubble, keyboard shortcut, "Ega ▸ Translate"                | yes, cut to 2000                | yes              | yes                        | yes, taken around your selection           | no            | Explain only, and only if one image dominates the page | no                |
+| Element picker                                                        | yes, cut to 2000                | yes              | no                         | page language, description, site name only | no            | no                                                     | no                |
+| "Translate page"                                                      | one request per block you click | no               | no                         | no                                         | no            | no                                                     | no                |
+| Side panel — composer, "Ega ▸ Translate in side panel", popup handoff | yes, cut to 2000                | yes              | no                         | yes, taken from the top of the page        | yes           | when you attach one                                    | yes               |
+| Right-click "Ega ▸ Translate image" / "Ega ▸ Explain image"           | no, the picture only            | no               | no                         | no                                         | no            | yes, up to 4 MB                                        | yes, by default   |
+| Settings → Backends → **Test now**                                    | a fixed sample sentence         | no               | no                         | no                                         | no            | no                                                     | no                |
 
 Four notes on that table.
 
@@ -78,7 +78,7 @@ send. No text is sent in the background.
 | Page text, area by area                   | "Translate page" only                                                                                                                | Not automatic: the menu item opens translate-areas mode and you click the blocks you want. One request per block you picked. A block over 2000 characters is refused at pick time with a toast — Ega never sends it, and never cuts it. Nothing you did not click is read. These requests carry no page context.                                                                                                                                                                                                     |
 | Image bytes                               | image translation; Explain — see below; an image you attach or paste in the side-panel composer, including a file from your computer | Ega downloads a page image and sends the bytes, not the URL; an attached file is read from your disk. PNG, JPEG, WebP, or GIF, up to 4 MB.                                                                                                                                                                                                                                                                                                                                                                           |
 | Page context                              | when "Send page context" is on (default: on)                                                                                         | "Minimal", the default level, sends the page title, the page URL and the text around the selection. The URL is cut to origin and path; the query string and fragment are dropped. "Rich" also sends the page language, description, site name and headings (the ones above the selection, or the first few on the page for a side-panel send), and — on a selection — up to 800 characters of the post or article block. See the surface table for who sends what, and the next row for the surrounding-text window. |
-| The text before and after your selection  | page-selection surfaces only                                                                                                         | 200 characters on each side by default, set between 50 and 800 in Settings. Nine sites raise it — see below. This window exists only for a request that starts from a selection in the page: the bubble, the shortcut and the "Translate selection with Ega" menu item. A send composed in the side panel or the popup carries no surrounding text at all (`src/content/selection.ts#ctxBudget`).                                                                                                                    |
+| The text before and after your selection  | page-selection surfaces only                                                                                                         | 200 characters on each side by default, set between 50 and 800 in Settings. Nine sites raise it — see below. This window exists only for a request that starts from a selection in the page: the bubble, the shortcut and the "Ega ▸ Translate" menu item. A send composed in the side panel or the popup carries no surrounding text at all (`src/content/selection.ts#ctxBudget`).                                                                                                                                 |
 | Matching glossary terms                   | when a term you saved appears in the text                                                                                            | Only the entries that match, never the whole glossary.                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | Earlier turns of the same side-panel chat | every send that lands in the side panel                                                                                              | Not follow-up questions only. See "Side-panel history rides every send" below.                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | Your API key                              | cloud backends only                                                                                                                  | Sent as that provider's auth header.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
@@ -129,7 +129,7 @@ device than the Settings number suggests. To send nothing from them, turn "Send 
 off.
 
 This wider window applies only where a selection window applies at all — the bubble, the
-shortcut and the "Translate selection with Ega" menu item. A send composed in the side panel on
+shortcut and the "Ega ▸ Translate" menu item. A send composed in the side panel on
 one of these hosts still carries no surrounding text.
 
 The match is on the exact hostname. `whatsapp.com` and `old.reddit.com` are not on the list, so
@@ -156,16 +156,16 @@ conversation you had on that site last week is sent again with your next request
 - Use "New conversation" in the side panel to clear the site's thread before you send.
 
 **Which sends attach it.** Every send that lands in the panel does: typed in the composer,
-handed over by the "Send selection to side panel" menu item, or handed over by the popup. The
+handed over by the "Ega ▸ Translate in side panel" menu item, or handed over by the popup. The
 page bubble and "Translate page" never do. Neither does a send that carries an image — Ega drops
 the history when the turn has a picture (`src/sidepanel/state/conversation.ts#buildStartArgs`).
 An image answer opened in the panel from the right-click menu arrives finished, so it is not a
 send at all and carries nothing.
 
-"Send selection to side panel" ships enabled by default
+"Ega ▸ Translate in side panel" ships enabled by default
 (`src/shared/context-menu.ts#DEFAULT_CONTEXT_MENU_ITEMS`). The image items land their answer in
-the panel too by default (Settings → Translate → "Image translation surface"), which adds it to
-that site's thread — so a later panel send carries it. "Translate selection with Ega" answers in
+the panel too by default (each image item's "Opens in", Settings → Selection & picker → Right-click menu), which adds it to
+that site's thread — so a later panel send carries it. "Ega ▸ Translate" answers in
 the page tooltip and touches no thread.
 
 ### One button in Settings calls your backend
@@ -402,7 +402,7 @@ these is true (`src/content/safety.ts#isSensitiveTarget`):
 
 The check walks up the ancestors, so `data-ega-skip` on a wrapper covers everything inside it.
 
-**The keyboard shortcut and "Translate selection with Ega" apply a shorter list.** They check
+**The keyboard shortcut and "Ega ▸ Translate" apply a shorter list.** They check
 the first three rules and `data-ega-skip`, but not `contenteditable` and not `role="textbox"`
 (`src/content/safety.ts#selectionIsSensitive`). Selecting text inside a rich-text composer and
 pressing the shortcut translates it — you asked for it explicitly. Password, card and

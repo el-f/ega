@@ -56,7 +56,7 @@ describe('AdvancedDataPane', () => {
   it('site overrides copy names the right-click menu, not a popup icon that does not exist', () => {
     const { container } = render(AdvancedDataPane, { props: baseProps() });
     const text = container.querySelector('[data-ega-per-site-card]')?.textContent ?? '';
-    expect(text).toContain('right-click a page');
+    expect(text).toContain('the right-click menu changes them');
     expect(text).not.toContain('globe icon');
   });
 

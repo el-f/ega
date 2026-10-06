@@ -122,7 +122,7 @@ interface EgaWindow extends Window {
 
 /** Every path that would move page text off the page checks this first. */
 export const SITE_OFF_MESSAGE =
-  'Ega is off for this site. Right-click the page and choose "Enable Ega on this site".';
+  'Ega is off for this site. Right-click empty page space, then choose Ega ▸ Enable Ega on this site.';
 
 /** Sync so the two pull handlers can answer in the same tick. A null cache means the
  *  boot read has not landed, and an unknown answer must not be read as "site is on". */

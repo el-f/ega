@@ -68,7 +68,7 @@
   {#if rows.length === 0}
     <EmptyState
       title="No site overrides yet"
-      description="Right-click any page and choose &quot;Disable Ega on this site&quot; to add one here."
+      description="Right-click empty page space and choose Ega ▸ Disable Ega on this site to add one here."
       icon={Globe}
     />
   {:else}

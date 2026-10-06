@@ -108,9 +108,10 @@ side panel offer the built-in tasks that are on, plus your own tasks. Turn a tas
 on the Tasks tab and the pickers hide it. Explain is the one to reach for on slang — it
 tells you what the text _means_, including the cultural reference a literal
 translation flattens. The popup only translates. The right-click menu ships with
-seven items: Translate a selection in the tooltip or the side panel, Translate this
-page, Pick an element, Translate image, Explain image, and Disable Ega on this site.
-Add the other tasks at Settings → Translate → **Context menu**. A turn that carries
+seven items under **Ega ▸**: Translate, Translate in side panel, Translate this page,
+Pick an element to translate, Translate image in side panel, Explain image in side panel,
+and Disable Ega on this site. Add the other tasks at Settings → Selection & picker →
+**Right-click menu**. A turn that carries
 an image offers Translate, Explain and your own tasks that have **Accept images** on.
 No other task reaches the vision model.
 

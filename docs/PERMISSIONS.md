@@ -192,15 +192,16 @@ account to other machines. Nothing leaves the device through this permission.
 
 ## `contextMenus`
 
-Registers the right-click items. You can rename, reorder, disable or add
-items in **Settings → Translate**. The defaults are:
+Registers the right-click items, all under one **Ega ▸** submenu. You can rename,
+reorder, hide or add items in **Settings → Selection & picker → Right-click menu**.
+The defaults are:
 
-- Translate selection with Ega
-- Send selection to side panel
-- Translate this page with Ega
+- Translate
+- Translate in side panel
+- Translate image in side panel
+- Explain image in side panel
+- Translate this page
 - Pick an element to translate
-- Translate image with Ega
-- Explain image with Ega
 - Disable Ega on this site
 
 ## `nativeMessaging`
@@ -226,7 +227,7 @@ Opens the side panel. Four kinds of trigger, every one started by your click:
 
 - the popup — its **Side panel** tile, its **Translate clipboard** tile, and sending
   typed text from the popup box,
-- the "Send selection to side panel" right-click item,
+- the "Ega ▸ Translate in side panel" right-click item,
 - the image right-click items ("Translate image", "Explain image"), which
   need a bigger surface than the tooltip,
 - the tooltip's escalate buttons — **Continue in side panel** on an error,

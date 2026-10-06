@@ -15,6 +15,8 @@ describe('SiteOverridesReview empty state', () => {
     });
     const text = container.textContent;
     expect(text).toContain('Disable Ega on this site');
+    // Page items show only on empty page space, under the Ega submenu.
+    expect(text).toContain('Right-click empty page space and choose Ega ▸');
     expect(text).not.toContain('globe icon');
   });
 });

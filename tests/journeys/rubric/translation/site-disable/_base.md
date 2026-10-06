@@ -11,7 +11,7 @@
 
 ## Feedback
 
-- A user-initiated action on a disabled site says so once, in a toast: "Ega is off for this site. Right-click the page and choose \"Enable Ega on this site\"."
+- A user-initiated action on a disabled site says so once, in a toast: "Ega is off for this site. Right-click empty page space, then choose Ega ▸ Enable Ega on this site."
 - The toast names the site scope, not the extension state, so the user knows the fix is per-site.
 
 ## Re-enabling

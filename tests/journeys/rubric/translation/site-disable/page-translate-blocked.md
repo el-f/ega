@@ -7,7 +7,7 @@
 ## State expectations
 
 - Step 1: the site carries `sitePrefs[origin].disabled === true`.
-- Step 2: the user runs translate-areas (context menu "Translate this page with Ega" or the popup "Translate this page" tile).
+- Step 2: the user runs translate-areas (right-click menu "Ega ▸ Translate this page" or the popup "Translate this page" tile).
 - Step 3: a toast says the site is off. Translate-areas mode never becomes active.
 - Step 4: no picker overlay, no multi-select toolbar, no batch progress pill mounts.
 

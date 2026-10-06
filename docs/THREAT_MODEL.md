@@ -568,7 +568,7 @@ Any script on the page can call `window.getSelection()`. Not specific to Ega.
 ### The hotkey and the right-click item run a narrower field check
 
 Section 3 lists what blocks the selection bubble, the element picker and
-translate-areas mode. `Ctrl+Shift+L` and "Translate selection with Ega" do not
+translate-areas mode. `Ctrl+Shift+L` and "Ega ▸ Translate" do not
 run that check. They call `src/content/safety.ts#selectionIsSensitive`, which
 refuses password, card and one-time-code fields and anything under
 `data-ega-skip`, but not a `contenteditable` element and not `role="textbox"`.

@@ -40,7 +40,7 @@
 <div data-ega-per-site-card data-ega-setting="advanced.siteOverrides">
   <SectionCard
     title="Site overrides"
-    description="Sites where Ega is off or has its own source language; right-click a page to change it."
+    description="Sites where Ega is off or has its own source language; the right-click menu changes them."
   >
     <SiteOverridesReview
       settings={s}

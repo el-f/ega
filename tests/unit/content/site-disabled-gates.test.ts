@@ -90,6 +90,8 @@ describe('site disabled — no text leaves the page by any path', () => {
   it('the refusal names the way back on', () => {
     expect(content.SITE_OFF_MESSAGE).toContain('Ega is off for this site.');
     expect(content.SITE_OFF_MESSAGE).toContain('Enable Ega on this site');
+    // The page items show only on empty page space, inside the Ega submenu.
+    expect(content.SITE_OFF_MESSAGE).toContain('Right-click empty page space, then choose Ega ▸');
   });
 
   it('startTranslateText sends nothing and says why', async () => {
