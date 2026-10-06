@@ -6,30 +6,50 @@
   type Props = Pick<ToasterProps, 'position' | 'theme' | 'offset' | 'mobileOffset'>;
   const props: Props = $props();
 
-  let hovered = false;
-  let focused = false;
-  let host: HTMLDivElement | undefined = $state();
+  const TOAST = '[data-sonner-toast]';
 
-  // A toast removed under the pointer or with focus inside fires no pointerout or focusout, so the hold would stick.
+  let hovered = $state(false);
+  let focused = $state(false);
+  let host: HTMLDivElement | undefined = $state();
+  // Where focus was before it entered the toasts, and the element in them that has it.
+  let cameFrom: HTMLElement | null = null;
+  let holder: Element | null = null;
+
+  // A toast removed under the pointer or with focus inside may fire no pointerout or focusout, so the hold would
+  // stick. With the last toast sonner removes its whole list, so a removed node that holds a toast counts too.
   $effect(() => {
     if (!host) return;
     const el = host;
     const observer = new MutationObserver((records) => {
       const toastGone = records.some((r) =>
-        [...r.removedNodes].some((n) => n instanceof Element && n.matches('[data-sonner-toast]')),
+        [...r.removedNodes].some(
+          (n) => n instanceof Element && (n.matches(TOAST) || n.querySelector(TOAST) !== null),
+        ),
       );
       if (!toastGone) return;
-      hovered = hovered && el.querySelector('[data-sonner-toast]:hover') !== null;
+      hovered = hovered && el.querySelector(`${TOAST}:hover`) !== null;
       focused = el.contains(document.activeElement);
       sync();
+      giveFocusBack();
     });
     observer.observe(el, { childList: true, subtree: true });
     return () => observer.disconnect();
   });
 
-  function leaving(e: FocusEvent | PointerEvent): boolean {
-    const to = e.relatedTarget;
-    return !(to instanceof Node && (e.currentTarget as HTMLElement).contains(to));
+  /** The toast that had focus is gone and focus fell to the page: it goes back where it came from. */
+  function giveFocusBack(): void {
+    if (holder === null || holder.isConnected) return;
+    holder = null;
+    const now = document.activeElement;
+    if ((now === null || now === document.body) && cameFrom?.isConnected === true) {
+      cameFrom.focus({ preventScroll: true });
+    }
+  }
+
+  /** The other end of the move is outside the toasts. */
+  function outside(e: FocusEvent | PointerEvent): boolean {
+    const other = e.relatedTarget;
+    return !(other instanceof Node && (e.currentTarget as HTMLElement).contains(other));
   }
 
   function sync(): void {
@@ -47,22 +67,32 @@
     sync();
   }}
   onpointerout={(e) => {
-    if (!leaving(e)) return;
+    if (!outside(e)) return;
     hovered = false;
     sync();
   }}
-  onfocusin={() => {
+  onfocusin={(e) => {
+    if (outside(e)) cameFrom = e.relatedTarget instanceof HTMLElement ? e.relatedTarget : null;
+    holder = e.target as Element;
     focused = true;
     sync();
   }}
   onfocusout={(e) => {
-    if (!leaving(e)) return;
+    if (!outside(e)) return;
     focused = false;
     sync();
+    // Focus moved on, or the user clicked away from a toast that stays: a later removal must not pull it back.
+    queueMicrotask(() => {
+      if (holder?.isConnected === true && host?.contains(document.activeElement) !== true) {
+        holder = null;
+      }
+    });
   }}
 >
+  <!-- Focus inside spreads the stack, so a Tab never lands on a back toast whose text is hidden. -->
   <Toaster
     {...props}
+    expand={focused || hovered}
     closeButton
     closeButtonAriaLabel="Dismiss"
     toastOptions={{ classes: { toast: 'ega-toast-ui' } }}

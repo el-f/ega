@@ -192,6 +192,60 @@ describe('toast lifetime', () => {
     expect(toastEl('Language reset')).toBeNull();
   });
 
+  // With the last toast, sonner removes its whole list, so no removed node is a toast itself.
+  describe('the only toast goes away under a resting pointer', () => {
+    async function nextUndoStillExpiresAt8s(): Promise<void> {
+      toastStore.push({
+        message: 'Right-click menu reset.',
+        variant: 'success',
+        action: { label: 'Undo', onClick: () => {} },
+      });
+      await advance(7900);
+      expect(toastEl('Right-click menu reset.')).not.toBeNull();
+      await advance(300);
+      expect(toastEl('Right-click menu reset.')).toBeNull();
+    }
+
+    it('closed with its X', async () => {
+      toastStore.push({ message: 'Check the key.', variant: 'warning' });
+      await advance(100);
+      const el = toastEl('Check the key.') as HTMLElement;
+      await fireEvent.pointerOver(el);
+      el.querySelector<HTMLButtonElement>('[data-close-button]')?.click();
+      await advance(1000);
+      expect(document.querySelector('[data-sonner-toast]')).toBeNull();
+      await nextUndoStillExpiresAt8s();
+    });
+
+    it('closed by its Undo', async () => {
+      toastStore.push({
+        message: 'Rule deleted.',
+        variant: 'success',
+        action: { label: 'Undo', onClick: () => {} },
+      });
+      await advance(100);
+      const el = toastEl('Rule deleted.') as HTMLElement;
+      await fireEvent.pointerOver(el);
+      el.querySelector<HTMLButtonElement>('[data-button]')?.click();
+      await advance(1000);
+      expect(document.querySelector('[data-sonner-toast]')).toBeNull();
+      await nextUndoStillExpiresAt8s();
+    });
+
+    it('a countdown that ends', async () => {
+      toastStore.push({
+        message: 'Wait 3s before retrying.',
+        variant: 'warning',
+        countdownMs: 3000,
+      });
+      await advance(100);
+      await fireEvent.pointerOver(toastEl('Wait 3s before retrying.') as HTMLElement);
+      await advance(3500);
+      expect(document.querySelector('[data-sonner-toast]')).toBeNull();
+      await nextUndoStillExpiresAt8s();
+    });
+  });
+
   it('a repeated confirmation gets a fresh 6 s, not the rest of the first one', async () => {
     toastStore.push({ message: 'Copied as Markdown', variant: 'success' });
     await advance(4000);
