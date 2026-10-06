@@ -528,10 +528,10 @@ describe('Tooltip smoke', () => {
     expect(row?.contains(taskSel as Node)).toBe(true);
   });
 
-  it('shadow.css gives .task-select min-width >= 110px so "Translate" label fits', async () => {
+  it('tooltip.css gives .task-select min-width >= 110px so "Translate" label fits', async () => {
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
-    const cssPath = path.resolve(process.cwd(), 'src/content/shadow.css');
+    const cssPath = path.resolve(process.cwd(), 'src/content/tooltip/tooltip.css');
     const css = await fs.readFile(cssPath, 'utf8');
     const match = css.match(/\.tooltip \.task-select\s*\{[^}]*min-width:\s*(\d+)px/);
     expect(match).not.toBeNull();
@@ -565,7 +565,7 @@ describe('Tooltip smoke', () => {
   });
 
   it('tooltip container has a max-width clamp', () => {
-    const css = readFileSync('src/content/shadow.css', 'utf8');
+    const css = readFileSync('src/content/tooltip/tooltip.css', 'utf8');
     expect(css).toMatch(/\.tooltip\b[\s\S]+?max-width:\s*\d+px/);
   });
 
@@ -757,7 +757,7 @@ describe('Tooltip smoke', () => {
   });
 
   it('icon hover label is positioned below the icon button (not above)', () => {
-    const css = readFileSync('src/content/shadow.css', 'utf8');
+    const css = readFileSync('src/content/tooltip/tooltip.css', 'utf8');
     // jsdom cannot compute ::after geometry, so read the rule: `anchor(bottom)` or the `top: calc(100% + …)` fallback both sit below.
     expect(css).toMatch(
       /\.icon-btn\[data-tooltip\][^{]*?:hover::after[\s\S]*?top:\s*calc\((?:100% \+|anchor\()/,

@@ -1,0 +1,968 @@
+/* The tooltip chunk's sheet: tipState.svelte.ts injects it on the first open, so these bytes stay off every page that never opens a tooltip. Copies of shared component styles live here too, because a component <style> never crosses the shadow boundary. */
+
+.tooltip {
+  position: fixed;
+  z-index: 2147483647;
+  /* Border-box so max-width includes padding and border. */
+  box-sizing: border-box;
+  max-width: 360px;
+  /* The card sizes to its content, so a narrow loading state would jump wider when the answer lands. */
+  min-width: 220px;
+  /* No max-height or overflow here on purpose: Chrome tethers `position: fixed` descendants to the nearest scroll container, which would clip the buttons' hover-label ::after pseudos at the card's bottom edge. repositionIfOverflow handles viewport edges instead. */
+  background: var(--color-bg);
+  color: var(--color-fg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  /* Padded explicitly: a shadow-DOM tooltip cannot inherit the surface-level density tokens, and the global rhythm is too roomy at tooltip scale. */
+  padding: var(--space-1) var(--space-2);
+  box-shadow: 0 8px 24px var(--color-shadow);
+  line-height: 1.45;
+  /* The tooltip is remounted per open, so this fires once. */
+  animation: ega-tooltip-in 150ms var(--ease-out) both;
+}
+/* Scrolls the detail region, NOT `.tooltip` — a scroll container on the card itself clips the buttons' position:fixed hover-labels. */
+.tooltip .ega-tooltip-details {
+  max-height: 45vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+/* The panel takes focus so Esc works; it is not a control, so it gets no ring. */
+.tooltip:focus,
+.tooltip:focus-visible {
+  outline: none;
+}
+/* Only the 6px gutter starts a drag. A whole-panel handle would turn ordinary hover, scroll and click into drags. `is-draggable` marks the gutter's presence; it does not change the panel cursor. */
+.tooltip.is-draggable {
+  /* Extra left padding so text starts past the drag gutter. */
+  padding-left: calc(var(--space-2) + 8px);
+}
+.tooltip.is-dragging {
+  cursor: grabbing;
+  user-select: none;
+  /* Disable the mount-in animation once the user is actively dragging —
+     re-triggering it on every pointermove would make the card jitter. */
+  animation: none;
+}
+.tooltip .ega-drag-gutter {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 0;
+  width: 6px;
+  /* A <button>: drop the UA button chrome. */
+  appearance: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  cursor: grab;
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+  background: transparent;
+  transition: background-color 120ms var(--ease-out);
+  /* Don't capture native text selection inside the gutter — pointerdown
+     on it should always start a drag, never a selection. */
+  user-select: none;
+  touch-action: none;
+}
+.tooltip .ega-drag-gutter:hover {
+  background: var(--color-accent-bg-soft);
+}
+.tooltip.is-dragging .ega-drag-gutter {
+  cursor: grabbing;
+  background: var(--color-accent-bg-soft);
+}
+.tooltip .ega-drag-gutter-dot {
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: var(--color-muted);
+  opacity: 0.55;
+  transition:
+    opacity 120ms var(--ease-out),
+    background-color 120ms var(--ease-out);
+}
+.tooltip .ega-drag-gutter:hover .ega-drag-gutter-dot,
+.tooltip.is-dragging .ega-drag-gutter-dot {
+  background: var(--color-accent);
+  opacity: 1;
+}
+@keyframes ega-tooltip-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    /* Must end at transform: none: translateY(0) creates a stacking context that traps the fixed-position button labels behind the card. */
+    transform: none;
+  }
+}
+.tooltip .src {
+  font-size: var(--fs-xs);
+  opacity: 0.7;
+  margin-bottom: var(--space-1);
+}
+.tooltip .explain-block {
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border-subtle);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+.tooltip .explain-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: var(--space-1);
+}
+.tooltip .ega-from-image {
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  opacity: 0.85;
+}
+.tooltip .explain-body {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+/* Wraps on a narrow tooltip so task labels never truncate; the tone select drops to a second line. */
+.tooltip .task-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-bottom: var(--space-1);
+  align-items: center;
+}
+.tooltip .task-row .task-select,
+.tooltip .task-row .tone-select {
+  flex: 1 1 auto;
+  max-width: 100%;
+  font-size: var(--fs-xs);
+  /* Right padding leaves room for the .ega-select chevron; it is painted, not part of the box. */
+  padding: 2px calc(var(--space-2) + 14px) 2px var(--space-1);
+  /* background-color, not the `background` shorthand: the shorthand resets that chevron to none. */
+  background-color: var(--color-bg);
+  color: var(--color-fg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.tooltip .task-select {
+  min-width: 110px;
+}
+.tooltip .task-row .tone-select {
+  min-width: 90px;
+}
+.tooltip .tooltip-image-source {
+  max-width: 100%;
+  max-height: 240px;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-1);
+}
+.tooltip .tooltip-image-wrap {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+.tooltip .tooltip-image-wrap.is-loading .tooltip-image-source {
+  filter: brightness(0.7);
+}
+.tooltip .tooltip-image-shimmer {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.18) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  background-size: 200% 100%;
+  animation: ega-shimmer 1.2s linear infinite;
+  pointer-events: none;
+}
+.tooltip .tooltip-image-caption {
+  position: absolute;
+  left: 50%;
+  bottom: var(--space-2);
+  transform: translateX(-50%);
+  padding: 2px var(--space-2);
+  font-size: var(--fs-xs);
+  color: var(--color-fg);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+@keyframes ega-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tooltip .tooltip-image-shimmer {
+    animation: none;
+  }
+}
+.tooltip .body {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+/* Word diff after a re-translate; .body-diff-faded fades it out after 4s (instant under reduced motion). */
+.tooltip .body-diff .diff-eq {
+  /* Plain text — inherit body color. */
+}
+.tooltip .body-diff .diff-add {
+  color: var(--color-success-fg);
+  background-color: var(--color-success-bg-soft);
+  /* Forced colors drops the tint; underline vs line-through is what separates added from removed. */
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  border-radius: 2px;
+  padding: 0 1px;
+  transition:
+    color 600ms ease,
+    background-color 600ms ease;
+}
+.tooltip .body-diff .diff-del {
+  color: var(--color-danger-fg);
+  background-color: var(--color-danger-bg-soft);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  border-radius: 2px;
+  padding: 0 1px;
+  transition:
+    color 600ms ease,
+    background-color 600ms ease,
+    text-decoration-color 600ms ease;
+}
+.tooltip .body-diff-faded .diff-add,
+.tooltip .body-diff-faded .diff-del {
+  color: inherit;
+  background-color: transparent;
+}
+.tooltip .body-diff-faded .diff-add {
+  text-decoration-line: none;
+}
+/* Deleted words leave the flow, so the faded body reads as the clean final sentence. */
+.tooltip .body-diff-faded .diff-del {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tooltip .body-diff .diff-add,
+  .tooltip .body-diff .diff-del {
+    transition-duration: 0ms;
+  }
+}
+.tooltip .tooltip-error-body {
+  color: var(--color-danger-fg, var(--color-danger));
+  /* The answer body keeps pre-wrap for its line breaks; here it would turn the markup's space between title and sentence into a blank line. */
+  white-space: normal;
+}
+.tooltip .tooltip-error-title,
+.tooltip .tooltip-error-text {
+  display: block;
+}
+.tooltip .tooltip-error-title {
+  font-weight: 600;
+}
+.tooltip .tooltip-error-details {
+  margin-top: var(--space-1);
+  font-size: var(--fs-xs);
+  color: var(--color-muted);
+}
+.tooltip .tooltip-error-details summary {
+  cursor: pointer;
+}
+.tooltip .tooltip-error-details code {
+  font-family: var(--font-mono, monospace);
+  overflow-wrap: anywhere;
+}
+.tooltip .tooltip-error-line {
+  color: var(--color-danger-fg, var(--color-danger));
+  margin-top: 6px;
+}
+.tooltip .tooltip-error-cta {
+  margin-top: 6px;
+  align-self: flex-start;
+  padding: 2px var(--space-2);
+  background: transparent;
+  color: var(--color-accent);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-xs);
+  font-family: inherit;
+  cursor: pointer;
+}
+.tooltip .tooltip-error-cta:hover,
+.tooltip .tooltip-error-cta:focus-visible {
+  background: var(--color-accent-bg-soft, var(--color-bg-hover));
+  outline: none;
+}
+.tooltip .actions .tooltip-error-cta {
+  margin-top: 0;
+  align-self: center;
+}
+.tooltip .actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: var(--space-1);
+  font-size: var(--fs-sm);
+  flex-wrap: wrap;
+}
+.tooltip .actions .action-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.tooltip .actions .retry-wait {
+  color: var(--color-muted);
+  font-size: var(--fs-sm);
+  align-self: center;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.tooltip .actions .action-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--color-border);
+  margin: 0 var(--space-1);
+  flex: 0 0 1px;
+}
+.tooltip .tooltip-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2) var(--space-1);
+  min-height: 32px;
+}
+.tooltip .tooltip-topbar-title {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--color-muted);
+}
+/* Close button inside the topbar flows inline; neutralise the absolute
+   positioning that the standalone rule below sets. */
+.tooltip .tooltip-topbar .tooltip-close {
+  position: static;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+/* The topbar's padding already makes the gap; a margin here doubles it. */
+.tooltip .tooltip-topbar .task-row {
+  margin-bottom: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+/* Hidden when a click outside dismisses the tooltip, so there are not two dismiss controls. */
+.tooltip .tooltip-close {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  background: transparent;
+  color: var(--color-muted);
+  border-radius: var(--radius-md);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition:
+    background-color var(--motion-fast) var(--ease-out),
+    color var(--motion-fast) var(--ease-out);
+  z-index: 1;
+}
+.tooltip .tooltip-close:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-fg);
+}
+.tooltip .actions button {
+  background: transparent;
+  color: var(--color-accent);
+  border: 0;
+  cursor: pointer;
+  padding: 2px var(--space-1);
+  font-size: var(--fs-sm);
+}
+.tooltip .actions button:hover {
+  text-decoration: underline;
+}
+/* An icon button never underlines, disabled ones included: the rule above outranks .icon-btn, and a labeled one would show it. */
+.tooltip .actions .icon-btn:hover {
+  text-decoration: none;
+}
+/* Cancel is the only classless action button; it reads as a button, not a link. */
+.tooltip .actions button:not([class]) {
+  min-height: 28px;
+  padding: 2px var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.tooltip .actions button:not([class]):hover {
+  text-decoration: none;
+  background: var(--color-bg-hover);
+}
+.tooltip .actions .icon-btn {
+  /* 32×32 hit target for every action, Copy included. */
+  position: relative;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-md);
+  line-height: 1;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color var(--motion-fast) var(--ease-out);
+  color: var(--color-muted);
+}
+/* An icon with its word: the error row's one recovery action must read without a hover. */
+.tooltip .actions .icon-btn-labeled {
+  gap: 4px;
+  padding: 0 var(--space-2);
+  color: var(--color-accent);
+}
+/* Copy is styled like every other action on purpose: its press feedback (bounce + swap to ✓) is signal enough without an accent tint. */
+.tooltip .actions .icon-btn-primary {
+  min-width: 32px;
+  height: 32px;
+}
+/* Copy success: 200ms scale pop with ease-out. */
+.tooltip .actions .icon-btn .icon-copied {
+  display: inline-flex;
+  animation: ega-copy-bounce 200ms var(--ease-out);
+}
+/* No exit animation: the {#if} remounts the span. */
+.tooltip .actions .icon-btn .icon-swap-in {
+  display: inline-flex;
+  animation: ega-copy-swap 120ms var(--ease-out);
+}
+@keyframes ega-copy-swap {
+  0% {
+    transform: scale(0.75);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tooltip .actions .icon-btn .icon-swap-in {
+    animation: none;
+  }
+}
+@keyframes ega-copy-bounce {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.tooltip.is-exiting {
+  animation: ega-tooltip-out 120ms var(--ease-out) both;
+}
+@keyframes ega-tooltip-out {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+.tooltip .actions .icon-btn:hover:not(:disabled):not([aria-disabled='true']) {
+  color: var(--color-fg);
+}
+.tooltip .actions .icon-btn .icon {
+  width: 16px;
+  height: 16px;
+  display: block;
+  transition: transform 80ms var(--ease-out);
+}
+.tooltip .actions .icon-btn:hover:not(:disabled):not([aria-disabled='true']) {
+  background-color: var(--color-accent-bg-hover);
+}
+/* Scale the glyph, not the button: a shrinking hit box moves out from under the cursor and the click is lost. */
+.tooltip .actions .icon-btn:active:not(:disabled):not([aria-disabled='true']) {
+  transform: none;
+}
+.tooltip .actions .icon-btn:active:not(:disabled):not([aria-disabled='true']) .icon {
+  transform: scale(0.94);
+}
+.tooltip .actions .icon-btn:disabled {
+  opacity: 0.35;
+  cursor: var(--cursor-disabled);
+}
+/* aria-disabled keeps a blocked button focusable, so its reason is reachable. Disabled color, not opacity: opacity
+   would also fade its focus ring and its hover/focus label, which carries the reason. */
+.tooltip .actions .icon-btn[aria-disabled='true'] {
+  color: var(--color-fg-disabled);
+  background: transparent;
+  cursor: var(--cursor-disabled);
+}
+/* Forced colors draws only a real :disabled in GrayText; without this the blocked button looks enabled. */
+@media (forced-colors: active) {
+  .tooltip .actions .icon-btn[aria-disabled='true'] {
+    color: GrayText;
+  }
+}
+/* :not([data-tooltip='']) because Svelte renders data-tooltip='' for a missing prop, which would paint an empty label. */
+.tooltip .actions .icon-btn[data-tooltip]:not([data-tooltip='']):hover::after,
+.tooltip .actions .icon-btn[data-tooltip]:not([data-tooltip='']):focus-visible::after {
+  /* Label goes below the icon: above, it covers the translation text. */
+  content: attr(data-tooltip);
+  position: absolute;
+  /* Reset the global rule's bottom anchor and X transform, or the label is over-constrained and shifted twice. */
+  bottom: auto;
+  transform: none;
+  animation: none;
+  top: calc(100% + 4px);
+  left: 50%;
+  translate: -50% 0;
+  background: var(--color-bg-elevated);
+  color: var(--color-fg);
+  padding: 2px var(--space-2);
+  font-size: var(--fs-xs);
+  border-radius: var(--radius-sm);
+  /* Wraps inside its box like the global label: the swap labels name both languages and run past 160px. */
+  white-space: normal;
+  overflow-wrap: anywhere;
+  /* The button's line-height: 1 would stack a wrapped second line flush against the box edge. */
+  line-height: var(--lh-heading);
+  pointer-events: none;
+  box-shadow: 0 1px 3px var(--color-shadow);
+  z-index: 2147483647;
+  max-width: 220px;
+}
+.tooltip .meta {
+  /* `padding-inline-end` of one radius: a narrow image-inline tooltip auto-sizes small enough that the pill's right edge lands on the `--radius-lg` curve and pokes past it. `box-sizing: border-box` keeps `max-width: 100%` honest against that padding. */
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+  padding-inline-end: var(--radius-lg);
+  /* The card pads its bottom by only --space-1, so without this the pill sits on the corner's lower edge. */
+  padding-bottom: var(--space-1);
+  font-size: var(--fs-xs);
+  /* No opacity on the row: a child cannot undo a parent's, and it took the pills below 4.5:1. The labels mute themselves. */
+  min-width: 0;
+  max-width: 100%;
+}
+/* The pills end the action row; flex-wrap on .actions moves them to their own line when they do not fit. */
+.tooltip .actions .meta {
+  margin-left: auto;
+  margin-top: 0;
+}
+.tooltip .meta .lang,
+.tooltip .meta .lang-pill {
+  /* A long detected label breaks inside itself instead of pushing the pill out of the tooltip. */
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.tooltip .meta .dot {
+  opacity: 0.5;
+}
+.tooltip .meta .lang {
+  font-size: var(--fs-xs);
+  opacity: 0.85;
+}
+.tooltip .meta .lang-cluster {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+.tooltip .meta .lang-pill {
+  font-size: var(--fs-xs);
+  padding: 1px var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--color-accent-bg-soft);
+  /* 11px is normal text, so this needs 4.5:1, not the 3:1 large-text bar. The hover accent clears it on the soft tint. */
+  color: var(--color-accent-hover);
+}
+.tooltip .pill {
+  display: inline-block;
+  font-size: var(--fs-xs);
+  padding: 2px var(--space-1);
+  border-radius: var(--radius-pill);
+}
+.pill.hi {
+  background: var(--color-success-bg-soft);
+  color: var(--color-success-fg);
+}
+.pill.mid {
+  background: var(--color-warning-bg-soft);
+  color: var(--color-warning-fg);
+}
+.pill.lo {
+  background: var(--color-danger-bg-soft);
+  /* The -fg shade: the base danger red on its soft tint measures 3.0:1 in dark, under the 4.5:1 an 11px label needs. */
+  color: var(--color-danger-fg);
+}
+.shimmer-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+}
+.shimmer {
+  flex: 0 0 120px;
+  background: linear-gradient(
+    90deg,
+    var(--color-border) 0%,
+    var(--color-dot-neutral) 50%,
+    var(--color-border) 100%
+  );
+  background-size: 200% 100%;
+  animation: ega-shim 1.2s linear infinite;
+  height: 8px;
+  border-radius: var(--radius-sm);
+}
+/* Forced colors drops the gradient, so the bar needs a border to stay visible. */
+@media (forced-colors: active) {
+  .shimmer {
+    border: 1px solid CanvasText;
+  }
+}
+.shimmer-label {
+  color: var(--color-muted);
+  font-size: var(--fs-sm);
+  font-style: italic;
+}
+@keyframes ega-shim {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+/* Copies of component styles: a component's scoped <style> never reaches the tooltip's shadow root. */
+
+/* IconButton inside the tooltip; without this the host page's default button styles apply. */
+.ega-icon-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-fg-subtle);
+  cursor: pointer;
+  transition:
+    background var(--motion-fast) var(--ease-out),
+    color var(--motion-fast) var(--ease-out);
+  font: inherit;
+}
+.ega-icon-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.ega-icon-btn:not(:disabled):hover {
+  background: var(--color-bg-hover);
+  color: var(--color-fg);
+}
+.ega-icon-btn.size-sm {
+  width: 28px;
+  height: 28px;
+}
+.ega-icon-btn.size-md {
+  width: 32px;
+  height: 32px;
+}
+.ega-icon-btn.size-lg {
+  width: 36px;
+  height: 36px;
+}
+.ega-icon-btn.variant-primary {
+  color: var(--color-accent);
+}
+.ega-icon-btn.variant-primary:not(:disabled):hover {
+  background: var(--color-accent-bg-hover);
+}
+.ega-icon-btn.variant-danger:not(:disabled):hover,
+.ega-icon-btn.variant-danger:not(:disabled):focus-visible {
+  color: var(--color-danger-fg);
+  background: var(--color-danger-bg-soft);
+}
+
+.ega-select-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.ega-select-label {
+  font-size: var(--fs-sm);
+  color: var(--color-fg);
+  font-weight: 500;
+}
+/* The chevron is a data-URI SVG; a data: document cannot read CSS vars, so the stroke is hex-encoded and swapped per theme below. */
+.ega-select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-color: var(--color-bg-elevated);
+  color: var(--color-fg);
+  border: 1px solid var(--color-control-border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-ui);
+  line-height: 1.4;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M3 4.5l3 3 3-3' fill='none' stroke='%23b0b4ba' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right var(--space-2) center;
+  background-size: 12px 12px;
+  color-scheme: dark;
+}
+.ega-select::-ms-expand {
+  display: none;
+}
+.size-sm .ega-select {
+  padding: var(--space-1) calc(var(--space-2) + 14px) var(--space-1) var(--space-2);
+  font-size: var(--fs-sm);
+}
+.size-md .ega-select {
+  padding: var(--space-2) calc(var(--space-2) + 16px) var(--space-2) var(--space-3);
+  font-size: var(--fs-base);
+}
+.ega-select:hover {
+  background-color: var(--color-bg-hover);
+}
+.ega-select:focus-visible {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-bg-soft);
+}
+.ega-modified-dot {
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  margin-left: var(--space-1);
+  border-radius: 50%;
+  background: var(--color-accent);
+  vertical-align: middle;
+}
+:host([data-theme='light']) .ega-select {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M3 4.5l3 3 3-3' fill='none' stroke='%2360646c' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  color-scheme: light;
+}
+@media (prefers-color-scheme: light) {
+  :host(:not([data-theme='dark'])) .ega-select {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M3 4.5l3 3 3-3' fill='none' stroke='%2360646c' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+    color-scheme: light;
+  }
+}
+:host([data-theme='dark']) .ega-select {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M3 4.5l3 3 3-3' fill='none' stroke='%23b0b4ba' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  color-scheme: dark;
+}
+
+.ega-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+  color: currentColor;
+}
+
+/* ReplyDetails ("About this reply"): its scoped styles never reach the shadow root. */
+.reply-details {
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  background: var(--color-bg-sunken);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  font-size: var(--fs-sm);
+  color: var(--color-fg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.rd-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.rd-title {
+  margin: 0;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.rd-sub {
+  margin: 0 0 var(--space-1);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--color-fg-subtle);
+}
+.rd-rows {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.rd-row {
+  display: grid;
+  grid-template-columns: 8.5em 1fr;
+  gap: var(--space-2);
+  align-items: baseline;
+}
+.rd-row dt {
+  color: var(--color-muted);
+}
+.rd-row dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.rd-quote {
+  padding-left: var(--space-2);
+  border-left: 2px solid var(--color-border);
+  white-space: pre-wrap;
+  max-height: 6em;
+  overflow: auto;
+}
+.rd-caption {
+  display: block;
+  margin-top: var(--space-1);
+}
+.rd-muted {
+  color: var(--color-muted);
+}
+.rd-page {
+  margin: 0 0 var(--space-1);
+  display: flex;
+  flex-direction: column;
+}
+.rd-url {
+  font-size: var(--fs-xs);
+  color: var(--color-muted);
+  overflow-wrap: anywhere;
+}
+.rd-around {
+  margin: 0 0 var(--space-1);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--color-fg-subtle);
+}
+.rd-around mark {
+  background: var(--color-accent-bg-soft);
+  color: var(--color-fg);
+  border-radius: 2px;
+  padding: 0 2px;
+}
+.rd-all {
+  margin: 0 0 var(--space-1);
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 2px var(--space-2);
+  font-size: var(--fs-xs);
+}
+.rd-all dt {
+  color: var(--color-muted);
+}
+.rd-all dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.rd-mono {
+  font-family: var(--font-mono);
+}
+.rd-sep {
+  margin-inline: var(--space-1);
+  color: var(--color-muted);
+}
+.rd-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-accent);
+  font: inherit;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  min-height: 24px;
+}
+.rd-tried {
+  display: flex;
+  flex-direction: column;
+}
+.rd-attempts {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--fs-xs);
+}
+.rd-attempts li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-2);
+}
+.rd-attempt-name {
+  font-weight: 500;
+}
+.rd-attempts li.is-error .rd-attempt-status {
+  color: var(--color-danger-fg);
+}
+.rd-attempt-time {
+  color: var(--color-muted);
+  font-variant-numeric: tabular-nums;
+}
+.rd-attempt-msg {
+  flex-basis: 100%;
+  color: var(--color-muted);
+  overflow-wrap: anywhere;
+}
+.rd-foot {
+  display: flex;
+  justify-content: flex-end;
+}
+.rd-copy {
+  min-height: 24px;
+  font-size: var(--fs-xs);
+  padding: 2px var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-fg);
+  cursor: pointer;
+}

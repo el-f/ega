@@ -5,7 +5,10 @@ import path from 'node:path';
 // Chrome ties anchor-positioned pseudo-elements to the nearest scroll container, so overflow on `.tooltip` clips the button hover labels.
 
 describe('.tooltip CSS — no outer overflow clip', () => {
-  const css = readFileSync(path.join(__dirname, '../../../src/content/shadow.css'), 'utf8');
+  const css = readFileSync(
+    path.join(__dirname, '../../../src/content/tooltip/tooltip.css'),
+    'utf8',
+  );
 
   // A CSS comment quoting the forbidden value would false-trigger the matchers.
   const cssNoComments = css.replace(/\/\*[\s\S]*?\*\//g, '');

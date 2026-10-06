@@ -56,7 +56,7 @@ describe('side-panel cues survive forced colors', () => {
     expect(src).toMatch(
       /@media \(forced-colors: active\)\s*\{\s*\.ega-skeleton-bar\s*\{[^}]*border:\s*1px solid CanvasText/,
     );
-    expect(read('src/content/shadow.css')).toMatch(
+    expect(read('src/content/tooltip/tooltip.css')).toMatch(
       /@media \(forced-colors: active\)\s*\{\s*\.shimmer\s*\{[^}]*border:\s*1px solid CanvasText/,
     );
   });
@@ -69,7 +69,7 @@ describe('side-panel cues survive forced colors', () => {
     expect(rule(turn, '\\.ega-answer :global\\(\\.body-diff \\.diff-del\\)')).toMatch(
       /text-decoration:\s*line-through/,
     );
-    const content = read('src/content/shadow.css');
+    const content = read('src/content/tooltip/tooltip.css');
     expect(rule(content, '\\.tooltip \\.body-diff \\.diff-add')).toMatch(
       /text-decoration:\s*underline/,
     );

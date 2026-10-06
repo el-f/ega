@@ -270,7 +270,11 @@ async function main(): Promise<void> {
   const entries: string[] = [];
   await walk(contentDir, entries);
   const files = await collectReachable(entries, root);
-  const shadowSheet = await readSheet(path.join(contentDir, 'shadow.css'));
+  // The tooltip chunk injects tooltip/tooltip.css on its first open; shared components it mounts are copied there.
+  const shadowSheet =
+    (await readSheet(path.join(contentDir, 'shadow.css'))) +
+    '\n' +
+    (await readSheet(path.join(contentDir, 'tooltip', 'tooltip.css')));
   // multi-select.ts, batch-progress.ts and picker-overlay.ts inject their own sheets into the same root; page-styles.css goes to document.head instead.
   const rootSheets =
     shadowSheet +

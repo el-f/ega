@@ -4,7 +4,10 @@ import path from 'node:path';
 
 // Any non-`none` transform makes a stacking context that traps the hover labels behind the card.
 describe('ega-tooltip-in @keyframes', () => {
-  const css = readFileSync(path.join(__dirname, '../../../src/content/shadow.css'), 'utf8');
+  const css = readFileSync(
+    path.join(__dirname, '../../../src/content/tooltip/tooltip.css'),
+    'utf8',
+  );
 
   it('exists', () => {
     expect(css).toMatch(/@keyframes\s+ega-tooltip-in/);

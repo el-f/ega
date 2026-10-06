@@ -5,7 +5,7 @@ import { resolve } from 'node:path';
 // tokens.css puts the pseudo ABOVE — a rule that moves it BELOW must clear bottom + transform.
 
 function readStyles(): string {
-  const path = resolve(__dirname, '../../../src/content/shadow.css');
+  const path = resolve(__dirname, '../../../src/content/tooltip/tooltip.css');
   return readFileSync(path, 'utf8');
 }
 

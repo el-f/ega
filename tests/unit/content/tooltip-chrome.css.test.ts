@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-const css = readFileSync(resolve('src/content/shadow.css'), 'utf8');
+const css = readFileSync(resolve('src/content/tooltip/tooltip.css'), 'utf8');
 
 function rule(selector: string): CSSStyleDeclaration | undefined {
   document.head.innerHTML = `<style>${css}</style>`;

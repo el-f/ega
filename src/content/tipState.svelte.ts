@@ -1,7 +1,8 @@
 import { debugCatch } from '@/shared/logger';
 import { mount, unmount, type ComponentProps } from 'svelte';
 import Tooltip from './Tooltip.svelte';
-import { getContainer, onShadowHostRemount } from './shadowHost';
+import { ensureShadowSheet, getContainer, onShadowHostRemount } from './shadowHost';
+import tooltipCss from './tooltip/tooltip.css?inline';
 import { hideBubble } from './bubble';
 import { endRequest, rendererOwner, stopRequestStream, type DoneMeta } from './request-state';
 import {
@@ -157,6 +158,7 @@ export function repositionIfOverflow(state: TipState, element: HTMLElement, anch
 }
 
 function createTooltipAnchor(requestId: string): HTMLDivElement {
+  ensureShadowSheet('ega-tooltip-styles', tooltipCss);
   const anchor = document.createElement('div');
   anchor.setAttribute('data-ega-tooltip-wrap', requestId);
   getContainer().appendChild(anchor);
