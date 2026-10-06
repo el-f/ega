@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import type { Mock } from 'vitest';
-import { render, fireEvent } from '@testing-library/svelte';
+import { render } from '@testing-library/svelte';
 import SidePanel from '@/sidepanel/SidePanel.svelte';
+import { openModePopover } from './_composer';
 import { STORAGE_KEYS } from '@/shared/constants';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import { chromeMock } from '@tests/mocks/chrome';
@@ -37,10 +38,8 @@ describe('SidePanel mirrors every settings field it renders', () => {
     await writeSettings({ pageContextLevel: 'minimal', contextEnabled: true });
     const { container } = render(SidePanel);
     await drainAsync();
-    // The level picker lives in the composer's options popover.
-    const opener = container.querySelector('[data-ega-composer-options]');
-    if (!opener) throw new Error('options button not found');
-    await fireEvent.click(opener);
+    // The level picker lives in the composer's Next message popover.
+    await openModePopover(container);
     await drainAsync();
     const before = contextLevelButtons().find((b) => b.getAttribute('aria-pressed') === 'true');
     expect(before?.dataset['egaCtxLevelValue']).toBe('minimal');

@@ -10,6 +10,7 @@ import { writePendingPopupHandoff } from '@/shared/pending-popup-handoff';
 import { chromeMock } from '@tests/mocks/chrome';
 import type { Msg } from '@/shared/messages';
 import { flushAsync } from '@tests/_helpers/async';
+import { openModePopover } from './_composer';
 
 const sendMessage = chrome.runtime.sendMessage as Mock;
 const row = (id: string, label: string, createdAt: number) => ({
@@ -46,6 +47,7 @@ afterEach(() => {
 describe('SidePanel custom tasks', () => {
   it('lists a custom task, and a new row appears when ega.customTasks changes', async () => {
     const { container } = render(SidePanel);
+    await openModePopover(container);
     await waitFor(() =>
       expect(container.querySelector('[data-ega-task="c-tweet"]')).not.toBeNull(),
     );
@@ -66,6 +68,7 @@ describe('SidePanel custom tasks', () => {
   it('sends a custom task as kind translate with its id, and the user turn carries it', async () => {
     const { container } = render(SidePanel);
     await waitFor(async () => {
+      await openModePopover(container);
       const chip = container.querySelector<HTMLElement>('[data-ega-task="c-tweet"]');
       if (!chip) throw new Error('no chip');
       await fireEvent.click(chip);
@@ -76,9 +79,9 @@ describe('SidePanel custom tasks', () => {
     if (!text) throw new Error('no composer');
     await fireEvent.input(text, { target: { value: 'a long thread' } });
     await tick();
+    expect(container.querySelector('[data-ega-mode-chip]')?.textContent).toContain('Tweet summary');
     const send = container.querySelector<HTMLButtonElement>('.ega-send');
     if (!send) throw new Error('no send');
-    expect(send.textContent).toContain('Tweet summary');
     await fireEvent.click(send);
     await waitFor(() => expect(starts()).toHaveLength(1));
     expect(starts()[0]?.options.task).toBe('c-tweet');
@@ -103,31 +106,56 @@ describe('SidePanel custom task with an image', () => {
   const PNG =
     'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
 
-  it.each([
-    ['takes images: sends its own task with the image', true, 'c-img'],
-    ['takes no images: the image goes to Translate', false, undefined],
-  ])('%s', async (_, image, expectedTask) => {
+  it('takes no images: the task cannot be picked while an image waits, and the image goes to Translate', async () => {
     await chrome.storage.local.set({
-      [STORAGE_KEYS.customTasks]: [{ ...row('c-img', 'Describe', 1), image }],
+      [STORAGE_KEYS.customTasks]: [{ ...row('c-img', 'Describe', 1), image: false }],
     });
     const { writeComposerDraftImage } = await import('@/sidepanel/state/composer-draft');
     await writeComposerDraftImage(PNG);
     const { container } = render(SidePanel);
     await waitFor(() => expect(container.querySelector('img')).not.toBeNull());
-    await waitFor(async () => {
-      const chip = container.querySelector<HTMLElement>('[data-ega-task="c-img"]');
-      if (!chip) throw new Error('no chip');
-      await fireEvent.click(chip);
-      await flushAsync();
-      expect(chip.getAttribute('aria-checked')).toBe('true');
+    await openModePopover(container);
+    const chip = await waitFor(() => {
+      const c = container.querySelector<HTMLElement>('[data-ega-task="c-img"]');
+      if (!c) throw new Error('no chip');
+      return c;
     });
-    const send = container.querySelector<HTMLButtonElement>('.ega-send');
-    if (!send) throw new Error('no send');
-    await fireEvent.click(send);
+    expect(chip.getAttribute('aria-disabled')).toBe('true');
+    await fireEvent.click(chip);
+    await flushAsync();
+    expect(chip.getAttribute('aria-checked')).toBe('false');
+    await fireEvent.click(container.querySelector('.ega-send') as HTMLElement);
     await waitFor(() => expect(starts()).toHaveLength(1));
-    expect(starts()[0]?.options.task).toBe(expectedTask);
+    expect(starts()[0]?.options.task).toBeUndefined();
     expect(starts()[0]?.options.imageUrl).toBeDefined();
   });
+
+  it.each([['takes images: sends its own task with the image', true, 'c-img']])(
+    '%s',
+    async (_, image, expectedTask) => {
+      await chrome.storage.local.set({
+        [STORAGE_KEYS.customTasks]: [{ ...row('c-img', 'Describe', 1), image }],
+      });
+      const { writeComposerDraftImage } = await import('@/sidepanel/state/composer-draft');
+      await writeComposerDraftImage(PNG);
+      const { container } = render(SidePanel);
+      await waitFor(() => expect(container.querySelector('img')).not.toBeNull());
+      await waitFor(async () => {
+        await openModePopover(container);
+        const chip = container.querySelector<HTMLElement>('[data-ega-task="c-img"]');
+        if (!chip) throw new Error('no chip');
+        await fireEvent.click(chip);
+        await flushAsync();
+        expect(chip.getAttribute('aria-checked')).toBe('true');
+      });
+      const send = container.querySelector<HTMLButtonElement>('.ega-send');
+      if (!send) throw new Error('no send');
+      await fireEvent.click(send);
+      await waitFor(() => expect(starts()).toHaveLength(1));
+      expect(starts()[0]?.options.task).toBe(expectedTask);
+      expect(starts()[0]?.options.imageUrl).toBeDefined();
+    },
+  );
 });
 
 describe('SidePanel handoff with a custom task', () => {
@@ -175,6 +203,7 @@ describe('SidePanel page context follows the task switch at send time', () => {
     });
     const { container } = render(SidePanel);
     await waitFor(async () => {
+      await openModePopover(container);
       const chip = container.querySelector<HTMLElement>('[data-ega-task="c-tweet"]');
       if (!chip) throw new Error('no chip');
       await fireEvent.click(chip);

@@ -4,6 +4,7 @@ import type { Mock } from 'vitest';
 import { render, fireEvent, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import SidePanel from '@/sidepanel/SidePanel.svelte';
+import { openModePopover } from './_composer';
 import { GENERAL_ORIGIN, saveThread } from '@/sidepanel/state/conversation-store';
 import { asLangIdUnsafe } from '@/shared/brands';
 import type { Turn } from '@/sidepanel/state/conversation';
@@ -45,6 +46,7 @@ async function swapButton(container: HTMLElement): Promise<HTMLElement> {
 }
 
 async function setSourceLang(container: HTMLElement, value: string): Promise<void> {
+  await openModePopover(container);
   const picker = container.querySelector<HTMLSelectElement>('#sp-conv-source');
   if (!picker) throw new Error('#sp-conv-source picker not found');
   await fireEvent.change(picker, { target: { value } });
@@ -55,7 +57,7 @@ async function setSourceLang(container: HTMLElement, value: string): Promise<voi
 /** onMount reads settings + varieties asynchronously and rewrites the pickers when it lands. */
 async function settleMount(container: HTMLElement): Promise<void> {
   await waitFor(() => {
-    if (!container.querySelector('#sp-conv-source optgroup')) throw new Error('mount not settled');
+    if (!container.querySelector('[data-ega-backend-chip]')) throw new Error('mount not settled');
   });
 }
 

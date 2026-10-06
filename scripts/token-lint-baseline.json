@@ -21,7 +21,6 @@
   "src/options/components/backend-card/BackendCardTestRow.svelte  background: rgba(227, 179, 65, 0.08);",
   "src/options/components/backend-card/BackendCardTestRow.svelte  background: rgba(70, 167, 88, 0.16);",
   "src/options/components/backend-card/BackendCardTestRow.svelte  background: rgba(70, 167, 88, 0.22);",
-  "src/shared/components/TaskPicker.svelte  background: var(--ega-hover, rgba(127, 127, 127, 0.15));",
   "src/shared/ui/Popover.svelte  background: rgba(0, 0, 0, 0.32);",
   "src/shared/ui/Popover.svelte  background: var(--color-overlay, rgba(0, 0, 0, 0.16));",
   "src/sidepanel/conversation/UserTurn.svelte  box-shadow: 0 0 0 0 var(--color-success-bg-soft, rgba(0 200 0 / 0.3));"

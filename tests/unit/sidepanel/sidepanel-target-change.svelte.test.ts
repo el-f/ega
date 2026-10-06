@@ -4,6 +4,7 @@ import type { Mock } from 'vitest';
 import { render, fireEvent, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import SidePanel from '@/sidepanel/SidePanel.svelte';
+import { openModePopover } from './_composer';
 import type { Msg } from '@/shared/messages';
 
 const sendMessage = chrome.runtime.sendMessage as Mock;
@@ -35,6 +36,7 @@ async function sendAndDrain(container: HTMLElement, text: string): Promise<void>
 }
 
 async function pickTarget(container: HTMLElement, value: string): Promise<void> {
+  await openModePopover(container);
   const picker = container.querySelector<HTMLSelectElement>('#sp-conv-target');
   if (!picker) throw new Error('#sp-conv-target picker not found');
   await fireEvent.change(picker, { target: { value } });
@@ -44,8 +46,12 @@ async function pickTarget(container: HTMLElement, value: string): Promise<void> 
 
 /** onMount reads settings + varieties asynchronously and rewrites the pickers when it lands. */
 async function settleMount(container: HTMLElement): Promise<void> {
+  await openModePopover(container);
   await waitFor(() => {
     if (!container.querySelector('#sp-conv-source optgroup')) throw new Error('mount not settled');
+  });
+  await fireEvent.keyDown(document.querySelector('[data-ega-mode-popover]') as HTMLElement, {
+    key: 'Escape',
   });
 }
 

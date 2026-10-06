@@ -85,7 +85,7 @@ describe('SidePanel — a failed tooltip image opened in the panel', () => {
 
     const { container } = render(SidePanel);
 
-    const preview = await screen.findByAltText('Attached image');
+    const preview = await screen.findByAltText('Attachment');
     expect(preview.getAttribute('src')).toBe(PNG);
     await waitFor(() => expect(document.activeElement?.id).toBe('sp-text'));
     await drained();
@@ -98,20 +98,20 @@ describe('SidePanel — a failed tooltip image opened in the panel', () => {
 
     render(SidePanel);
 
-    const preview = await screen.findByAltText('Attached image');
+    const preview = await screen.findByAltText('Attachment');
     expect(preview.getAttribute('src')).toBe('https://example.com/sign.png');
   });
 
   it('keeps an http image when the panel closes and opens again', async () => {
     await attachHandoff(HTTP_IMAGE);
     const first = render(SidePanel);
-    await screen.findByAltText('Attached image');
+    await screen.findByAltText('Attachment');
     await draftImageSaved(HTTP_IMAGE);
     first.unmount();
 
     render(SidePanel);
 
-    const preview = await screen.findByAltText('Attached image');
+    const preview = await screen.findByAltText('Attachment');
     expect(preview.getAttribute('src')).toBe(HTTP_IMAGE);
   });
 
@@ -126,12 +126,12 @@ describe('SidePanel — a failed tooltip image opened in the panel', () => {
         'Replace the attached image with the one from the page?',
       ),
     );
-    expect(screen.getByAltText('Attached image').getAttribute('src')).toBe(PNG);
+    expect(screen.getByAltText('Attachment').getAttribute('src')).toBe(PNG);
 
     await fireEvent.click(screen.getByRole('button', { name: 'Replace' }));
 
     await waitFor(() =>
-      expect(screen.getByAltText('Attached image').getAttribute('src')).toBe(HTTP_IMAGE),
+      expect(screen.getByAltText('Attachment').getAttribute('src')).toBe(HTTP_IMAGE),
     );
   });
 
@@ -165,17 +165,17 @@ describe('SidePanel — a failed tooltip image opened in the panel', () => {
     await sendText(container, 'original');
     await fireEvent.keyDown(window, { key: 'e', target: document.body });
     await tick();
-    expect(container.querySelector('[data-ega-editing-banner]')).not.toBeNull();
+    expect(container.querySelector('[data-ega-mode-banner]')).not.toBeNull();
 
     await attachHandoff(HTTP_IMAGE);
 
     await waitFor(() =>
       expect(container.textContent).toContain(
-        'The page image was not attached because you are editing a message.',
+        "The page image wasn't attached because you're editing a message.",
       ),
     );
-    expect(screen.queryByAltText('Attached image')).toBeNull();
-    expect(container.querySelector('[data-ega-editing-banner]')).not.toBeNull();
+    expect(screen.queryByAltText('Attachment')).toBeNull();
+    expect(container.querySelector('[data-ega-mode-banner]')).not.toBeNull();
     expect(container.querySelector<HTMLTextAreaElement>('#sp-text')?.value).toBe('original');
   });
 
@@ -185,7 +185,7 @@ describe('SidePanel — a failed tooltip image opened in the panel', () => {
     render(SidePanel);
 
     await drained();
-    expect(screen.queryByAltText('Attached image')).toBeNull();
+    expect(screen.queryByAltText('Attachment')).toBeNull();
   });
 
   it('says so when the image was too large to carry', async () => {
@@ -196,7 +196,7 @@ describe('SidePanel — a failed tooltip image opened in the panel', () => {
     await waitFor(() =>
       expect(container.textContent).toContain('The image was too large to open in the side panel.'),
     );
-    expect(screen.queryByAltText('Attached image')).toBeNull();
+    expect(screen.queryByAltText('Attachment')).toBeNull();
     expect(translateStarts()).toHaveLength(0);
   });
 });

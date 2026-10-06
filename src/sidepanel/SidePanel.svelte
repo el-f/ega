@@ -20,7 +20,6 @@
   import CommandPalette from '@/shared/components/CommandPalette.svelte';
   import ShortcutOverlay from '@/shared/components/ShortcutOverlay.svelte';
   import PanelHeader from './PanelHeader.svelte';
-  import SquarePenIcon from '@lucide/svelte/icons/square-pen';
   import XIcon from '@lucide/svelte/icons/x';
   import { flushPendingDeletes, forgetPendingDeletes } from '@/shared/saved-conversations';
   import { confirmDialog } from '@/shared/components/confirmDialog';
@@ -37,6 +36,7 @@
   import InputRow from './conversation/InputRow.svelte';
   import { createConversation } from './state/conversation.svelte';
   import { createIntake } from './state/intake';
+  import type { ComposerMode } from './state/thread-view';
   import { INDEX_KEY } from './state/conversation-store';
   import { visibleTurns, searchTurns } from './state/conversation';
   import { exportMarkdown, exportJson } from './state/conversation-export';
@@ -71,8 +71,9 @@
   let pageContextLevel = $state<'minimal' | 'rich'>('minimal');
   let attachedImage = $state<string | null>(null);
   let focusedTurnId = $state<string | null>(null);
-  // The id, not a flag: a tab switch swaps the thread, so "drop the last exchange" would hit another site's turns.
-  let editingTurnId = $state<string | null>(null);
+  // Ids, not flags: a tab switch swaps the thread, so "drop the last exchange" would hit another site's turns.
+  let composerMode = $state<ComposerMode>({ kind: 'send' });
+  const editingTurnId = $derived(composerMode.kind === 'edit' ? composerMode.turnId : null);
 
   // Reported by the backend chip, which already resolves the chain and probes the key-less backends.
   let backendReady = $state<boolean | null>(null);
@@ -131,11 +132,17 @@
   // Resolved after mount; undefined until then, and every window check fails open on undefined.
   let panelWindowId: number | undefined;
 
-  // Composer swap only. A reply's Re-run as menu swaps a past turn, so it gates on that turn, not the picker.
-  const swapDisabled = $derived(sourceLang === 'auto');
   const latestTurnId = $derived(conversation.turns.at(-1)?.id ?? null);
   const turnSwapPair = $derived(latestTurnId === null ? null : conversation.swapPair(latestTurnId));
   const hasInflight = $derived(conversation.inflightId !== null);
+  /** The newest reply's detected language lets the composer swap from Auto-detect. */
+  const newestDetectedLang = $derived.by(() => {
+    for (let i = conversation.turns.length - 1; i >= 0; i--) {
+      const t = conversation.turns[i];
+      if (t?.role === 'assistant' && t.detectedLang !== undefined) return t.detectedLang;
+    }
+    return undefined;
+  });
   // One gate for New and both export items: disabled until there is a thread.
   const isEmptyThread = $derived(conversation.turns.length === 0);
 
@@ -157,12 +164,6 @@
       return `${bookmarkCount} ${bookmarkCount === 1 ? 'message' : 'messages'} bookmarked`;
     return null;
   });
-
-  function onSwap(): void {
-    const ns = targetLang;
-    targetLang = sourceLang;
-    sourceLang = ns;
-  }
 
   /** Adds a sibling variant and re-sends with the refinement for this request only; it is never written to settings. */
   async function onRefine(args: {
@@ -209,15 +210,31 @@
 
   /** `contextEnabled` and the task's own switch both gate it; the turn stores what was sent, so a later switch change cannot rewrite it. */
   async function currentPageContext(taskId: TaskId): Promise<PageContext | null> {
-    const taskSendsIt = taskViews?.find((v) => v.id === taskId)?.pageContext ?? true;
-    return settings?.contextEnabled && taskSendsIt ? await collectActiveTabContext() : null;
+    return pageInfoGoesFor(taskId) ? await collectActiveTabContext() : null;
   }
+
+  /** The tab shows another site while the user reads this conversation, so its page says nothing about it. */
+  function pageInfoGoesFor(taskId: TaskId): boolean {
+    const taskSendsIt = taskViews?.find((v) => v.id === taskId)?.pageContext ?? true;
+    return (
+      settings?.contextEnabled === true &&
+      taskSendsIt &&
+      conversation.activeSite === conversation.tabSite
+    );
+  }
+  const pageInfoGoes = $derived(attachedImage === null && pageInfoGoesFor(task));
 
   // inflightId only flips after the context-collection await, so a fast double send would dispatch twice.
   let sending = false;
 
   async function sendTurn(): Promise<void> {
     const text = sourceText.trim();
+    if (composerMode.kind === 'refine') {
+      if (!text || conversation.inflightId !== null) return;
+      const turnId = composerMode.turnId;
+      if (await onRefine({ turnId, refinementBody: text })) leaveRefine();
+      return;
+    }
     if (!text && !attachedImage) return;
     if (sending || conversation.inflightId !== null) return;
     sending = true;
@@ -239,7 +256,7 @@
           if (prior?.status === 'done' && prior.content) preservedResponse = prior.content;
           conversation.dropLastUserExchange();
         }
-        editingTurnId = null;
+        composerMode = { kind: 'send' };
         draftBeforeEdit = '';
       }
       const content = text || IMAGE_TURN_PLACEHOLDER;
@@ -284,8 +301,21 @@
     conversation.cancel();
   }
 
-  /** Composer text the edit replaced, so Escape puts it back instead of clearing to ''. */
+  /** Composer text an edit or a described change replaced, so leaving the mode puts it back. */
   let draftBeforeEdit = '';
+
+  function leaveRefine(): void {
+    if (composerMode.kind !== 'refine') return;
+    composerMode = { kind: 'send' };
+    sourceText = draftBeforeEdit;
+    draftBeforeEdit = '';
+  }
+
+  function cancelMode(): void {
+    if (composerMode.kind === 'refine') leaveRefine();
+    else if (composerMode.kind === 'edit') void cancelEditing();
+    focusComposer();
+  }
 
   function focusComposer(): void {
     document.getElementById('sp-text')?.focus();
@@ -309,14 +339,14 @@
       toastStore.push({ message: 'Edit when this reply finishes.', variant: 'warning' });
       return;
     }
-    if (editingTurnId !== null) return;
+    if (composerMode.kind !== 'send') return;
     const last = conversation.lastUserTurn();
     if (!last) return;
     // The pencil is hidden for image turns, but 'e' does not go through it.
     // Keyed on the image, not the kind: an Explain send carries one too.
     if (last.hasImage) {
       toastStore.push({
-        message: 'An image message cannot be edited. Send the image again to change it.',
+        message: "An image message can't be edited. Send the image again to change it.",
         variant: 'warning',
       });
       return;
@@ -331,7 +361,8 @@
     }
     draftBeforeEdit = sourceText;
     sourceText = last.content;
-    editingTurnId = last.id;
+    composerMode = { kind: 'edit', turnId: last.id };
+    void tick().then(focusComposer);
   }
 
   // A mid-history turn needs a confirm before truncating; the last turn reuses pullLastUserTurnIntoInput.
@@ -347,16 +378,17 @@
     if (turnIdx === -1) return;
     const later = conversation.turns.length - turnIdx - 1;
     const ok = await confirmDialog({
-      title: 'Edit message',
-      body: `Edit this message? This removes the ${later} later message${later === 1 ? '' : 's'}.`,
-      confirmLabel: 'Edit',
+      title: 'Edit from here?',
+      body: `This removes the ${later} ${later === 1 ? 'message' : 'messages'} after it.`,
+      confirmLabel: 'Remove and edit',
+      cancelLabel: 'Keep messages',
       danger: true,
     });
     if (!ok) return;
     const text = conversation.editFrom(turnId);
     if (text === null) return;
     sourceText = text;
-    editingTurnId = null;
+    composerMode = { kind: 'send' };
     await tick();
     focusComposer();
   }
@@ -384,9 +416,9 @@
         void tick().then(focusComposer);
       };
       // An image would turn the edited text into an image send, so the edit stays as it is.
-      if (editingTurnId !== null) {
+      if (composerMode.kind !== 'send') {
         toastStore.push({
-          message: 'The page image was not attached because you are editing a message.',
+          message: "The page image wasn't attached because you're editing a message.",
           variant: 'warning',
         });
         return;
@@ -459,14 +491,15 @@
     const original = conversation.turns.find((t) => t.id === editingTurnId)?.content ?? '';
     if (sourceText.trim() && sourceText !== original) {
       const ok = await confirmDialog({
-        title: 'Discard this edit?',
-        body: 'What you typed here is not saved anywhere else.',
+        title: 'Discard your edit?',
+        body: "What you typed here isn't saved anywhere else.",
         confirmLabel: 'Discard',
+        cancelLabel: 'Keep editing',
         danger: true,
       });
       if (!ok) return;
     }
-    editingTurnId = null;
+    composerMode = { kind: 'send' };
     sourceText = draftBeforeEdit;
     draftBeforeEdit = '';
   }
@@ -474,7 +507,7 @@
   /** The edit target left the thread. Keep what the user typed — it just sends as a new message now. */
   function detachEdit(): void {
     if (editingTurnId === null) return;
-    editingTurnId = null;
+    composerMode = { kind: 'send' };
     draftBeforeEdit = '';
     toastStore.push({
       message: 'The conversation changed, so your edit will send as a new message.',
@@ -486,6 +519,14 @@
   $effect(() => {
     const last = conversation.lastUserTurn()?.id;
     if (editingTurnId !== null && last !== editingTurnId) detachEdit();
+  });
+
+  // The reply a described change targets left the thread (another conversation opened, or it was deleted).
+  $effect(() => {
+    const mode = composerMode;
+    if (mode.kind === 'refine' && !conversation.turns.some((t) => t.id === mode.turnId)) {
+      leaveRefine();
+    }
   });
 
   // A turn that is gone — deleted, or left behind by an origin switch — cannot keep the ring: `r` would act on it.
@@ -543,11 +584,11 @@
     if (e.key === 'Escape' && e.defaultPrevented) return;
     if (
       e.key === 'Escape' &&
-      editingTurnId !== null &&
+      composerMode.kind !== 'send' &&
       conversation.inflightId === null &&
       !dialogOpen()
     ) {
-      void cancelEditing();
+      cancelMode();
       return;
     }
     // A bits-ui dialog owns its own Escape, so one role=dialog query covers palette, sheet and confirm.
@@ -725,7 +766,7 @@
       forgetPendingDeletes();
       conversation.resetAfterPurge();
       focusedTurnId = null;
-      editingTurnId = null;
+      composerMode = { kind: 'send' };
     }
   }
 
@@ -763,7 +804,8 @@
     if (conversation.turns.length === 0) return;
     const previous = await conversation.startNewConversation();
     focusedTurnId = null;
-    editingTurnId = null;
+    leaveRefine();
+    composerMode = { kind: 'send' };
     draftBeforeEdit = '';
     await tick();
     focusComposer();
@@ -973,26 +1015,6 @@
       </div>
     {/if}
 
-    {#if editingTurnId !== null}
-      <div class="sp-editing-banner" data-ega-editing-banner role="status">
-        <SquarePenIcon size={14} aria-hidden="true" />
-        <span class="sp-editing-text"
-          >Editing your last message. When you send, the old reply is kept as a variant.</span
-        >
-        <button
-          type="button"
-          class="sp-editing-cancel"
-          aria-label="Cancel editing"
-          data-ega-editing-cancel
-          data-tooltip="Cancel editing · Esc"
-          data-tooltip-placement="top-end"
-          onclick={() => void cancelEditing()}
-        >
-          <XIcon size={14} />
-        </button>
-      </div>
-    {/if}
-
     <div class="sp-composer" bind:clientHeight={composerHeight}>
       <InputRow
         {usesTone}
@@ -1002,26 +1024,22 @@
         bind:targetLang
         bind:task
         bind:tone
-        {swapDisabled}
         {varieties}
         {pageContextLevel}
         contextEnabled={settings?.contextEnabled !== false}
-        onOpenOptions={() => openOptionsTab()}
+        {pageInfoGoes}
+        detectedLang={newestDetectedLang}
+        onOpenSettings={() => openOptionsTab()}
         {attachedImage}
         turns={conversation.turns}
         inflight={conversation.inflightId !== null}
+        mode={composerMode}
+        onCancelMode={cancelMode}
         onContextLevelChange={(level) => void setPageContextLevel(level)}
-        {onSwap}
         onAttachImage={attachComposerImage}
         onClearAttachedImage={() => {
           attachedImage = null;
           void clearComposerDraftImage();
-        }}
-        streaming={streamingPref}
-        onToggleStreaming={(next) => {
-          const previous = streamingPref;
-          streamingPref = next;
-          void commitSettings({ streaming: next }, () => (streamingPref = previous));
         }}
         onSend={() => void sendTurn()}
         onCancel={cancelInflight}
@@ -1122,35 +1140,6 @@
   .sp-save-failed-retry:disabled {
     opacity: 0.5;
     cursor: default;
-  }
-  .sp-editing-banner {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    padding: var(--space-1) var(--space-3);
-    border-top: 1px solid var(--color-border);
-    background: var(--color-accent-bg-soft);
-    color: var(--color-accent-hover);
-    font-size: var(--fs-xs);
-  }
-  .sp-editing-text {
-    flex: 1 1 auto;
-    min-width: 0;
-  }
-  .sp-editing-cancel {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: none;
-    border: 1px solid transparent;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    color: inherit;
-    box-sizing: border-box;
-    padding: var(--space-1);
-    min-width: 24px;
-    min-height: 24px;
-    flex-shrink: 0;
   }
   .sp-search-bar {
     display: flex;

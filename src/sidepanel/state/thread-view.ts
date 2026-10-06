@@ -8,6 +8,10 @@ import { TONE_LABELS, type Tone } from '@/shared/task-prompts';
 const MINUTE = 60_000;
 const DAY = 24 * 60 * MINUTE;
 
+/** What the next Send does: a new message, a replacement for one, or a change to one reply. */
+export type ComposerMode =
+  { kind: 'send' } | { kind: 'edit'; turnId: string } | { kind: 'refine'; turnId: string };
+
 /** A message this long after the one before it gets a day/time line above it. */
 export const SEPARATOR_GAP_MS = 30 * MINUTE;
 

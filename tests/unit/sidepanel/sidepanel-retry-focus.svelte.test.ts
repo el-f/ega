@@ -39,8 +39,7 @@ describe('SidePanel — Retry on a failed first answer', () => {
   it('moves focus to the new pending reply instead of dropping it to the page', async () => {
     const { container } = render(SidePanel);
     await waitFor(() => {
-      if (!container.querySelector('#sp-conv-source optgroup'))
-        throw new Error('mount not settled');
+      if (!container.querySelector('[data-ega-backend-chip]')) throw new Error('mount not settled');
     });
     const textarea = container.querySelector<HTMLTextAreaElement>('#sp-text');
     if (!textarea) throw new Error('sp-text missing');

@@ -9,6 +9,7 @@ import type { Turn } from '@/sidepanel/state/conversation';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import { openTaskMenu, swapItem } from './_task-menu';
 import { saveThread } from '@/sidepanel/state/conversation-store';
+import { openModePopover } from './_composer';
 
 /** Search and New show only once there is a conversation, so these tests start with one. */
 async function seedThread(): Promise<void> {
@@ -67,15 +68,11 @@ describe('SidePanel — j moves the real focus, not only a ring', () => {
 });
 
 describe('a blocked swap button says why in its label', () => {
-  it('the composer swap carries the reason', async () => {
+  it('the composer swap is not rendered when it cannot act, so there is no reason to explain', async () => {
     const { container } = render(SidePanel);
-    await tick();
-    const swap = container.querySelector<HTMLButtonElement>('.ega-lang-pair .swap');
-    if (!swap) throw new Error('composer swap not found');
-    // aria-disabled keeps it a tab stop, so the label is reachable from the keyboard.
-    expect(swap.disabled).toBe(false);
-    expect(swap.getAttribute('aria-disabled')).toBe('true');
-    expect(swap.getAttribute('aria-label')).toContain('source language');
+    await openModePopover(container);
+    // Auto-detect and no reply yet: nothing to swap with.
+    expect(document.querySelector('[data-ega-swap]')).toBeNull();
   });
 
   it('the turn swap item carries the reason as text', async () => {

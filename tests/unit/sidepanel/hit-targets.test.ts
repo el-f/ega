@@ -9,10 +9,7 @@ const rule = (src: string, selector: string): string => {
   return body;
 };
 
-const TARGETS: [string, string][] = [
-  ['src/sidepanel/SidePanel.svelte', '\\.sp-search-clear'],
-  ['src/sidepanel/SidePanel.svelte', '\\.sp-editing-cancel'],
-];
+const TARGETS: [string, string][] = [['src/sidepanel/SidePanel.svelte', '\\.sp-search-clear']];
 
 describe('small glyph buttons are at least 24px', () => {
   for (const [file, selector] of TARGETS) {
@@ -28,7 +25,7 @@ describe('small glyph buttons are at least 24px', () => {
       read('src/shared/components/ContextLevelPicker.svelte'),
       '\\.ctx-level-toggle button',
     );
-    expect(body).toMatch(/min-height:\s*24px/);
+    expect(body).toMatch(/min-block-size:\s*28px/);
   });
 
   it('and the reply details panel has no 9-10px type and 24px controls', () => {

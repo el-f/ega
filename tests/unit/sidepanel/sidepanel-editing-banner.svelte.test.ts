@@ -41,11 +41,11 @@ async function sendAndDrain(container: HTMLElement, text: string): Promise<void>
   await tick();
 }
 
-describe('SidePanel — editing banner (edit-last)', () => {
+describe('SidePanel — editing mode (edit-last)', () => {
   it('no banner at rest', async () => {
     const { container } = render(SidePanel);
     await tick();
-    expect(container.querySelector('[data-ega-editing-banner]')).toBeNull();
+    expect(container.querySelector('[data-ega-mode-banner]')).toBeNull();
   });
 
   it("pressing 'e' shows the banner; Esc cancels and clears the composer", async () => {
@@ -58,16 +58,17 @@ describe('SidePanel — editing banner (edit-last)', () => {
 
     const textarea = container.querySelector<HTMLTextAreaElement>('#sp-text');
     expect(textarea?.value).toBe('original');
-    expect(container.querySelector('[data-ega-editing-banner]')).not.toBeNull();
-    // Sending keeps the old answer as a variant, so the banner must not promise a replacement.
-    const bannerText = container.querySelector('.sp-editing-text')?.textContent ?? '';
-    expect(bannerText).not.toMatch(/replaces/);
-    expect(bannerText).toMatch(/variant/);
+    expect(container.querySelector('[data-ega-mode-banner]')).not.toBeNull();
+    expect(container.querySelector('[data-ega-mode-banner]')?.textContent).toContain(
+      'Editing your message',
+    );
+    // The chip that picks task and languages steps aside while the message is edited.
+    expect(container.querySelector('[data-ega-mode-chip]')).toBeNull();
 
     await fireEvent.keyDown(window, { key: 'Escape' });
     await tick();
 
-    expect(container.querySelector('[data-ega-editing-banner]')).toBeNull();
+    expect(container.querySelector('[data-ega-mode-banner]')).toBeNull();
     expect(textarea?.value).toBe('');
     // The exchange is untouched — cancel does not drop anything.
     expect(container.querySelectorAll('.ega-user-turn')).toHaveLength(1);
@@ -80,12 +81,12 @@ describe('SidePanel — editing banner (edit-last)', () => {
 
     await fireEvent.keyDown(window, { key: 'e', target: document.body });
     await tick();
-    const cancelBtn = container.querySelector<HTMLButtonElement>('[data-ega-editing-cancel]');
+    const cancelBtn = container.querySelector<HTMLButtonElement>('[aria-label="Cancel editing"]');
     if (!cancelBtn) throw new Error('banner cancel button not found');
     await fireEvent.click(cancelBtn);
     await tick();
 
-    expect(container.querySelector('[data-ega-editing-banner]')).toBeNull();
+    expect(container.querySelector('[data-ega-mode-banner]')).toBeNull();
   });
 
   it('sending while editing hides the banner and replaces the exchange', async () => {
@@ -95,10 +96,10 @@ describe('SidePanel — editing banner (edit-last)', () => {
 
     await fireEvent.keyDown(window, { key: 'e', target: document.body });
     await tick();
-    expect(container.querySelector('[data-ega-editing-banner]')).not.toBeNull();
+    expect(container.querySelector('[data-ega-mode-banner]')).not.toBeNull();
 
     await sendAndDrain(container, 'edited');
-    expect(container.querySelector('[data-ega-editing-banner]')).toBeNull();
+    expect(container.querySelector('[data-ega-mode-banner]')).toBeNull();
     const userTurns = [...container.querySelectorAll('.ega-user-turn')];
     expect(userTurns).toHaveLength(1);
     expect(userTurns[0]?.textContent).toContain('edited');
@@ -110,7 +111,7 @@ describe('SidePanel — editing banner (edit-last)', () => {
     await sendAndDrain(container, 'original');
     await fireEvent.keyDown(window, { key: 'e', target: document.body });
     await tick();
-    expect(container.querySelector('[data-ega-editing-banner]')).not.toBeNull();
+    expect(container.querySelector('[data-ega-mode-banner]')).not.toBeNull();
 
     await writePendingPopupHandoff({
       sourceText: 'from the page',
@@ -122,7 +123,7 @@ describe('SidePanel — editing banner (edit-last)', () => {
     });
 
     await waitFor(() => expect(container.textContent).toContain('delivered'));
-    await waitFor(() => expect(container.querySelector('[data-ega-editing-banner]')).toBeNull());
+    await waitFor(() => expect(container.querySelector('[data-ega-mode-banner]')).toBeNull());
     // What the user typed stays in the box; only the edit link is gone.
     expect(container.querySelector<HTMLTextAreaElement>('#sp-text')?.value).toBe('original');
   });

@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { render, fireEvent } from '@testing-library/svelte';
+import { render, fireEvent, waitFor } from '@testing-library/svelte';
 import InputRow from '@/sidepanel/conversation/InputRow.svelte';
 import { toastStore } from '@/shared/components/toastStore';
+import { composerProps } from './_composer';
 
 class FakeRecognition {
   lang = '';
@@ -19,228 +20,120 @@ class FakeRecognition {
   stop = vi.fn();
 }
 
-const baseProps = () => ({
-  value: '',
-  sourceLang: 'auto',
-  targetLang: 'en',
-  swapDisabled: false,
-  task: 'translate' as const,
-  tone: 'neutral' as const,
-  usesTone: false,
-  varieties: [],
-  pageContextLevel: 'minimal' as const,
-  attachedImage: null,
-  turns: [] as const,
-  inflight: false,
-  streaming: true,
-  onSwap: vi.fn(),
-  onContextLevelChange: vi.fn(),
-  onAttachImage: vi.fn(),
-  onClearAttachedImage: vi.fn(),
-  onSend: vi.fn(),
-  onCancel: vi.fn(),
-  onToggleStreaming: vi.fn(),
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+  FakeRecognition.lastInstance = null;
+  document.body.innerHTML = '';
 });
 
-describe('InputRow voice dictation', () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
-    FakeRecognition.lastInstance = null;
+/** Opens the Add menu from the keyboard; its items render in a portal. */
+async function openAdd(container: HTMLElement): Promise<void> {
+  const add = container.querySelector<HTMLElement>('[data-ega-add]');
+  if (!add) throw new Error('Add missing');
+  await fireEvent.keyDown(add, { key: 'Enter' });
+  await waitFor(() => {
+    if (!document.querySelector('[data-ega-mic]')) throw new Error('menu not open');
   });
+}
 
-  it('hides mic button when SpeechRecognition unavailable', () => {
+async function dictate(props = composerProps()): Promise<{ container: HTMLElement }> {
+  vi.stubGlobal('SpeechRecognition', FakeRecognition);
+  const { container } = render(InputRow, { props });
+  await openAdd(container);
+  await fireEvent.click(document.querySelector('[data-ega-mic]') as HTMLElement);
+  return { container };
+}
+
+const stopButton = (c: HTMLElement): HTMLElement | null =>
+  c.querySelector<HTMLElement>('[data-ega-add][aria-label="Stop dictation"]');
+
+describe('dictation lives in the Add menu', () => {
+  it('with no speech API there is no dictate item', () => {
     vi.stubGlobal('SpeechRecognition', undefined);
     vi.stubGlobal('webkitSpeechRecognition', undefined);
-    const { container } = render(InputRow, { props: baseProps() });
-    expect(container.querySelector('[data-ega-mic]')).toBeNull();
+    const { container } = render(InputRow, { props: composerProps() });
+    expect(container.querySelector('[data-ega-add]')?.getAttribute('aria-label')).toBe(
+      'Attach image',
+    );
   });
 
-  it('shows mic button when SpeechRecognition available', () => {
-    vi.stubGlobal('SpeechRecognition', FakeRecognition);
-    const { container } = render(InputRow, { props: baseProps() });
-    expect(container.querySelector('[data-ega-mic]')).not.toBeNull();
-  });
-
-  it('shows mic button when webkitSpeechRecognition available', () => {
+  it('the webkit-prefixed API counts too', async () => {
     vi.stubGlobal('SpeechRecognition', undefined);
     vi.stubGlobal('webkitSpeechRecognition', FakeRecognition);
-    const { container } = render(InputRow, { props: baseProps() });
-    expect(container.querySelector('[data-ega-mic]')).not.toBeNull();
-  });
-
-  it('mic button names the language it will listen in', () => {
-    vi.stubGlobal('SpeechRecognition', FakeRecognition);
-    const { container } = render(InputRow, { props: baseProps() });
-    const btn = container.querySelector('[data-ega-mic]');
-    expect(btn?.getAttribute('aria-label')).toBe('Dictate in English');
-    expect(btn?.getAttribute('data-tooltip')).toBe('Dictate in English');
-  });
-
-  it('listens in the chosen source language', async () => {
-    vi.stubGlobal('SpeechRecognition', FakeRecognition);
-    const { container } = render(InputRow, { props: { ...baseProps(), sourceLang: 'es' } });
-    const btn = container.querySelector('[data-ega-mic]');
-    expect(btn?.getAttribute('aria-label')).toBe('Dictate in Spanish');
-    if (btn) await fireEvent.click(btn);
-    expect(FakeRecognition.lastInstance?.lang).toBe('es');
-  });
-
-  it('falls back to the browser language when the source is Auto-detect', async () => {
-    vi.stubGlobal('SpeechRecognition', FakeRecognition);
-    const { container } = render(InputRow, { props: baseProps() });
-    const btn = container.querySelector('[data-ega-mic]');
-    if (btn) await fireEvent.click(btn);
-    expect(FakeRecognition.lastInstance?.lang).toBe(navigator.language);
-  });
-
-  it('never hands a preset id to the recogniser', async () => {
-    vi.stubGlobal('SpeechRecognition', FakeRecognition);
-    const { container } = render(InputRow, { props: { ...baseProps(), sourceLang: 'arabizi' } });
-    const btn = container.querySelector('[data-ega-mic]');
-    if (btn) await fireEvent.click(btn);
-    expect(FakeRecognition.lastInstance?.lang).toBe(navigator.language);
-  });
-
-  it('swaps the glyph while recording so the state survives forced colors', async () => {
-    vi.stubGlobal('SpeechRecognition', FakeRecognition);
-    const { container } = render(InputRow, { props: baseProps() });
-    const btn = container.querySelector('[data-ega-mic]');
-    expect(container.querySelector('[data-ega-mic] svg')?.getAttribute('class')).toContain(
-      'lucide-mic',
+    const { container } = render(InputRow, { props: composerProps() });
+    expect(container.querySelector('[data-ega-add]')?.getAttribute('aria-label')).toBe('Add');
+    await openAdd(container);
+    expect(document.querySelector('[data-ega-attach-image]')?.textContent).toContain(
+      'Attach image…',
     );
-    if (btn) await fireEvent.click(btn);
-    const cls = container.querySelector('[data-ega-mic] svg')?.getAttribute('class') ?? '';
-    expect(cls).toContain('circle-stop');
-    expect(cls).not.toContain('lucide-mic');
   });
 
-  it('mic button has aria-pressed=false initially', () => {
+  it('names the language it listens in, and listens in it', async () => {
     vi.stubGlobal('SpeechRecognition', FakeRecognition);
-    const { container } = render(InputRow, { props: baseProps() });
-    const btn = container.querySelector('[data-ega-mic]');
-    expect(btn?.getAttribute('aria-pressed')).toBe('false');
-  });
-
-  it('clicking mic starts recognition', async () => {
-    vi.stubGlobal('SpeechRecognition', FakeRecognition);
-    const { container } = render(InputRow, { props: baseProps() });
-    const btn = container.querySelector('[data-ega-mic]') as HTMLElement;
-    await fireEvent.click(btn);
+    const { container } = render(InputRow, { props: { ...composerProps(), sourceLang: 'es' } });
+    await openAdd(container);
+    expect(document.querySelector('[data-ega-mic]')?.textContent).toContain('Dictate in Spanish');
+    await fireEvent.click(document.querySelector('[data-ega-mic]') as HTMLElement);
+    expect(FakeRecognition.lastInstance?.lang).toBe('es');
     expect(FakeRecognition.lastInstance?.start).toHaveBeenCalledTimes(1);
   });
 
-  it('aria-pressed becomes true after clicking to start', async () => {
-    vi.stubGlobal('SpeechRecognition', FakeRecognition);
-    const { container } = render(InputRow, { props: baseProps() });
-    const btn = container.querySelector('[data-ega-mic]') as HTMLElement;
-    await fireEvent.click(btn);
-    expect(btn.getAttribute('aria-pressed')).toBe('true');
+  it('falls back to the browser language for Auto-detect and for a variety id', async () => {
+    await dictate();
+    expect(FakeRecognition.lastInstance?.lang).toBe(navigator.language);
+    document.body.innerHTML = '';
+    await dictate({ ...composerProps(), sourceLang: 'arabizi' });
+    expect(FakeRecognition.lastInstance?.lang).toBe(navigator.language);
   });
 
-  it('appends transcript to empty value', async () => {
-    vi.stubGlobal('SpeechRecognition', FakeRecognition);
-    const { container } = render(InputRow, { props: { ...baseProps(), value: '' } });
-    const btn = container.querySelector('[data-ega-mic]') as HTMLElement;
-    await fireEvent.click(btn);
-    FakeRecognition.lastInstance?.onresult?.({ results: [[{ transcript: 'hello world' }]] });
-    const ta = container.querySelector('textarea') as HTMLTextAreaElement;
-    await vi.waitFor(() => expect(ta.value).toBe('hello world'));
+  it('Add becomes Stop dictation in the same place, says Listening…, and stops', async () => {
+    const { container } = await dictate();
+    const stop = stopButton(container);
+    expect(stop).not.toBeNull();
+    expect(container.textContent).toContain('Listening…');
+    const instance = FakeRecognition.lastInstance;
+    await fireEvent.click(stop as HTMLElement);
+    expect(instance?.stop).toHaveBeenCalledTimes(1);
+    instance?.onend?.();
+    await waitFor(() => expect(stopButton(container)).toBeNull());
   });
 
-  it('appends transcript with space separator when value is non-empty', async () => {
-    vi.stubGlobal('SpeechRecognition', FakeRecognition);
-    const { container } = render(InputRow, { props: { ...baseProps(), value: 'prior text' } });
-    const btn = container.querySelector('[data-ega-mic]') as HTMLElement;
-    await fireEvent.click(btn);
+  it('appends what was heard, with a space after earlier text', async () => {
+    const { container } = await dictate({ ...composerProps(), value: 'prior text' });
     FakeRecognition.lastInstance?.onresult?.({ results: [[{ transcript: 'appended' }]] });
     const ta = container.querySelector('textarea') as HTMLTextAreaElement;
     await vi.waitFor(() => expect(ta.value).toBe('prior text appended'));
   });
 
-  it('onend callback sets recognizing=false (aria-pressed back to false)', async () => {
-    vi.stubGlobal('SpeechRecognition', FakeRecognition);
-    const { container } = render(InputRow, { props: baseProps() });
-    const btn = container.querySelector('[data-ega-mic]') as HTMLElement;
-    await fireEvent.click(btn);
-    expect(btn.getAttribute('aria-pressed')).toBe('true');
-    FakeRecognition.lastInstance?.onend?.();
-    await vi.waitFor(() => expect(btn.getAttribute('aria-pressed')).toBe('false'));
-  });
-
-  it('clicking mic while recognizing stops recognition', async () => {
-    vi.stubGlobal('SpeechRecognition', FakeRecognition);
-    const { container } = render(InputRow, { props: baseProps() });
-    const btn = container.querySelector('[data-ega-mic]') as HTMLElement;
-    await fireEvent.click(btn);
-    const instance = FakeRecognition.lastInstance;
-    await fireEvent.click(btn);
-    expect(instance?.stop).toHaveBeenCalledTimes(1);
-  });
-
-  it('stale onend from first instance does not reset recognizing after second start', async () => {
-    vi.stubGlobal('SpeechRecognition', FakeRecognition);
-    const { container } = render(InputRow, { props: baseProps() });
-    const btn = container.querySelector('[data-ega-mic]') as HTMLElement;
-
-    // First start — capture the instance before the second start replaces recog
-    await fireEvent.click(btn);
+  it('a stale end from an earlier session does not stop the current one', async () => {
+    const { container } = await dictate();
     const first = FakeRecognition.lastInstance;
-    expect(btn.getAttribute('aria-pressed')).toBe('true');
-
-    // Stop fires recog.stop(); onend hasn't fired yet (no real API in jsdom).
-    await fireEvent.click(btn);
-    // Simulate the current instance's onend — recognizing goes false
     first?.onend?.();
-    await vi.waitFor(() => expect(btn.getAttribute('aria-pressed')).toBe('false'));
-
-    // Second start — new instance created, recognizing=true
-    await fireEvent.click(btn);
-    expect(btn.getAttribute('aria-pressed')).toBe('true');
-
-    // Stale onend from the FIRST instance fires — must NOT flip recognizing=false
+    await waitFor(() => expect(stopButton(container)).toBeNull());
+    await openAdd(container);
+    await fireEvent.click(document.querySelector('[data-ega-mic]') as HTMLElement);
+    expect(stopButton(container)).not.toBeNull();
     first?.onend?.();
-    await vi.waitFor(() => {
-      expect(btn.getAttribute('aria-pressed')).toBe('true');
-    });
+    await vi.waitFor(() => expect(stopButton(container)).not.toBeNull());
   });
 });
 
-describe('InputRow dictation failures are spoken about', () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
-    FakeRecognition.lastInstance = null;
-  });
-
-  async function startDictation() {
-    vi.stubGlobal('SpeechRecognition', FakeRecognition);
-    const { container } = render(InputRow, { props: baseProps() });
-    const mic = container.querySelector('[data-ega-mic]');
-    if (!mic) throw new Error('mic not found');
-    await fireEvent.click(mic);
-    const instance = FakeRecognition.lastInstance;
-    if (!instance) throw new Error('recogniser not constructed');
-    return { container, mic, instance };
-  }
-
-  it('names a blocked microphone', async () => {
+describe('dictation failures are spoken about', () => {
+  it('names a blocked microphone, and Add comes back', async () => {
     const push = vi.spyOn(toastStore, 'push').mockImplementation(() => {});
-    const { mic, instance } = await startDictation();
-    instance.onerror?.({ error: 'not-allowed' });
+    const { container } = await dictate();
+    FakeRecognition.lastInstance?.onerror?.({ error: 'not-allowed' });
     expect(push.mock.calls[0]?.[0]?.message).toMatch(/Microphone access is blocked/);
-    await vi.waitFor(() => expect(mic.getAttribute('aria-pressed')).toBe('false'));
+    await waitFor(() => expect(stopButton(container)).toBeNull());
   });
 
-  it('says when it heard nothing', async () => {
+  it('says when it heard nothing, and stays quiet when the user pressed Stop', async () => {
     const push = vi.spyOn(toastStore, 'push').mockImplementation(() => {});
-    const { instance } = await startDictation();
-    instance.onerror?.({ error: 'no-speech' });
-    expect(push.mock.calls[0]?.[0]?.message).toMatch(/Nothing was heard/);
-  });
-
-  it('stays quiet when the user pressed Stop', async () => {
-    const push = vi.spyOn(toastStore, 'push').mockImplementation(() => {});
-    const { instance } = await startDictation();
-    instance.onerror?.({ error: 'aborted' });
+    await dictate();
+    FakeRecognition.lastInstance?.onerror?.({ error: 'aborted' });
     expect(push).not.toHaveBeenCalled();
+    FakeRecognition.lastInstance?.onerror?.({ error: 'no-speech' });
+    expect(push.mock.calls[0]?.[0]?.message).toMatch(/Nothing was heard/);
   });
 });

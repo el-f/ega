@@ -112,7 +112,7 @@ describe('SidePanel — e and Escape do not discard a draft', () => {
     await tick();
 
     expect(composer(container).value).toBe('half-written reply');
-    expect(container.querySelector('[data-ega-editing-banner]')).toBeNull();
+    expect(container.querySelector('[data-ega-mode-banner]')).toBeNull();
     await waitFor(() => {
       if (!document.body.textContent.includes('Clear the message box')) {
         throw new Error('no toast explaining the refusal');
@@ -156,12 +156,12 @@ describe('SidePanel — e and Escape do not discard a draft', () => {
     });
     // Dismissed: the edit and its banner stay.
     expect(composer(container).value).toBe('original, rewritten at length');
-    expect(container.querySelector('[data-ega-editing-banner]')).not.toBeNull();
+    expect(container.querySelector('[data-ega-mode-banner]')).not.toBeNull();
 
     confirmMock.mockResolvedValue(true);
     await fireEvent.keyDown(window, { key: 'Escape' });
     await waitFor(() => {
-      if (container.querySelector('[data-ega-editing-banner]')) throw new Error('still editing');
+      if (container.querySelector('[data-ega-mode-banner]')) throw new Error('still editing');
     });
     expect(composer(container).value).toBe('');
   });
@@ -176,7 +176,7 @@ describe('SidePanel — e and Escape do not discard a draft', () => {
     await tick();
     await fireEvent.keyDown(window, { key: 'e', target: document.body });
     await tick();
-    expect(container.querySelector('[data-ega-editing-banner]')).not.toBeNull();
+    expect(container.querySelector('[data-ega-mode-banner]')).not.toBeNull();
 
     await fireEvent.keyDown(window, { key: 'Escape' });
     await tick();
@@ -197,6 +197,6 @@ describe('SidePanel — e and Escape do not discard a draft', () => {
     await tick();
 
     expect(composer(container).value).toBe('half-written reply');
-    expect(container.querySelector('[data-ega-editing-banner]')).toBeNull();
+    expect(container.querySelector('[data-ega-mode-banner]')).toBeNull();
   });
 });

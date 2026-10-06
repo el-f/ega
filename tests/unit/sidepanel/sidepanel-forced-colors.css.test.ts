@@ -26,7 +26,7 @@ describe('side-panel cues survive forced colors', () => {
 
   it('leaves every panel button with a border to repaint', () => {
     const sidePanel = read('src/sidepanel/SidePanel.svelte');
-    for (const sel of ['\\.sp-editing-cancel', '\\.sp-search-clear']) {
+    for (const sel of ['\\.sp-search-clear']) {
       expect(rule(sidePanel, sel)).toMatch(/border:\s*1px solid transparent/);
     }
     expect(

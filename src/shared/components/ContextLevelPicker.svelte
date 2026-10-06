@@ -66,60 +66,60 @@
   }
   .ctx-level-hint {
     margin: 0;
-    font-size: var(--fs-xs);
+    font-size: var(--fs-sm);
+    line-height: var(--lh-body);
     color: var(--color-muted);
   }
   .ctx-level-row {
-    display: inline-flex;
+    display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: var(--space-2);
   }
   .ctx-level-label {
-    font-size: var(--fs-xs);
-    color: var(--color-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    color: var(--color-fg);
   }
-  /* Mirrors `.theme-toggle` in Options.svelte so the visual language is
-     consistent across the two segmented radio groups in the extension. */
   .ctx-level-toggle {
     display: inline-flex;
-    gap: 2px;
-    padding: 2px;
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--color-control-border);
     border-radius: var(--radius-md);
-    background: var(--color-bg-elevated);
+    overflow: hidden;
   }
   .ctx-level-toggle button {
     background: transparent;
-    color: var(--color-muted);
+    color: var(--color-fg);
     /* Transparent, not 0: forced colors repaints it, so the segment keeps a button shape. */
     border: 1px solid transparent;
     box-sizing: border-box;
-    min-height: 24px;
-    padding: calc(var(--space-1) - 1px) calc(var(--space-2) - 1px);
+    min-block-size: 28px;
+    padding: 0 var(--space-3);
+    font-family: inherit;
     font-size: var(--fs-sm);
-    line-height: 1;
-    border-radius: var(--radius-sm);
+    line-height: var(--lh-body);
     cursor: pointer;
-    transition:
-      background var(--motion-fast) var(--ease-out),
-      color var(--motion-fast) var(--ease-out);
   }
+  .ctx-level-toggle button + button {
+    border-inline-start-color: var(--color-control-border);
+  }
+  /* The same selected look as Effort in Options: one segmented control everywhere. */
   .ctx-level-toggle button.active {
     background: var(--color-accent-bg-soft);
     color: var(--color-fg);
     box-shadow: inset 0 0 0 1px var(--color-accent);
   }
   .ctx-level-toggle button:hover:not(.active) {
-    color: var(--color-fg);
+    background: var(--color-bg-hover);
   }
   .ctx-level-toggle button:focus-visible {
     outline: 2px solid var(--color-accent);
-    outline-offset: 1px;
+    outline-offset: -2px;
   }
-  .ctx-level-toggle button:active {
-    transform: scale(0.97);
-    transition: transform var(--motion-fast) var(--ease-out);
+  @media (forced-colors: active) {
+    .ctx-level-toggle button.active {
+      outline: 2px solid Highlight;
+      outline-offset: -2px;
+    }
   }
 </style>

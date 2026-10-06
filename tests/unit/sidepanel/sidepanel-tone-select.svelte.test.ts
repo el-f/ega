@@ -5,6 +5,7 @@ import { render, fireEvent, waitFor } from '@testing-library/svelte';
 import SidePanel from '@/sidepanel/SidePanel.svelte';
 import { writeComposerDraftImage } from '@/sidepanel/state/composer-draft';
 import { flushAsync } from '@tests/_helpers/async';
+import { openModePopover } from './_composer';
 
 const PNG =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
@@ -24,6 +25,7 @@ afterEach(() => {
 
 // Settings load after mount and reset the picker to the default task, so the click repeats until it holds.
 async function pick(container: HTMLElement, task: string): Promise<void> {
+  await openModePopover(container);
   await waitFor(async () => {
     const chip = container.querySelector<HTMLElement>(`[data-ega-task="${task}"]`);
     if (!chip) throw new Error(`no ${task} chip`);
@@ -49,7 +51,11 @@ describe('SidePanel tone select', () => {
     await writeComposerDraftImage(PNG);
     const { container } = render(SidePanel);
     await waitFor(() => expect(container.querySelector('img')).not.toBeNull());
-    await pick(container, 'summarize');
+    await openModePopover(container);
+    // Summarize cannot read an image, so it is not pickable and the image prompt (no tone) runs.
+    expect(
+      container.querySelector('[data-ega-task="summarize"]')?.getAttribute('aria-disabled'),
+    ).toBe('true');
     expect(toneSelect(container)).toBeNull();
   });
 });
@@ -63,6 +69,9 @@ describe('SidePanel tone select for a language with its own prompt', () => {
       },
     });
     const { container } = render(SidePanel);
-    await waitFor(() => expect(toneSelect(container)).not.toBeNull());
+    await waitFor(async () => {
+      await openModePopover(container);
+      expect(toneSelect(container)).not.toBeNull();
+    });
   });
 });

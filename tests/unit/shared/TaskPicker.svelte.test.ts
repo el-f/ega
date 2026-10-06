@@ -41,11 +41,11 @@ describe('TaskPicker button row (0.3.9)', () => {
     expect(radios.map((r) => r.getAttribute('data-ega-task'))).toEqual([...ALL_TASKS]);
     for (const r of radios) {
       const t = r.getAttribute('data-ega-task') as keyof typeof TASK_LABELS;
-      expect(r.getAttribute('aria-label')).toBe(`Task: ${TASK_LABELS[t]}`);
+      expect(r.textContent.trim()).toBe(TASK_LABELS[t]);
       expect(r.getAttribute('aria-checked')).toBe(t === 'reword' ? 'true' : 'false');
       expect(r.classList.contains('active')).toBe(t === 'reword');
     }
-    expect(getByRole('radio', { name: 'Task: Reword', checked: true })).toBeTruthy();
+    expect(getByRole('radio', { name: 'Reword', checked: true })).toBeTruthy();
   });
 
   it('rings the checked chip in forced colors through the shared radio rule', () => {

@@ -39,7 +39,7 @@ async function sendAndDrain(container: HTMLElement, text: string): Promise<void>
 /** onMount reads settings asynchronously; a send before it lands goes nowhere. */
 async function settleMount(container: HTMLElement): Promise<void> {
   await waitFor(() => {
-    if (!container.querySelector('#sp-conv-source optgroup')) throw new Error('mount not settled');
+    if (!container.querySelector('[data-ega-backend-chip]')) throw new Error('mount not settled');
   });
 }
 

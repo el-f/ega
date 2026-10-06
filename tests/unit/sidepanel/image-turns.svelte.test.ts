@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render } from '@testing-library/svelte';
 import AssistantTurn from '@/sidepanel/conversation/AssistantTurn.svelte';
 import InputRow from '@/sidepanel/conversation/InputRow.svelte';
+import { composerProps } from './_composer';
 import { toastStore } from '@/shared/components/toastStore';
 import { IMAGE_TASKS, isImageTask } from '@/shared/task-prompts';
 import type { Turn } from '@/sidepanel/state/conversation';
@@ -80,28 +81,7 @@ describe('a pasted image the browser cannot read', () => {
     vi.stubGlobal('FileReader', FailingReader);
     const onAttachImage = vi.fn();
     const { container } = render(InputRow, {
-      props: {
-        value: '',
-        sourceLang: 'auto',
-        targetLang: 'en',
-        swapDisabled: false,
-        task: 'translate' as const,
-        tone: 'neutral' as const,
-        usesTone: false,
-        varieties: [],
-        pageContextLevel: 'minimal' as const,
-        attachedImage: null,
-        turns: [] as const,
-        inflight: false,
-        streaming: true,
-        onSwap: vi.fn(),
-        onContextLevelChange: vi.fn(),
-        onAttachImage,
-        onClearAttachedImage: vi.fn(),
-        onSend: vi.fn(),
-        onCancel: vi.fn(),
-        onToggleStreaming: vi.fn(),
-      },
+      props: { ...composerProps(), onAttachImage },
     });
     const ta = container.querySelector('textarea');
     expect(ta).not.toBeNull();
