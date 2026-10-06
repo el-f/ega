@@ -20,6 +20,7 @@ vi.mock('@/content/toast', () => ({
 }));
 
 const content = await import('@/content/index');
+const { enterPickerMode: enterPickerModeImpl } = await import('@/content/picker-overlay');
 
 function emit(msg: Record<string, unknown>): void {
   chromeMock.runtime.onMessage.emit(msg, { id: chromeMock.runtime.id }, () => {});
@@ -46,9 +47,24 @@ describe('a new Ega action closes a notice that waits for the user (X14)', () =>
     expect(calls).toEqual(['close', 'show']);
   });
 
-  it('a text translate', async () => {
+  it('a text translate leaves the close to its caller, which may have just shown a notice', async () => {
     await content.startTranslateText('hola', RECT);
-    expect(calls).toEqual(['close', 'show']);
+    expect(calls).toEqual(['show']);
+  });
+
+  it('a pick in the picker', async () => {
+    await chromeMock.storage.local.set({ [STORAGE_KEYS.settings]: { ...DEFAULT_SETTINGS } });
+    resetSettingsCacheForTest();
+    await content.enterPickerMode();
+    const pick = vi.mocked(enterPickerModeImpl).mock.calls.at(-1)?.[0];
+    calls.length = 0;
+    pick?.('hola', RECT);
+    expect(calls).toEqual(['close']);
+    await vi.waitFor(() =>
+      expect(chromeMock.runtime.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ kind: 'translate:start', text: 'hola' }),
+      ),
+    );
   });
 
   it('a page translate', async () => {

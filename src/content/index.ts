@@ -593,7 +593,6 @@ export async function startTranslateText(
   forceInline = false,
   taskOverride?: TaskId,
 ): Promise<void> {
-  closeStickyToast();
   const s = await ensureSettings();
   const eff = resolveEffective(s, location.origin);
   if (eff.disabled) {
@@ -808,6 +807,7 @@ export async function enterPickerMode(): Promise<void> {
     return;
   }
   await enterPickerModeImpl((text, rect) => {
+    closeStickyToast();
     void startTranslateText(text, rect).catch((e) => reportEntryFailure(e, 'content.picker.pick'));
   });
 }

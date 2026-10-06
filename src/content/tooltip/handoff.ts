@@ -6,7 +6,7 @@ import { IMAGE_TURN_PLACEHOLDER } from '@/shared/constants';
 import { currentSettings } from '@/content/settings-cache';
 import { canHandOffImage } from '@/shared/image-url-guard';
 import type { ErrCode } from '@/shared/types';
-import { showToast } from '../toast';
+import { closeStickyToast, showToast } from '../toast';
 
 export type EscalationKind = 'continue' | 'pin' | 'open-image' | 'open-panel';
 
@@ -33,6 +33,8 @@ const IMAGE_LEFT_BEHIND = 'Attach the image in the side panel. Ega cannot pass t
 
 /** The SW writes the handoff slot before it opens the panel, so a mount during the open call still sees it. True only when the worker says the panel opened with it. */
 export async function escalateToSidepanel(args: EscalateArgs): Promise<boolean> {
+  // A new action: an older notice is out of date. A toast this path shows comes after.
+  closeStickyToast();
   // A failed image goes into the panel's composer, ready to send again; it does not run on its own.
   if (args.subKind === 'open-panel') {
     const image = args.imageDataUrl;

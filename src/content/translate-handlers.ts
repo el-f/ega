@@ -25,7 +25,7 @@ import {
   SEND_FAILED_MESSAGE,
 } from './context-guard';
 import { imageStuckTimeoutMs, stuckTimeoutMs } from '@/shared/stuck-timeout';
-import { showToast } from './toast';
+import { closeStickyToast, showToast } from './toast';
 
 const log = createLogger('cs.handlers');
 
@@ -156,6 +156,7 @@ async function reopenTooltip(
   if (!prev) return;
   // Claim the row before the first await, or a double-click mints two requests from one original.
   pending.delete(originalId);
+  closeStickyToast();
   // A task switch can reopen right after the rows changed, and the tooltip reads them synchronously.
   const [s] = await Promise.all([deps.ensureSettings(), ensureCustomTasks()]);
   // Capture the prior body first, because ending the request closes its tooltip.
