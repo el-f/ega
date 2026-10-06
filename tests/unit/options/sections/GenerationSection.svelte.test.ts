@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent, within } from '@testing-library/svelte';
 import GenerationSection from '@/options/components/sections/GenerationSection.svelte';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
@@ -19,6 +19,25 @@ describe('GenerationSection', () => {
     expect(container.textContent).toContain('Longest answer');
     expect(container.textContent).toContain('Creativity (temperature)');
     expect(container.querySelector('[data-ega-setting="defaults.defaultTone"]')).toBeNull();
+  });
+
+  it('a second press before the first write lands starts from the released value', async () => {
+    // The write settles only when the test says so, as a slow storage write would.
+    const pending: (() => void)[] = [];
+    const onSetGlobalMaxTokens = vi.fn(() => new Promise<void>((resolve) => pending.push(resolve)));
+    const { container } = render(GenerationSection, {
+      props: makeGenerationSectionProps({ onSetGlobalMaxTokens }),
+    });
+    const thumb = container.querySelector<HTMLElement>(
+      '[data-ega-setting="advanced.maxTokens"] [role="slider"]',
+    ) as HTMLElement;
+    thumb.focus();
+    for (let i = 0; i < 2; i++) {
+      await fireEvent.keyDown(thumb, { key: 'ArrowRight' });
+      await fireEvent.keyUp(thumb, { key: 'ArrowRight' });
+    }
+    expect(onSetGlobalMaxTokens).toHaveBeenLastCalledWith(DEFAULT_SETTINGS.advanced.maxTokens + 32);
+    pending.forEach((resolve) => resolve());
   });
 
   it('shows the answer length with a thousands separator and "tokens"', () => {

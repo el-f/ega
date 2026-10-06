@@ -115,8 +115,11 @@
         modified={isFieldModified('advanced.maxTokens', s)}
         onchange={(v) => (maxTokensDrag = v)}
         oncommit={(v) => {
-          maxTokensDrag = null;
-          void onSetGlobalMaxTokens(v);
+          // Held until the write settles, so a quick second key press starts from this value.
+          maxTokensDrag = v;
+          void Promise.resolve(onSetGlobalMaxTokens(v)).finally(() => {
+            if (maxTokensDrag === v) maxTokensDrag = null;
+          });
         }}
       />
       {@render noteLines(notes.maxTokens, 'max-tokens')}
@@ -134,8 +137,10 @@
         modified={isFieldModified('advanced.temperature', s)}
         onchange={(v) => (temperatureDrag = v)}
         oncommit={(v) => {
-          temperatureDrag = null;
-          void onSetGlobalTemperature(v);
+          temperatureDrag = v;
+          void Promise.resolve(onSetGlobalTemperature(v)).finally(() => {
+            if (temperatureDrag === v) temperatureDrag = null;
+          });
         }}
       />
       {@render noteLines(notes.temperature, 'temperature')}
