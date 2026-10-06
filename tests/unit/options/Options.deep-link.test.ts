@@ -41,6 +41,7 @@ describe('Options — settings-search deep link reaches every tab', () => {
     seed();
   });
 
+  // The first test pays the cold tab-chunk import, so its budget must outlast its own 10 s wait.
   it('lands on the control, not the top of the tab, for a Translate-tab result', async () => {
     render(Options);
 
@@ -49,7 +50,7 @@ describe('Options — settings-search deep link reaches every tab', () => {
     expect(anchor.getAttribute('data-flash')).toBe('true');
     // The target is consumed, so a later tab switch cannot re-scroll.
     expect(sessionStorage.getItem('ega-settings-target')).toBeNull();
-  });
+  }, 15_000);
 
   // Default settings use Minimal page context, where these limits are off; the search result must still land.
   it.each([
