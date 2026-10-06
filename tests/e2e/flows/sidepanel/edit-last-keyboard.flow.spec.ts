@@ -54,8 +54,8 @@ test('pressing e shows the editing banner; re-send replaces last exchange and ke
   await expect(page.locator('.ega-assistant-turn')).toHaveCount(2, { timeout: 10_000 });
   timeline.markStep('turn-2-done');
 
-  const convStream = page.locator('.ega-conv-stream');
-  await convStream.focus();
+  // Focus a reply, not the stream box: the box only takes focus while it overflows and scrolls.
+  await page.locator('.ega-assistant-turn').last().focus();
   await page.keyboard.press('e');
   timeline.markStep('e-pressed');
 
