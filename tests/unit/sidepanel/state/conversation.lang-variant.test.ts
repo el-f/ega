@@ -60,7 +60,7 @@ describe('createConversation().langVariant', () => {
     const assistantId = await sendAndDrain(c);
     const before = calls('translate:start').length;
 
-    expect(await c.langVariant(FR)).toBe(true);
+    expect(await c.langVariant(assistantId, FR)).toBe(true);
 
     expect(calls('translate:start').length).toBe(before + 1);
     const msg = lastStart();
@@ -75,10 +75,10 @@ describe('createConversation().langVariant', () => {
 
   it('is a no-op when the active answer is already in that language', async () => {
     const c = createConversation();
-    await sendAndDrain(c);
+    const assistantId = await sendAndDrain(c);
     const before = calls('translate:start').length;
 
-    expect(await c.langVariant(EN)).toBe(false);
+    expect(await c.langVariant(assistantId, EN)).toBe(false);
 
     expect(calls('translate:start').length).toBe(before);
   });
@@ -86,13 +86,13 @@ describe('createConversation().langVariant', () => {
   it('flips to a done variant already in that language instead of dispatching', async () => {
     const c = createConversation();
     const assistantId = await sendAndDrain(c);
-    await c.langVariant(FR);
+    await c.langVariant(assistantId, FR);
     drain(c);
     const before = calls('translate:start').length;
 
-    expect(await c.langVariant(EN)).toBe(true);
+    expect(await c.langVariant(assistantId, EN)).toBe(true);
     expect(c.turns.find((t) => t.id === assistantId)?.activeVariantIdx).toBe(0);
-    expect(await c.langVariant(FR)).toBe(true);
+    expect(await c.langVariant(assistantId, FR)).toBe(true);
     expect(c.turns.find((t) => t.id === assistantId)?.activeVariantIdx).toBe(1);
 
     expect(calls('translate:start').length).toBe(before);
@@ -109,7 +109,7 @@ describe('createConversation().langVariant', () => {
     });
     const before = calls('translate:start').length;
 
-    expect(await c.langVariant(FR)).toBe(false);
+    expect(await c.langVariant(c.turns.at(-1)?.id ?? '', FR)).toBe(false);
 
     expect(calls('translate:start').length).toBe(before);
     expect(calls('translate:cancel').length).toBe(0);
@@ -118,10 +118,10 @@ describe('createConversation().langVariant', () => {
   it('replaces its own still-streaming language variant on a second pick', async () => {
     const c = createConversation();
     const assistantId = await sendAndDrain(c);
-    await c.langVariant(FR);
+    await c.langVariant(assistantId, FR);
     const frRequest = lastStart()['requestId'];
 
-    expect(await c.langVariant(DE)).toBe(true);
+    expect(await c.langVariant(assistantId, DE)).toBe(true);
 
     expect(calls('translate:cancel').map((m) => m['requestId'])).toContain(frRequest);
     expect(lastStart()['targetLang']).toBe(DE);
@@ -131,28 +131,29 @@ describe('createConversation().langVariant', () => {
     expect(a?.status).toBe('pending');
   });
 
-  it('returns false with no turns', async () => {
+  it('returns false for a reply that is not in the thread', async () => {
     const c = createConversation();
-    expect(await c.langVariant(FR)).toBe(false);
+    expect(await c.langVariant('missing', FR)).toBe(false);
     expect(calls('translate:start').length).toBe(0);
   });
 
-  it('targets the last assistant turn only', async () => {
+  // D-a: "Translate into" acts on the reply it is picked from, an older one too.
+  it('targets the reply it is given, not the newest', async () => {
     const c = createConversation();
     const first = await sendAndDrain(c);
     const second = await sendAndDrain(c);
 
-    await c.langVariant(FR);
+    await c.langVariant(first, FR);
 
-    expect(c.turns.find((t) => t.id === first)?.variants?.length).toBe(1);
-    expect(c.turns.find((t) => t.id === second)?.variants?.length).toBe(2);
+    expect(c.turns.find((t) => t.id === first)?.variants?.length).toBe(2);
+    expect(c.turns.find((t) => t.id === second)?.variants?.length).toBe(1);
   });
 
   it('keeps an explain turn as explain', async () => {
     const c = createConversation();
-    await sendAndDrain(c, { kind: 'explain' });
+    const id = await sendAndDrain(c, { kind: 'explain' });
 
-    await c.langVariant(FR);
+    await c.langVariant(id, FR);
 
     const options = lastStart()['options'] as Record<string, unknown>;
     expect(options['explain']).toBe(true);

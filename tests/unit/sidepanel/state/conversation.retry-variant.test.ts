@@ -65,7 +65,7 @@ describe('createConversation().retry on a failed sibling variant', () => {
   it('retries a failed language variant in its language, beside the surviving answer', async () => {
     const c = createConversation();
     const assistantId = await firstAnswer(c);
-    await c.langVariant(FR);
+    await c.langVariant(assistantId, FR);
     fail(c);
     const before = starts().length;
 

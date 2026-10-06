@@ -171,21 +171,6 @@
     sourceLang = ns;
   }
 
-  /** One re-translate per settled pick: keyboard-scrolling the target list must not fire one dispatch per option. */
-  const TARGET_CHANGE_DEBOUNCE_MS = 500;
-  let targetChangeTimer: ReturnType<typeof setTimeout> | null = null;
-  function cancelPendingTargetChange(): void {
-    if (targetChangeTimer !== null) clearTimeout(targetChangeTimer);
-    targetChangeTimer = null;
-  }
-  function onTargetChange(): void {
-    cancelPendingTargetChange();
-    targetChangeTimer = setTimeout(() => {
-      targetChangeTimer = null;
-      void conversation.langVariant(asLangSelection(targetLang));
-    }, TARGET_CHANGE_DEBOUNCE_MS);
-  }
-
   /** Adds a sibling variant and re-sends with the refinement for this request only; it is never written to settings. */
   async function onRefine(args: {
     turnId: string;
@@ -693,11 +678,9 @@
     // foreign write goes unheard, and the drains are the longest stretch of them.
     if (destroyed) return;
     chrome.storage.onChanged.addListener(onStorageChanged);
-    originFollowerUnsub = startOriginFollower((origin) => {
-      // A pick that has not fired yet belongs to the thread the user was looking at, not the next one.
-      cancelPendingTargetChange();
-      void conversation.setActiveOrigin(origin);
-    });
+    originFollowerUnsub = startOriginFollower(
+      (origin) => void conversation.setActiveOrigin(origin),
+    );
     window.addEventListener('pagehide', persistNow);
     try {
       // The drain fails open on an unknown window, so the id is awaited here even though the early lookup usually won.
@@ -771,7 +754,6 @@
     chrome.storage.onChanged.removeListener(onStorageChanged);
     window.removeEventListener('pagehide', persistNow);
     originFollowerUnsub?.();
-    cancelPendingTargetChange();
     // Cancel first so the write records the canceled turn and clears the debounce it schedules.
     conversation.cancel();
     persistNow();
@@ -1091,7 +1073,6 @@
       inflight={conversation.inflightId !== null}
       onContextLevelChange={(level) => void setPageContextLevel(level)}
       {onSwap}
-      {onTargetChange}
       onAttachImage={attachComposerImage}
       onClearAttachedImage={() => {
         attachedImage = null;

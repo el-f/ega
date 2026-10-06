@@ -4,43 +4,9 @@ import type { Mock } from 'vitest';
 import { render, fireEvent, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import SidePanel from '@/sidepanel/SidePanel.svelte';
-import { saveThread } from '@/sidepanel/state/conversation-store';
-import { asLangIdUnsafe } from '@/shared/brands';
-import type { Turn } from '@/sidepanel/state/conversation';
 import type { Msg } from '@/shared/messages';
 
 const sendMessage = chrome.runtime.sendMessage as Mock;
-const tabsQuery = chrome.tabs.query as unknown as Mock;
-
-/** A finished exchange another site's thread holds — replayable, so a stray re-translate would show up as a dispatch. */
-function otherSitePair(): Turn[] {
-  return [
-    {
-      createdAt: 1,
-      id: 'b-user',
-      role: 'user',
-      kind: 'translate',
-      status: 'idle',
-      content: 'beta',
-      dispatch: {
-        sourceLang: asLangIdUnsafe('es'),
-        targetLang: asLangIdUnsafe('en'),
-        stream: true,
-      },
-    },
-    {
-      createdAt: 1,
-      id: 'b-assistant',
-      role: 'assistant',
-      kind: 'translate',
-      status: 'done',
-      content: 'beta reply',
-      attachedToTurnId: 'b-user',
-      variants: [{ id: 'b-assistant:v1', status: 'done', content: 'beta reply' }],
-      activeVariantIdx: 0,
-    },
-  ];
-}
 
 function startCalls(): Array<Record<string, unknown>> {
   return (sendMessage.mock.calls as Array<[unknown]>)
@@ -94,8 +60,9 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe('SidePanel — target picker re-translates the last answer', () => {
-  it('dispatches once, in the last language picked, after the debounce settles', async () => {
+// D-a: the composer target applies to the next send only; a reply re-runs in another language from its own menu.
+describe('SidePanel — the target picker never re-answers', () => {
+  it('a pick after an answer sends nothing, and the next send uses it', async () => {
     const { container } = render(SidePanel);
     await settleMount(container);
     await sendAndDrain(container, 'hola');
@@ -103,58 +70,11 @@ describe('SidePanel — target picker re-translates the last answer', () => {
 
     vi.useFakeTimers();
     await pickTarget(container, 'fr');
-    await pickTarget(container, 'de');
-    await vi.advanceTimersByTimeAsync(400);
+    await vi.advanceTimersByTimeAsync(2000);
+    vi.useRealTimers();
     expect(startCalls().length).toBe(before);
-    await vi.advanceTimersByTimeAsync(200);
 
-    expect(startCalls().length).toBe(before + 1);
-    expect(startCalls().at(-1)?.['targetLang']).toBe('de');
-    expect(container.querySelector('.ega-variant-counter')?.textContent).toContain('2/2');
-  });
-
-  it('does nothing before the first send', async () => {
-    const { container } = render(SidePanel);
-    await settleMount(container);
-
-    vi.useFakeTimers();
-    await pickTarget(container, 'fr');
-    await vi.advanceTimersByTimeAsync(700);
-
-    expect(startCalls().length).toBe(0);
-  });
-
-  it('drops the pending re-translate when the panel follows the tab to another site', async () => {
-    await saveThread('https://b.test', otherSitePair());
-    const { container } = render(SidePanel);
-    await settleMount(container);
-    await sendAndDrain(container, 'hola');
-    const before = startCalls().length;
-
-    vi.useFakeTimers();
-    await pickTarget(container, 'fr');
-    tabsQuery.mockResolvedValue([{ id: 2, url: 'https://b.test/other' }]);
-    (chrome.tabs.onActivated as unknown as { emit: (i: unknown) => void }).emit({
-      tabId: 2,
-      windowId: 1,
-    });
-    await vi.advanceTimersByTimeAsync(1500);
-
-    expect(container.textContent).toContain('beta reply');
-    expect(startCalls().length).toBe(before);
-  });
-
-  it('drops the pending re-translate when the panel unmounts', async () => {
-    const { container, unmount } = render(SidePanel);
-    await settleMount(container);
-    await sendAndDrain(container, 'hola');
-    const before = startCalls().length;
-
-    vi.useFakeTimers();
-    await pickTarget(container, 'fr');
-    unmount();
-    await vi.advanceTimersByTimeAsync(700);
-
-    expect(startCalls().length).toBe(before);
+    await sendAndDrain(container, 'adios');
+    expect(startCalls().at(-1)?.['targetLang']).toBe('fr');
   });
 });

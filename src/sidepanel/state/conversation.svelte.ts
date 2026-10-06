@@ -134,9 +134,9 @@ export interface ConversationContainer {
   swapVariant: (turnId: string) => Promise<boolean>;
   /** Re-dispatch the turn with a different task. False when inflight or unresolvable. */
   taskVariant: (turnId: string, task: TaskId) => Promise<boolean>;
-  /** Answer the last exchange in `targetLang`: flips to a done variant already in that language,
+  /** Answer the reply `turnId` in `targetLang`: flips to a done variant already in that language,
    *  else dispatches one. A second pick replaces its own still-streaming variant. False when nothing changed. */
-  langVariant: (targetLang: LangSelection) => Promise<boolean>;
+  langVariant: (turnId: string, targetLang: LangSelection) => Promise<boolean>;
   /** Flip the active variant on an assistant turn. */
   selectVariant: (turnId: string, idx: number) => void;
   /** The last user turn, or null when there is none. Reads only — nothing is removed. */
@@ -829,15 +829,10 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
   // eslint-disable-next-line svelte/prefer-svelte-reactivity -- read inside async load, never rendered.
   const unreadableWarned = new Set<string>();
 
-  async function langVariant(targetLang: LangSelection): Promise<boolean> {
-    let assistantId: string | null = null;
-    for (let i = state.turns.length - 1; i >= 0 && assistantId === null; i--) {
-      const t = state.turns[i];
-      if (t?.role === 'assistant') assistantId = t.id;
-    }
-    if (assistantId === null) return false;
+  async function langVariant(assistantId: string, targetLang: LangSelection): Promise<boolean> {
+    if (!state.turns.some((t) => t.id === assistantId && t.role === 'assistant')) return false;
     if (state.inflightId !== null) {
-      if (state.requestId !== langChangeRequestId) {
+      if (state.requestId !== langChangeRequestId || state.inflightId !== assistantId) {
         // Same words the refine chips use, so both re-run paths explain the block identically.
         toastStore.push({ message: 'Wait for the current reply to finish.', variant: 'warning' });
         return false;

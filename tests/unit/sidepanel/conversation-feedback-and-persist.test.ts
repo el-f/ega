@@ -37,7 +37,7 @@ describe('a blocked re-run says so instead of doing nothing', () => {
       stream: true,
     });
     const before = startCalls().length;
-    expect(await c.langVariant(asLangIdUnsafe('fr'))).toBe(false);
+    expect(await c.langVariant(c.turns.at(-1)?.id ?? '', asLangIdUnsafe('fr'))).toBe(false);
     expect(startCalls()).toHaveLength(before);
     expect(push.mock.calls[0]?.[0]?.message).toMatch(/Wait for the current reply/);
   });
@@ -76,7 +76,7 @@ describe('a language pick carries the variant the reader is looking at', () => {
     const second = startCalls()[1]?.['requestId'] as string;
     c.applyChunk({ type: 'done', requestId: second });
 
-    expect(await c.langVariant(asLangIdUnsafe('fr'))).toBe(true);
+    expect(await c.langVariant(assistantId, asLangIdUnsafe('fr'))).toBe(true);
     const third = startCalls()[2];
     expect(third?.['targetLang']).toBe('fr');
     expect((third?.['options'] as Record<string, unknown>)['refinement']).toBe('shorter');

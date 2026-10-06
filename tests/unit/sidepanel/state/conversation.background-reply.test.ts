@@ -153,7 +153,7 @@ describe('a reply still running when the panel follows another tab', () => {
     // Back in the foreground: Stop works again, and no second dispatch can start on the turn.
     expect(c.inflightId).toBe(assistantId);
     expect(c.turns.find((t) => t.id === assistantId)?.content).toBe('hello');
-    expect(await c.langVariant(asLangIdUnsafe('fr'))).toBe(false);
+    expect(await c.langVariant(assistantId, asLangIdUnsafe('fr'))).toBe(false);
 
     c.applyChunk({ type: 'delta', requestId, text: '"}' });
     c.applyChunk({ type: 'done', requestId, confidence: 1 });
