@@ -39,9 +39,9 @@ describe('in-page toast queue', () => {
       showToast('Select some text first, then press the shortcut.');
       await vi.advanceTimersByTimeAsync(60_000);
       expect(toastText()).toBe('Select some text first, then press the shortcut.');
-      showToast('Translated in place.', { action: { label: 'Undo', run: () => {} } });
+      showToast('Ega was updated.', { action: { label: 'Reload page', run: () => {} } });
       await vi.advanceTimersByTimeAsync(60_000);
-      expect(toastText()).toBe('Translated in place.');
+      expect(toastText()).toBe('Ega was updated.');
     } finally {
       vi.useRealTimers();
     }

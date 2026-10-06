@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { PLAIN_TOAST_MS, toastHidesItself, type ToastKind } from '@/shared/toast-policy';
+  import { toastLifetimeMs, type ToastKind } from '@/shared/toast-policy';
 
   interface Props {
     message: string;
@@ -7,19 +7,30 @@
     /** Pairs with `onaction`. Absent = a notice with nothing to click. */
     actionLabel?: string;
     onaction?: () => void;
+    /** The action writes a snapshot taken when the toast opened. Default: true for "Undo". */
+    actionExpires?: boolean | undefined;
     ondismiss: () => void;
   }
-  let { message, kind = 'info', actionLabel, onaction, ondismiss }: Props = $props();
+  let { message, kind = 'info', actionLabel, onaction, actionExpires, ondismiss }: Props = $props();
 
   const hasAction = $derived(actionLabel !== undefined && onaction !== undefined);
+  const lifetimeMs = $derived(
+    toastLifetimeMs(
+      kind,
+      hasAction && actionLabel !== undefined
+        ? { label: actionLabel, expires: actionExpires }
+        : undefined,
+    ),
+  );
   let hovered = $state(false);
   let focused = $state(false);
 
-  // A plain confirmation hides itself; the timer waits while the pointer or focus is on it, then starts over.
+  // A timed toast waits while the pointer or focus is on it, then starts over.
   $effect(() => {
+    const ms = lifetimeMs;
     const waiting = hovered || focused;
-    if (!toastHidesItself(kind, hasAction) || waiting) return;
-    const t = setTimeout(ondismiss, PLAIN_TOAST_MS);
+    if (ms === null || waiting) return;
+    const t = setTimeout(ondismiss, ms);
     return () => clearTimeout(t);
   });
 

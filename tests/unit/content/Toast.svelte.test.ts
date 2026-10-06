@@ -90,10 +90,26 @@ describe('Toast component', () => {
     expect(ondismiss).not.toHaveBeenCalled();
   });
 
+  it('an Undo hides after 8 s, and waits while the pointer is on it', async () => {
+    vi.useFakeTimers();
+    const ondismiss = vi.fn();
+    const { getByRole } = render(Toast, {
+      props: { message: 'x', kind: 'success', actionLabel: 'Undo', onaction: vi.fn(), ondismiss },
+    });
+    await fireEvent.pointerOver(getByRole('status'));
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect(ondismiss).not.toHaveBeenCalled();
+    await fireEvent.pointerOut(getByRole('status'), { relatedTarget: document.body });
+    await vi.advanceTimersByTimeAsync(7900);
+    expect(ondismiss).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(200);
+    expect(ondismiss).toHaveBeenCalledTimes(1);
+  });
+
   it.each([
     ['an instruction', { kind: 'info' }],
     ['an error', { kind: 'error' }],
-    ['an Undo', { kind: 'success', actionLabel: 'Undo', onaction: () => {} }],
+    ['a Reload page', { kind: 'warning', actionLabel: 'Reload page', onaction: () => {} }],
   ] as const)('%s stays until dismissed', async (_name, extra) => {
     vi.useFakeTimers();
     const ondismiss = vi.fn();

@@ -55,6 +55,9 @@ describe('retry() applies the gates the Retry button shows', () => {
     await c.retry(assistantId);
     expect(startCalls()).toHaveLength(1);
     expect(push.mock.calls[0]?.[0]?.message).toMatch(/Wait \d+s/);
+    // The toast lives exactly as long as the wait it names.
+    expect(push.mock.calls[0]?.[0]?.countdownMs).toBeGreaterThan(29_000);
+    expect(push.mock.calls[0]?.[0]?.countdownMs).toBeLessThanOrEqual(30_000);
   });
 
   it('still retries a retryable code', async () => {

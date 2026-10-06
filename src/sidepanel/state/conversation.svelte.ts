@@ -582,9 +582,11 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       }
       const until = settled.error.retryUntil;
       if (until !== undefined && until > Date.now()) {
+        const waitMs = until - Date.now();
         toastStore.push({
-          message: `Wait ${Math.ceil((until - Date.now()) / 1000)}s before retrying.`,
+          message: `Wait ${Math.ceil(waitMs / 1000)}s before retrying.`,
           variant: 'warning',
+          countdownMs: waitMs,
         });
         return;
       }

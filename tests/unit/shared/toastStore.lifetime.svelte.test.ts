@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, fireEvent } from '@testing-library/svelte';
+import { render, fireEvent, cleanup } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import ToastHost from '@/shared/components/ToastHost.svelte';
 import { toastStore } from '@/shared/components/toastStore';
@@ -24,6 +24,9 @@ describe('toast lifetime', () => {
     render(ToastHost, { props: { position: 'bottom-right', theme: 'light' } });
   });
   afterEach(() => {
+    // Unmount first: sonner 1.1.1 crashes ("reading 'toastId'") when 3+ toasts are dismissed together and
+    // removed out of order. The next Toaster resets sonner's state on mount.
+    cleanup();
     toastStore.dismiss();
     vi.useRealTimers();
   });
@@ -37,7 +40,7 @@ describe('toast lifetime', () => {
   });
 
   it.each([
-    ['an Undo toast', { variant: 'success', action: { label: 'Undo', onClick: () => {} } }],
+    ['a Try again error', { variant: 'danger', action: { label: 'Try again', onClick: () => {} } }],
     ['an error', { variant: 'danger' }],
     ['a warning', { variant: 'warning' }],
     ['an instruction', { variant: 'info' }],
@@ -84,6 +87,108 @@ describe('toast lifetime', () => {
     expect(toastEl('Language reset')).not.toBeNull();
     await fireEvent.pointerOut(el, { relatedTarget: document.body });
     await advance(7000);
+    expect(toastEl('Language reset')).toBeNull();
+  });
+
+  it('an Undo toast hides after 8 s, and its Undo can no longer be pressed', async () => {
+    const onClick = vi.fn();
+    toastStore.push({
+      message: 'Rule deleted.',
+      variant: 'success',
+      action: { label: 'Undo', onClick },
+    });
+    await advance(7900);
+    expect(toastEl('Rule deleted.')?.querySelector('[data-button]')?.textContent).toBe('Undo');
+    await advance(1000);
+    expect(toastEl('Rule deleted.')).toBeNull();
+    expect(document.querySelector('[data-sonner-toast] [data-button]')).toBeNull();
+    expect(onClick).not.toHaveBeenCalled();
+  });
+
+  it('an Undo toast waits while the pointer is on it', async () => {
+    toastStore.push({
+      message: 'Message removed.',
+      variant: 'info',
+      action: { label: 'Undo', onClick: () => {} },
+    });
+    await advance(100);
+    const el = toastEl('Message removed.') as HTMLElement;
+    await fireEvent.pointerOver(el);
+    await advance(30_000);
+    expect(toastEl('Message removed.')).not.toBeNull();
+    await fireEvent.pointerOut(el, { relatedTarget: document.body });
+    await advance(9000);
+    expect(toastEl('Message removed.')).toBeNull();
+  });
+
+  it('an action that writes a snapshot can opt into the Undo lifetime', async () => {
+    toastStore.push({
+      message: 'Replace the attached image?',
+      variant: 'info',
+      action: { label: 'Replace', onClick: () => {}, expires: true },
+    });
+    await advance(8100);
+    expect(toastEl('Replace the attached image?')).toBeNull();
+  });
+
+  it('a countdown toast lives exactly as long as its countdown, pointer or not', async () => {
+    toastStore.push({ message: 'Wait 7s before retrying.', variant: 'warning', countdownMs: 7000 });
+    await advance(100);
+    await fireEvent.pointerOver(toastEl('Wait 7s before retrying.') as HTMLElement);
+    await advance(6800);
+    expect(toastEl('Wait 7s before retrying.')).not.toBeNull();
+    await advance(400);
+    expect(toastEl('Wait 7s before retrying.')).toBeNull();
+  });
+
+  it('collapses identical toasts into one, but keeps each Undo', async () => {
+    for (let i = 0; i < 3; i++)
+      toastStore.push({ message: 'Clipboard is empty.', variant: 'warning' });
+    toastStore.push({ message: 'Rule deleted.', action: { label: 'Undo', onClick: () => {} } });
+    toastStore.push({ message: 'Rule deleted.', action: { label: 'Undo', onClick: () => {} } });
+    await advance(100);
+    const live = (text: string): number =>
+      [...document.querySelectorAll<HTMLElement>('[data-sonner-toast]')].filter(
+        (el) => el.dataset['removed'] !== 'true' && el.textContent.includes(text),
+      ).length;
+    expect(live('Clipboard is empty.')).toBe(1);
+    expect(live('Rule deleted.')).toBe(2);
+  });
+
+  it('shows a dismissed message again when it is pushed again', async () => {
+    toastStore.push({ message: 'Clipboard is empty.', variant: 'warning' });
+    await advance(100);
+    toastEl('Clipboard is empty.')
+      ?.querySelector<HTMLButtonElement>('[data-close-button]')
+      ?.click();
+    await advance(1000);
+    expect(toastEl('Clipboard is empty.')).toBeNull();
+    toastStore.push({ message: 'Clipboard is empty.', variant: 'warning' });
+    await advance(100);
+    expect(toastEl('Clipboard is empty.')).not.toBeNull();
+  });
+
+  it('announces a warning or an error at once, a confirmation politely', async () => {
+    toastStore.push({ message: 'Could not save.', variant: 'danger' });
+    toastStore.push({ message: 'Check the key.', variant: 'warning' });
+    toastStore.push({ message: 'Saved.', variant: 'success' });
+    await advance(100);
+    expect(toastEl('Could not save.')?.getAttribute('aria-live')).toBe('assertive');
+    expect(toastEl('Check the key.')?.getAttribute('aria-live')).toBe('assertive');
+    expect(toastEl('Saved.')?.getAttribute('aria-live')).toBe('polite');
+  });
+
+  it('lets timers run again once the hovered toast is closed', async () => {
+    toastStore.push({ message: 'Language reset', variant: 'success' });
+    toastStore.push({ message: 'Check the key.', variant: 'warning' });
+    await advance(100);
+    const warning = toastEl('Check the key.') as HTMLElement;
+    await fireEvent.pointerOver(warning);
+    // The pointer never leaves: the toast it sat on is removed from under it.
+    warning.querySelector<HTMLButtonElement>('[data-close-button]')?.click();
+    await advance(1000);
+    expect(toastEl('Check the key.')).toBeNull();
+    await advance(6500);
     expect(toastEl('Language reset')).toBeNull();
   });
 });

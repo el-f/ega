@@ -18,6 +18,7 @@ const showToastMock = vi.fn();
 vi.mock('@/content/toast', () => ({
   showToast: (...a: unknown[]) => showToastMock(...a),
   dismissToast: vi.fn(),
+  closeStickyToast: vi.fn(),
 }));
 
 const content = await import('@/content/index');

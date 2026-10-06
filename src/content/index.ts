@@ -75,7 +75,7 @@ import { runnableDefaultTask, type ImageTask } from '@/shared/task-prompts';
 import type { TaskId } from '@/shared/task-view';
 import { MAX_SELECTION_CHARS, RECENT_SELECTION_TTL_MS } from '@/shared/constants';
 import { resolveEffective } from '@/shared/site-profile';
-import { showToast } from './toast';
+import { closeStickyToast, showToast } from './toast';
 import { imageStuckTimeoutMs, stuckTimeoutMs } from '@/shared/stuck-timeout';
 import { isExtensionContextValid } from './context-guard';
 
@@ -376,6 +376,7 @@ function imageTipDisplay(): { clickOutsideDismiss: boolean; draggable: boolean }
 export function handleImageTranslatePending(
   msg: Extract<Msg, { kind: 'content:image-translate-pending' }>,
 ): void {
+  closeStickyToast();
   // Ending the request drops its owner row, so a late vision result finds nobody to paint for.
   const cancel = (): void => endRequest(msg.requestId, 'cancel');
   // Registering before the open makes the vision call a normal tooltip request: a newer one cancels it.
@@ -545,6 +546,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 const handlerDeps: HandlerDeps = { ensureSettings };
 
 async function dispatchPageTranslate(): Promise<void> {
+  closeStickyToast();
   const settings = await ensureSettings();
   const eff = resolveEffective(settings, location.origin);
   if (eff.disabled) {
@@ -591,6 +593,7 @@ export async function startTranslateText(
   forceInline = false,
   taskOverride?: TaskId,
 ): Promise<void> {
+  closeStickyToast();
   const s = await ensureSettings();
   const eff = resolveEffective(s, location.origin);
   if (eff.disabled) {
@@ -674,6 +677,7 @@ async function startTranslateSelection(
   taskOverride?: TaskId,
   targetLangOverride?: LangSelection,
 ): Promise<void> {
+  closeStickyToast();
   const s = currentSettings();
   const directionOverride: { source: LangSelection; target: LangSelection } | undefined =
     targetLangOverride !== undefined ? { source: 'auto', target: targetLangOverride } : undefined;
@@ -797,6 +801,7 @@ function handleChunk(c: TranslationChunk): void {
 }
 
 export async function enterPickerMode(): Promise<void> {
+  closeStickyToast();
   const eff = resolveEffective(await ensureSettings(), location.origin);
   if (eff.disabled) {
     showToast(SITE_OFF_MESSAGE);
@@ -809,6 +814,7 @@ export async function enterPickerMode(): Promise<void> {
 
 /** An SPA route change tears out the nodes the tooltip and the inline wrappers are anchored to. */
 function cancelTranslatesOnNav(): void {
+  closeStickyToast();
   for (const [reqId, owner] of rendererOwner) {
     // page-v2 runs its own watcher, and a settled inline wrapper keeps no owner entry.
     if (owner === 'tooltip' || owner === 'inline') endRequest(reqId, 'nav');

@@ -8,6 +8,24 @@
 
   let hovered = false;
   let focused = false;
+  let host: HTMLDivElement | undefined = $state();
+
+  // A toast removed under the pointer or with focus inside fires no pointerout or focusout, so the hold would stick.
+  $effect(() => {
+    if (!host) return;
+    const el = host;
+    const observer = new MutationObserver((records) => {
+      const toastGone = records.some((r) =>
+        [...r.removedNodes].some((n) => n instanceof Element && n.matches('[data-sonner-toast]')),
+      );
+      if (!toastGone) return;
+      hovered = hovered && el.querySelector('[data-sonner-toast]:hover') !== null;
+      focused = el.contains(document.activeElement);
+      sync();
+    });
+    observer.observe(el, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  });
 
   function leaving(e: FocusEvent | PointerEvent): boolean {
     const to = e.relatedTarget;
@@ -21,6 +39,7 @@
 
 <!-- Both events bubble, so one wrapper sees the pointer or focus on any toast. -->
 <div
+  bind:this={host}
   class="ega-toast-host"
   role="presentation"
   onpointerover={() => {
