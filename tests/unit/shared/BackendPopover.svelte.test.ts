@@ -55,263 +55,118 @@ async function waitForRows(): Promise<HTMLElement[]> {
   return Array.from(document.body.querySelectorAll<HTMLElement>('.chain-row'));
 }
 
-describe('BackendPopover — chain visualization', () => {
-  it('renders one row per chain entry in resolved order with first reachable getting active badge', async () => {
-    const anchor = makeAnchor();
+const statusOf = (rows: HTMLElement[], re: RegExp): string =>
+  rows.find((r) => re.test(String(r.textContent)))?.querySelector('.chain-status')?.textContent ??
+  '';
+
+describe('BackendPopover — the chain, in order, each with a plain status', () => {
+  it('lists every backend that is on, in order; the first reachable one is In use', async () => {
     render(BackendPopover, {
-      props: {
-        ...DEFAULT_PROPS,
-        anchor,
-        probe: makeProbe({ anthropic: false, openai: true }),
-      },
+      props: { ...DEFAULT_PROPS, anchor: makeAnchor(), probe: makeProbe({ anthropic: false }) },
     });
     const rows = await waitForRows();
-    // backendOrder has 7 entries, no disabled, chain visualizes all 7
     expect(rows).toHaveLength(7);
-    const labels = rows.map((r) => String(r.textContent).replace(/\s+/g, ' ').trim());
-    expect(labels[0]).toContain('1.');
-    expect(labels[0]).toContain('Anthropic');
-    expect(labels[1]).toContain('OpenAI');
-    // openai is first reachable → active badge
-    const openaiRow = rows.find((r) => /OpenAI/.test(String(r.textContent)));
-    expect(openaiRow?.querySelector('.badge-active')).toBeTruthy();
-    // anthropic unreachable → error badge
-    const anthropicRow = rows.find((r) => /Anthropic/.test(String(r.textContent)));
-    expect(anthropicRow?.querySelector('.badge-error')).toBeTruthy();
+    expect(rows[0]?.textContent).toContain('1.');
+    expect(rows[0]?.textContent).toContain('Anthropic');
+    expect(statusOf(rows, /OpenAI/)).toBe('In use');
+    expect(statusOf(rows, /Gemini/)).toBe('Ready');
+    expect(statusOf(rows, /Anthropic/)).toBe("Can't connect");
+    expect(document.body.textContent).toContain('Ega tries them in this order.');
   });
 
-  it('each chain row carries an aria-label with the resolved state', async () => {
-    const anchor = makeAnchor();
+  it('says Checking… on every row before the probe answers', async () => {
     render(BackendPopover, {
       props: {
         ...DEFAULT_PROPS,
-        anchor,
-        probe: makeProbe({ anthropic: false, openai: true }),
-        backendOrder: ['anthropic', 'openai', 'groq'].map(bid) as readonly BackendId[],
-        disabledBackends: [bid('groq')] as readonly BackendId[],
-      },
-    });
-    const rows = await waitForRows();
-    const labelOf = (re: RegExp) =>
-      rows.find((r) => re.test(String(r.getAttribute('aria-label'))))?.getAttribute('aria-label') ??
-      '';
-    // anthropic unreachable, openai first reachable → active, groq disabled so it is not a row
-    expect(labelOf(/Anthropic/)).toBe('Anthropic, unreachable');
-    expect(labelOf(/OpenAI/)).toBe('OpenAI, active');
-    expect(labelOf(/Groq/)).toBe('');
-  });
-
-  it('chain rows announce "checking" before the probe resolves', async () => {
-    const anchor = makeAnchor();
-    render(BackendPopover, {
-      props: {
-        ...DEFAULT_PROPS,
-        anchor,
+        anchor: makeAnchor(),
         probe: null,
-        backendOrder: ['anthropic'].map(bid) as readonly BackendId[],
+        backendOrder: [bid('anthropic')] as readonly BackendId[],
       },
     });
-    const rows = await waitForRows();
-    expect(rows[0]?.getAttribute('aria-label')).toBe('Anthropic, checking');
+    expect(statusOf(await waitForRows(), /Anthropic/)).toBe('Checking…');
   });
 
-  it('counts disabled backends under the chain instead of listing each one', async () => {
-    const anchor = makeAnchor();
+  it('leaves turned-off backends out, with no count line', async () => {
     render(BackendPopover, {
       props: {
         ...DEFAULT_PROPS,
-        anchor,
+        anchor: makeAnchor(),
         probe: makeProbe(),
         disabledBackends: [bid('groq'), bid('deepseek')] as readonly BackendId[],
       },
     });
     const rows = await waitForRows();
-    expect(rows.find((r) => /Groq/.test(String(r.textContent)))).toBeUndefined();
-    expect(rows.find((r) => /DeepSeek/i.test(String(r.textContent)))).toBeUndefined();
-    const summary = document.body.querySelector('.chain-off');
-    expect((summary?.textContent ?? '').replace(/\s+/g, ' ')).toMatch(
-      /2 backends are turned off\./,
-    );
+    expect(rows.find((r) => /Groq|DeepSeek/i.test(String(r.textContent)))).toBeUndefined();
+    expect(document.body.textContent).not.toMatch(/turned off/);
   });
 
-  it('leaves out the disabled count when every backend is on', async () => {
-    const anchor = makeAnchor();
-    render(BackendPopover, {
-      props: { ...DEFAULT_PROPS, anchor, probe: makeProbe() },
-    });
-    await waitForRows();
-    expect(document.body.querySelector('.chain-off')).toBeNull();
-  });
-
-  it('lists the chain in backendOrder', async () => {
-    const anchor = makeAnchor();
-    render(BackendPopover, {
-      props: {
-        ...DEFAULT_PROPS,
-        anchor,
-        probe: makeProbe(),
-        backendOrder: ['gemini', 'anthropic'].map(bid) as readonly BackendId[],
-      },
-    });
-    const rows = await waitForRows();
-    expect(rows).toHaveLength(2);
-    expect(rows[0]?.textContent).toMatch(/Gemini/);
-    expect(rows[1]?.textContent).toMatch(/Anthropic/);
-  });
-
-  it('shows "No backend ready" banner with a visible setup button when probe.active is null', async () => {
-    const anchor = makeAnchor();
-    const onManage = vi.fn();
-    const onClose = vi.fn();
-    render(BackendPopover, {
-      props: {
-        ...DEFAULT_PROPS,
-        anchor,
-        probe: makeProbe({}, null),
-        onManage,
-        onClose,
-      },
-    });
-    await waitForRows();
-    expect(document.body.textContent).toContain('No backend ready');
-    const setup = Array.from(document.body.querySelectorAll('button')).find((b) =>
-      /Set up backends/.test(String(b.textContent)),
-    );
-    expect(setup).toBeTruthy();
-    if (!setup) throw new Error('setup button missing');
-    await fireEvent.click(setup);
-    expect(onManage).toHaveBeenCalledTimes(1);
-    expect(onClose).toHaveBeenCalledTimes(1);
-  });
-
-  it('says "Checking backends…" — not "No backend ready" — while the probe is in flight', async () => {
-    const anchor = makeAnchor();
-    render(BackendPopover, {
-      props: { ...DEFAULT_PROPS, anchor, probe: null },
-    });
-    await waitForRows();
-    expect(document.body.textContent).toContain('Checking backends…');
-    expect(document.body.textContent).not.toContain('No backend ready');
-  });
-
-  it('heading says Backends, not "chain"', async () => {
-    const anchor = makeAnchor();
-    render(BackendPopover, {
-      props: { ...DEFAULT_PROPS, anchor, probe: makeProbe() },
-    });
-    await waitForRows();
-    // The dialog's own title carries it now, so the popover has an accessible name and one heading.
-    const title = document.body.querySelector('.ega-popover-title');
-    expect(title?.textContent).toBe('Backends');
-    expect(document.body.querySelector('.section-heading')).toBeNull();
-  });
-
-  it('does not render when anchor is null', () => {
-    render(BackendPopover, {
-      props: { ...DEFAULT_PROPS, anchor: null, probe: makeProbe() },
-    });
-    expect(document.body.querySelectorAll('.chain-row').length).toBe(0);
-  });
-});
-
-describe('BackendPopover — badge split (unconfigured vs failing)', () => {
-  it('a keyed backend missing its key gets a neutral "no key" badge, not error', async () => {
-    const anchor = makeAnchor();
-    render(BackendPopover, {
-      props: {
-        ...DEFAULT_PROPS,
-        anchor,
-        probe: makeProbe({ anthropic: false, openai: true }),
-        missingKeyIds: [bid('anthropic')] as readonly BackendId[],
-      },
-    });
-    const rows = await waitForRows();
-    const anthropicRow = rows.find((r) => /Anthropic/.test(String(r.textContent)));
-    expect(anthropicRow?.querySelector('.badge-error')).toBeNull();
-    expect(anthropicRow?.querySelector('.badge-muted')?.textContent).toBe('no key');
-    expect(anthropicRow?.getAttribute('aria-label')).toBe('Anthropic, no API key');
-  });
-
-  it('a "no key" row offers Set up, which opens the backend settings', async () => {
-    const anchor = makeAnchor();
+  it('a missing key reads Needs a key and offers Add key, which opens the backend settings', async () => {
     const onManage = vi.fn();
     render(BackendPopover, {
       props: {
         ...DEFAULT_PROPS,
-        anchor,
+        anchor: makeAnchor(),
         onManage,
         probe: makeProbe({ anthropic: false }),
         missingKeyIds: [bid('anthropic')] as readonly BackendId[],
       },
     });
     const rows = await waitForRows();
-    const anthropicRow = rows.find((r) => /Anthropic/.test(String(r.textContent)));
-    const setUp = anthropicRow?.querySelector('button');
-    expect(setUp?.textContent).toBe('Set up');
-    expect(setUp?.getAttribute('aria-label')).toBe('Set up Anthropic');
-    if (!setUp) throw new Error('Set up missing');
-    await fireEvent.click(setUp);
+    expect(statusOf(rows, /Anthropic/)).toBe('Needs a key');
+    const fix = rows.find((r) => /Anthropic/.test(String(r.textContent)))?.querySelector('button');
+    expect(fix?.textContent).toBe('Add key');
+    expect(fix?.getAttribute('aria-label')).toBe('Add key: Anthropic');
+    if (!fix) throw new Error('Add key missing');
+    await fireEvent.click(fix);
     expect(onManage).toHaveBeenCalledTimes(1);
   });
 
-  it('an unreachable key-less backend reads "not running", not error', async () => {
-    const anchor = makeAnchor();
+  it('an unreachable key-less backend reads Not running and offers How to start', async () => {
     render(BackendPopover, {
-      props: {
-        ...DEFAULT_PROPS,
-        anchor,
-        probe: makeProbe({ native: false }),
-      },
+      props: { ...DEFAULT_PROPS, anchor: makeAnchor(), probe: makeProbe({ native: false }) },
     });
     const rows = await waitForRows();
-    const nativeRow = rows.find((r) => /Claude Code or Codex/.test(String(r.textContent)));
-    expect(nativeRow?.querySelector('.badge-error')).toBeNull();
-    expect(nativeRow?.querySelector('.badge-muted')?.textContent).toBe('not running');
-    expect(nativeRow?.getAttribute('aria-label')).toBe('Claude Code or Codex, not running');
+    expect(statusOf(rows, /Claude Code or Codex/)).toBe('Not running');
+    expect(
+      rows.find((r) => /Claude Code or Codex/.test(String(r.textContent)))?.querySelector('button')
+        ?.textContent,
+    ).toBe('How to start');
   });
 
-  it('labels every registered backend from the registry, never a raw lowercase id', async () => {
-    const anchor = makeAnchor();
+  it('labels every registered backend from the registry, never a raw id', async () => {
     render(BackendPopover, {
       props: {
         ...DEFAULT_PROPS,
-        anchor,
+        anchor: makeAnchor(),
         probe: makeProbe(),
         backendOrder: ['openrouter', 'mistral', 'xai', 'fireworks', 'together'].map(
           bid,
         ) as readonly BackendId[],
       },
     });
-    const rows = await waitForRows();
-    const labels = rows.map((r) =>
+    const labels = (await waitForRows()).map((r) =>
       String(r.querySelector('.chain-label')?.textContent ?? '').trim(),
     );
     expect(labels).toEqual(['OpenRouter', 'Mistral', 'xAI', 'Fireworks', 'Together']);
   });
 
-  it('a keyed backend with a key that still fails the probe keeps the error badge', async () => {
-    const anchor = makeAnchor();
+  it('is titled Backends, has no scrim, and does not render without an anchor', async () => {
     render(BackendPopover, {
-      props: {
-        ...DEFAULT_PROPS,
-        anchor,
-        probe: makeProbe({ anthropic: false, openai: true }),
-        missingKeyIds: [] as readonly BackendId[],
-      },
+      props: { ...DEFAULT_PROPS, anchor: makeAnchor(), probe: makeProbe() },
     });
-    const rows = await waitForRows();
-    const anthropicRow = rows.find((r) => /Anthropic/.test(String(r.textContent)));
-    expect(anthropicRow?.querySelector('.badge-error')).toBeTruthy();
+    await waitForRows();
+    expect(document.body.querySelector('.ega-popover-title')?.textContent).toBe('Backends');
+    expect(document.body.querySelector('.ega-popover-scrim')).toBeNull();
+    document.body.innerHTML = '';
+    render(BackendPopover, { props: { ...DEFAULT_PROPS, anchor: null, probe: makeProbe() } });
+    expect(document.body.querySelectorAll('.chain-row').length).toBe(0);
   });
-});
 
-describe('BackendPopover — manage footer', () => {
-  it('Manage chain button fires onManage + onClose', async () => {
-    const anchor = makeAnchor();
+  it('Manage backends fires onManage and closes', async () => {
     const onManage = vi.fn();
     const onClose = vi.fn();
     render(BackendPopover, {
-      props: { ...DEFAULT_PROPS, anchor, probe: makeProbe(), onManage, onClose },
+      props: { ...DEFAULT_PROPS, anchor: makeAnchor(), probe: makeProbe(), onManage, onClose },
     });
     await waitForRows();
     const btn = document.body.querySelector<HTMLButtonElement>('[data-ega-manage-chain]');

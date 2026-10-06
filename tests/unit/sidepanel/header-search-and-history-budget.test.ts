@@ -26,12 +26,13 @@ beforeEach(() => {
 describe('the header stops changing shape', () => {
   const src = readFileSync('src/sidepanel/SidePanel.svelte', 'utf8');
 
-  it('keeps the export items in the More menu, disabled on an empty thread', () => {
+  it('keeps the export items in the More menu, marked unavailable on an empty thread', () => {
     const menu = readFileSync('src/sidepanel/HeaderMoreMenu.svelte', 'utf8');
-    expect(src).toMatch(/<HeaderMoreMenu\s+\{isEmptyThread\}/);
-    expect(src).not.toMatch(/\{#if conversation\.turns\.length > 0\}/);
-    expect(menu).toMatch(/disabled=\{isEmptyThread\}[\s\S]{0,80}?data-ega-export-markdown/);
-    expect(menu).toMatch(/disabled=\{isEmptyThread\}[\s\S]{0,80}?data-ega-export-json/);
+    const header = readFileSync('src/sidepanel/PanelHeader.svelte', 'utf8');
+    expect(header).toMatch(/<HeaderMoreMenu\s+\{isEmptyThread\}/);
+    expect(menu).toMatch(/aria-disabled=\{isEmptyThread[\s\S]{0,300}?data-ega-export-markdown/);
+    expect(menu).toMatch(/aria-disabled=\{isEmptyThread[\s\S]{0,300}?data-ega-export-json/);
+    expect(menu).toMatch(/Nothing to export yet/);
   });
 
   it('names the export by site and day instead of one fixed filename', () => {
@@ -40,11 +41,15 @@ describe('the header stops changing shape', () => {
     expect(src).toMatch(/Saved \$\{a\.download\}/);
   });
 
-  it('never wraps: every control keeps its width and only the backend chip gives some up', () => {
-    const header = /\.sp-header \{([^}]*)\}/.exec(src)?.[1] ?? '';
-    expect(header).not.toMatch(/flex-wrap:\s*wrap/);
-    expect(src).toMatch(/\.sp-header > :global\(\*\) \{\s*flex-shrink: 0;/);
-    expect(src).toMatch(/\.sp-header > :global\(\.active-backend-chip\) \{\s*flex-shrink: 1;/);
+  it('never wraps: only the site title gives up width, and the backend chip never shrinks', () => {
+    const header = readFileSync('src/sidepanel/PanelHeader.svelte', 'utf8');
+    const chip = readFileSync('src/shared/components/ActiveBackendChip.svelte', 'utf8');
+    const row = /\.sp-header \{([^}]*)\}/.exec(header)?.[1] ?? '';
+    expect(row).not.toMatch(/flex-wrap:\s*wrap/);
+    expect(/\.sp-site \{([^}]*)\}/.exec(header)?.[1]).toMatch(
+      /flex: 1 1 auto;\s*min-inline-size: 0;/,
+    );
+    expect(/\.active-backend-chip \{([^}]*)\}/.exec(chip)?.[1]).toMatch(/flex-shrink: 0;/);
   });
 });
 

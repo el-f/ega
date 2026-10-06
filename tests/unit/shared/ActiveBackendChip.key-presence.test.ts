@@ -132,7 +132,7 @@ describe('ActiveBackendChip — key-less backends need the probe', () => {
     expect(container.querySelector('.chip-dot')).toBeNull();
   });
 
-  it("popover badges a keyed backend missing its key as 'no key'", async () => {
+  it('popover says a keyed backend missing its key needs a key', async () => {
     probeMock.mockReturnValue(new Promise(() => {}));
     const s = parseSettings({
       backendOrder: ['anthropic', 'openai'],
@@ -147,7 +147,7 @@ describe('ActiveBackendChip — key-less backends need the probe', () => {
     await waitFor(() => {
       const rows = Array.from(document.body.querySelectorAll<HTMLElement>('.chain-row'));
       const openaiRow = rows.find((r) => /OpenAI/.test(String(r.textContent)));
-      expect(openaiRow?.querySelector('.badge-muted')?.textContent).toBe('no key');
+      expect(openaiRow?.querySelector('.chain-status')?.textContent).toBe('Needs a key');
     });
   });
 

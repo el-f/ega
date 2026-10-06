@@ -94,8 +94,6 @@ describe('side-panel text clears 4.5:1', () => {
     );
     expect(chip).toMatch(/background:\s*var\(--color-accent-bg-soft\)/);
     expect(chip).toMatch(/color:\s*var\(--color-accent-hover\)/);
-    const badge = rule(read('src/shared/components/BackendPopover.svelte'), '\\.badge-active');
-    expect(badge).toMatch(/color:\s*var\(--color-accent-hover\)/);
   });
 });
 

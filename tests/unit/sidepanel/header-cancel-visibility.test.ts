@@ -45,7 +45,7 @@ describe('SidePanel header — Cancel all requests', () => {
     await openHeaderMenu(container);
     const item = document.querySelector<HTMLElement>('[data-ega-cancel-all]');
     if (!item) throw new Error('cancel-all item missing while in flight');
-    expect(item.textContent).toContain('Cancel all requests');
+    expect(item.textContent).toContain('Stop all requests');
     await fireEvent.click(item);
     await waitFor(() =>
       expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({ kind: 'translate:cancel-all' }),

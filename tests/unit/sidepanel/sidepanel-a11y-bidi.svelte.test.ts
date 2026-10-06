@@ -1,13 +1,21 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { Mock } from 'vitest';
-import { render, fireEvent } from '@testing-library/svelte';
+import { render, fireEvent, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import SidePanel from '@/sidepanel/SidePanel.svelte';
 import AssistantTurn from '@/sidepanel/conversation/AssistantTurn.svelte';
 import type { Turn } from '@/sidepanel/state/conversation';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import { openTaskMenu, swapItem } from './_task-menu';
+import { saveThread } from '@/sidepanel/state/conversation-store';
+
+/** Search and New show only once there is a conversation, so these tests start with one. */
+async function seedThread(): Promise<void> {
+  await saveThread('general', [
+    { id: 'u0', role: 'user', kind: 'translate', status: 'idle', createdAt: 1, content: 'hola' },
+  ]);
+}
 
 beforeEach(async () => {
   await chrome.storage.local.clear();
@@ -19,12 +27,16 @@ afterEach(() => vi.clearAllMocks());
 
 describe('SidePanel — text a user types in Hebrew or Arabic', () => {
   it('the composer and the search field lay out by their own first strong character', async () => {
+    await seedThread();
     const { container } = render(SidePanel);
     await tick();
     expect(container.querySelector('#sp-text')?.getAttribute('dir')).toBe('auto');
 
-    const toggle = container.querySelector<HTMLButtonElement>('[data-ega-search-toggle]');
-    if (!toggle) throw new Error('search toggle not found');
+    const toggle = await waitFor(() => {
+      const el = container.querySelector<HTMLButtonElement>('[data-ega-search-toggle]');
+      if (!el) throw new Error('search toggle not mounted yet');
+      return el;
+    });
     await fireEvent.click(toggle);
     await tick();
     expect(container.querySelector('[data-ega-search]')?.getAttribute('dir')).toBe('auto');
@@ -127,10 +139,14 @@ describe('SidePanel — the shortcuts panel the palette advertises', () => {
   });
 
   it('? typed into a text field is just a question mark', async () => {
+    await seedThread();
     const { container } = render(SidePanel);
     await tick();
-    const toggle = container.querySelector<HTMLButtonElement>('[data-ega-search-toggle]');
-    if (!toggle) throw new Error('search toggle not found');
+    const toggle = await waitFor(() => {
+      const el = container.querySelector<HTMLButtonElement>('[data-ega-search-toggle]');
+      if (!el) throw new Error('search toggle not mounted yet');
+      return el;
+    });
     await fireEvent.click(toggle);
     await tick();
 

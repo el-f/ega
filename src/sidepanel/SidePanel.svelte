@@ -19,15 +19,10 @@
   import ToastHost from '@/shared/components/ToastHost.svelte';
   import CommandPalette from '@/shared/components/CommandPalette.svelte';
   import ShortcutOverlay from '@/shared/components/ShortcutOverlay.svelte';
-  import BrandMark from '@/shared/components/BrandMark.svelte';
-  import ActiveBackendChip from '@/shared/components/ActiveBackendChip.svelte';
-  import HeaderMoreMenu from './HeaderMoreMenu.svelte';
-  import IconButton from '@/shared/ui/IconButton.svelte';
-  import Popover from '@/shared/ui/Popover.svelte';
-  import SettingsIcon from '@lucide/svelte/icons/settings';
+  import PanelHeader from './PanelHeader.svelte';
   import SquarePenIcon from '@lucide/svelte/icons/square-pen';
-  import SearchIcon from '@lucide/svelte/icons/search';
   import XIcon from '@lucide/svelte/icons/x';
+  import { flushPendingDeletes, forgetPendingDeletes } from '@/shared/saved-conversations';
   import { confirmDialog } from '@/shared/components/confirmDialog';
   import { buildRegistry, type Command } from '@/shared/command-registry';
   import { listVarieties } from '@/shared/varieties';
@@ -81,6 +76,8 @@
 
   // Reported by the backend chip, which already resolves the chain and probes the key-less backends.
   let backendReady = $state<boolean | null>(null);
+  /** Toasts sit just above the composer, which grows with the message. */
+  let composerHeight = $state(0);
   let bookmarkFilter = $state(false);
   let searchOpen = $state(false);
   let searchQuery = $state('');
@@ -133,10 +130,6 @@
   let settingsUnsub: (() => void) | null = null;
   // Resolved after mount; undefined until then, and every window check fails open on undefined.
   let panelWindowId: number | undefined;
-  /** advanced.retryCount, editable here without opening Settings; saved through the settings bus like any setting. */
-  let retryCount = $state<number>(1);
-  let retryAnchor: HTMLElement | null = $state(null);
-  let retryPopoverOpen = $state<boolean>(false);
 
   // Composer swap only. A reply's Re-run as menu swaps a past turn, so it gates on that turn, not the picker.
   const swapDisabled = $derived(sourceLang === 'auto');
@@ -709,6 +702,7 @@
     if (conversation.inflightId !== null) conversation.cancel();
     conversation.stopBackground();
     conversation.flush().catch((e: unknown) => debugCatch(e, 'sidepanel.persistNow'));
+    flushPendingDeletes();
   }
 
   function onStorageChanged(
@@ -728,6 +722,7 @@
     // "Delete all data" clears storage, and the panel would otherwise write its live thread straight back.
     const indexChange = changes[INDEX_KEY];
     if (indexChange !== undefined && indexChange.newValue === undefined) {
+      forgetPendingDeletes();
       conversation.resetAfterPurge();
       focusedTurnId = null;
       editingTurnId = null;
@@ -741,7 +736,6 @@
     themePref = s.theme;
     streamingPref = s.streaming !== false;
     pageContextLevel = s.pageContextLevel;
-    retryCount = s.advanced.retryCount;
   }
 
   onDestroy(() => {
@@ -755,6 +749,14 @@
     conversation.cancel();
     persistNow();
   });
+
+  /** Shows a conversation from the list; focus goes to the message box. */
+  async function openConversation(id: string): Promise<void> {
+    focusedTurnId = null;
+    await conversation.openConversation(id);
+    await tick();
+    focusComposer();
+  }
 
   /** One click, nothing lost: the old conversation stays in the list, and Undo opens it again. */
   async function onNewConversation(): Promise<void> {
@@ -777,17 +779,6 @@
     });
   }
 
-  function commitRetryCount(next: number): void {
-    if (!Number.isInteger(next) || next < 0 || next > 3) return;
-    // The slider's oninput already moved the readout; the last saved value is what a failed write rolls back to.
-    const previous = settings?.advanced.retryCount ?? retryCount;
-    retryCount = next;
-    void commitSettings(
-      { advanced: { retryCount: next } } as Partial<Settings>,
-      () => (retryCount = previous),
-    );
-  }
-
   let savingAgain = $state(false);
 
   /** The toast is gone in 8 seconds; the banner is the only way back once storage has room again. */
@@ -801,8 +792,8 @@
       // The banner stays up either way; without this the second failure looks like a dead button.
       toastStore.push({
         message: conversation.saveFailedQuota
-          ? 'Still out of space. Start a new conversation to free some.'
-          : 'Still could not save. Try again in a moment.',
+          ? 'Still out of space. Delete old conversations to make room.'
+          : "Still couldn't save. Try again in a moment.",
         variant: 'danger',
       });
     } finally {
@@ -857,76 +848,25 @@
           focusComposer();
         }}>Skip to the message box</a
       >
-      <div class="sp-header">
-        <h1 class="sp-title"><BrandMark size={16} /></h1>
-        <div class="sp-header-spacer"></div>
-        <IconButton
-          icon={SquarePenIcon}
-          ariaLabel="New conversation"
-          size="sm"
-          disabled={isEmptyThread}
-          dataAttrs={{ 'data-ega-new-conversation': 'true' }}
-          onclick={() => void onNewConversation()}
-        />
-        <IconButton
-          icon={SearchIcon}
-          ariaLabel={searchOpen ? 'Close search' : 'Search conversation'}
-          size="sm"
-          dataAttrs={{ 'data-ega-search-toggle': 'true', 'aria-pressed': String(searchOpen) }}
-          onclick={() => void toggleSearch()}
-        />
-        {#if settings}
-          <ActiveBackendChip
-            {settings}
-            onJump={() => openOptionsTab('backends')}
-            onReadyChange={(ready) => (backendReady = ready)}
-          />
-        {/if}
-        <HeaderMoreMenu
-          {isEmptyThread}
-          bind:bookmarkFilter
-          theme={themePref}
-          {retryCount}
-          onCancelAll={hasInflight ? cancelAllInflight : undefined}
-          bind:trigger={retryAnchor}
-          onCopyMarkdown={() => void copyMarkdown()}
-          onDownloadJson={downloadJson}
-          onSetTheme={(to) => void setTheme(to)}
-          onOpenRetry={() => (retryPopoverOpen = true)}
-        />
-        <Popover
-          open={retryPopoverOpen}
-          anchor={retryAnchor}
-          title="Fallback backends"
-          placement="bottom-end"
-          onClose={() => (retryPopoverOpen = false)}
-        >
-          <div class="sp-retry-popover">
-            <input
-              type="range"
-              min="0"
-              max="3"
-              step="1"
-              value={retryCount}
-              aria-label="Fallback backends"
-              data-ega-retry-budget
-              oninput={(e) => (retryCount = Number((e.currentTarget as HTMLInputElement).value))}
-              onchange={(e) =>
-                commitRetryCount(Number((e.currentTarget as HTMLInputElement).value))}
-            />
-            <div class="sp-retry-readout">
-              <span class="sp-retry-value">{retryCount}</span>
-              <span class="sp-retry-caption">0–3 more backends to try when the first fails</span>
-            </div>
-          </div>
-        </Popover>
-        <IconButton
-          icon={SettingsIcon}
-          ariaLabel="Open settings"
-          size="sm"
-          onclick={() => openOptionsTab()}
-        />
-      </div>
+      <PanelHeader
+        {settings}
+        activeId={conversation.activeId}
+        tabSite={conversation.tabSite}
+        {isEmptyThread}
+        {searchOpen}
+        bind:bookmarkFilter
+        onNewConversation={() => void onNewConversation()}
+        onToggleSearch={() => void toggleSearch()}
+        onOpenConversation={openConversation}
+        onDeleteConversation={(id, onFail) => conversation.deleteConversation(id, onFail)}
+        onCopyMarkdown={() => void copyMarkdown()}
+        onDownloadJson={downloadJson}
+        onShowShortcuts={() => (shortcutsOpen = true)}
+        onOpenSettings={() => openOptionsTab()}
+        onSetUpBackend={() => openOptionsTab('backends')}
+        onReadyChange={(ready) => (backendReady = ready)}
+        onCancelAll={hasInflight ? cancelAllInflight : undefined}
+      />
       {#if searchOpen}
         <div class="sp-search-bar" role="search">
           <input
@@ -934,8 +874,8 @@
             bind:value={searchQuery}
             type="search"
             dir="auto"
-            aria-label="Search conversation"
-            placeholder="Search…"
+            aria-label="Search this conversation"
+            placeholder="Search this conversation"
             data-ega-search
             onkeydown={(e) => {
               if (e.key === 'Escape') closeSearch();
@@ -952,7 +892,7 @@
             type="button"
             class="sp-search-clear"
             aria-label="Close search"
-            data-tooltip="Close search · Esc"
+            data-tooltip="Close search (Esc)"
             data-tooltip-placement="bottom"
             onclick={closeSearch}
           >
@@ -962,9 +902,7 @@
       {/if}
       {#if bookmarkFilter && !searchOpen}
         <div class="sp-search-bar">
-          <span class="sp-search-count"
-            >{bookmarkCount} {bookmarkCount === 1 ? 'message' : 'messages'} bookmarked</span
-          >
+          <span class="sp-search-count">{bookmarkCount} bookmarked</span>
           <!-- The empty state brings its own "Show all messages". -->
           {#if !emptyBookmarkFilter}
             <button
@@ -1019,13 +957,10 @@
     {#if conversation.saveFailed}
       <div class="sp-save-failed" data-ega-save-failed role="status">
         <span class="sp-save-failed-text"
-          >Not saved. Switching sites or closing the panel will lose these messages.</span
+          >{conversation.saveFailedQuota
+            ? 'Storage is full. Delete old conversations to make room.'
+            : "These messages aren't saved yet."}</span
         >
-        {#if conversation.saveFailedQuota}
-          <span class="sp-save-failed-hint"
-            >Storage is full — start a new conversation to free space.</span
-          >
-        {/if}
         <button
           type="button"
           class="sp-save-failed-retry"
@@ -1058,38 +993,40 @@
       </div>
     {/if}
 
-    <InputRow
-      {usesTone}
-      {taskViews}
-      bind:value={sourceText}
-      bind:sourceLang
-      bind:targetLang
-      bind:task
-      bind:tone
-      {swapDisabled}
-      {varieties}
-      {pageContextLevel}
-      contextEnabled={settings?.contextEnabled !== false}
-      onOpenOptions={() => openOptionsTab()}
-      {attachedImage}
-      turns={conversation.turns}
-      inflight={conversation.inflightId !== null}
-      onContextLevelChange={(level) => void setPageContextLevel(level)}
-      {onSwap}
-      onAttachImage={attachComposerImage}
-      onClearAttachedImage={() => {
-        attachedImage = null;
-        void clearComposerDraftImage();
-      }}
-      streaming={streamingPref}
-      onToggleStreaming={(next) => {
-        const previous = streamingPref;
-        streamingPref = next;
-        void commitSettings({ streaming: next }, () => (streamingPref = previous));
-      }}
-      onSend={() => void sendTurn()}
-      onCancel={cancelInflight}
-    />
+    <div class="sp-composer" bind:clientHeight={composerHeight}>
+      <InputRow
+        {usesTone}
+        {taskViews}
+        bind:value={sourceText}
+        bind:sourceLang
+        bind:targetLang
+        bind:task
+        bind:tone
+        {swapDisabled}
+        {varieties}
+        {pageContextLevel}
+        contextEnabled={settings?.contextEnabled !== false}
+        onOpenOptions={() => openOptionsTab()}
+        {attachedImage}
+        turns={conversation.turns}
+        inflight={conversation.inflightId !== null}
+        onContextLevelChange={(level) => void setPageContextLevel(level)}
+        {onSwap}
+        onAttachImage={attachComposerImage}
+        onClearAttachedImage={() => {
+          attachedImage = null;
+          void clearComposerDraftImage();
+        }}
+        streaming={streamingPref}
+        onToggleStreaming={(next) => {
+          const previous = streamingPref;
+          streamingPref = next;
+          void commitSettings({ streaming: next }, () => (streamingPref = previous));
+        }}
+        onSend={() => void sendTurn()}
+        onCancel={cancelInflight}
+      />
+    </div>
   </AppShell>
 </div>
 
@@ -1108,9 +1045,9 @@
 />
 
 <ToastHost
-  position="top-center"
-  offset={{ top: '84px' }}
-  mobileOffset={{ top: '84px' }}
+  position="bottom-center"
+  offset={{ bottom: `${composerHeight + 8}px` }}
+  mobileOffset={{ bottom: `${composerHeight + 8}px` }}
   theme={themePref}
 />
 
@@ -1155,54 +1092,8 @@
     font-size: var(--fs-xs);
     text-decoration: none;
   }
-  .sp-header {
-    container: ega-header / inline-size;
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    width: 100%;
-    min-width: 0;
-  }
-  .sp-header > :global(*) {
-    flex-shrink: 0;
-  }
-  .sp-title {
-    display: flex;
-    align-items: center;
-    margin: 0;
-    font-size: var(--fs-md);
-    font-weight: 600;
-    letter-spacing: 0.01em;
-    line-height: 1;
-  }
-  .sp-header-spacer {
-    flex: 1 1 auto;
-  }
-  .sp-retry-popover {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
-    min-width: 180px;
-  }
-  .sp-retry-popover input[type='range'] {
-    width: 100%;
-    cursor: pointer;
-  }
-  .sp-retry-readout {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: var(--space-2);
-    font-size: var(--fs-xs);
-    color: var(--color-fg-subtle);
-  }
-  .sp-retry-value {
-    font-weight: 600;
-    color: var(--color-fg);
-    font-variant-numeric: tabular-nums;
-  }
-  .sp-retry-caption {
-    color: var(--color-muted);
+  .sp-composer {
+    flex: 0 0 auto;
   }
   .sp-save-failed {
     display: flex;
@@ -1218,11 +1109,6 @@
   .sp-save-failed-text {
     flex: 1 1 auto;
     min-width: 0;
-  }
-  .sp-save-failed-hint {
-    flex: 1 1 100%;
-    font-size: var(--fs-xs);
-    color: var(--color-muted);
   }
   .sp-save-failed-retry {
     background: none;

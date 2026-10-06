@@ -15,12 +15,11 @@
     probe: ProbeResult | null;
     /** Current backend order (fallback chain). */
     backendOrder: readonly BackendId[];
-    /** Disabled backends — counted under the chain, not listed. */
+    /** Turned-off backends, left out of the list. */
     disabledBackends: readonly BackendId[];
-    /** Backends missing their required API key — badged "no key" instead
-     *  of "error". Absent ⇒ every unreachable backend reads as error. */
+    /** Backends missing their required API key: "Needs a key", not "Can't connect". */
     missingKeyIds?: readonly BackendId[];
-    /** "Manage chain" footer click — consumer opens Options → Backends. */
+    /** Manage backends and every row fix: the consumer opens Options → Backends. */
     onManage: () => void;
     /** Close handler — Escape, click-outside, or after Manage. */
     onClose: () => void;
@@ -43,7 +42,7 @@
     anchor?.focus({ preventScroll: true });
   }
 
-  // The router's chain without probing; it drops disabled ids, which the rows re-add below.
+  // The router's chain without probing; turned-off backends are left out (Options lists them).
   const chainIds = $derived<readonly BackendId[]>(
     computeBackendOrder({ backendOrder, disabledBackends }),
   );
@@ -62,93 +61,65 @@
     handleClose();
   }
 
-  function chainRowDotState(id: BackendId): 'on' | 'off' | 'idle' {
-    if (!probe) return 'idle';
-    if (probe.available[id]) return 'on';
-    return 'off';
-  }
+  type RowStatus = 'in-use' | 'ready' | 'no-key' | 'not-running' | 'cant-connect' | 'checking';
 
-  function chainBadge(id: BackendId): 'active' | 'error' | 'no-key' | 'not-running' | null {
-    if (id === activeId) return 'active';
-    // A missing key is a to-do, not a failure — badge it neutrally.
+  function rowStatus(id: BackendId): RowStatus {
+    if (id === activeId) return 'in-use';
+    // A missing key is a to-do, not a failure.
     if (missingKeyIds.includes(id)) return 'no-key';
-    if (probe && probe.available[id] === false) {
-      return backendNeedsKey(id) ? 'error' : 'not-running';
-    }
-    return null;
+    if (!probe) return 'checking';
+    if (probe.available[id]) return 'ready';
+    return backendNeedsKey(id) ? 'cant-connect' : 'not-running';
   }
 
-  // The dot and badge carry state by color alone, so the row label has to name the resolved state.
-  function chainRowLabel(id: BackendId): string {
-    const name = backendLabel(id);
-    const badge = chainBadge(id);
-    if (badge === 'active') return `${name}, active`;
-    if (badge === 'no-key') return `${name}, no API key`;
-    if (badge === 'not-running') return `${name}, not running`;
-    if (badge === 'error') return `${name}, unreachable`;
-    if (!probe) return `${name}, checking`;
-    return name;
-  }
+  const STATUS_TEXT: Record<RowStatus, string> = {
+    'in-use': 'In use',
+    ready: 'Ready',
+    'no-key': 'Needs a key',
+    'not-running': 'Not running',
+    'cant-connect': "Can't connect",
+    checking: 'Checking…',
+  };
 
-  // computeBackendOrder already dropped these; they are counted, not listed, so the order stays readable.
-  const disabledInChain = $derived.by(() => {
-    const out: BackendId[] = [];
-    for (const id of backendOrder) {
-      if (!disabledBackends.includes(id)) continue;
-      if (chainIds.includes(id) || out.includes(id)) continue;
-      out.push(id);
-    }
-    return out;
-  });
+  /** The one fix a row that is not ready offers; each opens Options → Backends. */
+  const FIX_TEXT: Partial<Record<RowStatus, string>> = {
+    'no-key': 'Add key',
+    'not-running': 'How to start',
+    'cant-connect': 'Check settings',
+  };
+
+  function dotState(status: RowStatus): 'on' | 'off' | 'idle' {
+    if (status === 'in-use' || status === 'ready') return 'on';
+    return status === 'checking' ? 'idle' : 'off';
+  }
 </script>
 
 {#if anchor}
-  <Popover {open} {anchor} onClose={handleClose} placement="bottom-end" title="Backends" scrim>
+  <Popover {open} {anchor} onClose={handleClose} placement="bottom-end" title="Backends">
     <div class="backend-detail">
-      <section class="chain-section">
-        {#if probe === null}
-          <div class="backend-active-empty">Checking backends…</div>
-        {:else if !probe.active}
-          <div class="backend-active-empty">
-            No backend ready.
-            <button type="button" class="setup-btn" onclick={onManageClick}>Set up backends</button>
-          </div>
-        {/if}
-        <p class="chain-help">Ega tries them in this order.</p>
-        <ol class="chain-list" aria-live="polite">
-          {#each chainIds as id, i (id)}
-            {@const badge = chainBadge(id)}
-            <li class="chain-row" aria-label={chainRowLabel(id)}>
-              <span class="chain-pos">{i + 1}.</span>
-              <span class="dot {chainRowDotState(id)}" aria-hidden="true"></span>
+      <p class="chain-help">Ega tries them in this order.</p>
+      <ol class="chain-list" aria-live="polite">
+        {#each chainIds as id, i (id)}
+          {@const status = rowStatus(id)}
+          {@const fix = FIX_TEXT[status]}
+          <li class="chain-row" data-ega-backend-row={id}>
+            <span class="chain-pos" aria-hidden="true">{i + 1}.</span>
+            <span class="dot {dotState(status)}" aria-hidden="true"></span>
+            <span class="chain-text">
               <span class="chain-label">{backendLabel(id)}</span>
-              {#if badge === 'active'}
-                <span class="badge badge-active">active</span>
-              {:else if badge === 'no-key'}
-                <span class="badge badge-muted">no key</span>
-                <button
-                  type="button"
-                  class="setup-btn"
-                  aria-label={`Set up ${backendLabel(id)}`}
-                  onclick={onManageClick}>Set up</button
-                >
-              {:else if badge === 'not-running'}
-                <span class="badge badge-muted">not running</span>
-              {:else if badge === 'error'}
-                <span class="badge badge-error">error</span>
-              {/if}
-            </li>
-          {/each}
-        </ol>
-        {#if disabledInChain.length > 0}
-          <p class="chain-off">
-            {disabledInChain.length}
-            {disabledInChain.length === 1 ? 'backend is' : 'backends are'} turned off.
-            <button type="button" class="setup-btn" onclick={onManageClick}>Manage</button>
-          </p>
-        {/if}
-      </section>
-
+              <span class="chain-status">{STATUS_TEXT[status]}</span>
+            </span>
+            {#if fix !== undefined}
+              <button
+                type="button"
+                class="setup-btn"
+                aria-label={`${fix}: ${backendLabel(id)}`}
+                onclick={onManageClick}>{fix}</button
+              >
+            {/if}
+          </li>
+        {/each}
+      </ol>
       <div class="footer-row">
         <button type="button" class="setup-btn" data-ega-manage-chain onclick={onManageClick}
           >Manage backends</button
@@ -162,10 +133,15 @@
   .backend-detail {
     display: flex;
     flex-direction: column;
-    gap: var(--space-3);
-    min-width: 240px;
-    max-width: 280px;
+    gap: var(--space-2);
+    inline-size: min(280px, calc(100vw - var(--space-4)));
     font-size: var(--fs-sm);
+    line-height: var(--lh-body);
+  }
+  .chain-help {
+    margin: 0;
+    padding: 0 var(--space-1);
+    color: var(--color-muted);
   }
   .chain-list {
     list-style: none;
@@ -173,44 +149,36 @@
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--space-1);
   }
   .chain-row {
     display: flex;
-    align-items: center;
+    align-items: baseline;
     gap: var(--space-2);
-    padding: 2px var(--space-1);
-    border-radius: var(--radius-sm);
-    line-height: 1.4;
-  }
-  .chain-help {
-    margin: 0 0 var(--space-1);
-    padding: 0 var(--space-1);
-    color: var(--color-muted);
-    font-size: var(--fs-xs);
-  }
-  .chain-off {
-    margin: var(--space-1) 0 0;
-    padding: 0 var(--space-1);
-    color: var(--color-muted);
-    font-size: var(--fs-xs);
+    padding: var(--space-1);
   }
   .chain-pos {
     color: var(--color-muted);
     font-variant-numeric: tabular-nums;
-    min-width: 1.25em;
+    min-inline-size: 1.25em;
+  }
+  /* Names wrap: a long backend name is never cut. */
+  .chain-text {
+    flex: 1 1 auto;
+    min-inline-size: 0;
+    display: flex;
+    flex-direction: column;
+    overflow-wrap: anywhere;
   }
   .chain-label {
-    /* min-width:0 lets a long manifest name ellipsize instead of wrapping the badge onto its own line. */
-    flex: 1 1 auto;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    color: var(--color-fg);
+  }
+  .chain-status {
+    color: var(--color-muted);
   }
   .dot {
-    width: 8px;
-    height: 8px;
+    inline-size: 8px;
+    block-size: 8px;
     border-radius: var(--radius-pill);
     display: inline-block;
     background: var(--color-dot-neutral);
@@ -222,59 +190,33 @@
   .dot.off {
     background: var(--color-dot-off);
   }
-  .badge {
-    font-size: var(--fs-xs);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    font-weight: 600;
-    padding: 0 var(--space-1);
-    border-radius: var(--radius-sm);
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
-  .badge-active {
-    /* accent lands under 4.5:1 on the soft accent tint; accent-hover clears it in both themes. */
-    color: var(--color-accent-hover);
-    background: var(--color-accent-bg-soft);
-  }
-  .badge-error {
-    color: var(--color-danger-fg);
-    background: var(--color-danger-bg-soft);
-  }
-  .badge-muted {
-    color: var(--color-muted);
-    background: var(--color-bg-sunken);
-  }
   .footer-row {
     display: flex;
     justify-content: flex-end;
     border-top: 1px solid var(--color-border-subtle);
     padding-top: var(--space-2);
   }
-  .backend-active-empty {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    padding: var(--space-1);
-    margin-bottom: var(--space-1);
-    color: var(--color-muted);
-    font-size: var(--fs-xs);
-    background: var(--color-bg-sunken);
-    border-radius: var(--radius-sm);
-  }
   .setup-btn {
     appearance: none;
+    flex-shrink: 0;
+    min-block-size: 24px;
     padding: 0;
     border: none;
     background: none;
     color: var(--color-accent);
-    font-size: var(--fs-xs);
+    font-size: var(--fs-sm);
     font-family: inherit;
     text-decoration: underline;
+    text-underline-offset: 2px;
     cursor: pointer;
   }
   .setup-btn:focus-visible {
     outline: 2px solid var(--color-accent);
     outline-offset: 2px;
+  }
+  @media (forced-colors: active) {
+    .dot {
+      border: 1px solid CanvasText;
+    }
   }
 </style>

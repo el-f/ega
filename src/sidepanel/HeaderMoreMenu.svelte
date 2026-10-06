@@ -4,26 +4,19 @@
   import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
   import CopyIcon from '@lucide/svelte/icons/copy';
   import DownloadIcon from '@lucide/svelte/icons/download';
-  import BookmarkIcon from '@lucide/svelte/icons/bookmark';
-  import RepeatIcon from '@lucide/svelte/icons/repeat';
+  import StarIcon from '@lucide/svelte/icons/star';
   import CircleStopIcon from '@lucide/svelte/icons/circle-stop';
   import CheckIcon from '@lucide/svelte/icons/check';
-  import LaptopIcon from '@lucide/svelte/icons/laptop';
-  import SunIcon from '@lucide/svelte/icons/sun';
-  import MoonIcon from '@lucide/svelte/icons/moon';
-  import type { ThemePref } from '@/shared/theme';
+  import KeyboardIcon from '@lucide/svelte/icons/keyboard';
+  import SettingsIcon from '@lucide/svelte/icons/settings';
 
   interface Props {
     isEmptyThread: boolean;
     bookmarkFilter: boolean;
-    theme: ThemePref;
-    retryCount: number;
-    /** The trigger, so the fallback popover can anchor to it once the menu closes. */
-    trigger?: HTMLElement | null;
     onCopyMarkdown: () => void;
     onDownloadJson: () => void;
-    onSetTheme: (to: ThemePref) => void;
-    onOpenRetry: () => void;
+    onShowShortcuts: () => void;
+    onOpenSettings: () => void;
     /** Set only while a request is in flight; it stops requests from every surface, not just this panel. */
     onCancelAll?: (() => void) | undefined;
   }
@@ -31,38 +24,47 @@
   let {
     isEmptyThread,
     bookmarkFilter = $bindable(),
-    theme,
-    retryCount,
-    trigger = $bindable(null),
     onCopyMarkdown,
     onDownloadJson,
-    onSetTheme,
-    onOpenRetry,
+    onShowShortcuts,
+    onOpenSettings,
     onCancelAll,
   }: Props = $props();
-
-  const THEMES = [
-    { value: 'system', label: 'System', icon: LaptopIcon },
-    { value: 'light', label: 'Light', icon: SunIcon },
-    { value: 'dark', label: 'Dark', icon: MoonIcon },
-  ] as const satisfies ReadonlyArray<{ value: ThemePref; label: string; icon: unknown }>;
 </script>
 
 <DropdownMenu.Root>
   <DropdownMenu.Trigger
-    bind:ref={trigger}
     class="ega-icon-btn variant-default size-sm"
-    aria-label="More actions"
+    aria-label="More"
+    data-tooltip="More"
+    data-tooltip-placement="bottom"
     data-ega-header-more
   >
     <Icon icon={EllipsisIcon} size={16} />
   </DropdownMenu.Trigger>
   <DropdownMenu.Portal>
     <DropdownMenu.Content class="sp-menu" align="end" sideOffset={6}>
+      <DropdownMenu.CheckboxItem
+        class="sp-menu-item"
+        bind:checked={bookmarkFilter}
+        data-ega-bookmark-filter
+      >
+        {#snippet children({ checked })}
+          <Icon icon={StarIcon} size={16} />
+          <span class="sp-menu-label">Show bookmarked only</span>
+          {#if checked}<Icon icon={CheckIcon} size={16} />{/if}
+        {/snippet}
+      </DropdownMenu.CheckboxItem>
+      <DropdownMenu.Separator class="sp-menu-sep" />
+      <!-- aria-disabled, not bits' disabled: the item stays in the arrow order so its note is read. -->
       <DropdownMenu.Item
         class="sp-menu-item"
-        disabled={isEmptyThread}
-        onSelect={onCopyMarkdown}
+        aria-disabled={isEmptyThread ? 'true' : undefined}
+        aria-describedby={isEmptyThread ? 'sp-export-note' : undefined}
+        closeOnSelect={!isEmptyThread}
+        onSelect={() => {
+          if (!isEmptyThread) onCopyMarkdown();
+        }}
         data-ega-export-markdown
       >
         <Icon icon={CopyIcon} size={16} />
@@ -70,59 +72,35 @@
       </DropdownMenu.Item>
       <DropdownMenu.Item
         class="sp-menu-item"
-        disabled={isEmptyThread}
-        onSelect={onDownloadJson}
+        aria-disabled={isEmptyThread ? 'true' : undefined}
+        aria-describedby={isEmptyThread ? 'sp-export-note' : undefined}
+        closeOnSelect={!isEmptyThread}
+        onSelect={() => {
+          if (!isEmptyThread) onDownloadJson();
+        }}
         data-ega-export-json
       >
         <Icon icon={DownloadIcon} size={16} />
         <span class="sp-menu-label">Download as JSON</span>
       </DropdownMenu.Item>
+      {#if isEmptyThread}
+        <p class="sp-menu-note" id="sp-export-note">Nothing to export yet</p>
+      {/if}
       <DropdownMenu.Separator class="sp-menu-sep" />
-      <DropdownMenu.CheckboxItem
-        class="sp-menu-item"
-        bind:checked={bookmarkFilter}
-        data-ega-bookmark-filter
-      >
-        {#snippet children({ checked })}
-          <Icon icon={BookmarkIcon} size={16} />
-          <span class="sp-menu-label">Show bookmarked only</span>
-          {#if checked}<Icon icon={CheckIcon} size={16} />{/if}
-        {/snippet}
-      </DropdownMenu.CheckboxItem>
-      <DropdownMenu.Separator class="sp-menu-sep" />
-      <DropdownMenu.RadioGroup value={theme} onValueChange={(v) => onSetTheme(v as ThemePref)}>
-        <DropdownMenu.GroupHeading class="sp-menu-heading">Theme</DropdownMenu.GroupHeading>
-        {#each THEMES as t (t.value)}
-          <DropdownMenu.RadioItem
-            class="sp-menu-item"
-            value={t.value}
-            closeOnSelect={false}
-            data-ega-theme={t.value}
-          >
-            {#snippet children({ checked })}
-              <Icon icon={t.icon} size={16} />
-              <span class="sp-menu-label">{t.label}</span>
-              {#if checked}<Icon icon={CheckIcon} size={16} />{/if}
-            {/snippet}
-          </DropdownMenu.RadioItem>
-        {/each}
-      </DropdownMenu.RadioGroup>
-      <DropdownMenu.Separator class="sp-menu-sep" />
-      <DropdownMenu.Item
-        class="sp-menu-item"
-        onSelect={onOpenRetry}
-        aria-haspopup="dialog"
-        data-ega-retry-budget-trigger
-      >
-        <Icon icon={RepeatIcon} size={16} />
-        <span class="sp-menu-label">Fallback backends: {retryCount}…</span>
+      <DropdownMenu.Item class="sp-menu-item" onSelect={onShowShortcuts} data-ega-show-shortcuts>
+        <Icon icon={KeyboardIcon} size={16} />
+        <span class="sp-menu-label">Keyboard shortcuts</span>
       </DropdownMenu.Item>
-      <!-- Last, not first: a keyboard open lands on the first item, and a second Enter must not cancel. -->
+      <DropdownMenu.Item class="sp-menu-item" onSelect={onOpenSettings} data-ega-open-settings>
+        <Icon icon={SettingsIcon} size={16} />
+        <span class="sp-menu-label">Settings</span>
+      </DropdownMenu.Item>
+      <!-- Last, not first: a keyboard open lands on the first item, and a second Enter must not stop anything. -->
       {#if onCancelAll}
         <DropdownMenu.Separator class="sp-menu-sep" />
         <DropdownMenu.Item class="sp-menu-item" onSelect={onCancelAll} data-ega-cancel-all>
           <Icon icon={CircleStopIcon} size={16} />
-          <span class="sp-menu-label">Cancel all requests</span>
+          <span class="sp-menu-label">Stop all requests</span>
         </DropdownMenu.Item>
       {/if}
     </DropdownMenu.Content>
@@ -130,19 +108,26 @@
 </DropdownMenu.Root>
 
 <style>
+  /* :global — bits renders every panel menu in a portal on <body>; these are the one menu look the panel uses. */
   :global(.sp-menu) {
-    min-width: 220px;
+    min-inline-size: 220px;
+    max-inline-size: calc(100vw - var(--space-4));
+    max-block-size: calc(100vh - var(--space-4));
+    overflow-y: auto;
     padding: var(--space-1);
     background: var(--color-bg-elevated);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
     box-shadow: 0 12px 32px var(--color-shadow);
+    font-family: var(--font-ui);
+    line-height: var(--lh-body);
     z-index: 99998;
   }
   :global(.sp-menu-item) {
     display: flex;
     align-items: center;
     gap: var(--space-2);
+    min-block-size: 32px;
     padding: var(--space-1) var(--space-2);
     border-radius: var(--radius-sm);
     color: var(--color-fg);
@@ -153,22 +138,32 @@
   :global(.sp-menu-item[data-highlighted]) {
     background: var(--color-bg-hover);
   }
-  :global(.sp-menu-item[data-disabled]) {
+  :global(.sp-menu-item[data-disabled]),
+  :global(.sp-menu-item[aria-disabled='true']) {
     color: var(--color-fg-disabled);
     cursor: var(--cursor-disabled);
   }
+  :global(.sp-menu-item.sp-menu-danger) {
+    color: var(--color-danger-fg);
+  }
   :global(.sp-menu-label) {
     flex: 1 1 auto;
+    min-inline-size: 0;
   }
   :global(.sp-menu-heading) {
     padding: var(--space-1) var(--space-2) 0;
-    font-size: var(--fs-xs);
-    color: var(--color-fg-subtle);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    color: var(--color-muted);
+  }
+  :global(.sp-menu-note) {
+    margin: 0;
+    padding: 0 var(--space-2) var(--space-1);
+    font-size: var(--fs-sm);
+    color: var(--color-muted);
   }
   :global(.sp-menu-sep) {
-    height: 1px;
+    block-size: 1px;
     margin: var(--space-1) 0;
     background: var(--color-border-subtle);
   }
