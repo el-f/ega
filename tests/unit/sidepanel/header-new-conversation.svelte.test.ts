@@ -37,6 +37,10 @@ describe('SidePanel header — conversations', () => {
     expect(container.querySelector('[data-ega-header-site]')?.getAttribute('aria-label')).toBe(
       'example.com, conversations',
     );
+    // The one header text allowed an ellipsis says so, and the button's name carries the full site.
+    expect(
+      container.querySelector('[data-ega-header-site] [data-ega-truncates]')?.textContent,
+    ).toBe('example.com');
     expect(container.querySelector('[data-ega-new-conversation]')).toBeNull();
     expect(container.querySelector('[data-ega-search-toggle]')).toBeNull();
   });

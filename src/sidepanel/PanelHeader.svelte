@@ -75,7 +75,7 @@
     data-ega-header-site
     onclick={() => (listOpen = !listOpen)}
   >
-    <span class="sp-site-name">{site}</span>
+    <span class="sp-site-name" data-ega-truncates>{site}</span>
     <span class="sp-site-chevron" class:open={listOpen}
       ><Icon icon={ChevronDownIcon} size={16} /></span
     >

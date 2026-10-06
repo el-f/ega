@@ -68,6 +68,29 @@ describe('Conversations popover', () => {
     expect(document.body.textContent).toContain('Keeps your 50 latest conversations');
   });
 
+  it('marks a title as allowed to end in an ellipsis, with the full title in its row name', async () => {
+    await seed();
+    render(ConversationsPopover, {
+      props: {
+        open: true,
+        anchor: anchor(),
+        activeId: 'https://a.test',
+        tabSite: 'https://a.test',
+        onClose: () => {},
+        onOpen: async () => {},
+        onDelete: async () => ({ undo: () => {} }),
+      },
+    });
+    await waitFor(() => expect(rows()).toHaveLength(3));
+    for (const row of rows()) {
+      const title = row.querySelector('[data-ega-conv-title]');
+      // The design-rules check flags every ellipsis that lacks this mark.
+      expect(title?.hasAttribute('data-ega-truncates')).toBe(true);
+      const name = row.querySelector('[data-ega-conv-open]')?.getAttribute('aria-label') ?? '';
+      expect(name.startsWith(title?.textContent ?? '?')).toBe(true);
+    }
+  });
+
   it('Open hands the id over; delete turns the row into Undo, and Undo puts it back', async () => {
     await seed();
     const onOpen = vi.fn(async () => {});

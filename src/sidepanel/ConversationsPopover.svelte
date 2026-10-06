@@ -197,7 +197,7 @@
           {#if current}<Icon icon={CheckIcon} size={16} />{/if}
         </span>
         <span class="cv-text">
-          <span class="cv-title" dir="auto" data-ega-conv-title>{title}</span>
+          <span class="cv-title" dir="auto" data-ega-conv-title data-ega-truncates>{title}</span>
           <span class="cv-meta">{rowMeta(e, otherSite)}</span>
         </span>
       </button>
