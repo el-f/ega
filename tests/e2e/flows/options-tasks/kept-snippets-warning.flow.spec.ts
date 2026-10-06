@@ -29,9 +29,6 @@ test('a prompt too long to write its snippets into keeps them and says so', asyn
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
   await openTaskPrompt(page, 'translate');
-  await expect(page.locator('[data-ega-template-editor]').first()).toBeVisible({
-    timeout: 10_000,
-  });
   timeline.markStep('editor-open');
 
   await expect(page.locator('[data-ega-snippet-warn]')).toContainText(

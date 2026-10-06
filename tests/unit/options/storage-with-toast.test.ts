@@ -15,9 +15,11 @@ describe('saveSettings', () => {
     );
     await expect(saveSettings({ theme: 'dark' })).resolves.toBeNull();
     expect(push).toHaveBeenCalledTimes(1);
-    expect(push.mock.calls[0]?.[0].variant).toBe('warning');
+    expect(push.mock.calls[0]?.[0].variant).toBe('danger');
     expect(push.mock.calls[0]?.[0].message).toMatch(/full/i);
     expect(push.mock.calls[0]?.[0].message).toMatch(/delete old conversations/i);
+    // Trying again cannot free storage, so the toast offers no retry.
+    expect(push.mock.calls[0]?.[0].action).toBeUndefined();
   });
 
   // A non-quota failure loses the setting just as silently, so it gets the same treatment.
@@ -26,7 +28,22 @@ describe('saveSettings', () => {
     vi.spyOn(storage, 'updateSettings').mockRejectedValueOnce(new Error('disk i/o failed'));
     await expect(saveSettings({ theme: 'dark' })).resolves.toBeNull();
     expect(push).toHaveBeenCalledTimes(1);
-    expect(push.mock.calls[0]?.[0].message).toMatch(/not saved/i);
+    expect(push.mock.calls[0]?.[0].message).toBe('Not saved. Chrome did not take the change.');
+    expect(push.mock.calls[0]?.[0].message).not.toContain('disk i/o');
+  });
+
+  it('Try again runs the same write once more', async () => {
+    const push = vi.spyOn(toastStore, 'push').mockImplementation(() => {});
+    const write = vi
+      .spyOn(storage, 'updateSettings')
+      .mockRejectedValueOnce(new Error('disk i/o failed'))
+      .mockResolvedValueOnce({} as Awaited<ReturnType<typeof storage.updateSettings>>);
+    await saveSettings({ theme: 'dark' });
+    const action = push.mock.calls[0]?.[0].action;
+    expect(action?.label).toBe('Try again');
+    action?.onClick();
+    await vi.waitFor(() => expect(write).toHaveBeenCalledTimes(2));
+    expect(write).toHaveBeenLastCalledWith({ theme: 'dark' });
   });
 
   it('never rejects, so a fire-and-forget call cannot raise an unhandled rejection', async () => {

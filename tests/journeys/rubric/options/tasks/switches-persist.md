@@ -6,18 +6,18 @@
 
 ## State expectations
 
-- Step 1: the user opens Edit on Summarize and sets Effort to High, then checks Send page context and Use glossary.
-- Step 2: `taskOverrides.summarize` is {effort: "high", pageContext: true, glossary: true}.
+- Step 1: the user opens Edit on Summarize and picks High in Effort, then checks Send page context and Use glossary.
+- Step 2: `taskOverrides.summarize` is {effort: "high", pageContext: true, glossary: true}; the footer reads "Saved".
 - Step 3: after a reload the row shows "Edited" and the dialog shows the same three values.
 
 ## Visible affordances
 
-- Effort offers "Default (<level>)" first (the level the task ships with, else the Translate tab's Effort), then Off, Low, Medium and High.
-- The answer shape and the images line are text, not controls.
+- Effort is one segmented control: Default, Off, Low, Medium, High, with the line "Default for this task is <level>" under it.
+- Settings come first and the prompt second; the answer shape and images line ("Answer only · Text only") are text, not controls.
 
 ## Failure-mode expectations
 
-- A storage write failure shows a "Change not saved" warning toast; the stored edit is unchanged.
+- A storage write failure shows "Not saved" with the reason in the footer; the stored edit is unchanged.
 
 ## Cautions
 

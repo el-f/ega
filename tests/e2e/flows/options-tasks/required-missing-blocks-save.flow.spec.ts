@@ -16,16 +16,11 @@ test.afterEach(async () => {
 
 test.slow();
 
-test('removing {{text}} shows required badge on chip AND blocks Save with alert', async () => {
+test('a Message without {{text}} is not saved, and the footer says why', async () => {
   const timeline = createTimeline();
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
   await openTaskPrompt(page, 'translate');
-  timeline.markStep('tab-open');
-
-  await expect(page.locator('[data-ega-template-editor]').first()).toBeVisible({
-    timeout: 10_000,
-  });
   timeline.markStep('editor-mounted');
 
   const before = await readStorage<Settings>(ext.context, ext.extensionId, 'ega.settings');
@@ -36,30 +31,15 @@ test('removing {{text}} shows required badge on chip AND blocks Save with alert'
   await usrTextarea.fill('No required slot here, only {{targetLangLabel}}.');
   timeline.markStep('text-slot-removed');
 
-  const textChip = page.locator('[data-ega-slot-palette] [data-ega-slot-chip="text"]').first();
-  await expect(textChip).toBeVisible({ timeout: 5_000 });
-  await expect(textChip).toContainText(/required/i, { timeout: 5_000 });
-  timeline.markStep('required-badge-visible');
+  await expect(page.locator('[data-ega-prompt-error]')).toBeVisible();
+  await expect(page.locator('[data-ega-dialog-status]')).toHaveText(
+    'Not saved: the message needs the Selected text variable',
+  );
+  timeline.markStep('status-says-not-saved');
 
-  const saveBtn = page.locator('[data-ega-template-save]').first();
-  await expect(saveBtn).toBeEnabled({ timeout: 5_000 });
-  await saveBtn.click();
-  timeline.markStep('save-clicked');
-
-  // Match by text — a bare [role="alert"].first() picks up the hidden live region.
-  await expect(page.locator('[role="alert"]', { hasText: /must contain/i })).toBeVisible({
-    timeout: 5_000,
-  });
-  timeline.markStep('alert-shown');
-
-  await expect
-    .poll(
-      async () => {
-        const s = await readStorage<Settings>(ext.context, ext.extensionId, 'ega.settings');
-        return s?.advanced.promptTemplate.user ?? '';
-      },
-      { timeout: 5_000 },
-    )
-    .toBe(originalUser);
+  // Past the save pause, nothing was written.
+  await page.waitForTimeout(1_000);
+  const after = await readStorage<Settings>(ext.context, ext.extensionId, 'ega.settings');
+  expect(after?.advanced.promptTemplate.user ?? '').toBe(originalUser);
   timeline.markStep('storage-unchanged');
 });

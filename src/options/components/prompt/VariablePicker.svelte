@@ -36,7 +36,7 @@
     const token = pending;
     pending = null;
     if (token !== null) onInsert(token);
-    else button?.focus();
+    else button?.querySelector<HTMLElement>('button')?.focus();
   }
 
   function measure(): void {

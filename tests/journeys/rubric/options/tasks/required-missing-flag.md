@@ -2,24 +2,22 @@
 
 ## Latency budgets
 
-- Body edit (removing a required slot) -> chip flag update: <= 200ms.
+- Edit that removes {{text}} -> error under Message: <= 100ms.
 
 ## State expectations
 
-- Step 1: user's template body contains all required slots; chips render without warning.
-- Step 2: user deletes a required slot from the textarea.
-- Step 3: the corresponding chip gains a danger border and a `required` badge.
+- Step 1: the stored Translate prompt's Message lacks `{{text}}` and its Instructions use `{{nope}}`.
+- Step 2: the dialog opens with an error under Message: "The message needs the Selected text variable. Add it with Insert variable." The field is marked invalid.
+- Step 3: a warning line says "{{nope}} is not a variable, so it will be empty".
 
 ## Visible affordances
 
-- The marker uses the danger tone (badge + chip border), with no icon.
-- Hover surfaces a tooltip explaining why the slot is required.
+- The error is in the error colour, tied to the field (aria-describedby); warnings are in the warning colour and never block.
 
 ## Failure-mode expectations
 
-- A missing required slot blocks Save: an inline alert says the message must contain `{{text}}`, and nothing is written.
+- The invalid Message is not saved; other fields still save.
 
 ## Cautions
 
-- The detection runs on every edit (a derived value, no debounce).
-- A chip without a required marker must NEVER flag missing — only required slots participate in this state.
+- No chip row and no badge carry this state any more; the line under the field does.

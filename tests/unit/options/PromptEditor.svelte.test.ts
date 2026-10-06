@@ -247,3 +247,17 @@ describe('PromptEditor — Edit and Preview', () => {
     expect(container.textContent).toContain('The preview could not be built: bad snippet');
   });
 });
+
+describe('PromptEditor — Insert variable keyboard', () => {
+  it('Esc closes only the list and puts focus back on the Insert variable button', async () => {
+    const { container } = setup();
+    const trigger = container.querySelector('[data-ega-slot-insert-picker]') as HTMLElement;
+    await openPicker(container);
+    const search = document.querySelector('[data-ega-variable-picker] input') as HTMLElement;
+    expect(search).not.toBeNull();
+    await fireEvent.keyDown(search, { key: 'Escape' });
+    await settle();
+    expect(document.querySelector('[data-ega-variable-picker]')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
+});

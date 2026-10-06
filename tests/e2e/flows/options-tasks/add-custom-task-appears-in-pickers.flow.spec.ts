@@ -35,29 +35,29 @@ test('a new task from the Tasks tab shows in the Next message popover and the to
   await options.locator('[data-ega-custom-task-new]').click();
   const dialog = options.locator('[data-ega-custom-task-dialog]');
   await expect(dialog).toBeVisible({ timeout: 5_000 });
+  await expect(options.locator('[data-ega-dialog-status]')).toHaveText('Not saved yet: add a name');
   await dialog.locator('[data-ega-custom-task-name]').fill('Tweet summary');
-  await dialog.locator('[data-ega-custom-task-system]').fill('Summarize as one tweet.');
-  // A variable chip inserts at the caret of the field focused last, here the Instructions.
-  await dialog.locator('[data-ega-custom-task-system]').focus();
-  await dialog.locator('[data-ega-custom-task-system]').press('End');
-  await dialog.locator('[data-ega-slot-chip="targetLangLabel"]').click();
-  await expect(dialog.locator('[data-ega-custom-task-system]')).toHaveValue(
-    'Summarize as one tweet.{{targetLangLabel}}',
-  );
-  await dialog.locator('[data-ega-custom-task-user]').fill('Thread: {{text}}');
+  const sys = dialog.locator('[data-ega-template-system] textarea');
+  await sys.fill('Summarize as one tweet.');
+  // Insert variable puts the token at the caret of the field focused last, here the Instructions.
+  await sys.press('Control+End');
+  await options.locator('[data-ega-slot-insert-picker]').click();
+  await options.locator('[data-ega-variable-picker] [data-ega-variable="targetLangLabel"]').click();
+  await expect(sys).toHaveValue('Summarize as one tweet.{{targetLangLabel}}');
+  await dialog.locator('[data-ega-template-user] textarea').fill('Thread: {{text}}');
   await dialog.locator('[data-ega-custom-task-output]').getByText('Answer with notes').click();
-  await dialog.locator('[data-ega-custom-task-effort] select').selectOption('low');
+  await dialog.locator('[data-ega-custom-task-effort] [data-ega-effort-value="low"]').click();
   await dialog.locator('[data-ega-custom-task-page-context]').check();
   await dialog.locator('[data-ega-custom-task-image]').check();
   await dialog.locator('[data-ega-custom-task-glossary]').check();
-  await dialog.locator('[data-ega-compile-preview] summary').click();
+  await dialog.getByRole('tab', { name: 'Preview' }).click();
   await expect(dialog.locator('[data-ega-preview-system]')).toContainText(
     'Summarize as one tweet.',
   );
   await expect(dialog.locator('[data-ega-preview-history]')).toBeVisible();
   await expect(dialog.locator('[data-ega-preview-user]')).toContainText('Thread:');
   timeline.markStep('previewed');
-  await options.locator('[data-ega-custom-task-save]').click();
+  await options.locator('[data-ega-dialog-done]').click();
   await expect
     .poll(
       async () =>
@@ -84,7 +84,6 @@ test('a new task from the Tasks tab shows in the Next message popover and the to
     ]);
   await expect(options.locator('[data-ega-custom-task-list]')).toContainText('Tweet summary');
   timeline.markStep('saved');
-
   const panel = await ext.context.newPage();
   await panel.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
   // The task picker lives in the composer's "Next message" popover.

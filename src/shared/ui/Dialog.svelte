@@ -17,6 +17,8 @@
     actions?: Snippet;
     size?: Size;
     position?: Position;
+    /** Opens with focus on the title, so a screen reader reads the title and help line before the first field. */
+    focusTitle?: boolean;
   }
 
   /** One name per dialog: the heading names it, or `label` does when there is no heading. */
@@ -39,9 +41,16 @@
     actions,
     size = 'md',
     position = 'center',
+    focusTitle = false,
   }: Props = $props();
 
   const titleId = id('ega-dialog');
+
+  function onOpenAutoFocus(e: Event): void {
+    if (!focusTitle || title === undefined) return;
+    e.preventDefault();
+    document.getElementById(titleId)?.focus();
+  }
 
   // The body is the only scroll container; a fade at an edge says more content sits past it.
   let body = $state<HTMLDivElement | null>(null);
@@ -84,10 +93,13 @@
       aria-label={title === undefined ? label : undefined}
       preventScroll={false}
       interactOutsideBehavior="ignore"
+      {onOpenAutoFocus}
     >
       {#if title}
         <div class="ega-dialog-head">
-          <h2 id={titleId} class="ega-dialog-title">{title}</h2>
+          <h2 id={titleId} class="ega-dialog-title" tabindex="-1">
+            {title}
+          </h2>
           <button type="button" class="ega-dialog-close" aria-label="Close" onclick={onClose}
             >×</button
           >

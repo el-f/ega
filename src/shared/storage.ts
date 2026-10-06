@@ -217,8 +217,11 @@ export function deleteCustomLanguage(id: string): Promise<void> {
 
 export const withCustomTasksLock = makeCrossContextLock('ega:custom-tasks');
 
-/** Adds or replaces one custom task row. Rejects 'invalid-task' or 'cap-reached', which the Tasks tab words for the user. */
-export function upsertCustomTask(row: CustomTask): Promise<void> {
+/**
+ * Adds or replaces one custom task row. Rejects 'invalid-task' or 'cap-reached', which the Tasks tab words for the user.
+ * `at` puts a missing row back at its old place (Undo of a delete); without it a new row goes last.
+ */
+export function upsertCustomTask(row: CustomTask, at?: number): Promise<void> {
   const parsed = valibot.safeParse(customTaskSchema, row);
   if (!parsed.success) return Promise.reject(new Error('invalid-task'));
   const entry = parsed.output as CustomTask;
@@ -226,7 +229,7 @@ export function upsertCustomTask(row: CustomTask): Promise<void> {
     const list = await getCustomTasks();
     const idx = list.findIndex((t) => t.id === entry.id);
     if (idx === -1 && list.length >= CUSTOM_TASKS_MAX) throw new Error('cap-reached');
-    if (idx === -1) list.push(entry);
+    if (idx === -1) list.splice(at ?? list.length, 0, entry);
     else list[idx] = entry;
     await writeLocal(STORAGE_KEYS.customTasks, list);
   });

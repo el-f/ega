@@ -225,33 +225,34 @@ test('Advanced — every chip + sub-tab + key modal', async () => {
     surface: 'templates',
     state: 'global-detail',
     theme: 'light',
-    userAction: 'user opened the Translate task dialog and saw the slot palette + raw template',
-    expectations: ['slot palette visible', 'editor visible below', 'no overflow'],
+    userAction: 'user opened the Translate task dialog',
+    expectations: [
+      'settings first: Effort, Inputs, Answers',
+      'prompt second: Instructions, the locked Answer format, Message',
+      'one Insert variable button, no chip row',
+      'no overflow',
+    ],
   });
 
-  // bits-ui opens the tooltip on a real pointermove; synthetic enter events do not open it.
-  const slotChip = page.locator('[data-ega-slot-chip]').first();
-  await slotChip.scrollIntoViewIfNeeded();
-  await slotChip.hover();
-  await page.locator('.ega-tooltip-content').first().waitFor({ timeout: 3_000 });
-  await page.waitForTimeout(250); // wait for tooltip fade-in animation to complete (no observable end state)
-  // No cursor park: moving off the pill would close the tooltip this shot is for.
+  await page.locator('[data-ega-slot-insert-picker]').click();
+  await page.locator('[data-ega-variable-picker] [data-ega-variable="text"]').waitFor();
   await shot(
     page,
-    'templates-global-slot-hover',
+    'task-dialog-insert-variable-open',
     {
       surface: 'templates',
-      state: 'global-slot-hover',
+      state: 'insert-variable-open',
       theme: 'light',
-      userAction: 'user hovered a slot pill in the palette to read its registry description',
+      userAction: 'user opened Insert variable in the Translate dialog',
       expectations: [
-        'registry tooltip near the hovered slot pill',
-        'tooltip text legible',
-        'tooltip does NOT clip surrounding pills illegibly',
+        'each row: plain name, {{token}}, meaning on a second line',
+        'Selected text carries a check (the prompt uses it)',
+        'nothing cut off, nothing hover-only',
       ],
     },
     { skipPark: true },
   );
+  await page.keyboard.press('Escape');
   await page.mouse.move(0, 0);
   await page.locator('.ega-tooltip-content').first().waitFor({ state: 'detached', timeout: 3_000 });
 
@@ -1798,7 +1799,9 @@ test('Toast — success', async () => {
   await successPage.locator('#tab-tasks').click();
   await successPage.locator('[data-ega-task-edit="summarize"]').click();
   // No `.catch()` and no `if (count())`: a silenced wait ships a toast-less PNG under the toast name.
-  await successPage.locator('[data-ega-task-reset]').click();
+  // Reset acts in the dialog; closing it with no Undo repeats the Undo in a toast.
+  await successPage.locator('[data-ega-section-reset]').click();
+  await successPage.locator('[data-ega-dialog-done]').click();
   await successPage
     .locator('[data-sonner-toast][data-type="success"]')
     .first()
@@ -1813,7 +1816,7 @@ test('Toast — success', async () => {
     expectations: [
       'sonner toast visible in its default corner',
       'success tone token applied (positive family)',
-      'message text "Summarize is back to the built-in settings." legible, with an Undo action',
+      'message text "Summarize is back to built-in" legible, with an Undo action',
     ],
   });
   await successPage.close();

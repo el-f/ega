@@ -354,7 +354,7 @@
   }
   .pe-tab.active {
     background: var(--color-accent-bg-soft);
-    border-color: var(--color-accent);
+    box-shadow: inset 0 0 0 1px var(--color-accent);
     color: var(--color-fg);
     font-weight: 600;
   }

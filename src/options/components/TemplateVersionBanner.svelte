@@ -1,11 +1,14 @@
 <script lang="ts">
+  /** Inside the Translate prompt: a newer built-in prompt exists and the user's is edited. */
+  import Button from '@/shared/ui/Button.svelte';
+
   interface Props {
     userVersion: number;
     currentVersion: number;
     acknowledgedVersion: number | undefined;
     onKeepMine: () => void;
     onShowDiff: () => void;
-    onOverwrite: () => void;
+    onUseNew: () => void;
   }
 
   let {
@@ -14,7 +17,7 @@
     acknowledgedVersion,
     onKeepMine,
     onShowDiff,
-    onOverwrite,
+    onUseNew,
   }: Props = $props();
 
   const show = $derived(
@@ -23,61 +26,46 @@
 </script>
 
 {#if show}
-  <div class="tpl-version-banner" role="status" aria-live="polite" data-ega-tpl-version-banner>
-    <p class="banner-msg">
-      <strong>Your prompt template is from version {userVersion}.</strong> Current is
-      {currentVersion}. The shipped wording has changed.
-    </p>
-    <div class="banner-actions">
-      <button type="button" data-ega-tpl-keep-mine onclick={onKeepMine}>Keep mine</button>
-      <button type="button" data-ega-tpl-show-diff onclick={onShowDiff}>Show diff</button>
-      <button type="button" class="primary" data-ega-tpl-overwrite onclick={onOverwrite}>
-        Overwrite with new default
-      </button>
+  <div class="tpl-version" data-ega-tpl-version-banner>
+    <p class="tpl-version-msg">A newer built-in Translate prompt is available</p>
+    <div class="tpl-version-actions">
+      <Button
+        variant="secondary"
+        dataAttrs={{ 'data-ega-tpl-show-diff': true }}
+        onclick={onShowDiff}
+      >
+        Show changes
+      </Button>
+      <Button variant="secondary" dataAttrs={{ 'data-ega-tpl-overwrite': true }} onclick={onUseNew}>
+        Use the new prompt
+      </Button>
+      <Button variant="ghost" dataAttrs={{ 'data-ega-tpl-keep-mine': true }} onclick={onKeepMine}>
+        Keep mine
+      </Button>
     </div>
   </div>
 {/if}
 
 <style>
-  .tpl-version-banner {
-    border: 1px solid var(--color-accent);
-    background: var(--color-bg-elevated);
-    border-radius: var(--radius-md);
-    padding: var(--space-3);
+  .tpl-version {
     display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-    margin-bottom: var(--space-3);
-  }
-  .banner-msg {
-    margin: 0;
-    color: var(--color-fg);
-    font-size: var(--fs-sm);
-  }
-  .banner-actions {
-    display: flex;
-    gap: var(--space-2);
     flex-wrap: wrap;
-  }
-  button {
-    padding: var(--space-1) var(--space-3);
+    align-items: center;
+    gap: var(--space-2) var(--space-3);
+    padding: var(--space-2) var(--space-3);
     border: 1px solid var(--color-border);
-    background: var(--color-bg);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-sunken);
+  }
+  .tpl-version-msg {
+    margin: 0;
+    flex: 1 1 16rem;
+    font-size: var(--fs-base);
     color: var(--color-fg);
-    border-radius: var(--radius-sm);
-    font-size: var(--fs-sm);
-    cursor: pointer;
   }
-  button:hover {
-    background: var(--color-bg-hover);
-  }
-  button.primary {
-    background: var(--color-accent);
-    color: var(--color-bg);
-    border-color: var(--color-accent);
-  }
-  button:focus-visible {
-    outline: 2px solid var(--color-accent);
-    outline-offset: 2px;
+  .tpl-version-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
   }
 </style>

@@ -30,7 +30,7 @@
     data-tooltip-placement="top"
     onclick={() => void onReset()}
   >
-    <RotateCcw size={12} aria-hidden="true" />
+    <RotateCcw size={14} aria-hidden="true" />
     <span>{label}</span>
   </button>
 {/if}
@@ -40,13 +40,14 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    padding: 2px var(--space-2);
+    min-height: 24px;
+    padding: 0 var(--space-2);
     background: transparent;
     color: var(--color-muted);
-    border: 1px solid var(--color-border-subtle);
+    border: 1px solid var(--color-border);
     border-radius: var(--radius-pill);
     font-family: var(--font-ui);
-    font-size: var(--fs-xs);
+    font-size: var(--fs-base);
     cursor: pointer;
     transition:
       color var(--motion-fast) var(--ease-out),

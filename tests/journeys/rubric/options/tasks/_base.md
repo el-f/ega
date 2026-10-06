@@ -10,13 +10,13 @@
 
 ## Edit dialog (built-in tasks)
 
-- Edit opens a dialog for that task: its prompt editor (Translate edits the Translate prompt; Explain only names the prompt it uses), the fixed answer shape, Effort, the Send page context and Use glossary checkboxes, whether it takes images, and "Reset whole task". A line says Effort and inputs save as soon as they change; the prompt has its own Save and "Reset prompt only".
-- Every control writes on change; there is no Save button.
+- Edit opens a dialog titled "<Task> task" with one help line. Settings come first: Effort (Default, Off, Low, Medium, High) with "Default for this task is <level>", Inputs (Send page context, Use glossary), and the fixed facts line "Answers: Answer only · Text only". The prompt comes second, in the one prompt editor (Edit | Preview, Insert variable, the locked Answer format). Explain has no prompt of its own and offers "Edit the Translate prompt".
+- Every field saves as it changes (text after a 600 ms pause). The footer holds the "Reset task" pill (only when the task differs), a status line ("Saved", "Not saved: ...", "Back to built-in" + Undo) and Done. There is no Save button.
 
 ## Task editor (your own tasks)
 
-- New task and Edit open an editor: Name, Instructions, Message (must contain {{text}}), the same Variables chips and Insert variable picker as the built-in editor (insert at the caret of the field focused last), Answer (Answer only / Answer with notes), Effort, the three Inputs checkboxes and the "Preview what the model receives" section.
-- Save writes the row and closes the editor; Cancel closes it with no write; Delete asks first, then removes the task.
+- New task and Edit open the same dialog: Name, Answers (Answer only / Answer with notes), Effort, Inputs (Send page context, Reads images, Use glossary, Show in right-click menu) and the same prompt editor.
+- The task saves itself once it has a name and a message with the selected text; until then the footer says "Not saved yet: add a name". Delete task acts at once with an Undo toast.
 
 ## A11y
 

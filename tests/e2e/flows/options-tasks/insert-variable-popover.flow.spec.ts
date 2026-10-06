@@ -15,43 +15,33 @@ test.afterEach(async () => {
 
 test.slow();
 
-test('Insert variable popover opens + fuzzy-finds a built-in slot', async () => {
+test('Insert variable opens a searchable list that filters by name, token or meaning', async () => {
   const timeline = createTimeline();
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
-  await openTaskPrompt(page, 'translate');
+  await openTaskPrompt(page, 'summarize');
 
-  await expect(page.locator('[data-ega-slot-palette]').first()).toBeVisible({
-    timeout: 10_000,
-  });
-  timeline.markStep('palette-mounted');
-
-  await page.locator('[data-ega-slot-insert-picker]').first().click();
+  await page.locator('[data-ega-slot-insert-picker]').click();
   timeline.markStep('popover-open');
 
-  // The trigger hosts the input, so typing right after the click drives the fuzzy filter.
-  const listbox = page.getByRole('listbox').first();
-  await expect(listbox).toBeVisible({ timeout: 5_000 });
-  await page.keyboard.type('tex');
-  await expect(listbox.getByRole('option', { name: /text/i }).first()).toBeVisible({
-    timeout: 5_000,
-  });
-  timeline.markStep('text-option-matched');
+  const search = page.locator('[data-ega-variable-picker] input');
+  await expect(search).toBeFocused({ timeout: 5_000 });
+  await page.keyboard.type('notes');
+  const picker = page.locator('[data-ega-variable-picker]');
+  await expect(picker.locator('[data-ega-variable="langHint"]')).toBeVisible();
+  await expect(picker.locator('[data-ega-variable="text"]')).toBeHidden();
+  timeline.markStep('filtered');
 
-  const popover = page.locator('.ega-command-popover').first();
-  const pillRow = page.locator('[data-ega-slot-row="builtin"]').first();
-  await expect(popover).toBeVisible();
-  const popBox = await popover.boundingBox();
-  const rowBox = await pillRow.boundingBox();
-  expect(popBox).not.toBeNull();
-  expect(rowBox).not.toBeNull();
-  if (popBox && rowBox) {
-    const overlaps =
-      popBox.x < rowBox.x + rowBox.width &&
-      popBox.x + popBox.width > rowBox.x &&
-      popBox.y < rowBox.y + rowBox.height &&
-      popBox.y + popBox.height > rowBox.y;
-    expect(overlaps, 'Insert-variable popover overlaps slot pill row').toBe(false);
-  }
-  timeline.markStep('popover-clear-of-pills');
+  // A variable this prompt cannot fill is listed with its reason and does not insert.
+  await search.fill('explain');
+  const empty = picker.locator('[data-ega-variable="explainInstr"]');
+  await expect(empty).toHaveAttribute('aria-disabled', 'true');
+  await expect(empty).toContainText('Filled only for Explain');
+
+  await page.keyboard.press('Escape');
+  await expect(picker).toBeHidden();
+  await expect(page.locator('[data-ega-slot-insert-picker]')).toBeFocused();
+  // Esc closed the list only, not the dialog.
+  await expect(page.locator('[data-ega-task-dialog="summarize"]')).toBeVisible();
+  timeline.markStep('closed');
 });

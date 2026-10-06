@@ -3,22 +3,21 @@
 ## Latency budgets
 
 - Reset click -> edit gone from storage: <= 300ms.
-- Reset click -> toast with Undo visible: <= 300ms.
 
 ## State expectations
 
-- Step 1: Reword has edits; its dialog's "Reset whole task" is enabled.
-- Step 2 (Reset): `taskOverrides.reword` is removed, the dialog closes, and the row loses its "Edited" badge.
-- Step 3 (Undo on the toast): the removed edit comes back exactly as it was.
+- Step 1: Reword has edits; its dialog footer shows the "Reset task" pill.
+- Step 2 (Reset): `taskOverrides.reword` is removed at once, every field shows the built-in value, the pill hides and the footer reads "Back to built-in" with an Undo text button that takes focus.
+- Step 3 (Undo): the removed edit comes back exactly; the footer reads "Your edits are back".
 
 ## Visible affordances
 
-- The toast names the task ("Reword is back to the built-in settings.") and has an Undo action.
+- No confirm before Reset; Undo is the safety net. Closing after a reset with no Undo repeats the Undo in a toast ("Reword is back to built-in").
 
 ## Failure-mode expectations
 
-- A failed reset shows a "Change not saved" warning toast and keeps the edit.
+- A failed reset says so in the footer and keeps the edit.
 
 ## Cautions
 
-- On Translate, Reset also resets the Translate prompt, after a confirm that says Explain and every language without its own prompt use it; Undo puts both back.
+- On Translate, Reset also resets the Translate prompt; Undo puts both back.

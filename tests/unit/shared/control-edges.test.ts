@@ -33,13 +33,14 @@ describe('text-entry frames draw a 3:1 edge', () => {
   });
 });
 
-// A grey --color-bg-hover fill alone barely differs from the track; Effort's accent ring is the shared look.
-describe('segmented controls mark the selected segment like Effort', () => {
-  const effort = rule('src/options/components/EffortSegmented.svelte', '.effort-seg button.active');
+// A grey --color-bg-hover fill alone barely differs from the track; the shared Segmented's accent ring is the one look.
+describe('segmented controls mark the selected segment like Segmented', () => {
+  const effort = rule('src/shared/ui/Segmented.svelte', '.ega-segmented-item.active');
 
   it.each([
     ['src/shared/components/ContextLevelPicker.svelte', '.ctx-level-toggle button.active'],
     ['src/shared/components/ThemeToggle.svelte', '.theme-toggle button.active'],
+    ['src/options/components/prompt/PromptEditor.svelte', '.pe-tab.active'],
   ])('%s', (file, selector) => {
     const active = rule(file, selector);
     for (const decl of ['background', 'box-shadow']) {

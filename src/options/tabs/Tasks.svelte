@@ -284,12 +284,16 @@
     {/if}
 
     {#if editing}
-      <TaskEditDialog
-        s={settings}
-        task={editing}
-        onClose={() => (editing = null)}
-        onSaved={onSetSettings}
-      />
+      <!-- Keyed: Explain's 'Edit the Translate prompt' swaps the task, and the dialog's draft belongs to one task. -->
+      {#key editing}
+        <TaskEditDialog
+          s={settings}
+          task={editing}
+          onClose={() => (editing = null)}
+          onSaved={onSetSettings}
+          onSwitchTask={(t) => (editing = t)}
+        />
+      {/key}
     {/if}
   {:else}
     <LoadingState rows={4} label="Loading tasks…" />

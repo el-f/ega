@@ -27,20 +27,23 @@ test.afterEach(async () => {
 
 test.slow();
 
-test('palette decorates the `text` chip as required-missing when slot absent', async () => {
+test('the editor names a Message without the selected text, and a name that is not a variable', async () => {
   const timeline = createTimeline();
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
   await openTaskPrompt(page, 'translate');
-  timeline.markStep('advanced-open');
+  timeline.markStep('editor-open');
 
-  const textChip = page.locator('[data-ega-slot-palette] [data-ega-slot-chip="text"]').first();
-  await expect(textChip).toBeVisible({ timeout: 10_000 });
-  await expect(textChip).toContainText(/required/i, { timeout: 5_000 });
-  timeline.markStep('required-flag-visible');
-
+  await expect(page.locator('[data-ega-prompt-error]')).toHaveText(
+    'The message needs the Selected text variable. Add it with Insert variable.',
+  );
+  await expect(page.locator('[data-ega-template-user] textarea')).toHaveAttribute(
+    'aria-invalid',
+    'true',
+  );
   // An unknown variable renders empty, and the editor says so.
   await expect(page.locator('[data-ega-slot-warn]').first()).toContainText(
-    'Unknown variable {{nope}}',
+    '{{nope}} is not a variable, so it will be empty',
   );
+  timeline.markStep('flags-visible');
 });

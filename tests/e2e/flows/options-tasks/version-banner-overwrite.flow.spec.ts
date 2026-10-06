@@ -37,7 +37,7 @@ test.afterEach(async () => {
 
 test.slow();
 
-test('Overwrite replaces promptTemplate with default and sets acknowledged version', async () => {
+test('Use the new prompt replaces the prompt at once, and Undo puts the old one back', async () => {
   const timeline = createTimeline();
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
@@ -46,34 +46,24 @@ test('Overwrite replaces promptTemplate with default and sets acknowledged versi
 
   const banner = page.locator('[data-ega-tpl-version-banner]');
   await expect(banner).toBeVisible({ timeout: 10_000 });
+  const before = await readStorage<Settings>(ext.context, ext.extensionId, 'ega.settings');
   timeline.markStep('banner-visible');
 
   await page.locator('[data-ega-tpl-overwrite]').click();
-  timeline.markStep('overwrite-clicked');
+  timeline.markStep('use-new-clicked');
 
-  // The confirm dialog opens over the task dialog, whose banner has an Overwrite button too.
-  const confirmBtn = page
-    .locator('.ega-dialog', { hasText: 'Overwrite prompt template?' })
-    .getByRole('button', { name: 'Overwrite', exact: true });
-  await expect(confirmBtn).toBeVisible({ timeout: 5_000 });
-  await confirmBtn.click();
-  timeline.markStep('confirm-clicked');
-
-  await expect
-    .poll(
-      async () => {
-        const s = await readStorage<Settings>(ext.context, ext.extensionId, 'ega.settings');
-        return s?.advanced.promptTemplate.system ?? '';
-      },
-      { timeout: 10_000 },
-    )
-    .toBe(DEFAULT_TEMPLATE.system);
-
+  const prompt = async (): Promise<string> =>
+    (await readStorage<Settings>(ext.context, ext.extensionId, 'ega.settings'))?.advanced
+      .promptTemplate.system ?? '';
+  await expect.poll(prompt, { timeout: 10_000 }).toBe(DEFAULT_TEMPLATE.system);
   const s = await readStorage<Settings>(ext.context, ext.extensionId, 'ega.settings');
   expect(s?.advanced.promptTemplate.user).toBe(DEFAULT_TEMPLATE.user);
   expect(s?.advanced.templateVersionAcknowledged).toBe(CURRENT_TEMPLATE_VERSION);
+  await expect(banner).not.toBeVisible({ timeout: 5_000 });
+  await expect(page.locator('[data-ega-dialog-status]')).toContainText('Updated to the new prompt');
   timeline.markStep('storage-verified');
 
-  await expect(banner).not.toBeVisible({ timeout: 5_000 });
-  timeline.markStep('banner-dismissed');
+  await page.locator('[data-ega-dialog-undo]').click();
+  await expect.poll(prompt, { timeout: 10_000 }).toBe(before?.advanced.promptTemplate.system);
+  timeline.markStep('undone');
 });

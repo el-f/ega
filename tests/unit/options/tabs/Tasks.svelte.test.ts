@@ -75,7 +75,7 @@ describe('Tasks tab', () => {
     if (!edit) throw new Error('no edit button');
     await fireEvent.click(edit);
     const reset = await waitFor(() => {
-      const el = document.querySelector<HTMLButtonElement>('[data-ega-task-reset]');
+      const el = document.querySelector<HTMLButtonElement>('[data-ega-section-reset]');
       if (!el) throw new Error('dialog not open');
       return el;
     });
@@ -83,8 +83,10 @@ describe('Tasks tab', () => {
     await waitFor(async () =>
       expect((await getSettings()).taskOverrides.summarize).toBeUndefined(),
     );
-    // The dialog closes on Reset, so Undo runs with no dialog open.
+    // Closing after a reset with no Undo repeats the Undo in a toast.
+    await fireEvent.click(document.querySelector('[data-ega-dialog-done]') as HTMLElement);
     await waitFor(() => expect(document.querySelector('[data-ega-task-dialog]')).toBeNull());
+    expect(push.mock.calls.at(-1)?.[0].message).toBe('Summarize is back to built-in');
     const undo = push.mock.calls.at(-1)?.[0].action;
     expect(undo?.label).toBe('Undo');
     undo?.onClick();
@@ -112,20 +114,24 @@ describe('Tasks tab', () => {
 });
 
 describe('Tasks tab — more', () => {
-  it('"Same as global" removes the task effort and keeps the other fields', async () => {
+  it('Effort "Default" removes the task effort and keeps the other fields', async () => {
     const { container } = await mount(() =>
       updateTask('summarize', { effort: 'high', glossary: true }),
     );
     const edit = container.querySelector<HTMLElement>('[data-ega-task-edit="summarize"]');
     if (!edit) throw new Error('no edit button');
     await fireEvent.click(edit);
-    const select = await waitFor(() => {
-      const el = document.querySelector<HTMLSelectElement>('[data-ega-task-effort] select');
+    const high = await waitFor(() => {
+      const el = document.querySelector<HTMLElement>(
+        '[data-ega-task-effort] [data-ega-effort-value="high"]',
+      );
       if (!el) throw new Error('dialog not open');
       return el;
     });
-    expect(select.value).toBe('high');
-    await fireEvent.change(select, { target: { value: '' } });
+    expect(high.getAttribute('aria-checked')).toBe('true');
+    await fireEvent.click(
+      document.querySelector('[data-ega-task-effort] [data-ega-effort-value=""]') as HTMLElement,
+    );
     await waitFor(async () =>
       expect((await getSettings()).taskOverrides.summarize).toEqual({ glossary: true }),
     );
@@ -169,14 +175,14 @@ describe('Tasks dialog — prompt link and page-context note', () => {
   it('explain has no prompt of its own and says which one it uses', async () => {
     const { container } = await mount();
     await openDialog(container, 'explain');
-    expect(document.querySelector('[data-ega-template-editor]')).toBeNull();
+    expect(document.querySelector('[data-ega-prompt-editor]')).toBeNull();
     expect(document.querySelector('[data-ega-task-prompt-note]')?.textContent).toContain(
       'Translate prompt',
     );
   });
 
   it('says so when page context is off for every task', async () => {
-    const note = 'Page context is off for every task on the Translate tab.';
+    const note = 'Page context is off on the Answers tab';
     const on = await mount();
     await openDialog(on.container, 'summarize');
     expect(document.body.textContent).not.toContain(note);
@@ -197,7 +203,7 @@ describe('Tasks tab — your own tasks', () => {
     await fireEvent.input(el, { target: { value } });
   }
 
-  it('New task saves a row, lists it, and Save stays off without {{text}}', async () => {
+  it('New task saves itself once it has a name and a valid message, and the list shows it', async () => {
     const { container } = await mount();
     const add = container.querySelector<HTMLElement>('[data-ega-custom-task-new]');
     if (!add) throw new Error('no new button');
@@ -205,63 +211,18 @@ describe('Tasks tab — your own tasks', () => {
     await waitFor(() => {
       if (!document.querySelector('[data-ega-custom-task-dialog]')) throw new Error('no dialog');
     });
+    await fill('[data-ega-template-user] textarea', 'no slot');
     await fill('[data-ega-custom-task-name]', 'Tweet summary');
-    await fill('[data-ega-custom-task-user]', 'no slot');
-    const save = document.querySelector<HTMLButtonElement>('[data-ega-custom-task-save]');
-    await waitFor(() => expect(save?.disabled).toBe(true));
-    await fill('[data-ega-custom-task-user]', 'Shorten: {{text}}');
-    await waitFor(() => expect(save?.disabled).toBe(false));
-    if (!save) throw new Error('no save');
-    await fireEvent.click(save);
     const { getCustomTasks } = await import('@/shared/storage');
+    await new Promise((r) => setTimeout(r, 700));
+    expect(await getCustomTasks()).toEqual([]);
+    await fill('[data-ega-template-user] textarea', 'Shorten: {{text}}');
     await waitFor(async () =>
       expect((await getCustomTasks()).map((t) => [t.label, t.user])).toEqual([
         ['Tweet summary', 'Shorten: {{text}}'],
       ]),
     );
     await waitFor(() => expect(container.textContent).toContain('Tweet summary'));
-  });
-
-  it('a variable chip inserts at the caret of the field focused last', async () => {
-    const { container } = await mount();
-    const add = container.querySelector<HTMLElement>('[data-ega-custom-task-new]');
-    if (!add) throw new Error('no new button');
-    await fireEvent.click(add);
-    const sys = await waitFor(() => {
-      const el = document.querySelector<HTMLTextAreaElement>('[data-ega-custom-task-system]');
-      if (!el) throw new Error('no instructions field');
-      return el;
-    });
-    await fill('[data-ega-custom-task-system]', 'Reply in .');
-    sys.setSelectionRange(9, 9);
-    await fireEvent.focusIn(sys);
-    const chip = document.querySelector<HTMLElement>('[data-ega-slot-chip="targetLangLabel"]');
-    if (!chip) throw new Error('no targetLangLabel chip');
-    await fireEvent.click(chip);
-    await waitFor(() => expect(sys.value).toBe('Reply in {{targetLangLabel}}.'));
-    const user = document.querySelector<HTMLTextAreaElement>('[data-ega-custom-task-user]');
-    expect(user?.value).toBe('TEXT:\n"""\n{{text}}\n"""');
-  });
-
-  it('the text chip always inserts into the Message, where {{text}} is required', async () => {
-    const { container } = await mount();
-    const add = container.querySelector<HTMLElement>('[data-ega-custom-task-new]');
-    if (!add) throw new Error('no new button');
-    await fireEvent.click(add);
-    const sys = await waitFor(() => {
-      const el = document.querySelector<HTMLTextAreaElement>('[data-ega-custom-task-system]');
-      if (!el) throw new Error('no instructions field');
-      return el;
-    });
-    await fill('[data-ega-custom-task-system]', 'Be brief.');
-    await fill('[data-ega-custom-task-user]', 'Shorten: ');
-    await fireEvent.focusIn(sys);
-    const chip = document.querySelector<HTMLElement>('[data-ega-slot-chip="text"]');
-    if (!chip) throw new Error('no text chip');
-    await fireEvent.click(chip);
-    const user = document.querySelector<HTMLTextAreaElement>('[data-ega-custom-task-user]');
-    await waitFor(() => expect(user?.value).toContain('{{text}}'));
-    expect(sys.value).toBe('Be brief.');
   });
 
   it('the preview shows the custom prompt and its contract line', async () => {
@@ -283,6 +244,12 @@ describe('Tasks tab — your own tasks', () => {
     if (!edit) throw new Error('no edit');
     await fireEvent.click(edit);
     const { PLAIN_CONTRACT } = await import('@/shared/prompts');
+    const previewTab = await waitFor(() => {
+      const el = document.querySelector<HTMLElement>('[data-ega-prompt-tab="preview"]');
+      if (!el) throw new Error('no dialog');
+      return el;
+    });
+    await fireEvent.click(previewTab);
     await waitFor(() => {
       const sys =
         document.querySelector('[data-ega-custom-task-dialog] [data-ega-preview-system]')
@@ -294,7 +261,7 @@ describe('Tasks tab — your own tasks', () => {
 });
 
 describe('Tasks tab — a task deleted in another window', () => {
-  it('Save says so, keeps the editor open, and writes nothing', async () => {
+  it('an edit says so, keeps the dialog open, and writes nothing', async () => {
     const { addCustomTask } = await import('@/shared/tasks');
     const added = await addCustomTask({
       label: 'Haiku',
@@ -310,15 +277,15 @@ describe('Tasks tab — a task deleted in another window', () => {
       if (!container.querySelector(`[data-ega-task-edit="${added.id}"]`)) throw new Error('no row');
     });
     container.querySelector<HTMLElement>(`[data-ega-task-edit="${added.id}"]`)?.click();
-    const save = await waitFor(() => {
-      const el = document.querySelector<HTMLButtonElement>('[data-ega-custom-task-save]');
+    const glossary = await waitFor(() => {
+      const el = document.querySelector<HTMLInputElement>('[data-ega-custom-task-glossary]');
       if (!el) throw new Error('no dialog');
       return el;
     });
     await chrome.storage.local.set({ 'ega.customTasks': [] });
-    await fireEvent.click(save);
+    await fireEvent.click(glossary);
     await waitFor(() =>
-      expect(document.body.textContent).toContain('This task was deleted in another window.'),
+      expect(document.body.textContent).toContain('This task was deleted in another window'),
     );
     expect(document.querySelector('[data-ega-custom-task-dialog]')).not.toBeNull();
     const { getCustomTasks } = await import('@/shared/storage');

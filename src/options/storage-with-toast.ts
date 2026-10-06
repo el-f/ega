@@ -3,12 +3,20 @@ import { QUOTA_MESSAGE } from '@/shared/constants';
 import { toastStore } from '@/shared/components/toastStore';
 import type { Settings } from '@/shared/types';
 
-/** Tells the user a settings write did not land. */
-export function reportSaveFailure(e: unknown): void {
+/** The plain reason a settings write did not land; null when trying again cannot help. */
+export function saveFailureReason(e: unknown): { message: string; retryable: boolean } {
   const detail = e instanceof Error ? e.message : String(e);
+  if (/QUOTA/i.test(detail)) return { message: QUOTA_MESSAGE, retryable: false };
+  return { message: 'Not saved. Chrome did not take the change.', retryable: true };
+}
+
+/** Tells the user a settings write did not land, with Try again when it can help. */
+export function reportSaveFailure(e: unknown, retry?: () => void): void {
+  const { message, retryable } = saveFailureReason(e);
   toastStore.push({
-    message: /QUOTA/i.test(detail) ? QUOTA_MESSAGE : `Change not saved: ${detail}`,
-    variant: 'warning',
+    message,
+    variant: 'danger',
+    ...(retry && retryable ? { action: { label: 'Try again', onClick: retry } } : {}),
   });
 }
 
@@ -17,7 +25,7 @@ export async function saveVia<T = Settings>(write: () => Promise<T>): Promise<T 
   try {
     return await write();
   } catch (e) {
-    reportSaveFailure(e);
+    reportSaveFailure(e, () => void saveVia(write));
     return null;
   }
 }

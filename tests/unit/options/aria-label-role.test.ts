@@ -15,7 +15,7 @@ describe('aria-label needs a role to survive', () => {
     expect(badge?.textContent.trim()).toBe('3 changed');
   });
 
-  it('the modified badge carries a role', () => {
+  it('the changed marker is the word itself, so it needs no aria-label or role', () => {
     const { container } = render(SettingsListView, {
       props: {
         item: {
@@ -30,7 +30,7 @@ describe('aria-label needs a role to survive', () => {
     });
     const badge = container.querySelector('.slv-modified-badge');
     expect(badge).not.toBeNull();
-    expect(badge?.getAttribute('aria-label')).toBe('Modified');
-    expect(badge?.getAttribute('role')).toBe('img');
+    expect(badge?.textContent.trim()).toBe('Changed');
+    expect(badge?.hasAttribute('aria-label')).toBe(false);
   });
 });

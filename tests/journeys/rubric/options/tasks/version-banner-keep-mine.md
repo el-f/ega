@@ -2,24 +2,22 @@
 
 ## Latency budgets
 
-- Banner action click -> storage write + banner dismiss: <= 200ms.
+- "Keep mine" click -> storage write and notice gone: <= 200ms.
 
 ## State expectations
 
-- Step 1: a version upgrade makes the built-in default diverge from the user's saved template; the version banner mounts.
-- Step 2 (click "Keep mine"): `templateVersionAcknowledged` is set to the current default version in storage.
-- Step 3: the banner dismisses; the user's `promptTemplate` body is unchanged.
+- Step 1: the user's edited Translate prompt is from an older version; the notice shows inside the Prompt section.
+- Step 2 (click "Keep mine"): `templateVersionAcknowledged` is set to the current version.
+- Step 3: the notice goes; the user's `promptTemplate` is unchanged.
 
 ## Visible affordances
 
-- Banner carries three actions: "Keep mine", "Show diff", "Overwrite with new default".
-- "Keep mine" is styled as a secondary action (not danger-toned — it's a safe choice).
+- The notice has "Show changes", "Use the new prompt" and "Keep mine" (a ghost button: it is the safe choice).
 
 ## Failure-mode expectations
 
-- If storage write for `templateVersionAcknowledged` fails, the banner stays visible rather than silently dismissing without acknowledgment.
+- A failed write leaves the notice in place and says so in the footer.
 
 ## Cautions
 
-- "Keep mine" must NOT alter `promptTemplate` — only sets the acknowledged version flag.
-- After "Keep mine", the banner must not re-appear until the next default version bump.
+- "Keep mine" must NOT alter `promptTemplate`; the notice does not come back until the next version bump.

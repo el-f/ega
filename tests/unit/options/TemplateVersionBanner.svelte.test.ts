@@ -14,7 +14,7 @@ describe('TemplateVersionBanner', () => {
         acknowledgedVersion: 0,
         onKeepMine: noop,
         onShowDiff: noop,
-        onOverwrite: noop,
+        onUseNew: noop,
       },
     });
     expect(container.querySelector('[data-ega-tpl-version-banner]')).toBeNull();
@@ -28,12 +28,11 @@ describe('TemplateVersionBanner', () => {
         acknowledgedVersion: 0,
         onKeepMine: noop,
         onShowDiff: noop,
-        onOverwrite: noop,
+        onUseNew: noop,
       },
     });
     expect(container.querySelector('[data-ega-tpl-version-banner]')).not.toBeNull();
-    expect(getByText(/version 5/)).toBeTruthy();
-    expect(getByText(/Current is\s*6/)).toBeTruthy();
+    expect(getByText('A newer built-in Translate prompt is available')).toBeTruthy();
   });
 
   it('does not render when acknowledged matches current', () => {
@@ -44,7 +43,7 @@ describe('TemplateVersionBanner', () => {
         acknowledgedVersion: 6,
         onKeepMine: noop,
         onShowDiff: noop,
-        onOverwrite: noop,
+        onUseNew: noop,
       },
     });
     expect(container.querySelector('[data-ega-tpl-version-banner]')).toBeNull();
@@ -58,7 +57,7 @@ describe('TemplateVersionBanner', () => {
         acknowledgedVersion: 99,
         onKeepMine: noop,
         onShowDiff: noop,
-        onOverwrite: noop,
+        onUseNew: noop,
       },
     });
     expect(container.querySelector('[data-ega-tpl-version-banner]')).toBeNull();
@@ -72,7 +71,7 @@ describe('TemplateVersionBanner', () => {
         acknowledgedVersion: undefined,
         onKeepMine: noop,
         onShowDiff: noop,
-        onOverwrite: noop,
+        onUseNew: noop,
       },
     });
     expect(container.querySelector('[data-ega-tpl-version-banner]')).not.toBeNull();
@@ -87,14 +86,14 @@ describe('TemplateVersionBanner', () => {
         acknowledgedVersion: 0,
         onKeepMine,
         onShowDiff: noop,
-        onOverwrite: noop,
+        onUseNew: noop,
       },
     });
     await fireEvent.click(getByRole('button', { name: /Keep mine/i }));
     expect(onKeepMine).toHaveBeenCalledOnce();
   });
 
-  it('Show diff fires onShowDiff', async () => {
+  it('Show changes fires onShowDiff', async () => {
     const onShowDiff = vi.fn();
     const { getByRole } = render(TemplateVersionBanner, {
       props: {
@@ -103,15 +102,15 @@ describe('TemplateVersionBanner', () => {
         acknowledgedVersion: 0,
         onKeepMine: noop,
         onShowDiff,
-        onOverwrite: noop,
+        onUseNew: noop,
       },
     });
-    await fireEvent.click(getByRole('button', { name: /Show diff/i }));
+    await fireEvent.click(getByRole('button', { name: 'Show changes' }));
     expect(onShowDiff).toHaveBeenCalledOnce();
   });
 
-  it('Overwrite fires onOverwrite', async () => {
-    const onOverwrite = vi.fn();
+  it('Use the new prompt fires onUseNew', async () => {
+    const onUseNew = vi.fn();
     const { getByRole } = render(TemplateVersionBanner, {
       props: {
         userVersion: 5,
@@ -119,10 +118,10 @@ describe('TemplateVersionBanner', () => {
         acknowledgedVersion: 0,
         onKeepMine: noop,
         onShowDiff: noop,
-        onOverwrite,
+        onUseNew,
       },
     });
-    await fireEvent.click(getByRole('button', { name: /Overwrite/i }));
-    expect(onOverwrite).toHaveBeenCalledOnce();
+    await fireEvent.click(getByRole('button', { name: 'Use the new prompt' }));
+    expect(onUseNew).toHaveBeenCalledOnce();
   });
 });

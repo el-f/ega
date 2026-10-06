@@ -777,7 +777,7 @@ export async function pickAreasAndTranslate(
 export async function openTaskPrompt(page: Page, task: string): Promise<void> {
   await page.locator('#tab-tasks').click();
   await page.locator(`[data-ega-task-edit="${task}"]`).click();
-  await page.locator(`[data-ega-task-dialog="${task}"] [data-ega-template-editor]`).waitFor({
+  await page.locator(`[data-ega-task-dialog="${task}"] [data-ega-prompt-editor]`).waitFor({
     timeout: 10_000,
   });
 }

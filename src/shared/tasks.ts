@@ -2,6 +2,8 @@
 import { readsPageContext } from './prompts';
 import {
   deleteCustomTaskRow,
+  getCustomTasks,
+  getSettings,
   replaceSettings,
   updateCustomTaskRow,
   upsertCustomTask,
@@ -16,6 +18,7 @@ import {
 } from './settings-schema';
 import { buildTaskTemplate, type Task } from './task-prompts';
 import { hasOwnPrompt } from './task-view';
+import type { ContextMenuItem } from './context-menu';
 import type { PromptTemplate, Settings } from './types';
 
 function promptOf(id: Task, edit: TaskEdit | undefined): Partial<PromptTemplate> {
@@ -147,16 +150,107 @@ export function updateCustomTask(id: string, input: CustomTaskInput): Promise<Cu
   return updateCustomTaskRow(id, (cur) => ({ ...input, id, createdAt: cur.createdAt }));
 }
 
+/** What a custom-task delete took away, so Undo can put back exactly that. */
+export interface DeletedCustomTask {
+  row: CustomTask;
+  /** Its place in the stored list. */
+  index: number;
+  menuItems: ContextMenuItem[];
+  disabled: boolean;
+  wasDefault: boolean;
+}
+
+const runsTask = (id: string) => (i: ContextMenuItem) =>
+  i.kind === 'task' && (i.task as string) === id;
+
 /** Removes the row, then the right-click items that run it and its on/off and default marks. Rules keep the id and stop applying. */
-export async function deleteCustomTask(id: string): Promise<Settings> {
+export async function deleteCustomTask(
+  id: string,
+): Promise<{ settings: Settings; deleted: DeletedCustomTask | null }> {
+  // Read before the row goes: the settings reader drops refs to a task that no longer exists.
+  const rows = await getCustomTasks();
+  const index = rows.findIndex((t) => t.id === id);
+  const row = rows[index];
+  const before = await getSettings();
+  const deleted: DeletedCustomTask | null = row
+    ? {
+        row,
+        index,
+        menuItems: before.contextMenuItems.filter(runsTask(id)),
+        disabled: before.disabledTasks.includes(id),
+        wasDefault: before.defaultTask === id,
+      }
+    : null;
   await deleteCustomTaskRow(id);
   // The read path drops these refs too, so a crash between the two writes leaves nothing that runs.
-  return replaceSettings((cur) => ({
+  const settings = await replaceSettings((cur) => ({
     ...cur,
-    contextMenuItems: cur.contextMenuItems.filter(
-      (i) => !(i.kind === 'task' && (i.task as string) === id),
-    ),
+    contextMenuItems: cur.contextMenuItems.filter((i) => !runsTask(id)(i)),
     disabledTasks: cur.disabledTasks.filter((t) => t !== id),
     defaultTask: cur.defaultTask === id ? 'translate' : cur.defaultTask,
+  }));
+  return { settings, deleted };
+}
+
+/** Undo for deleteCustomTask: the same row (id and creation time, so the same place) and every mark it had. */
+export async function restoreCustomTask(d: DeletedCustomTask): Promise<Settings> {
+  await upsertCustomTask(d.row, d.index);
+  return replaceSettings((cur) => ({
+    ...cur,
+    contextMenuItems: [
+      ...cur.contextMenuItems.filter((i) => !d.menuItems.some((m) => m.id === i.id)),
+      ...d.menuItems,
+    ],
+    disabledTasks:
+      d.disabled && !cur.disabledTasks.includes(d.row.id)
+        ? [...cur.disabledTasks, d.row.id]
+        : cur.disabledTasks,
+    defaultTask: d.wasDefault ? d.row.id : cur.defaultTask,
+  }));
+}
+
+/** True when some right-click item runs this task. */
+export function taskInMenu(s: Settings, id: string): boolean {
+  return s.contextMenuItems.some(runsTask(id));
+}
+
+/**
+ * "Show in right-click menu" for a custom task. On adds one item that runs it at the end of the
+ * selected-text group (named after the task); off removes every item that runs it and returns them for Undo.
+ */
+export async function setTaskInMenu(
+  id: string,
+  on: boolean,
+): Promise<{ settings: Settings; removed: ContextMenuItem[] }> {
+  let removed: ContextMenuItem[] = [];
+  const settings = await replaceSettings((cur) => {
+    if (!on) {
+      removed = cur.contextMenuItems.filter(runsTask(id));
+      return { ...cur, contextMenuItems: cur.contextMenuItems.filter((i) => !runsTask(id)(i)) };
+    }
+    if (cur.contextMenuItems.some(runsTask(id))) return cur;
+    const order = Math.max(-1, ...cur.contextMenuItems.map((i) => i.order)) + 1;
+    const item: ContextMenuItem = {
+      id: `ega-task-${id}-${uuid()}`,
+      kind: 'task',
+      enabled: true,
+      order,
+      label: '',
+      task: id,
+      surface: 'tooltip',
+    };
+    return { ...cur, contextMenuItems: [...cur.contextMenuItems, item] };
+  });
+  return { settings, removed };
+}
+
+/** Puts back the items setTaskInMenu took off. */
+export function restoreMenuItems(items: readonly ContextMenuItem[]): Promise<Settings> {
+  return replaceSettings((cur) => ({
+    ...cur,
+    contextMenuItems: [
+      ...cur.contextMenuItems.filter((i) => !items.some((m) => m.id === i.id)),
+      ...items,
+    ],
   }));
 }

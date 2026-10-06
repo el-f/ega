@@ -844,7 +844,7 @@ export const COVERAGE: readonly Family[] = [
           },
           {
             id: 'reset-builtin-undo',
-            description: 'Reset whole task drops the task edit; the toast Undo restores it',
+            description: 'Reset task drops the task edit at once; Undo in the footer restores it',
             flows: ['options-tasks/reset-builtin-undo.flow.spec.ts'],
           },
           {
@@ -859,12 +859,14 @@ export const COVERAGE: readonly Family[] = [
           },
           {
             id: 'compiled-preview',
-            description: 'The prompt preview renders the resolved instructions + message',
+            description:
+              'The Preview tab shows the prompt as sent, with the answer format appended',
             flows: ['options-tasks/compiled-preview.flow.spec.ts'],
           },
           {
             id: 'save-blocked-by-validation',
-            description: 'Removing {{text}} shows alert and leaves storage unchanged',
+            description:
+              'Removing {{text}} is not saved: the footer says why and storage keeps the old Message',
             flows: ['options-tasks/save-blocked-by-validation.flow.spec.ts'],
           },
           {
@@ -875,12 +877,13 @@ export const COVERAGE: readonly Family[] = [
           },
           {
             id: 'version-banner-overwrite',
-            description: 'Banner Overwrite replaces promptTemplate with default after confirm',
+            description:
+              'Use the new prompt replaces promptTemplate at once; Undo in the footer restores it',
             flows: ['options-tasks/version-banner-overwrite.flow.spec.ts'],
           },
           {
             id: 'version-banner-show-diff',
-            description: 'Banner Show diff mounts TemplateDiffModal',
+            description: 'Show changes opens the diff dialog on top of the task dialog',
             flows: ['options-tasks/version-banner-show-diff.flow.spec.ts'],
           },
           {
@@ -892,28 +895,30 @@ export const COVERAGE: readonly Family[] = [
           {
             id: 'insert-at-cursor-into-sys',
             description:
-              'Focus system textarea, click slot chip → token inserts in system field via lastFocused routing',
+              'Insert variable puts the token at the caret of the field focused last (Instructions here)',
             flows: ['options-tasks/insert-at-cursor-into-sys.flow.spec.ts'],
           },
           {
             id: 'insert-variable-popover',
-            description: 'Insert variable popover surfaces searchable slots',
+            description:
+              'Insert variable opens a searchable list; empty-in-this-prompt rows do not insert',
             flows: ['options-tasks/insert-variable-popover.flow.spec.ts'],
           },
           {
             id: 'palette-renders',
-            description: 'Slot palette lists per-task slots with chips',
+            description: 'The variable list shows plain names, tokens and meanings',
             flows: ['options-tasks/palette-renders.flow.spec.ts'],
           },
           {
             id: 'required-missing-blocks-save',
             description:
-              'Remove {{text}} from user template → required-missing badge appears AND Save is blocked',
+              'A Message without {{text}} shows the error and the footer says it is not saved',
             flows: ['options-tasks/required-missing-blocks-save.flow.spec.ts'],
           },
           {
             id: 'required-missing-flag',
-            description: 'Required slot deleted from user template flags chip',
+            description:
+              'The error under Message and the unknown-variable warning show for a stored prompt',
             flows: ['options-tasks/required-missing-flag.flow.spec.ts'],
           },
         ],

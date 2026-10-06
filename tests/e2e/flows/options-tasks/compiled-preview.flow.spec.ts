@@ -15,24 +15,25 @@ test.afterEach(async () => {
 
 test.slow();
 
-test('the Translate dialog shows the compiled prompt for a sample request', async () => {
+test('the Translate dialog shows the prompt as sent for a sample request', async () => {
   const timeline = createTimeline();
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
   await openTaskPrompt(page, 'translate');
   timeline.markStep('dialog-open');
 
-  const previewSummary = page.locator('[data-ega-compile-preview] summary').first();
-  await expect(previewSummary).toBeVisible({ timeout: 10_000 });
-  await previewSummary.click();
+  await page.getByRole('tab', { name: 'Preview' }).click();
   timeline.markStep('preview-open');
 
-  // Sample request text is hardcoded inside TemplateEditor.compileNow().
   await expect(page.locator('[data-ega-preview-user]').first()).toContainText(
     'Hello world (sample text for preview).',
     { timeout: 5_000 },
   );
-  await expect(page.locator('[data-ega-preview-system]').first()).not.toBeEmpty();
+  // The answer format is appended by the builder, so the preview shows it.
+  await expect(page.locator('[data-ega-preview-system]').first()).toContainText('Return JSON ONLY');
+  // The fields are hidden, not gone: Edit brings them back as they were.
+  await page.getByRole('tab', { name: 'Edit' }).click();
+  await expect(page.locator('[data-ega-template-system] textarea')).toBeVisible();
   timeline.markStep('sample-text-resolved');
   timeline.report();
 });

@@ -2,24 +2,22 @@
 
 ## Latency budgets
 
-- Mount -> palette render: <= 200ms.
+- Insert variable click -> rows visible: <= 150ms.
 
 ## State expectations
 
-- Step 1: user navigates to a scope that surfaces the slot palette.
-- Step 2: palette lists every per-task slot as a chip; required slots are visually distinct.
-- Step 3: chips reflect the currently active task (slots vary per task).
+- Step 1: in the Translate dialog, the user opens Insert variable.
+- Step 2: every variable the Translate prompt fills is listed: 10 rows, no answer-format slot.
+- Step 3: the "Selected text" row shows `{{text}}` and "The text you selected; the message must contain it".
 
 ## Visible affordances
 
-- A required slot missing from the user template gets a danger border and a `required` badge.
-- Each chip has a hover tooltip explaining what the slot binds to.
+- Plain names and meanings in the list itself, never in a hover tooltip.
 
 ## Failure-mode expectations
 
-- Every task lists at least the shared slots (`text`, `langLabel`, `targetLangLabel`…); there is no empty state.
+- Every prompt lists at least the shared variables; there is no empty list.
 
 ## Cautions
 
-- Chip layout must wrap cleanly on narrow surfaces — no horizontal scrollbar at default Options width.
-- Clicking a chip inserts its `{{slot}}` token into the last-focused field; the `Insert variable` button opens the searchable popover.
+- A task prompt lists 8 variables and the 2 it cannot fill under "Empty in this prompt".

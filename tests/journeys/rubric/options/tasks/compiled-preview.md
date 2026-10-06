@@ -2,25 +2,24 @@
 
 ## Latency budgets
 
-- Body change -> preview update: <= 100ms.
+- Preview tab click -> built prompt visible: <= 150ms.
 
 ## State expectations
 
-- Step 1: in a task's edit dialog (Translate here) or a language prompt editor, a collapsed "Preview what the model receives" sits below the Instructions and Message fields. The New task dialog has the same section.
-- Step 2: typing in the textarea updates the preview with the resolved system + user prompt.
-- Step 3: slot tokens are filled from a sample request (fixed sample text, default target language, default tone for Reword); rules are not shown.
+- Step 1: in a task dialog (Translate here), the prompt section has an "Edit | Preview" tab pair next to its title.
+- Step 2 (Preview): the fields give way, in the same place, to the prompt as Ega sends it: "System", "Earlier messages", "Message".
+- Step 3: the System part ends with the answer format the builder appends ("Return JSON ONLY ..."); Edit brings the fields back with the caret where it was.
 
 ## Visible affordances
 
-- Preview is read-only; styled distinct from the editor textarea.
-- Labels name the "Instructions" and "Message" parts, and an "Earlier messages" part says where side-panel history goes and that tooltip and image requests send none.
-- A note names the sample text the preview uses.
+- One line names the sample text: "Shown with the sample text ... and your settings".
+- The Translate prompt and language prompts offer "Preview as Translate | Explain"; task prompts do not.
+- "Earlier messages" is one muted line, not a box. Text is monospace on a sunken background with no border and no inner scroll.
 
 ## Failure-mode expectations
 
-- An unknown slot renders as empty text in the preview, with no marker.
+- A build error reads "The preview could not be built: <reason>" in the error colour.
 
 ## Cautions
 
-- The preview shows the template filled for a sample request; rules, glossary and page context are not included.
-- The preview updates must be debounced to avoid per-keystroke recompute on large templates.
+- The preview calls the same builder the router uses, so what it shows is what is sent.

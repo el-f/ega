@@ -15,43 +15,28 @@ test.afterEach(async () => {
 
 test.slow();
 
-test('clicking a slot chip after focusing system textarea inserts token into system field', async () => {
+test('Insert variable puts the token at the caret of the Instructions when they had focus last', async () => {
   const timeline = createTimeline();
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
   await openTaskPrompt(page, 'translate');
-  timeline.markStep('tab-open');
-
-  await expect(page.locator('[data-ega-template-editor]').first()).toBeVisible({
-    timeout: 10_000,
-  });
   timeline.markStep('editor-mounted');
 
   const sysTextarea = page.locator('[data-ega-template-system] textarea').first();
-  await expect(sysTextarea).toBeVisible({ timeout: 5_000 });
-
-  const initialSys = await sysTextarea.inputValue();
-  await sysTextarea.click();
-  await page.keyboard.press('End');
-  timeline.markStep('sys-focused');
-
   const usrTextarea = page.locator('[data-ega-template-user] textarea').first();
   const initialUsr = await usrTextarea.inputValue();
+  await sysTextarea.click();
+  await page.keyboard.press('Control+End');
+  timeline.markStep('sys-focused');
 
-  // langLabel is always listed for the translate task, so this chip is always on screen.
-  const langLabelChip = page
-    .locator('[data-ega-slot-palette] [data-ega-slot-chip="langLabel"]')
-    .first();
-  await expect(langLabelChip).toBeVisible({ timeout: 5_000 });
-  await langLabelChip.click();
-  timeline.markStep('chip-clicked');
+  await page.locator('[data-ega-slot-insert-picker]').click();
+  await page.locator('[data-ega-variable-picker] [data-ega-variable="langLabel"]').click();
+  timeline.markStep('variable-picked');
 
+  await expect(sysTextarea).toBeFocused();
   await expect
-    .poll(async () => await sysTextarea.inputValue(), { timeout: 5_000 })
-    .toContain('{{langLabel}}');
-
+    .poll(() => sysTextarea.inputValue(), { timeout: 5_000 })
+    .toMatch(/\{\{langLabel\}\}$/);
   expect(await usrTextarea.inputValue()).toBe(initialUsr);
   timeline.markStep('token-in-sys-asserted');
-
-  expect(await sysTextarea.inputValue()).not.toBe(initialSys);
 });

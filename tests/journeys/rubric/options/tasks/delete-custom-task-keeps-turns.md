@@ -2,21 +2,21 @@
 
 ## Latency budgets
 
-- Confirm click -> row gone from `ega.customTasks`: <= 300ms.
+- Delete click -> row gone from `ega.customTasks`: <= 300ms.
 
 ## State expectations
 
 - Step 1: the conversation has one exchange run with the custom task.
-- Step 2 (Delete, confirm): `ega.customTasks` is empty.
+- Step 2 (Delete task in its dialog): the row goes at once, the dialog closes and a toast says "Deleted "<name>"" with Undo.
 - Step 3: the side panel's Next message popover no longer lists the task; the old answer stays, and its user turn reads "Deleted task".
 
 ## Visible affordances
 
-- The confirm dialog says right-click items that run the task are removed, rules scoped only to it stop applying, and past answers stay.
+- No confirm dialog; Undo puts back the task, its right-click items and its marks exactly.
 
 ## Failure-mode expectations
 
-- A failed delete shows a "Change not saved" warning and keeps the row.
+- A failed delete says so in the dialog footer and keeps the row.
 
 ## Cautions
 

@@ -2,25 +2,25 @@
 
 ## Latency budgets
 
-- Trigger click -> popover open: <= 150ms.
-- Filter typing -> result list update: <= 50ms per keystroke.
+- Button click -> list open with the search field focused: <= 150ms.
+- Typing -> list filtered: <= 50ms per key.
 
 ## State expectations
 
-- Step 1: user clicks the `Insert variable` button in the palette header.
-- Step 2: popover mounts with a searchable list of available slots; type-ahead filters.
-- Step 3 (select a slot): popover dismisses; the `{{slot}}` token inserts at the editor caret position.
+- Step 1: the user presses "Insert variable" next to the prompt tabs.
+- Step 2: a list opens under it with a search field; typing matches the plain name, the token and the meaning.
+- Step 3: picking a row inserts its token at the caret and closes the list; Esc closes only the list and returns focus to the button.
 
 ## Visible affordances
 
-- Popover carries a search input + keyboard-navigable result list.
-- Each row shows the slot name plus its sample value or description, grouped under Variables and Custom.
+- Each row: the plain name (600), the `{{token}}` in monospace at the end, a check when the prompt already uses it, and the meaning on a second line. Nothing is cut off and nothing is hover-only.
+- Groups: "Variables", then "Empty in this prompt" with the reason as the second line ("Filled only for Explain"); those rows do not insert.
+- While more rows sit below, a fade at the bottom edge says so.
 
 ## Failure-mode expectations
 
-- Empty query shows the full slot list; a query with no match shows "No matching variable."
+- A query with no match shows "No variable matches".
 
 ## Cautions
 
-- The caret position must be preserved before the popover opens; insert must land at the original caret, not at the end of the textarea.
-- Popover dismisses on Esc; on click-outside; on selection. All three paths exit cleanly.
+- Esc inside the list must not close the dialog under it.

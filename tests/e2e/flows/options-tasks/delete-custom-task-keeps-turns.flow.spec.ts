@@ -41,8 +41,9 @@ test('deleting a custom task keeps its past answers and names them "Deleted task
   await options.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
   await options.locator('#tab-tasks').click();
   await options.locator('[data-ega-task-edit="c-tweet"]').click();
+  // Delete acts at once; Undo lives in the toast, not in a confirm.
   await options.locator('[data-ega-custom-task-delete]').click();
-  await options.getByRole('button', { name: 'Delete', exact: true }).last().click();
+  await expect(options.getByRole('button', { name: 'Undo' })).toBeVisible();
   await expect
     .poll(
       async () =>

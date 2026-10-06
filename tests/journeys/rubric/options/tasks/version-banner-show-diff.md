@@ -2,25 +2,23 @@
 
 ## Latency budgets
 
-- "Show diff" click -> TemplateDiffModal mount: <= 200ms.
+- "Show changes" click -> diff dialog: <= 200ms.
 
 ## State expectations
 
-- Step 1: version banner is visible on the templates editor.
-- Step 2 (click "Show diff"): `TemplateDiffModal` mounts displaying the user's current body alongside the new default body.
-- Step 3: the diff marks each line: − for the user's line, + for the current default; the only action is Close (Keep mine / Overwrite stay on the banner).
+- Step 1: the version notice is visible inside the Translate prompt section.
+- Step 2 (click "Show changes"): the diff dialog opens on top of the task dialog with the user's prompt and the new built-in.
+- Step 3: each line is marked: − for the user's line, + for the new built-in; the only action is Close.
 
 ## Visible affordances
 
-- Diff uses color tokens: additions in green, removals in red.
-- Modal title reads "Template version diff", with System and User sections.
-- Close / dismiss button is visible; Esc dismisses.
+- Additions and removals use the success and danger tokens; System and User sections.
+- Esc closes only the diff dialog; the task dialog stays open under it.
 
 ## Failure-mode expectations
 
-- Identical bodies render as unmarked lines; a body too long to diff shows "Too long to diff line by line." instead of a blank panel.
+- Identical prompts render as unmarked lines; a prompt too long to diff says so instead of a blank panel.
 
 ## Cautions
 
-- The modal must trap focus while open; Esc dismisses without taking any action.
-- "Show diff" does NOT acknowledge the version — the banner stays after the modal is closed.
+- "Show changes" does NOT acknowledge the version — the notice stays after the diff closes.

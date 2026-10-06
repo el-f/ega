@@ -2,24 +2,23 @@
 
 ## Latency budgets
 
-- Save click -> row in `ega.customTasks`: <= 300ms.
+- The first valid edit -> row in `ega.customTasks`: <= 1s (600 ms typing pause plus the write).
 
 ## State expectations
 
-- Step 1: the user opens New task, types a name, instructions and a message with `{{text}}`, picks "Answer with notes", an effort and the three inputs, and opens "Preview what the model receives".
-- Step 2: the preview shows the instructions and the message as the router builds them.
-- Step 3 (Save): `ega.customTasks` holds one row with every field the user set; the "Your tasks" list shows it.
+- Step 1: the user opens New task; the footer reads "Not saved yet: add a name".
+- Step 2: they type a name, instructions (inserting Target language from Insert variable) and a message with `{{text}}`, pick "Answer with notes", Low effort and the three inputs, and look at Preview.
+- Step 3 (Done): `ega.customTasks` holds one row with every field the user set; the "Your tasks" list shows it.
 - Step 4: a side panel opened next shows the task as a chip in the strip.
 - Step 5: the tooltip's task select lists the task by name.
 
 ## Visible affordances
 
-- Save is disabled while the name is empty or the message has no `{{text}}`.
-- The list row has an on/off checkbox and an Edit button.
+- No Save and no Cancel button: the task saves itself once it has a name and a valid message; Done closes.
 
 ## Failure-mode expectations
 
-- At the row cap the dialog says to delete a task first; nothing is written.
+- At the row cap the "New task" button says why it cannot open; nothing is written.
 
 ## Cautions
 
