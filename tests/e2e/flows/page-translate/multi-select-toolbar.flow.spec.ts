@@ -34,7 +34,7 @@ async function enterMultiSelect(page: Page): Promise<void> {
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
     const tabId = tabs[0]?.id;
     if (!tabId) throw new Error('no tab');
-    await chrome.tabs.sendMessage(tabId, { kind: 'page:translateAll' });
+    await chrome.tabs.sendMessage(tabId, { kind: 'page:chooseAreas' });
   });
   await expect
     .poll(async () => egaTest<boolean>(page, 'msIsActive'), { timeout: 5_000 })
@@ -54,8 +54,8 @@ test('the translate-areas toolbar drives picking, and the document itself is nev
 
   const toolbar = page.locator('[data-ega-ms-wrap]');
   await expect(toolbar).toHaveCount(1);
-  await expect(page.locator('[data-ega-ms-count]')).toHaveText('No areas selected');
-  await expect(page.locator('[data-ega-ms-translate]')).toBeDisabled();
+  await expect(page.locator('[data-ega-ms-count]')).toHaveText('Click blocks to choose them');
+  await expect(page.locator('[data-ega-ms-translate]')).toHaveAttribute('aria-disabled', 'true');
 
   // Hovering a block marks it as the pick candidate.
   await page.locator('#c1').hover();
@@ -70,23 +70,17 @@ test('the translate-areas toolbar drives picking, and the document itself is nev
 
   expect(await egaTest<boolean>(page, 'msSelectById', 'c1')).toBe(true);
   expect(await egaTest<boolean>(page, 'msSelectById', 'c2')).toBe(true);
-  await expect(page.locator('[data-ega-ms-count]')).toHaveText('2 areas selected');
-  await expect(page.locator('[data-ega-ms-translate]')).toBeEnabled();
+  await expect(page.locator('[data-ega-ms-count]')).toHaveText('2 areas chosen');
+  await expect(page.locator('[data-ega-ms-translate]')).not.toHaveAttribute('aria-disabled');
 
-  // The mode buttons report the current choice.
-  await expect(page.locator('[data-ega-ms-mode="inplace"]')).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
-  await page.locator('[data-ega-ms-mode="bilingual"]').click();
-  await expect(page.locator('[data-ega-ms-mode="bilingual"]')).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
+  // The mode segments are radios that report the current choice.
+  await expect(page.getByRole('radio', { name: 'Replace text' })).toBeChecked();
+  await page.getByRole('radio', { name: 'Show both' }).click();
+  await expect(page.getByRole('radio', { name: 'Show both' })).toBeChecked();
   timeline.markStep('mode-switched');
 
   // Exit leaves the page untouched.
-  await page.locator('[data-ega-ms-exit]').click();
+  await page.getByRole('button', { name: 'Cancel' }).click();
   await expect(toolbar).toHaveCount(0);
   await expect(page.locator('[data-ega-ms-selected]')).toHaveCount(0);
   expect((await egaTest<number>(page, 'pageV2TxCount')) ?? 0).toBe(0);
@@ -114,7 +108,7 @@ test('a second page translate closes the settled pill and re-opens picking', asy
       const el = host?.shadowRoot?.querySelector('[data-ega-batch-label]');
       return el ? el.textContent.trim() : '';
     });
-  await expect.poll(label, { timeout: 10_000 }).toBe('Page translated');
+  await expect.poll(label, { timeout: 10_000 }).toBe('Page translated to English');
 
   // Without closing the pill by hand, a fresh translate must re-enter picking.
   await enterMultiSelect(page);

@@ -18,10 +18,17 @@ function click(el: Element): void {
   el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
 }
 
+/** What the user is told: a refusal sits in the bar's status, a skip after Translate in a toast. */
 function toastText(): string | null {
-  const host = document.getElementById('ega-shadow-host');
-  const wrap = host?.shadowRoot?.querySelector('[data-ega-toast-wrap]');
-  return wrap ? wrap.textContent : null;
+  const root = document.getElementById('ega-shadow-host')?.shadowRoot;
+  const text = [
+    root?.querySelector('[data-ega-toast-wrap]'),
+    root?.querySelector('[data-ega-ms-count]'),
+  ]
+    .map((n) => n?.textContent ?? '')
+    .join(' ')
+    .trim();
+  return text === '' ? null : text;
 }
 
 beforeEach(() => {

@@ -97,11 +97,11 @@ describe('multi-select keyboard path', () => {
     press('ArrowDown');
     press(' ');
     expect(el('first').getAttribute('data-ega-ms-selected')).toBe('1');
-    expect(live()).toContain('1 area selected');
+    expect(live()).toContain('1 area chosen');
 
     press(' ');
     expect(el('first').hasAttribute('data-ega-ms-selected')).toBe(false);
-    expect(live()).toContain('No areas selected');
+    expect(live()).toContain('Click blocks to choose them');
   });
 
   it('moving the cursor announces the block text', () => {
@@ -191,8 +191,8 @@ describe('multi-select — the toolbar is reachable from the keyboard', () => {
     press('m');
 
     expect(onModeChange).toHaveBeenCalledWith('bilingual');
-    expect(toolbar('[data-ega-ms-mode="bilingual"]').getAttribute('aria-pressed')).toBe('true');
-    expect(toolbar('[data-ega-ms-mode="inplace"]').getAttribute('aria-pressed')).toBe('false');
+    expect(toolbar('[data-ega-ms-mode="bilingual"]').getAttribute('aria-checked')).toBe('true');
+    expect(toolbar('[data-ega-ms-mode="inplace"]').getAttribute('aria-checked')).toBe('false');
     expect(live()).toBe(toolbar('[data-ega-ms-mode="bilingual"]').textContent.trim());
   });
 
@@ -202,7 +202,7 @@ describe('multi-select — the toolbar is reachable from the keyboard', () => {
     press('m');
     press('M');
     expect(onModeChange).toHaveBeenLastCalledWith('inplace');
-    expect(toolbar('[data-ega-ms-mode="inplace"]').getAttribute('aria-pressed')).toBe('true');
+    expect(toolbar('[data-ega-ms-mode="inplace"]').getAttribute('aria-checked')).toBe('true');
   });
 
   it('leaves Cmd+M and Ctrl+M to the browser', () => {
@@ -229,10 +229,10 @@ describe('multi-select — the toolbar is reachable from the keyboard', () => {
     expect(isMultiSelectActive()).toBe(false);
   });
 
-  it('names every key it answers in the toolbar hint', () => {
+  it('names every key it answers in the Keys toggletip', () => {
     enterMultiSelect(opts());
-    const hint = toolbar('.hint').textContent;
-    for (const key of ['↑↓', 'Tab', 'Space', 'M', 'Enter', 'Esc']) {
+    const hint = toolbar('[role="tooltip"]').textContent;
+    for (const key of ['↑', '↓', 'Tab', 'Space', 'M', 'Enter', 'Esc']) {
       expect(hint).toContain(key);
     }
   });

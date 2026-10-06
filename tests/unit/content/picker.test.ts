@@ -83,7 +83,7 @@ describe('picker state machine', () => {
     expect(p.isActive()).toBe(false);
   });
 
-  it('click on a sensitive (password) input picks nothing but explains itself with a toast', () => {
+  it('click on a sensitive (password) input picks nothing and adds no toast: the bar already says why', () => {
     mockEnvironment();
     const onPick = vi.fn();
     const p = createPicker({ onPick, onExit: vi.fn() });
@@ -92,11 +92,7 @@ describe('picker state machine', () => {
     if (!pw) throw new Error('test setup: #pw');
     pw.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
     expect(onPick).not.toHaveBeenCalled();
-    expect(showToastSpy).toHaveBeenCalledWith(
-      expect.stringMatching(
-        /does not read password, card or other private fields, or text you can edit/i,
-      ),
-    );
+    expect(showToastSpy).not.toHaveBeenCalled();
     // Still active — the click was discarded, not a successful pick.
     expect(p.isActive()).toBe(true);
     p.exit();

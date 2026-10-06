@@ -1,0 +1,157 @@
+/* One bar for Pick element and Choose areas, in the bottom bar slot. Injected with the bar's chunk, never eager. */
+.ega-picker-bar {
+  position: fixed;
+  z-index: var(--ega-layer-bar);
+  inset-block-end: var(--space-4);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  box-sizing: border-box;
+  max-width: calc(100vw - 16px);
+  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-3);
+  background: var(--color-bg);
+  color: var(--color-fg);
+  border: 1px solid var(--color-control-border);
+  border-radius: var(--radius-pill);
+  box-shadow: 0 4px 12px var(--color-shadow-soft);
+  font-family: var(--font-ui);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-body);
+  /* The bar takes clicks: a page-level picker must not swallow Cancel. */
+  pointer-events: auto;
+  user-select: none;
+}
+@media (max-width: 559px) {
+  .ega-picker-bar {
+    border-radius: var(--radius-lg);
+  }
+  .ega-picker-bar .status {
+    flex-basis: 100%;
+  }
+}
+.ega-picker-bar .mark {
+  display: inline-flex;
+  color: var(--color-muted);
+}
+.ega-picker-bar svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ega-picker-bar .status {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.ega-picker-bar .status.refusal {
+  color: var(--color-danger-fg);
+}
+.ega-picker-bar .controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  margin-inline-start: auto;
+}
+.ega-picker-bar button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 28px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-control-border);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-fg);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ega-picker-bar button.ghost {
+  border-color: transparent;
+}
+.ega-picker-bar button:hover {
+  background: var(--color-bg-hover);
+}
+.ega-picker-bar button:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+.ega-picker-bar .modes {
+  display: inline-flex;
+  gap: 2px;
+}
+.ega-picker-bar .modes:focus {
+  outline: none;
+}
+.ega-picker-bar .modes [role='radio'] {
+  font-weight: 400;
+}
+/* The chosen segment shows by more than color: a fill, the accent edge and the heavier weight. */
+.ega-picker-bar .modes [aria-checked='true'] {
+  background: var(--color-accent-bg-hover);
+  border-color: var(--color-accent);
+  font-weight: 600;
+}
+.ega-picker-bar .translate {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-accent-fg);
+}
+.ega-picker-bar .translate:hover {
+  background: var(--color-accent-hover);
+}
+.ega-picker-bar .translate[aria-disabled='true'] {
+  background: transparent;
+  border-color: var(--color-control-border);
+  color: var(--color-fg-disabled);
+  cursor: var(--cursor-disabled);
+}
+.ega-picker-bar .keys-wrap {
+  position: relative;
+  display: inline-flex;
+}
+.ega-picker-bar .keys {
+  position: absolute;
+  z-index: var(--ega-layer-label);
+  inset-block-end: calc(100% + 8px);
+  inset-inline-end: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: max-content;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 12px var(--color-shadow-soft);
+  color: var(--color-fg);
+  font-weight: 400;
+}
+.ega-picker-bar .keys[hidden] {
+  display: none;
+}
+.ega-picker-bar kbd {
+  padding: 0 4px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  background: var(--color-bg-sunken);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+@media (forced-colors: active) {
+  .ega-picker-bar button.ghost {
+    border-color: ButtonText;
+  }
+}
+/* One bar at a time in the slot: a picker mode hides the page-translate pill until it ends. */
+.ega-root:has(> [data-ega-picker-bar-wrap]) [data-ega-batch-progress] {
+  display: none;
+}

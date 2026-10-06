@@ -6,6 +6,7 @@ const enterSpy = vi.fn();
 const exitSpy = vi.fn();
 
 vi.mock('@/content/picker', () => ({
+  PRIVATE_FIELD_REASON: 'private',
   createPicker: (opts: { onPick: unknown; onExit: () => void; onHover?: unknown }) => {
     createPickerSpy(opts);
     return {

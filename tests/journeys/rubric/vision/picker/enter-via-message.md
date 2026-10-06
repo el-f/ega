@@ -12,7 +12,7 @@
 
 ## Visible affordances
 
-- A hint pill at the bottom center reads "Click an area to translate it, or use ↑ ↓ to make it larger or smaller and Tab for the next one, then Enter · Esc to cancel".
+- The picker bar at the bottom center reads "Click a block to translate it", with a Keys toggletip (↑ ↓, Tab, Space or Enter, Esc) and Cancel. It is a toolbar named "Pick element".
 - Esc dismisses the overlay per `escape-cancels` rubric.
 
 ## Failure-mode expectations

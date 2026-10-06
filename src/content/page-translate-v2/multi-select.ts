@@ -1,6 +1,4 @@
-import { mount, unmount } from 'svelte';
-import { debugCatch } from '@/shared/logger';
-import { ensureShadowSheet, getContainer, onShadowHostRemount } from '../shadowHost';
+import { onShadowHostRemount } from '../shadowHost';
 import { isPickable, isInsideEgaHost } from '../picker';
 import { CURSOR_NAV_KEYS, nextCursorTarget } from '../pick-cursor';
 import { isSensitiveTarget } from '../safety';
@@ -8,8 +6,7 @@ import { showToast } from '../toast';
 import { ensurePageStyles } from '../page-styles';
 import { MAX_SELECTION_CHARS } from '@/shared/constants';
 import type { RenderMode } from './store';
-import MultiSelectToolbar from './MultiSelectToolbar.svelte';
-import toolbarCss from './multi-select.css?inline';
+import { mountPickerBar, type PickerBarHandle } from '../picker-bar';
 import { isUserGesture } from '../user-gesture';
 
 export interface SelectedBlock {
@@ -27,7 +24,6 @@ export interface MultiSelectOpts {
 const HOVER_ATTR = 'data-ega-ms-hover';
 const SELECTED_ATTR = 'data-ega-ms-selected';
 const CURSOR_ATTR = 'data-ega-ms-cursor';
-const STYLE_ID = 'ega-ms-styles';
 
 /** Replacing one of these in place detaches the document — including the shadow host, so Cancel goes with it. */
 const DOCUMENT_LEVEL_TAGS = new Set(['html', 'body', 'head']);
@@ -68,8 +64,7 @@ interface MsSession {
   selected: Element[];
   mode: RenderMode;
   opts: MultiSelectOpts;
-  anchor: HTMLDivElement;
-  handle: ReturnType<typeof mount>;
+  bar: PickerBarHandle;
   hovered: Element | null;
   cursor: Element | null;
 }
@@ -107,7 +102,7 @@ function isStructural(el: Element): boolean {
 function structuralReject(el: Element): string | null {
   const tag = el.tagName.toLowerCase();
   if (DOCUMENT_LEVEL_TAGS.has(tag)) return 'Pick a block inside the page, not the whole document.';
-  if (STRUCTURAL_TAGS.has(tag)) return 'That element is not text — pick a block inside it.';
+  if (STRUCTURAL_TAGS.has(tag)) return 'That element is not text. Pick a block inside it.';
   return null;
 }
 
@@ -132,35 +127,24 @@ function selectReject(el: Element): string | null {
   const text = elementText(el);
   if (!text) return 'Nothing to translate in that element.';
   if (text.length > MAX_SELECTION_CHARS) {
-    return `That area is too long — ${text.length} characters, limit ${MAX_SELECTION_CHARS}. Pick smaller blocks inside it.`;
+    return `That area is too long: ${text.length} characters, limit ${MAX_SELECTION_CHARS}. Pick smaller blocks inside it.`;
   }
   return null;
 }
 
 function countLabel(n: number): string {
-  if (n === 0) return 'No areas selected';
-  return n === 1 ? '1 area selected' : `${n} areas selected`;
+  if (n === 0) return 'Click blocks to choose them';
+  return n === 1 ? '1 area chosen' : `${n} areas chosen`;
 }
 
 function announce(text: string): void {
-  if (!ms) return;
-  const live = ms.anchor.querySelector<HTMLElement>('[data-ega-ms-live]');
-  if (live) live.textContent = text;
+  ms?.bar.announce(text);
 }
 
 function patchToolbar(): void {
   if (!ms) return;
   const count = ms.selected.length;
-  const label = ms.anchor.querySelector<HTMLElement>('[data-ega-ms-count]');
-  if (label) label.textContent = countLabel(count);
-  const btn = ms.anchor.querySelector<HTMLButtonElement>('[data-ega-ms-translate]');
-  if (btn) {
-    btn.textContent = count > 0 ? `Translate ${count}` : 'Translate';
-    btn.disabled = count === 0;
-  }
-  for (const modeBtn of ms.anchor.querySelectorAll<HTMLElement>('[data-ega-ms-mode]')) {
-    modeBtn.setAttribute('aria-pressed', String(modeBtn.dataset['egaMsMode'] === ms.mode));
-  }
+  ms.bar.set({ status: countLabel(count), canTranslate: count > 0, mode: ms.mode });
 }
 
 function renumber(): void {
@@ -200,7 +184,8 @@ function toggleSelect(el: Element): void {
   }
   const reason = selectReject(el);
   if (reason !== null) {
-    showToast(reason);
+    // A refusal replaces the bar's status for a moment; it is not a toast.
+    ms.bar.flash(reason);
     announce(reason);
     return;
   }
@@ -232,10 +217,9 @@ function setMode(mode: RenderMode): void {
   ms.opts.onModeChange?.(mode);
 }
 
-/** The button's own text, so the spoken name and the pressed button never drift. */
+/** The segment's own text, so the spoken name and the checked segment never drift. */
 function modeLabel(mode: RenderMode): string {
-  const btn = ms?.anchor.querySelector<HTMLElement>(`[data-ega-ms-mode="${mode}"]`);
-  return btn?.textContent.trim() ?? mode;
+  return mode === 'inplace' ? 'Replace text' : 'Show both';
 }
 
 function fire(): void {
@@ -254,11 +238,11 @@ function fire(): void {
   const { mode, opts } = ms;
   exitMultiSelect();
   if (blocks.length === 0) {
-    showToast('Nothing to translate in the selected areas.');
+    showToast('Nothing to translate in the chosen areas.');
     return;
   }
   if (skipped > 0) {
-    showToast(`Skipped ${skipped} area${skipped === 1 ? '' : 's'} — empty or too long.`);
+    showToast(`Skipped ${skipped} area${skipped === 1 ? '' : 's'}: empty or too long.`);
   }
   opts.onFire(blocks, mode);
 }
@@ -282,7 +266,7 @@ const onClick = (e: MouseEvent): void => {
   e.preventDefault();
   e.stopPropagation();
   if (isSensitiveTarget(el)) {
-    showToast('Ega does not read password, card or other private fields, or text you can edit.');
+    ms.bar.flash("Ega doesn't read password, card or code fields, or text you can edit.");
     return;
   }
   if (!isPickable(el)) return;
@@ -337,26 +321,22 @@ onShadowHostRemount(() => {
 export function enterMultiSelect(opts: MultiSelectOpts): void {
   if (ms) return;
   ensurePageStyles();
-  ensureShadowSheet(STYLE_ID, toolbarCss);
-  const anchor = document.createElement('div');
-  anchor.setAttribute('data-ega-ms-wrap', '');
-  getContainer().appendChild(anchor);
-  const handle = mount(MultiSelectToolbar, {
-    target: anchor,
-    props: {
-      mode: opts.initialMode,
-      onTranslate: () => {
-        fire();
-      },
-      onModeSelect: (m: RenderMode) => {
-        setMode(m);
-      },
-      onExit: () => {
-        exitMultiSelect();
-      },
+  const bar = mountPickerBar({
+    kind: 'areas',
+    initialStatus: countLabel(0),
+    initialMode: opts.initialMode,
+    onTranslate: () => {
+      fire();
+    },
+    onModeSelect: (m: RenderMode) => {
+      setMode(m);
+    },
+    onCancel: () => {
+      exitMultiSelect();
     },
   });
-  ms = { selected: [], mode: opts.initialMode, opts, anchor, handle, hovered: null, cursor: null };
+  bar.anchor.setAttribute('data-ega-ms-wrap', '');
+  ms = { selected: [], mode: opts.initialMode, opts, bar, hovered: null, cursor: null };
   document.addEventListener('mousemove', onMouseMove, true);
   document.addEventListener('click', onClick, true);
   document.addEventListener('keydown', onKeyDown, true);
@@ -372,10 +352,5 @@ export function exitMultiSelect(): void {
   session.hovered?.removeAttribute(HOVER_ATTR);
   session.cursor?.removeAttribute(CURSOR_ATTR);
   for (const el of session.selected) el.removeAttribute(SELECTED_ATTR);
-  try {
-    void unmount(session.handle);
-  } catch (e) {
-    debugCatch(e, 'content.multiSelect.unmount');
-  }
-  session.anchor.remove();
+  session.bar.destroy();
 }

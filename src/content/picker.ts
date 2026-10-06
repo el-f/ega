@@ -8,7 +8,7 @@ import { ensurePageStyles } from './page-styles';
 
 const PICKING_ATTR = 'data-ega-picking';
 export const PRIVATE_FIELD_REASON =
-  'Ega does not read password, card or other private fields, or text you can edit.';
+  "Ega doesn't read password, card or code fields, or text you can edit.";
 
 export interface PickResult {
   text: string;
@@ -83,10 +83,8 @@ export function createPicker(opts: PickerOpts): PickerController {
     if (isInsideEgaHost(el)) return;
     e.preventDefault();
     e.stopPropagation();
-    if (isSensitiveTarget(el)) {
-      showToast(PRIVATE_FIELD_REASON);
-      return;
-    }
+    // The bar already says why while the pointer is on a private field.
+    if (isSensitiveTarget(el)) return;
     pick(el);
   };
 
@@ -106,6 +104,8 @@ export function createPicker(opts: PickerOpts): PickerController {
       exit();
       return;
     }
+    // Focus sits on a bar button: Tab, Space and Enter belong to it, not to the block walk.
+    if (isInsideEgaHost(e.target as Element | null)) return;
     if (e.key === 'Enter' || e.key === ' ') {
       if (!cursor) return;
       e.preventDefault();

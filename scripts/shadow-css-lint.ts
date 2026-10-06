@@ -275,11 +275,13 @@ async function main(): Promise<void> {
     (await readSheet(path.join(contentDir, 'shadow.css'))) +
     '\n' +
     (await readSheet(path.join(contentDir, 'tooltip', 'tooltip.css')));
-  // multi-select.ts, batch-progress.ts and picker-overlay.ts inject their own sheets into the same root; page-styles.css goes to document.head instead.
+  // The picker bar, bubble menu, pill and picker overlay inject their own sheets into the same root; page-styles.css goes to document.head instead.
   const rootSheets =
     shadowSheet +
     '\n' +
-    (await readSheet(path.join(contentDir, 'page-translate-v2', 'multi-select.css'))) +
+    (await readSheet(path.join(contentDir, 'picker-bar', 'picker-bar.css'))) +
+    '\n' +
+    (await readSheet(path.join(contentDir, 'bubble-menu', 'bubble-menu.css'))) +
     '\n' +
     (await readSheet(path.join(contentDir, 'batch-progress.css'))) +
     '\n' +

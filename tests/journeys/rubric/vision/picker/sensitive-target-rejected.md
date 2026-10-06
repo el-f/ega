@@ -8,11 +8,11 @@
 
 - Step 1: picker overlay is mounted; user clicks a password / card / one-time-code field, editable text (contenteditable, role=textbox), or a data-ega-skip region.
 - Step 2: the click is discarded; the picker stays mounted; the user can pick again.
-- Step 3: a toast surfaces ("Ega does not read password, card or other private fields, or text you can edit."); no overlay re-mount.
+- Step 3: the picker bar's status reads "Ega doesn't read password, card or code fields, or text you can edit." in the danger color; no toast covers the bar, and the overlay does not re-mount.
 
 ## Visible affordances
 
-- Hovering a sensitive target hides the outline (no distinct tone).
+- Hovering a sensitive target outlines it in the danger color and the bar names the reason at once.
 
 ## Failure-mode expectations
 

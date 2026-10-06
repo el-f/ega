@@ -2,11 +2,14 @@ import { mount, unmount } from 'svelte';
 import { debugCatch } from '@/shared/logger';
 import { ensureShadowSheet, getContainer, onShadowHostRemount } from './shadowHost';
 import type { PickResult, PickerController } from './picker';
+import type { PickerBarHandle } from './picker-bar';
+import type * as PickerBarMod from './picker-bar';
 import type * as PickerMod from './picker';
 import type PickerOverlayDefault from './PickerOverlay.svelte';
 
 interface PickerBundle {
   pickerMod: typeof PickerMod;
+  barMod: typeof PickerBarMod;
   PickerOverlay: typeof PickerOverlayDefault;
   overlayCss: string;
 }
@@ -14,12 +17,13 @@ let pickerBundleP: Promise<PickerBundle> | null = null;
 function lazyPicker(): Promise<PickerBundle> {
   return (pickerBundleP ??= (async () => {
     // The sheet rides the lazy chunk, so the overlay's rules cost the eager content script nothing.
-    const [pickerMod, overlayMod, cssMod] = await Promise.all([
+    const [pickerMod, barMod, overlayMod, cssMod] = await Promise.all([
       import('./picker'),
+      import('./picker-bar'),
       import('./PickerOverlay.svelte'),
       import('./picker-overlay.css?inline'),
     ]);
-    return { pickerMod, PickerOverlay: overlayMod.default, overlayCss: cssMod.default };
+    return { pickerMod, barMod, PickerOverlay: overlayMod.default, overlayCss: cssMod.default };
   })());
 }
 
@@ -30,6 +34,10 @@ let pickerBlocked = false;
 let pickerSingleton: PickerController | null = null;
 let PickerOverlayComp: typeof PickerOverlayDefault | null = null;
 let pickerOverlayCss = '';
+let barMod: typeof PickerBarMod | null = null;
+let pickerBar: PickerBarHandle | null = null;
+let privateReason = '';
+const PICK_STATUS = 'Click a block to translate it';
 
 function mountPickerOverlay(): void {
   if (!PickerOverlayComp) return;
@@ -39,6 +47,12 @@ function mountPickerOverlay(): void {
   pickerOverlayAnchor.setAttribute('data-ega-picker-wrap', '');
   c.appendChild(pickerOverlayAnchor);
   pickerOverlayHandle = mount(PickerOverlayComp, { target: pickerOverlayAnchor });
+  pickerBar =
+    barMod?.mountPickerBar({
+      kind: 'pick',
+      initialStatus: PICK_STATUS,
+      onCancel: () => pickerSingleton?.exit(),
+    }) ?? null;
 }
 
 function unmountPickerOverlay(): void {
@@ -54,6 +68,8 @@ function unmountPickerOverlay(): void {
     pickerOverlayAnchor.remove();
     pickerOverlayAnchor = null;
   }
+  pickerBar?.destroy();
+  pickerBar = null;
   pickerHovered = null;
   pickerBlocked = false;
 }
@@ -64,15 +80,12 @@ onShadowHostRemount(() => {
   else unmountPickerOverlay();
 });
 
-// Patching the outline beats remounting: a remount tears out the hint's live region and the dimmer.
+// Patching the outline beats remounting: a remount tears out the bar's live region and the dimmer.
 function patchPickerOutline(): void {
   const outline = pickerOverlayAnchor?.querySelector<HTMLElement>('[data-ega-picker-outline]');
   if (!outline) return;
   outline.classList.toggle('is-blocked', pickerBlocked);
-  const hintDefault = pickerOverlayAnchor?.querySelector<HTMLElement>('.picker-hint-default');
-  const hintBlocked = pickerOverlayAnchor?.querySelector<HTMLElement>('.picker-hint-blocked');
-  if (hintDefault) hintDefault.hidden = pickerBlocked;
-  if (hintBlocked) hintBlocked.hidden = !pickerBlocked;
+  pickerBar?.set({ status: pickerBlocked ? privateReason : PICK_STATUS, blocked: pickerBlocked });
   if (!pickerHovered) {
     outline.hidden = true;
     return;
@@ -101,9 +114,12 @@ let pickerEnsureP: Promise<PickerController> | null = null;
 async function ensurePicker(onPick: (r: PickResult) => void): Promise<PickerController> {
   if (pickerSingleton) return pickerSingleton;
   return (pickerEnsureP ??= (async () => {
-    const { pickerMod, PickerOverlay, overlayCss } = await lazyPicker();
+    const bundle = await lazyPicker();
+    const { pickerMod, PickerOverlay, overlayCss } = bundle;
     PickerOverlayComp = PickerOverlay;
     pickerOverlayCss = overlayCss;
+    barMod = bundle.barMod;
+    privateReason = pickerMod.PRIVATE_FIELD_REASON;
     pickerSingleton = pickerMod.createPicker({
       onPick,
       onExit: () => {

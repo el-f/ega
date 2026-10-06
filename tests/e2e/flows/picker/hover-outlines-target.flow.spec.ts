@@ -42,7 +42,9 @@ test('hover paints the picker outline at the hovered element rect', async () => 
   await page.evaluate(() => {
     const host = document.querySelector('#ega-shadow-host');
     const root = (host as HTMLElement | null)?.shadowRoot;
-    root?.querySelector('.picker-hint')?.setAttribute('data-ega-survive-probe', '1');
+    root
+      ?.querySelector('[data-ega-picker-bar] [data-ega-ms-count]')
+      ?.setAttribute('data-ega-survive-probe', '1');
   });
 
   await page.locator('#pick-me').hover();
@@ -56,10 +58,10 @@ test('hover paints the picker outline at the hovered element rect', async () => 
   const hintSurvived = await page.evaluate(() => {
     const host = document.querySelector('#ega-shadow-host');
     const root = (host as HTMLElement | null)?.shadowRoot;
-    const hint = root?.querySelector('.picker-hint');
+    const hint = root?.querySelector('[data-ega-picker-bar] [data-ega-ms-count]');
     return {
       probe: hint?.getAttribute('data-ega-survive-probe') ?? null,
-      ariaLive: hint?.getAttribute('aria-live') ?? null,
+      ariaLive: hint?.getAttribute('role') === 'status' ? 'polite' : null,
       dimmers: root?.querySelectorAll('.picker-dimmer').length ?? 0,
     };
   });

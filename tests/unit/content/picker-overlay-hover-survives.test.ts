@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest';
+import { flushSync } from 'svelte';
 
 type HoverArg = { element: Element; blocked?: true } | null;
 let onHover: ((a: HoverArg) => void) | undefined;
@@ -41,7 +42,7 @@ afterEach(() => {
 });
 
 describe('picker-overlay — a hover repaints without remounting', () => {
-  it('keeps the same hint and dimmer nodes across repaints and moves the outline', async () => {
+  it('keeps the same bar and dimmer nodes across repaints and moves the outline', async () => {
     // rAF runs inline so the repaint lands inside the test.
     vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
       cb(0);
@@ -50,7 +51,7 @@ describe('picker-overlay — a hover repaints without remounting', () => {
 
     await enterPickerMode(vi.fn());
 
-    const hintBefore = container.querySelector('.picker-hint');
+    const hintBefore = container.querySelector('[data-ega-picker-bar]');
     const dimmerBefore = container.querySelector('.picker-dimmer');
     const outline = container.querySelector<HTMLElement>('[data-ega-picker-outline]');
     expect(hintBefore).not.toBeNull();
@@ -70,7 +71,7 @@ describe('picker-overlay — a hover repaints without remounting', () => {
     expect(outline?.style.left).toBe('50px');
 
     // The nodes must stay the same: a remount would swap them and reset the live region.
-    expect(container.querySelector('.picker-hint')).toBe(hintBefore);
+    expect(container.querySelector('[data-ega-picker-bar]')).toBe(hintBefore);
     expect(container.querySelector('.picker-dimmer')).toBe(dimmerBefore);
     expect(container.querySelector('[data-ega-picker-outline]')).toBe(outline);
   });
@@ -90,25 +91,26 @@ describe('picker-overlay — a hover repaints without remounting', () => {
     expect(outline?.style.top).toBe('300px');
   });
 
-  it('marks a refused private field in red and swaps the hint to the reason', async () => {
+  it('marks a refused private field in red and puts the reason in the bar', async () => {
     vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
       cb(0);
       return 0;
     });
     await enterPickerMode(vi.fn());
     const outline = container.querySelector<HTMLElement>('[data-ega-picker-outline]');
-    const hintDefault = container.querySelector<HTMLElement>('.picker-hint-default');
-    const hintBlocked = container.querySelector<HTMLElement>('.picker-hint-blocked');
+    const status = (): string => {
+      flushSync();
+      return container.querySelector('[data-ega-ms-count]')?.textContent ?? '';
+    };
+    expect(status()).toBe('Click a block to translate it');
 
     onHover?.({ element: boxed(0, 0, 100, 20).el, blocked: true });
     expect(outline?.hidden).toBe(false);
     expect(outline?.classList.contains('is-blocked')).toBe(true);
-    expect(hintDefault?.hidden).toBe(true);
-    expect(hintBlocked?.hidden).toBe(false);
+    expect(status()).toBe('Ega does not read private fields.');
 
     onHover?.({ element: boxed(0, 40, 100, 20).el });
     expect(outline?.classList.contains('is-blocked')).toBe(false);
-    expect(hintDefault?.hidden).toBe(false);
-    expect(hintBlocked?.hidden).toBe(true);
+    expect(status()).toBe('Click a block to translate it');
   });
 });

@@ -43,19 +43,27 @@ test('clicking a password field in picker mode is a safe no-op', async () => {
   await page.locator('#pw').click();
   timeline.markStep('password-clicked');
 
-  // The rejected click explains itself with a toast instead of looking frozen.
+  // The picker bar says why instead of looking frozen; a toast would cover the bar.
   await expect
     .poll(
       async () =>
         await page.evaluate(() => {
           const host = document.querySelector('#ega-shadow-host');
           const root = (host as HTMLElement | null)?.shadowRoot;
-          return root?.querySelector('.ega-toast')?.textContent ?? '';
+          return (
+            root?.querySelector('[data-ega-picker-bar] [data-ega-ms-count]')?.textContent ?? ''
+          );
         }),
       { timeout: 4_000 },
     )
-    .toMatch(/does not read password/i);
-  timeline.markStep('toast-visible');
+    .toMatch(/doesn't read password/i);
+  expect(
+    await page.evaluate(
+      () =>
+        document.querySelector('#ega-shadow-host')?.shadowRoot?.querySelector('.ega-toast') ?? null,
+    ),
+  ).toBeNull();
+  timeline.markStep('reason-visible');
 
   // No DOM primitive asserts "nothing happened", so sample both invariants over a window.
   await assertStaysStable(

@@ -49,7 +49,7 @@ test('a keyboard user can move, pick and translate areas without a mouse', async
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
     const tabId = tabs[0]?.id;
     if (!tabId) throw new Error('no tab');
-    await chrome.tabs.sendMessage(tabId, { kind: 'page:translateAll' });
+    await chrome.tabs.sendMessage(tabId, { kind: 'page:chooseAreas' });
   });
   await expect
     .poll(async () => egaTest<boolean>(page, 'msIsActive'), { timeout: 5_000 })
@@ -76,7 +76,7 @@ test('a keyboard user can move, pick and translate areas without a mouse', async
   // Space picks it, and the announcement says so.
   await page.keyboard.press('Space');
   await expect(page.locator('#c1[data-ega-ms-selected]')).toHaveCount(1);
-  await expect.poll(() => liveText(page)).toContain('1 area selected');
+  await expect.poll(() => liveText(page)).toContain('1 area chosen');
 
   await page.keyboard.press('Tab');
   await page.keyboard.press('Space');
@@ -105,7 +105,7 @@ test('Escape leaves translate-areas mode from the keyboard and clears the cursor
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
     const tabId = tabs[0]?.id;
     if (!tabId) throw new Error('no tab');
-    await chrome.tabs.sendMessage(tabId, { kind: 'page:translateAll' });
+    await chrome.tabs.sendMessage(tabId, { kind: 'page:chooseAreas' });
   });
   await expect
     .poll(async () => egaTest<boolean>(page, 'msIsActive'), { timeout: 5_000 })

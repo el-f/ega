@@ -18,7 +18,7 @@ function click(el: Element): void {
 
 function toolbar(): HTMLElement | null {
   const host = document.getElementById('ega-shadow-host');
-  return host?.shadowRoot?.querySelector<HTMLElement>('.ega-ms-toolbar') ?? null;
+  return host?.shadowRoot?.querySelector<HTMLElement>('[data-ega-picker-bar="areas"]') ?? null;
 }
 
 function toolbarEl<T extends HTMLElement>(sel: string): T | null {
@@ -113,13 +113,16 @@ describe('multi-select — selection behavior', () => {
     expect(wrap.getAttribute('data-ega-ms-selected')).toBe('1');
   });
 
-  it('an empty element is rejected with a toast and never selected', () => {
+  it('an empty element is refused in the bar, not a toast, and never selected', () => {
     enterMultiSelect(opts());
     const empty = document.getElementById('empty') as Element;
     click(empty);
     expect(empty.hasAttribute('data-ega-ms-selected')).toBe(false);
-    const host = document.getElementById('ega-shadow-host');
-    expect(host?.shadowRoot?.querySelector('[data-ega-toast-wrap]')).not.toBeNull();
+    const root = document.getElementById('ega-shadow-host')?.shadowRoot;
+    expect(root?.querySelector('[data-ega-ms-count]')?.textContent).toBe(
+      'Nothing to translate in that element.',
+    );
+    expect(root?.querySelector('[data-ega-toast-wrap]')).toBeNull();
   });
 
   it('a sensitive target is rejected and the mode stays on', () => {
@@ -142,30 +145,29 @@ describe('multi-select — selection behavior', () => {
 });
 
 describe('multi-select — toolbar', () => {
-  it('shows the count and enables Translate N only when something is selected', () => {
+  it('shows the count and lets Translate run only when something is chosen', () => {
     enterMultiSelect(opts());
     const btn = toolbarEl<HTMLButtonElement>('[data-ega-ms-translate]');
     const count = toolbarEl<HTMLElement>('[data-ega-ms-count]');
-    expect(btn?.disabled).toBe(true);
+    expect(btn?.getAttribute('aria-disabled')).toBe('true');
     click(document.getElementById('a') as Element);
-    expect(btn?.disabled).toBe(false);
-    expect(btn?.textContent.trim()).toBe('Translate 1');
-    expect(count?.textContent).toBe('1 area selected');
+    expect(btn?.hasAttribute('aria-disabled')).toBe(false);
+    expect(btn?.textContent.trim()).toBe('Translate');
+    expect(count?.textContent).toBe('1 area chosen');
     click(document.getElementById('b') as Element);
-    expect(btn?.textContent.trim()).toBe('Translate 2');
-    expect(count?.textContent).toBe('2 areas selected');
+    expect(count?.textContent).toBe('2 areas chosen');
   });
 
-  it('the mode toggle reports the change and updates aria-pressed', () => {
+  it('the mode radios report the change and update aria-checked', () => {
     const onModeChange = vi.fn();
     enterMultiSelect(opts({ onModeChange }));
     const bilingualBtn = toolbarEl<HTMLButtonElement>('[data-ega-ms-mode="bilingual"]');
     const inplaceBtn = toolbarEl<HTMLButtonElement>('[data-ega-ms-mode="inplace"]');
-    expect(inplaceBtn?.getAttribute('aria-pressed')).toBe('true');
+    expect(inplaceBtn?.getAttribute('aria-checked')).toBe('true');
     bilingualBtn?.click();
     expect(onModeChange).toHaveBeenCalledWith('bilingual');
-    expect(bilingualBtn?.getAttribute('aria-pressed')).toBe('true');
-    expect(inplaceBtn?.getAttribute('aria-pressed')).toBe('false');
+    expect(bilingualBtn?.getAttribute('aria-checked')).toBe('true');
+    expect(inplaceBtn?.getAttribute('aria-checked')).toBe('false');
   });
 
   it('the Translate button fires the selection in click order with the current mode', () => {
