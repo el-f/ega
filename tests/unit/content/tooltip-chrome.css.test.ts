@@ -63,7 +63,7 @@ describe('tooltip meta row contrast', () => {
   });
 
   it('pushes the pills to the end of the action row', () => {
-    expect(rule('.tooltip .actions .meta')?.getPropertyValue('margin-left')).toBe('auto');
+    expect(rule('.tooltip .actions .meta')?.getPropertyValue('margin-inline-start')).toBe('auto');
   });
 
   it('fades a disabled action, which cannot take focus', () => {

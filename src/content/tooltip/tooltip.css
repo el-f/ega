@@ -2,7 +2,7 @@
 
 .tooltip {
   position: fixed;
-  z-index: 2147483647;
+  z-index: var(--ega-layer-tooltip);
   /* Border-box so max-width includes padding and border. */
   box-sizing: border-box;
   max-width: 360px;
@@ -34,7 +34,7 @@
 /* Only the 6px gutter starts a drag. A whole-panel handle would turn ordinary hover, scroll and click into drags. `is-draggable` marks the gutter's presence; it does not change the panel cursor. */
 .tooltip.is-draggable {
   /* Extra left padding so text starts past the drag gutter. */
-  padding-left: calc(var(--space-2) + 8px);
+  padding-inline-start: calc(var(--space-2) + 8px);
 }
 .tooltip.is-dragging {
   cursor: grabbing;
@@ -47,7 +47,7 @@
   position: absolute;
   top: 4px;
   bottom: 4px;
-  left: 0;
+  inset-inline-start: 0;
   width: 6px;
   /* A <button>: drop the UA button chrome. */
   appearance: none;
@@ -362,7 +362,7 @@
 .tooltip .tooltip-topbar .tooltip-close {
   position: static;
   flex-shrink: 0;
-  margin-left: auto;
+  margin-inline-start: auto;
 }
 /* The topbar's padding already makes the gap; a margin here doubles it. */
 .tooltip .tooltip-topbar .task-row {
@@ -374,7 +374,7 @@
 .tooltip .tooltip-close {
   position: absolute;
   top: 4px;
-  right: 4px;
+  inset-inline-end: 4px;
   width: 28px;
   height: 28px;
   border: 0;
@@ -561,7 +561,7 @@
   line-height: var(--lh-heading);
   pointer-events: none;
   box-shadow: 0 1px 3px var(--color-shadow);
-  z-index: 2147483647;
+  z-index: var(--ega-layer-label);
   max-width: 220px;
 }
 .tooltip .meta {
@@ -583,7 +583,7 @@
 }
 /* The pills end the action row; flex-wrap on .actions moves them to their own line when they do not fit. */
 .tooltip .actions .meta {
-  margin-left: auto;
+  margin-inline-start: auto;
   margin-top: 0;
 }
 .tooltip .meta .lang,
@@ -771,6 +771,7 @@
   display: inline-block;
   width: 4px;
   height: 4px;
+  /* logical-props-allow: mirrors Select.svelte, which the mirror lint compares */
   margin-left: var(--space-1);
   border-radius: 50%;
   background: var(--color-accent);
@@ -850,7 +851,9 @@
   overflow-wrap: anywhere;
 }
 .rd-quote {
+  /* logical-props-allow: mirrors ReplyDetails.svelte, which the mirror lint compares */
   padding-left: var(--space-2);
+  /* logical-props-allow: mirrors ReplyDetails.svelte */
   border-left: 2px solid var(--color-border);
   white-space: pre-wrap;
   max-height: 6em;

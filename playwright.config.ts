@@ -1,7 +1,12 @@
 import { defineConfig } from '@playwright/test';
 
 // Capture-only specs assert nothing; a CLI file filter cannot bypass testIgnore, so naming one on the command line lifts the ignore here.
-const CAPTURE_SPECS = ['screenshot-audit', 'showcase', 'visual-journeys'];
+const CAPTURE_SPECS = [
+  'screenshot-audit',
+  'screenshot-audit-inpage',
+  'showcase',
+  'visual-journeys',
+];
 const captureSpecNamed = process.argv
   .slice(2)
   .some((arg) => CAPTURE_SPECS.some((spec) => arg.includes(spec)));
