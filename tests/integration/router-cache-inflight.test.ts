@@ -63,6 +63,7 @@ function translate(
   router: ReturnType<typeof mkRouter>,
   id: string,
   sink: TranslationChunk[],
+  freshAnswer = false,
 ): Promise<void> {
   return router.handleTranslate(
     {
@@ -70,7 +71,7 @@ function translate(
       text: 'marhaba',
       sourceLang: sel('auto'),
       targetLang: sel('en'),
-      options: { stream: false, explain: false },
+      options: { stream: false, explain: false, ...(freshAnswer ? { freshAnswer } : {}) },
     },
     (c) => sink.push(c),
   );
@@ -272,6 +273,73 @@ describe('identical requests in flight share one backend call', () => {
 
     expect(calls.n).toBe(2);
     expect(answerOf(secondChunks)).toBe('hello there');
+  });
+});
+
+describe('a fresh-answer request (Regenerate) asks the model again', () => {
+  /** Answers "answer N" on call N, so a test can tell a new answer from the cached one. */
+  function countingBackend(
+    calls: { n: number },
+    beforeAnswer: () => Promise<void> = async () => {},
+  ): TranslationBackend {
+    return {
+      id: bid('anthropic'),
+      manifest: testManifest('anthropic'),
+      isAvailable: async () => true,
+      translate: async ({ req, onChunk }) => {
+        calls.n += 1;
+        const n = calls.n;
+        await beforeAnswer();
+        const body = JSON.stringify({ translation: `answer ${n}`, confidence: 0.9 });
+        onChunk({ type: 'delta', requestId: req.id, text: body });
+        onChunk(makeDoneChunk(req.id, parseJsonResponse(body)));
+      },
+    };
+  }
+
+  it('skips the cached answer, and its new answer replaces the cached one', async () => {
+    const cache = new TranslationCache();
+    const calls = { n: 0 };
+    const router = mkRouter(countingBackend(calls), cache);
+
+    const first: TranslationChunk[] = [];
+    await translate(router, 'a1', first);
+    const fresh: TranslationChunk[] = [];
+    await translate(router, 'a2', fresh, true);
+    const later: TranslationChunk[] = [];
+    await translate(router, 'a3', later);
+
+    expect(answerOf(first)).toBe('answer 1');
+    expect(answerOf(fresh)).toBe('answer 2');
+    expect(calls.n).toBe(2);
+    // A plain request still reads the cache, and it now holds the regenerated answer.
+    expect(answerOf(later)).toBe('answer 2');
+  });
+
+  it('does not park behind a run of the same request that is still in flight', async () => {
+    const cache = new TranslationCache();
+    const calls = { n: 0 };
+    let release: () => void = () => {};
+    const gate = new Promise<void>((r) => (release = r));
+    const router = mkRouter(
+      countingBackend(calls, () => gate),
+      cache,
+    );
+
+    const leaderChunks: TranslationChunk[] = [];
+    const freshChunks: TranslationChunk[] = [];
+    const leader = translate(router, 'b1', leaderChunks);
+    await afterLeaderClaimedKey(calls);
+    const fresh = translate(router, 'b2', freshChunks, true);
+    // The leader is still gated, so a second call can only come from the fresh request running on its own.
+    await vi.waitFor(() => {
+      expect(calls.n).toBe(2);
+    });
+    release();
+    await Promise.all([leader, fresh]);
+
+    expect(answerOf(leaderChunks)).toBe('answer 1');
+    expect(answerOf(freshChunks)).toBe('answer 2');
   });
 });
 

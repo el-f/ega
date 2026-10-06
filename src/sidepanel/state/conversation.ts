@@ -464,6 +464,8 @@ export interface StartOverlay {
   context?: PageContext | null | undefined;
   /** The thread the user turn sits in; the prompt gets the turns before it. 'none' sends no history. */
   thread: readonly Turn[] | 'none';
+  /** The same request already has an answer the user wants replaced, so the router must not serve it from the cache. */
+  freshAnswer?: boolean;
 }
 
 /** The turns before the user turn. Neither vision arm forwards history (router.ts), so an image gets none. */
@@ -493,6 +495,7 @@ export function buildStartArgs(userTurn: Turn, overlay: StartOverlay): StartArgs
     ...(seed.refinementBody !== undefined ? { refinement: seed.refinementBody } : {}),
     ...(history.length > 0 ? { conversationHistory: history } : {}),
     ...(image !== undefined ? { imageUrl: image } : {}),
+    ...(overlay.freshAnswer ? { freshAnswer: true } : {}),
   };
 }
 

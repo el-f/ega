@@ -68,6 +68,8 @@ export interface TranslationRequest {
     conversationHistory?: ChatTurn[];
     /** One block of a page translate. The audit log keeps only a few of these, so a page cannot evict every interactive row. */
     batch?: boolean;
+    /** The user asked for a new answer: skip the cached one and any run in flight for the same key; the new answer replaces the cached one. Not in the prompt or the key. */
+    freshAnswer?: boolean;
   };
 }
 

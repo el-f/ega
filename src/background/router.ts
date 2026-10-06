@@ -401,12 +401,14 @@ export function createRouter(deps: RouterDeps) {
     const useCache = s.cacheEnabled && visionUrl === undefined;
     let releaseKey: (() => void) | undefined;
     if (useCache) {
-      const hit = await deps.cache.get(key);
+      // Regenerate asks again on purpose: the stored answer and a run in flight would both hand back the old one. The write below still replaces it.
+      const fresh = req.options.freshAnswer === true;
+      const hit = fresh ? undefined : await deps.cache.get(key);
       if (usableHit(hit)) {
         serveFromCache(hit);
         return;
       }
-      const leader = inflightByKey.get(key);
+      const leader = fresh ? undefined : inflightByKey.get(key);
       // A re-issued id supersedes its own earlier run, so it must never park behind it.
       if (leader && !inflight.has(req.id)) {
         const handover = await waitForLeader(req.id, key, leader);

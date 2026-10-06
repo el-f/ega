@@ -352,11 +352,78 @@ describe('createConversation().swapPair', () => {
 });
 
 describe('createConversation().regenerateVariant re-rolls the shown answer', () => {
-  /** The start message without its per-request id, so two sends of one request compare equal. */
+  /** The start message without its per-request id or the cache-skip flag, so two sends of one request compare equal. */
   function request(msg: Record<string, unknown>): Record<string, unknown> {
-    const { requestId: _id, ...rest } = msg;
-    return rest;
+    const { requestId: _id, options, ...rest } = msg;
+    const { freshAnswer: _fresh, ...sent } = options as Record<string, unknown>;
+    return { ...rest, options: sent };
   }
+
+  it('asks the router to skip the cached answer, which is the one on screen', async () => {
+    const c = createConversation();
+    const assistantId = await sendAndDrain(c);
+    expect(lastStartOptions()['freshAnswer']).toBeUndefined();
+
+    expect(await c.regenerateVariant(assistantId)).toBe(true);
+
+    expect(lastStartOptions()['freshAnswer']).toBe(true);
+  });
+
+  it('a swap, a task switch and a refine ask a new question, so they may read the cache', async () => {
+    const c = createConversation();
+    const assistantId = await sendAndDrain(c, {
+      sourceLang: asLangIdUnsafe('es'),
+      targetLang: 'en',
+    });
+    const finish = (): void =>
+      c.applyChunk({ type: 'done', requestId: lastStart()['requestId'] as string });
+
+    expect(await c.swapVariant(assistantId)).toBe(true);
+    expect(lastStartOptions()['freshAnswer']).toBeUndefined();
+    finish();
+    expect(await c.taskVariant(assistantId, 'summarize')).toBe(true);
+    expect(lastStartOptions()['freshAnswer']).toBeUndefined();
+    finish();
+    expect(await c.refine({ turnId: assistantId, refinementBody: 'Shorter.' })).toBe(true);
+    expect(lastStartOptions()['freshAnswer']).toBeUndefined();
+  });
+
+  it('retrying a failed re-roll skips the cache too: a finished sibling already answered it', async () => {
+    const c = createConversation();
+    const assistantId = await sendAndDrain(c);
+    expect(await c.regenerateVariant(assistantId)).toBe(true);
+    c.applyChunk({
+      type: 'error',
+      requestId: lastStart()['requestId'] as string,
+      code: 'NETWORK',
+      message: 'offline',
+    });
+    const before = startCalls().length;
+
+    await c.retry(assistantId);
+
+    expect(startCalls().length).toBe(before + 1);
+    expect(lastStartOptions()['freshAnswer']).toBe(true);
+  });
+
+  it('retrying a failed refine nothing answered may read the cache', async () => {
+    const c = createConversation();
+    const assistantId = await sendAndDrain(c);
+    expect(await c.refine({ turnId: assistantId, refinementBody: 'Shorter.' })).toBe(true);
+    c.applyChunk({
+      type: 'error',
+      requestId: lastStart()['requestId'] as string,
+      code: 'NETWORK',
+      message: 'offline',
+    });
+    const before = startCalls().length;
+
+    await c.retry(assistantId);
+
+    expect(startCalls().length).toBe(before + 1);
+    expect(lastStartOptions()['refinement']).toBe('Shorter.');
+    expect(lastStartOptions()['freshAnswer']).toBeUndefined();
+  });
 
   it('a shown swap re-runs the swapped direction, and sends what the swap sent', async () => {
     const c = createConversation();
@@ -443,6 +510,7 @@ describe('createConversation().regenerateVariant re-rolls the shown answer', () 
 
     expect(lastStart()['sourceLang']).toBe('en');
     expect(lastStart()['targetLang']).toBe('es');
+    expect(lastStartOptions()['freshAnswer']).toBe(true);
   });
 });
 

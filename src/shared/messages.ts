@@ -44,6 +44,8 @@ export type Msg =
         conversationHistory?: ChatTurn[];
         /** One block of a page translate (see TranslationRequest.options.batch). */
         batch?: boolean;
+        /** Skip the cached answer (see TranslationRequest.options.freshAnswer). */
+        freshAnswer?: boolean;
       };
     }
   | { kind: 'translate:chunk'; chunk: TranslationChunk }

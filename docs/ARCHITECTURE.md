@@ -345,7 +345,9 @@ didn't the bubble appear".
    placeholder-text key. The page context reaches the key through the prompt, so
    the same phrase selected in two paragraphs gets two slots. On a miss, a request whose
    key is already running waits for that run and reads its answer instead of
-   paying for the same call twice; it stays cancellable while it waits.
+   paying for the same call twice; it stays cancellable while it waits. A side-panel
+   Regenerate sets `options.freshAnswer`: it skips the cache read and that wait, and its
+   answer replaces the cached one. The prompt and the key do not change.
 7. On a miss the router resolves the backend chain through
    `src/shared/backends/select.ts#computeBackendOrder`, which holds the one chain rule:
    `backendOrder`, minus disabled and unregistered ids. Every task uses the same chain. It probes them with

@@ -59,6 +59,8 @@ export async function sendTranslateStart(args: {
   conversationHistory?: ChatTurn[];
   /** Attached image (data: or http(s) URL). Routes through a vision backend. */
   imageUrl?: string;
+  /** Regenerate: skip the cached answer to this same request. */
+  freshAnswer?: boolean;
 }): Promise<void> {
   await chrome.runtime.sendMessage({
     kind: 'translate:start',
@@ -76,6 +78,7 @@ export async function sendTranslateStart(args: {
       ...(args.refinement ? { refinement: args.refinement } : {}),
       ...(args.conversationHistory ? { conversationHistory: args.conversationHistory } : {}),
       ...(args.imageUrl ? { imageUrl: args.imageUrl } : {}),
+      ...(args.freshAnswer ? { freshAnswer: true } : {}),
     },
   } satisfies Msg);
 }

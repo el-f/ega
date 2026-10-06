@@ -654,7 +654,19 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
         ),
       'none',
     );
-    await dispatchVariant(turn.id, seedOf(failed));
+    const seed = seedOf(failed);
+    // A failed re-roll asks what a finished sibling already answered, and the cache would hand that answer back.
+    const answered = (turn.variants ?? []).some(
+      (v) => v.id !== failed.id && v.status === 'done' && sameRequest(seedOf(v), seed),
+    );
+    await dispatchVariant(turn.id, seed, answered);
+  }
+
+  /** The label only names a refine in the UI; every other seed field reaches the request. */
+  function sameRequest(a: VariantSeed, b: VariantSeed): boolean {
+    const wire = ({ refinementLabel: _label, ...rest }: VariantSeed): string =>
+      JSON.stringify(rest);
+    return wire(a) === wire(b);
   }
 
   /** The modifiers a variant ran with, so a re-run of it asks the same question. */
@@ -692,8 +704,12 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     return userTurn.dispatch ?? state.lastDispatch;
   }
 
-  /** Appends a pending sibling variant carrying `seed` and replays the user turn with it. */
-  async function dispatchVariant(turnId: string, seed: VariantSeed): Promise<boolean> {
+  /** Appends a pending sibling variant carrying `seed` and replays the user turn with it. `freshAnswer` skips the router's cached answer. */
+  async function dispatchVariant(
+    turnId: string,
+    seed: VariantSeed,
+    freshAnswer = false,
+  ): Promise<boolean> {
     if (state.inflightId !== null || ownedByBackground(turnId)) return false;
     const target = resolveVariantTarget(turnId);
     if (target === null) return false;
@@ -714,7 +730,15 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     try {
       // Deliberate: a variant re-answers this one exchange, with no earlier turns.
       await sendTranslateStart(
-        buildStartArgs(userTurn, { requestId, reuse, seed, tone, context, thread: 'none' }),
+        buildStartArgs(userTurn, {
+          requestId,
+          reuse,
+          seed,
+          tone,
+          context,
+          thread: 'none',
+          freshAnswer,
+        }),
       );
     } catch (e) {
       failDispatch(turnId, requestId, e, variantId);
@@ -913,7 +937,8 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     // A stored turn the byte cap shrank gets its v1 back at load (conversation-store), so no rebuild here.
     const turn = state.turns.find((t) => t.id === turnId);
     // Re-rolls the answer on screen: a swap, a language change, a task or a refine runs as itself again.
-    return dispatchVariant(turnId, seedOf(turn ? activeVariant(turn) : undefined));
+    // The same request has a cached answer (the one on screen), so without freshAnswer the router hands it back unchanged.
+    return dispatchVariant(turnId, seedOf(turn ? activeVariant(turn) : undefined), true);
   }
 
   function editFrom(userTurnId: string): string | null {

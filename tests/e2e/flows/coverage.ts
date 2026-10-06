@@ -399,6 +399,12 @@ export const COVERAGE: readonly Family[] = [
             flows: ['sidepanel/variant-nav-prev-next.flow.spec.ts'],
           },
           {
+            id: 'regenerate-skips-cache',
+            description:
+              'Regenerate on a finished answer calls the model again with the cache on and shows the new text as 2/2',
+            flows: ['sidepanel/regenerate-skips-cache.flow.spec.ts'],
+          },
+          {
             id: 'refine-on-explain-turn',
             description:
               'Explain turn done → chips mount → [Shorter] → variant with explain=true on wire',

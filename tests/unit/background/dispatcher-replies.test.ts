@@ -3,6 +3,7 @@ import { chromeMock, resetChromeMock } from '@tests/mocks/chrome';
 import { STORAGE_KEYS } from '@/shared/constants';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import type { Msg, MsgReply } from '@/shared/messages';
+import type { TranslationRequest } from '@/shared/types';
 
 const backendIds = [...DEFAULT_SETTINGS.backendOrder];
 
@@ -251,5 +252,24 @@ describe('translate:start pageHost', () => {
     await vi.waitFor(() => expect(routerMock.handleTranslate).toHaveBeenCalledTimes(1));
     const [req] = routerMock.handleTranslate.mock.calls[0] as [{ pageHost?: string }];
     expect(req.pageHost).toBeUndefined();
+  });
+});
+
+describe('translate:start freshAnswer', () => {
+  it('reaches the router, so a Regenerate is not served the cached answer', async () => {
+    routerMock.handleTranslate.mockClear();
+    await ask(
+      {
+        kind: 'translate:start',
+        requestId: 'rf1',
+        text: 'salam',
+        sourceLang: 'auto',
+        options: { stream: true, explain: false, freshAnswer: true },
+      },
+      PAGE_SENDER,
+    );
+    await vi.waitFor(() => expect(routerMock.handleTranslate).toHaveBeenCalledTimes(1));
+    const [req] = routerMock.handleTranslate.mock.calls[0] as [TranslationRequest];
+    expect(req.options.freshAnswer).toBe(true);
   });
 });
