@@ -10,6 +10,7 @@ const HEX_RE = /#[0-9a-f]{3,8}\b/i;
 const COLOR_FN_RE = /\b(?:rgba?|hsla?|oklch|oklab|color-mix)\(/i;
 const COMMENT_RE_CSS = /\/\*[\s\S]*?\*\//g;
 const COMMENT_RE_SVELTE_SCRIPT = /<script[^>]*>[\s\S]*?<\/script>/g;
+const STYLE_BLOCK_RE = /<style[^>]*>[\s\S]*?<\/style>/g;
 const ALLOW_MARKER = 'token-lint-allow';
 
 interface Violation {
@@ -128,12 +129,13 @@ function lintLines(
   return out;
 }
 
+// Strings come first, so a `/*` or `//` inside one (`'image/*'`, `chrome-extension://*`) never opens a comment. A nested template literal or a regex literal holding a quote can still fool it.
+const CODE_TOKEN_RE =
+  /'(?:\\.|[^'\\\n])*'|"(?:\\.|[^"\\\n])*"|\x60(?:\\[\s\S]|[^\x60\\])*\x60|\/\*[\s\S]*?\*\/|(?<![:\\])\/\/[^\n]*/g;
+
 // `//` and `/* */` comments in code, blanked so a commented-out style write is not flagged.
 function stripCodeComments(input: string): string {
-  return stripCssComments(input).replace(
-    /(^|[^:\\])\/\/.*$/gm,
-    (m, pre: string) => pre + ' '.repeat(m.length - pre.length),
-  );
+  return input.replace(CODE_TOKEN_RE, (m) => (m.startsWith('/') ? blankPreserveLines(m) : m));
 }
 
 // Newlines survive so reported line numbers still match the original source.
@@ -157,9 +159,11 @@ function stripHtmlComments(input: string): string {
  */
 function lintSvelte(source: string, file: string, fed = fontSizeFeeds(source)): Violation[] {
   const origLines = source.split('\n');
-  // Markup and <style>: colors and sizes. A <script> holds no CSS, so it is blanked here.
+  // Markup and <style>: colors and sizes. A <script> is blanked here; only <style> holds /* */ comments (`accept="image/*"` is a value).
   const scriptsBlanked = source.replace(COMMENT_RE_SVELTE_SCRIPT, blankPreserveLines);
-  const markup = stripCssComments(stripHtmlComments(scriptsBlanked)).split('\n');
+  const markup = stripHtmlComments(scriptsBlanked)
+    .replace(STYLE_BLOCK_RE, stripCssComments)
+    .split('\n');
   const out = lintLines(markup, origLines, file, (t) => classify(t, fed));
   // The <script> alone: style writes from code and style strings.
   let scriptOnly = blankPreserveLines(source);

@@ -232,3 +232,51 @@ describe('token-lint font sizes set from .ts', () => {
     expect(lintTs(src, 'x.ts')).toEqual([]);
   });
 });
+
+describe('token-lint text that only looks like a comment opener', () => {
+  it.each([
+    ['a font size', '  .a { font-size: 13px; }', 'font'],
+    ['a hex color', '  .a { color: #ff0000; }', 'hex'],
+    ['a color function', '  .a { color: rgba(0, 0, 0, 0.5); }', 'fn'],
+  ])('flags %s in <style> after an attribute value holding /*', (_name, decl, kind) => {
+    const src = ['<input accept="image/*" />', '<style>', decl, '  /* a comment */', '</style>'];
+    expect(lintSvelte(src.join('\n'), 'x.svelte').map((v) => [v.line, v.kind])).toEqual([
+      [3, kind],
+    ]);
+  });
+
+  it.each([
+    ['a single-quoted string', "const accept = 'image/*';"],
+    ['a double-quoted string', 'const accept = "image/*";'],
+    ['a template literal', 'const accept = `image/*`;'],
+    ['a URL pattern', "const origin = 'chrome-extension://*';"],
+  ])('flags a style write in .ts after %s', (_name, opener) => {
+    const src = [opener, "el.style.fontSize = '12px';", '/* a comment */'].join('\n');
+    expect(lintTs(src, 'x.ts').map((v) => v.line)).toEqual([2]);
+  });
+
+  it('flags a style write in a <script> after a string holding /*', () => {
+    const src = [
+      '<script>',
+      "  const accept = 'image/*';",
+      "  el.style.fontSize = '12px';",
+      '  /* a comment */',
+      '</script>',
+    ].join('\n');
+    expect(lintSvelte(src, 'x.svelte').map((v) => v.line)).toEqual([3]);
+  });
+
+  it('flags a style write that follows a comment holding an apostrophe', () => {
+    const src = ["// it's a trap", "el.style.fontSize = '12px';"].join('\n');
+    expect(lintTs(src, 'x.ts').map((v) => v.line)).toEqual([2]);
+  });
+
+  it.each([
+    ["/* el.style.fontSize = '12px'; */"],
+    ["/*\n  el.style.fontSize = '12px';\n*/"],
+    ["const a = 1; /* it's fine */ el.style.fontSize = 'var(--fs-sm)';"],
+    ["const url = 'https://example.test/a'; // el.style.fontSize = '12px';"],
+  ])('ignores a real comment: %s', (src) => {
+    expect(lintTs(src, 'x.ts')).toEqual([]);
+  });
+});
