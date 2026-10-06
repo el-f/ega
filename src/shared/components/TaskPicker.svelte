@@ -62,7 +62,7 @@
     flex: 0 1 auto;
     min-width: 0;
     padding: 4px 10px;
-    font-size: 12px;
+    font-size: var(--fs-sm);
     line-height: 1.2;
     border: 1px solid var(--ega-border, var(--color-border));
     background: var(--ega-bg, transparent);

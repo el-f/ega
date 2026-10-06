@@ -149,7 +149,7 @@
   .variant-secondary {
     background: var(--color-bg-elevated);
     color: var(--color-fg);
-    border-color: var(--color-border);
+    border-color: var(--color-control-border);
   }
   .variant-secondary:not(:disabled):hover {
     background: var(--color-bg-hover);

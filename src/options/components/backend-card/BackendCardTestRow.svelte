@@ -213,11 +213,11 @@
   }
   /* The same text the title and aria carry, shown so a mouse user does not have to hover to learn why. */
   .be-disabled-reason {
-    font-size: 12px;
+    font-size: var(--fs-sm);
     color: var(--color-muted);
   }
   .be-latency {
-    font-size: 12px;
+    font-size: var(--fs-sm);
     opacity: 0.75;
     font-variant-numeric: tabular-nums;
     padding: 0 6px;
@@ -243,7 +243,7 @@
     margin-left: var(--space-1);
   }
   .be-testresult {
-    font-size: 12px;
+    font-size: var(--fs-sm);
     opacity: 0.9;
     flex: 1;
     min-width: 200px;
@@ -251,7 +251,7 @@
   }
   .be-test-note {
     flex-basis: 100%;
-    font-size: 12px;
+    font-size: var(--fs-sm);
     color: var(--color-muted);
   }
   .be-help {
@@ -260,12 +260,12 @@
     border: 1px solid var(--color-warning-border);
     border-radius: 6px;
     background: rgba(227, 179, 65, 0.08);
-    font-size: 12px;
+    font-size: var(--fs-sm);
     line-height: 1.45;
   }
   .be-help strong {
     display: block;
-    font-size: 12px;
+    font-size: var(--fs-sm);
     margin-bottom: 4px;
     color: var(--color-warning-fg);
   }
@@ -274,6 +274,6 @@
   }
   .be-help code {
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 11.5px;
+    font-size: var(--fs-sm);
   }
 </style>

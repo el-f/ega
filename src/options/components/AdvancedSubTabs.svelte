@@ -107,7 +107,7 @@
     border-radius: var(--radius-pill);
     background: var(--color-accent-bg-soft);
     color: var(--color-accent);
-    font-size: 11px;
+    font-size: var(--fs-xs);
     font-weight: 500;
     line-height: 1;
     font-variant-numeric: tabular-nums;

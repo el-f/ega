@@ -105,7 +105,7 @@
     background: var(--color-muted);
   }
   .be-status {
-    font-size: 11px;
+    font-size: var(--fs-xs);
     padding: 1px 8px;
     border-radius: 999px;
     border: 1px solid var(--color-border);

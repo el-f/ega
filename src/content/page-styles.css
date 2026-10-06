@@ -59,7 +59,7 @@
   background: rgba(255, 149, 146, 0.22); /* token-lint-allow page sheet */
   box-shadow: inset 0 0 0 1px rgba(255, 149, 146, 0.6); /* token-lint-allow page sheet */
   color: inherit;
-  font-size: 0.85em;
+  font-size: 0.85em; /* token-lint-allow page text sets the size */
   white-space: nowrap;
   user-select: none;
 }

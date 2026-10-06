@@ -48,8 +48,9 @@
 </div>
 
 <style>
+  /* A surface sets --ega-md-fs to read answers at its own size; the tooltip keeps 12px. */
   .ega-md {
-    font-size: var(--fs-sm);
+    font-size: var(--ega-md-fs, var(--fs-sm));
     line-height: var(--lh-body);
     color: var(--color-fg);
     /* Word-break to wrap long URLs / tokens so the bubble doesn't blow
@@ -74,7 +75,7 @@
     background: var(--color-bg-sunken);
     border-radius: var(--radius-sm);
     padding: 1px 4px;
-    font-size: 0.95em;
+    font-size: 0.95em; /* token-lint-allow inline code follows the text around it */
   }
   .ega-md :global(pre code) {
     background: transparent;

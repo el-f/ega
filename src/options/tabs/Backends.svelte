@@ -254,7 +254,7 @@
     cursor: grabbing;
   }
   .be-drag {
-    font-size: 14px;
+    font-size: var(--fs-md);
     line-height: 1;
     letter-spacing: -2px;
     color: var(--color-muted);

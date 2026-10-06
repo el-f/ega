@@ -138,10 +138,9 @@
     margin: calc(-1 * var(--space-1)) calc(-1 * var(--space-1)) var(--space-1);
   }
   .ega-popover-title {
-    font-size: var(--fs-xs);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--color-muted);
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    color: var(--color-fg);
     padding-left: var(--space-1);
   }
   .ega-popover-body {

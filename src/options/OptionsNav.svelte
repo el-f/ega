@@ -138,7 +138,7 @@
   .options-nav-group-label {
     margin: var(--space-4) 0 var(--space-1);
     padding: 0 var(--space-2);
-    font-size: 10px;
+    font-size: var(--fs-xs);
     font-weight: 600;
     color: var(--color-muted);
     text-transform: uppercase;

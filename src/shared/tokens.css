@@ -15,14 +15,14 @@
   --scrollbar-w: 10px;
 
   /* Type scale. */
-  --fs-xs: 11px;
+  --fs-xs: 12px;
   --fs-sm: 12px;
   --fs-base: 13px;
   --fs-md: 14px;
   --fs-lg: 16px;
   --fs-xl: 20px;
   --fs-2xl: 24px;
-  --lh-body: 1.4;
+  --lh-body: 1.5;
   --lh-heading: 1.2;
   --font-ui: ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, 'SF Mono', Menlo, monospace;
@@ -73,7 +73,7 @@
   --cursor-disabled: not-allowed;
   --color-scrollbar-thumb: rgba(255, 255, 255, 0.18);
   --color-scrollbar-thumb-hover: rgba(255, 255, 255, 0.34);
-  --color-placeholder: #7a7d83; /* slate.10 dark — between fg-subtle and bg, dim but legible against #111113 */
+  --color-placeholder: #8e9199; /* 5.6:1 on --color-bg-elevated, 4.5:1 even on --color-bg-hover */
   --color-success: #46a758; /* grass.9 */
   --color-success-hover: #53b365; /* grass.10 */
   --color-success-fg: #71d083; /* grass.11 */
@@ -129,7 +129,7 @@
     --color-border-disabled: rgba(0, 0, 0, 0.06);
     --color-scrollbar-thumb: rgba(0, 0, 0, 0.22);
     --color-scrollbar-thumb-hover: rgba(0, 0, 0, 0.38);
-    --color-placeholder: #9b9ba1; /* slate.10 light — ≥4.5:1 against #fcfcfd */
+    --color-placeholder: #6b6f76; /* 4.8:1 on --color-bg-elevated */
     --color-shadow: rgba(0, 0, 0, 0.12);
     --color-shadow-soft: rgba(0, 0, 0, 0.08);
     --color-shadow-strong: rgba(0, 0, 0, 0.24);
@@ -177,7 +177,7 @@
   --color-border-disabled: rgba(0, 0, 0, 0.06);
   --color-scrollbar-thumb: rgba(0, 0, 0, 0.22);
   --color-scrollbar-thumb-hover: rgba(0, 0, 0, 0.38);
-  --color-placeholder: #9b9ba1;
+  --color-placeholder: #6b6f76;
   --color-shadow: rgba(0, 0, 0, 0.12);
   --color-shadow-soft: rgba(0, 0, 0, 0.08);
   --color-shadow-strong: rgba(0, 0, 0, 0.24);
@@ -220,7 +220,7 @@
   --color-border-disabled: rgba(255, 255, 255, 0.08);
   --color-scrollbar-thumb: rgba(255, 255, 255, 0.18);
   --color-scrollbar-thumb-hover: rgba(255, 255, 255, 0.34);
-  --color-placeholder: #7a7d83;
+  --color-placeholder: #8e9199;
   --color-shadow: rgba(0, 0, 0, 0.4);
   --color-shadow-soft: rgba(0, 0, 0, 0.3);
   --color-shadow-strong: rgba(0, 0, 0, 0.6);
