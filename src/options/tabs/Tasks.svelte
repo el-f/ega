@@ -160,7 +160,7 @@
 
     <SectionCard
       title="Built-in tasks"
-      description="An off task is hidden in the side panel, tooltip, Re-run as menu, palette and right-click menu."
+      description="An off task is hidden in the side panel, the tooltip, the palette and every menu."
     >
       <div data-ega-setting="tasks.overrides">
         <ul class="task-list" data-ega-setting="tasks.enabled">
