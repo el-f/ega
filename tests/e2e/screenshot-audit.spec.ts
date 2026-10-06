@@ -1814,6 +1814,34 @@ test('Advanced — landing in dark theme', async () => {
   test.slow();
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
+  // The Diagnostics table lists the errors of the last hour. Write three here, in the audit log's own envelope, so this shot never depends on what earlier tests logged.
+  await page.evaluate(async () => {
+    const rows = [
+      ['SERVER', 'Anthropic HTTP 500: upstream exploded'],
+      ['ABORTED', 'The request was aborted.'],
+      [
+        'AUTH',
+        'The backend rejected the API key. Check it in Settings → Backends.\nGemini HTTP 401',
+      ],
+    ];
+    const entries = rows.map(([code, message], i) => ({
+      id: `audit-seed-${code}`,
+      ts: Date.now() - i * 1_000,
+      task: 'translate',
+      sourceLang: 'auto',
+      targetLang: 'en',
+      backend: 'anthropic',
+      model: 'claude-haiku-4-5',
+      systemPrompt: '',
+      userPrompt: '',
+      response: '',
+      latencyMs: 100,
+      cacheHit: false,
+      error: { code, message },
+    }));
+    await chrome.storage.local.set({ egaAuditLog: { version: 1, entries } });
+  });
+  await page.reload();
   await page.waitForLoadState('networkidle');
   await page.locator('[role="tab"]:has-text("Advanced")').first().click();
   await page.waitForTimeout(400); // wait for tab panel CSS transition (no observable end state)
