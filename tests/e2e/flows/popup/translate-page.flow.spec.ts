@@ -16,7 +16,7 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-test('"Translate this page" sends page:translateAll to the resolved content tab', async () => {
+test('"Translate page" sends page:translateAll to the resolved content tab', async () => {
   const timeline = createTimeline();
   const popup = await ext.context.newPage();
   await popup.addInitScript(() => {
@@ -48,7 +48,7 @@ test('"Translate this page" sends page:translateAll to the resolved content tab'
   await popup.goto(`chrome-extension://${ext.extensionId}/src/popup/index.html`);
   timeline.markStep('popup-opened');
 
-  await popup.getByRole('button', { name: 'Translate this page' }).click();
+  await popup.getByRole('button', { name: 'Translate page' }).click();
   timeline.markStep('page-translate-clicked');
 
   await expect

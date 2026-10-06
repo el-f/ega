@@ -6,7 +6,7 @@
 
 ## State expectations
 
-- Step 1: popup freeform Open in side panel queues `ega.pendingPopupHandoff`; sidepanel mounts and drains it — the seeded UserTurn + completed AssistantTurn are visible.
+- Step 1: popup "Translate in the side panel" box + Translate queues `ega.pendingPopupHandoff`; sidepanel mounts and drains it — the seeded UserTurn + completed AssistantTurn are visible.
 - Step 2: the user opens the seeded reply's Refine menu and picks a preset ("Shorter").
 - Step 3: the reply gains version 2 in place (pager 2/2, not a new message); the seeded answer stays as version 1.
 

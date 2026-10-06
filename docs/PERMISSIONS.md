@@ -21,9 +21,9 @@ one runs, and you can say no and keep everything else.
 
 **On demand** (`optional_permissions` in the manifest):
 
-| Permission      | When Chrome asks                                                                      |
-| --------------- | ------------------------------------------------------------------------------------- |
-| `clipboardRead` | The first time you press the popup's **Translate clipboard** tile. Never before that. |
+| Permission      | When Chrome asks                                                                  |
+| --------------- | --------------------------------------------------------------------------------- |
+| `clipboardRead` | The first time you press **Translate clipboard** in the popup. Never before that. |
 
 ## `storage`
 
@@ -222,8 +222,8 @@ turn it off in **Settings → Backends**. See
 
 ## `clipboardRead`
 
-Backs the **Translate clipboard** tile in the popup. Ega reads the clipboard only
-when you click that tile.
+Backs **Translate clipboard** in the popup. Ega reads the clipboard only
+when you click it.
 
 This one is not in the install prompt. It sits in `optional_permissions`, so the
 popup asks Chrome for it inside your click, and only the first time
@@ -233,7 +233,7 @@ popup asks Chrome for it inside your click, and only the first time
 
 Opens the side panel. Four kinds of trigger, every one started by your click:
 
-- the popup — its **Side panel** tile, its **Translate clipboard** tile, and sending
+- the popup — its **Open side panel** and **Translate clipboard** buttons, and sending
   typed text from the popup box,
 - the "Ega ▸ Translate in side panel" right-click item,
 - the image right-click items ("Translate image", "Explain image"), which

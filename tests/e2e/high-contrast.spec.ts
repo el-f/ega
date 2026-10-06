@@ -63,13 +63,14 @@ test('options: picked states and keyboard focus keep a visible cue', async () =>
 });
 
 test('popup: keyboard focus keeps a ring, and a disabled button is greyed by color, not faded', async () => {
+  await seedSettings(ext.context, ext.extensionId, { pickerEnabled: false });
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/popup/index.html`);
-  // Disabled while the source language is auto.
-  const swap = page.getByRole('button', { name: 'Pick a source language to swap' });
-  await expect(swap).toBeDisabled();
+  // Blocked while the picker is off in Settings.
+  const swap = page.getByRole('button', { name: /^Pick element/ });
+  await expect(swap).toHaveAttribute('aria-disabled', 'true');
   const opacity = (): Promise<string> => swap.evaluate((n) => getComputedStyle(n).opacity);
-  // The swap stays focusable, so it is greyed with the disabled color: opacity would fade its focus ring too.
+  // The row stays focusable, so it is greyed with the disabled color: opacity would fade its focus ring too.
   expect(await opacity()).toBe('1');
   const disabledFg = await page.evaluate(() => {
     const probe = document.createElement('span');

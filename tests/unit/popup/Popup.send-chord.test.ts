@@ -1,12 +1,15 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import type { Mock } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
-import { tick } from 'svelte';
 import Popup from '@/popup/Popup.svelte';
 import { flushAsync } from '@tests/_helpers/async';
 
 // The shortcuts overlay documents Ctrl/Cmd+Enter here; src/popup had no keydown handler at all.
+
+beforeEach(async () => {
+  await chrome.storage.local.set({ 'ega.settings': { anthropicApiKey: 'test-key' } });
+});
 
 afterEach(() => {
   vi.clearAllMocks();
@@ -29,9 +32,8 @@ async function openComposer(text: string): Promise<Harness> {
   });
   const closeSpy = vi.spyOn(window, 'close').mockImplementation(() => undefined);
 
-  const { container, findByText } = render(Popup);
-  await fireEvent.click(await findByText(/Translate something/i));
-  await tick();
+  const { container } = render(Popup);
+  await vi.waitFor(() => expect(chrome.tabs.query).toHaveBeenCalled());
   const textarea = container.querySelector('[data-ega-freeform-textarea]') as HTMLTextAreaElement;
   await fireEvent.input(textarea, { target: { value: text } });
 

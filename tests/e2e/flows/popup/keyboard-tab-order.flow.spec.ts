@@ -28,25 +28,28 @@ test('Tab walks the popup top to bottom with a visible ring; Esc closes the back
   });
   timeline.markStep('popup-ready');
 
-  const stops: FocusStop[] = [];
+  // Nothing is prefilled, so the popup opens with focus on its main action.
+  await expect(popup.getByRole('button', { name: 'Translate page' })).toBeFocused();
+  // Walk from the first stop: Chromium resumes Tab from wherever focus last was.
+  await chip.focus();
+  const first = await readFocus(popup);
+  const stops: FocusStop[] = first ? [first] : [];
   for (let i = 0; i < 15; i++) {
     await popup.keyboard.press('Tab');
     const stop = await readFocus(popup);
     if (stop === null) break;
     stops.push(stop);
   }
-  // The swap is blocked while the source is auto, but stays a tab stop so its reason can be read.
+  // Swap is hidden while the source is auto; the four page tools are one stop.
   expect(stops.map((s) => s.name)).toEqual([
     expect.stringMatching(/^Anthropic is ready/),
     'Open settings',
     'Source language',
-    'Pick a source language to swap',
     'Target language',
-    'Translate this page',
-    'Pick element',
-    'Translate clipboard contents',
-    'Open side panel',
-    'Translate something…',
+    'Translate page',
+    'Choose areas',
+    'ega-popup-freeform',
+    'Translate',
   ]);
   for (const s of stops) {
     expect(s.visible, `${s.name} is focused but not visible`).toBe(true);
@@ -54,11 +57,11 @@ test('Tab walks the popup top to bottom with a visible ring; Esc closes the back
   }
   timeline.markStep('tab-order-checked');
 
-  // The loop tabbed past the last stop; come back to it. Enter opens the composer and focuses it.
-  await popup.locator('[data-ega-freeform-collapsed]').focus();
-  await popup.keyboard.press('Enter');
-  await expect(popup.locator('[data-ega-freeform-textarea]')).toBeFocused();
-  timeline.markStep('composer-focused');
+  // Down moves inside the tools list.
+  await popup.getByRole('button', { name: 'Choose areas' }).focus();
+  await popup.keyboard.press('ArrowDown');
+  await expect(popup.getByRole('button', { name: 'Pick element' })).toBeFocused();
+  timeline.markStep('tools-arrow-key');
 
   await chip.focus();
   await popup.keyboard.press('Enter');

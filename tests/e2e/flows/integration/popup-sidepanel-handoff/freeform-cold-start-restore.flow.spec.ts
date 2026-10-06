@@ -45,9 +45,8 @@ test('Open in side panel with cold sidepanel: cold-start drains slot and seeds t
   await popup.goto(`chrome-extension://${ext.extensionId}/src/popup/index.html`);
   timeline.markStep('popup-open');
 
-  await popup.locator('[data-ega-freeform-collapsed]').click();
   await popup.locator('[data-ega-freeform-textarea]').fill('translate hello to french');
-  await popup.getByRole('button', { name: /Open in side panel/i }).click();
+  await popup.getByRole('button', { name: 'Translate', exact: true }).click();
   timeline.markStep('send-clicked');
 
   // Confirm the handoff is in storage before mounting the sidepanel.

@@ -46,9 +46,8 @@ test('handoff seeds sidepanel; a Refine preset on the seeded turn adds a version
     (window as unknown as { close: () => void }).close = () => {};
   });
   await popup.goto(`chrome-extension://${ext.extensionId}/src/popup/index.html`);
-  await popup.locator('[data-ega-freeform-collapsed]').click();
   await popup.locator('[data-ega-freeform-textarea]').fill('translate hello to french');
-  await popup.getByRole('button', { name: /Open in side panel/i }).click();
+  await popup.getByRole('button', { name: 'Translate', exact: true }).click();
   timeline.markStep('send-clicked');
 
   // The slot must land before the sidepanel mounts, or the drain finds nothing.

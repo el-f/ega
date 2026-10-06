@@ -43,9 +43,8 @@ test('source+target lang from popup pickers persist into the handoff payload', a
   await expect(popup.locator('#pop-target')).toHaveValue('es');
   timeline.markStep('lang-picked');
 
-  await popup.locator('[data-ega-freeform-collapsed]').click();
   await popup.locator('[data-ega-freeform-textarea]').fill('hello world');
-  await popup.getByRole('button', { name: /Open in side panel/i }).click();
+  await popup.getByRole('button', { name: 'Translate', exact: true }).click();
   timeline.markStep('send-clicked');
 
   await expect

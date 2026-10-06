@@ -18,7 +18,7 @@
 
 ## Failure-mode expectations
 
-- If the sidepanel fails to open (extension API error), the popup stays open with a "Could not open the side panel." toast and the composer text is kept.
+- If the sidepanel fails to open (extension API error), the popup stays open with a "Ega couldn't open the side panel. Try again." toast and the composer text is kept.
 - A handoff the sidepanel never drains expires after 60s, so a panel opened later does not replay it.
 
 ## Cautions

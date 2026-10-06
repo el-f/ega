@@ -48,9 +48,8 @@ test('Open in side panel with warm sidepanel: live mount drains slot on storage.
     (window as unknown as { close: () => void }).close = () => {};
   });
   await popup.goto(`chrome-extension://${ext.extensionId}/src/popup/index.html`);
-  await popup.locator('[data-ega-freeform-collapsed]').click();
   await popup.locator('[data-ega-freeform-textarea]').fill('hello in german');
-  await popup.getByRole('button', { name: /Open in side panel/i }).click();
+  await popup.getByRole('button', { name: 'Translate', exact: true }).click();
   timeline.markStep('send-clicked');
 
   // The warm sidepanel picks the turn up without a remount.

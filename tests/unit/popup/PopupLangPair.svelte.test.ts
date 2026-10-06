@@ -42,30 +42,23 @@ describe('PopupLangPair', () => {
     expect(selects.length).toBe(2);
   });
 
-  it('renders a swap button between pickers', () => {
+  it('labels the pair as the default languages', () => {
     const { getByRole } = render(PopupLangPair, { props: base });
-    expect(getByRole('button', { name: /Swap languages/ })).toBeTruthy();
+    expect(getByRole('group', { name: 'Default languages' })).toBeTruthy();
+  });
+
+  it('hides swap while From is Auto-detect, and shows it once a source is picked', () => {
+    const { queryByRole } = render(PopupLangPair, { props: base });
+    expect(queryByRole('button', { name: /Swap/ })).toBeNull();
   });
 
   it('swap button fires onSwap', async () => {
     const onSwap = vi.fn();
-    const { getByRole } = render(PopupLangPair, { props: { ...base, onSwap } });
-    await fireEvent.click(getByRole('button', { name: /Swap languages/ }));
-    expect(onSwap).toHaveBeenCalled();
-  });
-
-  it('blocks the swap when swapDisabled is set (source = auto), but keeps it focusable with its reason', async () => {
-    const onSwap = vi.fn();
     const { getByRole } = render(PopupLangPair, {
-      props: { ...base, swapDisabled: true, onSwap },
+      props: { ...base, sourceLang: sel('fr'), onSwap },
     });
-    const swap = getByRole('button', {
-      name: 'Pick a source language to swap',
-    }) as HTMLButtonElement;
-    expect(swap.disabled).toBe(false);
-    expect(swap.getAttribute('aria-disabled')).toBe('true');
-    await fireEvent.click(swap);
-    expect(onSwap).not.toHaveBeenCalled();
+    await fireEvent.click(getByRole('button', { name: 'Swap languages' }));
+    expect(onSwap).toHaveBeenCalled();
   });
 
   it('routes each picker change to its own callback', async () => {

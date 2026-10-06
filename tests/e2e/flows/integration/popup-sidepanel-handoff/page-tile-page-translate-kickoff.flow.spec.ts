@@ -46,7 +46,7 @@ test('popup page tile dispatches page:translateAll to the resolved content tab',
   await popup.goto(`chrome-extension://${ext.extensionId}/src/popup/index.html`);
   timeline.markStep('popup-open');
 
-  await popup.getByRole('button', { name: 'Translate this page' }).click();
+  await popup.getByRole('button', { name: 'Translate page' }).click();
   timeline.markStep('page-clicked');
 
   await expect

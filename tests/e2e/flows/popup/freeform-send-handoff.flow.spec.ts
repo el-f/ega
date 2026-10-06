@@ -44,13 +44,12 @@ test('Open in side panel writes the handoff slot + opens the sidepanel', async (
   await popup.goto(`chrome-extension://${ext.extensionId}/src/popup/index.html`);
   timeline.markStep('popup-opened');
 
-  await popup.locator('[data-ega-freeform-collapsed]').click();
   const ta = popup.locator('[data-ega-freeform-textarea]');
   await expect(ta).toBeVisible({ timeout: 5_000 });
   await ta.fill('hand me off to the sidepanel');
   timeline.markStep('freeform-filled');
 
-  await popup.getByRole('button', { name: /Open in side panel/i }).click();
+  await popup.getByRole('button', { name: 'Translate', exact: true }).click();
   timeline.markStep('send-clicked');
 
   await expect

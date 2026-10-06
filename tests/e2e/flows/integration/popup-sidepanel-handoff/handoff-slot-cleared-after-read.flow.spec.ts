@@ -45,9 +45,8 @@ test('handoff slot is removed after sidepanel drains; second open re-uses nothin
     (window as unknown as { close: () => void }).close = () => {};
   });
   await popup.goto(`chrome-extension://${ext.extensionId}/src/popup/index.html`);
-  await popup.locator('[data-ega-freeform-collapsed]').click();
   await popup.locator('[data-ega-freeform-textarea]').fill('first turn');
-  await popup.getByRole('button', { name: /Open in side panel/i }).click();
+  await popup.getByRole('button', { name: 'Translate', exact: true }).click();
   timeline.markStep('first-send');
 
   const sp1 = await ext.context.newPage();

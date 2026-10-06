@@ -2,18 +2,18 @@
 
 ## Latency budgets
 
-- Page tile click -> page-translate dispatched: <= 400ms.
+- Translate page click -> page-translate dispatched: <= 400ms.
 - First paragraph rendered translated: <= 2s on warm chain.
 
 ## State expectations
 
-- Step 1: popup is mounted with the page tile enabled.
-- Step 2 (click tile): `page:translateAll` is dispatched to the active tab; popup closes; the content script opens translate-areas mode so the user can pick blocks.
+- Step 1: popup is mounted with "Translate page" enabled.
+- Step 2 (click Translate page): `page:translateAll` is dispatched to the active tab; popup closes; the content script opens translate-areas mode so the user can pick blocks.
 - Step 3: after the user fires, an on-page progress pill counts the batch and offers Cancel.
 
 ## Visible affordances
 
-- Tile is always enabled; with no regular web tab, a toast says "No translatable page here — open a regular website tab first."
+- "Translate page" is aria-disabled, with the reason in the status line, when Ega is off on this site, on a page Ega cannot run on, or when the content script needs a reload. With no website tab at all, a toast says "Open a website tab, then try again."
 
 ## Failure-mode expectations
 

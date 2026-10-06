@@ -18,7 +18,7 @@
 ## Failure-mode expectations
 
 - Picker disabled (`pickerEnabled === false`) -> the message is a no-op (per `disabled-no-op` rubric).
-- Restricted tabs (chrome://, Web Store) -> the tile stays enabled; the popup shows a warning toast ("No page to work on here…" or "Ega is not running on this page…" with Reload page).
+- Restricted tabs (chrome://, Web Store) -> Pick element is aria-disabled and the popup status line says "Ega can't run on this page."; a page whose content script is gone shows "Reload this page to use Ega here." with Reload page.
 
 ## Cautions
 

@@ -21,26 +21,6 @@ export async function resolveContentTab(): Promise<chrome.tabs.Tab | null> {
   );
 }
 
-/** Enter the element-picker on the content tab. False when nothing was dispatched. */
-export async function openPicker(opts: TargetCallbacks = {}): Promise<boolean> {
-  let tabId: number | undefined;
-  try {
-    const tab = await resolveContentTab();
-    if (!tab?.id) {
-      opts.onNoTarget?.();
-      return false;
-    }
-    tabId = tab.id;
-    await chrome.tabs.sendMessage(tab.id, { kind: 'picker:enter' } satisfies Msg);
-    window.close();
-    return true;
-  } catch (e) {
-    debugCatch(e, 'popup.tab-actions.1');
-    opts.onError?.(e, tabId);
-    return false;
-  }
-}
-
 export interface TargetCallbacks {
   onNoTarget?: () => void;
   onError?: (err: unknown, tabId?: number) => void;
@@ -51,8 +31,14 @@ export interface OpenSidePanelOpts extends TargetCallbacks {
   keepOpen?: boolean;
 }
 
-/** Page-translate from the popup. False when nothing was dispatched. */
-export async function translatePage(opts: TargetCallbacks): Promise<boolean> {
+/** The raw active tab, chrome:// pages included, so the popup can tell "restricted" from "no tab". */
+export async function activeTab(): Promise<chrome.tabs.Tab | null> {
+  const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+  return tab ?? null;
+}
+
+/** Sends one page action to the content tab and closes the popup. False when nothing was dispatched. */
+export async function sendToPage(msg: Msg, opts: TargetCallbacks): Promise<boolean> {
   let tabId: number | undefined;
   try {
     const tab = await resolveContentTab();
@@ -61,11 +47,11 @@ export async function translatePage(opts: TargetCallbacks): Promise<boolean> {
       return false;
     }
     tabId = tab.id;
-    await chrome.tabs.sendMessage(tab.id, { kind: 'page:translateAll' } satisfies Msg);
+    await chrome.tabs.sendMessage(tab.id, msg);
     window.close();
     return true;
   } catch (e) {
-    debugCatch(e, 'popup.tab-actions.translatePage');
+    debugCatch(e, `popup.tab-actions.${msg.kind}`);
     opts.onError?.(e, tabId);
     return false;
   }

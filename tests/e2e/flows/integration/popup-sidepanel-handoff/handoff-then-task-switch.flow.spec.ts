@@ -81,9 +81,8 @@ test('handoff seeds translate turn 1; switching to reword routes turn 2 with rew
     (window as unknown as { close: () => void }).close = () => {};
   });
   await popup.goto(`chrome-extension://${ext.extensionId}/src/popup/index.html`);
-  await popup.locator('[data-ega-freeform-collapsed]').click();
   await popup.locator('[data-ega-freeform-textarea]').fill('translate this text please');
-  await popup.getByRole('button', { name: /Open in side panel/i }).click();
+  await popup.getByRole('button', { name: 'Translate', exact: true }).click();
   timeline.markStep('send-clicked');
 
   await expect

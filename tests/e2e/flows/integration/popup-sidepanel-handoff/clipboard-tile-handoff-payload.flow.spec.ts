@@ -51,7 +51,7 @@ test('clipboard tile writes handoff entry into storage.session map + opens sidep
   await popup.evaluate(() => {
     chrome.permissions.request = (async () => true) as typeof chrome.permissions.request;
   });
-  await popup.getByRole('button', { name: 'Translate clipboard contents' }).click();
+  await popup.getByRole('button', { name: 'Translate clipboard' }).click();
   timeline.markStep('clipboard-clicked');
 
   await expect

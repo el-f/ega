@@ -29,17 +29,17 @@ async function seedAnthropic(): Promise<void> {
   });
 }
 
-test('popup launcher renders lang pickers + collapsed freeform composer', async () => {
+test('popup launcher renders lang pickers + the side-panel text box', async () => {
   await seedAnthropic();
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/popup/index.html`);
   await expect(page.locator('#pop-lang')).toBeVisible();
   await expect(page.locator('#pop-target')).toBeVisible();
-  await expect(page.locator('[data-ega-freeform-collapsed]')).toBeVisible();
-  await expect(page.getByPlaceholder(/Paste or type/i)).toHaveCount(0);
-  await page.locator('[data-ega-freeform-collapsed]').click();
-  await expect(page.getByPlaceholder(/Paste or type/i)).toBeVisible();
-  await expect(page.getByRole('button', { name: /^Open in side panel$/ })).toBeDisabled();
+  await expect(page.getByLabel('Translate in the side panel')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Translate', exact: true })).toHaveAttribute(
+    'aria-disabled',
+    'true',
+  );
 });
 
 test('side panel: translate populates history + conversation', async () => {

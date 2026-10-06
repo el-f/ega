@@ -2,167 +2,243 @@
   import type { Component } from 'svelte';
   import Clipboard from '@lucide/svelte/icons/clipboard';
   import MousePointerSquareDashed from '@lucide/svelte/icons/mouse-pointer-square-dashed';
+  import SquareDashed from '@lucide/svelte/icons/square-dashed';
   import Languages from '@lucide/svelte/icons/languages';
   import PanelRight from '@lucide/svelte/icons/panel-right';
   import Icon from '@/shared/ui/Icon.svelte';
 
   interface Props {
     onTranslatePage: () => void;
+    onChooseAreas: () => void;
     onPickElement: () => void;
     onClipboard: () => void;
     onOpenSidePanel: () => void;
     pickerEnabled: boolean;
+    /** Id of the visible text that says why the page actions cannot run here. */
+    pageBlockedBy?: string | undefined;
+    /** The setup card holds the filled button, so the main action steps down to the secondary look. */
+    quietPrimary?: boolean;
   }
 
-  let { onTranslatePage, onPickElement, onClipboard, onOpenSidePanel, pickerEnabled }: Props =
-    $props();
+  let {
+    onTranslatePage,
+    onChooseAreas,
+    onPickElement,
+    onClipboard,
+    onOpenSidePanel,
+    pickerEnabled,
+    pageBlockedBy,
+    quietPrimary = false,
+  }: Props = $props();
 
-  interface Tile {
-    readonly key: 'page' | 'pick' | 'clipboard' | 'panel';
+  const PICKER_OFF_ID = 'ega-popup-picker-off';
+
+  interface Row {
+    readonly key: 'areas' | 'pick' | 'clipboard' | 'panel';
     readonly icon: Component<{ size?: number | string; strokeWidth?: number | string }>;
     readonly label: string;
-    readonly aria: string;
     readonly onclick: () => void;
-    readonly disabled: boolean;
-    /** Always-visible reason for a disabled tile. */
-    readonly hint?: string | undefined;
-    /** The one action most opens the popup for. */
-    readonly primary?: boolean;
+    /** Id of the visible reason; set means the row is aria-disabled. */
+    readonly blockedBy: string | undefined;
+    readonly trailing?: string | undefined;
   }
 
-  const PICKER_OFF_HINT = 'Turn on in Settings → Selection & picker';
-
-  const tiles = $derived<readonly Tile[]>([
+  const rows = $derived<readonly Row[]>([
     {
-      key: 'page',
-      icon: Languages,
-      label: 'Translate this page',
-      aria: 'Translate this page',
-      onclick: onTranslatePage,
-      disabled: false,
-      primary: true,
+      key: 'areas',
+      icon: SquareDashed,
+      label: 'Choose areas',
+      onclick: onChooseAreas,
+      blockedBy: pageBlockedBy,
     },
     {
       key: 'pick',
       icon: MousePointerSquareDashed,
       label: 'Pick element',
-      aria: pickerEnabled ? 'Pick element' : `Pick element — turned off. ${PICKER_OFF_HINT}.`,
       onclick: onPickElement,
-      disabled: !pickerEnabled,
-      hint: !pickerEnabled ? PICKER_OFF_HINT : undefined,
+      blockedBy: pageBlockedBy ?? (pickerEnabled ? undefined : PICKER_OFF_ID),
+      trailing: pickerEnabled ? undefined : 'Off in Settings',
     },
     {
       key: 'clipboard',
       icon: Clipboard,
       label: 'Translate clipboard',
-      aria: 'Translate clipboard contents',
       onclick: onClipboard,
-      disabled: false,
+      blockedBy: undefined,
     },
     {
       key: 'panel',
       icon: PanelRight,
-      label: 'Side panel',
-      aria: 'Open side panel',
+      label: 'Open side panel',
       onclick: onOpenSidePanel,
-      disabled: false,
+      blockedBy: undefined,
     },
   ]);
+
+  // One tab stop for the list; the arrow keys move inside it. aria-disabled rows stay reachable.
+  let active = $state(0);
+  let buttons: HTMLButtonElement[] = $state([]);
+
+  function onKeydown(e: KeyboardEvent): void {
+    const last = rows.length - 1;
+    let next: number;
+    if (e.key === 'ArrowDown') next = active === last ? 0 : active + 1;
+    else if (e.key === 'ArrowUp') next = active === 0 ? last : active - 1;
+    else if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = last;
+    else return;
+    e.preventDefault();
+    active = next;
+    buttons[next]?.focus();
+  }
+
+  function run(row: Row): void {
+    if (row.blockedBy === undefined) row.onclick();
+  }
 </script>
 
-<div class="popup-tools" data-ega-popup-tools>
-  {#each tiles as tile (tile.key)}
+<button
+  type="button"
+  class="primary"
+  class:blocked={pageBlockedBy !== undefined}
+  class:quiet={quietPrimary}
+  data-ega-popup-primary
+  aria-disabled={pageBlockedBy !== undefined ? 'true' : undefined}
+  aria-describedby={pageBlockedBy}
+  onclick={() => {
+    if (pageBlockedBy === undefined) onTranslatePage();
+  }}
+>
+  <Icon icon={Languages} size={20} />
+  <span>Translate page</span>
+</button>
+
+<div
+  class="tools"
+  role="toolbar"
+  aria-orientation="vertical"
+  aria-label="Page tools"
+  tabindex="-1"
+  data-ega-popup-tools
+  onkeydown={onKeydown}
+>
+  {#each rows as row, i (row.key)}
     <button
+      bind:this={buttons[i]}
       type="button"
-      class="tile"
-      class:primary={tile.primary}
-      aria-label={tile.aria}
-      disabled={tile.disabled}
-      onclick={tile.onclick}
+      class="row"
+      data-ega-tool={row.key}
+      tabindex={i === active ? 0 : -1}
+      aria-disabled={row.blockedBy !== undefined ? 'true' : undefined}
+      aria-describedby={row.blockedBy}
+      onfocus={() => (active = i)}
+      onclick={() => run(row)}
     >
-      <span class="tile-icon"><Icon icon={tile.icon} size={24} /></span>
-      <span class="tile-label">{tile.label}</span>
-      {#if tile.hint}
-        <span class="tile-hint">{tile.hint}</span>
+      <span class="row-icon"><Icon icon={row.icon} size={20} /></span>
+      <span class="row-label">{row.label}</span>
+      {#if row.trailing}
+        <span class="row-trailing">{row.trailing}</span>
       {/if}
     </button>
   {/each}
 </div>
+{#if !pickerEnabled}
+  <p id={PICKER_OFF_ID} class="ega-sr-only">
+    The element picker is off. Turn it on in Settings → Selection & picker.
+  </p>
+{/if}
 
 <style>
-  .popup-tools {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: var(--space-2);
-    padding-top: var(--space-2);
-  }
-  .tile {
+  .primary {
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: var(--space-2);
-    padding: var(--space-3) var(--space-2);
-    text-align: center;
-    border: 1px solid var(--color-border);
+    width: 100%;
+    min-height: 40px;
+    padding: 0 var(--space-3);
+    border: 1px solid var(--color-accent);
     border-radius: var(--radius-md);
-    background: var(--color-bg-elevated);
-    color: var(--color-fg);
-    cursor: pointer;
-    transition:
-      background var(--motion-fast) var(--ease-out),
-      border-color var(--motion-fast) var(--ease-out),
-      transform var(--motion-fast) var(--ease-out);
-  }
-  .tile.primary {
-    grid-column: 1 / -1;
-    flex-direction: row;
-    padding: var(--space-3);
-    border-color: var(--color-accent);
     background: var(--color-accent);
     color: var(--color-accent-fg);
+    font: inherit;
+    font-size: var(--fs-base);
+    font-weight: 600;
+    cursor: pointer;
   }
-  .tile.primary .tile-icon,
-  .tile.primary .tile-label,
-  .tile.primary .tile-hint {
-    color: inherit;
-  }
-  .tile.primary:hover:not(:disabled) {
+  .primary:hover:not(.blocked, .quiet) {
     background: var(--color-accent-hover);
     border-color: var(--color-accent-hover);
   }
-  .tile:hover:not(:disabled) {
+  .primary.quiet {
+    background: var(--color-bg-elevated);
+    border-color: var(--color-control-border);
+    color: var(--color-fg);
+  }
+  .primary.quiet:hover {
     background: var(--color-bg-hover);
-    border-color: var(--color-accent-soft);
   }
-  .tile:active:not(:disabled) {
-    transform: scale(0.98);
+  /* A blocked primary takes the secondary look, so the setup card's button stays the only filled one. */
+  .primary.blocked {
+    background: transparent;
+    border-color: var(--color-control-border);
+    color: var(--color-fg-disabled);
+    cursor: var(--cursor-disabled);
   }
-  .tile:focus-visible {
+  .primary:focus-visible,
+  .row:focus-visible {
     outline: 2px solid var(--color-accent);
     outline-offset: 2px;
   }
-  .tile:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+  .tools {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
   }
-  .tile-icon {
-    display: inline-flex;
+  .tools:focus {
+    outline: none;
+  }
+  .row {
+    display: flex;
     align-items: center;
+    gap: var(--space-3);
+    width: 100%;
+    min-height: 36px;
+    padding: 0 var(--space-2);
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    background: transparent;
     color: var(--color-fg);
+    font: inherit;
+    font-size: var(--fs-base);
+    text-align: start;
+    cursor: pointer;
   }
-  .tile-label {
-    font-size: var(--fs-sm);
-    color: var(--color-fg);
-    line-height: 1.2;
+  .row:hover:not([aria-disabled='true']) {
+    background: var(--color-bg-hover);
   }
-  .tile.primary .tile-label {
-    font-weight: 600;
+  .row[aria-disabled='true'] {
+    color: var(--color-fg-disabled);
+    cursor: var(--cursor-disabled);
   }
-  .tile-hint {
+  .row-icon {
+    display: inline-flex;
+    color: var(--color-muted);
+  }
+  .row[aria-disabled='true'] .row-icon {
+    color: var(--color-fg-disabled);
+  }
+  .row-label {
+    flex: 1 1 auto;
+    white-space: nowrap;
+  }
+  .row-trailing {
     font-size: var(--fs-xs);
     color: var(--color-muted);
-    text-align: center;
-    line-height: 1.3;
+  }
+  @media (forced-colors: active) {
+    .row {
+      border-color: ButtonText;
+    }
   }
 </style>

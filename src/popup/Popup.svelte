@@ -10,16 +10,20 @@
   import PopupHeader from './PopupHeader.svelte';
   import PopupLangPair from './PopupLangPair.svelte';
   import PopupTools from './PopupTools.svelte';
+  import PopupSite from './PopupSite.svelte';
   import { listVarieties } from '@/shared/varieties';
   import { debugCatch } from '@/shared/logger';
   import { MAX_SELECTION_CHARS, settingsSaveFailedMessage } from '@/shared/constants';
   import { selectionTrimmedMessage } from '@/shared/selection-cap-copy';
+  import { activeTab, openSidePanel as ctlOpenSidePanel, sendToPage } from './tab-actions';
   import {
-    openPicker as ctlOpenPicker,
-    openSidePanel as ctlOpenSidePanel,
-    translatePage as ctlTranslatePage,
-  } from './tab-actions';
-  import { prefillFromActiveTabSelection } from './autofill';
+    askPage,
+    pageAccess,
+    popupPageState,
+    siteLabel,
+    type PopupPageState,
+  } from './page-state';
+  import { sendMsg, sendTabMsg, type Msg, type MsgReply } from '@/shared/messages';
   import { clearPopupDraft, readPopupDraft, writePopupDraft } from '@/shared/pending-popup-draft';
   import ToastHost from '@/shared/components/ToastHost.svelte';
   import { openOptionsTab } from '@/shared/open-options-tab';
@@ -37,18 +41,46 @@
   let backendReady = $state<boolean | null>(null);
 
   let freeformText = $state('');
-  let freeformExpanded = $state(false);
   let freeformTextarea: HTMLTextAreaElement | null = $state(null);
   let draftHydrated = $state(false);
-  let pendingFocus = $state(false);
   let draftSaveTimer: ReturnType<typeof setTimeout> | null = null;
   let settingsUnsub: (() => void) | null = null;
 
-  function expandFreeform(): void {
-    freeformExpanded = true;
-    pendingFocus = true;
-    scheduleDraftSave();
-  }
+  // The page behind the popup: its URL, whether its content script answered, and why the bubble stayed hidden.
+  let tabUrl = $state<string | undefined>(undefined);
+  let tabId = $state<number | undefined>(undefined);
+  let pageReply = $state<MsgReply['ega:get-selection'] | undefined>(undefined);
+  let pageRejected = $state(false);
+  // Set while a switch write is in flight or after it failed, so the stored value does not fight the click.
+  let siteOnOverride = $state<boolean | null>(null);
+
+  const access = $derived(
+    tabUrl === undefined || tabUrl.startsWith(chrome.runtime.getURL(''))
+      ? 'unknown'
+      : pageAccess(tabUrl),
+  );
+  const origin = $derived.by(() => {
+    try {
+      return new URL(tabUrl ?? '').origin;
+    } catch {
+      return '';
+    }
+  });
+  const siteOn = $derived(
+    siteOnOverride ??
+      // The same key the content script gates on: sitePrefs[location.origin].
+      liveSettings?.sitePrefs[origin]?.disabled !== true,
+  );
+  const pageState = $derived<PopupPageState>(
+    popupPageState({ access, reply: pageReply, rejected: pageRejected, siteOff: !siteOn }),
+  );
+  const STATUS_ID = 'ega-popup-status';
+  const pageBlockedBy = $derived(
+    pageState === 'restricted' || pageState === 'site-off' || pageState === 'not-running'
+      ? STATUS_ID
+      : undefined,
+  );
+  const host = $derived(siteLabel(tabUrl));
 
   function cancelDraftSave(): void {
     if (draftSaveTimer !== null) {
@@ -64,7 +96,6 @@
     if (!draftHydrated) return;
     cancelDraftSave();
     const snapshotText = freeformText;
-    const snapshotExpanded = freeformExpanded;
     // The page selection is never saved as a draft, and an older draft must not outlive it either.
     if (prefilledText !== null && snapshotText === prefilledText) {
       draftSaveTimer = setTimeout(() => {
@@ -75,21 +106,13 @@
     }
     draftSaveTimer = setTimeout(() => {
       draftSaveTimer = null;
-      if (snapshotText.length === 0 && !snapshotExpanded) {
+      if (snapshotText.length === 0) {
         void clearPopupDraft();
         return;
       }
-      void writePopupDraft({ text: snapshotText, expanded: snapshotExpanded });
+      void writePopupDraft({ text: snapshotText, expanded: true });
     }, 150);
   }
-
-  $effect(() => {
-    // The textarea binds only after the {:else} branch renders, which is later than a queueMicrotask from onMount.
-    if (pendingFocus && freeformTextarea !== null) {
-      freeformTextarea.focus();
-      pendingFocus = false;
-    }
-  });
 
   // 'auto' is valid only as a source, so swapping it into the target slot leaves the select on a value with no option.
   async function swapDirection(): Promise<void> {
@@ -108,57 +131,79 @@
     }
   }
 
-  // Chrome's wording when the tab has no content script: open before install or update, or a page that blocks extensions.
+  // Chrome's wording when the tab has no content script: open before install or update.
   const NO_RECEIVER = /Receiving end does not exist|Could not establish connection/i;
 
-  function tabActionFailed(fallback: string, err: unknown, tabId: number | undefined): void {
+  function tabActionFailed(fallback: string, err: unknown, failedTab: number | undefined): void {
     const detail = err instanceof Error ? err.message : String(err);
-    if (tabId === undefined || !NO_RECEIVER.test(detail)) {
+    if (failedTab === undefined || !NO_RECEIVER.test(detail)) {
       toastStore.push({ message: fallback, variant: 'danger' });
       return;
     }
-    toastStore.push({
-      message:
-        'Ega is not running on this page. Reload the page and try again. Some pages, like the Chrome Web Store, never allow extensions.',
-      variant: 'warning',
-      action: {
-        label: 'Reload page',
-        onClick: () => {
-          void chrome.tabs.reload(tabId).catch((e: unknown) => debugCatch(e, 'popup.reloadTab'));
-        },
-      },
-    });
+    // The content script went away after the popup opened: the status line now says so, with Reload page.
+    pageRejected = true;
   }
 
-  async function onTranslatePage(): Promise<void> {
-    await ctlTranslatePage({
-      onNoTarget: () =>
-        toastStore.push({
-          message: 'No translatable page here — open a regular website tab first.',
-          variant: 'warning',
-        }),
-      onError: (e, tabId) => tabActionFailed('Could not start page translation.', e, tabId),
-    });
+  function reloadTab(): void {
+    if (tabId === undefined) return;
+    void chrome.tabs
+      .reload(tabId)
+      .then(() => window.close())
+      .catch((e: unknown) => debugCatch(e, 'popup.reloadTab'));
   }
 
   function noTargetToast(): void {
-    toastStore.push({
-      message: 'No page to work on here — open a regular website tab first.',
-      variant: 'warning',
+    toastStore.push({ message: 'Open a website tab, then try again.', variant: 'warning' });
+  }
+
+  function pageAction(msg: Msg, failed: string): void {
+    void sendToPage(msg, {
+      onNoTarget: noTargetToast,
+      onError: (e, id) => tabActionFailed(failed, e, id),
     });
   }
 
   const sidePanelFeedback = {
     onNoTarget: noTargetToast,
     onError: () =>
-      toastStore.push({ message: 'Could not open the side panel.', variant: 'danger' }),
+      toastStore.push({
+        message: "Ega couldn't open the side panel. Try again.",
+        variant: 'danger',
+      }),
   };
 
-  async function onPickElement(): Promise<void> {
-    await ctlOpenPicker({
-      onNoTarget: noTargetToast,
-      onError: (e, tabId) => tabActionFailed('Could not start the picker.', e, tabId),
-    });
+  function onTranslateAnyway(): void {
+    const text = pageReply?.text ?? '';
+    if (text === '') return;
+    pageAction({ kind: 'ctx:translate-selection', text }, "Ega couldn't start the translation.");
+  }
+
+  const SITE_WRITE_TIMEOUT_MS = 2000;
+
+  // A set, not a toggle, so a repeat lands on the same state. It flips back if the write fails or hangs.
+  async function onSiteChange(on: boolean): Promise<void> {
+    const before = siteOn;
+    siteOnOverride = on;
+    let ok = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const late = new Promise<{ ok: false }>((resolve) => {
+        timer = setTimeout(() => resolve({ ok: false }), SITE_WRITE_TIMEOUT_MS);
+      });
+      const reply = await Promise.race([
+        sendMsg({ kind: 'site:set-enabled', enabled: on, ...(tabUrl ? { url: tabUrl } : {}) }),
+        late,
+      ]);
+      ok = reply?.ok === true;
+    } catch (e) {
+      debugCatch(e, 'popup.siteSwitch');
+    } finally {
+      clearTimeout(timer);
+    }
+    if (!ok) {
+      siteOnOverride = before;
+      toastStore.push({ message: "Ega couldn't save this change. Try again.", variant: 'warning' });
+    }
   }
 
   // clipboardRead is optional; the request must run inside the click gesture or Chrome rejects it.
@@ -175,7 +220,7 @@
   async function onClipboard(): Promise<void> {
     if (!(await ensureClipboardPermission())) {
       toastStore.push({
-        message: 'Clipboard access was denied — click the tile again and choose Allow.',
+        message: 'Ega needs clipboard access. Click Translate clipboard again and choose Allow.',
         variant: 'warning',
       });
       return;
@@ -186,7 +231,7 @@
     } catch (e) {
       debugCatch(e, 'popup.onClipboard');
       toastStore.push({
-        message: 'Ega cannot read your clipboard — allow clipboard access and try again.',
+        message: "Ega couldn't read the clipboard. Allow clipboard access, then try again.",
         variant: 'warning',
       });
       return;
@@ -194,7 +239,7 @@
     const full = text.trim();
     if (full.length === 0) {
       toastStore.push({
-        message: 'Clipboard is empty — copy some text first.',
+        message: 'The clipboard is empty. Copy some text first.',
         variant: 'warning',
       });
       return;
@@ -203,10 +248,7 @@
     const trimmed = full.slice(0, MAX_SELECTION_CHARS);
     const wasTrimmed = trimmed.length < full.length;
     if (wasTrimmed) {
-      toastStore.push({
-        message: selectionTrimmedMessage('clipboard'),
-        variant: 'warning',
-      });
+      toastStore.push({ message: selectionTrimmedMessage('clipboard'), variant: 'warning' });
     }
     await ctlOpenSidePanel(
       {
@@ -217,11 +259,9 @@
         tone: liveSettings?.defaultTone ?? 'neutral',
       },
       {
-        // The user has text ready, so the blocker to explain is the missing tab, not the page.
         onNoTarget: () =>
           toastStore.push({
-            message:
-              'The side panel needs a browser tab — open any website, then try again. Your text is still on the clipboard.',
+            message: 'The side panel needs a website tab. Open a website, then try again.',
             variant: 'warning',
           }),
         onError: sidePanelFeedback.onError,
@@ -242,7 +282,7 @@
     const wasTrimmed = text.length < full.length;
     if (wasTrimmed) {
       toastStore.push({
-        message: `Your text is long — sending the first ${MAX_SELECTION_CHARS} characters.`,
+        message: `Your text is long. Ega sent the first ${MAX_SELECTION_CHARS} characters.`,
         variant: 'warning',
       });
     }
@@ -256,10 +296,9 @@
         tone: liveSettings?.defaultTone ?? 'neutral',
       },
       {
-        // The user typed text, so the blocker to explain is the missing tab, not the page.
         onNoTarget: () =>
           toastStore.push({
-            message: 'The side panel needs a browser tab — open any website. Your text is kept.',
+            message: 'The side panel needs a website tab. Open a website; your text is kept.',
             variant: 'warning',
           }),
         onError: sidePanelFeedback.onError,
@@ -278,7 +317,26 @@
     void onSendFreeform();
   }
 
+  /** Asks the page, in the same tick the popup opens, for its selection and why the bubble stayed hidden. */
+  async function readPage(): Promise<string> {
+    let tab: chrome.tabs.Tab | null = null;
+    try {
+      tab = await activeTab();
+    } catch (e) {
+      debugCatch(e, 'popup.activeTab');
+    }
+    tabUrl = tab?.url;
+    tabId = tab?.id;
+    if (tab?.id === undefined || access !== 'ok') return '';
+    const got = await askPage(tab.id, (id) => sendTabMsg(id, { kind: 'ega:get-selection' }));
+    pageReply = got.reply;
+    pageRejected = got.rejected;
+    return got.reply?.text ?? '';
+  }
+
   onMount(async () => {
+    // Asked first: opening the popup clears the page's live selection, and the page keeps it for a minute only.
+    const pageRead = readPage();
     try {
       const s = await getSettings();
       if (!langTouched) {
@@ -291,42 +349,38 @@
     } catch (e) {
       debugCatch(e, 'popup.onMount.getSettings');
     }
-    // Picks up settings written by another surface, so the backend chip and the toaster theme stay in sync.
+    // Picks up settings written by another surface, so the backend chip and the site switch stay in sync.
     settingsUnsub = onSettingsChanged((next) => {
       liveSettings = next;
       theme = next.theme;
+      pickerEnabled = next.pickerEnabled !== false;
     });
     try {
       varieties = await listVarieties();
     } catch (e) {
       debugCatch(e, 'popup.onMount.listVarieties');
     }
-    // Restore draft BEFORE wiring autofill — draft wins over selection so
-    // a half-typed thought doesn't get clobbered by a stray page selection.
+    // The draft wins over the page selection, so a half-typed thought is not replaced by a stray selection.
     try {
       const draft = await readPopupDraft();
-      if (draft !== null) {
-        freeformText = draft.text;
-        freeformExpanded = draft.expanded;
-        if (draft.expanded) pendingFocus = true;
-      }
+      if (draft !== null && freeformText === '') freeformText = draft.text;
     } catch (e) {
       debugCatch(e, 'popup.onMount.readDraft');
     }
     draftHydrated = true;
     // Anything typed before the reads finished has no input event left to save it.
     scheduleDraftSave();
-    void prefillFromActiveTabSelection(freeformText).then((selText) => {
-      // Re-read freeformText at write time — user may have typed between
-      // draft restore and selection resolve. Don't clobber active input.
-      if (selText !== null && freeformText === '') {
-        prefilledText = selText;
-        freeformText = selText;
-        freeformExpanded = true;
-        pendingFocus = true;
-        scheduleDraftSave();
-      }
-    });
+    const selText = await pageRead;
+    // The draft, or text typed while the page answered, wins over the page selection.
+    if (selText !== '' && freeformText === '') {
+      prefilledText = selText;
+      freeformText = selText;
+      scheduleDraftSave();
+    }
+    if (prefilledText !== null && freeformText === prefilledText) freeformTextarea?.focus();
+    else if (document.activeElement === document.body) {
+      document.querySelector<HTMLElement>('[data-ega-popup-primary]')?.focus();
+    }
   });
 
   // Svelte 5 ignores a cleanup returned from an async onMount, because the function resolves to a Promise.
@@ -371,68 +425,80 @@
       </div>
     {/snippet}
 
-    <PopupLangPair
-      {sourceLang}
-      {targetLang}
-      {varieties}
-      swapDisabled={sourceLang === 'auto'}
-      onSourceChange={(v) => void persistSourceLang(v)}
-      onTargetChange={(v) => void persistTargetLang(v)}
-      onSwap={() => {
-        langTouched = true;
-        void swapDirection();
-      }}
-    />
+    <div class="popup-body">
+      {#if backendReady === false}
+        <div class="popup-no-backend" data-ega-popup-no-backend>
+          <p>Set up a backend to start.</p>
+          <Button variant="primary" onclick={() => openOptionsTab('backends')}
+            >Set up a backend</Button
+          >
+        </div>
+      {/if}
 
-    {#if backendReady === false}
-      <div class="popup-no-backend" role="status" data-ega-popup-no-backend>
-        <p>
-          Ega needs a model to translate with. Add an API key, or set up Ollama or the native host.
-        </p>
-        <Button variant="primary" onclick={() => openOptionsTab('backends')}
-          >Set up a backend</Button
-        >
+      <PopupSite
+        state={pageState}
+        showSwitch={access === 'ok'}
+        {host}
+        {siteOn}
+        heldBack={pageReply?.heldBack}
+        statusId={STATUS_ID}
+        onSiteChange={(on) => void onSiteChange(on)}
+        {onTranslateAnyway}
+        onReload={reloadTab}
+      />
+
+      <PopupLangPair
+        {sourceLang}
+        {targetLang}
+        {varieties}
+        onSourceChange={(v) => void persistSourceLang(v)}
+        onTargetChange={(v) => void persistTargetLang(v)}
+        onSwap={() => {
+          langTouched = true;
+          void swapDirection();
+        }}
+      />
+
+      <div class="popup-actions">
+        <PopupTools
+          onTranslatePage={() =>
+            pageAction({ kind: 'page:translateAll' }, "Ega couldn't start page translation.")}
+          onChooseAreas={() =>
+            pageAction({ kind: 'page:chooseAreas' }, "Ega couldn't start choosing areas.")}
+          onPickElement={() =>
+            pageAction({ kind: 'picker:enter' }, "Ega couldn't start the element picker.")}
+          onClipboard={() => void onClipboard()}
+          onOpenSidePanel={() => void onOpenSidePanel()}
+          {pickerEnabled}
+          {pageBlockedBy}
+          quietPrimary={backendReady === false}
+        />
       </div>
-    {/if}
 
-    <PopupTools
-      onTranslatePage={() => void onTranslatePage()}
-      onPickElement={() => void onPickElement()}
-      onClipboard={() => void onClipboard()}
-      onOpenSidePanel={() => void onOpenSidePanel()}
-      {pickerEnabled}
-    />
-
-    <div class="popup-freeform">
-      {#if !freeformExpanded}
-        <button
-          type="button"
-          class="freeform-collapsed"
-          data-ega-freeform-collapsed
-          onclick={expandFreeform}
-        >
-          Translate something…
-        </button>
-      {:else}
+      <div class="popup-freeform">
+        <label class="freeform-label" for="ega-popup-freeform">Translate in the side panel</label>
         <textarea
+          id="ega-popup-freeform"
           bind:this={freeformTextarea}
           bind:value={freeformText}
           class="freeform-textarea"
           dir="auto"
           data-ega-freeform-textarea
-          aria-label="Text to translate"
-          placeholder="Paste or type text…"
+          placeholder="Paste or type text"
           oninput={scheduleDraftSave}
           onkeydown={onComposerKey}
           rows="3"></textarea>
         <div class="freeform-actions" data-ega-action-bar>
           <Button
-            variant="primary"
-            disabled={freeformText.trim().length === 0}
-            onclick={() => void onSendFreeform()}>Open in side panel</Button
+            variant="secondary"
+            dataAttrs={{
+              'aria-disabled': freeformText.trim().length === 0 ? 'true' : undefined,
+              'data-ega-freeform-send': '',
+            }}
+            onclick={() => void onSendFreeform()}>Translate</Button
           >
         </div>
-      {/if}
+      </div>
     </div>
   </AppShell>
 </div>
@@ -448,16 +514,25 @@
     align-items: center;
     width: 100%;
   }
+  .popup-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+  .popup-actions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
   .popup-no-backend {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     gap: var(--space-2);
     padding: var(--space-3);
-    border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
     background: var(--color-bg-sunken);
-    font-size: var(--fs-sm);
+    font-size: var(--fs-base);
   }
   .popup-no-backend p {
     margin: 0;
@@ -466,45 +541,35 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
-    padding-top: var(--space-2);
   }
-  .freeform-collapsed {
-    width: 100%;
-    text-align: left;
-    padding: var(--space-3) var(--space-3);
-    border: 1px solid var(--color-control-border);
-    border-radius: var(--radius-md);
-    background: var(--color-bg-elevated);
+  .freeform-label {
+    font-size: var(--fs-xs);
     color: var(--color-muted);
-    cursor: text;
-    font-size: var(--fs-sm);
-  }
-  .freeform-collapsed:hover {
-    border-color: var(--color-accent);
-    color: var(--color-fg);
-  }
-  .freeform-collapsed:focus-visible {
-    outline: 2px solid var(--color-accent);
-    outline-offset: 2px;
   }
   .freeform-textarea {
     width: 100%;
     min-height: 4.5rem;
-    padding: var(--space-3);
+    padding: var(--space-2) var(--space-3);
     border: 1px solid var(--color-control-border);
     border-radius: var(--radius-md);
     background: var(--color-bg-elevated);
     color: var(--color-fg);
     font-family: inherit;
-    font-size: var(--fs-sm);
+    font-size: var(--fs-base);
+    line-height: var(--lh-body);
     resize: vertical;
   }
   .freeform-textarea:focus-visible {
     outline: 2px solid var(--color-accent);
-    outline-offset: 1px;
+    outline-offset: 2px;
   }
   .freeform-actions {
     display: flex;
     justify-content: flex-end;
+  }
+  .freeform-actions :global(.ega-btn[aria-disabled='true']) {
+    color: var(--color-fg-disabled);
+    border-color: var(--color-control-border);
+    cursor: var(--cursor-disabled);
   }
 </style>

@@ -56,7 +56,7 @@ test('Clipboard tile writes the handoff slot + opens the sidepanel', async () =>
   await popup.evaluate(() => {
     chrome.permissions.request = (async () => true) as typeof chrome.permissions.request;
   });
-  await popup.getByRole('button', { name: 'Translate clipboard contents' }).click();
+  await popup.getByRole('button', { name: 'Translate clipboard' }).click();
   timeline.markStep('clipboard-clicked');
 
   await expect

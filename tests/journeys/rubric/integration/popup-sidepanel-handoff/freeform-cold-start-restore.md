@@ -16,7 +16,7 @@
 
 ## Failure-mode expectations
 
-- Sidepanel open failure -> popup stays open with a "Could not open the side panel." toast; the draft text is kept.
+- Sidepanel open failure -> popup stays open with a "Ega couldn't open the side panel. Try again." toast; the draft text is kept.
 
 ## Cautions
 

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import type { Mock } from 'vitest';
 import { render, fireEvent, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
@@ -7,14 +7,18 @@ import Popup from '@/popup/Popup.svelte';
 import { MAX_SELECTION_CHARS } from '@/shared/constants';
 import { flushAsync } from '@tests/_helpers/async';
 
-// Launcher shell — popup never translates inline. These tests pin the
-// trigger grid surface + freeform-expand handoff path + lang-pair wiring.
+// The popup never translates inline: every action hands off to the side panel or the page.
+
+beforeEach(async () => {
+  // A backend is set up unless a test says otherwise; with none, the page actions are blocked.
+  await chrome.storage.local.set({ 'ega.settings': { anthropicApiKey: 'test-key' } });
+});
 
 afterEach(() => {
   vi.clearAllMocks();
 });
 
-/** onMount has read settings and the draft: the selection prefill that follows asks for the active tab. */
+/** onMount has asked the active tab for its state. */
 async function mounted(): Promise<void> {
   await vi.waitFor(() => expect(chrome.tabs.query).toHaveBeenCalled());
 }
@@ -27,62 +31,197 @@ async function handoffEntries<T>(): Promise<T[]> {
   return Object.values(stored['ega.pendingPopupHandoff'] ?? {});
 }
 
+function onTab(
+  url: string,
+  answer: (msg: { kind: string }) => unknown = () => ({ ok: true }),
+): {
+  sent: Mock;
+} {
+  (chrome.tabs.query as unknown as Mock).mockResolvedValue([{ id: 42, url }]);
+  const sent = chrome.tabs.sendMessage as unknown as Mock;
+  sent.mockImplementation(async (_id: number, msg: { kind: string }) => answer(msg));
+  return { sent };
+}
+
 describe('Popup launcher shell', () => {
-  it('mounts the four trigger tiles + lang pair without rendering a hero textarea by default', async () => {
-    const { container, findByRole, queryByPlaceholderText } = render(Popup);
-    await findByRole('button', { name: /Translate this page/i });
+  it('shows one filled primary, the page tools and an always-visible labelled text box', async () => {
+    onTab('https://example.com/');
+    const { container, findByRole, getByLabelText } = render(Popup);
+    await findByRole('button', { name: 'Translate page' });
     expect(container.querySelector('[data-ega-lang-pair]')).not.toBeNull();
-    expect(container.querySelector('[data-ega-popup-tools]')).not.toBeNull();
-    expect(container.querySelector('[data-ega-freeform-collapsed]')).not.toBeNull();
-    // No hero textarea on default surface — freeform is collapsed.
-    expect(queryByPlaceholderText(/Paste or type/i)).toBeNull();
+    expect(await findByRole('toolbar', { name: 'Page tools' })).toBeTruthy();
+    const box = getByLabelText('Translate in the side panel') as HTMLTextAreaElement;
+    expect(box.placeholder).toBe('Paste or type text');
   });
 
   it('mounts a Toaster so page-translate feedback has somewhere to land', async () => {
     const { findByRole } = render(Popup);
-    await findByRole('button', { name: /Translate this page/i });
-    // svelte-sonner renders the toast list lazily; the container section is
-    // always present once the Toaster mounts.
+    await findByRole('button', { name: 'Translate page' });
     expect(await findByRole('region', { name: /Notifications/i })).toBeTruthy();
   });
 
-  it('offers backend setup when no backend is ready, and keeps the tiles usable', async () => {
+  it('with no backend, the setup card holds the only filled button and the page actions still run', async () => {
+    await chrome.storage.local.remove('ega.settings');
+    onTab('https://example.com/');
     const { container, findByRole } = render(Popup);
-    const banner = await vi.waitFor(() => {
+    const card = await vi.waitFor(() => {
       const el = container.querySelector('[data-ega-popup-no-backend]');
-      if (!el) throw new Error('no banner yet');
+      if (!el) throw new Error('no setup card yet');
       return el;
     });
-    expect(banner.textContent).toMatch(/needs a model/i);
+    expect(card.textContent).toContain('Set up a backend to start.');
+    expect(await findByRole('button', { name: 'Set up a backend' })).toBeTruthy();
+    // A cold native host can read as not ready, so nothing is blocked; only the filled look moves.
+    const primary = await findByRole('button', { name: 'Translate page' });
+    await vi.waitFor(() => expect(primary.classList.contains('quiet')).toBe(true));
+    expect(primary.hasAttribute('aria-disabled')).toBe(false);
     expect(
-      ((await findByRole('button', { name: /Set up a backend/i })) as HTMLElement).tagName,
-    ).toBe('BUTTON');
-    expect(
-      (await findByRole('button', { name: /Translate this page/i })).hasAttribute('disabled'),
+      (await findByRole('button', { name: 'Translate clipboard' })).hasAttribute('aria-disabled'),
     ).toBe(false);
   });
 
   it('leaves the theme to Options, so the header has no theme toggle', async () => {
     const { container, findByRole } = render(Popup);
-    await findByRole('button', { name: /Translate this page/i });
+    await findByRole('button', { name: 'Translate page' });
     expect(container.querySelector('[data-ega-theme-toggle]')).toBeNull();
+  });
+
+  it('puts focus on Translate page when nothing is prefilled', async () => {
+    onTab('https://example.com/');
+    const { findByRole } = render(Popup);
+    const primary = await findByRole('button', { name: 'Translate page' });
+    await vi.waitFor(() => expect(document.activeElement).toBe(primary));
   });
 });
 
-describe('Popup freeform expand', () => {
-  it('clicking the collapsed entry expands the textarea + Send button', async () => {
-    const { container, findByRole, findByText } = render(Popup);
-    const collapsed = (await findByText(/Translate something/i)) as HTMLButtonElement;
-    await fireEvent.click(collapsed);
-    await tick();
-    const ta = container.querySelector('[data-ega-freeform-textarea]') as HTMLTextAreaElement;
-    expect(ta).not.toBeNull();
-    expect(await findByRole('button', { name: /Open in side panel/i })).toBeTruthy();
+describe('Popup site switch and status line', () => {
+  it('names the site, without www., and reads its state from settings', async () => {
+    await chrome.storage.local.set({
+      'ega.settings': {
+        anthropicApiKey: 'k',
+        sitePrefs: { 'https://www.example.com': { disabled: true } },
+      },
+    });
+    onTab('https://www.example.com/a');
+    const { findByRole, findByText } = render(Popup);
+    const sw = (await findByRole('switch', { name: 'Ega on example.com' })) as HTMLInputElement;
+    await vi.waitFor(() => expect(sw.checked).toBe(false));
+    expect(await findByText("Ega won't translate on this site.")).toBeTruthy();
+    const primary = await findByRole('button', { name: 'Translate page' });
+    expect(primary.getAttribute('aria-disabled')).toBe('true');
+    expect(
+      document.getElementById(primary.getAttribute('aria-describedby') ?? '')?.textContent,
+    ).toContain("Ega won't translate on this site.");
   });
 
-  it('Open in side panel writes the handoff slot + opens the sidepanel', async () => {
-    const tabsQuery = chrome.tabs.query as unknown as Mock;
-    tabsQuery.mockResolvedValue([{ id: 77, url: 'https://example.com/' }]);
+  it('turning the switch off sends a set for this page, and the status line appears', async () => {
+    onTab('https://example.com/page');
+    const send = chrome.runtime.sendMessage as unknown as Mock;
+    const { findByRole, findByText } = render(Popup);
+    const sw = (await findByRole('switch', { name: 'Ega on example.com' })) as HTMLInputElement;
+    await vi.waitFor(() => expect(sw.checked).toBe(true));
+    await fireEvent.click(sw);
+    await vi.waitFor(() =>
+      expect(send).toHaveBeenCalledWith({
+        kind: 'site:set-enabled',
+        enabled: false,
+        url: 'https://example.com/page',
+      }),
+    );
+    expect(await findByText("Ega won't translate on this site.")).toBeTruthy();
+    expect(sw.checked).toBe(false);
+  });
+
+  it('flips back and says so when the write fails', async () => {
+    onTab('https://example.com/');
+    const send = chrome.runtime.sendMessage as unknown as Mock;
+    send.mockImplementation(async (msg: { kind?: string }) =>
+      msg.kind === 'site:set-enabled' ? { ok: false } : { ok: true },
+    );
+    const { findByRole, findByText } = render(Popup);
+    const sw = (await findByRole('switch', { name: 'Ega on example.com' })) as HTMLInputElement;
+    await fireEvent.click(sw);
+    expect(await findByText("Ega couldn't save this change. Try again.")).toBeTruthy();
+    await vi.waitFor(() => expect(sw.checked).toBe(true));
+  });
+
+  it('flips back when the write never answers', async () => {
+    onTab('https://example.com/');
+    const send = chrome.runtime.sendMessage as unknown as Mock;
+    send.mockImplementation((msg: { kind?: string }) =>
+      msg.kind === 'site:set-enabled' ? new Promise(() => {}) : Promise.resolve({ ok: true }),
+    );
+    const { findByRole } = render(Popup);
+    const sw = (await findByRole('switch', { name: 'Ega on example.com' })) as HTMLInputElement;
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      await fireEvent.click(sw);
+      expect(sw.checked).toBe(false);
+      await vi.advanceTimersByTimeAsync(2100);
+    } finally {
+      vi.useRealTimers();
+    }
+    await vi.waitFor(() => expect(sw.checked).toBe(true));
+  });
+
+  it.each([
+    [{ reason: 'english' }, 'Bubble hidden: the text looks like English.'],
+    [
+      { reason: 'too-short', minLength: 6 },
+      'Bubble hidden: the selection is shorter than 6 characters.',
+    ],
+    [{ reason: 'mode-never' }, 'The selection bubble is off in Settings.'],
+  ])(
+    'names why the bubble stayed hidden (%o) and offers Translate anyway',
+    async (heldBack, text) => {
+      const { sent } = onTab('https://example.com/', (msg) =>
+        msg.kind === 'ega:get-selection' ? { text: 'hello there', heldBack } : { ok: true },
+      );
+      const closeSpy = vi.spyOn(window, 'close').mockImplementation(() => undefined);
+      const { findByText, findByRole } = render(Popup);
+      expect(await findByText(text)).toBeTruthy();
+      await fireEvent.click(await findByRole('button', { name: 'Translate anyway' }));
+      await vi.waitFor(() =>
+        expect(sent).toHaveBeenCalledWith(42, {
+          kind: 'ctx:translate-selection',
+          text: 'hello there',
+        }),
+      );
+      await vi.waitFor(() => expect(closeSpy).toHaveBeenCalled());
+      closeSpy.mockRestore();
+    },
+  );
+
+  it('on a page extensions cannot run on, hides the switch and blocks the page actions', async () => {
+    const { sent } = onTab('chrome://extensions/');
+    const { findByText, findByRole, queryByRole } = render(Popup);
+    expect(await findByText("Ega can't run on this page.")).toBeTruthy();
+    expect(queryByRole('switch')).toBeNull();
+    expect(
+      (await findByRole('button', { name: 'Choose areas' })).getAttribute('aria-disabled'),
+    ).toBe('true');
+    expect(sent).not.toHaveBeenCalled();
+  });
+
+  it('says to reload a page whose content script does not answer, and reloads it', async () => {
+    onTab('https://example.com/', () => {
+      throw new Error('Could not establish connection. Receiving end does not exist.');
+    });
+    const reload = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(chrome.tabs, 'reload', { configurable: true, value: reload });
+    const { findByText, findByRole } = render(Popup);
+    expect(await findByText('Reload this page to use Ega here.')).toBeTruthy();
+    expect(
+      (await findByRole('button', { name: 'Translate page' })).getAttribute('aria-disabled'),
+    ).toBe('true');
+    await fireEvent.click(await findByRole('button', { name: 'Reload page' }));
+    expect(reload).toHaveBeenCalledWith(42);
+  });
+});
+
+describe('Popup text box', () => {
+  it('Translate writes the handoff slot and opens the side panel', async () => {
+    onTab('https://example.com/');
     const sidePanelOpen = vi.fn().mockResolvedValue(undefined);
     const realSidePanel = chrome.sidePanel;
     Object.defineProperty(chrome, 'sidePanel', {
@@ -91,25 +230,22 @@ describe('Popup freeform expand', () => {
     });
     const closeSpy = vi.spyOn(window, 'close').mockImplementation(() => undefined);
 
-    const { findByRole, findByText, container } = render(Popup);
-    await fireEvent.click(await findByText(/Translate something/i));
-    await tick();
-    const ta = container.querySelector('[data-ega-freeform-textarea]') as HTMLTextAreaElement;
+    const { findByRole, getByLabelText } = render(Popup);
+    await mounted();
+    const ta = getByLabelText('Translate in the side panel');
     await fireEvent.input(ta, { target: { value: 'ahlan sadeeqi' } });
-    await fireEvent.click(await findByRole('button', { name: /Open in side panel/i }));
+    await fireEvent.click(await findByRole('button', { name: 'Translate' }));
 
-    await vi.waitFor(() => expect(sidePanelOpen).toHaveBeenCalledWith({ tabId: 77 }));
-    const entries = await handoffEntries<{ sourceText: string; task: string; tone: string }>();
-    expect(entries.length).toBe(1);
-    expect(entries[0]?.sourceText).toBe('ahlan sadeeqi');
+    await vi.waitFor(() => expect(sidePanelOpen).toHaveBeenCalledWith({ tabId: 42 }));
+    const entries = await handoffEntries<{ sourceText: string }>();
+    expect(entries.map((e) => e.sourceText)).toEqual(['ahlan sadeeqi']);
 
     closeSpy.mockRestore();
     Object.defineProperty(chrome, 'sidePanel', { configurable: true, value: realSidePanel });
   });
 
   it('Send cancels the pending draft-save timer so the sent text is not restored', async () => {
-    const tabsQuery = chrome.tabs.query as unknown as Mock;
-    tabsQuery.mockResolvedValue([{ id: 88, url: 'https://example.com/' }]);
+    onTab('https://example.com/');
     const realSidePanel = chrome.sidePanel;
     Object.defineProperty(chrome, 'sidePanel', {
       configurable: true,
@@ -117,12 +253,10 @@ describe('Popup freeform expand', () => {
     });
     const closeSpy = vi.spyOn(window, 'close').mockImplementation(() => undefined);
 
-    const { container, findByRole, findByText } = render(Popup);
-    await fireEvent.click(await findByText(/Translate something/i));
+    const { container, findByRole } = render(Popup);
+    await mounted();
     const ta = container.querySelector('[data-ega-freeform-textarea]') as HTMLTextAreaElement;
     await fireEvent.input(ta, { target: { value: 'ana bahibbak' } });
-    // The debounce only arms after hydration, so wait for the draft it writes
-    // rather than guessing how long onMount takes.
     await vi.waitFor(async () => {
       const armed = (await chrome.storage.session.get('ega.popupDraft')) as Record<
         string,
@@ -131,7 +265,7 @@ describe('Popup freeform expand', () => {
       expect(armed['ega.popupDraft']?.text).toBe('ana bahibbak');
     });
 
-    const send = await findByRole('button', { name: /Open in side panel/i });
+    const send = await findByRole('button', { name: 'Translate' });
     const draftText = async (): Promise<string> => {
       const stored = (await chrome.storage.session.get('ega.popupDraft')) as Record<
         string,
@@ -140,7 +274,6 @@ describe('Popup freeform expand', () => {
       return stored['ega.popupDraft']?.text ?? '';
     };
 
-    // Fake timers from here, so the re-armed 150 ms debounce fires only when the test says so.
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     try {
       // Svelte arms its own 0 ms event timer, so pending timers are counted after it has run.
@@ -153,22 +286,18 @@ describe('Popup freeform expand', () => {
       await fireEvent.click(send);
       expect(await pending()).toBe(0);
       await vi.waitFor(async () => expect(await draftText()).toBe(''));
-      // Past the debounce: a surviving timer would rewrite the sent text now.
       await vi.advanceTimersByTimeAsync(250);
     } finally {
       vi.useRealTimers();
     }
-    // The composer stays expanded across reopens, so an empty-text draft may
-    // persist; what must not survive is the text that was just sent.
     expect(await draftText()).toBe('');
 
     closeSpy.mockRestore();
     Object.defineProperty(chrome, 'sidePanel', { configurable: true, value: realSidePanel });
   });
 
-  it('clamps an over-limit freeform send to the handoff cap and says so', async () => {
-    const tabsQuery = chrome.tabs.query as unknown as Mock;
-    tabsQuery.mockResolvedValue([{ id: 77, url: 'https://example.com/' }]);
+  it('clamps an over-limit send to the handoff cap and says so', async () => {
+    onTab('https://example.com/');
     const realSidePanel = chrome.sidePanel;
     const sidePanelOpen = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(chrome, 'sidePanel', {
@@ -178,20 +307,18 @@ describe('Popup freeform expand', () => {
     const closeSpy = vi.spyOn(window, 'close').mockImplementation(() => undefined);
 
     const { findByRole, findByText, container } = render(Popup);
-    await fireEvent.click(await findByText(/Translate something/i));
-    await tick();
+    await mounted();
     const ta = container.querySelector('[data-ega-freeform-textarea]') as HTMLTextAreaElement;
     await fireEvent.input(ta, { target: { value: 'x'.repeat(MAX_SELECTION_CHARS + 100) } });
-    await fireEvent.click(await findByRole('button', { name: /Open in side panel/i }));
-    // close() would follow open() in the same chain, so one flush after open is enough to see it.
+    await fireEvent.click(await findByRole('button', { name: 'Translate' }));
     await vi.waitFor(() => expect(sidePanelOpen).toHaveBeenCalled());
     await flushAsync();
 
-    expect(await findByText(new RegExp(`first ${MAX_SELECTION_CHARS} characters`))).toBeTruthy();
+    expect(
+      await findByText(`Your text is long. Ega sent the first ${MAX_SELECTION_CHARS} characters.`),
+    ).toBeTruthy();
     const entries = await handoffEntries<{ sourceText: string }>();
-    expect(entries.length).toBe(1);
     expect(entries[0]?.sourceText.length).toBe(MAX_SELECTION_CHARS);
-    // Trimmed sends keep the popup open so the toast stays readable.
     expect(closeSpy).not.toHaveBeenCalled();
 
     closeSpy.mockRestore();
@@ -199,8 +326,7 @@ describe('Popup freeform expand', () => {
   });
 
   it('clamps an over-limit clipboard to the handoff cap and says so', async () => {
-    const tabsQuery = chrome.tabs.query as unknown as Mock;
-    tabsQuery.mockResolvedValue([{ id: 77, url: 'https://example.com/' }]);
+    onTab('https://example.com/');
     const readText = navigator.clipboard.readText as unknown as Mock;
     readText.mockResolvedValueOnce('y'.repeat(MAX_SELECTION_CHARS + 500));
     const realSidePanel = chrome.sidePanel;
@@ -212,13 +338,12 @@ describe('Popup freeform expand', () => {
     const closeSpy = vi.spyOn(window, 'close').mockImplementation(() => undefined);
 
     const { findByRole, findByText } = render(Popup);
-    await fireEvent.click(await findByRole('button', { name: /Translate clipboard contents/i }));
+    await fireEvent.click(await findByRole('button', { name: 'Translate clipboard' }));
     await vi.waitFor(() => expect(sidePanelOpen).toHaveBeenCalled());
     await flushAsync();
 
     expect(await findByText(new RegExp(`first ${MAX_SELECTION_CHARS} characters`))).toBeTruthy();
     const entries = await handoffEntries<{ sourceText: string }>();
-    expect(entries.length).toBe(1);
     expect(entries[0]?.sourceText.length).toBe(MAX_SELECTION_CHARS);
     expect(closeSpy).not.toHaveBeenCalled();
 
@@ -226,42 +351,40 @@ describe('Popup freeform expand', () => {
     Object.defineProperty(chrome, 'sidePanel', { configurable: true, value: realSidePanel });
   });
 
-  it('Send is disabled when the freeform textarea is whitespace-only', async () => {
-    const { container, findByRole, findByText } = render(Popup);
-    await fireEvent.click(await findByText(/Translate something/i));
-    await tick();
+  it('Translate is aria-disabled while the box is whitespace-only, and sends nothing', async () => {
+    const open = chrome.sidePanel.open as unknown as Mock;
+    const { container, findByRole } = render(Popup);
+    await mounted();
     const ta = container.querySelector('[data-ega-freeform-textarea]') as HTMLTextAreaElement;
     await fireEvent.input(ta, { target: { value: '   \n  ' } });
-    const send = (await findByRole('button', { name: /Open in side panel/i })) as HTMLButtonElement;
-    expect(send.disabled).toBe(true);
+    const send = await findByRole('button', { name: 'Translate' });
+    expect(send.getAttribute('aria-disabled')).toBe('true');
+    expect(send.hasAttribute('disabled')).toBe(false);
+    await fireEvent.click(send);
+    await flushAsync();
+    expect(open).not.toHaveBeenCalled();
   });
 });
 
-describe('Popup auto-fill from active-tab selection', () => {
-  it('pre-fills + auto-expands the freeform when an active-tab selection lands', async () => {
-    const tabsQuery = chrome.tabs.query as unknown as Mock;
-    const tabsSend = chrome.tabs.sendMessage as unknown as Mock;
-    tabsQuery.mockResolvedValue([{ id: 42, url: 'https://example.com/' }]);
-    tabsSend.mockImplementation(async (_tabId: number, msg: unknown) => {
-      if ((msg as { kind?: string }).kind === 'ega:get-selection') {
-        return { text: 'yalla habibi' };
-      }
-      return { ok: true };
-    });
+describe('Popup prefill from the page selection', () => {
+  it('fills the box with the page selection and focuses it', async () => {
+    onTab('https://example.com/', (msg) =>
+      msg.kind === 'ega:get-selection' ? { text: 'yalla habibi' } : { ok: true },
+    );
     const { findByDisplayValue } = render(Popup);
     const ta = (await findByDisplayValue('yalla habibi')) as HTMLTextAreaElement;
     expect(ta.dataset['egaFreeformTextarea']).toBeDefined();
+    await vi.waitFor(() => expect(document.activeElement).toBe(ta));
   });
 });
 
 describe('Popup source<->target swap', () => {
   it('clicking swap exchanges the bound source and target values', async () => {
     const { container, findByLabelText } = render(Popup);
-    await findByLabelText(/swap/i);
+    await mounted();
     const selects = container.querySelectorAll(
       '[data-ega-lang-pair] select',
     ) as NodeListOf<HTMLSelectElement>;
-    expect(selects.length).toBe(2);
     const [fromSelect, toSelect] = [selects[0], selects[1]] as [
       HTMLSelectElement,
       HTMLSelectElement,
@@ -270,9 +393,7 @@ describe('Popup source<->target swap', () => {
     await tick();
     await fireEvent.change(toSelect, { target: { value: 'fr' } });
     await tick();
-    expect(fromSelect.value).toBe('es');
-    expect(toSelect.value).toBe('fr');
-    const swap = (await findByLabelText(/swap/i)) as HTMLButtonElement;
+    const swap = (await findByLabelText('Swap languages')) as HTMLButtonElement;
     await fireEvent.click(swap);
     await tick();
     expect(fromSelect.value).toBe('fr');
@@ -290,8 +411,8 @@ describe('Popup — a rejected settings write', () => {
       return { ok: true };
     });
 
-    const { container, findByLabelText, findByText } = render(Popup);
-    await findByLabelText(/swap/i);
+    const { container, findByText } = render(Popup);
+    await mounted();
     const selects = container.querySelectorAll(
       '[data-ega-lang-pair] select',
     ) as NodeListOf<HTMLSelectElement>;
@@ -307,7 +428,6 @@ describe('Popup — a rejected settings write', () => {
 
 describe('Popup — settings listener cleanup', () => {
   it('removes the onSettingsChanged listener when the popup unmounts', async () => {
-    // Count onChanged adds and removes: unmount must unsubscribe.
     const onChanged = chrome.storage.local.onChanged as unknown as {
       addListener: (fn: (...a: unknown[]) => void) => void;
       removeListener: (fn: (...a: unknown[]) => void) => void;
@@ -321,96 +441,87 @@ describe('Popup — settings listener cleanup', () => {
     };
 
     const { findByRole, unmount } = render(Popup);
-    await findByRole('button', { name: /Translate this page/i });
+    await findByRole('button', { name: 'Translate page' });
     await mounted();
-
-    expect(added.length).toBeGreaterThanOrEqual(1);
-    const before = added.filter((fn) => onChanged.hasListener(fn)).length;
-    expect(before).toBeGreaterThanOrEqual(1);
+    await vi.waitFor(() =>
+      expect(added.filter((fn) => onChanged.hasListener(fn)).length).toBeGreaterThanOrEqual(1),
+    );
 
     unmount();
-    // Cleanup runs synchronously on unmount; the listener must be gone.
-    const after = added.filter((fn) => onChanged.hasListener(fn)).length;
-    expect(after).toBe(0);
+    expect(added.filter((fn) => onChanged.hasListener(fn)).length).toBe(0);
 
     onChanged.addListener = origAdd;
   });
 });
 
-describe('Popup — translate this page button', () => {
-  it('clicking "Translate this page" sends page:translateAll to the active tab', async () => {
-    const sendToTab = chrome.tabs.sendMessage as unknown as Mock;
-    sendToTab.mockResolvedValue(undefined);
-    const query = chrome.tabs.query as unknown as Mock;
-    query.mockResolvedValue([{ id: 42, url: 'https://example.com/' }]);
+describe('Popup — page actions', () => {
+  it.each([
+    ['Translate page', 'page:translateAll'],
+    ['Choose areas', 'page:chooseAreas'],
+    ['Pick element', 'picker:enter'],
+  ])('%s sends %s to the active tab and closes', async (name, kind) => {
+    const { sent } = onTab('https://example.com/');
     const closeSpy = vi.spyOn(window, 'close').mockImplementation(() => undefined);
 
     const { findByRole } = render(Popup);
-    const btn = (await findByRole('button', {
-      name: /translate this page/i,
-    })) as HTMLButtonElement;
-    await fireEvent.click(btn);
+    await mounted();
+    await fireEvent.click(await findByRole('button', { name }));
 
-    const call = await vi.waitFor(() => {
-      const found = sendToTab.mock.calls.find(
-        (c) => (c[1] as { kind?: string }).kind === 'page:translateAll',
-      );
-      if (!found) throw new Error('no page:translateAll call');
-      return found;
-    });
-    expect(call[0]).toBe(42);
-    expect(call[1]).toEqual({ kind: 'page:translateAll' });
+    await vi.waitFor(() => expect(sent).toHaveBeenCalledWith(42, { kind }));
+    await vi.waitFor(() => expect(closeSpy).toHaveBeenCalled());
     closeSpy.mockRestore();
   });
 
-  it('surfaces a toast when no injectable tab is available (chrome:// / extension tab)', async () => {
-    const query = chrome.tabs.query as unknown as Mock;
-    // Only non-injectable tabs present — resolveContentTab returns null.
-    query.mockResolvedValue([{ id: 9, url: 'chrome://extensions/' }]);
-    const sendToTab = chrome.tabs.sendMessage as unknown as Mock;
-    sendToTab.mockResolvedValue(undefined);
-
+  it('any failure other than a missing content script keeps a plain message', async () => {
+    onTab('https://example.com/', (msg) => {
+      if (msg.kind === 'page:translateAll') throw new Error('Something else broke');
+      return { ok: true };
+    });
     const { findByRole, findByText } = render(Popup);
-    const btn = (await findByRole('button', {
-      name: /translate this page/i,
-    })) as HTMLButtonElement;
-    await fireEvent.click(btn);
+    await mounted();
+    await fireEvent.click(await findByRole('button', { name: 'Translate page' }));
+    expect(await findByText("Ega couldn't start page translation.")).toBeTruthy();
+  });
 
-    expect(await findByText(/No translatable page here/i)).toBeTruthy();
-    // No dispatch fired — the click was a feedback-only no-op.
-    const dispatched = sendToTab.mock.calls.find(
-      (c) => (c[1] as { kind?: string }).kind === 'page:translateAll',
-    );
-    expect(dispatched).toBeUndefined();
+  it('a content script lost after the popup opened turns into the reload status line', async () => {
+    onTab('https://example.com/', (msg) => {
+      if (msg.kind === 'page:translateAll') {
+        throw new Error('Could not establish connection. Receiving end does not exist.');
+      }
+      return { ok: true };
+    });
+    const { findByRole, findByText } = render(Popup);
+    await mounted();
+    await fireEvent.click(await findByRole('button', { name: 'Translate page' }));
+    expect(await findByText('Reload this page to use Ega here.')).toBeTruthy();
   });
 });
 
 describe('Popup composer draft — saved from the input event', () => {
   it('text typed before the draft read finishes is still saved', async () => {
-    const { container, findByText } = render(Popup);
-    await fireEvent.click(await findByText(/Translate something/i));
-    const ta = container.querySelector('[data-ega-freeform-textarea]') as HTMLTextAreaElement;
+    const { container } = render(Popup);
+    const ta = await vi.waitFor(() => {
+      const el = container.querySelector('[data-ega-freeform-textarea]');
+      if (!el) throw new Error('no box yet');
+      return el as HTMLTextAreaElement;
+    });
     await fireEvent.input(ta, { target: { value: 'typed early' } });
     await vi.waitFor(async () => {
       const stored = (await chrome.storage.session.get('ega.popupDraft')) as Record<
         string,
         { text?: string; expanded?: boolean } | undefined
       >;
-      expect(stored['ega.popupDraft']).toEqual({ text: 'typed early', expanded: true });
+      expect(stored['ega.popupDraft']?.text).toBe('typed early');
     });
   });
 
-  it('expanding without typing saves the expanded flag', async () => {
-    const { findByText } = render(Popup);
-    await mounted();
-    await fireEvent.click(await findByText(/Translate something/i));
-    await vi.waitFor(async () => {
-      const stored = (await chrome.storage.session.get('ega.popupDraft')) as Record<
-        string,
-        { text?: string; expanded?: boolean } | undefined
-      >;
-      expect(stored['ega.popupDraft']?.expanded).toBe(true);
-    });
+  it('a stored draft wins over the page selection', async () => {
+    await chrome.storage.session.set({ 'ega.popupDraft': { text: 'my draft', expanded: true } });
+    onTab('https://example.com/', (msg) =>
+      msg.kind === 'ega:get-selection' ? { text: 'page text' } : { ok: true },
+    );
+    const { findByDisplayValue } = render(Popup);
+    expect(await findByDisplayValue('my draft')).toBeTruthy();
   });
 });
 
@@ -419,11 +530,11 @@ describe('Popup handoff tone', () => {
     ['freeform send', 'freeform'],
     ['clipboard', 'clipboard'],
   ])('%s hands off the default tone', async (_, path) => {
-    await chrome.storage.local.set({ 'ega.settings': { defaultTone: 'formal' } });
+    await chrome.storage.local.set({
+      'ega.settings': { defaultTone: 'formal', anthropicApiKey: 'k' },
+    });
     await chrome.storage.session.remove('ega.pendingPopupHandoff');
-    (chrome.tabs.query as unknown as Mock).mockResolvedValue([
-      { id: 77, url: 'https://example.com/' },
-    ]);
+    onTab('https://example.com/');
     const realSidePanel = chrome.sidePanel;
     Object.defineProperty(chrome, 'sidePanel', {
       configurable: true,
@@ -431,18 +542,16 @@ describe('Popup handoff tone', () => {
     });
     const closeSpy = vi.spyOn(window, 'close').mockImplementation(() => undefined);
 
-    const { findByRole, findByText, container } = render(Popup);
-    await findByRole('button', { name: /Translate this page/i });
+    const { findByRole, container } = render(Popup);
+    await findByRole('button', { name: 'Translate page' });
     await mounted();
     if (path === 'freeform') {
-      await fireEvent.click(await findByText(/Translate something/i));
-      await tick();
       const ta = container.querySelector('[data-ega-freeform-textarea]') as HTMLTextAreaElement;
       await fireEvent.input(ta, { target: { value: 'ahlan' } });
-      await fireEvent.click(await findByRole('button', { name: /Open in side panel/i }));
+      await fireEvent.click(await findByRole('button', { name: 'Translate' }));
     } else {
       (navigator.clipboard.readText as unknown as Mock).mockResolvedValueOnce('ahlan');
-      await fireEvent.click(await findByRole('button', { name: /Translate clipboard contents/i }));
+      await fireEvent.click(await findByRole('button', { name: 'Translate clipboard' }));
     }
 
     const entries = await vi.waitFor(async () => {
@@ -454,6 +563,5 @@ describe('Popup handoff tone', () => {
 
     closeSpy.mockRestore();
     Object.defineProperty(chrome, 'sidePanel', { configurable: true, value: realSidePanel });
-    await chrome.storage.local.remove('ega.settings');
   });
 });

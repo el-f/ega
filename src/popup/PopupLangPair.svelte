@@ -11,19 +11,10 @@
     onSourceChange: (v: string) => void;
     onTargetChange: (v: string) => void;
     onSwap: () => void;
-    /** Disabled when source is 'auto' — swapping auto into the target slot is invalid. */
-    swapDisabled?: boolean;
   }
 
-  let {
-    sourceLang,
-    targetLang,
-    varieties,
-    onSourceChange,
-    onTargetChange,
-    onSwap,
-    swapDisabled = false,
-  }: Props = $props();
+  let { sourceLang, targetLang, varieties, onSourceChange, onTargetChange, onSwap }: Props =
+    $props();
 
   function setSource(v: string): void {
     if (v !== sourceLang) onSourceChange(v);
@@ -33,28 +24,40 @@
   }
 </script>
 
-<div class="popup-lang-pair" data-ega-lang-pair>
-  <label class="lang-label" for="pop-lang">
-    <span class="ega-sr-only">From</span>
-    <LanguagePicker id="pop-lang" {varieties} includeAuto value={sourceLang} onchange={setSource} />
-  </label>
-  <!-- aria-disabled, not disabled: a disabled button cannot take focus, so its reason would be hover-only. -->
-  <IconButton
-    icon={ArrowLeftRight}
-    ariaLabel={swapDisabled ? 'Pick a source language to swap' : 'Swap languages'}
-    size="sm"
-    dataAttrs={{ 'aria-disabled': swapDisabled ? 'true' : undefined }}
-    onclick={() => {
-      if (!swapDisabled) onSwap();
-    }}
-  />
-  <label class="lang-label" for="pop-target">
-    <span class="ega-sr-only">To</span>
-    <LanguagePicker id="pop-target" {varieties} value={targetLang} onchange={setTarget} />
-  </label>
+<div class="popup-langs" role="group" aria-labelledby="pop-langs-label">
+  <span id="pop-langs-label" class="group-label">Default languages</span>
+  <div class="popup-lang-pair" data-ega-lang-pair>
+    <label class="lang-label" for="pop-lang">
+      <span class="ega-sr-only">From</span>
+      <LanguagePicker
+        id="pop-lang"
+        {varieties}
+        includeAuto
+        value={sourceLang}
+        onchange={setSource}
+      />
+    </label>
+    <!-- Hidden, never disabled, while From is Auto-detect: 'auto' has no place in the target slot. -->
+    {#if sourceLang !== 'auto'}
+      <IconButton icon={ArrowLeftRight} ariaLabel="Swap languages" size="sm" onclick={onSwap} />
+    {/if}
+    <label class="lang-label" for="pop-target">
+      <span class="ega-sr-only">To</span>
+      <LanguagePicker id="pop-target" {varieties} value={targetLang} onchange={setTarget} />
+    </label>
+  </div>
 </div>
 
 <style>
+  .popup-langs {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  .group-label {
+    font-size: var(--fs-xs);
+    color: var(--color-muted);
+  }
   .popup-lang-pair {
     display: flex;
     align-items: center;
@@ -68,12 +71,5 @@
   }
   .lang-label :global(.ega-lang-picker) {
     width: 100%;
-  }
-  /* Disabled tokens, not opacity: the button stays focusable, and opacity would fade its focus ring. */
-  .popup-lang-pair :global(.ega-icon-btn[aria-disabled='true']),
-  .popup-lang-pair :global(.ega-icon-btn[aria-disabled='true']:hover) {
-    cursor: var(--cursor-disabled);
-    background: transparent;
-    color: var(--color-fg-disabled);
   }
 </style>

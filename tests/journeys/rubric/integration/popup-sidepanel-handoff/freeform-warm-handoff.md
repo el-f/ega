@@ -17,7 +17,7 @@
 
 ## Failure-mode expectations
 
-- Handoff write failure -> nothing is queued; popup stays open with a "Could not open the side panel." toast.
+- Handoff write failure -> nothing is queued; popup stays open with a "Ega couldn't open the side panel. Try again." toast.
 
 ## Cautions
 

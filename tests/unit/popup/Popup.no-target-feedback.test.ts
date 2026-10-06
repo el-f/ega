@@ -1,11 +1,14 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import type { Mock } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
-import { tick } from 'svelte';
 import Popup from '@/popup/Popup.svelte';
 import { readPopupDraft } from '@/shared/pending-popup-draft';
 import { flushAsync } from '@tests/_helpers/async';
+
+beforeEach(async () => {
+  await chrome.storage.local.set({ 'ega.settings': { anthropicApiKey: 'test-key' } });
+});
 
 afterEach(() => {
   vi.clearAllMocks();
@@ -22,35 +25,36 @@ function onlyChromeTabs(): void {
 }
 
 describe('Popup — nothing to act on', () => {
-  it('says so when Pick has no page to pick from', async () => {
+  it('blocks Pick element on a page Ega cannot run on, and says why', async () => {
     onlyChromeTabs();
+    const sendToTab = chrome.tabs.sendMessage as unknown as Mock;
     const { findByRole, findByText } = render(Popup);
-    await fireEvent.click(await findByRole('button', { name: 'Pick element' }));
-    expect(await findByText(/open a regular website tab/i)).toBeTruthy();
+    expect(await findByText("Ega can't run on this page.")).toBeTruthy();
+    const pick = await findByRole('button', { name: 'Pick element' });
+    expect(pick.getAttribute('aria-disabled')).toBe('true');
+    await fireEvent.click(pick);
+    await flushAsync();
+    expect(sendToTab).not.toHaveBeenCalled();
   });
 
   it('says so when the side panel cannot open', async () => {
     onlyChromeTabs();
     const { container, findByRole, findByText } = render(Popup);
     await findByRole('button', { name: 'Pick element' });
-    const tile = container.querySelector<HTMLButtonElement>(
-      '[data-ega-popup-tools] button[aria-label="Open side panel"]',
-    );
+    const tile = container.querySelector<HTMLButtonElement>('[data-ega-tool="panel"]');
     if (!tile) throw new Error('panel tile not rendered');
     await fireEvent.click(tile);
-    expect(await findByText(/open a regular website tab/i)).toBeTruthy();
+    expect(await findByText(/Open a website tab, then try again/)).toBeTruthy();
   });
 
   it('freeform send explains the missing tab and that the text is kept', async () => {
     onlyChromeTabs();
     const { container, findByRole, findByText } = render(Popup);
-    await fireEvent.click(await findByText(/Translate something/i));
-    await tick();
     const ta = container.querySelector('[data-ega-freeform-textarea]') as HTMLTextAreaElement;
     await fireEvent.input(ta, { target: { value: 'hola' } });
-    await fireEvent.click(await findByRole('button', { name: /Open in side panel/i }));
-    expect(await findByText(/The side panel needs a browser tab/i)).toBeTruthy();
-    expect(await findByText(/Your text is kept/i)).toBeTruthy();
+    await fireEvent.click(await findByRole('button', { name: 'Translate' }));
+    expect(await findByText(/The side panel needs a website tab/)).toBeTruthy();
+    expect(await findByText(/your text is kept/)).toBeTruthy();
   });
 
   it('never dispatches to a tab the user is not looking at', async () => {
@@ -62,8 +66,7 @@ describe('Popup — nothing to act on', () => {
 
     const { findByRole, findByText } = render(Popup);
     await fireEvent.click(await findByRole('button', { name: 'Pick element' }));
-
-    expect(await findByText(/open a regular website tab/i)).toBeTruthy();
+    expect(await findByText('Open a website tab, then try again.')).toBeTruthy();
     expect(sendToTab).not.toHaveBeenCalled();
   });
 
@@ -86,14 +89,12 @@ describe('Popup — nothing to act on', () => {
     });
 
     const { container, findByRole, findByText } = render(Popup);
-    await fireEvent.click(await findByText(/Translate something/i));
-    await tick();
     const ta = container.querySelector('[data-ega-freeform-textarea]') as HTMLTextAreaElement;
     await fireEvent.input(ta, { target: { value: 'keep me too' } });
     await draftSaved('keep me too');
-    await fireEvent.click(await findByRole('button', { name: /Open in side panel/i }));
+    await fireEvent.click(await findByRole('button', { name: 'Translate' }));
 
-    expect(await findByText(/Could not open the side panel/i)).toBeTruthy();
+    expect(await findByText(/couldn't open the side panel/)).toBeTruthy();
     // The toast comes from the failed send itself, so one flush lets that send finish.
     await flushAsync();
     expect(open).not.toHaveBeenCalled();
@@ -106,14 +107,12 @@ describe('Popup — nothing to act on', () => {
   it('keeps the freeform draft when the send fails', async () => {
     onlyChromeTabs();
     const { container, findByRole, findByText } = render(Popup);
-    await fireEvent.click(await findByText(/Translate something/i));
-    await tick();
     const ta = container.querySelector('[data-ega-freeform-textarea]') as HTMLTextAreaElement;
     await fireEvent.input(ta, { target: { value: 'keep me' } });
     // The draft write is debounced; let it land before the failing send.
     await draftSaved('keep me');
-    await fireEvent.click(await findByRole('button', { name: /Open in side panel/i }));
-    expect(await findByText(/The side panel needs a browser tab/i)).toBeTruthy();
+    await fireEvent.click(await findByRole('button', { name: 'Translate' }));
+    expect(await findByText(/The side panel needs a website tab/)).toBeTruthy();
     await flushAsync();
     expect((await readPopupDraft())?.text).toBe('keep me');
   });
@@ -126,10 +125,9 @@ describe('Popup — clipboard tile feedback', () => {
     readText.mockResolvedValueOnce('hola mundo');
 
     const { findByRole, findByText } = render(Popup);
-    await fireEvent.click(await findByRole('button', { name: /Translate clipboard contents/i }));
+    await fireEvent.click(await findByRole('button', { name: 'Translate clipboard' }));
 
-    expect(await findByText(/The side panel needs a browser tab/i)).toBeTruthy();
-    expect(await findByText(/Your text is still on the clipboard/i)).toBeTruthy();
+    expect(await findByText(/The side panel needs a website tab/)).toBeTruthy();
   });
 
   it('says the clipboard is empty instead of silently opening the panel', async () => {
@@ -138,9 +136,9 @@ describe('Popup — clipboard tile feedback', () => {
     const open = chrome.sidePanel.open as unknown as Mock;
 
     const { findByRole, findByText } = render(Popup);
-    await fireEvent.click(await findByRole('button', { name: /Translate clipboard contents/i }));
+    await fireEvent.click(await findByRole('button', { name: 'Translate clipboard' }));
 
-    expect(await findByText(/Clipboard is empty/i)).toBeTruthy();
+    expect(await findByText(/The clipboard is empty/)).toBeTruthy();
     expect(open).not.toHaveBeenCalled();
   });
 
@@ -150,9 +148,9 @@ describe('Popup — clipboard tile feedback', () => {
     const open = chrome.sidePanel.open as unknown as Mock;
 
     const { findByRole, findByText } = render(Popup);
-    await fireEvent.click(await findByRole('button', { name: /Translate clipboard contents/i }));
+    await fireEvent.click(await findByRole('button', { name: 'Translate clipboard' }));
 
-    expect(await findByText(/cannot read your clipboard/i)).toBeTruthy();
+    expect(await findByText(/couldn't read the clipboard/)).toBeTruthy();
     expect(open).not.toHaveBeenCalled();
   });
 
@@ -164,10 +162,10 @@ describe('Popup — clipboard tile feedback', () => {
     const readText = navigator.clipboard.readText as unknown as Mock;
 
     const { findByRole, findByText } = render(Popup);
-    await fireEvent.click(await findByRole('button', { name: /Translate clipboard contents/i }));
+    await fireEvent.click(await findByRole('button', { name: 'Translate clipboard' }));
 
     expect(request).toHaveBeenCalledWith({ permissions: ['clipboardRead'] });
-    expect(await findByText(/Clipboard access was denied/i)).toBeTruthy();
+    expect(await findByText(/needs clipboard access/)).toBeTruthy();
     expect(readText).not.toHaveBeenCalled();
   });
 
@@ -180,8 +178,8 @@ describe('Popup — clipboard tile feedback', () => {
     readText.mockResolvedValueOnce('   ');
 
     const { findByRole, findByText } = render(Popup);
-    await fireEvent.click(await findByRole('button', { name: /Translate clipboard contents/i }));
+    await fireEvent.click(await findByRole('button', { name: 'Translate clipboard' }));
 
-    expect(await findByText(/Clipboard is empty/i)).toBeTruthy();
+    expect(await findByText(/The clipboard is empty/)).toBeTruthy();
   });
 });

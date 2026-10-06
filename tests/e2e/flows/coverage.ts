@@ -226,7 +226,7 @@ export const COVERAGE: readonly Family[] = [
           },
           {
             id: 'prefill-from-selection',
-            description: 'Opening popup auto-expands freeform with active selection',
+            description: 'Opening the popup fills the text box with the active selection',
             flows: ['popup/prefill-from-selection.flow.spec.ts'],
           },
           {
@@ -251,23 +251,35 @@ export const COVERAGE: readonly Family[] = [
           },
           {
             id: 'open-side-panel',
-            description: 'Panel tile launches sidepanel',
+            description: 'Open side panel launches the side panel',
             flows: ['popup/open-side-panel.flow.spec.ts'],
           },
           {
             id: 'open-picker',
-            description: 'Pick tile enters picker mode on active tab',
+            description: 'Pick element enters picker mode on the active tab',
             flows: ['popup/open-picker.flow.spec.ts'],
           },
           {
             id: 'translate-page',
-            description: 'Page tile runs full-page translate on active tab',
+            description: 'Translate page runs page translate on the active tab',
             flows: ['popup/translate-page.flow.spec.ts'],
           },
           {
             id: 'open-settings',
             description: 'Header gear opens the options page in a tab',
             flows: ['popup/open-settings.flow.spec.ts'],
+          },
+          {
+            id: 'site-switch',
+            description:
+              'The site switch sets Ega off and on for the active site, with the reason shown',
+            flows: ['popup/site-switch.flow.spec.ts'],
+          },
+          {
+            id: 'translate-anyway',
+            description:
+              'The popup names why the bubble stayed hidden; Translate anyway opens the tooltip',
+            flows: ['popup/translate-anyway.flow.spec.ts'],
           },
         ],
       },

@@ -47,7 +47,7 @@ test('"Open side panel" button calls chrome.sidePanel.open against the content t
   await popup.goto(`chrome-extension://${ext.extensionId}/src/popup/index.html`);
   timeline.markStep('popup-opened');
 
-  await popup.locator('[data-ega-popup-tools] button[aria-label="Open side panel"]').click();
+  await popup.locator('[data-ega-tool="panel"]').click();
   timeline.markStep('sidepanel-clicked');
 
   await expect

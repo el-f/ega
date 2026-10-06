@@ -2,14 +2,15 @@
 
 ## Latency budgets
 
-- Each Tab press moves focus within one frame; the composer takes focus as it opens.
+- Each Tab press moves focus within one frame.
 
 ## State expectations
 
 - Step 1: the popup is mounted with a backend set up, so the header chip names it.
-- Step 2: Tab from the top visits, in order: the backend chip, the theme button, Open settings, the source language, the target language, the four tiles, then "Translate something…". The swap button is skipped while the source is auto, because it is disabled.
+- Step 1b: with nothing prefilled, focus starts on "Translate page".
+- Step 2: Tab from the top visits, in order: the backend chip, Open settings, the source language, the target language, "Translate page", the page tools list (one stop), the "Translate in the side panel" text box, then "Translate". The swap button is hidden while the source is Auto-detect.
 - Step 3: every stop draws a visible focus ring.
-- Step 4: Enter on "Translate something…" opens the composer and puts focus in its text box.
+- Step 4: inside the page tools list, Down moves to the next tool.
 - Step 5: Enter on the backend chip opens its popover; Escape closes it and focus goes back to the chip.
 
 ## Visible affordances
@@ -22,4 +23,4 @@
 
 ## Cautions
 
-- The "Pick element" tile is skipped too when the picker is turned off in Settings.
+- When the picker is off in Settings, "Pick element" stays in the list as aria-disabled, with "Off in Settings" beside it.

@@ -17,4 +17,4 @@
 ## Surface-specific
 
 - Popup body carries `data-ega-popup` (empty value); the body is 360px wide and the popover scrim clamps to that width.
-- Picker / Page tiles operate on the active tab; the popup window closes after dispatch.
+- Translate page, Choose areas and Pick element operate on the active tab; the popup window closes after dispatch.
