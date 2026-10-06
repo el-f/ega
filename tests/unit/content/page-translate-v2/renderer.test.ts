@@ -108,6 +108,10 @@ describe('renderer — bilingual mode', () => {
     const chip = handle.target.querySelector('[data-ega-tx-error]');
     expect(chip?.hasAttribute('title')).toBe(false);
     expect(chipText(handle.target)).toBe('No answer in time');
+    // An alert mark leads the title; screen readers skip it and read the words.
+    const mark = chip?.shadowRoot?.querySelector('.chip')?.firstElementChild;
+    expect(mark?.tagName.toLowerCase()).toBe('svg');
+    expect(mark?.getAttribute('aria-hidden')).toBe('true');
     // Original stays intact above the failed sibling.
     expect(original.textContent).toBe('これは段落です。');
   });

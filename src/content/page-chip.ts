@@ -45,6 +45,7 @@ function chipButton(
 const RETRY_ICON =
   '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>';
 const SETTINGS_ICON = '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>';
+const ALERT_ICON = '<circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>';
 
 /**
  * A page-DOM chip that names a failure from the error catalog, with the catalog's first next step:
@@ -65,7 +66,9 @@ export function mountErrorChip(
   const title = document.createElement('span');
   title.id = `ega-chip-${++chipSeq}`;
   title.textContent = copy?.title ?? 'Something went wrong';
-  chip.append(title);
+  const mark = document.createElement('span');
+  mark.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${ALERT_ICON}</svg>`;
+  chip.append(mark.firstChild as SVGElement, title);
   const actions = copy?.actions ?? [];
   const retry = opts.onRetry && actions.includes('try-again') ? opts.onRetry : undefined;
   if (copy && actions[0] === 'open-settings') {
