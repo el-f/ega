@@ -193,6 +193,20 @@ describe('AssistantTurn — the Re-run as menu holds swap and the task re-runs',
     expect(onTaskSwitch).not.toHaveBeenCalled();
   });
 
+  it('a keyboard open skips a checked task that is deleted, landing on an enabled item', async () => {
+    const { container } = latest({
+      turn: baseTurn({ taskId: 'c-gone' }),
+      swapPair: { sourceLang: 'en', targetLang: 'es' },
+    });
+    await openTaskMenu(container);
+    await waitFor(focusedMenuItem);
+    const checked = document.querySelector<HTMLElement>('[aria-checked="true"]');
+    expect(checked?.getAttribute('data-ega-task-switch-item')).toBe('c-gone');
+    expect(checked?.hasAttribute('data-disabled')).toBe(true);
+    expect(focusedMenuItem()).not.toBe(checked);
+    expect(focusedMenuItem().hasAttribute('data-disabled')).toBe(false);
+  });
+
   it('picking the task that already answered re-runs nothing', async () => {
     const onTaskSwitch = vi.fn();
     const { container } = latest({ onTaskSwitch });

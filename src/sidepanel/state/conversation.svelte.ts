@@ -31,6 +31,7 @@ import {
   type TurnDispatch,
   type TurnKind,
   type SwapPair,
+  type Variant,
   type VariantSeed,
 } from './conversation';
 import {
@@ -653,14 +654,20 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
         ),
       'none',
     );
-    const { refinementBody, refinementLabel, targetLang, sourceLang, task } = failed;
-    await dispatchVariant(turn.id, {
+    await dispatchVariant(turn.id, seedOf(failed));
+  }
+
+  /** The modifiers a variant ran with, so a re-run of it asks the same question. */
+  function seedOf(v: Variant | undefined): VariantSeed {
+    if (v === undefined) return {};
+    const { refinementBody, refinementLabel, targetLang, sourceLang, task } = v;
+    return {
       ...(refinementBody !== undefined ? { refinementBody } : {}),
       ...(refinementLabel !== undefined ? { refinementLabel } : {}),
       ...(targetLang !== undefined ? { targetLang } : {}),
       ...(sourceLang !== undefined ? { sourceLang } : {}),
       ...(task !== undefined ? { task } : {}),
-    });
+    };
   }
 
   /** The user turn a variant of `turnId` replays, plus the dispatch it reuses. Null = nothing to replay. */
@@ -740,13 +747,13 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     // An image has no source text to read, so a swap would re-run the vision pass into its own language.
     if (target.userTurn.imageDataUrl !== undefined) return null;
     if (target.reuse.sourceLang !== 'auto') return target.reuse.sourceLang;
-    // The turn mirrors the shown variant, and a swap variant was told its source; read a reply that detected it.
+    // A swap variant was told its source, and the model's string reaches the wire: read a plain reply that named a known code.
     const detected =
-      target.assistant.variants?.find((v) => v.sourceLang === undefined && v.detectedLang)
-        ?.detectedLang ?? target.assistant.detectedLang;
-    // The model's string reaches the wire as targetLang, so only a code this build knows can pass.
-    if (detected === undefined || detected === 'other' || detected === 'auto') return null;
-    return isIsoCode(detected) ? asLangSelection(detected) : null;
+      target.assistant.variants?.find(
+        (v) =>
+          v.sourceLang === undefined && v.detectedLang !== undefined && isIsoCode(v.detectedLang),
+      )?.detectedLang ?? target.assistant.detectedLang;
+    return detected !== undefined && isIsoCode(detected) ? asLangSelection(detected) : null;
   }
 
   /** The swap item reads this, so an enabled item always has a swap to run, and its label names that run. */
@@ -757,10 +764,11 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     if (target === null || source === null) return null;
     const pair: SwapPair = { sourceLang: target.reuse.targetLang, targetLang: source };
     if (pair.sourceLang === pair.targetLang) return { ...pair, blocked: 'same-language' };
-    // Any finished plain swap counts, not just the shown one, so flipping back to 1/2 does not offer it again.
+    // Any plain swap with a reply counts, not just the shown one; an empty "No reply came back" answered nothing.
     const answered = (target.assistant.variants ?? []).some(
       (v) =>
         v.status === 'done' &&
+        (v.content.trim() !== '' || Boolean(v.explain)) &&
         v.refinementBody === undefined &&
         v.task === undefined &&
         v.sourceLang === pair.sourceLang &&
@@ -903,7 +911,9 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
 
   async function regenerateVariant(turnId: string): Promise<boolean> {
     // A stored turn the byte cap shrank gets its v1 back at load (conversation-store), so no rebuild here.
-    return dispatchVariant(turnId, {});
+    const turn = state.turns.find((t) => t.id === turnId);
+    // Re-rolls the answer on screen: a swap, a language change, a task or a refine runs as itself again.
+    return dispatchVariant(turnId, seedOf(turn ? activeVariant(turn) : undefined));
   }
 
   function editFrom(userTurnId: string): string | null {

@@ -162,11 +162,23 @@
     gap: var(--space-2);
     margin-top: var(--space-2);
   }
-  /* Two by two at every width: one line needs ~380px of card, more than a 380-400px panel gives, and a wrap left Write your own alone. */
+  /* A grid, not a wrapping line, which left Write your own alone. The card grows to fit two columns where the panel allows;
+     past that the tracks shrink and the labels wrap, so zoom and large fonts never push the row past the card. */
   .chip-row {
     display: grid;
-    grid-template-columns: repeat(2, minmax(max-content, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--space-2);
+  }
+  .chip-row :global(.ega-btn) {
+    min-width: 0;
+    text-align: center;
+    overflow-wrap: anywhere;
+  }
+  /* Under ~360px the card cannot reach the ~306px two unwrapped columns need. Zoom shrinks the viewport, so it stacks too. */
+  @media (max-width: 359px) {
+    .chip-row {
+      grid-template-columns: minmax(0, 1fr);
+    }
   }
   /* The ghost variant's border is transparent at rest, so the chips read as static text without this. */
   .chip-row :global(.ega-btn) {

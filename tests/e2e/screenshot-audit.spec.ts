@@ -28,6 +28,8 @@ const { currentDir: CURRENT_DIR, metaDir: META_DIR } = buildPaths(
 );
 /** What Chrome actually gives the side panel; the 1200px launch canvas hides wrapping and overflow. */
 const NARROW_SIDEPANEL = { width: 380, height: 760 };
+const NARROWEST_SIDEPANEL = { width: 320, height: 760 };
+const ZOOMED_SIDEPANEL = { width: 256, height: 760 };
 
 // Run via `pnpm visual:capture`; every shot costs judge tokens, so each one added lengthens `pnpm visual:judge`.
 
@@ -2104,6 +2106,34 @@ test('Sidepanel — refine row open at side-panel width, light + dark', async ()
     userAction: 'user pressed Refine on the newest reply at side-panel width, dark theme',
     expectations,
   });
+  // Chrome lets the side panel shrink to 320px, and 125% zoom leaves 256 CSS px; the chips must fit the card at both.
+  await applyThemeOnPage(sp, 'light');
+  await sp.locator('[data-ega-refine-chip="custom"]').click();
+  await expect(sp.locator('[data-ega-refine-text]')).toBeVisible();
+  const narrowest = [
+    { name: 'sidepanel-narrowest-refine-open', viewport: NARROWEST_SIDEPANEL, at: '320px' },
+    { name: 'sidepanel-zoomed-refine-open', viewport: ZOOMED_SIDEPANEL, at: '320px at 125% zoom' },
+  ];
+  for (const { name, viewport, at } of narrowest) {
+    await sp.setViewportSize(viewport);
+    // A grid track that cannot shrink spills its chips past the row instead of widening it.
+    const spill = await sp
+      .locator('[data-ega-quick-refine] [role="group"]')
+      .evaluate((row) => row.scrollWidth - row.clientWidth);
+    expect(spill, `chips spill at ${at}`).toBe(0);
+    await shot(sp, name, {
+      surface: 'sidepanel',
+      state: name.replace('sidepanel-', ''),
+      theme: 'light',
+      viewport,
+      userAction: `user pressed Refine, then Write your own…, with the side panel at ${at}`,
+      expectations: [
+        'the four chips and the text field stay inside the card, nothing runs past its edge',
+        'no chip label is clipped or wrapped; the chips stack in one column when two do not fit',
+        'Write your own… reads as pressed and the field with its Apply button sits under the chips',
+      ],
+    });
+  }
   await resetRoutes(ext.context);
   await sp.close();
 });

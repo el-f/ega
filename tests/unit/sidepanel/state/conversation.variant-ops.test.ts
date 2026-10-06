@@ -50,6 +50,15 @@ async function sendAndDrain(
   return assistant.id;
 }
 
+/** Streams `text` into the request in flight; the caller sends its own done. */
+function answer(c: ReturnType<typeof createConversation>, text: string): void {
+  c.applyChunk({
+    type: 'delta',
+    requestId: lastStart()['requestId'] as string,
+    text: `{"translation":"${text}"}`,
+  });
+}
+
 describe('createConversation().swapVariant', () => {
   it('adds a variant and dispatches with swapped langs', async () => {
     const c = createConversation();
@@ -202,6 +211,7 @@ describe('createConversation().swapPair', () => {
       targetLang: 'en',
     });
     expect(await c.swapVariant(assistantId)).toBe(true);
+    answer(c, 'hola');
     c.applyChunk({ type: 'done', requestId: lastStart()['requestId'] as string });
 
     expect(c.swapPair(assistantId)).toEqual({
@@ -277,6 +287,7 @@ describe('createConversation().swapPair', () => {
     if (!assistant) throw new Error('expected assistant turn');
     expect(await c.swapVariant(assistant.id)).toBe(true);
     // The swap was told its source is English, and the model echoes that back.
+    answer(c, 'hola');
     c.applyChunk({
       type: 'done',
       requestId: lastStart()['requestId'] as string,
@@ -295,6 +306,143 @@ describe('createConversation().swapPair', () => {
     await sendAndDrain(c, { sourceLang: asLangIdUnsafe('es'), targetLang: 'en' });
 
     expect(c.swapPair('nonexistent-id')).toBeNull();
+  });
+
+  it('an empty swap reply does not block the swap', async () => {
+    const c = createConversation();
+    const assistantId = await sendAndDrain(c, {
+      sourceLang: asLangIdUnsafe('es'),
+      targetLang: 'en',
+    });
+    expect(await c.swapVariant(assistantId)).toBe(true);
+    // "No reply came back": the swap finished with no text, so there is nothing it answered.
+    c.applyChunk({ type: 'done', requestId: lastStart()['requestId'] as string });
+
+    expect(c.swapPair(assistantId)).toEqual({ sourceLang: 'en', targetLang: 'es' });
+    expect(await c.swapVariant(assistantId)).toBe(true);
+  });
+
+  it('skips a reply that detected no known language when it reads an auto source', async () => {
+    const c = createConversation();
+    await c.send({
+      content: 'hola',
+      kind: 'translate',
+      sourceLang: 'auto',
+      targetLang: asLangIdUnsafe('en'),
+      stream: true,
+    });
+    c.applyChunk({
+      type: 'done',
+      requestId: lastStart()['requestId'] as string,
+      detectedLang: 'other',
+    } as never);
+    const assistant = c.turns.find((t) => t.role === 'assistant');
+    if (!assistant) throw new Error('expected assistant turn');
+    expect(await c.regenerateVariant(assistant.id)).toBe(true);
+    c.applyChunk({
+      type: 'done',
+      requestId: lastStart()['requestId'] as string,
+      detectedLang: 'es',
+    } as never);
+    // The first reply reported 'other'; the second named Spanish, and that is the source to swap from.
+    c.selectVariant(assistant.id, 0);
+
+    expect(c.swapPair(assistant.id)).toEqual({ sourceLang: 'en', targetLang: 'es' });
+  });
+});
+
+describe('createConversation().regenerateVariant re-rolls the shown answer', () => {
+  /** The start message without its per-request id, so two sends of one request compare equal. */
+  function request(msg: Record<string, unknown>): Record<string, unknown> {
+    const { requestId: _id, ...rest } = msg;
+    return rest;
+  }
+
+  it('a shown swap re-runs the swapped direction, and sends what the swap sent', async () => {
+    const c = createConversation();
+    const assistantId = await sendAndDrain(c, {
+      sourceLang: asLangIdUnsafe('es'),
+      targetLang: 'en',
+    });
+    const original = request(lastStart());
+    expect(await c.swapVariant(assistantId)).toBe(true);
+    const swap = request(lastStart());
+    answer(c, 'hola');
+    c.applyChunk({ type: 'done', requestId: lastStart()['requestId'] as string });
+
+    expect(await c.regenerateVariant(assistantId)).toBe(true);
+
+    const regen = request(lastStart());
+    // The cache key hashes the prompt: the swap's key, and only the direction differs from the first answer's.
+    expect(regen).toEqual(swap);
+    expect({ ...regen, sourceLang: 'es', targetLang: 'en' }).toEqual(original);
+    expect(c.turns.find((t) => t.id === assistantId)?.variants?.at(-1)).toMatchObject({
+      sourceLang: 'en',
+      targetLang: 'es',
+    });
+  });
+
+  it('the first answer shown re-runs the first direction, not the swap', async () => {
+    const c = createConversation();
+    const assistantId = await sendAndDrain(c, {
+      sourceLang: asLangIdUnsafe('es'),
+      targetLang: 'en',
+    });
+    expect(await c.swapVariant(assistantId)).toBe(true);
+    c.applyChunk({ type: 'done', requestId: lastStart()['requestId'] as string });
+    c.selectVariant(assistantId, 0);
+
+    expect(await c.regenerateVariant(assistantId)).toBe(true);
+
+    expect(lastStart()['sourceLang']).toBe('es');
+    expect(lastStart()['targetLang']).toBe('en');
+  });
+
+  it('a shown task variant re-runs that task', async () => {
+    const c = createConversation();
+    const assistantId = await sendAndDrain(c);
+    expect(await c.taskVariant(assistantId, 'explain')).toBe(true);
+    c.applyChunk({ type: 'done', requestId: lastStart()['requestId'] as string });
+
+    expect(await c.regenerateVariant(assistantId)).toBe(true);
+
+    expect(lastStartOptions()['task']).toBe('explain');
+    expect(c.turns.find((t) => t.id === assistantId)?.variants?.at(-1)?.task).toBe('explain');
+  });
+
+  it('a shown refine re-runs with its refinement', async () => {
+    const c = createConversation();
+    const assistantId = await sendAndDrain(c);
+    expect(
+      await c.refine({
+        turnId: assistantId,
+        refinementBody: 'Make outputs shorter.',
+        refinementLabel: 'Shorter',
+      }),
+    ).toBe(true);
+    c.applyChunk({ type: 'done', requestId: lastStart()['requestId'] as string });
+
+    expect(await c.regenerateVariant(assistantId)).toBe(true);
+
+    expect(lastStartOptions()['refinement']).toBe('Make outputs shorter.');
+    expect(c.turns.find((t) => t.id === assistantId)?.variants?.at(-1)?.refinementLabel).toBe(
+      'Shorter',
+    );
+  });
+
+  it('the r key path (retry on a finished reply) re-rolls the shown swap too', async () => {
+    const c = createConversation();
+    const assistantId = await sendAndDrain(c, {
+      sourceLang: asLangIdUnsafe('es'),
+      targetLang: 'en',
+    });
+    expect(await c.swapVariant(assistantId)).toBe(true);
+    c.applyChunk({ type: 'done', requestId: lastStart()['requestId'] as string });
+
+    await c.retry(assistantId);
+
+    expect(lastStart()['sourceLang']).toBe('en');
+    expect(lastStart()['targetLang']).toBe('es');
   });
 });
 

@@ -137,6 +137,23 @@ describe('AssistantTurn — the Refine button opens the refine chips', () => {
     expect(document.activeElement).not.toBe(card);
   });
 
+  it('a retried failure mounts as a new pending card and takes the focus its Retry button dropped', async () => {
+    (document.activeElement as HTMLElement | null)?.blur();
+    const { container } = latest({ turn: turn({ status: 'pending', content: '', retries: 1 }) });
+    await tick();
+    expect(document.activeElement).toBe(container.querySelector('article'));
+  });
+
+  it('a retried card mounting while focus is elsewhere leaves it there', async () => {
+    const outside = document.createElement('textarea');
+    document.body.append(outside);
+    outside.focus();
+    latest({ turn: turn({ status: 'pending', content: '', retries: 1 }) });
+    await tick();
+    expect(document.activeElement).toBe(outside);
+    outside.remove();
+  });
+
   it('a re-run leaves focus alone when it is somewhere else', async () => {
     const { rerender } = latest();
     const outside = document.createElement('textarea');

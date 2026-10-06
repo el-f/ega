@@ -243,8 +243,11 @@
   let taskMenuEl: HTMLElement | null = $state(null);
 
   // bits lands on the first item, Swap, so Enter then Enter would start a paid re-run. The checked task re-runs nothing.
+  // A checked task that is off or deleted is disabled, so bits' own pick, the first enabled item, wins then.
   function onTaskMenuOpenFocus(e: Event): void {
-    const checked = taskMenuEl?.querySelector<HTMLElement>('[aria-checked="true"]');
+    const checked = taskMenuEl?.querySelector<HTMLElement>(
+      '[aria-checked="true"]:not([data-disabled])',
+    );
     if (!checked) return;
     e.preventDefault();
     checked.focus({ preventScroll: true });
@@ -302,16 +305,18 @@
   });
 
   // A re-run unmounts the action row with the button or menu item that started it, and focus would drop to <body>.
-  // Only on the step into answering, so a card that mounts mid-answer or a pending → streaming tick takes nothing.
+  // Only on the step into answering (a retried failure mounts as a new pending turn, so it counts), never a pending → streaming tick.
   let articleEl: HTMLElement | null = $state(null);
   const answering = $derived(turn.status === 'pending' || turn.status === 'streaming');
-  let wasAnswering = untrack(() => answering);
+  let wasAnswering = untrack(() => answering && (turn.retries ?? 0) === 0);
   $effect(() => {
     const now = answering;
     const el = articleEl;
+    // Wait for the bind: a mount-time step must still be pending when the element lands.
+    if (el === null) return;
     const started = now && !wasAnswering;
     wasAnswering = now;
-    if (!started || el === null) return;
+    if (!started) return;
     const active = document.activeElement;
     if (active === null || active === document.body) el.focus({ preventScroll: true });
   });
@@ -784,6 +789,7 @@
                     : 'Re-run with another task or language'}
                 >
                   {#snippet child({ props })}
+                    <!-- The tooltip's data-state overwrites the menu's here; style the open menu via aria-expanded. -->
                     <Tooltip.Trigger {...props}>
                       <Icon icon={ListChecks} size={20} />
                     </Tooltip.Trigger>
