@@ -24,7 +24,7 @@
   .ega-collapsible-field {
     display: flex;
     flex-direction: column;
-    gap: var(--row-gap);
+    gap: var(--space-3);
     min-width: 0;
   }
 </style>

@@ -18,7 +18,7 @@ test('an image action sets where it opens; the Display card no longer does', asy
   const timeline = createTimeline();
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
-  // The Display surface card has no image select: one control per value.
+  // The "Where answers show" card has no image select: one control per value.
   await expect(page.locator('[data-ega-setting="display.defaultDisplayMode"]')).toBeVisible({
     timeout: 5_000,
   });

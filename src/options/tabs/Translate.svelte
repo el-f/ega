@@ -1,19 +1,18 @@
 <script lang="ts">
+  import { SvelteMap } from 'svelte/reactivity';
   import type { Settings } from '@/shared/types';
   import { saveSettings } from '@/options/storage-with-toast';
   import { createTemplatesHandlers } from '@/options/templates-handlers';
-  import { resolveActiveBackendId } from '@/shared/backend-params';
-  import { lookupModelId, resolveModelId } from '@/shared/settings-schema';
+  import { lookupModelId, resolveModelId, type TaskEffort } from '@/shared/settings-schema';
   import { resolveSamplingSupport, type SamplingSupport } from '@/shared/backends/sampling-caps';
   import { ollamaBaseUrl } from '@/shared/backends/ollama-show';
-  import type { TaskEffort } from '@/shared/settings-schema';
   import { fetchLiveEfforts, hasLiveEfforts } from '@/options/live-efforts';
-  import { sendMsg } from '@/shared/messages';
-  import { CLOUD_PROVIDER_IDS, apiKeyField, type CloudProviderId } from '@/shared/provider-ids';
+  import { createRouteState } from '@/options/route-state.svelte';
+  import { generationNotes } from '@/options/generation-notes';
+  import { resetCardWithUndo } from '@/options/card-reset';
 
   import TabHeader from '@/shared/components/TabHeader.svelte';
   import LoadingState from '@/shared/components/LoadingState.svelte';
-  import LangDefaultsSection from '@/options/components/sections/LangDefaultsSection.svelte';
   import DisplaySurfaceSection from '@/options/components/sections/DisplaySurfaceSection.svelte';
   import StreamingSection from '@/options/components/sections/StreamingSection.svelte';
   import PageContextSection from '@/options/components/sections/PageContextSection.svelte';
@@ -33,134 +32,84 @@
     if (next) onSetSettings(next);
   }
 
+  function resetCard(title: string, defaults: Partial<Settings>): Promise<void> {
+    return s ? resetCardWithUndo(title, defaults, s, onSetSettings) : Promise.resolve();
+  }
+
   const handlers = createTemplatesHandlers({
     getSettings: () => s,
     setSettings: (next) => onSetSettings(next),
   });
 
-  const FULL_CAPS: SamplingSupport = { temperature: true, maxTokens: true, efforts: [] };
-  const capsFor = (settings: Settings, backendId: string): SamplingSupport =>
-    resolveSamplingSupport(backendId, lookupModelId(settings.model, backendId));
+  // The backends a request will actually try, from the same probe the router runs.
+  const route = createRouteState(() => s);
+  const tried = $derived((route.plan?.tried ?? []).map(String));
 
-  // The router's own probe names the backend that answers (it pings native and Ollama); until it replies, the keys decide.
-  const chainKey = $derived(
-    s
-      ? JSON.stringify([
-          s.backendOrder,
-          s.disabledBackends,
-          CLOUD_PROVIDER_IDS.filter((id) => Boolean(s[apiKeyField(id)])),
-          s.ollamaUrl ?? '',
-          s.localServerUrl ?? '',
-          s.nativeCli ?? '',
-        ])
-      : null,
-  );
-  let probed = $state<{ key: string; active: string | null } | null>(null);
-  $effect(() => {
-    const key = chainKey;
-    if (key === null) return;
-    let alive = true;
-    void sendMsg({ kind: 'backend:probe-all' })
-      .then((r) => {
-        if (alive && r && typeof r === 'object' && 'active' in r)
-          probed = { key, active: r.active };
-      })
-      .catch(() => undefined);
-    return () => {
-      alive = false;
-    };
-  });
-  const activeBackend = $derived(
-    s
-      ? ((probed?.key === chainKey ? probed.active : null) ?? resolveActiveBackendId(s))
-      : 'anthropic',
-  );
-  const runnable = (id: string): boolean =>
-    !(CLOUD_PROVIDER_IDS as readonly string[]).includes(id) ||
-    Boolean(s?.[apiKeyField(id as CloudProviderId)]);
-  const activeModel = $derived(s ? resolveModelId(s.model, activeBackend) : '');
   // Ollama and OpenRouter report per model whether it thinks, so their levels come from them, not a name list.
-  const liveKey = $derived(
-    // No key, no request: OpenRouter's list is read only once the user can send to it.
-    s && hasLiveEfforts(activeBackend) && runnable(activeBackend)
-      ? [
-          activeBackend,
-          activeBackend === 'ollama' ? ollamaBaseUrl(s.ollamaUrl) : '',
-          activeModel,
-        ].join(' ')
-      : null,
+  const live = new SvelteMap<string, readonly TaskEffort[] | null>();
+  const liveKeys = $derived(
+    s
+      ? tried
+          .filter(hasLiveEfforts)
+          .map((id) =>
+            [
+              id,
+              id === 'ollama' ? ollamaBaseUrl(s.ollamaUrl) : '',
+              resolveModelId(s.model, id),
+            ].join(' '),
+          )
+      : [],
   );
-  let live = $state<{ key: string; efforts: readonly TaskEffort[] | null } | null>(null);
   $effect(() => {
-    const key = liveKey;
     const settings = s;
-    const backend = activeBackend;
-    const model = activeModel;
-    if (key === null || settings === null) return;
+    if (!settings) return;
     let alive = true;
-    void fetchLiveEfforts(backend, model, settings).then((efforts) => {
-      if (alive) live = { key, efforts };
-    });
+    for (const key of liveKeys) {
+      if (live.has(key)) continue;
+      const [id = ''] = key.split(' ');
+      void fetchLiveEfforts(id, resolveModelId(settings.model, id), settings).then((efforts) => {
+        if (alive) live.set(key, efforts);
+      });
+    }
     return () => {
       alive = false;
     };
   });
-  const caps: SamplingSupport = $derived.by(() => {
-    if (!s) return FULL_CAPS;
-    const base = capsFor(s, activeBackend);
-    const efforts = live?.key === liveKey ? live.efforts : null;
+
+  function capsOf(id: string): SamplingSupport {
+    if (!s) return { temperature: true, maxTokens: true, efforts: [] };
+    const base = resolveSamplingSupport(id, lookupModelId(s.model, id));
+    const key = liveKeys.find((k) => k.startsWith(`${id} `));
+    const efforts = key === undefined ? null : (live.get(key) ?? null);
     return efforts ? { ...base, efforts } : base;
-  });
+  }
+  const notes = $derived(s ? generationNotes(s.advanced.effort, tried, capsOf) : null);
 </script>
 
 <section data-ega-tab="translate">
   <TabHeader tab="translate" />
-  {#if s}
-    <div class="tab-group" role="group" aria-labelledby="tg-results">
-      <p id="tg-results" class="tab-group-label">Answers</p>
-      <DisplaySurfaceSection {s} onPatch={patch} />
-      <LangDefaultsSection {s} onPatch={patch} />
-      <StreamingSection {s} onPatch={patch} />
-    </div>
-    <div class="tab-group" role="group" aria-labelledby="tg-requests">
-      <p id="tg-requests" class="tab-group-label">What Ega sends and to whom</p>
-      <PageContextSection {s} onPatch={patch} />
-      <RoutingSection {s} onPatch={patch} onPatchAdvanced={handlers.patchAdvanced} />
-      <GenerationSection
-        {s}
-        {caps}
-        onSetGlobalTemperature={handlers.setGlobalTemperature}
-        onSetGlobalMaxTokens={handlers.setGlobalMaxTokens}
-        {activeBackend}
-        {activeModel}
-        onSetGlobalEffort={handlers.setGlobalEffort}
-      />
-    </div>
-    <div class="tab-group" role="group" aria-labelledby="tg-page">
-      <p id="tg-page" class="tab-group-label">Whole pages</p>
-      <PageTranslateSection {s} onPatch={patch} />
-    </div>
+  {#if s && notes}
+    <DisplaySurfaceSection {s} onPatch={patch} onResetCard={resetCard} />
+    <PageContextSection {s} onPatch={patch} />
+    <GenerationSection
+      {s}
+      {notes}
+      onSetGlobalTemperature={handlers.setGlobalTemperature}
+      onSetGlobalMaxTokens={handlers.setGlobalMaxTokens}
+      onSetGlobalEffort={handlers.setGlobalEffort}
+      onResetCard={resetCard}
+    />
+    <StreamingSection {s} onPatch={patch} />
+    <RoutingSection {s} onPatch={patch} onPatchAdvanced={handlers.patchAdvanced} />
+    <PageTranslateSection {s} onPatch={patch} />
   {:else}
-    <LoadingState rows={6} label="Loading translation settings…" />
+    <LoadingState rows={6} label="Loading answer settings…" />
   {/if}
 </section>
 
 <style>
-  section,
-  .tab-group {
+  section {
     display: flex;
     flex-direction: column;
-    gap: var(--card-gap);
-  }
-  .tab-group + .tab-group {
-    margin-top: var(--space-4);
-  }
-  .tab-group-label {
-    margin: 0;
-    font-size: var(--fs-xs);
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--color-muted);
   }
 </style>

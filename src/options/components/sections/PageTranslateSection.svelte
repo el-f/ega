@@ -2,78 +2,62 @@
   import type { Settings } from '@/shared/types';
   import { DEFAULT_BATCH_CONCURRENCY } from '@/shared/constants';
   import SectionCard from '@/shared/ui/SectionCard.svelte';
-  import Select from '@/shared/ui/Select.svelte';
+  import RadioGroup from '@/shared/ui/RadioGroup.svelte';
   import Slider from '@/shared/ui/Slider.svelte';
-  import { isFieldModified } from '@/shared/settings-registry';
+  import Disclosure from '@/options/components/Disclosure.svelte';
+  import { isFieldModified, settingHint } from '@/shared/settings-registry';
 
   interface Props {
     s: Settings;
     onPatch: (p: Partial<Settings>) => Promise<void> | void;
   }
+
   const { s, onPatch }: Props = $props();
 </script>
 
-<SectionCard title="Page translate" description="Settings for translating a whole page.">
-  <div data-ega-setting="display.pageTranslateMode">
-    <Select
-      label="Render mode"
+<SectionCard title="Page translate" description="Settings for translating a whole page">
+  <div class="pt-mode" data-ega-setting="display.pageTranslateMode">
+    <span class="pt-label" id="page-translate-mode-label">Show the translation</span>
+    <RadioGroup
       value={s.pageTranslateMode}
       options={[
-        { value: 'inplace', label: 'In place — replace the block text' },
-        { value: 'bilingual', label: 'Bilingual — keep the original, add the translation below' },
+        { value: 'inplace', label: 'In place', description: 'Replaces the text of each block' },
+        {
+          value: 'bilingual',
+          label: 'Under the original',
+          description: 'Adds the translation under each block',
+        },
       ]}
-      modified={isFieldModified('display.pageTranslateMode', s)}
-      onchange={(v) => void onPatch({ pageTranslateMode: v })}
+      dataAttrs={{ 'aria-labelledby': 'page-translate-mode-label' }}
+      onValueChange={(v) =>
+        void onPatch({ pageTranslateMode: v === 'bilingual' ? 'bilingual' : 'inplace' })}
     />
   </div>
-
-  <details>
-    <summary>Tune batch parameters</summary>
-
-    <div class="batch-body">
-      <div data-ega-setting="advanced.batchConcurrency">
-        <Slider
-          label="Concurrency"
-          value={s.batchConcurrency ?? DEFAULT_BATCH_CONCURRENCY}
-          min={1}
-          max={10}
-          step={1}
-          help="How many parts of the page translate at the same time."
-          modified={isFieldModified('advanced.batchConcurrency', s)}
-          onchange={(v) => void onPatch({ batchConcurrency: v })}
-        />
-      </div>
+  <Disclosure label="Batch settings">
+    <div data-ega-setting="advanced.batchConcurrency">
+      <Slider
+        label="Areas sent at once"
+        value={s.batchConcurrency ?? DEFAULT_BATCH_CONCURRENCY}
+        min={1}
+        max={10}
+        step={1}
+        defaultValue={DEFAULT_BATCH_CONCURRENCY}
+        help={settingHint('advanced.batchConcurrency')}
+        modified={isFieldModified('advanced.batchConcurrency', s)}
+        onchange={(v) => void onPatch({ batchConcurrency: v })}
+      />
     </div>
-  </details>
+  </Disclosure>
 </SectionCard>
 
 <style>
-  details {
-    margin: 0;
-  }
-  summary {
-    cursor: pointer;
-    color: var(--color-muted);
-    font-size: var(--fs-sm);
-    padding: var(--space-1) 0;
-    list-style: none;
-  }
-  summary::-webkit-details-marker {
-    display: none;
-  }
-  summary::before {
-    content: '▸';
-    display: inline-block;
-    margin-right: var(--space-1);
-    transition: transform var(--motion-fast) var(--ease-out);
-  }
-  details[open] summary::before {
-    transform: rotate(90deg);
-  }
-  .batch-body {
+  .pt-mode {
     display: flex;
     flex-direction: column;
-    gap: var(--row-gap);
-    padding-top: var(--space-2);
+    gap: var(--space-2);
+  }
+  .pt-label {
+    font-size: var(--fs-base);
+    font-weight: 600;
   }
 </style>

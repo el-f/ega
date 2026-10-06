@@ -821,7 +821,7 @@
                                 />
                                 <span class="cm-hint" id="cm-surface-hint-{item.id}"
                                   >{item.kind === 'task'
-                                    ? 'On the page uses your Display surface choice: tooltip or inline'
+                                    ? 'On the page follows "Where answers show" on the Answers tab'
                                     : 'On the page shows a tooltip on the image'}</span
                                 >
                               </div>

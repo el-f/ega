@@ -1,4 +1,4 @@
-# Options-translate lang-defaults-swap rubric
+# Options-languages lang-defaults-swap rubric
 
 ## Latency budgets
 
@@ -7,7 +7,7 @@
 
 ## State expectations
 
-- Step 1: Translate tab shows default source lang A and target lang B.
+- Step 1: Languages tab shows default source lang A and target lang B.
 - Step 2 (click Swap): source field shows B; target field shows A.
 - Step 3: both values persist to storage; a brief success toast confirms the swap.
 

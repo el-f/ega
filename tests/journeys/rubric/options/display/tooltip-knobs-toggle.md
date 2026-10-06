@@ -6,7 +6,7 @@
 
 ## State expectations
 
-- Step 1: Translate tab, Display section is open in tooltip mode; tooltip knobs are visible (Show original, Click outside to dismiss, Drag to move).
+- Step 1: Answers tab, "Where answers show" card; the Tooltip only options are visible (Show the original text at the top, Close when I click outside, Let me drag the tooltip).
 - Step 2 (toggle Show original): `tooltipShowSource` flips; storage writes.
 - Step 3 (toggle Click outside): `tooltipClickOutside` flips; storage writes.
 - Step 4 (toggle Drag to move): `tooltipDraggable` flips; storage writes.

@@ -2,26 +2,22 @@
 
 ## Latency budgets
 
-- SectionReset click -> storage write + knobs revert: <= 200ms.
+- Reset click -> storage write: <= 200ms.
 
 ## State expectations
 
-- Step 1: user modifies a tooltip knob (e.g. disables Click outside to dismiss); SectionReset button appears.
-- Step 2 (click SectionReset): the pill and all tooltip knobs revert to DEFAULT_SETTINGS values; SectionReset button hides.
-- Step 3: storage reflects the default values for all tooltip knobs.
+- Step 1: the user changes an option (e.g. turns off Close when I click outside); the word "Changed" shows after its label and the "Reset section" pill appears.
+- Step 2 (Reset section): every option of the card goes back to its default; the pill hides and focus moves to the card title.
+- Step 3: a toast says "Where answers show is back to defaults" with Undo; Undo puts back the values from before the reset.
 
 ## Visible affordances
 
-- SectionReset uses the project's SectionReset primitive: a muted pill with a reset icon and the text "Reset pill and tooltip options", accent on hover.
-- Button is hidden when all knobs are at default; appears as soon as any knob differs from DEFAULT_SETTINGS.
+- The pill is the one reset look on the page: a rounded outline with a reset icon and the words "Reset section".
 
 ## Failure-mode expectations
 
-- SectionReset resets the confidence pill knobs and the tooltip knobs, in either mode; `defaultDisplayMode` itself is never reset by this control.
-- Storage write failure shows a "Change not saved" warning toast; knobs keep their modified values.
+- A failed write shows "Not saved" with the reason and keeps the changed values.
 
 ## Cautions
 
-- Reset reverts to DEFAULT_SETTINGS constants, not to the last-saved state — it is a full reset to the shipped defaults.
-- In both modes, SectionReset resets Show original selection, Click outside to dismiss, Drag-to-move tooltip, Confidence pill and Confidence threshold. The card groups them under "Tooltip and side panel" and "Tooltip only".
-- It never resets the display mode, and the mode never counts as modified.
+- Reset covers Show confidence pill, Hide the pill below, Show the original text at the top, Close when I click outside and Let me drag the tooltip; never the mode.

@@ -7,6 +7,20 @@ const TARGET_KEY = 'ega-settings-target';
 /** Same-tab jumps do not remount the pane, so it needs an explicit re-resolve signal. */
 export const DEEP_LINK_EVENT = 'ega:options:deeplink';
 
+/** A control inside one tab asks the shell to open another tab ("Change" next to "Sent with"). */
+export const GOTO_EVENT = 'ega:options:goto';
+
+export interface GotoDetail {
+  tab: string;
+  /** A SETTINGS_SPEC id to scroll to and focus on arrival. */
+  entryId?: string;
+}
+
+export function gotoOptionsTab(tab: string, entryId?: string): void {
+  const detail: GotoDetail = entryId === undefined ? { tab } : { tab, entryId };
+  document.dispatchEvent(new CustomEvent<GotoDetail>(GOTO_EVENT, { detail }));
+}
+
 export function setPendingDeepLink(entryId: string): void {
   try {
     sessionStorage.setItem(TARGET_KEY, entryId);

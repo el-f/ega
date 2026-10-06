@@ -6,7 +6,7 @@
 
 ## State expectations
 
-- Step 1: the Translate tab's Display surface card has no "Image translation opens in" select.
+- Step 1: the Answers tab's "Where answers show" card has no "Image translation opens in" select.
 - Step 2: Edit on "Translate image in side panel" opens its options; "Opens in" is a radio group with "On the page" and "Side panel".
 - Step 3 (pick On the page): the row's stored `surface` is `tooltip`; its id stays `ega-translate-image`, and its name becomes "Translate image".
 

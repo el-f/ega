@@ -7,7 +7,7 @@
 ## State expectations
 
 - Step 1: `defaultDisplayMode` is `tooltip`; user opens Options.
-- Step 2 (pick Inline in Options > Translate > Display surface): storage commit fires.
+- Step 2 (pick Inline in Settings > Answers > Where answers show): storage commit fires.
 - Step 3: the next translate trigger on the page uses mode B (inline) — no page reload; a mounted tooltip is not re-rendered.
 
 ## Visible affordances

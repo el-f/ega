@@ -84,6 +84,7 @@
   import { downloadJsonFile } from '@/shared/download-file';
   import { openOptionsTab } from '@/shared/open-options-tab';
   import TabHeader from '@/shared/components/TabHeader.svelte';
+  import LangDefaultsSection from '@/options/components/sections/LangDefaultsSection.svelte';
   import SectionCard from '@/shared/ui/SectionCard.svelte';
   import IconButton from '@/shared/ui/IconButton.svelte';
   import Button from '@/shared/ui/Button.svelte';
@@ -581,6 +582,16 @@
 </script>
 
 <TabHeader tab="languages" />
+
+{#if s}
+  <LangDefaultsSection
+    {s}
+    onPatch={async (p) => {
+      const next = await saveSettings(p);
+      if (next) onSetSettings(next);
+    }}
+  />
+{/if}
 
 <SectionCard
   title="All languages"

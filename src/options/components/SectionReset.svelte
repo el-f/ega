@@ -1,5 +1,6 @@
 <script lang="ts">
   /** 'Reset section' button, shown only when a field in the section differs from its default. */
+  import { tick } from 'svelte';
   import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
 
   interface Props {
@@ -18,6 +19,17 @@
     ariaLabel = 'Reset section to defaults',
     label = 'Reset section',
   }: Props = $props();
+
+  let button = $state<HTMLButtonElement | null>(null);
+
+  // The pill hides once nothing differs; unless the card put focus somewhere itself, it goes to the card title.
+  async function reset(): Promise<void> {
+    const title = button?.closest('section')?.querySelector<HTMLElement>('h2[tabindex="-1"]');
+    await onReset();
+    await tick();
+    const lost = document.activeElement === null || document.activeElement === document.body;
+    if (button?.isConnected !== true && lost) title?.focus();
+  }
 </script>
 
 {#if modified}
@@ -28,7 +40,8 @@
     aria-label={ariaLabel}
     data-tooltip={ariaLabel}
     data-tooltip-placement="top"
-    onclick={() => void onReset()}
+    bind:this={button}
+    onclick={() => void reset()}
   >
     <RotateCcw size={14} aria-hidden="true" />
     <span>{label}</span>

@@ -21,6 +21,19 @@ export function makeSectionProps(overrides: SectionPropsOverrides = {}): {
   return { s, onPatch };
 }
 
+/** The card reset callback the cards with a "Reset section" pill take. */
+export type OnResetCard = (title: string, defaults: Partial<Settings>) => Promise<void>;
+
+/** makeSectionProps plus the card reset callback. */
+export function makeResetSectionProps(
+  overrides: SectionPropsOverrides & { onResetCard?: Mock<OnResetCard> } = {},
+): { s: Settings; onPatch: Mock<OnPatch>; onResetCard: Mock<OnResetCard> } {
+  return {
+    ...makeSectionProps(overrides),
+    onResetCard: overrides.onResetCard ?? vi.fn<OnResetCard>(async () => {}),
+  };
+}
+
 export interface LabsSectionPropsOverrides {
   s?: Partial<Settings>;
   onPatchAdvanced?: Mock;
@@ -38,38 +51,35 @@ export function makeLabsSectionProps(overrides: LabsSectionPropsOverrides = {}):
   };
 }
 
-import type { SamplingSupport } from '@/shared/backends/sampling-caps';
+import type { GenerationNotes } from '@/options/generation-notes';
 
-const FULL_CAPS: SamplingSupport = { temperature: true, maxTokens: true, efforts: [] };
+const NO_NOTES: GenerationNotes = { effort: [], maxTokens: [], temperature: [] };
 
 export interface GenerationSectionPropsOverrides {
   s?: Partial<Settings>;
-  caps?: SamplingSupport;
-  activeBackend?: string;
-  activeModel?: string;
+  notes?: GenerationNotes;
   onSetGlobalTemperature?: Mock;
   onSetGlobalMaxTokens?: Mock;
   onSetGlobalEffort?: Mock;
+  onResetCard?: Mock<OnResetCard>;
 }
 
-/** GenerationSection props: caps and typed handlers, no onPatch. */
+/** GenerationSection props: note lines and typed handlers, no onPatch. */
 export function makeGenerationSectionProps(overrides: GenerationSectionPropsOverrides = {}): {
   s: Settings;
-  caps: SamplingSupport;
-  activeBackend: string;
-  activeModel: string;
+  notes: GenerationNotes;
   onSetGlobalTemperature: Mock;
   onSetGlobalMaxTokens: Mock;
   onSetGlobalEffort: Mock;
+  onResetCard: Mock<OnResetCard>;
 } {
   const s = { ...DEFAULT_SETTINGS, ...overrides.s } as Settings;
   return {
     s,
-    caps: overrides.caps ?? FULL_CAPS,
-    activeBackend: overrides.activeBackend ?? 'anthropic',
-    activeModel: overrides.activeModel ?? 'claude-test',
+    notes: overrides.notes ?? NO_NOTES,
     onSetGlobalTemperature: overrides.onSetGlobalTemperature ?? vi.fn(),
     onSetGlobalMaxTokens: overrides.onSetGlobalMaxTokens ?? vi.fn(),
     onSetGlobalEffort: overrides.onSetGlobalEffort ?? vi.fn(),
+    onResetCard: overrides.onResetCard ?? vi.fn<OnResetCard>(async () => {}),
   };
 }

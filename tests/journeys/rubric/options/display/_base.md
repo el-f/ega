@@ -2,18 +2,17 @@
 
 ## Mount + render
 
-- DisplaySurfaceSection mounts at the top of the Translate tab.
-- Mode picker (Tooltip / Inline) is two radio cards inside a `role="radiogroup"`.
-- A live mini-mock shows both variants side by side; the active variant carries the accent border.
+- The "Where answers show" card is the first card of the Answers tab: title, (i), one line "A tooltip over the selection, or the answer in place of the text".
+- Mode picker (Tooltip / Inline) is two radio cards inside a `role="radiogroup"`, each with a small picture of the mode; the active card carries the accent border.
 
-## Mode swap
+## Groups
 
-- Clicking the inactive segment patches `defaultDisplayMode` and re-mounts the knob panel beneath the toggle.
-- Tooltip-only knobs (tooltipShowSource, tooltipClickOutside, tooltipDraggable) only render in tooltip mode.
-- Inline mode's knob panel shows only the note "Inline mode has no settings of its own."; the confidence pill rows render in both modes.
+- "Tooltip and side panel": Show confidence pill, and under it "Hide the pill below" with its hint "0 shows the pill on every answer".
+- "Tooltip only": Show the original text at the top, Close when I click outside (hint "Hides the close button"), Let me drag the tooltip.
+- Both groups stay on screen in Inline mode too, because the side panel and Explain still use them. There is no filler note.
 - There is no image "opens in" select: each right-click image action sets where it opens.
 
 ## Reset
 
-- One Reset Section affordance, "Reset pill and tooltip options", appears in either mode when any of its knobs differs from default.
-- Reset restores the tooltip knobs plus the confidence pill and threshold in both modes; it never resets `defaultDisplayMode`.
+- One "Reset section" pill in the card header, only while an option differs from its default; it acts at once and a toast says "Where answers show is back to defaults" with Undo.
+- Reset never changes the mode.

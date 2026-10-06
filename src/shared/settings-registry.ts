@@ -79,6 +79,13 @@ export function isFieldModified(id: string, s: Settings): boolean {
   return entry.isModified ? entry.isModified(s) : false;
 }
 
+/** The one-line hint a card shows under a control: the same words search shows (OC-12). Throws on an unknown id. */
+export function settingHint(id: string): string {
+  const entry = REGISTRY_BY_ID.get(id);
+  if (!entry) throw new Error(`settingHint: unknown registry id "${id}"`);
+  return entry.description;
+}
+
 const MAX_RESULTS = 50;
 
 export interface SearchOptions {

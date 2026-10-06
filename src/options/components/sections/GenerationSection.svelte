@@ -1,40 +1,37 @@
 <script lang="ts">
   import type { Settings } from '@/shared/types';
-  import type { TaskEffort } from '@/shared/settings-schema';
-  import { isFieldModified } from '@/shared/settings-registry';
-  import { clampEffort, type SamplingSupport } from '@/shared/backends/sampling-caps';
+  import { EFFORT_LEVELS, type TaskEffort } from '@/shared/settings-schema';
+  import { isFieldModified, settingHint } from '@/shared/settings-registry';
   import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
   import SectionCard from '@/shared/ui/SectionCard.svelte';
   import Slider from '@/shared/ui/Slider.svelte';
-  import SectionReset from '@/options/components/SectionReset.svelte';
   import Segmented from '@/shared/ui/Segmented.svelte';
+  import SectionReset from '@/options/components/SectionReset.svelte';
+  import SettingHint from '@/options/components/SettingHint.svelte';
   import { EFFORT_LABEL } from '@/options/effort-labels';
-  import { EFFORT_LEVELS } from '@/shared/settings-schema';
+  import type { GenerationNotes } from '@/options/generation-notes';
 
   interface Props {
     s: Settings;
-    /** Resolved sampling support for the active (backend, model) pair —
-     *  computed by the parent and made reactive there. */
-    caps: SamplingSupport;
-    /** The backend that answers first and the model it runs, for the line that says what Effort does there. */
-    activeBackend: string;
-    activeModel: string;
+    /** Note lines for the backends Ega will try that ignore or change a value. */
+    notes: GenerationNotes;
     onSetGlobalTemperature: (v: number) => Promise<void>;
     onSetGlobalMaxTokens: (v: number) => Promise<void>;
     onSetGlobalEffort: (v: TaskEffort) => Promise<void>;
+    onResetCard: (title: string, defaults: Partial<Settings>) => Promise<void>;
   }
 
   const {
     s,
-    caps,
-    activeBackend,
-    activeModel,
+    notes,
     onSetGlobalTemperature,
     onSetGlobalMaxTokens,
     onSetGlobalEffort,
+    onResetCard,
   }: Props = $props();
 
   const DEF = DEFAULT_SETTINGS;
+  const TITLE = 'Generation';
 
   // The thumb follows the drag locally; each write rewrites the whole settings row, so it waits for release.
   let maxTokensDrag = $state<number | null>(null);
@@ -49,157 +46,123 @@
     temperatureDrag = null;
   });
 
-  // maxTokens is off only on native, so it tells a CLI apart from a model that rejects temperature.
-  const tempDisabledReason = $derived(
-    caps.temperature
-      ? null
-      : !caps.maxTokens
-        ? 'Native CLI manages its own sampling.'
-        : caps.efforts.length > 0
-          ? 'This model does not take temperature. Use Effort.'
-          : 'This model does not take temperature.',
-  );
-  // On native both sliders are off for one reason, so it is said once, under Temperature.
-  const nativeSampling = $derived(!caps.maxTokens);
-
-  // What the chosen level does on the backend that runs first; the setting itself applies to every backend.
-  const effortNote = $derived.by(() => {
-    if (activeBackend === 'native') return 'The native CLI always runs at Low effort.';
-    const model = activeModel || 'This model';
-    if (caps.efforts.length === 0)
-      return `${model} has no effort setting, so Effort does not change it.`;
-    const runs = clampEffort(s.advanced.effort, caps.efforts);
-    return runs !== null && runs !== s.advanced.effort
-      ? `${model} has no ${EFFORT_LABEL[s.advanced.effort]} level, so it runs at ${EFFORT_LABEL[runs]}.`
-      : null;
-  });
-
   const genModified = $derived(
     isFieldModified('advanced.temperature', s) ||
       isFieldModified('advanced.maxTokens', s) ||
       isFieldModified('advanced.effort', s),
   );
-  async function resetGeneration(): Promise<void> {
-    await onSetGlobalTemperature(DEF.advanced.temperature);
-    await onSetGlobalMaxTokens(DEF.advanced.maxTokens);
-    await onSetGlobalEffort(DEF.advanced.effort);
+  function reset(): Promise<void> {
+    return onResetCard(TITLE, {
+      advanced: {
+        temperature: DEF.advanced.temperature,
+        maxTokens: DEF.advanced.maxTokens,
+        effort: DEF.advanced.effort,
+      } as Settings['advanced'],
+    });
   }
+
+  const tokens = (v: number): string => `${v.toLocaleString('en-US')} tokens`;
 </script>
 
-<div class="generation-pane-root">
-  <div data-ega-generation-card>
-    <SectionCard title="Generation" description="Effort, answer length and temperature.">
-      {#snippet headerActions()}
-        <SectionReset
-          modified={genModified}
-          onReset={resetGeneration}
-          ariaLabel="Reset section: Generation"
-        />
-      {/snippet}
-      <div data-ega-setting="advanced.effort" class="effort-block">
-        <span class="effort-label" id="gen-effort-label">Effort</span>
-        <Segmented
-          value={s.advanced.effort}
-          options={EFFORT_LEVELS.map((l) => ({ value: l, label: EFFORT_LABEL[l] }))}
-          itemAttr="data-ega-effort-value"
-          ariaLabel="Effort"
-          onchange={(v) => void onSetGlobalEffort(v)}
-        />
-        <p class="effort-help">
-          How much a model thinks before it answers. Higher is slower and costs more. Explain and
-          Ask start at Low; give any task its own Effort on the Tasks tab.
-        </p>
-        {#if effortNote}
-          <p class="effort-help" data-ega-effort-note>{effortNote}</p>
-        {/if}
-      </div>
+{#snippet noteLines(lines: readonly string[], kind: string)}
+  {#each lines as line (line)}
+    <p class="gen-note" data-ega-generation-note={kind}>{line}</p>
+  {/each}
+{/snippet}
 
-      <div data-ega-setting="advanced.maxTokens">
-        <Slider
-          label="Max answer length (tokens)"
-          value={maxTokensDrag ?? s.advanced.maxTokens}
-          min={16}
-          max={8192}
-          step={16}
-          help={`Room for the answer. A thinking model gets extra room on top when it runs above Off. Default ${DEF.advanced.maxTokens}. Below 256 tokens, long answers can get cut short.`}
-          modified={isFieldModified('advanced.maxTokens', s)}
-          disabled={nativeSampling}
-          {...nativeSampling
-            ? { describedById: 'gen-temp-disabled' }
-            : {
-                onReset: () => void onSetGlobalMaxTokens(DEF.advanced.maxTokens),
-                resetAriaLabel: 'Reset max answer length',
-                resetInheritedLabel: `Default ${DEF.advanced.maxTokens}`,
-              }}
-          onchange={(v) => (maxTokensDrag = v)}
-          oncommit={(v) => {
-            maxTokensDrag = null;
-            void onSetGlobalMaxTokens(v);
-          }}
-        />
-      </div>
+<div data-ega-generation-card>
+  <SectionCard
+    title={TITLE}
+    description="Effort, answer length and creativity for every task"
+    info={{
+      label: 'About generation',
+      text: 'Each task can set its own Effort on the Tasks tab. A thinking model gets extra room on top of the longest answer when Effort is above Off.',
+    }}
+  >
+    {#snippet headerActions()}
+      <SectionReset modified={genModified} onReset={reset} />
+    {/snippet}
 
-      <div data-ega-setting="advanced.temperature">
-        <Slider
-          label="Temperature"
-          value={temperatureDrag ?? s.advanced.temperature}
-          min={0}
-          max={2}
-          step={0.05}
-          help={`0 = most predictable, 2 = most varied. Default ${DEF.advanced.temperature}. Above ~1.2 answers can come back broken; 0 may loop on some backends.`}
-          modified={isFieldModified('advanced.temperature', s)}
-          disabled={tempDisabledReason !== null}
-          {...tempDisabledReason !== null
-            ? { describedById: 'gen-temp-disabled' }
-            : {
-                onReset: () => void onSetGlobalTemperature(DEF.advanced.temperature),
-                resetAriaLabel: 'Reset temperature',
-                resetInheritedLabel: `Default ${DEF.advanced.temperature}`,
-              }}
-          onchange={(v) => (temperatureDrag = v)}
-          oncommit={(v) => {
-            temperatureDrag = null;
-            void onSetGlobalTemperature(v);
-          }}
-        />
-        {#if tempDisabledReason !== null}
-          <p id="gen-temp-disabled" class="disabled-reason" data-ega-disabled-reason>
-            {nativeSampling
-              ? 'Native CLI manages its own sampling, so answer length and temperature do not apply.'
-              : tempDisabledReason}
-          </p>
-        {/if}
-      </div>
-    </SectionCard>
-  </div>
+    <div data-ega-setting="advanced.effort" class="effort-block">
+      <span class="effort-label" id="gen-effort-label">
+        Effort
+        {#if isFieldModified('advanced.effort', s)}<span class="changed" data-ega-modified="true"
+            >Changed</span
+          >{/if}
+      </span>
+      <Segmented
+        value={s.advanced.effort}
+        options={EFFORT_LEVELS.map((l) => ({ value: l, label: EFFORT_LABEL[l] }))}
+        itemAttr="data-ega-effort-value"
+        ariaLabel="Effort"
+        describedBy="gen-effort-hint"
+        onchange={(v) => void onSetGlobalEffort(v)}
+      />
+      <SettingHint setting="advanced.effort" id="gen-effort-hint" />
+      {@render noteLines(notes.effort, 'effort')}
+    </div>
+
+    <div data-ega-setting="advanced.maxTokens">
+      <Slider
+        label="Longest answer"
+        value={maxTokensDrag ?? s.advanced.maxTokens}
+        min={16}
+        max={8192}
+        step={16}
+        formatValue={tokens}
+        defaultValue={DEF.advanced.maxTokens}
+        help={settingHint('advanced.maxTokens')}
+        modified={isFieldModified('advanced.maxTokens', s)}
+        onchange={(v) => (maxTokensDrag = v)}
+        oncommit={(v) => {
+          maxTokensDrag = null;
+          void onSetGlobalMaxTokens(v);
+        }}
+      />
+      {@render noteLines(notes.maxTokens, 'max-tokens')}
+    </div>
+
+    <div data-ega-setting="advanced.temperature">
+      <Slider
+        label="Creativity (temperature)"
+        value={temperatureDrag ?? s.advanced.temperature}
+        min={0}
+        max={2}
+        step={0.05}
+        defaultValue={DEF.advanced.temperature}
+        help={settingHint('advanced.temperature')}
+        modified={isFieldModified('advanced.temperature', s)}
+        onchange={(v) => (temperatureDrag = v)}
+        oncommit={(v) => {
+          temperatureDrag = null;
+          void onSetGlobalTemperature(v);
+        }}
+      />
+      {@render noteLines(notes.temperature, 'temperature')}
+    </div>
+  </SectionCard>
 </div>
 
 <style>
-  .generation-pane-root {
-    display: flex;
-    flex-direction: column;
-    gap: var(--card-gap);
-  }
-  .disabled-reason {
-    margin: 0;
-    font-size: var(--fs-xs);
-    color: var(--color-muted);
-    line-height: var(--lh-body);
-  }
   .effort-block {
     display: flex;
     flex-direction: column;
-    gap: var(--space-1);
-    margin: var(--space-3) 0;
+    gap: var(--space-2);
   }
   .effort-label {
-    font-size: var(--fs-sm);
+    display: inline-flex;
+    gap: var(--space-2);
+    font-size: var(--fs-base);
     color: var(--color-fg);
   }
-  .effort-help {
-    margin: 0;
-    font-size: var(--fs-xs);
+  .changed {
     color: var(--color-muted);
+  }
+  .gen-note {
+    margin: var(--space-1) 0 0;
+    max-inline-size: 80ch;
+    font-size: var(--fs-base);
     line-height: var(--lh-body);
+    color: var(--color-warning-fg);
   }
 </style>

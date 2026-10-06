@@ -1,4 +1,4 @@
-/* coverage: options.translate.lang-defaults-swap */
+/* coverage: options.languages.lang-defaults-swap */
 import { test, expect } from '@playwright/test';
 import { launchExtension, readStorage, seedSettings, type ExtensionHandle } from '../../helpers';
 import { createTimeline } from '../_harness';
@@ -22,7 +22,7 @@ test('swap button swaps source/target language defaults and shows toast', async 
   const timeline = createTimeline();
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
-  await page.locator('#tab-translate').click();
+  await page.locator('#tab-languages').click();
 
   // Wait for LangDefaultsSection to render.
   await expect(page.locator('[data-ega-setting="defaults.defaultLang"]')).toBeVisible({
@@ -40,8 +40,7 @@ test('swap button swaps source/target language defaults and shows toast', async 
   await expect(srcPicker).toHaveValue('fr');
   await expect(tgtPicker).toHaveValue('en');
 
-  // Click the swap button (aria-label = "Swap source/target").
-  await page.getByRole('button', { name: 'Swap source/target' }).click();
+  await page.getByRole('button', { name: 'Swap languages' }).click();
   timeline.markStep('swap-clicked');
 
   // Storage: defaultLang becomes 'en', defaultTargetLang becomes 'fr'.

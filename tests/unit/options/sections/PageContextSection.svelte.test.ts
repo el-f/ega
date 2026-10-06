@@ -21,15 +21,15 @@ describe('PageContextSection', () => {
     const { container, getByText } = render(PageContextSection, {
       props: makeSectionProps({ s: { contextEnabled: true, pageContextLevel: 'minimal' } }),
     });
-    const note = getByText(/Set Context depth to Rich/);
+    const note = getByText('Used only with Rich');
     for (const id of ['descriptionContextCap', 'headingTrailDepth', 'headingTrailEntryCap']) {
       const anchor = container.querySelector(`[data-ega-setting="advanced.${id}"]`);
       expect(anchor, id).not.toBeNull();
       const thumb = anchor?.querySelector('[role="slider"]');
       expect(thumb?.getAttribute('aria-disabled')).toBe('true');
       expect(thumb?.getAttribute('aria-describedby')).toContain(note.id);
-      // A search jump can scroll the shared note away, so each slider's own help says it too.
-      expect(anchor?.textContent).toContain('Rich only.');
+      // A search jump can scroll the shared note away, so each slider's own hint says it too.
+      expect(anchor?.textContent).toContain('used only with Rich');
     }
     const selection = container.querySelector('[data-ega-setting="advanced.selectionContextCap"]');
     expect(selection?.querySelector('[role="slider"]')?.getAttribute('aria-disabled')).toBe(

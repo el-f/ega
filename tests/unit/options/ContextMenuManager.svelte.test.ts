@@ -263,7 +263,7 @@ describe('ContextMenuManager — Edit', () => {
     expect([reword?.textContent.trim(), reword?.disabled]).toEqual(['Reword (off)', true]);
     expect(ui.getByRole('radiogroup', { name: 'Opens in' })).toBeTruthy();
     expect(
-      ui.getByText('On the page uses your Display surface choice: tooltip or inline'),
+      ui.getByText('On the page follows "Where answers show" on the Answers tab'),
     ).toBeTruthy();
     const lang = ui.getByLabelText('Answer in') as HTMLSelectElement;
     await waitFor(() =>

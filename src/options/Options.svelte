@@ -24,6 +24,8 @@
   import { consumePendingOptionsTab, onPendingOptionsTab } from '@/shared/open-options-tab';
   import {
     DEEP_LINK_EVENT,
+    GOTO_EVENT,
+    type GotoDetail,
     revealPendingSetting,
     setPendingDeepLink,
     whenPresent,
@@ -359,6 +361,16 @@
 
   // An async onMount can't own teardown — Svelte 5 gets a Promise, not a
   // cleanup function, so the listener leaks.
+  $effect(() => {
+    const onGoto = (e: Event): void => {
+      const detail = (e as CustomEvent<GotoDetail>).detail;
+      const tab = tabFrom(detail.tab);
+      if (tab) jumpToSetting(tab, detail.entryId ?? '');
+    };
+    document.addEventListener(GOTO_EVENT, onGoto);
+    return () => document.removeEventListener(GOTO_EVENT, onGoto);
+  });
+
   $effect(() => {
     document.addEventListener('keydown', onKey);
     const unsub = onSettingsChanged((next) => {

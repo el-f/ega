@@ -27,15 +27,13 @@ describe('LangDefaultsSection', () => {
         onPatch,
       }),
     });
-    const btn = container.querySelector<HTMLButtonElement>(
-      'button[aria-label="Swap source/target"]',
-    );
+    const btn = container.querySelector<HTMLButtonElement>('button[aria-label="Swap languages"]');
     if (!btn) throw new Error('no swap button');
     await fireEvent.click(btn);
     expect(onPatch).toHaveBeenCalledWith({ defaultLang: 'es', defaultTargetLang: 'en' });
   });
 
-  it('swap is disabled with the reason in its label while the source is auto', async () => {
+  it('swap does nothing while the source is Auto-detect', async () => {
     const onPatch = vi.fn();
     const { container } = render(LangDefaultsSection, {
       props: makeSectionProps({
@@ -43,9 +41,7 @@ describe('LangDefaultsSection', () => {
         onPatch,
       }),
     });
-    const btn = container.querySelector<HTMLButtonElement>(
-      'button[aria-label="Pick a source language to swap"]',
-    );
+    const btn = container.querySelector<HTMLButtonElement>('button[aria-label="Swap languages"]');
     if (!btn) throw new Error('no swap button');
     expect(btn.disabled).toBe(true);
     await fireEvent.click(btn);
@@ -58,9 +54,7 @@ describe('LangDefaultsSection', () => {
     const { container } = render(LangDefaultsSection, {
       props: makeSectionProps({ s: { defaultLang: 'en' } as Partial<Settings> }),
     });
-    const btn = container.querySelector<HTMLButtonElement>(
-      'button[aria-label="Swap source/target"]',
-    );
+    const btn = container.querySelector<HTMLButtonElement>('button[aria-label="Swap languages"]');
     if (!btn) throw new Error('no swap button');
     await fireEvent.click(btn);
     expect(push).toHaveBeenCalledTimes(1);

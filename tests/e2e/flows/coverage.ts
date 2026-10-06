@@ -927,11 +927,6 @@ export const COVERAGE: readonly Family[] = [
         id: 'translate',
         actions: [
           {
-            id: 'lang-defaults-swap',
-            description: 'Swap button swaps source/target defaults + shows toast',
-            flows: ['options-translate/lang-defaults-swap.flow.spec.ts'],
-          },
-          {
             id: 'glossary-scope-auto-detect',
             description:
               'Glossary scope help explains the Auto-detect rule the picker offers, and the rule holds',
@@ -939,7 +934,8 @@ export const COVERAGE: readonly Family[] = [
           },
           {
             id: 'generation-temperature-slider',
-            description: 'Adjust global temperature slider → persists; ResetField → reverts',
+            description:
+              'Creativity slider persists; Changed and Reset section show; Reset puts it back with Undo',
             flows: ['options-translate/generation-temperature-slider.flow.spec.ts'],
           },
           {
@@ -981,6 +977,12 @@ export const COVERAGE: readonly Family[] = [
       {
         id: 'languages',
         actions: [
+          {
+            id: 'lang-defaults-swap',
+            description:
+              'Default languages card on the Languages tab: Swap languages swaps and says so',
+            flows: ['options-languages/lang-defaults-swap.flow.spec.ts'],
+          },
           {
             id: 'variety-add',
             description: 'Add custom language form seeds customLanguages entry',
@@ -1352,13 +1354,13 @@ export const COVERAGE: readonly Family[] = [
           {
             id: 'mode-toggle',
             description:
-              'DisplaySurfaceSection toggle swaps defaultDisplayMode and reveals mode-specific knobs',
+              'Where answers show: picking Inline persists; the tooltip options stay on screen in both modes',
             flows: ['options-display/mode-toggle.flow.spec.ts'],
           },
           {
             id: 'tooltip-knobs-toggle',
             description:
-              'Translate tab, Display section (tooltip mode) → toggle Show-original / Click-outside / Drag-to-move → each persists',
+              'Answers tab, Where answers show → toggle Show the original text / Close when I click outside / Let me drag the tooltip → each persists',
             flows: ['options-display/tooltip-knobs-toggle.flow.spec.ts'],
           },
           {

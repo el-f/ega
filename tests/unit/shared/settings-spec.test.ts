@@ -50,10 +50,10 @@ describe('settings-spec — no duplicate storage paths', () => {
 describe('settings-spec — WARN captions', () => {
   const warnCases: ReadonlyArray<[string, RegExp]> = [
     ['advanced.temperature', /1\.2|deterministic/i],
-    ['advanced.maxTokens', /256|truncate/i],
+    ['advanced.maxTokens', /cut short/i],
     ['advanced.translateTimeoutMs', /tight|GPT-4o|Summarize/i],
     ['advanced.debugLogLevel', /debug.*streaming|every.*chunk/i],
-    ['display.streamingFlushMs', /100 ms.*look frozen/i],
+    ['display.streamingFlushMs', /above 100 ms streaming looks stuck/i],
   ];
   for (const [id, re] of warnCases) {
     it(`${id} carries a WARN-style description`, () => {
@@ -70,7 +70,7 @@ describe('settings-spec — tab assignments', () => {
     ['display.shortcut', 'selection-bubble'],
     ['display.streaming', 'translate'],
     ['display.contextEnabled', 'translate'],
-    ['defaults.defaultLang', 'translate'],
+    ['defaults.defaultLang', 'languages'],
     ['defaults.defaultTask', 'tasks'],
     ['defaults.defaultTone', 'tasks'],
     ['advanced.smartBubbleMinLength', 'selection-bubble'],

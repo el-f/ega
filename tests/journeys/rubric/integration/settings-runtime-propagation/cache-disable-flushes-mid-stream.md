@@ -13,7 +13,7 @@
 
 ## Visible affordances
 
-- The cache toggle ("Reuse recent translations") is in Options > Translate > Cache; its help text says the cache lives in memory only.
+- The cache toggle ("Reuse recent answers") is in Settings > Answers > Streaming and cache; the card's (i) says the cache lives in memory only.
 - The Inspector shows a "Cache: Hit" row only on a hit; a bypassed request shows no "Cache" row (a "Cache-read tokens" row is the provider's prompt cache, not this one).
 
 ## Failure-mode expectations

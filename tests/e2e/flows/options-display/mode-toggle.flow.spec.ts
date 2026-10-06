@@ -14,7 +14,7 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-test('toggle to inline mode hides tooltip-only knobs and persists defaultDisplayMode', async () => {
+test('picking Inline persists defaultDisplayMode, and the tooltip options stay on screen', async () => {
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
   await page.locator('#tab-translate').click();
@@ -22,14 +22,8 @@ test('toggle to inline mode hides tooltip-only knobs and persists defaultDisplay
   await expect(page.locator('[data-ega-setting="display.tooltipShowSource"]')).toBeVisible({
     timeout: 5_000,
   });
-  await expect(page.locator('[data-ega-knobs="tooltip"]')).toBeVisible();
-  await expect(page.locator('[data-ega-knobs="inline"]')).toHaveCount(0);
-
   await page.locator('[data-ega-mode="inline"]').click();
-
-  await expect(page.locator('[data-ega-knobs="inline"]')).toBeVisible({ timeout: 5_000 });
-  await expect(page.locator('[data-ega-knobs="tooltip"]')).toHaveCount(0);
-  await expect(page.locator('[data-ega-setting="display.tooltipShowSource"]')).toHaveCount(0);
+  await expect(page.locator('[data-ega-mode="inline"]')).toHaveAttribute('aria-checked', 'true');
 
   await expect
     .poll(
@@ -41,7 +35,8 @@ test('toggle to inline mode hides tooltip-only knobs and persists defaultDisplay
     )
     .toBe('inline');
 
-  await page.locator('[data-ega-mode="tooltip"]').click();
-  await expect(page.locator('[data-ega-knobs="tooltip"]')).toBeVisible({ timeout: 5_000 });
+  // The side panel and Explain still use the tooltip options, so they stay in Inline mode.
+  await expect(page.locator('[data-ega-knobs="tooltip"]')).toBeVisible();
   await expect(page.locator('[data-ega-setting="display.tooltipShowSource"]')).toBeVisible();
+  await expect(page.getByText('Inline mode has no settings of its own')).toHaveCount(0);
 });

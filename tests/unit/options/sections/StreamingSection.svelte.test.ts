@@ -13,15 +13,20 @@ describe('StreamingSection', () => {
 
   it('describes streaming for all surfaces, not just the tooltip', () => {
     const { container } = render(StreamingSection, { props: makeSectionProps() });
-    expect(container.textContent).toContain('as the model writes it');
+    expect(container.textContent).toContain('Show the answer while the model writes it');
     expect(container.textContent).not.toContain('to the tooltip');
   });
 
-  it('hides the streamingFlushMs slider when streaming is off', () => {
-    const { container } = render(StreamingSection, {
+  it('keeps the streamingFlushMs slider on screen but off while streaming is off, and says why', () => {
+    const { container, getByText } = render(StreamingSection, {
       props: makeSectionProps({ s: { streaming: false } }),
     });
-    expect(container.querySelector('[data-ega-setting="display.streamingFlushMs"]')).toBeNull();
+    const thumb = container.querySelector(
+      '[data-ega-setting="display.streamingFlushMs"] [role="slider"]',
+    );
+    expect(thumb?.getAttribute('aria-disabled')).toBe('true');
+    const reason = getByText('Used only while streaming is on');
+    expect(thumb?.getAttribute('aria-describedby')?.split(' ')).toContain(reason.id);
   });
 
   it('shows the streamingFlushMs slider when streaming is on', () => {

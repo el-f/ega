@@ -28,4 +28,4 @@
 ## Cautions
 
 - Order is per group: Chrome draws three separate menus, so a row never moves into another group.
-- The image rows own where they open; the Display surface card has no image select.
+- The image rows own where they open; the "Where answers show" card has no image select.

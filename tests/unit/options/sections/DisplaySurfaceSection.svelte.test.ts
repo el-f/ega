@@ -3,13 +3,13 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
 import DisplaySurfaceSection from '@/options/components/sections/DisplaySurfaceSection.svelte';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
-import { makeSectionProps, type OnPatch } from './_helpers';
+import { makeResetSectionProps, type OnPatch, type OnResetCard } from './_helpers';
 import { parseSettings } from '@/shared/settings-schema';
 
 describe('DisplaySurfaceSection', () => {
   it('shows TooltipKnobs (not InlineKnobs) when defaultDisplayMode is tooltip', () => {
     const { container } = render(DisplaySurfaceSection, {
-      props: makeSectionProps({ s: { defaultDisplayMode: 'tooltip' } }),
+      props: makeResetSectionProps({ s: { defaultDisplayMode: 'tooltip' } }),
     });
     expect(container.querySelector('[data-ega-knobs="tooltip"]')).not.toBeNull();
     expect(container.querySelector('[data-ega-knobs="inline"]')).toBeNull();
@@ -19,22 +19,23 @@ describe('DisplaySurfaceSection', () => {
     expect(container.querySelector('[data-ega-setting="display.tooltipDraggable"]')).not.toBeNull();
   });
 
-  it('shows InlineKnobs (not TooltipKnobs) when defaultDisplayMode is inline', () => {
+  it('keeps the tooltip options in Inline mode too (the side panel and Explain use them), with no filler note', () => {
     const { container } = render(DisplaySurfaceSection, {
-      props: makeSectionProps({ s: { defaultDisplayMode: 'inline' } }),
+      props: makeResetSectionProps({ s: { defaultDisplayMode: 'inline' } }),
     });
-    expect(container.querySelector('[data-ega-knobs="inline"]')).not.toBeNull();
-    expect(container.querySelector('[data-ega-knobs="tooltip"]')).toBeNull();
+    expect(container.querySelector('[data-ega-knobs="tooltip"]')).not.toBeNull();
     expect(container.querySelector('#confidence-pill')).not.toBeNull();
-    // tooltip-only knobs absent in inline mode
-    expect(container.querySelector('[data-ega-setting="display.tooltipShowSource"]')).toBeNull();
+    expect(
+      container.querySelector('[data-ega-setting="display.tooltipShowSource"]'),
+    ).not.toBeNull();
+    expect(container.textContent).not.toContain('Inline mode has no settings of its own');
   });
 
   // Each right-click image action owns where it opens; a second control here could disagree with the rows.
   it('has no image "opens in" select in either mode', () => {
     for (const mode of ['tooltip', 'inline'] as const) {
       const { container, unmount } = render(DisplaySurfaceSection, {
-        props: makeSectionProps({ s: { defaultDisplayMode: mode } }),
+        props: makeResetSectionProps({ s: { defaultDisplayMode: mode } }),
       });
       expect(
         container.querySelector('[data-ega-setting="display.imageTranslateSurface"]'),
@@ -48,7 +49,7 @@ describe('DisplaySurfaceSection', () => {
   for (const mode of ['tooltip', 'inline'] as const) {
     it(`renders the confidence-pill knobs once, outside the ${mode} knob stack`, () => {
       const { container } = render(DisplaySurfaceSection, {
-        props: makeSectionProps({ s: { defaultDisplayMode: mode, confidencePill: true } }),
+        props: makeResetSectionProps({ s: { defaultDisplayMode: mode, confidencePill: true } }),
       });
       for (const id of ['display.confidencePill', 'display.confidencePillThreshold']) {
         const rows = container.querySelectorAll(`[data-ega-setting="${id}"]`);
@@ -56,7 +57,7 @@ describe('DisplaySurfaceSection', () => {
         expect(rows[0]?.closest('[data-ega-knobs]')).toBeNull();
       }
       const pillRow = container.querySelector('[data-ega-setting="display.confidencePill"]');
-      expect(pillRow?.textContent).toContain('Confidence pill');
+      expect(pillRow?.textContent).toContain('Show confidence pill');
       expect(pillRow?.parentElement?.textContent).toContain('Tooltip and side panel');
     });
   }
@@ -64,7 +65,7 @@ describe('DisplaySurfaceSection', () => {
   it('clicking the inline segment patches defaultDisplayMode to "inline"', async () => {
     const onPatch = vi.fn<OnPatch>();
     const { container } = render(DisplaySurfaceSection, {
-      props: makeSectionProps({ s: { defaultDisplayMode: 'tooltip' }, onPatch }),
+      props: makeResetSectionProps({ s: { defaultDisplayMode: 'tooltip' }, onPatch }),
     });
     const inlineBtn = container.querySelector<HTMLButtonElement>('[data-ega-mode="inline"]');
     if (!inlineBtn) throw new Error('inline segment missing');
@@ -75,7 +76,7 @@ describe('DisplaySurfaceSection', () => {
   it('clicking the active segment is a no-op (no patch fired)', async () => {
     const onPatch = vi.fn<OnPatch>();
     const { container } = render(DisplaySurfaceSection, {
-      props: makeSectionProps({ s: { defaultDisplayMode: 'tooltip' }, onPatch }),
+      props: makeResetSectionProps({ s: { defaultDisplayMode: 'tooltip' }, onPatch }),
     });
     const activeBtn = container.querySelector<HTMLButtonElement>('[data-ega-mode="tooltip"]');
     if (!activeBtn) throw new Error('tooltip segment missing');
@@ -85,7 +86,7 @@ describe('DisplaySurfaceSection', () => {
 
   it('card-as-radio: active card gets aria-checked=true + .active class', () => {
     const { container } = render(DisplaySurfaceSection, {
-      props: makeSectionProps({ s: { defaultDisplayMode: 'inline' } }),
+      props: makeResetSectionProps({ s: { defaultDisplayMode: 'inline' } }),
     });
     const tooltipCard = container.querySelector<HTMLElement>('[data-ega-mode="tooltip"]');
     const inlineCard = container.querySelector<HTMLElement>('[data-ega-mode="inline"]');
@@ -97,23 +98,24 @@ describe('DisplaySurfaceSection', () => {
     expect(tooltipCard.classList.contains('active')).toBe(false);
   });
 
-  it('reset clears the pill and tooltip options, never the mode', async () => {
-    const onPatch = vi.fn<OnPatch>();
+  it('Reset section resets the pill and tooltip options, never the mode', async () => {
+    const onResetCard = vi.fn<OnResetCard>(async () => {});
     const { container } = render(DisplaySurfaceSection, {
-      props: makeSectionProps({
+      props: makeResetSectionProps({
         s: {
           defaultDisplayMode: 'tooltip',
           tooltipShowSource: true,
           tooltipDraggable: true,
         },
-        onPatch,
+        onResetCard,
       }),
     });
     const resetBtn = container.querySelector<HTMLButtonElement>('[data-ega-section-reset]');
     if (!resetBtn) throw new Error('section-reset button missing (expected when knobs modified)');
     await fireEvent.click(resetBtn);
-    expect(onPatch).toHaveBeenCalledTimes(1);
-    const patch = onPatch.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(onResetCard).toHaveBeenCalledTimes(1);
+    expect(onResetCard.mock.calls[0]?.[0]).toBe('Where answers show');
+    const patch = onResetCard.mock.calls[0]?.[1] as Record<string, unknown>;
     // Reset should NOT touch defaultDisplayMode — resetting the picked mode while
     // configuring it would be confusing UX.
     expect(patch).not.toHaveProperty('defaultDisplayMode');
@@ -121,24 +123,24 @@ describe('DisplaySurfaceSection', () => {
     expect(patch).toHaveProperty('tooltipDraggable', false);
   });
 
-  it('in inline mode the reset still names and covers the tooltip options', async () => {
-    const onPatch = vi.fn<OnPatch>();
+  it('in inline mode the one reset still covers the tooltip options', async () => {
+    const onResetCard = vi.fn<OnResetCard>(async () => {});
     const { container } = render(DisplaySurfaceSection, {
-      props: makeSectionProps({
+      props: makeResetSectionProps({
         s: { defaultDisplayMode: 'inline', tooltipDraggable: true },
-        onPatch,
+        onResetCard,
       }),
     });
     const resetBtn = container.querySelector<HTMLButtonElement>('[data-ega-section-reset]');
     if (!resetBtn) throw new Error('reset missing while a tooltip option is changed');
-    expect(resetBtn.textContent).toContain('Reset pill and tooltip options');
+    expect(resetBtn.textContent.trim()).toBe('Reset section');
     await fireEvent.click(resetBtn);
-    expect(onPatch.mock.calls[0]?.[0]).toHaveProperty('tooltipDraggable', false);
+    expect(onResetCard.mock.calls[0]?.[1]).toHaveProperty('tooltipDraggable', false);
   });
 
   it('does not render reset button when no tooltip knobs are modified', () => {
     const { container } = render(DisplaySurfaceSection, {
-      props: makeSectionProps({ s: { defaultDisplayMode: 'tooltip' } }),
+      props: makeResetSectionProps({ s: { defaultDisplayMode: 'tooltip' } }),
     });
     expect(container.querySelector('[data-ega-section-reset]')).toBeNull();
   });
@@ -146,7 +148,7 @@ describe('DisplaySurfaceSection', () => {
   it('tooltip knob shows the per-row modified dot when it diverges from default', () => {
     const def = DEFAULT_SETTINGS;
     const { container } = render(DisplaySurfaceSection, {
-      props: makeSectionProps({
+      props: makeResetSectionProps({
         s: {
           defaultDisplayMode: 'tooltip',
           tooltipShowSource: !def.tooltipShowSource,
@@ -164,7 +166,7 @@ describe('DisplaySurfaceSection', () => {
 
   it('tooltip knobs at defaults show no modified dot', () => {
     const { container } = render(DisplaySurfaceSection, {
-      props: makeSectionProps({ s: { defaultDisplayMode: 'tooltip' } }),
+      props: makeResetSectionProps({ s: { defaultDisplayMode: 'tooltip' } }),
     });
     for (const key of [
       'display.tooltipShowSource',
@@ -181,7 +183,7 @@ describe('DisplaySurfaceSection', () => {
 describe('DisplaySurfaceSection — confidence-threshold readout', () => {
   it('renders the threshold as a neutral percent readout', () => {
     const s = parseSettings({ defaultDisplayMode: 'inline', confidencePill: true });
-    const { container } = render(DisplaySurfaceSection, { props: { s, onPatch: () => {} } });
+    const { container } = render(DisplaySurfaceSection, { props: makeResetSectionProps({ s }) });
 
     const thresholdRow = container.querySelector(
       '[data-ega-setting="display.confidencePillThreshold"]',
@@ -197,7 +199,7 @@ describe('DisplaySurfaceSection — confidence-threshold readout', () => {
 describe('DisplaySurfaceSection — radiogroup keyboard nav', () => {
   it('checked radio has tabindex=0; unchecked has tabindex=-1', () => {
     const s = parseSettings({ defaultDisplayMode: 'tooltip' });
-    const { container } = render(DisplaySurfaceSection, { props: { s, onPatch: () => {} } });
+    const { container } = render(DisplaySurfaceSection, { props: makeResetSectionProps({ s }) });
     const tooltip = container.querySelector('[data-ega-mode="tooltip"]');
     const inline = container.querySelector('[data-ega-mode="inline"]');
     expect(tooltip?.getAttribute('tabindex')).toBe('0');
@@ -207,7 +209,9 @@ describe('DisplaySurfaceSection — radiogroup keyboard nav', () => {
   it('ArrowRight on radiogroup fires onPatch with the next mode', async () => {
     const onPatch = vi.fn<OnPatch>().mockResolvedValue(undefined);
     const s = parseSettings({ defaultDisplayMode: 'tooltip' });
-    const { container } = render(DisplaySurfaceSection, { props: { s, onPatch } });
+    const { container } = render(DisplaySurfaceSection, {
+      props: makeResetSectionProps({ s, onPatch }),
+    });
     const group = container.querySelector('[role="radiogroup"]') as HTMLElement;
     await fireEvent.keyDown(group, { key: 'ArrowRight' });
     expect(onPatch).toHaveBeenCalledWith({ defaultDisplayMode: 'inline' });
@@ -216,7 +220,9 @@ describe('DisplaySurfaceSection — radiogroup keyboard nav', () => {
   it('ArrowLeft on radiogroup fires onPatch with the previous mode (wraps)', async () => {
     const onPatch = vi.fn<OnPatch>().mockResolvedValue(undefined);
     const s = parseSettings({ defaultDisplayMode: 'tooltip' });
-    const { container } = render(DisplaySurfaceSection, { props: { s, onPatch } });
+    const { container } = render(DisplaySurfaceSection, {
+      props: makeResetSectionProps({ s, onPatch }),
+    });
     const group = container.querySelector('[role="radiogroup"]') as HTMLElement;
     await fireEvent.keyDown(group, { key: 'ArrowLeft' });
     expect(onPatch).toHaveBeenCalledWith({ defaultDisplayMode: 'inline' });
@@ -229,7 +235,8 @@ describe('DisplaySurfaceSection — modified dots', () => {
     const def = render(DisplaySurfaceSection, {
       props: {
         s: parseSettings({ defaultDisplayMode: 'inline', confidencePill: true }),
-        onPatch: () => {},
+        onPatch: vi.fn<OnPatch>(),
+        onResetCard: vi.fn<OnResetCard>(async () => {}),
       },
     });
     const defRow = def.container.querySelector('[data-ega-setting="display.confidencePill"]');
@@ -238,7 +245,8 @@ describe('DisplaySurfaceSection — modified dots', () => {
     const off = render(DisplaySurfaceSection, {
       props: {
         s: parseSettings({ defaultDisplayMode: 'inline', confidencePill: false }),
-        onPatch: () => {},
+        onPatch: vi.fn<OnPatch>(),
+        onResetCard: vi.fn<OnResetCard>(async () => {}),
       },
     });
     const offRow = off.container.querySelector('[data-ega-setting="display.confidencePill"]');
@@ -257,7 +265,7 @@ describe('DisplaySurfaceSection — modified dots', () => {
       it(`${selector} patches ${key}, and nothing else`, async () => {
         const onPatch = vi.fn<OnPatch>();
         const { container } = render(DisplaySurfaceSection, {
-          props: makeSectionProps({
+          props: makeResetSectionProps({
             s: { defaultDisplayMode: 'tooltip', [key]: true },
             onPatch,
           }),
@@ -275,7 +283,7 @@ describe('DisplaySurfaceSection — modified dots', () => {
     it('the confidence-pill knob under inline mode patches the same key', async () => {
       const onPatch = vi.fn<OnPatch>();
       const { container } = render(DisplaySurfaceSection, {
-        props: makeSectionProps({
+        props: makeResetSectionProps({
           s: { defaultDisplayMode: 'inline', confidencePill: false },
           onPatch,
         }),

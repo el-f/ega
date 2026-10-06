@@ -8,7 +8,6 @@ import {
   DEFAULT_HEADING_TRAIL_ENTRY_CAP,
   DEFAULT_IMAGE_TRANSLATE_TIMEOUT_MS,
   DEFAULT_LOCAL_BACKEND_TIMEOUT_MS,
-  DEFAULT_POST_TEXT_CAP,
   DEFAULT_SELECTION_CONTEXT_CAP,
   DEFAULT_SMART_BUBBLE_MIN_LENGTH,
   DEFAULT_STREAMING_FLUSH_MS,
@@ -105,8 +104,8 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   },
   {
     id: 'display.defaultDisplayMode',
-    label: 'Default display mode',
-    description: 'Tooltip overlay vs inline replacement for translation results.',
+    label: 'Where answers show',
+    description: 'A tooltip over the selection, or the answer in place of the text',
     keywords: ['tooltip', 'inline', 'surface', 'display', 'mode'],
     tab: 'translate',
     targetSelector: '[data-ega-setting="display.defaultDisplayMode"]',
@@ -115,8 +114,8 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   },
   {
     id: 'display.streaming',
-    label: 'Streaming responses',
-    description: 'Show the text as the model writes it, instead of waiting for the whole reply.',
+    label: 'Stream the answer live',
+    description: 'Show the answer while the model writes it',
     keywords: ['streaming', 'stream', 'token', 'live'],
     tab: 'translate',
     targetSelector: '[data-ega-setting="display.streaming"]',
@@ -125,9 +124,8 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   },
   {
     id: 'display.streamingFlushMs',
-    label: 'Streaming flush speed',
-    description:
-      'How often streamed text is drawn. 0 = instant, about 50 ms is smooth, and above about 100 ms streaming starts to look frozen.',
+    label: 'Show new text every',
+    description: '0 is instant; above 100 ms streaming looks stuck',
     keywords: ['streaming', 'flush', 'paint', 'render', 'speed'],
     tab: 'translate',
     targetSelector: '[data-ega-setting="display.streamingFlushMs"]',
@@ -140,8 +138,8 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   },
   {
     id: 'display.confidencePill',
-    label: 'Confidence pill',
-    description: 'Show a confidence badge next to translations.',
+    label: 'Show confidence pill',
+    description: 'How sure the model is, shown next to each answer',
     keywords: ['confidence', 'pill', 'badge', 'score'],
     tab: 'translate',
     targetSelector: '[data-ega-setting="display.confidencePill"]',
@@ -150,8 +148,8 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   },
   {
     id: 'display.confidencePillThreshold',
-    label: 'Confidence pill threshold',
-    description: 'Hide the pill below this confidence score; 0 = always show.',
+    label: 'Hide the pill below',
+    description: '0 shows the pill on every answer',
     keywords: ['confidence', 'threshold', 'score'],
     tab: 'translate',
     targetSelector: '[data-ega-setting="display.confidencePillThreshold"]',
@@ -165,8 +163,8 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   },
   {
     id: 'display.tooltipShowSource',
-    label: 'Show source in tooltip',
-    description: 'Show the original selection at the top of the tooltip.',
+    label: 'Show the original text at the top',
+    description: 'The tooltip repeats the text you selected above the answer',
     keywords: ['source', 'original', 'tooltip', 'echo'],
     tab: 'translate',
     targetSelector: '[data-ega-setting="display.tooltipShowSource"]',
@@ -175,8 +173,8 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   },
   {
     id: 'display.tooltipClickOutside',
-    label: 'Click outside to dismiss tooltip',
-    description: 'Click anywhere off the tooltip to dismiss; hides the close button.',
+    label: 'Close when I click outside',
+    description: 'Hides the close button',
     keywords: ['click', 'outside', 'dismiss', 'tooltip', 'close'],
     tab: 'translate',
     targetSelector: '[data-ega-setting="display.tooltipClickOutside"]',
@@ -185,8 +183,8 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   },
   {
     id: 'display.tooltipDraggable',
-    label: 'Drag-to-move tooltip',
-    description: "Drag from the narrow handle on the tooltip's left edge to move it.",
+    label: 'Let me drag the tooltip',
+    description: 'Move the tooltip by its handle on the left edge',
     keywords: ['drag', 'tooltip', 'move', 'reposition'],
     tab: 'translate',
     targetSelector: '[data-ega-setting="display.tooltipDraggable"]',
@@ -196,8 +194,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'display.contextEnabled',
     label: 'Send page context',
-    description:
-      'Send the page title, address and nearby text with selection and side panel requests.',
+    description: 'Sends the page title, address and nearby text with your request',
     keywords: ['context', 'page', 'metadata', 'surrounding'],
     tab: 'translate',
     targetSelector: '[data-ega-setting="display.contextEnabled"]',
@@ -206,9 +203,8 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   },
   {
     id: 'display.explainUsesPageImage',
-    label: 'Explain can read the page image',
-    description:
-      "When Explain runs on selected text, send the page's one dominant image so the model can read it.",
+    label: 'Send the page image with Explain',
+    description: 'Explain on selected text also sends the main image of the page',
     keywords: ['explain', 'image', 'picture', 'vision', 'post', 'meme'],
     tab: 'translate',
     targetSelector: '[data-ega-setting="display.explainUsesPageImage"]',
@@ -217,8 +213,9 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   },
   {
     id: 'display.pageContextLevel',
-    label: 'Page-context depth',
-    description: `Minimal sends the title, URL and the text around the selection. Rich adds the page language, headings, the page description and the site name, and, on a selection, up to ${DEFAULT_POST_TEXT_CAP} characters of the post around it.`,
+    label: 'How much page context',
+    description:
+      'Minimal sends the title, address and nearby text; Rich adds headings and the post',
     keywords: ['context', 'depth', 'level', 'minimal', 'rich', 'page'],
     tab: 'translate',
     targetSelector: '[data-ega-setting="display.pageContextLevel"]',
@@ -228,9 +225,8 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   },
   {
     id: 'display.pageTranslateMode',
-    label: 'Page-translate render mode',
-    description:
-      'In place replaces the block text. Bilingual keeps the original and adds the translation below it.',
+    label: 'Show the translation',
+    description: 'In place replaces each block; Under the original adds the translation below it',
     keywords: ['page', 'translate', 'inplace', 'bilingual', 'render', 'mode', 'side by side'],
     tab: 'translate',
     targetSelector: '[data-ega-setting="display.pageTranslateMode"]',
@@ -242,10 +238,9 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'defaults.defaultLang',
     label: 'Default source language',
-    description:
-      'Source language for new translations. Auto-detect tries on your device first, then asks the backend.',
+    description: 'The language of the text when you do not pick one; Auto-detect guesses it',
     keywords: ['source', 'language', 'auto', 'detect', 'default'],
-    tab: 'translate',
+    tab: 'languages',
     targetSelector: '[data-ega-setting="defaults.defaultLang"]',
     type: 'select',
     isModified: { kind: 'eq', path: 'defaultLang' },
@@ -253,9 +248,9 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'defaults.defaultTargetLang',
     label: 'Default target language',
-    description: 'The language Ega translates into.',
+    description: 'The language Ega answers in when you do not pick one',
     keywords: ['target', 'language', 'destination', 'default'],
-    tab: 'translate',
+    tab: 'languages',
     targetSelector: '[data-ega-setting="defaults.defaultTargetLang"]',
     type: 'select',
     isModified: { kind: 'eq', path: 'defaultTargetLang' },
@@ -601,9 +596,8 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   },
   {
     id: 'advanced.temperature',
-    label: 'Temperature (global)',
-    description:
-      '0 = most predictable, 2 = most varied. Default 0.2. Above about 1.2 the reply format can break, and 0 can make some backends repeat themselves.',
+    label: 'Creativity (temperature)',
+    description: 'Lower is more predictable; above 1.2 answers can break',
     keywords: ['creativity', 'random', 'heat', 'sampling', 'temperature'],
     tab: 'translate',
     targetSelector: '[data-ega-setting="advanced.temperature"]',
@@ -618,9 +612,8 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   },
   {
     id: 'advanced.maxTokens',
-    label: 'Max answer length (tokens)',
-    description:
-      'Longest reply the model may write. Below 256 tokens, replies can be cut short and lose the confidence score and language detection.',
+    label: 'Longest answer',
+    description: 'Answers longer than this are cut short',
     keywords: ['length', 'output', 'tokens', 'max tokens', 'cap', 'max'],
     tab: 'translate',
     targetSelector: '[data-ega-setting="advanced.maxTokens"]',
@@ -631,8 +624,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'advanced.effort',
     label: 'Effort',
-    description:
-      'How much a model thinks before it answers: Off, Low, Medium or High. Ega maps it to each backend; models without a thinking setting ignore it.',
+    description: 'More effort is slower and costs more',
     keywords: [
       'reasoning',
       'thinking level',
@@ -655,8 +647,8 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   },
   {
     id: 'advanced.batchConcurrency',
-    label: 'Batch concurrency',
-    description: 'How many parts of the page translate at the same time.',
+    label: 'Areas sent at once',
+    description: 'More is faster and uses more of your quota',
     keywords: ['concurrency', 'parallel', 'workers', 'batch', 'page-translate'],
     tab: 'translate',
     targetSelector: '[data-ega-setting="advanced.batchConcurrency"]',
@@ -683,8 +675,8 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   },
   {
     id: 'advanced.pageContextPayload',
-    label: 'Page-context payload caps',
-    description: 'Limits for nearby text, the page description and headings.',
+    label: 'Fine-tune what is sent',
+    description: 'Limits for nearby text, the page description and headings',
     keywords: ['context', 'payload', 'cap', 'page', 'heading', 'description'],
     tab: 'translate',
     targetSelector: '[data-ega-setting="advanced.pageContextPayload"]',
@@ -711,7 +703,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'advanced.selectionContextCap',
     label: 'Selection window',
-    description: 'How much text before and after the selection travels with the request.',
+    description: 'Text sent from before and after the selection',
     keywords: ['selection', 'window', 'neighbourhood', 'cap', 'context', 'chars'],
     tab: 'translate',
     targetSelector: '[data-ega-setting="advanced.selectionContextCap"]',
@@ -725,7 +717,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'advanced.descriptionContextCap',
     label: 'Page description length',
-    description: 'Longest page description sent with Rich context.',
+    description: 'Longest page description sent; used only with Rich',
     keywords: ['description', 'meta', 'cap', 'context', 'chars', 'rich'],
     tab: 'translate',
     targetSelector: '[data-ega-setting="advanced.descriptionContextCap"]',
@@ -739,7 +731,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'advanced.headingTrailDepth',
     label: 'Headings sent',
-    description: 'How many of the nearest page headings are sent with Rich context.',
+    description: 'How many of the nearest headings are sent; used only with Rich',
     keywords: ['heading', 'trail', 'depth', 'context', 'rich', 'h1'],
     tab: 'translate',
     targetSelector: '[data-ega-setting="advanced.headingTrailDepth"]',
@@ -753,7 +745,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'advanced.headingTrailEntryCap',
     label: 'Longest heading',
-    description: 'Longer headings are cut to this length.',
+    description: 'Longer headings are cut to this length; used only with Rich',
     keywords: ['heading', 'trail', 'cap', 'chars', 'context'],
     tab: 'translate',
     targetSelector: '[data-ega-setting="advanced.headingTrailEntryCap"]',
@@ -789,8 +781,8 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   },
   {
     id: 'advanced.cacheSettings',
-    label: 'Cache settings',
-    description: 'Reuse recent translations within the active browser session.',
+    label: 'Reuse recent answers',
+    description: 'The same text gets the same answer for 5 minutes',
     keywords: ['cache', 'reuse', 'enable'],
     tab: 'translate',
     targetSelector: '[data-ega-cache-card]',

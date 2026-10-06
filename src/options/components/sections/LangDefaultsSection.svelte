@@ -36,10 +36,7 @@
   }
 </script>
 
-<SectionCard
-  title="Languages"
-  description="Default source and target languages for new translations."
->
+<SectionCard title="Default languages" description="Used when you do not pick a language">
   <!-- LanguagePicker renders a plain <select>, so its native change event bubbles up to here. -->
   <div
     class="lang-row"
@@ -57,7 +54,7 @@
 
     <IconButton
       icon={ArrowLeftRight}
-      ariaLabel={swapDisabled ? 'Pick a source language to swap' : 'Swap source/target'}
+      ariaLabel="Swap languages"
       disabled={swapDisabled}
       onclick={swap}
     />
