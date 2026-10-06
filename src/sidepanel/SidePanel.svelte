@@ -633,11 +633,10 @@
   /** Every bare-key shortcut is off while the user is typing. */
   function isTextEntry(target: EventTarget | null): boolean {
     return (
-      // A native select or a bits-ui menu owns its own arrow keys and letter type-ahead; the open refine row keeps its keys too.
-      // The reply's action buttons do not: from them j/k/c/e/? stay the panel's navigation; the chip row holds a text field.
+      // A native select or a bits-ui menu owns its own arrow keys and letter type-ahead.
+      // The reply's action buttons do not: from them j/k/c/e/? stay the panel's navigation.
       target instanceof HTMLSelectElement ||
-      (target instanceof Element &&
-        target.closest('[role="menu"], [data-ega-quick-refine]') !== null) ||
+      (target instanceof Element && target.closest('[role="menu"]') !== null) ||
       target instanceof HTMLTextAreaElement ||
       target instanceof HTMLInputElement ||
       (target instanceof HTMLElement && target.isContentEditable)
