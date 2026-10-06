@@ -51,10 +51,8 @@ describe('separatorLabel', () => {
   it('names today and yesterday, the weekday this year, and the year before that', () => {
     expect(separatorLabel(at(2026, 10, 6, 14, 2), NOW, 'en-GB')).toBe('Today 14:02');
     expect(separatorLabel(at(2026, 10, 5, 9, 15), NOW, 'en-GB')).toBe('Yesterday 09:15');
-    expect(separatorLabel(at(2026, 10, 3, 14, 2), NOW, 'en-US')).toMatch(/^Sat, Oct 3 · 02:02 PM$/);
-    expect(separatorLabel(at(2025, 10, 5, 14, 2), NOW, 'en-US')).toMatch(
-      /^Oct 5, 2025 · 02:02 PM$/,
-    );
+    expect(separatorLabel(at(2026, 10, 3, 14, 2), NOW, 'en-US')).toMatch(/^Sat, Oct 3 · 2:02 PM$/);
+    expect(separatorLabel(at(2025, 10, 5, 14, 2), NOW, 'en-US')).toMatch(/^Oct 5, 2025 · 2:02 PM$/);
   });
 });
 

@@ -215,7 +215,7 @@ describe('the orphan-draft sweep is runnable, and only removes dead rows', () =>
 describe('the empty-answer copy names a control that exists', () => {
   it('points at Regenerate, the only re-run left on a done turn', () => {
     const src = readFileSync('src/sidepanel/conversation/AssistantTurn.svelte', 'utf8');
-    expect(src).toMatch(/No reply came back\. Click Regenerate/);
-    expect(src).not.toMatch(/No reply came back\. Click Retry/);
+    expect(src).toMatch(/No answer came back\. Try Regenerate\./);
+    expect(src).not.toMatch(/No answer came back\. Try Retry/);
   });
 });

@@ -36,7 +36,8 @@
   import InputRow from './conversation/InputRow.svelte';
   import { createConversation } from './state/conversation.svelte';
   import { createIntake } from './state/intake';
-  import type { ComposerMode } from './state/thread-view';
+  import type { ComposerMode, SuggestionKind, SuggestionResult } from './state/thread-view';
+  import { conversationLabel } from '@/shared/saved-conversations';
   import { INDEX_KEY } from './state/conversation-store';
   import { visibleTurns, searchTurns } from './state/conversation';
   import { exportMarkdown, exportJson } from './state/conversation-export';
@@ -77,6 +78,19 @@
 
   // Reported by the backend chip, which already resolves the chain and probes the key-less backends.
   let backendReady = $state<boolean | null>(null);
+  /** The first storage read landed: before it the thread area stays blank, so no empty state flashes. */
+  let threadLoaded = $state(false);
+  /** Said once when the panel starts showing another conversation. */
+  let switchAnnouncement = $state<string | null>(null);
+  let shownId: string | null = null;
+  $effect(() => {
+    const id = conversation.activeId;
+    if (!threadLoaded) return;
+    if (shownId !== null && shownId !== id) {
+      switchAnnouncement = `Showing the conversation for ${conversationLabel(id)}`;
+    }
+    shownId = id;
+  });
   /** Toasts sit just above the composer, which grows with the message. */
   let composerHeight = $state(0);
   let bookmarkFilter = $state(false);
@@ -133,7 +147,6 @@
   let panelWindowId: number | undefined;
 
   const latestTurnId = $derived(conversation.turns.at(-1)?.id ?? null);
-  const turnSwapPair = $derived(latestTurnId === null ? null : conversation.swapPair(latestTurnId));
   const hasInflight = $derived(conversation.inflightId !== null);
   /** The newest reply's detected language lets the composer swap from Auto-detect. */
   const newestDetectedLang = $derived.by(() => {
@@ -287,6 +300,58 @@
     }
   }
 
+  async function activeTabId(): Promise<number | undefined> {
+    try {
+      const tabs = await chrome.tabs.query(
+        panelWindowId !== undefined
+          ? { active: true, windowId: panelWindowId }
+          : { active: true, lastFocusedWindow: true },
+      );
+      return tabs[0]?.id;
+    } catch (e) {
+      debugCatch(e, 'sidepanel.activeTabId');
+      return undefined;
+    }
+  }
+
+  /** The empty panel's suggestions: send the page's selection, or start whole-page translate in the tab. */
+  async function onSuggestion(kind: SuggestionKind): Promise<SuggestionResult> {
+    const tabId = await activeTabId();
+    if (tabId === undefined) return 'unreadable';
+    if (kind === 'translate-page') {
+      try {
+        await sendTabMsg(tabId, { kind: 'page:translateAll' });
+        return 'page';
+      } catch (e) {
+        debugCatch(e, 'sidepanel.onSuggestion.page');
+        return 'unreadable';
+      }
+    }
+    const text = await sendTabMsg(tabId, { kind: 'ega:get-selection' }).then(
+      (r) => r?.text.trim() ?? '',
+      (e: unknown) => {
+        debugCatch(e, 'sidepanel.onSuggestion.selection');
+        return null;
+      },
+    );
+    if (text === null) return 'unreadable';
+    if (text === '') return 'no-selection';
+    if (conversation.inflightId !== null) return 'sent';
+    const picked = kind === 'explain-selection' ? 'explain' : 'translate';
+    const context = await currentPageContext(picked);
+    await conversation.send({
+      content: text,
+      kind: picked,
+      sourceLang: asLangSelection(sourceLang),
+      targetLang: asLangSelection(targetLang),
+      stream: streamingPref,
+      ...(context !== undefined ? { context } : {}),
+    });
+    await tick();
+    focusComposer();
+    return 'sent';
+  }
+
   function cancelInflight(): void {
     conversation.cancel();
   }
@@ -303,6 +368,15 @@
 
   /** Composer text an edit or a described change replaced, so leaving the mode puts it back. */
   let draftBeforeEdit = '';
+
+  /** "Describe a change…": the composer takes the change for that one reply; the draft waits. */
+  async function onDescribeChange(turnId: string): Promise<void> {
+    if (composerMode.kind === 'send') draftBeforeEdit = sourceText;
+    composerMode = { kind: 'refine', turnId };
+    sourceText = '';
+    await tick();
+    focusComposer();
+  }
 
   function leaveRefine(): void {
     if (composerMode.kind !== 'refine') return;
@@ -540,14 +614,14 @@
     const slice = conversation.deleteTurn(turnId);
     if (!slice || slice.removed.length === 0) return;
     toastStore.push({
-      message: slice.removed.length > 1 ? 'Exchange removed.' : 'Message removed.',
+      message: slice.removed.length > 1 ? 'Message and reply deleted' : 'Message deleted',
       variant: 'info',
       action: {
         label: 'Undo',
         onClick: () => {
           if (!conversation.restoreTurns(slice)) {
             toastStore.push({
-              message: 'Cannot undo — this conversation is no longer open.',
+              message: "Can't undo. This conversation is no longer open.",
               variant: 'warning',
             });
           }
@@ -707,6 +781,7 @@
     } catch (e) {
       debugCatch(e, 'sidepanel.onMount.followSite');
     }
+    threadLoaded = true;
     // Registered before the drains below: every await here is a window where a tab switch or a
     // foreign write goes unheard, and the drains are the longest stretch of them.
     if (destroyed) return;
@@ -960,17 +1035,23 @@
 
     <ConversationStream
       turns={filteredTurns}
+      loaded={threadLoaded}
       {emptyBookmarkFilter}
       {emptySearch}
       {latestTurnId}
       {focusedTurnId}
       {filterSummary}
+      {switchAnnouncement}
       {varieties}
       {taskViews}
       inflight={hasInflight}
-      confidencePill={settings?.confidencePill ?? true}
-      confidencePillThreshold={settings?.confidencePillThreshold ??
-        DEFAULT_CONFIDENCE_PILL_THRESHOLD}
+      confidence={{
+        show: settings?.confidencePill ?? true,
+        threshold: settings?.confidencePillThreshold ?? DEFAULT_CONFIDENCE_PILL_THRESHOLD,
+      }}
+      composerTarget={targetLang}
+      changingTurnId={composerMode.kind === 'refine' ? composerMode.turnId : null}
+      {editingTurnId}
       onFocusChange={(id) => (focusedTurnId = id)}
       onClearSearch={() => {
         searchQuery = '';
@@ -979,14 +1060,16 @@
       onClearBookmarkFilter={() => (bookmarkFilter = false)}
       {backendReady}
       onSetUpBackend={() => openOptionsTab('backends')}
-      onShowShortcuts={() => (shortcutsOpen = true)}
+      {onSuggestion}
+      onOpenSettings={() => openOptionsTab()}
       onRetry={(id) => void conversation.retry(id)}
       onRefine={(args) => onRefine(args)}
       onSelectVariant={(turnId, idx) => conversation.selectVariant(turnId, idx)}
       onSwap={(id) => void conversation.swapVariant(id)}
       onTaskSwitch={(id, t) => void conversation.taskVariant(id, t)}
-      swapDisabled={turnSwapPair === null}
-      swapPair={turnSwapPair}
+      swapPairFor={(id) => conversation.swapPair(id)}
+      onTranslateInto={(id, lang) => void conversation.langVariant(id, lang)}
+      onDescribeChange={(id) => void onDescribeChange(id)}
       onRegisterKeydownHandler={(h) => {
         streamKeydownHandler = h;
       }}
@@ -1084,6 +1167,8 @@
   }
   /* Lets the stream shrink below its content and own the scrollbar. */
   .sp-root :global(.ega-app-shell-body) {
+    padding: 0;
+    gap: 0;
     min-height: 0;
   }
   /* Stays out of flow in both states: appearing must not push the header down. */
@@ -1145,7 +1230,8 @@
     display: flex;
     align-items: center;
     gap: var(--space-2);
-    padding: var(--space-1) var(--space-3);
+    padding: var(--space-1) 0 0;
+    margin-block-start: var(--space-2);
     border-top: 1px solid var(--color-border);
   }
   .sp-search-bar input[type='search'] {
@@ -1157,6 +1243,9 @@
     border-radius: var(--radius-sm);
     padding: var(--space-1) var(--space-2);
     color: var(--color-fg);
+  }
+  .sp-search-bar input[type='search']::-webkit-search-cancel-button {
+    display: none;
   }
   .sp-search-bar input[type='search']:focus {
     border-color: var(--color-accent);

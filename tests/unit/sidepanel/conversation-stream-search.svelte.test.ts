@@ -62,7 +62,7 @@ describe('ConversationStream — search empty state', () => {
       },
     });
     expect(container.querySelector('[data-ega-no-search-matches]')).toBeNull();
-    expect(container.querySelector('.ega-user-turn')).not.toBeNull();
-    expect(container.querySelector('.ega-assistant-turn')).not.toBeNull();
+    expect(container.querySelector('[data-ega-user-turn]')).not.toBeNull();
+    expect(container.querySelector('[data-ega-reply]')).not.toBeNull();
   });
 });

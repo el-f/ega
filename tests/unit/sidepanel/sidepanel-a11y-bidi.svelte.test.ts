@@ -7,7 +7,7 @@ import SidePanel from '@/sidepanel/SidePanel.svelte';
 import AssistantTurn from '@/sidepanel/conversation/AssistantTurn.svelte';
 import type { Turn } from '@/sidepanel/state/conversation';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
-import { openTaskMenu, swapItem } from './_task-menu';
+import { openMenu } from './_reply';
 import { saveThread } from '@/sidepanel/state/conversation-store';
 import { openModePopover } from './_composer';
 
@@ -75,7 +75,7 @@ describe('a blocked swap button says why in its label', () => {
     expect(document.querySelector('[data-ega-swap]')).toBeNull();
   });
 
-  it('the turn swap item carries the reason as text', async () => {
+  it('a reply with no swap to run offers none, instead of a disabled item', async () => {
     const turn: Turn = {
       id: 'a1',
       role: 'assistant',
@@ -88,14 +88,14 @@ describe('a blocked swap button says why in its label', () => {
       props: {
         turn,
         onRetry: vi.fn(),
+        onRefine: vi.fn(),
         isLatest: true,
         onSwap: vi.fn(),
-        swapDisabled: true,
+        swapPair: null,
       },
     });
-    await openTaskMenu(container);
-    expect(swapItem().getAttribute('aria-disabled')).toBe('true');
-    expect(swapItem().textContent).toContain('source language');
+    await openMenu(container, 'refine');
+    expect(document.querySelector('[data-ega-swap-item]')).toBeNull();
   });
 });
 

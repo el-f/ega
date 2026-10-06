@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render } from '@testing-library/svelte';
 import AssistantTurn from '@/sidepanel/conversation/AssistantTurn.svelte';
+import { openMenu } from './_reply';
 import InputRow from '@/sidepanel/conversation/InputRow.svelte';
 import { composerProps } from './_composer';
 import { toastStore } from '@/shared/components/toastStore';
@@ -24,15 +25,16 @@ function doneTurn(kind: Turn['kind']): Turn {
   };
 }
 
-describe('the Refine button and image turns', () => {
-  it('a text turn offers the Refine button', () => {
+describe('the Refine menu and image turns', () => {
+  it('a text turn offers its presets', async () => {
     const { container } = render(AssistantTurn, {
       props: { turn: doneTurn('translate'), onRetry: vi.fn(), onRefine: vi.fn(), isLatest: true },
     });
-    expect(container.querySelector('[data-ega-refine-toggle]')).not.toBeNull();
+    await openMenu(container, 'refine');
+    expect(document.querySelector('[data-ega-refine-preset]')).not.toBeNull();
   });
 
-  it('an explain turn that carries an image offers none: the vision arm ignores a refinement', () => {
+  it('an explain turn that carries an image offers only languages: the vision arm ignores a refinement', async () => {
     const { container } = render(AssistantTurn, {
       props: {
         turn: doneTurn('explain'),
@@ -42,10 +44,13 @@ describe('the Refine button and image turns', () => {
         hasImage: true,
       },
     });
-    expect(container.querySelector('[data-ega-refine-toggle]')).toBeNull();
+    await openMenu(container, 'refine');
+    expect(document.querySelector('[data-ega-refine-preset]')).toBeNull();
+    expect(document.querySelector('[data-ega-describe-change]')).toBeNull();
+    expect(document.querySelector('[data-ega-translate-into-other]')).not.toBeNull();
   });
 
-  it('an image-translate turn offers none', () => {
+  it('an image-translate turn offers only languages', async () => {
     const { container } = render(AssistantTurn, {
       props: {
         turn: doneTurn('image-translate'),
@@ -54,7 +59,8 @@ describe('the Refine button and image turns', () => {
         isLatest: true,
       },
     });
-    expect(container.querySelector('[data-ega-refine-toggle]')).toBeNull();
+    await openMenu(container, 'refine');
+    expect(document.querySelector('[data-ega-refine-preset]')).toBeNull();
   });
 });
 

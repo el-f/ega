@@ -5,7 +5,7 @@ import AssistantTurn from '@/sidepanel/conversation/AssistantTurn.svelte';
 import ConversationStream from '@/sidepanel/conversation/ConversationStream.svelte';
 import type { AssistantTurnData } from '@/sidepanel/state/conversation';
 import { asLangSelection } from '@/shared/brands';
-import { toastStore } from '@/shared/components/toastStore';
+import { metaText, openMenu } from './_reply';
 
 /** jsdom has no speech engine; this one records what was said and ends on cancel, as Chrome does. */
 class FakeUtterance {
@@ -49,16 +49,17 @@ function doneTurn(overrides: Partial<AssistantTurnData> = {}): AssistantTurnData
   };
 }
 
-const speakBtn = (c: HTMLElement): HTMLButtonElement | null =>
-  c.querySelector<HTMLButtonElement>("[data-ega-action='speak']");
+/** Reading shows in the meta line as "Reading aloud · Stop"; the Stop is the only control there. */
+const reading = (c: HTMLElement): boolean => c.querySelector('[data-ega-meta-stop]') !== null;
 
 /** The voice list is read asynchronously, so the read starts a few microtasks after the click. */
 const settle = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
 
 async function press(c: HTMLElement): Promise<void> {
-  const btn = speakBtn(c);
-  if (!btn) throw new Error('no speak button');
-  await fireEvent.click(btn);
+  await openMenu(c, 'more');
+  const item = document.querySelector<HTMLElement>('[data-ega-speak]');
+  if (!item) throw new Error('no Read aloud item');
+  await fireEvent.click(item);
   await settle();
 }
 
@@ -82,14 +83,14 @@ describe('AssistantTurn — read the answer aloud', () => {
     const { container } = render(AssistantTurn, {
       props: { turn: doneTurn(), onRetry: vi.fn(), targetLang: asLangSelection('es') },
     });
-    expect(speakBtn(container)?.getAttribute('aria-label')).toBe('Read aloud');
+    expect(reading(container)).toBe(false);
     await press(container);
 
     expect(synth.speak).toHaveBeenCalledTimes(1);
     expect(spoken[0]?.text).toBe('hola amigo');
     expect(spoken[0]?.voice?.name).toBe('Sabina');
     expect(spoken[0]?.lang).toBe('es-MX');
-    expect(speakBtn(container)?.getAttribute('aria-label')).toBe('Stop reading');
+    expect(reading(container)).toBe(true);
   });
 
   it('waits for the voice list when the browser has not loaded it yet', async () => {
@@ -232,21 +233,18 @@ describe('AssistantTurn — read the answer aloud', () => {
   });
 
   it('reads nothing, and says so, when no local voice speaks the language', async () => {
-    const push = vi.spyOn(toastStore, 'push').mockImplementation(() => {});
     const { container } = render(AssistantTurn, {
       props: { turn: doneTurn(), onRetry: vi.fn(), targetLang: asLangSelection('de') },
     });
     await press(container);
 
     expect(synth.speak).not.toHaveBeenCalled();
-    expect(push).toHaveBeenCalledWith(
-      expect.objectContaining({ message: expect.stringContaining('no voice') }),
-    );
-    expect(speakBtn(container)?.getAttribute('aria-label')).toBe('Read aloud');
+    // Said next to the reply, not in a toast at the far end of the panel.
+    expect(metaText(container)[0]).toBe('No voice for German on this computer');
+    expect(reading(container)).toBe(false);
   });
 
   it('never falls back to a network voice', async () => {
-    vi.spyOn(toastStore, 'push').mockImplementation(() => {});
     voices = VOICES.filter((v) => !v.localService);
     const { container } = render(AssistantTurn, {
       props: { turn: doneTurn(), onRetry: vi.fn(), targetLang: asLangSelection('es') },
@@ -254,7 +252,7 @@ describe('AssistantTurn — read the answer aloud', () => {
     await press(container);
 
     expect(synth.speak).not.toHaveBeenCalled();
-    expect(speakBtn(container)?.getAttribute('aria-label')).toBe('Read aloud');
+    expect(reading(container)).toBe(false);
   });
 
   it('a second press stops it and the button goes back', async () => {
@@ -266,7 +264,7 @@ describe('AssistantTurn — read the answer aloud', () => {
 
     expect(synth.cancel).toHaveBeenCalled();
     expect(synth.speak).toHaveBeenCalledTimes(1);
-    expect(speakBtn(container)?.getAttribute('aria-label')).toBe('Read aloud');
+    expect(reading(container)).toBe(false);
   });
 
   it('a late end event from the stopped read does not flip the new one', async () => {
@@ -280,7 +278,7 @@ describe('AssistantTurn — read the answer aloud', () => {
 
     first?.onend?.();
     await settle();
-    expect(speakBtn(container)?.getAttribute('aria-label')).toBe('Stop reading');
+    expect(reading(container)).toBe(true);
   });
 
   it('stops reading when a refine replaces the answer', async () => {
@@ -294,14 +292,15 @@ describe('AssistantTurn — read the answer aloud', () => {
     expect(synth.cancel).toHaveBeenCalled();
 
     await rerender({ turn: doneTurn({ content: 'hola de nuevo' }) });
-    expect(speakBtn(container)?.getAttribute('aria-label')).toBe('Read aloud');
+    expect(reading(container)).toBe(false);
   });
 
-  it('offers nothing to read where the browser has no speech engine', () => {
+  it('offers nothing to read where the browser has no speech engine', async () => {
     vi.stubGlobal('speechSynthesis', undefined);
     const { container } = render(AssistantTurn, {
       props: { turn: doneTurn(), onRetry: vi.fn() },
     });
-    expect(speakBtn(container)).toBeNull();
+    await openMenu(container, 'more');
+    expect(document.querySelector('[data-ega-speak]')).toBeNull();
   });
 });

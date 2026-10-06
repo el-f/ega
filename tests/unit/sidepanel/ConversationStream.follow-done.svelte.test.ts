@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import ConversationStream from '@/sidepanel/conversation/ConversationStream.svelte';
@@ -13,7 +13,29 @@ const sendMessage = chrome.runtime.sendMessage as Mock;
 beforeEach(() => {
   sendMessage.mockClear();
   sendMessage.mockResolvedValue({ ok: true });
+  // jsdom lays nothing out: put the reply's start far down, so following keeps it in view (R57).
+  vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+    const top = this.matches('[data-ega-reply]') ? replyTop : 0;
+    return {
+      top,
+      bottom: top,
+      left: 0,
+      right: 0,
+      width: 0,
+      height: 0,
+      x: 0,
+      y: top,
+      toJSON: () => ({}),
+    } as DOMRect;
+  });
 });
+afterEach(() => {
+  vi.restoreAllMocks();
+  replyTop = 5000;
+});
+
+/** Where the newest reply starts, in viewport pixels. */
+let replyTop = 5000;
 
 function lastRequestId(): string {
   const startCall = [...(sendMessage.mock.calls as Array<[unknown]>)]
@@ -291,5 +313,42 @@ describe('ConversationStream — jump-to-latest affordance', () => {
     await fireEvent.scroll(scroller);
     await tick();
     expect(container.querySelector('[data-ega-jump-latest]')).toBeNull();
+  });
+});
+
+describe('ConversationStream — following stops before the start of the reply leaves the view (R57)', () => {
+  it('a reply taller than the view keeps its first line in sight and offers Jump to latest', async () => {
+    const c = createConversation();
+    await c.send({
+      content: 'q',
+      kind: 'translate',
+      sourceLang: 'auto',
+      targetLang: asLangIdUnsafe('en'),
+      stream: true,
+    });
+    const { container } = render(ConversationStream, {
+      props: {
+        turns: c.turns as readonly Turn[],
+        focusedTurnId: null,
+        onRetry: vi.fn(),
+        onFocusChange: vi.fn(),
+      },
+    });
+    const scroller = container.querySelector<HTMLDivElement>('.ega-conv-stream');
+    if (!scroller) throw new Error('scroller not found');
+    const requestId = lastRequestId();
+    c.applyChunk({ type: 'delta', requestId, text: '{"translation":"hi' });
+    await tick();
+    await tick();
+    growingGeometry(scroller, 80);
+    scroller.scrollTop = 920;
+    // The reply starts 100px into the content: scrolling to the end would push it out.
+    replyTop = 100 - 920;
+    c.applyChunk({ type: 'delta', requestId, text: ' there, a long answer' });
+    await tick();
+    await tick();
+    await tick();
+    expect(scroller.scrollTop).toBe(920);
+    expect(container.querySelector('[data-ega-jump-latest]')).not.toBeNull();
   });
 });

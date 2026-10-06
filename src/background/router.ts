@@ -20,6 +20,7 @@ import {
   DEFAULT_IMAGE_TRANSLATE_TIMEOUT_MS,
   DEFAULT_TRANSLATE_TIMEOUT_MS,
   IMAGE_TURN_PLACEHOLDER,
+  MAX_INSTRUCTIONS_CHARS,
 } from '@/shared/constants';
 
 /** A note is guidance for the OCR pass, so it stays short beside untrusted image text. */
@@ -55,6 +56,13 @@ import {
   TRANSLATE_TIMED_OUT,
   type ChunkSink,
 } from './router-chunks';
+
+/** The first `max` characters, never ending inside a surrogate pair. */
+export function cutAtCodePoint(text: string, max: number): string {
+  if (text.length <= max) return text;
+  const end = /[\uD800-\uDBFF]/.test(text.charAt(max - 1)) ? max - 1 : max;
+  return text.slice(0, end);
+}
 
 export interface RouterDeps {
   backends: TranslationBackend[];
@@ -287,6 +295,19 @@ export function createRouter(deps: RouterDeps) {
     let historyTurns = 0;
     let pageContextSent = false;
     let imageArm: ResultMeta['imageArm'];
+    // The system prompt this request really sends; a cache hit keeps ctx.prompt, which its key hashed.
+    let sentSystem = ctx.prompt.system;
+
+    /** About this reply shows what was sent. Page blocks have no such view, so they carry none. */
+    function withInstructions(meta: ResultMeta): ResultMeta {
+      if (reqOptions.batch === true || sentSystem === '') return meta;
+      const cut = cutAtCodePoint(sentSystem, MAX_INSTRUCTIONS_CHARS);
+      return {
+        ...meta,
+        instructions: cut,
+        ...(cut.length < sentSystem.length ? { instructionsLength: sentSystem.length } : {}),
+      };
+    }
 
     function attachMeta(
       chunk: TranslationChunk,
@@ -318,12 +339,13 @@ export function createRouter(deps: RouterDeps) {
         pageContextSent,
         ...(imageArm ? { imageArm } : {}),
       };
+      // Before the instructions go on: the perf buffer never holds prompt text.
       try {
         pushPerfEntry(meta);
       } catch (e) {
         debugCatch(e, 'background.router.1');
       }
-      return { ...chunk, meta };
+      return { ...chunk, meta: withInstructions(meta) };
     }
 
     function failWithoutBackend(code: 'NO_BACKEND' | 'UNSUPPORTED', message: string): void {
@@ -452,6 +474,7 @@ export function createRouter(deps: RouterDeps) {
             ? buildSystemAndUser({ ...ctx, reqView: { ...reqView, text: imageText } }, req)
             : // The very prompt the cache key hashed.
               ctx.prompt;
+      sentSystem = system;
       const wallclockMs =
         visionUrl !== undefined
           ? (s.imageTranslateTimeoutMs ?? fallbackImageTranslateTimeoutMs)

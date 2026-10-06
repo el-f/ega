@@ -235,3 +235,23 @@ describe('export keeps failed and canceled turns', () => {
     expect(parsed[0]?.['hasImage']).toBeUndefined();
   });
 });
+
+describe('exportJson keeps what was sent (I7)', () => {
+  it('includes the recorded instructions and their full length', () => {
+    const a = assistantTurn({
+      meta: {
+        backendId: 'unknown',
+        cacheHit: false,
+        latencyMs: 1,
+        instructions: 'You are a translator.',
+        instructionsLength: 9000,
+      },
+    });
+    const parsed = JSON.parse(exportJson([userTurn(), a])) as Record<string, unknown>[];
+    expect(parsed[1]).toMatchObject({
+      instructions: 'You are a translator.',
+      instructionsLength: 9000,
+    });
+    expect(parsed[0]).not.toHaveProperty('instructions');
+  });
+});

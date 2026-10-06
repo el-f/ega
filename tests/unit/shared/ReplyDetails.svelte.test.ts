@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import ReplyDetails from '@/shared/components/ReplyDetails.svelte';
 import { aroundText, shortUrl } from '@/shared/components/reply-details';
 import type { PageContext, ResultMeta } from '@/shared/types';
@@ -58,14 +59,14 @@ describe('ReplyDetails — result', () => {
         latencyMs: 1500,
       }),
     });
-    expect(row(container, 'Answered by')).toBe('Anthropic · claude-haiku-4-5');
-    expect(row(container, 'Direction')).toMatch(/^Auto-detect → /);
+    expect(row(container, 'Answered by')).toBe('Claude Haiku 4.5 via Anthropic');
+    expect(row(container, 'Languages')).toMatch(/^Auto-detect → /);
     expect(row(container, 'Time')).toBe('1.5 s (first words after 120 ms)');
   });
 
   it('says a cached answer came from the cache, with no first-word time', () => {
     const { container } = setup({ meta: meta({ cacheHit: true, firstTokenMs: 5 }) });
-    expect(row(container, 'Answered by')).toBe('Saved answer (cache)');
+    expect(row(container, 'Answered by')).toBe('Saved answer (from cache)');
     expect(row(container, 'Time')).toBe('450 ms');
   });
 
@@ -79,30 +80,28 @@ describe('ReplyDetails — result', () => {
         cacheWriteTokens: 7,
       }),
     });
-    expect(row(container, 'Tokens')).toBe(
-      '42 in · 9 out · 3 of them thinking · 0 read from cache · 7 written to cache',
-    );
+    expect(row(container, 'Usage')).toBe('42 tokens read · 9 written (3 thinking) · 0 from cache');
   });
 
   // Native reports each count on its own, so one side missing must not hide the rest.
   it('shows a partial token report: input and cache read only', () => {
     const { container } = setup({ meta: meta({ inputTokens: 0, cacheReadTokens: 900 }) });
-    expect(row(container, 'Tokens')).toBe('0 in · 900 read from cache');
+    expect(row(container, 'Usage')).toBe('0 tokens read · 900 from cache');
   });
 
   it('shows a partial token report: output, thinking and cache write only', () => {
     const { container } = setup({
       meta: meta({ outputTokens: 50, reasoningTokens: 20, cacheWriteTokens: 300 }),
     });
-    expect(row(container, 'Tokens')).toBe('50 out · 20 of them thinking · 300 written to cache');
+    expect(row(container, 'Usage')).toBe('50 written (20 thinking)');
   });
 
-  it('has no Tokens row when the provider reported none', () => {
+  it('has no Usage row when the provider reported none', () => {
     const { container } = setup();
-    expect(row(container, 'Tokens')).toBeNull();
+    expect(row(container, 'Usage')).toBeNull();
   });
 
-  it('lists the backends tried with a readable outcome', () => {
+  it('lists the backends tried, behind a disclosure, with a readable outcome', async () => {
     const { container } = setup({
       meta: meta({
         attempts: [
@@ -116,6 +115,10 @@ describe('ReplyDetails — result', () => {
         ],
       }),
     });
+    const toggle = container.querySelector<HTMLElement>('.rd-tried .rd-disclosure');
+    expect(toggle?.textContent.trim()).toBe('Backends tried (2) ▸');
+    toggle?.click();
+    await tick();
     const names = [...container.querySelectorAll('.rd-attempt-name')].map((e) => e.textContent);
     expect(names).toEqual(['Anthropic', 'Gemini']);
     const status = [...container.querySelectorAll('.rd-attempt-status')].map((e) => e.textContent);
@@ -154,11 +157,10 @@ describe('ReplyDetails — what Ega sent', () => {
     );
   });
 
-  it('titles a cache hit by what the saved answer was made from', () => {
-    const live = setup().container.querySelector('.rd-sent h4')?.textContent.trim();
-    expect(live).toBe('What Ega sent');
-    const cached = setup({ meta: meta({ cacheHit: true }) }).container.querySelector('.rd-sent h4');
-    expect(cached?.textContent.trim()).toBe('What the saved answer was made from');
+  it('heads the sent part "What was sent"', () => {
+    expect(setup().container.querySelector('.rd-sent h4')?.textContent.trim()).toBe(
+      'What was sent',
+    );
   });
 
   it('describes an image read with the built-in image prompt', () => {
@@ -169,20 +171,13 @@ describe('ReplyDetails — what Ega sent', () => {
       onViewPrompt: undefined,
     });
     expect(row(container, 'Your text')).toBe('An image');
-    expect(row(container, 'Instructions')).toBe('Image prompt (built in)');
-    expect(row(container, 'Page info')).toBe('Not sent with images.');
+    expect(row(container, 'Page info')).toBe('Not sent with images');
     expect(row(container, 'Earlier messages')).toBe('None');
   });
 
-  it('keeps the note typed with an image, and the task prompt when a task ran with it', () => {
+  it('keeps the note typed with an image', () => {
     const { container } = setup({ image: 'task', sentText: 'the red sign', taskLabel: 'Explain' });
     expect(row(container, 'Your text')).toBe('An image, with the note: the red sign');
-    expect(row(container, 'Instructions')).toBe('Explain prompt·View in Settings');
-  });
-
-  it('has no Settings link when no handler is given', () => {
-    const { queryByRole } = setup({ onViewPrompt: undefined });
-    expect(queryByRole('button', { name: 'View in Settings' })).toBeNull();
   });
 
   it('shows and copies page info with secrets scrubbed, as the router sends it', async () => {
@@ -218,17 +213,18 @@ describe('ReplyDetails — what Ega sent', () => {
   it('tells apart page info that was not sent from page info nobody recorded', () => {
     expect(
       setup({ context: null }).container.querySelector('[data-ega-context-empty]')?.textContent,
-    ).toContain('None sent.');
+    ).toContain('None sent');
     expect(
       setup({ context: undefined }).container.querySelector('[data-ega-context-empty]')
         ?.textContent,
     ).toContain('Not recorded');
   });
 
-  it('links the task prompt to Settings', async () => {
-    const { getByRole, onViewPrompt } = setup();
-    await fireEvent.click(getByRole('button', { name: 'View in Settings' }));
-    expect(onViewPrompt).toHaveBeenCalledOnce();
+  it('names the change the user typed for this version', () => {
+    expect(row(setup({ change: 'make it friendlier' }).container, 'Your change')).toBe(
+      'make it friendlier',
+    );
+    expect(row(setup().container, 'Your change')).toBeNull();
   });
 
   it('copies everything as JSON', async () => {
@@ -243,8 +239,60 @@ describe('ReplyDetails — what Ega sent', () => {
 
   it('closes', async () => {
     const { getByRole, onClose } = setup();
-    await fireEvent.click(getByRole('button', { name: 'Close details' }));
+    await fireEvent.click(getByRole('button', { name: 'Close' }));
     expect(onClose).toHaveBeenCalledOnce();
+  });
+});
+
+describe('ReplyDetails — the instructions that were sent', () => {
+  const TEXT = 'You are a translator.\nKeep slang as it is.';
+
+  it('stay folded behind a disclosure that says how long they are', async () => {
+    const { container } = setup({ meta: meta({ instructions: TEXT }) });
+    const toggle = container.querySelector<HTMLElement>('[data-ega-instructions] button');
+    expect(toggle?.textContent.trim()).toBe('Instructions sent ▸');
+    expect(container.querySelector('[data-ega-instructions]')?.textContent).toContain(
+      `${TEXT.length} characters`,
+    );
+    expect(container.querySelector('.rd-instr')).toBeNull();
+    toggle?.click();
+    await tick();
+    const box = container.querySelector('.rd-instr');
+    expect(box?.textContent).toBe(TEXT);
+    expect(box?.getAttribute('tabindex')).toBe('0');
+    expect(box?.getAttribute('aria-label')).toBe('Instructions sent');
+  });
+
+  it('say where the text was cut', async () => {
+    const { container } = setup({
+      meta: meta({ instructions: 'x'.repeat(6000), instructionsLength: 9000 }),
+    });
+    container.querySelector<HTMLElement>('[data-ega-instructions] button')?.click();
+    await tick();
+    expect(container.textContent).toContain('Cut at 6,000 of 9,000 characters.');
+  });
+
+  it('render page-derived text as text, never as markup', async () => {
+    const { container } = setup({ meta: meta({ instructions: '<img src=x onerror="alert(1)">' }) });
+    container.querySelector<HTMLElement>('[data-ega-instructions] button')?.click();
+    await tick();
+    expect(container.querySelector('.rd-instr img')).toBeNull();
+    expect(container.querySelector('.rd-instr')?.textContent).toBe(
+      '<img src=x onerror="alert(1)">',
+    );
+  });
+
+  it('say "Not kept" for a reply saved without them, and "Not recorded" when recording was off', async () => {
+    expect(setup().container.querySelector('[data-ega-instructions]')?.textContent).toContain(
+      'Not kept for this reply.',
+    );
+    const onOpenSettings = vi.fn();
+    const off = setup({ meta: undefined, onOpenSettings });
+    expect(off.container.querySelector('[data-ega-instructions]')?.textContent).toContain(
+      'Not recorded. Turn on Record request details in',
+    );
+    await fireEvent.click(off.getByRole('button', { name: 'Settings' }));
+    expect(onOpenSettings).toHaveBeenCalledOnce();
   });
 });
 

@@ -9,7 +9,7 @@ import { GENERAL_ORIGIN, saveThread } from '@/sidepanel/state/conversation-store
 import { asLangIdUnsafe } from '@/shared/brands';
 import type { Turn } from '@/sidepanel/state/conversation';
 import type { Msg } from '@/shared/messages';
-import { openTaskMenu, swapItem } from './_task-menu';
+import { openMenu } from './_reply';
 
 const sendMessage = chrome.runtime.sendMessage as Mock;
 
@@ -39,10 +39,10 @@ async function sendAndDrain(container: HTMLElement, text: string): Promise<void>
   await tick();
 }
 
-/** The swap item in the reply's Re-run as menu; opens the menu when it is closed. */
-async function swapButton(container: HTMLElement): Promise<HTMLElement> {
-  if (!document.querySelector('[data-ega-swap-item]')) await openTaskMenu(container);
-  return swapItem();
+/** The swap item in the reply's Refine menu, or null when no swap can run (then it is not offered). */
+async function swapButton(container: HTMLElement): Promise<HTMLElement | null> {
+  if (document.querySelector('[role="menu"]') === null) await openMenu(container, 'refine');
+  return document.querySelector<HTMLElement>('[data-ega-swap-item]');
 }
 
 async function setSourceLang(container: HTMLElement, value: string): Promise<void> {
@@ -101,48 +101,40 @@ afterEach(() => {
 });
 
 describe('SidePanel — the swap item mirrors what swapVariant can do', () => {
-  it('stays disabled after an auto-source send when the picker moves to a variety', async () => {
+  it('is not offered after an auto-source send the model named no language for', async () => {
     const { container } = render(SidePanel);
     await settleMount(container);
     await sendAndDrain(container, 'hola');
-
     await setSourceLang(container, 'es');
-
-    // The turn went out with sourceLang 'auto', so swapVariant cannot replay it.
-    expect((await swapButton(container)).getAttribute('aria-disabled') === 'true').toBe(true);
+    // The turn went out with sourceLang 'auto' and no detected language, so swapVariant cannot replay it.
+    expect(await swapButton(container)).toBeNull();
   });
 
-  it('is live on a thread restored from storage, because the turn carries its dispatch', async () => {
+  it('is offered on a thread restored from storage, because the turn carries its dispatch', async () => {
     await saveThread(GENERAL_ORIGIN, storedPair());
     const { container } = render(SidePanel);
     await waitFor(() => {
-      if (!container.querySelector('[data-ega-task-switch]'))
+      if (!container.querySelector('[data-ega-reply] [data-ega-action="refine"]'))
         throw new Error('thread not restored yet');
     });
-
-    await setSourceLang(container, 'es');
-
-    expect((await swapButton(container)).getAttribute('aria-disabled') === 'true').toBe(false);
+    expect(await swapButton(container)).not.toBeNull();
   });
 
-  it('stays enabled when the picker moves to auto after a variety-source send', async () => {
+  it('stays offered when the picker moves to auto after a variety-source send, and runs it', async () => {
     const { container } = render(SidePanel);
     await settleMount(container);
     await setSourceLang(container, 'es');
     await sendAndDrain(container, 'hola');
     expect(startCalls().at(-1)?.['sourceLang']).toBe('es');
-
     await setSourceLang(container, 'auto');
-    expect((await swapButton(container)).getAttribute('aria-disabled') === 'true').toBe(false);
+    await fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
 
     // The item names the run it starts: the old target becomes the source.
-    expect((await swapButton(container)).textContent.trim()).toBe(
-      'Swap languages (English → Spanish)',
-    );
+    const item = await swapButton(container);
+    expect(item?.textContent.trim()).toBe('Swap: English → Spanish');
     const before = startCalls().length;
-    await fireEvent.click(await swapButton(container));
+    await fireEvent.click(item as HTMLElement);
     await tick();
-
     expect(startCalls().length).toBe(before + 1);
     const last = startCalls().at(-1);
     expect(last?.['sourceLang']).toBe('en');

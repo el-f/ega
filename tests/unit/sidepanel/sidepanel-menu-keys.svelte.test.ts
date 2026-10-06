@@ -6,7 +6,7 @@ import { tick } from 'svelte';
 import SidePanel from '@/sidepanel/SidePanel.svelte';
 import type { Msg } from '@/shared/messages';
 import { drainAsync } from '@tests/_helpers/async';
-import { openRefine, openTaskMenu } from './_task-menu';
+import { openMenu } from './_reply';
 
 const sendMessage = chrome.runtime.sendMessage as Mock;
 
@@ -45,9 +45,9 @@ async function settleMount(container: HTMLElement): Promise<void> {
 
 const inMenu = (): boolean => document.activeElement?.closest('[role="menu"]') != null;
 
-/** Opens Re-run as… and waits for bits-ui to move focus onto the first item. */
+/** Opens the reply's More menu and waits for bits-ui to move focus onto the first item. */
 async function openMenuFocused(container: HTMLElement): Promise<HTMLElement> {
-  await openTaskMenu(container);
+  await openMenu(container, 'more');
   await waitFor(() => {
     if (!inMenu()) throw new Error('focus not in the menu');
   });
@@ -67,12 +67,13 @@ afterEach(() => {
 });
 
 describe('SidePanel — keys typed inside a reply menu stay in the menu', () => {
-  it('ArrowDown, e and c in the Re-run as… menu do not walk the thread, edit or jump to the composer', async () => {
+  it('ArrowDown, e and c in the reply More menu do not walk the thread, edit or jump to the composer', async () => {
     const { container } = render(SidePanel);
     await settleMount(container);
     await sendAndDrain(container, 'hola');
     await waitFor(() => {
-      if (!container.querySelector('[data-ega-task-switch]')) throw new Error('reply not rendered');
+      if (!container.querySelector('[data-ega-reply] [data-ega-action="more"]'))
+        throw new Error('reply not rendered');
     });
 
     const first = await openMenuFocused(container);
@@ -81,18 +82,18 @@ describe('SidePanel — keys typed inside a reply menu stay in the menu', () => 
     await tick();
     expect(focusedRing(container)).toBeNull();
     // bits-ui moved the highlight to the next item; the panel did not pull focus onto a turn.
-    expect(document.activeElement?.hasAttribute('data-ega-task-switch-item')).toBe(true);
+    expect(document.activeElement?.closest('[role="menu"]')).not.toBeNull();
     expect(document.activeElement).not.toBe(first);
 
     await fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'e' });
     await fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'c' });
     await tick();
-    expect(container.querySelector('.sp-editing-cancel')).toBeNull();
+    expect(container.querySelector('[data-ega-mode-banner]')).toBeNull();
     expect(document.activeElement?.id).not.toBe('sp-text');
   });
 
   // Only the stream's role=menu guard stops these: bits-ui never preventDefaults a type-ahead letter.
-  it('j and k typed in the Re-run as… menu do not walk the thread', async () => {
+  it('j and k typed in the reply More menu do not walk the thread', async () => {
     const { container } = render(SidePanel);
     await settleMount(container);
     await sendAndDrain(container, 'hola');
@@ -124,13 +125,13 @@ describe('SidePanel — keys typed inside a reply menu stay in the menu', () => 
     expect(focusedRing(container)).toBeNull();
   });
 
-  it('j and c typed on an open refine chip do not walk the thread or jump to the composer', async () => {
+  it('j and c typed on a Refine item do not walk the thread or jump to the composer', async () => {
     const { container } = render(SidePanel);
     await settleMount(container);
     await sendAndDrain(container, 'hola');
-    await openRefine(container);
-    const chip = container.querySelector<HTMLElement>('[data-ega-refine-chip="shorter"]');
-    if (!chip) throw new Error('chip missing');
+    await openMenu(container, 'refine');
+    const chip = document.querySelector<HTMLElement>('[data-ega-refine-preset="shorter"]');
+    if (!chip) throw new Error('preset missing');
     chip.focus();
 
     await fireEvent.keyDown(chip, { key: 'j' });
@@ -141,12 +142,14 @@ describe('SidePanel — keys typed inside a reply menu stay in the menu', () => 
     expect(document.activeElement).toBe(chip);
   });
 
-  it('ArrowDown on the Re-run as… trigger opens the menu without walking the thread', async () => {
+  it('ArrowDown on the More trigger opens the menu without walking the thread', async () => {
     const { container } = render(SidePanel);
     await settleMount(container);
     await sendAndDrain(container, 'hola');
-    const trigger = container.querySelector<HTMLElement>('[data-ega-task-switch]');
-    if (!trigger) throw new Error('Re-run as trigger missing');
+    const trigger = container.querySelector<HTMLElement>(
+      '[data-ega-reply] [data-ega-action="more"]',
+    );
+    if (!trigger) throw new Error('More trigger missing');
     trigger.focus();
 
     await fireEvent.keyDown(trigger, { key: 'ArrowDown' });
@@ -154,7 +157,7 @@ describe('SidePanel — keys typed inside a reply menu stay in the menu', () => 
 
     expect(focusedRing(container)).toBeNull();
     await waitFor(() => {
-      if (!document.querySelector('[data-ega-task-switch-item]')) throw new Error('menu not open');
+      if (!document.querySelector('[data-ega-answer-again]')) throw new Error('menu not open');
     });
   });
 });

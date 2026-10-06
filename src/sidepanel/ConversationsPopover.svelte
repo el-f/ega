@@ -255,7 +255,7 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
-    inline-size: min(360px, calc(100vw - var(--space-4)));
+    inline-size: min(360px, calc(100vw - 40px));
     max-block-size: min(480px, calc(100vh - 64px));
     font-size: var(--fs-sm);
     line-height: var(--lh-body);

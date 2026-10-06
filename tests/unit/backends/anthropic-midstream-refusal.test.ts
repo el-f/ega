@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest';
+import { tick } from 'svelte';
 import { render } from '@testing-library/svelte';
 import { AnthropicBackend } from '@/shared/backends/anthropic';
 import { addAssistantTurn, applyChunk } from '@/sidepanel/state/conversation';
@@ -64,6 +65,10 @@ describe('an Anthropic refusal after some text', () => {
 
     const { container } = render(AssistantTurn, { props: { turn, onRetry: () => {} } });
     expect(container.textContent).toContain('Half an ans');
-    expect(container.textContent).toContain('refused to answer');
+    // The shared catalog names the failure; the provider's own words sit behind Details.
+    expect(container.querySelector('.ega-error-title')?.textContent).toContain('Request rejected');
+    (container.querySelector('[data-ega-error-details]') as HTMLElement | null)?.click();
+    await tick();
+    expect(container.querySelector('.ega-error-detail')?.textContent).toContain('refused to answer');
   });
 });

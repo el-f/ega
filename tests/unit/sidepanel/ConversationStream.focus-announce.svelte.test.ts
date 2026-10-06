@@ -167,7 +167,7 @@ describe('ConversationStream — one announcer, not the whole thread', () => {
       await rerender(props({ turns: [u('u1', 'hi'), withV2('done')] }));
       await tick();
       expect(container.querySelector('[data-ega-stream-live]')?.textContent).toBe(
-        'Variant 2 ready',
+        'Version 2 ready',
       );
     });
 
@@ -183,7 +183,7 @@ describe('ConversationStream — one announcer, not the whole thread', () => {
       );
       await tick();
       expect(container.querySelector('[data-ega-stream-live]')?.textContent).toBe(
-        'Variant 2 failed',
+        'Version 2 failed',
       );
     });
 

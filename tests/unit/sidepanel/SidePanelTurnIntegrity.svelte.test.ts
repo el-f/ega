@@ -9,6 +9,7 @@ import { PENDING_POPUP_HANDOFF_KEY } from '@/shared/pending-popup-handoff';
 import { chromeMock } from '@tests/mocks/chrome';
 import { toastStore } from '@/shared/components/toastStore';
 import { GENERAL_ORIGIN, loadThreadResult } from '@/sidepanel/state/conversation-store';
+import { openMenu } from './_reply';
 
 beforeEach(async () => {
   await chrome.storage.local.clear();
@@ -64,7 +65,8 @@ describe('deleting a turn', () => {
     await drainAsync();
     expect(container.querySelectorAll('[data-turn-id]').length).toBe(2);
 
-    container.querySelector<HTMLButtonElement>('[data-ega-delete]')?.click();
+    await openMenu(container, 'more');
+    document.querySelector<HTMLElement>('[data-ega-delete]')?.click();
     await drainAsync();
     expect(container.querySelectorAll('[data-turn-id]').length).toBe(0);
 
@@ -89,7 +91,8 @@ describe('deleting a turn', () => {
     await drainAsync();
     expect(container.querySelectorAll('.focused')).toHaveLength(1);
 
-    container.querySelector<HTMLButtonElement>('[data-ega-delete]')?.click();
+    await openMenu(container, 'more');
+    document.querySelector<HTMLElement>('[data-ega-delete]')?.click();
     await drainAsync();
     push.mock.calls
       .map((c) => c[0])

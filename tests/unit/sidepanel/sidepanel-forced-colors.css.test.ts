@@ -12,16 +12,15 @@ const rule = (src: string, selector: string): string => {
 
 describe('side-panel cues survive forced colors', () => {
   it('keeps the user bubble in a box when the tint goes', () => {
-    const body = rule(read('src/sidepanel/conversation/UserTurn.svelte'), '\\.ega-user-turn');
+    const body = rule(read('src/sidepanel/conversation/UserTurn.svelte'), '\\.ega-bubble');
     expect(body).toMatch(/border:\s*1px solid transparent/);
   });
 
-  it('keeps every reply in the same box, not only the newest one', () => {
-    const src = read('src/sidepanel/conversation/AssistantTurn.svelte');
-    expect(rule(src, '\\.ega-assistant-turn')).toMatch(
-      /border:\s*1px solid var\(--color-border-subtle\)/,
+  it('keeps the composer box, mode chip and Send edged under forced colours', () => {
+    const src = read('src/sidepanel/conversation/InputRow.svelte');
+    expect(src).toMatch(
+      /@media \(forced-colors: active\)\s*\{\s*\.ega-mode-chip,\s*\.ega-input-box,\s*\.ega-send\s*\{[^}]*border-color:\s*ButtonText/,
     );
-    expect(src).not.toMatch(/is-latest/);
   });
 
   it('leaves every panel button with a border to repaint', () => {
@@ -51,7 +50,7 @@ describe('side-panel cues survive forced colors', () => {
   it('draws the loading bar when the gradient goes, on both surfaces', () => {
     const src = read('src/sidepanel/conversation/AssistantTurn.svelte');
     expect(src).toMatch(
-      /@media \(forced-colors: active\)\s*\{\s*\.ega-stream-skeleton-bar\s*\{[^}]*border:\s*1px solid CanvasText/,
+      /@media \(forced-colors: active\)\s*\{\s*\.ega-skeleton-bar\s*\{[^}]*border:\s*1px solid CanvasText/,
     );
     expect(read('src/content/shadow.css')).toMatch(
       /@media \(forced-colors: active\)\s*\{\s*\.shimmer\s*\{[^}]*border:\s*1px solid CanvasText/,
@@ -60,12 +59,11 @@ describe('side-panel cues survive forced colors', () => {
 
   it('separates added from removed words by shape, on both surfaces', () => {
     const turn = read('src/sidepanel/conversation/AssistantTurn.svelte');
-    expect(rule(turn, '\\.ega-assistant-body :global\\(\\.body-diff \\.diff-add\\)')).toMatch(
+    expect(rule(turn, '\\.ega-answer :global\\(\\.body-diff \\.diff-add\\)')).toMatch(
       /text-decoration:\s*underline/,
     );
-    // The underline must not outlive the fade, or the clean sentence reads as a link.
-    expect(rule(turn, '\\.ega-assistant-body :global\\(\\.body-diff-faded \\.diff-add\\)')).toMatch(
-      /text-decoration-line:\s*none/,
+    expect(rule(turn, '\\.ega-answer :global\\(\\.body-diff \\.diff-del\\)')).toMatch(
+      /text-decoration:\s*line-through/,
     );
     const content = read('src/content/shadow.css');
     expect(rule(content, '\\.tooltip \\.body-diff \\.diff-add')).toMatch(
@@ -81,17 +79,14 @@ describe('side-panel text clears 4.5:1', () => {
   it('uses the foreground danger token for error text, not the fill', () => {
     const body = rule(
       read('src/sidepanel/conversation/AssistantTurn.svelte'),
-      '\\.ega-assistant-error',
+      '\\.ega-error-title',
     );
     expect(body).toMatch(/color:\s*var\(--color-danger-fg/);
     expect(body).not.toMatch(/color:\s*var\(--color-danger,/);
   });
 
   it('uses accent-hover on the soft accent tint', () => {
-    const chip = rule(
-      read('src/sidepanel/conversation/AssistantTurn.svelte'),
-      '\\.ega-refinement-chip',
-    );
+    const chip = rule(read('src/sidepanel/conversation/InputRow.svelte'), '\\.ega-mode-banner');
     expect(chip).toMatch(/background:\s*var\(--color-accent-bg-soft\)/);
     expect(chip).toMatch(/color:\s*var\(--color-accent-hover\)/);
   });

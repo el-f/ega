@@ -12,6 +12,11 @@ const DAY = 24 * 60 * MINUTE;
 export type ComposerMode =
   { kind: 'send' } | { kind: 'edit'; turnId: string } | { kind: 'refine'; turnId: string };
 
+/** The empty panel's three suggestions. */
+export type SuggestionKind = 'translate-selection' | 'explain-selection' | 'translate-page';
+/** What a suggestion did, so the line under the buttons can say it. */
+export type SuggestionResult = 'sent' | 'no-selection' | 'unreadable' | 'page';
+
 /** A message this long after the one before it gets a day/time line above it. */
 export const SEPARATOR_GAP_MS = 30 * MINUTE;
 
@@ -45,7 +50,7 @@ export function listTime(ts: number, now: number, locale?: string): string {
 /** "Today 14:02", "Yesterday 09:15", "Mon, Oct 5 · 14:02", "Oct 5, 2025 · 14:02" (time in the locale's format). */
 export function separatorLabel(ts: number, now: number, locale?: string): string {
   const d = new Date(ts);
-  const time = d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+  const time = d.toLocaleTimeString(locale, { timeStyle: 'short' });
   const days = Math.round((startOfDay(now) - startOfDay(ts)) / DAY);
   if (days === 0) return `Today ${time}`;
   if (days === 1) return `Yesterday ${time}`;

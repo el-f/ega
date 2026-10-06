@@ -322,7 +322,7 @@ describe('streaming renders plain text, not markdown', () => {
     // No markdown container while streaming.
     expect(container.querySelector('.ega-md')).toBeNull();
     // Plain text container is present.
-    expect(container.querySelector('.ega-streaming-plain')).not.toBeNull();
+    expect(container.querySelector('.ega-plain')).not.toBeNull();
     // Raw text shows, not rendered bold.
     expect(container.textContent).toContain('**bold**');
   });
@@ -341,7 +341,7 @@ describe('streaming renders plain text, not markdown', () => {
     // Markdown container present for done turns.
     expect(container.querySelector('.ega-md')).not.toBeNull();
     // Plain streaming span absent.
-    expect(container.querySelector('.ega-streaming-plain')).toBeNull();
+    expect(container.querySelector('.ega-plain')).toBeNull();
   });
 });
 
@@ -359,7 +359,7 @@ describe('the streaming body is hidden from assistive tech', () => {
       attachedToTurnId: 'u1',
     };
     const { container } = render(AssistantTurn, { props: { turn, onRetry: vi.fn() } });
-    const streaming = container.querySelector('.ega-streaming-plain');
+    const streaming = container.querySelector('.ega-plain');
     expect(streaming).not.toBeNull();
     expect(streaming?.getAttribute('aria-hidden')).toBe('true');
   });
@@ -375,7 +375,7 @@ describe('the streaming body is hidden from assistive tech', () => {
       attachedToTurnId: 'u1',
     };
     const { container } = render(AssistantTurn, { props: { turn, onRetry: vi.fn() } });
-    expect(container.querySelector('.ega-streaming-plain')).toBeNull();
+    expect(container.querySelector('.ega-plain')).toBeNull();
   });
 
   it('no nested live region inside the role=log stream', () => {
@@ -389,7 +389,7 @@ describe('the streaming body is hidden from assistive tech', () => {
       attachedToTurnId: 'u1',
     };
     const { container } = render(AssistantTurn, { props: { turn, onRetry: vi.fn() } });
-    expect(container.querySelector('.ega-stream-skeleton')).not.toBeNull();
+    expect(container.querySelector('.ega-skeleton')).not.toBeNull();
     expect(container.querySelector('[aria-live]')).toBeNull();
   });
 });

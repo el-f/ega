@@ -8,9 +8,11 @@
     text: string;
     /** Prior text to diff against. */
     diffAgainst: string;
+    /** False keeps the marks until the caller removes the diff (the side panel's "Show changes"). */
+    fade?: boolean;
   }
 
-  const { text, diffAgainst }: Props = $props();
+  const { text, diffAgainst, fade = true }: Props = $props();
 
   const diffOps: DiffOp[] = $derived(diffWords(diffAgainst, text));
 
@@ -18,6 +20,7 @@
   $effect(() => {
     void diffOps;
     faded = false;
+    if (!fade) return;
     const t = setTimeout(() => {
       faded = true;
     }, 4000);

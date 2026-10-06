@@ -124,6 +124,7 @@
     z-index: 99998;
   }
   :global(.sp-menu-item) {
+    box-sizing: border-box;
     display: flex;
     align-items: center;
     gap: var(--space-2);
@@ -146,6 +147,10 @@
   :global(.sp-menu-item.sp-menu-danger) {
     color: var(--color-danger-fg);
   }
+  /* An item with no icon keeps the icon's place, so labels line up in a menu that mixes both. */
+  :global(.sp-menu-icon-slot) {
+    flex: 0 0 16px;
+  }
   :global(.sp-menu-label) {
     flex: 1 1 auto;
     min-inline-size: 0;
@@ -155,6 +160,9 @@
     font-size: var(--fs-sm);
     font-weight: 600;
     color: var(--color-muted);
+  }
+  :global(.sp-menu-heading.sp-menu-heading-indent) {
+    padding-inline-start: calc(var(--space-2) * 2 + 16px);
   }
   :global(.sp-menu-note) {
     margin: 0;

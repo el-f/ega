@@ -2,14 +2,13 @@
   import { tick, untrack } from 'svelte';
   import UserTurn from './UserTurn.svelte';
   import AssistantTurn from './AssistantTurn.svelte';
+  import EmptySuggestions from './EmptySuggestions.svelte';
   import EmptyState from '@/shared/components/EmptyState.svelte';
-  import Languages from '@lucide/svelte/icons/languages';
   import SearchX from '@lucide/svelte/icons/search-x';
-  import Bookmark from '@lucide/svelte/icons/bookmark';
+  import Star from '@lucide/svelte/icons/star';
   import ArrowDown from '@lucide/svelte/icons/arrow-down';
   import {
     activeVariant,
-    errorTurnParts,
     answerLangs,
     imageBackedTurnIds,
     isCancelledError,
@@ -18,74 +17,74 @@
     type SwapPair,
     type Turn,
   } from '../state/conversation';
+  import {
+    separatorLabel,
+    separatorTurnIds,
+    taskLabelsOnChange,
+    type SuggestionKind,
+    type SuggestionResult,
+  } from '../state/thread-view';
   import { taskGerund } from '@/shared/task-prompts';
-  import type { TaskId, TaskView } from '@/shared/task-view';
-  import type { Variety } from '@/shared/types';
+  import { errorCopy } from '@/shared/error-copy';
+  import { backendLabel } from '@/shared/backends/provider-profiles';
+  import { SHIPPED_TASK_VIEWS, type TaskId, type TaskView } from '@/shared/task-view';
+  import type { LangSelection, Variety } from '@/shared/types';
+  import type { ConfidenceSetting } from '@/shared/reply-meta';
 
   interface Props {
     turns: readonly Turn[];
-    /** When true the bookmark filter is on but produced no results — show the empty hint. */
+    /** The first storage read has landed; before it no empty-state text shows, so it never flashes. */
+    loaded?: boolean;
     emptyBookmarkFilter?: boolean;
-    /** When true a search query is active but produced no results. */
     emptySearch?: boolean;
-    /** Clears the active search query. Wired only when a search is on. */
     onClearSearch?: () => void;
-    /** Turns the bookmark-only filter off. Wired only when the filter is on. */
     onClearBookmarkFilter?: () => void;
-    /** Currently focused turn id; null when nothing is focused. */
     focusedTurnId: string | null;
-    /** Last turn id of the UNFILTERED conversation, so a filtered mid-turn can't claim isLatest. */
+    /** Last turn id of the UNFILTERED conversation, so a filtered mid-turn can't claim the newest row. */
     latestTurnId?: string | null;
     onRetry: (turnId: string) => void;
     onFocusChange: (id: string | null) => void;
-    /** Spawns a variant with a request-scoped refinement; never persisted. */
     onRefine?: (args: {
       turnId: string;
       refinementBody: string;
       refinementLabel?: string;
     }) => boolean | Promise<boolean>;
-    /** Flip the active variant on an assistant turn. */
     onSelectVariant?: (turnId: string, idx: number) => void;
-    /** Swap source/target langs and re-dispatch on the latest turn. */
+    /** The swap a reply's Refine menu can run, per reply. */
+    swapPairFor?: (turnId: string) => SwapPair | null;
     onSwap?: (turnId: string) => void;
-    /** Re-dispatch with a different task on the latest turn. */
     onTaskSwitch?: (turnId: string, task: TaskId) => void;
-    /** True when the latest turn has no swap to run (`swapPair` is null). */
-    swapDisabled?: boolean;
-    /** The pair the latest turn's swap would run with; names it in the menu. */
-    swapPair?: SwapPair | null;
-    /** Regenerate a new variant for an assistant turn. */
+    onTranslateInto?: (turnId: string, lang: LangSelection) => void;
+    onDescribeChange?: (turnId: string) => void;
+    /** The reply "Describe a change…" is open for. */
+    changingTurnId?: string | null;
+    /** The message being edited in the composer. */
+    editingTurnId?: string | null;
     onRegenerate?: (turnId: string) => void;
-    /** Bookmark toggle — both turn roles. */
     onBookmark?: (turnId: string) => void;
-    /** Delete a turn and its pair — both turn roles. */
     onDelete?: (turnId: string) => void;
-    /** Edit a user turn — SidePanel decides last-vs-mid branch. */
     onEdit?: (turnId: string) => void;
     /** Hands the j/k/r handler to the parent, which owns the one window keydown listener. */
     onRegisterKeydownHandler?: (handler: (e: KeyboardEvent) => void) => void;
-    /** False hides the confidence pill whatever the threshold. */
-    confidencePill?: boolean;
-    /** Hide the confidence pill below this score. */
-    confidencePillThreshold?: number;
+    confidence?: ConfidenceSetting;
     /** Result count of an active search or bookmark filter; null when neither is on. */
     filterSummary?: string | null;
-    /** True while a turn is streaming; re-dispatch buttons bail until it settles. */
+    /** Spoken once when the panel shows another conversation ("Showing the conversation for …"). */
+    switchAnnouncement?: string | null;
     inflight?: boolean;
-    /** Enabled varieties — labels the language chip on a language-change variant. */
     varieties?: readonly Variety[];
-    /** Every task, on or off: names custom tasks and fills Re-run as. */
     taskViews?: readonly TaskView[] | undefined;
-    /** False when no backend is ready; null while the check runs. Drives the first-run CTA. */
     backendReady?: boolean | null;
-    /** Opens Settings → Backends from the empty state. */
     onSetUpBackend?: () => void;
-    /** Opens the shortcuts overlay from the empty state. */
-    onShowShortcuts?: () => void;
+    onSuggestion?: (kind: SuggestionKind) => Promise<SuggestionResult>;
+    /** The composer's target, so each reply can offer "Translate into {it}". */
+    composerTarget?: string | undefined;
+    onOpenSettings?: () => void;
   }
 
   const {
     turns,
+    loaded = true,
     emptyBookmarkFilter = false,
     emptySearch = false,
     onClearSearch,
@@ -96,24 +95,29 @@
     onFocusChange,
     onRefine,
     onSelectVariant,
+    swapPairFor,
     onSwap,
     onTaskSwitch,
-    swapDisabled = false,
-    swapPair = null,
+    onTranslateInto,
+    onDescribeChange,
+    changingTurnId = null,
+    editingTurnId = null,
     onRegisterKeydownHandler,
     onRegenerate,
     onBookmark,
     onDelete,
     onEdit,
-    confidencePill = true,
-    confidencePillThreshold = 0,
+    confidence = { show: true, threshold: 0 },
     filterSummary = null,
+    switchAnnouncement = null,
     inflight = false,
     varieties = [],
-    taskViews,
+    taskViews = SHIPPED_TASK_VIEWS,
     backendReady = null,
     onSetUpBackend,
-    onShowShortcuts,
+    onSuggestion,
+    composerTarget,
+    onOpenSettings,
   }: Props = $props();
 
   /** Turns mounted at once; older ones mount via "Show earlier" so a 300-turn restore is not one Markdown pass. */
@@ -122,7 +126,7 @@
   const hiddenCount = $derived(Math.max(0, turns.length - RENDER_WINDOW - shownBeyondWindow));
   const windowTurns = $derived(hiddenCount > 0 ? turns.slice(hiddenCount) : turns);
 
-  // One pass per turns change; a per-turn findRetryTarget scan would make mount O(n²).
+  // One pass per turns change; a per-turn scan would make mount O(n²).
   const retryableIds = $derived(retryableTurnIds(turns));
   const latestUserTurnId = $derived(turns.filter((t) => t.role === 'user').at(-1)?.id ?? null);
   const imageBackedIds = $derived(imageBackedTurnIds(turns));
@@ -130,53 +134,120 @@
   const userTextById = $derived(
     Object.fromEntries(turns.filter((t) => t.role === 'user').map((t) => [t.id, t.content])),
   );
+  const separators = $derived(separatorTurnIds(turns));
+  const taskLabels = $derived(taskLabelsOnChange(turns, taskViews));
+  const positions = $derived(new Map(turns.map((t, i) => [t.id, i])));
 
-  // Timestamps are strings computed at render; with no tick every turn reads "just now" for ever.
+  // Separator labels are computed at render; with no tick "Today" would never become "Yesterday".
   let now = $state(Date.now());
   $effect(() => {
     const t = setInterval(() => (now = Date.now()), 30_000);
     return () => clearInterval(t);
   });
 
-  // How far up the reader may scroll and still count as at the bottom; the stream keeps following inside it.
+  // How far up the reader may scroll and still count as at the bottom.
   const NEAR_BOTTOM_PX = 80;
+  // A new exchange lands with the user's bubble this far under the thread top when it does not fit.
+  const TOP_GAP_PX = 24;
 
   let scroller = $state<HTMLDivElement | null>(null);
   // Id, not length: the `turns` prop is filtered, so clearing a search grows it with no new turn.
   let priorLatestId: string | null | undefined;
   let awayFromLatest = $state(false);
+  let following = true;
+
+  function reducedMotion(): boolean {
+    return (
+      typeof window !== 'undefined' &&
+      (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false)
+    );
+  }
 
   function updateAwayFromLatest(): void {
     const el = scroller;
     if (!el) return;
-    awayFromLatest = el.scrollHeight - (el.scrollTop + el.clientHeight) > NEAR_BOTTOM_PX;
+    const away = el.scrollHeight - (el.scrollTop + el.clientHeight) > NEAR_BOTTOM_PX;
+    awayFromLatest = away;
+    // The reader scrolling up stops the follow; coming back to the bottom starts it again.
+    following = !away;
   }
 
-  // Follow the stream unless the reader scrolled up past NEAR_BOTTOM_PX (a new turn always follows); one effect, so a delta costs one layout.
+  /** Where an element's top sits inside the scrolled content. */
+  function topIn(el: HTMLElement, s: HTMLElement): number {
+    return el.getBoundingClientRect().top - s.getBoundingClientRect().top + s.scrollTop;
+  }
+
+  /** A new exchange: the whole pair when it fits, else the bubble's top a little under the thread top. */
+  function landNewExchange(el: HTMLElement): void {
+    const user = el.querySelector<HTMLElement>(`[data-turn-id="${latestUserTurnId ?? ''}"]`);
+    const bottom = el.scrollHeight - el.clientHeight;
+    if (!user) {
+      el.scrollTop = bottom;
+      return;
+    }
+    const userTop = topIn(user, el);
+    el.scrollTop =
+      el.scrollHeight - userTop <= el.clientHeight ? bottom : Math.max(0, userTop - TOP_GAP_PX);
+  }
+
+  /** While the reply grows, follow it only while its own start stays in view (the reader reads from the top). */
+  function followReply(el: HTMLElement): void {
+    // One layout read per delta; the browser clamps scrollTop, so the full height is "the end".
+    const height = el.scrollHeight;
+    const reply = el.querySelector<HTMLElement>(
+      `[data-turn-id="${latestTurnId ?? turns.at(-1)?.id ?? ''}"]`,
+    );
+    const replyTop = reply ? topIn(reply, el) : Infinity;
+    if (replyTop < height - el.clientHeight) {
+      el.scrollTop = Math.max(el.scrollTop, replyTop - TOP_GAP_PX);
+      following = false;
+      updateAwayFromLatestSoon();
+      return;
+    }
+    el.scrollTop = height;
+  }
+
+  function updateAwayFromLatestSoon(): void {
+    void tick().then(() => {
+      const el = scroller;
+      if (el) awayFromLatest = el.scrollHeight - (el.scrollTop + el.clientHeight) > NEAR_BOTTOM_PX;
+    });
+  }
+
   $effect.pre(() => {
     const len = turns.length;
     const last = turns[len - 1];
-    // Registers this block on every delta and on the settle that mounts the footer.
+    // Registers this block on every delta and on the settle that mounts the action row.
     void last?.content.length;
     void last?.status;
     const growthKey = latestTurnId ?? last?.id ?? null;
     const grew = priorLatestId === undefined || growthKey !== priorLatestId;
     const el = scroller;
-    // Commit only once there is a scroller: a restored thread lands before bind:this, and a run that
-    // recorded it with no element would make the first measured run read "no growth" and stay at the top.
     if (!el) return;
+    const first = priorLatestId === undefined;
     priorLatestId = growthKey;
-    // Read before Svelte writes this update, so it measures a frame that is already laid out.
-    const nearBottom = el.scrollHeight - (el.scrollTop + el.clientHeight) < NEAR_BOTTOM_PX;
-    if (!grew && !nearBottom) {
-      // Content grew while the reader is scrolled up: the distance moved with no scroll event.
-      void tick().then(updateAwayFromLatest);
+    if (first) {
+      void tick().then(() => {
+        el.scrollTop = el.scrollHeight;
+        awayFromLatest = false;
+      });
       return;
     }
-    void tick().then(() => {
-      el.scrollTop = el.scrollHeight;
-      awayFromLatest = false;
-    });
+    if (grew) {
+      following = true;
+      void tick().then(() => {
+        landNewExchange(el);
+        updateAwayFromLatestSoon();
+      });
+      return;
+    }
+    // Read before Svelte writes this update, so it measures a frame that is already laid out.
+    const nearBottom = el.scrollHeight - (el.scrollTop + el.clientHeight) < NEAR_BOTTOM_PX;
+    if (!following || !nearBottom) {
+      updateAwayFromLatestSoon();
+      return;
+    }
+    void tick().then(() => followReply(el));
   });
 
   $effect(() => {
@@ -219,13 +290,17 @@
     return t.status === 'done' || t.status === 'error' ? t : null;
   }
 
-  /** Same words the turn shows on screen, so the announcement and the panel agree. */
+  /** Same words the reply shows on screen, so the announcement and the panel agree. */
   function settledText(t: Turn | null): string {
     if (!t) return '';
     if (!t.error) return t.content;
-    if (isCancelledError(t.error.code)) return 'Canceled';
-    const { title, body } = errorTurnParts(t.error);
-    return body ? `${title}: ${body}` : title;
+    if (isCancelledError(t.error.code)) return 'Stopped';
+    if (t.error.code === 'interrupted')
+      return 'Reply interrupted: The panel closed before this finished.';
+    const c = errorCopy(t.error.code, t.error.message, {
+      ...(t.error.backendId !== undefined ? { backend: backendLabel(t.error.backendId) } : {}),
+    });
+    return c === null ? 'Stopped' : `${c.title}: ${c.body}`;
   }
 
   /** Seeded from the first render on purpose, so a restored thread is not read out on open. */
@@ -245,7 +320,7 @@
     announcement = text;
   });
 
-  // Keyed on the variant too: Regenerate reuses the turn id and would otherwise stay silent.
+  // Keyed on the version too: Regenerate reuses the turn id and would otherwise stay silent.
   let announcedPendingKey: string | null = null;
   $effect(() => {
     const last = turns[turns.length - 1];
@@ -256,7 +331,7 @@
     announcement = `${taskGerund(turnTaskValue(last))}…`;
   });
 
-  // The settled-text announcer only hears the variant on screen; one finishing behind it changes no text.
+  // The settled-text announcer only hears the version on screen; one finishing behind it changes no text.
   // eslint-disable-next-line svelte/prefer-svelte-reactivity -- bookkeeping, never rendered.
   const openVariants = new Set<string>();
   $effect(() => {
@@ -267,9 +342,9 @@
           return;
         }
         if (!openVariants.delete(v.id) || i === t.activeVariantIdx) return;
-        if (v.status === 'done') announcement = `Variant ${i + 1} ready`;
+        if (v.status === 'done') announcement = `Version ${i + 1} ready`;
         else if (v.error && !isCancelledError(v.error.code)) {
-          announcement = `Variant ${i + 1} failed`;
+          announcement = `Version ${i + 1} failed`;
         }
       });
     }
@@ -280,14 +355,16 @@
     const summary = filterSummary;
     if (summary !== null) announcement = summary;
   });
+  $effect(() => {
+    const said = switchAnnouncement;
+    if (said !== null) announcement = said;
+  });
 
   function jumpToLatest(): void {
     const el = scroller;
     if (!el) return;
-    const reduced =
-      typeof window !== 'undefined' &&
-      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    el.scrollTo({ top: el.scrollHeight, behavior: reduced ? 'auto' : 'smooth' });
+    following = true;
+    el.scrollTo({ top: el.scrollHeight, behavior: reducedMotion() ? 'auto' : 'smooth' });
   }
 
   // Registering a window listener here too would give two competing owners.
@@ -300,11 +377,9 @@
     if (windowTurns.length === 0 || e.defaultPrevented) return;
     const target = e.target as HTMLElement | null;
     if (
-      // A native select or a bits-ui menu owns its own arrow keys and letter type-ahead; the open refine row keeps its keys too.
-      // The reply's action buttons do not: from them j/k/c/e/? stay the panel's navigation; the chip row holds a text field.
+      // A native select or a bits-ui menu owns its own arrow keys and letter type-ahead.
       target instanceof HTMLSelectElement ||
-      (target instanceof Element &&
-        target.closest('[role="menu"], [data-ega-quick-refine]') !== null) ||
+      (target instanceof Element && target.closest('[role="menu"], [role="dialog"]') !== null) ||
       target instanceof HTMLTextAreaElement ||
       target instanceof HTMLInputElement ||
       (target instanceof HTMLElement && target.isContentEditable)
@@ -345,7 +420,7 @@
   <div class="ega-empty-shell" data-ega-no-search-matches>
     <EmptyState
       title="No matches"
-      description="No message in this conversation contains that text."
+      description="No message here contains that text."
       icon={SearchX}
       {...onClearSearch ? { ctaLabel: 'Clear search', onCta: onClearSearch } : {}}
     />
@@ -354,35 +429,18 @@
   <div class="ega-empty-shell" data-ega-no-bookmarks>
     <EmptyState
       title="No bookmarked messages"
-      description="Bookmark a message with the ☆ button to keep it here."
-      icon={Bookmark}
+      description="Bookmark a message from its More menu to keep it here."
+      icon={Star}
       {...onClearBookmarkFilter
         ? { ctaLabel: 'Show all messages', onCta: onClearBookmarkFilter }
         : {}}
     />
   </div>
 {:else if turns.length === 0}
-  <!-- Outside role=log on purpose: EmptyState's role=status would nest a polite region inside a polite one. -->
-  <div class="ega-empty-shell" data-ega-sidepanel-empty>
-    {#if backendReady === false && onSetUpBackend}
-      <EmptyState
-        title="Add a backend to start"
-        description="Ega needs a model to translate with. Add an API key, or set up Ollama or the native host."
-        icon={Languages}
-        ctaLabel="Set up a backend"
-        onCta={onSetUpBackend}
-      />
-    {:else}
-      <EmptyState
-        title="Start a conversation"
-        description="Right-click a selection, or type below to translate, explain, reword, and more."
-        icon={Languages}
-      />
-    {/if}
-    {#if onShowShortcuts}
-      <button type="button" class="ega-kbd-link" data-ega-kbd-hints onclick={onShowShortcuts}>
-        Keyboard shortcuts
-      </button>
+  <!-- Outside role=log on purpose: a status inside it would nest one polite region in another. -->
+  <div class="ega-empty-shell">
+    {#if loaded && onSetUpBackend}
+      <EmptySuggestions {backendReady} {onSuggestion} {onSetUpBackend} />
     {/if}
   </div>
 {:else}
@@ -399,62 +457,74 @@
         if (!(to instanceof Node) || !scroller?.contains(to)) onFocusChange(null);
       }}
     >
-      {#if hiddenCount > 0}
-        <button
-          type="button"
-          class="ega-show-earlier"
-          data-ega-show-earlier
-          onclick={() => (shownBeyondWindow += RENDER_WINDOW)}
-        >
-          Show earlier messages ({hiddenCount})
-        </button>
-      {/if}
-      {#each windowTurns as turn (turn.id)}
-        {#if turn.role === 'user'}
-          <UserTurn
-            {turn}
-            {taskViews}
-            focused={turn.id === focusedTurnId}
-            latest={turn.id === latestUserTurnId}
-            {now}
-            {inflight}
-            {onBookmark}
-            {onDelete}
-            {onEdit}
-          />
-        {:else}
-          <AssistantTurn
-            {turn}
-            focused={turn.id === focusedTurnId}
-            canRetry={retryableIds.has(turn.id)}
-            hasImage={imageBackedIds.has(turn.id)}
-            targetLang={answerLangPairs.get(turn.id)?.targetLang}
-            sourceLang={answerLangPairs.get(turn.id)?.sourceLang}
-            sentText={turn.attachedToTurnId ? (userTextById[turn.attachedToTurnId] ?? '') : ''}
-            {confidencePill}
-            {confidencePillThreshold}
-            {onRetry}
-            {onRefine}
-            {onSelectVariant}
-            {onSwap}
-            {onTaskSwitch}
-            {swapDisabled}
-            {swapPair}
-            isLatest={turn.id === latestTurnId}
-            {onRegenerate}
-            {onBookmark}
-            {onDelete}
-            {inflight}
-            {varieties}
-            {taskViews}
-            {now}
-          />
+      <div class="ega-thread-col">
+        {#if hiddenCount > 0}
+          <button
+            type="button"
+            class="ega-show-earlier"
+            data-ega-show-earlier
+            onclick={() => (shownBeyondWindow += RENDER_WINDOW)}
+          >
+            Show {hiddenCount} earlier {hiddenCount === 1 ? 'message' : 'messages'}
+          </button>
         {/if}
-      {/each}
+        {#each windowTurns as turn (turn.id)}
+          {#if separators.has(turn.id)}
+            <p class="ega-day-sep" data-ega-day-separator>
+              <time datetime={new Date(turn.createdAt).toISOString()}
+                >{separatorLabel(turn.createdAt, now)}</time
+              >
+            </p>
+          {/if}
+          {#if turn.role === 'user'}
+            <UserTurn
+              {turn}
+              taskLabel={taskLabels.get(turn.id)}
+              focused={turn.id === focusedTurnId}
+              latest={turn.id === latestUserTurnId}
+              laterCount={turns.length - (positions.get(turn.id) ?? 0) - 1}
+              editing={turn.id === editingTurnId}
+              {inflight}
+              {onBookmark}
+              {onDelete}
+              {onEdit}
+            />
+          {:else}
+            <AssistantTurn
+              {turn}
+              focused={turn.id === focusedTurnId}
+              canRetry={retryableIds.has(turn.id)}
+              hasImage={imageBackedIds.has(turn.id)}
+              targetLang={answerLangPairs.get(turn.id)?.targetLang}
+              sourceLang={answerLangPairs.get(turn.id)?.sourceLang}
+              sentText={turn.attachedToTurnId ? (userTextById[turn.attachedToTurnId] ?? '') : ''}
+              {confidence}
+              {onRetry}
+              {onRefine}
+              {onSelectVariant}
+              swapPair={turn.status === 'done' ? (swapPairFor?.(turn.id) ?? null) : null}
+              {onSwap}
+              {onTaskSwitch}
+              {onTranslateInto}
+              {onDescribeChange}
+              changing={turn.id === changingTurnId}
+              isLatest={turn.id === latestTurnId}
+              {onRegenerate}
+              {onBookmark}
+              {onDelete}
+              {inflight}
+              {varieties}
+              {taskViews}
+              {composerTarget}
+              {onOpenSettings}
+            />
+          {/if}
+        {/each}
+      </div>
     </div>
     {#if awayFromLatest}
       <button type="button" class="ega-jump-latest" data-ega-jump-latest onclick={jumpToLatest}>
-        <ArrowDown size={14} />
+        <ArrowDown size={16} aria-hidden="true" />
         Jump to latest
       </button>
     {/if}
@@ -469,68 +539,83 @@
     display: flex;
     flex-direction: column;
   }
-  .ega-jump-latest {
-    position: absolute;
-    bottom: var(--space-3);
-    left: 50%;
-    transform: translateX(-50%);
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: var(--space-1) var(--space-2);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-pill);
-    background: var(--color-bg-elevated);
-    color: var(--color-fg);
-    font-size: var(--fs-xs);
-    cursor: pointer;
-    box-shadow: 0 1px 3px var(--color-shadow);
-    z-index: 5;
-  }
-  .ega-jump-latest:hover {
-    background: var(--color-bg-hover, var(--color-bg-sunken));
-  }
-  .ega-show-earlier {
-    align-self: center;
-    padding: var(--space-1) var(--space-2);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-pill);
-    background: transparent;
-    color: var(--color-fg-subtle);
-    font-size: var(--fs-xs);
-    cursor: pointer;
-  }
-  .ega-show-earlier:hover {
-    background: var(--color-bg-hover, var(--color-bg-sunken));
-    color: var(--color-fg);
-  }
-  .ega-kbd-link {
-    margin: var(--space-2) 0 0;
-    padding: 0;
-    border: 0;
-    background: none;
-    font: inherit;
-    font-size: var(--fs-xs);
-    color: var(--color-muted);
-    text-decoration: underline;
-    cursor: pointer;
-  }
-  .ega-kbd-link:hover {
-    color: var(--color-fg);
-  }
   .ega-conv-stream {
     flex: 1 1 auto;
     min-height: 0;
     /* clip on x: a tooltip past the right edge must not add a horizontal scrollbar. */
     overflow: clip auto;
-    /* Reserve the gutter — a scrollbar appearing re-wraps every message. */
+    /* Reserve the gutter: a scrollbar appearing would re-wrap every message. */
     scrollbar-gutter: stable;
+    padding: var(--space-5) var(--space-3) var(--space-4);
+    /* The reserved gutter sits inside the padding, so the text lines up with the composer. */
+    padding-inline-end: calc(var(--space-3) - var(--scrollbar-w));
+  }
+  /* Wide windows: one readable column. */
+  .ega-thread-col {
     display: flex;
     flex-direction: column;
-    gap: var(--space-3);
-    padding: var(--space-3);
-    /* The reserved gutter is inset too, so the cards would sit a scrollbar left of the composer. */
-    padding-inline-end: calc(var(--space-3) - var(--scrollbar-w));
+    max-inline-size: 720px;
+    margin-inline: auto;
+  }
+  /* 24 between exchanges, 8 between a message and its reply. */
+  .ega-thread-col > :global(.ega-user-turn) {
+    margin-block-start: var(--space-5);
+  }
+  .ega-thread-col > :global(.ega-reply) {
+    margin-block-start: var(--space-2);
+  }
+  .ega-thread-col > :global(:first-child),
+  .ega-thread-col > .ega-day-sep + :global(*) {
+    margin-block-start: 0;
+  }
+  .ega-day-sep {
+    margin: var(--space-5) 0 var(--space-2);
+    text-align: center;
+    font-size: var(--fs-sm);
+    line-height: var(--lh-body);
+    color: var(--color-muted);
+  }
+  .ega-thread-col > .ega-day-sep:first-child {
+    margin-block-start: 0;
+  }
+  .ega-show-earlier {
+    align-self: center;
+    min-block-size: 28px;
+    margin-block-end: var(--space-2);
+    padding: 0 var(--space-3);
+    border: 1px solid var(--color-control-border);
+    border-radius: var(--radius-pill);
+    background: transparent;
+    color: var(--color-fg);
+    font-family: inherit;
+    font-size: var(--fs-sm);
+    cursor: pointer;
+  }
+  .ega-show-earlier:hover {
+    background: var(--color-bg-hover);
+  }
+  .ega-jump-latest {
+    position: absolute;
+    inset-block-end: var(--space-3);
+    inset-inline-start: 50%;
+    transform: translateX(-50%);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    min-block-size: 28px;
+    padding: 0 var(--space-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-pill);
+    background: var(--color-bg-elevated);
+    color: var(--color-fg);
+    font-family: inherit;
+    font-size: var(--fs-sm);
+    cursor: pointer;
+    box-shadow: 0 1px 3px var(--color-shadow);
+    z-index: 5;
+  }
+  .ega-jump-latest:hover {
+    background: var(--color-bg-hover);
   }
   .ega-empty-shell {
     flex: 1 1 auto;

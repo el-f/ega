@@ -37,29 +37,20 @@ describe('small glyph buttons are at least 24px', () => {
 });
 
 // The user bubble's actions and the composer swap are 32px; a reply's dense rows match them.
-describe('a reply row matches the 32px of the user bubble and the composer', () => {
+// D-e: one row of 28px icon buttons with 16px glyphs fits the 222px reply at 320px with 125% zoom.
+describe('a reply row is one row of 28px buttons', () => {
   const src = read('src/sidepanel/conversation/AssistantTurn.svelte');
+  const menus = read('src/sidepanel/conversation/ReplyMenus.svelte');
 
-  it('sizes every reply icon button md, not the 28px sm', () => {
-    expect(src).not.toMatch(/size="sm"/);
-    expect(src).toMatch(/size-md/);
-    expect(rule(src, '\\.ega-turn-actions')).toMatch(/min-height:\s*32px/);
+  it('sizes every reply icon button sm (28px), and never wraps the row', () => {
+    expect(src).not.toMatch(/size="md"/);
+    const row = rule(src, '\\.ega-reply-actions,\\s*\\.ega-reply-actions-slot');
+    expect(row).toMatch(/flex-wrap:\s*nowrap/);
+    expect(row).toMatch(/min-block-size:\s*28px/);
   });
 
-  it('gives the error card Retry and settings buttons 32px, like Copy partial reply beside them', () => {
-    const body = rule(src, '\\.ega-error-action-btn');
-    expect(body).toMatch(/min-height:\s*32px/);
-    expect(body).toMatch(/box-sizing:\s*border-box/);
-  });
-
-  it('gives the variant arrows 32px', () => {
-    const body = rule(src, '\\.ega-variant-btn');
-    expect(body).toMatch(/min-width:\s*32px/);
-    expect(body).toMatch(/min-height:\s*32px/);
-  });
-
-  it('draws the Re-run as and More menu buttons as md icon buttons, like the IconButtons beside them', () => {
-    expect(src.match(/class="ega-icon-btn variant-default size-md"/g)).toHaveLength(2);
+  it('draws the Refine and More menu buttons as sm icon buttons, like the IconButtons beside them', () => {
+    expect(menus.match(/class="ega-icon-btn variant-default size-sm"/g)).toHaveLength(2);
   });
 });
 

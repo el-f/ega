@@ -36,7 +36,7 @@ async function pillWith(confidencePill: boolean): Promise<Element | null> {
   const { container, unmount } = render(SidePanel);
   await drainAsync();
   expect(container.querySelector('[data-turn-id="a1"]')).not.toBeNull();
-  const pill = container.querySelector('[data-ega-confidence]');
+  const pill = container.querySelector('[data-ega-meta-item="confidence"]');
   unmount();
   return pill;
 }

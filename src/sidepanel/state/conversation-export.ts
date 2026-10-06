@@ -50,6 +50,7 @@ export function exportJson(turns: readonly Turn[]): string {
       const v = activeVariant(t);
       const error = v?.error ?? t.error;
       const explain = v?.explain ?? t.explain;
+      const meta = v?.meta ?? t.meta;
       return {
         id: t.id,
         role: t.role,
@@ -61,6 +62,11 @@ export function exportJson(turns: readonly Turn[]): string {
         attachedToTurnId: t.attachedToTurnId,
         ...(error ? { error } : {}),
         ...(explain ? { explain } : {}),
+        // The system prompt this reply was sent with, when it was recorded and kept.
+        ...(meta?.instructions !== undefined ? { instructions: meta.instructions } : {}),
+        ...(meta?.instructionsLength !== undefined
+          ? { instructionsLength: meta.instructionsLength }
+          : {}),
         // The data URL itself is megabytes; the reader only needs to know a turn had one.
         ...(t.imageDataUrl ? { hasImage: true } : {}),
       };

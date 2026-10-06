@@ -687,7 +687,7 @@ describe('Tooltip smoke', () => {
       };
       const { getByLabelText, getByText } = mountWith({ body: 'hello', meta });
       await fireEvent.click(getByLabelText('Show details about this reply'));
-      expect(getByLabelText('Close details')).toBeTruthy();
+      expect(getByLabelText('Close')).toBeTruthy();
       expect(getByText('Anthropic')).toBeTruthy();
       expect(getByText('250 ms')).toBeTruthy();
     });

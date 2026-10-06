@@ -134,9 +134,14 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
-    inline-size: min(280px, calc(100vw - var(--space-4)));
+    inline-size: min(280px, calc(100vw - 40px));
+    max-block-size: calc(100vh - 96px);
     font-size: var(--fs-sm);
     line-height: var(--lh-body);
+  }
+  .chain-list {
+    overflow-y: auto;
+    min-block-size: 0;
   }
   .chain-help {
     margin: 0;

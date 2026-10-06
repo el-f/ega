@@ -67,9 +67,7 @@ describe('Tooltip — what the details panel says about page info', () => {
     resetSettingsCacheForTest();
     await ensureSettings();
     const rerun = mount({ ...baseTip(), task: 'translate', contextTask: 'explain', contextSent });
-    expect(await pageInfo(rerun.container)).toContain('None sent.');
-    // The prompt named is the one the router ran, not the picked task.
-    expect(row(rerun.container, 'Instructions')).toMatch(/^Explain prompt/);
+    expect(await pageInfo(rerun.container)).toContain('None sent');
     rerun.unmount();
     const plain = mount({ ...baseTip(), task: 'translate', contextSent });
     expect(await pageInfo(plain.container)).toContain('Page X');
@@ -82,7 +80,7 @@ describe('Tooltip — what the details panel says about page info', () => {
     const { ensureSettings } = await import('@/content/settings-cache');
     await ensureSettings();
     const off = mount({ ...baseTip(), task: 'summarize', contextSent });
-    expect(await pageInfo(off.container)).toContain('None sent.');
+    expect(await pageInfo(off.container)).toContain('None sent');
     off.unmount();
     const on = mount({ ...baseTip(), task: 'translate', contextSent });
     expect(await pageInfo(on.container)).toContain('Page X');
@@ -90,23 +88,22 @@ describe('Tooltip — what the details panel says about page info', () => {
 
   it('says none was sent when the request carried no page info', async () => {
     const { container } = mount({ ...baseTip(), contextSent: null });
-    expect(await pageInfo(container)).toContain('None sent.');
+    expect(await pageInfo(container)).toContain('None sent');
   });
 
-  it('describes an image translate as the image and the built-in image prompt', async () => {
+  it('describes an image translate as the image, with no page info', async () => {
     // An image result tooltip gets no Settings handler, so no Settings link may render.
     const { container } = mount(
       { ...baseTip(), srcText: '', contextSent: null, imageUrl: 'data:image/png;base64,AAAA' },
       { settings: false },
     );
-    expect(await pageInfo(container)).toContain('Not sent with images.');
+    expect(await pageInfo(container)).toContain('Not sent with images');
     expect(row(container, 'Your text')).toBe('An image');
-    expect(row(container, 'Instructions')).toBe('Image prompt (built in)');
     expect(row(container, 'Earlier messages')).toBe('None');
     expect(container.textContent).not.toContain('View in Settings');
   });
 
-  it('names the Explain prompt for an image explain', async () => {
+  it('shows the instructions section for an image explain', async () => {
     const { container } = mount({
       ...baseTip(),
       srcText: '',
@@ -114,8 +111,9 @@ describe('Tooltip — what the details panel says about page info', () => {
       contextTask: 'explain',
       imageUrl: 'data:image/png;base64,AAAA',
     });
-    expect(await pageInfo(container)).toContain('None sent.');
-    expect(row(container, 'Instructions')).toMatch(/^Explain prompt/);
+    expect(await pageInfo(container)).toContain('None sent');
+    // The instructions are the sent text itself now, recorded on the reply's meta.
+    expect(container.querySelector('[data-ega-instructions]')).not.toBeNull();
   });
 
   // Image tooltips set no contextSent and carry no meta: they get no Details button at all.

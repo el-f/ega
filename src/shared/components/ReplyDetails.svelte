@@ -6,8 +6,10 @@
   import { backendLabel } from '@/shared/backends/provider-profiles';
   import { errCodeLabel } from '@/shared/err-labels';
   import { formatDetectedLabel } from '@/shared/detected-label';
+  import { modelDisplayName } from '@/shared/model-names';
   import type { ErrCode } from '@/shared/types';
   import { redactContext } from '@/shared/redact';
+  import { MAX_INSTRUCTIONS_CHARS } from '@/shared/constants';
 
   interface Props {
     /** Absent when result details are off in Settings, or the reply carried none. */
@@ -18,14 +20,22 @@
     sentText: string;
     /** The request carried an image. 'ocr': the built-in image prompt ran and took no page info; 'task': the task's own prompt ran with the image. */
     image?: 'ocr' | 'task' | undefined;
-    /** Name of the task whose prompt wrapped the text, e.g. "Translate". */
+    /** Name of the task whose prompt wrapped the text, e.g. "Translate"; goes into Copy as JSON. */
     taskLabel: string;
-    /** Opens the task in Settings, where its prompt and preview live. */
+    /** Kept for callers that still pass it; the sent instructions replace the link to Settings. */
     onViewPrompt?: (() => void) | undefined;
     /** The tooltip sends no earlier messages; the side panel says how many each reply carried. */
     surface: 'tooltip' | 'panel';
     /** Language of the page text shown; '' is unknown. Our UI around it is English. */
     valueLang?: string;
+    /** The same direction text the meta line shows; falls back to the recorded pair. */
+    direction?: string;
+    /** 0..1 as the model sent it. */
+    confidence?: number | undefined;
+    /** The change the user typed for this version ("Describe a change…"). */
+    change?: string | undefined;
+    /** Opens Settings, for "Turn on Record request details". */
+    onOpenSettings?: (() => void) | undefined;
     onClose: () => void;
   }
 
@@ -35,18 +45,25 @@
     sentText,
     image,
     taskLabel,
-    onViewPrompt,
     surface,
     valueLang = '',
+    direction,
+    confidence,
+    change,
+    onOpenSettings,
     onClose,
   }: Props = $props();
 
+  const uid = $props.id();
   let showAllPage = $state(false);
+  let showTried = $state(false);
+  let showInstructions = $state(false);
   let copied = $state(false);
 
   function formatTime(ms: number): string {
     return ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(1)} s`;
   }
+  const count = (n: number): string => n.toLocaleString('en-US');
 
   // The router scrubs secrets out of page info before it builds the prompt, so this shows and copies that version.
   const page = $derived(context ? redactContext(context) : context);
@@ -71,11 +88,10 @@
 
   const answeredBy = $derived.by(() => {
     if (!meta) return '';
-    if (meta.cacheHit) return 'Saved answer (cache)';
+    if (meta.cacheHit) return 'Saved answer (from cache)';
     if (meta.backendId === 'unknown') return '';
-    return meta.modelId
-      ? `${backendLabel(meta.backendId)} · ${meta.modelId}`
-      : backendLabel(meta.backendId);
+    const backend = backendLabel(meta.backendId);
+    return meta.modelId ? `${modelDisplayName(meta.modelId)} via ${backend}` : backend;
   });
   const timeLine = $derived.by(() => {
     if (!meta) return '';
@@ -84,34 +100,34 @@
       ? `${total} (first words after ${formatTime(meta.firstTokenMs)})`
       : total;
   });
-  // Some providers report only one side, so each count shows on its own.
-  const tokenLine = $derived.by(() => {
+  // "42 tokens read · 9 written (5 thinking) · 30 from cache"; some providers report only one side.
+  const usageLine = $derived.by(() => {
     if (!meta) return '';
     const parts: string[] = [];
-    if (meta.inputTokens !== undefined) parts.push(`${meta.inputTokens} in`);
-    if (meta.outputTokens !== undefined) parts.push(`${meta.outputTokens} out`);
-    if (meta.reasoningTokens !== undefined) {
-      parts.push(
-        meta.outputTokens !== undefined
-          ? `${meta.reasoningTokens} of them thinking`
-          : `${meta.reasoningTokens} thinking`,
-      );
+    if (meta.inputTokens !== undefined) parts.push(`${count(meta.inputTokens)} tokens read`);
+    if (meta.outputTokens !== undefined) {
+      const thinking =
+        meta.reasoningTokens !== undefined ? ` (${count(meta.reasoningTokens)} thinking)` : '';
+      parts.push(`${count(meta.outputTokens)} written${thinking}`);
     }
-    if (meta.cacheReadTokens !== undefined) parts.push(`${meta.cacheReadTokens} read from cache`);
-    if (meta.cacheWriteTokens !== undefined)
-      parts.push(`${meta.cacheWriteTokens} written to cache`);
+    if (meta.cacheReadTokens !== undefined) parts.push(`${count(meta.cacheReadTokens)} from cache`);
     return parts.join(' · ');
   });
-  // 'auto' and variety ids are not ISO, so this goes through the resolver the detected-language pill uses.
+  // 'auto' and variety ids are not ISO, so this goes through the resolver the meta line uses.
   function langName(v: string | undefined, fallback: string): string {
     if (v === undefined || v === '') return fallback;
     if (v === 'auto') return 'Auto-detect';
     return formatDetectedLabel(v, undefined) || v;
   }
-  const directionLine = $derived(
-    meta && (meta.sourceLang || meta.targetLang)
-      ? `${langName(meta.sourceLang, 'Auto-detect')} → ${langName(meta.targetLang, 'unknown')}`
-      : '',
+  const languagesLine = $derived(
+    direction !== undefined && direction !== ''
+      ? direction
+      : meta && (meta.sourceLang || meta.targetLang)
+        ? `${langName(meta.sourceLang, 'Auto-detect')} → ${langName(meta.targetLang, 'unknown')}`
+        : '',
+  );
+  const confidenceLine = $derived(
+    confidence !== undefined && confidence > 0 ? `${Math.round(confidence * 100)}%` : '',
   );
   const attempts = $derived(meta?.attempts ?? []);
   // A cache hit and a reply saved before the count existed carry no count, so they say so.
@@ -123,9 +139,11 @@
     return n === 0 ? 'None' : `${n} from this conversation`;
   });
   const emptyPage = $derived.by(() => {
-    if (image === 'ocr') return 'Not sent with images.';
-    return context === undefined ? 'Not recorded for this reply.' : 'None sent.';
+    if (image === 'ocr') return 'Not sent with images';
+    return context === undefined ? 'Not recorded' : 'None sent';
   });
+  const instructions = $derived(meta?.instructions);
+  const instructionsTotal = $derived(meta?.instructionsLength ?? instructions?.length ?? 0);
 
   function attemptStatus(a: { status: string; code?: string }): string {
     if (a.status === 'ok') return 'answered';
@@ -138,6 +156,7 @@
       sentText,
       task: image === 'ocr' ? 'Image prompt (built in)' : taskLabel,
       page: image === 'ocr' ? null : (page ?? null),
+      ...(change !== undefined && change !== '' ? { change } : {}),
       result: meta ?? null,
     };
     try {
@@ -150,10 +169,13 @@
   }
 </script>
 
-<section class="reply-details" aria-label="About this reply" data-ega-inspector>
+<!-- shadow-css-lint-allow: rd-instr, rd-instr-head, rd-instr-note, rd-disclosure, rd-tried-list — the tooltip mirror lands with its reply layout -->
+<section class="reply-details" aria-labelledby="{uid}-title" data-ega-inspector>
   <header class="rd-head">
-    <h3 class="rd-title">About this reply</h3>
-    <IconButton icon={X} ariaLabel="Close details" size="sm" onclick={onClose} />
+    <h3 class="rd-title" id="{uid}-title" tabindex="-1" data-ega-inspector-title>
+      About this reply
+    </h3>
+    <IconButton icon={X} ariaLabel="Close" size="sm" onclick={onClose} />
   </header>
 
   {#if meta}
@@ -164,44 +186,58 @@
           <dd>{answeredBy}</dd>
         </div>
       {/if}
-      {#if directionLine}
+      {#if languagesLine}
         <div class="rd-row">
-          <dt>Direction</dt>
-          <dd>{directionLine}</dd>
+          <dt>Languages</dt>
+          <dd>{languagesLine}</dd>
         </div>
       {/if}
       <div class="rd-row">
         <dt>Time</dt>
         <dd>{timeLine}</dd>
       </div>
-      {#if tokenLine}
+      {#if confidenceLine}
         <div class="rd-row">
-          <dt>Tokens</dt>
-          <dd>{tokenLine}</dd>
+          <dt>Confidence</dt>
+          <dd>{confidenceLine}</dd>
+        </div>
+      {/if}
+      {#if usageLine}
+        <div class="rd-row">
+          <dt>Usage</dt>
+          <dd>{usageLine}</dd>
         </div>
       {/if}
     </dl>
     {#if attempts.length > 1}
       <div class="rd-tried">
-        <p class="rd-sub">Backends tried, in order</p>
-        <ol class="rd-attempts">
-          {#each attempts as a, i (i)}
-            <li class:is-error={a.status !== 'ok'}>
-              <span class="rd-attempt-name">{backendLabel(a.backendId)}</span>
-              <span class="rd-attempt-status">{attemptStatus(a)}</span>
-              <span class="rd-attempt-time">{formatTime(a.latencyMs)}</span>
-              {#if a.message}<span class="rd-attempt-msg">{a.message}</span>{/if}
-            </li>
-          {/each}
-        </ol>
+        <button
+          type="button"
+          class="rd-link rd-disclosure"
+          aria-expanded={showTried}
+          aria-controls="{uid}-tried"
+          onclick={() => (showTried = !showTried)}
+        >
+          Backends tried ({attempts.length}) {showTried ? '▾' : '▸'}
+        </button>
+        {#if showTried}
+          <ol class="rd-attempts" id="{uid}-tried">
+            {#each attempts as a, i (i)}
+              <li class:is-error={a.status !== 'ok'}>
+                <span class="rd-attempt-name">{backendLabel(a.backendId)}</span>
+                <span class="rd-attempt-status">{attemptStatus(a)}</span>
+                <span class="rd-attempt-time">{formatTime(a.latencyMs)}</span>
+                {#if a.message}<span class="rd-attempt-msg">{a.message}</span>{/if}
+              </li>
+            {/each}
+          </ol>
+        {/if}
       </div>
     {/if}
   {/if}
 
   <div class="rd-sent">
-    <h4 class="rd-sub">
-      {meta?.cacheHit ? 'What the saved answer was made from' : 'What Ega sent'}
-    </h4>
+    <h4 class="rd-sub">What was sent</h4>
     <dl class="rd-rows">
       <div class="rd-row rd-row-block">
         <dt>Your text</dt>
@@ -214,19 +250,6 @@
         {:else}
           <dd class="rd-quote" dir="auto" lang={valueLang}>{sentText}</dd>
         {/if}
-      </div>
-      <div class="rd-row">
-        <dt>Instructions</dt>
-        <dd>
-          {#if image === 'ocr'}
-            Image prompt (built in)
-          {:else}
-            {taskLabel} prompt{#if onViewPrompt}<span class="rd-sep" aria-hidden="true">·</span
-              ><button type="button" class="rd-link" onclick={onViewPrompt}>View in Settings</button
-              >
-            {/if}
-          {/if}
-        </dd>
       </div>
       {#if historyLine}
         <div class="rd-row">
@@ -274,7 +297,57 @@
           </dd>
         {/if}
       </div>
+      {#if change !== undefined && change !== ''}
+        <div class="rd-row rd-row-block">
+          <dt>Your change</dt>
+          <dd class="rd-quote" dir="auto">{change}</dd>
+        </div>
+      {/if}
     </dl>
+
+    <div class="rd-instr-head" data-ega-instructions>
+      {#if instructions !== undefined}
+        <button
+          type="button"
+          class="rd-link rd-disclosure"
+          aria-expanded={showInstructions}
+          aria-controls="{uid}-instr"
+          onclick={() => (showInstructions = !showInstructions)}
+        >
+          Instructions sent {showInstructions ? '▾' : '▸'}
+        </button>
+        <span class="rd-muted">{count(instructionsTotal)} characters</span>
+      {:else}
+        <span>Instructions sent</span>
+        {#if !meta}
+          <span class="rd-muted"
+            >Not recorded. Turn on Record request details in {#if onOpenSettings}<button
+                type="button"
+                class="rd-link"
+                onclick={onOpenSettings}>Settings</button
+              >{:else}Settings{/if}.</span
+          >
+        {:else}
+          <span class="rd-muted">Not kept for this reply.</span>
+        {/if}
+      {/if}
+    </div>
+    {#if instructions !== undefined && showInstructions}
+      <!-- Plain text only: the prompt can hold page-derived words, so it is never parsed as markup. -->
+      <!-- A scroll box takes keyboard focus so it can be scrolled without a mouse (WCAG 2.1.1). -->
+      <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+      <pre
+        class="rd-instr"
+        id="{uid}-instr"
+        tabindex="0"
+        aria-label="Instructions sent"
+        dir="auto">{instructions}</pre>
+      {#if meta?.instructionsLength !== undefined}
+        <p class="rd-instr-note">
+          Cut at {count(MAX_INSTRUCTIONS_CHARS)} of {count(meta.instructionsLength)} characters.
+        </p>
+      {/if}
+    {/if}
   </div>
 
   <footer class="rd-foot">
@@ -286,12 +359,9 @@
 </section>
 
 <style>
+  /* No box: the details read as part of the reply, inside at most two rules. */
   .reply-details {
     margin-top: var(--space-2);
-    padding: var(--space-2) var(--space-3) var(--space-3);
-    background: var(--color-bg-sunken);
-    border: 1px solid var(--color-border-subtle);
-    border-radius: var(--radius-md);
     font-size: var(--fs-sm);
     color: var(--color-fg);
     display: flex;
@@ -389,10 +459,6 @@
   .rd-mono {
     font-family: var(--font-mono);
   }
-  .rd-sep {
-    margin-inline: var(--space-1);
-    color: var(--color-muted);
-  }
   .rd-link {
     padding: 0;
     border: 0;
@@ -423,9 +489,6 @@
     flex-wrap: wrap;
     gap: 0 var(--space-2);
   }
-  .rd-attempt-name {
-    font-weight: 500;
-  }
   .rd-attempts li.is-error .rd-attempt-status {
     color: var(--color-danger-fg);
   }
@@ -451,5 +514,39 @@
     background: var(--color-bg);
     color: var(--color-fg);
     cursor: pointer;
+  }
+  .rd-disclosure {
+    align-self: flex-start;
+    color: var(--color-fg);
+    text-decoration: none;
+  }
+  .rd-instr-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    margin-block-start: var(--space-2);
+  }
+  /* The prompt reads as a quote: one rule, no box, fifteen lines before it scrolls. */
+  .rd-instr {
+    margin: var(--space-1) 0 0;
+    padding-inline-start: var(--space-2);
+    border-inline-start: 2px solid var(--color-border);
+    max-block-size: calc(15 * var(--lh-body) * var(--fs-sm));
+    overflow: auto;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font-family: inherit;
+    font-size: var(--fs-sm);
+    line-height: var(--lh-body);
+    color: var(--color-fg);
+  }
+  .rd-instr:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+  .rd-instr-note {
+    margin: var(--space-1) 0 0;
+    color: var(--color-muted);
   }
 </style>

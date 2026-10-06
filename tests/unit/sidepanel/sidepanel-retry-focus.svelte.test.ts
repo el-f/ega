@@ -52,7 +52,7 @@ describe('SidePanel — Retry on a failed first answer', () => {
       chunk: { type: 'error', requestId: lastRequestId(), code: 'NETWORK', message: 'offline' },
     } as Msg);
     const retry = await waitFor(() => {
-      const btn = container.querySelector<HTMLButtonElement>('.ega-retry-btn');
+      const btn = container.querySelector<HTMLButtonElement>('[data-ega-retry]');
       if (!btn) throw new Error('Retry not shown');
       return btn;
     });

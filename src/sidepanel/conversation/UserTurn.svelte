@@ -1,81 +1,77 @@
 <script lang="ts">
+  import { DropdownMenu } from 'bits-ui';
   import { debugCatch } from '@/shared/logger';
   import ImagePreview from '@/shared/components/ImagePreview.svelte';
   import IconButton from '@/shared/ui/IconButton.svelte';
+  import Icon from '@/shared/ui/Icon.svelte';
   import Copy from '@lucide/svelte/icons/copy';
   import Check from '@lucide/svelte/icons/check';
   import Star from '@lucide/svelte/icons/star';
   import Trash2 from '@lucide/svelte/icons/trash-2';
   import Pencil from '@lucide/svelte/icons/pencil';
-  import { relativeTime } from '@/shared/relative-time';
-  import { isImageTurn, turnLabel, type Turn } from '../state/conversation';
-  import { SHIPPED_TASK_VIEWS, type TaskView } from '@/shared/task-view';
-  import { TONE_LABELS } from '@/shared/task-prompts';
+  import Ellipsis from '@lucide/svelte/icons/ellipsis';
+  import { isImageTurn, type Turn } from '../state/conversation';
   import { IMAGE_TURN_PLACEHOLDER } from '@/shared/constants';
 
   interface Props {
     turn: Turn;
-    /** Every task, on or off; names a custom task and says whether its prompt has a tone. */
-    taskViews?: readonly TaskView[] | undefined;
+    /** The task this message names above its bubble, only where the task changes. */
+    taskLabel?: string | undefined;
     /** True for the focused turn in the keyboard cycle; drives the focus ring. */
     focused?: boolean;
-    /** The newest user message keeps its actions in view; older ones show them on hover or focus. */
+    /** The newest message edits in place; an older one edits "from here", removing what came after. */
     latest?: boolean;
+    /** Messages after this one, named by "Edit from here". */
+    laterCount?: number;
+    /** This message is in the composer, being edited. */
+    editing?: boolean;
     onBookmark?: ((id: string) => void) | undefined;
     onDelete?: ((id: string) => void) | undefined;
     onEdit?: ((id: string) => void) | undefined;
     /** True while a reply is streaming; editing would truncate under the running turn. */
     inflight?: boolean;
-    /** Clock the stream ticks, so the relative timestamp does not freeze at "just now". */
-    now?: number;
   }
 
   const {
     turn,
+    taskLabel,
     focused = false,
     latest = false,
+    laterCount = 0,
+    editing = false,
     onBookmark,
     onDelete,
     onEdit,
     inflight = false,
-    now = Date.now(),
-    taskViews = SHIPPED_TASK_VIEWS,
   }: Props = $props();
 
-  // The marker is a render token, not text the user wrote — nothing to show and nothing to copy.
+  // The marker is a render token, not text the user wrote: nothing to show and nothing to copy.
   const hasText = $derived(turn.content !== '' && turn.content !== IMAGE_TURN_PLACEHOLDER);
-
-  // Tone is captured at send time, so a later picker change cannot retro-apply to this turn.
-  const baseLabel = $derived(turnLabel(turn, taskViews));
-  const usesTone = $derived(
-    taskViews.find((v) => v.id === (turn.taskId ?? turn.kind))?.usesTone ?? turn.kind === 'reword',
+  // The time moved to the day separators, so the name is the text itself.
+  const srLabel = $derived(
+    `You: ${hasText ? Array.from(turn.content).slice(0, 60).join('') : 'Image'}`,
   );
-  const kindLabel = $derived(
-    usesTone && turn.tone ? `${baseLabel} · ${TONE_LABELS[turn.tone]}` : baseLabel,
-  );
-
-  // `article` is not name-from-content, so without a label a j/k-focused turn is announced as a bare "article".
-  const srLabel = $derived(`You · ${baseLabel} · ${relativeTime(turn.createdAt, now)}`);
-
   // Hidden, not disabled, while a reply streams: a disabled button cannot take focus to say why.
   const canEdit = $derived(!isImageTurn(turn) && !inflight);
+  const editLabel = $derived(latest ? 'Edit' : 'Edit from here');
+  const editTip = $derived(
+    latest
+      ? 'Edit'
+      : `Edit from here (removes ${laterCount} later ${laterCount === 1 ? 'message' : 'messages'})`,
+  );
 
   const actionKeys = $derived<readonly string[]>([
     ...(hasText ? ['copy'] : []),
-    'bookmark',
     ...(canEdit ? ['edit'] : []),
-    'delete',
+    'more',
   ]);
-
   let actionsEl: HTMLElement | null = $state(null);
   let pickedAction = $state('copy');
-
-  // Clamped, not stored: the edit and details buttons come and go with the turn.
   const activeAction = $derived(
-    actionKeys.includes(pickedAction) ? pickedAction : (actionKeys[0] ?? 'copy'),
+    actionKeys.includes(pickedAction) ? pickedAction : (actionKeys[0] ?? 'more'),
   );
+  const tab = (key: string): number => (activeAction === key ? 0 : -1);
 
-  // A click moves focus without touching pickedAction, so the next arrow would jump from the wrong button.
   function onActionsFocusIn(e: FocusEvent): void {
     const key = (e.target as HTMLElement | null)
       ?.closest('[data-ega-action]')
@@ -83,7 +79,7 @@
     if (key !== null && key !== undefined && actionKeys.includes(key)) pickedAction = key;
   }
 
-  // One tab stop per turn instead of one per button; arrows move inside the row.
+  // One tab stop per toolbar; arrows move inside it.
   function onActionsKeydown(e: KeyboardEvent): void {
     const idx = actionKeys.indexOf(activeAction);
     let next: number;
@@ -93,7 +89,6 @@
     else if (e.key === 'End') next = actionKeys.length - 1;
     else return;
     e.preventDefault();
-    // The window handler would take the same key and move focus to another turn.
     e.stopPropagation();
     const key = actionKeys[next];
     if (key === undefined) return;
@@ -102,7 +97,6 @@
   }
 
   let copied = $state(false);
-
   async function copySource(): Promise<void> {
     if (!hasText) return;
     try {
@@ -118,176 +112,189 @@
 <article
   class="ega-user-turn"
   class:focused
-  class:quiet={!latest && !focused && turn.bookmarked !== true}
   tabindex="-1"
   aria-label={srLabel}
   data-turn-id={turn.id}
+  data-ega-user-turn
 >
-  <header class="ega-user-meta">
-    <span class="ega-kind-badge">{kindLabel}</span>
-    <time
-      class="ega-timestamp"
-      data-ega-timestamp
-      datetime={new Date(turn.createdAt).toISOString()}
-      data-tooltip={new Date(turn.createdAt).toLocaleString()}
-      data-tooltip-placement="top">{relativeTime(turn.createdAt, now)}</time
+  {#if taskLabel !== undefined}
+    <p class="ega-task-label">{taskLabel}</p>
+  {/if}
+  <div class="ega-bubble-wrap">
+    <div class="ega-bubble" class:editing data-ega-user-bubble>
+      {#if turn.imageDataUrl}
+        <ImagePreview src={turn.imageDataUrl} alt="Your image" />
+      {:else if turn.kind === 'image-translate' || turn.content === IMAGE_TURN_PLACEHOLDER}
+        <span class="ega-bubble-note">Image not shown</span>
+      {/if}
+      {#if hasText}
+        <!-- dir=auto: Arabic or Hebrew in an LTR panel aligns by its own first strong character. -->
+        <div class="ega-user-text" dir="auto">{turn.content}</div>
+      {/if}
+      {#if turn.trimmedTo !== undefined}
+        <span class="ega-bubble-note ega-user-trimmed"
+          >Only the first {turn.trimmedTo} characters were sent.</span
+        >
+      {/if}
+    </div>
+    <div
+      class="ega-user-toolbar"
+      role="toolbar"
+      tabindex="-1"
+      aria-label="Message actions"
+      data-ega-user-toolbar
+      bind:this={actionsEl}
+      onfocusin={onActionsFocusIn}
+      onkeydown={onActionsKeydown}
     >
-  </header>
-  {#if turn.imageDataUrl}
-    <ImagePreview src={turn.imageDataUrl} alt="Your image" />
-  {:else if turn.kind === 'image-translate' || turn.content === IMAGE_TURN_PLACEHOLDER}
-    <span class="ega-user-image-missing">Image not shown</span>
-  {/if}
-  {#if hasText}
-    <!-- dir=auto: Arabic/Hebrew content in an LTR panel must align by its own first strong character. -->
-    <div class="ega-user-text" dir="auto">{turn.content}</div>
-  {/if}
-  {#if turn.trimmedTo !== undefined}
-    <span class="ega-user-trimmed">Only the first {turn.trimmedTo} characters were sent.</span>
-  {/if}
-  <div
-    class="ega-turn-actions"
-    role="toolbar"
-    tabindex="-1"
-    aria-label="Message actions"
-    bind:this={actionsEl}
-    onfocusin={onActionsFocusIn}
-    onkeydown={onActionsKeydown}
-  >
-    {#if hasText}
-      <span class="ega-copy-btn-wrap" class:is-copied={copied}>
+      {#if hasText}
         <IconButton
           icon={copied ? Check : Copy}
-          ariaLabel={copied ? 'Copied' : 'Copy source text'}
-          size="md"
+          ariaLabel={copied ? 'Copied' : 'Copy'}
+          size="sm"
           dataAttrs={{
             'data-ega-copy-source': 'true',
             'data-ega-action': 'copy',
-            tabindex: activeAction === 'copy' ? 0 : -1,
+            tabindex: tab('copy'),
           }}
           onclick={() => void copySource()}
         />
-      </span>
-    {/if}
-    <IconButton
-      icon={Star}
-      ariaLabel={turn.bookmarked ? 'Remove bookmark' : 'Bookmark this message'}
-      size="md"
-      dataAttrs={{
-        'data-ega-bookmark': 'true',
-        'aria-pressed': String(turn.bookmarked === true),
-        'data-ega-action': 'bookmark',
-        tabindex: activeAction === 'bookmark' ? 0 : -1,
-      }}
-      onclick={() => onBookmark?.(turn.id)}
-    />
-    {#if canEdit}
-      <!-- The composer holds no image, so editing an image turn would send the "[image]" marker as text. -->
-      <IconButton
-        icon={Pencil}
-        ariaLabel="Edit this message"
-        size="md"
-        dataAttrs={{
-          'data-ega-edit': 'true',
-          'data-ega-action': 'edit',
-          tabindex: activeAction === 'edit' ? 0 : -1,
-        }}
-        onclick={() => onEdit?.(turn.id)}
-      />
-    {/if}
-    <IconButton
-      icon={Trash2}
-      ariaLabel="Delete this message and its reply"
-      size="md"
-      variant="danger"
-      dataAttrs={{
-        'data-ega-delete': 'true',
-        'data-ega-action': 'delete',
-        tabindex: activeAction === 'delete' ? 0 : -1,
-      }}
-      onclick={() => onDelete?.(turn.id)}
-    />
+      {/if}
+      {#if canEdit}
+        <!-- The composer holds no image, so editing an image turn would send the "[image]" marker as text. -->
+        <IconButton
+          icon={Pencil}
+          ariaLabel={editLabel}
+          tooltip={editTip}
+          size="sm"
+          dataAttrs={{ 'data-ega-edit': 'true', 'data-ega-action': 'edit', tabindex: tab('edit') }}
+          onclick={() => onEdit?.(turn.id)}
+        />
+      {/if}
+      <DropdownMenu.Root>
+        <DropdownMenu.Trigger
+          class="ega-icon-btn variant-default size-sm"
+          aria-label="More"
+          data-tooltip="More"
+          data-tooltip-placement="top"
+          data-ega-action="more"
+          tabindex={tab('more')}
+        >
+          <Icon icon={Ellipsis} size={16} />
+        </DropdownMenu.Trigger>
+        <DropdownMenu.Portal>
+          <DropdownMenu.Content class="sp-menu" align="end" sideOffset={6}>
+            <DropdownMenu.CheckboxItem
+              class="sp-menu-item"
+              checked={turn.bookmarked === true}
+              onCheckedChange={() => onBookmark?.(turn.id)}
+              data-ega-bookmark
+            >
+              {#snippet children({ checked })}
+                <Icon icon={Star} size={16} />
+                <span class="sp-menu-label">Bookmark</span>
+                {#if checked}<Icon icon={Check} size={16} />{/if}
+              {/snippet}
+            </DropdownMenu.CheckboxItem>
+            <DropdownMenu.Item
+              class="sp-menu-item sp-menu-danger"
+              onSelect={() => onDelete?.(turn.id)}
+              data-ega-delete
+            >
+              <Icon icon={Trash2} size={16} />
+              <span class="sp-menu-label">Delete</span>
+            </DropdownMenu.Item>
+          </DropdownMenu.Content>
+        </DropdownMenu.Portal>
+      </DropdownMenu.Root>
+    </div>
   </div>
 </article>
 
 <style>
   .ega-user-turn {
-    align-self: flex-end;
-    max-width: 85%;
-    padding: var(--space-2) var(--space-3);
-    /* Transparent, not none: forced colors repaints it, so the bubble keeps its box when the tint goes. */
-    border: 1px solid transparent;
-    border-radius: var(--radius-md);
-    background: var(--color-accent-bg-soft);
-    color: var(--color-fg);
     display: flex;
     flex-direction: column;
-    gap: var(--space-1);
-    /* Matches the stream's own right-edge padding, so the card never overflows its row. */
-    min-width: 0;
-    max-inline-size: calc(100% - var(--space-3));
+    align-items: flex-end;
+    min-inline-size: 0;
+    border-radius: var(--radius-lg);
   }
   .ega-user-turn.focused {
     outline: 2px solid var(--color-accent);
     outline-offset: 2px;
   }
-  .ega-user-meta {
+  .ega-task-label {
+    margin: 0 0 var(--space-1);
+    font-size: var(--fs-sm);
+    line-height: var(--lh-body);
+    color: var(--color-muted);
+  }
+  .ega-bubble-wrap {
+    position: relative;
     display: flex;
-    align-items: center;
-    gap: var(--space-2);
+    flex-direction: column;
+    align-items: flex-end;
+    max-inline-size: 85%;
+    min-inline-size: 0;
   }
-  .ega-kind-badge {
-    font-size: var(--fs-xs);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    /* accent lands under 4.5:1 on the soft accent tint; accent-hover clears it in both themes. */
-    color: var(--color-accent-hover);
-    font-weight: 600;
+  .ega-bubble {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    min-inline-size: 0;
+    max-inline-size: 100%;
+    padding: var(--space-2) var(--space-3);
+    /* Transparent, not none: forced colors repaints it, so the bubble keeps its box. */
+    border: 1px solid transparent;
+    border-radius: var(--radius-lg);
+    background: var(--color-bg-hover);
+    color: var(--color-fg);
   }
-  .ega-timestamp {
-    font-size: var(--fs-xs);
-    color: var(--color-muted);
-    margin-left: auto;
-  }
-  .ega-user-image-missing,
-  .ega-user-trimmed {
-    font-size: var(--fs-xs);
-    color: var(--color-muted);
+  .ega-bubble.editing {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 0;
   }
   .ega-user-text {
-    font-size: var(--fs-sm);
+    font-size: var(--fs-md);
     line-height: var(--lh-body);
     white-space: pre-wrap;
     overflow-wrap: anywhere;
   }
-  /* Buttons rest muted (IconButton default) and gain emphasis per button on hover/focus. */
-  .ega-turn-actions {
+  .ega-bubble-note {
+    font-size: var(--fs-sm);
+    color: var(--color-muted);
+  }
+  .ega-user-toolbar {
     display: flex;
     align-items: center;
     gap: var(--space-1);
-    min-height: 32px;
-    margin-top: var(--space-1);
-    transition: opacity var(--motion-fast) var(--ease-out);
   }
-  /* Opacity, not display: the row keeps its height and its tab stop, so focus can still reveal it. */
+  /* Pointer devices: a toolbar floats over the bubble's top edge, out of flow, so nothing moves. */
   @media (hover: hover) {
-    .ega-user-turn.quiet:not(:hover):not(:focus-within) .ega-turn-actions {
+    .ega-user-toolbar {
+      position: absolute;
+      inset-block-start: calc(-1 * var(--space-5));
+      inset-inline-end: var(--space-2);
+      z-index: 2;
+      padding: var(--space-1);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      background: var(--color-bg-elevated);
+      box-shadow: 0 2px 8px var(--color-shadow-soft);
       opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--motion-fast) var(--ease-out);
+    }
+    .ega-user-turn:hover .ega-user-toolbar,
+    .ega-user-turn:focus-within .ega-user-toolbar {
+      opacity: 1;
+      pointer-events: auto;
     }
   }
-  .ega-copy-btn-wrap {
-    display: inline-flex;
-    border-radius: var(--radius-sm);
-  }
-  .ega-copy-btn-wrap.is-copied {
-    animation: ega-success-pulse 600ms ease-out;
-  }
-  @keyframes ega-success-pulse {
-    0% {
-      box-shadow: 0 0 0 0 var(--color-success-bg-soft, rgba(0 200 0 / 0.3));
-    }
-    100% {
-      box-shadow: 0 0 0 6px transparent;
+  /* Touch: the row sits under the bubble, always shown. */
+  @media (hover: none) {
+    .ega-user-toolbar {
+      margin-block-start: var(--space-1);
     }
   }
 </style>

@@ -1,46 +1,31 @@
 <script lang="ts">
+  import { onDestroy, tick, untrack } from 'svelte';
   import { debugCatch } from '@/shared/logger';
-  import { relativeTime } from '@/shared/relative-time';
-
   import ReplyDetails from '@/shared/components/ReplyDetails.svelte';
+  import ReplyMeta from '@/shared/components/ReplyMeta.svelte';
   import { imageModeOf } from '@/shared/components/reply-details';
   import DiffFadeText from '@/shared/components/DiffFadeText.svelte';
   import Markdown from '@/shared/components/Markdown.svelte';
-  import { formatDetectedLabel } from '@/shared/detected-label';
   import { langTag, replyLang } from '@/shared/lang-tag';
   import IconButton from '@/shared/ui/IconButton.svelte';
+  import Button from '@/shared/ui/Button.svelte';
   import Icon from '@/shared/ui/Icon.svelte';
-  import { DropdownMenu, Tooltip } from 'bits-ui';
-  import { backendLabel } from '@/shared/backends/provider-profiles';
   import Copy from '@lucide/svelte/icons/copy';
   import Check from '@lucide/svelte/icons/check';
-  import Info from '@lucide/svelte/icons/info';
   import RefreshCw from '@lucide/svelte/icons/refresh-cw';
-  import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
   import CircleAlert from '@lucide/svelte/icons/circle-alert';
-  import Star from '@lucide/svelte/icons/star';
-  import Trash2 from '@lucide/svelte/icons/trash-2';
-  import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
   import ChevronLeft from '@lucide/svelte/icons/chevron-left';
   import ChevronRight from '@lucide/svelte/icons/chevron-right';
-  import Ellipsis from '@lucide/svelte/icons/ellipsis';
-  import ArrowLeftRight from '@lucide/svelte/icons/arrow-left-right';
-  import ListChecks from '@lucide/svelte/icons/list-checks';
-  import WandSparkles from '@lucide/svelte/icons/wand-sparkles';
-  import Volume2 from '@lucide/svelte/icons/volume-2';
-  import Square from '@lucide/svelte/icons/square';
-  import { onDestroy, tick, untrack } from 'svelte';
   import { canSpeak, pickLocalVoice, speakWith, stopSpeaking } from '../speech';
-  import { toastStore } from '@/shared/components/toastStore';
   import {
     activeVariant as activeVariantOf,
-    errorTurnParts,
     isCancelledError,
     turnTaskValue,
     type SwapPair,
     type Turn,
   } from '../state/conversation';
-  import { builtInTask, taskGerund, type Task } from '@/shared/task-prompts';
+  import { refinePresets, answerAgainLabel, type RefinePreset } from '../state/refine-presets';
+  import { taskGerund } from '@/shared/task-prompts';
   import {
     SHIPPED_TASK_VIEWS,
     notesLabel,
@@ -48,18 +33,20 @@
     type TaskId,
     type TaskView,
   } from '@/shared/task-view';
-  import { isRetryable, optionsTabForMessage } from '@/shared/error-policy';
+  import { isRetryable } from '@/shared/error-policy';
+  import { errorCopy, errorActionLabel, type ErrorAction } from '@/shared/error-copy';
+  import { backendLabel } from '@/shared/backends/provider-profiles';
   import { ALL_ERR_CODES, type ErrCode, type LangSelection, type Variety } from '@/shared/types';
   import { isIsoCode, labelFor } from '@/shared/languages';
   import { openOptionsTab } from '@/shared/open-options-tab';
   import { IMAGE_TURN_PLACEHOLDER } from '@/shared/constants';
-  import QuickRefineChips from './QuickRefineChips.svelte';
+  import { directionLabel, replyMetaItems, type ConfidenceSetting } from '@/shared/reply-meta';
+  import ReplyMenus from './ReplyMenus.svelte';
 
   interface Props {
     turn: Turn;
     focused?: boolean;
     onRetry: (turnId: string) => void;
-    /** Request-scoped refinement, never persisted. Wired only on the latest turn. */
     onRefine?:
       | ((args: {
           turnId: string;
@@ -67,46 +54,36 @@
           refinementLabel?: string;
         }) => boolean | Promise<boolean>)
       | undefined;
-    /** Flip the active variant on this Turn. */
     onSelectVariant?: ((turnId: string, idx: number) => void) | undefined;
-    /** Gates the Refine and Re-run as buttons; every reply keeps the same card. */
+    /** The newest reply keeps its action row in view; older ones show it on hover or focus. */
     isLatest?: boolean;
-    /** False when the turn has no dispatch metadata to replay, so Retry stays hidden. */
+    /** False when the turn has no dispatch to replay: Regenerate, Refine and Answer again stay hidden. */
     canRetry?: boolean;
-    /** Swap source/target langs and re-dispatch. Only wired on the latest turn. */
-    onSwap?: ((turnId: string) => void) | undefined;
-    /** Re-dispatch with a different task. Only wired on the latest turn. */
-    onTaskSwitch?: ((turnId: string, task: TaskId) => void) | undefined;
-    /** True when this turn has no swap to run: a stream is running, no dispatch to replay, it carries an image, or no source language is known. */
-    swapDisabled?: boolean;
-    /** The pair the swap would run with; the swap item names it. Null or absent shows the bare label. */
+    /** The swap this reply's Refine menu can run, or null. */
     swapPair?: SwapPair | null;
-    /** Regenerate a new variant for this turn. Gated on done + canRetry. */
+    onSwap?: ((turnId: string) => void) | undefined;
+    onTaskSwitch?: ((turnId: string, task: TaskId) => void) | undefined;
+    onTranslateInto?: ((turnId: string, lang: LangSelection) => void) | undefined;
+    onDescribeChange?: ((turnId: string) => void) | undefined;
+    /** This reply is the one "Describe a change…" is open for. */
+    changing?: boolean;
     onRegenerate?: ((id: string) => void) | undefined;
-    /** Bookmark toggle for this turn. */
     onBookmark?: ((id: string) => void) | undefined;
-    /** Delete this turn and its paired user/assistant turn. */
     onDelete?: ((id: string) => void) | undefined;
-    /** False hides the confidence pill whatever the threshold — same setting the tooltip reads. */
-    confidencePill?: boolean;
-    /** Hide the confidence pill below this score — same setting the tooltip reads. */
-    confidencePillThreshold?: number;
-    /** True while another turn is streaming; every re-dispatch bails until it settles. */
+    confidence?: ConfidenceSetting;
+    /** Another reply runs; every re-run would bail until it settles. */
     inflight?: boolean;
-    /** Enabled varieties — labels the language chip on a language-change variant. */
     varieties?: readonly Variety[];
-    /** Every task, on or off. Re-run as offers the ones that are on; the turn's own task, when off or deleted, shows disabled. */
     taskViews?: readonly TaskView[] | undefined;
-    /** True when the paired user turn carries an image, whatever kind the send used. */
     hasImage?: boolean;
-    /** The language the paired send asked for; Read aloud picks its voice from it. */
     targetLang?: LangSelection | undefined;
-    /** Source language the send named; Reword and Grammar read aloud in it when the model named none. */
     sourceLang?: LangSelection | undefined;
-    /** Clock the stream ticks, so the relative timestamp does not freeze at "just now". */
-    now?: number;
+    /** The composer's target, so the Refine menu can offer "Translate into {it}". */
+    composerTarget?: string | undefined;
     /** The message this reply answers, as it was sent. */
     sentText?: string;
+    /** Opens Settings, for "Turn on Record request details". */
+    onOpenSettings?: (() => void) | undefined;
   }
 
   const {
@@ -117,220 +94,48 @@
     onSelectVariant,
     isLatest = false,
     canRetry = true,
+    swapPair = null,
     onSwap,
     onTaskSwitch,
-    swapDisabled = false,
-    swapPair = null,
+    onTranslateInto,
+    onDescribeChange,
+    changing = false,
     onRegenerate,
     onBookmark,
     onDelete,
-    confidencePill = true,
-    confidencePillThreshold = 0,
+    confidence = { show: true, threshold: 0 },
     inflight = false,
     varieties = [],
     taskViews = SHIPPED_TASK_VIEWS,
     hasImage = false,
     targetLang,
     sourceLang,
-    now = Date.now(),
+    composerTarget,
     sentText = '',
+    onOpenSettings,
   }: Props = $props();
-
-  // image-translate has no Task mapping, and the vision arm never receives a refinement, so an image turn gets no chips.
-  const refineTask = $derived.by<Task | null>(() => {
-    if (turn.status !== 'done') return null;
-    if (!isLatest) return null;
-    if (!onRefine) return null;
-    if (hasImage || turn.kind === 'image-translate') return null;
-    // A custom task has its own prompt, which the preset chips were not written for.
-    return builtInTask(turnTaskValue(turn));
-  });
 
   const variantCount = $derived(turn.variants?.length ?? 0);
   const activeIdx = $derived(turn.activeVariantIdx ?? 0);
   const activeVariant = $derived(activeVariantOf(turn));
+  const imageTurn = $derived(hasImage || turn.kind === 'image-translate');
+  const currentTaskValue = $derived(turnTaskValue(turn));
+  const answering = $derived(turn.status === 'pending' || turn.status === 'streaming');
 
-  // A variant only mirrors onto the turn while it is active, so a sibling streams invisibly.
+  // A version only mirrors onto the turn while it is active, so a sibling streams out of sight.
   const hiddenBusyIdx = $derived.by(() => {
     const vs = turn.variants ?? [];
     const i = vs.findIndex((v) => v.status === 'pending' || v.status === 'streaming');
     return i >= 0 && i !== activeIdx ? i : -1;
   });
-  const refinementBody = $derived(activeVariant?.refinementBody);
-  const refinementChipLabel = $derived(activeVariant?.refinementLabel);
-  const refinementLabel = $derived.by(() => {
-    if (!refinementBody) return '';
-    if (refinementChipLabel !== undefined) return `Refined: ${refinementChipLabel}`;
-    const trimmed = refinementBody.length > 60 ? `${refinementBody.slice(0, 59)}…` : refinementBody;
-    return `Refined: "${trimmed}"`;
-  });
-  const variantLang = $derived(activeVariant?.targetLang);
-  const langName = (lang: LangSelection): string =>
+
+  const langName = (lang: string): string =>
     varieties.find((v) => v.id === lang)?.label ?? labelFor(lang);
-  const variantLangLabel = $derived(variantLang === undefined ? '' : langName(variantLang));
 
-  const currentTaskValue = $derived(turnTaskValue(turn));
-  // The stored context is the turn's; the router records per reply whether it went. Older replies fall back to the task's switch.
-  const contextShown = $derived(
-    (turn.meta?.pageContextSent ??
-      taskViews.find((v) => v.id === currentTaskValue)?.pageContext ??
-      true)
-      ? turn.contextSent
-      : null,
-  );
-  // Translate reads an image with the built-in image prompt; any other task sends its own prompt with the image.
-  const imageMode = $derived(
-    imageModeOf(
-      turn.meta,
-      hasImage || turn.kind === 'image-translate'
-        ? currentTaskValue === 'translate'
-          ? 'ocr'
-          : 'task'
-        : undefined,
-    ),
-  );
-  const detailsText = $derived(sentText === IMAGE_TURN_PLACEHOLDER ? '' : sentText);
-  // Only translate and explain reach the vision arm in router.ts; the rest would send the "[image]" marker as text.
-  const taskOptions = $derived.by<readonly { id: TaskId; label: string; off: boolean }[]>(() => {
-    const imageTurn = hasImage || turn.kind === 'image-translate';
-    const out = taskViews
-      .filter((v) => (!imageTurn || v.image) && (!v.disabled || v.id === currentTaskValue))
-      .map((v) => ({ id: v.id, label: v.label, off: v.disabled }));
-    if (!out.some((o) => o.id === currentTaskValue)) {
-      out.push({ id: currentTaskValue, label: taskLabel(taskViews, currentTaskValue), off: true });
-    }
-    return out;
-  });
-
-  // With a fallback chain the user cannot tell which key to fix unless the card names the backend.
-  const failedBackend = $derived(
-    turn.error?.backendId === undefined ? '' : ` (${backendLabel(turn.error.backendId)})`,
-  );
-
-  // A deliberate stop is not a failure: no red, no "Error:" prefix, no alert role.
-  const isCancelled = $derived(isCancelledError(turn.error?.code));
-
-  // A null swapPair folds a running reply, an image and an unknown source into one value, so the reason reads the props that tell them apart.
-  const swapReason = $derived(
-    inflight
-      ? 'wait for this reply to finish'
-      : hasImage
-        ? 'images have no source language to swap'
-        : swapPair?.blocked === 'same-language'
-          ? 'source and target are the same language'
-          : swapPair?.blocked === 'answered'
-            ? 'already answered this way'
-            : swapDisabled
-              ? 'no source language to swap from yet'
-              : undefined,
-  );
-  const swapBlocked = $derived(swapReason !== undefined);
-  // The reason is visible text in the item, not a tooltip: a menu item has no hover label.
-  const swapNote = $derived(
-    swapReason === undefined ? '' : swapReason.charAt(0).toUpperCase() + swapReason.slice(1),
-  );
-  const swapItemLabel = $derived(
-    swapPair === null || swapBlocked
-      ? 'Swap languages'
-      : `Swap languages (${langName(swapPair.sourceLang)} → ${langName(swapPair.targetLang)})`,
-  );
-  // Swap and the task re-runs replay the send, so they need a finished latest reply that can be retried.
-  const showTryAs = $derived(
-    isLatest && turn.status === 'done' && onSwap !== undefined && canRetry,
-  );
-  // A setter keeps a busy reply from opening it (bits writes open first); a pick closes it, as the re-run unmounts it before bits can.
-  let taskMenuOpen = $state(false);
-  let taskMenuEl: HTMLElement | null = $state(null);
-
-  // bits lands on the first item, Swap, so Enter then Enter would start a paid re-run. The checked task re-runs nothing.
-  // A checked task that is off or deleted is disabled, so bits' own pick, the first enabled item, wins then.
-  function onTaskMenuOpenFocus(e: Event): void {
-    const checked = taskMenuEl?.querySelector<HTMLElement>(
-      '[aria-checked="true"]:not([data-disabled])',
-    );
-    if (!checked) return;
-    e.preventDefault();
-    checked.focus({ preventScroll: true });
-  }
-
-  // The chips stay hidden until asked for, so the newest reply is not followed by a row of buttons.
-  let refineOpen = $state(false);
-  // Lives here, not in the chips, so closing the row keeps what the user typed until it is sent.
-  let refineDraft = $state('');
-  const refineRowId = $derived(`ega-refine-${turn.id}`);
-  // A refine that dispatched turns the reply pending, and a newer reply takes the chips away: both close the row.
-  $effect(() => {
-    if (refineTask === null) refineOpen = false;
-  });
-
-  async function toggleRefine(): Promise<void> {
-    refineOpen = !refineOpen;
-    if (!refineOpen) return;
-    await tick();
-    document
-      .getElementById(refineRowId)
-      ?.querySelector<HTMLElement>('button:not(:disabled)')
-      ?.focus();
-  }
-
-  function onRefineRowKeydown(e: KeyboardEvent): void {
-    if (e.key !== 'Escape') return;
-    // The panel's Escape would cancel a running reply.
-    e.preventDefault();
-    refineOpen = false;
-    actionsEl?.querySelector<HTMLElement>("[data-ega-action='refine']")?.focus();
-  }
-
-  const knownCode = $derived.by<ErrCode | null>(() => {
-    const code = turn.error?.code;
-    if (code === undefined) return null;
-    return (ALL_ERR_CODES as readonly string[]).includes(code) ? (code as ErrCode) : null;
-  });
-  const optionsTab = $derived(optionsTabForMessage(turn.error?.message ?? '', knownCode));
-
-  // A second failure on the same slot is not bad luck; offer the backend list even when the code names no tab.
-  const fallbackTab = $derived(
-    optionsTab === undefined && (turn.retries ?? 0) >= 1 && turn.status === 'error' && !isCancelled
-      ? ('backends' as const)
-      : undefined,
-  );
-
-  // A cancel is neutral, so it keeps Retry like the tooltip does; codes outside the policy
-  // table ('unknown') keep it rather than lose it. An error Settings can fix keeps it too: fix, then retry.
-  const showRetry = $derived.by(() => {
-    if (!canRetry) return false;
-    if (turn.error?.code === undefined) return false;
-    if (isCancelled) return true;
-    return knownCode === null || isRetryable(knownCode) || optionsTab !== undefined;
-  });
-
-  // A re-run unmounts the action row with the button or menu item that started it, and focus would drop to <body>.
-  // Only on the step into answering (a retried failure mounts as a new pending turn, so it counts), never a pending → streaming tick.
-  let articleEl: HTMLElement | null = $state(null);
-  const answering = $derived(turn.status === 'pending' || turn.status === 'streaming');
-  let wasAnswering = untrack(() => answering && (turn.retries ?? 0) === 0);
-  $effect(() => {
-    const now = answering;
-    const el = articleEl;
-    // Wait for the bind: a mount-time step must still be pending when the element lands.
-    if (el === null) return;
-    const started = now && !wasAnswering;
-    wasAnswering = now;
-    if (!started) return;
-    const active = document.activeElement;
-    if (active === null || active === document.body) el.focus({ preventScroll: true });
-  });
-
-  // `article` is not name-from-content, so without a label a j/k-focused reply is announced as a bare "article".
-  const srLabel = $derived(
-    variantCount > 1 ? `Ega reply · ${activeIdx + 1} of ${variantCount} variants` : 'Ega reply',
-  );
-
-  const speakable = canSpeak();
-  let speaking = $state(false);
-  // The input language is the one the model named, else the one the send named; a swap variant keeps it, as these
-  // prompts never send a source. A variety id or an unnamed Auto-detect source names no voice, so the default voice reads.
+  // The input language is the one the model named, else the one the send named; a swap version keeps its own.
   const answerTarget = $derived(activeVariant?.targetLang ?? targetLang);
+  const answerSource = $derived(activeVariant?.sourceLang ?? sourceLang);
+  // Reword and Grammar answer in the input's language, which a swap version never re-sends.
   const answerLang = $derived(
     replyLang(currentTaskValue, answerTarget, turn.detectedLang ?? sourceLang),
   );
@@ -339,8 +144,46 @@
   );
   // The panel is lang=en; a reply with no tag is marked unknown ('') rather than read as English.
   const answerTag = $derived(langTag(answerLang) ?? '');
-  // The notes are written in the target, whatever language the answer is in.
   const notesTag = $derived(langTag(answerTarget) ?? '');
+
+  const direction = $derived(
+    directionLabel({
+      detected:
+        turn.detectedLangs !== undefined && turn.detectedLangs.length > 0
+          ? turn.detectedLangs
+          : turn.detectedLang !== undefined
+            ? [
+                turn.detectedDetail !== undefined
+                  ? { id: turn.detectedLang, detail: turn.detectedDetail }
+                  : { id: turn.detectedLang },
+              ]
+            : [],
+      ...(answerSource !== undefined ? { sourceLang: answerSource } : {}),
+      ...(answerTarget !== undefined ? { targetLang: answerTarget } : {}),
+      sourceOnly: currentTaskValue === 'reword' || currentTaskValue === 'grammar',
+      varieties,
+    }),
+  );
+
+  const refinementBody = $derived(activeVariant?.refinementBody);
+  // What made this version, as the meta line names it; a language change shows in the direction instead.
+  const versionLabel = $derived.by(() => {
+    if (refinementBody !== undefined) return activeVariant?.refinementLabel ?? 'Your change';
+    if (activeVariant?.task !== undefined) return `As ${taskLabel(taskViews, activeVariant.task)}`;
+    return undefined;
+  });
+
+  // Speech and copy notes live in the meta line for a few seconds, next to the reply they are about.
+  let transient = $state<string | null>(null);
+  let transientTimer: ReturnType<typeof setTimeout> | undefined;
+  function note(text: string, ms: number): void {
+    clearTimeout(transientTimer);
+    transient = text;
+    transientTimer = setTimeout(() => (transient = null), ms);
+  }
+
+  const speakable = canSpeak();
+  let speaking = $state(false);
   // The end event of a cancelled read can land after the next read started.
   let speechRun = 0;
 
@@ -356,10 +199,10 @@
     if (run !== speechRun || !speaking) return;
     if (voice === undefined) {
       speaking = false;
-      toastStore.push({
-        message: 'This computer has no voice installed to read this aloud.',
-        variant: 'warning',
-      });
+      note(
+        `No voice for ${speechLang !== undefined ? labelFor(speechLang) : 'this language'} on this computer`,
+        6000,
+      );
       return;
     }
     speakWith(voice, turn.content, () => {
@@ -367,7 +210,7 @@
     });
   }
 
-  // A refine or regenerate replaces the text being read and hides the Stop button with it.
+  // A refine or regenerate replaces the text being read.
   $effect(() => {
     const done = turn.status === 'done';
     const on = speaking;
@@ -377,32 +220,177 @@
     speaking = false;
   });
 
-  // A voice pick still waiting on the voice list must not start reading for a removed turn.
   onDestroy(() => {
     speechRun++;
+    clearTimeout(transientTimer);
     if (speaking) stopSpeaking();
   });
 
-  // Excludes what is disabled, not just what is absent: a tab stop parked on a disabled
-  // button takes the whole row out of the tab order, because disabled is unfocusable.
+  const partial = $derived(turn.status === 'error' && turn.content !== '');
+  const statusText = $derived.by(() => {
+    if (answering) return `${taskGerund(currentTaskValue)}…`;
+    if (transient !== null) return transient;
+    if (speaking) return 'Reading aloud';
+    if (hiddenBusyIdx >= 0) return `Version ${hiddenBusyIdx + 1} loading…`;
+    if (partial) return 'Partial answer';
+    return undefined;
+  });
+  const metaItems = $derived(
+    replyMetaItems({
+      ...(statusText !== undefined ? { status: statusText } : {}),
+      bookmarked: turn.bookmarked === true,
+      meta: answering ? undefined : turn.meta,
+      direction: answering ? '' : direction,
+      ...(versionLabel !== undefined && !answering ? { version: versionLabel } : {}),
+      confidence: answering ? undefined : turn.confidence,
+      confidenceSetting: confidence,
+    }),
+  );
+
+  // ── Errors ─────────────────────────────────────────────────────────────────
+  const isCancelled = $derived(isCancelledError(turn.error?.code));
+  const knownCode = $derived.by<ErrCode | null>(() => {
+    const code = turn.error?.code;
+    if (code === undefined) return null;
+    return (ALL_ERR_CODES as readonly string[]).includes(code) ? (code as ErrCode) : null;
+  });
+  // "interrupted" is the panel's own: the reply was saved mid-stream when the panel closed.
+  const copy = $derived.by(() => {
+    const e = turn.error;
+    if (e === undefined || isCancelled) return null;
+    if (e.code === 'interrupted') {
+      return {
+        title: 'Reply interrupted',
+        body: 'The panel closed before this finished.',
+        actions: ['try-again'] as readonly ErrorAction[],
+        tab: 'backends' as const,
+        detail: undefined,
+      };
+    }
+    return errorCopy(e.code, e.message, {
+      ...(e.backendId !== undefined ? { backend: backendLabel(e.backendId) } : {}),
+      image: imageTurn,
+    });
+  });
+  // A cancel is neutral and keeps its Try again; an error Settings can fix keeps it too: fix, then retry.
+  const canTryAgain = $derived.by(() => {
+    if (!canRetry || turn.error?.code === undefined) return false;
+    if (isCancelled || turn.error.code === 'interrupted') return true;
+    return (
+      knownCode === null ||
+      isRetryable(knownCode) ||
+      (copy?.actions.includes('open-settings') ?? false)
+    );
+  });
+  const errorActions = $derived.by<readonly ErrorAction[]>(() => {
+    const out = (copy?.actions ?? []).filter(
+      (a) => a === 'open-settings' || (a === 'try-again' && canTryAgain),
+    );
+    // A second failure on the same slot is not bad luck; offer the backends even when the code names no fix.
+    if ((turn.retries ?? 0) >= 1 && !out.includes('open-settings'))
+      return [...out, 'open-settings'];
+    return out;
+  });
+  let detailsOpen = $state(false);
+
+  // Ticks once a second only while a Retry-After window is open, then stops.
+  let nowMs = $state(Date.now());
+  const retryWaitSec = $derived.by(() => {
+    const until = turn.error?.retryUntil;
+    if (until === undefined) return 0;
+    return Math.max(0, Math.ceil((until - nowMs) / 1000));
+  });
+  $effect(() => {
+    const until = turn.error?.retryUntil;
+    nowMs = Date.now();
+    if (until === undefined || until <= Date.now()) return;
+    const t = setInterval(() => {
+      const now = Date.now();
+      nowMs = now;
+      if (now >= until) clearInterval(t);
+    }, 1000);
+    return () => clearInterval(t);
+  });
+
+  function runErrorAction(a: ErrorAction): void {
+    if (a === 'open-settings') {
+      openOptionsTab(
+        (turn.retries ?? 0) >= 1 && !copy?.actions.includes('open-settings')
+          ? 'backends'
+          : (copy?.tab ?? 'backends'),
+      );
+      return;
+    }
+    if (retryWaitSec > 0 || inflight) return;
+    onRetry(turn.id);
+  }
+
+  function errorActionName(a: ErrorAction): string {
+    if (a !== 'try-again') return errorActionLabel(a);
+    if (retryWaitSec > 0) return errorActionLabel(a, retryWaitSec);
+    return inflight ? 'Try again (wait for the current reply)' : 'Try again';
+  }
+
+  // ── Focus on a re-run ──────────────────────────────────────────────────────
+  // A re-run unmounts the row with the button or item that started it; focus would drop to <body>.
+  let articleEl: HTMLElement | null = $state(null);
+  let wasAnswering = untrack(() => answering && (turn.retries ?? 0) === 0);
+  $effect(() => {
+    const now = answering;
+    const el = articleEl;
+    if (el === null) return;
+    const started = now && !wasAnswering;
+    wasAnswering = now;
+    if (!started) return;
+    const active = document.activeElement;
+    if (active === null || active === document.body) el.focus({ preventScroll: true });
+  });
+
+  const srLabel = $derived(
+    variantCount > 1 ? `Ega reply, version ${activeIdx + 1} of ${variantCount}` : 'Ega reply',
+  );
+
+  // ── Action row ─────────────────────────────────────────────────────────────
+  const canRerun = $derived(canRetry && onRefine !== undefined);
+  const presets = $derived<readonly RefinePreset[]>(
+    imageTurn ? [] : refinePresets(currentTaskValue),
+  );
+  const translateInto = $derived(
+    composerTarget !== undefined && composerTarget !== answerLang
+      ? { id: composerTarget, label: langName(composerTarget) }
+      : null,
+  );
+  const swapLabel = $derived(
+    swapPair === null || swapPair.blocked !== undefined || imageTurn
+      ? null
+      : `Swap: ${langName(swapPair.sourceLang)} → ${langName(swapPair.targetLang)}`,
+  );
+  // Image replies can only re-run as a task that reads images.
+  const answerAgain = $derived(
+    !canRetry || onTaskSwitch === undefined
+      ? []
+      : taskViews
+          .filter((v) => !v.disabled && v.id !== currentTaskValue && (!imageTurn || v.image))
+          .map((v) => ({ id: v.id, label: answerAgainLabel(v.id, v.label) })),
+  );
+  const refined = $derived(refinementBody !== undefined);
+  let showChanges = $state(false);
+
+  // One tab stop for the row; arrows move inside it. Hidden items are left out, never disabled ones.
   const actionKeys = $derived<readonly string[]>([
     'copy',
-    ...(speakable && turn.content !== '' ? ['speak'] : []),
-    ...(canRetry && !inflight ? ['regenerate'] : []),
-    ...(turn.meta || turn.contextSent !== undefined ? ['details'] : []),
-    ...(refineTask ? ['refine'] : []),
-    ...(showTryAs ? ['try-as'] : []),
+    ...(canRetry ? ['regenerate'] : []),
+    ...(canRerun ? ['refine'] : []),
     'more',
+    ...(variantCount > 1 ? ['prev', 'next'] : []),
   ]);
-
   let actionsEl: HTMLElement | null = $state(null);
   let pickedAction = $state('copy');
-  // Clamped, not stored: the edit and details buttons come and go with the turn.
   const activeAction = $derived(
     actionKeys.includes(pickedAction) ? pickedAction : (actionKeys[0] ?? 'copy'),
   );
+  const tab = (key: string): number => (activeAction === key ? 0 : -1);
 
-  // A click moves focus without touching pickedAction, so the next arrow would jump from the wrong button.
   function onActionsFocusIn(e: FocusEvent): void {
     const key = (e.target as HTMLElement | null)
       ?.closest('[data-ega-action]')
@@ -410,18 +398,7 @@
     if (key !== null && key !== undefined && actionKeys.includes(key)) pickedAction = key;
   }
 
-  // One tab stop per turn instead of one per button; arrows move inside the row.
   function onActionsKeydown(e: KeyboardEvent): void {
-    // Escape on the pressed Refine button closes its row; the panel's Escape would cancel a running reply.
-    if (
-      e.key === 'Escape' &&
-      refineOpen &&
-      (e.target as HTMLElement | null)?.closest('[data-ega-refine-toggle]')
-    ) {
-      e.preventDefault();
-      refineOpen = false;
-      return;
-    }
     const idx = actionKeys.indexOf(activeAction);
     let next: number;
     if (e.key === 'ArrowRight') next = (idx + 1) % actionKeys.length;
@@ -439,262 +416,173 @@
   }
 
   let copied = $state(false);
-  let inspectorOpen = $state(false);
-  // The label truncates at 60 chars, and a hover tooltip is not reachable from the keyboard.
-  let refinementExpanded = $state(false);
-
-  // Ticks once a second only while a Retry-After window is open, then stops.
-  let nowMs = $state(Date.now());
-  const retryWaitSec = $derived.by(() => {
-    const until = turn.error?.retryUntil;
-    if (until === undefined) return 0;
-    return Math.max(0, Math.ceil((until - nowMs) / 1000));
-  });
-  $effect(() => {
-    const until = turn.error?.retryUntil;
-    // Refresh now: nowMs was seeded at mount, and the error can land many seconds later.
-    nowMs = Date.now();
-    if (until === undefined || until <= Date.now()) return;
-    const t = setInterval(() => {
-      const now = Date.now();
-      nowMs = now;
-      if (now >= until) clearInterval(t);
-    }, 1000);
-    return () => clearInterval(t);
-  });
-
-  async function copyToClipboard(): Promise<void> {
+  async function copyReply(): Promise<void> {
     if (!turn.content) return;
     try {
       await navigator.clipboard.writeText(turn.content);
       copied = true;
       setTimeout(() => (copied = false), 1500);
     } catch (e) {
-      debugCatch(e, 'sidepanel.conversation.AssistantTurn.1');
+      debugCatch(e, 'sidepanel.AssistantTurn.copy');
+      note("Couldn't copy. Try again.", 4000);
     }
   }
 
-  const detectedLabel = $derived(
-    formatDetectedLabel(turn.detectedLang, turn.detectedDetail, varieties),
-  );
-  const multiVarietyPills = $derived(
-    turn.detectedLangs && turn.detectedLangs.length >= 2
-      ? turn.detectedLangs.map((v) => formatDetectedLabel(v.id, v.detail, varieties))
+  let aboutOpen = $state(false);
+  async function setAbout(open: boolean): Promise<void> {
+    aboutOpen = open;
+    await tick();
+    if (open) articleEl?.querySelector<HTMLElement>('[data-ega-inspector-title]')?.focus();
+    else actionsEl?.querySelector<HTMLElement>("[data-ega-action='more']")?.focus();
+  }
+
+  const contextShown = $derived(
+    (turn.meta?.pageContextSent ??
+      taskViews.find((v) => v.id === currentTaskValue)?.pageContext ??
+      true)
+      ? turn.contextSent
       : null,
   );
+  const imageMode = $derived(
+    imageModeOf(
+      turn.meta,
+      imageTurn ? (currentTaskValue === 'translate' ? 'ocr' : 'task') : undefined,
+    ),
+  );
+  const detailsText = $derived(sentText === IMAGE_TURN_PLACEHOLDER ? '' : sentText);
 
+  // Diff only refine versions: an edited question's fresh answer against the old one is noise.
   const prevVariant = $derived(
     turn.variants && activeIdx > 0 ? turn.variants[activeIdx - 1] : undefined,
   );
-  // Diff only refine variants: an edited question's fresh answer vs the old answer is noise, not a revision.
   const diffAgainst = $derived(
     refinementBody !== undefined && prevVariant?.status === 'done'
       ? prevVariant.content
       : undefined,
   );
   const showDiff = $derived(
-    turn.status === 'done' && diffAgainst !== undefined && diffAgainst !== turn.content,
+    showChanges &&
+      turn.status === 'done' &&
+      diffAgainst !== undefined &&
+      diffAgainst !== turn.content,
   );
 </script>
 
 <article
-  class="ega-assistant-turn"
+  class="ega-reply"
   class:focused
-  class:is-answering={turn.status === 'pending' || turn.status === 'streaming'}
+  class:older={!isLatest}
   tabindex="-1"
   aria-label={srLabel}
   data-turn-id={turn.id}
+  data-ega-reply
   bind:this={articleEl}
 >
-  {#if variantCount > 1 || turn.status === 'done'}
-    <header class="ega-assistant-meta">
-      {#if turn.status === 'done'}
-        <!-- What answered and how sure it was sit with the time, so the action row holds only buttons and fits 400px. -->
-        {#if confidencePill && typeof turn.confidence === 'number' && turn.confidence > 0 && turn.confidence >= confidencePillThreshold}
-          {@const pct = (turn.confidence * 100).toFixed(0)}
-          <span
-            class="ega-pill"
-            data-ega-confidence
-            data-tooltip="How sure the model is about this reply"
-            data-tooltip-placement="top">{pct}% confident</span
-          >
-        {/if}
-        {#if multiVarietyPills}
-          <span class="ega-lang-cluster" data-ega-multi-variety>
-            {#each multiVarietyPills as label, i (i)}
-              <span class="ega-pill ega-lang-pill" data-tooltip={label} data-tooltip-placement="top"
-                >{label}</span
-              >
-            {/each}
-          </span>
-        {:else if detectedLabel}
-          <span
-            class="ega-pill ega-lang-pill"
-            data-tooltip={detectedLabel}
-            data-tooltip-placement="top">{detectedLabel}</span
-          >
-        {/if}
-        {#if turn.meta}
-          <!-- A cache hit records no backend, so it says where the answer came from instead. -->
-          {#if turn.meta.cacheHit}
-            <span
-              class="ega-pill ega-backend-pill"
-              data-tooltip="Answered from the cache"
-              data-tooltip-placement="top">Cached</span
-            >
-          {:else if turn.meta.backendId !== 'unknown'}
-            {@const answeredBy = backendLabel(turn.meta.backendId)}
-            <span
-              class="ega-pill ega-backend-pill"
-              data-tooltip={`Answered by ${answeredBy}`}
-              data-tooltip-placement="top">{answeredBy}</span
-            >
-          {/if}
-        {/if}
-        <time
-          class="ega-timestamp"
-          data-ega-timestamp
-          datetime={new Date(turn.createdAt).toISOString()}
-          data-tooltip={new Date(turn.createdAt).toLocaleString()}
-          data-tooltip-placement="top">{relativeTime(turn.createdAt, now)}</time
-        >
-      {/if}
-      {#if variantCount > 1}
-        <div class="ega-variant-nav" data-ega-variant-nav>
-          <button
-            type="button"
-            class="ega-variant-btn"
-            data-ega-variant-prev
-            aria-label="Previous variant"
-            disabled={activeIdx <= 0}
-            onclick={() => onSelectVariant?.(turn.id, activeIdx - 1)}
-          >
-            <ChevronLeft size={14} />
-          </button>
-          <span class="ega-variant-counter" aria-live="polite">
-            {activeIdx + 1}/{variantCount}
-            {#if hiddenBusyIdx >= 0}
-              <span class="ega-variant-busy" data-ega-variant-busy
-                >· {hiddenBusyIdx + 1} loading</span
-              >
-            {/if}
-          </span>
-          <button
-            type="button"
-            class="ega-variant-btn"
-            data-ega-variant-next
-            aria-label="Next variant"
-            disabled={activeIdx >= variantCount - 1}
-            onclick={() => onSelectVariant?.(turn.id, activeIdx + 1)}
-          >
-            <ChevronRight size={14} />
-          </button>
-        </div>
-      {/if}
-    </header>
-  {/if}
   {#if turn.status === 'error' && turn.error}
-    {#if turn.content !== ''}
+    {#if partial}
       <!-- A cut stream can end mid-token, so the partial text renders plain, never through Markdown. -->
-      <div class="ega-assistant-body" dir="auto" lang={answerTag}>
-        <span class="ega-streaming-plain">{turn.content}</span>
+      <div class="ega-answer" dir="auto" lang={answerTag}>
+        <span class="ega-plain">{turn.content}</span>
       </div>
+      <ReplyMeta items={metaItems} />
     {/if}
     {#if isCancelled}
-      <div class="ega-assistant-cancelled" data-ega-cancelled role="status">Canceled</div>
-    {:else}
-      {@const parts = errorTurnParts(turn.error)}
-      <div class="ega-assistant-error" role="alert">
-        <strong class="ega-error-title"
-          ><CircleAlert size={14} aria-hidden="true" />{parts.title}{failedBackend}</strong
-        >
-        {#if parts.body}
-          <span class="ega-error-body">{parts.body}</span>
-        {/if}
-        {#if parts.detail !== undefined}
-          <details class="ega-error-details">
-            <summary>Details</summary>
-            <code>{parts.detail}</code>
-          </details>
+      <p class="ega-stopped" role="status" data-ega-cancelled>Stopped</p>
+      {#if canTryAgain}
+        <div class="ega-error-actions">
+          <Button
+            variant="ghost"
+            size="sm"
+            dataAttrs={{ 'data-ega-retry': 'true' }}
+            onclick={() => runErrorAction('try-again')}>{errorActionName('try-again')}</Button
+          >
+        </div>
+      {/if}
+    {:else if copy}
+      <div class="ega-error" data-ega-error>
+        <div role="alert">
+          <p class="ega-error-title">
+            <Icon icon={CircleAlert} size={16} />{copy.title}
+          </p>
+          <p class="ega-error-body">{copy.body}</p>
+        </div>
+        <div class="ega-error-actions">
+          {#if partial}
+            <IconButton
+              icon={copied ? Check : Copy}
+              ariaLabel={copied ? 'Copied' : 'Copy'}
+              size="sm"
+              dataAttrs={{ 'data-ega-action': 'copy' }}
+              onclick={() => void copyReply()}
+            />
+          {/if}
+          {#each errorActions as a, i (a)}
+            {@const waiting = a === 'try-again' && (retryWaitSec > 0 || inflight)}
+            <Button
+              variant={i === 0 ? 'secondary' : 'ghost'}
+              size="sm"
+              dataAttrs={{
+                ...(a === 'try-again'
+                  ? { 'data-ega-retry': 'true' }
+                  : { 'data-ega-sidepanel-open-options': 'true' }),
+                ...(waiting ? { 'aria-disabled': 'true' } : {}),
+              }}
+              onclick={() => runErrorAction(a)}>{errorActionName(a)}</Button
+            >
+          {/each}
+          {#if copy.detail !== undefined}
+            <Button
+              variant="ghost"
+              size="sm"
+              dataAttrs={{ 'aria-expanded': String(detailsOpen), 'data-ega-error-details': 'true' }}
+              onclick={() => (detailsOpen = !detailsOpen)}>Details {detailsOpen ? '▾' : '▸'}</Button
+            >
+          {/if}
+        </div>
+        {#if detailsOpen && copy.detail !== undefined}
+          <pre class="ega-error-detail">{copy.detail}</pre>
         {/if}
       </div>
     {/if}
-    <div class="ega-assistant-actions">
-      {#if turn.content !== ''}
-        <span class="ega-copy-btn-wrap" class:is-copied={copied}>
-          <IconButton
-            icon={copied ? Check : Copy}
-            ariaLabel={copied ? 'Copied' : 'Copy partial reply'}
-            size="md"
-            onclick={() => void copyToClipboard()}
-          />
-        </span>
-        <span class="ega-partial-note">(partial)</span>
-      {/if}
-      {#if showRetry}
-        <button
-          type="button"
-          class="ega-error-action-btn ega-retry-btn"
-          disabled={retryWaitSec > 0 || inflight}
-          onclick={() => onRetry(turn.id)}
-        >
-          <RotateCcw size={14} />
-          {#if retryWaitSec > 0}
-            Retry in {retryWaitSec}s
-          {:else if inflight}
-            Retry when this reply finishes
-          {:else}
-            Retry
-          {/if}
-        </button>
-      {/if}
-      {#if (optionsTab ?? fallbackTab) !== undefined}
-        {@const tab = optionsTab ?? fallbackTab}
-        <button
-          type="button"
-          class="ega-error-action-btn"
-          data-ega-sidepanel-open-options
-          onclick={() => tab !== undefined && openOptionsTab(tab)}
-        >
-          <SlidersHorizontal size={14} />
-          {optionsTab === undefined ? 'Check your backends' : 'Open settings'}
-        </button>
-      {/if}
-    </div>
   {:else}
-    <!-- Only model text takes the reply's language: the skeleton and the empty-reply line are English UI. -->
-    <div class="ega-assistant-body" dir="auto" lang={turn.content !== '' ? answerTag : undefined}>
+    <!-- Only model text takes the reply's language: the skeleton and the empty line are English UI. -->
+    <div class="ega-answer" dir="auto" lang={turn.content !== '' ? answerTag : undefined}>
       {#if turn.status === 'pending' && turn.content === ''}
-        <!-- The stream's sr-only announcer speaks this; the log itself is aria-live=off. -->
-        <span class="ega-stream-skeleton">
-          <span class="ega-stream-skeleton-label">{taskGerund(currentTaskValue)}…</span>
-          <span class="ega-stream-skeleton-bar" aria-hidden="true"></span>
+        <span class="ega-skeleton" aria-hidden="true">
+          <span class="ega-skeleton-bar"></span>
+          <span class="ega-skeleton-bar"></span>
+          <span class="ega-skeleton-bar"></span>
         </span>
       {:else if showDiff && diffAgainst !== undefined}
-        <DiffFadeText text={turn.content} {diffAgainst} />
-      {:else if turn.status === 'pending' || turn.status === 'streaming'}
-        <!-- Plain text skips the marked+DOMPurify pass per delta; aria-busy only works on the live region's own root. -->
-        <!-- The caret is inside the text so it trails the last glyph instead of wrapping to its own flex line. -->
-        <span class="ega-streaming-plain" aria-hidden="true"
+        <DiffFadeText text={turn.content} {diffAgainst} fade={false} />
+      {:else if answering}
+        <!-- Plain text skips the Markdown pass per delta; the caret trails the last glyph. -->
+        <span class="ega-plain" aria-hidden="true"
           >{turn.content}<span class="ega-cursor">▍</span></span
         >
       {:else if turn.content === '' && !turn.explain}
-        <span class="ega-empty-body" data-ega-empty-body>
-          No reply came back. Click Regenerate, or check the model in Settings → Backends.
-        </span>
+        <span class="ega-empty-answer" data-ega-empty-body
+          >No answer came back. Try Regenerate.</span
+        >
       {:else}
         <Markdown text={turn.content} />
       {/if}
     </div>
     {#if turn.explain && !(turn.status === 'pending' && turn.content === '')}
-      <div class="ega-assistant-explain" data-ega-explain dir="auto" lang={notesTag}>
-        <div class="ega-explain-label" lang="en">{notesLabel(currentTaskValue)}</div>
-        <Markdown text={turn.explain} />
+      <div class="ega-notes" data-ega-explain dir="auto" lang={notesTag}>
+        <p class="ega-notes-label" lang="en">{notesLabel(currentTaskValue)}</p>
+        <div class="ega-notes-text"><Markdown text={turn.explain} /></div>
       </div>
     {/if}
+    <ReplyMeta
+      items={metaItems}
+      statusAction={speaking && transient === null
+        ? { label: 'Stop', onclick: () => void toggleSpeech() }
+        : undefined}
+    />
     {#if turn.status === 'done'}
       <div
-        class="ega-assistant-actions ega-turn-actions"
+        class="ega-reply-actions"
         role="toolbar"
         tabindex="-1"
         aria-label="Reply actions"
@@ -702,378 +590,174 @@
         onfocusin={onActionsFocusIn}
         onkeydown={onActionsKeydown}
       >
-        <span class="ega-copy-btn-wrap" class:is-copied={copied}>
-          <IconButton
-            icon={copied ? Check : Copy}
-            ariaLabel={copied ? 'Copied' : 'Copy reply'}
-            size="md"
-            dataAttrs={{
-              'data-ega-action': 'copy',
-              tabindex: activeAction === 'copy' ? 0 : -1,
-            }}
-            onclick={() => void copyToClipboard()}
-          />
-        </span>
-        {#if speakable && turn.content !== ''}
-          <IconButton
-            icon={speaking ? Square : Volume2}
-            ariaLabel={speaking ? 'Stop reading' : 'Read aloud'}
-            size="md"
-            dataAttrs={{
-              'data-ega-action': 'speak',
-              tabindex: activeAction === 'speak' ? 0 : -1,
-            }}
-            onclick={() => void toggleSpeech()}
-          />
-        {/if}
-        <!-- Hidden, not disabled, while another reply runs: a disabled button cannot take focus, so its reason was hover-only. -->
-        {#if canRetry && !inflight}
+        <IconButton
+          icon={copied ? Check : Copy}
+          ariaLabel={copied ? 'Copied' : 'Copy'}
+          size="sm"
+          dataAttrs={{ 'data-ega-action': 'copy', tabindex: tab('copy') }}
+          onclick={() => void copyReply()}
+        />
+        {#if canRetry}
           <IconButton
             icon={RefreshCw}
-            ariaLabel="Regenerate"
-            size="md"
+            ariaLabel={inflight ? 'Regenerate (wait for the current reply)' : 'Regenerate'}
+            tooltip="Regenerate"
+            size="sm"
             dataAttrs={{
               'data-ega-regenerate': 'true',
               'data-ega-action': 'regenerate',
-              tabindex: activeAction === 'regenerate' ? 0 : -1,
+              tabindex: tab('regenerate'),
+              ...(inflight ? { 'aria-disabled': 'true' } : {}),
             }}
-            onclick={() => onRegenerate?.(turn.id)}
+            onclick={() => {
+              if (!inflight) onRegenerate?.(turn.id);
+            }}
           />
         {/if}
-        {#if turn.meta || turn.contextSent !== undefined}
-          <IconButton
-            icon={Info}
-            ariaLabel={inspectorOpen
-              ? 'Hide details about this reply'
-              : 'Show details about this reply'}
-            size="md"
-            dataAttrs={{
-              'data-ega-inspector-toggle': 'true',
-              'data-ega-action': 'details',
-              'aria-expanded': String(inspectorOpen),
-              tabindex: activeAction === 'details' ? 0 : -1,
-            }}
-            onclick={() => (inspectorOpen = !inspectorOpen)}
-          />
-        {/if}
-        {#if refineTask}
-          <IconButton
-            icon={WandSparkles}
-            ariaLabel="Refine this reply"
-            tooltip="Refine"
-            size="md"
-            dataAttrs={{
-              'data-ega-refine-toggle': 'true',
-              'data-ega-action': 'refine',
-              'aria-expanded': String(refineOpen),
-              'aria-controls': refineRowId,
-              tabindex: activeAction === 'refine' ? 0 : -1,
-            }}
-            onclick={() => void toggleRefine()}
-          />
-        {/if}
-        {#if showTryAs && onSwap}
-          <!-- A menu, not a select: Chrome commits a select on every arrow key, and each commit is a paid re-run. -->
-          <DropdownMenu.Root bind:open={() => taskMenuOpen, (v) => (taskMenuOpen = v && !inflight)}>
-            <!-- The bits Tooltip IconButton uses, so the hover label looks like the ones beside it. -->
-            <Tooltip.Provider delayDuration={150} disableHoverableContent>
-              <Tooltip.Root>
-                <DropdownMenu.Trigger
-                  class="ega-icon-btn variant-default size-md"
-                  data-ega-task-switch
-                  data-ega-action="try-as"
-                  tabindex={activeAction === 'try-as' ? 0 : -1}
-                  aria-disabled={inflight}
-                  aria-label={inflight
-                    ? 'Re-run with another task or language — wait for this reply to finish'
-                    : 'Re-run with another task or language'}
-                >
-                  {#snippet child({ props })}
-                    <!-- The tooltip's data-state overwrites the menu's here; style the open menu via aria-expanded. -->
-                    <Tooltip.Trigger {...props}>
-                      <Icon icon={ListChecks} size={20} />
-                    </Tooltip.Trigger>
-                  {/snippet}
-                </DropdownMenu.Trigger>
-                <Tooltip.Portal>
-                  <Tooltip.Content side="bottom" sideOffset={6} class="ega-icon-btn-tooltip">
-                    {inflight ? 'Wait for this reply to finish' : 'Re-run as…'}
-                  </Tooltip.Content>
-                </Tooltip.Portal>
-              </Tooltip.Root>
-            </Tooltip.Provider>
-            <DropdownMenu.Portal>
-              <DropdownMenu.Content
-                class="sp-menu"
-                align="end"
-                sideOffset={6}
-                bind:ref={taskMenuEl}
-                onOpenAutoFocus={onTaskMenuOpenFocus}
-              >
-                <!-- Not bits' disabled: that drops the item from arrow keys, and a blocked swap must still be read. -->
-                <DropdownMenu.Item
-                  closeOnSelect={!swapBlocked}
-                  onSelect={() => {
-                    if (swapBlocked) return;
-                    taskMenuOpen = false;
-                    onSwap(turn.id);
-                  }}
-                >
-                  {#snippet child({ props })}
-                    <div
-                      {...props}
-                      class="sp-menu-item ega-swap-item"
-                      aria-disabled={swapBlocked ? 'true' : 'false'}
-                      data-ega-swap
-                      data-ega-swap-item
-                    >
-                      <ArrowLeftRight size={16} aria-hidden="true" />
-                      <span class="sp-menu-label">
-                        {swapItemLabel}
-                        {#if swapNote !== ''}
-                          <span class="ega-swap-note" data-ega-swap-note>{swapNote}</span>
-                        {/if}
-                      </span>
-                    </div>
-                  {/snippet}
-                </DropdownMenu.Item>
-                {#if onTaskSwitch}
-                  <DropdownMenu.Separator class="sp-menu-sep" />
-                  <!-- Arrow keys only move the highlight; picking the task that already answered re-runs nothing. -->
-                  <DropdownMenu.RadioGroup
-                    value={currentTaskValue}
-                    onValueChange={(v) => {
-                      if (v === currentTaskValue) return;
-                      taskMenuOpen = false;
-                      onTaskSwitch(turn.id, v as TaskId);
-                    }}
-                  >
-                    {#each taskOptions as o (o.id)}
-                      <DropdownMenu.RadioItem
-                        class="sp-menu-item"
-                        value={o.id}
-                        disabled={o.off}
-                        data-ega-task-switch-item={o.id}
-                      >
-                        {#snippet children({ checked })}
-                          <span class="sp-menu-label">{o.label}</span>
-                          {#if checked}<Check size={16} aria-hidden="true" />{/if}
-                        {/snippet}
-                      </DropdownMenu.RadioItem>
-                    {/each}
-                  </DropdownMenu.RadioGroup>
-                {/if}
-              </DropdownMenu.Content>
-            </DropdownMenu.Portal>
-          </DropdownMenu.Root>
-        {/if}
-        <!-- Bookmark and Delete sit in a menu at the row's end, so the row fits 400px and Delete stays away from Copy. -->
-        <!-- The star shows a bookmark without opening the menu; the spacer already takes the free width, so it shifts nothing. -->
-        <span class="ega-turn-action-end">
-          {#if turn.bookmarked}
-            <span
-              class="ega-bookmarked-mark"
-              data-ega-bookmarked-mark
-              role="img"
-              aria-label="Bookmarked"
-              data-tooltip="Bookmarked"
-              data-tooltip-placement="top"><Star size={12} aria-hidden="true" /></span
+        <ReplyMenus
+          turnId={turn.id}
+          refineTab={tab('refine')}
+          moreTab={tab('more')}
+          {canRerun}
+          busy={inflight}
+          {presets}
+          canDescribe={!imageTurn}
+          {translateInto}
+          defaultLang={composerTarget ?? answerTarget ?? 'en'}
+          {varieties}
+          {swapLabel}
+          {refined}
+          {showChanges}
+          {changing}
+          speakable={speakable && turn.content !== ''}
+          {speaking}
+          {aboutOpen}
+          {answerAgain}
+          bookmarked={turn.bookmarked === true}
+          onPreset={(p) =>
+            void onRefine?.({ turnId: turn.id, refinementBody: p.body, refinementLabel: p.label })}
+          onDescribeChange={() => onDescribeChange?.(turn.id)}
+          onTranslateInto={(lang) => onTranslateInto?.(turn.id, lang as LangSelection)}
+          onSwap={() => onSwap?.(turn.id)}
+          onShowChanges={(on) => (showChanges = on)}
+          onSpeak={() => void toggleSpeech()}
+          onAbout={(open) => void setAbout(open)}
+          onAnswerAgain={(task) => onTaskSwitch?.(turn.id, task)}
+          onBookmark={() => onBookmark?.(turn.id)}
+          onDelete={() => onDelete?.(turn.id)}
+        />
+        {#if variantCount > 1}
+          <span class="ega-pager" data-ega-variant-nav>
+            <IconButton
+              icon={ChevronLeft}
+              ariaLabel="Previous version"
+              size="sm"
+              dataAttrs={{
+                'data-ega-variant-prev': 'true',
+                'data-ega-action': 'prev',
+                tabindex: tab('prev'),
+                ...(activeIdx <= 0 ? { 'aria-disabled': 'true' } : {}),
+              }}
+              onclick={() => {
+                if (activeIdx > 0) onSelectVariant?.(turn.id, activeIdx - 1);
+              }}
+            />
+            <span class="ega-pager-count" aria-hidden="true">{activeIdx + 1}/{variantCount}</span>
+            <span class="ega-sr-only" aria-live="polite"
+              >Version {activeIdx + 1} of {variantCount}</span
             >
-          {/if}
-        </span>
-        <DropdownMenu.Root>
-          <DropdownMenu.Trigger
-            class="ega-icon-btn variant-default size-md"
-            aria-label="More reply actions"
-            data-ega-action="more"
-            tabindex={activeAction === 'more' ? 0 : -1}
-          >
-            <Ellipsis size={16} aria-hidden="true" />
-          </DropdownMenu.Trigger>
-          <DropdownMenu.Portal>
-            <DropdownMenu.Content class="sp-menu" align="end" sideOffset={6}>
-              <DropdownMenu.CheckboxItem
-                class="sp-menu-item"
-                checked={turn.bookmarked === true}
-                onCheckedChange={() => onBookmark?.(turn.id)}
-                data-ega-bookmark
-              >
-                {#snippet children({ checked })}
-                  <Star size={16} aria-hidden="true" />
-                  <span class="sp-menu-label">Bookmark</span>
-                  {#if checked}<Check size={16} aria-hidden="true" />{/if}
-                {/snippet}
-              </DropdownMenu.CheckboxItem>
-              <DropdownMenu.Separator class="sp-menu-sep" />
-              <!-- Last, not first: a keyboard open lands on the first item, and a second Enter must not delete. -->
-              <DropdownMenu.Item
-                class="sp-menu-item ega-menu-item-danger"
-                onSelect={() => onDelete?.(turn.id)}
-                data-ega-delete
-              >
-                <Trash2 size={16} aria-hidden="true" />
-                <span class="sp-menu-label">Delete this reply and its message</span>
-              </DropdownMenu.Item>
-            </DropdownMenu.Content>
-          </DropdownMenu.Portal>
-        </DropdownMenu.Root>
+            <IconButton
+              icon={ChevronRight}
+              ariaLabel="Next version"
+              size="sm"
+              dataAttrs={{
+                'data-ega-variant-next': 'true',
+                'data-ega-action': 'next',
+                tabindex: tab('next'),
+                ...(activeIdx >= variantCount - 1 ? { 'aria-disabled': 'true' } : {}),
+              }}
+              onclick={() => {
+                if (activeIdx < variantCount - 1) onSelectVariant?.(turn.id, activeIdx + 1);
+              }}
+            />
+          </span>
+        {/if}
       </div>
-      {#if inspectorOpen && (turn.meta || turn.contextSent !== undefined)}
+      {#if aboutOpen}
         <ReplyDetails
           meta={turn.meta}
           context={contextShown}
           sentText={detailsText}
           image={imageMode}
           taskLabel={taskLabel(taskViews, currentTaskValue)}
-          onViewPrompt={() => openOptionsTab('tasks')}
           surface="panel"
-          onClose={() => (inspectorOpen = false)}
+          {direction}
+          confidence={turn.confidence}
+          change={activeVariant?.refinementLabel === undefined ? refinementBody : undefined}
+          {onOpenSettings}
+          onClose={() => void setAbout(false)}
         />
       {/if}
-      {#if refinementBody}
-        <button
-          type="button"
-          class="ega-refinement-chip"
-          class:is-expanded={refinementExpanded}
-          data-ega-refinement-chip
-          aria-expanded={refinementExpanded}
-          data-tooltip={refinementExpanded ? '' : refinementBody}
-          data-tooltip-placement="top"
-          onclick={() => (refinementExpanded = !refinementExpanded)}
-        >
-          {refinementExpanded ? `Refined: "${refinementBody}"` : refinementLabel}
-        </button>
-      {/if}
-      {#if variantLang !== undefined}
-        <span
-          class="ega-refinement-chip"
-          data-ega-lang-chip
-          data-tooltip={`Answered in ${variantLangLabel}`}
-          data-tooltip-placement="top"
-        >
-          → {variantLangLabel}
-        </span>
-      {/if}
-      {#if activeVariant?.task !== undefined}
-        <span
-          class="ega-refinement-chip ega-task-chip"
-          data-tooltip={`Answered as ${taskLabel(taskViews, activeVariant.task)}`}
-          data-tooltip-placement="top"
-        >
-          {taskLabel(taskViews, activeVariant.task)}
-        </span>
-      {/if}
-    {/if}
-    {#if refineOpen && refineTask && onRefine}
-      <!-- presentation: a layout box for the Escape handler; the chips carry their own group role. -->
-      <div class="ega-refine-row" role="presentation" onkeydown={onRefineRowKeydown}>
-        <QuickRefineChips
-          id={refineRowId}
-          {inflight}
-          bind:draft={refineDraft}
-          onRefine={async (args) => {
-            const ok = await onRefine({ turnId: turn.id, ...args });
-            if (ok) refineOpen = false;
-            return ok;
-          }}
-        />
-      </div>
+    {:else}
+      <!-- The row's height is kept while the reply runs, so nothing jumps when it lands. -->
+      <div class="ega-reply-actions-slot" aria-hidden="true"></div>
     {/if}
   {/if}
 </article>
 
 <style>
-  .ega-assistant-turn {
-    align-self: flex-start;
-    max-width: 95%;
-    padding: var(--space-2) var(--space-3);
-    color: var(--color-fg);
+  .ega-reply {
     display: flex;
     flex-direction: column;
-    gap: var(--space-2);
-    background: var(--color-bg-elevated);
-    border: 1px solid var(--color-border-subtle);
-    border-radius: var(--radius-md);
+    gap: var(--space-1);
+    min-inline-size: 0;
+    color: var(--color-fg);
+    border-radius: var(--radius-sm);
+    --ega-md-fs: var(--fs-md);
   }
-  /* Floor on the card, not the skeleton: the skeleton unmounts at the first token and the card would snap in. */
-  .ega-assistant-turn.is-answering {
-    min-width: 12rem;
-  }
-  .ega-assistant-turn.focused {
+  .ega-reply.focused {
     outline: 2px solid var(--color-accent);
     outline-offset: 2px;
   }
-  .ega-assistant-body {
-    display: flex;
-    align-items: baseline;
-    gap: 2px;
-    flex-wrap: wrap;
+  .ega-reply:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
   }
-  .ega-assistant-error {
-    color: var(--color-danger-fg, var(--color-fg));
-    font-size: var(--fs-sm);
+  .ega-answer {
+    font-size: var(--fs-md);
     line-height: var(--lh-body);
+    min-inline-size: 0;
   }
-  .ega-error-title {
-    display: flex;
-    align-items: center;
-    gap: var(--space-1);
+  /* Headings inside an answer stay at the answer size; the panel uses two text sizes. */
+  .ega-answer :global(.ega-md h1),
+  .ega-answer :global(.ega-md h2),
+  .ega-answer :global(.ega-md h3),
+  .ega-answer :global(.ega-md h4) {
+    font-size: var(--fs-md);
     font-weight: 600;
   }
-  .ega-error-details {
-    margin-top: var(--space-1);
-    font-size: var(--fs-xs);
-    color: var(--color-muted);
+  .ega-answer :global(.ega-md code) {
+    font-size: inherit;
   }
-  .ega-error-details summary {
-    cursor: pointer;
-  }
-  .ega-error-details code {
-    font-family: var(--font-mono, monospace);
-    overflow-wrap: anywhere;
-  }
-  .ega-empty-body {
-    color: var(--color-muted);
-    font-size: var(--fs-sm);
-    line-height: var(--lh-body);
-  }
-  .ega-assistant-cancelled {
-    color: var(--color-muted);
-    font-size: var(--fs-sm);
-    line-height: var(--lh-body);
-  }
-  .ega-partial-note {
-    color: var(--color-muted);
-    font-size: var(--fs-xs);
-  }
-  .ega-explain-label {
-    font-size: var(--fs-xs);
-    font-weight: 600;
-    color: var(--color-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    margin-bottom: var(--space-1);
-  }
-  .ega-assistant-explain {
-    padding: var(--space-2);
-    border-inline-start: 3px solid var(--color-border);
-    color: var(--color-muted);
+  .ega-answer :global(.ega-md pre) {
     font-size: var(--fs-sm);
   }
-  /* Metrics copied from .ega-md so the body does not reflow when the stream settles. */
-  .ega-streaming-plain {
+  .ega-plain {
     white-space: pre-wrap;
     font-family: inherit;
-    font-size: var(--fs-sm);
+    font-size: var(--fs-md);
     line-height: var(--lh-body);
-    color: var(--color-fg);
     overflow-wrap: anywhere;
   }
   .ega-cursor {
     display: inline-block;
     color: var(--color-accent);
-    animation: ega-cursor-blink 1s step-end infinite;
     font-weight: 600;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .ega-cursor {
+      animation: ega-cursor-blink 1s step-end infinite;
+    }
   }
   @keyframes ega-cursor-blink {
     0%,
@@ -1085,235 +769,143 @@
       opacity: 0;
     }
   }
-  /* Without this the pre-stream bubble is an empty box with a blinking cursor. */
-  .ega-stream-skeleton {
-    display: inline-flex;
+  /* Three text-shaped bars, static: a still bar is honest about having nothing yet. */
+  .ega-skeleton {
+    display: flex;
     flex-direction: column;
-    gap: var(--space-1);
-    color: var(--color-muted);
-    font-size: var(--fs-xs);
+    gap: 11px;
+    padding-block: 5px;
   }
-  .ega-stream-skeleton-label {
-    font-style: italic;
+  .ega-skeleton-bar:nth-child(2) {
+    inline-size: 92%;
   }
-  .ega-stream-skeleton-bar {
+  .ega-skeleton-bar:nth-child(3) {
+    inline-size: 60%;
+  }
+  .ega-skeleton-bar {
     display: block;
-    height: 10px;
-    width: 100%;
+    inline-size: 100%;
+    block-size: 10px;
     border-radius: var(--radius-sm);
-    background: linear-gradient(
-      90deg,
-      var(--color-border) 0%,
-      var(--color-dot-neutral) 50%,
-      var(--color-border) 100%
-    );
-    background-size: 200% 100%;
-    animation: ega-stream-shim 1.2s linear infinite;
+    background: var(--color-bg-hover);
   }
-  @keyframes ega-stream-shim {
-    0% {
-      background-position: 200% 0;
-    }
-    100% {
-      background-position: -200% 0;
-    }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .ega-stream-skeleton-bar {
-      animation-duration: 0.01ms !important;
-    }
-  }
-  /* Forced colors drops the gradient, leaving an invisible box where the bar should be. */
   @media (forced-colors: active) {
-    .ega-stream-skeleton-bar {
+    .ega-skeleton-bar {
       border: 1px solid CanvasText;
     }
   }
-  .ega-assistant-actions {
+  .ega-empty-answer,
+  .ega-stopped {
+    margin: 0;
+    color: var(--color-muted);
+    font-size: var(--fs-md);
+    line-height: var(--lh-body);
+  }
+  .ega-notes {
     display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: var(--space-2);
-    margin-top: var(--space-1);
-    font-size: var(--fs-xs);
+    flex-direction: column;
+    gap: var(--space-1);
+    margin-block-start: var(--space-1);
   }
-  .ega-assistant-meta {
+  .ega-notes-label {
+    margin: 0;
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    color: var(--color-muted);
+  }
+  .ega-notes-text {
+    padding-inline-start: var(--space-2);
+    border-inline-start: 2px solid var(--color-border);
+    color: var(--color-muted);
+    --ega-md-fs: var(--fs-md);
+  }
+  .ega-notes-text :global(.ega-md) {
+    color: var(--color-muted);
+  }
+  .ega-error {
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--space-2);
+    flex-direction: column;
+    gap: var(--space-1);
   }
-  .ega-timestamp {
-    margin-left: auto;
-    font-size: var(--fs-xs);
-    color: var(--color-muted);
-  }
-  /* Always visible; buttons rest muted (IconButton default) and gain emphasis per button on hover/focus. */
-  .ega-turn-actions {
-    min-height: 32px;
-    margin-top: var(--space-1);
-  }
-  .ega-turn-action-end {
-    display: inline-flex;
-    margin-left: auto;
-  }
-  .ega-bookmarked-mark {
-    display: inline-flex;
-    color: var(--color-accent);
-  }
-  /* :global — the menu renders in a portal on <body>, outside this component's scope hash. */
-  :global(.sp-menu-item.ega-menu-item-danger) {
-    color: var(--color-danger-fg);
-  }
-  .ega-assistant-turn > .ega-assistant-actions:not(.ega-turn-actions) {
-    padding-top: var(--space-2);
-    margin-top: 0;
-    border-top: 1px solid var(--color-border-subtle);
-  }
-  .ega-assistant-turn > .ega-turn-actions {
-    padding-top: var(--space-2);
-    border-top: 1px solid var(--color-border-subtle);
-  }
-  .ega-assistant-turn > .ega-refine-row {
-    padding-top: var(--space-2);
-    border-top: 1px solid var(--color-border-subtle);
-  }
-  .ega-refine-row > :global([data-ega-quick-refine]) {
-    margin-top: 0;
-  }
-  /* Open, the Refine button reads as pressed, like IconButton's aria-pressed; border-color, not border, so it costs no reflow. */
-  .ega-turn-actions :global([data-ega-refine-toggle][aria-expanded='true']) {
-    color: var(--color-accent-hover);
-    border-color: var(--color-accent);
-    background: var(--color-accent-bg-soft);
-  }
-  /* :global — the Re-run as trigger is bits-ui's button. Busy, it stays focusable, so it is greyed rather than disabled. */
-  .ega-turn-actions :global([data-ega-task-switch][aria-disabled='true']) {
-    color: var(--color-fg-disabled);
-    cursor: var(--cursor-disabled);
-  }
-  /* :global — the menu renders in a portal on <body>, outside this component's scope hash. */
-  :global(.sp-menu-item.ega-swap-item[aria-disabled='true']) {
-    color: var(--color-fg-disabled);
-    cursor: var(--cursor-disabled);
-  }
-  /* The reason a blocked swap cannot run; muted, not disabled grey, so it stays readable. */
-  :global(.ega-swap-note) {
-    display: block;
-    color: var(--color-muted);
-    font-size: var(--fs-xs);
-  }
-  .ega-pill {
-    white-space: nowrap;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    padding: 1px var(--space-1);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-pill);
-    color: var(--color-muted);
-    font-size: var(--fs-xs);
-  }
-  .ega-lang-pill {
-    color: var(--color-accent);
-    border-color: var(--color-accent);
-  }
-  .ega-lang-cluster {
-    display: inline-flex;
-    flex-wrap: wrap;
-    gap: 2px;
-  }
-  .ega-copy-btn-wrap {
-    display: inline-flex;
-    border-radius: var(--radius-sm);
-  }
-  .ega-copy-btn-wrap.is-copied {
-    animation: ega-success-pulse 600ms ease-out;
-  }
-  .ega-error-action-btn {
-    box-sizing: border-box;
-    min-height: 32px;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: var(--space-1) var(--space-2);
-    border-radius: var(--radius-sm);
-    background: transparent;
-    border: 1px solid var(--color-border);
-    color: var(--color-fg);
-    font-size: var(--fs-xs);
-    cursor: pointer;
-  }
-  .ega-error-action-btn:hover {
-    background: var(--color-bg-sunken);
-  }
-  .ega-variant-nav {
+  .ega-error-title {
     display: flex;
     align-items: center;
     gap: var(--space-1);
-    margin-left: auto;
-    font-size: var(--fs-xs);
-    color: var(--color-muted);
+    margin: 0;
+    font-size: var(--fs-md);
+    font-weight: 600;
+    line-height: var(--lh-body);
+    color: var(--color-danger-fg);
   }
-  .ega-variant-btn {
-    box-sizing: border-box;
-    min-width: 32px;
-    min-height: 32px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 2px;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    background: transparent;
+  .ega-error-body {
+    margin: 0;
+    font-size: var(--fs-md);
+    line-height: var(--lh-body);
     color: var(--color-fg);
-    cursor: pointer;
-    line-height: 0;
   }
-  .ega-variant-btn:hover:not(:disabled) {
-    background: var(--color-bg-sunken);
+  .ega-error-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-1);
+    margin-block-start: var(--space-1);
   }
-  .ega-variant-btn:disabled {
-    opacity: 0.35;
-    cursor: default;
+  .ega-error-actions :global(.ega-btn[aria-disabled='true']) {
+    color: var(--color-fg-disabled);
+    cursor: var(--cursor-disabled);
   }
-  .ega-variant-busy {
-    color: var(--color-muted);
-  }
-  .ega-variant-counter {
-    font-variant-numeric: tabular-nums;
-    min-width: 2.5em;
-    text-align: center;
-  }
-  .ega-refinement-chip:focus-visible {
-    outline: 2px solid var(--color-accent);
-    outline-offset: 1px;
-  }
-  .ega-refinement-chip {
-    align-self: flex-start;
-    padding: 2px var(--space-2);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-pill);
-    background: var(--color-accent-bg-soft);
-    /* accent lands under 4.5:1 on the soft accent tint; accent-hover clears it in both themes. */
-    color: var(--color-accent-hover);
-    font-size: var(--fs-xs);
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  button.ega-refinement-chip {
-    cursor: pointer;
-    font: inherit;
-    text-align: start;
-  }
-  .ega-refinement-chip.is-expanded {
-    white-space: normal;
+  .ega-error-detail {
+    margin: 0;
+    padding-inline-start: var(--space-2);
+    border-inline-start: 2px solid var(--color-border);
+    font-family: var(--font-mono);
+    font-size: var(--fs-sm);
+    white-space: pre-wrap;
     overflow-wrap: anywhere;
   }
-  /* :global — the spans render inside DiffFadeText, outside this component's scope hash. */
-  .ega-assistant-body :global(.body-diff .diff-add) {
+  .ega-reply-actions,
+  .ega-reply-actions-slot {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: var(--space-1);
+    min-block-size: 28px;
+  }
+  .ega-reply-actions :global([aria-disabled='true']) {
+    color: var(--color-fg-disabled);
+    cursor: var(--cursor-disabled);
+  }
+  /* Open, Refine reads as pressed: border-color only, so it costs no reflow. */
+  .ega-reply-actions :global([data-ega-action='refine'][aria-expanded='true']),
+  .ega-reply-actions :global([data-ega-action='refine'][aria-pressed='true']) {
+    color: var(--color-accent-hover);
+    border-color: var(--color-accent);
+    background: var(--color-accent-bg-soft);
+  }
+  .ega-pager {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    margin-inline-start: auto;
+  }
+  .ega-pager-count {
+    min-inline-size: 2.5em;
+    text-align: center;
+    color: var(--color-muted);
+    font-size: var(--fs-sm);
+    font-variant-numeric: tabular-nums;
+  }
+  /* Older replies keep the row's height and its tab stop; hover or focus shows it. Touch always shows it. */
+  @media (hover: hover) {
+    .ega-reply.older:not(:hover):not(:focus-within) .ega-reply-actions {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .ega-reply-actions {
+      transition: opacity var(--motion-fast) var(--ease-out);
+    }
+  }
+  .ega-answer :global(.body-diff .diff-add) {
     color: var(--color-success-fg);
     background-color: var(--color-success-bg-soft);
     /* Forced colors drops the tint; underline vs line-through is what separates added from removed. */
@@ -1321,39 +913,12 @@
     text-decoration-thickness: 1px;
     text-underline-offset: 2px;
     border-radius: 2px;
-    padding: 0 1px;
-    transition:
-      color 600ms ease,
-      background-color 600ms ease;
   }
-  .ega-assistant-body :global(.body-diff .diff-del) {
+  .ega-answer :global(.body-diff .diff-del) {
     color: var(--color-danger-fg);
     background-color: var(--color-danger-bg-soft);
     text-decoration: line-through;
     text-decoration-thickness: 1px;
     border-radius: 2px;
-    padding: 0 1px;
-    transition:
-      color 600ms ease,
-      background-color 600ms ease,
-      text-decoration-color 600ms ease;
-  }
-  .ega-assistant-body :global(.body-diff-faded .diff-add),
-  .ega-assistant-body :global(.body-diff-faded .diff-del) {
-    color: inherit;
-    background-color: transparent;
-  }
-  .ega-assistant-body :global(.body-diff-faded .diff-add) {
-    text-decoration-line: none;
-  }
-  /* Deleted words leave the flow, so the faded body reads as the clean final sentence. */
-  .ega-assistant-body :global(.body-diff-faded .diff-del) {
-    display: none;
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .ega-assistant-body :global(.body-diff .diff-add),
-    .ega-assistant-body :global(.body-diff .diff-del) {
-      transition-duration: 0ms;
-    }
   }
 </style>

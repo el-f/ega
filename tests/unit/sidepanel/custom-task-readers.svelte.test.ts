@@ -3,7 +3,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from '@testing-library/svelte';
 import AssistantTurn from '@/sidepanel/conversation/AssistantTurn.svelte';
-import UserTurn from '@/sidepanel/conversation/UserTurn.svelte';
+import { openMenu } from './_reply';
+import { taskLabelsOnChange } from '@/sidepanel/state/thread-view';
 import { turnTaskValue, buildStartArgs, type Turn } from '@/sidepanel/state/conversation';
 import { exportMarkdown } from '@/sidepanel/state/conversation-export';
 import { materializeTasks, notesLabel, type TaskView } from '@/shared/task-view';
@@ -12,7 +13,6 @@ import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import type { CustomTask } from '@/shared/settings-schema';
 import type { Settings } from '@/shared/types';
 import { sel } from '@tests/_helpers/lang';
-import { openTaskMenu } from './_task-menu';
 import {
   cachedCustomTasks,
   ensureCustomTasks,
@@ -70,9 +70,8 @@ describe('a custom-task turn', () => {
     expect(args.explain).toBe(false);
   });
 
-  it('the user turn shows the task name with its tone, and the export names it', () => {
-    const { container } = render(UserTurn, { props: { turn: userTurn, taskViews: views } });
-    expect(container.textContent).toContain('Tweet summary · Formal');
+  it('the thread names the task with its tone over the message, and the export names it', () => {
+    expect(taskLabelsOnChange([userTurn], views).get(userTurn.id)).toBe('Tweet summary · Formal');
     expect(exportMarkdown([userTurn], views)).toContain('**You (Tweet summary):**');
   });
 
@@ -81,37 +80,35 @@ describe('a custom-task turn', () => {
     expect(exportMarkdown([userTurn], builtInsOnly)).toContain('**You (Deleted task):**');
   });
 
-  it('Re-run as lists the custom task, and a deleted one only as a disabled item', async () => {
-    const select = async (taskViews: TaskView[]) => {
+  it('Answer again offers the custom task on another reply, and never once it is deleted', async () => {
+    const offered = async (taskViews: TaskView[]): Promise<string[]> => {
       const r = render(AssistantTurn, {
         props: {
-          turn: assistantTurn,
+          turn: { ...assistantTurn, taskId: undefined, kind: 'translate' } as unknown as Turn,
           isLatest: true,
           onRetry: vi.fn(),
+          onRefine: vi.fn(),
           onTaskSwitch: vi.fn(),
-          onSwap: vi.fn(),
           canRetry: true,
           taskViews,
         },
       });
-      await openTaskMenu(r.container);
-      const items = [...document.querySelectorAll('[data-ega-task-switch-item]')].map((o) => [
-        o.getAttribute('data-ega-task-switch-item'),
+      await openMenu(r.container, 'more');
+      const items = [...document.querySelectorAll('[data-ega-answer-again]')].map((o) =>
         o.textContent.trim(),
-        o.getAttribute('aria-disabled') === 'true',
-      ]);
+      );
       r.unmount();
       return items;
     };
-    expect(await select(views)).toContainEqual(['c-tweet', 'Tweet summary', false]);
-    const gone = await select(materializeTasks({ ...DEFAULT_SETTINGS } as Settings, []));
-    expect(gone).toContainEqual(['c-tweet', 'Deleted task', true]);
+    expect(await offered(views)).toContain('Tweet summary instead');
+    const gone = await offered(materializeTasks({ ...DEFAULT_SETTINGS } as Settings, []));
+    expect(gone.join(' ')).not.toContain('Tweet summary');
   });
 
   it.each([
     [assistantTurn, false],
     [{ ...assistantTurn, taskId: undefined }, true],
-  ] as const)('the Refine button: custom task %#', (turn, shown) => {
+  ] as const)('Refine presets: none for a custom task %#', async (turn, presets) => {
     const { container } = render(AssistantTurn, {
       props: {
         turn: turn as Turn,
@@ -121,7 +118,9 @@ describe('a custom-task turn', () => {
         taskViews: views,
       },
     });
-    expect(container.querySelector('[data-ega-refine-toggle]') !== null).toBe(shown);
+    await openMenu(container, 'refine');
+    expect(document.querySelector('[data-ega-refine-preset]') !== null).toBe(presets);
+    expect(document.querySelector('[data-ega-describe-change]')).not.toBeNull();
   });
 });
 

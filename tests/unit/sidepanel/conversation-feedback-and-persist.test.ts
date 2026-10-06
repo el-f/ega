@@ -56,7 +56,7 @@ describe('a blocked re-run says so instead of doing nothing', () => {
     await rerender({ turn, inflight: false });
     const pencil = container.querySelector<HTMLButtonElement>('[data-ega-edit]');
     expect(pencil?.disabled).toBe(false);
-    expect(pencil?.getAttribute('aria-label')).toBe('Edit this message');
+    expect(pencil?.getAttribute('aria-label')).toBe('Edit from here');
   });
 });
 

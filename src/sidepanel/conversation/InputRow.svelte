@@ -406,7 +406,7 @@
         >
       </span>
     {/if}
-    {#if pageInfoGoes || historyLabel !== null || attachedImage}
+    {#if mode.kind !== 'refine' && (pageInfoGoes || historyLabel !== null || attachedImage)}
       <span class="ega-next-send" data-ega-next-send>
         {#if pageInfoGoes}<span class="ega-next-item">Page info</span>{/if}
         {#if historyLabel !== null}<span class="ega-next-item">{historyLabel}</span>{/if}

@@ -139,7 +139,7 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-4);
-    inline-size: min(320px, calc(100vw - var(--space-5)));
+    inline-size: min(320px, calc(100vw - 40px));
     padding: var(--space-1);
     box-sizing: border-box;
     font-size: var(--fs-sm);
