@@ -533,19 +533,20 @@
 />
 
 <style>
+  /* Container-query scoped, not viewport: the options page can be framed inside a narrow extension panel.
+     The container is the root, not .options-main: an element cannot query its own size, so the rail never collapsed. */
   .options-root {
     min-height: 100vh;
     background: var(--color-bg);
+    container-type: inline-size;
+    container-name: options;
   }
 
-  /* Container-query scoped, not viewport: the options page can be framed inside a narrow extension panel. */
   .options-main {
     display: grid;
     grid-template-columns: 220px 1fr;
     gap: var(--space-5);
     align-items: start;
-    container-type: inline-size;
-    container-name: options;
   }
   /* 48px = 40px button + 4px card padding each side, matching the @container rule in OptionsNav that hides labels. */
   @container options (max-width: 880px) {
