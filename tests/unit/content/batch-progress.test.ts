@@ -115,6 +115,35 @@ describe('the page-translate pill', () => {
     await vi.waitFor(() => expect(shadowActive()).toBe(button('Show original')));
   });
 
+  it('the settled actions are one toolbar stop; arrows, Home and End move along it', async () => {
+    const h = show();
+    h.update({ ...settled, target: 'English' });
+    flushSync();
+    const bar = q('[role="toolbar"]');
+    expect(bar?.getAttribute('aria-label')).toBe('Page translation actions');
+    const items = [...(bar?.querySelectorAll<HTMLButtonElement>('button') ?? [])];
+    expect(items.map((b) => b.getAttribute('aria-label') ?? b.textContent.trim())).toEqual([
+      'Show original',
+      'More',
+      'Close bar',
+    ]);
+    // The buttons changed with the state; the stop lands once the DOM settles.
+    await vi.waitFor(() => expect(items.filter((b) => b.tabIndex === 0)).toEqual([items[0]]));
+    items[0]?.focus();
+    items[0]?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    expect(shadowActive()).toBe(items[1]);
+    // The stop follows focus, so Tab comes back to the button the user left.
+    await vi.waitFor(() => expect(items.filter((b) => b.tabIndex === 0)).toEqual([items[1]]));
+    items[1]?.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+    expect(shadowActive()).toBe(items[2]);
+    items[2]?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    expect(shadowActive()).toBe(items[0]);
+    items[0]?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+    expect(shadowActive()).toBe(items[2]);
+    items[2]?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
+    expect(shadowActive()).toBe(items[0]);
+  });
+
   it('Close bar ignores the second click of a double-click on Stop', () => {
     vi.useFakeTimers();
     const h = show();

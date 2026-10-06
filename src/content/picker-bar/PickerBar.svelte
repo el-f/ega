@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { isUserGesture } from '../user-gesture';
   import type { RenderMode } from '../page-translate-v2/store';
+  import { roving } from '../roving';
 
   interface Props {
     /** Pick element translates one block; Choose areas collects several, then Translate sends them. */
@@ -74,17 +75,6 @@
     onModeSelect?.(next);
   };
 
-  function radioKey(e: KeyboardEvent): void {
-    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-    e.preventDefault();
-    const next: RenderMode = mode === 'inplace' ? 'bilingual' : 'inplace';
-    mode = next;
-    onModeSelect?.(next);
-    (e.currentTarget as HTMLElement)
-      .querySelector<HTMLElement>(`[data-ega-ms-mode="${next}"]`)
-      ?.focus();
-  }
-
   function keysKey(e: KeyboardEvent): void {
     if (e.key === 'Escape' && keysOpen) {
       e.stopPropagation();
@@ -113,6 +103,7 @@
   role="toolbar"
   aria-label={kind === 'pick' ? 'Pick element' : 'Choose areas'}
   data-ega-picker-bar={kind}
+  use:roving
 >
   <span class="ega-sr-only" data-ega-ms-live role="status" aria-live="polite">{live}</span>
   <span class="lead">
@@ -139,18 +130,12 @@
   </span>
   <div class="controls">
     {#if kind === 'areas'}
-      <div
-        class="modes"
-        role="radiogroup"
-        aria-label="How to show the translation"
-        tabindex="-1"
-        onkeydown={radioKey}
-      >
+      <!-- Inside the toolbar, arrows move focus across every control; Space, Enter or a click picks a mode. -->
+      <div class="modes" role="radiogroup" aria-label="How to show the translation">
         <button
           type="button"
           role="radio"
           aria-checked={mode === 'inplace'}
-          tabindex={mode === 'inplace' ? 0 : -1}
           data-ega-ms-mode="inplace"
           onclick={selectMode('inplace')}>Replace text</button
         >
@@ -158,7 +143,6 @@
           type="button"
           role="radio"
           aria-checked={mode === 'bilingual'}
-          tabindex={mode === 'bilingual' ? 0 : -1}
           data-ega-ms-mode="bilingual"
           onclick={selectMode('bilingual')}>Show both</button
         >

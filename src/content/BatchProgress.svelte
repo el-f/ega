@@ -2,6 +2,7 @@
   import { tick } from 'svelte';
   import BrandMark from '@/shared/components/BrandMark.svelte';
   import { pillPhase, pillStatus, type PageProgress } from './page-translate-v2/progress';
+  import { roving } from './roving';
 
   interface Props {
     initial: PageProgress;
@@ -154,7 +155,7 @@
     </span>
     <span class="status" data-ega-batch-label>{status}</span>
     <span class="ega-sr-only" role="status" data-ega-batch-live>{live}</span>
-    <div class="actions">
+    <div class="actions" role="toolbar" aria-label="Page translation actions" use:roving>
       {#if !settled}
         <button type="button" class="btn" data-ega-batch-cancel onclick={onStop}>Stop</button>
       {:else}
