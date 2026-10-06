@@ -18,6 +18,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildPaths } from '../../scripts/visual-judge/config';
+import { checkDesignRules } from './design-rules';
 import { SETTINGS_TABS } from '../../src/shared/settings-tabs';
 import type { ShotMeta } from '../../scripts/visual-judge/judge/types';
 
@@ -103,6 +104,8 @@ async function shot(
   await page.screenshot({ path: currentFile, fullPage: true });
   const sidecar: ShotMeta = { name, ...meta };
   fs.writeFileSync(path.join(META_DIR, `${name}.meta.json`), JSON.stringify(sidecar, null, 2));
+  // After the PNG is written, so a failing check still leaves the shot to look at.
+  await checkDesignRules(page, name);
 }
 
 /** Sets `data-theme` on the page as well as in settings — the storage `onChanged` subscriber can lose the race with the capture. */
