@@ -45,11 +45,16 @@ const BUBBLE_HEIGHT = 28;
 /** The mark, a 160px label and the chevron. */
 const BUBBLE_WIDTH = 250;
 
-// A probe that lands between blocks hits `<body>` or `#app`, whose textContent is the whole page.
-function hasText(el: Element): boolean {
+/** A line of text in `el` crosses the bubble's band at `top`; padding and empty space never count. */
+function textInBand(el: Element, top: number): boolean {
   const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  const range = document.createRange();
   for (let n = walker.nextNode(); n; n = walker.nextNode()) {
-    if (n.nodeValue?.trim()) return true;
+    if (!n.nodeValue?.trim()) continue;
+    range.selectNodeContents(n);
+    for (const r of range.getClientRects()) {
+      if (r.bottom > top && r.top < top + BUBBLE_HEIGHT) return true;
+    }
   }
   return false;
 }
@@ -61,26 +66,20 @@ function placeBubble(rect: DOMRect, rtl: boolean): { left: number; top: number }
   const above = rect.top - BUBBLE_HEIGHT - 4;
   const anchorX = rtl ? rect.right : rect.left;
   const probeX = Math.max(4, Math.min(window.innerWidth - 4, anchorX + (rtl ? -16 : 16)));
-  // ponytail: two probes per spot, text in other elements only; the selection's own paragraph needs a line-box probe.
-  const covers = (ys: number[], outside: (r: DOMRect) => boolean): boolean =>
-    ys.some((y) => {
+  // ponytail: only text in other elements counts; the selection's own paragraph would need its line boxes walked.
+  const covers = (top: number, outside: (r: DOMRect) => boolean): boolean =>
+    [top + 2, top + BUBBLE_HEIGHT / 2, top + BUBBLE_HEIGHT - 2].some((y) => {
       // An open bubble or tooltip hits as our host, which holds no page text; look past it.
       const hit = document
         .elementsFromPoint(probeX, Math.min(window.innerHeight - 4, Math.max(0, y)))
         .find((el) => el !== getShadowHostElement());
-      return !!hit && outside(hit.getBoundingClientRect()) && hasText(hit);
+      // The box test first: a probe between blocks hits `<body>`, whose text is the whole page.
+      return !!hit && outside(hit.getBoundingClientRect()) && textInBand(hit, top);
     });
-  const belowCovers = covers(
-    [below + BUBBLE_HEIGHT / 2, below + BUBBLE_HEIGHT - 2],
-    (r) => r.top >= rect.bottom - 2 && r.bottom > below,
-  );
+  const belowCovers = covers(below, (r) => r.top >= rect.bottom - 2 && r.bottom > below);
   const offBottom = below + BUBBLE_HEIGHT > window.innerHeight - 8;
   const aboveFits =
-    above >= 4 &&
-    !covers(
-      [above + 2, above + BUBBLE_HEIGHT / 2],
-      (r) => r.bottom <= rect.top + 2 && r.top < above + BUBBLE_HEIGHT,
-    );
+    above >= 4 && !covers(above, (r) => r.bottom <= rect.top + 2 && r.top < above + BUBBLE_HEIGHT);
   const top =
     (belowCovers || offBottom) && aboveFits ? above : Math.min(window.innerHeight - 32, below);
   const left = rtl
