@@ -134,6 +134,16 @@ describe('context-menu manager', () => {
     expect(row?.querySelector('[data-ega-cm-status]')?.textContent.trim()).toBe(
       'Hidden: Reword is off in Tasks',
     );
+    // The image Task radios mark and disable an off task the same way.
+    const image = container.querySelector('[data-ega-cm-id="ega-explain-image"]');
+    await fireEvent.click(image?.querySelector('[data-ega-cm-edit]') as HTMLElement);
+    const radios = [...(image?.querySelectorAll('[data-ega-cm-task] [role="radio"]') ?? [])].map(
+      (r) => [r.closest('label')?.textContent.trim(), r.hasAttribute('disabled')],
+    );
+    expect(radios).toEqual([
+      ['Translate', false],
+      ['Explain (off)', true],
+    ]);
   });
 });
 

@@ -18,6 +18,8 @@ import {
   withShippedIds,
   type MenuNameLookup,
 } from '@/shared/context-menu-names';
+import { SETTINGS_SPEC } from '@/shared/settings-spec';
+import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 
 const TASKS: Record<string, string> = {
   translate: 'Translate',
@@ -206,6 +208,50 @@ describe('withShippedIds', () => {
       surface: 'sidepanel',
     };
     expect(withShippedIds([...DEFAULT_CONTEXT_MENU_ITEMS, added])).toContainEqual(added);
+  });
+
+  it('never claims an added row that older versions gave the shipped name', () => {
+    // Older versions named added image rows this too; a re-mint kept its place, an added row went last.
+    const reminted: ContextMenuItem = {
+      id: 'ega-custom-img-tt-7',
+      kind: 'image-task',
+      enabled: true,
+      order: 2,
+      label: 'Translate image with Ega',
+      task: 'translate',
+      surface: 'tooltip',
+    };
+    const added: ContextMenuItem = { ...reminted, id: 'ega-custom-img-sp-8', order: 9 };
+    const withoutShipped = DEFAULT_CONTEXT_MENU_ITEMS.filter((i) => i.id !== 'ega-translate-image');
+    // Stored array order is not menu order: the added row comes first in the array.
+    const out = withShippedIds([added, ...withoutShipped, reminted]);
+    expect(out.find((i) => i.id === 'ega-translate-image')?.order).toBe(2);
+    expect(out).toContainEqual(added);
+
+    // With the shipped row deleted, an added row that sorts after another added row stays added.
+    const text: ContextMenuItem = {
+      id: 'ega-custom-txt-tt-7',
+      kind: 'task',
+      enabled: true,
+      order: 7,
+      label: 'New text action',
+      task: 'translate',
+      surface: 'tooltip',
+    };
+    expect(withShippedIds([...withoutShipped, text, added])).toContainEqual(added);
+  });
+
+  it('the settings search counts a re-minted shipped row as unchanged, as the card does', () => {
+    // An older version re-minted the id on every surface change, even back to the shipped one.
+    const items = DEFAULT_CONTEXT_MENU_ITEMS.map((i) =>
+      i.id === 'ega-translate-image'
+        ? { ...i, id: 'ega-custom-img-sp-7', label: 'Translate image with Ega' }
+        : i,
+    );
+    const entry = SETTINGS_SPEC.find((e) => e.id === 'contextMenu.items');
+    if (entry?.isModified?.kind !== 'custom') throw new Error('no custom isModified');
+    expect(isMenuModified(withShippedIds(items))).toBe(false);
+    expect(entry.isModified.fn({ ...DEFAULT_SETTINGS, contextMenuItems: items })).toBe(false);
   });
 });
 

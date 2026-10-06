@@ -36,6 +36,9 @@
   }
 
   function onClick(): void {
+    // On touch, pointerleave lands between pointerup and the click; its close timer must not undo the pin.
+    if (timer !== null) clearTimeout(timer);
+    timer = null;
     if (pinned) {
       close();
       return;
@@ -44,14 +47,17 @@
     open = true;
   }
 
-  // 300 ms, so a pointer passing over the icon does not flash the bubble.
-  function onEnter(): void {
+  // 300 ms, so a pointer passing over the icon does not flash the bubble. Hover is a mouse thing:
+  // a touch or pen sends enter and leave around every tap.
+  function onEnter(e: PointerEvent): void {
+    if (e.pointerType !== 'mouse') return;
     if (!open) later(() => (open = true), 300);
     else if (timer !== null) clearTimeout(timer);
   }
 
   // The bubble stays while the pointer moves from the button onto it (WCAG 1.4.13).
-  function onLeave(): void {
+  function onLeave(e: PointerEvent): void {
+    if (e.pointerType !== 'mouse') return;
     if (pinned || document.activeElement === button) {
       if (timer !== null) clearTimeout(timer);
       return;
@@ -59,12 +65,19 @@
     later(close, 150);
   }
 
-  function onKeydown(e: KeyboardEvent): void {
-    if (e.key === 'Escape' && open) {
+  // Capture on window: the tip is the innermost layer, so one Esc closes it and nothing under it,
+  // wherever focus is (an open row of options, a dialog).
+  $effect(() => {
+    if (!open) return;
+    const onKeydown = (e: KeyboardEvent): void => {
+      if (e.key !== 'Escape') return;
       e.preventDefault();
+      e.stopPropagation();
       close();
-    }
-  }
+    };
+    window.addEventListener('keydown', onKeydown, true);
+    return () => window.removeEventListener('keydown', onKeydown, true);
+  });
 </script>
 
 <button
@@ -82,7 +95,6 @@
   }}
   onpointerenter={onEnter}
   onpointerleave={onLeave}
-  onkeydown={onKeydown}
 >
   <Info size={16} aria-hidden="true" />
 </button>

@@ -15,7 +15,7 @@ import {
   DEFAULT_TRANSLATE_TIMEOUT_MS,
 } from './constants';
 import { DEFAULT_SETTINGS } from './settings-defaults';
-import { isMenuModified } from './context-menu-names';
+import { isMenuModified, withShippedIds } from './context-menu-names';
 import { DEFAULT_TEMPLATE } from './prompts';
 import type { SettingsTab } from './settings-tabs';
 import type { Settings } from './types';
@@ -1011,7 +1011,8 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
     isModified: {
       kind: 'custom',
       paths: ['contextMenuItems'],
-      fn: (s) => isMenuModified(s.contextMenuItems),
+      // The card reads the same view: a shipped row an older version re-minted is not a change.
+      fn: (s) => isMenuModified(withShippedIds(s.contextMenuItems)),
     },
   },
   {

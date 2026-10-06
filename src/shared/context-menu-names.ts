@@ -31,11 +31,15 @@ const LEGACY_LABELS: ReadonlySet<string> = new Set([
   'New text action',
 ]);
 
-/** The name the user typed, or '' when the item uses its automatic name. The site toggle has no custom name. */
+/** The stored name as typed, spaces and all, or '' when the item uses its automatic name. */
+export function storedMenuLabel(item: ContextMenuItem): string {
+  if (item.kind === 'site-toggle' || LEGACY_LABELS.has(item.label.trim())) return '';
+  return item.label;
+}
+
+/** The name the user typed, trimmed for the menu title, or '' for the automatic name. The site toggle has no custom name. */
 export function customMenuLabel(item: ContextMenuItem): string {
-  if (item.kind === 'site-toggle') return '';
-  const label = item.label.trim();
-  return LEGACY_LABELS.has(label) ? '' : label;
+  return storedMenuLabel(item).trim();
 }
 
 export const SITE_TOGGLE_TITLES = {
@@ -100,26 +104,29 @@ export function isMenuModified(items: readonly ContextMenuItem[]): boolean {
   return menuFingerprint(items) !== DEFAULT_FINGERPRINT;
 }
 
-/** Gives a shipped row back its shipped id when an older version re-minted it on a surface change, so it stays undeletable. */
+/** Gives a shipped row back its shipped id when an older version re-minted it on a surface change, so it stays undeletable.
+ *  A re-mint kept the row's place, while an added row went to the end; so the claimed row must sort before every other
+ *  added row. Older versions also gave an added image row the shipped image name, and this keeps that row deletable.
+ *  ponytail: a lone added row with a shipped name, whose shipped row was deleted, still reads as shipped; the stored
+ *  data cannot tell them apart. */
 export function withShippedIds(items: readonly ContextMenuItem[]): ContextMenuItem[] {
-  const present = new Set(items.map((i) => i.id));
   const out = items.slice();
   for (const def of DEFAULT_CONTEXT_MENU_ITEMS) {
-    if (present.has(def.id) || (def.kind !== 'task' && def.kind !== 'image-task')) continue;
+    if (out.some((i) => i.id === def.id) || (def.kind !== 'task' && def.kind !== 'image-task')) {
+      continue;
+    }
     const legacy = LEGACY_SHIPPED_LABELS[def.id];
-    const at = out.findIndex(
-      (i) =>
-        i.kind === def.kind &&
-        'task' in i &&
-        i.task === def.task &&
-        i.label === legacy &&
-        i.id.startsWith('ega-custom-') &&
-        !SHIPPED_IDS.has(i.id),
-    );
-    const found = out[at];
-    if (!found) continue;
-    out[at] = { ...found, id: def.id };
-    present.add(def.id);
+    const first = out.filter((i) => !SHIPPED_IDS.has(i.id)).sort((a, b) => a.order - b.order)[0];
+    if (
+      first?.kind !== def.kind ||
+      !('task' in first) ||
+      first.task !== def.task ||
+      first.label !== legacy ||
+      !first.id.startsWith('ega-custom-')
+    ) {
+      continue;
+    }
+    out[out.indexOf(first)] = { ...first, id: def.id };
   }
   return out;
 }

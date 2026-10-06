@@ -46,11 +46,11 @@ describe('InfoTip — the (i) toggletip', () => {
   it('opens on hover after a short delay, so a passing pointer does not flash it', async () => {
     vi.useFakeTimers();
     const { button } = setup();
-    await fireEvent.pointerEnter(button);
+    await fireEvent.pointerEnter(button, { pointerType: 'mouse' });
     expect(button.getAttribute('aria-expanded')).toBe('false');
     await vi.advanceTimersByTimeAsync(300);
     expect(button.getAttribute('aria-expanded')).toBe('true');
-    await fireEvent.pointerLeave(button);
+    await fireEvent.pointerLeave(button, { pointerType: 'mouse' });
     await vi.advanceTimersByTimeAsync(150);
     expect(button.getAttribute('aria-expanded')).toBe('false');
   });
@@ -59,8 +59,42 @@ describe('InfoTip — the (i) toggletip', () => {
     vi.useFakeTimers();
     const { button } = setup();
     await fireEvent.click(button);
-    await fireEvent.pointerLeave(button);
+    await fireEvent.pointerLeave(button, { pointerType: 'mouse' });
     await vi.advanceTimersByTimeAsync(500);
     expect(button.getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('a tap pins it: the leave a touch sends before the click does not close it', async () => {
+    vi.useFakeTimers();
+    const { button } = setup();
+    // A tap: enter, leave on lift, then focus and click.
+    await fireEvent.pointerEnter(button, { pointerType: 'touch' });
+    await fireEvent.pointerLeave(button, { pointerType: 'touch' });
+    button.focus();
+    await fireEvent.click(button);
+    await vi.advanceTimersByTimeAsync(500);
+    expect(button.getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('one Esc closes only the tip, even when focus sits in a layer under it', async () => {
+    const outer = vi.fn();
+    const field = document.createElement('input');
+    field.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') outer();
+    });
+    document.body.append(field);
+    try {
+      const { button } = setup();
+      await fireEvent.click(button);
+      field.focus();
+      await fireEvent.keyDown(field, { key: 'Escape' });
+      expect(button.getAttribute('aria-expanded')).toBe('false');
+      expect(outer).not.toHaveBeenCalled();
+      // The next Esc reaches the layer under it.
+      await fireEvent.keyDown(field, { key: 'Escape' });
+      expect(outer).toHaveBeenCalledOnce();
+    } finally {
+      field.remove();
+    }
   });
 });

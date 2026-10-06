@@ -66,6 +66,33 @@ describe('withEncodedMenuIds', () => {
     expect(decodeCustomMenuId(out[7]?.id ?? '')).toEqual({ kind: 'task', surface: 'sidepanel' });
   });
 
+  it('keeps each Chrome id when another row is added, deleted or moved', () => {
+    const stored = DEFAULT_CONTEXT_MENU_ITEMS.map((i) =>
+      i.kind === 'image-task' || i.id === 'ega-translate-selection'
+        ? ({ ...i, surface: i.kind === 'task' ? 'sidepanel' : 'tooltip' } as ContextMenuItem)
+        : i,
+    );
+    const ids = (items: ContextMenuItem[]): string[] =>
+      withEncodedMenuIds(items)
+        .filter((i) => stored.some((s) => s.order === i.order))
+        .map((i) => i.id);
+    const before = ids(stored);
+    const added: ContextMenuItem = {
+      id: 'ega-custom-txt-tt-7',
+      kind: 'task',
+      enabled: true,
+      order: 7,
+      label: '',
+      task: 'explain',
+      surface: 'tooltip',
+    };
+    expect(ids([...stored, added])).toEqual(before);
+    expect(ids(stored.filter((i) => i.id !== 'ega-pick-element'))).toEqual(
+      before.filter((id) => id !== 'ega-pick-element'),
+    );
+    expect(ids(stored.slice().reverse()).reverse()).toEqual(before);
+  });
+
   it('never mints an id an existing item already holds', () => {
     const stored: ContextMenuItem[] = [
       { ...DEFAULT_CONTEXT_MENU_ITEMS[4], surface: 'tooltip' } as ContextMenuItem,

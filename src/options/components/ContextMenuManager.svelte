@@ -16,6 +16,7 @@
     customMenuLabel,
     isMenuModified,
     isShippedItem,
+    storedMenuLabel,
     withShippedIds,
     type MenuNameLookup,
   } from '@/shared/context-menu-names';
@@ -27,7 +28,7 @@
   import { CONTEXT_MENU_ITEMS_MAX, MENU_LABEL_MAX } from '@/shared/settings-schema';
   import { toastStore } from '@/shared/components/toastStore';
   import { isShadowRow } from '@/shared/dnd-shadow-row';
-  import { labelFor } from '@/shared/languages';
+  import { isIsoCode, labelFor } from '@/shared/languages';
   import SectionCard from '@/shared/ui/SectionCard.svelte';
   import RadioGroup from '@/shared/ui/RadioGroup.svelte';
   import IconButton from '@/shared/ui/IconButton.svelte';
@@ -105,6 +106,7 @@
   let customTasks = $state.raw<CustomTask[]>([]);
   let tasksLoaded = $state(false);
   let varieties: Variety[] = $state([]);
+  let varietiesLoaded = $state(false);
   const views = $derived(materializeTasks(s, customTasks));
 
   onMount(async () => {
@@ -112,7 +114,11 @@
       customTasks = rows;
       tasksLoaded = true;
     });
-    varieties = await listVarieties();
+    try {
+      varieties = await listVarieties();
+    } finally {
+      varietiesLoaded = true;
+    }
   });
 
   // Plain functions: they read views and varieties when the template calls them, so renders track both.
@@ -151,11 +157,20 @@
     }),
   };
 
-  /** A custom task's name is not known until the task list loads; null shows "Loading…", never "Deleted task". */
+  /** A custom task's or language's name is not known until its list loads; null shows "Loading…",
+   *  never "Deleted task" or the raw id. */
   function nameOf(item: ContextMenuItem): string | null {
     const custom = customMenuLabel(item);
     if (custom !== '') return custom;
     if (item.kind === 'task' && !tasksLoaded && builtInTask(item.task) === null) return null;
+    if (
+      item.kind === 'task' &&
+      item.targetLang !== undefined &&
+      !varietiesLoaded &&
+      !isIsoCode(item.targetLang)
+    ) {
+      return null;
+    }
     return autoMenuName(item, lookup);
   }
 
@@ -228,6 +243,20 @@
     if (Object.keys(pendingLabels).length > 0) void patchItems(items);
   }
 
+  // What the user typed, kept until the field loses focus: a saved name equal to an old shipped one
+  // reads as "automatic", and the field must not empty under the caret.
+  const drafts = $state<Record<string, string>>({});
+
+  function onLabelInput(id: string, value: string): void {
+    drafts[id] = value;
+    updateLabel(id, value);
+  }
+
+  function onLabelBlur(id: string): void {
+    flushLabels();
+    delete drafts[id];
+  }
+
   // A rename typed inside the debounce window would otherwise die with the page.
   $effect(() => {
     window.addEventListener('pagehide', flushLabels);
@@ -247,6 +276,7 @@
     down: '[data-ega-cm-down]',
     edit: '[data-ega-cm-edit]',
   };
+  const TOOL_ORDER: readonly Tool[] = ['up', 'down', 'edit'];
   // Roving tab stop per row toolbar; Edit is the default stop.
   let activeTool = $state<Record<string, Tool>>({});
 
@@ -268,18 +298,22 @@
     return out;
   }
 
-  // One tab stop per row; arrows skip the arrow that cannot move (R48).
+  // One tab stop per row. Arrows wrap, as in the side panel's reply toolbar, and skip the arrow that
+  // cannot move (R48). They step from the focused button's own place, so from an end arrow that kept
+  // focus after a move, Left and Right still go the way they point.
   function onToolbarKeydown(e: KeyboardEvent, id: string, enabled: Tool[]): void {
-    const current = activeTool[id] ?? 'edit';
-    const idx = enabled.indexOf(current);
-    let next: number;
-    if (e.key === 'ArrowRight') next = (idx + 1) % enabled.length;
-    else if (e.key === 'ArrowLeft') next = (idx - 1 + enabled.length) % enabled.length;
-    else if (e.key === 'Home') next = 0;
-    else if (e.key === 'End') next = enabled.length - 1;
-    else return;
+    let tool: Tool | undefined;
+    if (e.key === 'Home') tool = enabled[0];
+    else if (e.key === 'End') tool = enabled.at(-1);
+    else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+      const step = e.key === 'ArrowRight' ? 1 : TOOL_ORDER.length - 1;
+      let at = TOOL_ORDER.indexOf(activeTool[id] ?? 'edit');
+      // Edit is always enabled, so the walk ends.
+      do at = (at + step) % TOOL_ORDER.length;
+      while (!enabled.includes(TOOL_ORDER[at] ?? 'edit'));
+      tool = TOOL_ORDER[at];
+    } else return;
     e.preventDefault();
-    const tool = enabled[next];
     if (tool !== undefined) void focusTool(id, tool);
   }
 
@@ -399,13 +433,38 @@
       message: 'Right-click menu reset.',
       variant: 'success',
       duration: 8000,
-      action: { label: 'Undo', onClick: () => void onPatch({ contextMenuItems: before }) },
+      action: { label: 'Undo', onClick: () => void undoReset(before) },
     });
     // The Reset button is gone now, so focus would drop to the page.
     await tick();
     cardEl
       ?.querySelector<HTMLElement>('[data-ega-cm-group="selection"] [data-ega-cm-enabled]')
       ?.focus();
+  }
+
+  // Order is not part of a row's content: every write renumbers it.
+  function sameRow(a: ContextMenuItem, b: ContextMenuItem): boolean {
+    const key = (i: ContextMenuItem): string =>
+      JSON.stringify({ ...i, order: 0 }, Object.keys(i).sort());
+    return key(a) === key(b);
+  }
+
+  /** Undo puts back what Reset changed and keeps what the user did since: rows added after the reset,
+   *  and edits to rows Reset left as they were. It re-reads like Delete's Undo; the prop is a snapshot. */
+  async function undoReset(before: readonly ContextMenuItem[]): Promise<void> {
+    const stored = (await getSettings()).contextMenuItems ?? DEFAULT_CONTEXT_MENU_ITEMS;
+    const now = new Map(stored.map((i) => [i.id, i]));
+    const restored = before.map((row) => {
+      const shipped = DEFAULT_CONTEXT_MENU_ITEMS.find((d) => d.id === row.id);
+      const current = now.get(row.id);
+      return shipped && current && sameRow(row, shipped) ? current : row;
+    });
+    const kept = new Set(before.map((i) => i.id));
+    const since = stored
+      .slice()
+      .sort((a, b) => a.order - b.order)
+      .filter((i) => !kept.has(i.id));
+    await patchItems([...restored, ...since]);
   }
 
   function setTask(id: string, val: string): void {
@@ -453,6 +512,14 @@
       });
     }
     return out;
+  }
+
+  // Like the text Task select: an off task stays listed, marked and not pickable.
+  function imageTaskChoices(): { value: string; label: string; disabled: boolean }[] {
+    return IMAGE_TASK_CHOICES.map((c) => {
+      const off = views.find((v) => v.id === c.value)?.disabled === true;
+      return { ...c, label: off ? `${c.label} (off)` : c.label, disabled: off };
+    });
   }
 
   /** The library makes a handle a focusable button; this grip is pointer only, Move up/down is the keyboard path. */
@@ -583,7 +650,7 @@
                         >
                           <Checkbox
                             checked={item.enabled}
-                            ariaLabel="Show {name}"
+                            ariaLabel="{name}, show in menu"
                             inputAttrs={{
                               'data-ega-cm-enabled': true,
                               'aria-describedby': status ? statusId : undefined,
@@ -642,6 +709,12 @@
                             }}
                             onclick={() => void move(item, 1, 'down')}
                           />
+                          <!-- Edit's width, so the arrows line up with every other row's. -->
+                          <span class="cm-edit-spacer" aria-hidden="true" inert>
+                            <Button variant="ghost" size="sm" dataAttrs={{ tabindex: -1 }}
+                              >Edit<ChevronDown size={16} aria-hidden="true" /></Button
+                            >
+                          </span>
                         </span>
                       {:else}
                         <div
@@ -734,7 +807,7 @@
                               <div class="cm-field">
                                 <RadioGroup
                                   value={item.task}
-                                  options={IMAGE_TASK_CHOICES}
+                                  options={imageTaskChoices()}
                                   orientation="horizontal"
                                   dataAttrs={{
                                     'data-ega-cm-task': true,
@@ -792,15 +865,18 @@
                               <Input
                                 id="cm-name-{item.id}"
                                 size="sm"
-                                value={customMenuLabel(item)}
+                                value={drafts[item.id] ?? storedMenuLabel(item)}
                                 maxlength={MENU_LABEL_MAX}
                                 dataAttrs={{
                                   'data-ega-cm-label': true,
                                   'aria-describedby': `cm-name-hint-${item.id}`,
                                 }}
                                 oninput={(e) =>
-                                  updateLabel(item.id, (e.currentTarget as HTMLInputElement).value)}
-                                onblur={flushLabels}
+                                  onLabelInput(
+                                    item.id,
+                                    (e.currentTarget as HTMLInputElement).value,
+                                  )}
+                                onblur={() => onLabelBlur(item.id)}
                               />
                               <span class="cm-hint" id="cm-name-hint-{item.id}"
                                 >Leave empty to use "{autoMenuName(item, lookup)}"</span
@@ -1003,6 +1079,10 @@
     background: transparent;
     color: var(--color-fg-subtle);
   }
+  .cm-edit-spacer {
+    display: inline-flex;
+    visibility: hidden;
+  }
   .cm-tools :global(.ega-btn-label) {
     display: inline-flex;
     align-items: center;
@@ -1074,7 +1154,8 @@
   }
 
   /* Narrow card: the label sits above its control, and the row actions stay on the name line.
-     The kind icon only repeats the group, so it gives its room to the name. */
+     The kind icon only repeats the group, and the grip is pointer-only (Move up and Move down do
+     the same), so both give their room to the name. */
   @container (max-width: 480px) {
     .cm-opts {
       grid-template-columns: minmax(0, 1fr);
@@ -1088,7 +1169,8 @@
     .cm-field-label.is-radio {
       padding-block-start: 0;
     }
-    .cm-kind {
+    .cm-kind,
+    .cm-handle {
       display: none;
     }
     .cm-row {

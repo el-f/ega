@@ -422,7 +422,7 @@ test('Right-click menu card — default, edit, states, many, narrow, delete (lig
 
   const ROW_RULES = [
     'one control row per menu row: checkbox, name, then Move up, Move down, Edit on the same line',
-    'row text sits inside at most 2 borders: the card and its group box',
+    "row text sits inside at most 2 borders, the card and its group box; a form field in an open row's options makes 3, and that is expected",
     'reasons, hints and group labels are at least 12 px and readable',
   ];
 
@@ -435,8 +435,30 @@ test('Right-click menu card — default, edit, states, many, narrow, delete (lig
     [
       'three groups: Selected text, Images, Page, each box starting with "Ega ▸"',
       'automatic names, none ending in "with Ega"; no Layout control; Reset hidden',
+      'the "Disable Ega on this site" row has no Edit, and its arrows line up with the arrows above',
       ...ROW_RULES,
     ],
+  );
+
+  await card.getByRole('button', { name: 'About the right-click menu' }).click();
+  await expect(page.locator('[data-ega-infotip-text]')).toBeVisible();
+  await cardShot('infotip', 'infotip', 'user clicked the (i) next to the card title', [
+    'the tip opens under the (i), over the card, with the two sentences about the menu',
+    'its text is at least 12 px and reads clearly against its background',
+  ]);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('[data-ega-infotip-text]')).toHaveCount(0);
+
+  // Tab from the checkbox, so the browser draws the keyboard focus ring.
+  const focusRow = card.locator('[data-ega-cm-id="ega-sidepanel-selection"]');
+  await focusRow.locator('[data-ega-cm-enabled]').focus();
+  await page.keyboard.press('Tab');
+  await expect(focusRow.locator('[data-ega-cm-edit]')).toBeFocused();
+  await cardShot(
+    'focus',
+    'focus',
+    'user tabbed from the "Translate in side panel" checkbox to its row actions',
+    ["a clear focus ring around that row's Edit button, and on no other control", ...ROW_RULES],
   );
 
   await card.locator('[data-ega-cm-id="ega-translate-selection"] [data-ega-cm-edit]').click();
@@ -504,6 +526,10 @@ test('Right-click menu card — default, edit, states, many, narrow, delete (lig
   await openCard({ contextMenuItems: [...defaults, ...full] });
   await expect(card.locator('[data-ega-cm-full]')).toHaveCount(2);
   await expect(card.locator('[data-ega-cm-add]')).toHaveAttribute('aria-disabled', 'true');
+  await cardShot('full', 'full', 'user has 50 items, the most the menu holds', [
+    'under Selected text and under Images the Add button is dimmed, and "Menu is full (50 items). Delete one to add another." shows under it',
+    ...ROW_RULES,
+  ]);
 
   await page.setViewportSize({ width: 400, height: 900 });
   await openCard({});
@@ -514,6 +540,7 @@ test('Right-click menu card — default, edit, states, many, narrow, delete (lig
     'user opened the card at a 400 px wide options page and pressed Edit on an image row',
     [
       'row actions stay on the name line; long names wrap, never cut off',
+      'no drag grip and no kind icon at this width; each row starts with its checkbox',
       'in the open options each label sits above its control',
       ...ROW_RULES,
     ],

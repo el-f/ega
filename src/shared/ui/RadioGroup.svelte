@@ -16,6 +16,8 @@
     description?: string;
     /** Optional leading icon (a lucide component). */
     icon?: LucideLike;
+    /** This one choice cannot be picked; the label should say why. */
+    disabled?: boolean;
   }
 
   interface Props {
@@ -49,8 +51,8 @@
   {...dataAttrs ?? {}}
 >
   {#each options as option (option.value)}
-    <label class="ega-radio-row" class:disabled>
-      <RadioGroup.Item value={option.value} class="ega-radio-item">
+    <label class="ega-radio-row" class:disabled={disabled || option.disabled}>
+      <RadioGroup.Item value={option.value} disabled={option.disabled} class="ega-radio-item">
         {#snippet children({ checked })}
           <span class="ega-radio-dot" class:checked aria-hidden="true"></span>
         {/snippet}

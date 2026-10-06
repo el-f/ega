@@ -149,7 +149,7 @@ describe('ContextMenuManager — showing and hiding', () => {
   it('the checkbox shows or hides a row and saves at once', async () => {
     const onPatch = vi.fn<OnPatch>();
     const { getByRole } = render(ContextMenuManager, { props: makeProps({ onPatch }) });
-    await fireEvent.click(getByRole('checkbox', { name: 'Show Translate' }));
+    await fireEvent.click(getByRole('checkbox', { name: 'Translate, show in menu' }));
     expect(onPatch).toHaveBeenCalledOnce();
     expect(written(onPatch).find((i) => i.id === 'ega-translate-selection')?.enabled).toBe(false);
   });
@@ -322,6 +322,63 @@ describe('ContextMenuManager — Edit', () => {
     }
   });
 
+  it('the Name field keeps what is typed across a save: a trailing space, an old shipped name', async () => {
+    vi.useFakeTimers();
+    try {
+      const { container } = renderLive();
+      const r = row(container, 'ega-translate-selection');
+      await fireEvent.click(r.querySelector('[data-ega-cm-edit]') as HTMLElement);
+      const input = r.querySelector<HTMLInputElement>('[data-ega-cm-label]');
+      if (!input) throw new Error('no name field');
+      input.focus();
+      // A pause after the space saves "a "; the field must not trim it under the caret.
+      await fireEvent.input(input, { target: { value: 'a ' } });
+      await vi.advanceTimersByTimeAsync(400);
+      await tick();
+      expect(input.value).toBe('a ');
+      // An old shipped name saves, then reads as "automatic"; the field must not empty while typing.
+      await fireEvent.input(input, { target: { value: 'Translate selection with Ega' } });
+      await vi.advanceTimersByTimeAsync(400);
+      await tick();
+      expect(input.value).toBe('Translate selection with Ega');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('a row on a custom language reads "Loading…" until the language list arrives, never the raw id', async () => {
+    chromeMock.storage.local._raw.set('ega.customLanguages', [
+      { id: 'custom-slang', label: 'My Slang', hint: '', examples: [], createdAt: 1000 },
+    ]);
+    const items = DEFAULT_CONTEXT_MENU_ITEMS.map((i) =>
+      i.id === 'ega-translate-selection' ? { ...i, targetLang: 'custom-slang' } : i,
+    );
+    const { container } = render(ContextMenuManager, {
+      props: makeProps({ s: { contextMenuItems: items } as Partial<Settings> }),
+    });
+    expect(names(container, 'selection')[0]).toBe('Loading…');
+    await waitFor(() => expect(names(container, 'selection')[0]).toBe('Translate into My Slang'));
+  });
+
+  it('one Esc closes the open (i) first, and the next closes the row options', async () => {
+    const { container, getByRole } = render(ContextMenuManager, { props: makeProps() });
+    const r = row(container, 'ega-translate-selection');
+    const edit = r.querySelector<HTMLElement>('[data-ega-cm-edit]');
+    if (!edit) throw new Error('no Edit');
+    await fireEvent.click(edit);
+    const tip = getByRole('button', { name: 'About the right-click menu' });
+    await fireEvent.click(tip);
+    expect(tip.getAttribute('aria-expanded')).toBe('true');
+    const field = r.querySelector<HTMLElement>('[data-ega-cm-label]');
+    if (!field) throw new Error('no name field');
+    field.focus();
+    await fireEvent.keyDown(field, { key: 'Escape' });
+    expect(tip.getAttribute('aria-expanded')).toBe('false');
+    expect(edit.getAttribute('aria-expanded')).toBe('true');
+    await fireEvent.keyDown(field, { key: 'Escape' });
+    expect(edit.getAttribute('aria-expanded')).toBe('false');
+  });
+
   it('picking a language names the row after it and stores it', async () => {
     const onPatch = vi.fn<OnPatch>();
     const { container } = render(ContextMenuManager, { props: makeProps({ onPatch }) });
@@ -443,6 +500,26 @@ describe('ContextMenuManager — add, delete, move, reset', () => {
     await waitFor(() => expect(document.activeElement).toBe(edit));
   });
 
+  it('from a focused end arrow, Left and Right go the way they point', async () => {
+    const { container } = render(ContextMenuManager, { props: makeProps() });
+    const bar = row(container, 'ega-translate-selection').querySelector<HTMLElement>(
+      '[role="toolbar"]',
+    );
+    const up = bar?.querySelector<HTMLElement>('[data-ega-cm-up]');
+    const down = bar?.querySelector<HTMLElement>('[data-ega-cm-down]');
+    const edit = bar?.querySelector<HTMLElement>('[data-ega-cm-edit]');
+    if (!up || !down || !edit) throw new Error('toolbar missing');
+    // Focus stays on Move up after a move to the top, though it is no arrow stop.
+    up.focus();
+    expect(up.getAttribute('aria-disabled')).toBe('true');
+    await fireEvent.keyDown(up, { key: 'ArrowLeft' });
+    // Left of the first button wraps to the last, as the reply toolbar does; never to Move down.
+    await waitFor(() => expect(document.activeElement).toBe(edit));
+    up.focus();
+    await fireEvent.keyDown(up, { key: 'ArrowRight' });
+    await waitFor(() => expect(document.activeElement).toBe(down));
+  });
+
   it('Reset restores the shipped menu with Undo and puts focus on the first checkbox', async () => {
     const edited = [...DEFAULT_CONTEXT_MENU_ITEMS, custom];
     const { container, onPatch } = renderLive({ contextMenuItems: edited });
@@ -457,8 +534,42 @@ describe('ContextMenuManager — add, delete, move, reset', () => {
         row(container, 'ega-translate-selection').querySelector('[data-ega-cm-enabled]'),
       ),
     );
+    // What happened inside the Undo window, as storage holds it: the user hid the image row and added one.
+    const later: ContextMenuItem = { ...custom, id: 'ega-custom-txt-tt-11', task: 'reword' };
+    const after = [
+      ...written(onPatch).map((i) =>
+        i.id === 'ega-translate-image' ? { ...i, enabled: false } : i,
+      ),
+      later,
+    ];
+    chromeMock.storage.local._raw.set('ega.settings', { contextMenuItems: after });
+    const calls = onPatch.mock.calls.length;
     pushed.at(-1)?.action?.onClick();
-    expect(written(onPatch).map((i) => i.id)).toContain(custom.id);
+    await waitFor(() => expect(onPatch.mock.calls.length).toBeGreaterThan(calls));
+    const undone = written(onPatch);
+    // Undo restores what Reset took away...
+    expect(undone.map((i) => i.id)).toContain(custom.id);
+    // ...and keeps the edits made since, on rows Reset did not change.
+    expect(undone.find((i) => i.id === 'ega-translate-image')?.enabled).toBe(false);
+    expect(undone.map((i) => i.id)).toContain(later.id);
+  });
+
+  it('Reset then Undo brings back a renamed shipped row as it was before the reset', async () => {
+    const edited = DEFAULT_CONTEXT_MENU_ITEMS.map((i) =>
+      i.id === 'ega-translate-selection' ? { ...i, label: 'Mine' } : i,
+    );
+    const { container, onPatch } = renderLive({ contextMenuItems: edited });
+    await fireEvent.click(container.querySelector('[data-ega-section-reset]') as HTMLElement);
+    // Inside the window the user renamed the same row again; Undo is about the reset, so the old name wins.
+    chromeMock.storage.local._raw.set('ega.settings', {
+      contextMenuItems: written(onPatch).map((i) =>
+        i.id === 'ega-translate-selection' ? { ...i, label: 'Other' } : i,
+      ),
+    });
+    const calls = onPatch.mock.calls.length;
+    pushed.at(-1)?.action?.onClick();
+    await waitFor(() => expect(onPatch.mock.calls.length).toBeGreaterThan(calls));
+    expect(written(onPatch).find((i) => i.id === 'ega-translate-selection')?.label).toBe('Mine');
   });
 
   it('a long group asks the user to hide what they rarely use', () => {

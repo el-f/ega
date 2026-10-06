@@ -4,15 +4,15 @@
 
 - The Selection & picker tab renders ONE "Right-click menu" card after "Element picker & shortcut": a title with an (i) button, one line "What Ega adds when you right-click a web page", then three groups.
 - The groups are "Selected text", "Images" and "Page", in that order. Each is one tinted box drawn like the menu Chrome shows: the first line reads "Ega ▸", or "Nothing from Ega shows here" when no row in the group shows.
-- A row is a drag grip, a checkbox, a kind icon, the name, then "Move up", "Move down" and "Edit". The site toggle row has no checkbox and no Edit; its line says it shows "Enable Ega on this site" on sites where Ega is off.
+- A row is a drag grip, a checkbox, a kind icon, the name, then "Move up", "Move down" and "Edit". At a card width of 480 px or less the grip and the kind icon are not shown. The site toggle row has no checkbox and no Edit, and its arrows line up with the other rows' arrows; its line says it shows "Enable Ega on this site" on sites where Ega is off.
 - Names are automatic ("Translate", "Translate in side panel", "Translate image in side panel", "Translate this page"); no name ends in "with Ega". There is no Layout (Nested/Flat) control.
 
 ## State expectations
 
-- The checkbox writes `contextMenuItems[].enabled` at once. Edit opens one row's options under it (Task, Opens in, Answer in for text rows, Name in menu); only one row is open at a time and Esc closes it with focus back on Edit.
+- The checkbox writes `contextMenuItems[].enabled` at once. Edit opens one row's options under it (Task, Opens in, Answer in for text rows, Name in menu); only one row is open at a time and Esc closes it with focus back on Edit. When the (i) tip is open, the first Esc closes only the tip.
 - Move up and Move down reorder only inside the group. Focus stays on the pressed button of the moved row, and a status line says "{name} moved to position {k} of {n}".
 - "Add text action" and "Add image action" sit under their own group. A new row opens its options with focus on Task.
-- Reset section restores the 7 shipped rows and removes added rows; a toast "Right-click menu reset." offers Undo for 8 s, and focus moves to the first checkbox.
+- Reset section restores the 7 shipped rows and removes added rows; a toast "Right-click menu reset." offers Undo for 8 s, and focus moves to the first checkbox. Undo puts back the rows Reset changed and keeps what the user did inside the 8 s on other rows (a row added, a row hidden).
 
 ## Visible affordances
 
