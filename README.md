@@ -122,7 +122,7 @@ The side panel keeps a conversation per site: follow-up questions, refinement
 chips, variants, search and export.
 
 <p align="center">
-  <img src="docs/media/sidepanel.png" alt="Ega's side panel in dark mode with two exchanges, an Arabizi line and a slang line each translated with a 95% sure score and a detected-language pill (Arabizi — Levantine, Gen-Z slang), and refine chips under the latest answer" width="360">
+  <img src="docs/media/sidepanel.png" alt="Ega's side panel in dark mode with two exchanges, an Arabizi line and a slang line each translated with a 95% sure score and a detected-language pill (Arabizi — Levantine, Gen-Z slang), and Refine and Try as buttons on the latest answer" width="360">
 </p>
 
 ## Backends
