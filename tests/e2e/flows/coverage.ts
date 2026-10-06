@@ -164,6 +164,17 @@ export const COVERAGE: readonly Family[] = [
         ],
       },
       {
+        id: 'page-toast',
+        actions: [
+          {
+            id: 'closes-on-route-change',
+            description:
+              "A notice that waits for the user closes when the page's own router pushes a new route",
+            flows: ['page-toast/closes-on-route-change.flow.spec.ts'],
+          },
+        ],
+      },
+      {
         id: 'smart-bubble',
         actions: [
           {

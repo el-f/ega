@@ -822,15 +822,24 @@ function cancelTranslatesOnNav(): void {
   closeTooltip();
 }
 
-// Only these two: a `history.pushState` patch made here lives in the isolated world, so the page's own router never runs it.
+/** The page's own router changed the route: a notice that waits for the user is out of date, the tooltip is not (D41). */
+function onRouteChange(e: NavigationCurrentEntryChangeEvent): void {
+  if (e.navigationType === 'push' || e.navigationType === 'traverse') closeStickyToast();
+}
+
+// A pushState patch made here would live in the isolated world the page's router never calls; the Navigation API reports to every world.
+const pageNavigation = (window as { navigation?: Navigation }).navigation;
+
 function installUrlWatcher(): void {
   window.addEventListener('popstate', cancelTranslatesOnNav);
   window.addEventListener('hashchange', cancelTranslatesOnNav);
+  pageNavigation?.addEventListener('currententrychange', onRouteChange);
 }
 
 function uninstallUrlWatcher(): void {
   window.removeEventListener('popstate', cancelTranslatesOnNav);
   window.removeEventListener('hashchange', cancelTranslatesOnNav);
+  pageNavigation?.removeEventListener('currententrychange', onRouteChange);
 }
 
 installUrlWatcher();

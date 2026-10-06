@@ -19,6 +19,10 @@ vi.mock('@/content/toast', () => ({
   closeStickyToast: () => calls.push('close'),
 }));
 
+// jsdom has no Navigation API; the content script listens on whatever the page exposes at load.
+const navigation = new EventTarget();
+Object.defineProperty(window, 'navigation', { value: navigation, configurable: true });
+
 const content = await import('@/content/index');
 const { enterPickerMode: enterPickerModeImpl } = await import('@/content/picker-overlay');
 
@@ -80,6 +84,12 @@ describe('a new Ega action closes a notice that waits for the user (X14)', () =>
   it('a page navigation', () => {
     window.dispatchEvent(new PopStateEvent('popstate'));
     window.dispatchEvent(new HashChangeEvent('hashchange'));
+    expect(calls).toEqual(['close', 'close']);
+  });
+
+  it("the page router's own route change, but not a replace of the same entry", () => {
+    for (const navigationType of ['push', 'replace', 'traverse'])
+      navigation.dispatchEvent(Object.assign(new Event('currententrychange'), { navigationType }));
     expect(calls).toEqual(['close', 'close']);
   });
 });
