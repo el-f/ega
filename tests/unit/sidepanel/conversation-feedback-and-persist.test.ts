@@ -109,7 +109,7 @@ describe('the store says what it dropped and what it could not read', () => {
     const push = vi.spyOn(toastStore, 'push').mockImplementation(() => {});
     await chrome.storage.local.set({ 'ega:conv:t:https://broken.test': { nonsense: true } });
     const c = createConversation();
-    await c.setActiveOrigin('https://broken.test');
+    await c.openConversation('https://broken.test');
     expect(c.turns).toHaveLength(0);
     expect(push.mock.calls.some((call) => /could not be read/.test(call[0].message))).toBe(true);
   });
@@ -118,7 +118,7 @@ describe('the store says what it dropped and what it could not read', () => {
 describe('a settled answer is written straight away', () => {
   it('does not wait out the save debounce', async () => {
     const c = createConversation();
-    await c.setActiveOrigin('https://save.test');
+    await c.openConversation('https://save.test');
     await c.send({
       content: 'hola',
       kind: 'translate',

@@ -142,7 +142,7 @@ describe('interruptPendingTurns', () => {
     await saveThread('https://reload-test.com', streamingTurns);
 
     const c = createConversation();
-    await c.setActiveOrigin('https://reload-test.com');
+    await c.openConversation('https://reload-test.com');
 
     const assistant = c.turns.find((t) => t.role === 'assistant');
     expect(assistant?.status).toBe('error');
@@ -154,7 +154,7 @@ describe('interruptPendingTurns', () => {
 describe('an origin switch leaves the inflight reply to finish in its own thread', () => {
   it('a reply that never answers still reloads as an error, not stuck pending', async () => {
     const c = createConversation({ stallMs: () => 50 });
-    await c.setActiveOrigin('https://a.com');
+    await c.openConversation('https://a.com');
     await c.send({
       content: 'hola',
       kind: 'translate',
@@ -163,12 +163,12 @@ describe('an origin switch leaves the inflight reply to finish in its own thread
       stream: false,
     });
     // The reply keeps running for a.com after the switch; no chunk ever comes, so its stall guard ends it.
-    await c.setActiveOrigin('https://b.com');
+    await c.openConversation('https://b.com');
     await vi.waitFor(async () => {
       const stored = await loadThreadResult('https://a.com');
       expect(stored.turns.find((t) => t.role === 'assistant')?.status).toBe('error');
     });
-    await c.setActiveOrigin('https://a.com');
+    await c.openConversation('https://a.com');
     const assistant = c.turns.find((t) => t.role === 'assistant');
     expect(assistant?.status).toBe('error');
     expect(assistant?.error?.code).toBe('TIMEOUT');
@@ -270,7 +270,7 @@ describe('saveThread quota handling', () => {
 
     // Should not throw — evicts old.com and retries.
     await expect(saveThread('https://new.com', [userTurn('new')])).resolves.toEqual({
-      evictedOrigin: 'https://old.com',
+      evicted: { id: 'https://old.com', title: 'text' },
     });
   });
 
@@ -397,7 +397,7 @@ describe('the streaming body is hidden from assistive tech', () => {
 describe('in-memory turns cap', () => {
   it('state.turns never exceeds MAX_TURNS_PER_THREAD after many sends', async () => {
     const c = createConversation();
-    await c.setActiveOrigin('https://cap-test.com');
+    await c.openConversation('https://cap-test.com');
 
     // Seed MAX_TURNS_PER_THREAD turns into storage so setActiveOrigin loads them.
     const seed: Turn[] = [];
@@ -405,7 +405,7 @@ describe('in-memory turns cap', () => {
       seed.push(userTurn(`su${i}`, `turn ${i}`));
     }
     await saveThread('https://cap-test.com', seed);
-    await c.setActiveOrigin('https://cap-test.com');
+    await c.openConversation('https://cap-test.com');
     expect(c.turns.length).toBe(MAX_TURNS_PER_THREAD);
 
     // One more send: array must still be bounded.
@@ -433,7 +433,7 @@ describe('in-memory turns cap', () => {
       [key]: { version: 1, origin, updatedAt: Date.now(), turns: tooMany },
     });
     const c = createConversation();
-    await c.setActiveOrigin(origin);
+    await c.openConversation(origin);
     expect(c.turns.length).toBeLessThanOrEqual(MAX_TURNS_PER_THREAD);
   });
 });

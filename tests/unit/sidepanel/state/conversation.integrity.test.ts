@@ -51,7 +51,7 @@ describe('a debounced save cannot land on the origin it was not scheduled for', 
     vi.useFakeTimers();
     await saveThread('https://target.com', [userTurn('new-1', 'NEW-SITE-TURN')]);
     const c = createConversation();
-    await c.setActiveOrigin('https://source.com');
+    await c.openConversation('https://source.com');
     c.seedDeliveredTurn({
       kind: 'translate',
       sourceText: 'OLD-SITE-TURN',
@@ -82,7 +82,7 @@ describe('a debounced save cannot land on the origin it was not scheduled for', 
       return p;
     }) as typeof chrome.storage.local.set);
 
-    await c.setActiveOrigin('https://target.com');
+    await c.openConversation('https://target.com');
     await vi.advanceTimersByTimeAsync(1000);
     vi.restoreAllMocks();
 
@@ -172,7 +172,7 @@ describe('discrete edits are written without waiting out the debounce', () => {
   it('a bookmark reaches storage before the 400ms timer would fire', async () => {
     vi.useFakeTimers();
     const c = createConversation();
-    await c.setActiveOrigin('https://disc.com');
+    await c.openConversation('https://disc.com');
     c.seedDeliveredTurn({
       kind: 'translate',
       sourceText: 'hola',
@@ -196,7 +196,7 @@ describe('discrete edits are written without waiting out the debounce', () => {
   it('a delete reaches storage before the 400ms timer would fire', async () => {
     vi.useFakeTimers();
     const c = createConversation();
-    await c.setActiveOrigin('https://disc2.com');
+    await c.openConversation('https://disc2.com');
     c.seedDeliveredTurn({
       kind: 'translate',
       sourceText: 'hola',
@@ -222,7 +222,7 @@ describe('a turn deleted here stays deleted across a save from another window', 
     const o = 'https://tomb-panel.com';
     await saveThread(o, [userTurn('t1', 'one', 10), userTurn('t2', 'two', 20)]);
     const c = createConversation();
-    await c.setActiveOrigin(o);
+    await c.openConversation(o);
     c.deleteTurn('t2');
     await c.flush();
 
@@ -238,7 +238,7 @@ describe('a turn deleted here stays deleted across a save from another window', 
     const o = 'https://tomb-undo.com';
     await saveThread(o, [userTurn('t1', 'one', 10), userTurn('t2', 'two', 20)]);
     const c = createConversation();
-    await c.setActiveOrigin(o);
+    await c.openConversation(o);
 
     const slice = c.deleteTurn('t2');
     await c.flush();
@@ -254,7 +254,7 @@ describe('a turn deleted here stays deleted across a save from another window', 
     const o = 'https://foreign-panel.com';
     await saveThread(o, [userTurn('t1', 'one', 10)]);
     const c = createConversation();
-    await c.setActiveOrigin(o);
+    await c.openConversation(o);
 
     const key = `ega:conv:t:${o}`;
     const stored = (await chrome.storage.local.get(key))[key] as { turns: Turn[] };

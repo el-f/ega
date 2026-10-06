@@ -30,7 +30,7 @@ async function openPanel(): Promise<ReturnType<typeof createConversation>> {
   };
   chrome.storage.onChanged.addListener(listener);
   listeners.push(listener);
-  await c.setActiveOrigin(ORIGIN);
+  await c.openConversation(ORIGIN);
   return c;
 }
 

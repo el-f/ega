@@ -59,7 +59,7 @@ describe('Regenerate on a byte-shrunk turn keeps the answer it re-runs', () => {
       { knownIds: new Set(['u1', 'a1']), deletedAt: new Map(), revivedAt: new Map() },
     );
     const c = createConversation();
-    await c.setActiveOrigin(origin);
+    await c.openConversation(origin);
     const before = c.turns.find((t) => t.role === 'assistant');
     // The byte cap stripped variants on save; the loader rebuilds v1 so Regenerate appends beside it.
     expect(before?.variants).toHaveLength(1);
@@ -111,9 +111,9 @@ describe('the unreadable-thread warning fires once per site', () => {
     const push = vi.spyOn(toastStore, 'push').mockImplementation(() => {});
     await chrome.storage.local.set({ 'ega:conv:t:https://broken.test': { nonsense: true } });
     const c = createConversation();
-    await c.setActiveOrigin('https://broken.test');
-    await c.setActiveOrigin('https://other.test');
-    await c.setActiveOrigin('https://broken.test');
+    await c.openConversation('https://broken.test');
+    await c.openConversation('https://other.test');
+    await c.openConversation('https://broken.test');
     const warnings = push.mock.calls.filter((call) => /could not be read/.test(call[0].message));
     expect(warnings).toHaveLength(1);
     // The claim has to match what the store does on the next write.

@@ -50,7 +50,7 @@ afterEach(() => {
 describe('a save that fails is visible', () => {
   it('flush reports the failure and clears it after the next good save', async () => {
     const c = createConversation();
-    await c.setActiveOrigin('https://q.com');
+    await c.openConversation('https://q.com');
     seed(c);
     failEveryWrite();
 
@@ -65,7 +65,7 @@ describe('a save that fails is visible', () => {
   it('the debounced save reports the failure instead of swallowing it', async () => {
     vi.useFakeTimers();
     const c = createConversation();
-    await c.setActiveOrigin('https://d.com');
+    await c.openConversation('https://d.com');
     failEveryWrite();
     seed(c);
 
@@ -77,7 +77,7 @@ describe('a save that fails is visible', () => {
   it('warns the user once, not on every later save', async () => {
     const push = vi.spyOn(toastStore, 'push').mockImplementation(() => {});
     const c = createConversation();
-    await c.setActiveOrigin('https://t.com');
+    await c.openConversation('https://t.com');
     seed(c);
     failEveryWrite();
 
@@ -89,12 +89,12 @@ describe('a save that fails is visible', () => {
 
   it('names the site whose saved conversation was deleted to make room', async () => {
     const first = createConversation();
-    await first.setActiveOrigin('https://old.com');
+    await first.openConversation('https://old.com');
     seed(first);
     await first.flush();
 
     const c = createConversation();
-    await c.setActiveOrigin('https://new.com');
+    await c.openConversation('https://new.com');
     seed(c);
     await c.flush();
 
@@ -109,23 +109,23 @@ describe('a save that fails is visible', () => {
 
   it('a failed flush does not block the origin switch', async () => {
     const c = createConversation();
-    await c.setActiveOrigin('https://one.com');
+    await c.openConversation('https://one.com');
     seed(c);
     failEveryWrite();
 
-    await expect(c.setActiveOrigin('https://two.com')).resolves.toBeUndefined();
+    await expect(c.openConversation('https://two.com')).resolves.toBeUndefined();
     expect(c.turns).toEqual([]);
     expect(c.saveFailed).toBe(true);
   });
 
   it('says which site lost its unsaved messages when the panel follows a tab switch', async () => {
     const c = createConversation();
-    await c.setActiveOrigin('https://one.com');
+    await c.openConversation('https://one.com');
     seed(c);
     failEveryWrite();
     const push = vi.spyOn(toastStore, 'push').mockImplementation(() => {});
 
-    await c.setActiveOrigin('https://two.com');
+    await c.openConversation('https://two.com');
 
     const messages = push.mock.calls.map((call) => call[0].message);
     expect(messages).toContainEqual(expect.stringMatching(/were not kept/));
@@ -134,12 +134,12 @@ describe('a save that fails is visible', () => {
 
   it('stays quiet when the switch happened after a healthy save', async () => {
     const c = createConversation();
-    await c.setActiveOrigin('https://ok.com');
+    await c.openConversation('https://ok.com');
     seed(c);
     await c.flush();
     const push = vi.spyOn(toastStore, 'push').mockImplementation(() => {});
 
-    await c.setActiveOrigin('https://next.com');
+    await c.openConversation('https://next.com');
 
     expect(push.mock.calls.map((call) => call[0].message)).not.toContainEqual(
       expect.stringMatching(/were not kept/),
@@ -148,14 +148,14 @@ describe('a save that fails is visible', () => {
 
   it('warns again on the next switch, naming the new site', async () => {
     const c = createConversation();
-    await c.setActiveOrigin('https://one.com');
+    await c.openConversation('https://one.com');
     seed(c);
     failEveryWrite();
-    await c.setActiveOrigin('https://two.com');
+    await c.openConversation('https://two.com');
     seed(c);
     const push = vi.spyOn(toastStore, 'push').mockImplementation(() => {});
 
-    await c.setActiveOrigin('https://three.com');
+    await c.openConversation('https://three.com');
 
     expect(push.mock.calls.map((call) => call[0].message)).toContainEqual(
       expect.stringContaining('two.com'),

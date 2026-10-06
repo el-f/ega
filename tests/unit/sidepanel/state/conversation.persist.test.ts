@@ -30,13 +30,13 @@ describe('per-origin persistence', () => {
   it('setActiveOrigin loads that origin thread into turns', async () => {
     await saveThread('https://a.com', [userTurn('seed', 'restored')]);
     const c = createConversation();
-    await c.setActiveOrigin('https://a.com');
+    await c.openConversation('https://a.com');
     expect(c.turns.map((t) => t.content)).toEqual(['restored']);
   });
 
   it('a completed send persists to the active origin (after flush)', async () => {
     const c = createConversation();
-    await c.setActiveOrigin('https://b.com');
+    await c.openConversation('https://b.com');
     await c.send({
       content: 'hola',
       kind: 'translate',
@@ -52,7 +52,7 @@ describe('per-origin persistence', () => {
 
   it('switching origin saves the current thread and loads the new one', async () => {
     const c = createConversation();
-    await c.setActiveOrigin('https://one.com');
+    await c.openConversation('https://one.com');
     await c.send({
       content: 'first',
       kind: 'translate',
@@ -61,15 +61,15 @@ describe('per-origin persistence', () => {
       stream: false,
     });
     c.applyChunk({ type: 'done', requestId: lastRequestId(), confidence: 0.9 });
-    await c.setActiveOrigin('https://two.com');
+    await c.openConversation('https://two.com');
     expect(c.turns).toEqual([]);
-    await c.setActiveOrigin('https://one.com');
+    await c.openConversation('https://one.com');
     expect(c.turns.some((t) => t.content === 'first')).toBe(true);
   });
 
   it('flushes the departing origin to storage on switch', async () => {
     const c = createConversation();
-    await c.setActiveOrigin('https://dep.com');
+    await c.openConversation('https://dep.com');
     await c.send({
       content: 'kept',
       kind: 'translate',
@@ -78,7 +78,7 @@ describe('per-origin persistence', () => {
       stream: false,
     });
     c.applyChunk({ type: 'done', requestId: lastRequestId(), confidence: 0.9 });
-    await c.setActiveOrigin('https://other.com'); // triggers flush of dep.com
+    await c.openConversation('https://other.com'); // triggers flush of dep.com
     expect((await loadThreadResult('https://dep.com')).turns).toEqual(
       expect.arrayContaining([expect.objectContaining({ content: 'kept' })]),
     );
@@ -88,10 +88,10 @@ describe('per-origin persistence', () => {
     await saveThread('https://a.com', [userTurn('au', 'A-turn')]);
     await saveThread('https://b.com', [userTurn('bu', 'B-turn')]);
     const c = createConversation();
-    await c.setActiveOrigin('https://a.com'); // now on A with A-turn
+    await c.openConversation('https://a.com'); // now on A with A-turn
     // Fire two switches without awaiting the first — simulates follower re-entrancy.
-    const p1 = c.setActiveOrigin('https://b.com');
-    const p2 = c.setActiveOrigin('https://a.com');
+    const p1 = c.openConversation('https://b.com');
+    const p2 = c.openConversation('https://a.com');
     await Promise.all([p1, p2]);
     // Last switch wins: panel shows A's thread, not B's.
     expect(c.turns.map((t) => t.content)).toEqual(['A-turn']);
@@ -99,7 +99,7 @@ describe('per-origin persistence', () => {
 
   it('a pending debounced save targets the origin active when it was scheduled, not at fire time', async () => {
     const c = createConversation();
-    await c.setActiveOrigin('https://sched.com');
+    await c.openConversation('https://sched.com');
     await c.send({
       content: 'sched-turn',
       kind: 'translate',
@@ -110,7 +110,7 @@ describe('per-origin persistence', () => {
     c.applyChunk({ type: 'done', requestId: lastRequestId(), confidence: 0.9 }); // schedules markDirty for sched.com
     // Switch before the 400ms debounce fires — flush() saves sched.com turns under
     // sched.com (target bound at schedule time) and cancels the pending timer.
-    await c.setActiveOrigin('https://other.com');
+    await c.openConversation('https://other.com');
     // sched-turn must be under sched.com; other.com must stay empty.
     expect(
       (await loadThreadResult('https://sched.com')).turns.some((t) => t.content === 'sched-turn'),
@@ -118,9 +118,9 @@ describe('per-origin persistence', () => {
     expect((await loadThreadResult('https://other.com')).turns).toEqual([]);
   });
 
-  it('clearActiveThread empties memory and storage', async () => {
+  it('startNewConversation empties the screen and keeps the old thread stored', async () => {
     const c = createConversation();
-    await c.setActiveOrigin('https://clr.com');
+    await c.openConversation('https://clr.com');
     await c.send({
       content: 'bye',
       kind: 'translate',
@@ -130,8 +130,11 @@ describe('per-origin persistence', () => {
     });
     c.applyChunk({ type: 'done', requestId: lastRequestId(), confidence: 0.9 });
     await c.flush();
-    await c.clearActiveThread();
+    await c.startNewConversation();
     expect(c.turns).toEqual([]);
-    expect((await loadThreadResult('https://clr.com')).turns).toEqual([]);
+    expect((await loadThreadResult('https://clr.com')).turns.map((t) => t.content)).toEqual([
+      'bye',
+      '',
+    ]);
   });
 });

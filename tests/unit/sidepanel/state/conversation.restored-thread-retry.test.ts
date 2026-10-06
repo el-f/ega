@@ -20,7 +20,7 @@ afterEach(() => {
  *  `lastDispatch` while the turns loaded from storage keep their own `dispatch`. */
 async function restoredThread(): Promise<ReturnType<typeof createConversation>> {
   const c = createConversation();
-  await c.setActiveOrigin('https://a.test');
+  await c.openConversation('https://a.test');
   await c.send({
     content: 'marhaba',
     kind: 'translate',
@@ -33,8 +33,8 @@ async function restoredThread(): Promise<ReturnType<typeof createConversation>> 
   c.applyChunk({ type: 'done', requestId: req, confidence: 0.9 });
   // Away and back: this is the real path that persists the thread, reloads it and
   // nulls `lastDispatch` while the loaded turns keep their own `dispatch`.
-  await c.setActiveOrigin('https://b.test');
-  await c.setActiveOrigin('https://a.test');
+  await c.openConversation('https://b.test');
+  await c.openConversation('https://a.test');
   return c;
 }
 

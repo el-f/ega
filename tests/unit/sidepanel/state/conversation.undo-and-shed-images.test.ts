@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { createConversation } from '@/sidepanel/state/conversation.svelte';
-import { loadThreadResult, saveThread } from '@/sidepanel/state/conversation-store';
+import { saveThread } from '@/sidepanel/state/conversation-store';
 import { asLangIdUnsafe } from '@/shared/brands';
 import { toastStore } from '@/shared/components/toastStore';
 import type { Turn } from '@/sidepanel/state/conversation';
@@ -23,15 +23,15 @@ afterEach(() => {
 });
 
 describe('Undo after the thread in memory was replaced', () => {
-  it('does not restore into the thread New conversation emptied', async () => {
+  it('does not restore into the empty thread New conversation opened', async () => {
     const o = 'https://undo-after-clear.com';
     await saveThread(o, [userTurn('t1', 'one', 10), userTurn('t2', 'two', 20)]);
     const c = createConversation();
-    await c.setActiveOrigin(o);
+    await c.openConversation(o);
 
     const slice = c.deleteTurn('t1');
     expect(slice?.removed.map((t) => t.id)).toEqual(['t1']);
-    await c.clearActiveThread();
+    await c.startNewConversation();
 
     expect(c.restoreTurns(slice as NonNullable<typeof slice>)).toBe(false);
     expect(c.turns).toEqual([]);
@@ -41,7 +41,7 @@ describe('Undo after the thread in memory was replaced', () => {
     const o = 'https://undo-after-purge.com';
     await saveThread(o, [userTurn('t1', 'one', 10)]);
     const c = createConversation();
-    await c.setActiveOrigin(o);
+    await c.openConversation(o);
 
     const slice = c.deleteTurn('t1');
     c.resetAfterPurge();
@@ -54,13 +54,13 @@ describe('Undo after the thread in memory was replaced', () => {
     const o = 'https://undo-after-reload.com';
     await saveThread(o, [userTurn('t1', 'one', 10), userTurn('t2', 'two', 20)]);
     const c = createConversation();
-    await c.setActiveOrigin(o);
+    await c.openConversation(o);
     const slice = c.deleteTurn('t1');
     await c.flush();
 
     // The panel followed the tab away and back: the thread is re-read from storage.
-    await c.setActiveOrigin('https://elsewhere.com');
-    await c.setActiveOrigin(o);
+    await c.openConversation('https://elsewhere.com');
+    await c.openConversation(o);
 
     expect(c.restoreTurns(slice as NonNullable<typeof slice>)).toBe(false);
     expect(c.turns.map((t) => t.id)).toEqual(['t2']);
@@ -70,7 +70,7 @@ describe('Undo after the thread in memory was replaced', () => {
     const o = 'https://undo-ok.com';
     await saveThread(o, [userTurn('t1', 'one', 10), userTurn('t2', 'two', 20)]);
     const c = createConversation();
-    await c.setActiveOrigin(o);
+    await c.openConversation(o);
     const slice = c.deleteTurn('t1');
     expect(c.restoreTurns(slice as NonNullable<typeof slice>)).toBe(true);
     expect(c.turns.map((t) => t.id)).toEqual(['t1', 't2']);
@@ -83,7 +83,7 @@ describe('a save that only fit without images', () => {
     const img = 'data:image/png;base64,' + 'A'.repeat(1024);
     const push = vi.spyOn(toastStore, 'push').mockImplementation(() => {});
     const c = createConversation();
-    await c.setActiveOrigin(o);
+    await c.openConversation(o);
     c.seedDeliveredTurn({
       kind: 'image-translate',
       sourceText: '[image]',
@@ -142,26 +142,13 @@ describe('retry keeps the explanation the seed carried', () => {
   });
 });
 
-describe('a clear records tombstones, a shed image drops its dispatch, a reload keeps Undo', () => {
-  it('a clear of a full thread records a tombstone per turn, so the other window cannot write the tail back', async () => {
-    const o = 'https://full-clear-container.com';
-    const full = Array.from({ length: 300 }, (_, i) => userTurn(`t${i}`, `turn ${i}`, i + 1));
-    await saveThread(o, full);
-    const c = createConversation();
-    await c.setActiveOrigin(o);
-    expect(c.turns).toHaveLength(300);
-    await c.clearActiveThread();
-
-    await saveThread(o, full, { knownIds: new Set(full.map((t) => t.id)) });
-    expect((await loadThreadResult(o)).turns).toEqual([]);
-  });
-
+describe('a shed image drops its dispatch, a reload keeps Undo', () => {
   it('a shed image takes the dispatch with it, so nothing can replay the bare placeholder', async () => {
     const o = 'https://shed-dispatch.com';
     const img = 'data:image/png;base64,' + 'A'.repeat(1024);
     vi.spyOn(toastStore, 'push').mockImplementation(() => {});
     const c = createConversation();
-    await c.setActiveOrigin(o);
+    await c.openConversation(o);
     c.seedDeliveredTurn({
       kind: 'image-translate',
       sourceText: '[image]',
@@ -190,11 +177,11 @@ describe('a clear records tombstones, a shed image drops its dispatch, a reload 
     const o = 'https://same-site-undo.com';
     await saveThread(o, [userTurn('t1', 'only', 10)]);
     const c = createConversation();
-    await c.setActiveOrigin(o);
+    await c.openConversation(o);
     const slice = c.deleteTurn('t1');
     expect(c.turns).toEqual([]);
     // The tab follower re-fires the same origin after an in-site navigation; the thread is empty, so it reloads.
-    await c.setActiveOrigin(o);
+    await c.openConversation(o);
 
     expect(c.restoreTurns(slice as NonNullable<typeof slice>)).toBe(true);
     expect(c.turns.map((t) => t.id)).toEqual(['t1']);

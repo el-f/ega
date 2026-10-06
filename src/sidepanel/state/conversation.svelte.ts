@@ -47,8 +47,18 @@ import {
   MAX_TURNS_PER_THREAD,
   isQuotaError,
   type SaveThreadResult,
+  type EvictedConversation,
   type StoredThreadView,
 } from './conversation-store';
+import {
+  currentConversation,
+  markConversationOpened,
+  newConversationId,
+  pendingDeleteIds,
+  readIndex,
+  scheduleConversationDelete,
+  siteOf,
+} from '@/shared/saved-conversations';
 import { sendTranslateCancel, sendTranslateStart } from '@/shared/translate-ui';
 import { imageStuckTimeoutMs, stuckTimeoutMs } from '@/shared/stuck-timeout';
 import { isRetryable, optionsTabForMessage } from '@/shared/error-policy';
@@ -154,18 +164,26 @@ export interface ConversationContainer {
   regenerateVariant: (turnId: string) => Promise<boolean>;
   /** Truncate from `userTurnId` on and return its content. Null when it is not a user turn. */
   editFrom: (userTurnId: string) => string | null;
-  /** Switch the persisted thread to `origin`: save current, load new. */
-  setActiveOrigin: (origin: string) => Promise<void>;
+  /** The tab now shows `site`: keep the open conversation if it is that site's, else open the site's current one. */
+  followSite: (site: string) => Promise<void>;
+  /** Show conversation `id`: save the open one, load this one, and make it its site's current conversation. */
+  openConversation: (id: string) => Promise<void>;
+  /** Open an empty conversation for the tab's site; nothing is stored until its first message. Returns the id it left, for Undo. */
+  startNewConversation: () => Promise<string>;
+  /** Deletes `id` after the Undo window. The open conversation is replaced by an empty one at once. */
+  deleteConversation: (id: string, onFail?: () => void) => Promise<{ undo: () => void }>;
   /** Force-flush any pending debounced persistence. */
   flush: () => Promise<void>;
   /** True while the last save failed, so the panel can warn that turns are no longer kept. */
   readonly saveFailed: boolean;
   /** True when the last failure was a storage-quota rejection, so the panel can name the lever. */
   readonly saveFailedQuota: boolean;
-  /** Origin of the thread currently loaded — names the export file. */
-  readonly activeOrigin: string;
-  /** New-conversation: empty the thread in memory and on disk, tombstones included. */
-  clearActiveThread: () => Promise<void>;
+  /** Id of the conversation on screen; the storage key suffix. */
+  readonly activeId: string;
+  /** The site the conversation on screen belongs to. */
+  readonly activeSite: string;
+  /** The site of the tab the panel follows. Differs from `activeSite` while the user reads another site's conversation. */
+  readonly tabSite: string;
   /** The panel is closing: cancel replies still finishing for threads it no longer shows. */
   stopBackground: () => void;
   /** Storage was wiped elsewhere: drop the thread from memory without writing it back. */
@@ -194,9 +212,17 @@ export interface ConversationContainer {
   }) => void;
 }
 
-/** What a toast calls the thread that was dropped. */
-function siteLabel(origin: string): string {
-  return origin === GENERAL_ORIGIN ? 'other pages' : origin.replace(/^https?:\/\//, '');
+/** What a toast calls the conversation's site. */
+function siteLabel(id: string): string {
+  const site = siteOf(id);
+  return site === GENERAL_ORIGIN ? 'other pages' : site.replace(/^https?:\/\//, '');
+}
+
+/** Names the conversation the store removed to make room. */
+function evictedMessage(e: EvictedConversation): string {
+  return e.title !== undefined
+    ? `The conversation "${e.title}" on ${siteLabel(e.id)} was removed to make room.`
+    : `An older conversation for ${siteLabel(e.id)} was removed to make room.`;
 }
 
 /** Bounded so a long session does not grow the set without limit. */
@@ -274,7 +300,9 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     /** Per-request parser cache — collapses the delta-then-done double parse. */
     parser: createMemoizedJsonParser(),
     /** Origin whose thread is currently loaded. Drives persistence target. */
-    activeOrigin: GENERAL_ORIGIN as string,
+    activeId: GENERAL_ORIGIN as string,
+    /** Site of the tab the panel follows. */
+    tabSite: GENERAL_ORIGIN as string,
     /** Set when a save is rejected — quota is full, so new turns are on screen only. */
     saveFailed: false,
     saveFailedQuota: false,
@@ -390,7 +418,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     }
     clearStall();
     background.set(requestId, {
-      origin: state.activeOrigin,
+      origin: state.activeId,
       turn: $state.snapshot(live) as Turn,
       variantId,
       parser: state.parser,
@@ -447,9 +475,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
   function noticeBackgroundSave(origin: string, r: SaveThreadResult | undefined): void {
     const site = siteLabel(origin);
     const notes = [
-      r?.evictedOrigin !== undefined
-        ? `The saved conversation for ${siteLabel(r.evictedOrigin)} was removed to make room.`
-        : null,
+      r?.evicted !== undefined ? evictedMessage(r.evicted) : null,
       r?.shedImages === true
         ? `Storage is nearly full. Images were removed from the conversation for ${site} to keep the text.`
         : null,
@@ -910,7 +936,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     return {
       removed,
       index: index < 0 ? state.turns.length : index,
-      origin: state.activeOrigin,
+      origin: state.activeId,
       gen: threadGen,
       deletedAt: stamps,
     };
@@ -918,7 +944,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
 
   /** Puts a deleted slice back where it was; the ids leave the tombstone list with it. */
   function restoreTurns(slice: DeletedSlice): boolean {
-    if (slice.removed.length === 0 || slice.origin !== state.activeOrigin) return false;
+    if (slice.removed.length === 0 || slice.origin !== state.activeId) return false;
     if (slice.gen !== threadGen) return false;
     noteRevived(slice.removed, slice.deletedAt);
     const at = Math.min(Math.max(slice.index, 0), state.turns.length);
@@ -1062,19 +1088,6 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     );
   }
 
-  function clear(): void {
-    threadGen++;
-    stopBackgroundFor(state.turns.map((t) => t.id));
-    clearStall();
-    if (state.requestId) sendTranslateCancel(state.requestId);
-    state.inflightId = null;
-    state.inflightVariantId = null;
-    state.requestId = null;
-    state.lastDispatch = null;
-    mutate(() => [], 'debounce');
-    watchAdoptedAnswers();
-  }
-
   const PERSIST_DEBOUNCE_MS = 400;
   let persistTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -1158,7 +1171,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     noteKnownTurns(snap);
     // Copies: a load that clears the live sets while this write waits for the lock must not empty its tombstones.
     /* eslint-disable svelte/prefer-svelte-reactivity -- plain snapshots handed to storage, never rendered. */
-    const { evictedOrigin, droppedTurns, shedImages, refusedIds } = await saveThread(target, snap, {
+    const { evicted, droppedTurns, shedImages, refusedIds } = await saveThread(target, snap, {
       knownIds: new Set(knownIds),
       deletedAt: new Map(deletedAt),
       revivedAt: new Map(revivedAt),
@@ -1168,7 +1181,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     /* eslint-enable svelte/prefer-svelte-reactivity */
     state.saveFailed = false;
     // Storage holds the text-only thread now; the panel must show the same, or the next save sheds again.
-    if (shedImages === true && target === state.activeOrigin) {
+    if (shedImages === true && target === state.activeId) {
       mutate((turns) => turns.map((t) => stripImage(t, IMAGE_SHED_NOTE)), 'none');
       if (!shedNoticed) {
         shedNoticed = true;
@@ -1179,7 +1192,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
         });
       }
     }
-    if (refusedIds !== undefined && target === state.activeOrigin) {
+    if (refusedIds !== undefined && target === state.activeId) {
       // Buried by another window. Dropping the ids from knownIds lets that window bring them back.
       state.turns = state.turns.filter((t) => !refusedIds.includes(t.id));
       for (const id of refusedIds) knownIds.delete(id);
@@ -1194,12 +1207,8 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
         });
       }
     }
-    if (evictedOrigin !== undefined) {
-      toastStore.push({
-        message: `The saved conversation for ${siteLabel(evictedOrigin)} was removed to make room.`,
-        variant: 'warning',
-      });
-    }
+    if (evicted !== undefined)
+      toastStore.push({ message: evictedMessage(evicted), variant: 'warning' });
     if (droppedTurns !== undefined && !trimNoticed) {
       trimNoticed = true;
       toastStore.push({
@@ -1229,11 +1238,11 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
 
   function markDirty(): void {
     cancelPendingPersist();
-    const target = state.activeOrigin;
+    const target = state.activeId;
     persistTimer = setTimeout(() => {
       persistTimer = null;
       // The thread switched while this timer waited, so `state.turns` is another site's now.
-      if (target !== state.activeOrigin) return;
+      if (target !== state.activeId) return;
       void persist(target).catch((e: unknown) => reportSaveFailure(e, 'conversation.markDirty'));
     }, PERSIST_DEBOUNCE_MS);
   }
@@ -1241,24 +1250,66 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
   /** Bookmark, delete and variant pick skip the debounce — the pagehide flush is too slow to be the fallback. */
   function saveNow(): void {
     cancelPendingPersist();
-    const target = state.activeOrigin;
+    const target = state.activeId;
     void persist(target).catch((e: unknown) => reportSaveFailure(e, 'conversation.saveNow'));
   }
 
   async function flush(): Promise<void> {
     cancelPendingPersist();
     try {
-      await persist(state.activeOrigin);
+      await persist(state.activeId);
     } catch (e) {
       noteSaveFailed(e);
       throw e;
     }
   }
 
-  async function setActiveOrigin(origin: string): Promise<void> {
+  /** True once a thread has loaded, so a follower event for the same site never reloads over an empty new conversation. */
+  let loadedOnce = false;
+
+  async function followSite(site: string): Promise<void> {
+    state.tabSite = site;
     await switchLock(async () => {
+      if (loadedOnce && siteOf(state.activeId) === site) return;
+      let id: string | null = null;
+      try {
+        id = currentConversation((await readIndex()).threads, site, pendingDeleteIds());
+      } catch (e) {
+        debugCatch(e, 'conversation.followSite');
+      }
+      // The tab moved on while the index was read; the newer event decides.
+      if (state.tabSite !== site) return;
+      // Before the first load the thread in memory is already this site's draft, and a send may be running in it.
+      const fresh =
+        !loadedOnce && siteOf(state.activeId) === site ? state.activeId : newConversationId(site);
+      await switchTo(id ?? fresh);
+    });
+  }
+
+  async function openConversation(id: string): Promise<void> {
+    await switchLock(() => switchTo(id));
+    markConversationOpened(id).catch((e: unknown) => debugCatch(e, 'conversation.opened'));
+  }
+
+  async function startNewConversation(): Promise<string> {
+    const previous = state.activeId;
+    await switchLock(() => switchTo(newConversationId(state.tabSite)));
+    return previous;
+  }
+
+  async function deleteConversation(
+    id: string,
+    onFail?: () => void,
+  ): Promise<{ undo: () => void }> {
+    const handle = scheduleConversationDelete([id], onFail ? { onFail } : {});
+    if (id === state.activeId) await startNewConversation();
+    return handle;
+  }
+
+  async function switchTo(origin: string): Promise<void> {
+    {
       // The tab follower re-fires the same origin; reloading would clobber turns not yet flushed.
-      if (origin === state.activeOrigin && state.turns.length > 0) return;
+      if (origin === state.activeId && state.turns.length > 0) return;
       // Snapshot ids before any await: a seed message can append turns while flush or loadThreadResult run.
       const preLoadIds = state.turns.map((t) => t.id);
       // The running reply belongs to the thread it was sent from, so it finishes there.
@@ -1268,13 +1319,13 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       try {
         await flush(); // persist the OLD origin, cancellation included
       } catch (e) {
-        debugCatch(e, 'conversation.setActiveOrigin');
+        debugCatch(e, 'conversation.switchTo');
       }
-      if (state.activeOrigin !== origin) {
+      if (state.activeId !== origin) {
         // A successful flush clears saveFailed, so this only fires when the turns really were dropped.
         if (state.saveFailed && state.turns.length > 0) {
           toastStore.push({
-            message: `Not saved — the messages for ${siteLabel(state.activeOrigin)} were not kept.`,
+            message: `Not saved — the messages for ${siteLabel(state.activeId)} were not kept.`,
             variant: 'warning',
           });
         }
@@ -1284,7 +1335,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       await loadThreadInto(origin, preLoadIds).finally(() => {
         loadingOrigin = null;
       });
-    });
+    }
   }
 
   /** Stamps every reply saved mid-stream, except the ones still finishing in the background. */
@@ -1324,8 +1375,9 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
           ? dropOrphanHead(raw.slice(-MAX_TURNS_PER_THREAD), raw)
           : raw;
       // One step: a save landing between these two lines writes this thread's turns under the other origin's key.
-      const originChanged = state.activeOrigin !== origin;
-      state.activeOrigin = origin;
+      const originChanged = state.activeId !== origin;
+      state.activeId = origin;
+      loadedOnce = true;
       cancelPendingPersist();
       // A seed appended mid-load is in memory only, so the load itself schedules its save.
       mutate(
@@ -1424,14 +1476,14 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
 
   function onStorageChanged(changes: Record<string, chrome.storage.StorageChange>): void {
     // Mid-load the read may predate this write, so the write is applied once the load lands.
-    const origin = loadingOrigin ?? state.activeOrigin;
+    const origin = loadingOrigin ?? state.activeId;
     const change = changes[threadKey(origin)];
     if (change === undefined) return;
     const stored = parseThreadChange(change.newValue, writer);
     if (stored === null) return;
     // Behind the switch lock: a load in progress replaces the whole thread, and this merge must not land under it.
     void switchLock(() => {
-      if (state.activeOrigin !== origin) return Promise.resolve();
+      if (state.activeId !== origin) return Promise.resolve();
       adoptStoredThread(stored);
       return Promise.resolve();
     });
@@ -1456,25 +1508,6 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     watchAdoptedAnswers();
   }
 
-  async function clearActiveThread(): Promise<void> {
-    await switchLock(async () => {
-      const target = state.activeOrigin;
-      clear(); // empties memory + schedules a debounced save of []
-      cancelPendingPersist(); // the write below carries the tombstones a debounced one would race
-      // Removing the key instead would drop the tombstones with it, and a second window's next save would write the thread back.
-      await saveThread(target, [], {
-        knownIds,
-        deletedAt,
-        revivedAt,
-        writer,
-        ...(seenClearedAt !== undefined ? { seenClearedAt } : {}),
-      });
-      knownIds.clear();
-      deletedAt.clear();
-      revivedAt.clear();
-    });
-  }
-
   return {
     get turns() {
       return state.turns;
@@ -1488,8 +1521,14 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     get saveFailedQuota() {
       return state.saveFailedQuota;
     },
-    get activeOrigin() {
-      return state.activeOrigin;
+    get activeId() {
+      return state.activeId;
+    },
+    get activeSite() {
+      return siteOf(state.activeId);
+    },
+    get tabSite() {
+      return state.tabSite;
     },
     ownsRequest: (requestId) => requestId !== undefined && ownedRequests.has(requestId),
     send,
@@ -1511,9 +1550,11 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     editFrom,
     seedExternalImageTurn,
     seedDeliveredTurn,
-    setActiveOrigin,
+    followSite,
+    openConversation,
+    startNewConversation,
+    deleteConversation,
     flush,
-    clearActiveThread,
     resetAfterPurge,
     onStorageChanged,
     stopBackground,

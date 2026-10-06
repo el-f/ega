@@ -55,12 +55,12 @@ describe('caps', () => {
     expect((await loadThreadResult('https://overflow.com')).turns).toEqual([userTurn('overflow')]);
     expect((await loadThreadResult('https://s1.com')).turns).toEqual([userTurn('s1')]);
     // The deletion is reported, so the panel can tell the user which site it lost.
-    expect(result.evictedOrigin).toBe('https://s0.com');
+    expect(result.evicted?.id).toBe('https://s0.com');
   });
 
   it('reports no eviction when a save deletes nothing', async () => {
     const result = await saveThread('https://only.com', [userTurn('only')]);
-    expect(result.evictedOrigin).toBeUndefined();
+    expect(result.evicted?.id).toBeUndefined();
   });
 
   it('re-saving an existing origin does not evict (refreshes recency)', async () => {

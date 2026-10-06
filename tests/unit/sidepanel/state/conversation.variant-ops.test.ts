@@ -178,7 +178,7 @@ describe('createConversation().swapPair', () => {
     const origin = 'https://example.com';
     await saveThread(origin, restoredPair());
     const c = createConversation();
-    await c.setActiveOrigin(origin);
+    await c.openConversation(origin);
     const assistant = c.turns.find((t) => t.role === 'assistant');
     if (!assistant) throw new Error('expected the restored assistant turn');
 

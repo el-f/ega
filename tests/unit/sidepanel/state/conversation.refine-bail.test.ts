@@ -109,7 +109,7 @@ describe('a stored turn the byte cap shrank gets its v1 back on load', () => {
       },
     ]);
     const c = createConversation();
-    await c.setActiveOrigin(origin);
+    await c.openConversation(origin);
     const assistant = c.turns.find((t) => t.role === 'assistant');
     // Stored without variants (the byte cap strips them); the loader rebuilt v1 from the body it kept.
     expect(assistant?.variants).toHaveLength(1);

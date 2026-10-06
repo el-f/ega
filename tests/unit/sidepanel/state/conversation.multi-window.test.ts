@@ -35,7 +35,7 @@ async function openWindow(opts: Parameters<typeof createConversation>[0] = {}): 
   };
   chrome.storage.onChanged.addListener(listener);
   listeners.push(listener);
-  await c.setActiveOrigin(ORIGIN);
+  await c.openConversation(ORIGIN);
   return c;
 }
 
@@ -194,7 +194,7 @@ describe('two side-panel windows on one origin', () => {
       if (arg === 'ega:conv:t:https://next.test') await gate;
       return await (original as (a: unknown) => Promise<Record<string, unknown>>)(arg);
     }) as typeof chrome.storage.local.get);
-    const switching = b.setActiveOrigin('https://next.test');
+    const switching = b.openConversation('https://next.test');
     await vi.waitFor(() => expect(stalled).toHaveBeenCalled());
 
     await sendAndFinish(a, 'while-switching', 'landed');
@@ -203,7 +203,7 @@ describe('two side-panel windows on one origin', () => {
     await drain();
     stalled.mockRestore();
 
-    expect(b.activeOrigin).toBe('https://next.test');
+    expect(b.activeId).toBe('https://next.test');
     expect(b.turns).toEqual([]);
   });
 });
@@ -501,7 +501,7 @@ describe('two windows re-reading each other over one storage', () => {
       if (arg === 'ega:conv:t:https://after.test') await gate;
       return await (original as (a: unknown) => Promise<Record<string, unknown>>)(arg);
     }) as typeof chrome.storage.local.get);
-    const switching = b.setActiveOrigin('https://after.test');
+    const switching = b.openConversation('https://after.test');
     await vi.waitFor(() => expect(stalled).toHaveBeenCalled());
 
     a.deleteTurn(assistantId);
@@ -548,7 +548,7 @@ describe('a write that lands while the panel loads the thread it is writing to',
     const b = await openWindow();
     const gate = stallFirstReadAfterSnapshot(`ega:conv:t:${ORIGIN}`);
     // B's thread is empty, so the tab follower's repeat of the same origin reloads it.
-    const reloading = b.setActiveOrigin(ORIGIN);
+    const reloading = b.openConversation(ORIGIN);
     await vi.waitFor(() => expect(chrome.storage.local.get).toHaveBeenCalled());
 
     await sendAndFinish(a, 'late', 'arrival');
@@ -563,7 +563,7 @@ describe('a write that lands while the panel loads the thread it is writing to',
     const next = 'https://next-site.test';
     const b = await openWindow();
     const gate = stallFirstReadAfterSnapshot(`ega:conv:t:${next}`);
-    const switching = b.setActiveOrigin(next);
+    const switching = b.openConversation(next);
     await vi.waitFor(() =>
       expect(chrome.storage.local.get).toHaveBeenCalledWith(`ega:conv:t:${next}`),
     );

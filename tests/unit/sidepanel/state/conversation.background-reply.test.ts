@@ -47,7 +47,7 @@ function panel(opts: Parameters<typeof createConversation>[0] = {}): Container {
 }
 
 async function startOn(c: Container, origin: string, content: string): Promise<string> {
-  await c.setActiveOrigin(origin);
+  await c.openConversation(origin);
   return await c.send({
     content,
     kind: 'translate',
@@ -71,7 +71,7 @@ async function switchWithSeed(c: Container, origin: string, seed: () => void): P
     }
     return read;
   }) as typeof chrome.storage.local.get);
-  await c.setActiveOrigin(origin);
+  await c.openConversation(origin);
   spy.mockRestore();
   expect(seeded, 'the thread read never ran').toBe(true);
 }
@@ -98,7 +98,7 @@ describe('a reply still running when the panel follows another tab', () => {
     const requestId = requestIdOf('hola');
     c.applyChunk({ type: 'delta', requestId, text: '{"translation":"hel' });
 
-    await c.setActiveOrigin(B);
+    await c.openConversation(B);
     expect(c.inflightId).toBeNull();
     expect(messages('translate:cancel').map((m) => m['requestId'])).not.toContain(requestId);
 
@@ -128,7 +128,7 @@ describe('a reply still running when the panel follows another tab', () => {
     });
     const second = requestIdOf('second');
 
-    await c.setActiveOrigin(B);
+    await c.openConversation(B);
     c.applyChunk({ type: 'delta', requestId: second, text: '{"translation":"two"}' });
     c.applyChunk({ type: 'done', requestId: second, confidence: 1 });
     await drain();
@@ -146,9 +146,9 @@ describe('a reply still running when the panel follows another tab', () => {
     const assistantId = await startOn(c, A, 'hola');
     const requestId = requestIdOf('hola');
     c.applyChunk({ type: 'delta', requestId, text: '{"translation":"hel' });
-    await c.setActiveOrigin(B);
+    await c.openConversation(B);
     c.applyChunk({ type: 'delta', requestId, text: 'lo' });
-    await c.setActiveOrigin(A);
+    await c.openConversation(A);
 
     // Back in the foreground: Stop works again, and no second dispatch can start on the turn.
     expect(c.inflightId).toBe(assistantId);
@@ -167,7 +167,7 @@ describe('a reply still running when the panel follows another tab', () => {
   it('takes the slot back even when a delivered answer lands while the thread loads', async () => {
     const c = panel();
     const assistantId = await startOn(c, A, 'hola');
-    await c.setActiveOrigin(B);
+    await c.openConversation(B);
 
     await switchWithSeed(c, A, () =>
       c.seedDeliveredTurn({
@@ -188,14 +188,14 @@ describe('a reply still running when the panel follows another tab', () => {
     const c = panel();
     const goneId = await startOn(c, A, 'gone');
     const goneReq = requestIdOf('gone');
-    await c.setActiveOrigin(B);
+    await c.openConversation(B);
 
     const other = panel();
-    await other.setActiveOrigin(A);
+    await other.openConversation(A);
     other.deleteTurn(goneId);
     await other.flush();
 
-    await c.setActiveOrigin(A);
+    await c.openConversation(A);
     expect(messages('translate:cancel').map((m) => m['requestId'])).toContain(goneReq);
 
     const liveId = await c.send({
@@ -205,8 +205,8 @@ describe('a reply still running when the panel follows another tab', () => {
       targetLang: EN,
       stream: true,
     });
-    await c.setActiveOrigin(B);
-    await c.setActiveOrigin(A);
+    await c.openConversation(B);
+    await c.openConversation(A);
     expect(c.inflightId).toBe(liveId);
   });
 
@@ -214,7 +214,7 @@ describe('a reply still running when the panel follows another tab', () => {
     const push = vi.spyOn(toastStore, 'push').mockImplementation(() => {});
     const c = panel();
     const assistantId = await startOn(c, A, 'hola');
-    await c.setActiveOrigin(B);
+    await c.openConversation(B);
 
     // An image seed during the load holds the slot, so the reply stays in the background.
     await switchWithSeed(c, A, () =>
@@ -237,7 +237,7 @@ describe('a reply still running when the panel follows another tab', () => {
     const c = panel();
     await startOn(c, A, 'hola');
     const requestId = requestIdOf('hola');
-    await c.setActiveOrigin(B);
+    await c.openConversation(B);
 
     c.resetAfterPurge();
 
@@ -266,7 +266,7 @@ describe('a reply still running when the panel follows another tab', () => {
     const c = panel({ stallMs: () => 50 });
     const assistantId = await startOn(c, A, 'hola');
     const requestId = requestIdOf('hola');
-    await c.setActiveOrigin(B);
+    await c.openConversation(B);
 
     await vi.waitFor(async () =>
       expect((await storedTurn(A, assistantId))?.error?.code).toBe('TIMEOUT'),
@@ -279,8 +279,8 @@ describe('a reply still running when the panel follows another tab', () => {
     const c = panel();
     const assistantId = await startOn(c, A, 'hola');
     const requestId = requestIdOf('hola');
-    await c.setActiveOrigin(B);
-    await c.setActiveOrigin(A);
+    await c.openConversation(B);
+    await c.openConversation(A);
     c.deleteTurn(assistantId);
     await c.flush();
 
@@ -296,7 +296,7 @@ describe('a reply still running when the panel follows another tab', () => {
     const c = panel();
     await startOn(c, A, 'hola');
     const requestId = requestIdOf('hola');
-    await c.setActiveOrigin(B);
+    await c.openConversation(B);
     const realSet = chrome.storage.local.set.bind(chrome.storage.local);
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
     vi.spyOn(chrome.storage.local, 'set').mockImplementation(((items: Record<string, unknown>) =>
@@ -325,7 +325,7 @@ describe('a reply still running when the panel follows another tab', () => {
     const c = panel();
     await startOn(c, A, 'hola');
     const requestId = requestIdOf('hola');
-    await c.setActiveOrigin(B);
+    await c.openConversation(B);
     const realSet = chrome.storage.local.set.bind(chrome.storage.local);
     // A's write fits only once C's thread is gone, as on a full disk.
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
@@ -344,7 +344,7 @@ describe('a reply still running when the panel follows another tab', () => {
 
     expect(push).toHaveBeenCalledWith(
       expect.objectContaining({
-        message: 'The saved conversation for c.test was removed to make room.',
+        message: 'The conversation "viejo" on c.test was removed to make room.',
       }),
     );
     expect((await loadThreadResult(A)).turns.at(-1)?.content).toBe('hello');

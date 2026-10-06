@@ -231,11 +231,11 @@
     clearFilters();
     try {
       // Read the page before touching the thread, and bail if the thread moved meanwhile: the edit belongs to the site it was typed on.
-      const originBefore = conversation.activeOrigin;
+      const originBefore = conversation.activeId;
       // The OCR prompt reads only the image, so that arm sends and records no page context.
       const toOcr = attachedImage !== null && (task === 'translate' || !takesImage);
       const context = toOcr ? undefined : await currentPageContext(task);
-      if (conversation.activeOrigin !== originBefore) return;
+      if (conversation.activeId !== originBefore) return;
       // The previous turn is in the composer, so drop it or the re-send appends a duplicate.
       let preservedResponse: string | undefined;
       if (editingTurnId !== null) {
@@ -669,18 +669,15 @@
     // Load the active tab's origin thread first so queued seeds / handoffs
     // append to the restored conversation rather than a blank one.
     try {
-      const origin = await getActiveOrigin();
-      await conversation.setActiveOrigin(origin);
+      await conversation.followSite(await getActiveOrigin());
     } catch (e) {
-      debugCatch(e, 'sidepanel.onMount.setActiveOrigin');
+      debugCatch(e, 'sidepanel.onMount.followSite');
     }
     // Registered before the drains below: every await here is a window where a tab switch or a
     // foreign write goes unheard, and the drains are the longest stretch of them.
     if (destroyed) return;
     chrome.storage.onChanged.addListener(onStorageChanged);
-    originFollowerUnsub = startOriginFollower(
-      (origin) => void conversation.setActiveOrigin(origin),
-    );
+    originFollowerUnsub = startOriginFollower((origin) => void conversation.followSite(origin));
     window.addEventListener('pagehide', persistNow);
     try {
       // The drain fails open on an unknown window, so the id is awaited here even though the early lookup usually won.
@@ -759,19 +756,25 @@
     persistNow();
   });
 
+  /** One click, nothing lost: the old conversation stays in the list, and Undo opens it again. */
   async function onNewConversation(): Promise<void> {
     if (conversation.turns.length === 0) return;
-    const ok = await confirmDialog({
-      title: 'New conversation',
-      body: 'Start a new conversation? This clears the conversation for this site.',
-      confirmLabel: 'Clear & start new',
-      danger: true,
-    });
-    if (!ok) return;
-    await conversation.clearActiveThread();
+    const previous = await conversation.startNewConversation();
     focusedTurnId = null;
     editingTurnId = null;
     draftBeforeEdit = '';
+    await tick();
+    focusComposer();
+    toastStore.push({
+      message: 'Started a new conversation',
+      variant: 'info',
+      action: {
+        label: 'Undo',
+        onClick: () => {
+          void conversation.openConversation(previous).then(focusComposer);
+        },
+      },
+    });
   }
 
   function commitRetryCount(next: number): void {
@@ -831,7 +834,7 @@
 
   /** Names the site and the day, so a folder of exports is readable. */
   function exportFileName(): string {
-    const site = conversation.activeOrigin
+    const site = conversation.activeSite
       .replace(/^https?:\/\//, '')
       .replace(/[^a-z0-9.-]/gi, '-')
       .slice(0, 40);

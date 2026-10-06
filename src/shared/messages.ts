@@ -58,6 +58,8 @@ export type Msg =
   | { kind: 'audit:push'; entry: Omit<AuditEntry, 'id' | 'ts'> }
   /** Options → SW: drop the whole log. Same writer, so it cannot land inside a batched push. */
   | { kind: 'audit:clear' }
+  /** Extension page → SW: delete these side panel conversations after their Undo window. Content scripts are refused. */
+  | { kind: 'conversations:delete'; ids: string[] | 'all' }
   /** Audit log → sidepanel toaster. Emitted only for entries carrying an `error`. */
   | {
       kind: 'audit:append';
@@ -173,6 +175,7 @@ export interface MsgReply {
   'settings:update': PatchAck;
   'audit:push': { ok: true };
   'audit:clear': { ok: boolean };
+  'conversations:delete': { ok: boolean };
   'audit:append': void;
   'backend:probe': { ok: true };
   'backend:probe-all': ProbeResult;
@@ -228,6 +231,7 @@ const ALL_KINDS = [
   'settings:update',
   'audit:push',
   'audit:clear',
+  'conversations:delete',
   'audit:append',
   'backend:probe',
   'page:translateAll',

@@ -32,7 +32,7 @@ describe('seed arriving during setActiveOrigin load', () => {
       return p;
     }) as typeof chrome.storage.local.get);
 
-    await c.setActiveOrigin('https://race.com');
+    await c.openConversation('https://race.com');
 
     const contents = c.turns.map((t) => t.content);
     expect(contents).toContain('restored text');
@@ -60,7 +60,7 @@ describe('seed arriving during setActiveOrigin load', () => {
       return p;
     }) as typeof chrome.storage.local.get);
 
-    await c.setActiveOrigin('https://race2.com');
+    await c.openConversation('https://race2.com');
 
     const imageUserTurns = c.turns.filter((t) => t.role === 'user' && t.kind === 'image-translate');
     expect(imageUserTurns).toHaveLength(1);

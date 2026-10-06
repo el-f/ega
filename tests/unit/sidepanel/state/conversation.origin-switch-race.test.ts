@@ -30,11 +30,11 @@ describe('an origin switch never leaks one site thread into another key', () => 
   it('a pagehide flush inside the switch window saves to the origin still on screen', async () => {
     await saveThread('https://a.test', [userTurn('au', 'A-turn')]);
     const c = createConversation();
-    await c.setActiveOrigin('https://a.test');
+    await c.openConversation('https://a.test');
     expect(c.turns.map((t) => t.content)).toEqual(['A-turn']);
 
     const gate = stallRead('ega:conv:t:https://b.test');
-    const switching = c.setActiveOrigin('https://b.test');
+    const switching = c.openConversation('https://b.test');
     // The b.test read is the one that stalls, so this waits until the load itself is in flight.
     await vi.waitFor(() =>
       expect(chrome.storage.local.get).toHaveBeenCalledWith('ega:conv:t:https://b.test'),

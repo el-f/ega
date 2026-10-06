@@ -105,7 +105,7 @@ describe('quota eviction order', () => {
 
     const result = await saveThread('https://writer.com', [userTurn('w')]);
 
-    expect(result.evictedOrigin).toBe('https://oldest.com');
+    expect(result.evicted?.id).toBe('https://oldest.com');
     expect(await indexOrigins()).not.toContain('https://oldest.com');
     expect(await chrome.storage.local.get(threadKey('https://oldest.com'))).toEqual({});
   });
@@ -163,7 +163,7 @@ describe('the write that retries without images', () => {
 
     expect(threadWrites).toBe(3);
     expect(result.shedImages).toBeUndefined();
-    expect(result.evictedOrigin).toBe('https://victim.com');
+    expect(result.evicted?.id).toBe('https://victim.com');
   });
 
   it('reports the shed instead of evicting when the leaner write lands', async () => {
@@ -183,7 +183,7 @@ describe('the write that retries without images', () => {
     const result = await saveThread('https://writer.com', [imageTurn('i')]);
 
     expect(result.shedImages).toBe(true);
-    expect(result.evictedOrigin).toBeUndefined();
+    expect(result.evicted?.id).toBeUndefined();
     expect(await indexOrigins()).toContain('https://victim.com');
     const stored = (await chrome.storage.local.get(threadKey('https://writer.com')))[
       threadKey('https://writer.com')

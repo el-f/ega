@@ -15,6 +15,7 @@ import { handleSiteToggleClick, installContextMenus, refreshSiteToggleLabel } fr
 import { DEFAULT_CONTEXT_MENU_ITEMS, resolveMenuAction } from '@/shared/context-menu';
 import { decodeCustomMenuId, withEncodedMenuIds } from '@/shared/context-menu-ids';
 import { pushAuditEntry, clearAuditLog, type AuditSurface } from '@/shared/audit-log';
+import { handleConversationsDelete } from './conversations-delete';
 import { createLogger, debugCatch } from '@/shared/logger';
 import { asLangIdUnsafe } from '@/shared/brands';
 import { hasKnownKind, type Msg, type MsgReply } from '@/shared/messages';
@@ -560,6 +561,15 @@ chrome.runtime.onMessage.addListener((rawMsg, sender, sendResponse) => {
         () => reply(msg.kind, { ok: true }),
         (e: unknown) => {
           debugCatch(e, 'background.audit:clear');
+          reply(msg.kind, { ok: false });
+        },
+      );
+      return true;
+    case 'conversations:delete':
+      void handleConversationsDelete(msg.ids, isExtensionPage(sender)).then(
+        (r) => reply(msg.kind, r),
+        (e: unknown) => {
+          debugCatch(e, 'background.conversations:delete');
           reply(msg.kind, { ok: false });
         },
       );

@@ -2,7 +2,9 @@
 import { withConversationLock } from '@/shared/conversation-lock';
 import {
   CONV_STORE_VERSION,
+  EMPTY_THREAD_BYTES,
   GENERAL_ORIGIN,
+  entryFacts,
   INDEX_KEY,
   THREAD_KEY_PREFIX,
   parseIndex,
@@ -198,7 +200,12 @@ async function reclaimOrphanThreads(): Promise<void> {
           continue;
         }
         if (!isReadableVersion(v)) continue;
-        relist.push({ origin: v.origin, updatedAt: v.updatedAt, bytes: estimateBytes(v.turns) });
+        relist.push({
+          origin: v.origin,
+          updatedAt: v.updatedAt,
+          bytes: estimateBytes(v.turns),
+          ...entryFacts(v.turns),
+        });
       }
       if (dead.length > 0) await chrome.storage.local.remove(dead);
       if (relist.length > 0) await commitIndex(relist);
@@ -368,25 +375,48 @@ function totalBytes(entries: IndexEntry[]): number {
   return entries.reduce((sum, e) => sum + e.bytes, 0);
 }
 
-/** Adds or replaces entries, evicts the oldest past the thread and byte budgets, writes the index. */
-async function commitIndex(entries: readonly IndexEntry[]): Promise<string[]> {
+/** Eviction order: rows that only hold tombstones go before any real conversation, then oldest first. */
+function evictionOrder(a: IndexEntry, b: IndexEntry): number {
+  const live = (e: IndexEntry): number => (e.bytes > EMPTY_THREAD_BYTES ? 1 : 0);
+  return live(a) - live(b) || a.updatedAt - b.updatedAt;
+}
+
+/** A conversation the store removed to make room, named for the toast. */
+export interface EvictedConversation {
+  id: string;
+  title?: string;
+}
+
+function evictedOf(e: IndexEntry): EvictedConversation {
+  return e.title !== undefined ? { id: e.origin, title: e.title } : { id: e.origin };
+}
+
+/** Adds or replaces entries, evicts past the conversation and byte budgets, writes the index. */
+async function commitIndex(entries: readonly IndexEntry[]): Promise<EvictedConversation[]> {
   const index = await readIndex();
+  const stored = new Map(index.threads.map((t) => [t.origin, t]));
   const incoming = new Set(entries.map((e) => e.origin));
-  const evicted: string[] = [];
+  const evicted: EvictedConversation[] = [];
   const rest = index.threads.filter((t) => !incoming.has(t.origin));
-  rest.push(...entries);
-  rest.sort((a, b) => a.updatedAt - b.updatedAt);
+  // A save never knows when the list last opened a conversation, so the stored stamp carries over.
+  for (const e of entries) {
+    const openedAt = stored.get(e.origin)?.openedAt;
+    rest.push(openedAt !== undefined && e.openedAt === undefined ? { ...e, openedAt } : e);
+  }
+  rest.sort(evictionOrder);
   // `rest.length > entries.length` keeps the threads being written even when they alone pass the total.
   while (
     rest.length > MAX_THREADS ||
     (rest.length > entries.length && totalBytes(rest) > MAX_TOTAL_THREAD_BYTES)
   ) {
-    const victim = rest.shift();
-    if (victim) {
-      await chrome.storage.local.remove(threadKey(victim.origin));
-      evicted.push(victim.origin);
-    }
+    // Never one being written: its blob would be left unlisted.
+    const at = rest.findIndex((t) => !incoming.has(t.origin));
+    const victim = at < 0 ? undefined : rest.splice(at, 1)[0];
+    if (victim === undefined) break;
+    await chrome.storage.local.remove(threadKey(victim.origin));
+    if (victim.bytes > EMPTY_THREAD_BYTES) evicted.push(evictedOf(victim));
   }
+  rest.sort((a, b) => a.updatedAt - b.updatedAt);
   await chrome.storage.local.set({
     [INDEX_KEY]: { version: CONV_STORE_VERSION, threads: rest },
   });
@@ -401,13 +431,11 @@ function shedForQuota(turns: readonly Turn[]): Turn[] | null {
   return lean.some((t, i) => t !== turns[i]) ? lean : null;
 }
 
-/** Deletes the least recently updated OTHER thread and returns its origin.
+/** Deletes the first OTHER thread in eviction order and names it.
  *  Never our own: the blob we are about to write would be left unlisted. */
-async function evictOldestOtherThread(origin: string): Promise<string | undefined> {
+async function evictOldestOtherThread(origin: string): Promise<EvictedConversation | undefined> {
   const index = await readIndex();
-  const victim = index.threads
-    .filter((t) => t.origin !== origin)
-    .sort((a, b) => a.updatedAt - b.updatedAt)[0];
+  const victim = index.threads.filter((t) => t.origin !== origin).sort(evictionOrder)[0];
   if (!victim) return undefined;
   await chrome.storage.local.remove(threadKey(victim.origin));
   await chrome.storage.local.set({
@@ -416,7 +444,7 @@ async function evictOldestOtherThread(origin: string): Promise<string | undefine
       threads: index.threads.filter((t) => t.origin !== victim.origin),
     },
   });
-  return victim.origin;
+  return evictedOf(victim);
 }
 
 export function isQuotaError(e: unknown): boolean {
@@ -599,8 +627,8 @@ export interface SaveThreadOptions {
 }
 
 export interface SaveThreadResult {
-  /** Another origin's thread was deleted to make room, so the caller can say whose. */
-  evictedOrigin?: string;
+  /** Another conversation was deleted to make room, so the caller can say which. */
+  evicted?: EvictedConversation;
   /** Oldest turns the 300-turn and 512 KB caps dropped from this write. Absent when nothing was trimmed. */
   droppedTurns?: number;
   /** The write only fit once every image payload was dropped; memory still holds them. */
@@ -689,17 +717,17 @@ async function saveThreadLocked(
 
   // Index first: an entry with no blob loads as [], while a blob with no entry is invisible dead bytes.
   let indexError: unknown = null;
-  let indexEvicted: string[] = [];
+  let indexEvicted: EvictedConversation[] = [];
   try {
     indexEvicted = await commitIndex([
-      { origin, updatedAt: now, bytes: serialisedArrayBytes(sized) },
+      { origin, updatedAt: now, bytes: serialisedArrayBytes(sized), ...entryFacts(capped) },
     ]);
   } catch (e) {
     // The blob below still loads by key, but nothing lists it — the caller has to hear about it.
     indexError = e;
   }
 
-  let evictedOrigin: string | undefined;
+  let evictedQuota: EvictedConversation | undefined;
   let shedImages = false;
   try {
     await writeThread(capped);
@@ -716,16 +744,16 @@ async function saveThreadLocked(
       }
     }
     if (!shedImages) {
-      evictedOrigin = await evictOldestOtherThread(origin);
+      evictedQuota = await evictOldestOtherThread(origin);
       await writeThread(capped);
     }
   }
 
   if (indexError !== null) throw indexError;
   // The routine LRU eviction is as much a deletion as the quota-retry one, so both reach the toast.
-  const evicted = evictedOrigin ?? indexEvicted[0];
+  const evicted = evictedQuota ?? indexEvicted[0];
   return {
-    ...(evicted !== undefined ? { evictedOrigin: evicted } : {}),
+    ...(evicted !== undefined ? { evicted } : {}),
     ...(droppedTurns > 0 ? { droppedTurns } : {}),
     ...(shedImages ? { shedImages } : {}),
     ...(refused.length > 0 ? { refusedIds: refused } : {}),

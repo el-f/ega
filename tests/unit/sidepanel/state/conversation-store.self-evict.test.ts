@@ -77,7 +77,7 @@ describe('the quota retry never evicts the thread it is writing', () => {
 
     const result = await saveThread(current, [userTurn('c', 'new'), userTurn('c2', 'newer')]);
 
-    expect(result.evictedOrigin).toBe(older);
+    expect(result.evicted?.id).toBe(older);
     const origins = await indexOrigins();
     expect(origins).toContain(current);
     expect(origins).not.toContain(older);
@@ -91,7 +91,7 @@ describe('the quota retry never evicts the thread it is writing', () => {
 
     const result = await saveThread(current, [imageTurn('pic'), userTurn('c', 'new')]);
 
-    expect(result.evictedOrigin).toBeUndefined();
+    expect(result.evicted?.id).toBeUndefined();
     expect(await indexOrigins()).toContain(older);
     const loaded = (await loadThreadResult(current)).turns;
     expect(loaded).toHaveLength(2);
@@ -100,6 +100,6 @@ describe('the quota retry never evicts the thread it is writing', () => {
 
   it('a save with room to spare reports no eviction', async () => {
     const result = await saveThread('https://calm.test', [userTurn('a', 'first')]);
-    expect(result.evictedOrigin).toBeUndefined();
+    expect(result.evicted?.id).toBeUndefined();
   });
 });
