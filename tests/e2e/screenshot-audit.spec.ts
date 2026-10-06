@@ -466,7 +466,7 @@ test('Sidepanel — empty + streaming + multi-turn + refine + error + popover + 
     expectations: [
       'assistant body filled',
       'no in-flight cursor',
-      'Refine and Try as icon buttons in the action row; quick-refine chips closed',
+      'Refine and Re-run as icon buttons in the action row; quick-refine chips closed',
     ],
   });
 
@@ -572,10 +572,10 @@ test('Sidepanel — empty + streaming + multi-turn + refine + error + popover + 
     state: 'try-as-menu',
     theme: 'light',
     viewport: NARROW_SIDEPANEL,
-    userAction: 'user opened Try as on the newest reply at side-panel width',
+    userAction: 'user opened Re-run as on the newest reply at side-panel width',
     expectations: [
       'Swap languages first; a blocked swap shows its reason as text under the label',
-      'a separator, then the tasks with the current one checked',
+      'a separator, then the tasks with the current one checked and focused',
       'menu fits inside the panel, nothing clipped',
     ],
   });
@@ -2056,6 +2056,53 @@ test('Sidepanel — quick-refine applied', async () => {
       'prior assistant body no longer the active translation',
       'the Refine button stays in the action row for a further refinement; the chips are closed',
     ],
+  });
+  await resetRoutes(ext.context);
+  await sp.close();
+});
+
+test('Sidepanel — refine row open at side-panel width, light + dark', async () => {
+  test.slow();
+  await seedSettings(ext.context, ext.extensionId, {
+    anthropicApiKey: 'sk-test',
+    streaming: true,
+  });
+  await resetRoutes(ext.context);
+  mockAnthropic(ext.context, { translation: 'Hello, friend.', times: 1 });
+  const sp = await ext.context.newPage();
+  // The chips fade in one after another; reduced motion shows them settled, not mid-animation.
+  await sp.emulateMedia({ reducedMotion: 'reduce' });
+  await sp.setViewportSize(NARROW_SIDEPANEL);
+  await sp.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
+  await clearConversations(sp);
+  await sp.waitForLoadState('networkidle');
+  await sp.locator('#sp-text').fill('hola');
+  await sp.getByRole('button', { name: /^Translate$/ }).click();
+  await expect(sp.locator('.ega-assistant-turn').last()).toContainText('Hello, friend.', {
+    timeout: 8_000,
+  });
+  await openRefineChips(sp);
+  const expectations = [
+    'the four chips (Shorter, Less formal, Keep slang, Write your own…) sit in an even two-by-two grid inside the card',
+    'no chip label is clipped or wrapped',
+    'the Refine button in the action row reads as pressed',
+  ];
+  await shot(sp, 'sidepanel-narrow-refine-open', {
+    surface: 'sidepanel',
+    state: 'narrow-refine-open',
+    theme: 'light',
+    viewport: NARROW_SIDEPANEL,
+    userAction: 'user pressed Refine on the newest reply at side-panel width',
+    expectations,
+  });
+  await applyThemeOnPage(sp, 'dark');
+  await shot(sp, 'sidepanel-narrow-refine-open-dark', {
+    surface: 'sidepanel',
+    state: 'narrow-refine-open-dark',
+    theme: 'dark',
+    viewport: NARROW_SIDEPANEL,
+    userAction: 'user pressed Refine on the newest reply at side-panel width, dark theme',
+    expectations,
   });
   await resetRoutes(ext.context);
   await sp.close();

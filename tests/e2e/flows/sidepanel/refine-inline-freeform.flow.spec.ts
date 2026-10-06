@@ -40,7 +40,7 @@ test('freeform [+ Refine] input submits custom refinement text and spawns a vari
   timeline.markStep('first-turn-done');
 
   await openRefineChips(page);
-  const refineToggle = page.locator('[data-ega-refine-chip="refine"]');
+  const refineToggle = page.locator('[data-ega-refine-chip="custom"]');
   await expect(refineToggle).toBeVisible({ timeout: 5_000 });
 
   await refineToggle.click();

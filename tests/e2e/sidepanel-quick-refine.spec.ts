@@ -44,12 +44,24 @@ test('sidepanel: the Refine button opens the quick-refine chips, and Escape clos
   await expect(page.locator('[data-ega-refine-chip="shorter"]')).toBeFocused();
   await expect(page.locator('[data-ega-refine-chip="less-formal"]')).toBeVisible();
   await expect(page.locator('[data-ega-refine-chip="keep-slang"]')).toBeVisible();
-  await expect(page.locator('[data-ega-refine-chip="refine"]')).toBeVisible();
+  // Not a second "Refine": the button that opened the row already has that name.
+  await expect(page.locator('[data-ega-refine-chip="custom"]')).toHaveText('Write your own…');
 
   await page.keyboard.press('Escape');
   await expect(chipRow).toHaveCount(0);
   await expect(toggle).toBeFocused();
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+
+  // A typed request survives closing the row.
+  await page.keyboard.press('Enter');
+  await page.locator('[data-ega-refine-chip="custom"]').click();
+  await page.locator('[data-ega-refine-text]').fill('more poetic');
+  await toggle.focus();
+  // Escape on the pressed Refine button closes the row too.
+  await page.keyboard.press('Escape');
+  await expect(chipRow).toHaveCount(0);
+  await toggle.click();
+  await expect(page.locator('[data-ega-refine-text]')).toHaveValue('more poetic');
 });
 
 test('sidepanel: clicking [Shorter] refines in place without persisting a rule', async () => {

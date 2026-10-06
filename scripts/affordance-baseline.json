@@ -103,7 +103,6 @@
   "data-ega-tooltip-live",
   "data-ega-tooltip-wrap",
   "data-ega-tx-error",
-  "data-ega-variant-busy",
   "data-ega-variant-next",
   "data-testid=\"backend-card-test-{id}\"",
   "data-testid=\"be-row-{row.id}\"",

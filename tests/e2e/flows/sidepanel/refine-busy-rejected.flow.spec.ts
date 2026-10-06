@@ -23,7 +23,7 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-test('refine chip click while translate in-flight shows warning toast and does not spawn a variant', async () => {
+test('a refine while a sibling variant streams is rejected: the chips say why and no third variant starts', async () => {
   const timeline = createTimeline();
 
   // The first call resolves so the chips mount; every later call hangs to keep inflightId non-null.
@@ -67,28 +67,32 @@ test('refine chip click while translate in-flight shows warning toast and does n
     timeout: 10_000,
   });
   await openRefineChips(page);
-  await expect(page.locator('[data-ega-refine-chip="shorter"]')).toBeVisible({ timeout: 5_000 });
-  timeline.markStep('first-turn-done');
+  await page.locator('[data-ega-refine-chip="shorter"]').click();
+  const counter = page.locator('[data-ega-variant-nav] .ega-variant-counter');
+  await expect(counter).toContainText('2/2', { timeout: 5_000 });
+  await expect.poll(() => calls, { timeout: 5_000 }).toBe(2);
+  timeline.markStep('variant-streaming');
 
-  await page.locator('#sp-text').fill('gracias');
-  await page.getByRole('button', { name: /^Translate$/ }).click();
-  await expect(page.getByRole('button', { name: 'Stop' })).toBeVisible({ timeout: 5_000 });
-  timeline.markStep('second-send-in-flight');
-  // The first reply is no longer the newest, so its open chip row closes.
-  await expect(page.locator('[data-ega-quick-refine]')).toHaveCount(0);
+  // Back on the finished first answer the card is done again, so Refine returns while variant 2 still streams.
+  await page.locator('[data-ega-variant-prev]').click();
+  await expect(counter).toContainText('1/2');
+  await expect(page.locator('[data-ega-variant-busy]')).toHaveText('· 2 loading');
+  await openRefineChips(page);
+  await expect(
+    page.getByRole('group', { name: 'Quick refine — wait for this reply to finish' }),
+  ).toBeVisible();
+  const shorter = page.locator('[data-ega-refine-chip="shorter"]');
+  await expect(shorter).toBeDisabled();
+  await expect(page.locator('[data-ega-refine-chip="custom"]')).toBeDisabled();
+  timeline.markStep('chips-disabled');
 
-  // refine() bails while inflightId !== null; the first turn's chips stay on screen.
-  const shorter = page.locator('[data-ega-refine-chip="shorter"]').first();
-  if (await shorter.isVisible()) {
-    await shorter.click();
-    await expect(page.locator('body')).toContainText('Wait', { timeout: 5_000 });
-    timeline.markStep('toast-shown');
-  }
-
-  await assertStaysStable(() => page.locator('[data-ega-variant-nav]').count(), 0, {
+  // force: a disabled button takes no click, which is the point; nothing may reach the backend.
+  await shorter.click({ force: true });
+  await assertStaysStable(() => calls, 2, {
     windowMs: 1_000,
-    message: 'variant-nav must not mount on rejected refine',
+    message: 'a refine during a running variant must send nothing',
   });
+  await expect(counter).toContainText('1/2');
   timeline.markStep('no-variant-asserted');
 
   hangRef.fn?.();

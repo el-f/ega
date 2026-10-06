@@ -27,7 +27,7 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-test('turning Reword off hides it in the chip strip, palette, Try as and tooltip', async () => {
+test('turning Reword off hides it in the chip strip, palette, Re-run as and tooltip', async () => {
   const timeline = createTimeline();
   mockAnthropic(ext.context, { translation: 'Hello', confidence: 0.9 });
 

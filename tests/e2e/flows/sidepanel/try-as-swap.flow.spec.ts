@@ -53,7 +53,7 @@ async function routeAnswers(context: BrowserContext, answers: string[]): Promise
   return bodies;
 }
 
-test('Try as → Swap languages re-answers the last turn the other way, from the keyboard', async () => {
+test('Re-run as → Swap languages re-answers the last turn the other way, from the keyboard', async () => {
   const timeline = createTimeline();
   const bodies = await routeAnswers(ext.context, ['Hello.', 'Hola.']);
   const page = await ext.context.newPage();
@@ -67,11 +67,14 @@ test('Try as → Swap languages re-answers the last turn the other way, from the
   await expect(turn).toContainText('Hello.', { timeout: 10_000 });
   timeline.markStep('first-answer');
 
-  // No separate swap row: the swap is the first item of the Try as menu.
-  const trigger = page.getByRole('button', { name: 'Try as another task' });
+  // No separate swap row: the swap is the first item of the Re-run as menu.
+  const trigger = page.getByRole('button', { name: 'Re-run with another task or language' });
   await expect(trigger).toBeVisible();
   await trigger.focus();
   await page.keyboard.press('Enter');
+  // A keyboard open lands on the checked task, so a second Enter re-runs nothing; the swap is one ArrowUp away.
+  await expect(page.locator('[data-ega-task-switch-item="translate"]')).toBeFocused();
+  await page.keyboard.press('ArrowUp');
   const swap = page.locator('[data-ega-swap-item]');
   await expect(swap).toBeFocused();
   await expect(swap).toHaveText('Swap languages (English → Spanish)');
@@ -80,6 +83,8 @@ test('Try as → Swap languages re-answers the last turn the other way, from the
 
   await page.keyboard.press('Enter');
   await expect(swap).toHaveCount(0);
+  // The menu and the action row unmount while the swap runs; focus waits on the reply card, not on <body>.
+  await expect(turn).toBeFocused();
   const nav = page.locator('[data-ega-variant-nav]');
   await expect(nav.locator('.ega-variant-counter')).toHaveText('2/2', { timeout: 10_000 });
   await expect(turn).toHaveCount(1);
@@ -88,6 +93,18 @@ test('Try as → Swap languages re-answers the last turn the other way, from the
   expect(bodies).toHaveLength(2);
   expect(bodies[1] ?? '').toMatch(/Spanish/);
   timeline.markStep('swapped');
+
+  // The same swap again would add nothing, so the menu says so instead of offering it.
+  await trigger.focus();
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('ArrowUp');
+  await expect(swap).toBeFocused();
+  await expect(swap).toHaveAttribute('aria-disabled', 'true');
+  await expect(swap.locator('[data-ega-swap-note]')).toHaveText('Already answered this way');
+  await page.keyboard.press('Enter');
+  await expect(swap).toBeVisible();
+  expect(bodies).toHaveLength(2);
+  timeline.markStep('repeat-blocked');
 });
 
 test('a blocked swap stays readable in the menu and says why', async () => {

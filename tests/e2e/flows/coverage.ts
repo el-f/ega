@@ -328,7 +328,7 @@ export const COVERAGE: readonly Family[] = [
           {
             id: 'try-as-swap',
             description:
-              'Try as menu: Swap languages re-answers the last turn the other way; a blocked swap shows its reason',
+              'Re-run as menu: Swap languages re-answers the last turn the other way; a blocked swap shows its reason',
             flows: ['sidepanel/try-as-swap.flow.spec.ts'],
           },
           {
@@ -371,7 +371,7 @@ export const COVERAGE: readonly Family[] = [
           {
             id: 'refine-busy-rejected',
             description:
-              'Refine chip click while translate in-flight → toast "Wait — translation in progress", no second variant',
+              'Refine while a sibling variant streams: the chips are disabled with the reason, no third variant',
             flows: ['sidepanel/refine-busy-rejected.flow.spec.ts'],
           },
           {
@@ -729,7 +729,7 @@ export const COVERAGE: readonly Family[] = [
           {
             id: 'toggle-hides-everywhere',
             description:
-              'Turning a task off hides it in the chip strip, palette, Try as menu and tooltip select',
+              'Turning a task off hides it in the chip strip, palette, Re-run as menu and tooltip select',
             flows: ['options-tasks/toggle-hides-everywhere.flow.spec.ts'],
           },
           {
