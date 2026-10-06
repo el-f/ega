@@ -88,7 +88,7 @@ describe('a swap only replays a language this build knows', () => {
     });
     const requestId = startCalls()[0]?.['requestId'] as string;
     c.applyChunk({ type: 'done', requestId, detectedLang: 'Middle Elvish (High)' } as never);
-    expect(c.canSwap(assistantId)).toBe(false);
+    expect(c.swapPair(assistantId)).toBeNull();
   });
 
   it('accepts a real ISO code the model reported', async () => {
@@ -102,7 +102,7 @@ describe('a swap only replays a language this build knows', () => {
     });
     const requestId = startCalls()[0]?.['requestId'] as string;
     c.applyChunk({ type: 'done', requestId, detectedLang: 'es' } as never);
-    expect(c.canSwap(assistantId)).toBe(true);
+    expect(c.swapPair(assistantId)).not.toBeNull();
   });
 });
 

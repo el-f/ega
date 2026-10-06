@@ -438,10 +438,15 @@ export function turnTaskValue(turn: Turn): TaskId {
 
 export type StartArgs = Parameters<typeof sendTranslateStart>[0];
 
-/** A variant's own modifiers. An absent field falls back to the user turn's dispatch. */
-/** The pair a language swap re-runs with: the old target becomes the source. */
-export type SwapPair = Pick<TurnDispatch, 'sourceLang' | 'targetLang'>;
+/** Why a swap would add nothing: the pair is one language, or a reply already answered it. */
+export type SwapBlock = 'same-language' | 'answered';
 
+/** The pair a language swap re-runs with: the old target becomes the source. `blocked` says why it cannot run. */
+export interface SwapPair extends Pick<TurnDispatch, 'sourceLang' | 'targetLang'> {
+  blocked?: SwapBlock;
+}
+
+/** A variant's own modifiers. An absent field falls back to the user turn's dispatch. */
 export interface VariantSeed {
   refinementBody?: string;
   refinementLabel?: string;

@@ -127,11 +127,9 @@ export interface ConversationContainer {
     refinementBody: string;
     refinementLabel?: string;
   }) => Promise<boolean>;
-  /** True when `swapVariant(turnId)` would dispatch. Drives the ↔ button's enabled state. */
-  canSwap: (turnId: string) => boolean;
-  /** The pair `swapVariant(turnId)` would send, or null when `canSwap` is false. Names the swap in the menu. */
+  /** The pair `swapVariant(turnId)` would send, with `blocked` when it would add nothing; null when there is no swap at all. Names the swap in the menu. */
   swapPair: (turnId: string) => SwapPair | null;
-  /** Re-dispatch with source and target langs swapped. False whenever `canSwap` is false. */
+  /** Re-dispatch with source and target langs swapped. False when `swapPair` is null or blocked. */
   swapVariant: (turnId: string) => Promise<boolean>;
   /** Re-dispatch the turn with a different task. False when inflight or unresolvable. */
   taskVariant: (turnId: string, task: TaskId) => Promise<boolean>;
@@ -742,7 +740,10 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     // An image has no source text to read, so a swap would re-run the vision pass into its own language.
     if (target.userTurn.imageDataUrl !== undefined) return null;
     if (target.reuse.sourceLang !== 'auto') return target.reuse.sourceLang;
-    const detected = target.assistant.detectedLang;
+    // The turn mirrors the shown variant, and a swap variant was told its source; read a reply that detected it.
+    const detected =
+      target.assistant.variants?.find((v) => v.sourceLang === undefined && v.detectedLang)
+        ?.detectedLang ?? target.assistant.detectedLang;
     // The model's string reaches the wire as targetLang, so only a code this build knows can pass.
     if (detected === undefined || detected === 'other' || detected === 'auto') return null;
     return isIsoCode(detected) ? asLangSelection(detected) : null;
@@ -754,16 +755,24 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     const target = resolveVariantTarget(turnId);
     const source = target === null ? null : swapSource(target);
     if (target === null || source === null) return null;
-    return { sourceLang: target.reuse.targetLang, targetLang: source };
-  }
-
-  function canSwap(turnId: string): boolean {
-    return swapPair(turnId) !== null;
+    const pair: SwapPair = { sourceLang: target.reuse.targetLang, targetLang: source };
+    if (pair.sourceLang === pair.targetLang) return { ...pair, blocked: 'same-language' };
+    // Any finished plain swap counts, not just the shown one, so flipping back to 1/2 does not offer it again.
+    const answered = (target.assistant.variants ?? []).some(
+      (v) =>
+        v.status === 'done' &&
+        v.refinementBody === undefined &&
+        v.task === undefined &&
+        v.sourceLang === pair.sourceLang &&
+        v.targetLang === pair.targetLang,
+    );
+    return answered ? { ...pair, blocked: 'answered' } : pair;
   }
 
   async function swapVariant(turnId: string): Promise<boolean> {
     const pair = swapPair(turnId);
-    return pair === null ? false : dispatchVariant(turnId, pair);
+    if (pair === null || pair.blocked !== undefined) return false;
+    return dispatchVariant(turnId, { sourceLang: pair.sourceLang, targetLang: pair.targetLang });
   }
 
   async function taskVariant(turnId: string, task: TaskId): Promise<boolean> {
@@ -1462,7 +1471,6 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     cancel,
     retry,
     refine,
-    canSwap,
     swapPair,
     swapVariant,
     taskVariant,

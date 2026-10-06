@@ -116,7 +116,7 @@ describe('a stored turn the byte cap shrank gets its v1 back on load', () => {
     expect(assistant?.variants?.[0]?.content.length).toBeGreaterThan(0);
     sendMessage.mockClear();
 
-    expect(c.canSwap('a1')).toBe(true);
+    expect(c.swapPair('a1')).not.toBeNull();
     expect(await c.refine({ turnId: 'a1', refinementBody: 'shorter' })).toBe(true);
     expect(
       sendMessage.mock.calls.filter(

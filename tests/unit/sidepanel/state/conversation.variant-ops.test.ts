@@ -140,7 +140,7 @@ function restoredPair(): Turn[] {
   ];
 }
 
-describe('createConversation().canSwap', () => {
+describe('createConversation().swapPair', () => {
   it('a later variety send does not unlock swap on an auto-source turn', async () => {
     const c = createConversation();
     await sendAndDrain(c, { sourceLang: 'auto', targetLang: 'en' });
@@ -151,7 +151,7 @@ describe('createConversation().canSwap', () => {
     const startsBefore = startCalls().length;
     expect(await c.swapVariant(autoTurn.id)).toBe(false);
     expect(startCalls().length).toBe(startsBefore);
-    expect(c.canSwap(autoTurn.id)).toBe(false);
+    expect(c.swapPair(autoTurn.id)).toBeNull();
   });
 
   it('matches swapVariant on a variety-source turn', async () => {
@@ -161,7 +161,7 @@ describe('createConversation().canSwap', () => {
       targetLang: 'en',
     });
 
-    expect(c.canSwap(assistantId)).toBe(true);
+    expect(c.swapPair(assistantId)).not.toBeNull();
     expect(await c.swapVariant(assistantId)).toBe(true);
   });
 
@@ -175,7 +175,7 @@ describe('createConversation().canSwap', () => {
 
     // A restored thread has no lastDispatch; the user turn's own dispatch must enable the button and run the swap.
     const startsBefore = startCalls().length;
-    expect(c.canSwap(assistant.id)).toBe(true);
+    expect(c.swapPair(assistant.id)).not.toBeNull();
     expect(await c.swapVariant(assistant.id)).toBe(true);
     expect(startCalls().length).toBe(startsBefore + 1);
   });
@@ -192,14 +192,109 @@ describe('createConversation().canSwap', () => {
     const assistant = c.turns.find((t) => t.role === 'assistant');
     if (!assistant) throw new Error('expected assistant turn');
 
-    expect(c.canSwap(assistant.id)).toBe(false);
+    expect(c.swapPair(assistant.id)).toBeNull();
+  });
+
+  it('blocks a swap a finished reply already ran, on every variant', async () => {
+    const c = createConversation();
+    const assistantId = await sendAndDrain(c, {
+      sourceLang: asLangIdUnsafe('es'),
+      targetLang: 'en',
+    });
+    expect(await c.swapVariant(assistantId)).toBe(true);
+    c.applyChunk({ type: 'done', requestId: lastStart()['requestId'] as string });
+
+    expect(c.swapPair(assistantId)).toEqual({
+      sourceLang: 'en',
+      targetLang: 'es',
+      blocked: 'answered',
+    });
+    c.selectVariant(assistantId, 0);
+    expect(c.swapPair(assistantId)?.blocked).toBe('answered');
+    const startsBefore = startCalls().length;
+    expect(await c.swapVariant(assistantId)).toBe(false);
+    expect(startCalls().length).toBe(startsBefore);
+  });
+
+  it('a failed swap can run again', async () => {
+    const c = createConversation();
+    const assistantId = await sendAndDrain(c, {
+      sourceLang: asLangIdUnsafe('es'),
+      targetLang: 'en',
+    });
+    expect(await c.swapVariant(assistantId)).toBe(true);
+    c.applyChunk({
+      type: 'error',
+      requestId: lastStart()['requestId'] as string,
+      code: 'NETWORK',
+      message: 'offline',
+    } as never);
+    expect(c.swapPair(assistantId)?.blocked).toBeUndefined();
+  });
+
+  it('blocks an auto-detected source that is the target language', async () => {
+    const c = createConversation();
+    await c.send({
+      content: 'שלום',
+      kind: 'translate',
+      sourceLang: 'auto',
+      targetLang: asLangIdUnsafe('he'),
+      stream: true,
+    });
+    c.applyChunk({
+      type: 'done',
+      requestId: lastStart()['requestId'] as string,
+      detectedLang: 'he',
+    } as never);
+    const assistant = c.turns.find((t) => t.role === 'assistant');
+    if (!assistant) throw new Error('expected assistant turn');
+
+    expect(c.swapPair(assistant.id)).toEqual({
+      sourceLang: 'he',
+      targetLang: 'he',
+      blocked: 'same-language',
+    });
+    const startsBefore = startCalls().length;
+    expect(await c.swapVariant(assistant.id)).toBe(false);
+    expect(startCalls().length).toBe(startsBefore);
+  });
+
+  it('reads an auto source from the reply that detected it, not from the shown swap', async () => {
+    const c = createConversation();
+    await c.send({
+      content: 'hola',
+      kind: 'translate',
+      sourceLang: 'auto',
+      targetLang: asLangIdUnsafe('en'),
+      stream: true,
+    });
+    c.applyChunk({
+      type: 'done',
+      requestId: lastStart()['requestId'] as string,
+      detectedLang: 'es',
+    } as never);
+    const assistant = c.turns.find((t) => t.role === 'assistant');
+    if (!assistant) throw new Error('expected assistant turn');
+    expect(await c.swapVariant(assistant.id)).toBe(true);
+    // The swap was told its source is English, and the model echoes that back.
+    c.applyChunk({
+      type: 'done',
+      requestId: lastStart()['requestId'] as string,
+      detectedLang: 'en',
+    } as never);
+
+    expect(c.swapPair(assistant.id)).toEqual({
+      sourceLang: 'en',
+      targetLang: 'es',
+      blocked: 'answered',
+    });
   });
 
   it('is false for an unknown turn id', async () => {
     const c = createConversation();
     await sendAndDrain(c, { sourceLang: asLangIdUnsafe('es'), targetLang: 'en' });
 
-    expect(c.canSwap('nonexistent-id')).toBe(false);
+    expect(c.swapPair('nonexistent-id')).toBeNull();
   });
 });
 
