@@ -2,7 +2,7 @@
 
 ## Turn model
 
-- Each user message is a UserTurn; each backend reply is an AssistantTurn. Turns are ordered; a finished reply can gain variants (Regenerate, refine, swap, Try as) shown with prev/next, and turns can be bookmarked or deleted.
+- Each user message is a UserTurn; each backend reply is an AssistantTurn. Turns are ordered; a finished reply can gain variants (Regenerate, refine, swap, Re-run as) shown with prev/next, and turns can be bookmarked or deleted.
 - Retry on a failed reply replaces that reply in place; Regenerate on a finished reply adds a new variant beside it. Neither appends a UserTurn.
 - While a reply streams, the composer Send button becomes Stop and the header shows Cancel all requests; a finished reply shows Copy, Regenerate and Details, with Bookmark and Delete in its More (⋯) menu.
 

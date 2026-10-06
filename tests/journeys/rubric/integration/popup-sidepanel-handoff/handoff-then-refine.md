@@ -13,7 +13,7 @@
 ## Visible affordances
 
 - Refine chips appear after the seeded assistant turn reaches the done state — NOT while streaming.
-- Chip labels are "Shorter", "Less formal", "Keep slang", plus a "Refine" toggle for free text.
+- Chip labels are "Shorter", "Less formal", "Keep slang", plus a "Write your own…" chip for free text.
 
 ## Failure-mode expectations
 

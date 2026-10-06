@@ -7,13 +7,13 @@
 ## State expectations
 
 - Step 1: an explain task turn has completed in the sidepanel (AssistantTurn with `task=explain`).
-- Step 2: pressing the turn's Refine button opens the quick-refine chips below the explain turn ([Shorter], [Less formal], [Keep slang], [Refine]).
+- Step 2: pressing the turn's Refine button opens the quick-refine chips below the explain turn ([Shorter], [Less formal], [Keep slang], [Write your own…]).
 - Step 3 (click [Shorter]): a variant AssistantTurn spawns; the outbound request carries `task=explain` and the [Shorter] modifier; the variant explains the same source text but in a shorter form.
 
 ## Visible affordances
 
 - Chips render for explain turns — the same fixed set as translate turns.
-- The variant keeps task=explain — the streaming label reads "Explaining…" and the "Try as…" menu still shows Explain checked.
+- The variant keeps task=explain — the streaming label reads "Explaining…" and the "Re-run as…" menu still shows Explain checked.
 
 ## Failure-mode expectations
 

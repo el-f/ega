@@ -20,4 +20,4 @@
 
 ## Cautions
 
-- "Try as…" on the old turn shows the gone task as a disabled item.
+- "Re-run as…" on the old turn shows the gone task as a disabled item.

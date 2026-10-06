@@ -2,24 +2,25 @@
 
 ## Latency budgets
 
-- Chip click during in-flight -> toast appears: <= 100ms.
+- Previous-variant click -> variant 1 shown with "· 2 loading": <= 100ms.
 
 ## State expectations
 
-- Step 1: a translation is actively streaming (AssistantTurn in streaming state).
-- Step 2: the older turn's open chip row closes and the streaming turn has no Refine button, so no refine chip can be clicked.
-- Step 3: no second variant stream starts; the in-flight stream continues; a refine that still reaches the state machine shows a "Wait for the current reply to finish." warning toast.
+- Step 1: the first reply is done; Refine opens the chips and Shorter starts variant 2, which keeps streaming.
+- Step 2: the user steps back to variant 1. The card is done again, so the Refine button returns, but the counter reads "1/2 · 2 loading".
+- Step 3: opening the chips shows every chip disabled, and the chip group is named "Quick refine — wait for this reply to finish".
+- Step 4: a click on a disabled chip sends nothing; exactly two requests have gone out and the counter stays on 1/2.
 
 ## Visible affordances
 
-- The toast is a warning-variant toast (sonner's warning icon) and auto-dismisses after ~8s.
+- The disabled chips read as disabled (greyed), not hidden, so the user sees why nothing happens.
 - Refine chips never show on a streaming turn; when a done variant is viewed while a sibling streams, they render disabled.
 
 ## Failure-mode expectations
 
-- Toast failure (e.g., Toaster not mounted) -> the chip click is still silently rejected; no duplicate variant spawns. The silent-reject is worse UX but not a data-corruption risk.
+- A third variant or a third request while variant 2 streams is a regression.
 
 ## Cautions
 
-- The rejection must be enforced in the state machine, not only via visual disabling — a keyboard user bypassing opacity can still trigger the click.
-- Exactly zero variant requests must fire; verify via request-count assertion, not just UI state.
+- The rejection must be enforced in the state machine too, not only via disabled chips: `refine()` bails while a reply is in flight (unit-tested).
+- Exactly zero extra requests must fire; verify via request count, not just UI state.

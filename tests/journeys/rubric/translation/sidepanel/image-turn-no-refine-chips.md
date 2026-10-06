@@ -14,7 +14,7 @@
 
 - The source image thumbnail renders (`.ega-imgprev img`), not just the OCR text.
 - The footer carries Copy, Regenerate and a More (⋯) menu with Bookmark and Delete. Copy is present only when the turn holds text of its own — the `[image]` marker alone is not text.
-- The Swap languages item in the Try as menu is disabled and says why: an image has no source language to swap from.
+- The Swap languages item in the Re-run as menu is disabled and says why: an image has no source language to swap from.
 
 ## Failure-mode expectations
 
