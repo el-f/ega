@@ -91,9 +91,11 @@
               size="sm"
               dataAttrs={{ 'data-ega-swap': 'true' }}
               onclick={() => {
-                if (swap === null) return;
-                sourceLang = swap.source;
-                targetLang = swap.target;
+                // Read once: setting the source recomputes `swap` in the parent before the target is read.
+                const next = swap;
+                if (next === null) return;
+                sourceLang = next.source;
+                targetLang = next.target;
               }}
             />
           </span>
