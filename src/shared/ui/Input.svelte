@@ -19,7 +19,10 @@
     /** Character cap the stored field enforces — set it wherever the schema has one. */
     maxlength?: number;
     oninput?: (e: Event) => void;
+    onblur?: (e: FocusEvent) => void;
     onkeydown?: (e: KeyboardEvent) => void;
+    /** id for the <input>, so a caller's own `<label for>` can name it. */
+    id?: string;
     /** Inline icon at the start of the input (Lucide-style component slot). */
     leading?: Snippet;
     /** When true, an X button appears inside the input on hover when value is non-empty. */
@@ -47,14 +50,17 @@
     required = false,
     maxlength,
     oninput,
+    onblur,
     onkeydown,
+    id: ownId,
     leading,
     clearable = false,
     dataAttrs,
     comboboxProps,
   }: Props = $props();
 
-  const inputId = id('ega-input');
+  const fallbackId = id('ega-input');
+  const inputId = $derived(ownId ?? fallbackId);
 
   function handleClear(): void {
     value = '';
@@ -80,6 +86,7 @@
       aria-required={required ? 'true' : undefined}
       aria-label={!label && ariaLabel ? ariaLabel : undefined}
       {oninput}
+      {onblur}
       {onkeydown}
       {...dataAttrs ?? {}}
       {...comboboxProps ?? {}}

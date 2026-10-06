@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
   import { id } from '@/shared/uuid';
+  import InfoTip from './InfoTip.svelte';
 
   interface Props {
     title: string;
@@ -9,16 +10,21 @@
     footer?: Snippet;
     /** Right-aligned actions on the title row; the description still wraps below. */
     headerActions?: Snippet;
+    /** An (i) toggletip after the title, for help longer than the one-line description. */
+    info?: { label: string; text: string };
   }
 
-  let { title, description, children, footer, headerActions }: Props = $props();
+  let { title, description, children, footer, headerActions, info }: Props = $props();
   const titleId = id('ega-section');
 </script>
 
 <section class="ega-section-card" aria-labelledby={titleId}>
   <header class="ega-section-card-head">
     <div class="ega-section-card-title-row">
-      <h2 id={titleId} class="ega-section-card-title">{title}</h2>
+      <div class="ega-section-card-title-group">
+        <h2 id={titleId} class="ega-section-card-title">{title}</h2>
+        {#if info}<InfoTip label={info.label} text={info.text} />{/if}
+      </div>
       {#if headerActions}
         <div class="ega-section-card-actions">{@render headerActions()}</div>
       {/if}
@@ -71,9 +77,15 @@
     align-items: center;
     gap: var(--space-2);
   }
+  .ega-section-card-title-group {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+  }
   .ega-section-card-title {
     margin: 0;
-    flex: 1 1 auto;
     font-size: var(--fs-md);
     font-weight: 600;
     color: var(--color-fg);
