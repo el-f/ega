@@ -115,24 +115,28 @@
   data-ega-picker-bar={kind}
 >
   <span class="ega-sr-only" data-ega-ms-live role="status" aria-live="polite">{live}</span>
-  <span class="mark" aria-hidden="true">
-    <svg viewBox="0 0 24 24"
-      ><path d="M5 3a2 2 0 0 0-2 2" /><path d="M19 3a2 2 0 0 1 2 2" /><path
-        d="M5 21a2 2 0 0 1-2-2"
-      /><path d="M9 3h1" /><path d="M9 21h2" /><path d="M14 3h1" /><path d="M3 9v1" /><path
-        d="M21 9v2"
-      /><path d="M3 14v1" />{#if kind === 'pick'}<path d="m12 12 4 10 1.7-4.3L22 16Z" />{:else}<path
-          d="M19 21a2 2 0 0 0 2-2"
-        /><path d="M21 14v1" /><path d="M14 21h1" />{/if}</svg
+  <span class="lead">
+    <span class="mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24"
+        ><path d="M5 3a2 2 0 0 0-2 2" /><path d="M19 3a2 2 0 0 1 2 2" /><path
+          d="M5 21a2 2 0 0 1-2-2"
+        /><path d="M9 3h1" /><path d="M9 21h2" /><path d="M14 3h1" /><path d="M3 9v1" /><path
+          d="M21 9v2"
+        /><path d="M3 14v1" />{#if kind === 'pick'}<path
+            d="m12 12 4 10 1.7-4.3L22 16Z"
+          />{:else}<path d="M19 21a2 2 0 0 0 2-2" /><path d="M21 14v1" /><path
+            d="M14 21h1"
+          />{/if}</svg
+      >
+    </span>
+    <span
+      class="status"
+      class:refusal={blocked || refusal !== null}
+      id={statusId}
+      role="status"
+      data-ega-ms-count>{shown}</span
     >
   </span>
-  <span
-    class="status"
-    class:refusal={blocked || refusal !== null}
-    id={statusId}
-    role="status"
-    data-ega-ms-count>{shown}</span
-  >
   <div class="controls">
     {#if kind === 'areas'}
       <div
