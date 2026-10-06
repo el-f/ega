@@ -5,7 +5,7 @@ import { DEFAULT_DESCRIPTION_CONTEXT_CAP } from './constants';
 import { DEFAULT_PROMPT_TEMPLATE } from './settings-defaults';
 import { labelFor } from './languages';
 import { resolveSnippets, SLOT_RE } from './snippets';
-import { TONE_PHRASE, type Tone } from './task-prompts';
+import { FORMAT_MARKER, TONE_PHRASE, type AnswerFormat, type Tone } from './task-prompts';
 
 /** Models otherwise name a country from a pan-dialect phrase, or from the page's topic. */
 const DETAIL_RULE =
@@ -257,6 +257,36 @@ export const PLAIN_CONTRACT = 'Return JSON ONLY: {"translation": <your answer as
 export const CARD_CONTRACT =
   'Return JSON ONLY: {"translation": <your answer as a string>, "explain": <short notes as a string; leave the field out when there is nothing to note>}.';
 
+/** The system half already carries an answer format, typed in or inside a snippet. */
+export function hasAnswerFormat(system: string, snippets: Record<string, string>): boolean {
+  return resolveSnippets(system, snippets).includes(FORMAT_MARKER);
+}
+
+/** The template with its answer format joined on, unless the text already holds one. Raw text, before the slot pass. */
+export function withAnswerFormat(
+  tpl: PromptTemplate,
+  format: AnswerFormat | undefined,
+  snippets: Record<string, string>,
+): PromptTemplate {
+  if (!format || hasAnswerFormat(tpl.system, snippets)) return tpl;
+  return { ...tpl, system: tpl.system + format.sep + format.text };
+}
+
+/** "Use the standard format": the text without its own format; null when nothing but the format would remain. */
+export function stripStandardFormat(system: string, format: AnswerFormat): string | null {
+  for (const exact of [format.sep + format.text, format.text]) {
+    if (system.includes(exact)) {
+      const rest = system.replace(exact, '');
+      return rest.trim().length > 0 ? rest : null;
+    }
+  }
+  const formatLines = new Set(format.text.split('\n'));
+  const lines = system.split('\n');
+  const kept = lines.filter((l) => !l.includes(FORMAT_MARKER) && !formatLines.has(l));
+  if (kept.length === lines.length || !kept.some((l) => l.trim().length > 0)) return null;
+  return kept.join('\n');
+}
+
 export interface TaskPromptInput {
   /** The request as the prompt sees it: page context already dropped when the task does not take it. */
   req: TranslationRequest;
@@ -268,11 +298,17 @@ export interface TaskPromptInput {
   contextBlockIfNoSlot?: boolean;
   /** A custom task's answer contract, appended after its system text. */
   contract?: string;
+  /** A built-in's answer format, joined on when the system text does not already hold one. Never with `contract`. */
+  format?: AnswerFormat;
 }
 
 /** The one prompt builder: the router and the editor Preview both call it, so the Preview is the prompt that runs. */
 export function buildTaskPrompt(input: TaskPromptInput): { system: string; user: string } {
-  const { req, build } = input;
+  const { req } = input;
+  const build: BuildCtx = {
+    ...input.build,
+    template: withAnswerFormat(input.build.template, input.format, input.build.snippets ?? {}),
+  };
   const built = buildPrompt(req, build);
   const contextBlock =
     input.contextBlockIfNoSlot === true && !readsPageContext(build.template, build.snippets ?? {})

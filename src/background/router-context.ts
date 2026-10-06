@@ -14,7 +14,13 @@ import { DEFAULT_STREAMING_FLUSH_MS } from '@/shared/constants';
 import { buildTaskPrompt, CARD_CONTRACT, PLAIN_CONTRACT, readsPageContext } from '@/shared/prompts';
 import { labelFor } from '@/shared/languages';
 import { redactContext } from '@/shared/redact';
-import { builtInTask, type Task, type Tone } from '@/shared/task-prompts';
+import {
+  answerFormatFor,
+  builtInTask,
+  type AnswerFormat,
+  type Task,
+  type Tone,
+} from '@/shared/task-prompts';
 import {
   BUILT_IN_TASK_SWITCHES,
   builtInTaskView,
@@ -78,8 +84,10 @@ export interface TranslateCtx {
   /** The task as the user set it up: which inputs it takes. */
   view: TaskView;
   contextBlockIfNoSlot: boolean;
-  /** A custom task's answer contract; built-ins carry their own. */
+  /** A custom task's answer contract. */
   contract?: string;
+  /** A built-in's answer format, joined on when its prompt holds none. */
+  format?: AnswerFormat;
   /** Snippets the template expands: none for a custom task. */
   snippets: Record<string, string>;
   /** The text-path prompt; the cache key is its hash, so a new modifier cannot miss the key. */
@@ -206,7 +214,9 @@ export function createContextResolver(deps: ContextDeps) {
       // A built-in shipped without page context has no slot for it, so a user who turned it on gets a context block.
       contextBlockIfNoSlot:
         view.pageContext && (custom !== undefined || !BUILT_IN_TASK_SWITCHES[task].pageContext),
-      ...(custom ? { contract: custom.output === 'card' ? CARD_CONTRACT : PLAIN_CONTRACT } : {}),
+      ...(custom
+        ? { contract: custom.output === 'card' ? CARD_CONTRACT : PLAIN_CONTRACT }
+        : { format: answerFormatFor(task) }),
       snippets,
       glossaryEntries,
       rulesBlock,
@@ -260,5 +270,6 @@ export function buildSystemAndUser(
     ...(req.options.refinement !== undefined ? { refinement: req.options.refinement } : {}),
     contextBlockIfNoSlot: ctx.contextBlockIfNoSlot,
     ...(ctx.contract ? { contract: ctx.contract } : {}),
+    ...(ctx.format ? { format: ctx.format } : {}),
   });
 }

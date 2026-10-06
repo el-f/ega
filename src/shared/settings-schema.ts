@@ -113,7 +113,6 @@ export const DEFAULT_PROMPT_TEMPLATE: { system: string; user: string } = {
     '{{examples}}',
     '{{explainInstr}}',
     '{{detectiveInstr}}',
-    TRANSLATE_FORMAT.text,
   ].join('\n'),
   user: ['{{context}}', 'TEXT:', '"""', '{{text}}', '"""'].join('\n'),
 };
@@ -144,9 +143,15 @@ export const PREVIOUS_PROMPT_TEMPLATE: { system: string; user: string } = {
   user: ['{{context}}', 'TEXT:', '"""', '{{text}}', '"""'].join('\n'),
 };
 
-/** True only when the stored template matches neither the current nor the previous default, so the banner skips users who never edited it. */
+/** The v9 default as stored before the answer format left the editable text: today's default with the format joined on. */
+export const V9_FULL_PROMPT_TEMPLATE: { system: string; user: string } = {
+  system: DEFAULT_PROMPT_TEMPLATE.system + TRANSLATE_FORMAT.sep + TRANSLATE_FORMAT.text,
+  user: DEFAULT_PROMPT_TEMPLATE.user,
+};
+
+/** True only when the stored template matches no shipped default, so the banner skips users who never edited it. */
 export function isPromptTemplateCustomised(t: { system: string; user: string }): boolean {
-  return ![DEFAULT_PROMPT_TEMPLATE, PREVIOUS_PROMPT_TEMPLATE].some(
+  return ![DEFAULT_PROMPT_TEMPLATE, V9_FULL_PROMPT_TEMPLATE, PREVIOUS_PROMPT_TEMPLATE].some(
     (d) => t.system === d.system && t.user === d.user,
   );
 }

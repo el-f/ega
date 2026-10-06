@@ -21,6 +21,7 @@ import {
   DEFAULT_PROMPT_TEMPLATE,
   isPromptTemplateCustomised,
   PREVIOUS_PROMPT_TEMPLATE,
+  V9_FULL_PROMPT_TEMPLATE,
   type LanguagePrompt,
   OPTIONAL_SETTINGS_KEYS,
   parseStoredSettings,
@@ -29,7 +30,7 @@ import {
   type TaskEdit,
   UNKNOWN_TASK_ID,
 } from '../settings-schema';
-import { ALL_TASKS, buildTaskTemplate, type Task } from '../task-prompts';
+import { ALL_TASKS, answerFormatFor, buildTaskTemplate, type Task } from '../task-prompts';
 import { BUILT_IN_TASK_SWITCHES, hasOwnPrompt } from '../task-view';
 
 /** Matches LangPresetIdSchema's cap — a custom variety id is a 36-char UUID. */
@@ -332,7 +333,10 @@ export function withoutShippedTaskFields(id: Task, edit: TaskEdit): TaskEdit {
   const out: TaskEdit = {};
   if (hasOwnPrompt(id)) {
     const prompt = buildTaskTemplate(id);
-    if (edit.system !== undefined && edit.system !== prompt.system) out.system = edit.system;
+    const format = answerFormatFor(id);
+    // The v9 shipped text held the format; it builds the same bytes as today's shipped half.
+    const shipped = [prompt.system, prompt.system + format.sep + format.text];
+    if (edit.system !== undefined && !shipped.includes(edit.system)) out.system = edit.system;
     if (edit.user !== undefined && edit.user !== prompt.user) out.user = edit.user;
   }
   if (edit.pageContext !== undefined && edit.pageContext !== shipped.pageContext) {
@@ -353,6 +357,7 @@ export function withoutInheritedHalves(
   const out: LanguagePrompt = {};
   const inherited = [
     DEFAULT_PROMPT_TEMPLATE,
+    V9_FULL_PROMPT_TEMPLATE,
     PREVIOUS_PROMPT_TEMPLATE,
     ...(global ? [global] : []),
   ];

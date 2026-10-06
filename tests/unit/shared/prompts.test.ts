@@ -10,6 +10,7 @@ import {
 import { validateAgainstSlots } from '@/shared/slot-registry';
 import { buildTaskTemplate, ALL_TASKS } from '@/shared/task-prompts';
 import type { Task, Tone } from '@/shared/task-prompts';
+import { V9_FULL_PROMPT_TEMPLATE } from '@/shared/settings-schema';
 import { DEFAULT_PROMPT_TEMPLATE } from '@/shared/settings-defaults';
 import type { LangSelection, TranslationRequest } from '@/shared/types';
 import { getPreset } from '@/shared/presets';
@@ -166,7 +167,7 @@ describe('buildPrompt', () => {
     // Optional in the reply, but the template must ask for it when several varieties are present.
     const p = buildPrompt(baseReq(), {
       preset: getPreset('arabizi'),
-      template: DEFAULT_TEMPLATE,
+      template: V9_FULL_PROMPT_TEMPLATE,
     });
     expect(p.system).toMatch(/detectedLangs/);
     expect(p.system).toMatch(/mix.*varieties|multiple varieties/i);
@@ -347,7 +348,7 @@ describe('buildPrompt', () => {
     // Near-identical inputs got 0.2, 0.55 and 1.0; the prompt anchors what each confidence value means.
     const p = buildPrompt(baseReq(), {
       preset: getPreset('arabizi'),
-      template: DEFAULT_TEMPLATE,
+      template: V9_FULL_PROMPT_TEMPLATE,
     });
     expect(p.system).toMatch(/0\.\.1/);
     expect(p.system).toMatch(/unambiguous/i);
@@ -792,7 +793,7 @@ describe('default translate template — target-variety hint', () => {
   const build = (targetPreset?: ReturnType<typeof getPreset>) =>
     buildPrompt(baseReq({ targetLang: sel('arabizi') }), {
       preset: getPreset('leetspeak'),
-      template: DEFAULT_PROMPT_TEMPLATE,
+      template: V9_FULL_PROMPT_TEMPLATE,
       ...(targetPreset ? { targetPreset } : {}),
     }).system;
 
@@ -820,7 +821,7 @@ describe('default translate template — the JSON contract comes last', () => {
   const composed = (): string => {
     const built = buildPrompt(baseReq({ options: { stream: false, explain: true } }), {
       preset: getPreset('arabizi'),
-      template: DEFAULT_PROMPT_TEMPLATE,
+      template: V9_FULL_PROMPT_TEMPLATE,
     });
     return composeSystemPrefix('GLOSSARY:\n- x → y', 'RULES:\n- always be terse', built.system);
   };
@@ -840,7 +841,7 @@ describe('default translate template — the JSON contract comes last', () => {
     if (!arabizi) throw new Error('arabizi preset missing');
     const built = buildPrompt(baseReq({ sourceLang: 'auto' }), {
       preset: undefined,
-      template: DEFAULT_PROMPT_TEMPLATE,
+      template: V9_FULL_PROMPT_TEMPLATE,
       candidates: [arabizi],
     });
     const s = composeSystemPrefix('', '', built.system);

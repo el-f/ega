@@ -8,8 +8,15 @@ import { buildSystemAndUser, createContextResolver } from '@/background/router-c
 import { buildPreviewPrompt, PREVIEW_SAMPLE_TEXT } from '@/options/preview-prompt';
 import { materializeVarieties } from '@/shared/varieties';
 import { ownTaskPrompt } from '@/shared/task-view';
-import { ALL_TONES, buildTaskTemplate, type Task, type Tone } from '@/shared/task-prompts';
-import { DEFAULT_PROMPT_TEMPLATE } from '@/shared/settings-schema';
+import {
+  ALL_TONES,
+  answerFormatFor,
+  buildTaskTemplate,
+  FORMAT_MARKER,
+  type Task,
+  type Tone,
+} from '@/shared/task-prompts';
+import { DEFAULT_PROMPT_TEMPLATE, V9_FULL_PROMPT_TEMPLATE } from '@/shared/settings-schema';
 import { asLangPresetIdUnsafe } from '@/shared/brands';
 import type { CustomLanguage, Settings, TranslationRequest } from '@/shared/types';
 
@@ -145,13 +152,16 @@ const TEMPLATES = fileURLToPath(
 
 describe('shipped templates (v9)', () => {
   it('T-F0: each shipped template plus its answer format is the recorded v9 text', () => {
-    const actual: Record<string, { system: string; user: string }> = {
-      translate: { ...DEFAULT_PROMPT_TEMPLATE },
-      ...Object.fromEntries(OWN_PROMPT_TASKS_ALL.map((t) => [t, buildTaskTemplate(t)])),
+    const joined = (task: Task, tpl: { system: string; user: string }) => {
+      const f = answerFormatFor(task);
+      expect(tpl.system).not.toContain(FORMAT_MARKER);
+      return { system: tpl.system + f.sep + f.text, user: tpl.user };
     };
-    if (process.env['EGA_WRITE_GOLDEN'] === '1' || !existsSync(TEMPLATES)) {
-      writeFileSync(TEMPLATES, JSON.stringify(actual, null, 2) + '\n');
-    }
+    const actual = {
+      translate: joined('translate', DEFAULT_PROMPT_TEMPLATE),
+      ...Object.fromEntries(OWN_PROMPT_TASKS_ALL.map((t) => [t, joined(t, buildTaskTemplate(t))])),
+    };
     expect(actual).toEqual(JSON.parse(readFileSync(TEMPLATES, 'utf8')));
+    expect(V9_FULL_PROMPT_TEMPLATE).toEqual(actual.translate);
   });
 });

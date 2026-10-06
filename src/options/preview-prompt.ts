@@ -4,7 +4,7 @@ import { filterRulesForRequest, renderRulesBlock } from '@/shared/rules';
 import { clampRulesToBudget, RULES_BLOCK_WARN_BYTES } from '@/shared/rules-budget';
 import { builtInTaskView } from '@/shared/task-view';
 import { autoCandidates, varietyToPreset } from '@/shared/varieties';
-import type { Task } from '@/shared/task-prompts';
+import { answerFormatFor, type Task } from '@/shared/task-prompts';
 import type { CustomTaskInput } from '@/shared/tasks';
 import type {
   LangPreset,
@@ -125,5 +125,6 @@ export function buildPreviewPrompt(
     },
     glossaryBlock: renderGlossaryBlock(glossary),
     rulesBlock: renderRulesBlock(rules),
+    format: answerFormatFor(task),
   });
 }

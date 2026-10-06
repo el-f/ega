@@ -7,6 +7,8 @@ import {
   TASK_LABELS,
   TONE_LABELS,
   buildTaskTemplate,
+  answerFormatFor,
+  FORMAT_MARKER,
 } from '@/shared/task-prompts';
 
 // Mostly structural contracts; the output-language block pins a few guard phrases on purpose, so rewording those lines breaks it.
@@ -51,10 +53,10 @@ describe('buildTaskTemplate — contract', () => {
     );
 
     it.each(CALLABLE_TASKS)(
-      '%s declares a JSON output contract with at least a "translation" field',
+      '%s has a JSON answer format with at least a "translation" field, kept out of the editable text',
       (task) => {
-        const tpl = buildTaskTemplate(task);
-        expect(tpl.system).toMatch(/"translation"/);
+        expect(answerFormatFor(task).text).toMatch(/^Return JSON ONLY: .*"translation"/);
+        expect(buildTaskTemplate(task).system).not.toContain(FORMAT_MARKER);
       },
     );
   });
@@ -82,9 +84,10 @@ describe('buildTaskTemplate — contract', () => {
     });
 
     it('JSON contract carries translation, and no explain field', () => {
-      expect(tpl.system).toMatch(/"translation"/);
+      const format = answerFormatFor('suggest-replies').text;
+      expect(format).toMatch(/"translation"/);
       // Nothing parsed the tone list, so the literal "casual | neutral | polite" reached the user as the explanation.
-      expect(tpl.system).not.toMatch(/"explain"/);
+      expect(format + tpl.system).not.toMatch(/"explain"/);
     });
   });
 

@@ -11,7 +11,10 @@ import { renderGlossaryBlock, type GlossaryEntry } from '@/shared/glossary';
 import { renderRulesBlock, type Rule } from '@/shared/rules';
 import { RULES_BLOCK_WARN_BYTES } from '@/shared/rules-budget';
 import { UNTRUSTED_DATA_INSTRUCTION } from '@/shared/prompts';
-import { TONE_PHRASE } from '@/shared/task-prompts';
+import { TASK_FORMATS, TONE_PHRASE, TRANSLATE_FORMAT } from '@/shared/task-prompts';
+
+/** A toy prompt without a format line gets the standard one joined on, as an edited prompt does. */
+const T_FMT = '\n' + TRANSLATE_FORMAT.text.replace('{{explainField}}', '');
 
 /** resolveTranslateContext + buildSystemAndUser: variety guards, template lookup, cache-key fields, prompt prefixes. */
 
@@ -107,7 +110,7 @@ describe('router — source and target variety guards', () => {
       },
       customs: [mkCustom('zzsrc', 'ZZ Source Label', 'ZZ SOURCE HINT')],
     });
-    expect(system.endsWith('L=[ZZ Source Label] H=[ZZ SOURCE HINT]')).toBe(true);
+    expect(system.endsWith('L=[ZZ Source Label] H=[ZZ SOURCE HINT]' + T_FMT)).toBe(true);
   });
 
   it("sourceLang 'auto' skips the variety lookup even when a variety id 'auto' exists", async () => {
@@ -116,7 +119,7 @@ describe('router — source and target variety guards', () => {
       advanced: { promptTemplate: { system: 'L=[{{langLabel}}]', user: '{{text}}' } },
       customs: [mkCustom('auto', 'AUTO TRAP LABEL', 'trap hint')],
     });
-    expect(system.endsWith('L=[the source language]')).toBe(true);
+    expect(system.endsWith('L=[the source language]' + T_FMT)).toBe(true);
   });
 
   it('a non-empty targetLang resolves its variety and passes targetPreset to buildPrompt', async () => {
@@ -125,7 +128,7 @@ describe('router — source and target variety guards', () => {
       advanced: { promptTemplate: { system: 'T=[{{targetLangLabel}}]', user: '{{text}}' } },
       customs: [mkCustom('zztgt', 'ZZ Target Label', 'tgt hint')],
     });
-    expect(system.endsWith('T=[ZZ Target Label]')).toBe(true);
+    expect(system.endsWith('T=[ZZ Target Label]' + T_FMT)).toBe(true);
   });
 });
 
@@ -139,7 +142,9 @@ describe('router — task template lookup', () => {
         },
       },
     });
-    expect(system).toBe(UNTRUSTED_DATA_INSTRUCTION + '\n\nSUM-OVERRIDE-SYS');
+    expect(system).toBe(
+      UNTRUSTED_DATA_INSTRUCTION + '\n\nSUM-OVERRIDE-SYS ' + TASK_FORMATS.summarize.text,
+    );
     expect(user).toBe('SUM-OVERRIDE-USR hello world');
   });
 });
@@ -251,13 +256,15 @@ describe('router — prompt assembly', () => {
       req: mkReq({ options: { task: 'reword', tone: 'formal' } }),
       settings: { taskOverrides: { reword: tpl } },
     });
-    expect(reworded.system.endsWith(`TONE=[${TONE_PHRASE.formal}]`)).toBe(true);
+    expect(
+      reworded.system.endsWith(`TONE=[${TONE_PHRASE.formal}] ${TASK_FORMATS.reword.text}`),
+    ).toBe(true);
     const translated = await run({
       req: mkReq({ options: { task: 'translate' } }),
       settings: { defaultTone: 'blunt' },
       advanced: { promptTemplate: tpl },
     });
-    expect(translated.system.endsWith(`TONE=[${TONE_PHRASE.blunt}]`)).toBe(true);
+    expect(translated.system.endsWith(`TONE=[${TONE_PHRASE.blunt}]${T_FMT}`)).toBe(true);
   });
 
   it('descriptionContextCap from settings caps the rendered page description', async () => {
@@ -293,7 +300,7 @@ describe('router — prompt assembly', () => {
       advanced: { rules: [rule], promptTemplate: { system: 'SYS-BODY', user: '{{text}}' } },
     });
     const prefix = renderGlossaryBlock([entry]) + '\n' + renderRulesBlock([rule]);
-    expect(system).toBe(prefix + '\n' + UNTRUSTED_DATA_INSTRUCTION + '\n\nSYS-BODY');
+    expect(system).toBe(prefix + '\n' + UNTRUSTED_DATA_INSTRUCTION + '\n\nSYS-BODY' + T_FMT);
   });
 
   it('clamps an over-budget rules block at request time, keeping the most specific rules', async () => {
