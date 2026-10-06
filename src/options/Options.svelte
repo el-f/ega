@@ -8,7 +8,7 @@
   import ShortcutOverlay from '@/shared/components/ShortcutOverlay.svelte';
   import CommandPalette from '@/shared/components/CommandPalette.svelte';
   import SettingsSearch from './components/SettingsSearch.svelte';
-  import { Toaster } from 'svelte-sonner';
+  import ToastHost from '@/shared/components/ToastHost.svelte';
   import { toastStore } from '@/shared/components/toastStore';
   import { onMount } from 'svelte';
   import { getCustomTasks, getSettings, onSettingsChanged } from '@/shared/storage';
@@ -521,16 +521,7 @@
   onClose={() => (settingsSearchOpen = false)}
   onJump={jumpToSetting}
 />
-<Toaster
-  position="bottom-right"
-  closeButton
-  {theme}
-  toastOptions={{
-    classes: {
-      toast: 'ega-sonner-toast',
-    },
-  }}
-/>
+<ToastHost position="bottom-right" {theme} />
 
 <style>
   /* Container-query scoped, not viewport: the options page can be framed inside a narrow extension panel.
@@ -583,63 +574,5 @@
     :global([data-flash='true']) {
       animation: none;
     }
-  }
-
-  /* Maps sonner's CSS vars onto ega tokens, so toasts follow the active theme. */
-  :global([data-sonner-toaster]) {
-    --normal-bg: var(--color-bg-elevated);
-    --normal-text: var(--color-fg);
-    --normal-border: var(--color-border);
-    --success-bg: var(--color-bg-elevated);
-    --success-text: var(--color-fg);
-    --success-border: var(--color-success);
-    --info-bg: var(--color-bg-elevated);
-    --info-text: var(--color-fg);
-    --info-border: var(--color-accent);
-    --warning-bg: var(--color-bg-elevated);
-    --warning-text: var(--color-fg);
-    --warning-border: var(--color-warning-border);
-    --error-bg: var(--color-bg-elevated);
-    --error-text: var(--color-fg);
-    --error-border: var(--color-danger);
-    font-family: var(--font-ui);
-  }
-  :global([data-sonner-toast].ega-sonner-toast) {
-    box-shadow: var(--shadow-md, 0 8px 24px var(--color-shadow));
-    font-size: var(--fs-sm);
-    border-radius: var(--radius-md);
-    border-width: 1px;
-    border-style: solid;
-  }
-  /* Cap toast width on narrow viewports so long error strings wrap
-     instead of pushing the close affordance off-screen. */
-  :global([data-sonner-toast]) {
-    max-width: 400px;
-    white-space: normal;
-  }
-  :global([data-sonner-toast][data-type='success']) {
-    border-left-width: 3px;
-    border-left-color: var(--color-success);
-  }
-  :global([data-sonner-toast][data-type='info']) {
-    border-left-width: 3px;
-    border-left-color: var(--color-accent);
-  }
-  :global([data-sonner-toast][data-type='warning']) {
-    border-left-width: 3px;
-    border-left-color: var(--color-warning);
-  }
-  :global([data-sonner-toast][data-type='error']) {
-    border-left-width: 3px;
-    border-left-color: var(--color-danger);
-  }
-  :global([data-sonner-toast] [data-close-button]) {
-    background: var(--color-bg);
-    color: var(--color-muted);
-    border: 1px solid var(--color-border);
-  }
-  :global([data-sonner-toast] [data-close-button]:hover) {
-    color: var(--color-fg);
-    background: var(--color-bg-hover);
   }
 </style>

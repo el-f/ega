@@ -172,8 +172,7 @@ function maybeShowUndoHint(requestId: string): void {
   // Flag first, so a tab that reads it sooner shows no second hint; a true race across tabs still can.
   void patchSettings({ inlineUndoHintShown: true });
   dismissUndoHint = showToast('Translated in place. Press Esc twice to put the original back.', {
-    label: 'Undo',
-    run: () => restoreInline(requestId),
+    action: { label: 'Undo', run: () => restoreInline(requestId) },
   });
 }
 

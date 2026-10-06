@@ -463,7 +463,7 @@ describe('ContextMenuManager — add, delete, move, reset', () => {
     await fireEvent.click(del as HTMLElement);
     expect(written(onPatch).some((i) => i.id === custom.id)).toBe(false);
     await waitFor(() => expect(pushed.at(-1)?.message).toBe('Removed "Explain".'));
-    expect(pushed.at(-1)?.duration).toBe(8000);
+    expect(pushed.at(-1)?.action?.label).toBe('Undo');
     await waitFor(() =>
       expect(document.activeElement).toBe(
         row(container, second.id).querySelector('[data-ega-cm-edit]'),

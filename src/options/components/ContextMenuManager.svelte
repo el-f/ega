@@ -404,7 +404,6 @@
     toastStore.push({
       message: `Removed "${name}".`,
       variant: 'success',
-      duration: 8000,
       action: { label: 'Undo', onClick: () => void restoreItem(item, at) },
     });
     const neighbour = rows[idx + 1] ?? rows[idx - 1];
@@ -437,7 +436,6 @@
     toastStore.push({
       message: 'Right-click menu reset.',
       variant: 'success',
-      duration: 8000,
       action: { label: 'Undo', onClick: () => void undoReset(before) },
     });
     // The Reset button is gone now, so focus would drop to the page.

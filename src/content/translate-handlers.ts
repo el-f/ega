@@ -37,7 +37,9 @@ function isReloadFailure(e: unknown): boolean {
 }
 
 export function showReloadToast(): void {
-  showToast(CONTEXT_INVALIDATED_MESSAGE, { label: 'Reload page', run: () => location.reload() });
+  showToast(CONTEXT_INVALIDATED_MESSAGE, {
+    action: { label: 'Reload page', run: () => location.reload() },
+  });
 }
 
 /** A user-triggered entry point that rejects silently looks like a dead button; say what happened. */

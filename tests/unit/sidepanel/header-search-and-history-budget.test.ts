@@ -147,11 +147,3 @@ describe('a keyless first run says what to do', () => {
     expect(container.querySelector('[data-ega-sidepanel-empty] button')).toBeNull();
   });
 });
-
-describe('a warning stays up longer than a confirmation', () => {
-  it('defaults by variant, not per call site', () => {
-    const src = readFileSync('src/shared/components/toastStore.ts', 'utf8');
-    expect(src).toMatch(/function defaultDuration/);
-    expect(src).toMatch(/variant === 'danger' \|\| variant === 'warning' \? 8000 : 3000/);
-  });
-});

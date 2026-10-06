@@ -465,14 +465,14 @@ describe('RulesEditor — failed writes, focus and scope button', () => {
     return el;
   }
 
-  it('the delete Undo toast stays up 8 s, since there is no confirm', async () => {
+  it('the delete toast offers Undo, so it stays until dismissed', async () => {
     const pushSpy = vi.spyOn(toastStore, 'push').mockImplementation(() => {});
     const { container } = render(RulesEditor, {
       props: { rules: [rule({ id: 'r1' })], onUpdate: () => true },
     });
     await fireEvent.click(rowPart(container, 'r1', '[data-ega-rule-delete]'));
     await waitFor(() => expect(pushSpy).toHaveBeenCalledTimes(1));
-    expect(pushSpy.mock.calls[0]?.[0]).toMatchObject({ duration: 8000 });
+    expect(pushSpy.mock.calls[0]?.[0]).toMatchObject({ action: { label: 'Undo' } });
   });
 
   it('a failed delete offers no Undo', async () => {

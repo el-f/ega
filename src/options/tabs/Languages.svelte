@@ -288,7 +288,6 @@
       toastStore.push({
         message: `"${v.label}" changed in another window or in an import while you edited it, and so did a field you edited. Nothing was saved. Copy your text, press Discard changes to load the new version, then edit again.`,
         variant: 'danger',
-        duration: 12000,
       });
       return;
     }

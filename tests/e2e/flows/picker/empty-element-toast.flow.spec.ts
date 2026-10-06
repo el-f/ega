@@ -68,5 +68,10 @@ test('click on an empty element exits picker and shows a toast', async () => {
     )
     .toMatch(/nothing to translate/i);
 
+  // A refusal stays until dismissed; its own close button removes it.
+  await page.locator('[data-ega-toast-close]').click();
+  timeline.markStep('toast-dismissed');
+  await expect(page.locator('.ega-toast')).toHaveCount(0);
+
   expect(mock.calls()).toBe(0);
 });

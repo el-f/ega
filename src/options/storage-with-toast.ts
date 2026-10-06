@@ -9,7 +9,6 @@ export function reportSaveFailure(e: unknown): void {
   toastStore.push({
     message: /QUOTA/i.test(detail) ? QUOTA_MESSAGE : `Change not saved: ${detail}`,
     variant: 'warning',
-    duration: 6000,
   });
 }
 

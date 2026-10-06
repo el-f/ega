@@ -16,7 +16,7 @@
   import { loadMarkdownRenderer } from '@/shared/components/markdown-loader';
   import { PENDING_POPUP_HANDOFF_KEY } from '@/shared/pending-popup-handoff';
   import { applyTheme, type ThemePref } from '@/shared/theme';
-  import { Toaster } from 'svelte-sonner';
+  import ToastHost from '@/shared/components/ToastHost.svelte';
   import CommandPalette from '@/shared/components/CommandPalette.svelte';
   import ShortcutOverlay from '@/shared/components/ShortcutOverlay.svelte';
   import BrandMark from '@/shared/components/BrandMark.svelte';
@@ -418,7 +418,6 @@
         toastStore.push({
           message: 'Replace the attached image with the one from the page?',
           variant: 'info',
-          duration: 12_000,
           action: { label: 'Replace', onClick: attach },
         });
         return;
@@ -524,7 +523,6 @@
     toastStore.push({
       message: slice.removed.length > 1 ? 'Exchange removed.' : 'Message removed.',
       variant: 'info',
-      duration: 8000,
       action: {
         label: 'Undo',
         onClick: () => {
@@ -1125,7 +1123,7 @@
   pickerShortcut={settings?.pickerShortcut}
 />
 
-<Toaster
+<ToastHost
   position="top-center"
   offset={{ top: '84px' }}
   mobileOffset={{ top: '84px' }}

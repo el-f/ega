@@ -249,7 +249,7 @@ function buildTooltipProps(o: OpenOpts, state: TipState): ComponentProps<typeof 
         ...(state.error ? { errorCode: state.error.code } : {}),
       }).then((opened) => {
         if (!opened) {
-          showToast('Could not open the side panel.');
+          showToast('Could not open the side panel.', { kind: 'error' });
           return;
         }
         // The panel re-dispatches the text, so this tooltip's stream must stop, not just hide.

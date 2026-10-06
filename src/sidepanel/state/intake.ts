@@ -238,7 +238,6 @@ export function createIntake(deps: IntakeDeps): Intake {
       toastStore.push({
         message: 'Language, task and tone set from your selection',
         variant: 'info',
-        duration: 8000,
         action: { label: 'Undo', onClick: () => deps.setPickers(before) },
       });
     } catch (e) {

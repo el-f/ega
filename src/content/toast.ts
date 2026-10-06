@@ -1,4 +1,5 @@
 import { debugCatch } from '@/shared/logger';
+import { toastHidesItself, type ToastKind } from '@/shared/toast-policy';
 import { mount, unmount } from 'svelte';
 import Toast from './Toast.svelte';
 import { getContainer, onShadowHostRemount } from './shadowHost';
@@ -8,14 +9,13 @@ import { getContainer, onShadowHostRemount } from './shadowHost';
 interface ActiveToast {
   handle: ReturnType<typeof mount>;
   anchor: HTMLDivElement;
-  timeoutId: ReturnType<typeof setTimeout>;
+  hidesItself: boolean;
 }
 
 let active: ActiveToast | null = null;
 
 function tearDown(): void {
   if (!active) return;
-  clearTimeout(active.timeoutId);
   try {
     void unmount(active.handle);
   } catch (e) {
@@ -25,46 +25,46 @@ function tearDown(): void {
   active = null;
 }
 
-const TTL_MS = 3000;
-// An action has to be read and clicked, so it outlives a plain notice.
-const ACTION_TTL_MS = 12_000;
+export interface ToastOptions {
+  kind?: ToastKind;
+  action?: { label: string; run: () => void };
+}
 
-/** Returns a dismiss that only removes this toast, not a later one that replaced it. */
-export function showToast(
-  message: string,
-  action?: { label: string; run: () => void },
-): () => void {
+/** One toast at a time. Returns a dismiss that only removes this toast, not a later one that replaced it. */
+export function showToast(message: string, opts: ToastOptions = {}): () => void {
   if (!message) return () => {};
+  const { kind = 'info', action } = opts;
+  const hidesItself = toastHidesItself(kind, action !== undefined);
+  // A plain confirmation also shows where it happened, so it never pushes out one the user still has to read.
+  if (hidesItself && active !== null && !active.hidesItself) return () => {};
   tearDown();
   const anchor = document.createElement('div');
   anchor.setAttribute('data-ega-toast-wrap', '');
   getContainer().appendChild(anchor);
+  let mine: ActiveToast | null = null;
+  const dismiss = (): void => {
+    if (active === mine) tearDown();
+  };
   const handle = mount(Toast, {
     target: anchor,
     props: {
       message,
+      kind,
+      ondismiss: dismiss,
       ...(action
         ? {
             actionLabel: action.label,
             onaction: () => {
-              tearDown();
+              dismiss();
               action.run();
             },
           }
         : {}),
     },
   });
-  const timeoutId = setTimeout(
-    () => {
-      tearDown();
-    },
-    action ? ACTION_TTL_MS : TTL_MS,
-  );
-  const mine: ActiveToast = { handle, anchor, timeoutId };
+  mine = { handle, anchor, hidesItself };
   active = mine;
-  return () => {
-    if (active === mine) tearDown();
-  };
+  return dismiss;
 }
 
 /** Test-only: dismiss any active toast immediately. */

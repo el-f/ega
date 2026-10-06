@@ -21,7 +21,7 @@
   } from './tab-actions';
   import { prefillFromActiveTabSelection } from './autofill';
   import { clearPopupDraft, readPopupDraft, writePopupDraft } from '@/shared/pending-popup-draft';
-  import { Toaster } from 'svelte-sonner';
+  import ToastHost from '@/shared/components/ToastHost.svelte';
   import { openOptionsTab } from '@/shared/open-options-tab';
   import { toastStore } from '@/shared/components/toastStore';
 
@@ -437,7 +437,7 @@
   </AppShell>
 </div>
 
-<Toaster position="bottom-center" {theme} />
+<ToastHost position="bottom-center" {theme} />
 
 <style>
   .popup-root {

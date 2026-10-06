@@ -439,7 +439,6 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
         toastStore.push({
           message: `The answer for ${siteLabel(reply.origin)} could not be saved.`,
           variant: 'danger',
-          duration: 8000,
         });
       });
   }
@@ -459,7 +458,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
         : null,
     ];
     for (const message of notes) {
-      if (message !== null) toastStore.push({ message, variant: 'warning', duration: 8000 });
+      if (message !== null) toastStore.push({ message, variant: 'warning' });
     }
   }
 
@@ -1178,7 +1177,6 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
           message:
             'Storage is nearly full. Images were removed from this conversation to keep the text.',
           variant: 'warning',
-          duration: 8000,
         });
       }
     }
@@ -1194,7 +1192,6 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
             refusedIds.length === 1 ? 'One message was' : `${refusedIds.length} messages were`
           } removed here to match.`,
           variant: 'warning',
-          duration: 8000,
         });
       }
     }
@@ -1202,7 +1199,6 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       toastStore.push({
         message: `The saved conversation for ${siteLabel(evictedOrigin)} was removed to make room.`,
         variant: 'warning',
-        duration: 8000,
       });
     }
     if (droppedTurns !== undefined && !trimNoticed) {
@@ -1210,7 +1206,6 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       toastStore.push({
         message: `${droppedTurns} older message${droppedTurns === 1 ? ' was' : 's were'} removed to save space.`,
         variant: 'warning',
-        duration: 8000,
       });
     }
   }
@@ -1230,7 +1225,6 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
         ? 'Storage is full. This conversation is no longer saved.'
         : 'This conversation could not be saved.',
       variant: 'danger',
-      duration: 8000,
     });
   }
 
@@ -1283,7 +1277,6 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
           toastStore.push({
             message: `Not saved — the messages for ${siteLabel(state.activeOrigin)} were not kept.`,
             variant: 'warning',
-            duration: 8000,
           });
         }
       }
@@ -1318,7 +1311,6 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
           message:
             'The saved conversation for this site could not be read. Sending a new message replaces it.',
           variant: 'danger',
-          duration: 8000,
         });
       }
       // Keep only turns appended during the await that the loaded thread does not already hold.

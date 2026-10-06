@@ -25,9 +25,6 @@
   let justAddedId = $state<string | null>(null);
   let rootEl = $state<HTMLElement | null>(null);
 
-  /** Deleting has no confirm, so its Undo stays up as long as the side panel's Undo toasts. */
-  const DELETE_UNDO_MS = 8000;
-
   async function commit(next: readonly Rule[]): Promise<boolean> {
     return (await onUpdate(next)) !== false;
   }
@@ -60,7 +57,6 @@
     toastStore.push({
       message: 'Rule deleted.',
       variant: 'success',
-      duration: DELETE_UNDO_MS,
       action: {
         label: 'Undo',
         // Re-read at click time: the closed-over prop is a stale snapshot, and Undo would drop the deletes since.

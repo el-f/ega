@@ -15,7 +15,6 @@
       toastStore.push({
         message: `Could not open Chrome shortcuts. Type ${SHORTCUTS_URL} in the address bar.`,
         variant: 'warning',
-        duration: 8000,
       });
     });
   }

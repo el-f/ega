@@ -9,11 +9,17 @@ export function showFixToast(err: { code: ErrCode; message: string }): boolean {
   if (line === '') return false;
   const tab = optionsTabForMessage(err.message, err.code);
   if (tab !== undefined) {
-    showToast(line, { label: 'Open settings', run: () => openOptionsFromContent(tab) });
+    showToast(line, {
+      kind: 'error',
+      action: { label: 'Open settings', run: () => openOptionsFromContent(tab) },
+    });
     return true;
   }
   if (/\breload\b/i.test(err.message)) {
-    showToast(line, { label: 'Reload page', run: () => location.reload() });
+    showToast(line, {
+      kind: 'error',
+      action: { label: 'Reload page', run: () => location.reload() },
+    });
     return true;
   }
   return false;
