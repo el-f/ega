@@ -183,6 +183,12 @@ export const COVERAGE: readonly Family[] = [
             flows: ['smart-bubble/selection-shows-bubble.flow.spec.ts'],
           },
           {
+            id: 'bubble-menu-turn-off',
+            description:
+              'The bubble menu turns Ega off on the site; the toast Undo turns it back on',
+            flows: ['smart-bubble/bubble-menu-turn-off.flow.spec.ts'],
+          },
+          {
             id: 'digitless-arabizi-shows',
             description: 'Digitless arabizi triggers the bubble heuristic',
             flows: ['smart-bubble/digitless-arabizi-shows.flow.spec.ts'],

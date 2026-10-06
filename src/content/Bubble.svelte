@@ -16,11 +16,22 @@
     direction?: Direction;
     /** Plays a 3-ring pulse once, on the first bubble of this install; the parent stores the seen flag. */
     firstRun?: boolean;
+    /** `left` is the right edge on a right-to-left block. */
+    rtl?: boolean;
     onclick: (e: MouseEvent) => void;
     /** Opens the bubble's menu under the chevron; `viaKeyboard` moves focus into it. */
     onmenu: (chevron: HTMLButtonElement, viaKeyboard: boolean) => void;
   }
-  let { left, top, queued, direction, firstRun = false, onclick, onmenu }: Props = $props();
+  let {
+    left,
+    top,
+    queued,
+    direction,
+    firstRun = false,
+    rtl = false,
+    onclick,
+    onmenu,
+  }: Props = $props();
 
   let focusedFrom: HTMLElement | null | undefined;
 
@@ -37,6 +48,7 @@
 <div
   class="bubble-group"
   class:is-first-run={firstRun}
+  class:is-rtl={rtl}
   style:left="{left}px"
   style:top="{top}px"
   data-queued={queued}

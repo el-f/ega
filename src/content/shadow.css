@@ -2,6 +2,8 @@
 
 :host {
   all: initial;
+  /* `all` leaves direction alone, so an RTL page would mirror Ega's English chrome; answers set dir=auto themselves. */
+  direction: ltr;
   /* Every Ega layer sits inside the one host stacking context, bottom to top. */
   --ega-layer-dimmer: 1;
   --ega-layer-outline: 2;
@@ -32,6 +34,10 @@
   /* The bubble is remounted per selection, so this fires once per pick. */
   animation: ega-bubble-pop var(--motion-fast) var(--ease-out) both;
 }
+/* On a right-to-left block the bubble lines up with the selection's right edge; translate, not transform, so the pop keeps working. */
+.bubble-group.is-rtl {
+  translate: -100% 0;
+}
 .bubble,
 .bubble-more {
   display: inline-flex;
@@ -58,7 +64,7 @@
 }
 .bubble-more {
   justify-content: center;
-  width: 24px;
+  width: 26px;
   border-inline-start: 1px solid var(--color-border-subtle);
   border-start-end-radius: var(--radius-pill);
   border-end-end-radius: var(--radius-pill);

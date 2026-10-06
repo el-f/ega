@@ -32,6 +32,7 @@ type OpName =
   | 'bubbleQueuedBadge'
   | 'tooltipDirection'
   | 'clickBubble'
+  | 'clickBubbleMenu'
   | 'shiftClickBubble'
   | 'taskSelectOptionLabel'
   | 'setTooltipSelect'
@@ -164,6 +165,12 @@ function run(op: OpName, arg?: string): unknown {
       const btn = getShadowRoot().querySelector<HTMLButtonElement>('.bubble');
       if (!btn) return false;
       dispatchAsUser(btn, new MouseEvent('click', { bubbles: true, cancelable: true }));
+      return true;
+    }
+    case 'clickBubbleMenu': {
+      const btn = getShadowRoot().querySelector<HTMLButtonElement>('.bubble-more');
+      if (!btn) return false;
+      dispatchAsUser(btn, new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 }));
       return true;
     }
     case 'shiftClickBubble': {

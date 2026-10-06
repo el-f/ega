@@ -17,6 +17,8 @@ interface BubbleOpts {
   /** First-ever render for this install. Drives a 3× ring pulse so
    *  the affordance is discoverable. Parent persists the "seen" flag. */
   firstRun?: boolean;
+  /** The selection's block runs right to left: the bubble lines up with its right edge. */
+  rtl?: boolean;
   onClick: (e: MouseEvent) => void;
 }
 
@@ -26,6 +28,7 @@ interface Mounted {
   queued: number;
   direction: string;
   firstRun: boolean;
+  rtl: boolean;
 }
 
 let current: Mounted | null = null;
@@ -51,30 +54,31 @@ function hasText(el: Element): boolean {
   return false;
 }
 
-function placeBubble(rect: DOMRect): { left: number; top: number } {
-  // The default landing sits on the next line of a wrapped paragraph, so probe it and clear any text there.
-  const desiredTop = rect.bottom + 4;
-  const desiredLeft = Math.max(8, rect.left);
-  let top = Math.min(window.innerHeight - 32, desiredTop);
-  const probeX = Math.min(window.innerWidth - 4, desiredLeft + 16);
-  const probeY = Math.min(window.innerHeight - 4, desiredTop + BUBBLE_HEIGHT / 2);
-  // An open bubble or tooltip hits as our host, which holds no page text; look past it.
-  const hit = document
-    .elementsFromPoint(probeX, probeY)
-    .find((el) => el !== getShadowHostElement());
-  if (hit) {
+/** `left` is the bubble's inline-start edge: its left side, or its right side on a right-to-left block. */
+function placeBubble(rect: DOMRect, rtl: boolean): { left: number; top: number } {
+  // Below the last line first; if that covers the next line of text or leaves the viewport, above the first line.
+  const below = rect.bottom + 4;
+  const above = rect.top - BUBBLE_HEIGHT - 4;
+  const anchorX = rtl ? rect.right : rect.left;
+  const probeX = Math.max(4, Math.min(window.innerWidth - 4, anchorX + (rtl ? -16 : 16)));
+  // Two probes, the bubble's middle and its bottom: a next line can start inside the bubble's lower half.
+  const coversText = [below + BUBBLE_HEIGHT / 2, below + BUBBLE_HEIGHT - 2].some((y) => {
+    // An open bubble or tooltip hits as our host, which holds no page text; look past it.
+    const hit = document
+      .elementsFromPoint(probeX, Math.min(window.innerHeight - 4, y))
+      .find((el) => el !== getShadowHostElement());
+    if (!hit) return false;
     const hitRect = hit.getBoundingClientRect();
-    // Re-anchor only when the element below the selection would sit under the bubble, so nearby text stays readable.
-    if (hitRect.top >= rect.bottom - 2 && hitRect.bottom > desiredTop && hasText(hit)) {
-      top = Math.min(window.innerHeight - 32, hitRect.bottom + 4);
-    }
-  }
-  // With no room below, the bubble pins to the viewport bottom and covers the last selected line, so flip it above.
-  if (desiredTop + BUBBLE_HEIGHT > window.innerHeight - 8) {
-    const aboveTop = rect.top - BUBBLE_HEIGHT - 4;
-    if (aboveTop >= 4) top = aboveTop;
-  }
-  return { left: Math.max(8, Math.min(window.innerWidth - BUBBLE_WIDTH, desiredLeft)), top };
+    // Only an element that starts below the selection counts; the paragraph that holds it always overlaps.
+    return hitRect.top >= rect.bottom - 2 && hitRect.bottom > below && hasText(hit);
+  });
+  const offBottom = below + BUBBLE_HEIGHT > window.innerHeight - 8;
+  const top =
+    (coversText || offBottom) && above >= 4 ? above : Math.min(window.innerHeight - 32, below);
+  const left = rtl
+    ? Math.max(BUBBLE_WIDTH, Math.min(window.innerWidth - 8, anchorX))
+    : Math.max(8, Math.min(window.innerWidth - BUBBLE_WIDTH, anchorX));
+  return { left, top };
 }
 
 function directionKey(d: BubbleOpts['direction']): string {
@@ -87,7 +91,8 @@ function moveMounted(opts: BubbleOpts, left: number, top: number): boolean {
   if (
     current.queued !== opts.queued ||
     current.direction !== directionKey(opts.direction) ||
-    current.firstRun !== (opts.firstRun === true)
+    current.firstRun !== (opts.firstRun === true) ||
+    current.rtl !== (opts.rtl === true)
   ) {
     return false;
   }
@@ -99,7 +104,7 @@ function moveMounted(opts: BubbleOpts, left: number, top: number): boolean {
 }
 
 export function showBubble(opts: BubbleOpts): void {
-  const { left, top } = placeBubble(opts.rect);
+  const { left, top } = placeBubble(opts.rect, opts.rtl === true);
   if (moveMounted(opts, left, top)) {
     currentOnClick = opts.onClick;
     return;
@@ -119,6 +124,7 @@ export function showBubble(opts: BubbleOpts): void {
       // exactOptionalPropertyTypes: only pass keys when set.
       ...(opts.direction ? { direction: opts.direction } : {}),
       ...(opts.firstRun ? { firstRun: true } : {}),
+      ...(opts.rtl ? { rtl: true } : {}),
       onclick: (e: MouseEvent) => {
         currentOnClick?.(e);
         hideBubble();
@@ -136,6 +142,7 @@ export function showBubble(opts: BubbleOpts): void {
     queued: opts.queued,
     direction: directionKey(opts.direction),
     firstRun: opts.firstRun === true,
+    rtl: opts.rtl === true,
   };
 }
 

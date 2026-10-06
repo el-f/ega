@@ -296,8 +296,11 @@ function handleSelectionChange(): void {
             target: eff.direction.target,
           }
         : eff.direction;
+    const block = info.range.commonAncestorContainer;
+    const blockEl = block instanceof Element ? block : block.parentElement;
     showBubble({
       rect: info.rect,
+      ...(blockEl && getComputedStyle(blockEl).direction === 'rtl' ? { rtl: true } : {}),
       queued: accum.size(),
       direction: displayDirection,
       ...(isFirstRun ? { firstRun: true } : {}),
