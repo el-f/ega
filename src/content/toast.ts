@@ -15,19 +15,28 @@ interface ActiveToast {
   /** A confirmation with nothing to click that hides itself. */
   plain: boolean;
   dismiss: () => void;
+  /** Where focus was before it entered the toast. */
+  cameFrom: HTMLElement | null;
 }
 
 let active: ActiveToast | null = null;
 
 function tearDown(): void {
   if (!active) return;
+  const { handle, anchor, cameFrom } = active;
+  const hadFocus = anchor.contains((anchor.getRootNode() as ShadowRoot | Document).activeElement);
   try {
-    void unmount(active.handle);
+    void unmount(handle);
   } catch (e) {
     debugCatch(e, 'content.toast.1');
   }
-  active.anchor.remove();
+  anchor.remove();
   active = null;
+  // Removing the focused toast drops focus to the page body; it goes back where it came from.
+  const now = document.activeElement;
+  if (hadFocus && (now === null || now === document.body) && cameFrom?.isConnected === true) {
+    cameFrom.focus({ preventScroll: true });
+  }
 }
 
 export interface ToastOptions {
@@ -71,8 +80,15 @@ export function showToast(message: string, opts: ToastOptions = {}): () => void 
         : {}),
     },
   });
-  mine = { handle, anchor, message, sticky, plain, dismiss };
-  active = mine;
+  const own: ActiveToast = { handle, anchor, message, sticky, plain, dismiss, cameFrom: null };
+  anchor.addEventListener('focusin', (e) => {
+    const from = e.relatedTarget;
+    // From outside the toast, not from its other button.
+    if (!(from instanceof Node && anchor.contains(from)))
+      own.cameFrom = from instanceof HTMLElement ? from : null;
+  });
+  mine = own;
+  active = own;
   return dismiss;
 }
 
