@@ -75,9 +75,9 @@ describe('slot-registry', () => {
     const res = validateAgainstSlots({ system: 'sys', user: 'just user' }, 'translate');
     expect(res.ok).toBe(false);
     // The message explains the slot and names the recovery path.
-    expect(res.errors[0]?.message).toMatch(/must contain \{\{text\}\}/);
-    expect(res.errors[0]?.message).toMatch(/selected text/);
-    expect(res.errors[0]?.message).toMatch(/Insert variable/);
+    expect(res.errors[0]?.message).toBe(
+      'The message needs the Selected text variable. Add it with Insert variable.',
+    );
   });
 
   it('validateAgainstSlots accepts template with all required slots', () => {

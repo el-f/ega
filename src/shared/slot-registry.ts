@@ -4,6 +4,12 @@ import { SLOT_RE } from './snippets';
 
 export interface SlotSpec {
   readonly name: string;
+  /** Plain name shown in the editor's variable list. */
+  readonly label: string;
+  /** What it fills in, in plain words; UI copy. */
+  readonly meaning: string;
+  /** False for a slot that belongs to the answer format, not to the editable prompt. */
+  readonly offered: boolean;
   readonly description: string;
   readonly required: boolean;
   readonly source: 'request' | 'preset' | 'context' | 'instruction' | 'user';
@@ -16,6 +22,9 @@ const ALL = ALL_TASKS;
 export const SLOT_REGISTRY: Readonly<Record<string, SlotSpec>> = Object.freeze({
   text: {
     name: 'text',
+    label: 'Selected text',
+    meaning: 'The text you selected; the message must contain it',
+    offered: true,
     description: 'The source text the user selected. Required.',
     required: true,
     source: 'request',
@@ -24,6 +33,9 @@ export const SLOT_REGISTRY: Readonly<Record<string, SlotSpec>> = Object.freeze({
   },
   langLabel: {
     name: 'langLabel',
+    label: 'Source language',
+    meaning: 'Name of the language of the text, for example Arabizi',
+    offered: true,
     description: 'Source-variety label, e.g. "Arabizi".',
     required: false,
     source: 'preset',
@@ -32,14 +44,20 @@ export const SLOT_REGISTRY: Readonly<Record<string, SlotSpec>> = Object.freeze({
   },
   langHint: {
     name: 'langHint',
+    label: 'Source language notes',
+    meaning: 'The notes written for the source language',
+    offered: true,
     description: 'Hint paragraph from the preset, sets translation context.',
     required: false,
     source: 'preset',
-    example: 'Latinised Arabic. Numerals stand in for Arabic letters …',
+    example: 'Latinized Arabic. Numerals stand in for Arabic letters …',
     filledFor: ALL,
   },
   targetLangLabel: {
     name: 'targetLangLabel',
+    label: 'Target language',
+    meaning: 'Name of the language to answer in, for example English',
+    offered: true,
     description: 'Target-language label, e.g. "English".',
     required: false,
     source: 'request',
@@ -48,14 +66,20 @@ export const SLOT_REGISTRY: Readonly<Record<string, SlotSpec>> = Object.freeze({
   },
   targetLangHint: {
     name: 'targetLangHint',
+    label: 'Target language notes',
+    meaning: 'The notes written for the target language',
+    offered: true,
     description: 'Hint paragraph from the target preset, sets output-variety context.',
     required: false,
     source: 'preset',
-    example: 'Latinised Arabic. Numerals stand in for Arabic letters …',
+    example: 'Latinized Arabic. Numerals stand in for Arabic letters …',
     filledFor: ALL,
   },
   examples: {
     name: 'examples',
+    label: 'Examples',
+    meaning: 'Example pairs from the source language',
+    offered: true,
     description: 'Few-shot examples block from the preset (optional).',
     required: false,
     source: 'preset',
@@ -64,6 +88,9 @@ export const SLOT_REGISTRY: Readonly<Record<string, SlotSpec>> = Object.freeze({
   },
   context: {
     name: 'context',
+    label: 'Page context',
+    meaning: 'Page title, address and nearby text; empty unless Send page context is on',
+    offered: true,
     description: 'PAGE CONTEXT block — title, URL, surrounding text.',
     required: false,
     source: 'context',
@@ -72,6 +99,9 @@ export const SLOT_REGISTRY: Readonly<Record<string, SlotSpec>> = Object.freeze({
   },
   explainInstr: {
     name: 'explainInstr',
+    label: 'Explain instructions',
+    meaning: 'How to write the Explain notes; filled only when Explain runs',
+    offered: true,
     description: 'Cultural-subtext analyst instructions (only when explain mode).',
     required: false,
     source: 'instruction',
@@ -80,6 +110,9 @@ export const SLOT_REGISTRY: Readonly<Record<string, SlotSpec>> = Object.freeze({
   },
   detectiveInstr: {
     name: 'detectiveInstr',
+    label: 'Language detection',
+    meaning: 'Asks the model to name the language it sees',
+    offered: true,
     description: 'Detection instructions (auto mode adds candidates).',
     required: false,
     source: 'instruction',
@@ -88,6 +121,9 @@ export const SLOT_REGISTRY: Readonly<Record<string, SlotSpec>> = Object.freeze({
   },
   explainField: {
     name: 'explainField',
+    label: 'Explain field',
+    meaning: 'Part of the answer format; filled only when Explain runs',
+    offered: false,
     description: 'JSON schema fragment adding explain field (only when explain).',
     required: false,
     source: 'instruction',
@@ -96,6 +132,9 @@ export const SLOT_REGISTRY: Readonly<Record<string, SlotSpec>> = Object.freeze({
   },
   tone: {
     name: 'tone',
+    label: 'Tone',
+    meaning: 'The tone picked for the request, else the default tone',
+    offered: true,
     description:
       'The tone picked for the request, else the default tone (formal / casual / neutral / polite / blunt).',
     required: false,
@@ -147,7 +186,7 @@ export function validateAgainstSlots(template: PromptTemplate, task: string): Sl
 
   for (const name of missing) {
     errors.push({
-      message: `The message must contain {{${name}}}. It marks where the selected text goes. Add it with Insert variable.`,
+      message: `The message needs the ${SLOT_REGISTRY[name]?.label ?? name} variable. Add it with Insert variable.`,
       slot: name,
     });
   }
