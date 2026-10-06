@@ -1,14 +1,16 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 
 // The countable design rules (STANDARDS R9/R16/R20, ui-design-quality.md), checked on the real layout jsdom cannot give.
 
 /**
  * Ega's own UI on the page: the whole document on an extension page, the shadow root on a web page (never the host page's DOM).
  * Returns one line per broken rule, stable across runs so a baseline can list known debt:
- * - `clip <element>`: a button, select or label whose text is wider than its box (cut off).
+ * - `clip <element>`: a control, tab, option, heading or link whose text is wider than its box, or any text an
+ *   ellipsis actually shortens (a span inside a button included).
+ * - `clip-y <element>`: a control whose content is taller than its box.
  * - `font <px> <element>`: text whose computed size is not one of the --fs-* tokens.
  */
 export async function designRuleViolations(page: Page): Promise<string[]> {
@@ -31,7 +33,8 @@ export async function designRuleViolations(page: Page): Promise<string[]> {
       const ega = [...el.attributes].find((a) => a.name.startsWith('data-ega-'));
       const tag = el.tagName.toLowerCase();
       const id = ega ? `[${ega.name}${ega.value ? `="${ega.value}"` : ''}]` : '';
-      const text = el.textContent.replace(/\s+/g, ' ').trim().slice(0, 40);
+      // Numbers become #: a timing or a count in the text would change the line on every run.
+      const text = el.textContent.replace(/\s+/g, ' ').replace(/\d+/g, '#').trim().slice(0, 40);
       return `${tag}${id} "${text}"`;
     };
     // A 1px box is a screen-reader-only label (.ega-sr-only), clipped on purpose.
@@ -40,16 +43,24 @@ export async function designRuleViolations(page: Page): Promise<string[]> {
       el.getBoundingClientRect().width > 1;
 
     const out = new Set<string>();
-    for (const el of root.querySelectorAll('button, select, label')) {
+    const controls =
+      'button, select, label, [role="tab"], [role="option"], h1, h2, h3, h4, h5, h6, a';
+    for (const el of root.querySelectorAll(controls)) {
       if (!visible(el)) continue;
       if (el.scrollWidth > el.clientWidth + 1) out.add(`clip ${describe(el)}`);
+      if (el.scrollHeight > el.clientHeight + 1) out.add(`clip-y ${describe(el)}`);
     }
     for (const el of root.querySelectorAll('*')) {
+      if (!visible(el)) continue;
+      const style = getComputedStyle(el);
+      if (style.textOverflow === 'ellipsis' && el.scrollWidth > el.clientWidth + 1) {
+        out.add(`clip ${describe(el)}`);
+      }
       const ownText = [...el.childNodes].some(
         (n) => n.nodeType === Node.TEXT_NODE && (n.textContent ?? '').trim() !== '',
       );
-      if (!ownText || !visible(el)) continue;
-      const px = Number.parseFloat(getComputedStyle(el).fontSize);
+      if (!ownText) continue;
+      const px = Number.parseFloat(style.fontSize);
       if (!scale.has(px)) out.add(`font ${px}px ${describe(el)}`);
     }
     return [...out].sort();
@@ -63,32 +74,38 @@ const BASELINE_PATH = path.join(
 const baseline: Record<string, string[]> = fs.existsSync(BASELINE_PATH)
   ? (JSON.parse(fs.readFileSync(BASELINE_PATH, 'utf8')) as Record<string, string[]>)
   : {};
+const checked = new Set<string>();
+
+/** Baseline keys under `prefix` that no capture in this run checked: stale once every capture ran. */
+export function uncheckedBaselineKeys(prefix: string): string[] {
+  return Object.keys(baseline).filter((k) => k.startsWith(prefix) && !checked.has(k));
+}
 
 /**
- * Fails a capture on a design-rule break the baseline does not list, and on a listed one that is gone (a ratchet).
- * `EGA_DESIGN_RULES_UPDATE=1` rewrites this shot's baseline entry instead.
+ * A soft failure on a design-rule break the baseline does not list, and on a listed one that is gone (a ratchet), so
+ * one bad capture does not stop the rest. `EGA_DESIGN_RULES_UPDATE=1` drops the fixed entries instead; it never adds
+ * one, so the baseline only shrinks.
  */
 export async function checkDesignRules(page: Page, shotName: string): Promise<void> {
+  checked.add(shotName);
   const found = await designRuleViolations(page);
+  const known = baseline[shotName] ?? [];
   if (process.env['EGA_DESIGN_RULES_UPDATE'] === '1') {
-    if (found.length > 0) baseline[shotName] = found;
+    const kept = known.filter((v) => found.includes(v));
+    if (kept.length > 0) baseline[shotName] = kept;
     else delete baseline[shotName];
-    const sorted = Object.fromEntries(
-      Object.entries(baseline).sort(([a], [b]) => a.localeCompare(b)),
-    );
-    fs.writeFileSync(BASELINE_PATH, `${JSON.stringify(sorted, null, 2)}\n`);
-    return;
+    fs.writeFileSync(BASELINE_PATH, `${JSON.stringify(baseline, null, 2)}\n`);
   }
-  const known = new Set(baseline[shotName] ?? []);
-  const fresh = found.filter((v) => !known.has(v));
-  const fixed = [...known].filter((v) => !found.includes(v));
+  const fresh = found.filter((v) => !known.includes(v));
+  const fixed = known.filter((v) => !found.includes(v));
   const problems = [
     ...fresh.map((v) => `new: ${v}`),
     ...fixed.map((v) => `fixed, remove from design-rules-baseline.json: ${v}`),
   ];
-  if (problems.length > 0) {
-    throw new Error(
-      `${shotName} breaks a design rule. Fix a new one; after a fix, rerun with EGA_DESIGN_RULES_UPDATE=1 to prune the baseline:\n  ${problems.join('\n  ')}`,
-    );
-  }
+  expect
+    .soft(
+      process.env['EGA_DESIGN_RULES_UPDATE'] === '1' ? fresh : problems,
+      `${shotName} breaks a design rule. Fix a new one; after a fix, rerun with EGA_DESIGN_RULES_UPDATE=1 to prune the baseline`,
+    )
+    .toEqual([]);
 }
