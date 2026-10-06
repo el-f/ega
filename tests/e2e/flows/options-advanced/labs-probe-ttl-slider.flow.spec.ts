@@ -49,7 +49,9 @@ test('Backend probe TTL slider persists advanced.backendProbeTtlMs', async () =>
     .toBe(40_000);
 
   // Modified dot should be visible (slider renders it when value != default).
-  await expect(sliderContainer.locator('[data-ega-modified-dot]')).toBeVisible({ timeout: 3_000 });
+  await expect(sliderContainer.locator('[data-ega-modified="true"]')).toBeVisible({
+    timeout: 3_000,
+  });
   timeline.markStep('storage-updated');
   timeline.report();
 });

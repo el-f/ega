@@ -74,7 +74,7 @@ describe('RoutingSection', () => {
   it('lights the modified dot only on a knob the user moved', () => {
     const { container } = render(RoutingSection, { props: props({ translateTimeoutMs: 90_000 }) });
     const dot = (id: string): Element | null =>
-      container.querySelector(`[data-ega-setting="${id}"] [data-ega-modified-dot]`);
+      container.querySelector(`[data-ega-setting="${id}"] [data-ega-modified="true"]`);
     expect(dot('advanced.translateTimeoutMs')).not.toBeNull();
     expect(dot('advanced.imageTranslateTimeoutMs')).toBeNull();
     expect(dot('advanced.retryCount')).toBeNull();

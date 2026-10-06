@@ -9,7 +9,7 @@
   import { buildTaskTemplate, TASK_LABELS, type Task } from '@/shared/task-prompts';
   import { builtInTaskView, hasOwnPrompt, ownTaskPrompt } from '@/shared/task-view';
   import { taskDefaultEffort } from '@/shared/backend-params';
-  import { EFFORT_LABEL } from '@/options/components/EffortSegmented.svelte';
+  import { EFFORT_LABEL } from '@/options/effort-labels';
   import { replaceTaskEdit, resetTask, restoreTask, updateTask } from '@/shared/tasks';
   import { DEFAULT_TEMPLATE } from '@/shared/prompts';
   import { saveVia } from '@/options/storage-with-toast';

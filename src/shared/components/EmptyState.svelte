@@ -1,12 +1,14 @@
 <script lang="ts">
+  /** The one empty-state look: icon, one title line, at most one body line, at most one action. */
   import type { Component } from 'svelte';
+  import Button from '@/shared/ui/Button.svelte';
 
   type IconProp = string | Component<{ size?: number | string; strokeWidth?: number | string }>;
 
   interface Props {
     /** Short, sentence-case label — "No history entries yet". */
     title: string;
-    /** One sentence on why the list is empty and how to fill it. Wraps at ~280px. */
+    /** One sentence on why the list is empty and how to fill it. */
     description?: string;
     /** Lucide Component, or an emoji string. */
     icon?: IconProp;
@@ -22,7 +24,7 @@
   {#if typeof icon !== 'string'}
     {@const IconC = icon}
     <span class="icon icon-lucide" aria-hidden="true">
-      <IconC size={32} strokeWidth={1.5} />
+      <IconC size={24} strokeWidth={1.5} />
     </span>
   {:else if icon.length > 0}
     <div class="icon" aria-hidden="true">{icon}</div>
@@ -32,7 +34,9 @@
     <div class="desc">{description}</div>
   {/if}
   {#if ctaLabel && onCta}
-    <button type="button" class="cta" onclick={onCta}>{ctaLabel}</button>
+    <div class="cta-row">
+      <Button variant="primary" extraClass="cta" onclick={onCta}>{ctaLabel}</Button>
+    </div>
   {/if}
 </div>
 
@@ -42,12 +46,12 @@
     flex-direction: column;
     align-items: center;
     gap: var(--space-2);
-    padding: var(--space-5);
+    padding: var(--space-5) var(--space-4);
     color: var(--color-muted);
     text-align: center;
   }
   .icon {
-    font-size: var(--fs-2xl);
+    font-size: var(--fs-xl);
     line-height: 1;
   }
   .icon-lucide {
@@ -56,30 +60,17 @@
   }
   .title {
     font-size: var(--fs-md);
+    font-weight: 600;
+    line-height: var(--lh-heading);
     color: var(--color-fg);
   }
+  /* The 80ch line cap of every description (spec 1.1); a narrower cap broke one-sentence bodies onto two lines. */
   .desc {
-    font-size: var(--fs-sm);
-    max-width: 280px;
+    font-size: var(--fs-base);
+    max-inline-size: 80ch;
     line-height: var(--lh-body);
   }
-  /* D57: one empty-state call-to-action size, 32px. */
-  .cta {
-    box-sizing: border-box;
-    block-size: 32px;
+  .cta-row {
     margin-top: var(--space-2);
-    padding: 0 var(--space-4);
-    background: var(--color-accent);
-    color: var(--color-accent-fg);
-    border: 0;
-    border-radius: var(--radius-md);
-    font-size: var(--fs-sm);
-    font-weight: 600;
-    cursor: pointer;
-    transition: background var(--motion-fast) var(--ease-out);
-  }
-  .cta:hover {
-    background: var(--color-accent-bg-hover);
-    color: var(--color-accent);
   }
 </style>

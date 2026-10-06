@@ -328,9 +328,9 @@
   <div class="nh-body" data-ega-setting="backends.nativeCli">
     <div class="row nh-status-row">
       {#if currentCli === 'codex' && portStatus !== 'disconnected'}
-        <Badge variant="muted" dot>One process per translation</Badge>
+        <Badge variant="muted">One process per translation</Badge>
       {:else}
-        <Badge variant={portVariant} dot>{portLabel}</Badge>
+        <Badge variant={portVariant}>{portLabel}</Badge>
       {/if}
       <span
         class="nh-pill"

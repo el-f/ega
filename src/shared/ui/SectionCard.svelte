@@ -22,7 +22,7 @@
   <header class="ega-section-card-head">
     <div class="ega-section-card-title-row">
       <div class="ega-section-card-title-group">
-        <h2 id={titleId} class="ega-section-card-title">{title}</h2>
+        <h2 id={titleId} class="ega-section-card-title" tabindex="-1">{title}</h2>
         {#if info}<InfoTip label={info.label} text={info.text} />{/if}
       </div>
       {#if headerActions}
@@ -46,11 +46,11 @@
     background: var(--color-bg);
     border: 1px solid var(--color-border-subtle);
     border-radius: var(--radius-md);
-    padding: var(--card-pad);
+    padding: var(--space-4);
     display: flex;
     flex-direction: column;
-    gap: var(--row-gap);
-    margin-bottom: var(--section-margin-bottom, var(--space-3));
+    gap: var(--space-3);
+    margin-bottom: var(--section-margin-bottom, var(--space-5));
   }
   /* Dark only: --color-bg matches the page, so the card would read as a bare 1px border. */
   :global(:root:not([data-theme='light'])) .ega-section-card,
@@ -70,12 +70,14 @@
   .ega-section-card-head {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--space-1);
   }
   .ega-section-card-title-row {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: var(--space-2);
+    min-height: 32px;
   }
   .ega-section-card-title-group {
     flex: 1 1 auto;
@@ -91,6 +93,13 @@
     color: var(--color-fg);
     line-height: var(--lh-heading);
   }
+  .ega-section-card-title:focus {
+    outline: none;
+  }
+  .ega-section-card-title:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
   .ega-section-card-actions {
     flex: 0 0 auto;
     display: inline-flex;
@@ -99,18 +108,19 @@
   }
   .ega-section-card-desc {
     margin: 0;
-    font-size: var(--fs-sm);
+    max-inline-size: 80ch;
+    font-size: var(--fs-base);
     color: var(--color-muted);
     line-height: var(--lh-body);
   }
   .ega-section-card-body {
     display: flex;
     flex-direction: column;
-    gap: var(--row-gap);
+    gap: var(--space-3);
   }
   .ega-section-card-foot {
     margin-top: var(--space-1);
-    padding-top: var(--row-gap);
+    padding-top: var(--space-3);
     border-top: 1px solid var(--color-border-subtle);
     display: flex;
     justify-content: flex-end;

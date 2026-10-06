@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { describe, it, expect } from 'vitest';
-import { render } from '@testing-library/svelte';
+import { describe, it, expect, vi } from 'vitest';
+import { fireEvent, render } from '@testing-library/svelte';
 import ScrollText from '@lucide/svelte/icons/scroll-text';
 import EmptyState from '@/shared/components/EmptyState.svelte';
 
@@ -44,5 +44,18 @@ describe('EmptyState', () => {
   it('stamps the data-ega-empty-state attribute for E2E hooks', () => {
     const { container } = render(EmptyState, { props: { title: 'x' } });
     expect(container.querySelector('[data-ega-empty-state]')).not.toBeNull();
+  });
+});
+
+describe('EmptyState action', () => {
+  it('renders its one action as the shared primary button and calls back on click', async () => {
+    const onCta = vi.fn();
+    const { getByRole } = render(EmptyState, {
+      props: { title: 'No rules yet', ctaLabel: 'Add rule', onCta },
+    });
+    const btn = getByRole('button', { name: 'Add rule' });
+    expect(btn.getAttribute('data-variant')).toBe('primary');
+    await fireEvent.click(btn);
+    expect(onCta).toHaveBeenCalledTimes(1);
   });
 });

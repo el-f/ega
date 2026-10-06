@@ -23,7 +23,7 @@
     selectAttrs?: Record<string, string | boolean | number | null | undefined>;
     /** The native event rides along so a caller can tell a real change from one a page dispatched. */
     onchange?: (value: T, event: Event) => void;
-    /** Accent dot beside the label when the setting differs from its default; needs label. */
+    /** The word "Changed" after the label when the setting differs from its default; needs label. */
     modified?: boolean;
     /** id for the <select>, so a caller's own `<label for>` can name it. */
     id?: string;
@@ -55,8 +55,11 @@
 <div class="ega-select-wrap size-{size}">
   {#if label}
     <label class="ega-select-label" for={selectId}
-      >{label}{#if modified}<span class="ega-modified-dot" data-ega-modified="true"
-          ><span class="ega-sr-only">Modified from default</span></span
+      >{label}{#if modified}<span
+          class="ega-changed"
+          id={`${selectId}-changed`}
+          aria-hidden="true"
+          data-ega-modified="true">Changed</span
         >{/if}</label
     >
   {/if}
@@ -64,6 +67,7 @@
     id={selectId}
     class={`ega-select ${selectClass}`.trim()}
     aria-label={label ? undefined : ariaLabel}
+    aria-describedby={modified && label ? `${selectId}-changed` : undefined}
     {value}
     onchange={handleChange}
     {...selectAttrs}
@@ -123,14 +127,11 @@
     border-color: var(--color-accent);
     box-shadow: 0 0 0 3px var(--color-accent-bg-soft);
   }
-  .ega-modified-dot {
-    display: inline-block;
-    width: 4px;
-    height: 4px;
-    margin-left: var(--space-1);
-    border-radius: 50%;
-    background: var(--color-accent);
-    vertical-align: middle;
+  /* shadow-css-lint-allow: ega-changed (the tooltip never passes modified, so the marker never renders in a page) */
+  .ega-changed {
+    margin-inline-start: var(--space-2);
+    font-weight: 400;
+    color: var(--color-muted);
   }
   /* Matches both :host([data-theme=light]) and [data-theme=light], like tokens.css. */
   :global([data-theme='light']) .ega-select,

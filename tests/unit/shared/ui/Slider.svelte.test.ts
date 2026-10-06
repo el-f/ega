@@ -113,3 +113,46 @@ describe('Slider inline reset', () => {
     expect(onReset).toHaveBeenCalledOnce();
   });
 });
+
+describe('Slider default tick, Changed marker and disabled reason', () => {
+  const base = { label: 'Text answer timeout', min: 5, max: 125, step: 5, onchange: () => {} };
+
+  it('draws a tick at the default and reads "Default <value>" as part of the description', () => {
+    const { container, getByRole } = render(Slider, {
+      props: { ...base, value: 30, defaultValue: 65, formatValue: (v: number) => `${v} s` },
+    });
+    const tick = container.querySelector<HTMLElement>('[data-ega-default-tick]');
+    expect(tick?.style.left).toBe('50%');
+    const thumb = getByRole('slider');
+    const ids = thumb.getAttribute('aria-describedby')?.split(' ') ?? [];
+    const text = ids.map((id) => document.getElementById(id)?.textContent).join(' ');
+    expect(text).toContain('Default 65 s');
+    expect(thumb.getAttribute('aria-valuetext')).toBe('30 s');
+  });
+
+  it('says Changed in words when modified', () => {
+    const { getByText } = render(Slider, { props: { ...base, value: 30, modified: true } });
+    expect(getByText('Changed').getAttribute('data-ega-modified')).toBe('true');
+  });
+
+  it('a disabled slider keeps its Tab stop, shows its reason and ignores the arrow keys', async () => {
+    const onchange = vi.fn();
+    const { getByRole, getByText } = render(Slider, {
+      props: {
+        ...base,
+        value: 30,
+        disabled: true,
+        disabledReason: 'Used only while streaming is on',
+        onchange,
+      },
+    });
+    const thumb = getByRole('slider');
+    expect(thumb.tabIndex).toBe(0);
+    expect(thumb.getAttribute('aria-disabled')).toBe('true');
+    const reason = getByText('Used only while streaming is on');
+    expect(thumb.getAttribute('aria-describedby')?.split(' ')).toContain(reason.id);
+    thumb.focus();
+    await fireEvent.keyDown(thumb, { key: 'ArrowRight' });
+    expect(onchange).not.toHaveBeenCalled();
+  });
+});

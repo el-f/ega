@@ -26,13 +26,15 @@ describe('PageContextSection', () => {
       const anchor = container.querySelector(`[data-ega-setting="advanced.${id}"]`);
       expect(anchor, id).not.toBeNull();
       const thumb = anchor?.querySelector('[role="slider"]');
-      expect(thumb?.hasAttribute('data-disabled')).toBe(true);
+      expect(thumb?.getAttribute('aria-disabled')).toBe('true');
       expect(thumb?.getAttribute('aria-describedby')).toContain(note.id);
       // A search jump can scroll the shared note away, so each slider's own help says it too.
       expect(anchor?.textContent).toContain('Rich only.');
     }
     const selection = container.querySelector('[data-ega-setting="advanced.selectionContextCap"]');
-    expect(selection?.querySelector('[role="slider"]')?.hasAttribute('data-disabled')).toBe(false);
+    expect(selection?.querySelector('[role="slider"]')?.getAttribute('aria-disabled')).toBe(
+      'false',
+    );
   });
 
   it('shows the 4 payload sliders under Rich', () => {

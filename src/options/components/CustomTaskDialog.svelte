@@ -9,7 +9,7 @@
     type TaskEffort,
   } from '@/shared/settings-schema';
   import { slotsFor, validateAgainstSlots } from '@/shared/slot-registry';
-  import { EFFORT_LABEL } from '@/options/components/EffortSegmented.svelte';
+  import { EFFORT_LABEL } from '@/options/effort-labels';
   import {
     addCustomTask,
     deleteCustomTask,

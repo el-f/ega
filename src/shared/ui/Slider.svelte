@@ -13,17 +13,25 @@
     step?: number;
     /** Unit suffix appended to the live readout (e.g. " ms"). */
     unit?: string;
-    /** One-line help text rendered below. */
+    /** Readout text for a value; wins over unit and format ("2,048 tokens", "0.8 s"). */
+    formatValue?: (v: number) => string;
+    /** One-line hint rendered below: one sentence, no full stop. */
     help?: string;
+    /** Stays focusable and announced but does not move; say why with disabledReason or describedById. */
     disabled?: boolean;
-    /** When true, an accent dot renders left of the label so the user
-     *  can scan a long form for the controls they've touched. */
+    /** Visible line under the slider saying why it cannot move; read as its description. */
+    disabledReason?: string;
+    /** Shows the word "Changed" after the label. */
     modified?: boolean;
     /** 'percent' shows value*100 rounded with % and ignores unit; 'decimal' (default) shows value + unit. */
     format?: 'decimal' | 'percent';
     /** External id whose text describes the control (warning paragraph, hint).
      *  Joined into the slider's aria-describedby chain alongside help/modified. */
     describedById?: string;
+    /** Draws a tick on the track at the shipped default and reads "Default <value>" as part of the description. */
+    defaultValue?: number;
+    /** A short pill after the label, such as "Experimental". */
+    badge?: string;
     /** Shows a reset button next to the readout while modified and enabled. */
     onReset?: () => void;
     resetAriaLabel?: string;
@@ -43,11 +51,15 @@
     max,
     step = 1,
     unit = '',
+    formatValue,
     help,
     disabled = false,
+    disabledReason,
     modified = false,
     format = 'decimal',
     describedById,
+    defaultValue,
+    badge,
     onReset,
     resetAriaLabel,
     resetInheritedLabel,
@@ -69,31 +81,71 @@
     }, 400);
   }
 
-  const readout = $derived(
-    format === 'percent' ? `${Math.round(value * 100)}%` : `${value}${unit}`,
-  );
+  function show(v: number): string {
+    if (formatValue) return formatValue(v);
+    return format === 'percent' ? `${Math.round(v * 100)}%` : `${v}${unit}`;
+  }
+  const readout = $derived(show(value));
 
   const rootId = makeId('ega-slider');
   const labelId = `${rootId}-label`;
   const helpId = `${rootId}-help`;
   const modifiedId = `${rootId}-modified`;
+  const defaultId = `${rootId}-default`;
+  const reasonId = `${rootId}-reason`;
+
+  const tickAt = $derived(
+    defaultValue === undefined || max <= min
+      ? null
+      : Math.min(100, Math.max(0, ((defaultValue - min) / (max - min)) * 100)),
+  );
 
   // aria-describedby accepts several ids, so a space join is enough here.
   const describedBy = $derived(
-    [help ? helpId : null, modified ? modifiedId : null, describedById ?? null]
+    [
+      disabled && disabledReason ? reasonId : null,
+      help ? helpId : null,
+      modified ? modifiedId : null,
+      defaultValue !== undefined ? defaultId : null,
+      describedById ?? null,
+    ]
       .filter(Boolean)
       .join(' ') || undefined,
   );
+
+  // A disabled control keeps its Tab stop (it announces why); only the keys and pointer that move it are blocked.
+  const MOVE_KEYS = new Set([
+    'ArrowLeft',
+    'ArrowRight',
+    'ArrowUp',
+    'ArrowDown',
+    'Home',
+    'End',
+    'PageUp',
+    'PageDown',
+  ]);
+  function blockKeys(e: KeyboardEvent): void {
+    if (disabled && MOVE_KEYS.has(e.key)) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }
+  function blockPointer(e: PointerEvent): void {
+    if (disabled) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }
 </script>
 
 <div class="ega-slider" class:disabled>
   <div class="head">
-    <span id={labelId} class="label">
+    <span class="label-group">
+      <span id={labelId} class="label">{label}</span>
+      {#if badge}<span class="badge">{badge}</span>{/if}
       {#if modified}
-        <span class="mod-dot" data-ega-modified-dot aria-hidden="true"></span>
-        <span id={modifiedId} class="ega-sr-only">Modified from default</span>
+        <span id={modifiedId} class="changed" data-ega-modified="true">Changed</span>
       {/if}
-      {label}
     </span>
     <span class="head-right">
       <span class="readout" aria-hidden="true">{readout}</span>
@@ -106,36 +158,55 @@
     </span>
   </div>
 
-  <Slider.Root
-    type="single"
-    {value}
-    onValueChange={(v: number) => onchange(v)}
-    onValueCommit={(v: number) => {
-      flashCommit();
-      oncommit?.(v);
-    }}
-    {min}
-    {max}
-    {step}
-    {disabled}
-    aria-labelledby={labelId}
-    class="root"
-    data-just-committed={committed ? '' : undefined}
-  >
-    <span class="track">
-      <Slider.Range class="range" />
-    </span>
-    <Slider.Thumb
-      index={0}
-      class="thumb"
+  <div class="track-wrap" onkeydowncapture={blockKeys} onpointerdowncapture={blockPointer}>
+    <Slider.Root
+      type="single"
+      {value}
+      onValueChange={(v: number) => {
+        if (!disabled) onchange(v);
+      }}
+      onValueCommit={(v: number) => {
+        if (disabled) return;
+        flashCommit();
+        oncommit?.(v);
+      }}
+      {min}
+      {max}
+      {step}
       aria-labelledby={labelId}
-      aria-describedby={describedBy}
-      aria-valuetext={readout}
-    />
-  </Slider.Root>
+      class="root"
+      data-just-committed={committed ? '' : undefined}
+    >
+      <span class="track">
+        <Slider.Range class="range" />
+        {#if tickAt !== null}
+          <span class="tick" style:left="{tickAt}%" aria-hidden="true" data-ega-default-tick></span>
+        {/if}
+      </span>
+      <Slider.Thumb index={0}>
+        {#snippet child({ props })}
+          <!-- After the spread: bits-ui stamps aria-disabled from its own disabled state, which stays off to keep the Tab stop. -->
+          <span
+            {...props}
+            class="thumb"
+            aria-labelledby={labelId}
+            aria-describedby={describedBy}
+            aria-valuetext={readout}
+            aria-disabled={disabled ? 'true' : 'false'}
+          ></span>
+        {/snippet}
+      </Slider.Thumb>
+    </Slider.Root>
+  </div>
 
+  {#if defaultValue !== undefined}
+    <span id={defaultId} class="ega-sr-only">Default {show(defaultValue)}</span>
+  {/if}
+  {#if disabled && disabledReason}
+    <div id={reasonId} class="help" data-ega-disabled-reason>{disabledReason}</div>
+  {/if}
   {#if help}
-    <div id={helpId} class="help">{help}</div>
+    <div id={helpId} class="help" data-ega-hint>{help}</div>
   {/if}
 </div>
 
@@ -144,7 +215,6 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-1);
-    margin: var(--space-3) 0;
     font-family: var(--font-ui);
   }
 
@@ -154,22 +224,27 @@
     justify-content: space-between;
     gap: var(--space-3);
   }
-  .label {
-    font-size: var(--fs-sm);
-    color: var(--color-fg);
-    /* Fixed gutter so labels align whether or not the modified dot shows. */
-    position: relative;
-    padding-left: 14px;
+  .label-group {
+    display: inline-flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    min-width: 0;
   }
-  .mod-dot {
-    position: absolute;
-    left: 1px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--color-accent);
+  .label {
+    font-size: var(--fs-base);
+    color: var(--color-fg);
+  }
+  .changed {
+    font-size: var(--fs-base);
+    color: var(--color-muted);
+  }
+  .badge {
+    font-size: var(--fs-base);
+    color: var(--color-warning-fg);
+    background: var(--color-warning-bg-soft);
+    border-radius: var(--radius-pill);
+    padding: 0 var(--space-2);
   }
   .head-right {
     display: inline-flex;
@@ -181,13 +256,13 @@
      value reads as a separate affordance, not part of the label text. */
   .readout {
     font-family: var(--font-mono);
-    font-size: var(--fs-xs);
-    line-height: 1;
+    font-size: var(--fs-sm);
+    line-height: var(--lh-body);
     color: var(--color-fg);
     background: var(--color-bg-elevated);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
-    padding: 2px 6px;
+    padding: 0 var(--space-2);
     font-variant-numeric: tabular-nums;
   }
   /* Muted, not the disabled token: the label still names the setting, and axe checks a non-native control's text. */
@@ -206,7 +281,7 @@
     display: flex;
     align-items: center;
     width: 100%;
-    height: 20px;
+    height: 24px;
     touch-action: none;
     user-select: none;
     cursor: pointer;
@@ -229,6 +304,16 @@
   .ega-slider.disabled .track {
     background: var(--color-bg-disabled);
     border-color: var(--color-border-disabled);
+  }
+  .tick {
+    position: absolute;
+    top: -5px;
+    width: 2px;
+    height: 14px;
+    margin-left: -1px;
+    background: var(--color-muted);
+    border-radius: 1px;
+    pointer-events: none;
   }
 
   /* Range — the filled portion from min up to the thumb. bits-ui sets
@@ -265,10 +350,8 @@
       0 0 0 4px var(--color-accent-bg-hover);
   }
   .ega-slider :global(.thumb:focus-visible) {
-    outline: none;
-    box-shadow:
-      0 1px 2px var(--color-shadow-soft),
-      0 0 0 6px var(--color-accent-bg-soft);
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
   }
   .ega-slider :global(.thumb[data-active]) {
     cursor: grabbing;
@@ -291,6 +374,9 @@
     .ega-slider :global(.root[data-just-committed] .thumb) {
       animation: none;
     }
+    .ega-slider :global(.thumb) {
+      transition: none;
+    }
   }
   .ega-slider.disabled :global(.thumb) {
     background: var(--color-bg-disabled);
@@ -300,7 +386,9 @@
   }
 
   .help {
-    font-size: var(--fs-xs);
+    max-inline-size: 80ch;
+    font-size: var(--fs-base);
     color: var(--color-muted);
+    line-height: var(--lh-body);
   }
 </style>

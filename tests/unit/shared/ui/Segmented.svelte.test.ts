@@ -2,13 +2,21 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
 import { tick } from 'svelte';
-import EffortSegmented from '@/options/components/EffortSegmented.svelte';
+import Segmented from '@/shared/ui/Segmented.svelte';
 
 type Effort = 'off' | 'low' | 'medium' | 'high';
 
 function setup(value: Effort) {
   const onchange = vi.fn();
-  const view = render(EffortSegmented, { props: { value, onchange, ariaLabel: 'Effort' } });
+  const options = [
+    { value: 'off', label: 'Off' },
+    { value: 'low', label: 'Low' },
+    { value: 'medium', label: 'Medium' },
+    { value: 'high', label: 'High' },
+  ];
+  const view = render(Segmented, {
+    props: { value, options, onchange, ariaLabel: 'Effort', itemAttr: 'data-ega-effort-value' },
+  });
   const option = (v: Effort): HTMLButtonElement => {
     const el = view.container.querySelector<HTMLButtonElement>(`[data-ega-effort-value="${v}"]`);
     if (!el) throw new Error(`option ${v} missing`);
@@ -17,7 +25,7 @@ function setup(value: Effort) {
   return { ...view, onchange, option };
 }
 
-describe('EffortSegmented', () => {
+describe('Segmented', () => {
   it('is a named radio group of Off, Low, Medium, High with the value checked and the only Tab stop', () => {
     const { getByRole, getAllByRole } = setup('medium');
     expect(getByRole('radiogroup', { name: 'Effort' })).toBeTruthy();

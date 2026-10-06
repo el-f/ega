@@ -7,7 +7,9 @@
   import SectionCard from '@/shared/ui/SectionCard.svelte';
   import Slider from '@/shared/ui/Slider.svelte';
   import SectionReset from '@/options/components/SectionReset.svelte';
-  import EffortSegmented, { EFFORT_LABEL } from '@/options/components/EffortSegmented.svelte';
+  import Segmented from '@/shared/ui/Segmented.svelte';
+  import { EFFORT_LABEL } from '@/options/effort-labels';
+  import { EFFORT_LEVELS } from '@/shared/settings-schema';
 
   interface Props {
     s: Settings;
@@ -96,8 +98,10 @@
       {/snippet}
       <div data-ega-setting="advanced.effort" class="effort-block">
         <span class="effort-label" id="gen-effort-label">Effort</span>
-        <EffortSegmented
+        <Segmented
           value={s.advanced.effort}
+          options={EFFORT_LEVELS.map((l) => ({ value: l, label: EFFORT_LABEL[l] }))}
+          itemAttr="data-ega-effort-value"
           ariaLabel="Effort"
           onchange={(v) => void onSetGlobalEffort(v)}
         />

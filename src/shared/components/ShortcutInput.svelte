@@ -78,8 +78,7 @@
 
 {#if label}
   <span class="shortcut-label"
-    >{label}{#if modified}<span class="ega-modified-dot" data-ega-modified="true"
-        ><span class="ega-sr-only">Modified from default</span></span
+    >{label}{#if modified}<span class="ega-changed" data-ega-modified="true">Changed</span
       >{/if}</span
   >
 {/if}
@@ -116,14 +115,10 @@
     font-size: var(--fs-sm);
     color: var(--color-fg);
   }
-  .ega-modified-dot {
-    display: inline-block;
-    width: 4px;
-    height: 4px;
-    margin-left: var(--space-1);
-    border-radius: 50%;
-    background: var(--color-accent);
-    vertical-align: middle;
+  .ega-changed {
+    margin-inline-start: var(--space-2);
+    font-weight: 400;
+    color: var(--color-muted);
   }
   .shortcut-input {
     display: inline-flex;

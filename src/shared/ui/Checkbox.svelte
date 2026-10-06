@@ -18,8 +18,12 @@
      *  and behavioral attrs that can't ride on Props. */
     inputAttrs?: Record<string, string | boolean | number | null | undefined>;
     onchange?: (checked: boolean) => void;
-    /** Accent dot beside the label when the setting differs from its default; needs label. */
+    /** The word "Changed" after the label when the setting differs from its default; needs label. */
     modified?: boolean;
+    /** Stays focusable and announced, but does not toggle; pair it with describedBy pointing at the visible reason. */
+    ariaDisabled?: boolean;
+    /** Id of visible text that describes the box (a hint or the reason it cannot change). */
+    describedBy?: string;
     /** A label with markup in it, when `label` is not set. */
     children?: Snippet;
   }
@@ -33,11 +37,23 @@
     inputAttrs = {},
     onchange,
     modified = false,
+    ariaDisabled = false,
+    describedBy,
     children,
   }: Props = $props();
 
   const fallbackId = makeId('ega-checkbox');
   const inputId = $derived(id ?? fallbackId);
+  const changedId = $derived(`${inputId}-changed`);
+  // The word is kept out of the name (tests and screen readers match the label) and read as the description.
+  const describedByIds = $derived(
+    [modified && label ? changedId : null, describedBy ?? null].filter(Boolean).join(' ') ||
+      undefined,
+  );
+
+  function blockWhenAriaDisabled(e: Event): void {
+    if (ariaDisabled) e.preventDefault();
+  }
 
   function handleChange(e: Event): void {
     const next = (e.currentTarget as HTMLInputElement).checked;
@@ -46,20 +62,25 @@
   }
 </script>
 
-<label class="ega-checkbox size-{size}" for={inputId}>
+<label class="ega-checkbox size-{size}" class:aria-disabled={ariaDisabled} for={inputId}>
   <input
     id={inputId}
     class="ega-checkbox-input"
     type="checkbox"
     {checked}
     aria-label={label || children ? undefined : ariaLabel}
+    aria-disabled={ariaDisabled ? 'true' : undefined}
+    aria-describedby={describedByIds}
+    onclick={blockWhenAriaDisabled}
     onchange={handleChange}
     {...inputAttrs}
   />
   {#if label}
     <span class="ega-checkbox-label">{label}</span>{#if modified}<span
-        class="ega-modified-dot"
-        data-ega-modified="true"><span class="ega-sr-only">Modified from default</span></span
+        class="ega-changed"
+        id={changedId}
+        aria-hidden="true"
+        data-ega-modified="true">Changed</span
       >{/if}
   {:else if children}
     <span class="ega-checkbox-label">{@render children()}</span>
@@ -75,10 +96,10 @@
     cursor: pointer;
     color: var(--color-fg);
     font-family: var(--font-ui);
-    line-height: 1.4;
+    line-height: var(--lh-body);
   }
   .size-sm {
-    font-size: var(--fs-sm);
+    font-size: var(--fs-base);
   }
   .size-md {
     font-size: var(--fs-base);
@@ -146,13 +167,15 @@
       background-color: CanvasText;
     }
   }
-  .ega-modified-dot {
-    display: inline-block;
-    width: 4px;
-    height: 4px;
-    margin-left: var(--space-1);
-    border-radius: 50%;
-    background: var(--color-accent);
-    vertical-align: middle;
+  .ega-changed {
+    font-size: var(--fs-base);
+    color: var(--color-muted);
+  }
+  .aria-disabled {
+    cursor: var(--cursor-disabled);
+  }
+  .aria-disabled .ega-checkbox-input {
+    opacity: 0.6;
+    cursor: var(--cursor-disabled);
   }
 </style>

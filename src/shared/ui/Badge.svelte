@@ -1,19 +1,25 @@
 <script lang="ts">
-  import type { Snippet } from 'svelte';
+  /** A status pill: sentence case, an optional icon plus a word. No coloured dot; the word carries the state. */
+  import type { Component, Snippet } from 'svelte';
 
   type Variant = 'default' | 'success' | 'warning' | 'danger' | 'muted';
+  type LucideIcon = Component<{ size?: number | string; strokeWidth?: number | string }>;
 
   interface Props {
     children: Snippet;
     variant?: Variant;
-    dot?: boolean;
+    icon?: LucideIcon;
+    dataAttrs?: Record<string, string | number | boolean | undefined>;
   }
 
-  let { children, variant = 'default', dot = false }: Props = $props();
+  let { children, variant = 'default', icon, dataAttrs }: Props = $props();
 </script>
 
-<span class="ega-badge variant-{variant}">
-  {#if dot}<span class="ega-badge-dot" aria-hidden="true"></span>{/if}
+<span class="ega-badge variant-{variant}" {...dataAttrs ?? {}}>
+  {#if icon}
+    {@const IconC = icon}
+    <span class="ega-badge-icon" aria-hidden="true"><IconC size={14} strokeWidth={2} /></span>
+  {/if}
   {@render children()}
 </span>
 
@@ -22,22 +28,22 @@
     display: inline-flex;
     align-items: center;
     gap: var(--space-1);
-    padding: 1px var(--space-2);
-    font-size: var(--fs-xs);
-    font-weight: 500;
+    padding: 0 var(--space-2);
+    min-height: 20px;
+    font-size: var(--fs-base);
+    font-weight: 400;
     border-radius: var(--radius-pill);
-    line-height: 1.4;
+    border: 1px solid transparent;
+    line-height: var(--lh-body);
+    white-space: nowrap;
   }
-  .ega-badge-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: currentColor;
+  .ega-badge-icon {
+    display: inline-flex;
   }
   .variant-default {
     background: var(--color-bg-elevated);
     color: var(--color-fg);
-    border: 1px solid var(--color-border);
+    border-color: var(--color-border);
   }
   .variant-success {
     background: var(--color-success-bg-soft);
