@@ -23,10 +23,13 @@ describe('text-entry frames draw a 3:1 edge', () => {
     expect(rule(file, selector)).toMatch(/border: 1px solid var\(--color-control-border\)/);
   });
 
-  it('the popup site switch draws a 3:1 edge while off', () => {
-    expect(rule('src/popup/PopupSite.svelte', '.switch')).toMatch(
+  it('the popup site switch keeps the shared checkbox edge, 3:1 while off', () => {
+    expect(rule('src/shared/ui/Checkbox.svelte', '.ega-checkbox-input')).toMatch(
       /border: 1px solid var\(--color-control-border\)/,
     );
+    expect(
+      rule('src/popup/PopupSite.svelte', ".switch-row :global(.ega-checkbox-input[role='switch'])"),
+    ).not.toMatch(/border(-color)?:/);
   });
 });
 

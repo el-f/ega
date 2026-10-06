@@ -3,7 +3,7 @@ import type { Msg } from '@/shared/messages';
 import { writePendingPopupHandoff, type PendingPopupHandoff } from '@/shared/pending-popup-handoff';
 
 /** The content tab behind the popup. `currentWindow` can be the popup's own window, so it is not tried first. */
-export async function resolveContentTab(): Promise<chrome.tabs.Tab | null> {
+async function resolveContentTab(): Promise<chrome.tabs.Tab | null> {
   const tryQuery = async (query: chrome.tabs.QueryInfo): Promise<chrome.tabs.Tab | null> => {
     const tabs = await chrome.tabs.query(query);
     const good = tabs.find(

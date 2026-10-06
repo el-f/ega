@@ -1,6 +1,7 @@
 <script lang="ts">
   import Info from '@lucide/svelte/icons/info';
   import Icon from '@/shared/ui/Icon.svelte';
+  import Checkbox from '@/shared/ui/Checkbox.svelte';
   import type { HeldBack } from '@/shared/messages';
   import { heldBackText, type PopupPageState } from './page-state';
 
@@ -47,18 +48,19 @@
 
 <div class="site" data-ega-popup-site>
   {#if showSwitch}
-    <label class="switch-row">
-      <span class="switch-label" aria-hidden="true">Ega on {host.short}</span>
-      <input
-        type="checkbox"
-        role="switch"
-        class="switch"
-        aria-label={`Ega on ${host.full}`}
+    <div class="switch-row">
+      <!-- The visible text may be shortened; the switch's own name carries the full host. -->
+      <label class="switch-label" for="ega-site-switch" aria-hidden="true"
+        >Ega on {host.short}</label
+      >
+      <Checkbox
+        id="ega-site-switch"
         checked={siteOn}
-        data-ega-site-switch
-        onchange={(e) => onSiteChange(e.currentTarget.checked)}
+        ariaLabel={`Ega on ${host.full}`}
+        inputAttrs={{ role: 'switch', 'data-ega-site-switch': true }}
+        onchange={onSiteChange}
       />
-    </label>
+    </div>
   {/if}
   {#if status}
     <div class="status" data-ega-popup-status={state}>
@@ -89,59 +91,51 @@
     justify-content: space-between;
     gap: var(--space-3);
     min-height: 36px;
-    cursor: pointer;
     font-size: var(--fs-base);
     color: var(--color-fg);
   }
   .switch-label {
     min-width: 0;
     overflow-wrap: anywhere;
+    cursor: pointer;
   }
-  .switch {
-    appearance: none;
-    flex: 0 0 auto;
-    position: relative;
+  /* The shared Checkbox draws a box; as a switch it gets a track and a thumb. */
+  .switch-row :global(.ega-checkbox-input[role='switch']) {
     width: 36px;
     height: 20px;
-    margin: 0;
-    border: 1px solid var(--color-control-border);
     border-radius: var(--radius-pill);
-    background: var(--color-bg-elevated);
-    cursor: pointer;
-    transition: background-color var(--motion-fast) var(--ease-out);
   }
-  .switch::after {
+  .switch-row :global(.ega-checkbox-input[role='switch'])::after {
     content: '';
     position: absolute;
+    inset: auto;
     inset-block-start: 2px;
     inset-inline-start: 2px;
     width: 14px;
     height: 14px;
     border-radius: 50%;
-    background: var(--color-muted);
+    background-color: var(--color-muted);
+    -webkit-mask: none;
+    mask: none;
     transition: transform var(--motion-fast) var(--ease-out);
   }
-  .switch:checked {
-    background: var(--color-accent);
-    border-color: var(--color-accent);
-  }
-  .switch:checked::after {
-    background: var(--color-accent-fg);
+  .switch-row :global(.ega-checkbox-input[role='switch']:checked)::after {
+    background-color: var(--color-accent-fg);
     transform: translateX(16px);
   }
-  .switch:focus-visible {
+  .switch-row :global(.ega-checkbox-input[role='switch']:focus-visible) {
     outline: 2px solid var(--color-accent);
     outline-offset: 2px;
+    box-shadow: none;
   }
   @media (prefers-reduced-motion: reduce) {
-    .switch,
-    .switch::after {
+    .switch-row :global(.ega-checkbox-input[role='switch'])::after {
       transition: none;
     }
   }
   @media (forced-colors: active) {
-    .switch::after {
-      background: CanvasText;
+    .switch-row :global(.ega-checkbox-input[role='switch'])::after {
+      background-color: CanvasText;
     }
   }
   .status {

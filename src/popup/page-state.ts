@@ -66,7 +66,7 @@ export function siteLabel(url: string | undefined): { full: string; short: strin
 }
 
 /** How long the popup waits for the page before treating it as running with nothing held back. */
-export const PAGE_REPLY_TIMEOUT_MS = 500;
+const PAGE_REPLY_TIMEOUT_MS = 500;
 
 /** One same-tick question to the page: its selection and why the bubble stayed hidden. */
 export async function askPage(
