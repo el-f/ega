@@ -82,7 +82,7 @@ test('Translate page sends the blocks near the viewport first, and the rest as t
 
   // Stop drops what is still waiting and keeps what finished.
   const pill = page.locator('[data-ega-batch-progress]');
-  await pill.getByRole('button', { name: 'Stop' }).click();
+  await pill.locator('[data-ega-batch-cancel]').click();
   await expect.poll(() => label(page)).toMatch(/^Stopped\. Translated \d+ of 60 areas\.$/);
   const kept = mock.calls();
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
@@ -90,8 +90,8 @@ test('Translate page sends the blocks near the viewport first, and the rest as t
   expect(mock.calls()).toBe(kept);
   timeline.markStep('stopped');
 
-  await pill.getByRole('button', { name: 'More' }).click();
-  await pill.getByRole('menuitem', { name: 'Remove translation' }).click();
+  await pill.locator('[data-ega-batch-more]').click();
+  await pill.locator('[data-ega-batch-remove]').click();
   await expect(pill).toHaveCount(0);
   expect((await egaTest<number>(page, 'inlineCount')) ?? 0).toBe(0);
 });

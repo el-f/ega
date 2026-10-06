@@ -74,13 +74,19 @@ test('the translate-areas toolbar drives picking, and the document itself is nev
   await expect(page.locator('[data-ega-ms-translate]')).not.toHaveAttribute('aria-disabled');
 
   // The mode segments are radios that report the current choice.
-  await expect(page.getByRole('radio', { name: 'Replace text' })).toBeChecked();
-  await page.getByRole('radio', { name: 'Show both' }).click();
-  await expect(page.getByRole('radio', { name: 'Show both' })).toBeChecked();
+  await expect(page.locator('[data-ega-ms-mode="inplace"]')).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  await page.locator('[data-ega-ms-mode="bilingual"]').click();
+  await expect(page.locator('[data-ega-ms-mode="bilingual"]')).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
   timeline.markStep('mode-switched');
 
   // Exit leaves the page untouched.
-  await page.getByRole('button', { name: 'Cancel' }).click();
+  await page.locator('[data-ega-ms-exit]').click();
   await expect(toolbar).toHaveCount(0);
   await expect(page.locator('[data-ega-ms-selected]')).toHaveCount(0);
   expect((await egaTest<number>(page, 'pageV2TxCount')) ?? 0).toBe(0);

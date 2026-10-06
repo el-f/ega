@@ -68,6 +68,7 @@ test('hover paints the picker outline at the hovered element rect', async () => 
   expect(hintSurvived.probe).toBe('1');
   expect(hintSurvived.ariaLive).toBe('polite');
   expect(hintSurvived.dimmers).toBe(1);
+  await expect(page.locator('[data-ega-picker-bar-wrap]')).toHaveCount(1);
 
   // The outline must overlap the target rect, not collapse to 0,0 or carry a stale offset.
   const geo = await page.evaluate(() => {

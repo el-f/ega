@@ -49,7 +49,7 @@ test('Open in side panel writes the handoff slot + opens the sidepanel', async (
   await ta.fill('hand me off to the sidepanel');
   timeline.markStep('freeform-filled');
 
-  await popup.getByRole('button', { name: 'Translate', exact: true }).click();
+  await popup.locator('[data-ega-freeform-send]').click();
   timeline.markStep('send-clicked');
 
   await expect

@@ -46,14 +46,14 @@ test('the site switch turns Ega off for this site and back on, with the reason s
   const popup = await openPopupOver(ext.serverUrl);
   const sw = popup.getByRole('switch', { name: `Ega on ${host}` });
   await expect(sw).toBeChecked({ timeout: 5_000 });
+  await expect(popup.locator('[data-ega-popup-site] [data-ega-site-switch]')).toHaveCount(1);
   timeline.markStep('switch-on');
 
   await sw.click();
-  await expect(popup.getByText("Ega won't translate on this site.")).toBeVisible();
-  await expect(popup.getByRole('button', { name: 'Translate page' })).toHaveAttribute(
-    'aria-disabled',
-    'true',
+  await expect(popup.locator('[data-ega-popup-status="site-off"]')).toContainText(
+    "Ega won't translate on this site.",
   );
+  await expect(popup.locator('[data-ega-popup-primary]')).toHaveAttribute('aria-disabled', 'true');
   await expect
     .poll(async () => {
       const s = await readStorage<{ sitePrefs: Record<string, { disabled?: boolean }> }>(

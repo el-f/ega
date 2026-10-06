@@ -42,7 +42,7 @@ test('after settle, Show original toggles the view instead of destroying it', as
     .toBe(2);
 
   const pill = page.locator('[data-ega-batch-progress]');
-  const original = pill.getByRole('button', { name: 'Show original' });
+  const original = pill.locator('[data-ega-batch-original]');
   const allSiblingsHidden = (): Promise<boolean> =>
     page.evaluate(() => {
       const sibs = Array.from(document.querySelectorAll<HTMLElement>('[data-ega-tx]'));
