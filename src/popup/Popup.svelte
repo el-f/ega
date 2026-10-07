@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy, onMount } from 'svelte';
+  import { onDestroy, onMount, tick } from 'svelte';
   import { getSettings, onSettingsChanged } from '@/shared/storage';
   import { patchSettings } from '@/shared/settings-bus';
   import type { Settings, Variety, LangSelection } from '@/shared/types';
@@ -43,6 +43,8 @@
 
   let freeformText = $state('');
   let freeformTextarea: HTMLTextAreaElement | null = $state(null);
+  // The body shows once the page has answered, so its rows appear at their final place (spec 2.4 loading).
+  let pageKnown = $state(false);
   let draftHydrated = $state(false);
   let draftSaveTimer: ReturnType<typeof setTimeout> | null = null;
   let settingsUnsub: (() => void) | null = null;
@@ -387,6 +389,9 @@
       freeformText = selText;
       scheduleDraftSave();
     }
+    pageKnown = true;
+    // A hidden body takes no focus: show it first.
+    await tick();
     if (prefilledText !== null && freeformText === prefilledText) freeformTextarea?.focus();
     else if (document.activeElement === document.body) {
       // A blocked main action is no place to start; the switch or the status action that unblocks it is.
@@ -441,7 +446,7 @@
       </div>
     {/snippet}
 
-    <div class="popup-body">
+    <div class="popup-body" class:pending={!pageKnown}>
       {#if backendReady === false}
         <div class="popup-no-backend" data-ega-popup-no-backend>
           <p>Set up a backend to start.</p>
@@ -534,6 +539,9 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-4);
+  }
+  .popup-body.pending {
+    visibility: hidden;
   }
   .popup-actions {
     display: flex;

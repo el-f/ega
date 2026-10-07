@@ -88,6 +88,23 @@ describe('Popup launcher shell', () => {
     expect(container.querySelector('[data-ega-theme-toggle]')).toBeNull();
   });
 
+  it('shows the body only once the page has answered, so no row moves after the first paint', async () => {
+    let answer: (v: unknown) => void = () => {};
+    onTab('https://example.com/', (msg) =>
+      msg.kind === 'ega:get-selection' ? new Promise((r) => (answer = r)) : { ok: true },
+    );
+    const { container, findByRole } = render(Popup);
+    await mounted();
+    const body = container.querySelector<HTMLElement>('.popup-body');
+    // The switch row and a status line are still unknown: nothing shows yet.
+    await vi.waitFor(() => expect(chrome.tabs.sendMessage).toHaveBeenCalled());
+    // jsdom applies no component styles; the class is what hides the body (visibility: hidden).
+    expect(body?.classList.contains('pending')).toBe(true);
+    answer({ text: '', heldBack: { reason: 'english' } });
+    await findByRole('switch', { name: 'Ega on example.com' });
+    await vi.waitFor(() => expect(body?.classList.contains('pending')).toBe(false));
+  });
+
   it('puts focus on Translate page when nothing is prefilled', async () => {
     onTab('https://example.com/');
     const { findByRole } = render(Popup);
