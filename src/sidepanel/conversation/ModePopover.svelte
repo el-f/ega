@@ -175,8 +175,10 @@
     min-inline-size: 0;
     inline-size: 100%;
   }
-  /* The shared pickers draw 26px; the panel's targets are 28px, and the chevron room takes the spacing scale. */
-  .mp :global(select) {
+  /* The shared pickers draw 26px; the panel's targets are 28px, and the chevron room takes the spacing scale.
+     The second selector outranks the shared Select's own size-sm padding. */
+  .mp :global(select),
+  .mp :global(.ega-select-wrap.size-sm .ega-select) {
     min-block-size: 28px;
     padding-inline-end: var(--space-5);
   }

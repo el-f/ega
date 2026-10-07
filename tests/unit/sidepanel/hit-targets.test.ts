@@ -135,11 +135,15 @@ describe('shared pieces inside the panel follow its targets and scale', () => {
   });
 
   it('makes the language and tone pickers 28px targets in both popovers', () => {
-    for (const [file, scope] of [
-      ['src/sidepanel/conversation/ModePopover.svelte', '\\.mp'],
-      ['src/sidepanel/conversation/ReplyMenus.svelte', '\\.rm-into'],
+    for (const [file, selector] of [
+      // The second selector outranks the shared Select's own size-sm padding (the tone picker).
+      [
+        'src/sidepanel/conversation/ModePopover.svelte',
+        '\\.mp :global\\(select\\),\\s*\\.mp :global\\(\\.ega-select-wrap\\.size-sm \\.ega-select\\)',
+      ],
+      ['src/sidepanel/conversation/ReplyMenus.svelte', '\\.rm-into :global\\(select\\)'],
     ] as const) {
-      const body = rule(read(file), `${scope} :global\\(select\\)`);
+      const body = rule(read(file), selector);
       expect(body, file).toMatch(/min-block-size:\s*28px/);
       expect(body, file).toMatch(/padding-inline-end:\s*var\(--space-5\)/);
     }
