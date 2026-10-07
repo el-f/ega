@@ -122,6 +122,10 @@
     outline: none;
     animation: ega-popover-in var(--motion-fast) var(--ease-out);
   }
+  /* The panel takes focus on open; the global :focus-visible ring has the same weight and would frame the whole box. */
+  :global(.ega-popover:focus-visible) {
+    outline: none;
+  }
   .ega-popover-scrim {
     position: fixed;
     inset: 0;

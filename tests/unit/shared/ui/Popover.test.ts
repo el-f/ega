@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent, waitFor } from '@testing-library/svelte';
 import { createRawSnippet, type Snippet } from 'svelte';
 import Popover from '@/shared/ui/Popover.svelte';
+import { readFileSync } from 'node:fs';
 import { textSnippet } from './_helpers';
 
 function buttonSnippet(label: string): Snippet {
@@ -205,5 +206,11 @@ describe('Popover', () => {
 
     trigger.remove();
     field.remove();
+  });
+
+  // jsdom has no cascade: the rule is pinned in the source, and the captures show the box with no ring.
+  it('draws no focus ring around the popover box, which takes focus when it opens', () => {
+    const src = readFileSync('src/shared/ui/Popover.svelte', 'utf8');
+    expect(src).toMatch(/:global\(\.ega-popover:focus-visible\)\s*\{\s*outline:\s*none;/);
   });
 });
