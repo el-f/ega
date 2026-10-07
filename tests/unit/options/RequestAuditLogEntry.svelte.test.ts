@@ -115,4 +115,13 @@ describe('RequestAuditLogEntry', () => {
     expect(container.querySelector('[data-ega-audit-user]')).toBeNull();
     expect(queryByRole('button', { name: 'Compare' })).toBeNull();
   });
+
+  it('open on a failed request: no empty Response box, the prompts still show', () => {
+    const { container } = renderRow(
+      makeEntry({ response: '', error: { code: 'AUTH', message: 'no key' } }),
+      { isOpen: true },
+    );
+    expect(container.querySelector('[data-ega-audit-user]')).not.toBeNull();
+    expect(container.querySelector('[data-ega-audit-response]')).toBeNull();
+  });
 });

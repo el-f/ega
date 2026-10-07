@@ -67,10 +67,13 @@
     <pre class="panel-pre" dir="auto" data-ega-audit-user>{entry.userPrompt}</pre>
   </section>
 
-  <section class="panel">
-    <h3 class="panel-title">Response</h3>
-    <pre class="panel-pre" dir="auto" data-ega-audit-response>{entry.response}</pre>
-  </section>
+  <!-- A failed request stores no answer; an empty box would read as an empty answer. -->
+  {#if entry.response !== ''}
+    <section class="panel">
+      <h3 class="panel-title">Response</h3>
+      <pre class="panel-pre" dir="auto" data-ega-audit-response>{entry.response}</pre>
+    </section>
+  {/if}
 </div>
 
 <style>
