@@ -102,8 +102,10 @@
   // Acts at once with Undo; site overrides have their own card and are not touched.
   async function resetPromptAndModel(): Promise<void> {
     if (!s) return;
+    // The version goes back too: the reset prompt reads as the current version, which would hide the newer-prompt notice.
     const prior = {
       promptTemplate: s.advanced.promptTemplate,
+      templateVersion: s.advanced.templateVersion,
       temperature: s.advanced.temperature,
       maxTokens: s.advanced.maxTokens,
       effort: s.advanced.effort,

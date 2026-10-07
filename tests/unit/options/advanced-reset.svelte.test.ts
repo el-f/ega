@@ -67,4 +67,28 @@ describe('Advanced — Reset prompt and model settings', () => {
       expect(back.advanced.temperature).toBe(0.9);
     });
   });
+
+  it('Undo puts an edited prompt back with its own template version, so the newer-prompt notice still shows', async () => {
+    const custom = { system: 'House rules. {{langHint}}', user: 'TEXT:\n{{text}}' };
+    const seeded = {
+      ...DEFAULT_SETTINGS,
+      advanced: { ...DEFAULT_SETTINGS.advanced, promptTemplate: custom, templateVersion: 8 },
+    } as unknown as Settings;
+    await chromeMock.storage.local.set({ [STORAGE_KEYS.settings]: seeded });
+
+    const { container } = render(Advanced, { props: { s: seeded, onSetSettings: () => {} } });
+    const btn = await vi.waitFor(() => {
+      const b = container.querySelector('[data-ega-reset-defaults]');
+      if (!b) throw new Error('Reset not mounted');
+      return b as HTMLButtonElement;
+    });
+    await fireEvent.click(btn);
+    await vi.waitFor(() => expect(pushed).toHaveLength(1));
+    pushed[0]?.action?.onClick();
+    await vi.waitFor(async () => {
+      const back = await storedSettings();
+      expect(back.advanced.promptTemplate).toEqual(custom);
+      expect(back.advanced.templateVersion).toBe(8);
+    });
+  });
 });
