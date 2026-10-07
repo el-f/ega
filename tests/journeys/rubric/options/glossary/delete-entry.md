@@ -2,26 +2,25 @@
 
 ## Latency budgets
 
-- Trash icon click -> entry removed from list + storage write: <= 300ms.
+- Delete entry click -> entry removed from the list + storage write: <= 300ms.
 
 ## State expectations
 
-- Step 1: glossary list has at least one entry.
-- Step 2 (click trash icon on a row): the entry is removed from the visible list.
-- Step 3: `settings.glossary` no longer contains the deleted entry; storage reflects the removal.
+- Step 1: the list has at least one entry; the user presses its Edit, and the row opens its fields.
+- Step 2 (Delete entry): the entry leaves the list at once; a toast Deleted "<term>" with Undo shows.
+- Step 3: `settings.glossary` no longer holds it. Focus moves to the next row's Edit, else the previous one, else Add.
 
 ## Visible affordances
 
-- Trash icon button is visible on each row; uses the danger tone tokens on hover.
-- No confirm dialog — a "Removed "<term>"." toast with Undo puts the entry back at its old position.
+- "Delete entry" is a ghost button with a trash icon and a word, inside the open row.
+- No confirm dialog; Undo puts the entry back at its old place and focuses it.
 
 ## Failure-mode expectations
 
-- Storage write failure shows a warning toast ("Change not saved: …"); the row remains visible.
-- Deleting the last entry surfaces the empty state immediately.
+- A failed write shows a "Not saved" toast and the row stays open.
+- Deleting the last entry shows the empty state at once.
 
 ## Cautions
 
-- Glossary delete has NO confirm by design (low risk, easily re-added). Do NOT add a confirm dialog.
-- Settings write goes through `replaceSettings` inside the settings lock; the entry is matched by value, so a glossary another surface changed meanwhile is not corrupted.
-- Deletion takes effect on the next translation dispatch; in-flight translates are not updated.
+- No confirm by design (low risk, Undo is there). Do NOT add a confirm dialog.
+- The entry is matched by value inside the settings lock, so a glossary another surface changed meanwhile is not corrupted.

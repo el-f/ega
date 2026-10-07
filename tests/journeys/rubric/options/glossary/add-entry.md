@@ -2,29 +2,29 @@
 
 ## Latency budgets
 
-- Mount + tab switch -> Add form visible: <= 300ms.
-- Click "Add entry" -> entry visible in list + storage round-trip: <= 500ms.
+- Mount + tab switch -> add row visible: <= 300ms.
+- Click "Add" -> entry visible in the list + storage round-trip: <= 500ms.
 
 ## State expectations
 
-- Step 1: navigate to Glossary tab; Add form fields visible.
-- Step 2: fill term + translation; Add button enables.
-- Step 3: click Add; entry appears in the list; settings.glossary array contains the new entry.
+- Step 1: the Glossary and rules tab opens; the Glossary card shows "Used by" (the tasks with Use glossary on, and Change), then Term, Translation and a secondary "Add".
+- Step 2: fill term + translation; Add was enabled all along.
+- Step 3: click Add; the entry appears in the list as "Term → Translation"; settings.glossary holds it; the fields clear and focus returns to Term.
 
 ## Visible affordances
 
-- Source language / target language dropdowns default to "Any".
-- "Match case" checkbox defaults off.
-- Empty-state copy guides on what to add (brand names, character names, jargon).
-- Filter input appears past 10 entries (hidden below to keep small lists clean).
+- Labels sit above the fields; placeholders read "e.g. Firebolt" and "e.g. Saeta de Fuego".
+- Source language, Target language (both "Any") and Match case sit under the "More options" disclosure.
+- Empty state: "No glossary entries yet" with one line and no button (the add row is right above it).
+- A filter field appears past 10 entries.
 
 ## Failure-mode expectations
 
-- Submitting without term or translation: button disabled.
-- Term or translation > 100 chars: inline error, no write.
-- Glossary at cap (200 entries): inline error, no write.
+- An empty field on Add: the field is marked invalid and says "Write a term" or "Write a translation"; nothing is written.
+- A duplicate in the same scope: "<term> is already in the glossary for this scope".
+- At the cap (200 entries): Add is aria-disabled and says why.
 
 ## Cautions
 
 - Settings write goes through `replaceSettings` (read-modify-write inside the settings lock), so a change another surface made meanwhile survives.
-- Storage shape must match settingsSchema; an invalid entry rejected at the boundary.
+- Storage shape must match settingsSchema; an invalid entry is rejected at the boundary.

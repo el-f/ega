@@ -2,27 +2,25 @@
 
 ## Latency budgets
 
-- Click "Add entry" -> entry visible in list + storage write: <= 500ms.
+- Click "Add" -> entry visible in the list + storage write: <= 500ms.
 
 ## State expectations
 
-- Step 1: user fills term + translation; picks source language and target language from the dropdowns; enables case-sensitive checkbox.
-- Step 2 (click Add): the entry is added to `settings.glossary` with all fields: term, translation, sourceLang, targetLang, caseSensitive=true.
-- Step 3: the new row appears in the glossary list showing all configured fields; form clears.
+- Step 1: the user fills Term and Translation, opens "More options", picks a source and a target language, and turns on Match case.
+- Step 2 (Add): the entry is stored with term, translation, sourceLang, targetLang and caseSensitive=true.
+- Step 3: the row shows "Term → Translation", the scope in muted text ("English → French"), and "Match case".
 
 ## Visible affordances
 
-- Source and target lang dropdowns default to "Any" (no language restriction).
-- "Match case" checkbox defaults off.
-- Row shows the lang scope as small muted text, source → target (e.g. "en → fr"; "any" when unset; a variety shows its label); a case-sensitive entry shows a "Match case" badge.
+- Source and target default to "Any"; Match case defaults off.
+- With the default source on Auto-detect, a source-scoped entry shows one line: "Applies only when you pick <language> as the source".
 
 ## Failure-mode expectations
 
-- Submitting with source lang set but target lang left as "Any" (or vice versa) is valid — partial scope is allowed.
-- Term or translation > 100 chars: inline error, no write.
-- Glossary at cap (200 entries): inline error, no write.
+- A partial scope (source set, target "Any") is valid.
+- An empty field or a duplicate in the same scope is refused in place.
 
 ## Cautions
 
-- Lang scope filters when the glossary is applied at dispatch time; setting it incorrectly means the term won't be used for some translations.
-- Settings write goes through `replaceSettings` inside the settings lock; the full entry object (all fields) is written in one write.
+- Scope filters when the glossary is applied at dispatch time; a wrong scope means the term is not used for some requests.
+- The full entry is written in one `replaceSettings` call.

@@ -35,11 +35,15 @@ describe('Glossary — delete targets the row the user clicked', () => {
     const shown = await rows(container);
     expect(shown).toHaveLength(2);
 
+    // Delete lives in the open row.
+    await fireEvent.click(
+      container.querySelector('[aria-label="Edit entry Alpha"]') as HTMLButtonElement,
+    );
     // Another surface writes the glossary while this tab sits open.
     seed([C, A, B]);
 
-    const alphaBtn = container.querySelector<HTMLButtonElement>(
-      '[aria-label="Delete entry Alpha"]',
+    const alphaBtn = await waitFor(() =>
+      container.querySelector<HTMLButtonElement>('[aria-label="Delete entry Alpha"]'),
     );
     if (!alphaBtn) throw new Error('delete button for Alpha not found');
     await fireEvent.click(alphaBtn);
@@ -67,13 +71,13 @@ describe('Glossary — delete targets the row the user clicked', () => {
     if (!term || !translation) throw new Error('add-entry inputs not found');
     await fireEvent.input(term, { target: { value: 'Overflow' } });
     await fireEvent.input(translation, { target: { value: 'Nope' } });
-    const addBtn = Array.from(container.querySelectorAll('button')).find((b) =>
-      /add/i.test(b.textContent),
-    );
+    const addBtn = container.querySelector<HTMLButtonElement>('[data-ega-glossary-add-button]');
     if (!addBtn) throw new Error('add button not found');
     await fireEvent.click(addBtn);
 
-    await waitFor(() => expect(container.textContent).toMatch(/glossary limit is 200 entries/i));
+    await waitFor(() =>
+      expect(container.textContent).toMatch(/The glossary holds 200 entries, the most Ega keeps/),
+    );
     expect((await getSettings()).glossary).toHaveLength(200);
   }, 20_000);
 });

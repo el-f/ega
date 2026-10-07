@@ -19,10 +19,12 @@ test('Add glossary entry persists to settings.glossary', async () => {
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
   await page.locator('#tab-glossary').click();
   timeline.markStep('glossary-active');
+  // The tasks that send the glossary are named above the add row.
+  await expect(page.locator('[data-ega-glossary-used-by]')).toContainText('Translate, Explain');
 
   await page.getByLabel('Term').fill('Foo');
   await page.getByLabel('Translation').fill('Bar');
-  await page.locator('button.ega-btn.variant-primary', { hasText: 'Add entry' }).click();
+  await page.locator('[data-ega-glossary-add-button]').click();
   timeline.markStep('submitted');
 
   await expect
@@ -40,4 +42,6 @@ test('Add glossary entry persists to settings.glossary', async () => {
       { timeout: 5_000 },
     )
     .toBe(true);
+  await expect(page.locator('[data-ega-glossary-list]')).toContainText('Foo → Bar');
+  await expect(page.getByLabel('Term')).toBeFocused();
 });

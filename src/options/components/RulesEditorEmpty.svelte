@@ -12,9 +12,9 @@
 <div data-ega-rules-empty>
   <EmptyState
     title="No rules yet"
-    description="A rule is one extra instruction Ega adds to the prompt, such as: Keep product names in English."
+    description="For example: Keep product names in English"
     icon={ScrollText}
-    ctaLabel="Add a rule"
+    ctaLabel="Add rule"
     onCta={onAdd}
   />
 </div>

@@ -75,8 +75,12 @@ describe('Glossary — a write from another surface is not lost', () => {
     const { container } = render(Glossary);
     await rows(container);
 
-    const alphaBtn = container.querySelector<HTMLButtonElement>(
-      '[aria-label="Delete entry Alpha"]',
+    // Delete lives in the open row.
+    await fireEvent.click(
+      container.querySelector('[aria-label="Edit entry Alpha"]') as HTMLButtonElement,
+    );
+    const alphaBtn = await waitFor(() =>
+      container.querySelector<HTMLButtonElement>('[aria-label="Delete entry Alpha"]'),
     );
     if (!alphaBtn) throw new Error('delete button for Alpha not found');
 

@@ -2,11 +2,11 @@
 
 ## Mount + render
 
-- The Tasks tab has a "Defaults" card (Default task, Default tone), a "Built-in tasks" card with one row per built-in in shipped order, "Your tasks", "Rules", and "Backup & restore" last.
-- Each row has an on/off checkbox, the task name, an Edited badge when the task has edits, an Off badge when it is off, and an Edit button. No row carries a "Built-in" badge.
-- Translate's checkbox is disabled and the row has an "Always on" badge.
+- The Tasks tab has four cards: "Defaults" ("What runs when you do not pick a task"; Default task and Default tone side by side), "Built-in tasks" with one row per built-in in shipped order and an (i), "Your tasks", and "Backup and restore" last. Rules live on the Glossary and rules tab.
+- Each row is one line: the on/off checkbox named after the task, an "Edited" pill when the task has edits, and an Edit button. No "Off" word, no "Built-in" badge, no box per row.
+- Translate's checkbox stays checked and focusable (aria-disabled); the "Always on" pill is its visible reason.
 
-- A "Your tasks" card lists the user's own tasks, with a New task button; with none, an empty state "No tasks of your own yet" has its own New task button. Each row has an on/off checkbox and an Edit button.
+- "Your tasks" lists the user's own tasks with a secondary New task in the header. With none, the empty state "No tasks of your own yet" holds the only New task (primary), and the header button is hidden. At the cap, New task is aria-disabled and a line says "You have the most tasks Ega keeps (50). Delete one to add another."
 
 ## Edit dialog (built-in tasks)
 

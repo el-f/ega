@@ -17,7 +17,7 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-test('clicking trash icon removes the glossary entry from storage', async () => {
+test('Delete entry in the open row removes the glossary entry from storage', async () => {
   const timeline = createTimeline();
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
@@ -28,7 +28,13 @@ test('clicking trash icon removes the glossary entry from storage', async () => 
   await expect(list).toBeVisible({ timeout: 5_000 });
   await expect(list).toContainText('DeleteMe');
 
-  const deleteBtn = page.locator('button[aria-label="Delete entry DeleteMe"]');
+  const edit = list.locator('[data-ega-glossary-edit]').first();
+  await expect(edit).toHaveAccessibleName('Edit entry DeleteMe');
+  await edit.click();
+  await expect(edit).toHaveAttribute('aria-expanded', 'true');
+  const editor = page.locator('[data-ega-glossary-editor]');
+  await expect(editor.getByLabel('Term')).toBeFocused();
+  const deleteBtn = editor.locator('button[aria-label="Delete entry DeleteMe"]');
   await expect(deleteBtn).toBeVisible();
   await deleteBtn.click();
   timeline.markStep('delete-clicked');

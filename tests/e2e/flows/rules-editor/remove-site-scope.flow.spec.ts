@@ -38,11 +38,11 @@ test.afterEach(async () => {
 
 test.slow();
 
-test('clicking site scope chip removes example.com from scope.sites', async () => {
+test('clearing the Sites field removes example.com from the rule scope', async () => {
   const timeline = createTimeline();
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
-  await page.locator('#tab-tasks').click();
+  await page.locator('#tab-glossary').click();
 
   await expect(page.locator('[data-ega-rules-editor]')).toBeVisible({ timeout: 5_000 });
   timeline.markStep('rules-mounted');
@@ -50,14 +50,17 @@ test('clicking site scope chip removes example.com from scope.sites', async () =
   const row = page.locator(`[data-ega-rule-row][data-rule-id="${SEED_ID}"]`);
   await expect(row).toBeVisible({ timeout: 5_000 });
 
-  const siteChip = row.locator(`[data-ega-rule-site-chip="${SEED_SITE}"]`);
-  await expect(siteChip).toBeVisible({ timeout: 5_000 });
+  await expect(row.locator('[data-ega-rule-meta]')).toContainText(SEED_SITE);
+  await row.locator('[data-ega-rule-edit]').click();
+  const sites = row.locator('[data-ega-rule-sites]');
+  await expect(sites).toHaveValue(SEED_SITE);
   timeline.markStep('site-chip-visible');
 
-  await siteChip.click();
+  await sites.fill('');
+  await sites.press('Tab');
   timeline.markStep('site-chip-clicked');
 
-  // removeSiteFromRule drops `sites` from scope when empty → key absent.
+  // An empty list drops `sites` from the scope: the key is absent.
   await expect
     .poll(
       async () => {
@@ -70,5 +73,5 @@ test('clicking site scope chip removes example.com from scope.sites', async () =
     .toBe(true);
   timeline.markStep('site-removed');
 
-  await expect(siteChip).not.toBeVisible({ timeout: 5_000 });
+  await expect(row.locator('[data-ega-rule-meta]')).not.toContainText(SEED_SITE);
 });

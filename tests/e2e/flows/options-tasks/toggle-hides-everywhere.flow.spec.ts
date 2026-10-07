@@ -43,7 +43,7 @@ test('turning Reword off hides it in the task picker, palette, Answer again and 
       { timeout: 5_000 },
     )
     .toEqual(['reword']);
-  await expect(options.locator('[data-ega-task-item="reword"]')).toContainText('Off');
+  await expect(options.locator('[data-ega-task-toggle="reword"]')).not.toBeChecked();
   timeline.markStep('reword-off');
 
   const panel = await ext.context.newPage();

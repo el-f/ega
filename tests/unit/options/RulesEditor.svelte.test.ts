@@ -1,20 +1,15 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { fireEvent, render, waitFor } from '@testing-library/svelte';
 import { SHIPPED_TASK_VIEWS } from '@/shared/task-view';
 import RulesEditor from '@/options/components/RulesEditor.svelte';
 import type { Rule } from '@/shared/rules';
 import { chromeMock, resetChromeMock } from '../../mocks/chrome';
 import { STORAGE_KEYS } from '@/shared/constants';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
+import { RULES_MAX } from '@/shared/settings-schema';
 import type { Settings } from '@/shared/types';
 import { toastStore, type ToastMsg } from '@/shared/components/toastStore';
-
-// Auto-accept destructive confirm so [Delete] flows resolve in tests.
-vi.mock('@/shared/components/confirmDialog', () => ({
-  confirmDialog: vi.fn(async () => true),
-}));
-import { confirmDialog } from '@/shared/components/confirmDialog';
 
 function rule(overrides: Partial<Rule> = {}): Rule {
   return {
@@ -25,588 +20,393 @@ function rule(overrides: Partial<Rule> = {}): Rule {
     source: overrides.source ?? 'manual',
     addedAt: overrides.addedAt ?? '2026-05-09T00:00:00.000Z',
     enabled: overrides.enabled ?? true,
-    ...(overrides.recipeId !== undefined ? { recipeId: overrides.recipeId } : {}),
   };
 }
 
-describe('RulesEditor', () => {
-  it('renders empty state when rules list is empty', () => {
-    const { container, getByText } = render(RulesEditor, {
-      props: { rules: [], onUpdate: () => {} },
-    });
-    expect(container.querySelector('[data-ega-rules-empty]')).not.toBeNull();
-    expect(getByText(/No rules yet/i)).toBeTruthy();
+/** Renders the card with a parent that applies each write, as the tab does. */
+function mount(rules: Rule[], write: (next: readonly Rule[]) => boolean = () => true) {
+  const onUpdate = vi.fn(async (next: readonly Rule[]) => {
+    const ok = write(next);
+    if (ok) await utils.rerender({ rules: [...next], onUpdate });
+    return ok;
   });
+  const utils = render(RulesEditor, { props: { rules, onUpdate } });
+  return { ...utils, onUpdate };
+}
 
-  it('renders every rule as an editable row, with no disclosure to open', () => {
-    const r1 = rule({ id: 'r1', body: 'Always preserve URLs.', category: 'always' });
-    const r2 = rule({ id: 'r2', body: 'Prefer short sentences.', category: 'prefer' });
-    const { container } = render(RulesEditor, {
-      props: { rules: [r1, r2], onUpdate: () => {} },
-    });
-    const rows = container.querySelectorAll('[data-ega-rule-row]');
-    expect(rows.length).toBe(2);
-    expect(rows[0]?.getAttribute('data-rule-id')).toBe('r1');
-    expect(rows[1]?.getAttribute('data-rule-id')).toBe('r2');
-    expect(container.querySelector('[data-ega-advanced-rules]')).toBeNull();
-  });
+function part(container: HTMLElement, id: string, sel: string): HTMLElement {
+  const el = container.querySelector<HTMLElement>(`[data-rule-id="${id}"] ${sel}`);
+  if (!el) throw new Error(`missing ${sel} on ${id}`);
+  return el;
+}
 
-  it('Delete removes the rule at once, with no confirm, and offers Undo', async () => {
-    vi.mocked(confirmDialog).mockClear();
-    const pushSpy = vi.spyOn(toastStore, 'push').mockImplementation(() => {});
-    const r1 = rule({ id: 'r1' });
-    const r2 = rule({ id: 'r2' });
-    const onUpdate = vi.fn<(next: readonly Rule[]) => void>();
-    const { container } = render(RulesEditor, {
-      props: { rules: [r1, r2], onUpdate },
-    });
-    const delBtn = container.querySelector<HTMLButtonElement>(
-      '[data-ega-rule-row][data-rule-id="r1"] [data-ega-rule-delete]',
-    );
-    if (!delBtn) throw new Error('expected delete button');
-    await fireEvent.click(delBtn);
-    await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
-    expect(onUpdate.mock.calls[0]?.[0].map((r) => r.id)).toEqual(['r2']);
-    expect(confirmDialog).not.toHaveBeenCalled();
-    expect(pushSpy.mock.calls[0]?.[0].action?.label).toBe('Undo');
-    pushSpy.mockRestore();
-  });
+async function openEditor(container: HTMLElement, id: string): Promise<void> {
+  await fireEvent.click(part(container, id, '[data-ega-rule-edit]'));
+  await waitFor(() => part(container, id, '[data-ega-rule-body-editor]'));
+}
 
-  it('the On checkbox keeps one name and flips enabled', async () => {
-    const r1 = rule({ id: 'r1', enabled: true });
-    const onUpdate = vi.fn<(next: readonly Rule[]) => void>();
-    const { container, getByRole } = render(RulesEditor, {
-      props: { rules: [r1], onUpdate },
-    });
-    const toggle = getByRole('checkbox', { name: 'On' });
-    expect((toggle as HTMLInputElement).checked).toBe(true);
-    await fireEvent.click(toggle);
-    await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
-    expect(onUpdate.mock.calls[0]?.[0][0]?.enabled).toBe(false);
-    expect(container.querySelector('[data-ega-rule-off]')).toBeNull();
-  });
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
 
-  it('a disabled rule shows an Off badge instead of fading', () => {
-    const r1 = rule({ id: 'r1', enabled: false });
-    const { container } = render(RulesEditor, { props: { rules: [r1], onUpdate: () => {} } });
-    expect(container.querySelector('[data-ega-rule-off]')?.textContent).toContain('Off');
-  });
-
-  it('inline body edit calls onUpdate with the body changed and shows Saved', async () => {
-    const r1 = rule({ id: 'r1', body: 'Old body.' });
-    const onUpdate = vi.fn<(next: readonly Rule[]) => void>();
-    const { container, findByText } = render(RulesEditor, {
-      props: { rules: [r1], onUpdate },
-    });
-
-    const bodyEl = container.querySelector<HTMLElement>(
-      '[data-ega-rule-row][data-rule-id="r1"] [data-ega-rule-body]',
-    );
-    if (!bodyEl) throw new Error('expected rule body element');
-    await fireEvent.click(bodyEl);
-
-    const editor = container.querySelector<HTMLTextAreaElement>(
-      '[data-ega-rule-row][data-rule-id="r1"] [data-ega-rule-body-editor]',
-    );
-    if (!editor) throw new Error('expected body editor textarea');
-
-    await fireEvent.input(editor, { target: { value: 'New body.' } });
-    await fireEvent.blur(editor);
-
-    await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
-    const next = onUpdate.mock.calls[0]?.[0];
-    expect(next?.[0]?.body).toBe('New body.');
-    expect(next?.[0]?.id).toBe('r1');
-    expect(await findByText('Saved')).toBeTruthy();
-  });
-
-  it('the empty state offers Add a rule, which opens the form', async () => {
-    const { container, getByRole } = render(RulesEditor, {
-      props: { rules: [], onUpdate: () => {} },
-    });
-    expect(container.querySelector<HTMLDetailsElement>('details.manual-block')?.open).toBe(false);
-    await fireEvent.click(getByRole('button', { name: 'Add a rule' }));
-    await waitFor(() =>
-      expect(container.querySelector<HTMLDetailsElement>('details.manual-block')?.open).toBe(true),
-    );
-  });
-
-  it('Cancel closes the add form and clears it', async () => {
-    const { container, getByRole } = render(RulesEditor, {
-      props: { rules: [rule({ id: 'r1' })], onUpdate: () => {} },
-    });
-    const form = container.querySelector<HTMLDetailsElement>('details.manual-block');
-    if (!form) throw new Error('expected form');
-    // jsdom fires no toggle event for a summary click, so open it the way bind:open listens.
-    form.open = true;
-    await fireEvent(form, new Event('toggle'));
-    const body = container.querySelector<HTMLTextAreaElement>('[data-ega-manual-body]');
-    if (!body) throw new Error('expected body');
-    await fireEvent.input(body, { target: { value: 'Never invent words.' } });
-    expect(container.querySelector('.category-guess')?.textContent).toContain('never');
-    await fireEvent.click(getByRole('button', { name: 'Cancel' }));
-    await waitFor(() => expect(form.open).toBe(false));
-    expect(body.value).toBe('');
-  });
-
-  it('manual add form appends a rule with chosen scope', async () => {
-    const onUpdate = vi.fn<(next: readonly Rule[]) => void>();
-    const { container } = render(RulesEditor, {
-      props: { rules: [], onUpdate },
-    });
-
-    const cta = container.querySelector<HTMLButtonElement>('[data-ega-rules-empty] button');
-    if (!cta) throw new Error('expected the empty-state button');
-    await fireEvent.click(cta);
-    await waitFor(() => expect(container.querySelector('[data-ega-manual-body]')).not.toBeNull());
-
-    const bodyInput = container.querySelector<HTMLTextAreaElement>('[data-ega-manual-body]');
-    const sitesInput = container.querySelector<HTMLInputElement>('[data-ega-manual-sites]');
-    const taskChip = container.querySelector<HTMLButtonElement>(
-      '[data-ega-manual-task="translate"]',
-    );
-    const submit = container.querySelector<HTMLButtonElement>('[data-ega-manual-submit]');
-    if (!bodyInput || !sitesInput || !taskChip || !submit) {
-      throw new Error('expected manual form controls');
-    }
-
-    await fireEvent.input(bodyInput, { target: { value: 'Format: bullet list.' } });
-    await fireEvent.click(taskChip);
-    await fireEvent.input(sitesInput, { target: { value: 'twitter.com, example.com' } });
-    await fireEvent.click(submit);
-
-    await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
-    const next = onUpdate.mock.calls[0]?.[0];
-    expect(next?.length).toBe(1);
-    const added = next?.[0];
-    expect(added?.body).toBe('Format: bullet list.');
-    expect(added?.category).toBe('format');
-    expect(added?.scope.tasks).toEqual(['translate']);
-    expect(added?.scope.sites).toEqual(['twitter.com', 'example.com']);
-    expect(added?.source).toBe('manual');
-  });
-
-  describe('Row scope chips', () => {
-    async function openAdvancedRow(container: HTMLElement, id: string): Promise<void> {
-      await waitFor(() => {
-        expect(container.querySelector(`[data-ega-rule-row][data-rule-id="${id}"]`)).not.toBeNull();
-      });
-    }
-
-    it('scope chips carry an accessible Remove name for task and site', async () => {
-      const r1 = rule({ id: 'r1', scope: { tasks: ['translate'], sites: ['twitter.com'] } });
-      const { container } = render(RulesEditor, {
-        props: { rules: [r1], onUpdate: () => {} },
-      });
-      await openAdvancedRow(container, 'r1');
-
-      const taskChip = container.querySelector<HTMLButtonElement>(
-        '[data-ega-rule-row][data-rule-id="r1"] [data-ega-rule-task-chip="translate"]',
-      );
-      const siteChip = container.querySelector<HTMLButtonElement>(
-        '[data-ega-rule-row][data-rule-id="r1"] [data-ega-rule-site-chip="twitter.com"]',
-      );
-      if (!taskChip || !siteChip) throw new Error('expected task + site chips');
-      // aria-label must name the remove intent + the real value, not rely on title only.
-      expect(taskChip.getAttribute('aria-label')).toMatch(/^Remove task /);
-      expect(siteChip.getAttribute('aria-label')).toBe('Remove site twitter.com');
-    });
-
-    it('a live custom task keeps its remove button and its name', async () => {
-      const shipped = SHIPPED_TASK_VIEWS[0];
-      if (!shipped) throw new Error('no shipped views');
-      const legal = { ...shipped, id: 'c-legal', kind: 'custom' as const, label: 'Legal' };
-      const r1 = rule({ id: 'r1', scope: { tasks: ['c-legal'] } });
-      const { container } = render(RulesEditor, {
-        props: { rules: [r1], onUpdate: vi.fn(), taskViews: [...SHIPPED_TASK_VIEWS, legal] },
-      });
-      await openAdvancedRow(container, 'r1');
-      const chip = container.querySelector(
-        '[data-ega-rule-row][data-rule-id="r1"] [data-ega-rule-task-chip="c-legal"]',
-      );
-      expect(chip?.tagName).toBe('BUTTON');
-      expect(chip?.textContent).toContain('Legal');
-    });
-
-    it('a deleted task has no remove button, because an empty scope means every task', async () => {
-      const r1 = rule({ id: 'r1', scope: { tasks: ['unknown-task'] } });
-      const onUpdate = vi.fn();
-      const { container } = render(RulesEditor, { props: { rules: [r1], onUpdate } });
-      await openAdvancedRow(container, 'r1');
-
-      const chip = container.querySelector(
-        '[data-ega-rule-row][data-rule-id="r1"] [data-ega-rule-task-chip="unknown-task"]',
-      );
-      expect(chip?.textContent).toContain('Deleted task');
-      expect(chip?.tagName).not.toBe('BUTTON');
-      expect(chip?.querySelector('button')).toBeNull();
-    });
-
-    it('the last task chip stays: the rule is not widened to every task, and a toast says how', async () => {
-      const captured: ToastMsg[] = [];
-      const pushSpy = vi.spyOn(toastStore, 'push').mockImplementation((entry) => {
-        captured.push(entry);
-      });
-      const r1 = rule({ id: 'r1', scope: { tasks: ['translate'] } });
-      const onUpdate = vi.fn<(next: readonly Rule[]) => void>();
-      const { container } = render(RulesEditor, { props: { rules: [r1], onUpdate } });
-      await openAdvancedRow(container, 'r1');
-
-      const chip = container.querySelector<HTMLButtonElement>(
-        '[data-ega-rule-row][data-rule-id="r1"] [data-ega-rule-task-chip="translate"]',
-      );
-      if (!chip) throw new Error('expected task chip');
-      await fireEvent.click(chip);
-
-      await waitFor(() => expect(captured.length).toBe(1));
-      expect(captured[0]?.message).toMatch(/at least one task/i);
-      expect(captured[0]?.message).toMatch(/edit scope/i);
-      expect(onUpdate).not.toHaveBeenCalled();
-      pushSpy.mockRestore();
-    });
-
-    it('Edit scope adds a task back to an all-tasks rule', async () => {
-      const r1 = rule({ id: 'r1', scope: { tasks: [] } });
-      const onUpdate = vi.fn<(next: readonly Rule[]) => void>();
-      const { container } = render(RulesEditor, { props: { rules: [r1], onUpdate } });
-      await openAdvancedRow(container, 'r1');
-
-      const edit = container.querySelector<HTMLButtonElement>(
-        '[data-ega-rule-row][data-rule-id="r1"] [data-ega-rule-edit-scope]',
-      );
-      if (!edit) throw new Error('expected Edit scope button');
-      await fireEvent.click(edit);
-
-      const box = await screen.findByRole('checkbox', { name: 'Translate' });
-      await fireEvent.click(box);
-      await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
-      expect(onUpdate.mock.calls[0]?.[0][0]?.scope.tasks).toEqual(['translate']);
-    });
-
-    it('Edit scope keeps the last checked task checked; All tasks is the explicit way to widen', async () => {
-      const r1 = rule({ id: 'r1', scope: { tasks: ['translate'] } });
-      const onUpdate = vi.fn<(next: readonly Rule[]) => void>();
-      const { container } = render(RulesEditor, { props: { rules: [r1], onUpdate } });
-      await openAdvancedRow(container, 'r1');
-      const edit = container.querySelector<HTMLButtonElement>('[data-ega-rule-edit-scope]');
-      if (!edit) throw new Error('expected Edit scope button');
-      await fireEvent.click(edit);
-
-      const last = await screen.findByRole('checkbox', { name: 'Translate' });
-      expect((last as HTMLInputElement).disabled).toBe(true);
-
-      await fireEvent.click(screen.getByRole('checkbox', { name: 'All tasks' }));
-      await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
-      expect(onUpdate.mock.calls[0]?.[0][0]?.scope.tasks).toEqual([]);
-    });
-
-    it('removing a site chip pushes an Undo toast that restores the scope', async () => {
-      resetChromeMock();
-      const captured: ToastMsg[] = [];
-      const pushSpy = vi.spyOn(toastStore, 'push').mockImplementation((entry) => {
-        captured.push(entry);
-      });
-
-      const r1 = rule({ id: 'r1', scope: { tasks: ['translate'], sites: ['twitter.com'] } });
-      const seeded: Settings = {
-        ...DEFAULT_SETTINGS,
-        advanced: { ...DEFAULT_SETTINGS.advanced, rules: [r1] },
-      };
-      chromeMock.storage.local._raw.set(STORAGE_KEYS.settings, seeded);
-
-      const onUpdate = vi.fn<(next: readonly Rule[]) => void>();
-      const { container } = render(RulesEditor, { props: { rules: [r1], onUpdate } });
-      await openAdvancedRow(container, 'r1');
-
-      const siteChip = container.querySelector<HTMLButtonElement>(
-        '[data-ega-rule-row][data-rule-id="r1"] [data-ega-rule-site-chip="twitter.com"]',
-      );
-      if (!siteChip) throw new Error('expected site chip');
-      await fireEvent.click(siteChip);
-
-      // Site removed → onUpdate fired with sites gone.
-      await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
-      const afterRemove = onUpdate.mock.calls[0]?.[0];
-      expect(afterRemove?.[0]?.scope.sites).toBeUndefined();
-
-      // An Undo toast was pushed for the proportional recovery path.
-      await waitFor(() => expect(captured.length).toBeGreaterThanOrEqual(1));
-      const undo = captured[0]?.action?.onClick;
-      expect(captured[0]?.action?.label).toBe('Undo');
-      expect(typeof undo).toBe('function');
-
-      // Undo re-reads canonical storage and restores the prior scope.
-      onUpdate.mockClear();
-      undo?.();
-      await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
-      const restored = onUpdate.mock.calls[0]?.[0];
-      expect(restored?.[0]?.scope.sites).toEqual(['twitter.com']);
-
-      pushSpy.mockRestore();
-    });
-  });
-
-  describe('Undo restore from delete-A → delete-B → Undo A', () => {
-    beforeEach(() => {
-      resetChromeMock();
-    });
-
-    it('Undo splices into the canonical storage rules, not the stale closure', async () => {
-      // Undo after a second delete must splice into the current list, not the one captured at delete time.
-      const captured: ToastMsg[] = [];
-      const pushSpy = vi.spyOn(toastStore, 'push').mockImplementation((entry) => {
-        captured.push(entry);
-      });
-
-      const r1: Rule = {
+describe('RulesEditor rows', () => {
+  it('show the whole text, a checkbox named "Use rule: …", and one meta line', () => {
+    const { container, getByRole } = mount([
+      rule({
         id: 'r1',
-        body: 'Always preserve URLs.',
+        body: 'Keep product names in English.',
         category: 'always',
         scope: { tasks: [] },
-        source: 'manual',
-        addedAt: '2026-05-09T00:00:00.000Z',
-        enabled: true,
-      };
-      const r2: Rule = {
+      }),
+      rule({
         id: 'r2',
-        body: 'Prefer short sentences.',
-        category: 'prefer',
-        scope: { tasks: [] },
-        source: 'manual',
-        addedAt: '2026-05-09T00:00:00.000Z',
-        enabled: true,
-      };
-      const r3: Rule = {
-        id: 'r3',
-        body: 'Never abbreviate.',
-        category: 'never',
-        scope: { tasks: [] },
-        source: 'manual',
-        addedAt: '2026-05-09T00:00:00.000Z',
-        enabled: true,
-      };
+        body: 'Always preserve URLs verbatim across every task.',
+        category: 'unknown',
+        enabled: false,
+        scope: { tasks: ['summarize', 'gone-task'], sites: ['twitter.com'] },
+      }),
+    ]);
+    expect(
+      getByRole('checkbox', { name: 'Use rule: Keep product names in English.' }),
+    ).toBeTruthy();
+    const off = getByRole('checkbox', {
+      name: 'Use rule: Always preserve URLs verbatim across every task.',
+    }) as HTMLInputElement;
+    expect(off.checked).toBe(false);
+    expect(part(container, 'r1', '[data-ega-rule-meta]').textContent).toBe('Always · All tasks');
+    expect(part(container, 'r2', '[data-ega-rule-meta]').textContent).toBe(
+      'Other · Summarize, Deleted task · twitter.com',
+    );
+    // No "On"/"Off" words and no "RULES (n)" heading: the checkbox says it.
+    expect(container.textContent).not.toMatch(/RULES \(|\bOff\b/);
+  });
 
-      // Seed canonical settings with all three rules — getSettings()
-      // inside the Undo handler reads from here at click time.
+  it('the checkbox flips enabled', async () => {
+    const { container, onUpdate } = mount([rule({ id: 'r1', enabled: true })]);
+    await fireEvent.click(part(container, 'r1', '[data-ega-rule-disable]'));
+    await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
+    expect(onUpdate.mock.calls[0]?.[0][0]?.enabled).toBe(false);
+  });
+
+  it('Edit opens the fields below, focuses the text, and becomes Close; Esc closes back to Edit', async () => {
+    const { container } = mount([rule({ id: 'r1', body: 'Old body.' })]);
+    const edit = part(container, 'r1', '[data-ega-rule-edit]');
+    expect(edit.getAttribute('aria-expanded')).toBe('false');
+    await openEditor(container, 'r1');
+    expect(edit.getAttribute('aria-expanded')).toBe('true');
+    expect(edit.textContent.trim()).toBe('Close');
+    const text = part(container, 'r1', '[data-ega-rule-body-editor]');
+    await waitFor(() => expect(document.activeElement).toBe(text));
+    await fireEvent.keyDown(text, { key: 'Escape' });
+    await waitFor(() => expect(container.querySelector('[data-ega-rule-body-editor]')).toBeNull());
+    expect(document.activeElement).toBe(part(container, 'r1', '[data-ega-rule-edit]'));
+  });
+
+  it('the text writes when it is left, and an empty text is refused in place', async () => {
+    const { container, onUpdate } = mount([rule({ id: 'r1', body: 'Old body.' })]);
+    await openEditor(container, 'r1');
+    const text = part(container, 'r1', '[data-ega-rule-body-editor]') as HTMLTextAreaElement;
+    await fireEvent.input(text, { target: { value: '   ' } });
+    await fireEvent.blur(text);
+    expect(onUpdate).not.toHaveBeenCalled();
+    expect(text.getAttribute('aria-invalid')).toBe('true');
+    const why = document.getElementById(text.getAttribute('aria-describedby') ?? '');
+    expect(why?.textContent).toBe('Write the rule text');
+    await fireEvent.input(text, { target: { value: 'New body.' } });
+    await fireEvent.blur(text);
+    await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
+    expect(onUpdate.mock.calls[0]?.[0][0]?.body).toBe('New body.');
+    await waitFor(() => expect(container.textContent).toContain('Saved'));
+  });
+
+  it('Esc writes the text being typed before it closes', async () => {
+    const { container, onUpdate } = mount([rule({ id: 'r1', body: 'Old body.' })]);
+    await openEditor(container, 'r1');
+    const text = part(container, 'r1', '[data-ega-rule-body-editor]');
+    await fireEvent.input(text, { target: { value: 'Typed, then Esc.' } });
+    await fireEvent.keyDown(text, { key: 'Escape' });
+    await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
+    expect(onUpdate.mock.calls[0]?.[0][0]?.body).toBe('Typed, then Esc.');
+  });
+
+  it('a text write that fails does not say Saved', async () => {
+    const { container, onUpdate } = mount([rule({ id: 'r1', body: 'Old body.' })], () => false);
+    await openEditor(container, 'r1');
+    const text = part(container, 'r1', '[data-ega-rule-body-editor]');
+    await fireEvent.input(text, { target: { value: 'New body.' } });
+    await fireEvent.blur(text);
+    await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
+    expect(container.textContent).not.toContain('Saved');
+  });
+
+  it('Type is a select of type names that writes the category', async () => {
+    const { container, onUpdate } = mount([rule({ id: 'r1', category: 'never' })]);
+    await openEditor(container, 'r1');
+    const select = part(container, 'r1', 'select[data-ega-rule-category]') as HTMLSelectElement;
+    expect([...select.options].map((o) => o.textContent.trim())).toEqual([
+      'Always',
+      'Never',
+      'Prefer',
+      'Format',
+      'Other',
+    ]);
+    await fireEvent.change(select, { target: { value: 'prefer' } });
+    await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
+    expect(onUpdate.mock.calls[0]?.[0][0]?.category).toBe('prefer');
+  });
+
+  it('Applies to: a task turns All tasks off, and the last task off turns it back on, with no toast', async () => {
+    const push = vi.spyOn(toastStore, 'push');
+    const { container, onUpdate } = mount([rule({ id: 'r1', scope: { tasks: [] } })]);
+    await openEditor(container, 'r1');
+    const all = part(container, 'r1', '[data-ega-rule-scope-all]');
+    expect(all.getAttribute('aria-pressed')).toBe('true');
+    await fireEvent.click(part(container, 'r1', '[data-ega-rule-scope-task="summarize"]'));
+    await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
+    expect(onUpdate.mock.calls[0]?.[0][0]?.scope).toEqual({ tasks: ['summarize'] });
+    await waitFor(() =>
+      expect(part(container, 'r1', '[data-ega-rule-scope-all]').getAttribute('aria-pressed')).toBe(
+        'false',
+      ),
+    );
+    await fireEvent.click(part(container, 'r1', '[data-ega-rule-scope-task="summarize"]'));
+    await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(2));
+    expect(onUpdate.mock.calls[1]?.[0][0]?.scope).toEqual({ tasks: [] });
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it('sites write as hosts when the field is left, and an empty list drops the key', async () => {
+    const { container, onUpdate } = mount([
+      rule({ id: 'r1', scope: { tasks: ['translate'], sites: ['old.com'] } }),
+    ]);
+    await openEditor(container, 'r1');
+    const sites = part(container, 'r1', '[data-ega-rule-sites]') as HTMLInputElement;
+    expect(sites.value).toBe('old.com');
+    await fireEvent.input(sites, { target: { value: 'https://www.Twitter.com/x, example.com' } });
+    await fireEvent.blur(sites);
+    await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
+    expect(onUpdate.mock.calls[0]?.[0][0]?.scope).toEqual({
+      tasks: ['translate'],
+      sites: ['twitter.com', 'example.com'],
+    });
+    await fireEvent.input(sites, { target: { value: ' ' } });
+    await fireEvent.blur(sites);
+    await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(2));
+    expect(onUpdate.mock.calls[1]?.[0][0]?.scope).toEqual({ tasks: ['translate'] });
+  });
+});
+
+describe('RulesEditor delete', () => {
+  it('Delete rule removes it at once, says Deleted "…" with Undo, and focus moves to the next row', async () => {
+    const push = vi.spyOn(toastStore, 'push').mockImplementation(() => {});
+    const { container, onUpdate } = mount([
+      rule({ id: 'r1', body: 'First.' }),
+      rule({ id: 'r2', body: 'Second.' }),
+    ]);
+    await openEditor(container, 'r1');
+    await fireEvent.click(part(container, 'r1', '[data-ega-rule-delete]'));
+    await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
+    expect(onUpdate.mock.calls[0]?.[0].map((r) => r.id)).toEqual(['r2']);
+    expect(push.mock.calls[0]?.[0].message).toBe('Deleted "First."');
+    expect(push.mock.calls[0]?.[0].action?.label).toBe('Undo');
+    await waitFor(() =>
+      expect(document.activeElement).toBe(part(container, 'r2', '[data-ega-rule-disable]')),
+    );
+  });
+
+  it('deleting the only rule moves focus to the empty state Add rule', async () => {
+    vi.spyOn(toastStore, 'push').mockImplementation(() => {});
+    const { container } = mount([rule({ id: 'r1' })]);
+    await openEditor(container, 'r1');
+    await fireEvent.click(part(container, 'r1', '[data-ega-rule-delete]'));
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        container.ownerDocument.querySelector('[data-ega-rules-empty] button'),
+      ),
+    );
+  });
+
+  it('a failed delete offers no Undo', async () => {
+    const push = vi.spyOn(toastStore, 'push').mockImplementation(() => {});
+    const { container, onUpdate } = mount([rule({ id: 'r1' })], () => false);
+    await openEditor(container, 'r1');
+    await fireEvent.click(part(container, 'r1', '[data-ega-rule-delete]'));
+    await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  describe('Undo after delete A, then delete B', () => {
+    beforeEach(() => resetChromeMock());
+
+    it('splices A back into the stored rules, not the list captured at delete time', async () => {
+      const captured: ToastMsg[] = [];
+      vi.spyOn(toastStore, 'push').mockImplementation((entry) => {
+        captured.push(entry);
+      });
+      const [r1, r2, r3] = [
+        rule({ id: 'r1', body: 'Always preserve URLs.' }),
+        rule({ id: 'r2', body: 'Prefer short sentences.' }),
+        rule({ id: 'r3', body: 'Never abbreviate.' }),
+      ];
       const seeded: Settings = {
         ...DEFAULT_SETTINGS,
         advanced: { ...DEFAULT_SETTINGS.advanced, rules: [r1, r2, r3] },
       };
       chromeMock.storage.local._raw.set(STORAGE_KEYS.settings, seeded);
-
-      const onUpdate = vi.fn<(next: readonly Rule[]) => void>();
-
-      // Render with all three rules visible.
-      const { container, rerender } = render(RulesEditor, {
-        props: { rules: [r1, r2, r3], onUpdate },
+      const { container, onUpdate } = mount([r1, r2, r3], (next) => {
+        chromeMock.storage.local._raw.set(STORAGE_KEYS.settings, {
+          ...seeded,
+          advanced: { ...seeded.advanced, rules: [...next] },
+        });
+        return true;
       });
-
-      // Delete r1 — capture toast A.
-      const del1 = container.querySelector<HTMLButtonElement>(
-        '[data-ega-rule-row][data-rule-id="r1"] [data-ega-rule-delete]',
-      );
-      if (!del1) throw new Error('expected pill delete button for r1');
-      await fireEvent.click(del1);
-      await waitFor(() => expect(captured.length).toBeGreaterThanOrEqual(1));
-
-      const toastA = captured[0];
-      const undoA = toastA?.action?.onClick;
-      expect(typeof undoA).toBe('function');
-
-      // Simulate parent writeback after first delete — storage now [r2, r3].
-      chromeMock.storage.local._raw.set(STORAGE_KEYS.settings, {
-        ...seeded,
-        advanced: { ...seeded.advanced, rules: [r2, r3] },
-      });
-      await rerender({ rules: [r2, r3], onUpdate });
-
-      // Delete r2 — second toast pushed.
-      const del2 = container.querySelector<HTMLButtonElement>(
-        '[data-ega-rule-row][data-rule-id="r2"] [data-ega-rule-delete]',
-      );
-      if (!del2) throw new Error('expected pill delete button for r2');
-      await fireEvent.click(del2);
-      await waitFor(() => expect(captured.length).toBeGreaterThanOrEqual(2));
-
-      // Simulate parent writeback after second delete — storage now [r3].
-      chromeMock.storage.local._raw.set(STORAGE_KEYS.settings, {
-        ...seeded,
-        advanced: { ...seeded.advanced, rules: [r3] },
-      });
-      await rerender({ rules: [r3], onUpdate });
-
-      // Trigger Undo A. onUpdate calls so far: deleteR1 + deleteR2 (=2).
+      await openEditor(container, 'r1');
+      await fireEvent.click(part(container, 'r1', '[data-ega-rule-delete]'));
+      await waitFor(() => expect(captured).toHaveLength(1));
+      await openEditor(container, 'r2');
+      await fireEvent.click(part(container, 'r2', '[data-ega-rule-delete]'));
+      await waitFor(() => expect(captured).toHaveLength(2));
       onUpdate.mockClear();
-      undoA?.();
+      captured[0]?.action?.onClick();
       await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
-
-      // The post-Undo list MUST be [r1, r3] (r2 stays deleted) — NOT the
-      // pre-r2-delete [r1, r2, r3] which the buggy closure would restore.
-      const restored = onUpdate.mock.calls[0]?.[0];
-      const ids = restored?.map((r) => r.id);
-      expect(ids).toEqual(['r1', 'r3']);
-
-      pushSpy.mockRestore();
+      expect(onUpdate.mock.calls[0]?.[0].map((r) => r.id)).toEqual(['r1', 'r3']);
+      await waitFor(() =>
+        expect(document.activeElement).toBe(part(container, 'r1', '[data-ega-rule-disable]')),
+      );
     });
   });
 });
 
-describe('RulesEditor — failed writes, focus and scope button', () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
-    vi.restoreAllMocks();
-  });
-
-  function rowPart(container: HTMLElement, id: string, part: string): HTMLElement {
-    const el = container.querySelector<HTMLElement>(
-      `[data-ega-rule-row][data-rule-id="${id}"] ${part}`,
+describe('RulesEditor add', () => {
+  it('empty: "No rules yet" with Add rule, and no header button', () => {
+    const { container, getByText } = mount([]);
+    expect(getByText('No rules yet')).toBeTruthy();
+    expect(getByText('For example: Keep product names in English')).toBeTruthy();
+    expect(container.querySelector('[data-ega-rules-add]')).toBeNull();
+    expect(container.querySelector('[data-ega-rules-empty] button')?.textContent.trim()).toBe(
+      'Add rule',
     );
-    if (!el) throw new Error(`missing ${part} on ${id}`);
-    return el;
-  }
-
-  it('the delete toast offers Undo, so it stays until dismissed', async () => {
-    const pushSpy = vi.spyOn(toastStore, 'push').mockImplementation(() => {});
-    const { container } = render(RulesEditor, {
-      props: { rules: [rule({ id: 'r1' })], onUpdate: () => true },
-    });
-    await fireEvent.click(rowPart(container, 'r1', '[data-ega-rule-delete]'));
-    await waitFor(() => expect(pushSpy).toHaveBeenCalledTimes(1));
-    expect(pushSpy.mock.calls[0]?.[0]).toMatchObject({ action: { label: 'Undo' } });
   });
 
-  it('a failed delete offers no Undo', async () => {
-    const pushSpy = vi.spyOn(toastStore, 'push').mockImplementation(() => {});
-    const onUpdate = vi.fn(async () => false);
-    const { container } = render(RulesEditor, {
-      props: { rules: [rule({ id: 'r1' })], onUpdate },
-    });
-    await fireEvent.click(rowPart(container, 'r1', '[data-ega-rule-delete]'));
-    await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
-    await Promise.resolve();
-    expect(pushSpy).not.toHaveBeenCalled();
-  });
-
-  it('a body edit whose write fails does not say Saved', async () => {
-    const onUpdate = vi.fn(async () => false);
-    const { container } = render(RulesEditor, {
-      props: { rules: [rule({ id: 'r1', body: 'Old body.' })], onUpdate },
-    });
-    await fireEvent.click(rowPart(container, 'r1', '[data-ega-rule-body]'));
-    const editor = rowPart(container, 'r1', '[data-ega-rule-body-editor]');
-    await fireEvent.input(editor, { target: { value: 'New body.' } });
-    await fireEvent.blur(editor);
-    await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
-    await new Promise((r) => setTimeout(r, 0));
-    expect(rowPart(container, 'r1', '.saved').textContent).toBe('');
-    expect(
-      rowPart(container, 'r1', '[data-ega-rule-body-editor]') as HTMLTextAreaElement,
-    ).toHaveProperty('value', 'New body.');
-  });
-
-  it('Cancel moves focus to the Add a rule summary', async () => {
-    const { container, getByRole } = render(RulesEditor, {
-      props: { rules: [rule({ id: 'r1' })], onUpdate: () => {} },
-    });
-    const form = container.querySelector<HTMLDetailsElement>('details.manual-block');
-    if (!form) throw new Error('expected form');
-    form.open = true;
-    await fireEvent(form, new Event('toggle'));
-    const cancel = getByRole('button', { name: 'Cancel' });
-    cancel.focus();
-    await fireEvent.click(cancel);
+  it('Add rule opens the fields at the top as a draft and focuses the text', async () => {
+    const { container } = mount([rule({ id: 'r1' })]);
+    await fireEvent.click(container.querySelector('[data-ega-rules-add]') as HTMLElement);
+    const draft = container.querySelector('[data-ega-rule-draft]');
+    expect(draft).not.toBeNull();
+    // The draft sits above the list.
+    const list = container.querySelector('.rule-list') as Element;
+    expect((draft?.compareDocumentPosition(list) ?? 0) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
     await waitFor(() =>
-      expect(document.activeElement).toBe(container.querySelector('summary.manual-summary')),
+      expect(document.activeElement).toBe(container.querySelector('[data-ega-manual-body]')),
     );
   });
 
-  it('Cancel with no rules moves focus back to the empty state button', async () => {
-    const { container, getByRole } = render(RulesEditor, {
-      props: { rules: [], onUpdate: () => {} },
+  it('an empty text says "Write the rule text" and adds nothing', async () => {
+    const { container, onUpdate } = mount([]);
+    await fireEvent.click(container.querySelector('[data-ega-rules-empty] button') as HTMLElement);
+    await fireEvent.click(container.querySelector('[data-ega-manual-submit]') as HTMLElement);
+    expect(onUpdate).not.toHaveBeenCalled();
+    expect(container.textContent).toContain('Write the rule text');
+  });
+
+  it('adds the rule with its type guess, tasks and sites, then focuses the new row', async () => {
+    const { container, onUpdate } = mount([]);
+    await fireEvent.click(container.querySelector('[data-ega-rules-empty] button') as HTMLElement);
+    const draft = container.querySelector('[data-ega-rule-draft]') as HTMLElement;
+    await fireEvent.input(draft.querySelector('[data-ega-manual-body]') as HTMLElement, {
+      target: { value: 'Never translate brand names.' },
     });
-    await fireEvent.click(getByRole('button', { name: 'Add a rule' }));
-    const cancel = getByRole('button', { name: 'Cancel' });
-    cancel.focus();
-    await fireEvent.click(cancel);
+    expect((draft.querySelector('select[data-ega-rule-category]') as HTMLSelectElement).value).toBe(
+      'never',
+    );
+    await fireEvent.click(
+      draft.querySelector('[data-ega-rule-scope-task="summarize"]') as HTMLElement,
+    );
+    await fireEvent.input(draft.querySelector('[data-ega-manual-sites]') as HTMLElement, {
+      target: { value: 'twitter.com' },
+    });
+    await fireEvent.click(draft.querySelector('[data-ega-manual-submit]') as HTMLElement);
+    await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
+    const added = onUpdate.mock.calls[0]?.[0][0];
+    expect(added).toMatchObject({
+      body: 'Never translate brand names.',
+      category: 'never',
+      scope: { tasks: ['summarize'], sites: ['twitter.com'] },
+      enabled: true,
+      source: 'manual',
+    });
+    await waitFor(() => expect(container.querySelector('[data-ega-rule-draft]')).toBeNull());
     await waitFor(() =>
-      expect(document.activeElement).toBe(container.querySelector('[data-ega-rules-empty] button')),
+      expect(document.activeElement).toBe(
+        part(container, added?.id ?? '', '[data-ega-rule-disable]'),
+      ),
     );
   });
 
-  it('Add rule moves focus to the new row', async () => {
-    const onUpdate = vi.fn(async (next: readonly Rule[]) => {
-      await rerender({ rules: next });
-      return true;
+  it('a picked type wins over the guess from the text', async () => {
+    const { container, onUpdate } = mount([]);
+    await fireEvent.click(container.querySelector('[data-ega-rules-empty] button') as HTMLElement);
+    const draft = container.querySelector('[data-ega-rule-draft]') as HTMLElement;
+    const select = draft.querySelector('select[data-ega-rule-category]') as HTMLSelectElement;
+    await fireEvent.change(select, { target: { value: 'format' } });
+    await fireEvent.input(draft.querySelector('[data-ega-manual-body]') as HTMLElement, {
+      target: { value: 'Never use bullet points.' },
     });
-    const { container, rerender } = render(RulesEditor, {
-      props: { rules: [rule({ id: 'r1' })], onUpdate },
-    });
-    const form = container.querySelector<HTMLDetailsElement>('details.manual-block');
-    if (!form) throw new Error('expected form');
-    form.open = true;
-    await fireEvent(form, new Event('toggle'));
-    const body = container.querySelector<HTMLTextAreaElement>('[data-ega-manual-body]');
-    const submit = container.querySelector<HTMLButtonElement>('[data-ega-manual-submit]');
-    if (!body || !submit) throw new Error('expected form controls');
-    await fireEvent.input(body, { target: { value: 'Keep product names.' } });
-    submit.focus();
-    await fireEvent.click(submit);
-    await waitFor(() => {
-      const rows = container.querySelectorAll('[data-ega-rule-row]');
-      expect(rows).toHaveLength(2);
-      expect(document.activeElement).toBe(rows[1]?.querySelector('[data-ega-rule-body]'));
-    });
+    expect(select.value).toBe('format');
+    await fireEvent.click(draft.querySelector('[data-ega-manual-submit]') as HTMLElement);
+    await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
+    expect(onUpdate.mock.calls[0]?.[0][0]?.category).toBe('format');
   });
 
-  it('a failed add keeps the form open with its text', async () => {
-    const { container } = render(RulesEditor, {
-      props: { rules: [rule({ id: 'r1' })], onUpdate: async () => false },
-    });
-    const form = container.querySelector<HTMLDetailsElement>('details.manual-block');
-    if (!form) throw new Error('expected form');
-    form.open = true;
-    await fireEvent(form, new Event('toggle'));
-    const body = container.querySelector<HTMLTextAreaElement>('[data-ega-manual-body]');
-    const submit = container.querySelector<HTMLButtonElement>('[data-ega-manual-submit]');
-    if (!body || !submit) throw new Error('expected form controls');
-    await fireEvent.input(body, { target: { value: 'Keep product names.' } });
-    await fireEvent.click(submit);
-    await new Promise((r) => setTimeout(r, 0));
-    expect(form.open).toBe(true);
-    expect(body.value).toBe('Keep product names.');
-  });
-
-  it('Edit scope says it opens a dialog, whether it is open, and which rule it edits', async () => {
-    const { container } = render(RulesEditor, {
-      props: {
-        rules: [
-          rule({ id: 'r1', body: 'Always preserve URLs.' }),
-          rule({ id: 'r2', body: 'Prefer short sentences in every answer you give me.' }),
-        ],
-        onUpdate: () => {},
-      },
-    });
-    const b1 = rowPart(container, 'r1', '[data-ega-rule-edit-scope]');
-    const b2 = rowPart(container, 'r2', '[data-ega-rule-edit-scope]');
-    expect(b1.getAttribute('aria-label')).toBe('Edit scope: Always preserve URLs.');
-    expect(b2.getAttribute('aria-label')).toBe(
-      'Edit scope: Prefer short sentences in every answer y…',
+  it('a failed add keeps the draft open with its text', async () => {
+    const { container, onUpdate } = mount([], () => false);
+    await fireEvent.click(container.querySelector('[data-ega-rules-empty] button') as HTMLElement);
+    const body = container.querySelector('[data-ega-manual-body]') as HTMLTextAreaElement;
+    await fireEvent.input(body, { target: { value: 'Keep it.' } });
+    await fireEvent.click(container.querySelector('[data-ega-manual-submit]') as HTMLElement);
+    await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
+    expect(container.querySelector('[data-ega-rule-draft]')).not.toBeNull();
+    expect((container.querySelector('[data-ega-manual-body]') as HTMLTextAreaElement).value).toBe(
+      'Keep it.',
     );
-    expect(b1.getAttribute('aria-haspopup')).toBe('dialog');
-    expect(b1.getAttribute('aria-expanded')).toBe('false');
-    await fireEvent.click(b1);
-    expect(b1.getAttribute('aria-expanded')).toBe('true');
   });
 
-  it("the On checkbox's description still exists while the body is being edited", async () => {
-    const { container } = render(RulesEditor, {
-      props: { rules: [rule({ id: 'r1', body: 'Old body.' })], onUpdate: () => {} },
-    });
-    const on = rowPart(container, 'r1', '[data-ega-rule-disable]');
-    await fireEvent.click(rowPart(container, 'r1', '[data-ega-rule-body]'));
-    expect(container.querySelector('[data-ega-rule-body-editor]')).not.toBeNull();
-    const id = on.getAttribute('aria-describedby') ?? '';
-    expect(document.getElementById(id)?.textContent).toBe('Old body.');
+  it('Cancel closes the draft and focus goes back to Add rule', async () => {
+    const { container } = mount([rule({ id: 'r1' })]);
+    const add = container.querySelector('[data-ega-rules-add]') as HTMLElement;
+    await fireEvent.click(add);
+    const cancel = [...container.querySelectorAll('[data-ega-rule-draft] button')].find(
+      (b) => b.textContent.trim() === 'Cancel',
+    ) as HTMLElement;
+    await fireEvent.click(cancel);
+    await waitFor(() => expect(container.querySelector('[data-ega-rule-draft]')).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(add));
+  });
+
+  it('at the cap, Add rule stays focusable, says why, and opens nothing', async () => {
+    const rules = Array.from({ length: RULES_MAX }, (_, i) => rule({ id: `r${i}`, body: `R${i}` }));
+    const { container } = mount(rules);
+    const add = container.querySelector('[data-ega-rules-add]') as HTMLElement;
+    expect(add.getAttribute('aria-disabled')).toBe('true');
+    expect(document.getElementById(add.getAttribute('aria-describedby') ?? '')?.textContent).toBe(
+      `You have the most rules Ega keeps (${RULES_MAX})`,
+    );
+    await fireEvent.click(add);
+    expect(container.querySelector('[data-ega-rule-draft]')).toBeNull();
+  });
+
+  it('warns when the rules for one request pass the size limit', () => {
+    const long = Array.from({ length: 20 }, (_, i) =>
+      rule({
+        id: `r${i}`,
+        body: `Rule ${i}: ${'cite the clause every time. '.repeat(16)}`.slice(0, 480),
+      }),
+    );
+    const { container } = mount(long);
+    expect(container.querySelector('[data-ega-rules-budget-warn]')).not.toBeNull();
   });
 
   it('the new row scrolls into view without smooth motion under reduced motion', async () => {
@@ -621,25 +421,22 @@ describe('RulesEditor — failed writes, focus and scope button', () => {
       dispatchEvent: () => false,
     }));
     const scroll = vi.spyOn(Element.prototype, 'scrollIntoView');
-    const onUpdate = vi.fn(async (next: readonly Rule[]) => {
-      await rerender({ rules: next });
-      return true;
+    const { container } = mount([rule({ id: 'r1' })]);
+    await fireEvent.click(container.querySelector('[data-ega-rules-add]') as HTMLElement);
+    await fireEvent.input(container.querySelector('[data-ega-manual-body]') as HTMLElement, {
+      target: { value: 'Keep product names.' },
     });
-    const { container, rerender } = render(RulesEditor, {
-      props: { rules: [rule({ id: 'r1' })], onUpdate },
-    });
-    const form = container.querySelector<HTMLDetailsElement>('details.manual-block');
-    if (!form) throw new Error('expected form');
-    form.open = true;
-    await fireEvent(form, new Event('toggle'));
-    const body = container.querySelector<HTMLTextAreaElement>('[data-ega-manual-body]');
-    const submit = container.querySelector<HTMLButtonElement>('[data-ega-manual-submit]');
-    if (!body || !submit) throw new Error('expected form controls');
-    await fireEvent.input(body, { target: { value: 'Keep product names.' } });
-    await fireEvent.click(submit);
+    await fireEvent.click(container.querySelector('[data-ega-manual-submit]') as HTMLElement);
     await waitFor(() => expect(scroll).toHaveBeenCalled());
-    for (const call of scroll.mock.calls) {
-      expect(call[0]).toMatchObject({ behavior: 'auto' });
-    }
+    for (const call of scroll.mock.calls) expect(call[0]).toMatchObject({ behavior: 'auto' });
+  });
+
+  it('uses the shipped task list when the tab passes none', async () => {
+    const { container } = mount([rule({ id: 'r1' })]);
+    await openEditor(container, 'r1');
+    const names = [...container.querySelectorAll('[data-ega-rule-scope-task]')].map((b) =>
+      b.textContent.trim(),
+    );
+    expect(names).toEqual(SHIPPED_TASK_VIEWS.map((v) => v.label));
   });
 });

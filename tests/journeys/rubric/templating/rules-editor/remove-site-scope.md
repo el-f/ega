@@ -2,25 +2,25 @@
 
 ## Latency budgets
 
-- Site chip click -> storage write: <= 150ms.
+- Leaving the Sites field -> storage write: <= 150ms.
 
 ## State expectations
 
-- Step 1: a rule is seeded with `scope.sites = ['example.com']`; the example.com site chip is visible in the rule row.
-- Step 2 (click the example.com site chip): the chip is removed from the display; `scope.sites` is removed (empty array or deleted key) from storage.
-- Step 3: the rule row no longer shows any site scope indicator.
+- Step 1: a rule is seeded with `scope.sites = ['example.com']`; the meta line ends with "example.com".
+- Step 2 (Edit, clear "Sites (optional)", leave the field): `scope.sites` is removed from storage.
+- Step 3: the meta line no longer names a site.
 
 ## Visible affordances
 
-- Site scope chips are visible in each rule row.
-- Each site chip has a remove (x) affordance.
+- Sites is one labelled text field holding the hosts joined by commas, with the hint "Separate sites with commas".
+- A typed URL is stored as its host, lowercase, without "www.".
 
 ## Failure-mode expectations
 
-- Storage write failure keeps the site chip; a "Change not saved" warning toast appears (no inline error).
-- Removing all site scope chips results in the rule applying to all sites (no site restriction).
+- A failed write keeps the old sites and shows a "Not saved" toast.
+- An empty field means the rule applies on every site.
 
 ## Cautions
 
-- An empty `scope.sites` array and a missing `scope.sites` key are functionally equivalent (global scope); the storage write may use either form — both are correct.
-- Removing the site scope from a rule does NOT disable the rule.
+- An empty `scope.sites` array and a missing key mean the same; the writer drops the key.
+- Clearing sites does NOT turn the rule off.

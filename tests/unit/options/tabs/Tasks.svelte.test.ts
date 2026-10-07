@@ -29,25 +29,34 @@ const row = (c: HTMLElement, t: string): HTMLElement => {
 };
 
 describe('Tasks tab', () => {
-  it('lists the seven built-ins; Translate cannot be turned off', async () => {
+  it('lists the seven built-ins; Translate stays on, focusable, with "Always on" as the reason', async () => {
     const { container } = await mount();
     expect(container.querySelectorAll('[data-ega-task-item]')).toHaveLength(7);
     const translate = container.querySelector<HTMLInputElement>(
       '[data-ega-task-toggle="translate"]',
     );
-    expect(translate?.disabled).toBe(true);
-    expect(row(container, 'translate').textContent).toContain('Always on');
+    if (!translate) throw new Error('no translate toggle');
+    expect(translate.disabled).toBe(false);
+    expect(translate.getAttribute('aria-disabled')).toBe('true');
+    const reason = translate
+      .getAttribute('aria-describedby')
+      ?.split(' ')
+      .map((id) => document.getElementById(id)?.textContent.trim());
+    expect(reason).toContain('Always on');
+    await fireEvent.click(translate);
+    expect(translate.checked).toBe(true);
+    expect((await getSettings()).disabledTasks).toEqual([]);
     expect(row(container, 'summarize').textContent).not.toMatch(/built-in/i);
   });
 
-  it('a toggle writes disabledTasks and the row shows Off', async () => {
+  it('a toggle writes disabledTasks; the box says off, with no extra Off word', async () => {
     const { container } = await mount();
     const box = container.querySelector<HTMLInputElement>('[data-ega-task-toggle="summarize"]');
     if (!box) throw new Error('no toggle');
-    expect(row(container, 'summarize').textContent).not.toContain('Off');
     await fireEvent.click(box);
     await waitFor(async () => expect((await getSettings()).disabledTasks).toEqual(['summarize']));
-    await waitFor(() => expect(row(container, 'summarize').textContent).toContain('Off'));
+    await waitFor(() => expect(box.checked).toBe(false));
+    expect(row(container, 'summarize').textContent).not.toContain('Off');
   });
 
   it('an edited task shows Edited; an off default task shows as Translate', async () => {
@@ -203,9 +212,44 @@ describe('Tasks tab — your own tasks', () => {
     await fireEvent.input(el, { target: { value } });
   }
 
+  it('with none yet, the only New task is the empty state button', async () => {
+    const { container } = await mount();
+    expect(container.querySelector('[data-ega-custom-task-new]')).toBeNull();
+    expect(container.textContent).toContain('No tasks of your own yet');
+    expect(container.textContent).toContain('Write a prompt once and run it on any text');
+  });
+
+  it('at the cap, New task stays focusable, says why, and opens nothing', async () => {
+    const { CUSTOM_TASKS_MAX } = await import('@/shared/storage/sanitise');
+    const rows = Array.from({ length: CUSTOM_TASKS_MAX }, (_, i) => ({
+      id: `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`,
+      label: `Task ${i}`,
+      system: '',
+      user: '{{text}}',
+      output: 'plain',
+      pageContext: false,
+      image: false,
+      glossary: false,
+      createdAt: i + 1,
+    }));
+    await chrome.storage.local.set({ 'ega.customTasks': rows });
+    const { container } = await mount();
+    const add = await waitFor(() => {
+      const el = container.querySelector<HTMLElement>('[data-ega-custom-task-new]');
+      if (!el) throw new Error('no header button yet');
+      return el;
+    });
+    expect(add.getAttribute('aria-disabled')).toBe('true');
+    expect(
+      document.getElementById(add.getAttribute('aria-describedby') ?? '')?.textContent,
+    ).toContain(`You have the most tasks Ega keeps (${CUSTOM_TASKS_MAX})`);
+    await fireEvent.click(add);
+    expect(document.querySelector('[data-ega-custom-task-dialog]')).toBeNull();
+  });
+
   it('New task saves itself once it has a name and a valid message, and the list shows it', async () => {
     const { container } = await mount();
-    const add = container.querySelector<HTMLElement>('[data-ega-custom-task-new]');
+    const add = container.querySelector<HTMLElement>('[data-ega-empty-state] button');
     if (!add) throw new Error('no new button');
     await fireEvent.click(add);
     await waitFor(() => {
@@ -290,53 +334,5 @@ describe('Tasks tab — a task deleted in another window', () => {
     expect(document.querySelector('[data-ega-custom-task-dialog]')).not.toBeNull();
     const { getCustomTasks } = await import('@/shared/storage');
     expect(await getCustomTasks()).toEqual([]);
-  });
-
-  describe('rules scoped to your own task', () => {
-    const legal = {
-      label: 'Legal',
-      system: '',
-      user: '{{text}}',
-      output: 'plain' as const,
-      pageContext: false,
-      image: false,
-      glossary: false,
-    };
-    const scopedRules = (id: string, n: number) =>
-      Array.from({ length: n }, (_, i) => ({
-        id: `r${i}`,
-        body: `Rule ${i}: ${'cite the clause number every time. '.repeat(14)}`.slice(0, 480),
-        category: 'always' as const,
-        scope: { tasks: [id] },
-        source: 'manual' as const,
-        addedAt: '2026-10-02T00:00:00.000Z',
-        enabled: true,
-      }));
-
-    it('count toward the over-budget warning', async () => {
-      const { addCustomTask } = await import('@/shared/tasks');
-      const { updateSettings } = await import('@/shared/storage');
-      const added = await addCustomTask(legal);
-      const { container } = await mount(async (cur) =>
-        updateSettings({ advanced: { ...cur.advanced, rules: scopedRules(added.id, 20) } }),
-      );
-      await waitFor(() =>
-        expect(container.querySelector('[data-ega-rules-budget-warn]')).not.toBeNull(),
-      );
-    });
-
-    it('show the task name the tab has now, not the one it had when it opened', async () => {
-      const { addCustomTask, updateCustomTask } = await import('@/shared/tasks');
-      const { updateSettings } = await import('@/shared/storage');
-      const added = await addCustomTask(legal);
-      const { container } = await mount(async (cur) =>
-        updateSettings({ advanced: { ...cur.advanced, rules: scopedRules(added.id, 1) } }),
-      );
-      const scope = () =>
-        container.querySelector('[data-ega-rule-row] .scope-chips')?.textContent ?? '';
-      await waitFor(() => expect(scope()).toContain('Legal'));
-      await updateCustomTask(added.id, { ...legal, label: 'Contracts' });
-      await waitFor(() => expect(scope()).toContain('Contracts'));
-    });
   });
 });

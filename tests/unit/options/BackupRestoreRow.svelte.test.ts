@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { describe, it, expect } from 'vitest';
-import { render } from '@testing-library/svelte';
+import { describe, it, expect, vi } from 'vitest';
+import { fireEvent, render } from '@testing-library/svelte';
 import BackupRestoreRow from '@/options/components/BackupRestoreRow.svelte';
 import type { ImportStatus } from '@/options/import-bundle';
 import { expectIconKind } from '../shared/ui/_helpers';
@@ -60,5 +60,20 @@ describe('BackupRestoreRow', () => {
     const props = { ...makeProps(), status: { kind: 'err' as const, msg: 'Import failed' } };
     const { getByRole } = render(BackupRestoreRow, { props });
     expect(getByRole('alert').textContent).toContain('Import failed');
+  });
+
+  it('a blocked export stays focusable, says why, and exports nothing', async () => {
+    const onExport = vi.fn();
+    const { getByRole } = render(BackupRestoreRow, {
+      props: { ...makeProps(), onExport, exportBlockedReason: 'Nothing to export yet' },
+    });
+    const btn = getByRole('button', { name: /Export Languages/ });
+    expect(btn.hasAttribute('disabled')).toBe(false);
+    expect(btn.getAttribute('aria-disabled')).toBe('true');
+    expect(document.getElementById(btn.getAttribute('aria-describedby') ?? '')?.textContent).toBe(
+      'Nothing to export yet',
+    );
+    await fireEvent.click(btn);
+    expect(onExport).not.toHaveBeenCalled();
   });
 });

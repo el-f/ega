@@ -6,7 +6,7 @@
 
 ## State expectations
 
-- Step 1 (uncheck Reword): `disabledTasks` becomes ["reword"] and the row shows "Off".
+- Step 1 (uncheck Reword): `disabledTasks` becomes ["reword"] and its checkbox is unchecked.
 - Step 2: a side panel opened after that has no Reword in the mode chip's Next message popover.
 - Step 3: after one translation, the reply's More menu lists no Reword under "Answer again as". Arrowing through that menu starts no new answer, and Escape puts focus back on More.
 - Step 4: the command palette lists no "Switch task: Reword".

@@ -2,26 +2,25 @@
 
 ## Latency budgets
 
-- Submit -> rule persists + appears in list: <= 200ms.
+- Add rule -> rule persists and appears in the list: <= 200ms.
 
 ## State expectations
 
-- Step 1: with no rules, user clicks the empty state's "Add a rule" button; with rules, the "Add a rule" section below the list.
-- Step 2: user types the rule text (tasks and sites are optional); a line under the text shows the category guessed from it. User clicks "Add rule".
-- Step 3: a new rule row appears at the bottom of the rules list with the entered values, scrolls into view and pulses once; the form clears and closes.
+- Step 1: with no rules, the user presses the empty state's "Add rule"; with rules, the header "Add rule".
+- Step 2: the draft opens at the top of the card and focus moves to "Rule text". Type follows the text ("Always …" reads Always) until the user picks one.
+- Step 3 (Add rule): the new rule row appears in the list, scrolls into view and pulses once; the draft closes and focus moves to the new rule's checkbox.
 
 ## Visible affordances
 
-- Form fields are labeled in sentence case; "Add rule" is the primary action and "Cancel" closes and clears the form.
-- Body field is labeled "Rule text" with an example placeholder; input is capped at 500 characters (no visible count).
-- "Applies to" says that picking no task applies the rule to all tasks.
+- Fields: "Rule text", "Type", "Applies to" (All tasks plus one toggle per task) and "Sites (optional)" with the hint "Separate sites with commas".
+- "Add rule" is the primary action; "Cancel" closes the draft and returns focus to Add rule.
 
 ## Failure-mode expectations
 
-- "Add rule" is disabled while the rule text is empty (whitespace only counts as empty); a visible line says to write the rule text.
-- A duplicate body is added as a new rule with no prompt.
+- Add rule stays enabled; with an empty text it says "Write the rule text" and adds nothing.
+- At 100 rules, Add rule is aria-disabled and the card says "You have the most rules Ega keeps (100)".
 
 ## Cautions
 
-- The rule must be created with `enabled === true` by default — the user added it for a reason.
-- Manual-add bypasses the LLM meta-prompt path; it's a direct write.
+- The rule must be created with `enabled === true` — the user added it for a reason.
+- Manual add is a direct write.

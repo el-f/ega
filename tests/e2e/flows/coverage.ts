@@ -685,23 +685,23 @@ export const COVERAGE: readonly Family[] = [
         actions: [
           {
             id: 'manual-add-rule',
-            description: 'Manual form creates a rule and persists to storage',
+            description: 'Add rule opens a draft at the top; Add rule saves it to storage',
             flows: ['rules-editor/manual-add-rule.flow.spec.ts'],
           },
           {
             id: 'edit-rule-body',
-            description: 'Click-to-edit rule saves the trimmed text',
+            description: 'Edit opens the rule text; leaving the field saves the trimmed text',
             flows: ['rules-editor/edit-rule-body.flow.spec.ts'],
           },
           {
             id: 'toggle-enabled',
-            description: 'The On checkbox flips the enabled flag in storage and shows an Off badge',
+            description: 'The "Use rule" checkbox flips the enabled flag in storage',
             flows: ['rules-editor/toggle-enabled.flow.spec.ts'],
           },
           {
             id: 'delete-rule',
             description:
-              'Delete removes the rule at once, with no confirm, and surfaces an Undo toast',
+              'Delete rule in the open row removes it at once, with no confirm, and an Undo toast',
             flows: ['rules-editor/delete-rule.flow.spec.ts'],
           },
           {
@@ -713,25 +713,25 @@ export const COVERAGE: readonly Family[] = [
           {
             id: 'toggle-task-scope',
             description:
-              'Seed rule with scope.tasks=[translate] → click the last chip → kept; Edit scope → All tasks → tasks=[]',
+              'Seed rule with scope.tasks=[translate] → turn Translate off in Applies to → All tasks on, tasks=[], no toast',
             flows: ['rules-editor/toggle-task-scope.flow.spec.ts'],
           },
           {
             id: 'edit-category',
             description:
-              'Seed rule category=always → category select → never → storage reflects updated category',
+              'Seed rule category=always → Type select in the open row → never → storage updated',
             flows: ['rules-editor/edit-category.flow.spec.ts'],
           },
           {
             id: 'remove-site-scope',
             description:
-              'Seed rule scope.sites=[example.com] → click site chip → scope.sites removed',
+              'Seed rule scope.sites=[example.com] → clear the Sites field → scope.sites removed',
             flows: ['rules-editor/remove-site-scope.flow.spec.ts'],
           },
           {
             id: 'rules-budget-warning',
             description:
-              'Seed >8 KB of rules → open Rules chip → budget-warn banner visible with KB count',
+              'Seed >8 KB of rules → Glossary and rules tab → budget warning with the KB count',
             flows: ['rules-editor/rules-budget-warning.flow.spec.ts'],
           },
         ],
@@ -924,7 +924,7 @@ export const COVERAGE: readonly Family[] = [
           {
             id: 'glossary-scope-auto-detect',
             description:
-              'Glossary scope help explains the Auto-detect rule the picker offers, and the rule holds',
+              'The glossary (i) explains the scope rule, More options offers Auto-detect, and the rule holds',
             flows: ['options-translate/glossary-scope-auto-detect.flow.spec.ts'],
           },
           {
@@ -1332,19 +1332,19 @@ export const COVERAGE: readonly Family[] = [
           },
           {
             id: 'delete-entry',
-            description: 'Add entry then click trash icon → entry removed from settings.glossary',
+            description: 'Edit opens the row; Delete entry removes it from settings.glossary',
             flows: ['options-glossary/delete-entry.flow.spec.ts'],
           },
           {
             id: 'add-entry-with-lang-scope',
             description:
-              'Fill term+translation+pick source/target lang+enable case-sensitive → entry stored with all fields',
+              'Fill term+translation, More options: source/target lang and Match case → entry stored with all fields',
             flows: ['options-glossary/add-entry-with-lang-scope.flow.spec.ts'],
           },
           {
             id: 'add-entry-cap-error',
             description:
-              'Seed 200 glossary entries → attempt to add → error "Glossary limit is 200 entries — delete one before adding another" shows, no entry written',
+              'Seed 200 glossary entries → Add is aria-disabled with "The glossary holds 200 entries, the most Ega keeps"; no entry written',
             flows: ['options-glossary/add-entry-cap-error.flow.spec.ts'],
           },
         ],

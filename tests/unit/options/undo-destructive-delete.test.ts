@@ -62,7 +62,11 @@ describe('Glossary delete is undoable', () => {
     const { container } = render(Glossary);
     expect(await rows(container)).toHaveLength(3);
 
-    const btn = container.querySelector<HTMLButtonElement>('[aria-label="Delete entry Beta"]');
+    // Delete lives in the open row.
+    await fireEvent.click(container.querySelector('[aria-label="Edit entry Beta"]') as HTMLElement);
+    const btn = await waitFor(() =>
+      container.querySelector<HTMLButtonElement>('[aria-label="Delete entry Beta"]'),
+    );
     if (!btn) throw new Error('delete button for Beta not found');
     await fireEvent.click(btn);
     await storedTerms(['Alpha', 'Gamma']);
@@ -77,7 +81,12 @@ describe('Glossary delete is undoable', () => {
     await rows(container);
     chromeMock.storage.local._raw.set('ega.settings', parseSettings({ glossary: [] }));
 
-    const btn = container.querySelector<HTMLButtonElement>('[aria-label="Delete entry Alpha"]');
+    await fireEvent.click(
+      container.querySelector('[aria-label="Edit entry Alpha"]') as HTMLElement,
+    );
+    const btn = await waitFor(() =>
+      container.querySelector<HTMLButtonElement>('[aria-label="Delete entry Alpha"]'),
+    );
     if (!btn) throw new Error('delete button for Alpha not found');
     await fireEvent.click(btn);
     // The skipped write still re-reads the list, and the toast would follow that read.

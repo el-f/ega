@@ -51,13 +51,14 @@ test('delete rule A → Undo toast → click Undo → A re-inserted, B still pre
   const timeline = createTimeline();
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
-  await page.locator('#tab-tasks').click();
+  await page.locator('#tab-glossary').click();
 
   await expect(page.locator('[data-ega-rules-editor]')).toBeVisible({ timeout: 5_000 });
   timeline.markStep('rules-mounted');
 
   const rowA = page.locator(`[data-ega-rule-row][data-rule-id="${ID_A}"]`);
   await expect(rowA).toBeVisible({ timeout: 5_000 });
+  await rowA.locator('[data-ega-rule-edit]').click();
   await rowA.locator('[data-ega-rule-delete]').click();
   timeline.markStep('delete-clicked');
 

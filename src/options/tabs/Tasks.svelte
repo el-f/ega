@@ -5,22 +5,20 @@
   import {
     ALL_TASKS,
     ALL_TONES,
-    TASK_DESCRIPTIONS,
     TASK_LABELS,
     TONE_LABELS,
     runnableDefaultTask,
     type Task,
     type Tone,
   } from '@/shared/task-prompts';
-  import { onDestroy, onMount } from 'svelte';
   import { builtInTaskView, materializeTasks } from '@/shared/task-view';
   import { setTaskEnabled } from '@/shared/tasks';
-  import { STORAGE_KEYS } from '@/shared/constants';
   import type { CustomTask } from '@/shared/settings-schema';
-  import { debugCatch } from '@/shared/logger';
+  import { CUSTOM_TASKS_MAX } from '@/shared/storage/sanitise';
   import CustomTaskDialog from '@/options/components/CustomTaskDialog.svelte';
   import BackupRestoreRow from '@/options/components/BackupRestoreRow.svelte';
-  import { getCustomTasks, getSettings as readSettings } from '@/shared/storage';
+  import { getSettings as readSettings } from '@/shared/storage';
+  import { liveCustomTasks } from '@/options/custom-tasks-state.svelte';
   import { exportTasks } from '@/shared/storage/backup';
   import { importBundleFile, type ImportStatus } from '@/options/import-bundle';
   import { count } from '@/shared/utils/count';
@@ -32,12 +30,10 @@
   import Select from '@/shared/ui/Select.svelte';
   import Checkbox from '@/shared/ui/Checkbox.svelte';
   import Button from '@/shared/ui/Button.svelte';
+  import Badge from '@/shared/ui/Badge.svelte';
   import EmptyState from '@/shared/components/EmptyState.svelte';
   import ListPlus from '@lucide/svelte/icons/list-plus';
   import TaskEditDialog from '@/options/components/TaskEditDialog.svelte';
-  import RulesEditor from '@/options/components/RulesEditor.svelte';
-  import { createTemplatesHandlers } from '@/options/templates-handlers';
-  import { estimateRulesBlockBytes, RULES_BLOCK_WARN_BYTES } from '@/shared/rules-budget';
 
   interface Props {
     s: Settings | null;
@@ -49,40 +45,12 @@
   let editing = $state<Task | null>(null);
   /** A custom row being edited, or 'new' for the add form. */
   let editingCustom = $state<CustomTask | 'new' | null>(null);
-  let customTasks = $state.raw<CustomTask[]>([]);
-
-  function loadCustomTasks(): void {
-    void getCustomTasks()
-      .then((rows) => {
-        customTasks = rows;
-      })
-      .catch((e: unknown) => debugCatch(e, 'options.Tasks.loadCustomTasks'));
-  }
-  const onStorage = (changes: Record<string, chrome.storage.StorageChange>, area: string): void => {
-    if (area === 'local' && STORAGE_KEYS.customTasks in changes) loadCustomTasks();
-  };
-  onMount(() => {
-    loadCustomTasks();
-    chrome.storage.onChanged.addListener(onStorage);
-  });
-  onDestroy(() => chrome.storage.onChanged.removeListener(onStorage));
+  const custom = liveCustomTasks();
+  const customTasks = $derived(custom.rows);
+  const loadCustomTasks = custom.reload;
 
   const views = $derived(s ? materializeTasks(s, customTasks) : []);
-
-  const handlers = createTemplatesHandlers({
-    getSettings: () => s,
-    setSettings: (next) => onSetSettings(next),
-  });
-
-  // Site- and task-scoped rules only render for their own host/task, so the warning tracks the biggest single request.
-  const rulesOverBudget = $derived.by(() => {
-    if (!s) return false;
-    const rules = s.advanced.rules;
-    const hosts = [undefined, ...new Set(rules.flatMap((r) => r.scope.sites ?? []))];
-    return views.some(({ id }) =>
-      hosts.some((host) => estimateRulesBlockBytes(rules, id, host) > RULES_BLOCK_WARN_BYTES),
-    );
-  });
+  const atCap = $derived(customTasks.length >= CUSTOM_TASKS_MAX);
 
   let backupState = $state<ImportStatus | null>(null);
 
@@ -93,7 +61,7 @@
       downloadJsonFile(`ega-tasks-${new Date().toISOString().slice(0, 10)}.json`, bundle);
       backupState = {
         kind: 'ok',
-        msg: `Exported ${count(bundle.egaTasks.customTasks.length, 'task')} and ${count(Object.keys(bundle.egaTasks.taskOverrides).length, 'edit')}.`,
+        msg: `Exported ${count(bundle.egaTasks.customTasks.length, 'task')} and ${count(Object.keys(bundle.egaTasks.taskOverrides).length, 'edit')}`,
       };
     } catch (e) {
       backupState = { kind: 'err', msg: `Export failed: ${(e as Error).message}` };
@@ -129,38 +97,38 @@
   <TabHeader tab="tasks" />
   {#if s}
     {@const settings = s}
-    <SectionCard title="Defaults">
-      <div data-ega-setting="defaults.defaultTask">
-        <Select
-          label="Default task"
-          size="sm"
-          value={runnableDefaultTask(settings)}
-          options={views.filter((v) => !v.disabled).map((v) => ({ value: v.id, label: v.label }))}
-          modified={isFieldModified('defaults.defaultTask', settings)}
-          onchange={(v) => void patch({ defaultTask: v })}
-        />
-        <p class="tasks-help">
-          {(TASK_DESCRIPTIONS as Record<string, string | undefined>)[
-            runnableDefaultTask(settings)
-          ] ?? 'Your own task.'}
-        </p>
-      </div>
-      <div data-ega-setting="defaults.defaultTone">
-        <Select
-          label="Default tone"
-          size="sm"
-          value={settings.defaultTone}
-          options={toneOptions}
-          modified={isFieldModified('defaults.defaultTone', settings)}
-          onchange={(v) => void patch({ defaultTone: v as Tone })}
-        />
-        <p class="tasks-help">Used by tasks that write in a tone, like Reword.</p>
+    <SectionCard title="Defaults" description="What runs when you do not pick a task">
+      <div class="tasks-defaults">
+        <div data-ega-setting="defaults.defaultTask">
+          <Select
+            label="Default task"
+            size="sm"
+            value={runnableDefaultTask(settings)}
+            options={views.filter((v) => !v.disabled).map((v) => ({ value: v.id, label: v.label }))}
+            modified={isFieldModified('defaults.defaultTask', settings)}
+            onchange={(v) => void patch({ defaultTask: v })}
+          />
+        </div>
+        <div data-ega-setting="defaults.defaultTone">
+          <Select
+            label="Default tone"
+            size="sm"
+            value={settings.defaultTone}
+            options={toneOptions}
+            modified={isFieldModified('defaults.defaultTone', settings)}
+            onchange={(v) => void patch({ defaultTone: v as Tone })}
+          />
+        </div>
       </div>
     </SectionCard>
 
     <SectionCard
       title="Built-in tasks"
-      description="An off task is hidden in the side panel, the tooltip, the palette and every menu."
+      description="An off task is hidden in every picker and menu"
+      info={{
+        label: 'About built-in tasks',
+        text: 'Edit a task to change its prompt, effort and inputs. Reset in its dialog puts back the built-in version.',
+      }}
     >
       <div data-ega-setting="tasks.overrides">
         <ul class="task-list" data-ega-setting="tasks.enabled">
@@ -174,12 +142,15 @@
                 id={`ega-task-toggle-${t}`}
                 label={TASK_LABELS[t]}
                 checked={!view.disabled}
-                inputAttrs={{ 'data-ega-task-toggle': t, disabled: t === 'translate' }}
+                ariaDisabled={t === 'translate'}
+                {...t === 'translate' ? { describedBy: 'ega-task-always-on' } : {}}
+                inputAttrs={{ 'data-ega-task-toggle': t }}
                 onchange={(on) => void toggle(t, on)}
               />
-              {#if t === 'translate'}<span class="badge badge-off">Always on</span>{/if}
-              {#if edited}<span class="badge badge-edited">Edited</span>{/if}
-              {#if view.disabled}<span class="badge badge-off">Off</span>{/if}
+              {#if t === 'translate'}
+                <span id="ega-task-always-on"><Badge variant="muted">Always on</Badge></span>
+              {/if}
+              {#if edited}<Badge variant="muted">Edited</Badge>{/if}
               <span class="task-spacer"></span>
               <Button
                 variant="ghost"
@@ -196,19 +167,29 @@
 
     <SectionCard
       title="Your tasks"
-      description="Tasks you write yourself. Each one runs its own prompt."
+      description="Tasks you write yourself, each with its own prompt"
     >
       {#snippet headerActions()}
-        <Button
-          size="sm"
-          dataAttrs={{ 'data-ega-custom-task-new': true }}
-          onclick={() => (editingCustom = 'new')}>New task</Button
-        >
+        {#if customViews.length > 0}
+          <Button
+            variant="secondary"
+            size="sm"
+            ariaDisabled={atCap}
+            {...atCap ? { describedBy: 'ega-custom-task-cap' } : {}}
+            dataAttrs={{ 'data-ega-custom-task-new': true }}
+            onclick={() => (editingCustom = 'new')}>New task</Button
+          >
+        {/if}
       {/snippet}
+      {#if atCap}
+        <p class="tasks-cap" id="ega-custom-task-cap" data-ega-custom-task-cap>
+          You have the most tasks Ega keeps ({CUSTOM_TASKS_MAX}). Delete one to add another.
+        </p>
+      {/if}
       {#if customViews.length === 0}
         <EmptyState
           title="No tasks of your own yet"
-          description="Write a prompt once and run it on any text, like: Turn this into a polite email reply."
+          description="Write a prompt once and run it on any text"
           icon={ListPlus}
           ctaLabel="New task"
           onCta={() => (editingCustom = 'new')}
@@ -224,7 +205,6 @@
                 inputAttrs={{ 'data-ega-task-toggle': v.id }}
                 onchange={(on) => void toggle(v.id, on)}
               />
-              {#if v.disabled}<span class="badge badge-off">Off</span>{/if}
               <span class="task-spacer"></span>
               <Button
                 variant="ghost"
@@ -241,27 +221,12 @@
     </SectionCard>
 
     <SectionCard
-      title="Rules"
-      description="Extra instructions Ega adds to the prompt, for every task or only some."
-    >
-      <div data-ega-setting="tasks.rules">
-        {#if rulesOverBudget}
-          <div class="rules-budget-warn" role="alert" data-ega-rules-budget-warn>
-            Your rules are over the {RULES_BLOCK_WARN_BYTES / 1024} KB limit, so Ega drops the least specific
-            ones from each request.
-          </div>
-        {/if}
-        <RulesEditor
-          rules={settings.advanced.rules}
-          onUpdate={handlers.updateRules}
-          taskViews={views}
-        />
-      </div>
-    </SectionCard>
-
-    <SectionCard
-      title="Backup & restore"
-      description="Export tasks, edits (Translate prompt too) and on/off state. Import to restore or share."
+      title="Backup and restore"
+      description="Your tasks, their edits and on/off state"
+      info={{
+        label: 'About this backup',
+        text: 'The file also holds the Translate prompt. Import restores your tasks or adds tasks someone shared.',
+      }}
     >
       <BackupRestoreRow
         onExport={doExport}
@@ -301,44 +266,39 @@
 </section>
 
 <style>
-  .rules-budget-warn {
-    margin-bottom: var(--space-2);
-    padding: var(--space-2) var(--space-3);
-    border: 1px solid var(--color-warning-fg);
-    border-radius: var(--radius-md);
-    color: var(--color-warning-fg);
-    font-size: var(--fs-sm);
-    line-height: 1.4;
+  .tasks-defaults {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+    gap: var(--space-3);
   }
-  .tasks-help {
-    margin: var(--space-1) 0 var(--space-2);
-    font-size: var(--fs-sm);
+  .tasks-cap {
+    margin: 0 0 var(--space-2);
+    font-size: var(--fs-base);
+    line-height: var(--lh-body);
     color: var(--color-muted);
   }
   .task-list {
     list-style: none;
     margin: 0;
     padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
   }
+  /* Rows sit in the card, so a hairline sets them apart, not a box (R25). */
   .task-row {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: var(--space-2);
-    padding: var(--space-2) var(--space-3);
-    border: 1px solid var(--color-border-subtle);
-    border-radius: var(--radius-sm);
-    background: var(--color-bg-elevated);
+    min-height: 40px;
+    padding-block: var(--space-1);
+  }
+  .task-row + .task-row {
+    border-top: 1px solid var(--color-border-subtle);
+  }
+  .task-row > :global(.ega-checkbox) {
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
   .task-spacer {
     flex: 1 1 auto;
-  }
-  .badge-edited,
-  .badge-off {
-    background: transparent;
-    color: var(--color-fg-subtle);
-    border: 1px solid var(--color-border);
   }
 </style>

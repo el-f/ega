@@ -1,232 +1,232 @@
 <script lang="ts">
-  import type { Rule, RuleCategory } from '@/shared/rules';
-  import { detectCategory, normaliseSiteEntry } from '@/shared/rules';
+  /** The Rules card: one row per rule, Edit opens its fields below it, and Add rule opens the same fields as a draft at the top. */
+  import type { Rule } from '@/shared/rules';
   import { uuid } from '@/shared/uuid';
   import { getSettings } from '@/shared/storage';
-  import { SHIPPED_TASK_VIEWS, type TaskId, type TaskView } from '@/shared/task-view';
+  import { RULES_MAX } from '@/shared/settings-schema';
+  import { estimateRulesBlockBytes, RULES_BLOCK_WARN_BYTES } from '@/shared/rules-budget';
+  import { SHIPPED_TASK_VIEWS, type TaskView } from '@/shared/task-view';
   import { tick } from 'svelte';
   import { toastStore } from '@/shared/components/toastStore';
-  import RulesEditorManualForm from './RulesEditorManualForm.svelte';
+  import SectionCard from '@/shared/ui/SectionCard.svelte';
+  import Button from '@/shared/ui/Button.svelte';
   import RulesEditorRow from './RulesEditorRow.svelte';
   import RulesEditorEmpty from './RulesEditorEmpty.svelte';
+  import RuleEditor from './rules/RuleEditor.svelte';
+  import { ruleScope, type RuleDraft } from './rules/rule-fields';
 
   interface Props {
     rules: readonly Rule[];
     /** Returns false when the write failed, so no Saved, Undo or new-row state follows it. */
     onUpdate: (rules: readonly Rule[]) => void | boolean | Promise<void | boolean>;
-    /** The tab's live task list, so a task made, renamed or turned off here shows at once. */
+    /** The tab's live task list, so a task made, renamed or turned off elsewhere shows at once. */
     taskViews?: readonly TaskView[];
   }
 
   const { rules, onUpdate, taskViews = SHIPPED_TASK_VIEWS }: Props = $props();
 
-  let formOpen = $state(false);
+  const EMPTY_DRAFT: RuleDraft = { body: '', category: 'unknown', tasks: [], sites: [] };
+
+  let adding = $state(false);
+  let openId = $state<string | null>(null);
   /** The row just added; it scrolls into view and pulses once. */
   let justAddedId = $state<string | null>(null);
   let rootEl = $state<HTMLElement | null>(null);
+
+  const atCap = $derived(rules.length >= RULES_MAX);
+  // Site- and task-scoped rules only render for their own host and task, so the warning tracks the biggest single request.
+  const overBudget = $derived.by(() => {
+    const hosts = [undefined, ...new Set(rules.flatMap((r) => r.scope.sites ?? []))];
+    return taskViews.some(({ id }) =>
+      hosts.some((host) => estimateRulesBlockBytes(rules, id, host) > RULES_BLOCK_WARN_BYTES),
+    );
+  });
 
   async function commit(next: readonly Rule[]): Promise<boolean> {
     return (await onUpdate(next)) !== false;
   }
 
-  async function patchRule(id: string, patch: Partial<Rule>): Promise<boolean> {
-    const next = rules.map((r) => (r.id === id ? { ...r, ...patch } : r));
-    return commit(next);
-  }
-
-  // The form closes around the focused button, so focus moves to a control that is still on screen.
-  async function focusInEditor(selector: string, opts?: { preventScroll: boolean }): Promise<void> {
+  async function focusIn(selector: string): Promise<void> {
     await tick();
-    rootEl?.querySelector<HTMLElement>(selector)?.focus(opts);
+    rootEl?.querySelector<HTMLElement>(selector)?.focus();
   }
 
-  function onFormCancel(): void {
-    void focusInEditor(
-      rules.length === 0 ? '[data-ega-rules-empty] button' : 'summary.manual-summary',
+  /** The Add rule button: in the header once there are rules, else the empty state's. */
+  const ADD_SELECTOR = '[data-ega-rules-add], [data-ega-rules-empty] button';
+
+  function startAdd(): void {
+    if (atCap) return;
+    adding = true;
+    void focusIn('[data-ega-manual-body]');
+  }
+
+  function cancelAdd(): void {
+    adding = false;
+    void (async () => {
+      await tick();
+      document.querySelector<HTMLElement>(ADD_SELECTOR)?.focus();
+    })();
+  }
+
+  async function add(d: RuleDraft): Promise<boolean> {
+    const rule: Rule = {
+      id: uuid(),
+      body: d.body,
+      category: d.category,
+      scope: ruleScope(d.tasks, d.sites),
+      source: 'manual',
+      addedAt: new Date().toISOString(),
+      enabled: true,
+    };
+    if (!(await commit([...rules, rule]))) return false;
+    adding = false;
+    justAddedId = rule.id;
+    void focusIn(`[data-rule-id="${rule.id}"] input[type="checkbox"]`);
+    return true;
+  }
+
+  function patchFor(r: Rule, p: Partial<RuleDraft>): Rule {
+    const next: Rule = { ...r };
+    if (p.body !== undefined) next.body = p.body;
+    if (p.category !== undefined) next.category = p.category;
+    if (p.tasks !== undefined || p.sites !== undefined) {
+      next.scope = ruleScope(p.tasks ?? r.scope.tasks, p.sites ?? r.scope.sites ?? []);
+    }
+    return next;
+  }
+
+  async function commitRule(id: string, p: Partial<RuleDraft>): Promise<boolean> {
+    return commit(rules.map((r) => (r.id === id ? patchFor(r, p) : r)));
+  }
+
+  async function toggleOpen(id: string): Promise<void> {
+    const opening = openId !== id;
+    openId = opening ? id : null;
+    await focusIn(
+      opening ? `[data-rule-id="${id}"] textarea` : `[data-rule-id="${id}"] [data-ega-rule-edit]`,
     );
   }
 
-  async function deleteRuleById(id: string): Promise<void> {
-    const targetIdx = rules.findIndex((r) => r.id === id);
-    if (targetIdx < 0) return;
-    const target = rules[targetIdx];
-    if (!target) return;
-    const snapshot = target;
-    const insertAt = targetIdx;
+  async function deleteRule(id: string): Promise<void> {
+    const at = rules.findIndex((r) => r.id === id);
+    const snapshot = rules[at];
+    if (!snapshot) return;
+    const after = rules[at + 1]?.id ?? rules[at - 1]?.id ?? null;
     if (!(await commit(rules.filter((r) => r.id !== id)))) return;
+    if (openId === id) openId = null;
+    await tick();
+    // Focus goes to the next row, else the previous one, else the Add rule button.
+    (after !== null
+      ? rootEl?.querySelector<HTMLElement>(`[data-rule-id="${after}"] input[type="checkbox"]`)
+      : document.querySelector<HTMLElement>(ADD_SELECTOR)
+    )?.focus();
+    const name =
+      snapshot.body.length > 40 ? `${snapshot.body.slice(0, 40).trimEnd()}…` : snapshot.body;
     toastStore.push({
-      message: 'Rule deleted.',
+      message: `Deleted "${name}"`,
       variant: 'success',
       action: {
         label: 'Undo',
         // Re-read at click time: the closed-over prop is a stale snapshot, and Undo would drop the deletes since.
         onClick: () => {
           void (async () => {
-            const s = await getSettings();
-            const current = s.advanced.rules;
+            const current = (await getSettings()).advanced.rules;
             const next = [...current];
-            const clampedIdx = Math.min(insertAt, next.length);
-            next.splice(clampedIdx, 0, snapshot);
-            await commit(next);
+            next.splice(Math.min(at, next.length), 0, snapshot);
+            if (await commit(next)) void focusIn(`[data-rule-id="${id}"] input[type="checkbox"]`);
           })();
         },
       },
     });
-  }
-
-  function pushScopeUndo(id: string, priorScope: Rule['scope'], message: string): void {
-    toastStore.push({
-      message,
-      variant: 'success',
-      action: {
-        label: 'Undo',
-        // Re-read canonical rules at click-time so the restore patches the
-        // live rule, not the closed-over `rules` prop snapshot.
-        onClick: () => {
-          void (async () => {
-            const s = await getSettings();
-            const next = s.advanced.rules.map((r) =>
-              r.id === id ? { ...r, scope: priorScope } : r,
-            );
-            await commit(next);
-          })();
-        },
-      },
-    });
-  }
-
-  async function toggleTaskOnRule(id: string, task: string): Promise<void> {
-    const r = rules.find((x) => x.id === id);
-    if (!r) return;
-    const has = r.scope.tasks.includes(task);
-    if (has && r.scope.tasks.length === 1) {
-      // An empty task list means every task, so removing the last chip would widen the rule.
-      toastStore.push({
-        message: 'A rule needs at least one task. Use Edit scope to apply it to all tasks.',
-        variant: 'info',
-      });
-      return;
-    }
-    const tasks = has ? r.scope.tasks.filter((t) => t !== task) : [...r.scope.tasks, task];
-    await setRuleTasks(id, tasks, has ? 'Task removed from rule.' : null);
-  }
-
-  /** An empty list is the explicit "all tasks" scope. */
-  async function setRuleTasks(
-    id: string,
-    tasks: readonly string[],
-    undoMessage: string | null,
-  ): Promise<void> {
-    const r = rules.find((x) => x.id === id);
-    if (!r) return;
-    const nextScope: Rule['scope'] =
-      r.scope.sites !== undefined
-        ? { tasks: [...tasks], sites: r.scope.sites }
-        : { tasks: [...tasks] };
-    const priorScope = r.scope;
-    if (!(await patchRule(id, { scope: nextScope }))) return;
-    if (undoMessage !== null) pushScopeUndo(id, priorScope, undoMessage);
-  }
-
-  async function removeSiteFromRule(id: string, site: string): Promise<void> {
-    const r = rules.find((x) => x.id === id);
-    if (!r || !r.scope.sites) return;
-    const sites = r.scope.sites.filter((s) => s !== site);
-    const nextScope: Rule['scope'] =
-      sites.length === 0 ? { tasks: r.scope.tasks } : { tasks: r.scope.tasks, sites };
-    const priorScope = r.scope;
-    if (!(await patchRule(id, { scope: nextScope }))) return;
-    pushScopeUndo(id, priorScope, 'Site removed from rule.');
-  }
-
-  async function submitManual(payload: {
-    body: string;
-    tasks: readonly TaskId[];
-    sites: readonly string[];
-  }): Promise<boolean> {
-    const sites = [...new Set(payload.sites.map(normaliseSiteEntry).filter((s) => s !== ''))];
-    const scope: Rule['scope'] =
-      sites.length > 0 ? { tasks: [...payload.tasks], sites } : { tasks: [...payload.tasks] };
-    const rule: Rule = {
-      id: uuid(),
-      body: payload.body,
-      category: detectCategory(payload.body),
-      scope,
-      source: 'manual',
-      addedAt: new Date().toISOString(),
-      enabled: true,
-    };
-    if (!(await commit([...rules, rule]))) return false;
-    justAddedId = rule.id;
-    formOpen = false;
-    // The row's own effect scrolls it into view, honouring reduced motion.
-    void focusInEditor(`[data-rule-id="${rule.id}"] [data-ega-rule-body]`, { preventScroll: true });
-    return true;
   }
 </script>
 
-<div class="rules-editor" class:empty={rules.length === 0} data-ega-rules-editor bind:this={rootEl}>
-  {#if rules.length === 0}
-    <RulesEditorEmpty onAdd={() => (formOpen = true)} />
-  {:else}
-    <div class="active-rules">
-      <h4 class="active-rules-heading">Rules ({rules.length})</h4>
-      <ul class="rule-list" role="list">
+<SectionCard
+  title="Rules"
+  description="Extra instructions for every task or only some"
+  info={{
+    label: 'About rules',
+    text: 'Ega adds each rule that is on to the prompt of the tasks it applies to. A site list limits a rule to those sites.',
+  }}
+>
+  {#snippet headerActions()}
+    {#if rules.length > 0}
+      <Button
+        variant="secondary"
+        size="sm"
+        ariaDisabled={atCap}
+        {...atCap ? { describedBy: 'ega-rules-cap' } : {}}
+        dataAttrs={{ 'data-ega-rules-add': true, 'aria-expanded': adding ? 'true' : 'false' }}
+        onclick={startAdd}>Add rule</Button
+      >
+    {/if}
+  {/snippet}
+  <div class="rules-editor" data-ega-setting="tasks.rules" data-ega-rules-editor bind:this={rootEl}>
+    {#if atCap}
+      <p class="rules-line" id="ega-rules-cap">You have the most rules Ega keeps ({RULES_MAX})</p>
+    {/if}
+    {#if overBudget}
+      <p class="rules-line rules-budget-warn" role="alert" data-ega-rules-budget-warn>
+        Your rules are over the {RULES_BLOCK_WARN_BYTES / 1024} KB limit, so Ega drops the least specific
+        ones from each request.
+      </p>
+    {/if}
+    {#if adding}
+      <div class="rule-draft" data-ega-rule-draft>
+        <RuleEditor
+          mode="add"
+          initial={EMPTY_DRAFT}
+          {taskViews}
+          onAdd={add}
+          onCancel={cancelAdd}
+          onClose={cancelAdd}
+        />
+      </div>
+    {/if}
+    {#if rules.length === 0}
+      {#if !adding}<RulesEditorEmpty onAdd={startAdd} />{/if}
+    {:else}
+      <ul class="rule-list">
         {#each rules as r (r.id)}
           <RulesEditorRow
             rule={r}
             {taskViews}
+            open={openId === r.id}
             highlight={r.id === justAddedId}
-            onBodyChange={(body) => patchRule(r.id, { body })}
-            onCategoryChange={(category: RuleCategory) => void patchRule(r.id, { category })}
-            onToggleEnabled={() => void patchRule(r.id, { enabled: !r.enabled })}
-            onToggleTask={(t) => toggleTaskOnRule(r.id, t)}
-            onSetTasks={(tasks, undoMessage) => setRuleTasks(r.id, tasks, undoMessage)}
-            onRemoveSite={(s) => removeSiteFromRule(r.id, s)}
-            onDelete={() => deleteRuleById(r.id)}
+            onToggleOpen={() => void toggleOpen(r.id)}
+            onToggleEnabled={() =>
+              void commit(rules.map((x) => (x.id === r.id ? { ...x, enabled: !x.enabled } : x)))}
+            onCommit={(p) => commitRule(r.id, p)}
+            onDelete={() => deleteRule(r.id)}
           />
         {/each}
       </ul>
-    </div>
-  {/if}
-
-  <RulesEditorManualForm
-    bind:open={formOpen}
-    onSubmit={submitManual}
-    onCancel={onFormCancel}
-    {...taskViews.length > 0 ? { taskViews } : {}}
-  />
-</div>
+    {/if}
+  </div>
+</SectionCard>
 
 <style>
   .rules-editor {
     display: flex;
     flex-direction: column;
-    gap: var(--space-3);
+    gap: var(--space-2);
   }
-  /* With no rules the empty state's button is the way in; the closed form stays in the DOM for the Add-a-rule shortcut. */
-  .rules-editor.empty :global(details.manual-block:not([open])) {
-    display: none;
-  }
-  .active-rules {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
-  }
-  .active-rules-heading {
+  .rules-line {
     margin: 0;
-    font-size: var(--fs-xs);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    font-weight: 600;
-    color: var(--color-fg-subtle);
+    font-size: var(--fs-base);
+    line-height: var(--lh-body);
+    color: var(--color-muted);
+  }
+  .rules-budget-warn {
+    color: var(--color-warning-fg);
+  }
+  .rule-draft {
+    padding-bottom: var(--space-2);
+    border-bottom: 1px solid var(--color-border-subtle);
   }
   .rule-list {
     list-style: none;
     margin: 0;
     padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
   }
 </style>

@@ -2,24 +2,23 @@
 
 ## Latency budgets
 
-- Toggle click -> storage write: <= 100ms.
+- Checkbox click -> storage write: <= 100ms.
 
 ## State expectations
 
-- Step 1: rule row shows an "On" checkbox with the rule's current `enabled` state.
-- Step 2 (click the checkbox): the `enabled` field flips; storage writes immediately.
-- Step 3: an "Off" badge appears on the row and its border turns dashed.
+- Step 1: the rule's checkbox is checked; its name is "Use rule: <rule text>".
+- Step 2 (click the checkbox): `enabled` flips and storage writes at once.
+- Step 3: the box is unchecked; nothing else on the row changes.
 
 ## Visible affordances
 
-- The toggle is a checkbox whose label stays "On"; only its checked state changes.
-- Disabled rules keep full text contrast — no opacity, never struck-through.
+- The checkbox state is the only on/off signal: no "On" label, no "Off" badge, no dashed border, no faded text.
 
 ## Failure-mode expectations
 
-- Storage write failure keeps the prior state; a "Change not saved: …" warning toast appears (no inline error).
+- A failed write keeps the prior state and shows a "Not saved" toast.
 
 ## Cautions
 
-- Disabling a rule removes it from the next request's system prompt; rule order is preserved (no renumbering).
-- Toggle commits on click — no explicit save step.
+- Turning a rule off removes it from the next request's prompt; the order stays.
+- There is no separate save step.

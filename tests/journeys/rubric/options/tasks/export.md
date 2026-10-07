@@ -12,7 +12,7 @@
 
 ## Visible affordances
 
-- Export and Import sit in a "Backup & restore" card at the top of the tab, like the Languages tab.
+- Export and Import sit in the "Backup and restore" card, the last card of the tab ("Your tasks, their edits and on/off state", with an (i)). The two buttons are the same height.
 
 ## Failure-mode expectations
 

@@ -2,25 +2,25 @@
 
 ## Latency budgets
 
-- Tasks tab open with seeded >8 KB of rules -> budget-warn banner visible: <= 300ms.
+- Glossary and rules tab open with seeded >8 KB of rules -> warning visible: <= 300ms.
 
 ## State expectations
 
 - Step 1: rules are seeded so the rendered rules block for one request (task + site) exceeds 8 KB.
-- Step 2: user opens the Tasks tab; the Rules section is on it.
-- Step 3: a warning banner (role=alert) is visible above the Rules card, naming the 8 KB limit.
+- Step 2: the user opens the Glossary and rules tab.
+- Step 3: a warning line (role=alert) shows at the top of the Rules card, naming the 8 KB limit.
 
 ## Visible affordances
 
-- Banner uses warning tone tokens; text reads "Your rules are over the 8 KB limit, so Ega drops the least specific ones from each request."
-- Banner does NOT block interactions — it is informational only.
+- The line uses the warning text colour and reads "Your rules are over the 8 KB limit, so Ega drops the least specific ones from each request."
+- It does not block anything.
 
 ## Failure-mode expectations
 
-- N/A — this is a purely informational banner; no action is blocked.
+- N/A — informational only.
 
 ## Cautions
 
-- The banner shows only when the largest per-request rendered rules block (any task, any scoped site) exceeds the limit.
-- Disabled rules do not count toward the budget; a set that is over the limit only through disabled rules shows no banner.
-- The banner threshold is 8 KB; verify against the rules-budget constant in the source.
+- It shows only when the largest per-request rules block (any task, any scoped site) passes the limit.
+- Rules that are off do not count.
+- The threshold is 8 KB; verify against the rules-budget constant in the source.

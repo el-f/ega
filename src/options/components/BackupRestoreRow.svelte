@@ -13,16 +13,25 @@
     status: ImportStatus | null;
     /** Visible scope label rendered inside the export button. */
     scope: string;
+    /** Export stays focusable but does nothing, and this line says why. */
+    exportBlockedReason?: string | null;
   }
 
-  const { onExport, onImport, status, scope }: Props = $props();
+  const { onExport, onImport, status, scope, exportBlockedReason = null }: Props = $props();
 
   const importId = makeId('ega-backup-import');
+  const reasonId = makeId('ega-backup-export-reason');
 </script>
 
 <div class="backup-row" data-ega-backup-restore-row>
   <div class="row">
-    <Button variant="secondary" iconKind="export" onclick={() => void onExport()}>
+    <Button
+      variant="secondary"
+      iconKind="export"
+      ariaDisabled={exportBlockedReason !== null}
+      {...exportBlockedReason !== null ? { describedBy: reasonId } : {}}
+      onclick={() => void onExport()}
+    >
       Export {scope}
     </Button>
     <label for={importId} class="file-label">
@@ -37,6 +46,9 @@
       onchange={(ev) => void handleImportFilePick(ev, onImport)}
     />
   </div>
+  {#if exportBlockedReason !== null}
+    <p class="reason" id={reasonId}>{exportBlockedReason}</p>
+  {/if}
   <BackupStatus {status} />
 </div>
 
@@ -46,11 +58,17 @@
     flex-direction: column;
     gap: var(--space-2);
   }
+  /* Stretch: Export and Import are the same height whatever their icons and text measure. */
   .row {
     display: flex;
-    align-items: center;
+    align-items: stretch;
     gap: var(--space-2);
     flex-wrap: wrap;
+  }
+  .reason {
+    margin: 0;
+    font-size: var(--fs-base);
+    color: var(--color-muted);
   }
   .file-label {
     display: inline-flex;

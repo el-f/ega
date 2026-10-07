@@ -65,7 +65,7 @@ describe('Options — settings-search deep link reaches every tab', () => {
     expect(anchor.closest('details')?.open).toBe(true);
   });
 
-  it('Add a rule opens the rules editor on the Tasks tab, not the Advanced tab', async () => {
+  it('Add a rule opens a new rule on the Glossary and rules tab, with its text focused', async () => {
     render(Options);
 
     await fireEvent.keyDown(document, { key: 'R', ctrlKey: true, shiftKey: true });
@@ -78,7 +78,7 @@ describe('Options — settings-search deep link reaches every tab', () => {
       },
       { timeout: 10_000 },
     );
-    expect(document.querySelector('[data-ega-tab="tasks"]')).not.toBeNull();
+    expect(document.querySelector('[data-ega-tab="glossary"]')).not.toBeNull();
     await waitFor(() => expect(document.activeElement).toBe(body), { timeout: 10_000 });
   });
 });

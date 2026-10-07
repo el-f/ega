@@ -284,7 +284,7 @@ test('glossary: add 1 entry — list appears and storage updated', async () => {
     await expect(addSection).toBeVisible({ timeout: 5_000 });
     await addSection.getByLabel(/^Term/i).fill('Ega');
     await addSection.getByLabel(/^Translation/i).fill('ega-translated');
-    await addSection.getByRole('button', { name: /Add entry/i }).click();
+    await addSection.getByRole('button', { name: 'Add', exact: true }).click();
   });
 
   await test.step('glossary list appears with new entry', async () => {
@@ -301,18 +301,22 @@ test('glossary: add 1 entry — list appears and storage updated', async () => {
   expect(errors, 'No errors during glossary add flow').toEqual([]);
 });
 
-test('glossary: add-entry button is disabled when fields empty', async () => {
+test('glossary: Add with empty fields says what to write and stores nothing', async () => {
   const { page, errors } = await openOptions(ext.context, ext.extensionId);
 
   await test.step('navigate to Glossary', async () => {
     await clickTab(page, 'Glossary and rules');
   });
 
-  await test.step('add button disabled with empty inputs', async () => {
-    const addBtn = page
-      .locator('[data-ega-glossary-add]')
-      .getByRole('button', { name: /Add entry/i });
-    await expect(addBtn).toBeDisabled({ timeout: 3_000 });
+  await test.step('Add stays enabled and names the empty field', async () => {
+    const addSection = page.locator('[data-ega-glossary-add]');
+    const addBtn = addSection.getByRole('button', { name: 'Add', exact: true });
+    await expect(addBtn).toBeEnabled({ timeout: 3_000 });
+    await addBtn.click();
+    await expect(addSection.getByLabel(/^Term/i)).toHaveAttribute('aria-invalid', 'true');
+    await expect(addSection).toContainText('Write a term');
+    const s = await readStorage<Settings>(ext.context, ext.extensionId, 'ega.settings');
+    expect(s?.glossary ?? []).toEqual([]);
   });
 
   expect(errors, 'No errors on glossary empty-inputs check').toEqual([]);
@@ -339,21 +343,20 @@ test('glossary: cap message appears at 200 entries', async () => {
     await expect(rows).toHaveCount(200, { timeout: 5_000 });
   });
 
-  await test.step('add-entry button disabled or cap error on attempt', async () => {
-    // Both a disabled button and a cap error are valid UI answers here.
+  await test.step('Add says why it adds nothing at the cap', async () => {
     const addSection = page.locator('[data-ega-glossary-add]');
-    const addBtn = addSection.getByRole('button', { name: /Add entry/i });
-
+    const addBtn = addSection.getByRole('button', { name: 'Add', exact: true });
+    await expect(addBtn).toHaveAttribute('aria-disabled', 'true');
+    await expect(page.locator('[data-ega-glossary-cap]')).toContainText(
+      'The glossary holds 200 entries',
+    );
     await addSection.getByLabel(/^Term/i).fill('OverCapTerm');
     await addSection.getByLabel(/^Translation/i).fill('OverCapTranslation');
-
-    const isDisabled = await addBtn.isDisabled().catch(() => false);
-    if (!isDisabled) {
-      await addBtn.click();
-      await expect(page.locator('.glossary-error')).toContainText(/limit is 200/i, {
-        timeout: 3_000,
-      });
-    }
+    // Playwright will not click an aria-disabled button; a keyboard user still can press it.
+    await addBtn.focus();
+    await page.keyboard.press('Enter');
+    const s = await readStorage<Settings>(ext.context, ext.extensionId, 'ega.settings');
+    expect(s?.glossary.length).toBe(200);
   });
 
   expect(errors, 'No errors during glossary cap test').toEqual([]);
@@ -410,7 +413,7 @@ test('persistence: Glossary entry survives page reload', async () => {
     const addSection = page1.locator('[data-ega-glossary-add]');
     await addSection.getByLabel(/^Term/i).fill('PersistTest');
     await addSection.getByLabel(/^Translation/i).fill('PersistTranslation');
-    await addSection.getByRole('button', { name: /Add entry/i }).click();
+    await addSection.getByRole('button', { name: 'Add', exact: true }).click();
     // Reload only once the write landed, or the reload races it.
     await expect
       .poll(async () => {

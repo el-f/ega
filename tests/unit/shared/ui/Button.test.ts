@@ -152,3 +152,35 @@ describe('Button', () => {
     expect(sizeSmRule[0]).toMatch(/min-height:\s*28px/);
   });
 });
+
+describe('Button ariaDisabled', () => {
+  it('keeps the Tab stop, names its reason, and ignores the click', async () => {
+    let clicks = 0;
+    const { getByRole } = render(Button, {
+      props: {
+        children: textSnippet('New task'),
+        ariaDisabled: true,
+        describedBy: 'why',
+        onclick: () => clicks++,
+      },
+    });
+    const btn = getByRole('button');
+    expect(btn.hasAttribute('disabled')).toBe(false);
+    expect(btn.getAttribute('aria-disabled')).toBe('true');
+    expect(btn.getAttribute('aria-describedby')).toBe('why');
+    btn.focus();
+    expect(document.activeElement).toBe(btn);
+    await fireEvent.click(btn);
+    expect(clicks).toBe(0);
+  });
+
+  it('clicks through when it is not set', async () => {
+    let clicks = 0;
+    const { getByRole } = render(Button, {
+      props: { children: textSnippet('New task'), onclick: () => clicks++ },
+    });
+    expect(getByRole('button').hasAttribute('aria-disabled')).toBe(false);
+    await fireEvent.click(getByRole('button'));
+    expect(clicks).toBe(1);
+  });
+});

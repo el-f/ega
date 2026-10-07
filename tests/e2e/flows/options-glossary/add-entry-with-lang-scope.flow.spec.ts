@@ -24,16 +24,22 @@ test('add entry with source/target lang and case-sensitive stores all fields', a
   await page.getByLabel('Term').fill('Brand');
   await page.getByLabel('Translation').fill('Marque');
 
-  await page.locator('select[aria-label="Source language scope"]').selectOption('en');
-  await page.locator('select[aria-label="Target language scope"]').selectOption('fr');
+  // Scope and Match case sit under "More options".
+  await page.locator('[data-ega-glossary-more] summary').click();
+  await page.getByLabel('Source language').selectOption('en');
+  await page.getByLabel('Target language').selectOption('fr');
+  // The default source is Auto-detect, so an English-only entry needs English picked.
+  await expect(page.locator('[data-ega-glossary-scope-note]')).toHaveText(
+    'Applies only when you pick English as the source',
+  );
 
-  const caseSensitive = page.locator('input#glossary-case-sensitive');
+  const caseSensitive = page.locator('input#gl-add-case');
   await expect(caseSensitive).not.toBeChecked();
   await caseSensitive.click();
   await expect(caseSensitive).toBeChecked();
   timeline.markStep('fields-filled');
 
-  await page.locator('button.ega-btn.variant-primary', { hasText: 'Add entry' }).click();
+  await page.locator('[data-ega-glossary-add-button]').click();
   timeline.markStep('submitted');
 
   await expect

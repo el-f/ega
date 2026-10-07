@@ -27,12 +27,12 @@ async function addEntry(
 ): Promise<void> {
   await page.getByLabel('Term').fill(term);
   await page.getByLabel('Translation').fill(translation);
-  await page.locator('select[aria-label="Source language scope"]').selectOption(sourceScope);
-  await page.locator('button.ega-btn.variant-primary', { hasText: 'Add entry' }).click();
+  await page.getByLabel('Source language').selectOption(sourceScope);
+  await page.locator('[data-ega-glossary-add-button]').click();
   await expect(page.getByLabel('Term')).toHaveValue('', { timeout: 5_000 });
 }
 
-test('the scope help explains the Auto-detect rule the picker offers, and the rule holds', async () => {
+test('the glossary (i) explains the scope rule the picker offers, and the rule holds', async () => {
   const timeline = createTimeline();
   const mock = mockAnthropic(ext.context, { translation: 'ok' });
 
@@ -40,13 +40,14 @@ test('the scope help explains the Auto-detect rule the picker offers, and the ru
   await options.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
   await options.locator('#tab-glossary').click();
 
-  const help = options.locator('[data-ega-glossary-scope-help]');
-  await expect(help).toBeVisible({ timeout: 5_000 });
-  await expect(help).toContainText('Auto-detect');
+  await options.getByRole('button', { name: 'About the glossary' }).focus();
+  await expect(options.locator('[data-ega-infotip-text]')).toContainText('not the detected one');
+  await options.keyboard.press('Escape');
   timeline.markStep('scope-help-visible');
 
-  // The help says the state exists, so the picker has to be able to express it.
-  const sourceScope = options.locator('select[aria-label="Source language scope"]');
+  // The scope fields sit under "More options"; the picker can express Auto-detect.
+  await options.locator('[data-ega-glossary-more] summary').click();
+  const sourceScope = options.getByLabel('Source language');
   await expect(sourceScope.locator('option[value="auto"]')).toHaveText('Auto-detect');
 
   await addEntry(options, 'wallet', 'cartera', 'auto');

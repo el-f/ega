@@ -25,7 +25,7 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-test('adding an entry when glossary is at 200 shows cap error and writes nothing', async () => {
+test('at 200 entries Add stays focusable, says why, and writes nothing', async () => {
   const timeline = createTimeline();
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
@@ -36,14 +36,17 @@ test('adding an entry when glossary is at 200 shows cap error and writes nothing
   await addForm.getByLabel('Term').fill('OverCap');
   await addForm.getByLabel('Translation').fill('ShouldFail');
 
-  await page.locator('button.ega-btn.variant-primary', { hasText: 'Add entry' }).click();
+  const add = page.locator('[data-ega-glossary-add-button]');
+  await expect(add).toHaveAttribute('aria-disabled', 'true');
+  await expect(add).toHaveAccessibleDescription(
+    'The glossary holds 200 entries, the most Ega keeps',
+  );
+  // Playwright will not click an aria-disabled button; a keyboard user still can press it.
+  await add.focus();
+  await expect(add).toBeFocused();
+  await page.keyboard.press('Enter');
   timeline.markStep('add-clicked');
-
-  // Scope to the glossary error specifically — other surfaces (StatusBar) can
-  // carry a role="alert" too, which made a bare [role="alert"] match 2 elements.
-  const errorMsg = page.locator('.glossary-error[role="alert"]');
-  await expect(errorMsg).toBeVisible({ timeout: 5_000 });
-  await expect(errorMsg).toContainText('Glossary limit is 200 entries');
+  await expect(page.locator('[data-ega-glossary-cap]')).toBeVisible();
   timeline.markStep('error-visible');
 
   await expect

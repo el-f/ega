@@ -2,26 +2,24 @@
 
 ## Latency budgets
 
-- Scope chip click -> storage write: <= 150ms.
+- Toggle click -> storage write: <= 150ms.
 
 ## State expectations
 
-- Step 1: a rule is seeded with `scope.tasks = ['translate']`; the "Translate ×" chip is visible in the rule's row.
-- Step 2 (click the translate chip, the rule's only task): nothing changes; an info toast says a rule needs at least one task and points to "Edit scope".
-- Step 3 (Edit scope > check "All tasks"): `scope.tasks` becomes `[]`; the chip is removed, an "all tasks" badge appears, and an Undo toast ("Rule now applies to all tasks.") surfaces.
-- Step 4 (optional, click Undo in the toast): the prior `scope.tasks = ['translate']` is restored and the chip returns.
+- Step 1: a rule is seeded with `scope.tasks = ['translate']`; its meta line says "Translate".
+- Step 2 (Edit): "Applies to" shows "All tasks" not pressed and "Translate" pressed with a check icon.
+- Step 3 (turn Translate off): `scope.tasks` becomes `[]`, "All tasks" turns pressed, and the meta line says "All tasks". No toast.
 
 ## Visible affordances
 
-- Scope chips render only for assigned tasks as ghost "Task ×" buttons with subtle text; hover shows the danger tone (click removes, except the last chip).
-- An "Edit scope" button opens a popover with a checkbox per task plus "All tasks". The last checked task is disabled, with a hint.
-- Scope chips are inline in the rule row — keyboard-activatable (Enter / Space).
+- "Applies to" is a group of toggle buttons (aria-pressed): "All tasks" plus one per task. A pressed toggle shows a check icon and the accent edge.
+- Turning a task on turns "All tasks" off.
 
 ## Failure-mode expectations
 
-- Storage write failure keeps the chip; a "Change not saved: …" warning toast appears (no inline error).
+- A failed write keeps the old scope and shows a "Not saved" toast.
 
 ## Cautions
 
-- `scope.tasks = []` means the rule applies to ALL tasks (global rule) — not that it is disabled.
-- Removing a task chip (not the last) does NOT change `enabled`; the power toggle is separate.
+- `scope.tasks = []` means the rule applies to ALL tasks — not that it is off.
+- A task deleted since the rule was made shows as a pressed "Deleted task" toggle until turned off.

@@ -2,25 +2,25 @@
 
 ## Latency budgets
 
-- Click-to-edit -> body becomes editable: <= 100ms.
-- Commit (blur or Enter) -> storage write: <= 200ms.
+- Edit -> rule text field focused: <= 100ms.
+- Leaving the field -> storage write: <= 200ms.
 
 ## State expectations
 
-- Step 1: rule row shows the body text as a static display.
-- Step 2 (click body): the body becomes an inline textarea holding the current text; focus is not moved into it.
-- Step 3 (blur or Ctrl/Cmd+Enter): trimmed text persists; row returns to static display with the new body.
+- Step 1: the row shows the full rule text next to its checkbox.
+- Step 2 (Edit): the fields open under the row and focus moves into "Rule text".
+- Step 3 (leave the field): the trimmed text is stored, "Saved" shows, and the row text updates.
 
 ## Visible affordances
 
-- Editable state is visually distinct (border / background change).
+- "Rule text" is a labelled textarea; Edit reads "Close" while the row is open.
 
 ## Failure-mode expectations
 
-- Escaping (Esc) reverts the edit without committing.
-- Empty body on commit is dropped silently (no validation message); the previous value is retained.
+- An empty text is not saved: the field is marked invalid and says "Write the rule text".
+- Esc writes a changed field, closes the row and returns focus to Edit.
 
 ## Cautions
 
 - Trim only leading/trailing whitespace — internal whitespace is significant for rule semantics.
-- The edit must NOT enable / disable the rule; the toggle is separate.
+- Editing the text does NOT turn the rule on or off; the checkbox is separate.

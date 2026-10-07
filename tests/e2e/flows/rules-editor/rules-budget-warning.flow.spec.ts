@@ -39,7 +39,7 @@ test('budget-warn banner visible when rules block exceeds 8 KB', async () => {
   const timeline = createTimeline();
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
-  await page.locator('#tab-tasks').click();
+  await page.locator('#tab-glossary').click();
 
   await expect(page.locator('[data-ega-rules-editor]')).toBeVisible({ timeout: 5_000 });
   timeline.markStep('rules-mounted');

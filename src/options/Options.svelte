@@ -102,16 +102,14 @@
     });
   }
 
-  /** Jump to the Rules editor and focus the manual-add body. Shared by the
-   *  Cmd+Shift+R chord and the "Add a rule" command-palette entry. */
+  /** Opens a new rule on the Glossary and rules tab; the Cmd+Shift+R chord and the "Add a rule" palette entry share it. */
   function focusAddRule(): void {
-    active = 'tasks';
+    active = 'glossary';
     // A cold tab chunk can take longer than the whole whenPresent budget, so the budget starts once the code is in.
-    void tabReady('tasks').then(() =>
-      whenPresent('[data-ega-manual-body]', (body) => {
-        const block = body.closest('details.manual-block');
-        if (block instanceof HTMLDetailsElement) block.open = true;
-        if (body instanceof HTMLTextAreaElement) body.focus();
+    void tabReady('glossary').then(() =>
+      whenPresent('[data-ega-rules-add], [data-ega-rules-empty] button', (add) => {
+        // The rules card opens its draft and focuses the text itself.
+        if (document.querySelector('[data-ega-manual-body]') === null) add.click();
       }),
     );
   }

@@ -37,11 +37,11 @@ test.afterEach(async () => {
 
 test.slow();
 
-test('the last task chip stays; Edit scope > All tasks widens the rule on purpose', async () => {
+test('turning the last task off turns All tasks back on, with no error toast', async () => {
   const timeline = createTimeline();
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
-  await page.locator('#tab-tasks').click();
+  await page.locator('#tab-glossary').click();
 
   await expect(page.locator('[data-ega-rules-editor]')).toBeVisible({ timeout: 5_000 });
   timeline.markStep('rules-mounted');
@@ -49,17 +49,14 @@ test('the last task chip stays; Edit scope > All tasks widens the rule on purpos
   const row = page.locator(`[data-ega-rule-row][data-rule-id="${SEED_ID}"]`);
   await expect(row).toBeVisible({ timeout: 5_000 });
 
-  const translateChip = row.locator('[data-ega-rule-task-chip="translate"]');
-  await expect(translateChip).toBeVisible({ timeout: 5_000 });
+  await row.locator('[data-ega-rule-edit]').click();
+  const translate = row.locator('[data-ega-rule-scope-task="translate"]');
+  const all = row.locator('[data-ega-rule-scope-all]');
+  await expect(translate).toHaveAttribute('aria-pressed', 'true');
+  await expect(all).toHaveAttribute('aria-pressed', 'false');
   timeline.markStep('chip-visible');
 
-  await translateChip.click();
-  await expect(page.getByText(/needs at least one task/i)).toBeVisible({ timeout: 5_000 });
-  await expect(translateChip).toBeVisible();
-  timeline.markStep('last-chip-kept');
-
-  await row.locator('[data-ega-rule-edit-scope]').click();
-  await page.getByRole('checkbox', { name: 'All tasks' }).check();
+  await translate.click();
   timeline.markStep('all-tasks-picked');
 
   await expect
@@ -74,7 +71,8 @@ test('the last task chip stays; Edit scope > All tasks widens the rule on purpos
     .toBe(0);
   timeline.markStep('tasks-empty');
 
-  await expect(translateChip).not.toBeVisible({ timeout: 5_000 });
-  await expect(row.locator('.scope-all')).toBeVisible({ timeout: 5_000 });
+  await expect(all).toHaveAttribute('aria-pressed', 'true');
+  await expect(row.locator('[data-ega-rule-meta]')).toContainText('All tasks');
+  await expect(page.locator('[data-sonner-toast]')).toHaveCount(0);
   timeline.markStep('all-tasks-visible');
 });

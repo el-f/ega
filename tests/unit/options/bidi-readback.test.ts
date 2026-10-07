@@ -80,7 +80,10 @@ describe('glossary rows carry dir="auto"', () => {
       expect(el).not.toBeNull();
       return el;
     });
-    expect(row?.querySelector('.glossary-cell-term')?.getAttribute('dir')).toBe('auto');
-    expect(row?.querySelector('.glossary-cell-translation')?.getAttribute('dir')).toBe('auto');
+    const cells = row?.querySelectorAll('.gl-pair > [dir]') ?? [];
+    expect([...cells].map((c) => [c.textContent, c.getAttribute('dir')])).toEqual([
+      [HEB, 'auto'],
+      ['Hello world', 'auto'],
+    ]);
   });
 });

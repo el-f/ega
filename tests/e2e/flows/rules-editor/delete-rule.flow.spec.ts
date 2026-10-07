@@ -39,15 +39,16 @@ test.afterEach(async () => {
 
 test.slow();
 
-test('Trash removes the rule from storage at once, with an Undo toast', async () => {
+test('Delete rule in the open row removes it at once, with an Undo toast', async () => {
   const timeline = createTimeline();
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
-  await page.locator('#tab-tasks').click();
+  await page.locator('#tab-glossary').click();
 
   await expect(page.locator('[data-ega-rules-editor]')).toBeVisible({ timeout: 5_000 });
 
   const row = page.locator(`[data-ega-rule-row][data-rule-id="${SEED_ID}"]`);
+  await row.locator('[data-ega-rule-edit]').click();
   await row.locator('[data-ega-rule-delete]').click();
   timeline.markStep('delete-clicked');
   await expect(page.locator('.ega-dialog')).toHaveCount(0);

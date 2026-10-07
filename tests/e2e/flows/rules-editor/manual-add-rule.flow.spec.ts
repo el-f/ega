@@ -18,17 +18,21 @@ test.afterEach(async () => {
 
 test.slow();
 
-test('manual add form persists a rule with source=manual to storage', async () => {
+test('Add rule opens a draft that saves a rule with source=manual to storage', async () => {
   const timeline = createTimeline();
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
-  await page.locator('#tab-tasks').click();
+  await page.locator('#tab-glossary').click();
 
   await expect(page.locator('[data-ega-rules-editor]')).toBeVisible({ timeout: 5_000 });
   await expect(page.locator('[data-ega-rules-empty]')).toContainText('No rules yet');
   timeline.markStep('rules-mounted');
 
-  await page.locator('[data-ega-rules-empty]').getByRole('button', { name: 'Add a rule' }).click();
+  // While empty, the empty state holds the only Add rule.
+  await expect(page.locator('[data-ega-rules-add]')).toHaveCount(0);
+  await page.locator('[data-ega-rules-empty]').getByRole('button', { name: 'Add rule' }).click();
+  await expect(page.locator('[data-ega-rule-draft]')).toBeVisible();
+  await expect(page.locator('[data-ega-manual-body]')).toBeFocused();
   await page.locator('[data-ega-manual-body]').fill(BODY);
   await page.locator('[data-ega-manual-submit]').click();
   timeline.markStep('submitted');
@@ -43,6 +47,8 @@ test('manual add form persists a rule with source=manual to storage', async () =
     )
     .toBe(true);
   await expect(page.locator('[data-ega-rules-empty]')).toHaveCount(0);
+  await expect(page.locator('[data-ega-rule-draft]')).toHaveCount(0);
+  await expect(page.locator('[data-ega-rules-add]')).toBeVisible();
   timeline.markStep('persisted');
 
   // detectCategory keys on `Always …` → category='always'.

@@ -258,7 +258,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'defaults.defaultTask',
     label: 'Default task',
-    description: 'Translate, Explain, Summarize, Reword, Grammar, Reply ideas or Ask.',
+    description: 'What runs when you do not pick a task',
     keywords: ['task', 'translate', 'explain', 'summarize', 'reword', 'grammar', 'default'],
     tab: 'tasks',
     targetSelector: '[data-ega-setting="defaults.defaultTask"]',
@@ -268,8 +268,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'defaults.defaultTone',
     label: 'Default tone',
-    description:
-      'The tone a task uses unless you pick another, e.g. formal or casual. Only tasks that write in a tone use it, like Reword.',
+    description: 'The tone a task uses unless you pick another, like formal or casual',
     keywords: ['tone', 'reword', 'formal', 'casual', 'voice'],
     tab: 'tasks',
     targetSelector: '[data-ega-setting="defaults.defaultTone"]',
@@ -279,8 +278,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'tasks.enabled',
     label: 'Tasks on and off',
-    description:
-      'Turn a task off to hide it in the side panel, tooltip, Re-run as menu, palette and right-click menu.',
+    description: 'An off task is hidden in every picker and menu',
     keywords: ['task', 'off', 'hide', 'disable', 'picker'],
     tab: 'tasks',
     targetSelector: '[data-ega-setting="tasks.enabled"]',
@@ -299,8 +297,8 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   },
   {
     id: 'tasks.backupRestore',
-    label: 'Backup & restore tasks',
-    description: 'Export your tasks, task edits and on/off state, or import from JSON.',
+    label: 'Backup and restore tasks',
+    description: 'Your tasks, their edits and on/off state',
     keywords: ['backup', 'restore', 'export', 'import', 'json', 'task'],
     tab: 'tasks',
     type: 'group',
@@ -586,10 +584,9 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'advanced.rules',
     label: 'Rules',
-    description:
-      'Rules Ega adds to the system prompt. A rule can be limited to some tasks or sites, or turned off.',
+    description: 'Extra instructions for every task or only some; each can be limited to sites',
     keywords: ['rule', 'rules', 'always', 'never', 'prefer', 'format', 'declarative'],
-    tab: 'tasks',
+    tab: 'glossary',
     targetSelector: '[data-ega-setting="tasks.rules"]',
     type: 'group',
     isModified: { kind: 'nonEmpty', path: 'advanced.rules' },
@@ -961,8 +958,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'glossary.entries',
     label: 'Glossary entries',
-    description:
-      'Term → translation pairs Ega adds when the term appears in the text. Use them for brand names, character names and technical terms.',
+    description: 'Terms Ega always translates the same way',
     keywords: [
       'glossary',
       'term',

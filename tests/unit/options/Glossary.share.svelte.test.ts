@@ -25,6 +25,12 @@ describe('Glossary tab — share the glossary as a file', () => {
 
   it('exports the entries to a glossary file', async () => {
     const { getByRole, findByText } = render(Glossary);
+    // Export waits for the entries: with none it has nothing to export.
+    await waitFor(() =>
+      expect(getByRole('button', { name: /export glossary/i }).hasAttribute('aria-disabled')).toBe(
+        false,
+      ),
+    );
     await fireEvent.click(getByRole('button', { name: /export glossary/i }));
     await waitFor(() => expect(download).toHaveBeenCalledTimes(1));
     const [name, bundle] = download.mock.calls[0] as [
@@ -33,7 +39,7 @@ describe('Glossary tab — share the glossary as a file', () => {
     ];
     expect(name).toMatch(/^ega-glossary-\d{4}-\d{2}-\d{2}\.json$/);
     expect(bundle.egaGlossary.entries).toEqual([MINE]);
-    await findByText('Exported 1 entry.');
+    await findByText('Exported 1 entry');
   });
 
   it('imports a file, adds the new terms and lists them', async () => {

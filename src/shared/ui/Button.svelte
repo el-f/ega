@@ -22,6 +22,10 @@
     dataAttrs?: Record<string, string | number | boolean | undefined>;
     extraClass?: string;
     onclick?: (e: MouseEvent) => void;
+    /** Keeps the Tab stop and is announced as unavailable; the click does nothing. Pair it with describedBy. */
+    ariaDisabled?: boolean;
+    /** Id of the visible line that says why, or what the button does. */
+    describedBy?: string;
   }
 
   let {
@@ -38,6 +42,8 @@
     dataAttrs,
     extraClass,
     onclick,
+    ariaDisabled = false,
+    describedBy,
   }: Props = $props();
 
   const isDisabled = $derived(disabled || loading);
@@ -55,8 +61,10 @@
   aria-busy={loading}
   {title}
   aria-label={ariaLabel}
+  aria-disabled={ariaDisabled ? 'true' : undefined}
+  aria-describedby={describedBy}
   {...dataAttrs ?? {}}
-  {onclick}
+  onclick={ariaDisabled ? undefined : onclick}
 >
   {#if iconKind !== undefined}
     {@const IconGlyph = ICON_REGISTRY[iconKind]}
@@ -87,7 +95,8 @@
   }
   /* Disabled-state via real tokens, not opacity-as-disabled.
      opacity: 0.55 was killing contrast against textured backgrounds. */
-  .ega-btn:disabled {
+  .ega-btn:disabled,
+  .ega-btn[aria-disabled='true'] {
     background: var(--color-bg-disabled);
     color: var(--color-fg-disabled);
     border-color: var(--color-border-disabled);
@@ -142,7 +151,7 @@
     color: var(--color-accent-fg);
     border-color: var(--color-accent);
   }
-  .variant-primary:not(:disabled):hover {
+  .variant-primary:not(:disabled, [aria-disabled='true']):hover {
     background: var(--color-accent-hover);
     border-color: var(--color-accent-hover);
   }
@@ -151,7 +160,7 @@
     color: var(--color-fg);
     border-color: var(--color-control-border);
   }
-  .variant-secondary:not(:disabled):hover {
+  .variant-secondary:not(:disabled, [aria-disabled='true']):hover {
     background: var(--color-bg-hover);
   }
   .variant-ghost {
@@ -159,7 +168,7 @@
     color: var(--color-fg);
     border-color: transparent;
   }
-  .variant-ghost:not(:disabled):hover {
+  .variant-ghost:not(:disabled, [aria-disabled='true']):hover {
     background: var(--color-bg-hover);
   }
   .variant-danger {
@@ -167,7 +176,7 @@
     color: var(--color-accent-fg);
     border-color: var(--color-danger);
   }
-  .variant-danger:not(:disabled):hover {
+  .variant-danger:not(:disabled, [aria-disabled='true']):hover {
     filter: brightness(1.1);
   }
   /* Focus-visible — base */

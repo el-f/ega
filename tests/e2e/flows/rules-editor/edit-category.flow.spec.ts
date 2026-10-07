@@ -37,11 +37,11 @@ test.afterEach(async () => {
 
 test.slow();
 
-test('the category select in a rule row updates storage from always → never', async () => {
+test('the Type select in the open row updates storage from always → never', async () => {
   const timeline = createTimeline();
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
-  await page.locator('#tab-tasks').click();
+  await page.locator('#tab-glossary').click();
 
   await expect(page.locator('[data-ega-rules-editor]')).toBeVisible({ timeout: 5_000 });
   timeline.markStep('rules-mounted');
@@ -49,6 +49,7 @@ test('the category select in a rule row updates storage from always → never', 
   const row = page.locator(`[data-ega-rule-row][data-rule-id="${SEED_ID}"]`);
   await expect(row).toBeVisible({ timeout: 5_000 });
 
+  await row.locator('[data-ega-rule-edit]').click();
   const catSelect = row.locator('[data-ega-rule-category]');
   await expect(catSelect).toBeVisible({ timeout: 5_000 });
   await expect(catSelect).toHaveValue('always');

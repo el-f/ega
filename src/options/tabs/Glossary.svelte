@@ -10,7 +10,6 @@
   import { onMount, tick } from 'svelte';
   import TabHeader from '@/shared/components/TabHeader.svelte';
   import SectionCard from '@/shared/ui/SectionCard.svelte';
-  import IconButton from '@/shared/ui/IconButton.svelte';
   import Button from '@/shared/ui/Button.svelte';
   import Input from '@/shared/ui/Input.svelte';
   import Checkbox from '@/shared/ui/Checkbox.svelte';
@@ -28,35 +27,62 @@
   import { count } from '@/shared/utils/count';
   import { downloadJsonFile } from '@/shared/download-file';
   import BackupRestoreRow from '@/options/components/BackupRestoreRow.svelte';
+  import Disclosure from '@/options/components/Disclosure.svelte';
+  import RulesEditor from '@/options/components/RulesEditor.svelte';
+  import { createTemplatesHandlers } from '@/options/templates-handlers';
+  import { liveCustomTasks } from '@/options/custom-tasks-state.svelte';
+  import { gotoOptionsTab } from '@/options/deep-link';
+  import { materializeTasks } from '@/shared/task-view';
   import type { Settings, LangSelection, Variety } from '@/shared/types';
-  import Trash2 from '@lucide/svelte/icons/trash-2';
-  import Pencil from '@lucide/svelte/icons/pencil';
   import BookText from '@lucide/svelte/icons/book-text';
-  import { openOptionsTab } from '@/shared/open-options-tab';
+
+  interface Props {
+    s?: Settings | null;
+    onSetSettings?: (next: Settings) => void;
+  }
+
+  const { s = null, onSetSettings = () => {} }: Props = $props();
 
   type GlossaryEntry = Settings['glossary'][number];
-
-  let entries: GlossaryEntry[] = $state([]);
-  let draft: {
+  interface Fields {
     term: string;
     translation: string;
     sourceLang: string;
     targetLang: string;
     caseSensitive: boolean;
-  } = $state({
+  }
+  const EMPTY_FIELDS: Fields = {
     term: '',
     translation: '',
     sourceLang: '',
     targetLang: '',
     caseSensitive: false,
-  });
-  /** The row loaded into the form. Set while editing; null while adding. */
+  };
+
+  let entries: GlossaryEntry[] = $state([]);
+  let draft: Fields = $state({ ...EMPTY_FIELDS });
+  let termError = $state<string | null>(null);
+  let translationError = $state<string | null>(null);
+  let addError = $state<string | null>(null);
+  /** The entry the open row edits, by value: a write finds it in the stored list, where another surface can move it. */
   let editing: GlossaryEntry | null = $state(null);
-  let formEl = $state<HTMLDivElement | null>(null);
+  /** The open row, by position in the shown list: a saved field replaces the entry object, and the row must stay open with focus where it is. */
+  let openIndex = $state<number | null>(null);
+  let rowDraft: Fields = $state({ ...EMPTY_FIELDS });
+  let rowError = $state<string | null>(null);
+  let rowSaved = $state(false);
+  let addEl = $state<HTMLDivElement | null>(null);
   let listEl = $state<HTMLUListElement | null>(null);
   let query = $state('');
-  let saveError: string | null = $state(null);
   let varieties: Variety[] = $state([]);
+
+  const custom = liveCustomTasks();
+  const views = $derived(s ? materializeTasks(s, custom.rows) : []);
+  const usedBy = $derived(views.filter((v) => v.glossary && !v.disabled).map((v) => v.label));
+  const handlers = createTemplatesHandlers({
+    getSettings: () => s,
+    setSettings: (next) => onSetSettings(next),
+  });
 
   // Scope is compared against the request's own source/target id, so a variety id and 'auto' are both reachable values.
   const varietyOptions = $derived(
@@ -70,11 +96,24 @@
   ]);
   const targetOptions = $derived([ANY_OPTION, ...varietyOptions, ...ISO_OPTIONS]);
 
-  // A custom variety id is a UUID, so the row shows its label instead.
   function scopeLabel(id: string | undefined): string {
-    if (!id) return 'any';
-    return varieties.find((v) => v.id === id)?.label ?? id;
+    if (!id) return 'Any';
+    if (id === 'auto') return 'Auto-detect';
+    return (
+      varieties.find((v) => v.id === id)?.label ??
+      ISO_LANGUAGES.find((l) => l.code === id)?.label ??
+      id
+    );
   }
+
+  // While the default source is Auto-detect, an entry scoped to one source language never matches on its own.
+  function sourceNote(sourceLang: string): string | null {
+    if (sourceLang === '' || sourceLang === 'auto' || s?.defaultLang !== 'auto') return null;
+    return `Applies only when you pick ${scopeLabel(sourceLang)} as the source`;
+  }
+
+  const atCap = $derived(entries.length >= GLOSSARY_MAX);
+  const CAP_MESSAGE = `The glossary holds ${GLOSSARY_MAX} entries, the most Ega keeps`;
 
   const writeLock = makeAsyncLock();
 
@@ -87,8 +126,8 @@
   });
 
   async function refresh(): Promise<void> {
-    const s = await getSettings();
-    entries = [...s.glossary];
+    const cur = await getSettings();
+    entries = [...cur.glossary];
   }
 
   onMount(() => {
@@ -96,14 +135,24 @@
     void listVarieties().then((vs) => (varieties = vs));
   });
 
-  function clampLangSelection(raw: string): LangSelection | undefined {
+  function langSelection(raw: string): LangSelection | undefined {
     const trimmed = raw.trim();
     if (trimmed === '') return undefined;
     // Schema brands at parse; runtime carrier is opaque so the unsafe brand is fine here.
     return asLangIdUnsafe(trimmed);
   }
 
-  const LIMIT_MESSAGE = `Glossary limit is ${GLOSSARY_MAX} entries — delete one before adding another.`;
+  function toEntry(f: Fields): GlossaryEntry {
+    const sourceLang = langSelection(f.sourceLang);
+    const targetLang = langSelection(f.targetLang);
+    return {
+      term: f.term.trim(),
+      translation: f.translation.trim(),
+      caseSensitive: f.caseSensitive,
+      ...(sourceLang !== undefined ? { sourceLang } : {}),
+      ...(targetLang !== undefined ? { targetLang } : {}),
+    };
+  }
 
   class SkippedWrite extends Error {
     reason: 'full' | 'unchanged' | 'duplicate';
@@ -148,25 +197,55 @@
     return a.sourceLang === b.sourceLang && a.targetLang === b.targetLang && sameTerm(a, b);
   }
 
-  const DUPLICATE_MESSAGE = 'This term is already in the glossary for that language scope.';
+  const duplicateMessage = (term: string): string =>
+    `${term} is already in the glossary for this scope`;
 
-  function resetForm(): void {
-    editing = null;
-    saveError = null;
-    draft = { term: '', translation: '', sourceLang: '', targetLang: '', caseSensitive: false };
-  }
-
-  // Save entry and Cancel unmount with the edit mode, so focus goes to the form's first field.
-  async function leaveEdit(): Promise<void> {
-    resetForm();
+  async function addEntry(): Promise<void> {
+    if (atCap) return;
+    addError = null;
+    const entry = toEntry(draft);
+    termError = entry.term === '' ? 'Write a term' : null;
+    translationError = entry.translation === '' ? 'Write a translation' : null;
+    if (termError || translationError) {
+      await tick();
+      addEl?.querySelector<HTMLInputElement>('[aria-invalid="true"]')?.focus();
+      return;
+    }
+    const result = await writeLock(() =>
+      writeGlossary((cur) => {
+        if (cur.length >= GLOSSARY_MAX) return 'full';
+        return cur.some((g) => isDuplicate(g, entry)) ? 'duplicate' : [...cur, entry];
+      }),
+    );
+    if (result === 'full') addError = CAP_MESSAGE;
+    if (result === 'duplicate') addError = duplicateMessage(entry.term);
+    if (result !== 'saved') return;
+    draft = { ...EMPTY_FIELDS };
     await tick();
-    formEl?.querySelector<HTMLInputElement>('input')?.focus();
+    addEl?.querySelector<HTMLInputElement>('input')?.focus();
   }
 
-  async function startEdit(entry: GlossaryEntry): Promise<void> {
-    saveError = null;
+  function editButton(index: number): HTMLElement | null {
+    return listEl?.querySelectorAll<HTMLElement>('[data-ega-glossary-edit]')[index] ?? null;
+  }
+
+  function closeRow(): void {
+    openIndex = null;
+    editing = null;
+  }
+
+  async function toggleRow(entry: GlossaryEntry, index: number): Promise<void> {
+    rowError = null;
+    rowSaved = false;
+    if (openIndex === index) {
+      closeRow();
+      await tick();
+      editButton(index)?.focus();
+      return;
+    }
+    openIndex = index;
     editing = entry;
-    draft = {
+    rowDraft = {
       term: entry.term,
       translation: entry.translation,
       sourceLang: entry.sourceLang ?? '',
@@ -174,43 +253,22 @@
       caseSensitive: entry.caseSensitive,
     };
     await tick();
-    formEl?.scrollIntoView({ block: 'nearest' });
-    formEl?.querySelector<HTMLInputElement>('input')?.focus();
+    listEl?.querySelector<HTMLInputElement>('[data-ega-glossary-editor] input')?.focus();
   }
 
-  async function addEntry(): Promise<void> {
-    saveError = null;
-    const term = draft.term.trim();
-    const translation = draft.translation.trim();
-    if (!term || !translation) return;
-    if (term.length > GLOSSARY_FIELD_MAX) {
-      saveError = `Term is too long (max ${GLOSSARY_FIELD_MAX} characters).`;
-      return;
-    }
-    if (translation.length > GLOSSARY_FIELD_MAX) {
-      saveError = `Translation is too long (max ${GLOSSARY_FIELD_MAX} characters).`;
-      return;
-    }
-    const sourceLang = clampLangSelection(draft.sourceLang);
-    const targetLang = clampLangSelection(draft.targetLang);
-    const entry: GlossaryEntry = {
-      term,
-      translation,
-      caseSensitive: draft.caseSensitive,
-      ...(sourceLang !== undefined ? { sourceLang } : {}),
-      ...(targetLang !== undefined ? { targetLang } : {}),
-    };
+  // Each field writes when it is left, so the open row replaces the stored entry it was opened on.
+  async function saveRow(): Promise<void> {
     const original = editing;
-    if (original && sameEntry(original, entry)) {
-      await leaveEdit();
+    if (!original) return;
+    const entry = toEntry(rowDraft);
+    if (entry.term === '' || entry.translation === '') {
+      rowError = entry.term === '' ? 'Write a term' : 'Write a translation';
       return;
     }
+    rowError = null;
+    if (sameEntry(original, entry)) return;
     const result = await writeLock(() =>
       writeGlossary((cur) => {
-        if (!original) {
-          if (cur.length >= GLOSSARY_MAX) return 'full';
-          return cur.some((g) => isDuplicate(g, entry)) ? 'duplicate' : [...cur, entry];
-        }
         const at = cur.findIndex((g) => sameEntry(g, original));
         if (at < 0) return 'unchanged';
         // A near-duplicate the original already had (cs "Apple" beside ci "apple") must not block editing it.
@@ -219,14 +277,24 @@
         return cur.map((g, i) => (i === at ? entry : g));
       }),
     );
-    if (result === 'full') saveError = LIMIT_MESSAGE;
-    if (result === 'duplicate') saveError = DUPLICATE_MESSAGE;
+    if (result === 'duplicate') rowError = duplicateMessage(entry.term);
     if (result === 'unchanged') {
-      saveError = 'This entry changed in another window. Cancel, then edit it again.';
+      rowError = 'This entry changed in another window. Close it, then edit it again.';
     }
     if (result !== 'saved') return;
-    if (original) await leaveEdit();
-    else resetForm();
+    editing = entry;
+    rowSaved = true;
+  }
+
+  async function onRowKeydown(e: KeyboardEvent, index: number): Promise<void> {
+    if (e.key !== 'Escape' || e.isComposing) return;
+    e.preventDefault();
+    e.stopPropagation();
+    // Closing removes the focused field before its blur runs, so the field is written here.
+    await saveRow();
+    closeRow();
+    await tick();
+    editButton(index)?.focus();
   }
 
   // Position is not identity: another surface can rewrite the glossary while this tab sits open.
@@ -239,21 +307,37 @@
         return removedAt < 0 ? 'unchanged' : cur.filter((_, i) => i !== removedAt);
       }),
     );
-    // Every write rebuilds the entries, so every row remounts and the pressed button is gone; the row now in its place takes focus.
+    // Gone either way, unless the write itself failed and a retry is still possible.
+    if (result !== 'failed') closeRow();
     await tick();
-    const deletes =
-      listEl?.querySelectorAll<HTMLElement>('button[aria-label^="Delete entry "]') ?? [];
+    // The next row takes focus, else the previous one, else the Add button.
+    const edits = listEl?.querySelectorAll<HTMLElement>('[data-ega-glossary-edit]') ?? [];
     (
-      deletes[Math.min(shownAt, deletes.length - 1)] ??
-      formEl?.querySelector<HTMLInputElement>('input')
+      edits[Math.min(shownAt, edits.length - 1)] ??
+      addEl?.querySelector<HTMLElement>('[data-ega-glossary-add-button]')
     )?.focus();
     if (result !== 'saved') return;
-    if (editing && sameEntry(editing, entry)) resetForm();
     toastStore.push({
-      message: `Removed "${entry.term}".`,
+      message: `Deleted "${entry.term}"`,
       variant: 'success',
       action: { label: 'Undo', onClick: () => void restoreEntry(entry, removedAt) },
     });
+  }
+
+  async function restoreEntry(entry: GlossaryEntry, at: number): Promise<void> {
+    const result = await writeLock(() =>
+      writeGlossary((cur) => {
+        if (cur.length >= GLOSSARY_MAX) return 'full';
+        const next = [...cur];
+        next.splice(Math.min(at, next.length), 0, entry);
+        return next;
+      }),
+    );
+    if (result === 'full') addError = CAP_MESSAGE;
+    if (result !== 'saved') return;
+    await tick();
+    const shown = filtered.findIndex((g) => sameEntry(g, entry));
+    if (shown >= 0) editButton(shown)?.focus();
   }
 
   let shareStatus = $state<ImportStatus | null>(null);
@@ -265,7 +349,7 @@
       downloadJsonFile(`ega-glossary-${new Date().toISOString().slice(0, 10)}.json`, bundle);
       shareStatus = {
         kind: 'ok',
-        msg: `Exported ${count(bundle.egaGlossary.entries.length, 'entry', 'entries')}.`,
+        msg: `Exported ${count(bundle.egaGlossary.entries.length, 'entry', 'entries')}`,
       };
     } catch (e) {
       shareStatus = { kind: 'err', msg: `Export failed: ${(e as Error).message}` };
@@ -279,273 +363,346 @@
     shareStatus = status;
     if (status.kind === 'ok') await refresh();
   }
-
-  async function restoreEntry(entry: GlossaryEntry, at: number): Promise<void> {
-    const result = await writeLock(() =>
-      writeGlossary((cur) => {
-        if (cur.length >= GLOSSARY_MAX) return 'full';
-        const next = [...cur];
-        next.splice(Math.min(at, next.length), 0, entry);
-        return next;
-      }),
-    );
-    if (result === 'full') saveError = LIMIT_MESSAGE;
-  }
 </script>
 
-<TabHeader tab="glossary" />
-
-<SectionCard title={editing ? 'Edit entry' : 'Add entry'}>
-  <div class="glossary-add" data-ega-glossary-add bind:this={formEl}>
-    <Input
-      bind:value={draft.term}
-      label="Term"
-      placeholder="Firebolt"
-      maxlength={GLOSSARY_FIELD_MAX}
+{#snippet scopeFields(f: Fields, idPrefix: string, onLeave: (() => void) | null)}
+  <div class="gl-scope-row">
+    <Select
+      id="{idPrefix}-source"
+      label="Source language"
+      value={f.sourceLang}
+      options={sourceOptions}
+      onchange={(v) => {
+        f.sourceLang = v;
+        onLeave?.();
+      }}
     />
-    <Input
-      bind:value={draft.translation}
-      label="Translation"
-      placeholder="Saeta de Fuego"
-      maxlength={GLOSSARY_FIELD_MAX}
+    <Select
+      id="{idPrefix}-target"
+      label="Target language"
+      value={f.targetLang}
+      options={targetOptions}
+      onchange={(v) => {
+        f.targetLang = v;
+        onLeave?.();
+      }}
     />
-    <label class="glossary-lang-field">
-      <span>Source language</span>
-      <Select
-        bind:value={draft.sourceLang}
-        options={sourceOptions}
-        ariaLabel="Source language scope"
-      />
-    </label>
-    <label class="glossary-lang-field">
-      <span>Target language</span>
-      <Select
-        bind:value={draft.targetLang}
-        options={targetOptions}
-        ariaLabel="Target language scope"
-      />
-    </label>
-    <Checkbox id="glossary-case-sensitive" bind:checked={draft.caseSensitive} label="Match case" />
-    <p class="glossary-scope-help" data-ega-glossary-scope-help>
-      Scope matches the language picked for the request, not the detected one. While the source is
-      Auto-detect, only entries scoped to Any or Auto-detect apply. Entries apply to every task that
-      has Use glossary on;
-      <button type="button" class="glossary-link" onclick={() => openOptionsTab('tasks')}>
-        set that per task on the Tasks tab</button
-      >.
-    </p>
-    <div class="glossary-add-row">
-      {#if editing}
-        <Button
-          variant="primary"
-          disabled={!draft.term.trim() || !draft.translation.trim()}
-          onclick={addEntry}
-        >
-          Save entry
-        </Button>
-        <Button variant="secondary" onclick={() => void leaveEdit()}>Cancel</Button>
-      {:else}
-        <Button
-          variant="primary"
-          iconKind="add"
-          disabled={!draft.term.trim() || !draft.translation.trim()}
-          onclick={addEntry}
-        >
-          Add entry
-        </Button>
-      {/if}
-      {#if saveError}
-        <span class="glossary-error" role="alert">{saveError}</span>
-      {/if}
-    </div>
   </div>
-</SectionCard>
+  <Checkbox
+    id="{idPrefix}-case"
+    checked={f.caseSensitive}
+    label="Match case"
+    onchange={(v) => {
+      f.caseSensitive = v;
+      onLeave?.();
+    }}
+  />
+  {@const note = sourceNote(f.sourceLang)}
+  {#if note}<p class="gl-line" data-ega-glossary-scope-note>{note}</p>{/if}
+{/snippet}
 
-<SectionCard title="Entries">
-  {#if entries.length === 0}
-    <EmptyState
-      title="No glossary entries"
-      description="Add brand names, character names, or technical jargon here so they translate consistently."
-      icon={BookText}
-    />
-  {:else}
-    {#if entries.length > 10}
-      <div class="glossary-filter">
-        <Input
-          bind:value={query}
-          placeholder="Filter entries…"
-          ariaLabel="Filter glossary entries"
+<section data-ega-tab="glossary">
+  <TabHeader tab="glossary" />
+
+  <SectionCard
+    title="Glossary"
+    description="Terms Ega always translates the same way"
+    info={{
+      label: 'About the glossary',
+      text: 'An entry is sent only when its term appears in the text. Scope follows the language picked for the request, not the detected one.',
+    }}
+  >
+    {#if s}
+      <div class="gl-used-by" data-ega-glossary-used-by>
+        <span class="gl-used-label">Used by</span>
+        <span class="gl-used-list"
+          >{usedBy.length > 0 ? usedBy.join(', ') : 'No task uses it yet'}</span
+        >
+        <Button
+          variant="ghost"
           size="sm"
-          type="search"
-        />
+          ariaLabel="Change which tasks use the glossary"
+          onclick={() => gotoOptionsTab('tasks', 'tasks.overrides')}>Change</Button
+        >
       </div>
     {/if}
-    <ul class="glossary-list" data-ega-glossary-list bind:this={listEl}>
-      {#each filtered as e (e)}
-        <li class="glossary-row" class:is-editing={editing !== null && sameEntry(editing, e)}>
-          <div class="glossary-cell glossary-cell-term" dir="auto"><b>{e.term}</b></div>
-          <div class="glossary-cell glossary-cell-arrow" aria-hidden="true">→</div>
-          <div class="glossary-cell glossary-cell-translation" dir="auto">{e.translation}</div>
-          <div class="glossary-cell glossary-cell-scope">
-            <span>{scopeLabel(e.sourceLang)}</span>
-            <span aria-hidden="true">→</span>
-            <span>{scopeLabel(e.targetLang)}</span>
-          </div>
-          <div class="glossary-cell glossary-cell-flags">
-            {#if e.caseSensitive}<span class="badge">Match case</span>{/if}
-          </div>
-          <div class="glossary-cell glossary-cell-actions">
-            <IconButton
-              icon={Pencil}
-              ariaLabel="Edit entry {e.term}"
-              tooltip="Edit"
-              size="sm"
-              onclick={() => void startEdit(e)}
-            />
-            <IconButton
-              icon={Trash2}
-              ariaLabel="Delete entry {e.term}"
-              tooltip="Delete"
-              size="sm"
-              variant="danger"
-              onclick={() => void removeEntry(e)}
-            />
-          </div>
-        </li>
-      {/each}
-    </ul>
-  {/if}
-</SectionCard>
 
-<SectionCard
-  title="Backup & restore"
-  description="Share your glossary as a file. Import adds only the terms you do not have yet."
->
-  <BackupRestoreRow onExport={doExport} onImport={doImport} status={shareStatus} scope="glossary" />
-</SectionCard>
+    <div class="glossary-add" data-ega-glossary-add bind:this={addEl}>
+      <div class="gl-field">
+        <Input
+          bind:value={draft.term}
+          label="Term"
+          placeholder="e.g. Firebolt"
+          maxlength={GLOSSARY_FIELD_MAX}
+          oninput={() => (termError = null)}
+          dataAttrs={{
+            'aria-invalid': termError ? 'true' : undefined,
+            'aria-describedby': termError ? 'gl-term-error' : undefined,
+          }}
+        />
+        {#if termError}<p class="gl-error" id="gl-term-error">{termError}</p>{/if}
+      </div>
+      <div class="gl-field">
+        <Input
+          bind:value={draft.translation}
+          label="Translation"
+          placeholder="e.g. Saeta de Fuego"
+          maxlength={GLOSSARY_FIELD_MAX}
+          oninput={() => (translationError = null)}
+          dataAttrs={{
+            'aria-invalid': translationError ? 'true' : undefined,
+            'aria-describedby': translationError ? 'gl-translation-error' : undefined,
+          }}
+        />
+        {#if translationError}<p class="gl-error" id="gl-translation-error">
+            {translationError}
+          </p>{/if}
+      </div>
+      <div class="gl-add-button">
+        <Button
+          variant="secondary"
+          ariaDisabled={atCap}
+          {...atCap ? { describedBy: 'gl-cap' } : {}}
+          dataAttrs={{ 'data-ega-glossary-add-button': true }}
+          onclick={() => void addEntry()}>Add</Button
+        >
+      </div>
+    </div>
+    {#if atCap}<p class="gl-line" id="gl-cap" data-ega-glossary-cap>{CAP_MESSAGE}</p>{/if}
+    {#if addError}<p class="gl-error" role="alert">{addError}</p>{/if}
+    <Disclosure label="More options" dataAttrs={{ 'data-ega-glossary-more': true }}>
+      <div class="gl-more">{@render scopeFields(draft, 'gl-add', null)}</div>
+    </Disclosure>
+
+    {#if entries.length === 0}
+      <EmptyState
+        title="No glossary entries yet"
+        description="Add names and terms that must translate the same way every time"
+        icon={BookText}
+      />
+    {:else}
+      {#if entries.length > 10}
+        <div class="glossary-filter">
+          <Input
+            bind:value={query}
+            oninput={closeRow}
+            placeholder="Filter entries"
+            ariaLabel="Filter glossary entries"
+            size="sm"
+            type="search"
+          />
+        </div>
+      {/if}
+      <ul class="glossary-list" data-ega-glossary-list bind:this={listEl}>
+        <!-- Keyed by position: a saved edit replaces the entry object, and the open row must keep its fields and focus. -->
+        {#each filtered as e, i (i)}
+          {@const open = openIndex === i}
+          <li class="glossary-row" class:is-open={open}>
+            <div class="gl-row-line">
+              <span class="gl-pair">
+                <span class="gl-term" dir="auto">{e.term}</span>
+                <span class="gl-arrow" aria-hidden="true">→</span>
+                <span dir="auto">{e.translation}</span>
+              </span>
+              <span class="gl-scope">
+                {scopeLabel(e.sourceLang)}<span aria-hidden="true"> → </span><span
+                  class="ega-sr-only"
+                >
+                  to
+                </span>{scopeLabel(e.targetLang)}{e.caseSensitive ? ' · Match case' : ''}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                ariaLabel={`${open ? 'Close' : 'Edit'} entry ${e.term}`}
+                dataAttrs={{
+                  'data-ega-glossary-edit': true,
+                  'aria-expanded': open ? 'true' : 'false',
+                  'aria-controls': open ? `gl-editor-${i}` : undefined,
+                }}
+                onclick={() => void toggleRow(e, i)}>{open ? 'Close' : 'Edit'}</Button
+              >
+            </div>
+            {#if open}
+              <!-- svelte-ignore a11y_no_static_element_interactions -->
+              <div
+                class="gl-editor"
+                id="gl-editor-{i}"
+                data-ega-glossary-editor
+                onkeydown={(ev) => void onRowKeydown(ev, i)}
+              >
+                <div class="gl-editor-pair">
+                  <Input
+                    bind:value={rowDraft.term}
+                    label="Term"
+                    maxlength={GLOSSARY_FIELD_MAX}
+                    onblur={() => void saveRow()}
+                  />
+                  <Input
+                    bind:value={rowDraft.translation}
+                    label="Translation"
+                    maxlength={GLOSSARY_FIELD_MAX}
+                    onblur={() => void saveRow()}
+                  />
+                </div>
+                {@render scopeFields(rowDraft, `gl-row-${i}`, () => void saveRow())}
+                {#if rowError}<p class="gl-error" role="alert">{rowError}</p>{/if}
+                <div class="gl-editor-actions">
+                  <Button
+                    variant="ghost"
+                    iconKind="delete"
+                    ariaLabel={`Delete entry ${e.term}`}
+                    onclick={() => void removeEntry(e)}>Delete entry</Button
+                  >
+                  <span class="gl-saved" role="status">{rowSaved ? 'Saved' : ''}</span>
+                </div>
+              </div>
+            {/if}
+          </li>
+        {/each}
+      </ul>
+    {/if}
+  </SectionCard>
+
+  {#if s}
+    <RulesEditor rules={s.advanced.rules} onUpdate={handlers.updateRules} taskViews={views} />
+  {/if}
+
+  <SectionCard
+    title="Backup and restore"
+    description="Your glossary as a file"
+    info={{
+      label: 'About this backup',
+      text: 'Import adds only the terms you do not have yet. Rules are in the full backup on the Advanced tab.',
+    }}
+  >
+    <BackupRestoreRow
+      onExport={doExport}
+      onImport={doImport}
+      status={shareStatus}
+      scope="glossary"
+      exportBlockedReason={entries.length === 0 ? 'Nothing to export yet' : null}
+    />
+  </SectionCard>
+</section>
 
 <style>
+  .gl-used-by {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+    font-size: var(--fs-base);
+  }
+  .gl-used-label {
+    color: var(--color-muted);
+  }
+  .gl-used-list {
+    flex: 1 1 auto;
+  }
   .glossary-add {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    grid-template-columns: 1fr 1fr auto;
     gap: var(--space-2);
-    align-items: end;
+    align-items: start;
   }
-  .glossary-lang-field {
+  .gl-field {
     display: flex;
     flex-direction: column;
     gap: var(--space-1);
-    font-size: var(--fs-sm);
-    font-weight: 500;
-    color: var(--color-fg);
-    /* The global label rule belongs on the text, as on Input labels, not on the wrapper and its select. */
-    margin: 0;
-    opacity: 1;
   }
-  .glossary-lang-field > span {
-    margin: var(--space-2) 0 var(--space-1);
-    opacity: 0.8;
+  /* Lines the button up with the inputs under their labels. */
+  .gl-add-button {
+    align-self: end;
   }
-  .glossary-scope-help {
-    grid-column: 1 / -1;
-    margin: 0;
-    font-size: var(--fs-xs);
-    color: var(--color-muted);
-    line-height: var(--lh-body);
+  .glossary-add:has(.gl-error) .gl-add-button {
+    align-self: center;
   }
-  .glossary-add-row {
-    grid-column: 1 / -1;
+  .gl-more {
     display: flex;
-    align-items: center;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding-block: var(--space-1) var(--space-2);
+  }
+  .gl-scope-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
     gap: var(--space-2);
   }
-  .glossary-error {
+  .gl-line,
+  .gl-error {
+    margin: 0;
+    font-size: var(--fs-base);
+    line-height: var(--lh-body);
+  }
+  .gl-line {
+    color: var(--color-muted);
+  }
+  .gl-error {
     color: var(--color-danger-fg);
-    font-size: var(--fs-sm);
   }
   .glossary-filter {
-    margin-bottom: var(--space-2);
+    margin-block: var(--space-2);
   }
   .glossary-list {
     list-style: none;
-    margin: 0;
+    margin: var(--space-2) 0 0;
     padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
   }
   .glossary-row {
-    display: grid;
-    grid-template-columns: 1fr auto 1fr auto auto auto;
+    padding-block: var(--space-1);
+  }
+  .glossary-row + .glossary-row {
+    border-top: 1px solid var(--color-border-subtle);
+  }
+  .gl-row-line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-1) var(--space-3);
+    min-height: 40px;
+  }
+  .gl-pair {
+    flex: 1 1 14rem;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-size: var(--fs-base);
+  }
+  .gl-term {
+    font-weight: 600;
+  }
+  .gl-arrow {
+    color: var(--color-muted);
+    padding-inline: var(--space-1);
+  }
+  .gl-scope {
+    color: var(--color-muted);
+    font-size: var(--fs-base);
+  }
+  .gl-editor {
+    display: flex;
+    flex-direction: column;
     gap: var(--space-2);
+    padding-block: var(--space-2);
+  }
+  .gl-editor-pair {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    gap: var(--space-2);
+  }
+  .gl-editor-actions {
+    display: flex;
     align-items: center;
-    padding: var(--space-2);
-    border: 1px solid var(--color-border-subtle);
-    border-radius: var(--radius-sm);
-    background: var(--color-bg-elevated);
-    font-size: var(--fs-sm);
+    gap: var(--space-2);
   }
-  .glossary-row.is-editing {
-    border-color: var(--color-accent);
+  .gl-saved {
+    font-size: var(--fs-base);
+    color: var(--color-success-fg);
   }
-  .glossary-cell-actions {
-    display: inline-flex;
-    gap: 2px;
-  }
-  .glossary-link {
-    padding: 0;
-    border: 0;
-    background: transparent;
-    color: var(--color-accent);
-    font: inherit;
-    text-decoration: underline;
-    cursor: pointer;
-  }
-  .glossary-cell-arrow {
-    color: var(--color-muted);
-  }
-  .glossary-cell-scope {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-1);
-    color: var(--color-muted);
-    font-size: var(--fs-xs);
-    font-variant-numeric: tabular-nums;
-  }
-  .badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 0 var(--space-1);
-    border-radius: var(--radius-sm);
-    background: var(--color-bg-hover);
-    color: var(--color-muted);
-    font-size: var(--fs-xs);
-  }
-  @media (max-width: 600px) {
-    .glossary-row {
-      grid-template-columns: 1fr auto;
-      grid-template-areas:
-        'term actions'
-        'translation translation'
-        'scope flags';
-    }
-    .glossary-cell-term {
-      grid-area: term;
-    }
-    .glossary-cell-arrow {
-      display: none;
-    }
-    .glossary-cell-translation {
-      grid-area: translation;
-    }
-    .glossary-cell-scope {
-      grid-area: scope;
-    }
-    .glossary-cell-flags {
-      grid-area: flags;
-    }
-    .glossary-cell-actions {
-      grid-area: actions;
+  @media (max-width: 560px) {
+    .glossary-add {
+      grid-template-columns: 1fr;
     }
   }
 </style>

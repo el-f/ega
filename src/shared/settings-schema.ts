@@ -20,7 +20,7 @@ import { CLOUD_PROFILES } from './backends/provider-profiles';
 /** Every cap the writers clamp to. The schema below is the only consumer, so a
  *  UI guard and the reader's clamp can never disagree about the number. */
 export const RULE_BODY_MAX = 500;
-const RULES_MAX = 100;
+export const RULES_MAX = 100;
 export const BACKEND_CHAIN_MAX = 10;
 export const SITE_PREFS_MAX = 500;
 export const CONTEXT_MENU_ITEMS_MAX = 50;

@@ -25,15 +25,22 @@ test('the Tasks tab lists the built-ins with their state', async () => {
   await expect(page.locator('[data-ega-task-item]')).toHaveCount(7, { timeout: 5_000 });
   timeline.markStep('rows-rendered');
 
-  await expect(page.locator('[data-ega-task-toggle="translate"]')).toBeDisabled();
-  await expect(page.locator('[data-ega-task-item="translate"]')).toContainText('Always on');
+  // Translate keeps its Tab stop; "Always on" is the reason it cannot be turned off.
+  // Playwright reads aria-disabled as disabled, so the Tab stop is checked by focusing it.
+  const translate = page.locator('[data-ega-task-toggle="translate"]');
+  await expect(translate).not.toHaveAttribute('disabled');
+  await expect(translate).toHaveAttribute('aria-disabled', 'true');
+  await translate.focus();
+  await expect(translate).toBeFocused();
+  await page.keyboard.press('Space');
+  await expect(translate).toBeChecked();
+  await expect(translate).toHaveAccessibleDescription(/Always on/);
   await expect(page.locator('[data-ega-task-item="summarize"]')).toContainText('Edited');
-  await expect(page.locator('[data-ega-task-item="ask"]')).toContainText('Off');
   await expect(page.locator('[data-ega-task-toggle="ask"]')).not.toBeChecked();
   await expect(page.locator('[data-ega-task-toggle="reword"]')).toBeChecked();
-  const grammar = page.locator('[data-ega-task-item="grammar"]');
-  await expect(grammar).not.toContainText('Edited');
-  await expect(grammar).not.toContainText('Off');
+  await expect(page.locator('[data-ega-task-item="grammar"]')).not.toContainText('Edited');
+  // With no task of your own, the empty state holds the only New task.
+  await expect(page.locator('[data-ega-custom-task-new]')).toHaveCount(0);
   timeline.markStep('state-shown');
 
   // Explain has no prompt of its own; its dialog says which one it uses.

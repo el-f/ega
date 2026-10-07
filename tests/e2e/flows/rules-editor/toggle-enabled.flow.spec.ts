@@ -37,17 +37,19 @@ test.afterEach(async () => {
 
 test.slow();
 
-test('the On checkbox toggles the enabled flag in storage and shows Off', async () => {
+test('the "Use rule" checkbox toggles the enabled flag in storage', async () => {
   const timeline = createTimeline();
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
-  await page.locator('#tab-tasks').click();
+  await page.locator('#tab-glossary').click();
 
   await expect(page.locator('[data-ega-rules-editor]')).toBeVisible({ timeout: 5_000 });
 
   const row = page.locator(`[data-ega-rule-row][data-rule-id="${SEED_ID}"]`);
-  await expect(row.locator('[data-ega-rule-off]')).toHaveCount(0);
-  await row.locator('[data-ega-rule-disable]').click();
+  const box = row.locator('[data-ega-rule-disable]');
+  await expect(box).toBeChecked();
+  await expect(box).toHaveAccessibleName(/^Use rule: /);
+  await box.click();
   timeline.markStep('toggle-clicked');
 
   await expect
@@ -59,5 +61,5 @@ test('the On checkbox toggles the enabled flag in storage and shows Off', async 
       { timeout: 10_000 },
     )
     .toBe(false);
-  await expect(row.locator('[data-ega-rule-off]')).toBeVisible();
+  await expect(box).not.toBeChecked();
 });

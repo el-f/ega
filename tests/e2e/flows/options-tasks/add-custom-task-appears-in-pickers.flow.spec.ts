@@ -32,7 +32,8 @@ test('a new task from the Tasks tab shows in the Next message popover and the to
   const options = await ext.context.newPage();
   await options.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
   await options.locator('#tab-tasks').click();
-  await options.locator('[data-ega-custom-task-new]').click();
+  // With no task of your own yet, New task is the empty state's button.
+  await options.locator('[data-ega-empty-state]').getByRole('button', { name: 'New task' }).click();
   const dialog = options.locator('[data-ega-custom-task-dialog]');
   await expect(dialog).toBeVisible({ timeout: 5_000 });
   await expect(options.locator('[data-ega-dialog-status]')).toHaveText('Not saved yet: add a name');

@@ -2,25 +2,24 @@
 
 ## Latency budgets
 
-- Add click when at cap -> inline error visible: <= 100ms.
+- Tab open at the cap -> the reason line is visible: <= 300ms.
 
 ## State expectations
 
 - Step 1: `settings.glossary` contains exactly 200 entries (the cap).
-- Step 2: user fills the Add form with a valid term + translation and clicks Add.
-- Step 3: an inline error message "Glossary limit is 200 entries — delete one before adding another" appears; no entry is written to storage.
+- Step 2: the user fills Term and Translation and clicks Add.
+- Step 3: nothing is written; the line "The glossary holds 200 entries, the most Ega keeps" is visible and is Add's description.
 
 ## Visible affordances
 
-- The inline error appears beside the Add entry button inside the form (not as a toast); the typed term and translation stay in the fields.
-- The Add button remains clickable (the error fires on submit, not on mount).
+- Add stays in the Tab order (aria-disabled, not disabled), so the reason is read with it.
+- The typed term and translation stay in the fields.
 
 ## Failure-mode expectations
 
-- The cap check fires before the storage write; storage is never touched on a cap violation.
+- If another surface filled the glossary after this tab loaded, the write still refuses the 201st entry and shows the same line.
 
 ## Cautions
 
-- The 200-entry cap is enforced at the boundary; `settings.glossary.length >= 200` must be checked before any write attempt.
-- The error message must give the exact cap number ("200") so the user knows what to expect after deleting entries.
-- This scenario requires the test to seed 200 entries before attempting the add.
+- The 200-entry cap is enforced at the boundary; `settings.glossary.length >= 200` is checked before any write.
+- The line gives the exact cap number so the user knows what to expect after deleting entries.

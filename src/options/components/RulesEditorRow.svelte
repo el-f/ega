@@ -1,30 +1,21 @@
 <script lang="ts">
-  import { ruleCategoryLabel, type Rule, type RuleCategory } from '@/shared/rules';
-  import { taskExists, taskLabel, type TaskView } from '@/shared/task-view';
-  import Button from '@/shared/ui/Button.svelte';
-  import IconButton from '@/shared/ui/IconButton.svelte';
-  import Badge from '@/shared/ui/Badge.svelte';
-  import Select from '@/shared/ui/Select.svelte';
+  /** One rule: its on/off box with the full text, a meta line, and Edit, which opens the fields below. */
+  import type { Rule } from '@/shared/rules';
+  import type { TaskView } from '@/shared/task-view';
   import Checkbox from '@/shared/ui/Checkbox.svelte';
-  import Popover from '@/shared/ui/Popover.svelte';
-  import Textarea from '@/shared/ui/Textarea.svelte';
-  import { RULE_BODY_MAX } from '@/shared/settings-schema';
-  import Trash2 from '@lucide/svelte/icons/trash-2';
-  import Pencil from '@lucide/svelte/icons/pencil';
+  import Button from '@/shared/ui/Button.svelte';
   import { scrollBehavior } from '@/options/deep-link';
+  import RuleEditor from './rules/RuleEditor.svelte';
+  import { ruleMeta, type RuleDraft } from './rules/rule-fields';
 
   interface Props {
     rule: Rule;
-    /** Returns false when the write failed, so the row does not say Saved. */
-    onBodyChange: (body: string) => void | boolean | Promise<void | boolean>;
-    onCategoryChange: (category: RuleCategory) => void | Promise<void>;
+    taskViews: readonly TaskView[];
+    open: boolean;
+    onToggleOpen: () => void;
     onToggleEnabled: () => void | Promise<void>;
-    onToggleTask: (task: string) => void | Promise<void>;
-    /** An empty list is the explicit "all tasks" scope; a message adds an Undo toast. */
-    onSetTasks: (tasks: readonly string[], undoMessage: string | null) => void | Promise<void>;
-    /** Every task, on or off; names custom tasks. */
-    taskViews?: readonly TaskView[];
-    onRemoveSite: (site: string) => void | Promise<void>;
+    /** Writes one changed part; false when the write failed. */
+    onCommit: (patch: Partial<RuleDraft>) => Promise<boolean>;
     onDelete: () => void | Promise<void>;
     /** Pulse and scroll into view once: the row was just added. */
     highlight?: boolean;
@@ -32,71 +23,25 @@
 
   const {
     rule,
-    onBodyChange,
-    onCategoryChange,
+    taskViews,
+    open,
+    onToggleOpen,
     onToggleEnabled,
-    onToggleTask,
-    onSetTasks,
-    taskViews = [],
-    onRemoveSite,
+    onCommit,
     onDelete,
     highlight = false,
   }: Props = $props();
 
-  const CATEGORIES: readonly RuleCategory[] = ['always', 'never', 'prefer', 'format', 'unknown'];
-
-  let editing = $state(false);
-  let editingDraft = $state('');
-
-  function startEdit(): void {
-    editing = true;
-    editingDraft = rule.body;
-  }
-
-  let saved = $state(false);
-  let savedTimer: ReturnType<typeof setTimeout> | undefined;
   let rowEl = $state<HTMLElement | null>(null);
-
-  $effect(() => {
-    if (highlight) rowEl?.scrollIntoView({ block: 'nearest', behavior: scrollBehavior() });
-  });
-
-  $effect(() => () => clearTimeout(savedTimer));
-
-  async function commitEdit(): Promise<void> {
-    const trimmed = editingDraft.trim();
-    editing = false;
-    if (trimmed.length === 0 || trimmed === rule.body) return;
-    // A failed write reopens the editor with the text, as a failed add keeps its form.
-    if ((await onBodyChange(trimmed)) === false) {
-      editing = true;
-      editingDraft = trimmed;
-      return;
-    }
-    saved = true;
-    clearTimeout(savedTimer);
-    savedTimer = setTimeout(() => (saved = false), 2000);
-  }
-
-  function cancelEdit(): void {
-    editing = false;
-    editingDraft = '';
-  }
-
-  let scopeAnchor = $state<HTMLElement | null>(null);
-  let scopeOpen = $state(false);
-  const allTasks = $derived(rule.scope.tasks.length === 0);
-  // Every row has an Edit scope button, so its name carries the start of the rule.
+  const editorId = $derived(`ega-rule-editor-${rule.id}`);
+  // Every row has an Edit button, so its name carries the start of the rule.
   const shortBody = $derived(
     rule.body.length > 40 ? `${rule.body.slice(0, 40).trimEnd()}…` : rule.body,
   );
 
-  function toggleScopeTask(id: string, on: boolean): void {
-    void onSetTasks(
-      on ? [...rule.scope.tasks, id] : rule.scope.tasks.filter((t) => t !== id),
-      null,
-    );
-  }
+  $effect(() => {
+    if (highlight) rowEl?.scrollIntoView({ block: 'nearest', behavior: scrollBehavior() });
+  });
 </script>
 
 <li
@@ -104,285 +49,77 @@
   bind:this={rowEl}
   data-ega-rule-row
   data-rule-id={rule.id}
-  class:disabled={!rule.enabled}
   class:just-added={highlight}
 >
-  <div class="rule-main">
-    {#if editing}
-      <Textarea
-        rows={2}
-        maxlength={RULE_BODY_MAX}
-        bind:value={editingDraft}
-        onblur={() => void commitEdit()}
-        onkeydown={(e) => {
-          if (e.key === 'Escape') {
-            e.preventDefault();
-            cancelEdit();
-          } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-            e.preventDefault();
-            void commitEdit();
-          }
-        }}
-        dataAttrs={{
-          'data-ega-rule-body-editor': 'true',
-          'aria-label': 'Edit rule text',
-        }}
+  <div class="rule-line">
+    <div class="rule-text">
+      <Checkbox
+        checked={rule.enabled}
+        label={rule.body}
+        inputAttrs={{ 'aria-label': `Use rule: ${rule.body}`, 'data-ega-rule-disable': true }}
+        onchange={() => void onToggleEnabled()}
       />
-    {:else}
-      <button
-        type="button"
-        class="body"
-        onclick={startEdit}
-        title="Click to edit"
-        data-ega-rule-body
-      >
-        {rule.body}
-        <Pencil size={12} class="edit-glyph" aria-hidden="true" />
-      </button>
-    {/if}
-    <!-- Present in edit mode too, so the On checkbox's description never points at nothing. -->
-    <span id="rule-body-{rule.id}" hidden>{rule.body}</span>
-    <span class="saved" role="status">{saved ? 'Saved' : ''}</span>
-    <div class="rule-meta">
-      <Select
-        value={rule.category}
-        options={CATEGORIES.map((c) => ({ value: c, label: ruleCategoryLabel(c) }))}
-        ariaLabel="Category"
-        size="sm"
-        selectClass="cat-select cat-{rule.category}"
-        selectAttrs={{ 'data-ega-rule-category': true }}
-        onchange={(v) => void onCategoryChange(v)}
-      />
-      {#if !rule.enabled}<span data-ega-rule-off><Badge variant="muted">Off</Badge></span>{/if}
-
-      <div class="scope-chips" aria-label="Scope">
-        {#if rule.scope.tasks.length === 0}
-          <span class="scope-all" title="Applies to all tasks">
-            <Badge variant="muted">all tasks</Badge>
-          </span>
-        {:else}
-          {#each rule.scope.tasks as t (t)}
-            {#if !taskExists(taskViews, t)}
-              <!-- No remove: the rule matches nothing now, and an empty scope would mean every task. -->
-              <span
-                class="scope-dead"
-                title="This task is gone, so the rule applies to no task."
-                data-ega-rule-task-chip={t}
-              >
-                <Badge variant="muted">Deleted task</Badge>
-              </span>
-            {:else}
-              <Button
-                variant="ghost"
-                size="sm"
-                title="Click to remove"
-                ariaLabel={`Remove task ${taskLabel(taskViews, t)}`}
-                extraClass="scope-chip"
-                dataAttrs={{ 'data-ega-rule-task-chip': t }}
-                onclick={() => void onToggleTask(t)}
-              >
-                {taskLabel(taskViews, t)} ×
-              </Button>
-            {/if}
-          {/each}
-        {/if}
-        <span class="scope-edit" bind:this={scopeAnchor}>
-          <Button
-            variant="ghost"
-            size="sm"
-            extraClass="scope-edit-btn"
-            ariaLabel={`Edit scope: ${shortBody}`}
-            dataAttrs={{
-              'data-ega-rule-edit-scope': 'true',
-              'aria-haspopup': 'dialog',
-              'aria-expanded': scopeOpen ? 'true' : 'false',
-            }}
-            onclick={() => (scopeOpen = !scopeOpen)}
-          >
-            Edit scope
-          </Button>
-        </span>
-        <Popover
-          open={scopeOpen}
-          anchor={scopeAnchor}
-          title="Applies to"
-          onClose={() => (scopeOpen = false)}
-        >
-          <div class="scope-pop" role="group" aria-label="Tasks this rule applies to">
-            <Checkbox
-              size="sm"
-              label="All tasks"
-              checked={allTasks}
-              inputAttrs={{ disabled: allTasks }}
-              onchange={(on) => {
-                if (on) void onSetTasks([], 'Rule now applies to all tasks.');
-              }}
-            />
-            {#each taskViews as v (v.id)}
-              {@const on = rule.scope.tasks.includes(v.id)}
-              <Checkbox
-                size="sm"
-                label={v.label}
-                checked={on}
-                inputAttrs={{ disabled: on && rule.scope.tasks.length === 1 }}
-                onchange={(next) => toggleScopeTask(v.id, next)}
-              />
-            {/each}
-            <p class="scope-pop-hint">
-              {allTasks
-                ? 'Check a task to limit the rule to it.'
-                : 'A rule keeps at least one task. Check All tasks to apply it everywhere.'}
-            </p>
-          </div>
-        </Popover>
-        {#if rule.scope.sites && rule.scope.sites.length > 0}
-          <!-- Keyed by index, not by site: a stored rule can hold a duplicate site, and a duplicate key throws. -->
-          {#each rule.scope.sites as s, i (i)}
-            <Button
-              variant="ghost"
-              size="sm"
-              title="Click to remove"
-              ariaLabel={`Remove site ${s}`}
-              extraClass="scope-chip site"
-              dataAttrs={{ 'data-ega-rule-site-chip': s }}
-              onclick={() => void onRemoveSite(s)}
-            >
-              {s} ×
-            </Button>
-          {/each}
-        {/if}
-      </div>
+      <p class="rule-meta" data-ega-rule-meta>{ruleMeta(rule, taskViews)}</p>
     </div>
-  </div>
-
-  <div class="rule-actions">
-    <Checkbox
+    <Button
+      variant="ghost"
       size="sm"
-      label="On"
-      checked={rule.enabled}
-      inputAttrs={{ 'data-ega-rule-disable': 'true', 'aria-describedby': `rule-body-${rule.id}` }}
-      onchange={() => void onToggleEnabled()}
-    />
-    <IconButton
-      icon={Trash2}
-      ariaLabel="Delete rule"
-      tooltip="Delete"
-      size="sm"
-      variant="danger"
-      dataAttrs={{ 'data-ega-rule-delete': 'true' }}
-      onclick={() => void onDelete()}
-    />
+      ariaLabel={`${open ? 'Close' : 'Edit'} rule: ${shortBody}`}
+      dataAttrs={{
+        'data-ega-rule-edit': true,
+        'aria-expanded': open ? 'true' : 'false',
+        'aria-controls': editorId,
+      }}
+      onclick={onToggleOpen}>{open ? 'Close' : 'Edit'}</Button
+    >
   </div>
+  {#if open}
+    <div class="rule-editor-wrap" id={editorId}>
+      <RuleEditor
+        mode="edit"
+        initial={{
+          body: rule.body,
+          category: rule.category,
+          tasks: [...rule.scope.tasks],
+          sites: [...(rule.scope.sites ?? [])],
+        }}
+        {taskViews}
+        {onCommit}
+        {onDelete}
+        onClose={onToggleOpen}
+      />
+    </div>
+  {/if}
 </li>
 
 <style>
   .rule-row {
-    display: flex;
-    align-items: flex-start;
-    gap: var(--space-2);
-    padding: var(--space-2) var(--space-3);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    background: var(--color-bg-elevated);
+    padding-block: var(--space-2);
   }
-  .rule-row.disabled {
-    border-style: dashed;
+  .rule-row + :global(.rule-row) {
+    border-top: 1px solid var(--color-border-subtle);
   }
   .rule-row.just-added {
     animation: ega-success-pulse 1.2s var(--ease-out) 1;
   }
-  .saved {
-    font-size: var(--fs-xs);
-    color: var(--color-success-fg);
-  }
-  .rule-main {
+  .rule-line {
     display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
-    flex: 1;
+    align-items: flex-start;
+    gap: var(--space-2);
+  }
+  .rule-text {
+    flex: 1 1 auto;
     min-width: 0;
-  }
-  .body {
-    text-align: left;
-    background: transparent;
-    border: 0;
-    padding: 0;
-    color: var(--color-fg);
-    font-size: var(--fs-sm);
-    line-height: var(--lh-body);
-    cursor: text;
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-1);
-    flex-wrap: wrap;
-  }
-  .body :global(.edit-glyph) {
-    color: var(--color-fg-subtle);
-  }
-  .body:hover :global(.edit-glyph),
-  .body:focus-visible :global(.edit-glyph) {
-    color: var(--color-accent);
-  }
-  .body:focus-visible {
-    outline: 2px solid var(--color-accent);
-    outline-offset: 2px;
+    overflow-wrap: anywhere;
   }
   .rule-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2);
-    align-items: center;
-  }
-  /* The select is the shared Select's, so the pill shape and category color reach it through :global. */
-  .rule-meta :global(select.ega-select.cat-select) {
-    border-radius: var(--radius-pill);
-    font-size: var(--fs-xs);
-  }
-  .rule-meta :global(.cat-always) {
-    color: var(--color-success, var(--color-accent));
-  }
-  .rule-meta :global(.cat-never) {
-    color: var(--color-danger);
-  }
-  .rule-meta :global(.cat-prefer),
-  .rule-meta :global(.cat-format),
-  .rule-meta :global(.cat-unknown) {
-    color: var(--color-fg-subtle);
-  }
-  .scope-chips {
-    display: inline-flex;
-    flex-wrap: wrap;
-    gap: var(--space-1);
-    align-items: center;
-  }
-  .scope-chips :global(.ega-btn.scope-chip) {
-    padding: 1px var(--space-2);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-pill);
-    color: var(--color-fg-subtle);
-  }
-  .scope-chips :global(.ega-btn.scope-chip:hover:not(:disabled)) {
-    border-color: var(--color-danger);
-    color: var(--color-danger);
-    background: transparent;
-  }
-  .scope-chips :global(.ega-btn.scope-chip.site) {
-    font-family: var(--font-mono);
-  }
-  .scope-pop {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-    max-width: 240px;
-  }
-  .scope-pop-hint {
-    margin: 0;
-    font-size: var(--fs-xs);
+    margin: 2px 0 0;
+    padding-inline-start: calc(16px + var(--space-2));
+    font-size: var(--fs-base);
+    line-height: var(--lh-body);
     color: var(--color-muted);
   }
-  .rule-actions {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-1);
+  .rule-editor-wrap {
+    padding-inline-start: calc(16px + var(--space-2));
   }
 </style>

@@ -39,11 +39,11 @@ test.afterEach(async () => {
 
 test.slow();
 
-test('clicking a rule body switches to edit mode and Ctrl+Enter persists', async () => {
+test('Edit opens the rule text, and leaving the field saves it', async () => {
   const timeline = createTimeline();
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
-  await page.locator('#tab-tasks').click();
+  await page.locator('#tab-glossary').click();
 
   await expect(page.locator('[data-ega-rules-editor]')).toBeVisible({ timeout: 5_000 });
   timeline.markStep('rules-mounted');
@@ -55,13 +55,14 @@ test('clicking a rule body switches to edit mode and Ctrl+Enter persists', async
 
   const row = page.locator(`[data-ega-rule-row][data-rule-id="${SEED_ID}"]`);
   await expect(row).toBeVisible({ timeout: 5_000 });
-  await row.locator('[data-ega-rule-body]').click();
+  await row.locator('[data-ega-rule-edit]').click();
   timeline.markStep('edit-mode');
 
   const editor = row.locator('[data-ega-rule-body-editor]');
   await expect(editor).toBeVisible({ timeout: 5_000 });
+  await expect(editor).toBeFocused();
   await editor.fill(REPLACED);
-  await editor.press('Control+Enter');
+  await editor.press('Tab');
   timeline.markStep('committed');
 
   await expect
