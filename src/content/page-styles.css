@@ -12,6 +12,9 @@
 /* One pending pattern: the original stays readable, dimmed, with one spinner at the inline end. */
 [data-ega-replaced][data-ega-pending] {
   opacity: 0.6;
+  /* The tint and underline mark a translation; nothing is translated yet. The border keeps its width, so nothing moves when it lands. */
+  background-color: transparent;
+  border-block-end-color: transparent;
 }
 [data-ega-pending]::after {
   content: '';

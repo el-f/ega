@@ -171,6 +171,13 @@ describe('page translate — a block still waiting on its reply moves', () => {
     expect(style?.getPropertyValue('margin-inline-start')).toBe('0.35em');
   });
 
+  it('a pending Replace-text block is only dimmed: no tint and no underline until the translation lands', () => {
+    const style = topLevel('[data-ega-replaced][data-ega-pending]');
+    expect(style?.getPropertyValue('opacity')).toBe('0.6');
+    expect(style?.getPropertyValue('background-color')).toBe('transparent');
+    expect(style?.getPropertyValue('border-block-end-color')).toBe('transparent');
+  });
+
   it('reduced motion holds the spinner still', () => {
     const style = underMedia('prefers-reduced-motion: reduce', '[data-ega-pending]::after');
     expect(style?.getPropertyValue('animation')).toBe('none');
