@@ -12,7 +12,7 @@
 
 ## Visible affordances
 
-- Toast carries one action button labeled "Reload page"; it outlives a plain notice (12s).
+- Toast carries one action button labeled "Reload page"; it stays until the user reloads or dismisses it.
 - Toast uses the shadow host, so page styles cannot break it.
 
 ## Failure-mode expectations

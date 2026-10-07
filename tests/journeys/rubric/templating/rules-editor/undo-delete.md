@@ -8,12 +8,12 @@
 ## State expectations
 
 - Step 1: two rules seeded; user deletes the first rule (no confirm).
-- Step 2: the rule is removed from the list; a "Rule deleted." toast with an Undo button surfaces for about 3s.
+- Step 2: the rule is removed from the list; a "Rule deleted." toast with an Undo button stays 8s, longer while hovered or focused.
 - Step 3 (click Undo): the deleted rule is re-inserted at its original index (index 0, not appended to the bottom).
 
 ## Visible affordances
 
-- Undo toast carries a clear "Undo" button; auto-dismisses after 3s.
+- Undo toast carries a clear "Undo" button; it hides after 8s, and the timer waits while the pointer or focus is on it.
 - After Undo, the restored rule row appears at the correct position in the list.
 
 ## Failure-mode expectations

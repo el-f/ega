@@ -18,7 +18,8 @@ Grade each journey on these axes. A finding is `ok`, `minor`, `major`, or `block
 ## Error recovery
 
 - Errors expose a clear next action (retry / open elsewhere / dismiss).
-- Toasts are time-bounded (< 6s) unless action-required.
+- Toast lifetimes: a plain confirmation hides after 6s; a toast with Undo hides after 8s; both wait while
+  hovered or focused. An instruction or error toast stays until dismissed or the next Ega action.
 - Repeated failures do not lose the user's input.
 
 ## Copy consistency

@@ -13,7 +13,7 @@
 
 ## Visible affordances
 
-- Toast uses the danger tone tokens; auto-dismisses after a generous 8s (errors are higher-priority).
+- Toast uses the danger tone tokens; an error stays until the user dismisses it or starts another Ega action.
 
 ## Failure-mode expectations
 

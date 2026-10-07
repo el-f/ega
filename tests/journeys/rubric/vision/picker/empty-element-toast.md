@@ -12,7 +12,7 @@
 
 ## Visible affordances
 
-- Toast is a plain notice (no action button, no tone variant) that clears after about 3s.
+- Toast is a plain notice (no action button, no tone variant) that stays until the user dismisses it or starts another Ega action.
 
 ## Failure-mode expectations
 

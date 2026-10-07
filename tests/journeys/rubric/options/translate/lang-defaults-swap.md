@@ -14,7 +14,7 @@
 ## Visible affordances
 
 - Swap button sits between the source and target selects; uses a swap/arrows icon with aria-label.
-- Toast is brief (~3s) and non-blocking.
+- Toast is non-blocking and hides after 6s; the timer waits while the pointer or focus is on it.
 
 ## Failure-mode expectations
 
