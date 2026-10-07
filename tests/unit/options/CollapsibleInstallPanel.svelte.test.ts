@@ -148,4 +148,10 @@ describe('CollapsibleInstallPanel — running the downloaded script', () => {
     const { container } = render(CollapsibleInstallPanel, { props: baseProps });
     expect(container.textContent).not.toContain('~/Downloads');
   });
+
+  it('the download is a secondary button, so the view keeps one filled primary (C-6)', () => {
+    const { getByRole } = render(CollapsibleInstallPanel, { props: baseProps });
+    const download = getByRole('button', { name: /^Download / });
+    expect(download.getAttribute('data-variant')).toBe('secondary');
+  });
 });

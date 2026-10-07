@@ -311,9 +311,10 @@
   .cp-save-failed {
     color: var(--color-danger-fg);
   }
+  /* Baseline: a model list error under the field must not pull the Default pill down. */
   .cp-model-row {
     display: flex;
-    align-items: center;
+    align-items: baseline;
     gap: var(--space-2);
     max-width: 32rem;
   }

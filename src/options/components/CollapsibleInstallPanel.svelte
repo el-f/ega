@@ -5,6 +5,7 @@
   import { untrack } from 'svelte';
   import { Tabs } from 'bits-ui';
   import IconButton from '@/shared/ui/IconButton.svelte';
+  import Button from '@/shared/ui/Button.svelte';
   import Copy from '@lucide/svelte/icons/copy';
   import Check from '@lucide/svelte/icons/check';
   import type { Platform } from '../nativeHostInstall';
@@ -147,9 +148,10 @@
       {/snippet}
 
       <div class="install-actions">
-        <button type="button" class="primary" onclick={downloadInstaller}>
-          {downloaded ? 'Downloaded ✓' : `Download ${installerLabel}`}
-        </button>
+        <!-- Secondary: the view keeps one filled primary (C-6). -->
+        <Button variant="secondary" iconKind="import" onclick={downloadInstaller}>
+          {downloaded ? 'Downloaded' : `Download ${installerLabel}`}
+        </Button>
         {#if recheckHint}<small class="install-hint">{recheckHint}</small>{/if}
       </div>
       {#if selectedPlatform !== 'windows'}

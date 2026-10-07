@@ -63,11 +63,6 @@ button {
   cursor: pointer;
   font-size: var(--fs-base);
 }
-button.primary {
-  background: var(--color-success);
-  border-color: var(--color-success);
-  color: var(--color-accent-fg);
-}
 button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
