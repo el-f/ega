@@ -43,6 +43,8 @@ export interface IntakeDeps {
   attachImage: (src: string) => void;
   /** The panel's own tab follow, so the toasts about the conversation it leaves close too. */
   followSite: (site: string) => Promise<boolean>;
+  /** Settles when the panel's first follow of the tab is over; until then the tab's site is unknown. */
+  firstFollow: Promise<void>;
 }
 
 export interface Intake {
@@ -55,6 +57,10 @@ export interface Intake {
 
 export function createIntake(deps: IntakeDeps): Intake {
   const { conversation } = deps;
+  let followed = false;
+  void deps.firstFollow.then(() => {
+    followed = true;
+  });
 
   /** A handoff or an image click comes from the tab, so it never lands in another site's conversation. */
   async function toTabSite(): Promise<void> {
@@ -83,8 +89,9 @@ export function createIntake(deps: IntakeDeps): Intake {
     task: ImageTask | undefined,
     warn = false,
   ): Promise<void> {
-    if (conversation.activeSite !== conversation.tabSite) {
+    if (!followed || conversation.activeSite !== conversation.tabSite) {
       conversation.holdRequest(requestId);
+      await deps.firstFollow;
       await toTabSite();
     }
     // After a switch the reply running in the other conversation finishes there, so nothing is stopped.
@@ -252,6 +259,7 @@ export function createIntake(deps: IntakeDeps): Intake {
 
   async function drainPopupHandoffs(): Promise<void> {
     try {
+      await deps.firstFollow;
       const before = deps.pickers();
       for (const handoff of await drainPendingPopupHandoff(await getPanelWindowId())) {
         if (handoff.attachImage === true) {

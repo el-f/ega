@@ -537,7 +537,12 @@
     focusComposer();
   }
 
+  /** Settles when the first follow of the tab is over, failed or not: a seed or handoff heard before it waits for it. */
+  let firstFollowDone: () => void = () => {};
+  const firstFollow = new Promise<void>((resolve) => (firstFollowDone = resolve));
+
   const intake = createIntake({
+    firstFollow,
     conversation,
     panelWindowId: () => panelWindowId,
     streaming: () => streamingPref,
@@ -914,6 +919,7 @@
       debugCatch(e, 'sidepanel.onMount.followSite');
     }
     threadLoaded = true;
+    firstFollowDone();
     // Registered before the drains below: every await here is a window where a tab switch or a
     // foreign write goes unheard, and the drains are the longest stretch of them.
     if (destroyed) return;
