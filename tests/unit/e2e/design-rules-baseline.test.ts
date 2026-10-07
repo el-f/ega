@@ -11,7 +11,12 @@ function auditShotPatterns(): RegExp[] {
   const literal = [...source.matchAll(/\bshot\(\s*\w+,\s*(['`])([^'`]+)\1/g)].map((m) => m[2]);
   // A loop over a table passes the name as a variable: `{ name: 'sidepanel-zoomed-refine-open', … }`.
   const tabled = [...source.matchAll(/\bname:\s*(['`])([^'`]+)\1/g)].map((m) => m[2]);
-  return [...literal, ...tabled].map((name) => {
+  // The options captures go through optShot, which writes `<name>` in light and `<name>-dark` in dark.
+  const options = [...source.matchAll(/\boptShot\(\s*\w+,\s*(['`])([^'`]+)\1/g)].flatMap((m) => [
+    m[2],
+    `${m[2] ?? ''}-dark`,
+  ]);
+  return [...literal, ...tabled, ...options].map((name) => {
     const parts = (name ?? '').split(/\$\{[^}]+\}/);
     const escaped = parts.map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
     return new RegExp(`^${escaped.join('.+')}$`);
