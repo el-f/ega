@@ -135,6 +135,30 @@ describe('SidePanel — a failed tooltip image opened in the panel', () => {
     );
   });
 
+  // The offer holds the only copy of the page image (the handoff is already drained), so it must not expire.
+  it('keeps the Replace offer until it is used, long past an Undo lifetime', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      await writeComposerDraftImage(PNG);
+      await attachHandoff(HTTP_IMAGE);
+      const { container } = render(SidePanel);
+      await waitFor(() =>
+        expect(container.textContent).toContain(
+          'Replace the attached image with the one from the page?',
+        ),
+      );
+
+      await vi.advanceTimersByTimeAsync(30_000);
+      await fireEvent.click(screen.getByRole('button', { name: 'Replace' }));
+
+      await waitFor(() =>
+        expect(container.querySelector(`img[src="${HTTP_IMAGE}"]`)).not.toBeNull(),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('does not attach into a message being edited', async () => {
     const { container } = render(SidePanel);
     await tick();
