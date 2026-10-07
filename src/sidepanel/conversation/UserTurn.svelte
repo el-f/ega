@@ -25,6 +25,8 @@
     laterCount?: number;
     /** This message is in the composer, being edited. */
     editing?: boolean;
+    /** The pair is bookmarked, from either half; defaults to this message's own flag. */
+    bookmarked?: boolean | undefined;
     onBookmark?: ((id: string) => void) | undefined;
     onDelete?: ((id: string) => void) | undefined;
     onEdit?: ((id: string) => void) | undefined;
@@ -39,6 +41,7 @@
     latest = false,
     laterCount = 0,
     editing = false,
+    bookmarked,
     onBookmark,
     onDelete,
     onEdit,
@@ -192,7 +195,7 @@
           >
             <DropdownMenu.CheckboxItem
               class="sp-menu-item"
-              checked={turn.bookmarked === true}
+              checked={bookmarked ?? turn.bookmarked === true}
               onCheckedChange={() => onBookmark?.(turn.id)}
               data-ega-bookmark
             >

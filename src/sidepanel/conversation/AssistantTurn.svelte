@@ -69,6 +69,8 @@
     /** This reply is the one "Describe a change…" is open for. */
     changing?: boolean;
     onRegenerate?: ((id: string) => void) | undefined;
+    /** The pair is bookmarked, from either half; defaults to this reply's own flag. */
+    bookmarked?: boolean | undefined;
     onBookmark?: ((id: string) => void) | undefined;
     onDelete?: ((id: string) => void) | undefined;
     confidence?: ConfidenceSetting;
@@ -102,6 +104,7 @@
     onDescribeChange,
     changing = false,
     onRegenerate,
+    bookmarked: pairBookmarked,
     onBookmark,
     onDelete,
     confidence = { show: true, threshold: 0 },
@@ -117,6 +120,7 @@
   }: Props = $props();
 
   const variantCount = $derived(turn.variants?.length ?? 0);
+  const isBookmarked = $derived(pairBookmarked ?? turn.bookmarked === true);
   const activeIdx = $derived(turn.activeVariantIdx ?? 0);
   const activeVariant = $derived(activeVariantOf(turn));
   const imageTurn = $derived(hasImage || turn.kind === 'image-translate');
@@ -239,7 +243,7 @@
   const metaItems = $derived(
     replyMetaItems({
       ...(statusText !== undefined ? { status: statusText } : {}),
-      bookmarked: turn.bookmarked === true,
+      bookmarked: isBookmarked,
       meta: answering ? undefined : turn.meta,
       direction: answering ? '' : direction,
       ...(versionLabel !== undefined && !answering ? { version: versionLabel } : {}),
@@ -711,7 +715,7 @@
           {speaking}
           {aboutOpen}
           {answerAgain}
-          bookmarked={turn.bookmarked === true}
+          bookmarked={isBookmarked}
           onPreset={(p) =>
             void onRefine?.({ turnId: turn.id, refinementBody: p.body, refinementLabel: p.label })}
           onDescribeChange={() => onDescribeChange?.(turn.id)}

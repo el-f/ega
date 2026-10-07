@@ -134,6 +134,27 @@
   const userTextById = $derived(
     Object.fromEntries(turns.filter((t) => t.role === 'user').map((t) => [t.id, t.content])),
   );
+  // A bookmark belongs to the pair (spec §5.2, F12): either half shows it, and unchecking clears both halves.
+  const pairIds = $derived(
+    new Map(
+      turns.flatMap((t): [string, readonly string[]][] => {
+        if (t.role !== 'assistant' || t.attachedToTurnId === undefined) return [];
+        const ids = [t.attachedToTurnId, t.id];
+        return [
+          [t.id, ids],
+          [t.attachedToTurnId, ids],
+        ];
+      }),
+    ),
+  );
+  const markedIds = $derived(
+    new Set(turns.filter((t) => t.bookmarked === true).flatMap((t) => pairIds.get(t.id) ?? [t.id])),
+  );
+  function toggleBookmark(id: string): void {
+    const ids = pairIds.get(id) ?? [id];
+    const on = ids.filter((i) => turns.some((t) => t.id === i && t.bookmarked === true));
+    for (const i of on.length > 0 ? on : [id]) onBookmark?.(i);
+  }
   const separators = $derived(separatorTurnIds(turns));
   const taskLabels = $derived(taskLabelsOnChange(turns, taskViews));
   const positions = $derived(new Map(turns.map((t, i) => [t.id, i])));
@@ -484,8 +505,9 @@
               latest={turn.id === latestUserTurnId}
               laterCount={turns.length - (positions.get(turn.id) ?? 0) - 1}
               editing={turn.id === editingTurnId}
+              bookmarked={markedIds.has(turn.id)}
               {inflight}
-              {onBookmark}
+              onBookmark={toggleBookmark}
               {onDelete}
               {onEdit}
             />
@@ -510,7 +532,8 @@
               changing={turn.id === changingTurnId}
               isLatest={turn.id === latestTurnId}
               {onRegenerate}
-              {onBookmark}
+              bookmarked={markedIds.has(turn.id)}
+              onBookmark={toggleBookmark}
               {onDelete}
               {inflight}
               {varieties}

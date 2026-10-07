@@ -125,6 +125,58 @@ describe('the thread', () => {
   });
 });
 
+// Spec §5.2 item 3 and F12: a bookmark belongs to the pair, set from either half.
+describe('bookmarks', () => {
+  const marked = (t: Turn): Turn => ({ ...t, bookmarked: true });
+  const openUserMore = async (container: HTMLElement): Promise<HTMLElement> => {
+    const trigger = container.querySelector<HTMLElement>(
+      '[data-ega-user-turn] [data-ega-action="more"]',
+    );
+    if (!trigger) throw new Error('message More missing');
+    await fireEvent.keyDown(trigger, { key: 'Enter' });
+    return waitFor(() => {
+      const menu = document.querySelector<HTMLElement>('[role="menu"]');
+      if (!menu) throw new Error('menu not open');
+      return menu;
+    });
+  };
+  const checked = (menu: HTMLElement): string | null | undefined =>
+    menu.querySelector('[data-ega-bookmark]')?.getAttribute('aria-checked');
+
+  it('a bookmark set on the message shows on its reply, in the meta line and in both menus', async () => {
+    const turns = [marked(u('u1', 'hola')), a('a1', 'hello', 'u1')];
+    const { container } = render(ConversationStream, { props: { ...base, turns } });
+    const meta = Array.from(container.querySelectorAll('[data-ega-meta-item]')).map((e) =>
+      e.textContent.trim(),
+    );
+    expect(meta).toContain('Bookmarked');
+    expect(checked(await openMenu(container, 'more'))).toBe('true');
+    document.body.innerHTML = '';
+    const other = render(ConversationStream, {
+      props: { ...base, turns: [u('u1', 'hola'), marked(a('a1', 'hello', 'u1'))] },
+    });
+    expect(checked(await openUserMore(other.container))).toBe('true');
+  });
+
+  it('unchecking either half clears the pair; checking marks the half it was set on', async () => {
+    const onBookmark = vi.fn();
+    const on = render(ConversationStream, {
+      props: { ...base, onBookmark, turns: [marked(u('u1', 'hola')), a('a1', 'hello', 'u1')] },
+    });
+    await openMenu(on.container, 'more');
+    await fireEvent.click(document.querySelector('[data-ega-bookmark]') as HTMLElement);
+    expect(onBookmark.mock.calls).toEqual([['u1']]);
+    document.body.innerHTML = '';
+    onBookmark.mockClear();
+    const off = render(ConversationStream, {
+      props: { ...base, onBookmark, turns: [u('u1', 'hola'), a('a1', 'hello', 'u1')] },
+    });
+    await openMenu(off.container, 'more');
+    await fireEvent.click(document.querySelector('[data-ega-bookmark]') as HTMLElement);
+    expect(onBookmark.mock.calls).toEqual([['a1']]);
+  });
+});
+
 describe('the empty panel', () => {
   const props = {
     ...base,
