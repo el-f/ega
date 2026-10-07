@@ -192,10 +192,12 @@ describe('picker state machine', () => {
     const para = document.getElementById('para') as HTMLElement;
     const real = document.querySelectorAll.bind(document);
     // jsdom keeps no hover state; the browser's is the chain from <html> down to the element under the pointer.
-    const spy = vi.spyOn(document, 'querySelectorAll').mockImplementation(((sel: string) =>
-      sel === ':hover'
-        ? [document.documentElement, document.body, para.parentElement, para]
-        : real(sel)) as typeof document.querySelectorAll);
+    const spy = vi
+      .spyOn(document, 'querySelectorAll')
+      .mockImplementation(((sel: string) =>
+        sel === ':hover'
+          ? [document.documentElement, document.body, para.parentElement, para]
+          : real(sel)) as typeof document.querySelectorAll);
     const onHover = vi.fn();
     const p = createPicker({ onPick: vi.fn(), onExit: vi.fn(), onHover });
     try {
