@@ -21,9 +21,10 @@ if (recordRefused !== null) throw new Error(recordRefused);
  * Ega's own UI on the page: the whole document on an extension page, the shadow root on a web page (never the host page's DOM).
  * Returns one line per broken rule, stable across runs so a baseline can list known debt:
  * - `clip <element>`: a control, tab, option, heading or link whose text is wider than its box, or any text an
- *   ellipsis actually shortens (a span inside a button included). R17: an ellipsis passes only when the element or an
- *   ancestor carries `data-ega-truncates` and the full text is in a written name (aria-label, the text an
- *   aria-labelledby points at, or title) of the element or of its nearest interactive or labelled ancestor.
+ *   ellipsis actually shortens (a span inside a button included). R17: an ellipsis passes only when the cut element
+ *   itself carries `data-ega-truncates` (a marker on a container does not count) and the full text is in a written
+ *   name (aria-label, the text an aria-labelledby points at, or title) of the element or of its nearest interactive
+ *   or labelled ancestor.
  * - `clip-y <element>`: a control whose content is taller than its box.
  * - `font <px> <element>`: text whose computed size is not one of the --fs-* tokens.
  */
@@ -71,7 +72,7 @@ export async function designRuleViolations(page: Page): Promise<string[]> {
     const ellipsisCut = (el: Element): boolean =>
       getComputedStyle(el).textOverflow === 'ellipsis' && el.scrollWidth > el.clientWidth + 1;
     const truncationDeclared = (el: Element): boolean => {
-      if (el.closest('[data-ega-truncates]') === null) return false;
+      if (!el.hasAttribute('data-ega-truncates')) return false;
       const full = squash(el.textContent);
       return [el, el.parentElement?.closest(named) ?? null].some(
         (holder) => holder !== null && writtenNames(holder).some((name) => name.includes(full)),
