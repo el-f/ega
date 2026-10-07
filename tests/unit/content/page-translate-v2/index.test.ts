@@ -13,7 +13,8 @@ import { isMultiSelectActive } from '@/content/page-translate-v2/multi-select';
 import { beginRequest, releaseRequest, rendererFor, rendererOwner } from '@/content/request-state';
 import { CONTEXT_INVALIDATED_MESSAGE, SEND_FAILED_MESSAGE } from '@/content/context-guard';
 import { deps, flush, enterAndFire, retryButton, chipText } from '@tests/_helpers/page-translate';
-import type { PageProgress } from '@/content/page-translate-v2/progress';
+import { pillPhase, pillStatus, type PageProgress } from '@/content/page-translate-v2/progress';
+import type { BackendId } from '@/shared/types';
 
 function click(el: Element): void {
   el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
@@ -481,6 +482,38 @@ describe('page-translate-v2 — errors and retry', () => {
       await vi.advanceTimersByTimeAsync(2);
       await flush();
       expect(dispatch).toHaveBeenCalledTimes(3);
+    } finally {
+      vi.useRealTimers();
+      vi.restoreAllMocks();
+    }
+  });
+
+  it('a rate limit puts the pill in its paused state at once, naming who is limiting', async () => {
+    vi.useFakeTimers();
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    try {
+      document.body.innerHTML = '<p id="a">これは一番目の段落です。</p>';
+      const seen: string[] = [];
+      const dispatch = vi.fn((requestId: string) => {
+        seen.push(requestId);
+        return Promise.resolve();
+      });
+      const update = vi.fn<(p: PageProgress) => void>();
+      const p = progressHandle({ update });
+      await enterAndFire(deps({ mountProgress: () => p, dispatch }), ['a']);
+      routePageV2Chunk({
+        type: 'error',
+        requestId: seen[0] ?? '',
+        code: 'RATE_LIMIT',
+        message: '429',
+        retryAfterMs: 12_000,
+        backendId: 'anthropic' as BackendId,
+      });
+      const last = update.mock.calls.at(-1)?.[0];
+      expect(last && pillPhase(last, Date.now())).toBe('paused');
+      expect(last && pillStatus(last, Date.now())).toBe(
+        'Paused: Anthropic is limiting requests. Resuming in 12 s.',
+      );
     } finally {
       vi.useRealTimers();
       vi.restoreAllMocks();

@@ -445,6 +445,8 @@ function pump(): void {
       report(sess);
       pump();
     }, wait);
+    // The pill shows the pause now, while it lasts, not once it is over.
+    report(sess);
     return;
   }
   while (sess.inFlight.size < sess.concurrency && sess.pending.length > 0) {
