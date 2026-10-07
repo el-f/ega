@@ -101,7 +101,8 @@ export function createPicker(opts: PickerOpts): PickerController {
     if (!isUserGesture(e)) return;
     if (e.key === 'Escape') {
       e.preventDefault();
-      e.stopPropagation();
+      // Immediate: inline's Esc listener on the same node, added later, must not count this one.
+      e.stopImmediatePropagation();
       exit();
       return;
     }

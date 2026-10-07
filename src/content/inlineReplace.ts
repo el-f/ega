@@ -14,7 +14,7 @@ import {
 } from './request-state';
 import { showFixToast } from './error-fix-toast';
 import { showToast } from './toast';
-import { getShadowHostElement } from './shadowHost';
+import { peekContainer } from './shadowHost';
 import { currentSettings } from './settings-cache';
 import { patchSettings } from '@/shared/settings-bus';
 
@@ -280,11 +280,25 @@ function onDocMouseOver(ev: MouseEvent): void {
     t instanceof Element && t.closest('[data-ega-replaced][data-ega-original]') !== null;
 }
 
+/** Ega UI that acts on Esc itself. On the bubble or a pill, Esc still counts toward the restore. */
+const ESC_OWNERS = '.ega-toast, .ega-draggable-panel';
+
+/** The picker marks the page; multi-select shows its toolbar. Read off the DOM, so this chunk loads neither module. */
+function aModeOwnsEsc(): boolean {
+  return (
+    document.documentElement.hasAttribute('data-ega-picking') ||
+    peekContainer()?.querySelector('[data-ega-ms-wrap]') != null
+  );
+}
+
 function onDocKeyDown(ev: KeyboardEvent): void {
   if (ev.key !== 'Escape') return;
-  // Esc inside Ega's own UI (the toast, the tooltip) belongs to that UI; this capture listener sees it first.
-  const host = getShadowHostElement();
-  if (host !== null && ev.composedPath().includes(host)) return;
+  // This capture listener sees the Esc first, but the picker, multi-select, the toast and the tooltip own it.
+  if (
+    aModeOwnsEsc() ||
+    ev.composedPath().some((n) => n instanceof Element && n.matches(ESC_OWNERS))
+  )
+    return;
   // An in-flight translate: Esc is a cancel, restore at once.
   if (entries.size > 0) {
     restoreAllInline();
