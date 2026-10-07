@@ -118,3 +118,16 @@ describe('inline.error.fix-toast', () => {
     expect(toast()).toBeNull();
   });
 });
+
+describe('inline replace — a failure is announced', () => {
+  it('the chip is an alert that carries the catalog sentence for screen readers', () => {
+    const r = selectParagraph();
+    openInline({ requestId: 'r-announce', range: r, stuckTimeoutMs: 60_000 });
+    errorInline('r-announce', { code: 'AUTH', message: 'invalid x-api-key' });
+    const chip = wrapper().querySelector('[data-ega-tx-error]');
+    expect(chip?.getAttribute('role')).toBe('alert');
+    expect(chip?.shadowRoot?.querySelector('.sr')?.textContent).toBe(
+      'The AI service did not accept the saved API key.',
+    );
+  });
+});

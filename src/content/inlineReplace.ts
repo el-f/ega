@@ -165,15 +165,25 @@ export function finishInline(requestId: string, _meta?: DoneMeta): void {
 
 let dismissUndoHint: (() => void) | null = null;
 
-/** The selection would keep highlighting text that is no longer what the user picked. */
+/**
+ * The selection would keep highlighting text that is no longer what the user picked. Only a selection still on the
+ * wrapper moves: one the user made elsewhere, or a caret in a field, stays where it is.
+ */
 function collapseSelectionAfter(wrapper: HTMLElement): void {
   const sel = window.getSelection();
   if (!sel || sel.rangeCount === 0 || !wrapper.isConnected) return;
+  if (!sel.getRangeAt(0).intersectsNode(wrapper)) return;
+  const focused = document.activeElement;
+  if (focused instanceof HTMLElement && isEditable(focused) && !focused.contains(wrapper)) return;
   const r = document.createRange();
   r.selectNodeContents(wrapper);
   r.collapse(false);
   sel.removeAllRanges();
   sel.addRange(r);
+}
+
+function isEditable(el: HTMLElement): boolean {
+  return el.isContentEditable || el.matches('input, textarea, select');
 }
 
 export function errorInline(
@@ -187,7 +197,8 @@ export function errorInline(
   // Error state surfaces the original text directly — nothing to translate.
   renderText(e.wrapper, e.originalText);
   // The same chip page translate uses names the cause; inline replace has no retry of its own.
-  e.wrapper.appendChild(mountErrorChip(err));
+  // Nothing else says the replace failed, so the chip is announced.
+  e.wrapper.appendChild(mountErrorChip(err, { announce: true }));
   settle(requestId, e.stuckTimerId);
   collapseSelectionAfter(e.wrapper);
 }

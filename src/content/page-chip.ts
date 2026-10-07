@@ -7,12 +7,14 @@ import { debugCatch } from '@/shared/logger';
 
 // Its own shadow root keeps the host page's font and button styles off it; one fixed red (6.2:1 under white) reads on any page background.
 // The chip's English reads left to right on an RTL page too; the host keeps the page's direction, so its margin still faces the text.
-const CHIP_CSS = `:host{all:initial;display:inline-flex;vertical-align:middle;margin-inline-start:.4em}
-.chip{direction:ltr;display:inline-flex;align-items:center;gap:6px;padding:2px 2px 2px 8px;border-radius:999px;background:#b3242a;color:#fff;font:600 12px/16px system-ui,sans-serif;white-space:nowrap} /* token-lint-allow page DOM, no tokens */
+// A page rule that matches the host (`*{margin:0}`) beats a :host rule, so the host's own look is set inline.
+const HOST_STYLE = 'all:initial;display:inline-flex;vertical-align:middle;margin-inline-start:.4em';
+const CHIP_CSS = `.chip{direction:ltr;display:inline-flex;align-items:center;gap:6px;padding:2px 2px 2px 8px;border-radius:999px;background:#b3242a;color:#fff;font:600 12px/16px system-ui,sans-serif;letter-spacing:normal;word-spacing:normal;text-transform:none;text-shadow:none;white-space:nowrap} /* token-lint-allow page DOM, no tokens */
 .chip.bare{padding-inline-end:8px}
 button{all:unset;box-sizing:border-box;display:inline-flex;align-items:center;gap:4px;min-height:24px;padding:0 8px;border:1px solid rgb(255 255 255 / .6);border-radius:999px;color:#fff;font:inherit;cursor:pointer}
 button:hover{background:rgb(255 255 255 / .15)}
-button:focus-visible{outline:2px solid #fff;outline-offset:2px}
+button:focus-visible{outline:2px solid #fff;outline-offset:2px;box-shadow:0 0 0 4px #b3242a}
+.sr{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 @media (forced-colors:active){.chip{border:1px solid CanvasText}}`;
 
@@ -53,6 +55,8 @@ export interface ChipOpts {
   onRetry?: () => void;
   /** A setting changed since a settings error showed: Try again takes Open settings' place. */
   settingsChanged?: boolean;
+  /** The chip is the only sign of the failure (inline replace), so it is an alert with the full sentence. */
+  announce?: boolean;
 }
 
 /**
@@ -65,6 +69,7 @@ export function mountErrorChip(
 ): HTMLElement {
   const host = document.createElement('span');
   host.setAttribute('data-ega-tx-error', '');
+  host.style.cssText = HOST_STYLE;
   const root = host.attachShadow({ mode: 'open' });
   const style = document.createElement('style');
   style.textContent = CHIP_CSS;
@@ -94,6 +99,14 @@ export function mountErrorChip(
     chip.classList.add('bare');
   }
   root.append(style, chip);
+  if (opts.announce && copy) {
+    host.setAttribute('role', 'alert');
+    // Read with the alert, never shown: the chip itself keeps to its title.
+    const body = document.createElement('span');
+    body.className = 'sr';
+    body.textContent = copy.body;
+    root.append(body);
+  }
   return host;
 }
 

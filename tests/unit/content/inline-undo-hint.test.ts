@@ -81,6 +81,47 @@ describe('inline replace — every replace offers Undo', () => {
     expect(sel?.anchorNode === wrapper || wrapper?.contains(sel?.anchorNode ?? null)).toBe(true);
   });
 
+  it('leaves a selection the user made elsewhere while the answer streamed', async () => {
+    document.body.innerHTML = '<p id="p">mar7aba ya 5ayye</p><p id="q">yalla bina</p>';
+    const inline = await import('@/content/inlineReplace');
+    const p = document.getElementById('p') as HTMLElement;
+    const range = document.createRange();
+    range.selectNodeContents(p);
+    window.getSelection()?.removeAllRanges();
+    window.getSelection()?.addRange(range);
+    inline.openInline({ requestId: 'r1', range, stuckTimeoutMs: STUCK_MS });
+    const q = document.getElementById('q') as HTMLElement;
+    const next = document.createRange();
+    next.selectNodeContents(q);
+    window.getSelection()?.removeAllRanges();
+    window.getSelection()?.addRange(next);
+
+    inline.appendInlineDelta('r1', '{"translation":"Hello there"}');
+    inline.finishInline('r1');
+
+    const sel = window.getSelection();
+    expect(sel?.isCollapsed).toBe(false);
+    expect(sel?.toString()).toBe('yalla bina');
+  });
+
+  it('does not take the caret out of a field that has focus', async () => {
+    document.body.innerHTML = '<p id="p">mar7aba ya 5ayye</p><input id="reply">';
+    const inline = await import('@/content/inlineReplace');
+    // Translate anyway from the popup runs on the kept range while the user types in a field.
+    (document.getElementById('reply') as HTMLInputElement).focus();
+    const p = document.getElementById('p') as HTMLElement;
+    const range = document.createRange();
+    range.selectNodeContents(p);
+    window.getSelection()?.removeAllRanges();
+    window.getSelection()?.addRange(range);
+
+    inline.openInline({ requestId: 'r1', range, stuckTimeoutMs: STUCK_MS });
+
+    expect(window.getSelection()?.isCollapsed).toBe(false);
+    expect(document.activeElement?.id).toBe('reply');
+    inline.restoreInline('r1');
+  });
+
   it('the toast Undo puts the last wrapper back and lets go of the page-wide Esc listener', async () => {
     await translateInPlace();
     const removed = vi.spyOn(document, 'removeEventListener');
