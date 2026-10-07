@@ -114,6 +114,9 @@ test('flags cut-off text, undeclared ellipsis and off-scale font sizes, and noth
       `<button style="width:140px;font-size:var(--fs-sm)"><span data-ega-probe-ok-content data-ega-truncates style="${ellipsis}">Translate to a language far too long</span></button>`,
       '<span id="ega-probe-open" class="ega-sr-only">Open</span>',
       `<button aria-labelledby="ega-probe-open" aria-label="Open: Another label far too long now" style="width:120px;font-size:var(--fs-sm)"><span data-ega-probe-labelledby-wins data-ega-truncates style="${ellipsis}">Another label far too long now</span></button>`,
+      // A drawn ellipsis needs overflow other than visible and a block box: a flex box hard-cuts, and overflow: visible spills.
+      `<button data-ega-probe-flex data-ega-truncates aria-label="Open: A button label far too long" style="display:inline-flex;width:100px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:var(--fs-sm)">A button label far too long</button>`,
+      `<span data-ega-probe-visible data-ega-truncates title="A title far too long for its box" style="${ellipsis};overflow:visible;width:100px;font-size:var(--fs-sm)">A title far too long for its box</span>`,
       `<label for="ega-probe-field" data-ega-probe-ok-label data-ega-truncates style="${ellipsis};width:100px;font-size:var(--fs-sm)">A field label far too long here</label><input id="ega-probe-field" style="width:60px">`,
       `<label for="ega-probe-field-2" data-ega-probe-label-masked data-ega-truncates style="${ellipsis};width:100px;font-size:var(--fs-sm)">Another field label far too long</label><input id="ega-probe-field-2" aria-label="Search" style="width:60px">`,
       `<button aria-label="A label far too long for this button" style="width:120px;font-size:var(--fs-sm)"><span data-ega-probe-no-marker style="${ellipsis}">A label far too long for this button</span></button>`,
@@ -124,6 +127,7 @@ test('flags cut-off text, undeclared ellipsis and off-scale font sizes, and noth
   const added = (await designRuleViolations(page)).filter((v) => !popupOwn.includes(v));
   expect(added).toEqual([
     'clip button[data-ega-probe-clip] "Translate this page"',
+    'clip button[data-ega-probe-flex] "A button label far too long"',
     'clip div[data-ega-probe-tab] "Appearance"',
     'clip label[data-ega-probe-label-masked] "Another field label far too long"',
     'clip span[data-ega-probe-ellipsis] "A label far too long for this button"',
@@ -133,6 +137,7 @@ test('flags cut-off text, undeclared ellipsis and off-scale font sizes, and noth
     'clip span[data-ega-probe-no-name] "An unnamed label far too long"',
     'clip span[data-ega-probe-partial-name] "Another label far too long here"',
     'clip span[data-ega-probe-title-masked] "Another label far too long here"',
+    'clip span[data-ega-probe-visible] "A title far too long for its box"',
     'clip-y button[data-ega-probe-tall] "Two words"',
     'font 11px span[data-ega-probe-tiny] "Tiny meta"',
   ]);

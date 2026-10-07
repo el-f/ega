@@ -81,9 +81,17 @@ export async function designRuleViolations(page: Page): Promise<string[]> {
     };
     const ellipsisCut = (el: Element): boolean =>
       getComputedStyle(el).textOverflow === 'ellipsis' && el.scrollWidth > el.clientWidth + 1;
-    // R17: the cut element has the marker, and the name of its holder (nearest control, else its label's control, else itself) has the whole text.
+    // text-overflow draws only on a block container whose overflow-x is not visible: a flex or grid box hard-cuts, and visible overflow spills.
+    const ellipsisDrawn = (el: Element): boolean => {
+      const style = getComputedStyle(el);
+      return (
+        style.overflowX !== 'visible' &&
+        /^(?:block|inline-block|list-item|flow-root|table-cell|table-caption)$/.test(style.display)
+      );
+    };
+    // R17: the cut element has the marker, its ellipsis is drawn, and the name of its holder (nearest control, else its label's control, else itself) has the whole text.
     const truncationDeclared = (el: Element): boolean => {
-      if (!el.hasAttribute('data-ega-truncates')) return false;
+      if (!el.hasAttribute('data-ega-truncates') || !ellipsisDrawn(el)) return false;
       const holder = el.closest(nameHolders) ?? el.closest('label')?.control ?? el;
       return accessibleName(holder).includes(squash(el.textContent));
     };
