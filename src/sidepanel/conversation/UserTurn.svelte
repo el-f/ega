@@ -127,7 +127,8 @@
     <div class="ega-bubble" class:editing data-ega-user-bubble>
       {#if turn.imageDataUrl}
         <ImagePreview src={turn.imageDataUrl} alt="Your image" />
-      {:else if turn.kind === 'image-translate' || turn.content === IMAGE_TURN_PLACEHOLDER}
+      {:else if isImageTurn(turn)}
+        <!-- A dropped image keeps any typed note as the text, so the note alone would hide that an image was sent. -->
         <span class="ega-bubble-note">Image not shown</span>
       {/if}
       {#if hasText}

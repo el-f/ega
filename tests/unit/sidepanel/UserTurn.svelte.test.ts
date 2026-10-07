@@ -65,6 +65,16 @@ describe('the user message', () => {
     expect(kept.container.querySelector('img')).not.toBeNull();
   });
 
+  // Spec §7: an Explain or Ask message keeps its typed note when its image is dropped for space; say an image went too.
+  it('notes a dropped image on a message that also had a typed note', () => {
+    const { container } = render(UserTurn, {
+      props: { turn: turn({ kind: 'explain', content: 'And this one?', imageShed: true }) },
+    });
+    const bubble = container.querySelector('[data-ega-user-bubble]');
+    expect(bubble?.textContent).toContain('Image not shown');
+    expect(bubble?.textContent).toContain('And this one?');
+  });
+
   it('marks the message being edited', () => {
     const { container } = render(UserTurn, { props: { turn: turn(), editing: true } });
     expect(container.querySelector('[data-ega-user-bubble]')?.classList.contains('editing')).toBe(
