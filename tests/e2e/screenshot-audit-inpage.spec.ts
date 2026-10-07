@@ -623,7 +623,10 @@ test('Page translate — pill, blocks and chips', async () => {
   await both(page, 'page-pill-idle-scroll', {
     ...meta,
     state: 'pill-idle-scroll',
-    expectations: ['"N of 60 areas translated. The rest translate as you scroll."'],
+    expectations: [
+      '"N of 60 areas translated. The rest translate as you scroll."',
+      'no progress line: nothing is in flight',
+    ],
   });
   await page.getByRole('button', { name: 'Stop' }).click();
   await expect.poll(() => pillLabel(page)).toMatch(/^Stopped/);
@@ -636,7 +639,11 @@ test('Page translate — pill, blocks and chips', async () => {
   await both(page, 'page-pill-more-open', {
     ...meta,
     state: 'pill-more-open',
-    expectations: ['More holds Remove translation'],
+    expectations: [
+      'the menu opens above the pill at its end, on its own surface; the row does not move',
+      'More looks pressed while its menu is open',
+      'More holds Remove translation',
+    ],
   });
   await page.close();
   await resetRoutes(ext.context);
@@ -662,7 +669,10 @@ test('Page translate — pill, blocks and chips', async () => {
   await both(page, 'page-pill-original-pressed', {
     ...meta,
     state: 'pill-original-pressed',
-    expectations: ['Show original reads as pressed; the page shows its own text'],
+    expectations: [
+      '"Showing the original page"',
+      'Show original has a solid accent fill; the page shows its own text',
+    ],
   });
   await page.close();
   await resetRoutes(ext.context);
@@ -693,7 +703,7 @@ test('Page translate — pill, blocks and chips', async () => {
     ...meta,
     state: 'pill-all-fail-settings',
     expectations: [
-      'cause sentence + Open settings first, no raw "401"',
+      '"Couldn\'t translate the page." with the cause sentence; Open settings first, no raw "401"',
       'red chips on the blocks keep their own font on a hostile page',
     ],
   });
@@ -711,6 +721,35 @@ test('Page translate — pill, blocks and chips', async () => {
     state: 'chip-hostile',
     expectations: ['chips read on a black page', 'Open settings is a 24px button'],
   });
+  await page.evaluate(() => document.body.classList.remove('dark'));
+  await page.getByRole('button', { name: 'Close bar' }).click();
+  await expect(page.locator('[data-ega-batch-progress]')).toHaveCount(0);
+  await both(page, 'page-chip-after-close', {
+    ...meta,
+    state: 'chip-after-close',
+    expectations: ['the pill is gone; each chip keeps Open settings, which works without it'],
+  });
+  await page.close();
+
+  // A settings change while the settings error shows: Try again leads on the pill and on the chips.
+  page = await ext.context.newPage();
+  await page.setViewportSize(PAGE);
+  await page.goto(`${ext.serverUrl}/hostile-page.html`);
+  await waitForTestHooks(page);
+  await sendPageTranslate('page:translateAll');
+  await expect.poll(() => pillLabel(page), { timeout: 20_000 }).toMatch(/^Couldn't translate/);
+  await seedSettings(ext.context, ext.extensionId, { streaming: false });
+  await expect.poll(() => pillLabel(page), { timeout: 10_000 }).toMatch(/Settings changed/);
+  await both(page, 'page-pill-settings-changed', {
+    ...meta,
+    state: 'pill-settings-changed',
+    expectations: [
+      '"Couldn\'t translate the page. Settings changed. Try again to use them."',
+      'Try again (outlined) first, then Open settings',
+      'each chip offers Try again',
+    ],
+  });
+  await seedSettings(ext.context, ext.extensionId, { streaming: true });
   await page.close();
   await resetRoutes(ext.context);
 
@@ -995,10 +1034,44 @@ test('Page translate — pause, partial failure, Show both pending, RTL and focu
   await both(page, 'page-chip-focus', {
     ...meta,
     state: 'chip-focus',
-    expectations: ['the focused chip button has a 2px white ring with a 2px gap'],
+    expectations: [
+      'the focused chip button has a 2px white ring with a red band outside it, so it shows on the white page',
+    ],
   });
   await page.close();
   await resetRoutes(ext.context);
+});
+
+test('Choose areas — order badges, and a toast above the bottom bar', async () => {
+  await seedSettings(ext.context, ext.extensionId, {
+    anthropicApiKey: 'sk-test',
+    ...onlyBackends('anthropic'),
+  });
+  const meta = { surface: 'page-translate', viewport: PAGE } as const;
+  const page = await openPage('batch-page.html');
+  await sendPageTranslate('page:chooseAreas');
+  await expect.poll(async () => egaTest<boolean>(page, 'msIsActive')).toBe(true);
+  expect(await egaTest<boolean>(page, 'msSelectById', 'c1')).toBe(true);
+  expect(await egaTest<boolean>(page, 'msSelectById', 'c2')).toBe(true);
+  // The shortcut with nothing selected shows a toast while the bar is up.
+  await page.evaluate(() => window.getSelection()?.removeAllRanges());
+  await page.keyboard.press('Control+Shift+L');
+  await waitToast(page);
+  await both(page, 'areas-badges-toast', {
+    ...meta,
+    state: 'areas-badges-toast',
+    expectations: [
+      'order badges "1" and "2": white on solid blue, at least 12px',
+      'the toast sits 8px above the bottom bar, never on it',
+    ],
+  });
+  await both(page, 'areas-toast-narrow', {
+    ...meta,
+    viewport: { width: 400, height: 700 },
+    state: 'areas-toast-narrow',
+    expectations: ['the bar takes two rows; the toast sits above both'],
+  });
+  await page.close();
 });
 
 test('Toasts — first smart hold-back, reload, above the pill, and the full stack', async () => {
