@@ -74,6 +74,21 @@ describe('ShortcutInput — label prop', () => {
     expect(btn.textContent.trim()).toBe('Cancel');
     expect(btn.getAttribute('aria-pressed')).toBe('true');
   });
+
+  it('reads "Press keys..." while recording, even over a set shortcut, and shows it again on Cancel', async () => {
+    const { container } = render(ShortcutInput, {
+      props: { value: 'Ctrl+Shift+L', ariaLabel: 'Record keyboard shortcut', onchange: vi.fn() },
+    });
+    const combo = container.querySelector('.combo') as HTMLElement;
+    const btn = container.querySelector('button.record-btn') as HTMLButtonElement;
+    expect(combo.textContent).toBe('Ctrl+Shift+L');
+
+    await fireEvent.click(btn);
+    expect(combo.textContent).toBe('Press keys...');
+
+    await fireEvent.click(btn);
+    expect(combo.textContent).toBe('Ctrl+Shift+L');
+  });
 });
 
 describe('ShortcutInput — clear button aria-label', () => {

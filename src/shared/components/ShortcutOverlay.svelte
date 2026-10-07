@@ -66,8 +66,15 @@
       if (!v) onClose();
     }}
   >
-    <Dialog.Content aria-label="Keyboard shortcuts" preventScroll={false} style="outline: none">
-      <div class="shortcut-panel">
+    <!-- The content is the fixed panel: bits-ui gives it `contain: layout`, which would trap a fixed child at the page end.
+         A short window scrolls the whole sheet, so arrow keys on the focused close button still scroll it. -->
+    <Dialog.Content
+      aria-label="Keyboard shortcuts"
+      preventScroll={false}
+      class="shortcut-panel"
+      style="outline: none"
+    >
+      <div>
         <div class="shortcut-head">
           <h2>Keyboard shortcuts</h2>
           <button type="button" class="shortcut-close" aria-label="Close" onclick={onClose}
@@ -167,13 +174,15 @@
     z-index: 99998;
     animation: ega-shortcut-fade 120ms var(--ease-out);
   }
-  .shortcut-panel {
+  :global(.shortcut-panel) {
     position: fixed;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
     width: min(420px, 92vw);
     box-sizing: border-box;
+    max-height: calc(100vh - var(--space-8));
+    overflow-y: auto;
     background: var(--color-bg);
     color: var(--color-fg);
     border: 1px solid var(--color-border);

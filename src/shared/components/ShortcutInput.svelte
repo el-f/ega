@@ -93,7 +93,7 @@
   class:is-recording={recording}
   class:is-disabled={disabled || ariaDisabled}
 >
-  <kbd class="combo">{value || (recording ? 'Press keys...' : '—')}</kbd>
+  <kbd class="combo">{recording ? 'Press keys...' : value || '—'}</kbd>
   <button
     type="button"
     bind:this={btn}
