@@ -83,6 +83,38 @@ describe('toasts and keyboard focus', () => {
     expect(document.activeElement).toBe(row);
   });
 
+  it('still gives focus back after the window lost focus and got it back', async () => {
+    toastStore.push({ message: 'Check the key.', variant: 'warning' });
+    await advance(100);
+    const close = closeButton('Check the key.');
+    close.focus();
+    // A window switch and back: focus leaves and returns to the same button, both times with no relatedTarget.
+    close.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+    await advance(100);
+    close.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    close.click();
+    await advance(1000);
+    expect(document.activeElement).toBe(row);
+  });
+
+  it('does not send focus back to a control the user left before', async () => {
+    const other = document.createElement('input');
+    document.body.appendChild(other);
+    toastStore.push({ message: 'Check the key.', variant: 'warning' });
+    await advance(100);
+    const close = closeButton('Check the key.');
+    close.focus();
+    other.focus();
+    other.blur();
+    await advance(100);
+    // Back in from the page body: there is no control to return to.
+    close.focus();
+    close.click();
+    await advance(1000);
+    expect(document.activeElement).toBe(document.body);
+    other.remove();
+  });
+
   it('leaves focus alone when the user moved it elsewhere first', async () => {
     const other = document.createElement('input');
     document.body.appendChild(other);

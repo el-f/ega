@@ -83,9 +83,8 @@ export function showToast(message: string, opts: ToastOptions = {}): () => void 
   const own: ActiveToast = { handle, anchor, message, sticky, plain, dismiss, cameFrom: null };
   anchor.addEventListener('focusin', (e) => {
     const from = e.relatedTarget;
-    // From outside the toast, not from its other button.
-    if (!(from instanceof Node && anchor.contains(from)))
-      own.cameFrom = from instanceof HTMLElement ? from : null;
+    // A control outside the toast. A window switch back re-focuses the toast with no relatedTarget; the saved one stays.
+    if (from instanceof HTMLElement && !anchor.contains(from)) own.cameFrom = from;
   });
   mine = own;
   active = own;

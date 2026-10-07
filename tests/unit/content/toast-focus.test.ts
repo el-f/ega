@@ -60,6 +60,23 @@ describe('in-page toast and keyboard focus', () => {
     expect(document.activeElement).toBe(row);
   });
 
+  it('still gives focus back after the window lost focus and got it back', () => {
+    showToast('Ega was updated. Reload the page.', {
+      kind: 'warning',
+      action: { label: 'Reload page', run: () => {} },
+    });
+    const close = toastPart(' [data-ega-toast-close]') as HTMLElement;
+    close.focus();
+    // A window switch and back: focus leaves and returns to the same button, both times with no relatedTarget.
+    close.dispatchEvent(new FocusEvent('focusout', { bubbles: true, composed: true }));
+    close.dispatchEvent(new FocusEvent('focusin', { bubbles: true, composed: true }));
+    close.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true }),
+    );
+    expect(toastPart()).toBeNull();
+    expect(document.activeElement).toBe(row);
+  });
+
   it('leaves focus where the user moved it', () => {
     const field = document.createElement('input');
     document.body.appendChild(field);

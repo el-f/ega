@@ -71,7 +71,8 @@
     sync();
   }}
   onfocusin={(e) => {
-    if (outside(e)) cameFrom = e.relatedTarget instanceof HTMLElement ? e.relatedTarget : null;
+    // A window switch back re-focuses the toast with no relatedTarget; the saved control stays.
+    if (outside(e) && e.relatedTarget instanceof HTMLElement) cameFrom = e.relatedTarget;
     holder = e.target as Element;
     focused = true;
     sync();
@@ -84,6 +85,7 @@
     queueMicrotask(() => {
       if (holder?.isConnected === true && host?.contains(document.activeElement) !== true) {
         holder = null;
+        cameFrom = null;
       }
     });
   }}
