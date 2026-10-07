@@ -93,7 +93,7 @@ test('the translate-areas toolbar drives picking, and the document itself is nev
   expect(await egaTest<string>(page, 'inlineTextAt', 'c1')).toContain('mar7aba');
 });
 
-test('a second page translate closes the settled pill and re-opens picking', async () => {
+test('a second page translate keeps the settled batch, re-opens picking, and the new area joins it', async () => {
   mockAnthropic(ext.context, { translation: 'TRANSLATED' });
 
   const page = await ext.context.newPage();
@@ -121,4 +121,12 @@ test('a second page translate closes the settled pill and re-opens picking', asy
   await expect(page.locator('[data-ega-ms-wrap]')).toHaveCount(1);
   // The first batch's translation stays on the page.
   expect((await egaTest<number>(page, 'inlineCount')) ?? 0).toBe(1);
+  // The new area joins the same batch: one pill covers both, so its Remove translation puts back both.
+  expect(await egaTest<boolean>(page, 'msSelectById', 'c2')).toBe(true);
+  expect(await egaTest<boolean>(page, 'msFire')).toBe(true);
+  await expect
+    .poll(async () => (await egaTest<number>(page, 'inlineCount')) ?? 0, { timeout: 10_000 })
+    .toBe(2);
+  await expect(page.locator('[data-ega-batch-progress]')).toHaveCount(1);
+  await expect.poll(label, { timeout: 10_000 }).toBe('Page translated to English');
 });

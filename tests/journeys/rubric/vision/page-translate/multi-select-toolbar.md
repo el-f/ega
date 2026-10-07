@@ -7,7 +7,8 @@
 - Step 2: clicking a block selects it; clicking it again deselects it. The toolbar shows the count.
 - Step 3: Enter, or the toolbar's translate button, fires the selected blocks and leaves the mode.
 - Step 4: a settled run leaves the progress pill on screen. Starting page-translate again while
-  that pill is open re-opens the mode — it is never a silent no-op.
+  that pill is open re-opens the mode — it is never a silent no-op. The areas picked then join the
+  same run: one pill covers both passes, and its Remove translation puts back both.
 
 ## Refusals
 
