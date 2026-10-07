@@ -19,7 +19,7 @@ describe('BackupRestoreCard', () => {
     });
     expect(getByText(/^Export all settings$/)).toBeTruthy();
     expect(getByLabelText(/Include API keys/i)).toBeTruthy();
-    expect(getByText(/^Import…$/)).toBeTruthy();
+    expect(getByText('Import settings...')).toBeTruthy();
   });
 
   it('Export all settings calls onExport without keys', async () => {

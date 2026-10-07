@@ -46,6 +46,6 @@ test('Export with include-keys checked + type EXPORT KEYS fires download with ke
   expect(dl.suggestedFilename()).toMatch(/^ega-settings-.+\.json$/);
 
   await expect(
-    page.locator('[role="status"]', { hasText: 'Exported (including API keys' }),
+    page.locator('[role="status"]', { hasText: 'Exported all settings with API keys' }),
   ).toBeVisible({ timeout: 5_000 });
 });

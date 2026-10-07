@@ -4,20 +4,23 @@
   import SectionCard from '@/shared/ui/SectionCard.svelte';
   import Select from '@/shared/ui/Select.svelte';
   import Checkbox from '@/shared/ui/Checkbox.svelte';
+  import Button from '@/shared/ui/Button.svelte';
   import PerfHistogram from '@/shared/components/PerfHistogram.svelte';
+  import type { PerfEntry } from '@/shared/perf-history';
+  import { AUDIT_LOG_CAP } from '@/shared/audit-log';
   import RequestAuditLog from '@/options/components/RequestAuditLog.svelte';
   import AttemptFailureBreakdown from '@/options/components/AttemptFailureBreakdown.svelte';
   import SectionReset from '@/options/components/SectionReset.svelte';
-  import ResetField from '@/shared/ui/ResetField.svelte';
+  import SettingHint from '@/options/components/SettingHint.svelte';
   import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 
-  type LogLevel = 'silent' | 'error' | 'warn' | 'info' | 'debug';
+  type LogLevel = Settings['advanced']['debugLogLevel'];
   const LOG_LEVEL_OPTIONS: ReadonlyArray<{ value: LogLevel; label: string }> = [
-    { value: 'silent', label: 'silent' },
-    { value: 'error', label: 'error' },
-    { value: 'warn', label: 'warn (default)' },
-    { value: 'info', label: 'info' },
-    { value: 'debug', label: 'debug' },
+    { value: 'silent', label: 'Off' },
+    { value: 'error', label: 'Errors' },
+    { value: 'warn', label: 'Warnings (default)' },
+    { value: 'info', label: 'Info' },
+    { value: 'debug', label: 'Everything' },
   ];
 
   interface Props {
@@ -37,103 +40,103 @@
     await onPatchField('captureResultMeta', DEF.captureResultMeta);
     await onPatchAdvanced({ debugLogLevel: DEF.advanced.debugLogLevel });
   }
+
+  // The histogram asks the worker for its buffer; the card header needs it for Copy data.
+  let perfEntries = $state.raw<readonly PerfEntry[]>([]);
+  let copied = $state(false);
+  async function copyPerf(): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(perfEntries, null, 2));
+      copied = true;
+      setTimeout(() => (copied = false), 2000);
+    } catch {
+      copied = false;
+    }
+  }
 </script>
 
 <div data-ega-setting="advanced.auditLog">
-  <SectionCard
-    title="Request audit log"
-    description="Last 50 requests, stored locally, never synced. Cleared only here or by Delete all data."
-  >
-    <RequestAuditLog />
-  </SectionCard>
+  <RequestAuditLog />
 </div>
 
 <div data-ega-setting="advanced.perBackendStats">
   <SectionCard
     title="Response times"
-    description="Typical and slowest times of recent translations (up to 128) since Ega last started."
+    description="Typical and slowest times since Ega last started"
   >
+    {#snippet headerActions()}
+      {#if perfEntries.length > 0 && s.captureResultMeta}
+        <Button
+          variant="secondary"
+          size="sm"
+          dataAttrs={{ 'data-ega-perf-copy': true }}
+          onclick={() => void copyPerf()}>{copied ? 'Copied' : 'Copy data'}</Button
+        >
+      {/if}
+    {/snippet}
     <div data-ega-debug-section>
-      <PerfHistogram />
+      <PerfHistogram off={!s.captureResultMeta} bind:entries={perfEntries} />
     </div>
   </SectionCard>
 </div>
 
 <div data-ega-setting="advanced.attemptFailures">
   <SectionCard
-    title="Attempt failure breakdown"
-    description="Errors over the last hour, grouped by code."
+    title="Recent errors"
+    description="Errors in the last hour"
+    info={{
+      label: 'About recent errors',
+      text: "The same error from the same backend shows once with a count. Details has the backend's own message.",
+    }}
   >
     <AttemptFailureBreakdown />
   </SectionCard>
 </div>
 
 <SectionCard
-  title="Diagnostics tools"
-  description="Record timing and token details for each request, and set the log level."
+  title="Diagnostics settings"
+  info={{
+    label: 'About diagnostics',
+    text: `Turning off Record request details stops response times. The request list keeps its last ${AUDIT_LOG_CAP} requests.`,
+  }}
 >
   {#snippet headerActions()}
     <SectionReset
       modified={toolsModified}
       onReset={resetTools}
-      ariaLabel="Reset section: Diagnostics tools"
+      ariaLabel="Reset section: Diagnostics settings"
     />
   {/snippet}
   <div class="capture-meta" data-ega-setting="advanced.captureResultMeta">
-    <div class="row">
-      <Checkbox
-        id="adv-capture-meta"
-        checked={s.captureResultMeta}
-        label="Record request details"
-        onchange={(v) => void onPatchField('captureResultMeta', v)}
-      />
-    </div>
-    <p class="warn-caption">
-      Keeps timing, token counts and backend details for the Details drawer and the latency
-      histogram. Turning it off stops the histogram; the request log keeps its last 50 requests.
-    </p>
+    <Checkbox
+      id="adv-capture-meta"
+      checked={s.captureResultMeta}
+      label="Record request details"
+      describedBy="adv-capture-meta-hint"
+      onchange={(v) => void onPatchField('captureResultMeta', v)}
+    />
+    <SettingHint setting="advanced.captureResultMeta" id="adv-capture-meta-hint" indent />
   </div>
-  <div class="gen-row" data-ega-setting="advanced.debugLogLevel">
+  <div class="log-level" data-ega-setting="advanced.debugLogLevel">
     <Select
-      label="Debug log level"
+      label="Log detail"
       value={s.advanced.debugLogLevel}
       options={LOG_LEVEL_OPTIONS}
-      selectAttrs={{ id: 'adv-log-level' }}
+      id="adv-log-level"
       modified={isFieldModified('advanced.debugLogLevel', s)}
       onchange={(v) => void onPatchAdvanced({ debugLogLevel: v })}
-    />
-    <ResetField
-      differsFromInherited={isFieldModified('advanced.debugLogLevel', s)}
-      onReset={() => onPatchAdvanced({ debugLogLevel: DEF.advanced.debugLogLevel })}
-      ariaLabel="Reset debug log level"
-      inheritedLabel={`Default ${DEF.advanced.debugLogLevel}`}
     />
   </div>
 </SectionCard>
 
 <style>
-  .row {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    flex-wrap: wrap;
-  }
-  .gen-row {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    margin-bottom: var(--space-2);
-    flex-wrap: wrap;
-  }
   .capture-meta {
     display: flex;
     flex-direction: column;
     gap: var(--space-1);
-    margin-bottom: var(--space-2);
+    margin-bottom: var(--space-3);
   }
-  .warn-caption {
-    margin: 0;
-    color: var(--color-muted);
-    font-size: var(--fs-sm);
+  .log-level {
+    display: flex;
   }
 </style>

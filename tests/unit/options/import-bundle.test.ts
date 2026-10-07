@@ -47,14 +47,14 @@ describe('importBundleFile — parse before confirm', () => {
     const setSpy = vi.spyOn(chromeMock.storage.local, 'set');
     const status = await importBundleFile(fileOf('not json {'));
     expect(status?.kind).toBe('err');
-    expect(status?.msg).toMatch(/valid JSON/);
+    expect(status?.msg).toBe('This file is not an Ega backup. Pick a file you exported from Ega.');
     expect(confirmDialog).not.toHaveBeenCalled();
     expect(setSpy).not.toHaveBeenCalled();
   });
 
   it('JSON with no Ega root key fails without asking', async () => {
     const status = await importBundleFile(fileOf({ hello: 'world' }));
-    expect(status?.msg).toMatch(/not an Ega export/);
+    expect(status?.msg).toBe('This file is not an Ega backup. Pick a file you exported from Ega.');
     expect(confirmDialog).not.toHaveBeenCalled();
   });
 
@@ -99,7 +99,7 @@ describe('importBundleFile — parse before confirm', () => {
     );
     expect(status).toEqual({
       kind: 'err',
-      msg: 'Import failed: This is an old task-presets file. Import a full backup instead.',
+      msg: 'This is an old task-presets file. Import a full backup instead.',
     });
     expect(confirmDialog).not.toHaveBeenCalled();
     expect(setSpy).not.toHaveBeenCalled();
@@ -119,6 +119,49 @@ describe('importBundleFile — parse before confirm', () => {
     const after = await getSettings();
     expect(after.theme).toBe('dark');
     expect(after.openaiApiKey).toBe('mine');
+  });
+
+  it('the overwrite question names the file and offers a safe way out', async () => {
+    await importBundleFile(fileOf(await exportAll()));
+    expect(vi.mocked(confirmDialog).mock.calls[0]?.[0]).toMatchObject({
+      title: 'Import settings?',
+      body: expect.stringContaining('with the ones in bundle.json.'),
+      confirmLabel: 'Import',
+      cancelLabel: 'Keep current settings',
+    });
+  });
+
+  it('a backup with a broken custom language imports the rest and says how many were skipped', async () => {
+    const bundle = await exportAll();
+    const status = await importBundleFile(
+      fileOf({
+        ...bundle,
+        customLanguages: [
+          { id: 'imported-test-id', label: 'Fine', hint: 'h', examples: [], createdAt: 1 },
+          { id: 42, label: null },
+        ],
+      }),
+    );
+    expect(status).toEqual({
+      kind: 'ok',
+      msg: 'Imported settings; 1 language was skipped because it was not valid.',
+    });
+    expect((await getCustomLanguages()).map((c) => c.id)).toEqual(['imported-test-id']);
+  });
+
+  it('a newer backup asks for an update before any confirm', async () => {
+    const status = await importBundleFile(fileOf({ ...(await exportAll()), version: 9 }));
+    expect(status).toEqual({
+      kind: 'err',
+      msg: 'This backup is from a newer Ega. Update Ega, then import it.',
+    });
+    expect(confirmDialog).not.toHaveBeenCalled();
+  });
+
+  it('a full backup picked on a scoped card points to the Advanced backup card', async () => {
+    const status = await importBundleFile(fileOf(await exportAll()), 'tasks');
+    expect(status?.kind).toBe('err');
+    expect(status?.msg).toContain('Restore it from Advanced → Data → Backup and restore.');
   });
 
   it('a keyless backup keeps a Gemini 2.5 pick that the current key still serves', async () => {
@@ -192,7 +235,7 @@ describe('importBundleFile — parse before confirm', () => {
   it('JSON that is not an object fails with the same friendly message', async () => {
     const status = await importBundleFile(fileOf([1, 2, 3]));
     expect(status?.kind).toBe('err');
-    expect(status?.msg).toMatch(/not an Ega export/);
+    expect(status?.msg).toMatch(/not an Ega backup/);
     expect(confirmDialog).not.toHaveBeenCalled();
   });
 });

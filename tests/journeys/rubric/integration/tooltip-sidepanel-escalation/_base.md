@@ -7,7 +7,7 @@
 
 ## Audit fan-out
 
-- A tooltip translate adds one entry to `egaAuditLog`; the Options > Advanced > Diagnostics "Request audit log" lists it within 1s. The side panel only toasts error entries from other surfaces; the popup shows no audit data.
+- A tooltip translate adds one entry to `egaAuditLog`; the Options > Advanced > Diagnostics "Recent requests" card lists it within 1s. The side panel only toasts error entries from other surfaces; the popup shows no audit data.
 
 ## Cache parity
 

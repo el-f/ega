@@ -179,7 +179,7 @@ describe('the glossary file', () => {
   it('refuses a file from a newer version before any confirm', async () => {
     const status = await importBundleFile(fileOf(glossaryFile([], 2)), 'glossary');
     expect(status?.kind).toBe('err');
-    expect(status?.msg).toMatch(/newer version of Ega/);
+    expect(status?.msg).toMatch(/from a newer Ega/);
     expect(confirmDialog).not.toHaveBeenCalled();
   });
 

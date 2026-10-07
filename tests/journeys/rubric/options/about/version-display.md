@@ -7,14 +7,14 @@
 ## State expectations
 
 - Step 1: user navigates to the About tab.
-- Step 2: the panel renders extension version, Privacy section, Credits section, and a source-link affordance.
+- Step 2: the panel renders the Privacy card and the Credits and links card with the version, the source link and the license.
 - Step 3: all links are reachable and open in new tabs.
 
 ## Visible affordances
 
-- Version string is selectable / copyable (the user might cite it in bug reports).
-- Privacy section names what storage the extension uses + what it does NOT send.
-- Credits & links shows the version, the source link (github.com/el-f/ega) and the project's MIT license link.
+- The version string is plain selectable text (the user might cite it in bug reports).
+- Privacy names what Ega stores on this computer, what it sends to the backend, and what it never sends.
+- Credits and links rows: Version, Source (github.com/el-f/ega), License (MIT link).
 
 ## Failure-mode expectations
 
@@ -22,5 +22,5 @@
 
 ## Cautions
 
-- The version string must match the manifest version; no hardcoded constant that drifts on release.
-- No settings live here; the only actions are Clear cache and Delete all data.
+- The version string must match the manifest version (version_name when set); no hardcoded constant that drifts on release.
+- No settings and no actions live here.

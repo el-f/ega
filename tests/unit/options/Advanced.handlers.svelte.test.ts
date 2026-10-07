@@ -54,10 +54,7 @@ describe('Advanced tab — data handlers', () => {
       sitePrefs: { 'https://a.com': { disabled: true }, 'https://b.com': { disabled: true } },
     });
     const { findByRole, onSetSettings } = await openData(s);
-    // The row button only shows on hover, so the role query would skip it.
-    await fireEvent.click(
-      await findByRole('button', { name: 'Clear override for https://a.com', hidden: true }),
-    );
+    await fireEvent.click(await findByRole('button', { name: /^Remove (https:\/\/)?a\.com$/ }));
     await waitFor(() => expect(onSetSettings).toHaveBeenCalled());
     expect(Object.keys(stored().sitePrefs)).toEqual(['https://b.com']);
   });
@@ -65,7 +62,7 @@ describe('Advanced tab — data handlers', () => {
   it('clearing all site overrides empties sitePrefs', async () => {
     const s = seed({ sitePrefs: { 'https://a.com': { disabled: true } } });
     const { findByRole, onSetSettings } = await openData(s);
-    await fireEvent.click(await findByRole('button', { name: /^Clear all/i }));
+    await fireEvent.click(await findByRole('button', { name: 'Remove all' }));
     await waitFor(() => expect(onSetSettings).toHaveBeenCalled());
     expect(stored().sitePrefs).toEqual({});
   });
@@ -76,7 +73,10 @@ describe('Advanced tab — data handlers', () => {
     await fireEvent.click(await findByRole('button', { name: /^Export all settings$/ }));
     await waitFor(() => expect(download).toHaveBeenCalledTimes(1));
     expect(download.mock.calls[0]?.[0]).toMatch(/^ega-settings-.*\.json$/);
-    await findByText(/API keys stripped/i);
+    // Stripping the keys guards the billing account only; the line says what the file still holds.
+    await findByText(
+      /^Exported all settings without API keys\. The file still holds your glossary/,
+    );
   });
 
   it('a failed export shows the error instead of a success line', async () => {

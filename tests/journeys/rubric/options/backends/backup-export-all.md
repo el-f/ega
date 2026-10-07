@@ -7,9 +7,9 @@
 
 ## State expectations
 
-- Step 1: user opens Advanced > Data; the "Backup & restore" card with the "Export all settings" button is visible.
+- Step 1: user opens Advanced > Data; the "Backup and restore" card with the "Export all settings" button is visible.
 - Step 2 (click "Export all settings"): a JSON file containing all settings (API keys stripped) downloads.
-- Step 3: a status line reads "Exported (API keys stripped)" and says the file still holds the glossary, custom-language examples and site-override host list.
+- Step 3: a status line reads "Exported all settings without API keys" and says the file still holds the glossary, custom-language examples, your own task prompts and the site-override host list.
 
 ## Visible affordances
 

@@ -2,14 +2,15 @@
 
 ## Mount + render
 
-- Surface lists `sitePrefs` as read-only rows (an http/https pair with equal prefs merges into one bare-host row); each row shows the bare host (or the full origin when unmerged), an "Ega off" pill when disabled, a "Source: <language name>" pill when a source language is set, and an X icon button (danger tone) to clear it. Clear all is a danger Button; Export is a secondary Button.
-- At 10 or more rows a "Filter sites" box narrows the list by host (case-insensitive); no match says so. Clear all still clears every row.
-- Empty state reads "No site overrides yet" and points the user at right-click > "Disable Ega on this site".
+- The card "Site overrides" has the line "Sites where Ega is off or uses its own source language" and an (i) "About site overrides" that says where they change: the right-click menu on a page.
+- Rows list `sitePrefs` (an http/https pair with equal prefs merges into one bare-host row): the bare host (or the full origin when unmerged), the state in words ("Ega is off", "Source: Spanish", or both joined by " · "), and a trash IconButton "Remove <site>". The header has a secondary "Remove all".
+- At 10 or more rows a "Filter sites" box narrows the list by host (case-insensitive); no match says so. Remove all still removes every row.
+- Empty: EmptyState "No site overrides yet" / "Sites you turn off from the right-click menu show here", with no button and no Remove all.
 
-## Clear
+## Remove
 
-- Per-row Clear opens a "Clear site override" danger confirm; confirming removes every key the row owns (both schemes for a merged row) from `sitePrefs`.
-- Clear-all empties `sitePrefs` after explicit confirm (destructive bulk action).
+- Remove on a row acts at once: every key the row owns (both schemes for a merged row) leaves `sitePrefs`, focus moves to the next row, and a toast "Removed <site>" offers Undo.
+- Remove all acts at once with a toast "Removed N site overrides" and Undo. Undo puts the old entries back and keeps any site changed since.
 
 ## Scope
 

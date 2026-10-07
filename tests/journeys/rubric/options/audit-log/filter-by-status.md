@@ -6,23 +6,22 @@
 
 ## State expectations
 
-- Step 1: audit-log panel has rows with mixed statuses (success, error, cache).
-- Step 2 (select "Error"): only error-outcome rows remain visible.
-- Step 3 (switch to "Cache"): only cache-hit rows remain visible.
-- Step 4 (select "All"): full list restores.
+- Step 1: the Recent requests card has rows with mixed statuses (OK, error, cache).
+- Step 2 (pick "Errors"): only error rows remain; the line reads "1 match".
+- Step 3 (switch to "From cache"): only cache-hit rows remain.
+- Step 4 (pick "All"): the full list restores.
 
 ## Visible affordances
 
-- Status is a select (All statuses, OK, Error, Cache hit) plus preset chips "Errors only", "Cache hits", "OK only".
-- Active filter option uses accent tokens; inactive is neutral.
-- Error rows carry a danger `error` pill, cache hits an accent `cache` pill; OK rows have no pill.
+- Status is the first select in the one filter row: All, OK, Errors, From cache. There are no preset chips.
+- Error rows read the shared error title in the danger color; cache hits read "From cache"; OK rows read "OK".
 
 ## Failure-mode expectations
 
-- A status with zero matching entries surfaces the empty state rather than an error.
-- Changing a filter keeps row expansion; expanded state is kept per entry id.
+- A status with zero matching entries shows "No request matches these filters" with Clear filters rather than an error.
+- Changing a filter keeps open rows open; open state is kept per entry id.
 
 ## Cautions
 
-- Status filter is independent of task and backend filters; all three can be active simultaneously.
+- The Status filter is independent of the task and backend filters; all three can be active together.
 - Filters persist in session storage and come back on re-entry until the browser restarts.

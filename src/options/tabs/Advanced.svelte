@@ -1,17 +1,19 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { getSettings, replaceSitePrefs } from '@/shared/storage';
+  import { clearAllStorage, getSettings } from '@/shared/storage';
   import { exportAll } from '@/shared/storage/backup';
   import { importBundleFile, type ImportStatus } from '@/options/import-bundle';
-  import { saveSettings, saveVia } from '@/options/storage-with-toast';
+  import { saveSettings } from '@/options/storage-with-toast';
   import { downloadJsonFile } from '@/shared/download-file';
   import { DEFAULT_TEMPLATE } from '@/shared/prompts';
   import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
   import type { Settings } from '@/shared/types';
   import { createTemplatesHandlers } from '@/options/templates-handlers';
   import LoadingState from '@/shared/components/LoadingState.svelte';
-  import { confirmDialog } from '@/shared/components/confirmDialog';
   import { toastStore } from '@/shared/components/toastStore';
+  import { debugCatch } from '@/shared/logger';
+  import { OPTIONS_LOCAL_UI_KEYS } from '@/options/local-ui-keys';
+  import DeleteAllDataDialog from '@/options/components/DeleteAllDataDialog.svelte';
   import TabHeader from '@/shared/components/TabHeader.svelte';
 
   import AdvancedSubTabs, { type SubTabId } from '@/options/components/AdvancedSubTabs.svelte';
@@ -97,33 +99,15 @@
     if (next) onSetSettings(next);
   }
 
-  // One row can own both the https and the http key for a host — clear them together.
-  async function clearSiteKeys(keys: readonly string[]): Promise<void> {
+  // Acts at once with Undo; site overrides have their own card and are not touched.
+  async function resetPromptAndModel(): Promise<void> {
     if (!s) return;
-    const saved = await saveVia(() =>
-      replaceSitePrefs((cur) => {
-        const next = { ...cur };
-        for (const key of keys) delete next[key];
-        return next;
-      }),
-    );
-    if (saved) onSetSettings(saved);
-  }
-  async function clearAllSitePrefs(): Promise<void> {
-    const saved = await saveVia(() => replaceSitePrefs({}));
-    if (saved) onSetSettings(saved);
-  }
-
-  async function resetAllToDefaults(): Promise<void> {
-    if (!s) return;
-    const confirmed = await confirmDialog({
-      title: 'Reset prompt and generation settings',
-      body: 'Reset the prompt template, Effort, temperature, max answer length and per-site overrides to defaults. Per-language prompt overrides and API keys are not affected. Type RESET to confirm.',
-      confirmLabel: 'Reset',
-      danger: true,
-      typeToConfirm: 'RESET',
-    });
-    if (!confirmed) return;
+    const prior = {
+      promptTemplate: s.advanced.promptTemplate,
+      temperature: s.advanced.temperature,
+      maxTokens: s.advanced.maxTokens,
+      effort: s.advanced.effort,
+    };
     const def = DEFAULT_SETTINGS.advanced;
     await patchAdvanced({
       promptTemplate: { ...DEFAULT_TEMPLATE },
@@ -131,9 +115,49 @@
       maxTokens: def.maxTokens,
       effort: def.effort,
     });
-    await saveVia(() => replaceSitePrefs({}));
-    onSetSettings(await getSettings());
-    toastStore.push({ message: 'Defaults restored', variant: 'success' });
+    toastStore.push({
+      message: 'Prompt and model settings are back to defaults',
+      variant: 'success',
+      action: { label: 'Undo', onClick: () => void patchAdvanced(prior) },
+    });
+  }
+
+  async function clearCache(): Promise<void> {
+    try {
+      // The live cache is an in-memory Map in the service worker.
+      await chrome.runtime.sendMessage({ kind: 'cache:clear' });
+      toastStore.push({ message: 'Saved answers cleared', variant: 'success' });
+    } catch (e) {
+      debugCatch(e, 'options.tabs.Advanced.clearCache');
+      toastStore.push({
+        message: 'Saved answers were not cleared. Chrome did not take the change.',
+        variant: 'danger',
+        action: { label: 'Try again', onClick: () => void clearCache() },
+      });
+    }
+  }
+
+  let deleteOpen = $state(false);
+  async function deleteAllData(): Promise<void> {
+    deleteOpen = false;
+    try {
+      // A reply finishing after the wipe would write its thread back; an asleep worker must not stop it.
+      await chrome.runtime.sendMessage({ kind: 'translate:cancel-all' }).catch(() => {});
+      await clearAllStorage();
+      await chrome.runtime.sendMessage({ kind: 'audit:clear' });
+      await chrome.runtime.sendMessage({ kind: 'cache:clear' });
+      for (const key of OPTIONS_LOCAL_UI_KEYS) globalThis.localStorage?.removeItem(key);
+    } catch (e) {
+      debugCatch(e, 'options.tabs.Advanced.deleteAllData');
+      toastStore.push({
+        message: `Some data was not deleted: ${(e as Error).message}. Press Delete all data again.`,
+        variant: 'danger',
+        action: { label: 'Try again', onClick: () => (deleteOpen = true) },
+      });
+      return;
+    }
+    // This page still holds the old settings in memory; a reload starts it clean.
+    location.reload();
   }
 
   async function exportSettings(includeKeys: boolean): Promise<void> {
@@ -145,8 +169,8 @@
       backupStatus = {
         kind: 'ok',
         msg: includeKeys
-          ? 'Exported (including API keys — treat the file like a password)'
-          : 'Exported (API keys stripped). The file still holds your glossary, custom-language examples, your own task prompts, and your site-override host list.',
+          ? 'Exported all settings with API keys. Treat the file like a password.'
+          : 'Exported all settings without API keys. The file still holds your glossary, custom-language examples, your own task prompts and your site-override host list.',
       };
     } catch (e) {
       backupStatus = { kind: 'err', msg: `Export failed: ${(e as Error).message}` };
@@ -197,13 +221,21 @@
           {backupStatus}
           onExport={exportSettings}
           onUnifiedImport={unifiedImport}
-          onClearSiteKeys={clearSiteKeys}
-          onClearAllSitePrefs={clearAllSitePrefs}
-          onResetAllToDefaults={resetAllToDefaults}
+          onSaved={onSetSettings}
+          onReset={resetPromptAndModel}
+          onClearCache={clearCache}
+          onDeleteAll={() => (deleteOpen = true)}
         />
       {/if}
     </div>
   </div>
+  {#if deleteOpen}
+    <DeleteAllDataDialog
+      onConfirm={() => void deleteAllData()}
+      onCancel={() => (deleteOpen = false)}
+      onExport={() => exportSettings(false)}
+    />
+  {/if}
 {/if}
 
 <style>

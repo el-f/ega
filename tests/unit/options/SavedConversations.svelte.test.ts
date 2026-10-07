@@ -44,7 +44,7 @@ describe('SavedConversations', () => {
     const { container, getByRole } = render(SavedConversations);
     await waitFor(() => expect(sites(container)).toHaveLength(2));
 
-    await fireEvent.click(getByRole('button', { name: 'Delete the conversation for gone.test' }));
+    await fireEvent.click(getByRole('button', { name: 'Delete conversation for gone.test' }));
 
     await waitFor(() => expect(sites(container)).toEqual(['kept.test']));
     expect(vi.mocked(confirmDialog)).toHaveBeenCalledTimes(1);
@@ -58,7 +58,7 @@ describe('SavedConversations', () => {
     const { container, getByRole } = render(SavedConversations);
     await waitFor(() => expect(sites(container)).toEqual(['stays.test']));
 
-    await fireEvent.click(getByRole('button', { name: 'Delete the conversation for stays.test' }));
+    await fireEvent.click(getByRole('button', { name: 'Delete conversation for stays.test' }));
 
     await waitFor(() => expect(vi.mocked(confirmDialog)).toHaveBeenCalled());
     expect((await loadThreadResult('https://stays.test')).turns).toHaveLength(1);
@@ -72,7 +72,7 @@ describe('SavedConversations', () => {
     const push = vi.spyOn(toastStore, 'push').mockImplementation(() => {});
     vi.spyOn(chrome.storage.local, 'set').mockRejectedValueOnce(new Error('quota'));
 
-    await fireEvent.click(getByRole('button', { name: 'Delete the conversation for retry.test' }));
+    await fireEvent.click(getByRole('button', { name: 'Delete conversation for retry.test' }));
     await waitFor(() => expect(push).toHaveBeenCalledTimes(1));
     expect(sites(container)).toEqual(['retry.test']);
     const action = push.mock.calls[0]?.[0].action;
@@ -90,7 +90,7 @@ describe('SavedConversations', () => {
     const { container, getByRole, findByText } = render(SavedConversations);
     await waitFor(() => expect(sites(container)).toHaveLength(2));
 
-    await fireEvent.click(getByRole('button', { name: 'Clear all conversations' }));
+    await fireEvent.click(getByRole('button', { name: 'Delete all' }));
 
     expect(await findByText('No saved conversations')).toBeTruthy();
     expect(vi.mocked(confirmDialog).mock.calls[0]?.[0].body).toMatch(/all 2 saved conversations/);

@@ -23,7 +23,7 @@ test.afterEach(async () => {
 
 test.slow();
 
-test('Clear all wipes every sitePrefs entry after confirm', async () => {
+test('Remove all wipes every sitePrefs entry at once, and Undo puts them back', async () => {
   const timeline = createTimeline();
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
@@ -43,20 +43,21 @@ test('Clear all wipes every sitePrefs entry after confirm', async () => {
   ).toEqual(['a.example.com', 'b.example.com', 'c.example.com']);
 
   await page.locator('[data-ega-site-override-clear-all]').click();
-  const dialog = page.locator('.ega-dialog', { hasText: 'Clear all site overrides' });
-  await expect(dialog).toBeVisible({ timeout: 5_000 });
-  await dialog.getByRole('button', { name: 'Clear all', exact: true }).click();
-  timeline.markStep('confirmed');
+  timeline.markStep('removed');
+  await expect(page.locator('.ega-dialog')).toHaveCount(0);
 
-  await expect
-    .poll(
-      async () => {
-        const s = await readStorage<Settings>(ext.context, ext.extensionId, 'ega.settings');
-        return Object.keys(s?.sitePrefs ?? {}).length;
-      },
-      { timeout: 10_000 },
-    )
-    .toBe(0);
+  const count = async (): Promise<number> => {
+    const s = await readStorage<Settings>(ext.context, ext.extensionId, 'ega.settings');
+    return Object.keys(s?.sitePrefs ?? {}).length;
+  };
+  await expect.poll(count, { timeout: 10_000 }).toBe(0);
+  await expect(page.getByText('No site overrides yet')).toBeVisible();
+
+  const toast = page.locator('[data-sonner-toast]', { hasText: 'Removed 3 site overrides' });
+  await toast.getByRole('button', { name: 'Undo' }).click();
+  timeline.markStep('undone');
+  await expect.poll(count, { timeout: 10_000 }).toBe(6);
+  await expect(rows).toHaveCount(3);
 });
 
 test('a host whose two schemes differ stays two rows, and clearing one keeps the other', async () => {
@@ -78,14 +79,11 @@ test('a host whose two schemes differ stays two rows, and clearing one keeps the
       els.map((e) => e.getAttribute('data-ega-site-override-host') ?? ''),
     ),
   ).toEqual(['http://split.example.com', 'https://split.example.com']);
-  // Only the https entry is paused; merging the pair would hide that.
-  await expect(rows.nth(0).locator('[data-ega-site-pill-paused]')).toHaveCount(0);
-  await expect(rows.nth(1).locator('[data-ega-site-pill-paused]')).toHaveCount(1);
+  // Only the https entry is off; merging the pair would hide that.
+  await expect(rows.nth(0).locator('[data-ega-site-override-state]')).toHaveText('');
+  await expect(rows.nth(1).locator('[data-ega-site-override-state]')).toHaveText('Ega is off');
 
   await rows.nth(1).locator('[data-ega-site-override-clear]').click();
-  const dialog = page.locator('.ega-dialog', { hasText: 'Clear site override' });
-  await expect(dialog).toBeVisible({ timeout: 5_000 });
-  await dialog.getByRole('button', { name: 'Clear', exact: true }).click();
 
   await expect
     .poll(

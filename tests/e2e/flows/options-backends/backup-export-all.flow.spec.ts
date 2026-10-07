@@ -30,7 +30,9 @@ test('Advanced→Data Export all-settings triggers a download and shows Exported
   const dl = await downloadPromise;
   expect(dl.suggestedFilename()).toMatch(/^ega-settings-.+\.json$/);
 
-  const status = page.locator('[role="status"]', { hasText: 'Exported (API keys stripped)' });
+  const status = page.locator('[role="status"]', {
+    hasText: 'Exported all settings without API keys',
+  });
   await expect(status).toBeVisible({ timeout: 5_000 });
   // Stripping the keys guards the billing account only — the status must say what is still in the file.
   await expect(status).toContainText(/glossary/i);

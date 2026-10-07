@@ -2,14 +2,15 @@
 
 ## Mount + render
 
-- About tab renders extension version, Privacy + Credits sections, and a source-link affordance.
-- The Privacy section names what storage the extension uses (chrome.storage.local) and what it does NOT send (no telemetry).
+- The header reads "About" with the line "Privacy and credits".
+- Privacy ("No telemetry, no cloud sync, no analytics") has three columns with no inner borders: "Stored on this computer", "Sent to your backend", "Never sent". API keys read "API keys stay in this browser. They are never synced or logged."
+- Credits and links: label left, value right, like every other row: Version, Source (github.com/el-f/ega), License (MIT).
 
 ## Links
 
-- Source link opens the repository in a new tab.
+- Source and License open in a new tab.
 - Links use the project's link styling tokens; no raw underlined blue.
 
 ## Static content
 
-- No settings live here; the only actions are Clear cache and Delete all data in the Destructive actions card.
+- No settings and no actions live here; Clear cache and Delete all data are on Advanced > Data.

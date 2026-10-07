@@ -2,28 +2,24 @@
 
 ## Latency budgets
 
-- Correct phrase typed -> Reset button enables: <= 1 frame.
-- Confirm -> storage reset + toast: <= 600ms.
+- Reset click -> storage reset + toast: <= 600ms.
 
 ## State expectations
 
-- Step 1: user clicks "Reset to defaults" in the "Reset prompt and generation settings" card of Advanced > Data; a type-to-confirm "Reset prompt and generation settings" dialog appears.
-- Step 2: user types the exact phrase "RESET".
-- Step 3: Reset button enables; user clicks it; the prompt template, Effort, temperature, max answer length and site overrides revert to defaults; a toast confirms.
+- Step 1: in Advanced > Data, the Reset and delete card has the row "Reset prompt and model settings" with the line "Puts back the Translate prompt, Effort, creativity and answer length" and a secondary "Reset".
+- Step 2 (click Reset): no dialog; the Translate prompt, Effort, temperature and max answer length go back to their defaults at once.
+- Step 3: a toast "Prompt and model settings are back to defaults" offers Undo; Undo writes the old values back.
 
 ## Visible affordances
 
-- Type-to-confirm input shows the required phrase as placeholder/label.
-- Reset button stays disabled until the exact phrase matches (case-sensitive).
-- Confirmation toast uses the success tone tokens with the message "Defaults restored".
+- Reset is a secondary button; its accessible description is its row line.
+- The card's (i) "About resets" says what is kept: language prompts, API keys, tasks and saved conversations.
 
 ## Failure-mode expectations
 
-- Partial or wrong phrase -> Reset stays disabled; no write.
-- Storage write failure shows a "Change not saved" warning toast; settings may be partially reset.
+- A storage write failure shows a "Not saved" toast; no Undo toast shows.
 
 ## Cautions
 
-- This operation is irreversible from the UI perspective. The type-to-confirm guard is non-negotiable.
+- Site overrides are NOT reset; they have their own card.
 - API keys and per-language prompt overrides are not affected.
-- Cancel at the dialog leaves all settings untouched.

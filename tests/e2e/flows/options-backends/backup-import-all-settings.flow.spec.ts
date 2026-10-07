@@ -33,7 +33,7 @@ test('Import all-settings JSON overwrites settings and shows Imported status', a
   });
 
   const fileChooserPromise = page.waitForEvent('filechooser', { timeout: 5_000 });
-  await page.locator('label[for="adv-import"]').click();
+  await page.getByText('Import settings...', { exact: true }).click();
   const fileChooser = await fileChooserPromise;
   await fileChooser.setFiles({
     name: 'ega-settings-test.json',
@@ -42,10 +42,11 @@ test('Import all-settings JSON overwrites settings and shows Imported status', a
   });
   timeline.markStep('file-chosen');
 
-  // First dialog: "Import settings" — hit Continue
-  const importDialog = page.locator('.ega-dialog', { hasText: 'Import settings' });
+  // First dialog: "Import settings?" names the file — hit Import
+  const importDialog = page.locator('.ega-dialog', { hasText: 'Import settings?' });
   await expect(importDialog).toBeVisible({ timeout: 5_000 });
-  await importDialog.getByRole('button', { name: 'Continue', exact: true }).click();
+  await expect(importDialog).toContainText('ega-settings-test.json');
+  await importDialog.getByRole('button', { name: 'Import', exact: true }).click();
 
   // Second dialog: "Keep API keys from file?" — hit Keep keys
   const keysDialog = page.locator('.ega-dialog', { hasText: 'Keep API keys from file?' });

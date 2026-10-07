@@ -15,9 +15,24 @@
     scope: string;
     /** Export stays focusable but does nothing, and this line says why. */
     exportBlockedReason?: string | null;
+    /** Overrides "Export <scope>". */
+    exportLabel?: string;
+    /** Overrides "Import <scope>...". */
+    importLabel?: string;
+    /** Marks the export button (tests and the screenshot harness find it by this). */
+    exportAttr?: string;
   }
 
-  const { onExport, onImport, status, scope, exportBlockedReason = null }: Props = $props();
+  const {
+    onExport,
+    onImport,
+    status,
+    scope,
+    exportBlockedReason = null,
+    exportLabel,
+    importLabel,
+    exportAttr,
+  }: Props = $props();
 
   const importId = makeId('ega-backup-import');
   const reasonId = makeId('ega-backup-export-reason');
@@ -30,13 +45,14 @@
       iconKind="export"
       ariaDisabled={exportBlockedReason !== null}
       {...exportBlockedReason !== null ? { describedBy: reasonId } : {}}
+      {...exportAttr ? { dataAttrs: { [exportAttr]: true } } : {}}
       onclick={() => void onExport()}
     >
-      Export {scope}
+      {exportLabel ?? `Export ${scope}`}
     </Button>
     <label for={importId} class="file-label">
       <ActionIcon kind="import" size={16} />
-      <span>Import {scope}…</span>
+      <span>{importLabel ?? `Import ${scope}...`}</span>
     </label>
     <input
       id={importId}

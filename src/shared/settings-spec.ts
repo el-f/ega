@@ -815,8 +815,8 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   },
   {
     id: 'advanced.auditLog',
-    label: 'Request audit log',
-    description: 'The last 50 requests, with the start of each prompt and reply.',
+    label: 'Recent requests',
+    description: 'The last 50 requests, kept on this computer',
     keywords: ['audit', 'log', 'history', 'request', 'response'],
     tab: 'advanced',
     subTab: 'diagnostics',
@@ -825,8 +825,8 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   },
   {
     id: 'advanced.attemptFailures',
-    label: 'Attempt failure breakdown',
-    description: 'Failed attempts in the last hour, grouped by error.',
+    label: 'Recent errors',
+    description: 'Errors in the last hour',
     keywords: ['failure', 'attempt', 'retry', 'breakdown', 'error'],
     tab: 'advanced',
     subTab: 'diagnostics',
@@ -836,7 +836,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'advanced.perBackendStats',
     label: 'Response times',
-    description: 'Typical and slowest translate times over recent requests.',
+    description: 'Typical and slowest times since Ega last started',
     keywords: ['stats', 'latency', 'histogram', 'p50', 'p95', 'performance'],
     tab: 'advanced',
     subTab: 'diagnostics',
@@ -846,8 +846,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'advanced.captureResultMeta',
     label: 'Record request details',
-    description:
-      'Keeps timing, token counts and backend details for the Details drawer and the latency histogram. Turning it off stops the histogram; the request log keeps its last 50 requests.',
+    description: 'Keeps timing and token counts for each request',
     keywords: ['capture', 'meta', 'metadata', 'tokens', 'latency'],
     tab: 'advanced',
     subTab: 'diagnostics',
@@ -858,9 +857,9 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   },
   {
     id: 'advanced.debugLogLevel',
-    label: 'Debug log level',
+    label: 'Log detail',
     description:
-      'silent, error, warn, info or debug. The debug level logs every streaming chunk to the service worker console and can slow streaming.',
+      'How much Ega logs to the service worker console; Everything logs every streaming chunk and can slow answers',
     keywords: ['log', 'debug', 'verbose', 'level'],
     tab: 'advanced',
     subTab: 'diagnostics',
@@ -872,7 +871,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'advanced.siteOverrides',
     label: 'Site overrides',
-    description: 'Sites where Ega is off or uses its own source language. Review and clear them.',
+    description: 'Sites where Ega is off or uses its own source language',
     keywords: ['site', 'host', 'override', 'per-site', 'domain', 'paused', 'disabled'],
     tab: 'advanced',
     subTab: 'data',
@@ -883,7 +882,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'advanced.savedConversations',
     label: 'Saved conversations',
-    description: 'Side panel conversations kept on this device, one per site. Delete one or all.',
+    description: 'Side panel conversations kept on this computer, one per site',
     keywords: ['conversation', 'chat', 'history', 'thread', 'side panel', 'delete'],
     tab: 'advanced',
     subTab: 'data',
@@ -892,8 +891,8 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   },
   {
     id: 'advanced.dataBackup',
-    label: 'Backup & restore',
-    description: 'Export or import all settings as a JSON file.',
+    label: 'Backup and restore',
+    description: 'Every setting in one file',
     keywords: ['backup', 'restore', 'export', 'import', 'json', 'data'],
     tab: 'advanced',
     subTab: 'data',
@@ -902,9 +901,8 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   },
   {
     id: 'advanced.resetEverything',
-    label: 'Reset prompt and generation settings',
-    description:
-      'Resets the Translate prompt (Tasks tab), Effort, temperature and max answer length (Translate tab), and site overrides. Language prompts, API keys and the audit log are kept.',
+    label: 'Reset prompt and model settings',
+    description: 'Puts back the Translate prompt, Effort, creativity and answer length',
     keywords: ['reset', 'wipe', 'clear', 'destructive', 'factory'],
     tab: 'advanced',
     subTab: 'data',
@@ -915,28 +913,31 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   // ── About ────────────────────────────────────────────────────────
   {
     id: 'about.clearCache',
-    label: 'Clear translation cache',
-    description:
-      'Delete every cached translation. The next identical request goes to the backend again.',
+    label: 'Clear saved answers',
+    description: 'Translations run again next time',
     keywords: ['cache', 'clear', 'flush', 'translation'],
-    tab: 'about',
+    tab: 'advanced',
+    targetSelector: '[data-ega-setting="about.clearCache"]',
+    subTab: 'data',
     type: 'action',
   },
   {
     id: 'about.deleteAllData',
     label: 'Delete all data',
-    description: 'Delete everything Ega stores in this browser. This cannot be undone.',
+    description: 'Removes every setting, key and saved conversation',
     keywords: ['delete', 'wipe', 'purge', 'data', 'destructive'],
-    tab: 'about',
+    tab: 'advanced',
+    targetSelector: '[data-ega-setting="about.deleteAllData"]',
+    subTab: 'data',
     type: 'action',
   },
   {
     id: 'about.privacy',
     label: 'Privacy',
-    description:
-      'No telemetry, no analytics, no third-party calls beyond the backend you configure.',
+    description: 'No telemetry, no cloud sync, no analytics',
     keywords: ['privacy', 'telemetry', 'analytics', 'tracking'],
     tab: 'about',
+    targetSelector: '[data-ega-setting="about.privacy"]',
     type: 'group',
   },
   {
@@ -945,6 +946,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
     description: 'MIT-licensed open-source project.',
     keywords: ['licence', 'license', 'mit', 'open-source'],
     tab: 'about',
+    targetSelector: '[data-ega-license-link]',
     type: 'group',
   },
   {
@@ -953,6 +955,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
     description: 'Link to the project repository.',
     keywords: ['source', 'code', 'repo', 'github'],
     tab: 'about',
+    targetSelector: '[data-ega-source-link]',
     type: 'group',
   },
   {

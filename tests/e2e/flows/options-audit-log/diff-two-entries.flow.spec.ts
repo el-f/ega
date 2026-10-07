@@ -15,7 +15,7 @@ test.afterEach(async () => {
 
 test.slow();
 
-test('Compare on two entries opens AuditDiffModal with side-by-side diff', async () => {
+test('Compare in the Details of two requests opens the side-by-side comparison', async () => {
   const timeline = createTimeline();
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
@@ -62,11 +62,14 @@ test('Compare on two entries opens AuditDiffModal with side-by-side diff', async
   await expect(page.locator('[data-ega-audit-entry="diff-a"]')).toBeVisible({ timeout: 5_000 });
   await expect(page.locator('[data-ega-audit-entry="diff-b"]')).toBeVisible();
 
+  // Compare sits inside Details.
+  await page.locator('[data-ega-audit-entry="diff-a"] [data-ega-audit-entry-toggle]').click();
   await page.locator('[data-ega-audit-compare="diff-a"]').click();
   timeline.markStep('compare-a-clicked');
 
   await expect(page.locator('[data-ega-audit-compare-prompt]')).toBeVisible({ timeout: 3_000 });
 
+  await page.locator('[data-ega-audit-entry="diff-b"] [data-ega-audit-entry-toggle]').click();
   await page.locator('[data-ega-audit-compare="diff-b"]').click();
   timeline.markStep('compare-b-clicked');
 

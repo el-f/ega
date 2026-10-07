@@ -19,7 +19,7 @@ test.afterEach(async () => {
 
 test.slow();
 
-test('Delete empties an open side panel for that thread, and Clear all removes every thread', async () => {
+test('Delete empties an open side panel for that thread, and Delete all removes every thread', async () => {
   const timeline = createTimeline();
   const seeder = await ext.context.newPage();
   try {
@@ -74,8 +74,8 @@ test('Delete empties an open side panel for that thread, and Clear all removes e
   await expect(card.getByText('example.com')).toBeVisible();
   timeline.markStep('list-shown');
 
-  await card.getByRole('button', { name: 'Delete the conversation for Other pages' }).click();
-  const dialog = options.locator('.ega-dialog', { hasText: 'Delete conversation' });
+  await card.getByRole('button', { name: 'Delete conversation for Other pages' }).click();
+  const dialog = options.locator('.ega-dialog', { hasText: 'Delete this conversation?' });
   await expect(dialog).toBeVisible({ timeout: 5_000 });
   await dialog.getByRole('button', { name: 'Delete', exact: true }).click();
   timeline.markStep('delete-confirmed');
@@ -97,10 +97,10 @@ test('Delete empties an open side panel for that thread, and Clear all removes e
   expect(general?.turns).toEqual([]);
   timeline.markStep('no-write-back');
 
-  await card.getByRole('button', { name: 'Clear all conversations' }).click();
-  const clearDialog = options.locator('.ega-dialog', { hasText: 'Clear all conversations' });
+  await card.getByRole('button', { name: 'Delete all', exact: true }).click();
+  const clearDialog = options.locator('.ega-dialog', { hasText: 'Delete all conversations?' });
   await expect(clearDialog).toBeVisible({ timeout: 5_000 });
-  await clearDialog.getByRole('button', { name: 'Clear all', exact: true }).click();
+  await clearDialog.getByRole('button', { name: 'Delete all', exact: true }).click();
   await expect(card.getByText('No saved conversations')).toBeVisible({ timeout: 10_000 });
   expect(await readStorage(ext.context, ext.extensionId, SITE_THREAD_KEY)).toBeNull();
   expect(await readStorage(ext.context, ext.extensionId, CONV_INDEX_KEY)).toBeNull();

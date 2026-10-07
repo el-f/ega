@@ -16,7 +16,7 @@
 
 - Type-to-confirm input shows the required phrase as placeholder or label.
 - Export button stays disabled until the exact phrase matches (case-sensitive).
-- Status line uses the success tone and reads "Exported (including API keys — treat the file like a password)".
+- Status line uses the success tone and reads "Exported all settings with API keys. Treat the file like a password."
 
 ## Failure-mode expectations
 

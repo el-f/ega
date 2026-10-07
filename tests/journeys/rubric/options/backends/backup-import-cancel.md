@@ -2,23 +2,23 @@
 
 ## Latency budgets
 
-- Cancel click -> dialog dismiss: <= 100ms.
+- Keep current settings click -> dialog dismiss: <= 100ms.
 
 ## State expectations
 
-- Step 1: user picks a valid import file; the confirm dialog is visible.
-- Step 2 (click Cancel): the dialog dismisses without writing to storage.
+- Step 1: user picks a valid backup; the "Import settings?" dialog is visible.
+- Step 2 (click "Keep current settings"): the dialog dismisses without writing to storage.
 - Step 3: all settings remain at their pre-import values; no status line shows.
 
 ## Visible affordances
 
-- Cancel is a secondary action button in the confirm dialog.
+- "Keep current settings" is the secondary button in the dialog footer.
 
 ## Failure-mode expectations
 
-- Cancel always succeeds — it is a no-op against storage.
+- Keep current settings always succeeds — it is a no-op against storage.
 
 ## Cautions
 
-- Cancel at the confirm step is the last safe point before the full settings overwrite.
-- The file picker does NOT re-open on cancel; the user must click Import again to retry.
+- This is the last safe point before the full settings overwrite.
+- The file picker does NOT re-open; the user must click Import settings... again to retry.

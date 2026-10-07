@@ -53,6 +53,10 @@ describe('RequestAuditLog — reduced motion', () => {
     await waitFor(() => {
       expect(container.querySelector('[data-ega-audit-entry="a"]')).toBeTruthy();
     });
+    // Compare sits inside Details.
+    await fireEvent.click(
+      container.querySelector('[data-ega-audit-entry-toggle]') as HTMLButtonElement,
+    );
     await fireEvent.click(
       container.querySelector('[data-ega-audit-compare="a"]') as HTMLButtonElement,
     );
@@ -75,6 +79,10 @@ describe('RequestAuditLog — reduced motion', () => {
     await waitFor(() => {
       expect(container.querySelector('[data-ega-audit-entry="a"]')).toBeTruthy();
     });
+    // Compare sits inside Details.
+    await fireEvent.click(
+      container.querySelector('[data-ega-audit-entry-toggle]') as HTMLButtonElement,
+    );
     await fireEvent.click(
       container.querySelector('[data-ega-audit-compare="a"]') as HTMLButtonElement,
     );

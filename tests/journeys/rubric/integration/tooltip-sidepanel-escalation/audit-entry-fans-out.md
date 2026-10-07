@@ -7,7 +7,7 @@
 ## State expectations
 
 - Step 1: tooltip completes a translate; an entry appends to `egaAuditLog`.
-- Step 2: within 1s the Options > Advanced > Diagnostics "Request audit log" lists the entry; the popup and side panel do not show success entries.
+- Step 2: within 1s the Options > Advanced > Diagnostics "Recent requests" card lists the entry; the popup and side panel do not show success entries.
 - Step 3: the Options row shows the entry's time, task, backend and latency (plus a cache or error pill); clicking the time or latency expands the detail, clicking task or backend filters by it.
 
 ## Visible affordances

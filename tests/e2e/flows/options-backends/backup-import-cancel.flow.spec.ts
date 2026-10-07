@@ -34,7 +34,7 @@ test('Canceling import confirm leaves settings unchanged and shows no status', a
   });
 
   const fileChooserPromise = page.waitForEvent('filechooser', { timeout: 5_000 });
-  await page.locator('label[for="adv-import"]').click();
+  await page.getByText('Import settings...', { exact: true }).click();
   const fileChooser = await fileChooserPromise;
   await fileChooser.setFiles({
     name: 'ega-settings-cancel-test.json',
@@ -43,9 +43,9 @@ test('Canceling import confirm leaves settings unchanged and shows no status', a
   });
   timeline.markStep('file-chosen');
 
-  const importDialog = page.locator('.ega-dialog', { hasText: 'Import settings' });
+  const importDialog = page.locator('.ega-dialog', { hasText: 'Import settings?' });
   await expect(importDialog).toBeVisible({ timeout: 5_000 });
-  await importDialog.getByRole('button', { name: 'Cancel' }).click();
+  await importDialog.getByRole('button', { name: 'Keep current settings' }).click();
   timeline.markStep('cancelled');
 
   // backup-status element only mounts when status !== null — div.backup-status

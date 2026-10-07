@@ -9,22 +9,16 @@ vi.mock('@/shared/components/confirmDialog', () => ({
   confirmDialog: vi.fn(async () => true),
 }));
 
-function settingsWithHost(host: string): Settings {
+function baseProps(overrides: Record<string, unknown> = {}) {
   return {
-    ...DEFAULT_SETTINGS,
-    sitePrefs: { [host]: { disabled: false } },
-  } as Settings;
-}
-
-function baseProps(overrides: Partial<Parameters<typeof render>[1]['props']> = {}) {
-  return {
-    s: DEFAULT_SETTINGS,
+    s: DEFAULT_SETTINGS as Settings,
     backupStatus: null,
     onExport: vi.fn().mockResolvedValue(undefined),
     onUnifiedImport: vi.fn().mockResolvedValue(undefined),
-    onClearSiteKeys: vi.fn().mockResolvedValue(undefined),
-    onClearAllSitePrefs: vi.fn().mockResolvedValue(undefined),
-    onResetAllToDefaults: vi.fn().mockResolvedValue(undefined),
+    onSaved: vi.fn(),
+    onReset: vi.fn().mockResolvedValue(undefined),
+    onClearCache: vi.fn().mockResolvedValue(undefined),
+    onDeleteAll: vi.fn(),
     ...overrides,
   };
 }
@@ -34,94 +28,55 @@ describe('AdvancedDataPane', () => {
     vi.clearAllMocks();
   });
 
-  it('mounts and renders backup/restore + site-overrides review + reset cards', () => {
-    const { container } = render(AdvancedDataPane, { props: baseProps() });
-    expect(container.querySelector('[data-ega-setting="advanced.dataBackup"]')).not.toBeNull();
-    expect(container.querySelector('[data-ega-per-site-card]')).not.toBeNull();
-    expect(container.querySelector('[data-ega-site-overrides-review]')).not.toBeNull();
-    expect(container.querySelector('[data-ega-reset-defaults]')).not.toBeNull();
+  it('has Backup and restore, Site overrides, Saved conversations, then Reset and delete', () => {
+    const { getAllByRole } = render(AdvancedDataPane, { props: baseProps() });
+    expect(getAllByRole('heading', { level: 2 }).map((h) => h.textContent.trim())).toEqual([
+      'Backup and restore',
+      'Site overrides',
+      'Saved conversations',
+      'Reset and delete',
+    ]);
   });
 
-  it('reset card copy matches what resetAllToDefaults does: site overrides cleared, per-language overrides + keys kept', () => {
-    const { container } = render(AdvancedDataPane, { props: baseProps() });
-    const text = container.textContent;
-    expect(text).toContain('site overrides');
-    expect(text).toContain(
-      'Resets the Translate prompt, Effort, temperature, answer length and site overrides.',
+  it('Reset and delete: three rows, each with its effect and one button', () => {
+    const { getByRole } = render(AdvancedDataPane, { props: baseProps() });
+    for (const [name, line] of [
+      ['Reset', 'Puts back the Translate prompt, Effort, creativity and answer length'],
+      ['Clear cache', 'Translations run again next time'],
+      ['Delete all data', 'Removes every setting, key and saved conversation'],
+    ] as const) {
+      const btn = getByRole('button', { name });
+      expect(document.getElementById(btn.getAttribute('aria-describedby') ?? '')?.textContent).toBe(
+        line,
+      );
+    }
+    // The reset no longer touches site overrides, and the (i) says what is kept.
+    expect(document.body.textContent).not.toMatch(/site overrides\.$/m);
+    const info = getByRole('button', { name: 'About resets' });
+    expect(document.getElementById(info.getAttribute('aria-describedby') ?? '')?.textContent).toBe(
+      'Language prompts, API keys, tasks and saved conversations are kept. Delete all data cannot be undone.',
     );
-    // resetAllToDefaults wipes sitePrefs, so only per-language prompt overrides may be promised to survive.
-    expect(text).not.toMatch(/(?<!prompt )\boverrides\b[^.]+\b(?:kept|stay)/i);
   });
 
-  it('site overrides copy names the right-click menu, not a popup icon that does not exist', () => {
-    const { container } = render(AdvancedDataPane, { props: baseProps() });
-    const text = container.querySelector('[data-ega-per-site-card]')?.textContent ?? '';
-    expect(text).toContain('the right-click menu changes them');
-    expect(text).not.toContain('globe icon');
+  it('each button calls its own action', async () => {
+    const props = baseProps();
+    const { getByRole } = render(AdvancedDataPane, { props });
+    await fireEvent.click(getByRole('button', { name: 'Reset' }));
+    await fireEvent.click(getByRole('button', { name: 'Clear cache' }));
+    await fireEvent.click(getByRole('button', { name: 'Delete all data' }));
+    expect(props.onReset).toHaveBeenCalledTimes(1);
+    expect(props.onClearCache).toHaveBeenCalledTimes(1);
+    expect(props.onDeleteAll).toHaveBeenCalledTimes(1);
   });
 
-  it('clicking Reset button invokes onResetAllToDefaults', async () => {
-    const onResetAllToDefaults = vi.fn().mockResolvedValue(undefined);
-    const { container } = render(AdvancedDataPane, {
-      props: baseProps({ onResetAllToDefaults }),
-    });
-
-    const btn = container.querySelector('[data-ega-reset-defaults]') as HTMLButtonElement;
-    expect(btn).not.toBeNull();
-    await fireEvent.click(btn);
-
-    expect(onResetAllToDefaults).toHaveBeenCalledTimes(1);
-  });
-
-  it('clicking Export all settings invokes onExport without keys', async () => {
-    const onExport = vi.fn().mockResolvedValue(undefined);
-    const { container } = render(AdvancedDataPane, {
-      props: baseProps({ onExport }),
-    });
-
-    const exportBtn = container.querySelector('[data-ega-export-all]') as HTMLButtonElement;
-    expect(exportBtn).not.toBeNull();
-    expect(exportBtn.textContent.trim()).toBe('Export all settings');
+  it('Export all settings exports without keys unless "Include API keys" is on', async () => {
+    const props = baseProps();
+    const { getByRole } = render(AdvancedDataPane, { props });
+    const exportBtn = getByRole('button', { name: /Export all settings/ });
     await fireEvent.click(exportBtn);
-
-    await waitFor(() => expect(onExport).toHaveBeenCalled());
-    expect(onExport).toHaveBeenCalledWith(false);
-  });
-
-  it('clicking clear for a seeded host invokes onClearSiteKeys with that row keys', async () => {
-    const HOST = 'example.com';
-    const onClearSiteKeys = vi.fn().mockResolvedValue(undefined);
-    const { container } = render(AdvancedDataPane, {
-      props: baseProps({ s: settingsWithHost(HOST), onClearSiteKeys }),
-    });
-
-    const clearBtn = await waitFor(() => {
-      const row = container.querySelector<HTMLElement>(`[data-ega-site-override-host="${HOST}"]`);
-      const b = row?.querySelector<HTMLButtonElement>('[data-ega-site-override-clear]');
-      if (!b) throw new Error('clear button not found');
-      return b;
-    });
-    await fireEvent.click(clearBtn);
-
-    await waitFor(() => expect(onClearSiteKeys).toHaveBeenCalled());
-    expect(onClearSiteKeys).toHaveBeenCalledWith([HOST]);
-  });
-
-  it('clicking Clear all invokes onClearAllSitePrefs', async () => {
-    const HOST = 'another.com';
-    const onClearAllSitePrefs = vi.fn().mockResolvedValue(undefined);
-    const { container } = render(AdvancedDataPane, {
-      props: baseProps({ s: settingsWithHost(HOST), onClearAllSitePrefs }),
-    });
-
-    const clearAllBtn = await waitFor(() => {
-      const btn = container.querySelector<HTMLButtonElement>('[data-ega-site-override-clear-all]');
-      if (!btn) throw new Error('clear-all button not found');
-      return btn;
-    });
-    await fireEvent.click(clearAllBtn);
-
-    await waitFor(() => expect(onClearAllSitePrefs).toHaveBeenCalled());
-    expect(onClearAllSitePrefs).toHaveBeenCalledWith();
+    await waitFor(() => expect(props.onExport).toHaveBeenCalledWith(false));
+    expect(getByRole('checkbox', { name: 'Include API keys' })).toBeTruthy();
+    expect(document.body.textContent).toContain('Leave this off for a file you share');
+    expect(document.body.textContent).toContain('Import settings...');
   });
 });

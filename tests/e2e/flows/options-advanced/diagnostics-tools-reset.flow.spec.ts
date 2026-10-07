@@ -14,7 +14,7 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-test('Diagnostics tools reset reverts log level and captureResultMeta to defaults', async () => {
+test('Diagnostics settings reset reverts Log detail and Record request details to defaults', async () => {
   const timeline = createTimeline();
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);

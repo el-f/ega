@@ -28,66 +28,64 @@ function makeEntry(o: Partial<AuditEntry>): AuditEntry {
   };
 }
 
+const rows = (c: HTMLElement): HTMLElement[] => [...c.querySelectorAll<HTMLElement>('.error-row')];
+const norm = (t: string | null | undefined): string => (t ?? '').replace(/\s+/g, ' ').trim();
+
 describe('AttemptFailureBreakdown', () => {
   beforeEach(() => {
     resetChromeMock();
   });
 
-  it('shows empty-state when no errors are in the last hour', async () => {
+  it('empty: the check icon and one title, no body line', async () => {
     const { container } = render(AttemptFailureBreakdown);
-    await waitFor(() => {
-      expect(container.textContent).toMatch(/No errors in the last hour/);
-    });
+    await waitFor(() => expect(container.textContent).toContain('No errors in the last hour'));
+    expect(container.querySelector('[data-ega-empty-state] .desc')).toBeNull();
   });
 
-  it('does not blame the user for an ABORTED row: closing a tab cancels too', async () => {
-    seed([makeEntry({ id: 'x', error: { code: 'ABORTED', message: 'cancelled' } })]);
-    const { container } = render(AttemptFailureBreakdown);
-    await waitFor(() => expect(container.querySelector('.breakdown')).not.toBeNull());
-    const msg = container.querySelector('tbody td.msg')?.textContent ?? '';
-    expect(msg).toContain('a cancel or a closed tab');
-    expect(msg).not.toMatch(/by you/);
-  });
-
-  it('aggregates errors by code with counts + latest message', async () => {
+  it('one row per error and backend, in plain words, with the count and the newest message', async () => {
     const now = Date.now();
     seed([
-      makeEntry({ id: 'a', ts: now - 60_000, error: { code: 'RATE_LIMIT', message: 'too fast' } }),
+      makeEntry({ id: 'a', ts: now - 60_000, error: { code: 'AUTH', message: '401 first' } }),
+      makeEntry({ id: 'b', ts: now - 30_000, error: { code: 'AUTH', message: '401 second' } }),
       makeEntry({
-        id: 'b',
-        ts: now - 30_000,
-        error: { code: 'RATE_LIMIT', message: 'still too fast' },
+        id: 'c',
+        ts: now - 20_000,
+        backend: 'gemini' as BackendId,
+        error: { code: 'AUTH', message: 'gemini says no' },
       }),
-      makeEntry({ id: 'c', ts: now - 10_000, error: { code: 'AUTH', message: 'bad key' } }),
     ]);
     const { container } = render(AttemptFailureBreakdown);
-    await waitFor(() => {
-      expect(container.querySelector('.breakdown')).not.toBeNull();
-    });
-    const rows = container.querySelectorAll('tbody tr');
-    expect(rows.length).toBe(2);
-    // Highest count first.
-    const first = rows[0]?.textContent ?? '';
-    expect(first).toMatch(/RATE_LIMIT/);
-    expect(first).toMatch(/2/);
-    // Latest message — entry 'b' is newer than 'a'.
-    expect(first).toMatch(/still too fast/);
-    const second = rows[1]?.textContent ?? '';
-    expect(second).toMatch(/AUTH/);
-    expect(second).toMatch(/1/);
+    await waitFor(() => expect(rows(container)).toHaveLength(2));
+    const [first, second] = rows(container);
+    expect(norm(first?.querySelector('.error-title')?.textContent)).toBe('API key rejected');
+    expect(norm(first?.querySelector('.error-meta')?.textContent)).toMatch(
+      /^Anthropic · 2 times · last /,
+    );
+    expect(first?.querySelector('.line')?.textContent).toBe(
+      'Anthropic did not accept the saved API key.',
+    );
+    // The raw message and the code live under Details only.
+    expect(norm(first?.querySelector('.detail')?.textContent)).toBe('401 secondCode: AUTH');
+    expect(norm(second?.querySelector('.error-meta')?.textContent)).toMatch(/^Gemini · 1 time · /);
+  });
+
+  it('a canceled request reads as stopped, and does not blame the user', async () => {
+    seed([makeEntry({ id: 'x', error: { code: 'ABORTED', message: 'cancelled' } })]);
+    const { container } = render(AttemptFailureBreakdown);
+    await waitFor(() => expect(rows(container)).toHaveLength(1));
+    expect(container.textContent).toContain('A cancel or a closed tab stopped the request.');
+    expect(container.textContent).not.toMatch(/by you/);
   });
 
   it('ignores errors older than one hour', async () => {
     const now = Date.now();
     seed([
-      makeEntry({ id: 'old', ts: now - 90 * 60_000, error: { code: 'OLD', message: 'stale' } }),
-      makeEntry({ id: 'fresh', ts: now - 5_000, error: { code: 'FRESH', message: 'recent' } }),
+      makeEntry({ id: 'old', ts: now - 90 * 60_000, error: { code: 'TIMEOUT', message: 'stale' } }),
+      makeEntry({ id: 'fresh', ts: now - 5_000, error: { code: 'NETWORK', message: 'recent' } }),
     ]);
     const { container } = render(AttemptFailureBreakdown);
-    await waitFor(() => {
-      expect(container.querySelector('.breakdown')).not.toBeNull();
-    });
-    expect(container.textContent).not.toMatch(/OLD/);
-    expect(container.textContent).toMatch(/FRESH/);
+    await waitFor(() => expect(rows(container)).toHaveLength(1));
+    expect(container.textContent).toContain('No connection');
+    expect(container.textContent).not.toContain('No answer in time');
   });
 });

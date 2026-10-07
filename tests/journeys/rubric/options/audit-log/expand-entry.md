@@ -2,19 +2,19 @@
 
 ## Latency budgets
 
-- Row click -> collapsible body visible: <= 150ms.
+- Details click -> body visible: <= 150ms.
 
 ## State expectations
 
-- Step 1: audit-log panel has at least one entry row.
-- Step 2 (click the timestamp or latency area): the row expands; the body shows Model, Languages (plus request id, first token, confidence, error when set) and System / User / Response panels.
-- Step 3 (click row again): the body collapses.
+- Step 1: the Recent requests card has at least one entry row.
+- Step 2 (click Details): the row opens in place; the body shows Model, Languages (plus request id, first token, tokens, confidence, and the raw code under "Technical" when set) and System / User / Response panels, then a Compare button.
+- Step 3 (click Details again): the body closes.
 
 ## Visible affordances
 
-- Collapsed row shows a chevron pointing right; expanded shows chevron pointing down (or equivalent).
-- Expanded body uses a monospace or pre-wrap style for prompt/response text.
-- Latency shows as ms under 1s, else seconds; long text scrolls inside its panel and clipped text ends with "...[truncated N chars]"; no Show more toggle.
+- Details is a ghost text button with aria-expanded; its accessible name adds the task and the full time.
+- The body uses a monospace, pre-wrap style for prompt/response text; panel headings are sentence case.
+- Latency shows as ms under 1s, else seconds with one decimal; long text scrolls inside its panel and clipped text ends with "...[truncated N chars]"; no Show more toggle.
 
 ## Failure-mode expectations
 
@@ -22,6 +22,6 @@
 
 ## Cautions
 
-- Expanded body must NOT leak sensitive API keys even if they were accidentally included in a prompt; display is raw stored content.
-- Only one row should be expanded at a time (accordion behavior) OR multiple can be open — match the project's established pattern.
-- Prompt text must NOT be editable in the expanded view.
+- The body must NOT leak sensitive API keys even if they were accidentally included in a prompt; display is raw stored content.
+- More than one row can be open at once.
+- Prompt text must NOT be editable in the open view.

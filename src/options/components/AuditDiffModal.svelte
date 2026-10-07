@@ -45,8 +45,8 @@
   }
 </script>
 
-<Dialog open={true} title="Compare audit entries" {onClose} size="xl">
-  {#snippet help()}Side-by-side view of two recorded requests. Older entry on the left.{/snippet}
+<Dialog open={true} title="Compare two requests" {onClose} size="xl">
+  {#snippet help()}The older request is on the left{/snippet}
   {#snippet actions()}
     <Button variant="secondary" onclick={onClose}>Close</Button>
     {#if onPinLeftAndPickAgain}
@@ -55,7 +55,7 @@
         dataAttrs={{ 'data-ega-diff-pin-left': 'true' }}
         onclick={onPinLeftAndPickAgain}
       >
-        Pin left &amp; pick again
+        Keep the left one, pick another
       </Button>
     {/if}
   {/snippet}
@@ -97,8 +97,6 @@
     margin: var(--space-2) 0 var(--space-1);
     font-size: var(--fs-sm);
     color: var(--color-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
   }
   .diff-block {
     background: var(--color-bg-sunken);

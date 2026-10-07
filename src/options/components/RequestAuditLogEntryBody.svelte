@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { AuditEntry } from '@/shared/audit-log';
+  import { tokenPairLabel } from './audit-filters';
 
   interface Props {
     entry: AuditEntry;
@@ -7,6 +8,7 @@
   }
 
   const { entry, formatLatency }: Props = $props();
+  const tokens = $derived(tokenPairLabel(entry));
 </script>
 
 <div class="entry-body">
@@ -33,6 +35,12 @@
         <dd>{formatLatency(entry.firstTokenMs)}</dd>
       </div>
     {/if}
+    {#if tokens}
+      <div class="meta-row">
+        <dt>Tokens</dt>
+        <dd class="entry-tokens">{tokens}</dd>
+      </div>
+    {/if}
     {#if entry.confidence !== undefined}
       <div class="meta-row">
         <dt>Confidence</dt>
@@ -41,7 +49,7 @@
     {/if}
     {#if entry.error}
       <div class="meta-row">
-        <dt>Error</dt>
+        <dt>Technical</dt>
         <dd class="error-detail">
           <code>{entry.error.code}</code>: {entry.error.message}
         </dd>
@@ -50,29 +58,27 @@
   </dl>
 
   <section class="panel">
-    <h4 class="panel-title">System</h4>
+    <h3 class="panel-title">System</h3>
     <pre class="panel-pre" dir="auto" data-ega-audit-system>{entry.systemPrompt}</pre>
   </section>
 
   <section class="panel">
-    <h4 class="panel-title">User</h4>
+    <h3 class="panel-title">User</h3>
     <pre class="panel-pre" dir="auto" data-ega-audit-user>{entry.userPrompt}</pre>
   </section>
 
   <section class="panel">
-    <h4 class="panel-title">Response</h4>
+    <h3 class="panel-title">Response</h3>
     <pre class="panel-pre" dir="auto" data-ega-audit-response>{entry.response}</pre>
   </section>
 </div>
 
 <style>
   .entry-body {
-    padding: var(--space-2) var(--space-3) var(--space-3);
-    background: var(--color-bg);
+    padding-block: var(--space-2) 0;
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
-    border-top: 1px solid var(--color-border);
   }
   .entry-meta {
     display: grid;
@@ -88,7 +94,7 @@
   .meta-row {
     display: flex;
     gap: var(--space-2);
-    font-size: var(--fs-xs);
+    font-size: var(--fs-sm);
   }
   .meta-row dt {
     color: var(--color-fg-subtle);
@@ -112,11 +118,9 @@
   }
   .panel-title {
     margin: 0;
-    font-size: var(--fs-xs);
+    font-size: var(--fs-sm);
     font-weight: 600;
     color: var(--color-fg-subtle);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
   }
   .panel-pre {
     margin: 0;

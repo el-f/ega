@@ -6,6 +6,7 @@ import AdvancedDiagnosticsPane from '@/options/components/AdvancedDiagnosticsPan
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import type { Settings } from '@/shared/types';
 import { AUDIT_LOG_CAP } from '@/shared/audit-log';
+import { chromeMock, resetChromeMock } from '../../mocks/chrome';
 
 type Props = ComponentProps<typeof AdvancedDiagnosticsPane>;
 
@@ -24,70 +25,96 @@ function baseProps(
   };
 }
 
+const describedText = (el: Element | null): string =>
+  (el?.getAttribute('aria-describedby') ?? '')
+    .split(' ')
+    .map((id) => document.getElementById(id)?.textContent ?? '')
+    .join(' ');
+
 describe('AdvancedDiagnosticsPane', () => {
   beforeEach(() => {
+    resetChromeMock();
     vi.clearAllMocks();
   });
 
-  it('mounts and renders audit-log + diagnostics-tools cards', () => {
-    const { container } = render(AdvancedDiagnosticsPane, { props: baseProps() });
-    expect(container.querySelector('[data-ega-setting="advanced.auditLog"]')).not.toBeNull();
-    expect(
-      container.querySelector('[data-ega-setting="advanced.captureResultMeta"]'),
-    ).not.toBeNull();
+  it('has Recent requests, Response times, Recent errors, then Diagnostics settings', () => {
+    const { getAllByRole } = render(AdvancedDiagnosticsPane, { props: baseProps() });
+    expect(getAllByRole('heading', { level: 2 }).map((h) => h.textContent.trim())).toEqual([
+      'Recent requests',
+      'Response times',
+      'Recent errors',
+      'Diagnostics settings',
+    ]);
   });
 
-  it('the record-details caption states the request log cap and does not promise an empty tab', () => {
-    const { container } = render(AdvancedDiagnosticsPane, { props: baseProps() });
-    const text =
-      container.querySelector('[data-ega-setting="advanced.captureResultMeta"]')?.textContent ?? '';
-    expect(text).toContain(`the request log keeps its last ${AUDIT_LOG_CAP} requests`);
-    expect(text).not.toMatch(/empties/i);
+  it('Record request details has a one-line hint, and the (i) holds the rest', () => {
+    const { getByRole } = render(AdvancedDiagnosticsPane, { props: baseProps() });
+    expect(describedText(getByRole('checkbox', { name: 'Record request details' }))).toContain(
+      'Keeps timing and token counts for each request',
+    );
+    expect(describedText(getByRole('button', { name: 'About diagnostics' }))).toBe(
+      `Turning off Record request details stops response times. The request list keeps its last ${AUDIT_LOG_CAP} requests.`,
+    );
   });
 
-  it('the latency histogram caption says the buffer resets when the worker stops', () => {
-    const { container } = render(AdvancedDiagnosticsPane, { props: baseProps() });
-    const text =
-      container.querySelector('[data-ega-setting="advanced.perBackendStats"]')?.textContent ?? '';
-    expect(text).toContain('since the background worker last started');
+  it('Log detail names its levels in words and has no per-field reset', () => {
+    const { getByLabelText, container } = render(AdvancedDiagnosticsPane, { props: baseProps() });
+    const select = getByLabelText('Log detail');
+    expect([...select.querySelectorAll('option')].map((o) => o.textContent.trim())).toEqual([
+      'Off',
+      'Errors',
+      'Warnings (default)',
+      'Info',
+      'Everything',
+    ]);
+    expect(container.querySelector('[data-ega-reset-field]')).toBeNull();
   });
 
-  it('toggling captureResultMeta checkbox invokes onPatchField with (captureResultMeta, newValue)', async () => {
+  it('toggling Record request details patches captureResultMeta', async () => {
     const onPatchField = vi.fn<Props['onPatchField']>().mockResolvedValue(undefined);
-    const { container } = render(AdvancedDiagnosticsPane, {
-      props: baseProps({ onPatchField }),
-    });
-
+    const { container } = render(AdvancedDiagnosticsPane, { props: baseProps({ onPatchField }) });
     const checkbox = container.querySelector('#adv-capture-meta') as HTMLInputElement;
-    expect(checkbox).not.toBeNull();
-
     const before = checkbox.checked;
     await fireEvent.change(checkbox, { target: { checked: !before } });
-
-    await waitFor(() => expect(onPatchField).toHaveBeenCalled());
-    expect(onPatchField).toHaveBeenCalledWith('captureResultMeta', !before);
+    await waitFor(() => expect(onPatchField).toHaveBeenCalledWith('captureResultMeta', !before));
   });
 
-  it('changing debugLogLevel select invokes onPatchAdvanced with { debugLogLevel: newValue }', async () => {
+  it('changing Log detail patches debugLogLevel', async () => {
     const onPatchAdvanced = vi.fn<Props['onPatchAdvanced']>().mockResolvedValue(undefined);
     const { container } = render(AdvancedDiagnosticsPane, {
       props: baseProps({ onPatchAdvanced }),
     });
-
-    const select = container.querySelector('#adv-log-level') as HTMLSelectElement;
-    expect(select).not.toBeNull();
-
-    await fireEvent.change(select, { target: { value: 'info' } });
-
-    await waitFor(() => expect(onPatchAdvanced).toHaveBeenCalled());
-    const call = onPatchAdvanced.mock.calls[0]?.[0] as Record<string, unknown>;
-    expect(call).toMatchObject({ debugLogLevel: 'info' });
+    await fireEvent.change(container.querySelector('#adv-log-level') as HTMLSelectElement, {
+      target: { value: 'info' },
+    });
+    await waitFor(() => expect(onPatchAdvanced).toHaveBeenCalledWith({ debugLogLevel: 'info' }));
   });
 
-  it('onPatchField payload is not called when checkbox is not changed', async () => {
-    const onPatchField = vi.fn<Props['onPatchField']>().mockResolvedValue(undefined);
-    render(AdvancedDiagnosticsPane, { props: baseProps({ onPatchField }) });
-    // No interaction — handler must not fire.
-    expect(onPatchField).not.toHaveBeenCalled();
+  it('Copy data sits in the Response times header once the worker sent times, and copies them', async () => {
+    const entries = [{ backendId: 'anthropic', cacheHit: false, latencyMs: 120, ts: 1 }];
+    (chromeMock.runtime.sendMessage as Mock).mockImplementation(async (m: { kind?: string }) =>
+      m.kind === 'perf:entries' ? { entries } : undefined,
+    );
+    const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined);
+    const { findByRole } = render(AdvancedDiagnosticsPane, { props: baseProps() });
+    const copy = await findByRole('button', { name: 'Copy data' });
+    expect(copy.closest('.ega-section-card-actions')).not.toBeNull();
+    await fireEvent.click(copy);
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(JSON.stringify(entries, null, 2)));
+    await waitFor(() => expect(copy.textContent.trim()).toBe('Copied'));
+  });
+
+  it('with recording off: Response times says how to turn it on, and has no Copy data', async () => {
+    (chromeMock.runtime.sendMessage as Mock).mockResolvedValue({
+      entries: [{ backendId: 'anthropic', cacheHit: false, latencyMs: 120, ts: 1 }],
+    });
+    const { container, queryByRole } = render(AdvancedDiagnosticsPane, {
+      props: baseProps({ s: { ...DEFAULT_SETTINGS, captureResultMeta: false } }),
+    });
+    await waitFor(() => expect(chromeMock.runtime.sendMessage).toHaveBeenCalled());
+    expect(container.querySelector('[data-ega-perf-off]')?.textContent.trim()).toBe(
+      'Response times are off. Turn on Record request details below.',
+    );
+    expect(queryByRole('button', { name: 'Copy data' })).toBeNull();
   });
 });

@@ -1,12 +1,19 @@
 <script lang="ts">
+  /** Recent requests: the last requests in words, one filter row, Details in place, and Compare for two of them. */
   import { onDestroy, onMount, untrack } from 'svelte';
-  import { readAuditLog, exportAuditLogAsJson, type AuditEntry } from '@/shared/audit-log';
+  import {
+    AUDIT_LOG_CAP,
+    readAuditLog,
+    exportAuditLogAsJson,
+    type AuditEntry,
+  } from '@/shared/audit-log';
   import { sendMsg } from '@/shared/messages';
   import { toastStore } from '@/shared/components/toastStore';
   import { confirmDialog } from '@/shared/components/confirmDialog';
   import EmptyState from '@/shared/components/EmptyState.svelte';
+  import SectionCard from '@/shared/ui/SectionCard.svelte';
+  import Button from '@/shared/ui/Button.svelte';
   import ScrollText from '@lucide/svelte/icons/scroll-text';
-  import SearchX from '@lucide/svelte/icons/search-x';
   import RequestAuditLogActions from './RequestAuditLogActions.svelte';
   import RequestAuditLogEntry from './RequestAuditLogEntry.svelte';
   import RequestAuditLogFilters from './RequestAuditLogFilters.svelte';
@@ -14,7 +21,6 @@
   import {
     EMPTY_FILTERS,
     hasActiveFilters,
-    countActiveFilters,
     tokenTotalLabel,
     type AuditFilters,
   } from './audit-filters';
@@ -27,6 +33,7 @@
   const FILTERS_KEY = 'ega.audit-log.filters';
 
   let entries = $state.raw<readonly AuditEntry[]>([]);
+  let nowTs = $state<number>(Date.now());
   let expanded = $state<Record<string, boolean>>({});
   let loadError = $state<string | null>(null);
   let filters = $state<AuditFilters>({ ...EMPTY_FILTERS });
@@ -82,15 +89,6 @@
     return reduced ? 'auto' : 'smooth';
   }
 
-  /** Writes the filter, then scrolls the filter row into view so the user sees what changed. */
-  function applyQuickFilter(patch: Partial<AuditFilters>): void {
-    persistFilters({ ...filters, ...patch });
-    queueMicrotask(() => {
-      const filterEl = document.querySelector<HTMLElement>('[data-ega-audit-filters]');
-      filterEl?.scrollIntoView({ block: 'nearest', behavior: scrollBehavior() });
-    });
-  }
-
   function scrollToPinned(): void {
     if (!compareTargetId) return;
     const el = document.querySelector<HTMLElement>(`[data-ega-audit-entry="${compareTargetId}"]`);
@@ -127,19 +125,18 @@
   });
 
   const filtersActive = $derived(hasActiveFilters(filters));
-  const activeFilterCount = $derived(countActiveFilters(filters));
   const hasMatches = $derived(filtered.length > 0);
 
   async function refresh(): Promise<void> {
     try {
       entries = await readAuditLog();
+      nowTs = Date.now();
       loadError = null;
     } catch (err) {
       loadError = (err as Error).message;
     }
   }
 
-  // Without chrome.storage (test env) the list only updates from the Refresh button.
   let listener: ((c: Record<string, chrome.storage.StorageChange>, area: string) => void) | null =
     null;
 
@@ -212,7 +209,7 @@
     untrack(() => {
       if (!diffPair) return;
       if (lp === null || rp === null) {
-        diffYankedNotice = 'A pinned entry was trimmed from the audit log.';
+        diffYankedNotice = 'A compared request left the list, so the comparison closed.';
         diffPair = null;
       }
     });
@@ -227,8 +224,7 @@
   }
 
   function formatLatency(ms: number): string {
-    if (ms < 1000) return `${Math.round(ms)}ms`;
-    return `${(ms / 1000).toFixed(2)}s`;
+    return ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(1)} s`;
   }
 
   async function handleExport(): Promise<void> {
@@ -243,20 +239,26 @@
     );
   }
 
+  // ponytail: a confirm, not Undo — Undo needs a worker message that writes the old list back.
   async function handleClear(): Promise<void> {
+    const n = entries.length;
     const ok = await confirmDialog({
-      title: 'Clear audit log',
-      body: `Discard all ${entries.length} request${entries.length === 1 ? '' : 's'} from the audit log? This cannot be undone.`,
+      title: 'Clear recent requests?',
+      body: `This removes ${n === 1 ? 'the 1 request' : `all ${n} requests`} from this list.`,
       confirmLabel: 'Clear',
       danger: true,
     });
     if (!ok) return;
+    await clearNow();
+  }
+
+  async function clearNow(): Promise<void> {
     const r = await sendMsg({ kind: 'audit:clear' }).catch(() => undefined);
     if (!r?.ok) {
       toastStore.push({
-        message: 'Could not clear the audit log.',
+        message: 'Could not clear the request list',
         variant: 'danger',
-        action: { label: 'Try again', onClick: () => void handleClear() },
+        action: { label: 'Try again', onClick: () => void clearNow() },
       });
     }
     await refresh();
@@ -267,78 +269,87 @@
   const tokenTotal = $derived(tokenTotalLabel(entries));
 </script>
 
-<div class="request-audit-log" data-ega-request-audit-log>
-  <RequestAuditLogActions
-    count={entries.length}
-    matchCount={filtersActive ? filtered.length : null}
-    {hasEntries}
-    {compareTargetId}
-    {activeFilterCount}
-    onRefresh={refresh}
-    onExport={handleExport}
-    onClear={handleClear}
-    onCancelCompare={() => (compareTargetId = null)}
-    onScrollToPinned={scrollToPinned}
-    onClearFilters={resetFilters}
-  />
-
-  {#if tokenTotal}
-    <p class="token-total">Total tokens in the log: {tokenTotal}</p>
-  {/if}
-
-  {#if hasEntries}
-    <RequestAuditLogFilters {filters} onChange={persistFilters} {taskViews} {seenTasks} />
-  {/if}
-
-  {#if loadError}
-    <div class="err" role="alert">Failed to load audit log: {loadError}</div>
-  {/if}
-
-  {#if diffYankedNotice}
-    <div class="info" role="status" data-ega-audit-diff-yanked-notice>
-      {diffYankedNotice}
-      <button
-        type="button"
-        class="info-dismiss"
-        aria-label="Dismiss"
-        onclick={() => (diffYankedNotice = null)}>×</button
+<SectionCard
+  title="Recent requests"
+  description={`The last ${AUDIT_LOG_CAP} requests, kept on this computer`}
+  info={{
+    label: 'About this list',
+    text: 'Nothing here is synced. Clear removes it, and so does Delete all data.',
+  }}
+>
+  {#snippet headerActions()}
+    {#if hasEntries}
+      <Button
+        variant="secondary"
+        size="sm"
+        dataAttrs={{ 'data-ega-audit-export': true }}
+        onclick={() => void handleExport()}>Export</Button
       >
-    </div>
-  {/if}
+      <Button
+        variant="secondary"
+        size="sm"
+        dataAttrs={{ 'data-ega-audit-clear': true }}
+        onclick={() => void handleClear()}>Clear</Button
+      >
+    {/if}
+  {/snippet}
+  <div class="request-audit-log" data-ega-request-audit-log>
+    {#if hasEntries}
+      <RequestAuditLogFilters {filters} onChange={persistFilters} {taskViews} {seenTasks} />
+    {/if}
 
-  {#if !hasEntries}
-    <EmptyState
-      title="No translations logged yet"
-      description="Every request shows here with backend, latency, and start of each prompt — useful for debugging cache misses or a slow backend."
-      icon={ScrollText}
+    <RequestAuditLogActions
+      matchCount={filtersActive && hasMatches ? filtered.length : null}
+      {compareTargetId}
+      onClearFilters={resetFilters}
+      onCancelCompare={() => (compareTargetId = null)}
+      onScrollToPinned={scrollToPinned}
     />
-  {:else if !hasMatches}
-    <EmptyState
-      title="No matches"
-      description="None of the {entries.length} logged requests match the active filters."
-      icon={SearchX}
-      ctaLabel="Clear filters"
-      onCta={resetFilters}
-    />
-  {:else}
-    <ul class="entry-list" role="list">
-      {#each filtered as entry (entry.id)}
-        <RequestAuditLogEntry
-          {entry}
-          isOpen={Boolean(expanded[entry.id])}
-          compareSelected={compareTargetId === entry.id}
-          {formatTs}
-          {formatLatency}
-          onToggle={() => toggle(entry.id)}
-          onCompareClick={() => onCompareClick(entry.id)}
-          onQuickFilterTask={(task) => applyQuickFilter({ task })}
-          onQuickFilterBackend={(backend) => applyQuickFilter({ backend })}
-          {taskViews}
-        />
-      {/each}
-    </ul>
-  {/if}
-</div>
+
+    {#if loadError}
+      <p class="err" role="alert">The request list did not load: {loadError}</p>
+    {/if}
+
+    {#if diffYankedNotice}
+      <div class="info" role="status" data-ega-audit-diff-yanked-notice>
+        <span>{diffYankedNotice}</span>
+        <Button variant="ghost" size="sm" onclick={() => (diffYankedNotice = null)}>Dismiss</Button>
+      </div>
+    {/if}
+
+    {#if !hasEntries}
+      <EmptyState
+        title="No requests yet"
+        description="Requests show here after you translate"
+        icon={ScrollText}
+      />
+    {:else if !hasMatches}
+      <div class="no-match" role="status" data-ega-audit-no-match>
+        <span>No request matches these filters</span>
+        <Button variant="ghost" size="sm" onclick={resetFilters}>Clear filters</Button>
+      </div>
+    {:else}
+      <ul class="entry-list">
+        {#each filtered as entry (entry.id)}
+          <RequestAuditLogEntry
+            {entry}
+            isOpen={Boolean(expanded[entry.id])}
+            compareSelected={compareTargetId === entry.id}
+            now={nowTs}
+            {formatTs}
+            {formatLatency}
+            onToggle={() => toggle(entry.id)}
+            onCompareClick={() => onCompareClick(entry.id)}
+            {taskViews}
+          />
+        {/each}
+      </ul>
+      {#if tokenTotal}
+        <p class="token-total">Tokens in this list: {tokenTotal}</p>
+      {/if}
+    {/if}
+  </div>
+</SectionCard>
 
 {#if diffLeft && diffRight}
   <AuditDiffModal
@@ -364,45 +375,28 @@
     gap: var(--space-3);
   }
   .err {
+    margin: 0;
     color: var(--color-danger);
-    font-size: var(--fs-sm);
+    font-size: var(--fs-base);
   }
   .token-total {
     margin: 0;
-    font-size: var(--fs-sm);
-    color: var(--color-fg-subtle);
+    font-size: var(--fs-base);
+    color: var(--color-muted);
     font-variant-numeric: tabular-nums;
   }
-  .info {
+  .info,
+  .no-match {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    justify-content: space-between;
     gap: var(--space-2);
-    padding: var(--space-1) var(--space-2);
-    background: var(--color-bg-elevated);
-    border: 1px solid var(--color-border-subtle);
-    border-radius: var(--radius-sm);
-    color: var(--color-fg-subtle);
-    font-size: var(--fs-sm);
-  }
-  .info-dismiss {
-    background: transparent;
-    border: 0;
+    font-size: var(--fs-base);
     color: var(--color-muted);
-    font-size: var(--fs-md);
-    cursor: pointer;
-    padding: 0 var(--space-1);
   }
   .entry-list {
     list-style: none;
     margin: 0;
     padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    background: var(--color-bg-elevated);
-    overflow: hidden;
   }
 </style>

@@ -7,7 +7,7 @@
 
 ## State expectations
 
-- Step 1: Advanced tab mounts; Diagnostics (first in order) is active unless sessionStorage or a deep link picks another.
+- Step 1: Advanced tab mounts; Data (first in order) is active unless sessionStorage or a deep link picks another.
 - Step 2 (click a non-active sub-tab): the pane swaps to the target; the clicked tab carries the active accent state.
 - Step 3: the active sub-tab id is persisted in sessionStorage; navigating away and back restores the same sub-tab.
 

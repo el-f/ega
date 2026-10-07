@@ -22,7 +22,7 @@ test.afterEach(async () => {
 
 test.slow();
 
-test('per-row clear removes the host entry from sitePrefs', async () => {
+test('Remove on a row takes the host out of sitePrefs at once, with Undo', async () => {
   const timeline = createTimeline();
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
@@ -33,11 +33,9 @@ test('per-row clear removes the host entry from sitePrefs', async () => {
   const row = page.locator(`[data-ega-site-override-row][data-ega-site-override-host="${HOST}"]`);
   await expect(row).toBeVisible({ timeout: 10_000 });
   await row.locator('[data-ega-site-override-clear]').click();
-
-  const dialog = page.locator('.ega-dialog', { hasText: 'Clear site override' });
-  await expect(dialog).toBeVisible({ timeout: 5_000 });
-  await dialog.getByRole('button', { name: 'Clear', exact: true }).click();
-  timeline.markStep('confirmed');
+  timeline.markStep('removed');
+  await expect(page.locator('.ega-dialog')).toHaveCount(0);
+  await expect(page.locator('[data-sonner-toast]', { hasText: 'Removed' })).toContainText('Undo');
 
   await expect
     .poll(
@@ -65,10 +63,6 @@ test('clearing a merged bare-host row removes both scheme entries', async () => 
   );
   await expect(row).toBeVisible({ timeout: 10_000 });
   await row.locator('[data-ega-site-override-clear]').click();
-
-  const dialog = page.locator('.ega-dialog', { hasText: 'Clear site override' });
-  await expect(dialog).toBeVisible({ timeout: 5_000 });
-  await dialog.getByRole('button', { name: 'Clear', exact: true }).click();
 
   await expect
     .poll(

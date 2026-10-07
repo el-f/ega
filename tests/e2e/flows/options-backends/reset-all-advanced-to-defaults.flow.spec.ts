@@ -20,7 +20,7 @@ test.afterEach(async () => {
 
 test.slow();
 
-test('Reset to defaults clears sitePrefs and shows the Defaults restored toast', async () => {
+test('Reset puts the prompt and model settings back at once, keeps site overrides, and Undo restores them', async () => {
   const timeline = createTimeline();
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
@@ -29,29 +29,26 @@ test('Reset to defaults clears sitePrefs and shows the Defaults restored toast',
   timeline.markStep('data-tab-open');
 
   await page.locator('[data-ega-reset-defaults]').click();
+  timeline.markStep('reset');
+  // Acts at once: no typed confirm.
+  await expect(page.locator('.ega-dialog')).toHaveCount(0);
 
-  const dialog = page.locator('.ega-dialog', { hasText: 'Reset prompt and generation settings' });
-  await expect(dialog).toBeVisible({ timeout: 5_000 });
-
-  const confirmBtn = dialog.getByRole('button', { name: 'Reset', exact: true });
-  await expect(confirmBtn).toBeDisabled();
-
-  await dialog.locator('#confirm-input').fill('RESET');
-  await expect(confirmBtn).toBeEnabled({ timeout: 2_000 });
-  await confirmBtn.click();
-  timeline.markStep('confirmed');
-
-  // Toast "Defaults restored" should appear.
-  await expect(page.getByText('Defaults restored')).toBeVisible({ timeout: 8_000 });
-
-  // sitePrefs should be empty.
+  const stored = async (): Promise<Settings | null> =>
+    readStorage<Settings>(ext.context, ext.extensionId, 'ega.settings');
   await expect
-    .poll(
-      async () => {
-        const s = await readStorage<Settings>(ext.context, ext.extensionId, 'ega.settings');
-        return Object.keys(s?.sitePrefs ?? {}).length;
-      },
-      { timeout: 10_000 },
-    )
-    .toBe(0);
+    .poll(async () => (await stored())?.advanced.temperature, { timeout: 10_000 })
+    .not.toBe(0.9);
+  expect((await stored())?.advanced.maxTokens).not.toBe(500);
+  // Site overrides have their own card; Reset leaves them.
+  expect(Object.keys((await stored())?.sitePrefs ?? {}).length).toBeGreaterThan(0);
+
+  const toast = page.locator('[data-sonner-toast]', {
+    hasText: 'Prompt and model settings are back to defaults',
+  });
+  await toast.getByRole('button', { name: 'Undo' }).click();
+  timeline.markStep('undone');
+  await expect
+    .poll(async () => (await stored())?.advanced.temperature, { timeout: 10_000 })
+    .toBe(0.9);
+  expect((await stored())?.advanced.maxTokens).toBe(500);
 });

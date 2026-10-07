@@ -21,55 +21,43 @@ const customViews = materializeTasks({ ...DEFAULT_SETTINGS } as Settings, [
   },
 ]);
 
-describe('RequestAuditLogFilters — quick-apply chips', () => {
-  it('renders Errors / Cache / OK preset chips', () => {
+const optionsOf = (select: Element | null): string[][] =>
+  [...(select?.querySelectorAll('option') ?? [])].map((o) => [o.value, o.textContent.trim()]);
+
+describe('RequestAuditLogFilters', () => {
+  it('is one row: Status, Task, Backend, then Search requests, with no preset chips', () => {
+    const { container, getByLabelText } = render(RequestAuditLogFilters, {
+      props: { filters: { ...EMPTY_FILTERS }, onChange: vi.fn() },
+    });
+    const labels = [...container.querySelectorAll('label')].map((l) => l.textContent.trim());
+    expect(labels).toEqual(['Status', 'Task', 'Backend', 'Search requests']);
+    expect(getByLabelText('Search requests').tagName).toBe('INPUT');
+    expect(container.querySelector('[data-ega-audit-presets]')).toBeNull();
+  });
+
+  it('status options are words: All, OK, Errors, From cache', () => {
     const { container } = render(RequestAuditLogFilters, {
       props: { filters: { ...EMPTY_FILTERS }, onChange: vi.fn() },
     });
-    expect(container.querySelector('[data-ega-audit-preset="errors"]')).not.toBeNull();
-    expect(container.querySelector('[data-ega-audit-preset="cache"]')).not.toBeNull();
-    expect(container.querySelector('[data-ega-audit-preset="ok"]')).not.toBeNull();
+    expect(optionsOf(container.querySelector('[data-ega-audit-filter-status]'))).toEqual([
+      ['all', 'All'],
+      ['ok', 'OK'],
+      ['error', 'Errors'],
+      ['cache', 'From cache'],
+    ]);
   });
 
-  it('clicking Errors chip patches status=error and aria-pressed=true', async () => {
-    const onChange = vi.fn();
-    const { container, rerender } = render(RequestAuditLogFilters, {
-      props: { filters: { ...EMPTY_FILTERS }, onChange },
-    });
-    const chip = container.querySelector<HTMLElement>('[data-ega-audit-preset="errors"]');
-    if (!chip) throw new Error('chip missing');
-    await fireEvent.click(chip);
-    expect(onChange).toHaveBeenCalledWith({ ...EMPTY_FILTERS, status: 'error' });
-    // Re-render with filters reflecting the patch — chip should now be aria-pressed.
-    await rerender({ filters: { ...EMPTY_FILTERS, status: 'error' }, onChange });
-    const after = container.querySelector<HTMLElement>('[data-ega-audit-preset="errors"]');
-    expect(after?.getAttribute('aria-pressed')).toBe('true');
-  });
-
-  it('clicking an active chip clears its patched fields back to defaults', async () => {
-    const onChange = vi.fn();
+  it('backend options are names, and a row no backend answered is "Ega (no backend)"', () => {
     const { container } = render(RequestAuditLogFilters, {
-      props: { filters: { ...EMPTY_FILTERS, status: 'error' }, onChange },
+      props: { filters: { ...EMPTY_FILTERS }, onChange: vi.fn() },
     });
-    const chip = container.querySelector<HTMLElement>('[data-ega-audit-preset="errors"]');
-    if (!chip) throw new Error('chip missing');
-    await fireEvent.click(chip);
-    expect(onChange).toHaveBeenCalledWith({ ...EMPTY_FILTERS, status: 'all' });
+    const opts = optionsOf(container.querySelector('[data-ega-audit-filter-backend]'));
+    expect(opts[0]).toEqual(['all', 'All']);
+    expect(opts).toContainEqual(['anthropic', 'Anthropic']);
+    expect(opts.at(-1)).toEqual(['unknown', 'Ega (no backend)']);
+    expect(opts.map(([v]) => v)).not.toContain('auto');
   });
 
-  it('Cache chip is mutually exclusive with Errors chip (last-wins)', async () => {
-    const onChange = vi.fn();
-    const { container } = render(RequestAuditLogFilters, {
-      props: { filters: { ...EMPTY_FILTERS, status: 'error' }, onChange },
-    });
-    const cacheChip = container.querySelector<HTMLElement>('[data-ega-audit-preset="cache"]');
-    if (!cacheChip) throw new Error('cache chip missing');
-    await fireEvent.click(cacheChip);
-    expect(onChange).toHaveBeenCalledWith({ ...EMPTY_FILTERS, status: 'cache' });
-  });
-});
-
-describe('RequestAuditLogFilters — task options', () => {
   it('lists custom tasks by name and keeps a deleted id an entry still carries', () => {
     const { container } = render(RequestAuditLogFilters, {
       props: {
@@ -79,23 +67,24 @@ describe('RequestAuditLogFilters — task options', () => {
         seenTasks: ['c-gone'],
       },
     });
-    const opts = [...container.querySelectorAll('select option')].map((o) => [
-      (o as HTMLOptionElement).value,
-      o.textContent.trim(),
-    ]);
+    const opts = optionsOf(container.querySelector('[data-ega-audit-filter-task]'));
+    expect(opts[0]).toEqual(['all', 'All']);
     expect(opts).toContainEqual(['c-tweet', 'Tweet summary']);
     expect(opts).toContainEqual(['c-gone', 'Deleted task']);
     expect(opts).toContainEqual(['backend-test', 'Backend test']);
   });
 
-  it('a task pick writes the task filter, and a second click on an active chip clears it', async () => {
+  it('each control writes its own field and keeps the others', async () => {
     const onChange = vi.fn();
-    const { container } = render(RequestAuditLogFilters, {
-      props: { filters: { ...EMPTY_FILTERS, status: 'cache' }, onChange, taskViews: customViews },
+    const start = { ...EMPTY_FILTERS, task: 'explain' };
+    const { container, getByLabelText } = render(RequestAuditLogFilters, {
+      props: { filters: start, onChange },
     });
-    const chip = container.querySelector<HTMLElement>('[data-ega-audit-preset="cache"]');
-    if (!chip) throw new Error('chip missing');
-    await fireEvent.click(chip);
-    expect(onChange).toHaveBeenLastCalledWith({ ...EMPTY_FILTERS, status: 'all' });
+    await fireEvent.change(container.querySelector('[data-ega-audit-filter-status]') as Element, {
+      target: { value: 'cache' },
+    });
+    expect(onChange).toHaveBeenLastCalledWith({ ...start, status: 'cache' });
+    await fireEvent.input(getByLabelText('Search requests'), { target: { value: 'hola' } });
+    expect(onChange).toHaveBeenLastCalledWith({ ...start, query: 'hola' });
   });
 });

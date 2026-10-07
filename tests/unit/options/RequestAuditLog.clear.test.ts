@@ -39,7 +39,7 @@ async function renderWithOneEntry() {
   const view = render(RequestAuditLog);
   const btn = await waitFor(() => {
     const b = view.container.querySelector<HTMLButtonElement>('[data-ega-audit-clear]');
-    if (!b || b.disabled) throw new Error('clear button not ready');
+    if (!b) throw new Error('clear button not ready');
     return b;
   });
   return { ...view, btn };
@@ -58,7 +58,7 @@ describe('RequestAuditLog — Clear', () => {
     btn.click();
     await waitFor(() =>
       expect(push).toHaveBeenCalledWith(
-        expect.objectContaining({ message: 'Could not clear the audit log.', variant: 'danger' }),
+        expect.objectContaining({ message: 'Could not clear the request list', variant: 'danger' }),
       ),
     );
   });
@@ -69,7 +69,7 @@ describe('RequestAuditLog — Clear', () => {
     btn.click();
     await waitFor(() =>
       expect(push).toHaveBeenCalledWith(
-        expect.objectContaining({ message: 'Could not clear the audit log.', variant: 'danger' }),
+        expect.objectContaining({ message: 'Could not clear the request list', variant: 'danger' }),
       ),
     );
   });

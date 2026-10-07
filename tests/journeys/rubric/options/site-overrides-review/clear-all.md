@@ -2,24 +2,24 @@
 
 ## Latency budgets
 
-- Confirm click -> sitePrefs empty: <= 300ms.
+- Remove all click -> sitePrefs empty: <= 300ms.
 
 ## State expectations
 
-- Step 1: site-overrides-review lists multiple hosts; a Clear-all action is visible.
-- Step 2 (click Clear-all): a "Clear all site overrides" danger confirm names the number of hosts (rows) to be cleared.
-- Step 3 (confirm): `sitePrefs` empties; the list shows the empty state.
+- Step 1: the Site overrides card lists several hosts; "Remove all" is in its header.
+- Step 2 (click Remove all): `sitePrefs` empties at once; the card shows its empty state and Remove all goes away. A toast says "Removed N site overrides" (N counts rows) with Undo.
+- Step 3 (Undo): every removed entry comes back and the rows return.
 
 ## Visible affordances
 
-- Clear-all uses the danger tone tokens; the confirm dialog's "Clear all" button uses the danger variant.
+- Remove all is a secondary button, not red; there is no confirm dialog.
+- Focus moves to the card title after the rows are gone.
 
 ## Failure-mode expectations
 
-- Cancel leaves `sitePrefs` untouched.
-- A write failure shows a "Change not saved" warning toast; the dialog is already closed and the list keeps its rows.
+- A write failure shows a "Not saved" toast with Try again; the list keeps its rows and no Undo toast shows.
 
 ## Cautions
 
-- Clear-all is destructive at the bulk level — confirm is non-negotiable.
-- The action does NOT clear other surface settings (custom languages, audit log) — it's scoped to `sitePrefs` only.
+- The action does NOT clear other settings (custom languages, the request list) — it's scoped to `sitePrefs` only.
+- Undo keeps a site that changed after the remove at its newer value.

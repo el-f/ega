@@ -117,7 +117,7 @@ describe('options deep-link', () => {
   });
 
   it('drops a target the registry cannot anchor, so it cannot fire on a later mount', () => {
-    setPendingDeepLink('about.privacy');
+    setPendingDeepLink('tasks.backupRestore');
     revealPendingSetting();
     expect(readPendingDeepLink()).toBeNull();
   });

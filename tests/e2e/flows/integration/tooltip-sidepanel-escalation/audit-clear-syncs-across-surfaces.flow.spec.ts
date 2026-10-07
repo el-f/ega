@@ -62,7 +62,7 @@ test('Clear audit log empties storage.local.egaAuditLog; subsequent reads from a
 
   await opts.locator('[data-ega-audit-clear]').click();
   // FocusTrap adds an outer role="dialog", so scope to the inner `.ega-dialog`.
-  const dialog = opts.locator('.ega-dialog').filter({ hasText: 'Clear audit log' });
+  const dialog = opts.locator('.ega-dialog').filter({ hasText: 'Clear recent requests?' });
   await dialog.waitFor({ state: 'visible', timeout: 5_000 });
   await dialog.locator('button[data-variant="danger"]').click();
   timeline.markStep('clear-confirmed');

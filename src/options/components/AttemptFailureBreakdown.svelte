@@ -1,42 +1,42 @@
 <script lang="ts">
+  /** Recent errors: one row per error and backend in the last hour, in the shared plain words; Details holds the raw message and code. */
   import { onMount } from 'svelte';
   import CheckCircle2 from '@lucide/svelte/icons/check-circle-2';
   import { readAuditLog, type AuditEntry } from '@/shared/audit-log';
   import EmptyState from '@/shared/components/EmptyState.svelte';
+  import Disclosure from '@/options/components/Disclosure.svelte';
   import { relativeTime } from '@/shared/relative-time';
-  import { errCodeLabel } from '@/shared/err-labels';
-  import { ALL_ERR_CODES, type ErrCode } from '@/shared/types';
-
-  // An old log row can carry a code this build no longer knows.
-  function codeLabel(code: string): string {
-    return (ALL_ERR_CODES as readonly string[]).includes(code)
-      ? errCodeLabel(code as ErrCode)
-      : 'Error';
-  }
+  import { errorCopy } from '@/shared/error-copy';
+  import { auditBackendLabel as nameOf } from './audit-filters';
 
   const HOUR_MS = 3_600_000;
 
-  interface CodeRow {
+  interface ErrorRow {
+    key: string;
     code: string;
+    backend: string;
     count: number;
     latestMessage: string;
     lastSeen: number;
   }
 
-  let rows = $state<readonly CodeRow[]>([]);
+  let rows = $state<readonly ErrorRow[]>([]);
   let loaded = $state<boolean>(false);
   let nowTs = $state<number>(Date.now());
 
-  function aggregate(log: readonly AuditEntry[], now: number): readonly CodeRow[] {
+  // The same error from the same backend is one row with a count.
+  function aggregate(log: readonly AuditEntry[], now: number): readonly ErrorRow[] {
     const cutoff = now - HOUR_MS;
-    const byCode: Record<string, CodeRow> = {};
+    const byKey: Record<string, ErrorRow> = {};
     for (const entry of log) {
-      if (!entry.error) continue;
-      if (entry.ts < cutoff) continue;
-      const existing = byCode[entry.error.code];
+      if (!entry.error || entry.ts < cutoff) continue;
+      const key = `${entry.error.code}\u0000${entry.backend}`;
+      const existing = byKey[key];
       if (existing === undefined) {
-        byCode[entry.error.code] = {
+        byKey[key] = {
+          key,
           code: entry.error.code,
+          backend: entry.backend,
           count: 1,
           latestMessage: entry.error.message,
           lastSeen: entry.ts,
@@ -49,7 +49,7 @@
         }
       }
     }
-    return Object.values(byCode).sort((a, b) => b.count - a.count || b.lastSeen - a.lastSeen);
+    return Object.values(byKey).sort((a, b) => b.count - a.count || b.lastSeen - a.lastSeen);
   }
 
   onMount(() => {
@@ -68,95 +68,69 @@
 
 <div class="attempt-failure-breakdown" data-ega-attempt-failure-breakdown>
   {#if !loaded}
-    <p class="loading">Loading…</p>
+    <p class="line">Loading...</p>
   {:else if rows.length === 0}
-    <EmptyState
-      icon={CheckCircle2}
-      title="No errors in the last hour"
-      description="No request failed in the last hour."
-    />
+    <EmptyState icon={CheckCircle2} title="No errors in the last hour" />
   {:else}
-    <table class="breakdown">
-      <thead>
-        <tr>
-          <th scope="col">Error</th>
-          <th scope="col" class="num">Count</th>
-          <th scope="col">Latest message</th>
-          <th scope="col">Last seen</th>
-        </tr>
-      </thead>
-      <tbody>
-        {#each rows as row (row.code)}
-          {@const canceled = row.code === 'ABORTED'}
-          <tr>
-            <td>{codeLabel(row.code)} <code>{row.code}</code></td>
-            <td class="num">{row.count}</td>
-            <td class="msg" class:canceled title={row.latestMessage}
-              >{canceled
-                ? 'Stopped before it finished: a cancel or a closed tab'
-                : row.latestMessage}</td
-            >
-            <td>{relativeTime(row.lastSeen, nowTs)}</td>
-          </tr>
-        {/each}
-      </tbody>
-    </table>
+    <ul class="errors">
+      {#each rows as row (row.key)}
+        {@const copy = errorCopy(row.code, row.latestMessage, { backend: nameOf(row.backend) })}
+        <li class="error-row" data-ega-recent-error={row.code}>
+          <div class="error-line">
+            <span class="error-title">{copy?.title ?? 'Stopped before it finished'}</span>
+            <span class="error-meta">
+              {nameOf(row.backend)} · {row.count}
+              {row.count === 1 ? 'time' : 'times'} · last {relativeTime(row.lastSeen, nowTs)}
+            </span>
+          </div>
+          <p class="line">{copy?.body ?? 'A cancel or a closed tab stopped the request.'}</p>
+          <Disclosure label="Details">
+            <p class="detail">{row.latestMessage}<br />Code: {row.code}</p>
+          </Disclosure>
+        </li>
+      {/each}
+    </ul>
   {/if}
 </div>
 
 <style>
-  .attempt-failure-breakdown {
+  .errors {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .error-row {
     display: flex;
     flex-direction: column;
-    gap: var(--space-3);
+    gap: 2px;
+    padding-block: var(--space-2);
   }
-  .loading {
-    margin: 0;
-    font-size: var(--fs-sm);
-    color: var(--color-muted);
+  .error-row + .error-row {
+    border-top: 1px solid var(--color-border-subtle);
   }
-  .breakdown {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: var(--fs-sm);
+  .error-line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-1) var(--space-3);
   }
-  .breakdown th {
-    text-align: left;
-    padding: var(--space-1) var(--space-2);
-    border-bottom: 1px solid var(--color-border);
-    color: var(--color-fg-subtle);
+  .error-title {
+    font-size: var(--fs-base);
     font-weight: 600;
   }
-  .breakdown th.num,
-  .breakdown td.num {
-    text-align: right;
+  .error-meta,
+  .line {
+    margin: 0;
+    font-size: var(--fs-base);
+    line-height: var(--lh-body);
+    color: var(--color-muted);
     font-variant-numeric: tabular-nums;
   }
-  .breakdown td {
-    padding: var(--space-1) var(--space-2);
-    border-bottom: 1px solid var(--color-border-subtle);
-    color: var(--color-fg);
-    vertical-align: top;
-  }
-  .breakdown tbody tr:last-child td {
-    border-bottom: 0;
-  }
-  .breakdown td.msg.canceled {
-    color: var(--color-muted);
-  }
-  .breakdown td.msg {
-    color: var(--color-danger);
-    max-width: 28ch;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  code {
+  .detail {
+    margin: 0;
     font-family: var(--font-mono);
-    color: var(--color-fg);
-    background: var(--color-bg-sunken);
-    border: 1px solid var(--color-border-subtle);
-    border-radius: var(--radius-sm);
-    padding: 1px var(--space-1);
+    font-size: var(--fs-sm);
+    color: var(--color-muted);
+    overflow-wrap: anywhere;
   }
 </style>

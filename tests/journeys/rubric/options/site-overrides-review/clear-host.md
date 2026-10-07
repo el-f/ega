@@ -2,23 +2,22 @@
 
 ## Latency budgets
 
-- Clear click -> storage write + row removal: <= 200ms.
+- Remove click -> storage write + row removal: <= 200ms.
 
 ## State expectations
 
-- Step 1: site-overrides review surface lists hosts with overrides.
-- Step 2 (click Clear on a row): a "Clear site override" confirm opens; confirming removes the row's keys (both schemes for a merged row) from `sitePrefs`.
-- Step 3: the row disappears from the list; the host returns to global defaults across surfaces.
+- Step 1: the Site overrides card lists hosts with overrides.
+- Step 2 (click the trash button on a row): the row's keys (both schemes for a merged row) leave `sitePrefs` at once; a toast "Removed <site>" offers Undo.
+- Step 3: the row disappears and focus moves to the next row's trash button (or the previous one, or the card title); the host returns to global defaults across surfaces.
 
 ## Visible affordances
 
-- The Clear control is a danger-tone X IconButton with the tooltip "Clear" and aria-label "Clear override for <host>".
+- The control is a trash IconButton named "Remove <site>"; there is no confirm dialog.
 
 ## Failure-mode expectations
 
-- Clear asks for confirmation first; Cancel leaves `sitePrefs` untouched.
-- A write failure shows a "Change not saved" warning toast; the row stays in the list.
+- A write failure shows a "Not saved" toast with Try again; the row stays in the list.
 
 ## Cautions
 
-- Both per-row Clear and Clear-all ask for confirmation.
+- Undo puts the removed entry back unless the site changed since; the newer value wins.

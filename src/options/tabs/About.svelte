@@ -1,232 +1,138 @@
 <script lang="ts">
-  import { debugCatch } from '@/shared/logger';
   import TabHeader from '@/shared/components/TabHeader.svelte';
   import SectionCard from '@/shared/ui/SectionCard.svelte';
-  import Button from '@/shared/ui/Button.svelte';
-  import Icon from '@/shared/ui/Icon.svelte';
-  import { confirmDialog } from '@/shared/components/confirmDialog';
-  import { OPTIONS_LOCAL_UI_KEYS } from '@/options/local-ui-keys';
-  import { clearAllStorage } from '@/shared/storage';
-  import { toastStore } from '@/shared/components/toastStore';
-
-  import Code from '@lucide/svelte/icons/code';
-  import Scale from '@lucide/svelte/icons/scale';
-  import ShieldCheck from '@lucide/svelte/icons/shield-check';
-  import Lock from '@lucide/svelte/icons/lock';
-  import FileX from '@lucide/svelte/icons/file-x';
-  import Sparkles from '@lucide/svelte/icons/sparkles';
 
   const manifest = chrome.runtime.getManifest();
   const extVersion = manifest.version_name ?? manifest.version;
 
-  let clearingCache = $state(false);
-  let purging = $state(false);
-
-  async function clearCache(): Promise<void> {
-    const ok = await confirmDialog({
-      title: 'Clear translation cache',
-      body: 'Clear the translation cache? The next identical request goes to the backend again.',
-      confirmLabel: 'Clear cache',
-      danger: true,
-    });
-    if (!ok) return;
-    clearingCache = true;
-    try {
-      // The live cache is an in-memory Map in the service worker.
-      await chrome.runtime.sendMessage({ kind: 'cache:clear' });
-      toastStore.push({ message: 'Translation cache cleared.', variant: 'success' });
-    } catch (e) {
-      debugCatch(e, 'options.tabs.About.1');
-      toastStore.push({
-        message: `Could not clear the cache: ${(e as Error).message}`,
-        variant: 'danger',
-        action: { label: 'Try again', onClick: () => void clearCache() },
-      });
-    } finally {
-      clearingCache = false;
-    }
-  }
-
-  async function purge(): Promise<void> {
-    const ok = await confirmDialog({
-      title: 'Delete all data',
-      body: 'This deletes settings, API keys, custom languages, the glossary, side-panel conversations, the request audit log, and cached translations. Type DELETE to confirm.',
-      confirmLabel: 'Delete all data',
-      danger: true,
-      typeToConfirm: 'DELETE',
-    });
-    if (!ok) return;
-    purging = true;
-    try {
-      // A reply finishing after the wipe would write its thread back; an asleep worker must not stop it.
-      await chrome.runtime.sendMessage({ kind: 'translate:cancel-all' }).catch(() => {});
-      await clearAllStorage();
-      await chrome.runtime.sendMessage({ kind: 'audit:clear' });
-      await chrome.runtime.sendMessage({ kind: 'cache:clear' });
-      for (const key of OPTIONS_LOCAL_UI_KEYS) globalThis.localStorage?.removeItem(key);
-    } catch (e) {
-      debugCatch(e, 'options.tabs.About.2');
-      purging = false;
-      toastStore.push({
-        message: `Some data was not deleted: ${(e as Error).message}. Press Delete all data again.`,
-        variant: 'danger',
-        action: { label: 'Try again', onClick: () => void purge() },
-      });
-      return;
-    }
-    // This page still holds the old settings in memory; a reload starts it clean.
-    location.reload();
-  }
+  const COLUMNS = [
+    {
+      title: 'Stored on this computer',
+      items: [
+        'Settings, tasks, languages, the glossary and rules',
+        'API keys stay in this browser. They are never synced or logged.',
+        'Side panel conversations and the last 50 requests',
+      ],
+    },
+    {
+      title: 'Sent to your backend',
+      items: [
+        'The text you pick or type, when you ask',
+        'Page context, when the task sends it',
+        'Glossary terms that appear in the text',
+        'An image, when you send one',
+      ],
+    },
+    {
+      title: 'Never sent',
+      items: [
+        'Analytics or telemetry: Ega has no server',
+        'Password, card and one-time-code fields',
+        'Secrets found in page context; they are masked first',
+      ],
+    },
+  ];
 </script>
 
 <TabHeader tab="about" />
 
-<!-- PRIVACY -------------------------------------------------------- -->
-<SectionCard
-  title="Privacy"
-  description="No telemetry, no cloud sync, no analytics. This is what Ega stores and sends."
->
-  <div class="about-privacy-grid" data-ega-privacy-grid>
-    <div class="privacy-tile">
-      <Icon icon={ShieldCheck} size={20} />
-      <h3>Zero telemetry</h3>
-      <p>No analytics. No data leaves your machine except to the backend you configure.</p>
+<div data-ega-setting="about.privacy">
+  <SectionCard title="Privacy" description="No telemetry, no cloud sync, no analytics">
+    <div class="privacy" data-ega-privacy-grid>
+      {#each COLUMNS as col (col.title)}
+        <section class="privacy-col" aria-labelledby="privacy-{col.title.replaceAll(' ', '-')}">
+          <h3 id="privacy-{col.title.replaceAll(' ', '-')}">{col.title}</h3>
+          <ul>
+            {#each col.items as item (item)}
+              <li>{item}</li>
+            {/each}
+          </ul>
+        </section>
+      {/each}
     </div>
-    <div class="privacy-tile">
-      <Icon icon={Lock} size={20} />
-      <h3>Keys local-only</h3>
-      <p>
-        API keys live in <code>chrome.storage.local</code>, never synced, never logged.
-      </p>
-    </div>
-    <div class="privacy-tile">
-      <Icon icon={FileX} size={20} />
-      <h3>Excluded fields</h3>
-      <p>
-        Ega never reads password, card or one-time-code fields. Secrets in page context are always
-        masked.
-      </p>
-    </div>
-  </div>
-</SectionCard>
+  </SectionCard>
+</div>
 
-<SectionCard
-  title="Destructive actions"
-  description="Clearing the cache only means translations run again. Deleting all data cannot be undone."
->
-  <div class="about-row">
-    <Button variant="secondary" iconKind="delete" loading={clearingCache} onclick={clearCache}>
-      Clear cache
-    </Button>
-    <Button variant="danger" iconKind="warn" loading={purging} onclick={purge}>
-      Delete all data
-    </Button>
-  </div>
-</SectionCard>
-
-<!-- CREDITS / LINKS ------------------------------------------------------ -->
-<SectionCard title="Credits & links">
-  <ul class="about-links">
-    <li data-ega-about-version>
-      <Icon icon={Sparkles} size={16} />
-      <span>v{extVersion}</span>
-      <span class="about-links-tag">Version</span>
-    </li>
-    <li>
-      <Icon icon={Code} size={16} />
-      <a
-        href="https://github.com/el-f/ega"
-        target="_blank"
-        rel="noopener noreferrer"
-        data-ega-source-link>github.com/el-f/ega</a
-      >
-      <span class="about-links-tag">Source</span>
-    </li>
-    <li>
-      <Icon icon={Scale} size={16} />
-      <a
-        href="https://github.com/el-f/ega/blob/master/LICENSE"
-        target="_blank"
-        rel="noopener noreferrer"
-        data-ega-license-link>MIT</a
-      >
-      <span class="about-links-tag">License</span>
-    </li>
-  </ul>
+<SectionCard title="Credits and links">
+  <dl class="about-links">
+    <div class="about-row" data-ega-about-version>
+      <dt>Version</dt>
+      <dd>{extVersion}</dd>
+    </div>
+    <div class="about-row">
+      <dt>Source</dt>
+      <dd>
+        <a
+          href="https://github.com/el-f/ega"
+          target="_blank"
+          rel="noopener noreferrer"
+          data-ega-source-link>github.com/el-f/ega</a
+        >
+      </dd>
+    </div>
+    <div class="about-row">
+      <dt>License</dt>
+      <dd>
+        <a
+          href="https://github.com/el-f/ega/blob/master/LICENSE"
+          target="_blank"
+          rel="noopener noreferrer"
+          data-ega-license-link>MIT</a
+        >
+      </dd>
+    </div>
+  </dl>
 </SectionCard>
 
 <style>
-  /* PRIVACY ------------------------------------------------------------- */
-  .about-privacy-grid {
+  /* Three columns with no box around each; the card is the only frame. */
+  .privacy {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: var(--space-3);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-4);
   }
-  @media (max-width: 680px) {
-    .about-privacy-grid {
-      grid-template-columns: 1fr;
+  @container options (max-width: 600px) {
+    .privacy {
+      grid-template-columns: minmax(0, 1fr);
     }
   }
-  .privacy-tile {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--space-1);
-    padding: var(--space-3);
-    background: var(--color-bg-elevated);
-    border: 1px solid var(--color-border-subtle);
-    border-radius: var(--radius-md);
-  }
-  .privacy-tile h3 {
-    margin: 0;
-    font-size: var(--fs-sm);
+  .privacy-col h3 {
+    margin: 0 0 var(--space-2);
+    font-size: var(--fs-base);
     font-weight: 600;
     color: var(--color-fg);
   }
-  .privacy-tile p {
+  .privacy-col ul {
     margin: 0;
-    font-size: var(--fs-sm);
-    color: var(--color-muted);
+    padding-inline-start: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    font-size: var(--fs-base);
     line-height: var(--lh-body);
+    color: var(--color-muted);
   }
-  .privacy-tile code {
-    padding: 0 2px;
-    background: var(--color-bg-sunken);
-    border-radius: var(--radius-sm);
-    font-family: var(--font-mono);
+  .about-links {
+    margin: 0;
   }
   .about-row {
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--space-2);
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding-block: var(--space-2);
+    font-size: var(--fs-base);
   }
-
-  /* CREDITS ------------------------------------------------------------- */
-  .about-links {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
+  .about-row + .about-row {
+    border-top: 1px solid var(--color-border-subtle);
   }
-  .about-links li {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    font-size: var(--fs-sm);
-  }
-  .about-links a {
-    color: var(--color-accent);
-    text-decoration: none;
-  }
-  .about-links a:hover {
-    text-decoration: underline;
-  }
-  .about-links-tag {
-    margin-left: auto;
+  .about-row dt {
     color: var(--color-muted);
-    font-size: var(--fs-xs);
+  }
+  .about-row dd {
+    margin: 0;
+    color: var(--color-fg);
+  }
+  .about-row a {
+    color: var(--color-accent-hover);
   }
 </style>

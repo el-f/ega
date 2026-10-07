@@ -133,7 +133,7 @@ describe('tasks bundle', () => {
 
   it('a newer tasks file asks for an update; an old task-presets file is refused', async () => {
     await expect(parseImportBundle({ egaTasks: { v: 3, customTasks: [] } })).rejects.toThrow(
-      'This file is from a newer version of Ega. Update Ega to import it.',
+      'This backup is from a newer Ega. Update Ega, then import it.',
     );
     await expect(parseImportBundle({ egaTaskPresets: {} })).rejects.toThrow('old task-presets');
   });

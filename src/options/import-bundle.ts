@@ -110,8 +110,8 @@ function fileSnippets(raw: unknown): { snippets?: Record<string, string> } {
   return parsed.success ? { snippets: parsed.output } : {};
 }
 
-const IMPORT_NOT_JSON_MESSAGE =
-  'This file is not valid JSON. Re-export the bundle from your Ega install, or double-check you picked the right file.';
+const NOT_A_BACKUP = 'This file is not an Ega backup. Pick a file you exported from Ega.';
+const TOO_NEW = 'This backup is from a newer Ega. Update Ega, then import it.';
 
 function issuePath(issue: valibot.BaseIssue<unknown>): string {
   return (issue.path ?? []).map((p) => String((p as { key: unknown }).key)).join('.');
@@ -268,8 +268,7 @@ function parseTasksBundle(raw: unknown): Extract<ImportBundle, { kind: 'tasks' }
   const parsed = valibot.safeParse(tasksBundleLenientSchema, raw);
   if (!parsed.success) throw new Error('This tasks file is damaged — nothing was changed.');
   const file = parsed.output.egaTasks;
-  if (file.v > 2)
-    throw new Error('This file is from a newer version of Ega. Update Ega to import it.');
+  if (file.v > 2) throw new Error(TOO_NEW);
   if (file.v !== 1 && file.v !== 2)
     throw new Error('This tasks file is damaged — nothing was changed.');
 
@@ -341,8 +340,7 @@ async function parseLanguageBundle(
   const parsed = valibot.safeParse(languageBundleLenientSchema, raw);
   if (!parsed.success) throw new Error('This language file is damaged — nothing was changed.');
   const file = parsed.output.egaLanguage;
-  if (file.v > 1)
-    throw new Error('This file is from a newer version of Ega. Update Ega to import it.');
+  if (file.v > 1) throw new Error(TOO_NEW);
   if (file.v !== 1) throw new Error('This language file is damaged — nothing was changed.');
   const rawId = isPlainObject(file.language) ? file.language['id'] : undefined;
   if (BUILT_IN_PRESETS.some((p) => p.id === rawId)) {
@@ -384,8 +382,7 @@ async function parseGlossaryBundle(
   const parsed = valibot.safeParse(glossaryBundleLenientSchema, raw);
   if (!parsed.success) throw new Error('This glossary file is damaged — nothing was changed.');
   const file = parsed.output.egaGlossary;
-  if (file.v > 1)
-    throw new Error('This file is from a newer version of Ega. Update Ega to import it.');
+  if (file.v > 1) throw new Error(TOO_NEW);
   if (file.v !== 1) throw new Error('This glossary file is damaged — nothing was changed.');
   // Clamped first, as a stored entry is, so an over-long term is cut rather than the entry dropped.
   const checked = file.entries.flatMap((e) => {
@@ -419,26 +416,21 @@ function validateSettings(
   return settings;
 }
 
-function validateCustomLanguages(raw: unknown, ownIds: ReadonlySet<string>): CustomLanguage[] {
-  if (!Array.isArray(raw)) throw new Error('bundle.customLanguages must be an array');
-  return importedLanguageRows(raw, ownIds);
-}
+/** A full backup, plus how many of its custom languages were not valid and stay out. */
+type SettingsImport = Extract<ImportBundle, { kind: 'settings' }> & { skippedLanguages: number };
 
-async function parseSettingsBundle(
-  raw: Record<string, unknown>,
-): Promise<Extract<ImportBundle, { kind: 'settings' }>> {
-  if (raw['version'] !== 1 && raw['version'] !== 2) {
-    throw new Error('unsupported bundle version (expected 1 or 2)');
-  }
-  if (!('settings' in raw)) throw new Error('bundle missing settings');
-  if (!('customLanguages' in raw)) throw new Error('bundle missing customLanguages');
+async function parseSettingsBundle(raw: Record<string, unknown>): Promise<SettingsImport> {
+  const version = raw['version'];
+  if (typeof version === 'number' && version > 2) throw new Error(TOO_NEW);
   const settings = raw['settings'];
-  if (!isPlainObject(settings)) throw new Error('bundle.settings must be an object');
+  const rawLanguages = raw['customLanguages'];
+  if ((version !== 1 && version !== 2) || !isPlainObject(settings) || !Array.isArray(rawLanguages))
+    throw new Error(NOT_A_BACKUP);
   const ownIds = await ownLanguageIds();
-  const customLanguages = validateCustomLanguages(raw['customLanguages'], ownIds);
+  const customLanguages = importedLanguageRows(rawLanguages, ownIds);
   // A refused id reads as a language code: its prompt, defaults and glossary scopes would run for that code.
   const refused = new Set(
-    (Array.isArray(raw['customLanguages']) ? raw['customLanguages'] : []).flatMap((c: unknown) =>
+    rawLanguages.flatMap((c: unknown) =>
       isPlainObject(c) && typeof c['id'] === 'string' && refusedId(c['id'], ownIds)
         ? [c['id']]
         : [],
@@ -459,6 +451,7 @@ async function parseSettingsBundle(
     ),
     customLanguages,
     droppedCodeLikeCustoms: refused.size,
+    skippedLanguages: rawLanguages.length - customLanguages.length - refused.size,
     ...(fileTasks ? { customTasks: fileTasks } : {}),
   };
 }
@@ -475,7 +468,7 @@ export async function parseImportBundle(raw: unknown): Promise<ImportBundle> {
     if ('egaLanguage' in raw) return parseLanguageBundle(raw);
     if ('version' in raw) return parseSettingsBundle(raw);
   }
-  throw new Error('This file is not an Ega export — nothing was changed.');
+  throw new Error(NOT_A_BACKUP);
 }
 
 export type ImportStatus = { kind: 'ok' | 'err'; msg: string };
@@ -491,7 +484,10 @@ const PATTERN_DROPPED =
   ' Its detection pattern is not imported, because a shared pattern could claim text on every page. Add one in the Languages tab if you want Auto-detect to pick it.';
 
 /** Null means the user backed out. */
-async function confirmImport(bundle: ImportBundle): Promise<ImportOptions | null> {
+async function confirmImport(
+  bundle: ImportBundle,
+  fileName: string,
+): Promise<ImportOptions | null> {
   switch (bundle.kind) {
     case 'language': {
       const { label, examples } = bundle.language;
@@ -568,11 +564,12 @@ async function confirmImport(bundle: ImportBundle): Promise<ImportOptions | null
     }
     case 'settings': {
       const proceed = await confirmDialog({
-        title: 'Import settings',
+        title: 'Import settings?',
         body: bundle.customTasks
-          ? 'Importing will overwrite your current settings, custom languages and your own tasks. Continue?'
-          : 'Importing will overwrite your current settings and custom languages. This file has no tasks of your own, so yours stay. Continue?',
-        confirmLabel: 'Continue',
+          ? `This replaces your current settings, custom languages and tasks with the ones in ${fileName}.`
+          : `This replaces your current settings and custom languages with the ones in ${fileName}. Your tasks stay, because the file has none.`,
+        confirmLabel: 'Import',
+        cancelLabel: 'Keep current settings',
         danger: true,
       });
       if (!proceed) return null;
@@ -642,13 +639,17 @@ function summary(bundle: ImportBundle, merge: GlossaryMerge | undefined): string
         (bundle.skipped > 0 ? ` Skipped ${bundle.skipped}.` : '')
       );
     }
-    case 'settings':
+    case 'settings': {
+      const skipped = 'skippedLanguages' in bundle ? Number(bundle.skippedLanguages) : 0;
       return (
-        'Imported all settings.' +
+        (skipped > 0
+          ? `Imported settings; ${count(skipped, 'language')} ${skipped === 1 ? 'was' : 'were'} skipped because ${skipped === 1 ? 'it was' : 'they were'} not valid.`
+          : 'Imported all settings.') +
         (bundle.droppedCodeLikeCustoms > 0
           ? ` Dropped ${count(bundle.droppedCodeLikeCustoms, 'custom language')} whose id reads as a language code, with the settings that named it.`
           : '')
       );
+    }
   }
 }
 
@@ -677,11 +678,12 @@ export async function importBundleFile(
     try {
       parsed = JSON.parse(await file.text());
     } catch {
-      throw new Error(IMPORT_NOT_JSON_MESSAGE);
+      throw new Error(NOT_A_BACKUP);
     }
     bundle = await parseImportBundle(parsed);
   } catch (e) {
-    return { kind: 'err', msg: `Import failed: ${(e as Error).message}` };
+    // Every parse error is a full sentence that says what to do; nothing was written.
+    return { kind: 'err', msg: (e as Error).message };
   }
   const expected = expectedKind === undefined ? null : [expectedKind].flat();
   if (expected && !expected.includes(bundle.kind)) {
@@ -689,11 +691,11 @@ export async function importBundleFile(
       kind: 'err',
       msg:
         `This file is ${KIND_LABEL[bundle.kind]}, not ${expected.map((k) => KIND_LABEL[k]).join(' or ')} — nothing was changed. ` +
-        'Restore it from Advanced → Backup & restore.',
+        'Restore it from Advanced → Data → Backup and restore.',
     };
   }
   if (askFirst && !(await askFirst(bundle))) return null;
-  const opts = await confirmImport(bundle);
+  const opts = await confirmImport(bundle, file.name);
   if (!opts) return null;
   try {
     const merge = await importBundle(bundle, opts);

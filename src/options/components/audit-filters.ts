@@ -1,6 +1,8 @@
 // Kept out of the Svelte module script so plain tsc can resolve it for `.ts` tests.
 import { AUDIT_ONLY_TASK_LABELS, LIVE_AUDIT_ONLY_TASKS, type AuditEntry } from '@/shared/audit-log';
 import { taskLabel, type TaskView } from '@/shared/task-view';
+import { backendLabel } from '@/shared/backends/provider-profiles';
+import { errorCopy } from '@/shared/error-copy';
 
 export type AuditFilterStatus = 'all' | 'ok' | 'error' | 'cache';
 
@@ -23,6 +25,18 @@ export function auditTaskLabel(id: string, views: readonly TaskView[]): string {
   return Object.hasOwn(AUDIT_ONLY_TASK_LABELS, id)
     ? AUDIT_ONLY_TASK_LABELS[id as keyof typeof AUDIT_ONLY_TASK_LABELS]
     : taskLabel(views, id);
+}
+
+/** "Ega" for a row no backend answered (a cache hit, or no backend was ready); else the backend's name. */
+export function auditBackendLabel(id: string): string {
+  return id === 'auto' || id === 'unknown' ? 'Ega' : backendLabel(id);
+}
+
+/** A row's status in words: OK, From cache, Canceled, or the shared error title. */
+export function auditStatusLabel(e: Pick<AuditEntry, 'error' | 'cacheHit' | 'backend'>): string {
+  if (e.error === undefined) return e.cacheHit ? 'From cache' : 'OK';
+  const copy = errorCopy(e.error.code, e.error.message, { backend: auditBackendLabel(e.backend) });
+  return copy?.title ?? 'Canceled';
 }
 
 /** Every task a filter can pick: today's tasks, the live audit-only ids, and any id an entry still carries. */

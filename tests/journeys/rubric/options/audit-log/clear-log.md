@@ -7,19 +7,19 @@
 
 ## State expectations
 
-- Step 1: audit-log panel has one or more entries.
-- Step 2 (click Clear): a confirm dialog appears naming the count of entries to be deleted.
-- Step 3 (confirm): the `egaAuditLog` key is removed from storage; the list shows the empty state.
+- Step 1: the Recent requests card has one or more entries; Export and Clear show in its header.
+- Step 2 (click Clear): a confirm dialog "Clear recent requests?" says how many requests it removes.
+- Step 3 (confirm): the `egaAuditLog` key is removed from storage; the list shows the empty state and the header buttons are gone.
 
 ## Visible affordances
 
-- Confirm dialog uses the danger tone tokens.
-- Empty state reads "No translations logged yet" with a short line on what the log captures.
+- The header Clear button is secondary, not red; the dialog's Clear uses the danger tone because the clear cannot be undone.
+- Empty state reads "No requests yet" / "Requests show here after you translate".
 
 ## Failure-mode expectations
 
 - Cancel leaves `egaAuditLog` untouched.
-- A failed clear shows a danger toast ("Could not clear the audit log."); entries remain.
+- A failed clear shows a danger toast "Could not clear the request list" with Try again; entries remain.
 
 ## Cautions
 

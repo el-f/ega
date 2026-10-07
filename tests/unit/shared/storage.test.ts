@@ -443,23 +443,26 @@ describe('storage', () => {
     });
 
     it('rejects a file that carries no Ega root key', async () => {
-      await expect(importAs(null, 'settings')).rejects.toThrow(/not an Ega export/);
-      await expect(importAs('nope', 'settings')).rejects.toThrow(/not an Ega export/);
-      await expect(importAs({}, 'settings')).rejects.toThrow(/not an Ega export/);
+      await expect(importAs(null, 'settings')).rejects.toThrow(/not an Ega backup/);
+      await expect(importAs('nope', 'settings')).rejects.toThrow(/not an Ega backup/);
+      await expect(importAs({}, 'settings')).rejects.toThrow(/not an Ega backup/);
     });
 
-    it('rejects wrong version', async () => {
+    it('a newer backup asks for an update; an unknown version is not a backup', async () => {
       await expect(importAs({ version: 3 }, 'settings')).rejects.toThrow(
-        /unsupported bundle version/,
+        'This backup is from a newer Ega. Update Ega, then import it.',
       );
+      await expect(
+        importAs({ version: 0, settings: {}, customLanguages: [] }, 'settings'),
+      ).rejects.toThrow(/not an Ega backup/);
     });
 
     it('rejects missing settings / customLanguages', async () => {
       await expect(importAs({ version: 1, customLanguages: [] }, 'settings')).rejects.toThrow(
-        /missing settings/,
+        /not an Ega backup/,
       );
       await expect(importAs({ version: 1, settings: {} }, 'settings')).rejects.toThrow(
-        /missing customLanguages/,
+        /not an Ega backup/,
       );
     });
 
@@ -527,7 +530,7 @@ describe('storage', () => {
     it('rejects arrays disguised as settings', async () => {
       await expect(
         importAs({ version: 1, settings: [], customLanguages: [] }, 'settings'),
-      ).rejects.toThrow(/settings must be an object/);
+      ).rejects.toThrow(/not an Ega backup/);
     });
 
     it('a bundle without backendOrder imports with the default order', async () => {
@@ -890,12 +893,12 @@ describe('storage', () => {
     });
 
     it('rejects a file with no varieties root key', async () => {
-      await expect(importAs({ wrong: 'shape' }, 'varieties')).rejects.toThrow(/not an Ega export/);
+      await expect(importAs({ wrong: 'shape' }, 'varieties')).rejects.toThrow(/not an Ega backup/);
     });
 
     it('rejects a non-object (e.g. string)', async () => {
       // The UI layer catches JSON.parse first; a non-object reaching here must still give a readable error.
-      await expect(importAs('not json {', 'varieties')).rejects.toThrow(/not an Ega export/);
+      await expect(importAs('not json {', 'varieties')).rejects.toThrow(/not an Ega backup/);
     });
 
     it('surfaces the first failing field path in the schema-validation error', async () => {

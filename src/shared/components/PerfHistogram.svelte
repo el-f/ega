@@ -2,10 +2,15 @@
   import { onMount } from 'svelte';
   import { computePercentiles, type PerfEntry } from '@/shared/perf-history';
   import { sendMsg } from '@/shared/messages';
-  import { count } from '@/shared/utils/count';
+  interface Props {
+    /** Record request details is off: no time is kept, so the card says how to turn it on. */
+    off?: boolean;
+    /** What the worker sent back; bind it to show a Copy data action beside the chart. */
+    entries?: readonly PerfEntry[];
+  }
 
   // The buffer lives in the service worker's module instance — ask it, never read the local copy.
-  let entries = $state<readonly PerfEntry[]>([]);
+  let { off = false, entries = $bindable([]) }: Props = $props();
 
   onMount(() => {
     let cancelled = false;
@@ -42,48 +47,56 @@
 
   const maxBin = $derived(histogram.bins.length === 0 ? 0 : Math.max(...histogram.bins));
 
-  function copyJson(): void {
-    void navigator.clipboard.writeText(JSON.stringify(entries, null, 2)).catch(() => {
-      /* silent */
-    });
+  // Under a second in ms, above it in seconds with one decimal.
+  function duration(ms: number): string {
+    return ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(1)} s`;
   }
 </script>
 
 <div class="perf" data-ega-perf-histogram>
-  {#if stats.n > 0 || failed > 0}
-    <div class="perf-stats">
-      <span>{stats.n} finished of the last {count(entries.length, 'request')}</span>
-      <span title="Half of the translations finished faster than this (median)."
-        >Typical: {Math.round(stats.p50)} ms</span
-      >
-      <span title="95 of 100 translations finished faster than this (95th percentile)."
-        >Slowest 5%: over {Math.round(stats.p95)} ms</span
-      >
-      {#if failed > 0}<span>Failed: {failed}</span>{/if}
-    </div>
-  {/if}
-  {#if histogram.bins.length > 0}
-    <svg viewBox="0 0 200 60" class="perf-svg" role="img" aria-label="Latency histogram">
-      {#each histogram.bins as bin, i (i)}
-        {@const h = maxBin === 0 ? 0 : (bin / maxBin) * 55}
-        <rect x={i * 20 + 2} y={60 - h} width={16} height={h} fill="var(--color-accent)" />
-      {/each}
-    </svg>
-    <div class="perf-axis">
-      <span>{Math.round(histogram.min)} ms</span>
-      <span>{Math.round(histogram.max)} ms</span>
-    </div>
-  {:else if failed > 0}
-    <p class="perf-empty">No request has completed yet; only failures so far.</p>
-  {:else}
-    <p class="perf-empty">
-      No entries since the background worker last started. Translate something to populate this
-      histogram.
+  {#if off}
+    <p class="perf-empty" data-ega-perf-off>
+      Response times are off. Turn on Record request details below.
     </p>
+  {:else}
+    {#if stats.n > 0 || failed > 0}
+      <dl class="perf-stats">
+        <div>
+          <dt>Finished</dt>
+          <dd>{stats.n} of {entries.length}</dd>
+        </div>
+        <div>
+          <dt>Typical</dt>
+          <dd>{duration(stats.p50)}</dd>
+        </div>
+        <div>
+          <dt>Slowest 5%</dt>
+          <dd>over {duration(stats.p95)}</dd>
+        </div>
+        <div>
+          <dt>Failed</dt>
+          <dd>{failed}</dd>
+        </div>
+      </dl>
+    {/if}
+    {#if histogram.bins.length > 0}
+      <svg viewBox="0 0 200 60" class="perf-svg" role="img" aria-label="Chart of response times">
+        {#each histogram.bins as bin, i (i)}
+          {@const h = maxBin === 0 ? 0 : (bin / maxBin) * 55}
+          <rect x={i * 20 + 2} y={60 - h} width={16} height={h} fill="var(--color-accent)" />
+        {/each}
+      </svg>
+      <div class="perf-axis" aria-hidden="true">
+        <span>{duration(histogram.min)}</span>
+        <span>{duration((histogram.min + histogram.max) / 2)}</span>
+        <span>{duration(histogram.max)}</span>
+      </div>
+    {:else if failed > 0}
+      <p class="perf-empty">No request has finished yet; only failures so far</p>
+    {:else}
+      <p class="perf-empty">Translate something to see response times</p>
+    {/if}
   {/if}
-  <div class="perf-actions">
-    <button type="button" onclick={copyJson} disabled={entries.length === 0}>Copy JSON</button>
-  </div>
 </div>
 
 <style>
@@ -94,10 +107,21 @@
   }
   .perf-stats {
     display: flex;
-    gap: var(--space-3);
-    font-size: var(--fs-sm);
-    font-family: var(--font-mono);
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-5);
+    margin: 0;
+    font-size: var(--fs-base);
+  }
+  .perf-stats div {
+    display: flex;
+    gap: var(--space-2);
+  }
+  .perf-stats dt {
     color: var(--color-muted);
+  }
+  .perf-stats dd {
+    margin: 0;
+    font-variant-numeric: tabular-nums;
   }
   .perf-svg {
     width: 100%;
@@ -112,15 +136,11 @@
     max-width: 400px;
     font-size: var(--fs-xs);
     color: var(--color-muted);
-    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
   }
   .perf-empty {
     color: var(--color-muted);
-    font-size: var(--fs-sm);
+    font-size: var(--fs-base);
     margin: 0;
-  }
-  .perf-actions {
-    display: flex;
-    gap: var(--space-2);
   }
 </style>

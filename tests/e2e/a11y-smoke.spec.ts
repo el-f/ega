@@ -191,9 +191,12 @@ test('options with the settings search dialog open passes axe critical-only smok
 
 test('options with a confirm dialog open passes axe critical-only smoke', async () => {
   const buckets = await scan(optionsUrl(), async (page) => {
-    await page.locator('#tab-about').click();
-    await page.getByRole('button', { name: 'Clear cache' }).click();
-    await expect(page.getByRole('dialog', { name: 'Clear translation cache' })).toBeVisible();
+    // Clear cache acts at once now; exporting with API keys still asks.
+    await page.locator('#tab-advanced').click();
+    await page.locator('[data-ega-subtab="data"]').click();
+    await page.getByRole('checkbox', { name: 'Include API keys' }).check();
+    await page.getByRole('button', { name: 'Export all settings' }).click();
+    await expect(page.getByRole('dialog', { name: 'Export with API keys?' })).toBeVisible();
   });
   expectClean('options-confirm-dialog', buckets);
 });

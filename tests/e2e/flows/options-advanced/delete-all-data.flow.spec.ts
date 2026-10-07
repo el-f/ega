@@ -1,4 +1,4 @@
-/* coverage: options.about.delete-all-data */
+/* coverage: options.advanced.delete-all-data */
 import { test, expect } from '@playwright/test';
 import { launchExtension, readStorage, seedSettings, type ExtensionHandle } from '../../helpers';
 import { createTimeline } from '../_harness';
@@ -35,18 +35,19 @@ test('Delete all data clears both storage.local and storage.session after typing
   const timeline = createTimeline();
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
-  await page.locator('#tab-about').click();
-  timeline.markStep('about-active');
+  await page.locator('#tab-advanced').click();
+  await page.locator('[data-ega-subtab="data"]').click();
+  timeline.markStep('data-active');
 
-  await page.getByRole('button', { name: 'Delete all data' }).click();
+  await page.locator('[data-ega-delete-all]').click();
 
-  const dialog = page.locator('.ega-dialog', { hasText: 'Delete all data' });
+  const dialog = page.locator('.ega-dialog', { hasText: 'Delete all data?' });
   await expect(dialog).toBeVisible({ timeout: 5_000 });
 
-  const confirmBtn = dialog.getByRole('button', { name: 'Delete all data', exact: true });
-  await expect(confirmBtn).toBeDisabled();
+  const confirmBtn = page.locator('[data-ega-delete-all-confirm]');
+  await expect(confirmBtn).toHaveAttribute('aria-disabled', 'true');
 
-  await dialog.locator('#confirm-input').fill('DELETE');
+  await dialog.locator('[data-ega-delete-all-field]').fill('DELETE');
   await expect(confirmBtn).toBeEnabled({ timeout: 2_000 });
   await confirmBtn.click();
   timeline.markStep('confirmed');
@@ -114,11 +115,12 @@ test('Delete all data empties an open side panel, and that panel does not write 
 
   const options = await ext.context.newPage();
   await options.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
-  await options.locator('#tab-about').click();
-  await options.getByRole('button', { name: 'Delete all data' }).click();
-  const dialog = options.locator('.ega-dialog', { hasText: 'Delete all data' });
-  await dialog.locator('#confirm-input').fill('DELETE');
-  await dialog.getByRole('button', { name: 'Delete all data', exact: true }).click();
+  await options.locator('#tab-advanced').click();
+  await options.locator('[data-ega-subtab="data"]').click();
+  await options.locator('[data-ega-delete-all]').click();
+  const dialog = options.locator('.ega-dialog', { hasText: 'Delete all data?' });
+  await dialog.locator('[data-ega-delete-all-field]').fill('DELETE');
+  await options.locator('[data-ega-delete-all-confirm]').click();
   timeline.markStep('purge-confirmed');
 
   await expect(panel.locator('.ega-user-turn')).toHaveCount(0, { timeout: 10_000 });

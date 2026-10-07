@@ -65,7 +65,7 @@ test('Advanced: clicking Data shows the reset button', async () => {
   await expect(page.locator('[data-ega-reset-defaults]')).toBeVisible({ timeout: 5_000 });
 });
 
-test('Reset to defaults restores temperature + maxTokens to shipped values', async () => {
+test('Reset restores temperature + maxTokens to shipped values', async () => {
   const page = await openAdvanced();
 
   // Seed via storage — bits-ui paints Slider without an <input>, so UI-level mutation is fragile.
@@ -91,12 +91,9 @@ test('Reset to defaults restores temperature + maxTokens to shipped values', asy
     .toBe(1.9);
 
   await selectSubTab(page, 'data');
+  // Acts at once, with Undo in the toast.
   await page.locator('[data-ega-reset-defaults]').click();
-  const dialog = page.locator('.ega-dialog', { hasText: 'Reset prompt and generation settings' });
-  await expect(dialog).toBeVisible();
-  await dialog.locator('#confirm-input').fill('RESET');
-  await dialog.getByRole('button', { name: 'Reset', exact: true }).click();
-  await expect(dialog).toHaveCount(0);
+  await expect(page.locator('.ega-dialog')).toHaveCount(0);
 
   await expect
     .poll(

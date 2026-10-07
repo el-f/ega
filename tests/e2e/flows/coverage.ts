@@ -773,20 +773,36 @@ export const COVERAGE: readonly Family[] = [
           {
             id: 'subtab-navigation',
             description:
-              'Advanced sub-tab clicks navigate Data/Labs panes; sessionStorage persists active tab',
+              'Advanced sub-tab clicks navigate Data/Diagnostics panes; sessionStorage persists active tab',
             flows: ['options-advanced/subtab-navigation.flow.spec.ts'],
           },
           {
             id: 'diagnostics-tools-reset',
-            description:
-              'Change debug log level → SectionReset appears → click → reverts to default',
+            description: 'Change Log detail → SectionReset appears → click → reverts to default',
             flows: ['options-advanced/diagnostics-tools-reset.flow.spec.ts'],
           },
           {
             id: 'saved-conversations',
             description:
-              'Data lists saved side panel threads; Delete empties an open panel, Clear all removes every thread',
+              'Data lists saved side panel threads; Delete empties an open panel, Delete all removes every thread',
             flows: ['options-advanced/saved-conversations.flow.spec.ts'],
+          },
+          {
+            id: 'clear-cache',
+            description:
+              'Data → Reset and delete → Clear cache acts at once → cache:clear sent + toast',
+            flows: ['options-advanced/clear-cache.flow.spec.ts'],
+          },
+          {
+            id: 'delete-all-data',
+            description: 'Data → Delete all data → type DELETE → storage cleared',
+            flows: ['options-advanced/delete-all-data.flow.spec.ts'],
+          },
+          {
+            id: 'delete-all-data-cancel',
+            description:
+              'Data → Delete all data → wrong word does nothing → Keep my data → storage untouched',
+            flows: ['options-advanced/delete-all-data-cancel.flow.spec.ts'],
           },
         ],
       },
@@ -1114,17 +1130,19 @@ export const COVERAGE: readonly Family[] = [
           {
             id: 'backup-import-all-settings',
             description:
-              'Advanced→Data → Import → pick valid JSON → confirm → settings overwritten → status shown',
+              'Advanced→Data → Import settings... → pick valid JSON → Import settings? names the file → Import → status shown',
             flows: ['options-backends/backup-import-all-settings.flow.spec.ts'],
           },
           {
             id: 'backup-import-cancel',
-            description: 'Advanced→Data → Import → pick file → cancel confirm → settings unchanged',
+            description:
+              'Advanced→Data → Import settings... → pick file → Keep current settings → settings unchanged',
             flows: ['options-backends/backup-import-cancel.flow.spec.ts'],
           },
           {
             id: 'reset-all-advanced-to-defaults',
-            description: 'Advanced→Data → Reset ALL → type RESET → defaults restored toast',
+            description:
+              'Advanced→Data → Reset acts at once → prompt and model settings back, site overrides kept → Undo restores',
             flows: ['options-backends/reset-all-advanced-to-defaults.flow.spec.ts'],
           },
           {
@@ -1181,24 +1199,8 @@ export const COVERAGE: readonly Family[] = [
         actions: [
           {
             id: 'version-display',
-            description: 'About tab renders Privacy + Credits + source link',
+            description: 'About tab renders Privacy + Credits and links + source link',
             flows: ['options-about/version-display.flow.spec.ts'],
-          },
-          {
-            id: 'clear-cache',
-            description: 'About → Clear cache → confirm → session cache key removed',
-            flows: ['options-about/clear-cache.flow.spec.ts'],
-          },
-          {
-            id: 'delete-all-data',
-            description: 'About → Delete all data → type DELETE → storage cleared',
-            flows: ['options-about/delete-all-data.flow.spec.ts'],
-          },
-          {
-            id: 'delete-all-data-cancel',
-            description:
-              'About → Delete all data → wrong confirm text → disabled → storage untouched',
-            flows: ['options-about/delete-all-data-cancel.flow.spec.ts'],
           },
         ],
       },
@@ -1265,12 +1267,12 @@ export const COVERAGE: readonly Family[] = [
         actions: [
           {
             id: 'clear-host',
-            description: 'Per-row clear removes the host entry from sitePrefs',
+            description: 'Remove on a row takes the host out of sitePrefs at once, with Undo',
             flows: ['options-site-overrides-review/clear-host.flow.spec.ts'],
           },
           {
             id: 'clear-all',
-            description: 'Clear-all empties sitePrefs after confirm',
+            description: 'Remove all empties sitePrefs at once; Undo puts every site back',
             flows: ['options-site-overrides-review/clear-all.flow.spec.ts'],
           },
         ],
@@ -1285,7 +1287,7 @@ export const COVERAGE: readonly Family[] = [
           },
           {
             id: 'export-log',
-            description: 'Export-as-JSON triggers a download',
+            description: 'Export in the Recent requests header triggers a download',
             flows: ['options-audit-log/export-log.flow.spec.ts'],
           },
           {
@@ -1295,12 +1297,13 @@ export const COVERAGE: readonly Family[] = [
           },
           {
             id: 'clear-log',
-            description: 'Clear button + confirm removes all entries from storage and empties list',
+            description:
+              'Clear in the header + confirm removes all entries from storage and empties list',
             flows: ['options-audit-log/clear-log.flow.spec.ts'],
           },
           {
             id: 'expand-entry',
-            description: 'Clicking entry row opens collapsible body with prompt/response/latency',
+            description: 'Details on a row opens its body in place with prompt/response/latency',
             flows: ['options-audit-log/expand-entry.flow.spec.ts'],
           },
           {
@@ -1316,14 +1319,8 @@ export const COVERAGE: readonly Family[] = [
           },
           {
             id: 'diff-two-entries',
-            description: 'Compare on two entries opens AuditDiffModal with side-by-side diff',
+            description: 'Compare in the Details of two requests opens the side-by-side comparison',
             flows: ['options-audit-log/diff-two-entries.flow.spec.ts'],
-          },
-          {
-            id: 'quick-filter-from-entry',
-            description:
-              'Expand entry then click task quick-filter chip applies filter + scrolls filter row into view',
-            flows: ['options-audit-log/quick-filter-from-entry.flow.spec.ts'],
           },
         ],
       },
