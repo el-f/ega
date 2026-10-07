@@ -92,14 +92,19 @@ function providerErrorDetail(body: string): string {
   return typeof message === 'string' ? sanitizeErrorBody(message) : '';
 }
 
-/** Over the model's context: Anthropic's "prompt is too long", OpenAI-compatible context_length_exceeded, Gemini's input token count. */
+/** Anthropic, OpenAI-compatible, Gemini, llama-server (both of its texts) and LM Studio (old and new). */
+const OVER_CONTEXT =
+  /prompt is too long|maximum context length|input token count .* exceeds|exceeds the available context size|larger than the max context size|context size has been exceeded|context length of only/i;
+
+/** The prompt is over the model's context. LM Studio sends the sentence as a bare string. */
 function isPromptTooLong(err: unknown): boolean {
+  if (typeof err === 'string') return OVER_CONTEXT.test(err);
   if (err === null || typeof err !== 'object') return false;
-  const { code, message } = err as { code?: unknown; message?: unknown };
+  const { code, type, message } = err as { code?: unknown; type?: unknown; message?: unknown };
   return (
     code === 'context_length_exceeded' ||
-    (typeof message === 'string' &&
-      /prompt is too long|maximum context length|input token count .* exceeds/i.test(message))
+    type === 'exceed_context_size_error' ||
+    (typeof message === 'string' && OVER_CONTEXT.test(message))
   );
 }
 

@@ -3,6 +3,7 @@ import { LocalServerBackend, localServerBaseUrl } from '@/shared/backends/local-
 import { DEFAULT_MODEL } from '@/shared/settings-schema';
 import { resolveSamplingSupport } from '@/shared/backends/sampling-caps';
 import { shouldRotate } from '@/shared/error-policy';
+import { errorCopy } from '@/shared/error-copy';
 import { sel } from '@tests/_helpers/lang';
 import { setFetchHandler } from '@tests/mocks/fetch';
 import { noopCancel } from '@tests/_helpers/cancel';
@@ -301,6 +302,50 @@ describe('LocalServerBackend', () => {
       expect(err.code).toBe('REQUEST');
       expect(err.message).toContain('http://127.0.0.1:1234');
       expect(err.message).toContain('"qwen3-8b"');
+    });
+
+    // Real wording: llama.cpp tools/server/server-context.cpp; lmstudio-bug-tracker #237 (0.3, HTTP 400) and #1757 (0.4.7).
+    it.each([
+      [
+        'llama-server, a request over the context',
+        {
+          error: {
+            code: 400,
+            message:
+              'request (12009 tokens) exceeds the available context size (8192 tokens), try increasing it',
+            type: 'exceed_context_size_error',
+            n_prompt_tokens: 12009,
+            n_ctx: 8192,
+          },
+        },
+      ],
+      [
+        'llama-server, a prompt over the whole context',
+        {
+          error: {
+            code: 400,
+            message:
+              'input (9000 tokens) is larger than the max context size (8192 tokens). skipping',
+            type: 'exceed_context_size_error',
+          },
+        },
+      ],
+      [
+        'LM Studio 0.3',
+        {
+          error:
+            '<LM Studio error> Trying to keep the first 15857 tokens when context the overflows. However, the model is loaded with context length of only 4096 tokens, which is not enough. Try to load the model with a larger context length, or provide a shorter input. Error Data: n/a, Additional Data: n/a',
+        },
+      ],
+      ['LM Studio 0.4', { error: 'Context size has been exceeded.' }],
+    ])('%s reads "Text too long", not "Request rejected"', async (_server, body) => {
+      setFetchHandler(async () => Response.json(body, { status: 400 }));
+      const chunks: TranslationChunk[] = [];
+      await new LocalServerBackend().translate(mkArgs({ onChunk: (c) => chunks.push(c) }));
+      const err = lastError(chunks);
+      expect(err.code).toBe('REQUEST');
+      expect(err.message).toMatch(/^The request was too long\. Select less text\.\n/);
+      expect(errorCopy(err.code, err.message)?.id).toBe('REQUEST_TOO_LONG');
     });
 
     it('a server error names the server in the provider line', async () => {
