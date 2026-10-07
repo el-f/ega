@@ -109,13 +109,17 @@ describe('the Tone select lines up with From and To', () => {
 
   it('one label column for From, To and Tone', () => {
     expect(src).toMatch(/\.mp-langs\s*\{[^}]*grid-template-columns:\s*var\(--mp-label-w\)/);
-    expect(src).toMatch(/\.mp-tone \.mp-label\s*\{[^}]*inline-size:\s*var\(--mp-label-w\)/);
+    expect(src).toMatch(
+      /\.mp-tone\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*var\(--mp-label-w\) minmax\(0, 1fr\);/,
+    );
   });
 
+  // A margin of 28px plus the gap is off the spacing scale (design check 6); an empty grid column is not spacing.
   it('the Tone select stops where the swap column starts, when there is one', async () => {
     expect(src).toMatch(
-      /\.mp-tone\.beside-swap :global\(\.ega-select-wrap\)\s*\{[^}]*margin-inline-end/,
+      /\.mp-tone\.beside-swap\s*\{\s*grid-template-columns:\s*var\(--mp-label-w\) minmax\(0, 1fr\) 28px;/,
     );
+    expect(src).not.toMatch(/margin-inline-end:\s*calc\(28px/);
     render(ModePopover, {
       props: props({ task: 'reword', usesTone: true, swap: { source: 'en', target: 'es' } }),
     });

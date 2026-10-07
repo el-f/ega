@@ -190,21 +190,17 @@
     grid-row: 1 / span 2;
   }
   .mp-tone {
-    flex-direction: row;
+    display: grid;
+    grid-template-columns: var(--mp-label-w) minmax(0, 1fr);
     align-items: center;
     gap: var(--space-2);
   }
-  .mp-tone .mp-label {
-    flex: none;
-    inline-size: var(--mp-label-w);
+  /* The rows above keep a column for the 28px swap button; an empty one here ends Tone where From and To end. */
+  .mp-tone.beside-swap {
+    grid-template-columns: var(--mp-label-w) minmax(0, 1fr) 28px;
   }
   .mp-tone :global(.ega-select-wrap) {
-    flex: 1 1 auto;
     min-inline-size: 0;
-  }
-  /* The rows above keep a column for the 28px swap button; the Tone select stops where From and To stop. */
-  .mp-tone.beside-swap :global(.ega-select-wrap) {
-    margin-inline-end: calc(28px + var(--space-2));
   }
   .mp-link {
     padding: 0;
