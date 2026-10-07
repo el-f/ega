@@ -211,3 +211,28 @@ describe('Conversations popover', () => {
     expect(rows().map((r) => r.dataset['egaConvRow'])).toContain('https://new.test');
   });
 });
+
+// The panel has one h1 (sr-only "Ega"), and About this reply uses h2, so the group titles are h2.
+describe('Conversations headings', () => {
+  it('titles the groups with h2, right under the panel h1', async () => {
+    await seed();
+    render(ConversationsPopover, {
+      props: {
+        open: true,
+        anchor: anchor(),
+        activeId: 'https://a.test',
+        tabSite: 'https://a.test',
+        onClose: () => {},
+        onOpen: async () => true,
+        onDelete: async () => ({ undo: () => {} }),
+      },
+    });
+    await waitFor(() => expect(rows()).toHaveLength(3));
+    const list = document.querySelector('[data-ega-conversations]');
+    expect([...(list?.querySelectorAll('h2') ?? [])].map((h) => h.textContent.trim())).toEqual([
+      'This site',
+      'Other sites',
+    ]);
+    expect(list?.querySelector('h3, h4, h5, h6')).toBeNull();
+  });
+});

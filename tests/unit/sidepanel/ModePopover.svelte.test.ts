@@ -128,3 +128,17 @@ describe('the Tone select lines up with From and To', () => {
     );
   });
 });
+
+// The panel has one h1 (sr-only "Ega"), and About this reply uses h2, so these section titles are h2.
+describe('section headings sit right under the panel h1', () => {
+  it('names Task, Language and Page info with h2', async () => {
+    render(ModePopover, { props: props({ contextEnabled: false }) });
+    const p = await popover();
+    expect([...p.querySelectorAll('h2')].map((h) => h.textContent.trim())).toEqual([
+      'Task',
+      'Language',
+      'Page info',
+    ]);
+    expect(p.querySelector('h3, h4, h5, h6')).toBeNull();
+  });
+});

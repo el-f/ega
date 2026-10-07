@@ -61,7 +61,7 @@
 <Popover {open} {anchor} {onClose} placement="top-start" title="Next message">
   <div class="mp" data-ega-mode-popover>
     <section class="mp-section" aria-labelledby="mp-task">
-      <h3 class="mp-label" id="mp-task">Task</h3>
+      <h2 class="mp-label" id="mp-task">Task</h2>
       {#if imageBlocked !== null}
         <p class="mp-note">Images work with Translate and Explain</p>
       {/if}
@@ -73,7 +73,7 @@
     </section>
 
     <section class="mp-section" aria-labelledby="mp-lang">
-      <h3 class="mp-label" id="mp-lang">Language</h3>
+      <h2 class="mp-label" id="mp-lang">Language</h2>
       <div class="mp-langs">
         <label class="mp-row-label" for="sp-conv-source">From</label>
         <LanguagePicker
@@ -123,7 +123,7 @@
         {#if contextEnabled}
           <ContextLevelPicker value={pageContextLevel} onchange={onContextLevelChange} />
         {:else}
-          <h3 class="mp-label">Page info</h3>
+          <h2 class="mp-label">Page info</h2>
           <p class="mp-note">
             Page info is off.
             <button type="button" class="mp-link" onclick={onOpenSettings}

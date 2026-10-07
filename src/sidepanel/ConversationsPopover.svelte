@@ -251,7 +251,7 @@
           <!-- presentation: a box for the arrow-key handler; the buttons inside carry the roles. -->
           <div class="cv-lists" role="presentation" bind:this={listEl} onkeydown={onListKeydown}>
             {#if groups.thisSite.length > 0}
-              <h3 class="cv-group" id="cv-this-site">This site</h3>
+              <h2 class="cv-group" id="cv-this-site">This site</h2>
               <ul class="cv-list" aria-labelledby="cv-this-site">
                 {#each groups.thisSite as e, i (e.origin)}
                   {@render row(e, false, i === 0)}
@@ -259,7 +259,7 @@
               </ul>
             {/if}
             {#if groups.otherSites.length > 0}
-              <h3 class="cv-group" id="cv-other-sites">Other sites</h3>
+              <h2 class="cv-group" id="cv-other-sites">Other sites</h2>
               <ul class="cv-list" aria-labelledby="cv-other-sites">
                 {#each groups.otherSites as e, i (e.origin)}
                   {@render row(e, true, groups.thisSite.length === 0 && i === 0)}
