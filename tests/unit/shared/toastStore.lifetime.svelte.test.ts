@@ -168,14 +168,24 @@ describe('toast lifetime', () => {
     expect(toastEl('Clipboard is empty.')).not.toBeNull();
   });
 
+  // Pins the markup Chromium's accessibility tree reads as assertive for a warning or an error (X14 role=alert).
   it('announces a warning or an error at once, a confirmation politely', async () => {
-    toastStore.push({ message: 'Could not save.', variant: 'danger' });
-    toastStore.push({ message: 'Check the key.', variant: 'warning' });
-    toastStore.push({ message: 'Saved.', variant: 'success' });
-    await advance(100);
-    expect(toastEl('Could not save.')?.getAttribute('aria-live')).toBe('assertive');
-    expect(toastEl('Check the key.')?.getAttribute('aria-live')).toBe('assertive');
-    expect(toastEl('Saved.')?.getAttribute('aria-live')).toBe('polite');
+    for (const [message, variant, live] of [
+      ['Could not save.', 'danger', 'assertive'],
+      ['Check the key.', 'warning', 'assertive'],
+      ['Saved.', 'success', 'polite'],
+      ['Pick a language first.', 'info', 'polite'],
+    ] as const) {
+      toastStore.push({ message, variant });
+      await advance(100);
+      const toast = toastEl(message);
+      const title = toast?.querySelector('[data-title]');
+      expect(title?.textContent.trim()).toBe(message);
+      // The nearest live region over the text is the toast itself, read whole.
+      expect(title?.closest('[aria-live]')).toBe(toast);
+      expect(toast?.getAttribute('aria-live')).toBe(live);
+      expect(toast?.getAttribute('aria-atomic')).toBe('true');
+    }
   });
 
   it('lets timers run again once the hovered toast is closed', async () => {
