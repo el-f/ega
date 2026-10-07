@@ -68,6 +68,8 @@ export function openInline(opts: OpenInlineOpts): boolean {
   // The original stays readable (dimmed via CSS) until the first real delta swaps it out.
   wrapper.setAttribute('data-ega-pending', '');
   wrapper.dataset['egaOriginal'] = originalText;
+  // Wrapping fires selectionchange on a selection that still holds the text, which would bring the bubble back.
+  collapseSelectionAfter(wrapper);
 
   // The caller registers the request before opening, so its task and direction are already there.
   const req = pending.get(opts.requestId);

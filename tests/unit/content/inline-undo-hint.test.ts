@@ -60,6 +60,19 @@ describe('inline replace — every replace offers Undo', () => {
     expect(toast()?.textContent).toContain('Replaced with the translation.');
   });
 
+  it('lets go of the selection as soon as the replace starts, so the bubble cannot offer it again', async () => {
+    const inline = await import('@/content/inlineReplace');
+    const p = document.getElementById('p') as HTMLElement;
+    const range = document.createRange();
+    range.selectNodeContents(p);
+    window.getSelection()?.removeAllRanges();
+    window.getSelection()?.addRange(range);
+    inline.openInline({ requestId: 'r-pending', range, stuckTimeoutMs: STUCK_MS });
+    expect(document.querySelector('[data-ega-pending]')).not.toBeNull();
+    expect(window.getSelection()?.isCollapsed).toBe(true);
+    inline.restoreInline('r-pending');
+  });
+
   it('moves the selection to the end of the replaced text', async () => {
     await translateInPlace();
     const sel = window.getSelection();
