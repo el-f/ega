@@ -757,6 +757,29 @@
   .ega-notes-text :global(.ega-md pre) {
     font-size: var(--fs-sm);
   }
+  /* The shared Markdown draws 1-2px cell and code padding and bold table heads; the panel keeps its scale and two weights. */
+  .ega-answer :global(.ega-md th),
+  .ega-answer :global(.ega-md td),
+  .ega-notes-text :global(.ega-md th),
+  .ega-notes-text :global(.ega-md td) {
+    padding-block: var(--space-1);
+  }
+  .ega-answer :global(.ega-md th),
+  .ega-notes-text :global(.ega-md th) {
+    font-weight: 600;
+  }
+  .ega-answer :global(.ega-md code),
+  .ega-notes-text :global(.ega-md code) {
+    padding-block: 0;
+  }
+  /* About this reply's text buttons are 28px targets in the panel, like every other control (spec §9.2). */
+  .ega-reply :global(.reply-details .rd-link),
+  .ega-reply :global(.reply-details .rd-copy) {
+    min-block-size: 28px;
+  }
+  .ega-reply :global(.reply-details .rd-copy) {
+    padding-block: var(--space-1);
+  }
   .ega-plain {
     white-space: pre-wrap;
     font-family: inherit;

@@ -175,6 +175,11 @@
     min-inline-size: 0;
     inline-size: 100%;
   }
+  /* The shared pickers draw 26px; the panel's targets are 28px, and the chevron room takes the spacing scale. */
+  .mp :global(select) {
+    min-block-size: 28px;
+    padding-inline-end: var(--space-5);
+  }
   /* Spans both rows: it trades From and To. */
   .mp-swap {
     grid-column: 3;

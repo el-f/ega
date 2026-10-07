@@ -121,3 +121,42 @@ describe('a wide panel keeps one reading column', () => {
     expect(column).toMatch(/max-inline-size:\s*720px/);
   });
 });
+
+// Side panel spec §13.2 checks 6, 7 and 10: shared pieces drawn inside the panel keep its targets, scale and weights.
+describe('shared pieces inside the panel follow its targets and scale', () => {
+  const turn = read('src/sidepanel/conversation/AssistantTurn.svelte');
+
+  it('makes About this reply text buttons 28px targets', () => {
+    const body = rule(
+      turn,
+      '\\.ega-reply :global\\(\\.reply-details \\.rd-link\\),\\s*\\.ega-reply :global\\(\\.reply-details \\.rd-copy\\)',
+    );
+    expect(body).toMatch(/min-block-size:\s*28px/);
+  });
+
+  it('makes the language and tone pickers 28px targets in both popovers', () => {
+    for (const [file, scope] of [
+      ['src/sidepanel/conversation/ModePopover.svelte', '\\.mp'],
+      ['src/sidepanel/conversation/ReplyMenus.svelte', '\\.rm-into'],
+    ] as const) {
+      const body = rule(read(file), `${scope} :global\\(select\\)`);
+      expect(body, file).toMatch(/min-block-size:\s*28px/);
+      expect(body, file).toMatch(/padding-inline-end:\s*var\(--space-5\)/);
+    }
+  });
+
+  it('gives Markdown table cells scale padding and table heads the 600 weight', () => {
+    expect(
+      rule(
+        turn,
+        '\\.ega-answer :global\\(\\.ega-md th\\),\\s*\\.ega-answer :global\\(\\.ega-md td\\),\\s*\\.ega-notes-text :global\\(\\.ega-md th\\),\\s*\\.ega-notes-text :global\\(\\.ega-md td\\)',
+      ),
+    ).toMatch(/padding-block:\s*var\(--space-1\)/);
+    expect(
+      rule(
+        turn,
+        '\\.ega-answer :global\\(\\.ega-md th\\),\\s*\\.ega-notes-text :global\\(\\.ega-md th\\)',
+      ),
+    ).toMatch(/font-weight:\s*600/);
+  });
+});

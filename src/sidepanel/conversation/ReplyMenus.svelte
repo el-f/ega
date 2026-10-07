@@ -304,6 +304,10 @@
   .rm-into-label {
     font-weight: 600;
   }
+  .rm-into :global(select) {
+    min-block-size: 28px;
+    padding-inline-end: var(--space-5);
+  }
   .rm-into :global(.ega-btn) {
     align-self: flex-start;
   }
