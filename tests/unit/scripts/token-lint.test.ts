@@ -187,8 +187,13 @@ describe('token-lint font sizes', () => {
     expect(lintSvelte(src, 'x.svelte')).toEqual([]);
   });
 
-  it.each(['unset', 'initial', 'revert', 'revert-layer'])('accepts font-size: %s', (v) => {
+  // inherit and unset keep the parent's scale size; the other CSS-wide keywords compute to a browser default.
+  it.each(['inherit', 'unset'])('accepts font-size: %s', (v) => {
     expect(lintCss(`.a { font-size: ${v}; }`, 'x.css')).toEqual([]);
+  });
+
+  it.each(['initial', 'revert', 'revert-layer'])('flags font-size: %s as off the scale', (v) => {
+    expect(lintCss(`.a { font-size: ${v}; }`, 'x.css').map((x) => x.kind)).toEqual(['font']);
   });
 
   it('reads a font shorthand that prettier wrapped onto the next lines', () => {

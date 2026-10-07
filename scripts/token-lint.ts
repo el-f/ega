@@ -2,7 +2,7 @@ import { readFile, readdir, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-// Contract: font sizes come from the type scale — a `font-size` is var(--fs-*), a custom property that falls back to one, or a CSS-wide keyword (inherit/initial/unset/revert); a `font` shorthand carries no literal size; a custom property some font-size reads is assigned only scale values. Checked in <style>, style attributes and style: directives, and in style writes from .ts and <script> code. The same ALLOW_MARKER skips one declaration (page-DOM text sized in em on purpose).
+// Contract: font sizes come from the type scale — a `font-size` is var(--fs-*), a custom property that falls back to one, or inherit/unset (initial, revert and revert-layer compute to a browser default, off the scale); a `font` shorthand carries no literal size; a custom property some font-size reads is assigned only scale values. Checked in <style>, style attributes and style: directives, and in style writes from .ts and <script> code. The same ALLOW_MARKER skips one declaration (page-DOM text sized in em on purpose).
 // Contract: raw color literals — #hex AND rgb()/rgba()/hsl()/hsla()/oklch()/oklab()/color-mix() — belong in src/shared/tokens.css only; elsewhere use var(--color-*). Append the ALLOW_MARKER below in a CSS comment to skip one line. Hex fails the gate. Color functions fail too, except the frozen set in token-lint-baseline.json; `--update-baseline` only prunes entries that are gone, so the set can shrink and never grow.
 
 // Non-global so .test() doesn't carry lastIndex between calls.
@@ -35,7 +35,7 @@ const TS_SET_PROPERTY_RE = /\.setProperty\(\s*['"\x60](font-size|--[\w-]+)['"\x6
 // A declaration whose value prettier moved to the next lines.
 const OPEN_DECL_RE = /(?:^|[\s;{])(?:font|font-size|--[\w-]+)\s*:\s*$/;
 const SCALE_VALUE_RE =
-  /^(?:inherit|initial|unset|revert|revert-layer|var\(--fs-[\w-]+\)|var\(--[\w-]+,\s*var\(--fs-[\w-]+\)\))(?:\s*!important)?$/;
+  /^(?:inherit|unset|var\(--fs-[\w-]+\)|var\(--[\w-]+,\s*var\(--fs-[\w-]+\)\))(?:\s*!important)?$/;
 const LITERAL_SIZE_RE =
   /\d(?:px|em|rem|pt|pc|%|vw|vh|vi|vb|vmin|vmax|ch|ex|cap|ic|lh|rlh|q|cm|mm|in)(?![\w-])|(?<![\w-])(?:xx-small|x-small|small|medium|large|x-large|xx-large|xxx-large|smaller|larger)(?![\w-])/i;
 const STRING_LITERAL_RE = /^(['"\x60])([^'"\x60$]*)\1$/;
