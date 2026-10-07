@@ -49,6 +49,16 @@ describe('a reply row is one row of 28px buttons', () => {
     expect(row).toMatch(/min-block-size:\s*28px/);
   });
 
+  it('keeps inline code at the text size in the answer and in the notes', () => {
+    // Markdown draws inline code at 0.95em (13.3px under a 14px answer), off the type scale.
+    for (const box of ['ega-answer', 'ega-notes-text']) {
+      const code = new RegExp(`\\.${box} :global\\(\\.ega-md code\\)[,\\s][^{]*\\{([^}]*)\\}`).exec(
+        src,
+      )?.[1];
+      expect(code, box).toMatch(/font-size:\s*inherit/);
+    }
+  });
+
   it('draws the Refine and More menu buttons as sm icon buttons, like the IconButtons beside them', () => {
     expect(menus.match(/class="ega-icon-btn variant-default size-sm"/g)).toHaveLength(2);
   });
@@ -68,6 +78,18 @@ describe('a keyboard focus lands somewhere visible', () => {
   it('gives the shared input a 2px ring, not a 1px border tint', () => {
     const body = rule(read('src/shared/ui/Input.svelte'), '\\.ega-input-row:focus-within');
     expect(body).toMatch(/outline:\s*2px solid var\(--color-accent\)/);
+  });
+
+  it('rings the message bubble, not the full-width row the bubble sits in', () => {
+    const src = read('src/sidepanel/conversation/UserTurn.svelte');
+    expect(
+      rule(
+        src,
+        '\\.ega-user-turn\\.focused \\.ega-bubble,\\s*\\.ega-user-turn:focus-visible \\.ega-bubble',
+      ),
+    ).toMatch(/outline:\s*2px solid var\(--color-accent\)/);
+    expect(rule(src, '\\.ega-user-turn:focus-visible')).toMatch(/outline:\s*none/);
+    expect(src).not.toMatch(/\.ega-user-turn\.focused\s*\{/);
   });
 
   it('stops the panel search box from suppressing the global ring', () => {

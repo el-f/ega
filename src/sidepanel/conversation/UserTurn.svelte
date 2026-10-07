@@ -219,7 +219,12 @@
     min-inline-size: 0;
     border-radius: var(--radius-lg);
   }
-  .ega-user-turn.focused {
+  /* The ring hugs the bubble: the article spans the row, so a ring on it draws an empty box. */
+  .ega-user-turn:focus-visible {
+    outline: none;
+  }
+  .ega-user-turn.focused .ega-bubble,
+  .ega-user-turn:focus-visible .ega-bubble {
     outline: 2px solid var(--color-accent);
     outline-offset: 2px;
   }

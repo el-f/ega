@@ -740,14 +740,21 @@
   .ega-answer :global(.ega-md h1),
   .ega-answer :global(.ega-md h2),
   .ega-answer :global(.ega-md h3),
-  .ega-answer :global(.ega-md h4) {
+  .ega-answer :global(.ega-md h4),
+  .ega-notes-text :global(.ega-md h1),
+  .ega-notes-text :global(.ega-md h2),
+  .ega-notes-text :global(.ega-md h3),
+  .ega-notes-text :global(.ega-md h4) {
     font-size: var(--fs-md);
     font-weight: 600;
   }
-  .ega-answer :global(.ega-md code) {
+  /* Inline code keeps the text size (Markdown draws it at 0.95em, off the type scale); a code block is 12. */
+  .ega-answer :global(.ega-md code),
+  .ega-notes-text :global(.ega-md code) {
     font-size: inherit;
   }
-  .ega-answer :global(.ega-md pre) {
+  .ega-answer :global(.ega-md pre),
+  .ega-notes-text :global(.ega-md pre) {
     font-size: var(--fs-sm);
   }
   .ega-plain {
