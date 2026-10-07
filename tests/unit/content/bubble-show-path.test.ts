@@ -33,11 +33,15 @@ function selectWord(): void {
 }
 
 async function mountedBubble(): Promise<HTMLElement> {
-  return vi.waitFor(() => {
-    const b = peekContainer()?.querySelector<HTMLElement>('.bubble-group');
-    if (!b) throw new Error('no bubble yet');
-    return b;
-  });
+  // The first selection compiles the lazy detection modules; on a loaded machine that passes 1 s.
+  return vi.waitFor(
+    () => {
+      const b = peekContainer()?.querySelector<HTMLElement>('.bubble-group');
+      if (!b) throw new Error('no bubble yet');
+      return b;
+    },
+    { timeout: 5000 },
+  );
 }
 
 function firstRunPatches(): unknown[] {
@@ -146,5 +150,13 @@ describe('where the bubble goes, from the page it reads', () => {
     await seed({ bubbleFirstRunSeen: true });
     selectWord();
     expect((await mountedBubble()).classList.contains('is-rtl')).toBe(false);
+  });
+
+  it('a right-click hides the bubble at once: the item the user picks acts on the selection', async () => {
+    await seed({ bubbleFirstRunSeen: true });
+    selectWord();
+    await mountedBubble();
+    document.getElementById('art')?.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    expect(peekContainer()?.querySelector('.bubble-group')).toBeNull();
   });
 });

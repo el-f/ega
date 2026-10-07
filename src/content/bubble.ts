@@ -215,3 +215,5 @@ export function hideBubble(): void {
 }
 
 onShadowHostRemount(hideBubble);
+// A right-click item acts on the selection, and Translate in side panel never messages this page.
+document.addEventListener('contextmenu', () => hideBubble(), true);
