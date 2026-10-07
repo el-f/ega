@@ -14,15 +14,18 @@ build.
    Extension options.
 2. Go to the **Backends** tab and find the **Claude Code or Codex**
    card.
-3. The status pill shows the current state: **Checking…** while it checks,
-   then green **Installed** with the host version, amber **Outdated**, or red
-   **Not installed**. Left of the pill sits a second badge for the CLI child
-   process — **Cold — the first translation starts the CLI**, **Connecting…**,
-   **Warm — fast** or **Disconnected**. It refreshes every five seconds and is
-   what answers "why was that translation slow". With `codex` selected the badge
-   reads **One process per translation** instead: codex keeps no child between
-   requests, so there is nothing to be cold or warm. **Disconnected** still shows.
-4. Open **View install command**. Your platform is detected already; click
+3. The row's status pill shows the current state: **Checking...** while it
+   checks, then **Installed**, **Update needed** or **Not installed**. Open the
+   row and the first line says the same in words, for example "Installed,
+   version 4". Once the host is installed, a second line says how the next
+   answer starts: **The first translation starts the CLI**, **Starting the
+   CLI...**, **The CLI is running, so answers start fast** or **The CLI stopped;
+   the next translation starts it again**. It refreshes every five seconds and
+   is what answers "why was that translation slow". With `codex` selected the
+   line reads **Codex starts once per translation** instead: codex keeps no
+   child between requests, so there is nothing to be cold or warm. The stopped
+   line still shows.
+4. Open **Show install steps**. Your platform is detected already; click
    **Show all** if you want the command for another OS.
 5. Click the copy icon, paste into a terminal, press Enter. The paste is
    large — the whole host is inside the command as over 80 KB of base64 —
@@ -31,7 +34,7 @@ build.
    `certutil`, or **Download .sh installer** (macOS and Linux). A downloaded
    file is not executable, so start the `.sh` with
    `bash ~/Downloads/ega-native-host-install.sh`.
-6. Click the **Recheck** icon in the card. The pill should turn green.
+6. Click the **Recheck** icon in the card. The pill should change to **Installed**.
 
 The command prints its own six steps as it runs — check Node, create the
 runtime directory, write the host, write the launcher, write the manifest,
@@ -49,10 +52,10 @@ Store copy — keeps working.
 
 ## Update
 
-When a new Ega build raises the host version, the pill turns amber
-**Outdated** and names both versions. Open **Update command
-(install again to get the fixes)**, copy, run it again. Registered extension
-ids are kept; the host script is replaced in place.
+When a new Ega build raises the host version, the pill reads **Update needed**
+and the line in the row names both versions. Open **Show update steps**, copy,
+run it again. Registered extension ids are kept; the host script is replaced in
+place.
 
 ## Uninstall
 
@@ -106,8 +109,8 @@ After that:
   past 90 seconds on its own.
 - Five minutes after the last translation the host stops the `claude` child, so
   an idle browser is not holding a process open. The host process itself stays,
-  so the badge goes back to **Connecting…**, not Cold — Cold means Ega has not
-  connected at all yet. A `codex` process ends with its translation, so there is
+  so the line goes back to **Starting the CLI...**, not **The first translation
+  starts the CLI**, which means Ega has not connected at all yet. A `codex` process ends with its translation, so there is
   nothing to stop.
 
 Every launcher records the full path to `node`. On macOS and Linux it records
