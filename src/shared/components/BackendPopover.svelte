@@ -36,10 +36,9 @@
     missingKeyIds = [],
   }: Props = $props();
 
-  // preventScroll stops the page jumping when the trigger sits mid-viewport.
+  // Popover returns focus to the chip on Esc and leaves it where an outside click put it.
   function handleClose(): void {
     onClose();
-    anchor?.focus({ preventScroll: true });
   }
 
   // The router's chain without probing; turned-off backends are left out (Options lists them).
