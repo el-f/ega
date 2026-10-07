@@ -256,16 +256,25 @@
   // inflightId only flips after the context-collection await, so a fast double send would dispatch twice.
   let sending = false;
 
+  const NEW_CONVERSATION_TOAST = 'new-conversation';
+  /** X14: a send is a new action, so the toasts that wait for the user close, and so does the New conversation Undo. */
+  function sendStarted(): void {
+    toastStore.closeSticky();
+    toastStore.close(NEW_CONVERSATION_TOAST);
+  }
+
   async function sendTurn(): Promise<void> {
     const text = sourceText.trim();
     if (composerMode.kind === 'refine') {
       if (!text || conversation.inflightId !== null) return;
+      sendStarted();
       const turnId = composerMode.turnId;
       if (await onRefine({ turnId, refinementBody: text })) leaveRefine();
       return;
     }
     if (!text && !attachedImage) return;
     if (sending || conversation.inflightId !== null) return;
+    sendStarted();
     sending = true;
     clearFilters();
     try {
@@ -353,6 +362,7 @@
     if (text === null) return 'unreadable';
     if (text === '') return 'no-selection';
     if (conversation.inflightId !== null) return 'sent';
+    sendStarted();
     const picked = kind === 'explain-selection' ? 'explain' : 'translate';
     const context = await currentPageContext(picked);
     await conversation.send({
@@ -823,7 +833,7 @@
     // Load the active tab's origin thread first so queued seeds / handoffs
     // append to the restored conversation rather than a blank one.
     try {
-      await conversation.followSite(await getActiveOrigin());
+      await followSite(await getActiveOrigin());
     } catch (e) {
       debugCatch(e, 'sidepanel.onMount.followSite');
     }
@@ -832,7 +842,7 @@
     // foreign write goes unheard, and the drains are the longest stretch of them.
     if (destroyed) return;
     chrome.storage.onChanged.addListener(onStorageChanged);
-    originFollowerUnsub = startOriginFollower((origin) => void conversation.followSite(origin));
+    originFollowerUnsub = startOriginFollower((origin) => void followSite(origin));
     window.addEventListener('pagehide', persistNow);
     try {
       // The drain fails open on an unknown window, so the id is awaited here even though the early lookup usually won.
@@ -912,8 +922,15 @@
     persistNow();
   });
 
+  /** X14: a tab on another site shows that site's conversation, so the toasts about this one close. */
+  function followSite(origin: string): Promise<void> {
+    if (origin !== conversation.activeSite) toastStore.closeSticky();
+    return conversation.followSite(origin);
+  }
+
   /** Shows a conversation from the list; focus goes to the message box. */
   async function openConversation(id: string): Promise<void> {
+    toastStore.closeSticky();
     focusedTurnId = null;
     await conversation.openConversation(id);
     await tick();
@@ -933,6 +950,7 @@
     toastStore.push({
       message: 'Started a new conversation',
       variant: 'info',
+      key: NEW_CONVERSATION_TOAST,
       action: {
         label: 'Undo',
         onClick: () => {
@@ -1109,7 +1127,10 @@
       onSetUpBackend={() => openOptionsTab('backends')}
       {onSuggestion}
       onOpenSettings={() => openOptionsTab()}
-      onRetry={(id) => void conversation.retry(id)}
+      onRetry={(id) => {
+        toastStore.closeSticky();
+        void conversation.retry(id);
+      }}
       onRefine={(args) => onRefine(args)}
       onSelectVariant={(turnId, idx) => conversation.selectVariant(turnId, idx)}
       onSwap={(id) => void conversation.swapVariant(id)}
@@ -1120,7 +1141,10 @@
       onRegisterKeydownHandler={(h) => {
         streamKeydownHandler = h;
       }}
-      onRegenerate={(id) => void conversation.regenerateVariant(id)}
+      onRegenerate={(id) => {
+        toastStore.closeSticky();
+        void conversation.regenerateVariant(id);
+      }}
       onBookmark={(id) => conversation.toggleBookmark(id)}
       onDelete={onDeleteTurn}
       onEdit={(id) => void onEditTurn(id)}
