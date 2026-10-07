@@ -46,4 +46,19 @@ describe('ReplyMeta', () => {
     expect(src).toContain('flex-wrap: wrap');
     expect(src).toMatch(/\.ega-reply-meta-item \+ \.ega-reply-meta-item::before/);
   });
+
+  // Spec §1.3/§5.2: the line never shows a cut word; an item too wide for the line wraps at a word inside the clip.
+  it('never ends an item with an ellipsis', () => {
+    const src = readFileSync('src/shared/components/ReplyMeta.svelte', 'utf8');
+    const item = /\.ega-reply-meta-item\s*\{([^}]*)\}/.exec(src)?.[1] ?? '';
+    expect(item).not.toMatch(/text-overflow|white-space:\s*nowrap/);
+  });
+
+  // The 18px line clips everything outside it, so Stop's ring has to sit inside the button.
+  it('draws Stop’s focus ring inside the one-line clip', () => {
+    const src = readFileSync('src/shared/components/ReplyMeta.svelte', 'utf8');
+    const ring = /\.ega-reply-meta-action:focus-visible\s*\{([^}]*)\}/.exec(src)?.[1] ?? '';
+    expect(ring).toMatch(/outline:\s*2px solid var\(--color-accent\)/);
+    expect(ring).toMatch(/outline-offset:\s*-2px/);
+  });
 });

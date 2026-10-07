@@ -36,12 +36,10 @@
     line-height: var(--lh-body);
     color: var(--color-muted);
   }
+  /* No ellipsis: an item moves whole to the clipped line, and one wider than the line wraps at a word. */
   .ega-reply-meta-item {
     min-width: 0;
     max-inline-size: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
   /* The dot belongs to the item after it, so a clipped item takes its dot with it. */
   .ega-reply-meta-item + .ega-reply-meta-item::before {
@@ -61,5 +59,10 @@
     cursor: pointer;
     text-decoration: underline;
     text-underline-offset: 2px;
+  }
+  /* The one-line clip cuts anything outside the button, so the ring sits inside it. */
+  .ega-reply-meta-action:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: -2px;
   }
 </style>

@@ -759,6 +759,81 @@ test('an error row keeps one line at 256 in a font as wide as DejaVu Sans', asyn
   await sp.close();
 });
 
+// Spec §1.3/§5.2: the meta line shows whole words only, and its one control (Stop) keeps a whole focus ring.
+test('the meta line cuts no word at 256, and Stop shows its whole ring', async () => {
+  test.setTimeout(120_000);
+  const sp = await openPanel(ext.context, ext.extensionId);
+  await sp.addInitScript(() => {
+    speechSynthesis.getVoices = () =>
+      [
+        { lang: 'en-US', localService: true, default: true, name: 'Test', voiceURI: 'test' },
+      ] as unknown as SpeechSynthesisVoice[];
+    speechSynthesis.speak = () => undefined;
+  });
+  await sp.emulateMedia({ reducedMotion: 'reduce' });
+  await seedConversations(sp, [
+    {
+      id: SITE,
+      turns: [
+        user('u1', 'yalla bye habibi', T(9), {
+          dispatch: { sourceLang: 'auto', targetLang: 'zh-TW', stream: true },
+        }),
+        reply('a1', 'u1', T(9), {
+          content: '走吧，再見。',
+          detectedLang: 'arabizi',
+          detectedLangs: [{ id: 'arabizi', detail: 'Levantine' }, { id: 'en' }],
+          meta: realMeta({ targetLang: 'zh-TW' }),
+        }),
+        user('u2', 'hola', T(5)),
+        reply('a2', 'u2', T(5)),
+      ],
+    },
+  ]);
+  await reloadPanel(sp);
+  await sp.setViewportSize({ width: 256, height: 608 });
+  await sp.waitForTimeout(80); // wait for layout (no observable end state)
+  const direction = sp
+    .locator('[data-ega-reply]')
+    .first()
+    .locator('[data-ega-meta-item="direction"]');
+  expect
+    .soft(
+      await direction.evaluate((el) => ({
+        ellipsis:
+          getComputedStyle(el).textOverflow === 'ellipsis' && el.scrollWidth > el.clientWidth,
+        overflowsSideways: el.scrollWidth > el.clientWidth + 1,
+      })),
+      'the long direction is never cut sideways or ended with an ellipsis',
+    )
+    .toEqual({ ellipsis: false, overflowsSideways: false });
+  const meta = sp.locator('[data-ega-reply]').first().locator('[data-ega-reply-meta]');
+  expect((await meta.boundingBox())?.height ?? 99, 'still one line').toBeLessThanOrEqual(19);
+
+  await sp.setViewportSize({ width: 400, height: 760 });
+  const menu = await openReplyMenu(sp, 'more');
+  await menu.locator('[data-ega-speak]').click();
+  const stop = sp.locator('[data-ega-meta-stop]');
+  await stop.waitFor({ state: 'visible' });
+  await stop.focus();
+  await sp.keyboard.press('Shift+Tab');
+  await sp.keyboard.press('Tab');
+  await expect(stop).toBeFocused();
+  const fits = await stop.evaluate((el) => {
+    const cs = getComputedStyle(el);
+    const ring = Number.parseFloat(cs.outlineWidth) + Number.parseFloat(cs.outlineOffset);
+    const b = el.getBoundingClientRect();
+    const line = el.closest('[data-ega-reply-meta]')?.getBoundingClientRect();
+    if (!line || cs.outlineStyle === 'none') return false;
+    return (
+      b.top - ring >= line.top - 0.5 &&
+      b.bottom + ring <= line.bottom + 0.5 &&
+      b.right + ring <= line.right + 0.5
+    );
+  });
+  expect(fits, 'the Stop ring sits inside the line that clips it').toBe(true);
+  await sp.close();
+});
+
 /** A CSS color as the browser computes it, so a token compares with a computed border. */
 async function computedColor(sp: Page, value: string): Promise<string> {
   return sp.evaluate((v) => {
