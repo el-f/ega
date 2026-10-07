@@ -32,7 +32,7 @@ test.describe('Visual regression — stable surfaces', () => {
     await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
     await page.waitForLoadState('networkidle');
     await page.locator('[role="tab"]:has-text("Advanced")').first().click();
-    await page.locator('#adv-pane-diagnostics').waitFor();
+    await page.locator('#adv-pane-data').waitFor();
     await expect(page).toHaveScreenshot('options-advanced-landing.png', {
       maxDiffPixels: 500,
     });

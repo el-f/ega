@@ -1,8 +1,18 @@
-import { test, expect, type Page } from '@playwright/test';
 import {
+  test,
+  expect,
+  type Page,
+  type BrowserContext,
+  type Locator,
+  type Route,
+} from '@playwright/test';
+import {
+  customTask,
   launchExtension,
+  seedCustomTasks,
   mockAnthropic,
   onlyBackends,
+  openLanguageDialog,
   openLanguagePrompt,
   seedSettings,
   selectArabiziParagraph,
@@ -84,7 +94,7 @@ async function shot(
   page: Page,
   name: string,
   meta: Omit<ShotMeta, 'name'> = { surface: 'unknown', state: 'default' },
-  opts: { skipPark?: boolean } = {},
+  opts: { skipPark?: boolean; viewportOnly?: boolean; overlay?: boolean | 'maybe' } = {},
 ): Promise<void> {
   // Picker shots skip this: the picker repaints its outline on every mousemove, so parking would re-outline (0, 900).
   if (!opts.skipPark) await parkCursor(page);
@@ -100,10 +110,31 @@ async function shot(
       .toBe(meta.theme);
   }
   // Scroll to top, or `fullPage` stamps `position: fixed` overlays at the current scroll offset instead of y=0.
-  await page.evaluate(() => window.scrollTo(0, 0));
-  await page.waitForTimeout(50); // wait for fixed overlays to repaint at y=0 (no observable end state)
+  // A viewport shot keeps its scroll: it shows the part of the page the state is about.
+  if (!opts.viewportOnly) {
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.waitForTimeout(50); // wait for fixed overlays to repaint at y=0 (no observable end state)
+  }
+  // A leaked popover shipped once in a baseline: an options shot names every overlay it expects.
+  if ((meta.surface === 'options' || meta.surface === 'templates') && opts.overlay !== 'maybe') {
+    const open = await page.evaluate(() =>
+      [
+        ...document.querySelectorAll(
+          '[role="dialog"], [role="alertdialog"], [data-ega-infotip-text], [role="listbox"], [role="menu"]',
+        ),
+      ]
+        .filter((el) => el.checkVisibility())
+        .map((el) => el.getAttribute('aria-label') ?? el.getAttribute('role') ?? el.tagName),
+    );
+    if (opts.overlay && open.length === 0)
+      throw new Error(`${name}: the overlay it shows is not open`);
+    if (!opts.overlay && open.length > 0)
+      throw new Error(
+        `${name}: an overlay is open that the state does not name: ${open.join(', ')}`,
+      );
+  }
   const currentFile = path.join(CURRENT_DIR, `${name}.png`);
-  await page.screenshot({ path: currentFile, fullPage: true });
+  await page.screenshot({ path: currentFile, fullPage: !opts.viewportOnly });
   const sidecar: ShotMeta = { name, ...meta };
   fs.writeFileSync(path.join(META_DIR, `${name}.meta.json`), JSON.stringify(sidecar, null, 2));
   // After the PNG is written, so a failing check still leaves the shot to look at.
@@ -120,217 +151,23 @@ async function applyThemeOnPage(page: Page, theme: 'light' | 'dark'): Promise<vo
   await page.waitForTimeout(150); // wait for CSS custom-property cascade repaint (no observable end state)
 }
 
-test('Advanced — every chip + sub-tab + key modal', async () => {
-  // ~22 captures + slot-hover wait. Bigger than 30s budget.
-  test.slow();
-  const page = await ext.context.newPage();
-  await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
+/** H-a: the theme is a setting, so the header toggle and the page agree; waits for the page to repaint. */
+async function setThemeSetting(page: Page, theme: 'light' | 'dark'): Promise<void> {
+  await page.evaluate(async (t) => {
+    const key = 'ega.settings';
+    const cur = (await chrome.storage.local.get(key))[key] as Record<string, unknown> | undefined;
+    await chrome.storage.local.set({ [key]: { ...cur, theme: t } });
+  }, theme);
+  await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+}
+
+/** Points the active tab at an http(s) fixture, or the popup's `siteHost` stays null and the per-site button never renders. */
+async function openFixtureTab(context: BrowserContext, serverUrl: string): Promise<Page> {
+  const page = await context.newPage();
+  await page.goto(`${serverUrl}/selection-page.html`);
   await page.waitForLoadState('networkidle');
-
-  await page.locator('[role="tab"]:has-text("Advanced")').first().click();
-  await page.waitForTimeout(400); // wait for tab panel CSS transition (no observable end state)
-  await shot(page, '00-advanced-landing', {
-    surface: 'options',
-    state: 'landing',
-    theme: 'light',
-    userAction: 'user opened Options shell and clicked Advanced in the left nav rail',
-    expectations: [
-      'Advanced tab is selected in the left nav rail',
-      'Advanced sub-tab strip (Diagnostics / Data / Labs) is rendered with Diagnostics active',
-      'left nav rail is visible',
-    ],
-  });
-
-  const subTab = (id: string): ReturnType<Page['locator']> =>
-    page.locator(`[data-ega-subtab="${id}"]`).first();
-
-  // Each task's prompt and switches open in its edit dialog on the Tasks tab.
-  await page.locator('[role="tab"]:has-text("Tasks")').first().click();
-  await page.waitForTimeout(400); // wait for tab panel CSS transition (no observable end state)
-  for (const id of [
-    'translate',
-    'explain',
-    'summarize',
-    'reword',
-    'grammar',
-    'suggest-replies',
-    'ask',
-  ]) {
-    await page.locator(`[data-ega-task-edit="${id}"]`).click();
-    await page.locator(`[data-ega-task-dialog="${id}"]`).waitFor({ timeout: 5_000 });
-    await page.waitForTimeout(300); // wait for dialog mount animation (no observable end state)
-    await shot(page, `templates-${id}`, {
-      surface: 'templates',
-      state: `task-dialog-${id}`,
-      theme: 'light',
-      userAction: `user opened the ${id} task's edit dialog on the Tasks tab`,
-      expectations: [
-        `${id} dialog shows its switches and its prompt editor, or the line naming the prompt it uses`,
-        'no native primitives leaked into the dialog frame',
-      ],
-    });
-    await page.keyboard.press('Escape');
-    await page.locator('[data-ega-task-dialog]').waitFor({ state: 'detached', timeout: 5_000 });
-  }
-
-  // Sub-tabs are back on Advanced.
-  await page.locator('[role="tab"]:has-text("Advanced")').first().click();
-  await page.waitForTimeout(400); // wait for tab panel CSS transition (no observable end state)
-
-  for (const id of ['diagnostics', 'data', 'labs']) {
-    await subTab(id).click();
-    await page.waitForTimeout(400); // wait for sub-tab panel mount animation (no observable end state)
-    await shot(page, `subtab-${id}`, {
-      surface: 'options',
-      state: `subtab-${id}`,
-      theme: 'light',
-      userAction: `user clicked the ${id} sub-tab on the Advanced workbench`,
-      expectations: [`${id} surface mounts with its primary content visible`],
-    });
-  }
-
-  // Settings search modal (Cmd+,)
-  await subTab('diagnostics').click();
-  await page.waitForTimeout(200); // wait for sub-tab transition (no observable end state)
-  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+,' : 'Control+,');
-  await page.waitForTimeout(300); // wait for modal mount animation (no observable end state)
-  await shot(page, 'settings-search-empty', {
-    surface: 'options',
-    state: 'settings-search-empty',
-    theme: 'light',
-    userAction: 'user pressed Cmd+, / Ctrl+, to open the settings-search modal',
-    expectations: ['search modal is focused', 'input is empty', 'no results pane drawn yet'],
-  });
-  await page.keyboard.type('temperature');
-  await page.waitForTimeout(200); // wait for fuzzy-search debounce (250ms input debounce)
-  await shot(page, 'settings-search-temperature', {
-    surface: 'options',
-    state: 'settings-search-temperature',
-    theme: 'light',
-    userAction: 'user typed "temperature" into the settings-search input',
-    expectations: [
-      'result row for the Temperature control visible',
-      'fuzzy match highlights legible',
-    ],
-  });
-  await page.keyboard.press('Escape');
-  await page.waitForTimeout(150); // wait for modal dismiss animation (no observable end state)
-
-  // Slot palette + raw template visible (the Translate prompt)
-  await page.locator('[role="tab"]:has-text("Tasks")').first().click();
-  await page.locator('[data-ega-task-edit="translate"]').click();
-  await page.locator('[data-ega-task-dialog="translate"]').waitFor({ timeout: 5_000 });
-  await page.waitForTimeout(300); // wait for dialog mount animation (no observable end state)
-  await shot(page, 'templates-global-detail', {
-    surface: 'templates',
-    state: 'global-detail',
-    theme: 'light',
-    userAction: 'user opened the Translate task dialog',
-    expectations: [
-      'settings first: Effort, Inputs, Answers',
-      'prompt second: Instructions, the locked Answer format, Message',
-      'one Insert variable button, no chip row',
-      'no overflow',
-    ],
-  });
-
-  await page.locator('[data-ega-slot-insert-picker]').click();
-  await page.locator('[data-ega-variable-picker] [data-ega-variable="text"]').waitFor();
-  await shot(
-    page,
-    'task-dialog-insert-variable-open',
-    {
-      surface: 'templates',
-      state: 'insert-variable-open',
-      theme: 'light',
-      userAction: 'user opened Insert variable in the Translate dialog',
-      expectations: [
-        'each row: plain name, {{token}}, meaning on a second line',
-        'Selected text carries a check (the prompt uses it)',
-        'nothing cut off, nothing hover-only',
-      ],
-    },
-    { skipPark: true },
-  );
-  await page.keyboard.press('Escape');
-  await page.mouse.move(0, 0);
-  await page.locator('.ega-tooltip-content').first().waitFor({ state: 'detached', timeout: 3_000 });
-
-  // Click the [+ Insert variable] command picker
-  await page.locator('[data-ega-slot-insert-picker]').click();
-  await page.getByPlaceholder('Search variables…').waitFor({ state: 'visible', timeout: 5_000 });
-  await page.waitForTimeout(200); // wait for popover position recompute (no observable end state)
-  await shot(page, 'templates-global-insert-variable', {
-    surface: 'templates',
-    state: 'insert-variable-open',
-    theme: 'light',
-    userAction: 'user clicked the [+ Insert variable] command picker',
-    expectations: [
-      'variable picker popover anchors to the trigger button',
-      'popover does NOT cover the slot palette chips above',
-      'search input focused',
-    ],
-  });
-  await page.keyboard.press('Escape');
-  await page.getByPlaceholder('Search variables…').waitFor({ state: 'hidden', timeout: 5_000 });
-
-  // Rules section on the Tasks tab — empty
-  await page.keyboard.press('Escape');
-  await page.locator('[data-ega-task-dialog]').waitFor({ state: 'detached', timeout: 5_000 });
-  await page.locator('[data-ega-setting="tasks.rules"]').scrollIntoViewIfNeeded();
-  await page.waitForTimeout(300); // wait for scroll to settle (no observable end state)
-  await shot(page, 'templates-rules-empty', {
-    surface: 'templates',
-    state: 'rules-empty',
-    theme: 'light',
-    userAction: 'user scrolled to the Rules section of the Tasks tab with no rules defined',
-    expectations: [
-      'empty state visible with an Add a rule button',
-      'no rule form shown until Add a rule is pressed',
-      'no bare empty pane',
-    ],
-  });
-
-  // No assertion: the PNGs above are the output, and `pnpm visual:judge` reads them.
-});
-
-test('Options — all top-level tabs (light + dark sampling)', async () => {
-  test.slow();
-  const page = await ext.context.newPage();
-  await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
-  await page.waitForLoadState('networkidle');
-
-  // Advanced has its own landing shots above.
-  const tabs = SETTINGS_TABS.map((t) => t.id).filter((id) => id !== 'advanced');
-  for (const id of tabs) {
-    await page.locator(`#tab-${id}`).click();
-    await page.waitForTimeout(400); // wait for tab panel mount animation (no observable end state)
-    await shot(page, `options-${id}`, {
-      surface: 'options',
-      state: id,
-      theme: 'light',
-      userAction: `user opened the ${id} options tab`,
-      expectations: ['tab content mounts', 'left nav rail visible', 'no overflow'],
-    });
-  }
-
-  for (const id of tabs) {
-    await page.locator(`#tab-${id}`).click();
-    await applyThemeOnPage(page, 'dark');
-    await shot(page, `options-${id}-dark`, {
-      surface: 'options',
-      state: id,
-      theme: 'dark',
-      userAction: `user opened the ${id} options tab in dark theme`,
-      expectations: [
-        'tab content mounts',
-        'tokens shift to dark surface palette',
-        'parity with light variant in structure',
-      ],
-    });
-    await applyThemeOnPage(page, 'light');
-  }
-});
+  return page;
+}
 
 // The card is the last on its tab and taller than the shell; a full-page shot is too small to judge it.
 test('Right-click menu card — default, edit, states, many, narrow, delete (light + dark)', async () => {
@@ -399,7 +236,7 @@ test('Right-click menu card — default, edit, states, many, narrow, delete (lig
     viewport?: { width: number; height: number },
   ): Promise<void> {
     for (const theme of ['light', 'dark'] as const) {
-      await applyThemeOnPage(page, theme);
+      await setThemeSetting(page, theme);
       await parkCursor(page);
       await card.scrollIntoViewIfNeeded();
       const file = `right-click-menu-${name}${theme === 'dark' ? '-dark' : ''}`;
@@ -415,7 +252,7 @@ test('Right-click menu card — default, edit, states, many, narrow, delete (lig
       };
       fs.writeFileSync(path.join(META_DIR, `${file}.meta.json`), JSON.stringify(meta, null, 2));
     }
-    await applyThemeOnPage(page, 'light');
+    await setThemeSetting(page, 'light');
   }
 
   const ROW_RULES = [
@@ -522,12 +359,88 @@ test('Right-click menu card — default, edit, states, many, narrow, delete (lig
     order: 40 + n,
   }));
   await openCard({ contextMenuItems: [...defaults, ...full] });
-  await expect(card.locator('[data-ega-cm-full]')).toHaveCount(2);
-  await expect(card.locator('[data-ega-cm-add]')).toHaveAttribute('aria-disabled', 'true');
+  await expect(card.locator('[data-ega-cm-full]')).toHaveCount(1);
+  await expect(card.locator('[data-ega-cm-add]').first()).toHaveAttribute('aria-disabled', 'true');
   await cardShot('full', 'full', 'user has 50 items, the most the menu holds', [
-    'under Selected text and under Images the Add button is dimmed, and "Menu is full (50 items). Delete one to add another." shows under it',
+    'both Add buttons are dimmed, and one line says "Menu is full (50 items). Delete one to add another."',
     ...ROW_RULES,
   ]);
+
+  // A second Translate row like the first: its form warns, without blocking.
+  const twin = { ...defaults[0], id: 'ega-custom-txt-tt-9', order: 2 };
+  await openCard({
+    contextMenuItems: [
+      defaults[0],
+      defaults[1],
+      twin,
+      ...defaults.slice(2).map((d) => ({ ...d, order: (d['order'] as number) + 1 })),
+    ],
+  });
+  await card.locator(`[data-ega-cm-id="${twin.id}"] [data-ega-cm-edit]`).click();
+  await expect(card.locator('[data-ega-cm-twin]')).toBeVisible();
+  await cardShot(
+    'duplicate-warning',
+    'duplicate-warning',
+    'user opened a Translate row that matches the one above',
+    ['"Same as "Translate" above" in the open form; nothing is blocked', ...ROW_RULES],
+  );
+
+  // A task of your own in the menu reads by its own name.
+  await seedCustomTasks(ext.context, ext.extensionId, [customTask()]);
+  await openCard({
+    contextMenuItems: [
+      defaults[0],
+      { ...added, id: 'ega-custom-txt-tt-8', task: 'c-tweet' },
+      ...defaults.slice(1).map((d) => ({ ...d, order: (d['order'] as number) + 1 })),
+    ],
+  });
+  await expect(card.getByText('Tweet summary').first()).toBeVisible();
+  await cardShot(
+    'custom-task-item',
+    'custom-task-item',
+    'user added their Tweet summary task to the menu',
+    ['the row reads "Tweet summary", in line with the built-in rows', ...ROW_RULES],
+  );
+  await seedCustomTasks(ext.context, ext.extensionId, []);
+
+  await openCard({});
+  await card.locator('[data-ega-cm-id="ega-translate-page"] [data-ega-cm-edit]').click();
+  await expect(
+    card.locator('[data-ega-cm-id="ega-translate-page"] [data-ega-cm-options]'),
+  ).toBeVisible();
+  await cardShot('page-item-edit', 'page-item-edit', 'user pressed Edit on Translate this page', [
+    'the page row shows only the options it has; labels in one column',
+    ...ROW_RULES,
+  ]);
+  await card.locator('[data-ega-cm-id="ega-translate-page"] [data-ega-cm-edit]').click();
+  await card.locator('[data-ega-cm-id="ega-explain-image"] [data-ega-cm-edit]').click();
+  await expect(card.locator('[data-ega-cm-image-lang]')).toBeVisible();
+  await cardShot(
+    'image-item-edit',
+    'image-item-edit',
+    'user pressed Edit on Explain image in side panel',
+    [
+      '"Image actions answer in your default target language" in place of a language picker',
+      ...ROW_RULES,
+    ],
+  );
+
+  // Reset puts the shipped rows back and offers Undo.
+  await openCard({
+    contextMenuItems: [defaults[0], { ...defaults[1], enabled: false }, ...defaults.slice(2)],
+  });
+  await card.locator('[data-ega-section-reset]').click();
+  await page.locator('[data-sonner-toast]').first().waitFor({ state: 'visible', timeout: 5_000 });
+  await setThemeSetting(page, 'light');
+  await shot(page, 'right-click-menu-reset-result', {
+    surface: 'options',
+    state: 'right-click-menu-reset-result',
+    theme: 'light',
+    userAction: 'user pressed Reset section on the right-click menu card',
+    expectations: [
+      'every row back as shipped; a toast says the menu is back to defaults, with Undo',
+    ],
+  });
 
   await page.setViewportSize({ width: 400, height: 900 });
   await openCard({});
@@ -1155,351 +1068,6 @@ test('Page-translate — progress + done + inline-replace progress', async () =>
   });
   await inlinePage.close();
   await resetRoutes(ext.context);
-});
-
-async function openTasksTab(page: Page): Promise<void> {
-  await page.locator('[role="tab"]:has-text("Tasks")').first().click();
-  await page.waitForTimeout(300); // wait for tab panel CSS transition (no observable end state)
-}
-
-async function showRules(page: Page): Promise<void> {
-  await page.locator('[data-ega-setting="tasks.rules"]').scrollIntoViewIfNeeded();
-}
-
-test('Templating — rules editor states', async () => {
-  // 3 shots + 1 reload. Comfortably under slow().
-  test.slow();
-  const SEED_RULES = [
-    {
-      id: 'shot-rule-host',
-      body: 'On twitter.com always preserve hashtags verbatim.',
-      category: 'always' as const,
-      scope: { tasks: [], sites: ['twitter.com'] },
-      source: 'manual' as const,
-      addedAt: new Date().toISOString(),
-      enabled: true,
-    },
-    {
-      id: 'shot-rule-task',
-      body: 'Prefer concise summaries — under 200 words.',
-      category: 'prefer' as const,
-      scope: { tasks: ['summarize' as const] },
-      source: 'recipe' as const,
-      recipeId: 'summarize-concise',
-      addedAt: new Date().toISOString(),
-      enabled: true,
-    },
-    {
-      id: 'shot-rule-always',
-      body: 'Always preserve URLs verbatim across every task.',
-      category: 'always' as const,
-      scope: { tasks: [] },
-      source: 'manual' as const,
-      addedAt: new Date().toISOString(),
-      enabled: false,
-    },
-  ];
-
-  await seedSettings(ext.context, ext.extensionId, {
-    anthropicApiKey: 'sk-test-templating-shots',
-    advanced: {
-      promptTemplate: { system: 'You are a helpful translator.', user: '{{text}}' },
-      perPresetTemplates: {},
-      rules: SEED_RULES,
-      snippets: {},
-      temperature: 0.2,
-      maxTokens: 2048,
-    },
-  });
-
-  const page = await ext.context.newPage();
-  await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
-  await page.waitForLoadState('networkidle');
-  await openTasksTab(page);
-
-  // --- Rules editor (populated) ---
-  await showRules(page);
-  await page.waitForTimeout(400); // wait for chip workbench mount animation (no observable end state)
-  await expect(page.locator('[data-ega-rules-editor]')).toBeVisible({ timeout: 5_000 });
-  await page.locator('[data-ega-rule-row]').first().waitFor({ state: 'visible', timeout: 5_000 });
-  await expect(page.locator('[data-ega-rule-site-chip="twitter.com"]')).toBeVisible();
-  await expect(page.locator('[data-ega-rule-task-chip="summarize"]')).toBeVisible();
-  await expect(page.locator('[data-ega-rule-category]')).toHaveCount(3);
-  await shot(page, 'rules-editor-populated', {
-    surface: 'templates',
-    state: 'rules-editor-populated',
-    theme: 'light',
-    userAction:
-      'user opened the Rules chip with three rules seeded — host-scoped, task-scoped, and an always-rule that is off',
-    expectations: [
-      'three rule rows visible',
-      'host chip "twitter.com ×" rendered on the first row',
-      'task chip "Summarize ×" rendered on the second row',
-      'third row marked off with an "Off" badge and a dashed border, text at full contrast',
-      'category select column reachable on each row',
-    ],
-  });
-
-  // --- Rules editor (add-form open) --- the add form sits below the rule rows.
-  await page.locator('details.manual-block > summary').click();
-  await page.waitForTimeout(300); // wait for <details> expand animation (no observable end state)
-  await shot(page, 'rules-editor-add-form-open', {
-    surface: 'templates',
-    state: 'rules-editor-add-form-open',
-    theme: 'light',
-    userAction: 'user clicked "Add a rule" — the form details element is expanded',
-    expectations: [
-      'Add a rule form is expanded below the rule rows',
-      'Rule text textarea visible',
-      'Task chip row labeled "Applies to" with a hint that no task means all tasks',
-      'Sites input labeled "Sites (optional, separated by commas)" visible',
-      'Add rule primary CTA disabled while Rule text is empty, with a visible reason; Cancel beside it',
-    ],
-  });
-  await page.locator('details.manual-block > summary').click();
-  await page.waitForTimeout(200); // wait for <details> collapse animation (no observable end state)
-
-  // Reseed with empty rules so the empty state renders.
-  await seedSettings(ext.context, ext.extensionId, {
-    advanced: {
-      promptTemplate: { system: 'You are a helpful translator.', user: '{{text}}' },
-      perPresetTemplates: {},
-      rules: [],
-      snippets: {},
-      temperature: 0.2,
-      maxTokens: 2048,
-    },
-  });
-  await page.reload();
-  await page.waitForLoadState('networkidle');
-  await openTasksTab(page);
-  await showRules(page);
-  await page.waitForTimeout(400); // wait for chip workbench mount animation (no observable end state)
-  await shot(page, 'rules-editor-empty', {
-    surface: 'templates',
-    state: 'rules-editor-empty',
-    theme: 'light',
-    userAction: 'user opened Rules chip with zero rules',
-    expectations: ['empty-state card "No rules yet" rendered', 'no rule rows rendered'],
-  });
-
-  await resetRoutes(ext.context);
-  await page.close();
-});
-
-test('Templating — per-preset + per-site', async () => {
-  // Heaviest test in the family: slow()'s 90s ceiling is too tight, so it gets 180s.
-  test.setTimeout(180_000);
-
-  await seedSettings(ext.context, ext.extensionId, {
-    advanced: {
-      promptTemplate: { system: 'You are a helpful translator.', user: '{{text}}' },
-      perPresetTemplates: {
-        arabizi: {
-          system: '/* SEEDED PRESET OVERRIDE */ Arabizi-aware translator.',
-          user: 'Treat the source as arabizi: {{text}}',
-        },
-      },
-      rules: [],
-      snippets: {
-        formal_register: 'Use a formal register throughout.',
-        keep_emoji: 'Preserve emoji unchanged in the target.',
-        tag_uncertain: 'Wrap uncertain translations in [?…] markers.',
-      },
-      temperature: 0.2,
-      maxTokens: 2048,
-    },
-    sitePrefs: {
-      'reddit.com': {
-        defaultLang: 'es',
-      },
-    },
-  });
-
-  const page = await ext.context.newPage();
-  await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
-  await page.waitForLoadState('networkidle');
-  await openTasksTab(page);
-
-  // --- Per-preset override (active) ---
-  await openLanguagePrompt(page, 'arabizi', 'Arabizi');
-  await page.waitForTimeout(300); // wait for editor mount animation (no observable end state)
-  await shot(page, 'per-preset-override-active', {
-    surface: 'templates',
-    state: 'per-preset-override-active',
-    theme: 'light',
-    userAction:
-      'user opened the Arabizi row on the Languages tab and its prompt editor; an override is already seeded so the editor mounts with the override body and a Clear action is reachable',
-    expectations: [
-      'the prompt editor sits inside the Arabizi row',
-      'template editor mounts with the SEEDED PRESET OVERRIDE body visible',
-      '"Clear" reset action visible in the editor',
-      'no scope inheritance ambiguity — clearly an override, not the default global template',
-    ],
-  });
-
-  // --- Site overrides review (Advanced > Data) ---
-  await page.locator('[role="tab"]:has-text("Advanced")').first().click();
-  await page.waitForTimeout(300); // wait for tab panel CSS transition (no observable end state)
-  await page.locator('[data-ega-subtab="data"]').click();
-  await page.waitForTimeout(400); // wait for sub-tab panel mount animation (no observable end state)
-  await expect(page.locator('[data-ega-site-overrides-review]')).toBeVisible({ timeout: 5_000 });
-  await shot(page, 'site-overrides-review-populated', {
-    surface: 'options',
-    state: 'site-overrides-review-populated',
-    theme: 'light',
-    userAction:
-      'user opened Advanced > Data with reddit.com seeded in sitePrefs; review list lists the host with status pills',
-    expectations: [
-      'reddit.com host row visible in the Site overrides review',
-      'per-row clear (×) button reachable',
-      'footer Clear all action visible',
-      'no add-host or template editor inline — page-side gestures own those',
-    ],
-  });
-
-  await page.close();
-});
-
-test('Templating — slot palette insert', async () => {
-  // 1 shot + 1 popover open. Light test.
-  test.slow();
-
-  await seedSettings(ext.context, ext.extensionId, {
-    advanced: {
-      promptTemplate: { system: 'You are a helpful translator.', user: '{{text}}' },
-      perPresetTemplates: {},
-      rules: [],
-      snippets: {},
-      temperature: 0.2,
-      maxTokens: 2048,
-    },
-  });
-
-  const page = await ext.context.newPage();
-  await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
-  await page.waitForLoadState('networkidle');
-  await openTasksTab(page);
-
-  // --- Slot palette + insert-variable popover open ---
-  await page.locator('[data-ega-task-edit="translate"]').click();
-  await page.locator('[data-ega-task-dialog="translate"]').waitFor({ timeout: 5_000 });
-  await page.locator('[data-ega-slot-insert-picker]').click();
-  await page.getByPlaceholder('Search variables…').waitFor({ state: 'visible', timeout: 5_000 });
-  await page.waitForTimeout(200); // wait for popover position recompute (no observable end state)
-  await shot(page, 'slot-palette-insert-open', {
-    surface: 'templates',
-    state: 'slot-palette-insert-open',
-    theme: 'light',
-    userAction:
-      'user opened the Translate task dialog on the Tasks tab and clicked the Insert variable picker',
-    expectations: [
-      'slot palette is visible above the editor',
-      'variable picker popover anchors to the trigger button',
-      'popover does NOT cover the slot palette pills',
-      'search input inside the popover is focused',
-      'list of slot variables visible inside the popover',
-    ],
-  });
-  await page.keyboard.press('Escape');
-  await page.waitForTimeout(200); // wait for popover dismiss animation (no observable end state)
-
-  await page.close();
-});
-
-test('Advanced — landing in dark theme', async () => {
-  test.slow();
-  const page = await ext.context.newPage();
-  await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
-  // The Diagnostics table lists the errors of the last hour. Write three here, in the audit log's own envelope, so this shot never depends on what earlier tests logged.
-  await page.evaluate(async () => {
-    const rows = [
-      ['SERVER', 'Anthropic HTTP 500: upstream exploded'],
-      ['ABORTED', 'The request was aborted.'],
-      [
-        'AUTH',
-        'The backend rejected the API key. Check it in Settings → Backends.\nGemini HTTP 401',
-      ],
-    ];
-    const entries = rows.map(([code, message], i) => ({
-      id: `audit-seed-${code}`,
-      ts: Date.now() - i * 1_000,
-      task: 'translate',
-      sourceLang: 'auto',
-      targetLang: 'en',
-      backend: 'anthropic',
-      model: 'claude-haiku-4-5',
-      systemPrompt: '',
-      userPrompt: '',
-      response: '',
-      latencyMs: 100,
-      cacheHit: false,
-      error: { code, message },
-    }));
-    await chrome.storage.local.set({ egaAuditLog: { version: 1, entries } });
-  });
-  await page.reload();
-  await page.waitForLoadState('networkidle');
-  await page.locator('[role="tab"]:has-text("Advanced")').first().click();
-  await page.waitForTimeout(400); // wait for tab panel CSS transition (no observable end state)
-  await applyThemeOnPage(page, 'dark');
-  await shot(page, '00-advanced-landing-dark', {
-    surface: 'options',
-    state: 'landing',
-    theme: 'dark',
-    userAction: 'user opened the Advanced tab in dark theme',
-    expectations: [
-      'left nav rail + Advanced sub-tab strip render in dark tokens',
-      'same sub-tabs as the light variant (Diagnostics / Data / Labs), Diagnostics active',
-      'no orphan light-mode surfaces leak through',
-    ],
-  });
-  await page.close();
-});
-
-// The banner renders above the tab body on the display and backends tabs only.
-test('Onboarding — banner on display + backends tabs', async () => {
-  test.slow();
-  await seedSettings(ext.context, ext.extensionId, {
-    anthropicApiKey: '',
-    openaiApiKey: '',
-    geminiApiKey: '',
-    groqApiKey: '',
-    deepseekApiKey: '',
-    onboardingDismissed: false,
-  });
-  const page = await ext.context.newPage();
-  await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
-  await page.waitForLoadState('networkidle');
-  await page.locator(`#tab-translate`).click();
-  await page.waitForTimeout(400); // wait for tab panel mount animation (no observable end state)
-  await shot(page, 'onboarding-banner-display', {
-    surface: 'options',
-    state: 'onboarding-banner-display',
-    theme: 'light',
-    userAction: 'fresh install — Translate tab opens with the onboarding banner above the panel',
-    expectations: [
-      'onboarding banner visible at the top of the panel',
-      'Welcome / Pick a backend copy legible',
-      'primary "Add a Gemini key" CTA distinguishable from "Skip for now"',
-      'sub-label under the primary CTA legible',
-    ],
-  });
-  await page.locator(`#tab-backends`).click();
-  await page.waitForTimeout(400); // wait for tab panel mount animation (no observable end state)
-  await shot(page, 'onboarding-banner-backends', {
-    surface: 'options',
-    state: 'onboarding-banner-backends',
-    theme: 'light',
-    userAction:
-      'user clicked the Backends tab — onboarding banner persists above the backends panel',
-    expectations: [
-      'banner still visible above the Backends panel',
-      'no double-banner / no banner above + below collision',
-      'backend cards visible beneath the banner',
-    ],
-  });
-  await page.close();
 });
 
 test('Smart-bubble — digit-less + short-suppressed + dark', async () => {
@@ -3101,4 +2669,1784 @@ test.describe('Sidepanel redesign', () => {
     );
     await fc.close();
   });
+});
+
+// ── Options (spec 9.2) ───────────────────────────────────────────────────
+// Each state is shot in light and dark. The theme is a setting (H-a), so the header toggle matches the page.
+
+type OptTheme = 'light' | 'dark';
+const OPT_THEMES: readonly OptTheme[] = ['light', 'dark'];
+const OPTIONS_CONFIGURED = { anthropicApiKey: 'sk-ant-audit', onboardingDismissed: true };
+
+interface OpenOpts {
+  /** Merged over the configured base, or over nothing when `fresh`. */
+  seed?: Record<string, unknown>;
+  fresh?: boolean;
+  /** Other storage keys (custom tasks, the request list, conversations). */
+  storage?: Record<string, unknown>;
+  width?: number;
+  height?: number;
+  tab?: string;
+  sub?: 'data' | 'diagnostics';
+  /** Runs before any page script (a slow storage read, a fake native host). */
+  init?: string;
+}
+
+/** A fresh options page with only this state's storage: a capture never inherits a sibling's seed. */
+async function openOptionsState(theme: OptTheme, o: OpenOpts = {}): Promise<Page> {
+  const page = await ext.context.newPage();
+  await page.setViewportSize({ width: o.width ?? 1200, height: o.height ?? 800 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
+  await page.evaluate(
+    async ({ settings, storage }) => {
+      await chrome.storage.session.remove('ega.audit-log.filters');
+      const all = await chrome.storage.local.get(null);
+      const stale = Object.keys(all).filter((k) => k.startsWith('ega:conv:'));
+      if (stale.length > 0) await chrome.storage.local.remove(stale);
+      await chrome.storage.local.set({
+        'ega.settings': settings,
+        'ega.customTasks': [],
+        'ega.customLanguages': [],
+        egaAuditLog: { version: 1, entries: [] },
+        ...storage,
+      });
+    },
+    {
+      settings: { ...(o.fresh ? {} : OPTIONS_CONFIGURED), ...o.seed, theme },
+      storage: o.storage ?? {},
+    },
+  );
+  if (o.init) await page.addInitScript(o.init);
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+  await page.locator('#tab-translate').waitFor();
+  if (o.tab) {
+    await page.locator(`#tab-${o.tab}`).click();
+    await page.locator(`#tabpanel-${o.tab}`).waitFor();
+  }
+  if (o.sub) {
+    await page.locator(`[data-ega-subtab="${o.sub}"]`).click();
+    await page.locator(`#adv-pane-${o.sub}`).waitFor();
+  }
+  await page.mouse.move(0, 790);
+  return page;
+}
+
+interface OptShot {
+  userAction: string;
+  expectations: string[];
+  /** A dialog, popover or (i) is meant to be open: the shot is the viewport (H-b), and it must be open. */
+  overlay?: boolean | 'maybe';
+  viewportOnly?: boolean;
+  /** The whole tab, top to bottom (a tab's own capture); a state is the viewport around its subject. */
+  fullPage?: boolean;
+  skipPark?: boolean;
+}
+
+/** Scrolls the state's subject to the middle of the viewport. */
+async function centerOn(page: Page, selector: string): Promise<void> {
+  await page
+    .locator(selector)
+    .first()
+    .evaluate((el) => el.scrollIntoView({ block: 'center' }));
+}
+
+async function optShot(page: Page, name: string, theme: OptTheme, s: OptShot): Promise<void> {
+  const viewport = page.viewportSize();
+  await shot(
+    page,
+    theme === 'dark' ? `${name}-dark` : name,
+    {
+      surface: 'options',
+      state: name,
+      theme,
+      userAction: s.userAction,
+      expectations: s.expectations,
+      ...(viewport ? { viewport } : {}),
+    },
+    {
+      overlay: s.overlay ?? false,
+      viewportOnly: s.fullPage !== true,
+      ...(s.skipPark ? { skipPark: true } : {}),
+    },
+  );
+}
+
+const TAB_IDS = SETTINGS_TABS.map((t) => t.id);
+
+const SAMPLE_AUDIT = (now: number): unknown[] => {
+  const base = {
+    sourceLang: 'es',
+    targetLang: 'en',
+    model: 'claude-haiku-4-5',
+    systemPrompt: 'You are a translator.',
+    userPrompt: 'Translate: hola, ¿cómo estás?',
+    response: 'Hello, how are you?',
+    cacheHit: false,
+  };
+  return [
+    {
+      ...base,
+      id: 'au-1',
+      ts: now - 2 * 60_000,
+      task: 'translate',
+      backend: 'anthropic',
+      latencyMs: 410,
+      inputTokens: 1200,
+      outputTokens: 30,
+    },
+    {
+      ...base,
+      id: 'au-2',
+      ts: now - 5 * 60_000,
+      task: 'explain',
+      backend: 'gemini',
+      model: 'gemini-2.5-flash',
+      systemPrompt: 'Explain the text in plain words.',
+      userPrompt: 'Explain: hola, ¿cómo estás?',
+      response: '',
+      latencyMs: 2300,
+      error: { code: 'AUTH', message: '401 API key not valid. Please pass a valid API key.' },
+    },
+    {
+      ...base,
+      id: 'au-3',
+      ts: now - 9 * 60_000,
+      task: 'translate',
+      backend: 'unknown',
+      latencyMs: 4,
+      cacheHit: true,
+    },
+    {
+      ...base,
+      id: 'au-4',
+      ts: now - 14 * 60_000,
+      task: 'summarize',
+      backend: 'anthropic',
+      latencyMs: 1650,
+      inputTokens: 2400,
+      outputTokens: 80,
+    },
+    {
+      ...base,
+      id: 'au-5',
+      ts: now - 30 * 60_000,
+      task: 'translate',
+      backend: 'anthropic',
+      latencyMs: 30000,
+      error: { code: 'TIMEOUT', message: 'No reply after 30 s' },
+    },
+  ];
+};
+
+test('Options frame — every tab configured and with the notice, and loading (light + dark)', async () => {
+  test.setTimeout(600_000);
+  for (const theme of OPT_THEMES) {
+    for (const id of TAB_IDS) {
+      const page = await openOptionsState(theme, { tab: id });
+      await optShot(page, `options-${id}`, theme, {
+        fullPage: true,
+        userAction: `user opened the ${id} tab with a backend already set up`,
+        expectations: [
+          'title (20px) and one description line (13px); no notice above the title',
+          'cards: title 14px, at most one description line, body 13px; no text cut off',
+          'left rail visible with the tab selected',
+        ],
+      });
+      await page.close();
+      const fresh = await openOptionsState(theme, { fresh: true, tab: id });
+      // Backends shows Get started instead of the notice.
+      await expect(
+        fresh.locator('[data-ega-status-bar], [data-ega-get-started]').first(),
+      ).toBeVisible();
+      await optShot(fresh, `options-${id}-notice`, theme, {
+        fullPage: true,
+        userAction: `user opened the ${id} tab on a fresh install with no backend set up`,
+        expectations: [
+          'one notice above the title: "No backend is set up yet, so Ega cannot translate" with one action',
+          'a space-5 gap between the notice and the title',
+        ],
+      });
+      await fresh.close();
+    }
+    // A slow first read: the skeleton shows instead of an empty tab.
+    // Every storage read in the first 4 s waits until then.
+    const slow = `(() => { const g = chrome.storage.local.get.bind(chrome.storage.local); const t0 = Date.now();
+      chrome.storage.local.get = (...a) => { const left = 4000 - (Date.now() - t0);
+        return left <= 0 ? g(...a) : new Promise((r) => setTimeout(() => r(g(...a)), left)); }; })();`;
+    const page = await ext.context.newPage();
+    await page.setViewportSize({ width: 1200, height: 800 });
+    await seedSettings(ext.context, ext.extensionId, { ...OPTIONS_CONFIGURED, theme });
+    await page.addInitScript(slow);
+    await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
+    await page.waitForTimeout(600); // wait inside the delayed read (no observable end state)
+    await optShot(page, 'options-loading', theme, {
+      userAction: 'user opened Settings while the first settings read was slow',
+      expectations: ['skeleton rows in place of the cards, with no empty state and no error'],
+      viewportOnly: true,
+    });
+    await page.close();
+  }
+});
+
+test('Options frame — every tab at 880px, at 600px and with forced colors (light + dark)', async () => {
+  test.setTimeout(600_000);
+  for (const theme of OPT_THEMES) {
+    for (const width of [880, 600]) {
+      for (const id of TAB_IDS) {
+        const page = await openOptionsState(theme, { tab: id, width });
+        await optShot(page, `options-narrow-${width}-${id}`, theme, {
+          fullPage: true,
+          userAction: `user narrowed the Settings window to ${width}px on the ${id} tab`,
+          expectations: [
+            'the rail turns to icons; no text is cut off; labels may wrap',
+            'rows keep their controls on one line or stack cleanly; nothing overlaps',
+          ],
+        });
+        await page.close();
+      }
+    }
+    for (const id of TAB_IDS) {
+      const page = await openOptionsState(theme, { tab: id });
+      await page.emulateMedia({ forcedColors: 'active', reducedMotion: 'reduce' });
+      await page.waitForTimeout(150); // wait for the forced-colors repaint (no observable end state)
+      await optShot(page, `options-forced-colors-${id}`, theme, {
+        fullPage: true,
+        userAction: `user opened the ${id} tab with Windows high contrast on`,
+        expectations: [
+          'every control and card edge stays visible in system colors',
+          'the selected tab and checked boxes read as selected without color',
+        ],
+      });
+      await page.close();
+    }
+  }
+});
+
+test('Options frame — the keyboard walk on Answers and Backends (light + dark)', async () => {
+  test.setTimeout(600_000);
+  for (const theme of OPT_THEMES) {
+    for (const id of ['translate', 'backends']) {
+      const page = await openOptionsState(theme, { tab: id });
+      // From the top: the header toolbar row comes first in the walk.
+      await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+      for (let n = 0; n < 40; n++) {
+        await page.keyboard.press('Tab');
+        // Each stop is marked once; meeting a marked one again means the walk went round.
+        const fresh = await page.evaluate(() => {
+          const el = document.activeElement as HTMLElement | null;
+          if (!el || el === document.body || el.dataset['egaWalk'] !== undefined) return false;
+          el.dataset['egaWalk'] = '1';
+          el.scrollIntoView({ block: 'center' });
+          return true;
+        });
+        if (!fresh) break;
+        await optShot(page, `options-focus-walk-${id}-${String(n + 1).padStart(2, '0')}`, theme, {
+          userAction: `user pressed Tab ${n + 1} times on the ${id} tab`,
+          expectations: [
+            'exactly one control shows a clear focus ring',
+            'the focused control is fully visible',
+          ],
+          viewportOnly: true,
+          skipPark: true,
+          // Focus opens an (i), so a tip may show.
+          overlay: 'maybe',
+        });
+      }
+      await page.close();
+    }
+  }
+});
+
+test('Options frame — search, palette and shortcut sheet (light + dark)', async () => {
+  test.setTimeout(600_000);
+  for (const theme of OPT_THEMES) {
+    const page = await openOptionsState(theme, {
+      seed: { confidencePill: false, streaming: false },
+    });
+    const search = page.getByRole('dialog', { name: 'Search settings' });
+    await page.keyboard.press('Control+,');
+    await expect(search).toBeVisible();
+    await optShot(page, 'settings-search-empty', theme, {
+      userAction: 'user pressed Ctrl+, to search settings',
+      expectations: [
+        '"Popular settings" heading and six entries',
+        'full-width search field with its icon',
+      ],
+      overlay: true,
+    });
+    const field = page.locator('input[aria-label="Search settings"]');
+    await field.fill('temperature');
+    await optShot(page, 'settings-search-results', theme, {
+      userAction: 'user typed "temperature"',
+      expectations: [
+        'each result: label, its one-line description, and a tab chip',
+        'the match is highlighted',
+      ],
+      overlay: true,
+    });
+    await field.fill('xyzzy');
+    await optShot(page, 'settings-search-no-results', theme, {
+      userAction: 'user typed a word no setting has',
+      expectations: ['"No setting matches "xyzzy"" and a ghost "Clear search"'],
+      overlay: true,
+    });
+    await field.fill('');
+    await search.getByText('Changed only').click();
+    await optShot(page, 'settings-search-changed-only', theme, {
+      userAction: 'user ticked Changed only with two settings changed',
+      expectations: ['only the changed settings are listed'],
+      overlay: true,
+    });
+    await search.getByText('Changed only').click();
+    await field.fill('theme');
+    await optShot(page, 'settings-search-theme-header', theme, {
+      userAction: 'user searched for the theme setting',
+      expectations: ['the Theme result carries the chip "Header", not a tab name'],
+      overlay: true,
+    });
+    await page.keyboard.press('Escape');
+    await expect(search).toBeHidden();
+
+    await page.keyboard.press('Control+k');
+    await expect(page.getByPlaceholder('Type a command or search…')).toBeVisible();
+    await optShot(page, 'command-palette', theme, {
+      userAction: 'user pressed Ctrl+K',
+      expectations: [
+        'the command list with group headings in sentence case',
+        'the search field is focused',
+      ],
+      overlay: true,
+    });
+    await page.keyboard.press('Escape');
+    await page.locator('body').press('?');
+    await expect(page.getByRole('dialog').first()).toBeVisible();
+    await optShot(page, 'shortcut-sheet', theme, {
+      userAction: 'user pressed ? for the shortcut sheet',
+      expectations: ['every shortcut with its keys; nothing cut off'],
+      overlay: true,
+    });
+    await page.keyboard.press('Escape');
+    await page.close();
+  }
+});
+
+test('Options frame — toasts, the save failure and the (i) tips (light + dark)', async () => {
+  test.setTimeout(600_000);
+  const sites = {
+    'news.example.com': { disabled: true },
+    'shop.example.com': { disabled: false, defaultLang: 'es' },
+    'docs.example.com': { disabled: true },
+  };
+  for (const theme of OPT_THEMES) {
+    let page = await openOptionsState(theme, {
+      seed: { sitePrefs: sites },
+      tab: 'advanced',
+      sub: 'data',
+    });
+    await page.getByRole('button', { name: /^Remove (https?:\/\/)?news\.example\.com$/ }).click();
+    await page.locator('[data-sonner-toast]').first().waitFor();
+    await optShot(page, 'toast-success-undo', theme, {
+      userAction: 'user removed a site override',
+      expectations: [
+        'toast bottom-right: "Removed news.example.com" with an Undo text button and a close button inside',
+      ],
+      viewportOnly: true,
+    });
+    await page.getByRole('button', { name: /^Remove (https?:\/\/)?shop\.example\.com$/ }).click();
+    await expect(page.locator('[data-sonner-toast]')).toHaveCount(2);
+    await optShot(page, 'toast-stacked', theme, {
+      userAction: 'user removed a second site override while the first toast still showed',
+      expectations: ['two toasts stacked without overlap; the newest on top'],
+      viewportOnly: true,
+    });
+    await page.close();
+
+    const failing = `(() => { const s = chrome.runtime.sendMessage.bind(chrome.runtime);
+      chrome.runtime.sendMessage = (m, ...r) => m && m.kind === 'cache:clear' ? Promise.reject(new Error('worker gone')) : s(m, ...r); })();`;
+    page = await openOptionsState(theme, { tab: 'advanced', sub: 'data', init: failing });
+    await page.locator('[data-ega-clear-cache]').click();
+    await page.locator('[data-sonner-toast]').first().waitFor();
+    await optShot(page, 'toast-error', theme, {
+      userAction: 'user pressed Clear cache while the background worker could not answer',
+      expectations: [
+        'an error toast that says what happened, with Try again; it stays until dismissed',
+      ],
+      viewportOnly: true,
+    });
+    await page.close();
+
+    page = await openOptionsState(theme, { tab: 'translate' });
+    await page.evaluate(() => {
+      chrome.storage.local.set = (() =>
+        Promise.reject(new Error('QUOTA_BYTES quota exceeded'))) as typeof chrome.storage.local.set;
+    });
+    await page.getByRole('checkbox', { name: /Show confidence pill/ }).click();
+    await page.locator('[data-sonner-toast]').first().waitFor();
+    await optShot(page, 'toast-save-failure', theme, {
+      userAction: 'user changed a setting while Chrome refused to store it',
+      expectations: ['"Not saved. Chrome did not take the change." with Try again'],
+      viewportOnly: true,
+    });
+    await page.close();
+
+    page = await openOptionsState(theme, { tab: 'translate' });
+    const tip = page.locator('[data-ega-infotip]').first();
+    await tip.hover();
+    await expect(page.locator('[data-ega-infotip-text]')).toBeVisible();
+    await optShot(page, 'infotip-hover', theme, {
+      userAction: 'user rested the pointer on the first (i) of the Answers tab',
+      expectations: ['the tip opens under the (i), short plain sentences, no links'],
+      overlay: true,
+      viewportOnly: true,
+      skipPark: true,
+    });
+    await page.mouse.move(0, 790);
+    await expect(page.locator('[data-ega-infotip-text]')).toHaveCount(0);
+    await tip.focus();
+    await expect(page.locator('[data-ega-infotip-text]')).toBeVisible();
+    await optShot(page, 'infotip-focus', theme, {
+      userAction: 'user tabbed to the (i)',
+      expectations: ['focus ring on the (i) and the tip open under it'],
+      overlay: true,
+      viewportOnly: true,
+    });
+    await page.keyboard.press('Escape');
+    await tip.click();
+    await expect(page.locator('[data-ega-infotip-text]')).toBeVisible();
+    await page.mouse.move(0, 790);
+    await optShot(page, 'infotip-pinned', theme, {
+      userAction: 'user clicked the (i) and moved the pointer away',
+      expectations: ['the tip stays open until Esc or a click outside'],
+      overlay: true,
+      viewportOnly: true,
+    });
+    await page.keyboard.press('Escape');
+    await page.close();
+  }
+});
+
+test('Options Answers — where answers show, page context, generation, page translate (light + dark)', async () => {
+  test.setTimeout(600_000);
+  for (const theme of OPT_THEMES) {
+    let page = await openOptionsState(theme, { tab: 'translate' });
+    await expect(page.locator('[data-ega-knob-group="shared"]')).toBeVisible();
+    await page.locator('[data-ega-mode="inline"]').click();
+    await expect(page.locator('[data-ega-mode="inline"]')).toHaveAttribute('aria-checked', 'true');
+    await optShot(page, 'answers-where-answers-show-inline', theme, {
+      userAction: 'user picked Inline under Where answers show',
+      expectations: ['Inline is selected and its picture shows the answer in place of the text'],
+    });
+    await page.getByRole('checkbox', { name: /Show confidence pill/ }).click();
+    await expect(page.locator('[data-ega-section-reset]').first()).toBeVisible();
+    await centerOn(page, '[data-ega-section-reset]');
+    await optShot(page, 'answers-where-answers-show-changed', theme, {
+      userAction: 'user changed two settings in the card',
+      expectations: ['the card header shows the Reset section pill'],
+    });
+    await page.locator('[data-ega-section-reset]').first().click();
+    await page.locator('[data-sonner-toast]').first().waitFor();
+    await optShot(page, 'answers-where-answers-show-after-reset', theme, {
+      userAction: 'user pressed Reset section',
+      expectations: [
+        'the pill and tooltip options are back to defaults and the Inline pick stays; a toast with Undo',
+      ],
+    });
+    await page.close();
+
+    page = await openOptionsState(theme, { tab: 'translate' });
+    await expect(page.locator('[data-ega-task-usage]').first()).toBeVisible();
+    await page.locator('[data-ega-context-level="rich"]').click();
+    await centerOn(page, '[data-ega-context-level="rich"]');
+    await optShot(page, 'answers-page-context-rich', theme, {
+      userAction: 'user picked the richer page context',
+      expectations: ['How much: Rich is selected, with its one line about what it sends'],
+    });
+    await page.locator('[data-ega-setting="advanced.pageContextPayload"] summary').click();
+    await optShot(page, 'answers-page-context-fine-tune-open', theme, {
+      userAction: 'user opened Fine-tune what is sent',
+      expectations: ['the four sliders show, each label left and value right, with its hint'],
+    });
+    await page.close();
+
+    page = await openOptionsState(theme, { tab: 'translate', seed: { contextEnabled: false } });
+    await centerOn(page, '[data-ega-setting="display.contextEnabled"]');
+    await optShot(page, 'answers-page-context-context-off', theme, {
+      userAction: 'user turned page context off',
+      expectations: ['"Sent with" reads None; the level choice is hidden'],
+    });
+    await page.close();
+
+    page = await openOptionsState(theme, {
+      tab: 'translate',
+      seed: {
+        groqApiKey: 'gsk-audit',
+        backendOrder: ['groq', 'anthropic', 'gemini', 'native'],
+        disabledBackends: [],
+        advanced: { effort: 'medium' },
+      },
+    });
+    await page.locator('[data-ega-generation-card]').scrollIntoViewIfNeeded();
+    await expect(page.locator('[data-ega-generation-note]').first()).toBeVisible();
+    await expect(page.locator('[data-ega-default-tick]').first()).toBeAttached();
+    await optShot(page, 'answers-generation-model-no-effort', theme, {
+      userAction: 'user set Effort to Medium with a model that has no effort setting first in line',
+      expectations: ['a muted note under Effort: "Groq ignores Effort"; the control stays enabled'],
+    });
+    await page.close();
+
+    page = await openOptionsState(theme, {
+      tab: 'translate',
+      seed: {
+        openaiApiKey: 'sk-audit',
+        backendOrder: ['openai', 'anthropic', 'gemini', 'native'],
+        disabledBackends: [],
+        model: { openai: 'o4-mini' },
+        advanced: { effort: 'off' },
+      },
+    });
+    await page.locator('[data-ega-generation-card]').scrollIntoViewIfNeeded();
+    await expect(page.locator('[data-ega-generation-note]').first()).toBeVisible();
+    await optShot(page, 'answers-generation-reasoning-model', theme, {
+      userAction: 'user has a reasoning model first in line with Effort Off',
+      expectations: [
+        '"OpenAI has no Off, so it runs at Low"',
+        'a note that OpenAI ignores the creativity setting',
+      ],
+    });
+    await page.close();
+
+    page = await openOptionsState(theme, { tab: 'translate' });
+    await page.getByText('Batch settings').click();
+    await page.locator('[data-ega-setting="advanced.batchConcurrency"]').scrollIntoViewIfNeeded();
+    await optShot(page, 'answers-page-translate-batch-open', theme, {
+      userAction: 'user opened Batch settings in Page translate',
+      expectations: ['Areas sent at once slider with its value and one-line hint'],
+    });
+    await page.close();
+  }
+});
+
+const TASK_IDS = [
+  'translate',
+  'explain',
+  'summarize',
+  'reword',
+  'grammar',
+  'suggest-replies',
+  'ask',
+];
+
+async function openTaskDialog(page: Page, id: string): Promise<Locator> {
+  await page.locator(`[data-ega-task-edit="${id}"]`).click();
+  const dialog = page.locator(`[data-ega-task-dialog="${id}"]`);
+  await dialog.waitFor();
+  return dialog;
+}
+
+async function closeDialogs(page: Page): Promise<void> {
+  for (let i = 0; i < 3 && (await page.locator('.ega-dialog').count()) > 0; i++) {
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(150); // wait for the dialog to unmount (no observable end state)
+  }
+}
+
+test('Options Tasks — your tasks and every task dialog (light + dark)', async () => {
+  test.setTimeout(900_000);
+  const many = Array.from({ length: 50 }, (_, n) =>
+    customTask({ id: `c-cap-${n}`, label: `Task ${n + 1}`, createdAt: n + 1 }),
+  );
+  for (const theme of OPT_THEMES) {
+    let page = await openOptionsState(theme, { tab: 'tasks' });
+    await page
+      .locator('[data-ega-custom-task-list], [data-ega-empty-state]')
+      .first()
+      .scrollIntoViewIfNeeded();
+    await optShot(page, 'tasks-your-tasks-empty', theme, {
+      userAction: 'user opened Tasks with no tasks of their own',
+      expectations: [
+        'Your tasks shows one EmptyState that carries the New task action; no header button',
+      ],
+    });
+    await page.close();
+
+    page = await openOptionsState(theme, {
+      tab: 'tasks',
+      storage: {
+        'ega.customTasks': [
+          customTask(),
+          customTask({ id: 'c-formal', label: 'Formal email', createdAt: 2 }),
+        ],
+      },
+    });
+    await centerOn(page, '[data-ega-custom-task-list]');
+    await optShot(page, 'tasks-your-tasks-populated', theme, {
+      userAction: 'user has two tasks of their own',
+      expectations: ['two hairline rows with Edit; New task in the card header'],
+    });
+    await page.close();
+
+    page = await openOptionsState(theme, {
+      tab: 'tasks',
+      storage: {
+        'ega.customTasks': [
+          customTask({
+            label: 'Rewrite this for a very formal business email to a client in Germany',
+          }),
+        ],
+      },
+    });
+    await centerOn(page, '[data-ega-custom-task-list]');
+    await optShot(page, 'tasks-your-tasks-long-name', theme, {
+      userAction: 'user has a task with a long name',
+      expectations: ['the long name wraps; nothing is cut off; Edit stays on the row'],
+    });
+    await page.close();
+
+    page = await openOptionsState(theme, { tab: 'tasks', storage: { 'ega.customTasks': many } });
+    await page.locator('[data-ega-custom-task-cap]').scrollIntoViewIfNeeded();
+    await optShot(page, 'tasks-your-tasks-at-cap', theme, {
+      userAction: 'user has 50 tasks, the most Ega keeps',
+      expectations: [
+        'New task does nothing and says why in visible text: "You have the most tasks Ega keeps (50)..."',
+      ],
+    });
+    await page.close();
+
+    page = await openOptionsState(theme, { tab: 'tasks' });
+    for (const id of TASK_IDS) {
+      await openTaskDialog(page, id);
+      await expect(page.locator('[data-ega-task-facts]')).toBeVisible();
+      await optShot(page, `task-dialog-${id}`, theme, {
+        userAction: `user opened the ${id} task`,
+        expectations: [
+          'settings first (Effort, Inputs), then the prompt or the line naming the prompt it uses',
+          'footer fixed at the bottom',
+        ],
+        overlay: true,
+      });
+      await page
+        .locator('.ega-dialog-body')
+        .last()
+        .evaluate((b) => b.scrollTo({ top: b.scrollHeight }));
+      await page.waitForTimeout(100); // wait for the scroll cue to update (no observable end state)
+      await optShot(page, `task-dialog-${id}-end`, theme, {
+        userAction: `user scrolled the ${id} task to the end`,
+        expectations: ['the last line sits above the footer; no cue at the bottom edge'],
+        overlay: true,
+      });
+      await closeDialogs(page);
+    }
+
+    let dialog = await openTaskDialog(page, 'translate');
+    await expect(dialog.locator('[data-ega-answer-format]')).toBeVisible();
+    await dialog.locator('[data-ega-prompt-tab="preview"]').click();
+    await optShot(page, 'task-dialog-translate-preview', theme, {
+      userAction: 'user pressed Preview in the Translate prompt',
+      expectations: [
+        'the full system and message text with sample text filled in; Edit and Preview as tabs',
+      ],
+      overlay: true,
+    });
+    await closeDialogs(page);
+    dialog = await openTaskDialog(page, 'summarize');
+    await dialog.locator('[data-ega-prompt-tab="preview"]').click();
+    await optShot(page, 'task-dialog-preview-summarize', theme, {
+      userAction: 'user pressed Preview in the Summarize prompt',
+      expectations: ['the built prompt for Summarize, read-only'],
+      overlay: true,
+    });
+    await dialog.locator('[data-ega-prompt-tab="edit"]').click();
+    await dialog.locator('[data-ega-slot-insert-picker]').click();
+    await page.locator('[data-ega-variable-picker]').waitFor();
+    await optShot(page, 'task-dialog-insert-variable-open', theme, {
+      userAction: 'user opened Insert variable',
+      expectations: [
+        'search field on top; each variable with its name, token and meaning; nothing cut off',
+      ],
+      overlay: true,
+      skipPark: true,
+    });
+    await page.keyboard.press('Escape');
+    await closeDialogs(page);
+
+    // Reset task: the footer says "Back to built-in" with Undo.
+    await page.close();
+    page = await openOptionsState(theme, {
+      tab: 'tasks',
+      seed: { taskOverrides: { summarize: { effort: 'high' } } },
+    });
+    await openTaskDialog(page, 'summarize');
+    // Reset task sits in the dialog footer, outside the task body.
+    await page.locator('.ega-dialog [data-ega-section-reset]').click();
+    await expect(page.locator('[data-ega-dialog-status]')).toContainText(/built-in/i);
+    await optShot(page, 'task-dialog-reset-undo', theme, {
+      userAction: 'user pressed Reset task',
+      expectations: ['footer status "Back to built-in" with an Undo text button'],
+      overlay: true,
+    });
+    await closeDialogs(page);
+    await page.close();
+
+    page = await openOptionsState(theme, { tab: 'tasks' });
+    dialog = await openTaskDialog(page, 'summarize');
+    const instructions = dialog
+      .locator('[data-ega-template-system] textarea, textarea[data-ega-template-system]')
+      .first();
+    await instructions.fill('Summarize the text in two short sentences.');
+    await expect(page.locator('[data-ega-dialog-status]')).toContainText(/Saved/);
+    await expect(dialog.locator('[data-ega-prompt-edited]').first()).toBeVisible();
+    await optShot(page, 'task-dialog-saved', theme, {
+      userAction: 'user changed the Summarize instructions',
+      expectations: ['footer status "Saved"; the prompt shows Edited'],
+      overlay: true,
+    });
+    const message = dialog
+      .locator('[data-ega-template-user] textarea, textarea[data-ega-template-user]')
+      .first();
+    await message.fill('');
+    await message.blur();
+    await expect(dialog.locator('[data-ega-prompt-error]').first()).toBeVisible();
+    await dialog.locator('[data-ega-prompt-error]').first().scrollIntoViewIfNeeded();
+    await optShot(page, 'task-dialog-invalid-message', theme, {
+      userAction: 'user emptied the Message field',
+      expectations: ['an error under Message that says what is missing; nothing was saved'],
+      overlay: true,
+    });
+    await closeDialogs(page);
+    const keep = page.getByRole('button', { name: /^(Close anyway|Discard)$/ });
+    if (await keep.isVisible().catch(() => false)) await keep.click();
+    await page.close();
+
+    page = await openOptionsState(theme, {
+      tab: 'tasks',
+      seed: {
+        advanced: {
+          promptTemplate: {
+            system:
+              'You are a translator. Return JSON ONLY: {"translation": "<the translated text>"}.',
+            user: '{{text}}',
+          },
+          templateVersion: 0,
+        },
+      },
+    });
+    dialog = await openTaskDialog(page, 'translate');
+    await expect(dialog.locator('[data-ega-tpl-version-banner]')).toBeVisible();
+    await optShot(page, 'task-dialog-version-notice', theme, {
+      userAction: 'user opened Translate with a prompt from an older version',
+      expectations: [
+        '"A newer built-in Translate prompt is available" with Show changes, Use the new prompt, Keep mine',
+      ],
+      overlay: true,
+    });
+    await dialog
+      .locator('[data-ega-answer-format-own], [data-ega-use-standard-format]')
+      .first()
+      .scrollIntoViewIfNeeded();
+    await optShot(page, 'task-dialog-answer-format-legacy', theme, {
+      userAction: 'user scrolled to the prompt, which writes its own answer format line',
+      expectations: [
+        'the locked Answer format notes the prompt has its own format line, with the way back to the standard one',
+      ],
+      overlay: true,
+    });
+    await dialog.locator('[data-ega-tpl-show-diff]').click();
+    await page.locator('.ega-dialog').nth(1).waitFor();
+    await optShot(page, 'task-dialog-template-diff', theme, {
+      userAction: 'user pressed Show changes',
+      expectations: [
+        'the two prompts side by side, the changed lines marked; headings in sentence case',
+      ],
+      overlay: true,
+    });
+    await closeDialogs(page);
+    await page.close();
+  }
+});
+
+test('Options Tasks — a task of your own: new, edit, invalid, preview, delete, close (light + dark)', async () => {
+  test.setTimeout(600_000);
+  for (const theme of OPT_THEMES) {
+    let page = await openOptionsState(theme, { tab: 'tasks' });
+    await page.locator('[data-ega-custom-task-new], [data-ega-empty-state] button').first().click();
+    let dialog = page.locator('[data-ega-custom-task-dialog]');
+    await dialog.waitFor();
+    await optShot(page, 'custom-task-new-empty', theme, {
+      userAction: 'user pressed New task',
+      expectations: [
+        'Name first, then Inputs, Answers, then the prompt; "Not saved yet" in the footer',
+      ],
+      overlay: true,
+    });
+    await dialog
+      .locator('[data-ega-custom-task-name] input, input[data-ega-custom-task-name]')
+      .first()
+      .fill('Tweet summary');
+    await dialog
+      .locator('[data-ega-template-system] textarea, textarea[data-ega-template-system]')
+      .first()
+      .fill('Summarize the text as one short tweet.');
+    await expect(page.locator('[data-ega-dialog-status]')).toContainText(/Saved/);
+    await dialog.locator('[data-ega-custom-task-menu]').check();
+    await optShot(page, 'custom-task-new-valid', theme, {
+      userAction: 'user named the task and wrote its instructions',
+      expectations: ['footer status "Saved"; the task now shows in Your tasks behind the dialog'],
+      overlay: true,
+    });
+    await dialog.locator('[data-ega-prompt-tab="preview"]').click();
+    await optShot(page, 'custom-task-preview', theme, {
+      userAction: 'user pressed Preview',
+      expectations: [
+        'the built prompt with the sample text, the same Preview as the built-in tasks',
+      ],
+      overlay: true,
+    });
+    await dialog.locator('[data-ega-prompt-tab="edit"]').click();
+    await dialog
+      .locator('[data-ega-template-user] textarea, textarea[data-ega-template-user]')
+      .first()
+      .fill('');
+    await page.keyboard.press('Tab');
+    await expect(dialog.locator('[data-ega-prompt-error]').first()).toBeVisible();
+    await dialog.locator('[data-ega-prompt-error]').first().scrollIntoViewIfNeeded();
+    await optShot(page, 'custom-task-invalid', theme, {
+      userAction: 'user emptied the Message',
+      expectations: ['a field error under Message; the last valid version stays saved'],
+      overlay: true,
+    });
+    await page.keyboard.press('Escape');
+    await page.getByRole('dialog', { name: 'Close without this change?' }).waitFor();
+    await optShot(page, 'custom-task-close-confirm', theme, {
+      userAction: 'user pressed Esc with an invalid change',
+      expectations: ['"Close without this change?" with Keep editing and Close anyway'],
+      overlay: true,
+    });
+    await page.getByRole('button', { name: 'Keep editing' }).click();
+    await closeDialogs(page);
+    const anyway = page.getByRole('button', { name: 'Close anyway' });
+    if (await anyway.isVisible().catch(() => false)) await anyway.click();
+    await page.close();
+
+    page = await openOptionsState(theme, {
+      tab: 'tasks',
+      storage: { 'ega.customTasks': [customTask()] },
+    });
+    await page.getByRole('button', { name: /^Edit Tweet summary$/ }).click();
+    dialog = page.locator('[data-ega-custom-task-dialog]');
+    await dialog.waitFor();
+    await optShot(page, 'custom-task-edit', theme, {
+      userAction: 'user opened their Tweet summary task',
+      expectations: ['the saved name and prompt; Delete task in the footer start'],
+      overlay: true,
+    });
+    await page.locator('[data-ega-custom-task-delete]').click();
+    await page.locator('[data-sonner-toast]').first().waitFor();
+    await optShot(page, 'custom-task-delete-toast', theme, {
+      userAction: 'user deleted the task',
+      expectations: ['the dialog closes; a toast names the task with Undo; focus is not lost'],
+    });
+    await page.close();
+  }
+});
+
+test('Options Selection and picker — Never, picker off, recording a shortcut, a clash (light + dark)', async () => {
+  test.setTimeout(600_000);
+  for (const theme of OPT_THEMES) {
+    let page = await openOptionsState(theme, { tab: 'selection-bubble' });
+    await page.locator('[data-ega-bubble-mode]').getByText('Never', { exact: true }).click();
+    await optShot(page, 'selection-never', theme, {
+      userAction: 'user set the selection bubble to Never',
+      expectations: ['Never is selected; the Shortest selection slider under Smart is hidden'],
+    });
+    await page.close();
+
+    page = await openOptionsState(theme, {
+      tab: 'selection-bubble',
+      seed: { pickerEnabled: false },
+    });
+    await centerOn(page, '[data-ega-setting="display.pickerShortcut"]');
+    await optShot(page, 'selection-picker-off', theme, {
+      userAction: 'user turned the element picker off',
+      expectations: [
+        'the Element picker shortcut row is dimmed with the visible reason "Turn on the element picker to use this shortcut"',
+      ],
+    });
+    await page.close();
+
+    page = await openOptionsState(theme, { tab: 'selection-bubble' });
+    const row = page.locator('[data-ega-setting="display.shortcut"]');
+    await row.locator('button').first().click();
+    await expect(row).toContainText('Press keys');
+    await centerOn(page, '[data-ega-setting="display.shortcut"]');
+    await optShot(page, 'shortcut-recording', theme, {
+      userAction: 'user pressed the Translate selection shortcut to record a new one',
+      expectations: ['the field reads "Press keys..."; Esc cancels'],
+    });
+    await page.keyboard.press('Control+Shift+E');
+    await expect(row).toContainText('already the');
+    await optShot(page, 'shortcut-conflict', theme, {
+      userAction: 'user pressed the combo the element picker already uses',
+      expectations: [
+        '"Ctrl+Shift+E is already the Element picker shortcut. Pick another." under the row; nothing saved',
+      ],
+    });
+    await page.close();
+  }
+});
+
+/** The fake native host: it answers a ping with `version` and lists the CLIs it finds. */
+function fakeNativeHost(version: number, cli: Record<string, string | null>): string {
+  return `(() => {
+    chrome.runtime.connectNative = () => {
+      const listeners = []; const ends = [];
+      const port = {
+        name: 'ega-e2e-fake',
+        onMessage: { addListener: (f) => listeners.push(f), removeListener: () => {} },
+        onDisconnect: { addListener: (f) => ends.push(f), removeListener: () => {} },
+        disconnect: () => {},
+        postMessage: (m) => setTimeout(() => {
+          const say = (x) => listeners.forEach((f) => f({ id: m.id, ...x }));
+          if (m.kind === 'ping') say({ type: 'pong', hostVersion: ${version} });
+          else if (m.kind === 'probe-cli') {
+            say({ type: 'cli-presence', cli: ${JSON.stringify(cli)} });
+            say({ type: 'cli-login', loggedIn: { claude: true, codex: true } });
+            say({ type: 'done' });
+          } else if (m.kind === 'list-models') { say({ type: 'models', models: ['sonnet', 'haiku'] }); say({ type: 'done' }); }
+          else say({ type: 'done' });
+        }, 20),
+      };
+      return port;
+    };
+  })();`;
+}
+
+async function expandBackend(page: Page, id: string): Promise<Locator> {
+  const card = page.locator(`details[data-backend-id="${id}"]`);
+  await card.locator('summary').first().click();
+  await expect(card).toHaveAttribute('open', '');
+  await card.scrollIntoViewIfNeeded();
+  return card;
+}
+
+test('Options Backends — the list, cloud cards, local cards and the native host (light + dark)', async () => {
+  test.setTimeout(900_000);
+  for (const theme of OPT_THEMES) {
+    let page = await openOptionsState(theme, { fresh: true, tab: 'backends' });
+    await expect(page.locator('[data-ega-get-started]')).toBeVisible();
+    await expect(page.locator('[data-ega-depth-note]')).toContainText('No backend is ready');
+    await optShot(page, 'backends-get-started', theme, {
+      userAction: 'user opened Backends on a fresh install',
+      expectations: [
+        'Get started card: primary "Use a free Gemini key", two secondary, ghost "Skip for now"',
+      ],
+    });
+    await page.locator('[data-ega-onboard]').first().click();
+    await page.waitForTimeout(300); // wait for the Gemini row to open and take focus (no single end state)
+    await optShot(page, 'backends-after-get-started', theme, {
+      userAction: 'user pressed Use a free Gemini key',
+      expectations: ['the Gemini row is open with its key field focused'],
+      viewportOnly: true,
+    });
+    await page.close();
+
+    page = await openOptionsState(theme, {
+      tab: 'backends',
+      seed: {
+        geminiApiKey: 'AIza-audit',
+        backendOrder: ['anthropic', 'gemini', 'native', 'ollama'],
+        disabledBackends: [],
+      },
+    });
+    await expect(page.locator('[data-ega-route="first"]')).toHaveCount(1, { timeout: 10_000 });
+    await expect(page.locator('[data-ega-depth-note]')).toHaveCount(0);
+    await optShot(page, 'backends-configured', theme, {
+      userAction: 'user has two cloud keys, the native host and Ollama in use',
+      expectations: [
+        'Try up to N backends first; then one row each: position, name, status pill, route tag',
+        '"First choice" on the first ready row; "Backup 1" next; the rest "Skipped" or "Not reached"',
+      ],
+    });
+    await page.locator('[data-ega-depth="3"]').click();
+    await expect(page.locator('[data-ega-depth-note]')).toContainText('Only 2 backends are ready');
+    await optShot(page, 'backends-depth-note', theme, {
+      userAction: 'user asked for three backends with only two ready',
+      expectations: ['"Only 2 backends are ready, so Ega tries 2" under Try up to'],
+    });
+    await page.close();
+
+    // Every probe hangs: the service worker's probe, the native host port and the local servers.
+    const checking = `(() => { const s = chrome.runtime.sendMessage.bind(chrome.runtime);
+      chrome.runtime.sendMessage = (m, ...r) => m && m.kind === 'backend:probe-all' ? new Promise(() => {}) : s(m, ...r);
+      const quiet = { addListener() {}, removeListener() {} };
+      chrome.runtime.connectNative = () => ({ postMessage() {}, disconnect() {}, onMessage: quiet, onDisconnect: quiet });
+      const f = window.fetch.bind(window);
+      window.fetch = (u, ...r) => /localhost|127.0.0.1/.test(String(u)) ? new Promise(() => {}) : f(u, ...r); })();`;
+    page = await openOptionsState(theme, { tab: 'backends', init: checking });
+    await optShot(page, 'backends-checking', theme, {
+      userAction: 'user opened Backends while the readiness check was still running',
+      expectations: ['rows read "Checking..." with no route tag guess'],
+    });
+    await page.close();
+
+    page = await openOptionsState(theme, {
+      tab: 'backends',
+      seed: {
+        disabledBackends: [
+          'anthropic',
+          'gemini',
+          'native',
+          'openai',
+          'groq',
+          'deepseek',
+          'together',
+          'mistral',
+          'xai',
+          'fireworks',
+          'openrouter',
+          'ollama',
+          'localserver',
+        ],
+      },
+    });
+    await optShot(page, 'backends-all-disabled', theme, {
+      userAction: 'user disabled every backend',
+      expectations: [
+        'Backends in use says nothing can answer; every row waits under Not in use with Enable',
+      ],
+    });
+    await page.close();
+
+    // Cloud card states.
+    page = await openOptionsState(theme, { tab: 'backends', seed: { disabledBackends: [] } });
+    await expandBackend(page, 'groq');
+    await optShot(page, 'backend-cloud-expanded-empty', theme, {
+      userAction: 'user opened the Groq row with no key',
+      expectations: ['numbered steps: key with the sign-up link, then model; "Needs setup" pill'],
+    });
+    await page.close();
+
+    await ext.context.route('https://api.anthropic.com/v1/models**', () => new Promise(() => {}));
+    page = await openOptionsState(theme, { tab: 'backends' });
+    await expandBackend(page, 'anthropic');
+    await expect(page.locator('[data-ega-backend-test="anthropic"]')).toBeVisible();
+    await optShot(page, 'backend-cloud-key-saved', theme, {
+      userAction: 'user opened the Anthropic row with a saved key',
+      expectations: ['"Key saved" pill; the key field masked; Test is available'],
+    });
+    await optShot(page, 'backend-cloud-models-loading', theme, {
+      userAction: 'the model list is still loading',
+      expectations: ['the model field says it is loading, without a spinner that hides the field'],
+    });
+    await page.close();
+    await resetRoutes(ext.context);
+
+    await ext.context.route('https://api.anthropic.com/v1/models**', (r) =>
+      r.fulfill({ status: 500, body: '{"error":{"message":"upstream"}}' }),
+    );
+    page = await openOptionsState(theme, { tab: 'backends' });
+    const models = await expandBackend(page, 'anthropic');
+    await models.getByRole('button', { name: 'Refresh model list from the backend' }).click();
+    await expect(models.getByText(/^Could not load the model list/)).toBeVisible();
+    await optShot(page, 'backend-cloud-models-error', theme, {
+      userAction: 'the model list request failed',
+      expectations: ['a plain line that the list did not load and a typed model still works'],
+    });
+    await page.close();
+    await resetRoutes(ext.context);
+
+    mockAnthropic(ext.context, { delayMs: 8_000 });
+    page = await openOptionsState(theme, { tab: 'backends' });
+    await expandBackend(page, 'anthropic');
+    await page.getByTestId('backend-card-test-anthropic').click();
+    await page.waitForTimeout(300); // wait for the Testing state to paint (no single end state)
+    await optShot(page, 'backend-cloud-testing', theme, {
+      userAction: 'user pressed Test',
+      expectations: ['Test shows its busy state; nothing else moves'],
+    });
+    await page.close();
+    await resetRoutes(ext.context);
+
+    mockAnthropic(ext.context, { translation: 'Hello my friend, how are you today?' });
+    page = await openOptionsState(theme, { tab: 'backends' });
+    let card = await expandBackend(page, 'anthropic');
+    await page.getByTestId('backend-card-test-anthropic').click();
+    await expect(card.locator('[data-ega-backend-status="Verified"]')).toBeVisible({
+      timeout: 10_000,
+    });
+    await optShot(page, 'backend-cloud-verified', theme, {
+      userAction: 'the key test passed',
+      expectations: ['"Verified" pill with when; the sample answer under Test'],
+    });
+    await page.close();
+    await resetRoutes(ext.context);
+
+    await ext.context.route('https://api.anthropic.com/v1/messages', (r) =>
+      r.fulfill({
+        status: 401,
+        body: JSON.stringify({
+          type: 'error',
+          error: { type: 'authentication_error', message: 'invalid x-api-key' },
+        }),
+      }),
+    );
+    page = await openOptionsState(theme, { tab: 'backends' });
+    card = await expandBackend(page, 'anthropic');
+    await page.getByTestId('backend-card-test-anthropic').click();
+    await expect(card.locator('[data-ega-test-failure]')).toBeVisible({ timeout: 10_000 });
+    await optShot(page, 'backend-cloud-key-error', theme, {
+      userAction: 'the key test was rejected',
+      expectations: [
+        '"Test failed" pill; the line "API key rejected" with what to do; the raw reply under Details',
+      ],
+    });
+    await page.close();
+    await resetRoutes(ext.context);
+
+    await ext.context.route('https://api.anthropic.com/v1/messages', (r) =>
+      r.abort('connectionreset'),
+    );
+    page = await openOptionsState(theme, { tab: 'backends' });
+    card = await expandBackend(page, 'anthropic');
+    await page.getByTestId('backend-card-test-anthropic').click();
+    await expect(card.locator('[data-ega-test-failure]')).toBeVisible({ timeout: 10_000 });
+    await optShot(page, 'backend-cloud-test-failed', theme, {
+      userAction: 'the key test could not reach the provider',
+      expectations: ['"No connection" with what to check; Test can run again'],
+    });
+    await page.close();
+    await resetRoutes(ext.context);
+
+    // Local backends: the defaults are blocked, so the rows show what a stopped server looks like.
+    page = await openOptionsState(theme, { tab: 'backends', seed: { disabledBackends: [] } });
+    card = await expandBackend(page, 'ollama');
+    await optShot(page, 'backend-ollama-expanded', theme, {
+      userAction: 'user opened the Ollama row',
+      expectations: ['steps: Address (Ollama URL), then Model with Discover models'],
+    });
+    await card.getByRole('button', { name: /Discover models/ }).click();
+    await expect(card.getByText(/did not answer/)).toBeVisible({ timeout: 10_000 });
+    await optShot(page, 'backend-ollama-url-error', theme, {
+      userAction: 'user pressed Discover models with Ollama stopped',
+      expectations: [
+        '"Ollama did not answer at this address. Check that it is running." with Details',
+      ],
+    });
+    await page.close();
+
+    await ext.context.route('http://localhost:11434/api/tags', (r) =>
+      r.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ models: [{ name: 'qwen2.5:7b', size: 4_700_000_000 }] }),
+      }),
+    );
+    await ext.context.route('http://localhost:11434/api/chat', (r) =>
+      r.fulfill({ status: 403, body: '' }),
+    );
+    page = await openOptionsState(theme, { tab: 'backends', seed: { disabledBackends: [] } });
+    card = await expandBackend(page, 'ollama');
+    await card.getByRole('button', { name: /Discover models/ }).click();
+    await expect(card.getByText(/blocked the request/)).toBeVisible({ timeout: 10_000 });
+    await card.getByText('Show steps').click();
+    await expect(card.locator('[data-ega-ollama-origin-steps]')).toBeVisible();
+    await optShot(page, 'backend-ollama-403-steps', theme, {
+      userAction: 'Ollama listed its models but refused requests from the extension',
+      expectations: [
+        '"Ollama blocked the request from Ega" with the steps open: the origin, Copy, and the command per OS',
+      ],
+    });
+    await page.close();
+    await resetRoutes(ext.context);
+
+    page = await openOptionsState(theme, { tab: 'backends', seed: { disabledBackends: [] } });
+    card = await expandBackend(page, 'localserver');
+    await optShot(page, 'backend-localserver-expanded', theme, {
+      userAction: 'user opened the Local server row',
+      expectations: ['the address with the presets as pressed buttons; the hint about no API key'],
+    });
+    await card.locator('[data-ega-setting="backends.localServerUrl"]').fill('http://localhost:9');
+    await card.locator('[data-ega-setting="backends.localServerUrl"]').blur();
+    // The address is checked when the model list is fetched.
+    await card.getByRole('button', { name: 'Refresh model list from the backend' }).click();
+    await expect(card.getByText(/No server answered/)).toBeVisible({ timeout: 10_000 });
+    await optShot(page, 'backend-localserver-url-error', theme, {
+      userAction: 'user typed an address where nothing runs',
+      expectations: [
+        '"No server answered at this address. Check that it is running." with Details',
+      ],
+    });
+    await page.close();
+
+    page = await openOptionsState(theme, { tab: 'backends' });
+    card = await expandBackend(page, 'native');
+    await expect(card.locator('[data-testid="nh-status-pill"]')).toContainText('Not installed', {
+      timeout: 10_000,
+    });
+    await optShot(page, 'backend-native-not-installed', theme, {
+      userAction: 'user opened the native host row with no host installed',
+      expectations: [
+        '"Not installed" pill; the install steps with Copy; the (i) about the native host',
+      ],
+    });
+    const steps = card.getByText('Show install steps').first();
+    if (await steps.isVisible().catch(() => false)) {
+      await steps.click();
+      await optShot(page, 'backend-native-steps-open', theme, {
+        userAction: 'user opened the steps',
+        expectations: ['numbered steps; commands in monospace; nothing cut off'],
+      });
+    }
+    await page.close();
+
+    for (const [state, version, cli] of [
+      ['installed', 4, { claude: 'C:/Users/me/AppData/Roaming/npm/claude.cmd', codex: null }],
+      ['outdated', 3, { claude: 'C:/Users/me/AppData/Roaming/npm/claude.cmd', codex: null }],
+      ['cli-missing', 4, { claude: null, codex: null }],
+    ] as const) {
+      page = await openOptionsState(theme, { tab: 'backends', init: fakeNativeHost(version, cli) });
+      await expandBackend(page, 'native');
+      await page.waitForTimeout(800); // wait for the ping and the CLI probe (no single end state)
+      await optShot(page, `backend-native-${state}`, theme, {
+        userAction: `the native host answered as ${state}`,
+        expectations:
+          state === 'installed'
+            ? ['"Installed"; the CLI picker; Start the native host with Chrome with its hint']
+            : state === 'outdated'
+              ? ['"Update needed" with the update step']
+              : ['"Claude Code was not found on this computer" with Show steps (PATH)'],
+      });
+      await page.close();
+    }
+
+    page = await openOptionsState(theme, { tab: 'backends', seed: { geminiApiKey: 'AIza-audit' } });
+    const handle = page.locator('[data-be-row-id="gemini"] .be-gutter');
+    const box = await handle.boundingBox();
+    if (box) {
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(box.x + box.width / 2, box.y - 40, { steps: 8 });
+      await optShot(page, 'backends-drag-in-progress', theme, {
+        userAction: 'user is dragging the Gemini row above Anthropic',
+        expectations: ['the dragged row lifts; a drop slot shows where it lands'],
+        viewportOnly: true,
+        skipPark: true,
+      });
+      await page.mouse.up();
+    }
+    await page.close();
+  }
+});
+
+const CUSTOM_LANG = (n: number, over: Record<string, unknown> = {}): Record<string, unknown> => ({
+  id: `audit-lang-${n}`,
+  label: n === 0 ? 'Pirate English' : `Slang ${n}`,
+  hint: 'Short, playful sentences with pirate words.',
+  examples: [{ src: 'Hello, friend', tgt: 'Ahoy, matey' }],
+  createdAt: n + 1,
+  ...over,
+});
+
+test('Options Languages — the list and the language dialog (light + dark)', async () => {
+  test.setTimeout(900_000);
+  for (const theme of OPT_THEMES) {
+    let page = await openOptionsState(theme, { tab: 'languages' });
+    await optShot(page, 'languages-default', theme, {
+      userAction: 'user opened Languages',
+      expectations: [
+        'Default languages with both pickers the same width; Slang and special languages list with checkboxes and Edit',
+      ],
+    });
+    await page.getByLabel('Filter languages').fill('zzzz');
+    await centerOn(page, '[data-ega-variety-filter]');
+    await optShot(page, 'languages-filter-no-results', theme, {
+      userAction: 'user filtered for a name no language has',
+      expectations: ['"No language matches "zzzz"" with a ghost Clear filter'],
+    });
+    await page.close();
+
+    page = await openOptionsState(theme, {
+      tab: 'languages',
+      storage: { 'ega.customLanguages': Array.from({ length: 20 }, (_, n) => CUSTOM_LANG(n + 1)) },
+    });
+    await optShot(page, 'languages-many', theme, {
+      userAction: 'user has twenty languages of their own',
+      expectations: [
+        'every row one line: checkbox, name, Custom badge, example count, Edit; the list does not stretch the page oddly',
+      ],
+    });
+    await page.close();
+
+    page = await openOptionsState(theme, { tab: 'languages' });
+    let dialog = await openLanguageDialog(page, 'arabizi', 'Arabizi');
+    await expect(dialog.locator('[data-ega-language-shown]')).toBeVisible();
+    await optShot(page, 'language-dialog-built-in', theme, {
+      userAction: 'user opened Arabizi',
+      expectations: [
+        'Notes with a counter, Examples with Original and Translation headers, Show in language pickers, the Prompt choice',
+      ],
+      overlay: true,
+    });
+    await dialog.locator('[data-ega-language-detect] > summary').click();
+    await expect(dialog.getByLabel(/^Pattern/).first()).toBeVisible();
+    await optShot(page, 'language-dialog-detect-open', theme, {
+      userAction: 'user opened Auto-detect pattern',
+      expectations: ['the pattern field and flags with the (i)'],
+      overlay: true,
+    });
+    const pattern = dialog.getByLabel(/^Pattern/).first();
+    await pattern.fill('([a-z');
+    await pattern.blur();
+    await expect(dialog.locator('.ld-error')).toBeVisible();
+    await optShot(page, 'language-dialog-detect-invalid', theme, {
+      userAction: 'user typed a pattern that does not parse',
+      expectations: ['a field error that says what is wrong; nothing saved'],
+      overlay: true,
+    });
+    // An empty pattern is valid again, so closing asks nothing.
+    await pattern.fill('');
+    await pattern.blur();
+    await closeDialogs(page);
+    dialog = await openLanguagePrompt(page, 'arabizi', 'Arabizi');
+    await expect(dialog.locator('[data-ega-language-prompt-mode]')).toBeVisible();
+    await expect(dialog.locator('[data-ega-language-prompt]')).toBeVisible();
+    const toPrompt = (): Promise<void> =>
+      dialog
+        .locator('[data-ega-language-prompt-mode]')
+        .evaluate((el) => el.scrollIntoView({ block: 'start' }));
+    await toPrompt();
+    await optShot(page, 'language-dialog-own-prompt', theme, {
+      userAction: 'user picked Use its own prompt',
+      expectations: ['the shared prompt editor appears under the choice'],
+      overlay: true,
+    });
+    await dialog.locator('[data-ega-prompt-tab="preview"]').click();
+    await toPrompt();
+    await optShot(page, 'language-dialog-own-prompt-preview', theme, {
+      userAction: 'user pressed Preview',
+      expectations: ['the built prompt for this language'],
+      overlay: true,
+    });
+    await closeDialogs(page);
+    await page.close();
+
+    page = await openOptionsState(theme, { tab: 'languages' });
+    await page.locator('[data-ega-language-add]').click();
+    await page.locator('.ega-dialog').waitFor();
+    await expect(page.locator('[data-ega-language-name]')).toBeVisible();
+    await optShot(page, 'language-dialog-custom-new', theme, {
+      userAction: 'user pressed Add language',
+      expectations: [
+        'Name first, then Notes and Examples; "Not saved yet: add a name" in the footer',
+      ],
+      overlay: true,
+    });
+    await closeDialogs(page);
+    await page.close();
+
+    page = await openOptionsState(theme, {
+      tab: 'languages',
+      storage: { 'ega.customLanguages': [CUSTOM_LANG(0)] },
+      init: 'chrome.storage.onChanged.addListener = () => {};',
+    });
+    dialog = await openLanguageDialog(page, 'audit-lang-0', 'Pirate English');
+    await expect(page.locator('[data-ega-language-export]')).toBeVisible();
+    await optShot(page, 'language-dialog-custom-edit', theme, {
+      userAction: 'user opened their Pirate English language',
+      expectations: ['the saved name, notes and example; Delete language and Export in the footer'],
+      overlay: true,
+    });
+    await page.evaluate(async () => {
+      const k = 'ega.customLanguages';
+      const rows = (await chrome.storage.local.get(k))[k] as Record<string, unknown>[];
+      await chrome.storage.local.set({
+        [k]: rows.map((r) => ({ ...r, hint: 'Changed in another window.' })),
+      });
+    });
+    const notes = dialog
+      .locator('[data-ega-language-notes] textarea, textarea[data-ega-language-notes]')
+      .first();
+    await notes.fill('Short sentences, many pirate words.');
+    await notes.blur();
+    await expect(dialog.locator('[data-ega-language-conflict]')).toBeVisible({ timeout: 5_000 });
+    await optShot(page, 'language-dialog-conflict', theme, {
+      userAction: 'the language changed in another window while the user edited Notes',
+      expectations: [
+        '"Changed in another window" with Reload language; the edit was not written over the other one',
+      ],
+      overlay: true,
+    });
+    // Delete language sits in the dialog footer, outside the language body.
+    await page.locator('.ega-dialog [data-ega-language-delete]').click();
+    await page.locator('[data-sonner-toast]').first().waitFor();
+    await optShot(page, 'language-dialog-delete-toast', theme, {
+      userAction: 'user deleted the language',
+      expectations: ['the dialog closes; a toast with Undo; the row is gone'],
+    });
+    await page.close();
+  }
+});
+
+const RULE = (
+  id: string,
+  body: string,
+  over: Record<string, unknown> = {},
+): Record<string, unknown> => ({
+  id,
+  body,
+  category: 'always',
+  scope: { tasks: [] },
+  source: 'manual',
+  addedAt: '2026-10-01T00:00:00.000Z',
+  enabled: true,
+  ...over,
+});
+
+test('Options Glossary and rules — entries and rules in every state (light + dark)', async () => {
+  test.setTimeout(900_000);
+  const entries = [
+    { term: 'checkout', translation: 'caja', caseSensitive: false },
+    { term: 'cart', translation: 'carrito', caseSensitive: false },
+    { term: 'Ega', translation: 'Ega', caseSensitive: true },
+  ];
+  const rules = [
+    RULE('r1', 'Keep product names in English.'),
+    RULE('r2', 'Prefer short sentences in summaries.', {
+      category: 'prefer',
+      scope: { tasks: ['summarize'], sites: ['news.example.com'] },
+    }),
+    RULE('r3', 'Never translate code blocks.', { category: 'never', enabled: false }),
+  ];
+  for (const theme of OPT_THEMES) {
+    let page = await openOptionsState(theme, {
+      tab: 'glossary',
+      seed: { glossary: [], advanced: { rules: [] } },
+    });
+    await optShot(page, 'glossary-empty', theme, {
+      userAction: 'user opened Glossary and rules with nothing added',
+      expectations: [
+        'the add row on top; one EmptyState for the glossary; one for rules with Add rule',
+      ],
+    });
+    await page.locator('[data-ega-glossary-add-button]').click();
+    await optShot(page, 'glossary-add-error', theme, {
+      userAction: 'user pressed Add with both fields empty',
+      expectations: ['"Write a term" under Term; focus in Term'],
+    });
+    await page.locator('[data-ega-rules-add], [data-ega-rules-empty] button').first().click();
+    await page.locator('[data-ega-rule-draft]').waitFor();
+    await centerOn(page, '[data-ega-rule-draft]');
+    await optShot(page, 'rules-add-open', theme, {
+      userAction: 'user pressed Add rule',
+      expectations: [
+        'the draft opens on top: Rule text, Type, Applies to, Sites; Add rule and Cancel',
+      ],
+    });
+    await page.locator('[data-ega-manual-submit]').click();
+    await centerOn(page, '[data-ega-rule-draft]');
+    await optShot(page, 'rules-add-error', theme, {
+      userAction: 'user pressed Add rule with no text',
+      expectations: ['"Write the rule text" under Rule text; nothing added'],
+    });
+    await page.close();
+
+    page = await openOptionsState(theme, {
+      tab: 'glossary',
+      seed: { glossary: entries, advanced: { rules } },
+    });
+    await expect(page.locator('[data-ega-glossary-used-by]')).toBeVisible();
+    await optShot(page, 'glossary-populated', theme, {
+      userAction: 'user has three glossary entries and three rules',
+      expectations: [
+        'entries in hairline rows with Edit; rules with a checkbox, the meta line and Edit',
+      ],
+    });
+    await page.locator('[data-ega-glossary-more] > summary').click();
+    await expect(page.locator('#gl-add-source')).toBeVisible();
+    await optShot(page, 'glossary-more-options', theme, {
+      userAction: 'user opened More options in the add row',
+      expectations: ['scope fields: source and target language, Match case; the scope note'],
+    });
+    // A source language other than Auto-detect, while the default source is Auto-detect, brings the note.
+    await page.locator('#gl-add-source').selectOption('es');
+    await expect(page.locator('[data-ega-glossary-scope-note]')).toBeVisible({ timeout: 5_000 });
+    await centerOn(page, '[data-ega-glossary-scope-note]');
+    await optShot(page, 'glossary-scope-warning', theme, {
+      userAction: 'user picked Spanish as the source of a new entry',
+      expectations: ['one line: "Applies only when you pick Spanish as the source"'],
+    });
+    await page.locator('#gl-add-source').selectOption('');
+    await page.locator('[data-ega-glossary-more] > summary').click();
+    await page.getByRole('button', { name: 'Edit entry checkout' }).click();
+    await centerOn(page, '[data-ega-glossary-editor]');
+    await optShot(page, 'glossary-edit-row', theme, {
+      userAction: 'user pressed Edit on checkout',
+      expectations: ['the inline editor opens under the row; Delete entry inside it'],
+    });
+    await page.getByRole('button', { name: 'Delete entry checkout' }).click();
+    await page.locator('[data-sonner-toast]').first().waitFor();
+    await optShot(page, 'glossary-delete-toast', theme, {
+      userAction: 'user deleted checkout',
+      expectations: ['toast "Deleted "checkout"" with Undo; focus on the next row'],
+    });
+    await page.locator('[data-ega-rule-edit]').first().click();
+    await centerOn(page, '[data-ega-rules-editor]');
+    await optShot(page, 'rules-edit-open', theme, {
+      userAction: 'user pressed Edit on the first rule',
+      expectations: ['the rule editor opens under the row; Close replaces Edit'],
+    });
+    await page.locator('[data-ega-rule-delete]').first().click();
+    await page.locator('[data-sonner-toast]').first().waitFor();
+    await optShot(page, 'rules-delete-toast', theme, {
+      userAction: 'user deleted the first rule',
+      expectations: ['a toast with Undo; the rule is gone'],
+    });
+    await page.close();
+
+    page = await openOptionsState(theme, {
+      tab: 'glossary',
+      seed: {
+        glossary: [
+          {
+            term: 'supercalifragilisticexpialidocious onboarding checklist',
+            translation: 'lista de verificación de incorporación extraordinariamente larga',
+            caseSensitive: false,
+          },
+        ],
+        advanced: {
+          rules: [
+            RULE(
+              'r-long',
+              'When the text is a product review, keep the star rating, the reviewer name and every product name exactly as written, and translate everything else into plain everyday words.',
+            ),
+          ],
+        },
+      },
+    });
+    await optShot(page, 'glossary-long-term', theme, {
+      userAction: 'user has a very long glossary entry',
+      expectations: ['term and translation wrap; nothing cut off; Edit stays on the row'],
+    });
+    await page.locator('[data-ega-rule-row]').first().scrollIntoViewIfNeeded();
+    await optShot(page, 'rules-long-rule', theme, {
+      userAction: 'user has a long rule',
+      expectations: ['the rule text wraps in full; the meta line under it'],
+    });
+    await page.close();
+
+    page = await openOptionsState(theme, {
+      tab: 'glossary',
+      seed: { glossary: entries, advanced: { rules } },
+    });
+    await page.locator('[data-ega-rule-row]').first().scrollIntoViewIfNeeded();
+    await optShot(page, 'rules-populated', theme, {
+      userAction: 'user scrolled to Rules',
+      expectations: [
+        'three rules; the off rule reads clearly; meta lines like "Always · All tasks"',
+      ],
+    });
+    await page.close();
+  }
+});
+
+function conversations(n: number, now: number): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  const threads: unknown[] = [];
+  for (let i = 0; i < n; i++) {
+    const origin = i === 0 ? 'general' : `https://site${i}.example.com`;
+    const turns = [
+      {
+        id: `t${i}`,
+        role: 'user',
+        kind: 'translate',
+        status: 'idle',
+        content: `hola ${i}`,
+        createdAt: now - i * 60_000,
+      },
+    ];
+    out[`ega:conv:t:${origin}`] = { version: 1, origin, turns, updatedAt: now - i * 60_000 };
+    threads.push({ origin, updatedAt: now - i * 60_000, bytes: 2048 * (i + 1) });
+  }
+  out['ega:conv:index'] = { version: 1, threads };
+  return out;
+}
+
+test('Options Advanced and About — data, diagnostics and about in every state (light + dark)', async () => {
+  test.setTimeout(900_000);
+  const manySites: Record<string, unknown> = {};
+  for (let i = 0; i < 12; i++)
+    manySites[`https://site${String(i).padStart(2, '0')}.example.com`] =
+      i % 2 === 0 ? { disabled: true } : { disabled: false, defaultLang: 'es' };
+  for (const theme of OPT_THEMES) {
+    let page = await openOptionsState(theme, { tab: 'advanced', sub: 'data' });
+    await optShot(page, 'data-default', theme, {
+      userAction: 'user opened Advanced',
+      expectations: [
+        'Data first: Backup and restore, Site overrides, Saved conversations, Reset and delete; the only red is Delete all data',
+      ],
+    });
+    await page.getByRole('checkbox', { name: 'Include API keys' }).check();
+    await optShot(page, 'data-include-keys', theme, {
+      userAction: 'user ticked Include API keys',
+      expectations: ['the hint "Leave this off for a file you share" stays under it'],
+    });
+    await page.getByRole('checkbox', { name: 'Include API keys' }).uncheck();
+
+    const chooser = page.waitForEvent('filechooser');
+    await page.getByText('Import settings...', { exact: true }).click();
+    await (
+      await chooser
+    ).setFiles({
+      name: 'ega-settings-backup.json',
+      mimeType: 'application/json',
+      buffer: Buffer.from(JSON.stringify({ version: 1, settings: { theme }, customLanguages: [] })),
+    });
+    await page.getByRole('dialog', { name: 'Import settings?' }).waitFor();
+    await optShot(page, 'data-import-confirm', theme, {
+      userAction: 'user picked a backup file',
+      expectations: ['"Import settings?" naming the file; Import and Keep current settings'],
+      overlay: true,
+    });
+    await page.getByRole('button', { name: 'Keep current settings' }).click();
+    const bad = page.waitForEvent('filechooser');
+    await page.getByText('Import settings...', { exact: true }).click();
+    await (
+      await bad
+    ).setFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('not json') });
+    await expect(
+      page.getByText('This file is not an Ega backup. Pick a file you exported from Ega.'),
+    ).toBeVisible();
+    await centerOn(page, '[data-ega-setting="advanced.dataBackup"]');
+    await optShot(page, 'data-import-error', theme, {
+      userAction: 'user picked a file that is not a backup',
+      expectations: ['the status line under the buttons says what to do, in the error tone'],
+    });
+    await page.locator('[data-ega-reset-defaults]').click();
+    await page.locator('[data-sonner-toast]').first().waitFor();
+    await optShot(page, 'data-reset-toast', theme, {
+      userAction: 'user pressed Reset in Reset and delete',
+      expectations: ['"Prompt and model settings are back to defaults" with Undo'],
+    });
+    await page.close();
+
+    page = await openOptionsState(theme, { tab: 'advanced', sub: 'data' });
+    await page.locator('[data-ega-clear-cache]').click();
+    await page.locator('[data-sonner-toast]').first().waitFor();
+    await optShot(page, 'data-clear-cache-toast', theme, {
+      userAction: 'user pressed Clear cache',
+      expectations: ['"Saved answers cleared"; no Undo'],
+    });
+    await page.locator('[data-ega-delete-all]').click();
+    await page.locator('[data-ega-delete-all-field]').fill('DELETE');
+    await optShot(page, 'delete-all-data-confirm', theme, {
+      userAction: 'user pressed Delete all data and typed DELETE',
+      expectations: [
+        '"Delete all data?" with the list and the bold line; Export all settings first; the red button now works',
+      ],
+      overlay: true,
+    });
+    await closeDialogs(page);
+    await page.close();
+
+    page = await openOptionsState(theme, {
+      tab: 'advanced',
+      sub: 'data',
+      seed: { sitePrefs: manySites },
+      storage: conversations(6, Date.now()),
+    });
+    await page.locator('[data-ega-per-site-card]').scrollIntoViewIfNeeded();
+    await optShot(page, 'data-site-overrides-many', theme, {
+      userAction: 'user has twelve site overrides',
+      expectations: ['the Filter sites box shows; each row: site, state in words, trash'],
+    });
+    await page.locator('[data-ega-setting="advanced.savedConversations"]').scrollIntoViewIfNeeded();
+    await optShot(page, 'data-conversations-many', theme, {
+      userAction: 'user has six saved conversations',
+      expectations: ['site, last used and size per row; Delete all in the header'],
+    });
+    await page.locator('[data-ega-site-override-clear-all]').click();
+    await page.locator('[data-sonner-toast]').first().waitFor();
+    await optShot(page, 'data-remove-all-toast', theme, {
+      userAction: 'user pressed Remove all',
+      expectations: ['"Removed 12 site overrides" with Undo; the card shows its empty state'],
+    });
+    await page.close();
+
+    const perf = `(() => { const s = chrome.runtime.sendMessage.bind(chrome.runtime);
+      const entries = [120, 180, 240, 300, 410, 520, 760, 980, 1400, 2600].map((latencyMs, i) =>
+        ({ backendId: 'anthropic', cacheHit: false, latencyMs, ts: Date.now() - i * 1000 }));
+      entries.push({ backendId: 'gemini', cacheHit: false, latencyMs: 2300, ts: Date.now(), error: 'AUTH' });
+      chrome.runtime.sendMessage = (m, ...r) => m && m.kind === 'perf:entries' ? Promise.resolve({ entries }) : s(m, ...r); })();`;
+    page = await openOptionsState(theme, { tab: 'advanced', sub: 'diagnostics' });
+    await optShot(page, 'diagnostics-empty', theme, {
+      userAction: 'user opened Diagnostics before any request',
+      expectations: [
+        '"No requests yet" once; "Translate something to see response times"; "No errors in the last hour" with the check icon',
+      ],
+    });
+    await page.close();
+
+    page = await openOptionsState(theme, {
+      tab: 'advanced',
+      sub: 'diagnostics',
+      init: perf,
+      storage: { egaAuditLog: { version: 1, entries: SAMPLE_AUDIT(Date.now()) } },
+    });
+    await expect(page.locator('[data-ega-perf-copy]')).toBeVisible();
+    await optShot(page, 'diagnostics-populated', theme, {
+      userAction: 'user opened Diagnostics after a few requests',
+      expectations: [
+        'rows in words: task, backend name, time, status, when, Details; Export and Clear in the header',
+        'labelled response-time stats; the chart with three axis labels',
+      ],
+    });
+    await centerOn(page, '[data-ega-recent-error]');
+    await optShot(page, 'diagnostics-errors-populated', theme, {
+      userAction: 'user scrolled to Recent errors',
+      expectations: [
+        'plain titles with backend, count and last time; the sentence of what to do; Details',
+      ],
+    });
+    await page.locator('[data-ega-audit-entry="au-2"] [data-ega-audit-entry-toggle]').click();
+    await centerOn(page, '[data-ega-audit-entry="au-2"]');
+    await optShot(page, 'diagnostics-row-details', theme, {
+      userAction: 'user opened Details on the failed Explain request',
+      expectations: [
+        'model, languages, tokens, the raw code under Technical, the prompt panels, then Compare',
+      ],
+    });
+    await page.locator('[data-ega-audit-filter-task]').selectOption('grammar');
+    await centerOn(page, '[data-ega-audit-filters]');
+    await optShot(page, 'diagnostics-filters-no-results', theme, {
+      userAction: 'user filtered for a task with no requests',
+      expectations: ['"No request matches these filters" with a ghost Clear filters'],
+    });
+    await page.close();
+
+    page = await openOptionsState(theme, {
+      tab: 'advanced',
+      sub: 'diagnostics',
+      init: perf,
+      seed: { captureResultMeta: false },
+    });
+    await centerOn(page, '[data-ega-perf-off]');
+    await optShot(page, 'diagnostics-recording-off', theme, {
+      userAction: 'user turned Record request details off',
+      expectations: [
+        'Response times says "Response times are off. Turn on Record request details below."; no Copy data',
+      ],
+    });
+    await page.close();
+
+    page = await openOptionsState(theme, { tab: 'about' });
+    await optShot(page, 'about', theme, {
+      fullPage: true,
+      userAction: 'user opened About',
+      expectations: [
+        'Privacy in three columns with no inner borders; Credits and links as label-value rows',
+      ],
+    });
+    await page.close();
+  }
 });
