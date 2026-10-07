@@ -554,6 +554,7 @@
     },
     pageContext: currentPageContext,
     clearFilters,
+    followSite,
     attachImage: (src) => {
       // An image would turn the edited text into an image send, or wait unseen behind a described change.
       const refusedInMode = (): boolean => {

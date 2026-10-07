@@ -12,6 +12,7 @@ import { toastStore } from '@/shared/components/toastStore';
 import { hasKnownKind, isFromOwnBackground, type Msg } from '@/shared/messages';
 import { drainPendingImageSeeds, removePendingImageSeed } from '@/shared/pending-image-seed';
 import { drainPendingPopupHandoff, type PendingPopupHandoff } from '@/shared/pending-popup-handoff';
+import { conversationLabel } from '@/shared/saved-conversations';
 import { builtInTask, type ImageTask, type Task, type Tone } from '@/shared/task-prompts';
 import type { TaskId } from '@/shared/task-view';
 import { auditSurfaceLabel } from '../audit-surface-label';
@@ -40,6 +41,8 @@ export interface IntakeDeps {
   clearFilters: () => void;
   /** Puts an image in the composer, unsent, and focuses it. */
   attachImage: (src: string) => void;
+  /** The panel's own tab follow, so the toasts about the conversation it leaves close too. */
+  followSite: (site: string) => Promise<void>;
 }
 
 export interface Intake {
@@ -53,7 +56,38 @@ export interface Intake {
 export function createIntake(deps: IntakeDeps): Intake {
   const { conversation } = deps;
 
-  function seedImage(requestId: string, imageUrl: string, task: ImageTask | undefined): void {
+  /** A handoff or an image click comes from the tab, so it never lands in another site's conversation. */
+  async function toTabSite(): Promise<void> {
+    const site = conversation.tabSite;
+    if (conversation.activeSite === site) return;
+    try {
+      await deps.followSite(site);
+    } catch (e) {
+      // A failed switch still lands it, in the conversation on screen.
+      debugCatch(e, 'sidepanel.toTabSite');
+      return;
+    }
+    if (conversation.activeSite !== site) return;
+    // The reply's own status takes the stream's live region next, so the switch gets its own line.
+    toastStore.push({
+      message: `Switched to the conversation for this tab: ${conversationLabel(site)}.`,
+      variant: 'info',
+    });
+  }
+
+  /** Seeds at once when the tab's site is on screen, so no chunk can come first. */
+  async function seedImage(
+    requestId: string,
+    imageUrl: string,
+    task: ImageTask | undefined,
+    warn = false,
+  ): Promise<void> {
+    if (conversation.activeSite !== conversation.tabSite) {
+      conversation.holdRequest(requestId);
+      await toTabSite();
+    }
+    // After a switch the reply running in the other conversation finishes there, so nothing is stopped.
+    if (warn) warnIfStoppingInflight();
     conversation.seedExternalImageTurn(
       requestId,
       imageUrl,
@@ -81,10 +115,10 @@ export function createIntake(deps: IntakeDeps): Intake {
     if (msg.windowId !== undefined && windowId !== undefined && msg.windowId !== windowId) return;
     // The mount drain may have seeded this one already; the stop warning would name its own reply.
     if (conversation.ownsRequest(msg.requestId)) return;
-    warnIfStoppingInflight();
-    seedImage(msg.requestId, msg.imageUrl, msg.task);
-    // Consume the queued copy, or a remount within 60s rebuilds this turn as a stuck spinner.
-    removePendingImageSeed(msg.requestId).catch(() => {});
+    void seedImage(msg.requestId, msg.imageUrl, msg.task, true)
+      // Consume the queued copy, or a remount within 60s rebuilds this turn as a stuck spinner.
+      .then(() => removePendingImageSeed(msg.requestId))
+      .catch((e: unknown) => debugCatch(e, 'sidepanel.onSeedMessage'));
   }
 
   /** Any surface that fails a translate pushes an audit entry; success entries are filtered upstream. */
@@ -129,7 +163,9 @@ export function createIntake(deps: IntakeDeps): Intake {
   async function drainImageSeeds(windowId: number | undefined): Promise<void> {
     // One inflight slot: each seed takes it from the previous, which lands as Canceled rather than a dead spinner.
     for (const seed of await drainPendingImageSeeds(windowId)) {
-      seedImage(seed.requestId, seed.imageUrl, seed.task);
+      // The live message may hold this one while the panel switches.
+      if (conversation.ownsRequest(seed.requestId)) continue;
+      await seedImage(seed.requestId, seed.imageUrl, seed.task);
     }
   }
 
@@ -171,6 +207,7 @@ export function createIntake(deps: IntakeDeps): Intake {
   }
 
   async function landHandoff(handoff: PendingPopupHandoff): Promise<void> {
+    await toTabSite();
     // An unknown or off task runs as Translate and keeps the text; a custom one runs under kind translate with its id.
     const handoffTask: TaskId = deps.runnableTask(handoff.task) ?? 'translate';
     const handoffKind: Task = builtInTask(handoffTask) ?? 'translate';

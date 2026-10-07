@@ -122,8 +122,10 @@ export interface ConversationContainer {
   readonly turns: Turn[];
   /** Reactive id of the streaming assistant turn (null when idle). */
   readonly inflightId: string | null;
-  /** True when this sidepanel dispatched `requestId`. False for undefined or foreign ids. */
+  /** True when this sidepanel dispatched `requestId`, or holds it for a seed. False for undefined or foreign ids. */
   ownsRequest: (requestId: string | undefined) => boolean;
+  /** Keeps the chunks of an image seed that waits for a conversation switch; seeding replays them. */
+  holdRequest: (requestId: string) => void;
   /** Append a user turn + a loading assistant turn and dispatch. Returns the assistant turn id. */
   send: (input: DispatchInput) => Promise<string>;
   /** Apply a streaming chunk to the inflight assistant turn. */
@@ -254,6 +256,9 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
   // Read only from the toast callback, never in a derivation.
   // eslint-disable-next-line svelte/prefer-svelte-reactivity
   const ownedRequests = new Set<string>();
+  /** Chunks that came before their seed: the worker streams at once, and the seed may wait for a switch. */
+  // eslint-disable-next-line svelte/prefer-svelte-reactivity
+  const heldChunks = new Map<string, TranslationChunk[]>();
   function noteOwnedRequest(requestId: string): void {
     ownedRequests.add(requestId);
     if (ownedRequests.size > OWNED_REQUEST_CAP) {
@@ -534,6 +539,11 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
   }
 
   function applyChunk(c: TranslationChunk): void {
+    const held = heldChunks.get(c.requestId);
+    if (held !== undefined) {
+      held.push(c);
+      return;
+    }
     const reply = c.requestId ? background.get(c.requestId) : undefined;
     if (reply !== undefined) {
       applyBackgroundChunk(c.requestId, reply, c);
@@ -1033,6 +1043,9 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     // The turn's own dispatch record is what lets Retry re-run the OCR; lastDispatch stays null
     // because it is panel-wide and would make an unrelated text turn look retryable.
     state.lastDispatch = null;
+    const held = heldChunks.get(requestId) ?? [];
+    heldChunks.delete(requestId);
+    for (const c of held) applyChunk(c);
   }
 
   function seedDeliveredTurn(input: {
@@ -1551,7 +1564,12 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     get tabSite() {
       return state.tabSite;
     },
-    ownsRequest: (requestId) => requestId !== undefined && ownedRequests.has(requestId),
+    ownsRequest: (requestId) =>
+      requestId !== undefined && (ownedRequests.has(requestId) || heldChunks.has(requestId)),
+    holdRequest: (requestId) => {
+      if (!ownedRequests.has(requestId) && !heldChunks.has(requestId))
+        heldChunks.set(requestId, []);
+    },
     send,
     applyChunk,
     cancel,
