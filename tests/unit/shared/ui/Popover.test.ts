@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent, waitFor } from '@testing-library/svelte';
-import { createRawSnippet, type Snippet } from 'svelte';
+import { createRawSnippet, tick, type Snippet } from 'svelte';
 import Popover from '@/shared/ui/Popover.svelte';
 import { readFileSync } from 'node:fs';
 import { textSnippet } from './_helpers';
@@ -167,9 +167,32 @@ describe('Popover', () => {
 
     // A menu that opened this popover hands focus back to the anchor as it closes.
     anchor.focus();
-    await new Promise((r) => setTimeout(r, 20));
+    // bits checks a focus move one tick after it; two ticks cover it (removing the anchor rule turns this red).
+    await tick();
+    await tick();
     expect(onClose).not.toHaveBeenCalled();
 
+    outside.focus();
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    anchor.remove();
+    outside.remove();
+  });
+
+  // A page that finishes loading can move focus before the popover takes it; that focus never left the popover.
+  it('stays open when focus moves elsewhere before it ever held focus', async () => {
+    const anchor = document.createElement('button');
+    anchor.type = 'button';
+    const outside = document.createElement('textarea');
+    document.body.append(anchor, outside);
+    const onClose = vi.fn();
+    const { baseElement } = render(Popover, {
+      props: { open: true, anchor, onClose, children: buttonSnippet('inner') },
+    });
+    outside.focus();
+    const popover = baseElement.querySelector('.ega-popover');
+    // Positive control: the popover then takes focus, and leaving it after that does close it.
+    await waitFor(() => expect(popover?.contains(document.activeElement)).toBe(true));
+    expect(onClose).not.toHaveBeenCalled();
     outside.focus();
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
     anchor.remove();

@@ -33,9 +33,12 @@
 
   let priorFocus: Element | null = null;
   let contentEl = $state<HTMLElement | null>(null);
+  // Leaving needs having been inside: a page that moves focus before the popover takes it does not close it.
+  let focusEntered = false;
 
   function rememberFocus(e: Event): void {
     priorFocus = document.activeElement;
+    focusEntered = false;
     // Focus the panel itself: bits-ui would take the close X, whose tooltip then pops open on open.
     e.preventDefault();
     requestAnimationFrame(() => contentEl?.focus({ preventScroll: true }));
@@ -43,7 +46,7 @@
 
   // Non-modal: focus leaving closes it, or Tab would move under it. The anchor counts as inside: a menu that opened it hands focus back there.
   function closeOnFocusOut(e: FocusEvent): void {
-    if (scrim) return;
+    if (scrim || !focusEntered) return;
     if (e.target instanceof Node && anchor?.contains(e.target)) return;
     onClose();
   }
@@ -92,6 +95,7 @@
       onOpenAutoFocus={rememberFocus}
       onCloseAutoFocus={restoreFocus}
       onFocusOutside={closeOnFocusOut}
+      onfocusin={() => (focusEntered = true)}
       trapFocus={scrim}
     >
       <div class="ega-popover-head">
