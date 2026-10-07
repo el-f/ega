@@ -22,7 +22,8 @@
     bookmarkFilter: boolean;
     onNewConversation: () => void;
     onToggleSearch: () => void;
-    onOpenConversation: (id: string) => Promise<void>;
+    /** False when the conversation could not be read; the list then stays open with the reason. */
+    onOpenConversation: (id: string) => Promise<boolean>;
     /** Deletes after the Undo window; `onFail` runs when the worker could not delete it. */
     onDeleteConversation: (id: string, onFail: () => void) => Promise<{ undo: () => void }>;
     onCopyMarkdown: () => void;
@@ -119,8 +120,10 @@
   {tabSite}
   onClose={() => (listOpen = false)}
   onOpen={async (id) => {
-    listOpen = false;
-    await onOpenConversation(id);
+    // Closed after the open: focus is in the composer by then, so the list leaves it there.
+    const opened = await onOpenConversation(id);
+    if (opened) listOpen = false;
+    return opened;
   }}
   onDelete={onDeleteConversation}
 />

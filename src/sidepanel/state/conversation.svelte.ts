@@ -166,8 +166,8 @@ export interface ConversationContainer {
   editFrom: (userTurnId: string) => string | null;
   /** The tab now shows `site`: keep the open conversation if it is that site's, else open the site's current one. */
   followSite: (site: string) => Promise<void>;
-  /** Show conversation `id`: save the open one, load this one, and make it its site's current conversation. */
-  openConversation: (id: string) => Promise<void>;
+  /** Show conversation `id`: save the open one, load this one, and make it its site's current conversation. False: unreadable, nothing changed. */
+  openConversation: (id: string) => Promise<boolean>;
   /** Open an empty conversation for the tab's site; nothing is stored until its first message. Returns the id it left, for Undo. */
   startNewConversation: () => Promise<string>;
   /** Deletes `id` after the Undo window. The open conversation is replaced by an empty one at once. */
@@ -1286,9 +1286,17 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     });
   }
 
-  async function openConversation(id: string): Promise<void> {
-    await switchLock(() => switchTo(id));
-    markConversationOpened(id).catch((e: unknown) => debugCatch(e, 'conversation.opened'));
+  async function openConversation(id: string): Promise<boolean> {
+    const opened = await switchLock(async () => {
+      // Opened from the list, it would become the next save's target and lose what a newer build stored.
+      if ((await loadThreadResult(id)).unreadable) return false;
+      await switchTo(id);
+      return true;
+    });
+    if (opened) {
+      markConversationOpened(id).catch((e: unknown) => debugCatch(e, 'conversation.opened'));
+    }
+    return opened;
   }
 
   async function startNewConversation(): Promise<string> {

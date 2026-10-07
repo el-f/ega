@@ -929,12 +929,14 @@
   }
 
   /** Shows a conversation from the list; focus goes to the message box. */
-  async function openConversation(id: string): Promise<void> {
+  async function openConversation(id: string): Promise<boolean> {
+    // Before the switch: a warning the switch itself raises (messages not kept) must stay.
     toastStore.closeSticky();
+    if (!(await conversation.openConversation(id))) return false;
     focusedTurnId = null;
-    await conversation.openConversation(id);
     await tick();
     focusComposer();
+    return true;
   }
 
   /** One click, nothing lost: the old conversation stays in the list, and Undo opens it again. */

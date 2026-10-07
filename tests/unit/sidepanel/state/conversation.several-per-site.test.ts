@@ -240,3 +240,37 @@ describe('the index lists titles (C2)', () => {
     expect(await chrome.storage.local.get(threadKey(site))).toBeTruthy();
   });
 });
+
+describe('opening a conversation this build cannot read', () => {
+  it('refuses it: the open conversation stays, and nothing is written over the stored one', async () => {
+    const a = 'https://a.example';
+    const v2 = 'https://v2.example';
+    await saveThread(a, [userTurn('a1', 'hola')]);
+    await saveThread(v2, [userTurn('v1', 'future chat')]);
+    const key = threadKey(v2);
+    const stored = (await chrome.storage.local.get(key))[key] as Record<string, unknown>;
+    const newer = { ...stored, version: 99 };
+    await chrome.storage.local.set({ [key]: newer });
+    const c = createConversation();
+    await c.followSite(a);
+
+    expect(await c.openConversation(v2)).toBe(false);
+
+    expect(c.activeId).toBe(a);
+    expect(c.turns.map((t) => t.id)).toEqual(['a1']);
+    await c.flush();
+    expect((await chrome.storage.local.get(key))[key]).toEqual(newer);
+  });
+
+  it('opens a readable one and says so', async () => {
+    const a = 'https://a.example';
+    const b = 'https://b.example';
+    await saveThread(a, [userTurn('a1', 'hola')]);
+    await saveThread(b, [userTurn('b1', 'salut')]);
+    const c = createConversation();
+    await c.followSite(a);
+
+    expect(await c.openConversation(b)).toBe(true);
+    expect(c.activeId).toBe(b);
+  });
+});

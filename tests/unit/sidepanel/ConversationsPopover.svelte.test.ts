@@ -48,7 +48,7 @@ describe('Conversations popover', () => {
         activeId: 'https://a.test',
         tabSite: 'https://a.test',
         onClose: () => {},
-        onOpen: async () => {},
+        onOpen: async () => true,
         onDelete: async () => ({ undo: () => {} }),
       },
     });
@@ -77,7 +77,7 @@ describe('Conversations popover', () => {
         activeId: 'https://a.test',
         tabSite: 'https://a.test',
         onClose: () => {},
-        onOpen: async () => {},
+        onOpen: async () => true,
         onDelete: async () => ({ undo: () => {} }),
       },
     });
@@ -93,7 +93,7 @@ describe('Conversations popover', () => {
 
   it('Open hands the id over; delete turns the row into Undo, and Undo puts it back', async () => {
     await seed();
-    const onOpen = vi.fn(async () => {});
+    const onOpen = vi.fn(async () => true);
     const undo = vi.fn();
     const onDelete = vi.fn(async () => ({ undo }));
     render(ConversationsPopover, {
@@ -134,7 +134,7 @@ describe('Conversations popover', () => {
         activeId: 'https://a.test',
         tabSite: 'https://a.test',
         onClose: () => {},
-        onOpen: async () => {},
+        onOpen: async () => true,
         onDelete: async (_id: string, onFail: () => void) => {
           fail = onFail;
           return { undo: () => {} };
@@ -158,7 +158,7 @@ describe('Conversations popover', () => {
         activeId: 'https://a.test',
         tabSite: 'https://a.test',
         onClose: () => {},
-        onOpen: async () => {},
+        onOpen: async () => true,
         onDelete,
       },
     });
@@ -182,7 +182,7 @@ describe('Conversations popover', () => {
         activeId: 'https://none.test#n',
         tabSite: 'https://none.test',
         onClose: () => {},
-        onOpen: async () => {},
+        onOpen: async () => true,
         onDelete: async () => ({ undo: () => {} }),
       },
     });

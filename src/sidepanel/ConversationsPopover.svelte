@@ -25,7 +25,8 @@
     activeId: string;
     tabSite: string;
     onClose: () => void;
-    onOpen: (id: string) => Promise<void>;
+    /** False: the conversation could not be read, and the row says so. */
+    onOpen: (id: string) => Promise<boolean>;
     onDelete: (id: string, onFail: () => void) => Promise<{ undo: () => void }>;
   }
 
@@ -137,6 +138,17 @@
     }
   }
 
+  async function openRow(id: string): Promise<void> {
+    failed.delete(id);
+    let opened = false;
+    try {
+      opened = await onOpen(id);
+    } catch (e) {
+      debugCatch(e, 'ConversationsPopover.openRow');
+    }
+    if (!opened) failed.set(id, "Can't open this conversation.");
+  }
+
   async function undo(id: string): Promise<void> {
     const u = undoing.get(id);
     if (u === undefined) return;
@@ -203,7 +215,7 @@
         aria-label={`${title}, ${rowMeta(e, otherSite)}${current ? ', open now' : ''}`}
         tabindex={first ? 0 : -1}
         data-ega-conv-open
-        onclick={() => (current ? onClose() : void onOpen(e.origin))}
+        onclick={() => (current ? onClose() : void openRow(e.origin))}
       >
         <span class="cv-check" aria-hidden="true">
           {#if current}<Icon icon={CheckIcon} size={16} />{/if}
