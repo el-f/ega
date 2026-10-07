@@ -43,7 +43,7 @@
     <Icon icon={EllipsisIcon} size={16} />
   </DropdownMenu.Trigger>
   <DropdownMenu.Portal>
-    <DropdownMenu.Content class="sp-menu" align="end" sideOffset={6}>
+    <DropdownMenu.Content preventScroll={false} class="sp-menu" align="end" sideOffset={6}>
       <DropdownMenu.CheckboxItem
         class="sp-menu-item"
         bind:checked={bookmarkFilter}

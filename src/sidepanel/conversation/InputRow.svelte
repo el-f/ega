@@ -448,7 +448,13 @@
           <Icon icon={Plus} size={16} />
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
-          <DropdownMenu.Content class="sp-menu" side="top" align="start" sideOffset={6}>
+          <DropdownMenu.Content
+            preventScroll={false}
+            class="sp-menu"
+            side="top"
+            align="start"
+            sideOffset={6}
+          >
             <DropdownMenu.Item
               class="sp-menu-item"
               onSelect={() => imageInputEl?.click()}
