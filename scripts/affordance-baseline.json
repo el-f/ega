@@ -81,7 +81,6 @@
   "data-testid=\"nh-platform-tab-{p}\"",
   "data-testid=\"nh-recovered-banner\"",
   "data-testid=\"nh-show-all-platforms\"",
-  "data-testid=\"nh-status-pill\"",
   "data-testid=\"ollama-403-help\"",
   "data-testid=\"post-container\"",
   "data-testid=\"prewarm-native-toggle\""
