@@ -228,6 +228,9 @@ describe('token-lint font sizes set from .ts', () => {
     ["el.style.cssText = 'color: red; font-size: 11px';"],
     ["el.style.setProperty('--ega-md-fs', '13px');"],
     ["el.style.fontSize = 'var(--fs-sm)'; el.style.fontSize = '12px';"],
+    ["el.style.fontSize = '' + size + 'px';"],
+    ["el.style.fontSize = 'var(--fs-sm)' + extra;"],
+    ["el.style.setProperty('font-size', '' + size + 'px');"],
   ])('flags %s', (src) => {
     expect(lintTs(src, 'x.ts', fed).map((v) => v.kind)).toEqual(['font']);
   });
