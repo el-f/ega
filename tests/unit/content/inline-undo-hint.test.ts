@@ -194,6 +194,20 @@ describe('inline replace — the first replace says how to undo it', () => {
     expect(document.getElementById('p')?.textContent).toBe('Hello there');
   });
 
+  it('Esc that ends multi-select opened before the translate leaves the page translated', async () => {
+    vi.spyOn(chrome.runtime, 'sendMessage').mockResolvedValue(undefined);
+    // Multi-select's Esc listener is added first, so it runs before the inline one.
+    const ms = await import('@/content/page-translate-v2/multi-select');
+    ms.enterMultiSelect({ initialMode: 'bilingual', onFire: () => {} });
+    await translateInPlace({ ...DEFAULT_SETTINGS, inlineUndoHintShown: true });
+    document
+      .querySelector('[data-ega-replaced]')
+      ?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', cancelable: true }));
+    expect(ms.isMultiSelectActive()).toBe(false);
+    expect(document.getElementById('p')?.textContent).toBe('Hello there');
+  });
+
   it('stays quiet once the hint was shown', async () => {
     await translateInPlace({ ...DEFAULT_SETTINGS, inlineUndoHintShown: true });
     expect(document.getElementById('p')?.textContent).toBe('Hello there');
