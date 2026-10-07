@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, fireEvent, waitFor } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import InputRow from '@/sidepanel/conversation/InputRow.svelte';
 import { toastStore } from '@/shared/components/toastStore';
 import { composerProps } from './_composer';
@@ -115,7 +116,28 @@ describe('dictation lives in the Add menu', () => {
     await fireEvent.click(document.querySelector('[data-ega-mic]') as HTMLElement);
     expect(stopButton(container)).not.toBeNull();
     first?.onend?.();
-    await vi.waitFor(() => expect(stopButton(container)).not.toBeNull());
+    // Flushed first: a waitFor would pass on its first check, before the DOM caught up.
+    await tick();
+    expect(stopButton(container)).not.toBeNull();
+  });
+});
+
+describe('dictation keeps keyboard focus in the composer', () => {
+  it('starting from the Add menu puts focus on Stop dictation', async () => {
+    const { container } = await dictate();
+    await waitFor(() => expect(document.activeElement).toBe(stopButton(container)));
+  });
+
+  it('when listening ends, focus goes back to Add', async () => {
+    const { container } = await dictate();
+    const stop = await waitFor(() => {
+      const s = stopButton(container);
+      if (!s) throw new Error('Stop not shown');
+      return s;
+    });
+    stop.focus();
+    FakeRecognition.lastInstance?.onend?.();
+    await waitFor(() => expect(document.activeElement?.getAttribute('aria-label')).toBe('Add'));
   });
 });
 

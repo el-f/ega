@@ -112,6 +112,9 @@
   let dragActive = $state(false);
   let textareaEl: HTMLTextAreaElement | null = $state(null);
   let imageInputEl: HTMLInputElement | null = $state(null);
+  // Add and Stop dictation swap in one place; the one with focus unmounts, so focus moves to the other.
+  let addEl: HTMLElement | null = $state(null);
+  let stopEl: HTMLButtonElement | null = $state(null);
   let chipEl: HTMLButtonElement | null = $state(null);
   let modeOpen = $state(false);
   let recognizing = $state(false);
@@ -148,6 +151,12 @@
     }
   }
 
+  function endDictation(): void {
+    const onStop = document.activeElement === stopEl;
+    recognizing = false;
+    if (onStop) void tick().then(() => addEl?.focus());
+  }
+
   function toggleDictation(): void {
     if (recognizing) {
       recog?.stop();
@@ -165,17 +174,19 @@
       if (t) value = value.trim() ? value + ' ' + t : t;
     };
     instance.onend = () => {
-      if (recog === instance) recognizing = false;
+      if (recog === instance) endDictation();
     };
     instance.onerror = (ev) => {
       // Pressing Stop reports 'aborted'; that is not a failure.
       if (ev.error === 'aborted') return;
-      if (recog === instance) recognizing = false;
+      if (recog === instance) endDictation();
       toastStore.push({ message: dictationErrorMessage(ev.error), variant: 'warning' });
     };
     instance.start();
     recognizing = true;
     listening = 'Listening…';
+    // The Add menu goes with its trigger, so it has nothing to give focus back to.
+    void tick().then(() => stopEl?.focus());
   }
 
   const langName = (id: string): string =>
@@ -228,7 +239,10 @@
   const overCap = $derived(value.length > MAX_SELECTION_CHARS);
   const nearCap = $derived(value.length > MAX_SELECTION_CHARS * 0.8);
   const count = (n: number): string => n.toLocaleString('en-US');
-  const ready = $derived((value.trim() !== '' || attachedImage !== null) && !overCap);
+  // A described change sends words only; an attached image waits for the next message.
+  const ready = $derived(
+    (value.trim() !== '' || (attachedImage !== null && mode.kind !== 'refine')) && !overCap,
+  );
   const placeholder = $derived(
     mode.kind === 'refine'
       ? 'Describe the change'
@@ -280,6 +294,10 @@
   // Checked here, where the user acts: an image the turn cannot carry would go out as the bare "[image]" text.
   function attach(dataUrl: string): void {
     if (!dataUrl) return;
+    if (mode.kind === 'refine') {
+      toastStore.push({ message: "Images can't be part of a change.", variant: 'warning' });
+      return;
+    }
     const problem = attachedImageProblem(dataUrl);
     if (problem !== null) {
       toastStore.push({ message: problem, variant: 'warning' });
@@ -427,7 +445,11 @@
               ariaLabel="Remove image"
               size="sm"
               dataAttrs={{ 'data-ega-chip-remove': 'true' }}
-              onclick={onClearAttachedImage}
+              onclick={() => {
+                // The button leaves with the image; focus would otherwise fall to the page.
+                onClearAttachedImage();
+                textareaEl?.focus();
+              }}
             />
           </span>
         {/if}
@@ -439,9 +461,10 @@
     {#if SpeechRecognitionCtor && !recognizing}
       <DropdownMenu.Root>
         <DropdownMenu.Trigger
+          bind:ref={addEl}
           class="ega-icon-btn variant-default size-md"
           aria-label="Add"
-          data-tooltip="Attach or dictate"
+          data-tooltip={mode.kind === 'refine' ? 'Dictate' : 'Attach or dictate'}
           data-tooltip-placement="top"
           data-ega-add
         >
@@ -455,14 +478,16 @@
             align="start"
             sideOffset={6}
           >
-            <DropdownMenu.Item
-              class="sp-menu-item"
-              onSelect={() => imageInputEl?.click()}
-              data-ega-attach-image
-            >
-              <Icon icon={Paperclip} size={16} />
-              <span class="sp-menu-label">Attach image…</span>
-            </DropdownMenu.Item>
+            {#if mode.kind !== 'refine'}
+              <DropdownMenu.Item
+                class="sp-menu-item"
+                onSelect={() => imageInputEl?.click()}
+                data-ega-attach-image
+              >
+                <Icon icon={Paperclip} size={16} />
+                <span class="sp-menu-label">Attach image…</span>
+              </DropdownMenu.Item>
+            {/if}
             <DropdownMenu.Item class="sp-menu-item" onSelect={toggleDictation} data-ega-mic>
               <Icon icon={Mic} size={16} />
               <span class="sp-menu-label">Dictate in {dictationLabel}</span>
@@ -472,6 +497,7 @@
       </DropdownMenu.Root>
     {:else if recognizing}
       <button
+        bind:this={stopEl}
         type="button"
         class="ega-icon-btn variant-default size-md ega-dictating"
         aria-label="Stop dictation"
@@ -483,7 +509,7 @@
       >
         <Icon icon={CircleStop} size={16} />
       </button>
-    {:else}
+    {:else if mode.kind !== 'refine'}
       <button
         type="button"
         class="ega-icon-btn variant-default size-md"

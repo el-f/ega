@@ -551,18 +551,25 @@
     pageContext: currentPageContext,
     clearFilters,
     attachImage: (src) => {
+      // An image would turn the edited text into an image send, or wait unseen behind a described change.
+      const refusedInMode = (): boolean => {
+        if (composerMode.kind === 'send') return false;
+        toastStore.push({
+          message:
+            composerMode.kind === 'refine'
+              ? "The page image wasn't attached because you're changing a reply."
+              : "The page image wasn't attached because you're editing a message.",
+          variant: 'warning',
+        });
+        return true;
+      };
       const attach = (): void => {
+        // The Replace offer lasts, so the mode is checked again when it is used.
+        if (refusedInMode()) return;
         attachComposerImage(src);
         void tick().then(focusComposer);
       };
-      // An image would turn the edited text into an image send, so the edit stays as it is.
-      if (composerMode.kind !== 'send') {
-        toastStore.push({
-          message: "The page image wasn't attached because you're editing a message.",
-          variant: 'warning',
-        });
-        return;
-      }
+      if (refusedInMode()) return;
       // The user's own image wins until they say otherwise.
       if (attachedImage !== null && attachedImage !== src) {
         toastStore.push({

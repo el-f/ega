@@ -9,6 +9,7 @@ import { IMAGE_DATA_URL_MAX_CHARS } from '@/shared/constants';
 import type { Msg } from '@/shared/messages';
 import { drainAsync } from '@tests/_helpers/async';
 import { writeComposerDraftImage } from '@/sidepanel/state/composer-draft';
+import { openMenu } from './_reply';
 
 const sendMessage = chrome.runtime.sendMessage as Mock;
 const PNG = 'data:image/png;base64,iVBORw0KGgo=';
@@ -177,6 +178,61 @@ describe('SidePanel — a failed tooltip image opened in the panel', () => {
     expect(screen.queryByAltText('Attachment')).toBeNull();
     expect(container.querySelector('[data-ega-mode-banner]')).not.toBeNull();
     expect(container.querySelector<HTMLTextAreaElement>('#sp-text')?.value).toBe('original');
+  });
+
+  it('while a change is described, says so in those words and attaches nothing', async () => {
+    const { container } = render(SidePanel);
+    await tick();
+    await sendText(container, 'original');
+    const menu = await openMenu(container, 'refine');
+    await fireEvent.click(menu.querySelector('[data-ega-describe-change]') as HTMLElement);
+    await waitFor(() =>
+      expect(container.querySelector('[data-ega-mode-banner]')?.textContent).toContain('Changing'),
+    );
+
+    await attachHandoff(HTTP_IMAGE);
+
+    await waitFor(() =>
+      expect(container.textContent).toContain(
+        "The page image wasn't attached because you're changing a reply.",
+      ),
+    );
+    expect(screen.queryByAltText('Attachment')).toBeNull();
+  });
+
+  it('a Replace offer used after a change started attaches nothing', async () => {
+    const { container } = render(SidePanel);
+    await tick();
+    await sendText(container, 'original');
+    // The user's own image, pasted after the send, is what the page image would replace.
+    const file = new File([new Uint8Array([137, 80, 78, 71])], 'p.png', { type: 'image/png' });
+    const paste = new Event('paste', { bubbles: true, cancelable: true }) as ClipboardEvent;
+    Object.defineProperty(paste, 'clipboardData', {
+      value: {
+        items: [{ type: 'image/png', kind: 'file', getAsFile: () => file }],
+        files: [file],
+        getData: () => '',
+      },
+      configurable: true,
+    });
+    container.querySelector('#sp-text')?.dispatchEvent(paste);
+    await waitFor(() => expect(screen.getByAltText('Attachment')).not.toBeNull());
+    await attachHandoff(HTTP_IMAGE);
+    const replace = await waitFor(() => screen.getByRole('button', { name: 'Replace' }));
+    const menu = await openMenu(container, 'refine');
+    await fireEvent.click(menu.querySelector('[data-ega-describe-change]') as HTMLElement);
+    await waitFor(() =>
+      expect(container.querySelector('[data-ega-mode-banner]')?.textContent).toContain('Changing'),
+    );
+
+    await fireEvent.click(replace);
+
+    await waitFor(() =>
+      expect(container.textContent).toContain(
+        "The page image wasn't attached because you're changing a reply.",
+      ),
+    );
+    expect(container.querySelector(`img[src="${HTTP_IMAGE}"]`)).toBeNull();
   });
 
   it('attaches nothing for an image the panel must not render', async () => {

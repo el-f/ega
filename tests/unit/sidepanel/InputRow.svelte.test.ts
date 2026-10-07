@@ -230,6 +230,34 @@ describe('edit and refine modes', () => {
     expect(textarea(container).placeholder).toBe('Describe the change');
   });
 
+  it('a described change takes words only: no image, and Send waits for text', async () => {
+    const push = vi.spyOn(toastStore, 'push');
+    const props = {
+      ...composerProps(),
+      attachedImage: PIXEL,
+      mode: { kind: 'refine' as const, turnId: 'a1' },
+    };
+    const { container } = render(InputRow, { props });
+    // The image waits for the next message, so it cannot make Send look ready here.
+    expect(send(container).getAttribute('aria-disabled')).toBe('true');
+    expect(container.querySelector('[data-ega-attach-image]')).toBeNull();
+
+    const file = new File([new Uint8Array([137, 80, 78, 71])], 'p.png', { type: 'image/png' });
+    const item = { type: 'image/png', kind: 'file', getAsFile: () => file };
+    const event = new Event('paste', { bubbles: true, cancelable: true }) as ClipboardEvent;
+    Object.defineProperty(event, 'clipboardData', {
+      value: { items: [item], files: [file], getData: () => '' },
+      configurable: true,
+    });
+    textarea(container).dispatchEvent(event);
+    await vi.waitFor(() =>
+      expect(push.mock.calls.map((c) => c[0].message)).toContain(
+        "Images can't be part of a change.",
+      ),
+    );
+    expect(props.onAttachImage).not.toHaveBeenCalled();
+  });
+
   it('the placeholder says what the box takes', () => {
     const { container } = render(InputRow, { props: composerProps() });
     expect(textarea(container).placeholder).toBe('Type, paste, or drop an image');
@@ -240,6 +268,17 @@ describe('edit and refine modes', () => {
 });
 
 describe('attaching an image', () => {
+  it('Remove image hands focus to the message box, since the button goes with the image', async () => {
+    const props = { ...composerProps(), attachedImage: PIXEL };
+    const { container } = render(InputRow, { props });
+    const remove = container.querySelector<HTMLElement>('[data-ega-chip-remove]');
+    if (!remove) throw new Error('Remove image missing');
+    remove.focus();
+    await fireEvent.click(remove);
+    expect(props.onClearAttachedImage).toHaveBeenCalledTimes(1);
+    expect(document.activeElement).toBe(textarea(container));
+  });
+
   it('with no speech API, Add is the paperclip itself and opens the file picker', async () => {
     const { container } = render(InputRow, { props: composerProps() });
     const add = container.querySelector<HTMLElement>('[data-ega-add]');
