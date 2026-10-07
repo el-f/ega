@@ -91,9 +91,11 @@
     checking
       ? 'Checking backends'
       : backendName === null
-        ? 'No backend set up. Open backend settings'
+        ? 'Set up backend. No backend is ready yet'
         : `${backendName} is ready. Show backends`,
   );
+  // With no backend the chip opens Options in a tab: nothing expands, so it claims no popup.
+  const opensPopover = $derived(resolvedId !== null || checking);
 
   function isProbeResult(r: unknown): r is ProbeResult {
     if (r === null || typeof r !== 'object') return false;
@@ -155,7 +157,7 @@
 
   function onClick(): void {
     // Only the settled empty state is a jump; the popover has its own "checking" row during a probe.
-    if (resolvedId === null && !checking) {
+    if (!opensPopover) {
       onJump();
       return;
     }
@@ -170,17 +172,17 @@
   bind:this={chip}
   type="button"
   class="active-backend-chip"
-  class:empty={resolvedId === null && !checking}
+  class:empty={!opensPopover}
   class:checking
   aria-label={chipName}
   data-tooltip={chipName}
   data-tooltip-placement="bottom"
   data-ega-backend-chip
-  aria-haspopup={resolvedId === null && !checking ? undefined : 'dialog'}
-  aria-expanded={popoverOpen}
+  aria-haspopup={opensPopover ? 'dialog' : undefined}
+  aria-expanded={opensPopover ? popoverOpen : undefined}
   onclick={onClick}
 >
-  {#if resolvedId === null && !checking}
+  {#if !opensPopover}
     <span class="chip-name">Set up backend</span>
   {:else}
     <span class="chip-dot" class:on={!checking} aria-hidden="true"></span>
@@ -229,6 +231,11 @@
   .active-backend-chip:focus-visible {
     outline: 2px solid var(--color-accent);
     outline-offset: 2px;
+  }
+  /* Open, the chip has said what it does; its hover label would sit on the popover (the popup has no panel rule). */
+  .active-backend-chip[aria-expanded='true']:hover::after,
+  .active-backend-chip[aria-expanded='true']:focus-visible::after {
+    content: none;
   }
   .active-backend-chip.empty {
     color: var(--color-warning-fg);

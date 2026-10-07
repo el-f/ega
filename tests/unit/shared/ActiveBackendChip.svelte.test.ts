@@ -36,6 +36,27 @@ describe('ActiveBackendChip — name only, never cut', () => {
     expect(el.getAttribute('data-tooltip')).toBe('Anthropic is ready. Show backends');
   });
 
+  it('with no backend, its name starts with the label it shows and it claims no popup (WCAG 2.5.3)', () => {
+    const s = parseSettings({
+      backendOrder: ['anthropic'],
+      disabledBackends: ['native', 'ollama', 'localserver'],
+      anthropicApiKey: '',
+    });
+    const { container } = render(ActiveBackendChip, { props: { settings: s, onJump: () => {} } });
+    const el = container.querySelector<HTMLButtonElement>('[data-ega-backend-chip]');
+    expect(el?.textContent.trim()).toBe('Set up backend');
+    expect(el?.getAttribute('aria-label')?.startsWith('Set up backend')).toBe(true);
+    expect(el?.getAttribute('data-tooltip')).toBe(el?.getAttribute('aria-label'));
+    // It opens Options in a tab, so nothing expands: a screen reader must not say "collapsed".
+    expect(el?.hasAttribute('aria-haspopup')).toBe(false);
+    expect(el?.hasAttribute('aria-expanded')).toBe(false);
+  });
+
+  it('hides its own hover label while its popover is open, on every surface that mounts it', () => {
+    const src = readFileSync('src/shared/components/ActiveBackendChip.svelte', 'utf8');
+    expect(src).toMatch(/\.active-backend-chip\[aria-expanded='true'\]:hover::after/);
+  });
+
   it('has no ellipsis rule: the label fits or collapses to the dot', () => {
     const src = readFileSync('src/shared/components/ActiveBackendChip.svelte', 'utf8');
     expect(src).not.toContain('text-overflow');
