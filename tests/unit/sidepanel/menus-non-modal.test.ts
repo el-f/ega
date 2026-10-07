@@ -19,3 +19,12 @@ describe('side panel menus do not lock the page', () => {
     });
   }
 });
+
+describe('an open menu hides its trigger tooltip', () => {
+  it('drops the hover and focus label of any trigger with aria-expanded="true"', () => {
+    const src = readFileSync('src/sidepanel/SidePanel.svelte', 'utf8');
+    expect(src).toMatch(
+      /:global\(\[data-tooltip\]\[aria-expanded='true'\]:not\(\[data-tooltip=''\]\):hover::after\),\s*:global\(\[data-tooltip\]\[aria-expanded='true'\]:not\(\[data-tooltip=''\]\):focus-visible::after\)\s*\{\s*content:\s*none;/,
+    );
+  });
+});

@@ -1195,6 +1195,11 @@
 />
 
 <style>
+  /* A trigger whose menu or popover is open has said what it does; its hover label would sit on the open layer. */
+  :global([data-tooltip][aria-expanded='true']:not([data-tooltip='']):hover::after),
+  :global([data-tooltip][aria-expanded='true']:not([data-tooltip='']):focus-visible::after) {
+    content: none;
+  }
   .sp-root {
     height: 100vh;
     display: flex;
