@@ -69,6 +69,43 @@ describe('ConversationStream — no svelte:window self-registration', () => {
     expect(focusChange).toHaveBeenCalledWith('u1');
   });
 
+  // "Instructions sent" and a long quote are focusable scroll boxes; the arrows scroll them (spec §5.7).
+  it('leaves the arrow keys to a focused box that scrolls', async () => {
+    const registered: { handler: ((e: KeyboardEvent) => void) | null } = { handler: null };
+    const focusChange = vi.fn();
+    const { container } = render(ConversationStream, {
+      props: {
+        turns: [u('u1', 'hello'), a('a1', 'world', 'u1')],
+        focusedTurnId: null,
+        onRetry: vi.fn(),
+        onFocusChange: focusChange,
+        onRegisterKeydownHandler: (h: (e: KeyboardEvent) => void) => {
+          registered.handler = h;
+        },
+      },
+    });
+    await tick();
+    const box = document.createElement('pre');
+    box.tabIndex = 0;
+    box.style.overflowY = 'auto';
+    Object.defineProperty(box, 'scrollHeight', { value: 400 });
+    Object.defineProperty(box, 'clientHeight', { value: 100 });
+    container.querySelector('[data-turn-id="a1"]')?.append(box);
+    if (!registered.handler) throw new Error('handler not registered');
+    for (const key of ['ArrowDown', 'ArrowUp']) {
+      const e = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true });
+      Object.defineProperty(e, 'target', { value: box });
+      registered.handler(e);
+      expect(e.defaultPrevented, key).toBe(false);
+    }
+    expect(focusChange).not.toHaveBeenCalled();
+    // j still moves between messages: it is not a scroll key.
+    const j = new KeyboardEvent('keydown', { key: 'j', bubbles: true, cancelable: true });
+    Object.defineProperty(j, 'target', { value: box });
+    registered.handler(j);
+    expect(focusChange).toHaveBeenCalledWith('u1');
+  });
+
   it('drops the ring when focus leaves the stream, so r cannot fire on an unseen turn', async () => {
     const focusChange = vi.fn();
     const onRetry = vi.fn();

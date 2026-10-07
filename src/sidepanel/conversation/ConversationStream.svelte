@@ -323,18 +323,27 @@
       return 'Reply interrupted: The panel closed before this finished.';
     const c = errorCopy(t.error.code, t.error.message, {
       ...(t.error.backendId !== undefined ? { backend: backendLabel(t.error.backendId) } : {}),
+      image: imageBackedIds.has(t.id) || t.kind === 'image-translate',
     });
     return c === null ? 'Stopped' : `${c.title}: ${c.body}`;
   }
 
-  /** Seeded from the first render on purpose, so a restored thread is not read out on open. */
-  let announcedText = untrack(() => settledText(settledAssistant(turns)));
-  let announcedAt = untrack(() => settledAssistant(turns)?.createdAt ?? 0);
+  // Seeded when the first storage read lands (not at mount, which comes first), so a restored thread is not read out.
+  let seeded = untrack(() => loaded);
+  let announcedText = untrack(() => (loaded ? settledText(settledAssistant(turns)) : ''));
+  let announcedAt = untrack(() => (loaded ? (settledAssistant(turns)?.createdAt ?? 0) : 0));
   let announcement = $state('');
 
   // Only this announcer is live; a live stream would re-read every turn on each filter change.
   $effect(() => {
     const settled = settledAssistant(turns);
+    if (!loaded) return;
+    if (!seeded) {
+      seeded = true;
+      announcedText = settledText(settled);
+      announcedAt = settled?.createdAt ?? 0;
+      return;
+    }
     // A narrowed filter can leave an OLDER turn last — that is not a new answer.
     if (!settled || settled.createdAt < announcedAt) return;
     const text = settledText(settled);
@@ -396,10 +405,24 @@
     onRegisterKeydownHandler?.(handleKeydown);
   });
 
+  /** A focused box that scrolls on its own (Instructions sent, a long quote) owns the arrow keys. */
+  function scrollsItself(el: HTMLElement): boolean {
+    return (
+      el.scrollHeight > el.clientHeight && /^(?:auto|scroll)$/.test(getComputedStyle(el).overflowY)
+    );
+  }
+
   function handleKeydown(e: KeyboardEvent): void {
     // A bits-ui trigger already used this key (ArrowDown opens its menu); bits never stops propagation.
     if (windowTurns.length === 0 || e.defaultPrevented) return;
     const target = e.target as HTMLElement | null;
+    if (
+      (e.key === 'ArrowDown' || e.key === 'ArrowUp') &&
+      target instanceof HTMLElement &&
+      scrollsItself(target)
+    ) {
+      return;
+    }
     if (
       // A native select or a bits-ui menu owns its own arrow keys and letter type-ahead.
       target instanceof HTMLSelectElement ||

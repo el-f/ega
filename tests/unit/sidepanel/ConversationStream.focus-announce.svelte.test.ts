@@ -110,6 +110,53 @@ describe('ConversationStream — one announcer, not the whole thread', () => {
     expect(container.querySelector('[data-ega-stream-live]')?.textContent).toBe('done text');
   });
 
+  // The panel mounts the stream before its first storage read; the thread that loads is old news, not a new answer.
+  it('does not read out a restored thread that lands after mount', async () => {
+    const { container, rerender } = render(ConversationStream, {
+      props: props({ turns: [], loaded: false }),
+    });
+    await tick();
+    const restored = [u('u1', 'adios'), a('a1', 'Goodbye, friend.', 'u1')];
+    await rerender(props({ turns: restored, loaded: true }));
+    await tick();
+    const live = container.querySelector('[data-ega-stream-live]');
+    expect(live?.textContent).toBe('');
+    // A reply that settles after the load is still announced.
+    await rerender(
+      props({
+        turns: [...restored, u('u2', 'otra', 2_000), a('a2', 'Another.', 'u2', 'done', 2_000)],
+        loaded: true,
+      }),
+    );
+    await tick();
+    expect(live?.textContent).toBe('Another.');
+  });
+
+  it('announces an image reply’s error in the words the reply shows', async () => {
+    const image: Turn = {
+      createdAt: 1_000,
+      id: 'u1',
+      role: 'user',
+      kind: 'translate',
+      status: 'idle',
+      content: '[image]',
+      imageDataUrl: 'data:image/png;base64,AAAA',
+    };
+    const failed = (status: Turn['status']): AssistantTurnData => ({
+      ...a('a1', '', 'u1', status, 2_000),
+      ...(status === 'error' ? { error: { code: 'UNKNOWN', message: 'boom' } } : {}),
+    });
+    const { container, rerender } = render(ConversationStream, {
+      props: props({ turns: [image, failed('pending')] }),
+    });
+    await tick();
+    await rerender(props({ turns: [image, failed('error')] }));
+    await tick();
+    expect(container.querySelector('[data-ega-stream-live]')?.textContent).toBe(
+      "Couldn't read the image: Ega could not get text from this image.",
+    );
+  });
+
   it('the scroller does not announce its own children', () => {
     const { container } = render(ConversationStream, { props: props() });
     const log = container.querySelector('[role="log"]');
