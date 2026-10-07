@@ -19,6 +19,30 @@ function zIndex(file: string, selector: string): string | undefined {
     ?.style.getPropertyValue('z-index');
 }
 
+describe('in-page motion', () => {
+  it('under reduced motion the page toast fades in where it stands, with no rise', () => {
+    const css = readFileSync(resolve('src/content/shadow.css'), 'utf8');
+    document.head.innerHTML = `<style>${css.replace(/@import[^;]+;/g, '')}</style>`;
+    const media = Array.from(document.styleSheets[0]?.cssRules ?? []).find(
+      (r): r is CSSMediaRule =>
+        r instanceof CSSMediaRule &&
+        r.media.mediaText === '(prefers-reduced-motion: reduce)' &&
+        Array.from(r.cssRules).some(
+          (c) => c instanceof CSSStyleRule && c.selectorText === '.ega-toast',
+        ),
+    );
+    const toast = Array.from(media?.cssRules ?? []).find(
+      (c): c is CSSStyleRule => c instanceof CSSStyleRule && c.selectorText === '.ega-toast',
+    );
+    const name = toast?.style.getPropertyValue('animation-name');
+    expect(name).toBe('ega-content-toast-fade');
+    // The fade's keyframes move nothing.
+    const frames = new RegExp(`@keyframes ${name ?? '-'}\\s*\\{([^@]*)`).exec(css)?.[1] ?? '';
+    expect(frames).toContain('opacity');
+    expect(frames).not.toMatch(/transform|translate|scale/);
+  });
+});
+
 describe('in-page layers', () => {
   it('number the layers bottom to top: dimmer, outline, bar, bubble, tooltip, toast, label', () => {
     const host = sheet('src/content/shadow.css').find((r) => r.selectorText === ':host');

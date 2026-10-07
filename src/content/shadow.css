@@ -213,6 +213,17 @@
     transform: translateX(-50%) translateY(0);
   }
 }
+/* Reduced motion: the toast fades in where it stands, with no rise. */
+@media (prefers-reduced-motion: reduce) {
+  .ega-toast {
+    animation-name: ega-content-toast-fade;
+  }
+}
+@keyframes ega-content-toast-fade {
+  from {
+    opacity: 0;
+  }
+}
 
 /* The mark is a row of its own inside the bubble's, so no child needs a margin. */
 .bubble .ega-brand-mark {
