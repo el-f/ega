@@ -3,6 +3,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { render } from '@testing-library/svelte';
 import ShortcutOverlay from '@/shared/components/ShortcutOverlay.svelte';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
+import { SETTINGS_TABS } from '@/shared/settings-tabs';
 
 // Both rows are rebindable settings; a hardcoded chord is wrong once the user rebinds it.
 
@@ -73,5 +74,28 @@ describe('ShortcutOverlay reads the real bindings', () => {
       props: { open: true, onClose: () => {}, shortcut: 'Command+Shift+L' },
     });
     expect(rowFor(container as HTMLElement, 'Translate selection')).toContain('⌘');
+  });
+});
+
+describe('ShortcutOverlay lists the keys each surface really has', () => {
+  it('the side panel sends with Enter, and Shift+Enter starts a new line', () => {
+    const { container } = render(ShortcutOverlay, {
+      props: { open: true, onClose: () => {}, surface: 'sidepanel' },
+    });
+    expect(rowFor(container as HTMLElement, 'Send').replace(/\s+/g, '')).toBe('Enter');
+    expect(rowFor(container as HTMLElement, 'New line').replace(/\s+/g, '')).toBe('Shift+Enter');
+  });
+
+  it('options switches as many tabs as it has, with Alt and the tab number', () => {
+    const { container } = render(ShortcutOverlay, {
+      props: { open: true, onClose: () => {}, surface: 'options' },
+    });
+    const terms = Array.from(container.querySelectorAll('.shortcut-row dt')).map(
+      (d) => d.textContent,
+    );
+    expect(terms).toContain(`Switch Settings tab (1–${SETTINGS_TABS.length})`);
+    expect(rowFor(container as HTMLElement, 'Switch Settings tab')).toContain(
+      String(SETTINGS_TABS.length),
+    );
   });
 });

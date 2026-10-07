@@ -162,14 +162,13 @@
     color: var(--color-muted);
     font-size: var(--fs-sm);
   }
+  /* Plain text flow, not flex: at a narrow width the sentence wraps around the key chip instead of sliding under it. */
   .palette-foot {
     margin: var(--space-2) 0 0;
     padding-top: var(--space-2);
     border-top: 1px solid var(--color-border-subtle);
     color: var(--color-muted);
     font-size: var(--fs-xs);
-    display: flex;
-    align-items: center;
-    gap: var(--space-1);
+    line-height: var(--lh-body);
   }
 </style>

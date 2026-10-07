@@ -3,6 +3,7 @@
   import Kbd from '@/shared/ui/Kbd.svelte';
   import { isMacLike } from '@/shared/utils/platform';
   import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
+  import { SETTINGS_TABS } from '@/shared/settings-tabs';
 
   interface Props {
     open: boolean;
@@ -23,6 +24,8 @@
   const mac = isMacLike();
   const isOptions = $derived(surface === 'options');
   const isSidePanel = $derived(surface === 'sidepanel');
+  // Alt+digit reaches only the tabs that exist.
+  const lastTab = SETTINGS_TABS.length;
 
   // `matchShortcut` compares ctrlKey literally, so a stored Ctrl stays Ctrl on a Mac.
   const MOD_GLYPH: Readonly<Record<string, string>> = {
@@ -93,7 +96,11 @@
           {#if isSidePanel}
             <div class="shortcut-row">
               <dt>Send</dt>
-              <dd><Kbd>{mac ? '⌘' : 'Ctrl'}</Kbd>+<Kbd>Enter</Kbd></dd>
+              <dd><Kbd>Enter</Kbd></dd>
+            </div>
+            <div class="shortcut-row">
+              <dt>New line</dt>
+              <dd><Kbd>Shift</Kbd>+<Kbd>Enter</Kbd></dd>
             </div>
             <div class="shortcut-row">
               <dt>Stop the reply</dt>
@@ -131,8 +138,8 @@
           </div>
           {#if isOptions}
             <div class="shortcut-row">
-              <dt>Switch Settings tab (1–9)</dt>
-              <dd><Kbd>Alt</Kbd>+<Kbd>1</Kbd>…<Kbd>9</Kbd></dd>
+              <dt>Switch Settings tab (1–{lastTab})</dt>
+              <dd><Kbd>Alt</Kbd>+<Kbd>1</Kbd>…<Kbd>{lastTab}</Kbd></dd>
             </div>
             <div class="shortcut-row">
               <dt>Add a rule from any Settings tab</dt>
