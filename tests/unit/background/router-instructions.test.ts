@@ -10,7 +10,7 @@ import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import { asBackendIdUnsafe } from '@/shared/brands';
 import { testManifest } from '@tests/_helpers/backend';
 import { clearPerfBuffer, getPerfEntries } from '@/shared/perf-history';
-import { MAX_INSTRUCTIONS_CHARS } from '@/shared/constants';
+import { MAX_INSTRUCTIONS_CHARS } from '@/shared/reply-instructions';
 
 const sent: string[] = [];
 

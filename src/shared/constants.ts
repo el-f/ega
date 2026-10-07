@@ -14,10 +14,6 @@ export const DEFAULT_OLLAMA_URL = 'http://localhost:11434';
 export const DEFAULT_LOCAL_SERVER_URL = 'http://127.0.0.1:1234';
 
 export const MAX_SELECTION_CHARS = 2000;
-/** The system prompt a reply records for About this reply is cut here. */
-export const MAX_INSTRUCTIONS_CHARS = 6_000;
-/** A stored conversation keeps the sent instructions on this many of its newest replies. */
-export const INSTRUCTIONS_KEPT_REPLIES = 20;
 
 /** Stands in for the turn content when an image is sent with no notes. */
 export const IMAGE_TURN_PLACEHOLDER = '[image]';

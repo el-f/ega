@@ -9,7 +9,7 @@
   import { modelDisplayName } from '@/shared/model-names';
   import type { ErrCode } from '@/shared/types';
   import { redactContext } from '@/shared/redact';
-  import { MAX_INSTRUCTIONS_CHARS } from '@/shared/constants';
+  import { MAX_INSTRUCTIONS_CHARS } from '@/shared/reply-instructions';
 
   interface Props {
     /** Absent when result details are off in Settings, or the reply carried none. */

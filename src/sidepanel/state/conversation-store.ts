@@ -14,7 +14,8 @@ import {
   type IndexEntry,
 } from '@/shared/saved-conversations';
 import { omitUndef } from '@/shared/utils/omitUndef';
-import { IMAGE_DATA_URL_MAX_CHARS, INSTRUCTIONS_KEPT_REPLIES } from '@/shared/constants';
+import { IMAGE_DATA_URL_MAX_CHARS } from '@/shared/constants';
+import { INSTRUCTIONS_KEPT_REPLIES } from '@/shared/reply-instructions';
 import type { ResultMeta } from '@/shared/types';
 import {
   ALL_TURN_KINDS,

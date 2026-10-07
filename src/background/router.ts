@@ -20,8 +20,8 @@ import {
   DEFAULT_IMAGE_TRANSLATE_TIMEOUT_MS,
   DEFAULT_TRANSLATE_TIMEOUT_MS,
   IMAGE_TURN_PLACEHOLDER,
-  MAX_INSTRUCTIONS_CHARS,
 } from '@/shared/constants';
+import { MAX_INSTRUCTIONS_CHARS } from '@/shared/reply-instructions';
 
 /** A note is guidance for the OCR pass, so it stays short beside untrusted image text. */
 const IMAGE_NOTE_CAP = 200;
