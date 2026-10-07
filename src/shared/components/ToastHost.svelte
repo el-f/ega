@@ -39,9 +39,12 @@
   function giveFocusBack(): void {
     if (holder === null || holder.isConnected) return;
     holder = null;
+    // Used once: a later visit from the page body must not pull focus back here again.
+    const back = cameFrom;
+    cameFrom = null;
     const now = document.activeElement;
-    if ((now === null || now === document.body) && cameFrom?.isConnected === true) {
-      cameFrom.focus({ preventScroll: true });
+    if ((now === null || now === document.body) && back?.isConnected === true) {
+      back.focus({ preventScroll: true });
     }
   }
 

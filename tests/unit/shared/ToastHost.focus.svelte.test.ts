@@ -132,6 +132,22 @@ describe('toasts and keyboard focus', () => {
     other.remove();
   });
 
+  it('forgets the control once focus went back to it, so a later visit from the page body stays there', async () => {
+    toastStore.push({ message: 'Check the key.', variant: 'warning' });
+    toastStore.push({ message: 'Could not save.', variant: 'danger' });
+    await advance(100);
+    closeButton('Could not save.').focus();
+    closeButton('Could not save.').click();
+    await advance(1000);
+    expect(document.activeElement).toBe(row);
+    // The user clicks the page background, then the other toast's X.
+    row.blur();
+    closeButton('Check the key.').focus();
+    closeButton('Check the key.').click();
+    await advance(1000);
+    expect(document.activeElement).toBe(document.body);
+  });
+
   it('leaves focus alone when the user moved it elsewhere first', async () => {
     const other = document.createElement('input');
     document.body.appendChild(other);
