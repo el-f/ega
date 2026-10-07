@@ -750,6 +750,12 @@ export const COVERAGE: readonly Family[] = [
             flows: ['options-shell/left-rail-renders.flow.spec.ts'],
           },
           {
+            id: 'design-rules',
+            description:
+              'Every tab, sub-tab and dialog in light and dark passes the spec 9.3 design checks C-1..C-17',
+            flows: ['options-shell/design-rules.flow.spec.ts'],
+          },
+          {
             id: 'tab-switch',
             description: 'Clicking a tab swaps the active panel + aria state',
             flows: ['options-shell/tab-switch.flow.spec.ts'],
