@@ -89,15 +89,17 @@
   .file-label {
     display: inline-flex;
     align-items: center;
-    gap: var(--space-1);
+    margin: 0;
+    gap: var(--space-2);
     padding: var(--space-2) var(--space-3);
     background: var(--color-bg-elevated);
     color: var(--color-fg);
-    border: 1px solid var(--color-border);
+    /* The secondary Button's border, so Import matches Export beside it. */
+    border: 1px solid var(--color-control-border);
     border-radius: var(--radius-md);
     font-family: var(--font-ui);
     font-size: var(--fs-base);
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
     transition: background var(--motion-fast) var(--ease-out);
   }

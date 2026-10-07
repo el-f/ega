@@ -392,6 +392,16 @@ describe('BackendList — row toolbar (K-10)', () => {
     expect(buttons[2]?.textContent.trim()).toBe('Disable');
   });
 
+  it('the two drop zones are not Tab stops of their own; the rows keep theirs', async () => {
+    const { container } = render(BackendList, {
+      props: { settings: makeSettings(), onChange: () => {}, children: rowChild() },
+    });
+    await zonesReady(container);
+    const zones = [...container.querySelectorAll<HTMLElement>('[role="list"]')];
+    expect(zones.map((z) => z.tabIndex)).toEqual([-1, -1]);
+    expect(container.querySelectorAll('[role="toolbar"] [tabindex="0"]').length).toBeGreaterThan(0);
+  });
+
   it('the in-use and not-in-use lists are two cards, with plain titles', async () => {
     const { container } = render(BackendList, {
       props: { settings: makeSettings(), onChange: () => {}, children: rowChild() },

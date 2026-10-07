@@ -1,5 +1,19 @@
 @import '../shared/tokens.css';
 
+/* Options type scale (spec 1.1): titles at 20 and 14, everything else 13, so the small tokens resolve to 13 here only. */
+:root {
+  --fs-xs: var(--fs-base);
+  --fs-sm: var(--fs-base);
+  --ega-fw-medium: 600;
+  --ega-dialog-title-fs: var(--fs-md);
+}
+
+/* Options uses weights 400 and 600 only (C-3). The Select label stays 500 in the shared component, because the
+   tooltip sheet copies that rule; the id outranks the component's scoped class. */
+#root .ega-select-label {
+  font-weight: 600;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -20,7 +34,6 @@ label {
   display: block;
   margin: var(--space-2) 0 var(--space-1);
   font-size: var(--fs-sm);
-  opacity: 0.8;
 }
 input[type='text'],
 input[type='password'],
@@ -145,8 +158,6 @@ select.field-invalid {
   color: var(--color-accent);
   margin-left: var(--space-1);
   vertical-align: middle;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 .badge.custom {
   background: var(--color-warning-bg-soft);

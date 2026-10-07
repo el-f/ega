@@ -130,7 +130,7 @@
     } catch (e) {
       debugCatch(e, 'options.tabs.Advanced.clearCache');
       toastStore.push({
-        message: 'Saved answers were not cleared. Chrome did not take the change.',
+        message: 'Saved answers were not cleared',
         variant: 'danger',
         action: { label: 'Try again', onClick: () => void clearCache() },
       });
@@ -239,14 +239,9 @@
 {/if}
 
 <style>
-  .advanced-root {
-    display: flex;
-    flex-direction: column;
-    gap: var(--card-gap);
-  }
+  .advanced-root,
   .adv-pane {
     display: flex;
     flex-direction: column;
-    gap: var(--card-gap);
   }
 </style>

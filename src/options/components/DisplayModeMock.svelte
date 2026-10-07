@@ -7,7 +7,7 @@
   const { variant, active }: Props = $props();
 </script>
 
-<div class="mock" class:active aria-hidden="true">
+<div class="mock" class:active aria-hidden="true" data-ega-illustration>
   <div class="mock-page">
     {#if variant === 'tooltip'}
       <span class="mock-text">Lorem ipsum</span>&nbsp;<span class="mock-selection">dolor sit</span

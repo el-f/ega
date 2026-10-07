@@ -18,7 +18,7 @@
     visual?: Snippet<[T, boolean]>;
     dataAttrs?: Record<string, string | number | boolean | undefined>;
     /** Data attribute on each card with its value, for tests and deep links. */
-    itemAttr?: string;
+    itemAttr: string;
   }
 
   const {
@@ -29,7 +29,7 @@
     ariaLabelledby,
     visual,
     dataAttrs,
-    itemAttr = 'data-ega-choice',
+    itemAttr,
   }: Props = $props();
 
   function pick(next: T): void {

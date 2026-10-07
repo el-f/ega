@@ -74,17 +74,13 @@
   .options-pane {
     max-width: 640px;
     margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-    gap: var(--card-gap);
   }
   .tab-fade-in {
     /* `backwards`, not `both`: a persistent transform establishes a containing block that traps a fixed Dialog backdrop. */
     animation: ega-tab-fade-in var(--motion-fast) var(--ease-out) backwards;
-    /* SectionCard has no margin-block of its own, so the gap between stacked cards is set here. */
+    /* The cards' own bottom margin spaces them (spec 1.1: 24px), so the stack adds no gap. */
     display: flex;
     flex-direction: column;
-    gap: var(--card-gap);
   }
   @keyframes ega-tab-fade-in {
     from {

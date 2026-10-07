@@ -37,13 +37,13 @@
       >
         <span class="label">{t.label}</span>
         {#if count > 0}
-          <span
-            class="adv-sub-tab-count"
-            data-ega-subtab-modified-count={t.id}
-            title="{count} setting{count === 1 ? '' : 's'} changed from the default"
-          >
+          <span class="adv-sub-tab-count" data-ega-subtab-modified-count={t.id} aria-hidden="true">
             {count} changed
           </span>
+          <span class="ega-sr-only"
+            >, {count}
+            {count === 1 ? 'setting' : 'settings'} changed from {count === 1 ? 'its' : 'their'} default</span
+          >
         {/if}
       </Tabs.Trigger>
     {/each}
@@ -52,6 +52,7 @@
 
 <style>
   :global(.adv-sub-tabs) {
+    margin-bottom: var(--space-5);
     display: flex;
     flex-wrap: wrap;
     row-gap: 4px;
@@ -72,7 +73,7 @@
     font-family: var(--font-ui);
     /* Weight is constant across states — bolding only the active tab re-measures
        the whole strip and slides the other tabs sideways. */
-    font-weight: 500;
+    font-weight: 400;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
@@ -101,14 +102,13 @@
     align-items: center;
     justify-content: center;
     min-width: 18px;
-    padding: 0 6px;
-    height: 16px;
+    padding: 1px var(--space-2);
     border-radius: var(--radius-pill);
     background: var(--color-accent-bg-soft);
-    color: var(--color-accent);
+    color: var(--color-fg);
     font-size: var(--fs-xs);
-    font-weight: 500;
-    line-height: 1;
+    font-weight: 400;
+    line-height: var(--lh-body);
     font-variant-numeric: tabular-nums;
   }
   /* Shares --motion-pulse with the deep-link target flash, so a click and a deep link read the same. */

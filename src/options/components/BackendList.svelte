@@ -254,7 +254,12 @@
       aria-label="Backends in use, in the order Ega tries them; drag a row to the list below to stop using it"
       data-testid="be-list-active"
       data-ega-setting="backends.backendOrder"
-      use:dragHandleZone={{ items: enabledShadow.items, dragDisabled: false, flipDurationMs: 180 }}
+      use:dragHandleZone={{
+        items: enabledShadow.items,
+        dragDisabled: false,
+        flipDurationMs: 180,
+        zoneTabIndex: -1,
+      }}
       onconsider={handleEnabledConsider}
       onfinalize={handleEnabledFinalize}
     >
@@ -321,7 +326,12 @@
       aria-label="Backends not in use; drag a row to the list above to use it"
       data-testid="be-list-available"
       data-ega-setting="backends.disabledBackends"
-      use:dragHandleZone={{ items: disabledShadow.items, dragDisabled: false, flipDurationMs: 180 }}
+      use:dragHandleZone={{
+        items: disabledShadow.items,
+        dragDisabled: false,
+        flipDurationMs: 180,
+        zoneTabIndex: -1,
+      }}
       onconsider={handleDisabledConsider}
       onfinalize={handleDisabledFinalize}
     >

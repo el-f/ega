@@ -15,6 +15,19 @@ describe('aria-label needs a role to survive', () => {
     expect(badge?.textContent.trim()).toBe('3 changed');
   });
 
+  it('the sub-tab reads "3 settings changed from their default" to a screen reader (O-103)', () => {
+    const { getByRole } = render(AdvancedSubTabs, {
+      props: { active: 'diagnostics', modifiedCounts: { data: 3 }, onSelect: vi.fn() },
+    });
+    const tab = getByRole('tab', { name: /^Data/ });
+    expect(tab.querySelector('[data-ega-subtab-modified-count]')?.getAttribute('aria-hidden')).toBe(
+      'true',
+    );
+    expect(tab.querySelector('.ega-sr-only')?.textContent.replace(/\s+/g, ' ').trim()).toBe(
+      ', 3 settings changed from their default',
+    );
+  });
+
   it('the changed marker is the word itself, so it needs no aria-label or role', () => {
     const { container } = render(SettingsListView, {
       props: {

@@ -86,6 +86,9 @@
   .delete-all ul {
     margin: 0;
   }
+  .delete-all strong {
+    font-weight: 600;
+  }
   .delete-all ul {
     padding-inline-start: var(--space-5);
   }

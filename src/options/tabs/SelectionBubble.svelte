@@ -33,6 +33,6 @@
   section {
     display: flex;
     flex-direction: column;
-    gap: var(--card-gap);
+    gap: 0;
   }
 </style>

@@ -70,8 +70,6 @@
     margin: var(--space-2) 0 var(--space-1);
     font-size: var(--fs-sm);
     color: var(--color-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
   }
   .diff-capped {
     margin: 0;

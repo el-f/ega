@@ -96,7 +96,7 @@
     line-height: var(--lh-body);
   }
   .entry-task {
-    font-weight: 500;
+    font-weight: 600;
     color: var(--color-fg);
   }
   .entry-cell {
@@ -109,7 +109,7 @@
     color: var(--color-fg);
   }
   .entry-status.failed {
-    color: var(--color-danger);
+    color: var(--color-danger-fg);
   }
   .entry-when {
     margin-inline-start: auto;

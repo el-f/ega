@@ -91,7 +91,7 @@
   }
   .rd-label {
     font-size: var(--fs-base);
-    font-weight: 500;
+    font-weight: 600;
   }
   .rd-line {
     font-size: var(--fs-base);

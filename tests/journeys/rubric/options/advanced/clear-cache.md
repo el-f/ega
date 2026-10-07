@@ -17,7 +17,7 @@
 
 ## Failure-mode expectations
 
-- A failed cache:clear message shows a danger toast "Saved answers were not cleared. Chrome did not take the change." with Try again.
+- A failed cache:clear message shows a danger toast "Saved answers were not cleared" with Try again.
 
 ## Cautions
 

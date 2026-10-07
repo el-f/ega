@@ -257,7 +257,7 @@ describe('Advanced — Clear cache', () => {
       expect(pushed).toContainEqual(
         expect.objectContaining({
           variant: 'danger',
-          message: 'Saved answers were not cleared. Chrome did not take the change.',
+          message: 'Saved answers were not cleared',
         }),
       ),
     );

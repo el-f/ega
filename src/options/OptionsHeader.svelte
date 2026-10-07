@@ -33,7 +33,7 @@
       onclick={onOpenSearch}
     >
       <Search size={14} strokeWidth={1.75} />
-      <span>Search settings</span>
+      <span class="search-label">Search settings</span>
       <span class="search-kbd-group" aria-hidden="true"><Kbd>{modLabel}</Kbd>+<Kbd>,</Kbd></span>
     </button>
     <ThemeToggle {theme} {onSetTheme} />
@@ -53,7 +53,8 @@
     display: inline-flex;
     align-items: center;
     gap: var(--space-2);
-    font-size: var(--fs-lg);
+    white-space: nowrap;
+    font-size: var(--fs-md);
     font-weight: 600;
     line-height: var(--lh-heading);
   }
@@ -91,5 +92,14 @@
     display: inline-flex;
     align-items: center;
     gap: 2px;
+  }
+  .search-label {
+    white-space: nowrap;
+  }
+  @container options (max-width: 600px) {
+    .search-label,
+    .search-kbd-group {
+      display: none;
+    }
   }
 </style>
