@@ -17,18 +17,29 @@ test.afterEach(async () => {
 test('on a page no extension may touch, the page actions say why and send nothing', async () => {
   const timeline = createTimeline();
   const popup = await ext.context.newPage();
-  // The active tab is the extensions page; every message the popup sends a tab is counted.
+  // The active tab is a chrome:// page. With no "tabs" permission Chrome gives Ega its id and no url.
+  // Every message the popup sends a tab, and every side panel it opens, is counted.
   await popup.addInitScript(() => {
     const g = globalThis as unknown as {
-      chrome: { tabs: { query: unknown; sendMessage: unknown } };
+      chrome: {
+        tabs: { query: unknown; sendMessage: unknown };
+        sidePanel: { open: unknown };
+      };
       __sent: string[];
+      __panels: unknown[];
+      close: () => void;
     };
     g.__sent = [];
-    g.chrome.tabs.query = async () => [{ id: 7, url: 'chrome://extensions/', windowId: 1 }];
+    g.__panels = [];
+    g.chrome.tabs.query = async () => [{ id: 7, windowId: 1 }];
     g.chrome.tabs.sendMessage = async (_id: number, msg: { kind: string }) => {
       g.__sent.push(msg.kind);
       return undefined;
     };
+    g.chrome.sidePanel.open = async (opts: unknown) => {
+      g.__panels.push(opts);
+    };
+    g.close = () => {};
   });
   await popup.goto(`chrome-extension://${ext.extensionId}/src/popup/index.html`);
   const status = popup.locator('[data-ega-popup-status="restricted"]');
@@ -36,7 +47,7 @@ test('on a page no extension may touch, the page actions say why and send nothin
   await expect(popup.getByRole('switch')).toHaveCount(0);
   timeline.markStep('restricted-shown');
 
-  const statusId = await status.locator('p').getAttribute('id');
+  const statusId = await status.locator('[id]').getAttribute('id');
   for (const name of ['Translate page', 'Choose areas', 'Pick element']) {
     const action = popup.getByRole('button', { name });
     await expect(action).toHaveAttribute('aria-disabled', 'true');
@@ -54,4 +65,11 @@ test('on a page no extension may touch, the page actions say why and send nothin
   expect(sent.filter((k) => k === 'page:translateAll' || k === 'page:chooseAreas')).toEqual([]);
   await expect(popup.getByRole('button', { name: 'Translate page' })).toBeVisible();
   timeline.markStep('nothing-sent');
+
+  // The side panel opens beside any tab, so it is what still works here.
+  await popup.getByRole('button', { name: 'Open side panel' }).click();
+  await expect
+    .poll(() => popup.evaluate(() => (globalThis as unknown as { __panels: unknown[] }).__panels))
+    .toEqual([{ tabId: 7 }]);
+  timeline.markStep('side-panel-opens');
 });

@@ -46,8 +46,11 @@ test('the popup names why the bubble stayed hidden, and Translate anyway opens t
     sel?.addRange(range);
     document.dispatchEvent(new Event('selectionchange', { bubbles: true }));
   });
-  // Smart mode holds the bubble back on English text.
-  await expect.poll(async () => egaTest<number>(content, 'bubbleCount')).toBe(0);
+  // Smart mode holds the bubble back on English text; its first notice shows once that is recorded, and the popup asks only once.
+  await expect(content.locator('#ega-shadow-host .ega-toast')).toContainText("isn't English", {
+    timeout: 10_000,
+  });
+  expect(await egaTest<number>(content, 'bubbleCount')).toBe(0);
   timeline.markStep('held-back');
 
   const popup = await ext.context.newPage();

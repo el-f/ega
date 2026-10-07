@@ -6,9 +6,9 @@
 
 ## State expectations
 
-- Step 1: the popup is mounted with a backend set up, so the header chip names it.
+- Step 1: the popup opens over a website tab with a backend set up, so the header chip names the backend and the "Ega on {host}" switch shows.
 - Step 1b: with nothing prefilled, focus starts on "Translate page".
-- Step 2: Tab from the top visits, in order: the backend chip, Open settings, the source language, the target language, "Translate page", the page tools list (one stop), the "Translate in the side panel" text box, then "Translate". The swap button is hidden while the source is Auto-detect.
+- Step 2: Tab from the top visits, in order: the backend chip, Open settings, the "Ega on {host}" switch, the source language, the target language, "Translate page", the page tools list (one stop), the "Translate in the side panel" text box, then "Translate". The swap button is hidden while the source is Auto-detect.
 - Step 3: every stop draws a visible focus ring.
 - Step 4: inside the page tools list, Down moves to the next tool.
 - Step 5: Enter on the backend chip opens its popover; Escape closes it and focus goes back to the chip.

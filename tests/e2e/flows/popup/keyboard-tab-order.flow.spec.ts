@@ -1,6 +1,12 @@
 /* coverage: translation.popup.keyboard-tab-order */
 import { test, expect } from '@playwright/test';
-import { launchExtension, onlyBackends, seedSettings, type ExtensionHandle } from '../../helpers';
+import {
+  launchExtension,
+  onlyBackends,
+  seedSettings,
+  waitForTestHooks,
+  type ExtensionHandle,
+} from '../../helpers';
 import { createTimeline, readFocus, type FocusStop } from '../_harness';
 
 let ext: ExtensionHandle;
@@ -19,9 +25,22 @@ test.afterEach(async () => {
 
 test('Tab walks the popup top to bottom with a visible ring; Esc closes the backend popover', async () => {
   const timeline = createTimeline();
+  // The popup over a website tab, as the toolbar button opens it: the site switch is part of the order.
+  const url = `${ext.serverUrl}/selection-page.html`;
+  const content = await ext.context.newPage();
+  await content.goto(url);
+  await waitForTestHooks(content);
+  const host = new URL(url).hostname;
   const popup = await ext.context.newPage();
+  await popup.addInitScript((pageUrl: string) => {
+    const tabs = chrome.tabs;
+    const real = tabs.query.bind(tabs);
+    tabs.query = (async () =>
+      (await real({})).filter((t) => t.url?.startsWith(pageUrl))) as typeof tabs.query;
+  }, url);
   await popup.setViewportSize({ width: 380, height: 600 });
   await popup.goto(`chrome-extension://${ext.extensionId}/src/popup/index.html`);
+  await expect(popup.getByRole('switch', { name: `Ega on ${host}` })).toBeVisible();
   const chip = popup.locator('.active-backend-chip');
   await expect(chip).toHaveAttribute('aria-label', /^Anthropic is ready/, {
     timeout: 5_000,
@@ -44,6 +63,7 @@ test('Tab walks the popup top to bottom with a visible ring; Esc closes the back
   expect(stops.map((s) => s.name)).toEqual([
     expect.stringMatching(/^Anthropic is ready/),
     'Open settings',
+    `Ega on ${host}`,
     'Source language',
     'Target language',
     'Translate page',

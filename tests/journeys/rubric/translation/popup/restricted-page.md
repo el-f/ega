@@ -6,9 +6,10 @@
 
 ## State expectations
 
-- Step 1: the popup opens over `chrome://extensions/`. The status line says "Ega can't run on this page." There is no site switch.
+- Step 1: the popup opens over a `chrome://` page. Ega has no "tabs" permission, so Chrome gives it that tab with no address; that is how the popup knows Ega cannot run there. The status line says "Ega can't run on this page." There is no site switch.
 - Step 2: Translate page, Choose areas and Pick element are aria-disabled and described by the status line. Translate clipboard and Open side panel stay enabled.
 - Step 3: pressing Translate page or Choose areas sends nothing to the tab, and the popup stays open.
+- Step 4: Open side panel opens the side panel beside that tab.
 
 ## Visible affordances
 
