@@ -50,10 +50,21 @@ test('hover paints the picker outline at the hovered element rect', async () => 
   await page.locator('#pick-me').hover();
   timeline.markStep('hovered');
 
-  // The outline is unhidden only when a rect lands, so a visible one proves the hover landed.
+  // The outline shows from the start (on the block under the pointer, or the first one in view), so wait for it to reach the target.
   await expect
-    .poll(async () => (await egaTest<number>(page, 'pickerOutlineCount')) ?? 0, { timeout: 3_000 })
-    .toBeGreaterThanOrEqual(1);
+    .poll(
+      async () =>
+        page.evaluate(() => {
+          const t = document.getElementById('pick-me')?.getBoundingClientRect();
+          const o = document
+            .querySelector('#ega-shadow-host')
+            ?.shadowRoot?.querySelector<HTMLElement>('[data-ega-picker-outline]:not([hidden])')
+            ?.getBoundingClientRect();
+          return !!t && !!o && Math.abs(o.top - t.top) < 6;
+        }),
+      { timeout: 3_000 },
+    )
+    .toBe(true);
 
   const hintSurvived = await page.evaluate(() => {
     const host = document.querySelector('#ega-shadow-host');
