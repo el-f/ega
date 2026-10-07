@@ -2905,7 +2905,7 @@ test.describe('Sidepanel redesign', () => {
 
     await seedCustomTasks(ext.context, ext.extensionId, [
       customTask({ id: 'c1', label: 'Tweet summary' }),
-      customTask({ id: 'c2', label: 'Make it sound like a pirate captain' }),
+      customTask({ id: 'c2', label: 'Make it sound like a pirate captain, arr' }),
       customTask({ id: 'c3', label: 'Legal' }),
       customTask({ id: 'c4', label: 'Haiku' }),
       customTask({ id: 'c5', label: 'Release notes' }),
@@ -2915,8 +2915,8 @@ test.describe('Sidepanel redesign', () => {
     await matrix(
       many,
       'mode-popover-many-tasks',
-      'six custom tasks, one with a long name',
-      ['task chips wrap; nothing cut'],
+      'six custom tasks, one with the longest allowed name (40 characters)',
+      ['task chips wrap to new rows; the 40-character name wraps inside its chip; nothing cut'],
       { perShot: openMode },
     );
     await many.close();

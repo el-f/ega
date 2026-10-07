@@ -904,6 +904,13 @@ test('popovers and menus stay inside a short panel and scroll inside themselves'
       const popover = sp.locator('[data-ega-mode-popover]');
       await popover.waitFor({ state: 'visible' });
       await inView('Next message popover', sp.getByRole('dialog', { name: 'Next message' }), size);
+      // A custom task name may be 40 characters (CUSTOM_TASK_LABEL_MAX); its chip wraps, never spills.
+      const spilled = await popover
+        .locator('[data-ega-task]')
+        .evaluateAll((chips) =>
+          chips.filter((c) => c.scrollWidth > c.clientWidth + 1).map((c) => c.textContent.trim()),
+        );
+      expect.soft(spilled, `task chips at ${size.width}x${size.height}`).toEqual([]);
       await sp.keyboard.press('Escape');
       await popover.waitFor({ state: 'hidden' });
       const menu = await openReplyMenu(sp, 'more');

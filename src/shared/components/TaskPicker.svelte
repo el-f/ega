@@ -88,7 +88,9 @@
     color: var(--color-fg);
     border-radius: var(--radius-md);
     cursor: pointer;
-    white-space: nowrap;
+    /* A chip moves whole to the next row; only a name wider than the whole row (up to 40 characters) wraps inside it. */
+    text-align: start;
+    overflow-wrap: anywhere;
   }
   .seg:hover:not(:disabled):not([aria-disabled='true']) {
     background: var(--color-bg-hover);
