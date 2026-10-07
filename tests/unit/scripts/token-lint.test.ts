@@ -211,6 +211,21 @@ describe('token-lint font sizes', () => {
     expect(lintCss(src.replace(' /* token-lint-allow page sheet */', ''), 'x.css')).toHaveLength(1);
   });
 
+  it('covers the size of a wrapped declaration from a marker on its first line', () => {
+    const src =
+      '.a {\n  font: /* token-lint-allow page sheet */\n    700 0.75em/1.5 system-ui,\n    sans-serif;\n}';
+    expect(lintCss(src, 'x.css')).toEqual([]);
+  });
+
+  it('does not cover a color on another line of a wrapped --x declaration', () => {
+    const src = [
+      '--shadow: /* token-lint-allow */',
+      '  0 0 0 1px black,',
+      '  0 2px 3px #bbbbbb;',
+    ].join('\n');
+    expect(lintCss(src, 'x.css').map((v) => [v.line, v.kind])).toEqual([[3, 'hex']]);
+  });
+
   it('uses the custom properties other files feed into a font-size', () => {
     expect(lintCss('.a { --reader-fs: 13px; }', 'x.css')).toEqual([]);
     expect(lintCss('.a { --reader-fs: 13px; }', 'x.css', new Set(['--reader-fs']))).toHaveLength(1);
