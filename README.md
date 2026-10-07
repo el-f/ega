@@ -124,7 +124,7 @@ presets, versions of a reply, search and export. The site title at the top lists
 every conversation.
 
 <p align="center">
-  <img src="docs/media/sidepanel.png" alt="Ega's side panel in dark mode with two exchanges, an Arabizi line and a slang line each translated with a 95% sure score and a detected-language pill (Arabizi — Levantine, Gen-Z slang), and Refine and Re-run as buttons on the latest answer" width="360">
+  <img src="docs/media/sidepanel.png" alt="Ega's side panel in dark mode on example.com with two exchanges: an Arabizi line and a slang line, each answered with one meta line (Arabizi (Levantine) → English · 95% confident, Gen-Z slang → English · 95% confident), and Copy, Regenerate, Refine and More under the latest answer" width="360">
 </p>
 
 ## Backends

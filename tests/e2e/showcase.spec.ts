@@ -8,6 +8,7 @@ import {
   type ExtensionHandle,
   resetRoutes,
 } from './helpers';
+import { FOLLOW_FIXTURE_SCRIPT, openExampleTab } from './sidepanel-audit';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -134,6 +135,9 @@ test('README — popup with a live backend', async () => {
 test('README — side panel holding a conversation', async () => {
   test.slow();
   await seedSettings(ext.context, ext.extensionId, READY_SEED);
+  // The panel follows a page beside it, so the header names a site instead of "Other pages".
+  await ext.context.addInitScript(FOLLOW_FIXTURE_SCRIPT);
+  await openExampleTab(ext.context);
   const sp = await ext.context.newPage();
   await sp.setViewportSize({ width: 400, height: 1000 });
   await sp.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
@@ -171,6 +175,7 @@ test('README — side panel holding a conversation', async () => {
     if (el) el.scrollTop = el.scrollHeight;
   });
   await sp.waitForTimeout(200); // wait for smooth-scroll settle
+  await sp.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   await save(sp, 'sidepanel');
 });
 
