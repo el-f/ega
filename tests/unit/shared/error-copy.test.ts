@@ -7,6 +7,19 @@ import {
   type ErrorCopyId,
 } from '@/shared/error-copy';
 import { ALL_ERR_CODES } from '@/shared/types';
+import { emitMaxTokensError, httpErrorMessage } from '@/shared/backends/transportError';
+
+/** What a transport writes for an HTTP error, from the real helper. */
+function httpMessage(label: string, status: number, body: unknown = ''): string {
+  const text = typeof body === 'string' ? body : JSON.stringify(body);
+  return httpErrorMessage(label, new Response(text, { status }), text);
+}
+
+function maxTokensMessage(): string {
+  let message = '';
+  emitMaxTokensError((c) => void (c.type === 'error' && (message = c.message)), 'r1', true);
+  return message;
+}
 
 // What a title or body must never show: a status, the word HTTP or upstream, an ErrCode, a task id, an apology.
 const FORBIDDEN = /\b[1-5]\d\d\b|HTTP|upstream|[A-Z]{2,}_[A-Z]+|image-translate|please|sorry|oops/i;
@@ -60,31 +73,73 @@ describe('errorCopy', () => {
     );
   });
 
-  it.each<[string, ErrorCopyId, string]>([
+  it.each<[string, () => string, ErrorCopyId, string]>([
+    ['an answer cut at max tokens', () => maxTokensMessage(), 'REQUEST_MAX_TOKENS', 'translate'],
     [
-      'The answer hit the max-tokens limit and stopped early. Raise Max answer length in Settings → Translate.',
-      'REQUEST_MAX_TOKENS',
-      'translate',
-    ],
-    [
-      'The backend does not know this model id. Pick another one in Settings → Backends.\nOpenAI HTTP 404',
+      'an OpenAI model_not_found',
+      () =>
+        httpMessage('OpenAI', 404, {
+          error: { message: 'The model `o3-mini` does not exist.', code: 'model_not_found' },
+        }),
       'REQUEST_MODEL',
       'backends',
     ],
+    ['a 413', () => httpMessage('Gemini', 413), 'REQUEST_TOO_LONG', 'backends'],
     [
-      'The request was too long. Select less text.\nGemini HTTP 413',
+      "Anthropic's prompt is too long",
+      () =>
+        httpMessage('Anthropic', 400, {
+          type: 'error',
+          error: {
+            type: 'invalid_request_error',
+            message: 'prompt is too long: 215000 tokens > 200000 maximum',
+          },
+        }),
       'REQUEST_TOO_LONG',
       'backends',
     ],
-    ['Mistral HTTP 422: bad parameter', 'REQUEST', 'backends'],
-    // The provider's own text on the next lines never picks a row.
     [
-      'Mistral HTTP 400: bad parameter\n{"message":"field too long","code":"model_not_found","hint":"max-tokens limit"}',
+      "OpenAI's context_length_exceeded",
+      () =>
+        httpMessage('OpenAI', 400, {
+          error: {
+            message: "This model's maximum context length is 128000 tokens.",
+            code: 'context_length_exceeded',
+          },
+        }),
+      'REQUEST_TOO_LONG',
+      'backends',
+    ],
+    // The provider's own words sit on the HTTP line, so they never pick a row.
+    [
+      "DeepSeek's 422 for a bad parameter that says too long",
+      () =>
+        httpMessage('DeepSeek', 422, {
+          error: {
+            message:
+              "Invalid 'stop': string too long. Expected a string with maximum length 16, but got a string with length 40 instead.",
+          },
+        }),
       'REQUEST',
       'backends',
     ],
-  ])('picks the REQUEST row from the advice line: %s', (message, id, tab) => {
-    const copy = errorCopy('REQUEST', message);
+    [
+      "Groq's 400 that says max-tokens limit",
+      () =>
+        httpMessage('Groq', 400, {
+          error: { message: 'max-tokens limit exceeded: 9000 > 8192' },
+        }),
+      'REQUEST',
+      'backends',
+    ],
+    [
+      'a provider message that names a model',
+      () => httpMessage('Mistral', 400, { error: { message: 'model_not_found: bad parameter' } }),
+      'REQUEST',
+      'backends',
+    ],
+  ])('picks the REQUEST row from the transport advice: %s', (_name, message, id, tab) => {
+    const copy = errorCopy('REQUEST', message());
     expect(copy?.id).toBe(id);
     expect(copy?.tab).toBe(tab);
   });

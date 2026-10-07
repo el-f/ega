@@ -216,6 +216,77 @@ describe('httpErrorMessage', () => {
     );
   });
 
+  it.each([
+    [
+      'Anthropic',
+      {
+        type: 'error',
+        error: {
+          type: 'invalid_request_error',
+          message: 'prompt is too long: 215000 tokens > 200000 maximum',
+        },
+      },
+    ],
+    [
+      'OpenAI',
+      {
+        error: {
+          message:
+            "This model's maximum context length is 128000 tokens. However, your messages resulted in 130512 tokens. Please reduce the length of the messages.",
+          type: 'invalid_request_error',
+          param: 'messages',
+          code: 'context_length_exceeded',
+        },
+      },
+    ],
+    [
+      'Groq',
+      {
+        error: {
+          message: 'Please reduce the length of the messages or completion.',
+          type: 'invalid_request_error',
+          param: 'messages',
+          code: 'context_length_exceeded',
+        },
+      },
+    ],
+    [
+      'DeepSeek',
+      {
+        error: {
+          message:
+            "This model's maximum context length is 65536 tokens. However, you requested 70000 tokens (69000 in the messages, 1000 in the completion). Please reduce the length of the messages or completion.",
+          type: 'invalid_request_error',
+          param: null,
+          code: 'invalid_request_error',
+        },
+      },
+    ],
+    [
+      'Gemini',
+      {
+        error: {
+          code: 400,
+          message:
+            'The input token count (1048577) exceeds the maximum number of tokens allowed (1048576).',
+          status: 'INVALID_ARGUMENT',
+        },
+      },
+    ],
+  ])('leads a %s 400 for a prompt over the context with "Select less text"', (label, body) => {
+    expect(httpErrorMessage(label, res(400), JSON.stringify(body))).toMatch(
+      /^The request was too long\. Select less text\.\n/,
+    );
+  });
+
+  it('gives a 400 that is not about length no advice line', () => {
+    const body = JSON.stringify({ error: { message: 'max-tokens limit exceeded: 9000 > 8192' } });
+    expect(httpErrorMessage('Groq', res(400), body)).toBe(
+      'Groq HTTP 400: max-tokens limit exceeded: 9000 > 8192',
+    );
+    expect(httpErrorMessage('Groq', res(400), '<html>Bad Request</html>')).toBe('Groq HTTP 400');
+  });
+
   for (const [status, phrase] of advice) {
     it(`leads a ${status} with the step the user can take`, () => {
       expect(httpErrorMessage('anthropic', res(status))).toContain(phrase);

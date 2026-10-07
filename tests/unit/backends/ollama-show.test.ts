@@ -13,6 +13,7 @@ import {
   resetOllamaModelCapsForTest,
 } from '@/shared/backends/ollama-show';
 import { OllamaBackend } from '@/shared/backends/ollama';
+import { errorCopy } from '@/shared/error-copy';
 import type { BackendConfig, TranslateCallArgs } from '@/shared/backends/base';
 import type { TranslationChunk } from '@/shared/types';
 
@@ -201,6 +202,10 @@ describe('the /api/chat request', () => {
     expect(err?.type === 'error' ? err.code : null).toBe('REQUEST');
     expect(err?.type === 'error' ? err.message : '').toMatch(
       /longer than gemma4:e4b's context \(8192 tokens\)/,
+    );
+    // Its "Select less text" advice is what the shared error catalog reads.
+    expect(errorCopy('REQUEST', err?.type === 'error' ? err.message : '')?.id).toBe(
+      'REQUEST_TOO_LONG',
     );
   });
 });

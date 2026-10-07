@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { GeminiBackend } from '@/shared/backends/gemini';
+import { errorCopy } from '@/shared/error-copy';
 import { sel } from '@tests/_helpers/lang';
 import { setFetchHandler } from '@tests/mocks/fetch';
 import { noopCancel } from '@tests/_helpers/cancel';
@@ -117,6 +118,10 @@ describe('Gemini 3.x requests', () => {
     expect(err?.type === 'error' ? err.code : null).toBe('REQUEST');
     expect(err?.type === 'error' ? err.message : '').toMatch(
       /Google gives Gemini 2\.5 only to keys that used it before\. Pick gemini-3\.5-flash-lite/,
+    );
+    // Google's advice comes first and the transport's "does not know this model" second; both are read.
+    expect(errorCopy('REQUEST', err?.type === 'error' ? err.message : '')?.id).toBe(
+      'REQUEST_MODEL',
     );
   });
 

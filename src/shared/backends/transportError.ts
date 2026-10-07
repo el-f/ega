@@ -91,6 +91,17 @@ function providerErrorDetail(body: string): string {
   return typeof message === 'string' ? sanitizeErrorBody(message) : '';
 }
 
+/** Over the model's context: Anthropic's "prompt is too long", OpenAI-compatible context_length_exceeded, Gemini's input token count. */
+function isPromptTooLong(err: unknown): boolean {
+  if (err === null || typeof err !== 'object') return false;
+  const { code, message } = err as { code?: unknown; message?: unknown };
+  return (
+    code === 'context_length_exceeded' ||
+    (typeof message === 'string' &&
+      /prompt is too long|maximum context length|input token count .* exceeds/i.test(message))
+  );
+}
+
 /** The one next step for an error the user can act on. Empty when there is none. */
 function httpStatusAdvice(status: number, code: ErrCode, body: string): string {
   if (code === 'QUOTA')
@@ -106,7 +117,9 @@ function httpStatusAdvice(status: number, code: ErrCode, body: string): string {
     return 'The backend rejected the API key. Check it in Settings → Backends.';
   }
   // Not 422: DeepSeek and Mistral use it for a bad parameter, so "too long" would send the user the wrong way.
-  if (status === 413) return 'The request was too long. Select less text.';
+  if (status === 413 || (status === 400 && isPromptTooLong(providerError(body)))) {
+    return 'The request was too long. Select less text.';
+  }
   return '';
 }
 
