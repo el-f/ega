@@ -81,7 +81,7 @@
     if (!(await commit([...rules, rule]))) return false;
     adding = false;
     justAddedId = rule.id;
-    void focusIn(`[data-rule-id="${rule.id}"] input[type="checkbox"]`);
+    void focusIn(`[data-rule-id="${rule.id}"] [data-ega-rule-disable]`);
     return true;
   }
 
@@ -117,7 +117,7 @@
     await tick();
     // Focus goes to the next row, else the previous one, else the Add rule button.
     (after !== null
-      ? rootEl?.querySelector<HTMLElement>(`[data-rule-id="${after}"] input[type="checkbox"]`)
+      ? rootEl?.querySelector<HTMLElement>(`[data-rule-id="${after}"] [data-ega-rule-disable]`)
       : document.querySelector<HTMLElement>(ADD_SELECTOR)
     )?.focus();
     const name =
@@ -133,7 +133,7 @@
             const current = (await getSettings()).advanced.rules;
             const next = [...current];
             next.splice(Math.min(at, next.length), 0, snapshot);
-            if (await commit(next)) void focusIn(`[data-rule-id="${id}"] input[type="checkbox"]`);
+            if (await commit(next)) void focusIn(`[data-rule-id="${id}"] [data-ega-rule-disable]`);
           })();
         },
       },
