@@ -206,11 +206,19 @@
     ),
   );
 
+  // An edit replaces the edited message and what follows it, so those are not history.
+  const historyTurns = $derived.by(() => {
+    if (mode.kind !== 'edit') return turns;
+    const editId = mode.turnId;
+    const at = turns.findIndex((t) => 'id' in t && t.id === editId);
+    return at < 0 ? turns : turns.slice(0, at);
+  });
+
   // An image send carries no history, so the count would promise context that is not sent.
   const historyLabel = $derived(
     attachedImage
       ? null
-      : (chatContextLabel(turns, { budgetTokens: CHAT_HISTORY_TOKEN_BUDGET })?.replace(
+      : (chatContextLabel(historyTurns, { budgetTokens: CHAT_HISTORY_TOKEN_BUDGET })?.replace(
           /^Using /,
           '',
         ) ?? null),
@@ -412,7 +420,7 @@
         {#if historyLabel !== null}<span class="ega-next-item">{historyLabel}</span>{/if}
         {#if attachedImage}
           <span class="ega-next-item ega-next-image">
-            <img src={attachedImage} alt="Attached image" class="ega-next-thumb" />
+            <img src={attachedImage} alt="Attachment" class="ega-next-thumb" />
             <span aria-hidden="true">Image</span>
             <IconButton
               icon={X}

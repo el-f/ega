@@ -164,6 +164,22 @@ describe('row A: the mode chip and what goes with the next send', () => {
     expect(props.onClearAttachedImage).toHaveBeenCalledTimes(1);
   });
 
+  it('in edit mode, counts only the messages before the one being edited', () => {
+    const turns = [
+      { id: 'u1', role: 'user' as const, content: 'hola', status: 'idle' as const },
+      { id: 'a1', role: 'assistant' as const, content: 'hello', status: 'done' as const },
+      { id: 'u2', role: 'user' as const, content: 'adios', status: 'idle' as const },
+      { id: 'a2', role: 'assistant' as const, content: 'bye', status: 'done' as const },
+    ];
+    // The send replaces the edited message and its reply, so they go out as the message, not as history.
+    const { container } = render(InputRow, {
+      props: { ...composerProps(), turns, mode: { kind: 'edit' as const, turnId: 'u2' } },
+    });
+    expect(container.querySelector('[data-ega-next-send]')?.textContent).toContain(
+      '2 earlier messages',
+    );
+  });
+
   it('the chip opens the Next message popover with Task and Language', async () => {
     const { container } = render(InputRow, { props: composerProps() });
     await fireEvent.click(container.querySelector('[data-ega-mode-chip]') as HTMLElement);

@@ -221,7 +221,7 @@ test('Open in side panel on a failed image puts the image in the composer, unsen
 
   const sp = await ext.context.newPage();
   await sp.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
-  const preview = sp.getByAltText('Attached image');
+  const preview = sp.getByAltText('Attachment');
   await expect(preview).toBeVisible({ timeout: 10_000 });
   await expect(preview).toHaveAttribute('src', imageUrl);
   await expect(sp.locator('#sp-text')).toBeFocused();
