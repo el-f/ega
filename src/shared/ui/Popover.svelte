@@ -41,6 +41,13 @@
     requestAnimationFrame(() => contentEl?.focus({ preventScroll: true }));
   }
 
+  // Non-modal: focus leaving closes it, or Tab would move under it. The anchor counts as inside: a menu that opened it hands focus back there.
+  function closeOnFocusOut(e: FocusEvent): void {
+    if (scrim) return;
+    if (e.target instanceof Node && anchor?.contains(e.target)) return;
+    onClose();
+  }
+
   function restoreFocus(e: Event): void {
     // preventScroll: closing must not scroll-jump the page back to the trigger.
     const target = priorFocus as { focus?: (opts?: { preventScroll: boolean }) => void } | null;
@@ -84,6 +91,7 @@
       aria-label={title}
       onOpenAutoFocus={rememberFocus}
       onCloseAutoFocus={restoreFocus}
+      onFocusOutside={closeOnFocusOut}
       trapFocus={scrim}
     >
       <div class="ega-popover-head">

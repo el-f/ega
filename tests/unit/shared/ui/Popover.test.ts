@@ -149,6 +149,32 @@ describe('Popover', () => {
     trigger.remove();
   });
 
+  // A non-modal popover left open would cover the controls Tab moves to (WCAG 2.4.11).
+  it('closes when focus moves to a control outside it, but not when focus goes back to its anchor', async () => {
+    const anchor = document.createElement('button');
+    anchor.type = 'button';
+    const outside = document.createElement('button');
+    outside.type = 'button';
+    document.body.append(anchor, outside);
+    anchor.focus();
+    const onClose = vi.fn();
+    const { baseElement } = render(Popover, {
+      props: { open: true, anchor, onClose, children: buttonSnippet('inner') },
+    });
+    const popover = baseElement.querySelector('.ega-popover');
+    await waitFor(() => expect(popover?.contains(document.activeElement)).toBe(true));
+
+    // A menu that opened this popover hands focus back to the anchor as it closes.
+    anchor.focus();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(onClose).not.toHaveBeenCalled();
+
+    outside.focus();
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    anchor.remove();
+    outside.remove();
+  });
+
   it('leaves focus where an outside click put it, so typing in the message box keeps working', async () => {
     const trigger = document.createElement('button');
     trigger.type = 'button';
