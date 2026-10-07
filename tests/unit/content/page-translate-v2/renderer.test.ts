@@ -43,19 +43,33 @@ describe('renderer — bilingual mode', () => {
     },
   );
 
-  it.each(['td', 'th'])('keeps the %s tag, whose parent box decides how it renders', (tag) => {
+  it.each(['td', 'th'])('puts the translation inside a %s, so the row keeps its cells', (tag) => {
     // A bare <td> is dropped by the HTML parser, so this one needs its table.
     document.body.innerHTML = `<table><tr><${tag} id="orig">東京タワー</${tag}></tr></table>`;
     const original = document.getElementById('orig') as HTMLElement;
-    mountBilingual({ id: `b-${tag}`, element: original, originalText: '東京タワー' });
-    expect(original.nextElementSibling?.tagName).toBe(tag.toUpperCase());
+    const handle = mountBilingual({
+      id: `b-${tag}`,
+      element: original,
+      originalText: '東京タワー',
+    });
+    expect(original.nextElementSibling).toBeNull();
+    expect(handle.target.parentElement).toBe(original);
+    expect(handle.target.tagName).toBe('DIV');
   });
 
-  it.each(['li', 'dd', 'dt'])('keeps the %s tag, which its list parent lays out', (tag) => {
-    const original = block(tag, '東京タワー');
-    mountBilingual({ id: `b-${tag}`, element: original, originalText: '東京タワー' });
-    expect(original.nextElementSibling?.tagName).toBe(tag.toUpperCase());
-  });
+  it.each(['li', 'dd', 'dt'])(
+    'puts the translation inside a %s, so the list keeps its items',
+    (tag) => {
+      const original = block(tag, '東京タワー');
+      const handle = mountBilingual({
+        id: `b-${tag}`,
+        element: original,
+        originalText: '東京タワー',
+      });
+      expect(handle.target.parentElement).toBe(original);
+      expect(original.nextElementSibling).toBeNull();
+    },
+  );
 
   it('sets dir="auto" on the translated sibling but not the original', () => {
     // Translating into an RTL language needs dir="auto" on the sibling; the original keeps its own direction.

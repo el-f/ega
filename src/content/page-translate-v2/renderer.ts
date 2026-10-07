@@ -90,24 +90,12 @@ function attachInplaceSwap(
   return { showOriginal, showTranslation };
 }
 
-/** Built-ins a plain div would break: the first group needs its parent's box (row, list),
- *  the second carries meaning of its own — a heading in the outline, `pre`'s line breaks. */
-const KEEP_TAG = new Set([
-  'td',
-  'th',
-  'li',
-  'dd',
-  'dt',
-  'h1',
-  'h2',
-  'h3',
-  'h4',
-  'h5',
-  'h6',
-  'pre',
-  'blockquote',
-  'figcaption',
-]);
+/** A cell, list item or definition gets its translation inside it (D46): a sibling of the same tag would add a
+ *  cell to the row or a numbered item to the list. */
+const INSIDE = new Set(['TD', 'TH', 'LI', 'DD', 'DT']);
+
+/** Built-ins a plain div would break: each carries meaning of its own, a heading in the outline, `pre`'s line breaks. */
+const KEEP_TAG = new Set(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'pre', 'blockquote', 'figcaption']);
 
 /** Cloning a custom page tag (ytd-comment) can start a live page component, so only the KEEP_TAG built-ins keep their tag; everything else becomes a div or span that matches its display. */
 function siblingTag(el: Element): string {
@@ -117,10 +105,11 @@ function siblingTag(el: Element): string {
   return display.startsWith('inline') ? 'span' : 'div';
 }
 
-/** Bilingual: insert a neutral sibling AFTER the original. Original DOM is left untouched. */
+/** Bilingual: insert a neutral box after the original, or inside a cell or list item. Original DOM is left untouched. */
 export function mountBilingual(args: MountArgs): RenderHandle {
   ensurePageStyles();
-  const sibling = document.createElement(siblingTag(args.element));
+  const inside = INSIDE.has(args.element.tagName.toUpperCase());
+  const sibling = document.createElement(inside ? 'div' : siblingTag(args.element));
   sibling.setAttribute('data-ega-tx', '');
   sibling.setAttribute('data-ega-id', args.id);
   // dir="auto" gives an RTL translation correct bidi on an LTR page; the original keeps the page's direction.
@@ -132,7 +121,8 @@ export function mountBilingual(args: MountArgs): RenderHandle {
     const px = Number.parseFloat(globalThis.getComputedStyle(args.element).fontSize);
     if (px > 0) sibling.style.fontSize = `${Math.round(px * 0.85)}px`; // token-lint-allow sized off the page's heading
   }
-  args.element.after(sibling);
+  if (inside) args.element.append(sibling);
+  else args.element.after(sibling);
   const handle: RenderHandle = {
     id: args.id,
     mode: 'bilingual',
@@ -152,6 +142,23 @@ export function mountBilingual(args: MountArgs): RenderHandle {
   };
   setPhase(handle, 'streaming');
   return handle;
+}
+
+/** A block that failed in a closed session still shows its error; a new try first puts its page words back. */
+export function clearStaleError(el: Element): void {
+  const failed = (m: Element | null): m is Element =>
+    m?.getAttribute('data-ega-tx-state') === 'error';
+  const next = el.nextElementSibling;
+  if (failed(next) && next.hasAttribute('data-ega-tx')) next.remove();
+  for (const c of [...el.children]) {
+    if (!failed(c)) continue;
+    if (c.hasAttribute('data-ega-tx')) {
+      c.remove();
+      continue;
+    }
+    c.querySelector(':scope > [data-ega-tx-error]')?.remove();
+    c.replaceWith(...c.childNodes);
+  }
 }
 
 /** In-place: replace the original's children with a streaming wrapper keyed by

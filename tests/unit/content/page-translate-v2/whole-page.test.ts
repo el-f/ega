@@ -9,6 +9,7 @@ import {
   type ProgressHandle,
 } from '@/content/page-translate-v2';
 import type { PageProgress } from '@/content/page-translate-v2/progress';
+import type { Settings } from '@/shared/types';
 import { deps, flush } from '@tests/_helpers/page-translate';
 import { looksLikeEnglish } from '@/content/looks-like-english';
 
@@ -241,6 +242,73 @@ describe('whole-page translate', () => {
     FakeObserver.last?.band(new Set(els.slice(2, 6)));
     await flush();
     expect(r.sent).toHaveLength(2);
+  });
+
+  it('sends only the text a reader sees: never a skipped field, hidden part or code', async () => {
+    document.body.innerHTML = `<p id="p">Cuenta: <span data-ega-skip>IBAN ES91 0000</span> <span class="notranslate">git</span> <span contenteditable="true">borrador</span> listo para pagar</p>`;
+    const r = rig();
+    await runWholePageTranslate(r.d);
+    FakeObserver.last?.band(new Set([document.getElementById('p') as HTMLElement]));
+    await flush();
+    expect(r.sent.map((s) => s.text)).toEqual(['Cuenta: listo para pagar']);
+  });
+
+  it('Replace text never flattens a link or a field: such a block shows in Show both', async () => {
+    document.body.innerHTML = `<p id="link">Visita <a href="#">nuestra página</a> hoy mismo</p><p id="plain">Texto simple aquí</p>`;
+    const r = rig();
+    await runWholePageTranslate(r.d);
+    FakeObserver.last?.band(new Set([...document.querySelectorAll('p')]));
+    await flush();
+    finishAll(r);
+    await flush();
+    const link = document.getElementById('link') as HTMLElement;
+    expect(link.querySelector('a')).not.toBeNull();
+    expect(link.nextElementSibling?.hasAttribute('data-ega-tx')).toBe(true);
+    expect(document.getElementById('plain')?.querySelector('[data-ega-replaced]')).not.toBeNull();
+  });
+
+  it('Show both puts a cell or list item translation inside it, so rows and lists keep their shape', async () => {
+    document.body.innerHTML = `<table><tr id="row"><td id="c">Celda de texto</td><td>42</td></tr></table><ol><li id="li">Primer paso</li></ol>`;
+    const r = rig();
+    r.d.getSettings = () =>
+      Promise.resolve({ pageTranslateMode: 'bilingual', batchConcurrency: 3 } as Settings);
+    await runWholePageTranslate(r.d);
+    FakeObserver.last?.band(
+      new Set([document.getElementById('c'), document.getElementById('li')] as HTMLElement[]),
+    );
+    await flush();
+    finishAll(r);
+    await flush();
+    expect(document.getElementById('row')?.children).toHaveLength(2);
+    expect(document.getElementById('c')?.querySelector(':scope > [data-ega-tx]')).not.toBeNull();
+    expect(document.querySelectorAll('ol > li')).toHaveLength(1);
+  });
+
+  it('a block that failed before is sent again by a new session, without its old chip', async () => {
+    document.body.innerHTML = `<p id="p">Un párrafo que falló</p>`;
+    const p = document.getElementById('p') as HTMLElement;
+    const first = rig();
+    let close = (): void => {};
+    first.handle.setOnClose = (fn) => (close = fn);
+    await runWholePageTranslate(first.d);
+    FakeObserver.last?.band(new Set([p]));
+    await flush();
+    routePageV2Chunk({
+      type: 'error',
+      requestId: first.sent[0]?.id ?? '',
+      code: 'AUTH',
+      message: 'bad key',
+    });
+    await flush();
+    close();
+    expect(p.querySelector('[data-ega-tx-error]')).not.toBeNull();
+
+    const second = rig();
+    await runWholePageTranslate(second.d);
+    FakeObserver.last?.band(new Set([p]));
+    await flush();
+    expect(second.sent.map((s) => s.text)).toEqual(['Un párrafo que falló']);
+    expect(p.querySelectorAll('[data-ega-tx-error]')).toHaveLength(0);
   });
 
   it('never sends a block twice and only sends blocks that were near, on any scroll path', async () => {

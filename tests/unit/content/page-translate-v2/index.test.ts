@@ -68,6 +68,14 @@ describe('page-translate-v2 entrypoint — translate-areas mode', () => {
     expect(c?.textContent).toBe('Untouched English.');
   });
 
+  it('a chosen area sends only the text a reader sees, by the same rules as Translate page', async () => {
+    document.body.innerHTML =
+      '<p id="a">Pago listo <span data-ega-skip>IBAN ES91 0000</span><code>git push</code> para hoy</p>';
+    const dispatch = vi.fn((_r: string, _t: string) => Promise.resolve());
+    await enterAndFire(deps({ dispatch }), ['a']);
+    expect(dispatch.mock.calls.map((c) => c[1])).toEqual(['Pago listo para hoy']);
+  });
+
   it('a second run while picking exits the mode instead of stacking', async () => {
     document.body.innerHTML = '<p id="a">これは日本語の段落です。</p>';
     const d = deps();

@@ -1,7 +1,12 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
 import fc from 'fast-check';
-import { collectBlocks, MAX_PAGE_BLOCKS, releaseOrder } from '@/content/page-translate-v2/collect';
+import {
+  blockText,
+  collectBlocks,
+  MAX_PAGE_BLOCKS,
+  releaseOrder,
+} from '@/content/page-translate-v2/collect';
 
 function ids(els: HTMLElement[]): string[] {
   return els.map((e) => e.id);
@@ -66,6 +71,55 @@ describe('collectBlocks', () => {
       (_, i) => `<p>Paragraphe numéro ${i}</p>`,
     ).join('');
     expect(collectBlocks(document.body, { maxChars: 2000 })).toHaveLength(MAX_PAGE_BLOCKS);
+  });
+});
+
+const collect = (): HTMLElement[] => collectBlocks(document.body, { maxChars: 2000 });
+
+describe('collectBlocks — what is already translated, and what can never come near', () => {
+  it('takes a container whose text sits only inside inline children', () => {
+    document.body.innerHTML = `
+      <div id="tweet"><span>Hola a todos, qué tal</span></div>
+      <div id="card"><a href="#">Un título de tarjeta</a></div>
+      <div id="custom"><x-text>Texto de un componente</x-text></div>`;
+    expect(ids(collect())).toEqual(['tweet', 'card', 'custom']);
+  });
+
+  it('skips a block already shown in Show both, with its translation beside it or inside it', () => {
+    document.body.innerHTML = `
+      <p id="done">Ya traducido</p><div data-ega-tx data-ega-tx-state="ok">Already translated</div>
+      <ul><li id="item">Elemento traducido<div data-ega-tx data-ega-tx-state="ok">Item</div></li></ul>
+      <p id="fresh">Todavía no traducido</p>`;
+    expect(ids(collect())).toEqual(['fresh']);
+  });
+
+  it('takes a block whose earlier try failed, in either mode', () => {
+    document.body.innerHTML = `
+      <p id="inplace"><span data-ega-replaced="a" data-ega-tx-state="error">Texto original<span data-ega-tx-error></span></span></p>
+      <p id="both">Otro texto aquí</p><div data-ega-tx data-ega-tx-state="error"><span data-ega-tx-error></span></div>`;
+    expect(ids(collect())).toEqual(['inplace', 'both']);
+  });
+
+  it('skips blocks the viewport band can never reach: closed details, boxes moved off the left edge', () => {
+    document.body.innerHTML = `<p id="closed">Respuesta escondida</p><p id="off">Menú fuera de la pantalla</p><p id="on">Texto visible aquí</p>`;
+    (document.getElementById('closed') as HTMLElement).checkVisibility = () => false;
+    (document.getElementById('off') as HTMLElement).getBoundingClientRect = () =>
+      ({ left: -300, right: 0, width: 300, top: 0, bottom: 20, height: 20 }) as DOMRect;
+    expect(ids(collect())).toEqual(['on']);
+  });
+});
+
+describe('blockText — what a block sends', () => {
+  it('only the text a reader sees: never code, fields, hidden text or what the page keeps out', () => {
+    document.body.innerHTML = `<p id="p">Cuenta del cliente: <span data-ega-skip>IBAN ES91</span> fin<script>track()</script><style>p{}</style> <code>git rebase</code> <span class="notranslate">Marca</span> <span translate="no">Otra</span> <span hidden>oculto</span> <span style="display:none">nada</span> <textarea>borrador</textarea> <span contenteditable="true">escrito</span> <input type="password" value="x"> listo</p>`;
+    expect(blockText(document.getElementById('p') as HTMLElement)).toBe(
+      'Cuenta del cliente: fin listo',
+    );
+  });
+
+  it('keeps a line break and collapses runs of spaces', () => {
+    document.body.innerHTML = '<p id="p">  Uno\n   dos<br>tres  </p>';
+    expect(blockText(document.getElementById('p') as HTMLElement)).toBe('Uno dos\ntres');
   });
 });
 

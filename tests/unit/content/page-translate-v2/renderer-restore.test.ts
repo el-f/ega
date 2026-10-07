@@ -34,11 +34,14 @@ describe('renderer — the bilingual sibling is never a page component', () => {
     expect(handle.target.tagName).toBe('SPAN');
   });
 
-  it('a layout-bound child keeps its tag, or the row would break', () => {
+  it('a cell keeps the translation inside it, or the row would gain a cell', () => {
     document.body.innerHTML = '<table><tbody><tr><td id="orig">ciao</td></tr></tbody></table>';
     const original = document.getElementById('orig') as HTMLElement;
     const handle = mountBilingual({ id: 'nt-3', element: original, originalText: 'ciao' });
-    expect(handle.target.tagName).toBe('TD');
+    expect(handle.target.parentElement).toBe(original);
+    expect(original.parentElement?.children).toHaveLength(1);
+    handle.revert();
+    expect(original.querySelector('[data-ega-tx]')).toBeNull();
   });
 });
 

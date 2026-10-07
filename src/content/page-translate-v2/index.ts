@@ -7,6 +7,7 @@ import {
   finish,
   mountError,
   setGlobalOriginalView,
+  clearStaleError,
   type RenderHandle,
 } from './renderer';
 import {
@@ -30,7 +31,7 @@ import { patchSettings } from '@/shared/settings-bus';
 import { uuid } from '@/shared/uuid';
 import { setRenderer } from '../request-state';
 import { langTag } from '@/shared/lang-tag';
-import { collectBlocks, hasWords, releaseOrder } from './collect';
+import { blockText, collectBlocks, hasWords, keepsPageParts, releaseOrder } from './collect';
 import { settleAnnouncement, type PageProgress } from './progress';
 
 // A free-tier backend rate-limits a many-block batch fast, so transient failures retry with jittered exponential backoff.
@@ -277,7 +278,7 @@ function release(sess: Session, id: string): void {
   const element = sess.deferred.get(id);
   if (!element) return;
   sess.deferred.delete(id);
-  const text = element.isConnected ? element.textContent.trim() : '';
+  const text = element.isConnected ? blockText(element) : '';
   const isTarget = sess.deps.isTargetLanguage?.(text) ?? readsAsTarget(sess, text);
   if (!hasWords(text) || text.length > MAX_SELECTION_CHARS || isTarget) {
     // Gone from the page or already in the target language: not an area, so it leaves the count.
@@ -387,15 +388,23 @@ async function startSession(
   mode: RenderMode,
 ): Promise<void> {
   if (active) return;
-  const blocks: Block[] = selected.map((b) => {
-    const detectedLang = deps.detectLang?.(b.text);
-    return {
+  // The same text rules as Translate page (D48): never the raw text of the chosen element.
+  const blocks: Block[] = [];
+  for (const b of selected) {
+    const text = blockText(b.element);
+    if (!hasWords(text) || text.length > MAX_SELECTION_CHARS) continue;
+    const detectedLang = deps.detectLang?.(text);
+    blocks.push({
       id: b.id,
       element: b.element,
-      text: b.text,
+      text,
       ...(detectedLang !== undefined ? { detectedLang } : {}),
-    };
-  });
+    });
+  }
+  if (blocks.length === 0) {
+    showToast('Nothing to translate in the chosen areas.');
+    return;
+  }
   const sess = await createSession(deps, blocks, mode, blocks.length);
   report(sess);
   pump();
@@ -478,9 +487,13 @@ function pump(): void {
 
 async function dispatchBlock(sess: Session, block: Block): Promise<void> {
   sess.attempts.set(block.id, (sess.attempts.get(block.id) ?? 0) + 1);
+  clearStaleError(block.element);
+  // Replace text would remove a link, a field or a part the page keeps out, so such a block shows in Show both (D45).
+  const mode: RenderMode =
+    sess.mode === 'inplace' && !keepsPageParts(block.element) ? 'inplace' : 'bilingual';
   const mountArgs = { id: block.id, element: block.element, originalText: block.text };
   const handle =
-    sess.mode === 'bilingual'
+    mode === 'bilingual'
       ? mountBilingual({ ...mountArgs, lang: sess.lang })
       : mountInplace({ ...mountArgs, lang: sess.lang });
   sess.handles.set(block.id, handle);
@@ -489,7 +502,7 @@ async function dispatchBlock(sess: Session, block: Block): Promise<void> {
   sess.store.set({
     id: block.id,
     element: block.element,
-    mode: sess.mode,
+    mode,
     text: block.text,
     ...(block.detectedLang ? { detectedLang: block.detectedLang } : {}),
     revert: handle.revert,
