@@ -43,15 +43,15 @@ export function staleGateKeys(baseline: Readonly<Record<string, unknown>>): stri
   return Object.keys(baseline).filter((k) => k.startsWith(GATE_PREFIX) && !live.has(k));
 }
 
-/** Why `EGA_DESIGN_RULES_RECORD=1` may not run here, or null when it may: only the CI runner on Linux records. */
+/** Why `EGA_DESIGN_RULES_RECORD=1` may not run here, or null when it may: only the GitHub Actions runner on Linux records. `CI=1` is not enough, a WSL or docker shell sets it too. */
 export function recordRefusal(
   env: Readonly<Record<string, string | undefined>>,
   platform: string,
 ): string | null {
-  if (env['CI'] && platform === GATE_PLATFORM) return null;
+  if (env['GITHUB_ACTIONS'] === 'true' && platform === GATE_PLATFORM) return null;
   return (
-    `EGA_DESIGN_RULES_RECORD=1 runs only on the CI Linux runner: it needs CI set and platform ${GATE_PLATFORM}, ` +
-    `and this run has CI=${env['CI'] ?? '(unset)'} and platform ${platform}. ` +
+    `EGA_DESIGN_RULES_RECORD=1 runs only on the GitHub Actions Linux runner: it needs GITHUB_ACTIONS=true and platform ${GATE_PLATFORM}, ` +
+    `and this run has GITHUB_ACTIONS=${env['GITHUB_ACTIONS'] ?? '(unset)'} and platform ${platform}. ` +
     'Dispatch the "Generate Linux E2E Baselines" workflow instead (see the header of tests/e2e/design-rules.ts).'
   );
 }

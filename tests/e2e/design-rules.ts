@@ -11,7 +11,7 @@ import { GATE_PREFIX, recordGateKey, recordRefusal } from './design-rules-gate';
 // wider than Segoe UI, so another platform finds a different set. Only the CI runner records them: dispatch the "Generate
 // Linux E2E Baselines" workflow on the branch (its record step sets EGA_DESIGN_RULES_RECORD=1, which rewrites every gate key),
 // download the artifact, copy design-rules-baseline.json into tests/e2e/, run `pnpm format`, review the diff and commit it.
-// After the first recording the diff should only remove lines. Record mode refuses to run unless CI is set and the platform is linux.
+// After the first recording the diff should only remove lines. Record mode refuses to run unless GITHUB_ACTIONS=true and the platform is linux (CI=1 alone is not enough: a WSL or docker shell sets it).
 
 const RECORD = process.env['EGA_DESIGN_RULES_RECORD'] === '1';
 const recordRefused = RECORD ? recordRefusal(process.env, process.platform) : null;

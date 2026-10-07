@@ -48,20 +48,23 @@ describe('recordRefusal', () => {
   });
 
   it.each([
-    [{ CI: '1' }, 'linux'],
-    [{ CI: 'true' }, 'linux'],
+    [{ GITHUB_ACTIONS: 'true' }, 'linux'],
+    [{ CI: 'true', GITHUB_ACTIONS: 'true' }, 'linux'],
   ])('lets a run with %j on %s record', (env, platform) => {
     expect(recordRefusal(env, platform)).toBeNull();
   });
 
   it.each([
     ['a builder machine with no CI', {}, 'linux'],
-    ['an empty CI', { CI: '' }, 'linux'],
-    ['a Windows run in CI', { CI: '1' }, 'win32'],
-    ['a macOS run in CI', { CI: '1' }, 'darwin'],
+    ['a CI=1 shell on a Linux box, as in WSL or docker', { CI: '1' }, 'linux'],
+    ['a CI=true shell on a Linux box', { CI: 'true' }, 'linux'],
+    ['an empty GITHUB_ACTIONS', { GITHUB_ACTIONS: '' }, 'linux'],
+    ['a GITHUB_ACTIONS that is not true', { GITHUB_ACTIONS: '1' }, 'linux'],
+    ['a Windows run in GitHub Actions', { GITHUB_ACTIONS: 'true' }, 'win32'],
+    ['a macOS run in GitHub Actions', { GITHUB_ACTIONS: 'true' }, 'darwin'],
     ['a Windows builder machine', {}, 'win32'],
   ])('refuses %s', (_name, env, platform) => {
-    expect(recordRefusal(env, platform)).toMatch(/only on the CI Linux runner/);
+    expect(recordRefusal(env, platform)).toMatch(/only on the GitHub Actions Linux runner/);
   });
 });
 
