@@ -46,7 +46,12 @@ async function setSiteEnabled(enabled: boolean): Promise<boolean> {
 /** Opens the menu under the bubble's group; a second open while one is shown closes it instead. */
 export function openBubbleMenu(
   chevron: HTMLElement,
-  opts: { focusFirst: boolean; hideBubble: () => void },
+  opts: {
+    focusFirst: boolean;
+    hideBubble: () => void;
+    /** Where focus was before the bubble; an item chosen from the keyboard gives it back. */
+    returnTo?: HTMLElement | null | undefined;
+  },
 ): void {
   if (open) {
     closeBubbleMenu(!opts.focusFirst);
@@ -61,6 +66,13 @@ export function openBubbleMenu(
   anchor.setAttribute('data-ega-bubble-menu', '');
   getContainer().appendChild(anchor);
   chevron.setAttribute('aria-expanded', 'true');
+  // Both items remove the bubble and the focused item with it; a pointer press never moved focus.
+  const leave = (): void => {
+    const fromKeyboard = (chevron.getRootNode() as ShadowRoot).activeElement !== null;
+    closeBubbleMenu();
+    if (fromKeyboard && opts.returnTo?.isConnected) opts.returnTo.focus();
+    opts.hideBubble();
+  };
   const handle = mount(BubbleMenu, {
     target: anchor,
     props: {
@@ -69,15 +81,13 @@ export function openBubbleMenu(
       focusFirst: opts.focusFirst,
       onClose: closeBubbleMenu,
       onSettings: () => {
-        closeBubbleMenu();
-        opts.hideBubble();
+        leave();
         void sendMsg({ kind: 'ui:open-options', tab: 'selection-bubble' }).catch((e: unknown) =>
           debugCatch(e, 'content.bubbleMenu.settings'),
         );
       },
       onTurnOff: () => {
-        closeBubbleMenu();
-        opts.hideBubble();
+        leave();
         void turnOffHere();
       },
     },

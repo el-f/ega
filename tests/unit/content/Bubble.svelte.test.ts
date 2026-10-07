@@ -42,9 +42,15 @@ describe('Bubble — label, click and menu button', () => {
     expect(chevron.getAttribute('aria-haspopup')).toBe('menu');
     expect(chevron.getAttribute('aria-expanded')).toBe('false');
     await fireEvent.click(chevron, { detail: 1 });
-    expect(onmenu).toHaveBeenLastCalledWith(chevron, false);
+    // Nothing focused the bubble yet, so there is no place to send focus back to.
+    expect(onmenu).toHaveBeenLastCalledWith(chevron, false, undefined);
+    const field = document.createElement('textarea');
+    document.body.append(field);
+    field.focus();
+    chevron.focus();
     await fireEvent.keyDown(chevron, { key: 'ArrowDown' });
-    expect(onmenu).toHaveBeenLastCalledWith(chevron, true);
+    expect(onmenu).toHaveBeenLastCalledWith(chevron, true, field);
+    field.remove();
     expect(onclick).not.toHaveBeenCalled();
   });
 

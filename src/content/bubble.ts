@@ -136,9 +136,13 @@ export function showBubble(opts: BubbleOpts): void {
         currentOnClick?.(e);
         hideBubble();
       },
-      onmenu: (chevron: HTMLButtonElement, viaKeyboard: boolean) => {
+      onmenu: (
+        chevron: HTMLButtonElement,
+        viaKeyboard: boolean,
+        returnTo: HTMLElement | null | undefined,
+      ) => {
         void loadBubbleMenu().then((m) =>
-          m.openBubbleMenu(chevron, { focusFirst: viaKeyboard, hideBubble }),
+          m.openBubbleMenu(chevron, { focusFirst: viaKeyboard, hideBubble, returnTo }),
         );
       },
     },

@@ -97,6 +97,27 @@ describe('bubble menu', () => {
     await vi.waitFor(() => expect(toastText()).toContain("Ega couldn't save this change."));
   });
 
+  it.each([
+    ['Turn off on this site', 0],
+    ['Bubble settings', 1],
+  ])('%s from the keyboard puts focus back where it was before the bubble', async (_, at) => {
+    (chrome.runtime.sendMessage as unknown as Mock).mockResolvedValue({ ok: true });
+    const field = document.createElement('textarea');
+    document.body.append(field);
+    field.focus();
+    chevron().focus();
+    // The real keyboard path: ArrowDown on the chevron opens the menu on its first item.
+    await fireEvent.keyDown(chevron(), { key: 'ArrowDown' });
+    await vi.waitFor(() => expect(getShadowRoot().activeElement).toBe(items()[0]));
+    const item = items()[at] as HTMLButtonElement;
+    item.focus();
+    // A keyboard click: Enter on a button fires click with detail 0.
+    await fireEvent.click(item, { detail: 0 });
+    expect(getShadowRoot().querySelector('.bubble')).toBeNull();
+    expect(document.activeElement).toBe(field);
+    field.remove();
+  });
+
   it('Bubble settings opens the Selection & picker tab', async () => {
     const send = chrome.runtime.sendMessage as unknown as Mock;
     openBubbleMenu(chevron(), { focusFirst: false, hideBubble });
