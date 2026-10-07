@@ -174,3 +174,110 @@ describe('bubble placement', () => {
     expect(bubbleTop()).toBe(68);
   });
 });
+
+describe('bubble placement — the selection own paragraph', () => {
+  it('a selection on the first line moves above when its own next line is under it', () => {
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 1000 });
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1280 });
+    document.body.innerHTML =
+      '<p id="p"><span id="l1">selected words</span><span id="l2"> and the rest of the paragraph</span></p>';
+    const p = document.getElementById('p') as HTMLElement;
+    p.getBoundingClientRect = () => rect(100, 142);
+    textRects.set(document.getElementById('l1') as HTMLElement, rect(100, 120));
+    textRects.set(document.getElementById('l2') as HTMLElement, rect(122, 142));
+    const range = document.createRange();
+    range.selectNodeContents(document.getElementById('l1')?.firstChild as Node);
+    window.getSelection()?.removeAllRanges();
+    window.getSelection()?.addRange(range);
+    // The probe under the bubble hits the paragraph itself, which holds the selection.
+    (
+      document as unknown as { elementsFromPoint: (x: number, y: number) => Element[] }
+    ).elementsFromPoint = (_x, y) => (y >= 100 && y <= 142 ? [p] : []);
+
+    showBubble({ rect: rect(100, 120), queued: 0, onClick: vi.fn() });
+
+    expect(bubbleTop()).toBe(68);
+    window.getSelection()?.removeAllRanges();
+  });
+});
+
+describe('bubble placement — cost on a large page', () => {
+  /** Counts the line-box reads placement makes. */
+  function countReads(): () => number {
+    const real = Range.prototype.getClientRects;
+    let n = 0;
+    Range.prototype.getClientRects = function (this: Range) {
+      n += 1;
+      return real.call(this);
+    };
+    afterEachRestore.push(() => (Range.prototype.getClientRects = real));
+    return () => n;
+  }
+
+  /** A container of `count` paragraphs, each with its own line box from `firstTop` down. */
+  function bigBlock(box: DOMRect, count: number, firstTop: number): HTMLElement {
+    const el = document.createElement('div');
+    for (let i = 0; i < count; i++) {
+      const p = document.createElement('p');
+      p.textContent = `paragraph ${i}`;
+      textRects.set(p, rect(firstTop + i * 24, firstTop + i * 24 + 20));
+      el.append(p);
+    }
+    el.getBoundingClientRect = () => box;
+    document.body.append(el);
+    return el;
+  }
+
+  const afterEachRestore: (() => void)[] = [];
+  afterEach(() => {
+    for (const undo of afterEachRestore.splice(0)) undo();
+  });
+
+  it('a container below whose text starts past the band is read for one line, not walked whole', () => {
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 100000 });
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1280 });
+    // Its first text sits 80px under the selection, below the container's own top padding.
+    const below = bigBlock(rect(122, 50000), 2000, 200);
+    (document as unknown as { elementsFromPoint: () => Element[] }).elementsFromPoint = () => [
+      below,
+    ];
+    const reads = countReads();
+
+    showBubble({ rect: rect(100, 120), queued: 0, onClick: vi.fn() });
+
+    expect(bubbleTop()).toBe(124);
+    expect(reads()).toBeLessThanOrEqual(6);
+  });
+
+  it('the space above is not probed while the space below is clear', () => {
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 1000 });
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1280 });
+    let probes = 0;
+    (document as unknown as { elementsFromPoint: () => Element[] }).elementsFromPoint = () => {
+      probes += 1;
+      return [];
+    };
+
+    showBubble({ rect: rect(300, 320), queued: 0, onClick: vi.fn() });
+
+    expect(bubbleTop()).toBe(324);
+    expect(probes).toBe(3);
+  });
+
+  it('a container above is read from its last line, where it meets the bubble', () => {
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 100000 });
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1280 });
+    // 2000 paragraphs whose last line ends at 9956, then bottom padding down to the selection; below it, the next line is in the way.
+    const above = bigBlock(rect(0, 9998), 2000, 9936 - 1999 * 24);
+    const next = probeHit(rect(10022, 10042), 'next line').el;
+    (
+      document as unknown as { elementsFromPoint: (x: number, y: number) => Element[] }
+    ).elementsFromPoint = (_x, y) => (y >= 10022 ? [next] : y <= 9998 ? [above] : []);
+    const reads = countReads();
+
+    showBubble({ rect: rect(10000, 10020), queued: 0, onClick: vi.fn() });
+
+    expect(bubbleTop()).toBe(9968);
+    expect(reads()).toBeLessThanOrEqual(12);
+  });
+});

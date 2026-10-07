@@ -44,19 +44,50 @@ export function loadBubbleMenu(): Promise<typeof MenuMod> {
 const BUBBLE_HEIGHT = 28;
 /** The mark, a 160px label and the chevron. */
 const BUBBLE_WIDTH = 250;
+// ponytail: a band check reads at most this many text nodes, then calls the band clear; raise it if long runs of empty-box text hide lines.
+const MAX_TEXT_READS = 32;
 
-/** A line of text in `el` crosses the bubble's band at `top`; padding and empty space never count. */
-function textInBand(el: Element, top: number): boolean {
-  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+/** A line of `walker`'s text crosses the band [top, top + 28] within [x0, x1]. Text runs down the page, so the walk stops at the first line past the band. */
+function textInBand(
+  walker: TreeWalker,
+  from: Node | null,
+  down: boolean,
+  top: number,
+  x0: number,
+  x1: number,
+): boolean {
   const range = document.createRange();
-  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+  let reads = 0;
+  for (
+    let n = from;
+    n && reads < MAX_TEXT_READS;
+    n = down ? walker.nextNode() : walker.previousNode()
+  ) {
     if (!n.nodeValue?.trim()) continue;
+    reads++;
     range.selectNodeContents(n);
-    for (const r of range.getClientRects()) {
-      if (r.bottom > top && r.top < top + BUBBLE_HEIGHT) return true;
+    const rects = range.getClientRects();
+    for (const r of rects) {
+      if (r.bottom > top && r.top < top + BUBBLE_HEIGHT && r.right > x0 && r.left < x1) return true;
     }
+    const edge = rects[down ? 0 : rects.length - 1];
+    if (edge && (down ? edge.top >= top + BUBBLE_HEIGHT : edge.bottom <= top)) return false;
   }
   return false;
+}
+
+/** The selection's own lines and the text right after (or before) it, read from where the selection ends (or starts). */
+function ownTextInBand(down: boolean, top: number, x0: number, x1: number): boolean {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return false;
+  const range = sel.getRangeAt(0);
+  const at = down ? range.endContainer : range.startContainer;
+  if (!document.body.contains(at)) return false;
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  walker.currentNode = at;
+  const from =
+    at.nodeType === Node.TEXT_NODE ? at : down ? walker.nextNode() : walker.previousNode();
+  return textInBand(walker, from, down, top, x0, x1);
 }
 
 /** `left` is the bubble's inline-start edge: its left side, or its right side on a right-to-left block. */
@@ -65,27 +96,36 @@ function placeBubble(rect: DOMRect, rtl: boolean): { left: number; top: number }
   const below = rect.bottom + 4;
   const above = rect.top - BUBBLE_HEIGHT - 4;
   const anchorX = rtl ? rect.right : rect.left;
+  const left = rtl
+    ? Math.max(BUBBLE_WIDTH, Math.min(window.innerWidth - 8, anchorX))
+    : Math.max(8, Math.min(window.innerWidth - BUBBLE_WIDTH, anchorX));
+  const x0 = rtl ? left - BUBBLE_WIDTH : left;
+  const x1 = x0 + BUBBLE_WIDTH;
   const probeX = Math.max(4, Math.min(window.innerWidth - 4, anchorX + (rtl ? -16 : 16)));
-  // ponytail: only text in other elements counts; the selection's own paragraph would need its line boxes walked.
-  const covers = (top: number, outside: (r: DOMRect) => boolean): boolean =>
+  const covers = (top: number, down: boolean): boolean =>
+    ownTextInBand(down, top, x0, x1) ||
+    // Then what the page draws there, which page order can miss (floats, columns, positioned boxes).
     [top + 2, top + BUBBLE_HEIGHT / 2, top + BUBBLE_HEIGHT - 2].some((y) => {
       // An open bubble or tooltip hits as our host, which holds no page text; look past it.
       const hit = document
         .elementsFromPoint(probeX, Math.min(window.innerHeight - 4, Math.max(0, y)))
         .find((el) => el !== getShadowHostElement());
-      // The box test first: a probe between blocks hits `<body>`, whose text is the whole page.
-      return !!hit && outside(hit.getBoundingClientRect()) && textInBand(hit, top);
+      if (!hit) return false;
+      // An element that reaches the selection holds it, and the own walk read its lines; a probe between blocks hits <body>.
+      const r = hit.getBoundingClientRect();
+      const outside = down
+        ? r.top >= rect.bottom - 2 && r.bottom > top
+        : r.bottom <= rect.top + 2 && r.top < top + BUBBLE_HEIGHT;
+      if (!outside) return false;
+      const walker = document.createTreeWalker(hit, NodeFilter.SHOW_TEXT);
+      return textInBand(walker, down ? walker.nextNode() : walker.lastChild(), down, top, x0, x1);
     });
-  const belowCovers = covers(below, (r) => r.top >= rect.bottom - 2 && r.bottom > below);
-  const offBottom = below + BUBBLE_HEIGHT > window.innerHeight - 8;
-  const aboveFits =
-    above >= 4 && !covers(above, (r) => r.bottom <= rect.top + 2 && r.top < above + BUBBLE_HEIGHT);
-  const top =
-    (belowCovers || offBottom) && aboveFits ? above : Math.min(window.innerHeight - 32, below);
-  const left = rtl
-    ? Math.max(BUBBLE_WIDTH, Math.min(window.innerWidth - 8, anchorX))
-    : Math.max(8, Math.min(window.innerWidth - BUBBLE_WIDTH, anchorX));
-  return { left, top };
+  // The space above is probed only when the bubble cannot stay below.
+  const goAbove =
+    (below + BUBBLE_HEIGHT > window.innerHeight - 8 || covers(below, true)) &&
+    above >= 4 &&
+    !covers(above, false);
+  return { left, top: goAbove ? above : Math.min(window.innerHeight - 32, below) };
 }
 
 function directionKey(d: BubbleOpts['direction']): string {
