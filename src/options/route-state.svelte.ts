@@ -7,12 +7,11 @@ import { routePlan, type ImageAbility, type Readiness, type RoutePlan } from '@/
 import type { BackendId, Settings } from '@/shared/types';
 
 /** Readiness for the rows routePlan walks: a cloud key decides at once; local, server and native wait for the probe. */
-export function readinessFrom(
+function readinessFrom(
   s: Settings,
   order: readonly BackendId[],
   available: Readonly<Record<string, boolean>> | null,
 ): ReadonlyMap<BackendId, Readiness> {
-  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- a fresh snapshot per read, never mutated.
   return new Map(
     order.map((id) => {
       if (backendNeedsKey(id)) return [id, backendHasRequiredKey(id, s) ? 'ready' : 'not-ready'];

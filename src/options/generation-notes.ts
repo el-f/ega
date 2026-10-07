@@ -4,7 +4,7 @@ import type { TaskEffort } from '@/shared/settings-schema';
 import { EFFORT_LABEL } from '@/options/effort-labels';
 
 /** A backend's name as the subject of a sentence: "The native host", "Ollama". */
-export function backendSubject(id: string): string {
+function backendSubject(id: string): string {
   if (id === 'native') return 'The native host';
   if (id === 'localserver') return 'The local server';
   return backendLabel(id);

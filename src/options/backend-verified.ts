@@ -24,7 +24,7 @@ function inputs(id: BackendId, s: Settings): string {
 }
 
 /** First 16 hex characters of SHA-256: no key text is stored. */
-export async function verifiedFingerprint(id: BackendId, s: Settings): Promise<string> {
+async function verifiedFingerprint(id: BackendId, s: Settings): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(inputs(id, s)));
   return [...new Uint8Array(digest)]
     .slice(0, 8)
