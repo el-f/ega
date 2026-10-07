@@ -83,7 +83,8 @@ describe('settings-registry', () => {
       expect(counts['selection-bubble']).toBeGreaterThanOrEqual(3);
       expect(counts.backends).toBeGreaterThanOrEqual(5);
       expect(counts.languages).toBeGreaterThanOrEqual(5);
-      expect(counts.about).toBeGreaterThanOrEqual(5);
+      // About holds no settings since Clear cache and Delete all data moved to Advanced; its rows are still findable.
+      expect(counts.about).toBeGreaterThanOrEqual(3);
       expect(counts.advanced).toBeGreaterThan(0);
       expect(counts.tasks).toBeGreaterThanOrEqual(4);
     });

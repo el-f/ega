@@ -55,8 +55,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'display.bubbleMode',
     label: 'Selection bubble',
-    description:
-      'Smart hides the bubble on short selections and on English text. Always shows it on every selection. Never turns the bubble off.',
+    description: 'When the floating bubble appears after you select text',
     keywords: ['bubble', 'selection', 'smart', 'always', 'never', 'popup', 'show'],
     tab: 'selection-bubble',
     type: 'select',
@@ -288,7 +287,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'tasks.overrides',
     label: 'Task settings',
-    description: 'Per task: effort, page context and glossary.',
+    description: 'Per task: effort, page context and glossary',
     keywords: ['task', 'effort', 'page context', 'glossary', 'reset'],
     tab: 'tasks',
     targetSelector: '[data-ega-setting="tasks.overrides"]',
@@ -330,7 +329,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'backends.model',
     label: 'Model per backend',
-    description: 'Which model id each backend calls. Set from the model box on the backend card.',
+    description: 'Which model each backend calls, set on its row',
     keywords: ['model', 'id', 'gpt', 'claude', 'gemini', 'llama', 'pick', 'choose'],
     tab: 'backends',
     targetSelector: '[data-ega-model-combobox]',
@@ -340,7 +339,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'backends.anthropicApiKey',
     label: 'Anthropic API key',
-    description: 'Claude (Anthropic) authentication.',
+    description: 'Your Anthropic API key, kept in this browser',
     keywords: ['anthropic', 'claude', 'api', 'key', 'auth', 'cloud'],
     tab: 'backends',
     targetSelector: '[data-ega-api-key="anthropic"]',
@@ -350,7 +349,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'backends.openaiApiKey',
     label: 'OpenAI API key',
-    description: 'GPT (OpenAI) authentication.',
+    description: 'Your OpenAI API key, kept in this browser',
     keywords: ['openai', 'gpt', 'api', 'key', 'auth', 'cloud'],
     tab: 'backends',
     targetSelector: '[data-ega-api-key="openai"]',
@@ -360,7 +359,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'backends.geminiApiKey',
     label: 'Gemini API key',
-    description: 'Google Gemini authentication.',
+    description: 'Your Gemini API key, kept in this browser',
     keywords: ['gemini', 'google', 'api', 'key', 'auth', 'cloud'],
     tab: 'backends',
     targetSelector: '[data-ega-api-key="gemini"]',
@@ -370,7 +369,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'backends.groqApiKey',
     label: 'Groq API key',
-    description: 'Groq cloud authentication.',
+    description: 'Your Groq API key, kept in this browser',
     keywords: ['groq', 'api', 'key', 'auth', 'cloud'],
     tab: 'backends',
     targetSelector: '[data-ega-api-key="groq"]',
@@ -380,7 +379,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'backends.deepseekApiKey',
     label: 'DeepSeek API key',
-    description: 'DeepSeek cloud authentication.',
+    description: 'Your DeepSeek API key, kept in this browser',
     keywords: ['deepseek', 'api', 'key', 'auth', 'cloud'],
     tab: 'backends',
     targetSelector: '[data-ega-api-key="deepseek"]',
@@ -390,7 +389,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'backends.togetherApiKey',
     label: 'Together API key',
-    description: 'Together AI cloud authentication.',
+    description: 'Your Together API key, kept in this browser',
     keywords: ['together', 'api', 'key', 'auth', 'cloud'],
     tab: 'backends',
     targetSelector: '[data-ega-api-key="together"]',
@@ -400,7 +399,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'backends.mistralApiKey',
     label: 'Mistral API key',
-    description: 'Mistral cloud authentication.',
+    description: 'Your Mistral API key, kept in this browser',
     keywords: ['mistral', 'api', 'key', 'auth', 'cloud'],
     tab: 'backends',
     targetSelector: '[data-ega-api-key="mistral"]',
@@ -410,7 +409,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'backends.xaiApiKey',
     label: 'xAI API key',
-    description: 'xAI (Grok) cloud authentication.',
+    description: 'Your xAI API key, kept in this browser',
     keywords: ['xai', 'grok', 'api', 'key', 'auth', 'cloud'],
     tab: 'backends',
     targetSelector: '[data-ega-api-key="xai"]',
@@ -420,7 +419,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'backends.fireworksApiKey',
     label: 'Fireworks API key',
-    description: 'Fireworks AI cloud authentication.',
+    description: 'Your Fireworks API key, kept in this browser',
     keywords: ['fireworks', 'api', 'key', 'auth', 'cloud'],
     tab: 'backends',
     targetSelector: '[data-ega-api-key="fireworks"]',
@@ -430,7 +429,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'backends.openrouterApiKey',
     label: 'OpenRouter API key',
-    description: 'OpenRouter cloud authentication.',
+    description: 'Your OpenRouter API key, kept in this browser',
     keywords: ['openrouter', 'api', 'key', 'auth', 'cloud'],
     tab: 'backends',
     targetSelector: '[data-ega-api-key="openrouter"]',
@@ -440,7 +439,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'backends.ollamaUrl',
     label: 'Ollama URL',
-    description: 'Address of your local Ollama server. Default http://localhost:11434.',
+    description: 'Where your Ollama server listens; the default is http://localhost:11434',
     keywords: ['ollama', 'local', 'url', 'endpoint', 'daemon'],
     tab: 'backends',
     targetSelector: '[data-ega-setting="backends.ollamaUrl"]',
@@ -455,8 +454,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'backends.localServerUrl',
     label: 'Local server URL',
-    description:
-      'Address of LM Studio, llama-server or another OpenAI-compatible server on this computer. Default http://127.0.0.1:1234 (LM Studio); llama-server uses port 8080.',
+    description: 'Where your OpenAI-compatible server listens, such as LM Studio or llama-server',
     keywords: [
       'local',
       'server',
@@ -479,7 +477,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'backends.nativeCli',
     label: 'Native host CLI',
-    description: 'Which CLI the native host runs: Claude Code or Codex.',
+    description: 'Which CLI the native host runs: Claude Code or Codex',
     keywords: ['native', 'host', 'claude', 'codex', 'cli'],
     tab: 'backends',
     targetSelector: '[data-ega-setting="backends.nativeCli"]',
@@ -532,7 +530,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'languages.customLanguages',
     label: 'Custom languages',
-    description: 'Languages you added yourself.',
+    description: 'Languages you added yourself',
     keywords: ['custom', 'variety', 'add', 'user'],
     tab: 'languages',
     type: 'group',
@@ -559,7 +557,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'advanced.promptTemplate',
     label: 'Translate prompt',
-    description: 'The prompt Translate, Explain and every language without its own prompt use.',
+    description: 'The prompt Translate, Explain and every language without its own prompt use',
     keywords: ['template', 'prompt', 'system', 'user', 'slot', 'global'],
     tab: 'tasks',
     targetSelector: '[data-ega-task-item="translate"]',
@@ -943,7 +941,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'about.licence',
     label: 'License',
-    description: 'MIT-licensed open-source project.',
+    description: 'Open source under the MIT license',
     keywords: ['licence', 'license', 'mit', 'open-source'],
     tab: 'about',
     targetSelector: '[data-ega-license-link]',
@@ -952,7 +950,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'about.sourceCode',
     label: 'Source code',
-    description: 'Link to the project repository.',
+    description: 'The project repository on GitHub',
     keywords: ['source', 'code', 'repo', 'github'],
     tab: 'about',
     targetSelector: '[data-ega-source-link]',
@@ -1010,7 +1008,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'contextMenu.images',
     label: 'Where image actions open',
-    description: 'Side panel or a tooltip on the image, per right-click image action.',
+    description: 'Side panel or a tooltip on the image, per right-click image action',
     keywords: ['image', 'ocr', 'sidepanel', 'tooltip', 'surface', 'opens in'],
     tab: 'selection-bubble',
     targetSelector: '[data-ega-cm-group="image"]',
