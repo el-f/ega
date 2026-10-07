@@ -3,6 +3,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, fireEvent, waitFor } from '@testing-library/svelte';
 import ModePopover from '@/sidepanel/conversation/ModePopover.svelte';
 import { SHIPPED_TASK_VIEWS } from '@/shared/task-view';
+import { readFileSync } from 'node:fs';
 
 function props(over: Record<string, unknown> = {}) {
   const anchor = document.createElement('button');
@@ -99,5 +100,27 @@ describe('Next message popover', () => {
   it('a task that sends no page info has no Page info section', async () => {
     render(ModePopover, { props: props({ task: 'summarize', taskSendsPage: false }) });
     expect((await popover()).textContent).not.toContain('Page info');
+  });
+});
+
+// Spec R15: stacked selects share one left and one right edge (measured on the captures; jsdom has no layout).
+describe('the Tone select lines up with From and To', () => {
+  const src = readFileSync('src/sidepanel/conversation/ModePopover.svelte', 'utf8');
+
+  it('one label column for From, To and Tone', () => {
+    expect(src).toMatch(/\.mp-langs\s*\{[^}]*grid-template-columns:\s*var\(--mp-label-w\)/);
+    expect(src).toMatch(/\.mp-tone \.mp-label\s*\{[^}]*inline-size:\s*var\(--mp-label-w\)/);
+  });
+
+  it('the Tone select stops where the swap column starts, when there is one', async () => {
+    expect(src).toMatch(
+      /\.mp-tone\.beside-swap :global\(\.ega-select-wrap\)\s*\{[^}]*margin-inline-end/,
+    );
+    render(ModePopover, {
+      props: props({ task: 'reword', usesTone: true, swap: { source: 'en', target: 'es' } }),
+    });
+    expect((await popover()).querySelector('.mp-tone')?.classList.contains('beside-swap')).toBe(
+      true,
+    );
   });
 });

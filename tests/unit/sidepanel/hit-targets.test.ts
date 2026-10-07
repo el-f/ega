@@ -9,17 +9,8 @@ const rule = (src: string, selector: string): string => {
   return body;
 };
 
-const TARGETS: [string, string][] = [['src/sidepanel/SidePanel.svelte', '\\.sp-search-clear']];
-
+// The search bar's close is a 28px IconButton now (sidepanel-search-bar.svelte.test.ts).
 describe('small glyph buttons are at least 24px', () => {
-  for (const [file, selector] of TARGETS) {
-    it(`${selector.replace(/\\\\/g, '')} in ${file.split('/').pop()}`, () => {
-      const body = rule(read(file), selector);
-      expect(body).toMatch(/min-width:\s*24px|min-height:\s*24px/);
-      expect(body).toMatch(/box-sizing:\s*border-box/);
-    });
-  }
-
   it('the context level segments too', () => {
     const body = rule(
       read('src/shared/components/ContextLevelPicker.svelte'),

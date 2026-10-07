@@ -21,6 +21,7 @@
   import ShortcutOverlay from '@/shared/components/ShortcutOverlay.svelte';
   import PanelHeader from './PanelHeader.svelte';
   import XIcon from '@lucide/svelte/icons/x';
+  import IconButton from '@/shared/ui/IconButton.svelte';
   import { flushPendingDeletes, forgetPendingDeletes } from '@/shared/saved-conversations';
   import { confirmDialog } from '@/shared/components/confirmDialog';
   import { buildRegistry, type Command } from '@/shared/command-registry';
@@ -1149,16 +1150,14 @@
               {matchCount === 1 ? 'match' : 'matches'}
             </span>
           {/if}
-          <button
-            type="button"
-            class="sp-search-clear"
-            aria-label="Close search"
-            data-tooltip="Close search (Esc)"
-            data-tooltip-placement="bottom"
+          <IconButton
+            icon={XIcon}
+            ariaLabel="Close search"
+            tooltip="Close search (Esc)"
+            tooltipPlacement="bottom"
+            size="sm"
             onclick={closeSearch}
-          >
-            <XIcon size={14} />
-          </button>
+          />
         </div>
       {/if}
       {#if bookmarkFilter && !searchOpen}
@@ -1385,18 +1384,25 @@
     color: var(--color-fg-disabled);
     cursor: default;
   }
+  /* Spec §4.6: full width under the header row, 36 tall, one top rule. It sits inside the header's padding,
+     so it steps out of the sides and the bottom, and its rule takes the header's own colour. */
   .sp-search-bar {
     display: flex;
     align-items: center;
     gap: var(--space-2);
-    padding: var(--space-1) 0 0;
-    margin-block-start: var(--space-2);
-    border-top: 1px solid var(--color-border);
+    box-sizing: border-box;
+    min-block-size: 36px;
+    margin-inline: calc(-1 * var(--card-pad));
+    margin-block: var(--space-2) calc(-1 * var(--space-2));
+    padding: var(--space-1) var(--card-pad);
+    border-top: 1px solid var(--color-border-subtle);
   }
   .sp-search-bar input[type='search'] {
     flex: 1 1 auto;
     min-width: 0;
-    font-size: var(--fs-sm);
+    box-sizing: border-box;
+    min-block-size: 28px;
+    font-size: var(--fs-md);
     background: var(--color-bg-subtle);
     border: 1px solid var(--color-control-border);
     border-radius: var(--radius-sm);
@@ -1406,32 +1412,11 @@
   .sp-search-bar input[type='search']::-webkit-search-cancel-button {
     display: none;
   }
-  .sp-search-bar input[type='search']:focus {
-    border-color: var(--color-accent);
-  }
   .sp-search-count {
     font-size: var(--fs-xs);
     color: var(--color-fg-subtle);
     white-space: nowrap;
     flex-shrink: 0;
-  }
-  .sp-search-clear {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: none;
-    border: 1px solid transparent;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    color: var(--color-fg-subtle);
-    box-sizing: border-box;
-    padding: var(--space-1);
-    min-width: 24px;
-    min-height: 24px;
-    flex-shrink: 0;
-  }
-  .sp-search-clear:hover {
-    color: var(--color-fg);
   }
   .sp-filter-clear {
     margin-left: auto;

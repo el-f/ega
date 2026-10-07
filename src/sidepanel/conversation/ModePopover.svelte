@@ -106,7 +106,7 @@
     </section>
 
     {#if usesTone}
-      <section class="mp-section mp-tone">
+      <section class="mp-section mp-tone" class:beside-swap={swap !== null}>
         <label class="mp-label" for="sp-tone">Tone</label>
         <Select
           id="sp-tone"
@@ -138,6 +138,8 @@
 
 <style>
   .mp {
+    /* From, To and Tone share one label width, so every select starts on the same edge. */
+    --mp-label-w: 3em;
     display: flex;
     flex-direction: column;
     gap: var(--space-4);
@@ -164,7 +166,7 @@
   }
   .mp-langs {
     display: grid;
-    grid-template-columns: max-content minmax(0, 1fr) auto;
+    grid-template-columns: var(--mp-label-w) minmax(0, 1fr) auto;
     align-items: center;
     gap: var(--space-1) var(--space-2);
   }
@@ -192,9 +194,17 @@
     align-items: center;
     gap: var(--space-2);
   }
+  .mp-tone .mp-label {
+    flex: none;
+    inline-size: var(--mp-label-w);
+  }
   .mp-tone :global(.ega-select-wrap) {
     flex: 1 1 auto;
     min-inline-size: 0;
+  }
+  /* The rows above keep a column for the 28px swap button; the Tone select stops where From and To stop. */
+  .mp-tone.beside-swap :global(.ega-select-wrap) {
+    margin-inline-end: calc(28px + var(--space-2));
   }
   .mp-link {
     padding: 0;
