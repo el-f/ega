@@ -46,44 +46,46 @@
   });
 </script>
 
-<div class="site" data-ega-popup-site>
-  {#if showSwitch}
-    <div class="switch-row">
-      <!-- The visible text may be shortened; the switch's own name carries the full host. -->
-      <label class="switch-label" for="ega-site-switch" aria-hidden="true" data-ega-truncates
-        >Ega on {host.short}</label
-      >
-      <Checkbox
-        id="ega-site-switch"
-        checked={siteOn}
-        ariaLabel={`Ega on ${host.full}`}
-        inputAttrs={{ role: 'switch', 'data-ega-site-switch': true }}
-        onchange={onSiteChange}
-      />
+{#if showSwitch || status}
+  <div class="site" data-ega-popup-site>
+    {#if showSwitch}
+      <div class="switch-row">
+        <!-- The visible text may be shortened; the switch's own name carries the full host. -->
+        <label class="switch-label" for="ega-site-switch" aria-hidden="true" data-ega-truncates
+          >Ega on {host.short}</label
+        >
+        <Checkbox
+          id="ega-site-switch"
+          checked={siteOn}
+          ariaLabel={`Ega on ${host.full}`}
+          inputAttrs={{ role: 'switch', 'data-ega-site-switch': true }}
+          onchange={onSiteChange}
+        />
+      </div>
+    {/if}
+    <!-- There before any line is, so a line a failed action brings is announced. -->
+    <div role="status">
+      {#if status}
+        <div class="status" data-ega-popup-status={state}>
+          <span class="status-icon"><Icon icon={Info} size={16} /></span>
+          <p id={statusId} class="status-text">{status.text}</p>
+          {#if status.action === 'anyway'}
+            <button type="button" class="status-action" onclick={onTranslateAnyway}
+              >Translate anyway</button
+            >
+          {:else if status.action === 'reload'}
+            <button type="button" class="status-action" onclick={onReload}>Reload page</button>
+          {/if}
+        </div>
+      {/if}
     </div>
-  {/if}
-  {#if status}
-    <div class="status" data-ega-popup-status={state}>
-      <span class="status-icon"><Icon icon={Info} size={16} /></span>
-      <p id={statusId} class="status-text">
-        {status.text}
-        {#if status.action === 'anyway'}
-          <button type="button" class="status-action" onclick={onTranslateAnyway}
-            >Translate anyway</button
-          >
-        {:else if status.action === 'reload'}
-          <button type="button" class="status-action" onclick={onReload}>Reload page</button>
-        {/if}
-      </p>
-    </div>
-  {/if}
-</div>
+  </div>
+{/if}
 
 <style>
   .site {
     display: flex;
     flex-direction: column;
-    gap: var(--space-1);
   }
   .switch-row {
     display: flex;
@@ -149,10 +151,16 @@
       background-color: HighlightText;
     }
   }
+  .switch-row + [role='status'] .status {
+    margin-block-start: var(--space-1);
+  }
+  /* Icon and text share the first line; the action takes its own row with its label on the text's edge. */
   .status {
-    display: flex;
-    align-items: flex-start;
-    gap: var(--space-2);
+    display: grid;
+    grid-template-columns: 16px 1fr;
+    column-gap: var(--space-2);
+    align-items: start;
+    font-size: var(--fs-xs);
   }
   .status-icon {
     display: inline-flex;
@@ -161,15 +169,17 @@
   }
   .status-text {
     margin: 0;
-    font-size: var(--fs-xs);
     color: var(--color-fg);
   }
   .status-action {
+    grid-column: 2;
+    justify-self: start;
     display: inline-flex;
     align-items: center;
     min-height: 28px;
     padding: 0 var(--space-2);
-    margin-inline-start: var(--space-1);
+    /* The padding and the 1px edge, so the label starts where the text above starts. */
+    margin-inline-start: calc(-1 * var(--space-2) - 1px);
     border: 1px solid transparent;
     border-radius: var(--radius-md);
     background: transparent;

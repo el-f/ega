@@ -555,6 +555,25 @@ describe('Popup — page actions', () => {
     expect(await findByText("Ega couldn't start page translation.")).toBeTruthy();
   });
 
+  it('a content script lost after the popup opened is announced: the line lands in a live region that was already there', async () => {
+    onTab('https://example.com/', (msg) => {
+      if (msg.kind === 'page:translateAll') {
+        throw new Error('Could not establish connection. Receiving end does not exist.');
+      }
+      return { text: '' };
+    });
+    const { container, findByRole, findByText } = render(Popup);
+    await mounted();
+    await findByRole('switch', { name: 'Ega on example.com' });
+    const region = container.querySelector('[data-ega-popup-site] [role="status"]');
+    expect(region).not.toBeNull();
+    expect(region?.textContent.trim()).toBe('');
+    await fireEvent.click(await findByRole('button', { name: 'Translate page' }));
+    expect(await findByText('Reload this page to use Ega here.')).toBeTruthy();
+    expect(region?.isConnected).toBe(true);
+    expect(region?.textContent).toContain('Reload this page to use Ega here.');
+  });
+
   it('a content script lost after the popup opened turns into the reload status line', async () => {
     onTab('https://example.com/', (msg) => {
       if (msg.kind === 'page:translateAll') {
