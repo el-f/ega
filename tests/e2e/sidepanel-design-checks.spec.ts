@@ -13,6 +13,7 @@ import {
   sendFromPanel,
   type ExtensionHandle,
 } from './helpers';
+import { DEFAULT_SETTINGS } from '../../src/shared/settings-defaults';
 import {
   FOLLOW_FIXTURE_SCRIPT,
   SITE,
@@ -86,6 +87,8 @@ interface State {
   build: () => Promise<Page>;
   /** Puts back what a resize or a theme switch closed (menus, popovers). Safe to call when it is open. */
   ensure?: (sp: Page) => Promise<void>;
+  /** Undoes what the build changed outside the page (settings). */
+  after?: () => Promise<void>;
 }
 
 const LONG_MARKDOWN =
@@ -93,6 +96,24 @@ const LONG_MARKDOWN =
 
 const STATES: State[] = [
   { name: 'empty', build: () => panelWith([]) },
+  {
+    // The chip reads "Set up backend"; its name must start with that label (check 11).
+    name: 'empty-no-backend',
+    build: async () => {
+      await seedSettings(ext.context, ext.extensionId, {
+        anthropicApiKey: '',
+        disabledBackends: ['native', 'ollama', 'localserver'],
+      });
+      const sp = await panelWith([]);
+      await sp.locator('[data-ega-sidepanel-empty]').waitFor({ state: 'visible' });
+      return sp;
+    },
+    after: () =>
+      seedSettings(ext.context, ext.extensionId, {
+        ...SEED,
+        disabledBackends: DEFAULT_SETTINGS.disabledBackends,
+      }),
+  },
   { name: 'first-exchange', build: () => panelWith([{ id: SITE, turns: FIRST_PAIR }]) },
   {
     name: 'long-thread',
@@ -268,6 +289,15 @@ const STATES: State[] = [
           ],
         },
       ]),
+  },
+  {
+    name: 'backend-popover',
+    build: () => panelWith([{ id: SITE, turns: FIRST_PAIR }]),
+    ensure: async (sp) => {
+      const chip = sp.locator('[data-ega-backend-chip]');
+      if ((await chip.getAttribute('aria-expanded')) !== 'true') await chip.click();
+      await sp.getByRole('dialog', { name: 'Backends' }).waitFor({ state: 'visible' });
+    },
   },
   {
     name: 'edit-mode',
@@ -515,6 +545,7 @@ test('checks 1-4, 6, 7 and 9-12 on every state at 400, 320 and 256 (320 at 125%)
       }
     }
     await sp.close();
+    await state.after?.();
     await resetRoutes(ext.context);
     await openExampleTab(ext.context);
   }
@@ -884,6 +915,65 @@ test('popovers and menus stay inside a short panel and scroll inside themselves'
   } finally {
     await seedCustomTasks(ext.context, ext.extensionId, []);
   }
+});
+
+// Spec §1.10 and R15: a popover keeps the panel's 12px gutter, and its title and body text share one left edge.
+test('the panel popovers keep the 12px gutter and one text edge', async () => {
+  test.setTimeout(120_000);
+  const sp = await panelWith([{ id: SITE, turns: FIRST_PAIR }]);
+  const edges = (
+    dialog: Locator,
+    body: string,
+  ): Promise<{ left: number; right: number; title: number; body: number }> =>
+    dialog.evaluate((el, bodySel) => {
+      const textLeft = (e: Element | null): number => {
+        if (!e) return Number.NaN;
+        const cs = getComputedStyle(e);
+        return (
+          e.getBoundingClientRect().left +
+          Number.parseFloat(cs.paddingLeft) +
+          Number.parseFloat(cs.borderLeftWidth)
+        );
+      };
+      const box = el.getBoundingClientRect();
+      return {
+        left: box.left,
+        right: window.innerWidth - box.right,
+        title: textLeft(el.querySelector('.ega-popover-title')),
+        body: textLeft(el.querySelector(bodySel)),
+      };
+    }, body);
+  for (const size of [
+    { width: 400, height: 760 },
+    { width: 320, height: 760 },
+    { width: 256, height: 608 },
+  ]) {
+    await sp.setViewportSize(size);
+    await sp.waitForTimeout(80); // wait for layout (no observable end state)
+    await sp.locator('[data-ega-backend-chip]').click();
+    const backends = sp.getByRole('dialog', { name: 'Backends' });
+    await backends.waitFor({ state: 'visible' });
+    for (const body of ['.chain-help', '.chain-pos']) {
+      const e = await edges(backends, body);
+      const where = `Backends at ${size.width}, ${body}`;
+      expect.soft(e.left, `${where}: left gutter`).toBeGreaterThanOrEqual(11.5);
+      expect.soft(e.right, `${where}: right gutter`).toBeGreaterThanOrEqual(11.5);
+      expect.soft(Math.abs(e.title - e.body), `${where}: one text edge`).toBeLessThanOrEqual(0.5);
+    }
+    await sp.keyboard.press('Escape');
+    await backends.waitFor({ state: 'hidden' });
+    await (await openReplyMenu(sp, 'refine')).locator('[data-ega-translate-into-other]').click();
+    const into = sp.getByRole('dialog', { name: 'Translate into' });
+    await into.waitFor({ state: 'visible' });
+    const e = await edges(into, '.rm-into-label');
+    const where = `Translate into at ${size.width}`;
+    expect.soft(e.left, `${where}: left gutter`).toBeGreaterThanOrEqual(11.5);
+    expect.soft(e.right, `${where}: right gutter`).toBeGreaterThanOrEqual(11.5);
+    expect.soft(Math.abs(e.title - e.body), `${where}: one text edge`).toBeLessThanOrEqual(0.5);
+    await sp.keyboard.press('Escape');
+    await into.waitFor({ state: 'hidden' });
+  }
+  await sp.close();
 });
 
 /** A CSS color as the browser computes it, so a token compares with a computed border. */

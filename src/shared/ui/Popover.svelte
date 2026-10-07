@@ -85,7 +85,7 @@
       {side}
       {align}
       sideOffset={6}
-      collisionPadding={4}
+      collisionPadding={12}
       class="ega-popover"
       role="dialog"
       aria-label={title}

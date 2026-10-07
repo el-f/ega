@@ -133,7 +133,7 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
-    inline-size: min(280px, calc(100vw - 40px));
+    inline-size: min(280px, calc(100vw - 48px));
     max-block-size: calc(100vh - 96px);
     font-size: var(--fs-sm);
     line-height: var(--lh-body);
@@ -142,9 +142,9 @@
     overflow-y: auto;
     min-block-size: 0;
   }
+  /* No inline padding here or on rows: the text lines up with the popover title (R15). */
   .chain-help {
     margin: 0;
-    padding: 0 var(--space-1);
     color: var(--color-muted);
   }
   .chain-list {
@@ -159,7 +159,7 @@
     display: flex;
     align-items: baseline;
     gap: var(--space-2);
-    padding: var(--space-1);
+    padding-block: var(--space-1);
   }
   .chain-pos {
     color: var(--color-muted);
@@ -200,10 +200,11 @@
     border-top: 1px solid var(--color-border-subtle);
     padding-top: var(--space-2);
   }
+  /* Every pointer target in the panel is 28px tall (spec §9.2), these text buttons included. */
   .setup-btn {
     appearance: none;
     flex-shrink: 0;
-    min-block-size: 24px;
+    min-block-size: 28px;
     padding: 0;
     border: none;
     background: none;

@@ -5,6 +5,7 @@ import { tick } from 'svelte';
 import BackendPopover from '@/shared/components/BackendPopover.svelte';
 import type { ProbeResult } from '@/shared/translate-ui';
 import { asBackendIdUnsafe } from '@/shared/brands';
+import { readFileSync } from 'node:fs';
 import type { BackendId } from '@/shared/types';
 
 const bid = (s: string) => asBackendIdUnsafe(s);
@@ -174,5 +175,21 @@ describe('BackendPopover — the chain, in order, each with a plain status', () 
     await fireEvent.click(btn);
     expect(onManage).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
+
+// jsdom lays nothing out, so the size and the inset are pinned in the source; the e2e design checks measure them.
+describe('BackendPopover — targets and text edge', () => {
+  const src = readFileSync('src/shared/components/BackendPopover.svelte', 'utf8');
+  const rule = (sel: string): string =>
+    new RegExp(`${sel}\\s*\\{([^}]*)\\}`).exec(src)?.[1] ?? `missing ${sel}`;
+
+  it('makes Add key, How to start and Manage backends 28px targets (spec §9.2)', () => {
+    expect(rule('\\.setup-btn')).toMatch(/min-block-size:\s*28px/);
+  });
+
+  it('adds no inline padding, so the body text lines up with the popover title', () => {
+    expect(rule('\\.chain-help')).not.toMatch(/padding/);
+    expect(rule('\\.chain-row')).not.toMatch(/padding:\s/);
   });
 });

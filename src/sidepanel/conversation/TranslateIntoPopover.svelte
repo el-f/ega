@@ -43,7 +43,7 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
-    inline-size: min(260px, calc(100vw - 40px));
+    inline-size: min(260px, calc(100vw - 48px));
     font-size: var(--fs-sm);
   }
   .rm-into-label {
