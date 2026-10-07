@@ -1,5 +1,6 @@
 <script lang="ts">
   import { toastLifetimeMs, type ToastKind } from '@/shared/toast-policy';
+  import { isUserGesture } from './user-gesture';
 
   interface Props {
     message: string;
@@ -70,8 +71,14 @@
   </svg>
   <span class="ega-toast-text">{message}</span>
   {#if hasAction}
-    <button type="button" class="ega-toast-action" data-ega-toast-action onclick={onaction}
-      >{actionLabel}</button
+    <!-- The shadow root is open: a page script can click this, and Turn on or Undo flips the site switch. -->
+    <button
+      type="button"
+      class="ega-toast-action"
+      data-ega-toast-action
+      onclick={(e) => {
+        if (isUserGesture(e)) onaction?.();
+      }}>{actionLabel}</button
     >
   {/if}
   <button

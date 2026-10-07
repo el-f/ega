@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { isUserGesture } from '../user-gesture';
 
   interface Props {
     left: number;
@@ -65,18 +66,23 @@
   style:top="{top}px"
   onkeydown={move}
 >
+  <!-- A page script can reach these through the open shadow root; only the user may flip the site switch. -->
   <button
     type="button"
     role="menuitem"
     tabindex="-1"
     onmousedown={(e) => e.preventDefault()}
-    onclick={onTurnOff}>Turn off on this site</button
+    onclick={(e) => {
+      if (isUserGesture(e)) onTurnOff();
+    }}>Turn off on this site</button
   >
   <button
     type="button"
     role="menuitem"
     tabindex="-1"
     onmousedown={(e) => e.preventDefault()}
-    onclick={onSettings}>Bubble settings</button
+    onclick={(e) => {
+      if (isUserGesture(e)) onSettings();
+    }}>Bubble settings</button
   >
 </div>
