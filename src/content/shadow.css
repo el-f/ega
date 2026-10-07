@@ -146,6 +146,20 @@
   z-index: var(--ega-layer-toast);
   animation: ega-content-toast-in 200ms ease-out;
 }
+/* In a picker mode a toast sits 8px above the bottom bar, as it does above the pill (batch-progress.css). */
+.ega-root:has(> [data-ega-picker-bar-wrap]) {
+  /* ponytail: the bar's height is fixed here, not measured; measure it if the bar ever grows a third row. */
+  --ega-picker-bar-h: 40px;
+}
+@media (max-width: 559px) {
+  /* Below 560px the bar's status takes a row of its own. */
+  .ega-root:has(> [data-ega-picker-bar-wrap]) {
+    --ega-picker-bar-h: 84px;
+  }
+}
+.ega-root:has(> [data-ega-picker-bar-wrap]) .ega-toast {
+  bottom: calc(var(--space-4) + var(--ega-picker-bar-h) + var(--space-2));
+}
 .ega-toast-icon {
   flex: 0 0 auto;
   width: 16px;

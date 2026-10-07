@@ -259,3 +259,24 @@ describe('bilingual — a translation reads as added, not as page text', () => {
     expect(style?.getPropertyValue('border-inline-start')).toMatch(/^3px solid/);
   });
 });
+
+describe('Choose areas — the order badge reads on any page', () => {
+  it('opaque blue.11 behind white text, and never under 12px', () => {
+    const at = pageCss.indexOf('[data-ega-ms-selected]::after {');
+    const block = pageCss.slice(at, pageCss.indexOf('}', at));
+    expect(block).toMatch(/background: #0d74ce;/);
+    expect(block).toMatch(/color: #fff;/);
+    expect(block).toMatch(/max\(12px, 0\.75em\)/);
+  });
+});
+
+describe('the bottom bar slot — a toast clears the picker bar too', () => {
+  it('a toast in a picker mode sits above the bar, which takes two rows below 560px', () => {
+    expect(shadowCss).toMatch(
+      /\.ega-root:has\(> \[data-ega-picker-bar-wrap\]\) \.ega-toast \{\s*bottom: calc\(var\(--space-4\) \+ var\(--ega-picker-bar-h\) \+ var\(--space-2\)\);/,
+    );
+    expect(shadowCss).toMatch(
+      /@media \(max-width: 559px\) \{[^@]*\[data-ega-picker-bar-wrap\]\) \{\s*--ega-picker-bar-h: \d+px;/,
+    );
+  });
+});

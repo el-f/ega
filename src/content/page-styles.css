@@ -100,10 +100,11 @@ html[data-ega-picking] * {
   margin-inline-start: 0.4em;
   padding: 0 0.45em;
   border-radius: 999px;
-  background: rgba(0, 144, 255, 0.9); /* token-lint-allow page sheet */
+  /* Opaque blue.11: white on it is 4.65:1, and 12px is the floor whatever the page's text size. */
+  background: #0d74ce; /* token-lint-allow page sheet */
   color: #fff; /* token-lint-allow page sheet */
   font:
-    700 0.75em/1.5 system-ui,
+    700 max(12px, 0.75em) / 1.5 system-ui,
     sans-serif; /* token-lint-allow page sheet */
   vertical-align: middle;
 }

@@ -286,6 +286,8 @@ test('page chips keep their own font and a 24px button on a hostile page', async
   const page = await ext.context.newPage();
   await page.goto(`${ext.serverUrl}/hostile-page.html`);
   await waitForTestHooks(page);
+  // A CSS reset that zeroes every margin, as Tailwind's preflight does.
+  await page.addStyleTag({ content: '* { margin: 0 }' });
   const sw = ext.context.serviceWorkers()[0];
   await sw?.evaluate(async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -304,6 +306,8 @@ test('page chips keep their own font and a 24px button on a hostile page', async
     return {
       font: s.fontFamily,
       size: s.fontSize,
+      spacing: s.letterSpacing,
+      margin: getComputedStyle(host).marginInlineStart,
       text: c.textContent,
       button: btn?.getBoundingClientRect().height ?? 0,
       titles: root?.querySelectorAll('[title]').length ?? 0,
@@ -311,10 +315,42 @@ test('page chips keep their own font and a 24px button on a hostile page', async
   });
   expect(look.font.startsWith('system-ui')).toBe(true);
   expect(look.size).toBe('12px');
+  // The page's letter-spacing on every element and its margin reset reach neither the chip text nor the host.
+  expect(look.spacing).toBe('normal');
+  expect(look.margin).not.toBe('0px');
   expect(look.button).toBeGreaterThanOrEqual(24);
   expect(look.titles).toBe(0);
   // The catalog title, never the provider's status or words.
   expect(look.text).not.toMatch(/\b[1-5]\d\d\b|HTTP|upstream|[A-Z]{2,}_[A-Z]+/);
+});
+
+test('a toast in a picker mode sits above the bottom bar, wide and narrow', async () => {
+  const page = await ext.context.newPage();
+  await page.goto(`${ext.serverUrl}/batch-page.html`);
+  await waitForTestHooks(page);
+  const sw = ext.context.serviceWorkers()[0];
+  await sw?.evaluate(async () => {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tab?.id) await chrome.tabs.sendMessage(tab.id, { kind: 'page:chooseAreas' });
+  });
+  await expect.poll(async () => egaTest<boolean>(page, 'msIsActive')).toBe(true);
+  for (const width of [1000, 400]) {
+    await page.setViewportSize({ width, height: 700 });
+    const gap = await page.evaluate(() => {
+      const root = document.getElementById('ega-shadow-host')?.shadowRoot;
+      // The sheet alone places a toast, so a bare toast box shows where any toast lands.
+      const toast = document.createElement('div');
+      toast.className = 'ega-toast';
+      toast.style.animation = 'none';
+      toast.textContent = 'Select some text first, then press the shortcut.';
+      root?.querySelector('.ega-root')?.append(toast);
+      const t = toast.getBoundingClientRect();
+      const bar = root?.querySelector('.ega-picker-bar')?.getBoundingClientRect();
+      toast.remove();
+      return bar ? bar.top - t.bottom : Number.NaN;
+    });
+    expect(gap, `${width}px wide`).toBeGreaterThanOrEqual(4);
+  }
 });
 
 async function translatePage(): Promise<void> {
