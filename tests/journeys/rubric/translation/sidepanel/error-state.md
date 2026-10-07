@@ -8,7 +8,7 @@
 
 - Step 1: a reply is running; the backend sends an error chunk or times out.
 - Step 2: the reply slot shows the error from the shared catalog: a title of four words or fewer with an alert icon, then one sentence that names the cause. The title and body sit in `role="alert"`.
-- Step 3: the error's next steps are buttons in one row, the first one outlined: "Try again", "Open settings" when a setting fixes it, and "Details ▸" when the backend sent a message. Text that already arrived stays above the error.
+- Step 3: the error's next steps are buttons in one row, the first one outlined: "Try again", "Open settings" when a setting fixes it, and a "Details" icon toggle (a log glyph, named and with a hover label) when the backend sent a message. The row stays one line at 256 px. Text that already arrived stays above the error.
 
 ## Visible affordances
 

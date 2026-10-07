@@ -5,6 +5,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
 import AssistantTurn from '@/sidepanel/conversation/AssistantTurn.svelte';
 import { doneReply, metaText, replyProps } from './_reply';
+import { readFileSync } from 'node:fs';
 
 const openOptionsTab = vi.hoisted(() => vi.fn());
 vi.mock('@/shared/open-options-tab', () => ({ openOptionsTab }));
@@ -40,7 +41,7 @@ describe('an error reply', () => {
     expect(alert?.querySelector('.ega-error-body')?.textContent).toBe(
       'Anthropic did not accept the saved API key.',
     );
-    expect(buttons(container)).toEqual(['Open settings', 'Try again', 'Details ▸']);
+    expect(buttons(container)).toEqual(['Open settings', 'Try again']);
     const [fix, again] = Array.from(container.querySelectorAll('.ega-error-actions .ega-btn'));
     expect(fix?.getAttribute('data-variant')).toBe('secondary');
     expect(again?.getAttribute('data-variant')).toBe('ghost');
@@ -48,6 +49,31 @@ describe('an error reply', () => {
     expect(openOptionsTab).toHaveBeenCalledWith('backends');
     await fireEvent.click(container.querySelector('[data-ega-error-details]') as HTMLElement);
     expect(container.querySelector('.ega-error-detail')?.textContent).toContain('HTTP 401');
+  });
+
+  // Three text buttons filled 222 of 232px at 256 in Segoe UI; a font 6% wider (DejaVu Sans on Linux) broke the row.
+  it('Details is a named icon toggle, so the row keeps room at narrow widths', async () => {
+    const { container } = render(AssistantTurn, {
+      props: replyProps(failed('AUTH', 'HTTP 401: invalid x-api-key')),
+    });
+    const details = container.querySelector<HTMLElement>('[data-ega-error-details]');
+    expect(details?.classList.contains('ega-icon-btn')).toBe(true);
+    expect(details?.getAttribute('aria-label')).toBe('Details');
+    expect(details?.getAttribute('aria-expanded')).toBe('false');
+    await fireEvent.click(details as HTMLElement);
+    expect(details?.getAttribute('aria-expanded')).toBe('true');
+    const shown = container.querySelector('.ega-error-detail');
+    expect(shown?.id).toBe(details?.getAttribute('aria-controls'));
+  });
+
+  // The countdown is the only visible reason the button waits (spec §1.5), so it is text at 4.5:1, not disabled grey.
+  it('draws the waiting countdown in the muted text colour', () => {
+    const src = readFileSync('src/sidepanel/conversation/AssistantTurn.svelte', 'utf8');
+    const rule =
+      /\.ega-error-actions :global\(\.ega-btn\[aria-disabled='true'\]\)\s*\{([^}]*)\}/.exec(
+        src,
+      )?.[1];
+    expect(rule).toMatch(/color:\s*var\(--color-muted\)/);
   });
 
   it('never says "Retry"; Try again sends the slot again', async () => {

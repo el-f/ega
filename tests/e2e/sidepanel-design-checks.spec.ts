@@ -678,6 +678,87 @@ test('check 5 focus never lands on body after an action', async () => {
   await sp.close();
 });
 
+// CI draws DejaVu Sans, 14-22% wider than Segoe UI: Verdana with a little letter-spacing covers the wide end (DejaVu where Verdana is missing).
+test('an error row keeps one line at 256 in a font as wide as DejaVu Sans', async () => {
+  test.setTimeout(120_000);
+  const NET = { code: 'NETWORK', message: 'fetch failed', backendId: 'anthropic' };
+  const AUTH = { code: 'AUTH', message: 'invalid x-api-key (401)', backendId: 'anthropic' };
+  const sp = await panelWith([
+    {
+      id: SITE,
+      turns: [
+        user('u1', 'hola', T(9)),
+        reply('a1', 'u1', T(9), { status: 'error', content: '', meta: null, error: AUTH }),
+        user('u2', 'otra vez', T(6)),
+        reply('a2', 'u2', T(6), {
+          status: 'error',
+          content: '',
+          meta: null,
+          error: NET,
+          retries: 1,
+        }),
+        user('u3', 'una historia', T(3)),
+        reply('a3', 'u3', T(3), {
+          status: 'error',
+          content: 'Once upon a time',
+          meta: null,
+          error: { code: 'PROTOCOL', message: 'stream closed', backendId: 'anthropic' },
+        }),
+      ],
+    },
+  ]);
+  const ratio = await sp.evaluate(() => {
+    const width = (font: string, spacing: string): number => {
+      const s = document.createElement('span');
+      s.style.font = `12px ${font}`;
+      s.style.letterSpacing = spacing;
+      s.textContent = 'Open settings Try again in 12 s';
+      document.body.append(s);
+      const w = s.getBoundingClientRect().width;
+      s.remove();
+      return w;
+    };
+    return (
+      width('Verdana, "DejaVu Sans", sans-serif', '0.03em') /
+      width('"Segoe UI", sans-serif', 'normal')
+    );
+  });
+  test.info().annotations.push({ type: 'wide font / Segoe UI', description: ratio.toFixed(3) });
+  // Only Windows has Segoe UI to compare with; elsewhere the stack is DejaVu Sans plus the spacing.
+  if (process.platform === 'win32') {
+    expect(ratio, 'the probe font is as wide as DejaVu Sans at its widest').toBeGreaterThanOrEqual(
+      1.22,
+    );
+  }
+  await sp.addStyleTag({
+    content:
+      'body, body * { font-family: Verdana, "DejaVu Sans", sans-serif !important; letter-spacing: 0.03em !important; }',
+  });
+  for (const size of [
+    { width: 256, height: 608 },
+    { width: 320, height: 760 },
+  ]) {
+    await sp.setViewportSize(size);
+    await sp.waitForTimeout(80); // wait for layout (no observable end state)
+    const rows = await sp.evaluate(() =>
+      [...document.querySelectorAll('[data-ega-error] .ega-error-actions')].map((row) => {
+        const tops = new Set(
+          [...row.querySelectorAll('button')].map((b) => {
+            const r = b.getBoundingClientRect();
+            return Math.round((r.top + r.height / 2) / 8);
+          }),
+        );
+        return { buttons: row.querySelectorAll('button').length, lines: tops.size };
+      }),
+    );
+    expect(rows.length, `${size.width}: three error rows`).toBe(3);
+    for (const [i, r] of rows.entries()) {
+      expect.soft(r.lines, `${size.width}: error row ${i + 1} (${r.buttons} buttons)`).toBe(1);
+    }
+  }
+  await sp.close();
+});
+
 /** A CSS color as the browser computes it, so a token compares with a computed border. */
 async function computedColor(sp: Page, value: string): Promise<string> {
   return sp.evaluate((v) => {

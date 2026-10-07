@@ -16,6 +16,7 @@
   import CircleAlert from '@lucide/svelte/icons/circle-alert';
   import ChevronLeft from '@lucide/svelte/icons/chevron-left';
   import ChevronRight from '@lucide/svelte/icons/chevron-right';
+  import ScrollText from '@lucide/svelte/icons/scroll-text';
   import { canSpeak, pickLocalVoice, speakWith, stopSpeaking } from '../speech';
   import {
     activeVariant as activeVariantOf,
@@ -613,17 +614,23 @@
             >
           {/each}
           {#if copy.detail !== undefined}
-            <Button
-              variant="ghost"
+            <!-- An icon, not "Details ▸": three text buttons only fit 256px in the narrowest fonts. -->
+            <IconButton
+              icon={ScrollText}
+              ariaLabel="Details"
               size="sm"
-              dataAttrs={{ 'aria-expanded': String(detailsOpen), 'data-ega-error-details': 'true' }}
-              onclick={() => (detailsOpen = !detailsOpen)}>Details {detailsOpen ? '▾' : '▸'}</Button
-            >
+              dataAttrs={{
+                'aria-expanded': String(detailsOpen),
+                'aria-controls': `${turn.id}-detail`,
+                'data-ega-error-details': 'true',
+              }}
+              onclick={() => (detailsOpen = !detailsOpen)}
+            />
           {/if}
           {#if variantCount > 1}{@render pager(false)}{/if}
         </div>
         {#if detailsOpen && copy.detail !== undefined}
-          <pre class="ega-error-detail">{copy.detail}</pre>
+          <pre class="ega-error-detail" id="{turn.id}-detail">{copy.detail}</pre>
         {/if}
       </div>
     {/if}
@@ -941,9 +948,15 @@
   .ega-error-actions :global(.ega-btn.variant-ghost) {
     padding-inline: var(--space-1);
   }
+  /* The countdown is the visible reason the button waits, so it stays readable text (4.5:1), not disabled grey. */
   .ega-error-actions :global(.ega-btn[aria-disabled='true']) {
-    color: var(--color-fg-disabled);
+    color: var(--color-muted);
     cursor: var(--cursor-disabled);
+  }
+  .ega-error-actions :global([data-ega-error-details][aria-expanded='true']) {
+    color: var(--color-accent-hover);
+    border-color: var(--color-accent);
+    background: var(--color-accent-bg-soft);
   }
   .ega-error-detail {
     margin: 0;
