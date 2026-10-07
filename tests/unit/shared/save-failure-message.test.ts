@@ -5,7 +5,9 @@ import type { PatchAck } from '@/shared/settings-bus';
 describe('settingsSaveFailedMessage — one copy for every surface that reports a failed write', () => {
   it('names the storage-full case and how to free space', () => {
     expect(settingsSaveFailedMessage('quota')).toBe(QUOTA_MESSAGE);
-    expect(QUOTA_MESSAGE).toMatch(/side panel/i);
+    // New conversation keeps the old one now, so only a delete frees space.
+    expect(QUOTA_MESSAGE).toMatch(/Delete old conversations in the side panel/);
+    expect(QUOTA_MESSAGE).not.toMatch(/new conversation/i);
   });
 
   it('names the rejected-value case and how to recover', () => {

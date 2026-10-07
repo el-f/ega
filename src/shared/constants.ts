@@ -45,7 +45,7 @@ export const DEFAULT_STREAMING_FLUSH_MS = 20;
 export const CANCEL_PRE_REG_CAP = 256;
 
 export const QUOTA_MESSAGE =
-  'Storage is full, so the change was not saved. Start a new conversation in the side panel to free space.';
+  'Storage is full, so the change was not saved. Delete old conversations in the side panel to free space.';
 export const SCHEMA_MESSAGE =
   'That value was rejected, so the change was not saved. Reload the page and try again.';
 const SAVE_FAILED_MESSAGE = 'The change was not saved. Try again.';

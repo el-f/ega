@@ -11,7 +11,7 @@
 
 ## Visible affordances
 
-- The popup and side panel show the shared quota message on this ack: "Storage is full, so the change was not saved. Start a new conversation in the side panel to free space." Content-script writes show nothing; at most they log it.
+- The popup and side panel show the shared quota message on this ack: "Storage is full, so the change was not saved. Delete old conversations in the side panel to free space." Content-script writes show nothing; at most they log it.
 
 ## Failure-mode expectations
 
