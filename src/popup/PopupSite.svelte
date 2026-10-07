@@ -134,9 +134,19 @@
       transition: none;
     }
   }
+  /* The system colors force the track to Canvas, so each state paints its own: an outlined track with a CanvasText thumb off, a Highlight track with a HighlightText thumb on. */
   @media (forced-colors: active) {
     .switch-row :global(.ega-checkbox-input[role='switch'])::after {
+      forced-color-adjust: none;
       background-color: CanvasText;
+    }
+    .switch-row :global(.ega-checkbox-input[role='switch']:checked) {
+      forced-color-adjust: none;
+      background-color: Highlight;
+      border-color: Highlight;
+    }
+    .switch-row :global(.ega-checkbox-input[role='switch']:checked)::after {
+      background-color: HighlightText;
     }
   }
   .status {

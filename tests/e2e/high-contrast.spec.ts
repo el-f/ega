@@ -86,6 +86,37 @@ test('popup: keyboard focus keeps a ring, and a disabled button is greyed by col
   await expectFocusRing(page);
 });
 
+test('popup: the site switch shows on and off apart, with a visible thumb either way', async () => {
+  const page = await ext.context.newPage();
+  await page.addInitScript(() => {
+    chrome.tabs.query = (async () => [
+      { id: 7, url: 'https://example.com/', windowId: 1 },
+    ]) as unknown as typeof chrome.tabs.query;
+    chrome.tabs.sendMessage = (async () => ({
+      text: '',
+    })) as unknown as typeof chrome.tabs.sendMessage;
+  });
+  await page.goto(`chrome-extension://${ext.extensionId}/src/popup/index.html`);
+  const sw = page.getByRole('switch', { name: 'Ega on example.com' });
+  await expect(sw).toBeChecked();
+  await forceColors(page);
+  const look = (): Promise<{ track: string; thumb: string; at: string }> =>
+    sw.evaluate((n) => ({
+      track: getComputedStyle(n).backgroundColor,
+      thumb: getComputedStyle(n, '::after').backgroundColor,
+      at: getComputedStyle(n, '::after').transform,
+    }));
+  const on = await look();
+  expect(on.thumb).not.toBe(on.track);
+  await sw.click();
+  await expect(sw).not.toBeChecked();
+  const off = await look();
+  expect(off.thumb).not.toBe(off.track);
+  // Not by colour alone: the thumb sits at the other end.
+  expect(off.at).not.toBe(on.at);
+  expect(off.track).not.toBe(on.track);
+});
+
 test('side panel: the streaming skeleton bar keeps a border', async () => {
   await seedSettings(ext.context, ext.extensionId, { anthropicApiKey: 'sk-test', streaming: true });
   mockAnthropic(ext.context, { translation: 'Hello', delayMs: 3_000 });
