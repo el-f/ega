@@ -95,3 +95,59 @@ test('a deleted conversation can be brought back for 8 seconds, then it is gone'
   await expect(sp.locator('[data-ega-user-turn]')).toContainText('newest chat');
   timeline.markStep('deleted-for-good');
 });
+
+/** The panel with the two seeded conversations, the newest one open. */
+async function panelWithTwo(): Promise<Page> {
+  const now = Date.now();
+  const sp = await ext.context.newPage();
+  await sp.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
+  await seedConversations(sp, [
+    {
+      id: 'https://example.com',
+      updatedAt: now - 5 * MIN,
+      turns: [user('a1', 'newest chat', now - 5 * MIN), reply('a2', 'a1', now - 5 * MIN)],
+    },
+    {
+      id: OLDER,
+      updatedAt: now - 60 * MIN,
+      turns: [user('b1', 'older chat', now - 60 * MIN), reply('b2', 'b1', now - 60 * MIN)],
+    },
+  ]);
+  await sp.reload();
+  await expect(sp.locator('[data-ega-user-turn]')).toContainText('newest chat', {
+    timeout: 5_000,
+  });
+  return sp;
+}
+
+test('deleting the open conversation keeps its Undo line, with an empty conversation behind it', async () => {
+  const sp = await panelWithTwo();
+  await sp.locator('[data-ega-header-site]').click();
+  const row = sp.locator('[data-ega-conversations] [data-ega-conv-row="https://example.com"]');
+  await expect(row.locator('[data-ega-conv-open]')).toHaveAttribute('aria-current', 'true');
+  await row.locator('[data-ega-conv-delete]').click();
+  await expect(row).toContainText('Conversation deleted');
+  await expect(row.locator('[data-ega-conv-undo]')).toBeFocused();
+  await expect(sp.locator('[data-ega-user-turn]')).toHaveCount(0);
+
+  await row.locator('[data-ega-conv-undo]').click();
+  await expect(row.locator('[data-ega-conv-title]')).toHaveText('newest chat');
+});
+
+test('a delete still in its Undo window is finished when the panel closes', async () => {
+  const sp = await panelWithTwo();
+  await sp.locator('[data-ega-header-site]').click();
+  const row = sp.locator(`[data-ega-conversations] [data-ega-conv-row="${OLDER}"]`);
+  await row.locator('[data-ega-conv-delete]').click();
+  await expect(row).toContainText('Conversation deleted');
+
+  // Closed well inside the 8 s window: the worker still finishes the delete.
+  await sp.close({ runBeforeUnload: true });
+  const again = await ext.context.newPage();
+  await again.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
+  await expect
+    .poll(async () => await stored(again), { timeout: 5_000 })
+    .toEqual({ bytes: 2, turns: 0 });
+  await again.locator('[data-ega-header-site]').click();
+  await expect(again.locator('[data-ega-conversations] [data-ega-conv-row]')).toHaveCount(1);
+});

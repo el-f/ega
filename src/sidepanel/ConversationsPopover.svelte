@@ -34,7 +34,7 @@
   /** Rows waiting out their Undo window, kept on screen in place of the row. */
   const undoing = new SvelteMap<
     string,
-    { undo: () => void; timer: ReturnType<typeof setTimeout> }
+    { handle: Promise<{ undo: () => void }>; timer: ReturnType<typeof setTimeout> }
   >();
   /** Rows a failed delete brought back, each with its one-line reason. */
   const failed = new SvelteMap<string, string>();
@@ -100,20 +100,18 @@
   }
 
   async function remove(id: string): Promise<void> {
+    // A second click or Delete key while this one runs would schedule a delete its Undo cannot cancel.
+    if (undoing.has(id)) return;
     failed.delete(id);
-    let handle: { undo: () => void };
-    try {
-      handle = await onDelete(id, () => {
-        undoing.delete(id);
-        failed.set(id, "Couldn't delete. Try again.");
-        void refresh();
-      });
-    } catch (e) {
-      debugCatch(e, 'ConversationsPopover.remove');
-      failed.set(id, "Couldn't delete. Try again.");
-      return;
-    }
     const at = rowsInOrder.findIndex((r) => r.origin === id);
+    // Held before any await: deleting the open conversation saves the index, and that refresh drops unheld rows.
+    const handle = onDelete(id, () => {
+      const u = undoing.get(id);
+      if (u) clearTimeout(u.timer);
+      undoing.delete(id);
+      failed.set(id, "Couldn't delete. Try again.");
+      void refresh();
+    });
     const timer = setTimeout(() => {
       const hadFocus = listEl?.querySelector(
         `[data-ega-conv-row="${CSS.escape(id)}"] [data-ega-conv-undo]`,
@@ -126,17 +124,31 @@
         void tick().then(() => focusRow((rest[at] ?? rest[at - 1])?.origin));
       }
     }, 8000);
-    undoing.set(id, { undo: handle.undo, timer });
+    undoing.set(id, { handle, timer });
     await tick();
     focusRow(id, 'undo');
+    try {
+      await handle;
+    } catch (e) {
+      debugCatch(e, 'ConversationsPopover.remove');
+      clearTimeout(timer);
+      undoing.delete(id);
+      failed.set(id, "Couldn't delete. Try again.");
+    }
   }
 
   async function undo(id: string): Promise<void> {
     const u = undoing.get(id);
     if (u === undefined) return;
     clearTimeout(u.timer);
-    u.undo();
     undoing.delete(id);
+    try {
+      // An Undo during the switch away waits for the handle; a refresh meanwhile may have dropped the row.
+      (await u.handle).undo();
+      await refresh();
+    } catch (e) {
+      debugCatch(e, 'ConversationsPopover.undo');
+    }
     await tick();
     focusRow(id);
   }
