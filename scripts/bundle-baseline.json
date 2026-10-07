@@ -49,7 +49,7 @@
   },
   {
     "name": "err-labels",
-    "bytes": 15117
+    "bytes": 15345
   },
   {
     "name": "error-fix-toast",
@@ -81,7 +81,7 @@
   },
   {
     "name": "index.html",
-    "bytes": 394234
+    "bytes": 394240
   },
   {
     "name": "index.ts",
@@ -93,7 +93,7 @@
   },
   {
     "name": "inlineReplace",
-    "bytes": 4332
+    "bytes": 4507
   },
   {
     "name": "lang-tag",
@@ -113,7 +113,7 @@
   },
   {
     "name": "page-translate-v2",
-    "bytes": 19939
+    "bytes": 19948
   },
   {
     "name": "pending-popup-handoff",
@@ -125,7 +125,7 @@
   },
   {
     "name": "picker",
-    "bytes": 2537
+    "bytes": 2546
   },
   {
     "name": "picker-overlay",
@@ -193,7 +193,7 @@
   },
   {
     "name": "src-content-index.ts",
-    "bytes": 34375
+    "bytes": 34574
   },
   {
     "name": "stuck-timeout",
@@ -213,7 +213,7 @@
   },
   {
     "name": "theme",
-    "bytes": 10111
+    "bytes": 10578
   },
   {
     "name": "theme-apply",
@@ -221,19 +221,19 @@
   },
   {
     "name": "tipState.svelte",
-    "bytes": 29133
+    "bytes": 29145
   },
   {
     "name": "toast",
-    "bytes": 3047
+    "bytes": 3337
   },
   {
     "name": "toast-policy",
-    "bytes": 142
+    "bytes": 131
   },
   {
     "name": "toastStore",
-    "bytes": 1287
+    "bytes": 1543
   },
   {
     "name": "Translate",
@@ -241,7 +241,7 @@
   },
   {
     "name": "translate-handlers",
-    "bytes": 5581
+    "bytes": 5597
   },
   {
     "name": "translate-ui",
