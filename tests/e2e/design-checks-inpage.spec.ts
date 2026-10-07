@@ -2,6 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import {
   egaTest,
   launchExtension,
+  mockAnthropic,
   onlyBackends,
   seedSettings,
   waitForTestHooks,
@@ -18,6 +19,7 @@ test.beforeEach(async () => {
     anthropicApiKey: 'sk-test',
     ...onlyBackends('anthropic'),
     bubbleFirstRunSeen: true,
+    smartBubbleBannerShown: true,
     cacheEnabled: false,
   });
 });
@@ -35,6 +37,8 @@ async function probe(
   smallTargets: string[];
   titles: string[];
   disabledInToolbars: number;
+  nameMismatch: string[];
+  sizes: number[];
 }> {
   return page.evaluate((shadow) => {
     const root: ParentNode = shadow
@@ -46,47 +50,116 @@ async function probe(
       return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none';
     };
     const smallText: string[] = [];
+    const sizes = new Set<number>();
     for (const el of root.querySelectorAll<HTMLElement>('*')) {
       if (!visible(el) || el.closest('.ega-sr-only, [aria-hidden="true"]')) continue;
       const own = [...el.childNodes].some(
         (n) => n.nodeType === Node.TEXT_NODE && (n.nodeValue ?? '').trim() !== '',
       );
-      if (own && Number.parseFloat(getComputedStyle(el).fontSize) < 12) {
+      if (!own) continue;
+      const px = Number.parseFloat(getComputedStyle(el).fontSize);
+      sizes.add(px);
+      if (px < 12) {
         smallText.push(`${el.tagName.toLowerCase()} "${el.textContent.trim().slice(0, 30)}"`);
       }
     }
-    const smallTargets = [...root.querySelectorAll<HTMLElement>('button, a[href], [role="switch"]')]
+    const buttons = [...root.querySelectorAll<HTMLElement>('button, a[href], [role="switch"]')]
       // The backend chip belongs to the shared header (side panel slice); it is reported there.
-      .filter((el) => visible(el) && !el.closest('.ega-sr-only, .active-backend-chip'))
+      .filter((el) => visible(el) && !el.closest('.ega-sr-only, .active-backend-chip'));
+    const smallTargets = buttons
       .filter((el) => {
         const r = el.getBoundingClientRect();
         return r.width < 24 || r.height < 24;
       })
       .map((el) => el.getAttribute('aria-label') ?? el.textContent.trim().slice(0, 30));
+    // Label in name: a control's accessible name starts with the words it shows.
+    const nameMismatch = buttons
+      .map((el) => ({
+        text: el.innerText.replace(/\s+/g, ' ').trim(),
+        name: (el.getAttribute('aria-label') ?? el.innerText).replace(/\s+/g, ' ').trim(),
+      }))
+      .filter(({ text, name }) => text !== '' && !name.startsWith(text))
+      .map(({ text, name }) => `"${name}" does not start with "${text}"`);
     const titles = [...root.querySelectorAll('[title]')].map((el) => el.tagName.toLowerCase());
     const disabledInToolbars = root.querySelectorAll('[role="toolbar"] [disabled]').length;
-    return { smallText, smallTargets, titles, disabledInToolbars };
+    return {
+      smallText,
+      smallTargets,
+      titles,
+      disabledInToolbars,
+      nameMismatch,
+      sizes: [...sizes].sort(),
+    };
   }, inShadow);
 }
 
-test('popup: one filled primary, one-line tools, a one-stop toolbar, no small text or targets', async () => {
+/** Every toolbar is one tab stop, and ArrowRight (or ArrowDown on a vertical one) moves focus along it. */
+async function checkToolbars(page: Page, inShadow: boolean): Promise<void> {
+  const count = await page.evaluate(
+    (shadow) =>
+      (shadow
+        ? document.getElementById('ega-shadow-host')?.shadowRoot
+        : document
+      )?.querySelectorAll('[role="toolbar"]').length ?? 0,
+    inShadow,
+  );
+  for (let i = 0; i < count; i++) {
+    const bar = await page.evaluate(
+      ({ shadow, at }) => {
+        const root = shadow ? document.getElementById('ega-shadow-host')?.shadowRoot : document;
+        const el = root?.querySelectorAll<HTMLElement>('[role="toolbar"]')[at];
+        const buttons = [...(el?.querySelectorAll<HTMLElement>('button') ?? [])].filter(
+          (b) => b.getClientRects().length > 0,
+        );
+        buttons.find((b) => b.tabIndex === 0)?.focus();
+        return {
+          total: buttons.length,
+          stops: buttons.filter((b) => b.tabIndex === 0).length,
+          vertical: el?.getAttribute('aria-orientation') === 'vertical',
+        };
+      },
+      { shadow: inShadow, at: i },
+    );
+    expect(bar.stops, `toolbar ${i} has one tab stop`).toBe(1);
+    if (bar.total < 2) continue;
+    const before = await activeLabel(page, inShadow);
+    await page.keyboard.press(bar.vertical ? 'ArrowDown' : 'ArrowRight');
+    expect(await activeLabel(page, inShadow), `an arrow moves along toolbar ${i}`).not.toBe(before);
+  }
+}
+
+function activeLabel(page: Page, inShadow: boolean): Promise<string> {
+  return page.evaluate((shadow) => {
+    const active = shadow
+      ? document.getElementById('ega-shadow-host')?.shadowRoot?.activeElement
+      : document.activeElement;
+    return active ? (active.getAttribute('aria-label') ?? active.textContent.trim()) : '';
+  }, inShadow);
+}
+
+/** The popup as a page over a stubbed active tab; the URL and the page's answer decide its state. */
+async function openPopup(tab: { url: string; reply?: unknown; reject?: boolean }): Promise<Page> {
   const popup = await ext.context.newPage();
-  await popup.addInitScript(() => {
+  await popup.addInitScript((t) => {
     const g = globalThis as unknown as {
       chrome: { tabs: { query: unknown; sendMessage: unknown } };
     };
-    g.chrome.tabs.query = async () => [{ id: 7, url: 'https://example.com/', windowId: 1 }];
-    g.chrome.tabs.sendMessage = async () => ({
-      text: 'hi',
-      heldBack: { reason: 'english' },
-    });
-  });
+    g.chrome.tabs.query = async () => [{ id: 7, url: t.url, windowId: 1 }];
+    g.chrome.tabs.sendMessage = async (_id: number, msg: { kind: string }) => {
+      if (t.reject)
+        throw new Error('Could not establish connection. Receiving end does not exist.');
+      return msg.kind === 'ega:get-selection' ? (t.reply ?? { text: '' }) : { ok: true };
+    };
+  }, tab);
   await popup.setViewportSize({ width: 360, height: 640 });
   await popup.goto(`chrome-extension://${ext.extensionId}/src/popup/index.html`);
-  await popup.getByRole('button', { name: 'Translate anyway' }).waitFor();
+  await popup.getByRole('button', { name: 'Translate page' }).waitFor();
+  return popup;
+}
 
-  // One filled primary: buttons painted with the accent color.
-  const filled = await popup.evaluate(() => {
+/** Buttons painted with the accent fill. */
+function filledButtons(page: Page): Promise<number> {
+  return page.evaluate(() => {
     const probe = document.createElement('span');
     probe.style.background = 'var(--color-accent)';
     document.body.append(probe);
@@ -96,25 +169,73 @@ test('popup: one filled primary, one-line tools, a one-stop toolbar, no small te
       (b) => getComputedStyle(b).backgroundColor === accent,
     ).length;
   });
-  expect(filled).toBe(1);
+}
 
-  const toolRows = await popup.evaluate(() =>
-    [...document.querySelectorAll<HTMLElement>('[data-ega-popup-tools] button')].map((b) => ({
-      oneLine: b.getBoundingClientRect().height <= 40,
-      tab: b.tabIndex,
-    })),
-  );
-  expect(toolRows.every((r) => r.oneLine)).toBe(true);
-  expect(toolRows.filter((r) => r.tab === 0)).toHaveLength(1);
+const SITE = 'https://example.com/';
+const POPUP_STATES: {
+  name: string;
+  tab: { url: string; reply?: unknown; reject?: boolean };
+  seed?: Record<string, unknown>;
+  /** The page can be translated, so Translate page (or the setup card) is the one filled button. */
+  usable: boolean;
+}[] = [
+  { name: 'default', tab: { url: SITE }, usable: true },
+  {
+    name: 'held back',
+    tab: { url: SITE, reply: { text: 'hi', heldBack: { reason: 'english' } } },
+    usable: true,
+  },
+  { name: 'text pre-filled', tab: { url: SITE, reply: { text: 'shu 3am ta3mel' } }, usable: true },
+  { name: 'restricted', tab: { url: 'chrome://extensions/' }, usable: false },
+  { name: 'not running', tab: { url: SITE, reject: true }, usable: false },
+  {
+    name: 'site off',
+    tab: { url: SITE },
+    seed: { sitePrefs: { 'https://example.com': { disabled: true } } },
+    usable: false,
+  },
+  {
+    name: 'no backend',
+    tab: { url: SITE },
+    seed: { anthropicApiKey: '', sitePrefs: {} },
+    usable: true,
+  },
+];
 
-  const p = await probe(popup, false);
-  expect(p.smallText).toEqual([]);
-  expect(p.smallTargets).toEqual([]);
-  expect(p.titles).toEqual([]);
-  expect(p.disabledInToolbars).toBe(0);
+test('popup, every state: at most one filled button, one-line tools, toolbar stops, 12px, 24px, names', async () => {
+  test.slow();
+  for (const state of POPUP_STATES) {
+    if (state.seed) await seedSettings(ext.context, ext.extensionId, state.seed);
+    const popup = await openPopup(state.tab);
+    await popup.waitForTimeout(300); // wait for the backend chip's probe to settle (no observable end state)
+
+    const filled = await filledButtons(popup);
+    if (state.usable) expect(filled, `${state.name}: one filled button`).toBe(1);
+    else expect(filled, `${state.name}: no more than one filled button`).toBeLessThanOrEqual(1);
+
+    const toolRows = await popup.evaluate(() =>
+      [...document.querySelectorAll<HTMLElement>('[data-ega-popup-tools] button')].map(
+        (b) => b.getBoundingClientRect().height <= 40,
+      ),
+    );
+    expect(toolRows.every(Boolean), `${state.name}: every tool row is one line`).toBe(true);
+
+    const p = await probe(popup, false);
+    expect(p.smallText, state.name).toEqual([]);
+    expect(p.smallTargets, state.name).toEqual([]);
+    expect(p.titles, state.name).toEqual([]);
+    expect(p.disabledInToolbars, state.name).toBe(0);
+    expect(p.nameMismatch, state.name).toEqual([]);
+    expect(
+      p.sizes.length,
+      `${state.name}: at most 3 type sizes (${p.sizes.join(', ')})`,
+    ).toBeLessThanOrEqual(3);
+    await checkToolbars(popup, false);
+    await popup.close();
+  }
 });
 
-test('bubble and picker bar: 12px floor, 24px targets, the bubble named by its label', async () => {
+test('bubble and picker bar: 12px floor, 24px targets, toolbar stops, the bubble named by its label', async () => {
   const page = await ext.context.newPage();
   await page.goto(`${ext.serverUrl}/batch-page.html`);
   await waitForTestHooks(page);
@@ -132,10 +253,13 @@ test('bubble and picker bar: 12px floor, 24px targets, the bubble named by its l
     return { label: b?.textContent.trim(), aria: b?.getAttribute('aria-label') ?? null };
   });
   expect(named).toEqual({ label: 'Translate to English', aria: null });
+  // A long target name may end in an ellipsis; the label is marked as an allowed truncation.
+  await expect(page.locator('.bubble-label[data-ega-truncates]')).toHaveCount(1);
   let p = await probe(page, true);
   expect(p.smallText).toEqual([]);
   expect(p.smallTargets).toEqual([]);
   expect(p.titles).toEqual([]);
+  expect(p.nameMismatch).toEqual([]);
 
   const sw = ext.context.serviceWorkers()[0];
   await sw?.evaluate(async () => {
@@ -147,6 +271,8 @@ test('bubble and picker bar: 12px floor, 24px targets, the bubble named by its l
   expect(p.smallText).toEqual([]);
   expect(p.smallTargets).toEqual([]);
   expect(p.disabledInToolbars).toBe(0);
+  expect(p.nameMismatch).toEqual([]);
+  await checkToolbars(page, true);
 });
 
 test('page chips keep their own font and a 24px button on a hostile page', async () => {
@@ -180,11 +306,183 @@ test('page chips keep their own font and a 24px button on a hostile page', async
       size: s.fontSize,
       text: c.textContent,
       button: btn?.getBoundingClientRect().height ?? 0,
+      titles: root?.querySelectorAll('[title]').length ?? 0,
     };
   });
   expect(look.font.startsWith('system-ui')).toBe(true);
   expect(look.size).toBe('12px');
   expect(look.button).toBeGreaterThanOrEqual(24);
+  expect(look.titles).toBe(0);
   // The catalog title, never the provider's status or words.
   expect(look.text).not.toMatch(/\b[1-5]\d\d\b|HTTP|upstream|[A-Z]{2,}_[A-Z]+/);
+});
+
+async function translatePage(): Promise<void> {
+  const sw = ext.context.serviceWorkers()[0];
+  await sw?.evaluate(async () => {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tab?.id) await chrome.tabs.sendMessage(tab.id, { kind: 'page:translateAll' });
+  });
+}
+
+function pillLabel(page: Page): Promise<string> {
+  return page.evaluate(
+    () =>
+      document
+        .getElementById('ega-shadow-host')
+        ?.shadowRoot?.querySelector('[data-ega-batch-label]')
+        ?.textContent.trim() ?? '',
+  );
+}
+
+test('settled pill and toast: 12px floor, 24px targets, one toolbar stop, label in name, no titles', async () => {
+  await ext.context.route('https://api.anthropic.com/v1/messages', (route) =>
+    route.fulfill({
+      status: 401,
+      contentType: 'application/json',
+      body: '{"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"}}',
+    }),
+  );
+  const page = await ext.context.newPage();
+  await page.goto(`${ext.serverUrl}/hostile-page.html`);
+  await waitForTestHooks(page);
+  await translatePage();
+  await expect.poll(() => pillLabel(page), { timeout: 20_000 }).toMatch(/^Couldn't translate/);
+  // A toast with the pill up: the shortcut with nothing selected.
+  await page.evaluate(() => window.getSelection()?.removeAllRanges());
+  await page.keyboard.press('Control+Shift+L');
+  await page.waitForFunction(
+    () => !!document.getElementById('ega-shadow-host')?.shadowRoot?.querySelector('.ega-toast'),
+  );
+  const p = await probe(page, true);
+  expect(p.smallText).toEqual([]);
+  expect(p.smallTargets).toEqual([]);
+  expect(p.titles).toEqual([]);
+  expect(p.disabledInToolbars).toBe(0);
+  expect(p.nameMismatch).toEqual([]);
+  await checkToolbars(page, true);
+});
+
+test('tooltip, pill and toast stack in layer order: toast on top, then tooltip, then pill', async () => {
+  await seedSettings(ext.context, ext.extensionId, { pageTranslateMode: 'bilingual' });
+  mockAnthropic(ext.context, {
+    translation: 'Hello friend, how are you?',
+    detectedLang: 'arabizi',
+  });
+  const page = await ext.context.newPage();
+  // Short, so the tooltip opens near the bottom where the pill sits.
+  await page.setViewportSize({ width: 1000, height: 420 });
+  await page.goto(`${ext.serverUrl}/hostile-page.html`);
+  await waitForTestHooks(page);
+  await translatePage();
+  await expect.poll(() => pillLabel(page), { timeout: 20_000 }).toMatch(/^Page translated/);
+  await page.evaluate(() => {
+    const el = document.getElementById('c3') as HTMLElement;
+    el.scrollIntoView({ block: 'end' });
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    window.getSelection()?.removeAllRanges();
+    window.getSelection()?.addRange(range);
+  });
+  await page.keyboard.press('Control+Shift+L');
+  await expect.poll(async () => egaTest<number>(page, 'tooltipCount')).toBe(1);
+  await page.evaluate(() => window.getSelection()?.removeAllRanges());
+  await page.keyboard.press('Control+Shift+L');
+  await page.waitForFunction(
+    () => !!document.getElementById('ega-shadow-host')?.shadowRoot?.querySelector('.ega-toast'),
+  );
+  const stack = await page.evaluate(() => {
+    const root = document.getElementById('ega-shadow-host')?.shadowRoot;
+    const box = (sel: string): DOMRect | undefined =>
+      root?.querySelector(sel)?.getBoundingClientRect();
+    const at = (x: number, y: number): Element | null => root?.elementFromPoint(x, y) ?? null;
+    const z = (sel: string): number => {
+      const el = root?.querySelector(sel);
+      return el ? Number(getComputedStyle(el).zIndex) : Number.NaN;
+    };
+    const toast = box('.ega-toast');
+    const tip = box('.tooltip');
+    const pill = box('[data-ega-batch-progress]');
+    const toastTop = toast
+      ? at(toast.left + toast.width / 2, toast.top + toast.height / 2)?.closest('.ega-toast') !==
+        null
+      : false;
+    let overlapTop: boolean | null = null;
+    if (tip && pill) {
+      const left = Math.max(tip.left, pill.left);
+      const right = Math.min(tip.right, pill.right);
+      const top = Math.max(tip.top, pill.top);
+      const bottom = Math.min(tip.bottom, pill.bottom);
+      if (left < right && top < bottom) {
+        overlapTop = at((left + right) / 2, (top + bottom) / 2)?.closest('.tooltip') !== null;
+      }
+    }
+    return {
+      toastTop,
+      overlapTop,
+      order: [z('[data-ega-batch-progress]'), z('.tooltip'), z('.ega-toast')],
+    };
+  });
+  expect(stack.toastTop).toBe(true);
+  // Only a real overlap can show which layer wins; without one the order below still has to hold.
+  if (stack.overlapTop !== null) expect(stack.overlapTop).toBe(true);
+  const [pillZ = Number.NaN, tipZ = Number.NaN, toastZ = Number.NaN] = stack.order;
+  expect(pillZ).toBeLessThan(tipZ);
+  expect(tipZ).toBeLessThan(toastZ);
+});
+
+/** WCAG 1.4.12: the user's text-spacing override must not clip a control. */
+const TEXT_SPACING =
+  '* { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important; } p { margin-block-end: 2em !important; }';
+
+function clippedUnderTextSpacing(page: Page, inShadow: boolean): Promise<string[]> {
+  return page.evaluate(
+    ({ shadow, css }) => {
+      const root = shadow ? document.getElementById('ega-shadow-host')?.shadowRoot : document;
+      if (!root) return ['no Ega root'];
+      const style = document.createElement('style');
+      style.textContent = css;
+      (shadow ? root : document.head).append(style);
+      return [...root.querySelectorAll<HTMLElement>('button, label, [role="switch"]')]
+        .filter((el) => el.getBoundingClientRect().width > 1 && !el.closest('.active-backend-chip'))
+        .filter(
+          (el) => el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1,
+        )
+        .map((el) => el.getAttribute('aria-label') ?? el.textContent.trim().slice(0, 30));
+    },
+    { shadow: inShadow, css: TEXT_SPACING },
+  );
+}
+
+test('text spacing override: nothing in the popup, picker bar or pill is clipped', async () => {
+  const popup = await openPopup({ url: SITE });
+  expect(await clippedUnderTextSpacing(popup, false)).toEqual([]);
+  // Positive control: a control that is too narrow for its words is reported.
+  await popup.evaluate(() => {
+    const b = document.createElement('button');
+    b.textContent = 'Far too long a label';
+    b.style.cssText = 'width:40px;overflow:hidden;white-space:nowrap';
+    document.body.append(b);
+  });
+  expect(await clippedUnderTextSpacing(popup, false)).toEqual(['Far too long a label']);
+  await popup.close();
+
+  mockAnthropic(ext.context, {
+    translation: 'Hello friend, how are you?',
+    detectedLang: 'arabizi',
+  });
+  const page = await ext.context.newPage();
+  await page.goto(`${ext.serverUrl}/batch-page.html`);
+  await waitForTestHooks(page);
+  const sw = ext.context.serviceWorkers()[0];
+  await sw?.evaluate(async () => {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tab?.id) await chrome.tabs.sendMessage(tab.id, { kind: 'page:chooseAreas' });
+  });
+  await expect.poll(async () => egaTest<boolean>(page, 'msIsActive')).toBe(true);
+  expect(await egaTest<boolean>(page, 'msSelectById', 'c1')).toBe(true);
+  expect(await clippedUnderTextSpacing(page, true)).toEqual([]);
+  expect(await egaTest<boolean>(page, 'msFire')).toBe(true);
+  await expect.poll(() => pillLabel(page), { timeout: 15_000 }).toMatch(/^Page translated/);
+  expect(await clippedUnderTextSpacing(page, true)).toEqual([]);
 });

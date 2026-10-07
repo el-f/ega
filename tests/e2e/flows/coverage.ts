@@ -287,6 +287,18 @@ export const COVERAGE: readonly Family[] = [
               'The popup names why the bubble stayed hidden; Translate anyway opens the tooltip',
             flows: ['popup/translate-anyway.flow.spec.ts'],
           },
+          {
+            id: 'restricted-page',
+            description:
+              'On a page no extension may run on, the page actions say why and send nothing',
+            flows: ['popup/restricted-page.flow.spec.ts'],
+          },
+          {
+            id: 'not-running-reload',
+            description:
+              'A page without the content script asks for a reload; Reload page reloads that tab',
+            flows: ['popup/not-running-reload.flow.spec.ts'],
+          },
         ],
       },
       {
