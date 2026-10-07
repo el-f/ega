@@ -49,7 +49,7 @@ function insertAt<T>(list: readonly T[], at: number, item: T): T[] {
 }
 
 /** `cur` with the references to `id` that `before` held and the delete dropped. */
-export function withLanguageRefs(cur: Settings, before: Settings, id: string): Settings {
+function withLanguageRefs(cur: Settings, before: Settings, id: string): Settings {
   const next: Settings = { ...cur };
 
   const prompt = before.advanced.perPresetTemplates[id];

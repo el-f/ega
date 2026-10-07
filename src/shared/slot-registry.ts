@@ -155,12 +155,6 @@ export function slotsFor(task: string): readonly SlotSpec[] {
   return Object.values(SLOT_REGISTRY).filter((s) => ALL.every((t) => s.filledFor.includes(t)));
 }
 
-/** Every registered slot. The global template spans all tasks, so its palette
- *  must offer slots no single task fills — `explainInstr`, `explainField`. */
-export function allSlots(): readonly SlotSpec[] {
-  return Object.values(SLOT_REGISTRY);
-}
-
 export function isBuiltInSlot(name: string): boolean {
   return Object.hasOwn(SLOT_REGISTRY, name);
 }
