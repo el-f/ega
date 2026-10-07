@@ -318,10 +318,14 @@ export function createRouter(deps: RouterDeps) {
       const latencyMs = performance.now() - metaStart;
       const { firstDeltaAt } = fsm.context();
       const usage = chunk.usage;
+      // A cache hit cannot know which model made the answer it replays; its meta line says "Saved answer".
+      const modelId =
+        cacheHit || backendId === 'unknown' ? '' : resolveModelId(cfg.model, backendId);
       const meta: ResultMeta = {
         backendId,
         cacheHit,
         latencyMs,
+        ...(modelId !== '' ? { modelId } : {}),
         sourceLang: String(req.sourceLang),
         targetLang: String(req.targetLang),
         ...omitUndef({
