@@ -37,15 +37,15 @@ from it. `docs/PRIVACY.md` says what each store means for you, and
 
 ### `chrome.storage.local` — survives a browser restart
 
-| What                       | Key                     | Limits                                                                                                |
-| -------------------------- | ----------------------- | ----------------------------------------------------------------------------------------------------- |
-| Settings and API keys      | `ega.settings`          | —                                                                                                     |
-| Custom languages           | `ega.customLanguages`   | —                                                                                                     |
-| Custom tasks               | `ega.customTasks`       | 50 tasks.                                                                                             |
-| Side-panel conversations   | `ega:conv:t:<origin>`   | One thread per site, the origin in clear as the key. 50 sites, 300 turns per site, 512 KB per thread. |
-| The list of those sites    | `ega:conv:index`        | One row per site: its origin and the time you last used it.                                           |
-| Request audit log          | `egaAuditLog`           | Last 50 requests, text and image alike. Prompt and reply cut to 200 characters, 1000 on a failure.    |
-| Which Settings tab to open | `ega.pendingOptionsTab` | A tab name, none of your text. Written just before Settings opens, deleted when that page reads it.   |
+| What                       | Key                     | Limits                                                                                                                            |
+| -------------------------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Settings and API keys      | `ega.settings`          | —                                                                                                                                 |
+| Custom languages           | `ega.customLanguages`   | —                                                                                                                                 |
+| Custom tasks               | `ega.customTasks`       | 50 tasks.                                                                                                                         |
+| Side-panel conversations   | `ega:conv:t:<id>`       | One key per conversation, several per site; the id starts with the origin, in clear. 50 conversations, 300 turns and 512 KB each. |
+| The list of conversations  | `ega:conv:index`        | One row per conversation: its site, times, message count and title (first line of its first message, up to 80 characters).        |
+| Request audit log          | `egaAuditLog`           | Last 50 requests, text and image alike. Prompt and reply cut to 200 characters, 1000 on a failure.                                |
+| Which Settings tab to open | `ega.pendingOptionsTab` | A tab name, none of your text. Written just before Settings opens, deleted when that page reads it.                               |
 
 **Side-panel conversations are the largest store of page content Ega keeps at
 rest.** Details, because the size is easy to underestimate:
@@ -311,7 +311,7 @@ network call at all — it talks to the local CLI over stdin/stdout.
 
 **4. Tab addresses.** Ega has no `tabs` permission. `<all_urls>` is what makes
 `chrome.tabs` return each tab's URL, and Ega reads it for two things: the side
-panel follows the active tab so it loads that site's thread
+panel follows the active tab so it loads that site's current conversation
 (`src/sidepanel/state/active-origin.ts#getActiveOrigin`), and the right-click
 item is relabeled for the current host
 (`src/background/contextMenu.ts#refreshSiteToggleLabel`). Nothing reads a tab's

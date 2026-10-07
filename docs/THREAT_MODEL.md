@@ -30,7 +30,9 @@ line number. `pnpm lint:docs` fails when a cited file or symbol is gone.
 The shadow root Ega mounts on the page is **open** —
 `attachShadow({ mode: 'open' })` in `src/content/shadowHost.ts#mountShadowHost`. It is a
 style and layout boundary, not a security boundary. Page script can reach
-`host.shadowRoot`. Nothing secret is ever put inside it. The host is built the first time
+`host.shadowRoot`. No API key or stored conversation goes inside it; the one piece of your
+setup that can is the system prompt, when you expand **Instructions sent** in the tooltip
+(see "The page can read the tooltip" below). The host is built the first time
 Ega draws on the page, so a page where you never use Ega never gets one.
 
 ---
@@ -69,23 +71,29 @@ In priority order:
    Sensitive on a medical, legal or work page.
 
 3. **Side-panel conversation history** — the largest store of page content at
-   rest. `saveThread` writes one thread per site under `ega:conv:t:<origin>`, plus an
-   `ega:conv:index` that names every origin you used the panel on
-   (`src/sidepanel/state/conversation-store.ts#saveThread`). The origin is the key
-   itself, in clear: `chrome.storage.local.get(null)` reads back up to 50 site names.
-   Nothing is hashed, and nothing is synced. Limits are 50 sites and 300 turns per
-   site, plus byte ceilings — 300 KB per turn, 512 KB per thread, 4 MB across all
-   threads (`src/sidepanel/state/conversation-store.ts#MAX_TURN_BYTES`). Each turn
-   keeps the full sent text, the full reply, the explain note, every earlier variant
-   from a refine, the `contextSent` page-context snapshot, and an image up to 256 KB;
-   past a ceiling the oldest turns drop, and a turn over 300 KB is cut back to its
+   rest. `saveThread` writes one key per conversation, `ega:conv:t:<id>`, and a site can
+   have several; the id is the site's origin, or the origin with `#` and a suffix. An
+   `ega:conv:index` row per conversation names its site and keeps its times, message count
+   and title: the first line of its first message, up to 80 characters
+   (`src/sidepanel/state/conversation-store.ts#saveThread`). The origin starts every key,
+   in clear: `chrome.storage.local.get(null)` reads back the sites of up to 50
+   conversations. Nothing is hashed, and nothing is synced. Limits are 50 conversations and
+   300 turns per conversation, plus byte ceilings — 300 KB per turn, 512 KB per
+   conversation, 4 MB across all of them
+   (`src/sidepanel/state/conversation-store.ts#MAX_TURN_BYTES`). Each turn keeps the full
+   sent text, the full reply, the explain note, every earlier variant from a refine, the
+   `contextSent` page-context snapshot, and an image up to 256 KB. With **Record request
+   details** on, each of the 20 newest replies also keeps the system prompt it was sent
+   with, up to 6,000 characters, which holds the rules and the glossary entries that
+   matched. Past a ceiling the oldest turns drop, and a turn over 300 KB is cut back to its
    visible text, capped at 20,000 characters, losing its refine variants
    (`src/sidepanel/state/conversation-store.ts#shrinkTurn`).
    Saving is automatic on every change and no setting turns it off.
-   **New conversation** removes every turn for the current site, and keeps the site name
-   plus the ids of the removed turns so a second window cannot write them back.
-   **Settings → Advanced → Data → Saved conversations** lists every site's thread and
-   deletes one or all of them; **Settings → About → Delete all data** clears everything.
+   **New conversation** deletes nothing: the old conversation stays in the list.
+   **Delete** on a conversation's row in the side panel's list (the site title) removes
+   it after an 8-second Undo, and keeps the ids of the removed turns so a second window
+   cannot write them back. **Settings → Advanced → Data → Saved conversations** deletes
+   one or all of them; **Settings → About → Delete all data** clears everything.
 4. **The request audit log** — the last 50 backend requests, text and image
    alike, kept in `chrome.storage.local`. Prompts and responses are clamped to
    200 characters, 1000 when the request failed, and an error message to 500
@@ -356,7 +364,9 @@ Residual risks:
 
 - **The page can read the tooltip.** The tooltip renders in an open shadow root, so
   script on the page can read the answer it shows. Whatever a model puts in an answer
-  to a page selection, that page can see.
+  to a page selection, that page can see. When you expand **Instructions sent** in the
+  tooltip's About, the system prompt is in that root too, so the page can read your
+  rules, snippets and the glossary entries that matched.
 
 ### Argument injection into the CLI child
 
@@ -456,10 +466,10 @@ keys unless you tick the box.
 
 ### Your visited sites are readable as storage key names
 
-The side panel writes one thread per origin under `ega:conv:t:<origin>` — the origin in
-clear, as part of the key. Anything that can call
-`chrome.storage.local.get(null)` in this profile reads back up to 50 site names without
-touching the conversation bodies. This is a deliberate call, not an oversight: hashing
+The side panel writes each conversation under `ega:conv:t:<id>`, and the id starts with
+the site's origin in clear. Anything that can call
+`chrome.storage.local.get(null)` in this profile reads back the sites of up to 50
+conversations without touching the conversation bodies. This is a deliberate call, not an oversight: hashing
 the key while the conversation text sits in plaintext underneath it hides nothing from
 the same reader. The store is device-local and never synced, and **Settings → About →
 Delete all data** removes it.
@@ -532,8 +542,10 @@ leaves your device, not to prevent the send.
 Each reply's details panel ("About this reply", `src/shared/components/ReplyDetails.svelte`, in the
 tooltip and the side panel) shows what was sent: the text, how many earlier messages, and the page
 info. When **Record request details** is on, it also shows the system prompt as the request carried
-it ("Instructions sent", cut at 6,000 characters), so the glossary, rules and PAGE CONTEXT blocks
-are in view too. It does not show an attached image.
+it ("Instructions sent", cut at 6,000 characters), so the glossary and rules blocks are in view too.
+The page info shows in its own row: the shipped prompts put the PAGE CONTEXT block in the user
+message, and only a custom prompt with `{{context}}` in its system half puts it in the system
+prompt. It does not show an attached image.
 
 The side panel keeps that prompt with the conversation in `chrome.storage.local`, on the 20 newest
 replies only. It goes when the conversation is deleted and with "Delete all data", it is part of
