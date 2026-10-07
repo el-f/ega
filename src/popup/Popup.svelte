@@ -45,6 +45,10 @@
   let freeformTextarea: HTMLTextAreaElement | null = $state(null);
   // The body shows once the page has answered, so its rows appear at their final place (spec 2.4 loading).
   let pageKnown = $state(false);
+  // Height of the toast stack at the bottom; the body grows by it, so a toast never covers a control.
+  let toastRoom = $state(0);
+  /** How far a toast stacked behind the front one peeks out (svelte-sonner's gap). */
+  const TOAST_PEEK = 14;
   let draftHydrated = $state(false);
   let draftSaveTimer: ReturnType<typeof setTimeout> | null = null;
   let settingsUnsub: (() => void) | null = null;
@@ -71,7 +75,13 @@
       liveSettings?.sitePrefs[origin]?.disabled !== true,
   );
   const pageState = $derived<PopupPageState>(
-    popupPageState({ access, reply: pageReply, rejected: pageRejected, siteOff: !siteOn }),
+    popupPageState({
+      access,
+      // With no backend, Translate anyway can only fail; the setup row says what to do instead.
+      reply: backendReady === false ? undefined : pageReply,
+      rejected: pageRejected,
+      siteOff: !siteOn,
+    }),
   );
   const STATUS_ID = 'ega-popup-status';
   const pageBlockedBy = $derived(
@@ -404,6 +414,30 @@
     }
   });
 
+  // Toasts are fixed to the popup's bottom edge; Chrome grows the popup with the body, up to 600px.
+  $effect(() => {
+    const measure = (): void => {
+      const toasts = [
+        ...document.querySelectorAll<HTMLElement>('[data-sonner-toast]:not([data-removed="true"])'),
+      ];
+      const list = document.querySelector<HTMLElement>('[data-sonner-toaster]');
+      toastRoom =
+        toasts.length === 0 || !list
+          ? 0
+          : Math.max(...toasts.map((t) => t.offsetHeight)) +
+            Math.min(toasts.length - 1, 2) * TOAST_PEEK +
+            Number.parseFloat(getComputedStyle(list).bottom);
+    };
+    const observer = new MutationObserver(measure);
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['data-removed'],
+    });
+    return () => observer.disconnect();
+  });
+
   // Svelte 5 ignores a cleanup returned from an async onMount, because the function resolves to a Promise.
   onDestroy(() => {
     settingsUnsub?.();
@@ -446,7 +480,11 @@
       </div>
     {/snippet}
 
-    <div class="popup-body" class:pending={!pageKnown}>
+    <div
+      class="popup-body"
+      class:pending={!pageKnown}
+      style:padding-block-end={toastRoom > 0 ? `${toastRoom}px` : undefined}
+    >
       {#if backendReady === false}
         <div class="popup-no-backend" data-ega-popup-no-backend>
           <p>Set up a backend to start.</p>
@@ -508,7 +546,7 @@
           placeholder="Paste or type text"
           oninput={scheduleDraftSave}
           onkeydown={onComposerKey}
-          rows="3"></textarea>
+          rows="2"></textarea>
         <div class="freeform-actions" data-ega-action-bar>
           <Button
             variant="secondary"
@@ -548,18 +586,21 @@
     flex-direction: column;
     gap: var(--space-2);
   }
+  /* No box: a --color-bg-sunken card does not show in dark, and its inset left the text off the popup's edge. One row, so the first-run popup fits Chrome's 600px. */
   .popup-no-backend {
     display: flex;
-    flex-direction: column;
-    align-items: flex-start;
+    align-items: center;
     gap: var(--space-2);
-    padding: var(--space-3);
-    border-radius: var(--radius-md);
-    background: var(--color-bg-sunken);
     font-size: var(--fs-base);
   }
+  /* A wider font wraps the sentence in its own column; the button never drops to a row of its own. */
   .popup-no-backend p {
+    flex: 1 1 auto;
+    min-width: 0;
     margin: 0;
+  }
+  .popup-no-backend :global(.ega-btn) {
+    flex: none;
   }
   .popup-freeform {
     display: flex;
@@ -572,7 +613,6 @@
   }
   .freeform-textarea {
     width: 100%;
-    min-height: 4.5rem;
     padding: var(--space-2) var(--space-3);
     border: 1px solid var(--color-control-border);
     border-radius: var(--radius-md);

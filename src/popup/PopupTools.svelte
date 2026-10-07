@@ -204,7 +204,8 @@
     align-items: center;
     gap: var(--space-3);
     width: 100%;
-    min-height: 36px;
+    /* 32, not the spec's 36: with 36 the first-run popup (no backend, page not running) passes Chrome's 600px cap. */
+    min-height: 32px;
     padding: 0 var(--space-2);
     border: 1px solid transparent;
     border-radius: var(--radius-md);

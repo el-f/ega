@@ -589,6 +589,10 @@ describe('Popup — page actions', () => {
     expect(await findByText('Reload this page to use Ega here.')).toBeTruthy();
     expect(region?.isConnected).toBe(true);
     expect(region?.textContent).toContain('Reload this page to use Ega here.');
+    // The action follows the sentence after a space, on the same line when it fits.
+    expect(region?.textContent.replace(/\s+/g, ' ').trim()).toBe(
+      'Reload this page to use Ega here. Reload page',
+    );
   });
 
   it('a content script lost after the popup opened turns into the reload status line', async () => {

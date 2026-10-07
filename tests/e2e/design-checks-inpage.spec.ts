@@ -138,7 +138,13 @@ function activeLabel(page: Page, inShadow: boolean): Promise<string> {
 }
 
 /** The popup as a page over a stubbed active tab; the URL and the page's answer decide its state. */
-async function openPopup(tab: { url: string; reply?: unknown; reject?: boolean }): Promise<Page> {
+/** `url` left out is what Chrome gives an extension with no "tabs" permission on a page it cannot run on. */
+async function openPopup(tab: {
+  url?: string;
+  reply?: unknown;
+  reject?: boolean;
+  clipboard?: string;
+}): Promise<Page> {
   const popup = await ext.context.newPage();
   await popup.addInitScript((t) => {
     const g = globalThis as unknown as {
@@ -150,6 +156,15 @@ async function openPopup(tab: { url: string; reply?: unknown; reject?: boolean }
         throw new Error('Could not establish connection. Receiving end does not exist.');
       return msg.kind === 'ega:get-selection' ? (t.reply ?? { text: '' }) : { ok: true };
     };
+    if (t.clipboard !== undefined) {
+      // Granted already: a permission prompt would wait for a click no test makes.
+      (g.chrome as unknown as { permissions: { contains: unknown } }).permissions.contains =
+        async () => true;
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { readText: async () => t.clipboard },
+        configurable: true,
+      });
+    }
   }, tab);
   await popup.setViewportSize({ width: 360, height: 640 });
   await popup.goto(`chrome-extension://${ext.extensionId}/src/popup/index.html`);
@@ -174,7 +189,7 @@ function filledButtons(page: Page): Promise<number> {
 const SITE = 'https://example.com/';
 const POPUP_STATES: {
   name: string;
-  tab: { url: string; reply?: unknown; reject?: boolean };
+  tab: { url?: string; reply?: unknown; reject?: boolean };
   seed?: Record<string, unknown>;
   /** The page can be translated, so Translate page (or the setup card) is the one filled button. */
   usable: boolean;
@@ -186,7 +201,7 @@ const POPUP_STATES: {
     usable: true,
   },
   { name: 'text pre-filled', tab: { url: SITE, reply: { text: 'shu 3am ta3mel' } }, usable: true },
-  { name: 'restricted', tab: { url: 'chrome://extensions/' }, usable: false },
+  { name: 'restricted', tab: {}, usable: false },
   { name: 'not running', tab: { url: SITE, reject: true }, usable: false },
   {
     name: 'site off',
@@ -200,6 +215,19 @@ const POPUP_STATES: {
     seed: { anthropicApiKey: '', sitePrefs: {} },
     usable: true,
   },
+  // The first run: nothing set up yet, on a tab opened before Ega was installed.
+  {
+    name: 'no backend, page not running',
+    tab: { url: SITE, reject: true },
+    seed: { anthropicApiKey: '', sitePrefs: {} },
+    usable: false,
+  },
+  {
+    name: 'no backend, bubble held back',
+    tab: { url: SITE, reply: { text: 'hi', heldBack: { reason: 'english' } } },
+    seed: { anthropicApiKey: '', sitePrefs: {} },
+    usable: true,
+  },
 ];
 
 test('popup, every state: at most one filled button, one-line tools, toolbar stops, 12px, 24px, names', async () => {
@@ -208,6 +236,10 @@ test('popup, every state: at most one filled button, one-line tools, toolbar sto
     if (state.seed) await seedSettings(ext.context, ext.extensionId, state.seed);
     const popup = await openPopup(state.tab);
     await popup.waitForTimeout(300); // wait for the backend chip's probe to settle (no observable end state)
+
+    // Chrome caps a toolbar popup at 600px; past it the popup scrolls.
+    const bodyHeight = await popup.evaluate(() => document.body.getBoundingClientRect().height);
+    expect(bodyHeight, `${state.name}: fits the 600px popup`).toBeLessThanOrEqual(600);
 
     const filled = await filledButtons(popup);
     if (state.usable) expect(filled, `${state.name}: one filled button`).toBe(1);
@@ -480,6 +512,41 @@ test('tooltip, pill and toast stack in layer order: toast on top, then tooltip, 
   const [pillZ = Number.NaN, tipZ = Number.NaN, toastZ = Number.NaN] = stack.order;
   expect(pillZ).toBeLessThan(tipZ);
   expect(tipZ).toBeLessThan(toastZ);
+});
+
+test('popup: a toast covers no control at the height Chrome gives the popup', async () => {
+  const popup = await openPopup({ url: SITE, clipboard: '   ' });
+  await popup.getByRole('button', { name: 'Translate clipboard' }).click();
+  await popup.getByText('The clipboard is empty. Copy some text first.').waitFor();
+  await expect
+    .poll(() =>
+      popup.evaluate(() =>
+        document.querySelector('[data-sonner-toast]')?.getAttribute('data-mounted'),
+      ),
+    )
+    .toBe('true');
+  // The popup is as tall as its body, up to 600px.
+  const height = await popup.evaluate(() =>
+    Math.ceil(document.body.getBoundingClientRect().height),
+  );
+  await popup.setViewportSize({ width: 360, height: Math.min(600, height) });
+  const covered = await popup.evaluate(() => {
+    const toast = document.querySelector('[data-sonner-toast]')?.getBoundingClientRect();
+    if (!toast) return ['no toast'];
+    return [...document.querySelectorAll<HTMLElement>('button, textarea, select, [role="switch"]')]
+      .filter((el) => !el.closest('[data-sonner-toast]'))
+      .filter((el) => {
+        const r = el.getBoundingClientRect();
+        return (
+          r.bottom > toast.top &&
+          r.top < toast.bottom &&
+          r.right > toast.left &&
+          r.left < toast.right
+        );
+      })
+      .map((el) => el.getAttribute('aria-label') ?? el.textContent.trim().slice(0, 30));
+  });
+  expect(covered).toEqual([]);
 });
 
 /** WCAG 1.4.12: the user's text-spacing override must not clip a control. */

@@ -68,14 +68,17 @@
       {#if status}
         <div class="status" data-ega-popup-status={state}>
           <span class="status-icon"><Icon icon={Info} size={16} /></span>
-          <p id={statusId} class="status-text">{status.text}</p>
-          {#if status.action === 'anyway'}
-            <button type="button" class="status-action" onclick={onTranslateAnyway}
-              >Translate anyway</button
-            >
-          {:else if status.action === 'reload'}
-            <button type="button" class="status-action" onclick={onReload}>Reload page</button>
-          {/if}
+          <!-- The action runs on after the sentence; a space, not a margin, so a wrapped action starts on the text's edge. -->
+          <p class="status-text">
+            <span id={statusId}>{status.text}</span>
+            {#if status.action === 'anyway'}
+              <button type="button" class="status-action" onclick={onTranslateAnyway}
+                >Translate anyway</button
+              >
+            {:else if status.action === 'reload'}
+              <button type="button" class="status-action" onclick={onReload}>Reload page</button>
+            {/if}
+          </p>
         </div>
       {/if}
     </div>
@@ -154,16 +157,15 @@
   .switch-row + [role='status'] .status {
     margin-block-start: var(--space-1);
   }
-  /* Icon and text share the first line; the action takes its own row with its label on the text's edge. */
   .status {
-    display: grid;
-    grid-template-columns: 16px 1fr;
-    column-gap: var(--space-2);
-    align-items: start;
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
     font-size: var(--fs-xs);
   }
   .status-icon {
     display: inline-flex;
+    flex: 0 0 auto;
     padding-block-start: 1px;
     color: var(--color-muted);
   }
@@ -171,17 +173,14 @@
     margin: 0;
     color: var(--color-fg);
   }
+  /* A 24px target that keeps the line one text line high, so the icon stays on the text's first line. */
   .status-action {
-    grid-column: 2;
-    justify-self: start;
     display: inline-flex;
     align-items: center;
-    min-height: 28px;
-    padding: 0 var(--space-2);
-    /* The padding and the 1px edge, so the label starts where the text above starts. */
-    margin-inline-start: calc(-1 * var(--space-2) - 1px);
-    border: 1px solid transparent;
-    border-radius: var(--radius-md);
+    min-height: 24px;
+    margin-block: calc((1em * var(--lh-body) - 24px) / 2);
+    padding: 0;
+    border: none;
     background: transparent;
     color: var(--color-accent);
     font: inherit;
@@ -189,10 +188,11 @@
     cursor: pointer;
   }
   .status-action:hover {
-    background: var(--color-accent-bg-hover);
+    text-decoration: underline;
   }
   .status-action:focus-visible {
     outline: 2px solid var(--color-accent);
     outline-offset: 2px;
+    border-radius: var(--radius-sm);
   }
 </style>
