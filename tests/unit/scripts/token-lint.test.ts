@@ -343,7 +343,16 @@ describe('token-lint CSS comments inside a style attribute', () => {
 
   it('keeps an unclosed /* in one style value from blanking the next tag', () => {
     const src =
-      '<div style="background: url(a/*b)" data-x="*/"><i style="font-size: 13px">x</i></div>';
+      '<div style="background: url(a/*b)"><i style="font-size: 13px" data-x="*/">x</i></div>';
     expect(lintSvelte(src, 'x.svelte').map((v) => v.kind)).toEqual(['font']);
+  });
+
+  it('keeps an accept="image/*" attribute from pairing with a later style comment', () => {
+    const src = [
+      '<input accept="image/*" />',
+      '<i style="font-size: 13px">x</i>',
+      '<b style="color: var(--c) /* c */">y</b>',
+    ].join('\n');
+    expect(lintSvelte(src, 'x.svelte').map((v) => [v.line, v.kind])).toEqual([[2, 'font']]);
   });
 });
