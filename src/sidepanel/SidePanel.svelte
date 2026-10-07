@@ -92,12 +92,23 @@
     shownId = id;
   });
   /** Toasts sit just above the composer, which grows with the message. */
+  let composerEl = $state<HTMLElement | null>(null);
   let composerHeight = $state(0);
   /** The save-failed banner sits right above the composer, so a toast must clear it too. */
+  let bannerEl = $state<HTMLElement | null>(null);
   let bannerHeight = $state(0);
   const toastBottom = $derived(
     `${composerHeight + (conversation.saveFailed ? bannerHeight : 0) + 8}px`,
   );
+  // Not bind:clientHeight: that pulls Svelte's size-binding runtime into the vendor chunk every web page loads.
+  function trackHeight(el: HTMLElement | null, set: (h: number) => void): (() => void) | undefined {
+    if (!el) return;
+    const ro = new ResizeObserver(() => set(el.clientHeight));
+    ro.observe(el, { box: 'border-box' });
+    return () => ro.disconnect();
+  }
+  $effect(() => trackHeight(composerEl, (h) => (composerHeight = h)));
+  $effect(() => trackHeight(bannerEl, (h) => (bannerHeight = h)));
   let bookmarkFilter = $state(false);
   let searchOpen = $state(false);
   let searchQuery = $state('');
@@ -1116,12 +1127,7 @@
     />
 
     {#if conversation.saveFailed}
-      <div
-        class="sp-save-failed"
-        data-ega-save-failed
-        role="status"
-        bind:clientHeight={bannerHeight}
-      >
+      <div class="sp-save-failed" data-ega-save-failed role="status" bind:this={bannerEl}>
         <span class="sp-save-failed-text"
           >{conversation.saveFailedQuota
             ? 'Storage is full. Delete old conversations to make room.'
@@ -1140,7 +1146,7 @@
       </div>
     {/if}
 
-    <div class="sp-composer" bind:clientHeight={composerHeight}>
+    <div class="sp-composer" bind:this={composerEl}>
       <InputRow
         {usesTone}
         {taskViews}
