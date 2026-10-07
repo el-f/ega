@@ -116,7 +116,7 @@
   async function refreshModels(): Promise<void> {
     const backend = resolveBackend(id);
     if (!backend?.discoverModels) {
-      discoverError = 'This backend cannot list its models yet. Type a model id instead.';
+      discoverError = 'This backend cannot list its models. Type a model name instead.';
       return;
     }
     discoverLoading = true;
@@ -127,12 +127,12 @@
       const list = await backend.discoverModels(buildConfigForDiscover());
       discoveredModels = list;
       if (list.length === 0) {
-        discoverError = 'The backend returned an empty model list.';
+        discoverError = `${label} lists no models. Type a model name instead.`;
       } else if (apiKey) {
         void writeDiscoveryCache(id, apiKey, list);
       }
-    } catch (e) {
-      discoverError = `Couldn't fetch the model list: ${(e as Error).message}`;
+    } catch {
+      discoverError = 'Could not load the model list. Type a model name instead.';
       discoveredModels = [];
     } finally {
       discoverLoading = false;

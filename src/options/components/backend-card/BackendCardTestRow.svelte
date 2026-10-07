@@ -52,11 +52,13 @@
 
 <div class="be-test" data-ega-backend-test={id}>
   <div class="be-test-row">
+    <!-- Not the shared `loading`: it hides the label and drops focus; the spec wants a spinner and "Testing...". -->
     <Button
       variant="secondary"
-      loading={testRunning}
+      ariaDisabled={testRunning}
       dataAttrs={{ 'data-testid': `backend-card-test-${id}` }}
-      onclick={onTest}>{testRunning ? 'Testing...' : 'Test now'}</Button
+      onclick={onTest}
+      >{#if testRunning}<span class="be-spinner" aria-hidden="true"></span>Testing...{:else}Test now{/if}</Button
     >
     <span class="be-test-status" role="status" aria-live="polite">
       {#if testSucceeded && testLatencyMs !== null}
@@ -108,6 +110,27 @@
     flex-wrap: wrap;
     align-items: center;
     gap: var(--space-2) var(--space-3);
+  }
+  .be-spinner {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    margin-inline-end: var(--space-2);
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    vertical-align: -2px;
+    animation: be-spin 600ms linear infinite;
+  }
+  @keyframes be-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .be-spinner {
+      animation: none;
+    }
   }
   .be-latency,
   .be-test-note {

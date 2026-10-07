@@ -12,7 +12,6 @@
   import IconButton from '@/shared/ui/IconButton.svelte';
   import Checkbox from '@/shared/ui/Checkbox.svelte';
   import RadioGroup from '@/shared/ui/RadioGroup.svelte';
-  import Badge from '@/shared/ui/Badge.svelte';
   import ModelCombobox from './ModelCombobox.svelte';
   import SettingHint from './SettingHint.svelte';
   import RefreshCw from '@lucide/svelte/icons/refresh-cw';
@@ -284,23 +283,17 @@
     };
   });
 
-  const portVariant = $derived<'default' | 'success' | 'warning' | 'danger' | 'muted'>(
-    portStatus === 'warm'
-      ? 'success'
-      : portStatus === 'connecting'
-        ? 'warning'
-        : portStatus === 'disconnected'
-          ? 'danger'
-          : 'muted',
-  );
-  const portLabel = $derived(
-    portStatus === 'warm'
-      ? 'Warm — fast'
-      : portStatus === 'connecting'
-        ? 'Connecting…'
-        : portStatus === 'disconnected'
-          ? 'Disconnected'
-          : 'Cold — the first translation starts the CLI',
+  // How the next answer starts; it means something only once the host is installed.
+  const portLine = $derived(
+    currentCli === 'codex' && portStatus !== 'disconnected'
+      ? 'Codex starts once per translation'
+      : portStatus === 'warm'
+        ? 'The CLI is running, so answers start fast'
+        : portStatus === 'connecting'
+          ? 'Starting the CLI...'
+          : portStatus === 'disconnected'
+            ? 'The CLI stopped; the next translation starts it again'
+            : 'The first translation starts the CLI',
   );
 
   const NATIVE_INSTALL_INFO =
@@ -310,14 +303,10 @@
 <BackendCard id={asBackendIdUnsafe('native')} label={backendLabel('native')} {settings}>
   <!-- The CLI choice appears only once the probe says installed, so the search lands on the section that holds both it and the install status. -->
   <div class="nh-body" data-ega-setting="backends.nativeCli">
-    <div class="row nh-status-row">
-      {#if currentCli === 'codex' && portStatus !== 'disconnected'}
-        <Badge variant="muted">One process per translation</Badge>
-      {:else}
-        <Badge variant={portVariant}>{portLabel}</Badge>
-      {/if}
+    <!-- One status in words: the row header already carries the pill (one pill per row, spec 3.4). -->
+    <div class="nh-status-row">
       <span
-        class="nh-pill"
+        class="nh-status"
         class:nh-installed={nhState === 'installed'}
         class:nh-outdated={nhState === 'outdated'}
         class:nh-missing={nhState === 'missing'}
@@ -325,15 +314,10 @@
         data-testid="nh-status-pill"
         role="status"
         aria-live="polite"
+        >{#if nhState === 'installed'}Installed, version {nhInstalledVersion}{:else if nhState === 'outdated'}Version
+          {nhInstalledVersion ?? '?'} is installed; Ega needs version {EXPECTED_HOST_VERSION}{:else if nhState === 'probing'}Checking...{:else}Not
+          installed on this computer{/if}</span
       >
-        <span class="nh-pill-dot" aria-hidden="true"></span>
-        <span class="nh-pill-label">
-          {#if nhState === 'installed'}Installed <span class="nh-pill-version"
-              >v{nhInstalledVersion}</span
-            >{:else if nhState === 'outdated'}Outdated{:else if nhState === 'probing'}Checking…{:else}Not
-            installed{/if}
-        </span>
-      </span>
       <IconButton
         icon={RefreshCw}
         ariaLabel={nhState === 'probing' ? 'Checking the native host…' : 'Recheck'}
@@ -352,6 +336,7 @@
     {/if}
 
     {#if nhState === 'installed'}
+      <p class="nh-line">{portLine}</p>
       <div class="row nh-cli-row">
         <span class="nh-cli-label" id="nh-cli-label">CLI</span>
         <RadioGroup
@@ -413,10 +398,6 @@
           <small class="nh-model-hint">{currentCliEntry.modelDiscoveryHint}</small>
         {/if}
       </div>
-    {:else if nhState === 'outdated'}
-      <p class="warn nh-status-msg nh-msg-title">
-        The native host is out of date: v{nhInstalledVersion ?? '?'} is installed, Ega needs v{EXPECTED_HOST_VERSION}
-      </p>
     {:else if nhState === 'missing' && nhProbeError}
       <div class="warn nh-status-msg">
         <p class="nh-msg-title" role="status">
@@ -431,14 +412,14 @@
     <CollapsibleInstallPanel
       bind:open={nhInstallOpen}
       summaryLabel={nhState === 'installed'
-        ? 'Reinstall / view install command'
+        ? 'Reinstall or uninstall'
         : nhState === 'outdated'
-          ? 'Update command (install again to get the fixes)'
-          : 'View install command'}
+          ? 'Show update steps'
+          : 'Show install steps'}
       defaultPlatform={nhPlatform}
       commands={nhCommands}
       recheckHint={nhState !== 'installed'
-        ? `Then click Recheck (the refresh icon above). The status should change to Installed v${EXPECTED_HOST_VERSION}.`
+        ? `Then press Recheck (the refresh icon above). The status should change to Installed, version ${EXPECTED_HOST_VERSION}.`
         : ''}
     />
 
@@ -465,85 +446,18 @@
     display: grid;
     gap: var(--space-2);
   }
-  .nh-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-1);
-    padding: 3px var(--space-2);
-    border-radius: var(--radius-pill);
-    font-size: var(--fs-xs);
-    line-height: 1.2;
-    border: 1px solid var(--color-border);
-    background: var(--color-bg-elevated);
+  .nh-status {
+    color: var(--color-fg);
+  }
+  .nh-line {
+    margin: 0;
     color: var(--color-muted);
-    font-variant-numeric: tabular-nums;
-  }
-  .nh-pill-dot {
-    display: inline-block;
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--color-dot-idle);
-    flex: 0 0 6px;
-  }
-  .nh-pill-version {
-    color: var(--color-muted);
-    font-size: var(--fs-xs);
-    margin-left: 2px;
-    opacity: 0.85;
-  }
-  .nh-pill.nh-installed {
-    background: var(--color-success-bg-deep);
-    color: var(--color-success-fg);
-    border-color: var(--color-success);
-  }
-  .nh-pill.nh-installed .nh-pill-dot {
-    background: var(--color-success);
-  }
-  .nh-pill.nh-installed .nh-pill-version {
-    color: var(--color-success-fg);
-  }
-  .nh-pill.nh-outdated {
-    background: var(--color-warning-bg-deep);
-    color: var(--color-warning-fg);
-    border-color: var(--color-warning-border);
-  }
-  .nh-pill.nh-outdated .nh-pill-dot {
-    background: var(--color-warning);
-  }
-  .nh-pill.nh-missing {
-    background: var(--color-danger-bg-deep);
-    color: var(--color-danger);
-    border-color: var(--color-danger);
-  }
-  .nh-pill.nh-missing .nh-pill-dot {
-    background: var(--color-danger);
-  }
-  .nh-pill.nh-probing {
-    background: var(--color-bg-hover);
-    color: var(--color-muted);
-  }
-  .nh-pill.nh-probing .nh-pill-dot {
-    background: var(--color-accent);
-    animation: nh-pill-pulse 1.2s ease-in-out infinite;
-  }
-  @keyframes nh-pill-pulse {
-    0%,
-    100% {
-      opacity: 0.4;
-      transform: scale(0.85);
-    }
-    50% {
-      opacity: 1;
-      transform: scale(1.15);
-    }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .nh-pill.nh-probing .nh-pill-dot {
-      animation: none;
-    }
   }
   .nh-status-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-1) var(--space-2);
     margin-top: var(--space-2);
   }
   .nh-status-msg {
@@ -574,8 +488,6 @@
   .nh-model-label {
     font-size: var(--fs-xs);
     color: var(--color-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
   }
   .nh-model-hint {
     font-size: var(--fs-xs);

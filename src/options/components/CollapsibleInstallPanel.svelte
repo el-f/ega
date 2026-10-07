@@ -185,34 +185,26 @@
 </div>
 
 <style>
-  .install-card {
-    border: 1px solid var(--color-border-subtle);
-    border-radius: var(--radius-md);
-    background: var(--color-bg-elevated);
-    overflow: hidden;
-  }
-  .install-card:has(.install-panel[open]) {
-    border-color: var(--color-border);
-  }
-  .install-panel {
-    background: var(--color-bg-elevated);
-  }
+  /* The shared Disclosure look ("> Label", no box around the steps, spec 3.4 F25). */
   .install-summary {
     cursor: pointer;
     list-style: none;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     gap: var(--space-2);
-    padding: var(--space-2) var(--space-3);
-    font-size: var(--fs-sm);
+    min-height: 32px;
+    padding-inline-end: var(--space-2);
+    border-radius: var(--radius-sm);
+    font-size: var(--fs-base);
     color: var(--color-fg);
     user-select: none;
   }
   .install-summary::-webkit-details-marker {
     display: none;
   }
-  .install-summary:hover {
-    background: var(--color-bg-hover);
+  .install-summary:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
   }
   /* A custom chevron, because the platform's default triangle does not theme across light and dark. */
   .install-summary-chevron {
@@ -235,8 +227,7 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
-    padding: var(--space-3);
-    border-top: 1px solid var(--color-border-subtle);
+    padding-top: var(--space-2);
   }
   /* Baseline, not center: the label box is ~11px against a ~28px pill box, so centering drifts the text lines apart. */
   .install-platform-row {
@@ -249,8 +240,6 @@
   .install-row-label {
     font-size: var(--fs-xs);
     color: var(--color-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
     line-height: 1;
   }
   .install-body > :global(.install-tabs-root) {
@@ -271,7 +260,7 @@
     font-size: var(--fs-xs);
     /* Weight is constant across states — bolding only the active tab slides
        the tabs to its right. */
-    font-weight: 500;
+    font-weight: 600;
     padding: 4px var(--space-2);
     border-radius: var(--radius-sm);
     cursor: pointer;
@@ -354,33 +343,31 @@
     margin-top: var(--space-1);
   }
   .install-uninstall {
-    border-top: 1px solid var(--color-border-subtle);
-    margin: 0 calc(-1 * var(--space-3)) calc(-1 * var(--space-3));
+    margin: 0;
     padding: 0;
   }
   .install-uninstall-summary {
     cursor: pointer;
     list-style: none;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     gap: var(--space-2);
-    padding: var(--space-2) var(--space-3);
-    font-size: var(--fs-xs);
-    color: var(--color-muted);
+    min-height: 32px;
+    padding-inline-end: var(--space-2);
+    border-radius: var(--radius-sm);
+    font-size: var(--fs-base);
+    color: var(--color-fg);
     user-select: none;
   }
   .install-uninstall-summary::-webkit-details-marker {
     display: none;
   }
-  .install-uninstall-summary:hover {
-    background: var(--color-bg-hover);
-    color: var(--color-fg);
-  }
-  .install-uninstall[open] > .install-uninstall-summary {
-    border-bottom: 1px solid var(--color-border-subtle);
+  .install-uninstall-summary:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
   }
   .install-uninstall > .install-codeblock {
-    margin: var(--space-2) var(--space-3) var(--space-3);
+    margin: var(--space-2) 0 0;
     background: var(--color-bg);
   }
   .install-uninstall > .install-codeblock > .install-code {

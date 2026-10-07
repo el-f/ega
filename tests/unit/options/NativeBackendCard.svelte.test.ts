@@ -189,6 +189,35 @@ describe('NativeBackendCard', () => {
     }
   });
 
+  it('not installed: one status in words, no second pill, no CLI start state', async () => {
+    const ctor = chrome.runtime.connectNative as unknown as Mock;
+    ctor.mockReturnValue(failingPort());
+    const { container } = render(NativeBackendCard, baseProps());
+    await settled(container, 'missing');
+    const body = container.querySelector('.nh-body');
+    const words = (el: Element | null | undefined) => el?.textContent.replace(/\s+/g, ' ').trim();
+    expect(words(body?.querySelector('[data-testid="nh-status-pill"]'))).toBe(
+      'Not installed on this computer',
+    );
+    // The row header holds the one status pill; the body adds none.
+    expect(body?.querySelectorAll('.ega-badge, [class*="pill"]')).toHaveLength(0);
+    expect(body?.textContent).not.toMatch(/starts the CLI|Cold/);
+    expect(body?.querySelector('summary')?.textContent.trim()).toBe('Show install steps');
+  });
+
+  it('installed: the version in words, then how the next answer starts', async () => {
+    const ctor = chrome.runtime.connectNative as unknown as Mock;
+    ctor.mockReturnValue(healthyPort(4));
+    const { container } = render(NativeBackendCard, baseProps());
+    await settled(container, 'installed');
+    expect(container.querySelector('[data-testid="nh-status-pill"]')?.textContent.trim()).toBe(
+      'Installed, version 4',
+    );
+    expect(container.querySelector('.nh-line')?.textContent).toBe(
+      'The first translation starts the CLI',
+    );
+  });
+
   it('does NOT render a persistent-session toggle', () => {
     const ctor = chrome.runtime.connectNative as unknown as Mock;
     ctor.mockReturnValue(healthyPort());

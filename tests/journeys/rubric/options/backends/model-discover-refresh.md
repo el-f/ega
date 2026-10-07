@@ -18,8 +18,8 @@
 
 ## Failure-mode expectations
 
-- Discovery request fails (network error / auth error): inline "Couldn't fetch the model list" error under the field; the discovered list is cleared.
-- Empty model list returned: inline error "The backend returned an empty model list."; the discovered list is emptied.
+- Discovery request fails (network error / auth error): inline "Could not load the model list. Type a model name instead." under the field, with no status code; the discovered list is cleared.
+- Empty model list returned: inline error "<Backend> lists no models. Type a model name instead."; the discovered list is emptied.
 
 ## Cautions
 

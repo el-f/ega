@@ -28,6 +28,12 @@ describe('BackendCardTestRow', () => {
     expect(p.onTest).toHaveBeenCalledTimes(1);
     await rerender({ ...p, testRunning: true });
     expect(btn.textContent.trim()).toBe('Testing...');
+    // The label stays readable beside its spinner (the shared loading style hides it), and focus stays put.
+    expect(btn.querySelector('.be-spinner')).not.toBeNull();
+    expect(btn.disabled).toBe(false);
+    expect(btn.getAttribute('aria-disabled')).toBe('true');
+    await fireEvent.click(btn);
+    expect(p.onTest).toHaveBeenCalledTimes(1);
   });
 
   it('a pass says how fast it answered and shows the answer', () => {

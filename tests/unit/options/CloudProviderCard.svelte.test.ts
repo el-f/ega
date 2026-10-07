@@ -157,8 +157,10 @@ describe('CloudProviderCard', () => {
       expect(el).not.toBeNull();
       return el;
     });
-    expect(err?.textContent).toMatch(/Couldn't fetch the model list/i);
-    expect(err?.textContent).toMatch(/401/);
+    // Spec 3.4: a plain line, no status code; a typed model name still works.
+    expect(err?.textContent.trim()).toBe(
+      'Could not load the model list. Type a model name instead.',
+    );
   });
 
   it('renders the empty-list error when the provider returns no models', async () => {
@@ -171,7 +173,7 @@ describe('CloudProviderCard', () => {
     await fireEvent.click(refresh);
     await waitFor(() =>
       expect(container.querySelector('.ega-combobox-error')?.textContent).toMatch(
-        /empty model list/i,
+        /lists no models/i,
       ),
     );
   });
