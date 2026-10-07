@@ -6,6 +6,7 @@ import { tick } from 'svelte';
 import SidePanel from '@/sidepanel/SidePanel.svelte';
 import { confirmDialog } from '@/shared/components/confirmDialog';
 import type { Msg } from '@/shared/messages';
+import { openMenu } from './_reply';
 
 vi.mock('@/shared/components/confirmDialog', () => ({
   confirmDialog: vi.fn().mockResolvedValue(true),
@@ -198,5 +199,98 @@ describe('SidePanel — e and Escape do not discard a draft', () => {
 
     expect(composer(container).value).toBe('half-written reply');
     expect(container.querySelector('[data-ega-mode-banner]')).toBeNull();
+  });
+});
+
+/** A few macrotask turns: enough for a draft write the panel started to land in session storage. */
+async function settle(): Promise<void> {
+  for (let i = 0; i < 6; i++) await new Promise((r) => setTimeout(r, 0));
+}
+
+async function describeChange(container: HTMLElement): Promise<void> {
+  const menu = await openMenu(container, 'refine');
+  const item = menu.querySelector<HTMLElement>('[data-ega-describe-change]');
+  if (!item) throw new Error('Describe a change missing');
+  await fireEvent.click(item);
+  await waitFor(() => {
+    if (!container.querySelector('[data-ega-mode-banner]')?.textContent.includes('Changing')) {
+      throw new Error('not in refine mode');
+    }
+  });
+}
+
+describe('SidePanel — Describe a change keeps the draft', () => {
+  it('the stored draft stays the text from before the mode, whatever the change box holds', async () => {
+    const { container } = render(SidePanel);
+    await tick();
+    await sendAndDrain(container, 'original');
+    await fireEvent.input(composer(container), { target: { value: 'my draft' } });
+    await waitFor(async () => {
+      if ((await draftEntry())?.text !== 'my draft') throw new Error('draft not stored yet');
+    });
+
+    await describeChange(container);
+    await fireEvent.input(composer(container), { target: { value: 'make it shorter' } });
+    // Closing the panel flushes any draft save still waiting; nothing may be waiting in this mode.
+    window.dispatchEvent(new Event('pagehide'));
+    await settle();
+
+    expect((await draftEntry())?.text).toBe('my draft');
+  });
+
+  it('from an edit, it asks before throwing the edited text away', async () => {
+    confirmMock.mockResolvedValue(false);
+    const { container } = render(SidePanel);
+    await tick();
+    await sendAndDrain(container, 'original');
+    await fireEvent.keyDown(window, { key: 'e', target: document.body });
+    await tick();
+    await fireEvent.input(composer(container), { target: { value: 'original, rewritten' } });
+    await tick();
+
+    const menu = await openMenu(container, 'refine');
+    await fireEvent.click(menu.querySelector('[data-ega-describe-change]') as HTMLElement);
+    await waitFor(() => expect(confirmMock).toHaveBeenCalled());
+    // Kept editing: the rewrite and the edit banner stay.
+    expect(composer(container).value).toBe('original, rewritten');
+    expect(container.querySelector('[data-ega-mode-banner]')?.textContent).toContain('Editing');
+  });
+
+  it('while a change is described, e says why it waits and leaves the change alone', async () => {
+    const { container } = render(SidePanel);
+    await tick();
+    await sendAndDrain(container, 'original');
+    await describeChange(container);
+    await fireEvent.input(composer(container), { target: { value: 'make it shorter' } });
+    await tick();
+
+    await fireEvent.keyDown(window, { key: 'e', target: document.body });
+    await waitFor(() =>
+      expect(document.body.textContent).toContain('Send or cancel the change first.'),
+    );
+    expect(composer(container).value).toBe('make it shorter');
+    expect(container.querySelector('[data-ega-mode-banner]')?.textContent).toContain('Changing');
+  });
+});
+
+describe('SidePanel — Edit from here never overwrites a draft', () => {
+  it('refuses over a different draft and says why, before any confirm', async () => {
+    const { container } = render(SidePanel);
+    await tick();
+    await sendAndDrain(container, 'first');
+    await sendAndDrain(container, 'second');
+    await fireEvent.input(composer(container), { target: { value: 'half-written' } });
+    await tick();
+
+    const older = container.querySelector<HTMLElement>('.ega-user-turn [data-ega-edit]');
+    if (!older) throw new Error('older Edit missing');
+    await fireEvent.click(older);
+    await waitFor(() =>
+      expect(document.body.textContent).toContain(
+        'Clear the message box first to edit this message.',
+      ),
+    );
+    expect(confirmMock).not.toHaveBeenCalled();
+    expect(composer(container).value).toBe('half-written');
   });
 });

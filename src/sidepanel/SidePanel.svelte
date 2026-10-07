@@ -39,7 +39,12 @@
   import type { ComposerMode, SuggestionKind, SuggestionResult } from './state/thread-view';
   import { conversationLabel } from '@/shared/saved-conversations';
   import { INDEX_KEY } from './state/conversation-store';
-  import { visibleTurns, searchTurns } from './state/conversation';
+  import {
+    visibleTurns,
+    searchTurns,
+    turnTaskValue,
+    type UserTurnData,
+  } from './state/conversation';
   import { exportMarkdown, exportJson } from './state/conversation-export';
   import { getActiveOrigin, getPanelWindowId, startOriginFollower } from './state/active-origin';
   import {
@@ -143,12 +148,14 @@
   // Custom task rows live in their own storage key; the panel re-reads them when they change.
   let customTasks = $state<CustomTask[]>([]);
   const taskViews = $derived(settings ? materializeTasks(settings, customTasks) : undefined);
-  const takesImage = $derived(
-    taskViews?.find((v) => v.id === task)?.image ?? (task === 'translate' || task === 'explain'),
-  );
-  // An attached image takes the OCR arm unless the task reads images itself; that prompt has no tone, so none is shown or sent.
+  function taskTakesImage(id: TaskId): boolean {
+    return taskViews?.find((v) => v.id === id)?.image ?? (id === 'translate' || id === 'explain');
+  }
+  const takesImage = $derived(taskTakesImage(task));
+  // An attached image takes the OCR arm unless the task reads images itself; that prompt has no tone and no page info.
+  const toOcr = $derived(attachedImage !== null && (task === 'translate' || !takesImage));
   const usesTone = $derived(
-    !(attachedImage && (task === 'translate' || !takesImage)) &&
+    !toOcr &&
       (settings ? taskUsesTone(settings, customTasks, task, sourceLang) : task === 'reword'),
   );
   function loadCustomTasks(): void {
@@ -251,7 +258,7 @@
       conversation.activeSite === conversation.tabSite
     );
   }
-  const pageInfoGoes = $derived(attachedImage === null && pageInfoGoesFor(task));
+  const pageInfoGoes = $derived(!toOcr && pageInfoGoesFor(task));
 
   // inflightId only flips after the context-collection await, so a fast double send would dispatch twice.
   let sending = false;
@@ -280,9 +287,15 @@
     try {
       // Read the page before touching the thread, and bail if the thread moved meanwhile: the edit belongs to the site it was typed on.
       const originBefore = conversation.activeId;
-      // The OCR prompt reads only the image, so that arm sends and records no page context.
-      const toOcr = attachedImage !== null && (task === 'translate' || !takesImage);
-      const context = toOcr ? undefined : await currentPageContext(task);
+      // An edit goes out with the setup its message was sent with: the chip, hidden while editing, is for new messages.
+      const edited = conversation.turns.find(
+        (t): t is UserTurnData => t.role === 'user' && t.id === editingTurnId,
+      );
+      const sendTask = edited ? turnTaskValue(edited) : task;
+      const img = attachedImage;
+      // An image goes to the OCR arm for Translate and for any task that takes no images; that arm sends no page context.
+      const ocr = img !== null && (sendTask === 'translate' || !taskTakesImage(sendTask));
+      const context = ocr ? undefined : await currentPageContext(sendTask);
       if (conversation.activeId !== originBefore) return;
       // The previous turn is in the composer, so drop it or the re-send appends a duplicate.
       let preservedResponse: string | undefined;
@@ -300,21 +313,19 @@
       const content = text || IMAGE_TURN_PLACEHOLDER;
       // 'explain' keeps its own kind so the router takes the vision-explain arm instead of plain OCR.
       // A custom task runs under kind translate and keeps its id; an image always takes the image arm.
-      const builtIn = builtInTask(task);
-      const img = attachedImage;
-      // An image goes to the OCR arm for Translate and for any task that takes no images; Explain and image-taking custom tasks send their own prompt.
-      const ocr = img !== null && (task === 'translate' || !takesImage);
+      const builtIn = builtInTask(sendTask);
       const kind = ocr ? 'image-translate' : (builtIn ?? 'translate');
+      const sendTone = edited ? edited.tone : usesTone ? tone : undefined;
       await conversation.send({
         content,
         kind,
-        ...(builtIn === null && !ocr ? { taskId: task } : {}),
+        ...(builtIn === null && !ocr ? { taskId: sendTask } : {}),
         ...(preservedResponse !== undefined ? { preservedResponse } : {}),
         ...(img ? { imageDataUrl: img } : {}),
-        sourceLang: asLangSelection(sourceLang),
-        targetLang: asLangSelection(targetLang),
+        sourceLang: edited?.dispatch?.sourceLang ?? asLangSelection(sourceLang),
+        targetLang: edited?.dispatch?.targetLang ?? asLangSelection(targetLang),
         stream: streamingPref,
-        ...(usesTone ? { tone } : {}),
+        ...(sendTone !== undefined ? { tone: sendTone } : {}),
         ...(context !== undefined ? { context } : {}),
       });
       sourceText = '';
@@ -397,7 +408,12 @@
 
   /** "Describe a change…": the composer takes the change for that one reply; the draft waits. */
   async function onDescribeChange(turnId: string): Promise<void> {
-    if (composerMode.kind === 'send') draftBeforeEdit = sourceText;
+    // Leaving an edit asks first when the edited text changed; staying in it ends here.
+    if (composerMode.kind === 'edit' && !(await cancelEditing())) return;
+    if (composerMode.kind === 'send') {
+      flushDraftSave();
+      draftBeforeEdit = sourceText;
+    }
     composerMode = { kind: 'refine', turnId };
     sourceText = '';
     await tick();
@@ -439,7 +455,7 @@
       toastStore.push({ message: 'Edit when this reply finishes.', variant: 'warning' });
       return;
     }
-    if (composerMode.kind !== 'send') return;
+    if (refusedForMode()) return;
     const last = conversation.lastUserTurn();
     if (!last) return;
     // The pencil is hidden for image turns, but 'e' does not go through it.
@@ -459,10 +475,24 @@
       });
       return;
     }
+    flushDraftSave();
     draftBeforeEdit = sourceText;
     sourceText = last.content;
     composerMode = { kind: 'edit', turnId: last.id };
     void tick().then(focusComposer);
+  }
+
+  /** An edit or a described change holds the composer until it is sent or cancelled. */
+  function refusedForMode(): boolean {
+    if (composerMode.kind === 'send') return false;
+    toastStore.push({
+      message:
+        composerMode.kind === 'refine'
+          ? 'Send or cancel the change first.'
+          : 'Send or cancel your edit first.',
+      variant: 'warning',
+    });
+    return true;
   }
 
   // A mid-history turn needs a confirm before truncating; the last turn reuses pullLastUserTurnIntoInput.
@@ -474,8 +504,18 @@
       pullLastUserTurnIntoInput();
       return;
     }
+    if (refusedForMode()) return;
     const turnIdx = conversation.turns.findIndex((t) => t.id === turnId);
     if (turnIdx === -1) return;
+    // The old message's text replaces the composer, so a draft the user typed must not be lost to it.
+    const content = conversation.turns[turnIdx]?.content ?? '';
+    if (sourceText.trim() && sourceText !== content) {
+      toastStore.push({
+        message: 'Clear the message box first to edit this message.',
+        variant: 'warning',
+      });
+      return;
+    }
     const later = conversation.turns.length - turnIdx - 1;
     const ok = await confirmDialog({
       title: 'Edit from here?',
@@ -586,8 +626,8 @@
     });
   }
 
-  /** Escape asks before it discards an edit the user changed. */
-  async function cancelEditing(): Promise<void> {
+  /** Escape asks before it discards an edit the user changed. False: the user kept editing. */
+  async function cancelEditing(): Promise<boolean> {
     const original = conversation.turns.find((t) => t.id === editingTurnId)?.content ?? '';
     if (sourceText.trim() && sourceText !== original) {
       const ok = await confirmDialog({
@@ -597,11 +637,12 @@
         cancelLabel: 'Keep editing',
         danger: true,
       });
-      if (!ok) return;
+      if (!ok) return false;
     }
     composerMode = { kind: 'send' };
     sourceText = draftBeforeEdit;
     draftBeforeEdit = '';
+    return true;
   }
 
   /** The edit target left the thread. Keep what the user typed — it just sends as a new message now. */
@@ -774,8 +815,8 @@
 
   function scheduleDraftSave(): void {
     if (!draftHydrated) return;
-    // The composer holds the turn being edited; the stored draft is the text the edit will restore.
-    if (editingTurnId !== null) return;
+    // An edit or a described change holds other text; the stored draft is what leaving the mode restores.
+    if (composerMode.kind !== 'send') return;
     if (draftSaveTimer !== null) clearTimeout(draftSaveTimer);
     draftSaveTimer = setTimeout(() => {
       draftSaveTimer = null;
