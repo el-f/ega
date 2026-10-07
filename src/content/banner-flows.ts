@@ -5,6 +5,7 @@ import { isExtensionContextValid } from './context-guard';
 import type { Settings } from '@/shared/types';
 import { sendMsg } from '@/shared/messages';
 import { debugCatch } from '@/shared/logger';
+import type { shouldShowBubbleWithReason } from './should-show-bubble';
 
 let smartBannerShownThisSession = false;
 let pollTimer: ReturnType<typeof setTimeout> | null = null;
@@ -31,7 +32,12 @@ function openSelectionSettings(): void {
 }
 
 /** Once per install: the flag is stored when the notice shows, so later hold-backs stay silent. */
-export function maybeShowSmartBannerOnce(s: Settings): void {
+export function maybeShowSmartBannerOnce(
+  s: Settings,
+  reason: ReturnType<typeof shouldShowBubbleWithReason>['reason'],
+): void {
+  // Its words name English text; a short or empty selection would make them untrue and spend the flag.
+  if (reason !== 'english') return;
   if (s.bubbleMode !== 'smart') return;
   if (s.smartBubbleBannerShown) return;
   if (smartBannerShownThisSession) return;

@@ -275,7 +275,7 @@ function handleSelectionChange(): void {
         };
         recentSelection.range = info.range.cloneRange();
       }
-      maybeShowSmartBannerOnce(s);
+      maybeShowSmartBannerOnce(s, decision.reason);
       return;
     }
     const isFirstRun = !s.bubbleFirstRunSeen;
