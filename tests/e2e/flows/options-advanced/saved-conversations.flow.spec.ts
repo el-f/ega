@@ -72,6 +72,8 @@ test('Delete empties an open side panel for that thread, and Delete all removes 
   const card = options.locator('[data-ega-setting="advanced.savedConversations"]');
   await expect(card.getByText('Other pages')).toBeVisible({ timeout: 10_000 });
   await expect(card.getByText('example.com')).toBeVisible();
+  // One row per conversation, each with its name line.
+  await expect(card.locator('[data-ega-conv-title]')).toHaveCount(2);
   timeline.markStep('list-shown');
 
   // A row with facts names its first message; an older row names only its site.
