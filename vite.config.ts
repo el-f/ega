@@ -85,10 +85,10 @@ export default defineConfig({
   test: {
     // Node by default (jsdom setup summed to 1634s against a 459s wall clock); a file that needs a DOM adds `// @vitest-environment jsdom` on line 1.
     environment: 'node',
-    // Measured on the full suite: forks 269s, threads 221s. Nothing here needs
-    // process isolation — the two tests that write process.env delete their own
-    // keys — and Stryker's runner configures poolOptions.threads either way.
-    pool: 'threads',
+    // Forks, not threads: Node ignores --max-old-space-size in a worker thread, so only a fork can stop a runaway file at its heap cap.
+    pool: 'forks',
+    execArgv: ['--max-old-space-size=3072'],
+    maxWorkers: 4,
     globals: true,
     // Undo every vi.spyOn and vi.stubGlobal between tests, so one test's patch cannot leak into the next.
     restoreMocks: true,
