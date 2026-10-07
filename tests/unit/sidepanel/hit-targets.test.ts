@@ -49,6 +49,12 @@ describe('a reply row is one row of 28px buttons', () => {
     expect(row).toMatch(/min-block-size:\s*28px/);
   });
 
+  it('narrows the error row ghost buttons, so Open settings, Try again and Details fit one row at 256px', () => {
+    expect(rule(src, '\\.ega-error-actions :global\\(\\.ega-btn\\.variant-ghost\\)')).toMatch(
+      /padding-inline:\s*var\(--space-1\)/,
+    );
+  });
+
   it('keeps inline code at the text size in the answer and in the notes', () => {
     // Markdown draws inline code at 0.95em (13.3px under a 14px answer), off the type scale.
     for (const box of ['ega-answer', 'ega-notes-text']) {

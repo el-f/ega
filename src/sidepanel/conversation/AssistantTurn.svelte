@@ -865,6 +865,10 @@
     gap: var(--space-1);
     margin-block-start: var(--space-1);
   }
+  /* Ghost buttons draw no box, so 4px sides read fine and keep the row to one line at 256px. */
+  .ega-error-actions :global(.ega-btn.variant-ghost) {
+    padding-inline: var(--space-1);
+  }
   .ega-error-actions :global(.ega-btn[aria-disabled='true']) {
     color: var(--color-fg-disabled);
     cursor: var(--cursor-disabled);
