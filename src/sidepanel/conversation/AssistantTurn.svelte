@@ -367,9 +367,8 @@
     const active = document.activeElement;
     if (active !== null && active !== document.body) return;
     if (arrow !== null) {
-      (el.querySelector<HTMLElement>(`[data-ega-variant-${arrow}]`) ?? el).focus({
-        preventScroll: true,
-      });
+      const selector = arrow === 'prev' ? '[data-ega-variant-prev]' : '[data-ega-variant-next]';
+      (el.querySelector<HTMLElement>(selector) ?? el).focus({ preventScroll: true });
     } else if (started) el.focus({ preventScroll: true });
   });
 
