@@ -152,3 +152,38 @@ describe('SavedConversations: one row per conversation, with its facts', () => {
     expect(getByRole('button', { name: 'Delete conversation for old.test' })).toBeTruthy();
   });
 });
+
+// X14: error toasts collapse by key, and a failure's Try again must retry its own delete.
+describe('SavedConversations: failed deletes', () => {
+  beforeEach(() => {
+    vi.mocked(confirmDialog).mockReset();
+    vi.mocked(confirmDialog).mockResolvedValue(true);
+  });
+
+  it('two rows that fail keep two toasts, and deleting a row again closes its old one first', async () => {
+    await saveThread('https://one.test', [userTurn('o1', 'one')]);
+    await saveThread('https://two.test', [userTurn('t1', 'two')]);
+    const { container, getByRole } = render(SavedConversations);
+    await waitFor(() => expect(sites(container)).toHaveLength(2));
+    const push = vi.spyOn(toastStore, 'push').mockImplementation(() => {});
+    const close = vi.spyOn(toastStore, 'close').mockImplementation(() => {});
+    vi.spyOn(chrome.storage.local, 'set')
+      .mockRejectedValueOnce(new Error('quota'))
+      .mockRejectedValueOnce(new Error('quota'));
+
+    await fireEvent.click(getByRole('button', { name: 'Delete conversation for one.test' }));
+    await waitFor(() => expect(push).toHaveBeenCalledTimes(1));
+    await fireEvent.click(getByRole('button', { name: 'Delete conversation for two.test' }));
+    await waitFor(() => expect(push).toHaveBeenCalledTimes(2));
+    const [first, second] = push.mock.calls.map((c) => c[0]);
+    expect(first?.key).toBeDefined();
+    expect(first?.key).not.toBe(second?.key);
+
+    close.mockClear();
+    await fireEvent.click(getByRole('button', { name: 'Delete conversation for one.test' }));
+    await waitFor(() => expect(sites(container)).toEqual(['two.test']));
+    expect(close).toHaveBeenCalledWith(first?.key);
+    push.mockRestore();
+    close.mockRestore();
+  });
+});

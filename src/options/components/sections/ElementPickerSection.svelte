@@ -10,12 +10,12 @@
   import { toastStore } from '@/shared/components/toastStore';
 
   const SHORTCUTS_URL = 'chrome://extensions/shortcuts';
+  const OPEN_FAILED = `Could not open Chrome shortcuts. Type ${SHORTCUTS_URL} in the address bar.`;
   function openChromeShortcuts(): void {
+    // The warning stays until closed (X14), so another try closes the last one's first.
+    toastStore.close(OPEN_FAILED);
     chrome.tabs.create({ url: SHORTCUTS_URL }).catch(() => {
-      toastStore.push({
-        message: `Could not open Chrome shortcuts. Type ${SHORTCUTS_URL} in the address bar.`,
-        variant: 'warning',
-      });
+      toastStore.push({ message: OPEN_FAILED, variant: 'warning' });
     });
   }
 

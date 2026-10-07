@@ -8,7 +8,10 @@ import { flushAsync } from '@tests/_helpers/async';
 
 vi.mock('@/shared/components/confirmDialog', () => ({ confirmDialog: vi.fn(async () => true) }));
 const push = vi.fn();
-vi.mock('@/shared/components/toastStore', () => ({ toastStore: { push, dismiss: vi.fn() } }));
+const close = vi.fn();
+vi.mock('@/shared/components/toastStore', () => ({
+  toastStore: { push, close, dismiss: vi.fn() },
+}));
 
 const { default: RequestAuditLog } = await import('@/options/components/RequestAuditLog.svelte');
 
@@ -50,6 +53,7 @@ describe('RequestAuditLog — Clear', () => {
     resetChromeMock();
     chromeMock.runtime.sendMessage = defaultSendMessage;
     push.mockReset();
+    close.mockReset();
   });
 
   it('says so when the worker could not clear the log', async () => {
@@ -89,6 +93,24 @@ describe('RequestAuditLog — Clear', () => {
         send.mock.calls.filter((c) => (c[0] as { kind?: string }).kind === 'audit:clear'),
       ).toHaveLength(2),
     );
+  });
+
+  // X14: the error toast stays until closed, so the next Clear closes the old one before it runs.
+  it('a new Clear closes the stale error before it asks the worker again', async () => {
+    const send = vi.fn(async (_msg: unknown): Promise<unknown> => ({ ok: false }));
+    chromeMock.runtime.sendMessage = send;
+    const { btn } = await renderWithOneEntry();
+    btn.click();
+    await waitFor(() => expect(push).toHaveBeenCalledTimes(1));
+    close.mockClear();
+    btn.click();
+    const clears = (): number[] =>
+      send.mock.invocationCallOrder.filter(
+        (_, i) => (send.mock.calls[i]?.[0] as { kind?: string }).kind === 'audit:clear',
+      );
+    await waitFor(() => expect(clears()).toHaveLength(2));
+    expect(close).toHaveBeenCalledWith('Could not clear the request list');
+    expect(close.mock.invocationCallOrder[0]).toBeLessThan(clears()[1] ?? 0);
   });
 
   it('shows no error when the clear worked', async () => {

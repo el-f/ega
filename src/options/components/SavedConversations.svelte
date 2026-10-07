@@ -68,14 +68,17 @@
     return `${Math.max(1, Math.round(bytes / 1024))} KB`;
   }
 
-  async function run(work: () => Promise<void>): Promise<void> {
+  /** `key` names the delete: its error toast stays until closed (X14), and two deletes keep two toasts. */
+  async function run(key: string, work: () => Promise<void>): Promise<void> {
+    toastStore.close(key);
     try {
       await work();
     } catch (e) {
       toastStore.push({
         message: `Could not delete: ${(e as Error).message}`,
         variant: 'danger',
-        action: { label: 'Try again', onClick: () => void run(work) },
+        key,
+        action: { label: 'Try again', onClick: () => void run(key, work) },
       });
     }
     await refresh();
@@ -90,7 +93,7 @@
       confirmLabel: 'Delete',
       danger: true,
     });
-    if (ok) await run(() => deleteSavedConversation(row.origin));
+    if (ok) await run(`conv-delete:${row.origin}`, () => deleteSavedConversation(row.origin));
   }
 
   async function clearAll(): Promise<void> {
@@ -102,7 +105,7 @@
       cancelLabel: 'Keep them',
       danger: true,
     });
-    if (ok) await run(clearSavedConversations);
+    if (ok) await run('conv-delete-all', clearSavedConversations);
   }
 </script>
 

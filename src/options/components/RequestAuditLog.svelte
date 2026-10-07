@@ -252,11 +252,15 @@
     await clearNow();
   }
 
+  // An error toast with Try again stays until closed (X14), so a new Clear closes the last one first.
+  const CLEAR_FAILED = 'Could not clear the request list';
+
   async function clearNow(): Promise<void> {
+    toastStore.close(CLEAR_FAILED);
     const r = await sendMsg({ kind: 'audit:clear' }).catch(() => undefined);
     if (!r?.ok) {
       toastStore.push({
-        message: 'Could not clear the request list',
+        message: CLEAR_FAILED,
         variant: 'danger',
         action: { label: 'Try again', onClick: () => void clearNow() },
       });

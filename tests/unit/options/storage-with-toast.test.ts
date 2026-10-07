@@ -46,6 +46,41 @@ describe('saveSettings', () => {
     expect(write).toHaveBeenLastCalledWith({ theme: 'dark' });
   });
 
+  // X14: toasts without Undo collapse by key, and the key defaults to the message, which every failure shares.
+  it('two different failed writes keep two toasts, each with its own Try again', async () => {
+    const push = vi.spyOn(toastStore, 'push').mockImplementation(() => {});
+    const write = vi
+      .spyOn(storage, 'updateSettings')
+      .mockRejectedValueOnce(new Error('disk i/o failed'))
+      .mockRejectedValueOnce(new Error('disk i/o failed'))
+      .mockResolvedValue({} as Awaited<ReturnType<typeof storage.updateSettings>>);
+    await saveSettings({ theme: 'dark' });
+    await saveSettings({ confidencePill: false });
+    const [first, second] = push.mock.calls.map((c) => c[0]);
+    expect(first?.key).toBeDefined();
+    expect(second?.key).toBeDefined();
+    expect(first?.key).not.toBe(second?.key);
+    first?.action?.onClick();
+    await vi.waitFor(() => expect(write).toHaveBeenCalledTimes(3));
+    expect(write).toHaveBeenLastCalledWith({ theme: 'dark' });
+  });
+
+  it('Try again first closes the stale error of the same write', async () => {
+    const push = vi.spyOn(toastStore, 'push').mockImplementation(() => {});
+    const close = vi.spyOn(toastStore, 'close').mockImplementation(() => {});
+    const write = vi
+      .spyOn(storage, 'updateSettings')
+      .mockRejectedValueOnce(new Error('disk i/o failed'))
+      .mockResolvedValueOnce({} as Awaited<ReturnType<typeof storage.updateSettings>>);
+    await saveSettings({ theme: 'dark' });
+    const key = push.mock.calls[0]?.[0].key;
+    close.mockClear();
+    push.mock.calls[0]?.[0].action?.onClick();
+    await vi.waitFor(() => expect(write).toHaveBeenCalledTimes(2));
+    expect(close).toHaveBeenCalledWith(key);
+    expect(close.mock.invocationCallOrder[0]).toBeLessThan(write.mock.invocationCallOrder[1] ?? 0);
+  });
+
   it('never rejects, so a fire-and-forget call cannot raise an unhandled rejection', async () => {
     vi.spyOn(toastStore, 'push').mockImplementation(() => {});
     vi.spyOn(storage, 'updateSettings').mockRejectedValueOnce(new Error('boom'));

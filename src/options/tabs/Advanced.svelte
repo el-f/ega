@@ -122,7 +122,12 @@
     });
   }
 
+  // An error toast with Try again stays until closed (X14), so each new attempt closes the last one's first.
+  const CLEAR_CACHE_FAILED = 'Saved answers were not cleared';
+  const DELETE_ALL_FAILED = 'delete-all-failed';
+
   async function clearCache(): Promise<void> {
+    toastStore.close(CLEAR_CACHE_FAILED);
     try {
       // The live cache is an in-memory Map in the service worker.
       await chrome.runtime.sendMessage({ kind: 'cache:clear' });
@@ -130,7 +135,7 @@
     } catch (e) {
       debugCatch(e, 'options.tabs.Advanced.clearCache');
       toastStore.push({
-        message: 'Saved answers were not cleared',
+        message: CLEAR_CACHE_FAILED,
         variant: 'danger',
         action: { label: 'Try again', onClick: () => void clearCache() },
       });
@@ -140,6 +145,7 @@
   let deleteOpen = $state(false);
   async function deleteAllData(): Promise<void> {
     deleteOpen = false;
+    toastStore.close(DELETE_ALL_FAILED);
     try {
       // A reply finishing after the wipe would write its thread back; an asleep worker must not stop it.
       await chrome.runtime.sendMessage({ kind: 'translate:cancel-all' }).catch(() => {});
@@ -152,6 +158,7 @@
       toastStore.push({
         message: `Some data was not deleted: ${(e as Error).message}. Press Delete all data again.`,
         variant: 'danger',
+        key: DELETE_ALL_FAILED,
         action: { label: 'Try again', onClick: () => (deleteOpen = true) },
       });
       return;

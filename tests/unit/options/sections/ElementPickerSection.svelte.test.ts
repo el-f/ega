@@ -147,4 +147,27 @@ describe('ElementPickerSection — the browser-wide shortcut', () => {
       Reflect.deleteProperty(chrome.tabs, 'create');
     }
   });
+
+  // X14: the warning stays until closed, so trying again closes the old one first.
+  it('Open Chrome shortcuts again closes the warning the last try left', async () => {
+    const create = vi.fn().mockRejectedValueOnce(new Error('nope')).mockResolvedValueOnce({});
+    Object.assign(chrome.tabs, { create });
+    const push = vi.spyOn(toastStore, 'push').mockImplementation(() => {});
+    const close = vi.spyOn(toastStore, 'close').mockImplementation(() => {});
+    try {
+      const { getByRole } = render(ElementPickerSection, { props: makeSectionProps() });
+      const open = getByRole('button', { name: /Open Chrome shortcuts/ });
+      await fireEvent.click(open);
+      await waitFor(() => expect(push).toHaveBeenCalledTimes(1));
+      const warning = push.mock.calls[0]?.[0];
+      close.mockClear();
+      await fireEvent.click(open);
+      await waitFor(() => expect(create).toHaveBeenCalledTimes(2));
+      expect(close).toHaveBeenCalledWith(warning?.key ?? warning?.message);
+    } finally {
+      push.mockRestore();
+      close.mockRestore();
+      Reflect.deleteProperty(chrome.tabs, 'create');
+    }
+  });
 });

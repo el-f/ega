@@ -264,3 +264,38 @@ describe('Advanced — Clear cache', () => {
     expect(pushed.at(-1)?.action?.label).toBe('Try again');
   });
 });
+
+// X14: an error toast with Try again stays until it is closed, so the next attempt of the same action closes it first.
+describe('Advanced — a new attempt closes the stale error', () => {
+  it('Clear cache again closes "Saved answers were not cleared" before it runs', async () => {
+    const close = vi.spyOn(toastStore, 'close').mockImplementation(() => {});
+    vi.spyOn(chrome.runtime, 'sendMessage').mockRejectedValueOnce(new Error('worker gone'));
+    const view = mount();
+    await fireEvent.click(view.getByRole('button', { name: 'Clear cache' }));
+    await vi.waitFor(() =>
+      expect(pushed).toContainEqual(
+        expect.objectContaining({ message: 'Saved answers were not cleared' }),
+      ),
+    );
+    close.mockClear();
+    await fireEvent.click(view.getByRole('button', { name: 'Clear cache' }));
+    await vi.waitFor(() =>
+      expect(pushed).toContainEqual(expect.objectContaining({ message: 'Saved answers cleared' })),
+    );
+    expect(close).toHaveBeenCalledWith('Saved answers were not cleared');
+  });
+
+  it('Delete all data again closes the failure toast of the last attempt', async () => {
+    const close = vi.spyOn(toastStore, 'close').mockImplementation(() => {});
+    vi.spyOn(chrome.storage.local, 'clear').mockRejectedValueOnce(new Error('quota'));
+    const view = mount();
+    await deleteAll(view);
+    await vi.waitFor(() => expect(pushed).toHaveLength(1));
+    const key = pushed[0]?.key;
+    expect(key).toBeDefined();
+    close.mockClear();
+    await deleteAll(view);
+    await purgeDone();
+    expect(close).toHaveBeenCalledWith(key);
+  });
+});
