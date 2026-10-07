@@ -86,7 +86,7 @@
     border: 1px solid transparent;
     border-radius: var(--radius-md);
     font-family: var(--font-ui);
-    font-weight: 500;
+    font-weight: var(--ega-fw-medium, 500);
     cursor: pointer;
     transition:
       background var(--motion-fast) var(--ease-out),

@@ -96,11 +96,13 @@
     gap: var(--space-3);
   }
 
+  /* The hover tint reaches into the card padding, so the dot lines up with the checkboxes above. */
   .ega-radio-row {
     display: inline-flex;
     align-items: flex-start;
     gap: var(--space-2);
     padding: var(--space-1) var(--space-2);
+    margin-inline-start: calc(-1 * var(--space-2));
     border-radius: var(--radius-sm);
     cursor: pointer;
     line-height: 1.4;
@@ -161,6 +163,15 @@
   }
   .ega-radio-dot.checked {
     background: var(--color-accent-fg, white);
+  }
+  /* High contrast drops backgrounds, so the checked dot paints a system color of its own. */
+  @media (forced-colors: active) {
+    .ega-radio-dot.checked {
+      forced-color-adjust: none;
+      width: 8px;
+      height: 8px;
+      background: CanvasText;
+    }
   }
 
   .ega-radio-text {

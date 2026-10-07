@@ -89,9 +89,12 @@
 
 <style>
   /* appearance:none with a CSS check: Windows paints a light native check that ignores dark theme. */
+  /* At least 24 x 24: the label is the click target (R44), even with no visible text. */
   .ega-checkbox {
     display: inline-flex;
     align-items: center;
+    min-height: 24px;
+    min-width: 24px;
     gap: var(--space-2);
     cursor: pointer;
     color: var(--color-fg);
@@ -134,9 +137,8 @@
     opacity: 0.6;
   }
   .ega-checkbox-input:focus-visible {
-    outline: none;
-    border-color: var(--color-accent);
-    box-shadow: 0 0 0 3px var(--color-accent-bg-soft);
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
   }
   .ega-checkbox-input:checked,
   .ega-checkbox-input:indeterminate {

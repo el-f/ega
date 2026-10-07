@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Dialog } from 'bits-ui';
   import type { Snippet } from 'svelte';
+  import X from '@lucide/svelte/icons/x';
   import { id } from '@/shared/uuid';
 
   type Size = 'sm' | 'md' | 'lg' | 'xl';
@@ -101,7 +102,7 @@
             {title}
           </h2>
           <button type="button" class="ega-dialog-close" aria-label="Close" onclick={onClose}
-            >×</button
+            ><X size={16} strokeWidth={2} aria-hidden="true" /></button
           >
         </div>
       {/if}
@@ -195,20 +196,26 @@
     bottom: 0;
     background: linear-gradient(transparent, var(--color-shadow));
   }
+  /* A surface can set a smaller title size in its own sheet (options: 14px, spec 1.1). */
   .ega-dialog-title {
     margin: 0;
-    font-size: var(--fs-lg);
+    font-size: var(--ega-dialog-title-fs, var(--fs-lg));
     font-weight: 600;
     color: var(--color-fg);
   }
   .ega-dialog-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    min-height: 28px;
     background: transparent;
     border: 0;
+    border-radius: var(--radius-sm);
     color: var(--color-muted);
-    font-size: var(--fs-xl);
     line-height: 1;
     cursor: pointer;
-    padding: var(--space-1) var(--space-2);
+    padding: var(--space-1);
     flex: 0 0 auto;
   }
   .ega-dialog-close:hover,

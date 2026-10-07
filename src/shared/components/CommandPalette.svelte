@@ -131,8 +131,6 @@
   :global(.ega-palette-section-heading) {
     font-size: var(--fs-xs);
     color: var(--color-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
     padding: var(--space-2) var(--space-2) var(--space-1);
   }
   :global(.ega-palette-item) {

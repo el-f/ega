@@ -64,7 +64,7 @@
   .ega-textarea-label {
     font-size: var(--fs-sm);
     color: var(--color-fg);
-    font-weight: 500;
+    font-weight: var(--ega-fw-medium, 500);
   }
   .ega-textarea {
     width: 100%;
