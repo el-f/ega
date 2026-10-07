@@ -225,14 +225,18 @@ describe('canceling a batch', () => {
     expect(document.getElementById('a')?.textContent).toBe('これは最初の段落です。');
   });
 
-  it('stops following the page URL, so a later popstate does nothing', async () => {
+  it('stops the page watch it started', async () => {
+    const observe = vi.spyOn(MutationObserver.prototype, 'observe');
+    const disconnect = vi.spyOn(MutationObserver.prototype, 'disconnect');
     twoBlocks();
-    const removeSpy = vi.spyOn(window, 'removeEventListener');
     await enterAndFire(deps({ mountProgress: () => progress().handle }), ['a']);
+    const at = observe.mock.calls.findIndex(([target]) => target === document.body);
+    const watch = observe.mock.contexts[at];
+    expect(watch).toBeDefined();
 
     await cancelPageTranslateV2();
 
-    expect(removeSpy).toHaveBeenCalledWith('popstate', expect.any(Function));
+    expect(disconnect.mock.contexts).toContain(watch);
   });
 
   it('is a no-op when nothing is running', async () => {

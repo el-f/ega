@@ -65,7 +65,7 @@ afterEach(async () => {
 });
 
 describe('page-translate-v2 — a second run over a settled batch', () => {
-  it('closes the settled pill and re-enters translate-areas mode', async () => {
+  it('keeps the settled pill and re-enters translate-areas mode', async () => {
     document.body.innerHTML =
       '<p id="a">これは最初の段落です。</p><p id="b">二つ目の段落です。</p>';
     let captured = '';
@@ -82,8 +82,8 @@ describe('page-translate-v2 — a second run over a settled batch', () => {
     expect(isPageV2Active()).toBe(true);
 
     await runPageTranslateV2(d);
-    expect(p.dismiss).toHaveBeenCalledTimes(1);
-    expect(isPageV2Active()).toBe(false);
+    expect(p.dismiss).not.toHaveBeenCalled();
+    expect(isPageV2Active()).toBe(true);
     expect(isMultiSelectActive()).toBe(true);
     // The first batch's translation stays on the page.
     expect(document.querySelector('[data-ega-replaced]')?.textContent).toBe('One.');
@@ -272,8 +272,42 @@ describe('page-translate-v2 — overlapping entries', () => {
 
     pressEnter();
     await flush();
-    expect(d.dispatch).toHaveBeenCalledTimes(1);
+    // The second pick joins the first batch.
+    expect(d.dispatch).toHaveBeenCalledTimes(2);
     expect(reads).toBe(3);
+  });
+
+  it('a pick fired while the first batch still reads settings does not start a second batch', async () => {
+    document.body.innerHTML =
+      '<p id="a">これは最初の段落です。</p><p id="b">二つ目の段落です。</p>';
+    let reads = 0;
+    let release!: () => void;
+    let mounted = 0;
+    const d = deps({
+      getSettings: () => {
+        reads += 1;
+        if (reads !== 2) return Promise.resolve(SETTINGS);
+        return new Promise<Settings>((resolve) => {
+          release = () => resolve(SETTINGS);
+        });
+      },
+      mountProgress: () => {
+        mounted += 1;
+        return progress().handle;
+      },
+    });
+    await runPageTranslateV2(d);
+    click('a');
+    pressEnter();
+    await flush();
+    await runPageTranslateV2(d);
+    click('b');
+    pressEnter();
+    await flush();
+    release();
+    await flush();
+    expect(mounted).toBe(1);
+    expect(d.dispatch).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -296,34 +330,43 @@ describe('page-translate-v2 — the pill', () => {
     expect(document.getElementById('a')?.textContent).toBe('これは最初の段落です。');
   });
 
-  it('closing an old batch late does not end the batch that replaced it', async () => {
+  it('areas chosen after a batch settled join it: one pill, and its Remove translation puts back both', async () => {
     document.body.innerHTML =
       '<p id="a">これは最初の段落です。</p><p id="b">二つ目の段落です。</p>';
+    const before = document.body.innerHTML;
     const ids: string[] = [];
-    const pills = [progress(), progress()];
+    let remove: (() => void) | undefined;
+    const p = progress();
+    p.handle.setOnUndoAll = (h: () => void) => {
+      remove = h;
+    };
     let mounted = 0;
     const d = deps({
-      mountProgress: () => pills[mounted++]?.handle as ProgressHandle,
+      mountProgress: () => {
+        mounted += 1;
+        return p.handle;
+      },
       dispatch: vi.fn((requestId: string) => {
         ids.push(requestId);
         return Promise.resolve();
       }),
     });
     await enterAndFire(d, ['a']);
+    routePageV2Chunk({ type: 'delta', requestId: ids[0] ?? '', text: '{"translation":"One."}' });
     routePageV2Chunk({ type: 'done', requestId: ids[0] ?? '', confidence: 1 });
     await runPageTranslateV2(d);
     click('b');
     pressEnter();
     await flush();
     expect(ids).toHaveLength(2);
-    expect(isPageV2Active()).toBe(true);
-
-    pills[0]?.close?.();
-
-    expect(isPageV2Active()).toBe(true);
-    expect(pills[1]?.dismiss).not.toHaveBeenCalled();
+    expect(mounted).toBe(1);
+    routePageV2Chunk({ type: 'delta', requestId: ids[1] ?? '', text: '{"translation":"Two."}' });
     routePageV2Chunk({ type: 'done', requestId: ids[1] ?? '', confidence: 1 });
-    expect(pills[1]?.settle).toHaveBeenCalledTimes(1);
+    expect(p.settle).toHaveBeenCalledTimes(2);
+
+    remove?.();
+    await flush();
+    expect(document.body.innerHTML).toBe(before);
   });
 
   it('hands its close and toggle handlers over once, however often the batch settles', async () => {

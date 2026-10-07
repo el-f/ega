@@ -6,37 +6,10 @@ import {
   cancelPageTranslateV2,
   routePageV2Chunk,
   isPageV2Active,
-  type ProgressHandle,
 } from '@/content/page-translate-v2';
-import type { PageProgress } from '@/content/page-translate-v2/progress';
 import type { Settings } from '@/shared/types';
-import { deps, flush } from '@tests/_helpers/page-translate';
+import { FakeObserver, finishAll, flush, rig } from '@tests/_helpers/page-translate';
 import { looksLikeEnglish } from '@/content/looks-like-english';
-
-/** A stand-in for the viewport band: the test says which blocks are near. */
-class FakeObserver {
-  static last: FakeObserver | null = null;
-  readonly observed = new Set<Element>();
-  constructor(readonly cb: IntersectionObserverCallback) {
-    FakeObserver.last = this;
-  }
-  observe(el: Element): void {
-    this.observed.add(el);
-  }
-  unobserve(el: Element): void {
-    this.observed.delete(el);
-  }
-  disconnect(): void {
-    this.observed.clear();
-  }
-  /** One callback with an entry for every observed block, near or not. */
-  band(near: Set<Element>): void {
-    const entries = [...this.observed].map(
-      (target) => ({ target, isIntersecting: near.has(target) }) as IntersectionObserverEntry,
-    );
-    this.cb(entries, this as unknown as IntersectionObserver);
-  }
-}
 
 const N = 12;
 const text = (i: number): string => `これは${i}番目の段落です。`;
@@ -46,47 +19,6 @@ function page(): HTMLElement[] {
     (_, i) => `<p id="p${i}">これは${i}番目の段落です。</p>`,
   ).join('');
   return Array.from({ length: N }, (_, i) => document.getElementById(`p${i}`) as HTMLElement);
-}
-
-function rig(concurrency = 3): {
-  sent: { id: string; text: string }[];
-  updates: PageProgress[];
-  handle: ProgressHandle;
-  stop: () => void;
-  d: ReturnType<typeof deps>;
-} {
-  const sent: { id: string; text: string }[] = [];
-  const updates: PageProgress[] = [];
-  const out = { sent, updates, stop: () => {} } as ReturnType<typeof rig>;
-  out.handle = {
-    update: (p) => updates.push(p),
-    setLiveMessage: vi.fn(),
-    setOnClose: vi.fn(),
-    setOnUndoAll: vi.fn(),
-    dismiss: vi.fn(),
-  };
-  out.d = deps(
-    {
-      dispatch: vi.fn((id: string, text: string) => {
-        sent.push({ id, text });
-        return Promise.resolve();
-      }),
-      mountProgress: (_total, onStop) => {
-        out.stop = onStop;
-        return out.handle;
-      },
-      isTargetLanguage: () => false,
-    },
-    { batchConcurrency: concurrency },
-  );
-  return out;
-}
-
-function finishAll(r: ReturnType<typeof rig>, from = 0): void {
-  for (const s of r.sent.slice(from)) {
-    routePageV2Chunk({ type: 'delta', requestId: s.id, text: '{"translation":"T"}' });
-    routePageV2Chunk({ type: 'done', requestId: s.id, confidence: 1 });
-  }
 }
 
 beforeEach(async () => {
@@ -288,8 +220,6 @@ describe('whole-page translate', () => {
     document.body.innerHTML = `<p id="p">Un párrafo que falló</p>`;
     const p = document.getElementById('p') as HTMLElement;
     const first = rig();
-    let close = (): void => {};
-    first.handle.setOnClose = (fn) => (close = fn);
     await runWholePageTranslate(first.d);
     FakeObserver.last?.band(new Set([p]));
     await flush();
@@ -300,7 +230,7 @@ describe('whole-page translate', () => {
       message: 'bad key',
     });
     await flush();
-    close();
+    first.close();
     expect(p.querySelector('[data-ega-tx-error]')).not.toBeNull();
 
     const second = rig();

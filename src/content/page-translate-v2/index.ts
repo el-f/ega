@@ -6,10 +6,12 @@ import {
   appendDelta,
   finish,
   mountError,
+  remountErrorChip,
   setGlobalOriginalView,
   clearStaleError,
   type RenderHandle,
 } from './renderer';
+import { dropChipRetry } from '../page-chip';
 import {
   enterMultiSelect,
   exitMultiSelect,
@@ -22,7 +24,7 @@ import {
   MAX_SELECTION_CHARS,
 } from '@/shared/constants';
 import { isRetryable } from '@/shared/error-policy';
-import { errorCopy } from '@/shared/error-copy';
+import { errorCopy, SETTINGS_CHANGED_BODY } from '@/shared/error-copy';
 import { backendLabel } from '@/shared/backends/provider-profiles';
 import { showToast } from '../toast';
 import { sendFailureMessage } from '../translate-handlers';
@@ -96,7 +98,23 @@ interface Failure {
   code: ErrCode;
   message: string;
   backendId?: BackendId | undefined;
+  /** A setting changed after this settings error showed, so Try again may now work. */
+  settingsChanged?: boolean;
 }
+
+/** Failures no later block gets past until a setting changes, by catalog row: the session stops sending. */
+const SETTINGS_STOPS = new Set<string>([
+  'AUTH',
+  'QUOTA',
+  'REQUEST_MODEL',
+  'NO_BACKEND',
+  'NATIVE_NOT_INSTALLED',
+  'NATIVE_SPAWN_FAIL',
+  'UNSUPPORTED',
+]);
+
+/** A removal on the page is checked once it settles; a page that keeps changing gets at most four checks a second. */
+const SWEEP_DELAY_MS = 250;
 
 interface Session {
   store: PageStore;
@@ -106,6 +124,8 @@ interface Session {
   mode: RenderMode;
   /** Tag of the target language every block is marked with. */
   lang: string | undefined;
+  /** The target's own script when no other offered language writes in it; text mostly in it is already the target. */
+  script: RegExp | null;
   concurrency: number;
   stallMs: number;
   total: number;
@@ -135,7 +155,9 @@ interface Session {
   stopping: boolean;
   settledOnce: boolean;
   showingGlobalOriginal: boolean;
-  checkUrlChange: () => void;
+  /** Watches the page for removed blocks; a route change does not cancel the session. */
+  pageWatch: MutationObserver | null;
+  sweepTimer: ReturnType<typeof setTimeout> | null;
   stopSettings: () => void;
 }
 
@@ -145,6 +167,8 @@ function isSettled(sess: Session): boolean {
 
 let active: Session | null = null;
 let entering = false;
+/** A new session is reading settings; a second pick in that window must not start another one. */
+let starting = false;
 
 export function isPageV2Active(): boolean {
   return active !== null;
@@ -153,10 +177,11 @@ export function isPageV2Active(): boolean {
 /** Opens translate-areas mode; the user picks blocks and Enter runs them. A second call while picking exits. */
 export async function runPageTranslateV2(deps: PageV2Deps): Promise<void> {
   if (entering) return;
-  if (active) {
-    // A settled batch keeps its pill open; a fresh translate closes it and lets the user pick more.
-    if (!isSettled(active)) return;
-    closeSession(active);
+  if (active && sweepDetached(active) === 'changed') maybeSettle(active);
+  if (active && !isSettled(active) && !active.stopping) {
+    // An areas batch still sending is left alone; Translate page's scroll part gives way to area picking.
+    if (active.observer === null) return;
+    stopSession(active);
   }
   if (isMultiSelectActive()) {
     exitMultiSelect();
@@ -183,63 +208,133 @@ export async function runPageTranslateV2(deps: PageV2Deps): Promise<void> {
  * bottom; the rest start when the user scrolls within one screen of them. False when the page has nothing to translate.
  */
 export async function runWholePageTranslate(deps: PageV2Deps): Promise<boolean> {
-  if (entering) return true;
-  if (active) {
-    // While the pill still runs it is already there; a settled one gives way to a fresh pass over what is left.
-    if (!isSettled(active)) return true;
-    closeSession(active);
-  }
+  if (entering || starting) return true;
+  // A session whose blocks all left the page closes here, so this press starts over.
+  if (active && sweepDetached(active) === 'changed') maybeSettle(active);
+  // While the pill still runs it is already there.
+  if (active && !isSettled(active)) return true;
   if (isMultiSelectActive()) exitMultiSelect();
   entering = true;
   try {
     const s = await deps.getSettings();
     const mode: RenderMode = s.pageTranslateMode === 'bilingual' ? 'bilingual' : 'inplace';
-    const elements = collectBlocks(document.body, { maxChars: MAX_SELECTION_CHARS });
-    if (elements.length === 0) {
+    // A second press continues the settled session, so one pill and one Remove translation cover every pass.
+    const sess = active;
+    const held = sess ? heldIds(sess) : new Map<Element, string>();
+    const elements = collectBlocks(document.body, { maxChars: MAX_SELECTION_CHARS }).filter(
+      (el) => !held.has(el),
+    );
+    const failed = sess ? [...sess.failed.keys()] : [];
+    if (elements.length === 0 && failed.length === 0) {
       showToast('Nothing to translate on this page.');
       return false;
     }
-    const sess = await createSession(deps, [], mode, elements.length);
-    elements.forEach((el, i) => {
-      const id = uuid();
-      sess.deferred.set(id, el);
-      sess.index.set(id, i);
-    });
-    const byElement = new Map<Element, string>();
-    for (const [id, el] of sess.deferred) byElement.set(el, id);
-    sess.observer = new IntersectionObserver(
-      (entries) => {
-        if (sess !== active) return;
-        const near: number[] = [];
-        const ids = new Map<number, string>();
-        for (const entry of entries) {
-          const id = byElement.get(entry.target);
-          if (id === undefined) continue;
-          if (entry.isIntersecting) {
-            if (!sess.deferred.has(id)) continue;
-            const at = sess.index.get(id) ?? 0;
-            near.push(at);
-            ids.set(at, id);
-          } else {
-            unqueue(sess, id);
-          }
-        }
-        for (const at of releaseOrder(near)) {
-          const id = ids.get(at);
-          if (id !== undefined) release(sess, id);
-        }
-        report(sess);
-        pump();
-      },
-      // One viewport height above and below.
-      { rootMargin: '100% 0px 100% 0px' },
-    );
-    for (const el of elements) sess.observer.observe(el);
-    report(sess);
+    if (sess) {
+      adopt(sess, deps, mode);
+      // Stop's dropped areas are collected again, so they count again.
+      sess.skipped = 0;
+      sess.total += elements.length;
+      watch(sess, elements);
+      for (const id of failed) retryBlock(id);
+      report(sess);
+      return true;
+    }
+    const created = await createSession(deps, [], mode, elements.length);
+    watch(created, elements);
+    report(created);
     return true;
   } finally {
     entering = false;
   }
+}
+
+/** Each block waits until it comes within one screen of the viewport. */
+function watch(sess: Session, elements: HTMLElement[]): void {
+  if (elements.length === 0) return;
+  const byElement = new Map<Element, string>();
+  elements.forEach((el, i) => {
+    const id = uuid();
+    sess.deferred.set(id, el);
+    sess.index.set(id, i);
+    byElement.set(el, id);
+  });
+  sess.observer = new IntersectionObserver(
+    (entries) => {
+      if (sess !== active || sweepDetached(sess) === 'closed') return;
+      const near: number[] = [];
+      const ids = new Map<number, string>();
+      for (const entry of entries) {
+        const id = byElement.get(entry.target);
+        if (id === undefined) continue;
+        if (entry.isIntersecting) {
+          if (!sess.deferred.has(id)) continue;
+          const at = sess.index.get(id) ?? 0;
+          near.push(at);
+          ids.set(at, id);
+        } else {
+          unqueue(sess, id);
+        }
+      }
+      for (const at of releaseOrder(near)) {
+        const id = ids.get(at);
+        if (id !== undefined) release(sess, id);
+      }
+      // The block release dropped can be the last one, so the session can settle here.
+      maybeSettle(sess);
+      pump();
+    },
+    // One viewport height above and below.
+    { rootMargin: '100% 0px 100% 0px' },
+  );
+  for (const el of elements) sess.observer.observe(el);
+}
+
+/** The session's block id for each element it already holds. */
+function heldIds(sess: Session): Map<Element, string> {
+  const held = new Map<Element, string>();
+  sess.store.forEach((entry) => held.set(entry.element, entry.id));
+  return held;
+}
+
+/** A later press joins the session on the page, with that press's direction and mode. */
+function adopt(sess: Session, deps: PageV2Deps, mode: RenderMode): void {
+  sess.deps = deps;
+  sess.lang = langTag(deps.target);
+  sess.targetName = isoName(deps.target);
+  sess.script = targetScript(deps.target);
+  sess.mode = mode;
+  sess.stopping = false;
+}
+
+/**
+ * Drops the blocks the page removed, waiting or queued; an SPA route change or a virtual list does that.
+ * A session with no block left on the page closes.
+ */
+function sweepDetached(sess: Session): 'closed' | 'changed' | 'same' {
+  const before = sess.total;
+  for (const [id, el] of sess.deferred) {
+    if (el.isConnected) continue;
+    sess.deferred.delete(id);
+    sess.observer?.unobserve(el);
+    sess.total--;
+  }
+  const kept = sess.pending.filter((b) => b.element.isConnected);
+  sess.total -= sess.pending.length - kept.length;
+  sess.pending = kept;
+  if (!onPage(sess)) {
+    closeSession(sess);
+    return 'closed';
+  }
+  return sess.total === before ? 'same' : 'changed';
+}
+
+function onPage(sess: Session): boolean {
+  if (sess.deferred.size > 0 || sess.pending.length > 0) return true;
+  let found = false;
+  sess.store.forEach((entry) => {
+    found ||= entry.element.isConnected;
+  });
+  return found;
 }
 
 /** A queued block that left the band goes back to waiting; it was never mounted, so nothing needs undoing. */
@@ -264,13 +359,41 @@ function isoName(id: string | undefined): string | undefined {
 /** Two letters outside the Latin script: never English, whatever the word list says. */
 const NON_LATIN = /(?!\p{Script=Latin})\p{L}.*(?!\p{Script=Latin})\p{L}/u;
 
+/** Scripts several offered languages write in (Russian and Ukrainian, Arabic and Persian, Hindi and Marathi). */
+const SHARED_SCRIPTS = new Set(['Latn', 'Cyrl', 'Arab', 'Deva']);
+
+/**
+ * The target's script when only that language writes in it, e.g. Hebrew, Greek, Thai or Korean.
+ * ponytail: Chinese and Japanese share Han and stay unjudged, like the shared scripts; chrome.i18n.detectLanguage if that cost matters.
+ */
+function targetScript(target: string | undefined): RegExp | null {
+  if (target === undefined) return null;
+  try {
+    const script = new Intl.Locale(target).maximize().script;
+    if (script === undefined || SHARED_SCRIPTS.has(script)) return null;
+    return new RegExp(`\\p{Script=${script === 'Kore' ? 'Hangul' : script}}`, 'u');
+  } catch {
+    // A custom language id, or a script name the regex engine does not know (Hans, Jpan).
+    return null;
+  }
+}
+
+const LETTER = /\p{L}/gu;
+
 /** A block already in the target language is skipped; the English word list only judges Latin-script text. */
 function readsAsTarget(sess: Session, text: string): boolean {
   const target = sess.deps.target;
   if (target === undefined) return false;
   const detected = sess.deps.detectLang?.(text);
   if (detected !== undefined) return detected === target;
-  return target === 'en' && !NON_LATIN.test(text) && sess.deps.looksLikeEnglish?.(text) === true;
+  if (target === 'en') {
+    return !NON_LATIN.test(text) && sess.deps.looksLikeEnglish?.(text) === true;
+  }
+  if (!sess.script) return false;
+  const letters = text.match(LETTER) ?? [];
+  const inScript = letters.filter((ch) => sess.script?.test(ch)).length;
+  // A Latin brand name or two inside the sentence does not make it foreign.
+  return letters.length > 0 && inScript / letters.length >= 0.8;
 }
 
 /** Reads the text at release time, so a block the page changed since collection sends what it shows now. */
@@ -327,17 +450,6 @@ async function createSession(
     void cancelPageTranslateV2();
   });
 
-  const startUrl = location.pathname + location.search;
-  const checkUrlChange = (): void => {
-    if (location.pathname + location.search !== startUrl) {
-      queueMicrotask(() => {
-        void cancelPageTranslateV2();
-      });
-    }
-  };
-  // popstate only: a `history.pushState` patch made here lives in the isolated world, so the page's own router never runs it.
-  window.addEventListener('popstate', checkUrlChange);
-
   const sess: Session = {
     store: new PageStore(),
     progress,
@@ -345,6 +457,7 @@ async function createSession(
     deps,
     mode,
     lang: langTag(deps.target),
+    script: targetScript(deps.target),
     concurrency,
     // Sits above the router's own ceiling, so it only fires when the SW dies without a terminal chunk.
     stallMs: timeoutMs + 60_000,
@@ -369,17 +482,60 @@ async function createSession(
     stopping: false,
     settledOnce: false,
     showingGlobalOriginal: false,
-    checkUrlChange,
+    pageWatch: null,
+    sweepTimer: null,
     stopSettings: () => {},
   };
   sess.stopSettings = deps.onSettingsChange?.(() => onSettingsChanged(sess)) ?? (() => {});
+  // No entry ever comes for a waiting block the page removes, so removals are watched here.
+  sess.pageWatch = new MutationObserver((records) => {
+    if (sess.sweepTimer !== null || !records.some((r) => r.removedNodes.length > 0)) return;
+    sess.sweepTimer = setTimeout(() => {
+      sess.sweepTimer = null;
+      if (sess !== active || sweepDetached(sess) !== 'changed') return;
+      maybeSettle(sess);
+      pump();
+    }, SWEEP_DELAY_MS);
+  });
+  sess.pageWatch.observe(document.body, { childList: true, subtree: true });
   active = sess;
   return sess;
 }
 
-/** Turning Ega off on the site stops the session: nothing new is sent, what is in flight finishes. */
+/**
+ * Turning Ega off on the site stops the session: nothing new is sent, what is in flight finishes.
+ * Any other change turns each settings error into "Settings changed", with Try again first.
+ */
 function onSettingsChanged(sess: Session): void {
-  if (sess === active && sess.deps.siteOff?.()) stopSession(sess);
+  if (sess !== active) return;
+  if (sess.deps.siteOff?.()) {
+    stopSession(sess);
+    return;
+  }
+  let changed = false;
+  for (const [id, f] of sess.failed) {
+    if (f.settingsChanged || !leadsWithSettings(f)) continue;
+    f.settingsChanged = true;
+    changed = true;
+    const handle = sess.handles.get(id);
+    if (handle) remountErrorChip(handle, f, chipOpts(id, f));
+  }
+  if (changed) report(sess);
+}
+
+function leadsWithSettings(f: Failure): boolean {
+  return errorCopy(f.code, f.message)?.actions[0] === 'open-settings';
+}
+
+function chipOpts(
+  blockId: string,
+  f: Failure,
+): { onRetry: () => void; backend?: string; settingsChanged?: boolean } {
+  return {
+    onRetry: () => retryBlock(blockId),
+    ...(f.backendId ? { backend: backendLabel(f.backendId) } : {}),
+    ...(f.settingsChanged ? { settingsChanged: true } : {}),
+  };
 }
 
 async function startSession(
@@ -387,8 +543,7 @@ async function startSession(
   selected: SelectedBlock[],
   mode: RenderMode,
 ): Promise<void> {
-  if (active) return;
-  // The same text rules as Translate page (D48): never the raw text of the chosen element.
+  // The same text rules as Translate page: never the raw text of the chosen element.
   const blocks: Block[] = [];
   for (const b of selected) {
     const text = blockText(b.element);
@@ -405,30 +560,63 @@ async function startSession(
     showToast('Nothing to translate in the chosen areas.');
     return;
   }
-  const sess = await createSession(deps, blocks, mode, blocks.length);
-  report(sess);
-  pump();
+  // Areas chosen while a session is on the page join it, so its pill and Remove translation cover them too.
+  const sess = active;
+  if (sess) {
+    adopt(sess, deps, mode);
+    const held = heldIds(sess);
+    for (const block of blocks) {
+      const id = held.get(block.element);
+      if (id === undefined) {
+        sess.pending.push(block);
+        sess.total++;
+      } else if (sess.failed.has(id)) {
+        retryBlock(id);
+      }
+    }
+    pump();
+    return;
+  }
+  if (starting) return;
+  starting = true;
+  try {
+    const created = await createSession(deps, blocks, mode, blocks.length);
+    report(created);
+    pump();
+  } finally {
+    starting = false;
+  }
 }
 
 /** The failure most blocks share, in the catalog's words, with every raw message for Error details. */
 function failureCopy(sess: Session): PageProgress['failure'] {
   if (sess.failed.size === 0) return undefined;
-  const counts = new Map<ErrCode, { n: number; first: Failure }>();
+  const counts = new Map<ErrCode, { n: number; first: Failure; changed: boolean }>();
   for (const f of sess.failed.values()) {
     const c = counts.get(f.code);
-    if (c) c.n++;
-    else counts.set(f.code, { n: 1, first: f });
+    if (c) {
+      c.n++;
+      c.changed &&= f.settingsChanged === true;
+    } else counts.set(f.code, { n: 1, first: f, changed: f.settingsChanged === true });
   }
   const [top] = [...counts.values()].sort((a, b) => b.n - a.n);
   if (!top) return undefined;
   const backend = top.first.backendId ? backendLabel(top.first.backendId) : undefined;
   const copy = errorCopy(top.first.code, top.first.message, backend ? { backend } : {});
-  return {
-    body: copy?.body ?? '',
-    actions: copy?.actions ?? ['try-again'],
-    tab: copy?.tab ?? 'backends',
-    details: [...new Set([...sess.failed.values()].map((f) => f.message).filter(Boolean))],
-  };
+  const actions = copy?.actions ?? ['try-again'];
+  const details = [...new Set([...sess.failed.values()].map((f) => f.message).filter(Boolean))];
+  const tab = copy?.tab ?? 'backends';
+  if (top.changed) {
+    const rest = actions.filter((a) => a !== 'try-again');
+    return {
+      body: SETTINGS_CHANGED_BODY,
+      actions: ['try-again', ...rest],
+      tab,
+      details,
+      settingsChanged: true,
+    };
+  }
+  return { body: copy?.body ?? '', actions, tab, details };
 }
 
 function snapshot(sess: Session): PageProgress {
@@ -488,7 +676,7 @@ function pump(): void {
 async function dispatchBlock(sess: Session, block: Block): Promise<void> {
   sess.attempts.set(block.id, (sess.attempts.get(block.id) ?? 0) + 1);
   clearStaleError(block.element);
-  // Replace text would remove a link, a field or a part the page keeps out, so such a block shows in Show both (D45).
+  // Replace text would remove a link, a field or a part the page keeps out, so such a block shows in Show both.
   const mode: RenderMode =
     sess.mode === 'inplace' && !keepsPageParts(block.element) ? 'inplace' : 'bilingual';
   const mountArgs = { id: block.id, element: block.element, originalText: block.text };
@@ -550,6 +738,12 @@ function markTerminal(sess: Session, blockId: string): void {
 }
 
 function maybeSettle(sess: Session): void {
+  if (isSettled(sess) && sess.terminal.size === 0 && sess.skipped === 0) {
+    // Every block read as the target language or left the page before one was sent.
+    closeSession(sess);
+    showToast('Nothing to translate on this page.');
+    return;
+  }
   report(sess);
   if (!isSettled(sess)) return;
   sess.observer?.disconnect();
@@ -601,6 +795,9 @@ function stopSession(sess: Session): void {
   sess.observer = null;
   if (sess.cooldownTimer) clearTimeout(sess.cooldownTimer);
   sess.cooldownTimer = null;
+  // Nothing will resume, so the pill must not keep counting down.
+  sess.cooldownUntil = 0;
+  sess.pausedBy = undefined;
   const unstarted = sess.deferred.size + sess.pending.length;
   sess.deferred.clear();
   sess.pending = [];
@@ -630,11 +827,9 @@ function closeSession(sess: Session): void {
       handle.revert();
       continue;
     }
-    // Try again needs a live session; without the pill the button would do nothing.
-    handle.target
-      .querySelector('[data-ega-tx-error]')
-      ?.shadowRoot?.querySelector('button')
-      ?.remove();
+    // Try again needs a live session; Open settings does not, so it stays.
+    const chip = handle.target.querySelector('[data-ega-tx-error]');
+    if (chip) dropChipRetry(chip);
   }
   teardownSession(sess, false);
 }
@@ -769,16 +964,17 @@ function onChunk(sess: Session, chunk: TranslationChunk): void {
     return;
   }
   const err = { code: chunk.code, message: chunk.message, backendId: chunk.backendId };
-  mountError(handle, err, {
-    onRetry: () => retryBlock(blockId),
-    ...(chunk.backendId ? { backend: backendLabel(chunk.backendId) } : {}),
-  });
+  mountError(handle, err, chipOpts(blockId, err));
+  // Stop before this block's slot frees, or the next block goes straight into the same error.
+  if (SETTINGS_STOPS.has(errorCopy(err.code, err.message)?.id ?? '')) stopSession(sess);
   failBlock(sess, blockId, err);
 }
 
 /** revert=true (Remove translation) restores the original DOM; false (close) keeps the translations. */
 function teardownSession(sess: Session, revert: boolean): void {
-  window.removeEventListener('popstate', sess.checkUrlChange);
+  sess.pageWatch?.disconnect();
+  if (sess.sweepTimer) clearTimeout(sess.sweepTimer);
+  sess.sweepTimer = null;
   sess.stopSettings();
   sess.observer?.disconnect();
   sess.observer = null;

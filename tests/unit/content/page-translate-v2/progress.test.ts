@@ -43,8 +43,28 @@ describe('pillStatus', () => {
       '10 of 48 areas translated. The rest translate as you scroll.',
     ],
     [
+      { done: 6, failed: 1, total: 48, waiting: 38 },
+      '5 of 48 areas translated. The rest translate as you scroll.',
+    ],
+    [
       { inFlight: 1, pausedUntil: NOW + 11_200, pausedBy: 'Anthropic' },
       'Paused: Anthropic is limiting requests. Resuming in 12 s.',
+    ],
+    [
+      {
+        settled: true,
+        done: 3,
+        total: 3,
+        failed: 3,
+        skipped: 9,
+        failure: {
+          body: 'Anthropic did not accept the saved API key.',
+          actions: ['open-settings'],
+          tab: 'backends',
+          details: [],
+        },
+      },
+      "Couldn't translate the page. Anthropic did not accept the saved API key.",
     ],
     [{ settled: true, done: 10, target: 'English' }, 'Page translated to English'],
     [{ settled: true, done: 5, total: 5, skipped: 7 }, 'Stopped. Translated 5 of 12 areas.'],

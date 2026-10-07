@@ -47,10 +47,10 @@ const SKIP_TAGS = new Set([
   'AUDIO',
 ]);
 
-/** Show both puts the translation inside these (D46), so a box inside one marks it translated. */
+/** Show both puts the translation inside these, so a box inside one marks it translated. */
 const INSIDE_TX = new Set(['TD', 'TH', 'LI', 'DD', 'DT']);
 
-/** Replace text would take these off the page, so a block that holds one shows in Show both instead (D45). */
+/** Replace text would take these off the page, so a block that holds one shows in Show both instead. */
 const PAGE_PARTS =
   'a[href], button, input, select, textarea, [contenteditable], [role="textbox"], iframe, video, audio, embed, object, canvas, svg, img, picture';
 
@@ -109,7 +109,7 @@ export function hasWords(text: string): boolean {
 }
 
 /**
- * The text a block sends (D48): its text nodes outside every skipped part (code, fields, hidden text, text the page
+ * The text a block sends: its text nodes outside every skipped part (code, fields, hidden text, text the page
  * keeps out, Ega's own marks), spaces collapsed, a <br> kept as a line break. Never the raw textContent.
  */
 export function blockText(el: Element): string {
@@ -130,7 +130,7 @@ export function blockText(el: Element): string {
     .trim();
 }
 
-/** True when Replace text would remove a link, a field, media or a part the page keeps out (D45). */
+/** True when Replace text would remove a link, a field, media or a part the page keeps out. */
 export function keepsPageParts(el: Element): boolean {
   if (el.querySelector(PAGE_PARTS) !== null) return true;
   for (const d of el.querySelectorAll('*')) if (skipSubtree(d)) return true;

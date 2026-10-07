@@ -48,13 +48,20 @@ const RETRY_ICON =
 const SETTINGS_ICON = '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>';
 const ALERT_ICON = '<circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>';
 
+export interface ChipOpts {
+  backend?: string;
+  onRetry?: () => void;
+  /** A setting changed since a settings error showed: Try again takes Open settings' place. */
+  settingsChanged?: boolean;
+}
+
 /**
  * A page-DOM chip that names a failure from the error catalog, with the catalog's first next step:
  * Open settings when a setting fixes it, otherwise Try again when the caller can retry.
  */
 export function mountErrorChip(
   err: { code: ErrCode | 'EMPTY'; message: string },
-  opts: { backend?: string; onRetry?: () => void } = {},
+  opts: ChipOpts = {},
 ): HTMLElement {
   const host = document.createElement('span');
   host.setAttribute('data-ega-tx-error', '');
@@ -71,8 +78,10 @@ export function mountErrorChip(
   mark.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${ALERT_ICON}</svg>`;
   chip.append(mark.firstChild as SVGElement, title);
   const actions = copy?.actions ?? [];
-  const retry = opts.onRetry && actions.includes('try-again') ? opts.onRetry : undefined;
-  if (copy && actions[0] === 'open-settings') {
+  const changed = opts.settingsChanged === true;
+  const retry =
+    opts.onRetry && (changed || actions.includes('try-again')) ? opts.onRetry : undefined;
+  if (copy && actions[0] === 'open-settings' && !(changed && retry)) {
     const { tab } = copy;
     const btn = chipButton('Open settings', SETTINGS_ICON, title.id, () => void openSettings(tab));
     btn.setAttribute('data-ega-chip-settings', '');
@@ -86,4 +95,12 @@ export function mountErrorChip(
   }
   root.append(style, chip);
   return host;
+}
+
+/** Once the pill is gone, Try again has no session to run in; Open settings needs none, so it stays. */
+export function dropChipRetry(host: Element): void {
+  const chip = host.shadowRoot?.querySelector('.chip');
+  if (!chip) return;
+  chip.querySelector('[data-ega-retry-block]')?.remove();
+  if (!chip.querySelector('button')) chip.classList.add('bare');
 }

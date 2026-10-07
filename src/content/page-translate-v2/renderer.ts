@@ -2,7 +2,7 @@ import { createMemoizedJsonParser, streamingTranslation } from '@/shared/backend
 import type { ErrCode } from '@/shared/types';
 import { ensurePageStyles } from '../page-styles';
 import { markLang } from '@/shared/lang-tag';
-import { mountErrorChip } from '../page-chip';
+import { mountErrorChip, type ChipOpts } from '../page-chip';
 import type { RenderMode } from './store';
 
 export interface MountArgs {
@@ -90,7 +90,7 @@ function attachInplaceSwap(
   return { showOriginal, showTranslation };
 }
 
-/** A cell, list item or definition gets its translation inside it (D46): a sibling of the same tag would add a
+/** A cell, list item or definition gets its translation inside it: a sibling of the same tag would add a
  *  cell to the row or a numbered item to the list. */
 const INSIDE = new Set(['TD', 'TH', 'LI', 'DD', 'DT']);
 
@@ -228,10 +228,20 @@ export function finish(handle: RenderHandle): void {
   setPhase(handle, 'ok');
 }
 
+/** Swaps a failed block's chip for a fresh one, e.g. once a setting changed. */
+export function remountErrorChip(
+  handle: RenderHandle,
+  err: { code: ErrCode; message: string },
+  opts: ChipOpts,
+): void {
+  if (handle.phase !== 'error') return;
+  handle.target.querySelector('[data-ega-tx-error]')?.replaceWith(mountErrorChip(err, opts));
+}
+
 export function mountError(
   handle: RenderHandle,
   err: { code: ErrCode; message: string },
-  opts?: { onRetry?: () => void; backend?: string },
+  opts?: ChipOpts,
 ): void {
   if (handle.phase !== 'streaming') return;
   const { target } = handle;
@@ -244,10 +254,5 @@ export function mountError(
   setPhase(handle, 'error');
   // The page's own text and our error chip are not in the target language.
   markLang(target, undefined);
-  target.appendChild(
-    mountErrorChip(err, {
-      ...(opts?.onRetry ? { onRetry: opts.onRetry } : {}),
-      ...(opts?.backend ? { backend: opts.backend } : {}),
-    }),
-  );
+  target.appendChild(mountErrorChip(err, opts));
 }

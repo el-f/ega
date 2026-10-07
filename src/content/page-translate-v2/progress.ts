@@ -31,6 +31,8 @@ export interface PageProgress {
     tab: SettingsTab;
     /** The providers' own messages, for Error details only. */
     details: string[];
+    /** A setting changed since this settings error showed, so Try again leads. */
+    settingsChanged?: boolean;
   };
 }
 
@@ -55,7 +57,7 @@ export function pillStatus(p: PageProgress, now: number): string {
       return `Translating ${p.done} of ${released} ${areas(released)}…`;
     }
     case 'idle':
-      return `${p.done} of ${p.total} ${areas(p.total)} translated. The rest translate as you scroll.`;
+      return `${p.done - p.failed} of ${p.total} ${areas(p.total)} translated. The rest translate as you scroll.`;
     case 'paused': {
       const s = Math.max(1, Math.ceil(((p.pausedUntil ?? now) - now) / 1000));
       const who = p.pausedBy ?? 'The AI service';
@@ -72,7 +74,7 @@ function settledStatus(p: PageProgress): string {
   if (p.failed > 0) {
     const body = p.failure?.body ?? '';
     const head =
-      translated === 0 && p.skipped === 0
+      translated === 0
         ? "Couldn't translate the page."
         : `Couldn't translate ${p.failed} of ${picked} ${areas(picked)}.`;
     return body ? `${head} ${body}` : head;

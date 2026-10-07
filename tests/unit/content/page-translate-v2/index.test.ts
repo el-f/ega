@@ -595,8 +595,8 @@ describe('page-translate-v2 — errors and retry', () => {
   });
 });
 
-describe('page-translate-v2 — SPA navigation abort', () => {
-  it('a back/forward navigation to a new path triggers cancel', async () => {
+describe('page-translate-v2 — a route change does not cancel', () => {
+  it('a back/forward navigation to a new path keeps the translations still on the page', async () => {
     document.body.innerHTML = '<p id="src">これは翻訳すべき日本語の段落です。</p>';
     const startPath = location.pathname + location.search;
     await enterAndFire(deps(), ['src']);
@@ -605,22 +605,12 @@ describe('page-translate-v2 — SPA navigation abort', () => {
     history.pushState(null, '', '/new-path');
     window.dispatchEvent(new PopStateEvent('popstate'));
     await flush();
-    expect(isPageV2Active()).toBe(false);
+    expect(isPageV2Active()).toBe(true);
+    expect(document.querySelector('[data-ega-replaced]')).not.toBeNull();
     history.pushState(null, '', startPath);
   });
 
-  it('a same-path navigation does NOT cancel', async () => {
-    document.body.innerHTML = '<p id="src">これは翻訳すべき日本語の段落です。</p>';
-    await enterAndFire(deps(), ['src']);
-    expect(isPageV2Active()).toBe(true);
-
-    window.dispatchEvent(new PopStateEvent('popstate'));
-    await flush();
-    expect(isPageV2Active()).toBe(true);
-  });
-
-  // An isolated-world patch on `history` is invisible to the page's own router; jsdom shares one world and would pass it.
-  it('a router pushState alone is invisible to the content script', async () => {
+  it('a router pushState keeps the session too', async () => {
     document.body.innerHTML = '<p id="src">これは翻訳すべき日本語の段落です。</p>';
     const startPath = location.pathname + location.search;
     await enterAndFire(deps(), ['src']);
@@ -628,20 +618,6 @@ describe('page-translate-v2 — SPA navigation abort', () => {
     history.pushState(null, '', '/new-path');
     await flush();
     expect(isPageV2Active()).toBe(true);
-    history.pushState(null, '', startPath);
-    await cancelPageTranslateV2();
-  });
-
-  it('cancel unhooks the popstate listener', async () => {
-    document.body.innerHTML = '<p id="src">これは翻訳すべき日本語の段落です。</p>';
-    const startPath = location.pathname + location.search;
-    await enterAndFire(deps(), ['src']);
-    await cancelPageTranslateV2();
-
-    history.pushState(null, '', '/completely-different');
-    window.dispatchEvent(new PopStateEvent('popstate'));
-    await flush();
-    expect(isPageV2Active()).toBe(false);
     history.pushState(null, '', startPath);
   });
 });

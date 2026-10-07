@@ -1,5 +1,10 @@
 import { vi } from 'vitest';
-import { runPageTranslateV2, type PageV2Deps } from '@/content/page-translate-v2';
+import {
+  routePageV2Chunk,
+  runPageTranslateV2,
+  type PageV2Deps,
+  type ProgressHandle,
+} from '@/content/page-translate-v2';
 import type { Settings } from '@/shared/types';
 import type { PageProgress } from '@/content/page-translate-v2/progress';
 
@@ -55,4 +60,93 @@ export function trackSettle(settle: (p: PageProgress) => void): (p: PageProgress
     if (p.settled && !was) settle(p);
     was = p.settled;
   };
+}
+
+/** A stand-in for the viewport band: the test says which blocks are near. */
+export class FakeObserver {
+  static last: FakeObserver | null = null;
+  readonly observed = new Set<Element>();
+  constructor(readonly cb: IntersectionObserverCallback) {
+    FakeObserver.last = this;
+  }
+  observe(el: Element): void {
+    this.observed.add(el);
+  }
+  unobserve(el: Element): void {
+    this.observed.delete(el);
+  }
+  disconnect(): void {
+    this.observed.clear();
+  }
+  /** One callback with an entry for every observed block, near or not. */
+  band(near: Set<Element>): void {
+    const entries = [...this.observed].map(
+      (target) => ({ target, isIntersecting: near.has(target) }) as IntersectionObserverEntry,
+    );
+    this.cb(entries, this as unknown as IntersectionObserver);
+  }
+}
+
+/** Whole-page dependencies with a recording pill: what was sent, every snapshot, and the pill handlers. */
+export interface PageRig {
+  sent: { id: string; text: string }[];
+  updates: PageProgress[];
+  live: string[];
+  handle: ProgressHandle;
+  d: PageV2Deps;
+  /** Presses Stop. */
+  stop: () => void;
+  /** Presses Close bar; a no-op until the session registers it. */
+  close: () => void;
+  closeRegistered: () => boolean;
+  dismissed: () => number;
+}
+
+export function rig(concurrency = 3): PageRig {
+  const sent: { id: string; text: string }[] = [];
+  const updates: PageProgress[] = [];
+  const live: string[] = [];
+  let onStop = (): void => {};
+  let onClose: (() => void) | null = null;
+  let dismissed = 0;
+  const handle: ProgressHandle = {
+    update: (p) => updates.push(p),
+    setLiveMessage: (t) => live.push(t),
+    setOnClose: (fn) => (onClose = fn),
+    setOnUndoAll: vi.fn(),
+    dismiss: () => dismissed++,
+  };
+  const d = deps(
+    {
+      dispatch: vi.fn((id: string, text: string) => {
+        sent.push({ id, text });
+        return Promise.resolve();
+      }),
+      mountProgress: (_total, stop) => {
+        onStop = stop;
+        return handle;
+      },
+      isTargetLanguage: () => false,
+    },
+    { batchConcurrency: concurrency },
+  );
+  return {
+    sent,
+    updates,
+    live,
+    handle,
+    d,
+    stop: () => onStop(),
+    close: () => onClose?.(),
+    closeRegistered: () => onClose !== null,
+    dismissed: () => dismissed,
+  };
+}
+
+/** Answers every sent block from `from` on with a finished translation. */
+export function finishAll(r: PageRig, from = 0): void {
+  for (const s of r.sent.slice(from)) {
+    routePageV2Chunk({ type: 'delta', requestId: s.id, text: '{"translation":"T"}' });
+    routePageV2Chunk({ type: 'done', requestId: s.id, confidence: 1 });
+  }
 }
