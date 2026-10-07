@@ -642,10 +642,11 @@
     <div class="ld-detect">
       <Disclosure label="Auto-detect pattern" dataAttrs={{ 'data-ega-language-detect': true }}>
         <div class="ld-detect-body">
-          <div class="ld-detect-info">
+          <!-- The (i) sits beside the field it explains, not alone on a row. -->
+          <div class="ld-detect-head">
+            <label class="ld-label" for="{uid}-pattern">Pattern</label>
             <InfoTip label="About the auto-detect pattern" text={detectInfo} />
           </div>
-          <label class="ld-label" for="{uid}-pattern">Pattern</label>
           <input
             id="{uid}-pattern"
             class="ld-mono"
@@ -835,9 +836,10 @@
     gap: var(--space-2);
     padding-block: var(--space-2);
   }
-  .ld-detect-info {
+  .ld-detect-head {
     display: flex;
-    justify-content: flex-end;
+    align-items: center;
+    gap: var(--space-1);
   }
   .ld-mono {
     font-family: var(--font-mono);
