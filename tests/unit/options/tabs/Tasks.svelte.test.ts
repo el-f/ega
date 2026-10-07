@@ -258,7 +258,12 @@ describe('Tasks tab — your own tasks', () => {
     await fill('[data-ega-template-user] textarea', 'no slot');
     await fill('[data-ega-custom-task-name]', 'Tweet summary');
     const { getCustomTasks } = await import('@/shared/storage');
-    await new Promise((r) => setTimeout(r, 700));
+    // The footer names why nothing was created; the save ran and refused.
+    await waitFor(() =>
+      expect(document.querySelector('[data-ega-dialog-status]')?.textContent).toContain(
+        'Not saved',
+      ),
+    );
     expect(await getCustomTasks()).toEqual([]);
     await fill('[data-ega-template-user] textarea', 'Shorten: {{text}}');
     await waitFor(async () =>

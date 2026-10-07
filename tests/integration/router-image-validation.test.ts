@@ -331,7 +331,7 @@ describe('router — image wall-clock TIMEOUT', () => {
     const err = chunks.find((c) => c.type === 'error');
     if (err?.type === 'error') {
       expect(err.code).toBe('TIMEOUT');
-      expect(err.message).toContain('image translate');
+      expect(err.message).toContain('image answer timeout');
     } else {
       throw new Error('expected error chunk');
     }

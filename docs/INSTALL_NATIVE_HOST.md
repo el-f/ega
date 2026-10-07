@@ -103,7 +103,7 @@ and keeps none warm.
 
 After that:
 
-- Ega gives up on a request after the text translate timeout (60 seconds by
+- Ega gives up on a request after the text answer timeout (60 seconds by
   default, set in Settings → Backends), or after 30 seconds with no reply,
   and tells the host to cancel. The host also kills any CLI child that runs
   past 90 seconds on its own.

@@ -80,7 +80,7 @@ describe('the prompt inside a task dialog saves as you type', () => {
     await waitFor(async () =>
       expect((await getSettings()).taskOverrides.summarize?.effort).toBe('high'),
     );
-    await new Promise((r) => setTimeout(r, TEXT_SAVE_DELAY_MS + 100));
+    // The Effort write flushes every waiting text write first, so a saved Message would be stored by now.
     expect((await getSettings()).taskOverrides.summarize?.user).toBeUndefined();
   });
 
@@ -115,9 +115,12 @@ describe('the prompt inside a task dialog saves as you type', () => {
     // Edited before the format left the editable text: the user's own words, then the old format line.
     const legacy = 'Summarize in one line. ' + TASK_FORMATS.summarize.text;
     await updateSettings({ taskOverrides: { summarize: { system: legacy } } });
-    await open('summarize');
+    const onClose = vi.fn();
+    await open('summarize', onClose);
     expect(document.querySelector('[data-ega-answer-format-own]')).not.toBeNull();
-    await new Promise((r) => setTimeout(r, TEXT_SAVE_DELAY_MS + 100));
+    // Done saves every waiting edit before it closes, so a rewrite on open would be stored by now.
+    await fireEvent.click(el('[data-ega-dialog-done]'));
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
     expect((await getSettings()).taskOverrides.summarize?.system).toBe(legacy);
   });
 });
