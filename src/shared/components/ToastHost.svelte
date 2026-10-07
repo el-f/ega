@@ -90,10 +90,11 @@
     });
   }}
 >
-  <!-- Focus inside spreads the stack, so a Tab never lands on a back toast whose text is hidden. -->
+  <!-- Focus inside spreads the stack and shows every toast: sonner keeps the hidden ones (past 3) in the Tab order. -->
   <Toaster
     {...props}
     expand={focused || hovered}
+    visibleToasts={focused ? Number.POSITIVE_INFINITY : 3}
     closeButton
     closeButtonAriaLabel="Dismiss"
     toastOptions={{ classes: { toast: 'ega-toast-ui' } }}

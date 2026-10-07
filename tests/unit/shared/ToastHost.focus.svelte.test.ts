@@ -54,6 +54,23 @@ describe('toasts and keyboard focus', () => {
     expect(toastEl('Saved.')?.dataset['expanded']).toBe('true');
   });
 
+  it('shows every toast while focus is inside, also past the three sonner shows', async () => {
+    for (const message of ['First.', 'Second.', 'Third.', 'Fourth.'])
+      toastStore.push({ message, variant: 'warning' });
+    await advance(100);
+    // The oldest is fourth from the front, which sonner hides (opacity 0) yet keeps in the Tab order.
+    expect(toastEl('First.')?.dataset['visible']).toBe('false');
+    closeButton('First.').focus();
+    await tick();
+    for (const message of ['First.', 'Second.', 'Third.', 'Fourth.']) {
+      expect(toastEl(message)?.dataset['visible']).toBe('true');
+      expect(toastEl(message)?.dataset['expanded']).toBe('true');
+    }
+    closeButton('First.').blur();
+    await advance(100);
+    expect(toastEl('First.')?.dataset['visible']).toBe('false');
+  });
+
   it.each([
     ['its X', (text: string) => closeButton(text).click()],
     [
