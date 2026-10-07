@@ -128,6 +128,74 @@ describe('CloudProviderCard', () => {
     expect(await findByText(/Add an API key first/)).toBeTruthy();
   });
 
+  it('names the model field after the backend', async () => {
+    const { getByRole } = render(CloudProviderCard, {
+      props: { ...baseProps, settings: settings() },
+    });
+    await tick();
+    expect(getByRole('combobox', { name: 'OpenAI model' })).toBeTruthy();
+  });
+
+  it('a cleared model field stays empty while the user types a new id', async () => {
+    const onModelChange = vi.fn();
+    const { container, rerender } = render(CloudProviderCard, {
+      props: { ...baseProps, onModelChange, settings: settings() },
+    });
+    await tick();
+    const input = container.querySelector<HTMLInputElement>('[data-ega-model-combobox] input');
+    if (!input) throw new Error('no model field');
+    await fireEvent.input(input, { target: { value: '' } });
+    // The parent stores '' (the default) and passes it back.
+    await rerender({ model: '' });
+    await tick();
+    expect(input.value).toBe('');
+    await fireEvent.input(input, { target: { value: 'gpt-4.1' } });
+    expect(onModelChange).toHaveBeenLastCalledWith('gpt-4.1');
+  });
+
+  it('with no key, the model field stays usable and Refresh stays focusable and says why', async () => {
+    const { getByRole } = render(CloudProviderCard, {
+      props: { ...baseProps, apiKey: '', settings: settings() },
+    });
+    await tick();
+    const field = getByRole('combobox', { name: 'OpenAI model' }) as HTMLInputElement;
+    expect(field.disabled).toBe(false);
+    const refresh = getByRole('button', { name: /Refresh model list/i }) as HTMLButtonElement;
+    expect(refresh.disabled).toBe(false);
+    expect(refresh.getAttribute('aria-disabled')).toBe('true');
+    expect(
+      document.getElementById(refresh.getAttribute('aria-describedby') ?? '')?.textContent,
+    ).toContain('Add an API key first');
+  });
+
+  it('not in use, the model shows read-only in the Tab order with the reason tied to it', async () => {
+    const { getByRole } = render(CloudProviderCard, {
+      props: { ...baseProps, disabled: true, settings: settings() },
+    });
+    await tick();
+    const field = getByRole('textbox', { name: 'OpenAI model' }) as HTMLInputElement;
+    expect(field.value).toBe('gpt-4o');
+    expect(field.disabled).toBe(false);
+    expect(field.readOnly).toBe(true);
+    expect(field.getAttribute('aria-disabled')).toBe('true');
+    expect(
+      document.getElementById(field.getAttribute('aria-describedby') ?? '')?.textContent,
+    ).toContain('Enable this backend to pick a model');
+  });
+
+  it('says Loading models... under the field while the list loads', async () => {
+    let answer: (r: Response) => void = () => {};
+    setFetchHandler(() => new Promise<Response>((r) => (answer = r)));
+    const { container, getByRole } = render(CloudProviderCard, {
+      props: { ...baseProps, settings: settings() },
+    });
+    await tick();
+    await fireEvent.click(getByRole('button', { name: /Refresh model list/i }));
+    await waitFor(() => expect(container.textContent).toContain('Loading models...'));
+    answer(new Response(JSON.stringify({ data: [{ id: 'gpt-4o' }] }), { status: 200 }));
+    await waitFor(() => expect(container.textContent).not.toContain('Loading models...'));
+  });
+
   it('clicking refresh on the model combobox populates the list from the provider', async () => {
     setFetchHandler(
       async () =>

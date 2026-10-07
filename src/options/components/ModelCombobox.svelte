@@ -8,7 +8,11 @@
 
   interface Props {
     value: string;
+    /** Shown while the saved value is empty (the backend's default model). */
+    fallback?: string | undefined;
     label?: string;
+    /** The field's name when no visible label sits on it ("OpenAI model"). */
+    ariaLabel?: string | undefined;
     placeholder?: string;
     /** Discovered model ids, owned by the parent. Empty until Refresh runs. */
     options: string[];
@@ -16,20 +20,22 @@
     loading?: boolean;
     /** Set by parent when discovery fails. Renders inline. */
     error?: string | null;
-    /** Disabled when no API key is configured. */
-    disabled?: boolean;
+    /** Id of the visible line saying why Refresh cannot run yet; Refresh then stays focusable but does nothing. */
+    refreshBlockedBy?: string | undefined;
     onValueChange: (next: string) => void;
     onDiscover: () => void;
   }
 
   let {
     value,
+    fallback,
     label,
+    ariaLabel,
     placeholder,
     options,
     loading = false,
     error = null,
-    disabled = false,
+    refreshBlockedBy,
     onValueChange,
     onDiscover,
   }: Props = $props();
@@ -43,7 +49,7 @@
   $effect(() => {
     if (value !== lastCommitted) queryOverride = null;
   });
-  const query = $derived(queryOverride ?? value);
+  const query = $derived(queryOverride ?? (value || (fallback ?? '')));
 
   const filtered = $derived.by(() => {
     const q = query.trim();
@@ -59,17 +65,27 @@
     lastCommitted = next;
     onValueChange(next);
   }
+
+  // A field left empty means the default, so it shows the default id again once focus moves on.
+  function onFocusOut(e: FocusEvent): void {
+    const to = e.relatedTarget;
+    if (to instanceof Node && (e.currentTarget as HTMLElement).contains(to)) return;
+    if (queryOverride === '') queryOverride = null;
+  }
 </script>
 
-<div data-ega-model-combobox>
+<div data-ega-model-combobox onfocusout={onFocusOut}>
+  {#if ariaLabel && !label}
+    <label class="ega-sr-only" for={inputId}>{ariaLabel}</label>
+  {/if}
   <ComboboxShell
     {value}
     inputValue={query}
     {inputId}
     {label}
     {placeholder}
-    {disabled}
     {error}
+    describedById={refreshBlockedBy}
     triggerAriaLabel="Show model list"
     onValueChange={(v) => {
       if (v) commit(v);
@@ -80,10 +96,16 @@
       <IconButton
         icon={RefreshCcw}
         ariaLabel={loading ? 'Loading models…' : 'Refresh model list from the backend'}
-        tooltip={loading ? 'Loading…' : 'Refresh from the backend'}
+        tooltip={refreshBlockedBy ? '' : loading ? 'Loading…' : 'Refresh from the backend'}
         size="sm"
-        disabled={disabled || loading}
-        onclick={() => onDiscover()}
+        dataAttrs={refreshBlockedBy
+          ? { 'aria-disabled': 'true', 'aria-describedby': refreshBlockedBy }
+          : loading
+            ? { 'aria-disabled': 'true' }
+            : {}}
+        onclick={() => {
+          if (!refreshBlockedBy && !loading) onDiscover();
+        }}
       />
     {/snippet}
     {#snippet items()}
@@ -113,4 +135,20 @@
       {/if}
     {/snippet}
   </ComboboxShell>
+  <!-- Always present, so the line is announced when it appears; empty, it takes no room. -->
+  <p class="mc-status" class:mc-on={loading} role="status">
+    {#if loading}Loading models...{/if}
+  </p>
 </div>
+
+<style>
+  .mc-status {
+    margin: 0;
+    font-size: var(--fs-base);
+    line-height: var(--lh-body);
+    color: var(--color-muted);
+  }
+  .mc-on {
+    padding-top: var(--space-1);
+  }
+</style>

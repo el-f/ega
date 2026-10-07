@@ -70,18 +70,43 @@ describe('ModelCombobox', () => {
     expect(getByRole('button', { name: /Loading models/i })).toBeTruthy();
   });
 
-  it('refresh button is disabled when no api key (disabled prop is true)', () => {
+  it('a blocked refresh stays focusable, says why, and runs nothing', async () => {
+    const onDiscover = vi.fn();
     const { getByRole } = render(ModelCombobox, {
       props: {
         value: '',
         options: [],
-        disabled: true,
+        refreshBlockedBy: 'why',
         onValueChange: vi.fn(),
-        onDiscover: vi.fn(),
+        onDiscover,
       },
     });
     const btn = getByRole('button', { name: /Refresh model list/i }) as HTMLButtonElement;
-    expect(btn.disabled).toBe(true);
+    expect(btn.disabled).toBe(false);
+    expect(btn.getAttribute('aria-disabled')).toBe('true');
+    expect(btn.getAttribute('aria-describedby')).toBe('why');
+    await fireEvent.click(btn);
+    expect(onDiscover).not.toHaveBeenCalled();
+  });
+
+  it('an empty value shows the fallback, and a field the user empties stays empty until focus leaves', async () => {
+    const onValueChange = vi.fn();
+    const { container, rerender } = render(ModelCombobox, {
+      props: {
+        value: 'gpt-4o',
+        fallback: 'gpt-4o-mini',
+        options: [],
+        onValueChange,
+        onDiscover: vi.fn(),
+      },
+    });
+    const input = getInput(container);
+    await fireEvent.input(input, { target: { value: '' } });
+    await rerender({ value: '' });
+    expect(input.value).toBe('');
+    await fireEvent.focusOut(input);
+    await tick();
+    expect(input.value).toBe('gpt-4o-mini');
   });
 
   it('renders the inline error block when error prop is set', async () => {

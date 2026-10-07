@@ -30,7 +30,7 @@ describe('Backends — Ollama discover button loading state', () => {
     expect((btn as HTMLButtonElement).disabled).toBe(false);
   });
 
-  it('switches to "Discovering…" and disables button while fetch is in flight', async () => {
+  it('says "Discovering..." with a spinner while fetch is in flight, and keeps focus on the button', async () => {
     // Hold /api/tags; the flag is set before the first await, so the button flips at once.
     let releaseHold!: (r: Response) => void;
     const hold = new Promise<Response>((resolve) => {
@@ -45,16 +45,20 @@ describe('Backends — Ollama discover button loading state', () => {
     const btn = findButton(container, 'Discover models');
     expect(btn).not.toBeUndefined();
 
+    (btn as HTMLButtonElement).focus();
     await fireEvent.click(btn as HTMLButtonElement);
     // Flush Svelte 5 runes reactivity across multiple microtask ticks.
     await tick();
     await tick();
     await tick();
 
-    // The button should now show 'Discovering…' and be disabled.
-    const discovering = findButton(container, 'Discovering…');
+    // Like Test now: the label stays, a spinner shows, and the button keeps focus (aria-disabled, not disabled).
+    const discovering = findButton(container, 'Discovering...');
     expect(discovering).not.toBeUndefined();
-    expect((discovering as HTMLButtonElement).disabled).toBe(true);
+    expect((discovering as HTMLButtonElement).disabled).toBe(false);
+    expect(discovering?.getAttribute('aria-disabled')).toBe('true');
+    expect(discovering?.querySelector('[data-ega-inline-spinner]')).not.toBeNull();
+    expect(document.activeElement).toBe(discovering);
 
     // Unblock the fetch to let the component clean up.
     releaseHold(

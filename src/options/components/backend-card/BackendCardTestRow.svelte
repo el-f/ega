@@ -4,7 +4,8 @@
   import Button from '@/shared/ui/Button.svelte';
   import Disclosure from '@/options/components/Disclosure.svelte';
   import OllamaOriginSteps from './OllamaOriginSteps.svelte';
-  import { errorCopy } from '@/shared/error-copy';
+  import InlineSpinner from '../InlineSpinner.svelte';
+  import { errorCopy, type ErrorCopyId } from '@/shared/error-copy';
   import { backendLabel } from '@/shared/backends/provider-profiles';
 
   interface Props {
@@ -48,6 +49,34 @@
       ? errorCopy(testErrCode ?? 'UNKNOWN', testResult, { backend: backendLabel(id) })
       : null,
   );
+
+  // The catalog keeps the fix in buttons this row does not show; on the card the fix is a field close by (R39).
+  const local = $derived(id === 'ollama' || id === 'localserver');
+  const NEXT_STEP: Partial<Record<ErrorCopyId, string>> = {
+    AUTH: 'Check the key above, then test again.',
+    TIMEOUT: 'Test again, or raise Text answer timeout under Timeouts and checks.',
+    RATE_LIMIT: 'Wait a minute, then test again.',
+    SERVER: 'Try again in a moment.',
+    REQUEST_MODEL: 'Pick another model above, then test again.',
+    REQUEST: 'Try another model above.',
+    UNSUPPORTED: 'Pick another model above.',
+    NATIVE_NOT_INSTALLED: 'Follow the install steps above, then click Recheck.',
+    NATIVE_SPAWN_FAIL: 'Check that the CLI is installed and logged in, then test again.',
+    NO_BACKEND: 'Add an API key above, then test again.',
+    PARSE: "Test again. If it repeats, Details has the backend's message.",
+    PROTOCOL: 'Test again.',
+    EMPTY: 'Test again.',
+    UNKNOWN: "Test again. If it repeats, Details has the backend's message.",
+  };
+  const nextStep = $derived(
+    failure === null
+      ? null
+      : failure.id === 'NETWORK'
+        ? local
+          ? 'Check that it is running at the address above, then test again.'
+          : 'Check your network, then test again.'
+        : (NEXT_STEP[failure.id] ?? null),
+  );
 </script>
 
 <div class="be-test" data-ega-backend-test={id}>
@@ -58,7 +87,7 @@
       ariaDisabled={testRunning}
       dataAttrs={{ 'data-testid': `backend-card-test-${id}` }}
       onclick={onTest}
-      >{#if testRunning}<span class="be-spinner" aria-hidden="true"></span>Testing...{:else}Test now{/if}</Button
+      >{#if testRunning}<InlineSpinner />Testing...{:else}Test now{/if}</Button
     >
     <span class="be-test-status" role="status" aria-live="polite">
       {#if testSucceeded && testLatencyMs !== null}
@@ -87,6 +116,7 @@
     <div class="be-fail" role="alert" data-ega-test-failure={failure.id}>
       <p class="be-fail-title">{failure.title}</p>
       <p class="be-fail-text">{failure.body}</p>
+      {#if nextStep}<p class="be-fail-text" data-ega-test-next>{nextStep}</p>{/if}
       {#if failure.detail}
         <Disclosure label="Details">
           <p class="be-testresult be-detail">
@@ -110,27 +140,6 @@
     flex-wrap: wrap;
     align-items: center;
     gap: var(--space-2) var(--space-3);
-  }
-  .be-spinner {
-    display: inline-block;
-    width: 12px;
-    height: 12px;
-    margin-inline-end: var(--space-2);
-    border: 2px solid currentColor;
-    border-top-color: transparent;
-    border-radius: 50%;
-    vertical-align: -2px;
-    animation: be-spin 600ms linear infinite;
-  }
-  @keyframes be-spin {
-    to {
-      transform: rotate(360deg);
-    }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .be-spinner {
-      animation: none;
-    }
   }
   .be-latency,
   .be-test-note {

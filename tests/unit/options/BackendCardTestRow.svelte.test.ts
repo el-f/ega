@@ -29,7 +29,7 @@ describe('BackendCardTestRow', () => {
     await rerender({ ...p, testRunning: true });
     expect(btn.textContent.trim()).toBe('Testing...');
     // The label stays readable beside its spinner (the shared loading style hides it), and focus stays put.
-    expect(btn.querySelector('.be-spinner')).not.toBeNull();
+    expect(btn.querySelector('[data-ega-inline-spinner]')).not.toBeNull();
     expect(btn.disabled).toBe(false);
     expect(btn.getAttribute('aria-disabled')).toBe('true');
     await fireEvent.click(btn);
@@ -67,6 +67,20 @@ describe('BackendCardTestRow', () => {
       .join(' ');
     expect(main).not.toMatch(/AUTH|401/);
     expect(failure?.querySelector('details')?.textContent).toContain('HTTP 401 invalid x-api-key');
+  });
+
+  it.each([
+    ['AUTH', 'anthropic', 'Check the key above, then test again.'],
+    ['TIMEOUT', 'anthropic', 'Test again, or raise Text answer timeout under Timeouts and checks.'],
+    ['RATE_LIMIT', 'anthropic', 'Wait a minute, then test again.'],
+    ['SERVER', 'anthropic', 'Try again in a moment.'],
+    ['NETWORK', 'ollama', 'Check that it is running at the address above, then test again.'],
+    ['NATIVE_NOT_INSTALLED', 'native', 'Follow the install steps above, then click Recheck.'],
+  ])('a %s failure on %s says what to do next', (code, backend, next) => {
+    const { container } = render(BackendCardTestRow, {
+      props: props({ id: asBackendIdUnsafe(backend), testResult: 'raw', testErrCode: code }),
+    });
+    expect(container.querySelector('[data-ega-test-next]')?.textContent.trim()).toBe(next);
   });
 
   it('an Ollama 403 says Ollama blocked Ega, with copy-ready steps behind Show steps', async () => {

@@ -213,18 +213,33 @@
       <p class="cp-line" role="status">{discoveredModels.length} models found</p>
     {/if}
     <div class="cp-model-row">
-      <ModelCombobox
-        value={model || (defaultModelId ?? '')}
-        options={discoveredModels}
-        loading={discoverLoading}
-        error={discoverError}
-        disabled={disabled || !apiKey}
-        onValueChange={onModelChange}
-        onDiscover={() => void refreshModels()}
-      />
+      {#if disabled}
+        <!-- Not in use: the model shows read-only and stays in the Tab order with its reason (F66, K-5). -->
+        <input
+          class="cp-model-static"
+          readonly
+          aria-disabled="true"
+          aria-label="{label} model"
+          aria-describedby="cp-model-why-{id}"
+          value={model || (defaultModelId ?? '')}
+        />
+      {:else}
+        <!-- The key only gates the list: a model id can be typed before the key exists. -->
+        <ModelCombobox
+          value={model}
+          fallback={defaultModelId}
+          ariaLabel="{label} model"
+          options={discoveredModels}
+          loading={discoverLoading}
+          error={discoverError}
+          refreshBlockedBy={apiKey ? undefined : `cp-model-why-${id}`}
+          onValueChange={onModelChange}
+          onDiscover={() => void refreshModels()}
+        />
+      {/if}
       {#if defaultModelId !== undefined && (model === '' || model === defaultModelId)}
         <Badge variant="muted">Default</Badge>
-      {:else if defaultModelId !== undefined}
+      {:else if defaultModelId !== undefined && !disabled}
         <ResetField
           differsFromInherited={true}
           onReset={() => onModelChange(defaultModelId)}
@@ -275,8 +290,26 @@
     padding: 2px;
     transition: border-color var(--motion-fast) var(--ease-out);
   }
-  .cp-key-row:focus-within {
+  /* The shared Input's ring: a 2px outline at 3:1, not just a recoloured 1px border. */
+  .cp-key-row:focus-within,
+  .cp-model-static:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 1px;
     border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px var(--color-accent-bg-soft);
+  }
+  .cp-model-static {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 32px;
+    padding: var(--space-1) var(--space-2);
+    background: var(--color-bg-disabled);
+    border: 1px solid var(--color-control-border);
+    border-radius: var(--radius-sm);
+    color: var(--color-muted);
+    font-family: var(--font-mono);
+    font-size: var(--fs-sm);
+    cursor: var(--cursor-disabled);
   }
   .cp-key-input {
     flex: 1 1 auto;
