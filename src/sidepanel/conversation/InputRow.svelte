@@ -585,6 +585,8 @@
     gap: var(--space-2);
     flex: 0 0 auto;
     padding: var(--space-2) var(--space-3) var(--space-3);
+    /* Past 744px the content lines up with the thread's 720px column; the border and fill stay full width. */
+    padding-inline: max(var(--space-3), calc((100% - 720px) / 2));
     border-top: 1px solid var(--color-border-subtle);
     background: var(--color-bg);
   }

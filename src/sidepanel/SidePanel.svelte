@@ -93,6 +93,11 @@
   });
   /** Toasts sit just above the composer, which grows with the message. */
   let composerHeight = $state(0);
+  /** The save-failed banner sits right above the composer, so a toast must clear it too. */
+  let bannerHeight = $state(0);
+  const toastBottom = $derived(
+    `${composerHeight + (conversation.saveFailed ? bannerHeight : 0) + 8}px`,
+  );
   let bookmarkFilter = $state(false);
   let searchOpen = $state(false);
   let searchQuery = $state('');
@@ -1080,7 +1085,12 @@
     />
 
     {#if conversation.saveFailed}
-      <div class="sp-save-failed" data-ega-save-failed role="status">
+      <div
+        class="sp-save-failed"
+        data-ega-save-failed
+        role="status"
+        bind:clientHeight={bannerHeight}
+      >
         <span class="sp-save-failed-text"
           >{conversation.saveFailedQuota
             ? 'Storage is full. Delete old conversations to make room.'
@@ -1148,8 +1158,8 @@
 
 <ToastHost
   position="bottom-center"
-  offset={{ bottom: `${composerHeight + 8}px` }}
-  mobileOffset={{ bottom: `${composerHeight + 8}px` }}
+  offset={{ bottom: toastBottom }}
+  mobileOffset={{ bottom: toastBottom }}
   theme={themePref}
 />
 

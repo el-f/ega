@@ -100,3 +100,18 @@ describe('a keyboard focus lands somewhere visible', () => {
     expect(body).not.toMatch(/outline:\s*none/);
   });
 });
+
+// Side panel spec §5.8: at 1200px and wider, the thread and the composer share one 720px column.
+describe('a wide panel keeps one reading column', () => {
+  it('pads the composer so its content lines up with the 720px thread column', () => {
+    const composer = rule(read('src/sidepanel/conversation/InputRow.svelte'), '\\.ega-composer');
+    expect(composer).toMatch(
+      /padding-inline:\s*max\(var\(--space-3\),\s*calc\(\(100% - 720px\) \/ 2\)\)/,
+    );
+    const column = rule(
+      read('src/sidepanel/conversation/ConversationStream.svelte'),
+      '\\.ega-thread-col',
+    );
+    expect(column).toMatch(/max-inline-size:\s*720px/);
+  });
+});
