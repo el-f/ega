@@ -999,7 +999,7 @@
   });
 
   /** X14: a tab on another site shows that site's conversation, so the toasts about this one close. */
-  function followSite(origin: string): Promise<void> {
+  function followSite(origin: string): Promise<boolean> {
     if (origin !== conversation.activeSite) toastStore.closeSticky();
     return conversation.followSite(origin);
   }

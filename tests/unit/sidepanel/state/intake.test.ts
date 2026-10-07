@@ -91,4 +91,20 @@ describe('panel intake, without mounting the panel', () => {
     expect((await loadThreadResult('https://other.test')).turns.map((t) => t.id)).toEqual(['o1']);
     expect((await loadThreadResult('https://a.test')).turns).toHaveLength(3);
   });
+
+  it('says nothing about a switch the panel was already making when the click came', async () => {
+    const push = vi.spyOn(toastStore, 'push');
+    const { intake, conversation } = intakeFor(7);
+    // The panel is still opening: its first follow of the tab has started and not finished.
+    const opening = conversation.followSite('https://a.test');
+    intake.onRuntimeMessage(seed(7), WORKER);
+    await opening;
+
+    await vi.waitFor(() => expect(conversation.turns).toHaveLength(2));
+    expect(conversation.activeSite).toBe('https://a.test');
+    expect(push).not.toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringMatching(/^Switched/) as unknown }),
+    );
+    push.mockRestore();
+  });
 });

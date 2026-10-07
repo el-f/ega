@@ -42,7 +42,7 @@ export interface IntakeDeps {
   /** Puts an image in the composer, unsent, and focuses it. */
   attachImage: (src: string) => void;
   /** The panel's own tab follow, so the toasts about the conversation it leaves close too. */
-  followSite: (site: string) => Promise<void>;
+  followSite: (site: string) => Promise<boolean>;
 }
 
 export interface Intake {
@@ -60,14 +60,15 @@ export function createIntake(deps: IntakeDeps): Intake {
   async function toTabSite(): Promise<void> {
     const site = conversation.tabSite;
     if (conversation.activeSite === site) return;
+    let switched = false;
     try {
-      await deps.followSite(site);
+      switched = await deps.followSite(site);
     } catch (e) {
       // A failed switch still lands it, in the conversation on screen.
       debugCatch(e, 'sidepanel.toTabSite');
-      return;
     }
-    if (conversation.activeSite !== site) return;
+    // A switch already under way (the panel opening, a tab change) is not news.
+    if (!switched || conversation.activeSite !== site) return;
     // The reply's own status takes the stream's live region next, so the switch gets its own line.
     toastStore.push({
       message: `Switched to the conversation for this tab: ${conversationLabel(site)}.`,

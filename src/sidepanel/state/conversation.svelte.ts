@@ -166,8 +166,8 @@ export interface ConversationContainer {
   regenerateVariant: (turnId: string) => Promise<boolean>;
   /** Truncate from `userTurnId` on and return its content. Null when it is not a user turn. */
   editFrom: (userTurnId: string) => string | null;
-  /** The tab now shows `site`: keep the open conversation if it is that site's, else open the site's current one. */
-  followSite: (site: string) => Promise<void>;
+  /** The tab now shows `site`: keep the open conversation if it is that site's, else open the site's current one. True when this call changed the conversation on screen. */
+  followSite: (site: string) => Promise<boolean>;
   /** Show conversation `id`: save the open one, load this one, and make it its site's current conversation. False: unreadable, nothing changed. */
   openConversation: (id: string) => Promise<boolean>;
   /** Open an empty conversation for the tab's site; nothing is stored until its first message. Returns the id it left, for Undo. */
@@ -1285,10 +1285,10 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
   /** True once a thread has loaded, so a follower event for the same site never reloads over an empty new conversation. */
   let loadedOnce = false;
 
-  async function followSite(site: string): Promise<void> {
+  async function followSite(site: string): Promise<boolean> {
     state.tabSite = site;
-    await switchLock(async () => {
-      if (loadedOnce && siteOf(state.activeId) === site) return;
+    return switchLock(async () => {
+      if (loadedOnce && siteOf(state.activeId) === site) return false;
       let id: string | null = null;
       try {
         id = currentConversation((await readIndex()).threads, site, pendingDeleteIds());
@@ -1296,11 +1296,11 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
         debugCatch(e, 'conversation.followSite');
       }
       // The tab moved on while the index was read; the newer event decides.
-      if (state.tabSite !== site) return;
+      if (state.tabSite !== site) return false;
       // Before the first load the thread in memory is already this site's draft, and a send may be running in it.
       const fresh =
         !loadedOnce && siteOf(state.activeId) === site ? state.activeId : newConversationId(site);
-      await switchTo(id ?? fresh);
+      return switchTo(id ?? fresh);
     });
   }
 
