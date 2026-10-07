@@ -7,6 +7,7 @@ import {
   type MultiSelectOpts,
   type SelectedBlock,
 } from '@/content/page-translate-v2/multi-select';
+import { flushSync } from 'svelte';
 import { mountShadowHost } from '@/content/shadowHost';
 import { dismissToast } from '@/content/toast';
 
@@ -214,13 +215,59 @@ describe('multi-select — the toolbar is reachable from the keyboard', () => {
     expect(onModeChange).not.toHaveBeenCalled();
   });
 
-  it('leaves Tab and Space to the toolbar once focus is on one of its buttons', () => {
+  it('leaves Space and Enter to the toolbar once focus is on one of its buttons', () => {
     enterMultiSelect(opts());
     const btn = toolbar('[data-ega-ms-mode="bilingual"]');
 
-    expect(pressIn(btn, 'Tab').defaultPrevented).toBe(false);
     expect(pressIn(btn, ' ').defaultPrevented).toBe(false);
+    expect(pressIn(btn, 'Enter').defaultPrevented).toBe(false);
     expect(cursor()).toBeNull();
+  });
+
+  it('? moves focus to Keys, which shows the key list, from anywhere on the page', () => {
+    enterMultiSelect(opts());
+    expect(press('?').defaultPrevented).toBe(true);
+    const keys = toolbar('[data-ega-picker-keys]');
+    expect(keys.getRootNode()).toBeInstanceOf(ShadowRoot);
+    expect((keys.getRootNode() as ShadowRoot).activeElement).toBe(keys);
+    expect(toolbar('[role="tooltip"]').hidden).toBe(false);
+  });
+
+  it('Tab from the toolbar goes back to the blocks it walks', () => {
+    enterMultiSelect(opts());
+    press('?');
+    const keys = toolbar('[data-ega-picker-keys]');
+    expect(pressIn(keys, 'Tab').defaultPrevented).toBe(true);
+    expect((keys.getRootNode() as ShadowRoot).activeElement).toBeNull();
+    expect(cursor()).toBe(el('main'));
+  });
+
+  it('M switches the mode with focus in the toolbar too', () => {
+    const onModeChange = vi.fn();
+    enterMultiSelect(opts({ onModeChange }));
+    press('?');
+    pressIn(toolbar('[data-ega-picker-keys]'), 'm');
+    expect(onModeChange).toHaveBeenCalledWith('bilingual');
+  });
+
+  it('Esc with the key list open closes only the list; the next Esc leaves the mode', () => {
+    enterMultiSelect(opts());
+    press('ArrowDown');
+    press('ArrowDown');
+    press(' ');
+    const keys = toolbar('[data-ega-picker-keys]');
+    keys.click();
+    flushSync();
+    expect(toolbar('[role="tooltip"]').hidden).toBe(false);
+
+    pressIn(keys, 'Escape');
+    flushSync();
+    expect(toolbar('[role="tooltip"]').hidden).toBe(true);
+    expect(isMultiSelectActive()).toBe(true);
+    expect(el('first').getAttribute('data-ega-ms-selected')).toBe('1');
+
+    pressIn(keys, 'Escape');
+    expect(isMultiSelectActive()).toBe(false);
   });
 
   it('still exits on Escape while focus is in the toolbar', () => {
@@ -232,8 +279,45 @@ describe('multi-select — the toolbar is reachable from the keyboard', () => {
   it('names every key it answers in the Keys toggletip', () => {
     enterMultiSelect(opts());
     const hint = toolbar('[role="tooltip"]').textContent;
-    for (const key of ['↑', '↓', 'Tab', 'Space', 'M', 'Enter', 'Esc']) {
+    for (const key of ['↑', '↓', 'Tab', 'Space', 'M', 'Enter', 'Esc', '?']) {
       expect(hint).toContain(key);
     }
+  });
+
+  it('says once, when the mode starts, which key reaches the toolbar', async () => {
+    enterMultiSelect(opts());
+    await vi.waitFor(() =>
+      expect(live()).toBe('Press the question mark key for the bar and its keys.'),
+    );
+  });
+});
+
+describe('multi-select — where the keyboard starts', () => {
+  function box(id: string, top: number): void {
+    el(id).getBoundingClientRect = () =>
+      ({ top, bottom: top + 20, height: 20, left: 0, right: 100, width: 100 }) as DOMRect;
+  }
+
+  it('the first navigation key goes to the first block in view, not the top of the page', () => {
+    box('first', -400);
+    box('nested', -200);
+    box('last', 120);
+    enterMultiSelect(opts());
+    press('ArrowDown');
+    expect(cursor()).toBe(el('last'));
+  });
+
+  it('Space chooses the block the pointer outlines', () => {
+    enterMultiSelect(opts());
+    el('nested').dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+    expect(press(' ').defaultPrevented).toBe(true);
+    expect(el('nested').getAttribute('data-ega-ms-selected')).toBe('1');
+  });
+
+  it('the keyboard walks on from the block the pointer outlines', () => {
+    enterMultiSelect(opts());
+    el('first').dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+    press('Tab');
+    expect(cursor()).toBe(el('mid'));
   });
 });

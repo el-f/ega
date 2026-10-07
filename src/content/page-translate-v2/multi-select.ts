@@ -1,6 +1,11 @@
 import { onShadowHostRemount } from '../shadowHost';
 import { isPickable, isInsideEgaHost } from '../picker';
-import { CURSOR_NAV_KEYS, hoveredElement, nextCursorTarget } from '../pick-cursor';
+import {
+  CURSOR_NAV_KEYS,
+  firstBlockInView,
+  hoveredElement,
+  nextCursorTarget,
+} from '../pick-cursor';
 import { isSensitiveTarget } from '../safety';
 import { showToast } from '../toast';
 import { ensurePageStyles } from '../page-styles';
@@ -282,11 +287,10 @@ const onKeyDown = (e: KeyboardEvent): void => {
     e.preventDefault();
     // Immediate: inline's Esc listener on the same node, added later, must not count this one.
     e.stopImmediatePropagation();
-    exitMultiSelect();
+    // An open key list closes first; the next Esc leaves the mode.
+    if (!ms.bar.closeKeys()) exitMultiSelect();
     return;
   }
-  // Focus sits on a toolbar button: Tab, Space and Enter belong to it, not to the block walk.
-  if (isInsideEgaHost(e.target as Element | null)) return;
   // Bare key only: Cmd+M minimizes the window on a Mac, and Ctrl+M is the browser's.
   if ((e.key === 'm' || e.key === 'M') && !e.ctrlKey && !e.metaKey && !e.altKey) {
     e.preventDefault();
@@ -296,6 +300,16 @@ const onKeyDown = (e: KeyboardEvent): void => {
     announce(modeLabel(next));
     return;
   }
+  if (isInsideEgaHost(e.target as Element | null)) {
+    // Space and Enter belong to the bar button; Tab returns to the blocks, as the browser's next stop is outside the page.
+    if (e.key !== 'Tab') return;
+    (e.composedPath()[0] as HTMLElement).blur();
+  } else if (e.key === '?') {
+    e.preventDefault();
+    e.stopPropagation();
+    ms.bar.focusKeys();
+    return;
+  }
   if (e.key === 'Enter') {
     if (ms.selected.length === 0) return;
     e.preventDefault();
@@ -303,17 +317,25 @@ const onKeyDown = (e: KeyboardEvent): void => {
     fire();
     return;
   }
+  // The keyboard cursor, else the block the pointer outlines.
+  const at = ms.cursor ?? ms.hovered;
   if (e.key === ' ') {
-    if (!ms.cursor) return;
+    if (!at) return;
     e.preventDefault();
     e.stopPropagation();
-    toggleSelect(ms.cursor);
+    toggleSelect(at);
     return;
   }
   if (!CURSOR_NAV_KEYS.has(e.key)) return;
   e.preventDefault();
   e.stopPropagation();
-  setCursor(nextCursorTarget(ms.cursor, e.key, e.shiftKey, isNavigableBlock));
+  // With nothing outlined, the walk starts where the user is looking, like Pick element.
+  setCursor(
+    at
+      ? nextCursorTarget(at, e.key, e.shiftKey, isNavigableBlock)
+      : (firstBlockInView(isNavigableBlock) ??
+          nextCursorTarget(null, e.key, e.shiftKey, isNavigableBlock)),
+  );
 };
 
 // exit() must run when the page detaches the shadow host, or the mode stays armed with no toolbar.

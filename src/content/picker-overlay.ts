@@ -132,6 +132,8 @@ async function ensurePicker(onPick: (r: PickResult) => void): Promise<PickerCont
         // rAF-gated: 60fps mouse moves would otherwise write the outline style on every event.
         schedulePickerRepaint();
       },
+      closeKeys: () => pickerBar?.closeKeys() ?? false,
+      showKeys: () => pickerBar?.focusKeys(),
     });
     return pickerSingleton;
   })());

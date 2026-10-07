@@ -65,6 +65,19 @@
     live = text;
   }
 
+  /** Esc closes an open key list before it may cancel the mode. True when it closed one. */
+  export function closeKeys(): boolean {
+    if (!keysOpen) return false;
+    keysOpen = false;
+    keysPinned = false;
+    return true;
+  }
+
+  /** The keyboard way into the bar: Keys takes focus, and focus opens the key list. */
+  export function focusKeys(): void {
+    keysButton?.focus();
+  }
+
   const translate = (e: Event): void => {
     // Translate starts requests, so a click the page dispatches is ignored; the reason stays visible while it is blocked.
     if (isUserGesture(e) && canTranslate) onTranslate?.();
@@ -76,11 +89,7 @@
   };
 
   function keysKey(e: KeyboardEvent): void {
-    if (e.key === 'Escape' && keysOpen) {
-      e.stopPropagation();
-      keysOpen = false;
-      keysPinned = false;
-    }
+    if (e.key === 'Escape' && closeKeys()) e.stopPropagation();
   }
 
   onMount(() => {
@@ -194,6 +203,7 @@
         {:else}
           <span><kbd>Space</kbd> or <kbd>Enter</kbd> translate this block</span>
         {/if}
+        <span><kbd>?</kbd> show these keys</span>
         <span><kbd>Esc</kbd> cancel</span>
       </div>
     </span>

@@ -21,6 +21,10 @@ export interface PickerOpts {
   onExit: () => void;
   /** `null` clears the highlight (the cursor is on Ega's own UI); `blocked` marks a private field Ega will not read. The listener measures the element itself. */
   onHover?: (h: { element: Element; blocked?: true } | null) => void;
+  /** Closes the bar's key list if it is open; true when it did, so that Esc does not also cancel. */
+  closeKeys?: () => boolean;
+  /** Moves focus into the bar, on Keys. */
+  showKeys?: () => void;
 }
 
 export interface PickerController {
@@ -103,11 +107,19 @@ export function createPicker(opts: PickerOpts): PickerController {
       e.preventDefault();
       // Immediate: inline's Esc listener on the same node, added later, must not count this one.
       e.stopImmediatePropagation();
-      exit();
+      if (!opts.closeKeys?.()) exit();
       return;
     }
-    // Focus sits on a bar button: Tab, Space and Enter belong to it, not to the block walk.
-    if (isInsideEgaHost(e.target as Element | null)) return;
+    if (isInsideEgaHost(e.target as Element | null)) {
+      // Space and Enter belong to the bar button; Tab returns to the blocks, as the browser's next stop is outside the page.
+      if (e.key !== 'Tab') return;
+      (e.composedPath()[0] as HTMLElement).blur();
+    } else if (e.key === '?') {
+      e.preventDefault();
+      e.stopPropagation();
+      opts.showKeys?.();
+      return;
+    }
     if (e.key === 'Enter' || e.key === ' ') {
       if (!cursor) return;
       e.preventDefault();
