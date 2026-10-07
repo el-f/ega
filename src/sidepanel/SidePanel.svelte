@@ -899,6 +899,7 @@
 
   /** The toast is gone in 8 seconds; the banner is the only way back once storage has room again. */
   async function retrySave(): Promise<void> {
+    if (savingAgain) return;
     savingAgain = true;
     try {
       await conversation.flush();
@@ -1085,11 +1086,12 @@
             ? 'Storage is full. Delete old conversations to make room.'
             : "These messages aren't saved yet."}</span
         >
+        <!-- aria-disabled, not disabled: a disabled button drops the focus it holds to the page body. -->
         <button
           type="button"
           class="sp-save-failed-retry"
           data-ega-save-failed-retry
-          disabled={savingAgain}
+          aria-disabled={savingAgain ? 'true' : undefined}
           onclick={() => void retrySave()}
         >
           Try again
@@ -1213,16 +1215,19 @@
     min-width: 0;
   }
   .sp-save-failed-retry {
+    min-block-size: 28px;
     background: none;
     border: 1px solid currentColor;
     border-radius: var(--radius-sm);
     color: inherit;
+    font: inherit;
+    font-size: var(--fs-sm);
     cursor: pointer;
     padding: 0 var(--space-2);
     flex-shrink: 0;
   }
-  .sp-save-failed-retry:disabled {
-    opacity: 0.5;
+  .sp-save-failed-retry[aria-disabled='true'] {
+    color: var(--color-fg-disabled);
     cursor: default;
   }
   .sp-search-bar {

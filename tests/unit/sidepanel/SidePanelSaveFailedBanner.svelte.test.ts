@@ -63,4 +63,47 @@ describe('a conversation that stopped being saved says so until it is saved', ()
     await drainAsync();
     expect(banner(container)).toBeNull();
   });
+
+  it('a Try again that is still saving keeps focus, says so, and starts no second save', async () => {
+    await saveThread(GENERAL_ORIGIN, [storedTurn('u1', 'kept text')]);
+    const { container } = render(SidePanel);
+    await drainAsync();
+    failEveryThreadWrite();
+    window.dispatchEvent(new Event('pagehide'));
+    await drainAsync();
+    const retry = container.querySelector<HTMLButtonElement>('[data-ega-save-failed-retry]');
+    if (!retry) throw new Error('Try again button missing');
+
+    // Every thread write now hangs, so the retry stays in flight.
+    vi.restoreAllMocks();
+    let release: () => void = () => {};
+    const originalSet = chrome.storage.local.set.bind(chrome.storage.local);
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
+    const set = vi.spyOn(chrome.storage.local, 'set').mockImplementation((items) => {
+      const record = items as Record<string, unknown>;
+      if (!Object.keys(record).some((k) => k.startsWith('ega:conv:'))) return originalSet(record);
+      return new Promise<void>((resolve) => {
+        release = () => {
+          void originalSet(record).then(() => resolve());
+        };
+      });
+    });
+    retry.focus();
+    await fireEvent.click(retry);
+    await drainAsync();
+    // aria-disabled, not disabled: a disabled button would drop focus to the page body.
+    expect(retry.getAttribute('aria-disabled')).toBe('true');
+    expect(retry.disabled).toBe(false);
+    expect(document.activeElement).toBe(retry);
+    const writes = set.mock.calls.length;
+    await fireEvent.click(retry);
+    await drainAsync();
+    expect(set.mock.calls.length, 'a second click starts nothing').toBe(writes);
+
+    // Later writes go through, then the held one lands.
+    set.mockRestore();
+    release();
+    await drainAsync();
+    expect(banner(container)).toBeNull();
+  });
 });
