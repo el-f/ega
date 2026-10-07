@@ -49,9 +49,10 @@
   .ega-reply-meta-item.warn {
     color: var(--color-warning-fg);
   }
+  /* The inline padding keeps the inset focus ring off the glyphs. */
   .ega-reply-meta-action {
     margin-inline-start: var(--space-1);
-    padding: 0;
+    padding: 0 var(--space-1);
     border: 0;
     background: none;
     font: inherit;
