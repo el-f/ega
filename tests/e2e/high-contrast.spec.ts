@@ -93,8 +93,9 @@ test('side panel: the streaming skeleton bar keeps a border', async () => {
   await forceColors(page);
   await expectFocusRing(page);
   await page.locator('#sp-text').fill('hola');
-  await page.getByRole('button', { name: /^Translate$/ }).click();
-  const bar = page.locator('.ega-stream-skeleton-bar');
+  await page.locator('#sp-text').press('Enter');
+  // Three bars stand in for the text; each draws its own border.
+  const bar = page.locator('.ega-skeleton-bar').first();
   await bar.waitFor();
   // The gradient is gone in this mode, so the border is all that draws the bar.
   expect(

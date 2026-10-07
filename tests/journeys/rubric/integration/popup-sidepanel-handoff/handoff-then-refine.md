@@ -2,23 +2,23 @@
 
 ## Latency budgets
 
-- Refine chip click -> variant stream starts: <= 1.5s.
+- Refine preset pick -> new version starts: <= 1.5s.
 
 ## State expectations
 
 - Step 1: popup freeform Open in side panel queues `ega.pendingPopupHandoff`; sidepanel mounts and drains it — the seeded UserTurn + completed AssistantTurn are visible.
-- Step 2: user clicks a quick-refine chip below the seeded assistant turn.
-- Step 3: a variant AssistantTurn spawns in place (not a new UserTurn); the original seeded content is preserved alongside the variant.
+- Step 2: the user opens the seeded reply's Refine menu and picks a preset ("Shorter").
+- Step 3: the reply gains version 2 in place (pager 2/2, not a new message); the seeded answer stays as version 1.
 
 ## Visible affordances
 
-- Refine chips appear after the seeded assistant turn reaches the done state — NOT while streaming.
-- Chip labels are "Shorter", "Less formal", "Keep slang", plus a "Write your own…" chip for free text.
+- The Refine button appears in the reply's action row once the seeded reply is done — NOT while it streams.
+- Translate presets are "Shorter", "Less formal" and "Keep slang", then "Describe a change…" for free text.
 
 ## Failure-mode expectations
 
-- Refine network failure -> inline error on the variant slot; seeded original turn remains readable.
-- If the handoff payload had `imageDataUrl` set, refine chips are absent — it seeds a finished image-translate turn.
+- Refine network failure -> the error shows on the new version; seeded original turn remains readable.
+- If the handoff payload had `imageDataUrl` set, the Refine menu holds only the language items — it seeds a finished image-translate turn.
 
 ## Cautions
 

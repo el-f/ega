@@ -28,9 +28,9 @@ test('Regenerate on a finished answer asks the model again instead of replaying 
   await page.locator('#sp-text').waitFor({ state: 'visible', timeout: 5_000 });
 
   await page.locator('#sp-text').fill('hola');
-  await page.getByRole('button', { name: /^Translate$/ }).click();
-  const turn = page.locator('.ega-assistant-turn');
-  await expect(turn.locator('.ega-assistant-body')).toContainText('First answer.', {
+  await page.locator('#sp-text').press('Enter');
+  const turn = page.locator('[data-ega-reply]');
+  await expect(turn.locator('.ega-answer')).toContainText('First answer.', {
     timeout: 10_000,
   });
   expect(first.calls()).toBe(1);
@@ -42,10 +42,10 @@ test('Regenerate on a finished answer asks the model again instead of replaying 
   await turn.getByRole('button', { name: 'Regenerate', exact: true }).click();
   timeline.markStep('regenerate-clicked');
 
-  await expect(page.locator('[data-ega-variant-nav] .ega-variant-counter')).toHaveText('2/2', {
+  await expect(page.locator('[data-ega-variant-nav] .ega-pager-count')).toHaveText('2/2', {
     timeout: 10_000,
   });
-  await expect(turn.locator('.ega-assistant-body')).toContainText('Second answer.', {
+  await expect(turn.locator('.ega-answer')).toContainText('Second answer.', {
     timeout: 10_000,
   });
   // The same request is in the cache, so only a skipped cache reaches the model a second time.

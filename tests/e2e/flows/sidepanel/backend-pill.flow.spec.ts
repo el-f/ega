@@ -30,4 +30,11 @@ test('sidepanel header chip renders the active backend name', async () => {
   // The chip waits on settings before it paints, so poll for the resolved manifest name.
   await expect(chip.locator('.chip-name')).toHaveText('Anthropic', { timeout: 5_000 });
   timeline.markStep('label-resolved');
+
+  // The chip opens the backends in the order Ega tries them, each with a plain status.
+  await chip.click();
+  const row = page.locator('[data-ega-backend-row="anthropic"]');
+  await expect(row).toContainText('In use');
+  await expect(page.getByText('Ega tries them in this order.')).toBeVisible();
+  timeline.markStep('popover-open');
 });

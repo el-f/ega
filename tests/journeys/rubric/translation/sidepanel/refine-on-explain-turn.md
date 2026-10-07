@@ -2,24 +2,24 @@
 
 ## Latency budgets
 
-- Refine chip click after explain -> variant stream first token: warm <= 1.5s.
+- Preset pick after an explain reply -> new version's first token: warm <= 1.5s.
 
 ## State expectations
 
-- Step 1: an explain task turn has completed in the sidepanel (AssistantTurn with `task=explain`).
-- Step 2: pressing the turn's Refine button opens the quick-refine chips below the explain turn ([Shorter], [Less formal], [Keep slang], [Write your own…]).
-- Step 3 (click [Shorter]): a variant AssistantTurn spawns; the outbound request carries `task=explain` and the [Shorter] modifier; the variant explains the same source text but in a shorter form.
+- Step 1: the user picks Explain in the "Next message" popover (chip "Explain → English") and sends; the Explain reply completes, with its notes block.
+- Step 2: the reply's Refine menu offers Explain's presets ("Shorter", "Simpler"), then "Describe a change…".
+- Step 3 (Shorter): the reply gains version 2; the request carries the explain prompt and the Shorter refinement; the new version explains the same message in a shorter form.
 
 ## Visible affordances
 
-- Chips render for explain turns — the same fixed set as translate turns.
-- The variant keeps task=explain — the streaming label reads "Explaining…" and the "Re-run as…" menu still shows Explain checked.
+- While the version runs, the meta slot reads "Explaining…".
+- The finished version names "Shorter" in its meta line.
 
 ## Failure-mode expectations
 
-- Variant failure -> inline error on variant slot; the original explain turn remains readable.
+- A failed version shows its error with "Try again"; version 1 stays readable with the pager.
 
 ## Cautions
 
-- The refine request must set `explain=true` (or equivalent) on the wire — the variant must be an explain refinement, not a translate refinement.
-- The source text for the explain refine is the same text that drove the original explain, not the explain result body.
+- The refine request must take the explain path on the wire — an explain refinement, not a translate one.
+- The source for the refine is the message that drove the explain, not the explain answer.

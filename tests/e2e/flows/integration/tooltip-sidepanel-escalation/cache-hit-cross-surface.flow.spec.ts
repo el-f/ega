@@ -56,9 +56,9 @@ test('sidepanel turn for the same source text hits the cache populated by the to
   await sp.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
   await sp.locator('#sp-text').waitFor({ state: 'visible', timeout: 5_000 });
   await sp.locator('#sp-text').fill(sourceText);
-  await sp.getByRole('button', { name: /^Translate$/ }).click();
+  await sp.locator('#sp-text').press('Enter');
 
-  await expect(sp.locator('.ega-assistant-body').first()).toContainText('Welcome', {
+  await expect(sp.locator('.ega-answer').first()).toContainText('Welcome', {
     timeout: 10_000,
   });
   timeline.markStep('sidepanel-cache-hit');

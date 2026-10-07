@@ -7,7 +7,7 @@
 ## State expectations
 
 - Step 1: settings hold an edit to Summarize's system prompt (`taskOverrides.summarize.system`) and no edit to its user prompt.
-- Step 2 (Summarize chip, then Send): the side panel sends the text as a Summarize request.
+- Step 2 (Summarize in the "Next message" popover, then Send): the side panel sends the text as a Summarize request.
 - Step 3: the backend receives the edited system text in place of the shipped one, and the shipped user prompt (`TEXT:` fence) still wraps the text.
 
 ## Visible affordances

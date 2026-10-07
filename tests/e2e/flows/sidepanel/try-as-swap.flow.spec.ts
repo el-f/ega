@@ -1,6 +1,13 @@
 /* coverage: translation.sidepanel.try-as-swap */
 import { test, expect, type BrowserContext } from '@playwright/test';
-import { launchExtension, seedSettings, type ExtensionHandle } from '../../helpers';
+import {
+  launchExtension,
+  openReplyMenu,
+  seedSettings,
+  sendFromPanel,
+  setNextMessage,
+  type ExtensionHandle,
+} from '../../helpers';
 import { createTimeline } from '../_harness';
 
 let ext: ExtensionHandle;
@@ -53,88 +60,68 @@ async function routeAnswers(context: BrowserContext, answers: string[]): Promise
   return bodies;
 }
 
-test('Re-run as → Swap languages re-answers the last turn the other way, from the keyboard', async () => {
+test('Refine → Swap re-answers the reply the other way, from the keyboard', async () => {
   const timeline = createTimeline();
   const bodies = await routeAnswers(ext.context, ['Hello.', 'Hola.']);
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
-  await page.locator('#sp-text').waitFor({ state: 'visible', timeout: 5_000 });
 
-  await page.locator('#sp-conv-source').selectOption('es');
-  await page.locator('#sp-text').fill('hola');
-  await page.getByRole('button', { name: /^Translate$/ }).click();
-  const turn = page.locator('.ega-assistant-turn');
+  await setNextMessage(page, { source: 'es' });
+  await sendFromPanel(page, 'hola');
+  const turn = page.locator('[data-ega-reply]');
   await expect(turn).toContainText('Hello.', { timeout: 10_000 });
+  await expect(turn.locator('[data-ega-meta-item="direction"]')).toHaveText('Spanish → English');
   timeline.markStep('first-answer');
 
-  // No separate swap row: the swap is the first item of the Re-run as menu.
-  const trigger = page.getByRole('button', { name: 'Re-run with another task or language' });
-  await expect(trigger).toBeVisible();
+  // The swap is the last item of the reply's Refine menu; End reaches it from the keyboard.
+  const trigger = turn.locator('[data-ega-action="refine"]');
   await trigger.focus();
   await page.keyboard.press('Enter');
-  // A keyboard open lands on the checked task, so a second Enter re-runs nothing; the swap is one ArrowUp away.
-  await expect(page.locator('[data-ega-task-switch-item="translate"]')).toBeFocused();
-  await page.keyboard.press('ArrowUp');
+  await expect(page.locator('[data-ega-refine-preset]').first()).toBeFocused();
+  await page.keyboard.press('End');
   const swap = page.locator('[data-ega-swap-item]');
   await expect(swap).toBeFocused();
-  await expect(swap).toHaveText('Swap languages (English → Spanish)');
-  await expect(swap).toHaveAttribute('aria-disabled', 'false');
+  await expect(swap).toHaveText('Swap: English → Spanish');
   timeline.markStep('menu-open');
 
   await page.keyboard.press('Enter');
   await expect(swap).toHaveCount(0);
-  // The menu and the action row unmount while the swap runs; focus waits on the reply card, not on <body>.
+  // The action row unmounts while the swap runs, so focus waits on the reply, not on <body>.
   await expect(turn).toBeFocused();
   const nav = page.locator('[data-ega-variant-nav]');
-  await expect(nav.locator('.ega-variant-counter')).toHaveText('2/2', { timeout: 10_000 });
+  await expect(nav.locator('.ega-pager-count')).toHaveText('2/2', { timeout: 10_000 });
   await expect(turn).toHaveCount(1);
   await expect(turn).toContainText('Hola.');
-  await expect(page.locator('[data-ega-lang-chip]')).toHaveText(/Spanish/);
+  await expect(turn.locator('[data-ega-meta-item="direction"]')).toHaveText('English → Spanish');
   expect(bodies).toHaveLength(2);
   expect(bodies[1] ?? '').toMatch(/Spanish/);
   timeline.markStep('swapped');
 
-  // The same swap again would add nothing, so the menu says so instead of offering it.
-  await trigger.focus();
-  await page.keyboard.press('Enter');
-  await page.keyboard.press('ArrowUp');
-  await expect(swap).toBeFocused();
-  await expect(swap).toHaveAttribute('aria-disabled', 'true');
-  await expect(swap.locator('[data-ega-swap-note]')).toHaveText('Already answered this way');
-  await page.keyboard.press('Enter');
-  await expect(swap).toBeVisible();
+  // Swapping back would repeat version 1, so the menu no longer offers it.
+  await openReplyMenu(page, 'refine', turn);
+  await expect(page.locator('[data-ega-refine-preset]').first()).toBeVisible();
+  await expect(swap).toHaveCount(0);
+  await page.keyboard.press('Escape');
   expect(bodies).toHaveLength(2);
-  timeline.markStep('repeat-blocked');
+  timeline.markStep('repeat-not-offered');
 });
 
-test('a blocked swap stays readable in the menu and says why', async () => {
+test('no swap is offered when the reply has no known source language', async () => {
   const timeline = createTimeline();
   const bodies = await routeAnswers(ext.context, ['Hello.']);
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
-  await page.locator('#sp-text').waitFor({ state: 'visible', timeout: 5_000 });
 
   // Auto-detect with no detected language from the model leaves nothing to swap from.
-  await page.locator('#sp-text').fill('hola');
-  await page.getByRole('button', { name: /^Translate$/ }).click();
-  await expect(page.locator('.ega-assistant-turn')).toContainText('Hello.', { timeout: 10_000 });
+  await sendFromPanel(page, 'hola');
+  await expect(page.locator('[data-ega-reply]')).toContainText('Hello.', { timeout: 10_000 });
   timeline.markStep('first-answer');
 
-  await page.locator('[data-ega-task-switch]').click();
-  const swap = page.locator('[data-ega-swap-item]');
-  await expect(swap).toHaveAttribute('aria-disabled', 'true');
-  await expect(swap.locator('[data-ega-swap-note]')).toHaveText(
-    'No source language to swap from yet',
-  );
-  await expect(swap.locator('[data-ega-swap-note]')).toBeVisible();
-  timeline.markStep('blocked-shown');
-
-  // force: Playwright treats aria-disabled as not clickable, but a user can still click the item.
-  await swap.click({ force: true });
-  // The menu stays open on a blocked pick, and nothing is sent.
-  await expect(swap).toBeVisible();
-  expect(bodies).toHaveLength(1);
+  const menu = await openReplyMenu(page, 'refine');
+  await expect(menu.locator('[data-ega-translate-into-other]')).toBeVisible();
+  await expect(menu.locator('[data-ega-swap-item]')).toHaveCount(0);
   await page.keyboard.press('Escape');
-  await expect(swap).toHaveCount(0);
-  timeline.markStep('no-request');
+  await expect(menu).toHaveCount(0);
+  expect(bodies).toHaveLength(1);
+  timeline.markStep('no-swap');
 });

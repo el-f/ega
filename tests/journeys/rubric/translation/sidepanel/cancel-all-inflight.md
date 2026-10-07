@@ -2,25 +2,24 @@
 
 ## Latency budgets
 
-- Cancel button click -> stream exits streaming state: <= 200ms.
+- Stop all requests -> the reply leaves its streaming state: <= 200ms.
 
 ## State expectations
 
-- Step 1: at least one AssistantTurn is actively streaming; the "More actions" (⋯) menu offers "Cancel all requests" as its last item.
-- Step 2 (click Cancel): the panel sends `translate:cancel-all`, the service worker aborts every in-flight request, and the panel cancels its own turn at once.
-- Step 3: the menu closes and no longer offers the item; the streaming AssistantTurn exits streaming state and renders a partial or canceled label; no further tokens arrive.
+- Step 1: a reply is running; the header's More menu ends with a separator and "Stop all requests", shown only while a request runs anywhere.
+- Step 2 (pick it): the panel sends `translate:cancel-all`, the service worker aborts every running request, and the panel stops its own reply at once.
+- Step 3: the menu closes; reopened, it no longer offers the item. The reply shows "Stopped" (with any text that already arrived) and no more tokens land.
 
 ## Visible affordances
 
-- The composer's Stop button is the one stop control on screen; Cancel all requests lives in the More actions menu and the command palette, and only while a request runs.
-- After cancel, the turn shows a "Canceled" indicator or the partial tokens with a stopped marker.
+- The composer's Send button turns into Stop while a reply runs; it is the one stop control on screen. "Stop all requests" lives in the header More menu and the command palette.
 
 ## Failure-mode expectations
 
-- Cancel signal failure -> stream continues; the menu item is still offered; the user can try again.
-- A cancel on an already-completed turn -> no-op; no error surfaced.
+- A stop message that fails -> the reply keeps running and the item is still offered.
+- Stop all on finished replies -> nothing happens; no error.
 
 ## Cautions
 
-- Cancel-all aborts ALL in-flight requests in the extension, on every tab and surface (tooltip, popup, batch). Cross-surface cancel is intentional (matches `sidepanel-shares-tooltip-cancellation` escalation rubric).
-- Partial tokens already streamed are preserved in the turn; the cancel does not blank the turn.
+- Stop all aborts every running request in the extension, on every tab and surface (tooltip, popup, page translate). This is intended.
+- Text that already arrived stays in the reply; the stop never blanks it.

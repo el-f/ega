@@ -2,25 +2,24 @@
 
 ## Latency budgets
 
-- Previous-variant click -> variant 1 shown with "· 2 loading": <= 100ms.
+- Refine menu open while another version runs: <= 100ms.
 
 ## State expectations
 
-- Step 1: the first reply is done; Refine opens the chips and Shorter starts variant 2, which keeps streaming.
-- Step 2: the user steps back to variant 1. The card is done again, so the Refine button returns, but the counter reads "1/2 · 2 loading".
-- Step 3: opening the chips shows every chip disabled, and the chip group is named "Quick refine — wait for this reply to finish".
-- Step 4: a click on a disabled chip sends nothing; exactly two requests have gone out and the counter stays on 1/2.
+- Step 1: the first reply is done; Refine → Shorter starts version 2, which keeps running.
+- Step 2: Previous version shows version 1 again (1/2); its meta line says "Version 2 loading…".
+- Step 3: the Refine menu opens with the note "Wait for the current reply to finish." Every re-run item stays in the menu with `aria-disabled` and that note as its description.
+- Step 4: a click on such an item sends nothing; exactly two requests have gone out and the pager stays on 1/2.
 
 ## Visible affordances
 
-- The disabled chips read as disabled (greyed), not hidden, so the user sees why nothing happens.
-- Refine chips never show on a streaming turn; when a done variant is viewed while a sibling streams, they render disabled.
+- The items stay in the arrow-key order and read as unavailable, so the user sees why nothing happens.
+- Regenerate is `aria-disabled` too, named "Regenerate (wait for the current reply)".
 
 ## Failure-mode expectations
 
-- A third variant or a third request while variant 2 streams is a regression.
+- If version 2 fails, the wait ends and the items work again.
 
 ## Cautions
 
-- The rejection must be enforced in the state machine too, not only via disabled chips: `refine()` bails while a reply is in flight (unit-tested).
-- Exactly zero extra requests must fire; verify via request count, not just UI state.
+- The refusal is enforced in the state machine as well: `refine()` bails while a reply is running (unit-tested).

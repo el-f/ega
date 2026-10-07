@@ -1,7 +1,7 @@
 /* coverage: translation.sidepanel.image-turn-no-refine-chips */
 import { test, expect } from '@playwright/test';
-import { launchExtension, seedSettings, type ExtensionHandle } from '../../helpers';
-import { assertStaysStable, createTimeline } from '../_harness';
+import { launchExtension, openReplyMenu, seedSettings, type ExtensionHandle } from '../../helpers';
+import { createTimeline } from '../_harness';
 
 let ext: ExtensionHandle;
 
@@ -18,7 +18,7 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-test('external image-translate turn shows its image and Regenerate, but no refine chips', async () => {
+test('external image-translate turn shows its image and Regenerate, and Refine offers only languages', async () => {
   const timeline = createTimeline();
 
   await ext.context.route('https://api.anthropic.com/v1/messages', async (route) => {
@@ -60,17 +60,18 @@ test('external image-translate turn shows its image and Regenerate, but no refin
   }, `${ext.serverUrl}/arabizi.png`);
   timeline.markStep('image-translate-dispatched');
 
-  await expect(sp.locator('.ega-assistant-body').first()).toContainText('Image translated', {
+  await expect(sp.locator('.ega-answer').first()).toContainText('Image translated', {
     timeout: 10_000,
   });
   timeline.markStep('turn-completed');
 
-  // image-translate has no refine task, so no Refine button opens chips.
-  await assertStaysStable(() => sp.locator('[data-ega-refine-toggle]').count(), 0, {
-    windowMs: 1_000,
-    message: 'the Refine button must not mount on an image-translate turn',
-  });
-  timeline.markStep('no-refine-chips');
+  // An image reply has no text to reword, so its Refine menu holds only the language items.
+  const menu = await openReplyMenu(sp, 'refine');
+  await expect(menu.locator('[data-ega-translate-into-other]')).toBeVisible();
+  await expect(menu.locator('[data-ega-refine-preset]')).toHaveCount(0);
+  await expect(menu.locator('[data-ega-describe-change]')).toHaveCount(0);
+  await sp.keyboard.press('Escape');
+  timeline.markStep('no-refine-presets');
 
   // The seed records a dispatch on the user turn, so the vision pass can re-run.
   await expect(sp.locator('[data-ega-regenerate]')).toBeVisible();

@@ -1,4 +1,4 @@
-/* coverage: translation.sidepanel.settings-cog */
+/* coverage: translation.sidepanel.open-settings */
 import { test, expect } from '@playwright/test';
 import { launchExtension, seedSettings, type ExtensionHandle } from '../../helpers';
 import { createTimeline } from '../_harness';
@@ -18,19 +18,28 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-test('settings cog opens the options shell in a new tab', async () => {
+test('header More → Settings opens the options shell in a new tab', async () => {
   const timeline = createTimeline();
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
   timeline.markStep('sidepanel-opened');
 
-  const cog = page.getByRole('button', { name: 'Open settings' });
-  await expect(cog).toBeVisible({ timeout: 5_000 });
-  timeline.markStep('cog-visible');
+  // Settings lives in the header's More menu; the header has no cog of its own.
+  const more = page.locator('[data-ega-header-more]');
+  await expect(more).toBeVisible({ timeout: 5_000 });
+  await expect(
+    page.locator('.sp-header').getByRole('button', { name: 'Open settings' }),
+  ).toHaveCount(0);
+  await more.click();
+  const item = page.locator('[data-ega-open-settings]');
+  await expect(item).toHaveText('Settings');
+  // Keyboard shortcuts comes right before it.
+  await expect(page.locator('[data-ega-show-shortcuts]')).toHaveText('Keyboard shortcuts');
+  timeline.markStep('menu-open');
 
   const newPagePromise = ext.context.waitForEvent('page', { timeout: 5_000 });
-  await cog.click();
-  timeline.markStep('cog-clicked');
+  await item.click();
+  timeline.markStep('settings-picked');
 
   const opened = await newPagePromise;
   await opened.waitForLoadState('domcontentloaded');

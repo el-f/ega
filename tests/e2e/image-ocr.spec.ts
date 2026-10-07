@@ -60,10 +60,7 @@ test('image:translate message streams a translation into the side panel', async 
     await chrome.runtime.sendMessage({ kind: 'image:translate', requestId, imageUrl });
   }, `${ext.serverUrl}/arabizi.png`);
 
-  await expect(sp.locator('.ega-assistant-body').first()).toContainText(
-    'Welcome to the group chat',
-    {
-      timeout: 10_000,
-    },
-  );
+  await expect(sp.locator('.ega-answer').first()).toContainText('Welcome to the group chat', {
+    timeout: 10_000,
+  });
 });

@@ -7,6 +7,8 @@ import {
   readStorage,
   seedCustomTasks,
   seedSettings,
+  sendFromPanel,
+  setNextMessage,
   type ExtensionHandle,
 } from '../../helpers';
 import { createTimeline } from '../_harness';
@@ -28,12 +30,9 @@ test('deleting a custom task keeps its past answers and names them "Deleted task
   mockAnthropic(ext.context, { translation: 'Short tweet', confidence: 0.9 });
   const panel = await ext.context.newPage();
   await panel.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
-  const chip = panel.locator('[data-ega-task="c-tweet"]');
-  await expect(chip).toBeVisible({ timeout: 5_000 });
-  await chip.click();
-  await panel.locator('#sp-text').fill('a long thread');
-  await panel.getByRole('button', { name: /^Tweet summary$/ }).click();
-  await expect(panel.locator('.ega-assistant-turn')).toContainText('Short tweet', {
+  await setNextMessage(panel, { task: 'c-tweet' });
+  await sendFromPanel(panel, 'a long thread');
+  await expect(panel.locator('[data-ega-reply]')).toContainText('Short tweet', {
     timeout: 10_000,
   });
   timeline.markStep('answered');
@@ -53,8 +52,13 @@ test('deleting a custom task keeps its past answers and names them "Deleted task
     .toEqual([]);
   timeline.markStep('deleted');
 
-  await expect(panel.locator('[data-ega-task="c-tweet"]')).toHaveCount(0, { timeout: 5_000 });
-  await expect(panel.locator('.ega-assistant-turn')).toContainText('Short tweet');
+  // The task leaves the Next message picker; its past answer stays.
+  await panel.locator('[data-ega-mode-chip]').click();
+  const picker = panel.locator('[data-ega-mode-popover]');
+  await expect(picker.locator('[data-ega-task="translate"]')).toBeVisible();
+  await expect(picker.locator('[data-ega-task="c-tweet"]')).toHaveCount(0, { timeout: 5_000 });
+  await panel.keyboard.press('Escape');
+  await expect(panel.locator('[data-ega-reply]')).toContainText('Short tweet');
   await expect(panel.locator('.ega-user-turn').first()).toContainText('Deleted task');
   timeline.markStep('turns-kept');
   timeline.report();

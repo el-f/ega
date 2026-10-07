@@ -28,10 +28,10 @@ test('side panel renders the translate workspace and runs a translation', async 
 
   await ta.fill('sabah el kheir');
 
-  await page.getByRole('button', { name: /^Translate$/ }).click();
+  await page.locator('#sp-text').press('Enter');
 
   // Assistant turn body eventually contains the streamed translation.
-  await expect(page.locator('.ega-assistant-body').first()).toContainText('Hello', {
+  await expect(page.locator('.ega-answer').first()).toContainText('Hello', {
     timeout: 10_000,
   });
 });
@@ -42,18 +42,18 @@ test('conversation stream updates live when a translation completes', async () =
   await page.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
 
   // Initially the empty-state is visible (no turns yet).
-  await expect(page.locator('[data-ega-empty-state]')).toBeVisible();
+  await expect(page.locator('[data-ega-sidepanel-empty]')).toBeVisible();
 
   await page.locator('#sp-text').fill('sabah el kheir');
-  await page.getByRole('button', { name: /^Translate$/ }).click();
+  await page.locator('#sp-text').press('Enter');
 
-  await expect(page.locator('.ega-assistant-body').first()).toContainText('Hello', {
+  await expect(page.locator('.ega-answer').first()).toContainText('Hello', {
     timeout: 10_000,
   });
 
   // Conversation stream now has one assistant turn.
-  await expect(page.locator('.ega-assistant-turn')).toHaveCount(1, { timeout: 5_000 });
-  await expect(page.locator('.ega-assistant-body').first()).toContainText('Hello');
+  await expect(page.locator('[data-ega-reply]')).toHaveCount(1, { timeout: 5_000 });
+  await expect(page.locator('.ega-answer').first()).toContainText('Hello');
 });
 
 test('two translations produce two assistant turns in the stream', async () => {
@@ -65,12 +65,12 @@ test('two translations produce two assistant turns in the stream', async () => {
   // input stays at #sp-text for the second fill.
   for (const src of ['sabah el kheir', 'kif 7alak']) {
     await page.locator('#sp-text').fill(src);
-    await page.getByRole('button', { name: /^Translate$/ }).click();
-    await expect(page.locator('.ega-assistant-body').first()).toContainText('Hello', {
+    await page.locator('#sp-text').press('Enter');
+    await expect(page.locator('.ega-answer').first()).toContainText('Hello', {
       timeout: 10_000,
     });
   }
 
   // Both translations produced assistant turns in the stream.
-  await expect(page.locator('.ega-assistant-turn')).toHaveCount(2, { timeout: 5_000 });
+  await expect(page.locator('[data-ega-reply]')).toHaveCount(2, { timeout: 5_000 });
 });

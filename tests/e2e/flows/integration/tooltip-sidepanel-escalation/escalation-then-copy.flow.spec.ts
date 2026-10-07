@@ -86,18 +86,18 @@ test('tooltip Pin seeds sidepanel; copy button writes pinned body to clipboard',
   const sp = await ext.context.newPage();
   await sp.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
   await expect(sp.locator('.ega-user-turn').first()).toBeVisible({ timeout: 15_000 });
-  const assistantBody = sp.locator('.ega-assistant-body').first();
+  const assistantBody = sp.locator('.ega-answer').first();
   await expect(assistantBody).toContainText('Welcome friend.', { timeout: 10_000 });
   await probe.close();
   timeline.markStep('sidepanel-seeded');
 
-  // The actions row collapses to max-height:0 at rest — hover reveals it.
-  await sp.locator('.ega-assistant-turn').first().hover();
-  const actions = sp.locator('.ega-assistant-actions').first();
+  // The newest reply keeps its action row in view; hover is how an older reply shows it.
+  await sp.locator('[data-ega-reply]').first().hover();
+  const actions = sp.locator('.ega-reply-actions').first();
   await expect(actions).toBeVisible({ timeout: 5_000 });
   timeline.markStep('actions-visible');
 
-  const copyBtn = actions.getByRole('button', { name: 'Copy reply' });
+  const copyBtn = actions.getByRole('button', { name: 'Copy', exact: true });
   await expect(copyBtn).toBeVisible({ timeout: 2_000 });
   await copyBtn.click();
   timeline.markStep('copy-clicked');

@@ -57,16 +57,16 @@ test('two pre-completed handoffs before sidepanel opens: both seed turns render 
   await sp.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
 
   await expect(sp.locator('.ega-user-turn')).toHaveCount(2, { timeout: 15_000 });
-  await expect(sp.locator('.ega-assistant-turn')).toHaveCount(2, { timeout: 15_000 });
+  await expect(sp.locator('[data-ega-reply]')).toHaveCount(2, { timeout: 15_000 });
   timeline.markStep('both-turns-rendered');
 
   await expect(sp.locator('.ega-user-turn').first()).toContainText('first handoff message');
   await expect(sp.locator('.ega-user-turn').last()).toContainText('second handoff message');
 
-  await expect(sp.locator('.ega-assistant-body').first()).toContainText('First translated answer', {
+  await expect(sp.locator('.ega-answer').first()).toContainText('First translated answer', {
     timeout: 10_000,
   });
-  await expect(sp.locator('.ega-assistant-body').last()).toContainText('Second translated answer', {
+  await expect(sp.locator('.ega-answer').last()).toContainText('Second translated answer', {
     timeout: 10_000,
   });
   timeline.markStep('order-asserted');

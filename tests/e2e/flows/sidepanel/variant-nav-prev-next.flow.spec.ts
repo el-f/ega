@@ -4,7 +4,7 @@ import {
   launchExtension,
   seedSettings,
   type ExtensionHandle,
-  openRefineChips,
+  refineWithPreset,
 } from '../../helpers';
 import { createTimeline } from '../_harness';
 
@@ -66,23 +66,20 @@ test('after refine spawns variant 2/2, prev nav reverts to 1/2 and body changes'
   await page.locator('#sp-text').waitFor({ state: 'visible', timeout: 5_000 });
 
   await page.locator('#sp-text').fill('hola');
-  await page.getByRole('button', { name: /^Translate$/ }).click();
-  await expect(page.locator('.ega-assistant-body').first()).toContainText('Original text', {
+  await page.locator('#sp-text').press('Enter');
+  await expect(page.locator('.ega-answer').first()).toContainText('Original text', {
     timeout: 10_000,
   });
   timeline.markStep('first-turn-done');
 
-  await openRefineChips(page);
-  const shorter = page.locator('[data-ega-refine-chip="shorter"]');
-  await expect(shorter).toBeVisible({ timeout: 5_000 });
-  await shorter.click();
-  timeline.markStep('chip-clicked');
+  await refineWithPreset(page, 'shorter');
+  timeline.markStep('preset-picked');
 
   const nav = page.locator('[data-ega-variant-nav]');
   await expect(nav).toBeVisible({ timeout: 10_000 });
-  const counter = nav.locator('.ega-variant-counter');
+  const counter = nav.locator('.ega-pager-count');
   await expect(counter).toHaveText('2/2', { timeout: 10_000 });
-  await expect(page.locator('.ega-assistant-body').first()).toContainText('Refined text', {
+  await expect(page.locator('.ega-answer').first()).toContainText('Refined text', {
     timeout: 10_000,
   });
   timeline.markStep('variant-2-shown');
@@ -90,7 +87,7 @@ test('after refine spawns variant 2/2, prev nav reverts to 1/2 and body changes'
   const prevBtn = page.locator('[data-ega-variant-prev]');
   await prevBtn.click();
   await expect(counter).toHaveText('1/2', { timeout: 3_000 });
-  await expect(page.locator('.ega-assistant-body').first()).toContainText('Original text', {
+  await expect(page.locator('.ega-answer').first()).toContainText('Original text', {
     timeout: 5_000,
   });
   timeline.markStep('variant-1-restored');

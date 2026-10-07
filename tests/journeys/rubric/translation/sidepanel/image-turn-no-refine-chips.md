@@ -2,27 +2,26 @@
 
 ## Latency budgets
 
-- Image-translate turn completes -> absence of chips must be verifiable within 200ms of stream end.
+- Image-translate reply completes -> its Refine menu can be checked within 200ms of stream end.
 
 ## State expectations
 
-- Step 1: an external image-translate turn is handed to the sidepanel (via `sidepanel-seed-then-stream` or direct image OCR dispatch); the user turn carries the image (`imageDataUrl`) and the AssistantTurn completes.
-- Step 2: the turn footer is inspected immediately after completion.
-- Step 3: NO Refine button and NO quick-refine chips are present, and NO error-path Retry button (`.ega-retry-btn`) is present. The done-footer Regenerate IS present: the seed records a dispatch on the user turn, so the vision pass can re-run.
+- Step 1: an external image-translate turn reaches the side panel (seeded or by direct image OCR dispatch); the message carries the image (`imageDataUrl`) and the reply completes.
+- Step 2: the reply's action row is inspected right after completion: Copy, Regenerate, Refine and More.
+- Step 3: the Refine menu holds only the language items ("Translate into another language…", and "Translate into {X}" when the composer target differs). It has no presets and no "Describe a change…", because there is no text to reword.
 
 ## Visible affordances
 
-- The source image thumbnail renders (`.ega-imgprev img`), not just the OCR text.
-- The footer carries Copy, Regenerate and a More (⋯) menu with Bookmark and Delete. Copy is present only when the turn holds text of its own — the `[image]` marker alone is not text.
-- The Swap languages item in the Re-run as menu is disabled and says why: an image has no source language to swap from.
+- The source image renders in the message bubble (`.ega-imgprev img`), not just the OCR text.
+- More holds "Answer again as" with only the tasks that read images, then Bookmark and Delete.
+- Regenerate is present: the seed records a dispatch on the message, so the image pass can re-run.
 
 ## Failure-mode expectations
 
-- A Refine button or quick-refine chips on an image turn are a regression — the test must fail explicitly.
-- A missing Regenerate on a seeded image turn is also a regression: an image turn is not a Task, but it does re-run.
+- A preset or "Describe a change…" on an image reply is a regression — the test must fail explicitly.
+- A missing Regenerate on a seeded image reply is also a regression.
 
 ## Cautions
 
-- The suppression flag is the image on the user turn (`imageDataUrl`), never the turn kind: an Explain-with-image send carries an image under kind `explain`.
-- What image turns lack is a Task mapping, which is why the chips and the task-switch list are narrowed — not the ability to re-run.
-- This rubric covers external image turns only; a sidepanel-originated explain on image-attached text may still allow some affordances.
+- The image check keys on the image on the message (`imageDataUrl`), never on the turn kind: an Explain-with-image send carries an image under kind `explain`.
+- There is no Swap item on an image reply: an image has no source language to swap from.

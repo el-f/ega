@@ -57,7 +57,7 @@ test('Open in side panel with warm sidepanel: live mount drains slot on storage.
   await expect(sp.locator('.ega-user-turn').last()).toContainText('hello in german', {
     timeout: 10_000,
   });
-  await expect(sp.locator('.ega-assistant-body').last()).toContainText('Hallo', {
+  await expect(sp.locator('.ega-answer').last()).toContainText('Hallo', {
     timeout: 10_000,
   });
   timeline.markStep('warm-drain');

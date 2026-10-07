@@ -6,6 +6,7 @@ import {
   mockAnthropic,
   seedCustomTasks,
   seedSettings,
+  setNextMessage,
   type ExtensionHandle,
 } from '../../helpers';
 import { createTimeline } from '../_harness';
@@ -36,9 +37,8 @@ test('an image sent with an image-taking custom task carries the custom prompt',
   await panel.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
   const composer = panel.locator('#sp-text');
   await composer.waitFor({ state: 'visible', timeout: 5_000 });
-  const chip = panel.locator('[data-ega-task="c-describe"]');
-  await expect(chip).toBeVisible({ timeout: 5_000 });
-  await chip.click();
+  await setNextMessage(panel, { task: 'c-describe' });
+  await expect(panel.locator('[data-ega-mode-chip]')).toContainText('Describe photo');
 
   await composer.evaluate((el) => {
     const png1x1 = new Uint8Array([
@@ -54,7 +54,8 @@ test('an image sent with an image-taking custom task carries the custom prompt',
   });
   timeline.markStep('image-attached');
 
-  await panel.getByRole('button', { name: /^Describe photo$/ }).click();
+  await expect(panel.locator('[data-ega-next-send]')).toContainText('Image');
+  await panel.locator('[data-ega-send]').click();
   await expect.poll(() => mock.calls(), { timeout: 10_000 }).toBe(1);
   const body = mock.lastRequestBody() ?? '';
   expect(body).toContain('Describe the picture for a blind reader.');

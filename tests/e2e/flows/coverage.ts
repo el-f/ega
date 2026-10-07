@@ -285,9 +285,9 @@ export const COVERAGE: readonly Family[] = [
             flows: ['sidepanel/backend-pill.flow.spec.ts'],
           },
           {
-            id: 'settings-cog',
-            description: 'Settings cog opens the options shell',
-            flows: ['sidepanel/settings-cog.flow.spec.ts'],
+            id: 'open-settings',
+            description: 'Header More → Settings opens the options shell',
+            flows: ['sidepanel/open-settings.flow.spec.ts'],
           },
           {
             id: 'bookmark-filter',
@@ -312,7 +312,7 @@ export const COVERAGE: readonly Family[] = [
           },
           {
             id: 'multi-variety-cluster',
-            description: 'Multi-variety detection renders a pill cluster on the assistant turn',
+            description: 'Multi-variety detection names every variety in the reply meta line',
             flows: ['sidepanel/multi-variety-cluster.flow.spec.ts'],
           },
           {
@@ -326,10 +326,10 @@ export const COVERAGE: readonly Family[] = [
             flows: ['sidepanel/panel-scrolls-not-page.flow.spec.ts'],
           },
           {
-            id: 'quick-refine-chip',
+            id: 'refine-preset',
             description:
-              'Refine button opens the chips; a quick-refine chip amends the last assistant turn',
-            flows: ['sidepanel/quick-refine-chip.flow.spec.ts'],
+              'Refine menu → a preset adds a version of the reply and sends the refinement once',
+            flows: ['sidepanel/refine-preset.flow.spec.ts'],
           },
           {
             id: 'task-switch-convo',
@@ -339,18 +339,13 @@ export const COVERAGE: readonly Family[] = [
           {
             id: 'try-as-swap',
             description:
-              'Re-run as menu: Swap languages re-answers the last turn the other way; a blocked swap shows its reason',
+              'Refine menu → Swap re-answers the reply the other way; no swap item when it cannot run',
             flows: ['sidepanel/try-as-swap.flow.spec.ts'],
           },
           {
             id: 'tone-switch-convo',
             description: 'Tone switch within conversation re-routes prompts',
             flows: ['sidepanel/tone-switch-convo.flow.spec.ts'],
-          },
-          {
-            id: 'target-lang-retranslate',
-            description: 'Target picker re-answers the last turn as a variant in the new language',
-            flows: ['sidepanel/target-lang-retranslate.flow.spec.ts'],
           },
           {
             id: 'empty-answer',
@@ -374,39 +369,27 @@ export const COVERAGE: readonly Family[] = [
             flows: ['sidepanel/retry-after-error.flow.spec.ts'],
           },
           {
-            id: 'refine-inline-freeform',
-            description:
-              'Freeform [+ Refine] input submits custom text → variant with custom refinement on wire',
-            flows: ['sidepanel/refine-inline-freeform.flow.spec.ts'],
-          },
-          {
             id: 'refine-busy-rejected',
             description:
-              'Refine while a sibling variant streams: the chips are disabled with the reason, no third variant',
+              'Refine while another version runs: the menu items stay with the reason, no third version',
             flows: ['sidepanel/refine-busy-rejected.flow.spec.ts'],
           },
           {
             id: 'edit-last-keyboard',
             description:
-              'Press e key → last user turn pulled into composer; re-send → exactly 2 user turns',
+              'Press e → last message pulled into the composer in edit mode; re-send → exactly 2 messages',
             flows: ['sidepanel/edit-last-keyboard.flow.spec.ts'],
-          },
-          {
-            id: 'composer-options',
-            description:
-              'Message options popover → pick Rich + turn off live reply → both saved; Esc returns focus',
-            flows: ['sidepanel/composer-options.flow.spec.ts'],
           },
           {
             id: 'cancel-all-inflight',
             description:
-              'More actions offers Cancel all requests while streaming → pick it → item gone + turn exits streaming',
+              'Header More offers Stop all requests while streaming → pick it → item gone + turn exits streaming',
             flows: ['sidepanel/cancel-all-inflight.flow.spec.ts'],
           },
           {
             id: 'variant-nav-prev-next',
             description:
-              'After refine spawns variant 2/2 → click prev → reads 1/2 and body reverts',
+              'After a refine adds version 2/2 → Previous version → reads 1/2 and the answer reverts',
             flows: ['sidepanel/variant-nav-prev-next.flow.spec.ts'],
           },
           {
@@ -418,13 +401,13 @@ export const COVERAGE: readonly Family[] = [
           {
             id: 'refine-on-explain-turn',
             description:
-              'Explain turn done → chips mount → [Shorter] → variant with explain=true on wire',
+              'Explain reply done → Refine → Shorter → version with the explain prompt on the wire',
             flows: ['sidepanel/refine-on-explain-turn.flow.spec.ts'],
           },
           {
             id: 'image-turn-no-refine-chips',
             description:
-              'External image-translate turn completes → thumbnail + Regenerate present, Refine button absent',
+              'External image-translate turn completes → thumbnail + Regenerate; Refine offers only the language items',
             flows: ['sidepanel/image-turn-no-refine-chips.flow.spec.ts'],
           },
         ],
@@ -439,7 +422,8 @@ export const COVERAGE: readonly Family[] = [
           },
           {
             id: 'user-turn-render',
-            description: 'UserTurn renders source text + task/tone',
+            description:
+              'A message renders its text, with a task label only where the task changes',
             flows: ['conversation/user-turn-render.flow.spec.ts'],
           },
           {
@@ -455,8 +439,76 @@ export const COVERAGE: readonly Family[] = [
           {
             id: 'per-origin-persistence',
             description:
-              'Conversation persists across panel reload; new-conversation clears storage',
+              'Conversation persists across panel reload; New keeps it stored and starts another',
             flows: ['conversation/per-origin-persistence.flow.spec.ts'],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'sidepanel',
+    surfaces: [
+      {
+        id: 'header',
+        actions: [
+          {
+            id: 'new-conversation-undo',
+            description:
+              'New empties the thread at once with no confirm; the toast Undo opens the old conversation again',
+            flows: ['sidepanel/header/new-conversation-undo.flow.spec.ts'],
+          },
+          {
+            id: 'open-other-conversation',
+            description:
+              'Site title → conversations list grouped by site → a picked row opens; opening counts as use',
+            flows: ['sidepanel/header/open-other-conversation.flow.spec.ts'],
+          },
+          {
+            id: 'delete-conversation-undo',
+            description:
+              'Delete a row → Undo line for 8 s → Undo restores; left alone the store drops it',
+            flows: ['sidepanel/header/delete-conversation-undo.flow.spec.ts'],
+          },
+        ],
+      },
+      {
+        id: 'composer',
+        actions: [
+          {
+            id: 'mode-popover',
+            description:
+              'Mode chip → Next message popover: task, languages, tone and page info apply at once; Esc returns focus',
+            flows: ['sidepanel/composer/mode-popover.flow.spec.ts'],
+          },
+          {
+            id: 'enter-sends',
+            description:
+              'Enter sends, Shift+Enter adds a line, Ctrl+Enter sends, an empty box sends nothing',
+            flows: ['sidepanel/composer/enter-sends.flow.spec.ts'],
+          },
+        ],
+      },
+      {
+        id: 'reply',
+        actions: [
+          {
+            id: 'describe-change',
+            description:
+              'Refine → Describe a change → the composer becomes the change box; Send adds a version, Esc restores the draft',
+            flows: ['sidepanel/reply/describe-change.flow.spec.ts'],
+          },
+          {
+            id: 'translate-into',
+            description:
+              'Refine → Translate into another language or the composer target → a version in that language',
+            flows: ['sidepanel/reply/translate-into.flow.spec.ts'],
+          },
+          {
+            id: 'about-instructions',
+            description:
+              'More → About this reply → Instructions sent shows the system prompt that went out, as plain text',
+            flows: ['sidepanel/reply/about-instructions.flow.spec.ts'],
           },
         ],
       },
@@ -1463,14 +1515,6 @@ export const COVERAGE: readonly Family[] = [
               'Tooltip detected source lang carried into sidepanel handoff and first turn',
             flows: [
               'integration/tooltip-sidepanel-escalation/tooltip-escalation-preserves-lang.flow.spec.ts',
-            ],
-          },
-          {
-            id: 'tooltip-retry-budget-shared',
-            description:
-              'Sidepanel retryBudget slider affects next tooltip attempt budget; live mutation',
-            flows: [
-              'integration/tooltip-sidepanel-escalation/tooltip-retry-budget-shared.flow.spec.ts',
             ],
           },
           {

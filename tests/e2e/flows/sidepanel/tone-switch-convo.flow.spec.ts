@@ -1,6 +1,12 @@
 /* coverage: translation.sidepanel.tone-switch-convo */
 import { test, expect } from '@playwright/test';
-import { launchExtension, seedSettings, type ExtensionHandle } from '../../helpers';
+import {
+  type ExtensionHandle,
+  launchExtension,
+  seedSettings,
+  sendFromPanel,
+  setNextMessage,
+} from '../../helpers';
 import { createTimeline } from '../_harness';
 
 let ext: ExtensionHandle;
@@ -58,24 +64,20 @@ test('switching tone mid-conversation re-routes the reword prompt', async () => 
   await page.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
   await page.locator('#sp-text').waitFor({ state: 'visible', timeout: 5_000 });
 
-  // Reword task surfaces the tone select.
-  await page.locator('[data-ega-task="reword"]').click();
-  await expect(page.getByRole('button', { name: /^Reword$/ })).toBeVisible();
-  const tone = page.locator('[data-ega-tone-select]');
-  await expect(tone).toBeVisible({ timeout: 5_000 });
+  // Reword brings the tone row into the Next message popover.
+  await setNextMessage(page, { task: 'reword' });
+  await expect(page.locator('[data-ega-mode-chip]')).toHaveText('Reword');
   timeline.markStep('reword-task-active');
 
   // Turn 1 — default neutral.
-  await page.locator('#sp-text').fill('hey what up');
-  await page.getByRole('button', { name: /^Reword$/ }).click();
-  await expect(page.locator('.ega-assistant-turn')).toHaveCount(1, { timeout: 10_000 });
+  await sendFromPanel(page, 'hey what up');
+  await expect(page.locator('[data-ega-reply]')).toHaveCount(1, { timeout: 10_000 });
   timeline.markStep('turn-1-neutral');
 
-  await tone.selectOption('formal');
-  await expect(tone).toHaveValue('formal');
-  await page.locator('#sp-text').fill('hey what up');
-  await page.getByRole('button', { name: /^Reword$/ }).click();
-  await expect(page.locator('.ega-assistant-turn')).toHaveCount(2, { timeout: 10_000 });
+  await setNextMessage(page, { tone: 'formal' });
+  await expect(page.locator('[data-ega-mode-chip]')).toHaveText('Reword · Formal');
+  await sendFromPanel(page, 'hey what up');
+  await expect(page.locator('[data-ega-reply]')).toHaveCount(2, { timeout: 10_000 });
   timeline.markStep('turn-2-formal');
 
   expect(bodies.length).toBeGreaterThanOrEqual(2);

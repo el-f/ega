@@ -2,24 +2,24 @@
 
 ## Latency budgets
 
-- First-token visible in the turn: warm <= 1.5s, cold <= 4s.
-- ResultMeta footer render: <= 200ms after stream completion.
+- First token visible in the reply: warm <= 1.5s, cold <= 4s.
+- Meta line render: <= 200ms after stream completion.
 
 ## State expectations
 
-- Step 1: assistant turn mounts with a skeleton: a task label (e.g. "Translating…") and a shimmer bar.
-- Step 2: streamed content lands progressively as plain text with a blinking caret.
-- Step 3: on stream end, the caret goes and Markdown renders; the confidence, language and backend pills appear beside the time, and the action row appears (Copy, Regenerate, Info, and a More (⋯) menu holding Bookmark and Delete); Info opens a Details drawer with backend, model, cache hit and latency.
+- Step 1: the reply mounts with three static skeleton bars and "Translating…" in its meta slot; the action row's 28px is reserved.
+- Step 2: streamed content lands progressively as plain text with a caret.
+- Step 3: on stream end, the caret goes and Markdown renders; the meta line fills in (direction, model, and "87% confident" last when the confidence setting shows it), and the action row appears: Copy, Regenerate, Refine and More. More → "About this reply" opens the details: backend, model, cache hit, time and the instructions sent.
 
 ## Visible affordances
 
-- Turn carries Copy + Regenerate controls on completion (never during stream).
-- While in flight, the composer Send button becomes Stop and the header shows Cancel all requests; the turn keeps its caret.
+- Copy, Regenerate, Refine and More appear only on completion (never during the stream).
+- While in flight, the composer's Send becomes Stop; the reply keeps its caret.
 
 ## Failure-mode expectations
 
-- Stream stall -> the turn becomes a "Timed out" error ("The reply stopped arriving. Send it again.") with Retry; partial text stays, marked "(partial)" with a copy button.
-- ResultMeta missing (older backend response) -> the Info button and Details drawer are absent; no placeholder rows.
+- Stream stall -> the reply becomes a "No answer in time" error with "Try again"; the panel's reason ("The reply stopped arriving. Send it again.") sits under Details. Partial text stays, with its own Copy, and the meta line says "Partial answer".
+- No ResultMeta (an older backend response) -> the meta line has no model; About says the details were not recorded. No placeholder rows.
 
 ## Cautions
 

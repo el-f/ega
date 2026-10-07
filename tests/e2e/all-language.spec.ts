@@ -26,7 +26,7 @@ async function runSidepanelTranslate(
   const input = page.locator('#sp-text');
   await input.waitFor({ state: 'visible', timeout: 5_000 });
   await input.fill(text);
-  await page.getByRole('button', { name: /^Translate$/ }).click();
+  await page.locator('#sp-text').press('Enter');
   // Poll: the router takes a tick to pass through the cache before it calls the mock.
   await expect.poll(() => mock.calls(), { timeout: 10_000 }).toBeGreaterThan(0);
   return mock;

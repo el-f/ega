@@ -24,18 +24,18 @@ test('sending input appends a user turn + an assistant turn', async () => {
   await page.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
 
   await page.locator('#sp-text').waitFor({ state: 'visible', timeout: 5_000 });
-  await expect(page.locator('[data-ega-empty-state]')).toBeVisible();
+  await expect(page.locator('[data-ega-sidepanel-empty]')).toBeVisible();
   timeline.markStep('empty-state-visible');
 
   await page.locator('#sp-text').fill('marhaba sadiqi');
-  await page.getByRole('button', { name: /^Translate$/ }).click();
+  await page.locator('#sp-text').press('Enter');
   timeline.markStep('send-clicked');
 
   await expect(page.locator('.ega-user-turn')).toHaveCount(1, { timeout: 5_000 });
   await expect(page.locator('.ega-user-turn')).toContainText('marhaba sadiqi');
 
-  await expect(page.locator('.ega-assistant-turn')).toHaveCount(1, { timeout: 10_000 });
-  await expect(page.locator('.ega-assistant-body').first()).toContainText('Welcome', {
+  await expect(page.locator('[data-ega-reply]')).toHaveCount(1, { timeout: 10_000 });
+  await expect(page.locator('.ega-answer').first()).toContainText('Welcome', {
     timeout: 10_000,
   });
   timeline.markStep('both-turns-rendered');

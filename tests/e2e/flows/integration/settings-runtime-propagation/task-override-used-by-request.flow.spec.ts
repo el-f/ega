@@ -4,6 +4,8 @@ import {
   launchExtension,
   mockAnthropic,
   seedSettings,
+  sendFromPanel,
+  setNextMessage,
   type ExtensionHandle,
 } from '../../../helpers';
 import { createTimeline } from '../../_harness';
@@ -36,10 +38,9 @@ test('an edited built-in prompt is the system text the backend receives', async 
   await page.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
   await page.locator('#sp-text').waitFor({ state: 'visible', timeout: 5_000 });
 
-  await page.locator('[data-ega-task="summarize"]').click();
-  await page.locator('#sp-text').fill('A long paragraph about nothing in particular.');
-  await page.getByRole('button', { name: /^Summarize$/ }).click();
-  await expect(page.locator('.ega-assistant-turn')).toHaveCount(1, { timeout: 10_000 });
+  await setNextMessage(page, { task: 'summarize' });
+  await sendFromPanel(page, 'A long paragraph about nothing in particular.');
+  await expect(page.locator('[data-ega-reply]')).toHaveCount(1, { timeout: 10_000 });
   timeline.markStep('summarize-sent');
 
   await expect

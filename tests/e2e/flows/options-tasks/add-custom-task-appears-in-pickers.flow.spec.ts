@@ -87,10 +87,13 @@ test('a new task from the Tasks tab shows in the chip strip and the tooltip sele
 
   const panel = await ext.context.newPage();
   await panel.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
-  await expect(panel.getByRole('radio', { name: 'Task: Tweet summary' })).toBeVisible({
-    timeout: 5_000,
-  });
-  timeline.markStep('chip-strip');
+  // The task picker lives in the composer's "Next message" popover.
+  await panel.locator('[data-ega-mode-chip]').click({ timeout: 5_000 });
+  await expect(
+    panel.locator('[data-ega-mode-popover]').getByRole('radio', { name: 'Tweet summary' }),
+  ).toBeVisible({ timeout: 5_000 });
+  await panel.keyboard.press('Escape');
+  timeline.markStep('task-picker');
 
   const page = await ext.context.newPage();
   await page.goto(`${ext.serverUrl}/selection-page.html`);

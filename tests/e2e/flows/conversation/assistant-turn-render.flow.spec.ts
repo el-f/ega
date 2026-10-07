@@ -17,7 +17,7 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-test('assistant turn renders streamed content + meta footer', async () => {
+test('a reply renders its streamed answer, one meta line and one action row', async () => {
   const timeline = createTimeline();
   mockAnthropic(ext.context, { translation: 'Hello, friend.', confidence: 0.87 });
   const page = await ext.context.newPage();
@@ -25,28 +25,31 @@ test('assistant turn renders streamed content + meta footer', async () => {
 
   await page.locator('#sp-text').waitFor({ state: 'visible', timeout: 5_000 });
   await page.locator('#sp-text').fill('marhaba');
-  await page.getByRole('button', { name: /^Translate$/ }).click();
+  await page.locator('#sp-text').press('Enter');
   timeline.markStep('send-clicked');
 
-  const turn = page.locator('.ega-assistant-turn');
+  const turn = page.locator('[data-ega-reply]');
   await expect(turn).toHaveCount(1, { timeout: 5_000 });
 
-  await expect(page.locator('.ega-assistant-body').first()).toContainText('Hello, friend.', {
+  await expect(page.locator('.ega-answer').first()).toContainText('Hello, friend.', {
     timeout: 10_000,
   });
   timeline.markStep('body-streamed');
 
   await expect(page.locator('.ega-cursor')).toHaveCount(0, { timeout: 5_000 });
 
-  // The action row collapses to max-height:0 at rest — hover to reveal it.
+  // The newest reply keeps its action row in view; hover is how an older reply shows it.
   await turn.hover();
-  const actions = turn.locator('.ega-assistant-actions');
+  const actions = turn.locator('.ega-reply-actions');
   await expect(actions).toBeVisible();
-  // The pills sit beside the time, so the action row holds only buttons and fits a narrow panel.
-  await expect(turn.locator('.ega-assistant-meta .ega-pill', { hasText: '87%' })).toHaveCount(1);
+  // Confidence is plain text at the end of the one meta line, never a pill; it follows the Settings switch.
+  const meta = turn.locator('[data-ega-reply-meta]');
+  await expect(meta.locator('[data-ega-meta-item]').last()).toHaveText('87% confident');
+  await expect(meta.locator('[data-ega-meta-item="confidence"]')).toHaveCount(1);
 
-  await expect(actions.getByRole('button', { name: 'Copy reply' })).toBeVisible();
-  // Retry left the done footer: it and Regenerate were the same action drawn twice.
+  await expect(actions.getByRole('button', { name: 'Copy', exact: true })).toBeVisible();
   await expect(actions.getByRole('button', { name: 'Regenerate' })).toBeVisible();
+  await expect(actions.getByRole('button', { name: 'Refine' })).toBeVisible();
+  await expect(actions.getByRole('button', { name: 'More' })).toBeVisible();
   timeline.markStep('meta-rendered');
 });

@@ -75,7 +75,7 @@ test('Open in side panel with cold sidepanel: cold-start drains slot and seeds t
   await expect(sp.locator('.ega-user-turn').first()).toContainText('translate hello to french', {
     timeout: 10_000,
   });
-  await expect(sp.locator('.ega-assistant-body').first()).toContainText('Bonjour', {
+  await expect(sp.locator('.ega-answer').first()).toContainText('Bonjour', {
     timeout: 10_000,
   });
   timeline.markStep('sidepanel-seeded');

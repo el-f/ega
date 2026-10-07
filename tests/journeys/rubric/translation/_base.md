@@ -4,7 +4,7 @@
 
 - Target-language picker honors the user's persisted default; no silent reset.
 - Direction-swap (LTR -> RTL or RTL -> LTR) does not reflow the input text in place.
-- Retry after error preserves the last input verbatim — never drop or truncate.
+- "Try again" after an error preserves the last input verbatim — never drop or truncate.
 - Streamed output renders incrementally; the user sees tokens land, not a wall of text after a long pause.
 
 ## Routing
@@ -14,5 +14,5 @@
 
 ## Confidence + tone
 
-- Tooltip confidence pill uses success / warning / danger tokens (>=80% / >=60% / lower); the side panel shows a neutral "N% confident" pill. Light theme and the dark success/warning pills clear 4.5:1 contrast; the dark danger pill (<60%) does not (~3.6:1, uses --color-danger instead of the AA-safe --color-danger-fg).
+- Tooltip confidence pill uses success / warning / danger tokens (>=80% / >=60% / lower); the side panel shows no pill: its meta line ends with "93% confident" as plain text when the confidence setting shows it ("Low confidence (42%)" in warning text below 60%); it is the first item to drop when the line runs out of room, and About this reply repeats it. Light theme and the dark success/warning pills clear 4.5:1 contrast; the dark danger pill (<60%) does not (~3.6:1, uses --color-danger instead of the AA-safe --color-danger-fg).
 - Tone selector retains its value across re-opens of the same surface in a session.

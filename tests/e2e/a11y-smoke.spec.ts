@@ -11,7 +11,7 @@ import {
   egaTest,
   type ExtensionHandle,
   pickAreasAndTranslate,
-  openRefineChips,
+  refineWithPreset,
 } from './helpers';
 import { assertA11y, waitForVisibleText } from './flows/_harness';
 
@@ -291,15 +291,15 @@ test('side panel with a finished answer passes axe critical-only smoke', async (
   mockAnthropic(ext.context, { translation: 'Hello, welcome!' });
   const buckets = await scan(sidePanelUrl(), async (page) => {
     await page.locator('#sp-text').fill('sabah el kheir');
-    await page.getByRole('button', { name: /^Translate$/ }).click();
-    await expect(page.locator('.ega-assistant-body').first()).toContainText('Hello', {
+    await page.locator('#sp-text').press('Enter');
+    await expect(page.locator('.ega-answer').first()).toContainText('Hello', {
       timeout: 10_000,
     });
   });
   expectClean('sidepanel-populated', buckets);
 });
 
-// The refinement chip only renders on a refined variant, so its contrast needs its own scan.
+// The version pager and the preset name in the meta line only render on a refined version, so they need their own scan.
 test('side panel with a refined answer passes axe critical-only smoke', async () => {
   await seedSettings(ext.context, ext.extensionId, {
     anthropicApiKey: 'test-key',
@@ -308,17 +308,17 @@ test('side panel with a refined answer passes axe critical-only smoke', async ()
   mockAnthropic(ext.context, { translation: 'Hello, welcome to you all!', times: 1 });
   const buckets = await scan(sidePanelUrl(), async (page) => {
     await page.locator('#sp-text').fill('sabah el kheir ya jama3a');
-    await page.getByRole('button', { name: /^Translate$/ }).click();
-    await expect(page.locator('.ega-assistant-body').first()).toContainText('Hello', {
+    await page.locator('#sp-text').press('Enter');
+    await expect(page.locator('.ega-answer').first()).toContainText('Hello', {
       timeout: 10_000,
     });
     mockAnthropic(ext.context, { translation: 'Hi all!', times: 1 });
-    await openRefineChips(page);
-    await page.locator('[data-ega-refine-chip="shorter"]').click();
-    await expect(page.locator('.ega-assistant-body').first()).toContainText('Hi all!', {
+    await refineWithPreset(page, 'shorter');
+    await expect(page.locator('.ega-answer').first()).toContainText('Hi all!', {
       timeout: 10_000,
     });
-    await expect(page.locator('[data-ega-refinement-chip]')).toBeVisible();
+    await expect(page.locator('[data-ega-meta-item="version"]')).toHaveText('Shorter');
+    await expect(page.locator('[data-ega-variant-nav]')).toBeVisible();
   });
   expectClean('sidepanel-refined', buckets);
 });

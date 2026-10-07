@@ -3,21 +3,21 @@
 ## Latency budgets
 
 - Pin-to-sidepanel click -> seeded turn visible: <= 800ms.
-- Refine chip click -> variant stream starts: <= 1.5s.
+- Refine preset pick -> new version starts: <= 1.5s.
 
 ## State expectations
 
 - Step 1: tooltip translate (with its explanation) completes; user clicks Pin to side panel.
 - Step 2: sidepanel re-sends the source text as a new UserTurn; a fresh AssistantTurn streams the translation and keeps the tooltip's explanation.
-- Step 3: refine chips render below the seeded AssistantTurn; user clicks [Shorter] (or another chip); a variant AssistantTurn spawns in place without appending a new UserTurn.
+- Step 3: the user opens the seeded reply's Refine menu and picks "Shorter"; the reply gains version 2 in place, without a new message.
 
 ## Visible affordances
 
-- Refine chips use the same labels as standard sidepanel refine (no escalation-specific chips).
+- The Refine menu is the same as on any side panel reply (no escalation-specific items).
 
 ## Failure-mode expectations
 
-- Refine failure after escalation -> inline error on variant slot; seeded original explain result remains readable.
+- Refine failure after escalation -> the error shows on the new version; seeded original explain result remains readable.
 
 ## Cautions
 

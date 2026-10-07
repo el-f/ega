@@ -87,17 +87,17 @@ test('journey: translation.sidepanel.input-send', async () => {
       },
     },
     {
-      label: 'Click Translate (the answer is still streaming)',
+      label: 'Press Enter to send (the answer is still streaming)',
       run: async (p) => {
-        await p.getByRole('button', { name: /^Translate$/ }).click();
-        await p.locator('.ega-assistant-turn').waitFor({ state: 'visible', timeout: 5_000 });
+        await p.locator('#sp-text').press('Enter');
+        await p.locator('[data-ega-reply]').waitFor({ state: 'visible', timeout: 5_000 });
       },
     },
     {
       label: 'The answer lands',
       run: async (p) => {
         await p
-          .locator('.ega-assistant-body', { hasText: 'Welcome' })
+          .locator('.ega-answer', { hasText: 'Welcome' })
           .waitFor({ state: 'visible', timeout: 10_000 });
         await p.locator('.ega-cursor').first().waitFor({ state: 'detached', timeout: 5_000 });
       },

@@ -35,8 +35,8 @@ test('a long conversation scrolls inside the stream, and nothing leaves the pane
     await resetRoutes(ext.context);
     mockAnthropic(ext.context, { translation: `${longAnswer}#${i}`, times: 1 });
     await page.locator('#sp-text').fill(`marhaba ${i}`);
-    await page.getByRole('button', { name: /^Translate$/ }).click();
-    await expect(page.locator('.ega-assistant-turn')).toHaveCount(i + 1, { timeout: 20_000 });
+    await page.locator('#sp-text').press('Enter');
+    await expect(page.locator('[data-ega-reply]')).toHaveCount(i + 1, { timeout: 20_000 });
   }
 
   const streamScrolls = await page.evaluate(() => {
@@ -62,7 +62,8 @@ test('a long conversation scrolls inside the stream, and nothing leaves the pane
       }
       if (scrollableAncestor) continue;
       const r = el.getBoundingClientRect();
-      if (r.width <= 0 || r.height <= 0) continue;
+      // A 1px box is a screen-reader-only label, clipped on purpose; nobody clicks it.
+      if (r.width <= 1 || r.height <= 1) continue;
       if (r.right > vw + 0.5 || r.bottom > vh + 0.5 || r.left < -0.5) {
         out.push(`${el.tagName.toLowerCase()}.${String(el.className).split(' ')[0]}`);
       }

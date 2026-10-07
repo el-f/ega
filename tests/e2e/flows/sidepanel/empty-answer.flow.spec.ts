@@ -27,22 +27,22 @@ test('a reply that comes back empty says so instead of rendering a blank turn', 
   await page.locator('#sp-text').waitFor({ state: 'visible', timeout: 5_000 });
 
   await page.locator('#sp-text').fill('hola');
-  await page.getByRole('button', { name: /^Translate$/ }).click();
+  await page.locator('#sp-text').press('Enter');
   timeline.markStep('send-clicked');
 
   const empty = page.locator('[data-ega-empty-body]');
   await expect(empty).toBeVisible({ timeout: 10_000 });
-  await expect(empty).toContainText('No reply came back');
+  await expect(empty).toContainText('No answer came back');
   timeline.markStep('empty-body-visible');
 
   // It is a finished turn, not an error and not a stuck stream.
-  await expect(page.locator('.ega-assistant-turn')).toHaveCount(1);
-  await expect(page.locator('.ega-assistant-error')).toHaveCount(0);
-  await expect(page.locator('.ega-stream-skeleton')).toHaveCount(0);
+  await expect(page.locator('[data-ega-reply]')).toHaveCount(1);
+  await expect(page.locator('[data-ega-error]')).toHaveCount(0);
+  await expect(page.locator('.ega-skeleton')).toHaveCount(0);
 
   // The text points at Regenerate, so Regenerate has to be there.
   await expect(
-    page.locator('.ega-assistant-turn').getByRole('button', { name: 'Regenerate', exact: true }),
+    page.locator('[data-ega-reply]').getByRole('button', { name: 'Regenerate', exact: true }),
   ).toBeVisible();
 });
 
@@ -53,9 +53,9 @@ test('a reply with text renders no empty-answer notice', async () => {
   await page.locator('#sp-text').waitFor({ state: 'visible', timeout: 5_000 });
 
   await page.locator('#sp-text').fill('hola');
-  await page.getByRole('button', { name: /^Translate$/ }).click();
+  await page.locator('#sp-text').press('Enter');
 
-  await expect(page.locator('.ega-assistant-body').first()).toContainText('Welcome', {
+  await expect(page.locator('.ega-answer').first()).toContainText('Welcome', {
     timeout: 10_000,
   });
   await expect(page.locator('[data-ega-empty-body]')).toHaveCount(0);

@@ -101,8 +101,8 @@ test('side panel, and Esc closes its backend popover', async () => {
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
   await page.locator('#sp-text').fill('marhaba');
-  await page.getByRole('button', { name: /^Translate$/ }).click();
-  await expect(page.locator('.ega-assistant-body').first()).toContainText('Hello there');
+  await page.locator('#sp-text').press('Enter');
+  await expect(page.locator('.ega-answer').first()).toContainText('Hello there');
   await expectNoPositiveTabindex(page, 'side panel');
   expectAllVisibleWithRing('side panel', await sweep(page));
 

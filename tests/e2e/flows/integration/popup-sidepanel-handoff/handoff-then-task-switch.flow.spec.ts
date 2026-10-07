@@ -1,6 +1,12 @@
 /* coverage: integration.popup-sidepanel-handoff.handoff-then-task-switch */
 import { test, expect } from '@playwright/test';
-import { launchExtension, seedSettings, type ExtensionHandle } from '../../../helpers';
+import {
+  launchExtension,
+  seedSettings,
+  sendFromPanel,
+  setNextMessage,
+  type ExtensionHandle,
+} from '../../../helpers';
 import { createTimeline } from '../../_harness';
 
 // Reword, not explain: explain shares the translate template, so it gives no wire-payload signal.
@@ -102,17 +108,15 @@ test('handoff seeds translate turn 1; switching to reword routes turn 2 with rew
   await expect(sp.locator('.ega-user-turn').first()).toContainText('translate this text please', {
     timeout: 10_000,
   });
-  await expect(sp.locator('.ega-assistant-turn')).toHaveCount(1, { timeout: 10_000 });
+  await expect(sp.locator('[data-ega-reply]')).toHaveCount(1, { timeout: 10_000 });
   timeline.markStep('turn-1-seeded');
 
-  await sp.locator('[data-ega-task="reword"]').click();
-  await expect(sp.getByRole('button', { name: /^Reword$/ })).toBeVisible();
+  await setNextMessage(sp, { task: 'reword' });
+  await expect(sp.locator('[data-ega-mode-chip]')).toHaveText('Reword');
   timeline.markStep('task-switched');
 
-  await sp.locator('#sp-text').waitFor({ state: 'visible', timeout: 5_000 });
-  await sp.locator('#sp-text').fill('what does this mean');
-  await sp.getByRole('button', { name: /^Reword$/ }).click();
-  await expect(sp.locator('.ega-assistant-turn')).toHaveCount(2, { timeout: 10_000 });
+  await sendFromPanel(sp, 'what does this mean');
+  await expect(sp.locator('[data-ega-reply]')).toHaveCount(2, { timeout: 10_000 });
   timeline.markStep('turn-2-done');
 
   // "Rewrite the text" comes from buildTaskTemplate('reword').

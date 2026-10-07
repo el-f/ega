@@ -1,6 +1,12 @@
 /* coverage: translation.sidepanel.task-switch-convo */
 import { test, expect } from '@playwright/test';
-import { launchExtension, seedSettings, type ExtensionHandle } from '../../helpers';
+import {
+  type ExtensionHandle,
+  launchExtension,
+  seedSettings,
+  sendFromPanel,
+  setNextMessage,
+} from '../../helpers';
 import { createTimeline } from '../_harness';
 
 let ext: ExtensionHandle;
@@ -54,19 +60,18 @@ test('switching task mid-conversation re-routes subsequent dispatches', async ()
 
   // Turn 1 — default task=translate.
   await page.locator('#sp-text').fill('hola');
-  await page.getByRole('button', { name: /^Translate$/ }).click();
-  await expect(page.locator('.ega-assistant-turn')).toHaveCount(1, { timeout: 10_000 });
+  await page.locator('#sp-text').press('Enter');
+  await expect(page.locator('[data-ega-reply]')).toHaveCount(1, { timeout: 10_000 });
   timeline.markStep('translate-turn-done');
 
-  // Switch task to reword via the segmented picker.
-  await page.locator('[data-ega-task="reword"]').click();
-  await expect(page.getByRole('button', { name: /^Reword$/ })).toBeVisible();
+  // Switch task to reword in the Next message popover.
+  await setNextMessage(page, { task: 'reword' });
+  await expect(page.locator('[data-ega-mode-chip]')).toHaveText('Reword');
   timeline.markStep('task-switched');
 
   // Turn 2 — reword.
-  await page.locator('#sp-text').fill('hola');
-  await page.getByRole('button', { name: /^Reword$/ }).click();
-  await expect(page.locator('.ega-assistant-turn')).toHaveCount(2, { timeout: 10_000 });
+  await sendFromPanel(page, 'hola');
+  await expect(page.locator('[data-ega-reply]')).toHaveCount(2, { timeout: 10_000 });
   timeline.markStep('reword-turn-done');
 
   // "Rewrite the text" comes from `buildTaskTemplate('reword')` — it proves the prompt re-routed, not just the label.

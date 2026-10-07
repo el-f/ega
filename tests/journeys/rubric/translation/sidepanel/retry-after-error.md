@@ -2,26 +2,26 @@
 
 ## Latency budgets
 
-- Error pill visible: <= 5s after stream initiation.
-- Retry click -> new request fired: <= 100ms.
+- Error visible: <= 5s after the send.
+- "Try again" click -> new request fired: <= 100ms.
 
 ## State expectations
 
-- Step 1: assistant turn carries an error pill explaining the failure (plain language, not raw HTTP).
-- Step 2 (click retry on that turn): the error pill is replaced by a streaming indicator; the assistant slot stays in place (NEW: do not append a fresh user turn).
-- Step 3: on success, the assistant turn fills with the new translation. The original user turn is unchanged.
+- Step 1: the reply shows an error from the shared catalog (a short title and one plain sentence, not raw HTTP).
+- Step 2 (Try again on that reply): the error is replaced by the skeleton and "Translating…"; the reply stays in place (no new message is appended).
+- Step 3: on success, the reply fills with the new answer. The message above is unchanged.
 
 ## Visible affordances
 
-- Retry control sits on the failed assistant turn, not floating elsewhere.
-- A "Check your backends" action (opens Settings → Backends) appears after 2 consecutive failures on the slot.
+- "Try again" sits on the failed reply, in its error row, not floating elsewhere.
+- After a second failure on the same reply, "Open settings" joins "Try again".
 
 ## Failure-mode expectations
 
-- Once a retry also fails, the turn offers "Check your backends" (Settings → Backends), not just an identical retry button.
-- The original user input must be reachable for the user to copy / edit even after multiple failures.
+- Once a retry also fails, the reply offers a way to fix the cause (Settings), not just an identical retry.
+- The user's message stays reachable to copy or edit after any number of failures.
 
 ## Cautions
 
-- Retry must NOT append a new user turn. That was an old bug (0.15.0 era) — guard against regression.
-- Retry must NOT discard the tone / target-language selections from the original turn.
+- "Try again" must NOT append a new message. That was an old bug — guard against regression.
+- "Try again" must NOT drop the task, tone or target language the message went out with.

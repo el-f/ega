@@ -26,19 +26,19 @@ test('copy button on assistant turn writes body to clipboard', async () => {
 
   await page.locator('#sp-text').waitFor({ state: 'visible', timeout: 5_000 });
   await page.locator('#sp-text').fill('marhaba');
-  await page.getByRole('button', { name: /^Translate$/ }).click();
+  await page.locator('#sp-text').press('Enter');
   timeline.markStep('send-clicked');
 
-  await expect(page.locator('.ega-assistant-body').first()).toContainText('Welcome, friend.', {
+  await expect(page.locator('.ega-answer').first()).toContainText('Welcome, friend.', {
     timeout: 10_000,
   });
-  // The action row sits at max-height:0 until hover or focus-within.
-  await page.locator('.ega-assistant-turn').first().hover();
-  const actions = page.locator('.ega-assistant-actions').first();
+  // The newest reply keeps its action row in view; hover is how an older reply shows it.
+  await page.locator('[data-ega-reply]').first().hover();
+  const actions = page.locator('.ega-reply-actions').first();
   await expect(actions).toBeVisible();
   timeline.markStep('done-state');
 
-  const copyBtn = actions.getByRole('button', { name: 'Copy reply' });
+  const copyBtn = actions.getByRole('button', { name: 'Copy', exact: true });
   await expect(copyBtn).toBeVisible();
   await copyBtn.click();
   timeline.markStep('copy-clicked');

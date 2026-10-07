@@ -223,7 +223,8 @@ test('side panel header stays on one row at the widths Chrome opens it at', asyn
     const rows = await header.evaluate((el) => {
       const tops = Array.from(el.children)
         .map((c) => c.getBoundingClientRect())
-        .filter((r) => r.width > 0)
+        // A 1px box is the screen-reader-only page heading, not a control on a row.
+        .filter((r) => r.width > 1 && r.height > 1)
         .map((r) => Math.round(r.top + r.height / 2));
       return new Set(tops.map((t) => Math.round(t / 8))).size;
     });

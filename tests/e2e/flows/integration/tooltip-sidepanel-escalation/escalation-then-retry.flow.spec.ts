@@ -110,20 +110,20 @@ test('tooltip Pin seeds text turn; Retry re-dispatches and lands success body', 
   await probe.close();
   timeline.markStep('sidepanel-seeded');
 
-  const retryBtn = sp.locator('.ega-retry-btn', { hasText: /retry/i });
+  const retryBtn = sp.locator('[data-ega-retry]');
   await expect(retryBtn).toBeVisible({ timeout: 10_000 });
   timeline.markStep('error-state');
 
   await retryBtn.click();
   timeline.markStep('retry-clicked');
 
-  await expect(sp.locator('.ega-assistant-body').first()).toContainText('Recovered after retry', {
+  await expect(sp.locator('.ega-answer').first()).toContainText('Recovered after retry', {
     timeout: 10_000,
   });
-  await expect(sp.locator('.ega-retry-btn', { hasText: /retry/i })).toHaveCount(0);
-  await expect(sp.locator('.ega-assistant-error')).toHaveCount(0);
+  await expect(sp.locator('[data-ega-retry]')).toHaveCount(0);
+  await expect(sp.locator('[data-ega-error]')).toHaveCount(0);
   await expect(sp.locator('.ega-user-turn')).toHaveCount(1);
-  await expect(sp.locator('.ega-assistant-turn')).toHaveCount(1);
+  await expect(sp.locator('[data-ega-reply]')).toHaveCount(1);
   expect(calls).toBeGreaterThanOrEqual(2);
   timeline.markStep('assertions-complete');
 });

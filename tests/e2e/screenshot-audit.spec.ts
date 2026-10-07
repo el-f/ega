@@ -1,4 +1,4 @@
-import { test, expect, type Page, type BrowserContext, type Route } from '@playwright/test';
+import { test, expect, type Page, type BrowserContext } from '@playwright/test';
 import {
   launchExtension,
   mockAnthropic,
@@ -12,14 +12,30 @@ import {
   type ExtensionHandle,
   pickAreasAndTranslate,
   resetRoutes,
-  openRefineChips,
+  seedCustomTasks,
+  customTask,
 } from './helpers';
+import {
+  FOLLOW_FIXTURE_SCRIPT,
+  NOW,
+  SITE,
+  T,
+  WIDTHS,
+  openExampleTab,
+  openPanel,
+  realMeta,
+  reloadPanel,
+  reply,
+  seedConversations,
+  user,
+} from './sidepanel-audit';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildPaths } from '../../scripts/visual-judge/config';
 import { checkDesignRules } from './design-rules';
 import { SETTINGS_TABS } from '../../src/shared/settings-tabs';
+import { DEFAULT_SETTINGS } from '../../src/shared/settings-defaults';
 import type { ShotMeta } from '../../scripts/visual-judge/judge/types';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -27,10 +43,6 @@ const __dirname = path.dirname(__filename);
 const { currentDir: CURRENT_DIR, metaDir: META_DIR } = buildPaths(
   path.resolve(__dirname, '..', '..'),
 );
-/** What Chrome actually gives the side panel; the 1200px launch canvas hides wrapping and overflow. */
-const NARROW_SIDEPANEL = { width: 380, height: 760 };
-const NARROWEST_SIDEPANEL = { width: 320, height: 760 };
-const ZOOMED_SIDEPANEL = { width: 256, height: 760 };
 
 // Run via `pnpm visual:capture`; every shot costs judge tokens, so each one added lengthens `pnpm visual:judge`.
 
@@ -52,16 +64,6 @@ test.afterEach(async () => {
 test.afterAll(async () => {
   await ext.close();
 });
-
-// Per-origin threads persist across tests in this shared context, so a late-mounted panel inherits a sibling test's turns.
-async function clearConversations(page: Page): Promise<void> {
-  await page.evaluate(async () => {
-    const all = await chrome.storage.local.get(null);
-    const keys = Object.keys(all).filter((k) => k.startsWith('ega:conv:'));
-    if (keys.length > 0) await chrome.storage.local.remove(keys);
-  });
-  await page.reload();
-}
 
 // The headless mouse can default onto a nav-rail row and bake its hover tooltip into the shot.
 async function parkCursor(page: Page): Promise<void> {
@@ -639,255 +641,6 @@ test('Popup — default + popover + palette + shortcuts + mid-flight + dark', as
     ],
     viewport: { width: 380, height: 600 },
   });
-});
-
-test('Sidepanel — empty + streaming + multi-turn + refine + error + popover + dark', async () => {
-  // 8 shots + two real translates + an error retry path. Easily past 30s.
-  test.slow();
-  await seedSettings(ext.context, ext.extensionId, {
-    anthropicApiKey: 'sk-test',
-    streaming: true,
-  });
-
-  // Empty
-  const sp = await ext.context.newPage();
-  await sp.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
-  await sp.waitForLoadState('networkidle');
-  await sp.waitForTimeout(500); // wait for SW context initialization + Svelte mount settle (no observable end state)
-  await shot(sp, 'sidepanel-empty', {
-    surface: 'sidepanel',
-    state: 'empty',
-    theme: 'light',
-    userAction: 'user opened the side panel without any prior conversation',
-    expectations: ['empty-state CTA visible', 'input footer reachable', 'no orphan widgets'],
-  });
-  // A real Chrome side panel is ~380px wide; the 1200px canvas hides header wrapping and strip overflow.
-  await shot(sp, 'sidepanel-narrow-empty', {
-    surface: 'sidepanel',
-    state: 'empty',
-    theme: 'light',
-    viewport: NARROW_SIDEPANEL,
-    userAction: 'user opened the side panel at its real width with no prior conversation',
-    expectations: [
-      'header wraps without clipping',
-      'one Keyboard shortcuts link, no key legend',
-      'no horizontal scroll',
-    ],
-  });
-  await sp.setViewportSize({ width: 1200, height: 800 });
-
-  // `times: 1` unregisters after this turn, so the second translate below installs a clean mock.
-  const streamingMock = mockAnthropic(ext.context, {
-    translation: 'Hello, friend.',
-    delayMs: 1500,
-    times: 1,
-  });
-  await sp.locator('#sp-text').fill('hola');
-  await sp.getByRole('button', { name: /^Translate$/ }).click();
-  // Intentional pause inside the SSE hold window so the streaming cursor is on screen.
-  await sp.waitForTimeout(600); // wait for mid-flight streaming state (no observable "mid-stream" DOM condition)
-  await shot(sp, 'sidepanel-streaming', {
-    surface: 'sidepanel',
-    state: 'streaming',
-    theme: 'light',
-    userAction: 'user submitted text; capture mid-stream while SSE is held',
-    expectations: [
-      'assistant turn shows shimmer skeleton OR blinking cursor',
-      'input footer remains visible',
-      'no broken-render rectangle',
-    ],
-  });
-  // Wait for the skeleton to detach: it has no .ega-cursor and sits inside .ega-assistant-body.
-  await sp.locator('.ega-stream-skeleton').waitFor({ state: 'detached', timeout: 20_000 });
-  await sp.waitForTimeout(400); // wait for post-stream CSS transition + chip strip mount (no observable end state)
-  await shot(sp, 'sidepanel-first-turn-done', {
-    surface: 'sidepanel',
-    state: 'first-turn-done',
-    theme: 'light',
-    userAction: 'first translation finished streaming; convo shows one user + one assistant turn',
-    expectations: [
-      'assistant body filled',
-      'no in-flight cursor',
-      'Refine and Re-run as icon buttons in the action row; quick-refine chips closed',
-    ],
-  });
-
-  // Unconditional on purpose: a capture behind `isVisible()` skipped silently for
-  // months while the shot's own sidecar kept declaring the chips.
-  await openRefineChips(sp);
-  await shot(sp, 'sidepanel-quick-refine', {
-    surface: 'sidepanel',
-    state: 'quick-refine',
-    theme: 'light',
-    userAction: 'first translation done; user pressed Refine and the chip strip opened',
-    expectations: [
-      'chips render with legible labels',
-      'chip row sits beneath the assistant turn',
-      'the Refine button reads as pressed',
-    ],
-  });
-
-  // `times: 1` again so the 401 route registered further down cannot fight a stale handler.
-  streamingMock.reset();
-  mockAnthropic(ext.context, { translation: 'Hi there.', times: 1 });
-  await sp.locator('#sp-text').fill('como estas');
-  await sp.getByRole('button', { name: /^Translate$/ }).click();
-  await expect(sp.locator('.ega-assistant-turn').nth(1)).toContainText('Hi there.', {
-    timeout: 10_000,
-  });
-  await sp.waitForTimeout(400); // wait for post-stream CSS transition + quick-refine chip render (no observable end state)
-  await shot(sp, 'sidepanel-multi-turn', {
-    surface: 'sidepanel',
-    state: 'multi-turn',
-    theme: 'light',
-    userAction: 'user submitted a second turn after the first; convo shows two pairs',
-    expectations: [
-      'two user + two assistant turns visible stacked',
-      'prior turn content NOT collapsed',
-      'latest turn at the bottom',
-    ],
-  });
-
-  await sp.locator('.active-backend-chip').click();
-  await sp.getByRole('dialog').waitFor({ state: 'visible', timeout: 5_000 });
-  await sp.waitForTimeout(400); // wait for popover position recompute (no observable end state)
-  await shot(sp, 'sidepanel-backend-popover', {
-    surface: 'sidepanel',
-    state: 'backend-popover',
-    theme: 'light',
-    userAction: 'user clicked the active-backend chip to inspect chain detail',
-    expectations: [
-      'popover anchored near chip',
-      'scrim covers chrome uniformly',
-      'rows follow the backend order; disabled backends are counted, not listed',
-      'read-only popover: a Manage button, no inline controls',
-    ],
-  });
-  // Escape here left the popover open and it leaked into every later shot; close it and prove it is gone.
-  await sp.getByRole('dialog').getByRole('button', { name: 'Close' }).click();
-  await expect(sp.getByRole('dialog')).toHaveCount(0);
-
-  // Dark theme of multi-turn state
-  await applyThemeOnPage(sp, 'dark');
-  await shot(sp, 'sidepanel-multi-turn-dark', {
-    surface: 'sidepanel',
-    state: 'multi-turn',
-    theme: 'dark',
-    userAction: 'multi-turn conversation in dark theme',
-    expectations: [
-      'parity with multi-turn light variant in structure',
-      'dark surface tokens applied',
-      'assistant body text legible against dark bg',
-    ],
-  });
-  await shot(sp, 'sidepanel-narrow-multi-turn-dark', {
-    surface: 'sidepanel',
-    state: 'multi-turn',
-    theme: 'dark',
-    viewport: NARROW_SIDEPANEL,
-    userAction: 'multi-turn conversation in dark theme at side-panel width',
-    expectations: [
-      'turn actions fit on one row',
-      'task chips wrap instead of clipping',
-      'no clipped text',
-    ],
-  });
-  await applyThemeOnPage(sp, 'light');
-  await shot(sp, 'sidepanel-narrow-multi-turn', {
-    surface: 'sidepanel',
-    state: 'multi-turn',
-    theme: 'light',
-    viewport: NARROW_SIDEPANEL,
-    userAction: 'multi-turn conversation at side-panel width',
-    expectations: [
-      'header wraps without clipping',
-      'task chips wrap instead of clipping',
-      'composer is three rows: languages, message box with its buttons, task chips',
-      'no horizontal scroll',
-    ],
-  });
-  await sp.setViewportSize(NARROW_SIDEPANEL);
-  await sp.locator('[data-ega-task-switch]').click();
-  await sp.locator('[data-ega-swap-item]').waitFor({ state: 'visible', timeout: 5_000 });
-  await shot(sp, 'sidepanel-narrow-try-as-menu', {
-    surface: 'sidepanel',
-    state: 'try-as-menu',
-    theme: 'light',
-    viewport: NARROW_SIDEPANEL,
-    userAction: 'user opened Re-run as on the newest reply at side-panel width',
-    expectations: [
-      'Swap languages first; a blocked swap shows its reason as text under the label',
-      'a separator, then the tasks with the current one checked and focused',
-      'menu fits inside the panel, nothing clipped',
-    ],
-  });
-  await sp.keyboard.press('Escape');
-  await expect(sp.locator('[data-ega-swap-item]')).toHaveCount(0);
-  await sp.locator('[data-ega-composer-options]').click();
-  await sp.getByRole('dialog', { name: 'Message options' }).waitFor({ state: 'visible' });
-  await sp.waitForTimeout(300); // wait for popover position recompute (no observable end state)
-  await shot(sp, 'sidepanel-narrow-composer-options', {
-    surface: 'sidepanel',
-    state: 'composer-options',
-    theme: 'light',
-    viewport: NARROW_SIDEPANEL,
-    userAction: 'user opened Message options from the composer at side-panel width',
-    expectations: [
-      'Page info Minimal / Rich with the picked level explained in visible text',
-      'a "Show the reply as it is written" checkbox',
-      'the earlier-messages line when history goes with the next send',
-    ],
-  });
-  await sp.keyboard.press('Escape');
-  await expect(sp.getByRole('dialog')).toHaveCount(0);
-
-  // The 401 route takes no `times`, or a retry falls through to a stale 200.
-  await resetRoutes(ext.context, 'wait');
-  // Cache off, or the earlier turn's cached result short-circuits the 401; native off, or the chain rotates past anthropic and hangs.
-  await seedSettings(ext.context, ext.extensionId, {
-    cacheEnabled: false,
-    disabledBackends: ['native'],
-  });
-  const handle401 = async (route: Route): Promise<void> => {
-    await route.fulfill({
-      status: 401,
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ error: { type: 'authentication_error', message: 'bad key' } }),
-    });
-  };
-  await ext.context.route('https://api.anthropic.com/v1/messages', handle401);
-  const spErr = await ext.context.newPage();
-  await spErr.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
-  await spErr.waitForLoadState('networkidle');
-  await spErr.waitForTimeout(300); // wait for SW context initialization + Svelte mount settle (no observable end state)
-  // A fresh input string, so the request body diverges even if `cacheEnabled` flips late.
-  await spErr.locator('#sp-text').fill('test 401 path');
-  await spErr.getByRole('button', { name: /^Translate$/ }).click();
-  // No `.catch()` here — silencing this lets a success-state capture ship under the error-state name.
-  await spErr.locator('.ega-assistant-error').waitFor({ state: 'visible', timeout: 10_000 });
-  await spErr.waitForTimeout(300); // wait for error block CSS entrance animation (no observable end state)
-  await expect(spErr.locator('.ega-retry-btn')).toBeVisible();
-  await expect(spErr.locator('[data-ega-sidepanel-open-options]')).toBeVisible();
-  await shot(spErr, 'sidepanel-error-state', {
-    surface: 'sidepanel',
-    state: 'error-state',
-    theme: 'light',
-    userAction: 'user submitted a turn; backend returned 401 — assistant turn shows error',
-    expectations: [
-      'inline error block visible inside the assistant turn',
-      'Retry beside "Open settings": fix the key, then retry',
-      'error tone token applied (danger family)',
-    ],
-  });
-  await shot(spErr, 'sidepanel-narrow-error-state', {
-    surface: 'sidepanel',
-    state: 'error-state',
-    theme: 'light',
-    viewport: NARROW_SIDEPANEL,
-    userAction: 'same 401 error turn at side-panel width',
-    expectations: ['error block wraps inside the turn', '"Open settings" stays reachable'],
-  });
-  await ext.context.unroute('https://api.anthropic.com/v1/messages', handle401);
 });
 
 // The tooltip lives in a page shadow host, so `fullPage: true` captures it; states are split across tests to fit the per-test budget.
@@ -2228,252 +1981,6 @@ test('Image-translate — tooltip error', async () => {
   await page.close();
 });
 
-test('Sidepanel — empty + streaming in dark theme', async () => {
-  test.slow();
-  await seedSettings(ext.context, ext.extensionId, {
-    anthropicApiKey: 'sk-test',
-    streaming: true,
-  });
-  const empty = await ext.context.newPage();
-  await empty.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
-  await empty.waitForLoadState('networkidle');
-  await clearConversations(empty);
-  await applyThemeOnPage(empty, 'dark');
-  await empty.waitForTimeout(300); // wait for CSS custom-property cascade repaint (no observable end state)
-  await shot(empty, 'sidepanel-empty-dark', {
-    surface: 'sidepanel',
-    state: 'empty',
-    theme: 'dark',
-    userAction: 'user opened the side panel in dark theme with no prior conversation',
-    expectations: [
-      'empty-state CTA visible in dark tokens',
-      'input footer reachable',
-      'parity with light empty variant in structure',
-    ],
-  });
-  await empty.close();
-
-  // A fresh page, so the dark tokens are in place before the first turn.
-  await resetRoutes(ext.context);
-  mockAnthropic(ext.context, { translation: 'Hello, friend.', delayMs: 1500, times: 1 });
-  const streaming = await ext.context.newPage();
-  await streaming.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
-  await streaming.waitForLoadState('networkidle');
-  await applyThemeOnPage(streaming, 'dark');
-  await streaming.locator('#sp-text').fill('hola');
-  await streaming.getByRole('button', { name: /^Translate$/ }).click();
-  // Intentional pause inside the SSE hold so the streaming cursor is on screen.
-  await streaming.waitForTimeout(600); // wait for mid-flight streaming state (no observable "mid-stream" DOM condition)
-  await shot(streaming, 'sidepanel-streaming-dark', {
-    surface: 'sidepanel',
-    state: 'streaming',
-    theme: 'dark',
-    userAction: 'first translation mid-stream in dark theme',
-    expectations: [
-      'assistant turn shimmer / cursor visible against dark tokens',
-      'input footer still legible',
-      'no broken-render rectangle',
-    ],
-  });
-  // Drain the held stream before closing, so the next test's routes see no late request.
-  await expect(streaming.locator('.ega-assistant-turn').last()).toContainText('Hello, friend.', {
-    timeout: 10_000,
-  });
-  await streaming.close();
-  await resetRoutes(ext.context);
-});
-
-test('Sidepanel — quick-refine applied', async () => {
-  test.slow();
-  await seedSettings(ext.context, ext.extensionId, {
-    anthropicApiKey: 'sk-test',
-    streaming: true,
-  });
-  await resetRoutes(ext.context);
-
-  // First turn lands cleanly so the quick-refine chip strip is reachable.
-  mockAnthropic(ext.context, { translation: 'Hello, friend.', times: 1 });
-  const sp = await ext.context.newPage();
-  await sp.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
-  await clearConversations(sp);
-  await sp.waitForLoadState('networkidle');
-  await sp.locator('#sp-text').fill('hola');
-  await sp.getByRole('button', { name: /^Translate$/ }).click();
-  // The cursor only exists mid-stream, so waiting for it to detach passes on an empty pending turn too.
-  await expect(sp.locator('.ega-assistant-turn').last()).toContainText('Hello, friend.', {
-    timeout: 8_000,
-  });
-
-  // unrouteAll first, or the previous `times: 1` handler races the refine request and throws "Route is already handled".
-  await resetRoutes(ext.context);
-  mockAnthropic(ext.context, { translation: 'Hi.', times: 1 });
-  await openRefineChips(sp);
-  const shorter = sp.locator('[data-ega-refine-chip="shorter"]');
-  await shorter.click();
-  await expect(sp.locator('.ega-assistant-turn').last()).toContainText('Hi.', { timeout: 8_000 });
-  await sp.waitForTimeout(300); // wait for post-stream CSS transition + refine state settle (no observable end state)
-  // A refine replaces the assistant on the SAME user turn, so a second user turn here means a regression.
-  await expect(sp.locator('.ega-user-turn')).toHaveCount(1);
-  await expect(sp.locator('.ega-assistant-turn')).toHaveCount(1);
-  await expect(sp.locator('.ega-assistant-turn').last()).toContainText('Hi.');
-  await shot(sp, 'sidepanel-quick-refine-applied', {
-    surface: 'sidepanel',
-    state: 'quick-refine-applied',
-    theme: 'light',
-    userAction: 'user clicked "shorter" — the assistant turn has been refined in place',
-    expectations: [
-      'assistant body shows the refined (shorter) translation',
-      'prior assistant body no longer the active translation',
-      'the Refine button stays in the action row for a further refinement; the chips are closed',
-    ],
-  });
-  await resetRoutes(ext.context);
-  await sp.close();
-});
-
-test('Sidepanel — refine row open at side-panel width, light + dark', async () => {
-  test.slow();
-  await seedSettings(ext.context, ext.extensionId, {
-    anthropicApiKey: 'sk-test',
-    streaming: true,
-  });
-  await resetRoutes(ext.context);
-  mockAnthropic(ext.context, { translation: 'Hello, friend.', times: 1 });
-  const sp = await ext.context.newPage();
-  // The chips fade in one after another; reduced motion shows them settled, not mid-animation.
-  await sp.emulateMedia({ reducedMotion: 'reduce' });
-  await sp.setViewportSize(NARROW_SIDEPANEL);
-  await sp.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
-  await clearConversations(sp);
-  await sp.waitForLoadState('networkidle');
-  await sp.locator('#sp-text').fill('hola');
-  await sp.getByRole('button', { name: /^Translate$/ }).click();
-  await expect(sp.locator('.ega-assistant-turn').last()).toContainText('Hello, friend.', {
-    timeout: 8_000,
-  });
-  await openRefineChips(sp);
-  const expectations = [
-    'the four chips (Shorter, Less formal, Keep slang, Write your own…) sit in an even two-by-two grid inside the card',
-    'no chip label is clipped or wrapped',
-    'the Refine button in the action row reads as pressed',
-  ];
-  await shot(sp, 'sidepanel-narrow-refine-open', {
-    surface: 'sidepanel',
-    state: 'narrow-refine-open',
-    theme: 'light',
-    viewport: NARROW_SIDEPANEL,
-    userAction: 'user pressed Refine on the newest reply at side-panel width',
-    expectations,
-  });
-  await applyThemeOnPage(sp, 'dark');
-  await shot(sp, 'sidepanel-narrow-refine-open-dark', {
-    surface: 'sidepanel',
-    state: 'narrow-refine-open-dark',
-    theme: 'dark',
-    viewport: NARROW_SIDEPANEL,
-    userAction: 'user pressed Refine on the newest reply at side-panel width, dark theme',
-    expectations,
-  });
-  // Chrome lets the side panel shrink to 320px, and 125% zoom leaves 256 CSS px; the chips must fit the card at both.
-  await applyThemeOnPage(sp, 'light');
-  await sp.locator('[data-ega-refine-chip="custom"]').click();
-  await expect(sp.locator('[data-ega-refine-text]')).toBeVisible();
-  const narrowest = [
-    { name: 'sidepanel-narrowest-refine-open', viewport: NARROWEST_SIDEPANEL, at: '320px' },
-    { name: 'sidepanel-zoomed-refine-open', viewport: ZOOMED_SIDEPANEL, at: '320px at 125% zoom' },
-  ];
-  for (const { name, viewport, at } of narrowest) {
-    await sp.setViewportSize(viewport);
-    // A grid track that cannot shrink spills its chips past the row instead of widening it.
-    const spill = await sp
-      .locator('[data-ega-quick-refine] [role="group"]')
-      .evaluate((row) => row.scrollWidth - row.clientWidth);
-    expect(spill, `chips spill at ${at}`).toBe(0);
-    await shot(sp, name, {
-      surface: 'sidepanel',
-      state: name.replace('sidepanel-', ''),
-      theme: 'light',
-      viewport,
-      userAction: `user pressed Refine, then Write your own…, with the side panel at ${at}`,
-      expectations: [
-        'the four chips and the text field stay inside the card, nothing runs past its edge',
-        'no chip label is clipped or wrapped; the chips stack in one column when two do not fit',
-        'Write your own… reads as pressed and the field with its Apply button sits under the chips',
-      ],
-    });
-  }
-  await resetRoutes(ext.context);
-  await sp.close();
-});
-
-test('Sidepanel — retry after error', async () => {
-  test.slow();
-  // Cache off, or retry short-circuits to a sibling test's cached 'hola'; native off, or the chain rotates to it and hangs.
-  await seedSettings(ext.context, ext.extensionId, {
-    anthropicApiKey: 'sk-test',
-    streaming: true,
-    cacheEnabled: false,
-    disabledBackends: ['native'],
-  });
-  // 503, not 401: a retryable error, so this capture shows Retry without the Settings link.
-  await resetRoutes(ext.context);
-  await ext.context.route(
-    'https://api.anthropic.com/v1/messages',
-    async (route) => {
-      await route.fulfill({
-        status: 503,
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          error: { type: 'overloaded_error', message: 'service unavailable' },
-        }),
-      });
-    },
-    { times: 1 },
-  );
-  const retry = await ext.context.newPage();
-  await retry.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
-  await clearConversations(retry);
-  await retry.waitForLoadState('networkidle');
-  // A unique input string, so a prior test's cache entry cannot match and swallow the 503.
-  await retry.locator('#sp-text').fill('retry path probe');
-  await retry.getByRole('button', { name: /^Translate$/ }).click();
-  await retry.locator('.ega-assistant-error').waitFor({ state: 'visible', timeout: 10_000 });
-  // unrouteAll first, or the 503 handler can fire again on the retry click.
-  await resetRoutes(ext.context);
-  mockAnthropic(ext.context, { translation: 'Hello again.', times: 1 });
-  // Wait for the button, not `isVisible()` — a bare check races the error mount and skips the retry silently.
-  const retryBtn = retry.locator('.ega-retry-btn');
-  await retryBtn.waitFor({ state: 'visible', timeout: 10_000 });
-  await retryBtn.click();
-  // 15s, not 8s: the first dispatch in a fresh context is cold (SW init + build warmup).
-  await retry.locator('.ega-assistant-error').waitFor({ state: 'detached', timeout: 15_000 });
-  await retry
-    .locator('.ega-assistant-turn')
-    .last()
-    .getByText('Hello again.')
-    .waitFor({ state: 'visible', timeout: 15_000 });
-  // A retry replaces the assistant on the SAME user turn, so a second user turn here means a regression.
-  await expect(retry.locator('.ega-user-turn')).toHaveCount(1);
-  await expect(retry.locator('.ega-assistant-turn')).toHaveCount(1);
-  await expect(retry.locator('.ega-assistant-error')).toHaveCount(0);
-  // Assert the body too: a cached sibling result would also render an error-free turn.
-  await expect(retry.locator('.ega-assistant-turn').last()).toContainText('Hello again.');
-  await shot(retry, 'sidepanel-retry-after-error', {
-    surface: 'sidepanel',
-    state: 'retry-after-error',
-    theme: 'light',
-    userAction:
-      'user clicked retry after a 503 — the assistant turn now shows the recovered translation',
-    expectations: [
-      'NO error block in the latest assistant turn',
-      'assistant body filled with translated text',
-      'quick-refine chip strip visible beneath the recovered turn',
-    ],
-  });
-  await retry.close();
-  await resetRoutes(ext.context);
-});
-
 test('Toast — success', async () => {
   test.slow();
   // Real user actions, not a direct sonner call: the options shell exposes no global to reach its module from `page.evaluate`.
@@ -2711,4 +2218,955 @@ test('Page-translate v2 — bilingual + inplace + streaming + error-block', asyn
   });
   await errBlockPage.close();
   await resetRoutes(ext.context);
+});
+
+// ── Side panel (redesign spec §13.1): every state at 400, 320 and 320 at 125 % zoom, light and dark ──
+
+const PANEL_SEED = {
+  anthropicApiKey: 'sk-test',
+  streaming: true,
+  captureResultMeta: true,
+  confidencePill: true,
+  confidencePillThreshold: 0,
+  contextEnabled: true,
+  pageContextLevel: 'minimal' as const,
+  theme: 'light' as const,
+};
+
+interface MatrixOpts {
+  /** Runs before each capture, for states a resize or a theme switch closes (menus, hover). */
+  perShot?: (sp: Page) => Promise<void>;
+  /** The composer keeps focus (the "focused" states). */
+  keepFocus?: boolean;
+  widths?: readonly (typeof WIDTHS)[number][];
+  themes?: readonly ('light' | 'dark')[];
+}
+
+/** Captures one state at every width and theme, named sidepanel-{state}-{w}-{theme}. */
+async function matrix(
+  sp: Page,
+  state: string,
+  userAction: string,
+  expectations: string[],
+  opts: MatrixOpts = {},
+): Promise<void> {
+  for (const theme of opts.themes ?? (['light', 'dark'] as const)) {
+    await applyThemeOnPage(sp, theme);
+    for (const w of opts.widths ?? WIDTHS) {
+      await sp.setViewportSize(w.viewport);
+      await sp.waitForTimeout(80); // wait for layout and popover reposition (no observable end state)
+      if (opts.perShot) await opts.perShot(sp);
+      if (!opts.keepFocus) {
+        await sp.evaluate(() => {
+          if (document.activeElement?.id === 'sp-text')
+            (document.activeElement as HTMLElement).blur();
+        });
+      }
+      await shot(
+        sp,
+        `sidepanel-${state}-${w.tag}-${theme}`,
+        {
+          surface: 'sidepanel',
+          state,
+          theme,
+          viewport: w.viewport,
+          userAction: `${userAction} (${w.at})`,
+          expectations,
+        },
+        // Hover states keep the pointer where the state put it.
+        opts.perShot ? { skipPark: true } : {},
+      );
+    }
+  }
+  await applyThemeOnPage(sp, 'light');
+}
+
+async function panelWith(conversations: Parameters<typeof seedConversations>[1]): Promise<Page> {
+  const sp = await openPanel(ext.context, ext.extensionId);
+  await seedConversations(sp, conversations);
+  await reloadPanel(sp);
+  return sp;
+}
+
+async function openReplyMenu(sp: Page, action: 'refine' | 'more'): Promise<void> {
+  const trigger = sp.locator(`[data-ega-reply]`).last().locator(`[data-ega-action="${action}"]`);
+  if ((await trigger.getAttribute('aria-expanded')) === 'true') return;
+  await trigger.click();
+  await sp.locator('[role="menu"]').waitFor({ state: 'visible' });
+}
+
+const FIRST_PAIR = [user('u1', 'hola', T(28)), reply('a1', 'u1', T(28))];
+
+test.describe('Sidepanel redesign', () => {
+  test.beforeAll(async () => {
+    await ext.context.addInitScript(FOLLOW_FIXTURE_SCRIPT);
+    await openExampleTab(ext.context);
+    await seedSettings(ext.context, ext.extensionId, PANEL_SEED);
+  });
+
+  test('Sidepanel — empty and first exchange', async () => {
+    test.setTimeout(360_000);
+    const sp = await panelWith([]);
+    await matrix(
+      sp,
+      'empty-focused',
+      'user opened the panel on example.com with no conversation',
+      [
+        'one line and three suggestion buttons, no help paragraph',
+        'header: site title, backend chip, More; no New or Search',
+        'composer: mode chip, input with Add and Send, focused',
+      ],
+      { keepFocus: true },
+    );
+    await sp.locator('[data-ega-suggestion="translate-selection"]').click();
+    await expect(sp.locator('.ega-empty-status')).not.toHaveText('');
+    await matrix(
+      sp,
+      'empty-no-selection',
+      'user pressed Translate selection with nothing selected',
+      ['one status line under the buttons says to select text first'],
+    );
+    await sp.close();
+
+    const pair = await panelWith([{ id: SITE, turns: FIRST_PAIR }]);
+    await matrix(pair, 'first-exchange', 'one message and its answer, Spanish to English', [
+      'day separator "Today 14:02" over the thread',
+      'neutral grey bubble holding only the text',
+      'answer first, then one meta line (Spanish → English · Claude Haiku 4.5 · 93% confident), then one row of 4 icons',
+    ]);
+    await matrix(
+      pair,
+      'first-exchange-hover-user',
+      'pointer on the user bubble',
+      ['a raised toolbar (Copy, Edit, More) floats over the bubble top edge; nothing moved'],
+      {
+        perShot: async (p) => {
+          await p.locator('[data-ega-user-bubble]').first().hover();
+          await p.waitForTimeout(200); // wait for the 120ms fade (no observable end state)
+        },
+      },
+    );
+    await pair.close();
+  });
+
+  test('Sidepanel — no backend', async () => {
+    test.setTimeout(360_000);
+    await seedSettings(ext.context, ext.extensionId, {
+      anthropicApiKey: '',
+      disabledBackends: ['native', 'ollama', 'localserver'],
+    });
+    const sp = await panelWith([]);
+    await expect(sp.locator('[data-ega-sidepanel-empty]')).toContainText(
+      'Set up a backend to start',
+    );
+    await matrix(sp, 'empty-no-backend', 'first run with no backend', [
+      'one primary "Set up a backend" button; header chip reads "Set up backend" in warning style',
+    ]);
+    await sp.close();
+    await seedSettings(ext.context, ext.extensionId, {
+      ...PANEL_SEED,
+      disabledBackends: DEFAULT_SETTINGS.disabledBackends,
+    });
+  });
+
+  test('Sidepanel — long thread', async () => {
+    test.setTimeout(360_000);
+    const turns: Record<string, unknown>[] = [];
+    for (let i = 0; i < 34; i++) {
+      const at = i < 20 ? T(60 * 24 + 200 - i) : T(120 - i);
+      turns.push(user(`u${i}`, `mensaje número ${i}`, at));
+      turns.push(reply(`a${i}`, `u${i}`, at, { content: `Message number ${i}.` }));
+    }
+    turns.push(
+      user(
+        'ul',
+        'Explícame este código y el enlace https://example.com/a/very/long/path/that/keeps/going/and/going/without/a/break',
+        T(5),
+        {
+          kind: 'explain',
+          trimmedTo: 2000,
+        },
+      ),
+      reply('al', 'ul', T(5), {
+        kind: 'explain',
+        content:
+          '## What it does\n\n- Reads the list\n- Sorts it by date\n\n```ts\nconst sorted = items.sort((a, b) => a.date - b.date);\n```\n\n| Step | Result |\n| --- | --- |\n| 1 | read |\n| 2 | sort |\n\nThe link points to https://example.com/a/very/long/path/that/keeps/going/and/going/without/a/break',
+        explain: 'The code is TypeScript; `sort` changes the list in place.',
+      }),
+    );
+    const sp = await panelWith([{ id: SITE, turns }]);
+    await sp.locator('[data-ega-show-earlier]').waitFor({ state: 'visible' });
+    await sp
+      .locator('.ega-conv-stream')
+      .evaluate((el) => (el.scrollTop = el.scrollHeight - el.clientHeight - 600));
+    await sp.locator('[data-ega-jump-latest]').waitFor({ state: 'visible' });
+    await matrix(sp, 'long-thread', '70 turns, scrolled up a little', [
+      '"Show 10 earlier messages" at the top of the loaded window',
+      'separators between days, a task label only where the task changes',
+      'older replies hide their action row (28px kept); a "Jump to latest" pill shows',
+      'code block, table and long URL stay inside the column',
+    ]);
+    await sp.close();
+  });
+
+  test('Sidepanel — reply shapes', async () => {
+    test.setTimeout(360_000);
+    const sp = await panelWith([
+      {
+        id: SITE,
+        turns: [
+          user('u1', 'mar7aba, kifak?', T(30), { kind: 'explain' }),
+          reply('a1', 'u1', T(30), {
+            kind: 'explain',
+            content: '"Mar7aba" is Arabizi for "hello"; "kifak" asks "how are you" (to a man).',
+            explain:
+              'Levantine Arabic written in Latin letters, with digits for sounds Latin lacks.',
+            detectedLang: 'arabizi',
+            detectedDetail: 'Levantine',
+          }),
+        ],
+      },
+    ]);
+    await matrix(sp, 'explain-notes', 'an Explain answer with notes', [
+      'notes label in sentence case, notes text muted with one 2px rule',
+      'meta line: Arabizi (Levantine) → English',
+    ]);
+    await sp.close();
+
+    const meta = await panelWith([
+      {
+        id: SITE,
+        turns: [
+          user('u1', 'yalla bye', T(40)),
+          reply('a1', 'u1', T(40), {
+            content: 'Come on, bye.',
+            detectedLangs: [{ id: 'arabizi', detail: 'Levantine' }, { id: 'en' }],
+            detectedLang: 'arabizi',
+          }),
+          user('u2', 'que onda', T(35)),
+          reply('a2', 'u2', T(35), { content: "What's up.", confidence: 0.42 }),
+          user('u3', 'merci beaucoup', T(30)),
+          reply('a3', 'u3', T(30), {
+            content: 'Thank you very much.',
+            detectedLang: 'fr',
+            meta: realMeta({
+              backendId: 'gemini',
+              modelId: 'gemini-2.5-flash',
+              attempts: [
+                { backendId: 'anthropic', status: 'error', code: 'SERVER', latencyMs: 800 },
+                { backendId: 'gemini', status: 'ok', latencyMs: 900 },
+              ],
+            }),
+          }),
+          user('u4', 'hola', T(25)),
+          reply('a4', 'u4', T(25), { meta: realMeta({ cacheHit: true }), bookmarked: true }),
+        ],
+      },
+    ]);
+    await matrix(
+      meta,
+      'meta-variants',
+      'replies with mixed languages, low confidence, a fallback and a cache hit',
+      [
+        'every meta line is one line; items that do not fit drop whole, confidence first',
+        '"Low confidence (42%)" in the warning colour',
+        '"Answered by Gemini · Anthropic failed"; "Saved answer" for the cache hit',
+      ],
+    );
+    await meta.close();
+
+    const versions = await panelWith([
+      {
+        id: SITE,
+        turns: [
+          user('u1', 'como estas', T(20)),
+          reply('a1', 'u1', T(20), {
+            content: 'How are you doing?',
+            variants: [
+              {
+                id: 'a1:v1',
+                status: 'done',
+                content: 'How are you?',
+                confidence: 0.9,
+                meta: realMeta(),
+              },
+              {
+                id: 'a1:v2',
+                status: 'done',
+                content: 'How are you doing?',
+                refinementBody: 'Make outputs shorter.',
+                refinementLabel: 'Shorter',
+                confidence: 0.9,
+                meta: realMeta(),
+              },
+            ],
+            activeVariantIdx: 1,
+          }),
+        ],
+      },
+    ]);
+    // Version 3 is asked for and hangs, then the reader steps back to version 2 while it runs.
+    await ext.context.route('https://api.anthropic.com/v1/messages', () => undefined);
+    await openReplyMenu(versions, 'refine');
+    await versions.locator('[data-ega-refine-preset="less-formal"]').click();
+    await versions.locator('.ega-pager-count', { hasText: '3/3' }).waitFor({ state: 'visible' });
+    await versions.locator('[data-ega-variant-prev]').click();
+    await versions.locator('.ega-pager-count', { hasText: '2/3' }).waitFor({ state: 'visible' });
+    await matrix(versions, 'versions', 'three versions, version 3 still loading behind version 2', [
+      'pager "2/3" at the end of the action row; meta line says "Version 3 loading…" and names "Shorter"',
+    ]);
+    await openReplyMenu(versions, 'refine');
+    await versions.locator('[data-ega-show-changes]').click();
+    await matrix(
+      versions,
+      'refined-show-changes',
+      'Show changes turned on for the refined version',
+      ['word diff inline: added underlined, removed struck through'],
+    );
+    await versions.close();
+    await resetRoutes(ext.context);
+    await openExampleTab(ext.context);
+
+    const rtl = await panelWith([
+      {
+        id: SITE,
+        turns: [
+          user('u1', 'שלום, מה שלומך?', T(10), {
+            dispatch: { sourceLang: 'auto', targetLang: 'ar', stream: true },
+          }),
+          reply('a1', 'u1', T(10), {
+            content: 'مرحبا، كيف حالك؟',
+            detectedLang: 'he',
+            meta: realMeta({ targetLang: 'ar' }),
+          }),
+        ],
+      },
+    ]);
+    await matrix(rtl, 'rtl', 'Hebrew message, Arabic answer', [
+      'bubble and answer right-aligned by their own text; meta and buttons stay LTR',
+    ]);
+    await rtl.close();
+
+    const PNG =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAAAgCAIAAAAt/+nTAAAAJ0lEQVR4nO3BMQEAAADCoPVPbQhfoAAAAAAAAAAAAAAAAAAAAPwGJiAAAQeKWUoAAAAASUVORK5CYII=';
+    const images = await panelWith([
+      {
+        id: SITE,
+        turns: [
+          user('u1', '[image]', T(15), { kind: 'image-translate', imageDataUrl: PNG }),
+          reply('a1', 'u1', T(15), {
+            kind: 'image-translate',
+            content: 'Exit only',
+            detectedLang: 'de',
+          }),
+          user('u2', '[image]', T(12), { kind: 'image-translate', imageShed: true }),
+          reply('a2', 'u2', T(12), { kind: 'image-translate', content: 'Open daily' }),
+        ],
+      },
+    ]);
+    await matrix(
+      images,
+      'image-turns',
+      'an image message, an image no longer kept, their answers',
+      ['image preview inside the bubble; "Image not shown" for the removed one'],
+    );
+    await images.close();
+  });
+
+  test('Sidepanel — errors', async () => {
+    test.setTimeout(360_000);
+    const AUTH = {
+      code: 'AUTH',
+      message: 'Anthropic rejected the key.\nHTTP 401: invalid x-api-key',
+      backendId: 'anthropic',
+    };
+    const sp = await panelWith([
+      {
+        id: SITE,
+        turns: [
+          user('u1', 'test', T(3)),
+          reply('a1', 'u1', T(3), { status: 'error', content: '', error: AUTH, meta: null }),
+        ],
+      },
+    ]);
+    await sp.locator('[data-ega-error-details]').click();
+    await matrix(sp, 'error-auth-details', 'the API key was rejected; Details open', [
+      'red icon + short title only; body in normal text',
+      '"Open settings" first (outlined), "Try again" second, Details as a ghost toggle',
+      'raw message in mono under a 2px rule, no box',
+    ]);
+    await sp.close();
+
+    const rate = await panelWith([
+      {
+        id: SITE,
+        turns: [
+          user('u1', 'hola', T(1)),
+          reply('a1', 'u1', T(1), {
+            status: 'error',
+            content: '',
+            meta: null,
+            error: {
+              code: 'RATE_LIMIT',
+              message: 'HTTP 429',
+              backendId: 'anthropic',
+              retryUntil: NOW + 12_000,
+            },
+          }),
+        ],
+      },
+    ]);
+    await matrix(rate, 'error-rate-limit', 'the backend asked to slow down', [
+      '"Try again in N s" is the only button, marked unavailable',
+    ]);
+    await rate.close();
+
+    const partial = await panelWith([
+      {
+        id: SITE,
+        turns: [
+          user('u1', 'una historia larga', T(2)),
+          reply('a1', 'u1', T(2), {
+            status: 'error',
+            content: 'Once upon a time there was a long story that stopped',
+            meta: null,
+            error: { code: 'PROTOCOL', message: 'stream closed', backendId: 'anthropic' },
+          }),
+        ],
+      },
+    ]);
+    await matrix(partial, 'error-partial', 'the answer stopped early', [
+      'partial text first, meta "Partial answer", then the error block with Copy',
+    ]);
+    await partial.close();
+
+    const stopped = await panelWith([
+      {
+        id: SITE,
+        turns: [
+          user('u1', 'hola', T(2)),
+          reply('a1', 'u1', T(2), {
+            status: 'error',
+            content: '',
+            meta: null,
+            error: { code: 'ABORTED', message: 'cancelled' },
+          }),
+        ],
+      },
+    ]);
+    await matrix(stopped, 'stopped', 'a reply the user stopped', [
+      '"Stopped" muted, no red, a ghost "Try again"',
+    ]);
+    await stopped.close();
+
+    const empty = await panelWith([
+      {
+        id: SITE,
+        turns: [user('u1', 'hola', T(2)), reply('a1', 'u1', T(2), { content: '' })],
+      },
+    ]);
+    await matrix(empty, 'empty-answer', 'the model sent back nothing', [
+      '"No answer came back. Try Regenerate." muted, with the normal action row',
+    ]);
+    await empty.close();
+  });
+
+  test('Sidepanel — reply menus and About', async () => {
+    test.setTimeout(360_000);
+    // A 9,000-character prompt, kept cut at 6,000, so About shows the cut note.
+    const longPrompt = `You are a translator. ${'Keep slang and tone as they are. '.repeat(400)}`;
+    const sp = await panelWith([
+      {
+        id: SITE,
+        turns: [
+          FIRST_PAIR[0] as Record<string, unknown>,
+          reply('a1', 'u1', T(28), {
+            meta: realMeta({ instructions: longPrompt.slice(0, 6000), instructionsLength: 9000 }),
+          }),
+        ],
+      },
+    ]);
+    // The composer targets French, so the menu offers "Translate into French" too.
+    await sp.locator('[data-ega-mode-chip]').click();
+    await sp.locator('#sp-conv-target').selectOption('fr');
+    await sp.keyboard.press('Escape');
+    await matrix(
+      sp,
+      'refine-menu',
+      'Refine open on the newest reply, composer target French',
+      [
+        'presets for the task, "Describe a change…", "Translate into French", "Translate into another language…"',
+      ],
+      { perShot: (p) => openReplyMenu(p, 'refine') },
+    );
+    await sp.keyboard.press('Escape');
+    await matrix(
+      sp,
+      'more-menu',
+      'More open on the newest reply',
+      ['Read aloud, About this reply, "Answer again as" group, Bookmark, Delete last in red'],
+      { perShot: (p) => openReplyMenu(p, 'more') },
+    );
+    await sp.keyboard.press('Escape');
+    await openReplyMenu(sp, 'refine');
+    await sp.locator('[data-ega-translate-into-other]').click();
+    await sp.locator('[data-ega-translate-into-run]').waitFor({ state: 'visible' });
+    await matrix(sp, 'translate-into', 'Translate into another language popover', [
+      'title, one language select and one Translate button',
+    ]);
+    await sp.keyboard.press('Escape');
+    await openReplyMenu(sp, 'refine');
+    await sp.locator('[data-ega-describe-change]').click();
+    await sp.locator('#sp-text').fill('make it sound friendlier');
+    await matrix(
+      sp,
+      'refine-mode',
+      'Describe a change chosen, a change typed',
+      ['"Changing this reply" chip with a Cancel in place of the mode chip'],
+      { keepFocus: true },
+    );
+    await sp.keyboard.press('Escape');
+    await openReplyMenu(sp, 'more');
+    await sp.locator('[data-ega-about]').click();
+    await sp.locator('[data-ega-inspector]').waitFor({ state: 'visible' });
+    await sp.locator('[data-ega-instructions] button').click();
+    await matrix(
+      sp,
+      'about-instructions',
+      'About open, Instructions sent open, a 9,000-character prompt',
+      [
+        'no box: rows of label and value, one quote rule per quoted text',
+        'model as a readable name, usage as "42 tokens read · 9 written"',
+        'the instructions scroll in their own box, with "Cut at 6,000 of 9,000 characters."',
+      ],
+    );
+    await sp.close();
+  });
+
+  test('Sidepanel — header, conversations, search and bookmarks', async () => {
+    test.setTimeout(360_000);
+    const sp = await panelWith([
+      { id: SITE, turns: FIRST_PAIR, updatedAt: T(2) },
+      {
+        id: `${SITE}#older1`,
+        turns: [
+          user('x1', 'Hola, me llamo Ana y quiero aprender', T(60 * 26)),
+          reply('x2', 'x1', T(60 * 26)),
+        ],
+        updatedAt: T(60 * 26),
+      },
+      {
+        id: `${SITE}#older2`,
+        turns: [user('y1', 'que tal', T(60 * 50)), reply('y2', 'y1', T(60 * 50))],
+        updatedAt: T(60 * 50),
+      },
+      {
+        id: 'https://lemonde.fr',
+        turns: [user('z1', 'Bonjour à tous', T(60 * 72)), reply('z2', 'z1', T(60 * 72))],
+        updatedAt: T(60 * 72),
+      },
+      {
+        id: 'https://news.ycombinator.com',
+        turns: [user('w1', 'gracias', T(60 * 100)), reply('w2', 'w1', T(60 * 100))],
+        updatedAt: T(60 * 100),
+      },
+    ]);
+    await sp.locator('[data-ega-header-site]').click();
+    await sp
+      .locator('[data-ega-conversations] [data-ega-conv-row]')
+      .first()
+      .waitFor({ state: 'visible' });
+    await sp.locator('[data-ega-conv-row]').nth(1).locator('[data-ega-conv-delete]').click();
+    await sp.locator('[data-ega-conv-undo]').waitFor({ state: 'visible' });
+    await matrix(sp, 'conversations', 'the Conversations list, one row just deleted', [
+      'This site group first, then Other sites; the open one has a check',
+      'the deleted row reads "Conversation deleted" with Undo',
+    ]);
+    await sp.locator('[data-ega-conv-undo]').click();
+    await sp.keyboard.press('Escape');
+    await sp.locator('[data-ega-backend-chip]').click();
+    await sp.getByRole('dialog', { name: 'Backends' }).waitFor({ state: 'visible' });
+    await matrix(sp, 'backend-popover', 'the backend popover', [
+      'rows numbered with a plain status each; no scrim',
+    ]);
+    await sp.keyboard.press('Escape');
+    await matrix(
+      sp,
+      'header-more',
+      'header More open',
+      ['bookmark filter, export, Keyboard shortcuts, Settings'],
+      {
+        perShot: async (p) => {
+          if ((await p.locator('[data-ega-bookmark-filter]').count()) > 0) return;
+          await p.locator('[data-ega-header-more]').click();
+          await p.locator('[data-ega-bookmark-filter]').waitFor({ state: 'visible' });
+        },
+      },
+    );
+    await sp.keyboard.press('Escape');
+    await sp.locator('[data-ega-search-toggle]').click();
+    await sp.locator('[data-ega-search]').fill('Hello');
+    await matrix(
+      sp,
+      'search-matches',
+      'a search with matches',
+      ['search bar under the header with "1 match"'],
+      { keepFocus: true },
+    );
+    await sp.locator('[data-ega-search]').fill('zzz');
+    await matrix(
+      sp,
+      'search-none',
+      'a search with no matches',
+      ['"No matches" empty state with Clear search'],
+      { keepFocus: true },
+    );
+    await sp.close();
+
+    const marks = await panelWith([
+      {
+        id: SITE,
+        turns: [
+          ...FIRST_PAIR,
+          user('u2', 'adios', T(20)),
+          reply('a2', 'u2', T(20), { content: 'Goodbye.', bookmarked: true }),
+        ],
+      },
+    ]);
+    await marks.locator('[data-ega-header-more]').click();
+    await marks.locator('[data-ega-bookmark-filter]').click();
+    await matrix(marks, 'bookmarks', 'bookmark filter on, one bookmarked pair', [
+      'bar "1 bookmarked · Show all"',
+    ]);
+    await marks.close();
+    const none = await panelWith([{ id: SITE, turns: FIRST_PAIR }]);
+    await none.locator('[data-ega-header-more]').click();
+    await none.locator('[data-ega-bookmark-filter]').click();
+    await matrix(none, 'bookmarks-none', 'bookmark filter on, nothing bookmarked', [
+      '"No bookmarked messages" empty state',
+    ]);
+    await none.close();
+  });
+
+  test('Sidepanel — composer', async () => {
+    test.setTimeout(360_000);
+    const sp = await panelWith([{ id: SITE, turns: FIRST_PAIR }]);
+    const openMode = async (p: Page): Promise<void> => {
+      if ((await p.locator('[data-ega-mode-popover]').count()) > 0) return;
+      await p.locator('[data-ega-mode-chip]').click();
+      await p.locator('[data-ega-mode-popover]').waitFor({ state: 'visible' });
+    };
+    await openMode(sp);
+    await sp.locator('[data-ega-task="reword"]').click();
+    await sp.locator('#sp-conv-source').selectOption('es');
+    await matrix(
+      sp,
+      'mode-popover',
+      'Next message popover, Reword, source Spanish',
+      ['Task chips with a check on the picked one; From/To stacked with swap; Tone row'],
+      { perShot: openMode },
+    );
+    await sp.locator('[data-ega-task="translate"]').click();
+    await sp.locator('#sp-conv-source').selectOption('auto');
+    await sp.keyboard.press('Escape');
+    await sp.locator('#sp-text').fill('a'.repeat(2012));
+    await matrix(
+      sp,
+      'composer-over-cap',
+      'a message over the length cap',
+      ['count line "2,012 / 2,000 · 12 too many" in red; Send not ready'],
+      { keepFocus: true },
+    );
+    await sp.locator('#sp-text').fill('');
+    await sp.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await sp.keyboard.press('e');
+    await sp.locator('[data-ega-mode-banner]').waitFor({ state: 'visible' });
+    await matrix(
+      sp,
+      'edit-mode',
+      'editing the newest message',
+      ['"Editing your message" chip with Cancel; the edited bubble has an accent outline'],
+      { keepFocus: true },
+    );
+    await sp.keyboard.press('Escape');
+    await sp.close();
+
+    await seedSettings(ext.context, ext.extensionId, { contextEnabled: false });
+    const off = await panelWith([{ id: SITE, turns: FIRST_PAIR }]);
+    await matrix(
+      off,
+      'mode-popover-page-off',
+      'page info off in Settings',
+      ['"Page info is off." with "Turn on in Settings"'],
+      { perShot: openMode },
+    );
+    await off.close();
+    await seedSettings(ext.context, ext.extensionId, { contextEnabled: true });
+
+    await seedCustomTasks(ext.context, ext.extensionId, [
+      customTask({ id: 'c1', label: 'Tweet summary' }),
+      customTask({ id: 'c2', label: 'Make it sound like a pirate captain' }),
+      customTask({ id: 'c3', label: 'Legal' }),
+      customTask({ id: 'c4', label: 'Haiku' }),
+      customTask({ id: 'c5', label: 'Release notes' }),
+      customTask({ id: 'c6', label: 'Bug report' }),
+    ]);
+    const many = await panelWith([{ id: SITE, turns: FIRST_PAIR }]);
+    await matrix(
+      many,
+      'mode-popover-many-tasks',
+      'six custom tasks, one with a long name',
+      ['task chips wrap; nothing cut'],
+      { perShot: openMode },
+    );
+    await many.close();
+    await seedCustomTasks(ext.context, ext.extensionId, []);
+
+    const img = await panelWith([{ id: SITE, turns: FIRST_PAIR }]);
+    // Summarize first: with an image attached it is marked unavailable and cannot be picked.
+    await openMode(img);
+    await img.locator('[data-ega-task="summarize"]').click();
+    await img.keyboard.press('Escape');
+    await img
+      .locator('[data-ega-image-input]')
+      .setInputFiles(path.join(__dirname, 'fixtures', 'arabizi.png'));
+    await img.locator('[data-ega-chip-remove]').waitFor({ state: 'visible' });
+    await matrix(
+      img,
+      'mode-popover-image',
+      'an image attached, task Summarize',
+      [
+        'chip "Translate image → English"; tasks that cannot read images marked, with one line saying why',
+      ],
+      { perShot: openMode },
+    );
+    await img.close();
+  });
+
+  test('Sidepanel — live states', async () => {
+    test.setTimeout(360_000);
+    // Streaming: the request hangs, so the reply stays pending until the worker hands it text.
+    await resetRoutes(ext.context);
+    await openExampleTab(ext.context);
+    await ext.context.route('https://api.anthropic.com/v1/messages', () => undefined);
+    const sp = await panelWith([{ id: SITE, turns: FIRST_PAIR }]);
+    await sp.locator('#sp-text').fill('cuéntame una historia larga');
+    await sp.keyboard.press('Enter');
+    await sp.locator('.ega-skeleton').waitFor({ state: 'visible' });
+    await matrix(sp, 'streaming-skeleton', 'a reply on its way, no text yet', [
+      'three static text-shaped bars, "Translating…" in the meta slot, Stop in Send’s place',
+    ]);
+    const requestId = await sp.evaluate(
+      () => (globalThis as { __egaLastRequestId?: string }).__egaLastRequestId,
+    );
+    const lines = Array.from(
+      { length: 40 },
+      (_, i) => `Line ${i + 1} of a long story that keeps going.`,
+    ).join('\\n');
+    const [sw] = ext.context.serviceWorkers();
+    await sw?.evaluate(
+      async ({ id, text }) => {
+        await chrome.runtime.sendMessage({
+          kind: 'translate:chunk',
+          chunk: { type: 'delta', requestId: id, text },
+        });
+      },
+      { id: requestId ?? '', text: `{"translation":"${lines}` },
+    );
+    await sp.locator('.ega-cursor').waitFor({ state: 'visible' });
+    await matrix(sp, 'streaming-text', 'a long answer mid-stream', [
+      'text streams with a caret; the view keeps the start of the reply in sight',
+    ]);
+    await sp.keyboard.press('Escape');
+    await sp.close();
+    await resetRoutes(ext.context);
+    await openExampleTab(ext.context);
+
+    // Delete then the Undo toast, bottom-centre above the composer.
+    const del = await panelWith([
+      {
+        id: SITE,
+        turns: [
+          ...FIRST_PAIR,
+          user('u2', 'adios', T(20)),
+          reply('a2', 'u2', T(20), { content: 'Goodbye.' }),
+        ],
+      },
+    ]);
+    await openReplyMenu(del, 'more');
+    await del.locator('[data-ega-delete]').click();
+    await del.locator('[data-sonner-toast]').first().waitFor({ state: 'visible' });
+    await matrix(del, 'toast-undo', 'right after Delete', [
+      'toast bottom-centre, just above the composer, with Undo',
+    ]);
+    await del.close();
+
+    // Keyboard rings on older items.
+    const rows = await panelWith([
+      {
+        id: SITE,
+        turns: [
+          ...FIRST_PAIR,
+          user('u2', 'adios', T(20)),
+          reply('a2', 'u2', T(20), { content: 'Goodbye.' }),
+        ],
+      },
+    ]);
+    await matrix(
+      rows,
+      'focus-rows',
+      'Tab into an older message toolbar',
+      ['the toolbar shows while focus is inside it, with a 2px ring'],
+      {
+        perShot: async (p) => {
+          await p.locator('[data-ega-user-turn]').first().focus();
+          await p.keyboard.press('Tab');
+        },
+      },
+    );
+    await matrix(
+      rows,
+      'focus-reply-row',
+      'Tab into an older reply row',
+      ['the row shows while focus is inside it'],
+      {
+        perShot: async (p) => {
+          await p.locator('[data-ega-reply]').first().focus();
+          await p.keyboard.press('Tab');
+        },
+      },
+    );
+    await matrix(
+      rows,
+      'focus-j-ring',
+      'j pressed from the first message',
+      ['the 2px ring moves to the first reply, with keyboard focus; nothing else moves'],
+      {
+        perShot: async (p) => {
+          // k clamps at the first message, so every shot starts the same; j then rings the first reply.
+          await p.locator('[data-ega-reply]').first().focus();
+          for (let i = 0; i < 4; i++) await p.keyboard.press('k');
+          await p.keyboard.press('j');
+        },
+      },
+    );
+    await rows.close();
+
+    // Palette and shortcut sheet.
+    const pal = await panelWith([{ id: SITE, turns: FIRST_PAIR }]);
+    await pal.keyboard.press('Control+K');
+    await pal.locator('[role="dialog"]:visible').first().waitFor({ state: 'visible' });
+    await matrix(pal, 'palette', 'Ctrl+K open', ['the command palette fits the panel']);
+    await pal.keyboard.press('Escape');
+    await pal.locator('[data-ega-header-site]').focus();
+    await pal.keyboard.press('?');
+    // The dialog node is a box-less wrapper; its heading is what shows.
+    await pal.getByRole('heading', { name: 'Keyboard shortcuts' }).waitFor({ state: 'visible' });
+    await matrix(pal, 'shortcuts', '? open', ['the shortcut sheet fits the panel']);
+    await pal.keyboard.press('Escape');
+    await pal.close();
+
+    // Drag over the composer.
+    const drag = await panelWith([{ id: SITE, turns: FIRST_PAIR }]);
+    await drag.evaluate(() => {
+      document.querySelector('#sp-text')?.dispatchEvent(
+        new DragEvent('dragover', {
+          bubbles: true,
+          cancelable: true,
+          dataTransfer: new DataTransfer(),
+        }),
+      );
+    });
+    await matrix(drag, 'composer-drag', 'a file dragged over the composer', [
+      'dashed accent outline and a soft fill on the box; nothing moved',
+    ]);
+    await drag.close();
+
+    // A save that fails on a full disk.
+    const full = await panelWith([{ id: SITE, turns: FIRST_PAIR }]);
+    await full.evaluate(() => {
+      const real = chrome.storage.local.set.bind(chrome.storage.local);
+      chrome.storage.local.set = ((items: Record<string, unknown>) =>
+        Object.keys(items).some((k) => k.startsWith('ega:conv:'))
+          ? Promise.reject(new Error('QUOTA_BYTES quota exceeded'))
+          : real(items)) as typeof chrome.storage.local.set;
+    });
+    await openReplyMenu(full, 'more');
+    await full.locator('[data-ega-bookmark]').click();
+    await full.locator('[data-ega-save-failed]').waitFor({ state: 'visible' });
+    await matrix(full, 'save-failed', 'storage full', [
+      'one banner above the composer with Try again',
+    ]);
+    await full.close();
+
+    // Dictation and reading aloud, with the browser APIs stubbed.
+    const voice = await ext.context.newPage();
+    await voice.addInitScript(() => {
+      class FakeRecognition {
+        lang = '';
+        interimResults = false;
+        continuous = false;
+        onresult = null;
+        onend = null;
+        onerror = null;
+        start(): void {}
+        stop(): void {}
+      }
+      (window as unknown as { SpeechRecognition: unknown }).SpeechRecognition = FakeRecognition;
+      speechSynthesis.getVoices = () =>
+        [
+          { lang: 'en-US', localService: true, default: true, name: 'Test', voiceURI: 'test' },
+        ] as unknown as SpeechSynthesisVoice[];
+      speechSynthesis.speak = () => undefined;
+    });
+    await voice.clock.setFixedTime(NOW);
+    await voice.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
+    await seedConversations(voice, [{ id: SITE, turns: FIRST_PAIR }]);
+    await reloadPanel(voice);
+    await voice.locator('[data-ega-add]').click();
+    await voice.locator('[data-ega-mic]').click();
+    await voice.locator('[aria-label="Stop dictation"]').waitFor({ state: 'visible' });
+    await matrix(voice, 'dictating', 'dictation on', [
+      'Add became a red "Stop dictation" in the same place',
+    ]);
+    await voice.locator('[aria-label="Stop dictation"]').click();
+    await openReplyMenu(voice, 'more');
+    await voice.locator('[data-ega-speak]').click();
+    await voice.locator('[data-ega-meta-stop]').waitFor({ state: 'visible' });
+    await matrix(voice, 'reading-aloud', 'Read aloud playing', [
+      'meta line "Reading aloud · Stop"',
+    ]);
+    await voice.close();
+
+    // Forced colours (400 only) and a wide window (light only).
+    const fc = await panelWith([{ id: SITE, turns: FIRST_PAIR }]);
+    await fc.emulateMedia({ forcedColors: 'active' });
+    await matrix(
+      fc,
+      'forced-colors',
+      'first exchange with forced colours',
+      ['bubble, chip, box and buttons keep a visible edge'],
+      {
+        widths: [WIDTHS[0]],
+      },
+    );
+    await fc.emulateMedia({ forcedColors: 'none' });
+    await matrix(
+      fc,
+      'wide',
+      'first exchange in a 1200px window',
+      ['thread and composer in one 720px column'],
+      {
+        widths: [
+          {
+            tag: '1200',
+            viewport: { width: 1200, height: 800 },
+            at: '1200px',
+          } as unknown as (typeof WIDTHS)[number],
+        ],
+        themes: ['light'],
+      },
+    );
+    await fc.close();
+  });
 });

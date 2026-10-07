@@ -15,8 +15,8 @@
 
 ## Cancellation
 
-- A side panel "Cancel all requests" sends `translate:cancel-all`; the router aborts every tracked request, in-flight tooltip translates included.
+- The side panel's "Stop all requests" (header More menu) sends `translate:cancel-all`; the router aborts every tracked request, in-flight tooltip translates included.
 
 ## Settings live mutation
 
-- A side panel "Fallback backends" slider edit (`advanced.retryCount`, 0-3) sets the NEXT tooltip request's backend chain length — mid-flight requests are not re-budgeted.
+- A "Fallback backends" edit in Options (`advanced.retryCount`, 0-3) sets the NEXT tooltip request's backend chain length — mid-flight requests are not re-budgeted.

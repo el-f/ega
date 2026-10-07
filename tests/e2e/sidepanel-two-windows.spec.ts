@@ -27,23 +27,25 @@ test('a send, a delete and its Undo in one panel all reach the other', async () 
   const b = await openPanel();
 
   await a.locator('#sp-text').fill('marhaba ya sadiqi');
-  await a.getByRole('button', { name: /^Translate$/ }).click();
+  await a.locator('#sp-text').press('Enter');
   // B adopts A's turn and then A's finished answer, with no reload.
   await expect(b.locator('.ega-user-turn')).toContainText('marhaba ya sadiqi');
-  await expect(b.locator('.ega-assistant-turn')).toContainText('Hello, my friend', {
+  await expect(b.locator('[data-ega-reply]')).toContainText('Hello, my friend', {
     timeout: 10_000,
   });
-  await expect(a.locator('.ega-assistant-turn')).toContainText('Hello, my friend');
+  await expect(a.locator('[data-ega-reply]')).toContainText('Hello, my friend');
 
+  // Delete sits in the message's More menu, which opens in a layer outside the message.
   const userTurn = b.locator('.ega-user-turn').first();
   await userTurn.hover();
-  await userTurn.locator('[data-ega-delete]').click();
+  await userTurn.locator('[data-ega-action="more"]').click();
+  await b.locator('[data-ega-delete]').click();
   await expect(b.locator('.ega-user-turn')).toHaveCount(0);
   await expect(a.locator('.ega-user-turn')).toHaveCount(0);
-  await expect(a.locator('.ega-assistant-turn')).toHaveCount(0);
+  await expect(a.locator('[data-ega-reply]')).toHaveCount(0);
 
   await b.getByRole('button', { name: 'Undo' }).click();
   await expect(a.locator('.ega-user-turn')).toContainText('marhaba ya sadiqi');
-  await expect(a.locator('.ega-assistant-turn')).toContainText('Hello, my friend');
-  await expect(b.locator('.ega-assistant-turn')).toContainText('Hello, my friend');
+  await expect(a.locator('[data-ega-reply]')).toContainText('Hello, my friend');
+  await expect(b.locator('[data-ega-reply]')).toContainText('Hello, my friend');
 });

@@ -119,8 +119,9 @@ No other task reaches the vision model.
   <img src="docs/media/popup.png" alt="Ega's popup in dark mode: an Auto-detect to English language pair, four tiles (Translate this page, Pick element, Translate clipboard, Side panel) and a text box that sends to the side panel" width="360">
 </p>
 
-The side panel keeps a conversation per site: follow-up questions, refinement
-chips, variants, search and export.
+The side panel keeps your conversations for each site: follow-up questions, Refine
+presets, versions of a reply, search and export. The site title at the top lists
+every conversation.
 
 <p align="center">
   <img src="docs/media/sidepanel.png" alt="Ega's side panel in dark mode with two exchanges, an Arabizi line and a slang line each translated with a 95% sure score and a detected-language pill (Arabizi — Levantine, Gen-Z slang), and Refine and Re-run as buttons on the latest answer" width="360">

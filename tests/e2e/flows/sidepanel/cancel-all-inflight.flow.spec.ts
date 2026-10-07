@@ -1,6 +1,6 @@
 /* coverage: translation.sidepanel.cancel-all-inflight */
 import { test, expect } from '@playwright/test';
-import { launchExtension, seedSettings, type ExtensionHandle } from '../../helpers';
+import { launchExtension, seedSettings, sendFromPanel, type ExtensionHandle } from '../../helpers';
 import { assertStaysStable, createTimeline } from '../_harness';
 
 let ext: ExtensionHandle;
@@ -18,7 +18,7 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-test('More actions offers Cancel all requests while streaming → pick it → item gone + turn exits streaming', async () => {
+test('header More offers Stop all requests while streaming → pick it → item gone + turn exits streaming', async () => {
   const timeline = createTimeline();
 
   // The route hangs until the test releases it, so the in-flight state stays observable.
@@ -41,13 +41,10 @@ test('More actions offers Cancel all requests while streaming → pick it → it
 
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
-  await page.locator('#sp-text').waitFor({ state: 'visible', timeout: 5_000 });
-
-  await page.locator('#sp-text').fill('hola');
-  await page.getByRole('button', { name: /^Translate$/ }).click();
+  await sendFromPanel(page, 'hola');
   timeline.markStep('send-clicked');
 
-  await expect(page.locator('.ega-assistant-turn')).toHaveCount(1, { timeout: 5_000 });
+  await expect(page.locator('[data-ega-reply]')).toHaveCount(1, { timeout: 5_000 });
 
   // The composer's Stop is the one stop control on screen; the header has none.
   await expect(page.getByRole('button', { name: 'Stop' })).toBeVisible({ timeout: 5_000 });

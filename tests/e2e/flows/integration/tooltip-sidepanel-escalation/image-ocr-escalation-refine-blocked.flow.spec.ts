@@ -8,8 +8,9 @@ import {
   seedSettings,
   waitForTestHooks,
   type ExtensionHandle,
+  openReplyMenu,
 } from '../../../helpers';
-import { createTimeline, waitForVisibleText, assertStaysStable } from '../../_harness';
+import { createTimeline, waitForVisibleText } from '../../_harness';
 
 let ext: ExtensionHandle;
 
@@ -92,17 +93,19 @@ test('image OCR sidepanel seed shows its image and Regenerate, but no refine chi
   const sp = await ext.context.newPage();
   await sp.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
   await expect(sp.locator('.ega-user-turn').first()).toBeVisible({ timeout: 10_000 });
-  await expect(sp.locator('.ega-assistant-body').first()).toContainText('Welcome', {
+  await expect(sp.locator('.ega-answer').first()).toContainText('Welcome', {
     timeout: 10_000,
   });
   await opts.close();
   timeline.markStep('sidepanel-seeded');
 
-  await assertStaysStable(async () => await sp.locator('[data-ega-refine-toggle]').count(), 0, {
-    windowMs: 1_000,
-    message: 'the Refine button must not appear on an image turn',
-  });
-  timeline.markStep('chips-absent');
+  // An image reply has no text to reword: its Refine menu holds only the language items.
+  const menu = await openReplyMenu(sp, 'refine');
+  await expect(menu.locator('[data-ega-translate-into-other]')).toBeVisible();
+  await expect(menu.locator('[data-ega-refine-preset]')).toHaveCount(0);
+  await expect(menu.locator('[data-ega-describe-change]')).toHaveCount(0);
+  await sp.keyboard.press('Escape');
+  timeline.markStep('presets-absent');
 
   await expect(sp.locator('[data-ega-regenerate]')).toBeVisible();
   await expect(sp.locator('.ega-imgprev img')).toHaveJSProperty('complete', true);

@@ -2,17 +2,17 @@
 
 ## Turn model
 
-- Each user message is a UserTurn; each backend reply is an AssistantTurn. Turns are ordered; a finished reply can gain variants (Regenerate, refine, swap, Re-run as) shown with prev/next, and turns can be bookmarked or deleted.
-- Retry on a failed reply replaces that reply in place; Regenerate on a finished reply adds a new variant beside it. Neither appends a UserTurn.
-- While a reply streams, the composer Send button becomes Stop and the header shows Cancel all requests; a finished reply shows Copy, Regenerate and Details, with Bookmark and Delete in its More (⋯) menu.
+- Each user message is a UserTurn; each backend reply is an AssistantTurn. Turns are ordered; a finished reply can gain versions (Regenerate, a Refine preset, "Describe a change…", Translate into, Swap, Answer again as) shown with the version pager, and turns can be bookmarked or deleted.
+- "Try again" on a failed reply replaces that reply in place; Regenerate on a finished reply adds a new version beside it. Neither appends a UserTurn.
+- While a reply streams, the composer's Send becomes Stop, and the header's More menu offers "Stop all requests"; a finished reply shows one action row: Copy, Regenerate, Refine and More (Read aloud, About this reply, Answer again as, Bookmark, Delete).
 
 ## Rendering
 
-- AssistantTurn renders streamed content progressively; once done, an Info button opens a Details drawer with ResultMeta (backend, model, cache hit, latency, tokens).
-- UserTurn renders the source text verbatim plus a kind badge (task label; Reword adds its tone, e.g. "Reword · Neutral") and a timestamp.
-- While streaming, the body is plain text with a caret; Markdown renders once the stream ends, with matching text metrics so the body does not reflow.
+- AssistantTurn renders the answer first, then one muted meta line (direction, version, model, and confidence as text when the setting shows it), then the action row. "About this reply" opens the details under the reply: who answered, languages, time, confidence, any change, and the instructions sent.
+- UserTurn renders the source text verbatim in a bubble. A task label sits above the bubble only where the task changes ("Reword · Casual"). Times live in day separators between messages, not on each message.
+- While streaming, the answer is plain text with a caret; Markdown renders once the stream ends, with matching text metrics so the answer does not reflow.
 
 ## Copy semantics
 
-- Copy on an AssistantTurn places the translation in the clipboard; the surrounding ResultMeta is not copied.
-- Copy provides visible feedback (icon flash / inline pill) within 200ms.
+- Copy on a reply places the answer in the clipboard; the meta line is not copied.
+- Copy turns its icon into a check named "Copied" for about 1.5s.

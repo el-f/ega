@@ -1,12 +1,14 @@
-/* coverage: translation.sidepanel.quick-refine-chip */
+/* coverage: translation.sidepanel.refine-preset */
 import { test, expect } from '@playwright/test';
 import {
   launchExtension,
   mockAnthropic,
+  newestReply,
+  openReplyMenu,
   readStorage,
   seedSettings,
+  sendFromPanel,
   type ExtensionHandle,
-  openRefineChips,
 } from '../../helpers';
 import type { Settings } from '../../../../src/shared/types';
 import { createTimeline } from '../_harness';
@@ -26,36 +28,34 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-test('clicking [Shorter] chip spawns a variant + injects an ephemeral refinement (no persistence)', async () => {
+test('the Shorter preset adds a version and sends the refinement once, without saving it', async () => {
   const timeline = createTimeline();
   const route = mockAnthropic(ext.context, { translation: 'Hello.' });
 
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
-  await page.locator('#sp-text').waitFor({ state: 'visible', timeout: 5_000 });
-
-  await page.locator('#sp-text').fill('hola amigo');
-  await page.getByRole('button', { name: /^Translate$/ }).click();
-  await expect(page.locator('.ega-assistant-body').first()).toContainText('Hello', {
+  await sendFromPanel(page, 'hola amigo');
+  await expect(page.locator('.ega-answer').first()).toContainText('Hello', {
     timeout: 10_000,
   });
   timeline.markStep('first-turn-done');
 
-  // The chips stay hidden until the newest reply's Refine button opens them.
-  await expect(page.locator('[data-ega-quick-refine]')).toHaveCount(0);
-  await openRefineChips(page);
-  const shorter = page.locator('[data-ega-refine-chip="shorter"]');
-  await expect(shorter).toBeVisible({ timeout: 5_000 });
-  timeline.markStep('chips-mounted');
+  const menu = await openReplyMenu(page, 'refine');
+  const shorter = menu.locator('[data-ega-refine-preset="shorter"]');
+  await expect(shorter).toHaveText('Shorter');
+  timeline.markStep('menu-open');
 
   await shorter.click();
-  timeline.markStep('chip-clicked');
-  // A refine that went out closes the row.
-  await expect(page.locator('[data-ega-quick-refine]')).toHaveCount(0);
+  timeline.markStep('preset-picked');
+  await expect(menu).toHaveCount(0);
 
-  await expect(page.locator('[data-ega-variant-nav]')).toBeVisible({ timeout: 10_000 });
-  await expect(page.locator('.ega-user-turn')).toHaveCount(1);
-  await expect(page.locator('.ega-assistant-turn')).toHaveCount(1);
+  const reply = newestReply(page);
+  await expect(reply.locator('.ega-pager-count')).toHaveText('2/2', { timeout: 10_000 });
+  await expect(reply.locator('[data-ega-meta-item="version"]')).toHaveText('Shorter', {
+    timeout: 10_000,
+  });
+  await expect(page.locator('[data-ega-user-turn]')).toHaveCount(1);
+  await expect(page.locator('[data-ega-reply]')).toHaveCount(1);
   timeline.markStep('variant-spawned');
 
   // Poll: the route capture races the UI.

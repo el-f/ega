@@ -5,7 +5,7 @@ import {
   mockAnthropic,
   seedSettings,
   type ExtensionHandle,
-  openRefineChips,
+  openReplyMenu,
 } from '../../../helpers';
 import { createTimeline } from '../../_harness';
 
@@ -75,22 +75,22 @@ test('handoff seeds sidepanel; quick-refine chip on seeded turn spawns a variant
   await expect(sp.locator('.ega-user-turn').first()).toContainText('translate hello to french', {
     timeout: 10_000,
   });
-  await expect(sp.locator('.ega-assistant-body').first()).toContainText('Bonjour', {
+  await expect(sp.locator('.ega-answer').first()).toContainText('Bonjour', {
     timeout: 10_000,
   });
   timeline.markStep('sidepanel-seeded');
 
-  await openRefineChips(sp);
-  const shorter = sp.locator('[data-ega-refine-chip="shorter"]');
+  const menu = await openReplyMenu(sp, 'refine');
+  const shorter = menu.locator('[data-ega-refine-preset="shorter"]');
   await expect(shorter).toBeVisible({ timeout: 5_000 });
-  timeline.markStep('chips-mounted');
+  timeline.markStep('menu-open');
 
   await shorter.click();
-  timeline.markStep('chip-clicked');
+  timeline.markStep('preset-picked');
 
   await expect(sp.locator('[data-ega-variant-nav]')).toBeVisible({ timeout: 10_000 });
   await expect(sp.locator('.ega-user-turn')).toHaveCount(1);
-  await expect(sp.locator('.ega-assistant-turn')).toHaveCount(1);
+  await expect(sp.locator('[data-ega-reply]')).toHaveCount(1);
   timeline.markStep('variant-spawned');
 
   await expect

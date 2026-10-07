@@ -12,15 +12,15 @@
 
 ## Visible affordances
 
-- A visible drop-zone outline appears during dragover; uses motion tokens.
-- The send button enables once the composer has non-whitespace content.
+- During dragover the input box gets a dashed accent outline and a soft accent fill; nothing moves.
+- Send stops being `aria-disabled` once the composer has non-whitespace content.
 
 ## Failure-mode expectations
 
-- Whitespace-only drop on an empty composer replaces but stays whitespace-only; send remains disabled.
+- Whitespace-only drop on an empty composer replaces but stays whitespace-only; Send stays unavailable.
 - Drop with both image and text payload: image wins (single-attach v0); text is discarded and a toast says so.
 
 ## Cautions
 
-- Drop must NOT auto-send. The user must explicitly click send / Enter.
+- Drop must NOT auto-send. The user must explicitly press Send or Enter.
 - Drop must trim trailing whitespace on the existing value before appending — no `\n \nfoo` artifacts.

@@ -12,7 +12,7 @@
 
 ## Visible affordances
 
-- The panel's source picker shows X after the handoff; the UserTurn itself has no language chip.
+- The composer's mode chip names X after the handoff ("Translate · X → Y"), and the "Next message" popover's From shows X; the message itself has no language label.
 
 ## Failure-mode expectations
 

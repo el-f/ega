@@ -69,6 +69,8 @@ describe('an Anthropic refusal after some text', () => {
     expect(container.querySelector('.ega-error-title')?.textContent).toContain('Request rejected');
     (container.querySelector('[data-ega-error-details]') as HTMLElement | null)?.click();
     await tick();
-    expect(container.querySelector('.ega-error-detail')?.textContent).toContain('refused to answer');
+    expect(container.querySelector('.ega-error-detail')?.textContent).toContain(
+      'refused to answer',
+    );
   });
 });

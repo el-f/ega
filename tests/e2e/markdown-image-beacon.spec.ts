@@ -31,8 +31,8 @@ test('an image in a side-panel answer never fetches', async () => {
   const sp = await ext.context.newPage();
   await sp.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
   await sp.locator('#sp-text').fill('marhaba');
-  await sp.getByRole('button', { name: /^Translate$/ }).click();
-  const body = sp.locator('.ega-assistant-body').filter({ hasText: 'friend' }).first();
+  await sp.locator('#sp-text').press('Enter');
+  const body = sp.locator('.ega-answer').filter({ hasText: 'friend' }).first();
   await body.waitFor({ state: 'visible', timeout: 20_000 });
   await expect(body.locator('.ega-md-img-blocked')).toHaveText('logo');
   await expect(body.locator('img')).toHaveCount(0);

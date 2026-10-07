@@ -24,7 +24,7 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-test('a worker stopped mid-stream turns the side-panel turn into an error, and Retry recovers', async () => {
+test('a worker stopped mid-stream turns the side-panel turn into an error, and Try again recovers', async () => {
   // Held long enough that only the worker's death can end this request.
   mockAnthropic(ext.context, { translation: 'Never arrives', delayMs: 60_000, times: 1 });
   const page = await ext.context.newPage();
@@ -32,8 +32,8 @@ test('a worker stopped mid-stream turns the side-panel turn into an error, and R
   await page.clock.install();
   await page.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
   await page.locator('#sp-text').fill('hola');
-  await page.getByRole('button', { name: /^Translate$/ }).click();
-  await expect(page.locator('.ega-stream-skeleton')).toBeVisible();
+  await page.locator('#sp-text').press('Enter');
+  await expect(page.locator('.ega-skeleton')).toBeVisible();
 
   const prefix = `chrome-extension://${ext.extensionId}/`;
   const cdp = await ext.context.newCDPSession(page);
@@ -50,16 +50,20 @@ test('a worker stopped mid-stream turns the side-panel turn into an error, and R
 
   // No terminal chunk can come now; the turn must not sit on "Translating…" for ever.
   await page.clock.fastForward(stuckTimeoutMs(null) + 1_000);
-  await expect(page.locator('.ega-assistant-error')).toContainText('The reply stopped arriving');
-  await expect(page.locator('.ega-stream-skeleton')).toHaveCount(0);
+  const error = page.locator('[data-ega-error]');
+  await expect(error).toContainText('No answer in time');
+  // The panel's own reason sits under Details, like every backend message.
+  await error.locator('[data-ega-error-details]').click();
+  await expect(error).toContainText('The reply stopped arriving');
+  await expect(page.locator('.ega-skeleton')).toHaveCount(0);
 
   // The next message restarts the worker, and the same turn recovers.
   await resetRoutes(ext.context);
   mockAnthropic(ext.context, { translation: 'Back again' });
-  await page.locator('.ega-retry-btn').click();
-  await expect(page.locator('.ega-assistant-turn').last()).toContainText('Back again', {
+  await page.locator('[data-ega-retry]').click();
+  await expect(page.locator('[data-ega-reply]').last()).toContainText('Back again', {
     timeout: 15_000,
   });
-  await expect(page.locator('.ega-assistant-error')).toHaveCount(0);
+  await expect(page.locator('[data-ega-error]')).toHaveCount(0);
   await expect(page.locator('.ega-user-turn')).toHaveCount(1);
 });

@@ -66,30 +66,39 @@ test('second turn retains the prior conversation state and re-fires the router',
   await page.locator('#sp-text').waitFor({ state: 'visible', timeout: 5_000 });
 
   await page.locator('#sp-text').fill('marhaba');
-  await page.getByRole('button', { name: /^Translate$/ }).click();
-  await expect(page.locator('.ega-assistant-body').first()).toContainText('First', {
+  await page.locator('#sp-text').press('Enter');
+  await expect(page.locator('.ega-answer').first()).toContainText('First', {
     timeout: 10_000,
   });
   await expect(page.locator('.ega-user-turn')).toHaveCount(1);
-  await expect(page.locator('.ega-assistant-turn')).toHaveCount(1);
+  await expect(page.locator('[data-ega-reply]')).toHaveCount(1);
   timeline.markStep('turn-1-rendered');
 
   await page.locator('#sp-text').fill('shukran');
-  await page.getByRole('button', { name: /^Translate$/ }).click();
-  await expect(page.locator('.ega-assistant-turn')).toHaveCount(2, { timeout: 10_000 });
+  await page.locator('#sp-text').press('Enter');
+  await expect(page.locator('[data-ega-reply]')).toHaveCount(2, { timeout: 10_000 });
   await expect(page.locator('.ega-user-turn')).toHaveCount(2);
-  await expect(page.locator('.ega-assistant-turn').last()).toContainText('Second', {
+  await expect(page.locator('[data-ega-reply]').last()).toContainText('Second', {
     timeout: 10_000,
   });
   timeline.markStep('turn-2-rendered');
 
-  // jsdom computes no styles, so only a real render can tell that an older reply kept its card.
-  const older = page.locator('.ega-assistant-turn').first();
-  const newest = page.locator('.ega-assistant-turn').last();
-  await expect(older).toHaveCSS('border-top-style', 'solid');
-  await expect(older).toHaveCSS('border-top-width', '1px');
-  const bg = (el: Element): string => getComputedStyle(el).backgroundColor;
-  expect(await older.evaluate(bg)).toBe(await newest.evaluate(bg));
+  // jsdom computes no styles, so only a real render can tell that every reply looks the same (no box).
+  const older = page.locator('[data-ega-reply]').first();
+  const newest = page.locator('[data-ega-reply]').last();
+  const look = (el: Element): string => {
+    const cs = getComputedStyle(el);
+    return `${cs.borderTopStyle} ${cs.backgroundColor}`;
+  };
+  expect(await older.evaluate(look)).toBe(await newest.evaluate(look));
+  // The older reply hides its action row until hover, with the row's height kept.
+  await page.mouse.move(0, 0);
+  const olderRow = older.locator('.ega-reply-actions');
+  await expect(olderRow).toHaveCSS('opacity', '0');
+  const height = await older.evaluate((el) => (el as HTMLElement).offsetHeight);
+  await older.hover();
+  await expect(olderRow).toHaveCSS('opacity', '1');
+  expect(await older.evaluate((el) => (el as HTMLElement).offsetHeight)).toBe(height);
 
   await expect(page.locator('.ega-user-turn').first()).toContainText('marhaba');
   expect(callCount).toBeGreaterThanOrEqual(2);

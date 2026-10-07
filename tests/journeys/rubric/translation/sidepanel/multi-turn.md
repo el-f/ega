@@ -6,22 +6,22 @@
 
 ## State expectations
 
-- Step 1: first user turn + assistant turn complete in the conversation.
-- Step 2: user types a follow-up; sends.
-- Step 3: second assistant turn streams with the full prior conversation context — the model receives turn 1's user + assistant content.
+- Step 1: a first message and reply complete in the conversation.
+- Step 2: the user types a follow-up and sends.
+- Step 3: the second reply streams with the full prior conversation as context — the model receives turn 1's message and reply.
 
 ## Visible affordances
 
-- Each turn carries its task/tone chips on the user side; ResultMeta on the assistant side.
-- Scroll position auto-sticks to the bottom while streaming.
-- Every assistant reply has the same card. Only the latest reply has the Refine and Re-run as buttons in its action row. A reply keeps its box when a newer turn arrives.
+- A message names its task above the bubble only where the task changes; each reply has its meta line.
+- The thread follows the new reply while its top stays in view, then stops and offers "Jump to latest".
+- Every reply has the same action row. Older replies hide the row until hover or focus, with its 28px kept, so nothing moves.
 
 ## Failure-mode expectations
 
-- History past the 4000-token budget -> oldest messages drop out of the prompt (never summarized); the composer's Message options popover says how many ("Using N earlier messages").
-- Backend failure on turn 2 leaves turn 1 untouched; retry replaces turn 2's assistant only.
+- History past the 4000-token budget -> the oldest messages drop out of the prompt (never summarized); the composer's next-send line says how many earlier messages go ("3 earlier messages").
+- A backend failure on turn 2 leaves turn 1 untouched; "Try again" replaces turn 2's reply only.
 
 ## Cautions
 
 - Prior context must be sent verbatim; do not paraphrase user turns into the system prompt.
-- Conversation state is one rolling thread per origin, persisted in `chrome.storage.local` and restored on reopen. Non-web origins share the `general` thread; New conversation clears the origin's thread; past `MAX_TURNS_PER_THREAD` / `MAX_THREAD_BYTES` the oldest turns are trimmed with a notice.
+- A site can hold several conversations; the panel shows the site's current one (used last). Non-web pages share "Other pages". Past `MAX_TURNS_PER_THREAD` / `MAX_THREAD_BYTES` the oldest turns are trimmed with a notice.

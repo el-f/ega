@@ -4,22 +4,22 @@
 
 - First token visible: warm <= 1.5s, cold <= 4s.
 - Per-token render delay: <= 16ms (smooth animation frame).
-- End-of-stream detection -> "done" affordance: <= 200ms.
+- End-of-stream detection -> the action row: <= 200ms.
 
 ## State expectations
 
-- Step 1: assistant turn appears as an empty bubble with a typing/streaming indicator.
-- Step 2: tokens land progressively; the bubble grows; the page does NOT scroll back to top mid-stream.
-- Step 3: stream completes; the caret disappears; copy + regenerate controls become available on that turn.
+- Step 1: the reply appears with three static skeleton bars and "Translating…" in its meta slot.
+- Step 2: tokens land progressively as plain text with a caret; the thread follows the reply while its top stays in view, and never jumps back to the top.
+- Step 3: the stream completes; the caret goes, Markdown renders, and Copy, Regenerate, Refine and More appear in the reserved row (nothing moves).
 
 ## Visible affordances
 
-- Stop control is visible throughout the stream.
+- Send turns into Stop for the whole stream.
 
 ## Failure-mode expectations
 
-- Mid-stream disconnect shows an inline error ("Network issue" or "Reply was cut short") with Retry; the partial text stays, marked "(partial)".
-- The assistant turn never freezes silently. Either tokens land OR an error appears within 10s.
+- A mid-stream disconnect shows the error with "Try again"; the partial text stays above it, and the meta line says "Partial answer".
+- The reply never freezes silently. Either tokens land or an error appears within the stall budget.
 
 ## Cautions
 

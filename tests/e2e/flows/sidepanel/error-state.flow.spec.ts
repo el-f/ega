@@ -24,25 +24,25 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-test('error chunk renders inline + offers a retry button', async () => {
+test('error chunk renders inline + offers Try again', async () => {
   const timeline = createTimeline();
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
   await page.locator('#sp-text').waitFor({ state: 'visible', timeout: 5_000 });
 
   await page.locator('#sp-text').fill('hola');
-  await page.getByRole('button', { name: /^Translate$/ }).click();
+  await page.locator('#sp-text').press('Enter');
   timeline.markStep('send-clicked');
 
-  const errBlock = page.locator('.ega-assistant-error');
+  const errBlock = page.locator('[data-ega-error]');
   await expect(errBlock).toBeVisible({ timeout: 10_000 });
-  await expect(errBlock).toHaveAttribute('role', 'alert');
+  await expect(errBlock.getByRole('alert')).toBeVisible();
   timeline.markStep('error-visible');
 
   // AUTH points to Settings → Backends: the user fixes the key there, then retries, so both are offered.
   await expect(page.locator('[data-ega-sidepanel-open-options]')).toBeVisible({
     timeout: 5_000,
   });
-  await expect(page.locator('.ega-retry-btn', { hasText: /retry/i })).toHaveCount(1);
+  await expect(page.locator('[data-ega-retry]')).toHaveCount(1);
   timeline.markStep('open-settings-and-retry-visible');
 });

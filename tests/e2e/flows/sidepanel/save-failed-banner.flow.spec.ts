@@ -49,14 +49,15 @@ test('a conversation that cannot be saved says so, and Try again clears it only 
 
   // A real turn is the real producer of the save — nothing sets saveFailed by hand.
   await page.locator('#sp-text').fill('hola');
-  await page.getByRole('button', { name: /^Translate$/ }).click();
-  await expect(page.locator('.ega-assistant-body').first()).toContainText('Welcome', {
+  await page.locator('#sp-text').press('Enter');
+  await expect(page.locator('.ega-answer').first()).toContainText('Welcome', {
     timeout: 10_000,
   });
   timeline.markStep('turn-done');
 
   await expect(banner).toBeVisible({ timeout: 10_000 });
-  await expect(banner).toContainText('Not saved');
+  // A quota error names the fix: free some room.
+  await expect(banner).toContainText('Storage is full. Delete old conversations to make room.');
   await expect(banner).toHaveAttribute('role', 'status');
   timeline.markStep('banner-visible');
 

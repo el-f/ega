@@ -138,13 +138,13 @@ test('Continue-in-sidepanel seeds source text as fresh user turn that then trans
   timeline.markStep('user-turn-visible');
 
   // Assistant text proves the drain made a real request instead of replaying a seeded turn.
-  await expect(sp.locator('.ega-assistant-body').first()).toContainText('Seeded via continue', {
+  await expect(sp.locator('.ega-answer').first()).toContainText('Seeded via continue', {
     timeout: 15_000,
   });
   timeline.markStep('assistant-turn-visible');
 
   await expect(sp.locator('.ega-user-turn')).toHaveCount(1);
-  await expect(sp.locator('.ega-assistant-turn')).toHaveCount(1);
+  await expect(sp.locator('[data-ega-reply]')).toHaveCount(1);
 
   expect(calls).toBeGreaterThanOrEqual(2);
 

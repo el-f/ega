@@ -2,9 +2,11 @@
 import { test, expect } from '@playwright/test';
 import {
   launchExtension,
+  openReplyMenu,
   seedSettings,
+  sendFromPanel,
+  setNextMessage,
   type ExtensionHandle,
-  openRefineChips,
 } from '../../helpers';
 import { createTimeline } from '../_harness';
 
@@ -60,24 +62,23 @@ test('explain turn done → chips mount → [Shorter] → variant with explain o
   await page.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
   await page.locator('#sp-text').waitFor({ state: 'visible', timeout: 5_000 });
 
-  await page.locator('[data-ega-task="explain"]').click();
-  await expect(page.getByRole('button', { name: /^Explain$/ })).toBeVisible({ timeout: 3_000 });
+  await setNextMessage(page, { task: 'explain' });
+  await expect(page.locator('[data-ega-mode-chip]')).toHaveText('Explain → English');
   timeline.markStep('task-set-explain');
 
-  await page.locator('#sp-text').fill('what does amor mean');
-  await page.getByRole('button', { name: /^Explain$/ }).click();
-  await expect(page.locator('.ega-assistant-body').first()).toContainText('Explained', {
+  await sendFromPanel(page, 'what does amor mean');
+  await expect(page.locator('.ega-answer').first()).toContainText('Explained', {
     timeout: 10_000,
   });
   timeline.markStep('explain-turn-done');
 
-  await openRefineChips(page);
-  const shorter = page.locator('[data-ega-refine-chip="shorter"]');
+  const menu = await openReplyMenu(page, 'refine');
+  const shorter = menu.locator('[data-ega-refine-preset="shorter"]');
   await expect(shorter).toBeVisible({ timeout: 5_000 });
-  timeline.markStep('chips-mounted');
+  timeline.markStep('menu-open');
 
   await shorter.click();
-  timeline.markStep('chip-clicked');
+  timeline.markStep('preset-picked');
 
   await expect(page.locator('[data-ega-variant-nav]')).toBeVisible({ timeout: 10_000 });
   timeline.markStep('variant-spawned');

@@ -48,23 +48,23 @@ test('clicking Retry after an error re-fires the dispatch and lands a success tu
   await page.locator('#sp-text').waitFor({ state: 'visible', timeout: 5_000 });
 
   await page.locator('#sp-text').fill('hola');
-  await page.getByRole('button', { name: /^Translate$/ }).click();
+  await page.locator('#sp-text').press('Enter');
   timeline.markStep('send-clicked');
 
-  const retryBtn = page.locator('.ega-retry-btn', { hasText: /retry/i });
+  const retryBtn = page.locator('[data-ega-retry]');
   await expect(retryBtn).toBeVisible({ timeout: 10_000 });
   timeline.markStep('error-state');
 
   await retryBtn.click();
   timeline.markStep('retry-clicked');
 
-  await expect(page.locator('.ega-assistant-body').first()).toContainText('Recovered', {
+  await expect(page.locator('.ega-answer').first()).toContainText('Recovered', {
     timeout: 10_000,
   });
-  await expect(page.locator('.ega-retry-btn', { hasText: /retry/i })).toHaveCount(0);
-  await expect(page.locator('.ega-assistant-error')).toHaveCount(0);
+  await expect(page.locator('[data-ega-retry]')).toHaveCount(0);
+  await expect(page.locator('[data-ega-error]')).toHaveCount(0);
   // Retry re-attaches to the same user turn, so the count stays at 1.
   await expect(page.locator('.ega-user-turn')).toHaveCount(1);
-  await expect(page.locator('.ega-assistant-turn')).toHaveCount(1);
+  await expect(page.locator('[data-ega-reply]')).toHaveCount(1);
   expect(calls).toBeGreaterThanOrEqual(2);
 });

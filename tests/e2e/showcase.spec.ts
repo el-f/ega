@@ -158,9 +158,9 @@ test('README — side panel holding a conversation', async () => {
     await resetRoutes(ext.context);
     mockAnthropic(ext.context, { translation: answer, confidence: 0.95, times: 1, ...detected });
     await sp.locator('#sp-text').fill(source);
-    await sp.getByRole('button', { name: /^Translate$/ }).click();
+    await sp.locator('#sp-text').press('Enter');
     await sp
-      .locator('.ega-assistant-body')
+      .locator('.ega-answer')
       .filter({ hasText: answer.slice(0, 12) })
       .first()
       .waitFor({ state: 'visible', timeout: 20_000 });

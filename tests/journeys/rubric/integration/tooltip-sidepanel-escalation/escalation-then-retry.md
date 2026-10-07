@@ -2,23 +2,23 @@
 
 ## Latency budgets
 
-- Retry button click -> new stream starts: warm <= 1.5s.
+- "Try again" click -> new stream starts: warm <= 1.5s.
 
 ## State expectations
 
 - Step 1: tooltip translate fails; user clicks "Continue in side panel"; the side panel re-sends the source text as a new UserTurn.
 - Step 2: the seeded AssistantTurn enters an error state (backend failure or forced test condition).
-- Step 3 (click Retry): the user turn's source text and task are re-sent; a new assistant turn replaces the failed one in place (same `attachedToTurnId`) and streams.
+- Step 3 (click "Try again"): the user turn's source text and task are re-sent; a new assistant turn replaces the failed one in place (same `attachedToTurnId`) and streams.
 
 ## Visible affordances
 
-- Retry button is the primary affordance on the error pill within the seeded turn slot.
+- "Try again" is the first (outlined) button in the seeded reply's error row.
 - The seeded UserTurn remains visible above the retrying assistant slot.
 
 ## Failure-mode expectations
 
-- Re-dispatch failure -> error pill remains; retry button stays available.
-- After two consecutive failures on the slot, a "Check your backends" button (opens Options > Backends) shows beside Retry.
+- Re-dispatch failure -> the error stays; "Try again" stays available.
+- After a second failure on the same reply, "Open settings" shows beside "Try again".
 
 ## Cautions
 

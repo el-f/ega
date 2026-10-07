@@ -2,25 +2,25 @@
 
 ## Latency budgets
 
-- Task picker open: <= 100ms.
+- "Next message" popover open: <= 100ms.
 - New task first token: warm <= 1.5s, cold <= 4s.
 
 ## State expectations
 
-- Step 1: sidepanel has an ongoing conversation with task X (translate).
-- Step 2 (click task Y in the task strip): the Send button reads Y; the NEXT user message routes under task Y; prior turns keep their kind badges.
-- Step 3: the conversation history still flows into the next request as context, but the new turn's task chip and template selection reflect task Y.
+- Step 1: the side panel has a conversation with task X (Translate).
+- Step 2 (mode chip → pick task Y): the chip reads Y ("Reword"); the NEXT message routes under task Y; earlier messages keep their labels.
+- Step 3: the conversation history still flows into the next request as context, but the new message's task label ("Reword", shown because the task changed) and template reflect task Y.
 
 ## Visible affordances
 
-- Active task chip updates immediately.
-- Each user turn carries a kind badge (e.g. Translate, Reword), so the next turn shows task Y.
+- The chip updates at once; the picked task carries a check in the picker.
+- A message names its task above the bubble only where the task changes.
 
 ## Failure-mode expectations
 
-- With an image attached, a non-image task sends as "Translate image" and the Send tooltip says "Images support Translate and Explain".
+- With an image attached, a task that cannot read images is marked unavailable in the picker, with the note "Images work with Translate and Explain"; the chip reads "Translate image → {Target}".
 
 ## Cautions
 
-- Task switch must NOT alter prior turns. They are immutable.
-- The chosen task persists into the audit log for the next turn.
+- A task switch must NOT alter earlier turns. They are immutable.
+- The chosen task goes into the audit log for the next turn.

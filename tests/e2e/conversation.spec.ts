@@ -69,18 +69,18 @@ test('follow-up question streams an answer into the conversation thread', async 
 
   // First turn — initial translation.
   await page.locator('#sp-text').fill('mar7aba, kifak? shu 3am ta3mel?');
-  await page.getByRole('button', { name: /^Translate$/ }).click();
-  await expect(page.locator('.ega-assistant-body').first()).toContainText('Welcome', {
+  await page.locator('#sp-text').press('Enter');
+  await expect(page.locator('.ega-answer').first()).toContainText('Welcome', {
     timeout: 10_000,
   });
 
   // Second turn: a follow-up through the same input.
   await page.locator('#sp-text').fill('Why Levantine and not Egyptian?');
-  await page.getByRole('button', { name: /^Translate$/ }).click();
+  await page.locator('#sp-text').press('Enter');
 
   // Two assistant turns should now be present.
-  await expect(page.locator('.ega-assistant-turn')).toHaveCount(2, { timeout: 10_000 });
-  await expect(page.locator('.ega-assistant-turn').last()).toContainText('Levantine', {
+  await expect(page.locator('[data-ega-reply]')).toHaveCount(2, { timeout: 10_000 });
+  await expect(page.locator('[data-ega-reply]').last()).toContainText('Levantine', {
     timeout: 10_000,
   });
 
@@ -110,18 +110,18 @@ test('second turn does not duplicate the first assistant response', async () => 
   await page.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
 
   await page.locator('#sp-text').fill('mar7aba');
-  await page.getByRole('button', { name: /^Translate$/ }).click();
-  await expect(page.locator('.ega-assistant-body').first()).toContainText('Welcome', {
+  await page.locator('#sp-text').press('Enter');
+  await expect(page.locator('.ega-answer').first()).toContainText('Welcome', {
     timeout: 10_000,
   });
   // After the first turn there is exactly one assistant bubble.
-  await expect(page.locator('.ega-assistant-turn')).toHaveCount(1);
+  await expect(page.locator('[data-ega-reply]')).toHaveCount(1);
 
   await page.locator('#sp-text').fill('more?');
-  await page.getByRole('button', { name: /^Translate$/ }).click();
+  await page.locator('#sp-text').press('Enter');
   // After the second turn there are exactly two — no duplication.
-  await expect(page.locator('.ega-assistant-turn')).toHaveCount(2, { timeout: 10_000 });
-  await expect(page.locator('.ega-assistant-turn').last()).toContainText('Short', {
+  await expect(page.locator('[data-ega-reply]')).toHaveCount(2, { timeout: 10_000 });
+  await expect(page.locator('[data-ega-reply]').last()).toContainText('Short', {
     timeout: 10_000,
   });
 });

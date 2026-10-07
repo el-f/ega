@@ -61,7 +61,7 @@ test('image:translate seeds a sidepanel turn pair and streams into it', async ()
   }, `${ext.serverUrl}/arabizi.png`);
   timeline.markStep('image-translate-dispatched');
 
-  await expect(sp.locator('.ega-assistant-body').first()).toContainText('Image text streamed', {
+  await expect(sp.locator('.ega-answer').first()).toContainText('Image text streamed', {
     timeout: 10_000,
   });
 

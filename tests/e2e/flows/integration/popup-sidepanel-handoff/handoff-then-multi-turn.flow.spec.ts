@@ -105,21 +105,21 @@ test('handoff seeds turn 1; sending a second message produces turn 2 with fresh 
   await expect(sp.locator('.ega-user-turn').first()).toContainText('translate hello to french', {
     timeout: 10_000,
   });
-  await expect(sp.locator('.ega-assistant-body').first()).toContainText('Bonjour', {
+  await expect(sp.locator('.ega-answer').first()).toContainText('Bonjour', {
     timeout: 10_000,
   });
   await expect(sp.locator('.ega-user-turn')).toHaveCount(1);
-  await expect(sp.locator('.ega-assistant-turn')).toHaveCount(1);
+  await expect(sp.locator('[data-ega-reply]')).toHaveCount(1);
   timeline.markStep('turn-1-seeded');
 
   await sp.locator('#sp-text').waitFor({ state: 'visible', timeout: 5_000 });
   await sp.locator('#sp-text').fill('gracias amigo');
-  await sp.getByRole('button', { name: /^Translate$/ }).click();
+  await sp.locator('#sp-text').press('Enter');
   timeline.markStep('turn-2-send-clicked');
 
   await expect(sp.locator('.ega-user-turn')).toHaveCount(2, { timeout: 10_000 });
-  await expect(sp.locator('.ega-assistant-turn')).toHaveCount(2, { timeout: 10_000 });
-  await expect(sp.locator('.ega-assistant-turn').last()).toContainText('Gracias', {
+  await expect(sp.locator('[data-ega-reply]')).toHaveCount(2, { timeout: 10_000 });
+  await expect(sp.locator('[data-ega-reply]').last()).toContainText('Gracias', {
     timeout: 10_000,
   });
   timeline.markStep('turn-2-rendered');

@@ -2,26 +2,26 @@
 
 ## Latency budgets
 
-- Prev/Next button click -> body swaps: <= 50ms (local state swap, no network).
+- Previous / Next version click -> the answer swaps: <= 50ms (local state, no network).
 
 ## State expectations
 
-- Step 1: Refine was pressed and a refine chip clicked; variant 2 of 2 is visible with a "2/2" indicator.
-- Step 2 (click prev): the variant indicator reads "1/2"; the assistant turn body reverts to the original (variant 1) content.
-- Step 3 (click next): indicator reads "2/2" again; body shows the refined variant content.
+- Step 1: a refine preset added version 2; the reply shows it with the pager "2/2".
+- Step 2 (Previous version): the pager reads "1/2"; the answer reverts to version 1.
+- Step 3 (Next version): the pager reads "2/2" again; the answer shows the refined version.
 
 ## Visible affordances
 
-- Variant navigation shows as a "1/2" / "2/2" counter with prev/next arrow buttons in the AssistantTurn header.
-- Prev arrow is disabled (or absent) at variant 1; Next arrow disabled (or absent) at the last variant.
+- The pager sits at the end of the reply's action row: "‹ 2/2 ›" with 28px buttons named "Previous version" and "Next version", and a polite "Version 2 of 2" for screen readers.
+- At the ends the matching button has `aria-disabled`.
 
 ## Failure-mode expectations
 
-- Clicking prev when already at variant 1 -> no-op; no wrapping to the last variant.
-- Clicking next when at the last variant -> no-op; no wrapping.
+- Previous at version 1 -> nothing happens; no wrapping to the last version.
+- Next at the last version -> nothing happens; no wrapping.
 
 ## Cautions
 
-- Navigation is purely local — no backend requests fire on prev/next.
-- Both variant bodies must be fully retained in memory; navigating away and back must not re-fetch.
-- The "1/2" counter and the body must update atomically — no flash where counter says 1 but body shows variant 2.
+- Navigation is local — no backend request fires on Previous or Next.
+- Every version stays in memory; going away and back must not re-fetch.
+- The counter and the answer update together — no frame where the counter says 1 and the answer shows version 2.

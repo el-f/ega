@@ -3,18 +3,18 @@
 ## Latency budgets
 
 - Warm handoff message received -> turn appended to conversation: <= 300ms.
-- Refine chip click -> variant stream starts: <= 1.5s.
+- Refine preset pick -> new version starts: <= 1.5s.
 
 ## State expectations
 
 - Step 1: sidepanel is already open (warm). Popup writes an entry to `ega.pendingPopupHandoff` in `chrome.storage.session`; no runtime message is sent.
 - Step 2: sidepanel sees the write via `storage.onChanged` (session area) and drains the slot; the new UserTurn + AssistantTurn append WITHOUT sidepanel remount.
-- Step 3: after the delivered turn completes, refine chips render; user clicks a chip; a variant AssistantTurn spawns in place.
+- Step 3: after the delivered reply completes, the user picks a Refine preset; the reply gains version 2 in place.
 
 ## Visible affordances
 
 - No flash or remount on warm delivery — the turn appends smoothly below any prior conversation.
-- Refine chips appear only after the warm-delivered turn reaches the done state.
+- The Refine button appears only after the warm-delivered reply is done.
 
 ## Failure-mode expectations
 

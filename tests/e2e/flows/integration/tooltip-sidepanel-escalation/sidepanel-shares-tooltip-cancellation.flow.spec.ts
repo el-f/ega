@@ -56,7 +56,7 @@ test('sidepanel Cancel-all aborts an in-flight tooltip translate', async () => {
   await sp.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
   await sp.locator('#sp-text').waitFor({ state: 'visible', timeout: 5_000 });
   await sp.locator('#sp-text').fill('marhaba');
-  await sp.getByRole('button', { name: /^Translate$/ }).click();
+  await sp.locator('#sp-text').press('Enter');
 
   // Cancel-all is offered only while the panel has its own translate in flight; the cancel it sends is global.
   await sp.locator('[data-ega-header-more]').click();

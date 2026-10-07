@@ -17,7 +17,7 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-test('multi-variety detection renders a pill cluster on the assistant turn', async () => {
+test('multi-variety detection names every variety in the reply meta line', async () => {
   const timeline = createTimeline();
   mockAnthropic(ext.context, {
     translation: 'Good morning, everyone',
@@ -30,18 +30,18 @@ test('multi-variety detection renders a pill cluster on the assistant turn', asy
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
   await page.locator('#sp-text').fill('sabah el kheir everyone');
-  await page.getByRole('button', { name: /^Translate$/ }).click();
+  await page.locator('#sp-text').press('Enter');
   timeline.markStep('send-clicked');
 
-  const turn = page.locator('.ega-assistant-turn').first();
-  await expect(turn.locator('.ega-assistant-body')).toContainText('Good morning', {
+  const turn = page.locator('[data-ega-reply]').first();
+  await expect(turn.locator('.ega-answer')).toContainText('Good morning', {
     timeout: 10_000,
   });
   timeline.markStep('body-streamed');
 
-  // One pill per variety, in the order the model listed them; no single pill beside the cluster.
-  const cluster = turn.locator('[data-ega-multi-variety]');
-  await expect(cluster.locator('.ega-lang-pill')).toHaveText(['Arabizi — Levantine', 'English']);
-  await expect(turn.locator('.ega-lang-pill')).toHaveCount(2);
-  timeline.markStep('cluster-visible');
+  // Every variety, in the order the model listed them, then the target.
+  await expect(turn.locator('[data-ega-meta-item="direction"]')).toHaveText(
+    'Arabizi (Levantine) + English → English',
+  );
+  timeline.markStep('varieties-named');
 });

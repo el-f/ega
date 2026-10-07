@@ -29,11 +29,6 @@
     "clip span \"Sindarin — the Grey-elven constructed la\""
   ],
   "per-preset-override-active": ["clip span \"Arabizi (aka Franco-Arabic / #arabizi / \""],
-  "sidepanel-backend-popover": ["clip span \"Native host (Claude Code / Codex)\""],
-  "sidepanel-zoomed-refine-open": [
-    "clip button \"Anthropic · claude-haiku-#-#\"",
-    "clip span \"Anthropic\""
-  ],
   "slot-palette-insert-open": [
     "clip span \"Cultural-subtext analyst instructions (o\"",
     "clip span \"Detect which informal language …\"",

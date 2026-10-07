@@ -8,7 +8,7 @@ import {
   selectArabiziParagraph,
   waitForTestHooks,
   type ExtensionHandle,
-  openRefineChips,
+  openReplyMenu,
 } from '../../../helpers';
 import { createTimeline, waitForVisibleText } from '../../_harness';
 
@@ -91,23 +91,23 @@ test('tooltip Pin seeds sidepanel; quick-refine [Shorter] spawns a variant', asy
   const sp = await ext.context.newPage();
   await sp.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
   await expect(sp.locator('.ega-user-turn').first()).toBeVisible({ timeout: 15_000 });
-  await expect(sp.locator('.ega-assistant-body').first()).toContainText('Welcome', {
+  await expect(sp.locator('.ega-answer').first()).toContainText('Welcome', {
     timeout: 10_000,
   });
   await probe.close();
   timeline.markStep('sidepanel-seeded');
 
-  await openRefineChips(sp);
-  const shorter = sp.locator('[data-ega-refine-chip="shorter"]');
+  const menu = await openReplyMenu(sp, 'refine');
+  const shorter = menu.locator('[data-ega-refine-preset="shorter"]');
   await expect(shorter).toBeVisible({ timeout: 5_000 });
-  timeline.markStep('chips-mounted');
+  timeline.markStep('menu-open');
 
   await shorter.click();
-  timeline.markStep('chip-clicked');
+  timeline.markStep('preset-picked');
 
   // The refine must spawn a variant, not a new pair of turns.
   await expect(sp.locator('[data-ega-variant-nav]')).toBeVisible({ timeout: 10_000 });
   await expect(sp.locator('.ega-user-turn')).toHaveCount(1);
-  await expect(sp.locator('.ega-assistant-turn')).toHaveCount(1);
+  await expect(sp.locator('[data-ega-reply]')).toHaveCount(1);
   timeline.markStep('variant-spawned');
 });

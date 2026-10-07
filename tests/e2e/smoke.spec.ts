@@ -48,11 +48,11 @@ test('side panel: translate populates history + conversation', async () => {
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
   await page.locator('#sp-text').fill('marhaba');
-  await page.getByRole('button', { name: /^Translate$/ }).click();
-  await expect(page.locator('.ega-assistant-body').first()).toContainText('Hello', {
+  await page.locator('#sp-text').press('Enter');
+  await expect(page.locator('.ega-answer').first()).toContainText('Hello', {
     timeout: 10_000,
   });
-  await expect(page.locator('.ega-assistant-turn')).toHaveCount(1, { timeout: 5_000 });
+  await expect(page.locator('[data-ega-reply]')).toHaveCount(1, { timeout: 5_000 });
 });
 
 test('selection bubble: click streams the tooltip on Arabizi selection', async () => {

@@ -6,6 +6,7 @@ import {
   readStorage,
   seedSettings,
   selectArabiziParagraph,
+  sendFromPanel,
   waitForTestHooks,
   type ExtensionHandle,
 } from '../../helpers';
@@ -27,7 +28,7 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-test('turning Reword off hides it in the chip strip, palette, Re-run as and tooltip', async () => {
+test('turning Reword off hides it in the task picker, palette, Answer again and tooltip', async () => {
   const timeline = createTimeline();
   mockAnthropic(ext.context, { translation: 'Hello', confidence: 0.9 });
 
@@ -47,42 +48,43 @@ test('turning Reword off hides it in the chip strip, palette, Re-run as and tool
 
   const panel = await ext.context.newPage();
   await panel.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
-  await panel.locator('#sp-text').waitFor({ state: 'visible', timeout: 5_000 });
-  await expect(panel.locator('[data-ega-task="summarize"]')).toBeVisible();
-  await expect(panel.locator('[data-ega-task="reword"]')).toHaveCount(0);
-  timeline.markStep('chip-strip');
+  await panel.locator('[data-ega-mode-chip]').click();
+  const picker = panel.locator('[data-ega-mode-popover]');
+  await expect(picker.locator('[data-ega-task="summarize"]')).toBeVisible();
+  await expect(picker.locator('[data-ega-task="reword"]')).toHaveCount(0);
+  await panel.keyboard.press('Escape');
+  timeline.markStep('task-picker');
 
-  await panel.locator('#sp-text').fill('marhaba');
-  await panel.getByRole('button', { name: /^Translate$/ }).click();
-  const rerun = panel.locator('[data-ega-task-switch]');
-  await expect(rerun).toBeVisible({ timeout: 10_000 });
-  await rerun.click();
-  const items = panel.locator('[data-ega-task-switch-item]');
+  await sendFromPanel(panel, 'marhaba');
+  const more = panel.locator('[data-ega-reply] [data-ega-action="more"]');
+  await expect(more).toBeVisible({ timeout: 10_000 });
+  await more.click();
+  const items = panel.locator('[data-ega-answer-again]');
   await expect(items.first()).toBeVisible();
-  const rerunValues = await items.evaluateAll((os) =>
-    os.map((o) => o.getAttribute('data-ega-task-switch-item')),
+  const againValues = await items.evaluateAll((os) =>
+    os.map((o) => o.getAttribute('data-ega-answer-again')),
   );
-  expect(rerunValues).toContain('summarize');
-  expect(rerunValues).not.toContain('reword');
+  expect(againValues).toContain('summarize');
+  expect(againValues).not.toContain('reword');
   await panel.keyboard.press('Escape');
   await expect(items).toHaveCount(0);
-  timeline.markStep('rerun');
+  timeline.markStep('answer-again');
 
   // Arrowing through the menu only moves the highlight: no re-run starts, and Escape returns focus.
-  await rerun.focus();
+  await more.focus();
   await panel.keyboard.press('Enter');
   await expect(items.first()).toBeVisible();
   await panel.keyboard.press('ArrowDown');
   await panel.keyboard.press('ArrowDown');
-  // The panel's j/k navigation must not take the arrows: focus stays on an item, no turn gets the ring.
-  await expect(panel.locator('[data-ega-task-switch-item]:focus')).toHaveCount(1);
-  await expect(panel.locator('.ega-assistant-turn.focused, .ega-user-turn.focused')).toHaveCount(0);
+  // The panel's j/k navigation must not take the arrows: focus stays in the menu, no message gets the ring.
+  await expect(panel.locator('[role="menu"] :focus')).toHaveCount(1);
+  await expect(panel.locator('[data-ega-reply].focused, .ega-user-turn.focused')).toHaveCount(0);
   await panel.keyboard.press('Escape');
   await expect(items).toHaveCount(0);
-  await expect(rerun).toBeFocused();
+  await expect(more).toBeFocused();
   await expect(panel.locator('[data-ega-variant-nav]')).toHaveCount(0);
-  await expect(panel.locator('.ega-assistant-turn')).toHaveCount(1);
-  timeline.markStep('rerun-keyboard');
+  await expect(panel.locator('[data-ega-reply]')).toHaveCount(1);
+  timeline.markStep('menu-keyboard');
 
   await panel.keyboard.press(process.platform === 'darwin' ? 'Meta+k' : 'Control+k');
   const input = panel.getByRole('combobox', { name: 'Command palette' });

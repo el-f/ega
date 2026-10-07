@@ -2,26 +2,26 @@
 
 ## Latency budgets
 
-- Pill render on mount: <= 100ms after settings load.
-- Pill update on backend chain change: <= 200ms after storage write.
+- Chip render on mount: <= 100ms after settings load.
+- Chip update on backend chain change: <= 200ms after storage write.
 
 ## State expectations
 
-- Step 1: sidepanel header carries an active-backend chip naming the first ready backend in the translate chain, with its model after a dot.
-- Step 2 (click pill): a chain popover opens listing the configured fallback order in current rank.
-- Step 3: changing the chain in options updates the pill within 200ms (no remount).
+- Step 1: the header carries the backend status chip: a dot plus the name of the first ready backend in the chain ("Anthropic"). The name is never cut to "A…": under 360px the chip becomes a dot-only button with the same accessible name.
+- Step 2 (click the chip): the "Backends" popover opens with each backend's plain status (In use, Ready, Needs a key, Not running, Can't connect, Checking…), "Ega tries them in this order." and "Manage backends".
+- Step 3: changing the chain in Options updates the chip within 200ms (no remount).
 
 ## Visible affordances
 
-- Pill carries a CPU icon, no status dot; health dots and badges live on the popover's chain rows.
-- Popover ("Backends") is view-only — no input or reorder lives here; a "Manage backends" text button in its footer jumps to Options > Backends, and a "no key" row has its own "Set up" button.
+- The chip's name is "{Backend} is ready. Show backends"; the dot is never the only cue.
+- A row that needs work has its own fix link ("Add key", "How to start", "Check settings").
 
 ## Failure-mode expectations
 
-- No backend configured -> pill shows "No backend" tone with a CTA to Options.
-- Unreachable backend -> its popover row shows an "error" or "not running" badge; the pill itself has no failure tone.
+- No backend set up -> the chip reads "Set up backend" (never collapses) and opens Options > Backends.
+- An unreachable backend -> its popover row says why; the chip itself keeps the next ready backend.
 
 ## Cautions
 
-- Pill must never block the composer / send button by occupying excess header width.
-- Clicking the pill must NOT pin the panel into a backend-only mode — it opens the fallback-order popover (or Options > Backends when no backend is set up).
+- The chip must never push other header controls onto a second row.
+- Clicking the chip must not switch backends; it only shows them.

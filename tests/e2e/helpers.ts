@@ -1,4 +1,4 @@
-import { chromium, type BrowserContext, type Page } from '@playwright/test';
+import { chromium, type BrowserContext, type Locator, type Page } from '@playwright/test';
 import fs from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
@@ -792,10 +792,73 @@ export async function openLanguagePrompt(page: Page, id: string, label: string):
   await row.locator('[data-ega-template-editor]').waitFor({ timeout: 10_000 });
 }
 
-/** The refine chips stay hidden until the newest reply's Refine button opens them. */
-export async function openRefineChips(page: Page, timeout = 10_000): Promise<void> {
-  const toggle = page.locator('[data-ega-refine-toggle]');
-  await toggle.waitFor({ state: 'visible', timeout });
-  if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
-  await page.locator('[data-ega-quick-refine]').waitFor({ state: 'visible', timeout: 5_000 });
+/** Types a message into the side panel composer and sends it with Enter, the composer's send key. */
+export async function sendFromPanel(page: Page, text: string): Promise<void> {
+  const box = page.locator('#sp-text');
+  await box.waitFor({ state: 'visible', timeout: 5_000 });
+  await box.fill(text);
+  await box.press('Enter');
+}
+
+/**
+ * Sets what the next side panel message does, in the composer's "Next message" popover, then closes it.
+ * Values are a task id, language ids (`auto` for the source) and a tone id.
+ */
+export async function setNextMessage(
+  page: Page,
+  next: { task?: string; source?: string; target?: string; tone?: string },
+): Promise<void> {
+  const chip = page.locator('[data-ega-mode-chip]');
+  if ((await chip.getAttribute('aria-expanded')) !== 'true') await chip.click();
+  const popover = page.locator('[data-ega-mode-popover]');
+  await popover.waitFor({ state: 'visible', timeout: 5_000 });
+  if (next.task !== undefined) await popover.locator(`[data-ega-task="${next.task}"]`).click();
+  if (next.source !== undefined) await popover.locator('#sp-conv-source').selectOption(next.source);
+  if (next.target !== undefined) await popover.locator('#sp-conv-target').selectOption(next.target);
+  if (next.tone !== undefined)
+    await popover.locator('[data-ega-tone-select]').selectOption(next.tone);
+  await page.keyboard.press('Escape');
+  await popover.waitFor({ state: 'hidden', timeout: 5_000 });
+}
+
+/** The side panel reply that finished last; older replies show their action row only on hover. */
+export function newestReply(page: Page): Locator {
+  return page.locator('[data-ega-reply]').last();
+}
+
+/** Opens a reply's Refine or More menu (the newest reply by default) and returns the open menu. */
+export async function openReplyMenu(
+  page: Page,
+  which: 'refine' | 'more',
+  reply: Locator = newestReply(page),
+): Promise<Locator> {
+  const trigger = reply.locator(`[data-ega-action="${which}"]`);
+  await trigger.waitFor({ state: 'attached', timeout: 10_000 });
+  await reply.hover();
+  await trigger.click();
+  const menu = page.getByRole('menu');
+  await menu.waitFor({ state: 'visible', timeout: 5_000 });
+  return menu;
+}
+
+/** Re-runs a reply with one of its Refine presets (`shorter`, `less-formal`, `keep-slang`, …). */
+export async function refineWithPreset(
+  page: Page,
+  preset: string,
+  reply: Locator = newestReply(page),
+): Promise<void> {
+  const menu = await openReplyMenu(page, 'refine', reply);
+  await menu.locator(`[data-ega-refine-preset="${preset}"]`).click();
+}
+
+/** Refine → "Describe a change…", then sends `change` from the composer, which is in its refine mode. */
+export async function describeChange(
+  page: Page,
+  change: string,
+  reply: Locator = newestReply(page),
+): Promise<void> {
+  const menu = await openReplyMenu(page, 'refine', reply);
+  await menu.locator('[data-ega-describe-change]').click();
+  await page.locator('[data-ega-mode-banner]').waitFor({ state: 'visible', timeout: 5_000 });
+  await sendFromPanel(page, change);
 }

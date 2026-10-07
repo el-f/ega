@@ -7,13 +7,13 @@
 ## State expectations
 
 - Step 1: popup, sidepanel, tooltip, and options are all mounted under theme A (light).
-- Step 2 (pick Dark in the Options header or the side panel More menu): the `data-theme` attribute on every surface's root flips.
+- Step 2 (pick Dark in the Options header): the `data-theme` attribute on every surface's root flips.
 - Step 3: all surfaces repaint with dark-mode tokens in the same frame; no flicker, no stagger.
 
 ## Visible affordances
 
-- The popup has no theme control; Options header shows a System/Light/Dark radio group; the side panel sets theme in its header More menu.
-- The selected radio or menu item reflects the new theme.
+- The popup and the side panel have no theme control; the Options header shows a System/Light/Dark radio group.
+- The selected radio reflects the new theme.
 
 ## Failure-mode expectations
 

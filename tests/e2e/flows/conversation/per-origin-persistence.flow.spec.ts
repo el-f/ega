@@ -39,7 +39,7 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-test('conversation persists across panel reload and clears on new conversation', async () => {
+test('a conversation persists across panel reload, and New keeps it while starting another', async () => {
   const timeline = createTimeline();
   mockAnthropic(ext.context, { translation: 'Bonjour le monde.' });
 
@@ -49,10 +49,10 @@ test('conversation persists across panel reload and clears on new conversation',
 
   await panel.locator('#sp-text').waitFor({ state: 'visible', timeout: 5_000 });
   await panel.locator('#sp-text').fill('marhaba');
-  await panel.getByRole('button', { name: /^Translate$/ }).click();
+  await panel.locator('#sp-text').press('Enter');
   timeline.markStep('send-clicked');
 
-  await expect(panel.locator('.ega-assistant-body').first()).toContainText('Bonjour le monde.', {
+  await expect(panel.locator('.ega-answer').first()).toContainText('Bonjour le monde.', {
     timeout: 10_000,
   });
   await expect(panel.locator('.ega-cursor')).toHaveCount(0, { timeout: 5_000 });
@@ -72,7 +72,6 @@ test('conversation persists across panel reload and clears on new conversation',
   expect(stored, 'thread should be in storage after flush').not.toBeNull();
   const storedThread = stored as StoredThreadRow;
   expect(storedThread.turns.length, 'stored thread should have 2 turns (user + assistant)').toBe(2);
-  const clearedIds = storedThread.turns.map((t) => t.id).sort();
   timeline.markStep('storage-verified');
 
   await panel.close();
@@ -82,10 +81,10 @@ test('conversation persists across panel reload and clears on new conversation',
 
   await expect(panel.locator('.ega-user-turn')).toHaveCount(1, { timeout: 5_000 });
   await expect(panel.locator('.ega-user-text').first()).toHaveText('marhaba');
-  await expect(panel.locator('.ega-assistant-body').first()).toContainText('Bonjour le monde.');
+  await expect(panel.locator('.ega-answer').first()).toContainText('Bonjour le monde.');
   timeline.markStep('turn-restored-after-reload');
 
-  // A second panel re-reads what the first one writes, so the clear must reach it too.
+  // A second panel on the same site shows the same conversation.
   const secondPanel = await ext.context.newPage();
   await secondPanel.goto(panelUrl);
   await secondPanel.locator('#sp-text').waitFor({ state: 'visible', timeout: 5_000 });
@@ -95,27 +94,43 @@ test('conversation persists across panel reload and clears on new conversation',
   const newConvBtn = panel.locator('[data-ega-new-conversation]');
   await expect(newConvBtn).toBeVisible();
   await newConvBtn.click();
+  timeline.markStep('new-conversation');
 
-  const confirmBtn = panel.getByRole('button', { name: 'Clear & start new' });
-  await expect(confirmBtn).toBeVisible({ timeout: 3_000 });
-  await confirmBtn.click();
-  timeline.markStep('new-conversation-confirmed');
-
+  // No confirm, and nothing is cleared: the old conversation stays stored as it was.
   await expect(panel.locator('.ega-user-turn')).toHaveCount(0, { timeout: 5_000 });
-  await expect(panel.locator('.ega-assistant-turn')).toHaveCount(0);
+  await expect(panel.locator('[data-ega-reply]')).toHaveCount(0);
+  expect((await readThread(ext))?.turns.length).toBe(2);
+  // A window that is open is never switched under the reader.
+  await expect(secondPanel.locator('.ega-user-turn')).toHaveCount(1);
+  timeline.markStep('old-conversation-kept');
 
-  // Removing the key would drop the tombstones with it, so clear writes an empty thread that keeps them.
-  const afterClear = await readThread(ext);
-  expect(afterClear, 'thread row should survive the clear').not.toBeNull();
-  const cleared = afterClear as StoredThreadRow;
-  expect(cleared.turns, 'cleared thread should hold no turns').toEqual([]);
-  expect(
-    (cleared.tombstones ?? []).map((t) => t.id).sort(),
-    'both cleared turns should be tombstoned',
-  ).toEqual(clearedIds);
-  timeline.markStep('storage-cleared');
+  // The first message of the new conversation stores it under its own id, beside the old one.
+  await panel.locator('#sp-text').fill('salam');
+  await panel.locator('#sp-text').press('Enter');
+  await expect(panel.locator('.ega-answer').first()).toContainText('Bonjour le monde.', {
+    timeout: 10_000,
+  });
+  await expect
+    .poll(
+      async () =>
+        (
+          (await readStorage<{ threads: { origin: string }[] }>(
+            ext.context,
+            ext.extensionId,
+            'ega:conv:index',
+          )) ?? { threads: [] }
+        ).threads
+          .map((t) => t.origin)
+          .filter((o) => o === 'general' || o.startsWith('general#')).length,
+      { timeout: 5_000 },
+    )
+    .toBe(2);
+  expect((await readThread(ext))?.turns.length).toBe(2);
+  timeline.markStep('two-conversations-stored');
 
-  // The clear reaches the second panel through storage.
-  await expect(secondPanel.locator('.ega-user-turn')).toHaveCount(0, { timeout: 5_000 });
-  await expect(secondPanel.locator('.ega-assistant-turn')).toHaveCount(0);
+  // A reopened panel shows the conversation used last.
+  await panel.close();
+  panel = await ext.context.newPage();
+  await panel.goto(panelUrl);
+  await expect(panel.locator('.ega-user-text').first()).toHaveText('salam', { timeout: 5_000 });
 });

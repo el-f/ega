@@ -59,8 +59,8 @@ test('the scope help explains the Auto-detect rule the picker offers, and the ru
   await panel.locator('#sp-text').waitFor({ state: 'visible', timeout: 5_000 });
 
   await panel.locator('#sp-text').fill('the wallet and the ledger');
-  await panel.getByRole('button', { name: /^Translate$/ }).click();
-  await expect(panel.locator('.ega-assistant-body').first()).toContainText('ok', {
+  await panel.locator('#sp-text').press('Enter');
+  await expect(panel.locator('.ega-answer').first()).toContainText('ok', {
     timeout: 10_000,
   });
   timeline.markStep('request-sent');

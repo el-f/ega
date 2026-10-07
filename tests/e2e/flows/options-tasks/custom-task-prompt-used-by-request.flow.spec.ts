@@ -6,6 +6,8 @@ import {
   mockAnthropic,
   seedCustomTasks,
   seedSettings,
+  sendFromPanel,
+  setNextMessage,
   type ExtensionHandle,
 } from '../../helpers';
 import { createTimeline } from '../_harness';
@@ -28,20 +30,16 @@ test('a custom task sends its own prompt plus the plain contract, and the answer
   const mock = mockAnthropic(ext.context, { translation: 'Short tweet', confidence: 0.9 });
   const panel = await ext.context.newPage();
   await panel.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
-  await panel.locator('#sp-text').waitFor({ state: 'visible', timeout: 5_000 });
-  const chip = panel.locator('[data-ega-task="c-tweet"]');
-  await expect(chip).toBeVisible({ timeout: 5_000 });
-  await chip.click();
-  await expect(chip).toHaveAttribute('aria-checked', 'true');
-  await panel.locator('#sp-text').fill('a long thread about cats');
-  await panel.getByRole('button', { name: /^Tweet summary$/ }).click();
+  await setNextMessage(panel, { task: 'c-tweet' });
+  await expect(panel.locator('[data-ega-mode-chip]')).toContainText('Tweet summary');
+  await sendFromPanel(panel, 'a long thread about cats');
   await expect.poll(() => mock.calls(), { timeout: 10_000 }).toBe(1);
   const body = mock.lastRequestBody() ?? '';
   expect(body).toContain('Summarize the text as one short tweet.');
   expect(body).toContain(JSON.stringify(PLAIN_CONTRACT).slice(1, -1));
   timeline.markStep('request');
 
-  await expect(panel.locator('.ega-assistant-turn')).toContainText('Short tweet', {
+  await expect(panel.locator('[data-ega-reply]')).toContainText('Short tweet', {
     timeout: 10_000,
   });
   timeline.markStep('answer');

@@ -60,14 +60,20 @@ rest.** Details, because the size is easy to underestimate:
 - A turn also keeps the explain note, every earlier version of the reply that
   a refine produced, and the page-context snapshot that went out with the
   request (`contextSent`).
+- With **Record request details** on, a reply also keeps the instructions Ega
+  sent the model (the system prompt), cut at 6,000 characters. Only the 20
+  newest replies of a conversation keep them
+  (`src/sidepanel/state/conversation-store.ts#leanInstructions`).
 - An image turn keeps the image itself as a data URL, up to 256 KB. A bigger
   image is dropped and replaced with placeholder text
   (`src/sidepanel/state/conversation-store.ts#capTurnSize`).
 - The index is a record of **every site you used the side panel on**. It holds
-  the origin in clear text — and so does each thread's key, so
+  the origin in clear text — and so does each conversation's key, so
   `chrome.storage.local.get(null)` lists the sites without reading a single
-  conversation.
-- Past 50 sites the least recently used site is deleted. Inside a thread, turns
+  conversation. Each index row also keeps the conversation's title (the first
+  line of its first message, up to 80 characters), its message count, and when
+  it was last opened.
+- Past 50 conversations the least recently used one is deleted. Inside a thread, turns
   drop from the oldest end past 300 turns or past 512 KB. A single turn over
   300 KB is cut back to its visible text, capped at 20,000 characters, and loses
   every earlier version a refine produced
@@ -75,10 +81,12 @@ rest.** Details, because the size is easy to underestimate:
   snapshot and the image survive that cut — the image is shed separately, under
   thread-level quota pressure. Across all threads the budget is 4 MB
   (`src/sidepanel/state/conversation-store.ts#MAX_TOTAL_THREAD_BYTES`).
-- To delete one site's thread, use **New conversation** in the side panel, or
-  **Delete** on its row in **Settings → Advanced → Data → Saved conversations**.
-  Both remove every turn, and keep the site name plus the ids of the removed
-  turns so a second Chrome window cannot write them back. **Clear all
+- To delete a conversation, use **Delete** on its row in the side panel's
+  conversations list (the site title at the top), or in **Settings → Advanced →
+  Data → Saved conversations**. Both remove every turn, and keep the site name
+  plus the ids of the removed turns so a second Chrome window cannot write them
+  back. **New conversation** deletes nothing: the old conversation stays in the
+  list. **Clear all
   conversations** in the same list removes every thread. **Settings → About →
   Delete all data** removes everything.
 
