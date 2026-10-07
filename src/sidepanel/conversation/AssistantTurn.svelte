@@ -332,19 +332,40 @@
     return inflight ? 'Try again (wait for the current reply)' : 'Try again';
   }
 
-  // ── Focus on a re-run ──────────────────────────────────────────────────────
-  // A re-run unmounts the row with the button or item that started it; focus would drop to <body>.
+  // ── Focus on a re-run or a version change ──────────────────────────────────
+  // A re-run or a state change unmounts the focused button (each state draws its own pager); focus would drop to <body>.
   let articleEl: HTMLElement | null = $state(null);
   let wasAnswering = untrack(() => answering && (turn.retries ?? 0) === 0);
+  let pagerFocus: 'prev' | 'next' | null = null;
+  $effect.pre(() => {
+    void turn.status;
+    void activeIdx;
+    const a = document.activeElement;
+    pagerFocus =
+      !(a instanceof HTMLElement) || !untrack(() => articleEl)?.contains(a)
+        ? null
+        : a.hasAttribute('data-ega-variant-prev')
+          ? 'prev'
+          : a.hasAttribute('data-ega-variant-next')
+            ? 'next'
+            : null;
+  });
   $effect(() => {
     const now = answering;
+    void activeIdx;
     const el = articleEl;
     if (el === null) return;
     const started = now && !wasAnswering;
     wasAnswering = now;
-    if (!started) return;
+    const arrow = pagerFocus;
+    pagerFocus = null;
     const active = document.activeElement;
-    if (active === null || active === document.body) el.focus({ preventScroll: true });
+    if (active !== null && active !== document.body) return;
+    if (arrow !== null) {
+      (el.querySelector<HTMLElement>(`[data-ega-variant-${arrow}]`) ?? el).focus({
+        preventScroll: true,
+      });
+    } else if (started) el.focus({ preventScroll: true });
   });
 
   const srLabel = $derived(

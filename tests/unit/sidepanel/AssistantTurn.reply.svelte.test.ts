@@ -297,6 +297,69 @@ describe('versions', () => {
   });
 });
 
+// Each state draws its own pager (action row, error row, running slot): a state change must not drop focus to <body>.
+describe('focus on the pager', () => {
+  const NET = { code: 'NETWORK' as const, message: 'fetch failed' };
+  const shown = (
+    idx: 0 | 1,
+    second: 'error' | 'streaming' | 'done',
+  ): ReturnType<typeof doneReply> => {
+    const v2 =
+      second === 'error'
+        ? { id: 'v2', status: 'error' as const, content: '', error: NET }
+        : { id: 'v2', status: second, content: second === 'done' ? 'Two' : 'Tw' };
+    const variants = [{ id: 'v1', status: 'done' as const, content: 'One' }, v2];
+    return idx === 0
+      ? doneReply({ variants, activeVariantIdx: 0, content: 'One' })
+      : doneReply({
+          variants,
+          activeVariantIdx: 1,
+          status: v2.status,
+          content: v2.content,
+          ...(second === 'error' ? { error: NET } : {}),
+        });
+  };
+
+  it('paging between a done and a failed version keeps focus on the same arrow', async () => {
+    const props = replyProps(shown(0, 'error'));
+    const { container, rerender } = render(AssistantTurn, { props });
+    (container.querySelector('[data-ega-variant-next]') as HTMLElement).focus();
+    await rerender({ ...props, turn: shown(1, 'error') });
+    await tick();
+    expect(document.activeElement).toBe(
+      container.querySelector('.ega-error-actions [data-ega-variant-next]'),
+    );
+    (container.querySelector('[data-ega-variant-prev]') as HTMLElement).focus();
+    await rerender({ ...props, turn: shown(0, 'error') });
+    await tick();
+    expect(document.activeElement).toBe(
+      container.querySelector('.ega-reply-actions [data-ega-variant-prev]'),
+    );
+  });
+
+  it('a version that finishes while its pager has focus keeps it there', async () => {
+    const props = replyProps(shown(1, 'streaming'));
+    const { container, rerender } = render(AssistantTurn, { props });
+    (container.querySelector('[data-ega-variant-prev]') as HTMLElement).focus();
+    await rerender({ ...props, turn: shown(1, 'done') });
+    await tick();
+    expect(document.activeElement).toBe(
+      container.querySelector('.ega-reply-actions [data-ega-variant-prev]'),
+    );
+  });
+
+  it('paging onto a running version keeps focus on the arrow, not the reply', async () => {
+    const props = replyProps(shown(0, 'streaming'));
+    const { container, rerender } = render(AssistantTurn, { props });
+    (container.querySelector('[data-ega-variant-next]') as HTMLElement).focus();
+    await rerender({ ...props, turn: shown(1, 'streaming') });
+    await tick();
+    expect(document.activeElement).toBe(
+      container.querySelector('.ega-reply-actions-slot [data-ega-variant-next]'),
+    );
+  });
+});
+
 describe('focus after a re-run', () => {
   it('moves to the reply when the button that started it unmounts', async () => {
     const props = replyProps(doneReply());
