@@ -61,7 +61,7 @@ describe('settings-registry', () => {
       expect(ids).not.toContain('about.onboardingDismissed');
     });
 
-    it('pageContextLevel is searchable because the Translate tab owns a control for it', () => {
+    it('pageContextLevel is searchable because the Answers tab owns a control for it', () => {
       const entry = SETTINGS_REGISTRY.find((e) => e.id === 'display.pageContextLevel');
       expect(entry?.tab).toBe('translate');
       expect(entry?.targetSelector).toBe('[data-ega-setting="display.pageContextLevel"]');

@@ -1375,13 +1375,13 @@ export const COVERAGE: readonly Family[] = [
           {
             id: 'confidence-pill-toggle',
             description:
-              'Translate tab, Display section → toggle Confidence pill → when enabled slider appears; when disabled it collapses',
+              'Answers tab, Where answers show → toggle Show confidence pill → when on the slider appears; when off it collapses',
             flows: ['options-display/confidence-pill-toggle.flow.spec.ts'],
           },
           {
             id: 'section-reset',
             description:
-              'Translate tab, Display section → modify a tooltip knob → SectionReset appears → click → knobs revert to DEFAULT_SETTINGS',
+              'Answers tab, Where answers show → change a tooltip option → Reset section appears → click → the options revert to DEFAULT_SETTINGS',
             flows: ['options-display/section-reset.flow.spec.ts'],
           },
         ],

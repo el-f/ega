@@ -12,7 +12,7 @@ describe('OptionsTabContent', () => {
     resetChromeMock();
   });
 
-  it('mounts the Translate tab when active=translate', async () => {
+  it('mounts the Answers tab when active=translate', async () => {
     const { container } = render(OptionsTabContent, {
       props: { active: 'translate', s: seed(), onSetSettings: () => {} },
     });

@@ -146,7 +146,7 @@ test('options passes axe critical-only smoke', async () => {
   expectClean('options', await scan(optionsUrl()));
 });
 
-// The default scan only sees the Translate tab; the Backends cards (status pills, tags) ship their own palette.
+// The default scan only sees the Answers tab; the Backends cards (status pills, tags) ship their own palette.
 test('options Backends tab passes axe critical-only smoke', async () => {
   const buckets = await scan(optionsUrl(), async (page) => {
     await page.locator('#tab-backends').click();

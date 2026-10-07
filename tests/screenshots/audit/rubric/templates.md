@@ -1,6 +1,6 @@
 # Prompts and rules rubric
 
-There is no Templates tab any more. Prompts are edited in each task's edit dialog on the Tasks tab (`src/options/components/TaskEditDialog.svelte`), one language's prompt in that language's row on the Languages tab, and rules in the Rules section of the Tasks tab. The shot names keep their old `templates-` prefix.
+There is no Templates tab any more. Prompts are edited in each task's edit dialog on the Tasks tab (`src/options/components/TaskEditDialog.svelte`), one language's prompt in that language's dialog on the Languages tab, and rules in the Rules card of the Glossary and rules tab. The shot names keep their old `templates-` prefix.
 
 ## Invariants
 

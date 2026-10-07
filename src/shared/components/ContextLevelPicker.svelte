@@ -1,7 +1,7 @@
 <script lang="ts">
   import Check from '@lucide/svelte/icons/check';
   // Minimal / Rich only — `contextEnabled` owns the off state. The write is the same
-  // `updateSettings` the Translate tab uses, so it is global, not per-session.
+  // `updateSettings` the Answers tab uses, so it is global, not per-session.
 
   type Level = 'minimal' | 'rich';
 

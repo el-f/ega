@@ -7,7 +7,7 @@ body, or unmounts unexpectedly.
 
 ## Surfaces in scope
 
-- options Translate tab, Display surface section (Tooltip / Inline mode cards)
+- options Answers tab, Where answers show card (Tooltip / Inline cards)
 - content-script tooltip mount (shadow host, body renderer)
 - `watchSettings` listener in the content script (storage change -> worker read -> settings cache)
 

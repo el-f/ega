@@ -67,7 +67,7 @@ test('Languages tab: mounts without errors and shows enable-arabizi control', as
   expect(errors).toEqual([]);
 });
 
-test('Translate tab: temperature slider thumb is focusable + keyboard-driven', async () => {
+test('Answers tab: temperature slider thumb is focusable + keyboard-driven', async () => {
   // The slider shows only when the backend that runs takes temperature; a key puts Anthropic there.
   await seedSettings(ext.context, ext.extensionId, {
     anthropicApiKey: 'sk-ant-test',
