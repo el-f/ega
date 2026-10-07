@@ -486,3 +486,38 @@ test('text spacing override: nothing in the popup, picker bar or pill is clipped
   await expect.poll(() => pillLabel(page), { timeout: 15_000 }).toMatch(/^Page translated/);
   expect(await clippedUnderTextSpacing(page, true)).toEqual([]);
 });
+
+test('on a right-to-left page the error chip still reads left to right', async () => {
+  await ext.context.route('https://api.anthropic.com/v1/messages', (route) =>
+    route.fulfill({
+      status: 401,
+      contentType: 'application/json',
+      body: '{"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"}}',
+    }),
+  );
+  const page = await ext.context.newPage();
+  await page.goto(`${ext.serverUrl}/rtl-page.html`);
+  await waitForTestHooks(page);
+  await translatePage();
+  await expect.poll(() => pillLabel(page), { timeout: 20_000 }).toMatch(/^Couldn't translate/);
+  const chip = await page
+    .locator('[data-ega-tx-error]')
+    .first()
+    .evaluate((host) => {
+      const c = host.shadowRoot?.querySelector('.chip') as HTMLElement;
+      const left = (el: Element | null | undefined): number =>
+        el?.getBoundingClientRect().left ?? -1;
+      return {
+        host: getComputedStyle(host).direction,
+        chip: getComputedStyle(c).direction,
+        mark: left(c.querySelector('svg')),
+        title: left(c.querySelector('span')),
+        button: left(c.querySelector('button')),
+      };
+    });
+  // The chip sits in the page's right-to-left line, but Ega's English inside it reads mark, title, button.
+  expect(chip.host).toBe('rtl');
+  expect(chip.chip).toBe('ltr');
+  expect(chip.mark).toBeLessThan(chip.title);
+  expect(chip.title).toBeLessThan(chip.button);
+});
