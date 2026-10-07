@@ -6,6 +6,7 @@
   import Languages from '@lucide/svelte/icons/languages';
   import PanelRight from '@lucide/svelte/icons/panel-right';
   import Icon from '@/shared/ui/Icon.svelte';
+  import { TAB_LABELS } from '@/shared/settings-tabs';
 
   interface Props {
     onTranslatePage: () => void;
@@ -144,7 +145,7 @@
 </div>
 {#if !pickerEnabled}
   <p id={PICKER_OFF_ID} class="ega-sr-only">
-    The element picker is off. Turn it on in Settings → Selection & picker.
+    The element picker is off. Turn it on in Settings → {TAB_LABELS['selection-bubble']}.
   </p>
 {/if}
 

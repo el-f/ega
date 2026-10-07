@@ -2,6 +2,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
 import PopupTools from '@/popup/PopupTools.svelte';
+import { TAB_LABELS } from '@/shared/settings-tabs';
 
 describe('PopupTools', () => {
   const base = {
@@ -72,7 +73,9 @@ describe('PopupTools', () => {
     expect(btn.getAttribute('aria-disabled')).toBe('true');
     expect(btn.textContent).toContain('Off in Settings');
     const reason = document.getElementById(btn.getAttribute('aria-describedby') ?? '');
-    expect(reason?.textContent).toMatch(/Turn it on in Settings → Selection & picker/);
+    expect(reason?.textContent).toContain(
+      `Turn it on in Settings → ${TAB_LABELS['selection-bubble']}.`,
+    );
     await fireEvent.click(btn);
     expect(onPickElement).not.toHaveBeenCalled();
   });
