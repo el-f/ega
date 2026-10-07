@@ -22,13 +22,13 @@
   import { CARD_CONTRACT, PLAIN_CONTRACT } from '@/shared/prompts';
   import { listVarieties } from '@/shared/varieties';
   import { buildCustomPreviewPrompt, PREVIEW_SAMPLE_TEXT } from '@/options/preview-prompt';
-  import { reportSaveFailure, saveFailureReason } from '@/options/storage-with-toast';
+  import { reportSaveFailure } from '@/options/storage-with-toast';
   import { confirmDialog } from '@/shared/components/confirmDialog';
   import { toastStore } from '@/shared/components/toastStore';
   import PromptEditor from '@/options/components/prompt/PromptEditor.svelte';
   import { checkPrompt } from '@/options/components/prompt/prompt-checks';
   import DialogStatus from '@/options/components/DialogStatus.svelte';
-  import { createDialogSaver } from '@/options/components/dialog-saver.svelte';
+  import { createDialogSaver, NotSavedError } from '@/options/components/dialog-saver.svelte';
   import Dialog from '@/shared/ui/Dialog.svelte';
   import Button from '@/shared/ui/Button.svelte';
   import Input from '@/shared/ui/Input.svelte';
@@ -95,12 +95,17 @@
   );
 
   const ERRORS: Record<string, string> = {
-    'cap-reached': 'You have the most tasks Ega keeps. Delete one to add another.',
+    'cap-reached': 'you have the most tasks Ega keeps; delete one to add another',
     'invalid-task': 'the name or the prompt is not valid',
+    'task-gone': 'it was deleted in another window',
   };
-  function reasonOf(e: unknown): string {
-    const code = e instanceof Error ? e.message : '';
-    return ERRORS[code] ?? saveFailureReason(e).message;
+  function reasonOf(e: unknown): string | undefined {
+    return e instanceof Error ? ERRORS[e.message] : undefined;
+  }
+  /** A named reason reads in the footer; anything else is a storage failure the saver words. */
+  function named(e: unknown): unknown {
+    const known = reasonOf(e);
+    return known === undefined ? e : new NotSavedError(known, { cause: e });
   }
 
   // One create at a time: a second edit while the first save runs waits for the row id.
@@ -124,7 +129,7 @@
       await updateCustomTask(rowId, input);
     } catch (e) {
       if (e instanceof Error && e.message === 'task-gone') gone = true;
-      throw new Error(reasonOf(e), { cause: e });
+      throw named(e);
     }
     onSaved(null);
   }
@@ -171,7 +176,8 @@
     const name = label.trim() || (initial?.label ?? '');
     saver.dispose();
     const out = await deleteCustomTask(rowId).catch((e: unknown) => {
-      saver.invalid('row', reasonOf(e));
+      // A delete frees space, so the storage quota is never the reason.
+      saver.invalid('row', reasonOf(e) ?? 'Chrome did not take the change');
       return null;
     });
     if (out === null) return;

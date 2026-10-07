@@ -13,6 +13,9 @@ export type SaveStatus =
 const SLOW_MS = 300;
 export const TEXT_SAVE_DELAY_MS = 600;
 
+/** A write the dialog refused for a reason it can name; the footer says "Not saved: <message>". */
+export class NotSavedError extends Error {}
+
 /**
  * The dialogs' one save model: every field saves as it changes (text 600 ms after the last key), the footer
  * says "Saving..." only for a slow write, then "Saved", or why not; nothing waits for a Save button.
@@ -34,7 +37,9 @@ export function createDialogSaver() {
       if (mine === generation) status = { kind: 'saved' };
       return true;
     } catch (e) {
-      if (mine === generation) status = { kind: 'error', message: saveFailureReason(e).message };
+      const message =
+        e instanceof NotSavedError ? `Not saved: ${e.message}` : saveFailureReason(e).message;
+      if (mine === generation) status = { kind: 'error', message };
       return false;
     } finally {
       clearTimeout(slow);

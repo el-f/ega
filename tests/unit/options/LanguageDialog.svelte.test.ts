@@ -311,6 +311,8 @@ describe('LanguageDialog — another window', () => {
       ),
     );
     expect((await getCustomLanguages())[0]?.hint).toBe('changed elsewhere');
+    // The footer names the same reason, not a storage failure.
+    await waitFor(() => expect(status()).toBe('Not saved: it changed in another window'));
     await fireEvent.click(getByRole('button', { name: 'Reload language' }));
     await waitFor(() => expect(field('[data-ega-language-notes]').value).toBe('changed elsewhere'));
     expect(document.querySelector('[data-ega-language-conflict]')).toBeNull();
@@ -324,6 +326,7 @@ describe('LanguageDialog — another window', () => {
     await waitFor(() =>
       expect(document.body.textContent).toContain('This language was deleted in another window'),
     );
+    await waitFor(() => expect(status()).toBe('Not saved: it was deleted in another window'));
     expect(await getCustomLanguages()).toEqual([]);
   });
 });

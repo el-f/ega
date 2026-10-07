@@ -35,7 +35,7 @@
   import SectionReset from '@/options/components/SectionReset.svelte';
   import DialogStatus from '@/options/components/DialogStatus.svelte';
   import Disclosure from '@/options/components/Disclosure.svelte';
-  import { createDialogSaver } from '@/options/components/dialog-saver.svelte';
+  import { createDialogSaver, NotSavedError } from '@/options/components/dialog-saver.svelte';
   import Dialog from '@/shared/ui/Dialog.svelte';
   import Button from '@/shared/ui/Button.svelte';
   import IconButton from '@/shared/ui/IconButton.svelte';
@@ -134,11 +134,11 @@
     const cur = await stored();
     if (!cur) {
       gone = true;
-      throw new Error('This language was deleted in another window');
+      throw new NotSavedError('it was deleted in another window');
     }
     if (storedKey(cur, field) !== base[field]) {
       conflict = true;
-      throw new Error('Changed in another window');
+      throw new NotSavedError('it changed in another window');
     }
     try {
       await updateVariety(id, patch);
@@ -146,9 +146,12 @@
       if (e instanceof Error && e.message === 'slow-pattern') {
         detectError =
           'This pattern can take too long on a long selection, so it was not saved. Use fewer repeats like .* or \\w+';
-        throw new Error('the pattern is too slow', { cause: e });
+        throw new NotSavedError('the pattern is too slow', { cause: e });
       }
-      if (e instanceof Error && e.message === 'language-gone') gone = true;
+      if (e instanceof Error && e.message === 'language-gone') {
+        gone = true;
+        throw new NotSavedError('it was deleted in another window', { cause: e });
+      }
       throw e;
     }
     const fresh = await stored();
@@ -191,7 +194,7 @@
   }
 
   const ERRORS: Record<string, string> = {
-    'cap-reached': 'You have the most languages Ega keeps (200). Delete one to add another.',
+    'cap-reached': 'you have the most languages Ega keeps (200); delete one to add another',
     'invalid-language': 'the name or the notes are not valid',
   };
 
@@ -235,7 +238,9 @@
         // Text typed while the create ran is written now.
         await writeChangedText();
       } catch (e) {
-        throw new Error(ERRORS[(e as Error).message] ?? (e as Error).message, { cause: e });
+        const known = ERRORS[(e as Error).message];
+        // A named reason reads in the footer; anything else is a storage failure the saver words.
+        throw known === undefined ? e : new NotSavedError(known, { cause: e });
       }
     });
   }

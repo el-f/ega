@@ -20,7 +20,7 @@
 
 - A pattern the browser cannot compile is marked on the field: "This pattern is not valid. Check the brackets and slashes." Nothing is saved.
 - A pattern that can freeze the page on long text says so on the field and is not saved.
-- If another window changed the same field, the dialog shows "Changed in another window" with "Reload language", and saves nothing.
+- If another window changed the same field, the dialog shows "Changed in another window" with "Reload language", saves nothing, and the footer says "Not saved: it changed in another window".
 
 ## Cautions
 

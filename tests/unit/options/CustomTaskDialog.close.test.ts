@@ -146,5 +146,6 @@ describe('an existing custom task', () => {
         'This task was deleted in another window',
       ),
     );
+    await waitFor(() => expect(status()).toContain('Not saved: it was deleted in another window'));
   });
 });
