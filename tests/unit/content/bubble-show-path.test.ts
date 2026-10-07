@@ -127,3 +127,24 @@ describe('the selection bubble show path', () => {
     expect(debug.mock.calls.filter((c) => String(c[0]).includes('bubble'))).toEqual([]);
   });
 });
+
+describe('where the bubble goes, from the page it reads', () => {
+  it('on a right-to-left block the bubble lines up with the selection right edge', async () => {
+    await seed({ bubbleFirstRunSeen: true });
+    document.body.innerHTML = '<p id="rtl" style="direction: rtl">shalom olam ma shlomcha</p>';
+    const text = document.getElementById('rtl')?.firstChild;
+    if (!text) throw new Error('test setup: rtl text node');
+    const r = document.createRange();
+    r.selectNodeContents(text);
+    window.getSelection()?.removeAllRanges();
+    window.getSelection()?.addRange(r);
+    document.dispatchEvent(new Event('selectionchange'));
+    expect((await mountedBubble()).classList.contains('is-rtl')).toBe(true);
+  });
+
+  it('a left-to-right block keeps the left edge', async () => {
+    await seed({ bubbleFirstRunSeen: true });
+    selectWord();
+    expect((await mountedBubble()).classList.contains('is-rtl')).toBe(false);
+  });
+});
