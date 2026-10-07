@@ -5,7 +5,9 @@
   background-color: rgba(0, 144, 255, 0.12); /* token-lint-allow page sheet */
   border-block-end: 1px dashed rgba(88, 166, 255, 0.6); /* token-lint-allow page sheet */
 }
-[data-ega-replaced][data-ega-error='true'] {
+/* A block that failed keeps its own text; the red look says so, never the translated blue. */
+[data-ega-replaced][data-ega-error='true'],
+[data-ega-replaced][data-ega-tx-state='error'] {
   background-color: rgba(255, 149, 146, 0.12); /* token-lint-allow page sheet */
   border-block-end-color: rgba(255, 149, 146, 0.6); /* token-lint-allow page sheet */
 }

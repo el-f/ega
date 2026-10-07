@@ -203,6 +203,18 @@ describe('page translate — error blocks on any page theme', () => {
     expect(style?.getPropertyValue('font-size')).toBe('');
   });
 
+  it('a Replace-text block that failed takes the error look, not the translated one', () => {
+    document.head.innerHTML = `<style>${pageCss}</style>`;
+    const failed = Array.from(document.styleSheets[0]?.cssRules ?? []).find(
+      (r): r is CSSStyleRule =>
+        r instanceof CSSStyleRule &&
+        r.selectorText
+          .split(',')
+          .some((sel) => sel.trim() === "[data-ega-replaced][data-ega-tx-state='error']"),
+    );
+    expect(failed?.style.getPropertyValue('background-color')).toBe('rgba(255, 149, 146, 0.12)');
+  });
+
   it('no translated block carries a help cursor', () => {
     expect(pageCss).not.toMatch(/cursor:\s*help/);
   });
