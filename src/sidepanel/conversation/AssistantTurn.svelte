@@ -946,13 +946,6 @@
     color: var(--color-fg-disabled);
     cursor: var(--cursor-disabled);
   }
-  /* Open, Refine reads as pressed: border-color only, so it costs no reflow. */
-  .ega-reply-actions :global([data-ega-action='refine'][aria-expanded='true']),
-  .ega-reply-actions :global([data-ega-action='refine'][aria-pressed='true']) {
-    color: var(--color-accent-hover);
-    border-color: var(--color-accent);
-    background: var(--color-accent-bg-soft);
-  }
   .ega-pager {
     display: inline-flex;
     align-items: center;
@@ -966,9 +959,10 @@
     font-size: var(--fs-sm);
     font-variant-numeric: tabular-nums;
   }
-  /* Older replies keep the row's height and its tab stop; hover or focus shows it. Touch always shows it. */
+  /* Older replies keep the row's height and its tab stop; hover or focus shows it, and so does its own open menu (portaled out of the reply). */
   @media (hover: hover) {
-    .ega-reply.older:not(:hover):not(:focus-within) .ega-reply-actions {
+    .ega-reply.older:not(:hover):not(:focus-within)
+      .ega-reply-actions:not(:has(:global([aria-expanded='true'], [aria-pressed='true']))) {
       opacity: 0;
       pointer-events: none;
     }

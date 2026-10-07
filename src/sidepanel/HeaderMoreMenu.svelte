@@ -43,7 +43,13 @@
     <Icon icon={EllipsisIcon} size={16} />
   </DropdownMenu.Trigger>
   <DropdownMenu.Portal>
-    <DropdownMenu.Content preventScroll={false} class="sp-menu" align="end" sideOffset={6}>
+    <DropdownMenu.Content
+      preventScroll={false}
+      collisionPadding={12}
+      class="sp-menu"
+      align="end"
+      sideOffset={6}
+    >
       <DropdownMenu.CheckboxItem
         class="sp-menu-item"
         bind:checked={bookmarkFilter}
@@ -138,6 +144,17 @@
   }
   :global(.sp-menu-item[data-highlighted]) {
     background: var(--color-bg-hover);
+  }
+  /* The hover fill is about 1.2:1; a keyboard user needs the ring. Inset, so the menu's scroll box never clips it. */
+  :global(.sp-menu-item:focus-visible) {
+    outline: 2px solid var(--color-accent);
+    outline-offset: -2px;
+  }
+  /* An open menu's button reads as pressed, the same on every panel menu (spec §2.4). */
+  :global(.ega-icon-btn[aria-haspopup='menu'][aria-expanded='true']) {
+    color: var(--color-accent-hover);
+    border-color: var(--color-accent);
+    background: var(--color-accent-bg-soft);
   }
   :global(.sp-menu-item[data-disabled]),
   :global(.sp-menu-item[aria-disabled='true']) {

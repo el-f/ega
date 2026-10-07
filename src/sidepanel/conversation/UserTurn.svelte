@@ -183,7 +183,13 @@
           <Icon icon={Ellipsis} size={16} />
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
-          <DropdownMenu.Content preventScroll={false} class="sp-menu" align="end" sideOffset={6}>
+          <DropdownMenu.Content
+            preventScroll={false}
+            collisionPadding={12}
+            class="sp-menu"
+            align="end"
+            sideOffset={6}
+          >
             <DropdownMenu.CheckboxItem
               class="sp-menu-item"
               checked={turn.bookmarked === true}
@@ -291,7 +297,8 @@
       transition: opacity var(--motion-fast) var(--ease-out);
     }
     .ega-user-turn:hover .ega-user-toolbar,
-    .ega-user-turn:focus-within .ega-user-toolbar {
+    .ega-user-turn:focus-within .ega-user-toolbar,
+    .ega-user-toolbar:has(:global([aria-expanded='true'])) {
       opacity: 1;
       pointer-events: auto;
     }

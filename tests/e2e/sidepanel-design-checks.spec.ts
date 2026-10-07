@@ -678,6 +678,95 @@ test('check 5 focus never lands on body after an action', async () => {
   await sp.close();
 });
 
+/** A CSS color as the browser computes it, so a token compares with a computed border. */
+async function computedColor(sp: Page, value: string): Promise<string> {
+  return sp.evaluate((v) => {
+    const probe = document.createElement('span');
+    probe.style.color = v;
+    document.body.append(probe);
+    const out = getComputedStyle(probe).color;
+    probe.remove();
+    return out;
+  }, value);
+}
+
+// Spec §1.6/§1.7, §2.4 and §9.2: an open menu keeps its trigger in view and drawn as open, its keyboard item ringed, its edge off the panel's.
+test('an open menu keeps its row, its trigger looks open, its keyboard item is ringed, it clears the edge', async () => {
+  test.setTimeout(180_000);
+  const sp = await panelWith([{ id: SITE, turns: TWO_PAIRS }]);
+  const accent = await computedColor(sp, 'var(--color-accent)');
+  const sizes = [
+    { width: 400, height: 760 },
+    { width: 320, height: 760 },
+    { width: 256, height: 608 },
+  ];
+  for (const size of sizes) {
+    await sp.setViewportSize(size);
+    for (const which of ['refine', 'more'] as const) {
+      const where = `${which} on the older reply at ${size.width}`;
+      await sp.mouse.move(2, 2);
+      // The older reply: its row is hidden until hover or focus, and the menu renders outside it.
+      const older = sp.locator('[data-ega-reply]').first();
+      const trigger = older.locator(`[data-ega-action="${which}"]`);
+      await trigger.focus();
+      await sp.keyboard.press('Enter');
+      const menu = sp.getByRole('menu');
+      await menu.waitFor({ state: 'visible' });
+      await expect(menu.locator('[role^="menuitem"]').first(), where).toBeFocused();
+      expect
+        .soft(
+          await older.locator('.ega-reply-actions').evaluate((el) => getComputedStyle(el).opacity),
+          `${where}: the row of the open menu stays shown`,
+        )
+        .toBe('1');
+      expect
+        .soft(
+          await trigger.evaluate((el) => getComputedStyle(el).borderTopColor),
+          `${where}: the open trigger is drawn open`,
+        )
+        .toBe(accent);
+      expect
+        .soft(
+          await menu
+            .locator('[role^="menuitem"]')
+            .first()
+            .evaluate((el) => {
+              const cs = getComputedStyle(el);
+              return `${cs.outlineStyle} ${cs.outlineWidth}`;
+            }),
+          `${where}: the keyboard item has a ring`,
+        )
+        .toBe('solid 2px');
+      const box = await menu.boundingBox();
+      if (box === null) throw new Error(`${where}: menu has no box`);
+      expect.soft(box.x, `${where}: left gap`).toBeGreaterThanOrEqual(11.5);
+      expect
+        .soft(size.width - (box.x + box.width), `${where}: right gap`)
+        .toBeGreaterThanOrEqual(11.5);
+      await sp.keyboard.press('Escape');
+      await menu.waitFor({ state: 'hidden' });
+    }
+  }
+  // Pointer: the message toolbar stays while the pointer is in its own open menu.
+  await sp.setViewportSize(sizes[0] as { width: number; height: number });
+  const message = sp.locator('[data-ega-user-turn]').first();
+  await message.hover();
+  await message.locator('[data-ega-action="more"]').click();
+  const menu = sp.getByRole('menu');
+  await menu.waitFor({ state: 'visible' });
+  await menu.locator('[data-ega-delete]').hover();
+  expect
+    .soft(
+      await message
+        .locator('[data-ega-user-toolbar]')
+        .evaluate((el) => getComputedStyle(el).opacity),
+      'the message toolbar stays shown under its open menu',
+    )
+    .toBe('1');
+  await sp.keyboard.press('Escape');
+  await sp.close();
+});
+
 test('check 8 nothing shifts when a toolbar or action row is revealed', async () => {
   test.setTimeout(120_000);
   const sp = await panelWith([{ id: SITE, turns: TWO_PAIRS }]);

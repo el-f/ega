@@ -141,7 +141,13 @@
       <Icon icon={WandSparkles} size={16} />
     </DropdownMenu.Trigger>
     <DropdownMenu.Portal>
-      <DropdownMenu.Content preventScroll={false} class="sp-menu" align="start" sideOffset={6}>
+      <DropdownMenu.Content
+        preventScroll={false}
+        collisionPadding={12}
+        class="sp-menu"
+        align="start"
+        sideOffset={6}
+      >
         {@render busyLine()}
         {#each presets as p (p.id)}
           {@render rerunItem(p.label, () => onPreset(p), { 'data-ega-refine-preset': p.id })}
@@ -198,7 +204,13 @@
     <Icon icon={Ellipsis} size={16} />
   </DropdownMenu.Trigger>
   <DropdownMenu.Portal>
-    <DropdownMenu.Content preventScroll={false} class="sp-menu" align="start" sideOffset={6}>
+    <DropdownMenu.Content
+      preventScroll={false}
+      collisionPadding={12}
+      class="sp-menu"
+      align="start"
+      sideOffset={6}
+    >
       {#if speakable}
         <DropdownMenu.Item class="sp-menu-item" onSelect={onSpeak} data-ega-speak>
           <Icon icon={speaking ? CircleStop : Volume2} size={16} />
