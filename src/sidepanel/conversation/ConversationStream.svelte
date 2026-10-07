@@ -81,8 +81,6 @@
     composerTarget?: string | undefined;
     /** The "Record request details" switch, so About says why a reply has no record. */
     recordsDetails?: boolean | undefined;
-    /** Unused: About this reply opens Settings → Advanced itself. Accepted until SidePanel stops passing it. */
-    onOpenSettings?: () => void;
   }
 
   const {

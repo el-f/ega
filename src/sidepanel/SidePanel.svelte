@@ -1226,7 +1226,7 @@
       {backendReady}
       onSetUpBackend={() => openOptionsTab('backends')}
       {onSuggestion}
-      onOpenSettings={() => openOptionsTab()}
+      recordsDetails={settings?.captureResultMeta !== false}
       onRetry={(id) => {
         toastStore.closeSticky();
         void conversation.retry(id);
