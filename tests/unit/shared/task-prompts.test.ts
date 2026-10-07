@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import {
   ALL_TASKS,
   ALL_TONES,
-  TASK_DESCRIPTIONS,
   TASK_GERUND,
   TASK_LABELS,
   TONE_LABELS,
@@ -10,6 +9,7 @@ import {
   answerFormatFor,
   FORMAT_MARKER,
 } from '@/shared/task-prompts';
+import { TASK_DESCRIPTIONS } from '@/options/task-descriptions';
 
 // Mostly structural contracts; the output-language block pins a few guard phrases on purpose, so rewording those lines breaks it.
 

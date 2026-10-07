@@ -11,12 +11,12 @@
   import {
     answerFormatFor,
     buildTaskTemplate,
-    TASK_DESCRIPTIONS,
     TASK_LABELS,
     type Task,
   } from '@/shared/task-prompts';
   import { builtInTaskView, hasOwnPrompt, ownTaskPrompt } from '@/shared/task-view';
   import { taskDefaultEffort } from '@/shared/backend-params';
+  import { TASK_DESCRIPTIONS } from '@/options/task-descriptions';
   import { EFFORT_LABEL } from '@/options/effort-labels';
   import { replaceTaskEdit, resetTask, restoreTask, updateTask } from '@/shared/tasks';
   import { updateSettings } from '@/shared/storage';

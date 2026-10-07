@@ -11,7 +11,8 @@ import { renderGlossaryBlock, type GlossaryEntry } from '@/shared/glossary';
 import { renderRulesBlock, type Rule } from '@/shared/rules';
 import { RULES_BLOCK_WARN_BYTES } from '@/shared/rules-budget';
 import { UNTRUSTED_DATA_INSTRUCTION } from '@/shared/prompts';
-import { TASK_FORMATS, TONE_PHRASE, TRANSLATE_FORMAT } from '@/shared/task-prompts';
+import { TASK_FORMATS, TRANSLATE_FORMAT } from '@/shared/task-prompts';
+import { TONE_PHRASE } from '@/shared/prompts';
 
 /** A toy prompt without a format line gets the standard one joined on, as an edited prompt does. */
 const T_FMT = '\n' + TRANSLATE_FORMAT.text.replace('{{explainField}}', '');

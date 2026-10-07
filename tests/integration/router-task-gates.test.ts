@@ -6,7 +6,8 @@ import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import type { CustomLanguage, Settings, TranslationRequest } from '@/shared/types';
 import { asLangPresetIdUnsafe } from '@/shared/brands';
 import { materializeVarieties } from '@/shared/varieties';
-import { TONE_PHRASE, type Task, type Tone } from '@/shared/task-prompts';
+import type { Task, Tone } from '@/shared/task-prompts';
+import { TONE_PHRASE } from '@/shared/prompts';
 import { buildPreviewPrompt } from '@/options/preview-prompt';
 
 const silent = { debug() {}, info() {}, warn() {}, error() {} };

@@ -5,7 +5,19 @@ import { DEFAULT_DESCRIPTION_CONTEXT_CAP } from './constants';
 import { DEFAULT_PROMPT_TEMPLATE } from './settings-defaults';
 import { labelFor } from './languages';
 import { resolveSnippets, SLOT_RE } from './snippets';
-import { FORMAT_MARKER, TONE_PHRASE, type AnswerFormat, type Tone } from './task-prompts';
+import { FORMAT_MARKER, type AnswerFormat, type Tone } from './task-prompts';
+
+// Here, not in task-prompts.ts: the content script loads that module, and only prompt building reads these.
+// Separate from the UI labels, and each tone names a concrete behavior, or the model returns near-identical rewrites.
+export const TONE_PHRASE: Record<Tone, string> = {
+  formal: 'formal and professional — full sentences, no contractions, precise vocabulary, no slang',
+  casual:
+    'casual and conversational — contractions welcome, shorter sentences, everyday vocabulary',
+  neutral: 'plain neutral — straightforward, no emotional coloring, no hedges, no flourishes',
+  polite: 'polite and diplomatic — soften directives, acknowledge the other party, no commands',
+  blunt:
+    'direct and blunt — drop hedges, one idea per sentence, prefer strong verbs over abstract nouns',
+};
 
 /** Models otherwise name a country from a pan-dialect phrase, or from the page's topic. */
 const DETAIL_RULE =
