@@ -599,6 +599,8 @@ const handlerDeps: HandlerDeps = { ensureSettings };
 async function dispatchPageTranslate(scope: 'whole' | 'areas'): Promise<void> {
   closeStickyToast();
   hideBubble();
+  // A picker mode closes the text tooltip too; page translate leaves it open.
+  if (scope === 'areas') closeTooltip();
   const settings = await ensureSettings();
   const eff = resolveEffective(settings, location.origin);
   if (eff.disabled) {
