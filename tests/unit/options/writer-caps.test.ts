@@ -72,7 +72,7 @@ describe('ContextMenuManager add', () => {
     // aria-disabled, not disabled: it stays focusable and its reason is read.
     expect(btn?.getAttribute('aria-disabled')).toBe('true');
     const note = container.querySelector(`#${btn?.getAttribute('aria-describedby') ?? 'x'}`);
-    expect(note?.textContent.trim()).toBe('Menu is full (50 items). Delete one to add another.');
+    expect(note?.textContent.trim()).toBe('50 of 50 items used. Delete one to add another.');
     await addTextAction(container);
     expect(onPatch).not.toHaveBeenCalled();
     expect(pushed).toEqual([]);

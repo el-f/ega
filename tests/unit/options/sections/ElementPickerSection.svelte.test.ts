@@ -16,11 +16,50 @@ describe('ElementPickerSection', () => {
     expect(container.querySelector('[data-ega-setting="display.shortcut"]')).not.toBeNull();
   });
 
-  it('hides the pickerShortcut input when pickerEnabled is false', () => {
-    const { container } = render(ElementPickerSection, {
+  it('with the picker off, its shortcut stays focusable, says why, and does not record', async () => {
+    const { getByRole } = render(ElementPickerSection, {
       props: makeSectionProps({ s: { pickerEnabled: false } }),
     });
-    expect(container.querySelector('[data-ega-setting="display.pickerShortcut"]')).toBeNull();
+    const record = getByRole('button', { name: 'Record element picker shortcut' });
+    expect(record.hasAttribute('disabled')).toBe(false);
+    expect(record.getAttribute('aria-disabled')).toBe('true');
+    expect(
+      document.getElementById(record.getAttribute('aria-describedby') ?? '')?.textContent.trim(),
+    ).toBe('Turn on the element picker to use this shortcut');
+    await fireEvent.click(record);
+    expect(record.getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('names the toggle "Turn on the element picker", with its one-line hint', () => {
+    const { getByRole } = render(ElementPickerSection, { props: makeSectionProps() });
+    const box = getByRole('checkbox', { name: 'Turn on the element picker' });
+    expect(box.getAttribute('aria-describedby')?.split(' ')).toContain('dsp-picker-hint');
+    expect(document.getElementById('dsp-picker-hint')?.textContent).toBe(
+      'Hover an element to outline it, click to translate, Esc cancels',
+    );
+  });
+
+  it('a combo the other shortcut has is refused under its row, and nothing is saved', async () => {
+    const onPatch = vi.fn<OnPatch>();
+    const { getByRole, findByRole } = render(ElementPickerSection, {
+      props: makeSectionProps({
+        s: { pickerEnabled: true, shortcut: 'Ctrl+Shift+L', pickerShortcut: '' },
+        onPatch,
+      }),
+    });
+    const record = getByRole('button', { name: 'Record element picker shortcut' });
+    await fireEvent.click(record);
+    await fireEvent.keyDown(record, { key: 'l', ctrlKey: true, shiftKey: true });
+    expect((await findByRole('alert')).textContent).toBe(
+      'Ctrl+Shift+L is already the Translate selection shortcut. Pick another.',
+    );
+    expect(onPatch).not.toHaveBeenCalled();
+  });
+
+  it('the last row says Ega opens from a Chrome shortcut', () => {
+    const { container } = render(ElementPickerSection, { props: makeSectionProps() });
+    expect(container.textContent).toContain('Open Ega');
+    expect(container.textContent).toContain('Set in Chrome');
   });
 
   it('shows the pickerShortcut input when pickerEnabled is true', () => {

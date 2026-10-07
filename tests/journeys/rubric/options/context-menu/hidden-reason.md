@@ -7,11 +7,11 @@
 ## State expectations
 
 - Step 1: Explain is turned off on the Tasks tab; `disabledTasks` holds `explain`.
-- Step 2: on the Selection & picker tab, the "Explain image in side panel" row reads "Hidden: Explain is off in Tasks" under its name.
+- Step 2: on the Selection and picker tab, the "Explain image in side panel" row reads "Hidden: Explain is off in Tasks" under its name.
 
 ## Visible affordances
 
-- The row's checkbox stays checked and focusable (`aria-disabled`), and its description is the reason. A click on it changes nothing.
+- The row's checkbox stays checked and focusable (`aria-disabled`, dimmed); its name ends with the reason and its description is the reason. A click on it changes nothing.
 - The row's name is in the secondary text colour, like any hidden row.
 
 ## Failure-mode expectations

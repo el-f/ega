@@ -193,6 +193,28 @@
     return null;
   }
 
+  /** An item earlier in the menu that runs the same task, opens in the same place, answers in the same language and has the same name. */
+  function twinAbove(item: ContextMenuItem): ContextMenuItem | null {
+    if (item.kind !== 'task' && item.kind !== 'image-task') return null;
+    const key = (i: ContextMenuItem): string | null =>
+      i.kind === 'task' || i.kind === 'image-task'
+        ? JSON.stringify([
+            i.kind,
+            i.task,
+            i.surface,
+            i.kind === 'task' ? (i.targetLang ?? '') : '',
+            displayName(i),
+          ])
+        : null;
+    const mine = key(item);
+    // By id: the rows on screen are the drag zone's copies, not these objects.
+    const before = items.slice(
+      0,
+      items.findIndex((i) => i.id === item.id),
+    );
+    return before.find((i) => key(i) === mine) ?? null;
+  }
+
   function shownCount(g: MenuGroup): number {
     return groupRows(g).filter((i) => statusOf(i) === null).length;
   }
@@ -559,6 +581,11 @@
     {/snippet}
 
     <p class="ega-sr-only" role="status">{announcement}</p>
+    {#if full}
+      <p class="cm-note cm-full" id="cm-full" data-ega-cm-full>
+        {items.length} of {CONTEXT_MENU_ITEMS_MAX} items used. Delete one to add another.
+      </p>
+    {/if}
 
     <div class="cm-groups">
       {#each GROUPS as g (g.id)}
@@ -624,7 +651,15 @@
                       </span>
 
                       {#if item.kind === 'site-toggle'}
-                        <span class="cm-check-spacer" aria-hidden="true"></span>
+                        <span class="cm-check">
+                          <Checkbox
+                            checked={true}
+                            ariaLabel="{name}, show in menu. Always shown"
+                            ariaDisabled
+                            describedBy={statusId}
+                            inputAttrs={{ 'data-ega-cm-enabled': true }}
+                          />
+                        </span>
                       {:else}
                         <!-- A blocked row keeps its box focusable (aria-disabled), so its reason is read; the click does nothing. -->
                         <span
@@ -635,7 +670,9 @@
                         >
                           <Checkbox
                             checked={item.enabled}
-                            ariaLabel="{name}, show in menu"
+                            ariaLabel={status?.blocked
+                              ? `${name}, show in menu. ${status.text}`
+                              : `${name}, show in menu`}
                             inputAttrs={{
                               'data-ega-cm-enabled': true,
                               'aria-describedby': status ? statusId : undefined,
@@ -658,6 +695,9 @@
                           data-ega-cm-name>{name}</span
                         >
                         {#if item.kind === 'site-toggle'}
+                          <span class="cm-status" id={statusId} data-ega-cm-status
+                            >Always shown</span
+                          >
                           <span class="cm-status" data-ega-cm-site-note
                             >Shows "Enable Ega on this site" on sites where Ega is off</span
                           >
@@ -827,6 +867,13 @@
                               </div>
                             {/if}
 
+                            {#if item.kind === 'image-task'}
+                              <span class="cm-field-label">Answer in</span>
+                              <p class="cm-hint cm-field" data-ega-cm-image-lang>
+                                Image actions answer in your default target language
+                              </p>
+                            {/if}
+
                             {#if item.kind === 'task'}
                               <label class="cm-field-label" for="cm-lang-{item.id}">Answer in</label
                               >
@@ -866,6 +913,11 @@
                               <span class="cm-hint" id="cm-name-hint-{item.id}"
                                 >Leave empty to use "{autoMenuName(item, lookup)}"</span
                               >
+                              {#if twinAbove(item)}
+                                <span class="cm-hint cm-warn" data-ega-cm-twin
+                                  >Same as "{displayName(twinAbove(item) as ContextMenuItem)}" above</span
+                                >
+                              {/if}
                             </div>
 
                             {#if !isShippedItem(item)}
@@ -905,15 +957,10 @@
                 dataAttrs={{
                   [kind === 'task' ? 'data-ega-cm-add' : 'data-ega-cm-add-image']: true,
                   'aria-disabled': full ? 'true' : undefined,
-                  'aria-describedby': full ? `cm-full-${g.id}` : undefined,
+                  'aria-describedby': full ? 'cm-full' : undefined,
                 }}
                 onclick={() => void addItem(kind)}>{g.addLabel}</Button
               >
-              {#if full}
-                <p class="cm-note" id="cm-full-{g.id}" data-ega-cm-full>
-                  Menu is full ({CONTEXT_MENU_ITEMS_MAX} items). Delete one to add another.
-                </p>
-              {/if}
             </div>
           {/if}
         </section>
@@ -1019,9 +1066,11 @@
     display: inline-flex;
     flex: 0 0 auto;
   }
-  .cm-check-spacer {
-    flex: 0 0 auto;
-    width: 16px;
+  .cm-full {
+    margin-bottom: var(--space-2);
+  }
+  .cm-warn {
+    color: var(--color-warning-fg);
   }
   .cm-check :global(input[aria-disabled='true']) {
     cursor: not-allowed;

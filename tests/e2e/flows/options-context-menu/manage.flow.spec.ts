@@ -38,6 +38,11 @@ test('manage: groups, add an image action, move inside a group, reset then undo'
   await expect(card.locator('[data-ega-cm-site-note]')).toHaveText(
     'Shows "Enable Ega on this site" on sites where Ega is off',
   );
+  // The site item cannot be hidden: its box is checked, stays focusable, and says why.
+  const siteBox = card.locator('[data-ega-cm-id="ega-toggle-site"] [data-ega-cm-enabled]');
+  await expect(siteBox).toBeChecked();
+  await expect(siteBox).toHaveAttribute('aria-disabled', 'true');
+  await expect(siteBox).toHaveAccessibleDescription('Always shown');
   // The grip is pointer only: Move up and Move down are the keyboard path.
   for (const grip of await card.locator('[data-ega-cm-handle]').all()) {
     await expect(grip).toHaveAttribute('tabindex', '-1');

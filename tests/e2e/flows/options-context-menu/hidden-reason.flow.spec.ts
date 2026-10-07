@@ -33,7 +33,10 @@ test('a right-click row whose task is off says why Chrome leaves it out', async 
   const row = page.locator('[data-ega-cm-id="ega-explain-image"]');
   const status = row.locator('[data-ega-cm-status]');
   await expect(status).toHaveText('Hidden: Explain is off in Tasks', { timeout: 5_000 });
-  const box = row.getByRole('checkbox', { name: 'Explain image in side panel, show in menu' });
+  // The name ends with the reason, so it is read even where descriptions are not.
+  const box = row.getByRole('checkbox', {
+    name: 'Explain image in side panel, show in menu. Hidden: Explain is off in Tasks',
+  });
   // Still focusable, so the reason is read; the click changes nothing.
   await expect(box).toHaveAttribute('aria-disabled', 'true');
   await expect(box).toHaveAccessibleDescription('Hidden: Explain is off in Tasks');

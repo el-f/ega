@@ -64,8 +64,8 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   },
   {
     id: 'display.pickerEnabled',
-    label: 'Element picker',
-    description: 'Hover to outline an element, click to translate it, Esc to cancel.',
+    label: 'Turn on the element picker',
+    description: 'Hover an element to outline it, click to translate, Esc cancels',
     keywords: ['picker', 'element', 'click', 'pick', 'hover'],
     tab: 'selection-bubble',
     targetSelector: '[data-ega-setting="display.pickerEnabled"]',
@@ -75,7 +75,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'display.pickerShortcut',
     label: 'Element picker shortcut',
-    description: 'Keyboard shortcut that starts the element picker.',
+    description: 'Starts the element picker on a web page',
     keywords: ['picker', 'shortcut', 'keybinding', 'hotkey'],
     tab: 'selection-bubble',
     targetSelector: '[data-ega-setting="display.pickerShortcut"]',
@@ -84,8 +84,8 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   },
   {
     id: 'display.shortcut',
-    label: 'In-page translate shortcut',
-    description: 'Keyboard shortcut that translates the selection on a web page.',
+    label: 'Translate selection',
+    description: 'Translates the selected text on a web page',
     keywords: ['shortcut', 'keybinding', 'hotkey', 'translate', 'key'],
     tab: 'selection-bubble',
     targetSelector: '[data-ega-setting="display.shortcut"]',
@@ -658,8 +658,8 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   },
   {
     id: 'advanced.smartBubbleMinLength',
-    label: 'Smart bubble minimum length',
-    description: 'Below this length, smart mode hides the bubble on Latin-script text.',
+    label: 'Shortest selection',
+    description: 'Smart hides the bubble on shorter selections in Latin letters',
     keywords: ['smart', 'bubble', 'length', 'short', 'min', 'characters'],
     tab: 'selection-bubble',
     targetSelector: '[data-ega-setting="advanced.smartBubbleMinLength"]',

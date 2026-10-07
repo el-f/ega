@@ -126,11 +126,11 @@ describe('ContextMenuManager — the card is the menu', () => {
       expect(stops[0]?.textContent).toContain('Edit');
       expect(bar.getAttribute('aria-label')).toMatch(/^Actions for /);
     }
-    // Defaults: 6 checkboxes + 6 toolbars + 2 site-toggle arrows + 2 Add buttons + (i).
+    // Defaults: 7 checkboxes (the site toggle's is fixed on) + 6 toolbars + 2 site-toggle arrows + 2 Add buttons + (i).
     const tabbable = Array.from(
       container.querySelectorAll<HTMLElement>('button, input, select, [tabindex]'),
     ).filter((el) => el.tabIndex >= 0 && !el.closest('[hidden]'));
-    expect(tabbable).toHaveLength(17);
+    expect(tabbable).toHaveLength(18);
   });
 
   it('keeps the drag grip out of the keyboard and screen-reader path', async () => {
@@ -178,6 +178,10 @@ describe('ContextMenuManager — showing and hiding', () => {
     const box = explain.querySelector<HTMLInputElement>('[data-ega-cm-enabled]');
     expect(box?.getAttribute('aria-disabled')).toBe('true');
     expect(box?.getAttribute('aria-describedby')).toBe(status?.id);
+    // The name ends with the reason, so it is read even where descriptions are not.
+    expect(box?.getAttribute('aria-label')).toBe(
+      'Explain image in side panel, show in menu. Hidden: Explain is off in Tasks',
+    );
     // aria-disabled, not disabled: it stays focusable so the reason is read.
     expect(box?.disabled).toBe(false);
     if (!box) throw new Error('no checkbox');
@@ -195,10 +199,20 @@ describe('ContextMenuManager — showing and hiding', () => {
     ).toBe('Hidden: the element picker is off');
   });
 
-  it('the site toggle has no checkbox and no Edit, and explains its flip', () => {
-    const { container } = render(ContextMenuManager, { props: makeProps() });
+  it('the site toggle has a fixed checked box that says "Always shown", no Edit, and explains its flip', async () => {
+    const onPatch = vi.fn<OnPatch>();
+    const { container } = render(ContextMenuManager, { props: makeProps({ onPatch }) });
     const site = row(container, 'ega-toggle-site');
-    expect(site.querySelector('[data-ega-cm-enabled]')).toBeNull();
+    const box = site.querySelector<HTMLInputElement>('[data-ega-cm-enabled]');
+    if (!box) throw new Error('no site checkbox');
+    expect(box.checked).toBe(true);
+    expect(box.getAttribute('aria-disabled')).toBe('true');
+    expect(document.getElementById(box.getAttribute('aria-describedby') ?? '')?.textContent).toBe(
+      'Always shown',
+    );
+    await fireEvent.click(box);
+    expect(box.checked).toBe(true);
+    expect(onPatch).not.toHaveBeenCalled();
     expect(site.querySelector('[data-ega-cm-edit]')).toBeNull();
     expect(site.querySelector('[data-ega-cm-site-note]')?.textContent.trim()).toBe(
       'Shows "Enable Ega on this site" on sites where Ega is off',
@@ -664,5 +678,58 @@ describe('ContextMenuManager — drag', () => {
     ]);
     expect(after.find((i) => i.id === 'ega-translate-selection')?.label).toBe('Renamed');
     expect(after).toHaveLength(DEFAULT_CONTEXT_MENU_ITEMS.length);
+  });
+});
+
+describe('ContextMenuManager — the small fixes', () => {
+  it('a full menu says so once, under the card line, and both Add buttons point at it', async () => {
+    const { CONTEXT_MENU_ITEMS_MAX } = await import('@/shared/settings-schema');
+    const extra = Array.from(
+      { length: CONTEXT_MENU_ITEMS_MAX - DEFAULT_CONTEXT_MENU_ITEMS.length },
+      (_, i): ContextMenuItem => ({ ...custom, id: `ega-custom-full-${i}`, order: 100 + i }),
+    );
+    const { container } = render(ContextMenuManager, {
+      props: makeProps({ s: { contextMenuItems: [...DEFAULT_CONTEXT_MENU_ITEMS, ...extra] } }),
+    });
+    const lines = container.querySelectorAll('[data-ega-cm-full]');
+    expect(lines).toHaveLength(1);
+    expect(lines[0]?.textContent.trim()).toBe(
+      `${CONTEXT_MENU_ITEMS_MAX} of ${CONTEXT_MENU_ITEMS_MAX} items used. Delete one to add another.`,
+    );
+    for (const sel of ['[data-ega-cm-add]', '[data-ega-cm-add-image]']) {
+      const add = container.querySelector(sel);
+      expect(add?.getAttribute('aria-disabled'), sel).toBe('true');
+      expect(add?.getAttribute('aria-describedby'), sel).toBe(lines[0]?.id);
+    }
+  });
+
+  it('an item like one above it warns in its form, without blocking', async () => {
+    const twin: ContextMenuItem = { ...custom, id: 'ega-custom-twin', task: 'translate', order: 9 };
+    const { container } = render(ContextMenuManager, {
+      props: makeProps({ s: { contextMenuItems: [...DEFAULT_CONTEXT_MENU_ITEMS, twin] } }),
+    });
+    await fireEvent.click(
+      row(container, twin.id).querySelector('[data-ega-cm-edit]') as HTMLElement,
+    );
+    expect(row(container, twin.id).querySelector('[data-ega-cm-twin]')?.textContent.trim()).toBe(
+      'Same as "Translate" above',
+    );
+    // The first of the pair has nothing above it to repeat.
+    await fireEvent.click(
+      row(container, 'ega-translate-selection').querySelector('[data-ega-cm-edit]') as HTMLElement,
+    );
+    expect(
+      row(container, 'ega-translate-selection').querySelector('[data-ega-cm-twin]'),
+    ).toBeNull();
+  });
+
+  it('an image item says what language it answers in, where text items pick one', async () => {
+    const { container } = render(ContextMenuManager, { props: makeProps() });
+    const image = row(container, 'ega-translate-image');
+    await fireEvent.click(image.querySelector('[data-ega-cm-edit]') as HTMLElement);
+    expect(image.querySelector('[data-ega-cm-image-lang]')?.textContent.trim()).toBe(
+      'Image actions answer in your default target language',
+    );
+    expect(image.querySelector('[data-ega-cm-targetlang]')).toBeNull();
   });
 });

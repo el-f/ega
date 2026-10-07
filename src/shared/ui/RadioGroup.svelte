@@ -1,6 +1,6 @@
 <script lang="ts">
   import { RadioGroup } from 'bits-ui';
-  import type { Component } from 'svelte';
+  import type { Component, Snippet } from 'svelte';
   import Icon from './Icon.svelte';
 
   type Orientation = 'vertical' | 'horizontal';
@@ -29,6 +29,8 @@
     disabled?: boolean;
     orientation?: Orientation;
     dataAttrs?: Record<string, string | number | boolean | undefined>;
+    /** Content under one option, indented to its label (a setting that belongs to that choice). */
+    after?: Snippet<[string]>;
   }
 
   let {
@@ -39,6 +41,7 @@
     disabled = false,
     orientation = 'vertical',
     dataAttrs,
+    after,
   }: Props = $props();
 </script>
 
@@ -73,6 +76,7 @@
         {/if}
       </span>
     </label>
+    {#if after}{@render after(option.value)}{/if}
   {/each}
 </RadioGroup.Root>
 

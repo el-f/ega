@@ -11,6 +11,10 @@
     /** Visible caption. A `<span>`, not a `<label for>`: a label would proxy clicks to the Record button. */
     label?: string;
     disabled?: boolean;
+    /** Keeps the Tab stop and is announced as unavailable; Record does nothing. Pair it with describedBy. */
+    ariaDisabled?: boolean;
+    /** Id of the visible line that says why. */
+    describedBy?: string;
     /** Accent dot marking a value changed from its default. Shows only when `label` is set. */
     modified?: boolean;
   }
@@ -21,6 +25,8 @@
     clearAriaLabel = 'Clear shortcut',
     label,
     disabled = false,
+    ariaDisabled = false,
+    describedBy,
     modified = false,
   }: Props = $props();
 
@@ -65,12 +71,12 @@
   }
 
   function toggle(): void {
-    if (disabled) return;
+    if (disabled || ariaDisabled) return;
     recording = !recording;
   }
 
   function clear(): void {
-    if (disabled) return;
+    if (disabled || ariaDisabled) return;
     onchange('');
     recording = false;
   }
@@ -82,14 +88,20 @@
       >{/if}</span
   >
 {/if}
-<div class="shortcut-input" class:is-recording={recording} class:is-disabled={disabled}>
-  <kbd class="combo">{value || (recording ? 'Press keys…' : '—')}</kbd>
+<div
+  class="shortcut-input"
+  class:is-recording={recording}
+  class:is-disabled={disabled || ariaDisabled}
+>
+  <kbd class="combo">{value || (recording ? 'Press keys...' : '—')}</kbd>
   <button
     type="button"
     bind:this={btn}
     class="record-btn"
     aria-label={ariaLabel}
     aria-pressed={recording}
+    aria-disabled={ariaDisabled ? 'true' : undefined}
+    aria-describedby={describedBy}
     data-ega-owns-escape={recording || undefined}
     {disabled}
     onclick={toggle}
@@ -98,7 +110,7 @@
   >
     {recording ? 'Cancel' : 'Record'}
   </button>
-  {#if value && !disabled}
+  {#if value && !disabled && !ariaDisabled}
     <button type="button" class="clear-btn" aria-label={clearAriaLabel} onclick={clear}>
       Clear
     </button>
@@ -127,7 +139,7 @@
   }
   .combo {
     display: inline-block;
-    /* Fits "Press keys…" and a 12-char combo, so recording never widens the box under the cursor. */
+    /* Fits "Press keys..." and a 12-char combo, so recording never widens the box under the cursor. */
     min-width: calc(12ch + var(--space-2) * 2 + 2px);
     padding: var(--space-1) var(--space-2);
     border: 1px solid var(--color-border);
@@ -154,11 +166,12 @@
     color: var(--color-fg);
     cursor: pointer;
   }
-  .record-btn:hover:not(:disabled),
+  .record-btn:hover:not(:disabled, [aria-disabled='true']),
   .clear-btn:hover {
     background: var(--color-bg-hover);
   }
-  .record-btn:disabled {
+  .record-btn:disabled,
+  .record-btn[aria-disabled='true'] {
     opacity: 0.55;
     cursor: not-allowed;
   }
