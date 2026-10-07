@@ -86,6 +86,12 @@ export function showToast(message: string, opts: ToastOptions = {}): () => void 
     // A control outside the toast. A window switch back re-focuses the toast with no relatedTarget; the saved one stays.
     if (from instanceof HTMLElement && !anchor.contains(from)) own.cameFrom = from;
   });
+  // Focus left the toast for good (a window switch keeps it here): there is nothing to give back later.
+  anchor.addEventListener('focusout', () =>
+    queueMicrotask(() => {
+      if (!anchor.contains((anchor.getRootNode() as ShadowRoot).activeElement)) own.cameFrom = null;
+    }),
+  );
   mine = own;
   active = own;
   return dismiss;

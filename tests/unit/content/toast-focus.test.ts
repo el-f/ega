@@ -77,6 +77,23 @@ describe('in-page toast and keyboard focus', () => {
     expect(document.activeElement).toBe(row);
   });
 
+  it('forgets the control once the user left the toast for the page body', async () => {
+    showToast('Ega was updated. Reload the page.', {
+      kind: 'warning',
+      action: { label: 'Reload page', run: () => {} },
+    });
+    const close = toastPart(' [data-ega-toast-close]') as HTMLElement;
+    close.focus();
+    // The user clicks the page background, then the toast's X.
+    close.blur();
+    await Promise.resolve();
+    expect(document.activeElement).toBe(document.body);
+    close.focus();
+    close.click();
+    expect(toastPart()).toBeNull();
+    expect(document.activeElement).toBe(document.body);
+  });
+
   it('leaves focus where the user moved it', () => {
     const field = document.createElement('input');
     document.body.appendChild(field);
