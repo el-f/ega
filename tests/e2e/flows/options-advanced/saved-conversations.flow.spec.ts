@@ -97,7 +97,7 @@ test('Delete empties an open side panel for that thread, and Delete all removes 
   expect(general?.turns).toEqual([]);
   timeline.markStep('no-write-back');
 
-  await card.getByRole('button', { name: 'Delete all', exact: true }).click();
+  await card.locator('[data-ega-conv-delete-all]').click();
   const clearDialog = options.locator('.ega-dialog', { hasText: 'Delete all conversations?' });
   await expect(clearDialog).toBeVisible({ timeout: 5_000 });
   await clearDialog.getByRole('button', { name: 'Delete all', exact: true }).click();

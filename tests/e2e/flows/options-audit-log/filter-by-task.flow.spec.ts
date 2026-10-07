@@ -84,4 +84,17 @@ test('task filter narrows the audit-log list and surfaces match count', async ()
   await expect(page.locator('[data-ega-audit-entry="f-b"]')).toBeVisible();
   await expect(page.locator('[data-ega-audit-entry="f-c"]')).toHaveCount(0);
   await expect(page.locator('[data-ega-audit-match-count]')).toHaveText(/1\s+match\b/);
+
+  // Clear filters beside the count brings every request back.
+  await page.locator('[data-ega-audit-clear-filters]').click();
+  await expect(page.locator('[data-ega-audit-entry]')).toHaveCount(3);
+
+  // A task with no requests: one line that says so, with its own Clear filters.
+  await page
+    .locator('[data-ega-audit-filters] [data-ega-audit-filter-task]')
+    .selectOption('grammar');
+  const none = page.locator('[data-ega-audit-no-match]');
+  await expect(none).toContainText('No request matches these filters');
+  await none.getByRole('button', { name: 'Clear filters' }).click();
+  await expect(page.locator('[data-ega-audit-entry]')).toHaveCount(3);
 });

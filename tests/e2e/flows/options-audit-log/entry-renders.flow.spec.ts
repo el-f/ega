@@ -50,4 +50,9 @@ test('seeded audit-log entry renders under Diagnostics sub-tab', async () => {
   await expect(page.locator('[data-ega-audit-entry="flow-test-1"]')).toBeVisible({
     timeout: 5_000,
   });
+  // The row reads in words: the backend's name and the status, not ids.
+  const row = page.locator('[data-ega-audit-entry="flow-test-1"]');
+  await expect(row.locator('[data-ega-audit-status]')).toHaveText('OK');
+  await expect(row).toContainText('Anthropic');
+  await expect(row).toContainText('420 ms');
 });

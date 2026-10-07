@@ -31,6 +31,16 @@ test('Delete all data with the wrong word does nothing, and Keep my data leaves 
   await expect(dialog).toBeVisible({ timeout: 5_000 });
   const field = dialog.locator('[data-ega-delete-all-field]');
   await expect(field).toBeFocused();
+  await expect(page.locator('[data-ega-delete-all-dialog]')).toContainText(
+    'This cannot be undone.',
+  );
+
+  // A backup first, without leaving the dialog.
+  const download = page.waitForEvent('download');
+  await dialog.locator('[data-ega-delete-all-export]').click();
+  expect((await download).suggestedFilename()).toMatch(/^ega-settings-.+\.json$/);
+  await expect(dialog).toContainText('Exported to a file');
+  await field.focus();
 
   // The red button keeps its Tab stop and names its reason, but does nothing yet.
   const confirmBtn = page.locator('[data-ega-delete-all-confirm]');
