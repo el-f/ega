@@ -2750,6 +2750,22 @@ test.describe('Sidepanel redesign', () => {
       { perShot: (p) => openReplyMenu(p, 'more') },
     );
     await sp.keyboard.press('Escape');
+    await matrix(
+      sp,
+      'more-menu-keyboard',
+      'More opened with the keyboard on the newest reply',
+      ['the first item has a 2px accent ring inside the menu; More reads as pressed'],
+      {
+        widths: [WIDTHS[0]],
+        perShot: async (p) => {
+          if ((await p.locator('[role="menu"]').count()) > 0) return;
+          await p.locator('[data-ega-reply]').last().locator('[data-ega-action="more"]').focus();
+          await p.keyboard.press('Enter');
+          await p.locator('[role="menu"]').waitFor({ state: 'visible' });
+        },
+      },
+    );
+    await sp.keyboard.press('Escape');
     await openReplyMenu(sp, 'refine');
     await sp.locator('[data-ega-translate-into-other]').click();
     await sp.locator('[data-ega-translate-into-run]').waitFor({ state: 'visible' });
