@@ -119,18 +119,21 @@ describe('ContextMenuManager — the card is the menu', () => {
     const { container } = render(ContextMenuManager, { props: makeProps() });
     await tick();
     const toolbars = Array.from(container.querySelectorAll<HTMLElement>('[role="toolbar"]'));
-    expect(toolbars).toHaveLength(6);
+    expect(toolbars).toHaveLength(7);
     for (const bar of toolbars) {
       const stops = bar.querySelectorAll('button[tabindex="0"]');
       expect(stops).toHaveLength(1);
-      expect(stops[0]?.textContent).toContain('Edit');
       expect(bar.getAttribute('aria-label')).toMatch(/^Actions for /);
+      // The site toggle has no Edit, so its one stop is the arrow that can move.
+      const site = bar.closest('[data-ega-cm-id="ega-toggle-site"]') !== null;
+      if (site) expect(stops[0]?.getAttribute('aria-label')).toMatch(/^Move .* up$/);
+      else expect(stops[0]?.textContent).toContain('Edit');
     }
-    // Defaults: 7 checkboxes (the site toggle's is fixed on) + 6 toolbars + 2 site-toggle arrows + 2 Add buttons + (i).
+    // Defaults: 7 checkboxes (the site toggle's is fixed on) + 7 toolbars + 2 Add buttons + (i).
     const tabbable = Array.from(
       container.querySelectorAll<HTMLElement>('button, input, select, [tabindex]'),
     ).filter((el) => el.tabIndex >= 0 && !el.closest('[hidden]'));
-    expect(tabbable).toHaveLength(18);
+    expect(tabbable).toHaveLength(17);
   });
 
   it('keeps the drag grip out of the keyboard and screen-reader path', async () => {

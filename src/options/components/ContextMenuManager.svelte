@@ -328,6 +328,7 @@
   // cannot move (R48). They step from the focused button's own place, so from an end arrow that kept
   // focus after a move, Left and Right still go the way they point.
   function onToolbarKeydown(e: KeyboardEvent, id: string, enabled: Tool[]): void {
+    if (enabled.length === 0) return;
     let tool: Tool | undefined;
     if (e.key === 'Home') tool = enabled[0];
     else if (e.key === 'End') tool = enabled.at(-1);
@@ -709,7 +710,18 @@
                       </span>
 
                       {#if item.kind === 'site-toggle'}
-                        <span class="cm-tools">
+                        {@const arrows = tools.filter((t) => t !== 'edit')}
+                        {@const stop =
+                          tool !== 'edit' && arrows.includes(tool) ? tool : (arrows[0] ?? 'up')}
+                        <!-- The same roving toolbar as every other row, without Edit (K-10). -->
+                        <span
+                          class="cm-tools"
+                          role="toolbar"
+                          tabindex="-1"
+                          aria-label="Actions for {name}"
+                          onkeydown={(e) => onToolbarKeydown(e, item.id, arrows)}
+                          onfocusin={(e) => onToolbarFocusIn(e, item.id)}
+                        >
                           <IconButton
                             icon={ArrowUp}
                             ariaLabel={atTop ? `Move ${name} up, already first` : `Move ${name} up`}
@@ -718,6 +730,7 @@
                             dataAttrs={{
                               'data-ega-cm-up': true,
                               'aria-disabled': atTop ? 'true' : undefined,
+                              tabindex: stop === 'up' ? 0 : -1,
                             }}
                             onclick={() => void move(item, -1, 'up')}
                           />
@@ -731,6 +744,7 @@
                             dataAttrs={{
                               'data-ega-cm-down': true,
                               'aria-disabled': atEnd ? 'true' : undefined,
+                              tabindex: stop === 'down' ? 0 : -1,
                             }}
                             onclick={() => void move(item, 1, 'down')}
                           />
@@ -1135,7 +1149,7 @@
   }
   .cm-field-label {
     font-size: var(--fs-sm);
-    font-weight: 500;
+    font-weight: 600;
     color: var(--color-fg);
   }
   .cm-field {
