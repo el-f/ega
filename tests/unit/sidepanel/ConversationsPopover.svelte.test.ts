@@ -248,3 +248,24 @@ describe('the Delete focus ring', () => {
     );
   });
 });
+
+// Spec §1.10 and R15: the box keeps the panel's 12px gutter, and the group labels, the Undo row and the
+// footer start on the popover title's edge. Measured on the captures; jsdom has no layout.
+describe('the Conversations box and its text edge', () => {
+  const src = readFileSync('src/sidepanel/ConversationsPopover.svelte', 'utf8');
+  const rule = (selector: string): string => {
+    const body = new RegExp(`${selector}\\s*\\{([^}]*)\\}`).exec(src)?.[1];
+    if (body === undefined) throw new Error(`rule not found: ${selector}`);
+    return body;
+  };
+
+  it('is min(360px, 100vw - 24px) wide once the popover adds its padding and border', () => {
+    expect(rule('\\.cv')).toMatch(/inline-size:\s*min\(342px, calc\(100vw - 42px\)\)/);
+  });
+
+  it('adds no inline padding before the group labels, the Undo row text and the footer', () => {
+    expect(rule('\\.cv-group')).not.toMatch(/padding-inline/);
+    expect(rule('\\.cv-undo')).toMatch(/padding-inline:\s*0 var\(--space-1\);/);
+    expect(rule('\\.cv-empty,\\s*\\.cv-foot')).not.toMatch(/padding-inline/);
+  });
+});

@@ -275,11 +275,13 @@
 {/if}
 
 <style>
+  /* The popover adds 8px of padding and a 1px border on each side, so its box is min(360px, 100vw - 24px):
+     the panel's 12px gutter on both sides (spec §1.10). */
   .cv {
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
-    inline-size: min(360px, calc(100vw - 40px));
+    inline-size: min(342px, calc(100vw - 42px));
     max-block-size: min(480px, calc(100vh - 64px));
     font-size: var(--fs-sm);
     line-height: var(--lh-body);
@@ -288,9 +290,9 @@
     overflow-y: auto;
     min-block-size: 0;
   }
+  /* No inline padding here, on the Undo row or on the footer: their text starts on the popover title's edge (R15). */
   .cv-group {
     margin: var(--space-2) 0 var(--space-1);
-    padding-inline: var(--space-2);
     font-size: var(--fs-sm);
     font-weight: 600;
     color: var(--color-muted);
@@ -365,7 +367,7 @@
     justify-content: space-between;
     gap: var(--space-2);
     min-block-size: 48px;
-    padding: 0 var(--space-1) 0 var(--space-2);
+    padding-inline: 0 var(--space-1);
     color: var(--color-muted);
   }
   .cv-error {
@@ -378,7 +380,6 @@
   .cv-empty,
   .cv-foot {
     margin: 0;
-    padding-inline: var(--space-2);
     color: var(--color-muted);
     font-size: var(--fs-sm);
   }
