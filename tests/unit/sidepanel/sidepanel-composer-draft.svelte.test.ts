@@ -7,6 +7,7 @@ import SidePanel from '@/sidepanel/SidePanel.svelte';
 import { confirmDialog } from '@/shared/components/confirmDialog';
 import type { Msg } from '@/shared/messages';
 import { openMenu } from './_reply';
+import { writePendingPopupHandoff } from '@/shared/pending-popup-handoff';
 
 vi.mock('@/shared/components/confirmDialog', () => ({
   confirmDialog: vi.fn().mockResolvedValue(true),
@@ -292,5 +293,113 @@ describe('SidePanel — Edit from here never overwrites a draft', () => {
     );
     expect(confirmMock).not.toHaveBeenCalled();
     expect(composer(container).value).toBe('half-written');
+  });
+});
+
+describe('SidePanel — Edit from here removes nothing until the edit is sent (F11)', () => {
+  const bubbles = (c: HTMLElement): string[] =>
+    Array.from(c.querySelectorAll<HTMLElement>('[data-ega-user-bubble]')).map((b) =>
+      b.textContent.trim(),
+    );
+
+  async function editOlder(container: HTMLElement): Promise<void> {
+    await sendAndDrain(container, 'first');
+    await sendAndDrain(container, 'second');
+    const older = container.querySelector<HTMLElement>('.ega-user-turn [data-ega-edit]');
+    if (!older) throw new Error('older Edit missing');
+    await fireEvent.click(older);
+    await waitFor(() => expect(container.querySelector('[data-ega-mode-banner]')).not.toBeNull());
+  }
+
+  it('enters edit mode with every message kept, and Cancel editing leaves them all', async () => {
+    const { container } = render(SidePanel);
+    await tick();
+    await editOlder(container);
+
+    expect(confirmMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Edit from here?',
+        body: 'Sending your edit removes the 3 messages after it.',
+      }),
+    );
+    expect(container.querySelector('[data-ega-mode-banner]')?.textContent).toContain(
+      'Editing your message',
+    );
+    expect(composer(container).value).toBe('first');
+    expect(bubbles(container)).toEqual(['first', 'second']);
+    expect(container.querySelectorAll('[data-ega-user-bubble].editing')).toHaveLength(1);
+    expect(container.querySelector('[data-ega-user-bubble].editing')?.textContent).toContain(
+      'first',
+    );
+
+    const cancel = container.querySelector<HTMLElement>('[aria-label="Cancel editing"]');
+    if (!cancel) throw new Error('Cancel editing missing');
+    await fireEvent.click(cancel);
+    await waitFor(() => expect(container.querySelector('[data-ega-mode-banner]')).toBeNull());
+    expect(composer(container).value).toBe('');
+    expect(bubbles(container)).toEqual(['first', 'second']);
+  });
+
+  it('Esc after a change asks first, then leaves every message in place', async () => {
+    const { container } = render(SidePanel);
+    await tick();
+    await editOlder(container);
+    await fireEvent.input(composer(container), { target: { value: 'first, changed' } });
+    await tick();
+    confirmMock.mockClear();
+
+    await fireEvent.keyDown(window, { key: 'Escape' });
+    await waitFor(() => expect(container.querySelector('[data-ega-mode-banner]')).toBeNull());
+    expect(confirmMock).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Discard your edit?' }),
+    );
+    expect(composer(container).value).toBe('');
+    expect(bubbles(container)).toEqual(['first', 'second']);
+  });
+
+  it('sending the edit replaces that message and everything after it', async () => {
+    const { container } = render(SidePanel);
+    await tick();
+    await editOlder(container);
+    sendMessage.mockClear();
+    sendMessage.mockResolvedValue({ ok: true });
+
+    await fireEvent.input(composer(container), { target: { value: 'first, edited' } });
+    await tick();
+    await fireEvent.click(container.querySelector('.ega-send') as HTMLElement);
+
+    await waitFor(() => expect(bubbles(container)).toEqual(['first, edited']));
+    const starts = (sendMessage.mock.calls as Array<[Msg]>).filter(
+      ([m]) => m.kind === 'translate:start',
+    );
+    expect(starts).toHaveLength(1);
+    expect(container.querySelector('[data-ega-mode-banner]')).toBeNull();
+    expect(composer(container).value).toBe('');
+  });
+
+  it('a message that lands during the edit ends it, so the send removes nothing', async () => {
+    const { container } = render(SidePanel);
+    await tick();
+    await editOlder(container);
+    await fireEvent.input(composer(container), { target: { value: 'first, edited' } });
+    await tick();
+
+    // A tooltip answer handed to the panel while the edit is open.
+    await writePendingPopupHandoff({
+      sourceText: 'from the page',
+      sourceLang: 'auto',
+      targetLang: 'en',
+      task: 'translate',
+      tone: 'neutral',
+      response: 'answer',
+    });
+    await waitFor(() => expect(bubbles(container)).toEqual(['first', 'second', 'from the page']));
+    await waitFor(() => expect(container.querySelector('[data-ega-mode-banner]')).toBeNull());
+    expect(composer(container).value).toBe('first, edited');
+
+    await fireEvent.click(container.querySelector('.ega-send') as HTMLElement);
+    await waitFor(() =>
+      expect(bubbles(container)).toEqual(['first', 'second', 'from the page', 'first, edited']),
+    );
   });
 });

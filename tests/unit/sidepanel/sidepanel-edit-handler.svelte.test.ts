@@ -49,7 +49,7 @@ afterEach(() => {
 });
 
 describe('SidePanel — onEditTurn mid-history handler', () => {
-  it('edit on first user turn (mid-history): prefills composer + removes later exchange', async () => {
+  it('edit on first user turn (mid-history): prefills composer in edit mode, every message kept until the send', async () => {
     const { container } = render(SidePanel);
     await tick();
 
@@ -76,8 +76,11 @@ describe('SidePanel — onEditTurn mid-history handler', () => {
     // Composer should be prefilled with the first turn's text
     expect(textarea.value).toBe('first message');
 
-    // Second exchange should be gone — only the first user turn visible
+    // Nothing goes until the edit is sent (spec F11), and the composer shows the edit banner
     const remainingUserTurns = container.querySelectorAll('.ega-user-turn');
-    expect(remainingUserTurns.length).toBe(0);
+    expect(remainingUserTurns.length).toBe(2);
+    expect(container.querySelector('[data-ega-mode-banner]')?.textContent).toContain(
+      'Editing your message',
+    );
   });
 });

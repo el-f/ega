@@ -310,6 +310,9 @@
           );
           if (prior?.status === 'done' && prior.content) preservedResponse = prior.content;
           conversation.dropLastUserExchange();
+        } else {
+          // Edit from here: the message and everything after it go now, when the edit is sent.
+          conversation.editFrom(editingTurnId);
         }
         composerMode = { kind: 'send' };
         draftBeforeEdit = '';
@@ -479,10 +482,15 @@
       });
       return;
     }
+    enterEdit(last.id, last.content);
+  }
+
+  /** The composer takes the message text; the draft waits, and leaving the mode puts it back. */
+  function enterEdit(turnId: string, text: string): void {
     flushDraftSave();
     draftBeforeEdit = sourceText;
-    sourceText = last.content;
-    composerMode = { kind: 'edit', turnId: last.id };
+    sourceText = text;
+    composerMode = { kind: 'edit', turnId, lastId: conversation.lastUserTurn()?.id ?? turnId };
     void tick().then(focusComposer);
   }
 
@@ -499,7 +507,7 @@
     return true;
   }
 
-  // A mid-history turn needs a confirm before truncating; the last turn reuses pullLastUserTurnIntoInput.
+  // An older message needs a confirm: sending its edit removes what follows. The newest reuses pullLastUserTurnIntoInput.
   async function onEditTurn(turnId: string): Promise<void> {
     if (conversation.inflightId !== null) return;
     const userTurns = conversation.turns.filter((t) => t.role === 'user');
@@ -523,18 +531,21 @@
     const later = conversation.turns.length - turnIdx - 1;
     const ok = await confirmDialog({
       title: 'Edit from here?',
-      body: `This removes the ${later} ${later === 1 ? 'message' : 'messages'} after it.`,
+      body: `Sending your edit removes the ${later} ${later === 1 ? 'message' : 'messages'} after it.`,
       confirmLabel: 'Remove and edit',
       cancelLabel: 'Keep messages',
       danger: true,
     });
     if (!ok) return;
-    const text = conversation.editFrom(turnId);
-    if (text === null) return;
-    sourceText = text;
-    composerMode = { kind: 'send' };
-    await tick();
-    focusComposer();
+    // The confirm stays open while the thread can move: a reply, another mode or a delete since then wins.
+    if (
+      conversation.inflightId !== null ||
+      composerMode.kind !== 'send' ||
+      !conversation.turns.some((t) => t.id === turnId)
+    ) {
+      return;
+    }
+    enterEdit(turnId, content);
   }
 
   /** Settles when the first follow of the tab is over, failed or not: a seed or handoff heard before it waits for it. */
@@ -673,10 +684,14 @@
     });
   }
 
-  // A handoff, a seed or another window's turn can land after it, and sendTurn only replaces the last one.
+  // A handoff, a seed or another window's turn can land after it, or the message can go; either way the edit is a new message now.
   $effect(() => {
+    const mode = composerMode;
     const last = conversation.lastUserTurn()?.id;
-    if (editingTurnId !== null && last !== editingTurnId) detachEdit();
+    if (mode.kind !== 'edit') return;
+    if (last !== mode.lastId || !conversation.turns.some((t) => t.id === mode.turnId)) {
+      detachEdit();
+    }
   });
 
   // The reply a described change targets left the thread (another conversation opened, or it was deleted).

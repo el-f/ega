@@ -8,9 +8,12 @@ import { TONE_LABELS, type Tone } from '@/shared/task-prompts';
 const MINUTE = 60_000;
 const DAY = 24 * 60 * MINUTE;
 
-/** What the next Send does: a new message, a replacement for one, or a change to one reply. */
+/** What the next Send does: a new message, a replacement for one, or a change to one reply.
+ *  An edit keeps `lastId`, the newest message when it began: a newer one means the thread moved on. */
 export type ComposerMode =
-  { kind: 'send' } | { kind: 'edit'; turnId: string } | { kind: 'refine'; turnId: string };
+  | { kind: 'send' }
+  | { kind: 'edit'; turnId: string; lastId: string }
+  | { kind: 'refine'; turnId: string };
 
 /** The empty panel's three suggestions. */
 export type SuggestionKind = 'translate-selection' | 'explain-selection' | 'translate-page';

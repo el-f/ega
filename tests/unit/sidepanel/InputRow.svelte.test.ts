@@ -173,7 +173,11 @@ describe('row A: the mode chip and what goes with the next send', () => {
     ];
     // The send replaces the edited message and its reply, so they go out as the message, not as history.
     const { container } = render(InputRow, {
-      props: { ...composerProps(), turns, mode: { kind: 'edit' as const, turnId: 'u2' } },
+      props: {
+        ...composerProps(),
+        turns,
+        mode: { kind: 'edit' as const, turnId: 'u2', lastId: 'u2' },
+      },
     });
     expect(container.querySelector('[data-ega-next-send]')?.textContent).toContain(
       '2 earlier messages',
@@ -215,7 +219,10 @@ describe('row A: the mode chip and what goes with the next send', () => {
 
 describe('edit and refine modes', () => {
   it('a banner replaces the chip, and its x leaves the mode', async () => {
-    const props = { ...composerProps(), mode: { kind: 'edit' as const, turnId: 'u1' } };
+    const props = {
+      ...composerProps(),
+      mode: { kind: 'edit' as const, turnId: 'u1', lastId: 'u1' },
+    };
     const { container, rerender } = render(InputRow, { props });
     expect(container.querySelector('[data-ega-mode-chip]')).toBeNull();
     expect(container.querySelector('[data-ega-mode-banner]')?.textContent).toContain(
