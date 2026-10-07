@@ -1409,7 +1409,7 @@ export const COVERAGE: readonly Family[] = [
           {
             id: 'handoff-then-refine',
             description:
-              'Popup freeform handoff seeds sidepanel; quick-refine chip on the seeded turn spawns a refined variant',
+              'Popup freeform handoff seeds sidepanel; a Refine preset (Shorter) on the seeded turn adds a version',
             flows: ['integration/popup-sidepanel-handoff/handoff-then-refine.flow.spec.ts'],
           },
           {
@@ -1439,7 +1439,7 @@ export const COVERAGE: readonly Family[] = [
           {
             id: 'warm-handoff-then-refine',
             description:
-              'Sidepanel open first; popup handoff arrives via storage.onChanged; refine chip works on delivered turn',
+              'Sidepanel open first; popup handoff arrives via storage.onChanged; a Refine preset on the delivered turn adds a version',
             flows: ['integration/popup-sidepanel-handoff/warm-handoff-then-refine.flow.spec.ts'],
           },
         ],
@@ -1520,13 +1520,13 @@ export const COVERAGE: readonly Family[] = [
           {
             id: 'escalation-then-refine',
             description:
-              'Tooltip explain → Pin seeds sidepanel; quick-refine [Shorter] on seeded turn spawns variant',
+              'Tooltip explain → Pin seeds sidepanel; Refine > Shorter on the seeded turn adds a version',
             flows: ['integration/tooltip-sidepanel-escalation/escalation-then-refine.flow.spec.ts'],
           },
           {
             id: 'image-ocr-escalation-refine-blocked',
             description:
-              'Image OCR tooltip → sidepanel seeds image turn; refine chips are absent (non-refinable)',
+              'Image OCR tooltip → sidepanel seeds image turn; its Refine menu has no presets, only the language items',
             flows: [
               'integration/tooltip-sidepanel-escalation/image-ocr-escalation-refine-blocked.flow.spec.ts',
             ],

@@ -2236,6 +2236,8 @@ const PANEL_SEED = {
 interface MatrixOpts {
   /** Runs before each capture, for states a resize or a theme switch closes (menus, hover). */
   perShot?: (sp: Page) => Promise<void>;
+  /** A hover state: the pointer stays where perShot put it. Every other shot parks it, so no stray tooltip shows. */
+  hover?: boolean;
   /** The composer keeps focus (the "focused" states). */
   keepFocus?: boolean;
   widths?: readonly (typeof WIDTHS)[number][];
@@ -2273,8 +2275,7 @@ async function matrix(
           userAction: `${userAction} (${w.at})`,
           expectations,
         },
-        // Hover states keep the pointer where the state put it.
-        opts.perShot ? { skipPark: true } : {},
+        opts.hover ? { skipPark: true } : {},
       );
     }
   }
@@ -2340,6 +2341,7 @@ test.describe('Sidepanel redesign', () => {
       'pointer on the user bubble',
       ['a raised toolbar (Copy, Edit, More) floats over the bubble top edge; nothing moved'],
       {
+        hover: true,
         perShot: async (p) => {
           await p.locator('[data-ega-user-bubble]').first().hover();
           await p.waitForTimeout(200); // wait for the 120ms fade (no observable end state)
@@ -2373,7 +2375,8 @@ test.describe('Sidepanel redesign', () => {
     test.setTimeout(360_000);
     const turns: Record<string, unknown>[] = [];
     for (let i = 0; i < 34; i++) {
-      const at = i < 20 ? T(60 * 24 + 200 - i) : T(120 - i);
+      // Three days, so the loaded window opens on a new day ("Yesterday") and "Today" comes further down.
+      const at = i < 5 ? T(60 * 48 + 200 - i) : i < 20 ? T(60 * 24 + 200 - i) : T(120 - i);
       turns.push(user(`u${i}`, `mensaje número ${i}`, at));
       turns.push(reply(`a${i}`, `u${i}`, at, { content: `Message number ${i}.` }));
     }
@@ -2396,16 +2399,43 @@ test.describe('Sidepanel redesign', () => {
     );
     const sp = await panelWith([{ id: SITE, turns }]);
     await sp.locator('[data-ega-show-earlier]').waitFor({ state: 'visible' });
-    await sp
-      .locator('.ega-conv-stream')
-      .evaluate((el) => (el.scrollTop = el.scrollHeight - el.clientHeight - 600));
-    await sp.locator('[data-ega-jump-latest]').waitFor({ state: 'visible' });
-    await matrix(sp, 'long-thread', '70 turns, scrolled up a little', [
-      '"Show 10 earlier messages" at the top of the loaded window',
-      'separators between days, a task label only where the task changes',
-      'older replies hide their action row (28px kept); a "Jump to latest" pill shows',
-      'code block, table and long URL stay inside the column',
-    ]);
+    await matrix(
+      sp,
+      'long-thread-top',
+      '70 turns, scrolled to the top of the loaded window',
+      [
+        '"Show 10 earlier messages" at the top, then the "Yesterday" day separator',
+        'older replies hide their action row (28px kept); a "Jump to latest" pill shows',
+      ],
+      {
+        perShot: async (p) => {
+          await p.locator('.ega-conv-stream').evaluate((el) => (el.scrollTop = 0));
+          await p.locator('[data-ega-jump-latest]').waitFor({ state: 'visible' });
+        },
+      },
+    );
+    await matrix(
+      sp,
+      'long-thread-end',
+      '70 turns, the last pair (an Explain) scrolled to the top',
+      [
+        'a day separator and the "Explain" task label over the long message, which notes it was cut',
+        'the Markdown answer: list, code block, table and long URL stay inside the column',
+        'notes, then one meta line and one action row',
+      ],
+      {
+        perShot: async (p) => {
+          await p
+            .locator('[data-ega-day-separator]')
+            .last()
+            .evaluate((el) => {
+              el.scrollIntoView({ block: 'start' });
+              // scrollIntoView ignores the separator's own top margin; keep it off the header's edge.
+              el.closest('.ega-conv-stream')?.scrollBy(0, -16);
+            });
+        },
+      },
+    );
     await sp.close();
   });
 
@@ -2460,6 +2490,15 @@ test.describe('Sidepanel redesign', () => {
           }),
           user('u4', 'hola', T(25)),
           reply('a4', 'u4', T(25), { meta: realMeta({ cacheHit: true }), bookmarked: true }),
+          user('u5', 'yalla bye habibi', T(22), {
+            dispatch: { sourceLang: 'auto', targetLang: 'zh-TW', stream: true },
+          }),
+          reply('a5', 'u5', T(22), {
+            content: '走吧，再見。',
+            detectedLangs: [{ id: 'arabizi', detail: 'Levantine' }, { id: 'en' }],
+            detectedLang: 'arabizi',
+            meta: realMeta({ targetLang: 'zh-TW' }),
+          }),
         ],
       },
     ]);
@@ -2469,6 +2508,7 @@ test.describe('Sidepanel redesign', () => {
       'replies with mixed languages, low confidence, a fallback and a cache hit',
       [
         'every meta line is one line; items that do not fit drop whole, confidence first',
+        'a direction wider than the reply shows its first words, never a cut word or an ellipsis',
         '"Low confidence (42%)" in the warning colour',
         '"Answered by Gemini · Anthropic failed"; "Saved answer" for the cache hit',
       ],
@@ -2512,6 +2552,8 @@ test.describe('Sidepanel redesign', () => {
     await versions.locator('.ega-pager-count', { hasText: '3/3' }).waitFor({ state: 'visible' });
     await versions.locator('[data-ega-variant-prev]').click();
     await versions.locator('.ega-pager-count', { hasText: '2/3' }).waitFor({ state: 'visible' });
+    // Focus stays on the arrow (its own state); this one is the pager, not a focused button with its label.
+    await versions.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
     await matrix(versions, 'versions', 'three versions, version 3 still loading behind version 2', [
       'pager "2/3" at the end of the action row; meta line says "Version 3 loading…" and names "Shorter"',
     ]);
@@ -3107,10 +3149,12 @@ test.describe('Sidepanel redesign', () => {
         interimResults = false;
         continuous = false;
         onresult = null;
-        onend = null;
+        onend: (() => void) | null = null;
         onerror = null;
         start(): void {}
-        stop(): void {}
+        stop(): void {
+          queueMicrotask(() => this.onend?.());
+        }
       }
       (window as unknown as { SpeechRecognition: unknown }).SpeechRecognition = FakeRecognition;
       speechSynthesis.getVoices = () =>
@@ -3130,27 +3174,44 @@ test.describe('Sidepanel redesign', () => {
       'Add became a red "Stop dictation" in the same place',
     ]);
     await voice.locator('[aria-label="Stop dictation"]').click();
+    await voice.locator('[data-ega-add][aria-label="Add"]').waitFor({ state: 'visible' });
     await openReplyMenu(voice, 'more');
     await voice.locator('[data-ega-speak]').click();
     await voice.locator('[data-ega-meta-stop]').waitFor({ state: 'visible' });
-    await matrix(voice, 'reading-aloud', 'Read aloud playing', [
-      'meta line "Reading aloud · Stop"',
-    ]);
+    await matrix(
+      voice,
+      'reading-aloud',
+      'Read aloud playing, Stop reached with the keyboard',
+      [
+        'meta line "Reading aloud · Stop"; the composer shows Add again, not a dictation control',
+        'the focused Stop draws its whole 2px ring inside the meta line',
+      ],
+      {
+        perShot: async (p) => {
+          await p.locator('[data-ega-meta-stop]').focus();
+          await p.keyboard.press('Shift+Tab');
+          await p.keyboard.press('Tab');
+        },
+      },
+    );
     await voice.close();
 
     // Forced colours (400 only) and a wide window (light only).
     const fc = await panelWith([{ id: SITE, turns: FIRST_PAIR }]);
-    await fc.emulateMedia({ forcedColors: 'active' });
-    await matrix(
-      fc,
-      'forced-colors',
-      'first exchange with forced colours',
-      ['bubble, chip, box and buttons keep a visible edge'],
-      {
-        widths: [WIDTHS[0]],
-      },
-    );
-    await fc.emulateMedia({ forcedColors: 'none' });
+    for (const theme of ['light', 'dark'] as const) {
+      await fc.emulateMedia({ forcedColors: 'active', colorScheme: theme });
+      await matrix(
+        fc,
+        'forced-colors',
+        `first exchange with forced colours, the ${theme} system palette`,
+        ['bubble, chip, box and buttons keep a visible edge'],
+        { widths: [WIDTHS[0]], themes: [theme] },
+      );
+    }
+    const palette = (theme: string): Buffer =>
+      fs.readFileSync(path.join(CURRENT_DIR, `sidepanel-forced-colors-400-${theme}.png`));
+    expect(palette('light').equals(palette('dark')), 'two different system palettes').toBe(false);
+    await fc.emulateMedia({ forcedColors: 'none', colorScheme: null });
     await matrix(
       fc,
       'wide',
