@@ -15,8 +15,7 @@
   let cameFrom: HTMLElement | null = null;
   let holder: Element | null = null;
 
-  // A toast removed under the pointer or with focus inside may fire no pointerout or focusout, so the hold would
-  // stick. With the last toast sonner removes its whole list, so a removed node that holds a toast counts too.
+  // A toast removed under the pointer or focus may fire no out-event; with the last one sonner drops its whole list.
   $effect(() => {
     if (!host) return;
     const el = host;

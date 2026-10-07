@@ -6,7 +6,7 @@ import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import { IMAGE_DATA_URL_MAX_CHARS } from '@/shared/constants';
 import type { ErrCode } from '@/shared/types';
 
-const toastMock = vi.hoisted(() => ({ showToast: vi.fn() }));
+const toastMock = vi.hoisted(() => ({ showToast: vi.fn(), closeStickyToast: vi.fn() }));
 vi.mock('@/content/toast', () => toastMock);
 
 describe('escalateToSidepanel', () => {
