@@ -55,9 +55,9 @@ describe('the shortcuts panel is reachable from inside the palette', () => {
     const labels = Array.from(container.querySelectorAll<HTMLElement>('.ega-palette-item')).map(
       (el) => el.textContent.trim(),
     );
-    expect(labels).toContain('Search conversation');
     expect(labels).toContain('Show bookmarked only');
-    // Empty thread: New / export / cancel-all are disabled or hidden in the header, so they stay out.
+    // Empty thread: New, Search, export and cancel-all are not in the header, so they stay out.
+    expect(labels).not.toContain('Search conversation');
     expect(labels).not.toContain('New conversation');
     expect(labels).not.toContain('Copy conversation as Markdown');
     expect(labels).not.toContain('Cancel all requests');

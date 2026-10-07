@@ -124,7 +124,10 @@
   function closeSearch(): void {
     searchQuery = '';
     searchOpen = false;
-    document.querySelector<HTMLElement>('[data-ega-search-toggle]')?.focus();
+    // An empty thread renders no toggle (search opened from the palette): the message box takes focus.
+    const toggle = document.querySelector<HTMLElement>('[data-ega-search-toggle]');
+    if (toggle) toggle.focus();
+    else focusComposer();
   }
 
   async function toggleSearch(): Promise<void> {
@@ -624,8 +627,8 @@
               'conversation.new': () => void onNewConversation(),
               'conversation.export.markdown': () => void copyMarkdown(),
               'conversation.export.json': downloadJson,
+              'conversation.search': () => void toggleSearch(),
             }),
-        'conversation.search': () => void toggleSearch(),
         'conversation.bookmarks': () => (bookmarkFilter = !bookmarkFilter),
         ...(hasInflight ? { 'conversation.cancel-all': cancelAllInflight } : {}),
       },
@@ -683,12 +686,35 @@
     if (id !== null && !conversation.turns.some((t) => t.id === id)) focusedTurnId = null;
   });
 
-  /** Focuses a message's article; false when it is not on screen. */
+  /** Focuses a message's article and makes it the j/k/r one; false when it is not on screen. */
   function focusTurn(id: string | undefined): boolean {
     if (id === undefined) return false;
     const el = document.querySelector<HTMLElement>(`[data-turn-id="${CSS.escape(id)}"]`);
-    el?.focus();
-    return el !== null;
+    if (el === null) return false;
+    focusedTurnId = id;
+    el.focus();
+    return true;
+  }
+
+  /**
+   * Un-bookmarking under the bookmark filter removes the pair, and the menu that did it, from the list.
+   * Focus goes to the next message still shown, else the previous one, else the empty state's "Show all messages".
+   */
+  function onToggleBookmark(id: string): void {
+    const shown = filteredTurns.map((t) => t.id);
+    const at = shown.indexOf(id);
+    conversation.toggleBookmark(id);
+    if (!bookmarkFilter) return;
+    void tick().then(() =>
+      setTimeout(() => {
+        if (filteredTurns.some((t) => t.id === id)) return;
+        const users = filteredTurns.filter((t) => t.role === 'user');
+        const next = users.find((t) => shown.indexOf(t.id) > at);
+        const prev = [...users].reverse().find((t) => shown.indexOf(t.id) < at);
+        if (focusTurn(next?.id) || focusTurn(prev?.id)) return;
+        document.querySelector<HTMLElement>('[data-ega-no-bookmarks] button')?.focus();
+      }, 0),
+    );
   }
 
   /**
@@ -981,6 +1007,8 @@
     // Before the switch: a warning the switch itself raises (messages not kept) must stay.
     toastStore.closeSticky();
     if (!(await conversation.openConversation(id))) return false;
+    // A query or the bookmark filter was for the conversation the panel left.
+    clearFilters();
     focusedTurnId = null;
     await tick();
     focusComposer();
@@ -991,6 +1019,7 @@
   async function onNewConversation(): Promise<void> {
     if (conversation.turns.length === 0) return;
     const previous = await conversation.startNewConversation();
+    clearFilters();
     focusedTurnId = null;
     leaveRefine();
     composerMode = { kind: 'send' };
@@ -1195,7 +1224,7 @@
         toastStore.closeSticky();
         void conversation.regenerateVariant(id);
       }}
-      onBookmark={(id) => conversation.toggleBookmark(id)}
+      onBookmark={onToggleBookmark}
       onDelete={onDeleteTurn}
       onEdit={(id) => void onEditTurn(id)}
     />

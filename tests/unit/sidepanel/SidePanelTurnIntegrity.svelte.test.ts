@@ -111,8 +111,9 @@ describe('deleting a turn', () => {
     document.querySelector<HTMLElement>('[data-ega-delete]')?.click();
     await drainAsync();
     expect(users()).toHaveLength(1);
-    // Not the page body: the next message takes focus.
+    // Not the page body: the next message takes focus, and j/k/r start from it.
     expect(document.activeElement).toBe(users()[0]);
+    expect(users()[0]?.classList.contains('focused')).toBe(true);
 
     push.mock.calls
       .map((c) => c[0])
@@ -134,7 +135,7 @@ describe('deleting a turn', () => {
     expect(document.activeElement?.id).toBe('sp-text');
   }, 15000);
 
-  it('drops the focus ring with the turn, so Undo does not bring it back', async () => {
+  it('drops the ring with the turn; Undo focuses the restored message and the ring follows focus', async () => {
     const push = vi.spyOn(toastStore, 'push');
     await queueDeliveredHandoff('focus me');
     const { container } = render(SidePanel);
@@ -147,6 +148,8 @@ describe('deleting a turn', () => {
     await openMenu(container, 'more');
     document.querySelector<HTMLElement>('[data-ega-delete]')?.click();
     await drainAsync();
+    // Nothing is left to ring: focus went to the message box.
+    expect(container.querySelectorAll('.focused')).toHaveLength(0);
     push.mock.calls
       .map((c) => c[0])
       .find((m) => m.action?.label === 'Undo')
@@ -154,7 +157,9 @@ describe('deleting a turn', () => {
     await drainAsync();
 
     expect(container.querySelectorAll('[data-turn-id]')).toHaveLength(2);
-    expect(container.querySelectorAll('.focused')).toHaveLength(0);
+    const ringed = container.querySelectorAll<HTMLElement>('.focused');
+    expect(ringed).toHaveLength(1);
+    expect(ringed[0]).toBe(document.activeElement);
   }, 15000);
 });
 
