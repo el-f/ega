@@ -38,7 +38,26 @@ test('Esc cancels picker mode without firing a translate', async () => {
   await expect
     .poll(async () => (await egaTest<boolean>(page, 'pickerIsActive')) ?? false, { timeout: 3_000 })
     .toBe(true);
+  const overlay = page.locator('[data-ega-picker-wrap]');
+  await expect(overlay).toHaveCount(1);
   timeline.markStep('picker-entered');
+
+  // ? is the keyboard way into the bar: Keys takes focus and shows the key list.
+  await page.keyboard.press('?');
+  const keyList = page.locator('#ega-picker-keys-pick');
+  await expect(keyList).toBeVisible();
+  expect(
+    await page.evaluate(() =>
+      document
+        .getElementById('ega-shadow-host')
+        ?.shadowRoot?.activeElement?.hasAttribute('data-ega-picker-keys'),
+    ),
+  ).toBe(true);
+  // The first Esc closes only the key list; the mode stays.
+  await page.keyboard.press('Escape');
+  await expect(keyList).toBeHidden();
+  await expect(overlay).toHaveCount(1);
+  timeline.markStep('key-list-closed');
 
   await page.keyboard.press('Escape');
   timeline.markStep('escape-pressed');
@@ -46,6 +65,7 @@ test('Esc cancels picker mode without firing a translate', async () => {
   await expect
     .poll(async () => (await egaTest<boolean>(page, 'pickerIsActive')) ?? true, { timeout: 3_000 })
     .toBe(false);
+  await expect(overlay).toHaveCount(0);
 
   // No tooltip mounted, no backend hit.
   const tooltipCount = (await egaTest<number>(page, 'tooltipCount')) ?? 0;

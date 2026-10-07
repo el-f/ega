@@ -7,7 +7,9 @@
 ## State expectations
 
 - Step 1: picker overlay is mounted.
-- Step 2 (press Esc): overlay dismisses without firing a translate.
+- Step 1b (press ?): focus moves to the bar's Keys button and the key list shows; the list names ?.
+- Step 1c (press Esc): only the key list closes; the overlay and the mode stay.
+- Step 2 (press Esc again): overlay dismisses without firing a translate.
 - Step 3: no toast, no tooltip, no audit entry; page returns to its pre-picker state.
 
 ## Visible affordances
@@ -16,7 +18,7 @@
 
 ## Failure-mode expectations
 
-- Esc cancels wherever focus is — a document-level capture-phase keydown listener catches it; the hint pill is not focusable.
+- Esc cancels wherever focus is — a document-level capture-phase keydown listener catches it — except that an open key list closes first.
 
 ## Cautions
 
