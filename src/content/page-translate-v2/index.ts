@@ -78,6 +78,10 @@ export interface PageV2Deps {
   mountProgress?: (total: number, onCancel: () => void) => ProgressHandle;
   /** The target every block is sent with; marks the translated blocks with its language. */
   target?: string;
+  /** True while Ega is off on this page's site; checked before every send. */
+  siteOff?: () => boolean;
+  /** Runs fn after each settings change; returns the unsubscribe. */
+  onSettingsChange?: (fn: () => void) => () => void;
 }
 
 interface Block {
@@ -131,6 +135,7 @@ interface Session {
   settledOnce: boolean;
   showingGlobalOriginal: boolean;
   checkUrlChange: () => void;
+  stopSettings: () => void;
 }
 
 function isSettled(sess: Session): boolean {
@@ -364,9 +369,16 @@ async function createSession(
     settledOnce: false,
     showingGlobalOriginal: false,
     checkUrlChange,
+    stopSettings: () => {},
   };
+  sess.stopSettings = deps.onSettingsChange?.(() => onSettingsChanged(sess)) ?? (() => {});
   active = sess;
   return sess;
+}
+
+/** Turning Ega off on the site stops the session: nothing new is sent, what is in flight finishes. */
+function onSettingsChanged(sess: Session): void {
+  if (sess === active && sess.deps.siteOff?.()) stopSession(sess);
 }
 
 async function startSession(
@@ -447,6 +459,11 @@ function pump(): void {
     }, wait);
     // The pill shows the pause now, while it lasts, not once it is over.
     report(sess);
+    return;
+  }
+  // The settings update can land after the switch flips, so every send checks the site itself.
+  if (sess.pending.length > 0 && sess.deps.siteOff?.()) {
+    stopSession(sess);
     return;
   }
   while (sess.inFlight.size < sess.concurrency && sess.pending.length > 0) {
@@ -749,6 +766,7 @@ function onChunk(sess: Session, chunk: TranslationChunk): void {
 /** revert=true (Remove translation) restores the original DOM; false (close) keeps the translations. */
 function teardownSession(sess: Session, revert: boolean): void {
   window.removeEventListener('popstate', sess.checkUrlChange);
+  sess.stopSettings();
   sess.observer?.disconnect();
   sess.observer = null;
   for (const t of sess.stallTimers.values()) clearTimeout(t);

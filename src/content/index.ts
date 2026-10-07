@@ -634,6 +634,11 @@ async function dispatchPageTranslate(scope: 'whole' | 'areas'): Promise<void> {
     mountProgress: (total, onCancel) => showBatchProgress(total, onCancel),
     target: eff.direction.target,
     looksLikeEnglish,
+    siteOff: () => {
+      const s = currentSettings();
+      return s !== null && resolveEffective(s, location.origin).disabled;
+    },
+    onSettingsChange: (fn) => onSettingsUpdate(fn),
   });
 }
 

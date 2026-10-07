@@ -206,6 +206,43 @@ describe('whole-page translate', () => {
     expect(isPageV2Active()).toBe(false);
   });
 
+  it('turning Ega off on the site stops the session before its next send', async () => {
+    const els = page();
+    const r = rig();
+    let off = false;
+    let changed: (() => void) | undefined;
+    r.d.siteOff = () => off;
+    r.d.onSettingsChange = (fn) => {
+      changed = fn;
+      return () => (changed = undefined);
+    };
+    await runWholePageTranslate(r.d);
+    FakeObserver.last?.band(new Set(els.slice(0, 2)));
+    await flush();
+    expect(r.sent).toHaveLength(2);
+
+    off = true;
+    changed?.();
+    FakeObserver.last?.band(new Set(els.slice(2, 6)));
+    await flush();
+    expect(r.sent).toHaveLength(2);
+    expect(r.updates.at(-1)?.waiting).toBe(0);
+  });
+
+  it('checks the site switch before every send, even before the settings update arrives', async () => {
+    const els = page();
+    const r = rig();
+    let off = false;
+    r.d.siteOff = () => off;
+    await runWholePageTranslate(r.d);
+    FakeObserver.last?.band(new Set(els.slice(0, 2)));
+    await flush();
+    off = true;
+    FakeObserver.last?.band(new Set(els.slice(2, 6)));
+    await flush();
+    expect(r.sent).toHaveLength(2);
+  });
+
   it('never sends a block twice and only sends blocks that were near, on any scroll path', async () => {
     await fc.assert(
       fc.asyncProperty(
