@@ -81,11 +81,12 @@ describe('the page-translate pill', () => {
     expect(button('Close bar')).toBeNull();
   });
 
-  it('idle while the rest waits for scroll', () => {
+  it('idle while the rest waits for scroll: no progress line, since nothing is in flight', () => {
     show({ ...running, done: 10, total: 48, waiting: 38, inFlight: 0, queued: 0 });
     expect(q('[data-ega-batch-label]')?.textContent).toBe(
       '10 of 48 areas translated. The rest translate as you scroll.',
     );
+    expect(q('[role="progressbar"]')).toBeNull();
   });
 
   it('a settled page drops the line, names the target, and offers Show original as a toggle', () => {
@@ -104,6 +105,11 @@ describe('the page-translate pill', () => {
     expect(original?.getAttribute('aria-pressed')).toBe('true');
     // The label stays the same; the pressed state carries the meaning.
     expect(original?.textContent.trim()).toBe('Show original');
+    // The status says what is on the page.
+    expect(q('[data-ega-batch-label]')?.textContent).toBe('Showing the original page');
+    original?.click();
+    flushSync();
+    expect(q('[data-ega-batch-label]')?.textContent).toBe('Page translated to English');
   });
 
   it('Stop that settles the pill hands focus to the next control, not the page', async () => {
@@ -295,5 +301,220 @@ describe('the page-translate pill', () => {
     h.dismiss();
     expect(root.style.getPropertyValue('--ega-batch-progress-h')).toBe('');
     dismissToast();
+  });
+});
+
+const failedSettled: PageProgress = {
+  ...settled,
+  done: 10,
+  failed: 2,
+  failure: {
+    body: 'Anthropic took too long to answer.',
+    actions: ['try-again', 'open-settings'],
+    tab: 'backends',
+    details: ['Anthropic HTTP 529: overloaded'],
+  },
+};
+
+function menuItem(name: string): HTMLElement | null {
+  const items = [...(q('[role="menu"]')?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])];
+  return items.find((b) => b.textContent.trim() === name) ?? null;
+}
+
+describe('the pill — states, the More menu and Error details', () => {
+  it('a pause that starts later counts down from when it starts', () => {
+    vi.useFakeTimers();
+    const h = show();
+    vi.advanceTimersByTime(60_000);
+    h.update({ ...running, pausedUntil: Date.now() + 11_200, pausedBy: 'Anthropic' });
+    flushSync();
+    expect(q('[data-ega-batch-label]')?.textContent).toBe(
+      'Paused: Anthropic is limiting requests. Resuming in 12 s.',
+    );
+  });
+
+  it('a settings error after a settings change leads with Try again and keeps Open settings', () => {
+    const h = show();
+    h.update({
+      ...settled,
+      failed: 10,
+      failure: {
+        body: 'Settings changed. Try again to use them.',
+        actions: ['try-again', 'open-settings'],
+        tab: 'backends',
+        details: ['401'],
+        settingsChanged: true,
+      },
+    });
+    flushSync();
+    const names = [...(q('.actions')?.querySelectorAll('button') ?? [])].map(
+      (b) => b.getAttribute('aria-label') ?? b.textContent.trim(),
+    );
+    expect(names).toEqual(['Try again, 10 failed areas', 'Open settings', 'More', 'Close bar']);
+    expect(button('Try again, 10 failed areas')?.classList.contains('first')).toBe(true);
+  });
+
+  it('More opens a menu outside the pill box that Escape, Tab, a click outside and focus leaving all close', async () => {
+    const h = show();
+    h.update(settled);
+    flushSync();
+    const more = button('More') as HTMLButtonElement;
+    more.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
+    flushSync();
+    const menu = q('[role="menu"]');
+    expect(menu).not.toBeNull();
+    // Drawn above the pill, outside the box that holds the row, so the row never moves.
+    expect(menu?.closest('.frame')).toBeNull();
+    expect(more.getAttribute('aria-expanded')).toBe('true');
+    more.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    flushSync();
+    expect(q('[role="menu"]')).toBeNull();
+    expect(more.getAttribute('aria-expanded')).toBe('false');
+
+    more.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
+    flushSync();
+    document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, composed: true }));
+    flushSync();
+    expect(q('[role="menu"]')).toBeNull();
+
+    more.click();
+    flushSync();
+    await vi.waitFor(() => expect(shadowActive()?.getAttribute('role')).toBe('menuitem'));
+    shadowActive()?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
+    flushSync();
+    expect(q('[role="menu"]')).toBeNull();
+
+    more.click();
+    flushSync();
+    await vi.waitFor(() => expect(shadowActive()?.getAttribute('role')).toBe('menuitem'));
+    shadowActive()?.dispatchEvent(
+      new FocusEvent('focusout', { bubbles: true, relatedTarget: document.body }),
+    );
+    flushSync();
+    expect(q('[role="menu"]')).toBeNull();
+  });
+
+  it('the menu sits above the pill, and the pill box no longer clips it', () => {
+    const sheet = readFileSync(resolve('src/content/batch-progress.css'), 'utf8');
+    const rule = (sel: string): string => {
+      const at = sheet.indexOf('\n' + sel + ' {');
+      return at < 0 ? '' : sheet.slice(at, sheet.indexOf('}', at));
+    };
+    expect(rule('.ega-batch-progress .menu')).toMatch(/position: absolute/);
+    expect(rule('.ega-batch-progress .menu')).toMatch(/inset-block-end: calc\(100%/);
+    expect(rule('.ega-batch-progress')).not.toMatch(/overflow/);
+  });
+
+  it('Error details opens from More and closes again; focus goes to Copy, then back to More', async () => {
+    const h = show();
+    h.update(failedSettled);
+    flushSync();
+    button('More')?.click();
+    flushSync();
+    menuItem('Show error details')?.click();
+    flushSync();
+    expect(q('[data-ega-batch-details]')).not.toBeNull();
+    await vi.waitFor(() => expect(shadowActive()).toBe(q('[data-ega-batch-copy]')));
+
+    button('More')?.click();
+    flushSync();
+    menuItem('Hide error details')?.click();
+    flushSync();
+    expect(q('[data-ega-batch-details]')).toBeNull();
+    await vi.waitFor(() => expect(shadowActive()).toBe(button('More')));
+  });
+
+  it('Copy says Copied for a moment and announces it; a failed copy says so', async () => {
+    const write = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined);
+    const h = show();
+    h.update(failedSettled);
+    flushSync();
+    button('More')?.click();
+    flushSync();
+    menuItem('Show error details')?.click();
+    flushSync();
+    const copy = q('[data-ega-batch-copy]') as HTMLButtonElement;
+    vi.useFakeTimers();
+    copy.click();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(write).toHaveBeenCalledWith('Anthropic HTTP 529: overloaded');
+    expect(copy.textContent.trim()).toBe('Copied');
+    expect(q('[data-ega-batch-live]')?.textContent).toBe('Error details copied.');
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(copy.textContent.trim()).toBe('Copy');
+
+    write.mockRejectedValueOnce(new Error('denied'));
+    copy.click();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(copy.textContent.trim()).toBe('Copy');
+    expect(q('[data-ega-batch-live]')?.textContent).toBe("Couldn't copy the error details.");
+  });
+
+  it('Error details that scroll take focus and carry a name; short ones do not', async () => {
+    const h = show();
+    h.update(failedSettled);
+    flushSync();
+    button('More')?.click();
+    flushSync();
+    menuItem('Show error details')?.click();
+    flushSync();
+    const text = q('.details-text') as HTMLElement;
+    expect(text.hasAttribute('tabindex')).toBe(false);
+    button('More')?.click();
+    flushSync();
+    menuItem('Hide error details')?.click();
+    flushSync();
+
+    vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(200);
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(72);
+    button('More')?.click();
+    flushSync();
+    menuItem('Show error details')?.click();
+    flushSync();
+    await vi.waitFor(() => expect(q('.details-text')?.getAttribute('tabindex')).toBe('0'));
+    expect(q('.details-text')?.getAttribute('role')).toBe('region');
+    expect(q('.details-text')?.getAttribute('aria-label')).toBe('Error details');
+  });
+
+  it('focus that came from a page chip goes back to the chip button, not its host', async () => {
+    const { mountErrorChip } = await import('@/content/page-chip');
+    const chip = mountErrorChip({ code: 'AUTH', message: '401' });
+    document.body.appendChild(chip);
+    const h = show();
+    h.setOnClose(() => h.dismiss());
+    h.update(settled);
+    flushSync();
+    vi.useFakeTimers();
+    vi.advanceTimersByTime(500);
+    const settings = chip.shadowRoot?.querySelector('button') as HTMLButtonElement;
+    const close = button('Close bar') as HTMLButtonElement;
+    close.focus();
+    // Focus from another shadow tree arrives retargeted to its host.
+    close.dispatchEvent(
+      new FocusEvent('focusin', { bubbles: true, composed: true, relatedTarget: chip }),
+    );
+    close.click();
+    expect(chip.shadowRoot?.activeElement).toBe(settings);
+    chip.remove();
+  });
+
+  it('a pill that grows on its own (More, Error details) re-measures the toast offset', () => {
+    let grow: (() => void) | undefined;
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(cb: () => void) {
+          grow = cb;
+        }
+        observe(): void {}
+        disconnect(): void {}
+      },
+    );
+    show();
+    const pill = q('[data-ega-batch-progress]') as HTMLElement;
+    Object.defineProperty(pill, 'offsetHeight', { configurable: true, value: 122 });
+    grow?.();
+    const root = q('[data-ega-root]') as HTMLElement;
+    expect(root.style.getPropertyValue('--ega-batch-progress-h')).toBe('122px');
   });
 });

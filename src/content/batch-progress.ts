@@ -13,6 +13,8 @@ interface ActiveProgress {
   anchor: HTMLDivElement;
   /** The last page element focus came into the pill from; null until one does. */
   focusReturn: HTMLElement | null;
+  /** Keeps the toast offset right when the pill grows without a snapshot (More, Error details). */
+  resize: ResizeObserver | null;
   tab: SettingsTab;
 }
 
@@ -58,6 +60,7 @@ function tearDown(): void {
   if (!active) return;
   const hadFocus = focusedIn(active.anchor) !== null;
   const focusReturn = active.focusReturn;
+  active.resize?.disconnect();
   try {
     void unmount(active.handle);
   } catch (e) {
@@ -95,7 +98,9 @@ export function showBatchProgress(
     const from = e.relatedTarget;
     // A window refocus has no relatedTarget; a shadow host (focus from another shadow tree) is kept.
     if (!(from instanceof HTMLElement) || !from.isConnected || anchor.contains(from)) return;
-    active.focusReturn = from;
+    // Focus from a page chip arrives retargeted to the chip's host, which cannot take focus; its button can.
+    const chip = from.matches('[data-ega-tx-error]') ? from : null;
+    active.focusReturn = chip?.shadowRoot?.querySelector<HTMLElement>('button') ?? from;
   });
 
   const handle = mount(BatchProgress, {
@@ -122,8 +127,16 @@ export function showBatchProgress(
       onClose: () => closeHandler?.(),
     },
   }) as ActiveProgress['handle'];
-  const mine: ActiveProgress = { handle, anchor, focusReturn: null, tab: 'backends' };
+  const resize = typeof ResizeObserver === 'function' ? new ResizeObserver(measure) : null;
+  const mine: ActiveProgress = {
+    handle,
+    anchor,
+    focusReturn: null,
+    resize,
+    tab: 'backends',
+  };
   active = mine;
+  if (anchor.firstElementChild) resize?.observe(anchor.firstElementChild);
   measure();
 
   return {
