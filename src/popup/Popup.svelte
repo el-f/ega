@@ -536,6 +536,7 @@
 
       <div class="popup-freeform">
         <label class="freeform-label" for="ega-popup-freeform">Translate in the side panel</label>
+        <!-- One row with no backend: the first-run popup must fit 600px, and side-panel text cannot translate yet. -->
         <textarea
           id="ega-popup-freeform"
           bind:this={freeformTextarea}
@@ -546,7 +547,7 @@
           placeholder="Paste or type text"
           oninput={scheduleDraftSave}
           onkeydown={onComposerKey}
-          rows="2"></textarea>
+          rows={backendReady === false ? 1 : 2}></textarea>
         <div class="freeform-actions" data-ega-action-bar>
           <Button
             variant="secondary"
