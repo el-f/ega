@@ -110,6 +110,20 @@ describe('errorCopy', () => {
       'REQUEST_TOO_LONG',
       'backends',
     ],
+    [
+      "Mistral's top-level overflow body",
+      () =>
+        httpMessage('Mistral', 400, {
+          object: 'error',
+          message:
+            'Prompt contains 40960 tokens and 0 draft tokens, too large for model with 32768 maximum context length',
+          type: 'invalid_request_error',
+          param: null,
+          code: null,
+        }),
+      'REQUEST_TOO_LONG',
+      'backends',
+    ],
     // The provider's own words sit on the HTTP line, so they never pick a row.
     [
       "DeepSeek's 422 for a bad parameter that says too long",

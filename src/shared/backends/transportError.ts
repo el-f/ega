@@ -35,10 +35,11 @@ export function classifyHttpStatus(status: number): ErrCode {
   return 'SERVER';
 }
 
-/** `error` of a provider's JSON error body; undefined when the body is not JSON. */
+/** The provider's error: `error` of the JSON body, or the body itself for Mistral's top-level `{object:"error", message}`. Undefined when the body is not JSON. */
 function providerError(body: string): unknown {
   try {
-    return (JSON.parse(body) as { error?: unknown } | null)?.error;
+    const json = JSON.parse(body) as { error?: unknown; object?: unknown } | null;
+    return json?.object === 'error' ? json : json?.error;
   } catch {
     return undefined;
   }
@@ -83,7 +84,7 @@ function sanitizeErrorBody(body: string): string {
   return cleaned.length > ERROR_BODY_TAIL ? cleaned.slice(0, ERROR_BODY_TAIL) : cleaned;
 }
 
-/** Providers answer with `{error:{message}}` (Gemini, OpenAI) or `{error:"…"}` (Ollama). Anything else is not worth showing. */
+/** Providers answer with `{error:{message}}` (Gemini, OpenAI), `{error:"…"}` (Ollama) or Mistral's top-level `message`. Anything else is not worth showing. */
 function providerErrorDetail(body: string): string {
   const err = providerError(body);
   if (typeof err === 'string') return sanitizeErrorBody(err);

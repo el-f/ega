@@ -279,6 +279,31 @@ describe('httpErrorMessage', () => {
     );
   });
 
+  // Mistral sends its error at the top level, not under `error` (Mistral Docs, "Error glossary").
+  it("reads Mistral's top-level error body: its words, and the advice they carry", () => {
+    const documented = JSON.stringify({
+      object: 'error',
+      message: 'A human-readable description of the error.',
+      type: 'invalid_request_error',
+      param: 'model',
+      code: 'unknown_model',
+    });
+    expect(httpErrorMessage('Mistral', res(400), documented)).toBe(
+      'Mistral HTTP 400: A human-readable description of the error.',
+    );
+    const overflow = JSON.stringify({
+      object: 'error',
+      message:
+        'Prompt contains 40960 tokens and 0 draft tokens, too large for model with 32768 maximum context length',
+      type: 'invalid_request_error',
+      param: null,
+      code: null,
+    });
+    expect(httpErrorMessage('Mistral', res(400), overflow)).toMatch(
+      /^The request was too long\. Select less text\.\nMistral HTTP 400: Prompt contains 40960 tokens/,
+    );
+  });
+
   it('gives a 400 that is not about length no advice line', () => {
     const body = JSON.stringify({ error: { message: 'max-tokens limit exceeded: 9000 > 8192' } });
     expect(httpErrorMessage('Groq', res(400), body)).toBe(
