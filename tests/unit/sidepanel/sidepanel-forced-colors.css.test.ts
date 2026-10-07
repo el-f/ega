@@ -25,10 +25,13 @@ describe('side-panel cues survive forced colors', () => {
   });
 
   it('leaves every panel button with a border to repaint', () => {
-    const sidePanel = read('src/sidepanel/SidePanel.svelte');
-    for (const sel of ['\\.sp-search-clear']) {
-      expect(rule(sidePanel, sel)).toMatch(/border:\s*1px solid transparent/);
-    }
+    // The search bar's close is the shared IconButton, so its base rule carries the edge.
+    expect(read('src/sidepanel/SidePanel.svelte')).toMatch(
+      /<IconButton[^>]*ariaLabel="Close search"/,
+    );
+    expect(rule(read('src/shared/ui/IconButton.svelte'), ':global\\(\\.ega-icon-btn\\)')).toMatch(
+      /border:\s*1px solid transparent/,
+    );
     expect(
       rule(read('src/shared/components/CommandPalette.svelte'), ':global\\(\\.ega-palette-item\\)'),
     ).toMatch(/border:\s*1px solid transparent/);

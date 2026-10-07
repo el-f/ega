@@ -17,7 +17,7 @@ describe('saveSettings', () => {
     expect(push).toHaveBeenCalledTimes(1);
     expect(push.mock.calls[0]?.[0].variant).toBe('warning');
     expect(push.mock.calls[0]?.[0].message).toMatch(/full/i);
-    expect(push.mock.calls[0]?.[0].message).toMatch(/new conversation/i);
+    expect(push.mock.calls[0]?.[0].message).toMatch(/delete old conversations/i);
   });
 
   // A non-quota failure loses the setting just as silently, so it gets the same treatment.
