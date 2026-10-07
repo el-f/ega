@@ -1,9 +1,12 @@
 name: Generate Linux E2E Baselines
 
-# Regenerates the Linux pixel baselines and uploads them as the artifact
-# `linux-snapshots-<sha>`. Run it from the Actions tab, or label a PR
-# `update-baselines` when that PR changes pixel output on purpose. The
-# maintainer downloads the artifact, copies the PNGs into the tree and commits.
+# Regenerates the Linux pixel baselines and the design-rules gate baseline, and
+# uploads them as the artifact `linux-snapshots-<sha>`. Run it from the Actions
+# tab, or label a PR `update-baselines` when that PR changes pixel output or the
+# design-rules findings on purpose. The maintainer downloads the artifact, copies
+# the PNGs and design-rules-baseline.json into the tree, reviews the diff and
+# commits. The gate baseline can only be recorded here: see the header of
+# tests/e2e/design-rules.ts.
 #
 # It never pushes: writing snapshots back needs `contents: write`, which is a
 # token a public repo should not hand a runner.
@@ -58,11 +61,19 @@ jobs:
         env:
           CI: '1'
           EGA_E2E_SKIP_BUILD: '1'
+      # The gate compares on Linux only (DejaVu Sans text), so only this runner can say what it finds. Record mode rewrites the gate keys in the checkout; the next step uploads the file.
+      - name: Record the design-rules baseline (gate keys)
+        run: pnpm exec playwright test --retries=0 tests/e2e/design-rules.spec.ts
+        env:
+          CI: '1'
+          EGA_DESIGN_RULES_RECORD: '1'
       - name: Upload snapshot artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: linux-snapshots-${{ github.sha }}
           # linux only — the win32 baselines are untouched here and copying them back would be noise.
-          path: tests/e2e/**/*-snapshots/*-linux.png
+          path: |
+            tests/e2e/**/*-snapshots/*-linux.png
+            tests/e2e/design-rules-baseline.json
           retention-days: 7
           if-no-files-found: error

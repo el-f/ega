@@ -2,8 +2,20 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, type Page } from '@playwright/test';
+import { GATE_PREFIX, recordGateKey, recordRefusal } from './design-rules-gate';
 
 // The countable design rules (STANDARDS R9/R16/R20, ui-design-quality.md), checked on the real layout jsdom cannot give.
+//
+// Baseline keys. screenshot-audit shot names hold what a builder's machine finds: check locally with `pnpm visual:capture`.
+// `gate-` keys belong to design-rules.spec.ts, which compares them on Linux only. The CI runner draws DejaVu Sans, 14-22%
+// wider than Segoe UI, so another platform finds a different set. Only the CI runner records them: dispatch the "Generate
+// Linux E2E Baselines" workflow on the branch (its record step sets EGA_DESIGN_RULES_RECORD=1, which rewrites every gate key),
+// download the artifact, copy design-rules-baseline.json into tests/e2e/, run `pnpm format`, review the diff and commit it.
+// After the first recording the diff should only remove lines. Record mode refuses to run unless CI is set and the platform is linux.
+
+const RECORD = process.env['EGA_DESIGN_RULES_RECORD'] === '1';
+const recordRefused = RECORD ? recordRefusal(process.env, process.platform) : null;
+if (recordRefused !== null) throw new Error(recordRefused);
 
 /**
  * Ega's own UI on the page: the whole document on an extension page, the shadow root on a web page (never the host page's DOM).
@@ -78,10 +90,19 @@ const baseline: Record<string, string[]> = fs.existsSync(BASELINE_PATH)
 /**
  * A soft failure on a design-rule break the baseline does not list, and on a listed one that is gone (a ratchet), so
  * one bad capture does not stop the rest. `EGA_DESIGN_RULES_UPDATE=1` drops the fixed entries instead; it never adds
- * one, so the baseline only shrinks.
+ * one, so the baseline only shrinks. `EGA_DESIGN_RULES_RECORD=1` (CI runner only) records a `gate-` key instead of checking it.
  */
 export async function checkDesignRules(page: Page, shotName: string): Promise<void> {
   const found = await designRuleViolations(page);
+  if (RECORD) {
+    if (!shotName.startsWith(GATE_PREFIX)) {
+      throw new Error(
+        `EGA_DESIGN_RULES_RECORD=1 records ${GATE_PREFIX} keys only, not "${shotName}".`,
+      );
+    }
+    recordGateKey(BASELINE_PATH, shotName, found);
+    return;
+  }
   const known = baseline[shotName] ?? [];
   if (process.env['EGA_DESIGN_RULES_UPDATE'] === '1') {
     const kept = known.filter((v) => found.includes(v));

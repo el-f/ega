@@ -4,56 +4,6 @@
     "clip td \"Stopped before it finished: a cancel or \"",
     "clip td \"The backend rejected the API key. Check \""
   ],
-  "gate-options-advanced-400-dark": ["clip button \"#ms # in · # out\""],
-  "gate-options-advanced-400-light": ["clip button \"#ms # in · # out\""],
-  "gate-options-languages-400-dark": [
-    "clip span \"Arabizi (aka Franco-Arabic / #arabizi / \"",
-    "clip span \"Clinical abbreviations: \"SOB\" (shortness\"",
-    "clip span \"Contemporary Gen-Z and TikTok slang (#+)\"",
-    "clip span \"Crypto/web# jargon: \"gm\", \"wagmi\", \"ngmi\"",
-    "clip span \"Fan-community shorthand: \"ship\", \"canon\"\"",
-    "clip span \"Leetspeak (#) — digit/symbol substitutio\"",
-    "clip span \"Legal terms of art: \"prima facie\", \"res \"",
-    "clip span \"Multiplayer and MMO jargon: \"GG\", \"AFK\",\"",
-    "clip span \"Quenya — the high-elven constructed lang\"",
-    "clip span \"Sindarin — the Grey-elven constructed la\""
-  ],
-  "gate-options-languages-400-light": [
-    "clip span \"Arabizi (aka Franco-Arabic / #arabizi / \"",
-    "clip span \"Clinical abbreviations: \"SOB\" (shortness\"",
-    "clip span \"Contemporary Gen-Z and TikTok slang (#+)\"",
-    "clip span \"Crypto/web# jargon: \"gm\", \"wagmi\", \"ngmi\"",
-    "clip span \"Fan-community shorthand: \"ship\", \"canon\"\"",
-    "clip span \"Leetspeak (#) — digit/symbol substitutio\"",
-    "clip span \"Legal terms of art: \"prima facie\", \"res \"",
-    "clip span \"Multiplayer and MMO jargon: \"GG\", \"AFK\",\"",
-    "clip span \"Quenya — the high-elven constructed lang\"",
-    "clip span \"Sindarin — the Grey-elven constructed la\""
-  ],
-  "gate-options-languages-desktop-dark": [
-    "clip span \"Arabizi (aka Franco-Arabic / #arabizi / \"",
-    "clip span \"Clinical abbreviations: \"SOB\" (shortness\"",
-    "clip span \"Contemporary Gen-Z and TikTok slang (#+)\"",
-    "clip span \"Crypto/web# jargon: \"gm\", \"wagmi\", \"ngmi\"",
-    "clip span \"Fan-community shorthand: \"ship\", \"canon\"\"",
-    "clip span \"Leetspeak (#) — digit/symbol substitutio\"",
-    "clip span \"Legal terms of art: \"prima facie\", \"res \"",
-    "clip span \"Multiplayer and MMO jargon: \"GG\", \"AFK\",\"",
-    "clip span \"Quenya — the high-elven constructed lang\"",
-    "clip span \"Sindarin — the Grey-elven constructed la\""
-  ],
-  "gate-options-languages-desktop-light": [
-    "clip span \"Arabizi (aka Franco-Arabic / #arabizi / \"",
-    "clip span \"Clinical abbreviations: \"SOB\" (shortness\"",
-    "clip span \"Contemporary Gen-Z and TikTok slang (#+)\"",
-    "clip span \"Crypto/web# jargon: \"gm\", \"wagmi\", \"ngmi\"",
-    "clip span \"Fan-community shorthand: \"ship\", \"canon\"\"",
-    "clip span \"Leetspeak (#) — digit/symbol substitutio\"",
-    "clip span \"Legal terms of art: \"prima facie\", \"res \"",
-    "clip span \"Multiplayer and MMO jargon: \"GG\", \"AFK\",\"",
-    "clip span \"Quenya — the high-elven constructed lang\"",
-    "clip span \"Sindarin — the Grey-elven constructed la\""
-  ],
   "options-languages": [
     "clip span \"Arabizi (aka Franco-Arabic / #arabizi / \"",
     "clip span \"Clinical abbreviations: \"SOB\" (shortness\"",

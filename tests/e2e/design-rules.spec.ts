@@ -2,6 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { launchExtension, mockAnthropic, seedSettings, type ExtensionHandle } from './helpers';
 import { checkDesignRules, designRuleViolations } from './design-rules';
 import {
+  GATE_PLATFORM,
   GATE_SURFACES,
   GATE_THEMES,
   GATE_WIDTHS,
@@ -31,43 +32,53 @@ async function checkAtEveryWidth(page: Page, surface: string, theme: string): Pr
   }
 }
 
-for (const theme of GATE_THEMES) {
-  test(`popup, side panel and every options tab keep the design rules (${theme})`, async () => {
-    test.slow();
-    ext = await launchExtension({ colorScheme: theme });
-    await seedSettings(ext.context, ext.extensionId, { anthropicApiKey: 'sk-test' });
+test.describe('gate', () => {
+  test.skip(
+    process.platform !== GATE_PLATFORM,
+    'The gate- baseline keys hold what the Linux CI runner finds, and text is a different width on this platform. For a local check use screenshot-audit: pnpm visual:capture.',
+  );
 
-    const popup = await ext.context.newPage();
-    await popup.goto(`chrome-extension://${ext.extensionId}/src/popup/index.html`);
-    await popup.locator('#pop-lang').waitFor();
-    await checkAtEveryWidth(popup, GATE_SURFACES.popup, theme);
-    await popup.close();
+  for (const theme of GATE_THEMES) {
+    test(`popup, side panel and every options tab keep the design rules (${theme})`, async () => {
+      test.slow();
+      ext = await launchExtension({ colorScheme: theme });
+      await seedSettings(ext.context, ext.extensionId, { anthropicApiKey: 'sk-test' });
 
-    mockAnthropic(ext.context, { translation: 'Hello, friend.' });
-    const panel = await ext.context.newPage();
-    await panel.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
-    await expect(panel.locator('[data-ega-empty-state]')).toBeVisible();
-    await checkAtEveryWidth(panel, GATE_SURFACES.sidepanelEmpty, theme);
-    await panel.locator('#sp-text').fill('hola amigo');
-    await panel.getByRole('button', { name: /^Translate$/ }).click();
-    await expect(panel.locator('.ega-assistant-body').first()).toContainText('Hello, friend.', {
-      timeout: 10_000,
+      const popup = await ext.context.newPage();
+      await popup.goto(`chrome-extension://${ext.extensionId}/src/popup/index.html`);
+      await popup.locator('#pop-lang').waitFor();
+      await checkAtEveryWidth(popup, GATE_SURFACES.popup, theme);
+      await popup.close();
+
+      mockAnthropic(ext.context, { translation: 'Hello, friend.' });
+      const panel = await ext.context.newPage();
+      await panel.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
+      await expect(panel.locator('[data-ega-empty-state]')).toBeVisible();
+      await checkAtEveryWidth(panel, GATE_SURFACES.sidepanelEmpty, theme);
+      await panel.locator('#sp-text').fill('hola amigo');
+      await panel.getByRole('button', { name: /^Translate$/ }).click();
+      await expect(panel.locator('.ega-assistant-body').first()).toContainText('Hello, friend.', {
+        timeout: 10_000,
+      });
+      await checkAtEveryWidth(panel, GATE_SURFACES.sidepanelExchange, theme);
+      await panel.close();
+
+      const options = await ext.context.newPage();
+      await options.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
+      for (const tab of SETTINGS_TABS) {
+        await options.locator(`#tab-${tab.id}`).click();
+        await expect(
+          options.locator(`#tabpanel-${tab.id}`).getByRole('heading', { name: tab.label }).first(),
+        ).toBeVisible();
+        await checkAtEveryWidth(options, optionsSurface(tab.id), theme);
+        await options.setViewportSize({
+          width: GATE_WIDTHS[1].width,
+          height: GATE_WIDTHS[1].height,
+        });
+      }
     });
-    await checkAtEveryWidth(panel, GATE_SURFACES.sidepanelExchange, theme);
-    await panel.close();
-
-    const options = await ext.context.newPage();
-    await options.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
-    for (const tab of SETTINGS_TABS) {
-      await options.locator(`#tab-${tab.id}`).click();
-      await expect(
-        options.locator(`#tabpanel-${tab.id}`).getByRole('heading', { name: tab.label }).first(),
-      ).toBeVisible();
-      await checkAtEveryWidth(options, optionsSurface(tab.id), theme);
-      await options.setViewportSize({ width: GATE_WIDTHS[1].width, height: GATE_WIDTHS[1].height });
-    }
-  });
-}
+  }
+});
 
 test('flags cut-off control text and off-scale font sizes, and nothing else', async () => {
   ext = await launchExtension();
