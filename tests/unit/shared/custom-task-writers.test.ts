@@ -15,6 +15,7 @@ import {
   type DeletedCustomTask,
 } from '@/shared/tasks';
 import { DEFAULT_CONTEXT_MENU_ITEMS } from '@/shared/context-menu';
+import { CONTEXT_MENU_ITEMS_MAX } from '@/shared/settings-schema';
 import type { CustomTask } from '@/shared/settings-schema';
 import { validateAgainstSlots } from '@/shared/slot-registry';
 
@@ -177,5 +178,42 @@ describe('a custom task in the right-click menu', () => {
     expect(taskInMenu(off, added.id)).toBe(false);
     expect(removed).toEqual(mine);
     expect(taskInMenu(await restoreMenuItems(removed), added.id)).toBe(true);
+  });
+});
+
+describe('a full right-click menu', () => {
+  async function fillMenu(): Promise<void> {
+    const cur = await getSettings();
+    const extra = Array.from(
+      { length: CONTEXT_MENU_ITEMS_MAX - cur.contextMenuItems.length },
+      (_, i) => ({
+        id: `filler-${i}`,
+        kind: 'task' as const,
+        enabled: true,
+        order: 100 + i,
+        label: `Item ${i}`,
+        task: 'summarize' as const,
+        surface: 'tooltip' as const,
+      }),
+    );
+    await updateSettings({ contextMenuItems: [...cur.contextMenuItems, ...extra] });
+  }
+
+  it('refuses one more item instead of saving a list the reader cuts', async () => {
+    const added = await addCustomTask(input);
+    await fillMenu();
+    await expect(setTaskInMenu(added.id, true)).rejects.toThrow('menu-full');
+    const after = await getSettings();
+    expect(after.contextMenuItems).toHaveLength(CONTEXT_MENU_ITEMS_MAX);
+    expect(taskInMenu(after, added.id)).toBe(false);
+  });
+
+  it('refuses to put back items that no longer fit', async () => {
+    const added = await addCustomTask(input);
+    await setTaskInMenu(added.id, true);
+    const { removed } = await setTaskInMenu(added.id, false);
+    await fillMenu();
+    await expect(restoreMenuItems(removed)).rejects.toThrow('menu-full');
+    expect((await getSettings()).contextMenuItems).toHaveLength(CONTEXT_MENU_ITEMS_MAX);
   });
 });

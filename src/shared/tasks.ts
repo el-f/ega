@@ -11,10 +11,12 @@ import {
 import { uuid } from './uuid';
 import { withoutShippedTaskFields } from './storage/sanitise';
 import {
+  CONTEXT_MENU_ITEMS_MAX,
   DEFAULT_PROMPT_TEMPLATE,
   isPromptTemplateCustomised,
   type CustomTask,
   type TaskEdit,
+  type TaskEffort,
 } from './settings-schema';
 import { buildTaskTemplate, type Task } from './task-prompts';
 import { hasOwnPrompt } from './task-view';
@@ -150,6 +152,29 @@ export function updateCustomTask(id: string, input: CustomTaskInput): Promise<Cu
   return updateCustomTaskRow(id, (cur) => ({ ...input, id, createdAt: cur.createdAt }));
 }
 
+/** What one control of the custom-task editor changes; `effort: undefined` goes back to the default. */
+export type CustomTaskPatch = Partial<Omit<CustomTaskInput, 'effort'>> & {
+  effort?: TaskEffort | undefined;
+};
+
+/** Writes only the fields in `patch`, so one field that is not valid never holds back the others. Rejects 'task-gone' like updateCustomTask. */
+export function patchCustomTask(id: string, patch: CustomTaskPatch): Promise<CustomTask> {
+  return updateCustomTaskRow(id, (cur) => {
+    const { effort, ...rest } = { ...cur, ...patch };
+    return effort === undefined ? rest : { ...rest, effort };
+  });
+}
+
+/** The menu with `items` added at the end; 'menu-full' when they do not fit, because the reader keeps only the first 50. */
+function withMenuItems(
+  cur: readonly ContextMenuItem[],
+  items: readonly ContextMenuItem[],
+): ContextMenuItem[] {
+  const next = [...cur, ...items];
+  if (next.length > CONTEXT_MENU_ITEMS_MAX) throw new Error('menu-full');
+  return next;
+}
+
 /** What a custom-task delete took away, so Undo can put back exactly that. */
 export interface DeletedCustomTask {
   row: CustomTask;
@@ -197,10 +222,10 @@ export async function restoreCustomTask(d: DeletedCustomTask): Promise<Settings>
   await upsertCustomTask(d.row, d.index);
   return replaceSettings((cur) => ({
     ...cur,
-    contextMenuItems: [
-      ...cur.contextMenuItems.filter((i) => !d.menuItems.some((m) => m.id === i.id)),
-      ...d.menuItems,
-    ],
+    contextMenuItems: withMenuItems(
+      cur.contextMenuItems.filter((i) => !d.menuItems.some((m) => m.id === i.id)),
+      d.menuItems,
+    ),
     disabledTasks:
       d.disabled && !cur.disabledTasks.includes(d.row.id)
         ? [...cur.disabledTasks, d.row.id]
@@ -239,7 +264,7 @@ export async function setTaskInMenu(
       task: id,
       surface: 'tooltip',
     };
-    return { ...cur, contextMenuItems: [...cur.contextMenuItems, item] };
+    return { ...cur, contextMenuItems: withMenuItems(cur.contextMenuItems, [item]) };
   });
   return { settings, removed };
 }
@@ -248,9 +273,9 @@ export async function setTaskInMenu(
 export function restoreMenuItems(items: readonly ContextMenuItem[]): Promise<Settings> {
   return replaceSettings((cur) => ({
     ...cur,
-    contextMenuItems: [
-      ...cur.contextMenuItems.filter((i) => !items.some((m) => m.id === i.id)),
-      ...items,
-    ],
+    contextMenuItems: withMenuItems(
+      cur.contextMenuItems.filter((i) => !items.some((m) => m.id === i.id)),
+      items,
+    ),
   }));
 }

@@ -162,6 +162,21 @@ describe('LanguageDialog — fields of a custom language', () => {
     await waitFor(async () => expect((await getCustomLanguages())[0]?.examples).toEqual([]));
   });
 
+  it('removing the last row moves focus to the row above, and the only row to Add example', async () => {
+    const { getByRole } = await open(CUSTOM.id);
+    await fireEvent.click(getByRole('button', { name: 'Add example' }));
+    const second = getByRole('button', { name: 'Remove example 2' });
+    second.focus();
+    await fireEvent.click(second);
+    await waitFor(() =>
+      expect(document.activeElement).toBe(getByRole('button', { name: 'Remove example 1' })),
+    );
+    await fireEvent.click(document.activeElement as HTMLElement);
+    await waitFor(() =>
+      expect(document.activeElement).toBe(getByRole('button', { name: 'Add example' })),
+    );
+  });
+
   it(`at ${CUSTOM_LANG_EXAMPLES_MAX} examples, Add example stays focusable and says why`, async () => {
     chromeMock.storage.local._raw.set(STORAGE_KEYS.customLanguages, [
       {

@@ -135,6 +135,36 @@ describe('an existing custom task', () => {
     await waitFor(async () => expect(await runs()).toBe(1));
   });
 
+  it('with a full right-click menu, Show in right-click menu stays focusable, says why, and adds nothing', async () => {
+    const row = await addCustomTask(input);
+    const { CONTEXT_MENU_ITEMS_MAX } = await import('@/shared/settings-schema');
+    const { updateSettings } = await import('@/shared/storage');
+    const cur = await getSettings();
+    const full = await updateSettings({
+      contextMenuItems: [
+        ...cur.contextMenuItems,
+        ...Array.from({ length: CONTEXT_MENU_ITEMS_MAX - cur.contextMenuItems.length }, (_, i) => ({
+          id: `filler-${i}`,
+          kind: 'task' as const,
+          enabled: true,
+          order: 100 + i,
+          label: `Item ${i}`,
+          task: 'summarize' as const,
+          surface: 'tooltip' as const,
+        })),
+      ],
+    });
+    render(CustomTaskDialog, { props: { s: full, row, onClose: vi.fn(), onSaved: vi.fn() } });
+    const box = document.querySelector('[data-ega-custom-task-menu]') as HTMLInputElement;
+    expect(box.getAttribute('aria-disabled')).toBe('true');
+    expect(
+      document.getElementById(box.getAttribute('aria-describedby') ?? '')?.textContent,
+    ).toContain(`The right-click menu is full (${CONTEXT_MENU_ITEMS_MAX} items)`);
+    await fireEvent.click(box);
+    expect(box.checked).toBe(false);
+    expect((await getSettings()).contextMenuItems).toHaveLength(CONTEXT_MENU_ITEMS_MAX);
+  });
+
   it('says so inline when another window deleted the task', async () => {
     const row = await addCustomTask(input);
     open(vi.fn(), { row });

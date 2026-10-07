@@ -24,14 +24,13 @@
   import { buildPreviewPrompt, PREVIEW_SAMPLE_TEXT } from '@/options/preview-prompt';
   import { toastStore } from '@/shared/components/toastStore';
   import { reportSaveFailure } from '@/options/storage-with-toast';
-  import { confirmDialog } from '@/shared/components/confirmDialog';
   import PromptEditor from '@/options/components/prompt/PromptEditor.svelte';
   import { checkPrompt } from '@/options/components/prompt/prompt-checks';
   import TemplateVersionBanner from '@/options/components/TemplateVersionBanner.svelte';
   import TemplateDiffModal from '@/options/components/TemplateDiffModal.svelte';
   import SectionReset from '@/options/components/SectionReset.svelte';
   import DialogStatus from '@/options/components/DialogStatus.svelte';
-  import { createDialogSaver } from '@/options/components/dialog-saver.svelte';
+  import { confirmCloseWithout, createDialogSaver } from '@/options/components/dialog-saver.svelte';
   import Dialog from '@/shared/ui/Dialog.svelte';
   import Button from '@/shared/ui/Button.svelte';
   import Checkbox from '@/shared/ui/Checkbox.svelte';
@@ -138,7 +137,7 @@
   }
 
   async function reset(): Promise<void> {
-    saver.dispose();
+    saver.discard();
     const out = await resetTask(task).catch(() => null);
     if (out === null) {
       saver.invalid('reset', 'the task could not be reset');
@@ -223,15 +222,7 @@
     closing = true;
     try {
       await saver.flush();
-      if (invalid) {
-        const leave = await confirmDialog({
-          title: 'Close without this change?',
-          body: 'Your last change to the message is not valid, so it was not saved.',
-          confirmLabel: 'Close anyway',
-          cancelLabel: 'Keep editing',
-        });
-        if (!leave) return;
-      }
+      if (!(await confirmCloseWithout(invalid ? ['the message'] : []))) return;
       // Read before onClose: the props of an unmounted component are gone by the time Undo runs.
       const removed = lastReset;
       const name = label;
@@ -263,7 +254,8 @@
 
 <Dialog open title={`${label} task`} focusTitle onClose={() => void close()} size="lg">
   {#snippet help()}{helpLine}{/snippet}
-  <div class="task-edit" data-ega-task-dialog={task}>
+  <!-- A text field also saves when focus leaves it. -->
+  <div class="task-edit" data-ega-task-dialog={task} onfocusout={() => void saver.flush()}>
     <div class="te-grid">
       <span class="te-label" id="{uid}-effort">Effort</span>
       <div class="te-control" data-ega-task-effort>

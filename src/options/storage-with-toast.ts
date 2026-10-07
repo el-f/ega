@@ -1,12 +1,16 @@
 import { updateSettings } from '@/shared/storage';
 import { QUOTA_MESSAGE } from '@/shared/constants';
+import { CONTEXT_MENU_ITEMS_MAX } from '@/shared/settings-schema';
 import { toastStore } from '@/shared/components/toastStore';
 import type { Settings } from '@/shared/types';
+
+const MENU_FULL_MESSAGE = `The right-click menu is full (${CONTEXT_MENU_ITEMS_MAX} items), so the change was not saved. Remove an item on the Selection and picker tab, then try again.`;
 
 /** The plain reason a settings write did not land; null when trying again cannot help. */
 export function saveFailureReason(e: unknown): { message: string; retryable: boolean } {
   const detail = e instanceof Error ? e.message : String(e);
   if (/QUOTA/i.test(detail)) return { message: QUOTA_MESSAGE, retryable: false };
+  if (detail === 'menu-full') return { message: MENU_FULL_MESSAGE, retryable: false };
   return { message: 'Not saved. Chrome did not take the change.', retryable: true };
 }
 

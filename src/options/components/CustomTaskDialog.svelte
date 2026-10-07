@@ -3,6 +3,7 @@
   import Trash from '@lucide/svelte/icons/trash-2';
   import type { PromptTemplate, Settings, Variety } from '@/shared/types';
   import {
+    CONTEXT_MENU_ITEMS_MAX,
     CUSTOM_TASK_LABEL_MAX,
     EFFORT_LEVELS,
     type CustomTask,
@@ -15,9 +16,10 @@
     restoreCustomTask,
     restoreMenuItems,
     setTaskInMenu,
+    patchCustomTask,
     taskInMenu,
-    updateCustomTask,
     type CustomTaskInput,
+    type CustomTaskPatch,
   } from '@/shared/tasks';
   import { CARD_CONTRACT, PLAIN_CONTRACT } from '@/shared/prompts';
   import { listVarieties } from '@/shared/varieties';
@@ -28,7 +30,11 @@
   import PromptEditor from '@/options/components/prompt/PromptEditor.svelte';
   import { checkPrompt } from '@/options/components/prompt/prompt-checks';
   import DialogStatus from '@/options/components/DialogStatus.svelte';
-  import { createDialogSaver, NotSavedError } from '@/options/components/dialog-saver.svelte';
+  import {
+    confirmCloseWithout,
+    createDialogSaver,
+    NotSavedError,
+  } from '@/options/components/dialog-saver.svelte';
   import Dialog from '@/shared/ui/Dialog.svelte';
   import Button from '@/shared/ui/Button.svelte';
   import Input from '@/shared/ui/Input.svelte';
@@ -44,9 +50,11 @@
     onClose: () => void;
     /** Null when only the task list changed. */
     onSaved: (next: Settings | null) => void;
+    /** After the Undo of a delete put the task back. */
+    onRestored?: (id: string) => void;
   }
 
-  const { s, row, onClose, onSaved }: Props = $props();
+  const { s, row, onClose, onSaved, onRestored }: Props = $props();
 
   const uid = makeId('ega-custom-task');
   const DEFAULT_USER = 'TEXT:\n"""\n{{text}}\n"""';
@@ -85,14 +93,16 @@
   });
   const taskKey = $derived(rowId ?? 'custom');
   const messageError = $derived(checkPrompt(prompt, 'custom', taskKey).messageError);
-  /** Why the draft cannot be saved, in the words the status line uses; null when it can. */
-  const blocker = $derived(
-    label.trim() === ''
-      ? 'add a name'
-      : messageError !== null
-        ? 'the message needs the Selected text variable'
-        : null,
-  );
+
+  type TextField = 'label' | 'prompt';
+  /** Why a text field cannot be saved as typed, in the status line's words; null when it can. */
+  function problemOf(field: TextField): string | null {
+    if (field === 'label') return label.trim() === '' ? 'add a name' : null;
+    return messageError !== null ? 'the message needs the Selected text variable' : null;
+  }
+  /** What a new task still needs before it is created; null once it can be. */
+  const blocker = $derived(problemOf('label') ?? problemOf('prompt'));
+  const FIELD_NAMES: Record<TextField, string> = { label: 'the name', prompt: 'the message' };
 
   const ERRORS: Record<string, string> = {
     'cap-reached': 'you have the most tasks Ega keeps; delete one to add another',
@@ -108,58 +118,88 @@
     return known === undefined ? e : new NotSavedError(known, { cause: e });
   }
 
-  // One create at a time: a second edit while the first save runs waits for the row id.
-  let creating: Promise<string> | null = null;
-  async function writeRow(input: CustomTaskInput): Promise<void> {
-    if (rowId === null) {
-      creating ??= addCustomTask(input).then(async (created) => {
-        rowId = created.id;
-        if (inMenu) onSaved((await setTaskInMenu(created.id, true)).settings);
-        return created.id;
+  // The first valid save creates the row from the whole draft, once; every later change writes only its own field.
+  let creating: Promise<void> | null = null;
+  async function create(): Promise<void> {
+    if (rowId !== null) return;
+    creating ??= (async () => {
+      if (blocker !== null) throw new NotSavedError(blocker);
+      const created = await addCustomTask(draft).catch((e: unknown) => {
+        throw named(e);
       });
+      rowId = created.id;
+      if (inMenu) onSaved((await setTaskInMenu(created.id, true)).settings);
+      onSaved(null);
+    })();
+    try {
+      await creating;
+    } finally {
+      creating = null;
+    }
+  }
+
+  function write(patch: CustomTaskPatch): () => Promise<void> {
+    return async () => {
+      // A change made while the first create runs waits for its row, then writes itself.
+      if (rowId === null && creating !== null) await creating;
+      const id = rowId;
+      if (id === null) return;
       try {
-        await creating;
-      } finally {
-        creating = null;
+        await patchCustomTask(id, patch);
+      } catch (e) {
+        if (e instanceof Error && e.message === 'task-gone') gone = true;
+        throw named(e);
       }
       onSaved(null);
-      return;
-    }
-    try {
-      await updateCustomTask(rowId, input);
-    } catch (e) {
-      if (e instanceof Error && e.message === 'task-gone') gone = true;
-      throw named(e);
-    }
-    onSaved(null);
+    };
   }
 
-  function save(field: 'text' | 'toggle'): void {
-    if (blocker !== null) {
-      if (rowId === null && label.trim() === '') return; // the idle line already says "add a name"
-      saver.invalid('row', blocker);
+  /** A new task waits until it has a name and a valid message; the idle line says what it needs. */
+  const startsRow = (): boolean => rowId === null && creating === null;
+
+  /** Name and prompt save once the typing pauses; one that is not valid is held back and named. */
+  function saveText(field: TextField): void {
+    if (startsRow()) {
+      if (blocker === null) saver.later('create', create);
       return;
     }
-    const input = draft;
-    if (field === 'text') saver.later('row', () => writeRow(input));
-    else void saver.now(() => writeRow(input));
+    const problem = problemOf(field);
+    if (problem !== null) {
+      saver.invalid(field, problem);
+      return;
+    }
+    const patch: CustomTaskPatch =
+      field === 'label' ? { label: label.trim() } : { system: prompt.system, user: prompt.user };
+    saver.later(field, write(patch));
   }
 
-  // Each control writes the whole row through save(); typing waits for the pause.
+  /** A toggle, a radio or Effort: saved at once, on its own. */
+  function saveNow(patch: CustomTaskPatch): void {
+    if (startsRow()) {
+      // The create writes the whole draft, this change included.
+      if (blocker === null) void saver.now(create);
+      return;
+    }
+    void saver.now(write(patch));
+  }
+
   function setLabel(v: string): void {
     label = v;
-    save('text');
+    saveText('label');
   }
   function setPrompt(next: PromptTemplate): void {
     prompt = next;
-    save('text');
+    saveText('prompt');
   }
+
+  // The cap counts every item, so a task already in the menu can always leave it.
+  const menuFull = $derived(!inMenu && s.contextMenuItems.length >= CONTEXT_MENU_ITEMS_MAX);
 
   async function setMenu(on: boolean): Promise<void> {
     inMenu = on;
     if (rowId === null) return;
     const id = rowId;
-    await saver.now(async () => {
+    const ok = await saver.now(async () => {
       const { settings, removed } = await setTaskInMenu(id, on);
       onSaved(settings);
       if (!on && removed.length > 0) {
@@ -169,12 +209,13 @@
         });
       }
     });
+    if (!ok) inMenu = !on;
   }
 
   async function remove(): Promise<void> {
     if (rowId === null) return;
     const name = label.trim() || (initial?.label ?? '');
-    saver.dispose();
+    saver.discard();
     const out = await deleteCustomTask(rowId).catch((e: unknown) => {
       // A delete frees space, so the storage quota is never the reason.
       saver.invalid('row', reasonOf(e) ?? 'Chrome did not take the change');
@@ -183,6 +224,7 @@
     if (out === null) return;
     // Read before onClose: the props of an unmounted component are gone by the time Undo runs.
     const saved = onSaved;
+    const restored = onRestored;
     saved(out.settings);
     onClose();
     const deleted = out.deleted;
@@ -195,7 +237,10 @@
               label: 'Undo',
               onClick: () =>
                 void restoreCustomTask(deleted)
-                  .then((next) => saved(next))
+                  .then((next) => {
+                    saved(next);
+                    restored?.(deleted.row.id);
+                  })
                   .catch((e: unknown) => reportSaveFailure(e)),
             },
           }
@@ -212,6 +257,8 @@
     closing = true;
     try {
       await saver.flush();
+      // A create started by a toggle may still be running; the row it makes is what closing keeps.
+      await creating?.catch(() => undefined);
       if (rowId === null && hasText) {
         const discard = await confirmDialog({
           title: 'Discard this task?',
@@ -221,14 +268,11 @@
           danger: true,
         });
         if (!discard) return;
-      } else if (rowId !== null && blocker !== null && !gone) {
-        const leave = await confirmDialog({
-          title: 'Close without this change?',
-          body: `Your last change is not valid, so it was not saved: ${blocker}.`,
-          confirmLabel: 'Close anyway',
-          cancelLabel: 'Keep editing',
-        });
-        if (!leave) return;
+      } else if (rowId !== null && !gone) {
+        const fields = (['label', 'prompt'] as const)
+          .filter((f) => problemOf(f) !== null)
+          .map((f) => FIELD_NAMES[f]);
+        if (!(await confirmCloseWithout(fields))) return;
       }
       onClose();
     } finally {
@@ -251,7 +295,7 @@
     { value: '' as const, label: 'Default' },
     ...EFFORT_LEVELS.map((e) => ({ value: e, label: EFFORT_LABEL[e] })),
   ]);
-  const idleText = $derived(rowId === null ? 'Not saved yet: add a name' : '');
+  const idleText = $derived(rowId === null && blocker !== null ? `Not saved yet: ${blocker}` : '');
 </script>
 
 <Dialog
@@ -261,7 +305,8 @@
   onClose={() => void close()}
   size="lg"
 >
-  <div class="custom-task" data-ega-custom-task-dialog>
+  <!-- A text field also saves when focus leaves it. -->
+  <div class="custom-task" data-ega-custom-task-dialog onfocusout={() => void saver.flush()}>
     {#if gone}
       <div class="ct-gone" role="alert">
         <span>This task was deleted in another window</span>
@@ -287,7 +332,7 @@
         ]}
         onValueChange={(v) => {
           output = v === 'card' ? 'card' : 'plain';
-          save('toggle');
+          saveNow({ output });
         }}
         orientation="horizontal"
         dataAttrs={{ 'data-ega-custom-task-output': true, 'aria-labelledby': `${uid}-answers` }}
@@ -303,7 +348,7 @@
           itemAttr="data-ega-effort-value"
           onchange={(v) => {
             effort = v;
-            save('toggle');
+            saveNow({ effort: v === '' ? undefined : v });
           }}
         />
         <p class="ct-hint" id="{uid}-effort-hint" data-ega-hint>
@@ -317,26 +362,34 @@
           label="Send page context"
           bind:checked={pageContext}
           inputAttrs={{ 'data-ega-custom-task-page-context': true }}
-          onchange={() => save('toggle')}
+          onchange={(on) => saveNow({ pageContext: on })}
         />
         <Checkbox
           label="Reads images"
           bind:checked={image}
           inputAttrs={{ 'data-ega-custom-task-image': true }}
-          onchange={() => save('toggle')}
+          onchange={(on) => saveNow({ image: on })}
         />
         <Checkbox
           label="Use glossary"
           bind:checked={glossary}
           inputAttrs={{ 'data-ega-custom-task-glossary': true }}
-          onchange={() => save('toggle')}
+          onchange={(on) => saveNow({ glossary: on })}
         />
         <Checkbox
           label="Show in right-click menu"
           checked={inMenu}
+          ariaDisabled={menuFull}
+          {...menuFull ? { describedBy: `${uid}-menu-full` } : {}}
           inputAttrs={{ 'data-ega-custom-task-menu': true }}
           onchange={(on) => void setMenu(on)}
         />
+        {#if menuFull}
+          <p class="ct-hint ct-indent" id="{uid}-menu-full" data-ega-disabled-reason>
+            The right-click menu is full ({CONTEXT_MENU_ITEMS_MAX} items). Remove one on the Selection
+            and picker tab.
+          </p>
+        {/if}
       </div>
     </div>
 
@@ -400,6 +453,9 @@
     font-size: var(--fs-base);
     line-height: var(--lh-body);
     color: var(--color-muted);
+  }
+  .ct-indent {
+    padding-inline-start: calc(16px + var(--space-2));
   }
   .ct-prompt {
     padding-top: var(--space-4);

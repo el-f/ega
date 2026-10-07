@@ -35,7 +35,11 @@
   import SectionReset from '@/options/components/SectionReset.svelte';
   import DialogStatus from '@/options/components/DialogStatus.svelte';
   import Disclosure from '@/options/components/Disclosure.svelte';
-  import { createDialogSaver, NotSavedError } from '@/options/components/dialog-saver.svelte';
+  import {
+    confirmCloseWithout,
+    createDialogSaver,
+    NotSavedError,
+  } from '@/options/components/dialog-saver.svelte';
   import Dialog from '@/shared/ui/Dialog.svelte';
   import Button from '@/shared/ui/Button.svelte';
   import IconButton from '@/shared/ui/IconButton.svelte';
@@ -162,15 +166,34 @@
     onSaved(null);
   }
 
-  /** Why a custom language cannot be saved, in the status line's words. */
-  const missing = $derived(
-    !isCustom ? null : name.trim() === '' ? 'add a name' : notes.trim() === '' ? 'add notes' : null,
-  );
+  const INVALID_PATTERN = 'This pattern is not valid. Check the brackets and slashes.';
+  const TEXT_FIELDS: readonly Field[] = ['label', 'hint', 'examples', 'autoDetect'];
+  const FIELD_NAMES: Record<Field | 'prompt', string> = {
+    label: 'the name',
+    hint: 'the notes',
+    examples: 'the examples',
+    autoDetect: 'the auto-detect pattern',
+    prompt: 'the message',
+  };
+
+  /** Why a text field cannot be saved as typed, in the status line's words; null when it can. */
+  function problemOf(field: Field): string | null {
+    if (field === 'label') return isCustom && name.trim() === '' ? 'add a name' : null;
+    if (field === 'hint') return isCustom && notes.trim() === '' ? 'add notes' : null;
+    if (field === 'autoDetect') {
+      return detectPatch() instanceof Error ? 'the pattern is not valid' : null;
+    }
+    return null;
+  }
+
+  /** What a new custom language still needs before it is created. */
+  const missing = $derived(problemOf('label') ?? problemOf('hint'));
 
   // One create at a time: a second save while the first runs waits for the same id.
   let creating: Promise<void> | null = null;
   async function create(): Promise<void> {
     creating ??= (async () => {
+      if (missing !== null) throw new NotSavedError(missing);
       const added = await addCustomVariety({
         label: name.trim(),
         hint: notes.trim(),
@@ -197,57 +220,78 @@
     'cap-reached': 'you have the most languages Ega keeps (200); delete one to add another',
     'invalid-language': 'the name or the notes are not valid',
   };
-
-  /** Writes each text field that differs from what this dialog last read or wrote. */
-  async function writeChangedText(): Promise<void> {
-    if (base === null) return;
-    const changes: Array<[Field, VarietyEdit]> = [];
-    if (isCustom && draftKey('label', name.trim()) !== base.label) {
-      changes.push(['label', { label: name.trim() }]);
-    }
-    if (draftKey('hint', notes.trim()) !== base.hint)
-      changes.push(['hint', { hint: notes.trim() }]);
-    const kept = keptExamples(examples);
-    if (draftKey('examples', kept) !== base.examples)
-      changes.push(['examples', { examples: kept }]);
-    const pattern = detectPatch();
-    if (!(pattern instanceof Error) && draftKey('autoDetect', pattern) !== base.autoDetect) {
-      // A named undefined clears the pattern; the key is what tells it from "keep".
-      changes.push(['autoDetect', { autoDetect: pattern }]);
-    }
-    for (const [field, patch] of changes) await writeField(field, patch);
+  /** A named reason reads in the footer; anything else is a storage failure the saver words. */
+  function named(e: unknown): unknown {
+    const known = e instanceof Error ? ERRORS[e.message] : undefined;
+    return known === undefined ? e : new NotSavedError(known, { cause: e });
   }
 
-  /** Every text field: saved once the typing pauses. A new language is created once it has a name and notes. */
-  function saveText(): void {
-    if (missing !== null) {
-      // A new language says what it needs in the idle line; an existing one says it was not saved.
-      if (langId !== null) saver.invalid('text', missing);
-      return;
-    }
+  /** The stored form of a text field as typed now. */
+  function patchOf(field: Field): VarietyEdit {
+    if (field === 'label') return { label: name.trim() };
+    if (field === 'hint') return { hint: notes.trim() };
+    if (field === 'examples') return { examples: keptExamples(examples) };
     const pattern = detectPatch();
-    if (pattern instanceof Error) {
-      detectError = 'This pattern is not valid. Check the brackets and slashes.';
-      saver.invalid('text', 'the pattern is not valid');
+    if (pattern instanceof Error) throw new NotSavedError('the pattern is not valid');
+    // A named undefined clears the pattern; the key is what tells it from "keep".
+    return { autoDetect: pattern };
+  }
+
+  /** Writes one text field when it differs from what this dialog last read or wrote. */
+  async function writeText(field: Field): Promise<void> {
+    if (base === null) return;
+    const patch = patchOf(field);
+    if (draftKey(field, patch[field]) === base[field]) return;
+    try {
+      await writeField(field, patch);
+    } catch (e) {
+      throw named(e);
+    }
+  }
+
+  /** The first save of a new language creates it; text typed while that ran, and the pattern, are written next. */
+  async function createWithText(): Promise<void> {
+    try {
+      await create();
+    } catch (e) {
+      throw named(e);
+    }
+    for (const field of TEXT_FIELDS) {
+      const problem = problemOf(field);
+      if (problem !== null) saver.invalid(field, problem);
+      else await writeText(field);
+    }
+  }
+
+  /** Each text field saves on its own once typing pauses; one that is not valid is held back and named. */
+  function saveText(field: Field): void {
+    if (field === 'autoDetect') {
+      detectError = detectPatch() instanceof Error ? INVALID_PATTERN : null;
+    }
+    if (langId === null) {
+      // A new language is created once it has a name and notes; until then the idle line says what it needs.
+      if (missing === null) saver.later('create', createWithText);
       return;
     }
-    detectError = null;
-    saver.later('text', async () => {
-      try {
-        if (langId === null) await create();
-        // Text typed while the create ran is written now.
-        await writeChangedText();
-      } catch (e) {
-        const known = ERRORS[(e as Error).message];
-        // A named reason reads in the footer; anything else is a storage failure the saver words.
-        throw known === undefined ? e : new NotSavedError(known, { cause: e });
-      }
-    });
+    const problem = problemOf(field);
+    if (problem !== null) saver.invalid(field, problem);
+    else saver.later(field, () => writeText(field));
   }
 
   function setExamples(next: Example[]): void {
     examples = next;
-    saveText();
+    saveText('examples');
+  }
+
+  // Removing the last row takes its button away, so focus goes to the row above, else to Add example.
+  async function removeExample(i: number): Promise<void> {
+    setExamples(examples.filter((_, j) => j !== i));
+    if (i < examples.length) return;
+    await tick();
+    (
+      document.querySelector<HTMLElement>(`[data-ega-language-example="${i - 1}"] button`) ??
+      document.querySelector<HTMLElement>('[data-ega-language-add-example]')
+    )?.focus();
   }
 
   /** Undefined clears the pattern (a built-in then runs its shipped one); an Error is a pattern the browser cannot compile. */
@@ -337,6 +381,7 @@
       gone = true;
       return;
     }
+    saver.discard();
     name = cur.label;
     notes = cur.hint;
     examples = cur.examples.map((e) => ({ ...e }));
@@ -363,7 +408,7 @@
     const id = langId;
     const cur = await stored();
     if (id === null || !cur) return;
-    saver.dispose();
+    saver.discard();
     const prior: VarietyEdit = {
       hint: cur.hint,
       examples: cur.examples.map((e) => ({ ...e })),
@@ -398,7 +443,7 @@
     const id = langId;
     if (id === null) return;
     const label = name.trim() || (initial?.label ?? '');
-    saver.dispose();
+    saver.discard();
     const out = await deleteLanguage(id).catch((e: unknown) => {
       saver.invalid('row', e instanceof Error ? e.message : String(e));
       return undefined;
@@ -429,6 +474,8 @@
     const id = langId;
     if (id === null) return;
     const label = name.trim();
+    // The file holds what is stored, so what was typed a moment ago is saved first.
+    await saver.flush();
     try {
       const bundle = await exportLanguage(id);
       const slug = label
@@ -465,14 +512,12 @@
           danger: true,
         });
         if (!discard) return;
-      } else if (langId !== null && !gone && (detectError !== null || promptInvalid)) {
-        const leave = await confirmDialog({
-          title: 'Close without this change?',
-          body: 'Your last change is not valid, so it was not saved.',
-          confirmLabel: 'Close anyway',
-          cancelLabel: 'Keep editing',
-        });
-        if (!leave) return;
+      } else if (langId !== null && !gone) {
+        const fields = TEXT_FIELDS.filter((f) =>
+          f === 'autoDetect' ? detectError !== null : problemOf(f) !== null,
+        ).map((f) => FIELD_NAMES[f]);
+        if (promptInvalid) fields.push(FIELD_NAMES.prompt);
+        if (!(await confirmCloseWithout(fields))) return;
       }
       onClose();
     } finally {
@@ -506,7 +551,12 @@
   onClose={() => void close()}
   size="lg"
 >
-  <div class="language" data-ega-language-dialog={initial?.id ?? 'new'}>
+  <!-- A text field also saves when focus leaves it. -->
+  <div
+    class="language"
+    data-ega-language-dialog={initial?.id ?? 'new'}
+    onfocusout={() => void saver.flush()}
+  >
     {#if conflict}
       <div class="ld-alert" role="alert" data-ega-language-conflict>
         <div>
@@ -532,7 +582,7 @@
           dataAttrs={{ 'data-ega-language-name': true }}
           oninput={(e) => {
             name = (e.currentTarget as HTMLInputElement).value;
-            saveText();
+            saveText('label');
           }}
         />
       {/if}
@@ -549,7 +599,7 @@
           value={notes}
           oninput={(e) => {
             notes = (e.currentTarget as HTMLTextAreaElement).value;
-            saveText();
+            saveText('hint');
           }}></textarea>
         <div class="ld-hint-row">
           <span class="ld-hint" id="{uid}-notes-hint"
@@ -559,7 +609,10 @@
         </div>
       </div>
 
-      <span class="ld-label" id="{uid}-examples">Examples</span>
+      <!-- With rows, the label sits on the Original / Translation line, not centred in a 32px box. -->
+      <span class="ld-label" class:ld-label-flush={examples.length > 0} id="{uid}-examples"
+        >Examples</span
+      >
       <div class="ld-control" role="group" aria-labelledby="{uid}-examples">
         {#if examples.length > 0}
           <div class="ld-example-head" aria-hidden="true">
@@ -598,7 +651,7 @@
               icon={X}
               ariaLabel="Remove example {i + 1}"
               size="sm"
-              onclick={() => setExamples(examples.filter((_, j) => j !== i))}
+              onclick={() => void removeExample(i)}
             />
           </div>
         {/each}
@@ -660,7 +713,7 @@
             value={detect.regex}
             oninput={(e) => {
               detect.regex = (e.currentTarget as HTMLInputElement).value;
-              saveText();
+              saveText('autoDetect');
             }}
           />
           {#if detectError}
@@ -681,7 +734,7 @@
                 value={detect.flags}
                 oninput={(e) => {
                   detect.flags = (e.currentTarget as HTMLInputElement).value;
-                  saveText();
+                  saveText('autoDetect');
                 }}
               />
               <span class="ld-hint" id="{uid}-flags-hint">i ignores case</span>
@@ -697,7 +750,7 @@
                 value={detect.min}
                 oninput={(e) => {
                   detect.min = (e.currentTarget as HTMLInputElement).value;
-                  saveText();
+                  saveText('autoDetect');
                 }}
               />
             </div>
@@ -709,29 +762,34 @@
     {#if langId !== null}
       <div class="ld-prompt" data-ega-language-prompt>
         <span class="ld-label" id="{uid}-prompt">Prompt</span>
-        <RadioGroup
-          value={promptMode}
-          options={[
-            { value: 'translate', label: 'Use the Translate prompt' },
-            { value: 'own', label: 'Use its own prompt' },
-          ]}
-          orientation="horizontal"
-          onValueChange={(v) => void setPromptMode(v === 'own' ? 'own' : 'translate')}
-          dataAttrs={{ 'aria-labelledby': `${uid}-prompt`, 'data-ega-language-prompt-mode': true }}
-        />
-        {#if promptMode === 'own'}
-          <PromptEditor
-            kind="language"
-            task="translate"
-            template={promptDraft}
-            builtIn={s.advanced.promptTemplate}
-            format={answerFormatFor('translate')}
-            snippets={s.advanced.snippets}
-            sendsPageContext={s.contextEnabled}
-            onChange={onPromptChange}
-            buildPreview={preview}
+        <div class="ld-control ld-prompt-control">
+          <RadioGroup
+            value={promptMode}
+            options={[
+              { value: 'translate', label: 'Use the Translate prompt' },
+              { value: 'own', label: 'Use its own prompt' },
+            ]}
+            orientation="horizontal"
+            onValueChange={(v) => void setPromptMode(v === 'own' ? 'own' : 'translate')}
+            dataAttrs={{
+              'aria-labelledby': `${uid}-prompt`,
+              'data-ega-language-prompt-mode': true,
+            }}
           />
-        {/if}
+          {#if promptMode === 'own'}
+            <PromptEditor
+              kind="language"
+              task="translate"
+              template={promptDraft}
+              builtIn={s.advanced.promptTemplate}
+              format={answerFormatFor('translate')}
+              snippets={s.advanced.snippets}
+              sendsPageContext={s.contextEnabled}
+              onChange={onPromptChange}
+              buildPreview={preview}
+            />
+          {/if}
+        </div>
       </div>
     {/if}
   </div>
@@ -765,16 +823,21 @@
 </Dialog>
 
 <style>
+  /* One label column for the field rows and the Prompt row, so every control starts at the same edge. */
   .language {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-5);
-  }
-  .ld-grid {
     display: grid;
     grid-template-columns: max-content minmax(0, 1fr);
+    gap: var(--space-5) var(--space-4);
+  }
+  .language > * {
+    grid-column: 1 / -1;
+  }
+  .ld-grid,
+  .ld-prompt {
+    display: grid;
+    grid-template-columns: subgrid;
     align-items: start;
-    gap: var(--space-3) var(--space-4);
+    row-gap: var(--space-3);
   }
   .ld-label {
     min-height: 32px;
@@ -790,6 +853,9 @@
     flex-direction: column;
     gap: var(--space-2);
     min-width: 0;
+  }
+  .ld-label-flush {
+    min-height: 0;
   }
   /* Grows with the text, so every note shows without an inner scroll. */
   .ld-notes {
@@ -866,11 +932,15 @@
     color: var(--color-danger-fg);
   }
   .ld-prompt {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
     padding-top: var(--space-4);
     border-top: 1px solid var(--color-border-subtle);
+  }
+  .ld-prompt-control {
+    gap: var(--space-3);
+  }
+  /* The row label already says Prompt; the editor's own title would repeat it. */
+  .ld-prompt-control :global(.pe-title) {
+    display: none;
   }
   .ld-alert {
     display: flex;
@@ -898,7 +968,7 @@
     gap: var(--space-3);
   }
   @container options (max-width: 600px) {
-    .ld-grid {
+    .language {
       grid-template-columns: minmax(0, 1fr);
     }
   }
