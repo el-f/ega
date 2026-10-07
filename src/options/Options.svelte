@@ -383,12 +383,15 @@
 
   // Rail arrow keys re-focus their tab in a later microtask; stealing focus into the panel here would break roving tabindex.
   let keepFocusOnRail = false;
+  // The page opening is not a tab switch: focusing the panel then draws a focus ring around the whole tab.
+  let opened = false;
 
   // queueMicrotask defers until Svelte has flushed the new panel, so focus lands on live content, not a stale trigger.
   $effect(() => {
     void active;
-    const skipFocus = keepFocusOnRail;
+    const skipFocus = keepFocusOnRail || !opened;
     keepFocusOnRail = false;
+    opened = true;
     queueMicrotask(() => {
       // At narrow widths the document scrolls independently of `.options-content`, so both need resetting.
       window.scrollTo({ top: 0, left: 0 });

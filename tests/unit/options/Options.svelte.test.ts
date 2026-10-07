@@ -72,6 +72,16 @@ describe('Options.svelte — V2 IA nav', () => {
     expect(labels).not.toContain('Defaults');
   });
 
+  it('leaves focus alone when the page opens, so no ring frames the whole panel', async () => {
+    seedSettings();
+    const { container } = render(Options);
+    await waitFor(() => {
+      expect(container.querySelector('.options-content')).toBeTruthy();
+    });
+    await new Promise<void>((r) => queueMicrotask(() => r()));
+    expect(document.activeElement).not.toBe(container.querySelector('.options-content'));
+  });
+
   it('moves focus to .options-content after a tab switch', async () => {
     seedSettings();
     const { container } = render(Options);
