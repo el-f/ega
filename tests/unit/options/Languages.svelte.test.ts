@@ -110,6 +110,30 @@ describe('Languages tab — rows', () => {
     expect(onSetSettings).toHaveBeenCalled();
   });
 
+  it('the Default languages pickers follow the list on the same tab', async () => {
+    await mount();
+    const options = (id: string): string[] =>
+      [...(document.getElementById(id) as HTMLSelectElement).options].map((o) => o.textContent);
+    await waitFor(() => expect(options('lds-src')).toContain('Arabizi'));
+    await fireEvent.click(within(row('arabizi')).getByRole('checkbox'));
+    await waitFor(() => expect(options('lds-src')).not.toContain('Arabizi'));
+
+    await fireEvent.click(document.querySelector('[data-ega-language-add]') as HTMLElement);
+    const name = await waitFor(() => {
+      const el = document.querySelector<HTMLInputElement>(
+        'input[data-ega-language-name], [data-ega-language-name] input',
+      );
+      if (!el) throw new Error('no dialog');
+      return el;
+    });
+    await fireEvent.input(name, { target: { value: 'Pirate' } });
+    await fireEvent.input(document.querySelector('[data-ega-language-notes]') as HTMLElement, {
+      target: { value: 'Talks like a pirate' },
+    });
+    await fireEvent.click(document.querySelector('[data-ega-dialog-done]') as HTMLElement);
+    await waitFor(() => expect(options('lds-tgt')).toContain('Pirate'));
+  });
+
   it('warns that a hidden default still runs, and stays quiet for other languages', async () => {
     const push = vi.spyOn(toastStore, 'push');
     chromeMock.storage.local._raw.set(STORAGE_KEYS.settings, {

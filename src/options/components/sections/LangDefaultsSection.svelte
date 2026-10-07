@@ -1,8 +1,6 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import type { Settings, Variety } from '@/shared/types';
   import { asLangSelection } from '@/shared/brands';
-  import { listVarieties } from '@/shared/varieties';
   import SectionCard from '@/shared/ui/SectionCard.svelte';
   import LanguagePicker from '@/shared/components/LanguagePicker.svelte';
   import IconButton from '@/shared/ui/IconButton.svelte';
@@ -11,14 +9,11 @@
 
   interface Props {
     s: Settings;
+    /** The Languages tab's own list, so a language added, deleted or hidden there shows here at once. */
+    varieties: readonly Variety[];
     onPatch: (p: Partial<Settings>) => Promise<void> | void;
   }
-  const { s, onPatch }: Props = $props();
-
-  let varieties: Variety[] = $state([]);
-  onMount(async () => {
-    varieties = await listVarieties();
-  });
+  const { s, varieties, onPatch }: Props = $props();
 
   // Read-only mirrors: writes go through the change handler, so there is no local copy to resync and no mount echo.
   const src = $derived(s.defaultLang);
@@ -52,10 +47,12 @@
       <LanguagePicker id="lds-src" {varieties} includeAuto suppressAriaLabel value={src} />
     </div>
 
-    <!-- aria-disabled, not disabled: the button keeps its Tab stop and reads the reason below. -->
+    <!-- aria-disabled, not disabled: the button keeps its Tab stop and reads the reason below. A tooltip
+         would put its own id in aria-describedby while the button has focus, so the off button has none. -->
     <IconButton
       icon={ArrowLeftRight}
       ariaLabel="Swap languages"
+      {...swapDisabled ? { tooltip: '' } : {}}
       dataAttrs={swapDisabled
         ? { 'aria-disabled': 'true', 'aria-describedby': 'lds-swap-why' }
         : {}}

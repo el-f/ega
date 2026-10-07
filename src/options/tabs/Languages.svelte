@@ -140,6 +140,7 @@
 {#if s}
   <LangDefaultsSection
     {s}
+    varieties={all}
     onPatch={async (p) => {
       const next = await saveSettings(p);
       if (next) onSetSettings(next);
