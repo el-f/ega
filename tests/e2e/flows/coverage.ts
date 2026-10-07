@@ -980,12 +980,13 @@ export const COVERAGE: readonly Family[] = [
           },
           {
             id: 'variety-add',
-            description: 'Add custom language form seeds customLanguages entry',
+            description:
+              'Add language opens the dialog; a name and notes save a customLanguages entry',
             flows: ['options-languages/variety-add.flow.spec.ts'],
           },
           {
             id: 'variety-delete',
-            description: 'Delete custom language removes the entry',
+            description: 'Delete language in the dialog removes the entry; Undo puts it back',
             flows: ['options-languages/variety-delete.flow.spec.ts'],
           },
           {
@@ -1010,17 +1011,18 @@ export const COVERAGE: readonly Family[] = [
           },
           {
             id: 'variety-edit-save',
-            description: 'Edit variety hint and Save persists hint + shows Saved ✓',
+            description:
+              'Notes typed in the language dialog save themselves; the status says Saved',
             flows: ['options-languages/variety-edit-save.flow.spec.ts'],
           },
           {
             id: 'variety-reset-to-built-in',
-            description: 'Reset to built-in deletes the override; the toast Undo puts it back',
+            description: 'Reset language deletes the override; Undo in the dialog puts it back',
             flows: ['options-languages/variety-reset-to-built-in.flow.spec.ts'],
           },
           {
             id: 'variety-add-example',
-            description: 'Add another example in editor persists src+tgt pair',
+            description: 'Add example in the language dialog saves the src+tgt pair',
             flows: ['options-languages/variety-add-example.flow.spec.ts'],
           },
           {
@@ -1030,12 +1032,13 @@ export const COVERAGE: readonly Family[] = [
           },
           {
             id: 'prompt-save',
-            description: 'Save in a language prompt stores perPresetTemplates for that language',
+            description: 'Use its own prompt stores the changed half in perPresetTemplates',
             flows: ['options-languages/prompt-save.flow.spec.ts'],
           },
           {
             id: 'prompt-clear',
-            description: 'Clear removes the language prompt; the toast Undo puts it back',
+            description:
+              'Use the Translate prompt removes the language prompt; Undo in the dialog puts it back',
             flows: ['options-languages/prompt-clear.flow.spec.ts'],
           },
           {
@@ -1045,7 +1048,8 @@ export const COVERAGE: readonly Family[] = [
           },
           {
             id: 'prompt-own-label',
-            description: 'A row says whether the language has its own prompt',
+            description:
+              'The dialog opens on the prompt the language uses: its own or the Translate prompt',
             flows: ['options-languages/prompt-own-label.flow.spec.ts'],
           },
           {
@@ -1055,7 +1059,8 @@ export const COVERAGE: readonly Family[] = [
           },
           {
             id: 'prompt-open-editor',
-            description: 'Write a prompt opens the prompt editor inside the language row',
+            description:
+              'Use its own prompt opens the shared prompt editor inside the language dialog',
             flows: ['options-languages/prompt-open-editor.flow.spec.ts'],
           },
         ],

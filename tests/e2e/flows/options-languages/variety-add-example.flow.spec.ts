@@ -1,6 +1,11 @@
 /* coverage: options.languages.variety-add-example */
 import { test, expect } from '@playwright/test';
-import { launchExtension, readStorage, type ExtensionHandle } from '../../helpers';
+import {
+  launchExtension,
+  openLanguageDialog,
+  readStorage,
+  type ExtensionHandle,
+} from '../../helpers';
 import { createTimeline } from '../_harness';
 import type { Settings } from '../../../../src/shared/types';
 
@@ -18,40 +23,27 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-test('Add another example in variety editor persists src+tgt pair to storage', async () => {
+test('Add example in the language dialog saves the pair to storage', async () => {
   const timeline = createTimeline();
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
-  await page.locator('#tab-languages').click();
-  timeline.markStep('tab-open');
-
-  // Open the Arabizi row editor.
-  const editBtn = page.locator('button[aria-label="Edit"]').first();
-  await expect(editBtn).toBeVisible({ timeout: 5_000 });
-  await editBtn.click();
+  const dialog = await openLanguageDialog(page, VARIETY_ID, 'Arabizi');
   timeline.markStep('editor-open');
 
-  // Click "Add another example" to append a blank example row.
-  const addExampleBtn = page.locator('button.ega-btn', { hasText: 'Add another example' });
-  await expect(addExampleBtn).toBeVisible({ timeout: 5_000 });
-  await addExampleBtn.click();
+  await dialog.locator('[data-ega-language-add-example]').click();
   timeline.markStep('example-row-added');
 
-  // Fill the last src/tgt pair — the new row is always appended at the end.
-  const srcInputs = page.locator('input[aria-label="Example source"]');
-  const tgtInputs = page.locator('input[aria-label="Example translation"]');
-  const lastSrc = srcInputs.last();
-  const lastTgt = tgtInputs.last();
-  await lastSrc.fill(EXAMPLE_SRC);
-  await lastTgt.fill(EXAMPLE_TGT);
+  // The new row is last, and focus is already in its first field.
+  const rows = dialog.locator('[data-ega-language-example]');
+  const last = rows.last();
+  await expect(last.getByRole('textbox').first()).toBeFocused();
+  await last.getByRole('textbox').first().fill(EXAMPLE_SRC);
+  await last.getByRole('textbox').nth(1).fill(EXAMPLE_TGT);
   timeline.markStep('example-filled');
 
-  await page.locator('button.ega-btn.variant-primary', { hasText: 'Save' }).first().click();
+  await expect(page.locator('[data-ega-dialog-status]')).toHaveText('Saved', { timeout: 5_000 });
   timeline.markStep('saved');
 
-  await expect(page.locator('.ok', { hasText: 'Saved ✓' })).toBeVisible({ timeout: 3_000 });
-
-  // varietyOverrides must include the new example pair.
   await expect
     .poll(
       async () => {

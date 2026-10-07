@@ -21,15 +21,14 @@ test.afterEach(async () => {
 
 test.slow();
 
-test('Write a prompt opens the prompt editor inside the language row', async () => {
+test('Use its own prompt opens the shared prompt editor inside the language dialog', async () => {
   const timeline = createTimeline();
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
-  await openLanguagePrompt(page, 'arabizi', 'Arabizi');
-  const box = page.locator('[data-ega-variety-prompt="arabizi"]');
-  await expect(box.locator('[data-ega-template-editor]')).toBeVisible();
-  await expect(box.locator('[data-ega-slot-palette]')).toBeVisible();
-  await expect(box.locator('[data-ega-template-save]')).toBeVisible();
+  const dialog = await openLanguagePrompt(page, 'arabizi', 'Arabizi');
+  await expect(dialog.locator('[data-ega-prompt-editor]')).toBeVisible();
+  await expect(dialog.getByRole('button', { name: /Insert variable/ })).toBeVisible();
+  await expect(dialog.locator('[data-ega-prompt-tab="preview"]')).toBeVisible();
   timeline.markStep('editor-open');
   timeline.report();
 });

@@ -52,10 +52,13 @@
       <LanguagePicker id="lds-src" {varieties} includeAuto suppressAriaLabel value={src} />
     </div>
 
+    <!-- aria-disabled, not disabled: the button keeps its Tab stop and reads the reason below. -->
     <IconButton
       icon={ArrowLeftRight}
       ariaLabel="Swap languages"
-      disabled={swapDisabled}
+      dataAttrs={swapDisabled
+        ? { 'aria-disabled': 'true', 'aria-describedby': 'lds-swap-why' }
+        : {}}
       onclick={swap}
     />
 
@@ -64,6 +67,11 @@
       <LanguagePicker id="lds-tgt" {varieties} suppressAriaLabel value={tgt} />
     </div>
   </div>
+  {#if swapDisabled}
+    <p class="swap-why" id="lds-swap-why" data-ega-disabled-reason>
+      Swap needs a source language, not Auto-detect
+    </p>
+  {/if}
 </SectionCard>
 
 <style>
@@ -72,11 +80,23 @@
     align-items: end;
     gap: var(--space-2);
   }
+  /* Both pickers take the same width, whatever their longest language name. */
   .field-cluster {
+    flex: 1 1 0;
     display: flex;
     flex-direction: column;
     gap: var(--space-1);
     min-width: 0;
+  }
+  .swap-why {
+    margin: var(--space-1) 0 0;
+    font-size: var(--fs-base);
+    line-height: var(--lh-body);
+    color: var(--color-muted);
+  }
+  .lang-row :global(.ega-icon-btn[aria-disabled='true']) {
+    opacity: 0.55;
+    cursor: not-allowed;
   }
   .field-cluster label {
     font-size: var(--fs-sm);

@@ -36,17 +36,9 @@ test('editing a built-in creates a varietyOverrides entry; reset clears it', asy
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
   await page.getByRole('tab', { name: /^Languages$/ }).click();
 
-  // .variety-row wraps both the row head and its editor panel.
-  const card = page.locator('.variety-row').filter({ has: page.locator('#enable-arabizi') });
-  await card.waitFor({ state: 'visible' });
-
-  // Open the edit panel.
-  await card.getByRole('button', { name: /^Edit$/ }).click();
-
-  const hintArea = page.locator('#hint-arabizi');
-  await hintArea.waitFor({ state: 'visible' });
-  await hintArea.fill('CUSTOM HINT FOR TEST');
-  await card.getByRole('button', { name: /^Save language$/ }).click();
+  await page.getByRole('button', { name: 'Edit Arabizi' }).click();
+  const dialog = page.locator('[data-ega-language-dialog="arabizi"]');
+  await dialog.getByLabel('Notes').fill('CUSTOM HINT FOR TEST');
 
   await expect
     .poll(
@@ -58,8 +50,8 @@ test('editing a built-in creates a varietyOverrides entry; reset clears it', asy
     )
     .toBe('CUSTOM HINT FOR TEST');
 
-  // Shown when v.hasOverrides; removal is immediate, with an Undo toast.
-  await card.getByRole('button', { name: /^Reset to built-in$/ }).click();
+  // Shown once the language differs from the built-in; removal is immediate, with Undo in the dialog.
+  await page.getByRole('button', { name: 'Reset language' }).click();
 
   await expect
     .poll(
@@ -77,16 +69,11 @@ test('adding a custom language shows it in the list', async () => {
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
   await page.getByRole('tab', { name: /^Languages$/ }).click();
 
-  // The add-form is hidden by default — open it via the header action button.
-  await page.getByRole('button', { name: /^Add custom language$/ }).click();
+  await page.getByRole('button', { name: 'Add language' }).click();
+  const dialog = page.locator('[data-ega-language-dialog="new"]');
+  await dialog.getByLabel('Name').fill('Mock Variety');
+  await dialog.getByLabel('Notes').fill('for tests');
+  await page.locator('[data-ega-dialog-done]').click();
 
-  const labelInput = page.locator('.add-form').getByLabel(/^Label/);
-  await labelInput.waitFor({ state: 'visible' });
-  await labelInput.fill('Mock Variety');
-  await page.locator('#new-hint').fill('for tests');
-  await page.getByRole('button', { name: /^Add$/ }).click();
-
-  await expect(
-    page.locator('button.variety-label-inline', { hasText: 'Mock Variety' }),
-  ).toBeVisible();
+  await expect(page.locator('[data-ega-variety-row]', { hasText: 'Mock Variety' })).toBeVisible();
 });

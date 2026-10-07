@@ -155,11 +155,19 @@ test('options Backends tab passes axe critical-only smoke', async () => {
   expectClean('options-backends', buckets);
 });
 
-// 'templates' left out: SlotPalette nests a `<button>` inside another one, which axe flags.
-const WALKED_TABS = ['translate', 'tasks', 'selection-bubble', 'backends', 'languages', 'about'];
+const WALKED_TABS = [
+  'translate',
+  'tasks',
+  'selection-bubble',
+  'backends',
+  'languages',
+  'glossary',
+  'advanced',
+  'about',
+];
 
 test('options tabs pass axe critical-only smoke one by one', async () => {
-  // Six axe scans in one test.
+  // Eight axe scans in one test.
   test.slow();
   const page = await ext.context.newPage();
   await page.goto(optionsUrl());

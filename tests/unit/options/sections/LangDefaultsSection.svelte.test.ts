@@ -43,7 +43,11 @@ describe('LangDefaultsSection', () => {
     });
     const btn = container.querySelector<HTMLButtonElement>('button[aria-label="Swap languages"]');
     if (!btn) throw new Error('no swap button');
-    expect(btn.disabled).toBe(true);
+    expect(btn.disabled).toBe(false);
+    expect(btn.getAttribute('aria-disabled')).toBe('true');
+    expect(
+      document.getElementById(btn.getAttribute('aria-describedby') ?? '')?.textContent.trim(),
+    ).toBe('Swap needs a source language, not Auto-detect');
     await fireEvent.click(btn);
     expect(onPatch).not.toHaveBeenCalled();
   });

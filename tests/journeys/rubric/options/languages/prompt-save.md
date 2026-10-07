@@ -2,18 +2,18 @@
 
 ## Latency budgets
 
-- Click -> editor or row update visible: <= 300ms.
+- Typing pause -> storage write: <= 1s.
 
 ## State expectations
 
-- Step 1: the user opens the Languages tab and edits one language row (Save a language prompt).
-- Step 2: the user edits the System field in the Arabizi prompt editor and presses Save prompt.
-- Step 3: `perPresetTemplates.arabizi` holds the edited text; the Translate prompt is unchanged.
+- Step 1: the user opens Arabizi with Edit and picks "Use its own prompt"; the editor starts from the Translate prompt.
+- Step 2: the user edits the System field.
+- Step 3: `perPresetTemplates.arabizi` holds only the half that differs; the Translate prompt is unchanged.
 
 ## Visible affordances
 
-- "Prompt for this language" sits at the bottom of the language row, below Save language and Reset to built-in.
-- The prompt editor has its own Save prompt button; it does not save the hint or examples.
+- "Prompt" is the last part of the language dialog: two radios, "Use the Translate prompt" and "Use its own prompt". The shared prompt editor shows under them only for "Use its own prompt".
+- There is no Save prompt button: the prompt saves as it changes, and the footer says "Saved".
 
 ## Failure-mode expectations
 
@@ -21,4 +21,4 @@
 
 ## Cautions
 
-- The language row is the only place a language prompt is edited.
+- The language dialog is the only place a language prompt is edited.

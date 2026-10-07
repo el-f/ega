@@ -2,24 +2,24 @@
 
 ## Latency budgets
 
-- Form submit -> row appears in list: <= 200ms.
+- Notes typed -> language created: <= 1s (the save waits for a 600 ms pause).
 
 ## State expectations
 
-- Step 1: user opens the add form with the header "Add custom language" (+) button.
-- Step 2: user fills Label + Hint; clicks Add.
-- Step 3: a new entry lands in `customLanguages`; the form clears and closes, an "Added "<label>"." toast shows, and the new row flashes and scrolls into view.
+- Step 1: the user presses "Add language" in the card header; the dialog "New language" opens with focus on its title, and the footer says "Not saved yet: add a name".
+- Step 2: the user types a name (the footer says "Not saved yet: add notes"), then notes.
+- Step 3: the language lands in `customLanguages`; after Done the row shows with a "Custom" pill.
 
 ## Visible affordances
 
-- Add button uses the primary action tokens; Cancel is a secondary affordance.
-- Label + Hint fields have clear labels and are marked required; add errors appear inline in the form, above the Add button.
+- Name and Notes have visible labels; Notes shows "What the model should know about this language" and a counter.
+- Examples start empty with the hint "3 to 5 short pairs help the most".
 
 ## Failure-mode expectations
 
-- Empty label or hint keeps Add disabled, with a "Label and hint are required." tooltip.
-- At the 200-language cap, an inline error says to delete one before adding another.
+- Closing with a name but no notes asks "Discard this language?"; Keep editing keeps the dialog.
+- At 200 custom languages the footer says to delete one before adding another.
 
 ## Cautions
 
-- The new variety must be usable immediately in language pickers across all surfaces (no refresh required).
+- The new language is usable at once in the language pickers on every surface.

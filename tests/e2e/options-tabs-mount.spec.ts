@@ -58,10 +58,11 @@ test('Languages tab: mounts without errors and shows enable-arabizi control', as
 
   await expect(page.locator('#enable-arabizi')).toBeVisible({ timeout: 5_000 });
 
-  // The add-language form sits behind a header toggle, so open it before asserting.
-  await page.getByRole('button', { name: /add custom language/i }).click();
-  await expect(page.locator('.add-form').getByLabel(/^Label/)).toBeVisible();
-  await expect(page.locator('#new-hint')).toBeVisible();
+  // Add language opens the language dialog, empty.
+  await page.getByRole('button', { name: 'Add language' }).click();
+  const dialog = page.locator('[data-ega-language-dialog="new"]');
+  await expect(dialog.getByLabel('Name')).toBeVisible();
+  await expect(dialog.getByLabel('Notes')).toBeVisible();
 
   expect(errors).toEqual([]);
 });

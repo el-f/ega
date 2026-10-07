@@ -13,12 +13,12 @@
 
 ## Visible affordances
 
-- Swap button sits between the source and target selects; uses a swap/arrows icon with aria-label.
+- Swap button sits between the source and target selects; uses a swap/arrows icon named "Swap languages". Both selects are the same width.
 - Toast is non-blocking and hides after 6s; the timer waits while the pointer or focus is on it.
 
 ## Failure-mode expectations
 
-- When the source is Auto-detect, Swap is disabled (aria-label "Pick a source language to swap"): no write, no toast. There is no separate guard for source equal to target.
+- When the source is Auto-detect, Swap stays focusable but aria-disabled, and the line "Swap needs a source language, not Auto-detect" under the pickers is its description: no write, no toast. There is no separate guard for source equal to target.
 - Storage write failure shows a "Change not saved" warning toast; the "Languages swapped" success toast still shows because it fires before the write settles.
 
 ## Cautions

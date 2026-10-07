@@ -2,24 +2,22 @@
 
 ## Latency budgets
 
-- Delete click -> confirm dialog: <= 100ms.
-- Confirm -> row removal: <= 200ms.
+- Delete language -> row removed: <= 200ms.
 
 ## State expectations
 
-- Step 1: user clicks the delete affordance on a custom variety row.
-- Step 2: a confirm dialog surfaces naming the variety to be removed.
-- Step 3 (confirm): the entry is removed from `customLanguages`; the row disappears from the list.
+- Step 1: the user opens a custom language with Edit.
+- Step 2 (Delete language): the dialog closes, the row and the stored entry go at once, and a toast Deleted "<name>" offers Undo.
+- Step 3 (Undo): the language comes back in its old place, with its own prompt, picker visibility and any default or glossary entry that named it.
 
 ## Visible affordances
 
-- Confirm dialog uses the danger tone: a danger "Delete" button beside a secondary Cancel.
+- "Delete language" is a ghost button with a trash icon in the dialog footer; built-in languages have no delete.
 
 ## Failure-mode expectations
 
-- Cancel leaves the variety untouched.
+- No confirm dialog: Undo is the safety net.
 
 ## Cautions
 
-- Delete is permanent (no Undo); the user can re-add the variety with the same fields.
-- The dialog must trap focus while open.
+- After the toast is gone the delete is final.

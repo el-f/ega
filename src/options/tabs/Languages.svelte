@@ -1,458 +1,109 @@
-<script lang="ts" module>
-  import { flushSync } from 'svelte';
-
-  /** A row's editable copy. Only customs carry a label: a built-in keeps its shipped one. An empty pattern means none. */
-  interface Draft {
-    label?: string;
-    hint: string;
-    examples: Array<{ src: string; tgt: string }>;
-    detect: { regex: string; flags: string; minScore: number };
-  }
-  // Module scope, so a draft outlives closing its row and leaving the tab; Save or Discard ends it.
-  const draft = $state<Record<string, Draft>>({});
-  // The normalized draft as it was created; a draft equal to it holds no edits and is rebuilt on open.
-  const draftBase = $state<Record<string, string>>({});
-  // True while an open prompt editor holds edits. The editor keeps its text inside itself, so this resets whenever it unmounts.
-  let promptDirty = $state(false);
-
-  /** The compared form of a draft: blank example rows and an unparsable minimum do not count as edits. */
-  function parts(d: Draft): {
-    label: string | undefined;
-    hint: string;
-    examples: string[][];
-    detect: { regex: string; flags: string; min: number };
-  } {
-    return {
-      label: d.label,
-      hint: d.hint,
-      examples: d.examples.filter((e) => e.src.trim() || e.tgt.trim()).map((e) => [e.src, e.tgt]),
-      detect: { regex: d.detect.regex, flags: d.detect.flags, min: Number(d.detect.minScore) || 1 },
-    };
-  }
-
-  function normalized(d: Draft): string {
-    return JSON.stringify(parts(d));
-  }
-
-  function draftDirty(id: string): boolean {
-    const d = draft[id];
-    return d !== undefined && normalized(d) !== draftBase[id];
-  }
-
-  // Drafts outlive the tab (switching tabs unmounts it), so the unload guard lives with them, not with the component.
-  $effect.root(() => {
-    $effect(() => {
-      if (!promptDirty && !Object.keys(draft).some(draftDirty)) return;
-      const warn = (e: BeforeUnloadEvent): void => e.preventDefault();
-      window.addEventListener('beforeunload', warn);
-      return () => window.removeEventListener('beforeunload', warn);
-    });
-  });
-
-  /** Drops every draft and removes the unload guard before returning, so a reload right after it does not ask. */
-  export function discardAllDrafts(): void {
-    for (const id of Object.keys(draft)) {
-      delete draft[id];
-      delete draftBase[id];
-    }
-    promptDirty = false;
-    // The guard comes off in an effect cleanup, which would otherwise run after the caller's reload.
-    flushSync();
-  }
-</script>
-
 <script lang="ts">
   import { onMount, tick } from 'svelte';
-  import type { Settings, Variety, VarietyEdit } from '@/shared/types';
-  import { createTemplatesHandlers } from '@/options/templates-handlers';
-  import { languagePrompt } from '@/shared/language-prompt';
-  import {
-    listVarieties,
-    updateVariety,
-    resetVariety,
-    addCustomVariety,
-    deleteVariety,
-  } from '@/shared/varieties';
-  import { getSettings } from '@/shared/storage';
-  import { exportLanguage, exportVarieties } from '@/shared/storage/backup';
+  import type { Settings, Variety } from '@/shared/types';
+  import { listVarieties } from '@/shared/varieties';
+  import { getSettings, replaceSettings } from '@/shared/storage';
+  import { exportVarieties } from '@/shared/storage/backup';
   import { importBundleFile, type ImportStatus } from '@/options/import-bundle';
   import { count } from '@/shared/utils/count';
-  import { saveSettings } from '@/options/storage-with-toast';
+  import { saveSettings, saveVia } from '@/options/storage-with-toast';
   import { makeAsyncLock } from '@/shared/utils/async-lock';
-  import { confirmDialog } from '@/shared/components/confirmDialog';
   import { toastStore } from '@/shared/components/toastStore';
   import { downloadJsonFile } from '@/shared/download-file';
-  import { openOptionsTab } from '@/shared/open-options-tab';
   import TabHeader from '@/shared/components/TabHeader.svelte';
   import LangDefaultsSection from '@/options/components/sections/LangDefaultsSection.svelte';
+  import LanguageDialog from '@/options/components/LanguageDialog.svelte';
   import SectionCard from '@/shared/ui/SectionCard.svelte';
-  import IconButton from '@/shared/ui/IconButton.svelte';
   import Button from '@/shared/ui/Button.svelte';
+  import Badge from '@/shared/ui/Badge.svelte';
   import Checkbox from '@/shared/ui/Checkbox.svelte';
   import Input from '@/shared/ui/Input.svelte';
-  import {
-    CUSTOM_LANG_EXAMPLES_MAX,
-    DETECT_FLAGS_MAX,
-    DETECT_PATTERN_MAX,
-    VARIETY_EXAMPLE_MAX,
-    VARIETY_EXAMPLES_MAX,
-    VARIETY_HINT_MAX,
-    VARIETY_LABEL_MAX,
-  } from '@/shared/settings-schema';
-  import CollapsibleField from '@/shared/ui/CollapsibleField.svelte';
   import BackupRestoreRow from '@/options/components/BackupRestoreRow.svelte';
-  import Pencil from '@lucide/svelte/icons/pencil';
-  import X from '@lucide/svelte/icons/x';
-  import Trash2 from '@lucide/svelte/icons/trash-2';
-  import Plus from '@lucide/svelte/icons/plus';
-  import ChevronRight from '@lucide/svelte/icons/chevron-right';
-  import Download from '@lucide/svelte/icons/download';
+  import Search from '@lucide/svelte/icons/search';
 
   interface Props {
-    /** Null while Options loads; the language prompt editor waits for it. */
+    /** Null while Options loads; the language dialog waits for it. */
     s?: Settings | null;
     onSetSettings?: (next: Settings) => void;
   }
 
   const { s = null, onSetSettings = () => {} }: Props = $props();
-  const handlers = createTemplatesHandlers({
-    getSettings: () => s,
-    setSettings: (next) => onSetSettings(next),
-  });
-  /** The language whose prompt editor is open. */
-  let promptOpen = $state<string | null>(null);
 
   let all: Variety[] = $state.raw([]);
-  let form = $state({ label: '', hint: '' });
-  let expanded = $state<string | null>(null);
   let query = $state('');
-  // The add form starts hidden, so the page stays short for users who only manage the built-ins.
-  let showAddForm = $state(false);
-  let addFormEl = $state<HTMLDivElement | null>(null);
-
-  // The button that opened the form unmounts with the click, so focus moves into the form instead of falling to the page.
-  async function openAddForm(): Promise<void> {
-    showAddForm = true;
-    await tick();
-    addFormEl?.querySelector<HTMLElement>('input, textarea')?.focus();
-  }
-  let detectOpen = $state<Record<string, boolean>>({});
-  let saved = $state<Record<string, boolean>>({});
-  let flashId = $state<string | null>(null);
+  /** The language the dialog edits; 'new' for an empty one. */
+  let editing = $state<Variety | 'new' | null>(null);
 
   const sorted = $derived([...all].sort((a, b) => a.label.localeCompare(b.label)));
-  const hasCustom = $derived(all.some((v) => v.kind === 'custom'));
   const filtered = $derived(
     query.trim() === ''
       ? sorted
-      : sorted.filter((v) => v.label.toLowerCase().includes(query.toLowerCase())),
+      : sorted.filter((v) => v.label.toLowerCase().includes(query.trim().toLowerCase())),
   );
 
   async function refresh(): Promise<void> {
     all = await listVarieties();
-    // A draft for a language that is gone can never be saved; keeping it would hold the unload guard forever.
-    for (const id of Object.keys(draft)) {
-      if (!all.some((v) => v.id === id)) {
-        delete draft[id];
-        delete draftBase[id];
-      }
-    }
   }
 
   onMount(() => {
     void refresh();
-    // The prompt editor and its text go away with the tab.
-    return () => {
-      promptDirty = false;
-    };
   });
 
   // Two fast checkbox flips interleave their read-modify-write, so they queue behind the same tail promise storage uses.
-  const toggleDisabledLock = makeAsyncLock();
-  async function toggleDisabled(v: Variety): Promise<void> {
-    await toggleDisabledLock(async () => {
-      const s = await getSettings();
-      const cur = s.disabledVarieties;
-      const turningOff = !cur.includes(v.id);
-      const next = turningOff ? [...cur, v.id] : cur.filter((id) => id !== v.id);
-      if (!(await saveSettings({ disabledVarieties: next }))) return;
+  const toggleLock = makeAsyncLock();
+  async function toggleShown(v: Variety): Promise<void> {
+    await toggleLock(async () => {
+      const before = await getSettings();
+      const turningOff = !before.disabledVarieties.includes(v.id);
+      const next = await saveVia(() =>
+        replaceSettings((cur) => ({
+          ...cur,
+          disabledVarieties: turningOff
+            ? [...new Set([...cur.disabledVarieties, v.id])]
+            : cur.disabledVarieties.filter((id) => id !== v.id),
+        })),
+      );
+      if (!next) return;
+      onSetSettings(next);
       await refresh();
-      const role = defaultRole(s, v.id);
+      const role = defaultRole(before, v.id);
       // An off language stays the default: the pickers hide it, but every request still uses it.
       if (turningOff && role) {
         toastStore.push({
-          message: `"${v.label}" is your default ${role} language. Ega still uses it until you pick another default on the Translate tab.`,
+          message: `${v.label} is your default ${role} language, so Ega still uses it. Pick another in Default languages.`,
           variant: 'warning',
-          action: { label: 'Open Translate tab', onClick: () => openOptionsTab('translate') },
         });
       }
     });
   }
 
-  function defaultRole(s: Settings, id: string): string | null {
-    const source = s.defaultLang === id;
-    const target = s.defaultTargetLang === id;
+  function defaultRole(cur: Settings, id: string): string | null {
+    const source = cur.defaultLang === id;
+    const target = cur.defaultTargetLang === id;
     if (source && target) return 'source and target';
     return source ? 'source' : target ? 'target' : null;
   }
 
-  // The prompt editor keeps its draft inside itself, so closing the row would drop it without asking.
-  async function startEdit(v: Variety): Promise<void> {
-    if (promptDirty && promptOpen === expanded) {
-      const discard = await confirmDialog({
-        title: 'Discard the unsaved prompt?',
-        body: 'Your changes to this language prompt are not saved.',
-        confirmLabel: 'Discard',
-        danger: true,
-      });
-      if (!discard) return;
-    }
-    promptDirty = false;
-    promptOpen = null;
-    if (expanded === v.id) {
-      expanded = null;
-      return;
-    }
-    expanded = v.id;
-    if (!isDirty(v)) rebuildDraft(v.id);
+  // The dialog's opener gets focus back when it closes.
+  let opener: HTMLElement | null = null;
+  function open(v: Variety | 'new', from: EventTarget | null): void {
+    opener = from instanceof HTMLElement ? from : null;
+    editing = v;
   }
-
-  function isDirty(v: Variety): boolean {
-    return draftDirty(v.id);
-  }
-
-  function draftOf(v: Variety): Draft {
-    return {
-      hint: v.hint,
-      examples: v.examples.map((e) => ({ ...e })),
-      detect: {
-        regex: v.autoDetect?.regex ?? '',
-        flags: v.autoDetect?.flags ?? 'i',
-        minScore: v.autoDetect?.minScore ?? 1,
-      },
-      ...(v.kind === 'custom' ? { label: v.label } : {}),
-    };
-  }
-
-  /** Undefined clears the pattern (a built-in then runs its shipped one); an Error is a pattern the browser cannot compile. */
-  function detectPatch(d: Draft['detect']): VarietyEdit['autoDetect'] | Error {
-    if (d.regex.trim() === '') return undefined;
-    try {
-      new RegExp(d.regex, d.flags);
-    } catch (e) {
-      return e as Error;
-    }
-    return {
-      regex: d.regex,
-      flags: d.flags,
-      minScore: Math.max(1, Math.round(Number(d.minScore)) || 1),
-    };
-  }
-
-  type DraftField = 'label' | 'hint' | 'examples' | 'detect';
-  const DRAFT_FIELDS: readonly DraftField[] = ['label', 'hint', 'examples', 'detect'];
-
-  /**
-   * The draft to save once the stored language moved since the draft was made (an import, another window).
-   * Fields the user did not touch take the stored value; null when a field the user changed also changed in storage.
-   */
-  function rebase(id: string, mine: Draft, stored: Variety): Draft | null {
-    const baseJson = draftBase[id];
-    const theirs = draftOf(stored);
-    if (baseJson === undefined || normalized(theirs) === baseJson) return mine;
-    const base = JSON.parse(baseJson) as ReturnType<typeof parts>;
-    const m = parts(mine);
-    const t = parts(theirs);
-    const merged: Draft = { ...theirs };
-    const take = <K extends DraftField>(k: K): void => {
-      merged[k] = mine[k];
-    };
-    for (const k of DRAFT_FIELDS) {
-      const was = JSON.stringify(base[k]);
-      if (JSON.stringify(m[k]) === was) continue;
-      if (JSON.stringify(t[k]) !== was && JSON.stringify(t[k]) !== JSON.stringify(m[k]))
-        return null;
-      take(k);
-    }
-    return merged;
-  }
-
-  async function save(stale: Variety): Promise<void> {
-    const mine = draft[stale.id];
-    if (!mine) return;
-    // The row's copy can be older than storage; an edit must not write back fields it never touched.
-    const v = (await listVarieties()).find((x) => x.id === stale.id) ?? stale;
-    const d = rebase(v.id, mine, v);
-    if (!d) {
-      // Discard changes rebuilds from the list, so the list must hold the stored version the toast sends the user to.
-      await refresh();
-      toastStore.push({
-        message: `"${v.label}" changed in another window or in an import while you edited it, and so did a field you edited. Nothing was saved. Copy your text, press Discard changes to load the new version, then edit again.`,
-        variant: 'danger',
-      });
-      return;
-    }
-    const autoDetect = detectPatch(d.detect);
-    if (autoDetect instanceof Error) {
-      detectOpen[v.id] = true;
-      toastStore.push({
-        message: `The detection pattern for "${v.label}" is not valid: ${autoDetect.message}`,
-        variant: 'danger',
-      });
-      return;
-    }
-    // A named undefined clears the pattern; the key is what tells it from "keep".
-    const patch: VarietyEdit = {
-      hint: d.hint,
-      examples: d.examples.filter((e) => e.src.trim() || e.tgt.trim()),
-      autoDetect,
-    };
-    if (v.kind === 'custom' && d.label) patch.label = d.label;
-    // An unchanged built-in would store an override that only shadows the preset.
-    if (v.kind !== 'custom' && sameEdit(patch, v)) {
-      // Storage already holds this edit (another window saved it), so the draft ends here too.
-      await refresh();
-      rebuildDraft(v.id);
-      saved[v.id] = true;
-      setTimeout(() => (saved[v.id] = false), 1500);
-      return;
-    }
-    try {
-      await updateVariety(v.id, patch);
-    } catch (e) {
-      const msg =
-        (e as Error).message === 'invalid-language'
-          ? `"${v.label}" needs a label and a hint to save.`
-          : (e as Error).message === 'slow-pattern'
-            ? `The detection pattern for "${v.label}" can take too long on a long selection and freeze the page, so it was not saved. Use fewer repeats (like .* or \\w+).`
-            : (e as Error).message === 'language-gone'
-              ? `"${v.label}" was deleted in another window.`
-              : `Could not save "${v.label}": ${(e as Error).message}`;
-      toastStore.push({ message: msg, variant: 'danger' });
-      if ((e as Error).message === 'language-gone') await refresh();
-      return;
-    }
+  async function closeDialog(): Promise<void> {
+    const wasNew = editing === 'new';
+    editing = null;
     await refresh();
-    rebuildDraft(v.id);
-    saved[v.id] = true;
-    setTimeout(() => (saved[v.id] = false), 1500);
+    await tick();
+    // A deleted language takes its Edit button with it; the card's Add language is the next stop.
+    if (opener?.isConnected === true) opener.focus();
+    else if (!wasNew) document.querySelector<HTMLElement>('[data-ega-language-add]')?.focus();
   }
 
-  function sameEdit(patch: VarietyEdit, v: Variety): boolean {
-    const current: VarietyEdit = {
-      hint: v.hint,
-      examples: v.examples.map((e) => ({ src: e.src, tgt: e.tgt })),
-      ...(v.autoDetect ? { autoDetect: v.autoDetect } : {}),
-    };
-    return JSON.stringify(patch) === JSON.stringify(current);
-  }
-
-  function rebuildDraft(id: string): void {
-    const fresh = all.find((x) => x.id === id);
-    if (!fresh) return;
-    const d = draftOf(fresh);
-    draft[id] = d;
-    draftBase[id] = normalized(d);
-  }
-
-  async function reset(v: Variety): Promise<void> {
-    // Snapshot the saved override so the toast's Undo can put it back.
-    const prior: VarietyEdit = {
-      hint: v.hint,
-      examples: v.examples.map((e) => ({ ...e })),
-      ...(v.autoDetect ? { autoDetect: { ...v.autoDetect } } : {}),
-    };
-    try {
-      await resetVariety(v.id);
-    } catch (e) {
-      toastStore.push({
-        message: `Could not reset "${v.label}": ${(e as Error).message}`,
-        variant: 'danger',
-        action: { label: 'Try again', onClick: () => void reset(v) },
-      });
-      return;
-    }
-    await refresh();
-    rebuildDraft(v.id);
-    toastStore.push({
-      message: `"${v.label}" reset to built-in.`,
-      variant: 'success',
-      action: {
-        label: 'Undo',
-        onClick: () => {
-          void updateVariety(v.id, prior).then(async () => {
-            await refresh();
-            rebuildDraft(v.id);
-          });
-        },
-      },
-    });
-  }
-
-  async function doDelete(v: Variety): Promise<void> {
-    const confirmed = await confirmDialog({
-      title: 'Delete custom language?',
-      body: `This removes "${v.label}", its examples and the glossary entries that use it. This cannot be undone.`,
-      confirmLabel: 'Delete',
-      danger: true,
-    });
-    if (!confirmed) return;
-    try {
-      await deleteVariety(v.id);
-    } catch (e) {
-      toastStore.push({
-        message: `Could not delete "${v.label}": ${(e as Error).message}`,
-        variant: 'danger',
-        action: { label: 'Try again', onClick: () => void doDelete(v) },
-      });
-      return;
-    }
-    await refresh();
-    delete draft[v.id];
-    delete draftBase[v.id];
-    if (expanded === v.id) expanded = null;
-    if (promptOpen === v.id) {
-      promptOpen = null;
-      promptDirty = false;
-    }
-  }
-
-  let addError = $state<string | null>(null);
-
-  async function addCustom(): Promise<void> {
-    if (!form.label.trim() || !form.hint.trim()) return;
-    addError = null;
-    let added: Variety;
-    try {
-      added = await addCustomVariety({
-        label: form.label.trim(),
-        hint: form.hint.trim(),
-        examples: [],
-      });
-    } catch (e) {
-      if ((e as Error).message === 'cap-reached') {
-        addError = 'Custom language limit is 200 — delete one before adding another.';
-      } else if ((e as Error).message === 'invalid-language') {
-        addError = 'Label and hint are required, and each has a length limit.';
-      } else {
-        addError = `Could not add the language: ${(e as Error).message}`;
-      }
-      return;
-    }
-    form = { label: '', hint: '' };
-    showAddForm = false;
-    // Clear the filter so the new alphabetically-sorted row is actually in the list.
+  async function clearFilter(): Promise<void> {
     query = '';
-    await refresh();
-    toastStore.push({ message: `Added "${added.label}".`, variant: 'success' });
-    flashId = added.id;
-    setTimeout(() => (flashId = null), 1200);
-    requestAnimationFrame(() => {
-      document
-        .getElementById(`enable-${added.id}`)
-        ?.closest('.variety-row')
-        ?.scrollIntoView({ block: 'center' });
-    });
+    await tick();
+    document.querySelector<HTMLInputElement>('[data-ega-variety-filter] input')?.focus();
   }
 
   let backupState = $state<ImportStatus | null>(null);
@@ -464,120 +115,23 @@
       downloadJsonFile(`ega-varieties-${new Date().toISOString().slice(0, 10)}.json`, bundle);
       backupState = {
         kind: 'ok',
-        msg: `Exported ${count(bundle.egaVarieties.customLanguages.length, 'custom language')}, ${count(Object.keys(bundle.egaVarieties.varietyOverrides).length, 'override')}.`,
+        msg: `Exported ${count(bundle.egaVarieties.customLanguages.length, 'custom language')}, ${count(Object.keys(bundle.egaVarieties.varietyOverrides).length, 'override')}`,
       };
     } catch (e) {
       backupState = { kind: 'err', msg: `Export failed: ${(e as Error).message}` };
     }
   }
 
-  async function doExportOne(v: Variety): Promise<void> {
-    try {
-      const bundle = await exportLanguage(v.id);
-      const slug = v.label
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-|-$/g, '');
-      downloadJsonFile(
-        `ega-language-${slug || 'custom'}-${new Date().toISOString().slice(0, 10)}.json`,
-        bundle,
-      );
-      toastStore.push({ message: `Exported "${v.label}".`, variant: 'success' });
-    } catch (e) {
-      const gone = (e as Error).message === 'language-gone';
-      toastStore.push({
-        message: gone
-          ? `"${v.label}" was deleted in another window.`
-          : `Could not export "${v.label}": ${(e as Error).message}`,
-        variant: 'danger',
-      });
-      if (gone) await refresh();
-    }
-  }
-
   async function doImportVarieties(file: File): Promise<void> {
     backupState = null;
-    // A one-language file adds or replaces that language; a full languages file replaces them all.
-    let touches: (id: string) => boolean = () => true;
-    const status = await importBundleFile(file, ['varieties', 'language'], async (bundle) => {
-      if (bundle.kind === 'language') {
-        const only = bundle.language.id;
-        touches = (id) => id === only;
-      }
-      const lost =
-        (promptDirty && promptOpen !== null && touches(promptOpen)) ||
-        Object.keys(draft).some((id) => touches(id) && draftDirty(id));
-      if (!lost) return true;
-      return confirmDialog({
-        title: 'Discard unsaved language edits?',
-        body: 'An import replaces the languages it holds, so the edits you have not saved to them would be lost.',
-        confirmLabel: 'Discard and import',
-        danger: true,
-      });
-    });
+    const status = await importBundleFile(file, ['varieties', 'language']);
     if (!status) return;
     backupState = status;
     if (status.kind === 'ok') {
-      // Drafts of languages the file does not hold stay; Save merges them with storage anyway.
-      for (const id of Object.keys(draft)) {
-        if (!touches(id)) continue;
-        delete draft[id];
-        delete draftBase[id];
-      }
-      // The import can rewrite the language prompts too, so an open prompt editor would show old text.
-      if (promptOpen !== null && touches(promptOpen)) {
-        promptOpen = null;
-        promptDirty = false;
-      }
       await refresh();
-      // An open row needs a draft, or its editor renders empty.
-      if (expanded !== null) {
-        if (!all.some((v) => v.id === expanded)) expanded = null;
-        else if (!draft[expanded]) rebuildDraft(expanded);
-      }
+      const next = await getSettings();
+      onSetSettings(next);
     }
-  }
-
-  // The pressed button unmounts once the draft is clean, so focus goes back to the row's name.
-  async function discard(v: Variety, row: Element | null): Promise<void> {
-    rebuildDraft(v.id);
-    await tick();
-    row?.querySelector<HTMLElement>('.variety-label-inline')?.focus();
-  }
-
-  let addToggleEl = $state<HTMLSpanElement | null>(null);
-  // Cancel unmounts with the form, so focus goes to the add button in the card header.
-  async function cancelAdd(): Promise<void> {
-    showAddForm = false;
-    addError = null;
-    await tick();
-    addToggleEl?.querySelector<HTMLElement>('button')?.focus();
-  }
-
-  function exampleCapFor(id: string): number {
-    return all.find((v) => v.id === id)?.kind === 'custom'
-      ? CUSTOM_LANG_EXAMPLES_MAX
-      : VARIETY_EXAMPLES_MAX;
-  }
-
-  function addExample(id: string): void {
-    const d = draft[id];
-    if (!d) return;
-    const cap = exampleCapFor(id);
-    if (d.examples.length >= cap) {
-      toastStore.push({
-        message: `Example limit is ${cap} — remove one before adding another.`,
-        variant: 'warning',
-      });
-      return;
-    }
-    d.examples = [...d.examples, { src: '', tgt: '' }];
-  }
-
-  function removeExample(id: string, idx: number): void {
-    const d = draft[id];
-    if (!d) return;
-    d.examples = d.examples.filter((_, i) => i !== idx);
   }
 </script>
 
@@ -594,306 +148,71 @@
 {/if}
 
 <SectionCard
-  title="All languages"
-  description="The checkbox shows a language in the pickers; click a name to edit it."
+  title="Slang and special languages"
+  description="Shown in the language pickers next to the standard languages"
+  info={{
+    label: 'About these languages',
+    text: 'Standard languages such as Spanish or Hebrew are always available. These extra ones carry notes and examples that teach the model a style of writing.',
+  }}
 >
   {#snippet headerActions()}
-    <span class="add-toggle" bind:this={addToggleEl}>
-      <IconButton
-        icon={showAddForm ? X : Plus}
-        ariaLabel={showAddForm ? 'Cancel adding language' : 'Add custom language'}
-        tooltip={showAddForm ? 'Cancel' : 'Add custom language'}
-        size="sm"
-        onclick={() => (showAddForm = !showAddForm)}
-      />
-    </span>
+    <Button
+      variant="secondary"
+      size="sm"
+      iconKind="add"
+      dataAttrs={{ 'data-ega-language-add': true }}
+      onclick={(e) => open('new', e.currentTarget)}>Add language</Button
+    >
   {/snippet}
 
-  {#if showAddForm}
-    <div class="add-form" bind:this={addFormEl}>
-      <Input label="Label" required maxlength={VARIETY_LABEL_MAX} bind:value={form.label} />
-      <label class="field-label" for="new-hint">Hint *</label>
-      <textarea
-        id="new-hint"
-        dir="auto"
-        required
-        aria-required="true"
-        maxlength={VARIETY_HINT_MAX}
-        value={form.hint}
-        oninput={(e) => (form.hint = (e.currentTarget as HTMLTextAreaElement).value)}></textarea>
-      <p class="add-form-help">
-        Examples help the most. After you create the language, add 3–5 short pairs of original text
-        and its translation.
-      </p>
-      {#if addError}
-        <p class="add-form-error" role="alert">{addError}</p>
-      {/if}
-      <div class="row">
-        <Button
-          variant="primary"
-          onclick={addCustom}
-          disabled={!form.label.trim() || !form.hint.trim()}
-          title={!form.label.trim() || !form.hint.trim()
-            ? 'Label and hint are required.'
-            : undefined}
-        >
-          Add
-        </Button>
-        <Button variant="secondary" onclick={() => void cancelAdd()}>Cancel</Button>
-      </div>
-    </div>
-  {/if}
-
-  {#if !showAddForm && !hasCustom}
-    <div class="row add-cta">
-      <Button variant="secondary" size="sm" iconKind="add" onclick={() => void openAddForm()}>
-        Add your own language
-      </Button>
-    </div>
-  {/if}
-
   <div class="variety-filter" data-ega-variety-filter>
-    <Input
-      bind:value={query}
-      placeholder="Filter languages…"
-      ariaLabel="Filter languages"
-      size="sm"
-    />
+    <Input bind:value={query} ariaLabel="Filter languages" placeholder="Filter languages" size="sm">
+      {#snippet leading()}<Search size={16} />{/snippet}
+    </Input>
   </div>
 
-  {#each filtered as v (v.id)}
-    {@const isCustom = v.kind === 'custom'}
-    {@const dirty = isDirty(v)}
-    {@const unsaved = dirty || (promptDirty && promptOpen === v.id)}
-    <div class="variety-row" class:expanded={expanded === v.id} class:flash={flashId === v.id}>
-      <div class="variety-row-head">
-        <Checkbox
-          id="enable-{v.id}"
-          checked={!v.disabled}
-          ariaLabel="Enable {v.label}"
-          onchange={() => toggleDisabled(v)}
-        />
-        <button
-          type="button"
-          class="variety-label-inline"
-          aria-expanded={expanded === v.id}
-          onclick={() => void startEdit(v)}
-        >
-          <b>{v.label}</b>
-          {#if isCustom}<span class="badge custom">Custom</span>{/if}
-          {#if v.hasOverrides}<span class="badge badge-edited">edited</span>{/if}
-          {#if unsaved}<span class="badge badge-unsaved">Unsaved</span>{/if}
-        </button>
-        <span class="variety-hint" title={v.hint}>{v.hint}</span>
-        <span class="variety-count">{count(v.examples.length, 'example')}</span>
-        <div class="variety-actions">
-          <IconButton
-            icon={expanded === v.id ? X : Pencil}
-            ariaLabel={expanded === v.id ? 'Close editor' : 'Edit'}
-            tooltip={expanded === v.id ? 'Close' : 'Edit'}
-            size="sm"
-            onclick={() => void startEdit(v)}
-          />
-          {#if v.kind === 'custom'}
-            <IconButton
-              icon={Download}
-              ariaLabel="Export {v.label} to a file"
-              tooltip="Export to share"
-              size="sm"
-              onclick={() => void doExportOne(v)}
-            />
-            <IconButton
-              icon={Trash2}
-              ariaLabel="Delete custom language"
-              tooltip="Delete"
-              size="sm"
-              variant="danger"
-              onclick={() => doDelete(v)}
-            />
-          {/if}
-        </div>
-      </div>
-      <CollapsibleField open={expanded === v.id}>
-        {@const d = draft[v.id]}
-        {#if d}
-          {#if v.kind === 'custom'}
-            <label class="field-label" for="lbl-{v.id}">Label</label>
-            <input
-              id="lbl-{v.id}"
-              type="text"
-              dir="auto"
-              maxlength={VARIETY_LABEL_MAX}
-              bind:value={d.label}
-            />
-          {/if}
-          <label class="field-label" for="hint-{v.id}">Hint</label>
-          <textarea id="hint-{v.id}" dir="auto" maxlength={VARIETY_HINT_MAX} bind:value={d.hint}
-          ></textarea>
-          <span class="variety-counter">{d.hint.length}/{VARIETY_HINT_MAX}</span>
-          <div class="variety-examples-head">Examples</div>
-          {#each d.examples as ex, i (ex)}
-            <div class="row variety-example-row">
-              <input
-                type="text"
-                dir="auto"
-                placeholder="Original text"
-                maxlength={VARIETY_EXAMPLE_MAX}
-                bind:value={ex.src}
-                aria-label="Example source"
-              />
-              <input
-                type="text"
-                dir="auto"
-                placeholder="Translation (English)"
-                maxlength={VARIETY_EXAMPLE_MAX}
-                bind:value={ex.tgt}
-                aria-label="Example translation"
-              />
-              <IconButton
-                icon={Trash2}
-                ariaLabel="Remove example"
-                tooltip="Remove example"
-                size="sm"
-                variant="danger"
-                onclick={() => removeExample(v.id, i)}
-              />
-            </div>
-          {/each}
-          <div class="row variety-add-example-row">
-            <Button variant="secondary" size="sm" onclick={() => addExample(v.id)}>
-              Add another example
-            </Button>
-          </div>
-          <button
-            type="button"
-            class="variety-advanced-toggle"
-            aria-expanded={detectOpen[v.id] === true}
-            onclick={() => (detectOpen[v.id] = detectOpen[v.id] !== true)}
-          >
-            <ChevronRight size={14} class="variety-advanced-chevron" />
-            Advanced: auto-detect pattern
-          </button>
-          <CollapsibleField open={detectOpen[v.id] === true}>
-            <p class="variety-detect-help">
-              When the source is Auto-detect, Ega picks this language if the pattern (a regular
-              expression) matches the text at least the minimum number of times. The flag i ignores
-              case. {isCustom
-                ? 'Leave the pattern empty to turn detection off.'
-                : 'Leave the pattern empty to use the built-in one.'}
-            </p>
-            <label class="field-label" for="detect-{v.id}">Pattern</label>
-            <input
-              id="detect-{v.id}"
-              class="variety-detect-pattern"
-              type="text"
-              dir="ltr"
-              spellcheck="false"
-              autocomplete="off"
-              maxlength={DETECT_PATTERN_MAX}
-              bind:value={d.detect.regex}
-            />
-            <div class="row variety-detect-row">
-              <label class="field-label" for="detect-flags-{v.id}">Flags</label>
-              <input
-                id="detect-flags-{v.id}"
-                class="variety-detect-flags"
-                type="text"
-                dir="ltr"
-                spellcheck="false"
-                autocomplete="off"
-                maxlength={DETECT_FLAGS_MAX}
-                bind:value={d.detect.flags}
-              />
-              <label class="field-label" for="detect-min-{v.id}">Minimum matches</label>
-              <input
-                id="detect-min-{v.id}"
-                class="variety-detect-min"
-                type="number"
-                min="1"
-                step="1"
-                bind:value={d.detect.minScore}
-              />
-            </div>
-          </CollapsibleField>
-          <hr class="variety-editor-divider" />
-          <div class="row variety-commit-row">
-            <Button variant="primary" onclick={() => save(v)}>Save language</Button>
-            {#if dirty}
-              <Button
-                variant="ghost"
-                onclick={(e) =>
-                  void discard(v, (e.currentTarget as HTMLElement).closest('.variety-row'))}
-                >Discard changes</Button
-              >
-            {/if}
-            {#if v.hasOverrides}
-              <Button
-                variant="secondary"
-                title="Remove your saved edits and restore the built-in version"
-                onclick={(e) => {
-                  e.stopPropagation();
-                  void reset(v);
-                }}
-              >
-                Reset to built-in
-              </Button>
-            {/if}
-            {#if saved[v.id]}<span class="ok">Saved ✓</span>{/if}
-          </div>
-          {#if s}
-            {@const own = Object.hasOwn(s.advanced.perPresetTemplates, v.id)}
-            <div class="variety-prompt" data-ega-variety-prompt={v.id}>
-              <div class="variety-examples-head">Prompt for this language</div>
-              {#if promptOpen === v.id}
-                {#await import('@/options/components/TemplateEditor.svelte') then m}
-                  {@const TE = m.default}
-                  <TE
-                    scope={{ scope: 'preset', presetId: v.id }}
-                    task="translate"
-                    template={languagePrompt(s, v.id)}
-                    inheritedTemplate={s.advanced.promptTemplate}
-                    settings={s}
-                    onSave={(tpl) => handlers.savePerPreset(v.id, tpl)}
-                    onReset={() => handlers.clearPerPreset(v.id)}
-                    inheritedLabel="Clear"
-                    fieldResetLabel="Use the Translate prompt"
-                    saveLabel="Save prompt"
-                    onDirtyChange={(d) => (promptDirty = d)}
-                  />
-                {/await}
-              {:else}
-                <p class="variety-prompt-line">
-                  {own
-                    ? 'This language has its own prompt for Translate and Explain.'
-                    : 'Uses the Translate prompt. Write one to change only what this language sends.'}
-                </p>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  dataAttrs={{ 'data-ega-variety-prompt-open': v.id }}
-                  onclick={() => (promptOpen = v.id)}
-                  >{own ? 'Edit prompt' : 'Write a prompt'}</Button
-                >
-              {/if}
-            </div>
-          {/if}
-        {/if}
-      </CollapsibleField>
+  {#if filtered.length === 0 && query.trim() !== ''}
+    <div class="variety-empty" role="status">
+      <span>No language matches "{query.trim()}"</span>
+      <Button variant="ghost" size="sm" onclick={() => void clearFilter()}>Clear filter</Button>
     </div>
   {:else}
-    <p class="variety-empty">
-      {#if query.trim() !== ''}
-        No languages match "{query}".
-      {:else}
-        No languages yet.
-      {/if}
-    </p>
-  {/each}
+    <ul class="variety-list">
+      {#each filtered as v (v.id)}
+        <li class="variety-row" data-ega-variety-row={v.id}>
+          <Checkbox
+            id="enable-{v.id}"
+            checked={!v.disabled}
+            label={v.label}
+            inputAttrs={{ 'aria-label': `Show ${v.label} in language pickers` }}
+            onchange={() => void toggleShown(v)}
+          />
+          {#if v.kind === 'custom'}
+            <Badge variant="muted">Custom</Badge>
+          {:else if v.hasOverrides}
+            <Badge variant="muted">Edited</Badge>
+          {/if}
+          <span class="variety-count">{count(v.examples.length, 'example')}</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            ariaLabel={`Edit ${v.label}`}
+            dataAttrs={{ 'data-ega-variety-edit': v.id }}
+            onclick={(e) => open(v, e.currentTarget)}>Edit</Button
+          >
+        </li>
+      {/each}
+    </ul>
+  {/if}
 </SectionCard>
 
 <SectionCard
-  title="Backup & restore"
-  description="Export your custom languages, overrides and language prompts. Import to restore or share."
+  title="Backup and restore"
+  description="Your custom languages, edits and language prompts"
+  info={{
+    label: 'About this backup',
+    text: 'Import adds languages from a file and updates the ones you already have.',
+  }}
 >
   <BackupRestoreRow
     onExport={doExportVarieties}
@@ -903,194 +222,59 @@
   />
 </SectionCard>
 
+{#if editing && s}
+  <!-- Keyed: each language gets a fresh dialog, so a draft never carries over to another. -->
+  {#key editing}
+    <LanguageDialog
+      {s}
+      language={editing === 'new' ? null : editing}
+      onClose={() => void closeDialog()}
+      onSaved={(next) => {
+        if (next) onSetSettings(next);
+        void refresh();
+      }}
+    />
+  {/key}
+{/if}
+
 <style>
-  /* A ref holder only: the header lays out the button as if the wrapper were not there. */
-  .add-toggle {
-    display: contents;
-  }
   .variety-filter {
-    margin: var(--space-1) 0 var(--space-2);
-  }
-  .add-cta {
-    margin-top: var(--space-1);
-  }
-  /* Copies .ega-input-label from <Input>, which scopes it to its own file, so raw <label>s here match. */
-  .field-label {
-    display: block;
-    font-size: var(--fs-sm);
-    font-weight: 500;
-    color: var(--color-fg);
+    margin: 0 0 var(--space-2);
   }
   .variety-empty {
-    margin: var(--space-2) 0;
-    font-size: var(--fs-sm);
-    color: var(--color-muted);
-  }
-  /* Neutral and outlined, so amber stays reserved for the "Custom" badge and the two facts read apart. */
-  .badge-edited {
-    background: transparent;
-    color: var(--color-fg-subtle);
-    border: 1px solid var(--color-border);
-  }
-  /* One flex line; the editor panel drops below it.  */
-  .variety-row {
-    margin-top: var(--space-1);
-    padding: var(--space-2) var(--space-3);
-    border: 1px solid var(--color-border-subtle);
-    border-radius: var(--radius-sm);
-    background: var(--color-bg-elevated);
-  }
-  .variety-row.expanded {
-    border-color: var(--color-border);
-    padding-bottom: var(--space-3);
-    background: var(--color-bg-sunken);
-  }
-  .variety-row.flash {
-    animation: variety-flash var(--motion-pulse) var(--ease-out);
-  }
-  @keyframes variety-flash {
-    0% {
-      background: var(--color-accent-bg-soft);
-    }
-    100% {
-      background: var(--color-bg-elevated);
-    }
-  }
-  .variety-row-head {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: var(--space-2);
+    font-size: var(--fs-base);
+    color: var(--color-muted);
   }
-  .variety-label-inline {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-1);
+  .variety-list {
+    list-style: none;
     margin: 0;
     padding: 0;
-    flex: 0 0 auto;
-    border: 0;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    text-align: start;
-    cursor: pointer;
   }
-  .variety-advanced-toggle {
-    display: inline-flex;
+  /* Rows sit in the card, so a hairline sets them apart, not a box. */
+  .variety-row {
+    display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: var(--space-1);
-    margin-top: var(--space-3);
-    padding: 0;
-    border: 0;
-    background: transparent;
-    color: var(--color-muted);
-    font: inherit;
-    font-size: var(--fs-sm);
-    font-weight: 500;
-    cursor: pointer;
-  }
-  .variety-advanced-toggle :global(.variety-advanced-chevron) {
-    transition: transform var(--motion-fast) var(--ease-out);
-  }
-  .variety-advanced-toggle[aria-expanded='true'] :global(.variety-advanced-chevron) {
-    transform: rotate(90deg);
-  }
-  .variety-counter {
-    display: block;
-    text-align: end;
-    font-size: var(--fs-xs);
-    color: var(--color-muted);
-    font-variant-numeric: tabular-nums;
-  }
-  .badge-unsaved {
-    background: var(--color-warning-bg-soft);
-    color: var(--color-warning-fg);
-  }
-  .variety-hint {
-    flex: 1 1 auto;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: var(--color-muted);
-    font-size: var(--fs-sm);
-  }
-  .variety-count {
-    flex: 0 0 auto;
-    color: var(--color-muted);
-    font-size: var(--fs-xs);
-    font-variant-numeric: tabular-nums;
-  }
-  .variety-actions {
-    flex: 0 0 auto;
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-  }
-  .variety-prompt-line {
-    margin: 0 0 var(--space-2);
-    font-size: var(--fs-sm);
-    color: var(--color-fg-subtle);
-  }
-  .variety-examples-head {
-    margin: var(--space-3) 0 var(--space-1);
-    font-size: var(--fs-sm);
-    color: var(--color-muted);
-    font-weight: 500;
-  }
-  .variety-example-row :global(input[type='text']) {
-    flex: 1;
-  }
-  .variety-add-example-row {
-    margin-top: var(--space-1);
-  }
-  .variety-detect-help {
-    margin: 0 0 var(--space-1);
-    font-size: var(--fs-xs);
-    color: var(--color-muted);
-  }
-  .variety-detect-pattern {
-    width: 100%;
-    font-family: var(--font-mono);
-  }
-  .variety-detect-row {
-    margin-top: var(--space-1);
     gap: var(--space-2);
+    min-height: 40px;
+    padding-block: var(--space-1);
   }
-  .variety-detect-flags {
-    width: 6ch;
-    font-family: var(--font-mono);
-  }
-  .variety-detect-min {
-    width: 7ch;
-  }
-  .variety-editor-divider {
-    margin: var(--space-3) 0 var(--space-2);
-    border: none;
+  .variety-row + .variety-row {
     border-top: 1px solid var(--color-border-subtle);
   }
-  .variety-commit-row {
-    gap: var(--space-2);
+  .variety-row > :global(.ega-checkbox) {
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
-  /* Overrides the global textarea min-height, so an expanded row stays under one screen. */
-  .variety-row :global(textarea) {
-    min-height: 56px;
-  }
-  .add-form :global(textarea) {
-    min-height: 56px;
-  }
-  /* Add-form: tighter vertical rhythm than the global label/help defaults. */
-  .add-form label {
-    margin: var(--space-2) 0 var(--space-1) 0;
-  }
-  .add-form-help {
-    margin: var(--space-1) 0 var(--space-2);
-    font-size: var(--fs-xs);
+  .variety-count {
+    flex: 1 1 auto;
+    text-align: end;
     color: var(--color-muted);
-  }
-  .add-form-error {
-    margin: var(--space-1) 0;
-    font-size: var(--fs-sm);
-    color: var(--color-danger);
+    font-size: var(--fs-base);
+    font-variant-numeric: tabular-nums;
   }
 </style>

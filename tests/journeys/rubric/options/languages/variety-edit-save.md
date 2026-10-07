@@ -2,29 +2,26 @@
 
 ## Latency budgets
 
-- Save click -> storage write: <= 300ms.
-- "Saved ✓" ack visible: <= 400ms after click.
+- Typing pause -> storage write: <= 1s (600 ms pause, then the write).
 
 ## State expectations
 
-- Step 1: user expands a variety row into edit mode; edits the hint field.
-- Step 2 (click Save language): the updated hint persists to `varietyOverrides[id]` for a built-in, or the matching `customLanguages` entry for a custom.
-- Step 3: a brief "Saved ✓" inline ack appears next to the Save language button; the editor stays open.
+- Step 1: the user opens a language with Edit; the dialog "Edit <name>" opens.
+- Step 2: the user edits Notes.
+- Step 3: the notes persist to `varietyOverrides[id]` for a built-in, or the `customLanguages` entry for a custom; the footer says "Saved".
 
 ## Visible affordances
 
-- Edit mode surfaces a Hint field with a character counter, an Examples list and a collapsed "Advanced: auto-detect pattern" block (Pattern, Flags, Minimum matches) that opens on click or when Save finds an invalid pattern; custom rows also get a Label field.
-- "Save language" is primary; "Discard changes" shows while the draft differs from the saved language; "Reset to built-in" is secondary and shows only on an edited built-in.
-- "Saved ✓" ack uses the success tone tokens; auto-dismisses after ~1.5s.
+- Notes is a plain-font field that grows with its text, with a "366 / 500" style counter.
+- "Auto-detect pattern" is a disclosure with an (i); it holds Pattern, Flags ("i ignores case") and Minimum matches.
+- A built-in that differs from the shipped one shows a "Reset language" pill in the footer.
 
 ## Failure-mode expectations
 
-- Save is never disabled; a custom row saved with an empty label keeps its old label.
-- Storage write failure shows a danger toast ("Could not save …"); the editor stays open.
-- A pattern the browser cannot compile, or one that nests a repeat like (a+)+, shows a danger toast and saves nothing.
-- An emptied pattern removes a custom language's detection; on a built-in it goes back to the shipped pattern.
+- A pattern the browser cannot compile is marked on the field: "This pattern is not valid. Check the brackets and slashes." Nothing is saved.
+- A pattern that can freeze the page on long text says so on the field and is not saved.
+- If another window changed the same field, the dialog shows "Changed in another window" with "Reload language", and saves nothing.
 
 ## Cautions
 
-- Save only updates the fields the user explicitly changed; all other variety properties are preserved.
-- Built-in saves write via `replaceVarietyOverrides` (settings lock, no deep merge), custom saves via `updateCustomLanguageRow` (customs lock; refuses a row another window deleted).
+- Each write sends only the field that changed; other fields are kept.

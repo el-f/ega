@@ -2,7 +2,7 @@
 import { test, expect } from '@playwright/test';
 import {
   launchExtension,
-  openLanguagePrompt,
+  openLanguageDialog,
   readStorage,
   seedSettings,
   type ExtensionHandle,
@@ -30,14 +30,15 @@ test.afterEach(async () => {
 
 test.slow();
 
-test('Clear removes the language prompt, and the toast Undo puts it back', async () => {
+test('Use the Translate prompt removes the language prompt, and Undo in the dialog puts it back', async () => {
   const timeline = createTimeline();
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
-  await openLanguagePrompt(page, 'arabizi', 'Arabizi');
+  const dialog = await openLanguageDialog(page, 'arabizi', 'Arabizi');
+  await expect(dialog.getByRole('radio', { name: 'Use its own prompt' })).toBeChecked();
   timeline.markStep('editor-open');
 
-  await page.locator('[data-ega-variety-prompt="arabizi"] [data-ega-template-reset]').click();
+  await dialog.getByRole('radio', { name: 'Use the Translate prompt' }).click();
   timeline.markStep('cleared');
 
   await expect
@@ -51,7 +52,7 @@ test('Clear removes the language prompt, and the toast Undo puts it back', async
     .toBe(false);
   timeline.markStep('stored-cleared');
 
-  await page.locator('[data-sonner-toast] button', { hasText: 'Undo' }).first().click();
+  await page.locator('[data-ega-dialog-undo]').click();
   await expect
     .poll(
       async () => {

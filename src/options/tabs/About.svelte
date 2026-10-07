@@ -8,7 +8,6 @@
   import { OPTIONS_LOCAL_UI_KEYS } from '@/options/local-ui-keys';
   import { clearAllStorage } from '@/shared/storage';
   import { toastStore } from '@/shared/components/toastStore';
-  import { discardAllDrafts } from '@/options/tabs/Languages.svelte';
 
   import Code from '@lucide/svelte/icons/code';
   import Scale from '@lucide/svelte/icons/scale';
@@ -75,8 +74,6 @@
       });
       return;
     }
-    // Unsaved language drafts hold an unload guard: Chrome would ask before the reload, and Cancel would leave them to be saved over the wiped data.
-    discardAllDrafts();
     // This page still holds the old settings in memory; a reload starts it clean.
     location.reload();
   }

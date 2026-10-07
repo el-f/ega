@@ -1,6 +1,12 @@
 /* coverage: options.languages.variety-reset-to-built-in */
 import { test, expect } from '@playwright/test';
-import { launchExtension, seedSettings, readStorage, type ExtensionHandle } from '../../helpers';
+import {
+  launchExtension,
+  openLanguageDialog,
+  seedSettings,
+  readStorage,
+  type ExtensionHandle,
+} from '../../helpers';
 import { createTimeline } from '../_harness';
 import type { Settings } from '../../../../src/shared/types';
 
@@ -22,26 +28,17 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-test('Reset to built-in removes the override and the Undo toast restores it', async () => {
+test('Reset language removes the override, and Undo in the dialog restores it', async () => {
   const timeline = createTimeline();
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
-  await page.locator('#tab-languages').click();
-  timeline.markStep('tab-open');
-
-  // Open the Arabizi row editor.
-  const editBtn = page.locator(`button[aria-label="Edit"]`).first();
-  await expect(editBtn).toBeVisible({ timeout: 5_000 });
-  await editBtn.click();
+  const dialog = await openLanguageDialog(page, VARIETY_ID, 'Arabizi');
   timeline.markStep('editor-open');
 
-  // "Reset to built-in" button is shown only when v.hasOverrides.
-  const resetBtn = page.locator('button.ega-btn', { hasText: 'Reset to built-in' });
-  await expect(resetBtn).toBeVisible({ timeout: 5_000 });
-  await resetBtn.click();
+  // Shown only while the language differs from the built-in.
+  await page.getByRole('button', { name: 'Reset language' }).click();
   timeline.markStep('reset');
 
-  // varietyOverrides for arabizi must be gone from settings.
   await expect
     .poll(
       async () => {
@@ -51,11 +48,12 @@ test('Reset to built-in removes the override and the Undo toast restores it', as
       { timeout: 5_000 },
     )
     .toBe(false);
+  await expect(page.locator('[data-ega-dialog-status]')).toContainText('Back to built-in');
 
-  // The toast offers Undo; clicking it restores the saved override.
-  const undoBtn = page.locator('[data-sonner-toast] button', { hasText: 'Undo' }).first();
-  await expect(undoBtn).toBeVisible({ timeout: 10_000 });
-  await undoBtn.click();
+  // Undo sits in the dialog footer and takes focus, where the reset pill was.
+  const undo = page.locator('[data-ega-dialog-undo]');
+  await expect(undo).toBeFocused();
+  await undo.click();
   timeline.markStep('undo-clicked');
 
   await expect
@@ -67,4 +65,5 @@ test('Reset to built-in removes the override and the Undo toast restores it', as
       { timeout: 5_000 },
     )
     .toBe('Overridden hint for reset test.');
+  await expect(dialog.getByLabel('Notes')).toHaveValue('Overridden hint for reset test.');
 });

@@ -2,18 +2,18 @@
 
 ## Latency budgets
 
-- Click -> editor or row update visible: <= 300ms.
+- Radio click -> editor visible: <= 300ms.
 
 ## State expectations
 
-- Step 1: the user opens the Languages tab and edits one language row (A language without its own prompt).
-- Step 2: the row says "Uses the Translate prompt"; Write a prompt opens an editor that starts from the Translate prompt.
-- Step 3: nothing is stored until the user saves.
+- Step 1: a language without its own prompt opens on "Use the Translate prompt".
+- Step 2: "Use its own prompt" shows an editor that starts from the Translate prompt.
+- Step 3: nothing is stored until a half differs from the Translate prompt.
 
 ## Visible affordances
 
-- "Prompt for this language" sits at the bottom of the language row, below Save language and Reset to built-in.
-- The prompt editor has its own Save prompt button; it does not save the hint or examples.
+- "Prompt" is the last part of the language dialog: two radios, "Use the Translate prompt" and "Use its own prompt". The shared prompt editor shows under them only for "Use its own prompt".
+- There is no Save prompt button: the prompt saves as it changes, and the footer says "Saved".
 
 ## Failure-mode expectations
 
@@ -21,4 +21,4 @@
 
 ## Cautions
 
-- The language row is the only place a language prompt is edited.
+- The language dialog is the only place a language prompt is edited.

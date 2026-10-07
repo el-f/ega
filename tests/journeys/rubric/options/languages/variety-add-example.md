@@ -2,26 +2,25 @@
 
 ## Latency budgets
 
-- "Add example" click -> new example row appears: <= 100ms.
-- Save with example -> storage write: <= 300ms.
+- "Add example" click -> new row with focus: <= 100ms.
+- Typing pause -> storage write: <= 1s.
 
 ## State expectations
 
-- Step 1: user is in edit mode for a variety; an "Add another example" button is visible.
-- Step 2 (click Add another example): a new empty source+target pair row is appended to the examples list.
-- Step 3: user fills both fields; clicks Save; "Saved ✓" shows and the `{src, tgt}` pair lands in `examples` (built-in: `varietyOverrides[id]`; custom: its `customLanguages` entry).
+- Step 1: the user opens a language with Edit; Examples has column headers "Original" and "Translation".
+- Step 2 (Add example): an empty pair is appended and focus moves into its Original field.
+- Step 3: the user fills both fields; the pair lands in `examples` and the footer says "Saved".
 
 ## Visible affordances
 
-- Each example row shows a source field, a target field, and a remove icon.
-- "Add another example" is a small secondary text button (no icon).
+- Each row has Original, Translation and a remove icon named "Remove example <n>".
+- "Add example" is a ghost button with a plus icon.
 
 ## Failure-mode expectations
 
-- Save is never blocked; rows with both fields empty are dropped on Save, half-filled rows are kept.
-- Removing all examples from an existing variety is valid; `examples` becomes an empty array in storage.
+- Rows with both fields empty are not stored.
+- At the cap (20 built-in, 50 custom) Add example stays focusable, aria-disabled, with "You have the most examples Ega keeps (N)".
 
 ## Cautions
 
-- Examples guide translation style in the prompt. The UI caps them at 20 (built-in) / 50 (custom); past the cap a warning toast "Example limit is N — remove one before adding another." shows.
-- Built-in edits write via `replaceVarietyOverrides` (settings lock, no deep merge), custom edits via `updateCustomLanguageRow` (customs lock; refuses a row another window deleted); partial writes (some examples missing) must not occur.
+- Writes go through the language writers' locks; a partial list is never written.

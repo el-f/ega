@@ -12,8 +12,8 @@
 
 ## Visible affordances
 
-- Filter input shows the "Filter languages…" placeholder; it has no clear (X) button.
-- An empty-state message appears when no varieties match the query.
+- The filter shows a search icon and the "Filter languages" placeholder, and is named "Filter languages".
+- No match says `No language matches "<query>"` with a ghost "Clear filter" that empties the field and puts focus back in it.
 
 ## Failure-mode expectations
 

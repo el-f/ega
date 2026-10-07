@@ -2,19 +2,19 @@
 
 ## Latency budgets
 
-- Click -> editor or row update visible: <= 300ms.
+- Radio click -> stored prompt removed: <= 300ms.
 
 ## State expectations
 
-- Step 1: the user opens the Languages tab and edits one language row (Clear a language prompt).
-- Step 2: the user presses Clear in the Arabizi prompt editor.
-- Step 3: the `arabizi` key is gone from `perPresetTemplates`, so Arabizi uses the Translate prompt again.
-- Step 4: a "Language prompt cleared." toast offers Undo; Undo writes the same prompt back.
+- Step 1: Arabizi has its own prompt; its dialog opens on "Use its own prompt".
+- Step 2: the user picks "Use the Translate prompt".
+- Step 3: the `arabizi` key is gone from `perPresetTemplates`; the footer says "Uses the Translate prompt" with Undo.
+- Step 4 (Undo): the same prompt is written back.
 
 ## Visible affordances
 
-- "Prompt for this language" sits at the bottom of the language row, below Save language and Reset to built-in.
-- The prompt editor has its own Save prompt button; it does not save the hint or examples.
+- "Prompt" is the last part of the language dialog: two radios, "Use the Translate prompt" and "Use its own prompt". The shared prompt editor shows under them only for "Use its own prompt".
+- There is no Save prompt button: the prompt saves as it changes, and the footer says "Saved".
 
 ## Failure-mode expectations
 
@@ -22,4 +22,4 @@
 
 ## Cautions
 
-- The language row is the only place a language prompt is edited.
+- The language dialog is the only place a language prompt is edited.

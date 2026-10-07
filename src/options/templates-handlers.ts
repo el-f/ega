@@ -1,10 +1,8 @@
-import { updateSettings, replacePerPresetTemplates, replaceSettings } from '@/shared/storage';
-import { withoutInheritedHalves } from '@/shared/storage/sanitise';
+import { updateSettings } from '@/shared/storage';
 import { DEFAULT_TEMPLATE } from '@/shared/prompts';
 import { updateTask } from '@/shared/tasks';
 import type { Rule } from '@/shared/rules';
 import { saveVia } from './storage-with-toast';
-import { toastStore } from '@/shared/components/toastStore';
 import type { Settings, PromptTemplate } from '@/shared/types';
 import { buildTaskTemplate, type Task } from '@/shared/task-prompts';
 
@@ -26,8 +24,6 @@ export interface TemplatesHandlers {
   setTaskTemplate: (task: Task, tpl: PromptTemplate | null) => Promise<void>;
   /** False when the write failed; the user has already been told. */
   updateRules: (next: readonly Rule[]) => Promise<boolean>;
-  savePerPreset: (presetId: string, tpl: PromptTemplate) => Promise<void>;
-  clearPerPreset: (presetId: string) => Promise<void>;
 }
 
 export function createTemplatesHandlers(ctx: TemplatesHandlerCtx): TemplatesHandlers {
@@ -75,53 +71,6 @@ export function createTemplatesHandlers(ctx: TemplatesHandlerCtx): TemplatesHand
     return saved !== null;
   }
 
-  // Stores only the halves that differ from the Translate prompt read under the lock; none left drops the language prompt.
-  async function savePerPreset(presetId: string, tpl: PromptTemplate): Promise<void> {
-    if (!getSettings()) return;
-    const saved = await saveVia(() =>
-      replaceSettings((cur) => {
-        const { [presetId]: _old, ...rest } = cur.advanced.perPresetTemplates;
-        void _old;
-        const own = withoutInheritedHalves(tpl, cur.advanced.promptTemplate);
-        const perPresetTemplates =
-          Object.keys(own).length > 0 ? { ...rest, [presetId]: own } : rest;
-        return { ...cur, advanced: { ...cur.advanced, perPresetTemplates } };
-      }),
-    );
-    if (saved) setSettings(saved);
-  }
-
-  type LanguagePrompt = Settings['advanced']['perPresetTemplates'][string];
-
-  // The removed prompt is read under the lock, so Undo restores what was stored and not a stale prop.
-  async function clearPerPreset(presetId: string): Promise<void> {
-    if (!getSettings()) return;
-    let removed: LanguagePrompt | undefined;
-    const saved = await saveVia(() =>
-      replacePerPresetTemplates((cur) => {
-        const { [presetId]: old, ...rest } = cur;
-        removed = old;
-        return rest;
-      }),
-    );
-    if (!saved) return;
-    setSettings(saved);
-    const prior = removed;
-    if (prior === undefined) return;
-    toastStore.push({
-      message: 'Language prompt cleared.',
-      variant: 'success',
-      action: { label: 'Undo', onClick: () => void restorePerPreset(presetId, prior) },
-    });
-  }
-
-  async function restorePerPreset(presetId: string, prior: LanguagePrompt): Promise<void> {
-    const saved = await saveVia(() =>
-      replacePerPresetTemplates((cur) => ({ ...cur, [presetId]: prior })),
-    );
-    if (saved) setSettings(saved);
-  }
-
   return {
     patchAdvanced,
     saveGlobalTemplate,
@@ -131,7 +80,5 @@ export function createTemplatesHandlers(ctx: TemplatesHandlerCtx): TemplatesHand
     setGlobalEffort,
     setTaskTemplate,
     updateRules,
-    savePerPreset,
-    clearPerPreset,
   };
 }

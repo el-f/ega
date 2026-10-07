@@ -13,26 +13,23 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-test('Add custom language form seeds a new entry in storage', async () => {
+test('Add language opens a dialog that saves the language once it has a name and notes', async () => {
   const timeline = createTimeline();
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
   await page.locator('#tab-languages').click();
 
-  // Open add form. The "Add custom language" + IconButton header action
-  // mounts the form fields. Form starts collapsed.
-  await page.locator('button[aria-label="Add custom language"]').click();
+  await page.locator('[data-ega-language-add]').click();
+  const dialog = page.locator('[data-ega-language-dialog="new"]');
+  await expect(dialog).toBeVisible({ timeout: 5_000 });
+  await expect(page.locator('[data-ega-dialog-status]')).toHaveText('Not saved yet: add a name');
   timeline.markStep('form-opened');
 
-  // Label input went through the shared `<Input>` primitive which generates
-  // a UUID-style id; bind via the <label>'s `for` association instead.
-  await page.getByLabel('Label').fill('TestPidgin');
-  await page.locator('#new-hint').fill('A test variety hint that is long enough.');
-  await page.locator('button.ega-btn.variant-primary', { hasText: 'Add' }).click();
+  await dialog.getByLabel('Name').fill('TestPidgin');
+  await dialog.getByLabel('Notes').fill('A test variety hint that is long enough.');
+  await page.locator('[data-ega-dialog-done]').click();
   timeline.markStep('submitted');
 
-  // customLanguages stored under its own key (not on settings). Wait for
-  // a non-empty entry matching our label.
   await expect
     .poll(
       async () => {
@@ -47,4 +44,7 @@ test('Add custom language form seeds a new entry in storage', async () => {
       { timeout: 5_000 },
     )
     .toBe(true);
+  await expect(page.locator('[data-ega-variety-row]', { hasText: 'TestPidgin' })).toContainText(
+    'Custom',
+  );
 });

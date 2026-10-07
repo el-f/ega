@@ -42,12 +42,11 @@ test('a custom language can have its own prompt too', async () => {
   const timeline = createTimeline();
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
-  await openLanguagePrompt(page, CUSTOM_ID, CUSTOM_LABEL);
+  const dialog = await openLanguagePrompt(page, CUSTOM_ID, CUSTOM_LABEL);
   timeline.markStep('editor-open');
 
-  const box = page.locator(`[data-ega-variety-prompt="${CUSTOM_ID}"]`);
-  await box.locator('[data-ega-template-system] textarea').fill(`${MARKER}custom`);
-  await box.locator('[data-ega-template-save]').click();
+  await dialog.locator('[data-ega-template-system] textarea').fill(`${MARKER}custom`);
+  await page.locator('[data-ega-dialog-done]').click();
   timeline.markStep('saved');
 
   await expect

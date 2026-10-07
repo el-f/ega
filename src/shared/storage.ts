@@ -177,15 +177,18 @@ function clampLanguageRow(lang: CustomLanguage): CustomLanguage | null {
   return clamped.success ? (clamped.output as CustomLanguage) : null;
 }
 
-// 'invalid-language', 'cap-reached' and 'language-gone' are the messages the Languages tab turns into its own copy.
-export function upsertCustomLanguage(lang: CustomLanguage): Promise<void> {
+/**
+ * 'invalid-language', 'cap-reached' and 'language-gone' are the messages the Languages tab turns into its own copy.
+ * `at` puts a missing row back at its old place (Undo of a delete); without it a new row goes last.
+ */
+export function upsertCustomLanguage(lang: CustomLanguage, at?: number): Promise<void> {
   const entry = clampLanguageRow(lang);
   if (!entry) return Promise.reject(new Error('invalid-language'));
   return withCustomsLock(async () => {
     const list = await getCustomLanguages();
     const idx = list.findIndex((l) => l.id === entry.id);
     if (idx === -1 && list.length >= CUSTOM_LANGUAGES_MAX) throw new Error('cap-reached');
-    if (idx === -1) list.push(entry);
+    if (idx === -1) list.splice(at ?? list.length, 0, entry);
     else list[idx] = entry;
     await writeLocal(STORAGE_KEYS.customLanguages, list);
   });

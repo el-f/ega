@@ -782,14 +782,25 @@ export async function openTaskPrompt(page: Page, task: string): Promise<void> {
   });
 }
 
-/** Opens one language's prompt editor inside its row on the Languages tab. */
-export async function openLanguagePrompt(page: Page, id: string, label: string): Promise<void> {
+/** Opens one language's dialog from its row on the Languages tab; returns the dialog. */
+export async function openLanguageDialog(page: Page, id: string, label: string): Promise<Locator> {
   await page.locator('#tab-languages').click();
   await page.getByLabel('Filter languages').fill(label);
-  const row = page.locator('.variety-row', { has: page.locator(`#enable-${id}`) });
-  await row.getByRole('button', { name: 'Edit' }).click();
-  await row.locator(`[data-ega-variety-prompt-open="${id}"]`).click();
-  await row.locator('[data-ega-template-editor]').waitFor({ timeout: 10_000 });
+  await page
+    .locator(`[data-ega-variety-row="${id}"]`)
+    .getByRole('button', { name: `Edit ${label}` })
+    .click();
+  const dialog = page.locator(`[data-ega-language-dialog="${id}"]`);
+  await dialog.waitFor({ timeout: 10_000 });
+  return dialog;
+}
+
+/** Opens a language's dialog and picks "Use its own prompt", which shows the prompt editor. */
+export async function openLanguagePrompt(page: Page, id: string, label: string): Promise<Locator> {
+  const dialog = await openLanguageDialog(page, id, label);
+  await dialog.getByRole('radio', { name: 'Use its own prompt' }).click();
+  await dialog.locator('[data-ega-prompt-editor]').waitFor({ timeout: 10_000 });
+  return dialog;
 }
 
 /** Types a message into the side panel composer and sends it with Enter, the composer's send key. */

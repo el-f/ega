@@ -2,18 +2,16 @@
 
 ## Mount + render
 
-- Tab lists every language (built-in + custom) as rows, sorted by label; the Add form opens from the header "Add custom language" (+) button, or from the "Add your own language" button shown while no custom language exists.
-- The list card's description says what the checkbox and a click on the name do.
-- Each row carries an enable checkbox, the name (a button that opens the editor and never toggles the checkbox), a Custom badge on custom rows only (+ "edited" when overridden, + "Unsaved" while the editor or the language prompt holds unsaved edits), hint, example count spelled out ("1 example", "3 examples"), and Edit; custom rows also get Delete.
-- Unsaved edits survive closing the row and leaving the tab; "Discard changes" drops them. Closing a row with an unsaved language prompt asks first. Reloading or closing the page with unsaved edits triggers the browser's leave-page prompt.
-- Backup & restore sits below the language list.
+- The tab has three cards: "Default languages" ("Used when you do not pick a language"), "Slang and special languages" ("Shown in the language pickers next to the standard languages", with an (i) and a secondary "Add language" in its header), and "Backup and restore".
+- Each language is one row with hairlines between rows: a checkbox named "Show <name> in language pickers" with the name, a "Custom" or "Edited" pill, the example count spelled out ("1 example", "3 examples") and "Edit". No notes text in the row; Export and Delete live in the dialog.
+- A filter with a visible search icon, named "Filter languages", sits above the list.
+- Edit and Add language open the language dialog; each field saves as it changes and the footer says "Saved".
 
 ## Add / delete
 
-- Add form seeds a row into `customLanguages`; submit closes the form and surfaces the new row.
-- Delete confirms; on confirm, the row removes from the list and from storage.
+- Add language opens "New language"; it is created once it has a name and notes.
+- Delete language in the dialog removes it at once; the toast Deleted "<name>" offers Undo.
 
 ## Export
 
-- Export-as-JSON triggers a single download with a meaningful filename (no spaces, includes date).
-- Export is read-only — it never mutates `customLanguages`.
+- Export languages triggers one download with a dated name; it never changes `customLanguages`.

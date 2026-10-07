@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { chromeMock, resetChromeMock } from '../../mocks/chrome';
 import { STORAGE_KEYS } from '@/shared/constants';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
-import { toastStore, type ToastMsg } from '@/shared/components/toastStore';
+import { toastStore } from '@/shared/components/toastStore';
 import { getSettings } from '@/shared/storage';
 import { createTemplatesHandlers } from '@/options/templates-handlers';
 import type { Settings, PromptTemplate } from '@/shared/types';
@@ -122,37 +122,6 @@ describe('templates-handlers', () => {
 
       expect(current().advanced.maxTokens).toBe(512);
     });
-
-    it('savePerPreset of the Translate prompt itself stores no language prompt', async () => {
-      const { ctx, current } = await makeCtx();
-      const handlers = createTemplatesHandlers(ctx);
-      await handlers.savePerPreset('arabizi', { system: 'own', user: '{{text}}' });
-      await handlers.savePerPreset('arabizi', { ...current().advanced.promptTemplate });
-      expect(current().advanced.perPresetTemplates).not.toHaveProperty('arabizi');
-    });
-
-    it('savePerPreset stores only the half that differs from the Translate prompt', async () => {
-      const { ctx, current } = await makeCtx();
-      const handlers = createTemplatesHandlers(ctx);
-      const global = current().advanced.promptTemplate;
-      await handlers.savePerPreset('arabizi', { system: 'own', user: global.user });
-      const stored = await readStored();
-      expect(stored.advanced.perPresetTemplates['arabizi']).toEqual({ system: 'own' });
-    });
-
-    it('savePerPreset same preset twice overwrites, not appends', async () => {
-      const { ctx, current } = await makeCtx();
-      const handlers = createTemplatesHandlers(ctx);
-      const tpl1: PromptTemplate = { system: 'v1', user: '{{text}}' };
-      const tpl2: PromptTemplate = { system: 'v2', user: '{{text}}' };
-
-      await handlers.savePerPreset('arabizi', tpl1);
-      await handlers.savePerPreset('arabizi', tpl2);
-
-      const stored = current().advanced.perPresetTemplates;
-      expect(stored['arabizi']).toEqual(tpl2);
-      expect(Object.keys(stored).filter((k) => k === 'arabizi')).toHaveLength(1);
-    });
   });
 
   // Mutation-invariant discipline: reversibility — undo/clear must invert the mutation
@@ -169,20 +138,6 @@ describe('templates-handlers', () => {
       await handlers.resetGlobalTemplate();
 
       expect(current().advanced.promptTemplate).toEqual(original);
-    });
-
-    it('clearPerPreset after savePerPreset leaves no key', async () => {
-      const { ctx, current } = await makeCtx();
-      const handlers = createTemplatesHandlers(ctx);
-
-      await handlers.savePerPreset('arabizi', { system: 'S', user: 'U' });
-      expect(current().advanced.perPresetTemplates['arabizi']).toBeDefined();
-
-      await handlers.clearPerPreset('arabizi');
-
-      expect('arabizi' in current().advanced.perPresetTemplates).toBe(false);
-      const stored = await readStored();
-      expect('arabizi' in stored.advanced.perPresetTemplates).toBe(false);
     });
 
     it('setTaskTemplate(task, null) drops the prompt halves and keeps the other fields', async () => {
@@ -238,69 +193,6 @@ describe('templates-handlers', () => {
     it('setTaskTemplate with null ctx is a no-op', async () => {
       const handlers = createTemplatesHandlers(makeNullCtx());
       await expect(handlers.setTaskTemplate('translate', SAMPLE_TEMPLATE)).resolves.toBeUndefined();
-    });
-  });
-
-  describe('clearPerPreset offers Undo', () => {
-    afterEach(() => {
-      vi.restoreAllMocks();
-    });
-
-    async function clearWithToasts(
-      seed: Record<string, PromptTemplate>,
-      presetId: string,
-    ): Promise<{
-      pushed: ToastMsg[];
-      handlers: ReturnType<typeof createTemplatesHandlers>;
-      current: () => Settings;
-    }> {
-      const { ctx, current } = await makeCtx();
-      const handlers = createTemplatesHandlers(ctx);
-      for (const [id, tpl] of Object.entries(seed)) await handlers.savePerPreset(id, tpl);
-      const pushed: ToastMsg[] = [];
-      vi.spyOn(toastStore, 'push').mockImplementation((m) => {
-        pushed.push(m);
-      });
-      await handlers.clearPerPreset(presetId);
-      return { pushed, handlers, current };
-    }
-
-    it('Undo writes the cleared language prompt back', async () => {
-      const { pushed, current } = await clearWithToasts(
-        { arabizi: { system: 'S', user: 'U' } },
-        'arabizi',
-      );
-      expect('arabizi' in current().advanced.perPresetTemplates).toBe(false);
-      const undo = pushed.find((m) => m.action?.label === 'Undo');
-      expect(undo?.message).toMatch(/prompt cleared/i);
-      undo?.action?.onClick();
-      await vi.waitFor(async () =>
-        expect((await readStored()).advanced.perPresetTemplates['arabizi']).toEqual({
-          system: 'S',
-          user: 'U',
-        }),
-      );
-      expect(current().advanced.perPresetTemplates['arabizi']).toEqual({ system: 'S', user: 'U' });
-    });
-
-    it('Undo keeps a prompt saved for another language since the clear', async () => {
-      const { pushed, handlers } = await clearWithToasts(
-        { arabizi: { system: 'S', user: 'U' } },
-        'arabizi',
-      );
-      await handlers.savePerPreset('egyptian', { system: 'E', user: 'U2' });
-      pushed.find((m) => m.action?.label === 'Undo')?.action?.onClick();
-      await vi.waitFor(async () =>
-        expect(Object.keys((await readStored()).advanced.perPresetTemplates).sort()).toEqual([
-          'arabizi',
-          'egyptian',
-        ]),
-      );
-    });
-
-    it('a language with no prompt of its own shows no Undo', async () => {
-      const { pushed } = await clearWithToasts({}, 'arabizi');
-      expect(pushed.filter((m) => m.action !== undefined)).toEqual([]);
     });
   });
 

@@ -499,7 +499,7 @@ test('Backends: tab mounts and backend chain section visible', async () => {
 
 // 10. Languages tab — the language list and the add-custom-language form mount
 
-test('Languages: list renders and the custom language form opens', async () => {
+test('Languages: list renders and Add language opens the language dialog', async () => {
   const { page, errors } = await openOptions(ext.context, ext.extensionId);
 
   await test.step('click Languages tab', async () => {
@@ -510,10 +510,11 @@ test('Languages: list renders and the custom language form opens', async () => {
     await expect(page.locator('#enable-arabizi')).toBeVisible({ timeout: 5_000 });
   });
 
-  await test.step('add custom language button opens form', async () => {
-    await page.getByRole('button', { name: /add custom language/i }).click();
-    // The label input gets an auto-id; only the hint textarea has a fixed one.
-    await expect(page.locator('#new-hint')).toBeVisible({ timeout: 3_000 });
+  await test.step('Add language opens the dialog', async () => {
+    await page.getByRole('button', { name: 'Add language' }).click();
+    await expect(page.locator('[data-ega-language-dialog="new"]').getByLabel('Notes')).toBeVisible({
+      timeout: 3_000,
+    });
   });
 
   expect(errors, 'No errors during Languages tab flow').toEqual([]);

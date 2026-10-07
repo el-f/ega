@@ -514,16 +514,16 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   // ── Languages ────────────────────────────────────────────────────
   {
     id: 'languages.varieties',
-    label: 'Languages',
-    description: 'Built-in and custom languages, with detection rules and translation examples.',
+    label: 'Slang and special languages',
+    description: 'Shown in the language pickers next to the standard languages',
     keywords: ['variety', 'dialect', 'language', 'custom'],
     tab: 'languages',
     type: 'group',
   },
   {
     id: 'languages.disabledVarieties',
-    label: 'Disabled languages',
-    description: 'Languages hidden from the language menus and skipped by auto-detect.',
+    label: 'Languages hidden from pickers',
+    description: 'Hidden languages are left out of the language pickers and auto-detect',
     keywords: ['disabled', 'variety', 'off', 'skip'],
     tab: 'languages',
     type: 'group',
@@ -539,8 +539,8 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   },
   {
     id: 'languages.varietyOverrides',
-    label: 'Built-in language edits',
-    description: 'Your edits to built-in languages: hint, examples and detection rules.',
+    label: 'Edits to built-in languages',
+    description: 'Your notes, examples and detection patterns for a built-in language',
     keywords: ['override', 'variety', 'edit', 'hint', 'example'],
     tab: 'languages',
     type: 'group',
@@ -548,8 +548,8 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   },
   {
     id: 'languages.backupRestore',
-    label: 'Backup & restore languages',
-    description: 'Export your custom languages and overrides, or import from JSON.',
+    label: 'Backup and restore languages',
+    description: 'Your custom languages, edits and language prompts',
     keywords: ['backup', 'restore', 'export', 'import', 'json'],
     tab: 'languages',
     type: 'group',
@@ -575,7 +575,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'advanced.perPresetTemplates',
     label: 'Prompt for one language',
-    description: 'Edit a language to give it its own prompt for Translate and Explain.',
+    description: 'Edit a language and pick "Use its own prompt" to change only what it sends',
     keywords: ['preset', 'template', 'override', 'per-preset', 'language', 'prompt'],
     tab: 'languages',
     type: 'template',

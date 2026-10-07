@@ -41,15 +41,4 @@ describe('per-task maps under concurrent writes', () => {
     const stored = await getSettings();
     expect(stored.taskOverrides).toEqual({ reword: a, grammar: b });
   });
-
-  it('two per-preset templates saved back to back both survive, and a clear drops only its key', async () => {
-    const { ctx } = await makeCtx();
-    const h = createTemplatesHandlers(ctx);
-    const a = { system: 'A', user: 'A {{text}}' };
-    const b = { system: 'B', user: 'B {{text}}' };
-    await Promise.all([h.savePerPreset('arabizi', a), h.savePerPreset('hebrew', b)]);
-    expect((await getSettings()).advanced.perPresetTemplates).toEqual({ arabizi: a, hebrew: b });
-    await h.clearPerPreset('arabizi');
-    expect((await getSettings()).advanced.perPresetTemplates).toEqual({ hebrew: b });
-  });
 });

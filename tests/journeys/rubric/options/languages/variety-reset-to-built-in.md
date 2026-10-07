@@ -2,23 +2,21 @@
 
 ## Latency budgets
 
-- Reset click -> override gone from storage: <= 300ms.
-- Reset click -> success toast visible: <= 300ms.
+- Reset language -> override gone from storage: <= 300ms.
 
 ## State expectations
 
-- Step 1: the Languages tab lists the built-in with an edited hint; its editor opens from the row's Edit button.
-- Step 2 (Reset to built-in): the whole override for that language is deleted; the editor shows the shipped hint and examples again.
-- Step 3 (Undo on the toast): the saved override comes back exactly as it was.
+- Step 1: a built-in with an edited hint; the user opens it with Edit.
+- Step 2 (Reset language): the whole override is deleted; the fields show the shipped notes and examples; the footer says "Back to built-in" with Undo, and focus moves to Undo.
+- Step 3 (Undo): the override comes back exactly as it was, and the fields show it.
 
 ## Visible affordances
 
-- "Reset to built-in" shows only on a built-in that has edits; a custom language has no such button.
-- The success toast names the language ("… reset to built-in.") and carries an Undo action.
+- "Reset language" shows only on a built-in that has edits; a custom language has Delete and Export instead.
 
 ## Failure-mode expectations
 
-- A failed reset shows a danger toast that names the language and the error; the override stays.
+- A failed reset keeps the override, and the footer says it was not saved.
 
 ## Cautions
 
