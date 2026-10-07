@@ -983,6 +983,24 @@ test('the panel popovers keep the 12px gutter and one text edge', async () => {
   await sp.close();
 });
 
+// Spec §8.5: the last "Show earlier" removes itself; focus goes to the first message it showed, never to <body>.
+test('Show earlier hands focus to the first message it shows', async () => {
+  test.setTimeout(60_000);
+  const turns: Record<string, unknown>[] = [];
+  for (let i = 0; i < 35; i++) {
+    turns.push(user(`u${i}`, `mensaje número ${i}`, T(200 - i)));
+    turns.push(reply(`a${i}`, `u${i}`, T(200 - i), { content: `Message number ${i}.` }));
+  }
+  const sp = await panelWith([{ id: SITE, turns }]);
+  const more = sp.locator('[data-ega-show-earlier]');
+  await more.focus();
+  await sp.keyboard.press('Enter');
+  await expect(more).toHaveCount(0);
+  await expect.poll(() => focusOn(sp)).toBe('[data-ega-user-turn]');
+  expect(await sp.evaluate(() => document.activeElement?.getAttribute('data-turn-id'))).toBe('u0');
+  await sp.close();
+});
+
 /** A CSS color as the browser computes it, so a token compares with a computed border. */
 async function computedColor(sp: Page, value: string): Promise<string> {
   return sp.evaluate((v) => {

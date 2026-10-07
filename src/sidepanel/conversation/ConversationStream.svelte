@@ -393,6 +393,17 @@
     if (said !== null) announcement = said;
   });
 
+  // The last batch removes the pressed button; focus would drop to <body>, so the cursor goes to the first message shown.
+  async function showEarlier(): Promise<void> {
+    shownBeyondWindow += RENDER_WINDOW;
+    await tick();
+    if (hiddenCount > 0) return;
+    const active = document.activeElement;
+    if (active !== null && active !== document.body) return;
+    const first = windowTurns[0];
+    if (first) onFocusChange(first.id);
+  }
+
   function jumpToLatest(): void {
     const el = scroller;
     if (!el) return;
@@ -510,7 +521,7 @@
             type="button"
             class="ega-show-earlier"
             data-ega-show-earlier
-            onclick={() => (shownBeyondWindow += RENDER_WINDOW)}
+            onclick={() => void showEarlier()}
           >
             Show {hiddenCount} earlier {hiddenCount === 1 ? 'message' : 'messages'}
           </button>

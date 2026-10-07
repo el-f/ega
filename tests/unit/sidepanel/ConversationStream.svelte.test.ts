@@ -101,6 +101,32 @@ describe('the thread', () => {
     expect(container.querySelectorAll('[data-turn-id]')).toHaveLength(70);
   });
 
+  // The last batch removes the button that was pressed; the cursor goes to the first message it showed (spec §8.5).
+  it('moves focus to the first message shown when Show earlier goes away, and keeps it while one stays', async () => {
+    const turns = (pairs: number): Turn[] => {
+      const out: Turn[] = [];
+      for (let i = 0; i < pairs; i++)
+        out.push(u(`u${i}`, `m${i}`, i), a(`a${i}`, `r${i}`, `u${i}`, i));
+      return out;
+    };
+    const onFocusChange = vi.fn();
+    const last = render(ConversationStream, {
+      props: { ...base, onFocusChange, turns: turns(35) },
+    });
+    await fireEvent.click(last.container.querySelector('[data-ega-show-earlier]') as HTMLElement);
+    await waitFor(() => expect(onFocusChange).toHaveBeenCalledWith('u0'));
+    document.body.innerHTML = '';
+    onFocusChange.mockClear();
+    const more = render(ConversationStream, {
+      props: { ...base, onFocusChange, turns: turns(70) },
+    });
+    const button = more.container.querySelector<HTMLElement>('[data-ega-show-earlier]');
+    await fireEvent.click(button as HTMLElement);
+    await tick();
+    expect(more.container.querySelector('[data-ega-show-earlier]')).toBe(button);
+    expect(onFocusChange).not.toHaveBeenCalled();
+  });
+
   it('the scroller is a log that does not announce its own children', () => {
     const { container } = render(ConversationStream, {
       props: { ...base, turns: [u('u1', 'a'), a('a1', 'A', 'u1')] },
