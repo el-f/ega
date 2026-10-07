@@ -332,6 +332,10 @@
     outline: 2px solid var(--color-accent);
     outline-offset: -2px;
   }
+  /* Delete ends at the edge of .cv-lists, which scrolls and so clips a ring drawn outside the button. */
+  .cv-row :global([data-ega-conv-delete]:focus-visible) {
+    outline-offset: -2px;
+  }
   .cv-check {
     display: inline-flex;
     flex-shrink: 0;

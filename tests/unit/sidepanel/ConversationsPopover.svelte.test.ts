@@ -4,6 +4,7 @@ import { render, fireEvent, waitFor } from '@testing-library/svelte';
 import ConversationsPopover from '@/sidepanel/ConversationsPopover.svelte';
 import { saveThread } from '@/sidepanel/state/conversation-store';
 import type { Turn } from '@/sidepanel/state/conversation';
+import { readFileSync } from 'node:fs';
 
 function userTurn(id: string, content: string): Turn {
   return { id, role: 'user', kind: 'translate', status: 'idle', createdAt: 1, content };
@@ -234,5 +235,16 @@ describe('Conversations headings', () => {
       'Other sites',
     ]);
     expect(list?.querySelector('h3, h4, h5, h6')).toBeNull();
+  });
+});
+
+// The list scrolls, so it clips anything drawn past its edge; jsdom has no layout, so the rule is the gate.
+describe('the Delete focus ring', () => {
+  it('sits inside the button, where the scrolling list cannot cut it', () => {
+    const src = readFileSync('src/sidepanel/ConversationsPopover.svelte', 'utf8');
+    expect(src).toMatch(/\.cv-lists\s*\{[^}]*overflow-y:\s*auto/);
+    expect(src).toMatch(
+      /:global\(\[data-ega-conv-delete\]:focus-visible\)\s*\{[^}]*outline-offset:\s*-2px/,
+    );
   });
 });
