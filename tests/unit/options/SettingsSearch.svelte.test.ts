@@ -561,6 +561,44 @@ describe('SettingsSearch — arrow-key selection', () => {
   });
 });
 
+describe('SettingsSearch — Changed only with no query', () => {
+  const labels = (c: HTMLElement): string[] =>
+    [...c.querySelectorAll('[data-ega-settings-list-item]')].map(
+      (el) => el.querySelector('.slv-label')?.textContent.trim() ?? '',
+    );
+
+  it('lists every changed setting instead of the popular ones', async () => {
+    const { container, getByLabelText } = render(SettingsSearch, {
+      props: {
+        open: true,
+        settings: { ...DEFAULT_SETTINGS, confidencePill: false, streaming: false },
+        onClose: () => {},
+        onJump: () => {},
+      },
+    });
+    await fireEvent.click(getByLabelText('Changed only'));
+    expect(container.querySelector('[data-ega-changed-header]')?.textContent.trim()).toBe(
+      'Changed settings',
+    );
+    const shown = labels(container);
+    expect(shown).toContain('Show confidence pill');
+    expect(shown).toContain('Stream the answer live');
+    // A popular setting that is still at its default is not listed.
+    expect(shown).not.toContain('Creativity (temperature)');
+  });
+
+  it('says so when nothing is changed', async () => {
+    const { container, getByLabelText } = render(SettingsSearch, {
+      props: { open: true, settings: DEFAULT_SETTINGS, onClose: () => {}, onJump: () => {} },
+    });
+    await fireEvent.click(getByLabelText('Changed only'));
+    expect(container.querySelector('[data-ega-no-changes]')?.textContent.trim()).toBe(
+      'No setting is changed from its default',
+    );
+    expect(container.querySelector('[data-ega-settings-list-item]')).toBeNull();
+  });
+});
+
 describe('SettingsSearch — Changed-only empty state', () => {
   it('shows the filter-specific message when the query matches but nothing is modified', async () => {
     const { container, getByLabelText, getByPlaceholderText } = render(SettingsSearch, {

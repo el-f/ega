@@ -79,6 +79,17 @@
     return out;
   });
 
+  // With Changed only and no query, the list is every setting changed from its default.
+  const changedEntries = $derived.by<readonly SearchResult[]>(() => {
+    const cur = settings;
+    if (!modifiedOnly || query.trim() || !cur) return [];
+    return SETTINGS_REGISTRY.filter((e) => e.isModified?.(cur) === true).map((e) => ({
+      ...e,
+      score: 0,
+      matchedTerm: e.label,
+    }));
+  });
+
   const allResults = $derived.by<readonly SearchResult[]>(() => {
     if (!query.trim()) return [];
     return searchSettings(query, {
@@ -100,7 +111,9 @@
   const hasOptions = $derived(
     query.trim()
       ? visibleResults.length > 0
-      : recentEntries.length > 0 || POPULAR_ENTRIES.length > 0,
+      : modifiedOnly
+        ? changedEntries.length > 0
+        : recentEntries.length > 0 || POPULAR_ENTRIES.length > 0,
   );
 
   // Reset on open — a reopen after a jump would otherwise show the old hits.
@@ -224,7 +237,18 @@
             aria-label={query.trim() ? 'Settings results' : 'Suggested settings'}
           >
             <Command.Viewport>
-              {#if !query.trim()}
+              {#if !query.trim() && modifiedOnly}
+                <Command.Group value="changed">
+                  <Command.GroupHeading class="ss-popular-header" data-ega-changed-header>
+                    Changed settings
+                  </Command.GroupHeading>
+                  <Command.GroupItems>
+                    {#each changedEntries as r (r.id)}
+                      {@render option(r, 'changed')}
+                    {/each}
+                  </Command.GroupItems>
+                </Command.Group>
+              {:else if !query.trim()}
                 {#if recentEntries.length > 0}
                   <Command.Group value="recent">
                     <Command.GroupHeading class="ss-popular-header" data-ega-recent-header>
@@ -267,6 +291,10 @@
             <Kbd>Enter</Kbd> to open · <Kbd>↑↓</Kbd> to move · <Kbd>Esc</Kbd> to close ·
             <Kbd>Ctrl+K</Kbd> for commands · <Kbd>?</Kbd> for all shortcuts
           </p>
+        {:else if !query.trim() && modifiedOnly}
+          <div class="ss-empty" role="status" data-ega-no-changes>
+            <span>No setting is changed from its default</span>
+          </div>
         {:else if query.trim()}
           <div class="ss-empty" role="status">
             {#if unfilteredHasMatches}
@@ -292,6 +320,12 @@
   .ss-input-row {
     display: flex;
     align-items: center;
+  }
+  .ss-input-row > :global(.ega-input-wrap) {
+    flex: 1 1 auto;
+  }
+  .ss-input-row :global(.ega-input-row) {
+    width: 100%;
   }
   .ss-modified-row {
     display: inline-flex;
