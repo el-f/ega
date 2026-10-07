@@ -308,3 +308,27 @@ describe('token-lint text that only looks like a comment opener', () => {
     expect(lintTs(src, 'x.ts')).toEqual([]);
   });
 });
+
+describe('token-lint CSS comments inside a style attribute', () => {
+  it.each([
+    [
+      'a hex in a comment',
+      '<div style="color: var(--color-fg); /* was #fff */ font-size: var(--fs-sm)">x</div>',
+    ],
+    ['a size in a comment', '<span style="font-size: var(--fs-sm) /* was 13px */">x</span>'],
+    ['a single-quoted attribute', "<span style='font-size: var(--fs-sm) /* was 13px */'>x</span>"],
+  ])('ignores %s', (_name, src) => {
+    expect(lintSvelte(src, 'x.svelte')).toEqual([]);
+  });
+
+  it('still flags a size that sits next to a comment', () => {
+    const src = '<span style="/* note */ font-size: 13px">x</span>';
+    expect(lintSvelte(src, 'x.svelte').map((v) => v.kind)).toEqual(['font']);
+  });
+
+  it('keeps an unclosed /* in one style value from blanking the next tag', () => {
+    const src =
+      '<div style="background: url(a/*b)" data-x="*/"><i style="font-size: 13px">x</i></div>';
+    expect(lintSvelte(src, 'x.svelte').map((v) => v.kind)).toEqual(['font']);
+  });
+});

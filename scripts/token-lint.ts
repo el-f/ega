@@ -11,6 +11,7 @@ const COLOR_FN_RE = /\b(?:rgba?|hsla?|oklch|oklab|color-mix)\(/i;
 const COMMENT_RE_CSS = /\/\*[\s\S]*?\*\//g;
 const COMMENT_RE_SVELTE_SCRIPT = /<script[^>]*>[\s\S]*?<\/script>/g;
 const STYLE_BLOCK_RE = /<style[^>]*>[\s\S]*?<\/style>/g;
+const STYLE_ATTR_RE = /\bstyle\s*=\s*(?:"[^"]*"|'[^']*')/g;
 const ALLOW_MARKER = 'token-lint-allow';
 
 interface Violation {
@@ -161,10 +162,11 @@ function stripHtmlComments(input: string): string {
  */
 function lintSvelte(source: string, file: string, fed = fontSizeFeeds(source)): Violation[] {
   const origLines = source.split('\n');
-  // Markup and <style>: colors and sizes. A <script> is blanked here; only <style> holds /* */ comments (`accept="image/*"` is a value).
+  // Markup and <style>: colors and sizes. A <script> is blanked here. /* */ comments are CSS, so only <style> blocks and style attributes lose them (`accept="image/*"` is a plain value).
   const scriptsBlanked = source.replace(COMMENT_RE_SVELTE_SCRIPT, blankPreserveLines);
   const markup = stripHtmlComments(scriptsBlanked)
     .replace(STYLE_BLOCK_RE, stripCssComments)
+    .replace(STYLE_ATTR_RE, stripCssComments)
     .split('\n');
   const out = lintLines(markup, origLines, file, (t) => classify(t, fed));
   // The <script> alone: style writes from code and style strings.
