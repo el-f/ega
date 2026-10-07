@@ -726,7 +726,7 @@ test('Page translate — pill, blocks and chips', async () => {
     ...meta,
     state: 'blocks-rtl-bilingual',
     expectations: [
-      'the side bar sits on the right edge of RTL text',
+      'the Hebrew originals stay right-aligned; each English translation reads left to right with its bar at its own start edge',
       'the heading translation is 85% size',
     ],
   });
