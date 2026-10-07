@@ -111,6 +111,43 @@ async function openPopup(
 }
 
 const POPUP_META = { surface: 'popup', viewport: POPUP } as const;
+const ANTHROPIC = 'https://api.anthropic.com/v1/messages';
+
+/** A fixture page with the test hooks up. */
+async function openPage(
+  fixture: string,
+  viewport: { width: number; height: number } = PAGE,
+): Promise<Page> {
+  const page = await ext.context.newPage();
+  await page.setViewportSize(viewport);
+  await page.goto(`${ext.serverUrl}/${fixture}`);
+  await waitForTestHooks(page);
+  return page;
+}
+
+async function waitToast(page: Page): Promise<void> {
+  await page.waitForFunction(
+    () => !!document.getElementById('ega-shadow-host')?.shadowRoot?.querySelector('.ega-toast'),
+    undefined,
+    { timeout: 10_000 },
+  );
+}
+
+/** Writes one storage key through an extension page; only extension contexts have chrome.storage. */
+async function writeStorage(key: string, value: unknown): Promise<void> {
+  const page = await ext.context.newPage();
+  try {
+    await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
+    await page.evaluate(
+      async ({ k, v }) => {
+        await chrome.storage.local.set({ [k]: v });
+      },
+      { k: key, v: value },
+    );
+  } finally {
+    await page.close();
+  }
+}
 
 test('Popup — every state of the page-popup redesign', async () => {
   test.slow();
@@ -140,12 +177,13 @@ test('Popup — every state of the page-popup redesign', async () => {
   });
   await p.close();
 
-  for (const [state, heldBack] of [
-    ['held-english', { reason: 'english' }],
-    ['held-too-short', { reason: 'too-short', minLength: 6 }],
-    ['held-mode-never', { reason: 'mode-never' }],
+  // Each held-back reason with a selection that would really earn it.
+  for (const [state, text, heldBack] of [
+    ['held-english', 'hi there', { reason: 'english' }],
+    ['held-too-short', 'hola', { reason: 'too-short', minLength: 6 }],
+    ['held-mode-never', 'shu 3am ta3mel', { reason: 'mode-never' }],
   ] as const) {
-    p = await openPopup(ext.context, { url: site, reply: { text: 'hi there', heldBack } });
+    p = await openPopup(ext.context, { url: site, reply: { text, heldBack } });
     await both(p, `popup-${state}`, {
       ...POPUP_META,
       state,
@@ -220,6 +258,31 @@ test('Popup — every state of the page-popup redesign', async () => {
       'Translate page in the secondary look',
       'swap shows between Spanish and English',
       'Pick element shows "Off in Settings"',
+    ],
+  });
+  await p.close();
+
+  await seedSettings(ext.context, ext.extensionId, {
+    defaultLang: 'ja',
+    pickerEnabled: true,
+    sitePrefs: {},
+  });
+  p = await openPopup(ext.context, { url: site });
+  await both(p, 'popup-source-picked', {
+    ...POPUP_META,
+    state: 'source-picked',
+    expectations: ['Japanese, the swap button and English in one row'],
+  });
+  await p.close();
+
+  await seedSettings(ext.context, ext.extensionId, { defaultLang: 'auto', pickerEnabled: false });
+  p = await openPopup(ext.context, { url: site });
+  await both(p, 'popup-picker-off', {
+    ...POPUP_META,
+    state: 'picker-off',
+    expectations: [
+      'Pick element reads "Off in Settings" and is unavailable',
+      'Translate page is still the one filled button',
     ],
   });
   await p.close();
@@ -335,19 +398,63 @@ test('Bubble — label, queue, menu, edges, RTL, first run', async () => {
   });
   await rtl.close();
 
+  // Below would leave the viewport and the text above is far off, so the bubble goes above.
+  const low = await openPage('long-page.html', { width: 1000, height: 650 });
+  await selectText(low, 'b2');
+  await bubbleShown(low);
+  await both(low, 'bubble-near-bottom', {
+    ...meta,
+    viewport: { width: 1000, height: 650 },
+    state: 'near-bottom',
+    expectations: ['the bubble sits 4px above the selected line, inside the viewport'],
+  });
+  await low.close();
+
+  await writeStorage('ega.customLanguages', [
+    {
+      id: 'levantine-beirut',
+      label: 'Levantine Arabic (Beirut street slang)',
+      hint: '',
+      examples: [],
+      createdAt: 1,
+    },
+  ]);
+  await seedSettings(ext.context, ext.extensionId, { defaultTargetLang: 'levantine-beirut' });
+  const named = await openPage('batch-page.html');
+  await selectText(named, 'c1');
+  await bubbleShown(named);
+  await both(named, 'bubble-long-language-name', {
+    ...meta,
+    state: 'long-language-name',
+    expectations: ['the label ends in an ellipsis at 160px; the chevron stays whole'],
+  });
+  await named.close();
+  await seedSettings(ext.context, ext.extensionId, { defaultTargetLang: 'en' });
+  await writeStorage('ega.customLanguages', []);
+
+  const dark = await openPage('hostile-page.html');
+  await dark.evaluate(() => document.body.classList.add('dark'));
+  await selectText(dark, 'c1');
+  await bubbleShown(dark);
+  await both(dark, 'bubble-light-theme-dark-page', {
+    ...meta,
+    state: 'light-theme-dark-page',
+    expectations: ['the bubble edge and its text read on a black page'],
+  });
+  await dark.close();
+
   await seedSettings(ext.context, ext.extensionId, { bubbleFirstRunSeen: false });
   const first = await ext.context.newPage();
   await first.setViewportSize(PAGE);
   await first.emulateMedia({ reducedMotion: 'no-preference' });
-  await first.goto(`${ext.serverUrl}/hostile-page.html`);
+  await first.goto(`${ext.serverUrl}/batch-page.html`);
   await waitForTestHooks(first);
-  await first.evaluate(() => document.body.classList.add('dark'));
   await selectText(first, 'c1');
   await bubbleShown(first);
-  await both(first, 'bubble-first-run-dark-page', {
+  await both(first, 'bubble-first-run', {
     ...meta,
-    state: 'first-run-dark-page',
-    expectations: ['the bubble edge reads on a black page', 'the first-run ring shows'],
+    state: 'first-run',
+    expectations: ['the first-run ring shows around the bubble'],
   });
   await first.close();
 });
@@ -431,6 +538,12 @@ test('Picker bar — Pick element and Choose areas', async () => {
       'Replace text is the checked segment',
     ],
   });
+  await areas.locator('[data-ega-ms-mode="bilingual"]').click();
+  await both(areas, 'picker-areas-show-both', {
+    ...meta,
+    state: 'areas-show-both',
+    expectations: ['Show both is the checked segment: accent edge, tint and weight 600'],
+  });
   await areas.mouse.click(3, 3);
   await both(areas, 'picker-areas-refusal', {
     ...meta,
@@ -499,6 +612,11 @@ test('Page translate — pill, blocks and chips', async () => {
     ...meta,
     state: 'pill-running',
     expectations: ['a 2px progress line on top', 'Stop', 'blocks dimmed with one spinner'],
+  });
+  await both(page, 'page-blocks-inplace-pending', {
+    ...meta,
+    state: 'blocks-inplace-pending',
+    expectations: ['each sent block keeps its text at 60% with one spinner at its end'],
   });
   release();
   await expect.poll(() => pillLabel(page), { timeout: 15_000 }).toMatch(/as you scroll/);
@@ -636,12 +754,26 @@ test('Inline replace and toasts', async () => {
   });
   const meta = { surface: 'page-translate', viewport: PAGE } as const;
   mockAnthropic(ext.context, { translation: 'Welcome, how are you?' });
+  // Registered last, so it runs first: the reply waits until release.
+  let release = (): void => {};
+  const held = new Promise<void>((r) => (release = r));
+  await ext.context.route(ANTHROPIC, async (route) => {
+    await held;
+    await route.fallback();
+  });
   let page = await ext.context.newPage();
   await page.setViewportSize(PAGE);
   await page.goto(`${ext.serverUrl}/inline-replace-page.html`);
   await waitForTestHooks(page);
   await selectText(page, 'target');
   await page.keyboard.press('Control+Shift+L');
+  await page.locator('[data-ega-replaced][data-ega-pending]').waitFor({ timeout: 10_000 });
+  await both(page, 'inline-pending', {
+    ...meta,
+    state: 'inline-pending',
+    expectations: ['the selected text dimmed, with one spinner at its end'],
+  });
+  release();
   await page
     .locator('.ega-toast')
     .waitFor({ timeout: 10_000 })
@@ -698,6 +830,14 @@ test('Inline replace and toasts', async () => {
     state: 'toast-site-off',
     expectations: ['"Ega is off on 127.0.0.1." with Turn on, warning icon'],
   });
+  await page.locator('[data-ega-toast-action]').click();
+  await expect(page.locator('.ega-toast')).toContainText('Ega is on for');
+  await both(page, 'toast-plain', {
+    ...meta,
+    surface: 'unknown',
+    state: 'toast-plain',
+    expectations: ['"Ega is on for 127.0.0.1." with a check icon, a close button and no action'],
+  });
   await page.close();
 
   await seedSettings(ext.context, ext.extensionId, { sitePrefs: {} });
@@ -717,4 +857,234 @@ test('Inline replace and toasts', async () => {
     expectations: ['"Select some text first, then press the shortcut." stays until dismissed'],
   });
   await page.close();
+});
+
+test('Page translate — pause, partial failure, Show both pending, RTL and focused chips', async () => {
+  test.slow();
+  await seedSettings(ext.context, ext.extensionId, {
+    anthropicApiKey: 'sk-test',
+    ...onlyBackends('anthropic'),
+    pageTranslateMode: 'bilingual',
+    streaming: true,
+    cacheEnabled: false,
+  });
+  const meta = { surface: 'page-translate', viewport: PAGE } as const;
+
+  // Show both, pending: the replies wait, so each block shows its sibling with the bar and a spinner.
+  mockAnthropic(ext.context, {
+    translation: 'Hello friend, how are you?',
+    detectedLang: 'arabizi',
+  });
+  let release = (): void => {};
+  const held = new Promise<void>((r) => (release = r));
+  await ext.context.route(ANTHROPIC, async (route) => {
+    await held;
+    await route.fallback();
+  });
+  let page = await openPage('hostile-page.html');
+  await sendPageTranslate('page:translateAll');
+  await expect.poll(() => pillLabel(page)).toMatch(/^Translating/);
+  await both(page, 'page-blocks-bilingual-pending', {
+    ...meta,
+    state: 'blocks-bilingual-pending',
+    expectations: ['each block has a sibling with the side bar and one spinner, one line tall'],
+  });
+  release();
+  await expect.poll(() => pillLabel(page), { timeout: 15_000 }).toMatch(/^Page translated/);
+  await both(page, 'page-blocks-bilingual-heading', {
+    ...meta,
+    state: 'blocks-bilingual-heading',
+    expectations: ["the heading's translation is 85% of the heading's size, at the same weight"],
+  });
+  await page.close();
+  await resetRoutes(ext.context);
+
+  // A rate limit pauses the queue with a countdown; it is not an error.
+  await ext.context.route(ANTHROPIC, (route) =>
+    route.fulfill({
+      status: 429,
+      headers: { 'retry-after': '12' },
+      contentType: 'application/json',
+      body: '{"type":"error","error":{"type":"rate_limit_error","message":"Number of requests has exceeded your rate limit"}}',
+    }),
+  );
+  page = await openPage('hostile-page.html');
+  await sendPageTranslate('page:translateAll');
+  await expect.poll(() => pillLabel(page), { timeout: 15_000 }).toMatch(/^Paused/);
+  await both(page, 'page-pill-rate-limit', {
+    ...meta,
+    state: 'pill-rate-limit',
+    expectations: [
+      '"Paused: Anthropic is limiting requests. Resuming in N s."',
+      'Stop; no error mark',
+    ],
+  });
+  await page.close();
+  await resetRoutes(ext.context);
+
+  // One block keeps failing with a server error; the rest translate.
+  mockAnthropic(ext.context, {
+    translation: 'Hello friend, how are you?',
+    detectedLang: 'arabizi',
+  });
+  await ext.context.route(ANTHROPIC, async (route) => {
+    if (route.request().postData()?.includes('kif 7alak')) {
+      await route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: '{"type":"error","error":{"type":"api_error","message":"Internal server error"}}',
+      });
+      return;
+    }
+    await route.fallback();
+  });
+  page = await openPage('hostile-page.html');
+  await sendPageTranslate('page:translateAll');
+  await expect.poll(() => pillLabel(page), { timeout: 30_000 }).toMatch(/^Couldn't translate 1 of/);
+  await both(page, 'page-pill-partial-fail', {
+    ...meta,
+    state: 'pill-partial-fail',
+    expectations: [
+      '"Couldn\'t translate 1 of 4 areas." and the cause in the catalog\'s words',
+      'Try again (outlined) first, then Show original, More and Close bar',
+      'one red chip on the failed block; the other blocks show their translation',
+    ],
+  });
+  await page.close();
+  await resetRoutes(ext.context);
+
+  // Replace text on a right-to-left page.
+  await seedSettings(ext.context, ext.extensionId, { pageTranslateMode: 'inplace' });
+  mockAnthropic(ext.context, { translation: 'Hello world, this is the first paragraph.' });
+  page = await openPage('rtl-page.html');
+  await sendPageTranslate('page:translateAll');
+  await expect.poll(() => pillLabel(page), { timeout: 15_000 }).toMatch(/^Page translated/);
+  await both(page, 'page-blocks-rtl-inplace', {
+    ...meta,
+    state: 'blocks-rtl-inplace',
+    expectations: ['each block reads in the translation, aligned to the right edge like the page'],
+  });
+  await page.close();
+  await resetRoutes(ext.context);
+
+  // Chips on a right-to-left page, then one with keyboard focus.
+  await ext.context.route(ANTHROPIC, (route) =>
+    route.fulfill({
+      status: 401,
+      contentType: 'application/json',
+      body: '{"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"}}',
+    }),
+  );
+  page = await openPage('rtl-page.html');
+  await sendPageTranslate('page:translateAll');
+  await expect.poll(() => pillLabel(page), { timeout: 20_000 }).toMatch(/^Couldn't translate/);
+  await both(page, 'page-chip-rtl', {
+    ...meta,
+    state: 'chip-rtl',
+    expectations: [
+      'each chip sits at the inline end of its block, the left side on RTL text',
+      'inside, the chip reads left to right: mark, title, button',
+    ],
+  });
+  // A key press first, so the browser draws the focus ring for the focus that follows.
+  await page.keyboard.press('Tab');
+  await page
+    .locator('[data-ega-tx-error]')
+    .first()
+    .evaluate((h) => h.shadowRoot?.querySelector<HTMLElement>('button')?.focus());
+  await both(page, 'page-chip-focus', {
+    ...meta,
+    state: 'chip-focus',
+    expectations: ['the focused chip button has a 2px white ring with a 2px gap'],
+  });
+  await page.close();
+  await resetRoutes(ext.context);
+});
+
+test('Toasts — first smart hold-back, reload, above the pill, and the full stack', async () => {
+  test.slow();
+  await seedSettings(ext.context, ext.extensionId, {
+    anthropicApiKey: 'sk-test',
+    ...onlyBackends('anthropic'),
+    bubbleFirstRunSeen: true,
+    smartBubbleBannerShown: false,
+    sitePrefs: {},
+    defaultDisplayMode: 'tooltip',
+    pageTranslateMode: 'bilingual',
+    streaming: true,
+    cacheEnabled: false,
+  });
+  const meta = { surface: 'unknown', viewport: PAGE } as const;
+
+  // English text in smart mode: the bubble stays hidden, and the first time a toast says why.
+  let page = await openPage('batch-page.html');
+  await selectText(page, 'c3');
+  await waitToast(page);
+  await both(page, 'toast-first-smart', {
+    ...meta,
+    state: 'toast-first-smart',
+    expectations: [
+      '"The bubble only shows on text that isn\'t English. Change this in Settings."',
+      'Open settings and a close button',
+    ],
+  });
+  await page.close();
+
+  // An update deleted the code a page still running the old content script needs.
+  page = await ext.context.newPage();
+  await page.setViewportSize(PAGE);
+  await page.route('**/batch-progress-*.js', (route) => route.abort());
+  await page.goto(`${ext.serverUrl}/batch-page.html`);
+  await waitForTestHooks(page);
+  await sendPageTranslate('page:translateAll');
+  await page.locator('[data-ega-toast-action]').waitFor({ timeout: 10_000 });
+  await both(page, 'toast-reload', {
+    ...meta,
+    state: 'toast-reload',
+    expectations: ['"Ega was updated. Reload the page to keep using it." with Reload page'],
+  });
+  await page.close();
+
+  // With the pill up, a toast sits above it.
+  const short = { width: 1000, height: 420 };
+  mockAnthropic(ext.context, {
+    translation: 'Hello friend, how are you?',
+    detectedLang: 'arabizi',
+  });
+  page = await openPage('hostile-page.html', short);
+  await sendPageTranslate('page:translateAll');
+  await expect.poll(() => pillLabel(page), { timeout: 15_000 }).toMatch(/^Page translated/);
+  await page.evaluate(() => window.getSelection()?.removeAllRanges());
+  await page.keyboard.press('Control+Shift+L');
+  await waitToast(page);
+  await both(page, 'toast-above-pill', {
+    ...meta,
+    viewport: short,
+    state: 'toast-above-pill',
+    expectations: ['the toast sits 8px above the pill and covers none of it'],
+  });
+
+  // Tooltip near the bottom, then a toast: all three layers at once.
+  await page.locator('[data-ega-toast-close]').click();
+  await page.evaluate(() => {
+    const el = document.getElementById('c3') as HTMLElement;
+    el.scrollIntoView({ block: 'end' });
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    window.getSelection()?.removeAllRanges();
+    window.getSelection()?.addRange(range);
+  });
+  await page.keyboard.press('Control+Shift+L');
+  await expect.poll(async () => egaTest<number>(page, 'tooltipCount')).toBe(1);
+  await page.evaluate(() => window.getSelection()?.removeAllRanges());
+  await page.keyboard.press('Control+Shift+L');
+  await waitToast(page);
+  await both(page, 'stack-tooltip-pill-toast', {
+    ...meta,
+    viewport: short,
+    state: 'stack-tooltip-pill-toast',
+    expectations: ['the toast is on top, the tooltip over the pill, the pill under both'],
+  });
+  await page.close();
+  await resetRoutes(ext.context);
 });
