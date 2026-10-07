@@ -1441,7 +1441,7 @@
     flex-shrink: 0;
   }
   .sp-filter-clear {
-    margin-left: auto;
+    margin-inline-start: auto;
     background: none;
     border: 0;
     padding: var(--space-1);

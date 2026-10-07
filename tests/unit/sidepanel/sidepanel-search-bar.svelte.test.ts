@@ -65,3 +65,12 @@ describe('the search bar sizes', () => {
     expect(document.activeElement).toBe(container.querySelector('[data-ega-search-toggle]'));
   });
 });
+
+// Spec P1-35: the panel's styles use logical properties, so its layout follows the writing direction.
+describe('the bookmark bar', () => {
+  it('pushes Show all to the end with a logical margin', () => {
+    expect(rule('\\.sp-filter-clear')).toMatch(/margin-inline-start:\s*auto/);
+    const styles = src.slice(src.indexOf('<style>'));
+    expect(styles).not.toMatch(/(margin|padding|border)-(left|right)\s*:/);
+  });
+});
