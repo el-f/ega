@@ -61,13 +61,18 @@ test('the header More menu turns the bookmark filter on and Show all turns it of
   await expect(item).toHaveAttribute('aria-checked', 'false');
   await page.keyboard.press('Escape');
 
-  // A bookmarked reply says so in its meta line, and its More menu shows the item checked.
+  // The bookmark belongs to the pair: set on the message, the reply says so and its More menu shows it checked.
   const reply = page.locator('[data-ega-reply]').first();
-  const menu = await openReplyMenu(page, 'more', reply);
-  await menu.getByRole('menuitemcheckbox', { name: 'Bookmark', exact: true }).click();
   await expect(reply.locator('[data-ega-reply-meta]')).toContainText('Bookmarked');
-  await openReplyMenu(page, 'more', reply);
+  const menu = await openReplyMenu(page, 'more', reply);
+  const replyItem = menu.getByRole('menuitemcheckbox', { name: 'Bookmark', exact: true });
+  await expect(replyItem).toHaveAttribute('aria-checked', 'true');
+  // Unchecking it on the reply clears the pair, so the message's menu shows it unchecked too.
+  await replyItem.click();
+  await expect(reply.locator('[data-ega-reply-meta]')).not.toContainText('Bookmarked');
+  await message.hover();
+  await message.locator('[data-ega-action="more"]').click();
   await expect(
     page.getByRole('menuitemcheckbox', { name: 'Bookmark', exact: true }),
-  ).toHaveAttribute('aria-checked', 'true');
+  ).toHaveAttribute('aria-checked', 'false');
 });
