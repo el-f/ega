@@ -26,8 +26,9 @@
 
   const pillThreshold = $derived(s.confidencePillThreshold ?? DEFAULT_CONFIDENCE_PILL_THRESHOLD);
 
-  // The mode is a pick, not an option, so the reset leaves it alone.
+  // One reset for the whole card (spec 3.1), so "back to defaults" is true of everything on it.
   const RESET_IDS = [
+    'display.defaultDisplayMode',
     'display.confidencePill',
     'display.confidencePillThreshold',
     'display.tooltipShowSource',
@@ -38,6 +39,7 @@
 
   function reset(): Promise<void> {
     return onResetCard(TITLE, {
+      defaultDisplayMode: DEF.defaultDisplayMode,
       tooltipShowSource: DEF.tooltipShowSource,
       tooltipClickOutside: DEF.tooltipClickOutside,
       tooltipDraggable: DEF.tooltipDraggable,

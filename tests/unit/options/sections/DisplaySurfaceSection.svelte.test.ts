@@ -98,12 +98,12 @@ describe('DisplaySurfaceSection', () => {
     expect(tooltipCard.classList.contains('active')).toBe(false);
   });
 
-  it('Reset section resets the pill and tooltip options, never the mode', async () => {
+  it('Reset section puts the whole card back, the Tooltip/Inline pick included', async () => {
     const onResetCard = vi.fn<OnResetCard>(async () => {});
     const { container } = render(DisplaySurfaceSection, {
       props: makeResetSectionProps({
         s: {
-          defaultDisplayMode: 'tooltip',
+          defaultDisplayMode: 'inline',
           tooltipShowSource: true,
           tooltipDraggable: true,
         },
@@ -114,13 +114,19 @@ describe('DisplaySurfaceSection', () => {
     if (!resetBtn) throw new Error('section-reset button missing (expected when knobs modified)');
     await fireEvent.click(resetBtn);
     expect(onResetCard).toHaveBeenCalledTimes(1);
+    // The toast says the card is back to defaults, so every value on it is.
     expect(onResetCard.mock.calls[0]?.[0]).toBe('Where answers show');
     const patch = onResetCard.mock.calls[0]?.[1] as Record<string, unknown>;
-    // Reset should NOT touch defaultDisplayMode — resetting the picked mode while
-    // configuring it would be confusing UX.
-    expect(patch).not.toHaveProperty('defaultDisplayMode');
+    expect(patch).toHaveProperty('defaultDisplayMode', DEFAULT_SETTINGS.defaultDisplayMode);
     expect(patch).toHaveProperty('tooltipShowSource', false);
     expect(patch).toHaveProperty('tooltipDraggable', false);
+  });
+
+  it('a card whose only change is the Inline pick still offers Reset section', () => {
+    const { container } = render(DisplaySurfaceSection, {
+      props: makeResetSectionProps({ s: { defaultDisplayMode: 'inline' } }),
+    });
+    expect(container.querySelector('[data-ega-section-reset]')).not.toBeNull();
   });
 
   it('in inline mode the one reset still covers the tooltip options', async () => {

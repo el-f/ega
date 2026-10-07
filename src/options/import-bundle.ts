@@ -514,7 +514,6 @@ async function confirmImport(
                   : '') +
                 ' This cannot be undone.',
               confirmLabel: 'Replace',
-              danger: true,
             },
       );
       return proceed ? {} : null;
@@ -544,7 +543,6 @@ async function confirmImport(
           `${count(bundle.fileCounts.presetTemplates, 'language prompt')}. Importing replaces your ${listOf(replaced)}.` +
           ' Glossary entries for a custom language the file does not have are removed too. This cannot be undone.',
         confirmLabel: 'Replace',
-        danger: true,
       });
       return proceed ? {} : null;
     }
@@ -558,7 +556,6 @@ async function confirmImport(
             ? 'built-in tasks (the Translate prompt too), and which tasks are on. This cannot be undone.'
             : 'built-in tasks, and which tasks are on. This cannot be undone.'),
         confirmLabel: 'Replace',
-        danger: true,
       });
       return proceed ? {} : null;
     }
@@ -570,16 +567,16 @@ async function confirmImport(
           : `This replaces your current settings and custom languages with the ones in ${fileName}. Your tasks stay, because the file has none.`,
         confirmLabel: 'Import',
         cancelLabel: 'Keep current settings',
-        danger: true,
       });
       if (!proceed) return null;
-      // A keyless file (the default export) has no keys to keep; "Keep keys" would delete every current one.
+      // A keyless file (the default export) has no keys to use; using its keys would delete every current one.
       if (!BACKEND_API_KEY_FIELDS.some((k) => bundle.settings[k])) return { includeApiKeys: false };
+      // Esc, the x and the secondary button all keep the current keys: the safe answer needs no click.
       const includeApiKeys = await confirmDialog({
-        title: 'Keep API keys from file?',
-        body: 'Keep API keys from the imported file (dangerous if the file came from someone else), or strip them and use your current keys?',
-        confirmLabel: 'Keep keys',
-        cancelLabel: 'Strip keys',
+        title: 'Use the API keys in this file?',
+        body: 'Use them only if you made this file. Otherwise your current keys stay.',
+        confirmLabel: "Use the file's keys",
+        cancelLabel: 'Keep my keys',
       });
       return { includeApiKeys };
     }

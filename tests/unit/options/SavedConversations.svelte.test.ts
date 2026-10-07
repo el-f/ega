@@ -100,6 +100,27 @@ describe('SavedConversations', () => {
     });
   });
 
+  it('after a delete, focus goes to the next row, else the card title', async () => {
+    await saveThread('https://a.test', [userTurn('a1', 'a')]);
+    await saveThread('https://b.test', [userTurn('b1', 'b')]);
+    const { container, getByRole } = render(SavedConversations);
+    await waitFor(() => expect(sites(container)).toHaveLength(2));
+    const first = sites(container)[0] ?? '';
+    const second = sites(container)[1] ?? '';
+
+    await fireEvent.click(getByRole('button', { name: `Delete conversation for ${first}` }));
+    await waitFor(() =>
+      expect(document.activeElement?.getAttribute('aria-label')).toBe(
+        `Delete conversation for ${second}`,
+      ),
+    );
+    // The confirm says nothing about an open side panel: with several conversations per site it may not empty.
+    expect(vi.mocked(confirmDialog).mock.calls[0]?.[0].body).not.toMatch(/side panel empties/);
+
+    await fireEvent.click(getByRole('button', { name: 'Delete all' }));
+    await waitFor(() => expect(document.activeElement?.textContent).toBe('Saved conversations'));
+  });
+
   it('picks up a thread a side panel saves while the page is open', async () => {
     const { container } = render(SavedConversations);
     await waitFor(() => expect(container.textContent).toMatch(/No saved conversations/));

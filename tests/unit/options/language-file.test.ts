@@ -77,14 +77,16 @@ describe('one language as a file', () => {
     });
   });
 
-  it('replaces a language with the same id after a danger confirm, and keeps its prompt when the file has none', async () => {
+  it('replaces a language with the same id after a confirm, and keeps its prompt when the file has none', async () => {
     seed([{ ...PIRATE, hint: 'old hint' }, OTHER], {
       perPresetTemplates: { [PIRATE.id]: { system: 'Mine.' } },
     });
     const status = await importBundleFile(fileOf(languageFile()), ['varieties', 'language']);
     expect(confirmDialog).toHaveBeenCalledWith(
-      expect.objectContaining({ title: 'Replace "Pirate"?', danger: true }),
+      expect.objectContaining({ title: 'Replace "Pirate"?' }),
     );
+    // The red fill is for Delete all data only.
+    expect(vi.mocked(confirmDialog).mock.calls[0]?.[0].danger).not.toBe(true);
     expect(status).toEqual({ kind: 'ok', msg: 'Replaced "Pirate".' });
     const customs = await getCustomLanguages();
     expect(customs.map((c) => [c.id, c.hint])).toEqual([

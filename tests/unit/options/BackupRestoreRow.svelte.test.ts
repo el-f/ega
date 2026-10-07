@@ -62,6 +62,14 @@ describe('BackupRestoreRow', () => {
     expect(getByRole('alert').textContent).toContain('Import failed');
   });
 
+  it('the visible Import label comes right after its file input, so the input focus can ring it', () => {
+    const { getByLabelText } = render(BackupRestoreRow, { props: makeProps() });
+    const input = getByLabelText('Import Languages...') as HTMLInputElement;
+    expect(input.type).toBe('file');
+    // CSS: input:focus-visible + .file-label draws the 2px ring the clipped input cannot.
+    expect(input.nextElementSibling?.matches('label.file-label')).toBe(true);
+  });
+
   it('a blocked export stays focusable, says why, and exports nothing', async () => {
     const onExport = vi.fn();
     const { getByRole } = render(BackupRestoreRow, {

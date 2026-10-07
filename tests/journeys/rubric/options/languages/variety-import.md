@@ -23,7 +23,7 @@
 - Invalid JSON (syntax error) surfaces an inline error; no write, no confirm dialog.
 - Bad bundle shape (no custom-language list, or a version this build does not know) -> inline "Import failed: …"; a broken row, edit, prompt or off-list id is skipped and counted ("Skipped N broken entries"), unknown keys are ignored, and a long field is cut to its limit.
 - A bundle with no custom languages is valid; Replace clears the existing custom languages.
-- A one-language (`egaLanguage`) file picked on the same Import adds that language next to the others after an "Add" confirm, or, when a custom language with the same id exists, replaces only that one after a danger "Replace" confirm. A file whose language takes a built-in id is refused before any confirm.
+- A one-language (`egaLanguage`) file picked on the same Import adds that language next to the others after an "Add" confirm, or, when a custom language with the same id exists, replaces only that one after a "Replace" confirm. A file whose language takes a built-in id is refused before any confirm.
 
 ## Cautions
 

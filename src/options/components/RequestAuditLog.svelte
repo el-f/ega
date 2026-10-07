@@ -1,6 +1,6 @@
 <script lang="ts">
   /** Recent requests: the last requests in words, one filter row, Details in place, and Compare for two of them. */
-  import { onDestroy, onMount, untrack } from 'svelte';
+  import { onDestroy, onMount, tick, untrack } from 'svelte';
   import {
     AUDIT_LOG_CAP,
     readAuditLog,
@@ -250,6 +250,15 @@
     });
     if (!ok) return;
     await clearNow();
+    // Clear and Export leave with the last row, so focus goes to the card title instead of the page.
+    await tick();
+    if (!hasEntries) {
+      document
+        .querySelector('[data-ega-request-audit-log]')
+        ?.closest('section')
+        ?.querySelector<HTMLElement>('h2')
+        ?.focus();
+    }
   }
 
   // An error toast with Try again stays until closed (X14), so a new Clear closes the last one first.

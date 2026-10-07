@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy, onMount } from 'svelte';
+  import { onDestroy, onMount, tick } from 'svelte';
   import { confirmDialog } from '@/shared/components/confirmDialog';
   import { toastStore } from '@/shared/components/toastStore';
   import EmptyState from '@/shared/components/EmptyState.svelte';
@@ -84,28 +84,41 @@
     await refresh();
   }
 
+  // The pressed button leaves with its row: the row that took its place takes focus (or the one above), else the card title.
+  async function focusAfterDelete(at: number): Promise<void> {
+    await tick();
+    const card = document.querySelector('[data-ega-setting="advanced.savedConversations"]');
+    const trash = card?.querySelectorAll<HTMLElement>('[data-ega-conv-delete]') ?? [];
+    (trash[Math.min(at, trash.length - 1)] ?? card?.querySelector<HTMLElement>('h2'))?.focus();
+  }
+
   async function deleteOne(row: Row): Promise<void> {
     const title = rowTitle(row);
     const site = siteLabel(row);
+    const at = rows.indexOf(row);
     const ok = await confirmDialog({
       title: 'Delete this conversation?',
-      body: `Delete the side panel conversation ${title === null ? `for ${site}` : `"${title}" on ${site}`}? An open side panel empties too. This cannot be undone.`,
+      body: `Delete the side panel conversation ${title === null ? `for ${site}` : `"${title}" on ${site}`}? This cannot be undone.`,
       confirmLabel: 'Delete',
       danger: true,
     });
-    if (ok) await run(`conv-delete:${row.origin}`, () => deleteSavedConversation(row.origin));
+    if (!ok) return;
+    await run(`conv-delete:${row.origin}`, () => deleteSavedConversation(row.origin));
+    await focusAfterDelete(at);
   }
 
   async function clearAll(): Promise<void> {
     const n = rows.length;
     const ok = await confirmDialog({
       title: 'Delete all conversations?',
-      body: `Delete all ${n} saved ${n === 1 ? 'conversation' : 'conversations'}? An open side panel empties too. This cannot be undone.`,
+      body: `Delete all ${n} saved ${n === 1 ? 'conversation' : 'conversations'}? This cannot be undone.`,
       confirmLabel: 'Delete all',
       cancelLabel: 'Keep them',
       danger: true,
     });
-    if (ok) await run('conv-delete-all', clearSavedConversations);
+    if (!ok) return;
+    await run('conv-delete-all', clearSavedConversations);
+    await focusAfterDelete(0);
   }
 </script>
 
@@ -144,6 +157,7 @@
                 : `Delete conversation "${title}" on ${site}`}
               tooltip="Delete"
               size="sm"
+              dataAttrs={{ 'data-ega-conv-delete': true }}
               onclick={() => void deleteOne(row)}
             />
           </li>

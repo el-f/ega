@@ -105,7 +105,7 @@ describe('importBundleFile — parse before confirm', () => {
     expect(setSpy).not.toHaveBeenCalled();
   });
 
-  it('a full backup asks twice and honors "Strip keys"', async () => {
+  it('a full backup with keys asks which keys to use; Esc or "Keep my keys" keeps the current ones', async () => {
     await chromeMock.storage.local.set({ [STORAGE_KEYS.settings]: { openaiApiKey: 'mine' } });
     const bundle = await exportAll({ includeApiKeys: true });
     const file = fileOf({
@@ -116,6 +116,11 @@ describe('importBundleFile — parse before confirm', () => {
     const status = await importBundleFile(file);
     expect(status?.msg).toBe('Imported all settings.');
     expect(confirmDialog).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(confirmDialog).mock.calls[1]?.[0]).toMatchObject({
+      title: 'Use the API keys in this file?',
+      confirmLabel: "Use the file's keys",
+      cancelLabel: 'Keep my keys',
+    });
     const after = await getSettings();
     expect(after.theme).toBe('dark');
     expect(after.openaiApiKey).toBe('mine');
@@ -123,12 +128,15 @@ describe('importBundleFile — parse before confirm', () => {
 
   it('the overwrite question names the file and offers a safe way out', async () => {
     await importBundleFile(fileOf(await exportAll()));
-    expect(vi.mocked(confirmDialog).mock.calls[0]?.[0]).toMatchObject({
+    const ask = vi.mocked(confirmDialog).mock.calls[0]?.[0];
+    expect(ask).toMatchObject({
       title: 'Import settings?',
       body: expect.stringContaining('with the ones in bundle.json.'),
       confirmLabel: 'Import',
       cancelLabel: 'Keep current settings',
     });
+    // The red fill is for Delete all data only.
+    expect(ask?.danger).not.toBe(true);
   });
 
   it('a backup with a broken custom language imports the rest and says how many were skipped', async () => {

@@ -1,5 +1,6 @@
 <script lang="ts">
   /** Shown on the Backends tab while no backend can run, until the user skips it. */
+  import { tick } from 'svelte';
   import SectionCard from '@/shared/ui/SectionCard.svelte';
   import Button from '@/shared/ui/Button.svelte';
 
@@ -11,6 +12,13 @@
   }
 
   const { onUseGemini, onUseOtherKey, onRunLocal, onSkip }: Props = $props();
+
+  // Skip takes this card away with the focused button, so the Backends in use title takes focus.
+  async function skip(): Promise<void> {
+    onSkip();
+    await tick();
+    document.querySelector<HTMLElement>('[data-testid="be-list"] h2')?.focus();
+  }
 </script>
 
 <div data-ega-get-started>
@@ -29,7 +37,11 @@
       <Button variant="secondary" onclick={onRunLocal} dataAttrs={{ 'data-ega-onboard': 'local' }}>
         Run on this computer
       </Button>
-      <Button variant="ghost" onclick={onSkip} dataAttrs={{ 'data-ega-onboard': 'dismiss' }}>
+      <Button
+        variant="ghost"
+        onclick={() => void skip()}
+        dataAttrs={{ 'data-ega-onboard': 'dismiss' }}
+      >
         Skip for now
       </Button>
     </div>

@@ -124,4 +124,15 @@ describe('RequestAuditLog — Clear', () => {
     await flushAsync();
     expect(push).not.toHaveBeenCalled();
   });
+
+  it('a Clear that worked takes Clear away, so focus moves to the card title', async () => {
+    chromeMock.runtime.sendMessage = vi.fn(async () => {
+      await chrome.storage.local.set({ egaAuditLog: { version: 1, entries: [] } });
+      return { ok: true };
+    });
+    const { btn } = await renderWithOneEntry();
+    btn.focus();
+    btn.click();
+    await waitFor(() => expect(document.activeElement?.textContent).toBe('Recent requests'));
+  });
 });

@@ -42,6 +42,7 @@
   <div class="row">
     <Button
       variant="secondary"
+      size="sm"
       iconKind="export"
       ariaDisabled={exportBlockedReason !== null}
       {...exportBlockedReason !== null ? { describedBy: reasonId } : {}}
@@ -50,17 +51,18 @@
     >
       {exportLabel ?? `Export ${scope}`}
     </Button>
-    <label for={importId} class="file-label">
-      <ActionIcon kind="import" size={16} />
-      <span>{importLabel ?? `Import ${scope}...`}</span>
-    </label>
+    <!-- The input comes first: it takes the keyboard focus, and the label after it shows the ring. -->
     <input
       id={importId}
       type="file"
       accept="application/json,.json"
-      class="ega-sr-only"
+      class="ega-sr-only file-input"
       onchange={(ev) => void handleImportFilePick(ev, onImport)}
     />
+    <label for={importId} class="file-label">
+      <ActionIcon kind="import" size={16} />
+      <span>{importLabel ?? `Import ${scope}...`}</span>
+    </label>
   </div>
   {#if exportBlockedReason !== null}
     <p class="reason" id={reasonId}>{exportBlockedReason}</p>
@@ -74,10 +76,9 @@
     flex-direction: column;
     gap: var(--space-2);
   }
-  /* Stretch: Export and Import are the same height whatever their icons and text measure. */
   .row {
     display: flex;
-    align-items: stretch;
+    align-items: center;
     gap: var(--space-2);
     flex-wrap: wrap;
   }
@@ -86,27 +87,29 @@
     font-size: var(--fs-base);
     color: var(--color-muted);
   }
+  /* The small secondary Button's box, so Import matches Export beside it. */
   .file-label {
     display: inline-flex;
     align-items: center;
+    box-sizing: border-box;
+    min-height: 28px;
     margin: 0;
     gap: var(--space-2);
-    padding: var(--space-2) var(--space-3);
+    padding: var(--space-1) var(--space-2);
     background: var(--color-bg-elevated);
     color: var(--color-fg);
-    /* The secondary Button's border, so Import matches Export beside it. */
     border: 1px solid var(--color-control-border);
     border-radius: var(--radius-md);
     font-family: var(--font-ui);
-    font-size: var(--fs-base);
-    font-weight: 600;
+    font-size: var(--fs-sm);
+    font-weight: var(--ega-fw-medium, 500);
     cursor: pointer;
     transition: background var(--motion-fast) var(--ease-out);
   }
   .file-label:hover {
     background: var(--color-bg-hover);
   }
-  .file-label:focus-within {
+  .file-input:focus-visible + .file-label {
     outline: 2px solid var(--color-accent);
     outline-offset: 2px;
   }
