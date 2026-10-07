@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from 'svelte';
   import type { Settings } from '@/shared/types';
   import { isPromptTemplateCustomised } from '@/shared/settings-schema';
   import { isFieldModified } from '@/shared/settings-registry';
@@ -74,7 +75,7 @@
     if (!status) return;
     backupState = status;
     if (status.kind === 'ok') {
-      loadCustomTasks();
+      void loadCustomTasks();
       onSetSettings(await readSettings());
     }
   }
@@ -90,6 +91,40 @@
   async function toggle(t: string, on: boolean): Promise<void> {
     const next = await saveVia(() => setTaskEnabled(t, on));
     if (next) onSetSettings(next);
+  }
+
+  // Focus never drops to the page when the dialog closes: back to its opener, else to the row that took a
+  // deleted task's place (or the one above), else to New task.
+  let opener: HTMLElement | null = null;
+  let openerIndex = -1;
+  function openCustom(row: CustomTask | 'new', from: EventTarget | null): void {
+    opener = from instanceof HTMLElement ? from : null;
+    openerIndex = row === 'new' ? -1 : customViews.findIndex((v) => v.id === row.id);
+    editingCustom = row;
+  }
+  const newTaskButton = (): HTMLElement | null =>
+    document.querySelector<HTMLElement>(
+      '[data-ega-custom-task-new], [data-ega-tab="tasks"] [data-ega-empty-state] button',
+    );
+  async function closeCustom(): Promise<void> {
+    editingCustom = null;
+    await loadCustomTasks();
+    await tick();
+    if (opener?.isConnected === true) {
+      opener.focus();
+      return;
+    }
+    const edits = document.querySelectorAll<HTMLElement>(
+      '[data-ega-custom-task-list] [data-ega-task-edit]',
+    );
+    const row = openerIndex < 0 ? null : (edits[Math.min(openerIndex, edits.length - 1)] ?? null);
+    (row ?? newTaskButton())?.focus();
+  }
+  /** After Undo put a deleted task back, its row's Edit takes focus. */
+  async function focusTask(id: string): Promise<void> {
+    await loadCustomTasks();
+    await tick();
+    document.querySelector<HTMLElement>(`[data-ega-task-edit="${id}"]`)?.focus();
   }
 </script>
 
@@ -177,7 +212,7 @@
             ariaDisabled={atCap}
             {...atCap ? { describedBy: 'ega-custom-task-cap' } : {}}
             dataAttrs={{ 'data-ega-custom-task-new': true }}
-            onclick={() => (editingCustom = 'new')}>New task</Button
+            onclick={(e) => openCustom('new', e.currentTarget)}>New task</Button
           >
         {/if}
       {/snippet}
@@ -192,7 +227,7 @@
           description="Write a prompt once and run it on any text"
           icon={ListPlus}
           ctaLabel="New task"
-          onCta={() => (editingCustom = 'new')}
+          onCta={() => openCustom('new', document.activeElement)}
         />
       {:else}
         <ul class="task-list" data-ega-custom-task-list>
@@ -211,8 +246,10 @@
                 size="sm"
                 ariaLabel={`Edit ${v.label}`}
                 dataAttrs={{ 'data-ega-task-edit': v.id }}
-                onclick={() => (editingCustom = customTasks.find((c) => c.id === v.id) ?? null)}
-                >Edit</Button
+                onclick={(e) => {
+                  const found = customTasks.find((c) => c.id === v.id);
+                  if (found) openCustom(found, e.currentTarget);
+                }}>Edit</Button
               >
             </li>
           {/each}
@@ -240,11 +277,12 @@
       <CustomTaskDialog
         s={settings}
         row={editingCustom === 'new' ? undefined : editingCustom}
-        onClose={() => (editingCustom = null)}
+        onClose={() => void closeCustom()}
         onSaved={(next) => {
           if (next) onSetSettings(next);
-          loadCustomTasks();
+          void loadCustomTasks();
         }}
+        onRestored={(id) => void focusTask(id)}
       />
     {/if}
 

@@ -341,3 +341,77 @@ describe('Tasks tab — a task deleted in another window', () => {
     expect(await getCustomTasks()).toEqual([]);
   });
 });
+
+describe('Tasks tab — focus after the custom task dialog', () => {
+  const task = (label: string) => ({
+    label,
+    system: '',
+    user: '{{text}}',
+    output: 'plain' as const,
+    pageContext: false,
+    image: false,
+    glossary: false,
+  });
+
+  async function openEdit(container: HTMLElement, id: string): Promise<void> {
+    const edit = await waitFor(() => {
+      const el = container.querySelector<HTMLElement>(`[data-ega-task-edit="${id}"]`);
+      if (!el) throw new Error('no row');
+      return el;
+    });
+    edit.focus();
+    await fireEvent.click(edit);
+    await waitFor(() => {
+      if (!document.querySelector('[data-ega-custom-task-delete]')) throw new Error('no dialog');
+    });
+  }
+
+  it('Delete task moves focus to the row that took its place, and Undo to the restored row', async () => {
+    const { addCustomTask } = await import('@/shared/tasks');
+    const first = await addCustomTask(task('Haiku'));
+    const second = await addCustomTask(task('Tweet'));
+    const push = vi.spyOn(toastStore, 'push').mockImplementation(() => {});
+    const { container } = await mount();
+    await openEdit(container, first.id);
+    await fireEvent.click(document.querySelector('[data-ega-custom-task-delete]') as HTMLElement);
+    await waitFor(() =>
+      expect(document.activeElement?.getAttribute('data-ega-task-edit')).toBe(second.id),
+    );
+    push.mock.calls[0]?.[0].action?.onClick();
+    await waitFor(() =>
+      expect(document.activeElement?.getAttribute('data-ega-task-edit')).toBe(first.id),
+    );
+  });
+
+  it('deleting the only task focuses New task in the empty state', async () => {
+    const { addCustomTask } = await import('@/shared/tasks');
+    const only = await addCustomTask(task('Haiku'));
+    vi.spyOn(toastStore, 'push').mockImplementation(() => {});
+    const { container } = await mount();
+    await openEdit(container, only.id);
+    await fireEvent.click(document.querySelector('[data-ega-custom-task-delete]') as HTMLElement);
+    await waitFor(() =>
+      expect(document.activeElement).toBe(container.querySelector('[data-ega-empty-state] button')),
+    );
+  });
+
+  it('the first task saved from the empty state hands focus to New task in the card header', async () => {
+    const { container } = await mount();
+    const cta = container.querySelector<HTMLElement>('[data-ega-empty-state] button');
+    if (!cta) throw new Error('no new button');
+    cta.focus();
+    await fireEvent.click(cta);
+    const name = await waitFor(() => {
+      const el = document.querySelector<HTMLInputElement>(
+        'input[data-ega-custom-task-name], [data-ega-custom-task-name] input',
+      );
+      if (!el) throw new Error('no dialog');
+      return el;
+    });
+    await fireEvent.input(name, { target: { value: 'Tweet summary' } });
+    await fireEvent.click(document.querySelector('[data-ega-dialog-done]') as HTMLElement);
+    await waitFor(() =>
+      expect(document.activeElement).toBe(container.querySelector('[data-ega-custom-task-new]')),
+    );
+  });
+});
