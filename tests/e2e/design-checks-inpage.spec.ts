@@ -267,6 +267,21 @@ test('bubble and picker bar: 12px floor, 24px targets, toolbar stops, the bubble
     if (tab?.id) await chrome.tabs.sendMessage(tab.id, { kind: 'page:chooseAreas' });
   });
   await expect.poll(async () => egaTest<boolean>(page, 'msIsActive')).toBe(true);
+  // The bar keeps its place while the status changes length, so a control never moves under the pointer.
+  const translateLeft = (): Promise<number> =>
+    page.evaluate(
+      () =>
+        document
+          .getElementById('ega-shadow-host')
+          ?.shadowRoot?.querySelector('[data-ega-ms-translate]')
+          ?.getBoundingClientRect().left ?? -1,
+    );
+  const steady = await translateLeft();
+  expect(await egaTest<boolean>(page, 'msSelectById', 'c1')).toBe(true);
+  expect(await translateLeft()).toBe(steady);
+  await page.mouse.click(3, 3);
+  await expect(page.locator('[data-ega-ms-count]')).toContainText('Pick a block inside the page');
+  expect(await translateLeft()).toBe(steady);
   p = await probe(page, true);
   expect(p.smallText).toEqual([]);
   expect(p.smallTargets).toEqual([]);
