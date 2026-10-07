@@ -1287,12 +1287,8 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
   }
 
   async function openConversation(id: string): Promise<boolean> {
-    const opened = await switchLock(async () => {
-      // Opened from the list, it would become the next save's target and lose what a newer build stored.
-      if ((await loadThreadResult(id)).unreadable) return false;
-      await switchTo(id);
-      return true;
-    });
+    // Opened from the list, it would become the next save's target and lose what a newer build stored.
+    const opened = await switchLock(() => switchTo(id, { refuseUnreadable: true }));
     if (opened) {
       markConversationOpened(id).catch((e: unknown) => debugCatch(e, 'conversation.opened'));
     }
@@ -1314,10 +1310,14 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     return handle;
   }
 
-  async function switchTo(origin: string): Promise<void> {
+  /** False only with `refuseUnreadable`, when the thread could not be read: nothing on screen changed. */
+  async function switchTo(
+    origin: string,
+    opts: { refuseUnreadable?: boolean } = {},
+  ): Promise<boolean> {
     {
       // The tab follower re-fires the same origin; reloading would clobber turns not yet flushed.
-      if (origin === state.activeId && state.turns.length > 0) return;
+      if (origin === state.activeId && state.turns.length > 0) return true;
       // Snapshot ids before any await: a seed message can append turns while flush or loadThreadResult run.
       const preLoadIds = state.turns.map((t) => t.id);
       // The running reply belongs to the thread it was sent from, so it finishes there.
@@ -1340,9 +1340,11 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       }
       cancelPendingPersist();
       loadingOrigin = origin;
-      await loadThreadInto(origin, preLoadIds).finally(() => {
-        loadingOrigin = null;
-      });
+      return await loadThreadInto(origin, preLoadIds, opts.refuseUnreadable === true).finally(
+        () => {
+          loadingOrigin = null;
+        },
+      );
     }
   }
 
@@ -1359,9 +1361,14 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
   }
 
   /** Loads the origin's thread over the one in memory, keeping a turn seeded during the load. */
-  async function loadThreadInto(origin: string, preLoadIds: readonly string[]): Promise<void> {
+  async function loadThreadInto(
+    origin: string,
+    preLoadIds: readonly string[],
+    refuseUnreadable = false,
+  ): Promise<boolean> {
     {
       const { turns: raw, unreadable, clearedAt } = await loadThreadResult(origin);
+      if (unreadable && refuseUnreadable) return false;
       seenClearedAt = clearedAt;
       if (unreadable && !unreadableWarned.has(origin)) {
         unreadableWarned.add(origin);
@@ -1414,6 +1421,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       reattachBackground(origin);
       state.lastDispatch = null;
       watchAdoptedAnswers();
+      return true;
     }
   }
 

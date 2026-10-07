@@ -113,7 +113,7 @@ describe('a save that fails is visible', () => {
     seed(c);
     failEveryWrite();
 
-    await expect(c.openConversation('https://two.com')).resolves.toBeUndefined();
+    await expect(c.openConversation('https://two.com')).resolves.toBe(true);
     expect(c.turns).toEqual([]);
     expect(c.saveFailed).toBe(true);
   });

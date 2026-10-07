@@ -109,11 +109,15 @@ describe('a swap only replays a language this build knows', () => {
 describe('the unreadable-thread warning fires once per site', () => {
   it('does not repeat on a second visit to the same origin', async () => {
     const push = vi.spyOn(toastStore, 'push').mockImplementation(() => {});
+    // Listed in the index, unreadable on disk: the tab's site opens it, the list refuses it.
+    await saveThread('https://broken.test', [
+      { id: 'b1', role: 'user', kind: 'translate', status: 'idle', createdAt: 1, content: 'x' },
+    ]);
     await chrome.storage.local.set({ 'ega:conv:t:https://broken.test': { nonsense: true } });
     const c = createConversation();
-    await c.openConversation('https://broken.test');
-    await c.openConversation('https://other.test');
-    await c.openConversation('https://broken.test');
+    await c.followSite('https://broken.test');
+    await c.followSite('https://other.test');
+    await c.followSite('https://broken.test');
     const warnings = push.mock.calls.filter((call) => /could not be read/.test(call[0].message));
     expect(warnings).toHaveLength(1);
     // The claim has to match what the store does on the next write.

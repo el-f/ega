@@ -105,11 +105,14 @@ describe('the store says what it dropped and what it could not read', () => {
     expect(res.droppedTurns).toBe(4);
   });
 
-  it('tells the panel when a stored thread cannot be read', async () => {
+  it('tells the panel when the tab site’s stored thread cannot be read', async () => {
     const push = vi.spyOn(toastStore, 'push').mockImplementation(() => {});
+    await saveThread('https://broken.test', [
+      { id: 'b1', role: 'user', kind: 'translate', status: 'idle', createdAt: 1, content: 'x' },
+    ]);
     await chrome.storage.local.set({ 'ega:conv:t:https://broken.test': { nonsense: true } });
     const c = createConversation();
-    await c.openConversation('https://broken.test');
+    await c.followSite('https://broken.test');
     expect(c.turns).toHaveLength(0);
     expect(push.mock.calls.some((call) => /could not be read/.test(call[0].message))).toBe(true);
   });
