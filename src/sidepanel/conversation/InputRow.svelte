@@ -464,7 +464,7 @@
           bind:ref={addEl}
           class="ega-icon-btn variant-default size-md"
           aria-label="Add"
-          data-tooltip={mode.kind === 'refine' ? 'Dictate' : 'Attach or dictate'}
+          data-tooltip="Add"
           data-tooltip-placement="top"
           data-ega-add
         >

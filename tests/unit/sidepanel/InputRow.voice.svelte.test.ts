@@ -159,3 +159,17 @@ describe('dictation failures are spoken about', () => {
     expect(push.mock.calls[0]?.[0]?.message).toMatch(/Nothing was heard/);
   });
 });
+
+// Decision D53: the menu items carry the specifics, so "Attach or dictate" was false whenever an item was missing.
+describe('the Add button has one name and one tooltip', () => {
+  it('is "Add" in both, when sending and when changing a reply', () => {
+    vi.stubGlobal('SpeechRecognition', FakeRecognition);
+    for (const mode of [{ kind: 'send' as const }, { kind: 'refine' as const, turnId: 'a1' }]) {
+      const { container, unmount } = render(InputRow, { props: { ...composerProps(), mode } });
+      const add = container.querySelector('[data-ega-add]');
+      expect(add?.getAttribute('aria-label'), mode.kind).toBe('Add');
+      expect(add?.getAttribute('data-tooltip'), mode.kind).toBe('Add');
+      unmount();
+    }
+  });
+});
