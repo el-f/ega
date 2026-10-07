@@ -100,7 +100,9 @@ ID, so a new ID needs the install run again — see
 
 Select text and a small bubble appears — by default only when the text does not read
 as plain English. Click it, or press the shortcut, and a tooltip streams the answer
-back. Right-click instead to pick areas of the page, a single element, or an image.
+back. Right-click instead to translate the whole page, pick a single element, or send an
+image to the side panel. To translate only some parts of a page, press **Choose areas** in
+the popup.
 
 Ega ships seven tasks: **Translate, Explain, Summarize, Reword, Grammar, Reply ideas,
 Ask**. You can write your own on the Settings → **Tasks** tab. The tooltip and the
@@ -172,7 +174,8 @@ or any failure after the answer has started streaming.
 
 A cloud request is billed to your own key at that provider's price. "Translate page" sends one
 request per text block as you scroll to it, and a block that hits a rate limit or a network error
-is sent up to two more times. A request that fails on one backend can go on to the next one in your chain,
+is sent up to two more times. **Choose areas** sends one request per area you pick, starting as soon
+as you press Translate rather than as you scroll. A request that fails on one backend can go on to the next one in your chain,
 which may be paid too. **Fallback depth** caps that walk, and **Batch concurrency** (also in
 Settings → Translate) sets how many blocks go out at once.
 
