@@ -20,4 +20,4 @@
 
 ## Cautions
 
-- The setting is global (Settings → Translate), not per site.
+- The setting is global (Settings → Answers), not per site.

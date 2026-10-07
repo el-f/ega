@@ -106,7 +106,7 @@ In priority order:
    **Delete** on a conversation's row in the side panel's list (the site title) removes
    it after an 8-second Undo, and keeps the ids of the removed turns so a second window
    cannot write them back. **Settings → Advanced → Data → Saved conversations** deletes
-   one or all of them; **Settings → About → Delete all data** clears everything.
+   one or all of them; **Settings → Advanced → Data → Delete all data** clears everything.
 4. **The request audit log** — the last 50 backend requests, text and image
    alike, kept in `chrome.storage.local`. Prompts and responses are clamped to
    200 characters, 1000 when the request failed, and an error message to 500
@@ -491,7 +491,7 @@ the site's origin in clear. Anything that can call
 `chrome.storage.local.get(null)` in this profile reads back the sites of up to 50
 conversations without touching the conversation bodies. This is a deliberate call, not an oversight: hashing
 the key while the conversation text sits in plaintext underneath it hides nothing from
-the same reader. The store is device-local and never synced, and **Settings → About →
+the same reader. The store is device-local and never synced, and **Settings → Advanced → Data →
 Delete all data** removes it.
 
 ### Any page can detect that Ega is installed
@@ -571,7 +571,7 @@ The side panel keeps that prompt with the conversation in `chrome.storage.local`
 replies only. It goes when the conversation is deleted and with "Delete all data", it is part of
 "Copy as JSON" and "Download as JSON", and Ega never sends it anywhere.
 
-Open **Settings → Advanced → Diagnostics → Request audit log**: it keeps the last 50 system
+Open **Settings → Advanced → Diagnostics → Recent requests**: it keeps the last 50 system
 and user prompts, each clamped to 200 characters (1000 when the request
 failed).
 

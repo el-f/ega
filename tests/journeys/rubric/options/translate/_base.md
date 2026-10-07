@@ -2,7 +2,7 @@
 
 ## Mount + render
 
-- The Answers tab (id translate) renders, with no group labels: "Where answers show", "Page context", "Generation", "Streaming and cache", "Routing & timeouts" (until it moves to Backends) and "Page translate". Default languages are on the Languages tab; default task and tone on the Tasks tab; the right-click menu on the Selection and picker tab.
+- The Answers tab (id translate) renders, with no group labels: "Where answers show", "Page context", "Generation", "Streaming and cache" and "Page translate". Fallback depth and the timeouts are on the Backends tab. Default languages are on the Languages tab; default task and tone on the Tasks tab; the right-click menu on the Selection and picker tab.
 - When the model cannot take temperature or answer length, the slider stays, disabled, with the reason under it; the native-CLI reason is said once.
 - Each knob writes to storage on change via `updateSettings`; no batch-submit required.
 

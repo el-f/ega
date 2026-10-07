@@ -7,7 +7,7 @@
 
 ## State expectations
 
-- Step 1: user opens Translate tab; global temperature slider is visible with its current value.
+- Step 1: user opens the Answers tab; the global "Creativity (temperature)" slider is visible with its current value.
 - Step 1b: the Effort note under the Effort control names what the level does on the first backend that can run. A cloud backend counts only once its key is saved; the keyless native CLI always counts.
 - Step 2 (ArrowRight): slider increments; numeric readout beside it updates immediately.
 - Step 3: each value change (every ArrowKey step or drag tick) writes `advanced.temperature` to storage; subsequent translates use the new value.

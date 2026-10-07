@@ -50,9 +50,9 @@ Options.) Go to **Backends** and do two things:
    (see [PRIVACY](docs/PRIVACY.md)). Google's [Gemini API terms](https://ai.google.dev/gemini-api/terms)
    say the API is for developers building for professional or business use, not for consumer
    use, and that you must be 18 or older. Read them before you use a key.
-2. **Check that the provider sits under Active backends.** Only Anthropic, Gemini and
-   the native host start enabled. Every other provider waits under **Available
-   backends** and is never called until you press **Enable** on its card. Saving a key
+2. **Check that the provider sits under Backends in use.** Only Anthropic, Gemini and
+   the native host start enabled. Every other provider waits under **Not in use** and
+   is never called until you press **Enable** on its card. Saving a key
    does not enable a backend on its own.
 
 Tabs you already had open have no content script yet, so reload one. Then select text
@@ -68,7 +68,7 @@ install.
 text under four characters in Latin letters (two in Arabic, Hebrew, Cyrillic, Chinese,
 Japanese, Korean and other scripts) and on text made mostly of
 common English words. Settings →
-**Selection & picker** → **Selection bubble** → **Always** shows it on every selection.
+**Selection and picker** → **Selection bubble** → **Always** shows it on every selection.
 
 **Nothing happens on a tab I already had open.** The content script only loads with the
 page, and Ega has no permission to inject it into a tab that is already open. Reload the
@@ -77,7 +77,7 @@ tab.
 **The shortcut does nothing.** Two separate bindings can fire it. Chrome owns one, at
 `chrome://extensions/shortcuts` — Chrome leaves it unassigned, with no warning, when
 another extension already holds the combo. Ega owns the other, at Settings →
-**Selection & picker** → **Translate shortcut**; its default is the literal
+**Selection and picker** → **Translate selection**; its default is the literal
 `Ctrl+Shift+L` on every platform, macOS included, so on a Mac set it to
 `Command+Shift+L` if you want that listener to fire too.
 
@@ -113,7 +113,7 @@ tells you what the text _means_, including the cultural reference a literal
 translation flattens. The popup only translates. The right-click menu ships with
 seven items under **Ega ▸**: Translate, Translate in side panel, Translate this page,
 Pick an element to translate, Translate image in side panel, Explain image in side panel,
-and Disable Ega on this site. Add the other tasks at Settings → Selection & picker →
+and Disable Ega on this site. Add the other tasks at Settings → Selection and picker →
 **Right-click menu**. A turn that carries
 an image offers Translate, Explain and your own tasks that have **Accept images** on.
 No other task reaches the vision model.
@@ -169,18 +169,17 @@ and Edu, not with Free or Go ([OpenAI's Codex pricing](https://learn.chatgpt.com
 </p>
 
 Order all thirteen in one fallback chain. When one fails Ega moves to the next, as far as
-**Fallback depth** in Settings → Translate — one extra backend by default, three at
-most. Some failures stop the walk instead: a malformed reply, an unsupported request,
+**Try up to N backends per request** at the top of Settings → Backends — two by default,
+four at most. Some failures stop the walk instead: a malformed reply, an unsupported request,
 or any failure after the answer has started streaming.
 
 A cloud request is billed to your own key at that provider's price. "Translate page" sends one
 request per text block as you scroll to it, and a block that hits a rate limit or a network error
 is sent up to two more times. **Choose areas** sends one request per area you pick, starting as soon
 as you press Translate rather than as you scroll. A request that fails on one backend can go on to the next one in your chain,
-which may be paid too. **Fallback depth** caps that walk, and **Batch concurrency** (also in
-Settings → Translate) sets how many blocks go out at once.
+which may be paid too. **Try up to N backends** caps that walk, and **Areas sent at once** (Settings → Answers) sets how many blocks go out at once.
 
-**Active backends** at the top of the tab is that order. Press **Enable** or **Disable**
+**Backends in use** at the top of the tab is that order. Press **Enable** or **Disable**
 on a row, or drag it across the divider.
 
 The dot on each row is green for ready, amber for needs a key, red for unreachable.
@@ -199,11 +198,11 @@ Four other things can leave your browser:
 
 - **Page context, on every translation.** It is on by default and carries the page
   title, the URL cut to origin and path, and the text on each side of your selection.
-  Turn it off at Settings → Translate → **Page context**.
+  Turn it off at Settings → Answers → **Page context**.
 - **The page's image, when you press Explain.** If the page has one clearly dominant
   image, Explain downloads it and sends it with your text — even when you selected
-  text, not an image. It ships on; the switch is Settings → Translate → Page context →
-  **"Explain can read the page image"**.
+  text, not an image. It ships on; the switch is Settings → Answers → Page context →
+  **"Send the page image with Explain"**.
 - **The image you right-clicked.** Image translation downloads the picture from the
   site that hosts it and sends the bytes to the backend.
 - **Your voice, when you dictate.** The side panel's microphone uses Chrome's speech

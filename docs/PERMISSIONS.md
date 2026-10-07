@@ -44,7 +44,7 @@ from it. `docs/PRIVACY.md` says what each store means for you, and
 | Custom tasks               | `ega.customTasks`       | 50 tasks.                                                                                                                         |
 | Side-panel conversations   | `ega:conv:t:<id>`       | One key per conversation, several per site; the id starts with the origin, in clear. 50 conversations, 300 turns and 512 KB each. |
 | The list of conversations  | `ega:conv:index`        | One row per conversation: its site, times, message count and title (first line of its first message, up to 80 characters).        |
-| Request audit log          | `egaAuditLog`           | Last 50 requests, text and image alike. Prompt and reply cut to 200 characters, 1000 on a failure.                                |
+| Recent requests          | `egaAuditLog`           | Last 50 requests, text and image alike. Prompt and reply cut to 200 characters, 1000 on a failure.                                |
 | Which Settings tab to open | `ega.pendingOptionsTab` | A tab name, none of your text. Written just before Settings opens, deleted when that page reads it.                               |
 
 **Side-panel conversations are the largest store of page content Ega keeps at
@@ -86,15 +86,14 @@ rest.** Details, because the size is easy to underestimate:
   Data → Saved conversations**. Both remove every turn, and keep the site name
   plus the ids of the removed turns so a second Chrome window cannot write them
   back. **New conversation** deletes nothing: the old conversation stays in the
-  list. **Clear all
-  conversations** in the same list removes every thread. **Settings → About →
+  list. **Delete all** in the same list removes every thread. **Settings → Advanced → Data →
   Delete all data** removes everything.
 
 The audit log keeps the last 50 requests, text and image alike, and clamps each
 prompt and response to 200 characters (1000 when the request failed, so a bug
 report has context). A finished request also keeps the input and output token
 counts its backend reported, and the log shows their total.
-Read it at **Settings → Advanced → Diagnostics → Request audit log**, and clear
+Read it at **Settings → Advanced → Diagnostics → Recent requests**, and clear
 it there.
 There is no off switch. Every request Ega routes to a backend is recorded — see
 [What the audit log covers](#what-the-audit-log-covers).
@@ -201,7 +200,7 @@ account to other machines. Nothing leaves the device through this permission.
 ## `contextMenus`
 
 Registers the right-click items, all under one **Ega ▸** submenu. You can rename,
-reorder, hide or add items in **Settings → Selection & picker → Right-click menu**.
+reorder, hide or add items in **Settings → Selection and picker → Right-click menu**.
 The defaults are:
 
 - Translate

@@ -1,6 +1,6 @@
 # Smart-bubble surface rubric
 
-"Smart bubble" is the selection bubble (Settings → Selection & picker) in its default Smart mode. This surface also covers the Always and Never modes.
+"Smart bubble" is the selection bubble (Settings → Selection and picker) in its default Smart mode. This surface also covers the Always and Never modes.
 
 ## Mount + position
 
