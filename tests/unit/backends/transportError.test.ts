@@ -289,7 +289,19 @@ describe('httpErrorMessage', () => {
       code: 'unknown_model',
     });
     expect(httpErrorMessage('Mistral', res(400), documented)).toBe(
-      'Mistral HTTP 400: A human-readable description of the error.',
+      'The backend does not know this model id. Pick another one in Settings → Backends.\nMistral HTTP 400: A human-readable description of the error.',
+    );
+    // What the API really sends for an unknown or retired model (mistral-vibe #617).
+    const invalidModel = JSON.stringify({
+      object: 'error',
+      message: 'Invalid model: mistral-medium-3.5',
+      type: 'invalid_model',
+      param: null,
+      code: '1500',
+      raw_status_code: 400,
+    });
+    expect(httpErrorMessage('Mistral', res(400), invalidModel)).toMatch(
+      /^The backend does not know this model id\./,
     );
     const overflow = JSON.stringify({
       object: 'error',

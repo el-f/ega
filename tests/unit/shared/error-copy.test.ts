@@ -111,6 +111,20 @@ describe('errorCopy', () => {
       'backends',
     ],
     [
+      "Mistral's unknown model (mistral-vibe #617)",
+      () =>
+        httpMessage('Mistral', 400, {
+          object: 'error',
+          message: 'Invalid model: mistral-medium-3.5',
+          type: 'invalid_model',
+          param: null,
+          code: '1500',
+          raw_status_code: 400,
+        }),
+      'REQUEST_MODEL',
+      'backends',
+    ],
+    [
       "Mistral's top-level overflow body",
       () =>
         httpMessage('Mistral', 400, {

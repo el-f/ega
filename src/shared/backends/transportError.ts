@@ -108,15 +108,18 @@ function isPromptTooLong(err: unknown): boolean {
   );
 }
 
+/** OpenAI's model_not_found; Mistral's type invalid_model (mistral-vibe #617; its docs show code unknown_model). */
+function isUnknownModel(err: unknown): boolean {
+  const { code, type } = (err ?? {}) as { code?: unknown; type?: unknown };
+  return code === 'model_not_found' || code === 'unknown_model' || type === 'invalid_model';
+}
+
 /** The one next step for an error the user can act on. Empty when there is none. */
 function httpStatusAdvice(status: number, code: ErrCode, body: string): string {
   if (code === 'QUOTA')
     return 'The backend says the account is out of credit or over its spend limit. Add credit or raise the limit with the provider, or use another backend.';
-  // OpenAI names a retired or unknown model in the body, and the status is not always 404; the body beats a 403.
-  if (
-    status === 404 ||
-    (providerError(body) as { code?: unknown } | null | undefined)?.code === 'model_not_found'
-  ) {
+  // A retired or unknown model is named in the body, and the status is not always 404; the body beats a 403.
+  if (status === 404 || isUnknownModel(providerError(body))) {
     return 'The backend does not know this model id. Pick another one in Settings → Backends.';
   }
   if (status === 401 || status === 403) {
