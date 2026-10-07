@@ -92,6 +92,8 @@ describe('an orphaned content script still says why Ega stopped', () => {
     document.dispatchEvent(new MouseEvent('mouseup'));
     expect(toast()?.textContent).toContain('Reload the page');
     expect(toast()?.querySelector('[data-ega-toast-action]')?.textContent).toBe('Reload page');
+    // Spec 9: a page that needs a reload is a warning, announced as an alert.
+    expect(toast()?.querySelector<HTMLElement>('.ega-toast')?.dataset['kind']).toBe('warning');
 
     toast()?.parentElement?.replaceChildren();
     document.dispatchEvent(new MouseEvent('mouseup'));

@@ -43,6 +43,7 @@ export function sendFailureMessage(e: unknown): string {
 
 export function showReloadToast(): void {
   showToast(CONTEXT_INVALIDATED_MESSAGE, {
+    kind: 'warning',
     action: { label: 'Reload page', run: () => location.reload() },
   });
 }
