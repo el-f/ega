@@ -11,7 +11,8 @@ import { GATE_PREFIX, recordGateKey, recordRefusal } from './design-rules-gate';
 // wider than Segoe UI, so another platform finds a different set. Only the CI runner records them: dispatch the "Generate
 // Linux E2E Baselines" workflow on the branch (its record step sets EGA_DESIGN_RULES_RECORD=1, which rewrites every gate key),
 // download the artifact, copy design-rules-baseline.json into tests/e2e/, run `pnpm format`, review the diff and commit it.
-// After the first recording the diff should only remove lines. Record mode refuses to run unless GITHUB_ACTIONS=true and the platform is linux (CI=1 alone is not enough: a WSL or docker shell sets it).
+// After the first recording the diff should only remove lines. Record mode refuses to run unless GITHUB_ACTIONS=true
+// and the platform is linux (CI=1 alone is not enough: a WSL or docker shell sets it).
 
 const RECORD = process.env['EGA_DESIGN_RULES_RECORD'] === '1';
 const recordRefused = RECORD ? recordRefusal(process.env, process.platform) : null;
@@ -22,8 +23,9 @@ if (recordRefused !== null) throw new Error(recordRefused);
  * Returns one line per broken rule, stable across runs so a baseline can list known debt:
  * - `clip <element>`: a control, tab, option, heading or link whose text is wider than its box, or any text an
  *   ellipsis actually shortens (a span inside a button included). R17: an ellipsis passes only when the cut element
- *   itself carries `data-ega-truncates` (a marker on a container does not count) and the full text is in the
- *   accessible name of the nearest control at or above it (the control its label is for, else the element itself).
+ *   itself carries `data-ega-truncates` (a marker on a container does not count), the ellipsis is really drawn
+ *   (overflow-x not visible, on a block box), and the full text is in the accessible name of the nearest control at
+ *   or above it (the control its label is for, else the element itself).
  * - `clip-y <element>`: a control whose content is taller than its box.
  * - `font <px> <element>`: text whose computed size is not one of the --fs-* tokens.
  */
