@@ -1,4 +1,4 @@
-import { test, expect, type Page, type BrowserContext } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import {
   launchExtension,
   mockAnthropic,
@@ -118,14 +118,6 @@ async function applyThemeOnPage(page: Page, theme: 'light' | 'dark'): Promise<vo
     document.documentElement.style.colorScheme = t;
   }, theme);
   await page.waitForTimeout(150); // wait for CSS custom-property cascade repaint (no observable end state)
-}
-
-/** Points the active tab at an http(s) fixture, or the popup's `siteHost` stays null and the per-site button never renders. */
-async function openFixtureTab(context: BrowserContext, serverUrl: string): Promise<Page> {
-  const page = await context.newPage();
-  await page.goto(`${serverUrl}/selection-page.html`);
-  await page.waitForLoadState('networkidle');
-  return page;
 }
 
 test('Advanced — every chip + sub-tab + key modal', async () => {
@@ -576,73 +568,6 @@ test('Right-click menu card — default, edit, states, many, narrow, delete (lig
   await page.close();
 });
 
-// The popup hides its site button on a chrome:// tab, so each test opens a fixture-origin tab first.
-test('Popup — default + popover + palette + shortcuts + mid-flight + dark', async () => {
-  // ~7 shots + a mid-flight wait + a fresh tab; well past the 30s default.
-  test.slow();
-  await seedSettings(ext.context, ext.extensionId, {
-    anthropicApiKey: 'sk-test',
-    streaming: true,
-  });
-  // Ensure the active tab points at a fixture origin so per-site button mounts.
-  await openFixtureTab(ext.context, ext.serverUrl);
-
-  // Default
-  const popup = await ext.context.newPage();
-  await popup.goto(`chrome-extension://${ext.extensionId}/src/popup/index.html`);
-  await popup.waitForLoadState('networkidle');
-  await popup.waitForTimeout(500); // wait for SW context initialization + Svelte mount settle (no observable end state)
-  await shot(popup, 'popup-default', {
-    surface: 'popup',
-    state: 'default',
-    theme: 'light',
-    userAction: 'user clicked the toolbar action button to open the popup',
-    expectations: [
-      'Translate this page is the one primary tile; Pick / Clipboard / Panel sit below it',
-      'lang pair (source + target + swap) visible above the grid',
-      'collapsed "Translate something…" entry reachable below the grid',
-      'header carries the brand mark, the backend chip and the Options gear',
-      'no Toaster / StatusPill leaked',
-    ],
-    viewport: { width: 380, height: 600 },
-  });
-
-  // Dark-theme default
-  const popupDark = await ext.context.newPage();
-  await popupDark.goto(`chrome-extension://${ext.extensionId}/src/popup/index.html`);
-  await popupDark.waitForLoadState('networkidle');
-  await applyThemeOnPage(popupDark, 'dark');
-  await shot(popupDark, 'popup-default-dark', {
-    surface: 'popup',
-    state: 'default',
-    theme: 'dark',
-    userAction: 'user opened the popup with dark theme active',
-    expectations: [
-      'four trigger tiles render in dark surface tokens',
-      'lang pair primitives honor dark theme',
-      'parity with light variant in structure',
-    ],
-    viewport: { width: 380, height: 600 },
-  });
-
-  // No backend: the key is gone and no local backend answers.
-  await seedSettings(ext.context, ext.extensionId, { anthropicApiKey: '' });
-  const popupNoBackend = await ext.context.newPage();
-  await popupNoBackend.goto(`chrome-extension://${ext.extensionId}/src/popup/index.html`);
-  await popupNoBackend.waitForSelector('[data-ega-popup-no-backend]');
-  await shot(popupNoBackend, 'popup-no-backend', {
-    surface: 'popup',
-    state: 'no-backend',
-    theme: 'light',
-    userAction: 'user opened the popup before adding any API key',
-    expectations: [
-      'a banner says Ega needs a model and offers Set up a backend',
-      'the tiles and the lang pair stay usable: a cold native host can read as not ready',
-    ],
-    viewport: { width: 380, height: 600 },
-  });
-});
-
 // The tooltip lives in a page shadow host, so `fullPage: true` captures it; states are split across tests to fit the per-test budget.
 const TOOLTIP_SEED = {
   anthropicApiKey: 'test-key',
@@ -1024,83 +949,6 @@ test('Smart-bubble — default + per-site disabled (negative)', async () => {
   });
   await blocked.close();
   await seedSettings(ext.context, ext.extensionId, { sitePrefs: {} });
-});
-
-test('Picker — overlay empty + hover outline', async () => {
-  test.slow();
-  await seedSettings(ext.context, ext.extensionId, {
-    anthropicApiKey: 'test-key',
-    pickerEnabled: true,
-    pickerShortcut: 'Ctrl+Shift+E',
-  });
-  await resetRoutes(ext.context);
-
-  const page = await ext.context.newPage();
-  await page.goto(`${ext.serverUrl}/picker-page.html`);
-  await waitForTestHooks(page);
-  await page.locator('body').focus();
-  await page.keyboard.press('Control+Shift+E');
-  // No `.catch()`: a silenced timeout here ships a bare page under the picker-overlay name.
-  await page.waitForFunction(
-    () => {
-      const host = document.querySelector('#ega-shadow-host');
-      const root = (host as HTMLElement | null)?.shadowRoot;
-      return !!root?.querySelector('[data-ega-picker-wrap]');
-    },
-    { timeout: 5_000, polling: 250 },
-  );
-  // Do not move the mouse before this shot — `picker.ts` onMouseMove would outline html/body and break the "no hover" state.
-  await page.waitForTimeout(200); // wait for picker overlay CSS entrance animation (no observable end state)
-  await shot(
-    page,
-    'picker-overlay-empty',
-    {
-      surface: 'picker',
-      state: 'overlay-empty',
-      theme: 'light',
-      userAction: 'user pressed Ctrl+Shift+E to enter picker mode; no hover yet',
-      expectations: [
-        'hint banner ("Click an area to translate it, or use ↑ ↓ to make it larger or smaller and Tab for the next one, then Enter · Esc to cancel") readable at the bottom center',
-        'no element outline (no hover)',
-        'full-viewport dim layer covers the page — deliberate, it is what marks picker mode',
-      ],
-    },
-    { skipPark: true },
-  );
-
-  await page.locator('#pick-me').hover();
-  await page.waitForFunction(
-    () => {
-      const host = document.querySelector('#ega-shadow-host');
-      const root = (host as HTMLElement | null)?.shadowRoot;
-      const ol = root?.querySelector<HTMLElement>('.picker-outline');
-      if (!ol) return false;
-      const rect = ol.getBoundingClientRect();
-      // The #pick-me paragraph is ~680x50; the fixture body is ~800 tall, so these bounds tell the two hovers apart.
-      return rect.width < 740 && rect.height < 90 && rect.height > 0;
-    },
-    { timeout: 3_000, polling: 250 },
-  );
-  await page.waitForTimeout(200); // wait for outline repaint after rAF-gated position update (no observable end state)
-  await shot(
-    page,
-    'picker-overlay-active',
-    {
-      surface: 'picker',
-      state: 'overlay-active',
-      theme: 'light',
-      userAction: 'user hovered the pickable paragraph; outline mounts at its rect',
-      expectations: [
-        'outline visible around the hovered #pick-me element only',
-        'outline sized to the paragraph, not the entire body',
-        'the hovered paragraph is as bright as the undimmed page; the rest of the page is dimmed around it',
-        'hint banner still readable at the bottom center',
-      ],
-    },
-    { skipPark: true },
-  );
-  await page.keyboard.press('Escape');
-  await page.close();
 });
 
 // The tooltip buffers and emits at done, so the loading state is only capturable on the sidepanel; the result rides the pending-then-result pair an extension page sends, which clears the SW-as-sender guard.
@@ -1741,47 +1589,6 @@ test('Smart-bubble — digit-less + short-suppressed + dark', async () => {
     ],
   });
   await shortPage.close();
-
-  // The first suppressed selection in smart mode explains why no bubble came up. Too short, not
-  // English: the English verdict can wait on Chrome's LanguageDetector, which this Chromium may lack.
-  await seedSettings(ext.context, ext.extensionId, { smartBubbleBannerShown: false });
-  const bannerPage = await ext.context.newPage();
-  await bannerPage.goto(`${ext.serverUrl}/selection-page.html`);
-  await waitForTestHooks(bannerPage);
-  await bannerPage.evaluate(() => {
-    const p = document.createElement('p');
-    p.id = 'too-short';
-    p.textContent = 'ok';
-    document.body.appendChild(p);
-    const range = document.createRange();
-    range.selectNodeContents(p);
-    const sel = window.getSelection();
-    if (!sel) return;
-    sel.removeAllRanges();
-    sel.addRange(range);
-    document.dispatchEvent(new Event('selectionchange', { bubbles: true }));
-  });
-  await bannerPage.waitForFunction(
-    () => {
-      const host = document.querySelector('#ega-shadow-host');
-      return !!(host as HTMLElement | null)?.shadowRoot?.querySelector('.banner');
-    },
-    { timeout: 5_000, polling: 250 },
-  );
-  await shot(bannerPage, 'smart-bubble-onboarding-banner', {
-    surface: 'smart-bubble',
-    state: 'onboarding-banner',
-    theme: 'light',
-    userAction:
-      'first suppressed selection in smart mode (2 characters); no bubble, and the one-time notice explains why',
-    expectations: [
-      'NO bubble visible around the selection',
-      'notice card top-right says the button appears only on text Ega can translate',
-      'notice names Settings → Selection & picker, with an Open settings button and a Dismiss button',
-    ],
-  });
-  await bannerPage.close();
-  await seedSettings(ext.context, ext.extensionId, { smartBubbleBannerShown: true });
 
   const darkBubble = await ext.context.newPage();
   await darkBubble.goto(`${ext.serverUrl}/smart-bubble-page.html`);

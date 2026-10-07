@@ -24,6 +24,8 @@ const { currentDir: CURRENT_DIR, metaDir: META_DIR } = buildPaths(
   path.resolve(__dirname, '..', '..'),
 );
 const POPUP = { width: 360, height: 640 };
+/** Chrome's toolbar popup is at most 800x600; page zoom widens it. */
+const POPUP_CAP = { width: 800, height: 600 };
 const PAGE = { width: 1000, height: 700 };
 
 let ext: ExtensionHandle;
@@ -53,11 +55,26 @@ async function setTheme(page: Page, theme: 'light' | 'dark'): Promise<void> {
 async function snap(page: Page, name: string, meta: Omit<ShotMeta, 'name'>): Promise<void> {
   if (meta.viewport) await page.setViewportSize(meta.viewport);
   await page.waitForTimeout(80); // wait for layout reflow (no observable end state)
+  let shot = meta;
+  if (meta.surface === 'popup') {
+    // Chrome sizes the toolbar popup to its body, up to 800x600; a taller page would hide what overflows or what a toast covers.
+    const size = await page.evaluate(() => ({
+      width: document.documentElement.scrollWidth,
+      height: Math.ceil(document.body.getBoundingClientRect().height),
+    }));
+    const viewport = {
+      width: Math.min(POPUP_CAP.width, Math.max(POPUP.width, size.width)),
+      height: Math.min(POPUP_CAP.height, size.height),
+    };
+    await page.setViewportSize(viewport);
+    await page.waitForTimeout(80); // wait for layout reflow (no observable end state)
+    shot = { ...meta, viewport };
+  }
   const file = path.join(CURRENT_DIR, `${name}.png`);
-  await page.screenshot({ path: file, fullPage: meta.surface === 'popup' });
+  await page.screenshot({ path: file });
   fs.writeFileSync(
     path.join(META_DIR, `${name}.meta.json`),
-    JSON.stringify({ name, ...meta }, null, 2),
+    JSON.stringify({ name, ...shot }, null, 2),
   );
   await checkDesignRules(page, name);
 }
@@ -78,7 +95,8 @@ async function both(
 /** The popup as a page, over a stubbed active tab: the URL and the page's answer decide its state. */
 async function openPopup(
   context: BrowserContext,
-  tab: { url: string; reply?: unknown; reject?: boolean; clipboard?: string },
+  // No url: the tab Chrome gives an extension with no "tabs" permission on a page it cannot run on.
+  tab: { url?: string; reply?: unknown; reject?: boolean; clipboard?: string },
 ): Promise<Page> {
   const popup = await context.newPage();
   await popup.addInitScript((t) => {
@@ -189,13 +207,13 @@ test('Popup — every state of the page-popup redesign', async () => {
       state,
       expectations: [
         'status line names why the bubble stayed hidden',
-        'Translate anyway at its end',
+        'Translate anyway after it; when it wraps, its label starts on the text edge',
       ],
     });
     await p.close();
   }
 
-  p = await openPopup(ext.context, { url: 'chrome://extensions/' });
+  p = await openPopup(ext.context, {});
   await both(p, 'popup-restricted', {
     ...POPUP_META,
     state: 'restricted',
@@ -203,6 +221,7 @@ test('Popup — every state of the page-popup redesign', async () => {
       'no switch',
       '"Ega can\'t run on this page."',
       'page actions read as unavailable',
+      'Translate clipboard, Open side panel and the text box stay available',
     ],
   });
   await p.close();
@@ -211,7 +230,10 @@ test('Popup — every state of the page-popup redesign', async () => {
   await both(p, 'popup-not-running', {
     ...POPUP_META,
     state: 'not-running',
-    expectations: ['"Reload this page to use Ega here." with Reload page'],
+    expectations: [
+      '"Reload this page to use Ega here." then Reload page on the same line',
+      'the info mark sits on the text line',
+    ],
   });
   await p.close();
 
@@ -229,7 +251,10 @@ test('Popup — every state of the page-popup redesign', async () => {
   await both(p, 'popup-toast-clipboard-empty', {
     ...POPUP_META,
     state: 'toast-clipboard-empty',
-    expectations: ['a bottom-center toast with a close button'],
+    expectations: [
+      'a bottom-center toast with a close button',
+      'the popup grew by the toast: it covers no control',
+    ],
   });
   await p.close();
 
@@ -238,7 +263,9 @@ test('Popup — every state of the page-popup redesign', async () => {
   await both(p, 'popup-zoom-200', {
     ...POPUP_META,
     state: 'zoom-200',
-    expectations: ['nothing cut off at 200% zoom'],
+    expectations: [
+      'at 200% zoom the popup widens to 720px and is capped at 600px tall, so it scrolls; nothing is cut off sideways',
+    ],
   });
   await p.close();
 
@@ -287,13 +314,33 @@ test('Popup — every state of the page-popup redesign', async () => {
   });
   await p.close();
 
-  await seedSettings(ext.context, ext.extensionId, { anthropicApiKey: '', sitePrefs: {} });
+  await seedSettings(ext.context, ext.extensionId, {
+    anthropicApiKey: '',
+    sitePrefs: {},
+    pickerEnabled: true,
+  });
   p = await openPopup(ext.context, { url: site });
   await p.locator('[data-ega-popup-no-backend]').waitFor();
   await both(p, 'popup-no-backend', {
     ...POPUP_META,
     state: 'no-backend',
-    expectations: ['the setup card holds the only filled button', 'Translate page steps down'],
+    expectations: [
+      '"Set up a backend to start." and the only filled button, on one row at the popup edge',
+      'Translate page steps down',
+    ],
+  });
+  await p.close();
+
+  // The first run: nothing set up yet, on a tab opened before Ega was installed. The tallest state.
+  p = await openPopup(ext.context, { url: site, reject: true });
+  await p.locator('[data-ega-popup-no-backend]').waitFor();
+  await both(p, 'popup-no-backend-not-running', {
+    ...POPUP_META,
+    state: 'no-backend-not-running',
+    expectations: [
+      'the setup row, then "Reload this page to use Ega here." with Reload page',
+      'fits 600px with no scrollbar',
+    ],
   });
   await p.close();
 });
@@ -324,7 +371,7 @@ test('Bubble — label, queue, menu, edges, RTL, first run', async () => {
     bubbleFirstRunSeen: true,
   });
   const meta = { surface: 'smart-bubble', viewport: PAGE } as const;
-  const page = await ext.context.newPage();
+  let page = await ext.context.newPage();
   await page.setViewportSize(PAGE);
   await page.goto(`${ext.serverUrl}/batch-page.html`);
   await waitForTestHooks(page);
@@ -372,16 +419,51 @@ test('Bubble — label, queue, menu, edges, RTL, first run', async () => {
   });
   await page.keyboard.press('Escape');
 
-  await page.setViewportSize({ width: 420, height: 700 });
-  await selectText(page, 'c3');
-  await page.waitForTimeout(400); // English text: smart mode holds the bubble back (no observable end state)
-  await selectText(page, 'c2');
+  await page.close();
+
+  // A fresh page: no queue, no queue notice. A selection that starts near the right edge, so the bubble has to clamp.
+  page = await openPage('batch-page.html', { width: 420, height: 700 });
+  await page.evaluate(() =>
+    document.body.insertAdjacentHTML(
+      'beforeend',
+      '<p id="edge" style="text-align: right">yalla <span id="edge-word">habibi</span></p>',
+    ),
+  );
+  await selectText(page, 'edge-word');
   await bubbleShown(page);
   await both(page, 'bubble-near-right-edge', {
     ...meta,
     viewport: { width: 420, height: 700 },
     state: 'near-right-edge',
-    expectations: ['the bubble stays 8px inside the viewport'],
+    expectations: [
+      'the selection starts near the right edge; the bubble is pulled left to stay inside the viewport',
+    ],
+  });
+
+  // Spec 3.3: below covers the next line of the selection's own paragraph, so the bubble goes above when that is free.
+  await page.setViewportSize(PAGE);
+  await page.evaluate(() => {
+    document.body.insertAdjacentHTML(
+      'afterbegin',
+      '<p id="multi" style="margin-top: 48px"><span id="m1">mar7aba ya habibi kifak</span> shu 3am ta3mel<br><span id="m2">yalla ma3ak shi 7elow</span> ktir 3njad<br>kif 7alak w shu akhbarak al-yom<br>w ba3den mnshuf ba3d</p>',
+    );
+    window.scrollTo(0, 0);
+  });
+  await selectText(page, 'm1');
+  await bubbleShown(page);
+  await both(page, 'bubble-first-line', {
+    ...meta,
+    state: 'first-line',
+    expectations: ['a phrase on the first line: the bubble sits 4px above it, over free space'],
+  });
+  await selectText(page, 'm2');
+  await bubbleShown(page);
+  await both(page, 'bubble-mid-paragraph', {
+    ...meta,
+    state: 'mid-paragraph',
+    expectations: [
+      'text above and below: the bubble stays 4px below the selection, over the next line (spec 3.3)',
+    ],
   });
   await page.close();
 
@@ -443,20 +525,26 @@ test('Bubble — label, queue, menu, edges, RTL, first run', async () => {
   });
   await dark.close();
 
-  await seedSettings(ext.context, ext.extensionId, { bubbleFirstRunSeen: false });
-  const first = await ext.context.newPage();
-  await first.setViewportSize(PAGE);
-  await first.emulateMedia({ reducedMotion: 'no-preference' });
-  await first.goto(`${ext.serverUrl}/batch-page.html`);
-  await waitForTestHooks(first);
-  await selectText(first, 'c1');
-  await bubbleShown(first);
-  await both(first, 'bubble-first-run', {
-    ...meta,
-    state: 'first-run',
-    expectations: ['the first-run ring shows around the bubble'],
-  });
-  await first.close();
+  // The ring plays once per bubble, so each theme gets a fresh first-run bubble.
+  for (const theme of ['light', 'dark'] as const) {
+    await seedSettings(ext.context, ext.extensionId, { bubbleFirstRunSeen: false });
+    const first = await ext.context.newPage();
+    await first.setViewportSize(PAGE);
+    await first.emulateMedia({ reducedMotion: 'no-preference' });
+    await first.goto(`${ext.serverUrl}/batch-page.html`);
+    await waitForTestHooks(first);
+    await setTheme(first, theme);
+    await selectText(first, 'c1');
+    await expect.poll(async () => (await egaTest<number>(first, 'bubbleCount')) ?? 0).toBe(1);
+    await first.waitForTimeout(150); // the first of three rings, mid-flight (no observable end state)
+    await snap(first, theme === 'light' ? 'bubble-first-run' : 'bubble-first-run-dark', {
+      ...meta,
+      theme,
+      state: 'first-run',
+      expectations: ['the first-run ring shows around the bubble'],
+    });
+    await first.close();
+  }
 });
 
 test('Picker bar — Pick element and Choose areas', async () => {
