@@ -4,10 +4,9 @@
   import X from '@lucide/svelte/icons/x';
   import IconButton from '@/shared/ui/IconButton.svelte';
   import { backendLabel } from '@/shared/backends/provider-profiles';
-  import { errCodeLabel } from '@/shared/err-labels';
+  import { errorCopy } from '@/shared/error-copy';
   import { formatDetectedLabel } from '@/shared/detected-label';
   import { modelDisplayName } from '@/shared/model-names';
-  import type { ErrCode } from '@/shared/types';
   import { redactContext } from '@/shared/redact';
   import { MAX_INSTRUCTIONS_CHARS } from '@/shared/reply-instructions';
 
@@ -36,6 +35,8 @@
     change?: string | undefined;
     /** Opens Settings, for "Turn on Record request details". */
     onOpenSettings?: (() => void) | undefined;
+    /** The "Record request details" switch. On, a reply with no record says only that; unknown keeps the hint. */
+    recordsDetails?: boolean | undefined;
     onClose: () => void;
   }
 
@@ -51,6 +52,7 @@
     confidence,
     change,
     onOpenSettings,
+    recordsDetails,
     onClose,
   }: Props = $props();
 
@@ -145,9 +147,11 @@
   const instructions = $derived(meta?.instructions);
   const instructionsTotal = $derived(meta?.instructionsLength ?? instructions?.length ?? 0);
 
-  function attemptStatus(a: { status: string; code?: string }): string {
+  // The error row's title for the code (spec §11.4), so one failure has one name.
+  function attemptStatus(a: { status: string; code?: string; message?: string }): string {
     if (a.status === 'ok') return 'answered';
-    return a.code ? errCodeLabel(a.code as ErrCode) : 'failed';
+    if (!a.code) return 'failed';
+    return errorCopy(a.code, a.message ?? '', { image: image !== undefined })?.title ?? 'Stopped';
   }
 
   async function copyJson(): Promise<void> {
@@ -169,12 +173,12 @@
   }
 </script>
 
-<!-- shadow-css-lint-allow: rd-instr, rd-instr-head, rd-instr-note, rd-disclosure, rd-tried-list — the tooltip mirror lands with its reply layout -->
+<!-- shadow-css-lint-allow: rd-instr, rd-instr-head, rd-instr-note, rd-disclosure, rd-tried-list, rd-rule, rd-action — the tooltip mirror lands with its reply layout -->
 <section class="reply-details" aria-labelledby="{uid}-title" data-ega-inspector>
   <header class="rd-head">
-    <h3 class="rd-title" id="{uid}-title" tabindex="-1" data-ega-inspector-title>
+    <h2 class="rd-title" id="{uid}-title" tabindex="-1" data-ega-inspector-title>
       About this reply
-    </h3>
+    </h2>
     <IconButton icon={X} ariaLabel="Close" size="sm" onclick={onClose} />
   </header>
 
@@ -237,18 +241,19 @@
   {/if}
 
   <div class="rd-sent">
-    <h4 class="rd-sub">What was sent</h4>
+    <h3 class="rd-sub">What was sent</h3>
     <dl class="rd-rows">
       <div class="rd-row rd-row-block">
         <dt>Your text</dt>
         {#if image}
           <dd>
             An image{#if sentText}, with the note:
-              <span class="rd-quote rd-caption" dir="auto" lang={valueLang}>{sentText}</span>
+              <span class="rd-quote rd-rule rd-caption" dir="auto" lang={valueLang}>{sentText}</span
+              >
             {/if}
           </dd>
         {:else}
-          <dd class="rd-quote" dir="auto" lang={valueLang}>{sentText}</dd>
+          <dd class="rd-quote rd-rule" dir="auto" lang={valueLang}>{sentText}</dd>
         {/if}
       </div>
       {#if historyLine}
@@ -300,7 +305,7 @@
       {#if change !== undefined && change !== ''}
         <div class="rd-row rd-row-block">
           <dt>Your change</dt>
-          <dd class="rd-quote" dir="auto">{change}</dd>
+          <dd class="rd-quote rd-rule" dir="auto">{change}</dd>
         </div>
       {/if}
     </dl>
@@ -319,7 +324,7 @@
         <span class="rd-muted">{count(instructionsTotal)} characters</span>
       {:else}
         <span>Instructions sent</span>
-        {#if !meta}
+        {#if !meta && recordsDetails !== true}
           <span class="rd-muted"
             >Not recorded. Turn on Record request details in {#if onOpenSettings}<button
                 type="button"
@@ -327,6 +332,8 @@
                 onclick={onOpenSettings}>Settings</button
               >{:else}Settings{/if}.</span
           >
+        {:else if !meta}
+          <span class="rd-muted">Not recorded for this reply.</span>
         {:else}
           <span class="rd-muted">Not kept for this reply.</span>
         {/if}
@@ -337,7 +344,7 @@
       <!-- A scroll box takes keyboard focus so it can be scrolled without a mouse (WCAG 2.1.1). -->
       <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
       <pre
-        class="rd-instr"
+        class="rd-instr rd-rule"
         id="{uid}-instr"
         tabindex="0"
         aria-label="Instructions sent"
@@ -351,7 +358,7 @@
   </div>
 
   <footer class="rd-foot">
-    <button type="button" class="rd-copy" onclick={() => void copyJson()}>
+    <button type="button" class="rd-copy rd-action" onclick={() => void copyJson()}>
       {copied ? 'Copied' : 'Copy as JSON'}
     </button>
     <span class="ega-sr-only" role="status" aria-live="polite">{copied ? 'Copied' : ''}</span>
@@ -406,11 +413,14 @@
     overflow-wrap: anywhere;
   }
   .rd-quote {
-    padding-left: var(--space-2);
-    border-left: 2px solid var(--color-border);
     white-space: pre-wrap;
     max-height: 6em;
     overflow: auto;
+  }
+  /* A quote's one rule sits on the side its text starts, so RTL text keeps it beside the words. */
+  .rd-rule {
+    padding-inline-start: var(--space-2);
+    border-inline-start: 2px solid var(--color-border);
   }
   .rd-caption {
     display: block;
@@ -503,17 +513,23 @@
   }
   .rd-foot {
     display: flex;
-    justify-content: flex-end;
   }
-  .rd-copy {
-    min-height: 24px;
-    font-size: var(--fs-xs);
-    padding: 2px var(--space-2);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    background: var(--color-bg);
+  /* The look of the shared ghost sm Button, which the tooltip's shadow sheet does not carry. */
+  .rd-action {
+    display: inline-flex;
+    align-items: center;
+    min-block-size: 28px;
+    padding: var(--space-1) var(--space-2);
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    background: transparent;
     color: var(--color-fg);
+    font: inherit;
+    font-size: var(--fs-sm);
     cursor: pointer;
+  }
+  .rd-action:hover {
+    background: var(--color-bg-hover);
   }
   .rd-disclosure {
     align-self: flex-start;
@@ -530,8 +546,6 @@
   /* The prompt reads as a quote: one rule, no box, fifteen lines before it scrolls. */
   .rd-instr {
     margin: var(--space-1) 0 0;
-    padding-inline-start: var(--space-2);
-    border-inline-start: 2px solid var(--color-border);
     max-block-size: calc(15 * var(--lh-body) * var(--fs-sm));
     overflow: auto;
     white-space: pre-wrap;

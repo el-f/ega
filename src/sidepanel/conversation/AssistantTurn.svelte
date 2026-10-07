@@ -85,8 +85,8 @@
     composerTarget?: string | undefined;
     /** The message this reply answers, as it was sent. */
     sentText?: string;
-    /** Opens Settings, for "Turn on Record request details". */
-    onOpenSettings?: (() => void) | undefined;
+    /** The "Record request details" switch, for About on a reply that has no record. */
+    recordsDetails?: boolean | undefined;
   }
 
   const {
@@ -116,7 +116,7 @@
     sourceLang,
     composerTarget,
     sentText = '',
-    onOpenSettings,
+    recordsDetails,
   }: Props = $props();
 
   const variantCount = $derived(turn.variants?.length ?? 0);
@@ -752,7 +752,8 @@
           {direction}
           confidence={turn.confidence}
           change={activeVariant?.refinementLabel === undefined ? refinementBody : undefined}
-          {onOpenSettings}
+          {recordsDetails}
+          onOpenSettings={() => openOptionsTab('advanced')}
           onClose={() => void setAbout(false)}
         />
       {/if}
@@ -824,13 +825,9 @@
   .ega-notes-text :global(.ega-md code) {
     padding-block: 0;
   }
-  /* About this reply's text buttons are 28px targets in the panel, like every other control (spec §9.2). */
-  .ega-reply :global(.reply-details .rd-link),
-  .ega-reply :global(.reply-details .rd-copy) {
+  /* About this reply's text links are 28px targets in the panel, like every other control (spec §9.2). */
+  .ega-reply :global(.reply-details .rd-link) {
     min-block-size: 28px;
-  }
-  .ega-reply :global(.reply-details .rd-copy) {
-    padding-block: var(--space-1);
   }
   .ega-plain {
     white-space: pre-wrap;

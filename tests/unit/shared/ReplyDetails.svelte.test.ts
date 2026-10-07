@@ -6,6 +6,7 @@ import ReplyDetails from '@/shared/components/ReplyDetails.svelte';
 import { aroundText, shortUrl } from '@/shared/components/reply-details';
 import type { PageContext, ResultMeta } from '@/shared/types';
 import { asBackendIdUnsafe } from '@/shared/brands';
+import { readFileSync } from 'node:fs';
 
 function meta(overrides: Partial<ResultMeta> = {}): ResultMeta {
   return {
@@ -123,7 +124,8 @@ describe('ReplyDetails — result', () => {
     expect(names).toEqual(['Anthropic', 'Gemini']);
     const status = [...container.querySelectorAll('.rd-attempt-status')].map((e) => e.textContent);
     expect(status[1]).toBe('answered');
-    expect(status[0]).not.toBe('NETWORK');
+    // The error row's own title for the code: one catalog names a failure the same way everywhere.
+    expect(status[0]).toBe('No connection');
   });
 
   it('still shows what was sent when the reply carries no result data', () => {
@@ -157,10 +159,38 @@ describe('ReplyDetails — what was sent', () => {
     );
   });
 
-  it('heads the sent part "What was sent"', () => {
-    expect(setup().container.querySelector('.rd-sent h4')?.textContent.trim()).toBe(
-      'What was sent',
+  // The panel's only h1 is the page title, so About is a level 2 section with a level 3 part (axe heading-order).
+  it('heads the section at level 2 and the sent part "What was sent" at level 3', () => {
+    const { container } = setup();
+    expect(container.querySelector('h2.rd-title')?.textContent.trim()).toBe('About this reply');
+    expect(container.querySelector('.rd-sent h3')?.textContent.trim()).toBe('What was sent');
+    expect(container.querySelector('h4')).toBeNull();
+  });
+
+  // RTL text sits on the right, so the quote rule has to sit on its start side, not on the left.
+  it('draws each quote rule on the start side of its text', () => {
+    const { container } = setup({ change: 'make it shorter' });
+    const quotes = [...container.querySelectorAll('.rd-quote')];
+    expect(quotes.length).toBe(2);
+    for (const q of quotes) expect(q.classList.contains('rd-rule')).toBe(true);
+    const css = readFileSync('src/shared/components/ReplyDetails.svelte', 'utf8');
+    expect(css).not.toMatch(/border-left|padding-left/);
+    expect(css).toMatch(
+      /\.rd-rule\s*\{\s*padding-inline-start:\s*var\(--space-2\);\s*border-inline-start:\s*2px solid var\(--color-border\);/,
     );
+  });
+
+  // Spec §5.7: a ghost sm button at the start of the section, not a faint bordered box on the right.
+  it('puts Copy as JSON at the start, as a ghost button', () => {
+    const { getByRole } = setup();
+    expect(getByRole('button', { name: 'Copy as JSON' }).classList.contains('rd-action')).toBe(
+      true,
+    );
+    const css = readFileSync('src/shared/components/ReplyDetails.svelte', 'utf8');
+    expect(css).not.toMatch(/\.rd-foot\s*\{[^}]*justify-content:\s*flex-end/);
+    const action = /\.rd-action\s*\{([^}]*)\}/.exec(css)?.[1] ?? '';
+    expect(action).toMatch(/border:\s*1px solid transparent/);
+    expect(action).toMatch(/min-block-size:\s*28px/);
   });
 
   it('describes an image read with the built-in image prompt', () => {
@@ -287,12 +317,32 @@ describe('ReplyDetails — the instructions that were sent', () => {
       'Not kept for this reply.',
     );
     const onOpenSettings = vi.fn();
-    const off = setup({ meta: undefined, onOpenSettings });
+    const off = setup({ meta: undefined, onOpenSettings, recordsDetails: false });
     expect(off.container.querySelector('[data-ega-instructions]')?.textContent).toContain(
       'Not recorded. Turn on Record request details in',
     );
     await fireEvent.click(off.getByRole('button', { name: 'Settings' }));
     expect(onOpenSettings).toHaveBeenCalledOnce();
+  });
+
+  // A handed-off answer or an old reply has no record even with the switch on; telling the user to turn it on is untrue.
+  it('with the switch on, a reply with no record says only that', () => {
+    const { container, queryByRole } = setup({
+      meta: undefined,
+      onOpenSettings: vi.fn(),
+      recordsDetails: true,
+    });
+    const text = container.querySelector('[data-ega-instructions]')?.textContent ?? '';
+    expect(text).toContain('Not recorded for this reply.');
+    expect(text).not.toContain('Turn on');
+    expect(queryByRole('button', { name: 'Settings' })).toBeNull();
+  });
+
+  it('a caller that does not know the switch keeps the hint', () => {
+    const { container } = setup({ meta: undefined });
+    expect(container.querySelector('[data-ega-instructions]')?.textContent).toContain(
+      'Turn on Record request details in Settings',
+    );
   });
 });
 

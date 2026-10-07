@@ -79,6 +79,9 @@
     onSuggestion?: (kind: SuggestionKind) => Promise<SuggestionResult>;
     /** The composer's target, so each reply can offer "Translate into {it}". */
     composerTarget?: string | undefined;
+    /** The "Record request details" switch, so About says why a reply has no record. */
+    recordsDetails?: boolean | undefined;
+    /** Unused: About this reply opens Settings → Advanced itself. Accepted until SidePanel stops passing it. */
     onOpenSettings?: () => void;
   }
 
@@ -117,7 +120,7 @@
     onSetUpBackend,
     onSuggestion,
     composerTarget,
-    onOpenSettings,
+    recordsDetails,
   }: Props = $props();
 
   /** Turns mounted at once; older ones mount via "Show earlier" so a 300-turn restore is not one Markdown pass. */
@@ -539,7 +542,7 @@
               {varieties}
               {taskViews}
               {composerTarget}
-              {onOpenSettings}
+              {recordsDetails}
             />
           {/if}
         {/each}

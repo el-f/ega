@@ -22,7 +22,7 @@ describe('small glyph buttons are at least 24px', () => {
   it('and the reply details panel has no 9-10px type and 24px controls', () => {
     const src = read('src/shared/components/ReplyDetails.svelte');
     expect(src).not.toMatch(/font-size:\s*(?:9|10)px/);
-    expect(rule(src, '\\.rd-copy')).toMatch(/min-height:\s*24px/);
+    expect(rule(src, '\\.rd-action')).toMatch(/min-block-size:\s*28px/);
     expect(rule(src, '\\.rd-link')).toMatch(/min-height:\s*24px/);
   });
 });
@@ -117,11 +117,8 @@ describe('a wide panel keeps one reading column', () => {
 describe('shared pieces inside the panel follow its targets and scale', () => {
   const turn = read('src/sidepanel/conversation/AssistantTurn.svelte');
 
-  it('makes About this reply text buttons 28px targets', () => {
-    const body = rule(
-      turn,
-      '\\.ega-reply :global\\(\\.reply-details \\.rd-link\\),\\s*\\.ega-reply :global\\(\\.reply-details \\.rd-copy\\)',
-    );
+  it('makes About this reply text links 28px targets', () => {
+    const body = rule(turn, '\\.ega-reply :global\\(\\.reply-details \\.rd-link\\)');
     expect(body).toMatch(/min-block-size:\s*28px/);
   });
 

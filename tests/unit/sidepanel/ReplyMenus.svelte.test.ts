@@ -246,6 +246,44 @@ describe('More', () => {
     );
   });
 
+  // The switch lives in Settings → Advanced → Diagnostics; the first tab has nothing to change.
+  // A handed-off answer carries no record: no meta on the turn or on its version.
+  const noRecord = (): ReturnType<typeof doneReply> => {
+    const { meta: _meta, variants, ...rest } = doneReply();
+    return { ...rest, variants: (variants ?? []).map(({ meta: _m, ...v }) => v) };
+  };
+  it('About on a reply with no record offers the switch only when it is off, and opens Advanced', async () => {
+    const off = render(AssistantTurn, {
+      props: replyProps(noRecord(), { recordsDetails: false }),
+    });
+    await openMenu(off.container, 'more');
+    await fireEvent.click(document.querySelector('[data-ega-about]') as HTMLElement);
+    const settings = await waitFor(() => {
+      const b = off.container.querySelector<HTMLElement>('[data-ega-instructions] button');
+      if (!b) throw new Error('no Settings button');
+      return b;
+    });
+    await fireEvent.click(settings);
+    await waitFor(async () =>
+      expect(await chrome.storage.local.get('ega.pendingOptionsTab')).toEqual({
+        'ega.pendingOptionsTab': 'advanced',
+      }),
+    );
+    document.body.innerHTML = '';
+    const on = render(AssistantTurn, {
+      props: replyProps(noRecord(), { recordsDetails: true }),
+    });
+    await openMenu(on.container, 'more');
+    await fireEvent.click(document.querySelector('[data-ega-about]') as HTMLElement);
+    const line = await waitFor(() => {
+      const l = on.container.querySelector('[data-ega-instructions]');
+      if (!l) throw new Error('About not open');
+      return l;
+    });
+    expect(line.textContent).toContain('Not recorded for this reply.');
+    expect(line.querySelector('button')).toBeNull();
+  });
+
   it('Bookmark and Delete act on this reply', async () => {
     const props = replyProps(doneReply());
     const { container } = render(AssistantTurn, { props });
