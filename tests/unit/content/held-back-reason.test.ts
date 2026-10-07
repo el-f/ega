@@ -8,6 +8,8 @@ import { resetSettingsCacheForTest } from '@/content/settings-cache';
 import { drainAsync } from '@tests/_helpers/async';
 import type { MsgReply } from '@/shared/messages';
 import type { Settings } from '@/shared/types';
+// Static so the lazy tooltip import resolves off the warm module graph, not mid-teardown.
+import '@/content/tipState.svelte';
 
 await import('@/content/index');
 
@@ -101,6 +103,16 @@ describe('the held-back reason the popup reads', () => {
     vi.spyOn(Date, 'now').mockReturnValue(now + 60_001);
     window.getSelection()?.removeAllRanges();
     expect(await ask()).toEqual({ text: '' });
+  });
+
+  // A double-click on Windows keeps the trailing space; a triple-click ends in a newline.
+  it.each([
+    ['a trailing space', ' '],
+    ['a trailing newline', '\n\n'],
+  ])('names the reason while the live selection still has %s', async (_, tail) => {
+    await decideEnglish();
+    select(`${ENGLISH}${tail}`);
+    expect(await ask()).toEqual({ text: ENGLISH, heldBack: { reason: 'english' } });
   });
 
   it('gives no reason while a different selection is live', async () => {

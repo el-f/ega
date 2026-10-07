@@ -169,14 +169,15 @@ function recentSelectionFresh(): typeof recentSelection {
 function heldBackForPopup(): HeldBack | undefined {
   const kept = recentSelectionFresh();
   if (kept?.heldBack === undefined) return undefined;
-  const live = window.getSelection()?.toString() ?? '';
+  // Trimmed like the kept text: a double-click keeps the trailing space, a triple-click the newline.
+  const live = window.getSelection()?.toString().trim() ?? '';
   return live === '' || live === kept.text ? kept.heldBack : undefined;
 }
 
 /** What the popup may prefill: the live selection, else one the page dropped in the last minute. */
 function selectionForPopup(): string {
   const sel = window.getSelection();
-  const live = sel?.toString() ?? '';
+  const live = sel?.toString().trim() ?? '';
   if (live !== '') {
     // The live selection skips the gates the kept one passed, so it gets them here.
     const range = sel !== null && sel.rangeCount > 0 ? sel.getRangeAt(0) : undefined;
