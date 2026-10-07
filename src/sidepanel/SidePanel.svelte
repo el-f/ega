@@ -1041,7 +1041,7 @@
 
   let savingAgain = $state(false);
 
-  /** The toast is gone in 8 seconds; the banner is the only way back once storage has room again. */
+  /** The banner is the only way back once storage has room again; a toast reports how Try again went. */
   async function retrySave(): Promise<void> {
     if (savingAgain) return;
     savingAgain = true;
@@ -1068,7 +1068,7 @@
       await navigator.clipboard.writeText(md);
       toastStore.push({ message: 'Copied as Markdown', variant: 'success' });
     } catch {
-      toastStore.push({ message: 'Could not copy to clipboard', variant: 'danger' });
+      toastStore.push({ message: "Couldn't copy. Try again.", variant: 'danger' });
     }
   }
 

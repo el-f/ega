@@ -7,7 +7,7 @@ import { saveThread, GENERAL_ORIGIN } from '@/sidepanel/state/conversation-store
 import type { Turn } from '@/sidepanel/state/conversation';
 import { drainAsync } from '@tests/_helpers/async';
 
-// The toast lasts 8 seconds; the banner is what tells the user hours later that nothing is being kept.
+// The banner is the one notice that nothing is being kept, and it stays until a save lands.
 
 beforeEach(async () => {
   await chrome.storage.local.clear();

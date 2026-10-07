@@ -1235,16 +1235,10 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
   }
 
   /** Warns on the first failure only — a save retries every few keystrokes. */
+  /** The panel's save-failed banner is the one notice for this (spec §7); a toast beside it said it twice. */
   function noteSaveFailed(e: unknown): void {
     state.saveFailedQuota = isQuotaError(e);
-    if (state.saveFailed) return;
     state.saveFailed = true;
-    toastStore.push({
-      message: isQuotaError(e)
-        ? 'Storage is full. This conversation is no longer saved.'
-        : 'This conversation could not be saved.',
-      variant: 'danger',
-    });
   }
 
   function markDirty(): void {

@@ -74,7 +74,7 @@ describe('a save that fails is visible', () => {
     await vi.waitFor(() => expect(c.saveFailed).toBe(true));
   });
 
-  it('warns the user once, not on every later save', async () => {
+  it('raises the banner state and no toast: the banner is the one notice', async () => {
     const push = vi.spyOn(toastStore, 'push').mockImplementation(() => {});
     const c = createConversation();
     await c.openConversation('https://t.com');
@@ -83,8 +83,9 @@ describe('a save that fails is visible', () => {
 
     await expect(c.flush()).rejects.toThrow();
     await expect(c.flush()).rejects.toThrow();
-    expect(push).toHaveBeenCalledTimes(1);
-    expect(push.mock.calls[0]?.[0].message).toMatch(/storage is full/i);
+    expect(c.saveFailed).toBe(true);
+    expect(c.saveFailedQuota).toBe(true);
+    expect(push).not.toHaveBeenCalled();
   });
 
   it('names the site whose saved conversation was deleted to make room', async () => {
