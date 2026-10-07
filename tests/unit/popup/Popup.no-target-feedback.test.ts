@@ -24,6 +24,11 @@ function onlyChromeTabs(): void {
   query.mockResolvedValue([{ id: 9, url: 'chrome://extensions/' }]);
 }
 
+/** No active tab at all, e.g. every window is a devtools or app window. */
+function noTab(): void {
+  (chrome.tabs.query as unknown as Mock).mockResolvedValue([]);
+}
+
 describe('Popup — nothing to act on', () => {
   it('blocks Pick element on a page Ega cannot run on, and says why', async () => {
     onlyChromeTabs();
@@ -37,8 +42,8 @@ describe('Popup — nothing to act on', () => {
     expect(sendToTab).not.toHaveBeenCalled();
   });
 
-  it('says so when the side panel cannot open', async () => {
-    onlyChromeTabs();
+  it('says so when there is no tab for the side panel', async () => {
+    noTab();
     const { container, findByRole, findByText } = render(Popup);
     await findByRole('button', { name: 'Pick element' });
     const tile = container.querySelector<HTMLButtonElement>('[data-ega-tool="panel"]');
@@ -48,7 +53,7 @@ describe('Popup — nothing to act on', () => {
   });
 
   it('freeform send explains the missing tab and that the text is kept', async () => {
-    onlyChromeTabs();
+    noTab();
     const { container, findByRole, findByText } = render(Popup);
     const ta = container.querySelector('[data-ega-freeform-textarea]') as HTMLTextAreaElement;
     await fireEvent.input(ta, { target: { value: 'hola' } });
@@ -105,7 +110,7 @@ describe('Popup — nothing to act on', () => {
   });
 
   it('keeps the freeform draft when the send fails', async () => {
-    onlyChromeTabs();
+    noTab();
     const { container, findByRole, findByText } = render(Popup);
     const ta = container.querySelector('[data-ega-freeform-textarea]') as HTMLTextAreaElement;
     await fireEvent.input(ta, { target: { value: 'keep me' } });
@@ -118,9 +123,37 @@ describe('Popup — nothing to act on', () => {
   });
 });
 
+// Spec 2.4: on a page Ega cannot run on, the clipboard, the side panel and the text box are what still works.
+describe('Popup — a page Ega cannot run on still has the side panel', () => {
+  it.each([
+    ['Open side panel', ''],
+    ['Translate clipboard', 'hola mundo'],
+    ['the text box', 'hola'],
+  ])('%s opens the panel beside that tab', async (what, text) => {
+    // The tab Chrome gives an extension with no "tabs" permission on a chrome:// page: an id, no url.
+    (chrome.tabs.query as unknown as Mock).mockResolvedValue([{ id: 9, windowId: 3 }]);
+    const open = chrome.sidePanel.open as unknown as Mock;
+    const closeSpy = vi.spyOn(window, 'close').mockImplementation(() => undefined);
+    const { container, findByRole, findByText } = render(Popup);
+    expect(await findByText("Ega can't run on this page.")).toBeTruthy();
+    if (what === 'Open side panel') {
+      await fireEvent.click(await findByRole('button', { name: 'Open side panel' }));
+    } else if (what === 'Translate clipboard') {
+      (navigator.clipboard.readText as unknown as Mock).mockResolvedValueOnce(text);
+      await fireEvent.click(await findByRole('button', { name: 'Translate clipboard' }));
+    } else {
+      const ta = container.querySelector('[data-ega-freeform-textarea]') as HTMLTextAreaElement;
+      await fireEvent.input(ta, { target: { value: text } });
+      await fireEvent.click(await findByRole('button', { name: 'Translate' }));
+    }
+    await vi.waitFor(() => expect(open).toHaveBeenCalledWith({ tabId: 9 }));
+    closeSpy.mockRestore();
+  });
+});
+
 describe('Popup — clipboard tile feedback', () => {
-  it('clipboard with text + no web tab explains the missing tab, not the page', async () => {
-    onlyChromeTabs();
+  it('clipboard with text + no tab explains the missing tab, not the page', async () => {
+    noTab();
     const readText = navigator.clipboard.readText as unknown as Mock;
     readText.mockResolvedValueOnce('hola mundo');
 

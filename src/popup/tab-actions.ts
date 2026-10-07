@@ -97,7 +97,8 @@ export async function openSidePanel(
   opts: OpenSidePanelOpts = {},
 ): Promise<boolean> {
   try {
-    const target = await resolveContentTab();
+    // The side panel opens beside any tab, so a page Ega cannot run on (chrome://, the New Tab page) still gets it.
+    const target = (await resolveContentTab()) ?? (await activeTab());
     if (target?.id !== undefined) {
       // Write before open() — the popup unloads right after, so a later write loses the race.
       if (handoff && handoff.sourceText.trim().length > 0) {
