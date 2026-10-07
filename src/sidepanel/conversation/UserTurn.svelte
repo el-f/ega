@@ -12,6 +12,7 @@
   import Ellipsis from '@lucide/svelte/icons/ellipsis';
   import { isImageTurn, type Turn } from '../state/conversation';
   import { IMAGE_TURN_PLACEHOLDER } from '@/shared/constants';
+  import { outsidePressFocus } from './menu-focus';
 
   interface Props {
     turn: Turn;
@@ -47,6 +48,7 @@
     onEdit,
     inflight = false,
   }: Props = $props();
+  const menuFocus = outsidePressFocus();
 
   // The marker is a render token, not text the user wrote: nothing to show and nothing to copy.
   const hasText = $derived(turn.content !== '' && turn.content !== IMAGE_TURN_PLACEHOLDER);
@@ -188,6 +190,7 @@
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
           <DropdownMenu.Content
+            {...menuFocus}
             preventScroll={false}
             collisionPadding={12}
             class="sp-menu"

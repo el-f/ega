@@ -9,6 +9,7 @@
   import CheckIcon from '@lucide/svelte/icons/check';
   import KeyboardIcon from '@lucide/svelte/icons/keyboard';
   import SettingsIcon from '@lucide/svelte/icons/settings';
+  import { outsidePressFocus } from './conversation/menu-focus';
 
   interface Props {
     isEmptyThread: boolean;
@@ -30,6 +31,7 @@
     onOpenSettings,
     onCancelAll,
   }: Props = $props();
+  const menuFocus = outsidePressFocus();
 </script>
 
 <DropdownMenu.Root>
@@ -44,6 +46,7 @@
   </DropdownMenu.Trigger>
   <DropdownMenu.Portal>
     <DropdownMenu.Content
+      {...menuFocus}
       preventScroll={false}
       collisionPadding={12}
       class="sp-menu"

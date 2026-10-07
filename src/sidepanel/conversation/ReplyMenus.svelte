@@ -9,6 +9,7 @@
   import Star from '@lucide/svelte/icons/star';
   import Trash2 from '@lucide/svelte/icons/trash-2';
   import type { RefinePreset } from '../state/refine-presets';
+  import { outsidePressFocus } from './menu-focus';
 
   interface Props {
     turnId: string;
@@ -86,6 +87,8 @@
 
   let refineOpen = $state(false);
   let moreOpen = $state(false);
+  const refineFocus = outsidePressFocus();
+  const moreFocus = outsidePressFocus();
   const busyNote = $derived(`rm-busy-${turnId}`);
 
   /** A re-run while another reply runs would bail, so the item says why instead of doing nothing silently. */
@@ -142,6 +145,7 @@
     </DropdownMenu.Trigger>
     <DropdownMenu.Portal>
       <DropdownMenu.Content
+        {...refineFocus}
         preventScroll={false}
         collisionPadding={12}
         class="sp-menu"
@@ -205,6 +209,7 @@
   </DropdownMenu.Trigger>
   <DropdownMenu.Portal>
     <DropdownMenu.Content
+      {...moreFocus}
       preventScroll={false}
       collisionPadding={12}
       class="sp-menu"
