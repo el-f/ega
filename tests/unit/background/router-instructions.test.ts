@@ -1,9 +1,13 @@
 // I1-I3: a reply records the system prompt it was sent with, cut at 6,000 characters, and only where it is shown.
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { sel } from '@tests/_helpers/lang';
 import { createRouter, cutAtCodePoint } from '@/background/router';
 import { baseDeps } from '@tests/_helpers/router';
-import { makeDoneChunk, type TranslationBackend } from '@/shared/backends/base';
+import {
+  makeDoneChunk,
+  type TranslateImageArgs,
+  type TranslationBackend,
+} from '@/shared/backends/base';
 import { TranslationCache } from '@/background/cache';
 import type { Settings, TranslationChunk, TranslationRequest } from '@/shared/types';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
@@ -101,6 +105,49 @@ describe('ResultMeta.instructions', () => {
     expect(batch?.type === 'done' && batch.meta?.instructions).toBeUndefined();
     const off = await run(settings({ captureResultMeta: false }));
     expect(off?.type === 'done' && off.meta).toBeUndefined();
+  });
+
+  it('an image request records the system prompt the vision call got, not the text prompt (I2)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        headers: new Headers({ 'content-type': 'image/png', 'content-length': '4' }),
+        body: null,
+        arrayBuffer: async () => new Uint8Array([0x89, 0x50, 0x4e, 0x47]).buffer,
+      } as unknown as Response),
+    );
+    const seen: { system?: string } = {};
+    const vision: TranslationBackend = {
+      ...recordingBackend(),
+      manifest: testManifest('anthropic', true),
+      translateImage: async (args: TranslateImageArgs) => {
+        if (args.system !== undefined) seen.system = args.system;
+        args.onChunk(makeDoneChunk(args.requestId, { translation: 'HELLO', confidence: 0.9 }));
+      },
+    };
+    const router = createRouter(
+      baseDeps({ backends: [vision], getSettings: async () => settings() }),
+    );
+    const chunks: TranslationChunk[] = [];
+    await router.handleTranslate(
+      {
+        id: 'img-1',
+        text: 'salam',
+        sourceLang: sel('arabizi'),
+        targetLang: sel('en'),
+        options: { stream: false, explain: false, imageUrl: 'https://example.com/img.png' },
+      },
+      (c) => chunks.push(c),
+    );
+    vi.unstubAllGlobals();
+    const done = chunks.find((c) => c.type === 'done');
+    const textSystem = (await run(settings())) && sent.at(-1);
+
+    expect(seen.system).toBeTruthy();
+    expect(done?.type === 'done' && done.meta?.instructions).toBe(seen.system);
+    expect(seen.system).not.toBe(textSystem);
   });
 
   it('never reaches the performance buffer (I3)', async () => {
