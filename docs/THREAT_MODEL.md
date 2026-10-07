@@ -530,9 +530,14 @@ agreed to that when you picked the provider. Ega's job is to show you what
 leaves your device, not to prevent the send.
 
 Each reply's details panel ("About this reply", `src/shared/components/ReplyDetails.svelte`, in the
-tooltip and the side panel) shows what Ega sent: the text, the task prompt by name, how many earlier
-messages, and the PAGE CONTEXT block. It does not show the glossary block, the rules block, or an
-attached image.
+tooltip and the side panel) shows what was sent: the text, how many earlier messages, and the page
+info. When **Record request details** is on, it also shows the system prompt as the request carried
+it ("Instructions sent", cut at 6,000 characters), so the glossary, rules and PAGE CONTEXT blocks
+are in view too. It does not show an attached image.
+
+The side panel keeps that prompt with the conversation in `chrome.storage.local`, on the 20 newest
+replies only. It goes when the conversation is deleted and with "Delete all data", it is part of
+"Copy as JSON" and "Download as JSON", and Ega never sends it anywhere.
 
 Open **Settings → Advanced → Diagnostics → Request audit log**: it keeps the last 50 system
 and user prompts, each clamped to 200 characters (1000 when the request
