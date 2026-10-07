@@ -34,20 +34,22 @@ async function drainAsync(): Promise<void> {
   }
 }
 
-/** Queues a finished tooltip answer, which the panel lands as a terminal turn pair. */
+/** One finished tooltip answer in the handoff queue; the panel lands it as a terminal turn pair. */
+function handoff(sourceText: string): Record<string, unknown> {
+  return {
+    sourceText,
+    sourceLang: 'auto',
+    targetLang: 'en',
+    task: 'translate',
+    tone: 'neutral',
+    ts: Date.now(),
+    response: 'answer',
+  };
+}
+
 async function queueDeliveredHandoff(sourceText: string): Promise<void> {
   await chromeMock.storage.session.set({
-    [PENDING_POPUP_HANDOFF_KEY]: {
-      '1-1': {
-        sourceText,
-        sourceLang: 'auto',
-        targetLang: 'en',
-        task: 'translate',
-        tone: 'neutral',
-        ts: Date.now(),
-        response: 'answer',
-      },
-    },
+    [PENDING_POPUP_HANDOFF_KEY]: { '1-1': handoff(sourceText) },
   });
 }
 
@@ -79,6 +81,57 @@ describe('deleting a turn', () => {
     // The panel follows no tab here, so the thread is the general bucket.
     expect((await loadThreadResult(GENERAL_ORIGIN)).turns).toHaveLength(2);
     // Two full panel renders per case: ~3s alone, more when the suite runs in parallel.
+  }, 15000);
+
+  it('moves focus to the next message after a delete, then to the restored one on Undo', async () => {
+    const push = vi.spyOn(toastStore, 'push');
+    // Two finished exchanges, oldest first.
+    await chromeMock.storage.session.set({
+      [PENDING_POPUP_HANDOFF_KEY]: {
+        '1-1': { ...handoff('first'), ts: Date.now() - 2 },
+        '1-2': { ...handoff('second'), ts: Date.now() - 1 },
+      },
+    });
+    const { container } = render(SidePanel);
+    await drainAsync();
+    const users = (): HTMLElement[] =>
+      Array.from(container.querySelectorAll<HTMLElement>('[data-ega-user-turn]'));
+    expect(users().map((u) => u.textContent)).toEqual([
+      expect.stringContaining('first'),
+      expect.stringContaining('second'),
+    ]);
+
+    // Delete the first exchange from its message's More menu.
+    const first = users()[0] as HTMLElement;
+    const firstId = first.dataset['turnId'];
+    first
+      .querySelector<HTMLElement>('[data-ega-action="more"]')
+      ?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await drainAsync();
+    document.querySelector<HTMLElement>('[data-ega-delete]')?.click();
+    await drainAsync();
+    expect(users()).toHaveLength(1);
+    // Not the page body: the next message takes focus.
+    expect(document.activeElement).toBe(users()[0]);
+
+    push.mock.calls
+      .map((c) => c[0])
+      .find((m) => m.action?.label === 'Undo')
+      ?.action?.onClick();
+    await drainAsync();
+    expect(users()).toHaveLength(2);
+    expect((document.activeElement as HTMLElement | null)?.dataset['turnId']).toBe(firstId);
+  }, 15000);
+
+  it('moves focus to the message box when the last exchange is deleted', async () => {
+    await queueDeliveredHandoff('only one');
+    const { container } = render(SidePanel);
+    await drainAsync();
+    await openMenu(container, 'more');
+    document.querySelector<HTMLElement>('[data-ega-delete]')?.click();
+    await drainAsync();
+    expect(container.querySelectorAll('[data-turn-id]')).toHaveLength(0);
+    expect(document.activeElement?.id).toBe('sp-text');
   }, 15000);
 
   it('drops the focus ring with the turn, so Undo does not bring it back', async () => {

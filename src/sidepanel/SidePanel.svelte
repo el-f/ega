@@ -614,10 +614,38 @@
     if (id !== null && !conversation.turns.some((t) => t.id === id)) focusedTurnId = null;
   });
 
+  /** Focuses a message's article; false when it is not on screen. */
+  function focusTurn(id: string | undefined): boolean {
+    if (id === undefined) return false;
+    const el = document.querySelector<HTMLElement>(`[data-turn-id="${CSS.escape(id)}"]`);
+    el?.focus();
+    return el !== null;
+  }
+
+  /**
+   * The menu that started a delete closes onto a trigger that is gone, so focus would fall to the page body.
+   * It goes to the next message, else the previous one, else the message box (spec §8.5), once the menu is done.
+   */
+  function focusAfterDelete(at: number): void {
+    void tick().then(() =>
+      setTimeout(() => {
+        const turns = conversation.turns;
+        const next = turns.slice(at).find((t) => t.role === 'user');
+        const prev = turns
+          .slice(0, at)
+          .reverse()
+          .find((t) => t.role === 'user');
+        if (!focusTurn(next?.id) && !focusTurn(prev?.id)) focusComposer();
+      }, 0),
+    );
+  }
+
   /** Deleting a turn is the only destructive action in the panel with no confirm, so it gets Undo. */
   function onDeleteTurn(turnId: string): void {
+    const ids = conversation.turns.map((t) => t.id);
     const slice = conversation.deleteTurn(turnId);
     if (!slice || slice.removed.length === 0) return;
+    focusAfterDelete(ids.indexOf(slice.removed[0]?.id ?? ''));
     toastStore.push({
       message: slice.removed.length > 1 ? 'Message and reply deleted' : 'Message deleted',
       variant: 'info',
@@ -629,7 +657,10 @@
               message: "Can't undo. This conversation is no longer open.",
               variant: 'warning',
             });
+            return;
           }
+          const restored = slice.removed.find((t) => t.role === 'user') ?? slice.removed[0];
+          void tick().then(() => focusTurn(restored?.id));
         },
       },
     });
