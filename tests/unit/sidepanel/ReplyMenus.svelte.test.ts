@@ -88,6 +88,57 @@ describe('Refine', () => {
     expect(props.onTranslateInto).toHaveBeenCalledWith('a1', 'de');
   });
 
+  // A dialog inside the reply's toolbar lost End, Home and the arrows to the toolbar's roving keys.
+  it('the Translate into dialog sits outside the toolbar, so its keys stay in it', async () => {
+    const { container } = render(AssistantTurn, { props: replyProps(doneReply()) });
+    await openMenu(container, 'refine');
+    await fireEvent.click(document.querySelector('[data-ega-translate-into-other]') as HTMLElement);
+    const select = await waitFor(() => {
+      const s = document.querySelector<HTMLSelectElement>('#rm-into-a1');
+      if (!s) throw new Error('popover not open');
+      return s;
+    });
+    expect(select.closest('[role="toolbar"]')).toBeNull();
+    select.focus();
+    await fireEvent.keyDown(select, { key: 'End' });
+    expect(document.activeElement).toBe(select);
+  });
+
+  it('picking the reply’s own language adds a version instead of doing nothing', async () => {
+    const props = replyProps(doneReply(), { composerTarget: 'en' });
+    const { container } = render(AssistantTurn, { props });
+    await openMenu(container, 'refine');
+    await fireEvent.click(document.querySelector('[data-ega-translate-into-other]') as HTMLElement);
+    const run = await waitFor(() => {
+      const b = document.querySelector<HTMLElement>('[data-ega-translate-into-run]');
+      if (!b) throw new Error('popover not open');
+      return b;
+    });
+    await fireEvent.click(run);
+    expect(props.onTranslateInto).not.toHaveBeenCalled();
+    expect(props.onRegenerate).toHaveBeenCalledWith('a1');
+  });
+
+  // Reword and Grammar keep the input's language, so a language re-run would do nothing or say something untrue.
+  it('a Reword or Grammar reply offers no language items', async () => {
+    for (const kind of ['reword', 'grammar'] as const) {
+      const { container } = render(AssistantTurn, {
+        props: replyProps(doneReply({ kind, detectedLang: 'es' }), {
+          composerTarget: 'en',
+          swapPair: { sourceLang: 'es', targetLang: 'en' },
+        }),
+      });
+      const listed = items(await openMenu(container, 'refine'));
+      expect(listed.some((t) => t.startsWith('Translate into') || t.startsWith('Swap'))).toBe(
+        false,
+      );
+      // No separator is left dangling at the end of the menu.
+      const menu = document.querySelector('[role="menu"]');
+      expect(menu?.lastElementChild?.getAttribute('role')).not.toBe('separator');
+      document.body.innerHTML = '';
+    }
+  });
+
   it('names the swap it can run, and runs it', async () => {
     const props = replyProps(doneReply(), {
       swapPair: { sourceLang: 'en', targetLang: 'es' },

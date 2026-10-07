@@ -132,7 +132,7 @@ describe('shared pieces inside the panel follow its targets and scale', () => {
         'src/sidepanel/conversation/ModePopover.svelte',
         '\\.mp :global\\(select\\),\\s*\\.mp :global\\(\\.ega-select-wrap\\.size-sm \\.ega-select\\)',
       ],
-      ['src/sidepanel/conversation/ReplyMenus.svelte', '\\.rm-into :global\\(select\\)'],
+      ['src/sidepanel/conversation/TranslateIntoPopover.svelte', '\\.rm-into :global\\(select\\)'],
     ] as const) {
       const body = rule(read(file), selector);
       expect(body, file).toMatch(/min-block-size:\s*28px/);

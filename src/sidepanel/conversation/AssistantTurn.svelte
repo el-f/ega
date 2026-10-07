@@ -42,6 +42,7 @@
   import { IMAGE_TURN_PLACEHOLDER } from '@/shared/constants';
   import { directionLabel, replyMetaItems, type ConfidenceSetting } from '@/shared/reply-meta';
   import ReplyMenus from './ReplyMenus.svelte';
+  import TranslateIntoPopover from './TranslateIntoPopover.svelte';
 
   interface Props {
     turn: Turn;
@@ -355,13 +356,15 @@
   const presets = $derived<readonly RefinePreset[]>(
     imageTurn ? [] : refinePresets(currentTaskValue),
   );
+  // Reword and Grammar answer in the input's language, so no language re-run applies to them.
+  const answersInTarget = $derived(replyLang(currentTaskValue, 'target', 'input') === 'target');
   const translateInto = $derived(
-    composerTarget !== undefined && composerTarget !== answerLang
+    answersInTarget && composerTarget !== undefined && composerTarget !== answerLang
       ? { id: composerTarget, label: langName(composerTarget) }
       : null,
   );
   const swapLabel = $derived(
-    swapPair === null || swapPair.blocked !== undefined || imageTurn
+    !answersInTarget || swapPair === null || swapPair.blocked !== undefined || imageTurn
       ? null
       : `Swap: ${langName(swapPair.sourceLang)} → ${langName(swapPair.targetLang)}`,
   );
@@ -399,6 +402,8 @@
   }
 
   function onActionsKeydown(e: KeyboardEvent): void {
+    // Only the row's own buttons rove; a key from anything else inside stays with it.
+    if (!(e.target instanceof Element) || !e.target.matches('[data-ega-action]')) return;
     const idx = actionKeys.indexOf(activeAction);
     let next: number;
     if (e.key === 'ArrowRight') next = (idx + 1) % actionKeys.length;
@@ -413,6 +418,18 @@
     if (key === undefined) return;
     pickedAction = key;
     actionsEl?.querySelector<HTMLElement>(`[data-ega-action='${key}']`)?.focus();
+  }
+
+  // The language popover sits outside the toolbar, whose roving keys would take its End and arrows.
+  let intoAnchor = $state<HTMLElement | null>(null);
+  function openInto(): void {
+    intoAnchor = actionsEl?.querySelector<HTMLElement>("[data-ega-action='refine']") ?? null;
+  }
+
+  // The reply's own language adds a version (spec §8.1); a language re-run would skip it as done.
+  function translateTo(lang: string): void {
+    if (lang === answerTarget) onRegenerate?.(turn.id);
+    else onTranslateInto?.(turn.id, lang as LangSelection);
   }
 
   let copied = $state(false);
@@ -663,9 +680,8 @@
           busy={inflight}
           {presets}
           canDescribe={!imageTurn}
+          canTranslate={answersInTarget}
           {translateInto}
-          defaultLang={composerTarget ?? answerTarget ?? 'en'}
-          {varieties}
           {swapLabel}
           {refined}
           {showChanges}
@@ -678,7 +694,8 @@
           onPreset={(p) =>
             void onRefine?.({ turnId: turn.id, refinementBody: p.body, refinementLabel: p.label })}
           onDescribeChange={() => onDescribeChange?.(turn.id)}
-          onTranslateInto={(lang) => onTranslateInto?.(turn.id, lang as LangSelection)}
+          onTranslateInto={translateTo}
+          onTranslateOther={openInto}
           onSwap={() => onSwap?.(turn.id)}
           onShowChanges={(on) => (showChanges = on)}
           onSpeak={() => void toggleSpeech()}
@@ -689,6 +706,16 @@
         />
         {#if variantCount > 1}{@render pager(true)}{/if}
       </div>
+      {#if intoAnchor !== null}
+        <TranslateIntoPopover
+          anchor={intoAnchor}
+          turnId={turn.id}
+          defaultLang={composerTarget ?? answerTarget ?? 'en'}
+          {varieties}
+          onClose={() => (intoAnchor = null)}
+          onTranslate={translateTo}
+        />
+      {/if}
       {#if aboutOpen}
         <ReplyDetails
           meta={turn.meta}

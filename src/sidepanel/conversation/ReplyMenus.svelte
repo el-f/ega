@@ -1,9 +1,6 @@
 <script lang="ts">
   import { DropdownMenu } from 'bits-ui';
   import Icon from '@/shared/ui/Icon.svelte';
-  import Popover from '@/shared/ui/Popover.svelte';
-  import Button from '@/shared/ui/Button.svelte';
-  import LanguagePicker from '@/shared/components/LanguagePicker.svelte';
   import WandSparkles from '@lucide/svelte/icons/wand-sparkles';
   import Ellipsis from '@lucide/svelte/icons/ellipsis';
   import Check from '@lucide/svelte/icons/check';
@@ -11,7 +8,6 @@
   import CircleStop from '@lucide/svelte/icons/circle-stop';
   import Star from '@lucide/svelte/icons/star';
   import Trash2 from '@lucide/svelte/icons/trash-2';
-  import type { Variety } from '@/shared/types';
   import type { RefinePreset } from '../state/refine-presets';
 
   interface Props {
@@ -26,11 +22,10 @@
     presets: readonly RefinePreset[];
     /** False on an image reply: the image prompt takes no typed change. */
     canDescribe: boolean;
+    /** False when the reply's task keeps the input's language (Reword, Grammar): no language items. */
+    canTranslate: boolean;
     /** The composer's target, when it differs from this reply's language. */
     translateInto: { id: string; label: string } | null;
-    /** The language the reply's own Translate into popover starts on. */
-    defaultLang: string;
-    varieties: readonly Variety[];
     /** "Swap: English → Spanish", or null when no swap can run. */
     swapLabel: string | null;
     /** A refined version: "Show changes" applies. */
@@ -46,6 +41,8 @@
     onPreset: (p: RefinePreset) => void;
     onDescribeChange: () => void;
     onTranslateInto: (lang: string) => void;
+    /** Opens the language popover, which the reply renders outside its toolbar. */
+    onTranslateOther: () => void;
     onSwap: () => void;
     onShowChanges: (on: boolean) => void;
     onSpeak: () => void;
@@ -63,9 +60,8 @@
     busy,
     presets,
     canDescribe,
+    canTranslate,
     translateInto,
-    defaultLang,
-    varieties,
     swapLabel,
     refined,
     showChanges,
@@ -78,6 +74,7 @@
     onPreset,
     onDescribeChange,
     onTranslateInto,
+    onTranslateOther,
     onSwap,
     onShowChanges,
     onSpeak,
@@ -87,12 +84,8 @@
     onDelete,
   }: Props = $props();
 
-  let refineTrigger: HTMLElement | null = $state(null);
   let refineOpen = $state(false);
   let moreOpen = $state(false);
-  let intoOpen = $state(false);
-  // Reseeded from the reply each time the popover opens; a pick in the select runs nothing.
-  let intoLang = $state('');
   const busyNote = $derived(`rm-busy-${turnId}`);
 
   /** A re-run while another reply runs would bail, so the item says why instead of doing nothing silently. */
@@ -101,13 +94,6 @@
     refineOpen = false;
     moreOpen = false;
     fn();
-  }
-
-  function openInto(): void {
-    if (busy) return;
-    refineOpen = false;
-    intoLang = defaultLang;
-    intoOpen = true;
   }
 </script>
 
@@ -143,7 +129,6 @@
 {#if canRerun}
   <DropdownMenu.Root bind:open={refineOpen}>
     <DropdownMenu.Trigger
-      bind:ref={refineTrigger}
       class="ega-icon-btn variant-default size-sm"
       aria-label="Refine"
       aria-pressed={changing ? 'true' : undefined}
@@ -165,20 +150,22 @@
           {@render rerunItem('Describe a change…', onDescribeChange, {
             'data-ega-describe-change': '',
           })}
-          <DropdownMenu.Separator class="sp-menu-sep" />
         {/if}
-        {#if translateInto !== null}
-          {@const into = translateInto}
-          {@render rerunItem(`Translate into ${into.label}`, () => onTranslateInto(into.id), {
-            'data-ega-translate-into': into.id,
+        {#if canTranslate}
+          {#if canDescribe}<DropdownMenu.Separator class="sp-menu-sep" />{/if}
+          {#if translateInto !== null}
+            {@const into = translateInto}
+            {@render rerunItem(`Translate into ${into.label}`, () => onTranslateInto(into.id), {
+              'data-ega-translate-into': into.id,
+            })}
+          {/if}
+          {@render rerunItem('Translate into another language…', onTranslateOther, {
+            'data-ega-translate-into-other': '',
+            'aria-haspopup': 'dialog',
           })}
-        {/if}
-        {@render rerunItem('Translate into another language…', openInto, {
-          'data-ega-translate-into-other': '',
-          'aria-haspopup': 'dialog',
-        })}
-        {#if swapLabel !== null}
-          {@render rerunItem(swapLabel, onSwap, { 'data-ega-swap-item': '' })}
+          {#if swapLabel !== null}
+            {@render rerunItem(swapLabel, onSwap, { 'data-ega-swap-item': '' })}
+          {/if}
         {/if}
         {#if refined}
           <DropdownMenu.Separator class="sp-menu-sep" />
@@ -269,46 +256,3 @@
     </DropdownMenu.Content>
   </DropdownMenu.Portal>
 </DropdownMenu.Root>
-
-<!-- A language select commits on every arrow key; only the button runs the paid request. -->
-<Popover
-  open={intoOpen}
-  anchor={refineTrigger}
-  onClose={() => (intoOpen = false)}
-  placement="bottom-start"
-  title="Translate into"
->
-  <div class="rm-into">
-    <label class="rm-into-label" for="rm-into-{turnId}">Language</label>
-    <LanguagePicker id="rm-into-{turnId}" {varieties} suppressAriaLabel bind:value={intoLang} />
-    <Button
-      variant="primary"
-      size="sm"
-      dataAttrs={{ 'data-ega-translate-into-run': 'true' }}
-      onclick={() => {
-        intoOpen = false;
-        onTranslateInto(intoLang);
-      }}>Translate</Button
-    >
-  </div>
-</Popover>
-
-<style>
-  .rm-into {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-    inline-size: min(260px, calc(100vw - 40px));
-    font-size: var(--fs-sm);
-  }
-  .rm-into-label {
-    font-weight: 600;
-  }
-  .rm-into :global(select) {
-    min-block-size: 28px;
-    padding-inline-end: var(--space-5);
-  }
-  .rm-into :global(.ega-btn) {
-    align-self: flex-start;
-  }
-</style>
