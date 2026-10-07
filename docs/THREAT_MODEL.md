@@ -293,12 +293,17 @@ key or CLI quota with page-chosen text, in a loop if the page wants.
 `src/content/user-gesture.ts#isUserGesture`, which passes only an event the browser
 marks `isTrusted`: the shortcut, the bubble click, the element picker, translate-areas
 selection and its toolbar, the tooltip's Retry / Swap / Explain buttons and task / tone
-selects, and the **Try again** / **Open settings** buttons on the error chip that page
-translate and inline replace place in the page's own DOM. A synthetic event reaches the listener and is dropped. Proof:
+selects, the **Try again** / **Open settings** buttons on the error chip that page
+translate and inline replace place in the page's own DOM, the page-translate pill's
+buttons and More menu, every in-page toast action (Turn on, Undo, Open settings,
+Reload page) and the bubble menu's items (Turn off on this site, Bubble settings). A
+synthetic event reaches the listener and is dropped. Proof:
 `tests/e2e/synthetic-events.spec.ts` dispatches each of the shortcut, the bubble click,
 a Retry click and a task change from the page and asserts that nothing is sent, then
-sends the real one. Residual: the page can still read the answer out of the open shadow
-root (section 1).
+sends the real one; `synthetic-events-pill.spec.ts` does the same for the pill's Try
+again, and `synthetic-events-notices.spec.ts` for a toast's Turn on and a bubble menu
+item. Residual: the page can still read the answer out of the open shadow root
+(section 1).
 
 ### A page driving your local Ollama
 
