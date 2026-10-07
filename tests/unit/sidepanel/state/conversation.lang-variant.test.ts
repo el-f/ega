@@ -171,3 +171,31 @@ describe('createConversation().swapVariant — records its target', () => {
     expect(c.turns.find((t) => t.id === assistantId)?.variants?.[1]?.targetLang).toBe(ES);
   });
 });
+
+describe('a re-run of a version in another language keeps that language', () => {
+  it('a refine preset on the French version asks for French', async () => {
+    const c = createConversation();
+    const assistantId = await sendAndDrain(c);
+    expect(await c.langVariant(assistantId, FR)).toBe(true);
+    drain(c);
+
+    expect(
+      await c.refine({
+        turnId: assistantId,
+        refinementBody: 'Make it shorter.',
+        refinementLabel: 'Shorter',
+      }),
+    ).toBe(true);
+    expect(lastStart()['targetLang']).toBe(FR);
+  });
+
+  it('Answer again as another task keeps the French version too', async () => {
+    const c = createConversation();
+    const assistantId = await sendAndDrain(c);
+    expect(await c.langVariant(assistantId, FR)).toBe(true);
+    drain(c);
+
+    expect(await c.taskVariant(assistantId, 'summarize')).toBe(true);
+    expect(lastStart()['targetLang']).toBe(FR);
+  });
+});

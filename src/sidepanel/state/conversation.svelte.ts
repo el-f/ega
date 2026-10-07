@@ -781,13 +781,17 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     refinementLabel?: string;
   }): Promise<boolean> {
     const { turnId, refinementBody, refinementLabel } = args;
-    // A refine re-runs the task the shown variant ran, not the turn's first task.
+    // A refine re-runs the version on screen: its task and languages, with this refinement in place of its own.
     const shown = state.turns.find((t) => t.id === turnId);
-    const task = shown ? activeVariant(shown)?.task : undefined;
+    const {
+      refinementBody: _body,
+      refinementLabel: _label,
+      ...base
+    } = seedOf(shown ? activeVariant(shown) : undefined);
     return dispatchVariant(turnId, {
+      ...base,
       refinementBody,
       ...(refinementLabel !== undefined ? { refinementLabel } : {}),
-      ...(task !== undefined ? { task } : {}),
     });
   }
 
@@ -837,7 +841,14 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
   }
 
   async function taskVariant(turnId: string, task: TaskId): Promise<boolean> {
-    return dispatchVariant(turnId, { task });
+    // Another task for the version on screen keeps the languages it was answered in.
+    const shown = state.turns.find((t) => t.id === turnId);
+    const { targetLang, sourceLang } = seedOf(shown ? activeVariant(shown) : undefined);
+    return dispatchVariant(turnId, {
+      ...(targetLang !== undefined ? { targetLang } : {}),
+      ...(sourceLang !== undefined ? { sourceLang } : {}),
+      task,
+    });
   }
 
   /** Request id of the language-change variant in flight, so a second pick replaces it instead of bailing. */
