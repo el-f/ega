@@ -674,15 +674,31 @@ test('check 5 focus never lands on body after an action', async () => {
       trigger: '[data-ega-backend-chip]',
     },
   ];
-  // A click on blank space blurs to the page body in every browser, so the outside click lands on a control.
-  const box = await sp.locator('#sp-text').boundingBox();
-  if (box === null) throw new Error('message box missing');
+  // The click lands on a point of the message box no open layer covers: one over its middle would pick a menu item.
+  const boxPoint = async (name: string): Promise<{ x: number; y: number }> => {
+    const at = await sp.evaluate(() => {
+      const field = document.querySelector<HTMLElement>('#sp-text');
+      if (!field) return null;
+      const r = field.getBoundingClientRect();
+      for (const fx of [0.9, 0.75, 0.5, 0.25, 0.1]) {
+        for (const fy of [0.5, 0.3, 0.7]) {
+          const x = r.left + r.width * fx;
+          const y = r.top + r.height * fy;
+          if (document.elementFromPoint(x, y) === field) return { x, y };
+        }
+      }
+      return null;
+    });
+    if (at === null) throw new Error(`${name}: an open layer covers the whole message box`);
+    return at;
+  };
   for (const t of triggers) {
     await t.open();
     await sp.keyboard.press('Escape');
     await expectFocus(`${t.name} closed with Esc`, t.trigger);
     await t.open();
-    await sp.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    const at = await boxPoint(t.name);
+    await sp.mouse.click(at.x, at.y);
     await expectFocus(`${t.name} closed by a click on the message box`, 'textarea');
   }
 
