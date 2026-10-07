@@ -46,6 +46,31 @@ describe('Backends — keyboard reorder', () => {
     expect([...order].sort()).toEqual([...base.backendOrder].sort());
   });
 
+  it('Alt+ArrowDown says where the row went and keeps focus on its handle', async () => {
+    const utils = render(Backends, {
+      props: {
+        s: settings(),
+        onSetSettings: (next: Settings) => void utils.rerender({ s: next }),
+      },
+    });
+    const { container } = utils;
+    await waitForRows(container);
+    const handle = container.querySelector<HTMLElement>('[data-be-row-id="anthropic"] .be-gutter');
+    if (!handle) throw new Error('no handle');
+    handle.focus();
+    await fireEvent.keyDown(handle, { key: 'ArrowDown', altKey: true });
+    await waitFor(() =>
+      expect(
+        container.querySelector('[data-testid="be-list"] > [role="status"]')?.textContent,
+      ).toBe('Anthropic moved to position 2'),
+    );
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        container.querySelector('[data-be-row-id="anthropic"] .be-gutter'),
+      ),
+    );
+  });
+
   it('Alt+ArrowUp on the first gutter is a no-op (already at the top)', async () => {
     const { container } = render(Backends, { props: { s: settings(), onSetSettings: () => {} } });
     await waitForRows(container);

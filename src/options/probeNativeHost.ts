@@ -1,6 +1,7 @@
 import { DEFAULT_LOCAL_BACKEND_TIMEOUT_MS, NATIVE_COLD_BOOT_TIMEOUT_MS } from '@/shared/constants';
 import { EXPECTED_HOST_VERSION } from './nativeHostInstall';
 import { requestNativeHostOnce } from './nativeHostOnce';
+import { emitNativeProbe } from './native-probe-events';
 import { uuid } from '@/shared/uuid';
 
 type ProbeStatus = 'installed' | 'outdated' | 'not_installed' | 'error';
@@ -41,6 +42,7 @@ export function probeNativeHost(
   const promise: Promise<ProbeResult> = probeNativeHostOnce(budget)
     .then((result) => {
       last = { at: Date.now(), timeoutMs: budget, result };
+      emitNativeProbe(result);
       return result;
     })
     .finally(() => {

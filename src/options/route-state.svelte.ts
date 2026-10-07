@@ -1,5 +1,9 @@
+import { untrack } from 'svelte';
+import { SvelteMap } from 'svelte/reactivity';
 import { sendMsg } from '@/shared/messages';
+import { buildBackendConfig } from '@/shared/backends/build-config';
 import { backendHasRequiredKey, backendNeedsKey } from '@/shared/backends/key-presence';
+import { lookupModelId } from '@/shared/settings-schema';
 import { getRegisteredBackendIds, resolveBackend } from '@/shared/backends/registry';
 import { computeBackendOrder } from '@/shared/backends/select';
 import { CLOUD_PROVIDER_IDS, apiKeyField } from '@/shared/provider-ids';
@@ -21,12 +25,53 @@ function readinessFrom(
   );
 }
 
-/** ponytail: the chosen model is assumed to read images when its backend can; the router's per-model check is not mirrored. */
-export function imageAbility(id: BackendId): ImageAbility {
-  const b = resolveBackend(id);
-  return {
-    inImageChain: b?.manifest.capabilities.canVision === true,
-    answersImages: b?.translateImage !== undefined,
+/** What the router's per-model image check reads, so a write that leaves them alone asks nothing again. */
+function modelCheckKey(s: Settings, id: BackendId): string {
+  return JSON.stringify([
+    lookupModelId(s.model, id),
+    s.ollamaUrl ?? '',
+    s.localBackendTimeoutMs ?? '',
+  ]);
+}
+
+/**
+ * Whether each backend in use can take an image, with the router's per-model check (Ollama's /api/show), kept
+ * current while the calling component is mounted. A row is 'unknown' until its check answers; a failed check
+ * counts as true, as in the router. Call it during component init.
+ */
+export function liveImageAbility(settings: () => Settings | null): (id: BackendId) => ImageAbility {
+  const answers = new SvelteMap<BackendId, { key: string; accepts: boolean }>();
+  const checks = $derived.by(() => {
+    const s = settings();
+    if (!s) return [];
+    return computeBackendOrder(s, getRegisteredBackendIds())
+      .filter((id) => resolveBackend(id)?.acceptsImages !== undefined)
+      .map((id) => ({ id, key: modelCheckKey(s, id), cfg: buildBackendConfig(s) }));
+  });
+  $effect(() => {
+    let alive = true;
+    for (const { id, key, cfg } of checks) {
+      if (untrack(() => answers.get(id)?.key) === key) continue;
+      void (resolveBackend(id)?.acceptsImages?.(cfg) ?? Promise.resolve(true))
+        .catch(() => true)
+        .then((accepts) => {
+          if (alive) answers.set(id, { key, accepts });
+        });
+    }
+    return () => {
+      alive = false;
+    };
+  });
+  return (id) => {
+    const b = resolveBackend(id);
+    const check = checks.find((c) => c.id === id);
+    const answer = answers.get(id);
+    const accepts =
+      check === undefined ? true : answer?.key === check.key ? answer.accepts : 'unknown';
+    return {
+      inImageChain: b?.manifest.capabilities.canVision === true ? accepts : false,
+      answersImages: b?.translateImage !== undefined,
+    };
   };
 }
 
@@ -48,6 +93,7 @@ function chainKeyOf(s: Settings): string {
  * probe the router runs), and routePlan turns that into First choice / Backup / Skipped / Not reached.
  */
 export function createRouteState(settings: () => Settings | null) {
+  const imageAbility = liveImageAbility(settings);
   let probed = $state<{ key: string; available: Record<string, boolean> } | null>(null);
   const key = $derived.by(() => {
     const s = settings();

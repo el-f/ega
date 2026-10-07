@@ -11,6 +11,7 @@
   } from '@/shared/backends/base';
   import { createThinkScrubber } from '@/shared/backends/think-scrubber';
   import { probeNativeHost } from '../probeNativeHost';
+  import { onNativeProbe } from '../native-probe-events';
   import { createCancelToken } from '@/shared/cancel-token';
   import { DEFAULT_TRANSLATE_TIMEOUT_MS } from '@/shared/constants';
   import { sendMsg } from '@/shared/messages';
@@ -80,7 +81,10 @@
     if (!testSucceeded) return null;
     return 'Connected. First run after idle is usually the slowest while the model loads.';
   });
-  const supportsImage = $derived(!!resolveBackend(id)?.translateImage);
+  // On the Backends tab the route also knows when the chosen model reads no images.
+  const supportsImage = $derived(
+    route ? route.readsImages(id) : resolveBackend(id)?.translateImage !== undefined,
+  );
 
   // Only the fields this backend's isAvailable reads.
   const probeKey = $derived(
@@ -114,6 +118,15 @@
       return r.status === 'installed' || r.status === 'outdated';
     });
   }
+
+  // The card body's Recheck probes too, and after an install its answer is this header's answer.
+  $effect(() => {
+    if (id !== 'native') return;
+    return onNativeProbe((r) => {
+      nativeOutdated = r.status === 'outdated';
+      beStatus = r.status === 'installed' || r.status === 'outdated' ? 'ready' : 'unavailable';
+    });
+  });
 
   // The effect body reads the whole snapshot, so probeKey is what stops a re-probe.
   let lastProbeKey: string | null = null;

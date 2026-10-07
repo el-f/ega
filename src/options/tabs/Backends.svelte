@@ -19,7 +19,7 @@
   import { computeBackendOrder } from '@/shared/backends/select';
   import { backendNeedsKey, backendHasRequiredKey } from '@/shared/backends/key-presence';
   import { routePlan, type Readiness } from '@/shared/route-plan';
-  import { imageAbility } from '@/options/route-state.svelte';
+  import { liveImageAbility } from '@/options/route-state.svelte';
   import { setBackendRouteContext } from '@/options/backend-route-context';
   import Segmented from '@/shared/ui/Segmented.svelte';
   import GripVertical from '@lucide/svelte/icons/grip-vertical';
@@ -44,6 +44,7 @@
 
   // Each row reports its own probe; a cloud key decides at once. routePlan turns these into the route tags.
   const probed = new SvelteMap<BackendId, Readiness>();
+  const image = liveImageAbility(() => s);
   const plan = $derived.by(() => {
     if (!s) return null;
     const order = computeBackendOrder(s, getRegisteredBackendIds());
@@ -60,7 +61,7 @@
     return {
       order,
       readiness,
-      ...routePlan(order, readiness, 1 + s.advanced.retryCount, imageAbility),
+      ...routePlan(order, readiness, 1 + s.advanced.retryCount, image),
     };
   });
   const readyCount = $derived(
@@ -74,6 +75,10 @@
     firstForImages: (id) => {
       if (!plan || plan.firstForImages !== id) return false;
       return plan.rows.find((r) => r.id === id)?.label.kind !== 'first';
+    },
+    readsImages: (id) => {
+      const a = image(id);
+      return a.answersImages && a.inImageChain !== false;
     },
     // Untracked: a row's report effect must depend on its own probe only, or two copies of a row mid-drag ping-pong.
     report: (id, readiness) => {
@@ -111,15 +116,13 @@
     return patch({ backendOrder: [...enabled, ...disabledRows] });
   }
 
-  function onGutterKeydown(e: KeyboardEvent, id: string): void {
-    if (!e.altKey) return;
-    if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      void reorderById(id, -1);
-    } else if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      void reorderById(id, 1);
-    }
+  function onGutterKeydown(
+    e: KeyboardEvent,
+    reorder: (delta: -1 | 1, handle: HTMLElement) => void,
+  ): void {
+    if (!e.altKey || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+    e.preventDefault();
+    reorder(e.key === 'ArrowUp' ? -1 : 1, e.currentTarget as HTMLElement);
   }
 
   // A provider missing from this catalog still works, it just gets no card.
@@ -215,7 +218,7 @@
         </p>
       {/if}
     {/snippet}
-    {#snippet children(id, position, enabled, useSummary)}
+    {#snippet children(id, position, enabled, useSummary, reorder)}
       {@const card = CARDS.find((c) => c.id === id)}
       {#if !card}
         <div class="be-row" data-be-row-id={id} data-be-row-missing>
@@ -229,7 +232,7 @@
             tabindex="0"
             aria-label="Reorder {card.label} — drag, or focus and press Alt+Arrow keys"
             use:useSummary
-            onkeydown={(e) => onGutterKeydown(e, id)}
+            onkeydown={(e) => onGutterKeydown(e, reorder)}
           >
             <span class="be-drag" aria-hidden="true"
               ><GripVertical size={16} strokeWidth={1.75} /></span
@@ -340,6 +343,10 @@
   .be-pos {
     font-size: var(--fs-base);
     font-variant-numeric: tabular-nums;
+  }
+  /* The dragged copy keeps the number it had; the rows below already show where everything lands. */
+  :global(#dnd-action-dragged-el) .be-pos {
+    visibility: hidden;
   }
   .be-card-wrap {
     flex: 1;

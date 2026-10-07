@@ -19,7 +19,14 @@
     /** One write for both lists: a drag into the disabled zone changes order and disabled together. */
     onChange: (next: { backendOrder: BackendId[]; disabledBackends: BackendId[] }) => unknown;
     children?: Snippet<
-      [id: BackendId, position: number | null, enabled: boolean, useSummary: typeof dragHandle]
+      [
+        id: BackendId,
+        position: number | null,
+        enabled: boolean,
+        useSummary: typeof dragHandle,
+        /** The row handle's Alt+Arrow path: the same move, announcement and focus as the toolbar. */
+        reorder: (delta: -1 | 1, handle: HTMLElement) => void,
+      ]
     >;
     /** Moves an active backend one slot up (-1) or down (1); the buttons are the non-drag way to reorder. */
     onMove?: (id: BackendId, delta: -1 | 1) => unknown;
@@ -35,15 +42,26 @@
       ?.focus();
   }
 
-  // A move re-renders the row (down detaches it) and can disable the pressed arrow, so focus is put back by hand.
-  async function move(id: BackendId, delta: -1 | 1, from: number): Promise<void> {
+  // A move re-renders the row (down detaches it) and can disable the pressed arrow, so focus is put back by hand:
+  // on the handle the keys came from, else on the toolbar arrow.
+  async function move(id: BackendId, delta: -1 | 1, handle?: HTMLElement): Promise<void> {
+    const inUse = enabledShadow.items.some((r) => r.id === id);
+    const group = inUse ? enabledShadow.items : disabledShadow.items;
+    const to = group.findIndex((r) => r.id === id) + delta;
+    if (to < 0 || to >= group.length) return;
     // onMove resolves false when the write did not land; the failure toast says why.
     const ok = await onMove?.(id, delta);
     announcement =
       ok === false
         ? `${backendLabel(id)} was not moved`
-        : `${backendLabel(id)} moved to position ${from + delta + 1}`;
+        : inUse
+          ? `${backendLabel(id)} moved to position ${to + 1}`
+          : `${backendLabel(id)} moved ${delta === -1 ? 'up' : 'down'}`;
     await tick();
+    if (handle) {
+      handle.focus();
+      return;
+    }
     const at = enabledShadow.items.findIndex((r) => r.id === id);
     const atEnd = delta === -1 ? at === 0 : at === enabledShadow.items.length - 1;
     // At an end the pressed arrow is disabled and cannot hold focus, so the other arrow takes it.
@@ -259,6 +277,7 @@
         dragDisabled: false,
         flipDurationMs: 180,
         zoneTabIndex: -1,
+        dropTargetStyle: {},
       }}
       onconsider={handleEnabledConsider}
       onfinalize={handleEnabledFinalize}
@@ -279,7 +298,7 @@
               Drop here
             </div>
           {:else}
-            {@render children?.(row.id, i + 1, true, dragHandle)}
+            {@render children?.(row.id, i + 1, true, dragHandle, (d, h) => void move(row.id, d, h))}
             {#key `${i}/${enabledShadow.items.length}`}
               <span
                 class="be-toggle"
@@ -295,14 +314,14 @@
                     ariaLabel="Move {backendLabel(row.id)} up"
                     size="sm"
                     disabled={i === 0}
-                    onclick={() => void move(row.id, -1, i)}
+                    onclick={() => void move(row.id, -1)}
                   />
                   <IconButton
                     icon={ArrowDown}
                     ariaLabel="Move {backendLabel(row.id)} down"
                     size="sm"
                     disabled={i === enabledShadow.items.length - 1}
-                    onclick={() => void move(row.id, 1, i)}
+                    onclick={() => void move(row.id, 1)}
                   />
                 {/if}
                 <Button
@@ -331,6 +350,7 @@
         dragDisabled: false,
         flipDurationMs: 180,
         zoneTabIndex: -1,
+        dropTargetStyle: {},
       }}
       onconsider={handleDisabledConsider}
       onfinalize={handleDisabledFinalize}
@@ -351,7 +371,7 @@
               Drop here
             </div>
           {:else}
-            {@render children?.(row.id, null, false, dragHandle)}
+            {@render children?.(row.id, null, false, dragHandle, (d, h) => void move(row.id, d, h))}
             <span class="be-toggle">
               <Button
                 variant="secondary"

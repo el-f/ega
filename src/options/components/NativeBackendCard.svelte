@@ -29,6 +29,7 @@
     type Platform,
   } from '../nativeHostInstall';
   import { probeNativeHost } from '../probeNativeHost';
+  import { onNativeProbe } from '../native-probe-events';
   import { backendLabel } from '@/shared/backends/provider-profiles';
   import { listNativeModels, probeNativeCli, type CliProbe } from '../nativeHostOnce';
   import {
@@ -238,6 +239,12 @@
 
   onMount(() => {
     void recheckNative();
+    // A Test now in the row header probes too; the body shows the same answer.
+    return onNativeProbe((r) => {
+      nhInstalledVersion = r.installedVersion;
+      nhProbeError = r.errorMessage;
+      nhRaw = r.status;
+    });
   });
 
   // Polls the background SW: the options page has its own port-manager copy that always reads 'cold'.
@@ -336,7 +343,10 @@
     {/if}
 
     {#if nhState === 'installed'}
-      <p class="nh-line">{portLine}</p>
+      <!-- How the next answer starts is true only while the chosen CLI is there and logged in. -->
+      {#if !missingCli && cliProbe.loggedIn[currentCli] !== false}
+        <p class="nh-line">{portLine}</p>
+      {/if}
       <div class="row nh-cli-row">
         <span class="nh-cli-label" id="nh-cli-label">CLI</span>
         <RadioGroup
@@ -472,9 +482,11 @@
     line-height: var(--lh-body);
     color: var(--color-muted);
   }
+  /* A radio with a "Not found" line is two lines tall; the label sits on the first one. */
   .nh-cli-row {
     margin-top: var(--space-2);
     gap: var(--space-2);
+    align-items: baseline;
   }
   .nh-cli-label {
     font-size: var(--fs-sm);

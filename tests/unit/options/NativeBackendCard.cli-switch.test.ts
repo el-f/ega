@@ -102,6 +102,44 @@ function probingPort(
   };
 }
 
+describe('NativeBackendCard Recheck', () => {
+  it('after an install, Recheck updates the row header as well as the body', async () => {
+    const { resetProbeNativeHostForTest } = await import('@/options/probeNativeHost');
+    resetProbeNativeHostForTest();
+    const failingPort = () => ({
+      postMessage: vi.fn(),
+      disconnect: vi.fn(),
+      onMessage: { addListener: () => {}, removeListener: () => {} },
+      onDisconnect: {
+        addListener: (fn: () => void) => setTimeout(fn, 1),
+        removeListener: () => {},
+      },
+    });
+    const connect = vi.fn(() => failingPort() as unknown as chrome.runtime.Port);
+    vi.stubGlobal('chrome', {
+      ...globalThis.chrome,
+      runtime: { ...globalThis.chrome.runtime, connectNative: connect },
+    });
+    const { container, getByLabelText } = render(NativeBackendCard, { props: props() });
+    const header = (): string | null | undefined =>
+      container.querySelector('[data-ega-backend-status]')?.getAttribute('data-ega-backend-status');
+    await waitFor(() => {
+      expect(container.querySelector('[data-testid="nh-status-pill"]')?.classList).toContain(
+        'nh-missing',
+      );
+      expect(header()).toBe('Not installed');
+    });
+    connect.mockImplementation(() => healthyPort() as unknown as chrome.runtime.Port);
+    await fireEvent.click(getByLabelText('Recheck'));
+    await waitFor(() =>
+      expect(container.querySelector('[data-testid="nh-status-pill"]')?.classList).toContain(
+        'nh-installed',
+      ),
+    );
+    await waitFor(() => expect(header()).toBe('Installed'));
+  });
+});
+
 describe('NativeBackendCard login state', () => {
   it('says the selected CLI is not logged in and names the command that logs in', async () => {
     vi.stubGlobal('chrome', {
@@ -146,6 +184,25 @@ describe('NativeBackendCard login state', () => {
     expect(steps?.querySelector('summary')?.textContent).toContain('Show steps');
     expect(steps?.textContent).toContain('PATH');
     expect(getByRole('radio', { name: /^Claude Code\s+Not found$/ })).toBeTruthy();
+  });
+
+  it('promises no CLI start while the chosen CLI is missing', async () => {
+    vi.stubGlobal('chrome', {
+      ...globalThis.chrome,
+      runtime: {
+        ...globalThis.chrome.runtime,
+        connectNative: vi.fn(
+          () =>
+            probingPort({ claude: null, codex: null }, () => {}, {
+              claude: null,
+              codex: 'C:/bin/codex.cmd',
+            }) as unknown as chrome.runtime.Port,
+        ),
+      },
+    });
+    const { findByTestId, container } = render(NativeBackendCard, { props: props() });
+    await findByTestId('nh-cli-missing-banner');
+    expect(container.textContent).not.toMatch(/starts the CLI|starts it again|CLI is running/);
   });
 
   it('shows no login banner when the host cannot tell', async () => {

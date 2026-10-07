@@ -8,6 +8,8 @@ export interface BackendRouteContext {
   label: (id: BackendId) => RouteLabel | null;
   /** The first backend an image request tries, when it is not the First choice row. */
   firstForImages: (id: BackendId) => boolean;
+  /** False when the backend, or the model it runs, reads no images ("Text only"). */
+  readsImages: (id: BackendId) => boolean;
   /** A row's own probe answered; the route is drawn from these answers. */
   report: (id: BackendId, readiness: Readiness) => void;
 }
