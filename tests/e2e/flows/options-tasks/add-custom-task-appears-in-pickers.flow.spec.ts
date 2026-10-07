@@ -26,7 +26,7 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-test('a new task from the Tasks tab shows in the chip strip and the tooltip select', async () => {
+test('a new task from the Tasks tab shows in the Next message popover and the tooltip select', async () => {
   const timeline = createTimeline();
   mockAnthropic(ext.context, { translation: 'Hello', confidence: 0.9 });
   const options = await ext.context.newPage();

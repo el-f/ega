@@ -25,7 +25,7 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-test('handoff seeds sidepanel; quick-refine chip on seeded turn spawns a variant', async () => {
+test('handoff seeds sidepanel; a Refine preset on the seeded turn adds a version', async () => {
   const timeline = createTimeline();
   const route = mockAnthropic(ext.context, { translation: 'Bonjour le monde' });
 

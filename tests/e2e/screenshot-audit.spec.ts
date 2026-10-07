@@ -720,7 +720,7 @@ test('Tooltip — default + inspector + context preview', async () => {
     userAction: 'user clicked Details (i) on the tooltip',
     expectations: [
       'About this reply panel mounts below the body',
-      'answered by, time and what Ega sent visible',
+      'answered by, time and what was sent visible',
     ],
   });
 

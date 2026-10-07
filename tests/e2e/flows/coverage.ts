@@ -798,7 +798,7 @@ export const COVERAGE: readonly Family[] = [
           {
             id: 'toggle-hides-everywhere',
             description:
-              'Turning a task off hides it in the chip strip, palette, Re-run as menu and tooltip select',
+              'Turning a task off hides it in the task picker, palette, Answer again menu and tooltip select',
             flows: ['options-tasks/toggle-hides-everywhere.flow.spec.ts'],
           },
           {

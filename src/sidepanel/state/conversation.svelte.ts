@@ -859,7 +859,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     if (!state.turns.some((t) => t.id === assistantId && t.role === 'assistant')) return false;
     if (state.inflightId !== null) {
       if (state.requestId !== langChangeRequestId || state.inflightId !== assistantId) {
-        // Same words the refine chips use, so both re-run paths explain the block identically.
+        // Same words the Refine menu uses, so both re-run paths explain the block identically.
         toastStore.push({ message: 'Wait for the current reply to finish.', variant: 'warning' });
         return false;
       }

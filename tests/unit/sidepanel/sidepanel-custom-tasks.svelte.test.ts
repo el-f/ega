@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// The side panel reads custom task rows, offers them in the chip strip, and sends one as kind translate + its id.
+// The side panel reads custom task rows, offers them in the Next message popover, and sends one as kind translate + its id.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { Mock } from 'vitest';
 import { render, fireEvent, waitFor } from '@testing-library/svelte';

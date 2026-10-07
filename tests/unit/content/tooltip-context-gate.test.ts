@@ -100,7 +100,10 @@ describe('Tooltip — what the details panel says about page info', () => {
     expect(await pageInfo(container)).toContain('Not sent with images');
     expect(row(container, 'Your text')).toBe('An image');
     expect(row(container, 'Earlier messages')).toBe('None');
-    expect(container.textContent).not.toContain('View in Settings');
+    // The Record request details hint still names Settings, as plain text.
+    expect(container.textContent).toContain('Turn on Record request details in Settings');
+    const buttons = [...container.querySelectorAll('button')].map((b) => b.textContent.trim());
+    expect(buttons).not.toContain('Settings');
   });
 
   it('shows the instructions section for an image explain', async () => {

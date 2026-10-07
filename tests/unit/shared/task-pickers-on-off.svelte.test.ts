@@ -21,7 +21,7 @@ const chips = (c: HTMLElement): string[] =>
 const options = (select: Element | null): Array<[string, boolean]> =>
   [...(select?.querySelectorAll('option') ?? [])].map((o) => [o.value, o.disabled]);
 
-describe('side-panel chip strip', () => {
+describe('side panel task chips', () => {
   it('offers the tasks it is given, in shipped order', () => {
     const { container } = render(TaskPicker, {
       props: { task: 'translate', views: onlyOn(['translate', 'reword', 'explain']) },

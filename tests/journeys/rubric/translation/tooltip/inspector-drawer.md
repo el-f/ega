@@ -8,8 +8,8 @@
 ## State expectations
 
 - Step 1: tooltip is finalized; a Details (i) button (`aria-label="Show details about this reply"`) shows in the action row when the reply carries result data or page info.
-- Step 2 (click): an "About this reply" panel expands below the action row with Answered by (backend and model), Direction, Time (with first words), Tokens when reported, the backends tried when it fell back, then "What Ega sent".
-- Step 3 (close via the Details toggle or the panel's X "Close details"): the panel collapses; the body is unchanged.
+- Step 2 (click): an "About this reply" panel expands below the action row with Answered by (backend and a readable model name), Languages, Time (with first words), Confidence when the reply has one, Usage ("N tokens read · M written") when reported, a folded "Backends tried (N)" when it fell back, then "What was sent".
+- Step 3 (close via the Details toggle or the panel's X "Close"): the panel collapses; the body is unchanged.
 
 ## Visible affordances
 

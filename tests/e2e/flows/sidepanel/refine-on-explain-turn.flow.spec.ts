@@ -25,7 +25,7 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-test('explain turn done → chips mount → [Shorter] → variant with explain on wire', async () => {
+test('explain turn done → Refine > Shorter → version with explain on wire', async () => {
   const timeline = createTimeline();
 
   const bodies: string[] = [];

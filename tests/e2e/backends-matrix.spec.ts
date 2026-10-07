@@ -115,8 +115,8 @@ for (const id of CLOUD_PROVIDER_IDS) {
     );
     await page.locator('.tooltip button[aria-label="Show details about this reply"]').click();
     const inspector = page.locator('[data-ega-inspector]');
-    const tokens = inspector.locator('.rd-row', { hasText: 'Tokens' });
-    await expect(tokens).toContainText(`${MOCK_USAGE.input} in`);
-    await expect(tokens).toContainText(`${MOCK_USAGE.output} out`);
+    const usage = inspector.locator('.rd-row', { hasText: 'Usage' });
+    await expect(usage).toContainText(`${MOCK_USAGE.input} tokens read`);
+    await expect(usage).toContainText(`${MOCK_USAGE.output} written`);
   });
 }

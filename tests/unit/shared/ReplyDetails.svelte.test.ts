@@ -133,7 +133,7 @@ describe('ReplyDetails — result', () => {
   });
 });
 
-describe('ReplyDetails — what Ega sent', () => {
+describe('ReplyDetails — what was sent', () => {
   it('counts the earlier messages a side-panel reply carried', () => {
     expect(row(setup({ meta: meta({ historyTurns: 4 }) }).container, 'Earlier messages')).toBe(
       '4 from this conversation',

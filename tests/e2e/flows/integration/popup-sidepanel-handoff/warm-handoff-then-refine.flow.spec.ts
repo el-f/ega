@@ -25,7 +25,7 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-test('warm sidepanel receives handoff via storage.onChanged; refine chip on delivered turn spawns a variant', async () => {
+test('warm sidepanel receives handoff via storage.onChanged; a Refine preset on the delivered turn adds a version', async () => {
   const timeline = createTimeline();
   const route = mockAnthropic(ext.context, { translation: 'Bonjour le monde' });
 

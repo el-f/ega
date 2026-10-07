@@ -31,7 +31,7 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-test('tooltip Pin seeds sidepanel; quick-refine [Shorter] spawns a variant', async () => {
+test('tooltip Pin seeds sidepanel; Refine > Shorter adds a version', async () => {
   const timeline = createTimeline();
   mockAnthropic(ext.context, {
     translation: 'Welcome friend.',

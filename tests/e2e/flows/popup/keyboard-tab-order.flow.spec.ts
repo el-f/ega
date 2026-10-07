@@ -23,7 +23,7 @@ test('Tab walks the popup top to bottom with a visible ring; Esc closes the back
   await popup.setViewportSize({ width: 380, height: 600 });
   await popup.goto(`chrome-extension://${ext.extensionId}/src/popup/index.html`);
   const chip = popup.locator('.active-backend-chip');
-  await expect(chip).toHaveAttribute('aria-label', /^Active backend: Anthropic/, {
+  await expect(chip).toHaveAttribute('aria-label', /^Anthropic is ready/, {
     timeout: 5_000,
   });
   timeline.markStep('popup-ready');
@@ -37,7 +37,7 @@ test('Tab walks the popup top to bottom with a visible ring; Esc closes the back
   }
   // The swap is blocked while the source is auto, but stays a tab stop so its reason can be read.
   expect(stops.map((s) => s.name)).toEqual([
-    expect.stringMatching(/^Active backend: Anthropic/),
+    expect.stringMatching(/^Anthropic is ready/),
     'Open settings',
     'Source language',
     'Pick a source language to swap',

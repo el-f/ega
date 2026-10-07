@@ -29,7 +29,7 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-test('image OCR sidepanel seed shows its image and Regenerate, but no refine chips', async () => {
+test('image OCR sidepanel seed shows its image and Regenerate, and Refine offers no presets', async () => {
   const timeline = createTimeline();
   mockAnthropic(ext.context, { translation: 'Welcome to the group chat' });
 

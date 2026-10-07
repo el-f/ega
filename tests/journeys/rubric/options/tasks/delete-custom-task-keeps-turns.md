@@ -8,7 +8,7 @@
 
 - Step 1: the conversation has one exchange run with the custom task.
 - Step 2 (Delete, confirm): `ega.customTasks` is empty.
-- Step 3: the side panel drops the chip; the old answer stays, and its user turn reads "Deleted task".
+- Step 3: the side panel's Next message popover no longer lists the task; the old answer stays, and its user turn reads "Deleted task".
 
 ## Visible affordances
 
@@ -20,4 +20,4 @@
 
 ## Cautions
 
-- "Re-run as…" on the old turn shows the gone task as a disabled item.
+- "Answer again as" in the old reply's More menu does not offer the gone task.
