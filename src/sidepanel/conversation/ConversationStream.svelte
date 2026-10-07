@@ -540,6 +540,9 @@
     flex-direction: column;
   }
   .ega-conv-stream {
+    /* The containing block of every out-of-flow box in the thread (screen-reader-only text too):
+       one that escapes the scroller sits below the panel and makes the whole page scroll. */
+    position: relative;
     flex: 1 1 auto;
     min-height: 0;
     /* clip on x: a tooltip past the right edge must not add a horizontal scrollbar. */

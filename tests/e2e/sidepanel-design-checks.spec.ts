@@ -18,6 +18,7 @@ import {
   WIDTHS,
   openExampleTab,
   openPanel,
+  realMeta,
   reloadPanel,
   reply,
   seedConversations,
@@ -177,7 +178,12 @@ const STATES: State[] = [
   {
     name: 'about-instructions',
     build: async () => {
-      const sp = await panelWith([{ id: SITE, turns: FIRST_PAIR }]);
+      // A 9,000-character prompt kept cut at 6,000: the tallest About there is.
+      const prompt = `You are a translator. ${'Keep slang and tone as they are. '.repeat(400)}`;
+      const meta = realMeta({ instructions: prompt.slice(0, 6000), instructionsLength: 9000 });
+      const sp = await panelWith([
+        { id: SITE, turns: [user('u1', 'hola', T(28)), reply('a1', 'u1', T(28), { meta })] },
+      ]);
       const menu = await openReplyMenu(sp, 'more');
       await menu.locator('[data-ega-about]').click();
       await sp.locator('[data-ega-inspector]').waitFor({ state: 'visible' });
@@ -276,7 +282,7 @@ const STATES: State[] = [
 
 const CHECKS = [
   '1 no cut-off control text',
-  '2 no sideways scroll',
+  '2 only the thread scrolls',
   '3 one action row per reply',
   '4 the composer has at most 3 controls',
   '6 font sizes and spacing come from the tokens',
@@ -341,10 +347,21 @@ async function layoutFindings(sp: Page): Promise<{ check: number; what: string }
         add(1, `${describe(el)} is cut, and the name "${name}" lacks the full text`);
     }
 
-    // 2. No sideways scroll, on the page or in the thread.
+    // 2. No sideways scroll, on the page or in the thread; and only the thread scrolls up and down.
     const se = document.scrollingElement;
     if (se && se.scrollWidth > se.clientWidth)
       add(2, `the page is ${se.scrollWidth}px wide in ${se.clientWidth}px`);
+    if (se && se.scrollHeight > se.clientHeight) {
+      // Usually an out-of-flow box that no scroller clips, so name the ones past the bottom edge.
+      const below = [...document.querySelectorAll('body *')]
+        .filter(
+          (el) =>
+            el.getBoundingClientRect().bottom > se.clientHeight &&
+            ['absolute', 'fixed'].includes(getComputedStyle(el).position),
+        )
+        .map(describe);
+      add(2, `the page is ${se.scrollHeight}px tall in ${se.clientHeight}px: ${below.join(', ')}`);
+    }
     for (const el of document.querySelectorAll('.ega-conv-stream')) {
       if (el.scrollWidth > el.clientWidth + 1)
         add(2, `the thread is ${el.scrollWidth}px wide in ${el.clientWidth}px`);
