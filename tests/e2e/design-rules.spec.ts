@@ -114,6 +114,9 @@ test('flags cut-off text, undeclared ellipsis and off-scale font sizes, and noth
       `<button style="width:140px;font-size:var(--fs-sm)"><span data-ega-probe-ok-content data-ega-truncates style="${ellipsis}">Translate to a language far too long</span></button>`,
       '<span id="ega-probe-open" class="ega-sr-only">Open</span>',
       `<button aria-labelledby="ega-probe-open" aria-label="Open: Another label far too long now" style="width:120px;font-size:var(--fs-sm)"><span data-ega-probe-labelledby-wins data-ega-truncates style="${ellipsis}">Another label far too long now</span></button>`,
+      // A control cut by its own ellipsis passes when declared; the same control cut by a plain clip is flagged.
+      `<button data-ega-probe-ok-own data-ega-truncates aria-label="Open: A button label far too long" style="width:100px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:var(--fs-sm)">A button label far too long</button>`,
+      `<button data-ega-probe-clip-marked data-ega-truncates aria-label="Open: A button label far too long" style="width:100px;overflow:hidden;white-space:nowrap;font-size:var(--fs-sm)">A button label far too long</button>`,
       // A drawn ellipsis needs overflow other than visible and a block box: a flex box hard-cuts, and overflow: visible spills.
       `<button data-ega-probe-flex data-ega-truncates aria-label="Open: A button label far too long" style="display:inline-flex;width:100px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:var(--fs-sm)">A button label far too long</button>`,
       `<span data-ega-probe-visible data-ega-truncates title="A title far too long for its box" style="${ellipsis};overflow:visible;width:100px;font-size:var(--fs-sm)">A title far too long for its box</span>`,
@@ -126,6 +129,7 @@ test('flags cut-off text, undeclared ellipsis and off-scale font sizes, and noth
 
   const added = (await designRuleViolations(page)).filter((v) => !popupOwn.includes(v));
   expect(added).toEqual([
+    'clip button[data-ega-probe-clip-marked] "A button label far too long"',
     'clip button[data-ega-probe-clip] "Translate this page"',
     'clip button[data-ega-probe-flex] "A button label far too long"',
     'clip div[data-ega-probe-tab] "Appearance"',
