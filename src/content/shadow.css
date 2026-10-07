@@ -143,7 +143,7 @@
   font-family: var(--font-ui);
   text-align: start;
   box-shadow: 0 2px 8px var(--color-shadow);
-  z-index: 2147483647;
+  z-index: var(--ega-layer-toast);
   animation: ega-content-toast-in 200ms ease-out;
 }
 .ega-toast-icon {
