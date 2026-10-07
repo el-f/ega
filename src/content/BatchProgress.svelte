@@ -177,7 +177,7 @@
     detailsOpen = !detailsOpen;
     await tick();
     // The menu item that had focus is gone; focus goes to what the user asked for.
-    if (detailsOpen) root?.querySelector<HTMLElement>('[data-ega-batch-copy]')?.focus();
+    if (detailsOpen) root?.querySelector<HTMLElement>('.details-head button')?.focus();
     else moreButton()?.focus();
   }
 
@@ -225,7 +225,6 @@
           <button
             type="button"
             class="btn"
-            data-ega-batch-copy
             onclick={user(() => void copyDetails(failure.details.join('\n')))}
             >{copied ? 'Copied' : 'Copy'}</button
           >
@@ -346,7 +345,6 @@
           type="button"
           role="menuitem"
           tabindex="-1"
-          data-ega-batch-details-toggle
           onclick={user(() => void toggleDetails())}
           >{detailsOpen ? 'Hide error details' : 'Show error details'}</button
         >

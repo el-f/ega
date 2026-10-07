@@ -414,7 +414,7 @@ describe('the pill — states, the More menu and Error details', () => {
     menuItem('Show error details')?.click();
     flushSync();
     expect(q('[data-ega-batch-details]')).not.toBeNull();
-    await vi.waitFor(() => expect(shadowActive()).toBe(q('[data-ega-batch-copy]')));
+    await vi.waitFor(() => expect(shadowActive()).toBe(q('[data-ega-batch-details] button')));
 
     button('More')?.click();
     flushSync();
@@ -433,7 +433,7 @@ describe('the pill — states, the More menu and Error details', () => {
     flushSync();
     menuItem('Show error details')?.click();
     flushSync();
-    const copy = q('[data-ega-batch-copy]') as HTMLButtonElement;
+    const copy = q('[data-ega-batch-details] button') as HTMLButtonElement;
     vi.useFakeTimers();
     copy.click();
     await vi.advanceTimersByTimeAsync(0);
