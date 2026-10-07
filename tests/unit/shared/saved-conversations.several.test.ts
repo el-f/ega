@@ -6,10 +6,13 @@ import {
   currentConversation,
   deleteSavedConversation,
   entryFacts,
+  flushPendingDeletes,
+  forgetPendingDeletes,
   groupConversations,
   markConversationOpened,
   newConversationId,
   readIndex,
+  scheduleConversationDelete,
   siteOf,
   threadKey,
   type IndexEntry,
@@ -173,5 +176,32 @@ describe('eviction (C5 example)', () => {
     const ids = (await readIndex()).threads.map((t) => t.origin);
     expect(ids).toContain('https://s.test#c0');
     expect(ids).not.toContain('https://s.test#c49');
+  });
+});
+
+// C8: closing the panel inside the Undo window is why the worker finishes a delete; the flush sends it at once.
+describe('flushPendingDeletes', () => {
+  it('sends a waiting delete at once, and only once', () => {
+    vi.useFakeTimers();
+    try {
+      const send = chromeMock.runtime.sendMessage;
+      send.mockClear();
+      send.mockResolvedValue({ ok: true });
+      const deletes = (): unknown[] =>
+        send.mock.calls
+          .map((c) => c[0] as { kind?: string })
+          .filter((m) => m.kind === 'conversations:delete');
+      scheduleConversationDelete(['https://a.test']);
+      expect(deletes()).toHaveLength(0);
+
+      flushPendingDeletes();
+      expect(deletes()).toEqual([{ kind: 'conversations:delete', ids: ['https://a.test'] }]);
+      // The Undo window's own timer was cleared with it.
+      vi.advanceTimersByTime(10_000);
+      expect(deletes()).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+      forgetPendingDeletes();
+    }
   });
 });

@@ -188,4 +188,26 @@ describe('Conversations popover', () => {
     });
     await waitFor(() => expect(document.body.textContent).toContain('No other conversations yet'));
   });
+
+  it('follows the index while open: a conversation saved elsewhere appears', async () => {
+    await seed();
+    render(ConversationsPopover, {
+      props: {
+        open: true,
+        anchor: anchor(),
+        activeId: 'https://a.test',
+        tabSite: 'https://a.test',
+        onClose: () => {},
+        onOpen: async () => true,
+        onDelete: async () => ({ undo: () => {} }),
+      },
+    });
+    await waitFor(() => expect(rows()).toHaveLength(3));
+
+    // Another window's save writes the index; the open list hears it through storage.onChanged.
+    await saveThread('https://new.test', [userTurn('n1', 'from another window')]);
+
+    await waitFor(() => expect(rows()).toHaveLength(4));
+    expect(rows().map((r) => r.dataset['egaConvRow'])).toContain('https://new.test');
+  });
 });

@@ -4,6 +4,7 @@ import { STORAGE_KEYS } from '@/shared/constants';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import type { Msg, MsgReply } from '@/shared/messages';
 import type { TranslationRequest } from '@/shared/types';
+import { loadThreadResult, saveThread } from '@/sidepanel/state/conversation-store';
 
 const backendIds = [...DEFAULT_SETTINGS.backendOrder];
 
@@ -271,5 +272,35 @@ describe('translate:start freshAnswer', () => {
     await vi.waitFor(() => expect(routerMock.handleTranslate).toHaveBeenCalledTimes(1));
     const [req] = routerMock.handleTranslate.mock.calls[0] as [TranslationRequest];
     expect(req.options.freshAnswer).toBe(true);
+  });
+});
+
+// A content script can be steered by its page, so the worker deletes conversations for extension pages only.
+describe('conversations:delete trusts extension pages only', () => {
+  async function savedTurns(): Promise<number> {
+    return (await loadThreadResult('https://a.test')).turns.length;
+  }
+
+  beforeEach(async () => {
+    await saveThread('https://a.test', [
+      { id: 'u1', role: 'user', kind: 'translate', status: 'idle', createdAt: 1, content: 'hola' },
+    ]);
+  });
+
+  it('a content script is refused, and the conversation stays', async () => {
+    expect(
+      await ask({ kind: 'conversations:delete', ids: ['https://a.test'] }, TAB_SENDER),
+    ).toEqual({ ok: false });
+    expect(await ask({ kind: 'conversations:delete', ids: 'all' }, TAB_SENDER)).toEqual({
+      ok: false,
+    });
+    expect(await savedTurns()).toBe(1);
+  });
+
+  it('an extension page deletes it', async () => {
+    expect(await ask({ kind: 'conversations:delete', ids: ['https://a.test'] })).toEqual({
+      ok: true,
+    });
+    expect(await savedTurns()).toBe(0);
   });
 });

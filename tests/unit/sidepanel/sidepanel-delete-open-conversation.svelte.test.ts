@@ -103,4 +103,25 @@ describe('SidePanel — delete the open conversation from the list', () => {
     // One Undo cancels everything this row scheduled: no second delete is left waiting.
     await waitFor(() => expect(pendingDeleteIds().size).toBe(0));
   });
+
+  it('closing the panel inside the Undo window sends the delete at once', async () => {
+    const { container } = render(SidePanel);
+    await waitFor(() => expect(turnIds(container)).toEqual(['a1']));
+    await openList(container);
+    const del = row('https://other.test')?.querySelector<HTMLElement>('[data-ega-conv-delete]');
+    if (!del) throw new Error('delete not shown');
+    await fireEvent.click(del);
+    await waitFor(() =>
+      expect(row('https://other.test')?.querySelector('[data-ega-conv-undo]')).not.toBeNull(),
+    );
+    const deletes = (): unknown[] =>
+      sendMessage.mock.calls
+        .map((c) => c[0] as { kind?: string })
+        .filter((m) => m.kind === 'conversations:delete');
+    expect(deletes()).toHaveLength(0);
+
+    window.dispatchEvent(new Event('pagehide'));
+
+    expect(deletes()).toEqual([{ kind: 'conversations:delete', ids: ['https://other.test'] }]);
+  });
 });

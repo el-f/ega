@@ -77,17 +77,25 @@ describe('a conversation that stopped being saved says so until it is saved', ()
     // Every thread write now hangs, so the retry stays in flight.
     vi.restoreAllMocks();
     let release: () => void = () => {};
+    let released = false;
     const originalSet = chrome.storage.local.set.bind(chrome.storage.local);
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
     const set = vi.spyOn(chrome.storage.local, 'set').mockImplementation((items) => {
       const record = items as Record<string, unknown>;
-      if (!Object.keys(record).some((k) => k.startsWith('ega:conv:'))) return originalSet(record);
+      if (released || !Object.keys(record).some((k) => k.startsWith('ega:conv:'))) {
+        return originalSet(record);
+      }
       return new Promise<void>((resolve) => {
         release = () => {
+          released = true;
           void originalSet(record).then(() => resolve());
         };
       });
     });
+    const threadWrites = (): number =>
+      set.mock.calls.filter(([items]) =>
+        Object.keys(items as Record<string, unknown>).some((k) => k.startsWith('ega:conv:t:')),
+      ).length;
     retry.focus();
     await fireEvent.click(retry);
     await drainAsync();
@@ -95,15 +103,14 @@ describe('a conversation that stopped being saved says so until it is saved', ()
     expect(retry.getAttribute('aria-disabled')).toBe('true');
     expect(retry.disabled).toBe(false);
     expect(document.activeElement).toBe(retry);
-    const writes = set.mock.calls.length;
     await fireEvent.click(retry);
     await drainAsync();
-    expect(set.mock.calls.length, 'a second click starts nothing').toBe(writes);
 
-    // Later writes go through, then the held one lands.
-    set.mockRestore();
+    // The held write lands; a second save queued behind it would write the thread again now.
     release();
     await drainAsync();
+    // One save wrote the thread once; a second one would have written it again.
+    expect(threadWrites(), 'a second click starts nothing').toBe(1);
     expect(banner(container)).toBeNull();
   });
 });
