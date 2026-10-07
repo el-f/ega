@@ -18,6 +18,16 @@ export function pageAccess(url: string | undefined): 'ok' | 'restricted' {
   return 'ok';
 }
 
+/** Ega has no "tabs" permission, so Chrome leaves out the url of every tab its host access does not reach: chrome:// pages, the New Tab page, extension pages. */
+export function tabAccess(
+  tab: { id?: number | undefined; url?: string | undefined } | null,
+  ownTabId: number | undefined,
+): 'ok' | 'restricted' | 'unknown' {
+  // No tab, or the popup page itself opened as a tab: the actions resolve a page tab on click.
+  if (tab?.id === undefined || tab.id === ownTabId) return 'unknown';
+  return pageAccess(tab.url);
+}
+
 export type PopupPageState = 'restricted' | 'not-running' | 'site-off' | 'held-back' | 'default';
 
 /** What the status line under the site switch says. Site off comes from settings, so it is right on a dead page too. */

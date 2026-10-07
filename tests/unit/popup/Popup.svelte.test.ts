@@ -16,6 +16,8 @@ beforeEach(async () => {
 
 afterEach(() => {
   vi.clearAllMocks();
+  // Tests that script a loading tab replace this; the next test starts from a loaded one.
+  (chrome.tabs.get as unknown as Mock).mockResolvedValue({ id: 1, url: '' });
 });
 
 /** onMount has asked the active tab for its state. */
@@ -193,7 +195,9 @@ describe('Popup site switch and status line', () => {
   );
 
   it('on a page extensions cannot run on, hides the switch and blocks the page actions', async () => {
-    const { sent } = onTab('chrome://extensions/');
+    // What Chrome really hands an extension without the "tabs" permission there: an id, no url.
+    (chrome.tabs.query as unknown as Mock).mockResolvedValue([{ id: 42, windowId: 1 }]);
+    const sent = chrome.tabs.sendMessage as unknown as Mock;
     const { findByText, findByRole, queryByRole } = render(Popup);
     expect(await findByText("Ega can't run on this page.")).toBeTruthy();
     expect(queryByRole('switch')).toBeNull();
@@ -201,6 +205,74 @@ describe('Popup site switch and status line', () => {
       (await findByRole('button', { name: 'Choose areas' })).getAttribute('aria-disabled'),
     ).toBe('true');
     expect(sent).not.toHaveBeenCalled();
+  });
+
+  it('the Web Store, whose address Ega can read, is a page it cannot run on too', async () => {
+    onTab('https://chromewebstore.google.com/detail/abc');
+    const { findByText } = render(Popup);
+    expect(await findByText("Ega can't run on this page.")).toBeTruthy();
+  });
+
+  it('the popup page opened in its own tab acts on the page tab, not on itself', async () => {
+    (chrome.tabs.query as unknown as Mock).mockResolvedValue([{ id: 42, windowId: 1 }]);
+    (chrome.tabs.getCurrent as unknown as Mock).mockResolvedValueOnce({ id: 42, windowId: 1 });
+    const { findByRole, queryByText } = render(Popup);
+    const primary = await findByRole('button', { name: 'Translate page' });
+    await mounted();
+    await vi.waitFor(() => expect(document.activeElement).toBe(primary));
+    expect(queryByText("Ega can't run on this page.")).toBeNull();
+    expect(primary.hasAttribute('aria-disabled')).toBe(false);
+  });
+
+  it('a page still loading is not called dead: the popup asks again once it loads', async () => {
+    const heldBack = { reason: 'english' };
+    (chrome.tabs.query as unknown as Mock).mockResolvedValue([
+      { id: 42, url: 'https://example.com/', status: 'loading' },
+    ]);
+    // The content script injects once the page is idle: the first two asks find nobody.
+    let asks = 0;
+    (chrome.tabs.sendMessage as unknown as Mock).mockImplementation(async () => {
+      asks += 1;
+      if (asks <= 2)
+        throw new Error('Could not establish connection. Receiving end does not exist.');
+      return { text: 'hi there', heldBack };
+    });
+    (chrome.tabs.get as unknown as Mock).mockImplementation(async () => ({
+      id: 42,
+      status: asks <= 2 ? 'loading' : 'complete',
+    }));
+    const { findByText, queryByText } = render(Popup);
+    expect(
+      await findByText('Bubble hidden: the text looks like English.', {}, { timeout: 3000 }),
+    ).toBeTruthy();
+    expect(queryByText('Reload this page to use Ega here.')).toBeNull();
+  });
+
+  it('a page action pressed while the page loads waits for it, then runs', async () => {
+    (chrome.tabs.query as unknown as Mock).mockResolvedValue([
+      { id: 42, url: 'https://example.com/', status: 'complete' },
+    ]);
+    let loaded = false;
+    const sent = chrome.tabs.sendMessage as unknown as Mock;
+    sent.mockImplementation(async (_id: number, msg: { kind: string }) => {
+      if (msg.kind === 'ega:get-selection') return { text: '' };
+      if (!loaded) throw new Error('Could not establish connection. Receiving end does not exist.');
+      return { ok: true };
+    });
+    // The page navigated after the popup asked: it is loading again, then done.
+    (chrome.tabs.get as unknown as Mock).mockImplementation(async () => {
+      const status = loaded ? 'complete' : 'loading';
+      loaded = true;
+      return { id: 42, status };
+    });
+    const closeSpy = vi.spyOn(window, 'close').mockImplementation(() => undefined);
+    const { findByRole, queryByText } = render(Popup);
+    await mounted();
+    await fireEvent.click(await findByRole('button', { name: 'Translate page' }));
+    await vi.waitFor(() => expect(sent).toHaveBeenCalledWith(42, { kind: 'page:translateAll' }));
+    await vi.waitFor(() => expect(closeSpy).toHaveBeenCalled(), { timeout: 3000 });
+    expect(queryByText('Reload this page to use Ega here.')).toBeNull();
+    closeSpy.mockRestore();
   });
 
   it('says to reload a page whose content script does not answer, and reloads it', async () => {

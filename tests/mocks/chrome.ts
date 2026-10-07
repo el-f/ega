@@ -168,6 +168,8 @@ export const chromeMock = {
   tabs: {
     query: vi.fn().mockResolvedValue([]),
     get: vi.fn().mockResolvedValue({ id: 1, url: '' }),
+    // The toolbar popup runs in no tab; the same page opened as a tab gets that tab here.
+    getCurrent: vi.fn().mockResolvedValue(undefined),
     sendMessage: vi.fn().mockResolvedValue({ ok: true }),
     onActivated: makeEvent<[chrome.tabs.OnActivatedInfo]>(),
     onUpdated: makeEvent<[number, chrome.tabs.OnUpdatedInfo, chrome.tabs.Tab]>(),

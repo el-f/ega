@@ -15,14 +15,15 @@
   import { debugCatch } from '@/shared/logger';
   import { MAX_SELECTION_CHARS, settingsSaveFailedMessage } from '@/shared/constants';
   import { selectionTrimmedMessage } from '@/shared/selection-cap-copy';
-  import { activeTab, openSidePanel as ctlOpenSidePanel, sendToPage } from './tab-actions';
   import {
-    askPage,
-    pageAccess,
-    popupPageState,
-    siteLabel,
-    type PopupPageState,
-  } from './page-state';
+    activeTab,
+    NO_RECEIVER,
+    openSidePanel as ctlOpenSidePanel,
+    ownTabId,
+    sendToPage,
+    sendWhenLoaded,
+  } from './tab-actions';
+  import { askPage, popupPageState, siteLabel, tabAccess, type PopupPageState } from './page-state';
   import { sendMsg, sendTabMsg, type Msg, type MsgReply } from '@/shared/messages';
   import { clearPopupDraft, readPopupDraft, writePopupDraft } from '@/shared/pending-popup-draft';
   import ToastHost from '@/shared/components/ToastHost.svelte';
@@ -54,11 +55,7 @@
   // Set while a switch write is in flight or after it failed, so the stored value does not fight the click.
   let siteOnOverride = $state<boolean | null>(null);
 
-  const access = $derived(
-    tabUrl === undefined || tabUrl.startsWith(chrome.runtime.getURL(''))
-      ? 'unknown'
-      : pageAccess(tabUrl),
-  );
+  let access = $state<'ok' | 'restricted' | 'unknown'>('unknown');
   const origin = $derived.by(() => {
     try {
       return new URL(tabUrl ?? '').origin;
@@ -130,9 +127,6 @@
       toastStore.push({ message: settingsSaveFailedMessage(ack.reason), variant: 'warning' });
     }
   }
-
-  // Chrome's wording when the tab has no content script: open before install or update.
-  const NO_RECEIVER = /Receiving end does not exist|Could not establish connection/i;
 
   function tabActionFailed(fallback: string, err: unknown, failedTab: number | undefined): void {
     const detail = err instanceof Error ? err.message : String(err);
@@ -320,16 +314,32 @@
   /** Asks the page, in the same tick the popup opens, for its selection and why the bubble stayed hidden. */
   async function readPage(): Promise<string> {
     let tab: chrome.tabs.Tab | null = null;
+    let own: number | undefined;
     try {
-      tab = await activeTab();
+      [tab, own] = await Promise.all([activeTab(), ownTabId()]);
     } catch (e) {
       debugCatch(e, 'popup.activeTab');
     }
     tabUrl = tab?.url;
     tabId = tab?.id;
+    access = tabAccess(tab, own);
     if (tab?.id === undefined || access !== 'ok') return '';
-    const got = await askPage(tab.id, (id) => sendTabMsg(id, { kind: 'ega:get-selection' }));
+    const id = tab.id;
+    const ask = (): Promise<MsgReply['ega:get-selection'] | undefined> =>
+      sendTabMsg(id, { kind: 'ega:get-selection' });
+    const got = await askPage(id, ask);
     pageReply = got.reply;
+    if (got.rejected && tab.status === 'loading') {
+      // A loading page has no content script until it is idle; it is not a dead page, so ask again then.
+      void sendWhenLoaded(id, ask).then(
+        (reply) => {
+          pageReply = reply;
+          pageRejected = false;
+        },
+        () => (pageRejected = true),
+      );
+      return '';
+    }
     pageRejected = got.rejected;
     return got.reply?.text ?? '';
   }

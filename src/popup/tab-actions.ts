@@ -37,6 +37,39 @@ export async function activeTab(): Promise<chrome.tabs.Tab | null> {
   return tab ?? null;
 }
 
+/** The tab this page runs in: none for the toolbar popup, the tab itself when the popup page is opened as a tab. */
+export async function ownTabId(): Promise<number | undefined> {
+  return (await chrome.tabs.getCurrent())?.id;
+}
+
+/** Chrome's words when nothing in the tab listens: a page opened before Ega was installed or updated, or still loading. */
+export const NO_RECEIVER = /Receiving end does not exist|Could not establish connection/i;
+
+const LOAD_WAIT_MS = 10_000;
+const LOAD_POLL_MS = 250;
+
+/** Sends until the tab's content script answers. A loading page has none until it is idle; a loaded page that never answers fails at once. */
+export async function sendWhenLoaded<T>(tabId: number, send: () => Promise<T>): Promise<T> {
+  const deadline = Date.now() + LOAD_WAIT_MS;
+  let sawLoading = false;
+  let graced = false;
+  for (;;) {
+    try {
+      return await send();
+    } catch (e) {
+      const loading =
+        NO_RECEIVER.test(String(e)) &&
+        Date.now() < deadline &&
+        (await chrome.tabs.get(tabId).catch(() => undefined))?.status === 'loading';
+      if (loading) sawLoading = true;
+      // The script lands a moment after the load ends, so a tab that was loading gets one more try.
+      else if (sawLoading && !graced) graced = true;
+      else throw e;
+      await new Promise((r) => setTimeout(r, LOAD_POLL_MS));
+    }
+  }
+}
+
 /** Sends one page action to the content tab and closes the popup. False when nothing was dispatched. */
 export async function sendToPage(msg: Msg, opts: TargetCallbacks): Promise<boolean> {
   let tabId: number | undefined;
@@ -46,8 +79,9 @@ export async function sendToPage(msg: Msg, opts: TargetCallbacks): Promise<boole
       opts.onNoTarget?.();
       return false;
     }
-    tabId = tab.id;
-    await chrome.tabs.sendMessage(tab.id, msg);
+    const id = tab.id;
+    tabId = id;
+    await sendWhenLoaded(id, () => chrome.tabs.sendMessage(id, msg));
     window.close();
     return true;
   } catch (e) {

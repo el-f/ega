@@ -1,5 +1,28 @@
 import { describe, it, expect, vi } from 'vitest';
-import { askPage, pageAccess, popupPageState, siteLabel } from '@/popup/page-state';
+import { askPage, pageAccess, popupPageState, siteLabel, tabAccess } from '@/popup/page-state';
+
+// Ega has no "tabs" permission: Chrome gives it a tab's url only where its host permissions reach.
+describe('tabAccess', () => {
+  it.each([
+    ['a website', { id: 7, url: 'https://example.com/a' }, undefined, 'ok'],
+    [
+      'the Web Store, whose url Ega can read',
+      { id: 7, url: 'https://chromewebstore.google.com/detail/x' },
+      undefined,
+      'restricted',
+    ],
+    [
+      'a chrome:// page or the New Tab page: an id, no url',
+      { id: 7, windowId: 1 },
+      undefined,
+      'restricted',
+    ],
+    ['the popup page itself, opened as a tab', { id: 7, windowId: 1 }, 7, 'unknown'],
+    ['no tab at all', null, undefined, 'unknown'],
+  ])('%s', (_, tab, ownTabId, expected) => {
+    expect(tabAccess(tab, ownTabId)).toBe(expected);
+  });
+});
 
 describe('pageAccess', () => {
   it.each([
