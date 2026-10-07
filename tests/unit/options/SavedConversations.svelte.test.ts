@@ -15,8 +15,9 @@ function userTurn(id: string, content: string): Turn {
   return { id, role: 'user', kind: 'translate', status: 'idle', createdAt: 1, content };
 }
 
+// The row's first line: the conversation's title, or its site when the row has no facts.
 const sites = (c: HTMLElement): string[] =>
-  [...c.querySelectorAll('.conv-site')].map((e) => e.textContent.trim());
+  [...c.querySelectorAll('[data-ega-conv-title]')].map((e) => e.textContent.trim());
 
 describe('SavedConversations', () => {
   beforeEach(() => {
@@ -104,5 +105,50 @@ describe('SavedConversations', () => {
     await waitFor(() => expect(container.textContent).toMatch(/No saved conversations/));
     await saveThread('https://late.test', [userTurn('l1', 'late')]);
     await waitFor(() => expect(sites(container)).toEqual(['late.test']));
+  });
+});
+
+// The side panel now keeps several conversations per site and writes each row's facts into the index.
+describe('SavedConversations: one row per conversation, with its facts', () => {
+  async function seedIndex(threads: Record<string, unknown>[]): Promise<void> {
+    await chrome.storage.local.set({ 'ega:conv:index': { version: 1, threads } });
+  }
+  const primary = (c: HTMLElement): string[] =>
+    [...c.querySelectorAll('[data-ega-conv-title]')].map((e) => e.textContent.trim());
+  const meta = (c: HTMLElement): string[] =>
+    [...c.querySelectorAll('.conv-meta')].map((e) => e.textContent.replace(/\s+/g, ' ').trim());
+
+  it('names each conversation by its first message, then the site and the message count', async () => {
+    await seedIndex([
+      {
+        origin: 'https://example.com#k1',
+        updatedAt: 2_000,
+        bytes: 2048,
+        title: 'Hola, ¿cómo estás?',
+        messages: 4,
+      },
+      {
+        origin: 'https://example.com#k2',
+        updatedAt: 1_000,
+        bytes: 1024,
+        imageFirst: true,
+        messages: 1,
+      },
+    ]);
+    const { container, getByRole } = render(SavedConversations);
+    await waitFor(() => expect(primary(container)).toEqual(['Hola, ¿cómo estás?', 'Image']));
+    expect(meta(container)[0]).toMatch(/^example\.com · 4 messages · /);
+    expect(meta(container)[1]).toMatch(/^example\.com · 1 message · /);
+    expect(
+      getByRole('button', { name: 'Delete conversation "Hola, ¿cómo estás?" on example.com' }),
+    ).toBeTruthy();
+  });
+
+  it('a row saved before the facts existed shows its site, as before', async () => {
+    await seedIndex([{ origin: 'https://old.test', updatedAt: 1_000, bytes: 1024 }]);
+    const { container, getByRole } = render(SavedConversations);
+    await waitFor(() => expect(primary(container)).toEqual(['old.test']));
+    expect(meta(container)[0]).not.toMatch(/old\.test|message/);
+    expect(getByRole('button', { name: 'Delete conversation for old.test' })).toBeTruthy();
   });
 });

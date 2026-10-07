@@ -74,7 +74,8 @@ test('Delete empties an open side panel for that thread, and Delete all removes 
   await expect(card.getByText('example.com')).toBeVisible();
   timeline.markStep('list-shown');
 
-  await card.getByRole('button', { name: 'Delete conversation for Other pages' }).click();
+  // A row with facts names its first message; an older row names only its site.
+  await card.getByRole('button', { name: /^Delete conversation .*Other pages$/ }).click();
   const dialog = options.locator('.ega-dialog', { hasText: 'Delete this conversation?' });
   await expect(dialog).toBeVisible({ timeout: 5_000 });
   await dialog.getByRole('button', { name: 'Delete', exact: true }).click();

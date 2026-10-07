@@ -4250,11 +4250,22 @@ test('Options Glossary and rules — entries and rules in every state (light + d
   }
 });
 
+/** First messages for the seeded rows, in the index shape the side panel writes (title, message count); the last row has no facts, as one saved before them. */
+const CONV_TITLES = [
+  'Hola, ¿cómo estás?',
+  'What does "on the fence" mean here?',
+  null,
+  'Summarize this release note for the team in two short sentences, keeping the version numbers',
+  'Bonjour tout le monde',
+];
+
 function conversations(n: number, now: number): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   const threads: unknown[] = [];
   for (let i = 0; i < n; i++) {
-    const origin = i === 0 ? 'general' : `https://site${i}.example.com`;
+    // Two conversations on site1: a site can hold several, each id "<site>#<suffix>".
+    const site = i === 0 ? 'general' : `https://site${Math.max(1, i - 1)}.example.com`;
+    const origin = i === 1 || i === 2 ? `${site}#c${i}` : site;
     const turns = [
       {
         id: `t${i}`,
@@ -4266,7 +4277,14 @@ function conversations(n: number, now: number): Record<string, unknown> {
       },
     ];
     out[`ega:conv:t:${origin}`] = { version: 1, origin, turns, updatedAt: now - i * 60_000 };
-    threads.push({ origin, updatedAt: now - i * 60_000, bytes: 2048 * (i + 1) });
+    const title = CONV_TITLES[i];
+    const facts =
+      i === n - 1
+        ? {}
+        : title === null
+          ? { imageFirst: true, messages: 2 }
+          : { ...(title === undefined ? {} : { title }), messages: 2 * i + 2 };
+    threads.push({ origin, updatedAt: now - i * 60_000, bytes: 2048 * (i + 1), ...facts });
   }
   out['ega:conv:index'] = { version: 1, threads };
   return out;
@@ -4363,7 +4381,9 @@ test('Options Advanced and About — data, diagnostics and about in every state 
     await page.locator('[data-ega-setting="advanced.savedConversations"]').scrollIntoViewIfNeeded();
     await optShot(page, 'data-conversations-many', theme, {
       userAction: 'user has six saved conversations',
-      expectations: ['site, last used and size per row; Delete all in the header'],
+      expectations: [
+        'each row: the first message (or Image), then site, message count, last used and size; an older row shows its site; Delete all in the header',
+      ],
     });
     await page.locator('[data-ega-site-override-clear-all]').click();
     await page.locator('[data-sonner-toast]').first().waitFor();

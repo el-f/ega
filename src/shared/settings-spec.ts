@@ -880,7 +880,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'advanced.savedConversations',
     label: 'Saved conversations',
-    description: 'Side panel conversations kept on this computer, one per site',
+    description: 'Side panel conversations kept on this computer',
     keywords: ['conversation', 'chat', 'history', 'thread', 'side panel', 'delete'],
     tab: 'advanced',
     subTab: 'data',

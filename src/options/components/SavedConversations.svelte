@@ -18,12 +18,40 @@
     type IndexEntry,
   } from '@/shared/saved-conversations';
 
-  let rows = $state.raw<IndexEntry[]>([]);
+  /** The facts the side panel writes into each index row once a site can hold several conversations; a row saved before them has none. */
+  type Row = IndexEntry & { title?: string; imageFirst?: true; messages?: number };
+
+  let rows = $state.raw<Row[]>([]);
   let loaded = $state(false);
 
   async function refresh(): Promise<void> {
     rows = await listSavedConversations();
     loaded = true;
+  }
+
+  /** A conversation id is "<site>#<suffix>" once a site can hold several; an older id is the site itself. */
+  function siteLabel(row: Row): string {
+    return conversationLabel(row.origin.split('#')[0] ?? row.origin);
+  }
+
+  /** A row's name: its first message, "Image" when that was an image, else its site. */
+  function rowTitle(row: Row): string | null {
+    return row.title ?? (row.imageFirst ? 'Image' : null);
+  }
+
+  function rowMeta(row: Row, site: string, titled: boolean): string {
+    const count =
+      row.messages === undefined
+        ? null
+        : `${row.messages} ${row.messages === 1 ? 'message' : 'messages'}`;
+    return [
+      titled ? site : null,
+      count,
+      new Date(row.updatedAt).toLocaleString(),
+      sizeLabel(row.bytes),
+    ]
+      .filter((part) => part !== null)
+      .join(' · ');
   }
 
   let stop: (() => void) | null = null;
@@ -53,10 +81,12 @@
     await refresh();
   }
 
-  async function deleteOne(row: IndexEntry): Promise<void> {
+  async function deleteOne(row: Row): Promise<void> {
+    const title = rowTitle(row);
+    const site = siteLabel(row);
     const ok = await confirmDialog({
       title: 'Delete this conversation?',
-      body: `Delete the side panel conversation for ${conversationLabel(row.origin)}? An open side panel empties too. This cannot be undone.`,
+      body: `Delete the side panel conversation ${title === null ? `for ${site}` : `"${title}" on ${site}`}? An open side panel empties too. This cannot be undone.`,
       confirmLabel: 'Delete',
       danger: true,
     });
@@ -79,7 +109,7 @@
 <div data-ega-setting="advanced.savedConversations">
   <SectionCard
     title="Saved conversations"
-    description="Side panel conversations kept on this computer, one per site"
+    description="Side panel conversations kept on this computer"
   >
     {#snippet headerActions()}
       {#if rows.length > 0}
@@ -94,15 +124,21 @@
     {#if rows.length > 0}
       <ul class="conv-list">
         {#each rows as row (row.origin)}
-          {@const label = conversationLabel(row.origin)}
+          {@const site = siteLabel(row)}
+          {@const title = rowTitle(row)}
           <li class="conv-row">
-            <span class="conv-site" title={label}>{label}</span>
-            <span class="conv-meta">
-              {new Date(row.updatedAt).toLocaleString()} · {sizeLabel(row.bytes)}
+            <span class="conv-main">
+              <!-- A long first message is cut to one line; the full text is in its title and the Delete name. -->
+              <span class="conv-title" title={title ?? site} data-ega-conv-title data-ega-truncates
+                >{title ?? site}</span
+              >
+              <span class="conv-meta">{rowMeta(row, site, title !== null)}</span>
             </span>
             <IconButton
               icon={Trash2}
-              ariaLabel="Delete conversation for {label}"
+              ariaLabel={title === null
+                ? `Delete conversation for ${site}`
+                : `Delete conversation "${title}" on ${site}`}
               tooltip="Delete"
               size="sm"
               onclick={() => void deleteOne(row)}
@@ -113,7 +149,7 @@
     {:else if loaded}
       <EmptyState
         title="No saved conversations"
-        description="Side panel conversations show here, one per site"
+        description="Side panel conversations show here"
         icon={PanelRight}
       />
     {/if}
@@ -129,15 +165,21 @@
   /* Rows sit in the card, so a hairline sets them apart, not a box. */
   .conv-row {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     gap: var(--space-3);
     min-height: 40px;
+    padding-block: var(--space-1);
+  }
+  .conv-main {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
   }
   .conv-row + .conv-row {
     border-top: 1px solid var(--color-border-subtle);
   }
-  .conv-site {
+  .conv-title {
     font-size: var(--fs-base);
     color: var(--color-fg);
     overflow: hidden;
