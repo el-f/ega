@@ -74,6 +74,32 @@ async function applyTheme(sp: Page, theme: 'light' | 'dark'): Promise<void> {
   await sp.waitForTimeout(150); // wait for the custom-property cascade to repaint (no observable end state)
 }
 
+/**
+ * Waits until a menu or popover sits in the panel and holds still. bits mounts it above the page, where Playwright
+ * already calls it visible, and moves it into place a frame or more later.
+ */
+async function settle(layer: Locator, what: string): Promise<void> {
+  await layer.evaluate(
+    (el, name) =>
+      new Promise<void>((resolve, reject) => {
+        let last = '';
+        let still = 0;
+        let frames = 0;
+        const frame = (): void => {
+          const r = el.getBoundingClientRect();
+          const now = `${r.left} ${r.top} ${r.width} ${r.height}`;
+          still = now === last && r.bottom > 0 && r.top < window.innerHeight ? still + 1 : 0;
+          last = now;
+          if (still >= 2) resolve();
+          else if (++frames > 120) reject(new Error(`${name}: never held still in the panel`));
+          else requestAnimationFrame(frame);
+        };
+        requestAnimationFrame(frame);
+      }),
+    what,
+  );
+}
+
 /** Opens a reply menu on the newest reply unless it is open already. */
 async function keepMenu(sp: Page, which: 'refine' | 'more'): Promise<void> {
   const trigger = newestReply(sp).locator(`[data-ega-action="${which}"]`);
@@ -634,23 +660,20 @@ test('check 5 focus never lands on body after an action', async () => {
 
   // Popovers and menus close back onto their trigger, with Esc and with a click outside.
   // A key or click sent before the layer is up races the layer's own focus move.
-  const openThen = async (trigger: string, layer: Locator): Promise<void> => {
+  const openThen = async (trigger: string, layer: Locator): Promise<Locator> => {
     await sp.locator(trigger).click();
     await layer.waitFor({ state: 'visible' });
+    return layer;
   };
-  const triggers: { name: string; open: () => Promise<void>; trigger: string }[] = [
+  const triggers: { name: string; open: () => Promise<Locator>; trigger: string }[] = [
     {
       name: 'Refine menu',
-      open: async () => {
-        await openReplyMenu(sp, 'refine');
-      },
+      open: () => openReplyMenu(sp, 'refine'),
       trigger: '[data-ega-action="refine"]',
     },
     {
       name: 'reply More menu',
-      open: async () => {
-        await openReplyMenu(sp, 'more');
-      },
+      open: () => openReplyMenu(sp, 'more'),
       trigger: '[data-ega-action="more"]',
     },
     {
@@ -674,7 +697,7 @@ test('check 5 focus never lands on body after an action', async () => {
       trigger: '[data-ega-backend-chip]',
     },
   ];
-  // The click lands on a point of the message box no open layer covers: one over its middle would pick a menu item.
+  // Click a point of the message box the settled layer leaves free: one over its middle would pick a menu item.
   const boxPoint = async (name: string): Promise<{ x: number; y: number }> => {
     const at = await sp.evaluate(() => {
       const field = document.querySelector<HTMLElement>('#sp-text');
@@ -696,7 +719,7 @@ test('check 5 focus never lands on body after an action', async () => {
     await t.open();
     await sp.keyboard.press('Escape');
     await expectFocus(`${t.name} closed with Esc`, t.trigger);
-    await t.open();
+    await settle(await t.open(), t.name);
     const at = await boxPoint(t.name);
     await sp.mouse.click(at.x, at.y);
     await expectFocus(`${t.name} closed by a click on the message box`, 'textarea');
@@ -901,6 +924,7 @@ test('popovers and menus stay inside a short panel and scroll inside themselves'
       layer: Locator,
       size: { width: number; height: number },
     ) => {
+      await settle(layer, `${what} at ${size.width}x${size.height}`);
       const box = await layer.boundingBox();
       if (box === null) throw new Error(`${what}: no box`);
       expect
@@ -976,6 +1000,7 @@ test('the panel popovers keep the 12px gutter and one text edge', async () => {
     await sp.locator('[data-ega-backend-chip]').click();
     const backends = sp.getByRole('dialog', { name: 'Backends' });
     await backends.waitFor({ state: 'visible' });
+    await settle(backends, `Backends at ${size.width}`);
     for (const body of ['.chain-help', '.chain-pos']) {
       const e = await edges(backends, body);
       const where = `Backends at ${size.width}, ${body}`;
@@ -988,6 +1013,7 @@ test('the panel popovers keep the 12px gutter and one text edge', async () => {
     await (await openReplyMenu(sp, 'refine')).locator('[data-ega-translate-into-other]').click();
     const into = sp.getByRole('dialog', { name: 'Translate into' });
     await into.waitFor({ state: 'visible' });
+    await settle(into, `Translate into at ${size.width}`);
     const e = await edges(into, '.rm-into-label');
     const where = `Translate into at ${size.width}`;
     expect.soft(e.left, `${where}: left gutter`).toBeGreaterThanOrEqual(11.5);
@@ -1052,6 +1078,8 @@ test('an open menu keeps its row, its trigger looks open, its keyboard item is r
       const menu = sp.getByRole('menu');
       await menu.waitFor({ state: 'visible' });
       await expect(menu.locator('[role^="menuitem"]').first(), where).toBeFocused();
+      // Reduced motion still gives every style change a 0.01ms transition, so a read in the same frame sees the old value.
+      await settle(menu, where);
       expect
         .soft(
           await older.locator('.ega-reply-actions').evaluate((el) => getComputedStyle(el).opacity),
