@@ -2,11 +2,13 @@
 import { test, expect, type Locator, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import {
+  customTask,
   launchExtension,
   mockAnthropic,
   newestReply,
   openReplyMenu,
   resetRoutes,
+  seedCustomTasks,
   seedSettings,
   sendFromPanel,
   type ExtensionHandle,
@@ -832,6 +834,56 @@ test('the meta line cuts no word at 256, and Stop shows its whole ring', async (
   });
   expect(fits, 'the Stop ring sits inside the line that clips it').toBe(true);
   await sp.close();
+});
+
+// A 320px panel at 125% zoom on a 768px laptop is about 256x480 CSS px: layers fit the space they open into, and scroll.
+test('popovers and menus stay inside a short panel and scroll inside themselves', async () => {
+  test.setTimeout(120_000);
+  await seedCustomTasks(ext.context, ext.extensionId, [
+    customTask({ id: 'c1', label: 'Tweet summary' }),
+    customTask({ id: 'c2', label: 'Make it sound like a pirate captain, arr' }),
+    customTask({ id: 'c3', label: 'Legal' }),
+    customTask({ id: 'c4', label: 'Haiku' }),
+    customTask({ id: 'c5', label: 'Release notes' }),
+    customTask({ id: 'c6', label: 'Bug report' }),
+  ]);
+  try {
+    const sp = await panelWith([{ id: SITE, turns: TWO_PAIRS }]);
+    const inView = async (
+      what: string,
+      layer: Locator,
+      size: { width: number; height: number },
+    ) => {
+      const box = await layer.boundingBox();
+      if (box === null) throw new Error(`${what}: no box`);
+      expect
+        .soft(box.y, `${what} at ${size.width}x${size.height}: top edge`)
+        .toBeGreaterThanOrEqual(0);
+      expect
+        .soft(box.y + box.height, `${what} at ${size.width}x${size.height}: bottom edge`)
+        .toBeLessThanOrEqual(size.height);
+    };
+    for (const size of [
+      { width: 256, height: 480 },
+      { width: 256, height: 608 },
+    ]) {
+      await sp.setViewportSize(size);
+      await sp.waitForTimeout(80); // wait for layout (no observable end state)
+      await sp.locator('[data-ega-mode-chip]').click();
+      const popover = sp.locator('[data-ega-mode-popover]');
+      await popover.waitFor({ state: 'visible' });
+      await inView('Next message popover', sp.getByRole('dialog', { name: 'Next message' }), size);
+      await sp.keyboard.press('Escape');
+      await popover.waitFor({ state: 'hidden' });
+      const menu = await openReplyMenu(sp, 'more');
+      await inView('the newest reply’s More menu', menu, size);
+      await sp.keyboard.press('Escape');
+      await menu.waitFor({ state: 'hidden' });
+    }
+    await sp.close();
+  } finally {
+    await seedCustomTasks(ext.context, ext.extensionId, []);
+  }
 });
 
 /** A CSS color as the browser computes it, so a token compares with a computed border. */

@@ -116,9 +116,14 @@
 <style>
   /* :global — bits renders every panel menu in a portal on <body>; these are the one menu look the panel uses. */
   :global(.sp-menu) {
+    box-sizing: border-box;
     min-inline-size: 220px;
     max-inline-size: calc(100vw - var(--space-4));
-    max-block-size: calc(100vh - var(--space-4));
+    /* No taller than the room on the side it opens to; a long menu scrolls inside itself (spec §1.7). */
+    max-block-size: var(
+      --bits-dropdown-menu-content-available-height,
+      calc(100vh - var(--space-4))
+    );
     overflow-y: auto;
     padding: var(--space-1);
     background: var(--color-bg-elevated);

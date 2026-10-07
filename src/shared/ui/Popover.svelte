@@ -107,6 +107,10 @@
 
 <style>
   :global(.ega-popover) {
+    /* No taller than the room on the side it opens to (a short or zoomed panel), then it scrolls. */
+    box-sizing: border-box;
+    max-block-size: var(--bits-popover-content-available-height, none);
+    overflow-y: auto;
     background: var(--color-bg);
     color: var(--color-fg);
     border: 1px solid var(--color-border);

@@ -15,7 +15,8 @@ const MIN = 60_000;
 export const WIDTHS = [
   { tag: '400', viewport: { width: 400, height: 760 }, at: '400px' },
   { tag: '320', viewport: { width: 320, height: 760 }, at: '320px' },
-  { tag: '256z', viewport: { width: 256, height: 760 }, at: '320px at 125% zoom' },
+  // A 320x760 panel at 125% zoom is 256x608 CSS px; a taller page would hide every vertical overflow.
+  { tag: '256z', viewport: { width: 256, height: 608 }, at: '320px at 125% zoom' },
 ] as const;
 
 /**
