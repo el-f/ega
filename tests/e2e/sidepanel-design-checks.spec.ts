@@ -1,5 +1,5 @@
 // Side panel spec §13.2: the countable design rules, measured on the real layout jsdom cannot give.
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Locator, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import {
   launchExtension,
@@ -476,6 +476,8 @@ test('checks 1-4, 6, 7 and 9-12 on every state at 400, 320 and 256 (320 at 125%)
         await sp.setViewportSize(w.viewport);
         await sp.waitForTimeout(80); // wait for layout and popover reposition (no observable end state)
         await state.ensure?.(sp);
+        // Off every control: a hovered button's tooltip pseudo-element would count as its overflow.
+        await sp.mouse.move(2, 380);
         const where = `${state.name}-${w.tag}-${theme}`;
         for (const f of await layoutFindings(sp)) {
           const check = CHECKS.find((c) => c.startsWith(`${f.check} `));
@@ -510,7 +512,8 @@ async function focusOn(sp: Page): Promise<string> {
     if (!a || a === document.body) return 'body';
     if (a.id === 'sp-text') return 'textarea';
     const ega = [...a.attributes].find((x) => x.name.startsWith('data-ega-'));
-    return ega ? `[${ega.name}${ega.value ? `="${ega.value}"` : ''}]` : a.tagName.toLowerCase();
+    const value = ega && ega.value !== '' && ega.value !== 'true' ? `="${ega.value}"` : '';
+    return ega ? `[${ega.name}${value}]` : a.tagName.toLowerCase();
   });
 }
 
@@ -580,6 +583,11 @@ test('check 5 focus never lands on body after an action', async () => {
   await expectFocus('Undo of New conversation', 'textarea');
 
   // Popovers and menus close back onto their trigger, with Esc and with a click outside.
+  // A key or click sent before the layer is up races the layer's own focus move.
+  const openThen = async (trigger: string, layer: Locator): Promise<void> => {
+    await sp.locator(trigger).click();
+    await layer.waitFor({ state: 'visible' });
+  };
   const triggers: { name: string; open: () => Promise<void>; trigger: string }[] = [
     {
       name: 'Refine menu',
@@ -597,22 +605,22 @@ test('check 5 focus never lands on body after an action', async () => {
     },
     {
       name: 'header More menu',
-      open: () => sp.locator('[data-ega-header-more]').click(),
+      open: () => openThen('[data-ega-header-more]', sp.getByRole('menu')),
       trigger: '[data-ega-header-more]',
     },
     {
       name: 'mode popover',
-      open: () => sp.locator('[data-ega-mode-chip]').click(),
+      open: () => openThen('[data-ega-mode-chip]', sp.locator('[data-ega-mode-popover]')),
       trigger: '[data-ega-mode-chip]',
     },
     {
       name: 'conversations',
-      open: () => sp.locator('[data-ega-header-site]').click(),
+      open: () => openThen('[data-ega-header-site]', sp.locator('[data-ega-conversations]')),
       trigger: '[data-ega-header-site]',
     },
     {
       name: 'backend popover',
-      open: () => sp.locator('[data-ega-backend-chip]').click(),
+      open: () => openThen('[data-ega-backend-chip]', sp.getByRole('dialog', { name: 'Backends' })),
       trigger: '[data-ega-backend-chip]',
     },
   ];

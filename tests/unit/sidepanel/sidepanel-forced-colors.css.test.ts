@@ -12,7 +12,8 @@ const rule = (src: string, selector: string): string => {
 
 describe('side-panel cues survive forced colors', () => {
   it('keeps the user bubble in a box when the tint goes', () => {
-    const body = rule(read('src/sidepanel/conversation/UserTurn.svelte'), '\\.ega-bubble');
+    // Anchored to a line start: the focus-ring rule's selector also ends in .ega-bubble.
+    const body = rule(read('src/sidepanel/conversation/UserTurn.svelte'), '\\n\\s*\\.ega-bubble');
     expect(body).toMatch(/border:\s*1px solid transparent/);
   });
 
