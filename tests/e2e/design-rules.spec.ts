@@ -100,7 +100,7 @@ test('flags cut-off text, undeclared ellipsis and off-scale font sizes, and noth
       '<div role="tab" data-ega-probe-tab style="width:30px;overflow:hidden;white-space:nowrap;font-size:var(--fs-sm)">Appearance</div>',
       '<button data-ega-probe-tall style="width:200px;height:12px;overflow:hidden;font-size:var(--fs-sm)">Two words</button>',
       '<span style="display:block;width:300px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:var(--fs-sm)">Short</span>',
-      // R17: an ellipsis passes only on text marked data-ega-truncates whose full text is in a written name.
+      // R17: an ellipsis passes only on text marked data-ega-truncates whose full text is in the accessible name.
       `<button aria-label="Open: A label far too long for this button" style="width:120px;font-size:var(--fs-sm)"><span data-ega-probe-ok-aria data-ega-truncates style="${ellipsis}">A label far too long for this button</span></button>`,
       `<span data-ega-probe-ok-title data-ega-truncates title="A title far too long for its box" style="${ellipsis};width:100px;font-size:var(--fs-sm)">A title far too long for its box</span>`,
       '<span id="ega-probe-name" class="ega-sr-only">A name far too long for its box</span>',
@@ -109,6 +109,13 @@ test('flags cut-off text, undeclared ellipsis and off-scale font sizes, and noth
       `<div data-ega-truncates><span data-ega-probe-marker-above title="A title far too long for its box" style="${ellipsis};width:100px;font-size:var(--fs-sm)">A title far too long for its box</span></div>`,
       `<button aria-label="Open" style="width:120px;font-size:var(--fs-sm)"><span data-ega-probe-partial-name data-ega-truncates style="${ellipsis}">Another label far too long here</span></button>`,
       `<span data-ega-probe-no-name data-ega-truncates style="${ellipsis};width:100px;font-size:var(--fs-sm)">An unnamed label far too long</span>`,
+      // The name is the one a screen reader gets: aria-labelledby, then aria-label, then the control's own text, then title.
+      `<button aria-label="Open" style="width:120px;font-size:var(--fs-sm)"><span data-ega-probe-title-masked data-ega-truncates title="Another label far too long here" style="${ellipsis}">Another label far too long here</span></button>`,
+      `<button style="width:140px;font-size:var(--fs-sm)"><span data-ega-probe-ok-content data-ega-truncates style="${ellipsis}">Translate to a language far too long</span></button>`,
+      '<span id="ega-probe-open" class="ega-sr-only">Open</span>',
+      `<button aria-labelledby="ega-probe-open" aria-label="Open: Another label far too long now" style="width:120px;font-size:var(--fs-sm)"><span data-ega-probe-labelledby-wins data-ega-truncates style="${ellipsis}">Another label far too long now</span></button>`,
+      `<label for="ega-probe-field" data-ega-probe-ok-label data-ega-truncates style="${ellipsis};width:100px;font-size:var(--fs-sm)">A field label far too long here</label><input id="ega-probe-field" style="width:60px">`,
+      `<label for="ega-probe-field-2" data-ega-probe-label-masked data-ega-truncates style="${ellipsis};width:100px;font-size:var(--fs-sm)">Another field label far too long</label><input id="ega-probe-field-2" aria-label="Search" style="width:60px">`,
       `<button aria-label="A label far too long for this button" style="width:120px;font-size:var(--fs-sm)"><span data-ega-probe-no-marker style="${ellipsis}">A label far too long for this button</span></button>`,
     ].join('');
     document.body.prepend(box);
@@ -118,11 +125,14 @@ test('flags cut-off text, undeclared ellipsis and off-scale font sizes, and noth
   expect(added).toEqual([
     'clip button[data-ega-probe-clip] "Translate this page"',
     'clip div[data-ega-probe-tab] "Appearance"',
+    'clip label[data-ega-probe-label-masked] "Another field label far too long"',
     'clip span[data-ega-probe-ellipsis] "A label far too long for this button"',
+    'clip span[data-ega-probe-labelledby-wins] "Another label far too long now"',
     'clip span[data-ega-probe-marker-above] "A title far too long for its box"',
     'clip span[data-ega-probe-no-marker] "A label far too long for this button"',
     'clip span[data-ega-probe-no-name] "An unnamed label far too long"',
     'clip span[data-ega-probe-partial-name] "Another label far too long here"',
+    'clip span[data-ega-probe-title-masked] "Another label far too long here"',
     'clip-y button[data-ega-probe-tall] "Two words"',
     'font 11px span[data-ega-probe-tiny] "Tiny meta"',
   ]);

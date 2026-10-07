@@ -22,9 +22,8 @@ if (recordRefused !== null) throw new Error(recordRefused);
  * Returns one line per broken rule, stable across runs so a baseline can list known debt:
  * - `clip <element>`: a control, tab, option, heading or link whose text is wider than its box, or any text an
  *   ellipsis actually shortens (a span inside a button included). R17: an ellipsis passes only when the cut element
- *   itself carries `data-ega-truncates` (a marker on a container does not count) and the full text is in a written
- *   name (aria-label, the text an aria-labelledby points at, or title) of the element or of its nearest interactive
- *   or labelled ancestor.
+ *   itself carries `data-ega-truncates` (a marker on a container does not count) and the full text is in the
+ *   accessible name of the nearest control at or above it (the control its label is for, else the element itself).
  * - `clip-y <element>`: a control whose content is taller than its box.
  * - `font <px> <element>`: text whose computed size is not one of the --fs-* tokens.
  */
@@ -58,25 +57,35 @@ export async function designRuleViolations(page: Page): Promise<string[]> {
       el.getBoundingClientRect().width > 1;
 
     const squash = (s: string | null): string => (s ?? '').replace(/\s+/g, ' ').trim();
-    // The names an author wrote for an element: aria-label, the text aria-labelledby points at, and title.
-    const writtenNames = (el: Element): string[] => {
+    // Controls hold the name of the text inside them. The roles below are named by their own text.
+    const nameHolders =
+      'button, a[href], summary, [role="tab"], [role="option"], [role="menuitem"], [role="button"], [role="link"]';
+    const nameFromContent = `${nameHolders}, h1, h2, h3, h4, h5, h6, [role="heading"]`;
+    // The accessible name in accname order: aria-labelledby, aria-label, native labels, own text, title. Plain text only.
+    const accessibleName = (el: Element): string => {
       const scope = el.getRootNode() as Document | ShadowRoot;
       const ids = (el.getAttribute('aria-labelledby') ?? '').split(/\s+/).filter(Boolean);
-      const labelled = ids.map((id) => scope.getElementById(id)?.textContent ?? '').join(' ');
-      return [el.getAttribute('aria-label'), labelled, el.getAttribute('title')]
-        .map(squash)
-        .filter((name) => name !== '');
+      const labelledBy = ids.map((id) => scope.getElementById(id)?.textContent ?? '').join(' ');
+      const labels = [...((el as HTMLInputElement).labels ?? [])].map((l) => l.textContent);
+      return (
+        [
+          labelledBy,
+          el.getAttribute('aria-label'),
+          labels.join(' '),
+          el.matches(nameFromContent) ? el.textContent : '',
+          el.getAttribute('title'),
+        ]
+          .map(squash)
+          .find((name) => name !== '') ?? ''
+      );
     };
-    const named =
-      'button, a[href], select, input, textarea, summary, [role="button"], [role="link"], [role="tab"], [role="option"], [role="menuitem"], [aria-label], [aria-labelledby], [title]';
     const ellipsisCut = (el: Element): boolean =>
       getComputedStyle(el).textOverflow === 'ellipsis' && el.scrollWidth > el.clientWidth + 1;
+    // R17: the cut element has the marker, and the name of its holder (nearest control, else its label's control, else itself) has the whole text.
     const truncationDeclared = (el: Element): boolean => {
       if (!el.hasAttribute('data-ega-truncates')) return false;
-      const full = squash(el.textContent);
-      return [el, el.parentElement?.closest(named) ?? null].some(
-        (holder) => holder !== null && writtenNames(holder).some((name) => name.includes(full)),
-      );
+      const holder = el.closest(nameHolders) ?? el.closest('label')?.control ?? el;
+      return accessibleName(holder).includes(squash(el.textContent));
     };
 
     const out = new Set<string>();
