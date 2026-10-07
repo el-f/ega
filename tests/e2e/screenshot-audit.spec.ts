@@ -4296,6 +4296,12 @@ test('Options Advanced and About — data, diagnostics and about in every state 
   for (let i = 0; i < 12; i++)
     manySites[`https://site${String(i).padStart(2, '0')}.example.com`] =
       i % 2 === 0 ? { disabled: true } : { disabled: false, defaultLang: 'es' };
+  // A host too long for its row: it is cut with an ellipsis, and the full name stays in its title (R17).
+  manySites[
+    'https://a-really-long-subdomain-name-for-the-audit.some-example-domain-that-keeps-going-on.example.com'
+  ] = {
+    disabled: true,
+  };
   for (const theme of OPT_THEMES) {
     let page = await openOptionsState(theme, { tab: 'advanced', sub: 'data' });
     await optShot(page, 'data-default', theme, {
@@ -4375,7 +4381,7 @@ test('Options Advanced and About — data, diagnostics and about in every state 
     });
     await page.locator('[data-ega-per-site-card]').scrollIntoViewIfNeeded();
     await optShot(page, 'data-site-overrides-many', theme, {
-      userAction: 'user has twelve site overrides',
+      userAction: 'user has thirteen site overrides, one with a host too long for its row',
       expectations: ['the Filter sites box shows; each row: site, state in words, trash'],
     });
     await page.locator('[data-ega-setting="advanced.savedConversations"]').scrollIntoViewIfNeeded();
@@ -4389,7 +4395,7 @@ test('Options Advanced and About — data, diagnostics and about in every state 
     await page.locator('[data-sonner-toast]').first().waitFor();
     await optShot(page, 'data-remove-all-toast', theme, {
       userAction: 'user pressed Remove all',
-      expectations: ['"Removed 12 site overrides" with Undo; the card shows its empty state'],
+      expectations: ['"Removed 13 site overrides" with Undo; the card shows its empty state'],
     });
     await page.close();
 

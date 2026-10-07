@@ -150,7 +150,8 @@
         <ul class="host-list" bind:this={listEl}>
           {#each shown as row (row.label)}
             <li class="host-row" data-ega-site-override-row data-ega-site-override-host={row.label}>
-              <span class="host-name" title={row.label}>{row.label}</span>
+              <!-- A long host is cut with an ellipsis; its title holds the whole name (R17). -->
+              <span class="host-name" title={row.label} data-ega-truncates>{row.label}</span>
               <span class="host-state" data-ega-site-override-state>{stateOf(row)}</span>
               <IconButton
                 icon={Trash2}
