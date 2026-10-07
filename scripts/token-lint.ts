@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 // Contract: font sizes come from the type scale — a `font-size` is var(--fs-*), a custom property that falls back to one, or inherit/unset (initial, revert and revert-layer compute to a browser default, off the scale); a `font` shorthand carries no literal size; a custom property some font-size reads is assigned only scale values. Checked in <style>, style attributes and style: directives, and in style writes from .ts and <script> code. The ALLOW_MARKER skips every check on its own line. In a wrapped font, font-size or --x declaration, a marker on any of its lines also covers that declaration's size (page-DOM text sized in em on purpose).
-// Contract: raw color literals — #hex AND rgb()/rgba()/hsl()/hsla()/oklch()/oklab()/color-mix() — belong in src/shared/tokens.css only; elsewhere use var(--color-*). Append the ALLOW_MARKER below in a CSS comment to skip one line. Hex fails the gate. Color functions fail too, except the frozen set in token-lint-baseline.json; `--update-baseline` only prunes entries that are gone, so the set can shrink and never grow.
+// Contract: raw color literals — #hex AND rgb()/rgba()/hsl()/hsla()/oklch()/oklab()/color-mix() — belong in src/shared/tokens.css only; elsewhere use var(--color-*). Checked in .css and .svelte files only, not in .ts code. Append the ALLOW_MARKER below in a CSS comment to skip one line. Hex fails the gate. Color functions fail too, except the frozen set in token-lint-baseline.json; `--update-baseline` only prunes entries that are gone, so the set can shrink and never grow.
 
 // Non-global so .test() doesn't carry lastIndex between calls.
 const HEX_RE = /#[0-9a-f]{3,8}\b/i;
