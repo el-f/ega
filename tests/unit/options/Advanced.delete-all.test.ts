@@ -106,6 +106,26 @@ describe('Advanced — Delete all data dialog', () => {
     expect(confirmBtn().getAttribute('aria-disabled')).toBeNull();
   });
 
+  it('Enter in the field deletes only once DELETE is typed', async () => {
+    const view = mount();
+    const f = await openDialog(view);
+    await fireEvent.input(f, { target: { value: 'DELET' } });
+    await fireEvent.keyDown(f, { key: 'Enter' });
+    await flushAsync();
+    expect(field()).not.toBeNull();
+    expect(chromeMock.runtime.sendMessage).not.toHaveBeenCalledWith({
+      kind: 'translate:cancel-all',
+    });
+    await fireEvent.input(f, { target: { value: 'DELETE' } });
+    await fireEvent.keyDown(f, { key: 'a' });
+    await flushAsync();
+    expect(chromeMock.runtime.sendMessage).not.toHaveBeenCalledWith({
+      kind: 'translate:cancel-all',
+    });
+    await fireEvent.keyDown(f, { key: 'Enter' });
+    await purgeStarted();
+  });
+
   it('Keep my data closes it and deletes nothing', async () => {
     chromeMock.storage.local._raw.set('ega.settings', parseSettings({ theme: 'dark' }));
     const view = mount();

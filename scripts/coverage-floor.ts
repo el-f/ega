@@ -26,17 +26,9 @@ export const EXCEPTIONS: Readonly<Record<string, Exception>> = {
     metrics: ['lines', 'statements', 'functions', 'branches'],
     reason: 'no direct unit test for these paths',
   },
-  'src/options/components/RequestAuditLogEntryBody.svelte': {
-    metrics: ['lines', 'statements', 'functions', 'branches'],
-    reason: 'options component with no unit test yet',
-  },
   'src/options/components/TemplateDiffModal.svelte': {
     metrics: ['lines', 'statements', 'functions', 'branches'],
     reason: 'options component with no unit test yet',
-  },
-  'src/shared/components/ShortcutInput.svelte': {
-    metrics: ['lines', 'statements', 'branches'],
-    reason: 'recorder paths need real key events; no unit test yet',
   },
   'src/shared/ui/Icon.svelte': {
     metrics: ['branches'],
