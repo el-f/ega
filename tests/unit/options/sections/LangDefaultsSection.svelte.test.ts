@@ -55,10 +55,8 @@ describe('LangDefaultsSection', () => {
     ).toBe('Swap needs a source language, not Auto-detect');
     await fireEvent.click(btn);
     expect(onPatch).not.toHaveBeenCalled();
-    // Focus opens a tooltip; its id must not replace the reason while the button has focus.
-    btn.focus();
-    await fireEvent.focus(btn);
-    await new Promise((r) => setTimeout(r, 300));
+    // No tooltip trigger (bits-ui marks one with data-state): its open tooltip would replace the reason.
+    expect(btn.hasAttribute('data-state')).toBe(false);
     expect(btn.getAttribute('aria-describedby')).toBe('lds-swap-why');
   });
 

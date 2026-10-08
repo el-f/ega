@@ -23,7 +23,7 @@ export const EXCEPTIONS: Readonly<Record<string, Exception>> = {
     reason: 'E2E-only hook surface; dead-code-eliminated unless EGA_E2E_HOOKS=1',
   },
   'src/options/components/ModelCombobox.svelte': {
-    metrics: ['lines', 'statements', 'functions', 'branches'],
+    metrics: ['lines', 'statements', 'functions'],
     reason: 'no direct unit test for these paths',
   },
   'src/options/components/TemplateDiffModal.svelte': {

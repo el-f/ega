@@ -13,6 +13,7 @@ import { getCustomLanguages, getCustomTasks, getSettings } from '@/shared/storag
 import { listVarieties } from '@/shared/varieties';
 import { addCustomTask } from '@/shared/tasks';
 import { TEXT_SAVE_DELAY_MS } from '@/options/components/dialog-saver.svelte';
+import { flushAsync } from '@tests/_helpers/async';
 
 vi.mock('@/shared/components/confirmDialog', () => ({ confirmDialog: vi.fn(async () => true) }));
 const download = vi.fn();
@@ -50,8 +51,8 @@ function q<T extends Element = HTMLElement>(sel: string): T {
 }
 const status = (): string =>
   document.querySelector('[data-ega-dialog-status]')?.textContent.trim() ?? '';
-const pause = (ms = TEXT_SAVE_DELAY_MS + 300): Promise<void> =>
-  new Promise((r) => setTimeout(r, ms));
+// Long enough for the typing pause to end and the write to land.
+const SAVED = { timeout: TEXT_SAVE_DELAY_MS + 1500 };
 const done = (): Promise<boolean> => fireEvent.click(q('[data-ega-dialog-done]'));
 const nameField = (): HTMLInputElement =>
   q<HTMLInputElement>('input[data-ega-language-name], [data-ega-language-name] input');
@@ -93,12 +94,14 @@ describe('language dialog: each text field saves on its own', () => {
     await fireEvent.input(q('[data-ega-language-example="0"] input:nth-of-type(2)'), {
       target: { value: 'hello' },
     });
-    await pause();
-    const row = (await getCustomLanguages())[0];
-    expect(row?.label).toBe('My Slang');
-    expect(row?.hint).toBe('rewritten notes');
-    expect(row?.examples[0]?.tgt).toBe('hello');
+    await waitFor(async () => {
+      const row = (await getCustomLanguages())[0];
+      expect(row?.hint).toBe('rewritten notes');
+      expect(row?.examples[0]?.tgt).toBe('hello');
+    }, SAVED);
+    expect((await getCustomLanguages())[0]?.label).toBe('My Slang');
     // The other fields saved, and the footer still names the one that did not.
+    await flushAsync();
     expect(status()).toBe('Not saved: add a name');
   });
 
@@ -124,8 +127,12 @@ describe('language dialog: each text field saves on its own', () => {
     await fireEvent.input(q('[data-ega-language-notes]'), {
       target: { value: 'my arabizi notes' },
     });
-    await pause();
-    expect((await getSettings()).varietyOverrides['arabizi']?.hint).toBe('my arabizi notes');
+    await waitFor(
+      async () =>
+        expect((await getSettings()).varietyOverrides['arabizi']?.hint).toBe('my arabizi notes'),
+      SAVED,
+    );
+    await flushAsync();
     expect(status()).toBe('Not saved: the pattern is not valid');
     await done();
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
@@ -151,9 +158,11 @@ describe('language dialog: each text field saves on its own', () => {
     await fireEvent.input(nameField(), { target: { value: '' } });
     await waitFor(() => expect(status()).toBe('Not saved: add a name'));
     await fireEvent.input(nameField(), { target: { value: 'Our Slang' } });
-    await pause();
-    expect((await getCustomLanguages())[0]?.label).toBe('Our Slang');
-    expect(status()).toBe('Saved');
+    await waitFor(
+      async () => expect((await getCustomLanguages())[0]?.label).toBe('Our Slang'),
+      SAVED,
+    );
+    await waitFor(() => expect(status()).toBe('Saved'));
     await done();
     expect(confirm).not.toHaveBeenCalled();
   });
@@ -197,11 +206,13 @@ describe('custom task dialog: each field saves on its own', () => {
     });
     await fireEvent.click(q('[data-ega-custom-task-effort] [data-ega-effort-value="high"]'));
     await fireEvent.click(q<HTMLInputElement>('input[data-ega-custom-task-glossary]'));
-    await pause();
-    const stored = (await getCustomTasks())[0];
-    expect(stored?.effort).toBe('high');
-    expect(stored?.glossary).toBe(true);
-    expect(stored?.user).toBe(TASK.user);
+    await waitFor(async () => {
+      const stored = (await getCustomTasks())[0];
+      expect(stored?.effort).toBe('high');
+      expect(stored?.glossary).toBe(true);
+    }, SAVED);
+    expect((await getCustomTasks())[0]?.user).toBe(TASK.user);
+    await flushAsync();
     expect(status()).toBe('Not saved: the message needs the Selected text variable');
     await done();
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
@@ -219,10 +230,12 @@ describe('custom task dialog: each field saves on its own', () => {
     await fireEvent.input(q('[data-ega-template-system] textarea'), {
       target: { value: 'Be very polite.' },
     });
-    await pause();
-    const stored = (await getCustomTasks())[0];
-    expect(stored?.label).toBe('Polite reply');
-    expect(stored?.system).toBe('Be very polite.');
+    await waitFor(
+      async () => expect((await getCustomTasks())[0]?.system).toBe('Be very polite.'),
+      SAVED,
+    );
+    expect((await getCustomTasks())[0]?.label).toBe('Polite reply');
+    await flushAsync();
     expect(status()).toBe('Not saved: add a name');
   });
 });
@@ -240,7 +253,7 @@ describe('built-in task dialog: the footer keeps an unsaved field named', () => 
     await waitFor(async () =>
       expect((await getSettings()).taskOverrides.summarize?.effort).toBe('high'),
     );
-    await pause(400);
+    await flushAsync();
     expect(status()).toBe('Not saved: the message needs the Selected text variable');
   });
 });

@@ -165,7 +165,7 @@ the plan's usage limits. For Codex, the CLI comes with ChatGPT Plus, Pro, Busine
 and Edu, not with Free or Go ([OpenAI's Codex pricing](https://learn.chatgpt.com/docs/pricing)).
 
 <p align="center">
-  <img src="docs/media/backends.png" alt="Ega's Settings page on the Backends tab: Anthropic, OpenAI and Gemini under Backends in use with their place in the order and a status word each, and more backends under Not in use" width="820">
+  <img src="docs/media/backends.png" alt="Ega's Settings page on the Backends tab in dark mode: Anthropic, OpenAI, Gemini and a local server under Backends in use, each with its place in the order, a status word and its route (First choice, Backup 1, Not reached, Skipped), and Ollama and the native host under Not in use" width="820">
 </p>
 
 Order all thirteen in one fallback chain. When one fails Ega moves to the next, as far as

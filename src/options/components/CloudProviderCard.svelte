@@ -217,6 +217,7 @@
         <!-- Not in use: the model shows read-only and stays in the Tab order with its reason (F66, K-5). -->
         <input
           class="cp-model-static"
+          dir="auto"
           readonly
           aria-disabled="true"
           aria-label="{label} model"

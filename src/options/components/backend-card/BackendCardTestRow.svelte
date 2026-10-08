@@ -74,7 +74,7 @@
       : failure.id === 'NETWORK'
         ? local
           ? 'Check that it is running at the address above, then test again.'
-          : 'Check your network, then test again.'
+          : null // The catalog sentence already says to check the connection.
         : (NEXT_STEP[failure.id] ?? null),
   );
 </script>
