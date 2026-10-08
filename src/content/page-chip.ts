@@ -13,7 +13,7 @@ const CHIP_CSS = `.chip{direction:ltr;display:inline-flex;align-items:center;gap
 .chip.bare{padding-inline-end:8px}
 button{all:unset;box-sizing:border-box;display:inline-flex;align-items:center;gap:4px;min-height:24px;padding:0 8px;border:1px solid rgb(255 255 255 / .6);border-radius:999px;color:#fff;font:inherit;cursor:pointer}
 button:hover{background:rgb(255 255 255 / .15)}
-button:focus-visible{outline:2px solid #fff;outline-offset:2px;box-shadow:0 0 0 4px #b3242a}
+button:focus-visible{outline:2px solid #fff;outline-offset:0;box-shadow:0 0 0 4px #b3242a}
 .sr{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 @media (forced-colors:active){.chip{border:1px solid CanvasText}}`;

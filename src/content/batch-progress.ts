@@ -13,6 +13,8 @@ interface ActiveProgress {
   anchor: HTMLDivElement;
   /** The last page element focus came into the pill from; null until one does. */
   focusReturn: HTMLElement | null;
+  /** When focus came from a page chip: the chip and its ancestors, for when Close or Remove takes its button away. */
+  focusTrail: HTMLElement[];
   /** Keeps the toast offset right when the pill grows without a snapshot (More, Error details). */
   resize: ResizeObserver | null;
   tab: SettingsTab;
@@ -59,7 +61,7 @@ function measure(): void {
 function tearDown(): void {
   if (!active) return;
   const hadFocus = focusedIn(active.anchor) !== null;
-  const focusReturn = active.focusReturn;
+  const { focusReturn, focusTrail } = active;
   active.resize?.disconnect();
   try {
     void unmount(active.handle);
@@ -74,7 +76,27 @@ function tearDown(): void {
   retryFailedHandler = null;
   toggleHandler = null;
   // Remove translation and Close bar take the pressed button away; focus goes back to where it came from.
-  if (hadFocus && focusReturn?.isConnected) focusReturn.focus({ preventScroll: true });
+  if (hadFocus) returnFocus(focusReturn, focusTrail);
+}
+
+/**
+ * Back to the control focus came from. Close bar drops a chip's Try again and Remove translation takes the chip
+ * away, so focus then goes to the chip's button that is left, or else the nearest part of the block still there.
+ */
+function returnFocus(to: HTMLElement | null, trail: HTMLElement[]): void {
+  if (to?.isConnected) {
+    to.focus({ preventScroll: true });
+    return;
+  }
+  const near = trail.find((el) => el.isConnected);
+  if (!near) return;
+  const button = near.shadowRoot?.querySelector<HTMLElement>('button');
+  if (button) {
+    button.focus({ preventScroll: true });
+    return;
+  }
+  if (!near.hasAttribute('tabindex')) near.setAttribute('tabindex', '-1');
+  near.focus({ preventScroll: true });
 }
 
 function openSettings(tab: SettingsTab): void {
@@ -101,6 +123,10 @@ export function showBatchProgress(
     // Focus from a page chip arrives retargeted to the chip's host, which cannot take focus; its button can.
     const chip = from.matches('[data-ega-tx-error]') ? from : null;
     active.focusReturn = chip?.shadowRoot?.querySelector<HTMLElement>('button') ?? from;
+    active.focusTrail = [];
+    for (let el: HTMLElement | null = chip; el && el !== document.body; el = el.parentElement) {
+      active.focusTrail.push(el);
+    }
   });
 
   const handle = mount(BatchProgress, {
@@ -132,6 +158,7 @@ export function showBatchProgress(
     handle,
     anchor,
     focusReturn: null,
+    focusTrail: [],
     resize,
     tab: 'backends',
   };

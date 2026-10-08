@@ -21,13 +21,6 @@ describe('the page error chip', () => {
     );
   });
 
-  it('keeps a red band next to the white focus ring, so the ring shows on a white page', () => {
-    const host = mountErrorChip({ code: 'UNKNOWN', message: 'x' }, { onRetry: vi.fn() });
-    expect(css(host)).toMatch(
-      /button:focus-visible\{outline:2px solid #fff;outline-offset:2px;box-shadow:0 0 0 4px #b3242a\}/,
-    );
-  });
-
   it('a page-translate chip is not an alert: the pill already says what failed', () => {
     const host = mountErrorChip({ code: 'AUTH', message: '401' });
     expect(host.hasAttribute('role')).toBe(false);

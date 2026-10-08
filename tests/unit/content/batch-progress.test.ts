@@ -499,21 +499,30 @@ describe('the pill — states, the More menu and Error details', () => {
   });
 
   it('a pill that grows on its own (More, Error details) re-measures the toast offset', () => {
-    let grow: (() => void) | undefined;
+    let callback: (() => void) | undefined;
+    const observed = new Set<Element>();
     vi.stubGlobal(
       'ResizeObserver',
       class {
         constructor(cb: () => void) {
-          grow = cb;
+          callback = cb;
         }
-        observe(): void {}
-        disconnect(): void {}
+        observe(el: Element): void {
+          observed.add(el);
+        }
+        disconnect(): void {
+          observed.clear();
+        }
       },
     );
+    // Fires only for a box the observer watches, as the real one does.
+    const resize = (el: Element): void => {
+      if (observed.has(el)) callback?.();
+    };
     show();
     const pill = q('[data-ega-batch-progress]') as HTMLElement;
     Object.defineProperty(pill, 'offsetHeight', { configurable: true, value: 122 });
-    grow?.();
+    resize(pill);
     const root = q('[data-ega-root]') as HTMLElement;
     expect(root.style.getPropertyValue('--ega-batch-progress-h')).toBe('122px');
   });
