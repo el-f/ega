@@ -135,7 +135,7 @@
     color: var(--color-fg);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
-    padding: 2px var(--space-2);
+    padding: var(--space-1) var(--space-2);
     font-size: var(--fs-xs);
     font-family: var(--font-ui);
     line-height: var(--lh-body);
