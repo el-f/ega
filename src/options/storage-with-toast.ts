@@ -1,4 +1,4 @@
-import { updateSettings } from '@/shared/storage';
+import { getSettings, updateSettings } from '@/shared/storage';
 import { QUOTA_MESSAGE } from '@/shared/constants';
 import { CONTEXT_MENU_ITEMS_MAX } from '@/shared/settings-schema';
 import { toastStore } from '@/shared/components/toastStore';
@@ -51,4 +51,21 @@ export async function saveVia<T = Settings>(
 export function saveSettings(patch: Partial<Settings>): Promise<Settings | null> {
   // One key per field set: a newer write of the same fields replaces the older failure, which it supersedes.
   return saveVia(() => updateSettings(patch), `save:${Object.keys(patch).sort().join(',')}`);
+}
+
+/**
+ * Shows what a settings write stored. When it did not land, shows the stored settings again, read as a new object,
+ * so a box, radio or slider the user changed goes back to what is stored (spec 3.0). True when the write landed.
+ */
+export async function showSettingsWrite(
+  next: Settings | null,
+  show: (s: Settings) => void,
+): Promise<boolean> {
+  if (next) {
+    show(next);
+    return true;
+  }
+  const stored = await getSettings().catch(() => null);
+  if (stored) show(stored);
+  return false;
 }

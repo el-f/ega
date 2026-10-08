@@ -244,3 +244,21 @@ describe('templates-handlers', () => {
     });
   });
 });
+
+// Spec 3.0, R1-01: a write that does not land hands the stored settings back, as a new object,
+// so a slider or box the user moved goes back to the stored value.
+describe('templates-handlers — a write that does not land', () => {
+  beforeEach(() => {
+    resetChromeMock();
+  });
+
+  it('patchAdvanced hands the page the stored settings again', async () => {
+    const { ctx, current } = await makeCtx();
+    const before = current();
+    const handlers = createTemplatesHandlers(ctx);
+    vi.spyOn(chrome.storage.local, 'set').mockRejectedValueOnce(new Error('disk full'));
+    await handlers.setGlobalTemperature(0.9);
+    expect(current()).not.toBe(before);
+    expect(current().advanced.temperature).toBe(before.advanced.temperature);
+  });
+});

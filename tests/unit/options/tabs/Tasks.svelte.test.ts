@@ -416,3 +416,55 @@ describe('Tasks tab — focus after the custom task dialog', () => {
     );
   });
 });
+
+// Spec 3.0, R1-01: a write that does not land puts the stored value back on screen.
+describe('Tasks tab — a toggle that does not land', () => {
+  it('turns the box back on when turning a task off was not saved', async () => {
+    const { container } = await mount();
+    const box = container.querySelector<HTMLInputElement>('[data-ega-task-toggle="summarize"]');
+    if (!box) throw new Error('no summarize toggle');
+    expect(box.checked).toBe(true);
+    vi.spyOn(chrome.storage.local, 'set').mockRejectedValueOnce(new Error('disk full'));
+    await fireEvent.click(box);
+    await waitFor(() => expect(box.checked).toBe(true));
+    expect((await getSettings()).disabledTasks).toEqual([]);
+  });
+});
+
+describe('Tasks tab — a default task write that does not land', () => {
+  it('shows the stored default task again', async () => {
+    const { getByLabelText } = await mount();
+    const select = getByLabelText('Default task') as HTMLSelectElement;
+    expect(select.value).toBe('translate');
+    vi.spyOn(chrome.storage.local, 'set').mockRejectedValueOnce(new Error('disk full'));
+    await fireEvent.change(select, { target: { value: 'summarize' } });
+    await waitFor(() => expect(select.value).toBe('translate'));
+    expect((await getSettings()).defaultTask).toBe('translate');
+  });
+});
+
+describe('Tasks tab — a task of your own whose toggle does not land', () => {
+  it('turns its box back on', async () => {
+    const { addCustomTask } = await import('@/shared/tasks');
+    const added = await addCustomTask({
+      label: 'Haiku',
+      system: 'Write a haiku.',
+      user: '{{text}}',
+      output: 'plain',
+      pageContext: false,
+      image: false,
+      glossary: false,
+    });
+    const { container } = await mount();
+    const box = await waitFor(() => {
+      const el = container.querySelector<HTMLInputElement>(`[data-ega-task-toggle="${added.id}"]`);
+      if (!el) throw new Error('no row');
+      return el;
+    });
+    expect(box.checked).toBe(true);
+    vi.spyOn(chrome.storage.local, 'set').mockRejectedValueOnce(new Error('disk full'));
+    await fireEvent.click(box);
+    await waitFor(() => expect(box.checked).toBe(true));
+    expect((await getSettings()).disabledTasks).toEqual([]);
+  });
+});

@@ -229,3 +229,20 @@ describe('NativeBackendCard login state', () => {
     expect(queryByTestId('nh-cli-logged-out-banner')).toBeNull();
   });
 });
+
+// Spec 3.0, R1-01: after a write that did not land, the tab hands the card the stored settings again.
+describe('NativeBackendCard — the prewarm box after a write that did not land', () => {
+  it('goes back to the stored value when the page re-asserts the same settings', async () => {
+    const p = props({ preWarmNative: true });
+    const utils = render(NativeBackendCard, { props: p });
+    const box = utils.container.querySelector<HTMLInputElement>(
+      '[data-ega-setting="backends.preWarmNative"]',
+    );
+    if (!box) throw new Error('no prewarm box');
+    await fireEvent.click(box);
+    expect(p.onPatch).toHaveBeenCalledWith({ preWarmNative: false });
+    expect(box.checked).toBe(false);
+    await utils.rerender({ ...p, settings: { ...p.settings } });
+    await waitFor(() => expect(box.checked).toBe(true));
+  });
+});

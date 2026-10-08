@@ -6,7 +6,7 @@
   import { exportVarieties } from '@/shared/storage/backup';
   import { importBundleFile, type ImportStatus } from '@/options/import-bundle';
   import { count } from '@/shared/utils/count';
-  import { saveSettings, saveVia } from '@/options/storage-with-toast';
+  import { saveSettings, saveVia, showSettingsWrite } from '@/options/storage-with-toast';
   import { makeAsyncLock } from '@/shared/utils/async-lock';
   import { toastStore } from '@/shared/components/toastStore';
   import { downloadJsonFile } from '@/shared/download-file';
@@ -63,8 +63,11 @@
             : cur.disabledVarieties.filter((id) => id !== v.id),
         })),
       );
-      if (!next) return;
-      onSetSettings(next);
+      // Not saved: the list is read again, so its box shows the stored state.
+      if (!(await showSettingsWrite(next, onSetSettings))) {
+        await refresh();
+        return;
+      }
       await refresh();
       const role = defaultRole(before, v.id);
       // An off language stays the default: the pickers hide it, but every request still uses it.
@@ -142,8 +145,7 @@
     {s}
     varieties={all}
     onPatch={async (p) => {
-      const next = await saveSettings(p);
-      if (next) onSetSettings(next);
+      await showSettingsWrite(await saveSettings(p), onSetSettings);
     }}
   />
 {/if}
@@ -180,10 +182,12 @@
   {:else}
     <ul class="variety-list">
       {#each filtered as v (v.id)}
+        <!-- A member of an object rebuilt with the list, so a write that did not land puts the stored state back. -->
+        {@const shown = { checked: !v.disabled }}
         <li class="variety-row" data-ega-variety-row={v.id}>
           <Checkbox
             id="enable-{v.id}"
-            checked={!v.disabled}
+            checked={shown.checked}
             label={v.label}
             inputAttrs={{ 'aria-label': `Show ${v.label} in language pickers` }}
             onchange={() => void toggleShown(v)}

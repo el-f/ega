@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render } from '@testing-library/svelte';
+import { fireEvent, render } from '@testing-library/svelte';
 import { resetChromeMock, chromeMock, workerReply } from '../../../mocks/chrome';
 import { parseSettings } from '@/shared/settings-schema';
 import { setFetchHandler } from '@tests/mocks/fetch';
@@ -268,5 +268,25 @@ describe('Answers tab — one source for hints (OC-12)', () => {
           : (hint.closest('[data-ega-setting]')?.getAttribute('data-ega-setting') ?? '');
       expect(hint.textContent.trim(), id).toBe(settingHint(id));
     }
+  });
+});
+
+// Spec 3.0, R1-01 (the reviewers' case): a write that does not land puts the stored value back.
+describe('Answers tab — a write that does not land', () => {
+  beforeEach(() => {
+    resetChromeMock();
+  });
+
+  it('ticks Show confidence pill again when unticking it was not saved', async () => {
+    const seeded = seedDefaults({ defaultDisplayMode: 'tooltip', confidencePill: true });
+    const utils = render(Translate, {
+      props: { s: seeded, onSetSettings: (next: Settings) => void utils.rerender({ s: next }) },
+    });
+    const box = utils.getByRole('checkbox', { name: 'Show confidence pill' }) as HTMLInputElement;
+    expect(box.checked).toBe(true);
+    vi.spyOn(chrome.storage.local, 'set').mockRejectedValueOnce(new Error('disk full'));
+    await fireEvent.click(box);
+    await vi.waitFor(() => expect(box.checked).toBe(true));
+    expect(chromeMock.storage.local._raw.get(SETTINGS_KEY)).toMatchObject({ confidencePill: true });
   });
 });

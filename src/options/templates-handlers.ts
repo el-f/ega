@@ -2,7 +2,7 @@ import { updateSettings } from '@/shared/storage';
 import { DEFAULT_TEMPLATE } from '@/shared/prompts';
 import { updateTask } from '@/shared/tasks';
 import type { Rule } from '@/shared/rules';
-import { saveVia } from './storage-with-toast';
+import { saveVia, showSettingsWrite } from './storage-with-toast';
 import type { Settings, PromptTemplate } from '@/shared/types';
 import { buildTaskTemplate, type Task } from '@/shared/task-prompts';
 
@@ -32,8 +32,10 @@ export function createTemplatesHandlers(ctx: TemplatesHandlerCtx): TemplatesHand
   async function patchAdvanced(p: Partial<Settings['advanced']>): Promise<void> {
     // `Partial<Settings>` types `advanced` as full Settings['advanced']; updateSettings
     // deep-merges internally so a Partial<advanced> patch is valid at runtime.
-    const next = await saveVia(() => updateSettings({ advanced: p as Settings['advanced'] }));
-    if (next) setSettings(next);
+    await showSettingsWrite(
+      await saveVia(() => updateSettings({ advanced: p as Settings['advanced'] })),
+      setSettings,
+    );
   }
 
   async function saveGlobalTemplate(tpl: PromptTemplate): Promise<void> {
@@ -59,16 +61,17 @@ export function createTemplatesHandlers(ctx: TemplatesHandlerCtx): TemplatesHand
   // Null writes the shipped halves, which the prune drops, so only the prompt resets.
   async function setTaskTemplate(task: Task, tpl: PromptTemplate | null): Promise<void> {
     if (!getSettings()) return;
-    const next = await saveVia(() => updateTask(task, tpl ?? buildTaskTemplate(task)));
-    if (next) setSettings(next);
+    await showSettingsWrite(
+      await saveVia(() => updateTask(task, tpl ?? buildTaskTemplate(task))),
+      setSettings,
+    );
   }
 
   async function updateRules(next: readonly Rule[]): Promise<boolean> {
     const saved = await saveVia(() =>
       updateSettings({ advanced: { rules: [...next] } as Settings['advanced'] }),
     );
-    if (saved) setSettings(saved);
-    return saved !== null;
+    return showSettingsWrite(saved, setSettings);
   }
 
   return {

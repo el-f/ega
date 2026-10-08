@@ -1,7 +1,7 @@
 <script lang="ts">
   import { SvelteMap } from 'svelte/reactivity';
   import type { Settings } from '@/shared/types';
-  import { saveSettings } from '@/options/storage-with-toast';
+  import { saveSettings, showSettingsWrite } from '@/options/storage-with-toast';
   import { createTemplatesHandlers } from '@/options/templates-handlers';
   import { lookupModelId, resolveModelId, type TaskEffort } from '@/shared/settings-schema';
   import { resolveSamplingSupport, type SamplingSupport } from '@/shared/backends/sampling-caps';
@@ -27,8 +27,7 @@
   const { s, onSetSettings }: Props = $props();
 
   async function patch(p: Partial<Settings>): Promise<void> {
-    const next = await saveSettings(p);
-    if (next) onSetSettings(next);
+    await showSettingsWrite(await saveSettings(p), onSetSettings);
   }
 
   function resetCard(title: string, defaults: Partial<Settings>): Promise<void> {

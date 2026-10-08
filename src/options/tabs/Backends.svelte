@@ -11,7 +11,7 @@
   import { untrack } from 'svelte';
   import { SvelteMap } from 'svelte/reactivity';
   import GetStartedCard from '../components/GetStartedCard.svelte';
-  import { saveSettings } from '@/options/storage-with-toast';
+  import { saveSettings, showSettingsWrite } from '@/options/storage-with-toast';
   import type { Settings, BackendId } from '@/shared/types';
   import { asBackendIdUnsafe } from '@/shared/brands';
   import CloudProviderCard from '../components/CloudProviderCard.svelte';
@@ -88,9 +88,7 @@
   const DEPTHS = [1, 2, 3, 4].map((n) => ({ value: String(n), label: String(n) }));
 
   async function patch(p: Partial<Settings>): Promise<boolean> {
-    const next = await saveSettings(p);
-    if (next) onSetSettings(next);
-    return next !== null;
+    return showSettingsWrite(await saveSettings(p), onSetSettings);
   }
 
   async function patchModel(id: keyof Settings['model'], value: string): Promise<void> {

@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Settings } from '@/shared/types';
-  import { saveSettings } from '@/options/storage-with-toast';
+  import { saveSettings, showSettingsWrite } from '@/options/storage-with-toast';
 
   import TabHeader from '@/shared/components/TabHeader.svelte';
   import SelectionBubbleModeSection from '@/options/components/sections/SelectionBubbleModeSection.svelte';
@@ -15,8 +15,7 @@
   const { s, onSetSettings }: Props = $props();
 
   async function patch(p: Partial<Settings>): Promise<void> {
-    const next = await saveSettings(p);
-    if (next) onSetSettings(next);
+    await showSettingsWrite(await saveSettings(p), onSetSettings);
   }
 </script>
 

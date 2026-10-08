@@ -64,3 +64,25 @@ describe('SelectionBubble tab — section composition', () => {
     expect(onSetSettings.mock.calls[0]?.[0]).toMatchObject({ bubbleMode: 'always' });
   });
 });
+
+// Spec 3.0, R1-01: a write that does not land puts the stored value back on screen.
+describe('SelectionBubble tab — a write that does not land', () => {
+  beforeEach(() => {
+    resetChromeMock();
+  });
+
+  it('shows the stored value again, so the box the user clicked goes back', async () => {
+    const seeded = seedDefaults({ pickerEnabled: true });
+    const utils = render(SelectionBubble, {
+      props: { s: seeded, onSetSettings: (next: Settings) => void utils.rerender({ s: next }) },
+    });
+    const box = utils.getByRole('checkbox', {
+      name: 'Turn on the element picker',
+    }) as HTMLInputElement;
+    expect(box.checked).toBe(true);
+    vi.spyOn(chrome.storage.local, 'set').mockRejectedValueOnce(new Error('disk full'));
+    await fireEvent.click(box);
+    await vi.waitFor(() => expect(box.checked).toBe(true));
+    expect(chromeMock.storage.local._raw.get(SETTINGS_KEY)).toMatchObject({ pickerEnabled: true });
+  });
+});

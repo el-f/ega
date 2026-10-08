@@ -47,6 +47,10 @@
 
   let { settings, disabled, onPatch, onPatchModel }: Props = $props();
 
+  // An object rebuilt with the settings: after a write that did not land, the tab hands the same stored value back,
+  // and only a new object makes the box drop the user's click (spec 3.0).
+  const prewarm = $derived({ checked: settings.preWarmNative !== false });
+
   const extId = chrome.runtime.id;
   const nhPlatform: Platform = detectPlatform();
 
@@ -435,7 +439,7 @@
 
     <div class="prewarm-row" data-testid="prewarm-native-toggle">
       <Checkbox
-        checked={settings.preWarmNative !== false}
+        checked={prewarm.checked}
         label="Start the native host with Chrome"
         describedBy="ega-prewarm-hint"
         onchange={(next) => void onPatch({ preWarmNative: next })}

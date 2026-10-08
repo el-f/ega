@@ -3,7 +3,7 @@
   import { clearAllStorage, getSettings } from '@/shared/storage';
   import { exportAll } from '@/shared/storage/backup';
   import { importBundleFile, type ImportStatus } from '@/options/import-bundle';
-  import { saveSettings } from '@/options/storage-with-toast';
+  import { saveSettings, showSettingsWrite } from '@/options/storage-with-toast';
   import { downloadJsonFile } from '@/shared/download-file';
   import { DEFAULT_TEMPLATE } from '@/shared/prompts';
   import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
@@ -95,8 +95,10 @@
   const { patchAdvanced } = handlers;
 
   async function patchField<K extends keyof Settings>(key: K, value: Settings[K]): Promise<void> {
-    const next = await saveSettings({ [key]: value } as Partial<Settings>);
-    if (next) onSetSettings(next);
+    await showSettingsWrite(
+      await saveSettings({ [key]: value } as Partial<Settings>),
+      onSetSettings,
+    );
   }
 
   // Acts at once with Undo; site overrides have their own card and are not touched.

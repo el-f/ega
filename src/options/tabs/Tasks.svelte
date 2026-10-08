@@ -24,7 +24,7 @@
   import { importBundleFile, type ImportStatus } from '@/options/import-bundle';
   import { count } from '@/shared/utils/count';
   import { downloadJsonFile } from '@/shared/download-file';
-  import { saveSettings, saveVia } from '@/options/storage-with-toast';
+  import { saveSettings, saveVia, showSettingsWrite } from '@/options/storage-with-toast';
   import TabHeader from '@/shared/components/TabHeader.svelte';
   import LoadingState from '@/shared/components/LoadingState.svelte';
   import SectionCard from '@/shared/ui/SectionCard.svelte';
@@ -84,13 +84,11 @@
   const toneOptions = ALL_TONES.map((t) => ({ value: t, label: TONE_LABELS[t] }));
 
   async function patch(p: Partial<Settings>): Promise<void> {
-    const next = await saveSettings(p);
-    if (next) onSetSettings(next);
+    await showSettingsWrite(await saveSettings(p), onSetSettings);
   }
 
   async function toggle(t: string, on: boolean): Promise<void> {
-    const next = await saveVia(() => setTaskEnabled(t, on));
-    if (next) onSetSettings(next);
+    await showSettingsWrite(await saveVia(() => setTaskEnabled(t, on)), onSetSettings);
   }
 
   // Focus never drops to the page when the dialog closes: back to its opener, else to the row that took a
@@ -132,13 +130,16 @@
   <TabHeader tab="tasks" />
   {#if s}
     {@const settings = s}
+    <!-- Controls read members of objects rebuilt with the settings: after a write that did not land, the page hands
+         the same stored value back, and only a new object makes a control drop the user's change (spec 3.0). -->
+    {@const defaultTask = { value: runnableDefaultTask(settings) }}
     <SectionCard title="Defaults" description="What runs when you do not pick a task">
       <div class="tasks-defaults">
         <div data-ega-setting="defaults.defaultTask">
           <Select
             label="Default task"
             size="sm"
-            value={runnableDefaultTask(settings)}
+            value={defaultTask.value}
             options={views.filter((v) => !v.disabled).map((v) => ({ value: v.id, label: v.label }))}
             modified={isFieldModified('defaults.defaultTask', settings)}
             onchange={(v) => void patch({ defaultTask: v })}
@@ -169,6 +170,7 @@
         <ul class="task-list" data-ega-setting="tasks.enabled">
           {#each ALL_TASKS as t (t)}
             {@const view = builtInTaskView(settings, t)}
+            {@const on = { checked: !view.disabled }}
             {@const edited =
               view.hasOverrides ||
               (t === 'translate' && isPromptTemplateCustomised(settings.advanced.promptTemplate))}
@@ -176,7 +178,7 @@
               <Checkbox
                 id={`ega-task-toggle-${t}`}
                 label={TASK_LABELS[t]}
-                checked={!view.disabled}
+                checked={on.checked}
                 ariaDisabled={t === 'translate'}
                 {...t === 'translate' ? { describedBy: 'ega-task-always-on' } : {}}
                 inputAttrs={{ 'data-ega-task-toggle': t }}
@@ -233,11 +235,12 @@
       {:else}
         <ul class="task-list" data-ega-custom-task-list>
           {#each customViews as v (v.id)}
+            {@const on = { checked: !v.disabled }}
             <li class="task-row" data-ega-task-item={v.id}>
               <Checkbox
                 id={`ega-task-toggle-${v.id}`}
                 label={v.label}
-                checked={!v.disabled}
+                checked={on.checked}
                 inputAttrs={{ 'data-ega-task-toggle': v.id }}
                 onchange={(on) => void toggle(v.id, on)}
               />

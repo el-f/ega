@@ -275,3 +275,23 @@ describe('Languages tab — Backup and restore', () => {
     expect((await getCustomLanguages()).filter((c) => c.id === 'dupe-test-id')).toHaveLength(1);
   });
 });
+
+// Spec 3.0, R1-01: a write that does not land puts the stored value back on screen.
+describe('Languages — a Show in language pickers write that does not land', () => {
+  it('turns the box back on', async () => {
+    const s = await getSettings();
+    const utils = render(Languages, {
+      props: { s, onSetSettings: (next: Settings) => void utils.rerender({ s: next }) },
+    });
+    const box = await waitFor(() => {
+      const el = document.querySelector<HTMLInputElement>('#enable-arabizi');
+      if (!el) throw new Error('no arabizi row yet');
+      return el;
+    });
+    expect(box.checked).toBe(true);
+    vi.spyOn(chrome.storage.local, 'set').mockRejectedValueOnce(new Error('disk full'));
+    await fireEvent.click(box);
+    await waitFor(() => expect(box.checked).toBe(true));
+    expect((await getSettings()).disabledVarieties).not.toContain('arabizi');
+  });
+});
