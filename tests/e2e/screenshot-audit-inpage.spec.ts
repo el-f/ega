@@ -1123,7 +1123,24 @@ test('Page translate — pause, partial failure, Show both pending, RTL and focu
     ...meta,
     state: 'chip-focus',
     expectations: [
-      'the focused chip button has a 2px white ring with a red band outside it, so it shows on the white page',
+      'the focused chip button has a 2px white ring on its edge and a 2px red band outside the white, so it shows on the white page',
+    ],
+  });
+  await page.close();
+  await resetRoutes(ext.context);
+
+  // Show both on a grid of tiles and on FAQ summaries: each translation sits inside its tile or summary.
+  await seedSettings(ext.context, ext.extensionId, { pageTranslateMode: 'bilingual' });
+  mockAnthropic(ext.context, { translation: 'Translated tile text' });
+  page = await openPage('tiles-page.html');
+  await sendPageTranslate('page:translateAll');
+  await expect.poll(() => pillLabel(page), { timeout: 15_000 }).toMatch(/^Page translated/);
+  await both(page, 'page-blocks-tiles-summary', {
+    ...meta,
+    state: 'blocks-tiles-summary',
+    expectations: [
+      'the grid keeps 3 tiles a row; each translation sits inside its own tile',
+      'each closed question shows its translation inside the summary line',
     ],
   });
   await page.close();

@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { PNG } from 'pngjs';
 import {
   egaTest,
   launchExtension,
@@ -369,7 +370,38 @@ test('page chips keep their own font and a 24px button on a hostile page', async
   expect(look.titles).toBe(0);
   // The catalog title, never the provider's status or words.
   expect(look.text).not.toMatch(/\b[1-5]\d\d\b|HTTP|upstream|[A-Z]{2,}_[A-Z]+/);
+
+  // The focus ring changes the white page just under the chip by at least 3:1, not only the chip's own red.
+  const button = chip.locator('button');
+  const box = await button.boundingBox();
+  if (!box) throw new Error('chip button has no box');
+  const at = { x: Math.round(box.x + box.width / 2), y: Math.floor(box.y + box.height + 3) };
+  const pixel = async (): Promise<number[]> => {
+    const png = PNG.sync.read(await page.screenshot({ clip: { ...at, width: 1, height: 1 } }));
+    return [png.data[0] ?? 0, png.data[1] ?? 0, png.data[2] ?? 0];
+  };
+  const unfocused = await pixel();
+  await page.keyboard.press('Tab');
+  await button.evaluate((b) => (b as HTMLElement).focus());
+  const focused = await pixel();
+  expect(
+    contrast(unfocused, focused),
+    `${unfocused.join()} vs ${focused.join()}`,
+  ).toBeGreaterThanOrEqual(3);
 });
+
+/** WCAG contrast ratio of two sRGB colours. */
+function contrast(a: number[], b: number[]): number {
+  const lum = (c: number[]): number => {
+    const [r = 0, g = 0, bl = 0] = c.map((v) => {
+      const s = v / 255;
+      return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * bl;
+  };
+  const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
+  return ((hi ?? 0) + 0.05) / ((lo ?? 0) + 0.05);
+}
 
 test('a toast in a picker mode sits above the bottom bar, wide and narrow', async () => {
   const page = await ext.context.newPage();

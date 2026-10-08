@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <title>Ega tiles and FAQ fixture</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        max-width: 760px;
+        margin: 32px auto;
+        padding: 0 20px;
+        color: #222;
+        background: #fff;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+      }
+      .tile {
+        padding: 12px;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+      }
+      details {
+        margin-block: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1 id="h">Categorías de la tienda</h1>
+    <div class="grid">
+      <div class="tile" id="t1"><a href="#a">Ofertas de la semana</a></div>
+      <div class="tile" id="t2"><a href="#b">Ropa para el invierno</a></div>
+      <div class="tile" id="t3"><a href="#c">Libros más vendidos</a></div>
+      <div class="tile" id="t4"><a href="#d">Juguetes para niños</a></div>
+      <div class="tile" id="t5"><a href="#e">Muebles de jardín</a></div>
+      <div class="tile" id="t6"><a href="#f">Electrónica barata</a></div>
+    </div>
+    <h2 id="faq">Preguntas frecuentes</h2>
+    <details>
+      <summary id="q1">¿Cuánto tarda el envío?</summary>
+      <p>Entre dos y cinco días.</p>
+    </details>
+    <details>
+      <summary id="q2">¿Puedo devolver un pedido?</summary>
+      <p>Sí, durante treinta días.</p>
+    </details>
+  </body>
+</html>
