@@ -342,6 +342,11 @@
     if (!dt) return;
     const text = dt.getData('text/plain');
     const files = Array.from(dt.files);
+    // An edit or a change takes words only, so the text half is what lands there.
+    if (mode.kind !== 'send' && text.trim()) {
+      appendDroppedText(text);
+      return;
+    }
     // Image files win (one image per message), but the text half is not dropped in silence.
     if (files.some((f) => f.type.startsWith('image/'))) {
       void ingestImageList(dt.files);

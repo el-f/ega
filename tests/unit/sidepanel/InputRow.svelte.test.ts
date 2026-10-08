@@ -356,6 +356,24 @@ describe('attaching an image', () => {
     expect(box.classList.contains('drag-active')).toBe(false);
   });
 
+  it('while changing a reply, a drop of text and an image keeps the text', async () => {
+    const push = vi.spyOn(toastStore, 'push');
+    const props = { ...composerProps(), mode: { kind: 'refine' as const, turnId: 'a1' } };
+    const { container } = render(InputRow, { props });
+    const file = new File([new Uint8Array([137, 80, 78, 71])], 'p.png', { type: 'image/png' });
+    await fireEvent.drop(textarea(container), {
+      dataTransfer: {
+        files: [file],
+        getData: (t: string) => (t === 'text/plain' ? 'make it shorter' : ''),
+      } as unknown as DataTransfer,
+    });
+    await vi.waitFor(() => expect(textarea(container).value).toBe('make it shorter'));
+    expect(props.onAttachImage).not.toHaveBeenCalled();
+    expect(push.mock.calls.map((c) => c[0].message)).not.toContain(
+      'Image attached. The dropped text was ignored.',
+    );
+  });
+
   it.each([
     [
       'a format the model cannot read',
