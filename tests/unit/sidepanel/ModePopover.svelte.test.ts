@@ -142,3 +142,23 @@ describe('section headings sit right under the panel h1', () => {
     expect(p.querySelector('h3, h4, h5, h6')).toBeNull();
   });
 });
+
+describe('Tone reads like From and To', () => {
+  it('uses the same label style as the language rows', async () => {
+    render(ModePopover, { props: props({ task: 'reword', usesTone: true }) });
+    const p = await popover();
+    const from = p.querySelector('label[for="sp-conv-source"]');
+    const tone = p.querySelector('label[for="sp-tone"]');
+    expect(tone?.className).toBe(from?.className);
+  });
+});
+
+// In a short panel the popover scrolls: the cut line needs a cue, and the end needs room below its last line.
+describe('a popover taller than the panel', () => {
+  const src = readFileSync('src/sidepanel/conversation/ModePopover.svelte', 'utf8');
+
+  it('shows a shadow at the edge where more is hidden, and leaves room under the last line', () => {
+    expect(src).toMatch(/:global\(\.ega-popover:has\(\[data-ega-mode-popover\]\)\)\s*\{[^}]*local/);
+    expect(src).toMatch(/\.mp\s*\{[^}]*padding-block-end:\s*var\(--space-3\)/);
+  });
+});

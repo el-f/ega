@@ -107,7 +107,7 @@
 
     {#if usesTone}
       <section class="mp-section mp-tone" class:beside-swap={swap !== null}>
-        <label class="mp-label" for="sp-tone">Tone</label>
+        <label class="mp-row-label" for="sp-tone">Tone</label>
         <Select
           id="sp-tone"
           bind:value={tone}
@@ -145,9 +145,21 @@
     gap: var(--space-4);
     inline-size: min(320px, calc(100vw - 40px));
     padding: var(--space-1);
+    padding-block-end: var(--space-3);
     box-sizing: border-box;
     font-size: var(--fs-sm);
     line-height: var(--lh-body);
+  }
+  /* A short panel makes this popover scroll: a shadow at the edge where more is hidden says so. */
+  :global(.ega-popover:has([data-ega-mode-popover])) {
+    background:
+      linear-gradient(var(--color-bg) 30%, transparent) top / 100% 24px no-repeat local,
+      linear-gradient(transparent, var(--color-bg) 70%) bottom / 100% 24px no-repeat local,
+      radial-gradient(farthest-side at 50% 0, var(--color-shadow), transparent) top / 100% 8px
+        no-repeat scroll,
+      radial-gradient(farthest-side at 50% 100%, var(--color-shadow), transparent) bottom / 100% 8px
+        no-repeat scroll,
+      var(--color-bg);
   }
   .mp-section {
     display: flex;
