@@ -78,6 +78,8 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  /* Spec 6.2: controls that wrap stay end-aligned, so a lone Cancel never starts a row of its own. */
+  justify-content: flex-end;
   gap: var(--space-1);
   margin-inline-start: auto;
 }

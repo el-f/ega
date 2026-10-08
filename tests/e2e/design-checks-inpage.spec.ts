@@ -459,6 +459,9 @@ test('a toast in a picker mode sits above the bottom bar, wide and narrow', asyn
         // Spec 6.3: a bar on two or more rows takes the card radius, and only then.
         if (m.height > 48 && m.radius !== m.cardRadius) fails.push(`${name}: radius ${m.radius}`);
         if (m.wrapped !== m.height > 48) fails.push(`${name}: data-ega-wrapped is ${m.wrapped}`);
+        // Spec 6.2: wrapped controls stay end-aligned, on every row they take.
+        const ragged = await controlRowsSpread(page);
+        if (ragged > 1) fails.push(`${name}: control rows end ${ragged}px apart`);
       }
     }
   }
@@ -526,6 +529,24 @@ test('the picker bar key list opens over a toast, never under it', async () => {
   expect(covered.overlap, 'the list and the toast share space').toBe(true);
   expect(covered.hidden).toEqual([]);
 });
+
+/** How far apart the ends of the picker bar's control rows are; 0 when every row ends at the same edge. */
+function controlRowsSpread(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    const controls = document
+      .getElementById('ega-shadow-host')
+      ?.shadowRoot?.querySelector('.ega-picker-bar .controls');
+    const ends = new Map<number, number>();
+    for (const c of controls?.children ?? []) {
+      const r = c.getBoundingClientRect();
+      if (r.width === 0) continue;
+      const row = Math.round(r.top);
+      ends.set(row, Math.max(ends.get(row) ?? 0, r.right));
+    }
+    const all = [...ends.values()];
+    return all.length > 0 ? Math.round(Math.max(...all) - Math.min(...all)) : 0;
+  });
+}
 
 async function chooseAreas(): Promise<void> {
   const sw = ext.context.serviceWorkers()[0];
