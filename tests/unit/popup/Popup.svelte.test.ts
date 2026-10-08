@@ -802,7 +802,7 @@ describe('Popup — a page action pressed while the page loads', () => {
     return { delivered, load: () => (loaded = true) };
   }
 
-  it('says it is waiting, and a later press replaces the earlier one instead of both running', async () => {
+  it('says it is waiting while the page loads, and runs the press once it has loaded', async () => {
     const page = loadingPage();
     const closeSpy = vi.spyOn(window, 'close').mockImplementation(() => undefined);
     try {
@@ -810,15 +810,10 @@ describe('Popup — a page action pressed while the page loads', () => {
       await mounted();
       await fireEvent.click(await findByRole('button', { name: 'Translate page' }));
       expect(await findByText('Waiting for the page to load…')).toBeTruthy();
-      // A second Choose areas would close the mode the first one opened.
-      await fireEvent.click(await findByRole('button', { name: 'Choose areas' }));
-      await fireEvent.click(await findByRole('button', { name: 'Choose areas' }));
-      await new Promise((r) => setTimeout(r, 300));
       page.load();
       await vi.waitFor(() => expect(closeSpy).toHaveBeenCalled(), { timeout: 3000 });
-      // Every waiting press has polled again since the load.
-      await new Promise((r) => setTimeout(r, 600));
-      expect(page.delivered).toEqual(['page:chooseAreas']);
+      // Only the latest of several presses runs: tab-actions.test.ts drives that on fake timers.
+      expect(page.delivered).toEqual(['page:translateAll']);
     } finally {
       closeSpy.mockRestore();
     }
