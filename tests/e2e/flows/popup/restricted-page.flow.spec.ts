@@ -45,6 +45,8 @@ test('on a page no extension may touch, the page actions say why and send nothin
   const status = popup.locator('[data-ega-popup-status="restricted"]');
   await expect(status).toContainText("Ega can't run on this page.");
   await expect(popup.getByRole('switch')).toHaveCount(0);
+  // Nothing here unblocks the page actions, so focus starts in the text box, which still works.
+  await expect(popup.getByLabel('Translate in the side panel')).toBeFocused();
   timeline.markStep('restricted-shown');
 
   const statusId = await status.locator('[id]').getAttribute('id');

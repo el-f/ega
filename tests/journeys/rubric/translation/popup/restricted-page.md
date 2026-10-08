@@ -13,6 +13,7 @@
 
 ## Visible affordances
 
+- Focus starts in the text box: there is no site switch or status action to start on, and the text box is what still works.
 - The blocked actions keep their focus stops; their reason is visible text, not a hover tooltip.
 - The text box and its Translate button stay usable: they go to the side panel, not the page.
 

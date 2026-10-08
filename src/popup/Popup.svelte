@@ -404,12 +404,14 @@
     await tick();
     if (prefilledText !== null && freeformText === prefilledText) freeformTextarea?.focus();
     else if (document.activeElement === document.body) {
-      // A blocked main action is no place to start; the switch or the status action that unblocks it is.
+      // A blocked main action is no place to start; the switch or the status action that unblocks it is,
+      // and on a page Ega cannot run on, which has neither, the text box (spec 2.4: its next step).
       const start =
         pageBlockedBy === undefined
           ? document.querySelector<HTMLElement>('[data-ega-popup-primary]')
           : (document.querySelector<HTMLElement>('[data-ega-popup-status] button') ??
-            document.querySelector<HTMLElement>('[data-ega-site-switch]'));
+            document.querySelector<HTMLElement>('[data-ega-site-switch]') ??
+            freeformTextarea);
       start?.focus();
     }
   });

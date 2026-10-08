@@ -708,3 +708,15 @@ describe('Popup — focus on a page that needs a reload', () => {
     await vi.waitFor(() => expect(document.activeElement).toBe(reload));
   });
 });
+
+describe('Popup — where focus starts on a page Ega cannot run on', () => {
+  it('starts in the text box, the one thing that still works there', async () => {
+    // The New Tab page: no "tabs" permission, so Chrome leaves out the url.
+    (chrome.tabs.query as unknown as Mock).mockResolvedValue([{ id: 42 }]);
+    const { findByText, getByLabelText } = render(Popup);
+    expect(await findByText("Ega can't run on this page.")).toBeTruthy();
+    await vi.waitFor(() =>
+      expect(document.activeElement).toBe(getByLabelText('Translate in the side panel')),
+    );
+  });
+});
