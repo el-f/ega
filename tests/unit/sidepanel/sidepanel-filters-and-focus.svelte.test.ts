@@ -87,6 +87,26 @@ describe('SidePanel — filters follow the conversation', () => {
     expect(container.querySelector('[data-ega-search]')).toBeNull();
   });
 
+  // R11: the field that held focus goes away; focus lands on the toggle, as Escape leaves it.
+  it('a tab switch while typing a query leaves focus on the search toggle, not on the page', async () => {
+    await saveThread('https://other.test', [user('o1', 'bonjour'), reply('b1', 'o1')]);
+    await saveThread('https://a.test', [user('u1', 'hola'), reply('a1', 'u1')]);
+    const { container } = render(SidePanel);
+    await waitFor(() => expect(turnIds(container)).toEqual(['u1', 'a1']));
+    await openSearch(container, 'hola');
+    container.querySelector<HTMLInputElement>('[data-ega-search]')?.focus();
+
+    tabsQuery.mockResolvedValue([{ id: 2, url: 'https://other.test/page' }]);
+    (chrome.tabs.onActivated as unknown as { emit: (i: unknown) => void }).emit({
+      tabId: 2,
+      windowId: 1,
+    });
+    await waitFor(() => expect(turnIds(container)).toEqual(['o1', 'b1']));
+    await waitFor(() =>
+      expect(document.activeElement?.hasAttribute('data-ega-search-toggle')).toBe(true),
+    );
+  });
+
   it('a tab on another site shows its conversation, not the old query', async () => {
     await saveThread('https://other.test', [user('o1', 'bonjour'), reply('b1', 'o1')]);
     await saveThread('https://a.test', [user('u1', 'hola'), reply('a1', 'u1')]);

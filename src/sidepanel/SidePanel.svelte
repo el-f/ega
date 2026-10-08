@@ -95,6 +95,8 @@
     if (shownId !== null && shownId !== id) {
       switchAnnouncement = `Showing the conversation for ${conversationLabel(id)}`;
       // A query or the bookmark filter was for the conversation the panel left, however it left it.
+      // A field that held focus goes away with it, so focus goes where Escape would put it.
+      if (searchInputEl !== null && document.activeElement === searchInputEl) closeSearch();
       clearFilters();
     }
     shownId = id;
