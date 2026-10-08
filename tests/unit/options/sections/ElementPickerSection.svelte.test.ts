@@ -54,6 +54,24 @@ describe('ElementPickerSection', () => {
       'Ctrl+Shift+L is already the Translate selection shortcut. Pick another.',
     );
     expect(onPatch).not.toHaveBeenCalled();
+    // KSR-6: the shortcut's own error line, so Record is marked invalid and reads the reason; one alert.
+    expect(document.querySelectorAll('[role="alert"]')).toHaveLength(1);
+    expect(record.getAttribute('aria-invalid')).toBe('true');
+    const said = (record.getAttribute('aria-describedby') ?? '')
+      .split(' ')
+      .map((id) => document.getElementById(id)?.textContent.trim());
+    expect(said).toContain('Ctrl+Shift+L is already the Translate selection shortcut. Pick another.');
+  });
+
+  it('a stored combo Chrome cannot use marks its Record button invalid, with the reason', () => {
+    const { getByRole } = render(ElementPickerSection, {
+      props: makeSectionProps({ s: { shortcut: 'Ctrl+Shift' } }),
+    });
+    const record = getByRole('button', { name: 'Record Translate selection shortcut' });
+    expect(record.getAttribute('aria-invalid')).toBe('true');
+    const alerts = document.querySelectorAll('[role="alert"]');
+    expect(alerts).toHaveLength(1);
+    expect(record.getAttribute('aria-describedby')?.split(' ')).toContain(alerts[0]?.id);
   });
 
   it('the last row says Ega opens from a Chrome shortcut', () => {

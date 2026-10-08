@@ -82,17 +82,13 @@
           clearAriaLabel="Clear element picker shortcut"
           ariaDisabled={!s.pickerEnabled}
           {...s.pickerEnabled ? {} : { describedBy: 'dsp-picker-off' }}
+          error={clash?.row === 'picker' ? clash.message : pickerShortcutErr}
           onchange={(next) => setShortcut('picker', next)}
         />
         {#if !s.pickerEnabled}
           <p class="shortcut-line" id="dsp-picker-off" data-ega-disabled-reason>
             Turn on the element picker to use this shortcut
           </p>
-        {/if}
-        {#if clash?.row === 'picker'}
-          <p class="field-error" role="alert">{clash.message}</p>
-        {:else if pickerShortcutErr}
-          <p class="field-error" role="alert">{pickerShortcutErr}</p>
         {/if}
       </div>
     </div>
@@ -109,13 +105,9 @@
           value={s.shortcut ?? ''}
           ariaLabel="Record Translate selection shortcut"
           clearAriaLabel="Clear Translate selection shortcut"
+          error={clash?.row === 'shortcut' ? clash.message : shortcutErr}
           onchange={(next) => setShortcut('shortcut', next)}
         />
-        {#if clash?.row === 'shortcut'}
-          <p class="field-error" role="alert">{clash.message}</p>
-        {:else if shortcutErr}
-          <p class="field-error" role="alert">{shortcutErr}</p>
-        {/if}
       </div>
     </div>
 
