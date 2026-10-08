@@ -14,6 +14,8 @@ interface BubbleOpts {
   queued: number;
   /** Translation direction, shown read-only; swapping lives in the tooltip action row. */
   direction?: { source: string; target: string };
+  /** The default task's name when it is not Translate; the label shows it instead of the direction. */
+  task?: string;
   /** First-ever render for this install. Drives a 3× ring pulse so
    *  the affordance is discoverable. Parent persists the "seen" flag. */
   firstRun?: boolean;
@@ -27,6 +29,7 @@ interface Mounted {
   anchor: HTMLDivElement;
   queued: number;
   direction: string;
+  task: string;
   firstRun: boolean;
   rtl: boolean;
 }
@@ -138,6 +141,7 @@ function moveMounted(opts: BubbleOpts, left: number, top: number): boolean {
   if (
     current.queued !== opts.queued ||
     current.direction !== directionKey(opts.direction) ||
+    current.task !== (opts.task ?? '') ||
     current.firstRun !== (opts.firstRun === true) ||
     current.rtl !== (opts.rtl === true)
   ) {
@@ -170,6 +174,7 @@ export function showBubble(opts: BubbleOpts): void {
       queued: opts.queued,
       // exactOptionalPropertyTypes: only pass keys when set.
       ...(opts.direction ? { direction: opts.direction } : {}),
+      ...(opts.task ? { task: opts.task } : {}),
       ...(opts.firstRun ? { firstRun: true } : {}),
       ...(opts.rtl ? { rtl: true } : {}),
       onclick: (e: MouseEvent) => {
@@ -192,6 +197,7 @@ export function showBubble(opts: BubbleOpts): void {
     anchor,
     queued: opts.queued,
     direction: directionKey(opts.direction),
+    task: opts.task ?? '',
     firstRun: opts.firstRun === true,
     rtl: opts.rtl === true,
   };

@@ -7,6 +7,7 @@ import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import { resetSettingsCacheForTest } from '@/content/settings-cache';
 import { peekContainer } from '@/content/shadowHost';
 import { hideBubble } from '@/content/bubble';
+import { resetCustomLanguagesCache } from '@/content/customs-cache';
 import type { Settings } from '@/shared/types';
 
 await import('@/content/index');
@@ -158,5 +159,54 @@ describe('where the bubble goes, from the page it reads', () => {
     await mountedBubble();
     document.getElementById('art')?.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
     expect(peekContainer()?.querySelector('.bubble-group')).toBeNull();
+  });
+});
+
+describe('the bubble names the task it runs', () => {
+  function label(bubble: HTMLElement): string {
+    return bubble.querySelector('button.bubble')?.textContent.trim() ?? '';
+  }
+
+  it('with Summarize as the default task it says Summarize, not "Translate to English"', async () => {
+    await seed({ bubbleFirstRunSeen: true, defaultTask: 'summarize' });
+    selectWord();
+    expect(label(await mountedBubble())).toBe('Summarize');
+  });
+
+  it('a custom default task goes by its own name', async () => {
+    resetCustomLanguagesCache();
+    await chromeMock.storage.local.set({
+      [STORAGE_KEYS.customTasks]: [
+        {
+          id: 'formal-es',
+          label: 'Formal Spanish',
+          system: '',
+          user: 'Rewrite in formal Spanish: {{text}}',
+          output: 'plain',
+          pageContext: false,
+          image: false,
+          glossary: false,
+          createdAt: 1,
+        },
+      ],
+    });
+    try {
+      await seed({ bubbleFirstRunSeen: true, defaultTask: 'formal-es' });
+      selectWord();
+      expect(label(await mountedBubble())).toBe('Formal Spanish');
+    } finally {
+      await chromeMock.storage.local.remove(STORAGE_KEYS.customTasks);
+      resetCustomLanguagesCache();
+    }
+  });
+
+  it('an off default task runs as Translate, and the bubble says Translate', async () => {
+    await seed({
+      bubbleFirstRunSeen: true,
+      defaultTask: 'summarize',
+      disabledTasks: ['summarize'],
+    });
+    selectWord();
+    expect(label(await mountedBubble())).toMatch(/^Translate/);
   });
 });

@@ -25,6 +25,21 @@ export function runnableDefaultTask(s: {
   return s.disabledTasks.includes(s.defaultTask) ? 'translate' : s.defaultTask;
 }
 
+/**
+ * What an entry that runs the default task calls itself (the bubble, the popup's "Translate anyway"): null while
+ * that task is Translate, so the entry keeps Translate's own words ("Translate to English"); otherwise the task's
+ * name ("Summarize"), a custom task's from `customs`. Null too for a custom id the list no longer has.
+ */
+export function defaultTaskName(
+  s: { defaultTask: string; disabledTasks: readonly string[] },
+  customs: readonly { id: string; label: string }[],
+): string | null {
+  const id = runnableDefaultTask(s);
+  if (id === 'translate') return null;
+  const t = builtInTask(id);
+  return t !== null ? TASK_LABELS[t] : (customs.find((c) => c.id === id)?.label ?? null);
+}
+
 /** The tasks the vision arm can run; every other task falls back to translate when an image is attached. */
 export const IMAGE_TASKS = ['translate', 'explain'] as const satisfies readonly Task[];
 /** A task that can read an image. Derived from IMAGE_TASKS, so a third one reaches every site that names it. */

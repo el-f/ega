@@ -18,6 +18,17 @@ describe('Bubble — label, click and menu button', () => {
     expect(main.hasAttribute('title')).toBe(false);
   });
 
+  it.each([
+    ['Summarize', 0, 'Summarize'],
+    ['Summarize', 2, 'Summarize 3'],
+    ['Formal Spanish', 0, 'Formal Spanish'],
+  ])('a default task other than Translate names itself (%s, %i queued)', (task, queued, label) => {
+    const direction = { source: 'auto', target: 'en' };
+    const { getByRole } = render(Bubble, { props: { ...base, direction, queued, task } });
+    // The bubble runs that task; "Translate to English" would promise something else.
+    expect(getByRole('button', { name: label }).textContent.trim()).toBe(label);
+  });
+
   it('says Translate when no direction is known', () => {
     const { getByRole } = render(Bubble, { props: base });
     expect(getByRole('button', { name: 'Translate' })).toBeTruthy();

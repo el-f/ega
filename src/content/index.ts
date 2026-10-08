@@ -82,7 +82,12 @@ import {
   type MsgReply,
 } from '@/shared/messages';
 import type { LangSelection, TranslationChunk, Settings } from '@/shared/types';
-import { runnableDefaultTask, type ImageTask } from '@/shared/task-prompts';
+import {
+  builtInTask,
+  defaultTaskName,
+  runnableDefaultTask,
+  type ImageTask,
+} from '@/shared/task-prompts';
 import type { TaskId } from '@/shared/task-view';
 import { MAX_SELECTION_CHARS, RECENT_SELECTION_TTL_MS } from '@/shared/constants';
 import { resolveEffective } from '@/shared/site-profile';
@@ -278,6 +283,10 @@ function handleSelectionChange(): void {
       maybeShowSmartBannerOnce(s, decision.reason);
       return;
     }
+    // The bubble runs the default task, so it names that task when it is not Translate (R5).
+    const customTask = builtInTask(runnableDefaultTask(s)) === null;
+    const task = defaultTaskName(s, customTask ? await ensureCustomTasks().catch(() => []) : []);
+    if (!isLatestSelectionChange(seq)) return;
     const isFirstRun = !s.bubbleFirstRunSeen;
     // A drag fires many selectionchange ticks before the stored write comes back; write once per settings read.
     if (isFirstRun && firstRunPatchedFor !== s) {
@@ -304,6 +313,7 @@ function handleSelectionChange(): void {
       ...(blockEl && getComputedStyle(blockEl).direction === 'rtl' ? { rtl: true } : {}),
       queued: accum.size(),
       direction: displayDirection,
+      ...(task !== null ? { task } : {}),
       ...(isFirstRun ? { firstRun: true } : {}),
       onClick: (e) => {
         void handleBubbleClick(e, info).catch((err) =>

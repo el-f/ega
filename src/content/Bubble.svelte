@@ -14,6 +14,8 @@
     queued: number;
     /** Current translation direction; the label names its target. */
     direction?: Direction;
+    /** The default task's name when it is not Translate: the bubble runs that task, so it says so. */
+    task?: string;
     /** Plays a 3-ring pulse once, on the first bubble of this install; the parent stores the seen flag. */
     firstRun?: boolean;
     /** `left` is the right edge on a right-to-left block. */
@@ -31,6 +33,7 @@
     top,
     queued,
     direction,
+    task,
     firstRun = false,
     rtl = false,
     onclick,
@@ -56,6 +59,7 @@
   // The source is left out, so nothing dangles; the tooltip names it.
   const label = $derived.by(() => {
     const count = queued > 0 ? ` ${queued + 1}` : '';
+    if (task) return `${task}${count}`;
     return direction
       ? `Translate${count} to ${languageName(direction.target)}`
       : `Translate${count}`;

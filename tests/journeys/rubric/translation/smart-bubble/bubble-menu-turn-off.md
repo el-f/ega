@@ -7,7 +7,7 @@
 
 ## State expectations
 
-- Step 1: a selection shows the bubble, "Translate to {target}" with a chevron segment named "Bubble options".
+- Step 1: a selection shows the bubble, "Translate to {target}" (or the default task's name when that is not Translate) with a chevron segment named "Bubble options".
 - Step 2: the chevron opens a two-item menu under the bubble: "Turn off on this site", "Bubble settings".
 - Step 3: Turn off on this site sets `sitePrefs[origin].disabled`, hides the bubble and shows the toast "Ega is off on {host}. Turn it back on from the Ega toolbar button." with Undo.
 - Step 4: Undo removes the site's row again (the switch is a set, not a toggle).

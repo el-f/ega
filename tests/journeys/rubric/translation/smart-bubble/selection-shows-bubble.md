@@ -13,6 +13,7 @@
 ## Visible affordances
 
 - Bubble carries an icon + minimal hover/focus state; no full surface chrome.
+- The label names what a click runs, the user's default task: "Translate to {target}" while that is Translate; otherwise the task's own name ("Summarize", or a custom task's name). An off default task runs as Translate and says so.
 - Bubble is keyboard-focusable so it can be triggered without a mouse.
 
 ## Failure-mode expectations
