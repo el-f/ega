@@ -512,6 +512,17 @@
         const to = e.relatedTarget;
         if (!(to instanceof Node) || !scroller?.contains(to)) onFocusChange(null);
       }}
+      onfocusin={(e) => {
+        // A click or a pager refocus inside a turn moves the ring there too, so `r` acts on what has focus.
+        const id =
+          e.target instanceof Element
+            ? e.target.closest('[data-turn-id]')?.getAttribute('data-turn-id')
+            : null;
+        if (id == null || id === focusedTurnId) return;
+        // Focus is already inside the turn; the effect below must not pull it back to the article.
+        focusedInDom = id;
+        onFocusChange(id);
+      }}
     >
       <div class="ega-thread-col">
         {#if hiddenCount > 0}

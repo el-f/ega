@@ -139,4 +139,27 @@ describe('ConversationStream — no svelte:window self-registration', () => {
 
     outside.remove();
   });
+
+  // R2-F3: a click or a pager refocus inside another turn left the ring, and `r`, on the old one.
+  it('focus landing inside a turn makes it the focused turn, and stays where it landed', async () => {
+    const focusChange = vi.fn();
+    const { container, rerender } = render(ConversationStream, {
+      props: {
+        turns: [u('u1', 'hello'), a('a1', 'world', 'u1'), u('u2', 'again'), a('a2', 'more', 'u2')],
+        focusedTurnId: 'a2',
+        onRetry: vi.fn(),
+        onFocusChange: focusChange,
+      },
+    });
+    await tick();
+    const copy = container.querySelector<HTMLElement>(
+      '[data-turn-id="a1"] [data-ega-action="copy"]',
+    );
+    if (!copy) throw new Error('copy button missing');
+    copy.focus();
+    expect(focusChange).toHaveBeenLastCalledWith('a1');
+    await rerender({ focusedTurnId: 'a1' });
+    await tick();
+    expect(document.activeElement).toBe(copy);
+  });
 });
