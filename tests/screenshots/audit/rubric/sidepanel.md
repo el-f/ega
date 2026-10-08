@@ -27,6 +27,7 @@ The side panel is Chrome's right-edge surface (`src/sidepanel`), built for a con
 - **error-auth-details**, **error-rate-limit**, **error-partial**, **stopped**, **empty-answer** — the error anatomy above; Details open shows the raw message in mono under a 2px rule.
 - **refine-menu**, **more-menu**, **more-menu-keyboard** (400 only), **translate-into**, **refine-mode**, **refined-show-changes** — the Refine menu with presets and language items (none on Reword or Grammar), the More menu with "Answer again as" (opened from the keyboard: a 2px ring on the first item), the language popover, the changing-this-reply chip, and the inline word diff.
 - **about-instructions** — About open with the instructions box scrolling inside itself and the cut note.
+- **about-end** — About scrolled to its end: the cut note, then "Copy as JSON"; no Jump to latest pill.
 - **mode-popover**, **mode-popover-image**, **mode-popover-page-off**, **mode-popover-many-tasks** — task chips with a check on the picked one, From/To with swap, tone; a 40-character custom name wraps inside its chip.
 - **composer-over-cap**, **composer-drag**, **edit-mode**, **dictating**, **reading-aloud** — the count line in red, the dashed drop outline, the edit chip with the bubble outlined, the red "Stop dictation" in Add's place, and "Reading aloud · Stop" (Stop keyboard-focused, its ring inside the line).
 - **conversations**, **backend-popover**, **header-more**, **search-matches**, **search-none**, **bookmarks**, **bookmarks-none** — the header layers and bars.

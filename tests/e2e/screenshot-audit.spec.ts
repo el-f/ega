@@ -2508,7 +2508,7 @@ test.describe('Sidepanel redesign', () => {
       'replies with mixed languages, low confidence, a fallback and a cache hit',
       [
         'every meta line is one line; items that do not fit drop whole, confidence first',
-        'a direction wider than the reply shows its first words, never a cut word or an ellipsis',
+        'a direction wider than the reply is left out whole (never its first words, a cut word or an ellipsis); shorter items after it still show',
         '"Low confidence (42%)" in the warning colour',
         '"Answered by Gemini · Anthropic failed"; "Saved answer" for the cache hit',
       ],
@@ -2602,15 +2602,45 @@ test.describe('Sidepanel redesign', () => {
             detectedLang: 'de',
           }),
           user('u2', '[image]', T(12), { kind: 'image-translate', imageShed: true }),
-          reply('a2', 'u2', T(12), { kind: 'image-translate', content: 'Open daily' }),
+          reply('a2', 'u2', T(12), {
+            kind: 'image-translate',
+            content: 'Open daily',
+            detectedLang: 'de',
+          }),
+          // Spec §13.1: Explain with an image and a typed note, kept and shed.
+          user('u3', 'what does the small print mean?', T(10), {
+            kind: 'explain',
+            imageDataUrl: PNG,
+          }),
+          reply('a3', 'u3', T(10), {
+            kind: 'explain',
+            content: 'It says the exit is for staff only.',
+            explain: 'The small print is a fire-code notice.',
+            detectedLang: 'de',
+          }),
+          user('u4', 'and this one?', T(9), { kind: 'explain', imageShed: true }),
+          reply('a4', 'u4', T(9), {
+            kind: 'explain',
+            content: 'It gives the opening hours.',
+            detectedLang: 'de',
+          }),
         ],
       },
     ]);
     await matrix(
       images,
       'image-turns',
-      'an image message, an image no longer kept, their answers',
-      ['image preview inside the bubble; "Image not shown" for the removed one'],
+      'image messages (Translate and Explain with a typed note), images no longer kept, their answers',
+      [
+        'image preview inside the bubble; "Image not shown" for a removed one',
+        'Explain with an image: the "Explain" label, the preview, then the typed note in the same bubble',
+        'a removed image with a typed note: "Image not shown" above the note',
+      ],
+      {
+        // The Explain turns are the ones §13.1 asks for; at 256 the four exchanges do not fit at once.
+        perShot: (p) =>
+          p.locator('[data-turn-id="u3"]').evaluate((el) => el.scrollIntoView({ block: 'start' })),
+      },
     );
     await images.close();
   });
@@ -2797,6 +2827,26 @@ test.describe('Sidepanel redesign', () => {
         'model as a readable name, usage as "42 tokens read · 9 written"',
         'the instructions scroll in their own box, with "Cut at 6,000 of 9,000 characters."',
       ],
+      {
+        // The thread is scrolled up here, so Jump to latest floats at the bottom: keep the cut note clear of it.
+        perShot: (p) =>
+          p.locator('.rd-instr-note').evaluate((el) => el.scrollIntoView({ block: 'center' })),
+      },
+    );
+    await matrix(
+      sp,
+      'about-end',
+      'About open, scrolled to its end',
+      [
+        'the cut note, then "Copy as JSON" as a ghost text button at the end of About',
+        'at the newest message, so no Jump to latest pill',
+      ],
+      {
+        perShot: async (p) => {
+          await p.locator('.ega-conv-stream').evaluate((el) => (el.scrollTop = el.scrollHeight));
+          await p.locator('[data-ega-jump-latest]').waitFor({ state: 'detached' });
+        },
+      },
     );
     await sp.close();
   });
