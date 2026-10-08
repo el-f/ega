@@ -291,6 +291,8 @@ describe('RulesEditor add', () => {
 
   it('Add rule opens the fields at the top as a draft and focuses the text', async () => {
     const { container } = mount([rule({ id: 'r1' })]);
+    // The Add pattern: a secondary button with a plus icon, like Add language and New task.
+    expect(container.querySelector('[data-ega-rules-add] [data-action-icon="add"]')).not.toBeNull();
     await fireEvent.click(container.querySelector('[data-ega-rules-add]') as HTMLElement);
     const draft = container.querySelector('[data-ega-rule-draft]');
     expect(draft).not.toBeNull();

@@ -154,6 +154,7 @@
       <Button
         variant="secondary"
         size="sm"
+        iconKind="add"
         ariaDisabled={atCap}
         {...atCap ? { describedBy: 'ega-rules-cap' } : {}}
         dataAttrs={{ 'data-ega-rules-add': true, 'aria-expanded': adding ? 'true' : 'false' }}
@@ -220,7 +221,8 @@
   .rules-budget-warn {
     color: var(--color-warning-fg);
   }
-  .rule-draft {
+  /* The hairline parts the draft from the rules below it; with no rules it would be a stray line. */
+  .rule-draft:not(:last-child) {
     padding-bottom: var(--space-2);
     border-bottom: 1px solid var(--color-border-subtle);
   }

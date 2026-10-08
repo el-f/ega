@@ -112,6 +112,13 @@
     min-width: 0;
     overflow-wrap: anywhere;
   }
+  /* A rule that wraps keeps its box on the first line, level with Edit, not centred on the whole text. */
+  .rule-text :global(.ega-checkbox) {
+    align-items: flex-start;
+  }
+  .rule-text :global(.ega-checkbox-input) {
+    margin-top: calc((1lh - 16px) / 2);
+  }
   .rule-meta {
     margin: 2px 0 0;
     padding-inline-start: calc(16px + var(--space-2));

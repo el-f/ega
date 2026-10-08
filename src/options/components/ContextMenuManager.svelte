@@ -883,7 +883,7 @@
 
                             {#if item.kind === 'image-task'}
                               <span class="cm-field-label">Answer in</span>
-                              <p class="cm-hint cm-field" data-ega-cm-image-lang>
+                              <p class="cm-hint cm-field cm-static-value" data-ega-cm-image-lang>
                                 Image actions answer in your default target language
                               </p>
                             {/if}
@@ -1174,6 +1174,11 @@
   /* A radio group sits lower in its row than a select, so its label does too. */
   .cm-field-label.is-radio {
     padding-block-start: var(--space-3);
+  }
+  /* A plain value line sits on its label's line: no paragraph margin, the label's top padding. */
+  .cm-static-value {
+    margin: 0;
+    padding-block-start: var(--space-1);
   }
 
   .cm-row-shadow {

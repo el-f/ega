@@ -240,6 +240,7 @@ describe('Tasks tab — your own tasks', () => {
       return el;
     });
     expect(add.getAttribute('aria-disabled')).toBe('true');
+    expect(add.querySelector('[data-action-icon="add"]')).not.toBeNull();
     expect(
       document.getElementById(add.getAttribute('aria-describedby') ?? '')?.textContent,
     ).toContain(`You have the most tasks Ega keeps (${CUSTOM_TASKS_MAX})`);

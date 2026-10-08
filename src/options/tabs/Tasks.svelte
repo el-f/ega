@@ -209,6 +209,7 @@
           <Button
             variant="secondary"
             size="sm"
+            iconKind="add"
             ariaDisabled={atCap}
             {...atCap ? { describedBy: 'ega-custom-task-cap' } : {}}
             dataAttrs={{ 'data-ega-custom-task-new': true }}
