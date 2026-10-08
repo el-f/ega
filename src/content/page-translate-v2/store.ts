@@ -8,6 +8,8 @@ export interface BlockEntry {
   /** Language detected at segmentation. Carried so an auto-retry re-dispatches
    *  with the same hint instead of forcing the router back to auto-detect. */
   detectedLang?: string;
+  /** Whole page: only the element's leading run, so a retry mounts the run again, not the whole element. */
+  run?: boolean;
   requestId?: string;
   /** Restores this block's original DOM; set by the renderer on mount. */
   revert?: () => void;

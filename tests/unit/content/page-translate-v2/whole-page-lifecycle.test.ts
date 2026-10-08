@@ -17,7 +17,14 @@ import {
 import { exitMultiSelect, isMultiSelectActive } from '@/content/page-translate-v2/multi-select';
 import { SETTINGS_CHANGED_BODY } from '@/shared/error-copy';
 import type { BackendId } from '@/shared/types';
-import { FakeObserver, enterAndFire, finishAll, flush, rig } from '@tests/_helpers/page-translate';
+import {
+  FakeObserver,
+  enterAndFire,
+  finishAll,
+  flush,
+  retryButton,
+  rig,
+} from '@tests/_helpers/page-translate';
 import { pillStatus } from '@/content/page-translate-v2/progress';
 
 const N = 12;
@@ -305,6 +312,57 @@ describe('whole-page session — a block already in the target language', () => 
     band([...document.querySelectorAll('p')] as HTMLElement[]);
     await flush();
     expect(r.sent.map((s) => s.text)).toEqual(['Hola amigo, cómo estás hoy']);
+  });
+});
+
+describe('whole-page session — the words before an inner block', () => {
+  const comment =
+    '<div class="comment"><span id="c">これはコメントの最初の段落です。<p id="c2">これは二つ目の段落です。</p></span></div>';
+
+  it("Replace text translates a comment's first paragraph in place, and Remove translation puts it back", async () => {
+    document.body.innerHTML = comment;
+    const before = document.body.innerHTML;
+    const r = rig();
+    await runWholePageTranslate(r.d);
+    band([document.getElementById('c'), document.getElementById('c2')] as HTMLElement[]);
+    await flush();
+    expect(r.sent.map((x) => x.text)).toEqual([
+      'これはコメントの最初の段落です。',
+      'これは二つ目の段落です。',
+    ]);
+    finishAll(r);
+    await flush();
+    const c = document.getElementById('c') as HTMLElement;
+    expect(c.firstElementChild?.matches('[data-ega-replaced][data-ega-run]')).toBe(true);
+    expect(c.firstElementChild?.textContent).toBe('T');
+    expect(c.querySelector('#c2 [data-ega-replaced]')?.textContent).toBe('T');
+    expect(r.updates.at(-1)).toMatchObject({ settled: true, total: 2 });
+    // A second press takes nothing twice.
+    expect(await runWholePageTranslate(r.d)).toBe(false);
+    await cancelPageTranslateV2();
+    expect(document.body.innerHTML).toBe(before);
+  });
+
+  it("Show both puts the first paragraph's translation before the second paragraph, and a retry keeps the inner block", async () => {
+    document.body.innerHTML = comment;
+    const r = rig();
+    r.d.getSettings = () =>
+      Promise.resolve({ pageTranslateMode: 'bilingual', batchConcurrency: 3 } as never);
+    await runWholePageTranslate(r.d);
+    band([document.getElementById('c'), document.getElementById('c2')] as HTMLElement[]);
+    await flush();
+    fail(r.sent[0]?.id, 'UNKNOWN');
+    finishAll(r, 1);
+    await flush();
+    const c = document.getElementById('c') as HTMLElement;
+    const box = c.querySelector(':scope > [data-ega-run]');
+    expect(box?.nextElementSibling?.id).toBe('c2');
+    expect(box?.getAttribute('data-ega-tx-state')).toBe('error');
+    // Try again sends the run again; the second paragraph keeps its translation.
+    retryButton(c)?.click();
+    await flush();
+    expect(r.sent.at(-1)?.text).toBe('これはコメントの最初の段落です。');
+    expect(document.getElementById('c2')?.nextElementSibling?.textContent).toBe('T');
   });
 });
 

@@ -4,8 +4,10 @@ import fc from 'fast-check';
 import {
   blockText,
   collectBlocks,
+  isLeadingRun,
   MAX_PAGE_BLOCKS,
   releaseOrder,
+  runText,
 } from '@/content/page-translate-v2/collect';
 
 function ids(els: HTMLElement[]): string[] {
@@ -60,9 +62,11 @@ describe('collectBlocks', () => {
     expect(ids(collectBlocks(document.body, { maxChars: 50 }))).toEqual(['keep']);
   });
 
-  it('a block over the length cap keeps its container from claiming it', () => {
+  it('a block over the length cap keeps its container from claiming it; the container keeps its own words', () => {
     document.body.innerHTML = `<div id="d">Texte propre <p>${'mot '.repeat(30)}</p></div>`;
-    expect(collectBlocks(document.body, { maxChars: 50 })).toEqual([]);
+    expect(ids(collectBlocks(document.body, { maxChars: 50 }))).toEqual(['d']);
+    expect(isLeadingRun(document.getElementById('d') as HTMLElement)).toBe(true);
+    expect(runText(document.getElementById('d') as HTMLElement)).toBe('Texte propre');
   });
 
   it('stops at the block cap', () => {
@@ -188,6 +192,36 @@ describe('collectBlocks — what is already translated, and what can never come 
       root.style.removeProperty('direction');
       document.documentElement.removeAttribute('dir');
     }
+  });
+});
+
+describe('collectBlocks — the words before an inner block', () => {
+  it('takes them as a block of their own, before the inner blocks: a comment, a parent list item', () => {
+    document.body.innerHTML = `
+      <div class="comment"><span id="c" class="commtext">Primer párrafo del <i>comentario</i><p id="c2">Segundo párrafo del comentario</p></span></div>
+      <ul><li id="parent">Elemento padre de la lista<ul><li id="child">Elemento hijo</li></ul></li></ul>`;
+    expect(ids(collect())).toEqual(['c', 'c2', 'parent', 'child']);
+    const c = document.getElementById('c') as HTMLElement;
+    expect(isLeadingRun(c)).toBe(true);
+    expect(isLeadingRun(document.getElementById('c2') as HTMLElement)).toBe(false);
+    expect(runText(c)).toBe('Primer párrafo del comentario');
+    expect(runText(document.getElementById('parent') as HTMLElement)).toBe(
+      'Elemento padre de la lista',
+    );
+  });
+
+  it('leaves out a run with no words of its own, a flex box, and a run already translated', () => {
+    document.body.innerHTML = `
+      <ul><li id="menu"><a href="#">Productos</a><ul><li id="sub">Zapatos de invierno</li></ul></li></ul>
+      <div id="flex" style="display:flex">Texto suelto en fila<p id="fp">Párrafo en fila</p></div>
+      <ul><li id="done"><span data-ega-replaced="x" data-ega-run data-ega-tx-state="ok">Parent</span><ul><li id="new">Elemento hijo nuevo</li></ul></li></ul>`;
+    expect(ids(collect())).toEqual(['sub', 'fp', 'new']);
+  });
+
+  it('a failed run is taken again', () => {
+    document.body.innerHTML = `<ul><li id="parent"><span data-ega-replaced="x" data-ega-run data-ega-tx-state="error">Elemento padre</span><ul><li id="child">Elemento hijo</li></ul></li></ul>`;
+    expect(ids(collect())).toEqual(['parent', 'child']);
+    expect(runText(document.getElementById('parent') as HTMLElement)).toBe('Elemento padre');
   });
 });
 

@@ -8,6 +8,7 @@ import {
   finish,
   mountError,
   setGlobalOriginalView,
+  clearStaleError,
 } from '@/content/page-translate-v2/renderer';
 
 function block(tag: string, text: string): HTMLElement {
@@ -282,6 +283,55 @@ describe('renderer — in-place mode', () => {
     // The original appears exactly once — cloneNode would have re-inserted it.
     const count = document.body.textContent.split('元の段落テキスト').length - 1;
     expect(count).toBe(1);
+  });
+});
+
+describe('renderer — a leading run', () => {
+  const html =
+    '<li id="li">Elemento <b>padre</b><ul><li id="child">Hijo</li></ul><div data-ega-tx data-ega-tx-state="error">x</div></li>';
+
+  it('Replace text wraps only the words before the inner list, and revert puts them back', () => {
+    document.body.innerHTML = html;
+    const li = document.getElementById('li') as HTMLElement;
+    const before = li.innerHTML;
+    const handle = mountInplace({
+      id: 'r',
+      element: li,
+      originalText: 'Elemento padre',
+      run: true,
+    });
+    expect(handle.target.hasAttribute('data-ega-run')).toBe(true);
+    expect(handle.target.nextElementSibling?.tagName).toBe('UL');
+    expect(li.firstElementChild).toBe(handle.target);
+    appendDelta(handle, '{"translation":"Parent item"}');
+    finish(handle);
+    expect(li.querySelector('#child')?.textContent).toBe('Hijo');
+    handle.revert();
+    expect(li.innerHTML).toBe(before);
+  });
+
+  it('Show both puts the box right after the run, before the inner list', () => {
+    document.body.innerHTML = html;
+    const li = document.getElementById('li') as HTMLElement;
+    const handle = mountBilingual({
+      id: 'r',
+      element: li,
+      originalText: 'Elemento padre',
+      run: true,
+    });
+    expect(handle.target.parentElement).toBe(li);
+    expect(handle.target.nextElementSibling?.tagName).toBe('UL');
+    expect(handle.target.hasAttribute('data-ega-run')).toBe(true);
+    expect(handle.target.hasAttribute('data-ega-inside')).toBe(false);
+  });
+
+  it('a new try of the run clears only its own failed mark, not a failed box beside an inner block', () => {
+    document.body.innerHTML = `<li id="li"><span data-ega-replaced="r" data-ega-run data-ega-tx-state="error">Elemento padre</span><p>Hijo</p><div data-ega-tx data-ega-tx-state="error">x</div></li>`;
+    const li = document.getElementById('li') as HTMLElement;
+    clearStaleError(li, true);
+    expect(li.innerHTML).toBe(
+      'Elemento padre<p>Hijo</p><div data-ega-tx="" data-ega-tx-state="error">x</div>',
+    );
   });
 });
 

@@ -33,7 +33,15 @@ import { patchSettings } from '@/shared/settings-bus';
 import { uuid } from '@/shared/uuid';
 import { setRenderer } from '../request-state';
 import { langTag } from '@/shared/lang-tag';
-import { blockText, collectBlocks, hasWords, keepsPageParts, releaseOrder } from './collect';
+import {
+  blockText,
+  collectBlocks,
+  hasWords,
+  isLeadingRun,
+  keepsPageParts,
+  releaseOrder,
+  runText,
+} from './collect';
 import { settleAnnouncement, type PageProgress } from './progress';
 
 // A free-tier backend rate-limits a many-block batch fast, so transient failures retry with jittered exponential backoff.
@@ -92,6 +100,8 @@ interface Block {
   element: HTMLElement;
   text: string;
   detectedLang?: string;
+  /** Whole page: only the element's leading run, the words before its first inner block. */
+  run?: boolean;
 }
 
 interface Failure {
@@ -456,7 +466,9 @@ function release(sess: Session, id: string): void {
   const element = sess.deferred.get(id);
   if (!element) return;
   sess.deferred.delete(id);
-  const text = element.isConnected ? blockText(element) : '';
+  // An element taken for its leading run sends only those words; its inner blocks are blocks of their own.
+  const run = isLeadingRun(element);
+  const text = !element.isConnected ? '' : run ? runText(element) : blockText(element);
   const isTarget = sess.deps.isTargetLanguage?.(text) ?? readsAsTarget(sess, text);
   if (!hasWords(text) || text.length > MAX_SELECTION_CHARS || isTarget) {
     // Gone from the page or already in the target language: not an area, so it leaves the count.
@@ -470,6 +482,7 @@ function release(sess: Session, id: string): void {
     element,
     text,
     ...(detectedLang !== undefined ? { detectedLang } : {}),
+    ...(run ? { run } : {}),
   });
 }
 
@@ -736,11 +749,17 @@ function pump(): void {
 
 async function dispatchBlock(sess: Session, block: Block): Promise<void> {
   sess.attempts.set(block.id, (sess.attempts.get(block.id) ?? 0) + 1);
-  clearStaleError(block.element);
+  const run = block.run === true;
+  clearStaleError(block.element, run);
   // Replace text would remove a link, a field or a part the page keeps out, so such a block shows in Show both.
   const mode: RenderMode =
-    sess.mode === 'inplace' && !keepsPageParts(block.element) ? 'inplace' : 'bilingual';
-  const mountArgs = { id: block.id, element: block.element, originalText: block.text };
+    sess.mode === 'inplace' && !keepsPageParts(block.element, run) ? 'inplace' : 'bilingual';
+  const mountArgs = {
+    id: block.id,
+    element: block.element,
+    originalText: block.text,
+    ...(run ? { run } : {}),
+  };
   const handle =
     mode === 'bilingual'
       ? mountBilingual({ ...mountArgs, lang: sess.lang })
@@ -754,6 +773,7 @@ async function dispatchBlock(sess: Session, block: Block): Promise<void> {
     mode,
     text: block.text,
     ...(block.detectedLang ? { detectedLang: block.detectedLang } : {}),
+    ...(run ? { run } : {}),
     revert: handle.revert,
     showOriginal: handle.showOriginal,
     showTranslation: handle.showTranslation,
@@ -961,6 +981,7 @@ function redispatch(sess: Session, blockId: string): void {
     element: entry.element as HTMLElement,
     text: entry.text,
     ...(entry.detectedLang ? { detectedLang: entry.detectedLang } : {}),
+    ...(entry.run ? { run: true } : {}),
   });
   pump();
 }

@@ -75,25 +75,84 @@ function skipSubtree(el: Element): boolean {
   );
 }
 
-/** A block Ega already translated, or is translating: its translation beside it or inside it, or its words in Ega's wrapper. */
-function isTranslated(el: Element): boolean {
-  const live = (m: Element | null): boolean =>
+/** A translation Ega put on the page, or is putting there; not one a failed try left, nor inline replace's. */
+function isLiveMark(m: Element | null): m is Element {
+  return (
     m !== null &&
     isEgaMark(m) &&
     !m.hasAttribute('data-ega-original') &&
-    m.getAttribute('data-ega-tx-state') !== 'error';
+    m.getAttribute('data-ega-tx-state') !== 'error'
+  );
+}
+
+/**
+ * A block Ega already translated, or is translating: its translation beside it or inside it, or its words in Ega's
+ * wrapper. A leading run's mark claims only the run, never the element that holds it.
+ */
+function isTranslated(el: Element): boolean {
   const next = el.nextElementSibling;
-  if (next?.hasAttribute('data-ega-tx') === true && live(next)) return true;
+  if (next?.hasAttribute('data-ega-tx') === true && !isRunMark(next) && isLiveMark(next)) {
+    return true;
+  }
   // A container that merely holds a translated block's sibling box is not itself translated.
   const tag = el.tagName.toUpperCase();
   const block = BLOCK_TAGS.has(tag) || CONTAINER_TAGS.has(tag);
   for (const c of el.children) {
-    if (!live(c)) continue;
+    if (!isLiveMark(c) || isRunMark(c)) continue;
     // Only the box mounted inside this element claims it, not the sibling box of a block inside it.
     if (c.hasAttribute('data-ega-replaced') ? block : c.hasAttribute('data-ega-inside'))
       return true;
   }
   return false;
+}
+
+function isRunMark(m: Element): boolean {
+  return m.hasAttribute('data-ega-run');
+}
+
+const BLOCK_SELECTOR = [...BLOCK_TAGS, ...CONTAINER_TAGS].join(',');
+
+/** A child that is a block, or holds one, ends its parent's leading run. */
+function holdsBlock(c: Element): boolean {
+  const tag = c.tagName.toUpperCase();
+  return BLOCK_TAGS.has(tag) || CONTAINER_TAGS.has(tag) || c.querySelector(BLOCK_SELECTOR) !== null;
+}
+
+/**
+ * The nodes before an element's first inner block: a comment's first paragraph before its first <p>, a parent list
+ * item's own words before its nested list. A whole-page pass translates them as a block of their own.
+ */
+export function leadingRun(el: Element): ChildNode[] {
+  const run: ChildNode[] = [];
+  for (const c of el.childNodes) {
+    if (c instanceof Element && holdsBlock(c)) break;
+    run.push(c);
+  }
+  return run;
+}
+
+/** The run's bare text, also inside the wrapper a failed try of the run left. */
+function ownWords(nodes: Iterable<ChildNode>): string {
+  let out = '';
+  for (const n of nodes) {
+    if (n.nodeType === Node.TEXT_NODE) out += n.nodeValue ?? '';
+    else if (n instanceof Element && isRunMark(n)) out += ownWords(n.childNodes);
+    out += ' ';
+  }
+  return out;
+}
+
+/** Elements the last collection pass took for their leading run only. */
+const RUNS = new WeakSet<Element>();
+
+/** True when the last collection pass took this element for its leading run, not its whole text. */
+export function isLeadingRun(el: Element): boolean {
+  return RUNS.has(el);
+}
+
+/** The text of an element's leading run, by the same rules as blockText. */
+export function runText(el: Element): string {
+  return textOf(leadingRun(el));
 }
 
 /** What an ancestor does with a box past its edge on one axis: shows it, cuts it off, or lets the user scroll to it. */
@@ -175,9 +234,13 @@ export function hasWords(text: string): boolean {
  * keeps out, Ega's own marks), spaces collapsed, a <br> kept as a line break. Never the raw textContent.
  */
 export function blockText(el: Element): string {
+  return textOf(el.childNodes);
+}
+
+function textOf(nodes: Iterable<ChildNode>): string {
   let out = '';
-  const walk = (node: Element): void => {
-    for (const c of node.childNodes) {
+  const walk = (children: Iterable<ChildNode>): void => {
+    for (const c of children) {
       if (c.nodeType === Node.TEXT_NODE) out += (c.nodeValue ?? '').replace(/\s+/g, ' ');
       else if (c instanceof Element) {
         if (c.tagName.toUpperCase() === 'BR') out += '\n';
@@ -187,13 +250,13 @@ export function blockText(el: Element): string {
           const display = c.ownerDocument.defaultView?.getComputedStyle(c).display ?? 'inline';
           const own = !/^(?:inline|ruby|contents)/.test(display);
           if (own) out += '\n';
-          walk(c);
+          walk(c.childNodes);
           if (own) out += '\n';
         }
       }
     }
   };
-  walk(el);
+  walk(nodes);
   return out
     .replace(/ *\n */g, '\n')
     .replace(/\n{2,}/g, '\n')
@@ -201,11 +264,18 @@ export function blockText(el: Element): string {
     .trim();
 }
 
-/** True when Replace text would remove a link, a field, media or a part the page keeps out. */
-export function keepsPageParts(el: Element): boolean {
-  if (el.querySelector(PAGE_PARTS) !== null) return true;
-  // A component's shadow tree draws text the light DOM does not hold, so moving its host would lose it.
-  for (const d of el.querySelectorAll('*')) if (d.shadowRoot || skipSubtree(d)) return true;
+/**
+ * True when Replace text would remove a link, a field, media or a part the page keeps out: from the whole block,
+ * or with `run` from its leading run only.
+ */
+export function keepsPageParts(el: Element, run = false): boolean {
+  for (const n of run ? leadingRun(el) : el.childNodes) {
+    if (!(n instanceof Element)) continue;
+    if (n.matches(PAGE_PARTS) || n.querySelector(PAGE_PARTS) !== null) return true;
+    // A component's shadow tree draws text the light DOM does not hold, so moving its host would lose it.
+    for (const d of [n, ...n.querySelectorAll('*')])
+      if (d.shadowRoot || skipSubtree(d)) return true;
+  }
   return false;
 }
 
@@ -220,17 +290,39 @@ export function collectBlocks(root: Element, opts: { maxChars: number }): HTMLEl
   const visit = (el: Element): boolean => {
     if (out.length >= MAX_PAGE_BLOCKS || skipSubtree(el)) return false;
     if (isTranslated(el)) return true;
+    const at = out.length;
     let inner = false;
     for (const child of el.children) if (visit(child)) inner = true;
-    // ponytail: text that sits next to an inner block (a comment's first line before its <p>) is not collected; a box per text run if that gap matters.
-    if (inner) return true;
+    if (inner) {
+      // The words before the first inner block go first, in page order.
+      if (takesRun(el) && out.length < MAX_PAGE_BLOCKS) {
+        out.splice(at, 0, el as HTMLElement);
+        RUNS.add(el);
+      }
+      return true;
+    }
     const tag = el.tagName.toUpperCase();
     if (!BLOCK_TAGS.has(tag) && !CONTAINER_TAGS.has(tag)) return false;
     const text = blockText(el);
     if (!hasWords(text)) return false;
     if (text.length > opts.maxChars || outOfReach(el, overflow)) return true;
-    if (out.length < MAX_PAGE_BLOCKS) out.push(el as HTMLElement);
+    if (out.length < MAX_PAGE_BLOCKS) {
+      out.push(el as HTMLElement);
+      RUNS.delete(el);
+    }
     return true;
+  };
+  // ponytail: only the run before the first inner block; words between or after inner blocks stay untranslated.
+  const takesRun = (el: Element): boolean => {
+    // Words of its own, not only inline children: a menu item's link before its submenu, a skip link, stays out.
+    const run = leadingRun(el);
+    if (!hasWords(ownWords(run))) return false;
+    // In a flex or grid box the run is laid out as items of its own, which a wrapper or a box would change.
+    const display = el.ownerDocument.defaultView?.getComputedStyle(el).display ?? '';
+    if (/flex|grid/.test(display)) return false;
+    for (const c of el.children) if (isRunMark(c) && isLiveMark(c)) return false;
+    const text = textOf(run);
+    return hasWords(text) && text.length <= opts.maxChars && !outOfReach(el, overflow);
   };
   visit(root);
   return out;

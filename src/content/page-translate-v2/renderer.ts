@@ -3,6 +3,7 @@ import type { ErrCode } from '@/shared/types';
 import { ensurePageStyles } from '../page-styles';
 import { markLang } from '@/shared/lang-tag';
 import { mountErrorChip, type ChipOpts } from '../page-chip';
+import { leadingRun } from './collect';
 import type { RenderMode } from './store';
 
 export interface MountArgs {
@@ -11,6 +12,8 @@ export interface MountArgs {
   originalText: string;
   /** Tag of the target language; absent leaves the attribute out. */
   lang?: string | undefined;
+  /** Only the element's leading run, the words before its first inner block; the inner blocks stay as they are. */
+  run?: boolean;
 }
 
 /** Sticky after the first terminal: a late chunk must not re-paint a settled block. */
@@ -112,17 +115,22 @@ function siblingTag(el: Element): string {
   return display.startsWith('inline') ? 'span' : 'div';
 }
 
-/** Bilingual: insert a neutral box after the original, or inside a cell or list item. Original DOM is left untouched. */
+/**
+ * Bilingual: insert a neutral box after the original, or inside a cell or list item; a leading run's box goes
+ * right after the run, before the first inner block. Original DOM is left untouched.
+ */
 export function mountBilingual(args: MountArgs): RenderHandle {
   ensurePageStyles();
-  const inside = boxGoesInside(args.element);
+  const run = args.run === true;
+  const inside = !run && boxGoesInside(args.element);
   // A summary holds phrasing content only, so its box is a span the page sheet shows as a block.
   const summary = args.element.tagName.toUpperCase() === 'SUMMARY';
   const sibling = document.createElement(
-    inside ? (summary ? 'span' : 'div') : siblingTag(args.element),
+    run ? 'div' : inside ? (summary ? 'span' : 'div') : siblingTag(args.element),
   );
   sibling.setAttribute('data-ega-tx', '');
   if (inside) sibling.setAttribute('data-ega-inside', '');
+  if (run) sibling.setAttribute('data-ega-run', '');
   sibling.setAttribute('data-ega-id', args.id);
   // dir="auto" gives an RTL translation correct bidi on an LTR page; the original keeps the page's direction.
   sibling.setAttribute('dir', 'auto');
@@ -133,7 +141,10 @@ export function mountBilingual(args: MountArgs): RenderHandle {
     const px = Number.parseFloat(globalThis.getComputedStyle(args.element).fontSize);
     if (px > 0) sibling.style.fontSize = `${Math.round(px * 0.85)}px`; // token-lint-allow sized off the page's heading
   }
-  if (inside) args.element.append(sibling);
+  if (run) {
+    const host = args.element;
+    host.insertBefore(sibling, host.childNodes[leadingRun(host).length] ?? null);
+  } else if (inside) args.element.append(sibling);
   else args.element.after(sibling);
   const handle: RenderHandle = {
     id: args.id,
@@ -156,14 +167,17 @@ export function mountBilingual(args: MountArgs): RenderHandle {
   return handle;
 }
 
-/** A block that failed in a closed session still shows its error; a new try first puts its page words back. */
-export function clearStaleError(el: Element): void {
+/**
+ * A block that failed in a closed session still shows its error; a new try first puts its page words back. A
+ * leading run clears only its own mark, never the failed box of a block inside the same element.
+ */
+export function clearStaleError(el: Element, run = false): void {
   const failed = (m: Element | null): m is Element =>
     m?.getAttribute('data-ega-tx-state') === 'error';
   const next = el.nextElementSibling;
-  if (failed(next) && next.hasAttribute('data-ega-tx')) next.remove();
+  if (!run && failed(next) && next.hasAttribute('data-ega-tx')) next.remove();
   for (const c of [...el.children]) {
-    if (!failed(c)) continue;
+    if (!failed(c) || c.hasAttribute('data-ega-run') !== run) continue;
     if (c.hasAttribute('data-ega-tx')) {
       c.remove();
       continue;
@@ -173,16 +187,21 @@ export function clearStaleError(el: Element): void {
   }
 }
 
-/** In-place: replace the original's children with a streaming wrapper keyed by
+/** In-place: replace the original's children (or its leading run) with a streaming wrapper keyed by
  *  the stable block id. The captured fragment drives revert. */
 export function mountInplace(args: MountArgs): RenderHandle {
   ensurePageStyles();
   const host = args.element as HTMLElement;
+  const run = args.run === true;
+  const nodes = run ? leadingRun(host) : [...host.childNodes];
+  // The wrapper takes the run's place; the inner blocks after it stay where they are.
+  const before = run ? (host.childNodes[nodes.length] ?? null) : null;
   const fragment = document.createDocumentFragment();
-  while (host.firstChild) fragment.appendChild(host.firstChild);
+  for (const n of nodes) fragment.appendChild(n);
   const wrapper = document.createElement('span');
   wrapper.setAttribute('data-ega-replaced', args.id);
   wrapper.setAttribute('data-ega-id', args.id);
+  if (run) wrapper.setAttribute('data-ega-run', '');
   // Translation streams into this wrapper. dir="auto" gives an RTL
   // translation correct bidi on the LTR host page.
   wrapper.setAttribute('dir', 'auto');
@@ -190,7 +209,7 @@ export function mountInplace(args: MountArgs): RenderHandle {
   wrapper.setAttribute('data-ega-pending', '');
   // The page keeps its own words, dimmed, until the translation starts to arrive.
   wrapper.appendChild(fragment.cloneNode(true));
-  host.appendChild(wrapper);
+  host.insertBefore(wrapper, before);
   const handle: RenderHandle = {
     id: args.id,
     mode: 'inplace',
@@ -198,6 +217,11 @@ export function mountInplace(args: MountArgs): RenderHandle {
     originalText: args.originalText,
     originalNodes: fragment,
     revert: () => {
+      if (run) {
+        // The run's words go back where the wrapper stands; a page that took the wrapper away re-rendered them.
+        if (wrapper.parentNode === host) wrapper.replaceWith(fragment);
+        return;
+      }
       // The page can re-populate the block while we stream; appending then duplicates its content.
       const ownsHost = host.childNodes.length === 1 && host.firstChild === wrapper;
       wrapper.remove();
