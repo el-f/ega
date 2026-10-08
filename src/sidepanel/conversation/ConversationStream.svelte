@@ -81,6 +81,8 @@
     composerTarget?: string | undefined;
     /** The "Record request details" switch, so About says why a reply has no record. */
     recordsDetails?: boolean | undefined;
+    /** Turns mounted at once; older ones mount via "Show earlier" so a 300-turn restore is not one Markdown pass. */
+    renderWindow?: number;
   }
 
   const {
@@ -119,12 +121,11 @@
     onSuggestion,
     composerTarget,
     recordsDetails,
+    renderWindow = 60,
   }: Props = $props();
 
-  /** Turns mounted at once; older ones mount via "Show earlier" so a 300-turn restore is not one Markdown pass. */
-  const RENDER_WINDOW = 60;
   let shownBeyondWindow = $state(0);
-  const hiddenCount = $derived(Math.max(0, turns.length - RENDER_WINDOW - shownBeyondWindow));
+  const hiddenCount = $derived(Math.max(0, turns.length - renderWindow - shownBeyondWindow));
   const windowTurns = $derived(hiddenCount > 0 ? turns.slice(hiddenCount) : turns);
 
   // One pass per turns change; a per-turn scan would make mount O(n²).
@@ -395,7 +396,7 @@
 
   // The last batch removes the pressed button; focus would drop to <body>, so the cursor goes to the first message shown.
   async function showEarlier(): Promise<void> {
-    shownBeyondWindow += RENDER_WINDOW;
+    shownBeyondWindow += renderWindow;
     await tick();
     if (hiddenCount > 0) return;
     const active = document.activeElement;

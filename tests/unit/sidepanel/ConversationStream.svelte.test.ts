@@ -103,22 +103,19 @@ describe('the thread', () => {
 
   // The last batch removes the button that was pressed; the cursor goes to the first message it showed (spec §8.5).
   it('moves focus to the first message shown when Show earlier goes away, and keeps it while one stays', async () => {
-    const turns = (pairs: number): Turn[] => {
-      const out: Turn[] = [];
-      for (let i = 0; i < pairs; i++)
-        out.push(u(`u${i}`, `m${i}`, i), a(`a${i}`, `r${i}`, `u${i}`, i));
-      return out;
-    };
+    // A window of 2 keeps this to a few turns; at the real 60 each render took about a second.
+    const turns = (n: number): Turn[] =>
+      Array.from({ length: n }, (_, i) => u(`u${i}`, `m${i}`, i));
     const onFocusChange = vi.fn();
     const last = render(ConversationStream, {
-      props: { ...base, onFocusChange, turns: turns(35) },
+      props: { ...base, onFocusChange, renderWindow: 2, turns: turns(3) },
     });
     await fireEvent.click(last.container.querySelector('[data-ega-show-earlier]') as HTMLElement);
     await waitFor(() => expect(onFocusChange).toHaveBeenCalledWith('u0'));
     document.body.innerHTML = '';
     onFocusChange.mockClear();
     const more = render(ConversationStream, {
-      props: { ...base, onFocusChange, turns: turns(70) },
+      props: { ...base, onFocusChange, renderWindow: 2, turns: turns(5) },
     });
     const button = more.container.querySelector<HTMLElement>('[data-ega-show-earlier]');
     await fireEvent.click(button as HTMLElement);
