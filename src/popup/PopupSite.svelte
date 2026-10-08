@@ -11,6 +11,8 @@
     host: { full: string; short: string };
     siteOn: boolean;
     heldBack: HeldBack | undefined;
+    /** The default task's name when it is not Translate; Translate anyway runs that task, so it names it. */
+    taskName?: string | null;
     /** A page action waits for the page to finish loading. */
     waiting?: boolean;
     /** Id the page actions point their aria-describedby at. */
@@ -26,6 +28,7 @@
     host,
     siteOn,
     heldBack,
+    taskName = null,
     waiting = false,
     statusId,
     onSiteChange,
@@ -77,7 +80,7 @@
             <span id={statusId}>{status.text}</span>
             {#if status.action === 'anyway'}
               <button type="button" class="status-action" onclick={onTranslateAnyway}
-                >Translate anyway</button
+                >{taskName ?? 'Translate'} anyway</button
               >
             {:else if status.action === 'reload'}
               <button type="button" class="status-action" onclick={onReload}>Reload page</button>

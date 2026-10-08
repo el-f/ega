@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onDestroy, onMount, tick } from 'svelte';
-  import { getSettings, onSettingsChanged } from '@/shared/storage';
+  import { getCustomTasks, getSettings, onSettingsChanged } from '@/shared/storage';
+  import { builtInTask, defaultTaskName, runnableDefaultTask } from '@/shared/task-prompts';
+  import type { CustomTask } from '@/shared/settings-schema';
   import { patchSettings } from '@/shared/settings-bus';
   import type { Settings, Variety, LangSelection } from '@/shared/types';
   import { asLangSelection } from '@/shared/brands';
@@ -40,6 +42,9 @@
   let liveSettings = $state<Settings | null>(null);
   let theme: ThemePref = $state('system');
   let backendReady = $state<boolean | null>(null);
+  let customTasks = $state<readonly CustomTask[]>([]);
+  // Translate anyway runs the page's default task, so it names that task when it is not Translate (R5).
+  const anywayTask = $derived(liveSettings ? defaultTaskName(liveSettings, customTasks) : null);
   // Resolves once the backend chip has decided; a cold service worker can take a while, so the wait is bounded.
   const BACKEND_WAIT_MS = 500;
   let backendDecided: () => void = () => {};
@@ -383,11 +388,13 @@
       pickerEnabled = s.pickerEnabled !== false;
       liveSettings = s;
       theme = s.theme;
+      await readCustomTasksFor(s);
     } catch (e) {
       debugCatch(e, 'popup.onMount.getSettings');
     }
     // Picks up settings written by another surface, so the backend chip and the site switch stay in sync.
     settingsUnsub = onSettingsChanged((next) => {
+      void readCustomTasksFor(next);
       liveSettings = next;
       theme = next.theme;
       pickerEnabled = next.pickerEnabled !== false;
@@ -473,6 +480,16 @@
     }
   });
 
+  /** A custom default task's name lives in its own list, read only when the default is one. */
+  async function readCustomTasksFor(s: Settings): Promise<void> {
+    if (builtInTask(runnableDefaultTask(s)) !== null) return;
+    try {
+      customTasks = await getCustomTasks();
+    } catch (e) {
+      debugCatch(e, 'popup.customTasks');
+    }
+  }
+
   // Svelte 5 ignores a cleanup returned from an async onMount, because the function resolves to a Promise.
   onDestroy(() => {
     settingsUnsub?.();
@@ -541,6 +558,7 @@
         {host}
         {siteOn}
         heldBack={pageReply?.heldBack}
+        taskName={anywayTask}
         waiting={waitingForPage}
         statusId={STATUS_ID}
         onSiteChange={(on) => void onSiteChange(on)}

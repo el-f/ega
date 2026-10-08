@@ -819,3 +819,61 @@ describe('Popup — a page action pressed while the page loads', () => {
     }
   });
 });
+
+describe('Popup — Translate anyway names the task it runs', () => {
+  const heldBack = { reason: 'english' };
+
+  it.each([
+    [{ defaultTask: 'summarize' }, 'Summarize anyway'],
+    // An off default task runs as Translate.
+    [{ defaultTask: 'summarize', disabledTasks: ['summarize'] }, 'Translate anyway'],
+  ])('default task %o: the action reads %s and still sends the selection', async (task, name) => {
+    await chrome.storage.local.set({ 'ega.settings': { anthropicApiKey: 'test-key', ...task } });
+    const { sent } = onTab('https://example.com/', (msg) =>
+      msg.kind === 'ega:get-selection' ? { text: 'hello there', heldBack } : { ok: true },
+    );
+    const closeSpy = vi.spyOn(window, 'close').mockImplementation(() => undefined);
+    try {
+      const { findByRole } = render(Popup);
+      await fireEvent.click(await findByRole('button', { name }));
+      // What runs is unchanged: the page runs its default task on the kept selection.
+      await vi.waitFor(() =>
+        expect(sent).toHaveBeenCalledWith(42, {
+          kind: 'ctx:translate-selection',
+          text: 'hello there',
+        }),
+      );
+    } finally {
+      closeSpy.mockRestore();
+    }
+  });
+
+  it('a custom default task goes by its own name', async () => {
+    await chrome.storage.local.set({
+      'ega.customTasks': [
+        {
+          id: 'formal-es',
+          label: 'Formal Spanish',
+          system: '',
+          user: 'Rewrite in formal Spanish: {{text}}',
+          output: 'plain',
+          pageContext: false,
+          image: false,
+          glossary: false,
+          createdAt: 1,
+        },
+      ],
+      'ega.settings': { anthropicApiKey: 'test-key', defaultTask: 'formal-es' },
+    });
+    onTab('https://example.com/', (msg) =>
+      msg.kind === 'ega:get-selection' ? { text: 'hello there', heldBack } : { ok: true },
+    );
+    try {
+      const { findByRole, queryByRole } = render(Popup);
+      expect(await findByRole('button', { name: 'Formal Spanish anyway' })).toBeTruthy();
+      expect(queryByRole('button', { name: 'Translate anyway' })).toBeNull();
+    } finally {
+      await chrome.storage.local.remove('ega.customTasks');
+    }
+  });
+});

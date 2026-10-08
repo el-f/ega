@@ -13,6 +13,7 @@
 
 ## Visible affordances
 
+- The action names what it runs, the user's default task: "Translate anyway" while that is Translate, otherwise "{task} anyway" ("Summarize anyway", or a custom task's name). An off default task runs as Translate and says so.
 - The reason is visible text, never a hover label. The other reasons read "Bubble hidden: the selection is shorter than {n} characters." and "The selection bubble is off in Settings."
 
 ## Failure-mode expectations
