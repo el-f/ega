@@ -95,6 +95,8 @@ describe('SavedConversations', () => {
 
     expect(await findByText('No saved conversations')).toBeTruthy();
     expect(vi.mocked(confirmDialog).mock.calls[0]?.[0].body).toMatch(/all 2 saved conversations/);
+    // C-6: the red fill is for Delete all data only.
+    expect(vi.mocked(confirmDialog).mock.calls[0]?.[0].danger).not.toBe(true);
     expect(await chrome.storage.local.get('ega:conv:index')).toEqual({
       'ega:conv:index': undefined,
     });
@@ -116,6 +118,7 @@ describe('SavedConversations', () => {
     );
     // The confirm says nothing about an open side panel: with several conversations per site it may not empty.
     expect(vi.mocked(confirmDialog).mock.calls[0]?.[0].body).not.toMatch(/side panel empties/);
+    expect(vi.mocked(confirmDialog).mock.calls[0]?.[0].danger).not.toBe(true);
 
     await fireEvent.click(getByRole('button', { name: 'Delete all' }));
     await waitFor(() => expect(document.activeElement?.textContent).toBe('Saved conversations'));

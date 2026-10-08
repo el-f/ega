@@ -509,7 +509,6 @@
           body: 'You started a language and it is not saved yet.',
           confirmLabel: 'Discard',
           cancelLabel: 'Keep editing',
-          danger: true,
         });
         if (!discard) return;
       } else if (langId !== null && !gone) {

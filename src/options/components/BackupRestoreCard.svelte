@@ -22,7 +22,6 @@
         body: 'The file will hold your API keys. Anyone with the file can use your keys and spend your credit.',
         confirmLabel: 'Export with keys',
         cancelLabel: 'Keep keys out',
-        danger: true,
         typeToConfirm: 'EXPORT KEYS',
       });
       if (!ok) return;

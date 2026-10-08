@@ -92,6 +92,8 @@ describe('a new custom task', () => {
       confirmLabel: 'Discard',
       cancelLabel: 'Keep editing',
     });
+    // C-6: the red fill is for Delete all data only; discarding a draft is not destructive.
+    expect(confirm.mock.calls[0]?.[0].danger).not.toBe(true);
     expect(onClose).not.toHaveBeenCalled();
     expect(field('system').value).toBe('Half a prompt');
 

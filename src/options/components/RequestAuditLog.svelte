@@ -246,7 +246,6 @@
       title: 'Clear recent requests?',
       body: `This removes ${n === 1 ? 'the 1 request' : `all ${n} requests`} from this list.`,
       confirmLabel: 'Clear',
-      danger: true,
     });
     if (!ok) return;
     await clearNow();

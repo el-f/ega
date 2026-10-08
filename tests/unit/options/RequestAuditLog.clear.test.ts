@@ -5,6 +5,7 @@ import { chromeMock, resetChromeMock } from '../../mocks/chrome';
 import type { BackendId } from '@/shared/brands';
 
 import { flushAsync } from '@tests/_helpers/async';
+import { confirmDialog } from '@/shared/components/confirmDialog';
 
 vi.mock('@/shared/components/confirmDialog', () => ({ confirmDialog: vi.fn(async () => true) }));
 const push = vi.fn();
@@ -117,6 +118,9 @@ describe('RequestAuditLog — Clear', () => {
     chromeMock.runtime.sendMessage = vi.fn(async () => ({ ok: true }));
     const { btn } = await renderWithOneEntry();
     btn.click();
+    // C-6: the red fill is for Delete all data only.
+    await waitFor(() => expect(confirmDialog).toHaveBeenCalled());
+    expect(vi.mocked(confirmDialog).mock.lastCall?.[0].danger).not.toBe(true);
     await waitFor(() =>
       expect(chromeMock.runtime.sendMessage).toHaveBeenCalledWith({ kind: 'audit:clear' }),
     );

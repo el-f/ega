@@ -98,8 +98,10 @@ describe('BackupRestoreCard', () => {
     await fireEvent.click(getByLabelText(/Include API keys/i));
     await fireEvent.click(getByText(/^Export all settings$/));
     expect(confirmDialog).toHaveBeenCalledWith(
-      expect.objectContaining({ typeToConfirm: 'EXPORT KEYS', danger: true }),
+      expect.objectContaining({ typeToConfirm: 'EXPORT KEYS' }),
     );
+    // C-6: the red fill is for Delete all data only; the typed confirm carries the weight.
+    expect(vi.mocked(confirmDialog).mock.lastCall?.[0].danger).not.toBe(true);
     expect(onExport).toHaveBeenCalledWith(true);
   });
 

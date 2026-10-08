@@ -93,6 +93,8 @@ describe('LanguageDialog — a new language', () => {
     await done();
     await waitFor(() => expect(confirmDialog).toHaveBeenCalledTimes(1));
     expect(vi.mocked(confirmDialog).mock.calls[0]?.[0].title).toBe('Discard this language?');
+    // C-6: the red fill is for Delete all data only; discarding a draft is not destructive.
+    expect(vi.mocked(confirmDialog).mock.calls[0]?.[0].danger).not.toBe(true);
     expect(onClose).not.toHaveBeenCalled();
     expect(await getCustomLanguages()).toEqual([]);
   });

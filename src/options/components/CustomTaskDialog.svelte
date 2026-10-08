@@ -265,7 +265,6 @@
           body: 'You started a task and it is not saved yet.',
           confirmLabel: 'Discard',
           cancelLabel: 'Keep editing',
-          danger: true,
         });
         if (!discard) return;
       } else if (rowId !== null && !gone) {

@@ -101,7 +101,6 @@
       title: 'Delete this conversation?',
       body: `Delete the side panel conversation ${title === null ? `for ${site}` : `"${title}" on ${site}`}? This cannot be undone.`,
       confirmLabel: 'Delete',
-      danger: true,
     });
     if (!ok) return;
     await run(`conv-delete:${row.origin}`, () => deleteSavedConversation(row.origin));
@@ -115,7 +114,6 @@
       body: `Delete all ${n} saved ${n === 1 ? 'conversation' : 'conversations'}? This cannot be undone.`,
       confirmLabel: 'Delete all',
       cancelLabel: 'Keep them',
-      danger: true,
     });
     if (!ok) return;
     await run('conv-delete-all', clearSavedConversations);
