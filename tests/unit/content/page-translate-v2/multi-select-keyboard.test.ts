@@ -328,3 +328,51 @@ describe('multi-select — where the keyboard starts', () => {
     expect((keys.getRootNode() as ShadowRoot).activeElement).toBe(keys);
   });
 });
+
+function click(target: Element): void {
+  target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+}
+
+describe('multi-select — a failed area can be chosen again', () => {
+  it('a click on a failed Replace-text block chooses the block, not its wrapper', () => {
+    document.body.innerHTML =
+      '<p id="f"><span id="w" data-ega-replaced="b1" data-ega-tx-state="error">la casa roja</span></p>';
+    enterMultiSelect(opts());
+    click(el('w'));
+    expect(el('f').getAttribute('data-ega-ms-selected')).toBe('1');
+    expect(el('w').hasAttribute('data-ega-ms-selected')).toBe(false);
+    expect(toolbar('[data-ega-ms-count]').textContent).toBe('1 area chosen');
+  });
+
+  it('a failed Show-both box leaves its original choosable, from the original or the box', () => {
+    document.body.innerHTML =
+      '<p id="o">la casa roja</p><div id="x" data-ega-tx data-ega-tx-state="error">error</div>';
+    enterMultiSelect(opts());
+    click(el('x'));
+    expect(el('o').getAttribute('data-ega-ms-selected')).toBe('1');
+    click(el('o'));
+    expect(el('o').hasAttribute('data-ega-ms-selected')).toBe(false);
+    click(el('o'));
+    expect(el('o').getAttribute('data-ega-ms-selected')).toBe('1');
+  });
+
+  it('a failed Show-both box inside a list item chooses the item', () => {
+    document.body.innerHTML =
+      '<ul><li id="i">la casa roja<div id="x" data-ega-tx data-ega-tx-state="error">error</div></li></ul>';
+    enterMultiSelect(opts());
+    click(el('x'));
+    expect(el('i').getAttribute('data-ega-ms-selected')).toBe('1');
+  });
+
+  it('a translated area is still refused', () => {
+    document.body.innerHTML =
+      '<p id="t"><span id="w" data-ega-replaced="b1" data-ega-tx-state="ok">the red house</span></p>' +
+      '<p id="o">la casa roja</p><div data-ega-tx data-ega-tx-state="ok">the red house</div>';
+    enterMultiSelect(opts());
+    click(el('t'));
+    expect(el('t').hasAttribute('data-ega-ms-selected')).toBe(false);
+    expect(toolbar('[data-ega-ms-count]').textContent).toBe('That area is already translated.');
+    click(el('o'));
+    expect(el('o').hasAttribute('data-ega-ms-selected')).toBe(false);
+  });
+});

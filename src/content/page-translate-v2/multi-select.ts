@@ -63,7 +63,12 @@ const STRUCTURAL_TAGS = new Set([
   'thead',
   'tr',
 ]);
-const TRANSLATED_SEL = '[data-ega-replaced],[data-ega-tx]';
+const MARK_SEL = ':is([data-ega-replaced],[data-ega-tx])';
+// A failed mark keeps the page's own words, so its block can be chosen again for another try.
+const FAILED_SEL = `${MARK_SEL}[data-ega-tx-state="error"]`;
+const TRANSLATED_SEL = `${MARK_SEL}:not([data-ega-tx-state="error"])`;
+/** The renderer puts a Show-both box inside these, not after them. */
+const BOX_INSIDE = new Set(['TD', 'TH', 'LI', 'DD', 'DT']);
 const ANNOUNCE_CHARS = 60;
 
 interface MsSession {
@@ -126,7 +131,7 @@ function selectReject(el: Element): string | null {
     el.closest(TRANSLATED_SEL) !== null ||
     el.querySelector(TRANSLATED_SEL) !== null ||
     // Bilingual leaves the source untouched and puts the translation next to it.
-    el.nextElementSibling?.hasAttribute('data-ega-tx') === true
+    el.nextElementSibling?.matches(TRANSLATED_SEL) === true
   ) {
     return 'That area is already translated.';
   }
@@ -136,6 +141,19 @@ function selectReject(el: Element): string | null {
     return `That area is too long: ${text.length} characters, limit ${MAX_SELECTION_CHARS}. Pick smaller blocks inside it.`;
   }
   return null;
+}
+
+/** A failed mark stands for the block it was made for, so a pick on it chooses that block. */
+function pickTarget(el: Element): Element {
+  const mark = el.closest(FAILED_SEL);
+  if (!mark) return el;
+  const parent = mark.parentElement;
+  // Replace text wraps the block's words; Show both puts its box inside a cell or list item.
+  if (mark.hasAttribute('data-ega-replaced') || (parent && BOX_INSIDE.has(parent.tagName))) {
+    return parent ?? el;
+  }
+  // Anywhere else, Show both puts its box right after the original.
+  return mark.previousElementSibling ?? el;
 }
 
 function countLabel(n: number): string {
@@ -180,8 +198,9 @@ function select(el: Element): void {
 }
 
 /** Click and Space share one path: inside a selection removes it, otherwise select or explain the refusal. */
-function toggleSelect(el: Element): void {
+function toggleSelect(picked: Element): void {
   if (!ms) return;
+  const el = pickTarget(picked);
   const owner = ms.selected.find((s) => s === el || s.contains(el));
   if (owner) {
     unselect(owner);
@@ -255,7 +274,7 @@ function fire(): void {
 
 function hoverBlock(el: Element | null): void {
   if (!ms) return;
-  const next = isNavigableBlock(el) ? el : null;
+  const next = el && isNavigableBlock(el) ? pickTarget(el) : null;
   if (ms.hovered === next) return;
   ms.hovered?.removeAttribute(HOVER_ATTR);
   ms.hovered = next;
