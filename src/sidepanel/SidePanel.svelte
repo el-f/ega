@@ -292,8 +292,9 @@
     sending = true;
     clearFilters();
     try {
-      // Read the page before touching the thread, and bail if the thread moved meanwhile: the edit belongs to the site it was typed on.
+      // Read the page before touching the thread, and bail if the thread or the mode moved meanwhile: the setup below is for this one.
       const originBefore = conversation.activeId;
+      const modeBefore = composerMode;
       // An edit goes out with the setup its message was sent with: the chip, hidden while editing, is for new messages.
       const edited = conversation.turns.find(
         (t): t is UserTurnData => t.role === 'user' && t.id === editingTurnId,
@@ -302,7 +303,7 @@
       // An image goes to the OCR arm for Translate and for any task that takes no images; that arm sends no page context.
       const ocr = img !== null && (sendTask === 'translate' || !taskTakesImage(sendTask));
       const context = ocr ? undefined : await currentPageContext(sendTask);
-      if (conversation.activeId !== originBefore) return;
+      if (conversation.activeId !== originBefore || composerMode !== modeBefore) return;
       // The previous turn is in the composer, so drop it or the re-send appends a duplicate.
       let preservedResponse: string | undefined;
       if (editingTurnId !== null) {
