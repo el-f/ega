@@ -40,10 +40,15 @@
   let liveSettings = $state<Settings | null>(null);
   let theme: ThemePref = $state('system');
   let backendReady = $state<boolean | null>(null);
+  // Resolves once the backend chip has decided; a cold service worker can take a while, so the wait is bounded.
+  const BACKEND_WAIT_MS = 500;
+  let backendDecided: () => void = () => {};
+  const backendKnown = new Promise<void>((r) => (backendDecided = r));
 
   let freeformText = $state('');
   let freeformTextarea: HTMLTextAreaElement | null = $state(null);
-  // The body shows once the page has answered, so its rows appear at their final place (spec 2.4 loading).
+  // The body shows once the page and the backend check have answered, so its rows appear at their final place
+  // (spec 2.4 loading).
   let pageKnown = $state(false);
   // Height of the toast stack at the bottom; the body grows by it, so a toast never covers a control.
   let toastRoom = $state(0);
@@ -359,6 +364,10 @@
   onMount(async () => {
     // Asked first: opening the popup clears the page's live selection, and the page keeps it for a minute only.
     const pageRead = readPage();
+    const backendRead = Promise.race([
+      backendKnown,
+      new Promise<void>((r) => setTimeout(r, BACKEND_WAIT_MS)),
+    ]);
     try {
       const s = await getSettings();
       if (!langTouched) {
@@ -399,6 +408,8 @@
       freeformText = selText;
       scheduleDraftSave();
     }
+    // The setup row and the one-row text box hang on the backend check, so the body waits for it too.
+    await backendRead;
     pageKnown = true;
     // An inert body takes no focus: show it first.
     await tick();
@@ -477,7 +488,10 @@
         <PopupHeader
           settings={liveSettings}
           onOpenOptions={() => openOptionsTab()}
-          onBackendReadyChange={(ready) => (backendReady = ready)}
+          onBackendReadyChange={(ready) => {
+            backendReady = ready;
+            if (ready !== null) backendDecided();
+          }}
         />
       </div>
     {/snippet}

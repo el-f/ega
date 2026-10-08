@@ -723,3 +723,56 @@ describe('Popup — where focus starts on a page Ega cannot run on', () => {
     );
   });
 });
+
+describe('Popup — the body waits for the backend check too', () => {
+  /** Holds the chip's backend probe until the test answers it, the way a stopped service worker does. */
+  function holdProbe(answerWith: (resolve: (r: unknown) => void) => void): () => void {
+    const send = chrome.runtime.sendMessage as unknown as Mock;
+    const fallback = send.getMockImplementation();
+    send.mockImplementation((msg: { kind: string }) =>
+      msg.kind === 'backend:probe-all'
+        ? new Promise((r) => answerWith(r))
+        : (fallback?.(msg) as unknown),
+    );
+    return () => {
+      if (fallback) send.mockImplementation(fallback);
+    };
+  }
+
+  it('stays hidden while the chip is still checking, so the setup row never pushes it down', async () => {
+    await chrome.storage.local.remove('ega.settings');
+    onTab('https://example.com/');
+    let answer: ((r: unknown) => void) | undefined;
+    const restore = holdProbe((r) => (answer = r));
+    try {
+      const { container } = render(Popup);
+      await mounted();
+      await vi.waitFor(() => expect(answer).toBeDefined());
+      await flushAsync();
+      await tick();
+      const body = container.querySelector('.popup-body');
+      expect(body?.classList.contains('pending')).toBe(true);
+      answer?.({ available: {}, active: null });
+      await vi.waitFor(() => expect(body?.classList.contains('pending')).toBe(false));
+      // The setup row is there from the first frame the body shows.
+      expect(container.querySelector('[data-ega-popup-no-backend]')).not.toBeNull();
+    } finally {
+      restore();
+    }
+  });
+
+  it('shows anyway when the check takes longer than half a second', async () => {
+    await chrome.storage.local.remove('ega.settings');
+    onTab('https://example.com/');
+    const restore = holdProbe(() => {});
+    try {
+      const { container } = render(Popup);
+      await mounted();
+      await vi.waitFor(() => expect(container.querySelector('.popup-body.pending')).toBeNull(), {
+        timeout: 2000,
+      });
+    } finally {
+      restore();
+    }
+  });
+});

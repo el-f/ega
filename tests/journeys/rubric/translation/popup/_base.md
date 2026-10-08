@@ -4,6 +4,7 @@
 
 - Popup mounts in <= 400ms of toolbar click (the user is waiting on a single click).
 - Popup is exactly 360px wide; never wider, never narrower.
+- The body appears in its final layout: it waits for the page's answer and for the backend check (at most 500 ms), so the setup row never pushes the rows down after the first paint.
 
 ## Composition
 
