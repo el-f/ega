@@ -22,8 +22,6 @@ const offered = (): SlotSpec[] => Object.values(SLOT_REGISTRY).filter((s) => s.o
 function reasonFor(slot: SlotSpec, kind: PromptKind): string {
   if (kind === 'custom') return 'Not filled for your own tasks';
   if (slot.name === 'explainInstr') return 'Filled only for Explain';
-  if (slot.name === 'detectiveInstr')
-    return 'Filled only for the Translate prompt and language prompts';
   return 'Not filled for this task';
 }
 

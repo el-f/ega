@@ -2,6 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { filterRulesForRequest, normaliseSiteEntry, siteMatches } from '@/shared/rules';
 import type { Rule } from '@/shared/rules';
 import { slotsForTask } from '@/shared/slot-registry';
+import { buildPrompt } from '@/shared/prompts';
+import { ALL_TASKS } from '@/shared/task-prompts';
+import { sel } from '@tests/_helpers/lang';
 
 function rule(sites: string[] | undefined, id = 'r'): Rule {
   return {
@@ -64,6 +67,28 @@ describe('slot registry follows buildPrompt', () => {
     const names = slotsForTask('summarize').map((s) => s.name);
     for (const n of ['langLabel', 'langHint', 'targetLangHint', 'examples', 'context']) {
       expect(names, n).toContain(n);
+    }
+  });
+});
+
+describe('Language detection follows buildPrompt', () => {
+  it('buildPrompt fills it for every task, so the registry lists it for every task', () => {
+    const filled = buildPrompt(
+      {
+        id: 'r1',
+        text: 'hola',
+        sourceLang: sel('auto'),
+        targetLang: sel('en'),
+        options: { stream: false, explain: false },
+      },
+      { preset: undefined, template: { system: 'D=[{{detectiveInstr}}]', user: '{{text}}' } },
+    );
+    expect(filled.system).not.toContain('D=[]');
+    for (const t of ALL_TASKS) {
+      expect(
+        slotsForTask(t).map((s) => s.name),
+        t,
+      ).toContain('detectiveInstr');
     }
   });
 });

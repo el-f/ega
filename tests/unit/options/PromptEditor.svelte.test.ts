@@ -50,20 +50,33 @@ async function openPicker(container: HTMLElement): Promise<void> {
 }
 
 describe('PromptEditor — variables', () => {
-  it('a task prompt offers 8 variables, and lists the 2 it cannot fill as disabled rows with a reason', async () => {
+  it('a task prompt offers 9 variables, and lists the one it cannot fill as a disabled row with a reason', async () => {
     const { container } = setup();
     await openPicker(container);
     const rows = [...document.querySelectorAll('[data-ega-variable]')];
     const offered = rows.filter((r) => r.getAttribute('aria-disabled') !== 'true');
     const empty = rows.filter((r) => r.getAttribute('aria-disabled') === 'true');
-    expect(offered).toHaveLength(8);
-    expect(empty.map((r) => r.getAttribute('data-ega-variable')).sort()).toEqual([
-      'detectiveInstr',
-      'explainInstr',
-    ]);
+    expect(offered).toHaveLength(9);
+    // buildPrompt fills Language detection for every prompt, so it is never listed as empty.
+    expect(offered.map((r) => r.getAttribute('data-ega-variable'))).toContain('detectiveInstr');
+    expect(empty.map((r) => r.getAttribute('data-ega-variable'))).toEqual(['explainInstr']);
     expect(
       empty.find((r) => r.textContent.includes('Explain instructions'))?.textContent,
     ).toContain('Filled only for Explain');
+  });
+
+  it('a prompt of your own offers Language detection too, since every prompt fills it', async () => {
+    const { container } = setup({
+      kind: 'custom',
+      task: 'custom-1',
+      builtIn: null,
+      format: PLAIN_CONTRACT,
+      initial: { system: 'Write a haiku.', user: '{{text}}' },
+    });
+    await openPicker(container);
+    const row = document.querySelector('[data-ega-variable="detectiveInstr"]');
+    expect(row?.getAttribute('aria-disabled')).not.toBe('true');
+    expect(document.body.textContent).not.toContain('Filled only for the Translate prompt');
   });
 
   it('the Translate prompt offers all 10, never the answer-format slot', async () => {

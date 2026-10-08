@@ -16,7 +16,8 @@ describe('slot-registry', () => {
     expect(names).toContain('text');
     expect(names).toContain('tone');
     expect(names).not.toContain('explainInstr');
-    expect(names).not.toContain('detectiveInstr');
+    // buildPrompt fills Language detection for every prompt, a custom task's included.
+    expect(names).toContain('detectiveInstr');
     expect(names).toEqual(
       Object.values(SLOT_REGISTRY)
         .filter((s) => ALL_TASKS.every((t) => s.filledFor.includes(t)))
