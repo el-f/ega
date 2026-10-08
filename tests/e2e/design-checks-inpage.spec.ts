@@ -476,6 +476,47 @@ test('a toast in a picker mode sits above the bottom bar, wide and narrow', asyn
   expect(back.gap, 'above the pill again').toBeLessThanOrEqual(12);
 });
 
+test('the picker bar key list opens over a toast, never under it', async () => {
+  const page = await ext.context.newPage();
+  await page.setViewportSize({ width: 1000, height: 700 });
+  await page.goto(`${ext.serverUrl}/batch-page.html`);
+  await waitForTestHooks(page);
+  await chooseAreas();
+  await expect.poll(async () => egaTest<boolean>(page, 'msIsActive')).toBe(true);
+  // The keyboard way into the bar (D52); the list opens 8px above the bar, where a toast sits.
+  await page.keyboard.press('?');
+  const covered = await page.evaluate(() => {
+    const root = document.getElementById('ega-shadow-host')?.shadowRoot;
+    const toast = document.createElement('div');
+    toast.className = 'ega-toast';
+    toast.style.animation = 'none';
+    toast.textContent =
+      'Select some text first, then press the shortcut. It stays until you close it.';
+    root?.querySelector('.ega-root')?.append(toast);
+    const list = root?.querySelector<HTMLElement>('.ega-picker-bar .keys:not([hidden])');
+    const t = toast.getBoundingClientRect();
+    const l = list?.getBoundingClientRect();
+    const overlap =
+      !!l && l.left < t.right && l.right > t.left && l.top < t.bottom && l.bottom > t.top;
+    const hidden: string[] = list ? [] : ['no key list'];
+    for (const row of list ? [...list.children] : []) {
+      const r = row.getBoundingClientRect();
+      for (let x = r.left + 2; x < r.right - 2; x += 8) {
+        const hit = root?.elementFromPoint(x, r.top + r.height / 2);
+        if (!hit || !list?.contains(hit)) {
+          hidden.push(row.textContent.trim());
+          break;
+        }
+      }
+    }
+    toast.remove();
+    return { overlap, hidden };
+  });
+  // The check means something only where the two meet.
+  expect(covered.overlap, 'the list and the toast share space').toBe(true);
+  expect(covered.hidden).toEqual([]);
+});
+
 async function chooseAreas(): Promise<void> {
   const sw = ext.context.serviceWorkers()[0];
   await sw?.evaluate(async () => {

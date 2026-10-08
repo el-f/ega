@@ -36,6 +36,11 @@
 .ega-picker-bar[data-ega-wrapped] {
   border-radius: var(--radius-lg);
 }
+/* The open key list rises over a toast (spec 1.4: toggletips sit above toasts). The bar is its own stacking
+   context, so the list's z-index alone cannot lift it; the bar rises while the list is open. */
+.ega-picker-bar:has(.keys:not([hidden])) {
+  z-index: var(--ega-layer-label);
+}
 @media (max-width: 559px) {
   .ega-picker-bar .lead {
     flex-basis: 100%;
