@@ -62,13 +62,19 @@ describe('ReplyDetails — result', () => {
     });
     expect(row(container, 'Answered by')).toBe('Claude Haiku 4.5 via Anthropic');
     expect(row(container, 'Languages')).toMatch(/^Auto-detect → /);
-    expect(row(container, 'Time')).toBe('1.5 s (first words after 120 ms)');
+    // One unit, seconds (V5-08).
+    expect(row(container, 'Time')).toBe('1.5 s (first words after 0.1 s)');
   });
 
   it('says a cached answer came from the cache, with no first-word time', () => {
     const { container } = setup({ meta: meta({ cacheHit: true, firstTokenMs: 5 }) });
     expect(row(container, 'Answered by')).toBe('Saved answer (from cache)');
-    expect(row(container, 'Time')).toBe('450 ms');
+    expect(row(container, 'Time')).toBe('0.5 s');
+  });
+
+  it('keeps a time under a tenth of a second from reading 0.0 s', () => {
+    const { container } = setup({ meta: meta({ cacheHit: true, latencyMs: 30 }) });
+    expect(row(container, 'Time')).toBe('0.03 s');
   });
 
   it('shows every token count the provider reported, a zero cache read included', () => {
