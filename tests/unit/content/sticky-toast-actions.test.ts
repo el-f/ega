@@ -48,12 +48,13 @@ describe('a new Ega action closes a notice that waits for the user (X14)', () =>
 
   it('the picker', async () => {
     await content.enterPickerMode();
-    expect(calls).toEqual(['close', 'show']);
+    // The site-off notice loads with the bubble menu's chunk, so it lands a moment later.
+    await vi.waitFor(() => expect(calls).toEqual(['close', 'show']));
   });
 
   it('a text translate leaves the close to its caller, which may have just shown a notice', async () => {
     await content.startTranslateText('hola', RECT);
-    expect(calls).toEqual(['show']);
+    await vi.waitFor(() => expect(calls).toEqual(['show']));
   });
 
   it('a pick in the picker', async () => {

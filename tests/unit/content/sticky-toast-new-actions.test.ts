@@ -48,7 +48,7 @@ describe('an in-page notice that waits for the user, and the actions after it (X
         expect.objectContaining({ kind: 'translate:start' }),
       ),
     );
-    expect(toastText()).toBe('Sent 1 of 2 selections. The rest did not fit.');
+    expect(toastText()).toBe("Sent 1 of 2 selections. The rest didn't fit.");
   });
 
   it.each<[string, (id: string) => Promise<void>]>([
@@ -88,6 +88,6 @@ describe('an in-page notice that waits for the user, and the actions after it (X
       targetLang: 'en',
       imageDataUrl: 'data:image/png;base64,iVBORw0KGgo=',
     });
-    expect(toastText()).toBe('Attach the image in the side panel. Ega cannot pass this one along.');
+    expect(toastText()).toBe("Attach the image in the side panel. Ega can't pass this one along.");
   });
 });
