@@ -48,8 +48,18 @@ export const NO_RECEIVER = /Receiving end does not exist|Could not establish con
 const LOAD_WAIT_MS = 10_000;
 const LOAD_POLL_MS = 250;
 
-/** Sends until the tab's content script answers. A loading page has none until it is idle; a loaded page that never answers fails at once. */
-export async function sendWhenLoaded<T>(tabId: number, send: () => Promise<T>): Promise<T> {
+/** A page action that a later press replaced while both waited for the page. */
+class Superseded extends Error {}
+
+/**
+ * Sends until the tab's content script answers. A loading page has none until it is idle; a loaded page that never
+ * answers fails at once. `onWait` runs once, when the page is first seen loading, so the popup can say it waits.
+ */
+export async function sendWhenLoaded<T>(
+  tabId: number,
+  send: () => Promise<T>,
+  onWait?: () => void,
+): Promise<T> {
   const deadline = Date.now() + LOAD_WAIT_MS;
   let sawLoading = false;
   let graced = false;
@@ -57,10 +67,12 @@ export async function sendWhenLoaded<T>(tabId: number, send: () => Promise<T>): 
     try {
       return await send();
     } catch (e) {
+      if (e instanceof Superseded) throw e;
       const loading =
         NO_RECEIVER.test(String(e)) &&
         Date.now() < deadline &&
         (await chrome.tabs.get(tabId).catch(() => undefined))?.status === 'loading';
+      if (loading && !sawLoading) onWait?.();
       if (loading) sawLoading = true;
       // The script lands a moment after the load ends, so a tab that was loading gets one more try.
       else if (sawLoading && !graced) graced = true;
@@ -70,8 +82,18 @@ export async function sendWhenLoaded<T>(tabId: number, send: () => Promise<T>): 
   }
 }
 
-/** Sends one page action to the content tab and closes the popup. False when nothing was dispatched. */
-export async function sendToPage(msg: Msg, opts: TargetCallbacks): Promise<boolean> {
+let pageActionGen = 0;
+
+/**
+ * Sends one page action to the content tab and closes the popup. False when nothing was dispatched.
+ * While the page loads only the latest press waits: two Choose areas would open the mode and close it again, and
+ * Translate page then Choose areas would run both.
+ */
+export async function sendToPage(
+  msg: Msg,
+  opts: TargetCallbacks & { onWait?: () => void },
+): Promise<boolean> {
+  const gen = ++pageActionGen;
   let tabId: number | undefined;
   try {
     const tab = await resolveContentTab();
@@ -81,10 +103,18 @@ export async function sendToPage(msg: Msg, opts: TargetCallbacks): Promise<boole
     }
     const id = tab.id;
     tabId = id;
-    await sendWhenLoaded(id, () => chrome.tabs.sendMessage(id, msg));
+    await sendWhenLoaded(
+      id,
+      () => {
+        if (gen !== pageActionGen) throw new Superseded();
+        return chrome.tabs.sendMessage(id, msg);
+      },
+      opts.onWait,
+    );
     window.close();
     return true;
   } catch (e) {
+    if (e instanceof Superseded) return false;
     debugCatch(e, `popup.tab-actions.${msg.kind}`);
     opts.onError?.(e, tabId);
     return false;

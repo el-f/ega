@@ -23,4 +23,5 @@
 ## Cautions
 
 - The popup must close immediately on click — the user does not wait inside the popup for the page translation to finish.
+- On a page that is still loading, the click waits for the page (up to 10 s) and the status line says "Waiting for the page to load…". Only the latest page action waits: pressing Choose areas twice, or Translate page and then Choose areas, runs the last press once, never both.
 - A second `page:translateAll` exits area-pick mode if it is open, is ignored while a batch runs, and starts a fresh pick after a settled batch — no double translation.

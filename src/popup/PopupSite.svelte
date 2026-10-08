@@ -11,6 +11,8 @@
     host: { full: string; short: string };
     siteOn: boolean;
     heldBack: HeldBack | undefined;
+    /** A page action waits for the page to finish loading. */
+    waiting?: boolean;
     /** Id the page actions point their aria-describedby at. */
     statusId: string;
     onSiteChange: (on: boolean) => void;
@@ -24,6 +26,7 @@
     host,
     siteOn,
     heldBack,
+    waiting = false,
     statusId,
     onSiteChange,
     onTranslateAnyway,
@@ -31,6 +34,7 @@
   }: Props = $props();
 
   const status = $derived.by((): { text: string; action?: 'anyway' | 'reload' } | null => {
+    if (waiting) return { text: 'Waiting for the page to load…' };
     switch (state) {
       case 'restricted':
         return { text: "Ega can't run on this page." };

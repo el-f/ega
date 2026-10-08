@@ -63,6 +63,8 @@
   let tabId = $state<number | undefined>(undefined);
   let pageReply = $state<MsgReply['ega:get-selection'] | undefined>(undefined);
   let pageRejected = $state(false);
+  // A page action pressed while the page loads; the status line says so, and the popup closes once it runs.
+  let waitingForPage = $state(false);
   // Set while a switch write is in flight or after it failed, so the stored value does not fight the click.
   let siteOnOverride = $state<boolean | null>(null);
 
@@ -170,7 +172,11 @@
   function pageAction(msg: Msg, failed: string): void {
     void sendToPage(msg, {
       onNoTarget: noTargetToast,
-      onError: (e, id) => tabActionFailed(failed, e, id),
+      onWait: () => (waitingForPage = true),
+      onError: (e, id) => {
+        waitingForPage = false;
+        tabActionFailed(failed, e, id);
+      },
     });
   }
 
@@ -518,6 +524,7 @@
         {host}
         {siteOn}
         heldBack={pageReply?.heldBack}
+        waiting={waitingForPage}
         statusId={STATUS_ID}
         onSiteChange={(on) => void onSiteChange(on)}
         {onTranslateAnyway}

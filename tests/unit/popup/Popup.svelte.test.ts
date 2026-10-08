@@ -776,3 +776,51 @@ describe('Popup — the body waits for the backend check too', () => {
     }
   });
 });
+
+describe('Popup — a page action pressed while the page loads', () => {
+  const NONE = 'Could not establish connection. Receiving end does not exist.';
+
+  /** A page that loads when the test says so; `delivered` lists the actions the content script got. */
+  function loadingPage(): { delivered: string[]; load: () => void } {
+    let loaded = false;
+    const delivered: string[] = [];
+    (chrome.tabs.query as unknown as Mock).mockResolvedValue([
+      { id: 42, url: 'https://example.com/', status: 'complete' },
+    ]);
+    (chrome.tabs.sendMessage as unknown as Mock).mockImplementation(
+      async (_id: number, msg: { kind: string }) => {
+        if (msg.kind === 'ega:get-selection') return { text: '' };
+        if (!loaded) throw new Error(NONE);
+        delivered.push(msg.kind);
+        return { ok: true };
+      },
+    );
+    (chrome.tabs.get as unknown as Mock).mockImplementation(async () => ({
+      id: 42,
+      status: loaded ? 'complete' : 'loading',
+    }));
+    return { delivered, load: () => (loaded = true) };
+  }
+
+  it('says it is waiting, and a later press replaces the earlier one instead of both running', async () => {
+    const page = loadingPage();
+    const closeSpy = vi.spyOn(window, 'close').mockImplementation(() => undefined);
+    try {
+      const { findByRole, findByText } = render(Popup);
+      await mounted();
+      await fireEvent.click(await findByRole('button', { name: 'Translate page' }));
+      expect(await findByText('Waiting for the page to load…')).toBeTruthy();
+      // A second Choose areas would close the mode the first one opened.
+      await fireEvent.click(await findByRole('button', { name: 'Choose areas' }));
+      await fireEvent.click(await findByRole('button', { name: 'Choose areas' }));
+      await new Promise((r) => setTimeout(r, 300));
+      page.load();
+      await vi.waitFor(() => expect(closeSpy).toHaveBeenCalled(), { timeout: 3000 });
+      // Every waiting press has polled again since the load.
+      await new Promise((r) => setTimeout(r, 600));
+      expect(page.delivered).toEqual(['page:chooseAreas']);
+    } finally {
+      closeSpy.mockRestore();
+    }
+  });
+});
