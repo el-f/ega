@@ -287,7 +287,8 @@ function onDocMouseOver(ev: MouseEvent): void {
 }
 
 /** Ega UI that acts on Esc itself. On the bubble or a pill, Esc still counts toward the restore. */
-const ESC_OWNERS = '.ega-toast, .ega-draggable-panel';
+const ESC_OWNERS =
+  '.ega-toast, .ega-draggable-panel, .bubble-menu, .ega-batch-progress [role="menu"], [data-ega-batch-more][aria-expanded="true"]';
 
 /** The picker marks the page; multi-select shows its toolbar. Read off the DOM, so this chunk loads neither module. */
 function aModeOwnsEsc(): boolean {

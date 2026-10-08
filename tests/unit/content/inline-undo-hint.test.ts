@@ -168,6 +168,33 @@ describe('inline replace — every replace offers Undo', () => {
     expect(document.getElementById('p')?.textContent).toBe('mar7aba ya 5ayye');
   });
 
+  it.each([
+    [
+      'the bubble menu',
+      '<div class="bubble-menu" role="menu"><button role="menuitem">x</button></div>',
+    ],
+    [
+      "the pill's More menu",
+      '<div class="ega-batch-progress"><div role="menu"><button role="menuitem">x</button></div></div>',
+    ],
+    [
+      "the pill's open More button",
+      '<div class="ega-batch-progress"><button data-ega-batch-more aria-expanded="true">x</button></div>',
+    ],
+  ])('Esc that closes %s is not counted toward the page restore', async (_owner, html) => {
+    await translateInPlace();
+    const { getContainer } = await import('@/content/shadowHost');
+    const host = document.createElement('div');
+    host.innerHTML = html;
+    getContainer().appendChild(host);
+    const button = host.querySelector('button') as HTMLElement;
+    for (let i = 0; i < 2; i++)
+      button.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true }),
+      );
+    expect(document.getElementById('p')?.textContent).toBe('Hello there');
+  });
+
   it('Esc inside the tooltip panel is the tooltip’s, and is not counted toward the page restore', async () => {
     await translateInPlace();
     // Same module graph as the inline code under test, which translateInPlace just reset.
@@ -251,5 +278,4 @@ describe('inline replace — every replace offers Undo', () => {
     expect(ms.isMultiSelectActive()).toBe(false);
     expect(document.getElementById('p')?.textContent).toBe('Hello there');
   });
-
 });
