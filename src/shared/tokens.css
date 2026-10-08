@@ -285,6 +285,11 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+  /* An element with no transition of its own has transition-property: all, so the rule above would grow its focus
+     ring in from nothing. A ring appears at once. */
+  :focus-visible {
+    transition: none !important;
+  }
 }
 
 /* Chrome gives form controls their own font (Arial); zero specificity so any component font still wins. */
