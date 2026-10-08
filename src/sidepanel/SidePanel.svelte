@@ -264,7 +264,13 @@
       conversation.activeSite === conversation.tabSite
     );
   }
-  const pageInfoGoes = $derived(!toOcr && pageInfoGoesFor(task));
+  // An edit resends with its own message's task, so row A names what that task sends.
+  const editedTurn = $derived(
+    conversation.turns.find((t): t is UserTurnData => t.role === 'user' && t.id === editingTurnId),
+  );
+  const pageInfoGoes = $derived(
+    !toOcr && pageInfoGoesFor(editedTurn ? turnTaskValue(editedTurn) : task),
+  );
 
   // inflightId only flips after the context-collection await, so a fast double send would dispatch twice.
   let sending = false;

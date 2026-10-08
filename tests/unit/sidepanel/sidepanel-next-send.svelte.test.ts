@@ -6,6 +6,9 @@ import { render, fireEvent, waitFor } from '@testing-library/svelte';
 import SidePanel from '@/sidepanel/SidePanel.svelte';
 import { writeComposerDraftImage } from '@/sidepanel/state/composer-draft';
 import { openModePopover } from './_composer';
+import { saveThread } from '@/sidepanel/state/conversation-store';
+import type { Turn } from '@/sidepanel/state/conversation';
+import { doneReply } from './_reply';
 
 const PNG = 'data:image/png;base64,iVBORw0KGgo=';
 const tabsQuery = chrome.tabs.query as unknown as Mock;
@@ -55,4 +58,27 @@ describe('SidePanel — the next-send line with an image attached', () => {
     await waitFor(() => expect(nextItems(container).length).toBeGreaterThan(0));
     expect(nextItems(container)).not.toContain('Page info');
   });
+});
+
+// An edit resends with the edited message's own task, so the line names what that task sends.
+describe('SidePanel — the next-send line while editing', () => {
+  for (const [kind, sendsPage] of [
+    ['summarize', false],
+    ['explain', true],
+  ] as const) {
+    it(`follows the edited ${kind} message: page info ${sendsPage ? 'goes' : 'stays'}`, async () => {
+      const asked = { id: 'u1', role: 'user', kind, status: 'idle', createdAt: 1, content: 'hola' };
+      await saveThread('https://a.test', [asked as Turn, doneReply({ kind }) as Turn]);
+      const { container } = render(SidePanel);
+      const edit = await waitFor(() => {
+        const b = container.querySelector<HTMLElement>('[data-ega-user-turn] [data-ega-edit]');
+        if (!b) throw new Error('Edit not shown');
+        return b;
+      });
+      await fireEvent.click(edit);
+      await waitFor(() => expect(container.querySelector('[data-ega-mode-banner]')).not.toBeNull());
+      if (sendsPage) await waitFor(() => expect(nextItems(container)).toContain('Page info'));
+      else expect(nextItems(container)).not.toContain('Page info');
+    });
+  }
 });
