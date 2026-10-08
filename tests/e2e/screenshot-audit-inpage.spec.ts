@@ -96,26 +96,39 @@ async function both(
 async function openPopup(
   context: BrowserContext,
   // No url: the tab Chrome gives an extension with no "tabs" permission on a page it cannot run on.
-  tab: { url?: string; reply?: unknown; reject?: boolean; clipboard?: string },
+  // `clipboard: null` is a read Chrome refuses; `loading` is a page whose content script has not landed yet.
+  tab: {
+    url?: string;
+    reply?: unknown;
+    reject?: boolean;
+    clipboard?: string | null;
+    loading?: boolean;
+  },
 ): Promise<Page> {
   const popup = await context.newPage();
   await popup.addInitScript((t) => {
     const g = globalThis as unknown as {
       chrome: {
-        tabs: { query: unknown; sendMessage: unknown };
+        tabs: { query: unknown; sendMessage: unknown; get: unknown };
         permissions: { contains: unknown };
       };
     };
     g.chrome.tabs.query = async () => [{ id: 7, url: t.url, windowId: 1 }];
     g.chrome.tabs.sendMessage = async (_id: number, msg: { kind: string }) => {
-      if (t.reject)
+      if (t.reject || (t.loading && msg.kind !== 'ega:get-selection'))
         throw new Error('Could not establish connection. Receiving end does not exist.');
       return msg.kind === 'ega:get-selection' ? (t.reply ?? { text: '' }) : { ok: true };
     };
+    if (t.loading) g.chrome.tabs.get = async () => ({ id: 7, status: 'loading' });
     g.chrome.permissions.contains = async () => true;
     if (t.clipboard !== undefined) {
       Object.defineProperty(navigator, 'clipboard', {
-        value: { readText: async () => t.clipboard },
+        value: {
+          readText: async () => {
+            if (t.clipboard === null) throw new DOMException('Read permission denied.');
+            return t.clipboard;
+          },
+        },
         configurable: true,
       });
     }
@@ -222,6 +235,7 @@ test('Popup — every state of the page-popup redesign', async () => {
       '"Ega can\'t run on this page."',
       'page actions read as unavailable',
       'Translate clipboard, Open side panel and the text box stay available',
+      'focus starts in the text box, which shows its ring',
     ],
   });
   await p.close();
@@ -242,6 +256,18 @@ test('Popup — every state of the page-popup redesign', async () => {
     ...POPUP_META,
     state: 'text-prefilled',
     expectations: ['the selection fills the text box, which has focus'],
+  });
+  await p.close();
+
+  p = await openPopup(ext.context, { url: site, loading: true });
+  await p.getByRole('button', { name: 'Choose areas' }).click();
+  await p.getByText('Waiting for the page to load…').waitFor();
+  await both(p, 'popup-waiting', {
+    ...POPUP_META,
+    state: 'waiting',
+    expectations: [
+      'a page action pressed while the page loads: "Waiting for the page to load…" in the status line',
+    ],
   });
   await p.close();
 
@@ -340,6 +366,24 @@ test('Popup — every state of the page-popup redesign', async () => {
     expectations: [
       'the setup row, then "Reload this page to use Ega here." with Reload page',
       'fits 600px with no scrollbar',
+    ],
+  });
+  await p.close();
+
+  // The tallest state with a two-line toast: the body makes room inside Chrome's 600px cap.
+  p = await openPopup(ext.context, { url: site, reject: true, clipboard: null });
+  await p.locator('[data-ega-popup-no-backend]').waitFor();
+  await p.getByRole('button', { name: 'Translate clipboard' }).click();
+  await p
+    .getByText("Ega couldn't read the clipboard. Allow clipboard access, then try again.")
+    .waitFor();
+  await p.waitForTimeout(300); // wait for the toast's entry and the body to make room (no observable end state)
+  await both(p, 'popup-toast-first-run', {
+    ...POPUP_META,
+    state: 'toast-first-run',
+    expectations: [
+      'a two-line toast at the bottom covers no control',
+      'Translate sits beside a one-row text box; the popup stays within 600px, no scrollbar',
     ],
   });
   await p.close();
@@ -1196,7 +1240,35 @@ test('Choose areas — order badges, and a toast above the bottom bar', async ()
     ...meta,
     viewport: { width: 400, height: 700 },
     state: 'areas-toast-narrow',
-    expectations: ['the bar takes two rows; the toast sits above both'],
+    expectations: [
+      'the bar wraps; its controls stay end-aligned on every row',
+      'the toast sits 8px above the whole bar',
+    ],
+  });
+  // A private field's refusal wraps the bar at desktop width too; the toast follows the bar's measured height.
+  await page.setViewportSize(PAGE);
+  await page.evaluate(() => {
+    const f = document.createElement('input');
+    f.type = 'password';
+    f.style.cssText = 'position:fixed;top:8px;left:8px;width:120px';
+    f.id = 'ega-capture-pw';
+    document.body.append(f);
+  });
+  await page.click('#ega-capture-pw');
+  await both(page, 'areas-refusal-toast', {
+    ...meta,
+    state: 'areas-refusal-toast',
+    expectations: [
+      'the refusal wraps the bar to two rows, which take the card radius',
+      'the toast sits 8px above the taller bar and covers none of the refusal',
+    ],
+  });
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await page.keyboard.press('?');
+  await both(page, 'areas-keys-toast', {
+    ...meta,
+    state: 'areas-keys-toast',
+    expectations: ['the key list opens over the toast; every key row reads in full'],
   });
   await page.close();
 });
@@ -1284,6 +1356,20 @@ test('Toasts — first smart hold-back, reload, above the pill, and the full sta
     viewport: short,
     state: 'stack-tooltip-pill-toast',
     expectations: ['the toast is on top, the tooltip over the pill, the pill under both'],
+  });
+
+  // A picker mode hides the pill; the toast then sits above the picker bar, not where the pill was.
+  await page.locator('[data-ega-toast-close]').click();
+  await sendPageTranslate('page:chooseAreas');
+  await expect.poll(async () => egaTest<boolean>(page, 'msIsActive')).toBe(true);
+  await page.evaluate(() => window.getSelection()?.removeAllRanges());
+  await page.keyboard.press('Control+Shift+L');
+  await waitToast(page);
+  await both(page, 'toast-above-bar-pill-hidden', {
+    ...meta,
+    viewport: short,
+    state: 'toast-above-bar-pill-hidden',
+    expectations: ['the pill is hidden; the toast sits 8px above the Choose areas bar'],
   });
   await page.close();
   await resetRoutes(ext.context);
