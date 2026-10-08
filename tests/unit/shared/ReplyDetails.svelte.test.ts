@@ -77,6 +77,11 @@ describe('ReplyDetails — result', () => {
     expect(row(container, 'Time')).toBe('0.03 s');
   });
 
+  it('says a cache hit faster than a hundredth of a second took under 0.01 s, never 0.00 s', () => {
+    const { container } = setup({ meta: meta({ cacheHit: true, latencyMs: 4 }) });
+    expect(row(container, 'Time')).toBe('under 0.01 s');
+  });
+
   it('shows every token count the provider reported, a zero cache read included', () => {
     const { container } = setup({
       meta: meta({

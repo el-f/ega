@@ -62,8 +62,9 @@
   let showInstructions = $state(false);
   let copied = $state(false);
 
-  // One unit on the line; a hundredth under 0.1 s, so a fast cache hit never reads "0.0 s".
-  const formatTime = (ms: number): string => `${(ms / 1000).toFixed(ms < 100 ? 2 : 1)} s`;
+  // One unit on the line; a hundredth under 0.1 s, and a floor below that, so a cache hit never reads "0.00 s".
+  const formatTime = (ms: number): string =>
+    ms < 5 ? 'under 0.01 s' : `${(ms / 1000).toFixed(ms < 100 ? 2 : 1)} s`;
   const count = (n: number): string => n.toLocaleString('en-US');
 
   // The router scrubs secrets out of page info before it builds the prompt, so this shows and copies that version.
