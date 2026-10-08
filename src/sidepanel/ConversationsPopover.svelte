@@ -78,11 +78,20 @@
     return conversationTitle(e);
   }
 
-  function rowMeta(e: IndexEntry, otherSite: boolean): string {
-    const when = listTime(Math.max(e.updatedAt, e.openedAt ?? 0), now);
-    if (otherSite) return `${conversationLabel(e.origin)} · ${when}`;
+  function rowWhen(e: IndexEntry): string {
+    return listTime(Math.max(e.updatedAt, e.openedAt ?? 0), now);
+  }
+
+  /** What comes before the time: the site in Other sites, else the message count when known. */
+  function rowLead(e: IndexEntry, otherSite: boolean): string | null {
+    if (otherSite) return conversationLabel(e.origin);
     const n = e.messages;
-    return n === undefined ? when : `${n} ${n === 1 ? 'message' : 'messages'} · ${when}`;
+    return n === undefined ? null : `${n} ${n === 1 ? 'message' : 'messages'}`;
+  }
+
+  function rowMeta(e: IndexEntry, otherSite: boolean): string {
+    const lead = rowLead(e, otherSite);
+    return lead === null ? rowWhen(e) : `${lead} · ${rowWhen(e)}`;
   }
 
   function focusRow(id: string | undefined, part: 'open' | 'delete' | 'undo' = 'open'): void {
@@ -222,7 +231,12 @@
         </span>
         <span class="cv-text">
           <span class="cv-title" dir="auto" data-ega-conv-title data-ega-truncates>{title}</span>
-          <span class="cv-meta">{rowMeta(e, otherSite)}</span>
+          <span class="cv-meta"
+            >{#if rowLead(e, otherSite) !== null}{`${rowLead(e, otherSite)} · `}{/if}<span
+              class="cv-time"
+              data-ega-conv-time>{rowWhen(e)}</span
+            ></span
+          >
         </span>
       </button>
       <IconButton
@@ -354,6 +368,10 @@
     font-size: var(--fs-md);
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  /* The line may wrap before the time, never inside it ("4 / days ago"). */
+  .cv-time {
     white-space: nowrap;
   }
   .cv-meta {

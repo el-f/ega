@@ -269,3 +269,27 @@ describe('the Conversations box and its text edge', () => {
     expect(rule('\\.cv-empty,\\s*\\.cv-foot')).not.toMatch(/padding-inline/);
   });
 });
+
+// At 256 the meta line wraps; it may wrap before the time, never inside it ("4 / days ago").
+describe('the row meta line', () => {
+  it('keeps the relative time on one line', async () => {
+    await seed();
+    render(ConversationsPopover, {
+      props: {
+        open: true,
+        anchor: anchor(),
+        activeId: 'https://a.test',
+        tabSite: 'https://a.test',
+        onClose: () => {},
+        onOpen: async () => true,
+        onDelete: async () => ({ undo: () => {} }),
+      },
+    });
+    await waitFor(() => expect(rows()).toHaveLength(3));
+    const time = rows()[2]?.querySelector<HTMLElement>('.cv-meta [data-ega-conv-time]');
+    expect(time).not.toBeNull();
+    expect(rows()[2]?.querySelector('.cv-meta')?.textContent).toMatch(/^other\.test · /);
+    const src = readFileSync('src/sidepanel/ConversationsPopover.svelte', 'utf8');
+    expect(src).toMatch(/\.cv-time\s*\{[^}]*white-space:\s*nowrap/);
+  });
+});
