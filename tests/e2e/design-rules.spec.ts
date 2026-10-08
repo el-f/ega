@@ -53,11 +53,11 @@ test.describe('gate', () => {
       mockAnthropic(ext.context, { translation: 'Hello, friend.' });
       const panel = await ext.context.newPage();
       await panel.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
-      await expect(panel.locator('[data-ega-empty-state]')).toBeVisible();
+      await expect(panel.locator('[data-ega-sidepanel-empty]')).toBeVisible();
       await checkAtEveryWidth(panel, GATE_SURFACES.sidepanelEmpty, theme);
       await panel.locator('#sp-text').fill('hola amigo');
-      await panel.getByRole('button', { name: /^Translate$/ }).click();
-      await expect(panel.locator('.ega-assistant-body').first()).toContainText('Hello, friend.', {
+      await panel.locator('#sp-text').press('Enter');
+      await expect(panel.locator('.ega-answer').first()).toContainText('Hello, friend.', {
         timeout: 10_000,
       });
       await checkAtEveryWidth(panel, GATE_SURFACES.sidepanelExchange, theme);
