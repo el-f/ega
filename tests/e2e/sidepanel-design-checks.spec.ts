@@ -908,21 +908,38 @@ test('the meta line cuts no word at 256, and Stop shows its whole ring', async (
   await reloadPanel(sp);
   await sp.setViewportSize({ width: 256, height: 608 });
   await sp.waitForTimeout(80); // wait for layout (no observable end state)
-  const direction = sp
-    .locator('[data-ega-reply]')
-    .first()
-    .locator('[data-ega-meta-item="direction"]');
+  const meta = sp.locator('[data-ega-reply]').first().locator('[data-ega-reply-meta]');
+  // Whole on the one line or hidden: a wrap inside an item showed "→ Chinese" for "→ Chinese (Traditional)" (V5-03).
+  const shown = await meta.evaluate((el) => {
+    const line = el.getBoundingClientRect();
+    return [...el.querySelectorAll<HTMLElement>('[data-ega-meta-item]')]
+      .filter((i) => !i.classList.contains('ega-sr-only'))
+      .map((i) => {
+        const r = i.getBoundingClientRect();
+        const whole =
+          r.top >= line.top - 0.5 &&
+          r.bottom <= line.bottom + 0.5 &&
+          r.right <= line.right + 0.5 &&
+          i.scrollWidth <= i.clientWidth + 1 &&
+          getComputedStyle(i).textOverflow !== 'ellipsis';
+        return `${i.dataset['egaMetaItem'] ?? '?'}: ${whole ? 'whole' : 'cut'}`;
+      });
+  });
   expect
     .soft(
-      await direction.evaluate((el) => ({
-        ellipsis:
-          getComputedStyle(el).textOverflow === 'ellipsis' && el.scrollWidth > el.clientWidth,
-        overflowsSideways: el.scrollWidth > el.clientWidth + 1,
-      })),
-      'the long direction is never cut sideways or ended with an ellipsis',
+      shown.filter((s) => s.endsWith('cut')),
+      'meta items cut',
     )
-    .toEqual({ ellipsis: false, overflowsSideways: false });
-  const meta = sp.locator('[data-ega-reply]').first().locator('[data-ega-reply-meta]');
+    .toEqual([]);
+  expect.soft(shown.length, 'the line still shows something').toBeGreaterThan(0);
+  // R2-F5: nothing waits on a clipped second line.
+  const fit = await meta.evaluate((el) => ({
+    scroll: el.scrollHeight,
+    line: Number.parseFloat(getComputedStyle(el).lineHeight),
+  }));
+  expect
+    .soft(fit.scroll, 'the meta line holds one line of content')
+    .toBeLessThanOrEqual(fit.line + 0.5);
   expect((await meta.boundingBox())?.height ?? 99, 'still one line').toBeLessThanOrEqual(19);
 
   await sp.setViewportSize({ width: 400, height: 760 });

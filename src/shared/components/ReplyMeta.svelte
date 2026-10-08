@@ -8,10 +8,39 @@
   }
 
   const { items, statusAction }: Props = $props();
+
+  let line: HTMLElement | undefined = $state();
+
+  /**
+   * Hides, whole, each item that does not fit on the one line (spec §1.3/§5.2), in order, so a shorter item after it
+   * still shows. A clipped second line cannot do this: an item wider than the line wraps inside itself, and its first
+   * words ("→ Chinese" for "→ Chinese (Traditional)") name the wrong thing. Hidden items stay in the accessibility tree.
+   */
+  function fit(el: HTMLElement): void {
+    const parts = [...el.querySelectorAll<HTMLElement>('[data-ega-meta-item]')];
+    for (const p of parts) p.classList.remove('ega-sr-only');
+    const box = el.getBoundingClientRect();
+    for (const p of parts) {
+      const r = p.getBoundingClientRect();
+      if (r.top > box.top + 1 || r.right > box.right + 0.5) p.classList.add('ega-sr-only');
+    }
+  }
+
+  $effect(() => {
+    // Read before the guard, so a new item list or a Stop button re-fits the line.
+    void items;
+    void statusAction;
+    const el = line;
+    if (!el) return;
+    fit(el);
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => fit(el));
+    ro.observe(el);
+    return () => ro.disconnect();
+  });
 </script>
 
-<!-- One line: an item that does not fit wraps onto the clipped second line and disappears whole. -->
-<p class="ega-reply-meta" dir="ltr" data-ega-reply-meta>
+<p class="ega-reply-meta" dir="ltr" data-ega-reply-meta bind:this={line}>
   {#each items as item (item.key)}
     <span class="ega-reply-meta-item" class:warn={item.warn === true} data-ega-meta-item={item.key}
       >{item.text}{#if item.key === 'status' && statusAction}<button
@@ -36,13 +65,14 @@
     line-height: var(--lh-body);
     color: var(--color-muted);
   }
-  /* No ellipsis: an item moves whole to the clipped line, and one wider than the line wraps at a word. */
+  /* No ellipsis and no wrap inside an item: one that does not fit is hidden whole. */
   .ega-reply-meta-item {
-    min-width: 0;
-    max-inline-size: 100%;
+    flex-shrink: 0;
+    white-space: nowrap;
   }
-  /* The dot belongs to the item after it, so a clipped item takes its dot with it. */
-  .ega-reply-meta-item + .ega-reply-meta-item::before {
+  /* The dot belongs to the item after it, so a hidden item takes its dot with it. */
+  .ega-reply-meta-item:not(:global(.ega-sr-only))
+    ~ .ega-reply-meta-item:not(:global(.ega-sr-only))::before {
     content: '·';
     padding-inline: var(--space-1);
   }
