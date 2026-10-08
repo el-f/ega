@@ -457,6 +457,22 @@
     return () => observer.disconnect();
   });
 
+  // Chrome caps a toolbar popup at 600px; past it the popup scrolls and the toast sits on the text box.
+  // So while a toast shows, the body first puts Translate beside a one-row text box, then closes up its gaps.
+  // The level only grows until the toasts are gone, so the layout never flips back and forth under a toast.
+  const POPUP_MAX_H = 600;
+  let compact = $state(0);
+  $effect(() => {
+    const level = compact;
+    if (toastRoom === 0) {
+      compact = 0;
+      return;
+    }
+    if (level < 2 && document.body.getBoundingClientRect().height > POPUP_MAX_H) {
+      compact = level + 1;
+    }
+  });
+
   // Svelte 5 ignores a cleanup returned from an async onMount, because the function resolves to a Promise.
   onDestroy(() => {
     settingsUnsub?.();
@@ -505,6 +521,7 @@
     <div
       class="popup-body"
       class:pending={!pageKnown}
+      class:tight={compact > 1}
       inert={!pageKnown}
       aria-hidden={pageKnown ? undefined : 'true'}
       style:padding-block-end={toastRoom > 0 ? `${toastRoom}px` : undefined}
@@ -559,7 +576,7 @@
         />
       </div>
 
-      <div class="popup-freeform">
+      <div class="popup-freeform" class:compact={compact > 0}>
         <label class="freeform-label" for="ega-popup-freeform">Translate in the side panel</label>
         <!-- One row with no backend: the first-run popup must fit 600px, and side-panel text cannot translate yet. -->
         <textarea
@@ -572,7 +589,7 @@
           placeholder="Paste or type text"
           oninput={scheduleDraftSave}
           onkeydown={onComposerKey}
-          rows={backendReady === false ? 1 : 2}></textarea>
+          rows={backendReady === false || compact > 0 ? 1 : 2}></textarea>
         <div class="freeform-actions" data-ega-action-bar>
           <Button
             variant="secondary"
@@ -635,6 +652,17 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
+  }
+  .popup-body.tight {
+    gap: var(--space-3);
+  }
+  .popup-freeform.compact {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+  }
+  .popup-freeform.compact .freeform-label {
+    grid-column: 1 / -1;
   }
   .freeform-label {
     font-size: var(--fs-xs);

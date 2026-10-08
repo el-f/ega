@@ -140,12 +140,13 @@ function activeLabel(page: Page, inShadow: boolean): Promise<string> {
 
 /** The popup as a page over a stubbed active tab; the URL and the page's answer decide its state. */
 /** `url` left out is what Chrome gives an extension with no "tabs" permission on a page it cannot run on. */
+/** `clipboard: null` is a clipboard read Chrome refuses. */
 async function openPopup(
   tab: {
     url?: string;
     reply?: unknown;
     reject?: boolean;
-    clipboard?: string;
+    clipboard?: string | null;
   },
   opts: { reducedMotion?: boolean } = {},
 ): Promise<Page> {
@@ -166,7 +167,12 @@ async function openPopup(
       (g.chrome as unknown as { permissions: { contains: unknown } }).permissions.contains =
         async () => true;
       Object.defineProperty(navigator, 'clipboard', {
-        value: { readText: async () => t.clipboard },
+        value: {
+          readText: async () => {
+            if (t.clipboard === null) throw new DOMException('Read permission denied.');
+            return t.clipboard;
+          },
+        },
         configurable: true,
       });
     }
@@ -702,39 +708,61 @@ test('tooltip, pill and toast stack in layer order: toast on top, then tooltip, 
   expect(tipZ).toBeLessThan(toastZ);
 });
 
-test('popup: a toast covers no control at the height Chrome gives the popup', async () => {
-  const popup = await openPopup({ url: SITE, clipboard: '   ' });
-  await popup.getByRole('button', { name: 'Translate clipboard' }).click();
-  await popup.getByText('The clipboard is empty. Copy some text first.').waitFor();
-  await expect
-    .poll(() =>
-      popup.evaluate(() =>
-        document.querySelector('[data-sonner-toast]')?.getAttribute('data-mounted'),
-      ),
-    )
-    .toBe('true');
-  // The popup is as tall as its body, up to 600px.
-  const height = await popup.evaluate(() =>
-    Math.ceil(document.body.getBoundingClientRect().height),
-  );
-  await popup.setViewportSize({ width: 360, height: Math.min(600, height) });
-  const covered = await popup.evaluate(() => {
-    const toast = document.querySelector('[data-sonner-toast]')?.getBoundingClientRect();
-    if (!toast) return ['no toast'];
-    return [...document.querySelectorAll<HTMLElement>('button, textarea, select, [role="switch"]')]
-      .filter((el) => !el.closest('[data-sonner-toast]'))
-      .filter((el) => {
-        const r = el.getBoundingClientRect();
-        return (
-          r.bottom > toast.top &&
-          r.top < toast.bottom &&
-          r.right > toast.left &&
-          r.left < toast.right
-        );
-      })
-      .map((el) => el.getAttribute('aria-label') ?? el.textContent.trim().slice(0, 30));
-  });
-  expect(covered).toEqual([]);
+test('popup, every state: a one- or two-line toast covers no control and the popup stays within 600px', async () => {
+  test.slow();
+  const toasts = [
+    { clipboard: '   ', text: 'The clipboard is empty. Copy some text first.' },
+    {
+      clipboard: null,
+      text: "Ega couldn't read the clipboard. Allow clipboard access, then try again.",
+    },
+  ];
+  const fails: string[] = [];
+  for (const state of POPUP_STATES) {
+    if (state.seed) await seedSettings(ext.context, ext.extensionId, state.seed);
+    for (const t of toasts) {
+      const popup = await openPopup({ ...state.tab, clipboard: t.clipboard });
+      await popup.getByRole('button', { name: 'Translate clipboard' }).click();
+      await popup.getByText(t.text).waitFor();
+      await expect
+        .poll(() =>
+          popup.evaluate(() =>
+            document.querySelector('[data-sonner-toast]')?.getAttribute('data-mounted'),
+          ),
+        )
+        .toBe('true');
+      await popup.waitForTimeout(100); // the body makes room once the toast is measured
+      // The popup is as tall as its body, up to 600px; past that Chrome scrolls it.
+      const height = await popup.evaluate(() =>
+        Math.ceil(document.body.getBoundingClientRect().height),
+      );
+      if (height > 600) fails.push(`${state.name}, "${t.text}": body ${height}px`);
+      await popup.setViewportSize({ width: 360, height: Math.min(600, height) });
+      const covered = await popup.evaluate(() => {
+        const toast = document.querySelector('[data-sonner-toast]')?.getBoundingClientRect();
+        if (!toast) return ['no toast'];
+        return [
+          ...document.querySelectorAll<HTMLElement>('button, textarea, select, [role="switch"]'),
+        ]
+          .filter((el) => !el.closest('[data-sonner-toast]'))
+          .filter((el) => {
+            const r = el.getBoundingClientRect();
+            return (
+              r.bottom > toast.top &&
+              r.top < toast.bottom &&
+              r.right > toast.left &&
+              r.left < toast.right
+            );
+          })
+          .map((el) => el.getAttribute('aria-label') ?? el.textContent.trim().slice(0, 30));
+      });
+      if (covered.length > 0) {
+        fails.push(`${state.name}, "${t.text}": covers ${covered.join(', ')}`);
+      }
+      await popup.close();
+    }
+  }
+  expect(fails).toEqual([]);
 });
 
 test('popup, every state, reduced motion: focus starts on a control, not on the page body', async () => {
