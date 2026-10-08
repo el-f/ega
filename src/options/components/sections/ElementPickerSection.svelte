@@ -107,8 +107,8 @@
       <div class="shortcut-control">
         <ShortcutInput
           value={s.shortcut ?? ''}
-          ariaLabel="Record keyboard shortcut"
-          clearAriaLabel="Clear translate shortcut"
+          ariaLabel="Record Translate selection shortcut"
+          clearAriaLabel="Clear Translate selection shortcut"
           onchange={(next) => setShortcut('shortcut', next)}
         />
         {#if clash?.row === 'shortcut'}

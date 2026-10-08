@@ -10,15 +10,17 @@
     emptyText: string;
     /** The Change button's full name, starting with "Change", e.g. "Change which tasks send page context". */
     changeName: string;
+    /** The Tasks tab entry Change lands on; the tab top when absent. */
+    target?: string;
   }
 
-  const { label, names, emptyText, changeName }: Props = $props();
+  const { label, names, emptyText, changeName, target }: Props = $props();
 </script>
 
 <div class="usage-row" data-ega-task-usage>
   <span class="usage-label">{label}</span>
   <span class="usage-value">{names.length > 0 ? names.join(', ') : emptyText}</span>
-  <Button variant="ghost" ariaLabel={changeName} onclick={() => gotoOptionsTab('tasks')}
+  <Button variant="ghost" ariaLabel={changeName} onclick={() => gotoOptionsTab('tasks', target)}
     >Change</Button
   >
 </div>

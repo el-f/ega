@@ -101,7 +101,14 @@ describe('AdvancedDiagnosticsPane', () => {
     expect(copy.closest('.ega-section-card-actions')).not.toBeNull();
     await fireEvent.click(copy);
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(JSON.stringify(entries, null, 2)));
-    await waitFor(() => expect(copy.textContent.trim()).toBe('Copied'));
+    // The result is announced in a status line, not only in the button's own label.
+    const status = (): string | undefined =>
+      copy.closest('.ega-section-card-actions')?.querySelector('[role="status"]')?.textContent;
+    await waitFor(() => expect(status()?.trim()).toBe('Copied'));
+
+    writeText.mockRejectedValueOnce(new Error('denied'));
+    await fireEvent.click(copy);
+    await waitFor(() => expect(status()?.trim()).toBe('Could not copy'));
   });
 
   it('with recording off: Response times says how to turn it on, and has no Copy data', async () => {

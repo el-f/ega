@@ -43,15 +43,18 @@
 
   // The histogram asks the worker for its buffer; the card header needs it for Copy data.
   let perfEntries = $state.raw<readonly PerfEntry[]>([]);
-  let copied = $state(false);
+  // The result goes to a status line, so it is announced, and a failed copy says so.
+  let copyNote = $state<'' | 'Copied' | 'Could not copy'>('');
+  let copyNoteTimer: ReturnType<typeof setTimeout> | null = null;
   async function copyPerf(): Promise<void> {
+    if (copyNoteTimer !== null) clearTimeout(copyNoteTimer);
     try {
       await navigator.clipboard.writeText(JSON.stringify(perfEntries, null, 2));
-      copied = true;
-      setTimeout(() => (copied = false), 2000);
+      copyNote = 'Copied';
     } catch {
-      copied = false;
+      copyNote = 'Could not copy';
     }
+    copyNoteTimer = setTimeout(() => (copyNote = ''), 4000);
   }
 </script>
 
@@ -66,11 +69,14 @@
   >
     {#snippet headerActions()}
       {#if perfEntries.length > 0 && s.captureResultMeta}
+        <span class="copy-note" class:copy-failed={copyNote === 'Could not copy'} role="status"
+          >{copyNote}</span
+        >
         <Button
           variant="secondary"
           size="sm"
           dataAttrs={{ 'data-ega-perf-copy': true }}
-          onclick={() => void copyPerf()}>{copied ? 'Copied' : 'Copy data'}</Button
+          onclick={() => void copyPerf()}>Copy data</Button
         >
       {/if}
     {/snippet}
@@ -130,6 +136,13 @@
 </SectionCard>
 
 <style>
+  .copy-note {
+    font-size: var(--fs-base);
+    color: var(--color-muted);
+  }
+  .copy-failed {
+    color: var(--color-danger-fg);
+  }
   .capture-meta {
     display: flex;
     flex-direction: column;

@@ -107,14 +107,16 @@ describe('ElementPickerSection', () => {
     expect(dot).not.toBeNull();
   });
 
-  it('gives each Clear button a distinct accessible name', () => {
+  it('names each Record and Clear button after its row', () => {
     const { getByRole } = render(ElementPickerSection, {
       props: makeSectionProps({
         s: { pickerEnabled: true, pickerShortcut: 'Ctrl+Shift+K', shortcut: 'Ctrl+Shift+L' },
       }),
     });
+    expect(getByRole('button', { name: 'Record element picker shortcut' })).toBeTruthy();
     expect(getByRole('button', { name: 'Clear element picker shortcut' })).toBeTruthy();
-    expect(getByRole('button', { name: 'Clear translate shortcut' })).toBeTruthy();
+    expect(getByRole('button', { name: 'Record Translate selection shortcut' })).toBeTruthy();
+    expect(getByRole('button', { name: 'Clear Translate selection shortcut' })).toBeTruthy();
   });
 });
 

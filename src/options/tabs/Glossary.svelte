@@ -31,7 +31,7 @@
   import RulesEditor from '@/options/components/RulesEditor.svelte';
   import { createTemplatesHandlers } from '@/options/templates-handlers';
   import { liveCustomTasks } from '@/options/custom-tasks-state.svelte';
-  import { gotoOptionsTab } from '@/options/deep-link';
+  import TaskUsageRow from '@/options/components/TaskUsageRow.svelte';
   import { materializeTasks } from '@/shared/task-view';
   import type { Settings, LangSelection, Variety } from '@/shared/types';
   import BookText from '@lucide/svelte/icons/book-text';
@@ -413,17 +413,15 @@
     }}
   >
     {#if s}
+      <!-- The same read-only row as "Sent with" on Answers: one pattern, one look. -->
       <div class="gl-used-by" data-ega-glossary-used-by>
-        <span class="gl-used-label">Used by</span>
-        <span class="gl-used-list"
-          >{usedBy.length > 0 ? usedBy.join(', ') : 'No task uses it yet'}</span
-        >
-        <Button
-          variant="ghost"
-          size="sm"
-          ariaLabel="Change which tasks use the glossary"
-          onclick={() => gotoOptionsTab('tasks', 'tasks.overrides')}>Change</Button
-        >
+        <TaskUsageRow
+          label="Used by"
+          names={usedBy}
+          emptyText="No task uses it yet"
+          changeName="Change which tasks use the glossary"
+          target="tasks.overrides"
+        />
       </div>
     {/if}
 
@@ -588,18 +586,7 @@
 
 <style>
   .gl-used-by {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--space-2);
     margin-bottom: var(--space-3);
-    font-size: var(--fs-base);
-  }
-  .gl-used-label {
-    color: var(--color-muted);
-  }
-  .gl-used-list {
-    flex: 1 1 auto;
   }
   .glossary-add {
     display: grid;
