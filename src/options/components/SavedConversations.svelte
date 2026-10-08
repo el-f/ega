@@ -9,6 +9,7 @@
   import PanelRight from '@lucide/svelte/icons/panel-right';
   import Trash2 from '@lucide/svelte/icons/trash-2';
   import { onStoredChange } from '@/shared/stored-changes';
+  import { relativeTime } from '@/shared/relative-time';
   import {
     INDEX_KEY,
     clearSavedConversations,
@@ -23,9 +24,12 @@
 
   let rows = $state.raw<Row[]>([]);
   let loaded = $state(false);
+  // "Last used" reads relative to the last refresh; a save from a panel refreshes the list.
+  let now = $state(Date.now());
 
   async function refresh(): Promise<void> {
     rows = await listSavedConversations();
+    now = Date.now();
     loaded = true;
   }
 
@@ -39,19 +43,16 @@
     return row.title ?? (row.imageFirst ? 'Image' : null);
   }
 
-  function rowMeta(row: Row, site: string, titled: boolean): string {
+  /** What leads the row's second line, before when it was last used: its site under a title, and its message count. */
+  function rowLead(row: Row, site: string, titled: boolean): string {
     const count =
       row.messages === undefined
         ? null
         : `${row.messages} ${row.messages === 1 ? 'message' : 'messages'}`;
-    return [
-      titled ? site : null,
-      count,
-      new Date(row.updatedAt).toLocaleString(),
-      sizeLabel(row.bytes),
-    ]
+    return [titled ? site : null, count]
       .filter((part) => part !== null)
-      .join(' · ');
+      .map((part) => `${part} · `)
+      .join('');
   }
 
   let stop: (() => void) | null = null;
@@ -148,7 +149,12 @@
               <span class="conv-title" title={title ?? site} data-ega-conv-title data-ega-truncates
                 >{title ?? site}</span
               >
-              <span class="conv-meta">{rowMeta(row, site, title !== null)}</span>
+              <span class="conv-meta"
+                >{rowLead(row, site, title !== null)}<span aria-hidden="true"
+                  >{relativeTime(row.updatedAt, now)}</span
+                ><span class="ega-sr-only">{new Date(row.updatedAt).toLocaleString()}</span>
+                · {sizeLabel(row.bytes)}</span
+              >
             </span>
             <IconButton
               icon={Trash2}

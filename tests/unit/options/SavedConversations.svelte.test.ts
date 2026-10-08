@@ -165,6 +165,20 @@ describe('SavedConversations: one row per conversation, with its facts', () => {
     ).toBeTruthy();
   });
 
+  it('says when a conversation was last used as a relative time; the full date is for screen readers', async () => {
+    const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;
+    await seedIndex([
+      { origin: 'https://example.com#k1', updatedAt: twoHoursAgo, bytes: 2048, messages: 2 },
+    ]);
+    const { container } = render(SavedConversations);
+    await waitFor(() => expect(meta(container)).toHaveLength(1));
+    const when = container.querySelector('.conv-meta [aria-hidden="true"]');
+    expect(when?.textContent).toBe('2h ago');
+    expect(container.querySelector('.conv-meta .ega-sr-only')?.textContent).toBe(
+      new Date(twoHoursAgo).toLocaleString(),
+    );
+  });
+
   it('a row saved before the facts existed shows its site, as before', async () => {
     await seedIndex([{ origin: 'https://old.test', updatedAt: 1_000, bytes: 1024 }]);
     const { container, getByRole } = render(SavedConversations);
