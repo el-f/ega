@@ -114,7 +114,7 @@ describe('collectBlocks — what is already translated, and what can never come 
   });
 
   it('skips a box past the right edge, below the page, or cut off by a clipping ancestor', () => {
-    document.body.innerHTML = `<div id="track" style="overflow:hidden"><p id="slide">Tercera diapositiva aquí</p></div><p id="right">Más allá del borde</p><p id="below">Por debajo de la página</p><p id="on">Texto visible aquí</p>`;
+    document.body.innerHTML = `<div id="track" style="overflow-x:hidden;overflow-y:hidden"><p id="slide">Tercera diapositiva aquí</p></div><p id="right">Más allá del borde</p><p id="below">Por debajo de la página</p><p id="on">Texto visible aquí</p>`;
     const root = document.documentElement;
     for (const [k, v] of Object.entries({
       scrollWidth: 1000,
@@ -127,12 +127,42 @@ describe('collectBlocks — what is already translated, and what can never come 
         ({ width: (r.right ?? 0) - (r.left ?? 0), height: 20, ...r }) as DOMRect;
     };
     rect('track', { left: 0, right: 500, top: 0, bottom: 40 });
-    rect('slide', { left: 1000, right: 1500, top: 0, bottom: 40 });
+    // Inside the page's range, so only the clipping ancestor keeps it out.
+    rect('slide', { left: 600, right: 900, top: 0, bottom: 40 });
     rect('right', { left: 1200, right: 1400, top: 50, bottom: 70 });
     rect('below', { left: 0, right: 400, top: 9000, bottom: 9020 });
     rect('on', { left: 0, right: 400, top: 100, bottom: 120 });
     try {
       expect(ids(collect())).toEqual(['on']);
+    } finally {
+      for (const k of ['scrollWidth', 'clientWidth', 'scrollHeight']) delete (root as never)[k];
+    }
+  });
+
+  it('takes a block the user reaches by scrolling an inner pane: an app main pane, a wide table', () => {
+    // The document itself does not scroll: its range is one screen, and the main pane scrolls instead.
+    document.body.innerHTML = `<div id="app" style="overflow-x:hidden;overflow-y:hidden"><main id="main" style="overflow-x:auto;overflow-y:auto"><p id="far">Párrafo al final del panel</p><div id="wide" style="overflow-x:auto;overflow-y:auto"><table><tr><td id="cell">Columna lejana de la tabla</td></tr></table></div><div id="track" style="overflow-x:hidden;overflow-y:hidden"><p id="slide">Tercera diapositiva aquí</p></div></main></div>`;
+    const root = document.documentElement;
+    for (const [k, v] of Object.entries({
+      scrollWidth: 1000,
+      clientWidth: 1000,
+      scrollHeight: 800,
+    }))
+      Object.defineProperty(root, k, { configurable: true, value: v });
+    const rect = (id: string, r: Partial<DOMRect>): void => {
+      (document.getElementById(id) as HTMLElement).getBoundingClientRect = () =>
+        ({ width: (r.right ?? 0) - (r.left ?? 0), height: 20, ...r }) as DOMRect;
+    };
+    rect('app', { left: 0, right: 1000, top: 0, bottom: 800 });
+    rect('main', { left: 0, right: 1000, top: 0, bottom: 800 });
+    rect('far', { left: 0, right: 400, top: 5000, bottom: 5020 });
+    rect('wide', { left: 0, right: 1000, top: 5100, bottom: 5140 });
+    rect('cell', { left: 2400, right: 2800, top: 5100, bottom: 5120 });
+    // A carousel inside the pane still cuts off its later slides.
+    rect('track', { left: 0, right: 500, top: 5200, bottom: 5240 });
+    rect('slide', { left: 1000, right: 1500, top: 5200, bottom: 5240 });
+    try {
+      expect(ids(collect())).toEqual(['far', 'cell']);
     } finally {
       for (const k of ['scrollWidth', 'clientWidth', 'scrollHeight']) delete (root as never)[k];
     }
@@ -197,6 +227,13 @@ describe('blockText — what a block sends', () => {
     expect(blockText(document.getElementById('card') as HTMLElement)).toBe(
       'Titular de la noticia\nEl cuerpo de la noticia\nen línea',
     );
+  });
+
+  it('keeps ruby and its reading in the line, as the browser lays them out', () => {
+    // Chrome gives ruby and rt their own display values, which are not block-level.
+    document.body.innerHTML =
+      '<p id="p">これは<ruby style="display:ruby">漢<rt style="display:ruby-text">かん</rt></ruby>字です</p>';
+    expect(blockText(document.getElementById('p') as HTMLElement)).toBe('これは漢かん字です');
   });
 });
 

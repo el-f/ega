@@ -96,38 +96,71 @@ function isTranslated(el: Element): boolean {
   return false;
 }
 
-/** Whether an ancestor cuts off its overflow on each axis, cached for one collection pass. */
-type ClipCache = Map<Element, { x: boolean; y: boolean }>;
+/** What an ancestor does with a box past its edge on one axis: shows it, cuts it off, or lets the user scroll to it. */
+type Overflow = 'shows' | 'cuts' | 'scrolls';
+/** Each ancestor's overflow on both axes, cached for one collection pass. */
+type OverflowCache = Map<Element, { x: Overflow; y: Overflow }>;
+
+function overflowKind(v: string | undefined): Overflow {
+  if (v === 'hidden' || v === 'clip') return 'cuts';
+  return v === 'auto' || v === 'scroll' ? 'scrolls' : 'shows';
+}
+
+function overflowOf(a: Element, cache: OverflowCache): { x: Overflow; y: Overflow } {
+  let o = cache.get(a);
+  if (o) return o;
+  const doc = a.ownerDocument;
+  const win = doc.defaultView;
+  const st = win?.getComputedStyle(a);
+  o = { x: overflowKind(st?.overflowX), y: overflowKind(st?.overflowY) };
+  if (a === doc.body) {
+    // With the root's overflow visible, the body's goes to the viewport, whose range the document check covers.
+    const rs = win?.getComputedStyle(doc.documentElement);
+    if (overflowKind(rs?.overflowX) === 'shows' && overflowKind(rs?.overflowY) === 'shows') {
+      o = { x: 'shows', y: 'shows' };
+    }
+  }
+  cache.set(a, o);
+  return o;
+}
 
 /**
- * A box the user can never scroll to, so the viewport band never reaches it: outside the document's scroll range
- * (an off-canvas menu, content past the edge; on a right-to-left page the range runs left of zero), or outside an
- * ancestor that hides its overflow (a carousel's later slides).
+ * A box the user can never scroll to, so the viewport band never reaches it. On each axis, the nearest ancestor
+ * that scrolls (an app's main pane, a wide table's wrapper) lets the user reach whatever it holds. Below that, an
+ * ancestor that hides its overflow cuts off a box outside it (a carousel's later slides); with no ancestor that
+ * scrolls, the box must sit in the document's scroll range (not an off-canvas menu; on a right-to-left page the
+ * range runs left of zero).
  */
-function outOfReach(el: Element, clips: ClipCache): boolean {
+function outOfReach(el: Element, cache: OverflowCache): boolean {
   const r = el.getBoundingClientRect();
   if (r.width === 0 && r.height === 0) return false;
   const doc = el.ownerDocument;
   const root = doc.documentElement;
-  const win = doc.defaultView;
-  const sx = win?.scrollX ?? 0;
-  const sy = win?.scrollY ?? 0;
-  const rtl = win?.getComputedStyle(root).direction === 'rtl';
-  const minX = rtl ? root.clientWidth - root.scrollWidth : 0;
-  if (r.right + sx <= minX || r.left + sx >= minX + root.scrollWidth) return true;
-  if (r.bottom + sy <= 0 || r.top + sy >= root.scrollHeight) return true;
-  for (let a = el.parentElement; a && a !== doc.body && a !== root; a = a.parentElement) {
-    let clip = clips.get(a);
-    if (!clip) {
-      const st = win?.getComputedStyle(a);
-      const hides = (v: string | undefined): boolean => v === 'hidden' || v === 'clip';
-      clip = { x: hides(st?.overflowX), y: hides(st?.overflowY) };
-      clips.set(a, clip);
+  let scrollsX = false;
+  let scrollsY = false;
+  for (let a = el.parentElement; a && a !== root; a = a.parentElement) {
+    const o = overflowOf(a, cache);
+    const cutX = !scrollsX && o.x === 'cuts';
+    const cutY = !scrollsY && o.y === 'cuts';
+    if (cutX || cutY) {
+      const ar = a.getBoundingClientRect();
+      if (cutX && (r.right <= ar.left || r.left >= ar.right)) return true;
+      if (cutY && (r.bottom <= ar.top || r.top >= ar.bottom)) return true;
     }
-    if (!clip.x && !clip.y) continue;
-    const ar = a.getBoundingClientRect();
-    if (clip.x && (r.right <= ar.left || r.left >= ar.right)) return true;
-    if (clip.y && (r.bottom <= ar.top || r.top >= ar.bottom)) return true;
+    scrollsX ||= o.x === 'scrolls';
+    scrollsY ||= o.y === 'scrolls';
+    if (scrollsX && scrollsY) return false;
+  }
+  const win = doc.defaultView;
+  if (!scrollsX) {
+    const sx = win?.scrollX ?? 0;
+    const rtl = win?.getComputedStyle(root).direction === 'rtl';
+    const minX = rtl ? root.clientWidth - root.scrollWidth : 0;
+    if (r.right + sx <= minX || r.left + sx >= minX + root.scrollWidth) return true;
+  }
+  if (!scrollsY) {
+    const sy = win?.scrollY ?? 0;
+    if (r.bottom + sy <= 0 || r.top + sy >= root.scrollHeight) return true;
   }
   return false;
 }
@@ -150,8 +183,9 @@ export function blockText(el: Element): string {
         if (c.tagName.toUpperCase() === 'BR') out += '\n';
         else if (!skipSubtree(c)) {
           // A block-level child starts its own line, as innerText does; a React page has no whitespace between tags.
+          // Ruby and its reading stay in the line, as they read.
           const display = c.ownerDocument.defaultView?.getComputedStyle(c).display ?? 'inline';
-          const own = !display.startsWith('inline') && display !== 'contents';
+          const own = !/^(?:inline|ruby|contents)/.test(display);
           if (own) out += '\n';
           walk(c);
           if (own) out += '\n';
@@ -181,7 +215,7 @@ export function keepsPageParts(el: Element): boolean {
  */
 export function collectBlocks(root: Element, opts: { maxChars: number }): HTMLElement[] {
   const out: HTMLElement[] = [];
-  const clips: ClipCache = new Map();
+  const overflow: OverflowCache = new Map();
   // True when the subtree holds a block (or a block too long to take), so no ancestor claims its text.
   const visit = (el: Element): boolean => {
     if (out.length >= MAX_PAGE_BLOCKS || skipSubtree(el)) return false;
@@ -194,7 +228,7 @@ export function collectBlocks(root: Element, opts: { maxChars: number }): HTMLEl
     if (!BLOCK_TAGS.has(tag) && !CONTAINER_TAGS.has(tag)) return false;
     const text = blockText(el);
     if (!hasWords(text)) return false;
-    if (text.length > opts.maxChars || outOfReach(el, clips)) return true;
+    if (text.length > opts.maxChars || outOfReach(el, overflow)) return true;
     if (out.length < MAX_PAGE_BLOCKS) out.push(el as HTMLElement);
     return true;
   };
