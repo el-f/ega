@@ -63,9 +63,12 @@
     max-width: 280px;
     line-height: var(--lh-body);
   }
+  /* D57: one empty-state call-to-action size, 32px. */
   .cta {
+    box-sizing: border-box;
+    block-size: 32px;
     margin-top: var(--space-2);
-    padding: var(--space-2) var(--space-4);
+    padding: 0 var(--space-4);
     background: var(--color-accent);
     color: var(--color-accent-fg);
     border: 0;

@@ -98,6 +98,10 @@
     justify-content: flex-start;
     inline-size: 100%;
   }
+  /* D57: every empty-state call to action in the panel is 32px, the primary-action size. */
+  .ega-empty :global(.ega-btn) {
+    min-block-size: 32px;
+  }
   .ega-empty-status {
     margin: 0;
     min-block-size: calc(var(--fs-sm) * var(--lh-body));

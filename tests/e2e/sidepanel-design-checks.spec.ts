@@ -346,7 +346,7 @@ const CHECKS = [
   '6 font sizes and spacing come from the tokens',
   '7 no uppercase, two weights',
   '9 the meta line is one line',
-  '10 targets are at least 28px (Send and Add 32px)',
+  '10 targets are at least 28px (Send, Add and empty-state buttons 32px)',
   '11 a name starts with the visible label',
   '12 text contrast',
 ] as const;
@@ -505,9 +505,13 @@ async function layoutFindings(sp: Page): Promise<{ check: number; what: string }
       // The meta line's Stop is a text button inside a one-line, 18px line (check 9); the spec keeps it there.
       if (!shown(el) || !ours(el) || el.matches('[data-ega-meta-stop]')) continue;
       const r = rect(el);
-      const min = el.matches('[data-ega-send], [data-ega-add]') ? 32 : 28;
+      const empty = el.closest('[data-ega-sidepanel-empty], [data-ega-empty-state]') !== null;
+      const min = empty || el.matches('[data-ega-send], [data-ega-add]') ? 32 : 28;
       if (r.width < min - 0.5 || r.height < min - 0.5)
         add(10, `${describe(el)} is ${Math.round(r.width)}x${Math.round(r.height)}, under ${min}`);
+      // D57: one empty-state button size, 32px.
+      else if (empty && r.height > 32.5)
+        add(10, `${describe(el)} is ${Math.round(r.height)}px tall; an empty-state button is 32`);
     }
 
     // 11. A control's name starts with the text it shows; "→" reads "to", punctuation does not count.
