@@ -151,13 +151,19 @@ describe('SidePanel — keys typed inside a reply menu stay in the menu', () => 
     );
     if (!trigger) throw new Error('More trigger missing');
     trigger.focus();
+    await tick();
+    // Focus inside the reply puts the ring on it (R2-F3); the key must not move it on.
+    const ring = focusedRing(container);
+    expect(ring?.contains(trigger)).toBe(true);
 
     await fireEvent.keyDown(trigger, { key: 'ArrowDown' });
     await tick();
 
-    expect(focusedRing(container)).toBeNull();
+    expect(focusedRing(container)).toBe(ring);
     await waitFor(() => {
       if (!document.querySelector('[data-ega-answer-again]')) throw new Error('menu not open');
     });
+    // A walk would have pulled focus onto the reply's article instead of into the menu.
+    await waitFor(() => expect(inMenu()).toBe(true));
   });
 });

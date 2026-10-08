@@ -689,7 +689,8 @@ describe('Tooltip smoke', () => {
       await fireEvent.click(getByLabelText('Show details about this reply'));
       expect(getByLabelText('Close')).toBeTruthy();
       expect(getByText('Anthropic')).toBeTruthy();
-      expect(getByText('250 ms')).toBeTruthy();
+      // One unit on the Time row, seconds (V5-08).
+      expect(getByText('0.3 s')).toBeTruthy();
     });
   });
 

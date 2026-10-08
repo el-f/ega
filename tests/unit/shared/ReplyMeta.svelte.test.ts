@@ -44,14 +44,56 @@ describe('ReplyMeta', () => {
     expect(src).toContain('block-size: 1lh');
     expect(src).toContain('overflow: hidden');
     expect(src).toContain('flex-wrap: wrap');
-    expect(src).toMatch(/\.ega-reply-meta-item \+ \.ega-reply-meta-item::before/);
+    // The dot goes with the item after it, so a hidden item takes its dot along.
+    expect(src).toMatch(
+      /\.ega-reply-meta-item:not\(:global\(\.ega-sr-only\)\)\s*~ \.ega-reply-meta-item:not\(:global\(\.ega-sr-only\)\)::before/,
+    );
   });
 
-  // Spec §1.3/§5.2: the line never shows a cut word; an item too wide for the line wraps at a word inside the clip.
-  it('never ends an item with an ellipsis', () => {
+  // Spec §1.3/§5.2: an item is never cut. It does not shrink or wrap inside itself; one that does not fit is hidden.
+  it('never ends an item with an ellipsis, and never wraps one inside itself', () => {
     const src = readFileSync('src/shared/components/ReplyMeta.svelte', 'utf8');
     const item = /\.ega-reply-meta-item\s*\{([^}]*)\}/.exec(src)?.[1] ?? '';
-    expect(item).not.toMatch(/text-overflow|white-space:\s*nowrap/);
+    expect(item).not.toMatch(/text-overflow/);
+    expect(item).toMatch(/flex-shrink:\s*0/);
+    expect(item).toMatch(/white-space:\s*nowrap/);
+  });
+
+  // V5-03: "→ Chinese (Traditional)" showed as "→ Chinese". An item that does not fit whole is hidden whole.
+  it('hides each item that does not fit whole on the line, and keeps it for screen readers', () => {
+    const boxes: Record<string, Partial<DOMRect>> = {
+      line: { top: 0, right: 200 },
+      direction: { top: 0, right: 120 },
+      model: { top: 18, right: 190 },
+      confidence: { top: 0, right: 210 },
+    };
+    const spy = vi
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockImplementation(function (this: HTMLElement) {
+        const key = this.hasAttribute('data-ega-reply-meta')
+          ? 'line'
+          : (this.getAttribute('data-ega-meta-item') ?? '');
+        return { top: 0, right: 0, ...boxes[key] } as DOMRect;
+      });
+    const { container } = render(ReplyMeta, {
+      props: {
+        items: [
+          { key: 'direction', text: 'English → Chinese (Traditional)' },
+          { key: 'model', text: 'Claude Haiku 4.5' },
+          { key: 'confidence', text: '93% confident' },
+        ],
+      },
+    });
+    spy.mockRestore();
+    const hidden = (key: string): boolean | undefined =>
+      container.querySelector(`[data-ega-meta-item="${key}"]`)?.classList.contains('ega-sr-only');
+    expect(hidden('direction')).toBe(false);
+    // Wrapped to a second line, and past the right edge: both hidden whole, text still in the tree.
+    expect(hidden('model')).toBe(true);
+    expect(hidden('confidence')).toBe(true);
+    expect(container.querySelector('[data-ega-meta-item="model"]')?.textContent).toBe(
+      'Claude Haiku 4.5',
+    );
   });
 
   // The 18px line clips everything outside it, so Stop's ring has to sit inside the button.
