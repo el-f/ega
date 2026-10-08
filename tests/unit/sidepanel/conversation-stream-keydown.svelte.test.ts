@@ -162,4 +162,31 @@ describe('ConversationStream — no svelte:window self-registration', () => {
     await tick();
     expect(document.activeElement).toBe(copy);
   });
+
+  // A mouse press inside a turn must not draw the keyboard ring round the whole reply.
+  it('a pointer press that focuses inside a turn drops the ring instead of moving it', async () => {
+    const focusChange = vi.fn();
+    const { container } = render(ConversationStream, {
+      props: {
+        turns: [u('u1', 'hello'), a('a1', 'world', 'u1'), u('u2', 'again'), a('a2', 'more', 'u2')],
+        focusedTurnId: 'a2',
+        onRetry: vi.fn(),
+        onFocusChange: focusChange,
+      },
+    });
+    await tick();
+    const copy = container.querySelector<HTMLElement>(
+      '[data-turn-id="a1"] [data-ega-action="copy"]',
+    );
+    if (!copy) throw new Error('copy button missing');
+    copy.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    copy.focus();
+    expect(focusChange).toHaveBeenLastCalledWith(null);
+    expect(document.activeElement).toBe(copy);
+    // The press is over by the next task: focus that arrives later by script moves the ring again.
+    await new Promise((r) => setTimeout(r));
+    copy.blur();
+    copy.focus();
+    expect(focusChange).toHaveBeenLastCalledWith('a1');
+  });
 });

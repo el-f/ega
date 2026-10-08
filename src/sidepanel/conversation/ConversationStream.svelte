@@ -290,6 +290,8 @@
   });
 
   let focusedInDom: string | null = null;
+  /** A pointer press inside the stream is under way (set on pointerdown, cleared on the next task). */
+  let pressing = false;
 
   // The ring alone tells a screen-reader user nothing, and can sit off-screen while `r` acts on it.
   $effect(() => {
@@ -512,14 +514,20 @@
         const to = e.relatedTarget;
         if (!(to instanceof Node) || !scroller?.contains(to)) onFocusChange(null);
       }}
+      onpointerdown={() => {
+        // The press focuses in this same task; the flag is gone before the next one.
+        pressing = true;
+        setTimeout(() => (pressing = false));
+      }}
       onfocusin={(e) => {
-        // Focus that lands in another turn (Tab, the pager's refocus) moves the ring there, so `r` acts on it.
+        // Focus that lands in another turn (Tab, the pager's refocus, the app after a delete) moves the ring
+        // there, so `r` acts on it.
         const t = e.target;
         if (!(t instanceof Element)) return;
         const id = t.closest('[data-turn-id]')?.getAttribute('data-turn-id');
         if (id == null) return;
         // A pointer press drops the ring instead of drawing a keyboard ring round the reply it pressed.
-        const next = t.matches(':focus-visible') ? id : null;
+        const next = pressing ? null : id;
         if (next === focusedTurnId) return;
         // Focus is already inside the turn; the effect below must not pull it back to the article.
         focusedInDom = next;
