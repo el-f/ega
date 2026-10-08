@@ -18,6 +18,7 @@ import { exitMultiSelect, isMultiSelectActive } from '@/content/page-translate-v
 import { SETTINGS_CHANGED_BODY } from '@/shared/error-copy';
 import type { BackendId } from '@/shared/types';
 import { FakeObserver, finishAll, flush, rig } from '@tests/_helpers/page-translate';
+import { pillStatus } from '@/content/page-translate-v2/progress';
 
 const N = 12;
 function page(): HTMLElement[] {
@@ -89,6 +90,18 @@ describe('whole-page session — a second press, and Choose areas on top', () =>
     expect(els[0]?.querySelector('[data-ega-replaced]')).not.toBeNull();
     // Nothing was collected twice.
     expect(r.updates.at(-1)?.total).toBe(N);
+  });
+
+  it('a second press while every block is in flight says nothing: the pill is already there', async () => {
+    document.body.innerHTML =
+      '<p id="a">これは最初の段落です。</p><p id="b">これは二つ目の段落です。</p>';
+    const r = rig();
+    await runWholePageTranslate(r.d);
+    band([...document.querySelectorAll('p')] as HTMLElement[]);
+    await flush();
+    expect(await runWholePageTranslate(r.d)).toBe(true);
+    expect(showToastMock).not.toHaveBeenCalled();
+    expect(r.sent).toHaveLength(2);
   });
 
   it('Choose areas while the page still translates ends the scroll part and opens area picking', async () => {
@@ -292,5 +305,138 @@ describe('whole-page session — a block already in the target language', () => 
     band([...document.querySelectorAll('p')] as HTMLElement[]);
     await flush();
     expect(r.sent.map((s) => s.text)).toEqual(['Hola amigo, cómo estás hoy']);
+  });
+});
+
+describe('whole-page session — round 2', () => {
+  it('a waiting block the page hides (another tab) leaves the count, so the session can settle', async () => {
+    document.body.innerHTML =
+      '<div id="desc"><p id="a">これは説明の段落です。</p><p id="b">これは二つ目の説明です。</p></div>' +
+      '<div id="rev"><p id="c">これはレビューの段落です。</p></div>';
+    const proto = HTMLElement.prototype as unknown as { checkVisibility?: () => boolean };
+    const had = Object.prototype.hasOwnProperty.call(proto, 'checkVisibility');
+    const original = proto.checkVisibility;
+    proto.checkVisibility = function (this: HTMLElement) {
+      return this.closest('[hidden]') === null;
+    };
+    try {
+      const r = rig();
+      await runWholePageTranslate(r.d);
+      const a = document.getElementById('a') as HTMLElement;
+      band([a]);
+      await flush();
+      finishAll(r);
+      await flush();
+      (document.getElementById('desc') as HTMLElement).hidden = true;
+      (document.getElementById('rev') as HTMLElement).hidden = true;
+      band([]);
+      await flush();
+      expect(r.updates.at(-1)).toMatchObject({ settled: true, total: 1 });
+    } finally {
+      if (had && original) proto.checkVisibility = original;
+      else delete proto.checkVisibility;
+    }
+  });
+
+  it('a press on a session that only waits for scroll adds the blocks the page gained since', async () => {
+    const els = page();
+    const r = rig();
+    await runWholePageTranslate(r.d);
+    band(els.slice(0, 2));
+    await flush();
+    finishAll(r);
+    await flush();
+    const added = document.createElement('p');
+    added.textContent = 'これは後から来た段落です。';
+    document.body.append(added);
+    expect(await runWholePageTranslate(r.d)).toBe(true);
+    expect(r.updates.at(-1)?.total).toBe(N + 1);
+    band([added]);
+    await flush();
+    expect(r.sent.at(-1)?.text).toBe('これは後から来た段落です。');
+  });
+
+  it('a translated block whose translation the page wiped is taken again on the next press', async () => {
+    const els = page();
+    const r = rig();
+    await runWholePageTranslate(r.d);
+    band(els.slice(0, 1));
+    await flush();
+    finishAll(r);
+    await flush();
+    // A live feed re-renders the block in place, which removes Ega's wrapper.
+    (els[0] as HTMLElement).textContent = 'これは書き換えられた段落です。';
+    await runWholePageTranslate(r.d);
+    expect(r.updates.at(-1)?.total).toBe(N);
+    band(els.slice(0, 1));
+    await flush();
+    expect(r.sent.at(-1)?.text).toBe('これは書き換えられた段落です。');
+  });
+
+  it('a settings stop parks the rest instead of stopping it, and Try again after the fix picks the page up again', async () => {
+    const els = page();
+    const r = rig();
+    let changed: (() => void) | undefined;
+    let retry: (() => void) | undefined;
+    r.d.onSettingsChange = (fn) => {
+      changed = fn;
+      return () => (changed = undefined);
+    };
+    r.handle.setOnRetryFailed = (fn) => (retry = fn);
+    await runWholePageTranslate(r.d);
+    band(els.slice(0, 3));
+    await flush();
+    fail(r.sent[0]?.id, 'AUTH');
+    finishAll(r, 1);
+    await flush();
+    const settled = r.updates.at(-1);
+    expect(settled).toMatchObject({ settled: true, skipped: 0, total: 3, failed: 1 });
+    expect(pillStatus(settled as never, Date.now())).not.toMatch(/^Stopped/);
+    changed?.();
+    retry?.();
+    await flush();
+    expect(r.updates.at(-1)).toMatchObject({ settled: false, total: N });
+    band(els.slice(3, 5));
+    await flush();
+    expect(r.sent.map((x) => x.text)).toContain('これは3番目の段落です。');
+  });
+
+  it('a press while Show original is on brings the translation back, so new areas do not land hidden', async () => {
+    const els = page();
+    const r = rig();
+    let toggle: ((on: boolean) => void) | undefined;
+    r.handle.setOnToggleOriginal = (fn) => (toggle = fn);
+    await runWholePageTranslate(r.d);
+    band(els.slice(0, 1));
+    await flush();
+    finishAll(r);
+    await flush();
+    r.stop();
+    toggle?.(true);
+    expect(r.updates.at(-1)?.showingOriginal).toBe(true);
+    await runWholePageTranslate(r.d);
+    expect(r.updates.at(-1)?.showingOriginal).toBe(false);
+    expect(els[0]?.querySelector('[data-ega-replaced]')?.textContent).toBe('T');
+  });
+
+  it('Close after a settings change gives a settings error chip its Open settings back', async () => {
+    document.body.innerHTML = '<p id="p">これは一つだけの段落です。</p>';
+    const p = document.getElementById('p') as HTMLElement;
+    const r = rig();
+    let changed: (() => void) | undefined;
+    r.d.onSettingsChange = (fn) => {
+      changed = fn;
+      return () => (changed = undefined);
+    };
+    await runWholePageTranslate(r.d);
+    band([p]);
+    await flush();
+    fail(r.sent[0]?.id, 'AUTH');
+    await flush();
+    changed?.();
+    r.close();
+    const root = p.querySelector('[data-ega-tx-error]')?.shadowRoot;
+    expect(root?.querySelector('[data-ega-chip-settings]')).not.toBeNull();
+    expect(root?.querySelector('[data-ega-retry-block]')).toBeNull();
   });
 });

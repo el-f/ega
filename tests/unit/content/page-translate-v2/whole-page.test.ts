@@ -156,6 +156,8 @@ describe('whole-page translate', () => {
 
     off = true;
     changed?.();
+    // The pill stops offering scroll translation at once, not at the next scroll.
+    expect(r.updates.at(-1)?.waiting).toBe(0);
     FakeObserver.last?.band(new Set(els.slice(2, 6)));
     await flush();
     expect(r.sent).toHaveLength(2);

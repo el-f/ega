@@ -18,6 +18,8 @@ export interface PageProgress {
   skipped: number;
   /** Every block is finished or dropped. */
   settled: boolean;
+  /** The page shows its own text (Show original pressed); the session owns it, so a press can switch it back. */
+  showingOriginal?: boolean;
   /** A rate limit holds the queue until this epoch ms. */
   pausedUntil?: number;
   /** The backend that is limiting requests, by display name. */

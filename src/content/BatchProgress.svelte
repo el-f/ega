@@ -68,6 +68,7 @@
     now = Date.now();
     if (next.settled && !p.settled) settledAt = now;
     p = next;
+    if (next.showingOriginal !== undefined) showingOriginal = next.showingOriginal;
     // A button that removed itself would drop focus to the page; the next live control takes it.
     if (focused) {
       void tick().then(() => {

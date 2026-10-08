@@ -136,7 +136,11 @@ interface Session {
   deferred: Map<string, HTMLElement>;
   /** Whole page: each collected block's page position. */
   index: Map<string, number>;
+  /** Whole page: the waiting block id for each observed element. */
+  byElement: Map<Element, string>;
   observer: IntersectionObserver | null;
+  /** A settings error parked the scroll part: the areas not yet sent wait for Try again, not counted as stopped. */
+  parked: boolean;
   inFlight: Set<string>;
   terminal: Set<string>;
   failed: Map<string, Failure>;
@@ -211,33 +215,32 @@ export async function runWholePageTranslate(deps: PageV2Deps): Promise<boolean> 
   if (entering || starting) return true;
   // A session whose blocks all left the page closes here, so this press starts over.
   if (active && sweepDetached(active) === 'changed') maybeSettle(active);
-  // While the pill still runs it is already there.
-  if (active && !isSettled(active)) return true;
+  // While the pill still sends it is already there; a pill that only waits on scroll takes the press.
+  if (active && !isSettled(active) && !isIdle(active)) return true;
   if (isMultiSelectActive()) exitMultiSelect();
   entering = true;
   try {
     const s = await deps.getSettings();
     const mode: RenderMode = s.pageTranslateMode === 'bilingual' ? 'bilingual' : 'inplace';
-    // A second press continues the settled session, so one pill and one Remove translation cover every pass.
+    // A second press continues the session, so one pill and one Remove translation cover every pass.
     const sess = active;
-    const held = sess ? heldIds(sess) : new Map<Element, string>();
-    const elements = collectBlocks(document.body, { maxChars: MAX_SELECTION_CHARS }).filter(
-      (el) => !held.has(el),
-    );
-    const failed = sess ? [...sess.failed.keys()] : [];
-    if (elements.length === 0 && failed.length === 0) {
-      showToast('Nothing to translate on this page.');
-      return false;
-    }
     if (sess) {
+      const failed = [...sess.failed.keys()];
+      const waiting = sess.deferred.size;
       adopt(sess, deps, mode);
       // Stop's dropped areas are collected again, so they count again.
       sess.skipped = 0;
-      sess.total += elements.length;
-      watch(sess, elements);
+      const added = recollect(sess);
       for (const id of failed) retryBlock(id);
       report(sess);
-      return true;
+      if (added > 0 || failed.length > 0 || waiting > 0) return true;
+      showToast('Nothing to translate on this page.');
+      return false;
+    }
+    const elements = collectBlocks(document.body, { maxChars: MAX_SELECTION_CHARS });
+    if (elements.length === 0) {
+      showToast('Nothing to translate on this page.');
+      return false;
     }
     const created = await createSession(deps, [], mode, elements.length);
     watch(created, elements);
@@ -251,20 +254,21 @@ export async function runWholePageTranslate(deps: PageV2Deps): Promise<boolean> 
 /** Each block waits until it comes within one screen of the viewport. */
 function watch(sess: Session, elements: HTMLElement[]): void {
   if (elements.length === 0) return;
-  const byElement = new Map<Element, string>();
+  // Later passes number on from the first, so page order still sorts each release.
+  const from = sess.index.size;
   elements.forEach((el, i) => {
     const id = uuid();
     sess.deferred.set(id, el);
-    sess.index.set(id, i);
-    byElement.set(el, id);
+    sess.index.set(id, from + i);
+    sess.byElement.set(el, id);
   });
-  sess.observer = new IntersectionObserver(
+  sess.observer ??= new IntersectionObserver(
     (entries) => {
       if (sess !== active || sweepDetached(sess) === 'closed') return;
       const near: number[] = [];
       const ids = new Map<number, string>();
       for (const entry of entries) {
-        const id = byElement.get(entry.target);
+        const id = sess.byElement.get(entry.target);
         if (id === undefined) continue;
         if (entry.isIntersecting) {
           if (!sess.deferred.has(id)) continue;
@@ -289,14 +293,49 @@ function watch(sess: Session, elements: HTMLElement[]): void {
   for (const el of elements) sess.observer.observe(el);
 }
 
-/** The session's block id for each element it already holds. */
+/** The session's block id for each element it already holds: sent, queued or waiting. */
 function heldIds(sess: Session): Map<Element, string> {
   const held = new Map<Element, string>();
   sess.store.forEach((entry) => held.set(entry.element, entry.id));
+  for (const [id, el] of sess.deferred) held.set(el, id);
+  for (const b of sess.pending) held.set(b.element, b.id);
   return held;
 }
 
-/** A later press joins the session on the page, with that press's direction and mode. */
+/** Nothing sent, queued or waiting out a retry: the session only waits for the user to scroll. */
+function isIdle(sess: Session): boolean {
+  return (
+    !sess.stopping &&
+    sess.inFlight.size === 0 &&
+    sess.pending.length === 0 &&
+    sess.backoff.size === 0
+  );
+}
+
+/**
+ * Adds the page's blocks the session does not hold yet, and lets it take back a translated block whose
+ * translation the page wiped by re-rendering it. Returns how many blocks it added.
+ */
+function recollect(sess: Session): number {
+  sess.store.forEach((entry) => {
+    const id = entry.id;
+    if (!sess.terminal.has(id) || sess.failed.has(id)) return;
+    if (sess.handles.get(id)?.target.isConnected !== false) return;
+    sess.store.delete(id);
+    sess.handles.delete(id);
+    sess.terminal.delete(id);
+    sess.total--;
+  });
+  const held = heldIds(sess);
+  const elements = collectBlocks(document.body, { maxChars: MAX_SELECTION_CHARS }).filter(
+    (el) => !held.has(el),
+  );
+  sess.total += elements.length;
+  watch(sess, elements);
+  return elements.length;
+}
+
+/** A later press joins the session on the page, with that press's direction and mode, on the translated view. */
 function adopt(sess: Session, deps: PageV2Deps, mode: RenderMode): void {
   sess.deps = deps;
   sess.lang = langTag(deps.target);
@@ -304,17 +343,33 @@ function adopt(sess: Session, deps: PageV2Deps, mode: RenderMode): void {
   sess.script = targetScript(deps.target);
   sess.mode = mode;
   sess.stopping = false;
+  sess.parked = false;
+  // New translations would land hidden under Show original, so the press brings the translation back.
+  if (sess.showingGlobalOriginal) {
+    sess.showingGlobalOriginal = false;
+    setGlobalOriginalView(false);
+    sess.store.forEach((entry) => entry.showTranslation?.());
+  }
+}
+
+/** A waiting block the page took away or hid (another tab, a kept-alive route) can never come near. */
+function gone(el: Element): boolean {
+  return (
+    !el.isConnected ||
+    (el as Partial<Pick<Element, 'checkVisibility'>>).checkVisibility?.() === false
+  );
 }
 
 /**
- * Drops the blocks the page removed, waiting or queued; an SPA route change or a virtual list does that.
- * A session with no block left on the page closes.
+ * Drops the blocks the page removed or hid, waiting or queued; an SPA route change, a tab switch or a virtual
+ * list does that. A session with no block left on the page closes.
  */
 function sweepDetached(sess: Session): 'closed' | 'changed' | 'same' {
   const before = sess.total;
   for (const [id, el] of sess.deferred) {
-    if (el.isConnected) continue;
+    if (!gone(el)) continue;
     sess.deferred.delete(id);
+    sess.byElement.delete(el);
     sess.observer?.unobserve(el);
     sess.total--;
   }
@@ -466,7 +521,9 @@ async function createSession(
     pending: [...blocks],
     deferred: new Map(),
     index: new Map(),
+    byElement: new Map(),
     observer: null,
+    parked: false,
     inFlight: new Set(),
     terminal: new Set(),
     failed: new Map(),
@@ -630,6 +687,7 @@ function snapshot(sess: Session): PageProgress {
     queued: sess.pending.length,
     skipped: sess.skipped,
     settled: isSettled(sess),
+    showingOriginal: sess.showingGlobalOriginal,
     ...(sess.cooldownUntil > Date.now() ? { pausedUntil: sess.cooldownUntil } : {}),
     ...(sess.pausedBy !== undefined ? { pausedBy: sess.pausedBy } : {}),
     ...(sess.targetName !== undefined ? { target: sess.targetName } : {}),
@@ -762,6 +820,7 @@ function maybeSettle(sess: Session): void {
       else entry.showTranslation?.();
     });
     p.setLiveMessage(showOriginal ? 'Showing the original page.' : 'Showing the translation.');
+    report(sess);
   });
   p.setOnRetryFailed?.(() => {
     for (const blockId of [...sess.failed.keys()]) retryBlock(blockId);
@@ -779,7 +838,7 @@ function dropBlock(sess: Session, id: string): void {
   sess.inFlight.delete(id);
   clearStall(sess, id);
   sess.total--;
-  sess.skipped++;
+  if (!sess.parked) sess.skipped++;
 }
 
 /** Stop: nothing new starts, blocks in flight finish, and the session settles on what is done. */
@@ -790,6 +849,20 @@ function stopSession(sess: Session): void {
     void cancelPageTranslateV2();
     return;
   }
+  halt(sess);
+}
+
+/**
+ * A settings error parks the scroll part: nothing new is sent, and the areas not yet sent leave the count
+ * without reading as stopped. Try again after the setting changes collects them again.
+ */
+function parkSession(sess: Session): void {
+  if (sess !== active || isSettled(sess)) return;
+  sess.parked = true;
+  halt(sess);
+}
+
+function halt(sess: Session): void {
   sess.stopping = true;
   sess.observer?.disconnect();
   sess.observer = null;
@@ -802,7 +875,7 @@ function stopSession(sess: Session): void {
   sess.deferred.clear();
   sess.pending = [];
   sess.total -= unstarted;
-  sess.skipped += unstarted;
+  if (!sess.parked) sess.skipped += unstarted;
   // A block waiting out a backoff is mounted with its pending look; a retry is a new start, so it goes too.
   for (const [id, timer] of sess.backoff) {
     clearTimeout(timer);
@@ -815,7 +888,6 @@ function stopSession(sess: Session): void {
 
 /** Dismiss the pill and let go of the session, keeping every translation on the page. */
 function closeSession(sess: Session): void {
-  sess.progress?.dismiss();
   if (active === sess) active = null;
   // Close keeps the translations, so leave the page on the translated view first.
   if (sess.showingGlobalOriginal) {
@@ -827,10 +899,17 @@ function closeSession(sess: Session): void {
       handle.revert();
       continue;
     }
-    // Try again needs a live session; Open settings does not, so it stays.
+    // Try again needs a live session; Open settings does not, so a settings error gets it back.
+    const f = sess.failed.get(blockId);
+    if (f?.settingsChanged) {
+      remountErrorChip(handle, f, f.backendId ? { backend: backendLabel(f.backendId) } : {});
+      continue;
+    }
     const chip = handle.target.querySelector('[data-ega-tx-error]');
     if (chip) dropChipRetry(chip);
   }
+  // After the chips change, so focus that came from a chip lands on what is left of it.
+  sess.progress?.dismiss();
   teardownSession(sess, false);
 }
 
@@ -891,6 +970,11 @@ function retryBlock(blockId: string): void {
   sess.retrying.add(blockId);
   // A manual retry is a new start: it lifts a stopped session and resets the block's backoff budget.
   sess.stopping = false;
+  // After a settings stop, Try again picks the page up again, as a second press does.
+  if (sess.parked) {
+    sess.parked = false;
+    recollect(sess);
+  }
   sess.terminal.delete(blockId);
   sess.attempts.delete(blockId);
   sess.failed.delete(blockId);
@@ -966,7 +1050,7 @@ function onChunk(sess: Session, chunk: TranslationChunk): void {
   const err = { code: chunk.code, message: chunk.message, backendId: chunk.backendId };
   mountError(handle, err, chipOpts(blockId, err));
   // Stop before this block's slot frees, or the next block goes straight into the same error.
-  if (SETTINGS_STOPS.has(errorCopy(err.code, err.message)?.id ?? '')) stopSession(sess);
+  if (SETTINGS_STOPS.has(errorCopy(err.code, err.message)?.id ?? '')) parkSession(sess);
   failBlock(sess, blockId, err);
 }
 
