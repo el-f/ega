@@ -47,7 +47,7 @@ describe('ShortcutInput — label prop', () => {
       },
     });
     const caption = container.querySelector('.shortcut-label') as HTMLElement;
-    const btn = container.querySelector('button.record-btn') as HTMLButtonElement;
+    const btn = container.querySelector('[data-ega-shortcut-record]') as HTMLButtonElement;
     expect(btn.textContent.trim()).toBe('Record');
 
     await fireEvent.click(caption);
@@ -66,7 +66,7 @@ describe('ShortcutInput — label prop', () => {
         onchange: vi.fn(),
       },
     });
-    const btn = container.querySelector('button.record-btn') as HTMLButtonElement;
+    const btn = container.querySelector('[data-ega-shortcut-record]') as HTMLButtonElement;
     expect(btn.getAttribute('aria-pressed')).toBe('false');
 
     await fireEvent.click(btn);
@@ -80,7 +80,7 @@ describe('ShortcutInput — label prop', () => {
       props: { value: 'Ctrl+Shift+L', ariaLabel: 'Record keyboard shortcut', onchange: vi.fn() },
     });
     const combo = container.querySelector('.combo') as HTMLElement;
-    const btn = container.querySelector('button.record-btn') as HTMLButtonElement;
+    const btn = container.querySelector('[data-ega-shortcut-record]') as HTMLButtonElement;
     expect(combo.textContent).toBe('Ctrl+Shift+L');
 
     await fireEvent.click(btn);
@@ -180,5 +180,74 @@ describe('ShortcutInput — modified dot', () => {
       },
     });
     expect(container.querySelector('[data-ega-modified="true"]')).toBeNull();
+  });
+});
+
+describe('ShortcutInput — focus and errors (K-9, K-18)', () => {
+  it('keeps focus on Record after a combo is recorded, instead of dropping it to the page', async () => {
+    const onchange = vi.fn();
+    const { getByRole } = render(ShortcutInput, {
+      props: { value: '', ariaLabel: 'Record keyboard shortcut', onchange },
+    });
+    const record = getByRole('button', { name: 'Record keyboard shortcut' });
+    record.focus();
+    await fireEvent.click(record);
+    await fireEvent.keyDown(record, { key: 'y', ctrlKey: true, shiftKey: true });
+    expect(onchange).toHaveBeenCalledWith('Ctrl+Shift+Y');
+    expect(document.activeElement).toBe(record);
+  });
+
+  it('moves focus to Record when Clear removes itself', async () => {
+    const { getByRole } = render(ShortcutInput, {
+      props: { value: 'Ctrl+Shift+L', ariaLabel: 'Record keyboard shortcut', onchange: vi.fn() },
+    });
+    const clear = getByRole('button', { name: 'Clear shortcut' });
+    clear.focus();
+    await fireEvent.click(clear);
+    expect(document.activeElement).toBe(getByRole('button', { name: 'Record keyboard shortcut' }));
+  });
+
+  it('shows why a combo was not saved and points Record at it', () => {
+    const { getByRole } = render(ShortcutInput, {
+      props: {
+        value: 'Ctrl+Shift+L',
+        ariaLabel: 'Record keyboard shortcut',
+        error: 'Ctrl+Shift+E is already the Element picker shortcut. Pick another.',
+        onchange: vi.fn(),
+      },
+    });
+    const record = getByRole('button', { name: 'Record keyboard shortcut' });
+    const alert = getByRole('alert');
+    expect(alert.textContent).toContain('already the Element picker shortcut');
+    expect(record.getAttribute('aria-invalid')).toBe('true');
+    expect(record.getAttribute('aria-describedby')?.split(' ')).toContain(alert.id);
+  });
+
+  it('keeps any reason line it was given next to the error', () => {
+    const { getByRole } = render(ShortcutInput, {
+      props: {
+        value: '',
+        ariaLabel: 'Record element picker shortcut',
+        describedBy: 'dsp-picker-off',
+        error: 'Pick another.',
+        onchange: vi.fn(),
+      },
+    });
+    const ids = getByRole('button', { name: 'Record element picker shortcut' })
+      .getAttribute('aria-describedby')
+      ?.split(' ');
+    expect(ids).toContain('dsp-picker-off');
+    expect(ids).toHaveLength(2);
+  });
+
+  it('draws Record and Clear as the shared secondary button, like Open Chrome shortcuts (RD2-15)', () => {
+    const { getByRole } = render(ShortcutInput, {
+      props: { value: 'Ctrl+Shift+L', ariaLabel: 'Record keyboard shortcut', onchange: vi.fn() },
+    });
+    for (const name of ['Record keyboard shortcut', 'Clear shortcut']) {
+      expect(getByRole('button', { name }).className).toMatch(
+        /ega-btn.*variant-secondary.*size-sm/,
+      );
+    }
   });
 });

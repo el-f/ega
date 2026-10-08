@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Button from '@/shared/ui/Button.svelte';
+  import { id as makeId } from '@/shared/uuid';
   import { validateKeyCombo } from '@/shared/utils/keyCombo';
 
   interface Props {
@@ -17,6 +19,8 @@
     describedBy?: string;
     /** Accent dot marking a value changed from its default. Shows only when `label` is set. */
     modified?: boolean;
+    /** Why the last combo was not saved (a clash, a combo Chrome refuses); shown under the row, Record points at it. */
+    error?: string | null;
   }
   let {
     value,
@@ -28,10 +32,20 @@
     ariaDisabled = false,
     describedBy,
     modified = false,
+    error = null,
   }: Props = $props();
 
   let recording = $state(false);
-  let btn: HTMLButtonElement | null = $state(null);
+  let root: HTMLDivElement | null = $state(null);
+  const errorId = makeId('ega-shortcut-error');
+  const recordDescribedBy = $derived(
+    [describedBy, error ? errorId : undefined].filter(Boolean).join(' ') || undefined,
+  );
+
+  // Clear removes itself once the value is empty, so focus goes back to Record instead of the page body (K-9).
+  function focusRecord(): void {
+    root?.querySelector<HTMLButtonElement>('[data-ega-shortcut-record]')?.focus();
+  }
 
   // Named keys pass through unchanged because validateKeyCombo expects that spelling.
   function keyToken(key: string): string | null {
@@ -67,7 +81,6 @@
     if (!v.ok) return;
     onchange(v.normalized);
     recording = false;
-    btn?.blur();
   }
 
   function toggle(): void {
@@ -79,6 +92,7 @@
     if (disabled || ariaDisabled) return;
     onchange('');
     recording = false;
+    focusRecord();
   }
 </script>
 
@@ -92,33 +106,38 @@
   class="shortcut-input"
   class:is-recording={recording}
   class:is-disabled={disabled || ariaDisabled}
+  bind:this={root}
 >
   <kbd class="combo">{recording ? 'Press keys...' : value || '—'}</kbd>
-  <button
-    type="button"
-    bind:this={btn}
-    class="record-btn"
-    aria-label={ariaLabel}
-    aria-pressed={recording}
-    aria-disabled={ariaDisabled ? 'true' : undefined}
-    aria-describedby={describedBy}
-    data-ega-owns-escape={recording || undefined}
+  <Button
+    variant="secondary"
+    size="sm"
+    {ariaLabel}
+    {ariaDisabled}
     {disabled}
+    {...recordDescribedBy === undefined ? {} : { describedBy: recordDescribedBy }}
+    dataAttrs={{
+      'data-ega-shortcut-record': true,
+      'aria-pressed': recording,
+      'aria-invalid': error ? 'true' : undefined,
+      'data-ega-owns-escape': recording || undefined,
+    }}
     onclick={toggle}
     onkeydown={onKey}
     onblur={() => (recording = false)}
   >
     {recording ? 'Cancel' : 'Record'}
-  </button>
+  </Button>
   {#if value && !disabled && !ariaDisabled}
-    <button type="button" class="clear-btn" aria-label={clearAriaLabel} onclick={clear}>
-      Clear
-    </button>
+    <Button variant="secondary" size="sm" ariaLabel={clearAriaLabel} onclick={clear}>Clear</Button>
   {/if}
   {#if !value && !recording}
     <span class="empty-hint">No shortcut set</span>
   {/if}
 </div>
+{#if error}
+  <p class="shortcut-error" id={errorId} role="alert" data-ega-field-error>{error}</p>
+{/if}
 
 <style>
   .shortcut-label {
@@ -132,56 +151,37 @@
     font-weight: 400;
     color: var(--color-muted);
   }
+  /* Wraps Clear under the value in a narrow column, instead of pushing the page sideways (R16). */
   .shortcut-input {
     display: inline-flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: var(--space-2);
   }
+  /* A read-only value, not a control: no edge, so it never looks like a button beside Record. */
   .combo {
     display: inline-block;
     /* Fits "Press keys..." and a 12-char combo, so recording never widens the box under the cursor. */
-    min-width: calc(12ch + var(--space-2) * 2 + 2px);
+    min-width: calc(12ch + var(--space-2) * 2);
     padding: var(--space-1) var(--space-2);
-    border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
-    background: var(--color-bg-sunken);
     color: var(--color-fg);
     font-family: var(--font-mono);
     font-size: var(--fs-sm);
     text-align: center;
   }
   .is-recording .combo {
-    border-color: var(--color-accent);
     background: var(--color-accent-bg-soft);
-    color: var(--color-accent);
-  }
-  .record-btn,
-  .clear-btn {
-    padding: var(--space-1) var(--space-2);
-    font-size: var(--fs-sm);
-    font-family: var(--font-ui);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    background: var(--color-bg);
-    color: var(--color-fg);
-    cursor: pointer;
-  }
-  .record-btn:hover:not(:disabled, [aria-disabled='true']),
-  .clear-btn:hover {
-    background: var(--color-bg-hover);
-  }
-  .record-btn:disabled,
-  .record-btn[aria-disabled='true'] {
-    opacity: 0.55;
-    cursor: not-allowed;
-  }
-  .is-recording .record-btn {
-    border-color: var(--color-accent);
     color: var(--color-accent);
   }
   .empty-hint {
     font-size: var(--fs-xs);
-    color: var(--color-fg-subtle);
+    color: var(--color-muted);
     font-style: italic;
+  }
+  .shortcut-error {
+    margin: var(--space-1) 0 0;
+    color: var(--color-danger-fg);
+    font-size: var(--fs-sm);
   }
 </style>

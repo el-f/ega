@@ -12,9 +12,19 @@
     headerActions?: Snippet;
     /** An (i) toggletip after the title, for help longer than the one-line description. */
     info?: { label: string; text: string };
+    /** Each child is a group (a slider with its hint and notes): 24px between them instead of the 12px row gap. */
+    groups?: boolean;
   }
 
-  let { title, description, children, footer, headerActions, info }: Props = $props();
+  let {
+    title,
+    description,
+    children,
+    footer,
+    headerActions,
+    info,
+    groups = false,
+  }: Props = $props();
   const titleId = id('ega-section');
 </script>
 
@@ -33,7 +43,7 @@
       <p class="ega-section-card-desc">{description}</p>
     {/if}
   </header>
-  <div class="ega-section-card-body">
+  <div class="ega-section-card-body" class:groups>
     {@render children()}
   </div>
   {#if footer}
@@ -117,6 +127,10 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
+  }
+  /* Spec 1.1, R14: groups sit twice the row gap apart, so a hint reads with its own slider. */
+  .ega-section-card-body.groups {
+    gap: var(--space-5);
   }
   .ega-section-card-foot {
     margin-top: var(--space-1);

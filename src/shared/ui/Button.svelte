@@ -22,6 +22,8 @@
     dataAttrs?: Record<string, string | number | boolean | undefined>;
     extraClass?: string;
     onclick?: (e: MouseEvent) => void;
+    onkeydown?: (e: KeyboardEvent) => void;
+    onblur?: (e: FocusEvent) => void;
     /** Keeps the Tab stop and is announced as unavailable; the click does nothing. Pair it with describedBy. */
     ariaDisabled?: boolean;
     /** Id of the visible line that says why, or what the button does. */
@@ -42,6 +44,8 @@
     dataAttrs,
     extraClass,
     onclick,
+    onkeydown,
+    onblur,
     ariaDisabled = false,
     describedBy,
   }: Props = $props();
@@ -65,6 +69,8 @@
   aria-describedby={describedBy}
   {...dataAttrs ?? {}}
   onclick={ariaDisabled ? undefined : onclick}
+  {onkeydown}
+  {onblur}
 >
   {#if iconKind !== undefined}
     {@const IconGlyph = ICON_REGISTRY[iconKind]}
@@ -137,8 +143,10 @@
     padding: var(--space-1) var(--space-2);
     font-size: var(--fs-sm);
   }
+  /* 32px with or without an icon (K-19), so a row of buttons keeps one height; a long label still wraps taller. */
   .size-md {
-    padding: var(--space-2) var(--space-3);
+    min-height: 32px;
+    padding: 0 var(--space-3);
     font-size: var(--fs-base);
   }
   .size-lg {
