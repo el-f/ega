@@ -88,6 +88,22 @@ describe('Refine', () => {
     expect(props.onTranslateInto).toHaveBeenCalledWith('a1', 'de');
   });
 
+  // V5-11: the menu closes as the popover opens, so without this nothing showed which button the popover belongs to.
+  it('Refine reads as open while its Translate into popover is open', async () => {
+    const { container } = render(AssistantTurn, { props: replyProps(doneReply()) });
+    const refine = container.querySelector<HTMLElement>('[data-ega-action="refine"]');
+    await openMenu(container, 'refine');
+    await fireEvent.click(document.querySelector('[data-ega-translate-into-other]') as HTMLElement);
+    const run = await waitFor(() => {
+      const b = document.querySelector<HTMLElement>('[data-ega-translate-into-run]');
+      if (!b) throw new Error('popover not open');
+      return b;
+    });
+    expect(refine?.getAttribute('aria-pressed')).toBe('true');
+    await fireEvent.click(run);
+    await waitFor(() => expect(refine?.hasAttribute('aria-pressed')).toBe(false));
+  });
+
   // A dialog inside the reply's toolbar lost End, Home and the arrows to the toolbar's roving keys.
   it('the Translate into dialog sits outside the toolbar, so its keys stay in it', async () => {
     const { container } = render(AssistantTurn, { props: replyProps(doneReply()) });

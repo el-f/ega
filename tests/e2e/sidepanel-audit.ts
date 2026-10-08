@@ -114,7 +114,10 @@ export function reply(id: string, parent: string, at: number, o: ReplyOpts = {})
     ...(o.detectedLang !== undefined ? { detectedLang: o.detectedLang } : { detectedLang: 'es' }),
     ...(o.detectedDetail !== undefined ? { detectedDetail: o.detectedDetail } : {}),
     ...(o.detectedLangs !== undefined ? { detectedLangs: o.detectedLangs } : {}),
-    confidence: o.confidence ?? 0.93,
+    // A failed or empty answer carries no confidence, as a real one never does (V5-05).
+    ...(o.confidence !== undefined || (status === 'done' && content !== '')
+      ? { confidence: o.confidence ?? 0.93 }
+      : {}),
     ...(o.explain !== undefined ? { explain: o.explain } : {}),
     ...(meta !== undefined ? { meta } : {}),
     ...(o.error !== undefined ? { error: o.error } : {}),

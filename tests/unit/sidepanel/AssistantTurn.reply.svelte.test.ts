@@ -47,6 +47,8 @@ describe('the answer', () => {
       'No answer came back. Try Regenerate.',
     );
     expect(container.querySelector('[data-ega-regenerate]')).not.toBeNull();
+    // Nothing came back, so there is nothing to be confident about (V5-05).
+    expect(metaText(container).some((t) => t.includes('confiden'))).toBe(false);
   });
 
   it('notes sit under the answer with a sentence-case label', () => {

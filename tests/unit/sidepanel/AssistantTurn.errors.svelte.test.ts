@@ -52,16 +52,18 @@ describe('an error reply', () => {
   });
 
   // Three text buttons filled 222 of 232px at 256 in Segoe UI; a font 6% wider (DejaVu Sans on Linux) broke the row.
-  it('Details is a named icon toggle, so the row keeps room at narrow widths', async () => {
+  // D56: the icon keeps the row at 256; its name says what a press does.
+  it('Details is an icon toggle named Show details, then Hide details', async () => {
     const { container } = render(AssistantTurn, {
       props: replyProps(failed('AUTH', 'HTTP 401: invalid x-api-key')),
     });
     const details = container.querySelector<HTMLElement>('[data-ega-error-details]');
     expect(details?.classList.contains('ega-icon-btn')).toBe(true);
-    expect(details?.getAttribute('aria-label')).toBe('Details');
+    expect(details?.getAttribute('aria-label')).toBe('Show details');
     expect(details?.getAttribute('aria-expanded')).toBe('false');
     await fireEvent.click(details as HTMLElement);
     expect(details?.getAttribute('aria-expanded')).toBe('true');
+    expect(details?.getAttribute('aria-label')).toBe('Hide details');
     const shown = container.querySelector('.ega-error-detail');
     expect(shown?.id).toBe(details?.getAttribute('aria-controls'));
   });
@@ -151,7 +153,9 @@ describe('an error reply', () => {
       props: replyProps(failed('PROTOCOL', 'closed', { content: 'Once upon a' })),
     });
     expect(container.querySelector('.ega-answer')?.textContent).toContain('Once upon a');
+    // A cut answer has no confidence to report (V5-05).
     expect(metaText(container)[0]).toBe('Partial answer');
+    expect(metaText(container).some((t) => t.includes('confiden'))).toBe(false);
     await fireEvent.click(
       container.querySelector('.ega-error-actions [data-ega-action="copy"]') as HTMLElement,
     );

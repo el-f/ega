@@ -241,6 +241,10 @@
     if (partial) return 'Partial answer';
     return undefined;
   });
+  // An empty or failed answer has nothing to be confident about (V5-05).
+  const shownConfidence = $derived(
+    answering || turn.status === 'error' || turn.content === '' ? undefined : turn.confidence,
+  );
   const metaItems = $derived(
     replyMetaItems({
       ...(statusText !== undefined ? { status: statusText } : {}),
@@ -248,7 +252,7 @@
       meta: answering ? undefined : turn.meta,
       direction: answering ? '' : direction,
       ...(versionLabel !== undefined && !answering ? { version: versionLabel } : {}),
-      confidence: answering ? undefined : turn.confidence,
+      confidence: shownConfidence,
       confidenceSetting: confidence,
     }),
   );
@@ -613,10 +617,10 @@
             >
           {/each}
           {#if copy.detail !== undefined}
-            <!-- An icon, not "Details ▸": three text buttons only fit 256px in the narrowest fonts. -->
+            <!-- An icon, not "Details ▸": three text buttons only fit 256px in the narrowest fonts (D56). -->
             <IconButton
               icon={ScrollText}
-              ariaLabel="Details"
+              ariaLabel={detailsOpen ? 'Hide details' : 'Show details'}
               size="sm"
               dataAttrs={{
                 'aria-expanded': String(detailsOpen),
@@ -716,7 +720,7 @@
           {swapLabel}
           {refined}
           {showChanges}
-          {changing}
+          changing={changing || intoAnchor !== null}
           speakable={speakable && turn.content !== ''}
           {speaking}
           {aboutOpen}
@@ -756,7 +760,7 @@
           taskLabel={taskLabel(taskViews, currentTaskValue)}
           surface="panel"
           {direction}
-          confidence={turn.confidence}
+          confidence={shownConfidence}
           change={activeVariant?.refinementLabel === undefined ? refinementBody : undefined}
           {recordsDetails}
           onOpenSettings={() => openOptionsTab('advanced')}

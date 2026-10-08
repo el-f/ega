@@ -32,7 +32,7 @@
     /** A refined version: "Show changes" applies. */
     refined: boolean;
     showChanges: boolean;
-    /** Describe a change is open for this reply. */
+    /** Describe a change, or the Translate into popover, is open for this reply: Refine reads as pressed. */
     changing: boolean;
     speakable: boolean;
     speaking: boolean;
