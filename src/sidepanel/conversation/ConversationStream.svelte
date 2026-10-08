@@ -291,8 +291,24 @@
   });
 
   let focusedInDom: string | null = null;
-  /** A pointer press inside the stream is under way (set on pointerdown, cleared on the next task). */
-  let pressing = false;
+  /** The last input was a press (mouse, touch, pen), not a key, so the focus that follows it is not a keyboard move. */
+  let pointerLast = false;
+
+  // Document-wide: a menu item is pressed in a portal outside the stream, and a tap focuses after the finger lifts.
+  $effect(() => {
+    const onPointer = (): void => {
+      pointerLast = true;
+    };
+    const onKey = (): void => {
+      pointerLast = false;
+    };
+    document.addEventListener('pointerdown', onPointer, true);
+    document.addEventListener('keydown', onKey, true);
+    return () => {
+      document.removeEventListener('pointerdown', onPointer, true);
+      document.removeEventListener('keydown', onKey, true);
+    };
+  });
 
   // The ring alone tells a screen-reader user nothing, and can sit off-screen while `r` acts on it.
   $effect(() => {
@@ -515,20 +531,15 @@
         const to = e.relatedTarget;
         if (!(to instanceof Node) || !scroller?.contains(to)) onFocusChange(null);
       }}
-      onpointerdown={() => {
-        // The press focuses in this same task; the flag is gone before the next one.
-        pressing = true;
-        setTimeout(() => (pressing = false));
-      }}
       onfocusin={(e) => {
-        // Focus that lands in another turn (Tab, the pager's refocus, the app after a delete) moves the ring
+        // Focus that lands in another turn after a key (Tab, the pager's refocus, a menu choice) moves the ring
         // there, so `r` acts on it.
         const t = e.target;
         if (!(t instanceof Element)) return;
         const id = t.closest('[data-turn-id]')?.getAttribute('data-turn-id');
         if (id == null) return;
-        // A pointer press drops the ring instead of drawing a keyboard ring round the reply it pressed.
-        const next = pressing ? null : id;
+        // After a press the ring goes instead of circling the reply that was pressed, so `r` acts on nothing.
+        const next = pointerLast ? null : id;
         if (next === focusedTurnId) return;
         // Focus is already inside the turn; the effect below must not pull it back to the article.
         focusedInDom = next;
