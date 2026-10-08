@@ -4,6 +4,7 @@ import {
   CURSOR_NAV_KEYS,
   firstBlockInView,
   hoveredElement,
+  isKeysKey,
   nextCursorTarget,
 } from '../pick-cursor';
 import { isSensitiveTarget } from '../safety';
@@ -304,7 +305,7 @@ const onKeyDown = (e: KeyboardEvent): void => {
     // Space and Enter belong to the bar button; Tab returns to the blocks, as the browser's next stop is outside the page.
     if (e.key !== 'Tab') return;
     (e.composedPath()[0] as HTMLElement).blur();
-  } else if (e.key === '?') {
+  } else if (isKeysKey(e)) {
     e.preventDefault();
     e.stopPropagation();
     ms.bar.focusKeys();

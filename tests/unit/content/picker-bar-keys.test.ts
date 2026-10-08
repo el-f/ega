@@ -41,6 +41,12 @@ describe('Pick element: the bar from the keyboard', () => {
     expect(bar('[role="tooltip"]').textContent).toContain('?');
   });
 
+  it('? on an Arabic or Persian layout (U+061F) moves focus to Keys too', () => {
+    expect(press(document, '؟').defaultPrevented).toBe(true);
+    flushSync();
+    expect(getShadowRoot().activeElement).toBe(bar('[data-ega-picker-keys]'));
+  });
+
   it('Esc with the key list open closes only the list; the next Esc leaves the mode', () => {
     const keys = bar('[data-ega-picker-keys]');
     keys.click();

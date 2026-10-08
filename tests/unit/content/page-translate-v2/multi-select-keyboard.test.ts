@@ -320,4 +320,11 @@ describe('multi-select — where the keyboard starts', () => {
     press('Tab');
     expect(cursor()).toBe(el('mid'));
   });
+
+  it('? on an Arabic or Persian layout (U+061F) reaches the toolbar too', () => {
+    enterMultiSelect(opts());
+    expect(press('؟').defaultPrevented).toBe(true);
+    const keys = toolbar('[data-ega-picker-keys]');
+    expect((keys.getRootNode() as ShadowRoot).activeElement).toBe(keys);
+  });
 });

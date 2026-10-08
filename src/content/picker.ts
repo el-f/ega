@@ -2,7 +2,13 @@ import { isSensitiveTarget } from './safety';
 import { MAX_SELECTION_CHARS } from '@/shared/constants';
 import { showToast } from './toast';
 import { getShadowHostElement } from './shadowHost';
-import { CURSOR_NAV_KEYS, firstBlockInView, hoveredElement, nextCursorTarget } from './pick-cursor';
+import {
+  CURSOR_NAV_KEYS,
+  firstBlockInView,
+  hoveredElement,
+  isKeysKey,
+  nextCursorTarget,
+} from './pick-cursor';
 import { isUserGesture } from './user-gesture';
 import { ensurePageStyles } from './page-styles';
 
@@ -114,7 +120,7 @@ export function createPicker(opts: PickerOpts): PickerController {
       // Space and Enter belong to the bar button; Tab returns to the blocks, as the browser's next stop is outside the page.
       if (e.key !== 'Tab') return;
       (e.composedPath()[0] as HTMLElement).blur();
-    } else if (e.key === '?') {
+    } else if (isKeysKey(e)) {
       e.preventDefault();
       e.stopPropagation();
       opts.showKeys?.();

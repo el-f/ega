@@ -3,6 +3,14 @@ export type PickableTest = (el: Element | null) => boolean;
 
 export const CURSOR_NAV_KEYS = new Set(['ArrowDown', 'ArrowRight', 'ArrowUp', 'ArrowLeft', 'Tab']);
 
+/**
+ * The question-mark key that opens the bar. Arabic, Persian and Urdu layouts type U+061F there, and some
+ * have no ASCII '?' at all. Not e.code: on AZERTY, '?' is Shift+KeyM.
+ */
+export function isKeysKey(e: KeyboardEvent): boolean {
+  return e.key === '?' || e.key === '؟';
+}
+
 /** The element under the pointer now, from the browser's own hover state; null when the pointer is off the page. */
 export function hoveredElement(): Element | null {
   const el = [...document.querySelectorAll(':hover')].at(-1) ?? null;
