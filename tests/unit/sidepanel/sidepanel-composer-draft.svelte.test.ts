@@ -274,6 +274,21 @@ describe('SidePanel — Describe a change keeps the draft', () => {
   });
 });
 
+describe('SidePanel — Describe a change chosen again', () => {
+  it('keeps the change already typed', async () => {
+    const { container } = render(SidePanel);
+    await tick();
+    await sendAndDrain(container, 'first');
+    await sendAndDrain(container, 'second');
+    await describeChange(container);
+    await fireEvent.input(composer(container), { target: { value: 'make it shorter' } });
+    await tick();
+
+    await describeChange(container);
+    expect(composer(container).value).toBe('make it shorter');
+  });
+});
+
 describe('SidePanel — Edit from here never overwrites a draft', () => {
   it('refuses over a different draft and says why, before any confirm', async () => {
     const { container } = render(SidePanel);

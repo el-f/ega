@@ -428,12 +428,13 @@
   async function onDescribeChange(turnId: string): Promise<void> {
     // Leaving an edit asks first when the edited text changed; staying in it ends here.
     if (composerMode.kind === 'edit' && !(await cancelEditing())) return;
+    // Already describing a change: the typed words stay, and only the reply they change moves.
     if (composerMode.kind === 'send') {
       flushDraftSave();
       draftBeforeEdit = sourceText;
+      sourceText = '';
     }
     composerMode = { kind: 'refine', turnId };
-    sourceText = '';
     await tick();
     focusComposer();
   }
