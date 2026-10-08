@@ -291,13 +291,12 @@
     padding: 2px;
     transition: border-color var(--motion-fast) var(--ease-out);
   }
-  /* The shared Input's ring: a 2px outline at 3:1, not just a recoloured 1px border. */
+  /* The shared ring (tokens.css :focus-visible, the shared Input row): 2px, 2px out, no halo. */
   .cp-key-row:focus-within,
   .cp-model-static:focus-visible {
     outline: 2px solid var(--color-accent);
-    outline-offset: 1px;
+    outline-offset: 2px;
     border-color: var(--color-accent);
-    box-shadow: 0 0 0 3px var(--color-accent-bg-soft);
   }
   .cp-model-static {
     flex: 1 1 auto;
