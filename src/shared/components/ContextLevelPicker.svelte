@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Check from '@lucide/svelte/icons/check';
   // Minimal / Rich only — `contextEnabled` owns the off state. The write is the same
   // `updateSettings` the Translate tab uses, so it is global, not per-session.
 
@@ -50,7 +51,8 @@
           data-ega-ctx-level-value={lvl.id}
           onclick={() => selectLevel(lvl.id)}
         >
-          {lvl.label}
+          <!-- The check, not only the colour, says which level is picked, as on the task chips. -->
+          {#if value === lvl.id}<Check size={16} aria-hidden="true" />{/if}{lvl.label}
         </button>
       {/each}
     </div>
@@ -88,6 +90,9 @@
     overflow: hidden;
   }
   .ctx-level-toggle button {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
     background: transparent;
     color: var(--color-fg);
     /* Transparent, not 0: forced colors repaints it, so the segment keeps a button shape. */

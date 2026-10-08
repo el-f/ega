@@ -33,3 +33,14 @@ describe('ContextLevelPicker', () => {
     expect(onchange).not.toHaveBeenCalled();
   });
 });
+
+// The task chips mark the picked one with a check; the page-info buttons say it the same way, not by colour alone.
+describe('ContextLevelPicker picked mark', () => {
+  it('draws a check on the pressed button only', () => {
+    const { getByRole } = render(ContextLevelPicker, {
+      props: { value: 'rich', onchange: vi.fn() },
+    });
+    expect(getByRole('button', { name: /^Rich$/ }).querySelector('svg')).not.toBeNull();
+    expect(getByRole('button', { name: /^Minimal$/ }).querySelector('svg')).toBeNull();
+  });
+});
