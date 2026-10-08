@@ -286,7 +286,7 @@ describe('the row meta line', () => {
       },
     });
     await waitFor(() => expect(rows()).toHaveLength(3));
-    const time = rows()[2]?.querySelector<HTMLElement>('.cv-meta [data-ega-conv-time]');
+    const time = rows()[2]?.querySelector<HTMLElement>('.cv-meta .cv-time');
     expect(time).not.toBeNull();
     expect(rows()[2]?.querySelector('.cv-meta')?.textContent).toMatch(/^other\.test · /);
     const src = readFileSync('src/sidepanel/ConversationsPopover.svelte', 'utf8');

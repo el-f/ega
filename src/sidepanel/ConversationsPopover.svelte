@@ -233,8 +233,7 @@
           <span class="cv-title" dir="auto" data-ega-conv-title data-ega-truncates>{title}</span>
           <span class="cv-meta"
             >{#if rowLead(e, otherSite) !== null}{`${rowLead(e, otherSite)} · `}{/if}<span
-              class="cv-time"
-              data-ega-conv-time>{rowWhen(e)}</span
+              class="cv-time">{rowWhen(e)}</span
             ></span
           >
         </span>
