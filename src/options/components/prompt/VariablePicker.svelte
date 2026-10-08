@@ -219,11 +219,12 @@
     overflow-y: auto;
     padding: var(--space-1);
   }
+  /* The dialog body's cue: a shadow shows over flat rows too, where a fade to the same colour shows nothing. */
   .vp-fade {
     position: absolute;
     inset: auto 0 0 0;
     height: var(--space-3);
-    background: linear-gradient(to bottom, transparent, var(--color-bg-elevated));
+    background: linear-gradient(transparent, var(--color-shadow));
     pointer-events: none;
   }
   :global(.vp-heading) {
