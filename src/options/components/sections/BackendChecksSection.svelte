@@ -38,6 +38,7 @@
   <SectionCard
     title="Timeouts and checks"
     description="How long Ega waits before it moves on"
+    groups
     info={{
       label: 'About timeouts',
       text: 'A request that passes its timeout moves to the next ready backend. Local checks run before Ega uses Ollama, a local server or the native host.',

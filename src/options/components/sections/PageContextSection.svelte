@@ -64,6 +64,7 @@
 <SectionCard
   title="Page context"
   description="Sends the page title, address and nearby text with your request"
+  groups
   info={{
     label: 'About page context',
     text: 'Page context helps with slang, names and short replies. Secrets such as API keys and tokens are removed before anything leaves your computer.',

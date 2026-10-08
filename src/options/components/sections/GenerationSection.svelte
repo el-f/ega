@@ -74,6 +74,7 @@
   <SectionCard
     title={TITLE}
     description="Effort, answer length and creativity for every task"
+    groups
     info={{
       label: 'About generation',
       text: 'Each task can set its own Effort on the Tasks tab. A thinking model gets extra room on top of the longest answer when Effort is above Off.',
@@ -149,10 +150,11 @@
 </div>
 
 <style>
+  /* The Slider's own rhythm (label, control, hint, note 4px apart), so every group in the card reads the same. */
   .effort-block {
     display: flex;
     flex-direction: column;
-    gap: var(--space-2);
+    gap: var(--space-1);
   }
   .effort-label {
     display: inline-flex;
@@ -163,11 +165,15 @@
   .changed {
     color: var(--color-muted);
   }
+  /* 4px under its hint, like the Slider's hint under its track; in the Effort block the gap gives it. */
   .gen-note {
     margin: var(--space-1) 0 0;
     max-inline-size: 80ch;
     font-size: var(--fs-base);
     line-height: var(--lh-body);
     color: var(--color-warning-fg);
+  }
+  .effort-block .gen-note {
+    margin-top: 0;
   }
 </style>

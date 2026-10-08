@@ -18,6 +18,7 @@
 <SectionCard
   title="Streaming and cache"
   description="How fast answers show up"
+  groups
   info={{
     label: 'About the cache',
     text: "Ega keeps up to 500 recent answers for 5 minutes. They live in memory, so they clear when Chrome stops Ega's background worker.",
