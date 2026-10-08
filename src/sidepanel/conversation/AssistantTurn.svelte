@@ -924,6 +924,15 @@
     flex-direction: column;
     gap: var(--space-1);
   }
+  /* V5-15: 8px between a partial answer's meta line and what ended it. */
+  /* Global: the meta line is ReplyMeta's element, so a scoped sibling selector would be pruned as unused. */
+  .ega-reply > :global(.ega-reply-meta + :is(.ega-error, .ega-stopped)) {
+    margin-block-start: var(--space-1);
+  }
+  /* V5-16: the ghost button's text lines up with "Stopped" above it (border and padding pulled back). */
+  .ega-stopped + .ega-error-actions > :global(.ega-btn.variant-ghost:first-child) {
+    margin-inline-start: calc(-1px - var(--space-1));
+  }
   .ega-error-title {
     display: flex;
     align-items: center;

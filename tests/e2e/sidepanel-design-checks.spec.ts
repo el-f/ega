@@ -971,6 +971,110 @@ test('the meta line cuts no word at 256, and Stop shows its whole ring', async (
   await sp.close();
 });
 
+// V5-15 and V5-16: a partial answer's error sits 8px under its meta line; "Try again" starts on "Stopped"'s edge.
+test('a cut or stopped reply keeps its spacing and one left edge', async () => {
+  test.setTimeout(60_000);
+  const sp = await panelWith([
+    {
+      id: SITE,
+      turns: [
+        user('u1', 'una historia larga', T(9)),
+        reply('a1', 'u1', T(9), {
+          status: 'error',
+          content: 'Once upon a time there was a long story that stopped',
+          meta: null,
+          error: { code: 'PROTOCOL', message: 'stream closed', backendId: 'anthropic' },
+        }),
+        user('u2', 'hola', T(5)),
+        reply('a2', 'u2', T(5), {
+          status: 'error',
+          content: '',
+          meta: null,
+          error: { code: 'ABORTED', message: 'cancelled' },
+        }),
+      ],
+    },
+  ]);
+  await sp.setViewportSize({ width: 400, height: 760 });
+  const cut = sp.locator('[data-turn-id="a1"]');
+  const gap = await cut.evaluate((el) => {
+    const meta = el.querySelector('[data-ega-reply-meta]')?.getBoundingClientRect();
+    const err = el.querySelector('[data-ega-error]')?.getBoundingClientRect();
+    return meta && err ? err.top - meta.bottom : Number.NaN;
+  });
+  expect.soft(gap, 'meta line to error block').toBeCloseTo(8, 0);
+  const stopped = sp.locator('[data-turn-id="a2"]');
+  const edges = await stopped.evaluate((el) => {
+    const label = el.querySelector('[data-ega-cancelled]')?.getBoundingClientRect().left;
+    const btn = el.querySelector<HTMLElement>('[data-ega-retry]');
+    if (label === undefined || !btn) return null;
+    const cs = getComputedStyle(btn);
+    const text =
+      btn.getBoundingClientRect().left +
+      Number.parseFloat(cs.borderLeftWidth) +
+      Number.parseFloat(cs.paddingLeft);
+    return text - label;
+  });
+  expect.soft(edges, '"Try again" text minus "Stopped" left edge').toBeCloseTo(0, 0);
+  await sp.close();
+});
+
+// D55 (V5-04): a message's floating toolbar never covers the day separator or the task label above its bubble.
+test('the message toolbar leaves the separator and the task label above it readable', async () => {
+  test.setTimeout(120_000);
+  const sp = await panelWith([
+    {
+      id: SITE,
+      turns: [
+        user('u1', 'hola', T(90)),
+        reply('a1', 'u1', T(90)),
+        user('u2', 'que significa esto', T(20), { kind: 'explain' }),
+        reply('a2', 'u2', T(20), { kind: 'explain' }),
+        user('u3', 'resume esto', T(19), { kind: 'summarize' }),
+        reply('a3', 'u3', T(19), { kind: 'summarize' }),
+      ],
+    },
+  ]);
+  for (const size of [
+    { width: 256, height: 608 },
+    { width: 320, height: 760 },
+  ]) {
+    await sp.setViewportSize(size);
+    for (const id of ['u1', 'u2', 'u3']) {
+      const turn = sp.locator(`[data-ega-user-turn][data-turn-id="${id}"]`);
+      await turn.scrollIntoViewIfNeeded();
+      await turn.hover();
+      const toolbar = turn.locator('[data-ega-user-toolbar]');
+      await expect(toolbar).toHaveCSS('opacity', '1');
+      const seen = await turn.evaluate((el) => {
+        const bar = el.querySelector('[data-ega-user-toolbar]')?.getBoundingClientRect();
+        const above: Element[] = [];
+        const sep = el.previousElementSibling;
+        if (sep?.matches('[data-ega-day-separator]')) above.push(sep.querySelector('time') ?? sep);
+        const label = el.querySelector('.ega-task-label');
+        if (label) above.push(label);
+        const hits = above
+          .filter((a) => {
+            const r = a.getBoundingClientRect();
+            return (
+              bar !== undefined &&
+              r.left < bar.right &&
+              r.right > bar.left &&
+              r.top < bar.bottom &&
+              r.bottom > bar.top
+            );
+          })
+          .map((a) => a.textContent.trim());
+        return { above: above.length, hits };
+      });
+      // u1 follows a separator, u2 a separator and its label, u3 only its label.
+      expect(seen.above, `${id}: text above the bubble`).toBe(id === 'u2' ? 2 : 1);
+      expect.soft(seen.hits, `${id} at ${size.width}: text under the toolbar`).toEqual([]);
+    }
+  }
+  await sp.close();
+});
+
 // A 320px panel at 125% zoom on a 768px laptop is about 256x480 CSS px: layers fit the space they open into, and scroll.
 test('popovers and menus stay inside a short panel and scroll inside themselves', async () => {
   test.setTimeout(120_000);

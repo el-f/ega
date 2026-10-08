@@ -547,6 +547,7 @@
             <UserTurn
               {turn}
               taskLabel={taskLabels.get(turn.id)}
+              afterSeparator={separators.has(turn.id)}
               focused={turn.id === focusedTurnId}
               latest={turn.id === latestUserTurnId}
               laterCount={turns.length - (positions.get(turn.id) ?? 0) - 1}

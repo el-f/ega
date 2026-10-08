@@ -18,6 +18,8 @@
     turn: Turn;
     /** The task this message names above its bubble, only where the task changes. */
     taskLabel?: string | undefined;
+    /** A day separator sits right above this message. */
+    afterSeparator?: boolean;
     /** True for the focused turn in the keyboard cycle; drives the focus ring. */
     focused?: boolean;
     /** The newest message edits in place; an older one edits "from here", removing what came after. */
@@ -38,6 +40,7 @@
   const {
     turn,
     taskLabel,
+    afterSeparator = false,
     focused = false,
     latest = false,
     laterCount = 0,
@@ -117,6 +120,7 @@
 <article
   class="ega-user-turn"
   class:focused
+  class:after-sep={afterSeparator}
   tabindex="-1"
   aria-label={srLabel}
   data-turn-id={turn.id}
@@ -302,6 +306,16 @@
       opacity: 0;
       pointer-events: none;
       transition: opacity var(--motion-fast) var(--ease-out);
+    }
+    /* D55: the toolbar rises 24px over the bubble, so text right above it (task label, day separator) keeps that room. */
+    .ega-task-label {
+      margin-block-end: 0;
+    }
+    .ega-task-label + .ega-bubble-wrap {
+      margin-block-start: var(--space-5);
+    }
+    .ega-user-turn.after-sep > .ega-bubble-wrap:first-child {
+      margin-block-start: calc(var(--space-5) - var(--space-2));
     }
     .ega-user-turn:hover .ega-user-toolbar,
     .ega-user-turn:focus-within .ega-user-toolbar,
