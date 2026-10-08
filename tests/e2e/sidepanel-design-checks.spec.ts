@@ -696,6 +696,11 @@ test('check 5 focus never lands on body after an action', async () => {
       open: () => openThen('[data-ega-backend-chip]', sp.getByRole('dialog', { name: 'Backends' })),
       trigger: '[data-ega-backend-chip]',
     },
+    {
+      name: 'composer Add menu',
+      open: () => openThen('[data-ega-add]', sp.getByRole('menu')),
+      trigger: '[data-ega-add]',
+    },
   ];
   // Click a point of the message box the settled layer leaves free: one over its middle would pick a menu item.
   const boxPoint = async (name: string): Promise<{ x: number; y: number }> => {
@@ -747,6 +752,45 @@ test('check 5 focus never lands on body after an action', async () => {
   await stop.click();
   await expectFocus('Stop', 'textarea');
   await ext.context.unroute('https://api.anthropic.com/v1/messages', hang);
+
+  // Dictation swaps Add and Stop in one place: focus follows the control that replaces the focused one.
+  await sp.addInitScript(() => {
+    class FakeRecognition {
+      lang = '';
+      interimResults = false;
+      continuous = false;
+      onresult = null;
+      onerror = null;
+      onend: (() => void) | null = null;
+      start(): void {}
+      stop(): void {
+        this.onend?.();
+      }
+    }
+    (window as unknown as { SpeechRecognition: unknown }).SpeechRecognition = FakeRecognition;
+  });
+  await reloadPanel(sp);
+  const focusedName = (): Promise<string | null> =>
+    sp.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? null);
+  await sp.locator('[data-ega-add]').click();
+  await sp.locator('[data-ega-mic]').click();
+  await expect
+    .poll(focusedName, { message: 'dictation started', timeout: 5_000 })
+    .toBe('Stop dictation');
+  await sp.locator('[aria-label="Stop dictation"]').click();
+  await expect.poll(focusedName, { message: 'dictation stopped', timeout: 5_000 }).toBe('Add');
+
+  // Remove image goes with the image it removes: focus moves to the message box.
+  await sp.locator('[data-ega-image-input]').setInputFiles({
+    name: 'p.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+      'base64',
+    ),
+  });
+  await sp.locator('[data-ega-chip-remove]').click();
+  await expectFocus('Remove image', 'textarea');
   await sp.close();
 });
 
