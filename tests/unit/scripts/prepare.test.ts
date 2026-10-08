@@ -7,6 +7,8 @@ import os from 'node:os';
 import path from 'node:path';
 
 const repoRoot = path.resolve(__dirname, '../../..');
+// Inside a git hook GIT_DIR names this repo: `git init` would re-init it as bare, and lefthook would hook it.
+const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('GIT_')));
 
 describe('scripts/prepare.mjs', () => {
   it('exits 0 when git resolves core.hooksPath outside the repo', () => {
@@ -17,11 +19,11 @@ describe('scripts/prepare.mjs', () => {
       const gitconfig = path.join(tmp, 'gitconfig');
       writeFileSync(gitconfig, `[core]\n\thooksPath = ${hooks.replaceAll('\\', '/')}\n`);
       const repo = path.join(tmp, 'repo');
-      expect(spawnSync('git', ['init', '-q', repo]).status).toBe(0);
-      const PATH = `${path.join(repoRoot, 'node_modules', '.bin')}${path.delimiter}${process.env['PATH'] ?? ''}`;
+      expect(spawnSync('git', ['init', '-q', repo], { env }).status).toBe(0);
+      const PATH = `${path.join(repoRoot, 'node_modules', '.bin')}${path.delimiter}${env['PATH'] ?? ''}`;
       const r = spawnSync(process.execPath, [path.join(repoRoot, 'scripts', 'prepare.mjs')], {
         cwd: repo,
-        env: { ...process.env, GIT_CONFIG_GLOBAL: gitconfig, PATH, Path: PATH },
+        env: { ...env, GIT_CONFIG_GLOBAL: gitconfig, PATH, Path: PATH },
         encoding: 'utf8',
       });
       expect(r.status, r.stderr).toBe(0);
