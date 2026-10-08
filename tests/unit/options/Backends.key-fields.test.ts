@@ -6,7 +6,10 @@ import { CLOUD_PROVIDER_IDS } from '@/shared/provider-ids';
 import type { Settings } from '@/shared/types';
 
 const { saveSpy } = vi.hoisted(() => ({ saveSpy: vi.fn() }));
-vi.mock('@/options/storage-with-toast', () => ({ saveSettings: saveSpy }));
+vi.mock('@/options/storage-with-toast', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  saveSettings: saveSpy,
+}));
 
 import Backends from '@/options/tabs/Backends.svelte';
 

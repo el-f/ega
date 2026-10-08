@@ -60,7 +60,9 @@ describe('ElementPickerSection', () => {
     const said = (record.getAttribute('aria-describedby') ?? '')
       .split(' ')
       .map((id) => document.getElementById(id)?.textContent.trim());
-    expect(said).toContain('Ctrl+Shift+L is already the Translate selection shortcut. Pick another.');
+    expect(said).toContain(
+      'Ctrl+Shift+L is already the Translate selection shortcut. Pick another.',
+    );
   });
 
   it('a stored combo Chrome cannot use marks its Record button invalid, with the reason', () => {

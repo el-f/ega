@@ -6,7 +6,8 @@ import type { Settings } from '@/shared/types';
 
 // Capture the patch the keyboard reorder dispatches without touching storage.
 const { updateSpy } = vi.hoisted(() => ({ updateSpy: vi.fn() }));
-vi.mock('@/options/storage-with-toast', () => ({
+vi.mock('@/options/storage-with-toast', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   saveSettings: updateSpy,
 }));
 

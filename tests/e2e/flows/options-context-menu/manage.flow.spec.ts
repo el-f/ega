@@ -61,6 +61,8 @@ test('manage: groups, add an image action, move inside a group, reset then undo'
   await expect(bubble).toBeVisible();
   // A pinned tip leaves Esc to a shortcut field that is recording: Esc cancels the recording.
   const record = page.getByRole('button', { name: 'Record Translate selection shortcut' });
+  // The shared ShortcutInput marks its Record button, which the card's error line points at.
+  await expect(record).toHaveAttribute('data-ega-shortcut-record');
   await record.focus();
   await page.keyboard.press('Enter');
   await expect(record).toHaveAttribute('aria-pressed', 'true');
