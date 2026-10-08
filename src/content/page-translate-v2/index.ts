@@ -621,6 +621,9 @@ async function startSession(
   const sess = active;
   if (sess) {
     adopt(sess, deps, mode);
+    // The chosen areas are what the user now wants: the areas a stop dropped, some of them chosen again, no longer
+    // count, or the pill would count those twice and read as stopped.
+    sess.skipped = 0;
     const held = heldIds(sess);
     for (const block of blocks) {
       const id = held.get(block.element);

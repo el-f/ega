@@ -17,7 +17,7 @@ import {
 import { exitMultiSelect, isMultiSelectActive } from '@/content/page-translate-v2/multi-select';
 import { SETTINGS_CHANGED_BODY } from '@/shared/error-copy';
 import type { BackendId } from '@/shared/types';
-import { FakeObserver, finishAll, flush, rig } from '@tests/_helpers/page-translate';
+import { FakeObserver, enterAndFire, finishAll, flush, rig } from '@tests/_helpers/page-translate';
 import { pillStatus } from '@/content/page-translate-v2/progress';
 
 const N = 12;
@@ -336,6 +336,58 @@ describe('whole-page session — round 2', () => {
       if (had && original) proto.checkVisibility = original;
       else delete proto.checkVisibility;
     }
+  });
+
+  it('a press drops the waiting blocks the page hid before it looks for new ones, so the pill can settle', async () => {
+    // The Reviews tab was hidden when the page was collected; the user then switches tabs.
+    document.body.innerHTML =
+      '<div id="desc"><p id="a">これは説明の段落です。</p><p id="b">これは二つ目の説明です。</p></div>' +
+      '<div id="rev" hidden><p id="c">これはレビューの段落です。</p></div>';
+    const proto = HTMLElement.prototype as unknown as { checkVisibility?: () => boolean };
+    const had = Object.prototype.hasOwnProperty.call(proto, 'checkVisibility');
+    const original = proto.checkVisibility;
+    proto.checkVisibility = function (this: HTMLElement) {
+      return this.closest('[hidden]') === null;
+    };
+    try {
+      const r = rig();
+      await runWholePageTranslate(r.d);
+      band([document.getElementById('a') as HTMLElement]);
+      await flush();
+      finishAll(r);
+      await flush();
+      (document.getElementById('desc') as HTMLElement).hidden = true;
+      (document.getElementById('rev') as HTMLElement).hidden = false;
+      // No observer entry comes for a block that is hidden without ever coming near; the press sweeps it.
+      expect(await runWholePageTranslate(r.d)).toBe(true);
+      expect(r.updates.at(-1)).toMatchObject({ total: 2, waiting: 1 });
+      band([document.getElementById('c') as HTMLElement]);
+      await flush();
+      finishAll(r, 1);
+      await flush();
+      expect(r.sent.at(-1)?.text).toBe('これはレビューの段落です。');
+      expect(r.updates.at(-1)).toMatchObject({ settled: true, total: 2 });
+    } finally {
+      if (had && original) proto.checkVisibility = original;
+      else delete proto.checkVisibility;
+    }
+  });
+
+  it('areas chosen after the scroll part gave way count once, and the pill does not read as stopped', async () => {
+    const els = page();
+    const r = rig();
+    await runWholePageTranslate(r.d);
+    band(els.slice(0, 2));
+    await flush();
+    finishAll(r);
+    await flush();
+    // Choose areas ends the scroll part; the user picks two of the areas it dropped.
+    await enterAndFire(r.d, ['p5', 'p6']);
+    finishAll(r, 2);
+    await flush();
+    const last = r.updates.at(-1);
+    expect(last).toMatchObject({ settled: true, done: 4, total: 4, skipped: 0 });
+    expect(pillStatus(last as never, Date.now())).toBe('Page translated');
   });
 
   it('a press on a session that only waits for scroll adds the blocks the page gained since', async () => {
