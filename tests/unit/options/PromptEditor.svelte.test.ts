@@ -141,6 +141,20 @@ describe('PromptEditor — answer format and checks', () => {
     expect(container.querySelector('[data-ega-answer-format-own]')).toBeNull();
   });
 
+  it('Use the standard format leaves with its block, so focus goes to Instructions, not the dialog X', async () => {
+    const legacy = {
+      system: buildTaskTemplate('summarize').system + ' ' + TASK_FORMATS.summarize.text,
+      user: buildTaskTemplate('summarize').user,
+    };
+    const { getByRole, field } = setup({ initial: legacy });
+    const button = getByRole('button', { name: 'Use the standard format' });
+    button.focus();
+    await fireEvent.click(button);
+    await tick();
+    expect(button.isConnected).toBe(false);
+    expect(document.activeElement).toBe(field('system'));
+  });
+
   it('a custom task shows its fixed contract and never the legacy line', () => {
     const { container } = setup({
       kind: 'custom',

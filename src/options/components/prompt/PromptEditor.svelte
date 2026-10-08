@@ -121,8 +121,12 @@
     el?.setSelectionRange(caret, caret);
   }
 
-  function useStandardFormat(): void {
-    if (stripped !== null) set('system', stripped);
+  // The button leaves with its block, so focus goes to Instructions instead of the dialog's X (K-9).
+  async function useStandardFormat(): Promise<void> {
+    if (stripped === null) return;
+    set('system', stripped);
+    await tick();
+    sysEl?.focus();
   }
 
   // Arrow keys move between the two tabs and select (one Tab stop, like a radio group).
@@ -222,7 +226,7 @@
             <Button
               variant="secondary"
               dataAttrs={{ 'data-ega-use-standard-format': true }}
-              onclick={useStandardFormat}>Use the standard format</Button
+              onclick={() => void useStandardFormat()}>Use the standard format</Button
             >
           {:else}
             <p class="pe-format-line" id="{uid}-fmt-why">
