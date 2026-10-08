@@ -118,6 +118,39 @@ describe('bubble menu', () => {
     field.remove();
   });
 
+  it('after an Esc out of the menu, a keyboard choice still puts focus back on the page', async () => {
+    (chrome.runtime.sendMessage as unknown as Mock).mockResolvedValue({ ok: true });
+    const field = document.createElement('textarea');
+    document.body.append(field);
+    field.focus();
+    chevron().focus();
+    await fireEvent.keyDown(chevron(), { key: 'ArrowDown' });
+    await vi.waitFor(() => expect(getShadowRoot().activeElement).toBe(items()[0]));
+    await fireEvent.keyDown(items()[0] as HTMLElement, { key: 'Escape' });
+    expect(getShadowRoot().activeElement).toBe(chevron());
+    await fireEvent.keyDown(chevron(), { key: 'ArrowDown' });
+    await vi.waitFor(() => expect(getShadowRoot().activeElement).toBe(items()[0]));
+    await fireEvent.click(items()[1] as HTMLElement, { detail: 0 });
+    expect(document.activeElement).toBe(field);
+    field.remove();
+  });
+
+  it('after an Esc out of the menu, a keyboard press on Translate still puts focus back on the page', async () => {
+    const field = document.createElement('textarea');
+    document.body.append(field);
+    field.focus();
+    chevron().focus();
+    await fireEvent.keyDown(chevron(), { key: 'ArrowDown' });
+    await vi.waitFor(() => expect(getShadowRoot().activeElement).toBe(items()[0]));
+    await fireEvent.keyDown(items()[0] as HTMLElement, { key: 'Escape' });
+    const main = getShadowRoot().querySelector<HTMLButtonElement>('button.bubble');
+    if (!main) throw new Error('no bubble');
+    main.focus();
+    await fireEvent.click(main, { detail: 0 });
+    expect(document.activeElement).toBe(field);
+    field.remove();
+  });
+
   it('Bubble settings opens the Selection & picker tab', async () => {
     const send = chrome.runtime.sendMessage as unknown as Mock;
     openBubbleMenu(chevron(), { focusFirst: false, hideBubble });

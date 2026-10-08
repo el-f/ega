@@ -19,13 +19,14 @@ export function closeBubbleMenu(returnFocus = false): void {
   const { handle, anchor, chevron } = open;
   open = null;
   chevron.setAttribute('aria-expanded', 'false');
+  // Before the focused item goes: removed first, it would hand the bubble a focusin from nowhere.
+  if (returnFocus && chevron.isConnected) chevron.focus();
   try {
     void unmount(handle);
   } catch (e) {
     debugCatch(e, 'content.bubbleMenu.unmount');
   }
   anchor.remove();
-  if (returnFocus && chevron.isConnected) chevron.focus();
 }
 
 /** The host the notices name: no `www.`, and "this page" for a file. */

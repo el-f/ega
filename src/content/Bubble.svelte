@@ -37,11 +37,19 @@
     onmenu,
   }: Props = $props();
 
-  // Where focus was before it entered the bubble; a move between the two segments keeps it.
+  // Where focus was before it entered the bubble. A move from its own segments, or from Ega's own UI around it
+  // (the menu, the tooltip: the same shadow root), keeps it, so an Esc out of the menu never forgets the page.
   let focusedFrom: HTMLElement | null | undefined;
   function onFocusIn(e: FocusEvent): void {
     const from = e.relatedTarget;
-    if (from instanceof Node && (e.currentTarget as HTMLElement).contains(from)) return;
+    const group = e.currentTarget as HTMLElement;
+    const root = group.getRootNode();
+    if (
+      from instanceof Node &&
+      (group.contains(from) || (root instanceof ShadowRoot && from.getRootNode() === root))
+    ) {
+      return;
+    }
     focusedFrom = from instanceof HTMLElement ? from : null;
   }
 
