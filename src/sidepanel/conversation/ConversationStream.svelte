@@ -513,15 +513,17 @@
         if (!(to instanceof Node) || !scroller?.contains(to)) onFocusChange(null);
       }}
       onfocusin={(e) => {
-        // A click or a pager refocus inside a turn moves the ring there too, so `r` acts on what has focus.
-        const id =
-          e.target instanceof Element
-            ? e.target.closest('[data-turn-id]')?.getAttribute('data-turn-id')
-            : null;
-        if (id == null || id === focusedTurnId) return;
+        // Focus that lands in another turn (Tab, the pager's refocus) moves the ring there, so `r` acts on it.
+        const t = e.target;
+        if (!(t instanceof Element)) return;
+        const id = t.closest('[data-turn-id]')?.getAttribute('data-turn-id');
+        if (id == null) return;
+        // A pointer press drops the ring instead of drawing a keyboard ring round the reply it pressed.
+        const next = t.matches(':focus-visible') ? id : null;
+        if (next === focusedTurnId) return;
         // Focus is already inside the turn; the effect below must not pull it back to the article.
-        focusedInDom = id;
-        onFocusChange(id);
+        focusedInDom = next;
+        onFocusChange(next);
       }}
     >
       <div class="ega-thread-col">
