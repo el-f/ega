@@ -1135,12 +1135,34 @@ test('Page translate — pause, partial failure, Show both pending, RTL and focu
   page = await openPage('tiles-page.html');
   await sendPageTranslate('page:translateAll');
   await expect.poll(() => pillLabel(page), { timeout: 15_000 }).toMatch(/^Page translated/);
+  // The boxes sit inside the tiles and the summaries, so the grid keeps six items.
+  await expect(page.locator('.grid > .tile > [data-ega-inside]')).toHaveCount(6);
+  await expect(page.locator('.grid > *')).toHaveCount(6);
+  await expect(page.locator('summary > [data-ega-inside]')).toHaveCount(2);
   await both(page, 'page-blocks-tiles-summary', {
     ...meta,
     state: 'blocks-tiles-summary',
     expectations: [
       'the grid keeps 3 tiles a row; each translation sits inside its own tile',
       'each closed question shows its translation inside the summary line',
+    ],
+  });
+  await page.close();
+  await resetRoutes(ext.context);
+
+  // Show both on words that sit before an inner block: a comment's first paragraph, a parent list item.
+  mockAnthropic(ext.context, { translation: 'Translated text' });
+  page = await openPage('runs-page.html');
+  await sendPageTranslate('page:translateAll');
+  await expect.poll(() => pillLabel(page), { timeout: 15_000 }).toMatch(/^Page translated/);
+  await expect(page.locator('#c1 > [data-ega-run] + p')).toHaveCount(1);
+  await expect(page.locator('#parent > [data-ega-run] + ul')).toHaveCount(1);
+  await both(page, 'page-blocks-leading-runs', {
+    ...meta,
+    state: 'blocks-leading-runs',
+    expectations: [
+      "the comment's first paragraph shows its translation right under it, above the second paragraph",
+      'the parent list item shows its translation under its own words, above the nested list',
     ],
   });
   await page.close();
