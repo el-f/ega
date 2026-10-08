@@ -873,6 +873,8 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
   /** Set between the old thread's flush and the new one landing, so no save writes a half-switched
    *  state, and a write to the thread being loaded is still heard. */
   let loadingOrigin: string | null = null;
+  /** Saves asked for while `loadingOrigin` held them back; the read that refuses or ends makes up for them. */
+  let editsWhileLoading = 0;
   /** Origins already reported as unreadable, so a tab switch does not repeat the warning. */
   // eslint-disable-next-line svelte/prefer-svelte-reactivity -- read inside async load, never rendered.
   const unreadableWarned = new Set<string>();
@@ -1256,6 +1258,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
   }
 
   function markDirty(): void {
+    if (loadingOrigin !== null) editsWhileLoading++;
     cancelPendingPersist();
     const target = state.activeId;
     persistTimer = setTimeout(() => {
@@ -1268,6 +1271,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
 
   /** Bookmark, delete and variant pick skip the debounce — the pagehide flush is too slow to be the fallback. */
   function saveNow(): void {
+    if (loadingOrigin !== null) editsWhileLoading++;
     cancelPendingPersist();
     const target = state.activeId;
     void persist(target).catch((e: unknown) => reportSaveFailure(e, 'conversation.saveNow'));
@@ -1353,11 +1357,19 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
         // Read before anything moves, so a refused thread leaves the reply that is still arriving on screen.
         await flushForSwitch();
         // A save inside the read would race the load, as it would inside loadThreadInto.
+        editsWhileLoading = 0;
         loadingOrigin = origin;
         read = await loadThreadResult(origin).finally(() => {
           loadingOrigin = null;
         });
-        if (read.unreadable) return false;
+        // A reply that ended during the read was not saved, and a load would replace it on screen.
+        const missed = editsWhileLoading > 0;
+        editsWhileLoading = 0;
+        if (read.unreadable) {
+          if (missed) saveNow();
+          return false;
+        }
+        if (missed) await flushForSwitch();
         // A seed that came during the read owns the slot now, and the load carries it over.
         if (state.inflightId !== null && preLoadIds.includes(state.inflightId)) moveToBackground();
       } else {

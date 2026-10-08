@@ -285,6 +285,46 @@ describe('opening a conversation this build cannot read', () => {
     expect(c.turns.find((t) => t.id === running)?.status).toBe('done');
   });
 
+  // Saves wait while the new thread is read, so a reply that ends inside the read has to be saved after it.
+  it.each([
+    ['refused', 99],
+    ['opened', null],
+  ])('saves a reply that ends while the conversation is read (%s)', async (_, version) => {
+    const a = 'https://a.example';
+    const other = 'https://other.example';
+    await saveThread(a, [userTurn('a1', 'hola')]);
+    await saveThread(other, [userTurn('o1', 'other chat')]);
+    const key = threadKey(other);
+    if (version !== null) {
+      const stored = (await chrome.storage.local.get(key))[key] as Record<string, unknown>;
+      await chrome.storage.local.set({ [key]: { ...stored, version } });
+    }
+    const c = createConversation();
+    await c.followSite(a);
+    c.seedExternalImageTurn('req-live', 'https://img.example/p.png');
+    const running = c.inflightId;
+    const local = chrome.storage.local;
+    const get = local.get.bind(local);
+    // The reply ends inside the read of the conversation being opened.
+    const fake = (async (keys: string) => {
+      if (keys === key || (Array.isArray(keys) && keys.includes(key))) {
+        c.applyChunk({ type: 'delta', requestId: 'req-live', text: '{"translation":"hi"}' });
+        c.applyChunk({ type: 'done', requestId: 'req-live' });
+      }
+      return get(keys);
+    }) as unknown as typeof local.get;
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises -- storage.get is promise-based here
+    const spy = vi.spyOn(local, 'get').mockImplementation(fake);
+
+    expect(await c.openConversation(other)).toBe(version === null);
+    spy.mockRestore();
+
+    await vi.waitFor(async () => {
+      const saved = (await loadThreadResult(a)).turns.find((t) => t.id === running);
+      expect(saved?.status).toBe('done');
+    });
+  });
+
   it('opens a readable one and says so', async () => {
     const a = 'https://a.example';
     const b = 'https://b.example';
