@@ -479,8 +479,8 @@ is a master-password unlock flow, which is out of scope. Three known limits
 go with that: the keys sit as plain fields on the settings record, so every
 **extension page** that calls `getSettings()` — Settings, popup, side panel — holds
 them in memory even though only the service worker sends them as request headers; they
-have no expiry and no rotate prompt, so they stay until you delete them or use About →
-**Delete all data**; and Chrome DevTools shows them in cleartext. The
+have no expiry and no rotate prompt, so they stay until you delete them or use **Settings →
+Advanced → Data → Delete all data**; and Chrome DevTools shows them in cleartext. The
 audit-log entry never carries key material, and the settings export strips
 keys unless you tick the box.
 

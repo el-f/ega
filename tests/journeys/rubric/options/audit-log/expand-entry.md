@@ -7,7 +7,7 @@
 ## State expectations
 
 - Step 1: the Recent requests card has at least one entry row.
-- Step 2 (click Details): the row opens in place; the body shows Model, Languages (plus request id, first token, tokens, confidence, and the raw code under "Technical" when set) and System / User / Response panels, then a Compare button.
+- Step 2 (click Details): the row opens in place; the body shows Model, Languages (plus request id, first token, tokens, confidence, and the raw code under "Technical" when set) and System / User / Response panels (no Response panel when the response is empty), then a Compare button.
 - Step 3 (click Details again): the body closes.
 
 ## Visible affordances
@@ -18,7 +18,7 @@
 
 ## Failure-mode expectations
 
-- An empty prompt/response field renders an empty panel; there is no placeholder.
+- An empty response (a failed request stores none) gets no Response panel, so the body shows System and User only. An empty prompt field still renders an empty panel; there is no placeholder.
 
 ## Cautions
 

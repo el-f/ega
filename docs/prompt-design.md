@@ -139,9 +139,13 @@ why they are worded the way they are.
 | Reply ideas | With "the target language" some backends answered in the source, so the prompt names the language outright. It also repeats the reply-not-commentary rule, because models describe the text instead of answering it. |
 | Ask         | The one task whose prompt tells the model to use the prior turns. Every side-panel send carries earlier turns for any task, unless the turn has an image (`src/sidepanel/state/conversation.ts#buildStartArgs`).     |
 
-Every task returns JSON only, and every answer has `translation`. The Translate and Explain
-template (`src/shared/settings-schema.ts#DEFAULT_PROMPT_TEMPLATE`) also asks for `confidence`,
-`detectedLang`, `detectedDetail` and `detectedLangs`, and Explain adds `explain`. Of the five
+Every task returns JSON only, and every answer has `translation`. The answer format is not part
+of the editable prompt: the builder appends the task's format
+(`src/shared/task-prompts.ts#TRANSLATE_FORMAT` for Translate and Explain,
+`src/shared/task-prompts.ts#TASK_FORMATS` for the others) unless the system half, after snippets,
+already holds `Return JSON ONLY` (`src/shared/prompts.ts#withAnswerFormat`). The Translate and
+Explain format also asks for `confidence`, `detectedLang`, `detectedDetail` and
+`detectedLangs`, and Explain adds `explain`. Of the five
 other built-in tasks, Reword and Grammar add `explain`; Summarize, Reply ideas and Ask return
 `translation` only. None of these five shipped prompts asks for `confidence`. A custom task
 returns `translation`, plus `explain` when it answers with notes (see Custom tasks below). That
@@ -159,6 +163,6 @@ with no snippets and no language template. Its slots fill like a built-in's (`{{
 The user's text cannot be trusted to keep the JSON shape the parser needs, so the code adds one
 line after the Instructions, picked by the task's Answer setting:
 `src/shared/prompts.ts#PLAIN_CONTRACT` for "Answer only" and
-`src/shared/prompts.ts#CARD_CONTRACT` for "Answer with notes". Built-in prompts never get this
-line; each keeps its own `Return JSON ONLY` sentence. The editor's "Preview what the model receives" section shows
+`src/shared/prompts.ts#CARD_CONTRACT` for "Answer with notes". Built-in prompts get their task's
+answer format instead (see above), unless their system half already holds `Return JSON ONLY`. The editor's "Preview what the model receives" section shows
 the exact system and user text the router sends, contract line included.

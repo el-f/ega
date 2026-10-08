@@ -979,7 +979,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'contextMenu.items',
     label: 'Right-click menu',
-    description: "Show, hide, order and add the items Ega puts in Chrome's right-click menu.",
+    description: "Show, hide, order and add the items Ega puts in Chrome's right-click menu",
     keywords: [
       'context',
       'context menu',

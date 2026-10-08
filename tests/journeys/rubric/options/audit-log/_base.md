@@ -4,7 +4,7 @@
 
 - The card is titled "Recent requests" with the line "The last 50 requests, kept on this computer"; the (i) "About this list" says nothing here is synced and that Clear and Delete all data remove it.
 - Rows list `egaAuditLog` entries newest-first, in words: task name (not an id), backend name (not an id), time taken, status ("OK", "From cache", "Canceled", or the shared error title such as "API key rejected"), and a relative time whose full date is in the accessible name. A "Details" text button ends each row.
-- Details opens the row in place with model, languages, tokens ("N in · M out"), the raw error code under "Technical", and the System / User / Response panels. Below the list, "Tokens in this list" sums every kept row. Cache hits and failures carry no tokens.
+- Details opens the row in place with model, languages, tokens ("N in · M out"), the raw error code under "Technical", and the System / User / Response panels (no Response panel when the response is empty, as for a failed request). Below the list, "Tokens in this list" sums every kept row. Cache hits and failures carry no tokens.
 - Empty: one EmptyState "No requests yet" / "Requests show here after you translate"; no filters, and no Export or Clear in the header.
 
 ## Filter

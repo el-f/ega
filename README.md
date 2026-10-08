@@ -165,7 +165,7 @@ the plan's usage limits. For Codex, the CLI comes with ChatGPT Plus, Pro, Busine
 and Edu, not with Free or Go ([OpenAI's Codex pricing](https://learn.chatgpt.com/docs/pricing)).
 
 <p align="center">
-  <img src="docs/media/backends.png" alt="Ega's Settings page on the Backends tab in dark mode: Anthropic, OpenAI and Gemini ready under Active backends, and Ollama, the native host and Groq under Available backends with green, red and amber status dots" width="820">
+  <img src="docs/media/backends.png" alt="Ega's Settings page on the Backends tab: Anthropic, OpenAI and Gemini under Backends in use with their place in the order and a status word each, and more backends under Not in use" width="820">
 </p>
 
 Order all thirteen in one fallback chain. When one fails Ega moves to the next, as far as
@@ -182,10 +182,11 @@ which may be paid too. **Try up to N backends** caps that walk, and **Areas sent
 **Backends in use** at the top of the tab is that order. Press **Enable** or **Disable**
 on a row, or drag it across the divider.
 
-The dot on each row is green for ready, amber for needs a key, red for unreachable.
-A cloud provider with a saved key shows a grey dot and **Key saved**: Ega sends that
-provider nothing until you translate or press **Test now**, and a passed test turns the
-dot green and the label to **Verified**. The one exception is OpenRouter: once its key is saved,
+Each row says its state in one word: **Running** or **Not running** for a local backend,
+**Installed**, **Not installed** or **Update needed** for the native host, and **Needs setup**
+for a cloud provider with no key. A cloud provider with a saved key reads **Key saved**: Ega
+sends that provider nothing until you translate or press **Test now**, and a passed test turns
+it to **Verified** (a failed one to **Test failed**). The one exception is OpenRouter: once its key is saved,
 Ega reads its public model list (no key, no text) to learn which models think. Ollama, the local server and the native host are probed for real. **Test
 now** on any card runs a real request through it.
 
@@ -238,7 +239,7 @@ different extension: the unpacked copy's settings, API keys, glossary, custom la
 and saved threads do not carry over, and the native host stops answering until it is
 registered for the new ID.
 
-If you ever move between the two, back up first. **Settings → Advanced → Data → Backup &
+If you ever move between the two, back up first. **Settings → Advanced → Data → Backup and
 restore** exports settings, glossary, custom languages and your own tasks (tick the box for API keys),
 and each side-panel thread exports on its own from the panel. Then re-run the
 native-host install for the new ID, as in

@@ -25,6 +25,15 @@ describe('settings-spec — every isModified path resolves against settingsSchem
   });
 });
 
+describe('settings-spec — descriptions', () => {
+  it('each one is one line with no final stop, as settings search shows it', () => {
+    const bad = SETTINGS_SPEC.filter(
+      (e) => /[.!]\s*$/.test(e.description) || /[.!?]\s+\S/.test(e.description),
+    ).map((e) => `${e.id}: ${e.description}`);
+    expect(bad).toEqual([]);
+  });
+});
+
 describe('settings-spec — no duplicate storage paths', () => {
   it('streamingFlushMs is registered exactly once', () => {
     const matches = SETTINGS_SPEC.filter((e) => {
