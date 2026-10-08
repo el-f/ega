@@ -90,9 +90,16 @@ function attachInplaceSwap(
   return { showOriginal, showTranslation };
 }
 
-/** A cell, list item or definition gets its translation inside it: a sibling of the same tag would add a
- *  cell to the row or a numbered item to the list. */
-const INSIDE = new Set(['TD', 'TH', 'LI', 'DD', 'DT']);
+/** A cell, list item, definition or summary gets its translation inside it: a sibling of the same tag would add a
+ *  cell to the row or a numbered item to the list, and a box after a summary hides in its closed details. */
+const INSIDE = new Set(['TD', 'TH', 'LI', 'DD', 'DT', 'SUMMARY']);
+
+/** A child of a flex or grid parent is a layout slot, so a sibling box would be one more tile or column. */
+function boxGoesInside(el: Element): boolean {
+  if (INSIDE.has(el.tagName.toUpperCase())) return true;
+  const parent = el.parentElement;
+  return parent !== null && /flex|grid/.test(globalThis.getComputedStyle(parent).display);
+}
 
 /** Built-ins a plain div would break: each carries meaning of its own, a heading in the outline, `pre`'s line breaks. */
 const KEEP_TAG = new Set(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'pre', 'blockquote', 'figcaption']);
@@ -108,9 +115,14 @@ function siblingTag(el: Element): string {
 /** Bilingual: insert a neutral box after the original, or inside a cell or list item. Original DOM is left untouched. */
 export function mountBilingual(args: MountArgs): RenderHandle {
   ensurePageStyles();
-  const inside = INSIDE.has(args.element.tagName.toUpperCase());
-  const sibling = document.createElement(inside ? 'div' : siblingTag(args.element));
+  const inside = boxGoesInside(args.element);
+  // A summary holds phrasing content only, so its box is a span the page sheet shows as a block.
+  const summary = args.element.tagName.toUpperCase() === 'SUMMARY';
+  const sibling = document.createElement(
+    inside ? (summary ? 'span' : 'div') : siblingTag(args.element),
+  );
   sibling.setAttribute('data-ega-tx', '');
+  if (inside) sibling.setAttribute('data-ega-inside', '');
   sibling.setAttribute('data-ega-id', args.id);
   // dir="auto" gives an RTL translation correct bidi on an LTR page; the original keeps the page's direction.
   sibling.setAttribute('dir', 'auto');

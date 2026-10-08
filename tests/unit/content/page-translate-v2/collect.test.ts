@@ -88,7 +88,7 @@ describe('collectBlocks — what is already translated, and what can never come 
   it('skips a block already shown in Show both, with its translation beside it or inside it', () => {
     document.body.innerHTML = `
       <p id="done">Ya traducido</p><div data-ega-tx data-ega-tx-state="ok">Already translated</div>
-      <ul><li id="item">Elemento traducido<div data-ega-tx data-ega-tx-state="ok">Item</div></li></ul>
+      <ul><li id="item">Elemento traducido<div data-ega-tx data-ega-inside data-ega-tx-state="ok">Item</div></li></ul>
       <p id="fresh">Todavía no traducido</p>`;
     expect(ids(collect())).toEqual(['fresh']);
   });
@@ -107,6 +107,75 @@ describe('collectBlocks — what is already translated, and what can never come 
       ({ left: -300, right: 0, width: 300, top: 0, bottom: 20, height: 20 }) as DOMRect;
     expect(ids(collect())).toEqual(['on']);
   });
+
+  it('in a list item with two paragraphs, the first one translated does not claim the second', () => {
+    document.body.innerHTML = `<ul><li><p id="a">Primer párrafo del punto</p><div data-ega-tx data-ega-tx-state="ok">First</div><p id="b">Segundo párrafo del punto</p></li></ul>`;
+    expect(ids(collect())).toEqual(['b']);
+  });
+
+  it('skips a box past the right edge, below the page, or cut off by a clipping ancestor', () => {
+    document.body.innerHTML = `<div id="track" style="overflow:hidden"><p id="slide">Tercera diapositiva aquí</p></div><p id="right">Más allá del borde</p><p id="below">Por debajo de la página</p><p id="on">Texto visible aquí</p>`;
+    const root = document.documentElement;
+    for (const [k, v] of Object.entries({
+      scrollWidth: 1000,
+      clientWidth: 1000,
+      scrollHeight: 800,
+    }))
+      Object.defineProperty(root, k, { configurable: true, value: v });
+    const rect = (id: string, r: Partial<DOMRect>): void => {
+      (document.getElementById(id) as HTMLElement).getBoundingClientRect = () =>
+        ({ width: (r.right ?? 0) - (r.left ?? 0), height: 20, ...r }) as DOMRect;
+    };
+    rect('track', { left: 0, right: 500, top: 0, bottom: 40 });
+    rect('slide', { left: 1000, right: 1500, top: 0, bottom: 40 });
+    rect('right', { left: 1200, right: 1400, top: 50, bottom: 70 });
+    rect('below', { left: 0, right: 400, top: 9000, bottom: 9020 });
+    rect('on', { left: 0, right: 400, top: 100, bottom: 120 });
+    try {
+      expect(ids(collect())).toEqual(['on']);
+    } finally {
+      for (const k of ['scrollWidth', 'clientWidth', 'scrollHeight']) delete (root as never)[k];
+    }
+  });
+
+  it('on a right-to-left page, takes a cell the user can scroll to on the left', () => {
+    document.documentElement.setAttribute('dir', 'rtl');
+    document.body.innerHTML = `<p id="far" style="direction:rtl">עמודה רחוקה בטבלה</p>`;
+    const root = document.documentElement;
+    for (const [k, v] of Object.entries({
+      scrollWidth: 2000,
+      clientWidth: 1000,
+      scrollHeight: 800,
+    }))
+      Object.defineProperty(root, k, { configurable: true, value: v });
+    root.style.direction = 'rtl';
+    (document.getElementById('far') as HTMLElement).getBoundingClientRect = () =>
+      ({ left: -600, right: -200, width: 400, top: 0, bottom: 20, height: 20 }) as DOMRect;
+    try {
+      expect(ids(collect())).toEqual(['far']);
+    } finally {
+      for (const k of ['scrollWidth', 'clientWidth', 'scrollHeight']) delete (root as never)[k];
+      root.style.removeProperty('direction');
+      document.documentElement.removeAttribute('dir');
+    }
+  });
+});
+
+describe('keepsPageParts — what Replace text must not move', () => {
+  it('ARIA links and buttons, labels, details and a component with a shadow tree', async () => {
+    const { keepsPageParts } = await import('@/content/page-translate-v2/collect');
+    const block = (html: string): HTMLElement => {
+      document.body.innerHTML = `<p id="b">${html}</p>`;
+      return document.getElementById('b') as HTMLElement;
+    };
+    expect(keepsPageParts(block('Por <span role="link" tabindex="0">usuario</span>'))).toBe(true);
+    expect(keepsPageParts(block('Acepta <label for="cb">los términos</label>'))).toBe(true);
+    expect(keepsPageParts(block('<span role="button">Ver más</span> texto'))).toBe(true);
+    const host = block('Precio <x-price></x-price> al mes');
+    host.querySelector('x-price')?.attachShadow({ mode: 'open' });
+    expect(keepsPageParts(host)).toBe(true);
+    expect(keepsPageParts(block('Solo <em>texto</em> aquí'))).toBe(false);
+  });
 });
 
 describe('blockText — what a block sends', () => {
@@ -120,6 +189,14 @@ describe('blockText — what a block sends', () => {
   it('keeps a line break and collapses runs of spaces', () => {
     document.body.innerHTML = '<p id="p">  Uno\n   dos<br>tres  </p>';
     expect(blockText(document.getElementById('p') as HTMLElement)).toBe('Uno dos\ntres');
+  });
+
+  it('puts a line between block-level children with no whitespace between them, as a React page builds them', () => {
+    document.body.innerHTML =
+      '<div id="card"><h2>Titular de la noticia</h2><p>El cuerpo de la noticia</p><span>en línea</span></div>';
+    expect(blockText(document.getElementById('card') as HTMLElement)).toBe(
+      'Titular de la noticia\nEl cuerpo de la noticia\nen línea',
+    );
   });
 });
 

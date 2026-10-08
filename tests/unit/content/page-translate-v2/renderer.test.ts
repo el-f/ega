@@ -34,6 +34,28 @@ describe('renderer — bilingual mode', () => {
     expect(handle.target).toBe(sibling);
   });
 
+  it.each(['flex', 'grid', 'inline-flex'])(
+    'puts the translation inside a tile whose parent is %s, so the layout keeps its tiles',
+    (display) => {
+      document.body.innerHTML = `<div style="display:${display}"><div id="t1"><a href="#">Ofertas</a></div><div id="t2">Más</div></div>`;
+      const t1 = document.getElementById('t1') as HTMLElement;
+      const handle = mountBilingual({ id: 'tile', element: t1, originalText: 'Ofertas' });
+      expect(handle.target.parentElement).toBe(t1);
+      expect(handle.target.hasAttribute('data-ega-inside')).toBe(true);
+      expect(t1.parentElement?.children).toHaveLength(2);
+    },
+  );
+
+  it('puts the translation inside a summary, where a closed details still shows it', () => {
+    document.body.innerHTML =
+      '<details><summary id="s">¿Cómo funciona?</summary><p>Así.</p></details>';
+    const summary = document.getElementById('s') as HTMLElement;
+    const handle = mountBilingual({ id: 'sum', element: summary, originalText: '¿Cómo funciona?' });
+    expect(handle.target.parentElement).toBe(summary);
+    expect(handle.target.tagName).toBe('SPAN');
+    expect(handle.target.hasAttribute('data-ega-inside')).toBe(true);
+  });
+
   it.each(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'pre', 'blockquote', 'figcaption'])(
     'keeps the %s tag, so the translation keeps its meaning and its box',
     (tag) => {

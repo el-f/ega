@@ -52,6 +52,10 @@
 [data-ega-tx][data-ega-pending] {
   min-height: 1em;
 }
+/* A box inside the original (a summary's span, a flex or grid tile) still sits on its own line. */
+[data-ega-tx][data-ega-inside] {
+  display: block;
+}
 
 /* The chip's own shadow root styles it; the host only needs to sit inline after the text. */
 [data-ega-tx-error] {

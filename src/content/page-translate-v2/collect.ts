@@ -47,12 +47,9 @@ const SKIP_TAGS = new Set([
   'AUDIO',
 ]);
 
-/** Show both puts the translation inside these, so a box inside one marks it translated. */
-const INSIDE_TX = new Set(['TD', 'TH', 'LI', 'DD', 'DT']);
-
 /** Replace text would take these off the page, so a block that holds one shows in Show both instead. */
 const PAGE_PARTS =
-  'a[href], button, input, select, textarea, [contenteditable], [role="textbox"], iframe, video, audio, embed, object, canvas, svg, img, picture';
+  'a[href], button, input, select, textarea, [contenteditable], [role="textbox"], [role="link"], [role="button"], [tabindex]:not([tabindex="-1"]), label, details, summary, iframe, video, audio, embed, object, canvas, svg, img, picture';
 
 const LETTER = /\p{L}/gu;
 
@@ -92,15 +89,47 @@ function isTranslated(el: Element): boolean {
   const block = BLOCK_TAGS.has(tag) || CONTAINER_TAGS.has(tag);
   for (const c of el.children) {
     if (!live(c)) continue;
-    if (c.hasAttribute('data-ega-replaced') ? block : INSIDE_TX.has(tag)) return true;
+    // Only the box mounted inside this element claims it, not the sibling box of a block inside it.
+    if (c.hasAttribute('data-ega-replaced') ? block : c.hasAttribute('data-ega-inside'))
+      return true;
   }
   return false;
 }
 
-/** Moved off the left edge (an off-canvas menu): the viewport band only reaches up and down, so it never comes near. */
-function offLeft(el: Element): boolean {
+/** Whether an ancestor cuts off its overflow on each axis, cached for one collection pass. */
+type ClipCache = Map<Element, { x: boolean; y: boolean }>;
+
+/**
+ * A box the user can never scroll to, so the viewport band never reaches it: outside the document's scroll range
+ * (an off-canvas menu, content past the edge; on a right-to-left page the range runs left of zero), or outside an
+ * ancestor that hides its overflow (a carousel's later slides).
+ */
+function outOfReach(el: Element, clips: ClipCache): boolean {
   const r = el.getBoundingClientRect();
-  return r.width > 0 && r.right <= 0;
+  if (r.width === 0 && r.height === 0) return false;
+  const doc = el.ownerDocument;
+  const root = doc.documentElement;
+  const win = doc.defaultView;
+  const sx = win?.scrollX ?? 0;
+  const sy = win?.scrollY ?? 0;
+  const rtl = win?.getComputedStyle(root).direction === 'rtl';
+  const minX = rtl ? root.clientWidth - root.scrollWidth : 0;
+  if (r.right + sx <= minX || r.left + sx >= minX + root.scrollWidth) return true;
+  if (r.bottom + sy <= 0 || r.top + sy >= root.scrollHeight) return true;
+  for (let a = el.parentElement; a && a !== doc.body && a !== root; a = a.parentElement) {
+    let clip = clips.get(a);
+    if (!clip) {
+      const st = win?.getComputedStyle(a);
+      const hides = (v: string | undefined): boolean => v === 'hidden' || v === 'clip';
+      clip = { x: hides(st?.overflowX), y: hides(st?.overflowY) };
+      clips.set(a, clip);
+    }
+    if (!clip.x && !clip.y) continue;
+    const ar = a.getBoundingClientRect();
+    if (clip.x && (r.right <= ar.left || r.left >= ar.right)) return true;
+    if (clip.y && (r.bottom <= ar.top || r.top >= ar.bottom)) return true;
+  }
+  return false;
 }
 
 /** Fewer than 2 letters (numbers, a lone symbol) is nothing to translate. */
@@ -119,13 +148,21 @@ export function blockText(el: Element): string {
       if (c.nodeType === Node.TEXT_NODE) out += (c.nodeValue ?? '').replace(/\s+/g, ' ');
       else if (c instanceof Element) {
         if (c.tagName.toUpperCase() === 'BR') out += '\n';
-        else if (!skipSubtree(c)) walk(c);
+        else if (!skipSubtree(c)) {
+          // A block-level child starts its own line, as innerText does; a React page has no whitespace between tags.
+          const display = c.ownerDocument.defaultView?.getComputedStyle(c).display ?? 'inline';
+          const own = !display.startsWith('inline') && display !== 'contents';
+          if (own) out += '\n';
+          walk(c);
+          if (own) out += '\n';
+        }
       }
     }
   };
   walk(el);
   return out
     .replace(/ *\n */g, '\n')
+    .replace(/\n{2,}/g, '\n')
     .replace(/ {2,}/g, ' ')
     .trim();
 }
@@ -133,7 +170,8 @@ export function blockText(el: Element): string {
 /** True when Replace text would remove a link, a field, media or a part the page keeps out. */
 export function keepsPageParts(el: Element): boolean {
   if (el.querySelector(PAGE_PARTS) !== null) return true;
-  for (const d of el.querySelectorAll('*')) if (skipSubtree(d)) return true;
+  // A component's shadow tree draws text the light DOM does not hold, so moving its host would lose it.
+  for (const d of el.querySelectorAll('*')) if (d.shadowRoot || skipSubtree(d)) return true;
   return false;
 }
 
@@ -143,18 +181,20 @@ export function keepsPageParts(el: Element): boolean {
  */
 export function collectBlocks(root: Element, opts: { maxChars: number }): HTMLElement[] {
   const out: HTMLElement[] = [];
+  const clips: ClipCache = new Map();
   // True when the subtree holds a block (or a block too long to take), so no ancestor claims its text.
   const visit = (el: Element): boolean => {
     if (out.length >= MAX_PAGE_BLOCKS || skipSubtree(el)) return false;
     if (isTranslated(el)) return true;
     let inner = false;
     for (const child of el.children) if (visit(child)) inner = true;
+    // ponytail: text that sits next to an inner block (a comment's first line before its <p>) is not collected; a box per text run if that gap matters.
     if (inner) return true;
     const tag = el.tagName.toUpperCase();
     if (!BLOCK_TAGS.has(tag) && !CONTAINER_TAGS.has(tag)) return false;
     const text = blockText(el);
     if (!hasWords(text)) return false;
-    if (text.length > opts.maxChars || offLeft(el)) return true;
+    if (text.length > opts.maxChars || outOfReach(el, clips)) return true;
     if (out.length < MAX_PAGE_BLOCKS) out.push(el as HTMLElement);
     return true;
   };
