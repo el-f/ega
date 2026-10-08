@@ -103,7 +103,7 @@
   title="Diagnostics settings"
   info={{
     label: 'About diagnostics',
-    text: `Turning off Record request details stops response times. The request list keeps its last ${AUDIT_LOG_CAP} requests.`,
+    text: `Turning off Record request details stops new recording and response times; what a conversation already holds stays until you delete it. The request list keeps its last ${AUDIT_LOG_CAP} requests.`,
   }}
 >
   {#snippet headerActions()}

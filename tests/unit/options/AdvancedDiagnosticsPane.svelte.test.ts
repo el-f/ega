@@ -50,10 +50,10 @@ describe('AdvancedDiagnosticsPane', () => {
   it('Record request details has a one-line hint, and the (i) holds the rest', () => {
     const { getByRole } = render(AdvancedDiagnosticsPane, { props: baseProps() });
     expect(describedText(getByRole('checkbox', { name: 'Record request details' }))).toContain(
-      'Keeps timing and token counts for each request',
+      'Keeps timing, token counts and the instructions sent for each reply',
     );
     expect(describedText(getByRole('button', { name: 'About diagnostics' }))).toBe(
-      `Turning off Record request details stops response times. The request list keeps its last ${AUDIT_LOG_CAP} requests.`,
+      `Turning off Record request details stops new recording and response times; what a conversation already holds stays until you delete it. The request list keeps its last ${AUDIT_LOG_CAP} requests.`,
     );
   });
 

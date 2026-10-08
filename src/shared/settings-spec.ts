@@ -844,7 +844,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   {
     id: 'advanced.captureResultMeta',
     label: 'Record request details',
-    description: 'Keeps timing and token counts for each request',
+    description: 'Keeps timing, token counts and the instructions sent for each reply',
     keywords: ['capture', 'meta', 'metadata', 'tokens', 'latency'],
     tab: 'advanced',
     subTab: 'diagnostics',
