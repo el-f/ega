@@ -87,6 +87,40 @@ describe('SidePanel — filters follow the conversation', () => {
     expect(container.querySelector('[data-ega-search]')).toBeNull();
   });
 
+  it('a tab on another site shows its conversation, not the old query', async () => {
+    await saveThread('https://other.test', [user('o1', 'bonjour'), reply('b1', 'o1')]);
+    await saveThread('https://a.test', [user('u1', 'hola'), reply('a1', 'u1')]);
+    const { container } = render(SidePanel);
+    await waitFor(() => expect(turnIds(container)).toEqual(['u1', 'a1']));
+    await openSearch(container, 'hola');
+
+    tabsQuery.mockResolvedValue([{ id: 2, url: 'https://other.test/page' }]);
+    (chrome.tabs.onActivated as unknown as { emit: (i: unknown) => void }).emit({
+      tabId: 2,
+      windowId: 1,
+    });
+    await waitFor(() => expect(turnIds(container)).toEqual(['o1', 'b1']));
+    expect(container.querySelector('[data-ega-search]')).toBeNull();
+  });
+
+  it('deleting the open conversation closes its search too', async () => {
+    await saveThread('https://a.test', [user('u1', 'hola'), reply('a1', 'u1')]);
+    const { container } = render(SidePanel);
+    await waitFor(() => expect(turnIds(container)).toEqual(['u1', 'a1']));
+    await openSearch(container, 'hola');
+    await fireEvent.click(container.querySelector('[data-ega-header-site]') as HTMLElement);
+    const del = await waitFor(() => {
+      const b = document.querySelector<HTMLElement>(
+        '[data-ega-conv-row="https://a.test"] [data-ega-conv-delete]',
+      );
+      if (!b) throw new Error('row not shown');
+      return b;
+    });
+    await fireEvent.click(del);
+    await waitFor(() => expect(turnIds(container)).toEqual([]));
+    expect(container.querySelector('[data-ega-search]')).toBeNull();
+  });
+
   it('closing search with no toggle on screen puts focus in the message box', async () => {
     const { container } = render(SidePanel);
     await waitFor(() => expect(container.querySelector('#sp-text')).not.toBeNull());

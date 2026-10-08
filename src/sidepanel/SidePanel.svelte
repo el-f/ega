@@ -94,6 +94,8 @@
     if (!threadLoaded) return;
     if (shownId !== null && shownId !== id) {
       switchAnnouncement = `Showing the conversation for ${conversationLabel(id)}`;
+      // A query or the bookmark filter was for the conversation the panel left, however it left it.
+      clearFilters();
     }
     shownId = id;
   });
@@ -1042,8 +1044,6 @@
     // Before the switch: a warning the switch itself raises (messages not kept) must stay.
     toastStore.closeSticky();
     if (!(await conversation.openConversation(id))) return false;
-    // A query or the bookmark filter was for the conversation the panel left.
-    clearFilters();
     focusedTurnId = null;
     await tick();
     focusComposer();
@@ -1054,7 +1054,6 @@
   async function onNewConversation(): Promise<void> {
     if (conversation.turns.length === 0) return;
     const previous = await conversation.startNewConversation();
-    clearFilters();
     focusedTurnId = null;
     leaveRefine();
     composerMode = { kind: 'send' };
