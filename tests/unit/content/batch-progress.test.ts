@@ -112,6 +112,21 @@ describe('the page-translate pill', () => {
     expect(q('[data-ega-batch-label]')?.textContent).toBe('Page translated to English');
   });
 
+  it('the session owns Show original: a press that brings the translation back un-presses it', () => {
+    const h = show();
+    h.update({ ...settled, target: 'English' });
+    flushSync();
+    button('Show original')?.click();
+    flushSync();
+    h.update({ ...settled, target: 'English', showingOriginal: true });
+    flushSync();
+    // A second Translate page press switches the page back and says so in its snapshot.
+    h.update({ ...settled, target: 'English', showingOriginal: false });
+    flushSync();
+    expect(button('Show original')?.getAttribute('aria-pressed')).toBe('false');
+    expect(q('[data-ega-batch-label]')?.textContent).toBe('Page translated to English');
+  });
+
   it('Stop that settles the pill hands focus to the next control, not the page', async () => {
     const h = show();
     button('Stop')?.focus();

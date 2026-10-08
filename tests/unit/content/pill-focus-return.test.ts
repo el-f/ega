@@ -19,17 +19,20 @@ function pill(selector: string): HTMLElement {
   return el;
 }
 
-async function failedBlock(): Promise<HTMLElement> {
+async function failedBlock(mode: 'inplace' | 'bilingual' = 'inplace'): Promise<HTMLElement> {
   document.body.innerHTML = '<p id="p">これは一つだけの段落です。</p>';
   const sent: string[] = [];
-  const d = deps({
-    dispatch: vi.fn((id: string) => {
-      sent.push(id);
-      return Promise.resolve();
-    }),
-    mountProgress: (total, stop) => showBatchProgress(total, stop),
-    isTargetLanguage: () => false,
-  });
+  const d = deps(
+    {
+      dispatch: vi.fn((id: string) => {
+        sent.push(id);
+        return Promise.resolve();
+      }),
+      mountProgress: (total, stop) => showBatchProgress(total, stop),
+      isTargetLanguage: () => false,
+    },
+    { pageTranslateMode: mode },
+  );
   await runWholePageTranslate(d);
   FakeObserver.last?.band(new Set([document.getElementById('p') as HTMLElement]));
   await flush();
@@ -80,6 +83,19 @@ describe('the pill gives focus back when its button takes the chip button away',
     pill('[data-ega-batch-remove]').click();
     await flush();
     expect(document.querySelector('[data-ega-tx-error]')).toBeNull();
+    expect(document.activeElement).toBe(document.getElementById('p'));
+  });
+
+  it('in Show both, Remove translation takes the box beside the block; focus goes to the block', async () => {
+    const chip = await failedBlock('bilingual');
+    const more = pill('[data-ega-batch-more]');
+    tabIntoPill(chip, more);
+    more.click();
+    flushSync();
+    pill('[data-ega-batch-remove]').click();
+    await flush();
+    expect(document.querySelector('[data-ega-tx]')).toBeNull();
+    expect(document.getElementById('p')?.textContent).toBe('これは一つだけの段落です。');
     expect(document.activeElement).toBe(document.getElementById('p'));
   });
 });

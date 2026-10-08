@@ -126,6 +126,11 @@ export function showBatchProgress(
     active.focusTrail = [];
     for (let el: HTMLElement | null = chip; el && el !== document.body; el = el.parentElement) {
       active.focusTrail.push(el);
+      // A Show-both box sits beside its block, which stays when Remove translation takes the box.
+      const block = el.previousElementSibling;
+      if (el.matches('[data-ega-tx]:not([data-ega-inside])') && block instanceof HTMLElement) {
+        active.focusTrail.push(block);
+      }
     }
   });
 
