@@ -24,6 +24,17 @@ describe('looksLikeEnglish before the lexicon loads (top-500 fallback)', () => {
     }
   });
 
+  // R7: an accent split "más" into "m" and "s", two English hits, so a Spanish heading read as English and page
+  // translate skipped it as already translated.
+  describe('accented words stay whole words → false', () => {
+    const cases = ['Libros más vendidos', 'Él está aquí', 'Ça coûte très cher', 'Größe ändern'];
+    for (const t of cases) {
+      it(`false: ${JSON.stringify(t)}`, () => {
+        expect(looksLikeEnglish(t)).toBe(false);
+      });
+    }
+  });
+
   describe('digit-less Arabizi → false (bubble shows)', () => {
     const cases = [
       'yarayt rase fade add rasak',

@@ -38,8 +38,14 @@ export function loadEnglishLexicon(): Promise<typeof LexiconMod | null> {
 export function looksLikeEnglish(text: string): boolean {
   const lexicon = lexiconCacheInternal.mod;
   if (lexicon) return lexicon.readsAsEnglish(text, ENGLISH_DIGIT_WORD);
-  // An English digit word is neither a hit nor a miss; split at the digit, "mp3" read as the non-word "mp".
-  const words = text.toLowerCase().match(/[a-z\d]+/g) ?? [];
+  // An English digit word is neither a hit nor a miss. Accents come off first, so "más" is the one word "mas", not the
+  // English "m" and "s".
+  const words =
+    text
+      .normalize('NFD')
+      .replace(/\p{M}/gu, '')
+      .toLowerCase()
+      .match(/[a-z\d]+/g) ?? [];
   const tokens = words.filter((w) => !ENGLISH_DIGIT_WORD.test(w));
   if (tokens.length === 0) return true;
   if (tokens.length < MIN_TOKENS) return true;
