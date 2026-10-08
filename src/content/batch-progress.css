@@ -186,7 +186,9 @@
     transform: translateX(-50%) translateY(0);
   }
 }
-/* A toast shown while the pill is up sits above it instead of covering it; batch-progress.ts measures the pill. */
-.ega-root:has(> [data-ega-batch-progress-wrap]) .ega-toast {
+/* A toast shown while the pill is up sits above it instead of covering it; batch-progress.ts measures the pill.
+   A picker mode hides the pill (picker-bar.css), and a hidden pill does not count: the toast then sits above
+   the picker bar (picker-bar.css), whichever sheet came in last. */
+.ega-root:has(> [data-ega-batch-progress-wrap]):not(:has(> [data-ega-picker-bar-wrap])) .ega-toast {
   bottom: calc(24px + var(--space-2) + var(--ega-batch-progress-h, 40px));
 }

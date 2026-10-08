@@ -405,32 +405,143 @@ function contrast(a: number[], b: number[]): number {
 
 test('a toast in a picker mode sits above the bottom bar, wide and narrow', async () => {
   const page = await ext.context.newPage();
-  await page.goto(`${ext.serverUrl}/batch-page.html`);
+  test.slow();
+  mockAnthropic(ext.context, {
+    translation: 'Hello friend, how are you?',
+    detectedLang: 'arabizi',
+  });
+  await page.setViewportSize({ width: 1000, height: 700 });
+  await page.goto(`${ext.serverUrl}/hostile-page.html`);
   await waitForTestHooks(page);
+  // A settled pill stays on the page through a picker mode, hidden; a hidden pill must not place the toast.
+  await translatePage();
+  await expect.poll(() => pillLabel(page), { timeout: 20_000 }).toMatch(/^Page translated/);
+  const pill = await toastOver(page, '[data-ega-batch-progress]');
+  expect(pill.gap, 'above the pill').toBeGreaterThanOrEqual(4);
+  expect(pill.gap, 'above the pill').toBeLessThanOrEqual(12);
+  // A private field: its refusal is the bar's longest status, and it wraps the bar at desktop widths too.
+  await page.evaluate(() => {
+    const f = document.createElement('input');
+    f.type = 'password';
+    f.id = 'ega-test-pw';
+    f.style.cssText = 'position:fixed;top:8px;left:8px;width:120px;z-index:1';
+    document.body.append(f);
+  });
+  await chooseAreas();
+  await expect.poll(async () => egaTest<boolean>(page, 'msIsActive')).toBe(true);
+
+  const fails: string[] = [];
+  // Linux draws the UI font in DejaVu Sans, about as wide as Verdana and 14-22% wider than Segoe UI, so the
+  // bar wraps sooner there; both are tried on every platform.
+  for (const font of ['', 'Verdana, "DejaVu Sans", sans-serif']) {
+    await setUiFont(page, font);
+    // Idle first, then the refusal, which holds the status for 4 s.
+    for (const refusal of [false, true]) {
+      for (const width of [1280, 1000, 640, 560, 400, 360]) {
+        await page.setViewportSize({ width, height: 700 });
+        if (refusal) await page.click('#ega-test-pw');
+        await settle(page);
+        const m = await toastOver(page, '.ega-picker-bar');
+        const name = `${font || 'default font'}, ${width}px, ${refusal ? 'refusal' : 'idle'}`;
+        // Spec 1.3: 8px above the bar. A negative gap is a toast over the bar's status or controls.
+        if (!(m.gap >= 4 && m.gap <= 12))
+          fails.push(`${name}: gap ${m.gap} over a ${m.height}px bar`);
+        // Spec 6.3: a bar on two or more rows takes the card radius, and only then.
+        if (m.height > 48 && m.radius !== m.cardRadius) fails.push(`${name}: radius ${m.radius}`);
+        if (m.wrapped !== m.height > 48) fails.push(`${name}: data-ega-wrapped is ${m.wrapped}`);
+      }
+    }
+  }
+  await setUiFont(page, '');
+  expect(fails).toEqual([]);
+
+  // Out of the mode the pill shows again, and the toast goes back above it.
+  await page.setViewportSize({ width: 1000, height: 700 });
+  await page.keyboard.press('Escape');
+  await expect.poll(async () => egaTest<boolean>(page, 'msIsActive')).toBe(false);
+  await settle(page);
+  // The pill plays its entry rise again as it comes back; measure where it comes to rest.
+  await page.evaluate(() =>
+    Promise.all(
+      (
+        document
+          .getElementById('ega-shadow-host')
+          ?.shadowRoot?.querySelector('[data-ega-batch-progress]')
+          ?.getAnimations() ?? []
+      ).map((a) => a.finished),
+    ),
+  );
+  const back = await toastOver(page, '[data-ega-batch-progress]');
+  expect(back.gap, 'above the pill again').toBeGreaterThanOrEqual(4);
+  expect(back.gap, 'above the pill again').toBeLessThanOrEqual(12);
+});
+
+async function chooseAreas(): Promise<void> {
   const sw = ext.context.serviceWorkers()[0];
   await sw?.evaluate(async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tab?.id) await chrome.tabs.sendMessage(tab.id, { kind: 'page:chooseAreas' });
   });
-  await expect.poll(async () => egaTest<boolean>(page, 'msIsActive')).toBe(true);
-  for (const width of [1000, 400]) {
-    await page.setViewportSize({ width, height: 700 });
-    const gap = await page.evaluate(() => {
-      const root = document.getElementById('ega-shadow-host')?.shadowRoot;
-      // The sheet alone places a toast, so a bare toast box shows where any toast lands.
-      const toast = document.createElement('div');
-      toast.className = 'ega-toast';
-      toast.style.animation = 'none';
-      toast.textContent = 'Select some text first, then press the shortcut.';
-      root?.querySelector('.ega-root')?.append(toast);
-      const t = toast.getBoundingClientRect();
-      const bar = root?.querySelector('.ega-picker-bar')?.getBoundingClientRect();
-      toast.remove();
-      return bar ? bar.top - t.bottom : Number.NaN;
-    });
-    expect(gap, `${width}px wide`).toBeGreaterThanOrEqual(4);
-  }
-});
+}
+
+/** Swaps Ega's UI font inside its shadow root; '' puts the default back. */
+function setUiFont(page: Page, font: string): Promise<void> {
+  return page.evaluate((f) => {
+    const root = document.getElementById('ega-shadow-host')?.shadowRoot;
+    root?.getElementById('ega-test-font')?.remove();
+    if (!f) return;
+    const style = document.createElement('style');
+    style.id = 'ega-test-font';
+    style.textContent = `:host { --font-ui: ${f}; }`;
+    root?.append(style);
+  }, font);
+}
+
+/** Where a toast lands over the bottom-slot element `sel`, plus that element's height and corner radius. The
+ *  sheet alone places a toast, so a bare toast box shows where any toast lands. */
+function toastOver(
+  page: Page,
+  sel: string,
+): Promise<{
+  gap: number;
+  height: number;
+  radius: string;
+  cardRadius: string;
+  wrapped: boolean;
+}> {
+  return page.evaluate((s) => {
+    const root = document.getElementById('ega-shadow-host')?.shadowRoot;
+    const ega = root?.querySelector('.ega-root');
+    const toast = document.createElement('div');
+    toast.className = 'ega-toast';
+    toast.style.animation = 'none';
+    toast.textContent = 'Select some text first, then press the shortcut.';
+    ega?.append(toast);
+    const probe = document.createElement('div');
+    probe.style.borderRadius = 'var(--radius-lg)';
+    ega?.append(probe);
+    const cardRadius = getComputedStyle(probe).borderTopLeftRadius;
+    probe.remove();
+    const t = toast.getBoundingClientRect();
+    const el = root?.querySelector(s);
+    const bar = el?.getBoundingClientRect();
+    toast.remove();
+    return {
+      gap: bar && bar.height > 0 ? Math.round(bar.top - t.bottom) : Number.NaN,
+      height: Math.round(bar?.height ?? 0),
+      radius: el ? getComputedStyle(el).borderTopLeftRadius : '',
+      cardRadius,
+      wrapped: el?.hasAttribute('data-ega-wrapped') ?? false,
+    };
+  }, sel);
+}
+
+/** Two frames: a ResizeObserver callback has run and its style change is laid out. */
+function settle(page: Page): Promise<void> {
+  return page.evaluate(
+    () => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))),
+  );
+}
 
 async function translatePage(): Promise<void> {
   const sw = ext.context.serviceWorkers()[0];

@@ -269,14 +269,3 @@ describe('Choose areas — the order badge reads on any page', () => {
     expect(block).toMatch(/max\(12px, 0\.75em\)/);
   });
 });
-
-describe('the bottom bar slot — a toast clears the picker bar too', () => {
-  it('a toast in a picker mode sits above the bar, which takes two rows below 560px', () => {
-    expect(shadowCss).toMatch(
-      /\.ega-root:has\(> \[data-ega-picker-bar-wrap\]\) \.ega-toast \{\s*bottom: calc\(var\(--space-4\) \+ var\(--ega-picker-bar-h\) \+ var\(--space-2\)\);/,
-    );
-    expect(shadowCss).toMatch(
-      /@media \(max-width: 559px\) \{[^@]*\[data-ega-picker-bar-wrap\]\) \{\s*--ega-picker-bar-h: \d+px;/,
-    );
-  });
-});

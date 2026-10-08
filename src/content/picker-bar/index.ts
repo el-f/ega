@@ -27,6 +27,7 @@ export interface PickerBarHandle extends BarExports {
 const KEYS_HINT = 'Press the question mark key for the bar and its keys.';
 /** Long enough for a screen reader to register the empty live region before it changes. */
 const HINT_DELAY_MS = 400;
+const HEIGHT_VAR = '--ega-picker-bar-h';
 
 /** Mounts the one bottom bar both picker modes share. */
 export function mountPickerBar(props: {
@@ -43,6 +44,23 @@ export function mountPickerBar(props: {
   getContainer().appendChild(anchor);
   const handle = mount(PickerBar, { target: anchor, props }) as unknown as BarExports &
     Record<string, unknown>;
+  // A long status or a wide font wraps the bar to more rows; a toast above it must clear all of them (picker-bar.css).
+  const bar = anchor.querySelector<HTMLElement>('.ega-picker-bar');
+  const container = anchor.parentElement;
+  const measure = (): void => {
+    if (!bar) return;
+    container?.style.setProperty(HEIGHT_VAR, `${bar.offsetHeight}px`);
+    const lead = bar.querySelector<HTMLElement>('.lead');
+    const controls = bar.querySelector<HTMLElement>('.controls');
+    // Spec 6.3: a bar on more than one row takes the card radius, not the pill's.
+    bar.toggleAttribute(
+      'data-ega-wrapped',
+      !!lead && !!controls && controls.offsetTop >= lead.offsetTop + lead.offsetHeight,
+    );
+  };
+  measure();
+  const resize = typeof ResizeObserver === 'function' ? new ResizeObserver(measure) : null;
+  if (bar) resize?.observe(bar);
   // A cursor move spoken first wins: the hint never talks over what the user just did.
   let spoke = false;
   const hint = setTimeout(() => {
@@ -65,6 +83,8 @@ export function mountPickerBar(props: {
     focusKeys: () => flushSync(() => handle.focusKeys()),
     destroy: () => {
       clearTimeout(hint);
+      resize?.disconnect();
+      container?.style.removeProperty(HEIGHT_VAR);
       try {
         void unmount(handle);
       } catch (e) {

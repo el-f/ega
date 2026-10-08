@@ -31,10 +31,12 @@
 .ega-picker-bar[data-ega-picker-bar='pick'] {
   width: min(560px, calc(100vw - 16px));
 }
+/* Spec 6.3: a bar on more than one row takes the card radius. index.ts sets this when the controls drop below
+   the status, which a long status or a wide font does at any width, not only below 560px. */
+.ega-picker-bar[data-ega-wrapped] {
+  border-radius: var(--radius-lg);
+}
 @media (max-width: 559px) {
-  .ega-picker-bar {
-    border-radius: var(--radius-lg);
-  }
   .ega-picker-bar .lead {
     flex-basis: 100%;
   }
@@ -168,4 +170,9 @@
 /* One bar at a time in the slot: a picker mode hides the page-translate pill until it ends. */
 .ega-root:has(> [data-ega-picker-bar-wrap]) [data-ega-batch-progress] {
   display: none;
+}
+/* A toast in a picker mode sits 8px above the bar (spec 1.3). index.ts publishes the bar's measured height, which
+   grows to two or three rows with a long status, a narrow window or a wide font. */
+.ega-root:has(> [data-ega-picker-bar-wrap]) .ega-toast {
+  bottom: calc(var(--space-4) + var(--ega-picker-bar-h, 40px) + var(--space-2));
 }

@@ -311,7 +311,7 @@ describe('the page-translate pill', () => {
     expect(root.style.getPropertyValue('--ega-batch-progress-h')).toBe('72px');
     const sheet = readFileSync(resolve('src/content/batch-progress.css'), 'utf8');
     expect(sheet).toMatch(
-      /\.ega-root:has\(> \[data-ega-batch-progress-wrap\]\) \.ega-toast\s*\{[^}]*var\(--ega-batch-progress-h/,
+      /\.ega-root:has\(> \[data-ega-batch-progress-wrap\]\)[^{]* \.ega-toast\s*\{[^}]*var\(--ega-batch-progress-h/,
     );
     h.dismiss();
     expect(root.style.getPropertyValue('--ega-batch-progress-h')).toBe('');
