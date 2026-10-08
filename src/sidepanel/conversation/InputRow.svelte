@@ -25,6 +25,7 @@
   import type { ConversationTurnLike } from '@/shared/chat-history';
   import { modeChipLabel, swapResult, type ComposerMode } from '../state/thread-view';
   import ModePopover from './ModePopover.svelte';
+  import { outsidePressFocus } from './menu-focus';
 
   interface SpeechRecognitionLike {
     lang: string;
@@ -195,6 +196,7 @@
   const currentView = $derived(taskViews.find((v) => v.id === task));
   // A task that takes no images sends an attached one to the image reader, as Translate.
   // An edit or a described change sends words only; an attached image waits for the next message.
+  const addMenuFocus = outsidePressFocus();
   const nextImage = $derived(mode.kind === 'send' ? attachedImage : null);
   const imageToTranslate = $derived(attachedImage !== null && !(currentView?.image ?? false));
   const imageBlocked = $derived<ReadonlySet<TaskId> | null>(
@@ -482,6 +484,7 @@
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
           <DropdownMenu.Content
+            {...addMenuFocus}
             preventScroll={false}
             class="sp-menu"
             side="top"

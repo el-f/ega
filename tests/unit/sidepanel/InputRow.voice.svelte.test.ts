@@ -49,6 +49,27 @@ async function dictate(props = composerProps()): Promise<{ container: HTMLElemen
 const stopButton = (c: HTMLElement): HTMLElement | null =>
   c.querySelector<HTMLElement>('[data-ega-add][aria-label="Stop dictation"]');
 
+describe('the Add menu and a press outside it', () => {
+  it('a press on the message box closes the menu and leaves focus in the box', async () => {
+    vi.stubGlobal('SpeechRecognition', FakeRecognition);
+    const { container } = render(InputRow, { props: composerProps() });
+    const add = container.querySelector<HTMLElement>('[data-ega-add]') as HTMLElement;
+    add.focus();
+    await openAdd(container);
+    await waitFor(() =>
+      expect(document.querySelector('[role="menu"]')?.contains(document.activeElement)).toBe(true),
+    );
+    const box = container.querySelector<HTMLTextAreaElement>('#sp-text') as HTMLTextAreaElement;
+    const at = { clientX: 50, clientY: 50, button: 0, pointerType: 'mouse' };
+    await fireEvent.pointerDown(box, at);
+    box.focus();
+    await fireEvent.pointerUp(box, at);
+    await fireEvent.click(box, at);
+    await waitFor(() => expect(document.querySelector('[role="menu"]')).toBeNull());
+    expect(document.activeElement).toBe(box);
+  });
+});
+
 describe('dictation lives in the Add menu', () => {
   it('with no speech API there is no dictate item', () => {
     vi.stubGlobal('SpeechRecognition', undefined);
