@@ -35,6 +35,7 @@ import {
   type VariantSeed,
 } from './conversation';
 import {
+  type LoadThreadResult,
   loadThreadResult,
   mergeStoredThread,
   parseThreadChange,
@@ -1328,6 +1329,15 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     return handle;
   }
 
+  /** Saves the thread being left; a failed save must not strand the panel, saveFailed carries it. */
+  async function flushForSwitch(): Promise<void> {
+    try {
+      await flush(); // persist the OLD origin, cancellation included
+    } catch (e) {
+      debugCatch(e, 'conversation.switchTo');
+    }
+  }
+
   /** False only with `refuseUnreadable`, when the thread could not be read: nothing on screen changed. */
   async function switchTo(
     origin: string,
@@ -1338,14 +1348,22 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       if (origin === state.activeId && state.turns.length > 0) return true;
       // Snapshot ids before any await: a seed message can append turns while flush or loadThreadResult run.
       const preLoadIds = state.turns.map((t) => t.id);
-      // The running reply belongs to the thread it was sent from, so it finishes there.
-      if (state.inflightId !== null) moveToBackground();
-      // A rejected save must not strand the panel on the previous site's thread; saveFailed carries it.
-      // A same-site reload flushes too: a delete still on the debounce would otherwise be read back from storage.
-      try {
-        await flush(); // persist the OLD origin, cancellation included
-      } catch (e) {
-        debugCatch(e, 'conversation.switchTo');
+      let read: LoadThreadResult | undefined;
+      if (opts.refuseUnreadable === true) {
+        // Read before anything moves, so a refused thread leaves the reply that is still arriving on screen.
+        await flushForSwitch();
+        // A save inside the read would race the load, as it would inside loadThreadInto.
+        loadingOrigin = origin;
+        read = await loadThreadResult(origin).finally(() => {
+          loadingOrigin = null;
+        });
+        if (read.unreadable) return false;
+        // A seed that came during the read owns the slot now, and the load carries it over.
+        if (state.inflightId !== null && preLoadIds.includes(state.inflightId)) moveToBackground();
+      } else {
+        // The running reply belongs to the thread it was sent from, so it finishes there.
+        if (state.inflightId !== null) moveToBackground();
+        await flushForSwitch();
       }
       if (state.activeId !== origin) {
         // A successful flush clears saveFailed, so this only fires when the turns really were dropped.
@@ -1358,11 +1376,9 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       }
       cancelPendingPersist();
       loadingOrigin = origin;
-      return await loadThreadInto(origin, preLoadIds, opts.refuseUnreadable === true).finally(
-        () => {
-          loadingOrigin = null;
-        },
-      );
+      return await loadThreadInto(origin, preLoadIds, read).finally(() => {
+        loadingOrigin = null;
+      });
     }
   }
 
@@ -1382,11 +1398,10 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
   async function loadThreadInto(
     origin: string,
     preLoadIds: readonly string[],
-    refuseUnreadable = false,
+    read?: LoadThreadResult,
   ): Promise<boolean> {
     {
-      const { turns: raw, unreadable, clearedAt } = await loadThreadResult(origin);
-      if (unreadable && refuseUnreadable) return false;
+      const { turns: raw, unreadable, clearedAt } = read ?? (await loadThreadResult(origin));
       seenClearedAt = clearedAt;
       if (unreadable && !unreadableWarned.has(origin)) {
         unreadableWarned.add(origin);

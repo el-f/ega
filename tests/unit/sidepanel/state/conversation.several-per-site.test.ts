@@ -262,6 +262,29 @@ describe('opening a conversation this build cannot read', () => {
     expect((await chrome.storage.local.get(key))[key]).toEqual(newer);
   });
 
+  it('refuses it before touching the reply that is still arriving', async () => {
+    const a = 'https://a.example';
+    const v2 = 'https://v2.example';
+    await saveThread(a, [userTurn('a1', 'hola')]);
+    await saveThread(v2, [userTurn('v1', 'future chat')]);
+    const key = threadKey(v2);
+    const stored = (await chrome.storage.local.get(key))[key] as Record<string, unknown>;
+    await chrome.storage.local.set({ [key]: { ...stored, version: 99 } });
+    const c = createConversation();
+    await c.followSite(a);
+    c.seedExternalImageTurn('req-live', 'https://img.example/p.png');
+    const running = c.inflightId;
+    expect(running).not.toBeNull();
+
+    expect(await c.openConversation(v2)).toBe(false);
+
+    // The reply is still this screen's: its next chunk lands here.
+    expect(c.inflightId).toBe(running);
+    c.applyChunk({ type: 'delta', requestId: 'req-live', text: '{"translation":"hi"}' });
+    c.applyChunk({ type: 'done', requestId: 'req-live' });
+    expect(c.turns.find((t) => t.id === running)?.status).toBe('done');
+  });
+
   it('opens a readable one and says so', async () => {
     const a = 'https://a.example';
     const b = 'https://b.example';
