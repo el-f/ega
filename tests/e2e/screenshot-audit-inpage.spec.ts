@@ -226,6 +226,21 @@ test('Popup — every state of the page-popup redesign', async () => {
     await p.close();
   }
 
+  // Translate anyway runs the default task, so with Summarize it reads "Summarize anyway".
+  await seedSettings(ext.context, ext.extensionId, { defaultTask: 'summarize' });
+  p = await openPopup(ext.context, {
+    url: site,
+    reply: { text: 'hi there', heldBack: { reason: 'english' } },
+  });
+  await p.getByRole('button', { name: 'Summarize anyway' }).waitFor();
+  await both(p, 'popup-held-task-summarize', {
+    ...POPUP_META,
+    state: 'held-task-summarize',
+    expectations: ['the status action reads "Summarize anyway": it names the task it runs'],
+  });
+  await p.close();
+  await seedSettings(ext.context, ext.extensionId, { defaultTask: 'translate' });
+
   p = await openPopup(ext.context, {});
   await both(p, 'popup-restricted', {
     ...POPUP_META,
@@ -430,6 +445,28 @@ test('Bubble — label, queue, menu, edges, RTL, first run', async () => {
       '4px under the line',
     ],
   });
+
+  // The bubble runs the default task; with Summarize it says so instead of "Translate to English".
+  const bubbleLabel = (): Promise<string> =>
+    page.evaluate(
+      () =>
+        document
+          .getElementById('ega-shadow-host')
+          ?.shadowRoot?.querySelector('.bubble-label')
+          ?.textContent.trim() ?? '',
+    );
+  await seedSettings(ext.context, ext.extensionId, { defaultTask: 'summarize' });
+  await selectText(page, 'c1');
+  await expect.poll(bubbleLabel).toBe('Summarize');
+  await bubbleShown(page);
+  await both(page, 'bubble-task-summarize', {
+    ...meta,
+    state: 'task-summarize',
+    expectations: ['"Summarize" beside the mark: the bubble names the default task it runs'],
+  });
+  await seedSettings(ext.context, ext.extensionId, { defaultTask: 'translate' });
+  await selectText(page, 'c1');
+  await expect.poll(bubbleLabel).toBe('Translate to English');
 
   await page.evaluate(() => {
     const b = document
