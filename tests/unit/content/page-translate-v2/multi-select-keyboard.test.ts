@@ -376,3 +376,42 @@ describe('multi-select — a failed area can be chosen again', () => {
     expect(el('o').hasAttribute('data-ega-ms-selected')).toBe(false);
   });
 });
+
+describe('multi-select — areas the page removes', () => {
+  it('a chosen area the page removes leaves the count, and is not sent', async () => {
+    let fired: SelectedBlock[] = [];
+    enterMultiSelect(
+      opts({
+        onFire: (blocks) => {
+          fired = blocks;
+        },
+      }),
+    );
+    click(el('first'));
+    click(el('last'));
+    expect(toolbar('[data-ega-ms-count]').textContent).toBe('2 areas chosen');
+    el('last').remove();
+    await vi.waitFor(() =>
+      expect(toolbar('[data-ega-ms-count]').textContent).toBe('1 area chosen'),
+    );
+    expect(el('first').getAttribute('data-ega-ms-selected')).toBe('1');
+    press('Enter');
+    expect(fired.map((b) => b.element.id)).toEqual(['first']);
+  });
+
+  it('an area removed in the same moment as the press is not sent either', () => {
+    let fired: SelectedBlock[] = [];
+    enterMultiSelect(
+      opts({
+        onFire: (blocks) => {
+          fired = blocks;
+        },
+      }),
+    );
+    click(el('first'));
+    click(el('last'));
+    el('first').remove();
+    press('Enter');
+    expect(fired.map((b) => b.element.id)).toEqual(['last']);
+  });
+});

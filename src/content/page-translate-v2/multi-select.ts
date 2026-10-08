@@ -73,6 +73,8 @@ const ANNOUNCE_CHARS = 60;
 
 interface MsSession {
   selected: Element[];
+  /** Watches for chosen areas the page takes away. */
+  removals: MutationObserver;
   mode: RenderMode;
   opts: MultiSelectOpts;
   bar: PickerBarHandle;
@@ -247,11 +249,21 @@ function modeLabel(mode: RenderMode): string {
   return mode === 'inplace' ? 'Replace text' : 'Show both';
 }
 
+/** A chosen area the page removed (a feed refresh, a closed panel, an SPA Back) leaves the count and is never sent. */
+function pruneDetached(): void {
+  if (!ms?.selected.some((el) => !el.isConnected)) return;
+  ms.selected = ms.selected.filter((el) => el.isConnected);
+  renumber();
+  patchToolbar();
+}
+
 function fire(): void {
   if (!ms || ms.selected.length === 0) return;
   const blocks: SelectedBlock[] = [];
   let skipped = 0;
   for (const el of ms.selected) {
+    // Removed in the same task as the press, before the removal watch had its turn.
+    if (!el.isConnected) continue;
     const text = elementText(el);
     // The page can grow a block between pick and fire; cutting it here would drop page text on replace.
     if (!text || text.length > MAX_SELECTION_CHARS) {
@@ -381,7 +393,9 @@ export function enterMultiSelect(opts: MultiSelectOpts): void {
     },
   });
   bar.anchor.setAttribute('data-ega-ms-wrap', '');
-  ms = { selected: [], mode: opts.initialMode, opts, bar, hovered: null, cursor: null };
+  const removals = new MutationObserver(pruneDetached);
+  removals.observe(document.documentElement, { childList: true, subtree: true });
+  ms = { selected: [], removals, mode: opts.initialMode, opts, bar, hovered: null, cursor: null };
   document.addEventListener('mousemove', onMouseMove, true);
   document.addEventListener('click', onClick, true);
   document.addEventListener('keydown', onKeyDown, true);
@@ -396,6 +410,7 @@ export function exitMultiSelect(): void {
   document.removeEventListener('mousemove', onMouseMove, true);
   document.removeEventListener('click', onClick, true);
   document.removeEventListener('keydown', onKeyDown, true);
+  session.removals.disconnect();
   session.hovered?.removeAttribute(HOVER_ATTR);
   session.cursor?.removeAttribute(CURSOR_ATTR);
   for (const el of session.selected) el.removeAttribute(SELECTED_ATTR);
