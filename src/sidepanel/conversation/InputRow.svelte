@@ -194,6 +194,8 @@
 
   const currentView = $derived(taskViews.find((v) => v.id === task));
   // A task that takes no images sends an attached one to the image reader, as Translate.
+  // An edit or a described change sends words only; an attached image waits for the next message.
+  const nextImage = $derived(mode.kind === 'send' ? attachedImage : null);
   const imageToTranslate = $derived(attachedImage !== null && !(currentView?.image ?? false));
   const imageBlocked = $derived<ReadonlySet<TaskId> | null>(
     attachedImage === null ? null : new Set(taskViews.filter((v) => !v.image).map((v) => v.id)),
@@ -227,7 +229,7 @@
 
   // An image send carries no history, so the count would promise context that is not sent.
   const historyLabel = $derived(
-    attachedImage
+    nextImage
       ? null
       : (chatContextLabel(historyTurns, { budgetTokens: CHAT_HISTORY_TOKEN_BUDGET })?.replace(
           /^Using /,
@@ -239,14 +241,11 @@
   const overCap = $derived(value.length > MAX_SELECTION_CHARS);
   const nearCap = $derived(value.length > MAX_SELECTION_CHARS * 0.8);
   const count = (n: number): string => n.toLocaleString('en-US');
-  // A described change sends words only; an attached image waits for the next message.
-  const ready = $derived(
-    (value.trim() !== '' || (attachedImage !== null && mode.kind !== 'refine')) && !overCap,
-  );
+  const ready = $derived((value.trim() !== '' || nextImage !== null) && !overCap);
   const placeholder = $derived(
     mode.kind === 'refine'
       ? 'Describe the change'
-      : attachedImage
+      : nextImage
         ? 'Add a note (optional)'
         : 'Type, paste, or drop an image',
   );
@@ -294,8 +293,14 @@
   // Checked here, where the user acts: an image the turn cannot carry would go out as the bare "[image]" text.
   function attach(dataUrl: string): void {
     if (!dataUrl) return;
-    if (mode.kind === 'refine') {
-      toastStore.push({ message: "Images can't be part of a change.", variant: 'warning' });
+    if (mode.kind !== 'send') {
+      toastStore.push({
+        message:
+          mode.kind === 'refine'
+            ? "Images can't be part of a change."
+            : "Images can't be part of an edit.",
+        variant: 'warning',
+      });
       return;
     }
     const problem = attachedImageProblem(dataUrl);
@@ -432,13 +437,13 @@
         >
       </span>
     {/if}
-    {#if mode.kind !== 'refine' && (pageInfoGoes || historyLabel !== null || attachedImage)}
+    {#if mode.kind !== 'refine' && (pageInfoGoes || historyLabel !== null || nextImage)}
       <span class="ega-next-send" data-ega-next-send>
         {#if pageInfoGoes}<span class="ega-next-item">Page info</span>{/if}
         {#if historyLabel !== null}<span class="ega-next-item">{historyLabel}</span>{/if}
-        {#if attachedImage}
+        {#if nextImage}
           <span class="ega-next-item ega-next-image">
-            <img src={attachedImage} alt="Attachment" class="ega-next-thumb" />
+            <img src={nextImage} alt="Attachment" class="ega-next-thumb" />
             <span aria-hidden="true">Image</span>
             <IconButton
               icon={X}
@@ -478,7 +483,7 @@
             align="start"
             sideOffset={6}
           >
-            {#if mode.kind !== 'refine'}
+            {#if mode.kind === 'send'}
               <DropdownMenu.Item
                 class="sp-menu-item"
                 onSelect={() => imageInputEl?.click()}
@@ -509,7 +514,7 @@
       >
         <Icon icon={CircleStop} size={16} />
       </button>
-    {:else if mode.kind !== 'refine'}
+    {:else if mode.kind === 'send'}
       <button
         type="button"
         class="ega-icon-btn variant-default size-md"

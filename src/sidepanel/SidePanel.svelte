@@ -157,7 +157,9 @@
   }
   const takesImage = $derived(taskTakesImage(task));
   // An attached image takes the OCR arm unless the task reads images itself; that prompt has no tone and no page info.
-  const toOcr = $derived(attachedImage !== null && (task === 'translate' || !takesImage));
+  // An edit sends words only, so an image waiting in the composer goes with the next new message.
+  const sendImage = $derived(composerMode.kind === 'send' ? attachedImage : null);
+  const toOcr = $derived(sendImage !== null && (task === 'translate' || !takesImage));
   const usesTone = $derived(
     !toOcr &&
       (settings ? taskUsesTone(settings, customTasks, task, sourceLang) : task === 'reword'),
@@ -283,7 +285,8 @@
       if (await onRefine({ turnId, refinementBody: text })) leaveRefine();
       return;
     }
-    if (!text && !attachedImage) return;
+    const img = sendImage;
+    if (!text && !img) return;
     if (sending || conversation.inflightId !== null) return;
     sendStarted();
     sending = true;
@@ -296,7 +299,6 @@
         (t): t is UserTurnData => t.role === 'user' && t.id === editingTurnId,
       );
       const sendTask = edited ? turnTaskValue(edited) : task;
-      const img = attachedImage;
       // An image goes to the OCR arm for Translate and for any task that takes no images; that arm sends no page context.
       const ocr = img !== null && (sendTask === 'translate' || !taskTakesImage(sendTask));
       const context = ocr ? undefined : await currentPageContext(sendTask);
@@ -336,8 +338,10 @@
         ...(context !== undefined ? { context } : {}),
       });
       sourceText = '';
-      attachedImage = null;
-      void clearComposerDraftImage();
+      if (img !== null) {
+        attachedImage = null;
+        void clearComposerDraftImage();
+      }
     } finally {
       sending = false;
     }

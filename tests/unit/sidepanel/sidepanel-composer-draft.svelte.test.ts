@@ -296,6 +296,45 @@ describe('SidePanel — Edit from here never overwrites a draft', () => {
   });
 });
 
+describe('SidePanel — an edit sends words only', () => {
+  it('an image waiting in the composer is not sent with the edit, and still waits after it', async () => {
+    const { container } = render(SidePanel);
+    await tick();
+    await sendAndDrain(container, 'first');
+
+    const file = new File([new Uint8Array([137, 80, 78, 71])], 'p.png', { type: 'image/png' });
+    const item = { type: 'image/png', kind: 'file', getAsFile: () => file };
+    const paste = new Event('paste', { bubbles: true, cancelable: true }) as ClipboardEvent;
+    Object.defineProperty(paste, 'clipboardData', {
+      value: { items: [item], files: [file], getData: () => '' },
+      configurable: true,
+    });
+    composer(container).dispatchEvent(paste);
+    await waitFor(() => expect(container.querySelector('[data-ega-chip-remove]')).not.toBeNull());
+
+    const edit = container.querySelector<HTMLButtonElement>('[data-ega-edit]');
+    if (!edit) throw new Error('edit button not found');
+    await fireEvent.click(edit);
+    await waitFor(() => expect(container.querySelector('[data-ega-mode-banner]')).not.toBeNull());
+    sendMessage.mockClear();
+    sendMessage.mockResolvedValue({ ok: true });
+    await fireEvent.input(composer(container), { target: { value: 'first, edited' } });
+    await tick();
+    await fireEvent.click(container.querySelector('.ega-send') as HTMLElement);
+
+    const starts = (): Extract<Msg, { kind: 'translate:start' }>[] =>
+      (sendMessage.mock.calls as Array<[Msg]>)
+        .map(([m]) => m)
+        .filter(
+          (m): m is Extract<Msg, { kind: 'translate:start' }> => m.kind === 'translate:start',
+        );
+    await waitFor(() => expect(starts()).toHaveLength(1));
+    expect(starts()[0]?.options.imageUrl).toBeUndefined();
+    expect(starts()[0]?.text).toBe('first, edited');
+    await waitFor(() => expect(container.querySelector('[data-ega-chip-remove]')).not.toBeNull());
+  });
+});
+
 describe('SidePanel — Edit from here removes nothing until the edit is sent (F11)', () => {
   const bubbles = (c: HTMLElement): string[] =>
     Array.from(c.querySelectorAll<HTMLElement>('[data-ega-user-bubble]')).map((b) =>

@@ -265,6 +265,36 @@ describe('edit and refine modes', () => {
     expect(props.onAttachImage).not.toHaveBeenCalled();
   });
 
+  it('an edit takes words only too: the waiting image is hidden, not sent, and no new one comes in', async () => {
+    const push = vi.spyOn(toastStore, 'push');
+    const props = {
+      ...composerProps(),
+      attachedImage: PIXEL,
+      mode: { kind: 'edit' as const, turnId: 'u1', lastId: 'u1' },
+    };
+    const { container } = render(InputRow, { props });
+    // The image waits for the next message: it cannot make Send ready, and its chip is not shown.
+    expect(send(container).getAttribute('aria-disabled')).toBe('true');
+    expect(container.querySelector('[data-ega-chip-remove]')).toBeNull();
+    expect(container.querySelector('[data-ega-attach-image]')).toBeNull();
+    expect(textarea(container).placeholder).not.toBe('Add a note (optional)');
+
+    const file = new File([new Uint8Array([137, 80, 78, 71])], 'p.png', { type: 'image/png' });
+    const item = { type: 'image/png', kind: 'file', getAsFile: () => file };
+    const event = new Event('paste', { bubbles: true, cancelable: true }) as ClipboardEvent;
+    Object.defineProperty(event, 'clipboardData', {
+      value: { items: [item], files: [file], getData: () => '' },
+      configurable: true,
+    });
+    textarea(container).dispatchEvent(event);
+    await vi.waitFor(() =>
+      expect(push.mock.calls.map((c) => c[0].message)).toContain(
+        "Images can't be part of an edit.",
+      ),
+    );
+    expect(props.onAttachImage).not.toHaveBeenCalled();
+  });
+
   it('the placeholder says what the box takes', () => {
     const { container } = render(InputRow, { props: composerProps() });
     expect(textarea(container).placeholder).toBe('Type, paste, or drop an image');
