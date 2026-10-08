@@ -1,19 +1,23 @@
 [
   {
     "name": "Advanced",
-    "bytes": 61271
+    "bytes": 61275
   },
   {
     "name": "batch-progress",
-    "bytes": 8472
+    "bytes": 13525
   },
   {
     "name": "bubble",
-    "bytes": 3240
+    "bytes": 5608
+  },
+  {
+    "name": "bubble-menu",
+    "bytes": 4437
   },
   {
     "name": "build-config",
-    "bytes": 33187
+    "bytes": 33192
   },
   {
     "name": "cancel-token",
@@ -25,11 +29,11 @@
   },
   {
     "name": "command-registry",
-    "bytes": 35206
+    "bytes": 30400
   },
   {
     "name": "customs-cache",
-    "bytes": 1195
+    "bytes": 690
   },
   {
     "name": "diff-words",
@@ -48,16 +52,8 @@
     "bytes": 598085
   },
   {
-    "name": "err-labels",
-    "bytes": 15345
-  },
-  {
-    "name": "error-fix-toast",
-    "bytes": 456
-  },
-  {
     "name": "error-parts",
-    "bytes": 20794
+    "bytes": 13927
   },
   {
     "name": "error-policy",
@@ -65,7 +61,7 @@
   },
   {
     "name": "Glossary",
-    "bytes": 12066
+    "bytes": 12067
   },
   {
     "name": "IconButton",
@@ -77,15 +73,15 @@
   },
   {
     "name": "index",
-    "bytes": 117040
+    "bytes": 119376
   },
   {
     "name": "index.html",
-    "bytes": 394240
+    "bytes": 401028
   },
   {
     "name": "index.ts",
-    "bytes": 40378
+    "bytes": 40891
   },
   {
     "name": "index.ts-loader",
@@ -93,11 +89,15 @@
   },
   {
     "name": "inlineReplace",
-    "bytes": 4507
+    "bytes": 4534
   },
   {
     "name": "lang-tag",
     "bytes": 293
+  },
+  {
+    "name": "language-prompt",
+    "bytes": 1321
   },
   {
     "name": "LanguagePicker",
@@ -108,12 +108,16 @@
     "bytes": 2288
   },
   {
+    "name": "page-chip",
+    "bytes": 6383
+  },
+  {
     "name": "page-styles",
-    "bytes": 2474
+    "bytes": 1924
   },
   {
     "name": "page-translate-v2",
-    "bytes": 19948
+    "bytes": 24241
   },
   {
     "name": "pending-popup-handoff",
@@ -125,23 +129,43 @@
   },
   {
     "name": "picker",
-    "bytes": 2546
+    "bytes": 3138
+  },
+  {
+    "name": "picker-bar",
+    "bytes": 8798
   },
   {
     "name": "picker-overlay",
-    "bytes": 1401
+    "bytes": 634
   },
   {
     "name": "PickerOverlay",
-    "bytes": 922
+    "bytes": 277
   },
   {
     "name": "Popover",
     "bytes": 3513
   },
   {
+    "name": "progress",
+    "bytes": 1154
+  },
+  {
+    "name": "provider-profiles",
+    "bytes": 3611
+  },
+  {
+    "name": "request-state",
+    "bytes": 556
+  },
+  {
     "name": "rolldown-runtime",
     "bytes": 158
+  },
+  {
+    "name": "roving",
+    "bytes": 716
   },
   {
     "name": "rules-budget",
@@ -149,7 +173,7 @@
   },
   {
     "name": "safe-regex",
-    "bytes": 26845
+    "bytes": 26879
   },
   {
     "name": "safety",
@@ -157,7 +181,7 @@
   },
   {
     "name": "saved-conversations",
-    "bytes": 4392
+    "bytes": 1680
   },
   {
     "name": "SectionReset",
@@ -165,7 +189,7 @@
   },
   {
     "name": "select",
-    "bytes": 41007
+    "bytes": 41052
   },
   {
     "name": "Select",
@@ -173,7 +197,7 @@
   },
   {
     "name": "selection-cap-copy",
-    "bytes": 11856
+    "bytes": 11864
   },
   {
     "name": "SelectionBubble",
@@ -184,16 +208,12 @@
     "bytes": 495
   },
   {
-    "name": "settings-cache",
-    "bytes": 721
-  },
-  {
     "name": "shadowHost",
-    "bytes": 32476
+    "bytes": 15090
   },
   {
     "name": "src-content-index.ts",
-    "bytes": 34574
+    "bytes": 34918
   },
   {
     "name": "stuck-timeout",
@@ -201,19 +221,19 @@
   },
   {
     "name": "task-view",
-    "bytes": 6136
+    "bytes": 2538
   },
   {
     "name": "Tasks",
-    "bytes": 46060
+    "bytes": 46062
   },
   {
     "name": "TemplateEditor",
-    "bytes": 28105
+    "bytes": 28060
   },
   {
     "name": "theme",
-    "bytes": 10578
+    "bytes": 15566
   },
   {
     "name": "theme-apply",
@@ -221,11 +241,11 @@
   },
   {
     "name": "tipState.svelte",
-    "bytes": 29145
+    "bytes": 46966
   },
   {
     "name": "toast",
-    "bytes": 3337
+    "bytes": 3424
   },
   {
     "name": "toast-policy",
@@ -237,11 +257,11 @@
   },
   {
     "name": "Translate",
-    "bytes": 30468
+    "bytes": 30465
   },
   {
     "name": "translate-handlers",
-    "bytes": 5597
+    "bytes": 5676
   },
   {
     "name": "translate-ui",
@@ -249,11 +269,7 @@
   },
   {
     "name": "types",
-    "bytes": 682
-  },
-  {
-    "name": "user-gesture",
-    "bytes": 52
+    "bytes": 15037
   },
   {
     "name": "vendor-bits-ui",
@@ -269,7 +285,7 @@
   },
   {
     "name": "vendor-lucide",
-    "bytes": 26913
+    "bytes": 27427
   },
   {
     "name": "vendor-marked",
