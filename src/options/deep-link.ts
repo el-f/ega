@@ -87,6 +87,8 @@ export function whenPresent(
   const intervalMs = opts.intervalMs ?? 16;
   const tick = (): void => {
     if (opts.isCurrent && !opts.isCurrent()) return;
+    // The page (or a test's DOM) is gone mid-retry: nothing is left to reveal or to tell.
+    if (typeof document === 'undefined') return;
     const el = document.querySelector(selector);
     if (el instanceof HTMLElement) {
       onFound(el);
