@@ -400,7 +400,7 @@
       scheduleDraftSave();
     }
     pageKnown = true;
-    // A hidden body takes no focus: show it first.
+    // An inert body takes no focus: show it first.
     await tick();
     if (prefilledText !== null && freeformText === prefilledText) freeformTextarea?.focus();
     else if (document.activeElement === document.body) {
@@ -485,6 +485,8 @@
     <div
       class="popup-body"
       class:pending={!pageKnown}
+      inert={!pageKnown}
+      aria-hidden={pageKnown ? undefined : 'true'}
       style:padding-block-end={toastRoom > 0 ? `${toastRoom}px` : undefined}
     >
       {#if backendReady === false}
@@ -581,8 +583,11 @@
     flex-direction: column;
     gap: var(--space-4);
   }
+  /* Not visibility: under reduced motion every property gets a 0.01ms transition, and a control still
+     mid-transition from hidden takes no focus. inert keeps the unseen body out of reach instead;
+     aria-hidden says the same to tools that do not read inert, such as Playwright's role queries. */
   .popup-body.pending {
-    visibility: hidden;
+    opacity: 0;
   }
   .popup-actions {
     display: flex;

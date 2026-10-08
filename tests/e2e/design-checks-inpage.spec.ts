@@ -140,13 +140,17 @@ function activeLabel(page: Page, inShadow: boolean): Promise<string> {
 
 /** The popup as a page over a stubbed active tab; the URL and the page's answer decide its state. */
 /** `url` left out is what Chrome gives an extension with no "tabs" permission on a page it cannot run on. */
-async function openPopup(tab: {
-  url?: string;
-  reply?: unknown;
-  reject?: boolean;
-  clipboard?: string;
-}): Promise<Page> {
+async function openPopup(
+  tab: {
+    url?: string;
+    reply?: unknown;
+    reject?: boolean;
+    clipboard?: string;
+  },
+  opts: { reducedMotion?: boolean } = {},
+): Promise<Page> {
   const popup = await ext.context.newPage();
+  if (opts.reducedMotion) await popup.emulateMedia({ reducedMotion: 'reduce' });
   await popup.addInitScript((t) => {
     const g = globalThis as unknown as {
       chrome: { tabs: { query: unknown; sendMessage: unknown } };
@@ -731,6 +735,21 @@ test('popup: a toast covers no control at the height Chrome gives the popup', as
       .map((el) => el.getAttribute('aria-label') ?? el.textContent.trim().slice(0, 30));
   });
   expect(covered).toEqual([]);
+});
+
+test('popup, every state, reduced motion: focus starts on a control, not on the page body', async () => {
+  test.slow();
+  const fails: string[] = [];
+  for (const state of POPUP_STATES) {
+    if (state.seed) await seedSettings(ext.context, ext.extensionId, state.seed);
+    const popup = await openPopup(state.tab, { reducedMotion: true });
+    // The start control is focused right after the body shows; give the focus call its turn.
+    await popup.waitForTimeout(300);
+    const active = await popup.evaluate(() => document.activeElement?.tagName ?? 'none');
+    if (active === 'BODY' || active === 'none') fails.push(state.name);
+    await popup.close();
+  }
+  expect(fails).toEqual([]);
 });
 
 /** WCAG 1.4.12: the user's text-spacing override must not clip a control. */

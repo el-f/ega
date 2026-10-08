@@ -98,11 +98,14 @@ describe('Popup launcher shell', () => {
     const body = container.querySelector<HTMLElement>('.popup-body');
     // The switch row and a status line are still unknown: nothing shows yet.
     await vi.waitFor(() => expect(chrome.tabs.sendMessage).toHaveBeenCalled());
-    // jsdom applies no component styles; the class is what hides the body (visibility: hidden).
+    // jsdom applies no component styles; the class is what hides the body (opacity: 0).
     expect(body?.classList.contains('pending')).toBe(true);
+    // Out of reach while unseen; inert, not visibility, so focus lands the moment it shows, reduced motion or not.
+    expect(body?.inert).toBe(true);
     answer({ text: '', heldBack: { reason: 'english' } });
     await findByRole('switch', { name: 'Ega on example.com' });
     await vi.waitFor(() => expect(body?.classList.contains('pending')).toBe(false));
+    expect(body?.inert).toBe(false);
   });
 
   it('puts focus on Translate page when nothing is prefilled', async () => {
