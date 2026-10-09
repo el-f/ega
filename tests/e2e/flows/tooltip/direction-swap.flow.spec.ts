@@ -56,7 +56,8 @@ test('swap button reverses source<->target and re-fires translate', async () => 
   expect(await egaTest<string>(page, 'tooltipDirection')).toBe('English → Spanish');
 
   // A real click: the swap button ignores a click the page dispatches.
-  await page.locator('.tooltip button[aria-label="Swap direction"]').click();
+  await page.getByRole('button', { name: 'Refine', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Swap', exact: true }).click();
   timeline.markStep('swap-clicked');
 
   await expect.poll(() => mock.calls(), { timeout: 10_000 }).toBeGreaterThan(callsBefore);

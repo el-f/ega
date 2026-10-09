@@ -51,12 +51,7 @@ test('Continue-in-sidepanel button hands the source text into pendingPopupHandof
     )
     .toBe(true);
 
-  await page.evaluate(() => {
-    const host = document.querySelector('#ega-shadow-host');
-    const root = (host as HTMLElement | null)?.shadowRoot ?? document;
-    const btn = root.querySelector('[data-ega-escalate="continue"]') as HTMLButtonElement | null;
-    btn?.click();
-  });
+  await page.locator('[data-ega-escalate="continue"]').click();
 
   // storage.session is extension-only, so read the handoff slot from an extension page.
   const opts = await ext.context.newPage();

@@ -628,21 +628,14 @@ test('Tooltip — default + inspector + context preview', async () => {
     ],
   });
 
-  // Inspector drawer on the same tooltip.
-  await page.evaluate(() => {
-    const host = document.querySelector('#ega-shadow-host');
-    const root = (host as HTMLElement | null)?.shadowRoot;
-    const btn = root?.querySelector<HTMLButtonElement>(
-      '.tooltip button[aria-label="Show details about this reply"]',
-    );
-    btn?.click();
-  });
-  await page.waitForTimeout(400); // wait for inspector drawer slide-in animation (no observable end state)
+  await page.getByRole('button', { name: 'More', exact: true }).click();
+  await page.getByRole('menuitemcheckbox', { name: 'About this reply' }).click();
+  await expect(page.locator('[data-ega-inspector]')).toBeVisible();
   await shot(page, 'tooltip-inspector-open', {
     surface: 'tooltip',
     state: 'inspector-open',
     theme: 'light',
-    userAction: 'user clicked Details (i) on the tooltip',
+    userAction: 'user selected More > About this reply',
     expectations: [
       'About this reply panel mounts below the body',
       'answered by, time and what was sent visible',
@@ -791,7 +784,9 @@ test('Tooltip — multi-variety cluster', async () => {
     () => {
       const host = document.querySelector('#ega-shadow-host');
       const root = (host as HTMLElement | null)?.shadowRoot;
-      return !!root?.querySelector('.tooltip [data-ega-multi-variety]');
+      return !!root
+        ?.querySelector('.tooltip [data-ega-meta-item="direction"]')
+        ?.textContent.includes('+');
     },
     { timeout: 10_000, polling: 250 },
   );
@@ -800,8 +795,8 @@ test('Tooltip — multi-variety cluster', async () => {
     surface: 'tooltip',
     state: 'multi-variety',
     theme: 'light',
-    userAction: 'detector returned multiple variety candidates; tooltip shows chip cluster',
-    expectations: ['chip cluster visible in body', 'each chip label legible'],
+    userAction: 'detector returned multiple languages; the shared metadata line names them',
+    expectations: ['mixed source languages in one metadata line', 'the direction is legible'],
   });
   await mvPage.close();
   await resetRoutes(ext.context);

@@ -81,14 +81,27 @@ describe('the tooltip close and cancel buttons reach the caller', () => {
     expect(wraps().length).toBe(0);
   });
 
-  it('the cancel button runs onCancel and takes the tooltip down', async () => {
+  it('Stop keeps the tooltip open with a neutral status and a way to retry', async () => {
     const onCancel = vi.fn();
-    openTooltip({ requestId: 'r2', srcText: 'hello', rect: rect(50, 50, 100, 20), onCancel });
+    openTooltip({
+      requestId: 'r2',
+      srcText: 'hello',
+      rect: rect(50, 50, 100, 20),
+      onCancel,
+      onRetry: vi.fn(),
+    });
     await mounted();
 
     await click('.actions button');
     expect(onCancel).toHaveBeenCalledTimes(1);
-    expect(wraps().length).toBe(0);
+    expect(wraps().length).toBe(1);
+    await vi.waitFor(() =>
+      expect(getContainer().querySelector('[data-ega-meta-item="status"]')?.textContent).toBe(
+        'Stopped',
+      ),
+    );
+    expect(getContainer().querySelector('[data-ega-retry]')).not.toBeNull();
+    expect(getContainer().querySelector('.tooltip-error-body')).toBeNull();
   });
 });
 

@@ -62,11 +62,7 @@ test('tooltip Pin seeds sidepanel; Refine > Shorter adds a version', async () =>
   timeline.markStep('pin-visible');
 
   // The button lives in the shadow root, so click it from inside the page.
-  await page.evaluate(() => {
-    const host = document.querySelector('#ega-shadow-host');
-    const root = (host as HTMLElement | null)?.shadowRoot ?? document;
-    (root.querySelector('[data-ega-escalate="pin"]') as HTMLButtonElement | null)?.click();
-  });
+  await page.locator('[data-ega-escalate="pin"]').click();
 
   // storage.session is extension-only, so read it from an extension page.
   const probe = await ext.context.newPage();

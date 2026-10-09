@@ -25,7 +25,7 @@
     type SwapPair,
     type Turn,
   } from '../state/conversation';
-  import { refinePresets, answerAgainLabel, type RefinePreset } from '../state/refine-presets';
+  import { refinePresets, answerAgainLabel, type RefinePreset } from '@/shared/refine-presets';
   import { taskGerund } from '@/shared/task-prompts';
   import {
     SHIPPED_TASK_VIEWS,

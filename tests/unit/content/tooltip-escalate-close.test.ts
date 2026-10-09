@@ -1,6 +1,11 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { openTooltip, closeTooltip, appendDelta } from '@/content/tipState.svelte';
+import {
+  openTooltip,
+  closeTooltip,
+  appendDelta,
+  finishTooltipDirect,
+} from '@/content/tipState.svelte';
 import { mountShadowHost, getContainer } from '@/content/shadowHost';
 import { dismissToast } from '@/content/toast';
 
@@ -72,6 +77,22 @@ function pin(): void {
 }
 
 describe('Pin to side panel from a tooltip that is still streaming', () => {
+  it('hands off a finished answer without asking the side panel to generate it again', async () => {
+    sendMessage.mockResolvedValue({ ok: true });
+    await openStreaming(vi.fn());
+    finishTooltipDirect('r1', 'Finished answer', 0.9, { explain: 'Kept notes' });
+    await vi.waitFor(() => expect(getContainer().textContent).toContain('Finished answer'));
+    pin();
+    await vi.waitFor(() => expect(sendMessage).toHaveBeenCalled());
+    expect(sendMessage.mock.calls.at(-1)?.[0]).toMatchObject({
+      kind: 'ui:open-sidepanel',
+      handoff: {
+        sourceText: 'hola',
+        response: 'Finished answer',
+        explain: 'Kept notes',
+      },
+    });
+  });
   it('ends the request, so the hidden stream is cancelled, then closes the tooltip', async () => {
     sendMessage.mockResolvedValue({ ok: true });
     const onClose = vi.fn();

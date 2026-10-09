@@ -27,7 +27,7 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-test('re-run with a new tone renders del + add diff spans against prior body', async () => {
+test('re-run with a new tone replaces the body without a version diff', async () => {
   const timeline = createTimeline();
 
   // mockAnthropic returns one fixed body; this route varies it per call.
@@ -128,7 +128,7 @@ test('re-run with a new tone renders del + add diff spans against prior body', a
     const adds = root?.querySelectorAll('[data-ega-diff="add"]').length ?? 0;
     return { dels, adds };
   });
-  expect(diffCounts.dels).toBeGreaterThan(0);
-  expect(diffCounts.adds).toBeGreaterThan(0);
+  expect(diffCounts.dels).toBe(0);
+  expect(diffCounts.adds).toBe(0);
   timeline.markStep('diff-rendered');
 });

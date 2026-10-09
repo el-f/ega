@@ -20,7 +20,7 @@ interface Rect {
   height: number;
 }
 
-const TOOLTIP_MAX_WIDTH = 360;
+const TOOLTIP_MAX_WIDTH = 400;
 
 let ext: ExtensionHandle;
 

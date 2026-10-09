@@ -73,10 +73,27 @@ describe('tooltip positioning — positionFromRect', () => {
     expect(pos.top).toBe(990);
     expect(pos.top).toBeGreaterThan(500);
   });
+  it.each([400, 320, 256])('stays inside a %ipx viewport on the first frame', (width) => {
+    mockViewport(width, 800);
+    const pos = positionFromRect(rect(100, 200, 80, 20));
+    expect(pos.left).toBeGreaterThanOrEqual(8);
+  });
 });
 
 describe('tooltip positioning — repositionIfOverflow', () => {
   beforeEach(() => mockViewport(1280, 1000));
+  it.each([400, 320, 256])('uses the measured width at %ipx', (width) => {
+    mockViewport(width, 800);
+    const cardWidth = width - 16;
+    const state = makeState();
+    repositionIfOverflow(
+      state,
+      elementWithRect(rect(0, 0, cardWidth, 180)),
+      rect(200, 200, 20, 20),
+    );
+    expect(state.left).toBe(8);
+    expect(state.left + cardWidth).toBeLessThanOrEqual(width - 8);
+  });
 
   it('stays below selection when card fits below', () => {
     const anchor = rect(100, 200, 300, 20);

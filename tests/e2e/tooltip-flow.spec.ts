@@ -68,15 +68,15 @@ test('Tooltip exposes the expected icon buttons with data-tooltip labels', async
       },
       { timeout: 10_000 },
     )
-    .toMatch(/copy.*explain|explain.*copy/);
+    .toMatch(/copy.*regenerate.*refine.*more/);
 
   const labels = (await egaTest<string[]>(page, 'listButtons')) ?? [];
   const joined = labels.map((l) => l.toLowerCase()).join(' ');
   // With tooltipClickOutside=true (seeded above) there is no Close button.
-  for (const needle of ['copy', 'explain']) {
+  for (const needle of ['copy', 'regenerate', 'refine', 'more']) {
     expect(joined).toContain(needle);
   }
-  expect(joined).not.toContain('close');
+  expect(joined).toContain('close');
 });
 
 test('Task dropdown renders the full "Translate" label without truncation', async () => {

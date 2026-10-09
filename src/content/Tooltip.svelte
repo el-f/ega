@@ -1,21 +1,30 @@
 <script lang="ts">
-  import { untrack } from 'svelte';
+  import { onMount, tick, untrack } from 'svelte';
   import X from '@lucide/svelte/icons/x';
   import Icon from '@/shared/ui/Icon.svelte';
+  import Select from '@/shared/ui/Select.svelte';
   import type { Tone } from '@/shared/task-prompts';
   import type { SettingsTab } from '@/shared/settings-tabs';
   import type { TipState } from './tipState.svelte';
   import ReplyDetails from '@/shared/components/ReplyDetails.svelte';
+  import ReplyMeta from '@/shared/components/ReplyMeta.svelte';
+  import { directionLabel, replyMetaItems } from '@/shared/reply-meta';
+  import { errorTurnParts } from '@/shared/error-parts';
+  import { formatDetectedLabel } from '@/shared/detected-label';
+  import { ISO_LANGUAGES } from '@/shared/languages';
+  import { BUILT_IN_PRESETS } from '@/shared/presets';
+  import { isUserGesture } from './user-gesture';
   import { imageModeOf } from '@/shared/components/reply-details';
   import DraggablePanel from '@/shared/components/DraggablePanel.svelte';
   import TooltipHeader from '@/content/tooltip/TooltipHeader.svelte';
-  import { materializeTasks, type TaskId } from '@/shared/task-view';
+  import { materializeTasks, SHIPPED_TASK_VIEWS, type TaskId } from '@/shared/task-view';
   import { taskUsesTone } from '@/shared/language-prompt';
-  import { cachedCustomTasks } from '@/content/customs-cache';
-  import { currentSettings } from '@/content/settings-cache';
+  import { cachedCustomTasks, cachedCustomLanguages } from '@/content/customs-cache';
+  import { currentSettings, onSettingsUpdate } from '@/content/settings-cache';
   import TooltipBody from '@/content/tooltip/TooltipBody.svelte';
   import TooltipActions from '@/content/tooltip/TooltipActions.svelte';
   import { langTag, replyLang } from '@/shared/lang-tag';
+  import { id as makeId } from '@/shared/uuid';
 
   interface Props {
     tip: TipState;
@@ -33,6 +42,9 @@
     oncancel: () => void;
     /** Absent means this surface cannot re-dispatch, so the Retry button never renders. */
     onretry?: () => void;
+    onregenerate?: () => void;
+    onrefine?: (body: string) => void;
+    ontargetchange?: (target: string) => void;
     oncopy: () => void;
     onexplain: () => void;
     /** Absent on surfaces that cannot open Settings, so no Settings link renders. */
@@ -52,6 +64,9 @@
     onclose,
     oncancel,
     onretry,
+    onregenerate,
+    onrefine,
+    ontargetchange,
     oncopy,
     onexplain,
     onopenoptions,
@@ -60,18 +75,32 @@
 
   // Local, so reopening on a different translation always starts collapsed.
   let detailsOpen = $state<boolean>(untrack(() => tip.contextPreviewOpen ?? false));
+  let errorDetailsOpen = $state(false);
+  let editing = $state<'change' | 'language' | null>(null);
+  let change = $state('');
+  let languageIndex = $state('0');
+  const targetId = makeId('ega-tooltip-target');
+  let editor: HTMLDivElement | undefined = $state();
+  let root: HTMLDivElement | undefined = $state();
 
   // "Reverse" has no meaning without a concrete source variety.
   const swapDisabled = $derived(!!direction && direction.source === 'auto');
 
   const mode: 'loading' | 'error' | 'success' = $derived.by(() => {
-    if (tip.error) return 'error';
+    if (tip.error || tip.stopped) return 'error';
     if (tip.loading && !tip.body) return 'loading';
     return 'success';
   });
 
-  const settingsNow = currentSettings();
-  const taskViews = settingsNow ? materializeTasks(settingsNow, cachedCustomTasks()) : undefined;
+  let settingsNow = $state(untrack(currentSettings));
+  onMount(() =>
+    onSettingsUpdate((s) => {
+      settingsNow = s;
+    }),
+  );
+  const taskViews = $derived(
+    settingsNow ? materializeTasks(settingsNow, cachedCustomTasks()) : SHIPPED_TASK_VIEWS,
+  );
   // The task the router ran: Explain for an explain re-run, else the picked task.
   const ranTask = $derived(tip.contextTask ?? tip.task ?? 'translate');
   // The router records whether page info went; before that arrives, a task with page context off never sends it.
@@ -80,7 +109,6 @@
       ? tip.contextSent
       : null,
   );
-  const hasDetails = $derived(tip.meta !== undefined || tip.contextSent !== undefined);
   const taskLabel = $derived(taskViews?.find((v) => v.id === ranTask)?.label ?? 'Translate');
   // Translate reads an image with the built-in image prompt; Explain sends its own prompt with it.
   const imageMode = $derived(
@@ -119,7 +147,84 @@
   );
   const notesLang = $derived(langTag(direction?.target) ?? '');
 
-  const explainOn = !(taskViews?.find((v) => v.id === 'explain')?.disabled ?? false);
+  const replyDirection = $derived(
+    directionLabel({
+      ...(tip.detectedLangs?.length
+        ? { detected: tip.detectedLangs }
+        : tip.detectedLang
+          ? {
+              detected: [
+                {
+                  id: tip.detectedLang,
+                  ...(tip.detectedDetail ? { detail: tip.detectedDetail } : {}),
+                },
+              ],
+            }
+          : tip.detectedDetail
+            ? { detected: [{ id: 'other', detail: tip.detectedDetail }] }
+            : {}),
+      ...(direction ? { sourceLang: direction.source, targetLang: direction.target } : {}),
+      sourceOnly: ranTask === 'reword' || ranTask === 'grammar',
+      varieties: cachedCustomLanguages(),
+    }),
+  );
+  const metaItems = $derived(
+    replyMetaItems({
+      meta: tip.meta,
+      direction: replyDirection,
+      confidence: tip.confidence,
+      confidenceSetting: { show: tip.confidencePill, threshold: tip.confidencePillThreshold ?? 0 },
+      ...(!tip.error && tip.settled !== true
+        ? { status: tip.body ? 'Answering…' : 'Waiting for reply…' }
+        : {}),
+      ...(tip.error && tip.body ? { status: 'Partial answer' } : {}),
+      ...(tip.stopped ? { status: 'Stopped' } : {}),
+    }),
+  );
+  const errorParts = $derived(tip.error ? errorTurnParts(tip.error) : undefined);
+  const translateInto = $derived(
+    settingsNow && settingsNow.defaultTargetLang !== direction?.target
+      ? {
+          id: settingsNow.defaultTargetLang,
+          label: formatDetectedLabel(
+            settingsNow.defaultTargetLang,
+            undefined,
+            cachedCustomLanguages(),
+          ),
+        }
+      : null,
+  );
+  const languageChoices = $derived([
+    ...ISO_LANGUAGES.map((l) => ({ id: l.code, label: l.label })),
+    ...BUILT_IN_PRESETS.filter((p) => !settingsNow?.disabledVarieties.includes(p.id)),
+    ...cachedCustomLanguages().filter((l) => !settingsNow?.disabledVarieties.includes(l.id)),
+  ]);
+  async function openEditor(kind: 'change' | 'language'): Promise<void> {
+    editing = kind;
+    change = '';
+    languageIndex = String(
+      Math.max(
+        0,
+        languageChoices.findIndex((l) => l.id === direction?.target),
+      ),
+    );
+    await tick();
+    editor?.querySelector<HTMLElement>('textarea, select')?.focus();
+  }
+  function closeEditor(): void {
+    editing = null;
+    root?.querySelector<HTMLElement>('button[aria-label="Refine"]')?.focus();
+  }
+  function submitEditor(e: Event): void {
+    e.preventDefault();
+    if (!isUserGesture(e)) return;
+    if (editing === 'change' && change.trim()) onrefine?.(change.trim());
+    if (editing === 'language') {
+      const picked = languageChoices[Number(languageIndex)];
+      if (picked) ontargetchange?.(picked.id);
+    }
+    closeEditor();
+  }
 </script>
 
 <DraggablePanel
@@ -131,10 +236,9 @@
   class="tooltip"
   onClose={onclose}
 >
-  <!-- Image tooltips wire no ontaskchange, so `imageUrl` alone must still show the close ✕. -->
-  {#if ontaskchange || !clickOutsideDismiss || tip.imageUrl}
+  <div class="tooltip-reply" bind:this={root}>
     <div class="tooltip-topbar">
-      {#if ontaskchange}
+      {#if ontaskchange && !tip.imageUrl}
         <TooltipHeader
           usesTone={usesToneFor(tip.task ?? 'translate')}
           views={taskViews}
@@ -147,77 +251,153 @@
           >{ranTask === 'explain' ? 'Image explanation' : 'Image translation'}</span
         >
       {/if}
-      {#if !clickOutsideDismiss || tip.imageUrl}
-        <button
-          type="button"
-          class="tooltip-close"
-          aria-label="Close"
-          data-tooltip="Close (Esc)"
-          onclick={onclose}
-        >
-          <Icon icon={X} size={16} strokeWidth={1.6} class="icon" />
-        </button>
-      {/if}
+      <button
+        type="button"
+        class="tooltip-close"
+        aria-label="Close"
+        data-tooltip="Close (Esc)"
+        onclick={onclose}
+      >
+        <Icon icon={X} size={16} strokeWidth={1.6} class="icon" />
+      </button>
     </div>
-  {/if}
 
-  {#if showSource}
-    <div class="src" dir="auto" lang={pageLang}>
-      {tip.srcText.length > 140 ? tip.srcText.slice(0, 140) + '…' : tip.srcText}
-    </div>
-  {/if}
+    {#if showSource}
+      <div class="src" dir="auto" lang={pageLang}>
+        {tip.srcText.length > 140 ? tip.srcText.slice(0, 140) + '…' : tip.srcText}
+      </div>
+    {/if}
 
-  <TooltipBody
-    body={tip.body}
-    loading={tip.loading}
-    task={tip.task ?? 'translate'}
-    {...tip.loadingLabel !== undefined ? { loadingLabel: tip.loadingLabel } : {}}
-    {...tip.imageUrl !== undefined ? { imageUrl: tip.imageUrl } : {}}
-    {...tip.explain !== undefined ? { explain: tip.explain } : {}}
-    {...tip.usedImage ? { usedImage: true } : {}}
-    {...tip.error !== undefined ? { error: tip.error } : {}}
-    {...tip.priorTranslation !== undefined ? { diffAgainst: tip.priorTranslation } : {}}
-    settled={tip.settled === true}
-    {bodyLang}
-    {notesLang}
-    {...onopenoptions ? { onOpenOptions: onopenoptions } : {}}
-    {...onescalate ? { onOpenPanel: () => onescalate('open-panel') } : {}}
-  />
+    <TooltipBody
+      body={tip.body}
+      loading={tip.loading}
+      stopped={tip.stopped === true}
+      task={tip.task ?? 'translate'}
+      {...tip.loadingLabel !== undefined ? { loadingLabel: tip.loadingLabel } : {}}
+      {...tip.imageUrl !== undefined ? { imageUrl: tip.imageUrl } : {}}
+      {...tip.explain !== undefined ? { explain: tip.explain } : {}}
+      {...tip.usedImage ? { usedImage: true } : {}}
+      {...tip.error !== undefined ? { error: tip.error } : {}}
+      settled={tip.settled === true}
+      {bodyLang}
+      {notesLang}
+      {errorDetailsOpen}
+    />
 
-  <TooltipActions
-    {tip}
-    {mode}
-    {...direction ? { direction } : {}}
-    hasSwap={!!onswap}
-    {swapDisabled}
-    {hasDetails}
-    {detailsOpen}
-    {canEscalateContinue}
-    {canEscalatePin}
-    {canEscalateOpenImage}
-    {explainOn}
-    onCancel={oncancel}
-    onCopy={oncopy}
-    onExplain={onexplain}
-    {...onretry ? { onRetry: onretry } : {}}
-    {...onswap ? { onSwap: onswap } : {}}
-    onToggleDetails={() => (detailsOpen = !detailsOpen)}
-    {...onescalate ? { onEscalate: onescalate } : {}}
-  />
+    <ReplyMeta items={metaItems} />
 
-  {#if detailsOpen && hasDetails}
-    <div class="ega-tooltip-details">
-      <ReplyDetails
-        meta={tip.meta}
-        context={contextShown}
-        sentText={tip.srcText}
-        image={imageMode}
-        {taskLabel}
-        {...onopenoptions ? { onViewPrompt: () => onopenoptions?.('tasks') } : {}}
-        surface="tooltip"
-        valueLang={pageLang}
-        onClose={() => (detailsOpen = false)}
-      />
-    </div>
-  {/if}
+    {#if editing !== null}
+      <!-- The group owns Escape so it closes this editor before the tooltip. -->
+      <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+      <div
+        class="tooltip-editor"
+        bind:this={editor}
+        onkeydown={(e) => {
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            e.stopPropagation();
+            closeEditor();
+          }
+        }}
+        role="group"
+        aria-label={editing === 'change' ? 'Describe a change' : 'Translate into another language'}
+      >
+        <!-- requestSubmit() from the page creates a trusted submit event. Only an actual Apply press may send. -->
+        <form onsubmit={(e) => e.preventDefault()}>
+          {#if editing === 'change'}
+            <label>Describe a change<textarea bind:value={change} rows="3"></textarea></label>
+          {:else}
+            <label for={targetId}>Translate into</label>
+            <Select
+              id={targetId}
+              bind:value={languageIndex}
+              options={languageChoices.map((language, i) => ({
+                value: String(i),
+                label: language.label,
+              }))}
+            />
+          {/if}
+          <div class="tooltip-editor-actions">
+            <button
+              type="button"
+              onclick={submitEditor}
+              disabled={editing === 'change' && !change.trim()}>Apply</button
+            >
+            <button type="button" onclick={closeEditor}>Cancel</button>
+          </div>
+        </form>
+      </div>
+    {/if}
+
+    <TooltipActions
+      {tip}
+      {mode}
+      task={ranTask}
+      views={taskViews}
+      {swapDisabled}
+      {detailsOpen}
+      {errorDetailsOpen}
+      hasErrorDetails={errorParts?.detail !== undefined}
+      {translateInto}
+      escalationKind={mode === 'error'
+        ? tip.imageUrl
+          ? 'open-panel'
+          : 'continue'
+        : tip.imageUrl
+          ? 'open-image'
+          : 'pin'}
+      canEscalate={canEscalateContinue ||
+        canEscalatePin ||
+        canEscalateOpenImage ||
+        (mode === 'error' && !!tip.imageUrl && !!onescalate)}
+      changing={editing !== null}
+      onCancel={oncancel}
+      onCopy={oncopy}
+      onRetry={onretry}
+      onRegenerate={onregenerate}
+      onRefine={onrefine}
+      onTranslate={ontargetchange}
+      onSwap={onswap}
+      onDescribe={() => void openEditor('change')}
+      onTranslateOther={() => void openEditor('language')}
+      onTaskChange={ontaskchange
+        ? (id) => (id === 'explain' ? onexplain() : ontaskchange(id, tip.tone ?? 'neutral'))
+        : undefined}
+      onToggleDetails={(open) => (detailsOpen = open)}
+      onToggleErrorDetails={() => (errorDetailsOpen = !errorDetailsOpen)}
+      onOpenOptions={onopenoptions}
+      onEscalate={onescalate
+        ? () =>
+            onescalate(
+              mode === 'error'
+                ? tip.imageUrl
+                  ? 'open-panel'
+                  : 'continue'
+                : tip.imageUrl
+                  ? 'open-image'
+                  : 'pin',
+            )
+        : undefined}
+    />
+
+    {#if detailsOpen}
+      <div class="ega-tooltip-details">
+        <ReplyDetails
+          meta={tip.meta}
+          context={contextShown}
+          sentText={tip.srcText}
+          image={imageMode}
+          {taskLabel}
+          direction={replyDirection}
+          confidence={tip.confidence}
+          recordsDetails={settingsNow?.captureResultMeta}
+          showClose={false}
+          {...onopenoptions ? { onViewPrompt: () => onopenoptions?.('tasks') } : {}}
+          surface="tooltip"
+          valueLang={pageLang}
+          onClose={() => (detailsOpen = false)}
+        />
+      </div>
+    {/if}
+  </div>
 </DraggablePanel>

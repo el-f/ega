@@ -5,24 +5,26 @@
   z-index: var(--ega-layer-tooltip);
   /* Border-box so max-width includes padding and border. */
   box-sizing: border-box;
-  max-width: 360px;
+  max-width: min(400px, calc(100vw - 16px));
   /* The card sizes to its content, so a narrow loading state would jump wider when the answer lands. */
-  min-width: 220px;
+  min-width: min(280px, calc(100vw - 16px));
   /* No max-height or overflow here on purpose: Chrome tethers `position: fixed` descendants to the nearest scroll container, which would clip the buttons' hover-label ::after pseudos at the card's bottom edge. repositionIfOverflow handles viewport edges instead. */
   background: var(--color-bg);
   color: var(--color-fg);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   /* Padded explicitly: a shadow-DOM tooltip cannot inherit the surface-level density tokens, and the global rhythm is too roomy at tooltip scale. */
-  padding: var(--space-1) var(--space-2);
+  padding: var(--space-3) var(--space-4);
   box-shadow: 0 8px 24px var(--color-shadow);
-  line-height: 1.45;
+  font-size: var(--fs-base);
+  line-height: var(--lh-body);
   /* The tooltip is remounted per open, so this fires once. */
   animation: ega-tooltip-in 150ms var(--ease-out) both;
 }
 /* Scrolls the detail region, NOT `.tooltip` — a scroll container on the card itself clips the buttons' position:fixed hover-labels. */
 .tooltip .ega-tooltip-details {
   max-height: 45vh;
+  min-block-size: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -323,7 +325,7 @@
   gap: 2px;
   margin-top: var(--space-1);
   font-size: var(--fs-sm);
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 .tooltip .actions .action-group {
   display: flex;
@@ -564,73 +566,6 @@
   z-index: var(--ega-layer-label);
   max-width: 220px;
 }
-.tooltip .meta {
-  /* `padding-inline-end` of one radius: a narrow image-inline tooltip auto-sizes small enough that the pill's right edge lands on the `--radius-lg` curve and pokes past it. `box-sizing: border-box` keeps `max-width: 100%` honest against that padding. */
-  box-sizing: border-box;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-1);
-  margin-top: var(--space-1);
-  padding-inline-end: var(--radius-lg);
-  /* The card pads its bottom by only --space-1, so without this the pill sits on the corner's lower edge. */
-  padding-bottom: var(--space-1);
-  font-size: var(--fs-xs);
-  /* No opacity on the row: a child cannot undo a parent's, and it took the pills below 4.5:1. The labels mute themselves. */
-  min-width: 0;
-  max-width: 100%;
-}
-/* The pills end the action row; flex-wrap on .actions moves them to their own line when they do not fit. */
-.tooltip .actions .meta {
-  margin-inline-start: auto;
-  margin-top: 0;
-}
-.tooltip .meta .lang,
-.tooltip .meta .lang-pill {
-  /* A long detected label breaks inside itself instead of pushing the pill out of the tooltip. */
-  overflow-wrap: anywhere;
-  word-break: break-word;
-}
-.tooltip .meta .dot {
-  opacity: 0.5;
-}
-.tooltip .meta .lang {
-  font-size: var(--fs-xs);
-  opacity: 0.85;
-}
-.tooltip .meta .lang-cluster {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 3px;
-}
-.tooltip .meta .lang-pill {
-  font-size: var(--fs-xs);
-  padding: 1px var(--space-1);
-  border-radius: var(--radius-pill);
-  background: var(--color-accent-bg-soft);
-  /* 11px is normal text, so this needs 4.5:1, not the 3:1 large-text bar. The hover accent clears it on the soft tint. */
-  color: var(--color-accent-hover);
-}
-.tooltip .pill {
-  display: inline-block;
-  font-size: var(--fs-xs);
-  padding: 2px var(--space-1);
-  border-radius: var(--radius-pill);
-}
-.pill.hi {
-  background: var(--color-success-bg-soft);
-  color: var(--color-success-fg);
-}
-.pill.mid {
-  background: var(--color-warning-bg-soft);
-  color: var(--color-warning-fg);
-}
-.pill.lo {
-  background: var(--color-danger-bg-soft);
-  /* The -fg shade: the base danger red on its soft tint measures 3.0:1 in dark, under the 4.5:1 an 11px label needs. */
-  color: var(--color-danger-fg);
-}
 .shimmer-wrap {
   display: flex;
   align-items: center;
@@ -668,6 +603,152 @@
   100% {
     background-position: -200% 0;
   }
+}
+.tooltip-reply {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-block-size: var(--ega-tooltip-max-block-size, calc(100dvh - 40px));
+  min-inline-size: 0;
+}
+.tooltip .tooltip-topbar {
+  padding: 0;
+  min-block-size: 28px;
+  flex-shrink: 0;
+}
+.tooltip .body {
+  min-block-size: 0;
+  max-block-size: 40vh;
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
+.tooltip .explain-block {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-block-size: 0;
+  overflow: auto;
+}
+.tooltip .explain-label {
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+.tooltip .actions,
+.tooltip .ega-reply-meta {
+  flex-shrink: 0;
+}
+.tooltip .actions {
+  gap: var(--space-1);
+  margin: 0;
+}
+.tooltip .actions .tooltip-text-action,
+.tooltip .actions .tooltip-fix {
+  min-block-size: 28px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  padding: var(--space-1);
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--color-fg);
+}
+.tooltip .actions .tooltip-fix {
+  border-color: var(--color-control-border);
+  padding-inline: var(--space-2);
+}
+.tooltip .actions .tooltip-text-action,
+.tooltip .actions .tooltip-fix {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.tooltip .actions .tooltip-text-action:hover,
+.tooltip .actions .tooltip-fix:hover {
+  text-decoration: none;
+  background: var(--color-bg-hover);
+}
+.tooltip-menu {
+  box-sizing: border-box;
+  inline-size: min(280px, calc(100vw - 24px));
+  max-block-size: min(70vh, var(--bits-dropdown-menu-content-available-height, 70vh));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+  color: var(--color-fg);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-body);
+  box-shadow: 0 4px 16px var(--color-shadow);
+  z-index: var(--ega-layer-tooltip);
+}
+.tooltip-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-block-size: 32px;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.tooltip-menu-item[data-highlighted] {
+  background: var(--color-bg-hover);
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+.tooltip-menu-item[aria-disabled='true'],
+.tooltip-menu-item[data-disabled] {
+  color: var(--color-fg-disabled);
+  cursor: var(--cursor-disabled);
+}
+.tooltip-menu-heading {
+  padding: var(--space-1) var(--space-2);
+  color: var(--color-muted);
+  font-size: var(--fs-xs);
+}
+.tooltip-menu-sep {
+  margin-block: var(--space-1);
+  block-size: 1px;
+  background: var(--color-border);
+}
+.tooltip-editor form,
+.tooltip-editor label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-size: var(--fs-sm);
+}
+.tooltip-editor textarea,
+.tooltip-editor select {
+  box-sizing: border-box;
+  inline-size: 100%;
+  min-inline-size: 0;
+  border: 1px solid var(--color-control-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2);
+  background-color: var(--color-bg);
+  color: var(--color-fg);
+  font: inherit;
+}
+.tooltip-editor textarea {
+  resize: vertical;
+  max-block-size: 30vh;
+}
+.tooltip-editor-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+.tooltip-editor-actions button {
+  min-block-size: 28px;
+  border: 1px solid var(--color-control-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font: inherit;
 }
 /* Copies of component styles: a component's scoped <style> never reaches the tooltip's shadow root. */
 
@@ -801,12 +882,10 @@
 }
 
 /* ReplyDetails ("About this reply"): its scoped styles never reach the shadow root. */
+
+/* No box: the details read as part of the reply, inside at most two rules. */
 .reply-details {
   margin-top: var(--space-2);
-  padding: var(--space-2) var(--space-3) var(--space-3);
-  background: var(--color-bg-sunken);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
   font-size: var(--fs-sm);
   color: var(--color-fg);
   display: flex;
@@ -851,13 +930,14 @@
   overflow-wrap: anywhere;
 }
 .rd-quote {
-  /* logical-props-allow: mirrors ReplyDetails.svelte, which the mirror lint compares */
-  padding-left: var(--space-2);
-  /* logical-props-allow: mirrors ReplyDetails.svelte */
-  border-left: 2px solid var(--color-border);
   white-space: pre-wrap;
   max-height: 6em;
   overflow: auto;
+}
+/* A quote's one rule sits on the side its text starts, so RTL text keeps it beside the words. */
+.rd-rule {
+  padding-inline-start: var(--space-2);
+  border-inline-start: 2px solid var(--color-border);
 }
 .rd-caption {
   display: block;
@@ -906,10 +986,6 @@
 .rd-mono {
   font-family: var(--font-mono);
 }
-.rd-sep {
-  margin-inline: var(--space-1);
-  color: var(--color-muted);
-}
 .rd-link {
   padding: 0;
   border: 0;
@@ -940,9 +1016,6 @@
   flex-wrap: wrap;
   gap: 0 var(--space-2);
 }
-.rd-attempt-name {
-  font-weight: 500;
-}
 .rd-attempts li.is-error .rd-attempt-status {
   color: var(--color-danger-fg);
 }
@@ -957,15 +1030,101 @@
 }
 .rd-foot {
   display: flex;
-  justify-content: flex-end;
 }
-.rd-copy {
-  min-height: 24px;
-  font-size: var(--fs-xs);
-  padding: 2px var(--space-2);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-bg);
+/* The look of the shared ghost sm Button, which the tooltip's shadow sheet does not carry. */
+.rd-action {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 28px;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
   color: var(--color-fg);
+  font: inherit;
+  font-size: var(--fs-sm);
   cursor: pointer;
+}
+.rd-action:hover {
+  background: var(--color-bg-hover);
+}
+.rd-foot .rd-action {
+  padding-inline: 0;
+  border-inline-width: 0;
+}
+.rd-disclosure {
+  align-self: flex-start;
+  color: var(--color-fg);
+  text-decoration: none;
+}
+.rd-instr-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-block-start: var(--space-2);
+}
+/* The prompt reads as a quote: one rule, no box, fifteen lines before it scrolls. */
+.rd-instr {
+  margin: var(--space-1) 0 0;
+  max-block-size: calc(15 * var(--lh-body) * var(--fs-sm));
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  line-height: var(--lh-body);
+  color: var(--color-fg);
+}
+.rd-instr:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+.rd-instr-note {
+  margin: var(--space-1) 0 0;
+  color: var(--color-muted);
+}
+
+/* Shared reply metadata in the tooltip shadow root. */
+
+.ega-reply-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  margin: 0;
+  block-size: 1lh;
+  overflow: hidden;
+  font-size: var(--fs-sm);
+  line-height: var(--lh-body);
+  color: var(--color-muted);
+}
+/* No ellipsis and no wrap inside an item: one that does not fit is hidden whole. */
+.ega-reply-meta-item {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+/* The dot belongs to the item after it, so a hidden item takes its dot with it. */
+.ega-reply-meta-item:not(.ega-sr-only) ~ .ega-reply-meta-item:not(.ega-sr-only)::before {
+  content: '·';
+  padding-inline: var(--space-1);
+}
+.ega-reply-meta-item.warn {
+  color: var(--color-warning-fg);
+}
+/* The inline padding keeps the inset focus ring off the glyphs. */
+.ega-reply-meta-action {
+  margin-inline-start: var(--space-1);
+  padding: 0 var(--space-1);
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--color-accent);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+/* The one-line clip cuts anything outside the button, so the ring sits inside it. */
+.ega-reply-meta-action:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
 }

@@ -23,6 +23,10 @@ export interface PendingReq {
   imageUrl?: string;
   /** The request ran as an explain; Retry keeps it that way. */
   explain?: boolean;
+  /** Per-request change from the tooltip Refine menu. */
+  refinement?: string;
+  /** Regenerate bypasses the cached answer once, without changing the request's identity. */
+  freshAnswer?: boolean;
 }
 
 export type RendererOwner = 'tooltip' | 'inline' | 'page-v2';

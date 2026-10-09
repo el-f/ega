@@ -42,6 +42,7 @@ function baseTip(overrides: Partial<TipState> = {}): TipState {
     srcText: 'hello',
     body: '',
     loading: false,
+    settled: true,
     confidencePill: true,
     left: 10,
     top: 10,
@@ -54,6 +55,10 @@ function handlers() {
     onclose: vi.fn(),
     oncancel: vi.fn(),
     onretry: vi.fn(),
+    onregenerate: vi.fn(),
+    onrefine: vi.fn(),
+    ontargetchange: vi.fn(),
+    ontaskchange: vi.fn(),
     oncopy: vi.fn(),
     onexplain: vi.fn(),
     onopenoptions: vi.fn(),
@@ -72,6 +77,16 @@ function mountWith(
   return { ...utils, ...h };
 }
 
+async function menu(container: HTMLElement, name: string): Promise<HTMLElement> {
+  const trigger = container.querySelector<HTMLElement>('button[aria-label="' + name + '"]');
+  if (!trigger) throw new Error('no ' + name + ' trigger');
+  await fireEvent.keyDown(trigger, { key: 'ArrowDown' });
+  return vi.waitFor(() => {
+    const opened = container.querySelector<HTMLElement>('[role="menu"]');
+    if (!opened) throw new Error('no menu');
+    return opened;
+  });
+}
 describe('Tooltip smoke', () => {
   it('does NOT show the source-text echo by default (showSource=false)', () => {
     const { container } = mountWith({ srcText: 'the-source-text-we-highlighted' });
@@ -93,12 +108,12 @@ describe('Tooltip smoke', () => {
 
   it('shows Cancel button while loading with no body', () => {
     const { getByText } = mountWith({ loading: true, body: '' });
-    expect(getByText('Cancel')).toBeTruthy();
+    expect(getByText('Stop')).toBeTruthy();
   });
 
   it('keeps Cancel while the body streams, and drops it once the turn settles', () => {
     const hasCancel = (el: HTMLElement): boolean =>
-      Array.from(el.querySelectorAll('button')).some((b) => b.textContent.trim() === 'Cancel');
+      Array.from(el.querySelectorAll('button')).some((b) => b.textContent.trim() === 'Stop');
 
     const streaming = mountWith({ loading: false, body: 'half a sentence', settled: false });
     expect(hasCancel(streaming.container)).toBe(true);
@@ -213,7 +228,7 @@ describe('Tooltip smoke', () => {
       body: 'hi',
       detectedLang: 'arabizi',
     });
-    const meta = container.querySelector('.meta');
+    const meta = container.querySelector('[data-ega-reply-meta]');
     expect(meta?.textContent).toContain('Arabizi');
     expect(meta?.textContent).not.toContain('arabizi');
   });
@@ -223,7 +238,7 @@ describe('Tooltip smoke', () => {
       body: 'hi',
       detectedLang: 'custom-xyz',
     });
-    const meta = container.querySelector('.meta');
+    const meta = container.querySelector('[data-ega-reply-meta]');
     expect(meta?.textContent).toContain('custom-xyz');
   });
 
@@ -233,9 +248,9 @@ describe('Tooltip smoke', () => {
       detectedLang: 'arabizi',
       detectedDetail: 'Levantine',
     });
-    const meta = container.querySelector('.meta');
+    const meta = container.querySelector('[data-ega-reply-meta]');
     // Em dash, not parens: detectedDetail can already carry parens.
-    expect(meta?.textContent).toContain('Arabizi \u2014 Levantine');
+    expect(meta?.textContent).toContain('Arabizi (Levantine)');
   });
 
   it('detectedDetail with inner parens stays readable (no double-paren bug)', () => {
@@ -244,7 +259,7 @@ describe('Tooltip smoke', () => {
       detectedLang: 'arabizi',
       detectedDetail: 'Levantine (Lebanese)',
     });
-    const meta = container.querySelector('.meta');
+    const meta = container.querySelector('[data-ega-reply-meta]');
     expect(meta?.textContent).not.toMatch(/\(\(/);
     expect(meta?.textContent).not.toMatch(/\)\)/);
     expect(meta?.textContent).toContain('Levantine (Lebanese)');
@@ -255,79 +270,61 @@ describe('Tooltip smoke', () => {
       body: 'hi',
       detectedDetail: 'looks like Venetian Italian',
     });
-    const meta = container.querySelector('.meta');
+    const meta = container.querySelector('[data-ega-reply-meta]');
     expect(meta?.textContent).toContain('Venetian Italian');
   });
 
-  it('detectedLangs with >1 entries renders a pill cluster, NOT the single pill', () => {
+  it('combines mixed languages in one shared direction item', async () => {
     const { container } = mountWith({
       body: 'hi',
-      detectedLang: 'arabizi',
       detectedLangs: [{ id: 'arabizi' }, { id: 'elvish-quenya', detail: 'high-elven' }],
     });
-    const cluster = container.querySelector('[data-ega-multi-variety]');
-    expect(cluster).toBeTruthy();
-    if (!cluster) throw new Error('no cluster');
-    const pills = cluster.querySelectorAll('.lang-pill');
-    expect(pills.length).toBe(2);
-    const p0 = pills[0];
-    const p1 = pills[1];
-    if (!p0 || !p1) throw new Error('expected 2 pills');
-    expect(p0.textContent).toContain('Arabizi');
-    expect(p1.textContent).toContain('Elvish');
-    expect(p1.textContent).toContain('high-elven');
-    expect(container.querySelector('.meta .lang')).toBeNull();
+    const line = container.querySelector('[data-ega-meta-item="direction"]');
+    expect(line?.textContent).toContain('Arabizi + Elvish');
+    expect(line?.textContent).toContain('high-elven');
+    expect(container.querySelector('.lang-pill')).toBeNull();
   });
 
-  it('detectedLangs with a single entry falls through to the single-pill path', () => {
+  it('shows one detected language without a pill cluster', async () => {
     const { container } = mountWith({
       body: 'hi',
       detectedLang: 'arabizi',
       detectedLangs: [{ id: 'arabizi' }],
     });
-    expect(container.querySelector('[data-ega-multi-variety]')).toBeNull();
-    expect(container.querySelector('.meta .lang')?.textContent).toContain('Arabizi');
+    expect(container.querySelector('[data-ega-meta-item="direction"]')?.textContent).toBe(
+      'Arabizi',
+    );
+    expect(container.querySelector('.lang-cluster')).toBeNull();
   });
 
-  it('action buttons carry aria-label without native title attr', () => {
-    // A native title renders Chrome's own tooltip on top of the styled data-tooltip label.
-    const { container } = mountWith({ body: 'hi' }, /* clickOutsideDismiss */ false);
-    const copy = container.querySelector('button[aria-label="Copy translation"]');
-    const explain = container.querySelector('button[aria-label="Explain this translation"]');
-    const close = container.querySelector('button[aria-label="Close"]');
-    expect(copy).toBeTruthy();
-    expect(explain).toBeTruthy();
-    expect(close).toBeTruthy();
-    expect(copy?.getAttribute('title')).toBeNull();
-    expect(explain?.getAttribute('title')).toBeNull();
-    expect(close?.getAttribute('title')).toBeNull();
+  it('action buttons have accessible names and no native title', async () => {
+    const { container } = mountWith({ body: 'hi' });
+    for (const name of ['Copy translation', 'Regenerate', 'Refine', 'More', 'Close']) {
+      const button = container.querySelector('button[aria-label="' + name + '"]');
+      expect(button).not.toBeNull();
+      expect(button?.getAttribute('title')).toBeNull();
+    }
   });
 
-  it('icon-only buttons carry data-tooltip for CSS hover label', () => {
-    const { container } = render(Tooltip, {
-      props: {
-        tip: baseTip({ body: 'hi' }),
-        // The close icon renders only when clickOutsideDismiss is false.
-        clickOutsideDismiss: false,
-        showSource: false,
-        onswap: vi.fn(),
-        ...handlers(),
-      },
-    });
-    const copy = container.querySelector('button[aria-label="Copy translation"]');
-    const swap = container.querySelector('button[aria-label="Swap direction"]');
-    const close = container.querySelector('button[aria-label="Close"]');
-    expect(copy?.getAttribute('data-tooltip')).toBe('Copy');
-    expect(swap?.getAttribute('data-tooltip')).toBe('Swap direction and translate again');
-    expect(close?.getAttribute('data-tooltip')).toBe('Close (Esc)');
+  it('the action icons expose a hover label', async () => {
+    const { container } = mountWith({ body: 'hi' });
+    for (const [name, label] of [
+      ['Copy translation', 'Copy'],
+      ['Regenerate', 'Regenerate'],
+      ['Refine', 'Refine'],
+      ['More', 'More'],
+    ]) {
+      expect(
+        container.querySelector('button[aria-label="' + name + '"]')?.getAttribute('data-tooltip'),
+      ).toBe(label);
+    }
   });
 
   // The "?" glyph alone reads as Help, so Explain carries its word and needs no hover label.
-  it('Explain shows its word, not just the icon', () => {
-    const { getByRole } = mountWith({ body: 'hi' });
-    const explain = getByRole('button', { name: 'Explain this translation' });
-    expect(explain.textContent.trim()).toBe('Explain');
-    expect(explain.hasAttribute('data-tooltip')).toBe(false);
+  it('More offers the named Explain alternative', async () => {
+    const { container } = mountWith({ body: 'hi' });
+    const opened = await menu(container, 'More');
+    expect(opened.textContent).toContain('Explain instead');
   });
 
   it('copied state flips the copy button data-tooltip to "Copied"', () => {
@@ -385,68 +382,59 @@ describe('Tooltip smoke', () => {
     expect(onclose).not.toHaveBeenCalled();
   });
 
-  it('swap button renders only when onswap prop is present', () => {
+  it('Refine offers Swap only when the surface can rerun it', async () => {
     const a = render(Tooltip, {
-      props: {
-        tip: baseTip({ body: 'hi' }),
-        clickOutsideDismiss: true,
-        showSource: false,
-        ...handlers(),
-      },
+      props: { tip: baseTip({ body: 'hi' }), clickOutsideDismiss: true, ...handlers() },
     });
-    expect(a.container.querySelector('button[aria-label="Swap direction"]')).toBeNull();
+    expect((await menu(a.container, 'Refine')).textContent).not.toMatch(/Swap/);
     a.unmount();
-    const h = handlers();
     const b = render(Tooltip, {
       props: {
         tip: baseTip({ body: 'hi' }),
         clickOutsideDismiss: true,
-        showSource: false,
+        ...handlers(),
         onswap: vi.fn(),
-        ...h,
       },
     });
-    expect(b.container.querySelector('button[aria-label="Swap direction"]')).toBeTruthy();
+    expect((await menu(b.container, 'Refine')).textContent).toContain('Swap');
   });
 
-  it('swap button fires onswap', async () => {
+  it('the Refine Swap item reruns the original source', async () => {
     const onswap = vi.fn();
     const { container } = render(Tooltip, {
-      props: {
-        tip: baseTip({ body: 'hi' }),
-        clickOutsideDismiss: true,
-        showSource: false,
-        onswap,
-        ...handlers(),
-      },
+      props: { tip: baseTip({ body: 'hi' }), clickOutsideDismiss: true, ...handlers(), onswap },
     });
-    const swap = container.querySelector(
-      'button[aria-label="Swap direction"]',
-    ) as HTMLButtonElement;
+    const opened = await menu(container, 'Refine');
+    const swap = [...opened.querySelectorAll('[role="menuitem"]')].find(
+      (el) => el.textContent.trim() === 'Swap',
+    );
+    expect(swap).toBeTruthy();
+    if (!swap) throw new Error('No Swap item');
     await fireEvent.click(swap);
     expect(onswap).toHaveBeenCalledTimes(1);
   });
 
   // aria-disabled, not disabled: a disabled button cannot take focus, so the reason would be hover-only.
-  it('a blocked swap stays focusable, names its reason and does nothing on click', async () => {
+  it('an unresolved source keeps Swap readable with its reason', async () => {
     const onswap = vi.fn();
-    const { getByRole } = render(Tooltip, {
+    const { container } = render(Tooltip, {
       props: {
         tip: baseTip({ body: 'hi' }),
         clickOutsideDismiss: true,
-        showSource: false,
+        ...handlers(),
         onswap,
         direction: { source: 'auto', target: 'en' },
-        ...handlers(),
       },
     });
-    const swap = getByRole('button', { name: 'Swap direction — pick a source language first' });
-    expect(swap.hasAttribute('disabled')).toBe(false);
-    expect(swap.getAttribute('aria-disabled')).toBe('true');
-    swap.focus();
-    expect(swap.ownerDocument.activeElement).toBe(swap);
-    // The visible reason is the accessible name, word for word (label in name).
-    expect(swap.getAttribute('data-tooltip')).toBe('Swap direction — pick a source language first');
+    const opened = await menu(container, 'Refine');
+    const swap = [...opened.querySelectorAll<HTMLElement>('[role="menuitem"]')].find((el) =>
+      el.textContent.includes('Swap'),
+    );
+    expect(swap?.getAttribute('aria-disabled')).toBe('true');
+    expect(swap?.textContent).toContain('pick a source language first');
+    swap?.focus();
+    expect(document.activeElement).toBe(swap);
+    if (!swap) throw new Error('No Swap item');
     await fireEvent.click(swap);
     expect(onswap).not.toHaveBeenCalled();
   });
@@ -482,21 +470,18 @@ describe('Tooltip smoke', () => {
   });
 
   // Swap re-sends the selection with the pair flipped, so the hover text names the new pair.
-  it('swap hover text names the flipped pair', () => {
+  it('the visible direction remains available while choosing Swap', async () => {
     const { container } = render(Tooltip, {
       props: {
         tip: baseTip({ body: 'hi' }),
         clickOutsideDismiss: true,
-        showSource: false,
+        ...handlers(),
         onswap: vi.fn(),
         direction: { source: 'en', target: 'es' },
-        ...handlers(),
       },
     });
-    const swap = container.querySelector('button[aria-label="Swap direction"]');
-    expect(swap?.getAttribute('data-tooltip')).toBe(
-      'Swap direction and translate again (Spanish → English)',
-    );
+    expect(container.querySelector('[data-ega-direction]')?.textContent).toBe('English → Spanish');
+    expect((await menu(container, 'Refine')).textContent).toContain('Swap');
   });
 
   // testHooks `hasError` probes `[data-ega-retry]`, so both error rows need it.
@@ -507,7 +492,7 @@ describe('Tooltip smoke', () => {
     const { container } = mountWith({ body, error: { code: 'NETWORK', message: 'offline' } });
     const retry = container.querySelector('[data-ega-retry]');
     expect(retry).toBeTruthy();
-    expect(retry?.textContent.trim()).toBe('Try again');
+    expect(retry?.textContent.trim()).toBe('Retry');
   });
 
   it('task select renders inside a .task-row flex wrapper so labels can wrap rather than truncate', () => {
@@ -517,8 +502,8 @@ describe('Tooltip smoke', () => {
         tip: baseTip({ body: '' }),
         clickOutsideDismiss: true,
         showSource: false,
-        ontaskchange,
         ...handlers(),
+        ontaskchange,
       },
     });
     const taskSel = container.querySelector('.task-select');
@@ -613,31 +598,31 @@ describe('Tooltip smoke', () => {
   });
 
   describe('dismiss mode: close button tied to clickOutsideDismiss', () => {
-    it('HIDES the close button when clickOutsideDismiss=true (no redundant dismiss)', () => {
-      const { container } = mountWith({ body: 'Welcome' }, /* clickOutsideDismiss */ true);
-      const closeBtns = container.querySelectorAll('button[aria-label="Close"]');
-      expect(closeBtns.length).toBe(0);
+    it('keeps the close button when clickOutsideDismiss=true (explicit keyboard and pointer control)', async () => {
+      const { container } = mountWith(
+        { body: 'hi', error: { code: 'NETWORK', message: 'offline' } },
+        true,
+      );
+      expect(container.querySelector('button[aria-label="Close"]')).not.toBeNull();
     });
     it('SHOWS the close button when clickOutsideDismiss=false', () => {
       const { container } = mountWith({ body: 'Welcome' }, /* clickOutsideDismiss */ false);
       const closeBtns = container.querySelectorAll('button[aria-label="Close"]');
       expect(closeBtns.length).toBeGreaterThan(0);
     });
-    it('HIDES the close button in the error-with-body state too (consistency)', () => {
+    it('keeps the close button in the error-with-body state too (consistency)', async () => {
       const { container } = mountWith(
-        { body: 'partial', error: { code: 'NETWORK', message: 'oops' } },
-        /* clickOutsideDismiss */ true,
+        { body: 'hi', error: { code: 'NETWORK', message: 'offline' } },
+        true,
       );
-      const closeBtns = container.querySelectorAll('button[aria-label="Close"]');
-      expect(closeBtns.length).toBe(0);
+      expect(container.querySelector('button[aria-label="Close"]')).not.toBeNull();
     });
-    it('HIDES the close button in the error-no-body state too (consistency)', () => {
+    it('keeps the close button in the error-no-body state too (consistency)', async () => {
       const { container } = mountWith(
-        { error: { code: 'NETWORK', message: 'oops' } },
-        /* clickOutsideDismiss */ true,
+        { body: 'hi', error: { code: 'NETWORK', message: 'offline' } },
+        true,
       );
-      const closeBtns = container.querySelectorAll('button[aria-label="Close"]');
-      expect(closeBtns.length).toBe(0);
+      expect(container.querySelector('button[aria-label="Close"]')).not.toBeNull();
     });
   });
 
@@ -669,28 +654,28 @@ describe('Tooltip smoke', () => {
       expect(queryByLabelText('Show details about this reply')).toBeNull();
     });
 
-    it('shows the ⓘ icon when meta is present', () => {
-      const meta: ResultMeta = {
-        backendId: asBackendIdUnsafe('anthropic'),
-        cacheHit: false,
-        latencyMs: 250,
-      };
-      const { getByLabelText } = mountWith({ body: 'hello', meta });
-      expect(getByLabelText('Show details about this reply')).toBeTruthy();
+    it('More makes About available when result details were recorded', async () => {
+      const { container } = mountWith({
+        body: 'hello',
+        meta: { backendId: asBackendIdUnsafe('anthropic'), cacheHit: false, latencyMs: 250 },
+      });
+      expect(
+        (await menu(container, 'More')).querySelector('[role="menuitemcheckbox"]')?.textContent,
+      ).toBe('About this reply');
     });
 
-    it('clicking the ⓘ icon opens the drawer with meta rows', async () => {
-      const meta: ResultMeta = {
-        backendId: asBackendIdUnsafe('anthropic'),
-        cacheHit: false,
-        latencyMs: 250,
-      };
-      const { getByLabelText, getByText } = mountWith({ body: 'hello', meta });
-      await fireEvent.click(getByLabelText('Show details about this reply'));
-      expect(getByLabelText('Close')).toBeTruthy();
-      expect(getByText('Anthropic')).toBeTruthy();
-      // One unit on the Time row, seconds (V5-08).
-      expect(getByText('0.3 s')).toBeTruthy();
+    it('About shows the recorded backend and elapsed time', async () => {
+      const { container } = mountWith({
+        body: 'hello',
+        meta: { backendId: asBackendIdUnsafe('anthropic'), cacheHit: false, latencyMs: 250 },
+      });
+      const opened = await menu(container, 'More');
+      const about = opened.querySelector('[role="menuitemcheckbox"]');
+      if (!about) throw new Error('No About item');
+      await fireEvent.click(about);
+      expect(container.querySelector('.reply-details')?.textContent).toContain('Anthropic');
+      expect(container.querySelector('.reply-details')?.textContent).toContain('0.3 s');
+      expect(container.querySelectorAll('button[aria-label="Close"]')).toHaveLength(1);
     });
   });
 
@@ -718,9 +703,9 @@ describe('Tooltip smoke', () => {
     expect(container.querySelector('.tooltip-topbar .tooltip-close')).toBeTruthy();
   });
 
-  it('topbar absent when clickOutsideDismiss=true and no ontaskchange', () => {
-    const { container } = mountWith({ body: 'hi' }, /* clickOutsideDismiss */ true);
-    expect(container.querySelector('.tooltip-topbar')).toBeNull();
+  it('the header retains Close when click-outside dismissal is on', async () => {
+    const { container } = mountWith({ body: 'hi' }, true);
+    expect(container.querySelector('.tooltip-topbar .tooltip-close')).not.toBeNull();
   });
 
   it('hides Explain action when tip.imageUrl is present', () => {
@@ -732,27 +717,27 @@ describe('Tooltip smoke', () => {
     expect(queryByLabelText(/explain/i)).toBeNull();
   });
 
-  it('shows Explain action when tip.imageUrl is absent', () => {
-    const { container } = mountWith({ body: 'translation', loading: false });
-    expect(container.querySelector('button[aria-label="Explain this translation"]')).toBeTruthy();
+  it('the text reply More menu offers Explain instead', async () => {
+    const { container } = mountWith({ body: 'hi' });
+    expect((await menu(container, 'More')).textContent).toContain('Explain instead');
   });
 
   describe('confidence pill — zero edge', () => {
     it('does NOT render the pill when confidence=0 even with threshold=0', () => {
       const { container } = mountWith({ body: 'hi', confidence: 0, confidencePill: true });
-      expect(container.querySelector('.pill')).toBeNull();
+      expect(container.querySelector('[data-ega-meta-item="confidence"]')).toBeNull();
     });
 
     it('renders the pill when confidence>0 with default threshold=0', () => {
       const { container } = mountWith({ body: 'hi', confidence: 0.75, confidencePill: true });
-      const pill = container.querySelector('.pill');
+      const pill = container.querySelector('[data-ega-meta-item="confidence"]');
       expect(pill).not.toBeNull();
       expect(pill?.textContent).toContain('75%');
     });
 
     it('hides the pill when confidencePill=false regardless of confidence', () => {
       const { container } = mountWith({ body: 'hi', confidence: 0.9, confidencePill: false });
-      expect(container.querySelector('.pill')).toBeNull();
+      expect(container.querySelector('[data-ega-meta-item="confidence"]')).toBeNull();
     });
   });
 
@@ -849,13 +834,14 @@ describe('Continue in side panel — only when there is text to carry', () => {
     expect(container.querySelector('button[data-ega-escalate="continue"]')).toBeTruthy();
   });
 
-  it('Continue is a labeled text button, not icon-only', () => {
+  it('the error handoff has the same accessible name as the success handoff', async () => {
     const { container } = mountEscalatable({
       srcText: 'Hola',
       error: { code: 'SERVER', message: 'HTTP 500' },
     });
-    const btn = container.querySelector('button[data-ega-escalate="continue"]');
-    expect(btn?.textContent.trim()).toBe('Continue in side panel');
+    expect(
+      container.querySelector('button[data-ega-escalate="continue"]')?.getAttribute('aria-label'),
+    ).toBe('Open in side panel');
   });
 });
 
@@ -936,7 +922,7 @@ describe('direction pill (meta row)', () => {
     ['error', { error: { code: 'SERVER' as const, message: 'HTTP 500' } }],
   ])('sits inside the action row in %s mode', (_mode, state) => {
     const { container } = mountWithDirection(state, { source: 'en', target: 'es' });
-    expect(container.querySelector('.actions .meta [data-ega-direction]')).not.toBeNull();
+    expect(container.querySelector('[data-ega-reply-meta] [data-ega-direction]')).not.toBeNull();
   });
 
   it('hides the pill when the source is auto', () => {
@@ -1039,16 +1025,15 @@ describe('Tooltip tone select', () => {
 });
 
 describe('Tooltip Explain button follows the Explain task', () => {
-  const explainButton = (c: HTMLElement): Element | null =>
-    c.querySelector('[aria-label="Explain this translation"]');
-
-  it('shows while Explain is on and hides when it is off', () => {
-    setSettings({ ...DEFAULT_SETTINGS });
-    const on = mountWith({ body: 'hello', settled: true });
-    expect(explainButton(on.container)).not.toBeNull();
+  it('the More menu follows the Explain task setting', async () => {
+    setSettings({ ...DEFAULT_SETTINGS, disabledTasks: [] });
+    const on = mountWith({ body: 'hi' });
+    expect((await menu(on.container, 'More')).textContent).toContain('Explain instead');
+    on.unmount();
     setSettings({ ...DEFAULT_SETTINGS, disabledTasks: ['explain'] });
-    const off = mountWith({ body: 'hello', settled: true });
-    expect(explainButton(off.container)).toBeNull();
-    setSettings({ ...DEFAULT_SETTINGS });
+    const off = mountWith({ body: 'hi' });
+    expect((await menu(off.container, 'More')).textContent).not.toContain('Explain instead');
+    off.unmount();
+    setSettings(DEFAULT_SETTINGS);
   });
 });

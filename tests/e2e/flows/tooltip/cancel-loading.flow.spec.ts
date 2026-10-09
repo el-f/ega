@@ -34,7 +34,7 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-test('cancel during loading aborts the request and dismisses the tooltip', async () => {
+test('Stop aborts the request and retains a neutral retryable tooltip', async () => {
   const timeline = createTimeline();
   const page = await ext.context.newPage();
   await page.goto(`${ext.serverUrl}/selection-page.html`);
@@ -54,7 +54,7 @@ test('cancel during loading aborts the request and dismisses the tooltip', async
         }),
       { timeout: 5_000 },
     )
-    .toBe('Cancel');
+    .toBe('Stop');
   timeline.markStep('cancel-visible');
 
   // Bubble and tooltip both anchor near rect.bottom, so they overlap unless openTooltip drops the bubble.
@@ -88,7 +88,7 @@ test('cancel during loading aborts the request and dismisses the tooltip', async
     const root = (host as HTMLElement | null)?.shadowRoot;
     const btn = Array.from(
       root?.querySelectorAll<HTMLButtonElement>('.tooltip .actions button') ?? [],
-    ).find((b) => b.textContent.trim() === 'Cancel');
+    ).find((b) => b.textContent.trim() === 'Stop');
     if (!btn) throw new Error('cancel button missing');
     btn.click();
   });
@@ -100,7 +100,7 @@ test('cancel during loading aborts the request and dismisses the tooltip', async
         await page.evaluate(() => {
           const host = document.querySelector('#ega-shadow-host');
           const root = (host as HTMLElement | null)?.shadowRoot;
-          return root?.querySelector('.tooltip[role="dialog"]') == null;
+          return root?.querySelector('[data-ega-meta-item="status"]')?.textContent === 'Stopped';
         }),
       { timeout: 3_000 },
     )
@@ -112,7 +112,7 @@ test('cancel during loading aborts the request and dismisses the tooltip', async
       await page.evaluate(() => {
         const host = document.querySelector('#ega-shadow-host');
         const root = (host as HTMLElement | null)?.shadowRoot;
-        return root?.querySelector('.tooltip[role="dialog"]') == null;
+        return root?.querySelector('[data-ega-meta-item="status"]')?.textContent === 'Stopped';
       }),
     true,
     { windowMs: MOCK_DELAY_MS + 500, message: 'late SSE must not re-mount the canceled tooltip' },

@@ -59,12 +59,7 @@ test('Pin-to-sidepanel button writes a handoff slot consumed by the sidepanel', 
     .toBe(true);
   timeline.markStep('pin-affordance-visible');
 
-  await page.evaluate(() => {
-    const host = document.querySelector('#ega-shadow-host');
-    const root = (host as HTMLElement | null)?.shadowRoot ?? document;
-    const btn = root.querySelector('[data-ega-escalate="pin"]') as HTMLButtonElement | null;
-    btn?.click();
-  });
+  await page.locator('[data-ega-escalate="pin"]').click();
 
   // The Pin write is async — wait for it, or drainPopupHandoffs reads an empty map.
   const probe = await ext.context.newPage();

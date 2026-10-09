@@ -77,11 +77,7 @@ test('tooltip Pin seeds text turn; Retry re-dispatches and lands success body', 
     .toBe(true);
   timeline.markStep('escalate-btn-visible');
 
-  await page.evaluate(() => {
-    const host = document.querySelector('#ega-shadow-host');
-    const root = (host as HTMLElement | null)?.shadowRoot ?? document;
-    (root.querySelector('[data-ega-escalate="continue"]') as HTMLButtonElement | null)?.click();
-  });
+  await page.locator('[data-ega-escalate="continue"]').click();
 
   const probe = await ext.context.newPage();
   await probe.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);

@@ -50,15 +50,8 @@ test('Context icon button reveals the captured PageContext entries', async () =>
   });
   expect(closedListCount).toBe(0);
 
-  await page.evaluate(() => {
-    const host = document.querySelector('#ega-shadow-host');
-    const root = (host as HTMLElement | null)?.shadowRoot;
-    const btn = root?.querySelector<HTMLButtonElement>(
-      '.tooltip button[aria-label="Show details about this reply"]',
-    );
-    if (!btn) throw new Error('details button missing');
-    btn.click();
-  });
+  await page.getByRole('button', { name: 'More', exact: true }).click();
+  await page.getByRole('menuitemcheckbox', { name: 'About this reply' }).click();
   timeline.markStep('toggle-clicked');
 
   await expect

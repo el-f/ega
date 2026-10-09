@@ -93,7 +93,9 @@ test('image-translate result renders an <img> above the body and hides Explain',
     const host = document.querySelector('#ega-shadow-host');
     const root = (host as HTMLElement | null)?.shadowRoot;
     const tooltip = root?.querySelector('.tooltip') as HTMLElement | null;
-    const pill = root?.querySelector('.tooltip .meta .pill') as HTMLElement | null;
+    const pill = root?.querySelector(
+      '.tooltip [data-ega-meta-item="confidence"]',
+    ) as HTMLElement | null;
     if (!tooltip || !pill) return null;
     const t = tooltip.getBoundingClientRect();
     const p = pill.getBoundingClientRect();

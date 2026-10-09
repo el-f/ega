@@ -47,7 +47,8 @@ afterEach(() => {
 });
 
 function detectedPill(): Element | null {
-  return getContainer().querySelector('.tooltip .lang[title="Arabizi — Levantine"]');
+  const direction = getContainer().querySelector('[data-ega-meta-item="direction"]');
+  return direction?.textContent === 'Arabizi (Levantine)' ? direction : null;
 }
 
 describe('the detected-variety pill comes from the done chunk', () => {

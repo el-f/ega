@@ -13,6 +13,7 @@
     body: string;
     /** True while the request is in flight. Drives the shimmer pre-stream. */
     loading: boolean;
+    stopped?: boolean;
     /** Task drives the shimmer label ("Translating…" / "Explaining…" / …). */
     task: TaskId;
     /** Overrides the task gerund — the "?" Explain button re-runs translate
@@ -39,11 +40,13 @@
     bodyLang?: string | undefined;
     /** Tag of the language the notes are in. */
     notesLang?: string | undefined;
+    errorDetailsOpen?: boolean;
   }
 
   let {
     body,
     loading,
+    stopped = false,
     task,
     loadingLabel,
     explain,
@@ -56,6 +59,7 @@
     settled,
     bodyLang,
     notesLang,
+    errorDetailsOpen = false,
   }: Props = $props();
 
   // Skip the diff on an error frame: that body has its own rendering and the diff spans fight its danger tone.
@@ -98,7 +102,11 @@
   // The same split the side panel uses: a heading, the sentence that says what to do, and the provider's words behind Details.
   const errorParts = $derived(error ? errorTurnParts(error) : undefined);
   const liveMessage = $derived(
-    errorParts ? `${errorParts.title}. ${errorParts.body}` : announcedBody,
+    stopped
+      ? `Stopped. ${body || 'No answer yet.'}`
+      : errorParts
+        ? `${errorParts.title}. ${errorParts.body}`
+        : announcedBody,
   );
 
   const optionsTab = $derived(error ? optionsTabForMessage(error.message, error.code) : undefined);
@@ -148,11 +156,8 @@
       {#if errorParts?.body}<span class="tooltip-error-text">{errorParts.body}</span>{/if}
     </div>
   {/if}
-  {#if errorParts?.detail !== undefined}
-    <details class="tooltip-error-details">
-      <summary>Details</summary>
-      <code>{errorParts.detail}</code>
-    </details>
+  {#if errorParts?.detail !== undefined && errorDetailsOpen}
+    <pre class="tooltip-error-details">{errorParts.detail}</pre>
   {/if}
   {#if optionsTab !== undefined && onOpenOptions}
     <button
@@ -191,7 +196,9 @@
       {/if}
     {:else if !loading}
       <span class="empty-body">
-        No translation came back. Click Retry, or check the model in Settings → Backends.
+        {stopped
+          ? 'No answer yet.'
+          : 'No translation came back. Click Retry, or check the model in Settings → Backends.'}
       </span>
     {/if}
   </div>

@@ -45,7 +45,7 @@ test('confidence pill renders when confidence >= threshold', async () => {
   const pill = await page.evaluate(() => {
     const host = document.querySelector('#ega-shadow-host');
     const root = (host as HTMLElement | null)?.shadowRoot;
-    const el = root?.querySelector('.tooltip .meta .pill');
+    const el = root?.querySelector('.tooltip [data-ega-meta-item="confidence"]');
     if (!el) return null;
     return {
       text: el.textContent.trim(),
@@ -55,5 +55,5 @@ test('confidence pill renders when confidence >= threshold', async () => {
   expect(pill).not.toBeNull();
   expect(pill?.text).toBe('93% confident');
   // Confidence >= 0.8 is the `hi` tier.
-  expect(pill?.className).toContain('hi');
+  expect(pill?.className).not.toContain('warn');
 });

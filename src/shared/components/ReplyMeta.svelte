@@ -42,7 +42,11 @@
 
 <p class="ega-reply-meta" dir="ltr" data-ega-reply-meta bind:this={line}>
   {#each items as item (item.key)}
-    <span class="ega-reply-meta-item" class:warn={item.warn === true} data-ega-meta-item={item.key}
+    <span
+      class="ega-reply-meta-item"
+      class:warn={item.warn === true}
+      data-ega-meta-item={item.key}
+      data-ega-direction={item.key === 'direction' ? '' : undefined}
       >{item.text}{#if item.key === 'status' && statusAction}<button
           type="button"
           class="ega-reply-meta-action"

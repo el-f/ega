@@ -9,7 +9,7 @@
   import CheckIcon from '@lucide/svelte/icons/check';
   import KeyboardIcon from '@lucide/svelte/icons/keyboard';
   import SettingsIcon from '@lucide/svelte/icons/settings';
-  import { outsidePressFocus } from './conversation/menu-focus';
+  import { outsidePressFocus } from '@/shared/menu-focus';
 
   interface Props {
     isEmptyThread: boolean;

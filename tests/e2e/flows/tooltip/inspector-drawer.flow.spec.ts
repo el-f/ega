@@ -48,30 +48,8 @@ test('Inspector ⓘ button opens the InspectorDrawer with backend/latency rows',
   });
   expect(closed).toBe(0);
 
-  // The ⓘ button only renders when meta has landed; poll for it.
-  await expect
-    .poll(
-      async () =>
-        await page.evaluate(() => {
-          const host = document.querySelector('#ega-shadow-host');
-          const root = (host as HTMLElement | null)?.shadowRoot;
-          return !!root?.querySelector(
-            '.tooltip button[aria-label="Show details about this reply"]',
-          );
-        }),
-      { timeout: 5_000 },
-    )
-    .toBe(true);
-
-  await page.evaluate(() => {
-    const host = document.querySelector('#ega-shadow-host');
-    const root = (host as HTMLElement | null)?.shadowRoot;
-    const btn = root?.querySelector<HTMLButtonElement>(
-      '.tooltip button[aria-label="Show details about this reply"]',
-    );
-    if (!btn) throw new Error('inspector toggle missing');
-    btn.click();
-  });
+  await page.getByRole('button', { name: 'More', exact: true }).click();
+  await page.getByRole('menuitemcheckbox', { name: 'About this reply' }).click();
   timeline.markStep('inspector-toggle-clicked');
 
   await expect

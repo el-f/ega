@@ -1,4 +1,4 @@
-// The Refine menu's one-click changes, per task (side panel spec §5.4).
+// The Refine menu's one-click changes, shared by reply surfaces (side panel spec §5.4).
 import type { TaskId } from '@/shared/task-view';
 
 export interface RefinePreset {

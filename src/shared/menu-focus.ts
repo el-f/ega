@@ -1,4 +1,4 @@
-/** What a press focuses: the control under it, or the nearest focusable box around it (an article, a scroll box). */
+/** What an outside press focuses: its control or the nearest focusable box around it. */
 const PRESS_FOCUSABLE =
   'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex], [contenteditable="true"]';
 

@@ -45,7 +45,7 @@ test('confidence pill hidden when confidence < threshold', async () => {
   const pillCount = await page.evaluate(() => {
     const host = document.querySelector('#ega-shadow-host');
     const root = (host as HTMLElement | null)?.shadowRoot;
-    return root?.querySelectorAll('.tooltip .meta .pill').length ?? 0;
+    return root?.querySelectorAll('.tooltip [data-ega-meta-item="confidence"]').length ?? 0;
   });
   expect(pillCount).toBe(0);
 });

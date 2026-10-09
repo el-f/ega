@@ -65,22 +65,22 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-// One action row: the pills end it, and wrap onto their own line only when the row is full.
-test('meta chip (confidence + lang pill) ends the action row, right-aligned, never above the icons', async () => {
+// The shared metadata line sits between the answer and its single action row.
+test('reply metadata sits above the action row within the reply width', async () => {
   const { page } = await openTooltipWithPill();
 
   const geo = await egaTest<MetaGeometry>(page, 'tooltipMetaGeometry');
   expect(geo).not.toBeNull();
   if (!geo) throw new Error('tooltipMetaGeometry missing');
 
-  expect(geo.metaParentClass.split(/\s+/)).toContain('actions');
+  expect(geo.metaParentClass.split(/\s+/)).toContain('tooltip-reply');
   if (!geo.actionsRect) throw new Error('actions row missing');
-  // margin-left:auto pushes the pills to the row's right end; 0.5px covers sub-pixel rounding.
+  // Half a pixel covers sub-pixel rounding at the card's content edge.
   expect(geo.metaRect.right).toBeLessThanOrEqual(geo.actionsRect.right + 0.5);
-  expect(geo.actionsRect.right - geo.metaRect.right).toBeLessThan(1);
+  expect(geo.metaRect.left).toBeGreaterThanOrEqual(geo.actionsRect.left - 0.5);
   if (geo.firstIconRect) {
-    expect(geo.metaRect.top, 'meta chip must not sit above the icons').toBeGreaterThanOrEqual(
-      geo.firstIconRect.top - 0.5,
+    expect(geo.metaRect.bottom, 'metadata must sit above the action row').toBeLessThanOrEqual(
+      geo.firstIconRect.top + 0.5,
     );
   }
 });

@@ -8,8 +8,8 @@
   import CircleStop from '@lucide/svelte/icons/circle-stop';
   import Star from '@lucide/svelte/icons/star';
   import Trash2 from '@lucide/svelte/icons/trash-2';
-  import type { RefinePreset } from '../state/refine-presets';
-  import { outsidePressFocus } from './menu-focus';
+  import type { RefinePreset } from '@/shared/refine-presets';
+  import { outsidePressFocus } from '@/shared/menu-focus';
 
   interface Props {
     turnId: string;

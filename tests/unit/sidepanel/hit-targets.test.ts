@@ -67,7 +67,7 @@ describe('the content-script tooltip gets the same sizes', () => {
     const content = read('src/content/tooltip/tooltip.css');
     const block = content.slice(content.indexOf('.reply-details {'));
     expect(block).not.toMatch(/font-size:\s*(?:9|10)px/);
-    expect(rule(block, '\\.rd-copy')).toMatch(/min-height:\s*24px/);
+    expect(rule(block, '\\.rd-action')).toMatch(/min-block-size:\s*28px/);
   });
 });
 

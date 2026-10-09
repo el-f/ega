@@ -101,12 +101,7 @@ test('Continue-in-sidepanel seeds source text as fresh user turn that then trans
   timeline.markStep('escalate-btn-visible');
   expect(calls).toBe(1);
 
-  await page.evaluate(() => {
-    const host = document.querySelector('#ega-shadow-host');
-    const root = (host as HTMLElement | null)?.shadowRoot ?? document;
-    const btn = root.querySelector('[data-ega-escalate="continue"]') as HTMLButtonElement | null;
-    btn?.click();
-  });
+  await page.locator('[data-ega-escalate="continue"]').click();
   timeline.markStep('escalate-clicked');
 
   // storage.session is only readable from an extension page, so open one.

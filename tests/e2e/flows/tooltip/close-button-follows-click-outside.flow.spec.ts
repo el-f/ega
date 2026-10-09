@@ -50,7 +50,7 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-test('tooltipClickOutside=true → close button HIDDEN', async () => {
+test('tooltipClickOutside=true → one explicit Close remains visible', async () => {
   await seedSettings(ext.context, ext.extensionId, {
     anthropicApiKey: 'test-key',
     streaming: true,
@@ -59,7 +59,7 @@ test('tooltipClickOutside=true → close button HIDDEN', async () => {
   });
   mockAnthropic(ext.context, { translation: 'Welcome', confidence: 0.95 });
   const page = await openTranslateTooltip();
-  expect(await countCloseButtons(page)).toBe(0);
+  expect(await countCloseButtons(page)).toBe(1);
 });
 
 test('tooltipClickOutside=false → close button VISIBLE', async () => {
@@ -72,5 +72,5 @@ test('tooltipClickOutside=false → close button VISIBLE', async () => {
   mockAnthropic(ext.context, { translation: 'Welcome', confidence: 0.95 });
   const page = await openTranslateTooltip();
   // The error path adds a second close button, so the count is not exact.
-  expect(await countCloseButtons(page)).toBeGreaterThanOrEqual(1);
+  expect(await countCloseButtons(page)).toBe(1);
 });

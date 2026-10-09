@@ -63,11 +63,7 @@ test('image OCR sidepanel seed shows its image and Regenerate, and Refine offers
     .toBe(true);
   timeline.markStep('open-affordance-visible');
 
-  await page.evaluate(() => {
-    const host = document.querySelector('#ega-shadow-host');
-    const root = (host as HTMLElement | null)?.shadowRoot ?? document;
-    (root.querySelector('[data-ega-escalate="open-image"]') as HTMLButtonElement | null)?.click();
-  });
+  await page.locator('[data-ega-escalate="open-image"]').click();
 
   const opts = await ext.context.newPage();
   await opts.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);

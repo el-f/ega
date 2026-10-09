@@ -1,5 +1,5 @@
 import { debugCatch } from '@/shared/logger';
-import { mount, unmount, type ComponentProps } from 'svelte';
+import { mount, unmount, tick, type ComponentProps } from 'svelte';
 import Tooltip from './Tooltip.svelte';
 import { ensureShadowSheet, getContainer, onShadowHostRemount } from './shadowHost';
 import tooltipCss from './tooltip/tooltip.css?inline';
@@ -36,6 +36,9 @@ interface OpenOpts {
   /** Lets the swap button disable itself when source is 'auto'. */
   direction?: { source: string; target: string };
   onRetry?: () => void;
+  onRegenerate?: () => void;
+  onRefine?: (body: string) => void;
+  onTargetChange?: (target: string) => void;
   onCancel?: () => void;
   /** User dismissed the tooltip (Esc, click-outside, close). `onCancel` is the mid-run cancel. */
   onClose?: () => void;
@@ -61,6 +64,8 @@ export interface TipState {
   srcText: string;
   body: string;
   loading: boolean;
+  /** A user-requested stop retains the partial answer and is not an error. */
+  stopped?: boolean;
   confidence?: number;
   confidencePill: boolean;
   /** Hide the pill below this confidence. `0` or absent means always show. Range 0..1. */
@@ -127,7 +132,7 @@ const VIEWPORT_SAFE_MARGIN = 20;
 
 export function positionFromRect(r: DOMRect): { left: number; top: number } {
   const top = r.bottom + 10;
-  const left = Math.min(window.innerWidth - 370, Math.max(8, r.left));
+  const left = Math.max(8, Math.min(window.innerWidth - 370, Math.max(8, r.left)));
   return { left, top };
 }
 
@@ -140,7 +145,20 @@ export function repositionIfOverflow(state: TipState, element: HTMLElement, anch
   const spaceAbove = anchor.top - gap - VIEWPORT_SAFE_MARGIN;
   const needed = rect.height;
 
-  state.left = Math.min(window.innerWidth - 370, Math.max(8, anchor.left));
+  // The tooltip shrinks with the viewport; its measured width determines the usable right edge.
+  state.left = Math.min(Math.max(8, window.innerWidth - rect.width - 8), Math.max(8, anchor.left));
+
+  // About grows within the space beside the selection. A viewport-sized cap alone can still extend below it.
+  const below = needed <= spaceBelow || (needed > spaceAbove && spaceBelow >= spaceAbove);
+  const available = Math.max(0, below ? spaceBelow : spaceAbove);
+  const style = element.ownerDocument.defaultView?.getComputedStyle(element);
+  const chrome = [
+    style?.paddingTop,
+    style?.paddingBottom,
+    style?.borderTopWidth,
+    style?.borderBottomWidth,
+  ].reduce((sum, value) => sum + (Number.parseFloat(value ?? '0') || 0), 0);
+  element.style.setProperty('--ega-tooltip-max-block-size', `${Math.max(0, available - chrome)}px`);
 
   if (needed <= spaceBelow) {
     state.top = anchor.bottom + gap;
@@ -214,10 +232,21 @@ function buildTooltipProps(o: OpenOpts, state: TipState): ComponentProps<typeof 
       closeTooltip(o.requestId);
     },
     oncancel: () => {
-      o.onCancel?.();
-      closeTooltip(o.requestId);
+      if (o.onCancel) o.onCancel();
+      else stopRequestStream(o.requestId);
+      errorTooltip(o.requestId, { code: 'ABORTED', message: 'Stopped' });
+      void tick().then(() => {
+        const entry = entryFor(o.requestId);
+        const action =
+          entry?.anchor.querySelector<HTMLElement>('[data-ega-retry]') ??
+          entry?.anchor.querySelector<HTMLElement>('.tooltip-close');
+        action?.focus();
+      });
     },
     ...(o.onRetry ? { onretry: () => o.onRetry?.() } : {}),
+    ...(o.onRegenerate ? { onregenerate: () => o.onRegenerate?.() } : {}),
+    ...(o.onRefine ? { onrefine: (body: string) => o.onRefine?.(body) } : {}),
+    ...(o.onTargetChange ? { ontargetchange: (target: string) => o.onTargetChange?.(target) } : {}),
     oncopy: () => {
       void navigator.clipboard
         .writeText(state.body)
@@ -240,11 +269,14 @@ function buildTooltipProps(o: OpenOpts, state: TipState): ComponentProps<typeof 
         targetLang: o.direction?.target ?? 'en',
         ...(o.task ? { task: o.task } : {}),
         ...(o.tone ? { tone: o.tone } : {}),
-        // Pin sends the explanation as context to re-dispatch; open-image lands a finished turn.
+        // A finished reply is the answer being opened; it must not trigger a second request in the panel.
+        ...(state.settled && !state.error && state.body ? { response: state.body } : {}),
         ...(state.explain
           ? kind === 'pin'
             ? { explain: state.explain }
-            : { response: state.explain }
+            : state.settled && state.body
+              ? { explain: state.explain }
+              : { response: state.explain }
           : {}),
         ...(state.imageUrl ? { imageDataUrl: state.imageUrl } : {}),
         ...(kind === 'open-image' ? { ocrText: state.body } : {}),
@@ -418,7 +450,8 @@ export function errorTooltip(
   if (!e || e.finished) return;
   clearTimeout(e.timeoutId);
   e.state.loading = false;
-  e.state.error = { code: errInfo.code, message: errInfo.message };
+  if (errInfo.code === 'ABORTED') e.state.stopped = true;
+  else e.state.error = { code: errInfo.code, message: errInfo.message };
   // Honor the server's Retry-After: Retry stays disabled, with a live countdown, until the window passes.
   if (errInfo.retryAfterMs !== undefined && errInfo.retryAfterMs > 0) {
     const waitMs = Math.min(errInfo.retryAfterMs, 60_000);

@@ -98,6 +98,12 @@ function activeWraps(): NodeListOf<HTMLElement> {
   return getContainer().querySelectorAll<HTMLElement>('[data-ega-tooltip-wrap]');
 }
 
+function sent(kind: string): Record<string, unknown>[] {
+  return sendMessage.mock.calls
+    .map((c) => c[0] as Record<string, unknown>)
+    .filter((m) => m['kind'] === kind);
+}
+
 /** Wait out the tooltip module's lazy load, then flush Svelte 5's microtask-batched DOM updates. */
 async function tick(): Promise<void> {
   await vi.waitFor(() => {
@@ -108,6 +114,21 @@ async function tick(): Promise<void> {
 }
 
 describe('handleImageTranslateResult — success path', () => {
+  it('Regenerate re-runs the same image arm without a text refinement', async () => {
+    runImageTranslate(
+      makeMsg({ requestId: 'regenerate-image', imageUrl: 'https://cdn.test/sign.png' }),
+    );
+    await tick();
+    const regenerate = getContainer().querySelector<HTMLButtonElement>('[aria-label="Regenerate"]');
+    expect(regenerate).not.toBeNull();
+    regenerate?.click();
+    expect(sent('image:translate')[0]).toMatchObject({
+      imageUrl: 'https://cdn.test/sign.png',
+      surface: 'tooltip',
+    });
+    expect(sent('image:translate')[0]?.['requestId']).not.toBe('regenerate-image');
+  });
+
   it('mounts exactly one tooltip wrap', async () => {
     runImageTranslate(makeMsg());
     await tick();
@@ -174,12 +195,6 @@ describe('handleImageTranslateResult — error path', () => {
 });
 
 describe('image error tooltip — the recovery buttons do something', () => {
-  function sent(kind: string): Record<string, unknown>[] {
-    return sendMessage.mock.calls
-      .map((c) => c[0] as Record<string, unknown>)
-      .filter((m) => m['kind'] === kind);
-  }
-
   it('Retry re-dispatches the vision call under a fresh request id', async () => {
     runImageTranslate(
       makeMsg({
@@ -225,13 +240,13 @@ describe('image error tooltip — the recovery buttons do something', () => {
     await tick();
     const retry = getContainer().querySelector<HTMLButtonElement>('.tooltip [data-ega-retry]');
     expect(retry?.disabled).toBe(true);
-    expect(getContainer().querySelector('[data-ega-retry-wait]')).not.toBeNull();
+    expect(retry?.textContent).toContain('Retry in 5s');
   });
 });
 
 describe('handleImageTranslateResult — confidence pill honors settings', () => {
   function pill(): HTMLElement | null {
-    return getContainer().querySelector<HTMLElement>('.tooltip .pill');
+    return getContainer().querySelector<HTMLElement>('.tooltip [data-ega-meta-item="confidence"]');
   }
 
   it('shows the pill by default for a high-confidence result', async () => {
@@ -371,11 +386,11 @@ describe('handleImageTranslatePending — loading tooltip mounts immediately', (
     expect(getContainer().querySelector('.tooltip-image-shimmer')).not.toBeNull();
   });
 
-  it('offers Cancel while the vision call runs', async () => {
+  it('offers Stop while the vision call runs', async () => {
     handleImageTranslatePending(pendingMsg('pend-2'));
     await tick();
     const buttons = Array.from(getContainer().querySelectorAll('button'));
-    expect(buttons.some((b) => b.textContent.trim() === 'Cancel')).toBe(true);
+    expect(buttons.some((b) => b.textContent.trim() === 'Stop')).toBe(true);
   });
 
   it('the later result replaces the loading tooltip in place', async () => {
@@ -387,22 +402,24 @@ describe('handleImageTranslatePending — loading tooltip mounts immediately', (
     expect(getContainer().querySelector('.body')?.textContent.trim()).toBe('Done text');
   });
 
-  it('a result for a canceled request stays suppressed', async () => {
+  it('Stop retains a retryable image tooltip and suppresses the late result', async () => {
     handleImageTranslatePending(pendingMsg('pend-4'));
     await tick();
     const cancelBtn = Array.from(getContainer().querySelectorAll('button')).find(
-      (b) => b.textContent.trim() === 'Cancel',
+      (b) => b.textContent.trim() === 'Stop',
     );
     expect(cancelBtn).toBeTruthy();
     cancelBtn?.click();
     await Promise.resolve();
     await Promise.resolve();
-    expect(activeWraps().length).toBe(0);
+    expect(activeWraps().length).toBe(1);
+    expect(getContainer().querySelector('[data-ega-retry]')).not.toBeNull();
 
     handleImageTranslateResult(makeMsg({ requestId: 'pend-4' }));
     await Promise.resolve();
     await Promise.resolve();
-    expect(activeWraps().length).toBe(0);
+    expect(activeWraps().length).toBe(1);
+    expect(getContainer().querySelector('.body')?.textContent).toContain('No answer yet.');
   });
 });
 

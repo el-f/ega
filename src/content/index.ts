@@ -33,6 +33,7 @@ import {
   rendererOwner,
   settleStream,
   setStopStreamHook,
+  stopRequestStream,
   type PendingReq,
 } from './request-state';
 import { omitUndef } from '@/shared/utils/omitUndef';
@@ -432,7 +433,7 @@ export function handleImageTranslatePending(
   msg: Extract<Msg, { kind: 'content:image-translate-pending' }>,
 ): void {
   closeStickyToast();
-  // Ending the request drops its owner row, so a late vision result finds nobody to paint for.
+  // Close drops the surface; Stop keeps a retryable reply but releases its renderer owner.
   const cancel = (): void => endRequest(msg.requestId, 'cancel');
   // Registering before the open makes the vision call a normal tooltip request: a newer one cancels it.
   beginRequest(msg.requestId, 'tooltip');
@@ -445,8 +446,12 @@ export function handleImageTranslatePending(
     ...imageTipDisplay(),
     ...omitUndef({ task: msg.task }),
     stuckTimeoutMs: imageStuckTimeoutMs(currentSettings()),
-    onCancel: cancel,
+    onCancel: () => {
+      stopRequestStream(msg.requestId);
+      releaseRequest(msg.requestId);
+    },
     onClose: cancel,
+    onRetry: () => retryImageTranslate(msg.imageUrl, msg.task),
   });
 }
 
@@ -502,6 +507,7 @@ export function handleImageTranslateResult(
     ...imageTipDisplay(),
     ...omitUndef({ contextTask: msg.task }),
     onRetry,
+    onRegenerate: onRetry,
   });
   // One buffered result: set the body verbatim instead of feeding the JSON accumulator.
   finishTooltipDirect(

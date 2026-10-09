@@ -11,6 +11,7 @@ import type { Turn } from '@/sidepanel/state/conversation';
 import type { Settings } from '@/shared/types';
 import { SHIPPED_TASK_VIEWS, type TaskView } from '@/shared/task-view';
 import { openMenu } from '../sidepanel/_reply';
+import { tooltipMenu } from '../content/_tooltip-menu';
 
 const onlyOn = (ids: readonly string[]): TaskView[] =>
   SHIPPED_TASK_VIEWS.map((v) => ({ ...v, disabled: !ids.includes(v.id) }));
@@ -55,7 +56,7 @@ describe('tooltip', () => {
     ]);
   });
 
-  it('hides Explain when the Explain task is off', () => {
+  it('hides Explain in More when the Explain task is off', async () => {
     const base = {
       tip: {
         srcText: 'hola',
@@ -67,19 +68,29 @@ describe('tooltip', () => {
         settled: true,
       },
       mode: 'success' as const,
-      hasSwap: false,
+      task: 'translate',
+      views: SHIPPED_TASK_VIEWS,
       swapDisabled: true,
-      hasDetails: false,
       detailsOpen: false,
+      errorDetailsOpen: false,
+      hasErrorDetails: false,
+      canEscalate: false,
+      escalationKind: 'pin' as const,
+      translateInto: null,
+      changing: false,
+      onDescribe: vi.fn(),
+      onTranslateOther: vi.fn(),
+      onToggleErrorDetails: vi.fn(),
+      onTaskChange: vi.fn(),
       onCancel: vi.fn(),
       onCopy: vi.fn(),
-      onExplain: vi.fn(),
       onToggleDetails: vi.fn(),
     };
     const on = render(TooltipActions, { props: base });
-    expect(on.container.querySelector('[aria-label="Explain this translation"]')).not.toBeNull();
-    const off = render(TooltipActions, { props: { ...base, explainOn: false } });
-    expect(off.container.querySelector('[aria-label="Explain this translation"]')).toBeNull();
+    expect((await tooltipMenu(on.container, 'More')).textContent).toContain('Explain instead');
+    on.unmount();
+    const off = render(TooltipActions, { props: { ...base, views: onlyOn(['translate']) } });
+    expect((await tooltipMenu(off.container, 'More')).textContent).not.toContain('Explain instead');
   });
 });
 

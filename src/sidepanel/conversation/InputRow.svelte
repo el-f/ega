@@ -25,7 +25,7 @@
   import type { ConversationTurnLike } from '@/shared/chat-history';
   import { modeChipLabel, swapResult, type ComposerMode } from '../state/thread-view';
   import ModePopover from './ModePopover.svelte';
-  import { outsidePressFocus } from './menu-focus';
+  import { outsidePressFocus } from '@/shared/menu-focus';
 
   interface SpeechRecognitionLike {
     lang: string;

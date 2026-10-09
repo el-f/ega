@@ -58,11 +58,7 @@ test('tooltip Pin seeds sidepanel; copy button writes pinned body to clipboard',
     .toBe(true);
   timeline.markStep('pin-visible');
 
-  await page.evaluate(() => {
-    const host = document.querySelector('#ega-shadow-host');
-    const root = (host as HTMLElement | null)?.shadowRoot ?? document;
-    (root.querySelector('[data-ega-escalate="pin"]') as HTMLButtonElement | null)?.click();
-  });
+  await page.locator('[data-ega-escalate="pin"]').click();
 
   // storage.session is extension-only, so the handoff slot needs an extension page to read it.
   const probe = await ext.context.newPage();

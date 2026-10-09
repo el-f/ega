@@ -7,6 +7,16 @@ import { optionsTabForMessage } from '@/shared/error-policy';
 import type { ErrCode } from '@/shared/types';
 
 describe('TooltipBody', () => {
+  it.each(['', 'Hello so far'])('announces a stopped reply with partial body %j', (body) => {
+    const { container } = render(TooltipBody, {
+      props: { body, loading: false, stopped: true, task: 'translate' },
+    });
+    expect(container.querySelector('[data-ega-tooltip-live]')?.textContent).toBe(
+      body ? `Stopped. ${body}` : 'Stopped. No answer yet.',
+    );
+    expect(container.querySelector('.body')?.textContent).toContain(body || 'No answer yet.');
+  });
+
   it('renders <img> when imageUrl prop present', () => {
     const { container } = render(TooltipBody, {
       props: {
@@ -234,9 +244,23 @@ describe('TooltipBody', () => {
         'The backend is busy. Wait a moment.',
       );
       expect(container.querySelector('.tooltip-error-body')?.textContent).not.toContain('HTTP 429');
-      const details = container.querySelector('details.tooltip-error-details');
-      expect(details?.querySelector('summary')?.textContent).toBe('Details');
-      expect(details?.querySelector('code')?.textContent).toContain('HTTP 429');
+      expect(container.querySelector('.tooltip-error-details')).toBeNull();
+      // Details is controlled by the reply's one action row.
+      const shown = render(TooltipBody, {
+        props: {
+          body: '',
+          loading: false,
+          task: 'translate',
+          errorDetailsOpen: true,
+          error: {
+            code: 'RATE_LIMIT',
+            message: 'Wait a moment.\nHTTP 429 {"error":"rate_limited"}',
+          },
+        },
+      });
+      expect(shown.container.querySelector('pre.tooltip-error-details')?.textContent).toContain(
+        'HTTP 429',
+      );
     });
 
     it('has no Details disclosure when the message is one sentence', () => {

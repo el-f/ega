@@ -19,13 +19,17 @@ function rect(x: number, y: number, w: number, h: number): DOMRect {
 
 interface StubRO {
   disconnected: boolean;
+  target?: Element;
 }
 
 const observers: StubRO[] = [];
 
 class TrackingResizeObserver {
   disconnected = false;
-  observe(): void {}
+  target?: Element;
+  observe(target: Element): void {
+    this.target = target;
+  }
   unobserve(): void {}
   disconnect(): void {
     this.disconnected = true;
@@ -58,14 +62,16 @@ describe('shadowHost — a re-mount must not orphan live components', () => {
     openTooltip({ requestId: 'a', srcText: 'hi', rect: rect(50, 50, 100, 20) });
     await Promise.resolve();
     await Promise.resolve();
-    expect(observers).toHaveLength(1);
+    // Menu triggers also measure their size; track the card's positioning observer.
+    const positioning = observers.find((observer) => observer.target?.matches('.tooltip'));
+    expect(positioning).toBeDefined();
 
     const removeSpy = vi.spyOn(document, 'removeEventListener');
     getShadowHostElement()?.remove();
     getContainer();
 
-    expect(removeSpy.mock.calls.filter((c) => c[0] === 'scroll')).toHaveLength(1);
-    expect(observers[0]?.disconnected).toBe(true);
+    expect(removeSpy.mock.calls.some((c) => c[0] === 'scroll')).toBe(true);
+    expect(positioning?.disconnected).toBe(true);
   });
 });
 

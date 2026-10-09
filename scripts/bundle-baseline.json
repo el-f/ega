@@ -1,7 +1,7 @@
 [
   {
     "name": "Advanced",
-    "bytes": 61306
+    "bytes": 61307
   },
   {
     "name": "batch-progress",
@@ -56,16 +56,8 @@
     "bytes": 598085
   },
   {
-    "name": "err-labels",
-    "bytes": 1321
-  },
-  {
     "name": "error-copy",
     "bytes": 3835
-  },
-  {
-    "name": "error-parts",
-    "bytes": 17359
   },
   {
     "name": "error-policy",
@@ -85,15 +77,15 @@
   },
   {
     "name": "index",
-    "bytes": 124484
+    "bytes": 123652
   },
   {
     "name": "index.html",
-    "bytes": 431430
+    "bytes": 427544
   },
   {
     "name": "index.ts",
-    "bytes": 41733
+    "bytes": 41738
   },
   {
     "name": "index.ts-loader",
@@ -104,12 +96,20 @@
     "bytes": 4531
   },
   {
+    "name": "language-prompt",
+    "bytes": 1321
+  },
+  {
     "name": "LanguagePicker",
     "bytes": 4333
   },
   {
     "name": "languages",
     "bytes": 2288
+  },
+  {
+    "name": "menu-focus",
+    "bytes": 22373
   },
   {
     "name": "page-chip",
@@ -177,7 +177,7 @@
   },
   {
     "name": "safe-regex",
-    "bytes": 27036
+    "bytes": 27016
   },
   {
     "name": "safety",
@@ -193,7 +193,7 @@
   },
   {
     "name": "select",
-    "bytes": 41048
+    "bytes": 41055
   },
   {
     "name": "Select",
@@ -205,7 +205,7 @@
   },
   {
     "name": "SelectionBubble",
-    "bytes": 32738
+    "bytes": 32737
   },
   {
     "name": "settings-bus",
@@ -217,7 +217,7 @@
   },
   {
     "name": "src-content-index.ts",
-    "bytes": 35078
+    "bytes": 35169
   },
   {
     "name": "stuck-timeout",
@@ -229,7 +229,7 @@
   },
   {
     "name": "Tasks",
-    "bytes": 46103
+    "bytes": 46105
   },
   {
     "name": "TemplateEditor",
@@ -245,7 +245,7 @@
   },
   {
     "name": "tipState.svelte",
-    "bytes": 46962
+    "bytes": 55733
   },
   {
     "name": "toast",
@@ -261,11 +261,11 @@
   },
   {
     "name": "Translate",
-    "bytes": 30468
+    "bytes": 30467
   },
   {
     "name": "translate-handlers",
-    "bytes": 5673
+    "bytes": 6165
   },
   {
     "name": "translate-ui",
@@ -289,7 +289,7 @@
   },
   {
     "name": "vendor-lucide",
-    "bytes": 26501
+    "bytes": 26175
   },
   {
     "name": "vendor-marked",

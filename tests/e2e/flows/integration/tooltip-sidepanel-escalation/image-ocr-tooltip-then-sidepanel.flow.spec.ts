@@ -64,12 +64,7 @@ test('Open-in-sidepanel button on an image-OCR tooltip seeds the sidepanel', asy
     .toBe(true);
   timeline.markStep('open-affordance-visible');
 
-  await page.evaluate(() => {
-    const host = document.querySelector('#ega-shadow-host');
-    const root = (host as HTMLElement | null)?.shadowRoot ?? document;
-    const btn = root.querySelector('[data-ega-escalate="open-image"]') as HTMLButtonElement | null;
-    btn?.click();
-  });
+  await page.locator('[data-ega-escalate="open-image"]').click();
 
   // chrome.storage.session is extension-only, so read it from an options page.
   const opts = await ext.context.newPage();

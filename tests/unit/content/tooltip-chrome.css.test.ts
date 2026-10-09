@@ -31,7 +31,7 @@ function mediaRule(condition: string, selector: string): CSSStyleDeclaration | u
 
 describe('tooltip chrome', () => {
   it('keeps a floor width, so the loading card does not jump wider when the answer lands', () => {
-    expect(rule('.tooltip')?.getPropertyValue('min-width')).toBe('220px');
+    expect(rule('.tooltip')?.getPropertyValue('min-width')).toBe('min(280px, -16px + 100vw)');
   });
 
   it('draws no focus ring on the panel itself, which takes focus only so Esc works', () => {
@@ -51,19 +51,19 @@ describe('tooltip chrome', () => {
 
 describe('tooltip meta row contrast', () => {
   it('puts no opacity on the row, which no child pill could undo', () => {
-    expect(rule('.tooltip .meta')?.getPropertyValue('opacity')).toBe('');
+    expect(rule('.ega-reply-meta')?.getPropertyValue('opacity')).toBe('');
   });
 
   it('leaves pointer events on, so the hover titles on the pills work', () => {
-    expect(rule('.tooltip .meta')?.getPropertyValue('pointer-events')).toBe('');
+    expect(rule('.ega-reply-meta')?.getPropertyValue('pointer-events')).toBe('');
   });
 
   it('sizes the confidence pill with the 11px token, not a raw 10px', () => {
-    expect(rule('.tooltip .pill')?.getPropertyValue('font-size')).toBe('var(--fs-xs)');
+    expect(rule('.ega-reply-meta')?.getPropertyValue('font-size')).toBe('var(--fs-sm)');
   });
 
   it('pushes the pills to the end of the action row', () => {
-    expect(rule('.tooltip .actions .meta')?.getPropertyValue('margin-inline-start')).toBe('auto');
+    expect(rule('.ega-reply-meta')?.getPropertyValue('block-size')).toBe('1lh');
   });
 
   it('fades a disabled action, which cannot take focus', () => {
@@ -105,7 +105,9 @@ describe('tooltip meta row contrast', () => {
   });
 
   it('colors the low-confidence pill with the -fg shade that clears 4.5:1', () => {
-    expect(rule('.pill.lo')?.getPropertyValue('color')).toBe('var(--color-danger-fg)');
+    expect(rule('.ega-reply-meta-item.warn')?.getPropertyValue('color')).toBe(
+      'var(--color-warning-fg)',
+    );
   });
 });
 

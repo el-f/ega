@@ -48,10 +48,6 @@ function retryBtn(): HTMLButtonElement | null {
   return getContainer().querySelector<HTMLButtonElement>('.tooltip [data-ega-retry]');
 }
 
-function waitLabel(): HTMLElement | null {
-  return getContainer().querySelector<HTMLElement>('.tooltip [data-ega-retry-wait]');
-}
-
 async function flush(): Promise<void> {
   await Promise.resolve();
   await Promise.resolve();
@@ -91,20 +87,20 @@ describe('errorTooltip honors retryAfterMs', () => {
     expect(retryBtn()?.hasAttribute('disabled')).toBe(false);
   });
 
-  it('shows a live countdown next to the disabled Retry and clears it at zero', async () => {
+  it('shows the live countdown in the disabled Retry action and clears it at zero', async () => {
     openTooltip({ requestId: 'a', srcText: 'hi', rect: rect(50, 50, 100, 20), onRetry: () => {} });
     await flush();
     errorTooltip('a', { code: 'RATE_LIMIT', message: 'HTTP 429', retryAfterMs: 5_000 });
     await flush();
-    expect(waitLabel()?.textContent).toBe('Retry in 5s');
+    expect(retryBtn()?.textContent.trim()).toBe('Retry in 5s');
 
     vi.advanceTimersByTime(2_000);
     await flush();
-    expect(waitLabel()?.textContent).toBe('Retry in 3s');
+    expect(retryBtn()?.textContent.trim()).toBe('Retry in 3s');
 
     vi.advanceTimersByTime(3_100);
     await flush();
-    expect(waitLabel()).toBeNull();
+    expect(retryBtn()?.textContent.trim()).toBe('Retry');
     expect(retryBtn()?.hasAttribute('disabled')).toBe(false);
   });
 
@@ -113,6 +109,6 @@ describe('errorTooltip honors retryAfterMs', () => {
     await flush();
     errorTooltip('a', { code: 'RATE_LIMIT', message: 'HTTP 429' });
     await flush();
-    expect(waitLabel()).toBeNull();
+    expect(retryBtn()?.textContent.trim()).toBe('Retry');
   });
 });

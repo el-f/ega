@@ -148,6 +148,40 @@ describe('fireTranslate — error message reflects context invalidation', () => 
 });
 
 describe('buildTooltipOpenOpts — close and cancel end the request', () => {
+  it('Regenerate starts a fresh request with the same task, direction, tone and context', async () => {
+    const req = seedLive('regenerate-me');
+    req.task = 'reword';
+    req.tone = 'formal';
+    req.context = { pageTitle: 'Kept context' };
+    const deps = makeDeps();
+    const opts = buildTooltipOpenOpts(deps, DEFAULT_SETTINGS, req);
+    expect(opts.onRegenerate).toBeTypeOf('function');
+    opts.onRegenerate?.();
+    await vi.waitFor(() => expect(openTooltipSpy).toHaveBeenCalledTimes(1));
+    const sent = (chrome.runtime.sendMessage as Mock).mock.calls.at(-1)?.[0] as {
+      options: Record<string, unknown>;
+      context: unknown;
+      sourceLang: string;
+    };
+    expect(sent.options).toMatchObject({ freshAnswer: true, task: 'reword', tone: 'formal' });
+    expect(sent.context).toEqual({ pageTitle: 'Kept context' });
+    expect(sent.sourceLang).toBe('auto');
+  });
+
+  it('Refine sends only a request modifier and preserves the source text', async () => {
+    const req = seedLive('refine-me');
+    const opts = buildTooltipOpenOpts(makeDeps(), DEFAULT_SETTINGS, req);
+    expect(opts.onRefine).toBeTypeOf('function');
+    opts.onRefine?.('Make outputs shorter.');
+    await vi.waitFor(() => expect(openTooltipSpy).toHaveBeenCalledTimes(1));
+    const sent = (chrome.runtime.sendMessage as Mock).mock.calls.at(-1)?.[0] as {
+      text: string;
+      options: Record<string, unknown>;
+    };
+    expect(sent.text).toBe('hello');
+    expect(sent.options['refinement']).toBe('Make outputs shorter.');
+  });
+
   it('onClose cancels the stream once, clears the rows and closes the tooltip', () => {
     const req = seedLive('r-close');
     const opts = buildTooltipOpenOpts(makeDeps(), DEFAULT_SETTINGS, req);
@@ -161,11 +195,12 @@ describe('buildTooltipOpenOpts — close and cancel end the request', () => {
     expect(closeTooltipSpy).toHaveBeenCalledWith('r-close');
   });
 
-  it('onCancel does the same', () => {
+  it('Stop cancels once and preserves the request for Retry and Close', () => {
     const req = seedLive('r-cancel');
     buildTooltipOpenOpts(makeDeps(), DEFAULT_SETTINGS, req).onCancel?.();
     expect(cancelled).toEqual(['r-cancel']);
-    expect(pending.has('r-cancel')).toBe(false);
+    expect(pending.has('r-cancel')).toBe(true);
+    expect(closeTooltipSpy).not.toHaveBeenCalled();
   });
 });
 

@@ -46,10 +46,10 @@ test('a single detected language renders one pill with its detail', async () => 
   timeline.markStep('body-visible');
 
   // The preset label from the id, then the model's detail.
-  const pill = page.locator('.tooltip .meta .lang:not([data-ega-direction])');
+  const pill = page.locator('.tooltip [data-ega-meta-item="direction"]');
   await expect(pill).toHaveCount(1);
-  await expect(pill).toHaveText('Arabizi — Levantine');
-  await expect(pill).toHaveAttribute('title', 'Arabizi — Levantine');
+  await expect(pill).toHaveText('Arabizi (Levantine) → English');
+  await expect(pill).not.toHaveAttribute('title');
   await expect(page.locator('.tooltip [data-ega-multi-variety]')).toHaveCount(0);
   timeline.markStep('pill-visible');
 });

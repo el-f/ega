@@ -44,7 +44,7 @@ async function openPanelAfter(code: ErrCode): Promise<unknown> {
   await Promise.resolve();
   errorTooltip('img', { code, message: 'failed' });
   await Promise.resolve();
-  const btn = getContainer().querySelector<HTMLButtonElement>('.tooltip-error-panel');
+  const btn = getContainer().querySelector<HTMLButtonElement>('[data-ega-escalate="open-panel"]');
   if (!btn) throw new Error('Open in side panel button missing');
   btn.click();
   await vi.waitFor(() => {

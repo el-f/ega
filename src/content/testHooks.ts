@@ -1,4 +1,5 @@
 import { dispatchAsUser } from './user-gesture';
+import { tick } from 'svelte';
 import { debugCatch } from '@/shared/logger';
 // A spec cannot read this isolated world's `window`, so commands and replies ride the DOM.
 
@@ -49,6 +50,24 @@ interface CmdDetail {
   arg?: string;
 }
 
+async function clickTooltipMenuItem(name: 'More' | 'Refine', label: string): Promise<boolean> {
+  const root = getShadowRoot();
+  const trigger = root.querySelector<HTMLElement>(`.tooltip button[aria-label="${name}"]`);
+  if (!trigger) return false;
+  dispatchAsUser(
+    trigger,
+    new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }),
+  );
+  await tick();
+  const item = [...root.querySelectorAll<HTMLElement>('[role^="menuitem"]')].find(
+    (el) => el.textContent.trim() === label,
+  );
+  if (!item) return false;
+  dispatchAsUser(item, new MouseEvent('click', { bubbles: true, cancelable: true }));
+  await tick();
+  return true;
+}
+
 function run(op: OpName, arg?: string): unknown {
   const host = document.getElementById('ega-shadow-host');
   if (!host && op === 'hasHost') return false;
@@ -79,12 +98,14 @@ function run(op: OpName, arg?: string): unknown {
     case 'clickAction': {
       if (!arg) return false;
       const needle = arg.toLowerCase();
+      if (needle === 'explain') return clickTooltipMenuItem('More', 'Explain instead');
+      if (needle === 'swap') return clickTooltipMenuItem('Refine', 'Swap');
       const btns = Array.from(
         getShadowRoot().querySelectorAll<HTMLButtonElement>('.tooltip button[aria-label]'),
       );
-      const btn = btns.find((b) =>
-        (b.getAttribute('aria-label') ?? '').toLowerCase().includes(needle),
-      );
+      const btn =
+        getShadowRoot().querySelector<HTMLButtonElement>(`button[data-ega-escalate="${needle}"]`) ??
+        btns.find((b) => (b.getAttribute('aria-label') ?? '').toLowerCase().includes(needle));
       if (!btn) return false;
       dispatchAsUser(btn, new MouseEvent('click', { bubbles: true, cancelable: true }));
       return true;
@@ -227,19 +248,17 @@ function run(op: OpName, arg?: string): unknown {
     }
     case 'expandTooltipContextPreview': {
       const r = getShadowRoot();
-      const btn = r.querySelector<HTMLButtonElement>(
-        '.tooltip button[aria-label="Show details about this reply"]',
-      );
-      if (!btn) return false;
-      btn.click();
       // The panel renders on the next tick; open every page field so the address row exists.
-      return new Promise<boolean>((resolve) => {
-        requestAnimationFrame(() => {
-          const all = Array.from(r.querySelectorAll<HTMLButtonElement>('.tooltip .rd-link')).find(
-            (b) => b.textContent.trim() === 'Show all page info',
-          );
-          all?.click();
-          requestAnimationFrame(() => resolve(true));
+      return clickTooltipMenuItem('More', 'About this reply').then((opened) => {
+        if (!opened) return false;
+        return new Promise<boolean>((resolve) => {
+          requestAnimationFrame(() => {
+            const all = Array.from(r.querySelectorAll<HTMLButtonElement>('.tooltip .rd-link')).find(
+              (b) => b.textContent.trim() === 'Show all page info',
+            );
+            all?.click();
+            requestAnimationFrame(() => resolve(true));
+          });
         });
       });
     }
@@ -293,12 +312,12 @@ function run(op: OpName, arg?: string): unknown {
     case 'tooltipMetaGeometry': {
       const r = getShadowRoot();
       const actions = r.querySelector<HTMLElement>('.tooltip .actions');
-      const meta = r.querySelector<HTMLElement>('.tooltip .meta');
+      const meta = r.querySelector<HTMLElement>('.tooltip [data-ega-reply-meta]');
       if (!meta) return null;
       const metaRect = meta.getBoundingClientRect();
       const actionsRect = actions?.getBoundingClientRect() ?? null;
       const metaParentClass = meta.parentElement?.className ?? '';
-      // The first icon marks the action row; the meta pills end that row or wrap below it.
+      // The first icon marks the action row below the shared metadata line.
       const firstIcon = r.querySelector<HTMLElement>('.tooltip .actions .icon-btn');
       const firstIconRect = firstIcon?.getBoundingClientRect() ?? null;
       return {

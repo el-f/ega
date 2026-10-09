@@ -4,8 +4,8 @@ import { render } from '@testing-library/svelte';
 import Tooltip from '@/content/Tooltip.svelte';
 
 // A plain <span> has the generic role, and ARIA drops aria-label there.
-describe('tooltip confidence pill', () => {
-  it('carries a role, so the label reaches the screen reader', () => {
+describe('tooltip confidence metadata', () => {
+  it('uses readable text in the shared metadata line', () => {
     const { container } = render(Tooltip, {
       props: {
         tip: {
@@ -26,9 +26,8 @@ describe('tooltip confidence pill', () => {
         onopenoptions: vi.fn(),
       },
     });
-    const pill = container.querySelector('.pill');
-    expect(pill).not.toBeNull();
-    expect(pill?.getAttribute('aria-label')).toBe('87% confident in this translation');
-    expect(pill?.getAttribute('role')).toBe('img');
+    const confidence = container.querySelector('[data-ega-meta-item="confidence"]');
+    expect(confidence?.textContent).toBe('87% confident');
+    expect(confidence?.closest('[data-ega-reply-meta]')).not.toBeNull();
   });
 });

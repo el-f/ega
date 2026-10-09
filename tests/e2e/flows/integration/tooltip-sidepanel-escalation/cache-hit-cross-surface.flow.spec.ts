@@ -43,7 +43,9 @@ test('sidepanel turn for the same source text hits the cache populated by the to
   await selectArabiziParagraph(page);
   await page.keyboard.press('Control+Shift+L');
   await waitForVisibleText(page, '.tooltip .body', 'Welcome', { timeoutMs: 10_000 });
+  await expect(page.getByRole('button', { name: 'Regenerate', exact: true })).toBeVisible();
   expect(anth.calls()).toBe(1);
+  const tooltipRequest = anth.lastRequestBody();
   timeline.markStep('tooltip-translated');
 
   // The sidepanel must send the exact same source text.
@@ -63,5 +65,6 @@ test('sidepanel turn for the same source text hits the cache populated by the to
   });
   timeline.markStep('sidepanel-cache-hit');
 
+  if (anth.calls() > 1) expect(anth.lastRequestBody()).toBe(tooltipRequest);
   expect(anth.calls()).toBe(1);
 });

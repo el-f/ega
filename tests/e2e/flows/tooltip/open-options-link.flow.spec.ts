@@ -68,13 +68,7 @@ test('error-card "Open settings" CTA launches the options shell', async () => {
   // openOptionsPage surfaces as a `page` event on the context.
   const newPagePromise = ext.context.waitForEvent('page', { timeout: 5_000 });
 
-  await page.evaluate(() => {
-    const host = document.querySelector('#ega-shadow-host');
-    const root = (host as HTMLElement | null)?.shadowRoot;
-    const btn = root?.querySelector<HTMLButtonElement>('.tooltip [data-ega-tooltip-error-cta]');
-    if (!btn) throw new Error('open settings CTA missing');
-    btn.click();
-  });
+  await page.locator('.tooltip [data-ega-tooltip-error-cta]').click();
   timeline.markStep('open-options-clicked');
 
   const opened = await newPagePromise;

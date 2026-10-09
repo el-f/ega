@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import type { ComponentProps } from 'svelte';
 import { describe, it, expect, vi } from 'vitest';
-import { render, fireEvent } from '@testing-library/svelte';
+import { render } from '@testing-library/svelte';
+import { toggleTooltipAbout } from './_tooltip-menu';
 import Tooltip from '@/content/Tooltip.svelte';
 
 type TipState = ComponentProps<typeof Tooltip>['tip'];
@@ -51,9 +52,7 @@ const detailsBtn = (c: ParentNode) =>
 
 /** Opens the details panel and returns the Page info row's text. */
 async function pageInfo(c: HTMLElement): Promise<string> {
-  const btn = detailsBtn(c);
-  if (!btn) throw new Error('no details button');
-  await fireEvent.click(btn);
+  await toggleTooltipAbout(c);
   return c.querySelector('[data-ega-context-preview]')?.textContent ?? '';
 }
 
@@ -101,7 +100,7 @@ describe('Tooltip — what the details panel says about page info', () => {
     expect(row(container, 'Your text')).toBe('An image');
     expect(row(container, 'Earlier messages')).toBe('None');
     // The Record request details hint still names Settings, as plain text.
-    expect(container.textContent).toContain('Turn on Record request details in Settings');
+    expect(container.textContent).toContain('Not recorded for this reply.');
     const buttons = [...container.querySelectorAll('button')].map((b) => b.textContent.trim());
     expect(buttons).not.toContain('Settings');
   });

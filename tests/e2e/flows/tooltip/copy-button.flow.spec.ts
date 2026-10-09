@@ -41,15 +41,7 @@ test('copy button writes translation to clipboard and flips icon to Copied', asy
   await waitForVisibleText(page, '.tooltip .body', 'Welcome, how are you?');
   timeline.markStep('body-visible');
 
-  await page.evaluate(() => {
-    const host = document.querySelector('#ega-shadow-host');
-    const root = (host as HTMLElement | null)?.shadowRoot;
-    const btn = root?.querySelector<HTMLButtonElement>(
-      '.tooltip button[aria-label="Copy translation"]',
-    );
-    if (!btn) throw new Error('copy button missing');
-    btn.click();
-  });
+  await page.locator('.tooltip button[aria-label="Copy translation"]').click();
   timeline.markStep('copy-clicked');
 
   // A headless clipboard read needs a focused page.
@@ -65,7 +57,7 @@ test('copy button writes translation to clipboard and flips icon to Copied', asy
     );
     return {
       disabled: btn?.disabled ?? null,
-      hasCheck: !!btn?.querySelector('.icon-copied'),
+      hasCheck: !!btn?.querySelector('.lucide-check'),
       tooltip: btn?.getAttribute('data-tooltip') ?? null,
       announced: root?.querySelector('[data-ega-copy-live]')?.textContent.trim() ?? null,
     };

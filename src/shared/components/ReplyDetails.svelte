@@ -38,6 +38,8 @@
     /** The "Record request details" switch. On, a reply with no record says only that; unknown keeps the hint. */
     recordsDetails?: boolean | undefined;
     onClose: () => void;
+    /** The tooltip has one Close in its header; About is toggled in More. */
+    showClose?: boolean;
   }
 
   let {
@@ -54,6 +56,7 @@
     onOpenSettings,
     recordsDetails,
     onClose,
+    showClose = true,
   }: Props = $props();
 
   const uid = $props.id();
@@ -173,13 +176,12 @@
   }
 </script>
 
-<!-- shadow-css-lint-allow: rd-instr, rd-instr-head, rd-instr-note, rd-disclosure, rd-tried-list, rd-rule, rd-action — the tooltip mirror lands with its reply layout -->
 <section class="reply-details" aria-labelledby="{uid}-title" data-ega-inspector>
   <header class="rd-head">
     <h2 class="rd-title" id="{uid}-title" tabindex="-1" data-ega-inspector-title>
       About this reply
     </h2>
-    <IconButton icon={X} ariaLabel="Close" size="sm" onclick={onClose} />
+    {#if showClose}<IconButton icon={X} ariaLabel="Close" size="sm" onclick={onClose} />{/if}
   </header>
 
   {#if meta}
@@ -530,6 +532,10 @@
   }
   .rd-action:hover {
     background: var(--color-bg-hover);
+  }
+  .rd-foot .rd-action {
+    padding-inline: 0;
+    border-inline-width: 0;
   }
   .rd-disclosure {
     align-self: flex-start;

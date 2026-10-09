@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
-import { render, fireEvent } from '@testing-library/svelte';
+import { render } from '@testing-library/svelte';
+import { toggleTooltipAbout } from './_tooltip-menu';
 import Tooltip from '@/content/Tooltip.svelte';
 import type { ResultMeta } from '@/shared/types';
 import { asBackendIdUnsafe } from '@/shared/brands';
@@ -45,21 +46,13 @@ function mountBoth() {
 describe('Tooltip — one details panel', () => {
   it('one button opens result data and what was sent together, and closes it again', async () => {
     const { container } = mountBoth();
-    const btn = container.querySelector<HTMLButtonElement>(
-      'button[aria-label="Show details about this reply"]',
-    );
-    if (!btn) throw new Error('no details button');
     expect(container.querySelector('button[data-tooltip="Context"]')).toBeNull();
-    expect(btn.getAttribute('aria-expanded')).toBe('false');
     expect(container.querySelector('[data-ega-inspector]')).toBeNull();
-    await fireEvent.click(btn);
+    await toggleTooltipAbout(container);
     const panel = container.querySelector('[data-ega-inspector]');
     expect(panel?.textContent).toContain('Anthropic');
     expect(panel?.querySelector('[data-ega-context-preview]')?.textContent).toContain('Example');
-    const open = container.querySelector('button[aria-label="Hide details about this reply"]');
-    expect(open?.getAttribute('aria-expanded')).toBe('true');
-    if (!(open instanceof HTMLButtonElement)) throw new Error('no open button');
-    await fireEvent.click(open);
+    await toggleTooltipAbout(container);
     expect(container.querySelector('[data-ega-inspector]')).toBeNull();
   });
 });
@@ -67,11 +60,7 @@ describe('Tooltip — one details panel', () => {
 describe('Tooltip — scrollable detail wrapper', () => {
   it('puts the open details panel in a single .ega-tooltip-details container', async () => {
     const { container } = mountBoth();
-    const btn = container.querySelector<HTMLButtonElement>(
-      'button[aria-label="Show details about this reply"]',
-    );
-    if (!btn) throw new Error('no details button');
-    await fireEvent.click(btn);
+    await toggleTooltipAbout(container);
     const wrap = container.querySelector('.ega-tooltip-details');
     expect(wrap).toBeTruthy();
     expect(wrap?.querySelector('[data-ega-context-preview]')).toBeTruthy();

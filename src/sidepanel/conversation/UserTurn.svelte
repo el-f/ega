@@ -12,7 +12,7 @@
   import Ellipsis from '@lucide/svelte/icons/ellipsis';
   import { isImageTurn, type Turn } from '../state/conversation';
   import { IMAGE_TURN_PLACEHOLDER } from '@/shared/constants';
-  import { outsidePressFocus } from './menu-focus';
+  import { outsidePressFocus } from '@/shared/menu-focus';
 
   interface Props {
     turn: Turn;

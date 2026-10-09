@@ -1,4 +1,5 @@
 import { uuid } from '@/shared/uuid';
+import { asLangIdUnsafe } from '@/shared/brands';
 import { swapDirection } from '@/shared/site-profile';
 import { openTooltip, getTooltipBody } from './lazy-tooltip';
 import {
@@ -7,6 +8,7 @@ import {
   pending,
   perfTimers,
   rendererFor,
+  stopRequestStream,
   type PendingReq,
 } from './request-state';
 import type { Msg } from '@/shared/messages';
@@ -92,6 +94,8 @@ export async function fireTranslate(
         ...(req.task && req.task !== 'translate' ? { task: req.task } : {}),
         ...(req.tone ? { tone: req.tone } : {}),
         ...(req.imageUrl ? { imageUrl: req.imageUrl } : {}),
+        ...(req.refinement ? { refinement: req.refinement } : {}),
+        ...(req.freshAnswer ? { freshAnswer: true } : {}),
       },
     } satisfies Msg);
   } catch (e) {
@@ -118,6 +122,7 @@ export function buildTooltipOpenOpts(
   extra: { priorTranslation?: string; loadingLabel?: string } = {},
 ): Parameters<typeof openTooltip>[0] {
   const reqId = req.id;
+  let cancelSent = false;
   return {
     requestId: reqId,
     srcText: req.text,
@@ -143,7 +148,31 @@ export function buildTooltipOpenOpts(
       void retranslateWithTask(deps, reqId, t, tn);
     },
     onRetry: () => void retryTranslate(deps, reqId),
-    onCancel: () => endRequest(reqId, 'cancel'),
+    onRegenerate: () =>
+      void reopenTooltip(deps, reqId, { reqOverrides: { freshAnswer: true }, noDiff: true }),
+    onRefine: (refinement) => {
+      if (refinement.trim())
+        void reopenTooltip(deps, reqId, {
+          reqOverrides: { refinement: refinement.trim() },
+          noDiff: true,
+        });
+    },
+    onTargetChange: (target) => {
+      const targetLang = asLangIdUnsafe(target);
+      void reopenTooltip(deps, reqId, {
+        reqOverrides: {
+          targetLang,
+          direction: { ...req.direction, target: targetLang },
+          requestedDirection: { ...(req.requestedDirection ?? req.direction), target: targetLang },
+        },
+        noDiff: true,
+      });
+    },
+    onCancel: () => {
+      if (cancelSent) return;
+      cancelSent = true;
+      stopRequestStream(reqId);
+    },
     onClose: () => endRequest(reqId, 'close'),
     onExplain: () => void explainTranslate(deps, reqId),
     onSwap: () => void swapTranslate(deps, reqId),
@@ -176,6 +205,7 @@ async function reopenTooltip(
   // One-shot: a stored image would reroute the next Retry or task-switch to OCR.
   const stored: PendingReq = { ...req };
   delete stored.imageUrl;
+  delete stored.freshAnswer;
   pending.set(newId, stored);
   beginRequest(newId, 'tooltip');
   openTooltip(
