@@ -70,21 +70,23 @@ describe('NativeBackendCard: how the next answer starts', () => {
   it('says answers start fast when the service worker reports warm', async () => {
     mockPortStatus('warm');
     const { container } = render(NativeBackendCard, baseProps());
-    await waitFor(() => expect(line(container)).toBe('The CLI is running, so answers start fast'));
+    await waitFor(() =>
+      expect(line(container)).toBe('Claude Code is running, so answers start fast'),
+    );
   });
 
   it('says the first translation starts the CLI when the port never connected', async () => {
     mockPortStatus('cold');
     const { container } = render(NativeBackendCard, baseProps());
     await portStatusApplied(container);
-    expect(line(container)).toBe('The first translation starts the CLI');
+    expect(line(container)).toBe('The first translation starts Claude Code');
   });
 
   it('says the CLI stopped when the service worker reports disconnected', async () => {
     mockPortStatus('disconnected');
     const { container } = render(NativeBackendCard, baseProps());
     await waitFor(() =>
-      expect(line(container)).toBe('The CLI stopped; the next translation starts it again'),
+      expect(line(container)).toBe('Claude Code stopped; the next translation starts it again'),
     );
   });
 
@@ -100,7 +102,7 @@ describe('NativeBackendCard: how the next answer starts', () => {
     mockPortStatus('disconnected');
     const { container } = render(NativeBackendCard, baseProps({ nativeCli: 'codex' }));
     await waitFor(() =>
-      expect(line(container)).toBe('The CLI stopped; the next translation starts it again'),
+      expect(line(container)).toBe('Codex stopped; the next translation starts it again'),
     );
   });
 

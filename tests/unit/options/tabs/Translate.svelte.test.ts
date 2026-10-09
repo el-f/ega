@@ -133,10 +133,10 @@ describe('Answers tab — Generation notes follow the backends Ega will try (T-R
     });
     const { container } = mountTab(s);
     await vi.waitFor(() =>
-      expect(notes(container, 'effort')).toEqual(['The native host always runs at Low']),
+      expect(notes(container, 'effort')).toEqual(['Claude Code or Codex always runs at Low']),
     );
-    expect(notes(container, 'max-tokens')).toEqual(['The native host ignores this']);
-    expect(notes(container, 'temperature')).toEqual(['The native host ignores this']);
+    expect(notes(container, 'max-tokens')).toEqual(['Claude Code or Codex ignores this']);
+    expect(notes(container, 'temperature')).toEqual(['Claude Code or Codex ignores this']);
     expect(container.querySelector('[data-ega-generation-card] .ega-slider.disabled')).toBeNull();
   });
 
@@ -164,7 +164,9 @@ describe('Answers tab — Generation notes follow the backends Ega will try (T-R
     });
     const { container } = mountTab(s);
     await vi.waitFor(() =>
-      expect(notes(container, 'temperature')).toEqual(['The native host and OpenAI ignore this']),
+      expect(notes(container, 'temperature')).toEqual([
+        'Claude Code or Codex and OpenAI ignore this',
+      ]),
     );
   });
 });

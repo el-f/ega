@@ -31,6 +31,29 @@ describe('toast lifetime', () => {
     vi.useRealTimers();
   });
 
+  it('finalizes a deferred delete when Undo expires, but never when Undo is used', async () => {
+    const onClose = vi.fn();
+    const undo = vi.fn();
+    toastStore.push({
+      message: 'Deferred delete',
+      action: { label: 'Undo', onClick: undo },
+      onClose,
+    });
+    await advance(100);
+    await fireEvent.pointerOver(toastEl('Deferred delete') as HTMLElement);
+    await advance(30_000);
+    expect(onClose).not.toHaveBeenCalled();
+    toastEl('Deferred delete')?.querySelector<HTMLButtonElement>('[data-button]')?.click();
+    expect(undo).toHaveBeenCalledOnce();
+    expect(onClose).not.toHaveBeenCalled();
+    await advance(1000);
+    await fireEvent.pointerOut(document.body, { relatedTarget: document.body });
+    toastStore.hold(false);
+    toastStore.push({ message: 'Expires', action: { label: 'Undo', onClick: undo }, onClose });
+    await advance(9000);
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
   it('a plain confirmation hides itself after 6 s', async () => {
     toastStore.push({ message: 'Saved answers cleared', variant: 'success' });
     await advance(5900);

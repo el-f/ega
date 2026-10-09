@@ -36,9 +36,9 @@ describe('generationNotes', () => {
       temperature: [],
     });
     expect(generationNotes('high', ['native'], caps({ native: NATIVE }))).toEqual({
-      effort: ['The native host always runs at Low'],
-      maxTokens: ['The native host ignores this'],
-      temperature: ['The native host ignores this'],
+      effort: ['Claude Code or Codex always runs at Low'],
+      maxTokens: ['Claude Code or Codex ignores this'],
+      temperature: ['Claude Code or Codex ignores this'],
     });
   });
 
@@ -65,7 +65,7 @@ describe('generationNotes', () => {
       ['native', 'openai', 'groq'],
       caps({ native: NATIVE, openai: REASONING, groq: REASONING }),
     );
-    expect(notes.temperature).toEqual(['The native host, OpenAI and Groq ignore this']);
-    expect(notes.maxTokens).toEqual(['The native host ignores this']);
+    expect(notes.temperature).toEqual(['Claude Code or Codex, OpenAI and Groq ignore this']);
+    expect(notes.maxTokens).toEqual(['Claude Code or Codex ignores this']);
   });
 });

@@ -38,8 +38,9 @@
   let recording = $state(false);
   let root: HTMLDivElement | null = $state(null);
   const errorId = makeId('ega-shortcut-error');
+  const valueId = makeId('ega-shortcut-value');
   const recordDescribedBy = $derived(
-    [describedBy, error ? errorId : undefined].filter(Boolean).join(' ') || undefined,
+    [valueId, describedBy, error ? errorId : undefined].filter(Boolean).join(' '),
   );
 
   // Clear removes itself once the value is empty, so focus goes back to Record instead of the page body (K-9).
@@ -109,10 +110,11 @@
   bind:this={root}
 >
   <kbd class="combo">{recording ? 'Press keys...' : value || '—'}</kbd>
+  <span class="ega-sr-only" id={valueId}>Current shortcut: {value || 'None'}.</span>
   <Button
     variant="secondary"
     size="sm"
-    {ariaLabel}
+    ariaLabel={recording ? 'Cancel recording' : ariaLabel}
     {ariaDisabled}
     {disabled}
     {...recordDescribedBy === undefined ? {} : { describedBy: recordDescribedBy }}

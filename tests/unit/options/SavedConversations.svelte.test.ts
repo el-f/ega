@@ -1,11 +1,16 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent, waitFor } from '@testing-library/svelte';
 import { confirmDialog } from '@/shared/components/confirmDialog';
 import { toastStore } from '@/shared/components/toastStore';
 import SavedConversations from '@/options/components/SavedConversations.svelte';
 import { loadThreadResult, saveThread } from '@/sidepanel/state/conversation-store';
 import type { Turn } from '@/sidepanel/state/conversation';
+import {
+  deleteSavedConversation,
+  flushPendingDeletes,
+  forgetPendingDeletes,
+} from '@/shared/saved-conversations';
 
 vi.mock('@/shared/components/confirmDialog', () => ({
   confirmDialog: vi.fn(async () => true),
@@ -19,6 +24,23 @@ function userTurn(id: string, content: string): Turn {
 const sites = (c: HTMLElement): string[] =>
   [...c.querySelectorAll('[data-ega-conv-title]')].map((e) => e.textContent.trim());
 
+beforeEach(() => {
+  const send = async (request: unknown): Promise<{ ok: boolean }> => {
+    const msg = request as { kind: string; ids: readonly string[] };
+    if (msg.kind === 'conversations:delete') {
+      for (const id of msg.ids) await deleteSavedConversation(id);
+    }
+    return { ok: true };
+  };
+  // Chrome's callback overload says void; this worker fixture implements its Promise overload.
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+  vi.spyOn(chrome.runtime, 'sendMessage').mockImplementation(send);
+});
+afterEach(() => {
+  forgetPendingDeletes();
+  vi.restoreAllMocks();
+});
+
 describe('SavedConversations', () => {
   beforeEach(() => {
     vi.mocked(confirmDialog).mockReset();
@@ -30,7 +52,8 @@ describe('SavedConversations', () => {
     await saveThread('general', [userTurn('g1', 'pdf text')]);
     const { container } = render(SavedConversations);
     await waitFor(() => expect(sites(container)).toHaveLength(2));
-    expect(sites(container).sort()).toEqual(['Other pages', 'example.com']);
+    expect(sites(container)).toContain('pdf text');
+    expect(container.textContent).toContain('example.com');
     expect(container.textContent).toMatch(/3 KB/);
   });
 
@@ -39,49 +62,61 @@ describe('SavedConversations', () => {
     expect(await findByText('No saved conversations')).toBeTruthy();
   });
 
-  it('Delete asks first, then empties that thread and drops its row', async () => {
+  it('Delete hides the row immediately and commits its own thread after Undo closes', async () => {
     await saveThread('https://gone.test', [userTurn('g1', 'one')]);
     await saveThread('https://kept.test', [userTurn('k1', 'two')]);
     const { container, getByRole } = render(SavedConversations);
     await waitFor(() => expect(sites(container)).toHaveLength(2));
 
-    await fireEvent.click(getByRole('button', { name: 'Delete conversation for gone.test' }));
+    await fireEvent.click(getByRole('button', { name: /Delete conversation.*gone.test/ }));
 
-    await waitFor(() => expect(sites(container)).toEqual(['kept.test']));
-    expect(vi.mocked(confirmDialog)).toHaveBeenCalledTimes(1);
-    expect((await loadThreadResult('https://gone.test')).turns).toEqual([]);
+    await waitFor(() => expect(sites(container)).toEqual(['two']));
+    expect(confirmDialog).not.toHaveBeenCalled();
+    expect((await loadThreadResult('https://gone.test')).turns).toHaveLength(1);
+    flushPendingDeletes();
+    await waitFor(async () =>
+      expect((await loadThreadResult('https://gone.test')).turns).toEqual([]),
+    );
     expect((await loadThreadResult('https://kept.test')).turns).toHaveLength(1);
   });
 
-  it('a cancelled Delete keeps the thread', async () => {
-    vi.mocked(confirmDialog).mockResolvedValue(false);
+  it('Undo keeps the thread and restores focus to its row', async () => {
     await saveThread('https://stays.test', [userTurn('s1', 'one')]);
     const { container, getByRole } = render(SavedConversations);
-    await waitFor(() => expect(sites(container)).toEqual(['stays.test']));
+    await waitFor(() => expect(sites(container)).toEqual(['one']));
+    const push = vi.spyOn(toastStore, 'push').mockImplementation(() => {});
 
-    await fireEvent.click(getByRole('button', { name: 'Delete conversation for stays.test' }));
+    await fireEvent.click(getByRole('button', { name: /Delete conversation.*stays.test/ }));
 
-    await waitFor(() => expect(vi.mocked(confirmDialog)).toHaveBeenCalled());
+    push.mock.calls.at(-1)?.[0].action?.onClick();
+    flushPendingDeletes();
     expect((await loadThreadResult('https://stays.test')).turns).toHaveLength(1);
-    expect(sites(container)).toEqual(['stays.test']);
+    await waitFor(() => expect(sites(container)).toEqual(['one']));
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        getByRole('button', { name: /Delete conversation.*stays.test/ }),
+      ),
+    );
   });
 
   it('a failed Delete offers Try again, which deletes without asking again', async () => {
     await saveThread('https://retry.test', [userTurn('r1', 'one')]);
     const { container, getByRole } = render(SavedConversations);
-    await waitFor(() => expect(sites(container)).toEqual(['retry.test']));
+    await waitFor(() => expect(sites(container)).toEqual(['one']));
     const push = vi.spyOn(toastStore, 'push').mockImplementation(() => {});
-    vi.spyOn(chrome.storage.local, 'set').mockRejectedValueOnce(new Error('quota'));
+    vi.mocked(chrome.runtime.sendMessage).mockRejectedValueOnce(new Error('quota'));
 
-    await fireEvent.click(getByRole('button', { name: 'Delete conversation for retry.test' }));
-    await waitFor(() => expect(push).toHaveBeenCalledTimes(1));
-    expect(sites(container)).toEqual(['retry.test']);
-    const action = push.mock.calls[0]?.[0].action;
+    await fireEvent.click(getByRole('button', { name: /Delete conversation.*retry.test/ }));
+    flushPendingDeletes();
+    await waitFor(() => expect(push.mock.calls.at(-1)?.[0].action?.label).toBe('Try again'));
+    await waitFor(() => expect(sites(container)).toEqual(['one']));
+    const action = push.mock.calls.at(-1)?.[0].action;
     expect(action?.label).toBe('Try again');
 
     action?.onClick();
+    flushPendingDeletes();
     await waitFor(() => expect(sites(container)).toEqual([]));
-    expect(vi.mocked(confirmDialog)).toHaveBeenCalledTimes(1);
+    expect(confirmDialog).not.toHaveBeenCalled();
     push.mockRestore();
   });
 
@@ -94,11 +129,11 @@ describe('SavedConversations', () => {
     await fireEvent.click(getByRole('button', { name: 'Delete all' }));
 
     expect(await findByText('No saved conversations')).toBeTruthy();
-    expect(vi.mocked(confirmDialog).mock.calls[0]?.[0].body).toMatch(/all 2 saved conversations/);
-    // C-6: the red fill is for Delete all data only.
-    expect(vi.mocked(confirmDialog).mock.calls[0]?.[0].danger).not.toBe(true);
-    expect(await chrome.storage.local.get('ega:conv:index')).toEqual({
-      'ega:conv:index': undefined,
+    expect(confirmDialog).not.toHaveBeenCalled();
+    flushPendingDeletes();
+    await waitFor(async () => {
+      expect((await loadThreadResult('https://a.test')).turns).toEqual([]);
+      expect((await loadThreadResult('https://b.test')).turns).toEqual([]);
     });
   });
 
@@ -107,18 +142,13 @@ describe('SavedConversations', () => {
     await saveThread('https://b.test', [userTurn('b1', 'b')]);
     const { container, getByRole } = render(SavedConversations);
     await waitFor(() => expect(sites(container)).toHaveLength(2));
-    const first = sites(container)[0] ?? '';
-    const second = sites(container)[1] ?? '';
+    const buttons = [...container.querySelectorAll<HTMLButtonElement>('[data-ega-conv-delete]')];
+    const first = buttons[0]?.getAttribute('aria-label') ?? '';
+    const second = buttons[1]?.getAttribute('aria-label') ?? '';
 
-    await fireEvent.click(getByRole('button', { name: `Delete conversation for ${first}` }));
-    await waitFor(() =>
-      expect(document.activeElement?.getAttribute('aria-label')).toBe(
-        `Delete conversation for ${second}`,
-      ),
-    );
-    // The confirm says nothing about an open side panel: with several conversations per site it may not empty.
-    expect(vi.mocked(confirmDialog).mock.calls[0]?.[0].body).not.toMatch(/side panel empties/);
-    expect(vi.mocked(confirmDialog).mock.calls[0]?.[0].danger).not.toBe(true);
+    await fireEvent.click(getByRole('button', { name: first }));
+    await waitFor(() => expect(document.activeElement?.getAttribute('aria-label')).toBe(second));
+    expect(confirmDialog).not.toHaveBeenCalled();
 
     await fireEvent.click(getByRole('button', { name: 'Delete all' }));
     await waitFor(() => expect(document.activeElement?.textContent).toBe('Saved conversations'));
@@ -128,7 +158,7 @@ describe('SavedConversations', () => {
     const { container } = render(SavedConversations);
     await waitFor(() => expect(container.textContent).toMatch(/No saved conversations/));
     await saveThread('https://late.test', [userTurn('l1', 'late')]);
-    await waitFor(() => expect(sites(container)).toEqual(['late.test']));
+    await waitFor(() => expect(sites(container)).toEqual(['late']));
   });
 });
 
@@ -205,21 +235,29 @@ describe('SavedConversations: failed deletes', () => {
     await waitFor(() => expect(sites(container)).toHaveLength(2));
     const push = vi.spyOn(toastStore, 'push').mockImplementation(() => {});
     const close = vi.spyOn(toastStore, 'close').mockImplementation(() => {});
-    vi.spyOn(chrome.storage.local, 'set')
+    vi.mocked(chrome.runtime.sendMessage)
       .mockRejectedValueOnce(new Error('quota'))
       .mockRejectedValueOnce(new Error('quota'));
 
-    await fireEvent.click(getByRole('button', { name: 'Delete conversation for one.test' }));
-    await waitFor(() => expect(push).toHaveBeenCalledTimes(1));
-    await fireEvent.click(getByRole('button', { name: 'Delete conversation for two.test' }));
-    await waitFor(() => expect(push).toHaveBeenCalledTimes(2));
-    const [first, second] = push.mock.calls.map((c) => c[0]);
+    await fireEvent.click(getByRole('button', { name: /Delete conversation.*one.test/ }));
+    flushPendingDeletes();
+    await waitFor(() =>
+      expect(push.mock.calls.filter(([toast]) => toast.variant === 'danger')).toHaveLength(1),
+    );
+    await fireEvent.click(getByRole('button', { name: /Delete conversation.*two.test/ }));
+    flushPendingDeletes();
+    await waitFor(() =>
+      expect(push.mock.calls.filter(([toast]) => toast.variant === 'danger')).toHaveLength(2),
+    );
+    const [first, second] = push.mock.calls
+      .map((c) => c[0])
+      .filter((toast) => toast.variant === 'danger');
     expect(first?.key).toBeDefined();
     expect(first?.key).not.toBe(second?.key);
 
     close.mockClear();
-    await fireEvent.click(getByRole('button', { name: 'Delete conversation for one.test' }));
-    await waitFor(() => expect(sites(container)).toEqual(['two.test']));
+    await fireEvent.click(getByRole('button', { name: /Delete conversation.*one.test/ }));
+    await waitFor(() => expect(sites(container)).toEqual(['two']));
     expect(close).toHaveBeenCalledWith(first?.key);
     push.mockRestore();
     close.mockRestore();

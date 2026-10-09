@@ -214,7 +214,7 @@ describe('NativeBackendCard', () => {
       'Installed, version 4',
     );
     expect(container.querySelector('.nh-line')?.textContent).toBe(
-      'The first translation starts the CLI',
+      'The first translation starts Claude Code',
     );
   });
 
@@ -264,7 +264,7 @@ describe('NativeBackendCard — pre-warm toggle', () => {
 
   it('names the toggle in plain words and describes it with the search hint', () => {
     render(NativeBackendCard, baseProps());
-    const box = screen.getByRole('checkbox', { name: 'Start the native host with Chrome' });
+    const box = screen.getByRole('checkbox', { name: 'Keep the connection ready' });
     const hint = document.getElementById('ega-prewarm-hint');
     expect(box.getAttribute('aria-describedby')?.split(' ')).toContain('ega-prewarm-hint');
     expect(hint?.textContent).toBe('Faster first answer, uses some battery');

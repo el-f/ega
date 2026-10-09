@@ -81,7 +81,7 @@ describe('BackendCard — native host', () => {
     expect(failure?.getAttribute('data-ega-test-failure')).toBe('NATIVE_NOT_INSTALLED');
     expect(failure?.textContent).not.toMatch(/API key/i);
     expect(failure?.querySelector('details')?.textContent).toContain(
-      'The native host did not answer. Follow the install steps above, then click Recheck.',
+      'Claude Code or Codex did not answer. Follow the install steps above, then click Recheck.',
     );
   });
 
@@ -103,7 +103,7 @@ describe('BackendCard — native host', () => {
       'Something went wrong',
     );
     expect(failure?.querySelector('details')?.textContent).toContain(
-      'No answer from the native host. Click Recheck above, then test again.',
+      'No answer from Claude Code or Codex. Click Recheck above, then test again.',
     );
   });
 });

@@ -64,9 +64,9 @@ describe('GenerationSection', () => {
     const { container } = render(GenerationSection, {
       props: makeGenerationSectionProps({
         notes: {
-          effort: ['The native host always runs at Low'],
-          maxTokens: ['The native host ignores this'],
-          temperature: ['The native host and OpenAI ignore this'],
+          effort: ['Claude Code or Codex always runs at Low'],
+          maxTokens: ['Claude Code or Codex ignores this'],
+          temperature: ['Claude Code or Codex and OpenAI ignore this'],
         },
       }),
     });
@@ -74,9 +74,9 @@ describe('GenerationSection', () => {
       container
         .querySelector(`[data-ega-setting="${id}"] [data-ega-generation-note]`)
         ?.textContent.trim() ?? '';
-    expect(under('advanced.effort')).toBe('The native host always runs at Low');
-    expect(under('advanced.maxTokens')).toBe('The native host ignores this');
-    expect(under('advanced.temperature')).toBe('The native host and OpenAI ignore this');
+    expect(under('advanced.effort')).toBe('Claude Code or Codex always runs at Low');
+    expect(under('advanced.maxTokens')).toBe('Claude Code or Codex ignores this');
+    expect(under('advanced.temperature')).toBe('Claude Code or Codex and OpenAI ignore this');
     expect(container.querySelector('.ega-slider.disabled')).toBeNull();
     expect(container.querySelector('[aria-disabled="true"]')).toBeNull();
   });

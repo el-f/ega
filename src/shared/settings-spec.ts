@@ -476,8 +476,8 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   },
   {
     id: 'backends.nativeCli',
-    label: 'Native host CLI',
-    description: 'Which CLI the native host runs: Claude Code or Codex',
+    label: 'Claude Code or Codex',
+    description: 'App used for answers on this computer',
     keywords: ['native', 'host', 'claude', 'codex', 'cli'],
     tab: 'backends',
     targetSelector: '[data-ega-setting="backends.nativeCli"]',
@@ -500,7 +500,7 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   },
   {
     id: 'backends.preWarmNative',
-    label: 'Start the native host with Chrome',
+    label: 'Keep the connection ready',
     description: 'Faster first answer, uses some battery',
     keywords: ['pre-warm', 'prewarm', 'warm', 'native', 'cold', 'start', 'boot', 'spawn'],
     tab: 'backends',

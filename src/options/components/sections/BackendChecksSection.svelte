@@ -41,7 +41,7 @@
     groups
     info={{
       label: 'About timeouts',
-      text: 'A request that passes its timeout moves to the next ready backend. Local checks run before Ega uses Ollama, a local server or the native host.',
+      text: 'A request that passes its timeout moves to the next ready backend. Local checks run before Ega uses Ollama, a local server or Claude Code or Codex.',
     }}
   >
     <div data-ega-setting="advanced.translateTimeoutMs">

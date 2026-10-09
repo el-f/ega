@@ -3,9 +3,8 @@ import { backendLabel } from '@/shared/backends/provider-profiles';
 import type { TaskEffort } from '@/shared/settings-schema';
 import { EFFORT_LABEL } from '@/options/effort-labels';
 
-/** A backend's name as the subject of a sentence: "The native host", "Ollama". */
+/** A backend's name as the subject of a sentence. */
 function backendSubject(id: string): string {
-  if (id === 'native') return 'The native host';
   if (id === 'localserver') return 'The local server';
   return backendLabel(id);
 }
@@ -44,7 +43,7 @@ export function generationNotes(
   for (const id of tried) {
     const caps = capsOf(id);
     if (id === 'native') {
-      if (effort !== 'low') effortLines.push('The native host always runs at Low');
+      if (effort !== 'low') effortLines.push('Claude Code or Codex always runs at Low');
     } else if (caps.efforts.length === 0) {
       if (effort !== 'off') noEffort.push(id);
     } else {

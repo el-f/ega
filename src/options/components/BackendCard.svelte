@@ -242,7 +242,7 @@
         testErrCode = id === 'native' ? 'NATIVE_NOT_INSTALLED' : 'NETWORK';
         testResult =
           id === 'native'
-            ? 'The native host did not answer. Follow the install steps above, then click Recheck.'
+            ? 'Claude Code or Codex did not answer. Follow the install steps above, then click Recheck.'
             : 'Cannot reach this backend. Check the API key, the URL or the local server above.';
         void recordTest(false);
         return;
@@ -288,7 +288,7 @@
               .translation.trim()
               .slice(0, 200) || '(empty result)'
           : (reply?.error ??
-            'No answer from the native host. Click Recheck above, then test again.');
+            'No answer from Claude Code or Codex. Click Recheck above, then test again.');
         // The request went out whatever the settings did meanwhile, so the log records it.
         if (reply?.ok) auditTest(result);
         else auditTest('', { code: reply?.code ?? 'UNKNOWN', message: result });

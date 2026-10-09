@@ -14,6 +14,8 @@ export interface ToastMsg {
   countdownMs?: number;
   /** The name close() takes. Toasts with one key collapse into one with the newest text, except Undo ones. Default: the message. */
   key?: string;
+  /** Finalize a deferred Undo operation when its toast leaves without using the action. */
+  onClose?: () => void;
 }
 
 type ToastId = string | number;
@@ -53,7 +55,10 @@ interface Timed {
 }
 const timed = new Map<ToastId, Timed>();
 // Every toast on screen. A closed one is dropped at once, so one still fading out is never revived in place.
-const live = new Map<ToastId, { key: string; collapses: boolean }>();
+const live = new Map<
+  ToastId,
+  { key: string; collapses: boolean; onClose: (() => void) | undefined }
+>();
 let seq = 0;
 let held = false;
 // sonner removes a closed toast 200 ms after it starts to leave.
@@ -76,9 +81,11 @@ function stopTimer(id: ToastId): void {
   timed.delete(id);
 }
 
-function forget(id: ToastId): void {
+function forget(id: ToastId, acted = false): void {
+  const onClose = live.get(id)?.onClose;
   stopTimer(id);
   live.delete(id);
+  if (!acted) onClose?.();
 }
 
 function collapsedInto(key: string): ToastId | undefined {
@@ -112,13 +119,13 @@ export const toastStore = {
       opts.action = {
         label,
         onClick: () => {
-          forget(id);
+          forget(id, true);
           onClick();
         },
       };
     }
     variantToFn(msg.variant)(msg.message, opts);
-    live.set(id, { key, collapses });
+    live.set(id, { key, collapses, onClose: msg.onClose });
     // A repeat gets its own lifetime; the timer of the push it collapsed into must not end it.
     stopTimer(id);
     const ms = msg.countdownMs ?? toastLifetimeMs(kind, msg.action);

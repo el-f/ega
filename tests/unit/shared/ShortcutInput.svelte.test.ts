@@ -237,7 +237,10 @@ describe('ShortcutInput — focus and errors (K-9, K-18)', () => {
       .getAttribute('aria-describedby')
       ?.split(' ');
     expect(ids).toContain('dsp-picker-off');
-    expect(ids).toHaveLength(2);
+    expect(ids).toHaveLength(3);
+    expect(
+      ids?.some((id) => document.getElementById(id)?.textContent.includes('Current shortcut:')),
+    ).toBe(true);
   });
 
   it('draws Record and Clear as the shared secondary button, like Open Chrome shortcuts (RD2-15)', () => {

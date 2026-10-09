@@ -44,7 +44,7 @@ from it. `docs/PRIVACY.md` says what each store means for you, and
 | Custom tasks               | `ega.customTasks`       | 50 tasks.                                                                                                                         |
 | Side-panel conversations   | `ega:conv:t:<id>`       | One key per conversation, several per site; the id starts with the origin, in clear. 50 conversations, 300 turns and 512 KB each. |
 | The list of conversations  | `ega:conv:index`        | One row per conversation: its site, times, message count and title (first line of its first message, up to 80 characters).        |
-| Recent requests          | `egaAuditLog`           | Last 50 requests, text and image alike. Prompt and reply cut to 200 characters, 1000 on a failure.                                |
+| Recent requests            | `egaAuditLog`           | Last 50 requests, text and image alike. Prompt and reply cut to 200 characters, 1000 on a failure.                                |
 | Which Settings tab to open | `ega.pendingOptionsTab` | A tab name, none of your text. Written just before Settings opens, deleted when that page reads it.                               |
 
 **Side-panel conversations are the largest store of page content Ega keeps at

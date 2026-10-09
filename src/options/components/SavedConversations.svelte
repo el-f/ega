@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount, tick } from 'svelte';
-  import { confirmDialog } from '@/shared/components/confirmDialog';
+  import { SvelteSet } from 'svelte/reactivity';
   import { toastStore } from '@/shared/components/toastStore';
   import EmptyState from '@/shared/components/EmptyState.svelte';
   import SectionCard from '@/shared/ui/SectionCard.svelte';
@@ -12,10 +12,11 @@
   import { relativeTime } from '@/shared/relative-time';
   import {
     INDEX_KEY,
-    clearSavedConversations,
+    EMPTY_THREAD_BYTES,
     conversationLabel,
-    deleteSavedConversation,
-    listSavedConversations,
+    listConversations,
+    scheduleConversationDelete,
+    flushPendingDeletes,
     type IndexEntry,
   } from '@/shared/saved-conversations';
 
@@ -24,11 +25,15 @@
 
   let rows = $state.raw<Row[]>([]);
   let loaded = $state(false);
+  const hidden = new SvelteSet<string>();
+  const deleteToasts = new SvelteSet<string>();
   // "Last used" reads relative to the last refresh; a save from a panel refreshes the list.
   let now = $state(Date.now());
 
   async function refresh(): Promise<void> {
-    rows = await listSavedConversations();
+    rows = (await listConversations())
+      .filter((row) => row.bytes > EMPTY_THREAD_BYTES && !hidden.has(row.origin))
+      .sort((a, b) => b.updatedAt - a.updatedAt);
     now = Date.now();
     loaded = true;
   }
@@ -56,33 +61,79 @@
   }
 
   let stop: (() => void) | null = null;
+  function flushDeletes(): void {
+    flushPendingDeletes();
+    for (const key of [...deleteToasts]) toastStore.close(key);
+    deleteToasts.clear();
+  }
   onMount(() => {
+    window.addEventListener('pagehide', flushDeletes);
     void refresh();
     // A side panel saving while this page is open moves its row to the top.
     stop = onStoredChange((changes) => {
       if (INDEX_KEY in changes) void refresh();
     });
   });
-  onDestroy(() => stop?.());
+  onDestroy(() => {
+    stop?.();
+    window.removeEventListener('pagehide', flushDeletes);
+    flushDeletes();
+  });
 
   function sizeLabel(bytes: number): string {
     return `${Math.max(1, Math.round(bytes / 1024))} KB`;
   }
 
-  /** `key` names the delete: its error toast stays until closed (X14), and two deletes keep two toasts. */
-  async function run(key: string, work: () => Promise<void>): Promise<void> {
+  /** The toast owns the Undo deadline, including its hover/focus pause. The worker commits after it closes. */
+  function remove(ids: readonly string[], key: string, message: string, at: number): void {
     toastStore.close(key);
-    try {
-      await work();
-    } catch (e) {
-      toastStore.push({
-        message: `Could not delete: ${(e as Error).message}`,
-        variant: 'danger',
-        key,
-        action: { label: 'Try again', onClick: () => void run(key, work) },
-      });
-    }
-    await refresh();
+    for (const id of ids) hidden.add(id);
+    rows = rows.filter((row) => !hidden.has(row.origin));
+    const handle = scheduleConversationDelete(ids, {
+      ms: null,
+      onDone: () => {
+        for (const id of ids) hidden.delete(id);
+        void refresh();
+      },
+      onFail: () => {
+        for (const id of ids) hidden.delete(id);
+        toastStore.close(key);
+        void refresh();
+        toastStore.push({
+          message: "Couldn't delete the conversation. Try again.",
+          variant: 'danger',
+          key,
+          action: { label: 'Try again', onClick: () => remove(ids, key, message, at) },
+        });
+      },
+    });
+    deleteToasts.add(key);
+    toastStore.push({
+      message,
+      variant: 'success',
+      key,
+      onClose: () => {
+        deleteToasts.delete(key);
+        handle.commit();
+      },
+      action: {
+        label: 'Undo',
+        onClick: () => {
+          deleteToasts.delete(key);
+          handle.undo();
+          for (const id of ids) hidden.delete(id);
+          void refresh().then(() =>
+            focusAfterDelete(
+              Math.max(
+                0,
+                rows.findIndex((row) => row.origin === ids[0]),
+              ),
+            ),
+          );
+        },
+      },
+    });
+    void focusAfterDelete(at);
   }
 
   // The pressed button leaves with its row: the row that took its place takes focus (or the one above), else the card title.
@@ -93,31 +144,26 @@
     (trash[Math.min(at, trash.length - 1)] ?? card?.querySelector<HTMLElement>('h2'))?.focus();
   }
 
-  async function deleteOne(row: Row): Promise<void> {
+  function deleteOne(row: Row): void {
     const title = rowTitle(row);
     const site = siteLabel(row);
-    const at = rows.indexOf(row);
-    const ok = await confirmDialog({
-      title: 'Delete this conversation?',
-      body: `Delete the side panel conversation ${title === null ? `for ${site}` : `"${title}" on ${site}`}? This cannot be undone.`,
-      confirmLabel: 'Delete',
-    });
-    if (!ok) return;
-    await run(`conv-delete:${row.origin}`, () => deleteSavedConversation(row.origin));
-    await focusAfterDelete(at);
+    remove(
+      [row.origin],
+      `conv-delete:${row.origin}`,
+      `Deleted "${title ?? site}"`,
+      rows.indexOf(row),
+    );
   }
 
-  async function clearAll(): Promise<void> {
-    const n = rows.length;
-    const ok = await confirmDialog({
-      title: 'Delete all conversations?',
-      body: `Delete all ${n} saved ${n === 1 ? 'conversation' : 'conversations'}? This cannot be undone.`,
-      confirmLabel: 'Delete all',
-      cancelLabel: 'Keep them',
-    });
-    if (!ok) return;
-    await run('conv-delete-all', clearSavedConversations);
-    await focusAfterDelete(0);
+  function clearAll(): void {
+    // Snapshot only the rows shown now; conversations arriving during Undo must survive.
+    const ids = rows.map((row) => row.origin);
+    remove(
+      ids,
+      `conv-delete-all:${ids.join('|')}`,
+      `Deleted ${ids.length} ${ids.length === 1 ? 'conversation' : 'conversations'}`,
+      0,
+    );
   }
 </script>
 

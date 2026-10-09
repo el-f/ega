@@ -53,11 +53,15 @@ describe('Glossary — delete targets the row the user clicked', () => {
     );
   });
 
-  // Renders 200 glossary rows, which took 4586ms of the 5s default under coverage instrumentation.
+  // Keep the rendered list filtered: this checks the stored cap against a stale snapshot,
+  // not the cost of mounting 200 unrelated rows after the refused write refreshes the list.
   it('refuses the 201st entry against the stored list, not a stale snapshot', async () => {
-    seed([A]);
-    const { container } = render(Glossary);
+    seed([A, ...Array.from({ length: 10 }, (_, i) => ({ ...B, term: `initial${i}` }))]);
+    const { container, getByRole } = render(Glossary);
     await rows(container);
+    await fireEvent.input(getByRole('searchbox', { name: 'Filter glossary entries' }), {
+      target: { value: 'Overflow' },
+    });
 
     const full = Array.from({ length: 200 }, (_, i) => ({
       term: `t${i}`,
@@ -79,5 +83,6 @@ describe('Glossary — delete targets the row the user clicked', () => {
       expect(container.textContent).toMatch(/The glossary holds 200 entries, the most Ega keeps/),
     );
     expect((await getSettings()).glossary).toHaveLength(200);
-  }, 20_000);
+    expect(container.querySelectorAll('.glossary-row')).toHaveLength(0);
+  });
 });

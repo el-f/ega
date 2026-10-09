@@ -226,7 +226,7 @@
       return 'The registry entry is missing. Quit and restart the browser, then click Recheck.';
     }
     if (/exit|crashed|terminated/i.test(msg)) {
-      return 'The native host stopped as it started. Check that Node.js 20 or later is installed, then run the install command again.';
+      return 'The connection to Claude Code or Codex stopped as it started. Check that Node.js 20 or later is installed, then run the install command again.';
     }
     return '';
   }
@@ -299,12 +299,12 @@
     currentCli === 'codex' && portStatus !== 'disconnected'
       ? 'Codex starts once per translation'
       : portStatus === 'warm'
-        ? 'The CLI is running, so answers start fast'
+        ? `${currentCliEntry?.label ?? 'Claude Code or Codex'} is running, so answers start fast`
         : portStatus === 'connecting'
-          ? 'Starting the CLI...'
+          ? `Starting ${currentCliEntry?.label ?? 'Claude Code or Codex'}...`
           : portStatus === 'disconnected'
-            ? 'The CLI stopped; the next translation starts it again'
-            : 'The first translation starts the CLI',
+            ? `${currentCliEntry?.label ?? 'Claude Code or Codex'} stopped; the next translation starts it again`
+            : `The first translation starts ${currentCliEntry?.label ?? 'Claude Code or Codex'}`,
   );
 
   const NATIVE_INSTALL_INFO =
@@ -331,18 +331,18 @@
       >
       <IconButton
         icon={RefreshCw}
-        ariaLabel={nhState === 'probing' ? 'Checking the native host…' : 'Recheck'}
+        ariaLabel={nhState === 'probing' ? 'Checking Claude Code or Codex…' : 'Recheck'}
         tooltip="Recheck"
         size="sm"
         disabled={nhState === 'probing'}
         onclick={() => void recheckNative(true)}
       />
-      <InfoTip label="About the native host install" text={NATIVE_INSTALL_INFO} />
+      <InfoTip label="About the Claude Code or Codex connection" text={NATIVE_INSTALL_INFO} />
     </div>
 
     {#if justRecovered}
       <div class="ok nh-status-msg" role="status" data-testid="nh-recovered-banner">
-        Now reachable. Ega will use your local CLI.
+        Now reachable. Ega will use {currentCliEntry?.label ?? 'Claude Code or Codex'}.
       </div>
     {/if}
 
@@ -352,7 +352,7 @@
         <p class="nh-line">{portLine}</p>
       {/if}
       <div class="row nh-cli-row">
-        <span class="nh-cli-label" id="nh-cli-label">CLI</span>
+        <span class="nh-cli-label" id="nh-cli-label">App</span>
         <RadioGroup
           name="nh-cli"
           orientation="horizontal"
@@ -381,8 +381,8 @@
           </p>
           <Disclosure label="Show steps">
             <p class="nh-steps">
-              Install {missingCli.label}, then restart Chrome and click Recheck. The native host
-              looks for it in the folders on your PATH.
+              Install {missingCli.label}, then restart Chrome and click Recheck. Ega looks for it in
+              the folders on your PATH.
             </p>
           </Disclosure>
         </div>
@@ -415,7 +415,7 @@
     {:else if nhState === 'missing' && nhProbeError}
       <div class="warn nh-status-msg">
         <p class="nh-msg-title" role="status">
-          {nhErrorHint(nhProbeError) || 'Chrome could not start the native host.'}
+          {nhErrorHint(nhProbeError) || 'Chrome could not connect to Claude Code or Codex.'}
         </p>
         <Disclosure label="Details">
           <p class="nh-steps">Chrome reported: <code>{nhProbeError}</code></p>
@@ -440,7 +440,7 @@
     <div class="prewarm-row" data-testid="prewarm-native-toggle">
       <Checkbox
         checked={prewarm.checked}
-        label="Start the native host with Chrome"
+        label="Keep the connection ready"
         describedBy="ega-prewarm-hint"
         onchange={(next) => void onPatch({ preWarmNative: next })}
         inputAttrs={{ 'data-ega-setting': 'backends.preWarmNative' }}

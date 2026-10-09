@@ -273,8 +273,9 @@ export function clearSavedConversations(): Promise<void> {
 
 interface PendingDelete {
   ids: readonly string[] | 'all';
-  timer: ReturnType<typeof setTimeout>;
+  timer: ReturnType<typeof setTimeout> | null;
   onFail: (() => void) | undefined;
+  onDone: (() => void) | undefined;
 }
 
 /** Deletes waiting out their Undo window in this page. */
@@ -282,11 +283,12 @@ const pending = new Set<PendingDelete>();
 
 /** The worker finishes the delete, so closing the page right after cannot bring the conversation back. */
 function commitDelete(p: PendingDelete): void {
-  clearTimeout(p.timer);
+  if (p.timer !== null) clearTimeout(p.timer);
   if (!pending.delete(p)) return;
   sendMsg({ kind: 'conversations:delete', ids: p.ids === 'all' ? 'all' : [...p.ids] })
     .then((r) => {
       if (r?.ok !== true) throw new Error('conversations:delete refused');
+      p.onDone?.();
     })
     .catch(() => p.onFail?.());
 }
@@ -294,19 +296,22 @@ function commitDelete(p: PendingDelete): void {
 /** Deletes after `ms` unless undone; `onFail` runs when the worker could not delete, and the conversation is kept. */
 export function scheduleConversationDelete(
   ids: readonly string[] | 'all',
-  opts: { ms?: number; onFail?: () => void } = {},
-): { undo: () => void } {
+  opts: { ms?: number | null; onFail?: () => void; onDone?: () => void } = {},
+): { undo: () => void; commit: () => void } {
   const p: PendingDelete = {
     ids,
     onFail: opts.onFail,
-    timer: setTimeout(() => commitDelete(p), opts.ms ?? 8000),
+    onDone: opts.onDone,
+    // A pausable Undo toast owns its deadline; page close still flushes the pending record.
+    timer: opts.ms === null ? null : setTimeout(() => commitDelete(p), opts.ms ?? 8000),
   };
   pending.add(p);
   return {
     undo: () => {
-      clearTimeout(p.timer);
+      if (p.timer !== null) clearTimeout(p.timer);
       pending.delete(p);
     },
+    commit: () => commitDelete(p),
   };
 }
 
@@ -324,6 +329,6 @@ export function flushPendingDeletes(): void {
 
 /** Drops waiting deletes without sending them, after "Delete all data" already removed everything. */
 export function forgetPendingDeletes(): void {
-  for (const p of pending) clearTimeout(p.timer);
+  for (const p of pending) if (p.timer !== null) clearTimeout(p.timer);
   pending.clear();
 }

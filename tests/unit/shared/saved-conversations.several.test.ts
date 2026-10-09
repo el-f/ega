@@ -181,6 +181,27 @@ describe('eviction (C5 example)', () => {
 
 // C8: closing the panel inside the Undo window is why the worker finishes a delete; the flush sends it at once.
 describe('flushPendingDeletes', () => {
+  it('lets a paused Undo toast own the delete deadline, while page close still flushes it', () => {
+    vi.useFakeTimers();
+    try {
+      const send = chromeMock.runtime.sendMessage;
+      send.mockClear();
+      send.mockResolvedValue({ ok: true });
+      const handle = scheduleConversationDelete(['https://held.test'], { ms: null });
+      vi.advanceTimersByTime(30_000);
+      expect(send).not.toHaveBeenCalled();
+      handle.commit();
+      flushPendingDeletes();
+      expect(send).toHaveBeenCalledExactlyOnceWith({
+        kind: 'conversations:delete',
+        ids: ['https://held.test'],
+      });
+    } finally {
+      forgetPendingDeletes();
+      vi.useRealTimers();
+    }
+  });
+
   it('sends a waiting delete at once, and only once', () => {
     vi.useFakeTimers();
     try {

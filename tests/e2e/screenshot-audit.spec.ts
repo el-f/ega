@@ -1,11 +1,4 @@
-import {
-  test,
-  expect,
-  type Page,
-  type BrowserContext,
-  type Locator,
-  type Route,
-} from '@playwright/test';
+import { test, expect, type Page, type Locator } from '@playwright/test';
 import {
   customTask,
   launchExtension,
@@ -22,8 +15,6 @@ import {
   type ExtensionHandle,
   pickAreasAndTranslate,
   resetRoutes,
-  seedCustomTasks,
-  customTask,
 } from './helpers';
 import {
   FOLLOW_FIXTURE_SCRIPT,
@@ -159,14 +150,6 @@ async function setThemeSetting(page: Page, theme: 'light' | 'dark'): Promise<voi
     await chrome.storage.local.set({ [key]: { ...cur, theme: t } });
   }, theme);
   await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
-}
-
-/** Points the active tab at an http(s) fixture, or the popup's `siteHost` stays null and the per-site button never renders. */
-async function openFixtureTab(context: BrowserContext, serverUrl: string): Promise<Page> {
-  const page = await context.newPage();
-  await page.goto(`${serverUrl}/selection-page.html`);
-  await page.waitForLoadState('networkidle');
-  return page;
 }
 
 // The card is the last on its tab and taller than the shell; a full-page shot is too small to judge it.
