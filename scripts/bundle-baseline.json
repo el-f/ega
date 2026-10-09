@@ -1,15 +1,15 @@
 [
   {
     "name": "Advanced",
-    "bytes": 61275
+    "bytes": 61306
   },
   {
     "name": "batch-progress",
-    "bytes": 13525
+    "bytes": 14310
   },
   {
     "name": "bubble",
-    "bytes": 5608
+    "bytes": 5767
   },
   {
     "name": "bubble-menu",
@@ -28,8 +28,12 @@
     "bytes": 837
   },
   {
+    "name": "Checkbox",
+    "bytes": 3742
+  },
+  {
     "name": "command-registry",
-    "bytes": 30400
+    "bytes": 26673
   },
   {
     "name": "customs-cache",
@@ -45,15 +49,23 @@
   },
   {
     "name": "EmptyState",
-    "bytes": 2031
+    "bytes": 2056
   },
   {
     "name": "english-lexicon",
     "bytes": 598085
   },
   {
+    "name": "err-labels",
+    "bytes": 1321
+  },
+  {
+    "name": "error-copy",
+    "bytes": 3835
+  },
+  {
     "name": "error-parts",
-    "bytes": 13927
+    "bytes": 17359
   },
   {
     "name": "error-policy",
@@ -61,27 +73,27 @@
   },
   {
     "name": "Glossary",
-    "bytes": 12067
+    "bytes": 12059
   },
   {
     "name": "IconButton",
-    "bytes": 3901
+    "bytes": 3912
   },
   {
     "name": "image-url-guard",
-    "bytes": 4013
+    "bytes": 4025
   },
   {
     "name": "index",
-    "bytes": 119376
+    "bytes": 124484
   },
   {
     "name": "index.html",
-    "bytes": 401028
+    "bytes": 431430
   },
   {
     "name": "index.ts",
-    "bytes": 40891
+    "bytes": 41733
   },
   {
     "name": "index.ts-loader",
@@ -89,15 +101,7 @@
   },
   {
     "name": "inlineReplace",
-    "bytes": 4534
-  },
-  {
-    "name": "lang-tag",
-    "bytes": 293
-  },
-  {
-    "name": "language-prompt",
-    "bytes": 1321
+    "bytes": 4531
   },
   {
     "name": "LanguagePicker",
@@ -109,15 +113,15 @@
   },
   {
     "name": "page-chip",
-    "bytes": 6383
+    "bytes": 3075
   },
   {
     "name": "page-styles",
-    "bytes": 1924
+    "bytes": 1969
   },
   {
     "name": "page-translate-v2",
-    "bytes": 24241
+    "bytes": 29991
   },
   {
     "name": "pending-popup-handoff",
@@ -129,11 +133,11 @@
   },
   {
     "name": "picker",
-    "bytes": 3138
+    "bytes": 3185
   },
   {
     "name": "picker-bar",
-    "bytes": 8798
+    "bytes": 9473
   },
   {
     "name": "picker-overlay",
@@ -145,15 +149,15 @@
   },
   {
     "name": "Popover",
-    "bytes": 3513
+    "bytes": 3796
   },
   {
     "name": "progress",
-    "bytes": 1154
+    "bytes": 1208
   },
   {
     "name": "provider-profiles",
-    "bytes": 3611
+    "bytes": 3578
   },
   {
     "name": "request-state",
@@ -173,7 +177,7 @@
   },
   {
     "name": "safe-regex",
-    "bytes": 26879
+    "bytes": 27036
   },
   {
     "name": "safety",
@@ -181,7 +185,7 @@
   },
   {
     "name": "saved-conversations",
-    "bytes": 1680
+    "bytes": 4392
   },
   {
     "name": "SectionReset",
@@ -189,19 +193,19 @@
   },
   {
     "name": "select",
-    "bytes": 41052
+    "bytes": 41048
   },
   {
     "name": "Select",
-    "bytes": 4012
+    "bytes": 4013
   },
   {
     "name": "selection-cap-copy",
-    "bytes": 11864
+    "bytes": 8771
   },
   {
     "name": "SelectionBubble",
-    "bytes": 32746
+    "bytes": 32738
   },
   {
     "name": "settings-bus",
@@ -209,11 +213,11 @@
   },
   {
     "name": "shadowHost",
-    "bytes": 15090
+    "bytes": 14849
   },
   {
     "name": "src-content-index.ts",
-    "bytes": 34918
+    "bytes": 35078
   },
   {
     "name": "stuck-timeout",
@@ -225,15 +229,15 @@
   },
   {
     "name": "Tasks",
-    "bytes": 46062
+    "bytes": 46103
   },
   {
     "name": "TemplateEditor",
-    "bytes": 28060
+    "bytes": 28097
   },
   {
     "name": "theme",
-    "bytes": 15566
+    "bytes": 11967
   },
   {
     "name": "theme-apply",
@@ -241,7 +245,7 @@
   },
   {
     "name": "tipState.svelte",
-    "bytes": 46966
+    "bytes": 46962
   },
   {
     "name": "toast",
@@ -257,11 +261,11 @@
   },
   {
     "name": "Translate",
-    "bytes": 30465
+    "bytes": 30468
   },
   {
     "name": "translate-handlers",
-    "bytes": 5676
+    "bytes": 5673
   },
   {
     "name": "translate-ui",
@@ -277,7 +281,7 @@
   },
   {
     "name": "vendor-bits-ui-menu",
-    "bytes": 28020
+    "bytes": 26377
   },
   {
     "name": "vendor-dompurify",
@@ -285,7 +289,7 @@
   },
   {
     "name": "vendor-lucide",
-    "bytes": 27427
+    "bytes": 26501
   },
   {
     "name": "vendor-marked",

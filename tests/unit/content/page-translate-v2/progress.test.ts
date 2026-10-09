@@ -69,6 +69,10 @@ describe('pillStatus', () => {
     [{ settled: true, done: 10, target: 'English' }, 'Page translated to English'],
     [{ settled: true, done: 5, total: 5, skipped: 7 }, 'Stopped. Translated 5 of 12 areas.'],
     [
+      { settled: true, done: 5, total: 5, skipped: 7, partialSelection: true },
+      'Translated 5 of 12 areas.',
+    ],
+    [
       {
         settled: true,
         done: 12,
@@ -129,6 +133,16 @@ describe('pillStatus', () => {
 describe('settleAnnouncement', () => {
   it('says it once, plainly', () => {
     expect(settleAnnouncement({ ...base, settled: true, done: 10 })).toBe('Page translated.');
+    expect(
+      settleAnnouncement({
+        ...base,
+        settled: true,
+        done: 5,
+        total: 5,
+        skipped: 7,
+        partialSelection: true,
+      }),
+    ).toBe('Translated 5 of 12.');
     expect(settleAnnouncement({ ...base, settled: true, done: 5, total: 5, skipped: 7 })).toBe(
       'Stopped. Translated 5 of 12.',
     );

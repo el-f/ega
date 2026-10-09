@@ -168,59 +168,62 @@ function overflowKind(v: string | undefined): Overflow {
 function overflowOf(a: Element, cache: OverflowCache): { x: Overflow; y: Overflow } {
   let o = cache.get(a);
   if (o) return o;
-  const doc = a.ownerDocument;
-  const win = doc.defaultView;
-  const st = win?.getComputedStyle(a);
+  const st = a.ownerDocument.defaultView?.getComputedStyle(a);
   o = { x: overflowKind(st?.overflowX), y: overflowKind(st?.overflowY) };
-  if (a === doc.body) {
-    // With the root's overflow visible, the body's goes to the viewport, whose range the document check covers.
-    const rs = win?.getComputedStyle(doc.documentElement);
-    if (overflowKind(rs?.overflowX) === 'shows' && overflowKind(rs?.overflowY) === 'shows') {
-      o = { x: 'shows', y: 'shows' };
-    }
-  }
   cache.set(a, o);
   return o;
 }
 
 /**
  * A box the user can never scroll to, so the viewport band never reaches it. On each axis, the nearest ancestor
- * that scrolls (an app's main pane, a wide table's wrapper) lets the user reach whatever it holds. Below that, an
- * ancestor that hides its overflow cuts off a box outside it (a carousel's later slides); with no ancestor that
- * scrolls, the box must sit in the document's scroll range (not an off-canvas menu; on a right-to-left page the
- * range runs left of zero).
+ * that scrolls lets the user reach content past its end, but not before its start. Continue with that scroller's
+ * own box: it too must be reachable through its ancestors. Clipping ancestors cut off boxes outside them.
+ * At the viewport, hidden/clip overflow uses the screen size, not a scroll range enlarged by the hidden box.
  */
 function outOfReach(el: Element, cache: OverflowCache): boolean {
   const r = el.getBoundingClientRect();
   if (r.width === 0 && r.height === 0) return false;
   const doc = el.ownerDocument;
   const root = doc.documentElement;
-  let scrollsX = false;
-  let scrollsY = false;
-  for (let a = el.parentElement; a && a !== root; a = a.parentElement) {
-    const o = overflowOf(a, cache);
-    const cutX = !scrollsX && o.x === 'cuts';
-    const cutY = !scrollsY && o.y === 'cuts';
-    if (cutX || cutY) {
-      const ar = a.getBoundingClientRect();
-      if (cutX && (r.right <= ar.left || r.left >= ar.right)) return true;
-      if (cutY && (r.bottom <= ar.top || r.top >= ar.bottom)) return true;
-    }
-    scrollsX ||= o.x === 'scrolls';
-    scrollsY ||= o.y === 'scrolls';
-    if (scrollsX && scrollsY) return false;
-  }
   const win = doc.defaultView;
-  if (!scrollsX) {
-    const sx = win?.scrollX ?? 0;
-    const rtl = win?.getComputedStyle(root).direction === 'rtl';
-    const minX = rtl ? root.clientWidth - root.scrollWidth : 0;
-    if (r.right + sx <= minX || r.left + sx >= minX + root.scrollWidth) return true;
+  const rootOverflow = overflowOf(root, cache);
+  const bodyAtViewport = rootOverflow.x === 'shows' && rootOverflow.y === 'shows';
+  const viewportOverflow = bodyAtViewport ? overflowOf(doc.body, cache) : rootOverflow;
+  let { left, right, top, bottom } = r;
+  for (let a = el.parentElement; a && a !== root; a = a.parentElement) {
+    // With visible root overflow the body's overflow is applied to the viewport instead of its own box.
+    if (a === doc.body && bodyAtViewport) continue;
+    const o = overflowOf(a, cache);
+    if (o.x === 'shows' && o.y === 'shows') continue;
+    const ar = a.getBoundingClientRect();
+    if (o.x === 'cuts') {
+      if (right <= ar.left || left >= ar.right) return true;
+      left = Math.max(left, ar.left);
+      right = Math.min(right, ar.right);
+    } else if (o.x === 'scrolls') {
+      const rtl = win?.getComputedStyle(a).direction === 'rtl';
+      if (rtl ? left >= ar.right - a.scrollLeft : right <= ar.left - a.scrollLeft) return true;
+      left = ar.left;
+      right = ar.right;
+    }
+    if (o.y === 'cuts') {
+      if (bottom <= ar.top || top >= ar.bottom) return true;
+      top = Math.max(top, ar.top);
+      bottom = Math.min(bottom, ar.bottom);
+    } else if (o.y === 'scrolls') {
+      if (bottom <= ar.top - a.scrollTop) return true;
+      top = ar.top;
+      bottom = ar.bottom;
+    }
   }
-  if (!scrollsY) {
-    const sy = win?.scrollY ?? 0;
-    if (r.bottom + sy <= 0 || r.top + sy >= root.scrollHeight) return true;
-  }
+  const sx = viewportOverflow.x === 'cuts' ? 0 : (win?.scrollX ?? 0);
+  const sy = viewportOverflow.y === 'cuts' ? 0 : (win?.scrollY ?? 0);
+  const rtl = win?.getComputedStyle(root).direction === 'rtl';
+  const width = viewportOverflow.x === 'cuts' ? root.clientWidth : root.scrollWidth;
+  const height = viewportOverflow.y === 'cuts' ? root.clientHeight : root.scrollHeight;
+  const minX = rtl && viewportOverflow.x !== 'cuts' ? root.clientWidth - width : 0;
+  if (right + sx <= minX || left + sx >= minX + width) return true;
+  if (bottom + sy <= 0 || top + sy >= height) return true;
   return false;
 }
 

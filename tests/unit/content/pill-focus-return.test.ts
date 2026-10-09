@@ -63,7 +63,7 @@ afterEach(async () => {
 });
 
 describe('the pill gives focus back when its button takes the chip button away', () => {
-  it('Close bar drops the chip Try again; focus stays on the chip', async () => {
+  it('Close bar drops the chip Try again; focus moves to its visible wrapper until blur', async () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     const chip = await failedBlock();
     vi.setSystemTime(Date.now() + 1000);
@@ -71,7 +71,12 @@ describe('the pill gives focus back when its button takes the chip button away',
     tabIntoPill(chip, close);
     close.click();
     expect(chip.shadowRoot?.querySelector('[data-ega-retry-block]')).toBeNull();
-    expect(document.activeElement).toBe(chip);
+    const wrapper = chip.parentElement;
+    expect(document.activeElement).toBe(wrapper);
+    expect(chip.hasAttribute('tabindex')).toBe(false);
+    expect(wrapper?.getAttribute('tabindex')).toBe('-1');
+    wrapper?.blur();
+    expect(wrapper?.hasAttribute('tabindex')).toBe(false);
   });
 
   it('Remove translation takes the chip away; focus goes to its block', async () => {

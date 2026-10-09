@@ -88,15 +88,26 @@ function returnFocus(to: HTMLElement | null, trail: HTMLElement[]): void {
     to.focus({ preventScroll: true });
     return;
   }
-  const near = trail.find((el) => el.isConnected);
-  if (!near) return;
-  const button = near.shadowRoot?.querySelector<HTMLElement>('button');
-  if (button) {
-    button.focus({ preventScroll: true });
+  for (const near of trail) {
+    if (!near.isConnected) continue;
+    // Close can replace a settings chip; look up its current button before falling back to the block.
+    const chip = near.matches('[data-ega-tx-error]')
+      ? near
+      : near.querySelector<HTMLElement>('[data-ega-tx-error]');
+    const button = chip?.shadowRoot?.querySelector<HTMLElement>('button');
+    if (button) {
+      button.focus({ preventScroll: true });
+      return;
+    }
+    // The chip resets all styles inline, so a focus ring on its host would be invisible.
+    if (near.matches('[data-ega-tx-error]')) continue;
+    if (!near.hasAttribute('tabindex')) {
+      near.setAttribute('tabindex', '-1');
+      near.addEventListener('blur', () => near.removeAttribute('tabindex'), { once: true });
+    }
+    near.focus({ preventScroll: true });
     return;
   }
-  if (!near.hasAttribute('tabindex')) near.setAttribute('tabindex', '-1');
-  near.focus({ preventScroll: true });
 }
 
 function openSettings(tab: SettingsTab): void {

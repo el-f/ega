@@ -141,6 +141,10 @@ interface Session {
   total: number;
   /** Areas that Stop dropped before they finished. */
   skipped: number;
+  /** Identity of stopped areas, so picking one again removes only that area from the skipped count. */
+  dropped: Set<Element>;
+  /** Choose areas resumed only part of a stopped page; its settled copy must retain the full denominator. */
+  partialSelection: boolean;
   pending: Block[];
   /** Whole page: blocks not yet near the viewport, by id. */
   deferred: Map<string, HTMLElement>;
@@ -208,6 +212,11 @@ export async function runPageTranslateV2(deps: PageV2Deps): Promise<void> {
     enterMultiSelect({
       initialMode,
       onModeChange: persistMode,
+      resolveFailedRun: (id) => {
+        const entry = active?.store.get(id);
+        if (!entry?.run || !active?.failed.has(id) || !entry.element.isConnected) return undefined;
+        return { id, element: entry.element as HTMLElement, text: entry.text, run: true };
+      },
       onFire: (blocks, mode) => {
         void startSession(deps, blocks, mode).catch((e) => debugCatch(e, 'content.pageV2.start'));
       },
@@ -240,6 +249,8 @@ export async function runWholePageTranslate(deps: PageV2Deps): Promise<boolean> 
       adopt(sess, deps, mode);
       // Stop's dropped areas are collected again, so they count again.
       sess.skipped = 0;
+      sess.dropped.clear();
+      sess.partialSelection = false;
       const added = recollect(sess);
       for (const id of failed) retryBlock(id);
       report(sess);
@@ -531,6 +542,8 @@ async function createSession(
     stallMs: timeoutMs + 60_000,
     total,
     skipped: 0,
+    dropped: new Set(),
+    partialSelection: false,
     pending: [...blocks],
     deferred: new Map(),
     index: new Map(),
@@ -616,13 +629,14 @@ async function startSession(
   // The same text rules as Translate page: never the raw text of the chosen element.
   const blocks: Block[] = [];
   for (const b of selected) {
-    const text = blockText(b.element);
+    const text = b.run ? b.text : blockText(b.element);
     if (!hasWords(text) || text.length > MAX_SELECTION_CHARS) continue;
     const detectedLang = deps.detectLang?.(text);
     blocks.push({
       id: b.id,
       element: b.element,
       text,
+      ...(b.run ? { run: true } : {}),
       ...(detectedLang !== undefined ? { detectedLang } : {}),
     });
   }
@@ -634,11 +648,11 @@ async function startSession(
   const sess = active;
   if (sess) {
     adopt(sess, deps, mode);
-    // The chosen areas are what the user now wants: the areas a stop dropped, some of them chosen again, no longer
-    // count, or the pill would count those twice and read as stopped.
-    sess.skipped = 0;
+    // Choosing a subset resumes only those areas, while the other stopped areas stay in the denominator.
+    sess.partialSelection = sess.skipped > 0;
     const held = heldIds(sess);
     for (const block of blocks) {
+      if (sess.dropped.delete(block.element)) sess.skipped--;
       const id = held.get(block.element);
       if (id === undefined) {
         sess.pending.push(block);
@@ -702,6 +716,7 @@ function snapshot(sess: Session): PageProgress {
     inFlight: sess.inFlight.size + sess.backoff.size,
     queued: sess.pending.length,
     skipped: sess.skipped,
+    ...(sess.partialSelection ? { partialSelection: true } : {}),
     settled: isSettled(sess),
     showingOriginal: sess.showingGlobalOriginal,
     ...(sess.cooldownUntil > Date.now() ? { pausedUntil: sess.cooldownUntil } : {}),
@@ -855,18 +870,23 @@ function maybeSettle(sess: Session): void {
 
 /** Drops a mounted block that never finished: Stop and a retry after Stop leave nothing half-done on the page. */
 function dropBlock(sess: Session, id: string): void {
+  const element = sess.store.get(id)?.element;
   sess.handles.get(id)?.revert();
   sess.handles.delete(id);
   sess.store.delete(id);
   sess.inFlight.delete(id);
   clearStall(sess, id);
   sess.total--;
-  if (!sess.parked) sess.skipped++;
+  if (!sess.parked) {
+    sess.skipped++;
+    if (element) sess.dropped.add(element);
+  }
 }
 
 /** Stop: nothing new starts, blocks in flight finish, and the session settles on what is done. */
 function stopSession(sess: Session): void {
   if (sess !== active || isSettled(sess)) return;
+  sess.partialSelection = false;
   // Nothing finished and nothing coming means nothing to keep, so Stop is the same as Remove translation.
   if (sess.terminal.size === 0 && sess.inFlight.size === 0) {
     void cancelPageTranslateV2();
@@ -895,6 +915,10 @@ function halt(sess: Session): void {
   sess.cooldownUntil = 0;
   sess.pausedBy = undefined;
   const unstarted = sess.deferred.size + sess.pending.length;
+  if (!sess.parked) {
+    for (const element of sess.deferred.values()) sess.dropped.add(element);
+    for (const block of sess.pending) sess.dropped.add(block.element);
+  }
   sess.deferred.clear();
   sess.pending = [];
   sess.total -= unstarted;

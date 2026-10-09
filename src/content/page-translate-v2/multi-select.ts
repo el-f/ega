@@ -19,12 +19,15 @@ export interface SelectedBlock {
   id: string;
   element: HTMLElement;
   text: string;
+  /** A failed leading run retried by its existing session, without selecting the host's inner blocks. */
+  run?: boolean;
 }
 
 export interface MultiSelectOpts {
   initialMode: RenderMode;
   onModeChange?: (mode: RenderMode) => void;
   onFire: (blocks: SelectedBlock[], mode: RenderMode) => void;
+  resolveFailedRun?: (id: string) => SelectedBlock | undefined;
 }
 
 const HOVER_ATTR = 'data-ega-ms-hover';
@@ -67,8 +70,6 @@ const MARK_SEL = ':is([data-ega-replaced],[data-ega-tx])';
 // A failed mark keeps the page's own words, so its block can be chosen again for another try.
 const FAILED_SEL = `${MARK_SEL}[data-ega-tx-state="error"]`;
 const TRANSLATED_SEL = `${MARK_SEL}:not([data-ega-tx-state="error"])`;
-/** The renderer puts a Show-both box inside these, not after them. */
-const BOX_INSIDE = new Set(['TD', 'TH', 'LI', 'DD', 'DT']);
 const ANNOUNCE_CHARS = 60;
 
 interface MsSession {
@@ -127,6 +128,11 @@ function isNavigableBlock(el: Element | null): boolean {
 
 /** `null` when the block can be selected; otherwise the sentence to show the user. */
 function selectReject(el: Element): string | null {
+  if (el.matches(FAILED_SEL) && el.hasAttribute('data-ega-run')) {
+    return ms?.opts.resolveFailedRun?.(el.getAttribute('data-ega-id') ?? '')
+      ? null
+      : 'This area can no longer be retried. Remove its translation and choose it again.';
+  }
   const structural = structuralReject(el);
   if (structural !== null) return structural;
   if (
@@ -149,9 +155,10 @@ function selectReject(el: Element): string | null {
 function pickTarget(el: Element): Element {
   const mark = el.closest(FAILED_SEL);
   if (!mark) return el;
+  if (mark.hasAttribute('data-ega-run')) return mark;
   const parent = mark.parentElement;
   // Replace text wraps the block's words; Show both puts its box inside a cell or list item.
-  if (mark.hasAttribute('data-ega-replaced') || (parent && BOX_INSIDE.has(parent.tagName))) {
+  if (mark.hasAttribute('data-ega-replaced') || mark.hasAttribute('data-ega-inside')) {
     return parent ?? el;
   }
   // Anywhere else, Show both puts its box right after the original.
@@ -264,6 +271,12 @@ function fire(): void {
   for (const el of ms.selected) {
     // Removed in the same task as the press, before the removal watch had its turn.
     if (!el.isConnected) continue;
+    if (el.matches(FAILED_SEL) && el.hasAttribute('data-ega-run')) {
+      const run = ms.opts.resolveFailedRun?.(el.getAttribute('data-ega-id') ?? '');
+      if (run) blocks.push(run);
+      else skipped++;
+      continue;
+    }
     const text = elementText(el);
     // The page can grow a block between pick and fire; cutting it here would drop page text on replace.
     if (!text || text.length > MAX_SELECTION_CHARS) {

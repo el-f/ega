@@ -95,3 +95,64 @@ test('Translate page sends the blocks near the viewport first, and the rest as t
   await expect(pill).toHaveCount(0);
   expect((await egaTest<number>(page, 'inlineCount')) ?? 0).toBe(0);
 });
+
+test('closed scrolling drawers do not leave Translate page waiting forever', async () => {
+  const mock = mockAnthropic(ext.context, { translation: 'TRANSLATED', detectedLang: 'es' });
+  const page = await ext.context.newPage();
+  await page.setViewportSize({ width: 1000, height: 800 });
+  await page.goto(`${ext.serverUrl}/long-page.html`);
+  await waitForTestHooks(page);
+  await page.evaluate(() => {
+    document.body.innerHTML = `
+      <p id="visible">Este párrafo está visible y se puede traducir.</p>
+      <aside id="left" style="position:fixed;left:0;top:0;width:300px;height:100vh;transform:translateX(-100%);overflow-y:auto">
+        <p id="closed-left">Este menú cerrado no se puede alcanzar.</p>
+      </aside>
+      <aside id="right" style="position:fixed;left:100%;top:0;width:300px;height:100vh;overflow-y:auto">
+        <p id="closed-right">Este otro menú cerrado tampoco se puede alcanzar.</p>
+      </aside>`;
+    document.body.style.overflowX = 'hidden';
+  });
+  // Chromium computes overflow-x:auto for these vertical scrollers. Their own boxes remain off-screen.
+  expect(await page.locator('#left').evaluate((el) => getComputedStyle(el).overflowX)).toBe('auto');
+  await translatePage();
+  await expect.poll(() => label(page), { timeout: 10_000 }).toBe('Page translated to English');
+  expect(mock.calls()).toBe(1);
+  await expect(page.locator('#closed-left')).toHaveText('Este menú cerrado no se puede alcanzar.');
+  await expect(page.locator('#closed-right')).toHaveText(
+    'Este otro menú cerrado tampoco se puede alcanzar.',
+  );
+});
+
+test('an app pane and a wide table stay reachable through their scrolling containers', async () => {
+  const mock = mockAnthropic(ext.context, { translation: 'TRANSLATED', detectedLang: 'es' });
+  const page = await ext.context.newPage();
+  await page.setViewportSize({ width: 1000, height: 800 });
+  await page.goto(`${ext.serverUrl}/long-page.html`);
+  await waitForTestHooks(page);
+  await page.evaluate(() => {
+    document.documentElement.style.cssText = 'height:100%;overflow:hidden';
+    document.body.style.cssText = 'height:100%;margin:0;overflow:hidden';
+    document.body.innerHTML = `
+      <main id="app" style="height:100vh;overflow-y:auto">
+        <p id="first">Este primer párrafo está visible.</p>
+        <div style="height:2500px"></div>
+        <p id="last">Este párrafo está al final del panel.</p>
+        <div id="table-scroll" style="overflow-x:auto">
+          <table style="width:2400px;table-layout:fixed"><tr>
+            <td style="width:2000px"></td><td id="cell">Esta columna queda a la derecha.</td>
+          </tr></table>
+        </div>
+      </main>`;
+  });
+  await translatePage();
+  await expect.poll(() => label(page), { timeout: 10_000 }).toMatch(/of 3 areas translated/);
+  await page.locator('#app').evaluate((el) => {
+    el.scrollTop = el.scrollHeight;
+  });
+  await page.locator('#table-scroll').evaluate((el) => {
+    el.scrollLeft = el.scrollWidth;
+  });
+  await expect.poll(() => label(page), { timeout: 10_000 }).toBe('Page translated to English');
+  expect(mock.calls()).toBe(3);
+});

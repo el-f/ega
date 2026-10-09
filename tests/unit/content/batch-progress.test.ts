@@ -513,6 +513,39 @@ describe('the pill — states, the More menu and Error details', () => {
     chip.remove();
   });
 
+  it.each(['removed-button', 'remounted-chip'])(
+    'focus skips a buttonless chip and finds the surviving block or new settings button: %s',
+    async (change) => {
+      const { mountErrorChip } = await import('@/content/page-chip');
+      const block = document.createElement('p');
+      const chip = mountErrorChip({ code: 'UNKNOWN', message: 'no' }, { onRetry: () => {} });
+      block.append(chip);
+      document.body.append(block);
+      const h = show(settled);
+      flushSync();
+      const close = button('Close bar') as HTMLButtonElement;
+      close.focus();
+      close.dispatchEvent(
+        new FocusEvent('focusin', { bubbles: true, composed: true, relatedTarget: chip }),
+      );
+      const replacement = mountErrorChip({ code: 'AUTH', message: '401' });
+      if (change === 'remounted-chip') chip.replaceWith(replacement);
+      else chip.shadowRoot?.querySelector('button')?.remove();
+      h.dismiss();
+      if (change === 'remounted-chip') {
+        expect(replacement.shadowRoot?.activeElement).toBe(
+          replacement.shadowRoot?.querySelector('button'),
+        );
+      } else {
+        expect(document.activeElement).toBe(block);
+        expect(chip.hasAttribute('tabindex')).toBe(false);
+        block.blur();
+        expect(block.hasAttribute('tabindex')).toBe(false);
+      }
+      block.remove();
+    },
+  );
+
   it('a pill that grows on its own (More, Error details) re-measures the toast offset', () => {
     let callback: (() => void) | undefined;
     const observed = new Set<Element>();

@@ -62,6 +62,26 @@ afterEach(async () => {
 });
 
 describe('whole-page session — a second press, and Choose areas on top', () => {
+  it('a newly added area does not subtract from the old areas still untranslated', async () => {
+    const els = page();
+    const r = rig();
+    await runWholePageTranslate(r.d);
+    band(els.slice(0, 2));
+    await flush();
+    finishAll(r);
+    await flush();
+    const fresh = document.createElement('p');
+    fresh.id = 'fresh';
+    fresh.textContent = 'これは新しい段落です。';
+    document.body.append(fresh);
+    await enterAndFire(r.d, ['p2', 'fresh']);
+    finishAll(r, 2);
+    await flush();
+    const last = r.updates.at(-1);
+    expect(last).toMatchObject({ done: 4, total: 4, skipped: 9, settled: true });
+    expect(pillStatus(last as never, Date.now())).toBe('Translated 4 of 13 areas.');
+  });
+
   it('a second press after Stop continues the same session, so Remove translation puts back both passes', async () => {
     const els = page();
     const before = document.body.innerHTML;
@@ -444,8 +464,8 @@ describe('whole-page session — round 2', () => {
     finishAll(r, 2);
     await flush();
     const last = r.updates.at(-1);
-    expect(last).toMatchObject({ settled: true, done: 4, total: 4, skipped: 0 });
-    expect(pillStatus(last as never, Date.now())).toBe('Page translated');
+    expect(last).toMatchObject({ settled: true, done: 4, total: 4, skipped: 8 });
+    expect(pillStatus(last as never, Date.now())).toBe('Translated 4 of 12 areas.');
   });
 
   it('a press on a session that only waits for scroll adds the blocks the page gained since', async () => {

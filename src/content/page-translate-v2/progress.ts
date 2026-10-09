@@ -16,6 +16,8 @@ export interface PageProgress {
   queued: number;
   /** Blocks Stop dropped before they finished. */
   skipped: number;
+  /** Choose areas resumed only a subset of the stopped areas. */
+  partialSelection?: boolean;
   /** Every block is finished or dropped. */
   settled: boolean;
   /** The page shows its own text (Show original pressed); the session owns it, so a press can switch it back. */
@@ -81,7 +83,9 @@ function settledStatus(p: PageProgress): string {
         : `Couldn't translate ${p.failed} of ${picked} ${areas(picked)}.`;
     return body ? `${head} ${body}` : head;
   }
-  if (p.skipped > 0) return `Stopped. Translated ${translated} of ${picked} ${areas(picked)}.`;
+  if (p.skipped > 0) {
+    return `${p.partialSelection ? '' : 'Stopped. '}Translated ${translated} of ${picked} ${areas(picked)}.`;
+  }
   return p.target ? `Page translated to ${p.target}` : 'Page translated';
 }
 
@@ -89,6 +93,8 @@ function settledStatus(p: PageProgress): string {
 export function settleAnnouncement(p: PageProgress): string {
   const picked = p.total + p.skipped;
   if (p.failed > 0) return `Couldn't translate ${p.failed} of ${picked} ${areas(picked)}.`;
-  if (p.skipped > 0) return `Stopped. Translated ${p.done - p.failed} of ${picked}.`;
+  if (p.skipped > 0) {
+    return `${p.partialSelection ? '' : 'Stopped. '}Translated ${p.done - p.failed} of ${picked}.`;
+  }
   return 'Page translated.';
 }

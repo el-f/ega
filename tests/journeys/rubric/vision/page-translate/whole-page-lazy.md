@@ -21,6 +21,8 @@
 
 - A block already in the target language, or one the page removed, leaves the count; it is never sent.
 - Content added after the start (infinite scroll) waits for the next Translate page.
+- Closed fixed drawers with vertical scrolling, including a right drawer hidden by body overflow, leave the count and never send requests.
+- An app pane and a wide table remain counted and translate when the user scrolls their own containers.
 
 ## Cautions
 

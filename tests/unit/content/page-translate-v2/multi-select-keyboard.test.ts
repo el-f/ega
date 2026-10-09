@@ -358,7 +358,7 @@ describe('multi-select — a failed area can be chosen again', () => {
 
   it('a failed Show-both box inside a list item chooses the item', () => {
     document.body.innerHTML =
-      '<ul><li id="i">la casa roja<div id="x" data-ega-tx data-ega-tx-state="error">error</div></li></ul>';
+      '<ul><li id="i">la casa roja<div id="x" data-ega-tx data-ega-inside data-ega-tx-state="error">error</div></li></ul>';
     enterMultiSelect(opts());
     click(el('x'));
     expect(el('i').getAttribute('data-ega-ms-selected')).toBe('1');
