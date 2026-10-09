@@ -11,24 +11,21 @@ import type { BackendConfig } from '@/shared/backends/base';
 import type { Logger } from '@/shared/logger';
 import { buildBackendConfig } from '@/shared/backends/build-config';
 import { DEFAULT_STREAMING_FLUSH_MS } from '@/shared/constants';
-import { buildTaskPrompt, CARD_CONTRACT, PLAIN_CONTRACT, readsPageContext } from '@/shared/prompts';
+import { buildTaskPrompt, readsPageContext } from '@/shared/prompts';
+import { CARD_CONTRACT, PLAIN_CONTRACT } from '@/shared/answer/formats-v1';
 import { labelFor } from '@/shared/languages';
 import { redactContext } from '@/shared/redact';
-import {
-  answerFormatFor,
-  builtInTask,
-  type AnswerFormat,
-  type Task,
-  type Tone,
-} from '@/shared/task-prompts';
+import { answerFormatFor } from '@/shared/task-template';
+import { builtInTask, type Task, type Tone } from '@/shared/task-prompts';
+import { type AnswerFormat } from '@/shared/answer/formats-v1';
 import {
   BUILT_IN_TASK_SWITCHES,
   builtInTaskView,
   findTask,
-  ownTaskPrompt,
   type TaskId,
   type TaskView,
 } from '@/shared/task-view';
+import { ownTaskPrompt } from '@/shared/task-template';
 import type { CustomTask } from '@/shared/settings-schema';
 import { languagePrompt } from '@/shared/language-prompt';
 import { filterRulesForRequest, renderRulesBlock } from '@/shared/rules';

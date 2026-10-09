@@ -1,10 +1,12 @@
-import { buildTaskPrompt, CARD_CONTRACT, PLAIN_CONTRACT } from '@/shared/prompts';
+import { buildTaskPrompt } from '@/shared/prompts';
+import { CARD_CONTRACT, PLAIN_CONTRACT } from '@/shared/answer/formats-v1';
 import { filterGlossaryForRequest, renderGlossaryBlock } from '@/shared/glossary';
 import { filterRulesForRequest, renderRulesBlock } from '@/shared/rules';
 import { clampRulesToBudget, RULES_BLOCK_WARN_BYTES } from '@/shared/rules-budget';
 import { builtInTaskView } from '@/shared/task-view';
 import { autoCandidates, varietyToPreset } from '@/shared/varieties';
-import { answerFormatFor, type Task } from '@/shared/task-prompts';
+import { answerFormatFor } from '@/shared/task-template';
+import { type Task } from '@/shared/task-prompts';
 import type { CustomTaskInput } from '@/shared/tasks';
 import type {
   LangPreset,

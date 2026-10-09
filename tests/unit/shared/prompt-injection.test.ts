@@ -9,7 +9,8 @@ import {
   UNTRUSTED_DATA_INSTRUCTION,
   UNTRUSTED_TURN_LABEL,
 } from '@/shared/prompts';
-import { buildTaskTemplate, ALL_TASKS } from '@/shared/task-prompts';
+import { buildTaskTemplate } from '@/shared/task-template';
+import { ALL_TASKS } from '@/shared/task-prompts';
 import { getPreset } from '@/shared/presets';
 import type { PageContext, TranslationRequest } from '@/shared/types';
 

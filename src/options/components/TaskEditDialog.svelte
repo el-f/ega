@@ -8,13 +8,10 @@
     isPromptTemplateCustomised,
     type TaskEffort,
   } from '@/shared/settings-schema';
-  import {
-    answerFormatFor,
-    buildTaskTemplate,
-    TASK_LABELS,
-    type Task,
-  } from '@/shared/task-prompts';
-  import { builtInTaskView, hasOwnPrompt, ownTaskPrompt } from '@/shared/task-view';
+  import { answerFormatFor, buildTaskTemplate } from '@/shared/task-template';
+  import { TASK_LABELS, type Task } from '@/shared/task-prompts';
+  import { builtInTaskView, hasOwnPrompt } from '@/shared/task-view';
+  import { ownTaskPrompt } from '@/shared/task-template';
   import { taskDefaultEffort } from '@/shared/backend-params';
   import { TASK_DESCRIPTIONS } from '@/options/task-descriptions';
   import { EFFORT_LABEL } from '@/options/effort-labels';

@@ -1,5 +1,6 @@
 import { it, expect } from 'vitest';
-import { ALL_TASKS, TASK_LABELS, TASK_GERUND, buildTaskTemplate } from '@/shared/task-prompts';
+import { ALL_TASKS, TASK_LABELS, TASK_GERUND } from '@/shared/task-prompts';
+import { buildTaskTemplate } from '@/shared/task-template';
 import { TASK_DESCRIPTIONS } from '@/options/task-descriptions';
 
 it('ask is a known task with label/gerund/description', () => {

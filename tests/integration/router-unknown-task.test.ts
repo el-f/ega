@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { sel } from '@tests/_helpers/lang';
 import { createRouter } from '@/background/router';
 import type { TranslateCallArgs, TranslationBackend } from '@/shared/backends/base';
-import { CARD_CONTRACT, PLAIN_CONTRACT } from '@/shared/prompts';
+import { CARD_CONTRACT, PLAIN_CONTRACT } from '@/shared/answer/formats-v1';
 import { asBackendIdUnsafe } from '@/shared/brands';
 import { testManifest } from '@tests/_helpers/backend';
 import { mkSettings, baseDeps } from '@tests/_helpers/router';

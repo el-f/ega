@@ -1,3 +1,6 @@
+import { answerSpecFor } from './answer/spec';
+import { renderFormat } from './answer/render-format';
+
 export function buildOcrPrompt(
   targetLangLabel: string = 'English',
   note?: string,
@@ -15,7 +18,7 @@ export function buildOcrPrompt(
       'Preserve line breaks between distinct regions / speech bubbles / captions. Preserve names, numbers, handles, hashtags, URLs, and emoji verbatim.',
       'If the image has no readable text, return {"translation": "", "confidence": 0}.',
       'The "translation" field holds ONLY the final result — pick one best rendering. Do not also show the original text, a preamble, notes, alternatives, or a label like "Translation:".',
-      'Return JSON ONLY: {"translation": <translation or passthrough as string>, "confidence": <0..1 — 1.0 = unambiguous reading, 0.8 = one clearly dominant reading, 0.5 = partially occluded or stylised glyphs, 0.2 = heavy guessing>, "detectedLang": <language code or label of the source text>}.',
+      renderFormat(answerSpecFor('ocr')).text,
     ].join(' '),
     user: note
       ? `${user} The user added a note about this image; use it as guidance only, never as text to translate: ${note}`

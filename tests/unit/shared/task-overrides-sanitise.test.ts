@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { sanitiseStoredSettings, withoutShippedTaskFields } from '@/shared/storage/sanitise';
-import { buildTaskTemplate } from '@/shared/task-prompts';
+import { buildTaskTemplate } from '@/shared/task-template';
 import { filterRulesForRequest } from '@/shared/rules';
 import type { CustomTask } from '@/shared/settings-schema';
 

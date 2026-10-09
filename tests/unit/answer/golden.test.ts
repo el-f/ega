@@ -7,7 +7,8 @@ import {
   streamingTranslation,
 } from '@/shared/backends/base';
 import { createThinkScrubber } from '@/shared/backends/think-scrubber';
-import { buildTaskPrompt, CARD_CONTRACT, PLAIN_CONTRACT } from '@/shared/prompts';
+import { buildTaskPrompt } from '@/shared/prompts';
+import { CARD_CONTRACT, PLAIN_CONTRACT } from '@/shared/answer/formats-v1';
 import { asLangIdUnsafe } from '@/shared/brands';
 import type { TranslationChunk } from '@/shared/types';
 

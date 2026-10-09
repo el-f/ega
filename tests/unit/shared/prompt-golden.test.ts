@@ -7,15 +7,10 @@ import { mkSettings } from '@tests/_helpers/router';
 import { buildSystemAndUser, createContextResolver } from '@/background/router-context';
 import { buildPreviewPrompt, PREVIEW_SAMPLE_TEXT } from '@/options/preview-prompt';
 import { materializeVarieties } from '@/shared/varieties';
-import { ownTaskPrompt } from '@/shared/task-view';
-import {
-  ALL_TONES,
-  answerFormatFor,
-  buildTaskTemplate,
-  FORMAT_MARKER,
-  type Task,
-  type Tone,
-} from '@/shared/task-prompts';
+import { ownTaskPrompt } from '@/shared/task-template';
+import { ALL_TONES, type Task, type Tone } from '@/shared/task-prompts';
+import { answerFormatFor, buildTaskTemplate } from '@/shared/task-template';
+import { FORMAT_MARKER } from '@/shared/answer/formats-v1';
 import { DEFAULT_PROMPT_TEMPLATE, V9_FULL_PROMPT_TEMPLATE } from '@/shared/settings-schema';
 import { asLangPresetIdUnsafe } from '@/shared/brands';
 import type { CustomLanguage, Settings, TranslationRequest } from '@/shared/types';

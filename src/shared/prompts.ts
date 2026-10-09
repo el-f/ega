@@ -5,7 +5,8 @@ import { DEFAULT_DESCRIPTION_CONTEXT_CAP } from './constants';
 import { DEFAULT_PROMPT_TEMPLATE } from './settings-defaults';
 import { labelFor } from './languages';
 import { resolveSnippets, SLOT_RE } from './snippets';
-import { FORMAT_MARKER, type AnswerFormat, type Tone } from './task-prompts';
+import { FORMAT_MARKER, type AnswerFormat } from './answer/formats-v1';
+import { type Tone } from './task-prompts';
 
 // Here, not in task-prompts.ts: the content script loads that module, and only prompt building reads these.
 // Separate from the UI labels, and each tone names a concrete behavior, or the model returns near-identical rewrites.
@@ -267,11 +268,6 @@ export function readsPageContext(
     (h) => h !== undefined && resolveSnippets(h, snippets).includes(CONTEXT_SLOT),
   );
 }
-
-/** The answer shape a custom task's prompt cannot change: one line after the user's own system text. */
-export const PLAIN_CONTRACT = 'Return JSON ONLY: {"translation": <your answer as a string>}.';
-export const CARD_CONTRACT =
-  'Return JSON ONLY: {"translation": <your answer as a string>, "explain": <short notes as a string; leave the field out when there is nothing to note>}.';
 
 /** The system half already carries an answer format, typed in or inside a snippet. */
 export function hasAnswerFormat(system: string, snippets: Record<string, string>): boolean {

@@ -2,7 +2,8 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import * as fc from 'fast-check';
 import { sanitiseStoredSettings } from '@/shared/storage/sanitise';
-import { ALL_TASKS, buildTaskTemplate, type Task } from '@/shared/task-prompts';
+import { ALL_TASKS, type Task } from '@/shared/task-prompts';
+import { buildTaskTemplate } from '@/shared/task-template';
 
 beforeEach(() => {
   vi.spyOn(console, 'debug').mockImplementation(() => {});

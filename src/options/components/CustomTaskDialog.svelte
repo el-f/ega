@@ -21,7 +21,7 @@
     type CustomTaskInput,
     type CustomTaskPatch,
   } from '@/shared/tasks';
-  import { CARD_CONTRACT, PLAIN_CONTRACT } from '@/shared/prompts';
+  import { CARD_CONTRACT, PLAIN_CONTRACT } from '@/shared/answer/formats-v1';
   import { listVarieties } from '@/shared/varieties';
   import { buildCustomPreviewPrompt, PREVIEW_SAMPLE_TEXT } from '@/options/preview-prompt';
   import { reportSaveFailure } from '@/options/storage-with-toast';

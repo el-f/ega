@@ -4,7 +4,8 @@ import { updateTask } from '@/shared/tasks';
 import type { Rule } from '@/shared/rules';
 import { saveVia, showSettingsWrite } from './storage-with-toast';
 import type { Settings, PromptTemplate } from '@/shared/types';
-import { buildTaskTemplate, type Task } from '@/shared/task-prompts';
+import { buildTaskTemplate } from '@/shared/task-template';
+import { type Task } from '@/shared/task-prompts';
 
 type Effort = Settings['advanced']['effort'];
 

@@ -293,7 +293,7 @@ describe('Tasks tab — your own tasks', () => {
     const edit = container.querySelector<HTMLElement>(`[data-ega-task-edit="${added.id}"]`);
     if (!edit) throw new Error('no edit');
     await fireEvent.click(edit);
-    const { PLAIN_CONTRACT } = await import('@/shared/prompts');
+    const { PLAIN_CONTRACT } = await import('@/shared/answer/formats-v1');
     const previewTab = await waitFor(() => {
       const el = document.querySelector<HTMLElement>('[data-ega-prompt-tab="preview"]');
       if (!el) throw new Error('no dialog');

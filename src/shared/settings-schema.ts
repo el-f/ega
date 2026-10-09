@@ -1,5 +1,6 @@
 import * as v from 'valibot';
-import { ALL_TASKS, ALL_TONES, TRANSLATE_FORMAT } from './task-prompts';
+import { ALL_TASKS, ALL_TONES } from './task-prompts';
+import { TRANSLATE_FORMAT } from './answer/formats-v1';
 import { isKnownNativeCli } from './native-cli-registry';
 import { isLoopbackUrl } from './loopback-url';
 import {

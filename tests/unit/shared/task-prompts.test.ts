@@ -1,14 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import {
-  ALL_TASKS,
-  ALL_TONES,
-  TASK_GERUND,
-  TASK_LABELS,
-  TONE_LABELS,
-  buildTaskTemplate,
-  answerFormatFor,
-  FORMAT_MARKER,
-} from '@/shared/task-prompts';
+import { ALL_TASKS, ALL_TONES, TASK_GERUND, TASK_LABELS, TONE_LABELS } from '@/shared/task-prompts';
+import { buildTaskTemplate, answerFormatFor } from '@/shared/task-template';
+import { FORMAT_MARKER } from '@/shared/answer/formats-v1';
 import { TASK_DESCRIPTIONS } from '@/options/task-descriptions';
 
 // Mostly structural contracts; the output-language block pins a few guard phrases on purpose, so rewording those lines breaks it.

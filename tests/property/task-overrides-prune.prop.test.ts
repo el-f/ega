@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest';
 import * as fc from 'fast-check';
 import { withoutShippedTaskFields } from '@/shared/storage/sanitise';
 import { BUILT_IN_TASK_SWITCHES, hasOwnPrompt } from '@/shared/task-view';
-import { ALL_TASKS, buildTaskTemplate, type Task } from '@/shared/task-prompts';
+import { ALL_TASKS, type Task } from '@/shared/task-prompts';
+import { buildTaskTemplate } from '@/shared/task-template';
 import type { TaskEdit } from '@/shared/settings-schema';
 
 const arbTaskId = fc.constantFrom(...(ALL_TASKS as readonly Task[]));

@@ -127,8 +127,8 @@ need real domain expertise; until that work is done, no example beats a mediocre
 Explain and Translate share the pipeline above. The other five built-in tasks do not — each has
 a system and user pair of its own. When the user edited that prompt on the Tasks tab, the router
 runs the edit. Otherwise it runs the shipped prompt from
-`src/shared/task-prompts.ts#buildTaskTemplate`. Each half falls back on its own
-(`src/shared/task-view.ts#ownTaskPrompt`). Most shipped prompts carry a source comment naming
+`src/shared/task-template.ts#buildTaskTemplate`. Each half falls back on its own
+(`src/shared/task-template.ts#ownTaskPrompt`). Most shipped prompts carry a source comment naming
 why they are worded the way they are.
 
 | Task        | Why it reads that way                                                                                                                                                                                                |
@@ -141,8 +141,8 @@ why they are worded the way they are.
 
 Every task returns JSON only, and every answer has `translation`. The answer format is not part
 of the editable prompt: the builder appends the task's format
-(`src/shared/task-prompts.ts#TRANSLATE_FORMAT` for Translate and Explain,
-`src/shared/task-prompts.ts#TASK_FORMATS` for the others) unless the system half, after snippets,
+(`src/shared/answer/formats-v1.ts#TRANSLATE_FORMAT` for Translate and Explain,
+`src/shared/answer/formats-v1.ts#TASK_FORMATS` for the others) unless the system half, after snippets,
 already holds `Return JSON ONLY` (`src/shared/prompts.ts#withAnswerFormat`). The Translate and
 Explain format also asks for `confidence`, `detectedLang`, `detectedDetail` and
 `detectedLangs`, and Explain adds `explain`. Of the five
@@ -162,7 +162,7 @@ with no snippets and no language template. Its slots fill like a built-in's (`{{
 
 The user's text cannot be trusted to keep the JSON shape the parser needs, so the code adds one
 line after the Instructions, picked by the task's Answer setting:
-`src/shared/prompts.ts#PLAIN_CONTRACT` for "Answer only" and
-`src/shared/prompts.ts#CARD_CONTRACT` for "Answer with notes". Built-in prompts get their task's
+`src/shared/answer/formats-v1.ts#PLAIN_CONTRACT` for "Answer only" and
+`src/shared/answer/formats-v1.ts#CARD_CONTRACT` for "Answer with notes". Built-in prompts get their task's
 answer format instead (see above), unless their system half already holds `Return JSON ONLY`. The editor's "Preview what the model receives" section shows
 the exact system and user text the router sends, contract line included.

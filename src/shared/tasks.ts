@@ -18,7 +18,8 @@ import {
   type TaskEdit,
   type TaskEffort,
 } from './settings-schema';
-import { buildTaskTemplate, type Task } from './task-prompts';
+import { buildTaskTemplate } from './task-template';
+import { type Task } from './task-prompts';
 import { hasOwnPrompt } from './task-view';
 import type { ContextMenuItem } from './context-menu';
 import type { PromptTemplate, Settings } from './types';

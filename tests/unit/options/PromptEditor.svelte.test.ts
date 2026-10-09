@@ -3,9 +3,10 @@ import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } fr
 import { render, fireEvent, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import Harness from '@tests/_helpers/PromptEditorHarness.svelte';
-import { buildTaskTemplate, TASK_FORMATS, TRANSLATE_FORMAT } from '@/shared/task-prompts';
+import { buildTaskTemplate } from '@/shared/task-template';
+import { TASK_FORMATS, TRANSLATE_FORMAT } from '@/shared/answer/formats-v1';
 import { DEFAULT_PROMPT_TEMPLATE } from '@/shared/settings-schema';
-import { PLAIN_CONTRACT } from '@/shared/prompts';
+import { PLAIN_CONTRACT } from '@/shared/answer/formats-v1';
 import type { PromptTemplate } from '@/shared/types';
 
 const settle = (): Promise<void> => new Promise((r) => setTimeout(r, 0));

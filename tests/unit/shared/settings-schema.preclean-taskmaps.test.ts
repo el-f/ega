@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { afterEach, describe, it, expect, vi } from 'vitest';
 import { sanitiseStoredSettings } from '@/shared/storage/sanitise';
-import { buildTaskTemplate } from '@/shared/task-prompts';
+import { buildTaskTemplate } from '@/shared/task-template';
 
 afterEach(() => {
   vi.restoreAllMocks();

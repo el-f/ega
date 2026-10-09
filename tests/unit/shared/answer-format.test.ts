@@ -21,15 +21,10 @@ import {
 import { sanitiseStoredSettings, withoutShippedTaskFields } from '@/shared/storage/sanitise';
 import { getSettings, updateSettings } from '@/shared/storage';
 import { exportAll } from '@/shared/storage/backup';
-import {
-  answerFormatFor,
-  buildTaskTemplate,
-  FORMAT_MARKER,
-  TASK_FORMATS,
-  TRANSLATE_FORMAT,
-  type Task,
-} from '@/shared/task-prompts';
-import { ownTaskPrompt } from '@/shared/task-view';
+import { answerFormatFor, buildTaskTemplate } from '@/shared/task-template';
+import { FORMAT_MARKER, TASK_FORMATS, TRANSLATE_FORMAT } from '@/shared/answer/formats-v1';
+import { type Task } from '@/shared/task-prompts';
+import { ownTaskPrompt } from '@/shared/task-template';
 import { materializeVarieties } from '@/shared/varieties';
 import type { Settings, TranslationRequest } from '@/shared/types';
 import golden from '../../fixtures/prompt-golden-v9.json';

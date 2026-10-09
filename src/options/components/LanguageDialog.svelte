@@ -14,7 +14,7 @@
     VARIETY_HINT_MAX,
     VARIETY_LABEL_MAX,
   } from '@/shared/settings-schema';
-  import { answerFormatFor } from '@/shared/task-prompts';
+  import { answerFormatFor } from '@/shared/task-template';
   import { languagePrompt } from '@/shared/language-prompt';
   import { addCustomVariety, listVarieties, resetVariety, updateVariety } from '@/shared/varieties';
   import { replaceSettings } from '@/shared/storage';

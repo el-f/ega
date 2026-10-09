@@ -11,7 +11,7 @@ import {
   type ExtensionHandle,
 } from '../../helpers';
 import { createTimeline } from '../_harness';
-import { PLAIN_CONTRACT } from '../../../../src/shared/prompts';
+import { PLAIN_CONTRACT } from '../../../../src/shared/answer/formats-v1';
 
 let ext: ExtensionHandle;
 

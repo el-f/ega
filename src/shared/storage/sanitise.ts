@@ -30,7 +30,8 @@ import {
   type TaskEdit,
   UNKNOWN_TASK_ID,
 } from '../settings-schema';
-import { ALL_TASKS, answerFormatFor, buildTaskTemplate, type Task } from '../task-prompts';
+import { ALL_TASKS, type Task } from '../task-prompts';
+import { answerFormatFor, buildTaskTemplate } from '../task-template';
 import { BUILT_IN_TASK_SWITCHES, hasOwnPrompt } from '../task-view';
 
 /** Matches LangPresetIdSchema's cap — a custom variety id is a 36-char UUID. */

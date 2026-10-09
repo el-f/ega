@@ -8,7 +8,8 @@ import {
   UNTRUSTED_DATA_INSTRUCTION,
 } from '@/shared/prompts';
 import { validateAgainstSlots } from '@/shared/slot-registry';
-import { buildTaskTemplate, ALL_TASKS } from '@/shared/task-prompts';
+import { buildTaskTemplate } from '@/shared/task-template';
+import { ALL_TASKS } from '@/shared/task-prompts';
 import type { Task, Tone } from '@/shared/task-prompts';
 import { V9_FULL_PROMPT_TEMPLATE } from '@/shared/settings-schema';
 import { DEFAULT_PROMPT_TEMPLATE } from '@/shared/settings-defaults';

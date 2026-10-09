@@ -13,7 +13,7 @@
   import { expandSnippets, SLOT_RE } from '@/shared/snippets';
   import { hasAnswerFormat, readsPageContext, stripStandardFormat } from '@/shared/prompts';
   import { TEMPLATE_MAX } from '@/shared/settings-schema';
-  import type { AnswerFormat } from '@/shared/task-prompts';
+  import type { AnswerFormat } from '@/shared/answer/formats-v1';
   import type { PromptTemplate } from '@/shared/types';
   import { id as makeId } from '@/shared/uuid';
   import { PREVIEW_SAMPLE_TEXT } from '@/options/preview-prompt';

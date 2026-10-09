@@ -1,8 +1,8 @@
-/** The merged task list every picker reads. Pure. No eager content-script module may import it. */
-import { ALL_TASKS, TASK_LABELS, buildTaskTemplate, builtInTask, type Task } from './task-prompts';
+/** The merged task list every picker reads. Contains UI capabilities, never shipped prompt text. */
+import { ALL_TASKS, TASK_LABELS, builtInTask, type Task } from './task-prompts';
 import type { CustomTask, TaskEdit, TaskEffort } from './settings-schema';
 import { resolveSnippets } from './snippets';
-import type { PromptTemplate, Settings } from './types';
+import type { Settings } from './types';
 
 /** A built-in task id, or a custom task's uuid. */
 export type TaskId = string;
@@ -48,13 +48,6 @@ export function hasOwnPrompt(t: Task): boolean {
 
 export const TONE_SLOT = /\{\{tone\}\}/;
 
-/** The prompt a built-in with its own prompt runs: each half is the user's edit, else the shipped half. */
-export function ownTaskPrompt(s: Settings, t: Task): PromptTemplate {
-  const shipped = buildTaskTemplate(t);
-  const edit = s.taskOverrides[t];
-  return { system: edit?.system ?? shipped.system, user: edit?.user ?? shipped.user };
-}
-
 /** Translate is always on, whatever `disabledTasks` holds. */
 function builtInOff(s: Settings, t: Task): boolean {
   return t !== 'translate' && s.disabledTasks.includes(t);
@@ -69,7 +62,10 @@ export function enabledBuiltIns(s: Settings): Task[] {
 export function builtInTaskView(s: Settings, t: Task): TaskView {
   const edit: TaskEdit = s.taskOverrides[t] ?? {};
   const shipped = BUILT_IN_TASK_SWITCHES[t];
-  const prompt = hasOwnPrompt(t) ? ownTaskPrompt(s, t) : s.advanced.promptTemplate;
+  // Only Reword's shipped system contains tone; shipped user halves contain no tone slots.
+  const prompt = hasOwnPrompt(t)
+    ? { system: edit.system ?? (t === 'reword' ? '{{tone}}' : ''), user: edit.user ?? '' }
+    : s.advanced.promptTemplate;
   const effort = edit.effort ?? shipped.effort;
   return {
     id: t,
@@ -106,13 +102,12 @@ function customView(s: Settings, c: CustomTask): TaskView {
 
 /** The built-ins as shipped, for a surface whose settings have not loaded. */
 export const SHIPPED_TASK_VIEWS: readonly TaskView[] = ALL_TASKS.map((t) => {
-  const tpl = hasOwnPrompt(t) ? buildTaskTemplate(t) : null;
   return {
     id: t,
     kind: 'builtin' as const,
     label: TASK_LABELS[t],
     ...BUILT_IN_TASK_SWITCHES[t],
-    usesTone: tpl !== null && TONE_SLOT.test(tpl.system + tpl.user),
+    usesTone: t === 'reword',
     disabled: false,
     hasOverrides: false,
   };
