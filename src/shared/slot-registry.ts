@@ -117,8 +117,7 @@ export const SLOT_REGISTRY: Readonly<Record<string, SlotSpec>> = Object.freeze({
     required: false,
     source: 'instruction',
     example: 'Detect which informal language …',
-    // buildPrompt fills it for every prompt, a custom task's included.
-    filledFor: ALL,
+    filledFor: ['translate', 'explain'],
   },
   explainField: {
     name: 'explainField',

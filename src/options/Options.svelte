@@ -84,6 +84,7 @@
         void saveSettings({ bubbleMode: m });
       },
       ...(views ? { tasks: views.filter((v) => !v.disabled) } : {}),
+      taskAction: 'default',
       onSetTask: async (t) => {
         // Options cannot translate, so the palette action writes the default task for later translations instead.
         if (await saveSettings({ defaultTask: t })) {

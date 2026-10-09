@@ -21,6 +21,8 @@ export interface RegistryDeps {
   readonly onSwapTheme: (to: 'system' | 'light' | 'dark') => void;
   readonly onSetBubbleMode: (m: 'always' | 'smart' | 'never') => void;
   readonly onSetTask?: (t: TaskId) => void;
+  /** Options saves a default; the side panel switches its next message. */
+  readonly taskAction?: 'switch' | 'default';
   /** The tasks the switch commands offer; absent offers every built-in. */
   readonly tasks?: readonly { id: TaskId; label: string }[];
   readonly onOpenSidePanel?: () => void;
@@ -84,7 +86,7 @@ export function buildRegistry(deps: RegistryDeps): Command[] {
       cmds.push({
         id: `task.${t.id}`,
         group: 'actions',
-        label: `Switch task: ${t.label}`,
+        label: `${deps.taskAction === 'default' ? 'Set default task' : 'Switch task'}: ${t.label}`,
         keywords: ['task', t.id, t.label],
         run: () => void setTask(t.id),
       });

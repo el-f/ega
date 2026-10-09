@@ -181,6 +181,8 @@ export function buildPrompt(req: TranslationRequest, ctx: BuildCtx): BuiltPrompt
     explain,
   );
   const auto = req.sourceLang === 'auto';
+  const task = req.options.task ?? 'translate';
+  const detectsLanguage = task === 'translate' || task === 'explain';
 
   const candidatesBlock = auto ? renderCandidates(ctx.candidates) : '';
 
@@ -215,12 +217,14 @@ export function buildPrompt(req: TranslationRequest, ctx: BuildCtx): BuiltPrompt
           `<contract>Output goes in JSON field "explain". In PLAIN MEANING mode, follow <plain_meaning> (1-2 plain sentences) and ignore the rest of this block. In SUBTEXT mode: 2-4 short sentences, each NAMING something specific to THIS text and surviving the depth test. If you cannot reach 2 such sentences, write 1 strong sentence and stop — do NOT pad to fill the slot. A short, sharp brief beats a longer one with restatement. The whole brief is written in ${targetLabel}.</contract>`,
         ].join('\n')
       : '',
-    // Always ask for detectedLang + detectedDetail, even when the user picked a specific default.
-    detectiveInstr: auto
-      ? candidatesBlock
-        ? `Detect the language or variety of the text. If it matches one of the CANDIDATES below, put that id in "detectedLang"; if it is an ordinary language none of them describe, use "other" and name the language in "detectedDetail". Add a short sub-variety tag in "detectedDetail" when meaningful. ${DETAIL_RULE} Then translate accordingly.\n\n${candidatesBlock}`
-        : `Detect the language or variety of the text and return it in "detectedLang"; add a short descriptive sub-variety tag in "detectedDetail" when meaningful. ${DETAIL_RULE}`
-      : `Confirm the variety: put "${escapeInline(req.sourceLang)}" in "detectedLang" (${label} is the assumed default). Only if the text clearly is not ${label}, put "other" there and name the language in "detectedDetail". Add a short descriptive sub-variety tag in "detectedDetail" when meaningful (dialect, era, regional marker). ${DETAIL_RULE}`,
+    // Only Translate and Explain ask for detection fields, including a selected source language.
+    detectiveInstr: !detectsLanguage
+      ? ''
+      : auto
+        ? candidatesBlock
+          ? `Detect the language or variety of the text. If it matches one of the CANDIDATES below, put that id in "detectedLang"; if it is an ordinary language none of them describe, use "other" and name the language in "detectedDetail". Add a short sub-variety tag in "detectedDetail" when meaningful. ${DETAIL_RULE} Then translate accordingly.\n\n${candidatesBlock}`
+          : `Detect the language or variety of the text and return it in "detectedLang"; add a short descriptive sub-variety tag in "detectedDetail" when meaningful. ${DETAIL_RULE}`
+        : `Confirm the variety: put "${escapeInline(req.sourceLang)}" in "detectedLang" (${label} is the assumed default). Only if the text clearly is not ${label}, put "other" there and name the language in "detectedDetail". Add a short descriptive sub-variety tag in "detectedDetail" when meaningful (dialect, era, regional marker). ${DETAIL_RULE}`,
     tone: ctx.tone ? TONE_PHRASE[ctx.tone] : '',
   };
 

@@ -3,7 +3,7 @@ import { filterRulesForRequest, normaliseSiteEntry, siteMatches } from '@/shared
 import type { Rule } from '@/shared/rules';
 import { slotsForTask } from '@/shared/slot-registry';
 import { buildPrompt } from '@/shared/prompts';
-import { ALL_TASKS } from '@/shared/task-prompts';
+import { ALL_TASKS, builtInTask } from '@/shared/task-prompts';
 import { sel } from '@tests/_helpers/lang';
 
 function rule(sites: string[] | undefined, id = 'r'): Rule {
@@ -72,23 +72,24 @@ describe('slot registry follows buildPrompt', () => {
 });
 
 describe('Language detection follows buildPrompt', () => {
-  it('buildPrompt fills it for every task, so the registry lists it for every task', () => {
-    const filled = buildPrompt(
-      {
-        id: 'r1',
-        text: 'hola',
-        sourceLang: sel('auto'),
-        targetLang: sel('en'),
-        options: { stream: false, explain: false },
-      },
-      { preset: undefined, template: { system: 'D=[{{detectiveInstr}}]', user: '{{text}}' } },
-    );
-    expect(filled.system).not.toContain('D=[]');
-    for (const t of ALL_TASKS) {
-      expect(
-        slotsForTask(t).map((s) => s.name),
-        t,
-      ).toContain('detectiveInstr');
-    }
-  });
+  it.each([...ALL_TASKS, 'custom-task'])(
+    'only detection tasks fill Language detection: %s',
+    (task) => {
+      const detectionTask = task === 'translate' || task === 'explain';
+      const filled = buildPrompt(
+        {
+          id: 'r1',
+          text: 'hola',
+          sourceLang: sel('auto'),
+          targetLang: sel('en'),
+          options: { stream: false, explain: false, task },
+        },
+        { preset: undefined, template: { system: 'D=[{{detectiveInstr}}]', user: '{{text}}' } },
+      );
+      expect(filled.system.includes('D=[]')).toBe(!detectionTask);
+      const builtIn = builtInTask(task);
+      if (builtIn)
+        expect(slotsForTask(builtIn).some((s) => s.name === 'detectiveInstr')).toBe(detectionTask);
+    },
+  );
 });

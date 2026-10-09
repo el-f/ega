@@ -352,10 +352,11 @@ describe('Options.svelte — palette task switches', () => {
     const texts = await waitFor(async () => {
       await fireEvent.keyDown(document, { key: 'k', ctrlKey: true });
       const opts = [...document.querySelectorAll('[role="option"]')].map((o) => o.textContent);
-      if (!opts.some((t) => t.includes('Switch task: Summarize'))) throw new Error('no palette');
+      if (!opts.some((t) => t.includes('Set default task: Summarize')))
+        throw new Error('no palette');
       return opts;
     });
-    expect(texts.some((t) => t.includes('Switch task: Reword'))).toBe(false);
+    expect(texts.some((t) => t.includes('Set default task: Reword'))).toBe(false);
   });
 });
 
@@ -385,7 +386,7 @@ describe('Options.svelte — palette lists custom tasks', () => {
     await waitFor(async () => {
       await fireEvent.keyDown(document, { key: 'k', ctrlKey: true });
       const opts = [...document.querySelectorAll('[role="option"]')].map((o) => o.textContent);
-      expect(opts.some((t) => t.includes('Switch task: Tweet summary'))).toBe(true);
+      expect(opts.some((t) => t.includes('Set default task: Tweet summary'))).toBe(true);
     });
   });
 });
