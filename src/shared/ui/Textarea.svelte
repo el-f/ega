@@ -73,20 +73,16 @@
     color: var(--color-fg);
     border: 1px solid var(--color-control-border);
     border-radius: var(--radius-sm);
-    outline: none;
     font-family: var(--font-ui);
     padding: var(--space-2) var(--space-3);
     font-size: var(--fs-base);
     resize: vertical;
-    transition:
-      border-color var(--motion-fast) var(--ease-out),
-      box-shadow var(--motion-fast) var(--ease-out);
+    transition: border-color var(--motion-fast) var(--ease-out);
   }
   .ega-textarea.is-mono {
     font-family: var(--font-mono);
   }
   .ega-textarea:focus-visible {
     border-color: var(--color-accent);
-    box-shadow: 0 0 0 3px var(--color-accent-bg-soft);
   }
 </style>

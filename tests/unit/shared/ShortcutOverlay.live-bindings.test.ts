@@ -86,6 +86,14 @@ describe('ShortcutOverlay lists the keys each surface really has', () => {
     expect(rowFor(container as HTMLElement, 'New line').replace(/\s+/g, '')).toBe('Shift+Enter');
   });
 
+  it('names the r key as the panel does: it regenerates the focused reply (X1: no "Retry")', () => {
+    const { container } = render(ShortcutOverlay, {
+      props: { open: true, onClose: () => {}, surface: 'sidepanel' },
+    });
+    expect(rowFor(container as HTMLElement, 'Regenerate the focused reply').trim()).toBe('r');
+    expect(container.textContent).not.toMatch(/Retry/);
+  });
+
   it('options switches as many tabs as it has, with Alt and the tab number', () => {
     const { container } = render(ShortcutOverlay, {
       props: { open: true, onClose: () => {}, surface: 'options' },

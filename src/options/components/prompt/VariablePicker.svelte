@@ -205,8 +205,10 @@
     font-size: var(--fs-base);
     outline: none;
   }
+  /* Inset: the popover clips anything drawn outside it. */
   :global(.vp-search:focus-visible) {
-    box-shadow: inset 0 -2px 0 var(--color-accent);
+    outline: 2px solid var(--color-accent);
+    outline-offset: -2px;
   }
   :global(.vp-search::placeholder) {
     color: var(--color-muted);

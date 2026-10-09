@@ -1,6 +1,7 @@
 <script lang="ts">
   import Dialog from '@/shared/ui/Dialog.svelte';
   import Button from '@/shared/ui/Button.svelte';
+  import { id } from '@/shared/uuid';
 
   interface Props {
     open: boolean;
@@ -29,16 +30,27 @@
 
   let typed = $state('');
   const canConfirm = $derived(typeToConfirm ? typed === typeToConfirm : true);
+  const bodyId = id('ega-confirm-body');
 </script>
 
-<Dialog {open} {title} onClose={onCancel} size="sm">
+<!-- Focus starts on the safe button, or on the field a typed confirm needs (spec 5.5). -->
+<Dialog
+  {open}
+  {title}
+  onClose={onCancel}
+  size="sm"
+  describedBy={bodyId}
+  initialFocus={typeToConfirm ? '.confirm-input' : '[data-ega-confirm-safe]'}
+>
   {#snippet actions()}
-    <Button variant="secondary" onclick={onCancel}>{cancelLabel}</Button>
+    <Button variant="secondary" dataAttrs={{ 'data-ega-confirm-safe': true }} onclick={onCancel}
+      >{cancelLabel}</Button
+    >
     <Button variant={danger ? 'danger' : 'primary'} disabled={!canConfirm} onclick={onConfirm}>
       {confirmLabel}
     </Button>
   {/snippet}
-  <p class="confirm-body">{body}</p>
+  <p class="confirm-body" id={bodyId}>{body}</p>
   {#if typeToConfirm}
     <label class="confirm-label" for="confirm-input">
       Type <code>{typeToConfirm}</code> to confirm:

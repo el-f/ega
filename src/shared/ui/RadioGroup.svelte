@@ -139,10 +139,10 @@
   :global(.ega-radio-item:hover:not(:disabled)) {
     border-color: var(--color-accent);
   }
+  /* The page-wide 2px ring draws the focus; its radius would square the radio, so the circle is restated. */
   :global(.ega-radio-item:focus-visible) {
-    outline: none;
     border-color: var(--color-accent);
-    box-shadow: 0 0 0 3px var(--color-accent-bg-soft);
+    border-radius: 9999px;
   }
   :global(.ega-radio-item[data-state='checked']) {
     background: var(--color-accent);
@@ -190,8 +190,9 @@
     align-items: center;
     color: var(--color-fg-subtle);
   }
+  /* Secondary text differs by colour (R19); --color-fg-subtle is the label colour in light. */
   .ega-radio-description {
     font-size: var(--fs-sm);
-    color: var(--color-fg-subtle);
+    color: var(--color-muted);
   }
 </style>

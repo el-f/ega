@@ -82,6 +82,67 @@ describe('Options.svelte — V2 IA nav', () => {
     expect(document.activeElement).not.toBe(container.querySelector('.options-content'));
   });
 
+  it('leaves focus alone when Settings opens on a tab another surface parked (TB-4)', async () => {
+    seedSettings();
+    chromeMock.storage.local._raw.set('ega.pendingOptionsTab', 'backends');
+    const { container } = render(Options);
+    await waitFor(() => {
+      expect(container.querySelector('#tab-backends')?.getAttribute('aria-selected')).toBe('true');
+    });
+    await new Promise<void>((r) => setTimeout(r, 0));
+    expect(document.activeElement).not.toBe(container.querySelector('.options-content'));
+  });
+
+  it('keeps the panel out of the Tab order, so Tab from the rail goes to the first control (D3-13)', async () => {
+    seedSettings();
+    const { container } = render(Options);
+    await waitFor(() => {
+      expect(container.querySelector('.options-content')).toBeTruthy();
+    });
+    expect(container.querySelector('.options-content')?.getAttribute('tabindex')).toBe('-1');
+  });
+
+  it('ignores the page shortcuts while a dialog is open, so Alt+digit cannot unmount it (KSR-1)', async () => {
+    seedSettings();
+    const { container } = render(Options);
+    await waitFor(() => {
+      expect(container.querySelector('#tab-translate')).toBeTruthy();
+    });
+    await fireEvent.keyDown(document.body, { key: '?' });
+    const sheet = await waitFor(() => {
+      const el = document.querySelector<HTMLElement>('[aria-modal="true"]');
+      if (el === null) throw new Error('the shortcut sheet did not open');
+      return el;
+    });
+    const control = sheet.querySelector<HTMLElement>('button');
+    control?.focus();
+    await fireEvent.keyDown(control ?? document.body, { key: '3', code: 'Digit3', altKey: true });
+    await fireEvent.keyDown(control ?? document.body, { key: 'k', ctrlKey: true });
+    await new Promise<void>((r) => setTimeout(r, 0));
+    expect(container.querySelector('#tab-translate')?.getAttribute('aria-selected')).toBe('true');
+    expect(document.querySelectorAll('[aria-modal="true"]')).toHaveLength(1);
+  });
+
+  it('keeps Ctrl+Shift+R from reaching the browser while a dialog is open: a hard reload would drop typed text', async () => {
+    seedSettings();
+    const { container } = render(Options);
+    await waitFor(() => {
+      expect(container.querySelector('#tab-translate')).toBeTruthy();
+    });
+    await fireEvent.keyDown(document.body, { key: '?' });
+    const sheet = await waitFor(() => {
+      const el = document.querySelector<HTMLElement>('[aria-modal="true"]');
+      if (el === null) throw new Error('the shortcut sheet did not open');
+      return el;
+    });
+    const control = sheet.querySelector<HTMLElement>('button') ?? document.body;
+    control.focus();
+    const passedOn = await fireEvent.keyDown(control, { key: 'R', ctrlKey: true, shiftKey: true });
+    expect(passedOn, 'the reload chord is held back').toBe(false);
+    await new Promise<void>((r) => setTimeout(r, 0));
+    expect(container.querySelector('#tab-translate')?.getAttribute('aria-selected')).toBe('true');
+  });
+
   it('moves focus to .options-content after a tab switch', async () => {
     seedSettings();
     const { container } = render(Options);

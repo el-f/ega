@@ -130,4 +130,10 @@
       transition: none;
     }
   }
+  /* Forced colours paint every border alike; the picked card's ring sits outside its border, a double edge (K-21). */
+  @media (forced-colors: active) {
+    .choice-cards .choice-card.active {
+      outline-offset: 2px;
+    }
+  }
 </style>

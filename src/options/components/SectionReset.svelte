@@ -67,11 +67,13 @@
       border-color var(--motion-fast) var(--ease-out),
       background var(--motion-fast) var(--ease-out);
   }
-  .section-reset:hover,
-  .section-reset:focus-visible {
+  /* Beside Done in a dialog footer, every button is 32px tall (spec 5.0 rule 7). */
+  :global(.ega-dialog-actions) .section-reset {
+    min-height: 32px;
+  }
+  /* Focus keeps the page-wide 2px ring, so it never looks like a hover. */
+  .section-reset:hover {
     color: var(--color-accent);
-    border-color: var(--color-border);
     background: var(--color-bg-hover);
-    outline: none;
   }
 </style>

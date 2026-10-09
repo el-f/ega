@@ -15,6 +15,8 @@
     label?: string | undefined;
     placeholder?: string | undefined;
     disabled?: boolean;
+    /** Keeps the Tab stop and is announced as unavailable; nothing can be typed or picked. Pair it with describedById. */
+    ariaDisabled?: boolean;
     /** Id of an element describing the control; stamped on the input. */
     describedById?: string | undefined;
     /** Inline error under the row. */
@@ -34,15 +36,20 @@
     label,
     placeholder,
     disabled = false,
+    ariaDisabled = false,
     describedById,
     error = null,
     onValueChange,
     oninput,
     trailing,
   }: Props = $props();
+
+  // The list never opens while the field cannot be used.
+  let open = $state(false);
+  const unavailable = $derived(ariaDisabled ? { 'aria-disabled': 'true' as const } : {});
 </script>
 
-<div class="ega-combobox">
+<div class="ega-combobox" class:is-disabled={disabled || ariaDisabled}>
   {#if label}
     <label class="ega-combobox-label" for={inputId}>{label}</label>
   {/if}
@@ -51,6 +58,7 @@
       type="single"
       {disabled}
       {value}
+      bind:open={() => open, (next) => (open = next && !ariaDisabled)}
       onValueChange={(v) => onValueChange(v ?? '')}
       {inputValue}
     >
@@ -59,10 +67,17 @@
           id={inputId}
           class="ega-combobox-input"
           {placeholder}
+          readonly={ariaDisabled}
           aria-describedby={describedById}
+          {...unavailable}
           oninput={(e: Event) => oninput((e.currentTarget as HTMLInputElement).value)}
         />
-        <Combobox.Trigger class="ega-combobox-toggle" aria-label={triggerAriaLabel}>
+        <Combobox.Trigger
+          class="ega-combobox-toggle"
+          aria-label={triggerAriaLabel}
+          aria-describedby={ariaDisabled ? describedById : undefined}
+          {...unavailable}
+        >
           <ChevronDown size={14} />
         </Combobox.Trigger>
         {@render trailing?.()}
@@ -105,7 +120,10 @@
     padding: 2px;
     transition: border-color var(--motion-fast) var(--ease-out);
   }
-  .ega-combobox-row:focus-within {
+  /* The ring of a focused text field, on the row; the refresh button beside the input draws its own. */
+  .ega-combobox-row:has(:global(.ega-combobox-input:focus-visible)) {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
     border-color: var(--color-accent);
   }
   .ega-combobox-row :global(.ega-combobox-input) {
@@ -123,12 +141,24 @@
     color: var(--color-muted);
     font-family: var(--font-ui);
   }
+  /* A field that cannot be used must not look editable (R10); its text stays muted, not faded, so it still reads. */
+  .is-disabled .ega-combobox-row {
+    background: var(--color-bg-disabled);
+    border-color: var(--color-border-disabled);
+  }
+  .is-disabled .ega-combobox-row :global(.ega-combobox-input),
+  .is-disabled .ega-combobox-row :global(.ega-combobox-toggle) {
+    color: var(--color-muted);
+    cursor: var(--cursor-disabled);
+  }
   .ega-combobox-row :global(.ega-combobox-toggle) {
     flex: 0 0 auto;
     background: transparent;
     border: 0;
     color: var(--color-fg-subtle);
     cursor: pointer;
+    /* A 24px target at the least (R44); the 14px chevron and its padding came to 22px. */
+    min-width: 24px;
     padding: 0 var(--space-1);
     border-radius: var(--radius-sm);
     display: inline-flex;

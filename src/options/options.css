@@ -35,6 +35,14 @@ label {
   margin: var(--space-2) 0 var(--space-1);
   font-size: var(--fs-sm);
 }
+/* The shared checkbox and radio rows are labels too; the bare-label margin above would double every gap between them. */
+label.ega-checkbox {
+  margin: 0;
+}
+label.ega-radio-row {
+  margin-block: 0;
+}
+/* The same 3:1 edge and fill as the shared Input, so a raw field never looks fainter than its neighbour (R46). */
 input[type='text'],
 input[type='password'],
 input[type='number'],
@@ -42,9 +50,9 @@ select,
 textarea {
   width: 100%;
   padding: var(--space-1) var(--space-2);
-  background: var(--color-bg-sunken);
+  background: var(--color-bg-elevated);
   color: var(--color-fg);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-control-border);
   border-radius: var(--radius-md);
   font-size: var(--fs-base);
   font-family: inherit;

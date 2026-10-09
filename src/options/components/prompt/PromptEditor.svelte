@@ -417,9 +417,7 @@
     resize: vertical;
   }
   .pe-ta:focus-visible {
-    outline: none;
     border-color: var(--color-accent);
-    box-shadow: 0 0 0 3px var(--color-accent-bg-soft);
   }
   .pe-ta[aria-invalid='true'] {
     border-color: var(--color-danger);

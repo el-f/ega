@@ -2,8 +2,16 @@
 import fs from 'node:fs';
 import { test, expect, type Page, type Locator } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import { launchExtension, seedSettings, type ExtensionHandle } from '../../helpers';
+import {
+  customTask,
+  launchExtension,
+  openTaskPrompt,
+  seedCustomTasks,
+  seedSettings,
+  type ExtensionHandle,
+} from '../../helpers';
 import { SETTINGS_TABS } from '../../../../src/shared/settings-tabs';
+import { CURRENT_TEMPLATE_VERSION } from '../../../../src/shared/settings-schema';
 
 // Options spec 9.3 (each check names its STANDARDS rule); EGA_DESIGN_RULES_REPORT=<file> records instead of failing.
 
@@ -26,6 +34,8 @@ test.setTimeout(420_000);
 const SEED = {
   anthropicApiKey: 'sk-ant-design-rules',
   onboardingDismissed: true,
+  // Changed from the defaults, so Reset section and the per-slider reset are on screen for every check.
+  tooltipDraggable: true,
   glossary: [
     { term: 'checkout', translation: 'caja', caseSensitive: false },
     { term: 'cart', translation: 'carrito', caseSensitive: false },
@@ -35,6 +45,7 @@ const SEED = {
     'shop.example.com': { disabled: false, defaultLang: 'es' },
   },
   advanced: {
+    maxTokens: 1024,
     rules: [
       {
         id: 'dr-rule-1',
@@ -328,6 +339,57 @@ async function infoTipChecks(page: Page, view: string, scope: string): Promise<v
   }
 }
 
+/** K-3 (R45): Tab through the view; every stop draws a 2px outline on itself or on the field row around it. */
+async function focusRingWalk(
+  page: Page,
+  view: string,
+  scope: string,
+  start: string,
+): Promise<void> {
+  await page.locator(start).first().focus();
+  for (let n = 0; n < 150; n++) {
+    await page.keyboard.press('Tab');
+    const stop = await page.evaluate((scopeSel) => {
+      const el = document.activeElement as (HTMLElement & { egaRingSeen?: boolean }) | null;
+      const root = document.querySelector(scopeSel);
+      if (!el || el === document.body || !root?.contains(el)) return 'left';
+      if (el.egaRingSeen === true) return 'looped';
+      el.egaRingSeen = true;
+      // Reduced motion sets a 0.01ms duration on every element, and a property with no transition of
+      // its own then transitions "all": read in the same frame, the ring is still 0px wide.
+      for (const a of document.getAnimations()) if (a instanceof CSSTransition) a.finish();
+      const ringed = (node: Element): boolean => {
+        const cs = getComputedStyle(node);
+        return (
+          cs.outlineStyle !== 'none' &&
+          Number.parseFloat(cs.outlineWidth) >= 2 &&
+          !/rgba\([^)]*,\s*0\)|transparent/.test(cs.outlineColor)
+        );
+      };
+      const chain = [el, el.parentElement, el.parentElement?.parentElement];
+      if (chain.some((node) => node instanceof Element && ringed(node))) return 'ok';
+      const name = el.getAttribute('aria-label') ?? el.textContent.replace(/\s+/g, ' ').trim();
+      return `${el.tagName.toLowerCase()}.${[...el.classList].join('.')} "${name.slice(0, 40)}"`;
+    }, scope);
+    if (stop === 'left' || stop === 'looped') return;
+    if (stop !== 'ok') found.push(`${view}: K-3 no 2px focus ring on ${stop}`);
+  }
+}
+
+/** C-19 (K-19, section 5.0 rule 7): every button in a dialog footer is 32px tall. */
+async function dialogFooterCheck(view: string, dialog: Locator): Promise<void> {
+  const heights = await dialog.locator('.ega-dialog-actions button').evaluateAll((els) =>
+    els
+      .filter((el) => el.checkVisibility())
+      .map((el) => ({
+        h: Math.round(el.getBoundingClientRect().height),
+        text: el.textContent.trim().slice(0, 30),
+      })),
+  );
+  for (const { h, text } of heights)
+    if (h !== 32) found.push(`${view}: C-19 footer button "${text}" is ${h}px, not 32px`);
+}
+
 /** C-17: the axe scan, critical and serious only, on the settled page. */
 async function axeCheck(page: Page, view: string): Promise<void> {
   const results = await new AxeBuilder({ page }).analyze();
@@ -459,6 +521,7 @@ for (const theme of ['light', 'dark'] as const) {
       await staticChecks(page, `${theme} ${view}`, '.options-content');
       await infoTipChecks(page, `${theme} ${view}`, '.options-content');
       await axeCheck(page, `${theme} ${view}`);
+      await focusRingWalk(page, `${theme} ${view}`, '.options-content', '.options-content');
     });
     settle(`tabs-${theme}`);
   });
@@ -469,7 +532,9 @@ for (const theme of ['light', 'dark'] as const) {
       const label = `${theme} ${view}`;
       await staticChecks(page, label, '.ega-dialog');
       await dialogScrollCheck(label, dialog);
+      await dialogFooterCheck(label, dialog);
       await axeCheck(page, label);
+      await focusRingWalk(page, label, '.ega-dialog', '.ega-dialog');
     });
     settle(`dialogs-${theme}`);
   });
@@ -498,6 +563,119 @@ test('nothing is cut off at 880px and 600px (C-1)', async () => {
     }
   }
   settle('narrow');
+});
+
+test('the header and the rail fit a 320px window on every tab (R16)', async () => {
+  for (const theme of ['light', 'dark'] as const) {
+    const page = await openOptions(theme, 320);
+    await eachView(page, async (view) => {
+      // The header's own box stays 100% wide when a child runs past it, so each visible part is measured.
+      const out = await page.evaluate(() =>
+        [...document.querySelectorAll('.options-header *, .options-rail *')]
+          .filter((el) => el.getBoundingClientRect().width > 0)
+          .filter((el) => el.getBoundingClientRect().right > innerWidth + 0.5)
+          .map(
+            (el) =>
+              `${el.tagName.toLowerCase()} "${el.textContent.trim().slice(0, 30)}" ends at ${Math.round(el.getBoundingClientRect().right)}px`,
+          ),
+      );
+      for (const o of out) found.push(`${theme} 320px ${view}: R16 ${o}`);
+    });
+    await page.close();
+  }
+  settle('reflow-320');
+});
+
+test('a dialog opened over a dialog covers it, and only the top one takes input (5.0 rule 8)', async () => {
+  await seedSettings(ext.context, ext.extensionId, {
+    ...SEED,
+    theme: 'light',
+    advanced: {
+      ...SEED.advanced,
+      promptTemplate: { system: 'My own rules.', user: 'Translate: {{text}}' },
+      templateVersion: CURRENT_TEMPLATE_VERSION - 1,
+    },
+  });
+  const page = await ext.context.newPage();
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
+  await openTaskPrompt(page, 'translate');
+  const task = page.locator('.ega-dialog').filter({ has: page.locator('[data-ega-task-dialog]') });
+
+  /** What a click on the lower dialog's Done would hit. */
+  const doneIsCovered = (): Promise<boolean> =>
+    task.evaluate((d) => {
+      const done = d.querySelector('[data-ega-dialog-done]');
+      if (!done) return false;
+      const r = done.getBoundingClientRect();
+      const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return hit !== null && !d.contains(hit);
+    });
+  expect(await doneIsCovered(), 'positive control: alone, Done takes the click').toBe(false);
+
+  // The template diff over the task dialog.
+  await page.locator('[data-ega-tpl-show-diff]').click();
+  await expect(page.locator('[data-ega-diff-modal]')).toBeVisible();
+  expect(await doneIsCovered(), 'the diff covers the task dialog').toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('[data-ega-diff-modal]')).toHaveCount(0);
+  await expect(task).toBeVisible();
+  expect(
+    await task.evaluate((d) => d.contains(document.activeElement)),
+    'focus returns into the dialog below (K-14)',
+  ).toBe(true);
+
+  // A confirm over the task dialog opens on its safe button.
+  await task.locator('.pe-ta-usr').fill('Translate this');
+  await page.keyboard.press('Escape');
+  const confirm = page.getByRole('dialog', { name: 'Close without this change?' });
+  await expect(confirm).toBeVisible();
+  expect(await doneIsCovered(), 'the confirm covers the task dialog').toBe(true);
+  await expect(confirm.getByRole('button', { name: 'Keep editing' })).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(confirm).toHaveCount(0);
+  await expect(task).toBeVisible();
+});
+
+test('forced colours keep the picked card, the pill and the default tick visible (K-21)', async () => {
+  const page = await openOptions('light');
+  await page.emulateMedia({ forcedColors: 'active', reducedMotion: 'reduce' });
+  const cards = await page
+    .locator('[data-ega-setting="display.defaultDisplayMode"] [role="radio"]')
+    .evaluateAll((els) =>
+      els.map((el) => {
+        const cs = getComputedStyle(el);
+        return {
+          picked: el.getAttribute('aria-checked') === 'true',
+          ring: `${cs.outlineStyle} ${cs.outlineOffset}`,
+        };
+      }),
+    );
+  expect(cards.length).toBeGreaterThan(1);
+  for (const c of cards) {
+    if (c.picked && c.ring !== 'solid 2px') found.push(`picked card ring is "${c.ring}"`);
+    if (!c.picked && c.ring.startsWith('solid')) found.push('an unpicked card has a ring');
+  }
+
+  await page.locator('#tab-backends').click();
+  const pill = page.locator('.ega-badge', { hasText: 'Experimental' });
+  await page.getByText('Remember backend status for').waitFor();
+  const edge = (await pill.count())
+    ? await pill.evaluate((el) => {
+        const cs = getComputedStyle(el);
+        return `${cs.borderTopStyle} ${cs.borderTopWidth}`;
+      })
+    : 'missing: the pill is not the shared Badge';
+  if (edge !== 'solid 1px') found.push(`the Experimental pill edge is "${edge}"`);
+  const tick = await page
+    .locator('[data-ega-default-tick]')
+    .first()
+    .evaluate((el) => ({
+      tick: getComputedStyle(el).backgroundColor,
+      canvas: getComputedStyle(document.body).backgroundColor,
+    }));
+  if (tick.tick === tick.canvas) found.push(`the default tick is the page colour (${tick.tick})`);
+  settle('forced-colours');
 });
 
 test('the shortcut sheet stays inside a short window and scrolls to its last line (C-1)', async () => {
@@ -551,6 +729,99 @@ test('focus never falls to the page body after a tab switch, delete, Undo or res
   await page.locator('[data-ega-reset-defaults]').click();
   if (await onBody()) found.push('reset: C-14 focus on body');
   settle('focus');
+});
+
+test('focus stays off the page body after the skip, delete, move and remove paths (C-14)', async () => {
+  const onBody = (page: Page): Promise<boolean> =>
+    page.evaluate(
+      () => document.activeElement === null || document.activeElement === document.body,
+    );
+
+  // Skip for now on a fresh install removes the card that held focus.
+  await seedSettings(ext.context, ext.extensionId, { theme: 'light' });
+  let page = await ext.context.newPage();
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
+  await page.locator('#tab-backends').click();
+  await page.locator('[data-ega-onboard="dismiss"]').click();
+  await expect(page.locator('[data-ega-get-started]')).toHaveCount(0);
+  if (await onBody(page)) found.push('Skip for now: C-14 focus on body');
+  await page.close();
+
+  await seedSettings(ext.context, ext.extensionId, { ...SEED, theme: 'light' });
+  await seedCustomTasks(ext.context, ext.extensionId, [customTask()]);
+  page = await ext.context.newPage();
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
+  await page.evaluate(async () => {
+    const now = Date.now();
+    const turns = [
+      {
+        id: 't0',
+        role: 'user',
+        kind: 'translate',
+        status: 'idle',
+        content: 'hola',
+        createdAt: now,
+      },
+    ];
+    await chrome.storage.local.set({
+      'ega:conv:t:general': { version: 1, origin: 'general', turns, updatedAt: now },
+      'ega:conv:index': {
+        version: 1,
+        threads: [{ origin: 'general', updatedAt: now, bytes: 2048, title: 'Hola', messages: 2 }],
+      },
+    });
+  });
+
+  // Delete a task of your own from its dialog, then Undo from the toast.
+  await page.locator('#tab-tasks').click();
+  await page.getByRole('button', { name: /^Edit Tweet summary$/ }).click();
+  await page.locator('[data-ega-custom-task-delete]').click();
+  await expect(page.locator('.ega-dialog')).toHaveCount(0);
+  if (await onBody(page)) found.push('custom task delete: C-14 focus on body');
+  await page.locator('[data-sonner-toast]').getByRole('button', { name: 'Undo' }).click();
+  await page.waitForTimeout(150); // wait for the toast to leave (no single end state)
+  if (await onBody(page)) found.push('custom task Undo: C-14 focus on body');
+
+  // Move a backend with its drag handle from the keyboard.
+  await page.locator('#tab-backends').click();
+  await page.locator('[data-be-row-id="anthropic"] .be-gutter').focus();
+  await page.keyboard.press('Alt+ArrowDown');
+  await page.waitForTimeout(150); // wait for the row to re-render (no single end state)
+  if (await onBody(page)) found.push('drag handle move: C-14 focus on body');
+
+  // Remove the last example in a language dialog.
+  await page.locator('#tab-languages').click();
+  await page.locator('[data-ega-variety-edit="arabizi"]').click();
+  const dialog = page.locator('.ega-dialog').last();
+  const remove = dialog.getByRole('button', { name: /^Remove example \d+$/ });
+  await remove.last().click();
+  const landed = await page.evaluate(() => document.activeElement?.getAttribute('aria-label'));
+  if ((await onBody(page)) || landed === 'Close')
+    found.push(`example remove: C-14 focus on ${landed ?? 'body'}`);
+  await dialog.locator('[data-ega-dialog-done]').click();
+  await expect(page.locator('.ega-dialog')).toHaveCount(0, { timeout: 10_000 });
+
+  // Delete a saved conversation through its confirm.
+  await page.locator('#tab-advanced').click();
+  await page.locator('[data-ega-subtab="data"]').click();
+  await page
+    .getByRole('button', { name: /^Delete conversation/ })
+    .first()
+    .click();
+  await page.getByRole('dialog', { name: 'Delete this conversation?' }).waitFor();
+  await page.getByRole('button', { name: 'Delete', exact: true }).click();
+  await expect(page.locator('.ega-dialog')).toHaveCount(0);
+  await page.waitForTimeout(150); // wait for the list to refresh (no single end state)
+  if (await onBody(page)) found.push('conversation delete: C-14 focus on body');
+
+  // C-7 on a cloud row that is not in use: every unavailable control says why on screen.
+  await page.locator('#tab-backends').click();
+  await page.locator('details[data-backend-id="openai"] summary').first().click();
+  await staticChecks(page, 'backends/openai-not-in-use', 'details[data-backend-id="openai"]');
+  await page.close();
+  settle('focus-paths');
 });
 
 test('the First choice row is the first ready backend (C-16)', async () => {

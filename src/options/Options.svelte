@@ -77,7 +77,7 @@
     return buildRegistry({
       onOpenOptions: (tab) => {
         const t = tabFrom(tab);
-        if (t) active = t;
+        if (t) showTab(t);
       },
       onSwapTheme: (to) => void setTheme(to),
       onSetBubbleMode: (m) => {
@@ -104,7 +104,7 @@
 
   /** Opens a new rule on the Glossary and rules tab; the Cmd+Shift+R chord and the "Add a rule" palette entry share it. */
   function focusAddRule(): void {
-    active = 'glossary';
+    showTab('glossary');
     // A cold tab chunk can take longer than the whole whenPresent budget, so the budget starts once the code is in.
     void tabReady('glossary').then(() =>
       whenPresent('[data-ega-rules-add], [data-ega-rules-empty] button', (add) => {
@@ -264,6 +264,12 @@
   const showNotice = $derived.by(() => needsKey && !(active === 'backends' && showGetStarted));
 
   const onKey = (e: KeyboardEvent): void => {
+    // A modal owns the keys: switching the tab under it would unmount the dialog without its close checks (KSR-1).
+    if (document.querySelector('[aria-modal="true"]') !== null) {
+      // The add-rule chord is also the browser's hard reload, which would drop the dialog's typed text.
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'r') e.preventDefault();
+      return;
+    }
     const el = document.activeElement;
     const editable =
       el instanceof HTMLInputElement ||
@@ -325,7 +331,7 @@
         const target = TABS[Number(m[1]) - 1];
         if (target) {
           e.preventDefault();
-          active = target.id;
+          showTab(target.id);
         }
       }
     }
@@ -344,7 +350,7 @@
     void consumePendingOptionsTab()
       .then((pending) => {
         const t = tabFrom(pending ?? undefined);
-        if (t) active = t;
+        if (t) showTab(t, false);
       })
       .catch((e: unknown) => debugCatch(e, 'options.Options.pendingTab'));
   });
@@ -353,7 +359,7 @@
   $effect(() =>
     onPendingOptionsTab((pending) => {
       const t = tabFrom(pending);
-      if (t) active = t;
+      if (t) showTab(t, false);
     }),
   );
 
@@ -381,17 +387,19 @@
     };
   });
 
-  // Rail arrow keys re-focus their tab in a later microtask; stealing focus into the panel here would break roving tabindex.
-  let keepFocusOnRail = false;
-  // The page opening is not a tab switch: focusing the panel then draws a focus ring around the whole tab.
-  let opened = false;
+  // Only a switch started on this page focuses the panel (K-2); on open or a parked tab it would ring the whole tab.
+  let focusPanel = false;
+  function showTab(id: TabId, moveFocus = true): void {
+    if (id === active) return;
+    focusPanel = moveFocus;
+    active = id;
+  }
 
   // queueMicrotask defers until Svelte has flushed the new panel, so focus lands on live content, not a stale trigger.
   $effect(() => {
     void active;
-    const skipFocus = keepFocusOnRail || !opened;
-    keepFocusOnRail = false;
-    opened = true;
+    const skipFocus = !focusPanel;
+    focusPanel = false;
     queueMicrotask(() => {
       // At narrow widths the document scrolls independently of `.options-content`, so both need resetting.
       window.scrollTo({ top: 0, left: 0 });
@@ -418,13 +426,13 @@
 
   function chooseGemini(): void {
     // Don't flip onboardingDismissed yet — let them complete the key entry.
-    active = 'backends';
+    showTab('backends');
     onboardingHidden = true;
     openBackendRow('gemini', '.cp-key-input');
   }
 
   function chooseOtherKey(): void {
-    active = 'backends';
+    showTab('backends');
     whenPresent('[data-testid="be-list-available"]', (list) => {
       list.scrollIntoView({ block: 'start' });
       list.querySelector<HTMLElement>('summary, button')?.focus({ preventScroll: true });
@@ -432,13 +440,13 @@
   }
 
   function chooseLocal(): void {
-    active = 'backends';
+    showTab('backends');
     openBackendRow('ollama', 'input');
   }
 
   /** The notice's action: the Backends tab, on the Get started card while it shows. */
   function setUpBackend(): void {
-    active = 'backends';
+    showTab('backends');
     whenPresent(showGetStarted ? '[data-ega-get-started] h2' : '[data-testid="be-list"]', (el) => {
       el.scrollIntoView({ block: 'start' });
       el.focus({ preventScroll: true });
@@ -458,7 +466,7 @@
     }
     const sameTab = active === tab;
     if (entryId) setPendingDeepLink(entryId);
-    active = tab;
+    showTab(tab);
     // A same-tab jump does not remount the pane, so it needs an explicit re-resolve signal.
     if (sameTab) document.dispatchEvent(new CustomEvent(DEEP_LINK_EVENT));
     void tabReady(tab).then(() => revealPendingSetting());
@@ -507,8 +515,7 @@
           {active}
           onSelect={(id, source) => {
             if (isTabId(id)) {
-              keepFocusOnRail = source === 'keyboard';
-              active = id;
+              showTab(id, source !== 'keyboard');
             }
           }}
         />
@@ -519,7 +526,7 @@
         role="tabpanel"
         id={`tabpanel-${active}`}
         aria-labelledby={`tab-${active}`}
-        tabindex="0"
+        tabindex="-1"
       >
         <StatusBar show={showNotice} {...active === 'backends' ? {} : { onSetUp: setUpBackend }} />
         <OptionsTabContent

@@ -122,10 +122,9 @@
   .ega-select:hover {
     background-color: var(--color-bg-hover);
   }
+  /* The page-wide 2px ring (tokens.css) draws the focus; a halo alone measured 1.2:1. */
   .ega-select:focus-visible {
-    outline: none;
     border-color: var(--color-accent);
-    box-shadow: 0 0 0 3px var(--color-accent-bg-soft);
   }
   /* shadow-css-lint-allow: ega-changed (the tooltip never passes modified, so the marker never renders in a page) */
   .ega-changed {

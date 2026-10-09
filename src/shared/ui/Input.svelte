@@ -122,15 +122,13 @@
     background: var(--color-bg-elevated);
     border: 1px solid var(--color-control-border);
     border-radius: var(--radius-sm);
-    transition:
-      border-color var(--motion-fast) var(--ease-out),
-      box-shadow var(--motion-fast) var(--ease-out);
+    transition: border-color var(--motion-fast) var(--ease-out);
   }
+  /* The page-wide ring (tokens.css :focus-visible), drawn on the row because the input inside has no border. */
   .ega-input-row:focus-within {
     outline: 2px solid var(--color-accent);
-    outline-offset: 1px;
+    outline-offset: 2px;
     border-color: var(--color-accent);
-    box-shadow: 0 0 0 3px var(--color-accent-bg-soft);
   }
   .ega-input {
     flex: 1 1 auto;
@@ -146,8 +144,10 @@
     padding: var(--space-1) var(--space-2);
     font-size: var(--fs-sm);
   }
+  /* With the row's 1px border, 32px: the height of a size-md Button beside it (R24, K-19). */
   .size-md .ega-input {
-    padding: var(--space-2) var(--space-3);
+    min-height: 30px;
+    padding: 0 var(--space-3);
     font-size: var(--fs-base);
   }
 

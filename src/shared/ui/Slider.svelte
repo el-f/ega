@@ -2,6 +2,7 @@
   import { Slider } from 'bits-ui';
   import { id as makeId } from '@/shared/uuid';
   import ResetField from '@/shared/ui/ResetField.svelte';
+  import Badge from '@/shared/ui/Badge.svelte';
 
   interface Props {
     /** Visible label rendered above the track. */
@@ -142,7 +143,7 @@
   <div class="head">
     <span class="label-group">
       <span id={labelId} class="label">{label}</span>
-      {#if badge}<span class="badge">{badge}</span>{/if}
+      {#if badge}<Badge variant="warning">{badge}</Badge>{/if}
       {#if modified}
         <span id={modifiedId} class="changed" data-ega-modified="true">Changed</span>
       {/if}
@@ -239,13 +240,6 @@
     font-size: var(--fs-base);
     color: var(--color-muted);
   }
-  .badge {
-    font-size: var(--fs-base);
-    color: var(--color-warning-fg);
-    background: var(--color-warning-bg-soft);
-    border-radius: var(--radius-pill);
-    padding: 0 var(--space-2);
-  }
   .head-right {
     display: inline-flex;
     align-items: center;
@@ -314,6 +308,13 @@
     background: var(--color-muted);
     border-radius: 1px;
     pointer-events: none;
+  }
+  /* Forced colours would paint the tick as a gap in the track; it keeps the text colour instead (K-21). */
+  @media (forced-colors: active) {
+    .tick {
+      forced-color-adjust: none;
+      background: CanvasText;
+    }
   }
 
   /* Range — the filled portion from min up to the thumb. bits-ui sets

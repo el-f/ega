@@ -1,3 +1,9 @@
+<script lang="ts" module>
+  // Dialogs open now, and the layer the next one takes; a reset only when none is open keeps every layer above the last.
+  let openDialogs = 0;
+  let nextLayer = 0;
+</script>
+
 <script lang="ts">
   import { Dialog } from 'bits-ui';
   import type { Snippet } from 'svelte';
@@ -20,6 +26,10 @@
     position?: Position;
     /** Opens with focus on the title, so a screen reader reads the title and help line before the first field. */
     focusTitle?: boolean;
+    /** Selector of the control that takes focus on open (a confirm's safe button); wins over focusTitle. */
+    initialFocus?: string;
+    /** Id of the text that describes the dialog; the help line does when this is unset. */
+    describedBy?: string;
   }
 
   /** One name per dialog: the heading names it, or `label` does when there is no heading. */
@@ -43,14 +53,37 @@
     size = 'md',
     position = 'center',
     focusTitle = false,
+    initialFocus,
+    describedBy,
   }: Props = $props();
 
   const titleId = id('ega-dialog');
+  const helpId = `${titleId}-help`;
+  const panelId = `${titleId}-panel`;
+  const description = $derived(describedBy ?? (help ? helpId : undefined));
+
+  // A dialog opened over another (a confirm, a diff) paints its backdrop above it, so the one under it is covered.
+  let layer = $state(0);
+  $effect(() => {
+    if (!open) return;
+    layer = nextLayer++;
+    openDialogs++;
+    return () => {
+      openDialogs--;
+      if (openDialogs === 0) nextLayer = 0;
+    };
+  });
 
   function onOpenAutoFocus(e: Event): void {
-    if (!focusTitle || title === undefined) return;
+    const target =
+      initialFocus !== undefined
+        ? document.getElementById(panelId)?.querySelector<HTMLElement>(initialFocus)
+        : focusTitle
+          ? document.getElementById(titleId)
+          : null;
+    if (!target) return;
     e.preventDefault();
-    document.getElementById(titleId)?.focus();
+    target.focus();
   }
 
   // The body is the only scroll container; a fade at an edge says more content sits past it.
@@ -77,7 +110,12 @@
 </script>
 
 {#if open}
-  <button type="button" class="ega-dialog-backdrop" aria-label="Close dialog" onclick={onClose}
+  <button
+    type="button"
+    class="ega-dialog-backdrop"
+    aria-label="Close dialog"
+    style:--ega-dialog-layer={layer}
+    onclick={onClose}
   ></button>
   <!-- Controlled: bits-ui never closes itself, so an onClose that refuses (an unsaved-draft confirm) keeps the content. -->
   <Dialog.Root
@@ -89,9 +127,12 @@
     }
   >
     <Dialog.Content
+      id={panelId}
       class="ega-dialog size-{size} pos-{position}"
+      style="--ega-dialog-layer: {layer}"
       aria-labelledby={title === undefined ? undefined : titleId}
       aria-label={title === undefined ? label : undefined}
+      aria-describedby={description}
       preventScroll={false}
       interactOutsideBehavior="ignore"
       {onOpenAutoFocus}
@@ -107,7 +148,7 @@
         </div>
       {/if}
       {#if help}
-        <p class="ega-dialog-help">{@render help()}</p>
+        <p class="ega-dialog-help" id={helpId}>{@render help()}</p>
       {/if}
       <div class="ega-dialog-scroll">
         <div class="ega-dialog-body" bind:this={body} onscroll={measure}>
@@ -135,7 +176,7 @@
     border: 0;
     padding: 0;
     cursor: pointer;
-    z-index: 99998;
+    z-index: calc(99998 + 2 * var(--ega-dialog-layer, 0));
     animation: ega-dialog-fade var(--motion-fast) var(--ease-out);
   }
   :global(.ega-dialog) {
@@ -145,7 +186,7 @@
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
     box-shadow: 0 16px 48px var(--color-shadow-strong);
-    z-index: 99999;
+    z-index: calc(99999 + 2 * var(--ega-dialog-layer, 0));
     outline: none;
     animation: ega-dialog-pop var(--motion-fast) var(--ease-out);
     max-height: calc(100vh - var(--space-8));

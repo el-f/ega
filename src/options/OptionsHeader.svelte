@@ -41,11 +41,13 @@
 </div>
 
 <style>
+  /* Wraps the actions under the title below about 410px, so a 320px window (400% zoom) never scrolls sideways (R16). */
   .options-header {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: var(--space-4);
+    gap: var(--space-2) var(--space-4);
     width: 100%;
   }
   .options-title {
@@ -100,6 +102,13 @@
     .search-label,
     .search-kbd-group {
       display: none;
+    }
+  }
+  /* The labels are on screen at this width, so the page-wide hover label would only repeat them. */
+  @container options (width > 600px) {
+    .options-header :global([data-tooltip]:hover::after),
+    .options-header :global([data-tooltip]:focus-visible::after) {
+      content: none;
     }
   }
 </style>

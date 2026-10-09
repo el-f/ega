@@ -49,7 +49,7 @@ describe('the panel names its own keys', () => {
     expect(overlay).toMatch(/isSidePanel/);
     expect(overlay).toMatch(/Move between messages/);
     expect(overlay).toMatch(/Jump to the message box/);
-    expect(overlay).toMatch(/Retry the focused reply/);
+    expect(overlay).toMatch(/Regenerate the focused reply/);
     expect(overlay).toMatch(/Send to the side panel \(in the popup\)/);
     expect(overlay).not.toMatch(/Translate \(in popup textarea\)/);
   });

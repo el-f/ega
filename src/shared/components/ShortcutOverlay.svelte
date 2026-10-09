@@ -119,7 +119,7 @@
               <dd><Kbd>e</Kbd></dd>
             </div>
             <div class="shortcut-row">
-              <dt>Retry the focused reply</dt>
+              <dt>Regenerate the focused reply</dt>
               <dd><Kbd>r</Kbd></dd>
             </div>
           {:else}
@@ -254,12 +254,14 @@
     font-size: var(--fs-xs);
     color: var(--color-muted);
   }
+  /* A 256px side panel (125% zoom) is narrower than the address; it breaks instead of running into the padding. */
   .shortcut-foot code {
     font-family: var(--font-mono);
     font-size: var(--fs-xs);
     background: var(--color-bg-sunken);
     padding: 1px 4px;
     border-radius: var(--radius-sm);
+    overflow-wrap: anywhere;
   }
   @keyframes ega-shortcut-fade {
     from {

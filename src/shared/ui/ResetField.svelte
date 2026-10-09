@@ -44,11 +44,10 @@
       border-color var(--motion-fast) var(--ease-out),
       background var(--motion-fast) var(--ease-out);
   }
-  .reset-field:hover,
-  .reset-field:focus-visible {
+  /* Focus keeps the page-wide 2px ring, so it never looks like a hover. */
+  .reset-field:hover {
     color: var(--color-accent);
     border-color: var(--color-border);
     background: var(--color-bg-hover);
-    outline: none;
   }
 </style>

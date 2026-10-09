@@ -256,6 +256,8 @@
       position: absolute;
       left: calc(100% + 8px);
       top: 50%;
+      /* The page-wide label rule sets bottom; with top set too, the box would collapse to 0px. */
+      bottom: auto;
       transform: translateY(-50%);
       background: var(--color-bg-elevated, var(--color-bg-sunken));
       color: var(--color-fg);
