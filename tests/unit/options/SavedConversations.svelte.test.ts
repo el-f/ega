@@ -137,6 +137,23 @@ describe('SavedConversations', () => {
     });
   });
 
+  it('Delete all keeps a conversation saved while its Undo toast is open', async () => {
+    await saveThread('https://earlier.test', [userTurn('old', 'earlier')]);
+    const { container, getByRole, findByText } = render(SavedConversations);
+    await waitFor(() => expect(sites(container)).toEqual(['earlier']));
+    await fireEvent.click(getByRole('button', { name: 'Delete all' }));
+    expect(await findByText('No saved conversations')).toBeTruthy();
+
+    await saveThread('https://new.test', [userTurn('new', 'new conversation')]);
+    await waitFor(() => expect(sites(container)).toEqual(['new conversation']));
+    flushPendingDeletes();
+    await waitFor(async () => {
+      expect((await loadThreadResult('https://earlier.test')).turns).toEqual([]);
+    });
+    expect((await loadThreadResult('https://new.test')).turns[0]?.content).toBe('new conversation');
+    expect(sites(container)).toEqual(['new conversation']);
+  });
+
   it('after a delete, focus goes to the next row, else the card title', async () => {
     await saveThread('https://a.test', [userTurn('a1', 'a')]);
     await saveThread('https://b.test', [userTurn('b1', 'b')]);

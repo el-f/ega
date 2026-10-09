@@ -70,18 +70,27 @@ test('Delete empties an open side panel for that thread, and Delete all removes 
   await options.locator('#tab-advanced').click();
   await options.locator('[data-ega-subtab="data"]').click();
   const card = options.locator('[data-ega-setting="advanced.savedConversations"]');
-  await expect(card.getByText('Other pages')).toBeVisible({ timeout: 10_000 });
-  await expect(card.getByText('example.com')).toBeVisible();
+  await expect(card.getByText('text on a page with no site', { exact: true })).toBeVisible({
+    timeout: 10_000,
+  });
+  await expect(card.getByText('text on example.com', { exact: true })).toBeVisible();
   // One row per conversation, each with its name line.
   await expect(card.locator('[data-ega-conv-title]')).toHaveCount(2);
   timeline.markStep('list-shown');
 
-  // A row with facts names its first message; an older row names only its site.
+  // Legacy rows backfill their first message. Delete hides immediately; Undo keeps the stored thread.
   await card.getByRole('button', { name: /^Delete conversation .*Other pages$/ }).click();
-  const dialog = options.locator('.ega-dialog', { hasText: 'Delete this conversation?' });
-  await expect(dialog).toBeVisible({ timeout: 5_000 });
-  await dialog.getByRole('button', { name: 'Delete', exact: true }).click();
-  timeline.markStep('delete-confirmed');
+  await expect(card.locator('[data-ega-conv-title]')).toHaveCount(1);
+  await expect(panel.locator('.ega-user-turn')).toHaveCount(1);
+  await options.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(card.locator('[data-ega-conv-title]')).toHaveCount(2);
+  await expect(panel.locator('.ega-user-turn')).toHaveCount(1);
+  timeline.markStep('delete-undone');
+
+  await card.getByRole('button', { name: /^Delete conversation .*Other pages$/ }).click();
+  // Leaving the options page flushes its deferred delete instead of losing it.
+  await options.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide')));
+  timeline.markStep('delete-flushed');
 
   await expect(panel.locator('.ega-user-turn')).toHaveCount(0, { timeout: 10_000 });
   await expect(card.getByText('Other pages')).toHaveCount(0);
@@ -101,15 +110,19 @@ test('Delete empties an open side panel for that thread, and Delete all removes 
   timeline.markStep('no-write-back');
 
   await card.locator('[data-ega-conv-delete-all]').click();
-  const clearDialog = options.locator('.ega-dialog', { hasText: 'Delete all conversations?' });
-  await expect(clearDialog).toBeVisible({ timeout: 5_000 });
-  await clearDialog.getByRole('button', { name: 'Delete all', exact: true }).click();
   await expect(card.getByText('No saved conversations')).toBeVisible({ timeout: 10_000 });
-  expect(await readStorage(ext.context, ext.extensionId, SITE_THREAD_KEY)).toBeNull();
-  expect(await readStorage(ext.context, ext.extensionId, CONV_INDEX_KEY)).toBeNull();
+  expect(await readStorage(ext.context, ext.extensionId, SITE_THREAD_KEY)).not.toBeNull();
+  await options.close();
+  // Empty tombstones keep an open panel from writing an older conversation back.
+  await expect
+    .poll(
+      async () =>
+        (await readStorage<{ turns: unknown[] }>(ext.context, ext.extensionId, SITE_THREAD_KEY))
+          ?.turns,
+    )
+    .toEqual([]);
   timeline.markStep('all-cleared');
 
   timeline.report();
-  await options.close();
   await panel.close();
 });

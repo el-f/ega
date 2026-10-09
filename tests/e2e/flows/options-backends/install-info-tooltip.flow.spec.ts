@@ -32,7 +32,7 @@ test('the (i) on the native card explains the install in two sentences', async (
   timeline.markStep('card-open');
 
   // A real button: it takes focus and has a name.
-  const info = card.getByRole('button', { name: 'About the native host install' });
+  const info = card.getByRole('button', { name: 'About the Claude Code or Codex connection' });
   await expect(info).toBeVisible({ timeout: 5_000 });
   const bubble = page.locator('[data-ega-infotip-text]');
   await info.focus();
