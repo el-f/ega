@@ -38,15 +38,7 @@ export function defaultTaskName(
   return t !== null ? TASK_LABELS[t] : (customs.find((c) => c.id === id)?.label ?? null);
 }
 
-/** The tasks the vision arm can run; every other task falls back to translate when an image is attached. */
-export const IMAGE_TASKS = ['translate', 'explain'] as const satisfies readonly Task[];
-/** A task that can read an image. Derived from IMAGE_TASKS, so a third one reaches every site that names it. */
-export type ImageTask = (typeof IMAGE_TASKS)[number];
-export function isImageTask(task: Task): task is ImageTask {
-  return (IMAGE_TASKS as readonly Task[]).includes(task);
-}
-
-/** Tone applies to reword only; default 'neutral'. */
+/** Tone fills any prompt's {{tone}} slot; default 'neutral'. */
 export const ALL_TONES = ['formal', 'casual', 'neutral', 'polite', 'blunt'] as const;
 export type Tone = (typeof ALL_TONES)[number];
 

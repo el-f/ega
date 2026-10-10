@@ -90,7 +90,9 @@ export async function installContextMenus(opts: { skipIfBuilt?: boolean } = {}):
     // Ids are minted against the full list, as the click handler does; an item whose task is off or gone,
     // and the picker item while the picker is off, are then left out instead of showing as dead entries.
     const items = withEncodedMenuIds(s.contextMenuItems).filter((i) => {
-      if (i.kind === 'task' || i.kind === 'image-task') return on.has(i.task);
+      if (i.kind === 'image-task')
+        return views.some((v) => v.id === i.task && v.image && !v.disabled);
+      if (i.kind === 'task') return on.has(i.task);
       return i.kind !== 'pick-element' || s.pickerEnabled;
     });
     const nodes = buildMenuTree(items, (i) => menuItemName(i, lookup));

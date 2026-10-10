@@ -75,7 +75,7 @@ import { isSafeRenderImageSrc } from '@/shared/image-url-guard';
 import { uuid } from '@/shared/uuid';
 import { IMAGE_TURN_PLACEHOLDER } from '@/shared/constants';
 import type { LangSelection, PageContext, TranslationChunk } from '@/shared/types';
-import type { ImageTask, Tone } from '@/shared/task-prompts';
+import type { Tone } from '@/shared/task-prompts';
 import type { TaskId } from '@/shared/task-view';
 
 interface DispatchInput {
@@ -198,7 +198,7 @@ export interface ConversationContainer {
     requestId: string,
     imageUrl: string,
     dispatch?: TurnDispatch,
-    task?: ImageTask,
+    task?: TaskId,
   ) => void;
   /** Land a tooltip payload as a completed exchange — no dispatch. */
   seedDeliveredTurn: (input: {
@@ -1002,7 +1002,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     requestId: string,
     imageUrl: string,
     dispatch?: TurnDispatch,
-    task: ImageTask = 'translate',
+    task: TaskId = 'translate',
   ): void {
     // The worker both broadcasts and queues a seed, so a panel mounting mid-stream hears it twice.
     if (ownedRequests.has(requestId)) return;
@@ -1012,11 +1012,15 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     const assistantId = uuid();
     const safeImg = safeImageSrc(imageUrl);
     // Explain-with-image carries the image under kind 'explain'; only the OCR arm is 'image-translate'.
-    const kind: TurnKind = task === 'explain' ? 'explain' : 'image-translate';
+    const custom = task !== 'translate' && task !== 'explain';
+    const taskIdentity = custom ? { taskId: task } : {};
+    const kind: TurnKind =
+      task === 'explain' ? 'explain' : custom ? 'translate' : 'image-translate';
     const userTurns = addUserTurnPure(state.turns, {
       id: userId,
       kind,
       content: IMAGE_TURN_PLACEHOLDER,
+      ...taskIdentity,
       ...(safeImg ? { imageDataUrl: safeImg } : {}),
       // No safe image means nothing to replay, so a Retry would send the bare "[image]" marker.
       ...(safeImg && dispatch ? { dispatch } : {}),
@@ -1027,6 +1031,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
           id: assistantId,
           kind,
           attachedToTurnId: userId,
+          ...taskIdentity,
         }),
       'debounce',
     );

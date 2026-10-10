@@ -1,7 +1,6 @@
 /** Pure model and tree builder for the right-click menu. No chrome.* calls, so the background owns registration. */
 import type { TaskId } from './task-view';
 import type { LangSelection } from './types';
-import type { ImageTask } from './task-prompts';
 
 export type MenuSurface = 'tooltip' | 'sidepanel';
 
@@ -22,7 +21,7 @@ export type ContextMenuItem =
       enabled: boolean;
       order: number;
       label: string;
-      task: ImageTask;
+      task: TaskId;
       surface: MenuSurface;
     }
   | {

@@ -38,6 +38,50 @@ function sentKinds(sendToTab: Mock): string[] {
 }
 
 describe('dispatchImageTranslate tooltip surface — pending message', () => {
+  it('passes a custom task through vision and preserves the completed answer snapshot', async () => {
+    const sendToTab = vi.fn();
+    const answer = {
+      spec: {
+        id: 'custom:c-image',
+        version: 1,
+        join: 'after-build' as const,
+        fields: [
+          {
+            key: 'answer',
+            label: 'Objects',
+            kind: 'list' as const,
+            role: 'main' as const,
+            required: true,
+          },
+        ],
+      },
+      fields: { answer: ['A cat'] },
+    };
+    const handleImageTranslate = vi.fn<
+      ImageTranslateDispatchDeps['router']['handleImageTranslate']
+    >(async (_req, emit) => {
+      emit({
+        type: 'done',
+        requestId: 'req-1',
+        text: 'A cat',
+        answer,
+        notes: [{ key: 'reason', label: 'Reason', text: 'Seen' }],
+      });
+    });
+    await dispatchImageTranslate(
+      baseDeps({
+        task: 'c-image',
+        sendToTab,
+        router: { handleImageTranslate, handleImageExplain: vi.fn(async () => {}) },
+      }),
+    );
+    expect(handleImageTranslate.mock.calls[0]?.[0]).toMatchObject({ task: 'c-image' });
+    expect(sendToTab.mock.calls.at(-1)?.[1]).toMatchObject({
+      task: 'c-image',
+      answer,
+      notes: [{ label: 'Reason' }],
+    });
+  });
   it('sends content:image-translate-pending before the vision call starts', async () => {
     const order: string[] = [];
     const sendToTab = vi.fn((_tabId: number, msg: Msg) => {

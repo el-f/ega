@@ -1,3 +1,4 @@
+import type { TaskId } from '@/shared/task-view';
 import { isPromptTemplateCustomised } from '@/shared/prompt-defaults';
 import type {
   BackendId,
@@ -49,7 +50,7 @@ import { trackInflight } from './swKeepalive';
 import { pushAuditEntry, type AuditSurface } from '@/shared/audit-log';
 import { resolveModelId, type CustomTask } from '@/shared/settings-schema';
 import { omitUndef } from '@/shared/utils/omitUndef';
-import type { ImageTask, Task } from '@/shared/task-prompts';
+import type { Task } from '@/shared/task-prompts';
 import { createTranslateFsm } from './router-fsm';
 import { runTranslateAttempt } from './router-attempt';
 import { hasConflictingFormat } from '@/shared/backends/structured-output';
@@ -93,6 +94,7 @@ export interface RouterDeps {
 export interface ImageMenuRequest {
   id: string;
   imageUrl: string;
+  task?: TaskId;
   /** Caption or notes beside the image. */
   text?: string;
   context?: PageContext;
@@ -377,6 +379,13 @@ export function createRouter(deps: RouterDeps) {
 
     // Only a task that takes images reads one; any other task ignores a carried-over one.
     const imageUrl = req.options.imageUrl;
+    if (meta.requireVision && !ctx.view.image) {
+      failWithoutBackend(
+        'UNSUPPORTED',
+        'This task does not read images. Turn on Reads images in Settings → Tasks.',
+      );
+      return;
+    }
     let visionChain: TranslationBackend[] = [];
     if (imageUrl !== undefined && ctx.view.image) {
       visionChain = boundedChain(await resolveBackends(s, cfg, 'translateImage'), s).filter(
@@ -671,7 +680,7 @@ export function createRouter(deps: RouterDeps) {
   /** The one translator from a menu click to the request shape the text path already runs. */
   async function imageMenuRequest(
     req: ImageMenuRequest,
-    task: ImageTask,
+    task: TaskId,
   ): Promise<TranslationRequest> {
     const targetLang = req.targetLang ?? String((await deps.getSettings()).defaultTargetLang);
     return {
@@ -683,7 +692,7 @@ export function createRouter(deps: RouterDeps) {
       options: {
         stream: false,
         explain: task === 'explain',
-        ...(task === 'explain' ? { task } : {}),
+        task,
         imageUrl: req.imageUrl,
       },
     };
@@ -694,7 +703,9 @@ export function createRouter(deps: RouterDeps) {
     onChunkRaw: (c: TranslationChunk) => void,
   ): Promise<void> {
     await withTerminalGuard(req.id, onChunkRaw, async (emit) =>
-      runTranslate(await imageMenuRequest(req, 'translate'), emit, { requireVision: true }),
+      runTranslate(await imageMenuRequest(req, req.task ?? 'translate'), emit, {
+        requireVision: true,
+      }),
     );
   }
 

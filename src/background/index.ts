@@ -44,7 +44,6 @@ import { getPerfEntries } from '@/shared/perf-history';
 import { openOptionsTab } from '@/shared/open-options-tab';
 import { defaultProbe } from '@/shared/translate-ui';
 import { CONTENT_MIRRORED_KEYS } from '@/shared/stored-changes';
-import type { ImageTask } from '@/shared/task-prompts';
 
 const logger = createLogger('bg');
 
@@ -735,8 +734,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
         const tabId = tab.id;
         const srcUrl = info.srcUrl;
         // A sidepanel-surface item already opened the panel synchronously above, inside the gesture window.
-        const imgTask: ImageTask | undefined =
-          action.task === 'translate' || action.task === 'explain' ? action.task : undefined;
+        const imgTask = action.task;
         await dispatchImageTranslate({
           tabId,
           imageUrl: srcUrl,

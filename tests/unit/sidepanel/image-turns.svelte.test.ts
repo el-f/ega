@@ -6,7 +6,8 @@ import { openMenu } from './_reply';
 import InputRow from '@/sidepanel/conversation/InputRow.svelte';
 import { composerProps } from './_composer';
 import { toastStore } from '@/shared/components/toastStore';
-import { IMAGE_TASKS, isImageTask } from '@/shared/task-prompts';
+import { materializeTasks } from '@/shared/task-view';
+import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import type { Turn } from '@/sidepanel/state/conversation';
 
 afterEach(() => {
@@ -66,9 +67,11 @@ describe('the Refine menu and image turns', () => {
 
 describe('the one list of tasks an image can run', () => {
   it('is translate and explain', () => {
-    expect([...IMAGE_TASKS]).toEqual(['translate', 'explain']);
-    expect(isImageTask('explain')).toBe(true);
-    expect(isImageTask('summarize')).toBe(false);
+    expect(
+      materializeTasks(DEFAULT_SETTINGS, [])
+        .filter((v) => v.image)
+        .map((v) => v.id),
+    ).toEqual(['translate', 'explain']);
   });
 });
 

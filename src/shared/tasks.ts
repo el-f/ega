@@ -214,7 +214,7 @@ export interface DeletedCustomTask {
 }
 
 const runsTask = (id: string) => (i: ContextMenuItem) =>
-  i.kind === 'task' && (i.task as string) === id;
+  (i.kind === 'task' || i.kind === 'image-task') && i.task === id;
 
 /** Removes the row, then the right-click items that run it and its on/off and default marks. Rules keep the id and stop applying. */
 export async function deleteCustomTask(
