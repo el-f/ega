@@ -46,6 +46,25 @@ describe('ERROR_COPY rows', () => {
 });
 
 describe('errorCopy', () => {
+  it('a deleted task names the missing task and offers no repeat of the failing request', () => {
+    expect(errorCopy('REQUEST', 'This task no longer exists. Pick another task.')).toMatchObject({
+      title: 'Task deleted',
+      body: 'This task was deleted. Pick another task.',
+      actions: [],
+    });
+  });
+  it('a task that is off points to Tasks without a retry', () => {
+    expect(
+      errorCopy(
+        'REQUEST',
+        'This task is turned off. Turn it on in Settings → Tasks, or pick another task.',
+      ),
+    ).toMatchObject({
+      title: 'Task turned off',
+      actions: ['open-settings'],
+      tab: 'tasks',
+    });
+  });
   it.each([...ALL_ERR_CODES.filter((c) => c !== 'ABORTED'), 'EMPTY'])(
     '%s never shows the raw provider text outside Details',
     (code) => {

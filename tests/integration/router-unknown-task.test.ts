@@ -10,6 +10,56 @@ import type { Task } from '@/shared/task-prompts';
 import type { TranslationChunk } from '@/shared/types';
 
 describe('router — a task this build cannot run', () => {
+  it.each(['summarize', 'c-off'])(
+    'refuses a turned-off task %s before contacting a backend',
+    async (task) => {
+      const translate = vi.fn();
+      const backend: TranslationBackend = {
+        id: asBackendIdUnsafe('anthropic'),
+        manifest: testManifest('anthropic'),
+        isAvailable: async () => true,
+        translate,
+      };
+      const chunks: TranslationChunk[] = [];
+      await createRouter(
+        baseDeps({
+          backends: [backend],
+          getSettings: async () => mkSettings({ disabledTasks: [task] }),
+          getCustomTasks: async () => [
+            {
+              id: 'c-off',
+              label: 'Off',
+              system: '',
+              user: '{{text}}',
+              output: 'plain',
+              pageContext: false,
+              image: false,
+              glossary: false,
+              createdAt: 1,
+            },
+          ],
+        }),
+      ).handleTranslate(
+        {
+          id: 'off',
+          text: 'hello',
+          sourceLang: sel('en'),
+          targetLang: sel('ar'),
+          options: { stream: false, explain: false, task },
+        },
+        (c) => chunks.push(c),
+      );
+      expect(chunks).toEqual([
+        {
+          type: 'error',
+          requestId: 'off',
+          code: 'REQUEST',
+          message: 'This task is turned off. Turn it on in Settings → Tasks, or pick another task.',
+        },
+      ]);
+      expect(translate).not.toHaveBeenCalled();
+    },
+  );
   it('answers with a request error that points at no setting, and calls no backend', async () => {
     const translate = vi.fn();
     const backend: TranslationBackend = {

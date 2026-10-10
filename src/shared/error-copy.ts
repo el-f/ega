@@ -11,6 +11,8 @@ export type ErrorCopyId =
   | 'REQUEST_MODEL'
   | 'REQUEST_TOO_LONG'
   | 'REQUEST_MAX_TOKENS'
+  | 'REQUEST_TASK_GONE'
+  | 'REQUEST_TASK_OFF'
   | 'REQUEST'
   | 'IMAGE_UNKNOWN'
   | 'EMPTY';
@@ -77,6 +79,17 @@ export const ERROR_COPY: Readonly<Record<ErrorCopyId, CopyRow>> = {
     title: 'Request rejected',
     body: '{Backend} refused this request.',
     actions: ['try-again', 'open-settings'],
+  },
+  REQUEST_TASK_GONE: {
+    title: 'Task deleted',
+    body: 'This task was deleted. Pick another task.',
+    actions: [],
+  },
+  REQUEST_TASK_OFF: {
+    title: 'Task turned off',
+    body: 'This task is turned off. Turn it on in Settings, or pick another task.',
+    actions: ['open-settings'],
+    tab: 'tasks',
   },
   NATIVE_NOT_INSTALLED: {
     title: 'Helper app missing',
@@ -163,6 +176,8 @@ function requestRow(message: string): ErrorCopyId {
     .split('\n')
     .filter((line) => !/\bHTTP \d{3}\b/.test(line))
     .join('\n');
+  if (advice.startsWith('This task no longer exists.')) return 'REQUEST_TASK_GONE';
+  if (advice.startsWith('This task is turned off.')) return 'REQUEST_TASK_OFF';
   if (/max-tokens limit/i.test(advice)) return 'REQUEST_MAX_TOKENS';
   if (/does not know this model/i.test(advice)) return 'REQUEST_MODEL';
   if (/too long|select less text/i.test(advice)) return 'REQUEST_TOO_LONG';

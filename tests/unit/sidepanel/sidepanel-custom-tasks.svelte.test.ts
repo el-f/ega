@@ -11,6 +11,7 @@ import { chromeMock } from '@tests/mocks/chrome';
 import type { Msg } from '@/shared/messages';
 import { flushAsync } from '@tests/_helpers/async';
 import { openModePopover } from './_composer';
+import { updateSettings } from '@/shared/storage';
 
 const sendMessage = chrome.runtime.sendMessage as Mock;
 const row = (id: string, label: string, createdAt: number) => ({
@@ -45,6 +46,54 @@ afterEach(() => {
 });
 
 describe('SidePanel custom tasks', () => {
+  it.each(['deleted', 'off'] as const)(
+    'resets an unavailable composer task (%s) to the runnable default',
+    async (change) => {
+      await updateSettings({ defaultTask: 'summarize' });
+      const { container } = render(SidePanel);
+      await waitFor(async () => {
+        await openModePopover(container);
+        const chip = container.querySelector<HTMLElement>('[data-ega-task="c-tweet"]');
+        if (!chip) throw new Error('no chip');
+        await fireEvent.click(chip);
+        await flushAsync();
+        expect(chip.getAttribute('aria-checked')).toBe('true');
+      });
+      if (change === 'deleted') {
+        await chrome.storage.local.set({ [STORAGE_KEYS.customTasks]: [] });
+        await waitFor(() => {
+          chromeMock.storage.local._fire({
+            [STORAGE_KEYS.customTasks]: { oldValue: [], newValue: [] },
+          });
+          expect(container.querySelector('[data-ega-mode-chip]')?.textContent).toContain(
+            'Summarize',
+          );
+        });
+      } else {
+        await updateSettings({ disabledTasks: ['c-tweet'] });
+        await waitFor(() =>
+          expect(container.querySelector('[data-ega-mode-chip]')?.textContent).toContain(
+            'Summarize',
+          ),
+        );
+      }
+      const text = container.querySelector<HTMLTextAreaElement>('#sp-text');
+      if (!text) throw new Error('no composer');
+      await fireEvent.input(text, { target: { value: 'a long thread' } });
+      await fireEvent.click(container.querySelector('.ega-send') as HTMLElement);
+      await waitFor(() => expect(starts()).toHaveLength(1));
+      expect(starts()[0]?.options.task).toBe('summarize');
+    },
+  );
+  it('hides Explain selection when Explain is turned off', async () => {
+    await updateSettings({ disabledTasks: ['explain'], anthropicApiKey: 'test-key' });
+    const { container } = render(SidePanel);
+    await flushAsync();
+    await waitFor(() =>
+      expect(container.querySelector('[data-ega-suggestion="translate-selection"]')).not.toBeNull(),
+    );
+    expect(container.querySelector('[data-ega-suggestion="explain-selection"]')).toBeNull();
+  });
   it('lists a custom task, and a new row appears when ega.customTasks changes', async () => {
     const { container } = render(SidePanel);
     await openModePopover(container);

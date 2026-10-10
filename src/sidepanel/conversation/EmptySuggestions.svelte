@@ -9,12 +9,13 @@
   interface Props {
     /** False when no backend is ready; null while the check runs, which shows the normal state. */
     backendReady: boolean | null;
+    explainEnabled?: boolean;
     /** Absent: the line shows without the suggestion buttons. */
     onSuggestion?: ((kind: SuggestionKind) => Promise<SuggestionResult>) | undefined;
     onSetUpBackend: () => void;
   }
 
-  const { backendReady, onSuggestion, onSetUpBackend }: Props = $props();
+  const { backendReady, explainEnabled = true, onSuggestion, onSetUpBackend }: Props = $props();
 
   let status = $state('');
 
@@ -22,6 +23,7 @@
     'no-selection': 'Select some text on the page first.',
     unreadable: "Ega can't read this tab.",
     page: 'Translating the page in the tab',
+    'task-off': 'This task is turned off. Pick another task.',
   };
 
   async function run(kind: SuggestionKind): Promise<void> {
@@ -44,17 +46,21 @@
     <p class="ega-empty-sub">Add an API key, or connect Ollama or Claude Code.</p>
     <Button variant="primary" size="sm" onclick={onSetUpBackend}>Set up a backend</Button>
   {:else}
-    <p class="ega-empty-line">Translate or explain text on this page</p>
+    <p class="ega-empty-line">
+      {explainEnabled ? 'Translate or explain text on this page' : 'Translate text on this page'}
+    </p>
     {#if onSuggestion}
       <div class="ega-empty-actions">
         {#each SUGGESTIONS as s (s.kind)}
-          <Button
-            variant="secondary"
-            size="sm"
-            leadingIcon={s.icon}
-            dataAttrs={{ 'data-ega-suggestion': s.kind }}
-            onclick={() => void run(s.kind)}>{s.label}</Button
-          >
+          {#if s.kind !== 'explain-selection' || explainEnabled}
+            <Button
+              variant="secondary"
+              size="sm"
+              leadingIcon={s.icon}
+              dataAttrs={{ 'data-ega-suggestion': s.kind }}
+              onclick={() => void run(s.kind)}>{s.label}</Button
+            >
+          {/if}
         {/each}
       </div>
       <p class="ega-empty-status" role="status">{status}</p>

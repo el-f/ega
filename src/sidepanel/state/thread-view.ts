@@ -18,7 +18,7 @@ export type ComposerMode =
 /** The empty panel's three suggestions. */
 export type SuggestionKind = 'translate-selection' | 'explain-selection' | 'translate-page';
 /** What a suggestion did, so the line under the buttons can say it. */
-export type SuggestionResult = 'sent' | 'no-selection' | 'unreadable' | 'page';
+export type SuggestionResult = 'sent' | 'no-selection' | 'unreadable' | 'page' | 'task-off';
 
 /** A message this long after the one before it gets a day/time line above it. */
 export const SEPARATOR_GAP_MS = 30 * MINUTE;

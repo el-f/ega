@@ -39,6 +39,7 @@ import {
   rendersPageContext,
   targetLabelFor,
   UnknownTaskError,
+  DisabledTaskError,
   type TranslateCtx,
 } from './router-context';
 import { withTranslateLifecycle, LifecycleCeilingError } from './router-lifecycle';
@@ -221,13 +222,15 @@ export function createRouter(deps: RouterDeps) {
     try {
       ctx = await resolveTranslateContext(req, onChunkRaw);
     } catch (e) {
-      if (!(e instanceof UnknownTaskError)) throw e;
-      // REQUEST carries no settings tab: no setting brings a deleted task back.
+      if (!(e instanceof UnknownTaskError) && !(e instanceof DisabledTaskError)) throw e;
       onChunkRaw({
         type: 'error',
         requestId: req.id,
         code: 'REQUEST',
-        message: UNKNOWN_TASK_MESSAGE,
+        message:
+          e instanceof DisabledTaskError
+            ? 'This task is turned off. Turn it on in Settings → Tasks, or pick another task.'
+            : UNKNOWN_TASK_MESSAGE,
       });
       return;
     }

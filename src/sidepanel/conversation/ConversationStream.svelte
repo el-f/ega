@@ -515,7 +515,12 @@
   <!-- Outside role=log on purpose: a status inside it would nest one polite region in another. -->
   <div class="ega-empty-shell">
     {#if loaded && onSetUpBackend}
-      <EmptySuggestions {backendReady} {onSuggestion} {onSetUpBackend} />
+      <EmptySuggestions
+        {backendReady}
+        {onSuggestion}
+        {onSetUpBackend}
+        explainEnabled={taskViews.some((view) => view.id === 'explain' && !view.disabled)}
+      />
     {/if}
   </div>
 {:else}

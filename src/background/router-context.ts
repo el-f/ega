@@ -107,6 +107,7 @@ export interface ContextDeps {
 
 /** The request names a task no built-in or custom row has: a deleted custom task, or a hand-made message. */
 export class UnknownTaskError extends Error {}
+export class DisabledTaskError extends Error {}
 
 /** Turns one request plus the current settings into everything downstream
  *  needs: the prompt inputs, the wall-clock budget, and the cache key. */
@@ -134,6 +135,7 @@ export function createContextResolver(deps: ContextDeps) {
     if (custom === undefined && builtInTask(requestedTask) === null) throw new UnknownTaskError();
     const builtIn: Task = builtInTask(requestedTask) ?? 'translate';
     const view = findTask(s, customTasks, requestedTask) ?? builtInTaskView(s, builtIn);
+    if (view.disabled) throw new DisabledTaskError();
     const cfg = buildBackendConfig(s, custom ? undefined : builtIn, custom?.effort);
     const translateTimeoutMs = s.translateTimeoutMs ?? deps.fallbackTranslateTimeoutMs;
     const onChunk = wrapOnChunkForStreamingFlush(

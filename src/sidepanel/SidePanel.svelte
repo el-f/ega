@@ -155,6 +155,8 @@
   let settings = $state<Settings | null>(null);
   // Custom task rows live in their own storage key; the panel re-reads them when they change.
   let customTasks = $state<CustomTask[]>([]);
+  let customTasksLoaded = false;
+  let customTasksRead = 0;
   const taskViews = $derived(settings ? materializeTasks(settings, customTasks) : undefined);
   function taskTakesImage(id: TaskId): boolean {
     return taskViews?.find((v) => v.id === id)?.image ?? (id === 'translate' || id === 'explain');
@@ -169,11 +171,24 @@
       (settings ? taskUsesTone(settings, customTasks, task, sourceLang) : task === 'reword'),
   );
   function loadCustomTasks(): void {
+    const read = ++customTasksRead;
     void getCustomTasks()
       .then((rows) => {
+        if (read !== customTasksRead) return;
         customTasks = rows;
+        customTasksLoaded = true;
+        resetUnavailableTask();
       })
       .catch((e: unknown) => debugCatch(e, 'sidepanel.loadCustomTasks'));
+  }
+  function resetUnavailableTask(): void {
+    if (!settings) return;
+    // A stored custom default is valid until the first task read can actually check it.
+    if (!customTasksLoaded && builtInTask(task) === null) return;
+    const current = findTask(settings, customTasks, task);
+    if (current && !current.disabled) return;
+    const fallback = findTask(settings, customTasks, runnableDefaultTask(settings));
+    task = fallback && !fallback.disabled ? fallback.id : 'translate';
   }
   let settingsUnsub: (() => void) | null = null;
   // Resolved after mount; undefined until then, and every window check fails open on undefined.
@@ -374,6 +389,8 @@
 
   /** The empty panel's suggestions: send the page's selection, or start whole-page translate in the tab. */
   async function onSuggestion(kind: SuggestionKind): Promise<SuggestionResult> {
+    if (kind === 'explain-selection' && settings?.disabledTasks.includes('explain'))
+      return 'task-off';
     const tabId = await activeTabId();
     if (tabId === undefined) return 'unreadable';
     if (kind === 'translate-page') {
@@ -925,6 +942,7 @@
       sourceLang = s.defaultLang;
       targetLang = s.defaultTargetLang;
       task = runnableDefaultTask(s);
+      resetUnavailableTask();
       tone = s.defaultTone;
     } catch (e) {
       debugCatch(e, 'sidepanel.onMount.getSettings');
@@ -1018,6 +1036,7 @@
    *  field a second window can silently overwrite. */
   function applySettings(s: Settings): void {
     settings = s;
+    resetUnavailableTask();
     themePref = s.theme;
     streamingPref = s.streaming !== false;
     pageContextLevel = s.pageContextLevel;
