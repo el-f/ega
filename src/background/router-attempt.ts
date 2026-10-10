@@ -41,6 +41,7 @@ export interface AttemptDeps {
   system: string;
   user: string;
   answerSpec?: AnswerSpec;
+  answerFormatAllowed?: boolean;
   /** A custom or edited task can fix its format on the Tasks tab. */
   formatSettings?: boolean;
   history?: ChatTurn[];
@@ -101,6 +102,7 @@ export async function runTranslateAttempt(
     system,
     user,
     answerSpec = answerSpecFor('translate'),
+    answerFormatAllowed = true,
     formatSettings = false,
     history,
     image,
@@ -117,6 +119,16 @@ export async function runTranslateAttempt(
   let sawTransientError = false;
   let sawDeltas = false;
   const attemptState = { retryFormatError: false, ended: false };
+  const formatCheck = { accepted: false };
+  const answerFormat = answerFormatAllowed
+    ? {
+        spec: answerSpec,
+        explain: reqOptions.explain,
+        onAccepted: () => {
+          formatCheck.accepted = true;
+        },
+      }
+    : undefined;
   const projector = createAnswerProjector(answerSpec, { explain: reqOptions.explain });
   const attemptStart = performance.now();
   // Every backend's deltas pass here, so stripping `<think>` once covers the visible stream and the cached final text.
@@ -182,7 +194,7 @@ export async function runTranslateAttempt(
           : answer.issues;
       const answerFormat: ResultMeta['answerFormat'] = {
         spec: `${answerSpec.id}@${answerSpec.version}`,
-        checkedBy: 'prompt',
+        checkedBy: formatCheck.accepted ? 'backend' : 'prompt',
         ...(issues.length ? { issues } : {}),
       };
       const doneAt = performance.now();
@@ -251,6 +263,7 @@ export async function runTranslateAttempt(
             system,
             user,
             onChunk: handleChunk,
+            ...(answerFormat ? { answerFormat } : {}),
           })
         : Promise.reject(new Error(`${backend.id} cannot read images`))
       : backend.translate({
@@ -262,6 +275,7 @@ export async function runTranslateAttempt(
           cancel,
           config: cfg,
           onChunk: handleChunk,
+          ...(answerFormat ? { answerFormat } : {}),
         });
     await Promise.race([call, abortRace]);
   } catch (err) {

@@ -22,7 +22,7 @@ const STORE_KEY = 'ega.openrouterReasoning';
 const TTL_MS = 12 * 60 * 60_000;
 const FAILED_TTL_MS = 5 * 60_000;
 
-type Stored = { at: number; map: ReasoningMap } | { failedAt: number };
+type Stored = { at: number; map: ReasoningMap; schemas?: readonly string[] } | { failedAt: number };
 
 let memo: Stored | null = null;
 let inFlight: Promise<ReasoningMap | null> | null = null;
@@ -88,8 +88,21 @@ async function loadMap(timeoutMs: number): Promise<ReasoningMap | null> {
   try {
     const res = await fetch(LIST_URL, { signal: AbortSignal.timeout(timeoutMs) });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const map = parseOpenRouterModels(await res.json());
-    remember({ at: Date.now(), map });
+    const body = (await res.json()) as {
+      data?: Array<{ id?: unknown; supported_parameters?: unknown }>;
+    };
+    const map = parseOpenRouterModels(body);
+    const schemas = Array.isArray(body.data)
+      ? body.data
+          .filter(
+            (row) =>
+              typeof row.id === 'string' &&
+              Array.isArray(row.supported_parameters) &&
+              row.supported_parameters.includes('structured_outputs'),
+          )
+          .map((row) => row.id as string)
+      : [];
+    remember({ at: Date.now(), map, schemas });
     return map;
   } catch {
     remember({ failedAt: Date.now() });
@@ -117,6 +130,13 @@ export async function fetchOpenRouterReasoning(
 export function resetOpenRouterReasoningForTest(): void {
   memo = null;
   inFlight = null;
+}
+
+/** Reuses the reasoning list; old session records conservatively omit schema support. */
+export async function fetchOpenRouterSchema(model: string, timeoutMs: number): Promise<boolean> {
+  await fetchOpenRouterReasoning(model, timeoutMs);
+  const schemas = memo && 'map' in memo ? memo.schemas : undefined;
+  return [model, model.replace(/:[^/:]*$/, '')].some((id) => schemas?.includes(id) === true);
 }
 
 const NAMED: readonly EffortLevel[] = ['low', 'medium', 'high'];

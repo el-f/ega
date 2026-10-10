@@ -55,6 +55,7 @@ import { omitUndef } from '@/shared/utils/omitUndef';
 import type { ImageTask, Task } from '@/shared/task-prompts';
 import { createTranslateFsm } from './router-fsm';
 import { runTranslateAttempt } from './router-attempt';
+import { hasConflictingFormat } from '@/shared/backends/structured-output';
 import { createCancelToken, type CancelToken } from '@/shared/cancel-token';
 import {
   createTerminalLatch,
@@ -571,6 +572,8 @@ export function createRouter(deps: RouterDeps) {
                   system,
                   user,
                   answerSpec: imageArm === 'ocr' ? answerSpecFor('ocr') : ctx.answerSpec,
+                  answerFormatAllowed:
+                    imageArm === 'ocr' || !hasConflictingFormat(ctx.tpl, ctx.answerSpec),
                   formatSettings:
                     ctx.view.kind === 'custom' ||
                     ctx.view.hasOverrides ||

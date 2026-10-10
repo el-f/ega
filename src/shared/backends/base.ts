@@ -37,6 +37,12 @@ import {
 } from './stream-resilience';
 import { SseBufferOverflowError } from './sseParser';
 import { createThinkScrubber } from './think-scrubber';
+import {
+  rejectSchema,
+  schemaRejection,
+  type AnswerFormatRequest,
+  type SchemaFallback,
+} from './structured-output';
 
 /** Only canVision is read at runtime (image routing). */
 export interface CapabilityFlags {
@@ -73,6 +79,7 @@ export interface BackendConfig {
 }
 
 export interface TranslateCallArgs {
+  answerFormat?: AnswerFormatRequest;
   req: TranslationRequest;
   system: string;
   user: string;
@@ -86,6 +93,7 @@ export interface TranslateCallArgs {
 }
 
 export interface TranslateImageArgs {
+  answerFormat?: AnswerFormatRequest;
   imageBase64: string;
   mediaType: string;
   requestId: string;
@@ -268,6 +276,7 @@ export async function runStream(
 }
 
 export interface RunStreamingChatArgs extends RunStreamArgs {
+  schemaFallback?: SchemaFallback;
   url: string;
   headers: Record<string, string>;
   /** Fully built request body, including the provider's own `stream` flag. */
@@ -283,14 +292,27 @@ export interface RunStreamingChatArgs extends RunStreamArgs {
 
 async function* httpEvents(a: RunStreamingChatArgs): AsyncGenerator<StreamEvent> {
   const idle = idleAbort(a.signal);
-  const res = await fetch(a.url, {
-    method: 'POST',
-    signal: idle.signal,
-    headers: a.headers,
-    body: JSON.stringify(a.payload),
-  });
+  const post = (payload: Record<string, unknown>) =>
+    fetch(a.url, {
+      method: 'POST',
+      signal: idle.signal,
+      headers: a.headers,
+      body: JSON.stringify(payload),
+    });
+  let res = await post(a.payload);
+  let usedSchema = a.schemaFallback !== undefined;
+  let failedBody: string | undefined;
+  if (a.schemaFallback && !res.ok) {
+    failedBody = await res.text().catch(() => '');
+    if (schemaRejection(res.status, failedBody)) {
+      rejectSchema(a.schemaFallback.backend, a.schemaFallback.model);
+      usedSchema = false;
+      res = await post(a.schemaFallback.payload);
+      failedBody = undefined;
+    }
+  }
   if (!res.ok) {
-    const body = await res.text().catch(() => '');
+    const body = failedBody ?? (await res.text().catch(() => ''));
     const err = a.httpError?.(res, body) ?? {
       code: classifyHttpError(res.status, body),
       message: httpErrorMessage(a.label, res, body),
@@ -298,6 +320,7 @@ async function* httpEvents(a: RunStreamingChatArgs): AsyncGenerator<StreamEvent>
     yield { type: 'error', ...err, ...retryAfterFields(res) };
     return;
   }
+  if (usedSchema) a.schemaFallback?.onAccepted?.();
   if (a.stream && res.body) {
     try {
       yield* a.fromBytes(

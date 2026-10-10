@@ -17,6 +17,7 @@ import { resolveModelId } from '../settings-schema';
 import { iterSseDataPayloads } from './sseParser';
 import { emitMissingKeyError } from './transportError';
 import { resolveEffort, resolveSamplingSupport, withReasoningHeadroom } from './sampling-caps';
+import { structuredChatPayload, type AnswerFormatRequest } from './structured-output';
 
 const API = 'https://api.anthropic.com/v1/messages';
 const LABEL = getCloudProfile('anthropic').label;
@@ -156,11 +157,15 @@ export class AnthropicBackend implements TranslationBackend {
     stream: boolean,
     payload: Record<string, unknown>,
     onChunk: (c: TranslationChunk) => void,
+    answerFormat?: AnswerFormatRequest,
   ): Promise<void> {
     return runStreamingChat({
       url: API,
       headers: { 'content-type': 'application/json', ...authHeaders(key) },
-      payload: { ...payload, stream },
+      ...structuredChatPayload('anthropic', String(payload['model']), answerFormat, {
+        ...payload,
+        stream,
+      }),
       stream,
       label: LABEL,
       requestId,
@@ -203,6 +208,7 @@ export class AnthropicBackend implements TranslationBackend {
           : [{ role: 'user', content: a.user }],
       },
       a.onChunk,
+      a.answerFormat,
     );
   }
 
@@ -235,6 +241,7 @@ export class AnthropicBackend implements TranslationBackend {
         ],
       },
       a.onChunk,
+      a.answerFormat,
     );
   }
 

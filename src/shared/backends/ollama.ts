@@ -10,6 +10,7 @@ import {
 } from './base';
 import { DEFAULT_LOCAL_BACKEND_TIMEOUT_MS } from '../constants';
 import { resolveModelId } from '@/shared/settings-schema';
+import { structuredChatPayload, type AnswerFormatRequest } from './structured-output';
 import { iterNdjsonLines } from './sseParser';
 import { classifyHttpError, httpErrorMessage } from './transportError';
 import type { BackendId, ErrCode, TranslationChunk } from '../types';
@@ -168,6 +169,7 @@ export class OllamaBackend implements TranslationBackend {
     mode: 'text' | 'image',
     messages: unknown[],
     onChunk: (c: TranslationChunk) => void,
+    answerFormat?: AnswerFormatRequest,
   ): Promise<void> {
     const model = resolveModelId(config.model, 'ollama');
     const stream = mode === 'text';
@@ -181,7 +183,7 @@ export class OllamaBackend implements TranslationBackend {
     return runStreamingChat({
       url: `${baseUrl(config)}/api/chat`,
       headers: { 'content-type': 'application/json' },
-      payload: {
+      ...structuredChatPayload('ollama', model, answerFormat, {
         model,
         messages,
         stream,
@@ -200,8 +202,7 @@ export class OllamaBackend implements TranslationBackend {
           // One fixed size: a different num_ctx from the loaded runner reloads the model (~8 s here).
           num_ctx: numCtx,
         },
-        // No `format`: on Ollama 0.34.4 a JSON schema costs about the same per token, and free decode already returns valid JSON.
-      },
+      }),
       stream,
       label: 'Ollama',
       requestId,
@@ -226,6 +227,7 @@ export class OllamaBackend implements TranslationBackend {
         { role: 'user', content: a.user },
       ],
       a.onChunk,
+      a.answerFormat,
     );
   }
 
@@ -247,6 +249,7 @@ export class OllamaBackend implements TranslationBackend {
         },
       ],
       a.onChunk,
+      a.answerFormat,
     );
   }
 }

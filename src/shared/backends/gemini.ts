@@ -24,6 +24,7 @@ import {
 } from './sampling-caps';
 import { resolveModelId, type TaskEffort } from '../settings-schema';
 import type { ErrCode } from '../types';
+import { structuredChatPayload, type AnswerFormatRequest } from './structured-output';
 
 interface GeminiBody {
   candidates?: Array<{
@@ -204,12 +205,13 @@ export class GeminiBackend implements TranslationBackend {
     system: string,
     contents: unknown[],
     onChunk: (c: TranslationChunk) => void,
+    answerFormat?: AnswerFormatRequest,
   ): Promise<void> {
     const model = resolveModelId(config.model, 'gemini');
     return runStreamingChat({
       url: `${BASE_URL}/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`,
       headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
-      payload: {
+      ...structuredChatPayload('gemini', model, answerFormat, {
         systemInstruction: { parts: [{ text: system }] },
         contents,
         generationConfig: {
@@ -223,7 +225,7 @@ export class GeminiBackend implements TranslationBackend {
           responseMimeType: 'application/json',
           ...thinkingConfigFor(model, config.advanced.effort),
         },
-      },
+      }),
       stream: true,
       label: LABEL,
       requestId,
@@ -255,6 +257,7 @@ export class GeminiBackend implements TranslationBackend {
         { role: 'user', parts: [{ text: a.user }] },
       ],
       a.onChunk,
+      a.answerFormat,
     );
   }
 
@@ -280,6 +283,7 @@ export class GeminiBackend implements TranslationBackend {
         },
       ],
       a.onChunk,
+      a.answerFormat,
     );
   }
 

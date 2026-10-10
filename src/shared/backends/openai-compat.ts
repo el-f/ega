@@ -16,7 +16,12 @@ import type { BackendId, TranslationChunk } from '../types';
 import { asBackendIdUnsafe } from '../brands';
 import { getProfile, profileApiKey, type OpenAICompatProfile } from './provider-profiles';
 import { resolveEffort, resolveSamplingSupport, withReasoningHeadroom } from './sampling-caps';
-import { fetchOpenRouterReasoning, openRouterPlan } from './openrouter-reasoning';
+import {
+  fetchOpenRouterReasoning,
+  fetchOpenRouterSchema,
+  openRouterPlan,
+} from './openrouter-reasoning';
+import { structuredChatPayload, type AnswerFormatRequest } from './structured-output';
 import { resolveModelId } from '../settings-schema';
 import type { CancelToken } from '@/shared/cancel-token';
 
@@ -200,26 +205,38 @@ export class OpenAICompatBackend implements TranslationBackend {
   }
 
   /** The one chat-completions round trip: text and image differ only in the messages they build. */
-  private run(
+  private async run(
     requestId: string,
     cancel: CancelToken,
     key: string,
     stream: boolean,
     payload: Record<string, unknown>,
     onChunk: (c: TranslationChunk) => void,
+    answerFormat?: AnswerFormatRequest,
   ): Promise<void> {
+    const model = String(payload['model'] ?? '');
+    const listedSchema =
+      this.id === 'openrouter' && answerFormat !== undefined
+        ? await fetchOpenRouterSchema(model, OPENROUTER_LIST_TIMEOUT_MS)
+        : false;
     return runStreamingChat({
       url: this.profile.baseUrl,
       headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
-      payload: {
-        ...this.profile.extraBody,
-        ...payload,
-        stream,
-        // Streaming omits usage unless asked; the trailing empty-choices frame then carries it.
-        ...(stream && this.profile.streamUsage !== false
-          ? { stream_options: { include_usage: true } }
-          : {}),
-      },
+      ...structuredChatPayload(
+        this.id,
+        model,
+        answerFormat,
+        {
+          ...this.profile.extraBody,
+          ...payload,
+          stream,
+          // Streaming omits usage unless asked; the trailing empty-choices frame then carries it.
+          ...(stream && this.profile.streamUsage !== false
+            ? { stream_options: { include_usage: true } }
+            : {}),
+        },
+        listedSchema,
+      ),
       stream,
       label: this.profile.label,
       requestId,
@@ -252,6 +269,7 @@ export class OpenAICompatBackend implements TranslationBackend {
         ],
       },
       a.onChunk,
+      a.answerFormat,
     );
   }
 
@@ -287,6 +305,7 @@ export class OpenAICompatBackend implements TranslationBackend {
         ],
       },
       a.onChunk,
+      a.answerFormat,
     );
   }
 

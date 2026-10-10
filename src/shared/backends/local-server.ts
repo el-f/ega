@@ -10,6 +10,7 @@ import { DEFAULT_LOCAL_BACKEND_TIMEOUT_MS, DEFAULT_LOCAL_SERVER_URL } from '../c
 import { isLoopbackUrl } from '../loopback-url';
 import { debugCatch } from '../logger';
 import { lookupModelId } from '../settings-schema';
+import { structuredChatPayload, type AnswerFormatRequest } from './structured-output';
 import { isPlainObject } from '../settings-clamp';
 import { OCR_SYSTEM_PROMPT, OCR_USER_INSTRUCTION } from '../ocr-prompt';
 import { asBackendIdUnsafe } from '../brands';
@@ -156,6 +157,7 @@ export class LocalServerBackend implements TranslationBackend {
     image: boolean,
     messages: unknown[],
     onChunk: (c: TranslationChunk) => void,
+    answerFormat?: AnswerFormatRequest,
   ): Promise<void> {
     const base = localServerBaseUrl(cfg.localServerUrl);
     const model = await modelFor(cfg, base);
@@ -163,14 +165,14 @@ export class LocalServerBackend implements TranslationBackend {
     return runStreamingChat({
       url: `${base}/v1/chat/completions`,
       headers: { 'content-type': 'application/json' },
-      payload: {
+      ...structuredChatPayload('localserver', model, answerFormat, {
         ...(model ? { model } : {}),
         messages,
         stream,
         temperature: cfg.advanced.temperature,
         max_tokens: cfg.advanced.maxTokens,
         ...(stream ? { stream_options: { include_usage: true } } : {}),
-      },
+      }),
       stream,
       label,
       requestId,
@@ -199,10 +201,10 @@ export class LocalServerBackend implements TranslationBackend {
         { role: 'user', content: a.user },
       ],
       a.onChunk,
+      a.answerFormat,
     );
   }
 
-  // No response_format: LM Studio documents only json_schema there, and the OCR prompt already asks for JSON.
   translateImage(a: TranslateImageArgs): Promise<void> {
     return this.run(
       a.requestId,
@@ -224,6 +226,7 @@ export class LocalServerBackend implements TranslationBackend {
         },
       ],
       a.onChunk,
+      a.answerFormat,
     );
   }
 }
