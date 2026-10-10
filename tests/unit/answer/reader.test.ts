@@ -194,6 +194,18 @@ describe('visible answer projection', () => {
     expect(projector.push('123}')).toBeUndefined();
     expect(projector.finish()).toMatchObject({ kind: 'error', code: 'PARSE' });
   });
+  it('hides an envelope that arrives one character at a time after a prose preamble', () => {
+    const projector = createAnswerProjector(translate);
+    let visible = '';
+    const observed: string[] = [];
+    for (const ch of 'Here it is: {"translation":"Hello","confidence":0.9}') {
+      const delta = projector.push(ch);
+      if (delta) visible = delta.replace ? delta.text : visible + delta.text;
+      observed.push(visible);
+    }
+    expect(observed.every((text) => !/[{}"]/.test(text))).toBe(true);
+    expect(visible).toBe('Hello');
+  });
   it('keeps the final answer stable across random chunk boundaries and repairs', () => {
     fc.assert(
       fc.property(

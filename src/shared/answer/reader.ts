@@ -286,7 +286,11 @@ export function createAnswerProjector(
     push(delta) {
       raw += delta;
       const partial = scanner.feed(raw);
-      let next = partial ?? (/^\s*[[{`]/.test(raw) ? '' : raw);
+      // Hold a possible object after prose until its main field arrives. Otherwise a
+      // character-sized chunk can briefly show the envelope before the scanner sees its key.
+      const opening = raw.search(/[[{]/);
+      const pendingEnvelope = opening >= 0 && /^[[{]\s*(?:["[{]|$)/.test(raw.slice(opening));
+      let next = partial ?? (/^\s*[[{`]/.test(raw) ? '' : pendingEnvelope ? visible : raw);
       const tail = lastNonBlank(raw);
       if (tail === '}' || tail === ']' || tail === '`') {
         const answer = readAnswer(spec, raw, options);
