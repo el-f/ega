@@ -50,7 +50,7 @@ describe('Turn — multi-variant shape', () => {
       applyChunk(turns, 'a1', {
         type: 'delta',
         requestId: 'r',
-        text: '{"translation":"hello"}',
+        text: 'hello',
       });
       applyChunk(turns, 'a1', {
         type: 'done',
@@ -94,7 +94,7 @@ describe('Turn — multi-variant shape', () => {
       applyChunk(turns, 'a1', {
         type: 'delta',
         requestId: 'r',
-        text: '{"translation":"first"}',
+        text: 'first',
       });
       applyChunk(turns, 'a1', { type: 'done', requestId: 'r', confidence: 0.7 });
       // Add v2 (pending).
@@ -125,14 +125,13 @@ describe('Turn — multi-variant shape', () => {
         {
           type: 'delta',
           requestId: 'r',
-          text: '{"translation":"shrt"}',
+          text: 'shrt',
         },
-        undefined,
         'v2',
       );
       const a = added[1];
       // active variant is v2 → both v2 and top-level reflect the delta.
-      expect(a?.variants?.[1]?.rawAcc).toBe('{"translation":"shrt"}');
+      expect(a?.variants?.[1]?.content).toBe('shrt');
       expect(a?.variants?.[1]?.status).toBe('streaming');
       expect(a?.content).toBe('shrt');
       expect(a?.status).toBe('streaming');
@@ -144,7 +143,7 @@ describe('Turn — multi-variant shape', () => {
       applyChunk(turns, 'a1', {
         type: 'delta',
         requestId: 'r',
-        text: '{"translation":"v1-final"}',
+        text: 'v1-final',
       });
       applyChunk(turns, 'a1', { type: 'done', requestId: 'r', confidence: 0.9 });
       // Add v2 + push a delta into v2.
@@ -155,9 +154,8 @@ describe('Turn — multi-variant shape', () => {
         {
           type: 'delta',
           requestId: 'r2',
-          text: '{"translation":"v2-partial"}',
+          text: 'v2-partial',
         },
-        undefined,
         'v2',
       );
       // v1 unchanged.
@@ -172,9 +170,9 @@ describe('Turn — multi-variant shape', () => {
       const turns = seeded();
       applyChunk(turns, 'a1', { type: 'delta', requestId: 'r', text: 'plain' });
       // Mirrored onto the turn.
-      expect(turns[1]?.rawAcc).toBe('plain');
+      expect(turns[1]?.content).toBe('plain');
       // Written to the active variant v1.
-      expect(turns[1]?.variants?.[0]?.rawAcc).toBe('plain');
+      expect(turns[1]?.variants?.[0]?.content).toBe('plain');
     });
 
     it('cancel flips active variant to error with same payload as top-level', () => {
@@ -182,7 +180,7 @@ describe('Turn — multi-variant shape', () => {
       const turns = seeded();
       const added = addVariant(turns, 'a1', { id: 'v2', refinementBody: 'shorter' });
       // v2 has had one delta, so it's `streaming` not `pending`.
-      applyChunk(added, 'a1', { type: 'delta', requestId: 'r', text: 'x' }, undefined, 'v2');
+      applyChunk(added, 'a1', { type: 'delta', requestId: 'r', text: 'x' }, 'v2');
       cancel(added, 'a1');
       const a = added[1];
       expect(a?.status).toBe('error');
@@ -212,12 +210,17 @@ describe('Turn — multi-variant shape', () => {
       applyChunk(turns, 'a1', {
         type: 'delta',
         requestId: 'r1',
-        text: '{"translation":"hola","detectedLang":"es"}',
+        text: 'hola',
       });
-      applyChunk(turns, 'a1', { type: 'done', requestId: 'r1', confidence: 0.9 });
+      applyChunk(turns, 'a1', {
+        type: 'done',
+        requestId: 'r1',
+        confidence: 0.9,
+        detectedLang: 'es',
+      });
       // A delta with no detectedLang routed to v2 must not bring back v1's detectedLang.
       const added = addVariant(turns, 'a1', { id: 'v2' });
-      applyChunk(added, 'a1', { type: 'delta', requestId: 'r2', text: 'plain' }, undefined, 'v2');
+      applyChunk(added, 'a1', { type: 'delta', requestId: 'r2', text: 'plain' }, 'v2');
       const a = added[1];
       expect(a?.content).toBe('plain');
       expect(a?.detectedLang).toBeUndefined();
@@ -232,7 +235,7 @@ describe('Turn — multi-variant shape', () => {
       applyChunk(turns, 'a1', {
         type: 'delta',
         requestId: 'r1',
-        text: '{"translation":"v1-done"}',
+        text: 'v1-done',
       });
       applyChunk(turns, 'a1', { type: 'done', requestId: 'r1', confidence: 0.9 });
       // Add v2, push a streaming delta into it.
@@ -243,9 +246,8 @@ describe('Turn — multi-variant shape', () => {
         {
           type: 'delta',
           requestId: 'r2',
-          text: '{"translation":"v2-partial"}',
+          text: 'v2-partial',
         },
-        undefined,
         'v2',
       );
       expect(added[1]?.variants?.[1]?.status).toBe('streaming');
@@ -274,9 +276,8 @@ describe('Turn — multi-variant shape', () => {
         {
           type: 'delta',
           requestId: 'r',
-          text: '{"translation":"abc"}',
+          text: 'abc',
         },
-        undefined,
         'v2',
       );
       applyChunk(
@@ -287,7 +288,6 @@ describe('Turn — multi-variant shape', () => {
           requestId: 'r',
           confidence: 0.8,
         },
-        undefined,
         'v2',
       );
       expect(added[1]?.variants?.[1]?.status).toBe('done');

@@ -16,7 +16,7 @@ async function translateInPlace(id = 'r1'): Promise<void> {
   window.getSelection()?.removeAllRanges();
   window.getSelection()?.addRange(range);
   inline.openInline({ requestId: id, range, stuckTimeoutMs: STUCK_MS });
-  inline.appendInlineDelta(id, '{"translation":"Hello there"}');
+  inline.appendInlineDelta(id, 'Hello there');
   inline.finishInline(id);
 }
 
@@ -96,7 +96,7 @@ describe('inline replace — every replace offers Undo', () => {
     window.getSelection()?.removeAllRanges();
     window.getSelection()?.addRange(next);
 
-    inline.appendInlineDelta('r1', '{"translation":"Hello there"}');
+    inline.appendInlineDelta('r1', 'Hello there');
     inline.finishInline('r1');
 
     const sel = window.getSelection();

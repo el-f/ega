@@ -76,7 +76,7 @@ describe('page-translate-v2 — a second run over a settled batch', () => {
     const p = progress();
     const d = deps({ mountProgress: () => p.handle, dispatch });
     await enterAndFire(d, ['a']);
-    routePageV2Chunk({ type: 'delta', requestId: captured, text: '{"translation":"One."}' });
+    routePageV2Chunk({ type: 'delta', requestId: captured, text: 'One.' });
     routePageV2Chunk({ type: 'done', requestId: captured, confidence: 1 });
     expect(p.settle).toHaveBeenCalled();
     expect(isPageV2Active()).toBe(true);
@@ -140,7 +140,7 @@ describe('page-translate-v2 — a retried block joins the current page view', ()
     await flush();
     expect(dispatch).toHaveBeenCalledTimes(2);
     const retryId = seen[1] ?? '';
-    routePageV2Chunk({ type: 'delta', requestId: retryId, text: '{"translation":"Late."}' });
+    routePageV2Chunk({ type: 'delta', requestId: retryId, text: 'Late.' });
     routePageV2Chunk({ type: 'done', requestId: retryId, confidence: 1 });
 
     const wrapper = document.querySelector('[data-ega-replaced]') as HTMLElement;
@@ -352,7 +352,7 @@ describe('page-translate-v2 — the pill', () => {
       }),
     });
     await enterAndFire(d, ['a']);
-    routePageV2Chunk({ type: 'delta', requestId: ids[0] ?? '', text: '{"translation":"One."}' });
+    routePageV2Chunk({ type: 'delta', requestId: ids[0] ?? '', text: 'One.' });
     routePageV2Chunk({ type: 'done', requestId: ids[0] ?? '', confidence: 1 });
     await runPageTranslateV2(d);
     click('b');
@@ -360,7 +360,7 @@ describe('page-translate-v2 — the pill', () => {
     await flush();
     expect(ids).toHaveLength(2);
     expect(mounted).toBe(1);
-    routePageV2Chunk({ type: 'delta', requestId: ids[1] ?? '', text: '{"translation":"Two."}' });
+    routePageV2Chunk({ type: 'delta', requestId: ids[1] ?? '', text: 'Two.' });
     routePageV2Chunk({ type: 'done', requestId: ids[1] ?? '', confidence: 1 });
     expect(p.settle).toHaveBeenCalledTimes(2);
 
@@ -417,7 +417,7 @@ describe('page-translate-v2 — the pill', () => {
     click('b');
     pressEnter();
     await flush();
-    routePageV2Chunk({ type: 'delta', requestId: ids[1] ?? '', text: '{"translation":"Two."}' });
+    routePageV2Chunk({ type: 'delta', requestId: ids[1] ?? '', text: 'Two.' });
     routePageV2Chunk({ type: 'done', requestId: ids[1] ?? '', confidence: 1 });
     const wrapper = document.getElementById('b')?.querySelector('[data-ega-replaced]');
     expect(wrapper?.textContent).toBe('Two.');

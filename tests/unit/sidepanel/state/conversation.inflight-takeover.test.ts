@@ -29,7 +29,7 @@ async function startStream(c: ReturnType<typeof createConversation>): Promise<st
     stream: true,
   });
   const req = calls('translate:start')[0]?.['requestId'] as string;
-  c.applyChunk({ type: 'delta', requestId: req, text: '{"translation":"he' });
+  c.applyChunk({ type: 'delta', requestId: req, text: 'he' });
   return req;
 }
 

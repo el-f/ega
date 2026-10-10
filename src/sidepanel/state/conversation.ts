@@ -1,10 +1,5 @@
 // Every helper returns a new turn list except `applyChunkPure`, which mutates to keep the per-delta render cost down.
 
-import {
-  extractDetectedFields,
-  parseJsonResponse,
-  streamingTranslation,
-} from '@/shared/backends/base';
 import { IMAGE_TURN_PLACEHOLDER } from '@/shared/constants';
 import { ALL_TASKS, TASK_LABELS, type Tone } from '@/shared/task-prompts';
 import { taskLabel, type TaskId, type TaskView } from '@/shared/task-view';
@@ -129,7 +124,7 @@ export interface UserTurnData extends TurnBase {
 export interface AssistantTurnData extends TurnBase {
   role: 'assistant';
   status: TurnStatus;
-  /** Streaming accumulator — `streamingTranslation` re-derives `content` from it on every delta. */
+  /** Kept only for loading older saved turns; current chunks carry visible text. */
   rawAcc?: string;
   /** Detected language id (preset id or 'other'). */
   detectedLang?: string;
@@ -507,15 +502,11 @@ function findTurnById(turns: readonly Turn[], id: string): Turn | null {
   return turn ?? null;
 }
 
-/** Per-stream parser, so the container can pass a memoized one. */
-type ParseFn = (body: string) => ReturnType<typeof parseJsonResponse>;
-
 /** Applies a chunk to variantId (default: the active variant); only the active variant projects onto the turn. Terminal variants never change. */
 export function applyChunk(
   turns: Turn[],
   targetId: string,
   c: TranslationChunk,
-  parse: ParseFn = parseJsonResponse,
   variantId?: string,
 ): Turn[] {
   const turn = findTurnById(turns, targetId);
@@ -524,29 +515,24 @@ export function applyChunk(
     variantId !== undefined ? turn.variants.find((v) => v.id === variantId) : activeVariant(turn);
   if (!variant) return turns;
   if (variant.status === 'done' || variant.status === 'error') return turns;
-  applyChunkToVariant(variant, c, parse);
+  applyChunkToVariant(variant, c);
   if (variant === activeVariant(turn)) mirrorVariantToTurn(turn, variant);
   return turns;
 }
 
 /** The one chunk reducer: FSM transitions + field assignments on a Variant, in place. */
-function applyChunkToVariant(variant: Variant, c: TranslationChunk, parse: ParseFn): void {
+function applyChunkToVariant(variant: Variant, c: TranslationChunk): void {
   if (c.type === 'delta') {
-    variant.rawAcc = (variant.rawAcc ?? '') + c.text;
-    const parsed = parse(variant.rawAcc);
-    variant.content = streamingTranslation(variant.rawAcc, parsed);
+    variant.content = c.replace ? c.text : variant.content + c.text;
     variant.status = 'streaming';
   } else if (c.type === 'done') {
-    const raw = variant.rawAcc ?? '';
-    const parsed = parse(raw);
-    variant.content = streamingTranslation(raw, parsed);
+    if (c.text !== undefined) variant.content = c.text;
     variant.status = 'done';
     if (c.confidence !== undefined) variant.confidence = c.confidence;
-    const det = extractDetectedFields(parsed, c);
-    if (det.detectedLang !== undefined) variant.detectedLang = det.detectedLang;
-    if (det.detectedDetail !== undefined) variant.detectedDetail = det.detectedDetail;
-    if (det.detectedLangs !== undefined) variant.detectedLangs = det.detectedLangs;
-    if (det.explain !== undefined) variant.explain = det.explain;
+    if (c.detectedLang !== undefined) variant.detectedLang = c.detectedLang;
+    if (c.detectedDetail !== undefined) variant.detectedDetail = c.detectedDetail;
+    if (c.detectedLangs !== undefined) variant.detectedLangs = c.detectedLangs;
+    if (c.explain !== undefined) variant.explain = c.explain;
     if (c.meta) variant.meta = c.meta;
     delete variant.rawAcc;
   } else {

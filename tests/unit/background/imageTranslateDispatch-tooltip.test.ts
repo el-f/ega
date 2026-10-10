@@ -17,7 +17,7 @@ function baseDeps(overrides: Partial<ImageTranslateDispatchDeps> = {}): ImageTra
     getSettings: async () => tooltipSettings,
     router: {
       handleImageTranslate: vi.fn(async (_req, onChunk: (c: TranslationChunk) => void) => {
-        onChunk({ type: 'delta', requestId: 'req-1', text: '{"translation":"hi"}' });
+        onChunk({ type: 'delta', requestId: 'req-1', text: 'hi' });
         onChunk({
           type: 'done',
           requestId: 'req-1',
@@ -151,11 +151,14 @@ describe('dispatchImageTranslate tooltip surface — explain arm', () => {
             onChunk({
               type: 'delta',
               requestId: 'req-1',
-              text: '{"translation":"hi","confidence":0.9,"explain":"a greeting"}',
+              text: 'Earlier',
             });
             onChunk({
               type: 'done',
               requestId: 'req-1',
+              text: 'hi',
+              confidence: 0.9,
+              explain: 'a greeting',
               detectedLang: 'arabizi',
               detectedDetail: 'Levantine',
               usedImage: true,

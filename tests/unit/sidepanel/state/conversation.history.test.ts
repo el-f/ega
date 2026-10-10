@@ -17,7 +17,7 @@ function lastRequestId(): string {
 function completeAssistant(c: ReturnType<typeof createConversation>, text: string): void {
   const reqId = lastRequestId();
   // Send delta so content is non-empty, then terminal done.
-  c.applyChunk({ type: 'delta', requestId: reqId, text: `{"translation":"${text}"}` });
+  c.applyChunk({ type: 'delta', requestId: reqId, text: text });
   c.applyChunk({ type: 'done', requestId: reqId, confidence: 0.9 });
 }
 

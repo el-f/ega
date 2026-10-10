@@ -109,7 +109,7 @@ describe('a variant that has no rawAcc yet', () => {
 
     const out = applyChunk(turns, 'a1', { type: 'delta', requestId: 'r1', text: 'hello' });
 
-    expect(out[0]?.variants?.[0]?.rawAcc).toBe('hello');
+    expect(out[0]?.variants?.[0]?.content).toBe('hello');
   });
 
   it('finishes on an empty body rather than on the string "undefined"', () => {

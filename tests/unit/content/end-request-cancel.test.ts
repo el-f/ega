@@ -59,7 +59,7 @@ describe('the service worker receives exactly one cancel per ended request', () 
 
   it('a request that finished is never canceled', () => {
     beginRequest('a', 'tooltip');
-    deliver({ type: 'delta', requestId: 'a', text: '{"translation":"hi"}' });
+    deliver({ type: 'delta', requestId: 'a', text: 'hi' });
     deliver({ type: 'done', requestId: 'a', confidence: 1 });
     endRequest('a', 'close');
     expect(cancelsFor('a')).toBe(0);

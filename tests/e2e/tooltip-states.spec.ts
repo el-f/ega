@@ -93,7 +93,7 @@ for (const theme of ['light', 'dark']) {
             if (tab?.id === undefined) throw new Error('Fixture tab missing');
             await chrome.tabs.sendMessage(tab.id, {
               kind: 'translate:chunk',
-              chunk: { type: 'delta', requestId, text: '{"translation":"Partial answer' },
+              chunk: { type: 'delta', requestId, text: 'Partial answer' },
             });
             await chrome.tabs.sendMessage(tab.id, {
               kind: 'translate:chunk',

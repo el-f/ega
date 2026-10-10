@@ -226,14 +226,14 @@ describe('tooltip lifecycle — smoke', () => {
 });
 
 describe('the shimmer stays until visible text arrives', () => {
-  it('a first chunk that is only the JSON envelope keeps the loading state', async () => {
+  it('an empty visible delta keeps the loading state', async () => {
     openTooltip({ requestId: 'shim', srcText: 'hola', rect: rect(10, 10, 100, 20) });
     await Promise.resolve();
     expect(getContainer().querySelector('.shimmer')).not.toBeNull();
-    appendDelta('shim', '{"');
+    appendDelta('shim', '');
     await Promise.resolve();
     expect(getContainer().querySelector('.shimmer')).not.toBeNull();
-    appendDelta('shim', 'translation": "Hel');
+    appendDelta('shim', 'Hel');
     await Promise.resolve();
     expect(getContainer().querySelector('.shimmer')).toBeNull();
     closeTooltip('shim');

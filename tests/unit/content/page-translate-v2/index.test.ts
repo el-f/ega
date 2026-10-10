@@ -181,7 +181,7 @@ describe('page-translate-v2 entrypoint — translate-areas mode', () => {
     await enterAndFire(deps({ dispatch }, { batchConcurrency: 2 }), ['a', 'b', 'c']);
     expect(dispatch).toHaveBeenCalledTimes(2);
     const first = seen[0] ?? '';
-    routePageV2Chunk({ type: 'delta', requestId: first, text: '{"translation":"x"}' });
+    routePageV2Chunk({ type: 'delta', requestId: first, text: 'x' });
     routePageV2Chunk({ type: 'done', requestId: first, confidence: 1 });
     await flush();
     expect(dispatch).toHaveBeenCalledTimes(3);
@@ -247,7 +247,7 @@ describe('page-translate-v2 — settle, close and the Show original toggle', () 
     ]);
     expect(mountProgress).toHaveBeenCalledWith(1, expect.any(Function));
 
-    routePageV2Chunk({ type: 'delta', requestId: captured, text: '{"translation":"x"}' });
+    routePageV2Chunk({ type: 'delta', requestId: captured, text: 'x' });
     routePageV2Chunk({ type: 'done', requestId: captured, confidence: 1 });
 
     expect(update).toHaveBeenLastCalledWith(
@@ -281,7 +281,7 @@ describe('page-translate-v2 — settle, close and the Show original toggle', () 
       deps({ mountProgress: () => p, dispatch }, { pageTranslateMode: 'bilingual' }),
       ['src'],
     );
-    routePageV2Chunk({ type: 'delta', requestId: captured, text: '{"translation":"x"}' });
+    routePageV2Chunk({ type: 'delta', requestId: captured, text: 'x' });
     routePageV2Chunk({ type: 'done', requestId: captured, confidence: 1 });
     expect(toggle).toBeDefined();
 
@@ -306,7 +306,7 @@ describe('page-translate-v2 — settle, close and the Show original toggle', () 
       }),
     });
     await enterAndFire(deps({ mountProgress: () => p, dispatch }), ['src']);
-    routePageV2Chunk({ type: 'delta', requestId: captured, text: '{"translation":"Hello"}' });
+    routePageV2Chunk({ type: 'delta', requestId: captured, text: 'Hello' });
     routePageV2Chunk({ type: 'done', requestId: captured, confidence: 1 });
 
     const wrapper = document.querySelector('[data-ega-replaced]') as HTMLElement;
@@ -346,7 +346,7 @@ describe('page-translate-v2 — settle, close and the Show original toggle', () 
       }),
     });
     await enterAndFire(deps({ mountProgress: () => p, dispatch }), ['src']);
-    routePageV2Chunk({ type: 'delta', requestId: captured, text: '{"translation":"Hello"}' });
+    routePageV2Chunk({ type: 'delta', requestId: captured, text: 'Hello' });
     routePageV2Chunk({ type: 'done', requestId: captured, confidence: 1 });
 
     const wrapper = document.querySelector('[data-ega-replaced]') as HTMLElement;

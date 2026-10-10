@@ -38,7 +38,7 @@ export function wrapOnChunkForStreamingFlush(
 ): (c: TranslationChunk) => void {
   if (delayMs === 0) return forward;
 
-  let pending: { requestId: string; text: string } | undefined;
+  let pending: Extract<TranslationChunk, { type: 'delta' }> | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
 
   function flush(): void {
@@ -47,16 +47,16 @@ export function wrapOnChunkForStreamingFlush(
       timer = undefined;
     }
     if (pending) {
-      forward({ type: 'delta', requestId: pending.requestId, text: pending.text });
+      forward(pending);
       pending = undefined;
     }
   }
 
   return (c: TranslationChunk): void => {
     if (c.type === 'delta') {
-      if (pending?.requestId !== c.requestId) {
-        flush();
-        pending = { requestId: c.requestId, text: c.text };
+      if (pending?.requestId !== c.requestId || c.replace) {
+        if (pending?.requestId !== c.requestId) flush();
+        pending = { ...c };
       } else {
         pending.text += c.text;
       }

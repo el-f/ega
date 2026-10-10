@@ -1,3 +1,4 @@
+import { readBackendAnswer } from '@tests/_helpers/backend';
 import { describe, it, expect, vi } from 'vitest';
 import { LocalServerBackend, localServerBaseUrl } from '@/shared/backends/local-server';
 import { DEFAULT_MODEL } from '@/shared/settings-schema';
@@ -133,7 +134,7 @@ describe('LocalServerBackend', () => {
       });
     });
 
-    it('streams deltas, usage and a parsed done', async () => {
+    it('streams deltas, usage and a transport terminal', async () => {
       record();
       const chunks: TranslationChunk[] = [];
       await new LocalServerBackend().translate(mkArgs({ onChunk: (c) => chunks.push(c) }));
@@ -142,7 +143,7 @@ describe('LocalServerBackend', () => {
       const done = chunks.at(-1);
       expect(done?.type).toBe('done');
       if (done?.type === 'done') {
-        expect(done.confidence).toBe(0.9);
+        expect(readBackendAnswer(chunks)['confidence']).toBe(0.9);
         expect(done.usage).toEqual({ inputTokens: 5, outputTokens: 7 });
       }
     });

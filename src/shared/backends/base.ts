@@ -1,4 +1,4 @@
-import { parseJsonResponse, carriesAnswer, type ParsedResult } from '../answer/legacy-reader';
+import type { ParsedResult } from '../answer/legacy-reader';
 export {
   parseJsonResponse,
   carriesAnswer,
@@ -203,12 +203,12 @@ export function emitTerminal(
 ): void {
   const scrub = createThinkScrubber({ gemmaChannels: opts.gemmaChannels === true });
   const visible = scrub.push(raw) + scrub.flush();
-  const parsed = parseJsonResponse(visible);
-  if (!visible.trim() || !carriesAnswer(visible, parsed)) {
+  if (!visible.trim()) {
     emitEmptyAnswerError(onChunk, requestId, label, opts.note);
     return;
   }
-  onChunk(makeDoneChunk(requestId, parsed, opts.usage));
+  const usage = nonEmptyUsage(opts.usage);
+  onChunk({ type: 'done', requestId, ...(usage ? { usage } : {}) });
 }
 
 /**

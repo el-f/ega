@@ -13,7 +13,7 @@ import {
   type ParsedResult,
   type TranslationBackend,
 } from '@/shared/backends/base';
-import { readAnswer } from '@/shared/answer/reader';
+import { createAnswerProjector } from '@/shared/answer/reader';
 import { answerSpecFor, type AnswerSpec } from '@/shared/answer/spec';
 import type { ChatTurn } from '@/shared/chat-history';
 import { optionsTabForMessage, shouldRotate } from '@/shared/error-policy';
@@ -109,17 +109,18 @@ export async function runTranslateAttempt(deps: AttemptDeps): Promise<AttemptOut
 
   let sawTransientError = false;
   let sawDeltas = false;
-  let raw = '';
+  const projector = createAnswerProjector(answerSpec, { explain: reqOptions.explain });
   const attemptStart = performance.now();
   // Every backend's deltas pass here, so stripping `<think>` once covers the visible stream and the cached final text.
   const scrubber = createThinkScrubber({ gemmaChannels: backend.id === 'localserver' });
 
   const emitDelta = (now: number, text: string): void => {
     if (text.length === 0) return;
-    raw += text;
-    fsm.send({ type: 'delta', text, now });
+    const projected = projector.push(text);
+    if (!projected) return;
+    fsm.send({ type: 'delta', ...projected, now });
     sawDeltas = true;
-    onChunk({ type: 'delta', requestId: reqId, text });
+    onChunk({ type: 'delta', requestId: reqId, ...projected });
   };
 
   // Race against cancel.signal, because a backend that ignores its AbortSignal would otherwise hang the router.
@@ -136,8 +137,8 @@ export async function runTranslateAttempt(deps: AttemptDeps): Promise<AttemptOut
     } else if (c.type === 'done') {
       // A partial tag held back at stream end is real text — flush it.
       emitDelta(performance.now(), scrubber.flush());
-      const answer = readAnswer(answerSpec, raw, { explain: reqOptions.explain });
-      if (raw.trim() && answer.kind === 'error') {
+      const answer = projector.finish();
+      if (answer.kind === 'error' && answer.code === 'PARSE') {
         handleChunk({
           type: 'error',
           requestId: reqId,

@@ -66,7 +66,7 @@ async function openStreaming(onClose: () => void): Promise<void> {
     clickOutsideDismiss: false,
     onClose,
   });
-  appendDelta('r1', '{"translation":"Hi');
+  appendDelta('r1', 'Hi');
   await vi.waitFor(() => {
     expect(getContainer().querySelector('[data-ega-escalate="pin"]')).not.toBeNull();
   });

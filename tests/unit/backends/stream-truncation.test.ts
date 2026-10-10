@@ -8,7 +8,7 @@ import { setFetchHandler } from '@tests/mocks/fetch';
 import { noopCancel } from '@tests/_helpers/cancel';
 import type { TranslateCallArgs } from '@/shared/backends/base';
 import type { TranslationChunk } from '@/shared/types';
-import { sse } from '@tests/_helpers/backend';
+import { readBackendAnswer, sse } from '@tests/_helpers/backend';
 
 // EOF without the adapter's terminal frame must emit a PROTOCOL error, never a clean done.
 
@@ -94,7 +94,7 @@ describe('stream end without a terminal frame is an error, not a success', () =>
     const chunks = await runFor(new AnthropicBackend());
     const done = chunks.find((c) => c.type === 'done');
     expect(done).toBeDefined();
-    if (done?.type === 'done') expect(done.confidence).toBeCloseTo(0.9, 2);
+    expect(readBackendAnswer(chunks)['confidence']).toBeCloseTo(0.9, 2);
   });
 
   it('Anthropic: mid-stream error event frame surfaces as SERVER', async () => {

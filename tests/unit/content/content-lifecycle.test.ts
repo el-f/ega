@@ -64,7 +64,7 @@ describe('undo of a settled inline replace keeps the markup', () => {
   it('restores links and emphasis instead of flat text', () => {
     document.body.innerHTML = '<p id="p">read <a href="https://x.test">the docs</a> now</p>';
     openInline({ requestId: 'r1', range: rangeOverAll(el('p')), stuckTimeoutMs: 90_000 });
-    appendInlineDelta('r1', '{"translation":"lis la doc maintenant"');
+    appendInlineDelta('r1', 'lis la doc maintenant');
     finishInline('r1', { confidence: 1 });
     expect(el('p').querySelector('a')).toBeNull();
 
@@ -89,7 +89,7 @@ describe('undo of a settled inline replace keeps the markup', () => {
   it('Esc restore-all brings the markup back for settled wrappers', () => {
     document.body.innerHTML = '<p id="p">alpha <b>beta</b></p>';
     openInline({ requestId: 'r3', range: rangeOverAll(el('p')), stuckTimeoutMs: 90_000 });
-    appendInlineDelta('r3', '{"translation":"alpha beta traduit"');
+    appendInlineDelta('r3', 'alpha beta traduit');
     finishInline('r3', { confidence: 1 });
     expect(el('p').querySelector('b')).toBeNull();
 
@@ -101,7 +101,7 @@ describe('undo of a settled inline replace keeps the markup', () => {
   it('a second undo of the same wrapper is a no-op, so the fragment is not held twice', () => {
     document.body.innerHTML = '<p id="p">alpha <b>beta</b></p>';
     openInline({ requestId: 'r4', range: rangeOverAll(el('p')), stuckTimeoutMs: 90_000 });
-    appendInlineDelta('r4', '{"translation":"alpha beta traduit"');
+    appendInlineDelta('r4', 'alpha beta traduit');
     finishInline('r4', { confidence: 1 });
 
     restoreInline('r4');

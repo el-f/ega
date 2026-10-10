@@ -21,7 +21,7 @@ function wellFormedPlugin(): TranslationBackend {
         return;
       }
       onChunk({ type: 'delta', requestId: req.id, text: '{"translation":"ok","confidence":0.9}' });
-      onChunk({ type: 'done', requestId: req.id, confidence: 0.9 });
+      onChunk({ type: 'done', requestId: req.id });
     },
   };
 }

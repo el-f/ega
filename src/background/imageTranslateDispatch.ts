@@ -2,7 +2,6 @@ import type { Msg } from '@/shared/messages';
 import type { MenuSurface } from '@/shared/context-menu';
 import type { ErrCode, Settings, TranslationChunk } from '@/shared/types';
 import { enqueuePendingImageSeed, removePendingImageSeed } from '@/shared/pending-image-seed';
-import { extractDetectedFields, parseJsonResponse } from '@/shared/backends/base';
 import type { ImageTask } from '@/shared/task-prompts';
 
 export interface ImageTranslateDispatchDeps {
@@ -86,7 +85,7 @@ export async function dispatchImageTranslate(deps: ImageTranslateDispatchDeps): 
     const releaseTab = deps.trackTab?.(requestId);
     try {
       await runVision({ id: requestId, imageUrl }, (chunk) => {
-        if (chunk.type === 'delta') buffered += chunk.text;
+        if (chunk.type === 'delta') buffered = chunk.replace ? chunk.text : buffered + chunk.text;
         if (chunk.type === 'done') done = chunk;
         if (chunk.type === 'error') {
           streamError = {
@@ -115,15 +114,16 @@ export async function dispatchImageTranslate(deps: ImageTranslateDispatchDeps): 
         error: streamError,
       });
     } else {
-      // Backends wrap the text in a JSON envelope; the tooltip must not show it raw.
-      const parsed = parseJsonResponse(buffered);
-      const conf = done?.confidence ?? parsed.confidence;
+      const conf = done?.confidence;
       sendToTab(tabId, {
         kind: 'content:image-translate-result',
         requestId,
-        translation: parsed.translation,
+        translation: done?.text ?? buffered,
         ...(conf !== undefined ? { confidence: conf } : {}),
-        ...extractDetectedFields(parsed, done ?? {}),
+        ...(done?.detectedLang !== undefined ? { detectedLang: done.detectedLang } : {}),
+        ...(done?.detectedDetail !== undefined ? { detectedDetail: done.detectedDetail } : {}),
+        ...(done?.detectedLangs !== undefined ? { detectedLangs: done.detectedLangs } : {}),
+        ...(done?.explain !== undefined ? { explain: done.explain } : {}),
         ...(done?.usedImage === true ? { usedImage: true } : {}),
         imageUrl,
         task,

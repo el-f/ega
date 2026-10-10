@@ -5,6 +5,7 @@ import type { TranslationChunk } from '@/shared/types';
 import { asLangIdUnsafe } from '@/shared/brands';
 import { setFetchHandler } from '@tests/mocks/fetch';
 import { resetPortManagerForTest as resetNativePort } from '@/shared/cli-session/port-manager';
+import { readBackendAnswer } from './backend';
 
 /** Assertions every backend plugin must pass; each backend's test file calls `runConformanceSuite`. */
 
@@ -247,7 +248,7 @@ export function runConformanceSuite(factory: () => TranslationBackend): void {
 
   // ── Semantic content of done chunk ──────────────────────────────────────
 
-  it('done chunk: confidence is a number in [0, 1]', async () => {
+  it('raw adapter answer: the worker can read confidence in [0, 1]', async () => {
     const b = factory();
     const { token } = createCancelToken();
     const chunks: TranslationChunk[] = [];
@@ -266,9 +267,11 @@ export function runConformanceSuite(factory: () => TranslationBackend): void {
       done,
       `a canned success must produce a done chunk (got ${describeChunks(chunks)})`,
     ).toBeDefined();
-    expect(done?.confidence, 'confidence must survive the parse').toBeTypeOf('number');
-    expect(done?.confidence, 'confidence must be >= 0').toBeGreaterThanOrEqual(0);
-    expect(done?.confidence, 'confidence must be <= 1').toBeLessThanOrEqual(1);
+    const confidence = readBackendAnswer(chunks)['confidence'];
+    expect(done).not.toHaveProperty('confidence');
+    expect(confidence, 'confidence must survive the worker reader').toBeTypeOf('number');
+    expect(confidence, 'confidence must be >= 0').toBeGreaterThanOrEqual(0);
+    expect(confidence, 'confidence must be <= 1').toBeLessThanOrEqual(1);
   });
 
   it('done chunk: at least one delta chunk emitted before done (non-empty translation)', async () => {

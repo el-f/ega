@@ -412,11 +412,10 @@ export function createRouter(deps: RouterDeps) {
     const usableHit = (hit: CacheEntry | undefined): hit is CacheEntry =>
       hit !== undefined && (!reqOptions.explain || hit.explain !== undefined);
     const serveFromCache = (hit: CacheEntry): void => {
-      // Live-path envelope: a bare `{`-leading translation renders blank.
       onChunk({
         type: 'delta',
         requestId: req.id,
-        text: JSON.stringify({ translation: hit.translation }),
+        text: hit.translation,
       });
       onChunk(
         attachMeta(

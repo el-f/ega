@@ -53,7 +53,7 @@ describe('renderer — in-place revert cannot duplicate content', () => {
       element: original,
       originalText: '元の段落テキスト',
     });
-    appendDelta(handle, '{"translation":"X"}');
+    appendDelta(handle, 'X');
     finish(handle);
     // A framework re-render puts its own node back next to our wrapper.
     original.appendChild(document.createTextNode('framework wrote this'));
@@ -85,7 +85,7 @@ describe('renderer — the saved markup comes back, not flattened text', () => {
       element: original,
       originalText: 'read the docs now',
     });
-    appendDelta(handle, '{"translation":"Translated."}');
+    appendDelta(handle, 'Translated.');
     finish(handle);
 
     handle.showOriginal();

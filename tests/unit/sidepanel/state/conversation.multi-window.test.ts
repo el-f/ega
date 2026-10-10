@@ -50,7 +50,7 @@ async function sendAndFinish(c: Container, content: string, answer: string): Pro
     stream: true,
   });
   const requestId = requestIdOf(content);
-  c.applyChunk({ type: 'delta', requestId, text: `{"translation":"${answer}"}` });
+  c.applyChunk({ type: 'delta', requestId, text: answer });
   c.applyChunk({ type: 'done', requestId, confidence: 1 });
   await c.flush();
   await drain();
@@ -106,7 +106,7 @@ describe('two side-panel windows on one origin', () => {
       stream: true,
     });
     const bRequest = requestIdOf('b-q');
-    b.applyChunk({ type: 'delta', requestId: bRequest, text: '{"translation":"b-half' });
+    b.applyChunk({ type: 'delta', requestId: bRequest, text: 'b-half' });
     await b.flush();
 
     const aAssistant = await sendAndFinish(a, 'a-q', 'a-done');
@@ -117,7 +117,7 @@ describe('two side-panel windows on one origin', () => {
     expect(byId(b, aAssistant)?.status).toBe('done');
     expect(byId(b, aAssistant)?.content).toBe('a-done');
 
-    b.applyChunk({ type: 'delta', requestId: bRequest, text: '"}' });
+    b.applyChunk({ type: 'delta', requestId: bRequest, text: '' });
     b.applyChunk({ type: 'done', requestId: bRequest, confidence: 1 });
     await drain();
     const stored = (await loadThreadResult(ORIGIN)).turns;
@@ -141,7 +141,7 @@ describe('two side-panel windows on one origin', () => {
     expect(byId(b, assistantId)?.error?.code).toBe('interrupted');
 
     const requestId = requestIdOf('slow');
-    a.applyChunk({ type: 'delta', requestId, text: '{"translation":"finished"}' });
+    a.applyChunk({ type: 'delta', requestId, text: 'finished' });
     a.applyChunk({ type: 'done', requestId, confidence: 1 });
     await drain();
 
@@ -250,7 +250,7 @@ describe('two windows re-reading each other over one storage', () => {
     expect(byId(b, assistantId)?.status).toBe('pending');
 
     const requestId = requestIdOf('hola');
-    a.applyChunk({ type: 'delta', requestId, text: '{"translation":"hello"}' });
+    a.applyChunk({ type: 'delta', requestId, text: 'hello' });
     a.applyChunk({ type: 'done', requestId, confidence: 1 });
     await drain();
 
@@ -632,7 +632,7 @@ describe('an answer adopted from a window that went away', () => {
     expect(byId(b, assistantId)?.status).toBe('pending');
 
     const requestId = requestIdOf('alive');
-    a.applyChunk({ type: 'delta', requestId, text: '{"translation":"live"}' });
+    a.applyChunk({ type: 'delta', requestId, text: 'live' });
     a.applyChunk({ type: 'done', requestId, confidence: 1 });
     await settle();
     await vi.advanceTimersByTimeAsync(1000);

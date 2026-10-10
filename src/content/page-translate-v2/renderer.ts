@@ -1,4 +1,3 @@
-import { createMemoizedJsonParser, streamingTranslation } from '@/shared/backends/base';
 import type { ErrCode } from '@/shared/types';
 import { ensurePageStyles } from '../page-styles';
 import { markLang } from '@/shared/lang-tag';
@@ -35,8 +34,7 @@ export interface RenderHandle {
   /** View toggle for the settled pill: show the page's own text. */
   showOriginal: () => void;
   showTranslation: () => void;
-  rawAcc: string;
-  parseJson: ReturnType<typeof createMemoizedJsonParser>;
+  visibleText: string;
   phase: BlockPhase;
 }
 
@@ -159,8 +157,7 @@ export function mountBilingual(args: MountArgs): RenderHandle {
     showTranslation: () => {
       sibling.style.removeProperty('display');
     },
-    rawAcc: '',
-    parseJson: createMemoizedJsonParser(),
+    visibleText: '',
     phase: 'streaming',
   };
   setPhase(handle, 'streaming');
@@ -230,8 +227,7 @@ export function mountInplace(args: MountArgs): RenderHandle {
     },
     showOriginal: () => {},
     showTranslation: () => {},
-    rawAcc: '',
-    parseJson: createMemoizedJsonParser(),
+    visibleText: '',
     phase: 'streaming',
   };
   setPhase(handle, 'streaming');
@@ -244,22 +240,21 @@ export function mountInplace(args: MountArgs): RenderHandle {
 
 function render(handle: RenderHandle): void {
   if (handle.phase !== 'streaming') return;
-  const parsed = handle.parseJson(handle.rawAcc);
-  const text = streamingTranslation(handle.rawAcc, parsed);
-  // Empty during the JSON-envelope phase: the pending look stays, so the block never collapses to nothing.
+  const text = handle.visibleText;
   if (text.length === 0) return;
   handle.target.removeAttribute('data-ega-pending');
   handle.target.textContent = text;
 }
 
-export function appendDelta(handle: RenderHandle, delta: string): void {
+export function appendDelta(handle: RenderHandle, delta: string, replace?: true): void {
   if (handle.phase !== 'streaming') return;
-  handle.rawAcc += delta;
+  handle.visibleText = replace ? delta : handle.visibleText + delta;
   render(handle);
 }
 
-export function finish(handle: RenderHandle): void {
+export function finish(handle: RenderHandle, text?: string): void {
   if (handle.phase !== 'streaming') return;
+  if (text !== undefined) handle.visibleText = text;
   render(handle);
   setPhase(handle, 'ok');
 }

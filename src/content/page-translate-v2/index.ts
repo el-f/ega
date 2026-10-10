@@ -1055,7 +1055,8 @@ export function routePageV2Chunk(chunk: TranslationChunk): void {
 
 // The session reverts its own blocks on teardown, so ending a request needs no dispose here.
 setRenderer('page-v2', {
-  append: (requestId, text) => routePageV2Chunk({ type: 'delta', requestId, text }),
+  append: (requestId, text, replace) =>
+    routePageV2Chunk({ type: 'delta', requestId, text, ...(replace ? { replace } : {}) }),
   finish: (requestId, meta) => routePageV2Chunk({ type: 'done', requestId, ...meta }),
   error: (requestId, err) => routePageV2Chunk({ type: 'error', requestId, ...err }),
 });
@@ -1067,11 +1068,11 @@ function onChunk(sess: Session, chunk: TranslationChunk): void {
   if (!handle) return;
   if (chunk.type === 'delta') {
     keepStallAlive(sess, blockId);
-    appendDelta(handle, chunk.text);
+    appendDelta(handle, chunk.text, chunk.replace);
     return;
   }
   if (chunk.type === 'done') {
-    finish(handle);
+    finish(handle, chunk.text);
     markTerminal(sess, blockId);
     return;
   }

@@ -5,7 +5,7 @@ type TranslateState = 'idle' | 'attempting' | 'completed' | 'erroring';
 
 type TranslateEvent =
   | { type: 'start' }
-  | { type: 'delta'; text: string; now: number }
+  | { type: 'delta'; text: string; now: number; replace?: true }
   | { type: 'done'; chunk: Extract<TranslationChunk, { type: 'done' }> }
   | { type: 'error'; code: string; message: string };
 
@@ -51,7 +51,7 @@ export function createTranslateFsm() {
     }
     if (state !== 'attempting') return;
     if (event.type === 'delta') {
-      ctx.acc += event.text;
+      ctx.acc = event.replace ? event.text : ctx.acc + event.text;
       ctx.firstDeltaAt ??= event.now;
     } else if (event.type === 'done') {
       const c = event.chunk;

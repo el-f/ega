@@ -54,7 +54,7 @@ describe('an Anthropic refusal after some text', () => {
     // The same order of chunks through the side-panel reducer.
     let turns = addAssistantTurn([], { id: 'a1', kind: 'translate', attachedToTurnId: 'u1' });
     const toTurn: TranslationChunk[] = [
-      { type: 'delta', requestId: 'r1', text: '{"translation":"Half an ans' },
+      { type: 'delta', requestId: 'r1', text: 'Half an ans' },
       { type: 'error', requestId: 'r1', code: 'REQUEST', message: err?.message ?? '' },
     ];
     for (const c of toTurn) turns = applyChunk(turns, 'a1', c);

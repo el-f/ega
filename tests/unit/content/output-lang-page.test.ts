@@ -52,7 +52,7 @@ describe('page translate — a translated block carries the target language', ()
       originalText: '東京タワー',
       lang: 'fr',
     });
-    appendDelta(handle, '{"translation":"Tour de Tokyo"}');
+    appendDelta(handle, 'Tour de Tokyo');
     finish(handle);
     expect(handle.target.getAttribute('lang')).toBe('fr');
     handle.target.dispatchEvent(new MouseEvent('mousedown'));
@@ -121,7 +121,7 @@ describe('inline replace — the wrapper is marked only while it shows the trans
   it('the dimmed original carries no mark; the translation does', () => {
     const w = startInline('r1', {});
     expect(w.hasAttribute('lang')).toBe(false);
-    appendInlineDelta('r1', '{"translation":"bonjour le monde"');
+    appendInlineDelta('r1', 'bonjour le monde');
     expect(w.getAttribute('lang')).toBe('fr');
     finishInline('r1', { confidence: 1 });
     w.dispatchEvent(new MouseEvent('mousedown'));
@@ -132,13 +132,13 @@ describe('inline replace — the wrapper is marked only while it shows the trans
 
   it('a rewrite stays in the input language', () => {
     const w = startInline('r2', { task: 'reword' });
-    appendInlineDelta('r2', '{"translation":"hola, mundo"');
+    appendInlineDelta('r2', 'hola, mundo');
     expect(w.getAttribute('lang')).toBe('es');
   });
 
   it('an error shows the original without the mark', () => {
     const w = startInline('r3', {});
-    appendInlineDelta('r3', '{"translation":"bonjour"');
+    appendInlineDelta('r3', 'bonjour');
     errorInline('r3', { code: 'NETWORK', message: 'x' });
     expect(w.hasAttribute('lang')).toBe(false);
   });

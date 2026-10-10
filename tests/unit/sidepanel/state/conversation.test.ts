@@ -93,17 +93,15 @@ describe('conversation pure helpers', () => {
   });
 
   describe('applyChunk — delta', () => {
-    it('appends text to rawAcc and flips pending → streaming on first delta', () => {
+    it('appends visible text and flips pending → streaming on first delta', () => {
       const turns: Turn[] = [a('a1', 'u1')];
       const c: TranslationChunk = {
         type: 'delta',
         requestId: 'r',
-        text: '{"translation":"hel',
+        text: 'hel',
       };
       applyChunk(turns, 'a1', c);
-      expect(turns[0]?.rawAcc).toBe('{"translation":"hel');
       expect(turns[0]?.status).toBe('streaming');
-      // Mid-envelope partial — streamingTranslation extracts "hel".
       expect(turns[0]?.content).toBe('hel');
     });
 
@@ -111,15 +109,14 @@ describe('conversation pure helpers', () => {
       const turns: Turn[] = [a('a1', 'u1')];
       applyChunk(turns, 'a1', { type: 'delta', requestId: 'r', text: 'foo ' });
       applyChunk(turns, 'a1', { type: 'delta', requestId: 'r', text: 'bar' });
-      expect(turns[0]?.rawAcc).toBe('foo bar');
       expect(turns[0]?.content).toBe('foo bar');
       expect(turns[0]?.status).toBe('streaming');
     });
 
-    it('hides incomplete-JSON envelope by returning empty content', () => {
+    it('preserves punctuation in visible text without interpreting it as an envelope', () => {
       const turns: Turn[] = [a('a1', 'u1')];
       applyChunk(turns, 'a1', { type: 'delta', requestId: 'r', text: '{"' });
-      expect(turns[0]?.content).toBe('');
+      expect(turns[0]?.content).toBe('{"');
     });
   });
 
@@ -129,7 +126,7 @@ describe('conversation pure helpers', () => {
       applyChunk(turns, 'a1', {
         type: 'delta',
         requestId: 'r',
-        text: '{"translation":"hello","confidence":0.9}',
+        text: 'hello',
       });
       applyChunk(turns, 'a1', {
         type: 'done',
@@ -171,7 +168,7 @@ describe('conversation pure helpers', () => {
       applyChunk(turns, 'a1', {
         type: 'delta',
         requestId: 'r',
-        text: '{"translation":"hello"}',
+        text: 'hello',
       });
       applyChunk(turns, 'a1', { type: 'done', requestId: 'r', confidence: 1 });
       const before = turns[0] ? { ...turns[0] } : undefined;

@@ -1,3 +1,4 @@
+import { readBackendAnswer } from '@tests/_helpers/backend';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Mock } from 'vitest';
 import { NativeBackend } from '@/shared/backends/native';
@@ -150,7 +151,7 @@ describe('NativeBackend', () => {
     await p;
     expect(chunks.filter((c) => c.type === 'delta')).toHaveLength(2);
     const done = chunks.find((c) => c.type === 'done');
-    expect(done?.type === 'done' && done.confidence).toBeCloseTo(0.91, 2);
+    expect(done?.type === 'done' && readBackendAnswer(chunks)['confidence']).toBeCloseTo(0.91, 2);
     expect(sess.unsubscribed).toBe(true);
   });
 

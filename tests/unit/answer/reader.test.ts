@@ -130,6 +130,10 @@ describe('the service worker answer reader', () => {
       kind: 'error',
       code: 'PARSE',
     });
+    expect(readAnswer(translate, '{"translation":"')).toMatchObject({
+      kind: 'error',
+      code: 'PARSE',
+    });
   });
   it('preserves plain answers and fenced plain text', () => {
     for (const text of ['Hello', '```text\nHello\n```', 'Text with {braces}.'])
@@ -163,6 +167,16 @@ describe('the service worker answer reader', () => {
 });
 
 describe('visible answer projection', () => {
+  it('holds an opening JSON fence until the main text arrives', () => {
+    const projector = createAnswerProjector(translate);
+    let visible = '';
+    for (const ch of '```json\n{"translation":"Hello"}\n```') {
+      const delta = projector.push(ch);
+      if (delta) visible = delta.replace ? delta.text : visible + delta.text;
+      expect('Hello'.startsWith(visible)).toBe(true);
+    }
+    expect(visible).toBe('Hello');
+  });
   it('never emits the JSON envelope or metadata as visible answer text', () => {
     const projector = createAnswerProjector(translate);
     let visible = '';

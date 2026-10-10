@@ -1,3 +1,4 @@
+import { readBackendAnswer } from '@tests/_helpers/backend';
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -97,7 +98,7 @@ describe('GeminiBackend', () => {
     expect(combined).toBe('first second tail');
   });
 
-  it('parses captured SSE fixture into deltas + done with parsed confidence', async () => {
+  it('parses captured SSE fixture into deltas + done with raw answer text', async () => {
     setFetchHandler(async () => sseResponse(FIXTURE));
     const chunks: TranslationChunk[] = [];
     const b = new GeminiBackend();
@@ -108,8 +109,8 @@ describe('GeminiBackend', () => {
     expect(deltas.length).toBeGreaterThan(0);
     expect(done).toBeDefined();
     if (done?.type === 'done') {
-      expect(done.confidence).toBeCloseTo(0.82, 2);
-      expect(done.detectedLang).toBe('arabizi');
+      expect(readBackendAnswer(chunks)['confidence']).toBeCloseTo(0.82, 2);
+      expect(readBackendAnswer(chunks)['detectedLang']).toBe('arabizi');
     }
   });
 

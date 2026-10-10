@@ -96,13 +96,13 @@ describe('a reply still running when the panel follows another tab', () => {
     const c = panel();
     const assistantId = await startOn(c, A, 'hola');
     const requestId = requestIdOf('hola');
-    c.applyChunk({ type: 'delta', requestId, text: '{"translation":"hel' });
+    c.applyChunk({ type: 'delta', requestId, text: 'hel' });
 
     await c.openConversation(B);
     expect(c.inflightId).toBeNull();
     expect(messages('translate:cancel').map((m) => m['requestId'])).not.toContain(requestId);
 
-    c.applyChunk({ type: 'delta', requestId, text: 'lo"}' });
+    c.applyChunk({ type: 'delta', requestId, text: 'lo' });
     c.applyChunk({ type: 'done', requestId, confidence: 1 });
     await drain();
 
@@ -117,7 +117,7 @@ describe('a reply still running when the panel follows another tab', () => {
     const c = panel();
     await startOn(c, A, 'first');
     const first = requestIdOf('first');
-    c.applyChunk({ type: 'delta', requestId: first, text: '{"translation":"one"}' });
+    c.applyChunk({ type: 'delta', requestId: first, text: 'one' });
     c.applyChunk({ type: 'done', requestId: first, confidence: 1 });
     await c.send({
       content: 'second',
@@ -129,7 +129,7 @@ describe('a reply still running when the panel follows another tab', () => {
     const second = requestIdOf('second');
 
     await c.openConversation(B);
-    c.applyChunk({ type: 'delta', requestId: second, text: '{"translation":"two"}' });
+    c.applyChunk({ type: 'delta', requestId: second, text: 'two' });
     c.applyChunk({ type: 'done', requestId: second, confidence: 1 });
     await drain();
 
@@ -145,7 +145,7 @@ describe('a reply still running when the panel follows another tab', () => {
     const c = panel();
     const assistantId = await startOn(c, A, 'hola');
     const requestId = requestIdOf('hola');
-    c.applyChunk({ type: 'delta', requestId, text: '{"translation":"hel' });
+    c.applyChunk({ type: 'delta', requestId, text: 'hel' });
     await c.openConversation(B);
     c.applyChunk({ type: 'delta', requestId, text: 'lo' });
     await c.openConversation(A);
@@ -155,7 +155,7 @@ describe('a reply still running when the panel follows another tab', () => {
     expect(c.turns.find((t) => t.id === assistantId)?.content).toBe('hello');
     expect(await c.langVariant(assistantId, asLangIdUnsafe('fr'))).toBe(false);
 
-    c.applyChunk({ type: 'delta', requestId, text: '"}' });
+    c.applyChunk({ type: 'delta', requestId, text: '' });
     c.applyChunk({ type: 'done', requestId, confidence: 1 });
     await drain();
 
@@ -221,7 +221,7 @@ describe('a reply still running when the panel follows another tab', () => {
       c.seedExternalImageTurn('req-image', 'https://example.com/img.png'),
     );
     expect(c.turns.find((t) => t.id === assistantId)?.status).toBe('pending');
-    c.applyChunk({ type: 'delta', requestId: 'req-image', text: '{"translation":"x"}' });
+    c.applyChunk({ type: 'delta', requestId: 'req-image', text: 'x' });
     c.applyChunk({ type: 'done', requestId: 'req-image', confidence: 1 });
     expect(c.inflightId).toBeNull();
     const starts = messages('translate:start').length;
@@ -252,9 +252,9 @@ describe('a reply still running when the panel follows another tab', () => {
     const bReq = requestIdOf('from-b');
     expect(c.inflightId).toBe(bId);
 
-    c.applyChunk({ type: 'delta', requestId: aReq, text: '{"translation":"a"}' });
+    c.applyChunk({ type: 'delta', requestId: aReq, text: 'a' });
     c.applyChunk({ type: 'done', requestId: aReq, confidence: 1 });
-    c.applyChunk({ type: 'delta', requestId: bReq, text: '{"translation":"b"}' });
+    c.applyChunk({ type: 'delta', requestId: bReq, text: 'b' });
     c.applyChunk({ type: 'done', requestId: bReq, confidence: 1 });
     await drain();
 
@@ -284,7 +284,7 @@ describe('a reply still running when the panel follows another tab', () => {
     c.deleteTurn(assistantId);
     await c.flush();
 
-    c.applyChunk({ type: 'delta', requestId, text: '{"translation":"hello"}' });
+    c.applyChunk({ type: 'delta', requestId, text: 'hello' });
     c.applyChunk({ type: 'done', requestId, confidence: 1 });
     await drain();
 
@@ -304,7 +304,7 @@ describe('a reply still running when the panel follows another tab', () => {
         ? Promise.reject(new Error('disk gone'))
         : realSet(items)) as typeof chrome.storage.local.set);
 
-    c.applyChunk({ type: 'delta', requestId, text: '{"translation":"hello"}' });
+    c.applyChunk({ type: 'delta', requestId, text: 'hello' });
     c.applyChunk({ type: 'done', requestId, confidence: 1 });
     await drain();
 
@@ -338,7 +338,7 @@ describe('a reply still running when the panel follows another tab', () => {
       return realSet(items);
     }) as typeof chrome.storage.local.set);
 
-    c.applyChunk({ type: 'delta', requestId, text: '{"translation":"hello"}' });
+    c.applyChunk({ type: 'delta', requestId, text: 'hello' });
     c.applyChunk({ type: 'done', requestId, confidence: 1 });
     await drain();
 

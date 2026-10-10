@@ -111,7 +111,7 @@ describe('the stall timer', () => {
     // Two deltas, each most of a stall window apart: total elapsed passes the deadline twice over.
     for (let i = 0; i < 2; i++) {
       await vi.advanceTimersByTimeAsync(STALL_MS - 100);
-      routePageV2Chunk({ type: 'delta', requestId: ids[0] ?? '', text: '{"translation":"x' });
+      routePageV2Chunk({ type: 'delta', requestId: ids[0] ?? '', text: 'x' });
       await flush();
     }
 
@@ -137,7 +137,7 @@ describe('the stall timer', () => {
       ['p0'],
     );
 
-    routePageV2Chunk({ type: 'delta', requestId: ids[0] ?? '', text: '{"translation":"done"}' });
+    routePageV2Chunk({ type: 'delta', requestId: ids[0] ?? '', text: 'done' });
     routePageV2Chunk({ type: 'done', requestId: ids[0] ?? '', confidence: 1 });
     await flush();
     // The answer landed, so the block really did reach a terminal chunk.
@@ -181,7 +181,7 @@ describe('the stall timer — guards', () => {
       }),
       ['p0'],
     );
-    routePageV2Chunk({ type: 'delta', requestId: ids[0] ?? '', text: '{"translation":"ok"}' });
+    routePageV2Chunk({ type: 'delta', requestId: ids[0] ?? '', text: 'ok' });
     // A live block keeps exactly one stall timer; the terminal chunk removes it.
     const live = vi.getTimerCount();
     routePageV2Chunk({ type: 'done', requestId: ids[0] ?? '', confidence: 1 });

@@ -5,11 +5,6 @@ import { ensureShadowSheet, getContainer, onShadowHostRemount } from './shadowHo
 import tooltipCss from './tooltip/tooltip.css?inline';
 import { hideBubble } from './bubble';
 import { endRequest, rendererOwner, stopRequestStream, type DoneMeta } from './request-state';
-import {
-  createMemoizedJsonParser,
-  extractDetectedFields,
-  streamingTranslation,
-} from '@/shared/backends/base';
 import type { DetectedVariety, ErrCode, PageContext, ResultMeta } from '@/shared/types';
 import type { Tone } from '@/shared/task-prompts';
 import type { TaskId } from '@/shared/task-view';
@@ -107,8 +102,6 @@ interface Entry {
   handle: ReturnType<typeof mount>;
   anchor: HTMLDivElement;
   state: TipState;
-  rawAcc: string;
-  parseJson: ReturnType<typeof createMemoizedJsonParser>;
   timeoutId: ReturnType<typeof setTimeout>;
   /** Ceiling the guard re-arms with after every delta. */
   stuckMs: number;
@@ -375,8 +368,6 @@ export function openTooltip(o: OpenOpts): void {
       handle,
       anchor,
       state,
-      rawAcc: '',
-      parseJson: createMemoizedJsonParser(),
       timeoutId,
       stuckMs,
       finished: false,
@@ -385,16 +376,13 @@ export function openTooltip(o: OpenOpts): void {
   installRepositioning(anchor, state, o.requestId, o.rect, o.range);
 }
 
-export function appendDelta(requestId: string, delta: string): void {
+export function appendDelta(requestId: string, delta: string, replace?: true): void {
   const e = entryFor(requestId);
   if (!e || e.finished) return;
   // A stream that dies mid-body takes the worker's own timer with it, so every delta re-arms this guard.
   clearTimeout(e.timeoutId);
   e.timeoutId = armStuckGuard(requestId, e.stuckMs);
-  e.rawAcc += delta;
-  const parsed = e.parseJson(e.rawAcc);
-  e.state.body = streamingTranslation(e.rawAcc, parsed);
-  // The first chunk is often the JSON envelope's `{"` with no visible text yet; keep the shimmer until there is some.
+  e.state.body = replace ? delta : e.state.body + delta;
   if (e.state.body.length > 0) e.state.loading = false;
 }
 
@@ -402,15 +390,13 @@ export function finishTooltip(requestId: string, o: DoneMeta): void {
   const e = entryFor(requestId);
   if (!e || e.finished) return;
   clearTimeout(e.timeoutId);
-  const parsed = e.parseJson(e.rawAcc);
-  e.state.body = streamingTranslation(e.rawAcc, parsed);
+  if (o.text !== undefined) e.state.body = o.text;
   e.state.loading = false;
   if (o.confidence !== undefined) e.state.confidence = o.confidence;
-  const det = extractDetectedFields(parsed, o);
-  if (det.detectedLang !== undefined) e.state.detectedLang = det.detectedLang;
-  if (det.detectedDetail !== undefined) e.state.detectedDetail = det.detectedDetail;
-  if (det.detectedLangs !== undefined) e.state.detectedLangs = det.detectedLangs;
-  if (det.explain !== undefined) e.state.explain = det.explain;
+  if (o.detectedLang !== undefined) e.state.detectedLang = o.detectedLang;
+  if (o.detectedDetail !== undefined) e.state.detectedDetail = o.detectedDetail;
+  if (o.detectedLangs !== undefined) e.state.detectedLangs = o.detectedLangs;
+  if (o.explain !== undefined) e.state.explain = o.explain;
   if (o.meta !== undefined) e.state.meta = o.meta;
   if (o.usedImage === true) e.state.usedImage = true;
   e.state.settled = true;

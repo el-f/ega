@@ -1,3 +1,4 @@
+import { readBackendAnswer } from '@tests/_helpers/backend';
 import { describe, it, expect } from 'vitest';
 import { makeOpenAICompatBackend } from '@/shared/backends/openai-compat';
 import { sel } from '@tests/_helpers/lang';
@@ -72,7 +73,7 @@ describe('openai (openai-compat)', () => {
     expect(chunks.filter((c) => c.type === 'delta').length).toBeGreaterThan(0);
     const done = chunks.find((c) => c.type === 'done');
     expect(done).toBeDefined();
-    if (done?.type === 'done') expect(done.confidence).toBeCloseTo(0.7, 2);
+    if (done?.type === 'done') expect(readBackendAnswer(chunks)['confidence']).toBeCloseTo(0.7, 2);
   });
 
   it('classic chat model keeps temperature and sends max_completion_tokens, which OpenAI takes for every model', async () => {

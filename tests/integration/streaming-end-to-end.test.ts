@@ -7,9 +7,16 @@ import {
   emptyConversation,
 } from '@/sidepanel/state/conversation';
 import { streamingTranslation, parseJsonResponse } from '@/shared/backends/base';
+import { createAnswerProjector, readAnswer } from '@/shared/answer/reader';
+import { TRANSLATE_SPEC } from '@/shared/answer/spec';
 
 function streamDeltas(deltas: string[]): TranslationChunk[] {
-  return deltas.map((text) => ({ type: 'delta', requestId: 'r', text }));
+  const projector = createAnswerProjector(TRANSLATE_SPEC);
+  return deltas.map((raw) => ({
+    type: 'delta',
+    requestId: 'r',
+    ...(projector.push(raw) ?? { text: '' }),
+  }));
 }
 
 function seededSidepanel(): ReturnType<typeof addAssistantTurn> {
@@ -39,11 +46,12 @@ describe('streaming end-to-end', () => {
       renderedAtEachStep.push(a?.content ?? '');
     }
     const fullBody = deltas.join('');
-    const parsed = parseJsonResponse(fullBody);
+    const parsed = readAnswer(TRANSLATE_SPEC, fullBody);
+    if (parsed.kind !== 'ok') throw new Error(parsed.code);
     applySidepanelChunk(turns, 'a1', {
       type: 'done',
       requestId: 'r',
-      ...(parsed.confidence !== undefined ? { confidence: parsed.confidence } : {}),
+      text: parsed.main,
     });
 
     // The turn stays empty until the first char of the JSON value arrives.
@@ -68,6 +76,7 @@ describe('streaming end-to-end', () => {
     applySidepanelChunk(turns, 'a1', {
       type: 'done',
       requestId: 'r',
+      text: 'مرحبا',
       confidence: 0.9,
     });
 
@@ -90,8 +99,8 @@ describe('streaming end-to-end', () => {
       renderedAtEachStep.push(a?.content ?? '');
     }
 
-    // parseJsonResponse trims each parse, so `Hello, ` shows up without its space.
-    expect(renderedAtEachStep).toEqual(['Hel', 'Hello,', 'Hello, world!']);
+    // Projected deltas preserve whitespace; the UI displays them as sent.
+    expect(renderedAtEachStep).toEqual(['Hel', 'Hello, ', 'Hello, world!']);
     const finalTurn = turns.find((t) => t.id === 'a1');
     expect(finalTurn?.content).toBe('Hello, world!');
   });

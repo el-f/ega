@@ -85,7 +85,7 @@ describe('inline.done.empty-body', () => {
     const range = selectParagraph();
     setStopStreamHook(() => {});
     openInline({ requestId: 'i-empty', range, stuckTimeoutMs: 1_000 });
-    appendInlineDelta('i-empty', '{"translation": ""}');
+    appendInlineDelta('i-empty', '');
     finishInline('i-empty', { confidence: 1 });
     const el = wrapper();
     expect(el.getAttribute('data-ega-error')).toBe('true');

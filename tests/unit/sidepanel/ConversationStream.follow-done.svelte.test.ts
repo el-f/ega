@@ -74,7 +74,7 @@ describe('ConversationStream — re-scroll when the last turn settles', () => {
     fakeGeometry(scroller, 1000, 80);
 
     const requestId = lastRequestId();
-    c.applyChunk({ type: 'delta', requestId, text: '{"translation":"hi"}' });
+    c.applyChunk({ type: 'delta', requestId, text: 'hi' });
     await tick();
     await tick();
     // Reader parked near the bottom before the terminal frame.
@@ -109,7 +109,7 @@ describe('ConversationStream — re-scroll when the last turn settles', () => {
     fakeGeometry(scroller, 1000, 80);
 
     const requestId = lastRequestId();
-    c.applyChunk({ type: 'delta', requestId, text: '{"translation":"hi"}' });
+    c.applyChunk({ type: 'delta', requestId, text: 'hi' });
     await tick();
     await tick();
     scroller.scrollTop = 100;
@@ -156,7 +156,7 @@ describe('ConversationStream — a delta append follows only a reader at the bot
     const scroller = container.querySelector<HTMLDivElement>('.ega-conv-stream');
     if (!scroller) throw new Error('scroller not found');
     const requestId = lastRequestId();
-    c.applyChunk({ type: 'delta', requestId, text: '{"translation":"hi' });
+    c.applyChunk({ type: 'delta', requestId, text: 'hi' });
     await tick();
     await tick();
     growingGeometry(scroller, 80);
@@ -337,7 +337,7 @@ describe('ConversationStream — following stops before the start of the reply l
     const scroller = container.querySelector<HTMLDivElement>('.ega-conv-stream');
     if (!scroller) throw new Error('scroller not found');
     const requestId = lastRequestId();
-    c.applyChunk({ type: 'delta', requestId, text: '{"translation":"hi' });
+    c.applyChunk({ type: 'delta', requestId, text: 'hi' });
     await tick();
     await tick();
     growingGeometry(scroller, 80);

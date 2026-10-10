@@ -87,13 +87,28 @@ describe('inlineReplace', () => {
       range: rangeOver(firstChildOf(p), 0, textLen(p)),
       stuckTimeoutMs: INLINE_STUCK_MS,
     });
-    appendInlineDelta('r1', '{"translation":"Hello ');
-    appendInlineDelta('r1', 'and welcome"}');
+    appendInlineDelta('r1', 'Hello ');
+    appendInlineDelta('r1', 'and welcome');
     const wrap = document.querySelector('[data-ega-replaced="r1"]') as HTMLElement;
     expect(wrap.textContent).toContain('Hello and welcome');
   });
 
-  it('keeps the original visible during JSON-envelope-only deltas', () => {
+  it('applies replacement deltas and final text without parsing literal JSON', () => {
+    const p = byId('p');
+    openInline({
+      requestId: 'r1',
+      range: rangeOver(firstChildOf(p), 0, textLen(p)),
+      stuckTimeoutMs: INLINE_STUCK_MS,
+    });
+    appendInlineDelta('r1', 'Earlier');
+    appendInlineDelta('r1', 'Corrected', true);
+    expect(p.textContent).toBe('Corrected');
+    const text = '{"translation":"literal example"}';
+    finishInline('r1', { text });
+    expect(p.textContent).toBe(text);
+  });
+
+  it('keeps the original visible until the worker sends visible answer text', () => {
     // An empty inline span has no visual presence — the user sees the selection vanish.
     const p = byId('p');
     const original = p.textContent;
@@ -102,12 +117,10 @@ describe('inlineReplace', () => {
       range: rangeOver(firstChildOf(p), 0, original.length),
       stuckTimeoutMs: INLINE_STUCK_MS,
     });
-    // Real streams open with envelope-only chunks; each one parses to translation === ''.
-    appendInlineDelta('r1', '{');
+    appendInlineDelta('r1', '');
     let wrap = document.querySelector('[data-ega-replaced="r1"]') as HTMLElement;
     expect(wrap.textContent).toBe(original);
-    appendInlineDelta('r1', '"trans');
-    appendInlineDelta('r1', 'lation":"');
+    appendInlineDelta('r1', '');
     wrap = document.querySelector('[data-ega-replaced="r1"]') as HTMLElement;
     expect(wrap.textContent).toBe(original);
     expect(wrap.hasAttribute('data-ega-pending')).toBe(true);
@@ -117,8 +130,7 @@ describe('inlineReplace', () => {
     expect(wrap.textContent).toBe('He');
   });
 
-  it('finishInline with envelope-only rawAcc keeps the original text and marks the failure', () => {
-    // A cut-off stream can emit done while the accumulator is still only the JSON envelope.
+  it('finishInline with no visible answer keeps the original text and marks the failure', () => {
     const p = byId('p');
     const original = p.textContent;
     openInline({
@@ -126,8 +138,7 @@ describe('inlineReplace', () => {
       range: rangeOver(firstChildOf(p), 0, original.length),
       stuckTimeoutMs: INLINE_STUCK_MS,
     });
-    appendInlineDelta('r1', '{');
-    finishInline('r1', { confidence: 0.5 });
+    finishInline('r1', { text: '', confidence: 0.5 });
     const wrap = document.querySelector('[data-ega-replaced="r1"]') as HTMLElement;
     expect(wrap.textContent).toContain(original);
     expect(chipText(wrap)).toBe('Empty answer');
@@ -142,7 +153,7 @@ describe('inlineReplace', () => {
       range: rangeOver(firstChildOf(p), 0, original.length),
       stuckTimeoutMs: INLINE_STUCK_MS,
     });
-    appendInlineDelta('r1', '{"translation":"Hello"}');
+    appendInlineDelta('r1', 'Hello');
     finishInline('r1', { confidence: 0.9 });
     const wrap = document.querySelector('[data-ega-replaced="r1"]') as HTMLElement;
     expect(wrap.textContent).toBe('Hello');
@@ -177,7 +188,7 @@ describe('inlineReplace', () => {
       range: rangeOver(firstChildOf(p), 0, original.length),
       stuckTimeoutMs: INLINE_STUCK_MS,
     });
-    appendInlineDelta('r1', '{"translation":"Hello"}');
+    appendInlineDelta('r1', 'Hello');
     finishInline('r1', { confidence: 0.9 });
     restoreInline('r1');
     expect(document.querySelector('[data-ega-replaced="r1"]')).toBeNull();
@@ -271,7 +282,7 @@ describe('inlineReplace', () => {
         range: rangeOver(firstChildOf(p), 0, textLen(p)),
         stuckTimeoutMs: INLINE_STUCK_MS,
       });
-      appendInlineDelta('r1', '{"translation":"Hello"}');
+      appendInlineDelta('r1', 'Hello');
       finishInline('r1', { confidence: 0.9 });
       vi.advanceTimersByTime(200_000);
       const wrap = document.querySelector('[data-ega-replaced="r1"]') as HTMLElement;
@@ -289,11 +300,11 @@ describe('inlineReplace', () => {
       range: rangeOver(firstChildOf(p), 0, textLen(p)),
       stuckTimeoutMs: INLINE_STUCK_MS,
     });
-    appendInlineDelta('r1', '{"translation":"Hello"}');
+    appendInlineDelta('r1', 'Hello');
     finishInline('r1', { confidence: 0.9 });
     const wrap = document.querySelector('[data-ega-replaced="r1"]') as HTMLElement;
     expect(wrap.textContent).toBe('Hello');
-    appendInlineDelta('r1', '{"translation":"Goodbye"}');
+    appendInlineDelta('r1', 'Goodbye');
     expect(wrap.textContent).toBe('Hello');
   });
 
@@ -305,7 +316,7 @@ describe('inlineReplace', () => {
       range: rangeOver(firstChildOf(p), 0, original.length),
       stuckTimeoutMs: INLINE_STUCK_MS,
     });
-    appendInlineDelta('r1', '{"translation":"Hello"}');
+    appendInlineDelta('r1', 'Hello');
     finishInline('r1', { confidence: 0.9 });
     errorInline('r1', { code: 'NETWORK', message: 'late' });
     const wrap = document.querySelector('[data-ega-replaced="r1"]') as HTMLElement;
@@ -371,7 +382,7 @@ describe('inlineReplace — restoreAllInline ends every in-flight request', () =
       range: rangeOver(firstChildOf(byId('p')), 0, textLen(byId('p'))),
       stuckTimeoutMs: INLINE_STUCK_MS,
     });
-    appendInlineDelta('r1', '{"translation":"Done"}');
+    appendInlineDelta('r1', 'Done');
     finishInline('r1');
 
     expect(pending.has('r1')).toBe(false);
@@ -412,7 +423,7 @@ describe('inlineReplace — Escape reverts settled wrappers too', () => {
       range: rangeOver(firstChildOf(p), 0, original.length),
       stuckTimeoutMs: INLINE_STUCK_MS,
     });
-    appendInlineDelta('r1', '{"translation":"مرحبا"}');
+    appendInlineDelta('r1', 'مرحبا');
     finishInline('r1', { confidence: 0.9 });
 
     restoreAllInline();
@@ -435,7 +446,7 @@ describe('inlineReplace — Escape reverts settled wrappers too', () => {
       stuckTimeoutMs: INLINE_STUCK_MS,
     });
 
-    appendInlineDelta('r1', '{"translation":"Done"}');
+    appendInlineDelta('r1', 'Done');
     finishInline('r1', { confidence: 0.9 });
 
     restoreAllInline();
@@ -451,7 +462,7 @@ describe('inlineReplace — Escape reverts settled wrappers too', () => {
       range: rangeOver(firstChildOf(p), 0, textLen(p)),
       stuckTimeoutMs: INLINE_STUCK_MS,
     });
-    appendInlineDelta('r1', '{"translation":"Hello"}');
+    appendInlineDelta('r1', 'Hello');
     finishInline('r1', { confidence: 0.9 });
     expect(inlineCount()).toBe(0);
 
@@ -470,7 +481,7 @@ describe('inlineReplace — Escape reverts settled wrappers too', () => {
       range: rangeOver(firstChildOf(p), 0, original.length),
       stuckTimeoutMs: INLINE_STUCK_MS,
     });
-    appendInlineDelta('r1', '{"translation":"Hello"}');
+    appendInlineDelta('r1', 'Hello');
     finishInline('r1', { confidence: 0.9 });
 
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
@@ -488,7 +499,7 @@ describe('inlineReplace — Escape reverts settled wrappers too', () => {
       range: rangeOver(firstChildOf(p), 0, original.length),
       stuckTimeoutMs: INLINE_STUCK_MS,
     });
-    appendInlineDelta('r1', '{"translation":"Hello"}');
+    appendInlineDelta('r1', 'Hello');
     finishInline('r1', { confidence: 0.9 });
 
     const wrap = document.querySelector('[data-ega-replaced="r1"]') as HTMLElement;
@@ -507,7 +518,7 @@ describe('inlineReplace — Escape reverts settled wrappers too', () => {
       range: rangeOver(firstChildOf(p), 0, textLen(p)),
       stuckTimeoutMs: INLINE_STUCK_MS,
     });
-    appendInlineDelta('r1', '{"translation":"Hello"}');
+    appendInlineDelta('r1', 'Hello');
     finishInline('r1', { confidence: 0.9 });
 
     // Page translate marks its blocks with data-ega-replaced too, but never data-ega-original.
@@ -526,7 +537,7 @@ describe('inlineReplace — Escape reverts settled wrappers too', () => {
       range: rangeOver(firstChildOf(p), 0, textLen(p)),
       stuckTimeoutMs: INLINE_STUCK_MS,
     });
-    appendInlineDelta('r1', '{"translation":"Hello"}');
+    appendInlineDelta('r1', 'Hello');
     finishInline('r1', { confidence: 0.9 });
 
     const wrap = document.querySelector('[data-ega-replaced="r1"]') as HTMLElement;
@@ -550,7 +561,7 @@ describe('inlineReplace — Escape reverts settled wrappers too', () => {
       range: rangeOver(firstChildOf(q), 0, textLen(q)),
       stuckTimeoutMs: INLINE_STUCK_MS,
     });
-    appendInlineDelta('r1', '{"translation":"Done"}');
+    appendInlineDelta('r1', 'Done');
     finishInline('r1', { confidence: 0.9 });
 
     const seen: string[] = [];
@@ -577,7 +588,7 @@ describe('inlineReplace — a completed entry releases the original fragment', (
       range: rangeOver(firstChildOf(p), 0, textLen(p)),
       stuckTimeoutMs: INLINE_STUCK_MS,
     });
-    appendInlineDelta('r1', '{"translation":"مرحبا"}');
+    appendInlineDelta('r1', 'مرحبا');
     finishInline('r1', { confidence: 0.9 });
 
     const wrap = document.querySelector('[data-ega-replaced="r1"]') as HTMLElement;
@@ -607,7 +618,7 @@ describe('inlineReplace — settled translates leave no tracking entry', () => {
       range: rangeOver(firstChildOf(p), 0, original.length),
       stuckTimeoutMs: INLINE_STUCK_MS,
     });
-    appendInlineDelta('r1', '{"translation":"Hello"}');
+    appendInlineDelta('r1', 'Hello');
     finishInline('r1', { confidence: 0.9 });
 
     expect(inlineCount()).toBe(0);

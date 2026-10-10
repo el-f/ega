@@ -23,6 +23,17 @@ describe('renderer — bilingual mode', () => {
     document.body.innerHTML = '';
   });
 
+  it('applies replacements and authoritative final text without interpreting JSON', () => {
+    const original = block('p', 'Original');
+    const handle = mountBilingual({ id: 'protocol', element: original, originalText: 'Original' });
+    appendDelta(handle, 'Earlier');
+    appendDelta(handle, 'Corrected', true);
+    expect(handle.target.textContent).toBe('Corrected');
+    const text = '{"translation":"literal example"}';
+    finish(handle, text);
+    expect(handle.target.textContent).toBe(text);
+  });
+
   it('inserts a neutral sibling block after the original', () => {
     const original = block('article', '東京タワー');
     const handle = mountBilingual({ id: 'b-1', element: original, originalText: '東京タワー' });
@@ -110,9 +121,8 @@ describe('renderer — bilingual mode', () => {
       originalText: 'これは段落です。',
     });
     expect(handle.target.getAttribute('data-ega-tx-state')).toBe('streaming');
-    appendDelta(handle, '{"translation":"Tokyo');
-    // envelope-only / partial JSON keeps the placeholder, no premature text
-    appendDelta(handle, ' Tower"}');
+    appendDelta(handle, 'Tokyo');
+    appendDelta(handle, ' Tower');
     expect(handle.target.textContent).toContain('Tokyo Tower');
   });
 
@@ -123,7 +133,7 @@ describe('renderer — bilingual mode', () => {
       element: original,
       originalText: 'これは段落です。',
     });
-    appendDelta(handle, '{"translation":"Final text."}');
+    appendDelta(handle, 'Final text.');
     finish(handle);
     expect(handle.target.getAttribute('data-ega-tx-state')).toBe('ok');
     expect(handle.target.textContent).toContain('Final text.');
@@ -231,7 +241,7 @@ describe('renderer — in-place mode', () => {
   it('appendDelta + finish render the translation in place', () => {
     const original = block('p', 'これは段落です。');
     const handle = mountInplace({ id: 'b-7', element: original, originalText: 'これは段落です。' });
-    appendDelta(handle, '{"translation":"Replaced."}');
+    appendDelta(handle, 'Replaced.');
     finish(handle);
     expect(handle.target.textContent).toContain('Replaced.');
     expect(handle.target.getAttribute('data-ega-tx-state')).toBe('ok');
@@ -244,7 +254,7 @@ describe('renderer — in-place mode', () => {
       element: original,
       originalText: 'これは元の段落です。',
     });
-    appendDelta(handle, '{"translation":"X"}');
+    appendDelta(handle, 'X');
     finish(handle);
     handle.revert();
     expect(document.body.textContent).toContain('これは元の段落です。');
@@ -258,7 +268,7 @@ describe('renderer — in-place mode', () => {
       element: original,
       originalText: 'これは元の段落です。',
     });
-    appendDelta(handle, '{"translation":"partial');
+    appendDelta(handle, 'partial');
     mountError(
       handle,
       { code: 'RATE_LIMIT', message: 'gemini: RATE_LIMIT' },
@@ -276,7 +286,7 @@ describe('renderer — in-place mode', () => {
   it('revert is idempotent — a second call does not double-insert the original', () => {
     const original = block('p', '元の段落テキスト');
     const handle = mountInplace({ id: 'b-9', element: original, originalText: '元の段落テキスト' });
-    appendDelta(handle, '{"translation":"X"}');
+    appendDelta(handle, 'X');
     finish(handle);
     handle.revert();
     handle.revert();
@@ -303,7 +313,7 @@ describe('renderer — a leading run', () => {
     expect(handle.target.hasAttribute('data-ega-run')).toBe(true);
     expect(handle.target.nextElementSibling?.tagName).toBe('UL');
     expect(li.firstElementChild).toBe(handle.target);
-    appendDelta(handle, '{"translation":"Parent item"}');
+    appendDelta(handle, 'Parent item');
     finish(handle);
     expect(li.querySelector('#child')?.textContent).toBe('Hijo');
     handle.revert();
@@ -347,7 +357,7 @@ describe('renderer — no hover-original pop in bilingual mode', () => {
       element: original,
       originalText: 'これは元の文です。',
     });
-    appendDelta(handle, '{"translation":"Translated."}');
+    appendDelta(handle, 'Translated.');
     finish(handle);
     handle.target.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
     expect(handle.target.textContent).toBe('Translated.');
@@ -366,7 +376,7 @@ describe('renderer — pill view toggle (showOriginal / showTranslation)', () =>
       element: original,
       originalText: 'これは元の文です。',
     });
-    appendDelta(handle, '{"translation":"Translated."}');
+    appendDelta(handle, 'Translated.');
     finish(handle);
     handle.showOriginal();
     expect(handle.target.style.display).toBe('none');
@@ -383,7 +393,7 @@ describe('renderer — pill view toggle (showOriginal / showTranslation)', () =>
       element: original,
       originalText: 'これは元の段落です。',
     });
-    appendDelta(handle, '{"translation":"Replaced."}');
+    appendDelta(handle, 'Replaced.');
     finish(handle);
     handle.showOriginal();
     expect(handle.target.textContent).toBe('これは元の段落です。');
@@ -418,7 +428,7 @@ describe('renderer — hover-original affordance (inplace)', () => {
       element: original,
       originalText: 'これは元の段落テキスト。',
     });
-    appendDelta(handle, '{"translation":"Translation text."}');
+    appendDelta(handle, 'Translation text.');
     finish(handle);
     expect(handle.target.textContent).toContain('Translation text.');
     handle.target.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
@@ -434,7 +444,7 @@ describe('renderer — hover-original affordance (inplace)', () => {
       element: original,
       originalText: 'これは元の段落テキスト。',
     });
-    appendDelta(handle, '{"translation":"Translation text."}');
+    appendDelta(handle, 'Translation text.');
     finish(handle);
 
     // Drag-select past the last line: mouseup lands on another element, so only mouseleave fires.
@@ -450,7 +460,7 @@ describe('renderer — hover-original affordance (inplace)', () => {
       element: original,
       originalText: 'これは元の段落テキスト。',
     });
-    appendDelta(handle, '{"translation":"Translation text."}');
+    appendDelta(handle, 'Translation text.');
     finish(handle);
 
     handle.target.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
@@ -479,7 +489,7 @@ describe('renderer — global original view suspends per-wrapper peek (inplace)'
       element: original,
       originalText: 'これは元の段落テキスト。',
     });
-    appendDelta(handle, '{"translation":"Translation text."}');
+    appendDelta(handle, 'Translation text.');
     finish(handle);
 
     setGlobalOriginalView(true);
@@ -504,7 +514,7 @@ describe('renderer — global original view suspends per-wrapper peek (inplace)'
       element: original,
       originalText: 'これは元の段落テキスト。',
     });
-    appendDelta(handle, '{"translation":"Translation text."}');
+    appendDelta(handle, 'Translation text.');
     finish(handle);
 
     setGlobalOriginalView(true);
@@ -531,7 +541,7 @@ describe('renderer — one pending look in both modes', () => {
     expect(handle.target.hasAttribute('data-ega-pending')).toBe(true);
     expect(handle.target.textContent).toBe('これは元の段落です。');
     expect(handle.target.querySelector('b')).not.toBeNull();
-    appendDelta(handle, '{"translation":"');
+    appendDelta(handle, '');
     expect(handle.target.hasAttribute('data-ega-pending')).toBe(true);
     appendDelta(handle, 'This is');
     expect(handle.target.hasAttribute('data-ega-pending')).toBe(false);

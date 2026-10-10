@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createRouter } from '@/background/router';
 import { TranslationCache } from '@/background/cache';
-import type { TranslationBackend } from '@/shared/backends/base';
+import { emitTerminal, type TranslationBackend } from '@/shared/backends/base';
 import type { TranslationChunk } from '@/shared/types';
 import { asBackendIdUnsafe } from '@/shared/brands';
 import { sel } from '@tests/_helpers/lang';
@@ -17,7 +17,7 @@ function fixture(raw: string, custom = false) {
     async translate({ req, onChunk }) {
       calls++;
       onChunk({ type: 'delta', requestId: req.id, text: raw });
-      onChunk({ type: 'done', requestId: req.id });
+      emitTerminal(onChunk, req.id, 'Test backend', raw);
     },
   };
   const router = createRouter(
@@ -69,11 +69,7 @@ describe('router answer spec terminal', () => {
       detectedLang: 'en',
       meta: { answerFormat: { spec: 'translate@1', checkedBy: 'prompt' } },
     });
-    // This slice deliberately preserves the old raw delta protocol.
-    expect(chunks[0]).toMatchObject({
-      type: 'delta',
-      text: '{"Translation":' + '"Hello","confidence":"85%","detectedLang":"en"}',
-    });
+    expect(chunks[0]).toMatchObject({ type: 'delta', text: 'Hello' });
   });
 
   it('replays custom notes and other fields from cache without asking the backend again', async () => {

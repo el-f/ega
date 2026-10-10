@@ -151,7 +151,7 @@ export interface ResultAttempt {
 }
 
 export type TranslationChunk =
-  | { type: 'delta'; requestId: string; text: string }
+  | { type: 'delta'; requestId: string; text: string; replace?: true }
   | {
       type: 'done';
       requestId: string;

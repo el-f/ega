@@ -7,6 +7,7 @@ import {
   finishTooltip,
   finishTooltipDirect,
   closeTooltip,
+  getTooltipBody,
 } from '@/content/tipState.svelte';
 import { mountShadowHost, getContainer } from '@/content/shadowHost';
 
@@ -52,9 +53,19 @@ function detectedPill(): Element | null {
 }
 
 describe('the detected-variety pill comes from the done chunk', () => {
+  it('applies replacements and authoritative final text without interpreting JSON', async () => {
+    openTooltip({ requestId: 'protocol', srcText: 'Example', rect: rect(50, 50, 100, 20) });
+    appendDelta('protocol', 'Earlier');
+    appendDelta('protocol', 'Corrected', true);
+    await tick();
+    expect(getContainer().querySelector('.body')?.textContent.trim()).toBe('Corrected');
+    const text = '{"translation":"literal example"}';
+    finishTooltip('protocol', { text });
+    expect(getTooltipBody('protocol')).toBe(text);
+  });
   it('finishTooltip carries detectedLang and detectedDetail into the tooltip', async () => {
     openTooltip({ requestId: 'd', srcText: 'kifak', rect: rect(50, 50, 100, 20) });
-    appendDelta('d', '{"translation":"how are you","confidence":0.9}');
+    appendDelta('d', 'how are you');
     finishTooltip('d', { confidence: 0.9, detectedLang: 'arabizi', detectedDetail: 'Levantine' });
     await tick();
     expect(detectedPill()).not.toBeNull();

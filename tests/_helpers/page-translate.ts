@@ -146,7 +146,7 @@ export function rig(concurrency = 3): PageRig {
 /** Answers every sent block from `from` on with a finished translation. */
 export function finishAll(r: PageRig, from = 0): void {
   for (const s of r.sent.slice(from)) {
-    routePageV2Chunk({ type: 'delta', requestId: s.id, text: '{"translation":"T"}' });
-    routePageV2Chunk({ type: 'done', requestId: s.id, confidence: 1 });
+    routePageV2Chunk({ type: 'delta', requestId: s.id, text: 'T' });
+    routePageV2Chunk({ type: 'done', requestId: s.id, text: 'T', confidence: 1 });
   }
 }

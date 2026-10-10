@@ -873,7 +873,7 @@ function handleChunk(c: TranslationChunk): void {
       pt.firstDelta = performance.now();
       perfRecord('translate.start_to_first_delta', pt.firstDelta - pt.startedAt);
     }
-    renderer?.append(c.requestId, c.text);
+    renderer?.append(c.requestId, c.text, c.replace);
     return;
   }
   settleStream(c.requestId);

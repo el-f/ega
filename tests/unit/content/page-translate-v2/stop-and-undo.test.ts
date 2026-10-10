@@ -60,7 +60,7 @@ function finishBlock(requestId: string | undefined, text: string): void {
   routePageV2Chunk({
     type: 'delta',
     requestId: requestId ?? '',
-    text: `{"translation":"${text}"}`,
+    text: text,
   });
   routePageV2Chunk({ type: 'done', requestId: requestId ?? '', confidence: 1 });
 }

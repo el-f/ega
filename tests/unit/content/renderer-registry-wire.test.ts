@@ -74,7 +74,7 @@ describe('a chunk off the message path reaches the surface that opened the reque
       openInline({ requestId: 'r1', range: rangeOverParagraph(), stuckTimeoutMs: 90_000 }),
     ).toBe(true);
 
-    deliver({ type: 'delta', requestId: 'r1', text: '{"translation":"hello there' });
+    deliver({ type: 'delta', requestId: 'r1', text: 'hello there' });
     expect(inlineWrapper('r1')?.textContent).toBe('hello there');
 
     deliver({ type: 'done', requestId: 'r1', confidence: 0.9 });
@@ -93,7 +93,7 @@ describe('a chunk off the message path reaches the surface that opened the reque
   it('a request nobody claimed streams into the tooltip', async () => {
     openTooltip({ requestId: 't1', srcText: 'marhaba', rect: rect() });
 
-    deliver({ type: 'delta', requestId: 't1', text: '{"translation":"hello there"}' });
+    deliver({ type: 'delta', requestId: 't1', text: 'hello there' });
     deliver({ type: 'done', requestId: 't1', confidence: 0.9 });
 
     await vi.waitFor(() => expect(getTooltipBody('t1')).toBe('hello there'));

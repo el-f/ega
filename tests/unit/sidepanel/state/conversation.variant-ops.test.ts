@@ -55,7 +55,7 @@ function answer(c: ReturnType<typeof createConversation>, text: string): void {
   c.applyChunk({
     type: 'delta',
     requestId: lastStart()['requestId'] as string,
-    text: `{"translation":"${text}"}`,
+    text: text,
   });
 }
 

@@ -1,3 +1,4 @@
+import { readBackendAnswer } from '@tests/_helpers/backend';
 import { describe, it, expect } from 'vitest';
 import { makeOpenAICompatBackend } from '@/shared/backends/openai-compat';
 import { readFileSync } from 'node:fs';
@@ -94,8 +95,8 @@ describe('groq (openai-compat)', () => {
     expect(deltas.length).toBeGreaterThan(0);
     expect(done).toBeDefined();
     if (done?.type === 'done') {
-      expect(done.confidence).toBeCloseTo(0.91, 2);
-      expect(done.detectedLang).toBe('arabizi');
+      expect(readBackendAnswer(chunks)['confidence']).toBeCloseTo(0.91, 2);
+      expect(readBackendAnswer(chunks)['detectedLang']).toBe('arabizi');
     }
   });
 

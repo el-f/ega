@@ -10,6 +10,7 @@ import { setFetchHandler } from '@tests/mocks/fetch';
 import { noopCancel } from '@tests/_helpers/cancel';
 import type { TranslationChunk } from '@/shared/types';
 import { claudeFrameHasToolUse, parseClaudeFrame } from '../../native-host/lib/protocol-claude.mjs';
+import { readBackendAnswer } from '@tests/_helpers/backend';
 
 // Hand-written minimal vendor streams: they pin the parser wiring, not vendor wire drift.
 
@@ -81,13 +82,12 @@ describe('backend contracts against captured fixtures', () => {
 
     expect(done).toBeDefined();
     if (done?.type === 'done') {
-      expect(done.confidence).toBeCloseTo(0.91, 1);
+      expect(done.confidence).toBeUndefined();
     }
 
-    const joined = deltas.map((d) => d.text).join('');
-    const parsed = parseJsonResponse(joined);
-    expect(parsed.translation).toBe('hello world');
-    expect(parsed.confidence).toBeCloseTo(0.91, 2);
+    const parsed = readBackendAnswer(chunks);
+    expect(parsed['translation']).toBe('hello world');
+    expect(parsed['confidence']).toBeCloseTo(0.91, 2);
   });
 
   it('the openai compat backend streams the real chat/completions SSE shape', async () => {
@@ -103,13 +103,12 @@ describe('backend contracts against captured fixtures', () => {
     expect(deltas.length).toBeGreaterThanOrEqual(2);
     expect(done).toBeDefined();
     if (done?.type === 'done') {
-      expect(done.confidence).toBeCloseTo(0.88, 1);
+      expect(done.confidence).toBeUndefined();
     }
 
-    const joined = deltas.map((d) => d.text).join('');
-    const parsed = parseJsonResponse(joined);
-    expect(parsed.translation).toBe('bonjour');
-    expect(parsed.confidence).toBeCloseTo(0.88, 2);
+    const parsed = readBackendAnswer(chunks);
+    expect(parsed['translation']).toBe('bonjour');
+    expect(parsed['confidence']).toBeCloseTo(0.88, 2);
   });
 
   it('native host parseClaudeFrame extracts text from the real stream-json JSONL', () => {

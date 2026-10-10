@@ -280,7 +280,7 @@ describe('opening a conversation this build cannot read', () => {
 
     // The reply is still this screen's: its next chunk lands here.
     expect(c.inflightId).toBe(running);
-    c.applyChunk({ type: 'delta', requestId: 'req-live', text: '{"translation":"hi"}' });
+    c.applyChunk({ type: 'delta', requestId: 'req-live', text: 'hi' });
     c.applyChunk({ type: 'done', requestId: 'req-live' });
     expect(c.turns.find((t) => t.id === running)?.status).toBe('done');
   });
@@ -308,7 +308,7 @@ describe('opening a conversation this build cannot read', () => {
     // The reply ends inside the read of the conversation being opened.
     const fake = (async (keys: string) => {
       if (keys === key || (Array.isArray(keys) && keys.includes(key))) {
-        c.applyChunk({ type: 'delta', requestId: 'req-live', text: '{"translation":"hi"}' });
+        c.applyChunk({ type: 'delta', requestId: 'req-live', text: 'hi' });
         c.applyChunk({ type: 'done', requestId: 'req-live' });
       }
       return get(keys);

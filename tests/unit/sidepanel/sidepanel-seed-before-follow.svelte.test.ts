@@ -50,7 +50,7 @@ describe('SidePanel — an image click heard before the first follow of the tab'
     });
     fromWorker({
       kind: 'translate:chunk',
-      chunk: { type: 'delta', requestId: 'r1', text: '{"translation":"hello from the image"}' },
+      chunk: { type: 'delta', requestId: 'r1', text: 'hello from the image' },
     });
     fromWorker({ kind: 'translate:chunk', chunk: { type: 'done', requestId: 'r1' } });
     answerTabs();

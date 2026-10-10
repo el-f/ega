@@ -40,7 +40,7 @@ describe('edit-last re-send keeps the replaced answer as a variant', () => {
     expect(assistant.activeVariantIdx).toBe(1);
 
     const requestId = lastRequestId();
-    c.applyChunk({ type: 'delta', requestId, text: '{"translation":"new answer"}' });
+    c.applyChunk({ type: 'delta', requestId, text: 'new answer' });
     c.applyChunk({ type: 'done', requestId, confidence: 1 });
 
     const after = c.turns.find((t) => t.id === assistant.id);
@@ -64,7 +64,7 @@ describe('edit-last re-send keeps the replaced answer as a variant', () => {
     const assistant = c.turns.find((t) => t.role === 'assistant');
     if (!assistant) throw new Error('assistant turn missing');
     const requestId = lastRequestId();
-    c.applyChunk({ type: 'delta', requestId, text: '{"translation":"new answer"}' });
+    c.applyChunk({ type: 'delta', requestId, text: 'new answer' });
     c.applyChunk({ type: 'done', requestId, confidence: 1 });
 
     c.selectVariant(assistant.id, 0);

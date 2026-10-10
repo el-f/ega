@@ -2,7 +2,6 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   createMemoizedJsonParser,
-  emitTerminal,
   parseJsonResponse,
   streamingTranslation,
 } from '@/shared/backends/base';
@@ -10,7 +9,7 @@ import { createThinkScrubber } from '@/shared/backends/think-scrubber';
 import { buildTaskPrompt } from '@/shared/prompts';
 import { CARD_CONTRACT, PLAIN_CONTRACT } from '@/shared/answer/formats-v1';
 import { asLangIdUnsafe } from '@/shared/brands';
-import type { TranslationChunk } from '@/shared/types';
+import { carriesAnswer } from '@/shared/answer/legacy-reader';
 import { readAnswer } from '@/shared/answer/reader';
 import { answerSpecFor } from '@/shared/answer/spec';
 
@@ -34,21 +33,12 @@ const prompts = JSON.parse(
 ) as PromptGolden[];
 
 function finish(raw: string): unknown {
-  let terminal: TranslationChunk | undefined;
-  emitTerminal(
-    (chunk) => {
-      terminal = chunk;
-    },
-    'golden',
-    'Model',
-    raw,
-  );
-  if (terminal?.type === 'error') return { error: terminal.code };
-  if (terminal?.type !== 'done') throw new Error('Missing terminal');
-  const { type: _type, requestId: _id, ...done } = terminal;
   const scrubber = createThinkScrubber();
   const visible = scrubber.push(raw) + scrubber.flush();
-  return { text: streamingTranslation(visible, parseJsonResponse(visible)), done };
+  const parsed = parseJsonResponse(visible);
+  if (!visible.trim() || !carriesAnswer(visible, parsed)) return { error: 'SERVER' };
+  const { translation: _translation, ...done } = parsed;
+  return { text: streamingTranslation(visible, parsed), done };
 }
 
 describe('answer reader compatibility recorded before DTO changes', () => {

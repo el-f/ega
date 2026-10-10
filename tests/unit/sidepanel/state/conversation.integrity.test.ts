@@ -28,7 +28,7 @@ async function settledExchange(
   content: string,
 ): Promise<string> {
   await c.send({ content, kind: 'translate', sourceLang: 'auto', targetLang: en, stream: false });
-  c.applyChunk({ type: 'delta', requestId: lastRequestId(), text: `{"translation":"${content}"}` });
+  c.applyChunk({ type: 'delta', requestId: lastRequestId(), text: content });
   c.applyChunk({ type: 'done', requestId: lastRequestId(), confidence: 0.9 });
   const assistant = c.turns.filter((t) => t.role === 'assistant').at(-1);
   if (!assistant) throw new Error('expected an assistant turn');
@@ -96,7 +96,7 @@ describe('retry on a settled answer', () => {
     const c = createConversation();
     const assistantId = await settledExchange(c, 'hola');
     await c.refine({ turnId: assistantId, refinementBody: 'shorter' });
-    c.applyChunk({ type: 'delta', requestId: lastRequestId(), text: '{"translation":"short"}' });
+    c.applyChunk({ type: 'delta', requestId: lastRequestId(), text: 'short' });
     c.applyChunk({ type: 'done', requestId: lastRequestId(), confidence: 0.9 });
     const before = c.turns.find((t) => t.id === assistantId)?.variants?.length ?? 0;
     expect(before).toBe(2);

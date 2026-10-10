@@ -357,9 +357,7 @@ describe('image-translate surface routing', () => {
     );
   });
 
-  it('tooltip surface parses JSON envelope and emits the extracted translation', async () => {
-    // Production backends ship a JSON envelope; prior tooltip path
-    // forwarded `buffered` verbatim → tooltip rendered the literal JSON.
+  it('tooltip surface forwards the final text interpreted by the router', async () => {
     const broadcast = vi.fn();
     const sendToTab = vi.fn();
     const router = {
@@ -370,9 +368,9 @@ describe('image-translate surface routing', () => {
         onChunk({
           type: 'delta',
           requestId: req.id,
-          text: '{"translation":"abc","confidence":0.42}',
+          text: 'Earlier',
         });
-        onChunk({ type: 'done', requestId: req.id, confidence: 0.42 });
+        onChunk({ type: 'done', requestId: req.id, text: 'abc', confidence: 0.42 });
       },
       handleImageExplain: async () => {},
     };

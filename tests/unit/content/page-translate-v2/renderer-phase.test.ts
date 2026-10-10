@@ -32,7 +32,7 @@ describe('renderer — the block phase', () => {
       originalText: 'read the docs now',
     });
     expect(handle.phase).toBe('streaming');
-    appendDelta(handle, '{"translation":"Translated."}');
+    appendDelta(handle, 'Translated.');
     finish(handle);
     expect(handle.phase).toBe('ok');
     expect(handle.target.getAttribute('data-ega-tx-state')).toBe('ok');
@@ -62,12 +62,12 @@ describe('renderer — the block phase', () => {
       element: host(rich),
       originalText: 'read the docs now',
     });
-    appendDelta(handle, '{"translation":"Translated."}');
+    appendDelta(handle, 'Translated.');
     finish(handle);
     handle.showOriginal();
     expect(handle.target.querySelector('a')).not.toBeNull();
 
-    appendDelta(handle, '{"translation":"Translated. More."}');
+    appendDelta(handle, 'Translated. More.');
 
     expect(handle.target.querySelector('a')).not.toBeNull();
     expect(handle.phase).toBe('ok');
@@ -81,7 +81,7 @@ describe('renderer — the block phase', () => {
     });
     mountError(handle, { code: 'TIMEOUT', message: 'slow' }, { onRetry: () => {} });
 
-    appendDelta(handle, '{"translation":"late"}');
+    appendDelta(handle, 'late');
     finish(handle);
 
     expect(handle.phase).toBe('error');
@@ -96,7 +96,7 @@ describe('renderer — the block phase', () => {
       element: host(rich),
       originalText: 'read the docs now',
     });
-    appendDelta(handle, '{"translation":"Trans');
+    appendDelta(handle, 'Trans');
     handle.showOriginal();
     expect(handle.target.querySelector('a')).toBeNull();
     expect(handle.target.textContent).toBe('Trans');
@@ -113,7 +113,7 @@ describe('renderer — the block phase', () => {
     const pageNode = document.createTextNode('framework wrote this');
     original.appendChild(pageNode);
 
-    appendDelta(handle, '{"translation":"Translated."}');
+    appendDelta(handle, 'Translated.');
     finish(handle);
 
     expect(pageNode.parentNode).toBe(original);

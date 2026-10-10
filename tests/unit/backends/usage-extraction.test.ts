@@ -1,3 +1,4 @@
+import { readBackendAnswer } from '@tests/_helpers/backend';
 import { describe, it, expect } from 'vitest';
 import { AnthropicBackend } from '@/shared/backends/anthropic';
 import { makeOpenAICompatBackend } from '@/shared/backends/openai-compat';
@@ -172,7 +173,8 @@ describe('OpenAI-compat usage extraction', () => {
     const chunks: TranslationChunk[] = [];
     await makeOpenAICompatBackend('openai').translate(mkArgs({ onChunk: (c) => chunks.push(c) }));
     const done = doneOf(chunks);
-    expect(done.confidence).toBeCloseTo(0.9, 2);
+    expect(done.usage).toEqual({ inputTokens: 1, outputTokens: 1 });
+    expect(readBackendAnswer(chunks)['confidence']).toBeCloseTo(0.9, 2);
   });
 });
 

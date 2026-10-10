@@ -1,4 +1,3 @@
-import { createMemoizedJsonParser, streamingTranslation } from '@/shared/backends/base';
 import { ensurePageStyles } from './page-styles';
 import type { ErrCode } from '@/shared/types';
 import { langTag, markLang, replyLang } from '@/shared/lang-tag';
@@ -20,8 +19,7 @@ interface InlineEntry {
   wrapper: HTMLSpanElement;
   original: DocumentFragment;
   originalText: string;
-  rawAcc: string;
-  parseJson: ReturnType<typeof createMemoizedJsonParser>;
+  visibleText: string;
   /** Fails a wrapper whose worker went silent, instead of shimmering forever. */
   stuckTimerId: ReturnType<typeof setTimeout>;
   /** Ceiling the guard re-arms with after every delta. */
@@ -81,8 +79,7 @@ export function openInline(opts: OpenInlineOpts): boolean {
     wrapper,
     original,
     originalText,
-    rawAcc: '',
-    parseJson: createMemoizedJsonParser(),
+    visibleText: '',
     stuckTimerId: armStuckGuard(opts.requestId, opts.stuckTimeoutMs),
     stuckMs: opts.stuckTimeoutMs,
     lang,
@@ -101,16 +98,14 @@ function armStuckGuard(requestId: string, stuckMs: number): ReturnType<typeof se
   }, stuckMs);
 }
 
-export function appendInlineDelta(requestId: string, delta: string): void {
+export function appendInlineDelta(requestId: string, delta: string, replace?: true): void {
   const e = entries.get(requestId);
   if (!e) return;
   // A stream that dies mid-body takes the worker's own timer with it, so every delta re-arms this guard.
   clearTimeout(e.stuckTimerId);
   e.stuckTimerId = armStuckGuard(requestId, e.stuckMs);
-  e.rawAcc += delta;
-  const parsed = e.parseJson(e.rawAcc);
-  const text = streamingTranslation(e.rawAcc, parsed);
-  renderProgress(e.wrapper, text, e.lang);
+  e.visibleText = replace ? delta : e.visibleText + delta;
+  renderProgress(e.wrapper, e.visibleText, e.lang);
 }
 
 function settledWrappers(): HTMLElement[] {
@@ -133,12 +128,11 @@ function releaseEscIfIdle(): void {
   if (entries.size === 0 && settledWrappers().length === 0) removeEscListener();
 }
 
-export function finishInline(requestId: string, _meta?: DoneMeta): void {
+export function finishInline(requestId: string, meta?: DoneMeta): void {
   const e = entries.get(requestId);
   if (!e) return;
   const { wrapper, originalText, lang } = e;
-  const parsed = e.parseJson(e.rawAcc);
-  const text = streamingTranslation(e.rawAcc, parsed);
+  const text = meta?.text ?? e.visibleText;
   // A `done` with no text is a failure the user can retry from, not a shimmer that never ends.
   if (text.length === 0) {
     errorInline(requestId, { code: 'EMPTY', message: 'The backend returned no text.' });

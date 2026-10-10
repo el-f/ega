@@ -7,21 +7,20 @@ import {
 } from '@/shared/backends/base';
 import { createThinkScrubber } from '@/shared/backends/think-scrubber';
 import type { ErrCode, TranslationChunk } from '@/shared/types';
+import { carriesAnswer } from '@/shared/answer/legacy-reader';
 
 const FENCE = '```';
 
 type Want = { text: string; done: Record<string, unknown> } | { error: ErrCode };
 
-/** What the user sees at done: the router scrubs think blocks from the deltas, and the terminal comes from the backend. */
+/** Frozen legacy extraction, retained to compare the worker reader's intentional improvements. */
 function finish(raw: string): Want {
-  let terminal: TranslationChunk | undefined;
-  emitTerminal((c) => (terminal = c), 'r1', 'Model', raw);
-  if (terminal?.type === 'error') return { error: terminal.code };
-  if (terminal?.type !== 'done') throw new Error('expected a terminal chunk');
-  const { type: _type, requestId: _id, ...done } = terminal;
   const scrub = createThinkScrubber();
   const visible = scrub.push(raw) + scrub.flush();
-  return { text: streamingTranslation(visible, parseJsonResponse(visible)), done };
+  const parsed = parseJsonResponse(visible);
+  if (!visible.trim() || !carriesAnswer(visible, parsed)) return { error: 'SERVER' };
+  const { translation: _translation, ...done } = parsed;
+  return { text: streamingTranslation(visible, parsed), done };
 }
 
 const table: Array<[name: string, raw: string, want: Want]> = [

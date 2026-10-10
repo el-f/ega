@@ -1,3 +1,4 @@
+import { readBackendAnswer } from '@tests/_helpers/backend';
 import { describe, it, expect } from 'vitest';
 import { AnthropicBackend } from '@/shared/backends/anthropic';
 import { DEFAULT_MODEL } from '@/shared/settings-defaults';
@@ -63,7 +64,7 @@ describe('AnthropicBackend', () => {
     expect(await b.isAvailable({ ...baseConfig, apiKeys: {} })).toBe(false);
   });
 
-  it('streams SSE deltas and emits done with parsed confidence', async () => {
+  it('streams SSE deltas and emits done with raw answer text', async () => {
     setFetchHandler(async () =>
       sseResponse(
         [
@@ -87,7 +88,7 @@ describe('AnthropicBackend', () => {
     const done = chunks.find((c) => c.type === 'done');
     expect(done).toBeDefined();
     if (done?.type === 'done') {
-      expect(done.confidence).toBeCloseTo(0.88, 2);
+      expect(readBackendAnswer(chunks)['confidence']).toBeCloseTo(0.88, 2);
     }
     const deltas = chunks.filter((c) => c.type === 'delta');
     expect(deltas.length).toBeGreaterThan(0);

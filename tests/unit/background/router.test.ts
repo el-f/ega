@@ -3,7 +3,7 @@ import { sel } from '@tests/_helpers/lang';
 import { createRouter } from '@/background/router';
 import { baseDeps } from '@tests/_helpers/router';
 import type { TranslationBackend } from '@/shared/backends/base';
-import { makeDoneChunk, parseJsonResponse, streamingTranslation } from '@/shared/backends/base';
+import { makeDoneChunk } from '@/shared/backends/base';
 import { TranslationCache } from '@/background/cache';
 import type { Settings, TranslationChunk, TranslationRequest } from '@/shared/types';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
@@ -364,7 +364,7 @@ describe('router — site-scoped rules split the cache slot', () => {
 });
 
 describe('router — cache hit renders a `{`-leading translation', () => {
-  it('emits the delta as the same JSON envelope the live path produces', async () => {
+  it('emits literal cached text without wrapping or interpreting it as JSON', async () => {
     const cached = '{"error": "Not found"}';
     const router = createRouter({
       backends: [fakeBackend()],
@@ -390,6 +390,6 @@ describe('router — cache hit renders a `{`-leading translation', () => {
       .filter((c): c is Extract<TranslationChunk, { type: 'delta' }> => c.type === 'delta')
       .map((c) => c.text)
       .join('');
-    expect(streamingTranslation(rawAcc, parseJsonResponse(rawAcc))).toBe(cached);
+    expect(rawAcc).toBe(cached);
   });
 });

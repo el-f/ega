@@ -185,12 +185,7 @@ test('image error settings CTA opens the options page', async () => {
   // openOptionsPage focuses an already-open options tab instead of mounting a fresh one.
   await opts.close();
   const opened = ext.context.waitForEvent('page', { timeout: 10_000 });
-  await page.evaluate(() => {
-    const root = document.querySelector('#ega-shadow-host')?.shadowRoot;
-    const btn = root?.querySelector<HTMLButtonElement>('.tooltip [data-ega-tooltip-error-cta]');
-    if (!btn) throw new Error('settings CTA missing');
-    btn.click();
-  });
+  await page.locator('.tooltip [data-ega-tooltip-error-cta]').click();
 
   const optionsPage = await opened;
   await optionsPage.waitForLoadState('domcontentloaded');
@@ -215,7 +210,7 @@ test('Open in side panel on a failed image puts the image in the composer, unsen
     error: { code: 'NETWORK', message: 'mock network failure' },
   });
 
-  await page.locator('.tooltip .tooltip-error-panel').click();
+  await page.locator('.tooltip [data-ega-escalate="open-panel"]').click();
   // The tooltip closes once the worker says the panel opened.
   await expect(page.locator('.tooltip')).toHaveCount(0, { timeout: 5_000 });
 

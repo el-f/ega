@@ -35,7 +35,7 @@ export type ErrMeta = Omit<Extract<TranslationChunk, { type: 'error' }>, 'type' 
 
 /** One surface a request streams into. `dispose` tears the surface down after the rows are gone. */
 export interface Renderer {
-  append(requestId: string, text: string): void;
+  append(requestId: string, text: string, replace?: true): void;
   finish(requestId: string, meta: DoneMeta): void;
   error(requestId: string, err: ErrMeta): void;
   dispose?(requestId: string): void;

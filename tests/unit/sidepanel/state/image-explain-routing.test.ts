@@ -79,7 +79,7 @@ describe('a pinned explanation survives the first streamed chunk', () => {
     const turns = applyChunk(seeded(), 'a1', {
       type: 'delta',
       requestId: 'r1',
-      text: '{"translation":"hi"',
+      text: 'hi',
     });
     expect(turns[1]?.explain).toBe('informal greeting');
   });
@@ -88,7 +88,7 @@ describe('a pinned explanation survives the first streamed chunk', () => {
     let turns = applyChunk(seeded(), 'a1', {
       type: 'delta',
       requestId: 'r1',
-      text: '{"translation":"hi"}',
+      text: 'hi',
     });
     turns = applyChunk(turns, 'a1', { type: 'done', requestId: 'r1', confidence: 0.9 });
     expect(turns[1]?.explain).toBe('informal greeting');
@@ -99,9 +99,14 @@ describe('a pinned explanation survives the first streamed chunk', () => {
     let turns = applyChunk(seeded(), 'a1', {
       type: 'delta',
       requestId: 'r1',
-      text: '{"translation":"hi","explain":"from the response"}',
+      text: 'hi',
     });
-    turns = applyChunk(turns, 'a1', { type: 'done', requestId: 'r1', confidence: 0.9 });
+    turns = applyChunk(turns, 'a1', {
+      type: 'done',
+      requestId: 'r1',
+      confidence: 0.9,
+      explain: 'from the response',
+    });
     expect(turns[1]?.explain).toBe('from the response');
   });
 });

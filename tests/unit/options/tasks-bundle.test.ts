@@ -56,7 +56,7 @@ describe('tasks bundle', () => {
       'tasks',
     );
     expect(plan.customTasks.map((t) => t.id)).toEqual([row.id]);
-    expect(plan.taskOverrides).toEqual({ grammar: { effort: 'low' } });
+    expect(plan.taskOverrides).toEqual({ grammar: { effort: 'low', futureField: 1 } });
     expect(plan.disabledTasks).toEqual(['ask']);
     expect(plan.skipped).toBe(5);
   });

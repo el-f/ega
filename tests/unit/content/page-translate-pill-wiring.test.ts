@@ -23,7 +23,7 @@ function chunk(c: TranslationChunk): void {
 }
 
 function finish(requestId: string, translation: string): void {
-  chunk({ type: 'delta', requestId, text: JSON.stringify({ translation }) });
+  chunk({ type: 'delta', requestId, text: translation });
   chunk({ type: 'done', requestId, confidence: 1 });
 }
 

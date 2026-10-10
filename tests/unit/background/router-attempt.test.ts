@@ -266,12 +266,12 @@ describe('runTranslateAttempt', () => {
       .filter((c): c is Extract<TranslationChunk, { type: 'delta' }> => c.type === 'delta')
       .map((c) => c.text)
       .join('');
-    // No reasoning leaked, no partial `<thi` flash, JSON envelope intact.
-    expect(deltaText).toBe('{"translation":"hi"}');
+    // No reasoning or JSON envelope reaches the visible stream.
+    expect(deltaText).toBe('hi');
     expect(deltaText).not.toContain('secret');
     expect(deltaText).not.toContain('<thi');
     // FSM accumulator (feeds cached/audited final) is scrubbed too.
-    expect(fsm.context().acc).toBe('{"translation":"hi"}');
+    expect(fsm.context().acc).toBe('hi');
   });
 
   it('passes normal delta output through untouched (no tags)', async () => {
@@ -306,8 +306,8 @@ describe('runTranslateAttempt', () => {
       .filter((c): c is Extract<TranslationChunk, { type: 'delta' }> => c.type === 'delta')
       .map((c) => c.text)
       .join('');
-    expect(deltaText).toBe('{"translation":"hello"}');
-    expect(fsm.context().acc).toBe('{"translation":"hello"}');
+    expect(deltaText).toBe('hello');
+    expect(fsm.context().acc).toBe('hello');
   });
 
   it('does not synth when the backend emits a real terminal', async () => {

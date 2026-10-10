@@ -10,7 +10,7 @@ import { setFetchHandler } from '@tests/mocks/fetch';
 import { noopCancel } from '@tests/_helpers/cancel';
 import type { TranslateCallArgs } from '@/shared/backends/base';
 import type { ErrCode, TranslationChunk } from '@/shared/types';
-import { sse } from '@tests/_helpers/backend';
+import { readBackendAnswer, sse } from '@tests/_helpers/backend';
 
 const baseConfig = {
   apiKeys: { anthropic: 'sk-ant-test', openai: 'sk-test', gemini: 'g-key' },
@@ -173,7 +173,7 @@ describe('a terminated stream that produced zero text is an error', () => {
     expectErrorNoDone(await runFor(new NativeBackend()), 'SERVER');
   });
 
-  it('Anthropic: a stream that ends mid-envelope → SERVER, no blank done', async () => {
+  it('Anthropic: a clean stop mid-envelope reaches the worker as a format error', async () => {
     setFetchHandler(async () =>
       sse(
         'data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"{\\"translation\\":\\""}}\n\n' +
@@ -181,7 +181,9 @@ describe('a terminated stream that produced zero text is an error', () => {
           'data: {"type":"message_stop"}\n\n',
       ),
     );
-    expectErrorNoDone(await runFor(new AnthropicBackend()), 'SERVER');
+    const chunks = await runFor(new AnthropicBackend());
+    expect(chunks.find((c) => c.type === 'done')).toBeDefined();
+    expect(() => readBackendAnswer(chunks)).toThrow('PARSE');
   });
 
   it('Anthropic: an explicit empty translation is a real answer (image with no text)', async () => {
@@ -420,7 +422,7 @@ function installNativeStub(
 }
 
 describe('a reply with no translation field', () => {
-  it('Anthropic: a non-translation JSON body is an empty answer', async () => {
+  it('Anthropic: a non-answer JSON body reaches the worker as a format error', async () => {
     const body = JSON.stringify({ category: 'always', body: 'Keep emoji.', scope: { tasks: [] } });
     setFetchHandler(
       async () =>
@@ -432,6 +434,8 @@ describe('a reply with no translation field', () => {
           { status: 200, headers: { 'content-type': 'application/json' } },
         ),
     );
-    expectErrorNoDone(await runFor(new AnthropicBackend(), { stream: false }), 'SERVER');
+    const chunks = await runFor(new AnthropicBackend(), { stream: false });
+    expect(chunks.find((c) => c.type === 'done')).toBeDefined();
+    expect(() => readBackendAnswer(chunks)).toThrow('PARSE');
   });
 });

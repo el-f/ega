@@ -141,7 +141,7 @@ describe('the show-original toggle a settled batch offers', () => {
       }),
       ['a'],
     );
-    routePageV2Chunk({ type: 'delta', requestId: ids[0] ?? '', text: '{"translation":"One."}' });
+    routePageV2Chunk({ type: 'delta', requestId: ids[0] ?? '', text: 'One.' });
     routePageV2Chunk({ type: 'done', requestId: ids[0] ?? '', confidence: 1 });
     await flush();
 
@@ -166,7 +166,7 @@ describe('the show-original toggle a settled batch offers', () => {
       }),
       ['a'],
     );
-    routePageV2Chunk({ type: 'delta', requestId: ids[0] ?? '', text: '{"translation":"One."}' });
+    routePageV2Chunk({ type: 'delta', requestId: ids[0] ?? '', text: 'One.' });
     routePageV2Chunk({ type: 'done', requestId: ids[0] ?? '', confidence: 1 });
     await flush();
 
@@ -214,7 +214,7 @@ describe('canceling a batch', () => {
       }),
       ['a'],
     );
-    routePageV2Chunk({ type: 'delta', requestId: ids[0] ?? '', text: '{"translation":"One."}' });
+    routePageV2Chunk({ type: 'delta', requestId: ids[0] ?? '', text: 'One.' });
     routePageV2Chunk({ type: 'done', requestId: ids[0] ?? '', confidence: 1 });
     await flush();
     expect(document.querySelector('[data-ega-replaced]')?.textContent).toBe('One.');
@@ -318,7 +318,7 @@ describe('the chunk router', () => {
       ['a', 'b', 'c'],
     );
 
-    routePageV2Chunk({ type: 'delta', requestId: ids[0] ?? '', text: '{"translation":"x' });
+    routePageV2Chunk({ type: 'delta', requestId: ids[0] ?? '', text: 'x' });
     expect(onUnregister).not.toHaveBeenCalled();
 
     routePageV2Chunk({ type: 'done', requestId: ids[0] ?? '', confidence: 1 });

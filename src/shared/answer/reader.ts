@@ -177,6 +177,7 @@ export function readAnswer(
     const scanner = createStringValueScan(mainField.key);
     const partial = scanner.feed(raw);
     if (partial !== null) {
+      if (partial === '') return { kind: 'error', code: 'PARSE', raw };
       object = { [mainField.key]: partial };
       via = 'partial';
     } else if (/^\s*[[{]/.test(raw) || /^\s*```json\b/i.test(raw))
@@ -290,9 +291,11 @@ export function createAnswerProjector(
       // character-sized chunk can briefly show the envelope before the scanner sees its key.
       const opening = raw.search(/[[{]/);
       const pendingEnvelope = opening >= 0 && /^[[{]\s*(?:["[{]|$)/.test(raw.slice(opening));
-      let next = partial ?? (/^\s*[[{`]/.test(raw) ? '' : pendingEnvelope ? visible : raw);
+      const openingFence = /^\s*```/.test(raw) || /^\s*`{1,2}\s*$/.test(raw);
+      let next =
+        partial ?? (/^\s*[[{]/.test(raw) || openingFence ? '' : pendingEnvelope ? visible : raw);
       const tail = lastNonBlank(raw);
-      if (tail === '}' || tail === ']' || tail === '`') {
+      if (tail === '}' || tail === ']' || (tail === '`' && !/^\s*`{1,3}\s*$/.test(raw))) {
         const answer = readAnswer(spec, raw, options);
         if (answer.kind === 'ok') next = answer.main;
       }

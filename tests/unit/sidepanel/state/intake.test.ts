@@ -93,10 +93,7 @@ describe('panel intake, without mounting the panel', () => {
     intake.onRuntimeMessage(seed(7), WORKER);
     // A fast answer (an error, a cached reply) can arrive before the panel has switched.
     const chunk = (c: object): unknown => ({ kind: 'translate:chunk', chunk: c });
-    intake.onRuntimeMessage(
-      chunk({ type: 'delta', requestId: 'req-7', text: '{"translation":"hello"}' }),
-      WORKER,
-    );
+    intake.onRuntimeMessage(chunk({ type: 'delta', requestId: 'req-7', text: 'hello' }), WORKER);
     intake.onRuntimeMessage(chunk({ type: 'done', requestId: 'req-7' }), WORKER);
     expect(conversation.ownsRequest('req-7')).toBe(true);
 

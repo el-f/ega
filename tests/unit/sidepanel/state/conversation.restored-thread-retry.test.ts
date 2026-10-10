@@ -29,7 +29,7 @@ async function restoredThread(): Promise<ReturnType<typeof createConversation>> 
     stream: false,
   });
   const req = startCalls()[0]?.['requestId'] as string;
-  c.applyChunk({ type: 'delta', requestId: req, text: '{"translation":"hello"}' });
+  c.applyChunk({ type: 'delta', requestId: req, text: 'hello' });
   c.applyChunk({ type: 'done', requestId: req, confidence: 0.9 });
   // Away and back: this is the real path that persists the thread, reloads it and
   // nulls `lastDispatch` while the loaded turns keep their own `dispatch`.

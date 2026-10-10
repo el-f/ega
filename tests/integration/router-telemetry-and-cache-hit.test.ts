@@ -276,9 +276,7 @@ describe('router — cache-hit envelope', () => {
 
     expect(translateSpy).not.toHaveBeenCalled();
     const delta = chunks.find((c) => c.type === 'delta');
-    expect(delta?.type === 'delta' ? delta.text : null).toBe(
-      JSON.stringify({ translation: 'cached' }),
-    );
+    expect(delta?.type === 'delta' ? delta.text : null).toBe('cached');
 
     const meta = doneMeta(chunks);
     expect(meta.cacheHit).toBe(true);

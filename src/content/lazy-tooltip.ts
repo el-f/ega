@@ -17,8 +17,8 @@ function afterOpen(fn: (m: Tip) => void): void {
   if (modP) void modP.then(fn);
 }
 
-function appendDelta(requestId: string, delta: string): void {
-  afterOpen((m) => m.appendDelta(requestId, delta));
+function appendDelta(requestId: string, delta: string, replace?: true): void {
+  afterOpen((m) => m.appendDelta(requestId, delta, replace));
 }
 
 function finishTooltip(requestId: string, o: Parameters<Tip['finishTooltip']>[1]): void {

@@ -1,3 +1,4 @@
+import { readBackendAnswer } from '@tests/_helpers/backend';
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -142,7 +143,7 @@ describe('OllamaBackend', () => {
     expect(bodies.map((body) => body['think'])).toEqual([false, false]);
   });
 
-  it('parses NDJSON captured fixture into deltas + done with parsed confidence', async () => {
+  it('parses NDJSON captured fixture into deltas + done with raw answer text', async () => {
     setFetchHandler(async () => ndjson(FIXTURE));
     const chunks: TranslationChunk[] = [];
     await new OllamaBackend().translate(mkArgs({ onChunk: (c) => chunks.push(c) }));
@@ -151,8 +152,8 @@ describe('OllamaBackend', () => {
     expect(deltas.length).toBeGreaterThan(0);
     expect(done).toBeDefined();
     if (done?.type === 'done') {
-      expect(done.confidence).toBeCloseTo(0.83, 2);
-      expect(done.detectedLang).toBe('arabizi');
+      expect(readBackendAnswer(chunks)['confidence']).toBeCloseTo(0.83, 2);
+      expect(readBackendAnswer(chunks)['detectedLang']).toBe('arabizi');
     }
   });
 

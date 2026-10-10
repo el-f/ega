@@ -4,11 +4,9 @@
   import { backendNeedsKey, backendHasRequiredKey } from '@/shared/backends/key-presence';
   import { resolveBackend } from '@/shared/backends/registry';
   import { apiKeyField } from '@/shared/provider-ids';
-  import {
-    parseJsonResponse,
-    type BackendConfig,
-    type TranslationBackend,
-  } from '@/shared/backends/base';
+  import type { BackendConfig, TranslationBackend } from '@/shared/backends/base';
+  import { readAnswer } from '@/shared/answer/reader';
+  import { answerSpecFor } from '@/shared/answer/spec';
   import { createThinkScrubber } from '@/shared/backends/think-scrubber';
   import { probeNativeHost } from '../probeNativeHost';
   import { onNativeProbe } from '../native-probe-events';
@@ -283,20 +281,29 @@
           new Promise<undefined>((r) => setTimeout(() => r(undefined), timeoutMs + 5_000)),
         ]);
         const total = reply?.totalMs ?? Math.round(performance.now() - start);
-        const result = reply?.ok
-          ? parseJsonResponse(reply.result ?? '')
-              .translation.trim()
-              .slice(0, 200) || '(empty result)'
-          : (reply?.error ??
-            'No answer from Claude Code or Codex. Click Recheck above, then test again.');
+        const answer = reply?.ok
+          ? readAnswer(answerSpecFor('translate'), reply.result ?? '')
+          : undefined;
+        const succeeded = reply?.ok === true && answer?.kind === 'ok';
+        const result =
+          answer?.kind === 'ok'
+            ? answer.main.trim().slice(0, 200) || '(empty result)'
+            : answer?.kind === 'error'
+              ? 'The answer was not in a readable format. Try the test again.'
+              : (reply?.error ??
+                'No answer from Claude Code or Codex. Click Recheck above, then test again.');
         // The request went out whatever the settings did meanwhile, so the log records it.
-        if (reply?.ok) auditTest(result);
+        if (succeeded) auditTest(result);
         else auditTest('', { code: reply?.code ?? 'UNKNOWN', message: result });
         if (settingsMoved()) return;
         testLatencyMs = total;
         testResult = result;
-        testSucceeded = reply?.ok === true;
-        testErrCode = reply?.ok === true ? null : (reply?.code ?? 'UNKNOWN');
+        testSucceeded = succeeded;
+        testErrCode = succeeded
+          ? null
+          : answer?.kind === 'error'
+            ? answer.code
+            : (reply?.code ?? 'UNKNOWN');
         return;
       }
       let accumulated = '';
@@ -340,9 +347,18 @@
       } else if (done) {
         // The model may answer with JSON even though the prompt asks for plain text.
         const scrub = createThinkScrubber();
-        const parsed = parseJsonResponse(scrub.push(accumulated) + scrub.flush());
-        result = parsed.translation.trim().slice(0, 200) || '(empty result)';
-        auditTest(result);
+        const answer = readAnswer(
+          answerSpecFor('translate'),
+          scrub.push(accumulated) + scrub.flush(),
+        );
+        if (answer.kind === 'ok') {
+          result = answer.main.trim().slice(0, 200) || '(empty result)';
+          auditTest(result);
+        } else {
+          errCode = answer.code === 'EMPTY' ? 'SERVER' : 'PARSE';
+          errMsg = result = 'The answer was not in a readable format. Try the test again.';
+          auditTest('', { code: errCode, message: result });
+        }
       } else {
         result = '(no output)';
         auditTest('', { code: 'UNKNOWN', message: 'no output' });

@@ -87,9 +87,9 @@ describe('a settled answer stores its text without the raw model reply', () => {
     turns = addAssistantTurn(turns, { id: 'a1', kind: 'translate', attachedToTurnId: 'u1' });
     turns = addUserTurn(turns, { id: 'u2', kind: 'translate', content: 'adios' });
     turns = addAssistantTurn(turns, { id: 'a2', kind: 'translate', attachedToTurnId: 'u2' });
-    applyChunk(turns, 'a1', { type: 'delta', requestId: 'r1', text: '{"translation":"hello"}' });
+    applyChunk(turns, 'a1', { type: 'delta', requestId: 'r1', text: 'hello' });
     applyChunk(turns, 'a1', { type: 'done', requestId: 'r1', confidence: 0.9 });
-    applyChunk(turns, 'a2', { type: 'delta', requestId: 'r2', text: '{"translation":"by' });
+    applyChunk(turns, 'a2', { type: 'delta', requestId: 'r2', text: 'by' });
     applyChunk(turns, 'a2', { type: 'error', requestId: 'r2', code: 'NETWORK', message: 'x' });
     await saveThread('https://raw.com', turns);
     const blob = JSON.stringify(

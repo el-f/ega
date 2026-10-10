@@ -73,7 +73,6 @@ import { makeAsyncLock } from '@/shared/utils/async-lock';
 import { isSafeRenderImageSrc } from '@/shared/image-url-guard';
 import { uuid } from '@/shared/uuid';
 import { IMAGE_TURN_PLACEHOLDER } from '@/shared/constants';
-import { createMemoizedJsonParser } from '@/shared/backends/base';
 import type { LangSelection, PageContext, TranslationChunk } from '@/shared/types';
 import type { ImageTask, Tone } from '@/shared/task-prompts';
 import type { TaskId } from '@/shared/task-view';
@@ -303,8 +302,6 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     requestId: null as string | null,
     /** Last-dispatch metadata so retry can re-fire the same task/tone/lang. */
     lastDispatch: null as DispatchInput | null,
-    /** Per-request parser cache — collapses the delta-then-done double parse. */
-    parser: createMemoizedJsonParser(),
     /** Origin whose thread is currently loaded. Drives persistence target. */
     activeId: GENERAL_ORIGIN as string,
     /** Site of the tab the panel follows. */
@@ -381,7 +378,6 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     noteOwnedRequest(requestId);
     armStall(requestId, safeImg !== undefined);
     state.lastDispatch = input;
-    state.parser = createMemoizedJsonParser();
     try {
       await sendTranslateStart(
         buildStartArgs(userTurn, {
@@ -404,7 +400,6 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     origin: string;
     turn: Turn;
     variantId: string;
-    parser: ReturnType<typeof createMemoizedJsonParser>;
     stallMs: number;
     timer: ReturnType<typeof setTimeout> | null;
   }
@@ -427,7 +422,6 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       origin: state.activeId,
       turn: $state.snapshot(live) as Turn,
       variantId,
-      parser: state.parser,
       stallMs,
       timer: null,
     });
@@ -458,7 +452,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     reply: BackgroundReply,
     c: TranslationChunk,
   ): void {
-    applyChunkPure([reply.turn], reply.turn.id, c, reply.parser, reply.variantId);
+    applyChunkPure([reply.turn], reply.turn.id, c, reply.variantId);
     if (c.type === 'delta') {
       rearmBackgroundStall(requestId);
       return;
@@ -511,7 +505,6 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     state.inflightId = reply.turn.id;
     state.inflightVariantId = reply.variantId;
     state.requestId = requestId;
-    state.parser = reply.parser;
     stallMs = reply.stallMs;
     rearmStall(requestId);
   }
@@ -569,7 +562,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     // In place: a new array per delta would re-render every turn.
     mutate(
       (turns) => {
-        applyChunkPure(turns, id, c, state.parser, variantId);
+        applyChunkPure(turns, id, c, variantId);
         if (c.type === 'done') {
           const settledTurn = turns.find((t) => t.id === id);
           if (settledTurn?.retries !== undefined) delete settledTurn.retries;
@@ -673,7 +666,6 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     state.requestId = requestId;
     noteOwnedRequest(requestId);
     armStall(requestId, source.imageDataUrl !== undefined);
-    state.parser = createMemoizedJsonParser();
     try {
       await sendTranslateStart(
         buildStartArgs(source, { requestId, reuse, tone, context, thread: state.turns }),
@@ -764,7 +756,6 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     state.requestId = requestId;
     noteOwnedRequest(requestId);
     armStall(requestId, userTurn.imageDataUrl !== undefined);
-    state.parser = createMemoizedJsonParser();
     // The user turn's captured tone wins, so a later picker change does not apply backwards.
     const tone = userTurn.tone ?? state.lastDispatch?.tone;
     try {
@@ -1042,7 +1033,6 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     state.requestId = requestId;
     noteOwnedRequest(requestId);
     armStall(requestId, true);
-    state.parser = createMemoizedJsonParser();
     // The turn's own dispatch record is what lets Retry re-run the OCR; lastDispatch stays null
     // because it is panel-wide and would make an unrelated text turn look retryable.
     state.lastDispatch = null;
