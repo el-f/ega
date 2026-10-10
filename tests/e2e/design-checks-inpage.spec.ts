@@ -298,6 +298,10 @@ test('bubble and picker bar: 12px floor, 24px targets, toolbar stops, the bubble
   expect(named).toEqual({ label: 'Translate to English', aria: null });
   // A long target name may end in an ellipsis; the label is marked as an allowed truncation.
   await expect(page.locator('.bubble-label[data-ega-truncates]')).toHaveCount(1);
+  // The entry animation scales the whole group from 90%, including its 24px buttons.
+  await page.locator('.bubble-group').evaluate(async (group) => {
+    await Promise.all(group.getAnimations().map((animation) => animation.finished));
+  });
   let p = await probe(page, true);
   expect(p.smallText).toEqual([]);
   expect(p.smallTargets).toEqual([]);
