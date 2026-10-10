@@ -263,8 +263,9 @@ function measureDist(distDir: string): BundleEntry[] {
 const EAGER_CONTENT_BUDGET_BYTES = 155_961;
 
 /** The popup opens on every toolbar click, so its preload set is the one extension-page cost a user feels. Ratchet, like the one above. */
-// Shared task capabilities and refinement presets bring the measured preload set to 515,046B.
-const POPUP_PAGE_BUDGET_BYTES = 515_046;
+// Shared task capabilities and refinement presets measure 515,046B in the worktree;
+// the main checkout's vendor-svelte-extras chunk adds 2B. Use the measured maximum.
+const POPUP_PAGE_BUDGET_BYTES = 515_048;
 
 function measurePagePreload(distDir: string, htmlRel: string): { files: string[]; bytes: number } {
   const htmlPath = path.join(distDir, htmlRel);
