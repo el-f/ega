@@ -617,7 +617,8 @@
   flex-shrink: 0;
 }
 .tooltip .body {
-  min-block-size: 0;
+  /* Keep a readable answer line when About consumes the remaining space. */
+  min-block-size: 1lh;
   max-block-size: 40vh;
   overflow: auto;
   overflow-wrap: anywhere;

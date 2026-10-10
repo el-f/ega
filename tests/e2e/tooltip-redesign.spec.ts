@@ -82,6 +82,15 @@ for (const theme of ['light', 'dark']) {
           return aboutBox.y + aboutBox.height;
         })
         .toBeLessThanOrEqual(800);
+      // About scrolls internally without shrinking the answer to a clipped sliver.
+      await expect
+        .poll(() =>
+          page.locator('.tooltip .body').evaluate((body) => {
+            const lineHeight = Number.parseFloat(getComputedStyle(body).lineHeight);
+            return body.clientHeight >= Math.floor(lineHeight);
+          }),
+        )
+        .toBe(true);
       await expect(page.getByRole('button', { name: 'Close', exact: true })).toHaveCount(1);
       await page.screenshot({ path: info.outputPath(`tooltip-about-${width}-${theme}.png`) });
       await page.getByRole('button', { name: 'Refine', exact: true }).click();

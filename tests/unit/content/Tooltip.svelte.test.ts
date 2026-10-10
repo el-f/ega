@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
 import { readFileSync } from 'node:fs';
 import Tooltip from '@/content/Tooltip.svelte';
+import { repositionIfOverflow } from '@/content/tipState.svelte';
 import type { DetectedVariety, ErrCode } from '@/shared/types';
 import type { Task } from '@/shared/task-prompts';
 
@@ -88,6 +89,28 @@ async function menu(container: HTMLElement, name: string): Promise<HTMLElement> 
   });
 }
 describe('Tooltip smoke', () => {
+  it('keeps the reply height limit when repositioning updates the panel style', async () => {
+    const tip = baseTip({ body: 'Welcome' });
+    const { container, rerender } = render(Tooltip, {
+      props: { tip, clickOutsideDismiss: false, ...handlers() },
+    });
+    const panel = container.querySelector<HTMLElement>('.tooltip');
+    const reply = container.querySelector<HTMLElement>('.tooltip-reply');
+    if (!panel || !reply) throw new Error('No tooltip reply');
+    vi.spyOn(panel, 'getBoundingClientRect').mockReturnValue(new DOMRect(8, 230, 304, 700));
+    const heightLimit = () =>
+      reply.style.getPropertyValue('--ega-tooltip-max-block-size') ||
+      panel.style.getPropertyValue('--ega-tooltip-max-block-size');
+
+    repositionIfOverflow(tip, panel, new DOMRect(100, 200, 80, 20));
+    const limit = heightLimit();
+    expect(limit).not.toBe('');
+    await rerender({ tip: { ...tip } });
+
+    expect(panel.style.top).toBe(`${tip.top}px`);
+    expect(heightLimit()).toBe(limit);
+  });
+
   it('does NOT show the source-text echo by default (showSource=false)', () => {
     const { container } = mountWith({ srcText: 'the-source-text-we-highlighted' });
     expect(container.textContent).not.toContain('the-source-text-we-highlighted');

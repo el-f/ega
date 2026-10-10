@@ -156,7 +156,10 @@ export function repositionIfOverflow(state: TipState, element: HTMLElement, anch
     style?.borderTopWidth,
     style?.borderBottomWidth,
   ].reduce((sum, value) => sum + (Number.parseFloat(value ?? '0') || 0), 0);
-  element.style.setProperty('--ega-tooltip-max-block-size', `${Math.max(0, available - chrome)}px`);
+  // DraggablePanel replaces its inline style when left/top change. Keep the
+  // height limit on the reply so positioning cannot erase the scroll constraint.
+  const reply = element.querySelector<HTMLElement>('.tooltip-reply') ?? element;
+  reply.style.setProperty('--ega-tooltip-max-block-size', `${Math.max(0, available - chrome)}px`);
 
   if (needed <= spaceBelow) {
     state.top = anchor.bottom + gap;
