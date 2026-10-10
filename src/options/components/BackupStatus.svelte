@@ -8,7 +8,7 @@
 
   const { status }: Props = $props();
   let undoing = $state(false);
-  let undone = $state<ImportStatus | null>(null);
+  let undone = $state.raw<ImportStatus | null>(null);
   let error = $state('');
   async function undo(current: ImportStatus): Promise<void> {
     if (undoing || !current.undo) return;
