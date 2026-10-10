@@ -19,6 +19,19 @@ const GOOD = {
 };
 
 describe('parseCustomTaskRows', () => {
+  it.each(['keep', 'drop'] as const)(
+    'preserves future fields on %s without accepting prototype keys',
+    (mode) => {
+      const future = { ...GOOD, answer: { v: 2, fields: ['future'] }, answersIn: 'input' };
+      const raw = JSON.parse(
+        JSON.stringify(future).slice(0, -1) + ',"__proto__":{"polluted":true},"constructor":1}',
+      );
+      const [row] = parseCustomTaskRows([raw], mode);
+      expect(row).toEqual(future);
+      expect(Object.hasOwn(row ?? {}, '__proto__')).toBe(false);
+      expect(Object.hasOwn(row ?? {}, 'constructor')).toBe(false);
+    },
+  );
   it('drops a row that fails the schema when importing', () => {
     expect(parseCustomTaskRows([{ ...GOOD, user: 'no slot' }, GOOD], 'drop')).toEqual([GOOD]);
   });

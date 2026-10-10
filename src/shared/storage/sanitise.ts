@@ -12,12 +12,13 @@ import { asBackendIdUnsafe, asLangSelection, LANG_ID_PATTERN } from '../brands';
 import { apiKeyField, BACKEND_IDS, type CloudProviderId } from '../provider-ids';
 import { BUILT_IN_PRESETS } from '../presets';
 import { hasRiskyRepeat } from '../regex-risk';
-import { clampToSchema, isPlainObject } from '../settings-clamp';
+import { clampToSchema, isPlainObject, PROTO_KEYS } from '../settings-clamp';
 import * as valibot from 'valibot';
 import {
   CURRENT_TEMPLATE_VERSION,
   customLanguageSchema,
   customTaskSchema,
+  taskEditSchema,
   DEFAULT_PROMPT_TEMPLATE,
   isPromptTemplateCustomised,
   PREVIOUS_PROMPT_TEMPLATE,
@@ -331,7 +332,11 @@ function sanitiseSitePrefsMap(
 /** A task edit keeps only what differs from the shipped task, so a later fix to a field the user never touched still reaches them. Each prompt half is compared on its own. */
 export function withoutShippedTaskFields(id: Task, edit: TaskEdit): TaskEdit {
   const shipped = BUILT_IN_TASK_SWITCHES[id];
-  const out: TaskEdit = {};
+  const out: TaskEdit = Object.fromEntries(
+    Object.entries(edit).filter(
+      ([key]) => !Object.hasOwn(taskEditSchema.entries, key) && !PROTO_KEYS.has(key),
+    ),
+  );
   if (hasOwnPrompt(id)) {
     const prompt = buildTaskTemplate(id);
     const format = answerFormatFor(id);

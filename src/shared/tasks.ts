@@ -12,6 +12,7 @@ import { uuid } from './uuid';
 import { withoutShippedTaskFields } from './storage/sanitise';
 import {
   CONTEXT_MENU_ITEMS_MAX,
+  customTaskSchema,
   DEFAULT_PROMPT_TEMPLATE,
   isPromptTemplateCustomised,
   type CustomTask,
@@ -150,7 +151,14 @@ export async function addCustomTask(input: CustomTaskInput): Promise<CustomTask>
 
 /** Rejects 'task-gone' when another window deleted the row, so an edit never brings it back. */
 export function updateCustomTask(id: string, input: CustomTaskInput): Promise<CustomTask> {
-  return updateCustomTaskRow(id, (cur) => ({ ...input, id, createdAt: cur.createdAt }));
+  return updateCustomTaskRow(id, (cur) => ({
+    ...Object.fromEntries(
+      Object.entries(cur).filter(([key]) => !Object.hasOwn(customTaskSchema.entries, key)),
+    ),
+    ...input,
+    id,
+    createdAt: cur.createdAt,
+  }));
 }
 
 /** What one control of the custom-task editor changes; `effort: undefined` goes back to the default. */

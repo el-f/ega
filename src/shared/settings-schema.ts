@@ -246,17 +246,22 @@ const TASK_IDS_MAX = 64;
 const taskPromptHalf = v.pipe(v.string(), v.maxLength(TEMPLATE_MAX));
 
 /** settings.taskOverrides[task]: only the fields that differ from the shipped task. */
-export const taskEditSchema = v.strictObject({
+// Keep newer row fields on read/write; callers still see this build's known fields.
+type KnownFields<T> = {
+  [K in keyof T as string extends K ? never : number extends K ? never : K]: T[K];
+};
+
+export const taskEditSchema = v.looseObject({
   system: v.exactOptional(taskPromptHalf),
   user: v.exactOptional(taskPromptHalf),
   pageContext: v.exactOptional(v.boolean()),
   glossary: v.exactOptional(v.boolean()),
   effort: v.exactOptional(v.picklist(EFFORT_LEVELS)),
 });
-export type TaskEdit = v.InferOutput<typeof taskEditSchema>;
+export type TaskEdit = KnownFields<v.InferOutput<typeof taskEditSchema>>;
 
 /** One row of ega.customTasks. */
-export const customTaskSchema = v.strictObject({
+export const customTaskSchema = v.looseObject({
   id: TaskIdSchema,
   label: v.pipe(v.string(), v.minLength(1), v.maxLength(CUSTOM_TASK_LABEL_MAX)),
   system: taskPromptHalf,
@@ -272,7 +277,7 @@ export const customTaskSchema = v.strictObject({
   effort: v.exactOptional(v.picklist(EFFORT_LEVELS)),
   createdAt: v.pipe(v.number(), v.integer(), v.finite()),
 });
-export type CustomTask = v.InferOutput<typeof customTaskSchema>;
+export type CustomTask = KnownFields<v.InferOutput<typeof customTaskSchema>>;
 
 /** Canonical model-id-per-backend shape. `native` holds an optional CLI model id; '' means the CLI default. */
 const modelShape = v.strictObject({

@@ -38,6 +38,20 @@ beforeEach(() => {
 });
 
 describe('custom task rows', () => {
+  it('editing one row keeps future fields on that row and its neighbors', async () => {
+    const future = { answer: { v: 2 }, futureSwitch: true };
+    await chrome.storage.local.set({
+      [STORAGE_KEYS.customTasks]: [
+        { ...row(1), ...future, effort: 'high' },
+        { ...row(2), ...future },
+      ],
+    });
+    await updateCustomTask('c1', { ...input, label: 'Renamed' });
+    const rows = await getCustomTasks();
+    expect(rows[0]).toMatchObject({ ...future, id: 'c1', label: 'Renamed' });
+    expect(rows[0]).not.toHaveProperty('effort');
+    expect(rows[1]).toEqual({ ...row(2), ...future });
+  });
   it('add writes a row with a fresh id; update keeps the id and creation time', async () => {
     const added = await addCustomTask(input);
     expect((await getCustomTasks()).map((t) => t.id)).toEqual([added.id]);

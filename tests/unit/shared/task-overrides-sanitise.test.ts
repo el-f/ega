@@ -52,6 +52,13 @@ describe('withoutShippedTaskFields', () => {
 });
 
 describe('the read path', () => {
+  it('keeps future task edit fields while pruning shipped fields', () => {
+    const future = { answer: { v: 2 }, futureSwitch: false };
+    expect(
+      read({ taskOverrides: { summarize: { ...future, system: SHIPPED_SUMMARIZE.system } } })
+        .taskOverrides,
+    ).toEqual({ summarize: future });
+  });
   it('reads a stored copy of the shipped prompt as no edit', () => {
     const s = read({ taskOverrides: { summarize: { system: SHIPPED_SUMMARIZE.system } } });
     expect(s.taskOverrides).toEqual({});
