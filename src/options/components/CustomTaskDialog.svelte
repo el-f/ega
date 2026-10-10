@@ -21,7 +21,11 @@
     type CustomTaskInput,
     type CustomTaskPatch,
   } from '@/shared/tasks';
-  import { CARD_CONTRACT, PLAIN_CONTRACT } from '@/shared/answer/formats-v1';
+  import { customAnswerSpec, customAnswerContract, answerOutput } from '@/shared/answer/custom';
+  import { validateSpec, type AnswerField } from '@/shared/answer/spec';
+  import type { StoredAnswerSpec } from '@/shared/custom-answer-schema';
+  import AnswerFieldsEditor from './AnswerFieldsEditor.svelte';
+  import AnswerPreview from './AnswerPreview.svelte';
   import { listVarieties } from '@/shared/varieties';
   import { buildCustomPreviewPrompt, PREVIEW_SAMPLE_TEXT } from '@/options/preview-prompt';
   import { reportSaveFailure } from '@/options/storage-with-toast';
@@ -68,6 +72,17 @@
     user: initial?.user ?? DEFAULT_USER,
   });
   let output = $state<'plain' | 'card'>(initial?.output ?? 'plain');
+  let answer = $state<StoredAnswerSpec | undefined>(initial?.answer);
+  let answerMode = $state<'plain' | 'card' | 'fields'>(
+    initial?.answer?.v === 1 && Array.isArray(initial.answer['fields'])
+      ? 'fields'
+      : (initial?.output ?? 'plain'),
+  );
+  let ownFields = $state<AnswerField[]>(
+    untrack(() =>
+      answerMode === 'fields' ? [...customAnswerSpec(initial ?? { output: 'plain' }).fields] : [],
+    ),
+  );
   let answersIn = $state<'input' | 'target'>(initial?.answersIn ?? 'target');
   let effort = $state<'' | TaskEffort>(initial?.effort ?? '');
   let pageContext = $state(initial?.pageContext ?? false);
@@ -86,7 +101,8 @@
     label: label.trim(),
     system: prompt.system,
     user: prompt.user,
-    output,
+    output: answerOutput(answer, output),
+    ...(answer !== undefined ? { answer } : {}),
     answersIn,
     pageContext,
     image,
@@ -95,6 +111,23 @@
   });
   const taskKey = $derived(rowId ?? 'custom');
   const messageError = $derived(checkPrompt(prompt, 'custom', taskKey).messageError);
+  const answerSpec = $derived(customAnswerSpec(draft, taskKey));
+  const fieldProblems = $derived(
+    answerMode === 'fields'
+      ? validateSpec({
+          id: `custom:${taskKey}`,
+          version: 1,
+          fields: ownFields,
+          join: 'after-build',
+        })
+      : [],
+  );
+  const duplicateNames = $derived(
+    new Set(ownFields.map((f) => f.label.trim().toLowerCase())).size !== ownFields.length,
+  );
+  const answerProblem = $derived(
+    fieldProblems[0] ?? (duplicateNames ? 'Two fields cannot share a name.' : null),
+  );
 
   type TextField = 'label' | 'prompt';
   /** Why a text field cannot be saved as typed, in the status line's words; null when it can. */
@@ -103,7 +136,7 @@
     return messageError !== null ? 'the message needs the Selected text variable' : null;
   }
   /** What a new task still needs before it is created; null once it can be. */
-  const blocker = $derived(problemOf('label') ?? problemOf('prompt'));
+  const blocker = $derived(problemOf('label') ?? problemOf('prompt') ?? answerProblem);
   const FIELD_NAMES: Record<TextField, string> = { label: 'the name', prompt: 'the message' };
 
   const ERRORS: Record<string, string> = {
@@ -194,6 +227,48 @@
     saveText('prompt');
   }
 
+  function setAnswerMode(next: string): void {
+    if (next !== 'plain' && next !== 'card' && next !== 'fields') return;
+    if (next === 'fields') {
+      if (ownFields.length === 0)
+        ownFields = answerSpec.fields.map((f) => ({
+          ...f,
+          ...(f.role === 'main' ? { key: 'answer' } : {}),
+        }));
+      answerMode = next;
+      setFields(ownFields);
+      return;
+    }
+    answerMode = next;
+    output = next;
+    answer = { v: 1, preset: next === 'card' ? 'answer-notes' : 'answer-only' };
+    saver.valid('answer');
+    saveNow({ output, answer });
+  }
+  function setFields(fields: AnswerField[]): void {
+    ownFields = fields;
+    answer = { v: 1, fields };
+    output = fields.some((f) => f.role === 'notes') ? 'card' : 'plain';
+    const issues = validateSpec({
+      id: `custom:${taskKey}`,
+      version: 1,
+      fields,
+      join: 'after-build',
+    });
+    const duplicates =
+      new Set(fields.map((f) => f.label.trim().toLowerCase())).size !== fields.length;
+    if (issues.length || duplicates) {
+      saver.invalid('answer', issues[0] ?? 'Two fields cannot share a name.');
+      return;
+    }
+    saver.valid('answer');
+    if (startsRow()) {
+      if (blocker === null) saver.later('create', create);
+      return;
+    }
+    saver.later('answer', write({ answer, output }));
+  }
+
   // The cap counts every item, so a task already in the menu can always leave it.
   const menuFull = $derived(!inMenu && s.contextMenuItems.length >= CONTEXT_MENU_ITEMS_MAX);
 
@@ -273,6 +348,7 @@
         const fields = (['label', 'prompt'] as const)
           .filter((f) => problemOf(f) !== null)
           .map((f) => FIELD_NAMES[f]);
+        if (answerProblem !== null) fields.push('the answer fields');
         if (!(await confirmCloseWithout(fields))) return;
       }
       onClose();
@@ -326,15 +402,13 @@
 
       <span class="ct-label" id="{uid}-answers">Answers</span>
       <RadioGroup
-        value={output}
+        value={answerMode}
         options={[
           { value: 'plain', label: 'Answer only' },
           { value: 'card', label: 'Answer with notes' },
+          { value: 'fields', label: 'Your own fields' },
         ]}
-        onValueChange={(v) => {
-          output = v === 'card' ? 'card' : 'plain';
-          saveNow({ output });
-        }}
+        onValueChange={setAnswerMode}
         orientation="horizontal"
         dataAttrs={{ 'data-ega-custom-task-output': true, 'aria-labelledby': `${uid}-answers` }}
       />
@@ -412,19 +486,25 @@
       </div>
     </div>
 
+    {#if answerMode === 'fields'}
+      <AnswerFieldsEditor fields={ownFields} onchange={setFields} />
+      {#if answerProblem}<p class="ct-hint" role="status">{answerProblem}</p>{/if}
+    {/if}
+
     <div class="ct-prompt">
       <PromptEditor
         kind="custom"
         task={taskKey}
         template={prompt}
         builtIn={null}
-        format={output === 'card' ? CARD_CONTRACT : PLAIN_CONTRACT}
+        format={customAnswerContract(draft, taskKey)}
         snippets={{}}
         sendsPageContext={pageContext}
         onChange={setPrompt}
         buildPreview={preview}
       />
     </div>
+    <AnswerPreview spec={answerSpec} {draft} {s} problem={blocker} />
   </div>
   {#snippet actions()}
     <span class="ct-foot-start">

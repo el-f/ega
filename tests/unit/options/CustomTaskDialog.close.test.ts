@@ -118,6 +118,38 @@ describe('a new custom task', () => {
 });
 
 describe('an existing custom task', () => {
+  it('holds an invalid answer field, names it on close, and clears it when choosing a preset', async () => {
+    const row = await addCustomTask({
+      ...input,
+      answer: {
+        v: 1,
+        fields: [
+          { key: 'answer', label: 'Answer', kind: 'text', role: 'main', required: true },
+          { key: 'reason', label: 'Reason', kind: 'text', role: 'notes', required: false },
+        ],
+      },
+    });
+    open(vi.fn(), { row });
+    await fireEvent.click(document.querySelector('[aria-label="Edit Reason"]') as HTMLElement);
+    const fieldName = document.querySelector(
+      '[data-ega-answer-field="reason"] input',
+    ) as HTMLInputElement;
+    await fireEvent.input(fieldName, { target: { value: '' } });
+    expect(status()).toContain('Not saved:');
+    confirm.mockResolvedValueOnce(false);
+    await fireEvent.click(done());
+    await waitFor(() => expect(confirm).toHaveBeenCalled());
+    expect(confirm.mock.calls[0]?.[0].body).toContain('the answer fields');
+    const preset = Array.from(document.querySelectorAll('label'))
+      .find((el) => el.textContent.trim() === 'Answer only')
+      ?.querySelector('[role="radio"]');
+    if (!preset) throw new Error('no Answer only radio');
+    await fireEvent.click(preset);
+    await waitFor(async () =>
+      expect((await getCustomTasks())[0]?.answer).toEqual({ v: 1, preset: 'answer-only' }),
+    );
+    await waitFor(() => expect(status()).toBe('Saved'));
+  });
   it('Delete task removes it at once, closes, and the toast Undo brings it back exactly', async () => {
     const row = await addCustomTask(input);
     const push = vi.spyOn(toastStore, 'push').mockImplementation(() => {});

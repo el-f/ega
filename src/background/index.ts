@@ -1,5 +1,6 @@
 import { BACKEND_API_KEY_FIELDS, instantiateAll, resolveBackend } from '@/shared/backends/registry';
 import { createRouter } from './router';
+import { createTaskTryHandler } from './task-try';
 import { TranslationCache } from './cache';
 import { createCancelToken } from '@/shared/cancel-token';
 import { handleNativeTest } from './native-test';
@@ -325,6 +326,12 @@ const router = createRouter({
   cache,
   logger,
 });
+const taskTests = createTaskTryHandler({
+  backends: instantiateAll(),
+  getSettings,
+  getCustomLanguages,
+  logger,
+});
 
 // Every chrome.* listener registers at module top level: an await before addListener lets Chrome drop the events that wake the worker.
 
@@ -422,6 +429,7 @@ chrome.runtime.onMessage.addListener((rawMsg, sender, sendResponse) => {
     case 'translate:cancel':
       // A page's content script may stop only its own tab's request.
       if (isExtensionPage(sender) || requestTab.get(msg.requestId) === sender.tab?.id) {
+        if (isExtensionPage(sender)) taskTests.cancel(msg.requestId);
         router.cancel(msg.requestId);
       }
       reply(msg.kind, { ok: true });
@@ -502,6 +510,9 @@ chrome.runtime.onMessage.addListener((rawMsg, sender, sendResponse) => {
       // e2e waitForServiceWorker polls this to know onMessage is live before a real translate:start.
       reply(msg.kind, { ok: true });
       return false;
+    case 'task:try':
+      void taskTests.run(msg, isExtensionPage(sender)).then((result) => reply(msg.kind, result));
+      return true;
     case 'backend:probe-all':
       defaultProbe()
         .then((r) => reply(msg.kind, r))

@@ -69,6 +69,8 @@ export function cutAtCodePoint(text: string, max: number): string {
 }
 
 export interface RouterDeps {
+  /** A draft test produces an ephemeral reply, without audit or performance records. */
+  record?: boolean;
   backends: TranslationBackend[];
   getSettings: () => Promise<Settings>;
   getCustomLanguages?: () => Promise<CustomLanguage[]>;
@@ -252,6 +254,7 @@ export function createRouter(deps: RouterDeps) {
       error?: { code: string; message: string };
       confidence?: number;
     }): void {
+      if (deps.record === false) return;
       const latencyMs = Date.now() - t0;
       const { firstDeltaAt, finalUsage } = fsm.context();
       const firstTokenMs =
@@ -353,7 +356,7 @@ export function createRouter(deps: RouterDeps) {
       };
       // Before the instructions go on: the perf buffer never holds prompt text.
       try {
-        pushPerfEntry(meta);
+        if (deps.record !== false) pushPerfEntry(meta);
       } catch (e) {
         debugCatch(e, 'background.router.1');
       }

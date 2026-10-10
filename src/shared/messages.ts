@@ -20,6 +20,7 @@ import type { PortStatus } from './cli-session/port-manager';
 import type { PerfEntry } from './perf-history';
 import type { ProbeResult } from './translate-ui';
 import type { PendingPopupHandoff } from './pending-popup-handoff';
+import type { CustomTaskInput } from './tasks';
 
 /** Why the selection bubble stayed hidden for the last selection; the popup names it. */
 export type HeldBackReason = 'english' | 'too-short' | 'mode-never';
@@ -30,6 +31,14 @@ export interface HeldBack {
 }
 
 export type Msg =
+  | {
+      kind: 'task:try';
+      requestId: string;
+      draft: CustomTaskInput;
+      text: string;
+      sourceLang: LangSelection;
+      targetLang: LangSelection;
+    }
   | {
       kind: 'translate:start';
       requestId: string;
@@ -180,6 +189,7 @@ export interface NativeTestReply {
 
 /** What each kind's handler answers with. `void` means the listener returns false and nothing reads a reply. */
 export interface MsgReply {
+  'task:try': Extract<TranslationChunk, { type: 'done' | 'error' }>;
   'translate:start': { ok: true };
   'translate:chunk': void;
   'translate:cancel': { ok: true };
@@ -238,6 +248,7 @@ export function sendTabMsg<K extends Msg['kind']>(
 
 // `satisfies` alone passes on a subset, so the residual check below forces full coverage.
 const ALL_KINDS = [
+  'task:try',
   'translate:start',
   'translate:chunk',
   'translate:cancel',

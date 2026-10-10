@@ -119,6 +119,14 @@ export function createDialogSaver() {
       generation += 1;
       status = { kind: 'idle' };
     },
+    /** A replacement is valid; retire the old field's held error and waiting edit before saving it. */
+    valid(field: string): void {
+      touch(field);
+      held.delete(field);
+      pending.delete(field);
+      generation += 1;
+      status = { kind: 'idle' };
+    },
     note(message: string, undo?: () => void): void {
       generation += 1;
       status = undo ? { kind: 'note', message, undo } : { kind: 'note', message };
