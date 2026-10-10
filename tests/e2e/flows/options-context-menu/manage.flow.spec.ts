@@ -65,8 +65,9 @@ test('manage: groups, add an image action, move inside a group, reset then undo'
   await expect(record).toHaveAttribute('data-ega-shortcut-record');
   await record.focus();
   await page.keyboard.press('Enter');
-  await expect(record).toHaveAttribute('aria-pressed', 'true');
-  await expect(record).toHaveAttribute('data-ega-owns-escape');
+  const recording = page.getByRole('button', { name: 'Cancel recording' });
+  await expect(recording).toHaveAttribute('aria-pressed', 'true');
+  await expect(recording).toHaveAttribute('data-ega-owns-escape');
   await expect(bubble).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(record).toHaveAttribute('aria-pressed', 'false');

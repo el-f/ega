@@ -4693,15 +4693,15 @@ test('Options Advanced and About — data, diagnostics and about in every state 
       ),
     });
     await page.getByRole('button', { name: 'Import', exact: true }).click();
-    await page.getByRole('dialog', { name: 'Keep API keys from file?' }).waitFor();
+    await page.getByRole('dialog', { name: 'Use the API keys in this file?' }).waitFor();
     await optShot(page, 'data-import-keep-keys', theme, {
       userAction: 'user confirmed the import of a backup that holds API keys',
       expectations: [
-        '"Keep API keys from file?" with Keep keys and Strip keys; Strip keys is focused',
+        '"Use the API keys in this file?" with Use the file’s keys and Keep my keys; Keep my keys is focused',
       ],
       overlay: true,
     });
-    await page.getByRole('button', { name: 'Strip keys' }).click();
+    await page.getByRole('button', { name: 'Keep my keys' }).click();
     await page.close();
 
     page = await openOptionsState(theme, {

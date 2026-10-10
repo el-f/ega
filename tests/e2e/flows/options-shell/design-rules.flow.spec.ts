@@ -803,18 +803,19 @@ test('focus stays off the page body after the skip, delete, move and remove path
   await dialog.locator('[data-ega-dialog-done]').click();
   await expect(page.locator('.ega-dialog')).toHaveCount(0, { timeout: 10_000 });
 
-  // Delete a saved conversation through its confirm.
+  // Delete hides the saved conversation at once, and Undo restores it with a focused row.
   await page.locator('#tab-advanced').click();
   await page.locator('[data-ega-subtab="data"]').click();
   await page
     .getByRole('button', { name: /^Delete conversation/ })
     .first()
     .click();
-  await page.getByRole('dialog', { name: 'Delete this conversation?' }).waitFor();
-  await page.getByRole('button', { name: 'Delete', exact: true }).click();
+  await expect(page.getByText('No saved conversations', { exact: true })).toBeVisible();
   await expect(page.locator('.ega-dialog')).toHaveCount(0);
-  await page.waitForTimeout(150); // wait for the list to refresh (no single end state)
   if (await onBody(page)) found.push('conversation delete: C-14 focus on body');
+  await page.locator('[data-sonner-toast]').getByRole('button', { name: 'Undo' }).click();
+  await expect(page.locator('[data-ega-conv-delete]')).toHaveCount(1);
+  await expect(page.locator('[data-ega-conv-delete]')).toBeFocused();
 
   // C-7 on a cloud row that is not in use: every unavailable control says why on screen.
   await page.locator('#tab-backends').click();

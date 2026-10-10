@@ -23,9 +23,11 @@ describe('ElementPickerSection', () => {
     const record = getByRole('button', { name: 'Record element picker shortcut' });
     expect(record.hasAttribute('disabled')).toBe(false);
     expect(record.getAttribute('aria-disabled')).toBe('true');
-    expect(
-      document.getElementById(record.getAttribute('aria-describedby') ?? '')?.textContent.trim(),
-    ).toBe('Turn on the element picker to use this shortcut');
+    const descriptions = (record.getAttribute('aria-describedby') ?? '')
+      .split(' ')
+      .map((id) => document.getElementById(id)?.textContent.trim());
+    expect(descriptions).toContain('Turn on the element picker to use this shortcut');
+    expect(descriptions.some((text) => text?.startsWith('Current shortcut:'))).toBe(true);
     await fireEvent.click(record);
     expect(record.getAttribute('aria-pressed')).toBe('false');
   });

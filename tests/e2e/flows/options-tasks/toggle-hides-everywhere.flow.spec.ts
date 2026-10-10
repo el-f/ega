@@ -89,10 +89,10 @@ test('turning Reword off hides it in the task picker, palette, Answer again and 
   await panel.keyboard.press(process.platform === 'darwin' ? 'Meta+k' : 'Control+k');
   const input = panel.getByRole('combobox', { name: 'Command palette' });
   await expect(input).toBeFocused({ timeout: 5_000 });
-  await input.fill('Set default task');
+  await input.fill('Switch task');
   const results = panel.getByRole('listbox', { name: 'Command results' });
-  await expect(results.getByRole('option', { name: /Set default task: Summarize/ })).toBeVisible();
-  await expect(results.getByRole('option', { name: /Set default task: Reword/ })).toHaveCount(0);
+  await expect(results.getByRole('option', { name: /Switch task: Summarize/ })).toBeVisible();
+  await expect(results.getByRole('option', { name: /Switch task: Reword/ })).toHaveCount(0);
   await panel.keyboard.press('Escape');
   timeline.markStep('palette');
 

@@ -175,6 +175,8 @@ describe('SidePanel — focus never falls to the page body', () => {
 
     // The pair left the filtered list with the menu that toggled it.
     await waitFor(() => expect(turnIds(container)).toEqual([]));
-    await waitFor(() => expect(document.activeElement?.textContent).toBe('Show all messages'));
+    await waitFor(() =>
+      expect(document.activeElement?.textContent.trim()).toBe('Show all messages'),
+    );
   });
 });
