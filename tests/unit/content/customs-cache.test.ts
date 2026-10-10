@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   ensureCustomLanguages,
+  ensureCustomTasks,
   installCustomLanguagesInvalidator,
   resetCustomLanguagesCache,
   onCustomTasksUpdate,
@@ -12,6 +13,17 @@ import { preset } from '@tests/_helpers/lang';
 import { chromeMock } from '@tests/mocks/chrome';
 
 describe('customs-cache', () => {
+  it.each([ensureCustomTasks, ensureCustomLanguages])(
+    'rejects a worker acknowledgement in place of a list',
+    async (load) => {
+      const send = vi.spyOn(chromeMock.runtime, 'sendMessage').mockResolvedValueOnce({ ok: true });
+      try {
+        await expect(load()).rejects.toThrow('the worker sent no custom');
+      } finally {
+        send.mockRestore();
+      }
+    },
+  );
   it('refreshes subscribed task views when a task is renamed in another surface', async () => {
     installCustomLanguagesInvalidator();
     const row = await addCustomTask({

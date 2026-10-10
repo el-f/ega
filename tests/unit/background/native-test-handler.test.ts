@@ -150,7 +150,7 @@ describe('handleNativeTest', () => {
       defaultTimeoutMs: 60_000,
     });
     expect(reply?.ok).toBe(false);
-    expect(reply?.error).toBe('Native backend failed: CLI gone');
+    expect(reply?.error).toBe('Helper app failed: CLI gone');
     expect(reply?.code).toBe('NATIVE_SPAWN_FAIL');
   });
 

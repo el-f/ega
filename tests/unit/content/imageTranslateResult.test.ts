@@ -175,7 +175,8 @@ describe('handleImageTranslateResult — error path', () => {
     runImageTranslate(makeMsg({ error: { code: 'NETWORK', message: 'upstream timed out' } }));
     await tick();
     const body = getContainer().querySelector('.body');
-    expect(body?.textContent).toContain('upstream timed out');
+    expect(body?.textContent).toContain('No connection');
+    expect(body?.textContent).not.toContain('upstream timed out');
   });
 
   it('hides the image thumbnail on error: the error frame is text-only', async () => {
@@ -190,7 +191,8 @@ describe('handleImageTranslateResult — error path', () => {
     expect(img).toBeNull();
     const errBody = getContainer().querySelector('.tooltip-error-body');
     expect(errBody).not.toBeNull();
-    expect(errBody?.textContent).toContain('over limit');
+    expect(errBody?.textContent).toContain('Out of credit');
+    expect(errBody?.textContent).not.toContain('over limit');
   });
 });
 
@@ -288,8 +290,10 @@ describe('image Explain on the tooltip surface', () => {
       usedImage: true,
     });
     await tick();
-    expect(getContainer().querySelector('.explain-body')?.textContent).toBe('a greeting');
-    expect(getContainer().querySelector('.ega-from-image')).not.toBeNull();
+    expect(getContainer().querySelector('[data-ega-note="explain"]')?.textContent).toContain(
+      'a greeting',
+    );
+    expect(getContainer().querySelector('.answer-note-image')).not.toBeNull();
   });
 });
 

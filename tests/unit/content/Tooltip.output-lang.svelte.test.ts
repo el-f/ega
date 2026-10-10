@@ -49,7 +49,7 @@ describe('Tooltip — the reply carries its language', () => {
       target: 'en',
     });
     expect(langOf(c, '.body')).toBe('es');
-    expect(langOf(c, '.explain-body')).toBe('en');
+    expect(langOf(c, '.answer-notes')).toBe('en');
   });
 
   it('an error is ours, in English: no language mark on it', () => {

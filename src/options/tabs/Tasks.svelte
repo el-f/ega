@@ -310,7 +310,7 @@
 <style>
   .tasks-defaults {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
     gap: var(--space-3);
   }
   .tasks-cap {

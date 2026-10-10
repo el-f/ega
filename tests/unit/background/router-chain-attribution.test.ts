@@ -85,7 +85,7 @@ describe('router — chain exhaustion attribution', () => {
 
     // Line 2 names where the chain started failing, in words rather than raw codes.
     expect(errChunk.message.split('\n')[1]).toBe(
-      'anthropic: Rate limit reached · openai: Network issue · ollama: Network issue',
+      'anthropic: Too many requests · openai: No connection · ollama: No connection',
     );
   });
 
@@ -155,7 +155,7 @@ describe('router — chain exhaustion attribution', () => {
     // Nothing fixable in Settings, so the lead is the last backend's own sentence.
     expect(errChunk.code).toBe('NETWORK');
     expect(errChunk.message).toBe(
-      'ollama: NETWORK\nanthropic: Rate limit reached · openai: Network issue · ollama: Network issue',
+      'ollama: NETWORK\nanthropic: Too many requests · openai: No connection · ollama: No connection',
     );
   });
 });
@@ -206,9 +206,9 @@ describe('router — exhausted chain message', () => {
     const [lead, list] = err.message.split('\n');
     expect(lead).not.toMatch(/\b(AUTH|RATE_LIMIT)\b/);
     expect(lead).toBe(
-      'Authentication failed (anthropic). The backend rejected the API key. Check it in Settings → Backends.',
+      'API key rejected (anthropic). The backend rejected the API key. Check it in Settings → Backends.',
     );
-    expect(list).toBe('anthropic: Authentication failed · gemini: Rate limit reached');
+    expect(list).toBe('anthropic: API key rejected · gemini: Too many requests');
   });
 
   it('takes the lead from the last attempt as-is when that is the fixable one', async () => {
@@ -218,7 +218,7 @@ describe('router — exhausted chain message', () => {
     ]);
 
     expect(err.message).toBe(
-      'The backend rejected the API key. Check it in Settings → Backends.\ngemini: Network issue · anthropic: Authentication failed',
+      'The backend rejected the API key. Check it in Settings → Backends.\ngemini: No connection · anthropic: API key rejected',
     );
   });
 

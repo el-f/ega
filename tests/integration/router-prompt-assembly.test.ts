@@ -7,6 +7,7 @@ import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import { asBackendIdUnsafe } from '@/shared/brands';
 import { testManifest } from '@tests/_helpers/backend';
 import { cacheKey } from '@/background/cache';
+import { answerSpecFor } from '@/shared/answer/spec';
 import { renderGlossaryBlock, type GlossaryEntry } from '@/shared/glossary';
 import { renderRulesBlock, type Rule } from '@/shared/rules';
 import { RULES_BLOCK_WARN_BYTES } from '@/shared/rules-budget';
@@ -173,6 +174,7 @@ describe('router — the cache key is the hash of the prompt the model reads', (
         user: r.user,
         task: 'reword',
         history: conversationHistory,
+        answerSpec: answerSpecFor('reword'),
       }),
     ]);
   });

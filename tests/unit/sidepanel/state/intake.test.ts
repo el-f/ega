@@ -80,6 +80,12 @@ describe('panel intake, without mounting the panel', () => {
     expect(push).not.toHaveBeenCalled();
     intake.onRuntimeMessage(failure('popup'), WORKER);
     expect(push).toHaveBeenCalledTimes(1);
+    expect(push).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: expect.stringContaining('No connection') as unknown,
+      }),
+    );
+    expect(push.mock.calls[0]?.[0].message).not.toContain('down');
     push.mockRestore();
   });
 

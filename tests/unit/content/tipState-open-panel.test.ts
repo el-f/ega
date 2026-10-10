@@ -32,7 +32,7 @@ afterEach(() => {
 async function openPanelAfter(code: ErrCode): Promise<unknown> {
   const sent: unknown[] = [];
   chromeMock.runtime.sendMessage = vi.fn(async (msg: unknown) => {
-    sent.push(msg);
+    if ((msg as { kind?: string }).kind === 'ui:open-sidepanel') sent.push(msg);
     return { ok: true };
   });
   openTooltip({

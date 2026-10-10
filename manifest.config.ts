@@ -52,7 +52,7 @@ export default defineManifest({
   commands: {
     'translate-selection': {
       suggested_key: { default: 'Ctrl+Shift+L', mac: 'Command+Shift+L' },
-      description: 'Translate the current selection with Ega',
+      description: 'Run your default Ega task on the current selection',
     },
   },
 });

@@ -99,9 +99,7 @@ describe('BackendCard — native host', () => {
       }),
     );
     const failure = container.querySelector('[data-ega-test-failure]');
-    expect(failure?.querySelector('.be-fail-title')?.textContent.trim()).toBe(
-      'Something went wrong',
-    );
+    expect(failure?.querySelector('.be-fail-title')?.textContent.trim()).toBe('Error');
     expect(failure?.querySelector('details')?.textContent).toContain(
       'No answer from Claude Code or Codex. Click Recheck above, then test again.',
     );

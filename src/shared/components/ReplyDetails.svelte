@@ -271,7 +271,12 @@
         {#each details as field (field.key)}
           <div class="rd-row rd-row-block">
             <dt>{field.label}</dt>
-            <dd dir="auto">{answerDetailText(field.value)}</dd>
+            <dd dir="auto">
+              {answerDetailText(
+                field.value,
+                answer?.spec?.fields?.find((f) => f.key === field.key)?.kind,
+              )}
+            </dd>
           </div>
         {/each}
       </dl>

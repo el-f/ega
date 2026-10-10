@@ -9,6 +9,7 @@ import type * as AuditLog from '@/shared/audit-log';
 import { asBackendIdUnsafe } from '@/shared/brands';
 import { testManifest } from '@tests/_helpers/backend';
 import { baseDeps, mkSettings } from '@tests/_helpers/router';
+import { answerSpecFor } from '@/shared/answer/spec';
 
 const { auditSpy } = vi.hoisted(() => ({
   auditSpy: vi.fn<(entry: unknown) => Promise<void>>(async () => {}),
@@ -272,6 +273,7 @@ describe('router — attempt loop terminal handling', () => {
     expect(setSpy).toHaveBeenCalledTimes(1);
     expect(setSpy.mock.calls[0]?.[1]).toEqual({
       translation: 'hola',
+      answer: { spec: answerSpecFor('translate'), fields: { translation: 'hola' } },
       answerFormat: {
         spec: 'translate@1',
         checkedBy: 'prompt',

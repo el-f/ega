@@ -14,7 +14,7 @@ describe('errorTurnParts', () => {
     const message = httpErrorMessage('Gemini', new Response('', { status: 429 }), body);
     expect(message).toBe('Gemini HTTP 429: Resource exhausted');
     expect(errorTurnParts({ code: 'RATE_LIMIT', message })).toEqual({
-      title: 'Rate limit reached',
+      title: 'Too many requests',
       body: message,
       detail: undefined,
     });
@@ -23,7 +23,7 @@ describe('errorTurnParts', () => {
   it('a status with advice splits into the advice and the provider line', () => {
     const message = httpErrorMessage('Gemini', new Response('', { status: 401 }), '');
     expect(errorTurnParts({ code: 'AUTH', message })).toEqual({
-      title: 'Authentication failed',
+      title: 'API key rejected',
       body: 'The backend rejected the API key. Check it in Settings → Backends.',
       detail: 'Gemini HTTP 401',
     });
@@ -31,7 +31,7 @@ describe('errorTurnParts', () => {
 
   it('splits a transport message into label, advice and the provider fragment', () => {
     expect(errorTurnParts({ code: 'AUTH', message: AUTH_MESSAGE })).toEqual({
-      title: 'Authentication failed',
+      title: 'API key rejected',
       body: 'The backend rejected the API key. Check it in Settings → Backends.',
       detail: 'Anthropic HTTP 401: bad key',
     });
@@ -39,7 +39,7 @@ describe('errorTurnParts', () => {
 
   it('a message without a fragment is all body', () => {
     expect(errorTurnParts({ code: 'NETWORK', message: 'Could not reach the backend.' })).toEqual({
-      title: 'Network issue',
+      title: 'No connection',
       body: 'Could not reach the backend.',
       detail: undefined,
     });
@@ -69,7 +69,7 @@ describe('the export keeps the provider fragment', () => {
 
   it('markdown names the label, the advice and the fragment on one line', () => {
     expect(exportMarkdown([turn])).toBe(
-      '**Ega:** _Failed: Authentication failed: The backend rejected the API key. Check it in Settings → Backends. (Anthropic HTTP 401: bad key)_',
+      '**Ega:** _Failed: API key rejected: The backend rejected the API key. Check it in Settings → Backends. (Anthropic HTTP 401: bad key)_',
     );
   });
 

@@ -1,8 +1,15 @@
 import { describe, it, expect } from 'vitest';
 import { errCodeLabel } from '@/shared/err-labels';
 import type { ErrCode } from '@/shared/types';
+import { ERROR_COPY } from '@/shared/error-copy';
 
 describe('errCodeLabel', () => {
+  it('uses the shared catalog on every error path', () => {
+    for (const [code, row] of Object.entries(ERROR_COPY)) {
+      if (code.startsWith('REQUEST_') || code === 'IMAGE_UNKNOWN') continue;
+      expect(errCodeLabel(code as ErrCode)).toBe(row.title);
+    }
+  });
   // satisfies Record<ErrCode, true> makes a missing or extra code fail typecheck.
   const ALL_CODES = Object.keys({
     NETWORK: true,
@@ -37,12 +44,12 @@ describe('errCodeLabel', () => {
   it('avoids HTTP/dev wording on the labels a non-technical reader hits', () => {
     expect(errCodeLabel('REQUEST')).toBe('Request rejected');
     expect(errCodeLabel('QUOTA')).toBe('Out of credit');
-    expect(errCodeLabel('SERVER')).toBe('Backend error');
+    expect(errCodeLabel('SERVER')).toBe('Service problem');
   });
 
   it('PARSE and PROTOCOL read differently — they offer opposite affordances', () => {
-    expect(errCodeLabel('PARSE')).toBe('Answer in wrong format');
-    expect(errCodeLabel('PROTOCOL')).toBe('Reply was cut short');
+    expect(errCodeLabel('PARSE')).toBe('Wrong format');
+    expect(errCodeLabel('PROTOCOL')).toBe('Answer cut short');
     expect(errCodeLabel('PARSE')).not.toBe(errCodeLabel('PROTOCOL'));
   });
 
@@ -52,7 +59,7 @@ describe('errCodeLabel', () => {
   });
 
   it('labels the no-backend case as a setup problem, not "Unsupported"', () => {
-    expect(errCodeLabel('NO_BACKEND')).toBe('Setup needed');
+    expect(errCodeLabel('NO_BACKEND')).toBe('No backend set up');
   });
 
   it('throws on an off-union value at runtime (assertNever guard)', () => {

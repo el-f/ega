@@ -6,7 +6,7 @@ weaker models, not style.
 
 ## What Explain is for
 
-The translation already made the text literal. Explain surfaces what does NOT survive that:
+Explain returns the literal translation together with what does not survive that translation:
 cultural, political and social subtext, register and tone shifts, dialectal signals,
 rhetorical strategy — what an insider infers beyond the surface. Vocabulary explanation is a
 last resort, for when one term carries the whole meaning and cannot be translated without
@@ -25,6 +25,11 @@ That slot is optional. The slot registry marks `src/shared/slot-registry.ts#expl
 reports a missing slot that is required. So a custom
 template without `{{explainInstr}}` validates, translates, and loses every rule on this page —
 no error, no warning, just a thinner answer. Keep both tokens in any custom template.
+
+The Explain button runs this task, replacing the current tooltip answer or adding a side-panel
+reply. It is separate from a custom task's "Answer with notes" format: that format adds the
+custom task's own notes, without running Explain. The image setting "Send the page image with
+the Explain button" controls the page image attached by that button.
 
 An image attached to an Explain request rides this same template. The vision-only prompt in
 `src/shared/ocr-prompt.ts#buildOcrPrompt` runs only when explain is off, which is why several
@@ -148,9 +153,11 @@ Explain format also asks for `confidence`, `detectedLang`, `detectedDetail` and
 `detectedLangs`, and Explain adds `explain`. Of the five
 other built-in tasks, Reword and Grammar add `explain`; Summarize, Reply ideas and Ask return
 `translation` only. None of these five shipped prompts asks for `confidence`. A custom task
-returns `translation`, plus `explain` when it answers with notes (see Custom tasks below). That
-one shape is what lets a single parser serve the seven built-in tasks and every custom task,
-because every field except `translation` is optional. The image path has its own prompt in
+uses that legacy shape when its answer setting is "Answer only" or "Answer with notes".
+"Your own fields" instead supplies named fields through
+`src/shared/answer/custom.ts#customAnswerSpec`. The service worker reads all these formats with
+`src/shared/answer/reader.ts#readAnswer`; the surfaces receive the finished answer and field values.
+The image path has its own prompt in
 `src/shared/ocr-prompt.ts#buildOcrPrompt`, which asks for `translation`, `confidence` and
 `detectedLang`.
 
@@ -166,3 +173,20 @@ line after the Instructions, picked by the task's Answer setting:
 `src/shared/answer/formats-v1.ts#CARD_CONTRACT` for "Answer with notes". Built-in prompts get their task's
 answer format instead (see above), unless their system half already holds `Return JSON ONLY`. The editor's "Preview what the model receives" section shows
 the exact system and user text the router sends, contract line included.
+
+"Your own fields" generates the format from the task's stored versioned answer specification.
+The main field stays first, is always required, and can contain text or a list. Up to seven
+additional fields can contain text, lists, scores, yes/no values, or a choice. Their roles place
+them in notes, About this reply, or neither. Reply snapshots keep the labels and roles used when
+the answer was produced, so editing a task does not relabel its older replies.
+
+The editor offers an explicit conversion for a simple JSON format instruction. Converting
+removes that instruction, keeps the rest of the prompt, and offers Undo. It never silently
+rewrites a saved prompt. "Try it" uses the unsaved draft and sample text without writing history,
+the request log, or the answer cache.
+
+Built-in format strings remain pinned in `src/shared/answer/formats-v1.ts`; the shipped template
+version remains 9. Native JSON schemas are currently enabled for Gemini and Ollama. Other adapters
+retain the prompt format until live validation enables their schema gate. A rejected schema
+request falls back once to the original payload, and the worker remembers the rejection for
+that backend and model. See `src/shared/backends/schema-gates.ts#LIVE_SCHEMA_BACKENDS`.

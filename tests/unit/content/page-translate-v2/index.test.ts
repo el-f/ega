@@ -786,7 +786,7 @@ describe('page-translate-v2 — retry guards and backoff jitter', () => {
     expect(renderer).toBeDefined();
     renderer?.error(captured, { code: 'UNKNOWN', message: 'bad key' });
 
-    expect(chipText()).toContain('Something went wrong');
+    expect(chipText()).toContain('Error');
     expect(retryButton()).not.toBeNull();
   });
 });

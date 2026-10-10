@@ -50,7 +50,7 @@ describe('tooltip stuck-timeout', () => {
     vi.advanceTimersByTime(30_000);
     await Promise.resolve();
     await Promise.resolve();
-    expect(getContainer().textContent).not.toMatch(/timed out/i);
+    expect(getContainer().textContent).not.toMatch(/no answer in time/i);
   });
 
   it('fires only after the router default + margin when no chunk ever arrives', async () => {
@@ -58,7 +58,7 @@ describe('tooltip stuck-timeout', () => {
     vi.advanceTimersByTime(DEFAULT_TRANSLATE_TIMEOUT_MS + 30_000 + 100);
     await Promise.resolve();
     await Promise.resolve();
-    expect(getContainer().textContent).toMatch(/timed out/i);
+    expect(getContainer().textContent).toMatch(/no answer in time/i);
   });
 
   it('calls a silent worker a timeout, not a network issue', async () => {
@@ -67,8 +67,8 @@ describe('tooltip stuck-timeout', () => {
     await Promise.resolve();
     await Promise.resolve();
     const text = getContainer().textContent;
-    expect(text).toContain('Timed out');
-    expect(text).toContain('No reply in time. Try again.');
+    expect(text).toContain('No answer in time');
+    expect(text).toContain('The AI service took too long to answer.');
     expect(text).not.toMatch(/network issue/i);
   });
 
@@ -81,7 +81,7 @@ describe('tooltip stuck-timeout', () => {
       await Promise.resolve();
     }
     await Promise.resolve();
-    expect(getContainer().textContent).not.toMatch(/timed out/i);
+    expect(getContainer().textContent).not.toMatch(/no answer in time/i);
   });
 
   it('a stream that goes silent after the first delta still fails', async () => {
@@ -90,7 +90,7 @@ describe('tooltip stuck-timeout', () => {
     vi.advanceTimersByTime(DEFAULT_TRANSLATE_TIMEOUT_MS + 30_000 + 100);
     await Promise.resolve();
     await Promise.resolve();
-    expect(getContainer().textContent).toMatch(/timed out/i);
+    expect(getContainer().textContent).toMatch(/no answer in time/i);
   });
 
   it('stuckTimeoutMs override sizes the guard for the image budget', async () => {
@@ -104,11 +104,11 @@ describe('tooltip stuck-timeout', () => {
     vi.advanceTimersByTime(DEFAULT_TRANSLATE_TIMEOUT_MS + 30_000 + 100);
     await Promise.resolve();
     await Promise.resolve();
-    expect(getContainer().textContent).not.toMatch(/timed out/i);
+    expect(getContainer().textContent).not.toMatch(/no answer in time/i);
 
     vi.advanceTimersByTime(150_000 - (DEFAULT_TRANSLATE_TIMEOUT_MS + 30_000));
     await Promise.resolve();
     await Promise.resolve();
-    expect(getContainer().textContent).toMatch(/timed out/i);
+    expect(getContainer().textContent).toMatch(/no answer in time/i);
   });
 });

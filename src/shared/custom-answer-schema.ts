@@ -37,10 +37,11 @@ const fieldsSchema = v.pipe(
       new Set(fields.map((f) => f.label.trim().toLowerCase())).size === fields.length &&
       fields.every(
         (f) =>
-          f.kind !== 'choice' ||
-          (f.choices !== undefined &&
-            f.choices.every((c) => c.trim().length > 0) &&
-            new Set(f.choices.map((c) => c.toLowerCase())).size === f.choices.length),
+          f['when'] === undefined &&
+          (f.kind !== 'choice' ||
+            (f.choices !== undefined &&
+              f.choices.every((c) => c.trim().length > 0) &&
+              new Set(f.choices.map((c) => c.toLowerCase())).size === f.choices.length)),
       )
     );
   }, 'Each answer needs one main field, unique names and keys, and distinct choices.'),

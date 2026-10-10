@@ -21,7 +21,7 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-test('Import tasks replaces the rows, edits and on/off, and says what it skipped', async () => {
+test('Import tasks merges rows and edits, preserves unrelated tasks, and offers Undo', async () => {
   const timeline = createTimeline();
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
@@ -46,13 +46,13 @@ test('Import tasks replaces the rows, edits and on/off, and says what it skipped
     mimeType: 'application/json',
     buffer: Buffer.from(file),
   });
-  const dialog = page.locator('.ega-dialog', { hasText: 'Replace your tasks and task edits?' });
+  const dialog = page.locator('.ega-dialog', { hasText: 'Add and update tasks?' });
   await expect(dialog).toBeVisible({ timeout: 5_000 });
-  await dialog.getByRole('button', { name: 'Replace', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Import', exact: true }).click();
   timeline.markStep('confirmed');
 
   await expect(
-    page.locator('[role="status"]', { hasText: 'Imported 1 task and 1 edit. Skipped 1.' }),
+    page.locator('[role="status"]', { hasText: 'Added 1 task and updated 0 tasks. Skipped 1.' }),
   ).toBeVisible({ timeout: 8_000 });
   await expect
     .poll(
@@ -63,12 +63,18 @@ test('Import tasks replaces the rows, edits and on/off, and says what it skipped
         ).map((t) => t.id),
       { timeout: 5_000 },
     )
-    .toEqual(['c-new']);
+    .toEqual(['c-old', 'c-new']);
   const s = await readStorage<Settings>(ext.context, ext.extensionId, 'ega.settings');
   expect(s?.taskOverrides).toEqual({ grammar: { effort: 'low' } });
   expect(s?.disabledTasks).toEqual(['ask']);
   await expect(page.locator('[data-ega-custom-task-list]')).toContainText('Haiku');
-  await expect(page.locator('[data-ega-custom-task-list]')).not.toContainText('Old');
-  timeline.markStep('replaced');
+  await expect(page.locator('[data-ega-custom-task-list]')).toContainText('Old');
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(
+    page.locator('[role="status"]', { hasText: 'Undid the task import.' }),
+  ).toBeVisible();
+  await expect(page.locator('[data-ega-custom-task-list]')).not.toContainText('Haiku');
+  await expect(page.locator('[data-ega-custom-task-list]')).toContainText('Old');
+  timeline.markStep('merged');
   timeline.report();
 });

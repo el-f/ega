@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { ErrCode } from '@/shared/types';
-  import { errorTurnParts } from '@/shared/error-parts';
+  import { errorCopy } from '@/shared/error-copy';
   import { optionsTabForMessage } from '@/shared/error-policy';
   import type { SettingsTab } from '@/shared/settings-tabs';
   import {
@@ -114,7 +114,9 @@
   // `loading` flips false on the first token, so announcing before `settled` repeats every token.
   const announcedBody = $derived(settled && !error ? body : '');
   // The same split the side panel uses: a heading, the sentence that says what to do, and the provider's words behind Details.
-  const errorParts = $derived(error ? errorTurnParts(error) : undefined);
+  const errorParts = $derived(
+    error ? errorCopy(error.code, error.message, { image: imageUrl !== undefined }) : undefined,
+  );
   const liveMessage = $derived(
     stopped
       ? `Stopped. ${body || 'No answer yet.'}`

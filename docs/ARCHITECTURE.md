@@ -383,24 +383,25 @@ no deltas to keep it alive. Raising the timeout in Settings raises the guard wit
 Every row is `src/shared/error-policy.ts#ERR_POLICY`. "Settings tab" is the tab the error
 sentence deep-links to.
 
-| Code                   | Retry same backend | Try next backend | Settings tab |
-| ---------------------- | ------------------ | ---------------- | ------------ |
-| `NETWORK`              | yes                | yes              | —            |
-| `SERVER`               | yes                | yes              | —            |
-| `RATE_LIMIT`           | yes                | yes              | —            |
-| `TIMEOUT`              | yes                | yes              | —            |
-| `PROTOCOL`             | yes                | yes              | —            |
-| `PARSE`                | yes, 2 attempts    | no               | —            |
-| `AUTH`                 | no                 | yes              | Backends     |
-| `QUOTA`                | no                 | yes              | Backends     |
-| `NATIVE_NOT_INSTALLED` | no                 | yes              | Backends     |
-| `NATIVE_SPAWN_FAIL`    | no                 | yes              | Backends     |
-| `NO_BACKEND`           | no                 | no               | Backends     |
-| `UNSUPPORTED`          | no                 | no               | Backends     |
-| `REQUEST`              | no                 | no               | —            |
-| `IMAGE_UNSUPPORTED`    | no                 | no               | —            |
-| `ABORTED`              | no                 | no               | —            |
-| `UNKNOWN`              | no                 | no               | —            |
+| Code                   | Retry same backend | Try next backend | Settings tab                        |
+| ---------------------- | ------------------ | ---------------- | ----------------------------------- |
+| `NETWORK`              | yes                | yes              | —                                   |
+| `SERVER`               | yes                | yes              | —                                   |
+| `RATE_LIMIT`           | yes                | yes              | —                                   |
+| `TIMEOUT`              | yes                | yes              | —                                   |
+| `PROTOCOL`             | yes                | yes              | —                                   |
+| `PARSE`                | yes, 2 attempts    | yes              | Tasks for a custom or edited format |
+| `EMPTY`                | yes                | yes              | —                                   |
+| `AUTH`                 | no                 | yes              | Backends                            |
+| `QUOTA`                | no                 | yes              | Backends                            |
+| `NATIVE_NOT_INSTALLED` | no                 | yes              | Backends                            |
+| `NATIVE_SPAWN_FAIL`    | no                 | yes              | Backends                            |
+| `NO_BACKEND`           | no                 | no               | Backends                            |
+| `UNSUPPORTED`          | no                 | no               | Backends                            |
+| `REQUEST`              | no                 | no               | —                                   |
+| `IMAGE_UNSUPPORTED`    | no                 | no               | —                                   |
+| `ABORTED`              | no                 | no               | —                                   |
+| `UNKNOWN`              | no                 | no               | —                                   |
 
 Two codes carry no tab on purpose. One `REQUEST` covers a max-tokens setting, an unknown
 model id, an oversize request and a task that was deleted, so its message picks the tab instead of its code. No

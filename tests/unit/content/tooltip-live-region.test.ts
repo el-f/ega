@@ -101,7 +101,7 @@ describe('TooltipBody text direction', () => {
         settled: true,
       },
     });
-    expect(container.querySelector('.explain-body')?.getAttribute('dir')).toBe('auto');
+    expect(container.querySelector('.answer-notes')?.getAttribute('dir')).toBe('auto');
   });
 
   it('sets dir=auto on the source echo, which is the right-to-left side of a reverse translation', () => {

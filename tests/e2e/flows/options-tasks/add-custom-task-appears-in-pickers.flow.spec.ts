@@ -77,6 +77,8 @@ test('a new task from the Tasks tab shows in the Next message popover and the to
         system: 'Summarize as one tweet.{{targetLangLabel}}',
         user: 'Thread: {{text}}',
         output: 'card',
+        answer: { v: 1, preset: 'answer-notes' },
+        answersIn: 'target',
         effort: 'low',
         pageContext: true,
         image: true,

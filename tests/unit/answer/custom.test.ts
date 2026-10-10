@@ -46,6 +46,7 @@ describe('stored custom answer fields', () => {
       [{ ...fields[0], required: false }],
       [{ ...fields[0], role: 'meta' }],
       [{ ...fields[0], key: '__proto__' }],
+      [{ ...fields[0], when: 'explain' }],
       [
         ...fields,
         {

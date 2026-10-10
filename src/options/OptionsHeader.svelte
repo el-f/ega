@@ -62,6 +62,7 @@
   }
   .header-actions {
     display: inline-flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: var(--space-2);
   }

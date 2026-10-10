@@ -110,13 +110,19 @@ Ask**. You can write your own on the Settings → **Tasks** tab. The tooltip and
 side panel offer the built-in tasks that are on, plus your own tasks. Turn a task off
 on the Tasks tab and the pickers hide it. Explain is the one to reach for on slang — it
 tells you what the text _means_, including the cultural reference a literal
-translation flattens. The popup only translates. The right-click menu ships with
+translation flattens. The popup's selection and clipboard actions run your default task.
+The right-click menu ships with
 seven items under **Ega ▸**: Translate, Translate in side panel, Translate this page,
 Pick an element to translate, Translate image in side panel, Explain image in side panel,
 and Disable Ega on this site. Add the other tasks at Settings → Selection and picker →
 **Right-click menu**. A turn that carries
-an image offers Translate, Explain and your own tasks that have **Accept images** on.
+an image offers Translate, Explain and your own tasks that have **Reads images** on.
 No other task reaches the vision model.
+
+Custom tasks can answer with text, notes, or **Your own fields**. Choose up to eight fields,
+including a main text or list answer, then choose which extra fields appear as notes or under
+**About this reply**. **Try it** sends sample text to your configured backend without adding a
+conversation. Task imports add or update matching tasks, keep unrelated tasks, and offer **Undo**.
 
 <p align="center">
   <img src="docs/media/popup.png" alt="Ega's popup in dark mode: an Auto-detect to English language pair, four tiles (Translate this page, Pick element, Translate clipboard, Side panel) and a text box that sends to the side panel" width="360">

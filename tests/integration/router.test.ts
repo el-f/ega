@@ -1028,7 +1028,7 @@ describe('router translate flow', () => {
       if (terminals[0]?.type === 'error') {
         // The shared attempt summarizes an exhausted chain, the same as the text path.
         expect(terminals[0].message).toBe(
-          'second refused\nanthropic: Network issue · openai: Network issue',
+          'second refused\nanthropic: No connection · openai: No connection',
         );
       }
     } finally {

@@ -88,8 +88,8 @@ describe('a buffered image result shows what a streamed one would', () => {
     });
     await tick();
     expect(getContainer().querySelector('.body')?.textContent.trim()).toBe('hi');
-    expect(getContainer().querySelector('.explain-body')?.textContent).toBe('a greeting');
-    expect(getContainer().querySelector('.ega-from-image')).not.toBeNull();
+    expect(getContainer().querySelector('.answer-note-text')?.textContent).toBe('a greeting');
+    expect(getContainer().querySelector('.answer-note-image')).not.toBeNull();
     expect(detectedPill()).not.toBeNull();
   });
 });

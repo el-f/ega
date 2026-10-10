@@ -266,10 +266,10 @@ describe('TooltipBody', () => {
         },
       });
       expect(container.querySelector('.tooltip-error-title')?.textContent).toBe(
-        'Rate limit reached',
+        'Too many requests',
       );
       expect(container.querySelector('.tooltip-error-body')?.textContent).toContain(
-        'The backend is busy. Wait a moment.',
+        'The AI service is limiting requests right now.',
       );
       expect(container.querySelector('.tooltip-error-body')?.textContent).not.toContain('HTTP 429');
       expect(container.querySelector('.tooltip-error-details')).toBeNull();

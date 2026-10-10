@@ -25,6 +25,37 @@ beforeEach(() => {
   resetChromeMock();
 });
 describe('task import merge and Undo', () => {
+  it('round trips custom image menu entries with their task and answer fields', async () => {
+    const task = await addCustomTask({
+      ...input,
+      image: true,
+      answer: { v: 1, preset: 'answer-only' },
+    });
+    await updateSettings({
+      contextMenuItems: [
+        {
+          id: 'custom-image',
+          kind: 'image-task',
+          task: task.id,
+          surface: 'tooltip',
+          order: 100,
+          label: 'Describe image',
+          enabled: true,
+        },
+      ],
+    });
+    const bundle = await exportTasks();
+    expect(bundle.egaTasks.contextMenuItems).toMatchObject([{ kind: 'image-task', task: task.id }]);
+    const parsed = await parseImportBundle(JSON.parse(JSON.stringify(bundle)));
+    if (parsed.kind !== 'tasks') throw new Error('not tasks');
+    expect(parsed.customTasks).toMatchObject([
+      { id: task.id, image: true, answer: { v: 1, preset: 'answer-only' } },
+    ]);
+    await mergeTaskImport(parsed);
+    expect((await getSettings()).contextMenuItems).toMatchObject([
+      { kind: 'image-task', task: task.id },
+    ]);
+  });
   it('adds and updates by ID, keeps unrelated tasks and edits, and restores only the import', async () => {
     const kept = await addCustomTask({ ...input, label: 'Keep me' });
     const existing = await addCustomTask(input);

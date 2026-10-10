@@ -201,6 +201,8 @@ type DetectedLangs = ReadonlyArray<{ id: string; detail?: string }>;
 
 /** What a mock model answers: the JSON the prompt asks for. Optional fields stay out unless set, so the body keeps the `{translation, confidence}` shape. */
 interface MockAnswer {
+  /** A provider response with a custom answer schema or deliberately malformed format. */
+  rawText?: string;
   translation?: string;
   confidence?: number;
   explain?: string;
@@ -214,6 +216,7 @@ interface MockAnswer {
 export const MOCK_USAGE = { input: 42, output: 9 } as const;
 
 function answerJson(opts: MockAnswer, defaultConfidence: number): string {
+  if (opts.rawText !== undefined) return opts.rawText;
   return JSON.stringify({
     translation: opts.translation ?? 'Welcome, how are you?',
     confidence: opts.confidence ?? defaultConfidence,

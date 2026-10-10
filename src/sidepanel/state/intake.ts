@@ -1,7 +1,7 @@
 // What reaches the panel without a keystroke: worker messages, queued image seeds and handoffs.
 
 import { ALL_ERR_CODES, type ErrCode, type PageContext } from '@/shared/types';
-import { errCodeLabel } from '@/shared/err-labels';
+import { errorCopy } from '@/shared/error-copy';
 import { optionsTabForMessage } from '@/shared/error-policy';
 import { openOptionsTab } from '@/shared/open-options-tab';
 import { selectionTrimmedMessage } from '@/shared/selection-cap-copy';
@@ -137,17 +137,13 @@ export function createIntake(deps: IntakeDeps): Intake {
     if (conversation.ownsRequest(entry.requestId)) return;
     // A sibling window's panel renders it inline in its own thread — one copy is enough.
     if (entry.surface === 'sidepanel') return;
-    // The code can be one this build does not know: errCodeLabel asserts on the union.
+    // Audit entries from older builds may carry an unknown code.
     const code = (ALL_ERR_CODES as readonly string[]).includes(err.code)
       ? (err.code as ErrCode)
       : null;
-    const label = code === null ? null : errCodeLabel(code);
-    const body =
-      label === null || code === 'UNKNOWN'
-        ? err.message || errCodeLabel('UNKNOWN')
-        : err.message
-          ? `${label}: ${err.message}`
-          : label;
+    const copy = errorCopy(err.code, err.message);
+    if (copy === null) return;
+    const body = `${copy.title}: ${copy.body}`;
     const where = auditSurfaceLabel(entry.surface);
     const tab = code === null ? undefined : optionsTabForMessage(err.message, code);
     toastStore.push({

@@ -41,7 +41,7 @@ afterEach(() => {
 });
 
 function marker(): Element | null {
-  return getContainer().querySelector('.ega-from-image');
+  return getContainer().querySelector('.answer-note-image');
 }
 
 const EXPLAIN_JSON =

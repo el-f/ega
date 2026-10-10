@@ -671,14 +671,16 @@
       {/if}
     </div>
     {#if !(turn.status === 'pending' && turn.content === '')}
-      <AnswerNotes
-        notes={turn.notes ?? []}
-        explain={turn.explain}
-        fallbackLabel={notesLabel(currentTaskValue, taskViews)}
-        lang={notesTag}
-      >
-        {#snippet renderText(text: string)}<Markdown {text} />{/snippet}
-      </AnswerNotes>
+      <div class="ega-notes-text">
+        <AnswerNotes
+          notes={turn.notes ?? []}
+          explain={turn.explain}
+          fallbackLabel={notesLabel(currentTaskValue, taskViews)}
+          lang={notesTag}
+        >
+          {#snippet renderText(text: string)}<Markdown {text} />{/snippet}
+        </AnswerNotes>
+      </div>
     {/if}
     <ReplyMeta
       items={metaItems}
@@ -819,14 +821,37 @@
   .ega-answer :global(.ega-md h2),
   .ega-answer :global(.ega-md h3),
   .ega-answer :global(.ega-md h4),
+  .ega-notes-text :global(.ega-md h1),
+  .ega-notes-text :global(.ega-md h2),
+  .ega-notes-text :global(.ega-md h3),
+  .ega-notes-text :global(.ega-md h4) {
+    font-size: var(--fs-md);
+    font-weight: 600;
+  }
   /* Inline code keeps the text size (Markdown draws it at 0.95em, off the type scale); a code block is 12. */
   .ega-answer :global(.ega-md code),
+  .ega-notes-text :global(.ega-md code) {
+    font-size: inherit;
+  }
   .ega-answer :global(.ega-md pre),
+  .ega-notes-text :global(.ega-md pre) {
+    font-size: var(--fs-sm);
+  }
   /* The shared Markdown draws 1-2px cell and code padding and bold table heads; the panel keeps its scale and two weights. */
   .ega-answer :global(.ega-md th),
   .ega-answer :global(.ega-md td),
+  .ega-notes-text :global(.ega-md th),
+  .ega-notes-text :global(.ega-md td) {
+    padding-block: var(--space-1);
+  }
   .ega-answer :global(.ega-md th),
+  .ega-notes-text :global(.ega-md th) {
+    font-weight: 600;
+  }
   .ega-answer :global(.ega-md code),
+  .ega-notes-text :global(.ega-md code) {
+    padding-block: 0;
+  }
   /* About this reply's text links are 28px targets in the panel, like every other control (spec §9.2). */
   .ega-reply :global(.reply-details .rd-link) {
     min-block-size: 28px;

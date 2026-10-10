@@ -57,7 +57,8 @@ function fieldSchema(field: AnswerField, dialect: SchemaDialect): JsonSchema {
     case 'language':
       schema = {
         type: 'string',
-        ...(field.maxChars !== undefined && dialect !== 'anthropic'
+        ...(field.maxChars !== undefined &&
+        !['anthropic', 'gemini', 'gemini-legacy'].includes(dialect)
           ? { maxLength: field.maxChars }
           : {}),
       };

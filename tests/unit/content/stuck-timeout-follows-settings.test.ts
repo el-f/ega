@@ -92,7 +92,7 @@ describe('the stuck timeout has one source of truth', () => {
     vi.advanceTimersByTime(DEFAULT_TRANSLATE_TIMEOUT_MS + 30_000 + 1_000);
     await Promise.resolve();
     await Promise.resolve();
-    expect(getContainer().textContent).not.toMatch(/timed out/i);
+    expect(getContainer().textContent).not.toMatch(/no answer in time/i);
   });
 
   it('the tooltip stuck path stops the worker stream as well as painting the error', async () => {
@@ -103,7 +103,7 @@ describe('the stuck timeout has one source of truth', () => {
     await Promise.resolve();
     await Promise.resolve();
     expect(stopped).toEqual(['r-stuck']);
-    expect(getContainer().textContent).toMatch(/timed out/i);
+    expect(getContainer().textContent).toMatch(/no answer in time/i);
   });
 
   it('the inline stuck path honors the passed ceiling and stops the stream', () => {

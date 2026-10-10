@@ -95,6 +95,17 @@ describe('versioned answer specs', () => {
 });
 
 describe('generated formats and provider schemas', () => {
+  it('names duplicate custom field labels before attempting to save or preview', () => {
+    expect(
+      validateSpec({
+        ...custom,
+        fields: [
+          main,
+          { key: 'note', label: main.label, kind: 'text', role: 'notes', required: false },
+        ],
+      }),
+    ).toContain('Answer: use a unique field name.');
+  });
   it('names every custom field in order, with its guidance and choices', () => {
     const rendered = renderFormat(custom);
     expect(rendered).toMatchObject({ join: 'after-build', sep: '\n\n' });
@@ -120,6 +131,13 @@ describe('generated formats and provider schemas', () => {
     expect(schema.properties['detectedDetail']).not.toHaveProperty('maxLength');
     expect(schema.additionalProperties).toBe(false);
   });
+  it.each(['gemini', 'gemini-legacy'] as const)(
+    '%s omits unsupported string lengths',
+    (dialect) => {
+      const schema = toJsonSchema(answerSpecFor('translate'), { dialect });
+      expect(schema.properties['detectedDetail']).not.toHaveProperty('maxLength');
+    },
+  );
   it('schema bytes are stable and do not depend on a request language', () => {
     expect(JSON.stringify(toJsonSchema(custom))).toBe(JSON.stringify(toJsonSchema(custom)));
     expect(toJsonSchema(custom).required).toEqual(['answer']);

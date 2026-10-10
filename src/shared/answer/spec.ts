@@ -195,6 +195,7 @@ export function validateSpec(spec: AnswerSpec): string[] {
   if (mains.length !== 1 || (mains[0]?.kind !== 'text' && mains[0]?.kind !== 'list'))
     issues.push('Choose one text or list field as the main answer.');
   const keys = new Set<string>();
+  const labels = new Set<string>();
   for (const field of spec.fields) {
     const prefix = field.label || field.key || 'Field';
     if (
@@ -206,6 +207,9 @@ export function validateSpec(spec: AnswerSpec): string[] {
     keys.add(field.key);
     if (!field.label.trim() || field.label.length > 40)
       issues.push(`${prefix}: use a label of 1 to 40 characters.`);
+    const label = field.label.trim().toLowerCase();
+    if (custom && labels.has(label)) issues.push(`${prefix}: use a unique field name.`);
+    labels.add(label);
     if (field.guide !== undefined && (field.guide.length > 200 || /[\r\n]/.test(field.guide)))
       issues.push(`${prefix}: keep guidance on one line of at most 200 characters.`);
     if (custom && (field.role === 'meta' || field.when !== undefined))

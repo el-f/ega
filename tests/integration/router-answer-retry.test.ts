@@ -118,7 +118,7 @@ describe('answer format recovery', () => {
     if (!error) throw new Error('no format error');
     const copy = errorCopy(error.code, error.message, { backend: 'Anthropic' });
     expect(copy).toMatchObject({
-      title: 'Answer in wrong format',
+      title: 'Wrong format',
       tab: 'tasks',
       actions: ['try-again', 'open-settings'],
     });

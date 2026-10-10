@@ -102,7 +102,7 @@ export const ERROR_COPY: Readonly<Record<ErrorCopyId, CopyRow>> = {
     actions: ['open-settings', 'try-again'],
   },
   PARSE: {
-    title: 'Answer in wrong format',
+    title: 'Wrong format',
     body: '{Backend} did not answer in the format this task asks for.',
     actions: ['try-again'],
   },
@@ -127,7 +127,7 @@ export const ERROR_COPY: Readonly<Record<ErrorCopyId, CopyRow>> = {
     actions: ['open-settings'],
   },
   UNKNOWN: {
-    title: 'Something went wrong',
+    title: 'Error',
     body: 'Ega could not finish this task.',
     actions: ['try-again'],
   },

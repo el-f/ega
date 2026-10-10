@@ -9,7 +9,7 @@
   import ReplyDetails from '@/shared/components/ReplyDetails.svelte';
   import ReplyMeta from '@/shared/components/ReplyMeta.svelte';
   import { directionLabel, replyMetaItems } from '@/shared/reply-meta';
-  import { errorTurnParts } from '@/shared/error-parts';
+  import { errorCopy } from '@/shared/error-copy';
   import { formatDetectedLabel } from '@/shared/detected-label';
   import { ISO_LANGUAGES } from '@/shared/languages';
   import { BUILT_IN_PRESETS } from '@/shared/presets';
@@ -194,7 +194,11 @@
       ...(tip.stopped ? { status: 'Stopped' } : {}),
     }),
   );
-  const errorParts = $derived(tip.error ? errorTurnParts(tip.error) : undefined);
+  const errorParts = $derived(
+    tip.error
+      ? errorCopy(tip.error.code, tip.error.message, { image: tip.imageUrl !== undefined })
+      : undefined,
+  );
   const translateInto = $derived(
     settingsNow && settingsNow.defaultTargetLang !== direction?.target
       ? {

@@ -1,4 +1,5 @@
 import * as v from 'valibot';
+import { answerDetailText } from '../answer-presentation';
 import type { AnswerField, AnswerSpec } from './spec';
 import {
   createStringValueScan,
@@ -257,7 +258,7 @@ export function readAnswer(
         label: field.label,
         ...(Array.isArray(parsed.value)
           ? { items: parsed.value as string[] }
-          : { text: String(parsed.value) }),
+          : { text: answerDetailText(parsed.value, field.kind) }),
       });
     if (field.role === 'details')
       details.push({ key: field.key, label: field.label, value: parsed.value });

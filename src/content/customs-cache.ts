@@ -7,13 +7,13 @@ import type { CustomTask } from '@/shared/settings-schema';
 // Read through the worker, like settings-cache, so no page parses the storage reader.
 async function getCustomLanguages(): Promise<CustomLanguage[]> {
   const list = await sendMsg({ kind: 'content:read-languages' });
-  if (!list) throw new Error('the worker sent no custom languages');
+  if (!Array.isArray(list)) throw new Error('the worker sent no custom languages');
   return list;
 }
 
 async function getCustomTasks(): Promise<CustomTask[]> {
   const list = await sendMsg({ kind: 'content:read-tasks' });
-  if (!list) throw new Error('the worker sent no custom tasks');
+  if (!Array.isArray(list)) throw new Error('the worker sent no custom tasks');
   return list;
 }
 

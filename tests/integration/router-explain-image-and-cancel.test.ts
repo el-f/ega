@@ -94,7 +94,7 @@ describe('router — explain chain trim and UNSUPPORTED guard', () => {
     // The shared attempt summarizes an exhausted chain, the same as the text path.
     expect(errOf(chunks)).toEqual({
       code: 'RATE_LIMIT',
-      message: 'b-429\nanthropic: Rate limit reached · openai: Rate limit reached',
+      message: 'b-429\nanthropic: Too many requests · openai: Too many requests',
     });
   });
 
