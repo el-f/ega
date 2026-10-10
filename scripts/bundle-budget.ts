@@ -259,11 +259,12 @@ function measureDist(distDir: string): BundleEntry[] {
 }
 
 /** Static imports plus module-scope import() chunks: both load on every page. A ratchet: raise or lower it in the commit that earns it. */
-// Options' shared controls add 1,167B of Svelte runtime and 290B of settings/entry code.
-const EAGER_CONTENT_BUDGET_BYTES = 155_366;
+// Live custom-task validation and updates add 595B to the measured production eager graph.
+const EAGER_CONTENT_BUDGET_BYTES = 155_961;
 
 /** The popup opens on every toolbar click, so its preload set is the one extension-page cost a user feels. Ratchet, like the one above. */
-const POPUP_PAGE_BUDGET_BYTES = 513_000;
+// Shared task capabilities and refinement presets bring the measured preload set to 515,046B.
+const POPUP_PAGE_BUDGET_BYTES = 515_046;
 
 function measurePagePreload(distDir: string, htmlRel: string): { files: string[]; bytes: number } {
   const htmlPath = path.join(distDir, htmlRel);
