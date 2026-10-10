@@ -41,6 +41,10 @@ describe('TooltipHeader — your own tasks in a page-readable shadow root', () =
   const custom = {
     id: '6f1c1f9e-2b7a-4c1e-9a55-0d3f5e1b2c44',
     kind: 'custom' as const,
+    gerund: 'Working',
+    notesLabel: 'Notes',
+    refinePresets: [],
+    answersIn: 'target' as const,
     label: 'Legal',
     output: 'plain' as const,
     pageContext: false,
