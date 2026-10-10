@@ -361,7 +361,7 @@ describe('OllamaBackend.translateImage (vision)', () => {
     }
   });
 
-  it('an empty image answer is SERVER, the same as the text path', async () => {
+  it('an empty image answer is EMPTY, the same as the text path', async () => {
     setFetchHandler(
       async () =>
         new Response(JSON.stringify({ message: { content: '' } }), {
@@ -374,9 +374,9 @@ describe('OllamaBackend.translateImage (vision)', () => {
     await backend.translateImage(mkImgArgs({ onChunk: (c: TranslationChunk) => chunks.push(c) }));
     const err = chunks.find((c) => c.type === 'error');
     if (err?.type === 'error') {
-      expect(err.code).toBe('SERVER');
+      expect(err.code).toBe('EMPTY');
     } else {
-      throw new Error('expected SERVER error');
+      throw new Error('expected EMPTY error');
     }
   });
 

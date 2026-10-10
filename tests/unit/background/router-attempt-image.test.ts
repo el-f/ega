@@ -85,15 +85,16 @@ describe('runTranslateAttempt — vision attempt', () => {
 
   it('stamps usedImage on the done chunk only when the request asked for an explain', async () => {
     const answer = vision(async (a) => {
+      a.onChunk({ type: 'delta', requestId: a.requestId, text: '{"translation":"x"}' });
       a.onChunk({ type: 'done', requestId: a.requestId, confidence: 1 });
     });
     const ocr = deps(answer);
     await runTranslateAttempt(ocr);
-    expect(ocr.chunks[0]).not.toHaveProperty('usedImage');
+    expect(ocr.chunks.find((c) => c.type === 'done')).not.toHaveProperty('usedImage');
 
     const explain = deps(answer, { reqView: req(true), reqOptions: req(true).options });
     await runTranslateAttempt(explain);
-    expect(explain.chunks[0]).toMatchObject({ type: 'done', usedImage: true });
+    expect(explain.chunks.find((c) => c.type === 'done')).toMatchObject({ type: 'done', usedImage: true });
   });
 
   it('a backend with no translateImage ends in one UNKNOWN terminal instead of translating the text', async () => {
