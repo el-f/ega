@@ -74,7 +74,7 @@ test('sidepanel: Shorter refines in place without saving a rule', async () => {
   const opt = await ext.context.newPage();
   try {
     await opt.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
-    await opt.locator('#tab-tasks').click();
+    await opt.locator('#tab-glossary').click();
     await expect(opt.locator('[data-ega-rules-editor]')).toBeVisible({ timeout: 5_000 });
     await expect(opt.locator('[data-ega-rule-row]', { hasText: /shorter/i })).toHaveCount(0);
   } finally {

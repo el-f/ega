@@ -110,10 +110,11 @@ for (const id of CLOUD_PROVIDER_IDS) {
     expect(mock.calls()).toBeGreaterThanOrEqual(1);
 
     // The detected fields ride inside the answer text, the usage on the provider's own frames.
-    await expect(page.locator('.tooltip .meta .lang:not([data-ega-direction])')).toHaveText(
-      'Arabizi — Levantine',
+    await expect(page.locator('.tooltip [data-ega-meta-item="direction"]')).toContainText(
+      'Arabizi (Levantine)',
     );
-    await page.locator('.tooltip button[aria-label="Show details about this reply"]').click();
+    await page.getByRole('button', { name: 'More', exact: true }).click();
+    await page.getByRole('menuitemcheckbox', { name: 'About this reply' }).click();
     const inspector = page.locator('[data-ega-inspector]');
     const usage = inspector.locator('.rd-row', { hasText: 'Usage' });
     await expect(usage).toContainText(`${MOCK_USAGE.input} tokens read`);

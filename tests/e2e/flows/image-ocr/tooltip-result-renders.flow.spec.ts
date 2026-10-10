@@ -42,7 +42,7 @@ test('image-translate result mounts a tooltip with source image + translation bo
   const handle = await sendImageTranslatePending(opts, ext.serverUrl, imageUrl);
   timeline.markStep('pending-dispatched');
 
-  // Loading tooltip mounts immediately: image shimmer + a Cancel button.
+  // Loading tooltip mounts immediately: image shimmer and Stop.
   await expect
     .poll(
       async () =>
@@ -50,10 +50,10 @@ test('image-translate result mounts a tooltip with source image + translation bo
           const host = document.querySelector('#ega-shadow-host');
           const root = (host as HTMLElement | null)?.shadowRoot;
           const shimmer = !!root?.querySelector('.tooltip .tooltip-image-shimmer');
-          const cancel = Array.from(root?.querySelectorAll('.tooltip button') ?? []).some(
-            (b) => b.textContent.trim() === 'Cancel',
+          const stop = Array.from(root?.querySelectorAll('.tooltip button') ?? []).some(
+            (b) => b.textContent.trim() === 'Stop',
           );
-          return shimmer && cancel;
+          return shimmer && stop;
         }),
       { timeout: 5_000 },
     )

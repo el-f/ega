@@ -470,7 +470,7 @@
           orientation="horizontal"
           dataAttrs={{ 'aria-labelledby': `${uid}-reply-language` }}
         />
-        <p class="ct-hint" data-ega-hint>Match the language your prompt asks for.</p>
+        <p class="ct-hint" data-ega-hint>Match the language your prompt asks for</p>
       </div>
 
       <span class="ct-label" id="{uid}-effort">Effort</span>

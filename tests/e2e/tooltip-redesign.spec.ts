@@ -74,9 +74,14 @@ for (const theme of ['light', 'dark']) {
       await more.click();
       await page.getByRole('menuitemcheckbox', { name: 'About this reply' }).click();
       await expect(page.locator('[data-ega-inspector]')).toBeVisible();
-      const aboutBox = await page.locator('.tooltip').boundingBox();
-      if (!aboutBox) throw new Error('No tooltip bounds');
-      expect(aboutBox.y + aboutBox.height).toBeLessThanOrEqual(800);
+      // ResizeObserver repositions the expanded card after its new layout is measured.
+      await expect
+        .poll(async () => {
+          const aboutBox = await page.locator('.tooltip').boundingBox();
+          if (!aboutBox) throw new Error('No tooltip bounds');
+          return aboutBox.y + aboutBox.height;
+        })
+        .toBeLessThanOrEqual(800);
       await expect(page.getByRole('button', { name: 'Close', exact: true })).toHaveCount(1);
       await page.screenshot({ path: info.outputPath(`tooltip-about-${width}-${theme}.png`) });
       await page.getByRole('button', { name: 'Refine', exact: true }).click();

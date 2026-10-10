@@ -54,7 +54,11 @@ test('image-translate error result mounts tooltip with error body', async () => 
         }),
       { timeout: 5_000 },
     )
-    .toContain('mock network failure');
+    .toContain('No connection');
+  await expect(page.locator('.tooltip .body')).toContainText(
+    'Ega could not reach the AI service. Check your internet connection.',
+  );
+  await expect(page.locator('.tooltip .body')).not.toContainText('mock network failure');
 
   const retryCount = await page.evaluate(() => {
     const host = document.querySelector('#ega-shadow-host');

@@ -68,10 +68,8 @@ test('tooltip ↔ swaps source/target; translate uses swapped direction and pers
   await expect.poll(() => mock.calls(), { timeout: 10_000 }).toBeGreaterThan(0);
   const callsBeforeSwap = mock.calls();
 
-  // The request lands before the answer renders, and the loading row has no swap: wait for the button, not the call.
-  await expect
-    .poll(() => egaTest<boolean>(page, 'clickAction', 'Swap direction'), { timeout: 5_000 })
-    .toBe(true);
+  await page.getByRole('button', { name: 'Refine', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Swap', exact: true }).click();
 
   await expect.poll(() => mock.calls(), { timeout: 10_000 }).toBeGreaterThan(callsBeforeSwap);
 
