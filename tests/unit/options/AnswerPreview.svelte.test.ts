@@ -27,6 +27,32 @@ beforeEach(() => {
   send.mockReset();
 });
 describe('answer preview', () => {
+  it('shows the shared error copy and keeps the worker diagnostics behind Details', async () => {
+    send.mockResolvedValueOnce({
+      type: 'error',
+      requestId: 'test',
+      code: 'PARSE',
+      message: 'HTTP 200: raw malformed JSON',
+    });
+    const view = render(AnswerPreview, { draft, spec, s: parseSettings({}) });
+    await fireEvent.click(view.getByRole('button', { name: 'Try it' }));
+    await waitFor(() => expect(view.getByText('Wrong format')).toBeTruthy());
+    expect(view.getByRole('status').textContent).toContain(
+      'The AI service did not answer in the format this task asks for.',
+    );
+    const diagnostics = view.getByText('HTTP 200: raw malformed JSON');
+    expect(diagnostics.closest('details')?.open).toBe(false);
+    await fireEvent.click(view.getByText('Details', { selector: 'summary' }));
+    expect(view.getByRole('button', { name: 'Try it' })).toBeTruthy();
+  });
+  it('recovers from a failed test message without exposing a transport error', async () => {
+    send.mockRejectedValueOnce(new Error('private transport failure'));
+    const view = render(AnswerPreview, { draft, spec, s: parseSettings({}) });
+    await fireEvent.click(view.getByRole('button', { name: 'Try it' }));
+    await waitFor(() => expect(view.getByText('No connection')).toBeTruthy());
+    expect(view.queryByText('private transport failure')).toBeNull();
+    expect(view.getByRole('button', { name: 'Try it' })).toBeTruthy();
+  });
   it('shows sample list items, then a real reply and its field check', async () => {
     send.mockResolvedValueOnce({
       type: 'done',

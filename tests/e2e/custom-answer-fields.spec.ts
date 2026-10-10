@@ -155,6 +155,31 @@ test('a wrong-format reply retries once and names the task format problem', asyn
   await expect(page.locator('.tooltip').getByRole('button', { name: /settings/i })).toBeVisible();
 });
 
+test('Try it shows a friendly format error and keeps diagnostics in Details', async ({
+  browserName: _browserName,
+}, info) => {
+  const mock = mockAnthropic(ext.context, { rawText: '{"wrong":17}' });
+  const page = await ext.context.newPage();
+  await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
+  await page.locator('#tab-tasks').click();
+  await page
+    .locator('[data-ega-custom-task-list]')
+    .getByRole('button', { name: 'Edit Outline' })
+    .click();
+  const preview = page.locator('[data-ega-answer-preview]');
+  await preview.getByRole('button', { name: 'Try it' }).click();
+  await expect(preview.getByRole('status')).toContainText('Wrong format');
+  await expect(preview.locator('pre')).not.toBeVisible();
+  await preview.locator('summary').click();
+  await expect(preview.locator('pre')).toContainText('wrong');
+  await expect.poll(() => mock.calls()).toBe(2);
+  await preview.scrollIntoViewIfNeeded();
+  await page.screenshot({
+    animations: 'disabled',
+    path: info.outputPath('answer-preview-error.png'),
+  });
+});
+
 test('converting a prompt format is explicit and Undo restores its original instructions', async () => {
   const system = 'Keep this instruction. Return JSON ONLY: {"answer": "...", "tags": "..."}.';
   await seedCustomTasks(ext.context, ext.extensionId, [

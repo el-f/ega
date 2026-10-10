@@ -116,7 +116,7 @@ describe('an error tooltip', () => {
     await mounted();
     errorTooltip('r3', { code: 'NETWORK', message: 'request timed out' });
     await vi.waitFor(() => {
-      expect(getContainer().textContent).toContain('request timed out');
+      expect(getContainer().textContent).toContain('No connection');
     });
     // By accessible name, so a text-only Close in the actions row counts too.
     const closes = [...getContainer().querySelectorAll('button')].filter(

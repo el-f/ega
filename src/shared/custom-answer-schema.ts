@@ -1,7 +1,7 @@
 import * as v from 'valibot';
 
 /** Stored custom fields stay independent of shipped prompt text. */
-export const customAnswerFieldSchema = v.looseObject({
+const customAnswerFieldSchema = v.looseObject({
   key: v.pipe(
     v.string(),
     v.regex(/^[a-z]\w{0,31}$/),

@@ -55,7 +55,8 @@ describe('TooltipBody live region', () => {
         error: { code: 'NETWORK', message: 'request timed out' },
       },
     });
-    expect(live(container)?.textContent).toContain('request timed out');
+    expect(live(container)?.textContent).toContain('No connection');
+    expect(live(container)?.textContent).not.toContain('request timed out');
   });
 
   it('keeps the partial text readable when an error follows it', () => {

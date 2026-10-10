@@ -168,6 +168,7 @@ describe('a failure another surface reported', () => {
     const push = vi.spyOn(toastStore, 'push');
     render(SidePanel);
     await drainAsync();
+    push.mockClear();
 
     chromeMock.runtime.onMessage.emit(
       {
@@ -179,13 +180,17 @@ describe('a failure another surface reported', () => {
     );
     await drainAsync();
 
-    expect(push.mock.calls.some((c) => c[0].message.includes('dropped'))).toBe(true);
+    expect(push).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringContaining('No connection') }),
+    );
+    expect(push.mock.calls.some((c) => c[0].message.includes('dropped'))).toBe(false);
   });
 
   it('is not toasted when a sibling side panel owns it', async () => {
     const push = vi.spyOn(toastStore, 'push');
     render(SidePanel);
     await drainAsync();
+    push.mockClear();
 
     chromeMock.runtime.onMessage.emit(
       {
@@ -197,7 +202,7 @@ describe('a failure another surface reported', () => {
     );
     await drainAsync();
 
-    expect(push.mock.calls.some((c) => c[0].message.includes('dropped'))).toBe(false);
+    expect(push).not.toHaveBeenCalled();
   });
 });
 

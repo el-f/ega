@@ -7,6 +7,7 @@
   import type { CustomTaskInput } from '@/shared/tasks';
   import { sendMsg } from '@/shared/messages';
   import { uuid } from '@/shared/uuid';
+  import { errorCopy } from '@/shared/error-copy';
   import { PREVIEW_SAMPLE_TEXT } from '@/options/preview-prompt';
   import AnswerNotes from '@/shared/components/AnswerNotes.svelte';
   import ReplyDetails from '@/shared/components/ReplyDetails.svelte';
@@ -38,6 +39,9 @@
     });
   });
   const uid = $props.id();
+  const previewError = $derived(
+    terminal?.type === 'error' ? errorCopy(terminal.code, terminal.message) : null,
+  );
   const sample = $derived.by(() => {
     const values = Object.fromEntries(
       spec.fields.map((field) => [
@@ -134,7 +138,13 @@
     {#if runningId !== null}<p role="status">
         Trying your task…
       </p>{:else if terminal?.type === 'error'}
-      <p role="status">{terminal.code === 'ABORTED' ? 'Stopped' : terminal.message}</p>
+      {#if previewError}
+        <p role="status"><strong>{previewError.title}</strong>: {previewError.body}</p>
+        {#if previewError.detail}<details>
+            <summary>Details</summary>
+            <pre>{previewError.detail}</pre>
+          </details>{/if}
+      {:else}<p role="status">Stopped</p>{/if}
     {:else}
       {#if items}<ul>
           {#each items as item, i (i)}<li>{item}</li>{/each}
@@ -204,6 +214,17 @@
   .ap-card ul {
     margin: 0;
     padding-inline-start: var(--space-5);
+  }
+  summary {
+    cursor: pointer;
+    min-block-size: 32px;
+    padding-block: var(--space-1);
+  }
+  pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font-family: var(--font-mono);
+    font-size: var(--fs-sm);
   }
   .ap-check {
     color: var(--color-muted);
