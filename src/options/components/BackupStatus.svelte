@@ -1,11 +1,28 @@
 <script lang="ts">
   import type { ImportStatus } from '@/options/import-bundle';
+  import Button from '@/shared/ui/Button.svelte';
   /** The one backup result banner. Both backup surfaces render it, so the role/live-region pair cannot drift. */
   interface Props {
     status: ImportStatus | null;
   }
 
   const { status }: Props = $props();
+  let undoing = $state(false);
+  let undone = $state<ImportStatus | null>(null);
+  let error = $state('');
+  async function undo(current: ImportStatus): Promise<void> {
+    if (undoing || !current.undo) return;
+    undoing = true;
+    error = '';
+    try {
+      await current.undo();
+      undone = current;
+    } catch {
+      error = 'Ega could not undo the import. Try again.';
+    } finally {
+      undoing = false;
+    }
+  }
 </script>
 
 {#if status}
@@ -14,7 +31,14 @@
     role={status.kind === 'err' ? 'alert' : 'status'}
     aria-live={status.kind === 'err' ? 'assertive' : 'polite'}
   >
-    {status.msg}
+    {undone === status ? 'Undid the task import.' : status.msg}
+    {#if status.undo && undone !== status}<Button
+        variant="ghost"
+        size="sm"
+        disabled={undoing}
+        onclick={() => void undo(status)}>Undo</Button
+      >{/if}
+    {#if error}<p role="alert">{error}</p>{/if}
   </div>
 {/if}
 

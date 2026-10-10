@@ -20,6 +20,7 @@ export const tasksBundleLenientSchema = v.object({
     customTasks: v.array(v.unknown()),
     taskOverrides: v.optional(v.unknown()),
     disabledTasks: v.optional(v.unknown()),
+    contextMenuItems: v.optional(v.unknown()),
     translatePrompt: v.optional(v.unknown()),
     snippets: v.optional(v.unknown()),
   }),

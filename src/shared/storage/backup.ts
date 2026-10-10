@@ -10,8 +10,6 @@ import type {
 } from '../types';
 import { BACKEND_API_KEY_FIELDS } from '../provider-ids';
 import {
-  CURRENT_TEMPLATE_VERSION,
-  DEFAULT_PROMPT_TEMPLATE,
   GLOSSARY_MAX,
   type GlossaryBundle,
   type LanguageBundle,
@@ -21,6 +19,7 @@ import {
 } from '../settings-schema';
 import { ALL_TASKS } from '../task-prompts';
 import { CUSTOM_LANGUAGES_MAX } from './sanitise';
+import { mergeTaskImport, type TaskImportResult } from './task-import';
 import {
   getCustomLanguages,
   getCustomTasks,
@@ -29,7 +28,6 @@ import {
   withCustomsLock,
   withCustomTasksLock,
   withSettingsLock,
-  writeLocal,
 } from '../storage';
 
 /** The whole snippet map, when an exported prompt still holds a @@ref: refs stay only while writing them out would pass TEMPLATE_MAX. */
@@ -90,6 +88,8 @@ type TasksPlan = {
   customTasks: CustomTask[];
   taskOverrides: Settings['taskOverrides'];
   disabledTasks: string[];
+  disabledTasksPresent?: boolean;
+  contextMenuItems?: Settings['contextMenuItems'];
   /** Absent for a version 1 file: the current Translate prompt stays. Null resets it to the shipped one. */
   translatePrompt?: { template: PromptTemplate; version: number } | null;
   /** Merged into the current snippets, so a prompt's @@refs still resolve. */
@@ -219,6 +219,11 @@ export async function exportTasks(): Promise<TasksBundle> {
       customTasks,
       taskOverrides: settings.taskOverrides,
       disabledTasks: settings.disabledTasks,
+      contextMenuItems: settings.contextMenuItems.filter(
+        (item) =>
+          (item.kind === 'task' || item.kind === 'image-task') &&
+          customTasks.some((task) => task.id === item.task),
+      ),
       // The Tasks tab shows an edited Translate prompt as a Translate edit, so the tasks file carries it.
       translatePrompt: isPromptTemplateCustomised(settings.advanced.promptTemplate)
         ? {
@@ -274,6 +279,7 @@ export async function exportAll(opts: ExportOptions = {}): Promise<ExportBundle>
 export interface ImportOptions {
   /** Default false — strip bundle keys so a shared file can't replace live ones. */
   includeApiKeys?: boolean;
+  onTaskImport?: (result: TaskImportResult) => void;
 }
 
 /** Writes a confirmed plan. Only a glossary import reports back, since it merges into the current list. */
@@ -355,29 +361,8 @@ export async function importBundle(
       return undefined;
     }
     case 'tasks': {
-      // Rows first, so the settings never point at rows that are not there yet; the read path covers a failed second write.
-      await withCustomTasksLock(() => writeLocal(STORAGE_KEYS.customTasks, bundle.customTasks));
-      const tp = bundle.translatePrompt;
-      await replaceSettings((cur) => {
-        // A new prompt has not been acknowledged, so the version banner judges it afresh.
-        const { templateVersionAcknowledged: _ack, ...advanced } = cur.advanced;
-        void _ack;
-        return {
-          ...cur,
-          taskOverrides: bundle.taskOverrides,
-          disabledTasks: bundle.disabledTasks,
-          advanced: {
-            ...(tp !== undefined
-              ? {
-                  ...advanced,
-                  promptTemplate: tp ? { ...tp.template } : { ...DEFAULT_PROMPT_TEMPLATE },
-                  templateVersion: tp ? tp.version : CURRENT_TEMPLATE_VERSION,
-                }
-              : cur.advanced),
-            snippets: { ...cur.advanced.snippets, ...bundle.snippets },
-          },
-        };
-      });
+      const result = await mergeTaskImport(bundle);
+      opts.onTaskImport?.(result);
       return undefined;
     }
     case 'settings': {

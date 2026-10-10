@@ -32,6 +32,7 @@ import { BUILT_IN_PRESETS } from '@/shared/presets';
 import { LANG_ID_PATTERN } from '@/shared/brands';
 import {
   customLanguageSchema,
+  contextMenuItemSchema,
   DETECT_FLAGS_MAX,
   DETECT_PATTERN_MAX,
   GLOSSARY_MAX,
@@ -44,6 +45,7 @@ import {
   varietyEditSchema,
 } from '@/shared/settings-schema';
 import type { CustomLanguage, Settings, VarietyEdit } from '@/shared/types';
+import type { TaskImportResult } from '@/shared/storage/task-import';
 
 const templateVersionSchema = valibot.pipe(
   valibot.number(),
@@ -307,6 +309,29 @@ function parseTasksBundle(raw: unknown): Extract<ImportBundle, { kind: 'tasks' }
   ];
   skipped += fileDisabled.length - disabledTasks.length;
 
+  const contextMenuItems: Settings['contextMenuItems'] = [];
+  if (file.contextMenuItems !== undefined) {
+    if (!Array.isArray(file.contextMenuItems)) skipped++;
+    else
+      for (const rawItem of file.contextMenuItems) {
+        const parsedItem = valibot.safeParse(contextMenuItemSchema, rawItem);
+        if (!parsedItem.success) {
+          skipped++;
+          continue;
+        }
+        const item = parsedItem.output as Settings['contextMenuItems'][number];
+        if (
+          (item.kind !== 'task' && item.kind !== 'image-task') ||
+          !customTasks.some((task) => task.id === item.task) ||
+          contextMenuItems.some((current) => current.id === item.id)
+        ) {
+          skipped++;
+          continue;
+        }
+        contextMenuItems.push(item);
+      }
+  }
+
   // A damaged prompt keeps the current one rather than resetting it.
   let translatePrompt: Extract<ImportBundle, { kind: 'tasks' }>['translatePrompt'];
   if (file.v === 2 && file.translatePrompt === null) translatePrompt = null;
@@ -324,6 +349,8 @@ function parseTasksBundle(raw: unknown): Extract<ImportBundle, { kind: 'tasks' }
     customTasks,
     taskOverrides,
     disabledTasks,
+    disabledTasksPresent: Array.isArray(file.disabledTasks),
+    ...(file.contextMenuItems !== undefined ? { contextMenuItems } : {}),
     ...(translatePrompt !== undefined ? { translatePrompt } : {}),
     ...fileSnippets(file.snippets),
     fileCounts: {
@@ -471,7 +498,7 @@ export async function parseImportBundle(raw: unknown): Promise<ImportBundle> {
   throw new Error(NOT_A_BACKUP);
 }
 
-export type ImportStatus = { kind: 'ok' | 'err'; msg: string };
+export type ImportStatus = { kind: 'ok' | 'err'; msg: string; undo?: () => Promise<void> };
 
 /** "a", "a and b", "a, b and c". */
 function listOf(items: readonly string[]): string {
@@ -548,14 +575,13 @@ async function confirmImport(
     }
     case 'tasks': {
       const proceed = await confirmDialog({
-        title: 'Replace your tasks and task edits?',
+        title: 'Add and update tasks?',
         body:
           `The file contains ${count(bundle.fileCounts.customTasks, 'task')} and ` +
-          `${count(bundle.fileCounts.taskOverrides, 'task edit')}. Importing replaces your own tasks, your edits to ` +
-          (bundle.translatePrompt !== undefined
-            ? 'built-in tasks (the Translate prompt too), and which tasks are on. This cannot be undone.'
-            : 'built-in tasks, and which tasks are on. This cannot be undone.'),
-        confirmLabel: 'Replace',
+          `${count(bundle.fileCounts.taskOverrides, 'task edit')}. Tasks with the same ID are updated; your other tasks and edits stay.` +
+          (bundle.translatePrompt !== undefined ? ' The Translate prompt is updated too.' : '') +
+          ' Right-click actions in the file are added or updated, up to the menu limit. You can undo this import.',
+        confirmLabel: 'Import',
       });
       return proceed ? {} : null;
     }
@@ -695,7 +721,25 @@ export async function importBundleFile(
   const opts = await confirmImport(bundle, file.name);
   if (!opts) return null;
   try {
-    const merge = await importBundle(bundle, opts);
+    let tasks: TaskImportResult | undefined;
+    const merge = await importBundle(bundle, {
+      ...opts,
+      onTaskImport: (result) => {
+        tasks = result;
+      },
+    });
+    if (tasks) {
+      const result = tasks;
+      return {
+        kind: 'ok',
+        msg:
+          `Added ${count(result.added, 'task')} and updated ${count(result.updated, 'task')}.` +
+          (bundle.kind === 'tasks' && bundle.skipped + result.skipped > 0
+            ? ` Skipped ${bundle.skipped + result.skipped}.`
+            : ''),
+        undo: result.undo,
+      };
+    }
     return { kind: 'ok', msg: summary(bundle, merge) };
   } catch (e) {
     return { kind: 'err', msg: `Import failed: ${(e as Error).message}` };

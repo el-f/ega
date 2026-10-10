@@ -49,7 +49,7 @@ export const TaskIdSchema = v.pipe(
   v.regex(/^[a-z0-9][\w-]*$/i, 'task ids are ASCII kebab/snake'),
 );
 
-const contextMenuItemSchema = v.variant('kind', [
+export const contextMenuItemSchema = v.variant('kind', [
   v.object({
     id: v.pipe(v.string(), v.minLength(1), v.maxLength(128)),
     kind: v.literal('task'),
@@ -433,6 +433,8 @@ export interface TasksBundle {
     customTasks: CustomTask[];
     taskOverrides: Record<string, TaskEdit>;
     disabledTasks: string[];
+    /** Right-click actions that run tasks included in this file. */
+    contextMenuItems?: ContextMenuItem[];
     translatePrompt: { system: string; user: string; templateVersion: number } | null;
     /** Present when an exported prompt still holds @@name@@ refs. */
     snippets?: Record<string, string>;
