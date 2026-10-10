@@ -13,7 +13,7 @@ import { hasKnownKind, isFromOwnBackground, type Msg } from '@/shared/messages';
 import { drainPendingImageSeeds, removePendingImageSeed } from '@/shared/pending-image-seed';
 import { drainPendingPopupHandoff, type PendingPopupHandoff } from '@/shared/pending-popup-handoff';
 import { conversationLabel } from '@/shared/saved-conversations';
-import { builtInTask, type ImageTask, type Task, type Tone } from '@/shared/task-prompts';
+import { builtInTask, type Task, type Tone } from '@/shared/task-prompts';
 import type { TaskId } from '@/shared/task-view';
 import { auditSurfaceLabel } from '../audit-surface-label';
 import { getPanelWindowId } from './active-origin';
@@ -86,7 +86,7 @@ export function createIntake(deps: IntakeDeps): Intake {
   async function seedImage(
     requestId: string,
     imageUrl: string,
-    task: ImageTask | undefined,
+    task: TaskId | undefined,
     warn = false,
   ): Promise<void> {
     if (!followed || conversation.activeSite !== conversation.tabSite) {

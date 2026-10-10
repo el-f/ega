@@ -96,10 +96,6 @@
     { value: 'tooltip', label: 'On the page' },
     { value: 'sidepanel', label: 'Side panel' },
   ];
-  const IMAGE_TASK_CHOICES = [
-    { value: 'translate', label: 'Translate' },
-    { value: 'explain', label: 'Explain' },
-  ];
   // A group this long stops being a menu people scan (R28); the card says so but does not block.
   const LONG_GROUP = 11;
 
@@ -185,6 +181,8 @@
       const view = views.find((v) => v.id === item.task);
       if (known && !view) return { text: 'Hidden: its task was deleted', blocked: true };
       if (view?.disabled) return { text: `Hidden: ${view.label} is off in Tasks`, blocked: true };
+      if (item.kind === 'image-task' && view && !view.image)
+        return { text: `Hidden: ${view.label} does not read images`, blocked: true };
     }
     if (item.kind === 'pick-element' && !s.pickerEnabled) {
       return { text: 'Hidden: the element picker is off', blocked: true };
@@ -478,7 +476,7 @@
   function setTask(id: string, val: string): void {
     patchItem(id, (it) => {
       if (it.kind === 'task') return { ...it, task: val as TaskId };
-      if (it.kind === 'image-task' && (val === 'translate' || val === 'explain'))
+      if (it.kind === 'image-task' && views.some((v) => v.id === val && v.image && !v.disabled))
         return { ...it, task: val };
       return it;
     });
@@ -524,10 +522,15 @@
 
   // Like the text Task select: an off task stays listed, marked and not pickable.
   function imageTaskChoices(): { value: string; label: string; disabled: boolean }[] {
-    return IMAGE_TASK_CHOICES.map((c) => {
-      const off = views.find((v) => v.id === c.value)?.disabled === true;
-      return { ...c, label: off ? `${c.label} (off)` : c.label, disabled: off };
-    });
+    return views
+      .filter((v) => v.image)
+      .map((v) => {
+        return {
+          value: v.id,
+          label: v.disabled ? `${v.label} (off)` : v.label,
+          disabled: v.disabled,
+        };
+      });
   }
 
   /** The library makes a handle a focusable button; this grip is pointer only, Move up/down is the keyboard path. */

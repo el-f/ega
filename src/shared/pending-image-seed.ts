@@ -1,13 +1,13 @@
+import type { TaskId } from './task-view';
 import { STORAGE_KEYS } from './constants';
 import { makeCrossContextLock } from './utils/cross-context-lock';
-import type { ImageTask } from './task-prompts';
 
 /** Seed the SW deposits when an image translate fires before the side panel has mounted, so the arriving chunks find a matching turn id. */
 export interface PendingImageSeed {
   requestId: string;
   imageUrl: string;
   /** Which vision arm ran. Absent on a v0 seed, which decodes as translate. */
-  task?: ImageTask;
+  task?: TaskId;
   /** Date.now() at enqueue. Absent on a v0 seed, which decodes as fresh. */
   ts?: number;
   /** Browser window the click came from; a panel in another window leaves it in the slot. */
@@ -32,7 +32,7 @@ function decodeSeed(raw: Record<string, unknown>): PendingImageSeed | null {
   return {
     requestId: raw['requestId'],
     imageUrl: raw['imageUrl'],
-    ...(task === 'translate' || task === 'explain' ? { task } : {}),
+    ...(typeof task === 'string' && /^[a-z0-9][\w-]{0,63}$/i.test(task) ? { task } : {}),
     ...(typeof ts === 'number' ? { ts } : {}),
     ...(typeof windowId === 'number' ? { windowId } : {}),
   };

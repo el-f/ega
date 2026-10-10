@@ -18,6 +18,10 @@ describe('pending-image-seed', () => {
     const seeds = await drainPendingImageSeeds();
     expect(seeds).toEqual([]);
   });
+  it('keeps a custom task ID so a late panel names and retries the same task', async () => {
+    await enqueuePendingImageSeed({ requestId: 'custom', imageUrl: 'a', task: 'c-image-list' });
+    expect(await drainPendingImageSeeds()).toMatchObject([{ task: 'c-image-list' }]);
+  });
 
   it('enqueue stores keyed by requestId; drain returns + clears', async () => {
     await enqueuePendingImageSeed({ requestId: 'r1', imageUrl: 'a' });

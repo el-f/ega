@@ -6,8 +6,11 @@ import type {
   LangSelection,
   PageContext,
   TranslationChunk,
+  AnswerSnapshot,
+  ResultMeta,
 } from './types';
-import type { ImageTask, Tone } from './task-prompts';
+import type { AnswerNote, AnswerDetail } from './answer/reader';
+import type { Tone } from './task-prompts';
 import type { MenuSurface } from './context-menu';
 import type { CustomTask } from './settings-schema';
 import type { TaskId } from './task-view';
@@ -103,7 +106,7 @@ export type Msg =
       kind: 'image:translate';
       requestId: string;
       imageUrl: string;
-      task?: ImageTask;
+      task?: TaskId;
       surface?: MenuSurface;
     }
   /** Sent before a context-menu image translate: without a seeded turn the arriving chunks match nothing and vanish. */
@@ -111,7 +114,7 @@ export type Msg =
       kind: 'sidepanel:seed-image-translate';
       requestId: string;
       imageUrl: string;
-      task?: ImageTask;
+      task?: TaskId;
       /** Browser window the click came from; only that window's panel seeds the turn. */
       windowId?: number;
     }
@@ -120,7 +123,7 @@ export type Msg =
       kind: 'content:image-translate-pending';
       requestId: string;
       imageUrl: string;
-      task?: ImageTask;
+      task?: TaskId;
     }
   /** Background → tooltip, with the full buffered result. Only for a request on the tooltip surface. */
   | {
@@ -130,13 +133,17 @@ export type Msg =
       /** Absent when the provider sent none — never synthesized. */
       confidence?: number;
       explain?: string;
+      notes?: AnswerNote[];
+      details?: AnswerDetail[];
+      answer?: AnswerSnapshot;
+      meta?: ResultMeta;
       detectedLang?: string;
       detectedDetail?: string;
       detectedLangs?: DetectedVariety[];
       usedImage?: boolean;
       imageUrl: string;
       /** Which vision arm ran, so Retry re-runs the same one. */
-      task?: ImageTask;
+      task?: TaskId;
       error?: { code: ErrCode; message: string; retryAfterMs?: number };
     }
   /** Background → every tab: these mirrored storage keys changed; the content script re-reads them. */

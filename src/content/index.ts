@@ -83,12 +83,7 @@ import {
   type MsgReply,
 } from '@/shared/messages';
 import type { LangSelection, TranslationChunk, Settings } from '@/shared/types';
-import {
-  builtInTask,
-  defaultTaskName,
-  runnableDefaultTask,
-  type ImageTask,
-} from '@/shared/task-prompts';
+import { builtInTask, defaultTaskName, runnableDefaultTask } from '@/shared/task-prompts';
 import type { TaskId } from '@/shared/task-view';
 import { MAX_SELECTION_CHARS, RECENT_SELECTION_TTL_MS } from '@/shared/constants';
 import { resolveEffective } from '@/shared/site-profile';
@@ -457,7 +452,7 @@ export function handleImageTranslatePending(
 
 /** Re-runs the same vision arm under a fresh id; the background answers with a new pending + result pair.
  *  Only a tooltip-surface request lands in this tooltip, so the retry stays on the tooltip. */
-function retryImageTranslate(imageUrl: string, task?: ImageTask): void {
+function retryImageTranslate(imageUrl: string, task?: TaskId): void {
   sendFromEntry(
     {
       kind: 'image:translate',
@@ -516,6 +511,10 @@ export function handleImageTranslateResult(
     msg.confidence,
     omitUndef({
       explain: msg.explain,
+      notes: msg.notes,
+      details: msg.details,
+      answer: msg.answer,
+      meta: msg.meta,
       detectedLang: msg.detectedLang,
       detectedDetail: msg.detectedDetail,
       detectedLangs: msg.detectedLangs,

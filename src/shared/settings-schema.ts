@@ -66,7 +66,7 @@ const contextMenuItemSchema = v.variant('kind', [
     enabled: v.boolean(),
     order: v.number(),
     label: v.pipe(v.string(), v.maxLength(MENU_LABEL_MAX)),
-    task: v.picklist(['translate', 'explain'] as const),
+    task: TaskIdSchema,
     // A pre-v4 stored item has no surface; without a default the whole menu falls back to the shipped one.
     surface: v.optional(menuSurfaceSchema, 'sidepanel'),
   }),

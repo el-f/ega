@@ -429,7 +429,15 @@ export function finishTooltipDirect(
   confidence?: number,
   extra: Pick<
     TipState,
-    'explain' | 'detectedLang' | 'detectedDetail' | 'detectedLangs' | 'usedImage'
+    | 'explain'
+    | 'detectedLang'
+    | 'detectedDetail'
+    | 'detectedLangs'
+    | 'usedImage'
+    | 'notes'
+    | 'details'
+    | 'answer'
+    | 'meta'
   > = {},
 ): void {
   const e = entryFor(requestId);
@@ -443,6 +451,10 @@ export function finishTooltipDirect(
   if (extra.detectedLangs !== undefined) e.state.detectedLangs = extra.detectedLangs;
   if (extra.explain !== undefined) e.state.explain = extra.explain;
   if (extra.usedImage === true) e.state.usedImage = true;
+  if (extra.notes !== undefined) e.state.notes = extra.notes;
+  if (extra.details !== undefined) e.state.details = extra.details;
+  if (extra.answer !== undefined) e.state.answer = extra.answer;
+  if (extra.meta !== undefined) e.state.meta = extra.meta;
   e.state.settled = true;
   e.finished = true;
 }

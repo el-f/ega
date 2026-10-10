@@ -1,15 +1,15 @@
+import type { TaskId } from '@/shared/task-view';
 import type { Msg } from '@/shared/messages';
 import type { MenuSurface } from '@/shared/context-menu';
 import type { ErrCode, Settings, TranslationChunk } from '@/shared/types';
 import { enqueuePendingImageSeed, removePendingImageSeed } from '@/shared/pending-image-seed';
-import type { ImageTask } from '@/shared/task-prompts';
 
 export interface ImageTranslateDispatchDeps {
   tabId: number;
   imageUrl: string;
   /** Omit to have dispatch generate one. */
   requestId?: string;
-  task?: ImageTask;
+  task?: TaskId;
   /** The clicked menu item's surface, or the tooltip Retry's. Only the e2e hook omits it and gets `Settings.imageTranslateSurface`. */
   surface?: MenuSurface;
   /** Browser window of the click; the side-panel seed is scoped to it. */
@@ -17,7 +17,7 @@ export interface ImageTranslateDispatchDeps {
   getSettings: () => Promise<Settings>;
   router: {
     handleImageTranslate: (
-      req: { id: string; imageUrl: string },
+      req: { id: string; imageUrl: string; task?: TaskId },
       onChunk: (c: TranslationChunk) => void,
     ) => Promise<void>;
     handleImageExplain: (
@@ -54,10 +54,17 @@ export async function dispatchImageTranslate(deps: ImageTranslateDispatchDeps): 
     });
     let failed = false;
     try {
-      await runVision({ id: requestId, imageUrl }, (chunk) => {
-        if (chunk.type === 'error') failed = true;
-        broadcast({ kind: 'translate:chunk', chunk });
-      });
+      await runVision(
+        {
+          id: requestId,
+          imageUrl,
+          ...(task !== 'translate' && task !== 'explain' ? { task } : {}),
+        },
+        (chunk) => {
+          if (chunk.type === 'error') failed = true;
+          broadcast({ kind: 'translate:chunk', chunk });
+        },
+      );
     } catch (e) {
       failed = true;
       logger.error('image translate (menu) failed', e);
@@ -84,17 +91,24 @@ export async function dispatchImageTranslate(deps: ImageTranslateDispatchDeps): 
     // The side-panel branch never registers: the panel outlives the tab.
     const releaseTab = deps.trackTab?.(requestId);
     try {
-      await runVision({ id: requestId, imageUrl }, (chunk) => {
-        if (chunk.type === 'delta') buffered = chunk.replace ? chunk.text : buffered + chunk.text;
-        if (chunk.type === 'done') done = chunk;
-        if (chunk.type === 'error') {
-          streamError = {
-            code: chunk.code,
-            message: chunk.message,
-            ...(chunk.retryAfterMs !== undefined ? { retryAfterMs: chunk.retryAfterMs } : {}),
-          };
-        }
-      });
+      await runVision(
+        {
+          id: requestId,
+          imageUrl,
+          ...(task !== 'translate' && task !== 'explain' ? { task } : {}),
+        },
+        (chunk) => {
+          if (chunk.type === 'delta') buffered = chunk.replace ? chunk.text : buffered + chunk.text;
+          if (chunk.type === 'done') done = chunk;
+          if (chunk.type === 'error') {
+            streamError = {
+              code: chunk.code,
+              message: chunk.message,
+              ...(chunk.retryAfterMs !== undefined ? { retryAfterMs: chunk.retryAfterMs } : {}),
+            };
+          }
+        },
+      );
     } catch (e) {
       logger.error('image translate (menu/tooltip) failed', e);
       streamError = {
@@ -124,6 +138,10 @@ export async function dispatchImageTranslate(deps: ImageTranslateDispatchDeps): 
         ...(done?.detectedDetail !== undefined ? { detectedDetail: done.detectedDetail } : {}),
         ...(done?.detectedLangs !== undefined ? { detectedLangs: done.detectedLangs } : {}),
         ...(done?.explain !== undefined ? { explain: done.explain } : {}),
+        ...(done?.notes !== undefined ? { notes: done.notes } : {}),
+        ...(done?.details !== undefined ? { details: done.details } : {}),
+        ...(done?.answer !== undefined ? { answer: done.answer } : {}),
+        ...(done?.meta !== undefined ? { meta: done.meta } : {}),
         ...(done?.usedImage === true ? { usedImage: true } : {}),
         imageUrl,
         task,
