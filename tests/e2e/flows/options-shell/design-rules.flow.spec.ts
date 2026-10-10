@@ -611,26 +611,30 @@ test('a dialog opened over a dialog covers it, and only the top one takes input 
       const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
       return hit !== null && !d.contains(hit);
     });
-  expect(await doneIsCovered(), 'positive control: alone, Done takes the click').toBe(false);
+  await expect(task.locator('[data-ega-dialog-done]')).toBeVisible();
+  await expect
+    .poll(doneIsCovered, { message: 'positive control: alone, Done takes the click' })
+    .toBe(false);
 
   // The template diff over the task dialog.
   await page.locator('[data-ega-tpl-show-diff]').click();
   await expect(page.locator('[data-ega-diff-modal]')).toBeVisible();
-  expect(await doneIsCovered(), 'the diff covers the task dialog').toBe(true);
+  await expect.poll(doneIsCovered, { message: 'the diff covers the task dialog' }).toBe(true);
   await page.keyboard.press('Escape');
   await expect(page.locator('[data-ega-diff-modal]')).toHaveCount(0);
   await expect(task).toBeVisible();
-  expect(
-    await task.evaluate((d) => d.contains(document.activeElement)),
-    'focus returns into the dialog below (K-14)',
-  ).toBe(true);
+  await expect
+    .poll(() => task.evaluate((d) => d.contains(document.activeElement)), {
+      message: 'focus returns into the dialog below (K-14)',
+    })
+    .toBe(true);
 
   // A confirm over the task dialog opens on its safe button.
   await task.locator('.pe-ta-usr').fill('Translate this');
   await page.keyboard.press('Escape');
   const confirm = page.getByRole('dialog', { name: 'Close without this change?' });
   await expect(confirm).toBeVisible();
-  expect(await doneIsCovered(), 'the confirm covers the task dialog').toBe(true);
+  await expect.poll(doneIsCovered, { message: 'the confirm covers the task dialog' }).toBe(true);
   await expect(confirm.getByRole('button', { name: 'Keep editing' })).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(confirm).toHaveCount(0);
