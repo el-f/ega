@@ -215,6 +215,9 @@ function withSeedVariant(t: AssistantTurnData): AssistantTurnData {
       confidence: t.confidence,
       meta: t.meta,
       explain: t.explain,
+      notes: t.notes,
+      details: t.details,
+      answer: t.answer,
       error: t.error,
     }),
   };

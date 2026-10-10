@@ -24,7 +24,13 @@ function assistantBlock(turn: Turn): string | null {
   const err = v?.error ?? turn.error;
   if (err) parts.push(isCancelledError(err.code) ? '_Canceled._' : failedLine(err));
   const explain = v?.explain ?? turn.explain;
-  if (explain) parts.push(`_Explain:_ ${explain}`);
+  const notes = v?.notes ?? turn.notes;
+  if (notes?.length)
+    for (const note of notes)
+      parts.push(
+        `_${note.label}:_ ${note.items ? note.items.map((item) => `- ${item}`).join('\n') : (note.text ?? '')}`,
+      );
+  else if (explain) parts.push(`_Explain:_ ${explain}`);
   return parts.length > 0 ? `**Ega:** ${parts.join('\n\n')}` : null;
 }
 
@@ -62,6 +68,9 @@ export function exportJson(turns: readonly Turn[]): string {
         attachedToTurnId: t.attachedToTurnId,
         ...(error ? { error } : {}),
         ...(explain ? { explain } : {}),
+        ...((v?.notes ?? t.notes) ? { notes: v?.notes ?? t.notes } : {}),
+        ...((v?.details ?? t.details) ? { details: v?.details ?? t.details } : {}),
+        ...((v?.answer ?? t.answer) ? { answer: v?.answer ?? t.answer } : {}),
         // The system prompt this reply was sent with, when it was recorded and kept.
         ...(meta?.instructions !== undefined ? { instructions: meta.instructions } : {}),
         ...(meta?.instructionsLength !== undefined

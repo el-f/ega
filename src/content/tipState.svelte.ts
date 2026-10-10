@@ -8,6 +8,8 @@ import { endRequest, rendererOwner, stopRequestStream, type DoneMeta } from './r
 import type { DetectedVariety, ErrCode, PageContext, ResultMeta } from '@/shared/types';
 import type { Tone } from '@/shared/task-prompts';
 import type { TaskId } from '@/shared/task-view';
+import type { AnswerNote, AnswerDetail } from '@/shared/answer/reader';
+import type { AnswerSnapshot } from '@/shared/types';
 import type { SettingsTab } from '@/shared/settings-tabs';
 import { stuckTimeoutMs } from '@/shared/stuck-timeout';
 import { escalateToSidepanel, type EscalationKind } from './tooltip/handoff';
@@ -70,6 +72,9 @@ export interface TipState {
   /** Set only when the source mixes varieties; replaces the single `detectedLang` pill. */
   detectedLangs?: DetectedVariety[];
   explain?: string;
+  notes?: AnswerNote[];
+  details?: AnswerDetail[];
+  answer?: AnswerSnapshot;
   error?: { code: ErrCode; message: string };
   copied?: boolean;
   left: number;
@@ -274,6 +279,17 @@ function buildTooltipProps(o: OpenOpts, state: TipState): ComponentProps<typeof 
         ...(state.imageUrl ? { imageDataUrl: state.imageUrl } : {}),
         ...(kind === 'open-image' ? { ocrText: state.body } : {}),
         ...(state.error ? { errorCode: state.error.code } : {}),
+        ...(state.settled && !state.error
+          ? {
+              reply: {
+                ...(state.notes ? { notes: state.notes } : {}),
+                ...(state.details ? { details: state.details } : {}),
+                ...(state.answer ? { answer: state.answer } : {}),
+                ...(state.meta ? { meta: state.meta } : {}),
+                ...(state.explain ? { explain: state.explain } : {}),
+              },
+            }
+          : {}),
       }).then((opened) => {
         if (!opened) {
           showToast("Ega couldn't open the side panel. Try again.", { kind: 'error' });
@@ -397,6 +413,9 @@ export function finishTooltip(requestId: string, o: DoneMeta): void {
   if (o.detectedDetail !== undefined) e.state.detectedDetail = o.detectedDetail;
   if (o.detectedLangs !== undefined) e.state.detectedLangs = o.detectedLangs;
   if (o.explain !== undefined) e.state.explain = o.explain;
+  if (o.notes !== undefined) e.state.notes = o.notes;
+  if (o.details !== undefined) e.state.details = o.details;
+  if (o.answer !== undefined) e.state.answer = o.answer;
   if (o.meta !== undefined) e.state.meta = o.meta;
   if (o.usedImage === true) e.state.usedImage = true;
   e.state.settled = true;

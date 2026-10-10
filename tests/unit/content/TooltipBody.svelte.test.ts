@@ -7,6 +7,34 @@ import { optionsTabForMessage } from '@/shared/error-policy';
 import type { ErrCode } from '@/shared/types';
 
 describe('TooltipBody', () => {
+  it('renders snapshot list answers and labeled notes without reparsing model text', () => {
+    const { container } = render(TooltipBody, {
+      props: {
+        body: 'First\nSecond',
+        loading: false,
+        task: 'custom',
+        answer: {
+          spec: {
+            id: 'custom:old',
+            version: 1,
+            join: 'after-build',
+            fields: [
+              { key: 'answer', label: 'Answer', kind: 'list', role: 'main', required: true },
+            ],
+          },
+          fields: { answer: ['First', 'Second'], secret: 'Never shown' },
+        },
+        notes: [{ key: 'points', label: 'Original label', items: ['Useful', 'Clear'] }],
+      },
+    });
+    expect(
+      [...container.querySelectorAll('.answer-main-list li')].map((li) => li.textContent),
+    ).toEqual(['First', 'Second']);
+    expect(container.querySelector('[data-ega-note="points"]')?.textContent).toContain(
+      'Original label',
+    );
+    expect(container.textContent).not.toContain('Never shown');
+  });
   it.each(['', 'Hello so far'])('announces a stopped reply with partial body %j', (body) => {
     const { container } = render(TooltipBody, {
       props: { body, loading: false, stopped: true, task: 'translate' },
@@ -99,7 +127,7 @@ describe('TooltipBody', () => {
         usedImage: true,
       },
     });
-    expect(container.querySelector('.ega-from-image')).toBeTruthy();
+    expect(container.querySelector('.answer-note-image')).toBeTruthy();
   });
 
   it('does not render the "from image" marker when usedImage is absent', () => {
@@ -111,7 +139,7 @@ describe('TooltipBody', () => {
         explain: 'A regional greeting.',
       },
     });
-    expect(container.querySelector('.ega-from-image')).toBeNull();
+    expect(container.querySelector('.answer-note-image')).toBeNull();
   });
 
   it('does not render the "from image" marker when usedImage but no explanation', () => {
@@ -123,7 +151,7 @@ describe('TooltipBody', () => {
         usedImage: true,
       },
     });
-    expect(container.querySelector('.ega-from-image')).toBeNull();
+    expect(container.querySelector('.answer-note-image')).toBeNull();
   });
 
   it('loadingLabel overrides the task gerund on the shimmer (explain-flag re-run)', () => {

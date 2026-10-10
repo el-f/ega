@@ -65,6 +65,7 @@ import { imageStuckTimeoutMs, stuckTimeoutMs } from '@/shared/stuck-timeout';
 import { isRetryable, optionsTabForMessage } from '@/shared/error-policy';
 import { errCodeLabel } from '@/shared/err-labels';
 import { ALL_ERR_CODES, type ErrCode } from '@/shared/types';
+import type { AnswerReplyFields } from '@/shared/types';
 import { debugCatch } from '@/shared/logger';
 import { asLangSelection } from '@/shared/brands';
 import { isIsoCode } from '@/shared/languages';
@@ -204,6 +205,7 @@ export interface ConversationContainer {
     kind: TurnKind;
     sourceText: string;
     response: string;
+    reply?: AnswerReplyFields;
     imageDataUrl?: string;
     imageDropped?: boolean;
     sourceLang: LangSelection;
@@ -1045,6 +1047,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     kind: TurnKind;
     sourceText: string;
     response: string;
+    reply?: AnswerReplyFields;
     imageDataUrl?: string;
     imageDropped?: boolean;
     sourceLang: LangSelection;
@@ -1099,6 +1102,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
           kind: input.kind,
           attachedToTurnId: userId,
           content: input.response,
+          ...(input.reply ? { reply: input.reply } : {}),
           ...(input.taskId !== undefined ? { taskId: input.taskId } : {}),
         }),
       'now',

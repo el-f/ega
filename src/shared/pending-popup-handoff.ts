@@ -4,6 +4,7 @@ import { TaskIdSchema } from './settings-schema';
 import type { TaskId } from './task-view';
 import { IMAGE_DATA_URL_MAX_CHARS, MAX_SELECTION_CHARS } from './constants';
 import { makeCrossContextLock } from './utils/cross-context-lock';
+import type { AnswerReplyFields } from './types';
 
 export const PENDING_POPUP_HANDOFF_KEY = 'ega.pendingPopupHandoff';
 
@@ -29,6 +30,7 @@ export interface PendingPopupHandoff {
   readonly ocrText?: string;
   /** Unlike `response` this leaves the turn open: the panel still dispatches the translation. */
   readonly explain?: string;
+  readonly reply?: AnswerReplyFields;
   /** Set by the reader when `sourceText` was cut to MAX_SELECTION_CHARS, so the panel can say so. */
   readonly trimmed?: boolean;
   /** Set by the reader when `imageDataUrl` was over IMAGE_DATA_URL_MAX_CHARS and dropped, so the panel can say so. */
@@ -88,6 +90,15 @@ function decodeEntry(raw: unknown, now: number): PendingPopupHandoff | null {
   const imageDropped = typeof rawImage === 'string' && imageDataUrl === undefined;
   const ocrText = optStr('ocrText');
   const explain = optStr('explain');
+  const replyRaw = r['reply'];
+  // A completed reply is written by the worker; bound its size just like response.
+  const reply =
+    replyRaw !== null &&
+    typeof replyRaw === 'object' &&
+    !Array.isArray(replyRaw) &&
+    JSON.stringify(replyRaw).length <= MAX_HANDOFF_FIELD_CHARS
+      ? (replyRaw as AnswerReplyFields)
+      : undefined;
   const windowId = typeof r['windowId'] === 'number' ? r['windowId'] : undefined;
   return {
     sourceText,
@@ -103,6 +114,7 @@ function decodeEntry(raw: unknown, now: number): PendingPopupHandoff | null {
     ...(imageDataUrl !== undefined ? { imageDataUrl } : {}),
     ...(ocrText !== undefined ? { ocrText } : {}),
     ...(explain !== undefined ? { explain } : {}),
+    ...(reply !== undefined ? { reply } : {}),
     ...(windowId !== undefined ? { windowId } : {}),
   };
 }

@@ -424,6 +424,7 @@ export function createRouter(deps: RouterDeps) {
           {
             ...makeDoneChunk(req.id, hit),
             text: hit.translation,
+            ...(hit.answer ? { answer: hit.answer } : {}),
             ...(hit.notes ? { notes: hit.notes } : {}),
             ...(hit.details ? { details: hit.details } : {}),
           },
@@ -650,6 +651,7 @@ export function createRouter(deps: RouterDeps) {
                 notes: fctx.finalNotes,
                 details: fctx.finalDetails,
                 answerFormat: fctx.finalAnswerFormat,
+                answer: fctx.finalAnswer,
               }),
             },
             cacheGeneration,

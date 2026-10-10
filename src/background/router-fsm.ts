@@ -1,4 +1,10 @@
-import type { DetectedVariety, ResultMeta, TokenUsage, TranslationChunk } from '@/shared/types';
+import type {
+  AnswerSnapshot,
+  DetectedVariety,
+  ResultMeta,
+  TokenUsage,
+  TranslationChunk,
+} from '@/shared/types';
 import type { AnswerNote, AnswerDetail } from '@/shared/answer/reader';
 
 type TranslateState = 'idle' | 'attempting' | 'completed' | 'erroring';
@@ -12,6 +18,7 @@ type TranslateEvent =
 interface TranslateCtx {
   acc: string;
   finalText: string | undefined;
+  finalAnswer: AnswerSnapshot | undefined;
   finalNotes: AnswerNote[] | undefined;
   finalDetails: AnswerDetail[] | undefined;
   finalAnswerFormat: ResultMeta['answerFormat'];
@@ -31,6 +38,7 @@ export function createTranslateFsm() {
   const ctx: TranslateCtx = {
     acc: '',
     finalText: undefined,
+    finalAnswer: undefined,
     finalNotes: undefined,
     finalDetails: undefined,
     finalAnswerFormat: undefined,
@@ -56,6 +64,7 @@ export function createTranslateFsm() {
     } else if (event.type === 'done') {
       const c = event.chunk;
       ctx.finalText = c.text;
+      ctx.finalAnswer = c.answer;
       ctx.finalNotes = c.notes;
       ctx.finalDetails = c.details;
       ctx.finalAnswerFormat = c.meta?.answerFormat;

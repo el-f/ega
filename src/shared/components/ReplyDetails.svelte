@@ -1,5 +1,8 @@
 <script lang="ts">
   import type { PageContext, ResultMeta } from '@/shared/types';
+  import type { AnswerSnapshot } from '@/shared/types';
+  import type { AnswerDetail } from '@/shared/answer/reader';
+  import { answerDetailText } from '@/shared/answer-presentation';
   import { aroundText, shortUrl } from './reply-details';
   import X from '@lucide/svelte/icons/x';
   import IconButton from '@/shared/ui/IconButton.svelte';
@@ -13,6 +16,8 @@
   interface Props {
     /** Absent when result details are off in Settings, or the reply carried none. */
     meta?: ResultMeta | undefined;
+    details?: readonly AnswerDetail[] | undefined;
+    answer?: AnswerSnapshot | undefined;
     /** undefined: the request recorded no page info; null: none was sent (off, or not readable on this tab). */
     context?: PageContext | null | undefined;
     /** The text the request carried: the selection, or what the user typed. With an image, the caption or ''. */
@@ -44,6 +49,8 @@
 
   let {
     meta,
+    details = [],
+    answer,
     context,
     sentText,
     image,
@@ -165,6 +172,8 @@
       page: image === 'ocr' ? null : (page ?? null),
       ...(change !== undefined && change !== '' ? { change } : {}),
       result: meta ?? null,
+      ...(answer ? { answer } : {}),
+      ...(details.length ? { fields: details } : {}),
     };
     try {
       await navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
@@ -255,6 +264,19 @@
     {/if}
   {/if}
 
+  {#if details.length > 0}
+    <div class="rd-sent" data-ega-answer-fields>
+      <h3 class="rd-sub">Answer fields</h3>
+      <dl class="rd-rows">
+        {#each details as field (field.key)}
+          <div class="rd-row rd-row-block">
+            <dt>{field.label}</dt>
+            <dd dir="auto">{answerDetailText(field.value)}</dd>
+          </div>
+        {/each}
+      </dl>
+    </div>
+  {/if}
   <div class="rd-sent">
     <h3 class="rd-sub">What was sent</h3>
     <dl class="rd-rows">

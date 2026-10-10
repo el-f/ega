@@ -4,6 +4,20 @@ import type { VarietyEditFromSchema } from './settings-schema';
 import type { BackendId, LangPresetId, LangSelection } from './brands';
 import type { ChatTurn } from './chat-history';
 import type { AnswerNote, AnswerDetail } from './answer/reader';
+import type { AnswerSpec } from './answer/spec';
+
+/** Presentation and values as they were when this answer was produced. */
+export interface AnswerSnapshot {
+  spec: AnswerSpec;
+  fields: Record<string, unknown>;
+}
+export interface AnswerReplyFields {
+  notes?: AnswerNote[];
+  details?: AnswerDetail[];
+  answer?: AnswerSnapshot;
+  explain?: string;
+  meta?: ResultMeta;
+}
 
 export type { BackendId, LangPresetId, LangSelection };
 
@@ -160,6 +174,7 @@ export type TranslationChunk =
       text?: string;
       notes?: AnswerNote[];
       details?: AnswerDetail[];
+      answer?: AnswerSnapshot;
       /** Absent when the provider never reported one — renderers hide the
        *  pill instead of showing a synthesized number. */
       confidence?: number;

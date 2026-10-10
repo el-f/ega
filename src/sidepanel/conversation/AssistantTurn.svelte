@@ -2,6 +2,8 @@
   import { onDestroy, tick, untrack } from 'svelte';
   import { debugCatch } from '@/shared/logger';
   import ReplyDetails from '@/shared/components/ReplyDetails.svelte';
+  import AnswerNotes from '@/shared/components/AnswerNotes.svelte';
+  import { mainAnswerItems } from '@/shared/answer-presentation';
   import ReplyMeta from '@/shared/components/ReplyMeta.svelte';
   import { imageModeOf } from '@/shared/components/reply-details';
   import DiffFadeText from '@/shared/components/DiffFadeText.svelte';
@@ -151,6 +153,7 @@
   // The panel is lang=en; a reply with no tag is marked unknown ('') rather than read as English.
   const answerTag = $derived(langTag(answerLang) ?? '');
   const notesTag = $derived(langTag(answerTarget) ?? '');
+  const mainItems = $derived(mainAnswerItems(turn.answer));
 
   const direction = $derived(
     directionLabel({
@@ -659,15 +662,23 @@
         <span class="ega-empty-answer" data-ega-empty-body
           >No answer came back. Try Regenerate.</span
         >
+      {:else if mainItems}
+        <ul>
+          {#each mainItems as item, i (i)}<li>{item}</li>{/each}
+        </ul>
       {:else}
         <Markdown text={turn.content} />
       {/if}
     </div>
-    {#if turn.explain && !(turn.status === 'pending' && turn.content === '')}
-      <div class="ega-notes" data-ega-explain dir="auto" lang={notesTag}>
-        <p class="ega-notes-label" lang="en">{notesLabel(currentTaskValue, taskViews)}</p>
-        <div class="ega-notes-text"><Markdown text={turn.explain} /></div>
-      </div>
+    {#if !(turn.status === 'pending' && turn.content === '')}
+      <AnswerNotes
+        notes={turn.notes ?? []}
+        explain={turn.explain}
+        fallbackLabel={notesLabel(currentTaskValue, taskViews)}
+        lang={notesTag}
+      >
+        {#snippet renderText(text: string)}<Markdown {text} />{/snippet}
+      </AnswerNotes>
     {/if}
     <ReplyMeta
       items={metaItems}
@@ -756,6 +767,8 @@
       {#if aboutOpen}
         <ReplyDetails
           meta={turn.meta}
+          details={turn.details}
+          answer={turn.answer}
           context={contextShown}
           sentText={detailsText}
           image={imageMode}
@@ -806,37 +819,14 @@
   .ega-answer :global(.ega-md h2),
   .ega-answer :global(.ega-md h3),
   .ega-answer :global(.ega-md h4),
-  .ega-notes-text :global(.ega-md h1),
-  .ega-notes-text :global(.ega-md h2),
-  .ega-notes-text :global(.ega-md h3),
-  .ega-notes-text :global(.ega-md h4) {
-    font-size: var(--fs-md);
-    font-weight: 600;
-  }
   /* Inline code keeps the text size (Markdown draws it at 0.95em, off the type scale); a code block is 12. */
   .ega-answer :global(.ega-md code),
-  .ega-notes-text :global(.ega-md code) {
-    font-size: inherit;
-  }
   .ega-answer :global(.ega-md pre),
-  .ega-notes-text :global(.ega-md pre) {
-    font-size: var(--fs-sm);
-  }
   /* The shared Markdown draws 1-2px cell and code padding and bold table heads; the panel keeps its scale and two weights. */
   .ega-answer :global(.ega-md th),
   .ega-answer :global(.ega-md td),
-  .ega-notes-text :global(.ega-md th),
-  .ega-notes-text :global(.ega-md td) {
-    padding-block: var(--space-1);
-  }
   .ega-answer :global(.ega-md th),
-  .ega-notes-text :global(.ega-md th) {
-    font-weight: 600;
-  }
   .ega-answer :global(.ega-md code),
-  .ega-notes-text :global(.ega-md code) {
-    padding-block: 0;
-  }
   /* About this reply's text links are 28px targets in the panel, like every other control (spec §9.2). */
   .ega-reply :global(.reply-details .rd-link) {
     min-block-size: 28px;
@@ -899,27 +889,6 @@
     color: var(--color-muted);
     font-size: var(--fs-md);
     line-height: var(--lh-body);
-  }
-  .ega-notes {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
-    margin-block-start: var(--space-1);
-  }
-  .ega-notes-label {
-    margin: 0;
-    font-size: var(--fs-sm);
-    font-weight: 600;
-    color: var(--color-muted);
-  }
-  .ega-notes-text {
-    padding-inline-start: var(--space-2);
-    border-inline-start: 2px solid var(--color-border);
-    color: var(--color-muted);
-    --ega-md-fs: var(--fs-md);
-  }
-  .ega-notes-text :global(.ega-md) {
-    color: var(--color-muted);
   }
   .ega-error {
     display: flex;

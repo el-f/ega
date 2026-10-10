@@ -16,6 +16,8 @@ import {
   type ChatTurn,
 } from '@/shared/chat-history';
 import type { sendTranslateStart } from '@/shared/translate-ui';
+import type { AnswerNote, AnswerDetail } from '@/shared/answer/reader';
+import type { AnswerSnapshot, AnswerReplyFields } from '@/shared/types';
 
 /** Every kind this build creates; saved turns can carry a newer build's task id. */
 export const ALL_TURN_KINDS = [...ALL_TASKS, 'image-translate'] as const;
@@ -53,6 +55,9 @@ export interface Variant {
   confidence?: number;
   meta?: ResultMeta;
   explain?: string;
+  notes?: AnswerNote[];
+  details?: AnswerDetail[];
+  answer?: AnswerSnapshot;
   error?: TurnError;
   /** Free-form refinement description for this variant (chip body or
    *  custom describe-your-change). Drives the "Refined: <body>" chip. */
@@ -112,6 +117,9 @@ export interface UserTurnData extends TurnBase {
   confidence?: never;
   meta?: never;
   explain?: never;
+  notes?: never;
+  details?: never;
+  answer?: never;
   attachedToTurnId?: never;
   error?: never;
   retries?: never;
@@ -138,6 +146,9 @@ export interface AssistantTurnData extends TurnBase {
   meta?: ResultMeta;
   /** Optional Explain blurb returned alongside translation. */
   explain?: string;
+  notes?: AnswerNote[];
+  details?: AnswerDetail[];
+  answer?: AnswerSnapshot;
   /** The user turn this answers. */
   attachedToTurnId?: string;
   /** Error payload — present iff `status === 'error'`. */
@@ -281,6 +292,7 @@ interface AddDeliveredAssistantTurnInput {
   attachedToTurnId: string;
   /** Already-produced body (tooltip explanation / OCR result). */
   content: string;
+  reply?: AnswerReplyFields;
 }
 
 /** Appends a done assistant turn whose body is already known. */
@@ -293,6 +305,7 @@ export function addDeliveredAssistantTurn(
     id: variantId,
     status: 'done',
     content: input.content,
+    ...input.reply,
   };
   const turn: Turn = {
     id: input.id,
@@ -300,6 +313,7 @@ export function addDeliveredAssistantTurn(
     kind: input.kind,
     status: 'done',
     content: input.content,
+    ...input.reply,
     attachedToTurnId: input.attachedToTurnId,
     variants: [seed],
     activeVariantIdx: 0,
@@ -533,6 +547,9 @@ function applyChunkToVariant(variant: Variant, c: TranslationChunk): void {
     if (c.detectedDetail !== undefined) variant.detectedDetail = c.detectedDetail;
     if (c.detectedLangs !== undefined) variant.detectedLangs = c.detectedLangs;
     if (c.explain !== undefined) variant.explain = c.explain;
+    if (c.notes !== undefined) variant.notes = c.notes;
+    if (c.details !== undefined) variant.details = c.details;
+    if (c.answer !== undefined) variant.answer = c.answer;
     if (c.meta) variant.meta = c.meta;
     delete variant.rawAcc;
   } else {
@@ -576,6 +593,12 @@ function mirrorVariantToTurn(turn: Turn, v: Variant): void {
   else delete turn.meta;
   if (v.explain !== undefined) turn.explain = v.explain;
   else delete turn.explain;
+  if (v.notes !== undefined) turn.notes = v.notes;
+  else delete turn.notes;
+  if (v.details !== undefined) turn.details = v.details;
+  else delete turn.details;
+  if (v.answer !== undefined) turn.answer = v.answer;
+  else delete turn.answer;
   if (v.error !== undefined) turn.error = v.error;
   else delete turn.error;
 }

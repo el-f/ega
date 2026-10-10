@@ -1,5 +1,5 @@
 import { sha256Hex } from '@/shared/sha256';
-import type { DetectedVariety, ResultMeta } from '@/shared/types';
+import type { AnswerSnapshot, DetectedVariety, ResultMeta } from '@/shared/types';
 import type { AnswerNote, AnswerDetail } from '@/shared/answer/reader';
 import type { ChatTurn } from '@/shared/chat-history';
 import type { AnswerSpec } from '@/shared/answer/spec';
@@ -30,6 +30,7 @@ export async function cacheKey(f: RequestFingerprint): Promise<string> {
 
 export interface CacheEntry {
   translation: string;
+  answer?: AnswerSnapshot;
   notes?: AnswerNote[];
   details?: AnswerDetail[];
   answerFormat?: ResultMeta['answerFormat'];

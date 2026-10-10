@@ -17,6 +17,22 @@ function meta(overrides: Partial<ResultMeta> = {}): ResultMeta {
   };
 }
 
+it('shows stored field labels even when no request metadata was recorded', () => {
+  const { container } = render(ReplyDetails, {
+    props: {
+      sentText: 'hello',
+      taskLabel: 'Deleted task',
+      surface: 'panel',
+      onClose: () => {},
+      details: [{ key: 'tone', label: 'Original tone', value: 'Formal' }],
+    },
+  });
+  expect(container.querySelector('[data-ega-answer-fields]')?.textContent).toContain(
+    'Original tone',
+  );
+  expect(container.querySelector('[data-ega-answer-fields]')?.textContent).toContain('Formal');
+});
+
 const CONTEXT: PageContext = {
   pageTitle: 'Travel notes',
   pageUrl: 'https://example.com/forum/beirut?x=1',

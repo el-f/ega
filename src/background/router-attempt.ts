@@ -182,6 +182,7 @@ export async function runTranslateAttempt(
           c.usage,
         ),
         text: answer.main,
+        answer: { spec: answerSpec, fields: answer.fields },
         ...(answer.notes.length ? { notes: answer.notes } : {}),
         ...(answer.details.length ? { details: answer.details } : {}),
       };

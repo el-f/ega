@@ -244,6 +244,7 @@ export function createIntake(deps: IntakeDeps): Intake {
         sourceText: handoff.sourceText,
         ...(handoff.trimmed ? { trimmedTo: handoff.sourceText.length } : {}),
         response: handoff.response ?? handoff.ocrText ?? '',
+        ...(handoff.reply ? { reply: handoff.reply } : {}),
         ...(handoff.imageDataUrl ? { imageDataUrl: handoff.imageDataUrl } : {}),
         ...(handoff.imageDropped ? { imageDropped: true } : {}),
         sourceLang: asLangSelection(handoff.sourceLang),

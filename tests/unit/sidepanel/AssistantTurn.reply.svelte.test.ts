@@ -54,7 +54,31 @@ describe('the answer', () => {
   it('notes sit under the answer with a sentence-case label', () => {
     const turn = doneReply({ kind: 'explain', explain: 'Levantine slang.' });
     const { container } = render(AssistantTurn, { props: replyProps(turn) });
-    expect(container.querySelector('.ega-notes-label')?.textContent).toBe('Context & subtext');
+    expect(container.querySelector('.answer-note-label')?.textContent).toBe('Context & subtext');
+  });
+  it('renders the saved main list and custom note labels after the task changes', () => {
+    const turn = doneReply({
+      content: 'First\nSecond',
+      notes: [{ key: 'points', label: 'Original label', items: ['Useful'] }],
+      answer: {
+        spec: {
+          id: 'custom:deleted',
+          version: 1,
+          join: 'after-build',
+          fields: [{ key: 'answer', label: 'Answer', kind: 'list', role: 'main', required: true }],
+        },
+        fields: { answer: ['First', 'Second'], hidden: 'For JSON only' },
+      },
+    });
+    const { container } = render(AssistantTurn, { props: replyProps(turn) });
+    expect([...container.querySelectorAll('.ega-answer li')].map((li) => li.textContent)).toEqual([
+      'First',
+      'Second',
+    ]);
+    expect(container.querySelector('[data-ega-note="points"]')?.textContent).toContain(
+      'Original label',
+    );
+    expect(container.textContent).not.toContain('For JSON only');
   });
 
   it('marks the answer with the language it is in; a rewrite takes the input language', () => {

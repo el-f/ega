@@ -10,6 +10,10 @@
     type TaskView,
   } from '@/shared/task-view';
   import { diffWords, type DiffOp } from '@/shared/diff-words';
+  import AnswerNotes from '@/shared/components/AnswerNotes.svelte';
+  import { mainAnswerItems } from '@/shared/answer-presentation';
+  import type { AnswerNote } from '@/shared/answer/reader';
+  import type { AnswerSnapshot } from '@/shared/types';
 
   interface Props {
     /** Streaming / final translation body. Empty string means "nothing yet". */
@@ -25,6 +29,8 @@
     loadingLabel?: string;
     /** Optional culture/context sidebar text. */
     explain?: string;
+    notes?: readonly AnswerNote[];
+    answer?: AnswerSnapshot;
     /** True when the explanation was grounded in an attached image —
      *  surfaces a "from image" marker beside the explain label. */
     usedImage?: boolean;
@@ -55,6 +61,8 @@
     views = SHIPPED_TASK_VIEWS,
     loadingLabel,
     explain,
+    notes,
+    answer,
     usedImage,
     error,
     imageUrl,
@@ -75,6 +83,7 @@
   });
 
   const showDiff = $derived(diffOps.length > 0);
+  const mainItems = $derived(mainAnswerItems(answer));
 
   // With motion the diff spans fade to plain text after 4s; reduced-motion collapses that duration to 0 in CSS.
   let faded = $state(false);
@@ -196,6 +205,10 @@
             >{:else if op.kind === 'add'}<span class="diff-add" data-ega-diff="add">{op.text}</span
             >{:else}<span class="diff-del" data-ega-diff="del">{op.text}</span>{/if}
         {/each}
+      {:else if mainItems}
+        <ul class="answer-main-list">
+          {#each mainItems as item, i (i)}<li>{item}</li>{/each}
+        </ul>
       {:else}
         {body}
       {/if}
@@ -207,15 +220,11 @@
       </span>
     {/if}
   </div>
-  {#if explain}
-    <div class="explain-block">
-      <div class="explain-label">
-        {taskCapabilities(task, views).notesLabel}
-        {#if usedImage}
-          <span class="ega-from-image" title="Explained from the image">🖼 from image</span>
-        {/if}
-      </div>
-      <div class="explain-body" dir="auto" lang={notesLang}>{explain}</div>
-    </div>
-  {/if}
+  <AnswerNotes
+    notes={notes ?? []}
+    {explain}
+    fallbackLabel={taskCapabilities(task, views).notesLabel}
+    lang={notesLang}
+    usedImage={usedImage === true}
+  />
 {/if}

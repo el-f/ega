@@ -282,6 +282,8 @@
       {...tip.loadingLabel !== undefined ? { loadingLabel: tip.loadingLabel } : {}}
       {...tip.imageUrl !== undefined ? { imageUrl: tip.imageUrl } : {}}
       {...tip.explain !== undefined ? { explain: tip.explain } : {}}
+      {...tip.notes !== undefined ? { notes: tip.notes } : {}}
+      {...tip.answer !== undefined ? { answer: tip.answer } : {}}
       {...tip.usedImage ? { usedImage: true } : {}}
       {...tip.error !== undefined ? { error: tip.error } : {}}
       settled={tip.settled === true}
@@ -390,6 +392,8 @@
       <div class="ega-tooltip-details">
         <ReplyDetails
           meta={tip.meta}
+          details={tip.details}
+          answer={tip.answer}
           context={contextShown}
           sentText={tip.srcText}
           image={imageMode}

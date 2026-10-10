@@ -240,3 +240,30 @@
   flex: 0 0 var(--ega-brand-icon-size);
   display: block;
 }
+
+/* Shared answer notes rendered in the page shadow root. */
+
+.answer-notes {
+  margin-block-start: var(--space-2);
+  min-block-size: 0;
+  overflow-wrap: anywhere;
+}
+.answer-note-label {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--color-muted);
+  margin: 0 0 var(--space-2);
+}
+.answer-note-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--color-muted);
+  --ega-md-fs: var(--fs-md);
+}
+.answer-note-image {
+  font-weight: 400;
+}
+.answer-note-items {
+  margin: 0;
+  padding-inline-start: var(--space-5);
+}

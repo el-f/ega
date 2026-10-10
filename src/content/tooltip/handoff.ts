@@ -6,6 +6,7 @@ import { IMAGE_TURN_PLACEHOLDER } from '@/shared/constants';
 import { currentSettings } from '@/content/settings-cache';
 import { canHandOffImage } from '@/shared/image-url-guard';
 import type { ErrCode } from '@/shared/types';
+import type { AnswerReplyFields } from '@/shared/types';
 import { closeStickyToast, showToast } from '../toast';
 
 export type EscalationKind = 'continue' | 'pin' | 'open-image' | 'open-panel';
@@ -25,6 +26,7 @@ export interface EscalateArgs {
   ocrText?: string;
   /** Pin mode — an explanation that rides along with the re-dispatch instead of replacing it. */
   explain?: string;
+  reply?: AnswerReplyFields;
   /** Open-panel mode — the code the image failed with. */
   errorCode?: ErrCode;
 }
@@ -91,6 +93,7 @@ export async function escalateToSidepanel(args: EscalateArgs): Promise<boolean> 
         ...(args.imageDataUrl ? { imageDataUrl: args.imageDataUrl } : {}),
         ...(args.ocrText ? { ocrText: args.ocrText } : {}),
         ...(args.explain ? { explain: args.explain } : {}),
+        ...(args.reply ? { reply: args.reply } : {}),
       },
     });
     return reply?.ok === true;
