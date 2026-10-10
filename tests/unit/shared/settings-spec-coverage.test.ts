@@ -27,7 +27,6 @@ const INTERNAL_KEYS: ReadonlySet<string> = new Set([
   'advanced.snippets',
   // Kept so an older profile still loads; the right-click menu card no longer writes either.
   'imageTranslateSurface',
-  'contextMenuLayout',
 ]);
 
 function covered(path: string): boolean {

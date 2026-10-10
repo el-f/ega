@@ -1,6 +1,6 @@
 /** Prompt text for the worker and extension pages; never imported by the content UI. */
 import type { PromptTemplate, Settings } from './types';
-import type { Task, Tone } from './task-prompts';
+import type { Task } from './task-prompts';
 import type { AnswerFormat } from './answer/formats-v1';
 import { answerSpecFor } from './answer/spec';
 import { renderFormat } from './answer/render-format';
@@ -10,7 +10,7 @@ export function answerFormatFor(task: Task): AnswerFormat {
 }
 
 /** Template for a non-translate task; {{text}} stays so escaping lives only in buildPrompt. Throws for translate. */
-export function buildTaskTemplate(task: Task, tone: Tone = 'neutral'): PromptTemplate {
+export function buildTaskTemplate(task: Task): PromptTemplate {
   if (task === 'summarize') {
     // Without a named ban, models return meta-commentary ("The text discusses X") instead of a summary.
     return {
@@ -26,7 +26,6 @@ export function buildTaskTemplate(task: Task, tone: Tone = 'neutral'): PromptTem
   if (task === 'reword') {
     // Tone resolved at buildPrompt time via {{tone}} slot — keeps wording
     // single-source (TONE_PHRASE) and lets snippet/slot pre-pass apply.
-    void tone;
     return {
       system: [
         'Rewrite the text in a {{tone}} tone, keeping the SAME language as the input — restyle only, never translate.',

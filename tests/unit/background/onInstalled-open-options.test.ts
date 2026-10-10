@@ -44,7 +44,7 @@ vi.mock('@/shared/backends/registry', () => ({
   resolveBackend: vi.fn(),
 }));
 
-const settingsStub: Partial<Settings> = { contextMenuItems: [], contextMenuLayout: 'nested' };
+const settingsStub: Partial<Settings> = { contextMenuItems: [] };
 
 vi.mock('@/shared/storage', () => ({
   getSettings: vi.fn().mockResolvedValue(settingsStub),

@@ -139,7 +139,6 @@ async function probeUntil(id: string, want: boolean): Promise<UpdateProbe> {
 test('a stored flat layout keeps the Ega root; the picker item leaves while the picker is off', async () => {
   // Both keys in one write: pickerEnabled forces a rebuild, and that rebuild must ignore "flat".
   await seedSettings(ext.context, ext.extensionId, {
-    contextMenuLayout: 'flat',
     pickerEnabled: false,
   });
 

@@ -7,13 +7,20 @@ import type { CustomTask } from '@/shared/settings-schema';
 /** The stored custom tasks, kept current while the calling component is mounted. Call it during component init. */
 export function liveCustomTasks(): {
   readonly rows: readonly CustomTask[];
+  readonly loaded: boolean;
   reload: () => Promise<void>;
 } {
   let rows = $state.raw<CustomTask[]>([]);
+  let loaded = $state(false);
+  let generation = 0;
   /** Settles once the rows are current, so a caller can move focus to a row. */
   async function reload(): Promise<void> {
+    const mine = ++generation;
     try {
-      rows = await getCustomTasks();
+      const next = await getCustomTasks();
+      if (mine !== generation) return;
+      rows = next;
+      loaded = true;
     } catch (e) {
       debugCatch(e, 'options.liveCustomTasks');
     }
@@ -29,6 +36,9 @@ export function liveCustomTasks(): {
   return {
     get rows() {
       return rows;
+    },
+    get loaded() {
+      return loaded;
     },
     reload,
   };

@@ -26,6 +26,7 @@
   } from './audit-filters';
   import { debugCatch } from '@/shared/logger';
   import { getCustomTasks, getSettings } from '@/shared/storage';
+  import { STORAGE_KEYS } from '@/shared/constants';
   import { materializeTasks, type TaskView } from '@/shared/task-view';
   import { downloadTextFile } from '@/shared/download-file';
 
@@ -148,6 +149,8 @@
       listener = (changes, area) => {
         if (area !== 'local') return;
         if (Object.hasOwn(changes, STORAGE_KEY)) void refresh();
+        if (STORAGE_KEYS.customTasks in changes || STORAGE_KEYS.settings in changes)
+          void loadTaskViews();
       };
       chrome.storage.onChanged.addListener(listener);
     }

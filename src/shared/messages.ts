@@ -55,7 +55,7 @@ export type Msg =
         explain: boolean;
         /** Operation to run. Absent ⇒ 'translate'. */
         task?: TaskId;
-        /** Tone modifier for Reword. Ignored by other tasks. */
+        /** Fills the {{tone}} slot in any task prompt that uses it. */
         tone?: Tone;
         /** Instruction injected into the system prompt for this request only. Never persisted. */
         refinement?: string;

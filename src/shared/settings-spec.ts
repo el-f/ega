@@ -202,8 +202,8 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
   },
   {
     id: 'display.explainUsesPageImage',
-    label: 'Send the page image with Explain',
-    description: 'Explain on selected text also sends the main image of the page',
+    label: 'Send the page image with the Explain button',
+    description: 'The Explain button on a page answer also sends the main image of the page',
     keywords: ['explain', 'image', 'picture', 'vision', 'post', 'meme'],
     tab: 'translate',
     targetSelector: '[data-ega-setting="display.explainUsesPageImage"]',

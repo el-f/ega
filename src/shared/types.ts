@@ -74,7 +74,7 @@ export interface TranslationRequest {
     explain: boolean;
     /** Absent means translate. A built-in id or a custom task's id; the router answers REQUEST for an id no task has. */
     task?: TaskId;
-    /** Reword only; buildTaskTemplate defaults it to 'neutral'. */
+    /** Fills {{tone}} in any prompt that uses it, otherwise leaves the prompt unchanged. */
     tone?: Tone;
     /** Side-panel refine instruction for this request only: in the prompt and the cache key, never in settings. */
     refinement?: string;

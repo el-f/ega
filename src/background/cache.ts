@@ -9,7 +9,7 @@ import type { AnswerSpec } from '@/shared/answer/spec';
 export interface RequestFingerprint {
   system: string;
   user: string;
-  /** Backend settings vary by task (effort, model), so two tasks never share a slot. */
+  /** Effort and prompt capabilities vary by task, so two tasks never share a slot. */
   task: string;
   history?: readonly ChatTurn[];
   answerSpec?: AnswerSpec;

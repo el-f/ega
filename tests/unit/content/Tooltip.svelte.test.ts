@@ -203,7 +203,7 @@ describe('Tooltip smoke', () => {
       body: 'translation',
       explain: 'cultural context here',
     });
-    const block = container.querySelector('.explain-block');
+    const block = container.querySelector('[data-ega-note]');
     expect(block).toBeTruthy();
     expect(block?.textContent).toContain('Context & subtext');
     expect(block?.textContent).toContain('cultural context here');
@@ -211,7 +211,7 @@ describe('Tooltip smoke', () => {
 
   it('omits the explain block when explain is absent', () => {
     const { container } = mountWith({ body: 'translation' });
-    expect(container.querySelector('.explain-block')).toBeNull();
+    expect(container.querySelector('[data-ega-note]')).toBeNull();
   });
 
   it('fires onclose on Escape keydown', async () => {

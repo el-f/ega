@@ -469,9 +469,9 @@ describe('a language prompt on read', () => {
 
 // The options page no longer shows the layout radio or the Display card's image select.
 describe('an existing profile after the right-click menu redesign', () => {
-  it('still loads a stored flat layout, kept as stored and ignored by the menu', () => {
+  it('drops a stored layout and still loads the rest of the profile', () => {
     const out = sanitise({ contextMenuLayout: 'flat' });
-    expect(out.contextMenuLayout).toBe('flat');
+    expect(out).not.toHaveProperty('contextMenuLayout');
   });
 
   it('gives a pre-v4 image row with no surface the global it followed before', () => {

@@ -61,27 +61,15 @@ describe('settings — contextMenuItems', () => {
   });
 });
 
-// The layout control is gone; the key stays readable so an old "flat" profile still loads.
-describe('settings — contextMenuLayout (kept for old profiles, ignored)', () => {
-  it('empty storage defaults to nested', () => {
-    const s = parse({});
-    expect(s.contextMenuLayout).toBe('nested');
-  });
-
-  it('flat round-trips', () => {
-    const s = parse({ contextMenuLayout: 'flat' });
-    expect(s.contextMenuLayout).toBe('flat');
-  });
-
-  it('bad layout falls back to nested', () => {
-    const s = parse({ contextMenuLayout: 'sideways' });
-    expect(s.contextMenuLayout).toBe('nested');
-  });
-
-  it('null layout falls back to nested', () => {
-    const s = parse({ contextMenuLayout: null });
-    expect(s.contextMenuLayout).toBe('nested');
-  });
+describe('retired context menu layout', () => {
+  it.each(['flat', 'nested', 'sideways', null])(
+    'drops legacy layout %s while keeping a usable menu',
+    (contextMenuLayout) => {
+      const s = parse({ contextMenuLayout });
+      expect(s).not.toHaveProperty('contextMenuLayout');
+      expect(s.contextMenuItems).toEqual(DEFAULT_CONTEXT_MENU_ITEMS);
+    },
+  );
 });
 
 describe('DEFAULT_SETTINGS carries context-menu fields', () => {
@@ -89,7 +77,7 @@ describe('DEFAULT_SETTINGS carries context-menu fields', () => {
     expect(DEFAULT_SETTINGS.contextMenuItems).toEqual(DEFAULT_CONTEXT_MENU_ITEMS);
   });
 
-  it('contextMenuLayout is nested', () => {
-    expect(DEFAULT_SETTINGS.contextMenuLayout).toBe('nested');
+  it('does not write the retired layout', () => {
+    expect(DEFAULT_SETTINGS).not.toHaveProperty('contextMenuLayout');
   });
 });

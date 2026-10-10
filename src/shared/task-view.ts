@@ -110,11 +110,6 @@ function builtInOff(s: Settings, t: Task): boolean {
   return t !== 'translate' && s.disabledTasks.includes(t);
 }
 
-/** Built-ins the user has on, in shipped order. */
-export function enabledBuiltIns(s: Settings): Task[] {
-  return ALL_TASKS.filter((t) => !builtInOff(s, t));
-}
-
 /** The view of a built-in task; a built-in id always has one. */
 export function builtInTaskView(s: Settings, t: Task): TaskView {
   const edit: TaskEdit = s.taskOverrides[t] ?? {};
@@ -225,6 +220,7 @@ export function taskExists(views: readonly TaskView[], id: string): boolean {
   return views.some((x) => x.id === id) || builtInTask(id) !== null;
 }
 
+/** The shared name of a task, including a deleted task. */
 export function taskLabel(views: readonly TaskView[], id: string): string {
   const v = views.find((x) => x.id === id);
   if (v) return v.label;

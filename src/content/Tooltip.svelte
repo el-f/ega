@@ -24,7 +24,11 @@
     type TaskId,
   } from '@/shared/task-view';
   import { taskUsesTone } from '@/shared/language-prompt';
-  import { cachedCustomTasks, cachedCustomLanguages } from '@/content/customs-cache';
+  import {
+    cachedCustomTasks,
+    cachedCustomLanguages,
+    onCustomTasksUpdate,
+  } from '@/content/customs-cache';
   import { currentSettings, onSettingsUpdate } from '@/content/settings-cache';
   import TooltipBody from '@/content/tooltip/TooltipBody.svelte';
   import TooltipActions from '@/content/tooltip/TooltipActions.svelte';
@@ -98,13 +102,19 @@
   });
 
   let settingsNow = $state(untrack(currentSettings));
+  let customTasksNow = $state.raw(untrack(cachedCustomTasks));
+  onMount(() =>
+    onCustomTasksUpdate((tasks) => {
+      customTasksNow = tasks;
+    }),
+  );
   onMount(() =>
     onSettingsUpdate((s) => {
       settingsNow = s;
     }),
   );
   const taskViews = $derived(
-    settingsNow ? materializeTasks(settingsNow, cachedCustomTasks()) : SHIPPED_TASK_VIEWS,
+    settingsNow ? materializeTasks(settingsNow, customTasksNow) : SHIPPED_TASK_VIEWS,
   );
   // The task the router ran: Explain for an explain re-run, else the picked task.
   const ranTask = $derived(tip.contextTask ?? tip.task ?? 'translate');
@@ -114,7 +124,7 @@
       ? tip.contextSent
       : null,
   );
-  const taskLabel = $derived(taskViews?.find((v) => v.id === ranTask)?.label ?? 'Translate');
+  const taskLabel = $derived(taskViews?.find((v) => v.id === ranTask)?.label ?? 'Deleted task');
   // Translate reads an image with the built-in image prompt; Explain sends its own prompt with it.
   const imageMode = $derived(
     imageModeOf(
@@ -134,9 +144,7 @@
   // Settings load before any tooltip shows; the fallbacks are the shipped tasks, where only Reword has {{tone}}.
   function usesToneFor(t: TaskId): boolean {
     const s = currentSettings();
-    return s
-      ? taskUsesTone(s, cachedCustomTasks(), t, direction?.source ?? 'auto')
-      : t === 'reword';
+    return s ? taskUsesTone(s, customTasksNow, t, direction?.source ?? 'auto') : t === 'reword';
   }
   // The shadow tree is lang=en for our UI; page text and a reply with no tag must say so themselves ('' is unknown).
   const pageLang = document.documentElement.lang;

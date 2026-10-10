@@ -22,8 +22,8 @@
   } from '@/shared/context-menu-names';
   import { builtInTask, runnableDefaultTask } from '@/shared/task-prompts';
   import { materializeTasks, taskLabel, type TaskId } from '@/shared/task-view';
-  import { getCustomTasks, getSettings } from '@/shared/storage';
-  import type { CustomTask } from '@/shared/settings-schema';
+  import { getSettings } from '@/shared/storage';
+  import { liveCustomTasks } from '@/options/custom-tasks-state.svelte';
   import { listVarieties } from '@/shared/varieties';
   import { CONTEXT_MENU_ITEMS_MAX, MENU_LABEL_MAX } from '@/shared/settings-schema';
   import { toastStore } from '@/shared/components/toastStore';
@@ -99,17 +99,13 @@
   // A group this long stops being a menu people scan (R28); the card says so but does not block.
   const LONG_GROUP = 11;
 
-  let customTasks = $state.raw<CustomTask[]>([]);
-  let tasksLoaded = $state(false);
+  const custom = liveCustomTasks();
+  const tasksLoaded = $derived(custom.loaded);
   let varieties: Variety[] = $state([]);
   let varietiesLoaded = $state(false);
-  const views = $derived(materializeTasks(s, customTasks));
+  const views = $derived(materializeTasks(s, custom.rows));
 
   onMount(async () => {
-    void getCustomTasks().then((rows) => {
-      customTasks = rows;
-      tasksLoaded = true;
-    });
     try {
       varieties = await listVarieties();
     } finally {
