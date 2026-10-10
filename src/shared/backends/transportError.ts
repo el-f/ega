@@ -185,7 +185,7 @@ export function emitEmptyAnswerError(
   onChunk({
     type: 'error',
     requestId,
-    code: 'SERVER',
+    code: 'EMPTY',
     message: `${label} returned an empty answer.${note !== undefined ? ` (${note})` : ''}`,
   });
 }

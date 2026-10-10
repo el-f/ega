@@ -102,8 +102,8 @@ export const ERROR_COPY: Readonly<Record<ErrorCopyId, CopyRow>> = {
     actions: ['open-settings', 'try-again'],
   },
   PARSE: {
-    title: 'Unreadable answer',
-    body: '{Backend} sent an answer Ega could not read.',
+    title: 'Answer in wrong format',
+    body: '{Backend} did not answer in the format this task asks for.',
     actions: ['try-again'],
   },
   PROTOCOL: {
@@ -128,7 +128,7 @@ export const ERROR_COPY: Readonly<Record<ErrorCopyId, CopyRow>> = {
   },
   UNKNOWN: {
     title: 'Something went wrong',
-    body: 'Ega could not finish this translation.',
+    body: 'Ega could not finish this task.',
     actions: ['try-again'],
   },
   IMAGE_UNKNOWN: {
@@ -216,7 +216,10 @@ export function errorCopy(
     id,
     title: row.title,
     body: fill(row.body, opts.backend),
-    actions: row.actions,
+    actions:
+      id === 'PARSE' && optionsTabForMessage(message, known) === 'tasks'
+        ? ['try-again', 'open-settings']
+        : row.actions,
     tab: row.tab ?? optionsTabForMessage(message, known) ?? 'backends',
     detail: detail === '' ? undefined : detail,
   };

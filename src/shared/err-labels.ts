@@ -25,7 +25,9 @@ export function errCodeLabel(code: ErrCode): string {
     case 'TIMEOUT':
       return 'Timed out';
     case 'PARSE':
-      return 'Could not read the reply';
+      return 'Answer in wrong format';
+    case 'EMPTY':
+      return 'Empty answer';
     case 'PROTOCOL':
       return 'Reply was cut short';
     case 'UNSUPPORTED':

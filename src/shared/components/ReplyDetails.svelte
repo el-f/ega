@@ -198,6 +198,19 @@
           <dd>{languagesLine}</dd>
         </div>
       {/if}
+      {#if meta.answerFormat}
+        <div class="rd-row rd-row-block">
+          <dt>Answer format</dt>
+          <dd>
+            {meta.answerFormat.checkedBy === 'backend'
+              ? `Checked by ${backendLabel(meta.backendId)}`
+              : 'Asked in the prompt'}
+            {#each meta.answerFormat.issues ?? [] as issue, i (i)}
+              <span class="rd-caption">{issue}</span>
+            {/each}
+          </dd>
+        </div>
+      {/if}
       <div class="rd-row">
         <dt>Time</dt>
         <dd>{timeLine}</dd>

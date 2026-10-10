@@ -350,7 +350,7 @@ describe('the sentences a user actually reads', () => {
     expect(chunks[0]).toEqual({
       type: 'error',
       requestId: 'r9',
-      code: 'SERVER',
+      code: 'EMPTY',
       message: 'Ollama returned an empty answer.',
     });
   });

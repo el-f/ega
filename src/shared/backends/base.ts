@@ -313,7 +313,7 @@ async function* httpEvents(a: RunStreamingChatArgs): AsyncGenerator<StreamEvent>
   try {
     json = await res.json();
   } catch {
-    // PARSE never rotates, and a 2xx body the adapter cannot read is worth the next backend.
+    // This is unreadable transport JSON; task answer validation happens in the worker.
     yield { type: 'error', code: 'SERVER', message: `${a.label} returned an unreadable response.` };
     return;
   }

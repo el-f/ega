@@ -46,7 +46,11 @@ import {
 import { withTranslateLifecycle, LifecycleCeilingError } from './router-lifecycle';
 import { trackInflight } from './swKeepalive';
 import { pushAuditEntry, type AuditSurface } from '@/shared/audit-log';
-import { resolveModelId, type CustomTask } from '@/shared/settings-schema';
+import {
+  resolveModelId,
+  isPromptTemplateCustomised,
+  type CustomTask,
+} from '@/shared/settings-schema';
 import { omitUndef } from '@/shared/utils/omitUndef';
 import type { ImageTask, Task } from '@/shared/task-prompts';
 import { createTranslateFsm } from './router-fsm';
@@ -567,6 +571,11 @@ export function createRouter(deps: RouterDeps) {
                   system,
                   user,
                   answerSpec: imageArm === 'ocr' ? answerSpecFor('ocr') : ctx.answerSpec,
+                  formatSettings:
+                    ctx.view.kind === 'custom' ||
+                    ctx.view.hasOverrides ||
+                    ((requestedTask === 'translate' || requestedTask === 'explain') &&
+                      isPromptTemplateCustomised(ctx.tpl)),
                   ...(req.options.conversationHistory
                     ? { history: req.options.conversationHistory }
                     : {}),

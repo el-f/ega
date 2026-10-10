@@ -71,8 +71,8 @@ function expectedTerminal(events: readonly StreamEvent[]): {
   if (stops.length === 0) return { code: 'PROTOCOL', consumed };
   if (stops.includes('max_tokens')) return { code: 'REQUEST', consumed };
   const raw = consumed.map((e) => (e.type === 'text' ? e.text : '')).join('');
-  if (!raw.trim()) return { code: 'SERVER', consumed };
-  // 'text' is the undecided case: the envelope parse, not the oracle, picks done or SERVER.
+  if (!raw.trim()) return { code: 'EMPTY', consumed };
+  // 'text' is the undecided case: transport success is read as an answer by the worker.
   return { code: isWholeAnswer(raw) ? 'done' : 'text', consumed };
 }
 

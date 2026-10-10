@@ -15,6 +15,7 @@ export interface ErrPolicy {
 export const ERR_POLICY: Record<ErrCode, ErrPolicy> = {
   NETWORK: { retryable: true, rotate: true },
   SERVER: { retryable: true, rotate: true },
+  EMPTY: { retryable: true, rotate: true },
   RATE_LIMIT: { retryable: true, rotate: true },
   TIMEOUT: { retryable: true, rotate: true },
   AUTH: { retryable: false, rotate: true, optionsTab: 'backends' },
@@ -25,8 +26,8 @@ export const ERR_POLICY: Record<ErrCode, ErrPolicy> = {
   // One REQUEST covers max-tokens (Translate), an unknown model id (Backends) and an oversize request
   // (no setting at all), so the message decides the tab, not the code.
   REQUEST: { retryable: false, rotate: false },
-  // A malformed envelope usually parses on the next sample; a second failure is the prompt, not luck.
-  PARSE: { retryable: true, rotate: false, maxAttempts: 2 },
+  // One new sample, then a different backend may enforce the task's format.
+  PARSE: { retryable: true, rotate: true, maxAttempts: 2 },
   // PROTOCOL = truncated stream — a transient drop, so retry and rotate like NETWORK.
   PROTOCOL: { retryable: true, rotate: true },
   UNSUPPORTED: { retryable: false, rotate: false, optionsTab: 'backends' },
@@ -52,6 +53,7 @@ const ERROR_TAB_LABELS: ReadonlyArray<readonly [label: string, tab: SettingsTab]
   // The tab's old name, still inside messages kept in saved conversations and the request list.
   ['Translate', 'translate'],
   ['Backends', 'backends'],
+  ['Tasks', 'tasks'],
 ];
 
 /** The tab the error sentence names in its own "Settings → X" clause, else the code's policy tab. */

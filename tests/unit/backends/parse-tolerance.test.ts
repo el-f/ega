@@ -158,7 +158,7 @@ describe('a think block is never the answer', () => {
       {
         type: 'error',
         requestId: 'r1',
-        code: 'SERVER',
+        code: 'EMPTY',
         message: 'Model returned an empty answer.',
       },
     ]);

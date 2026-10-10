@@ -130,7 +130,7 @@ describe('GeminiBackend SSE error paths', () => {
     const err = chunks.find((c) => c.type === 'error');
     expect(err).toBeDefined();
     if (err?.type === 'error') {
-      expect(err.code).toBe('SERVER');
+      expect(err.code).toBe('EMPTY');
       expect(err.message).toContain('OTHER');
     }
   });
@@ -149,7 +149,7 @@ describe('GeminiBackend SSE error paths', () => {
     const err = chunks.find((c) => c.type === 'error');
     expect(err).toBeDefined();
     if (err?.type === 'error') {
-      expect(err.code).toBe('SERVER');
+      expect(err.code).toBe('EMPTY');
       expect(err.message).toContain('OTHER');
     }
   });

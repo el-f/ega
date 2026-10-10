@@ -50,6 +50,20 @@ function row(container: HTMLElement, label: string): string | null {
 }
 
 describe('ReplyDetails — result', () => {
+  it('explains prompt-only plain answers and preserves reader issues in About', () => {
+    const message = 'The model answered in plain text, so there is no confidence or language.';
+    const { container } = setup({
+      meta: meta({
+        answerFormat: {
+          spec: 'translate@1',
+          checkedBy: 'prompt',
+          issues: [message],
+        },
+      }),
+    });
+    expect(row(container, 'Answer format')).toBe(`Asked in the prompt ${message}`);
+  });
+
   it('names the backend and model, the direction, and the time', () => {
     const { container } = setup({
       meta: meta({

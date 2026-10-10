@@ -41,6 +41,8 @@ export interface AttemptDeps {
   system: string;
   user: string;
   answerSpec?: AnswerSpec;
+  /** A custom or edited task can fix its format on the Tasks tab. */
+  formatSettings?: boolean;
   history?: ChatTurn[];
   /** Set for a vision attempt: the backend's `translateImage` runs on it instead of `translate`. */
   image?: FetchedImage;
@@ -81,10 +83,14 @@ function chainErrorMessage(
       ? sentence
       : `${errCodeLabel(asErrCode(earlier.code))} (${earlier.backendId}). ${sentence}`;
   const list = errors.map((e) => `${e.backendId}: ${errCodeLabel(asErrCode(e.code))}`).join(' · ');
-  return `${lead}\n${list}`;
+  const rawAt = last.message.indexOf('\nRaw answer:\n');
+  return `${lead}\n${list}${rawAt < 0 ? '' : last.message.slice(rawAt)}`;
 }
 
-export async function runTranslateAttempt(deps: AttemptDeps): Promise<AttemptOutcome> {
+export async function runTranslateAttempt(
+  deps: AttemptDeps,
+  formatAttempt = 1,
+): Promise<AttemptOutcome> {
   const {
     backend,
     isLast,
@@ -95,6 +101,7 @@ export async function runTranslateAttempt(deps: AttemptDeps): Promise<AttemptOut
     system,
     user,
     answerSpec = answerSpecFor('translate'),
+    formatSettings = false,
     history,
     image,
     timedOutMessage = TRANSLATE_TIMED_OUT,
@@ -109,6 +116,7 @@ export async function runTranslateAttempt(deps: AttemptDeps): Promise<AttemptOut
 
   let sawTransientError = false;
   let sawDeltas = false;
+  const attemptState = { retryFormatError: false, ended: false };
   const projector = createAnswerProjector(answerSpec, { explain: reqOptions.explain });
   const attemptStart = performance.now();
   // Every backend's deltas pass here, so stripping `<think>` once covers the visible stream and the cached final text.
@@ -132,43 +140,51 @@ export async function runTranslateAttempt(deps: AttemptDeps): Promise<AttemptOut
     cancel.signal.addEventListener('abort', () => resolve(), { once: true });
   });
   const handleChunk = (c: TranslationChunk): void => {
+    if (attemptState.ended) return;
     if (c.type === 'delta') {
       emitDelta(performance.now(), scrubber.push(c.text));
     } else if (c.type === 'done') {
       // A partial tag held back at stream end is real text — flush it.
       emitDelta(performance.now(), scrubber.flush());
       const answer = projector.finish();
-      if (answer.kind === 'error' && answer.code === 'PARSE') {
+      if (answer.kind === 'error') {
         handleChunk({
           type: 'error',
           requestId: reqId,
-          code: 'PARSE',
-          message: 'The answer was not in the format this task needs.',
+          code: answer.code,
+          message:
+            answer.code === 'EMPTY'
+              ? 'No answer came back.'
+              : 'The model did not answer in the format this task asks for.' +
+                (formatSettings ? ' Check this task in Settings → Tasks.' : '') +
+                `\nRaw answer:\n${answer.raw.slice(0, 2000)}`,
         });
         return;
       }
-      const parsed =
-        answer.kind === 'ok'
-          ? {
-              ...c,
-              ...makeDoneChunk(
-                reqId,
-                { ...answer.fields, translation: answer.main } as ParsedResult,
-                c.usage,
-              ),
-              text: answer.main,
-              ...(answer.notes.length ? { notes: answer.notes } : {}),
-              ...(answer.details.length ? { details: answer.details } : {}),
-            }
-          : c;
-      const answerFormat: ResultMeta['answerFormat'] =
-        answer.kind === 'ok'
-          ? {
-              spec: `${answerSpec.id}@${answerSpec.version}`,
-              checkedBy: 'prompt',
-              ...(answer.issues.length ? { issues: answer.issues } : {}),
-            }
-          : undefined;
+      attemptState.ended = true;
+      const parsed = {
+        ...c,
+        ...makeDoneChunk(
+          reqId,
+          { ...answer.fields, translation: answer.main } as ParsedResult,
+          c.usage,
+        ),
+        text: answer.main,
+        ...(answer.notes.length ? { notes: answer.notes } : {}),
+        ...(answer.details.length ? { details: answer.details } : {}),
+      };
+      const issues =
+        answer.via === 'prose'
+          ? [
+              ...answer.issues,
+              'The model answered in plain text, so there is no confidence or language.',
+            ]
+          : answer.issues;
+      const answerFormat: ResultMeta['answerFormat'] = {
+        spec: `${answerSpec.id}@${answerSpec.version}`,
+        checkedBy: 'prompt',
+        ...(issues.length ? { issues } : {}),
+      };
       const doneAt = performance.now();
       attemptLog.push({
         backendId: backend.id,
@@ -181,6 +197,7 @@ export async function runTranslateAttempt(deps: AttemptDeps): Promise<AttemptOut
       if (attached.type === 'done') fsm.send({ type: 'done', chunk: attached });
       onChunk(attached);
     } else {
+      attemptState.ended = true;
       // Rewrite ABORTED → TIMEOUT when the wall-clock fired so the
       // UI shows a real timeout instead of suppressing as cancel.
       if (c.code === 'ABORTED' && cancel.reason === 'wallclock') {
@@ -202,6 +219,11 @@ export async function runTranslateAttempt(deps: AttemptDeps): Promise<AttemptOut
         message: c.message.slice(0, 400),
         latencyMs: Math.round(errAt - attemptStart),
       });
+      // The UI has seen nothing to take back. Retry only once, inside the same wall clock.
+      if ((c.code === 'PARSE' || c.code === 'EMPTY') && !sawDeltas && formatAttempt < 2) {
+        attemptState.retryFormatError = true;
+        return;
+      }
       // Once the user has seen partial text there is no clean way to take it back, so stop rotating and surface the error.
       const canRotate = shouldRotate(c.code);
       if (canRotate && !isLast && !sawDeltas) {
@@ -245,7 +267,13 @@ export async function runTranslateAttempt(deps: AttemptDeps): Promise<AttemptOut
   } catch (err) {
     // A throw means the adapter broke, not that the provider refused, so a non-last backend falls through even though an emitted UNKNOWN would not.
     const isAbort = cancel.signal.aborted || (err instanceof Error && err.name === 'AbortError');
-    if (!isAbort && fsm.state() !== 'completed' && fsm.state() !== 'erroring') {
+    if (
+      !attemptState.ended &&
+      !isAbort &&
+      fsm.state() !== 'completed' &&
+      fsm.state() !== 'erroring'
+    ) {
+      attemptState.ended = true;
       const message = err instanceof Error ? err.message : String(err);
       attemptLog.push({
         backendId: backend.id,
@@ -274,6 +302,8 @@ export async function runTranslateAttempt(deps: AttemptDeps): Promise<AttemptOut
     // for wallclock; the ABORTED-chunk path for a clean cancel). Fall through.
   }
 
+  if (attemptState.retryFormatError && !cancel.signal.aborted)
+    return runTranslateAttempt(deps, formatAttempt + 1);
   if (fsm.state() === 'completed') return { kind: 'completed' };
   if (!sawTransientError) {
     // A backend that resolved without a terminal chunk would strand the UI. The

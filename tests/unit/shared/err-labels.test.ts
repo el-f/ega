@@ -16,6 +16,7 @@ describe('errCodeLabel', () => {
     ABORTED: true,
     TIMEOUT: true,
     PARSE: true,
+    EMPTY: true,
     PROTOCOL: true,
     UNSUPPORTED: true,
     IMAGE_UNSUPPORTED: true,
@@ -40,7 +41,7 @@ describe('errCodeLabel', () => {
   });
 
   it('PARSE and PROTOCOL read differently — they offer opposite affordances', () => {
-    expect(errCodeLabel('PARSE')).toBe('Could not read the reply');
+    expect(errCodeLabel('PARSE')).toBe('Answer in wrong format');
     expect(errCodeLabel('PROTOCOL')).toBe('Reply was cut short');
     expect(errCodeLabel('PARSE')).not.toBe(errCodeLabel('PROTOCOL'));
   });

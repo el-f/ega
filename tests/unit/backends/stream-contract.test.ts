@@ -146,31 +146,31 @@ describe('a max-token truncation is reported as an error, not a success', () => 
 });
 
 describe('a terminated stream that produced zero text is an error', () => {
-  it('Anthropic: message_stop with no text → SERVER, no done', async () => {
+  it('Anthropic: message_stop with no text → EMPTY, no done', async () => {
     setFetchHandler(async () => sse('data: {"type":"message_stop"}\n\n'));
-    expectErrorNoDone(await runFor(new AnthropicBackend()), 'SERVER');
+    expectErrorNoDone(await runFor(new AnthropicBackend()), 'EMPTY');
   });
 
-  it('OpenAI-compat: [DONE] with no delta → SERVER, no done', async () => {
+  it('OpenAI-compat: [DONE] with no delta → EMPTY, no done', async () => {
     setFetchHandler(async () => sse('data: [DONE]\n\n'));
-    expectErrorNoDone(await runFor(makeOpenAICompatBackend('openai')), 'SERVER');
+    expectErrorNoDone(await runFor(makeOpenAICompatBackend('openai')), 'EMPTY');
   });
 
-  it('OpenAI-compat non-stream: empty content → SERVER', async () => {
+  it('OpenAI-compat non-stream: empty content → EMPTY', async () => {
     setFetchHandler(async () => Response.json({ choices: [{ message: { content: '   ' } }] }));
-    expectErrorNoDone(await runFor(makeOpenAICompatBackend('openai'), { stream: false }), 'SERVER');
+    expectErrorNoDone(await runFor(makeOpenAICompatBackend('openai'), { stream: false }), 'EMPTY');
   });
 
-  it('Ollama: done:true with no content → SERVER, no done', async () => {
+  it('Ollama: done:true with no content → EMPTY, no done', async () => {
     setFetchHandler(async () => ndjson('{"done":true}\n'));
-    expectErrorNoDone(await runFor(new OllamaBackend()), 'SERVER');
+    expectErrorNoDone(await runFor(new OllamaBackend()), 'EMPTY');
   });
 
-  it('Native: a done frame with no delta → SERVER, no done', async () => {
+  it('Native: a done frame with no delta → EMPTY, no done', async () => {
     installNativeStub((post, reply) => {
       if (post.kind === 'translate') reply({ type: 'done' });
     });
-    expectErrorNoDone(await runFor(new NativeBackend()), 'SERVER');
+    expectErrorNoDone(await runFor(new NativeBackend()), 'EMPTY');
   });
 
   it('Anthropic: a clean stop mid-envelope reaches the worker as a format error', async () => {

@@ -14,6 +14,7 @@ describe('ERR_POLICY — orthogonal retryable / rotate table', () => {
   const TABLE: Record<ErrCode, ErrPolicy> = {
     NETWORK: { retryable: true, rotate: true },
     SERVER: { retryable: true, rotate: true },
+    EMPTY: { retryable: true, rotate: true },
     RATE_LIMIT: { retryable: true, rotate: true },
     TIMEOUT: { retryable: true, rotate: true },
     AUTH: { retryable: false, rotate: true, optionsTab: 'backends' },
@@ -22,7 +23,7 @@ describe('ERR_POLICY — orthogonal retryable / rotate table', () => {
     NATIVE_SPAWN_FAIL: { retryable: false, rotate: true, optionsTab: 'backends' },
     NO_BACKEND: { retryable: false, rotate: false, optionsTab: 'backends' },
     REQUEST: { retryable: false, rotate: false },
-    PARSE: { retryable: true, rotate: false, maxAttempts: 2 },
+    PARSE: { retryable: true, rotate: true, maxAttempts: 2 },
     PROTOCOL: { retryable: true, rotate: true },
     UNSUPPORTED: { retryable: false, rotate: false, optionsTab: 'backends' },
     IMAGE_UNSUPPORTED: { retryable: false, rotate: false },

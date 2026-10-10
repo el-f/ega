@@ -19,6 +19,7 @@ export const ALL_ERR_CODES = [
   'ABORTED',
   'TIMEOUT',
   'PARSE',
+  'EMPTY',
   'PROTOCOL',
   'UNSUPPORTED',
   'IMAGE_UNSUPPORTED',
