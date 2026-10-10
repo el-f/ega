@@ -25,12 +25,12 @@
     type SwapPair,
     type Turn,
   } from '../state/conversation';
-  import { refinePresets, answerAgainLabel, type RefinePreset } from '@/shared/refine-presets';
-  import { taskGerund } from '@/shared/task-prompts';
+  import { answerAgainLabel, type RefinePreset } from '@/shared/refine-presets';
   import {
     SHIPPED_TASK_VIEWS,
     notesLabel,
     taskLabel,
+    taskCapabilities,
     type TaskId,
     type TaskView,
   } from '@/shared/task-view';
@@ -143,7 +143,7 @@
   const answerSource = $derived(activeVariant?.sourceLang ?? sourceLang);
   // Reword and Grammar answer in the input's language, which a swap version never re-sends.
   const answerLang = $derived(
-    replyLang(currentTaskValue, answerTarget, turn.detectedLang ?? sourceLang),
+    replyLang(currentTaskValue, answerTarget, turn.detectedLang ?? sourceLang, taskViews),
   );
   const speechLang = $derived(
     answerLang !== undefined && isIsoCode(answerLang) ? answerLang : undefined,
@@ -234,7 +234,7 @@
 
   const partial = $derived(turn.status === 'error' && turn.content !== '');
   const statusText = $derived.by(() => {
-    if (answering) return `${taskGerund(currentTaskValue)}…`;
+    if (answering) return `${taskCapabilities(currentTaskValue, taskViews).gerund}…`;
     if (transient !== null) return transient;
     if (speaking) return 'Reading aloud';
     if (hiddenBusyIdx >= 0) return `Version ${hiddenBusyIdx + 1} loading…`;
@@ -383,10 +383,12 @@
   // ── Action row ─────────────────────────────────────────────────────────────
   const canRerun = $derived(canRetry && onRefine !== undefined);
   const presets = $derived<readonly RefinePreset[]>(
-    imageTurn ? [] : refinePresets(currentTaskValue),
+    imageTurn ? [] : taskCapabilities(currentTaskValue, taskViews).refinePresets,
   );
   // Reword and Grammar answer in the input's language, so no language re-run applies to them.
-  const answersInTarget = $derived(replyLang(currentTaskValue, 'target', 'input') === 'target');
+  const answersInTarget = $derived(
+    replyLang(currentTaskValue, 'target', 'input', taskViews) === 'target',
+  );
   const translateInto = $derived(
     answersInTarget && composerTarget !== undefined && composerTarget !== answerLang
       ? { id: composerTarget, label: langName(composerTarget) }
@@ -663,7 +665,7 @@
     </div>
     {#if turn.explain && !(turn.status === 'pending' && turn.content === '')}
       <div class="ega-notes" data-ega-explain dir="auto" lang={notesTag}>
-        <p class="ega-notes-label" lang="en">{notesLabel(currentTaskValue)}</p>
+        <p class="ega-notes-label" lang="en">{notesLabel(currentTaskValue, taskViews)}</p>
         <div class="ega-notes-text"><Markdown text={turn.explain} /></div>
       </div>
     {/if}

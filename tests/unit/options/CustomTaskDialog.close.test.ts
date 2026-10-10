@@ -53,6 +53,19 @@ beforeEach(() => {
 });
 
 describe('a new custom task', () => {
+  it('saves the reply language independently without overwriting the prompt', async () => {
+    const row = await addCustomTask(input);
+    open(vi.fn(), { row });
+    const same = Array.from(document.querySelectorAll<HTMLElement>('label'))
+      .find((el) => el.textContent.includes('Same as input'))
+      ?.querySelector<HTMLElement>('[role="radio"]');
+    expect(same).toBeDefined();
+    if (!same) throw new Error('no same-language option');
+    await fireEvent.click(same);
+    await waitFor(async () => expect((await getCustomTasks())[0]?.answersIn).toBe('input'));
+    expect((await getCustomTasks())[0]?.system).toBe(input.system);
+  });
+
   it('says it is not saved until it has a name, then saves itself once it does', async () => {
     open();
     expect(status()).toBe('Not saved yet: add a name');

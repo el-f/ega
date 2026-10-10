@@ -97,6 +97,20 @@ describe('Next message popover', () => {
     expect(onOpenSettings).toHaveBeenCalledTimes(1);
   });
 
+  it('names enabled image-reading custom tasks and identifies the saved page setting', async () => {
+    const translate = SHIPPED_TASK_VIEWS.find((v) => v.id === 'translate');
+    if (!translate) throw new Error('no Translate task');
+    const views = [
+      ...SHIPPED_TASK_VIEWS.map((v) => (v.id === 'explain' ? { ...v, disabled: true } : v)),
+      { ...translate, id: 'photo', kind: 'custom' as const, label: 'Read chart' },
+    ];
+    render(ModePopover, { props: props({ taskViews: views, imageBlocked: new Set(['grammar']) }) });
+    const p = await popover();
+    expect(p.textContent).toContain('Images work with Translate and Read chart');
+    expect(p.textContent).not.toContain('Images work with Translate and Explain');
+    expect(p.textContent).toContain('Saved for future messages');
+  });
+
   it('a task that sends no page info has no Page info section', async () => {
     render(ModePopover, { props: props({ task: 'summarize', taskSendsPage: false }) });
     expect((await popover()).textContent).not.toContain('Page info');

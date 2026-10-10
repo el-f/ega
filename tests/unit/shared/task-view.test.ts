@@ -5,6 +5,7 @@ import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import { ALL_TASKS } from '@/shared/task-prompts';
 import type { CustomTask } from '@/shared/settings-schema';
 import type { Settings } from '@/shared/types';
+import { replyLang } from '@/shared/lang-tag';
 
 function settings(patch: Partial<Settings> = {}): Settings {
   return { ...DEFAULT_SETTINGS, ...patch };
@@ -26,6 +27,38 @@ function custom(id: string, createdAt: number, over: Partial<CustomTask> = {}): 
 }
 
 describe('materializeTasks', () => {
+  it('keeps reply language and presentation capabilities on each task view', () => {
+    const views = materializeTasks(settings(), [
+      custom('same-language', 1, { answersIn: 'input' }),
+      custom('legacy', 2),
+    ]);
+    expect(views.find((v) => v.id === 'grammar')).toMatchObject({
+      answersIn: 'input',
+      gerund: 'Fixing grammar',
+      notesLabel: 'Notes',
+    });
+    expect(views.find((v) => v.id === 'explain')).toMatchObject({
+      answersIn: 'target',
+      gerund: 'Explaining',
+      notesLabel: 'Context & subtext',
+    });
+    expect(views.find((v) => v.id === 'legacy')).toMatchObject({
+      answersIn: 'target',
+      gerund: 'Working',
+      notesLabel: 'Notes',
+      refinePresets: [],
+    });
+    expect(views.find((v) => v.id === 'reword')?.refinePresets.map((p) => p.id)).toEqual([
+      'shorter',
+      'more-formal',
+      'less-formal',
+    ]);
+    expect(replyLang('same-language', 'en', 'he', views)).toBe('he');
+    expect(replyLang('legacy', 'en', 'he', views)).toBe('en');
+    expect(replyLang('grammar', 'en', 'he')).toBe('he');
+    expect(replyLang('future-task', 'en', 'he', views)).toBe('en');
+  });
+
   it('lists the built-ins in shipped order, then custom tasks by creation time', () => {
     const views = materializeTasks(settings(), [custom('c-late', 20), custom('c-early', 10)]);
     expect(views.map((v) => v.id)).toEqual([...ALL_TASKS, 'c-early', 'c-late']);

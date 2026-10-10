@@ -205,7 +205,7 @@
   const chipLabel = $derived(
     modeChipLabel({
       taskLabel: taskLabel(taskViews, task),
-      answersInTarget: replyLang(task, 'target', 'source') === 'target',
+      answersInTarget: replyLang(task, 'target', 'source', taskViews) === 'target',
       source: sourceLang === 'auto' ? undefined : langName(sourceLang),
       target: langName(targetLang),
       tone: usesTone ? tone : undefined,

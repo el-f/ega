@@ -9,10 +9,10 @@
   import PanelRightOpen from '@lucide/svelte/icons/panel-right-open';
   import Icon from '@/shared/ui/Icon.svelte';
   import type { TipState } from '../tipState.svelte';
-  import type { TaskView } from '@/shared/task-view';
+  import { taskCapabilities, type TaskView } from '@/shared/task-view';
   import type { SettingsTab } from '@/shared/settings-tabs';
   import { isRetryable, optionsTabForMessage } from '@/shared/error-policy';
-  import { refinePresets, answerAgainLabel } from '@/shared/refine-presets';
+  import { answerAgainLabel } from '@/shared/refine-presets';
   import { outsidePressFocus } from '@/shared/menu-focus';
   import { isUserGesture } from '../user-gesture';
 
@@ -78,7 +78,7 @@
   const refineFocus = outsidePressFocus();
   const moreFocus = outsidePressFocus();
   const busy = $derived(!tip.error && !tip.stopped && (tip.loading || tip.settled !== true));
-  const canTranslate = $derived(task !== 'grammar' && task !== 'reword');
+  const canTranslate = $derived(taskCapabilities(task, views).answersIn === 'target');
   const optionsTab = $derived(
     tip.error ? optionsTabForMessage(tip.error.message, tip.error.code) : undefined,
   );
@@ -89,7 +89,7 @@
         isRetryable(tip.error.code) ||
         optionsTab !== undefined),
   );
-  const presets = $derived(refinePresets(task));
+  const presets = $derived(taskCapabilities(task, views).refinePresets);
   const escalationInMore = $derived(
     mode === 'error' && optionsTab !== undefined && !!onOpenOptions && showRetry && !!tip.body,
   );

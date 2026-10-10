@@ -17,7 +17,12 @@
   import { imageModeOf } from '@/shared/components/reply-details';
   import DraggablePanel from '@/shared/components/DraggablePanel.svelte';
   import TooltipHeader from '@/content/tooltip/TooltipHeader.svelte';
-  import { materializeTasks, SHIPPED_TASK_VIEWS, type TaskId } from '@/shared/task-view';
+  import {
+    materializeTasks,
+    SHIPPED_TASK_VIEWS,
+    taskCapabilities,
+    type TaskId,
+  } from '@/shared/task-view';
   import { taskUsesTone } from '@/shared/language-prompt';
   import { cachedCustomTasks, cachedCustomLanguages } from '@/content/customs-cache';
   import { currentSettings, onSettingsUpdate } from '@/content/settings-cache';
@@ -138,11 +143,11 @@
   const input = $derived(tip.detectedLang ?? direction?.source);
   // Only an unresolved input (Auto-detect) is taken to be the page's language; a known variety with no tag is unknown.
   const inputIsPage = $derived(
-    (tip.task === 'reword' || tip.task === 'grammar') &&
+    taskCapabilities(tip.task ?? 'translate', taskViews).answersIn === 'input' &&
       (input === undefined || input === 'auto' || input === 'other'),
   );
   const bodyLang = $derived(
-    langTag(replyLang(tip.task ?? 'translate', direction?.target, input)) ??
+    langTag(replyLang(tip.task ?? 'translate', direction?.target, input, taskViews)) ??
       (inputIsPage ? pageLang : ''),
   );
   const notesLang = $derived(langTag(direction?.target) ?? '');
@@ -269,6 +274,7 @@
     {/if}
 
     <TooltipBody
+      views={taskViews}
       body={tip.body}
       loading={tip.loading}
       stopped={tip.stopped === true}

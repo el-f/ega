@@ -1,5 +1,6 @@
 // The Refine menu's one-click changes, shared by reply surfaces (side panel spec §5.4).
 import type { TaskId } from '@/shared/task-view';
+import { builtInTask, type Task } from '@/shared/task-prompts';
 
 export interface RefinePreset {
   id: string;
@@ -40,7 +41,7 @@ const EXPLAIN_CHANGES: RefinePreset = {
   body: 'After the corrected text, list each change in one short line.',
 };
 
-const BY_TASK: Readonly<Record<string, readonly RefinePreset[]>> = {
+const BY_TASK: Readonly<Record<Task, readonly RefinePreset[]>> = {
   translate: [SHORTER, LESS_FORMAL, KEEP_SLANG],
   explain: [SHORTER, SIMPLER],
   summarize: [SHORTER, BULLETS],
@@ -52,7 +53,8 @@ const BY_TASK: Readonly<Record<string, readonly RefinePreset[]>> = {
 
 /** A custom task has its own prompt the presets were not written for, so it gets none. */
 export function refinePresets(task: TaskId): readonly RefinePreset[] {
-  return BY_TASK[task] ?? [];
+  const builtin = builtInTask(task);
+  return builtin === null ? [] : BY_TASK[builtin];
 }
 
 /** "Explain instead", with a verb where the task name is not one. */

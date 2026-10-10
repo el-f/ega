@@ -1,6 +1,9 @@
 import { ensurePageStyles } from './page-styles';
 import type { ErrCode } from '@/shared/types';
 import { langTag, markLang, replyLang } from '@/shared/lang-tag';
+import { materializeTasks } from '@/shared/task-view';
+import { currentSettings } from './settings-cache';
+import { cachedCustomTasks } from './customs-cache';
 import {
   beginRequest,
   endRequest,
@@ -71,7 +74,10 @@ export function openInline(opts: OpenInlineOpts): boolean {
 
   // The caller registers the request before opening, so its task and direction are already there.
   const req = pending.get(opts.requestId);
-  const lang = req && langTag(replyLang(req.task ?? 'translate', req.targetLang, req.sourceLang));
+  const settings = currentSettings();
+  const views = settings ? materializeTasks(settings, cachedCustomTasks()) : undefined;
+  const lang =
+    req && langTag(replyLang(req.task ?? 'translate', req.targetLang, req.sourceLang, views));
 
   // Wrapping the range is taking the request: the rows are this module's from here until the span settles.
   beginRequest(opts.requestId, 'inline');

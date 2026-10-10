@@ -271,6 +271,7 @@ export const customTaskSchema = v.looseObject({
     v.includes('{{text}}', 'the message must contain {{text}}'),
   ),
   output: v.picklist(['plain', 'card']),
+  answersIn: v.exactOptional(v.picklist(['input', 'target'])),
   pageContext: v.boolean(),
   image: v.boolean(),
   glossary: v.boolean(),

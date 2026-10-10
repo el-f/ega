@@ -1,4 +1,5 @@
 import { isIsoCode } from '@/shared/languages';
+import { taskCapabilities, type TaskView } from '@/shared/task-view';
 
 // Only varieties with a real language and script; slang, jargon and Elvish name no tag.
 const VARIETY_TAGS: ReadonlyMap<string, string> = new Map([['arabizi', 'ar-Latn']]);
@@ -9,13 +10,14 @@ export function langTag(id: string | undefined): string | undefined {
   return isIsoCode(id) ? id : VARIETY_TAGS.get(id);
 }
 
-/** Reword and Grammar answer in the input's language; every other task, a custom one too, in the target. */
+/** Uses the task's reply language; legacy custom tasks default to the target. */
 export function replyLang(
   task: string,
   target: string | undefined,
   input: string | undefined,
+  views?: readonly TaskView[],
 ): string | undefined {
-  return task === 'reword' || task === 'grammar' ? input : target;
+  return taskCapabilities(task, views).answersIn === 'input' ? input : target;
 }
 
 /** Sets the tag, or drops the attribute so the text takes the language of what holds it. */

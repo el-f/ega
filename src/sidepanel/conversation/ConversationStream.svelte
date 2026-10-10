@@ -24,10 +24,14 @@
     type SuggestionKind,
     type SuggestionResult,
   } from '../state/thread-view';
-  import { taskGerund } from '@/shared/task-prompts';
   import { errorCopy } from '@/shared/error-copy';
   import { backendLabel } from '@/shared/backends/provider-profiles';
-  import { SHIPPED_TASK_VIEWS, type TaskId, type TaskView } from '@/shared/task-view';
+  import {
+    SHIPPED_TASK_VIEWS,
+    taskCapabilities,
+    type TaskId,
+    type TaskView,
+  } from '@/shared/task-view';
   import type { LangSelection, Variety } from '@/shared/types';
   import type { ConfidenceSetting } from '@/shared/reply-meta';
 
@@ -378,7 +382,7 @@
     const key = `${last.id}:${activeVariant(last)?.id ?? ''}`;
     if (key === announcedPendingKey) return;
     announcedPendingKey = key;
-    announcement = `${taskGerund(turnTaskValue(last))}…`;
+    announcement = `${taskCapabilities(turnTaskValue(last), taskViews).gerund}…`;
   });
 
   // The settled-text announcer only hears the version on screen; one finishing behind it changes no text.

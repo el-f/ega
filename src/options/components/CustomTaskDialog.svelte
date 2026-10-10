@@ -68,6 +68,7 @@
     user: initial?.user ?? DEFAULT_USER,
   });
   let output = $state<'plain' | 'card'>(initial?.output ?? 'plain');
+  let answersIn = $state<'input' | 'target'>(initial?.answersIn ?? 'target');
   let effort = $state<'' | TaskEffort>(initial?.effort ?? '');
   let pageContext = $state(initial?.pageContext ?? false);
   let image = $state(initial?.image ?? false);
@@ -86,6 +87,7 @@
     system: prompt.system,
     user: prompt.user,
     output,
+    answersIn,
     pageContext,
     image,
     glossary,
@@ -336,6 +338,24 @@
         orientation="horizontal"
         dataAttrs={{ 'data-ega-custom-task-output': true, 'aria-labelledby': `${uid}-answers` }}
       />
+
+      <span class="ct-label" id="{uid}-reply-language">Answer language</span>
+      <div class="ct-control">
+        <RadioGroup
+          value={answersIn}
+          options={[
+            { value: 'target', label: 'To language' },
+            { value: 'input', label: 'Same as input' },
+          ]}
+          onValueChange={(v) => {
+            answersIn = v === 'input' ? 'input' : 'target';
+            saveNow({ answersIn });
+          }}
+          orientation="horizontal"
+          dataAttrs={{ 'aria-labelledby': `${uid}-reply-language` }}
+        />
+        <p class="ct-hint" data-ega-hint>Match the language your prompt asks for.</p>
+      </div>
 
       <span class="ct-label" id="{uid}-effort">Effort</span>
       <div class="ct-control" data-ega-custom-task-effort>

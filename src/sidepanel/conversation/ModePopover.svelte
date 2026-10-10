@@ -56,6 +56,10 @@
   }: Props = $props();
 
   const toneOptions = ALL_TONES.map((t) => ({ value: t, label: TONE_LABELS[t] }));
+  const imageTasks = $derived(taskViews.filter((v) => v.image && !v.disabled).map((v) => v.label));
+  const imageNote = $derived(
+    new Intl.ListFormat('en', { style: 'long', type: 'conjunction' }).format(imageTasks),
+  );
 </script>
 
 <Popover {open} {anchor} {onClose} placement="top-start" title="Next message">
@@ -63,7 +67,7 @@
     <section class="mp-section" aria-labelledby="mp-task">
       <h2 class="mp-label" id="mp-task">Task</h2>
       {#if imageBlocked !== null}
-        <p class="mp-note">Images work with Translate and Explain</p>
+        <p class="mp-note">Images work with {imageNote}</p>
       {/if}
       <TaskPicker
         bind:task
@@ -122,6 +126,7 @@
       <section class="mp-section">
         {#if contextEnabled}
           <ContextLevelPicker value={pageContextLevel} onchange={onContextLevelChange} />
+          <p class="mp-note">Saved for future messages</p>
         {:else}
           <h2 class="mp-label">Page info</h2>
           <p class="mp-note">

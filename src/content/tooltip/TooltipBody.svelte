@@ -3,9 +3,12 @@
   import { errorTurnParts } from '@/shared/error-parts';
   import { optionsTabForMessage } from '@/shared/error-policy';
   import type { SettingsTab } from '@/shared/settings-tabs';
-  import type { TaskId } from '@/shared/task-view';
-  import { taskGerund } from '@/shared/task-prompts';
-  import { notesLabel } from '@/shared/task-view';
+  import {
+    taskCapabilities,
+    SHIPPED_TASK_VIEWS,
+    type TaskId,
+    type TaskView,
+  } from '@/shared/task-view';
   import { diffWords, type DiffOp } from '@/shared/diff-words';
 
   interface Props {
@@ -16,6 +19,7 @@
     stopped?: boolean;
     /** Task drives the shimmer label ("Translating…" / "Explaining…" / …). */
     task: TaskId;
+    views?: readonly TaskView[];
     /** Overrides the task gerund — the "?" Explain button re-runs translate
      *  with the explain flag, and its shimmer must still read "Explaining". */
     loadingLabel?: string;
@@ -48,6 +52,7 @@
     loading,
     stopped = false,
     task,
+    views = SHIPPED_TASK_VIEWS,
     loadingLabel,
     explain,
     usedImage,
@@ -140,7 +145,7 @@
   <!-- A bare full-width shimmer reads as a stalled progress bar, so the pre-stream state carries a task label too. -->
   <div class="shimmer-wrap">
     <div class="shimmer" aria-hidden="true"></div>
-    <span class="shimmer-label">{loadingLabel ?? taskGerund(task)}…</span>
+    <span class="shimmer-label">{loadingLabel ?? taskCapabilities(task, views).gerund}…</span>
   </div>
 {:else if error}
   {#if body}
@@ -205,7 +210,7 @@
   {#if explain}
     <div class="explain-block">
       <div class="explain-label">
-        {notesLabel(task)}
+        {taskCapabilities(task, views).notesLabel}
         {#if usedImage}
           <span class="ega-from-image" title="Explained from the image">🖼 from image</span>
         {/if}
