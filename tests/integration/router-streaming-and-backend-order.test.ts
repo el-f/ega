@@ -148,6 +148,11 @@ describe('router — probe window', () => {
       ),
     );
     const imgSpy = vi.fn<NonNullable<TranslationBackend['translateImage']>>(async (a) => {
+      a.onChunk({
+        type: 'delta',
+        requestId: a.requestId,
+        text: '{"translation":"","confidence":0}',
+      });
       a.onChunk({ type: 'done', requestId: a.requestId, confidence: 1 });
     });
     const blind = ['n1', 'n2', 'n3', 'n4'].map((id) => stub(id));

@@ -136,7 +136,7 @@ describe('page translate through the content script and the real pill', () => {
     chunk({ type: 'error', requestId: second ?? '', code: 'UNKNOWN', message: 'bad key' });
     await until(() => pillButton('Try again, 1 failed area') !== null, 'Try again');
     expect(pill('[data-ega-batch-label]')?.textContent).toBe(
-      "Couldn't translate 1 of 3 areas. Ega could not finish this translation.",
+      "Couldn't translate 1 of 3 areas. Ega could not finish this task.",
     );
     const before = sent('translate:start').length;
 

@@ -32,6 +32,11 @@ function mkVision(id: string, translateImage: ImageImpl): TranslationBackend {
     manifest: testManifest(id, true),
     isAvailable: async () => true,
     translate: async (a) => {
+      a.onChunk({
+        type: 'delta',
+        requestId: a.req.id,
+        text: '{"translation":"ok","confidence":1}',
+      });
       a.onChunk({ type: 'done', requestId: a.req.id, confidence: 1 });
     },
     translateImage,
@@ -46,6 +51,11 @@ function mkVisionClaimOnly(id: string): TranslationBackend {
     manifest: testManifest(id, true),
     isAvailable: async () => true,
     translate: async (a) => {
+      a.onChunk({
+        type: 'delta',
+        requestId: a.req.id,
+        text: '{"translation":"ok","confidence":1}',
+      });
       a.onChunk({ type: 'done', requestId: a.req.id, confidence: 1 });
     },
   };
@@ -57,6 +67,11 @@ function mkTextOnly(id: string): TranslationBackend {
     manifest: testManifest(id, false),
     isAvailable: async () => true,
     translate: async (a) => {
+      a.onChunk({
+        type: 'delta',
+        requestId: a.req.id,
+        text: '{"translation":"ok","confidence":1}',
+      });
       a.onChunk({ type: 'done', requestId: a.req.id, confidence: 1 });
     },
   };
@@ -150,6 +165,11 @@ describe('router — image attempt loop latches', () => {
 
   it('a rotatable error with no delta falls through to the next attempt', async () => {
     const second = vi.fn<ImageImpl>(async (a: TranslateImageArgs) => {
+      a.onChunk({
+        type: 'delta',
+        requestId: a.requestId,
+        text: '{"translation":"","confidence":0}',
+      });
       a.onChunk({ type: 'done', requestId: a.requestId, confidence: 1 });
     });
     const first: ImageImpl = async (a) => {
@@ -222,6 +242,11 @@ describe('router — wall-clock rewrite and synthesis', () => {
 
   it('a done that lands after the wall-clock cancel is not followed by a TIMEOUT', async () => {
     const img = emitOnAbort((a) => {
+      a.onChunk({
+        type: 'delta',
+        requestId: a.requestId,
+        text: '{"translation":"","confidence":0}',
+      });
       a.onChunk({ type: 'done', requestId: a.requestId, confidence: 0.9 });
     });
     const router = createRouter(

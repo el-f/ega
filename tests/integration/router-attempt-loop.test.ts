@@ -82,6 +82,11 @@ describe('router — attempt loop terminal handling', () => {
       id: 'anthropic',
       translate: async (args) => {
         seen.push(args);
+        args.onChunk({
+          type: 'delta',
+          requestId: args.req.id,
+          text: '{"translation":"ok","confidence":1}',
+        });
         args.onChunk({ type: 'done', requestId: args.req.id, confidence: 1 });
       },
     });
@@ -146,7 +151,7 @@ describe('router — attempt loop terminal handling', () => {
     const a = mkBackend({
       id: 'anthropic',
       translate: ({ req, onChunk }) => {
-        onChunk({ type: 'error', requestId: req.id, code: 'PARSE', message: 'bad json' });
+        onChunk({ type: 'error', requestId: req.id, code: 'REQUEST', message: 'bad request' });
         return new Promise<void>(() => {});
       },
     });
@@ -157,8 +162,8 @@ describe('router — attempt loop terminal handling', () => {
       {
         type: 'error',
         requestId: 'r1',
-        code: 'PARSE',
-        message: 'bad json',
+        code: 'REQUEST',
+        message: 'bad request',
         backendId: 'anthropic',
       },
     ]);

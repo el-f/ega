@@ -30,6 +30,11 @@ function mkVision(
     manifest: testManifest(id, canVision),
     isAvailable: async () => true,
     translate: async (a) => {
+      a.onChunk({
+        type: 'delta',
+        requestId: a.req.id,
+        text: '{"translation":"ok","confidence":1}',
+      });
       a.onChunk({ type: 'done', requestId: a.req.id, confidence: 1 });
     },
   };
@@ -124,6 +129,11 @@ describe('router — synthesized explain request', () => {
     const spy = vi.fn<NonNullable<TranslationBackend['translateImage']>>(
       async (a: TranslateImageArgs) => {
         seen.push(a);
+        a.onChunk({
+          type: 'delta',
+          requestId: a.requestId,
+          text: '{"translation":"An explanation","explain":"A note","confidence":1}',
+        });
         a.onChunk({ type: 'done', requestId: a.requestId, confidence: 1 });
       },
     );
@@ -260,6 +270,7 @@ describe('router — cancel, cancelAll and the pre-registration cap', () => {
         signals.set(req.id, cancel.signal);
         starts.get(req.id)?.resolve();
         await gates.get(req.id)?.promise;
+        onChunk({ type: 'delta', requestId: req.id, text: '{"translation":"ok","confidence":1}' });
         onChunk({ type: 'done', requestId: req.id, confidence: 1 });
       },
     };
@@ -360,6 +371,11 @@ describe('router — fetchImageForVision media type, base64 and error classes', 
     const spy = vi.fn<NonNullable<TranslationBackend['translateImage']>>(
       async (a: TranslateImageArgs) => {
         seen.push(a);
+        a.onChunk({
+          type: 'delta',
+          requestId: a.requestId,
+          text: '{"translation":"An explanation","explain":"A note","confidence":1}',
+        });
         a.onChunk({ type: 'done', requestId: a.requestId, confidence: 1 });
       },
     );

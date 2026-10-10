@@ -23,6 +23,11 @@ function visionBackend(seen: { user?: string; system?: string }): TranslationBac
     translateImage: async (args: TranslateImageArgs) => {
       if (args.user !== undefined) seen.user = args.user;
       if (args.system !== undefined) seen.system = args.system;
+      args.onChunk({
+        type: 'delta',
+        requestId: args.requestId,
+        text: '{"translation":"HELLO","confidence":0.9}',
+      });
       args.onChunk(makeDoneChunk(args.requestId, { translation: 'HELLO', confidence: 0.9 }));
     },
   };
@@ -137,6 +142,11 @@ describe('router — notes typed beside an image reach the OCR prompt', () => {
       manifest: testManifest('anthropic'),
       isAvailable: async () => true,
       translate: async ({ req, onChunk }) => {
+        onChunk({
+          type: 'delta',
+          requestId: req.id,
+          text: '{"translation":"HELLO","confidence":0.9}',
+        });
         onChunk(makeDoneChunk(req.id, { translation: 'HELLO', confidence: 0.9 }));
       },
     };

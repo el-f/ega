@@ -199,12 +199,22 @@ describe('router — image-backend isAvailable gating', () => {
       translate: async () => {},
       translateImage: async (a: TranslateImageArgs) => {
         unavailableCalls();
+        a.onChunk({
+          type: 'delta',
+          requestId: a.requestId,
+          text: '{"translation":"","confidence":0}',
+        });
         a.onChunk({ type: 'done', requestId: a.requestId, confidence: 1 });
       },
     };
     const availableCalls = vi.fn();
     const available = mkImageBackend('openai', async (a: TranslateImageArgs) => {
       availableCalls();
+      a.onChunk({
+        type: 'delta',
+        requestId: a.requestId,
+        text: '{"translation":"","confidence":0}',
+      });
       a.onChunk({ type: 'done', requestId: a.requestId, confidence: 1 });
     });
     const deps = baseDeps({
@@ -231,6 +241,11 @@ describe('router — image fetch non-ok → NETWORK', () => {
       vi.fn(async () => new Response('server error', { status: 500 })),
     );
     const b = mkImageBackend('anthropic', async (a: TranslateImageArgs) => {
+      a.onChunk({
+        type: 'delta',
+        requestId: a.requestId,
+        text: '{"translation":"","confidence":0}',
+      });
       a.onChunk({ type: 'done', requestId: a.requestId, confidence: 1 });
     });
     const deps = baseDeps({ backends: [b] });
@@ -263,6 +278,11 @@ describe('router — unsupported image type message', () => {
       ),
     );
     const b = mkImageBackend('anthropic', async (a: TranslateImageArgs) => {
+      a.onChunk({
+        type: 'delta',
+        requestId: a.requestId,
+        text: '{"translation":"","confidence":0}',
+      });
       a.onChunk({ type: 'done', requestId: a.requestId, confidence: 1 });
     });
     const deps = baseDeps({ backends: [b] });
@@ -296,6 +316,11 @@ describe('router — 4 MB image size boundary', () => {
       ),
     );
     const b = mkImageBackend('anthropic', async (a: TranslateImageArgs) => {
+      a.onChunk({
+        type: 'delta',
+        requestId: a.requestId,
+        text: '{"translation":"","confidence":0}',
+      });
       a.onChunk({ type: 'done', requestId: a.requestId, confidence: 1 });
     });
     const deps = baseDeps({ backends: [b] });
@@ -323,6 +348,11 @@ describe('router — 4 MB image size boundary', () => {
       ),
     );
     const b = mkImageBackend('anthropic', async (a: TranslateImageArgs) => {
+      a.onChunk({
+        type: 'delta',
+        requestId: a.requestId,
+        text: '{"translation":"","confidence":0}',
+      });
       a.onChunk({ type: 'done', requestId: a.requestId, confidence: 1 });
     });
     const deps = baseDeps({ backends: [b] });
@@ -437,6 +467,11 @@ describe('router — blobToBase64 chunk-loop boundaries', () => {
     let captured: string | null = null;
     const b = mkImageBackend('anthropic', async (a: TranslateImageArgs) => {
       captured = a.imageBase64;
+      a.onChunk({
+        type: 'delta',
+        requestId: a.requestId,
+        text: '{"translation":"","confidence":0}',
+      });
       a.onChunk({ type: 'done', requestId: a.requestId, confidence: 1 });
     });
     const deps = baseDeps({ backends: [b] });

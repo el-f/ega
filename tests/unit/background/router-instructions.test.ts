@@ -124,6 +124,11 @@ describe('ResultMeta.instructions', () => {
       manifest: testManifest('anthropic', true),
       translateImage: async (args: TranslateImageArgs) => {
         if (args.system !== undefined) seen.system = args.system;
+        args.onChunk({
+          type: 'delta',
+          requestId: args.requestId,
+          text: '{"translation":"HELLO","confidence":0.9}',
+        });
         args.onChunk(makeDoneChunk(args.requestId, { translation: 'HELLO', confidence: 0.9 }));
       },
     };

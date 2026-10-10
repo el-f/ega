@@ -117,7 +117,7 @@ describe('settling a batch', () => {
         total: 2,
         failed: 1,
         failure: expect.objectContaining({
-          body: 'Ega could not finish this translation.',
+          body: 'Ega could not finish this task.',
           details: ['the key was refused'],
         }),
       }),

@@ -157,6 +157,11 @@ describe('router — the contract line', () => {
       isAvailable: async () => true,
       translate: vi.fn(async (args: TranslateCallArgs) => {
         calls.push(args);
+        args.onChunk({
+          type: 'delta',
+          requestId: args.req.id,
+          text: '{"translation":"ok","confidence":1}',
+        });
         args.onChunk({ type: 'done', requestId: args.req.id });
       }),
     };
@@ -202,6 +207,11 @@ describe('router — a custom task reads its own switches', () => {
       isAvailable: async () => true,
       translate: vi.fn(async (args: TranslateCallArgs) => {
         calls.push(args);
+        args.onChunk({
+          type: 'delta',
+          requestId: args.req.id,
+          text: '{"translation":"ok","confidence":1}',
+        });
         args.onChunk({ type: 'done', requestId: args.req.id });
       }),
     };
@@ -292,6 +302,11 @@ describe('router — a failed custom-task read', () => {
       isAvailable: async () => true,
       translate: vi.fn(async (args: TranslateCallArgs) => {
         calls.push(args);
+        args.onChunk({
+          type: 'delta',
+          requestId: args.req.id,
+          text: '{"translation":"ok","confidence":1}',
+        });
         args.onChunk({ type: 'done', requestId: args.req.id });
       }),
     };

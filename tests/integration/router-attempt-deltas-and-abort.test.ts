@@ -150,6 +150,7 @@ describe('router-attempt — backend call arguments', () => {
     const seen: TranslateCallArgs[] = [];
     const cap = async (a: TranslateCallArgs) => {
       seen.push(a);
+      a.onChunk({ type: 'delta', requestId: 'r1', text: '{"translation":"ok","confidence":1}' });
       a.onChunk({ type: 'done', requestId: 'r1', confidence: 1 });
     };
     await run({ translate: cap, history });
@@ -164,6 +165,7 @@ describe('router-attempt — backend call arguments', () => {
     const seen: boolean[] = [];
     const cap = async (a: TranslateCallArgs) => {
       seen.push(a.stream);
+      a.onChunk({ type: 'delta', requestId: 'r1', text: '{"translation":"ok","confidence":1}' });
       a.onChunk({ type: 'done', requestId: 'r1', confidence: 1 });
     };
     await run({ translate: cap, reqStream: true, streaming: true });
@@ -197,6 +199,7 @@ describe('router-attempt — abort race', () => {
     const r = await run({
       translate: async (a) => {
         await new Promise<void>((res) => setTimeout(res, 0));
+        a.onChunk({ type: 'delta', requestId: 'r1', text: '{"translation":"ok","confidence":1}' });
         a.onChunk({ type: 'done', requestId: 'r1', confidence: 1 });
       },
     });
@@ -212,6 +215,7 @@ describe('router-attempt — abort race', () => {
     await run({
       cancel: token,
       translate: async (a) => {
+        a.onChunk({ type: 'delta', requestId: 'r1', text: '{"translation":"ok","confidence":1}' });
         a.onChunk({ type: 'done', requestId: 'r1', confidence: 1 });
       },
     });

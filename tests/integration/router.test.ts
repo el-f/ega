@@ -1057,6 +1057,7 @@ describe('router translate flow', () => {
       translate: async () => {},
       translateImage: async ({ onChunk, requestId }) => {
         secondCalls++;
+        onChunk({ type: 'delta', requestId, text: '{"translation":"","confidence":0}' });
         onChunk({ type: 'done', requestId, confidence: 1 });
       },
     };
@@ -1114,6 +1115,7 @@ describe('router translate flow', () => {
       translate: async () => {},
       translateImage: async ({ onChunk, requestId }) => {
         secondCalls++;
+        onChunk({ type: 'delta', requestId, text: '{"translation":"","confidence":0}' });
         onChunk({ type: 'done', requestId, confidence: 1 });
       },
     };

@@ -21,6 +21,11 @@ function mkBackendWithImage(
     manifest: testManifest(id, true),
     isAvailable: async () => true,
     translate: async (a) => {
+      a.onChunk({
+        type: 'delta',
+        requestId: a.req.id,
+        text: '{"translation":"ok","confidence":1}',
+      });
       a.onChunk({ type: 'done', requestId: a.req.id, confidence: 1 });
     },
     translateImage,
@@ -48,6 +53,11 @@ async function runWithType(contentType: string): Promise<TranslationChunk[]> {
   );
   const imgSpy = vi.fn<NonNullable<TranslationBackend['translateImage']>>(
     async (a: TranslateImageArgs) => {
+      a.onChunk({
+        type: 'delta',
+        requestId: a.requestId,
+        text: '{"translation":"","confidence":0}',
+      });
       a.onChunk({ type: 'done', requestId: a.requestId, confidence: 1 });
     },
   );
@@ -92,6 +102,11 @@ describe('router — SSRF IPv4 octet boundaries', () => {
   async function runUrl(imageUrl: string): Promise<TranslationChunk[]> {
     const imgSpy = vi.fn<NonNullable<TranslationBackend['translateImage']>>(
       async (a: TranslateImageArgs) => {
+        a.onChunk({
+          type: 'delta',
+          requestId: a.requestId,
+          text: '{"translation":"","confidence":0}',
+        });
         a.onChunk({ type: 'done', requestId: a.requestId, confidence: 1 });
       },
     );
@@ -198,6 +213,11 @@ describe('router — IPv4 regex anchors', () => {
   async function runUrl(imageUrl: string): Promise<TranslationChunk[]> {
     const imgSpy = vi.fn<NonNullable<TranslationBackend['translateImage']>>(
       async (a: TranslateImageArgs) => {
+        a.onChunk({
+          type: 'delta',
+          requestId: a.requestId,
+          text: '{"translation":"","confidence":0}',
+        });
         a.onChunk({ type: 'done', requestId: a.requestId, confidence: 1 });
       },
     );

@@ -225,6 +225,7 @@ describe('router-attempt — throw path', () => {
     fakeClock(1000);
     const r = await run({
       translate: async ({ onChunk }) => {
+        onChunk({ type: 'delta', requestId: 'r1', text: '{"translation":"ok","confidence":1}' });
         onChunk({ type: 'done', requestId: 'r1', confidence: 1 });
         throw new Error('late boom');
       },
