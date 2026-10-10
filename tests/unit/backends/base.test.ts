@@ -180,9 +180,7 @@ describe('makeDoneChunk', () => {
       detectedLangs: [{ id: 'arabizi' }, { id: 'elvish', detail: 'Quenya' }],
     });
     expect(chunk.type).toBe('done');
-    if (chunk.type === 'done') {
-      expect(chunk.detectedLangs).toEqual([{ id: 'arabizi' }, { id: 'elvish', detail: 'Quenya' }]);
-    }
+    expect(chunk.detectedLangs).toEqual([{ id: 'arabizi' }, { id: 'elvish', detail: 'Quenya' }]);
   });
 });
 

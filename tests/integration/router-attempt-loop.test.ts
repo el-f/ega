@@ -267,6 +267,11 @@ describe('router — attempt loop terminal handling', () => {
     expect(setSpy).toHaveBeenCalledTimes(1);
     expect(setSpy.mock.calls[0]?.[1]).toEqual({
       translation: 'hola',
+      answerFormat: {
+        spec: 'translate@1',
+        checkedBy: 'prompt',
+        issues: ['Confidence: field missing.'],
+      },
       confidence: 0.8,
       detectedLang: 'es',
       detectedDetail: 'Rioplatense',

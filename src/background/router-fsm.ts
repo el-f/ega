@@ -1,4 +1,5 @@
-import type { DetectedVariety, TokenUsage, TranslationChunk } from '@/shared/types';
+import type { DetectedVariety, ResultMeta, TokenUsage, TranslationChunk } from '@/shared/types';
+import type { AnswerNote, AnswerDetail } from '@/shared/answer/reader';
 
 type TranslateState = 'idle' | 'attempting' | 'completed' | 'erroring';
 
@@ -10,6 +11,10 @@ type TranslateEvent =
 
 interface TranslateCtx {
   acc: string;
+  finalText: string | undefined;
+  finalNotes: AnswerNote[] | undefined;
+  finalDetails: AnswerDetail[] | undefined;
+  finalAnswerFormat: ResultMeta['answerFormat'];
   finalConfidence: number | undefined;
   finalDetectedLang: string | undefined;
   finalDetectedDetail: string | undefined;
@@ -25,6 +30,10 @@ export function createTranslateFsm() {
   let state: TranslateState = 'idle';
   const ctx: TranslateCtx = {
     acc: '',
+    finalText: undefined,
+    finalNotes: undefined,
+    finalDetails: undefined,
+    finalAnswerFormat: undefined,
     finalConfidence: undefined,
     finalDetectedLang: undefined,
     finalDetectedDetail: undefined,
@@ -46,6 +55,10 @@ export function createTranslateFsm() {
       ctx.firstDeltaAt ??= event.now;
     } else if (event.type === 'done') {
       const c = event.chunk;
+      ctx.finalText = c.text;
+      ctx.finalNotes = c.notes;
+      ctx.finalDetails = c.details;
+      ctx.finalAnswerFormat = c.meta?.answerFormat;
       ctx.finalConfidence = c.confidence;
       if (c.detectedLang !== undefined) ctx.finalDetectedLang = c.detectedLang;
       if (c.detectedDetail !== undefined) ctx.finalDetectedDetail = c.detectedDetail;

@@ -1,5 +1,6 @@
 import { sha256Hex } from '@/shared/sha256';
-import type { DetectedVariety } from '@/shared/types';
+import type { DetectedVariety, ResultMeta } from '@/shared/types';
+import type { AnswerNote, AnswerDetail } from '@/shared/answer/reader';
 import type { ChatTurn } from '@/shared/chat-history';
 
 /** What the model reads for a text request: the rendered prompt and the history sent beside it.
@@ -21,6 +22,9 @@ export async function cacheKey(f: RequestFingerprint): Promise<string> {
 
 export interface CacheEntry {
   translation: string;
+  notes?: AnswerNote[];
+  details?: AnswerDetail[];
+  answerFormat?: ResultMeta['answerFormat'];
   confidence?: number;
   detectedLang?: string;
   detectedDetail?: string;

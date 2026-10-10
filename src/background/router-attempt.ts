@@ -3,10 +3,18 @@ import {
   type BackendId,
   type ErrCode,
   type ResultAttempt,
+  type ResultMeta,
   type TranslationChunk,
   type TranslationRequest,
 } from '@/shared/types';
-import type { BackendConfig, TranslationBackend } from '@/shared/backends/base';
+import {
+  makeDoneChunk,
+  type BackendConfig,
+  type ParsedResult,
+  type TranslationBackend,
+} from '@/shared/backends/base';
+import { readAnswer } from '@/shared/answer/reader';
+import { answerSpecFor, type AnswerSpec } from '@/shared/answer/spec';
 import type { ChatTurn } from '@/shared/chat-history';
 import { optionsTabForMessage, shouldRotate } from '@/shared/error-policy';
 import { errCodeLabel } from '@/shared/err-labels';
@@ -32,6 +40,7 @@ export interface AttemptDeps {
   cfg: BackendConfig;
   system: string;
   user: string;
+  answerSpec?: AnswerSpec;
   history?: ChatTurn[];
   /** Set for a vision attempt: the backend's `translateImage` runs on it instead of `translate`. */
   image?: FetchedImage;
@@ -46,6 +55,7 @@ export interface AttemptDeps {
     chunk: TranslationChunk,
     backendId: BackendId | 'unknown',
     cacheHit: boolean,
+    answerFormat?: ResultMeta['answerFormat'],
   ) => TranslationChunk;
   logger: Logger;
 }
@@ -84,6 +94,7 @@ export async function runTranslateAttempt(deps: AttemptDeps): Promise<AttemptOut
     cfg,
     system,
     user,
+    answerSpec = answerSpecFor('translate'),
     history,
     image,
     timedOutMessage = TRANSLATE_TIMED_OUT,
@@ -98,12 +109,14 @@ export async function runTranslateAttempt(deps: AttemptDeps): Promise<AttemptOut
 
   let sawTransientError = false;
   let sawDeltas = false;
+  let raw = '';
   const attemptStart = performance.now();
   // Every backend's deltas pass here, so stripping `<think>` once covers the visible stream and the cached final text.
   const scrubber = createThinkScrubber({ gemmaChannels: backend.id === 'localserver' });
 
   const emitDelta = (now: number, text: string): void => {
     if (text.length === 0) return;
+    raw += text;
     fsm.send({ type: 'delta', text, now });
     sawDeltas = true;
     onChunk({ type: 'delta', requestId: reqId, text });
@@ -123,7 +136,38 @@ export async function runTranslateAttempt(deps: AttemptDeps): Promise<AttemptOut
     } else if (c.type === 'done') {
       // A partial tag held back at stream end is real text — flush it.
       emitDelta(performance.now(), scrubber.flush());
-      fsm.send({ type: 'done', chunk: c });
+      const answer = readAnswer(answerSpec, raw, { explain: reqOptions.explain });
+      if (raw.trim() && answer.kind === 'error') {
+        handleChunk({
+          type: 'error',
+          requestId: reqId,
+          code: 'PARSE',
+          message: 'The answer was not in the format this task needs.',
+        });
+        return;
+      }
+      const parsed =
+        answer.kind === 'ok'
+          ? {
+              ...c,
+              ...makeDoneChunk(
+                reqId,
+                { ...answer.fields, translation: answer.main } as ParsedResult,
+                c.usage,
+              ),
+              text: answer.main,
+              ...(answer.notes.length ? { notes: answer.notes } : {}),
+              ...(answer.details.length ? { details: answer.details } : {}),
+            }
+          : c;
+      const answerFormat: ResultMeta['answerFormat'] =
+        answer.kind === 'ok'
+          ? {
+              spec: `${answerSpec.id}@${answerSpec.version}`,
+              checkedBy: 'prompt',
+              ...(answer.issues.length ? { issues: answer.issues } : {}),
+            }
+          : undefined;
       const doneAt = performance.now();
       attemptLog.push({
         backendId: backend.id,
@@ -131,8 +175,10 @@ export async function runTranslateAttempt(deps: AttemptDeps): Promise<AttemptOut
         latencyMs: Math.round(doneAt - attemptStart),
       });
       // Only an explain grounded in the picture earns the "from image" marker.
-      const done = image && reqOptions.explain ? { ...c, usedImage: true } : c;
-      onChunk(attachMeta(done, backend.id, false));
+      const done = image && reqOptions.explain ? { ...parsed, usedImage: true } : parsed;
+      const attached = attachMeta(done, backend.id, false, answerFormat);
+      if (attached.type === 'done') fsm.send({ type: 'done', chunk: attached });
+      onChunk(attached);
     } else {
       // Rewrite ABORTED → TIMEOUT when the wall-clock fired so the
       // UI shows a real timeout instead of suppressing as cancel.

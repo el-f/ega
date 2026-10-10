@@ -151,7 +151,7 @@ export function makeDoneChunk(
   requestId: string,
   parsed: ParsedResult,
   usage?: TokenUsage,
-): TranslationChunk {
+): Extract<TranslationChunk, { type: 'done' }> {
   const u = nonEmptyUsage(usage);
   return {
     type: 'done',

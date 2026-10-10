@@ -3,6 +3,7 @@ import type { TaskId } from './task-view';
 import type { VarietyEditFromSchema } from './settings-schema';
 import type { BackendId, LangPresetId, LangSelection } from './brands';
 import type { ChatTurn } from './chat-history';
+import type { AnswerNote, AnswerDetail } from './answer/reader';
 
 export type { BackendId, LangPresetId, LangSelection };
 
@@ -81,6 +82,7 @@ export interface DetectedVariety {
 
 /** Inspector metadata on the done chunk when captureResultMeta is on; usage fields are optional. */
 export interface ResultMeta {
+  answerFormat?: { spec: string; checkedBy: 'backend' | 'prompt'; issues?: string[] };
   backendId: BackendId | 'unknown';
   cacheHit: boolean;
   /** Wall-clock ms from router-start to terminal chunk. */
@@ -153,6 +155,10 @@ export type TranslationChunk =
   | {
       type: 'done';
       requestId: string;
+      /** The worker's final main answer, authoritative over streamed text. */
+      text?: string;
+      notes?: AnswerNote[];
+      details?: AnswerDetail[];
       /** Absent when the provider never reported one — renderers hide the
        *  pill instead of showing a synthesized number. */
       confidence?: number;

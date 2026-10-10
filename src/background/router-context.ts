@@ -44,6 +44,7 @@ import {
 import { normaliseExplainRouting } from './explain-routing';
 import { cacheKey } from './cache';
 import { wrapOnChunkForStreamingFlush } from './router-chunks';
+import { answerSpecFor, CUSTOM_PRESETS, type AnswerSpec } from '@/shared/answer/spec';
 
 function hostFromUrl(req: TranslationRequest): string | undefined {
   if (req.pageHost) return req.pageHost;
@@ -80,6 +81,7 @@ export interface TranslateCtx {
   tone: Tone;
   /** The task as the user set it up: which inputs it takes. */
   view: TaskView;
+  answerSpec: AnswerSpec;
   contextBlockIfNoSlot: boolean;
   /** A custom task's answer contract. */
   contract?: string;
@@ -210,6 +212,9 @@ export function createContextResolver(deps: ContextDeps) {
       tpl,
       tone,
       view,
+      answerSpec: custom
+        ? CUSTOM_PRESETS[custom.output === 'card' ? 'answer-notes' : 'answer-only']
+        : answerSpecFor(task),
       // A built-in shipped without page context has no slot for it, so a user who turned it on gets a context block.
       contextBlockIfNoSlot:
         view.pageContext && (custom !== undefined || !BUILT_IN_TASK_SWITCHES[task].pageContext),

@@ -9,7 +9,8 @@ import type {
   TranslationRequest,
 } from '@/shared/types';
 import { pushPerfEntry } from '@/shared/perf-history';
-import { makeDoneChunk, parseJsonResponse, type TranslationBackend } from '@/shared/backends/base';
+import { makeDoneChunk, type TranslationBackend } from '@/shared/backends/base';
+import { answerSpecFor } from '@/shared/answer/spec';
 import type { CacheEntry } from './cache';
 import { buildOcrPrompt } from '@/shared/ocr-prompt';
 import type { Logger } from '@/shared/logger';
@@ -316,6 +317,7 @@ export function createRouter(deps: RouterDeps) {
       chunk: TranslationChunk,
       backendId: BackendId | 'unknown',
       cacheHit: boolean,
+      answerFormat?: ResultMeta['answerFormat'],
     ): TranslationChunk {
       if (!captureMeta || chunk.type !== 'done') return chunk;
       const latencyMs = performance.now() - metaStart;
@@ -327,6 +329,7 @@ export function createRouter(deps: RouterDeps) {
       const meta: ResultMeta = {
         backendId,
         cacheHit,
+        ...(answerFormat ? { answerFormat } : {}),
         latencyMs,
         ...(modelId !== '' ? { modelId } : {}),
         sourceLang: String(req.sourceLang),
@@ -415,7 +418,19 @@ export function createRouter(deps: RouterDeps) {
         requestId: req.id,
         text: JSON.stringify({ translation: hit.translation }),
       });
-      onChunk(attachMeta(makeDoneChunk(req.id, hit), 'unknown', true));
+      onChunk(
+        attachMeta(
+          {
+            ...makeDoneChunk(req.id, hit),
+            text: hit.translation,
+            ...(hit.notes ? { notes: hit.notes } : {}),
+            ...(hit.details ? { details: hit.details } : {}),
+          },
+          'unknown',
+          true,
+          hit.answerFormat,
+        ),
+      );
       emitAudit({
         backend: 'unknown',
         systemPrompt: '',
@@ -552,6 +567,7 @@ export function createRouter(deps: RouterDeps) {
                   cfg,
                   system,
                   user,
+                  answerSpec: imageArm === 'ocr' ? answerSpecFor('ocr') : ctx.answerSpec,
                   ...(req.options.conversationHistory
                     ? { history: req.options.conversationHistory }
                     : {}),
@@ -598,7 +614,7 @@ export function createRouter(deps: RouterDeps) {
         : (lastAttempt?.backendId ?? chain[0]?.id ?? 'unknown');
       const completed = fsm.state() === 'completed';
       const fctx = fsm.context();
-      const finalTranslation = completed ? parseJsonResponse(fctx.acc).translation : '';
+      const finalTranslation = completed ? (fctx.finalText ?? '') : '';
       emitAudit({
         backend: usedBackendId,
         systemPrompt: system,
@@ -623,6 +639,9 @@ export function createRouter(deps: RouterDeps) {
                 detectedDetail: fctx.finalDetectedDetail,
                 detectedLangs: fctx.finalDetectedLangs,
                 explain: fctx.finalExplain,
+                notes: fctx.finalNotes,
+                details: fctx.finalDetails,
+                answerFormat: fctx.finalAnswerFormat,
               }),
             },
             cacheGeneration,
