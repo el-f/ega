@@ -118,6 +118,34 @@ describe('a new custom task', () => {
 });
 
 describe('an existing custom task', () => {
+  it('converts an explicit JSON format only on request, and Undo restores the original row', async () => {
+    const original = {
+      ...input,
+      system: 'Be polite. Return JSON {"answer": string, "reason": string}.',
+    };
+    const row = await addCustomTask(original);
+    open(vi.fn(), { row });
+    expect((await getCustomTasks())[0]?.system).toBe(original.system);
+    const convert = Array.from(document.querySelectorAll('button')).find(
+      (el) => el.textContent.trim() === 'Turn them into fields',
+    );
+    if (!convert) throw new Error('no conversion action');
+    await fireEvent.click(convert);
+    await waitFor(async () =>
+      expect((await getCustomTasks())[0]?.answer).toMatchObject({
+        v: 1,
+        fields: [
+          { key: 'answer', role: 'main' },
+          { key: 'reason', role: 'notes' },
+        ],
+      }),
+    );
+    expect((await getCustomTasks())[0]?.system).toBe('Be polite.');
+    const undo = document.querySelector('[data-ega-dialog-undo]') as HTMLElement;
+    await waitFor(() => expect(undo).toBeTruthy());
+    await fireEvent.click(undo);
+    await waitFor(async () => expect((await getCustomTasks())[0]).toEqual(row));
+  });
   it('holds an invalid answer field, names it on close, and clears it when choosing a preset', async () => {
     const row = await addCustomTask({
       ...input,

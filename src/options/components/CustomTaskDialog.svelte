@@ -26,6 +26,7 @@
   import type { StoredAnswerSpec } from '@/shared/custom-answer-schema';
   import AnswerFieldsEditor from './AnswerFieldsEditor.svelte';
   import AnswerPreview from './AnswerPreview.svelte';
+  import { embedsOwnFormat, convertOwnFormat } from '@/options/own-answer-format';
   import { listVarieties } from '@/shared/varieties';
   import { buildCustomPreviewPrompt, PREVIEW_SAMPLE_TEXT } from '@/options/preview-prompt';
   import { reportSaveFailure } from '@/options/storage-with-toast';
@@ -112,6 +113,9 @@
   const taskKey = $derived(rowId ?? 'custom');
   const messageError = $derived(checkPrompt(prompt, 'custom', taskKey).messageError);
   const answerSpec = $derived(customAnswerSpec(draft, taskKey));
+  const ownFormat = $derived(embedsOwnFormat(prompt));
+  const ownFormatKey = $derived(JSON.stringify(prompt));
+  let keptInstructions = $state<string | null>(null);
   const fieldProblems = $derived(
     answerMode === 'fields'
       ? validateSpec({
@@ -126,7 +130,15 @@
     new Set(ownFields.map((f) => f.label.trim().toLowerCase())).size !== ownFields.length,
   );
   const answerProblem = $derived(
-    fieldProblems[0] ?? (duplicateNames ? 'Two fields cannot share a name.' : null),
+    answerMode !== 'fields'
+      ? null
+      : ownFields.some((f) => !f.label.trim())
+        ? 'Each field needs a name.'
+        : duplicateNames
+          ? 'Two fields cannot share a name.'
+          : ownFields.some((f) => f.kind === 'choice' && (f.choices?.length ?? 0) < 2)
+            ? 'Add at least two choices.'
+            : (fieldProblems[0] ?? null),
   );
 
   type TextField = 'label' | 'prompt';
@@ -258,7 +270,7 @@
     const duplicates =
       new Set(fields.map((f) => f.label.trim().toLowerCase())).size !== fields.length;
     if (issues.length || duplicates) {
-      saver.invalid('answer', issues[0] ?? 'Two fields cannot share a name.');
+      saver.invalid('answer', answerProblem ?? issues[0] ?? 'Two fields cannot share a name.');
       return;
     }
     saver.valid('answer');
@@ -267,6 +279,36 @@
       return;
     }
     saver.later('answer', write({ answer, output }));
+  }
+
+  async function convertInstructions(): Promise<void> {
+    if (!ownFormat) return;
+    const previous = {
+      prompt: { ...prompt },
+      answer,
+      output,
+      mode: answerMode,
+      fields: [...ownFields],
+    };
+    const converted = convertOwnFormat(prompt, ownFormat);
+    prompt = converted.prompt;
+    answerMode = 'fields';
+    ownFields = converted.fields;
+    answer = { v: 1, fields: converted.fields };
+    output = answerOutput(answer, output);
+    saver.valid('answer');
+    const ok = await saver.now(
+      startsRow() ? create : write({ system: prompt.system, user: prompt.user, answer, output }),
+    );
+    if (!ok) return;
+    saver.note('Turned the format into answer fields', () => {
+      prompt = previous.prompt;
+      answer = previous.answer;
+      output = previous.output;
+      answerMode = previous.mode;
+      ownFields = previous.fields;
+      void saver.now(write({ system: prompt.system, user: prompt.user, answer, output }));
+    });
   }
 
   // The cap counts every item, so a task already in the menu can always leave it.
@@ -486,6 +528,38 @@
       </div>
     </div>
 
+    {#if ownFormat && keptInstructions !== ownFormatKey}
+      <div class="ct-own-format" role="status">
+        <p class="ct-hint">
+          Your instructions describe their own answer fields. Ega now sets the format here.
+        </p>
+        <div class="ct-own-actions">
+          <Button
+            variant="secondary"
+            size="sm"
+            ariaDisabled={problemOf('label') !== null || messageError !== null}
+            {...problemOf('label') !== null || messageError !== null
+              ? { describedBy: `${uid}-convert-reason` }
+              : {}}
+            onclick={() => void convertInstructions()}>Turn them into fields</Button
+          >
+          <Button
+            variant="ghost"
+            size="sm"
+            onclick={() => {
+              keptInstructions = ownFormatKey;
+            }}>Keep my instructions</Button
+          >
+        </div>
+        {#if problemOf('label') !== null || messageError !== null}<p
+            class="ct-hint"
+            id="{uid}-convert-reason"
+            data-ega-disabled-reason
+          >
+            Add a task name and a message with Selected text first.
+          </p>{/if}
+      </div>
+    {/if}
     {#if answerMode === 'fields'}
       <AnswerFieldsEditor fields={ownFields} onchange={setFields} />
       {#if answerProblem}<p class="ct-hint" role="status">{answerProblem}</p>{/if}
@@ -523,6 +597,15 @@
 </Dialog>
 
 <style>
+  .ct-own-format {
+    display: grid;
+    gap: var(--space-2);
+  }
+  .ct-own-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
   .custom-task {
     display: flex;
     flex-direction: column;

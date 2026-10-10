@@ -172,16 +172,24 @@ export function updateCustomTask(id: string, input: CustomTaskInput): Promise<Cu
 }
 
 /** What one control of the custom-task editor changes; `effort: undefined` goes back to the default. */
-export type CustomTaskPatch = Partial<Omit<CustomTaskInput, 'effort'>> & {
+export type CustomTaskPatch = Partial<Omit<CustomTaskInput, 'effort' | 'answer'>> & {
   effort?: TaskEffort | undefined;
+  answer?: CustomTaskInput['answer'] | undefined;
 };
 
 /** Writes only the fields in `patch`, so one field that is not valid never holds back the others. Rejects 'task-gone' like updateCustomTask. */
 export function patchCustomTask(id: string, patch: CustomTaskPatch): Promise<CustomTask> {
   return updateCustomTaskRow(id, (cur) => {
     const merged = { ...cur, ...patch };
-    const { effort, ...rest } = { ...merged, output: answerOutput(merged.answer, merged.output) };
-    return effort === undefined ? rest : { ...rest, effort };
+    const { effort, answer, ...rest } = {
+      ...merged,
+      output: answerOutput(merged.answer, merged.output),
+    };
+    return {
+      ...rest,
+      ...(effort === undefined ? {} : { effort }),
+      ...(answer === undefined ? {} : { answer }),
+    };
   });
 }
 
