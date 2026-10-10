@@ -22,18 +22,8 @@ import {
 } from '@/shared/chat-history';
 import type { sendTranslateStart } from '@/shared/translate-ui';
 
-/** The array is the declaration; `TurnKind` derives from it, so a new kind is a
- *  compile error at every exhaustive site instead of a silently dropped turn. */
-export const ALL_TURN_KINDS = [
-  'translate',
-  'ask',
-  'reword',
-  'explain',
-  'summarize',
-  'grammar',
-  'suggest-replies',
-  'image-translate',
-] as const;
+/** Every kind this build creates; saved turns can carry a newer build's task id. */
+export const ALL_TURN_KINDS = [...ALL_TASKS, 'image-translate'] as const;
 export type TurnKind = (typeof ALL_TURN_KINDS)[number];
 
 /** Turn badge and export heading. Derived from TASK_LABELS so a turn never names a task differently to the picker. */
@@ -93,7 +83,7 @@ export interface TurnDispatch {
 
 interface TurnBase {
   id: string;
-  kind: TurnKind;
+  kind: string;
   /** User turn: user-authored input. Assistant turn: model output. */
   content: string;
   /** The task that ran, when it is not the kind: a custom task runs under kind `translate`. */
@@ -189,7 +179,7 @@ export function emptyConversation(): ConversationSnapshot {
 
 interface AddUserTurnInput {
   id: string;
-  kind: TurnKind;
+  kind: string;
   content: string;
   imageDataUrl?: string;
   tone?: Tone;
@@ -218,7 +208,7 @@ export function addUserTurn(turns: readonly Turn[], input: AddUserTurnInput): Tu
 
 interface AddAssistantTurnInput {
   id: string;
-  kind: TurnKind;
+  kind: string;
   attachedToTurnId: string;
   /** Carried across a replace so the count is not reset by the retry it is counting. */
   retries?: number;
@@ -291,7 +281,7 @@ export function replaceAssistantTurn(
 
 interface AddDeliveredAssistantTurnInput {
   id: string;
-  kind: TurnKind;
+  kind: string;
   taskId?: TaskId;
   attachedToTurnId: string;
   /** Already-produced body (tooltip explanation / OCR result). */
@@ -425,7 +415,9 @@ export function activeVariant(turn: Turn): Variant | undefined {
 
 /** A turn's name: its custom task's, else its kind's. "Deleted task" once the task is gone. */
 export function turnLabel(turn: Turn, views: readonly TaskView[]): string {
-  return turn.taskId !== undefined ? taskLabel(views, turn.taskId) : TURN_KIND_LABEL[turn.kind];
+  return turn.taskId !== undefined
+    ? taskLabel(views, turn.taskId)
+    : ((TURN_KIND_LABEL as Partial<Record<string, string>>)[turn.kind] ?? 'Task');
 }
 
 /** The task a turn is running: the active variant's override, else the turn's task id, else the kind. `image-translate` runs as translate. */
@@ -433,7 +425,7 @@ export function turnTaskValue(turn: Turn): TaskId {
   const v = activeVariant(turn);
   if (v?.task !== undefined) return v.task;
   if (turn.taskId !== undefined) return turn.taskId;
-  return (ALL_TASKS as readonly string[]).includes(turn.kind) ? turn.kind : 'translate';
+  return turn.kind === 'image-translate' ? 'translate' : turn.kind;
 }
 
 export type StartArgs = Parameters<typeof sendTranslateStart>[0];

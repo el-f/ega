@@ -153,7 +153,7 @@ export interface ConversationContainer {
   /** Flip the active variant on an assistant turn. */
   selectVariant: (turnId: string, idx: number) => void;
   /** The last user turn, or null when there is none. Reads only — nothing is removed. */
-  lastUserTurn: () => { id: string; content: string; kind: TurnKind; hasImage: boolean } | null;
+  lastUserTurn: () => { id: string; content: string; kind: string; hasImage: boolean } | null;
   /** Drop the last user turn and its assistant turns. */
   dropLastUserExchange: () => void;
   /** Remove a turn and its linked pair. Cancels the inflight dispatch when it is in
@@ -922,7 +922,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
   function lastUserTurn(): {
     id: string;
     content: string;
-    kind: TurnKind;
+    kind: string;
     hasImage: boolean;
   } | null {
     const t = findEditableLastUserTurn(state.turns);

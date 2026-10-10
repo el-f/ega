@@ -7,6 +7,7 @@ import {
   saveThread,
   threadKey,
 } from '@/sidepanel/state/conversation-store';
+import { turnLabel, turnTaskValue } from '@/sidepanel/state/conversation';
 
 const CONV_STORE_VERSION = 1;
 /** Mirrors the module-private MAX_DELETE_STAMPS; a change to one must break this. */
@@ -51,7 +52,8 @@ describe('a turn row that is not the shape the parser demands', () => {
     ['an id that is not a string', goodTurn({ id: 7 })],
     ['an empty id', goodTurn({ id: '' })],
     ['a role nothing renders', goodTurn({ role: 'system' })],
-    ['a kind nothing renders', goodTurn({ kind: 'not-a-kind' })],
+    ['a kind that is not a string', goodTurn({ kind: 42 })],
+    ['an empty kind', goodTurn({ kind: '' })],
     ['content that is not a string', goodTurn({ content: 42 })],
     ['a createdAt that is not a number', goodTurn({ createdAt: '1' })],
   ];
@@ -63,6 +65,19 @@ describe('a turn row that is not the shape the parser demands', () => {
       expect((await loadThreadResult('https://a.com')).turns.map((t) => t.id)).toEqual(['u2']);
     });
   }
+
+  it('keeps a newer task kind through load and save without rerunning it as Translate', async () => {
+    await put(blob({ turns: [goodTurn({ kind: 'future-task' })] }));
+    const turns = (await loadThreadResult('https://a.com')).turns;
+    expect(turns).toHaveLength(1);
+    expect(turns[0]?.kind).toBe('future-task');
+    const turn = turns[0];
+    if (!turn) throw new Error('Saved turn missing');
+    expect(turnLabel(turn, [])).toBe('Task');
+    expect(turnTaskValue(turn)).toBe('future-task');
+    await saveThread('https://a.com', turns);
+    expect((await loadThreadResult('https://a.com')).turns[0]?.kind).toBe('future-task');
+  });
 
   it('keeps a trim mark that is a positive count and drops one that is not', async () => {
     await put(

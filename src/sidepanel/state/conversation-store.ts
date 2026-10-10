@@ -18,7 +18,6 @@ import { IMAGE_DATA_URL_MAX_CHARS } from '@/shared/constants';
 import { INSTRUCTIONS_KEPT_REPLIES } from '@/shared/reply-instructions';
 import type { ResultMeta } from '@/shared/types';
 import {
-  ALL_TURN_KINDS,
   dropOrphanHead,
   type AssistantTurnData,
   type Turn,
@@ -79,7 +78,6 @@ interface StoredThread {
 
 const VALID_ROLES = new Set(['user', 'assistant']);
 const VALID_STATUSES = new Set(['idle', 'pending', 'streaming', 'done', 'error']);
-const VALID_KINDS: ReadonlySet<string> = new Set(ALL_TURN_KINDS);
 
 /** An unknown status becomes 'error' plus an error object, which the banner needs. */
 function validateStoredTurn(t: unknown): Turn | null {
@@ -87,7 +85,8 @@ function validateStoredTurn(t: unknown): Turn | null {
   const e = t as Record<string, unknown>;
   if (typeof e['id'] !== 'string' || !e['id']) return null;
   if (!VALID_ROLES.has(e['role'] as string)) return null;
-  if (!VALID_KINDS.has(e['kind'] as string)) return null;
+  // A newer build can add a task. Its saved text is still readable in this build.
+  if (typeof e['kind'] !== 'string' || e['kind'].trim() === '') return null;
   if (typeof e['content'] !== 'string') return null;
   if (typeof e['createdAt'] !== 'number') return null;
   if (e['role'] === 'user') {
