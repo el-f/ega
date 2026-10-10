@@ -1,11 +1,11 @@
 import { buildTaskPrompt } from '@/shared/prompts';
-import { CARD_CONTRACT, PLAIN_CONTRACT } from '@/shared/answer/formats-v1';
 import { filterGlossaryForRequest, renderGlossaryBlock } from '@/shared/glossary';
 import { filterRulesForRequest, renderRulesBlock } from '@/shared/rules';
 import { clampRulesToBudget, RULES_BLOCK_WARN_BYTES } from '@/shared/rules-budget';
 import { builtInTaskView } from '@/shared/task-view';
 import { autoCandidates, varietyToPreset } from '@/shared/varieties';
 import { answerFormatFor } from '@/shared/task-template';
+import { customAnswerContract } from '@/shared/answer/custom';
 import { type Task } from '@/shared/task-prompts';
 import type { CustomTaskInput } from '@/shared/tasks';
 import type {
@@ -78,7 +78,7 @@ export function buildCustomPreviewPrompt(
         RULES_BLOCK_WARN_BYTES,
       ),
     ),
-    contract: row.output === 'card' ? CARD_CONTRACT : PLAIN_CONTRACT,
+    contract: customAnswerContract(row, input.id),
   });
 }
 

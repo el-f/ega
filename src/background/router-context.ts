@@ -12,7 +12,7 @@ import type { Logger } from '@/shared/logger';
 import { buildBackendConfig } from '@/shared/backends/build-config';
 import { DEFAULT_STREAMING_FLUSH_MS } from '@/shared/constants';
 import { buildTaskPrompt, readsPageContext } from '@/shared/prompts';
-import { CARD_CONTRACT, PLAIN_CONTRACT } from '@/shared/answer/formats-v1';
+import { customAnswerSpec, customAnswerContract } from '@/shared/answer/custom';
 import { labelFor } from '@/shared/languages';
 import { redactContext } from '@/shared/redact';
 import { answerFormatFor } from '@/shared/task-template';
@@ -44,7 +44,7 @@ import {
 import { normaliseExplainRouting } from './explain-routing';
 import { cacheKey } from './cache';
 import { wrapOnChunkForStreamingFlush } from './router-chunks';
-import { answerSpecFor, CUSTOM_PRESETS, type AnswerSpec } from '@/shared/answer/spec';
+import { answerSpecFor, type AnswerSpec } from '@/shared/answer/spec';
 
 function hostFromUrl(req: TranslationRequest): string | undefined {
   if (req.pageHost) return req.pageHost;
@@ -212,14 +212,12 @@ export function createContextResolver(deps: ContextDeps) {
       tpl,
       tone,
       view,
-      answerSpec: custom
-        ? CUSTOM_PRESETS[custom.output === 'card' ? 'answer-notes' : 'answer-only']
-        : answerSpecFor(task),
+      answerSpec: custom ? customAnswerSpec(custom, custom.id) : answerSpecFor(task),
       // A built-in shipped without page context has no slot for it, so a user who turned it on gets a context block.
       contextBlockIfNoSlot:
         view.pageContext && (custom !== undefined || !BUILT_IN_TASK_SWITCHES[task].pageContext),
       ...(custom
-        ? { contract: custom.output === 'card' ? CARD_CONTRACT : PLAIN_CONTRACT }
+        ? { contract: customAnswerContract(custom, custom.id) }
         : { format: answerFormatFor(task) }),
       snippets,
       glossaryEntries,
@@ -231,6 +229,7 @@ export function createContextResolver(deps: ContextDeps) {
     const key = await cacheKey({
       ...prompt,
       task: requestedTask,
+      answerSpec: inputs.answerSpec,
       ...(history?.length ? { history } : {}),
     });
     return { ...inputs, prompt, key };

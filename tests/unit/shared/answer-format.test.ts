@@ -1,3 +1,4 @@
+import { isPromptTemplateCustomised, V9_FULL_PROMPT_TEMPLATE } from '@/shared/prompt-defaults';
 import { beforeEach, describe, expect, it } from 'vitest';
 import fc from 'fast-check';
 import { sel } from '@tests/_helpers/lang';
@@ -13,11 +14,7 @@ import {
   UNTRUSTED_DATA_INSTRUCTION,
   withAnswerFormat,
 } from '@/shared/prompts';
-import {
-  DEFAULT_PROMPT_TEMPLATE,
-  isPromptTemplateCustomised,
-  V9_FULL_PROMPT_TEMPLATE,
-} from '@/shared/settings-schema';
+import { DEFAULT_PROMPT_TEMPLATE } from '@/shared/settings-schema';
 import { sanitiseStoredSettings, withoutShippedTaskFields } from '@/shared/storage/sanitise';
 import { getSettings, updateSettings } from '@/shared/storage';
 import { exportAll } from '@/shared/storage/backup';

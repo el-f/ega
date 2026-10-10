@@ -1,3 +1,4 @@
+import { isPromptTemplateCustomised } from '@/shared/prompt-defaults';
 import type {
   BackendId,
   CustomLanguage,
@@ -46,11 +47,7 @@ import {
 import { withTranslateLifecycle, LifecycleCeilingError } from './router-lifecycle';
 import { trackInflight } from './swKeepalive';
 import { pushAuditEntry, type AuditSurface } from '@/shared/audit-log';
-import {
-  resolveModelId,
-  isPromptTemplateCustomised,
-  type CustomTask,
-} from '@/shared/settings-schema';
+import { resolveModelId, type CustomTask } from '@/shared/settings-schema';
 import { omitUndef } from '@/shared/utils/omitUndef';
 import type { ImageTask, Task } from '@/shared/task-prompts';
 import { createTranslateFsm } from './router-fsm';

@@ -123,6 +123,7 @@ describe('content-script static import graph', () => {
     const reachable = [...walkWithLazy(ENTRY)].map((f) => f.replace(/\\/g, '/'));
     expect(reachable.length).toBeGreaterThan(graph.files.size);
     expect(reachable.filter((f) => f.endsWith('src/shared/storage.ts'))).toEqual([]);
+    expect(reachable.filter((f) => f.includes('src/shared/answer/'))).toEqual([]);
   });
 
   it('loads settings without the backend registry or any backend', () => {

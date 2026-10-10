@@ -1,3 +1,4 @@
+import { V9_FULL_PROMPT_TEMPLATE } from '@/shared/prompt-defaults';
 import { describe, it, expect } from 'vitest';
 import { sel } from '@tests/_helpers/lang';
 import {
@@ -11,7 +12,7 @@ import { validateAgainstSlots } from '@/shared/slot-registry';
 import { buildTaskTemplate } from '@/shared/task-template';
 import { ALL_TASKS } from '@/shared/task-prompts';
 import type { Task, Tone } from '@/shared/task-prompts';
-import { V9_FULL_PROMPT_TEMPLATE } from '@/shared/settings-schema';
+import {} from '@/shared/settings-schema';
 import { DEFAULT_PROMPT_TEMPLATE } from '@/shared/settings-defaults';
 import type { LangSelection, TranslationRequest } from '@/shared/types';
 import { getPreset } from '@/shared/presets';

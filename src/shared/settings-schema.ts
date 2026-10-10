@@ -1,6 +1,6 @@
 import * as v from 'valibot';
+import { storedAnswerSpecSchema } from './custom-answer-schema';
 import { ALL_TASKS, ALL_TONES } from './task-prompts';
-import { TRANSLATE_FORMAT } from './answer/formats-v1';
 import { isKnownNativeCli } from './native-cli-registry';
 import { isLoopbackUrl } from './loopback-url';
 import {
@@ -144,19 +144,6 @@ export const PREVIOUS_PROMPT_TEMPLATE: { system: string; user: string } = {
   user: ['{{context}}', 'TEXT:', '"""', '{{text}}', '"""'].join('\n'),
 };
 
-/** The v9 default as stored before the answer format left the editable text: today's default with the format joined on. */
-export const V9_FULL_PROMPT_TEMPLATE: { system: string; user: string } = {
-  system: DEFAULT_PROMPT_TEMPLATE.system + TRANSLATE_FORMAT.sep + TRANSLATE_FORMAT.text,
-  user: DEFAULT_PROMPT_TEMPLATE.user,
-};
-
-/** True only when the stored template matches no shipped default, so the banner skips users who never edited it. */
-export function isPromptTemplateCustomised(t: { system: string; user: string }): boolean {
-  return ![DEFAULT_PROMPT_TEMPLATE, V9_FULL_PROMPT_TEMPLATE, PREVIOUS_PROMPT_TEMPLATE].some(
-    (d) => t.system === d.system && t.user === d.user,
-  );
-}
-
 /** Cloud-first for first-run UX. Diverges from registry order intentionally. */
 const DEFAULT_BACKEND_ORDER: readonly BackendId[] = [
   'anthropic',
@@ -271,6 +258,7 @@ export const customTaskSchema = v.looseObject({
     v.includes('{{text}}', 'the message must contain {{text}}'),
   ),
   output: v.picklist(['plain', 'card']),
+  answer: v.exactOptional(storedAnswerSpecSchema),
   answersIn: v.exactOptional(v.picklist(['input', 'target'])),
   pageContext: v.boolean(),
   image: v.boolean(),

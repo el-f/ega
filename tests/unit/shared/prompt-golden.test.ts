@@ -1,3 +1,4 @@
+import { V9_FULL_PROMPT_TEMPLATE } from '@/shared/prompt-defaults';
 /** T-F1: prompts Ega sends with no user edits, recorded on v9; EGA_WRITE_GOLDEN=1 re-records on a commit that changes no prompt. */
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -11,7 +12,7 @@ import { ownTaskPrompt } from '@/shared/task-template';
 import { ALL_TONES, type Task, type Tone } from '@/shared/task-prompts';
 import { answerFormatFor, buildTaskTemplate } from '@/shared/task-template';
 import { FORMAT_MARKER } from '@/shared/answer/formats-v1';
-import { DEFAULT_PROMPT_TEMPLATE, V9_FULL_PROMPT_TEMPLATE } from '@/shared/settings-schema';
+import { DEFAULT_PROMPT_TEMPLATE } from '@/shared/settings-schema';
 import { asLangPresetIdUnsafe } from '@/shared/brands';
 import type { CustomLanguage, Settings, TranslationRequest } from '@/shared/types';
 

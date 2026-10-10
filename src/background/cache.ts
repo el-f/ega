@@ -2,6 +2,7 @@ import { sha256Hex } from '@/shared/sha256';
 import type { DetectedVariety, ResultMeta } from '@/shared/types';
 import type { AnswerNote, AnswerDetail } from '@/shared/answer/reader';
 import type { ChatTurn } from '@/shared/chat-history';
+import type { AnswerSpec } from '@/shared/answer/spec';
 
 /** What the model reads for a text request: the rendered prompt and the history sent beside it.
  *  Every output-changing modifier reaches one of these, so none can be left out of the key. */
@@ -11,12 +12,19 @@ export interface RequestFingerprint {
   /** Backend settings vary by task (effort, model), so two tasks never share a slot. */
   task: string;
   history?: readonly ChatTurn[];
+  answerSpec?: AnswerSpec;
 }
 
 export async function cacheKey(f: RequestFingerprint): Promise<string> {
   // JSON quoting is injective; a plain '|' join lets user text carrying '|' collide two requests onto one slot.
   return sha256Hex(
-    JSON.stringify([f.system, f.user, f.task, (f.history ?? []).map((h) => [h.role, h.content])]),
+    JSON.stringify([
+      f.system,
+      f.user,
+      f.task,
+      (f.history ?? []).map((h) => [h.role, h.content]),
+      ...(f.answerSpec ? [f.answerSpec] : []),
+    ]),
   );
 }
 

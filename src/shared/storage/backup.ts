@@ -1,3 +1,4 @@
+import { isPromptTemplateCustomised } from '../prompt-defaults';
 import { STORAGE_KEYS } from '../constants';
 import type {
   CustomLanguage,
@@ -12,7 +13,6 @@ import {
   CURRENT_TEMPLATE_VERSION,
   DEFAULT_PROMPT_TEMPLATE,
   GLOSSARY_MAX,
-  isPromptTemplateCustomised,
   type GlossaryBundle,
   type LanguageBundle,
   type CustomTask,

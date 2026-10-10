@@ -1,3 +1,4 @@
+import { isPromptTemplateCustomised } from './prompt-defaults';
 /** Writers for tasks, the twin of varieties.ts. */
 import { readsPageContext } from './prompts';
 import {
@@ -9,12 +10,12 @@ import {
   upsertCustomTask,
 } from './storage';
 import { uuid } from './uuid';
+import { answerOutput } from './answer/custom';
 import { withoutShippedTaskFields } from './storage/sanitise';
 import {
   CONTEXT_MENU_ITEMS_MAX,
   customTaskSchema,
   DEFAULT_PROMPT_TEMPLATE,
-  isPromptTemplateCustomised,
   type CustomTask,
   type TaskEdit,
   type TaskEffort,
@@ -144,7 +145,12 @@ export function updateTask(id: Task, patch: TaskEdit): Promise<Settings> {
 export type CustomTaskInput = Omit<CustomTask, 'id' | 'createdAt'>;
 
 export async function addCustomTask(input: CustomTaskInput): Promise<CustomTask> {
-  const row: CustomTask = { ...input, id: uuid(), createdAt: Date.now() };
+  const row: CustomTask = {
+    ...input,
+    output: answerOutput(input.answer, input.output),
+    id: uuid(),
+    createdAt: Date.now(),
+  };
   await upsertCustomTask(row);
   return row;
 }
@@ -156,6 +162,10 @@ export function updateCustomTask(id: string, input: CustomTaskInput): Promise<Cu
       Object.entries(cur).filter(([key]) => !Object.hasOwn(customTaskSchema.entries, key)),
     ),
     ...input,
+    ...(input.answer === undefined && cur.answer !== undefined && cur.answer.v !== 1
+      ? { answer: cur.answer }
+      : {}),
+    output: answerOutput(input.answer, input.output),
     id,
     createdAt: cur.createdAt,
   }));
@@ -169,7 +179,8 @@ export type CustomTaskPatch = Partial<Omit<CustomTaskInput, 'effort'>> & {
 /** Writes only the fields in `patch`, so one field that is not valid never holds back the others. Rejects 'task-gone' like updateCustomTask. */
 export function patchCustomTask(id: string, patch: CustomTaskPatch): Promise<CustomTask> {
   return updateCustomTaskRow(id, (cur) => {
-    const { effort, ...rest } = { ...cur, ...patch };
+    const merged = { ...cur, ...patch };
+    const { effort, ...rest } = { ...merged, output: answerOutput(merged.answer, merged.output) };
     return effort === undefined ? rest : { ...rest, effort };
   });
 }

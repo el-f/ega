@@ -1,11 +1,11 @@
 <script lang="ts">
+  import { isPromptTemplateCustomised } from '@/shared/prompt-defaults';
   import { onDestroy, tick, untrack } from 'svelte';
   import type { PromptTemplate, Settings, Variety } from '@/shared/types';
   import {
     CURRENT_TEMPLATE_VERSION,
     DEFAULT_PROMPT_TEMPLATE,
     EFFORT_LEVELS,
-    isPromptTemplateCustomised,
     type TaskEffort,
   } from '@/shared/settings-schema';
   import { answerFormatFor, buildTaskTemplate } from '@/shared/task-template';

@@ -1,9 +1,9 @@
+import { isPromptTemplateCustomised } from '@/shared/prompt-defaults';
 import { describe, it, expect } from 'vitest';
 import {
   CURRENT_TEMPLATE_VERSION,
   DEFAULT_PROMPT_TEMPLATE,
   PREVIOUS_PROMPT_TEMPLATE,
-  isPromptTemplateCustomised,
   parseStoredSettings,
 } from '@/shared/settings-schema';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';

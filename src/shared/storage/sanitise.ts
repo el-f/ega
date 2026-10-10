@@ -1,3 +1,4 @@
+import { isPromptTemplateCustomised, V9_FULL_PROMPT_TEMPLATE } from '../prompt-defaults';
 /** Turns a raw stored row into a valid `Settings`. Pure — no chrome.*, no locks. */
 import { DEFAULT_MODEL, DEFAULT_SETTINGS } from '../settings-defaults';
 import type {
@@ -14,15 +15,14 @@ import { BUILT_IN_PRESETS } from '../presets';
 import { hasRiskyRepeat } from '../regex-risk';
 import { clampToSchema, isPlainObject, PROTO_KEYS } from '../settings-clamp';
 import * as valibot from 'valibot';
+import { storedAnswerSpecSchema } from '../custom-answer-schema';
 import {
   CURRENT_TEMPLATE_VERSION,
   customLanguageSchema,
   customTaskSchema,
   taskEditSchema,
   DEFAULT_PROMPT_TEMPLATE,
-  isPromptTemplateCustomised,
   PREVIOUS_PROMPT_TEMPLATE,
-  V9_FULL_PROMPT_TEMPLATE,
   type LanguagePrompt,
   OPTIONAL_SETTINGS_KEYS,
   parseStoredSettings,
@@ -565,6 +565,9 @@ export function parseCustomTaskRows(
   for (const c of raw) {
     if (out.length >= CUSTOM_TASKS_MAX) break;
     if (!isPlainObject(c)) continue;
+    const invalidAnswer =
+      c['answer'] !== undefined && !valibot.is(storedAnswerSpecSchema, c['answer']);
+    if (invalidAnswer && onInvalid === 'drop') continue;
     const withStamp = typeof c['createdAt'] === 'number' ? c : { ...c, createdAt: Date.now() };
     const clamped = clampToSchema(customTaskSchema, withStamp);
     const result = valibot.safeParse(customTaskSchema, clamped);
@@ -589,6 +592,7 @@ export function parseCustomTaskRows(
       } as CustomTask;
       kept++;
     } else continue;
+    if (invalidAnswer) row = { ...row, answer: c['answer'] } as CustomTask;
     if (taken.has(row.id)) continue;
     taken.add(row.id);
     out.push(row);
