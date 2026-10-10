@@ -2,7 +2,6 @@
   import { isPromptTemplateCustomised } from '@/shared/prompt-defaults';
   import { tick } from 'svelte';
   import type { Settings } from '@/shared/types';
-  import {} from '@/shared/settings-schema';
   import { isFieldModified } from '@/shared/settings-registry';
   import {
     ALL_TASKS,

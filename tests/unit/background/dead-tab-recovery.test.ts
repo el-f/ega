@@ -55,7 +55,7 @@ vi.mock('@/shared/backends/registry', () => ({
 
 const settingsStub: Partial<Settings> = {
   contextMenuItems: DEFAULT_CONTEXT_MENU_ITEMS,
-  contextMenuLayout: 'nested',
+
   defaultTargetLang: 'en' as unknown as Settings['defaultTargetLang'],
   defaultTone: 'neutral',
 };

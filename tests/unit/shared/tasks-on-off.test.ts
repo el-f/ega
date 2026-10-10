@@ -10,7 +10,7 @@ import {
   updateTask,
 } from '@/shared/tasks';
 import { DEFAULT_PROMPT_TEMPLATE } from '@/shared/settings-schema';
-import { enabledBuiltIns } from '@/shared/task-view';
+import { materializeTasks } from '@/shared/task-view';
 import { ALL_TASKS, runnableDefaultTask } from '@/shared/task-prompts';
 import { buildRegistry } from '@/shared/command-registry';
 import { installContextMenus } from '@/background/contextMenu';
@@ -43,11 +43,13 @@ describe('setTaskEnabled', () => {
     expect(runnableDefaultTask(on)).toBe('reword');
   });
 
-  it('enabledBuiltIns keeps Translate even when a hand-edited file turns it off', async () => {
+  it('materializeTasks keeps Translate even when a hand-edited file turns it off', async () => {
     await chromeMock.storage.local.set({
       'ega.settings': { disabledTasks: ['translate', 'ask'] },
     });
-    expect(enabledBuiltIns(await getSettings())).toEqual(ALL_TASKS.filter((t) => t !== 'ask'));
+    expect(
+      materializeTasks(await getSettings(), [], { enabledOnly: true }).map((v) => v.id),
+    ).toEqual(ALL_TASKS.filter((t) => t !== 'ask'));
   });
 });
 

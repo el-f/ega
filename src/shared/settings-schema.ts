@@ -608,7 +608,6 @@ export const settingsSchema = v.strictObject({
     >,
     () => structuredClone(DEFAULT_CONTEXT_MENU_ITEMS),
   ),
-  contextMenuLayout: v.optional(v.picklist(['nested', 'flat'] as const), 'nested'),
 });
 
 export type SettingsFromSchema = v.InferOutput<typeof settingsSchema>;
@@ -657,6 +656,7 @@ const RETIRED_ADVANCED_KEYS: readonly string[] = [
 /** Top-level keys a past version persisted. `settingsSchema` is strict, so a stored
  *  row still carrying one fails the first parse and enters the repair loop. */
 const RETIRED_SETTINGS_KEYS: readonly string[] = [
+  'contextMenuLayout',
   'batchMinLength',
   'batchMaxLength',
   'taskBackends',

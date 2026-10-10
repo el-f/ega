@@ -3,13 +3,43 @@ import {
   ensureCustomLanguages,
   installCustomLanguagesInvalidator,
   resetCustomLanguagesCache,
+  onCustomTasksUpdate,
 } from '@/content/customs-cache';
+import { addCustomTask, patchCustomTask } from '@/shared/tasks';
 import { upsertCustomLanguage } from '@/shared/storage';
 import { STORAGE_KEYS } from '@/shared/constants';
 import { preset } from '@tests/_helpers/lang';
 import { chromeMock } from '@tests/mocks/chrome';
 
 describe('customs-cache', () => {
+  it('refreshes subscribed task views when a task is renamed in another surface', async () => {
+    installCustomLanguagesInvalidator();
+    const row = await addCustomTask({
+      label: 'Before',
+      system: 'Be concise.',
+      user: '{{text}}',
+      output: 'plain',
+      image: false,
+      pageContext: false,
+      glossary: false,
+    });
+    const update = vi.fn();
+    const stop = onCustomTasksUpdate(update);
+    try {
+      await vi.waitFor(() => expect(update).toHaveBeenCalled());
+      update.mockClear();
+      await patchCustomTask(row.id, { label: 'After', image: true });
+      await vi.waitFor(() =>
+        expect(update).toHaveBeenLastCalledWith(
+          expect.arrayContaining([
+            expect.objectContaining({ id: row.id, label: 'After', image: true }),
+          ]),
+        ),
+      );
+    } finally {
+      stop();
+    }
+  });
   beforeEach(() => {
     resetCustomLanguagesCache();
   });

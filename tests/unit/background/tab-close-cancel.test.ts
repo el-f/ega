@@ -54,7 +54,7 @@ vi.mock('@/shared/backends/registry', () => ({
 
 const settingsStub: Partial<Settings> = {
   contextMenuItems: [],
-  contextMenuLayout: 'nested',
+
   imageTranslateSurface: 'tooltip',
 };
 

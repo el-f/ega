@@ -90,7 +90,7 @@
   <div data-ega-setting="display.explainUsesPageImage">
     <Checkbox
       id="explain-uses-page-image-toggle"
-      label="Send the page image with Explain"
+      label="Send the page image with the Explain button"
       checked={s.explainUsesPageImage}
       describedBy="explain-page-image-hint"
       modified={isFieldModified('display.explainUsesPageImage', s)}

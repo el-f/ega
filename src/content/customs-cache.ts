@@ -50,6 +50,7 @@ export function resetCustomLanguagesCache(): void {
 
 let taskCache: CustomTask[] | null = null;
 let taskToken = 0;
+const taskListeners = new Set<(tasks: readonly CustomTask[]) => void>();
 
 export async function ensureCustomTasks(): Promise<CustomTask[]> {
   if (taskCache) return taskCache;
@@ -57,7 +58,17 @@ export async function ensureCustomTasks(): Promise<CustomTask[]> {
   const list = await getCustomTasks();
   if (myToken !== taskToken) return ensureCustomTasks();
   taskCache = list;
+  for (const listener of taskListeners) listener(list);
   return taskCache;
+}
+
+/** Keep an open tooltip's task names and capabilities current after edits in Settings. */
+export function onCustomTasksUpdate(listener: (tasks: readonly CustomTask[]) => void): () => void {
+  taskListeners.add(listener);
+  void ensureCustomTasks().catch(() => {});
+  return () => {
+    taskListeners.delete(listener);
+  };
 }
 
 /** Sync view for render paths; empty until the first read lands. */
@@ -75,6 +86,7 @@ export function installCustomLanguagesInvalidator(): void {
     if (STORAGE_KEYS.customTasks in changes) {
       taskCache = null;
       taskToken++;
+      if (taskListeners.size > 0) void ensureCustomTasks().catch(() => {});
     }
   });
 }

@@ -15,7 +15,7 @@ const CALLABLE_TASKS = ALL_TASKS.filter(
 // A forced "confidence": 1 showed every summary, rewrite and answer as "100% sure".
 describe('buildTaskTemplate — no made-up confidence', () => {
   it.each(CALLABLE_TASKS)('%s does not ask for a confidence', (task) => {
-    expect(buildTaskTemplate(task, 'neutral').system).not.toMatch(/"confidence"/);
+    expect(buildTaskTemplate(task).system).not.toMatch(/"confidence"/);
   });
 });
 
@@ -56,15 +56,8 @@ describe('buildTaskTemplate — contract', () => {
 
   describe('reword tones', () => {
     it('reword template uses the {{tone}} slot — resolution deferred to buildPrompt', () => {
-      const t = buildTaskTemplate('reword', 'formal');
+      const t = buildTaskTemplate('reword');
       expect(t.system).toContain('{{tone}}');
-    });
-
-    it('tone arg does not change the template — tone is a runtime slot', () => {
-      // Tone phrase is substituted by buildPrompt via ctx.tone + TONE_PHRASE.
-      // The build-time output is identical across tones; this is by design.
-      const seen = new Set(ALL_TONES.map((tone) => buildTaskTemplate('reword', tone).system));
-      expect(seen.size).toBe(1);
     });
   });
 
