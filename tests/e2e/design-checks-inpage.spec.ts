@@ -473,17 +473,6 @@ test('a toast in a picker mode sits above the bottom bar, wide and narrow', asyn
   await page.keyboard.press('Escape');
   await expect.poll(async () => egaTest<boolean>(page, 'msIsActive')).toBe(false);
   await settle(page);
-  // The pill plays its entry rise again as it comes back; measure where it comes to rest.
-  await page.evaluate(() =>
-    Promise.all(
-      (
-        document
-          .getElementById('ega-shadow-host')
-          ?.shadowRoot?.querySelector('[data-ega-batch-progress]')
-          ?.getAnimations() ?? []
-      ).map((a) => a.finished),
-    ),
-  );
   const back = await toastOver(page, '[data-ega-batch-progress]');
   expect(back.gap, 'above the pill again').toBeGreaterThanOrEqual(4);
   expect(back.gap, 'above the pill again').toBeLessThanOrEqual(12);
@@ -581,9 +570,13 @@ function toastOver(
   cardRadius: string;
   wrapped: boolean;
 }> {
-  return page.evaluate((s) => {
+  return page.evaluate(async (s) => {
     const root = document.getElementById('ega-shadow-host')?.shadowRoot;
     const ega = root?.querySelector('.ega-root');
+    const el = root?.querySelector(s);
+    // The pill rises on its first mount and when a picker releases the bottom slot.
+    // Measure its resting position on both paths, keeping the strict 4–12px gap.
+    await Promise.all((el?.getAnimations() ?? []).map((animation) => animation.finished));
     const toast = document.createElement('div');
     toast.className = 'ega-toast';
     toast.style.animation = 'none';
@@ -595,7 +588,6 @@ function toastOver(
     const cardRadius = getComputedStyle(probe).borderTopLeftRadius;
     probe.remove();
     const t = toast.getBoundingClientRect();
-    const el = root?.querySelector(s);
     const bar = el?.getBoundingClientRect();
     toast.remove();
     return {
