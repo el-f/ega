@@ -1,7 +1,7 @@
 [
   {
     "name": "Advanced",
-    "bytes": 56644
+    "bytes": 56642
   },
   {
     "name": "batch-progress",
@@ -17,15 +17,15 @@
   },
   {
     "name": "build-config",
-    "bytes": 33212
+    "bytes": 46903
   },
   {
     "name": "cancel-token",
-    "bytes": 22804
+    "bytes": 27523
   },
   {
     "name": "Checkbox",
-    "bytes": 4075
+    "bytes": 4074
   },
   {
     "name": "CollapsibleField",
@@ -33,7 +33,7 @@
   },
   {
     "name": "command-registry",
-    "bytes": 30593
+    "bytes": 30592
   },
   {
     "name": "custom-tasks-state.svelte",
@@ -57,15 +57,15 @@
   },
   {
     "name": "error-copy",
-    "bytes": 3522
+    "bytes": 3907
   },
   {
     "name": "error-policy",
-    "bytes": 16075
+    "bytes": 1257
   },
   {
     "name": "Glossary",
-    "bytes": 31079
+    "bytes": 31078
   },
   {
     "name": "IconButton",
@@ -81,11 +81,11 @@
   },
   {
     "name": "index.html",
-    "bytes": 466585
+    "bytes": 467235
   },
   {
     "name": "index.ts",
-    "bytes": 41718
+    "bytes": 43119
   },
   {
     "name": "index.ts-loader",
@@ -93,7 +93,7 @@
   },
   {
     "name": "inlineReplace",
-    "bytes": 4541
+    "bytes": 4447
   },
   {
     "name": "lang-tag",
@@ -113,7 +113,7 @@
   },
   {
     "name": "open-options-tab",
-    "bytes": 40164
+    "bytes": 48273
   },
   {
     "name": "page-chip",
@@ -125,11 +125,11 @@
   },
   {
     "name": "page-translate-v2",
-    "bytes": 30000
+    "bytes": 30034
   },
   {
     "name": "pending-popup-handoff",
-    "bytes": 2107
+    "bytes": 2108
   },
   {
     "name": "perf-history",
@@ -173,7 +173,7 @@
   },
   {
     "name": "safe-regex",
-    "bytes": 27294
+    "bytes": 23609
   },
   {
     "name": "safety",
@@ -185,7 +185,7 @@
   },
   {
     "name": "Select",
-    "bytes": 3941
+    "bytes": 3940
   },
   {
     "name": "selection-cap-copy",
@@ -193,7 +193,7 @@
   },
   {
     "name": "SelectionBubble",
-    "bytes": 36620
+    "bytes": 36619
   },
   {
     "name": "settings-bus",
@@ -205,7 +205,7 @@
   },
   {
     "name": "src-content-index.ts",
-    "bytes": 35173
+    "bytes": 35174
   },
   {
     "name": "stuck-timeout",
@@ -213,7 +213,7 @@
   },
   {
     "name": "task-view",
-    "bytes": 2538
+    "bytes": 2429
   },
   {
     "name": "tasks",
@@ -221,7 +221,7 @@
   },
   {
     "name": "Tasks",
-    "bytes": 30796
+    "bytes": 30767
   },
   {
     "name": "TaskUsageRow",
@@ -229,7 +229,7 @@
   },
   {
     "name": "templates-handlers",
-    "bytes": 894
+    "bytes": 856
   },
   {
     "name": "theme",
@@ -241,7 +241,7 @@
   },
   {
     "name": "tipState.svelte",
-    "bytes": 55699
+    "bytes": 55571
   },
   {
     "name": "toast",
@@ -261,7 +261,7 @@
   },
   {
     "name": "translate-handlers",
-    "bytes": 6168
+    "bytes": 6171
   },
   {
     "name": "translate-ui",
