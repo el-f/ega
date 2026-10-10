@@ -94,7 +94,10 @@ describe('runTranslateAttempt — vision attempt', () => {
 
     const explain = deps(answer, { reqView: req(true), reqOptions: req(true).options });
     await runTranslateAttempt(explain);
-    expect(explain.chunks.find((c) => c.type === 'done')).toMatchObject({ type: 'done', usedImage: true });
+    expect(explain.chunks.find((c) => c.type === 'done')).toMatchObject({
+      type: 'done',
+      usedImage: true,
+    });
   });
 
   it('a backend with no translateImage ends in one UNKNOWN terminal instead of translating the text', async () => {
