@@ -1,0 +1,229 @@
+/** The merged task list every picker reads. Contains UI capabilities, never shipped prompt text. */
+import { ALL_TASKS, TASK_LABELS, TASK_GERUND, builtInTask, type Task } from './task-prompts';
+import { refinePresets, type RefinePreset } from './refine-presets';
+import type { CustomTask, TaskEdit, TaskEffort } from './settings-schema';
+import { resolveSnippets } from './snippets';
+import type { Settings } from './types';
+
+/** A built-in task id, or a custom task's uuid. */
+export type TaskId = string;
+
+/** UI: "Answer only" / "Answer with notes". */
+export type OutputShape = 'plain' | 'card';
+
+export interface TaskSwitches {
+  output: OutputShape;
+  answersIn: 'input' | 'target';
+  pageContext: boolean;
+  image: boolean;
+  glossary: boolean;
+  /** Absent: the global Effort. */
+  effort?: TaskEffort;
+}
+
+export interface TaskView extends TaskSwitches {
+  id: TaskId;
+  kind: 'builtin' | 'custom';
+  label: string;
+  gerund: string;
+  notesLabel: string;
+  refinePresets: readonly RefinePreset[];
+  /** The prompt this task runs contains {{tone}}. */
+  usesTone: boolean;
+  disabled: boolean;
+  hasOverrides: boolean;
+}
+
+/** What runs today: only Translate and Explain read page context, the glossary and images. */
+export const BUILT_IN_TASK_SWITCHES: Readonly<Record<Task, TaskSwitches>> = {
+  translate: {
+    output: 'card',
+    answersIn: 'target',
+    pageContext: true,
+    image: true,
+    glossary: true,
+  },
+  // Explain and Ask reason more than a one-line answer; the rest follow the global Effort.
+  explain: {
+    output: 'card',
+    answersIn: 'target',
+    pageContext: true,
+    image: true,
+    glossary: true,
+    effort: 'low',
+  },
+  summarize: {
+    output: 'plain',
+    answersIn: 'target',
+    pageContext: false,
+    image: false,
+    glossary: false,
+  },
+  reword: { output: 'card', answersIn: 'input', pageContext: false, image: false, glossary: false },
+  grammar: {
+    output: 'card',
+    answersIn: 'input',
+    pageContext: false,
+    image: false,
+    glossary: false,
+  },
+  'suggest-replies': {
+    output: 'plain',
+    answersIn: 'target',
+    pageContext: false,
+    image: false,
+    glossary: false,
+  },
+  ask: {
+    output: 'plain',
+    answersIn: 'target',
+    pageContext: false,
+    image: false,
+    glossary: false,
+    effort: 'low',
+  },
+};
+
+function builtInPresentation(t: Task) {
+  return {
+    gerund: TASK_GERUND[t],
+    notesLabel: t === 'translate' || t === 'explain' ? 'Context & subtext' : 'Notes',
+    refinePresets: refinePresets(t),
+  };
+}
+
+const CUSTOM_PRESENTATION = {
+  gerund: 'Working',
+  notesLabel: 'Notes',
+  refinePresets: [] as readonly RefinePreset[],
+};
+
+/** Translate and Explain run the language template; every other built-in has a prompt of its own. */
+export function hasOwnPrompt(t: Task): boolean {
+  return t !== 'translate' && t !== 'explain';
+}
+
+export const TONE_SLOT = /\{\{tone\}\}/;
+
+/** Translate is always on, whatever `disabledTasks` holds. */
+function builtInOff(s: Settings, t: Task): boolean {
+  return t !== 'translate' && s.disabledTasks.includes(t);
+}
+
+/** The view of a built-in task; a built-in id always has one. */
+export function builtInTaskView(s: Settings, t: Task): TaskView {
+  const edit: TaskEdit = s.taskOverrides[t] ?? {};
+  const shipped = BUILT_IN_TASK_SWITCHES[t];
+  // Only Reword's shipped system contains tone; shipped user halves contain no tone slots.
+  const prompt = hasOwnPrompt(t)
+    ? { system: edit.system ?? (t === 'reword' ? '{{tone}}' : ''), user: edit.user ?? '' }
+    : s.advanced.promptTemplate;
+  const effort = edit.effort ?? shipped.effort;
+  return {
+    id: t,
+    kind: 'builtin',
+    label: TASK_LABELS[t],
+    ...builtInPresentation(t),
+    output: shipped.output,
+    answersIn: shipped.answersIn,
+    image: shipped.image,
+    pageContext: edit.pageContext ?? shipped.pageContext,
+    glossary: edit.glossary ?? shipped.glossary,
+    ...(effort !== undefined ? { effort } : {}),
+    // Snippets expand before slots fill, so a {{tone}} inside one counts, as it does in the router.
+    usesTone: TONE_SLOT.test(resolveSnippets(prompt.system + prompt.user, s.advanced.snippets)),
+    disabled: builtInOff(s, t),
+    hasOverrides: Object.hasOwn(s.taskOverrides, t),
+  };
+}
+
+function customView(s: Settings, c: CustomTask): TaskView {
+  return {
+    id: c.id,
+    kind: 'custom',
+    label: c.label,
+    ...CUSTOM_PRESENTATION,
+    // A kept row can carry an output value this build does not know.
+    output: c.output === 'card' ? 'card' : 'plain',
+    answersIn: c.answersIn === 'input' ? 'input' : 'target',
+    pageContext: c.pageContext,
+    image: c.image,
+    glossary: c.glossary,
+    ...(c.effort !== undefined ? { effort: c.effort } : {}),
+    usesTone: TONE_SLOT.test(c.system + c.user),
+    disabled: s.disabledTasks.includes(c.id),
+    hasOverrides: false,
+  };
+}
+
+/** The built-ins as shipped, for a surface whose settings have not loaded. */
+export const SHIPPED_TASK_VIEWS: readonly TaskView[] = ALL_TASKS.map((t) => {
+  return {
+    id: t,
+    kind: 'builtin' as const,
+    label: TASK_LABELS[t],
+    ...builtInPresentation(t),
+    ...BUILT_IN_TASK_SWITCHES[t],
+    usesTone: t === 'reword',
+    disabled: false,
+    hasOverrides: false,
+  };
+});
+
+/** Built-ins in shipped order, then custom tasks by creation time. */
+export function materializeTasks(
+  s: Settings,
+  customs: readonly CustomTask[],
+  opts?: { enabledOnly?: boolean },
+): TaskView[] {
+  const seen = new Set<string>(ALL_TASKS);
+  const rows: CustomTask[] = [];
+  for (const c of customs) {
+    if (seen.has(c.id)) continue;
+    seen.add(c.id);
+    rows.push(c);
+  }
+  rows.sort((a, b) => a.createdAt - b.createdAt);
+  const all = [
+    ...ALL_TASKS.map((t) => builtInTaskView(s, t)),
+    ...rows.map((c) => customView(s, c)),
+  ];
+  return opts?.enabledOnly ? all.filter((v) => !v.disabled) : all;
+}
+
+/** One task by id, on or off; null when no task has the id. */
+export function findTask(s: Settings, customs: readonly CustomTask[], id: string): TaskView | null {
+  const t = builtInTask(id);
+  if (t !== null) return builtInTaskView(s, t);
+  const c = customs.find((row) => row.id === id);
+  return c ? customView(s, c) : null;
+}
+
+/** The heading over an answer's notes. The tooltip's Explain button runs Translate with the explain brief, so Translate's notes explain the text too. */
+export function notesLabel(id: string, views?: readonly TaskView[]): string {
+  return taskCapabilities(id, views).notesLabel;
+}
+
+/** Presentation and language for a task, including a safe fallback for saved future tasks. */
+export function taskCapabilities(id: string, views: readonly TaskView[] = SHIPPED_TASK_VIEWS) {
+  return (
+    views.find((v) => v.id === id) ??
+    SHIPPED_TASK_VIEWS.find((v) => v.id === id) ?? {
+      ...CUSTOM_PRESENTATION,
+      answersIn: 'target' as const,
+    }
+  );
+}
+
+/** A built-in id, or the id of a task the list still has. */
+export function taskExists(views: readonly TaskView[], id: string): boolean {
+  return views.some((x) => x.id === id) || builtInTask(id) !== null;
+}
+
+/** The shared name of a task, including a deleted task. */
+export function taskLabel(views: readonly TaskView[], id: string): string {
+  const v = views.find((x) => x.id === id);
+  if (v) return v.label;
+  const t = builtInTask(id);
+  return t !== null ? TASK_LABELS[t] : 'Deleted task';
+}

@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Ega Smart Bubble Fixture</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      body {
+        font:
+          16px/1.6 system-ui,
+          sans-serif;
+        max-width: 720px;
+        margin: 40px auto;
+        padding: 0 20px;
+        color: #111;
+        background: #fff;
+      }
+      h1 {
+        font-size: 20px;
+      }
+      p {
+        padding: 12px;
+        border-radius: 6px;
+        margin: 12px 0;
+      }
+      #english {
+        background: #eef7ff;
+      }
+      #arabizi {
+        background: #f7f7f7;
+      }
+      /* Capture spec applies [data-theme=dark] to <html> before
+         shooting the smart-bubble-default-dark variant. Without
+         these overrides the page rendered light tokens behind a
+         dark chip, and the judge correctly flagged the parity
+         miss. Mirrors the dark-token contrast the real host page
+         would carry under prefers-color-scheme: dark. */
+      html[data-theme='dark'] {
+        color-scheme: dark;
+      }
+      html[data-theme='dark'] body {
+        color: #e6edf3;
+        background: #0d1117;
+      }
+      html[data-theme='dark'] #english {
+        background: #1c2733;
+      }
+      html[data-theme='dark'] #arabizi,
+      html[data-theme='dark'] #mixed {
+        background: #161b22;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Ega E2E Smart Bubble Fixture</h1>
+    <p>
+      Two paragraphs — one plain English, one arabizi. Smart mode should suppress the bubble on the
+      English one and show it on the arabizi one.
+    </p>
+    <p id="english">
+      Hello friend, how are you doing today? I hope the weather is nice where you live.
+    </p>
+    <p id="arabizi">mar7aba 7abibi, kifak? shu 3am ta3mel?</p>
+    <p id="mixed">e5wet l jiran ma byeltezmo b aya deal breaching agreements left and right</p>
+  </body>
+</html>

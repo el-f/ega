@@ -1,0 +1,15 @@
+# SYNTHETIC FIXTURE — compare against vendor docs if parser drift is suspected
+# Groq is OpenAI Chat Completions SSE-compatible; see
+# https://console.groq.com/docs/api-reference#chat-create
+data: {"id":"chatcmpl-g1","object":"chat.completion.chunk","created":1713456789,"model":"llama-3.3-70b-versatile","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-g1","object":"chat.completion.chunk","created":1713456789,"model":"llama-3.3-70b-versatile","choices":[{"index":0,"delta":{"content":"{\"translation\":\"hello"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-g1","object":"chat.completion.chunk","created":1713456789,"model":"llama-3.3-70b-versatile","choices":[{"index":0,"delta":{"content":"\",\"confidence\":0.91"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-g1","object":"chat.completion.chunk","created":1713456789,"model":"llama-3.3-70b-versatile","choices":[{"index":0,"delta":{"content":",\"detectedLang\":\"arabizi\"}"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-g1","object":"chat.completion.chunk","created":1713456789,"model":"llama-3.3-70b-versatile","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}
+
+data: [DONE]
+

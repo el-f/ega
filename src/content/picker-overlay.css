@@ -1,0 +1,36 @@
+/* Element-picker overlay. Injected into the shadow root by picker-overlay.ts when the picker first opens, so it stays out of the eager sheet. */
+.picker-dimmer {
+  position: fixed;
+  inset: 0;
+  z-index: var(--ega-layer-dimmer);
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.3); /* token-lint-allow: a page dim, the same on every theme */
+}
+.picker-outline {
+  transition:
+    left 120ms ease-out,
+    top 120ms ease-out,
+    width 120ms ease-out,
+    height 120ms ease-out;
+  position: fixed;
+  z-index: var(--ega-layer-outline);
+  pointer-events: none;
+  border: 2px solid var(--color-accent);
+  border-radius: 2px;
+  /* A spotlight: the spread shadow dims everything but the target, which stays as bright as the page around it. */
+  box-shadow:
+    0 0 0 1px var(--color-picker-border),
+    0 0 0 100vmax rgba(0, 0, 0, 0.3); /* token-lint-allow: the dimmer's own color, cut out around the target */
+}
+@media (prefers-reduced-motion: reduce) {
+  .picker-outline {
+    transition: none;
+  }
+}
+.picker-outline:not([hidden]) + .picker-dimmer {
+  background: transparent;
+}
+/* A private field Ega will not read; the picker bar says why. */
+.picker-outline.is-blocked {
+  border-color: var(--color-danger);
+}

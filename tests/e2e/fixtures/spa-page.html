@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Ega E2E single-page app fixture</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      body {
+        font:
+          16px/1.6 system-ui,
+          sans-serif;
+        max-width: 720px;
+        margin: 40px auto;
+        padding: 0 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <nav>
+      <a id="next" href="/next-route">Next page</a>
+      <button id="filter" type="button">Filter</button>
+    </nav>
+    <main id="view">
+      <h1>First route</h1>
+      <p>A page whose links change the route without a reload.</p>
+    </main>
+    <script>
+      // The page's own router: an in-app link pushes a new history entry and swaps the view, with no reload.
+      document.getElementById('next').addEventListener('click', (e) => {
+        e.preventDefault();
+        history.pushState({}, '', e.currentTarget.getAttribute('href'));
+        document.getElementById('view').innerHTML = '<h1>Second route</h1>';
+      });
+      // A filter rewrites the current entry's query only: still the same route.
+      document.getElementById('filter').addEventListener('click', () => {
+        history.replaceState({}, '', '?filter=1');
+      });
+    </script>
+  </body>
+</html>

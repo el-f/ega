@@ -1,0 +1,26 @@
+# Settings-runtime-propagation theme-change-cross-surface rubric
+
+## Latency budgets
+
+- Theme change -> all surfaces flip `data-theme`: <= 1 frame.
+
+## State expectations
+
+- Step 1: popup, sidepanel, tooltip, and options are all mounted under theme A (light).
+- Step 2 (pick Dark in the Options header): the `data-theme` attribute on every surface's root flips.
+- Step 3: all surfaces repaint with dark-mode tokens in the same frame; no flicker, no stagger.
+
+## Visible affordances
+
+- The popup and the side panel have no theme control; the Options header shows a System/Light/Dark radio group.
+- The selected radio reflects the new theme.
+
+## Failure-mode expectations
+
+- A surface that fails to observe the storage change (rare) shows stale theme until the next mount.
+- System theme (`theme === 'system'`) flips when the OS-level dark mode changes.
+
+## Cautions
+
+- The tooltip's shadow host follows the stored theme via the settings-change listener; a page's own `documentElement[data-theme]` (watched by MutationObserver) wins over it.
+- Tokens only — no hardcoded colors that don't flip.

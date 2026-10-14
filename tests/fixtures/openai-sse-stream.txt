@@ -1,0 +1,6 @@
+data: {"choices":[{"delta":{"content":"{\"translation\":\"bon"}}]}
+
+data: {"choices":[{"delta":{"content":"jour\",\"confidence\":0.88}"}}]}
+
+data: [DONE]
+

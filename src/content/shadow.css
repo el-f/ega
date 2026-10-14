@@ -1,0 +1,269 @@
+@import '../shared/tokens.css';
+
+:host {
+  all: initial;
+  /* `all` leaves direction alone, so an RTL page would mirror Ega's English chrome; answers set dir=auto themselves. */
+  direction: ltr;
+  /* Every Ega layer sits inside the one host stacking context, bottom to top. */
+  --ega-layer-dimmer: 1;
+  --ega-layer-outline: 2;
+  --ega-layer-bar: 3;
+  --ega-layer-bubble: 4;
+  --ega-layer-tooltip: 5;
+  --ega-layer-toast: 6;
+  --ega-layer-label: 7;
+}
+.ega-root {
+  font-family: var(--font-ui);
+  font-size: var(--fs-md);
+  color: var(--color-fg);
+}
+
+.bubble-group {
+  position: fixed;
+  z-index: var(--ega-layer-bubble);
+  display: inline-flex;
+  align-items: stretch;
+  height: 28px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-control-border);
+  border-radius: var(--radius-pill);
+  box-shadow: 0 4px 12px var(--color-shadow-soft);
+  font-family: var(--font-ui);
+  user-select: none;
+  /* The bubble is remounted per selection, so this fires once per pick. */
+  animation: ega-bubble-pop var(--motion-fast) var(--ease-out) both;
+}
+/* On a right-to-left block the bubble lines up with the selection's right edge; translate, not transform, so the pop keeps working. */
+.bubble-group.is-rtl {
+  translate: -100% 0;
+}
+.bubble,
+.bubble-more {
+  display: inline-flex;
+  align-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--color-fg);
+  font: inherit;
+  cursor: pointer;
+}
+.bubble {
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
+  border-start-start-radius: var(--radius-pill);
+  border-end-start-radius: var(--radius-pill);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+.bubble-label {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bubble-more {
+  justify-content: center;
+  width: 26px;
+  border-inline-start: 1px solid var(--color-border-subtle);
+  border-start-end-radius: var(--radius-pill);
+  border-end-end-radius: var(--radius-pill);
+}
+.bubble-more svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.bubble:hover,
+.bubble-more:hover {
+  background: var(--color-bg-hover);
+}
+.bubble:focus-visible,
+.bubble-more:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+/* First-run pulse: 3 rings, then it stops. A settings flag prevents replays. */
+.bubble-group.is-first-run::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  pointer-events: none;
+  animation: ega-bubble-ring 1.1s var(--ease-out) 3;
+}
+@keyframes ega-bubble-ring {
+  from {
+    box-shadow: 0 0 0 0 var(--color-accent);
+  }
+  to {
+    box-shadow: 0 0 0 12px transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bubble-group,
+  .bubble-group::after {
+    animation: none;
+  }
+}
+@keyframes ega-bubble-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Content-surface toast. Its rules live here because a component <style> never crosses the shadow boundary. */
+.ega-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: max-content;
+  max-width: min(400px, calc(100vw - var(--space-6)));
+  box-sizing: border-box;
+  background: var(--color-bg-elevated);
+  color: var(--color-fg);
+  border: 1px solid var(--color-border);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-body);
+  font-family: var(--font-ui);
+  text-align: start;
+  box-shadow: 0 2px 8px var(--color-shadow);
+  z-index: var(--ega-layer-toast);
+  animation: ega-content-toast-in 200ms ease-out;
+}
+/* Above a bottom bar, the bar's own sheet lifts the toast: batch-progress.css (pill), picker-bar.css (picker bar). */
+.ega-toast-icon {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  color: var(--color-muted);
+}
+.ega-toast[data-kind='success'] > .ega-toast-icon {
+  color: var(--color-success-fg);
+}
+.ega-toast[data-kind='warning'] > .ega-toast-icon {
+  color: var(--color-warning-fg);
+}
+.ega-toast[data-kind='error'] > .ega-toast-icon {
+  color: var(--color-danger-fg);
+}
+.ega-toast-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.ega-toast-action,
+.ega-toast-close {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+}
+.ega-toast-action {
+  height: 28px;
+  padding: 0 var(--space-2);
+  color: var(--color-accent);
+  font-weight: 600;
+}
+.ega-toast-close {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  color: var(--color-muted);
+}
+.ega-toast-action:hover {
+  background: var(--color-accent-bg-hover);
+}
+.ega-toast-close:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-fg);
+}
+
+/* Own keyframe: this toast is centered with translateX(-50%), which the shared Y-only keyframe would overwrite. */
+@keyframes ega-content-toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+/* Reduced motion: the toast fades in where it stands, with no rise. */
+@media (prefers-reduced-motion: reduce) {
+  .ega-toast {
+    animation-name: ega-content-toast-fade;
+  }
+}
+@keyframes ega-content-toast-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* The mark is a row of its own inside the bubble's, so no child needs a margin. */
+.bubble .ega-brand-mark {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Shadow-root copy of the BrandMark icon. The tooltip's copies live in tooltip/tooltip.css, which loads with the tooltip. */
+
+.ega-brand-mark-icon {
+  width: var(--ega-brand-icon-size);
+  height: var(--ega-brand-icon-size);
+  flex: 0 0 var(--ega-brand-icon-size);
+  display: block;
+}
+
+/* Shared answer notes rendered in the page shadow root. */
+
+.answer-notes {
+  margin-block-start: var(--space-2);
+  min-block-size: 0;
+  overflow-wrap: anywhere;
+}
+.answer-note-label {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--color-muted);
+  margin: 0 0 var(--space-2);
+}
+.answer-note-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--color-muted);
+  --ega-md-fs: var(--fs-md);
+}
+.answer-note-image {
+  font-weight: 400;
+}
+.answer-note-items {
+  margin: 0;
+  padding-inline-start: var(--space-5);
+}

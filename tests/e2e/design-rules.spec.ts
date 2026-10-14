@@ -1,0 +1,192 @@
+import { test, expect, type Page } from '@playwright/test';
+import { launchExtension, mockAnthropic, seedSettings, type ExtensionHandle } from './helpers';
+import { checkDesignRules, designRuleViolations } from './design-rules';
+import {
+  GATE_PLATFORM,
+  GATE_SURFACES,
+  GATE_THEMES,
+  GATE_WIDTHS,
+  gateKey,
+  optionsSurface,
+} from './design-rules-gate';
+import { SETTINGS_TABS } from '../../src/shared/settings-tabs';
+
+// The design-rules gate: every main surface at the side panel's width and at desktop width, light and dark.
+
+let ext: ExtensionHandle | undefined;
+
+test.afterEach(async () => {
+  await ext?.close();
+  ext = undefined;
+});
+
+/** Checks the page at each width under one baseline key per width. */
+async function checkAtEveryWidth(page: Page, surface: string, theme: string): Promise<void> {
+  for (const w of GATE_WIDTHS) {
+    await page.setViewportSize({ width: w.width, height: w.height });
+    // A resize settles in the next frames; two rAFs see the new layout.
+    await page.evaluate(
+      () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))),
+    );
+    await checkDesignRules(page, gateKey(surface, w.name, theme));
+  }
+}
+
+test.describe('gate', () => {
+  test.skip(
+    process.platform !== GATE_PLATFORM,
+    'The gate- baseline keys hold what the Linux CI runner finds, and text is a different width on this platform. For a local check use screenshot-audit: pnpm visual:capture.',
+  );
+
+  for (const theme of GATE_THEMES) {
+    test(`popup, side panel and every options tab keep the design rules (${theme})`, async () => {
+      test.slow();
+      ext = await launchExtension({ colorScheme: theme });
+      await seedSettings(ext.context, ext.extensionId, { anthropicApiKey: 'sk-test' });
+
+      const popup = await ext.context.newPage();
+      await popup.goto(`chrome-extension://${ext.extensionId}/src/popup/index.html`);
+      await popup.locator('#pop-lang').waitFor();
+      await checkAtEveryWidth(popup, GATE_SURFACES.popup, theme);
+      await popup.close();
+
+      mockAnthropic(ext.context, { translation: 'Hello, friend.' });
+      const panel = await ext.context.newPage();
+      await panel.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
+      await expect(panel.locator('[data-ega-sidepanel-empty]')).toBeVisible();
+      await checkAtEveryWidth(panel, GATE_SURFACES.sidepanelEmpty, theme);
+      await panel.locator('#sp-text').fill('hola amigo');
+      await panel.locator('#sp-text').press('Enter');
+      await expect(panel.locator('.ega-answer').first()).toContainText('Hello, friend.', {
+        timeout: 10_000,
+      });
+      await checkAtEveryWidth(panel, GATE_SURFACES.sidepanelExchange, theme);
+      await panel.close();
+
+      const options = await ext.context.newPage();
+      await options.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
+      for (const tab of SETTINGS_TABS) {
+        await options.locator(`#tab-${tab.id}`).click();
+        await expect(
+          options.locator(`#tabpanel-${tab.id}`).getByRole('heading', { name: tab.label }).first(),
+        ).toBeVisible();
+        await checkAtEveryWidth(options, optionsSurface(tab.id), theme);
+        await options.setViewportSize({
+          width: GATE_WIDTHS[1].width,
+          height: GATE_WIDTHS[1].height,
+        });
+      }
+    });
+  }
+});
+
+test('flags cut-off text, undeclared ellipsis and off-scale font sizes, and nothing else', async () => {
+  ext = await launchExtension();
+  const page = await ext.context.newPage();
+  await page.goto(`chrome-extension://${ext.extensionId}/src/popup/index.html`);
+  await page.locator('#pop-lang').waitFor();
+  // Text widths differ by platform, so the popup's own findings do too; the probe checks only what it adds.
+  const popupOwn = await designRuleViolations(page);
+
+  await page.evaluate(() => {
+    const ellipsis = 'display:block;overflow:hidden;white-space:nowrap;text-overflow:ellipsis';
+    const box = document.createElement('div');
+    box.innerHTML = [
+      '<button data-ega-probe-clip style="width:40px;overflow:hidden;white-space:nowrap;font-size:var(--fs-sm)">Translate this page</button>',
+      '<span data-ega-probe-tiny style="font-size:11px">Tiny meta</span>',
+      '<label class="ega-sr-only">Screen reader only label</label>',
+      '<button style="width:200px;font-size:var(--fs-sm)">Fits</button>',
+      '<button style="width:120px;font-size:var(--fs-sm)"><span data-ega-probe-ellipsis style="display:block;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">A label far too long for this button</span></button>',
+      '<div role="tab" data-ega-probe-tab style="width:30px;overflow:hidden;white-space:nowrap;font-size:var(--fs-sm)">Appearance</div>',
+      '<button data-ega-probe-tall style="width:200px;height:12px;overflow:hidden;font-size:var(--fs-sm)">Two words</button>',
+      '<span style="display:block;width:300px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:var(--fs-sm)">Short</span>',
+      // R17: an ellipsis passes only on text marked data-ega-truncates whose full text is in the accessible name.
+      `<button aria-label="Open: A label far too long for this button" style="width:120px;font-size:var(--fs-sm)"><span data-ega-probe-ok-aria data-ega-truncates style="${ellipsis}">A label far too long for this button</span></button>`,
+      `<span data-ega-probe-ok-title data-ega-truncates title="A title far too long for its box" style="${ellipsis};width:100px;font-size:var(--fs-sm)">A title far too long for its box</span>`,
+      '<span id="ega-probe-name" class="ega-sr-only">A name far too long for its box</span>',
+      `<span data-ega-probe-ok-labelledby data-ega-truncates aria-labelledby="ega-probe-name" style="${ellipsis};width:100px;font-size:var(--fs-sm)">A name far too long for its box</span>`,
+      `<button aria-label="Row: A conversation title far too long" style="width:120px;font-size:var(--fs-sm)"><span><span data-ega-probe-ok-ancestor data-ega-truncates style="${ellipsis}">A conversation title far too long</span></span></button>`,
+      `<div data-ega-truncates><span data-ega-probe-marker-above title="A title far too long for its box" style="${ellipsis};width:100px;font-size:var(--fs-sm)">A title far too long for its box</span></div>`,
+      `<button aria-label="Open" style="width:120px;font-size:var(--fs-sm)"><span data-ega-probe-partial-name data-ega-truncates style="${ellipsis}">Another label far too long here</span></button>`,
+      `<span data-ega-probe-no-name data-ega-truncates style="${ellipsis};width:100px;font-size:var(--fs-sm)">An unnamed label far too long</span>`,
+      // The name is the one a screen reader gets: aria-labelledby, then aria-label, then the control's own text, then title.
+      `<button aria-label="Open" style="width:120px;font-size:var(--fs-sm)"><span data-ega-probe-title-masked data-ega-truncates title="Another label far too long here" style="${ellipsis}">Another label far too long here</span></button>`,
+      `<button style="width:140px;font-size:var(--fs-sm)"><span data-ega-probe-ok-content data-ega-truncates style="${ellipsis}">Translate to a language far too long</span></button>`,
+      '<span id="ega-probe-open" class="ega-sr-only">Open</span>',
+      `<button aria-labelledby="ega-probe-open" aria-label="Open: Another label far too long now" style="width:120px;font-size:var(--fs-sm)"><span data-ega-probe-labelledby-wins data-ega-truncates style="${ellipsis}">Another label far too long now</span></button>`,
+      // The order is pinned from both sides: a title is last, native labels come before the control's own text, and a link or a heading is a holder too.
+      `<button aria-label="Open" title="Another label far too long here" style="width:120px;font-size:var(--fs-sm)"><span data-ega-probe-title-last data-ega-truncates style="${ellipsis}">Another label far too long here</span></button>`,
+      `<button title="Open" style="width:140px;font-size:var(--fs-sm)"><span data-ega-probe-ok-content-over-title data-ega-truncates style="${ellipsis}">Translate to a language far too long</span></button>`,
+      '<label for="ega-probe-btn" style="font-size:var(--fs-sm)">Open</label>',
+      `<button id="ega-probe-btn" style="width:120px;font-size:var(--fs-sm)"><span data-ega-probe-label-over-content data-ega-truncates style="${ellipsis}">Another label far too long here</span></button>`,
+      `<a href="#ega-probe" aria-label="Open" style="display:block;width:120px;font-size:var(--fs-sm)"><span data-ega-probe-link-masked data-ega-truncates title="Another label far too long here" style="${ellipsis}">Another label far too long here</span></a>`,
+      `<h3 data-ega-probe-ok-heading data-ega-truncates style="${ellipsis};width:100px;font-size:var(--fs-sm);margin:0">A heading far too long for its box</h3>`,
+      // A control cut by its own ellipsis passes when declared; the same control cut by a plain clip is flagged.
+      `<button data-ega-probe-ok-own data-ega-truncates aria-label="Open: A button label far too long" style="width:100px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:var(--fs-sm)">A button label far too long</button>`,
+      `<button data-ega-probe-clip-marked data-ega-truncates aria-label="Open: A button label far too long" style="width:100px;overflow:hidden;white-space:nowrap;font-size:var(--fs-sm)">A button label far too long</button>`,
+      // A drawn ellipsis needs overflow other than visible and a block box: a flex box hard-cuts, and overflow: visible spills.
+      `<button data-ega-probe-flex data-ega-truncates aria-label="Open: A button label far too long" style="display:inline-flex;width:100px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:var(--fs-sm)">A button label far too long</button>`,
+      `<span data-ega-probe-visible data-ega-truncates title="A title far too long for its box" style="${ellipsis};overflow:visible;width:100px;font-size:var(--fs-sm)">A title far too long for its box</span>`,
+      `<label for="ega-probe-field" data-ega-probe-ok-label data-ega-truncates style="${ellipsis};width:100px;font-size:var(--fs-sm)">A field label far too long here</label><input id="ega-probe-field" style="width:60px">`,
+      `<label for="ega-probe-field-2" data-ega-probe-label-masked data-ega-truncates style="${ellipsis};width:100px;font-size:var(--fs-sm)">Another field label far too long</label><input id="ega-probe-field-2" aria-label="Search" style="width:60px">`,
+      `<button aria-label="A label far too long for this button" style="width:120px;font-size:var(--fs-sm)"><span data-ega-probe-no-marker style="${ellipsis}">A label far too long for this button</span></button>`,
+    ].join('');
+    document.body.prepend(box);
+  });
+
+  const added = (await designRuleViolations(page)).filter((v) => !popupOwn.includes(v));
+  expect(added).toEqual([
+    'clip button[data-ega-probe-clip-marked] "A button label far too long"',
+    'clip button[data-ega-probe-clip] "Translate this page"',
+    'clip button[data-ega-probe-flex] "A button label far too long"',
+    'clip div[data-ega-probe-tab] "Appearance"',
+    'clip label[data-ega-probe-label-masked] "Another field label far too long"',
+    'clip span[data-ega-probe-ellipsis] "A label far too long for this button"',
+    'clip span[data-ega-probe-label-over-content] "Another label far too long here"',
+    'clip span[data-ega-probe-labelledby-wins] "Another label far too long now"',
+    'clip span[data-ega-probe-link-masked] "Another label far too long here"',
+    'clip span[data-ega-probe-marker-above] "A title far too long for its box"',
+    'clip span[data-ega-probe-no-marker] "A label far too long for this button"',
+    'clip span[data-ega-probe-no-name] "An unnamed label far too long"',
+    'clip span[data-ega-probe-partial-name] "Another label far too long here"',
+    'clip span[data-ega-probe-title-last] "Another label far too long here"',
+    'clip span[data-ega-probe-title-masked] "Another label far too long here"',
+    'clip span[data-ega-probe-visible] "A title far too long for its box"',
+    'clip-y button[data-ega-probe-tall] "Two words"',
+    'font 11px span[data-ega-probe-tiny] "Tiny meta"',
+  ]);
+});
+
+test('hover labels do not count as clipped control text, while real clipped labels still fail', async () => {
+  ext = await launchExtension();
+  const page = await ext.context.newPage();
+  await page.goto(`chrome-extension://${ext.extensionId}/src/popup/index.html`);
+  await page.locator('#pop-lang').waitFor();
+  await page.evaluate(() => {
+    const button = document.createElement('button');
+    button.setAttribute('data-ega-probe-overlay', '');
+    button.setAttribute('data-tooltip', 'An explanatory hover label wider than the button');
+    button.setAttribute('data-tooltip-placement', 'bottom');
+    button.style.cssText = 'width:50px;height:32px;white-space:nowrap;font-size:var(--fs-sm)';
+    button.textContent = 'Go';
+    document.body.append(button);
+    button.focus();
+  });
+  const relevant = async () =>
+    (await designRuleViolations(page)).filter((finding) =>
+      finding.includes('data-ega-probe-overlay'),
+    );
+  expect(await relevant()).toEqual([]);
+  expect(
+    await page
+      .locator('[data-ega-probe-overlay]')
+      .evaluate((button) => getComputedStyle(button, '::after').content),
+  ).toContain('An explanatory hover label');
+  await page.locator('[data-ega-probe-overlay]').evaluate((button) => {
+    button.textContent = 'Long visible button label';
+    (button as HTMLElement).style.overflow = 'hidden';
+  });
+  expect(await relevant()).toContain(
+    'clip button[data-ega-probe-overlay] "Long visible button label"',
+  );
+});

@@ -1,0 +1,12 @@
+[
+  "src/content/tooltip/tooltip.css  rgba(255, 255, 255, 0) 0%,",
+  "src/content/tooltip/tooltip.css  rgba(255, 255, 255, 0) 100%",
+  "src/content/tooltip/tooltip.css  rgba(255, 255, 255, 0.18) 50%,",
+  "src/options/components/CollapsibleInstallPanel.svelte  box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.15));",
+  "src/options/components/DisplayModeMock.svelte  border-bottom: 1px dashed rgba(88, 166, 255, 0.4);",
+  "src/options/components/SettingsListView.svelte  background: color-mix(in srgb, var(--color-accent) 30%, transparent);",
+  "src/options/components/TemplateDiffModal.svelte  background: rgba(0, 200, 0, 0.06);",
+  "src/options/components/TemplateDiffModal.svelte  background: rgba(200, 0, 0, 0.06);",
+  "src/shared/ui/Popover.svelte  background: rgba(0, 0, 0, 0.32);",
+  "src/shared/ui/Popover.svelte  background: var(--color-overlay, rgba(0, 0, 0, 0.16));"
+]

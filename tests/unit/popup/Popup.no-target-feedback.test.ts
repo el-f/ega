@@ -1,0 +1,218 @@
+// @vitest-environment jsdom
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
+import type { Mock } from 'vitest';
+import { render, fireEvent } from '@testing-library/svelte';
+import Popup from '@/popup/Popup.svelte';
+import { readPopupDraft } from '@/shared/pending-popup-draft';
+import { flushAsync } from '@tests/_helpers/async';
+
+beforeEach(async () => {
+  await chrome.storage.local.set({ 'ega.settings': { anthropicApiKey: 'test-key' } });
+});
+
+afterEach(() => {
+  vi.clearAllMocks();
+});
+
+/** The 150 ms debounced draft write has landed with this text. */
+async function draftSaved(text: string): Promise<void> {
+  await vi.waitFor(async () => expect((await readPopupDraft())?.text).toBe(text));
+}
+
+function onlyChromeTabs(): void {
+  const query = chrome.tabs.query as unknown as Mock;
+  query.mockResolvedValue([{ id: 9, url: 'chrome://extensions/' }]);
+}
+
+/** No active tab at all, e.g. every window is a devtools or app window. */
+function noTab(): void {
+  (chrome.tabs.query as unknown as Mock).mockResolvedValue([]);
+}
+
+describe('Popup — nothing to act on', () => {
+  it('blocks Pick element on a page Ega cannot run on, and says why', async () => {
+    onlyChromeTabs();
+    const sendToTab = chrome.tabs.sendMessage as unknown as Mock;
+    const { findByRole, findByText } = render(Popup);
+    expect(await findByText("Ega can't run on this page.")).toBeTruthy();
+    const pick = await findByRole('button', { name: 'Pick element' });
+    expect(pick.getAttribute('aria-disabled')).toBe('true');
+    await fireEvent.click(pick);
+    await flushAsync();
+    expect(sendToTab).not.toHaveBeenCalled();
+  });
+
+  it('says so when there is no tab for the side panel', async () => {
+    noTab();
+    const { container, findByRole, findByText } = render(Popup);
+    await findByRole('button', { name: 'Pick element' });
+    const tile = container.querySelector<HTMLButtonElement>('[data-ega-tool="panel"]');
+    if (!tile) throw new Error('panel tile not rendered');
+    await fireEvent.click(tile);
+    expect(await findByText(/Open a website tab, then try again/)).toBeTruthy();
+  });
+
+  it('freeform send explains the missing tab and that the text is kept', async () => {
+    noTab();
+    const { container, findByRole, findByText } = render(Popup);
+    const ta = container.querySelector('[data-ega-freeform-textarea]') as HTMLTextAreaElement;
+    await fireEvent.input(ta, { target: { value: 'hola' } });
+    await fireEvent.click(await findByRole('button', { name: 'Translate' }));
+    expect(await findByText(/The side panel needs a website tab/)).toBeTruthy();
+    expect(await findByText(/your text is kept/)).toBeTruthy();
+  });
+
+  it('never dispatches to a tab the user is not looking at', async () => {
+    const query = chrome.tabs.query as unknown as Mock;
+    query.mockImplementation(async (q: chrome.tabs.QueryInfo) =>
+      q.active === true ? [] : [{ id: 77, url: 'https://background-window.example/' }],
+    );
+    const sendToTab = chrome.tabs.sendMessage as unknown as Mock;
+
+    const { findByRole, findByText } = render(Popup);
+    await fireEvent.click(await findByRole('button', { name: 'Pick element' }));
+    expect(await findByText('Open a website tab, then try again.')).toBeTruthy();
+    expect(sendToTab).not.toHaveBeenCalled();
+  });
+
+  it('keeps the freeform draft when the handoff write fails', async () => {
+    const query = chrome.tabs.query as unknown as Mock;
+    query.mockResolvedValue([{ id: 42, url: 'https://example.com/' }]);
+    const open = vi.fn().mockResolvedValue(undefined);
+    const realSidePanel = chrome.sidePanel;
+    Object.defineProperty(chrome, 'sidePanel', {
+      configurable: true,
+      value: { open, setPanelBehavior: vi.fn() },
+    });
+    const session = chrome.storage.session as unknown as {
+      set: (items: Record<string, unknown>) => Promise<void>;
+    };
+    const realSet = session.set.bind(session);
+    const setSpy = vi.spyOn(session, 'set').mockImplementation(async (items) => {
+      if (Object.keys(items).includes('ega.pendingPopupHandoff')) throw new Error('QUOTA_BYTES');
+      await realSet(items);
+    });
+
+    const { container, findByRole, findByText } = render(Popup);
+    const ta = container.querySelector('[data-ega-freeform-textarea]') as HTMLTextAreaElement;
+    await fireEvent.input(ta, { target: { value: 'keep me too' } });
+    await draftSaved('keep me too');
+    await fireEvent.click(await findByRole('button', { name: 'Translate' }));
+
+    expect(await findByText(/couldn't open the side panel/)).toBeTruthy();
+    // The toast comes from the failed send itself, so one flush lets that send finish.
+    await flushAsync();
+    expect(open).not.toHaveBeenCalled();
+    expect((await readPopupDraft())?.text).toBe('keep me too');
+
+    setSpy.mockRestore();
+    Object.defineProperty(chrome, 'sidePanel', { configurable: true, value: realSidePanel });
+  });
+
+  it('keeps the freeform draft when the send fails', async () => {
+    noTab();
+    const { container, findByRole, findByText } = render(Popup);
+    const ta = container.querySelector('[data-ega-freeform-textarea]') as HTMLTextAreaElement;
+    await fireEvent.input(ta, { target: { value: 'keep me' } });
+    // The draft write is debounced; let it land before the failing send.
+    await draftSaved('keep me');
+    await fireEvent.click(await findByRole('button', { name: 'Translate' }));
+    expect(await findByText(/The side panel needs a website tab/)).toBeTruthy();
+    await flushAsync();
+    expect((await readPopupDraft())?.text).toBe('keep me');
+  });
+});
+
+// Spec 2.4: on a page Ega cannot run on, the clipboard, the side panel and the text box are what still works.
+describe('Popup — a page Ega cannot run on still has the side panel', () => {
+  it.each([
+    ['Open side panel', ''],
+    ['Translate clipboard', 'hola mundo'],
+    ['the text box', 'hola'],
+  ])('%s opens the panel beside that tab', async (what, text) => {
+    // The tab Chrome gives an extension with no "tabs" permission on a chrome:// page: an id, no url.
+    (chrome.tabs.query as unknown as Mock).mockResolvedValue([{ id: 9, windowId: 3 }]);
+    const open = chrome.sidePanel.open as unknown as Mock;
+    const closeSpy = vi.spyOn(window, 'close').mockImplementation(() => undefined);
+    const { container, findByRole, findByText } = render(Popup);
+    expect(await findByText("Ega can't run on this page.")).toBeTruthy();
+    if (what === 'Open side panel') {
+      await fireEvent.click(await findByRole('button', { name: 'Open side panel' }));
+    } else if (what === 'Translate clipboard') {
+      (navigator.clipboard.readText as unknown as Mock).mockResolvedValueOnce(text);
+      await fireEvent.click(await findByRole('button', { name: 'Translate clipboard' }));
+    } else {
+      const ta = container.querySelector('[data-ega-freeform-textarea]') as HTMLTextAreaElement;
+      await fireEvent.input(ta, { target: { value: text } });
+      await fireEvent.click(await findByRole('button', { name: 'Translate' }));
+    }
+    await vi.waitFor(() => expect(open).toHaveBeenCalledWith({ tabId: 9 }));
+    closeSpy.mockRestore();
+  });
+});
+
+describe('Popup — clipboard tile feedback', () => {
+  it('clipboard with text + no tab explains the missing tab, not the page', async () => {
+    noTab();
+    const readText = navigator.clipboard.readText as unknown as Mock;
+    readText.mockResolvedValueOnce('hola mundo');
+
+    const { findByRole, findByText } = render(Popup);
+    await fireEvent.click(await findByRole('button', { name: 'Translate clipboard' }));
+
+    expect(await findByText(/The side panel needs a website tab/)).toBeTruthy();
+  });
+
+  it('says the clipboard is empty instead of silently opening the panel', async () => {
+    const readText = navigator.clipboard.readText as unknown as Mock;
+    readText.mockResolvedValueOnce('   ');
+    const open = chrome.sidePanel.open as unknown as Mock;
+
+    const { findByRole, findByText } = render(Popup);
+    await fireEvent.click(await findByRole('button', { name: 'Translate clipboard' }));
+
+    expect(await findByText(/The clipboard is empty/)).toBeTruthy();
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it('says when the clipboard cannot be read', async () => {
+    const readText = navigator.clipboard.readText as unknown as Mock;
+    readText.mockRejectedValueOnce(new Error('denied'));
+    const open = chrome.sidePanel.open as unknown as Mock;
+
+    const { findByRole, findByText } = render(Popup);
+    await fireEvent.click(await findByRole('button', { name: 'Translate clipboard' }));
+
+    expect(await findByText(/couldn't read the clipboard/)).toBeTruthy();
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it('requests the optional clipboardRead permission in the click and stops on deny', async () => {
+    const contains = chrome.permissions.contains as unknown as Mock;
+    const request = chrome.permissions.request as unknown as Mock;
+    contains.mockResolvedValueOnce(false);
+    request.mockResolvedValueOnce(false);
+    const readText = navigator.clipboard.readText as unknown as Mock;
+
+    const { findByRole, findByText } = render(Popup);
+    await fireEvent.click(await findByRole('button', { name: 'Translate clipboard' }));
+
+    expect(request).toHaveBeenCalledWith({ permissions: ['clipboardRead'] });
+    expect(await findByText(/needs clipboard access/)).toBeTruthy();
+    expect(readText).not.toHaveBeenCalled();
+  });
+
+  it('a granted permission request falls through to the clipboard read', async () => {
+    const contains = chrome.permissions.contains as unknown as Mock;
+    const request = chrome.permissions.request as unknown as Mock;
+    contains.mockResolvedValueOnce(false);
+    request.mockResolvedValueOnce(true);
+    const readText = navigator.clipboard.readText as unknown as Mock;
+    readText.mockResolvedValueOnce('   ');
+
+    const { findByRole, findByText } = render(Popup);
+    await fireEvent.click(await findByRole('button', { name: 'Translate clipboard' }));
+
+    expect(await findByText(/The clipboard is empty/)).toBeTruthy();
+  });
+});
