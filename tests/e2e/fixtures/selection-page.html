@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Ega E2E Selection Fixture</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      body {
+        font:
+          16px/1.6 system-ui,
+          sans-serif;
+        max-width: 720px;
+        margin: 40px auto;
+        padding: 0 20px;
+        color: #111;
+        background: #fff;
+      }
+      h1 {
+        font-size: 20px;
+      }
+      #arabizi {
+        padding: 12px;
+        background: #f7f7f7;
+        border-radius: 6px;
+      }
+      /* Capture spec flips html[data-theme=dark] for the *-dark
+         tooltip + smart-bubble shots. Without these the page stayed
+         in light tokens behind a dark shadow-host card and the judge
+         correctly flagged theme parity. */
+      html[data-theme='dark'] {
+        color-scheme: dark;
+      }
+      html[data-theme='dark'] body {
+        color: #e6edf3;
+        background: #0d1117;
+      }
+      html[data-theme='dark'] #arabizi,
+      html[data-theme='dark'] #arabizi-short {
+        background: #161b22;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Ega E2E Selection Fixture</h1>
+    <p>
+      Static HTML used by Playwright to exercise the Ega content-script selection flow. The
+      paragraph below should trigger the arabizi preset auto-detection.
+    </p>
+    <p id="arabizi">mar7aba, kifak? shu 3am ta3mel?</p>
+    <!-- Short Arabizi with no digit sandwich: looksLikeEnglish must not call text under 3 tokens English and hide the bubble. -->
+    <p id="arabizi-short">Min hayde</p>
+    <p id="filler">
+      This paragraph is here so there is a click target well outside the tooltip for
+      click-outside-dismiss tests.
+    </p>
+  </body>
+</html>

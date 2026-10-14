@@ -1,0 +1,3 @@
+{"type":"system","subtype":"init","session_id":"test-session"}
+{"type":"assistant","message":{"model":"claude-haiku-4-5","content":[{"type":"text","text":"{\"translation\":\"Welcome, how are you?\",\"confidence\":0.93,\"detectedLang\":\"arabizi\"}"}]}}
+{"type":"result","subtype":"success","result":"{\"translation\":\"Welcome, how are you?\",\"confidence\":0.93,\"detectedLang\":\"arabizi\"}","is_error":false}

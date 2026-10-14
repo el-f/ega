@@ -1,0 +1,342 @@
+// @vitest-environment jsdom
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { render, fireEvent, waitFor } from '@testing-library/svelte';
+import ConversationsPopover from '@/sidepanel/ConversationsPopover.svelte';
+import { saveThread } from '@/sidepanel/state/conversation-store';
+import type { Turn } from '@/sidepanel/state/conversation';
+import { readFileSync } from 'node:fs';
+
+function userTurn(id: string, content: string): Turn {
+  return { id, role: 'user', kind: 'translate', status: 'idle', createdAt: 1, content };
+}
+
+function anchor(): HTMLElement {
+  const a = document.createElement('button');
+  document.body.appendChild(a);
+  return a;
+}
+
+async function seed(): Promise<void> {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(1_000);
+  await saveThread('https://a.test', [userTurn('a1', 'como estas')]);
+  vi.setSystemTime(2_000);
+  await saveThread('https://a.test#x', [
+    userTurn('a2', 'Hola, me llamo Ana\nsegunda'),
+    userTurn('a3', 'b'),
+  ]);
+  vi.setSystemTime(3_000);
+  await saveThread('https://other.test', [userTurn('o1', 'Bonjour à tous')]);
+  vi.useRealTimers();
+}
+
+function rows(): HTMLElement[] {
+  return Array.from(document.body.querySelectorAll<HTMLElement>('[data-ega-conv-row]'));
+}
+
+afterEach(() => {
+  vi.useRealTimers();
+  document.body.innerHTML = '';
+});
+
+describe('Conversations popover', () => {
+  it('pins the open conversation and its site even when the browser tab follows another site', async () => {
+    await seed();
+    render(ConversationsPopover, {
+      props: {
+        open: true,
+        anchor: anchor(),
+        activeId: 'https://a.test',
+        tabSite: 'https://other.test',
+        onClose: () => {},
+        onOpen: async () => true,
+        onDelete: async () => ({ undo: () => {} }),
+      },
+    });
+    await waitFor(() => expect(rows()).toHaveLength(3));
+    expect(rows().map((r) => r.dataset['egaConvRow'])).toEqual([
+      'https://a.test',
+      'https://a.test#x',
+      'https://other.test',
+    ]);
+    expect(rows()[0]?.querySelector('[aria-current="true"]')).not.toBeNull();
+    expect(rows()[0]?.classList.contains('current')).toBe(true);
+  });
+
+  it('offers Delete only for this site and ignores Delete on another site', async () => {
+    await seed();
+    const onDelete = vi.fn(async () => ({ undo: () => {} }));
+    render(ConversationsPopover, {
+      props: {
+        open: true,
+        anchor: anchor(),
+        activeId: 'https://a.test',
+        tabSite: 'https://other.test',
+        onClose: () => {},
+        onOpen: async () => true,
+        onDelete,
+      },
+    });
+    await waitFor(() => expect(rows()).toHaveLength(3));
+    const other = rows().find((r) => r.dataset['egaConvRow'] === 'https://other.test');
+    expect(other?.querySelector('[data-ega-conv-delete]')).toBeNull();
+    const button = other?.querySelector<HTMLElement>('[data-ega-conv-open]');
+    if (!button) throw new Error('Other site missing');
+    button.focus();
+    await fireEvent.keyDown(button, { key: 'Delete' });
+    expect(onDelete).not.toHaveBeenCalled();
+  });
+
+  it('pins the open conversation, then lists the rest of this site and other sites newest first', async () => {
+    await seed();
+    render(ConversationsPopover, {
+      props: {
+        open: true,
+        anchor: anchor(),
+        activeId: 'https://a.test',
+        tabSite: 'https://a.test',
+        onClose: () => {},
+        onOpen: async () => true,
+        onDelete: async () => ({ undo: () => {} }),
+      },
+    });
+    await waitFor(() => expect(rows()).toHaveLength(3));
+    expect(rows().map((r) => r.dataset['egaConvRow'])).toEqual([
+      'https://a.test',
+      'https://a.test#x',
+      'https://other.test',
+    ]);
+    const titles = rows().map((r) => r.querySelector('[data-ega-conv-title]')?.textContent);
+    expect(titles).toEqual(['como estas', 'Hola, me llamo Ana', 'Bonjour à tous']);
+    expect(rows()[1]?.textContent).toContain('2 messages');
+    expect(rows()[2]?.textContent).toContain('other.test ·');
+    const current = rows()[0]?.querySelector('[data-ega-conv-open]');
+    expect(current?.getAttribute('aria-current')).toBe('true');
+    expect(current?.getAttribute('aria-label')).toMatch(/, open now$/);
+    expect(document.body.textContent).toContain('Keeps your 50 latest conversations');
+  });
+
+  it('marks a title as allowed to end in an ellipsis, with the full title in its row name', async () => {
+    await seed();
+    render(ConversationsPopover, {
+      props: {
+        open: true,
+        anchor: anchor(),
+        activeId: 'https://a.test',
+        tabSite: 'https://a.test',
+        onClose: () => {},
+        onOpen: async () => true,
+        onDelete: async () => ({ undo: () => {} }),
+      },
+    });
+    await waitFor(() => expect(rows()).toHaveLength(3));
+    for (const row of rows()) {
+      const title = row.querySelector('[data-ega-conv-title]');
+      // The design-rules check flags every ellipsis that lacks this mark.
+      expect(title?.hasAttribute('data-ega-truncates')).toBe(true);
+      const name = row.querySelector('[data-ega-conv-open]')?.getAttribute('aria-label') ?? '';
+      expect(name.startsWith(title?.textContent ?? '?')).toBe(true);
+    }
+  });
+
+  it('Open hands the id over; delete turns the row into Undo, and Undo puts it back', async () => {
+    await seed();
+    const onOpen = vi.fn(async () => true);
+    const undo = vi.fn();
+    const onDelete = vi.fn(async () => ({ undo }));
+    render(ConversationsPopover, {
+      props: {
+        open: true,
+        anchor: anchor(),
+        activeId: 'https://a.test',
+        tabSite: 'https://a.test',
+        onClose: () => {},
+        onOpen,
+        onDelete,
+      },
+    });
+    await waitFor(() => expect(rows()).toHaveLength(3));
+    await fireEvent.click(rows()[2]?.querySelector('[data-ega-conv-open]') as HTMLElement);
+    expect(onOpen).toHaveBeenCalledWith('https://other.test');
+
+    await fireEvent.click(rows()[0]?.querySelector('[data-ega-conv-delete]') as HTMLElement);
+    const undoBtn = await waitFor(() => {
+      const b = rows()[0]?.querySelector<HTMLElement>('[data-ega-conv-undo]');
+      if (!b) throw new Error('no undo yet');
+      return b;
+    });
+    expect(rows()[0]?.textContent).toContain('Conversation deleted');
+    expect(document.activeElement).toBe(undoBtn);
+    await fireEvent.click(undoBtn);
+    expect(undo).toHaveBeenCalledOnce();
+    await waitFor(() => expect(rows()[0]?.querySelector('[data-ega-conv-open]')).not.toBeNull());
+  });
+
+  it('a delete the worker refused brings the row back with its reason', async () => {
+    await seed();
+    let fail: () => void = () => {};
+    render(ConversationsPopover, {
+      props: {
+        open: true,
+        anchor: anchor(),
+        activeId: 'https://a.test',
+        tabSite: 'https://a.test',
+        onClose: () => {},
+        onOpen: async () => true,
+        onDelete: async (_id: string, onFail: () => void) => {
+          fail = onFail;
+          return { undo: () => {} };
+        },
+      },
+    });
+    await waitFor(() => expect(rows()).toHaveLength(3));
+    await fireEvent.click(rows()[0]?.querySelector('[data-ega-conv-delete]') as HTMLElement);
+    fail();
+    await waitFor(() => expect(document.body.textContent).toContain("Couldn't delete. Try again."));
+    expect(rows()[0]?.querySelector('[data-ega-conv-open]')).not.toBeNull();
+  });
+
+  it('arrows walk the rows, Right reaches Delete, and the Delete key deletes', async () => {
+    await seed();
+    const onDelete = vi.fn(async () => ({ undo: () => {} }));
+    render(ConversationsPopover, {
+      props: {
+        open: true,
+        anchor: anchor(),
+        activeId: 'https://a.test',
+        tabSite: 'https://a.test',
+        onClose: () => {},
+        onOpen: async () => true,
+        onDelete,
+      },
+    });
+    await waitFor(() => expect(rows()).toHaveLength(3));
+    const first = rows()[0]?.querySelector<HTMLElement>('[data-ega-conv-open]') as HTMLElement;
+    first.focus();
+    await fireEvent.keyDown(first, { key: 'ArrowDown' });
+    expect(document.activeElement).toBe(rows()[1]?.querySelector('[data-ega-conv-open]'));
+    await fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'ArrowRight' });
+    expect(document.activeElement).toBe(rows()[1]?.querySelector('[data-ega-conv-delete]'));
+    await fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'ArrowLeft' });
+    await fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'Delete' });
+    expect(onDelete).toHaveBeenCalledWith('https://a.test#x', expect.any(Function));
+  });
+
+  it('says so when there is nothing to list', async () => {
+    render(ConversationsPopover, {
+      props: {
+        open: true,
+        anchor: anchor(),
+        activeId: 'https://none.test#n',
+        tabSite: 'https://none.test',
+        onClose: () => {},
+        onOpen: async () => true,
+        onDelete: async () => ({ undo: () => {} }),
+      },
+    });
+    await waitFor(() => expect(document.body.textContent).toContain('No other conversations yet'));
+  });
+
+  it('follows the index while open: a conversation saved elsewhere appears', async () => {
+    await seed();
+    render(ConversationsPopover, {
+      props: {
+        open: true,
+        anchor: anchor(),
+        activeId: 'https://a.test',
+        tabSite: 'https://a.test',
+        onClose: () => {},
+        onOpen: async () => true,
+        onDelete: async () => ({ undo: () => {} }),
+      },
+    });
+    await waitFor(() => expect(rows()).toHaveLength(3));
+
+    // Another window's save writes the index; the open list hears it through storage.onChanged.
+    await saveThread('https://new.test', [userTurn('n1', 'from another window')]);
+
+    await waitFor(() => expect(rows()).toHaveLength(4));
+    expect(rows().map((r) => r.dataset['egaConvRow'])).toContain('https://new.test');
+  });
+});
+
+// The panel has one h1 (sr-only "Ega"), and About this reply uses h2, so the group titles are h2.
+describe('Conversations headings', () => {
+  it('titles the groups with h2, right under the panel h1', async () => {
+    await seed();
+    render(ConversationsPopover, {
+      props: {
+        open: true,
+        anchor: anchor(),
+        activeId: 'https://a.test',
+        tabSite: 'https://a.test',
+        onClose: () => {},
+        onOpen: async () => true,
+        onDelete: async () => ({ undo: () => {} }),
+      },
+    });
+    await waitFor(() => expect(rows()).toHaveLength(3));
+    const list = document.querySelector('[data-ega-conversations]');
+    expect([...(list?.querySelectorAll('h2') ?? [])].map((h) => h.textContent.trim())).toEqual([
+      'This site',
+      'Other sites',
+    ]);
+    expect(list?.querySelector('h3, h4, h5, h6')).toBeNull();
+  });
+});
+
+// The list scrolls, so it clips anything drawn past its edge; jsdom has no layout, so the rule is the gate.
+describe('the Delete focus ring', () => {
+  it('sits inside the button, where the scrolling list cannot cut it', () => {
+    const src = readFileSync('src/sidepanel/ConversationsPopover.svelte', 'utf8');
+    expect(src).toMatch(/\.cv-lists\s*\{[^}]*overflow-y:\s*auto/);
+    expect(src).toMatch(
+      /:global\(\[data-ega-conv-delete\]:focus-visible\)\s*\{[^}]*outline-offset:\s*-2px/,
+    );
+  });
+});
+
+// Spec §1.10 and R15: the box keeps the panel's 12px gutter, and the group labels, the Undo row and the
+// footer start on the popover title's edge. Measured on the captures; jsdom has no layout.
+describe('the Conversations box and its text edge', () => {
+  const src = readFileSync('src/sidepanel/ConversationsPopover.svelte', 'utf8');
+  const rule = (selector: string): string => {
+    const body = new RegExp(`${selector}\\s*\\{([^}]*)\\}`).exec(src)?.[1];
+    if (body === undefined) throw new Error(`rule not found: ${selector}`);
+    return body;
+  };
+
+  it('is min(360px, 100vw - 24px) wide once the popover adds its padding and border', () => {
+    expect(rule('\\.cv')).toMatch(/inline-size:\s*min\(342px, calc\(100vw - 42px\)\)/);
+  });
+
+  it('adds no inline padding before the group labels, the Undo row text and the footer', () => {
+    expect(rule('\\.cv-group')).not.toMatch(/padding-inline/);
+    expect(rule('\\.cv-undo')).toMatch(/padding-inline:\s*0 var\(--space-1\);/);
+    expect(rule('\\.cv-empty,\\s*\\.cv-foot')).not.toMatch(/padding-inline/);
+  });
+});
+
+// At 256 the meta line wraps; it may wrap before the time, never inside it ("4 / days ago").
+describe('the row meta line', () => {
+  it('keeps the relative time on one line', async () => {
+    await seed();
+    render(ConversationsPopover, {
+      props: {
+        open: true,
+        anchor: anchor(),
+        activeId: 'https://a.test',
+        tabSite: 'https://a.test',
+        onClose: () => {},
+        onOpen: async () => true,
+        onDelete: async () => ({ undo: () => {} }),
+      },
+    });
+    await waitFor(() => expect(rows()).toHaveLength(3));
+    const time = rows()[2]?.querySelector<HTMLElement>('.cv-meta .cv-time');
+    expect(time).not.toBeNull();
+    expect(rows()[2]?.querySelector('.cv-meta')?.textContent).toMatch(/^other\.test · /);
+    const src = readFileSync('src/sidepanel/ConversationsPopover.svelte', 'utf8');
+    expect(src).toMatch(/\.cv-time\s*\{[^}]*white-space:\s*nowrap/);
+  });
+});

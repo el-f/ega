@@ -1,0 +1,6 @@
+packages:
+  - '.'
+  - 'native-host'
+
+# Without it pnpm only warns when the running Node misses package.json `engines`.
+engineStrict: true

@@ -1,0 +1,12 @@
+# SYNTHETIC FIXTURE — compare against vendor docs if parser drift is suspected
+# Source shape: https://ai.google.dev/api/generate-content#method:-models.streamgeneratecontent
+# Each event is a JSON object containing `candidates[].content.parts[].text`.
+# Final frame carries `finishReason: "STOP"`.
+data: {"candidates":[{"content":{"parts":[{"text":"{\"translation\":\"hello"}],"role":"model"},"index":0}]}
+
+data: {"candidates":[{"content":{"parts":[{"text":"\",\"confidence\":0.82"}],"role":"model"},"index":0}]}
+
+data: {"candidates":[{"content":{"parts":[{"text":",\"detectedLang\":\"arabizi\"}"}],"role":"model"},"index":0}]}
+
+data: {"candidates":[{"content":{"parts":[{"text":""}],"role":"model"},"finishReason":"STOP","index":0}]}
+

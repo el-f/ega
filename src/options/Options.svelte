@@ -1,0 +1,623 @@
+<script lang="ts">
+  import { debugCatch } from '@/shared/logger';
+  import AppShell from '@/shared/ui/AppShell.svelte';
+  import OptionsNav from './OptionsNav.svelte';
+  import OptionsHeader from './OptionsHeader.svelte';
+  import OptionsTabContent, { tabReady, type TabId } from './OptionsTabContent.svelte';
+  import StatusBar from './components/StatusBar.svelte';
+  import ShortcutOverlay from '@/shared/components/ShortcutOverlay.svelte';
+  import CommandPalette from '@/shared/components/CommandPalette.svelte';
+  import SettingsSearch from './components/SettingsSearch.svelte';
+  import ToastHost from '@/shared/components/ToastHost.svelte';
+  import { toastStore } from '@/shared/components/toastStore';
+  import { onMount } from 'svelte';
+  import { getCustomTasks, getSettings, onSettingsChanged } from '@/shared/storage';
+  import { saveSettings } from './storage-with-toast';
+  import { buildRegistry, type Command } from '@/shared/command-registry';
+  import { computeBackendOrder } from '@/shared/backends/select';
+  import { backendNeedsKey, backendHasRequiredKey } from '@/shared/backends/key-presence';
+  import { applyTheme, type ThemePref } from '@/shared/theme';
+  import type { Settings } from '@/shared/types';
+  import type { NavItem, NavGroup } from './OptionsNav.svelte';
+  import { TABS as TAB_SPECS, type TabSpec } from './tabs/_tab-spec';
+  import { materializeTasks, taskLabel } from '@/shared/task-view';
+  import { consumePendingOptionsTab, onPendingOptionsTab } from '@/shared/open-options-tab';
+  import {
+    DEEP_LINK_EVENT,
+    GOTO_EVENT,
+    type GotoDetail,
+    revealPendingSetting,
+    setPendingDeepLink,
+    whenPresent,
+  } from './deep-link';
+  import { probeNativeHost } from './probeNativeHost';
+  import { resolveBackend } from '@/shared/backends/registry';
+  import { buildBackendConfig } from '@/shared/backends/build-config';
+  import { untrack } from 'svelte';
+
+  const NAV_GROUPS: readonly NavGroup[] = [
+    { id: 'configuration', label: 'Configuration' },
+    { id: 'system', label: 'System' },
+  ];
+
+  const SYSTEM_IDS: ReadonlySet<string> = new Set(['advanced', 'about']);
+  function toNavItem(t: TabSpec): NavItem<TabId> {
+    return {
+      id: t.id,
+      label: t.label,
+      icon: t.icon,
+      group: SYSTEM_IDS.has(t.id) ? 'system' : 'configuration',
+    };
+  }
+
+  let active: TabId = $state('translate');
+  let shortcutsOpen: boolean = $state(false);
+  // raw, not deep: the tree is only ever replaced wholesale, and a deep proxy
+  // reaches chrome.storage as a non-cloneable value.
+  let liveSettings: Settings | null = $state.raw(null);
+
+  const TABS: readonly NavItem<TabId>[] = TAB_SPECS.map(toNavItem);
+
+  function isTabId(v: string | undefined): v is TabId {
+    return typeof v === 'string' && TABS.some((t) => t.id === v);
+  }
+  // The Templates tab folded into Tasks, so a link or parked tab that still names it lands there.
+  function tabFrom(v: string | undefined): TabId | null {
+    if (v === 'templates') return 'tasks';
+    return isTabId(v) ? v : null;
+  }
+  let paletteOpen = $state(false);
+  let paletteCommands: readonly Command[] = $state([]);
+  // Reads liveSettings so the modified filter and badges do not hit getSettings on every keystroke.
+  let settingsSearchOpen = $state(false);
+
+  async function buildPaletteRegistry(): Promise<readonly Command[]> {
+    const customs = await getCustomTasks().catch(() => []);
+    const views = liveSettings ? materializeTasks(liveSettings, customs) : null;
+    return buildRegistry({
+      onOpenOptions: (tab) => {
+        const t = tabFrom(tab);
+        if (t) showTab(t);
+      },
+      onSwapTheme: (to) => void setTheme(to),
+      onSetBubbleMode: (m) => {
+        void saveSettings({ bubbleMode: m });
+      },
+      ...(views ? { tasks: views.filter((v) => !v.disabled) } : {}),
+      taskAction: 'default',
+      onSetTask: async (t) => {
+        // Options cannot translate, so the palette action writes the default task for later translations instead.
+        if (await saveSettings({ defaultTask: t })) {
+          toastStore.push({
+            message: `Default task set to ${taskLabel(views ?? [], t)}`,
+            variant: 'success',
+          });
+        }
+      },
+      onAddRule: () => focusAddRule(),
+      onShowShortcuts: () => {
+        shortcutsOpen = true;
+      },
+      onCycleTheme: () => void cycleTheme(),
+      currentTheme: theme,
+    });
+  }
+
+  /** Opens a new rule on the Glossary and rules tab; the Cmd+Shift+R chord and the "Add a rule" palette entry share it. */
+  function focusAddRule(): void {
+    showTab('glossary');
+    // A cold tab chunk can take longer than the whole whenPresent budget, so the budget starts once the code is in.
+    void tabReady('glossary').then(() =>
+      whenPresent('[data-ega-rules-add], [data-ega-rules-empty] button', (add) => {
+        // The rules card opens its draft and focuses the text itself.
+        if (document.querySelector('[data-ega-manual-body]') === null) add.click();
+      }),
+    );
+  }
+
+  // main.ts already subscribes to onSettingsChanged, so writing the theme here propagates to every open surface.
+  let theme: ThemePref = $state('system');
+
+  // Session override — set before Settings records a dismissal.
+  let onboardingHidden: boolean = $state(false);
+
+  // The router skips a disabled backend, so a key or URL parked on one must not count here.
+  function hasConfiguredBackend(s: Settings): boolean {
+    return computeBackendOrder(s).some((id) => {
+      if (String(id) === 'ollama') return (s.ollamaUrl?.trim().length ?? 0) > 0;
+      if (String(id) === 'localserver') return (s.localServerUrl?.trim().length ?? 0) > 0;
+      if (backendNeedsKey(id)) return backendHasRequiredKey(id, s);
+      return false;
+    });
+  }
+
+  // Installed is enough — the CLI spawns on first use, so a cold host still counts,
+  // and so does 'outdated'. Same probe the Backends card uses, or the two disagree.
+  let nativeAvailable: boolean = $state(false);
+
+  // Only polled while the banner could show, and slowly: each probe opens a host
+  // connection, and installing one is a rare deliberate act.
+  const nativeProbeCandidate = $derived.by((): boolean => {
+    const s = liveSettings;
+    if (!s) return false;
+    if (hasConfiguredBackend(s)) return false;
+    return computeBackendOrder(s).some((id) => String(id) === 'native');
+  });
+
+  // Ollama and the local server need no URL to be configured: the server at the default address answers or it does not.
+  const LOCAL_SERVER_IDS: readonly string[] = ['ollama', 'localserver'];
+  const localProbeIds = $derived.by((): string | null => {
+    const s = liveSettings;
+    if (!s || hasConfiguredBackend(s)) return null;
+    const ids = computeBackendOrder(s)
+      .map(String)
+      .filter((id) => LOCAL_SERVER_IDS.includes(id));
+    return ids.length > 0 ? ids.join(',') : null;
+  });
+  let localServerAvailable: boolean = $state(false);
+  const localProbeKey = $derived.by((): string | null => {
+    const cur: Settings | null = liveSettings;
+    return cur
+      ? `${cur.ollamaUrl ?? ''}|${cur.localServerUrl ?? ''}|${cur.localBackendTimeoutMs ?? ''}`
+      : null;
+  });
+  $effect(() => {
+    const ids = localProbeIds;
+    if (ids === null) {
+      localServerAvailable = false;
+      return;
+    }
+    // A derived primitive: the raw settings object is replaced on every write, but this string only changes with a URL or the timeout.
+    void localProbeKey;
+    const s = untrack(() => liveSettings);
+    if (!s) return;
+    const cfg = buildBackendConfig(s);
+    let cancelled = false;
+    void Promise.all(
+      ids
+        .split(',')
+        .map((id) =>
+          (resolveBackend(id)?.isAvailable(cfg) ?? Promise.resolve(false)).catch(() => false),
+        ),
+    ).then((answers) => {
+      if (!cancelled) localServerAvailable = answers.some(Boolean);
+    });
+    return () => {
+      cancelled = true;
+    };
+  });
+
+  const hasUsableBackend = $derived.by((): boolean => {
+    const s = liveSettings;
+    if (!s) return false;
+    return (
+      hasConfiguredBackend(s) ||
+      (nativeProbeCandidate && nativeAvailable) ||
+      (localProbeIds !== null && localServerAvailable)
+    );
+  });
+
+  const needsKey = $derived(liveSettings !== null && !hasUsableBackend);
+
+  const PROBE_DELAYS_MS: readonly number[] = [5_000, 15_000, 60_000];
+  const PROBE_MAX_MISSES = 6;
+
+  $effect(() => {
+    if (!nativeProbeCandidate) {
+      nativeAvailable = false;
+      return () => {};
+    }
+    let cancelled = false;
+    let found = false;
+    let misses = 0;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const stop = (): void => {
+      if (timer !== null) clearTimeout(timer);
+      timer = null;
+    };
+    const schedule = (): void => {
+      stop();
+      if (misses >= PROBE_MAX_MISSES) return;
+      const step = Math.min(Math.max(misses, 1), PROBE_DELAYS_MS.length) - 1;
+      timer = setTimeout(() => void tick(), PROBE_DELAYS_MS[step] ?? 60_000);
+    };
+    const tick = async (): Promise<void> => {
+      if (cancelled || found) return;
+      try {
+        const r = await probeNativeHost(untrack(() => liveSettings?.localBackendTimeoutMs));
+        if (cancelled) return;
+        // 'installed' and 'outdated' both mean the host is reachable and can
+        // translate; 'not_installed'/'error' mean it can't.
+        found = r.status === 'installed' || r.status === 'outdated';
+        nativeAvailable = found;
+        if (found) {
+          stop();
+          return;
+        }
+        misses += 1;
+      } catch {
+        /* leave previous value until next tick */
+      }
+      schedule();
+    };
+    // Installing the host happens outside the browser, so a return to this tab is the real signal.
+    const onVisible = (): void => {
+      if (found || document.visibilityState !== 'visible') return;
+      misses = 0;
+      void tick();
+    };
+
+    void tick();
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      cancelled = true;
+      stop();
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  });
+
+  // The Get started card replaces the notice on the Backends tab until the user skips it; the page never shows both.
+  // .by closures: as plain expressions TS narrows `active` and `liveSettings` to their initial values.
+  const showGetStarted = $derived.by(
+    () => needsKey && !onboardingHidden && liveSettings?.onboardingDismissed !== true,
+  );
+  const showNotice = $derived.by(() => needsKey && !(active === 'backends' && showGetStarted));
+
+  const onKey = (e: KeyboardEvent): void => {
+    // A modal owns the keys: switching the tab under it would unmount the dialog without its close checks (KSR-1).
+    if (document.querySelector('[aria-modal="true"]') !== null) {
+      // The add-rule chord is also the browser's hard reload, which would drop the dialog's typed text.
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'r') e.preventDefault();
+      return;
+    }
+    const el = document.activeElement;
+    const editable =
+      el instanceof HTMLInputElement ||
+      el instanceof HTMLTextAreaElement ||
+      (el instanceof HTMLElement && el.isContentEditable);
+
+    // Cmd/Ctrl+K wins even inside an editable field, because Options has no find-in-page to conflict with.
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      void buildPaletteRegistry().then((cmds) => {
+        paletteCommands = cmds;
+        paletteOpen = true;
+      });
+      return;
+    }
+
+    // Cmd/Ctrl+, mirrors VS Code's "open settings". Skip in editable
+    // fields so typing a comma into a textarea isn't hijacked.
+    if ((e.ctrlKey || e.metaKey) && e.key === ',') {
+      if (editable) return;
+      e.preventDefault();
+      void getSettings()
+        .then((next) => {
+          liveSettings = next;
+        })
+        .catch((err) => debugCatch(err, 'options.Options.search'));
+      settingsSearchOpen = true;
+      return;
+    }
+
+    if (e.key === '?') {
+      if (editable) return;
+      e.preventDefault();
+      shortcutsOpen = true;
+      return;
+    }
+
+    // Shift is required because Cmd/Ctrl+R alone is browser refresh.
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'r') {
+      if (editable) return;
+      e.preventDefault();
+      focusAddRule();
+      return;
+    }
+
+    // Cmd/Ctrl+Shift+T — cycle theme system → light → dark → system.
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 't') {
+      if (editable) return;
+      e.preventDefault();
+      void cycleTheme();
+      return;
+    }
+
+    // Physical key, not the character: macOS Option+1 produces '¡', never '1'.
+    if (e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+      const m = /^Digit([1-9])$/.exec(e.code);
+      if (m?.[1]) {
+        if (editable) return;
+        const target = TABS[Number(m[1]) - 1];
+        if (target) {
+          e.preventDefault();
+          showTab(target.id);
+        }
+      }
+    }
+  };
+
+  onMount(async () => {
+    try {
+      const s = await getSettings();
+      theme = s.theme;
+      liveSettings = s;
+    } catch (e) {
+      debugCatch(e, 'options.Options.1');
+    }
+    // Fire-and-forget: brief default-tab flash is fine; awaiting here can
+    // hang in test envs where chrome.storage callback isn't invoked.
+    void consumePendingOptionsTab()
+      .then((pending) => {
+        const t = tabFrom(pending ?? undefined);
+        if (t) showTab(t, false);
+      })
+      .catch((e: unknown) => debugCatch(e, 'options.Options.pendingTab'));
+  });
+
+  // openOptionsPage only focuses a page that is already open, so the parked tab has to be picked up live.
+  $effect(() =>
+    onPendingOptionsTab((pending) => {
+      const t = tabFrom(pending);
+      if (t) showTab(t, false);
+    }),
+  );
+
+  // An async onMount can't own teardown — Svelte 5 gets a Promise, not a
+  // cleanup function, so the listener leaks.
+  $effect(() => {
+    const onGoto = (e: Event): void => {
+      const detail = (e as CustomEvent<GotoDetail>).detail;
+      const tab = tabFrom(detail.tab);
+      if (tab) jumpToSetting(tab, detail.entryId ?? '');
+    };
+    document.addEventListener(GOTO_EVENT, onGoto);
+    return () => document.removeEventListener(GOTO_EVENT, onGoto);
+  });
+
+  $effect(() => {
+    document.addEventListener('keydown', onKey);
+    const unsub = onSettingsChanged((next) => {
+      theme = next.theme;
+      liveSettings = next;
+    });
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      unsub();
+    };
+  });
+
+  // Only a switch started on this page focuses the panel (K-2); on open or a parked tab it would ring the whole tab.
+  let focusPanel = false;
+  function showTab(id: TabId, moveFocus = true): void {
+    if (id === active) return;
+    focusPanel = moveFocus;
+    active = id;
+  }
+
+  // queueMicrotask defers until Svelte has flushed the new panel, so focus lands on live content, not a stale trigger.
+  $effect(() => {
+    void active;
+    const skipFocus = !focusPanel;
+    focusPanel = false;
+    queueMicrotask(() => {
+      // At narrow widths the document scrolls independently of `.options-content`, so both need resetting.
+      window.scrollTo({ top: 0, left: 0 });
+      const panel = document.querySelector<HTMLElement>('.options-content');
+      if (panel) {
+        panel.scrollTop = 0;
+        // Without preventScroll, focusing the panel scrolls it into view and undoes the window reset above.
+        if (!skipFocus) panel.focus({ preventScroll: true });
+      }
+    });
+  });
+
+  /** Opens one backend row and focuses its first field, or the row itself when it has none. */
+  function openBackendRow(id: string, focusSelector: string): void {
+    whenPresent(`details[data-backend-id='${id}']`, (el) => {
+      if (!(el instanceof HTMLDetailsElement)) return;
+      el.open = true;
+      el.scrollIntoView({ block: 'center' });
+      const target =
+        el.querySelector<HTMLElement>(focusSelector) ?? el.querySelector<HTMLElement>('summary');
+      target?.focus({ preventScroll: true });
+    });
+  }
+
+  function chooseGemini(): void {
+    // Don't flip onboardingDismissed yet — let them complete the key entry.
+    showTab('backends');
+    onboardingHidden = true;
+    openBackendRow('gemini', '.cp-key-input');
+  }
+
+  function chooseOtherKey(): void {
+    showTab('backends');
+    whenPresent('[data-testid="be-list-available"]', (list) => {
+      list.scrollIntoView({ block: 'start' });
+      list.querySelector<HTMLElement>('summary, button')?.focus({ preventScroll: true });
+    });
+  }
+
+  function chooseLocal(): void {
+    showTab('backends');
+    openBackendRow('ollama', 'input');
+  }
+
+  /** The notice's action: the Backends tab, on the Get started card while it shows. */
+  function setUpBackend(): void {
+    showTab('backends');
+    whenPresent(showGetStarted ? '[data-ega-get-started] h2' : '[data-testid="be-list"]', (el) => {
+      el.scrollIntoView({ block: 'start' });
+      el.focus({ preventScroll: true });
+    });
+  }
+
+  async function dismissOnboarding(): Promise<void> {
+    onboardingHidden = true;
+    if (!(await saveSettings({ onboardingDismissed: true }))) onboardingHidden = false;
+  }
+
+  function jumpToSetting(tab: TabId, entryId: string, location?: 'header'): void {
+    if (location === 'header') {
+      // After the dialog's own focus restore, so it does not pull focus back to the search button.
+      whenPresent('[data-ega-theme-toggle] [aria-checked="true"]', (el) => el.focus());
+      return;
+    }
+    const sameTab = active === tab;
+    if (entryId) setPendingDeepLink(entryId);
+    showTab(tab);
+    // A same-tab jump does not remount the pane, so it needs an explicit re-resolve signal.
+    if (sameTab) document.dispatchEvent(new CustomEvent(DEEP_LINK_EVENT));
+    void tabReady(tab).then(() => revealPendingSetting());
+  }
+  async function openSettingsSearch(): Promise<void> {
+    try {
+      liveSettings = await getSettings();
+    } catch (e) {
+      debugCatch(e, 'options.Options.search-button');
+    }
+    settingsSearchOpen = true;
+  }
+
+  async function setTheme(next: ThemePref): Promise<void> {
+    const prior = theme;
+    theme = next;
+    applyTheme(next);
+    if (await saveSettings({ theme: next })) return;
+    theme = prior;
+    applyTheme(prior);
+  }
+
+  const THEME_CYCLE: readonly ThemePref[] = ['system', 'light', 'dark'];
+  async function cycleTheme(): Promise<void> {
+    const idx = THEME_CYCLE.indexOf(theme);
+    const next = THEME_CYCLE[(idx + 1) % THEME_CYCLE.length] ?? 'system';
+    await setTheme(next);
+  }
+</script>
+
+<div class="options-root">
+  <AppShell>
+    {#snippet header()}
+      <OptionsHeader
+        {theme}
+        onOpenSearch={() => void openSettingsSearch()}
+        onSetTheme={(t) => void setTheme(t)}
+      />
+    {/snippet}
+
+    <div class="options-main">
+      <aside class="options-rail">
+        <OptionsNav
+          items={TABS}
+          groups={NAV_GROUPS}
+          {active}
+          onSelect={(id, source) => {
+            if (isTabId(id)) {
+              showTab(id, source !== 'keyboard');
+            }
+          }}
+        />
+      </aside>
+
+      <div
+        class="options-content"
+        role="tabpanel"
+        id={`tabpanel-${active}`}
+        aria-labelledby={`tab-${active}`}
+        tabindex="-1"
+      >
+        <StatusBar show={showNotice} {...active === 'backends' ? {} : { onSetUp: setUpBackend }} />
+        <OptionsTabContent
+          {active}
+          s={liveSettings}
+          onSetSettings={(next) => (liveSettings = next)}
+          getStarted={showGetStarted
+            ? {
+                onUseGemini: chooseGemini,
+                onUseOtherKey: chooseOtherKey,
+                onRunLocal: chooseLocal,
+                onSkip: () => void dismissOnboarding(),
+              }
+            : null}
+        />
+      </div>
+    </div>
+  </AppShell>
+</div>
+
+<ShortcutOverlay
+  open={shortcutsOpen}
+  onClose={() => (shortcutsOpen = false)}
+  surface="options"
+  shortcut={liveSettings?.shortcut}
+  pickerShortcut={liveSettings?.pickerShortcut}
+/>
+<CommandPalette
+  open={paletteOpen}
+  commands={paletteCommands}
+  onClose={() => (paletteOpen = false)}
+/>
+<SettingsSearch
+  open={settingsSearchOpen}
+  settings={liveSettings}
+  onClose={() => (settingsSearchOpen = false)}
+  onJump={jumpToSetting}
+/>
+<ToastHost position="bottom-right" {theme} />
+
+<style>
+  /* Container-query scoped, not viewport: the options page can be framed inside a narrow extension panel.
+     The container is the root, not .options-main: an element cannot query its own size, so the rail never collapsed. */
+  .options-root {
+    min-height: 100vh;
+    background: var(--color-bg);
+    container-type: inline-size;
+    container-name: options;
+  }
+
+  .options-main {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: var(--space-5);
+    align-items: start;
+  }
+  /* 48px = 40px button + 4px card padding each side, matching the @container rule in OptionsNav that hides labels. */
+  @container options (max-width: 880px) {
+    .options-main {
+      grid-template-columns: 48px 1fr;
+    }
+  }
+  .options-rail {
+    position: sticky;
+    top: var(--space-4);
+  }
+  .options-content {
+    min-width: 0;
+    min-height: 300px;
+  }
+
+  /* Deep-link landing flash. Lives here, not in the lazy Advanced chunk, so it reaches every tab. */
+  :global([data-flash='true']) {
+    animation: ega-jump-flash var(--motion-pulse) var(--ease-out);
+    border-radius: var(--radius-md);
+  }
+  @keyframes ega-jump-flash {
+    0% {
+      box-shadow: 0 0 0 0 var(--color-accent);
+    }
+    50% {
+      box-shadow: 0 0 0 4px var(--color-accent-bg-soft);
+    }
+    100% {
+      box-shadow: 0 0 0 0 transparent;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    :global([data-flash='true']) {
+      animation: none;
+    }
+  }
+</style>

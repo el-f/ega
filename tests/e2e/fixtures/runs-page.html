@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <title>Ega leading-run fixture</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        max-width: 760px;
+        margin: 32px auto;
+        padding: 0 20px;
+        color: #222;
+        background: #fff;
+      }
+      .comment {
+        margin-block: 12px;
+        padding-inline-start: 12px;
+        border-inline-start: 2px solid #ddd;
+      }
+      .commtext p {
+        margin-block: 8px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Comentarios</h1>
+    <!-- A comment's first paragraph is a bare text run before its first <p>, as on Hacker News. -->
+    <div class="comment">
+      <span class="commtext" id="c1"
+        >Este es el primer párrafo del comentario, antes de cualquier etiqueta.
+        <p>Este es el segundo párrafo del mismo comentario.</p></span
+      >
+    </div>
+    <h2>Lista con niveles</h2>
+    <ul>
+      <li id="parent">
+        Elemento padre de la lista
+        <ul>
+          <li>Primer elemento hijo</li>
+          <li>Segundo elemento hijo</li>
+        </ul>
+      </li>
+    </ul>
+  </body>
+</html>

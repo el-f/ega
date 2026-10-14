@@ -1,0 +1,298 @@
+[
+  {
+    "name": "Advanced",
+    "bytes": 56662
+  },
+  {
+    "name": "AnswerNotes",
+    "bytes": 21646
+  },
+  {
+    "name": "batch-progress",
+    "bytes": 14306
+  },
+  {
+    "name": "bubble",
+    "bytes": 5082
+  },
+  {
+    "name": "bubble-menu",
+    "bytes": 4437
+  },
+  {
+    "name": "cancel-token",
+    "bytes": 27958
+  },
+  {
+    "name": "Checkbox",
+    "bytes": 4074
+  },
+  {
+    "name": "CollapsibleField",
+    "bytes": 536
+  },
+  {
+    "name": "command-registry",
+    "bytes": 30592
+  },
+  {
+    "name": "custom-tasks-state.svelte",
+    "bytes": 569
+  },
+  {
+    "name": "effort-labels",
+    "bytes": 71
+  },
+  {
+    "name": "english-lexicon",
+    "bytes": 598085
+  },
+  {
+    "name": "error-copy",
+    "bytes": 5213
+  },
+  {
+    "name": "Glossary",
+    "bytes": 31043
+  },
+  {
+    "name": "IconButton",
+    "bytes": 3917
+  },
+  {
+    "name": "image-url-guard",
+    "bytes": 1759
+  },
+  {
+    "name": "index",
+    "bytes": 122765
+  },
+  {
+    "name": "index.html",
+    "bytes": 470692
+  },
+  {
+    "name": "index.ts",
+    "bytes": 45964
+  },
+  {
+    "name": "index.ts-loader",
+    "bytes": 353
+  },
+  {
+    "name": "inlineReplace",
+    "bytes": 4575
+  },
+  {
+    "name": "invariants",
+    "bytes": 50863
+  },
+  {
+    "name": "lang-tag",
+    "bytes": 306
+  },
+  {
+    "name": "language-prompt",
+    "bytes": 1138
+  },
+  {
+    "name": "Markdown",
+    "bytes": 4364
+  },
+  {
+    "name": "menu-focus",
+    "bytes": 4245
+  },
+  {
+    "name": "open-options-tab",
+    "bytes": 50991
+  },
+  {
+    "name": "page-chip",
+    "bytes": 3080
+  },
+  {
+    "name": "page-styles",
+    "bytes": 1969
+  },
+  {
+    "name": "page-translate-v2",
+    "bytes": 29994
+  },
+  {
+    "name": "pending-popup-handoff",
+    "bytes": 2226
+  },
+  {
+    "name": "perf-history",
+    "bytes": 362
+  },
+  {
+    "name": "picker",
+    "bytes": 3185
+  },
+  {
+    "name": "picker-bar",
+    "bytes": 9468
+  },
+  {
+    "name": "picker-overlay",
+    "bytes": 634
+  },
+  {
+    "name": "PickerOverlay",
+    "bytes": 277
+  },
+  {
+    "name": "progress",
+    "bytes": 1208
+  },
+  {
+    "name": "provider-profiles",
+    "bytes": 3578
+  },
+  {
+    "name": "reply-instructions",
+    "bytes": 2275
+  },
+  {
+    "name": "request-state",
+    "bytes": 1369
+  },
+  {
+    "name": "rolldown-runtime",
+    "bytes": 158
+  },
+  {
+    "name": "roving",
+    "bytes": 716
+  },
+  {
+    "name": "safe-regex",
+    "bytes": 23630
+  },
+  {
+    "name": "safety",
+    "bytes": 1394
+  },
+  {
+    "name": "saved-conversations",
+    "bytes": 4394
+  },
+  {
+    "name": "Select",
+    "bytes": 3940
+  },
+  {
+    "name": "selection-cap-copy",
+    "bytes": 12336
+  },
+  {
+    "name": "SelectionBubble",
+    "bytes": 36634
+  },
+  {
+    "name": "settings-bus",
+    "bytes": 495
+  },
+  {
+    "name": "settings-cache",
+    "bytes": 721
+  },
+  {
+    "name": "shadowHost",
+    "bytes": 15257
+  },
+  {
+    "name": "src-content-index.ts",
+    "bytes": 35210
+  },
+  {
+    "name": "stuck-timeout",
+    "bytes": 262
+  },
+  {
+    "name": "task-view",
+    "bytes": 6091
+  },
+  {
+    "name": "tasks",
+    "bytes": 3479
+  },
+  {
+    "name": "Tasks",
+    "bytes": 49708
+  },
+  {
+    "name": "TaskUsageRow",
+    "bytes": 1000
+  },
+  {
+    "name": "templates-handlers",
+    "bytes": 856
+  },
+  {
+    "name": "theme",
+    "bytes": 16094
+  },
+  {
+    "name": "theme-apply",
+    "bytes": 3111
+  },
+  {
+    "name": "tipState.svelte",
+    "bytes": 56458
+  },
+  {
+    "name": "toast",
+    "bytes": 3429
+  },
+  {
+    "name": "toast-policy",
+    "bytes": 131
+  },
+  {
+    "name": "toastStore",
+    "bytes": 1602
+  },
+  {
+    "name": "Translate",
+    "bytes": 24930
+  },
+  {
+    "name": "translate-handlers",
+    "bytes": 6142
+  },
+  {
+    "name": "translate-ui",
+    "bytes": 2986
+  },
+  {
+    "name": "vendor-bits-ui",
+    "bytes": 189994
+  },
+  {
+    "name": "vendor-bits-ui-menu",
+    "bytes": 26383
+  },
+  {
+    "name": "vendor-dompurify",
+    "bytes": 28153
+  },
+  {
+    "name": "vendor-lucide",
+    "bytes": 26272
+  },
+  {
+    "name": "vendor-marked",
+    "bytes": 45437
+  },
+  {
+    "name": "vendor-svelte",
+    "bytes": 59642
+  },
+  {
+    "name": "vendor-svelte-extras",
+    "bytes": 74564
+  }
+]

@@ -1,0 +1,18 @@
+@import '../shared/tokens.css';
+
+/* Global rules only (reset, body size, 360px width); component styles stay scoped. */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: var(--fs-base);
+  width: 360px;
+  background: var(--color-bg);
+  color: var(--color-fg);
+  line-height: var(--lh-body);
+  /* Overlays clamp to this width when body has data-ega-popup, not to the page viewport. */
+  --ega-popup-width: 360px;
+}
