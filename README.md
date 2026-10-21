@@ -105,6 +105,10 @@ back. Right-click instead to translate the whole page, pick a single element, or
 image to the side panel. To translate only some parts of a page, press **Choose areas** in
 the popup.
 
+<p align="center">
+  <img src="docs/media/bubble.png" alt="A dark forum post with the Arabizi line mar7aba, kifak? shu 3am ta3mel? selected, and Ega's bubble under it reading Translate to English, with a chevron for bubble options" width="512">
+</p>
+
 Ega ships seven tasks: **Translate, Explain, Summarize, Reword, Grammar, Reply ideas,
 Ask**. You can write your own on the Settings → **Tasks** tab. The tooltip and the
 side panel offer the built-in tasks that are on, plus your own tasks. Turn a task off
