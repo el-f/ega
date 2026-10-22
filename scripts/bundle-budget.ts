@@ -259,13 +259,13 @@ function measureDist(distDir: string): BundleEntry[] {
 }
 
 /** Static imports plus module-scope import() chunks: both load on every page. A ratchet: raise or lower it in the commit that earns it. */
-// Live custom-task validation and updates add 595B to the measured production eager graph.
-const EAGER_CONTENT_BUDGET_BYTES = 155_961;
+// The bubble menu's Run task wiring adds 555B; the task list itself loads when the menu opens.
+const EAGER_CONTENT_BUDGET_BYTES = 156_516;
 
 /** The popup opens on every toolbar click, so its preload set is the one extension-page cost a user feels. Ratchet, like the one above. */
-// Removing startup focus and the page action's special styling saves 1,249B.
+// The Default task select adds 4,858B: Select and the merged task list.
 // Ratchet at the measured production preload set, without extra headroom.
-const POPUP_PAGE_BUDGET_BYTES = 515_522;
+const POPUP_PAGE_BUDGET_BYTES = 520_380;
 
 function measurePagePreload(distDir: string, htmlRel: string): { files: string[]; bytes: number } {
   const htmlPath = path.join(distDir, htmlRel);

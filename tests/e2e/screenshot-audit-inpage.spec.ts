@@ -496,7 +496,9 @@ test('Bubble — label, queue, menu, edges, RTL, first run', async () => {
   await both(page, 'bubble-menu-open', {
     ...meta,
     state: 'menu-open',
-    expectations: ['a two-item menu under the bubble: Turn off on this site, Bubble settings'],
+    expectations: [
+      'a three-item menu under the bubble: Run task, Turn off on this site, Bubble settings',
+    ],
   });
   await page.keyboard.press('Escape');
 

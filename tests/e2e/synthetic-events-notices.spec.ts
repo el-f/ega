@@ -2,6 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import {
   egaTest,
   launchExtension,
+  mockAnthropic,
   seedSettings,
   selectArabiziParagraph,
   waitForTestHooks,
@@ -78,10 +79,42 @@ test('a page script cannot choose a bubble menu item; the user can', async () =>
   const menu = page.locator('[data-ega-bubble-menu] [role="menu"]');
   await expect(menu).toBeVisible();
 
-  await pageClick(page, '[data-ega-bubble-menu] [role="menuitem"]');
+  // The first top-level button is Turn off on this site; Run task sits in its own wrapper.
+  await pageClick(page, '[data-ega-bubble-menu] .bubble-menu > button[role="menuitem"]');
   await assertStaysStable(() => siteOff(), false, { windowMs: 1_500 });
   await expect(menu).toBeVisible();
 
   await menu.getByRole('menuitem', { name: 'Turn off on this site' }).click();
   await expect.poll(() => siteOff()).toBe(true);
+});
+
+test('a page script cannot open Run task or run a task from it; the user can', async () => {
+  const api = mockAnthropic(ext.context, { translation: 'A short summary.' });
+  const page = await ext.context.newPage();
+  await page.goto(`${ext.serverUrl}/selection-page.html`);
+  await waitForTestHooks(page);
+  await selectArabiziParagraph(page);
+  await expect.poll(async () => (await egaTest<number>(page, 'bubbleCount')) ?? 0).toBe(1);
+  expect(await egaTest<boolean>(page, 'clickBubbleMenu')).toBe(true);
+  const tasks = page.getByRole('menu', { name: 'Run task' });
+  await expect(page.getByRole('menuitem', { name: 'Run task' })).toBeVisible();
+
+  await pageClick(page, '[data-ega-bubble-menu] .bubble-sub-parent');
+  await assertStaysStable(() => tasks.count(), 0, { windowMs: 1_000 });
+  await page.evaluate(() => {
+    document
+      .querySelector('#ega-shadow-host')
+      ?.shadowRoot?.querySelector('.bubble-sub-parent')
+      ?.dispatchEvent(new PointerEvent('pointerenter'));
+  });
+  await assertStaysStable(() => tasks.count(), 0, { windowMs: 1_000 });
+
+  await page.getByRole('menuitem', { name: 'Run task' }).click();
+  await expect(tasks).toBeVisible();
+  await pageClick(page, '[data-ega-bubble-menu] [aria-label="Run task"] [role="menuitem"]');
+  await assertStaysStable(() => api.calls(), 0, { windowMs: 1_500 });
+  expect(await egaTest<number>(page, 'bubbleCount')).toBe(1);
+
+  await tasks.getByRole('menuitem', { name: 'Summarize' }).click();
+  await expect.poll(() => api.calls()).toBeGreaterThan(0);
 });

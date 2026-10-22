@@ -39,7 +39,11 @@ test('the bubble menu turns Ega off on this site, and Undo turns it back on', as
   expect(await egaTest<boolean>(page, 'clickBubbleMenu')).toBe(true);
   const menu = page.locator('[data-ega-bubble-menu] [role="menu"]');
   await expect(menu).toBeVisible();
-  await expect(menu.getByRole('menuitem')).toHaveText(['Turn off on this site', 'Bubble settings']);
+  await expect(menu.getByRole('menuitem')).toHaveText([
+    'Run task',
+    'Turn off on this site',
+    'Bubble settings',
+  ]);
   timeline.markStep('menu-open');
 
   await menu.getByRole('menuitem', { name: 'Turn off on this site' }).click();

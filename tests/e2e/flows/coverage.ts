@@ -189,6 +189,11 @@ export const COVERAGE: readonly Family[] = [
             flows: ['smart-bubble/bubble-menu-turn-off.flow.spec.ts'],
           },
           {
+            id: 'bubble-menu-run-task',
+            description: 'Run task in the bubble menu runs the picked task on the selection',
+            flows: ['smart-bubble/bubble-menu-run-task.flow.spec.ts'],
+          },
+          {
             id: 'digitless-arabizi-shows',
             description: 'Digitless arabizi triggers the bubble heuristic',
             flows: ['smart-bubble/digitless-arabizi-shows.flow.spec.ts'],

@@ -296,13 +296,14 @@ selection and its toolbar, the tooltip's Retry / Swap / Explain buttons and task
 selects, the **Try again** / **Open settings** buttons on the error chip that page
 translate and inline replace place in the page's own DOM, the page-translate pill's
 buttons and More menu, every in-page toast action (Turn on, Undo, Open settings,
-Reload page) and the bubble menu's items (Turn off on this site, Bubble settings). A
-synthetic event reaches the listener and is dropped. Proof:
+Reload page) and the bubble menu's items (Run task and each task in its list, Turn off
+on this site, Bubble settings). A synthetic event reaches the listener and is dropped.
+Proof:
 `tests/e2e/synthetic-events.spec.ts` dispatches each of the shortcut, the bubble click,
 a Retry click and a task change from the page and asserts that nothing is sent, then
 sends the real one; `synthetic-events-pill.spec.ts` does the same for the pill's Try
-again, and `synthetic-events-notices.spec.ts` for a toast's Turn on and a bubble menu
-item. Residual: the page can still read the answer out of the open shadow root
+again, and `synthetic-events-notices.spec.ts` for a toast's Turn on and the bubble menu
+items. Residual: the page can still read the answer out of the open shadow root
 (section 1).
 
 ### A page driving your local Ollama

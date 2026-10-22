@@ -38,6 +38,42 @@
   outline: 2px solid var(--color-accent);
   outline-offset: -2px;
 }
+.bubble-sub-wrap {
+  position: relative;
+}
+.bubble-menu .bubble-sub-parent {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.bubble-sub-parent svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.bubble-sub-parent[aria-expanded='true'] {
+  background: var(--color-bg-hover);
+}
+/* Sits flush against the menu's edge, its first item level with Run task. */
+.bubble-menu.bubble-submenu {
+  position: absolute;
+  /* logical-props-allow: the side comes from viewport room, measured in physical px */
+  left: calc(100% + var(--space-1) + 1px);
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+}
+.bubble-menu.bubble-submenu.on-left {
+  /* logical-props-allow: the side comes from viewport room, measured in physical px */
+  left: auto;
+  /* logical-props-allow: the side comes from viewport room, measured in physical px */
+  right: calc(100% + var(--space-1) + 1px);
+}
 @media (forced-colors: active) {
   .bubble-menu [role='menuitem']:focus-visible {
     outline-color: Highlight;

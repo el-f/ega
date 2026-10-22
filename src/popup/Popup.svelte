@@ -3,14 +3,16 @@
   import ArrowUp from '@lucide/svelte/icons/arrow-up';
   import Icon from '@/shared/ui/Icon.svelte';
   import { getCustomTasks, getSettings, onSettingsChanged } from '@/shared/storage';
-  import { builtInTask, defaultTaskName, runnableDefaultTask } from '@/shared/task-prompts';
+  import { defaultTaskName, runnableDefaultTask } from '@/shared/task-prompts';
   import type { CustomTask } from '@/shared/settings-schema';
+  import { materializeTasks } from '@/shared/task-view';
   import { patchSettings } from '@/shared/settings-bus';
   import type { Settings, Variety, LangSelection } from '@/shared/types';
   import { asLangSelection } from '@/shared/brands';
   import type { ThemePref } from '@/shared/theme';
   import AppShell from '@/shared/ui/AppShell.svelte';
   import Button from '@/shared/ui/Button.svelte';
+  import Select from '@/shared/ui/Select.svelte';
   import PopupHeader from './PopupHeader.svelte';
   import PopupLangPair from './PopupLangPair.svelte';
   import PopupTools from './PopupTools.svelte';
@@ -47,6 +49,15 @@
   let customTasks = $state<readonly CustomTask[]>([]);
   // Translate anyway runs the page's default task, so it names that task when it is not Translate (R5).
   const anywayTask = $derived(liveSettings ? defaultTaskName(liveSettings, customTasks) : null);
+  let defaultTask = $state('translate');
+  const taskOptions = $derived(
+    liveSettings
+      ? materializeTasks(liveSettings, customTasks, { enabledOnly: true }).map((t) => ({
+          value: t.id,
+          label: t.label,
+        }))
+      : [],
+  );
   // Resolves once the backend chip has decided; a cold service worker can take a while, so the wait is bounded.
   const BACKEND_WAIT_MS = 500;
   let backendDecided: () => void = () => {};
@@ -394,15 +405,16 @@
       }
       pickerEnabled = s.pickerEnabled !== false;
       liveSettings = s;
+      defaultTask = runnableDefaultTask(s);
       theme = s.theme;
-      await readCustomTasksFor(s);
+      await readCustomTasks();
     } catch (e) {
       debugCatch(e, 'popup.onMount.getSettings');
     }
     // Picks up settings written by another surface, so the backend chip and the site switch stay in sync.
     settingsUnsub = onSettingsChanged((next) => {
-      void readCustomTasksFor(next);
       liveSettings = next;
+      defaultTask = runnableDefaultTask(next);
       theme = next.theme;
       pickerEnabled = next.pickerEnabled !== false;
     });
@@ -473,9 +485,8 @@
     }
   });
 
-  /** A custom default task's name lives in its own list, read only when the default is one. */
-  async function readCustomTasksFor(s: Settings): Promise<void> {
-    if (builtInTask(runnableDefaultTask(s)) !== null) return;
+  /** Custom tasks live in their own list: the task picker lists them, and a custom default's name comes from it. */
+  async function readCustomTasks(): Promise<void> {
     try {
       customTasks = await getCustomTasks();
     } catch (e) {
@@ -497,6 +508,15 @@
     const ack = await patchSettings({ defaultLang: sel });
     if (!ack.ok) {
       sourceLang = previous;
+      toastStore.push({ message: settingsSaveFailedMessage(ack.reason), variant: 'warning' });
+    }
+  }
+  async function persistDefaultTask(v: string): Promise<void> {
+    const previous = defaultTask;
+    defaultTask = v;
+    const ack = await patchSettings({ defaultTask: v });
+    if (!ack.ok) {
+      defaultTask = previous;
       toastStore.push({ message: settingsSaveFailedMessage(ack.reason), variant: 'warning' });
     }
   }
@@ -571,6 +591,19 @@
         }}
       />
 
+      {#if taskOptions.length > 0}
+        <div class="popup-task">
+          <label class="group-label" for="pop-task">Default task</label>
+          <Select
+            id="pop-task"
+            size="sm"
+            value={defaultTask}
+            options={taskOptions}
+            onchange={(v) => void persistDefaultTask(v)}
+          />
+        </div>
+      {/if}
+
       <div class="popup-actions">
         <PopupTools
           onTranslatePage={() =>
@@ -639,6 +672,15 @@
      aria-hidden says the same to tools that do not read inert, such as Playwright's role queries. */
   .popup-body.pending {
     opacity: 0;
+  }
+  .popup-task {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  .group-label {
+    font-size: var(--fs-xs);
+    color: var(--color-muted);
   }
   .popup-actions {
     display: flex;
