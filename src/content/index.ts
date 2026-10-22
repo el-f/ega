@@ -316,6 +316,21 @@ function handleSelectionChange(): void {
           reportEntryFailure(err, 'content.bubbleClick'),
         );
       },
+      // Loaded on menu open: the task list code stays out of the script every page parses.
+      listTasks: async () => {
+        const [{ materializeTasks }, customs] = await Promise.all([
+          import('@/shared/task-view'),
+          ensureCustomTasks().catch(() => []),
+        ]);
+        return materializeTasks(currentSettings() ?? s, customs, { enabledOnly: true }).map(
+          (t) => ({ id: t.id, label: t.label }),
+        );
+      },
+      onRunTask: (id) => {
+        void startTranslateSelection(undefined, id).catch((err) =>
+          reportEntryFailure(err, 'content.bubbleTask'),
+        );
+      },
     });
   })().catch((e) => debugCatch(e, 'content.selectionchange'));
 }

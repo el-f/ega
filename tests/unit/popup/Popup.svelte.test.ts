@@ -533,6 +533,62 @@ describe('Popup — a rejected settings write', () => {
   });
 });
 
+describe('Popup — default task', () => {
+  it('lists the tasks that are on, a custom one included, and saves the pick', async () => {
+    await chrome.storage.local.set({
+      'ega.customTasks': [
+        {
+          id: 'formal-es',
+          label: 'Formal Spanish',
+          system: '',
+          user: 'Rewrite in formal Spanish: {{text}}',
+          output: 'plain',
+          pageContext: false,
+          image: false,
+          glossary: false,
+          createdAt: 1,
+        },
+      ],
+      'ega.settings': { anthropicApiKey: 'test-key', disabledTasks: ['grammar'] },
+    });
+    const send = chrome.runtime.sendMessage as unknown as Mock;
+    try {
+      const { findByLabelText } = render(Popup);
+      await mounted();
+      const select = (await findByLabelText('Default task')) as HTMLSelectElement;
+      await waitFor(() =>
+        expect([...select.options].map((o) => o.textContent)).toContain('Formal Spanish'),
+      );
+      const labels = [...select.options].map((o) => o.textContent);
+      expect(labels).toContain('Summarize');
+      expect(labels).not.toContain('Grammar');
+      expect(select.value).toBe('translate');
+      await fireEvent.change(select, { target: { value: 'summarize' } });
+      await waitFor(() =>
+        expect(send).toHaveBeenCalledWith(
+          expect.objectContaining({ kind: 'settings:update', patch: { defaultTask: 'summarize' } }),
+        ),
+      );
+    } finally {
+      await chrome.storage.local.remove('ega.customTasks');
+    }
+  });
+
+  it('puts the task back and says so when the write fails', async () => {
+    (chrome.runtime.sendMessage as unknown as Mock).mockImplementation(async (msg: unknown) =>
+      (msg as { kind?: string }).kind === 'settings:update'
+        ? { ok: false, reason: 'quota' }
+        : { ok: true },
+    );
+    const { findByLabelText, findByText } = render(Popup);
+    await mounted();
+    const select = (await findByLabelText('Default task')) as HTMLSelectElement;
+    await fireEvent.change(select, { target: { value: 'explain' } });
+    expect(await findByText(/Storage is full|not saved/i)).toBeTruthy();
+    await waitFor(() => expect(select.value).toBe('translate'));
+  });
+});
+
 describe('Popup — settings listener cleanup', () => {
   it('removes the onSettingsChanged listener when the popup unmounts', async () => {
     const onChanged = chrome.storage.local.onChanged as unknown as {
