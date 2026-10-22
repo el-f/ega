@@ -22,6 +22,9 @@ interface BubbleOpts {
   /** The selection's block runs right to left: the bubble lines up with its right edge. */
   rtl?: boolean;
   onClick: (e: MouseEvent) => void;
+  /** The menu's Run task list: every task that is on, read when the menu opens. */
+  listTasks?: () => Promise<readonly MenuMod.MenuTask[]>;
+  onRunTask?: (id: string) => void;
 }
 
 interface Mounted {
@@ -36,6 +39,7 @@ interface Mounted {
 
 let current: Mounted | null = null;
 let currentOnClick: ((e: MouseEvent) => void) | null = null;
+let currentTasks: Pick<BubbleOpts, 'listTasks' | 'onRunTask'> | null = null;
 // The menu loads on first open; most pages never open it.
 let menuMod: typeof MenuMod | null = null;
 
@@ -158,10 +162,12 @@ export function showBubble(opts: BubbleOpts): void {
   const { left, top } = placeBubble(opts.rect, opts.rtl === true);
   if (moveMounted(opts, left, top)) {
     currentOnClick = opts.onClick;
+    currentTasks = opts;
     return;
   }
   hideBubble();
   currentOnClick = opts.onClick;
+  currentTasks = opts;
   const c = getContainer();
   const anchor = document.createElement('div');
   anchor.setAttribute('data-ega-bubble-wrap', '');
@@ -186,9 +192,24 @@ export function showBubble(opts: BubbleOpts): void {
         viaKeyboard: boolean,
         returnTo: HTMLElement | null | undefined,
       ) => {
-        void loadBubbleMenu().then((m) =>
-          m.openBubbleMenu(chevron, { focusFirst: viaKeyboard, hideBubble, returnTo }),
-        );
+        const t = currentTasks;
+        void Promise.all([
+          loadBubbleMenu(),
+          (t?.listTasks?.() ?? Promise.resolve([])).catch((e: unknown) => {
+            debugCatch(e, 'content.bubble.tasks');
+            return [];
+          }),
+        ]).then(([m, tasks]) => {
+          // The bubble went away while the list loaded: nothing to open the menu under.
+          if (!chevron.isConnected) return;
+          m.openBubbleMenu(chevron, {
+            focusFirst: viaKeyboard,
+            hideBubble,
+            returnTo,
+            tasks,
+            onRunTask: (id) => t?.onRunTask?.(id),
+          });
+        });
       },
     },
   });
@@ -205,6 +226,7 @@ export function showBubble(opts: BubbleOpts): void {
 
 export function hideBubble(): void {
   currentOnClick = null;
+  currentTasks = null;
   menuMod?.closeBubbleMenu();
   if (current) {
     try {

@@ -1,7 +1,7 @@
 [
   {
     "name": "Advanced",
-    "bytes": 56662
+    "bytes": 57310
   },
   {
     "name": "AnswerNotes",
@@ -13,15 +13,15 @@
   },
   {
     "name": "bubble",
-    "bytes": 5082
+    "bytes": 5272
   },
   {
     "name": "bubble-menu",
-    "bytes": 4437
+    "bytes": 7175
   },
   {
     "name": "cancel-token",
-    "bytes": 27958
+    "bytes": 27995
   },
   {
     "name": "Checkbox",
@@ -49,15 +49,15 @@
   },
   {
     "name": "error-copy",
-    "bytes": 5213
+    "bytes": 5238
   },
   {
     "name": "Glossary",
-    "bytes": 31043
+    "bytes": 31084
   },
   {
     "name": "IconButton",
-    "bytes": 3917
+    "bytes": 7704
   },
   {
     "name": "image-url-guard",
@@ -65,15 +65,15 @@
   },
   {
     "name": "index",
-    "bytes": 122765
+    "bytes": 124672
   },
   {
     "name": "index.html",
-    "bytes": 470692
+    "bytes": 472658
   },
   {
     "name": "index.ts",
-    "bytes": 45964
+    "bytes": 45667
   },
   {
     "name": "index.ts-loader",
@@ -85,15 +85,19 @@
   },
   {
     "name": "invariants",
-    "bytes": 50863
+    "bytes": 50865
   },
   {
     "name": "lang-tag",
-    "bytes": 306
+    "bytes": 343
   },
   {
     "name": "language-prompt",
     "bytes": 1138
+  },
+  {
+    "name": "languages",
+    "bytes": 2288
   },
   {
     "name": "Markdown",
@@ -105,7 +109,7 @@
   },
   {
     "name": "open-options-tab",
-    "bytes": 50991
+    "bytes": 50986
   },
   {
     "name": "page-chip",
@@ -118,6 +122,10 @@
   {
     "name": "page-translate-v2",
     "bytes": 29994
+  },
+  {
+    "name": "pending-conversation-open",
+    "bytes": 631
   },
   {
     "name": "pending-popup-handoff",
@@ -180,16 +188,12 @@
     "bytes": 4394
   },
   {
-    "name": "Select",
-    "bytes": 3940
-  },
-  {
     "name": "selection-cap-copy",
-    "bytes": 12336
+    "bytes": 12340
   },
   {
     "name": "SelectionBubble",
-    "bytes": 36634
+    "bytes": 36638
   },
   {
     "name": "settings-bus",
@@ -205,7 +209,7 @@
   },
   {
     "name": "src-content-index.ts",
-    "bytes": 35210
+    "bytes": 35563
   },
   {
     "name": "stuck-timeout",
@@ -213,7 +217,7 @@
   },
   {
     "name": "task-view",
-    "bytes": 6091
+    "bytes": 4098
   },
   {
     "name": "tasks",
@@ -221,7 +225,7 @@
   },
   {
     "name": "Tasks",
-    "bytes": 49708
+    "bytes": 50021
   },
   {
     "name": "TaskUsageRow",
@@ -233,7 +237,7 @@
   },
   {
     "name": "theme",
-    "bytes": 16094
+    "bytes": 16095
   },
   {
     "name": "theme-apply",
@@ -241,7 +245,7 @@
   },
   {
     "name": "tipState.svelte",
-    "bytes": 56458
+    "bytes": 56473
   },
   {
     "name": "toast",
@@ -257,11 +261,11 @@
   },
   {
     "name": "Translate",
-    "bytes": 24930
+    "bytes": 24932
   },
   {
     "name": "translate-handlers",
-    "bytes": 6142
+    "bytes": 6154
   },
   {
     "name": "translate-ui",
@@ -293,6 +297,6 @@
   },
   {
     "name": "vendor-svelte-extras",
-    "bytes": 74564
+    "bytes": 74566
   }
 ]

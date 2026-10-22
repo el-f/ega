@@ -12,7 +12,14 @@ let open: {
   chevron: HTMLElement;
 } | null = null;
 
-const MENU_HEIGHT = 80;
+/** Three items; the Run task list opens beside the menu and keeps itself on screen. */
+const MENU_HEIGHT = 110;
+const MENU_WIDTH = 200;
+
+export interface MenuTask {
+  id: string;
+  label: string;
+}
 
 export function closeBubbleMenu(returnFocus = false): void {
   if (!open) return;
@@ -52,6 +59,8 @@ export function openBubbleMenu(
     hideBubble: () => void;
     /** Where focus was before the bubble; an item chosen from the keyboard gives it back. */
     returnTo?: HTMLElement | null | undefined;
+    tasks?: readonly MenuTask[];
+    onRunTask?: (id: string) => void;
   },
 ): void {
   if (open) {
@@ -67,18 +76,28 @@ export function openBubbleMenu(
   anchor.setAttribute('data-ega-bubble-menu', '');
   getContainer().appendChild(anchor);
   chevron.setAttribute('aria-expanded', 'true');
-  // Both items remove the bubble and the focused item with it; a pointer press never moved focus.
+  // Every item removes the bubble and the focused item with it; a pointer press never moved focus.
   const leave = (): void => {
     const fromKeyboard = (chevron.getRootNode() as ShadowRoot).activeElement !== null;
     closeBubbleMenu();
     if (fromKeyboard && opts.returnTo?.isConnected) opts.returnTo.focus();
     opts.hideBubble();
   };
+  const left = Math.max(8, Math.min(window.innerWidth - MENU_WIDTH - 8, r.left));
   const handle = mount(BubbleMenu, {
     target: anchor,
     props: {
-      left: Math.max(8, Math.min(window.innerWidth - 208, r.left)),
+      left,
       top: Math.max(8, top),
+      // The Run task list opens on the side with more room; the list then keeps itself on screen.
+      subOnLeft:
+        window.innerWidth - (left + MENU_WIDTH) < MENU_WIDTH &&
+        left > window.innerWidth - (left + MENU_WIDTH),
+      tasks: opts.tasks ?? [],
+      onRunTask: (id: string) => {
+        leave();
+        opts.onRunTask?.(id);
+      },
       focusFirst: opts.focusFirst,
       onClose: closeBubbleMenu,
       onSettings: () => {
