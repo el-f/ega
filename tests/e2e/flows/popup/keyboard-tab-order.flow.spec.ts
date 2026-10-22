@@ -71,6 +71,7 @@ test('Tab walks the popup top to bottom with a visible ring; Esc closes the back
     `Ega on ${host}`,
     'Source language',
     'Target language',
+    'pop-task',
     'Translate page',
     'Choose areas',
     'ega-popup-freeform',
