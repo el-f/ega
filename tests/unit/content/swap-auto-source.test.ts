@@ -4,6 +4,8 @@ import { chromeMock } from '@tests/mocks/chrome';
 import { STORAGE_KEYS } from '@/shared/constants';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import { resetSettingsCacheForTest } from '@/content/settings-cache';
+// Static so the lazy tooltip import resolves off the warm module graph, not mid-teardown.
+import '@/content/tipState.svelte';
 
 const openTooltipSpy = vi.fn();
 vi.mock('@/content/lazy-tooltip', () => ({
