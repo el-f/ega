@@ -11,6 +11,8 @@ import {
 } from '@/content/request-state';
 import { chromeMock, workerReply } from '@tests/mocks/chrome';
 import type { TranslationChunk } from '@/shared/types';
+// Static so the lazy tooltip import resolves off the warm module graph, not mid-teardown.
+import '@/content/tipState.svelte';
 
 // Every way a request ends must reach the service worker exactly once, and never after the worker already closed the stream.
 
