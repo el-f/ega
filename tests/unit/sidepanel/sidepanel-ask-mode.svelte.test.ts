@@ -13,6 +13,9 @@ import type { Msg } from '@/shared/messages';
 import type { TranslationChunk } from '@/shared/types';
 import { confirmDialog } from '@/shared/components/confirmDialog';
 import { openMenu } from './_reply';
+import { pickHeaderMenuItem } from './_header-menu';
+import { IMAGE_TURN_PLACEHOLDER } from '@/shared/constants';
+import { updateSettings } from '@/shared/storage';
 
 vi.mock('@/shared/components/confirmDialog', () => ({
   confirmDialog: vi.fn().mockResolvedValue(true),
@@ -953,5 +956,360 @@ describe('Ask instead', () => {
     const q = starts().at(-1) as Start;
     expect(q.options['task']).toBe('ask');
     expect(q.options.askAbout?.['turnId']).toBe(first.getAttribute('data-turn-id'));
+  });
+});
+
+describe('the version and the task a question is about', () => {
+  // R2-6: the version shown at Send is the one asked about; the quote is frozen, and its click does not page.
+  it('a question asks about the version shown, and its quote leads back without paging', async () => {
+    const c = await mounted();
+    const reply = await firstExchange(c);
+    const again = await regenerate(c);
+    await chunk({ type: 'done', requestId: again.requestId, text: 'Hello, how are you?' });
+    await fireEvent.click(reply.querySelector('[data-ega-variant-prev]') as HTMLElement);
+    await settle();
+    expect(reply.querySelector('.ega-pager-count')?.textContent).toBe('1/2');
+
+    await fireEvent.click(askOn(reply));
+    await settle();
+    const q = await send(c, 'why?');
+    expect(q.options.askAbout?.['result']).toBe('Hi, how are you?');
+    await chunk({ type: 'done', requestId: q.requestId, text: 'Because.' });
+
+    await fireEvent.click(reply.querySelector('[data-ega-variant-next]') as HTMLElement);
+    await settle();
+    const quote = c.querySelector<HTMLElement>('[data-ega-ask-quote]') as HTMLElement;
+    expect(quote.textContent).toContain('Hi, how are you?');
+    await fireEvent.click(quote);
+    await settle();
+    expect(document.activeElement).toBe(reply);
+    expect(reply.querySelector('.ega-pager-count')?.textContent).toBe('2/2');
+    expect(reply.textContent).toContain('Hello, how are you?');
+  });
+
+  const image = 'data:image/png;base64,iVBORw0KGgo=';
+  const dispatch = { sourceLang: 'auto', targetLang: 'en', stream: true };
+  // S1-1 and R2-10: every finished reply can be asked about, and its about block names its task.
+  it.each([
+    {
+      name: 'Explain, with its notes',
+      user: { kind: 'explain', content: 'kifak' },
+      reply: { kind: 'explain', notes: [{ label: 'Dialect', text: 'Levantine' }] },
+      task: 'Explain',
+      original: 'kifak',
+    },
+    {
+      name: 'Summarize',
+      user: { kind: 'summarize', content: 'a long text' },
+      reply: { kind: 'summarize' },
+      task: 'Summarize',
+      original: 'a long text',
+    },
+    {
+      name: 'a custom task',
+      user: { kind: 'translate', taskId: 'c-tweet', content: 'a long text' },
+      reply: { kind: 'translate', taskId: 'c-tweet' },
+      task: 'Tweet summary',
+      original: 'a long text',
+    },
+    {
+      name: 'an image, with no original text and no placeholder',
+      user: { kind: 'image-translate', content: IMAGE_TURN_PLACEHOLDER, imageDataUrl: image },
+      reply: { kind: 'image-translate' },
+      task: 'Translate image',
+      original: '',
+    },
+  ])('$name', async ({ user, reply, task, original }) => {
+    await chrome.storage.local.set({
+      'ega.customTasks': [
+        {
+          id: 'c-tweet',
+          label: 'Tweet summary',
+          system: 'Summarize as one tweet.',
+          user: '{{text}}',
+          output: 'plain',
+          pageContext: false,
+          image: false,
+          glossary: false,
+          createdAt: 1,
+        },
+      ],
+    });
+    await saveThread('https://a.test', [
+      { id: 'u1', role: 'user', status: 'idle', createdAt: 1, dispatch, ...user },
+      {
+        id: 'a1',
+        role: 'assistant',
+        status: 'done',
+        createdAt: 2,
+        content: 'The answer.',
+        attachedToTurnId: 'u1',
+        ...reply,
+      },
+    ] as Turn[]);
+    const c = await mounted();
+    const target = await waitFor(() => {
+      const r = replies(c)[0];
+      if (!r) throw new Error('not loaded');
+      return r;
+    });
+    await fireEvent.click(askOn(target));
+    await settle();
+    const q = await send(c, 'what does it say?');
+    expect(q.options['task']).toBe('ask');
+    expect(q.options.askAbout?.['task']).toBe(task);
+    expect(q.options.askAbout?.['original']).toBe(original);
+    expect(q.options.askAbout?.['result']).toBe('The answer.');
+    if (user.kind === 'explain') expect(q.options.askAbout?.['notes']).toContain('Levantine');
+    expect(JSON.stringify(q)).not.toContain(IMAGE_TURN_PLACEHOLDER);
+  });
+});
+
+describe('re-runs of an answer to a question', () => {
+  /** The first reply, a question about it, and the answer's request. */
+  async function question(c: HTMLElement, text = 'why?'): Promise<Start> {
+    await fireEvent.click(askOn(await firstExchange(c)));
+    await settle();
+    return send(c, text);
+  }
+  const history = [
+    { role: 'user', content: 'mar7aba, kifak?' },
+    { role: 'assistant', content: 'Hi, how are you?' },
+  ];
+  const answer = (c: HTMLElement): HTMLElement => replies(c).at(-1) as HTMLElement;
+
+  // R2-4: Retry, a Refine preset and Describe a change all send the reply and the history again.
+  it('Retry, a Refine preset and Describe a change each send the reply asked about and the history', async () => {
+    const c = await mounted();
+    const q = await question(c);
+    await chunk({ type: 'error', requestId: q.requestId, code: 'NETWORK', message: 'x' });
+
+    await fireEvent.click(answer(c).querySelector('[data-ega-retry]') as HTMLElement);
+    await settle();
+    const retried = starts().at(-1) as Start;
+    expect(retried.requestId).not.toBe(q.requestId);
+    for (const r of [retried]) {
+      expect(r.options['task']).toBe('ask');
+      expect(r.options.askAbout?.['result']).toBe('Hi, how are you?');
+      expect(r.options['conversationHistory']).toEqual(history);
+    }
+    await chunk({ type: 'done', requestId: retried.requestId, text: 'Because.' });
+
+    await openMenu(answer(c), 'refine');
+    await fireEvent.click(document.querySelector('[data-ega-refine-preset]') as HTMLElement);
+    await settle();
+    const preset = starts().at(-1) as Start;
+    expect(preset.options['refinement']).toBeDefined();
+    await chunk({ type: 'done', requestId: preset.requestId, text: 'Short: because.' });
+
+    await openMenu(answer(c), 'refine');
+    await fireEvent.click(document.querySelector('[data-ega-describe-change]') as HTMLElement);
+    await settle();
+    const described = await send(c, 'say it in French');
+    expect(described.options['refinement']).toBe('say it in French');
+    for (const r of [preset, described]) {
+      expect(r.options['task']).toBe('ask');
+      expect(r.options.askAbout?.['result']).toBe('Hi, how are you?');
+      expect(r.options['conversationHistory']).toEqual(history);
+    }
+  });
+
+  // R2-14: pasted text is asked, and "Translate instead" on its answer sends the text alone.
+  it('pasted text is asked; Translate instead on its answer sends that text alone, as Translate', async () => {
+    const c = await mounted();
+    await fireEvent.click(askOn(await firstExchange(c)));
+    await settle();
+    const pasted = 'shu 3am ta3mel?\nw kifak?';
+    const paste = new Event('paste', { bubbles: true, cancelable: true }) as ClipboardEvent;
+    Object.defineProperty(paste, 'clipboardData', {
+      value: { items: [], files: [], getData: (t: string) => (t === 'text/plain' ? pasted : '') },
+    });
+    box(c).dispatchEvent(paste);
+    expect(paste.defaultPrevented).toBe(false);
+    const q = await send(c, pasted);
+    expect(q.text).toBe(pasted);
+    expect(q.options['task']).toBe('ask');
+    await chunk({ type: 'done', requestId: q.requestId, text: 'It asks what you are up to.' });
+
+    await openMenu(answer(c), 'more');
+    const item = document.querySelector<HTMLElement>('[data-ega-answer-again="translate"]');
+    expect(item?.textContent.trim()).toBe('Translate instead');
+    await fireEvent.click(item as HTMLElement);
+    await settle();
+    const again = starts().at(-1) as Start;
+    expect(again.text).toBe(pasted);
+    expect(again.options['task']).toBeUndefined();
+    expect(again.options.askAbout).toBeUndefined();
+    expect(again.options['conversationHistory']).toBeUndefined();
+  });
+});
+
+describe('Ask mode while an answer runs, under a filter, across conversations and a close', () => {
+  async function asking(c: HTMLElement): Promise<{ reply: HTMLElement; q: Start }> {
+    const reply = await firstExchange(c);
+    await fireEvent.click(askOn(reply));
+    await settle();
+    const q = await send(c, 'why?');
+    await chunk({ type: 'delta', requestId: q.requestId, text: 'Bec' });
+    return { reply, q };
+  }
+  const cancels = (): unknown[] =>
+    (sendMessage.mock.calls as Array<[Record<string, unknown>]>).filter(
+      ([m]) => m['kind'] === 'translate:cancel',
+    );
+
+  // R2-11: Esc stops the running answer first, and Ask mode stays.
+  it('Esc while the answer streams stops it and keeps asking about the same reply', async () => {
+    const c = await mounted();
+    const { reply } = await asking(c);
+    box(c).focus();
+    await fireEvent.keyDown(box(c), { key: 'Escape' });
+    await settle();
+    expect(cancels()).toHaveLength(1);
+    expect(banner(c)).toContain('Asking about this reply');
+    expect(target(c)).toBe(reply);
+  });
+
+  // R2-20: Done asking leaves the mode; the answer keeps streaming, and the mode does not come back with it.
+  it('Done asking while the answer streams leaves the mode, and the answer finishes without moving it', async () => {
+    const c = await mounted();
+    const { q } = await asking(c);
+    await fireEvent.click(c.querySelector('[aria-label="Done asking"]') as HTMLElement);
+    await settle();
+    expect(banner(c)).toBeNull();
+    await chunk({ type: 'delta', requestId: q.requestId, text: 'ause.' });
+    await chunk({ type: 'done', requestId: q.requestId });
+    expect(cancels()).toEqual([]);
+    expect(replies(c).at(-1)?.textContent).toContain('Because.');
+    expect(banner(c)).toBeNull();
+    expect(target(c)).toBeNull();
+  });
+
+  // R2-8: the bookmark filter hides the quoted reply, so the quote clears it.
+  it('a quote whose reply the bookmark filter hides clears the filter, then shows the reply', async () => {
+    const c = await mounted();
+    const { q } = await asking(c);
+    await chunk({ type: 'done', requestId: q.requestId, text: 'Because.' });
+    const more = c.querySelectorAll<HTMLElement>('[data-ega-user-turn] [data-ega-action="more"]');
+    await fireEvent.keyDown(more[1] as HTMLElement, { key: 'Enter' });
+    await fireEvent.click(
+      await waitFor(() => {
+        const el = document.querySelector<HTMLElement>('[role="menu"] [data-ega-bookmark]');
+        if (!el) throw new Error('menu not open');
+        return el;
+      }),
+    );
+    await settle();
+    await pickHeaderMenuItem(c, '[data-ega-bookmark-filter]');
+    await settle();
+    expect(replies(c).some((r) => r.textContent.includes('Hi, how are you?'))).toBe(false);
+
+    await fireEvent.click(c.querySelector('[data-ega-ask-quote]') as HTMLElement);
+    await settle();
+    const shown = replies(c).find((r) => r.textContent.includes('Hi, how are you?'));
+    expect(shown).toBeDefined();
+    expect(document.activeElement).toBe(shown);
+  });
+
+  // S3-3 and R2-13e: another conversation of the same site, opened from the list, ends the mode.
+  it('another conversation of this site, opened from the list, ends it', async () => {
+    await saveThread('https://a.test', [
+      { id: 'o1', role: 'user', kind: 'translate', status: 'idle', createdAt: 1, content: 'older' },
+      {
+        id: 'o2',
+        role: 'assistant',
+        kind: 'translate',
+        status: 'done',
+        createdAt: 2,
+        content: 'older reply',
+        attachedToTurnId: 'o1',
+      },
+    ] as Turn[]);
+    const c = await mounted();
+    await waitFor(() => expect(c.textContent).toContain('older reply'));
+    await fireEvent.click(c.querySelector('[data-ega-new-conversation]') as HTMLElement);
+    await settle();
+    const { q } = await asking(c);
+    await chunk({ type: 'done', requestId: q.requestId, text: 'Because.' });
+    expect(banner(c)).toContain('Asking about this reply');
+
+    await fireEvent.click(c.querySelector('[data-ega-header-site]') as HTMLElement);
+    const open = await waitFor(() => {
+      const b = document.querySelector<HTMLElement>(
+        '[data-ega-conv-row="https://a.test"] [data-ega-conv-open]',
+      );
+      if (!b) throw new Error('row not shown');
+      return b;
+    });
+    await fireEvent.click(open);
+    await waitFor(() => expect(c.textContent).toContain('older reply'));
+    await settle();
+    expect(banner(c)).toBeNull();
+  });
+
+  // R2-13d: an Ask handoff while editing lands only the exchange.
+  it('a tooltip Ask while a message is being edited lands only the exchange', async () => {
+    const c = await mounted();
+    await firstExchange(c);
+    await fireEvent.keyDown(window, { key: 'e' });
+    await settle();
+    expect(banner(c)).toContain('Editing your message');
+    await writePendingPopupHandoff({
+      sourceText: 'from the page',
+      sourceLang: 'auto',
+      targetLang: 'en',
+      task: 'translate',
+      tone: 'neutral',
+      response: 'Delivered.',
+      ask: true,
+    });
+    await waitFor(() => expect(c.textContent).toContain('Delivered.'));
+    await settle();
+    expect(banner(c) ?? '').not.toContain('Asking about this reply');
+    expect(target(c)).toBeNull();
+  });
+
+  // R2-13g: a close in Ask mode keeps the draft from before Ask, never the question.
+  it('a close in Ask mode leaves the draft from before Ask stored, and the panel opens on it', async () => {
+    const first = render(SidePanel);
+    await waitFor(() => {
+      if (!first.container.querySelector('#sp-text')) throw new Error('not mounted');
+    });
+    await settle();
+    const c = first.container;
+    const reply = await firstExchange(c);
+    await type(c, 'my draft');
+    await fireEvent.click(askOn(reply));
+    await settle();
+    await type(c, 'a question I never sent');
+    await new Promise((r) => setTimeout(r, 300));
+    first.unmount();
+    await settle();
+    const stored = JSON.stringify(await chrome.storage.session.get(null));
+    expect(stored).toContain('my draft');
+    expect(stored).not.toContain('a question I never sent');
+
+    const again = await mounted();
+    expect(box(again).value).toBe('my draft');
+    expect(banner(again)).toBeNull();
+  });
+});
+
+describe('the shortcut sheet', () => {
+  const sheetTerms = (): string[] =>
+    Array.from(document.querySelectorAll('.shortcut-row dt')).map((d) => d.textContent);
+
+  it('lists `a` while the Ask task is on, and not once it is off', async () => {
+    await mounted();
+    await fireEvent.keyDown(window, { key: '?' });
+    await waitFor(() => expect(sheetTerms()).toContain('Ask about the focused reply'));
+    await fireEvent.keyDown(window, { key: 'Escape' });
+    await settle();
+
+    await updateSettings({ disabledTasks: ['ask'] });
+    await settle();
+    await fireEvent.keyDown(window, { key: '?' });
+    await waitFor(() => expect(sheetTerms()).toContain('Regenerate the focused reply'));
+    expect(sheetTerms()).not.toContain('Ask about the focused reply');
   });
 });

@@ -69,6 +69,34 @@ describe('Ask mode in the composer', () => {
     expect(props.onAttachImage).not.toHaveBeenCalled();
   });
 
+  it('offers no image to attach, and a dropped or picked image is refused with the same toast', async () => {
+    const refused = "Images can't be part of a question.";
+    const push = vi.spyOn(toastStore, 'push');
+    vi.stubGlobal('SpeechRecognition', class {});
+    const props = { ...composerProps(), mode: ASK };
+    const { container } = render(InputRow, { props });
+    await fireEvent.keyDown(container.querySelector('[data-ega-add]') as HTMLElement, {
+      key: 'Enter',
+    });
+    await waitFor(() => {
+      if (!document.querySelector('[data-ega-mic]')) throw new Error('menu not open');
+    });
+    expect(document.querySelector('[data-ega-attach-image]')).toBeNull();
+
+    const file = new File([new Uint8Array([137, 80, 78, 71])], 'p.png', { type: 'image/png' });
+    await fireEvent.drop(textarea(container), {
+      dataTransfer: { files: [file], getData: () => '' } as unknown as DataTransfer,
+    });
+    await vi.waitFor(() => expect(push.mock.calls.map((c) => c[0].message)).toContain(refused));
+    // The file picker's own path, should a picker opened earlier still answer.
+    push.mockClear();
+    const input = container.querySelector<HTMLInputElement>('[data-ega-image-input]');
+    Object.defineProperty(input, 'files', { value: [file], configurable: true });
+    await fireEvent.change(input as HTMLInputElement);
+    await vi.waitFor(() => expect(push.mock.calls.map((c) => c[0].message)).toContain(refused));
+    expect(props.onAttachImage).not.toHaveBeenCalled();
+  });
+
   it('says what it is told, again for the same words, and where it goes back to on leaving', async () => {
     const text = 'Now asking about the new answer';
     const props = { ...composerProps(), mode: ASK, announce: { text } };

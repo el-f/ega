@@ -10,7 +10,7 @@
 
 - Step 1: a first message is translated; its meta line reads "Arabizi (Levantine) → English".
 - Step 2 (Ask on the reply): the composer shows the banner "Asking about this reply" with a × named "Done asking". The field is empty with the placeholder "Ask about this reply" and has focus. The reply is marked by a 2px accent bar on its start side, and its Ask button is pressed. A draft typed before waits.
-- Step 3 (send a question): the question bubble shows a one-line quote of the reply, then the question. The answer streams below as prose. The request carries the reply's original text, its result, its languages with the detected detail, and the question.
+- Step 3 (send a question): the question bubble shows a one-line quote of the reply, then the question. The answer streams below as prose. The request carries the reply's original text, its result, its languages with the detected detail, its notes, and the question.
 - Step 4: the composer keeps asking, now about the answer; the bar moves to the answer. The answer's meta line reads "Answer", with no languages and no confidence.
 - Step 5 (press the quote): the thread scrolls to the first reply, the reply flashes briefly and takes focus.
 - Step 6 (×): the banner goes, the composer is back on its task ("Translate → English") with the earlier draft restored, and focus stays in the field.

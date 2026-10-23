@@ -16,6 +16,7 @@ const ORIGINAL = 'mar7aba, kifak? shu 3am ta3mel?';
 const TRANSLATION = 'Hi, how are you? What are you up to?';
 const QUESTION = 'what makes it Levantine?';
 const ANSWER = 'It is Levantine because of "kifak" and "shu 3am ta3mel".';
+const NOTE = '"Kifak" is how Levantine speakers say "how are you".';
 
 test.beforeEach(async () => {
   ext = await launchExtension();
@@ -37,6 +38,7 @@ test('Ask on a reply sends that reply with the question, keeps asking, links bac
     translation: TRANSLATION,
     detectedLang: 'arabizi',
     detectedDetail: 'Levantine',
+    explain: NOTE,
     times: 1,
   });
 
@@ -91,6 +93,8 @@ test('Ask on a reply sends that reply with the question, keeps asking, links bac
   expect(sent.user).toContain(`Original text:\n"""\n${ORIGINAL}\n"""`);
   expect(sent.user).toContain(`Result:\n"""\n${TRANSLATION}\n"""`);
   expect(sent.user).toContain('Arabizi (Levantine) → English');
+  // The reply's notes go too (the success metric's last field).
+  expect(sent.user.split('Notes:\n"""\n')[1]?.split('\n"""')[0]).toContain(NOTE);
   expect(sent.user).toContain(`QUESTION:\n"""\n${QUESTION}\n"""`);
   // The earlier conversation still goes along.
   expect(sent.before.length).toBeGreaterThanOrEqual(2);
