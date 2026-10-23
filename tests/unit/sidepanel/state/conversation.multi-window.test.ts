@@ -1,6 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach, vi, type Mock } from 'vitest';
 import { createConversation } from '@/sidepanel/state/conversation.svelte';
-import { loadThreadResult, saveThread } from '@/sidepanel/state/conversation-store';
+import {
+  loadThreadResult,
+  MAX_TURNS_PER_THREAD,
+  saveThread,
+} from '@/sidepanel/state/conversation-store';
 import { asLangIdUnsafe } from '@/shared/brands';
 import { askedAbout } from '@/sidepanel/state/thread-view';
 import type { Turn, UserTurnData } from '@/sidepanel/state/conversation';
@@ -685,6 +689,53 @@ describe('a copy of a reply that another window deletes', () => {
     expect(JSON.stringify(lastStartOptions())).not.toContain('secret-result');
   });
 
+  it('leaves the memory of a window whose save the delete refused, before it heard of it', async () => {
+    // Window A hears storage late: its save reaches B's tombstone before B's write reaches A.
+    let late = false;
+    const held: Changes[] = [];
+    const a = createConversation();
+    const listener = (changes: Changes, area: string): void => {
+      if (area !== 'local') return;
+      if (late) held.push(changes);
+      else a.onStorageChanged(changes);
+    };
+    chrome.storage.onChanged.addListener(listener);
+    listeners.push(listener);
+    await a.openConversation(ORIGIN);
+    const b = await openWindow();
+    const e = await sendAndFinish(a, 'secret-original', 'secret-result');
+    const t = await sendAndFinish(a, 'what does it mean', 'what does it mean');
+    const about = {
+      turnId: e,
+      task: 'Translate',
+      original: 'secret-original',
+      result: 'secret-result',
+    };
+    expect(await a.taskVariant(t, 'ask', about)).toBe(true);
+    const requestId = (chrome.runtime.sendMessage as Mock).mock.calls
+      .map((c) => c[0] as Record<string, unknown>)
+      .filter((m) => m['kind'] === 'translate:start')
+      .at(-1)?.['requestId'] as string;
+    a.applyChunk({ type: 'delta', requestId, text: 'It asks' });
+
+    late = true;
+    b.deleteTurn(e);
+    await drain();
+    await a.flush();
+    expect(byId(a, e)).toBeUndefined();
+    late = false;
+    for (const changes of held.splice(0)) a.onStorageChanged(changes);
+    await drain();
+    a.applyChunk({ type: 'done', requestId, confidence: 1 });
+    await drain();
+
+    const version = byId(a, t)?.variants?.at(-1);
+    expect(version).not.toHaveProperty('about');
+    expect(version?.aboutRemoved).toBe(true);
+    expect(await a.regenerateVariant(t)).toBe(true);
+    expect(JSON.stringify(lastStartOptions())).not.toContain('secret-result');
+  });
+
   it('a save that still holds the copy, before it hears of the delete, stores none', async () => {
     const question = {
       id: 'q',
@@ -787,5 +838,51 @@ describe('a copy of a reply that another window deletes', () => {
     );
     expect(byId(b, e)?.content).toBe('secret-result');
     expect(byId(b, questionId)?.about).toEqual(about);
+  });
+});
+
+describe('a copy of a reply that the 300-message cap drops', () => {
+  const about = { turnId: 'a0', task: 'Translate', original: 'text 0', result: 'reply 0' };
+  /** 150 exchanges, the cap exactly; the sixth message asks about the first reply. */
+  function cappedThread(): Turn[] {
+    return Array.from({ length: MAX_TURNS_PER_THREAD / 2 }, (_, i) => {
+      const asks = i === 5;
+      return [
+        {
+          id: `u${i}`,
+          role: 'user',
+          kind: asks ? 'ask' : 'translate',
+          status: 'idle',
+          createdAt: 2 * i + 1,
+          content: asks ? 'why?' : `text ${i}`,
+          ...(asks ? { about } : {}),
+        },
+        {
+          id: `a${i}`,
+          role: 'assistant',
+          kind: asks ? 'ask' : 'translate',
+          status: 'done',
+          createdAt: 2 * i + 2,
+          content: `reply ${i}`,
+          attachedToTurnId: `u${i}`,
+        },
+      ] as Turn[];
+    }).flat();
+  }
+
+  it('stays on the question when two windows at the cap each send: a trim is not a delete', async () => {
+    await saveThread(ORIGIN, cappedThread());
+    const a = await openWindow();
+    const b = await openWindow();
+    await sendAndFinish(b, 'from b', 'b answer');
+    // A keeps the oldest exchange B's write trimmed, so its own send trims more than one exchange.
+    expect(a.turns.length).toBeGreaterThan(MAX_TURNS_PER_THREAD);
+    await sendAndFinish(a, 'from a', 'a answer');
+
+    expect(byId(a, 'a0')).toBeUndefined();
+    expect(byId(a, 'u5')?.about).toEqual(about);
+    const stored = (await loadThreadResult(ORIGIN)).turns.find((t) => t.id === 'u5');
+    expect(stored?.about).toEqual(about);
+    expect(stored).not.toHaveProperty('aboutRemoved');
   });
 });

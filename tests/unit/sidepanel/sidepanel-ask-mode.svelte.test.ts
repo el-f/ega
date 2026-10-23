@@ -368,6 +368,43 @@ describe('asking', () => {
     expect(starts().at(-1)?.options.askAbout?.['result']).toBe('Hi, how are you?');
   });
 
+  it('About on a version run while the reply was deleted still says so after Undo: it sent no copy', async () => {
+    const push = vi.spyOn(toastStore, 'push');
+    const c = await mounted();
+    await fireEvent.click(askOn(await firstExchange(c)));
+    await settle();
+    const q = await send(c, 'why?');
+    await chunk({ type: 'done', requestId: q.requestId, text: 'Because.' });
+    await openMenu(c, 'more');
+    await fireEvent.click(document.querySelector('[role="menu"] [data-ega-delete]') as HTMLElement);
+    await settle();
+    const again = await regenerate(c);
+    expect(again.options.askAbout).toBeUndefined();
+    await chunk({ type: 'done', requestId: again.requestId, text: 'Because, again.' });
+    push.mock.calls.find(([m]) => m.message === 'Message and reply deleted')?.[0].action?.onClick();
+    await settle();
+
+    const answer = replies(c).at(-1) as HTMLElement;
+    const askedRow = async (): Promise<string> => {
+      await openMenu(answer, 'more');
+      await fireEvent.click(document.querySelector('[data-ega-about]') as HTMLElement);
+      return waitFor(() => {
+        const row = answer.querySelector('[data-ega-asked-about] dd');
+        if (!row) throw new Error('About not open');
+        return row.textContent;
+      });
+    };
+    expect(await askedRow()).toBe('A reply that is no longer in this conversation');
+    await fireEvent.click(answer.querySelector('[data-ega-variant-prev]') as HTMLElement);
+    await settle();
+    // The first version did send the reply, and the Undo gave the question its copy back.
+    await waitFor(() =>
+      expect(answer.querySelector('[data-ega-asked-about] dd')?.textContent).toContain(
+        'Hi, how are you?',
+      ),
+    );
+  });
+
   describe('two deletes, undone one at a time', () => {
     /** A reply, then a question about it with its answer "Because.". */
     async function asked(c: HTMLElement): Promise<void> {

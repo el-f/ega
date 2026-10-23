@@ -374,14 +374,12 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
         ? { preservedResponse: input.preservedResponse }
         : {}),
     });
-    // Mirror the store's cap so the in-memory array stays bounded.
-    mutate(
-      () =>
-        withAssistant.length > MAX_TURNS_PER_THREAD
-          ? dropOrphanHead(withAssistant.slice(-MAX_TURNS_PER_THREAD), withAssistant)
-          : withAssistant,
-      'debounce',
-    );
+    // The store's cap, outside mutate: a trim is no delete, so questions about a trimmed reply keep their copies.
+    state.turns =
+      withAssistant.length > MAX_TURNS_PER_THREAD
+        ? dropOrphanHead(withAssistant.slice(-MAX_TURNS_PER_THREAD), withAssistant)
+        : withAssistant;
+    markDirty();
     state.inflightId = assistantId;
     state.inflightVariantId = `${assistantId}:v1`;
     state.requestId = requestId;
@@ -760,7 +758,18 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     const context = assistant.contextSent;
     const variantId = uuid();
     const requestId = uuid();
-    mutate((turns) => addVariantPure(turns, turnId, { id: variantId, ...seed }), 'debounce');
+    const asks = (seed.task ?? turnTaskValue(userTurn)) === 'ask';
+    // Run while the question's reply is deleted, it sends no copy; an Undo later must not make its About show one.
+    const aboutRemoved = asks && seed.about === undefined && userTurn.aboutRemoved === true;
+    mutate(
+      (turns) =>
+        addVariantPure(turns, turnId, {
+          id: variantId,
+          ...seed,
+          ...(aboutRemoved ? { aboutRemoved } : {}),
+        }),
+      'debounce',
+    );
     state.inflightId = turnId;
     state.inflightVariantId = variantId;
     // A variant targets an existing mid-history turn, so inflightId is that turn's id, not a new last turn.
@@ -771,7 +780,6 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     const tone = userTurn.tone ?? state.lastDispatch?.tone;
     try {
       // A variant re-answers this one exchange with no earlier turns, except a question: it means nothing without them.
-      const asks = (seed.task ?? turnTaskValue(userTurn)) === 'ask';
       await sendTranslateStart(
         buildStartArgs(userTurn, {
           requestId,
@@ -1212,7 +1220,8 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
   type Persist = 'now' | 'debounce' | 'none';
 
   /** The one way this window's own actions change `state.turns`: every shrink records its
-   *  tombstones, and the save is named at the site, not remembered. */
+   *  tombstones, and the save is named at the site, not remembered. Send's cap trim and another
+   *  window's write skip it, because neither is a delete here. */
   function mutate(next: (turns: Turn[]) => Turn[], persist: Persist): void {
     const before = state.turns;
     const after = next(before);
@@ -1266,7 +1275,8 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     }
     if (refusedIds !== undefined && target === state.activeId) {
       // Buried by another window. Dropping the ids from knownIds lets that window bring them back.
-      state.turns = state.turns.filter((t) => !refusedIds.includes(t.id));
+      for (const id of refusedIds) foreignBuried.add(id);
+      state.turns = settleAbout(state.turns.filter((t) => !refusedIds.includes(t.id)));
       for (const id of refusedIds) knownIds.delete(id);
       if (state.inflightId !== null && refusedIds.includes(state.inflightId)) cancel();
       if (!refusedNoticed) {
@@ -1481,6 +1491,8 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
           : raw;
       // One step: a save landing between these two lines writes this thread's turns under the other origin's key.
       const originChanged = state.activeId !== origin;
+      // An Undo still applies after a same-site reload, so the copies it brings back must still know which replies are deleted.
+      const stillGone = originChanged ? [] : [...deletedAt.keys(), ...foreignBuried];
       state.activeId = origin;
       loadedOnce = true;
       cancelPendingPersist();
@@ -1502,6 +1514,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       deletedAt.clear();
       revivedAt.clear();
       foreignBuried.clear();
+      for (const id of stillGone) foreignBuried.add(id);
       // A seed appended mid-load owns inflightId/requestId — keep them so its chunks still route.
       if (seededDuringLoad.length === 0) {
         clearStall();

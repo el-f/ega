@@ -348,6 +348,7 @@ interface AddVariantInput {
   sourceLang?: LangSelection;
   task?: TaskId;
   about?: AskAbout;
+  aboutRemoved?: true;
 }
 
 /** Appends a sibling variant and makes it active; no-op on a non-assistant turn or one without variants. */
@@ -367,6 +368,7 @@ export function addVariant(turns: readonly Turn[], turnId: string, input: AddVar
     ...(input.sourceLang !== undefined ? { sourceLang: input.sourceLang } : {}),
     ...(input.task !== undefined ? { task: input.task } : {}),
     ...(input.about !== undefined ? { about: input.about } : {}),
+    ...(input.aboutRemoved === true ? { aboutRemoved: true } : {}),
   };
   const nextVariants = [...turn.variants, variant];
   const nextTurn: Turn = projectVariant({

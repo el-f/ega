@@ -231,4 +231,58 @@ describe('a shed image drops its dispatch, a reload keeps Undo', () => {
     expect(c.restoreTurns(slice as NonNullable<typeof slice>)).toBe(true);
     expect(c.turns.map((t) => t.id)).toEqual(['t1']);
   });
+
+  it('a same-site reload still knows a reply is deleted: a question undone after it gets no copy back', async () => {
+    const o = 'https://same-site-undo-about.com';
+    const about = {
+      turnId: 'a1',
+      task: 'Translate',
+      original: 'secret-original',
+      result: 'secret-result',
+    };
+    await saveThread(o, [
+      userTurn('u1', 'secret-original', 10),
+      {
+        id: 'a1',
+        role: 'assistant',
+        kind: 'translate',
+        status: 'done',
+        createdAt: 11,
+        content: 'secret-result',
+        attachedToTurnId: 'u1',
+      },
+      {
+        id: 'q',
+        role: 'user',
+        kind: 'ask',
+        status: 'idle',
+        createdAt: 20,
+        content: 'why?',
+        about,
+        dispatch: { sourceLang: 'auto', targetLang: asLangIdUnsafe('en'), stream: false },
+      },
+      {
+        id: 'qa',
+        role: 'assistant',
+        kind: 'ask',
+        status: 'done',
+        createdAt: 21,
+        content: 'because',
+        attachedToTurnId: 'q',
+      },
+    ]);
+    const c = createConversation();
+    await c.openConversation(o);
+    const question = c.deleteTurn('q');
+    c.deleteTurn('a1');
+    await c.flush();
+    await c.openConversation(o);
+
+    expect(c.restoreTurns(question as NonNullable<typeof question>)).toBe(true);
+    const q = c.turns.find((t) => t.id === 'q');
+    expect(q).not.toHaveProperty('about');
+    expect(q?.aboutRemoved).toBe(true);
+    expect(await c.regenerateVariant('qa')).toBe(true);
+    expect(JSON.stringify(startCalls().at(-1))).not.toContain('secret-result');
+  });
 });
