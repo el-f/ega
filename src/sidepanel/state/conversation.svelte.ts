@@ -12,8 +12,6 @@ import {
   failDispatch as failDispatchPure,
   cancel as cancelPure,
   deleteTurnPair,
-  forgetAbout,
-  rememberAbout,
   dropOrphanHead,
   dropVariant as dropVariantPure,
   emptyConversation,
@@ -27,11 +25,10 @@ import {
   openVariantIds,
   replaceAssistantTurn,
   selectVariant as selectVariantPure,
-  sendsNoCopy,
+  askTargetFor,
   toggleBookmark as toggleBookmarkPure,
   truncateFrom,
   variantIdxForTarget,
-  type ForgottenAbout,
   type Turn,
   type TurnDispatch,
   type TurnKind,
@@ -78,7 +75,9 @@ import { toastStore } from '@/shared/components/toastStore';
 import { makeAsyncLock } from '@/shared/utils/async-lock';
 import { isSafeRenderImageSrc } from '@/shared/image-url-guard';
 import { uuid } from '@/shared/uuid';
-import type { AskAbout } from '@/shared/ask-about';
+import type { AskAbout, AskTarget } from '@/shared/ask-about';
+import { askAboutFor, type AskLabels } from './thread-view';
+import { SHIPPED_TASK_VIEWS } from '@/shared/task-view';
 import { IMAGE_TURN_PLACEHOLDER } from '@/shared/constants';
 import type { LangSelection, PageContext, TranslationChunk } from '@/shared/types';
 import type { Tone } from '@/shared/task-prompts';
@@ -110,7 +109,7 @@ interface DispatchInput {
   /** The text was cut to this many characters on its way in. */
   trimmedTo?: number;
   /** A question about an earlier reply. */
-  about?: AskAbout;
+  about?: AskTarget;
 }
 
 /** What `deleteTurn` removed, so the caller can offer Undo. */
@@ -153,8 +152,8 @@ export interface ConversationContainer {
   swapPair: (turnId: string) => SwapPair | null;
   /** Re-dispatch with source and target langs swapped. False when `swapPair` is null or blocked. */
   swapVariant: (turnId: string) => Promise<boolean>;
-  /** Re-dispatch the turn with a different task; Ask also sends `about` and the earlier turns. False when inflight or unresolvable. */
-  taskVariant: (turnId: string, task: TaskId, about?: AskAbout) => Promise<boolean>;
+  /** Re-dispatch the turn with a different task; Ask also asks about `about` and sends the earlier turns. False when inflight or unresolvable. */
+  taskVariant: (turnId: string, task: TaskId, about?: AskTarget) => Promise<boolean>;
   /** Answer the reply `turnId` in `targetLang`: flips to a done variant already in that language,
    *  else dispatches one. A second pick replaces its own still-streaming variant. False when nothing changed. */
   langVariant: (turnId: string, targetLang: LangSelection) => Promise<boolean>;
@@ -245,7 +244,11 @@ const DELETED_ID_CAP = MAX_TURNS_PER_THREAD;
 export interface ConversationOptions {
   /** Silence budget before a streaming turn is failed as TIMEOUT; the flag picks the vision budget. */
   stallMs?: (hasImage: boolean) => number;
+  /** The names the panel shows on a reply, read at each dispatch so a question names what the user reads. */
+  askLabels?: () => AskLabels;
 }
+
+const SHIPPED_LABELS: AskLabels = { views: SHIPPED_TASK_VIEWS, varieties: [] };
 
 const STALL_MESSAGE = 'The reply stopped arriving. Send it again.';
 const ADOPTED_STALL_MESSAGE = 'The window that sent this stopped before it finished.';
@@ -326,6 +329,19 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     return raw !== undefined && isSafeRenderImageSrc(raw) ? raw : undefined;
   }
 
+  /** What a request carries about the reply its question asks about, built now from `turns` (D58). A reply that
+   *  is gone gives no block, and the version that request starts says so. */
+  function aboutFor(
+    userTurn: Turn,
+    seed: VariantSeed | undefined,
+    turns: readonly Turn[],
+  ): { askAbout?: AskAbout; aboutUnsent?: true } {
+    const target = askTargetFor(userTurn, seed);
+    if (target === undefined) return {};
+    const about = askAboutFor(turns, target, opts.askLabels?.() ?? SHIPPED_LABELS);
+    return about === null ? { aboutUnsent: true } : { askAbout: about };
+  }
+
   /** The start message never reached the background: fail the turn so it is retryable, not stuck loading. */
   function failDispatch(turnId: string, requestId: string, e: unknown, variantId?: string): void {
     debugCatch(e, 'conversation.failDispatch');
@@ -364,6 +380,8 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     });
     const userTurn = userTurns[userTurns.length - 1];
     if (userTurn === undefined) throw new Error('addUserTurn returned no turn');
+    // Built from the thread the user sent into, before this send's trim can drop the reply.
+    const { askAbout, aboutUnsent } = aboutFor(userTurn, undefined, userTurns);
     const withAssistant = addAssistantTurn(userTurns, {
       id: assistantId,
       kind: input.kind,
@@ -374,13 +392,16 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       ...(input.preservedResponse !== undefined
         ? { preservedResponse: input.preservedResponse }
         : {}),
+      ...(aboutUnsent ? { aboutUnsent } : {}),
     });
-    // The store's cap, outside mutate: a trim is no delete, so questions about a trimmed reply keep their copies.
-    state.turns =
-      withAssistant.length > MAX_TURNS_PER_THREAD
-        ? dropOrphanHead(withAssistant.slice(-MAX_TURNS_PER_THREAD), withAssistant)
-        : withAssistant;
-    markDirty();
+    // Mirror the store's cap so the in-memory array stays bounded.
+    mutate(
+      () =>
+        withAssistant.length > MAX_TURNS_PER_THREAD
+          ? dropOrphanHead(withAssistant.slice(-MAX_TURNS_PER_THREAD), withAssistant)
+          : withAssistant,
+      'debounce',
+    );
     state.inflightId = assistantId;
     state.inflightVariantId = `${assistantId}:v1`;
     state.requestId = requestId;
@@ -395,6 +416,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
           tone: input.tone,
           context: input.context,
           thread: state.turns,
+          askAbout,
         }),
       );
     } catch (e) {
@@ -655,7 +677,15 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     // Only a failure counts: the done branch above is Regenerate, not a retry.
     const retries = settled?.status === 'error' ? (settled.retries ?? 0) + 1 : 0;
     // History is the turns before the message, so the replace below does not change what this sends.
-    const args = buildStartArgs(source, { requestId, reuse, tone, context, thread: state.turns });
+    const { askAbout, aboutUnsent } = aboutFor(source, undefined, state.turns);
+    const args = buildStartArgs(source, {
+      requestId,
+      reuse,
+      tone,
+      context,
+      thread: state.turns,
+      askAbout,
+    });
     // A replace is a delete plus an insert: without the tombstone another window writes the dead turn back.
     noteRemoved([assistantId]);
     mutate(
@@ -669,7 +699,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
           ...(context !== undefined ? { contextSent: context } : {}),
           // The tooltip's explanation came with the seed, not the stream, so the retry keeps it.
           ...(settled?.explain !== undefined ? { explain: settled.explain } : {}),
-          ...(sendsNoCopy(args, source.aboutRemoved === true) ? { aboutUnsent: true } : {}),
+          ...(aboutUnsent ? { aboutUnsent } : {}),
         }),
       'debounce',
     );
@@ -701,7 +731,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     const answered = (turn.variants ?? []).some(
       (v) => v.id !== failed.id && v.status === 'done' && sameRequest(seedOf(v), seed),
     );
-    await dispatchVariant(turn.id, seed, { freshAnswer: answered, from: failed });
+    await dispatchVariant(turn.id, seed, answered);
   }
 
   /** The label only names a refine in the UI; every other seed field reaches the request. */
@@ -747,12 +777,11 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     return userTurn.dispatch ?? state.lastDispatch;
   }
 
-  /** Appends a pending sibling variant carrying `seed` and replays the user turn with it. `freshAnswer` skips the
-   *  router's cached answer; `from` is the version the seed came from. */
+  /** Appends a pending sibling variant carrying `seed` and replays the user turn with it. `freshAnswer` skips the router's cached answer. */
   async function dispatchVariant(
     turnId: string,
     seed: VariantSeed,
-    { freshAnswer = false, from }: { freshAnswer?: boolean; from?: Variant | undefined } = {},
+    freshAnswer = false,
   ): Promise<boolean> {
     if (state.inflightId !== null || ownedByBackground(turnId)) return false;
     const target = resolveVariantTarget(turnId);
@@ -765,6 +794,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     // The user turn's captured tone wins, so a later picker change does not apply backwards.
     const tone = userTurn.tone ?? state.lastDispatch?.tone;
     // A variant re-answers this one exchange with no earlier turns, except a question: it means nothing without them.
+    const { askAbout, aboutUnsent } = aboutFor(userTurn, seed, state.turns);
     const args = buildStartArgs(userTurn, {
       requestId,
       reuse,
@@ -773,25 +803,17 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       context,
       thread: asks ? state.turns : 'none',
       freshAnswer,
+      askAbout,
     });
-    // Run while its reply is deleted, it sends no copy, so its About must not show one after Undo.
-    const unsent = sendsNoCopy(args, userTurn.aboutRemoved === true || from?.aboutRemoved === true);
-    // An "Ask instead" version keeps its copy on itself: a re-run of it gets the parked copy back with the same Undo.
-    const parked =
-      unsent && from?.aboutRemoved === true
-        ? parkedAbout.find((f) => f.turnId === turnId && f.variantId === from.id)
-        : undefined;
     mutate(
       (turns) =>
         addVariantPure(turns, turnId, {
           id: variantId,
           ...seed,
-          ...(unsent ? { aboutUnsent: true } : {}),
-          ...(parked !== undefined ? { aboutRemoved: true } : {}),
+          ...(aboutUnsent ? { aboutUnsent } : {}),
         }),
       'debounce',
     );
-    if (parked !== undefined) parkedAbout.push({ turnId, variantId, about: parked.about });
     state.inflightId = turnId;
     state.inflightVariantId = variantId;
     // A variant targets an existing mid-history turn, so inflightId is that turn's id, not a new last turn.
@@ -814,13 +836,16 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     const { turnId, refinementBody, refinementLabel } = args;
     // A refine re-runs the version on screen: its task and languages, with this refinement in place of its own.
     const shown = state.turns.find((t) => t.id === turnId);
-    const from = shown ? activeVariant(shown) : undefined;
-    const { refinementBody: _body, refinementLabel: _label, ...base } = seedOf(from);
-    return dispatchVariant(
-      turnId,
-      { ...base, refinementBody, ...(refinementLabel !== undefined ? { refinementLabel } : {}) },
-      { from },
-    );
+    const {
+      refinementBody: _body,
+      refinementLabel: _label,
+      ...base
+    } = seedOf(shown ? activeVariant(shown) : undefined);
+    return dispatchVariant(turnId, {
+      ...base,
+      refinementBody,
+      ...(refinementLabel !== undefined ? { refinementLabel } : {}),
+    });
   }
 
   /** The source a swap replays: the dispatch's own, or the language the model reported for an 'auto' send. */
@@ -868,7 +893,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     return dispatchVariant(turnId, { sourceLang: pair.sourceLang, targetLang: pair.targetLang });
   }
 
-  async function taskVariant(turnId: string, task: TaskId, about?: AskAbout): Promise<boolean> {
+  async function taskVariant(turnId: string, task: TaskId, about?: AskTarget): Promise<boolean> {
     // Another task for the version on screen keeps the languages it was answered in.
     const shown = state.turns.find((t) => t.id === turnId);
     const { targetLang, sourceLang } = seedOf(shown ? activeVariant(shown) : undefined);
@@ -929,7 +954,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       selectVariant(assistantId, existing);
       return true;
     }
-    const ok = await dispatchVariant(assistantId, { targetLang, ...carried }, { from: active });
+    const ok = await dispatchVariant(assistantId, { targetLang, ...carried });
     if (ok) langChangeRequestId = state.requestId;
     return ok;
   }
@@ -969,8 +994,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     const before = state.turns;
     const index = before.findIndex((t) => willRemove.includes(t.id));
     const removed = ($state.snapshot(before) as Turn[]).filter((t) => willRemove.includes(t.id));
-    mutate((turns) => deleteTurnPair(turns, turnId), 'none');
-    mutate(settleAbout, 'now');
+    mutate((turns) => deleteTurnPair(turns, turnId), 'now');
     // eslint-disable-next-line svelte/prefer-svelte-reactivity -- a plain snapshot of stamps, never rendered.
     const stamps = new Map<string, number>();
     for (const id of willRemove) {
@@ -1002,34 +1026,8 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     const upper = users.find((u) => u.at > sent)?.i ?? len;
     const at = Math.min(Math.max(slice.index, lower, 0), upper, len);
     noteKnownTurns(slice.removed);
-    mutate(
-      (turns) => settleAbout([...turns.slice(0, at), ...slice.removed, ...turns.slice(at)]),
-      'now',
-    );
+    mutate((turns) => [...turns.slice(0, at), ...slice.removed, ...turns.slice(at)], 'now');
     return true;
-  }
-
-  /** Copies of deleted replies that questions and versions gave up, kept until their reply comes back. Memory only. */
-  let parkedAbout: ForgottenAbout[] = [];
-  /** Ids deleted outside this window's own tombstones: by another window, by a save it refused, or here before a
-   *  same-site reload. Each counts as deleted only while it is away; once back, it leaves. */
-  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- read by settleAbout, never rendered.
-  const foreignBuried = new Set<string>();
-
-  /** A copy never outlives its reply: parked while it is deleted, back once reply and holder are both here, in any order. */
-  function settleAbout(turns: Turn[]): Turn[] {
-    // eslint-disable-next-line svelte/prefer-svelte-reactivity -- plain lookups, never rendered.
-    const present = new Set(turns.map((t) => t.id));
-    // A reply that came back is no longer deleted: a later trim of it must not read as a delete.
-    for (const id of present) foreignBuried.delete(id);
-    // eslint-disable-next-line svelte/prefer-svelte-reactivity -- a plain argument, never rendered.
-    const gone = new Set([...deletedAt.keys(), ...foreignBuried].filter((id) => !present.has(id)));
-    const { turns: kept, forgotten } = forgetAbout(turns, gone);
-    const parked = [...parkedAbout, ...forgotten];
-    const back = (f: ForgottenAbout): boolean =>
-      present.has(f.about.turnId) && present.has(f.turnId);
-    parkedAbout = parked.filter((f) => !back(f));
-    return rememberAbout(kept, parked.filter(back));
   }
 
   function toggleBookmark(turnId: string): void {
@@ -1041,8 +1039,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     const turn = state.turns.find((t) => t.id === turnId);
     // Re-rolls the answer on screen: a swap, a language change, a task or a refine runs as itself again.
     // The same request has a cached answer (the one on screen), so without freshAnswer the router hands it back unchanged.
-    const from = turn ? activeVariant(turn) : undefined;
-    return dispatchVariant(turnId, seedOf(from), { freshAnswer: true, from });
+    return dispatchVariant(turnId, seedOf(turn ? activeVariant(turn) : undefined), true);
   }
 
   function editFrom(userTurnId: string): string | null {
@@ -1230,8 +1227,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
   type Persist = 'now' | 'debounce' | 'none';
 
   /** The one way this window's own actions change `state.turns`: every shrink records its
-   *  tombstones, and the save is named at the site, not remembered. Send's cap trim and another
-   *  window's write skip it, because neither is a delete here. */
+   *  tombstones, and the save is named at the site, not remembered. */
   function mutate(next: (turns: Turn[]) => Turn[], persist: Persist): void {
     const before = state.turns;
     const after = next(before);
@@ -1285,8 +1281,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     }
     if (refusedIds !== undefined && target === state.activeId) {
       // Buried by another window. Dropping the ids from knownIds lets that window bring them back.
-      for (const id of refusedIds) foreignBuried.add(id);
-      state.turns = settleAbout(state.turns.filter((t) => !refusedIds.includes(t.id)));
+      state.turns = state.turns.filter((t) => !refusedIds.includes(t.id));
       for (const id of refusedIds) knownIds.delete(id);
       if (state.inflightId !== null && refusedIds.includes(state.inflightId)) cancel();
       if (!refusedNoticed) {
@@ -1501,8 +1496,6 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
           : raw;
       // One step: a save landing between these two lines writes this thread's turns under the other origin's key.
       const originChanged = state.activeId !== origin;
-      // An Undo still applies after a same-site reload, so the copies it brings back must still know which replies are deleted.
-      const stillGone = originChanged ? [] : [...deletedAt.keys(), ...foreignBuried];
       state.activeId = origin;
       loadedOnce = true;
       cancelPendingPersist();
@@ -1512,10 +1505,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
         seededDuringLoad.length > 0 ? 'debounce' : 'none',
       );
       // A same-site reload keeps the thread a DeletedSlice came from, so its Undo still applies.
-      if (originChanged) {
-        threadGen++;
-        parkedAbout = [];
-      }
+      if (originChanged) threadGen++;
       trimNoticed = false;
       refusedNoticed = false;
       knownIds.clear();
@@ -1523,8 +1513,6 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       // Tombstones belong to the thread that recorded them.
       deletedAt.clear();
       revivedAt.clear();
-      foreignBuried.clear();
-      for (const id of stillGone) foreignBuried.add(id);
       // A seed appended mid-load owns inflightId/requestId — keep them so its chunks still route.
       if (seededDuringLoad.length === 0) {
         clearStall();
@@ -1552,9 +1540,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       revivedAt,
       ...(seenClearedAt !== undefined ? { seenClearedAt } : {}),
     });
-    for (const id of buriedIds) foreignBuried.add(id);
-    // The turn this window streams into is kept whole, so its copy of a reply buried there goes here.
-    state.turns = settleAbout(turns);
+    state.turns = turns;
     seenClearedAt = stored.clearedAt;
     // Their removal, so their Undo must be able to bring the turn back through the foreign path.
     for (const id of buriedIds) knownIds.delete(id);
@@ -1640,8 +1626,6 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     knownIds.clear();
     deletedAt.clear();
     revivedAt.clear();
-    foreignBuried.clear();
-    parkedAbout = [];
     watchAdoptedAnswers();
   }
 

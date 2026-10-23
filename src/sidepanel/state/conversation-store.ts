@@ -1,5 +1,5 @@
 // One thread per origin under its own key, so a streaming delta's save rewrites just that thread.
-import { capAskAbout } from '@/shared/ask-about';
+import { askTargetOf } from '@/shared/ask-about';
 import { withConversationLock } from '@/shared/conversation-lock';
 import {
   CONV_STORE_VERSION,
@@ -20,7 +20,6 @@ import { INSTRUCTIONS_KEPT_REPLIES } from '@/shared/reply-instructions';
 import type { ResultMeta } from '@/shared/types';
 import {
   dropOrphanHead,
-  forgetAbout,
   type AssistantTurnData,
   type Turn,
   type UserTurnData,
@@ -96,14 +95,13 @@ function validateStoredTurn(t: unknown): Turn | null {
     // Rendered as a count, so anything but a positive integer is dropped rather than shown.
     if (!(Number.isInteger(user.trimmedTo) && (user.trimmedTo ?? 0) > 0)) delete user.trimmedTo;
     if (user.about !== undefined) {
-      const about = capAskAbout(user.about);
+      const about = askTargetOf(user.about);
       if (about) user.about = about;
       else delete user.about;
     }
-    if (user.aboutRemoved !== true) delete user.aboutRemoved;
     return user;
   }
-  const answer = withCappedVariantAbout(e as unknown as AssistantTurnData);
+  const answer = withAskTargets(e as unknown as AssistantTurnData);
   const rawStatus = e['status'] as string;
   if (VALID_STATUSES.has(rawStatus)) {
     return remirrorInstructions(
@@ -119,19 +117,17 @@ function validateStoredTurn(t: unknown): Turn | null {
   );
 }
 
-/** An "Ask instead" version keeps the reply it asked about; a malformed one is dropped, as on a user turn. */
-function withCappedVariantAbout(t: AssistantTurnData): AssistantTurnData {
-  const asked = (v: Variant): boolean =>
-    v.about !== undefined || v.aboutRemoved !== undefined || v.aboutUnsent !== undefined;
+/** An "Ask instead" version keeps which reply it asks about, as a user turn does; a malformed one is dropped. */
+function withAskTargets(t: AssistantTurnData): AssistantTurnData {
+  const asked = (v: Variant): boolean => v.about !== undefined || v.aboutUnsent !== undefined;
   if (!Array.isArray(t.variants) || !t.variants.some(asked)) return t;
   return {
     ...t,
-    variants: t.variants.map(({ about, aboutRemoved, aboutUnsent, ...v }) => {
-      const capped = about === undefined ? null : capAskAbout(about);
+    variants: t.variants.map(({ about, aboutUnsent, ...v }) => {
+      const target = about === undefined ? null : askTargetOf(about);
       return {
         ...v,
-        ...(capped ? { about: capped } : {}),
-        ...(aboutRemoved === true ? { aboutRemoved } : {}),
+        ...(target ? { about: target } : {}),
         ...(aboutUnsent === true ? { aboutUnsent } : {}),
       };
     }),
@@ -816,17 +812,14 @@ async function saveThreadLocked(
   ]);
   const live = turns.filter((t) => !buried.has(t.id));
   const refused = turns.filter((t) => buried.has(t.id)).map((t) => t.id);
-  // Every write passes here, so a window that still holds a copy of a reply another window deleted cannot store it.
-  const { turns: base } = forgetAbout(
+  const base =
     knownIds !== undefined
       ? mergeTurnsById(
           stored.turns.filter((t) => !buried.has(t.id)),
           live,
           knownIds,
         )
-      : live,
-    buried,
-  );
+      : live;
   const trimmed =
     base.length > MAX_TURNS_PER_THREAD
       ? dropOrphanHead(base.slice(-MAX_TURNS_PER_THREAD), base)

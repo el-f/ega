@@ -6,8 +6,9 @@ import {
   saveThread,
 } from '@/sidepanel/state/conversation-store';
 import { asLangIdUnsafe } from '@/shared/brands';
-import { askedAbout, linkedQuote } from '@/sidepanel/state/thread-view';
-import type { Turn, UserTurnData } from '@/sidepanel/state/conversation';
+import { askedAboutFor, linkedQuote } from '@/sidepanel/state/thread-view';
+import { SHIPPED_TASK_VIEWS } from '@/shared/task-view';
+import type { Turn } from '@/sidepanel/state/conversation';
 
 type Container = ReturnType<typeof createConversation>;
 type Changes = Record<string, chrome.storage.StorageChange>;
@@ -647,27 +648,22 @@ describe('an answer adopted from a window that went away', () => {
   });
 });
 
-describe('a copy of a reply that another window deletes', () => {
-  /** Window A's last `translate:start` options: what a re-run would send. */
+describe('a reply that a question asks about, removed in another window or by the cap', () => {
+  /** This window's last `translate:start` options: what its last re-run sent. */
   function lastStartOptions(): Record<string, unknown> {
     const starts = (chrome.runtime.sendMessage as Mock).mock.calls
       .map((c) => c[0] as Record<string, unknown>)
       .filter((m) => m['kind'] === 'translate:start');
     return (starts.at(-1)?.['options'] ?? {}) as Record<string, unknown>;
   }
+  const LABELS = { views: SHIPPED_TASK_VIEWS, varieties: [] };
 
-  it('is not written back by the window streaming an "Ask instead" version about it, nor sent again', async () => {
+  it('another window’s delete reaches the "Ask instead" version this window streams: its re-run sends nothing of the reply', async () => {
     const a = await openWindow();
     const b = await openWindow();
     const e = await sendAndFinish(a, 'secret-original', 'secret-result');
     const t = await sendAndFinish(a, 'what does it mean', 'what does it mean');
-    const about = {
-      turnId: e,
-      task: 'Translate',
-      original: 'secret-original',
-      result: 'secret-result',
-    };
-    expect(await a.taskVariant(t, 'ask', about)).toBe(true);
+    expect(await a.taskVariant(t, 'ask', { turnId: e })).toBe(true);
     const requestId = (chrome.runtime.sendMessage as Mock).mock.calls
       .map((c) => c[0] as Record<string, unknown>)
       .filter((m) => m['kind'] === 'translate:start')
@@ -679,88 +675,16 @@ describe('a copy of a reply that another window deletes', () => {
     b.deleteTurn(e);
     await drain();
     a.applyChunk({ type: 'done', requestId, confidence: 1 });
-    await drain();
-
-    const stored = JSON.stringify((await loadThreadResult(ORIGIN)).turns);
-    expect(stored).not.toContain('secret-result');
-    // The version still says it asked about a reply, so its About can say that reply is gone.
-    expect(byId(a, t)?.variants?.at(-1)?.aboutRemoved).toBe(true);
-    expect(await a.regenerateVariant(t)).toBe(true);
-    expect(JSON.stringify(lastStartOptions())).not.toContain('secret-result');
-  });
-
-  it('leaves the memory of a window whose save the delete refused, before it heard of it', async () => {
-    // Window A hears storage late: its save reaches B's tombstone before B's write reaches A.
-    let late = false;
-    const held: Changes[] = [];
-    const a = createConversation();
-    const listener = (changes: Changes, area: string): void => {
-      if (area !== 'local') return;
-      if (late) held.push(changes);
-      else a.onStorageChanged(changes);
-    };
-    chrome.storage.onChanged.addListener(listener);
-    listeners.push(listener);
-    await a.openConversation(ORIGIN);
-    const b = await openWindow();
-    const e = await sendAndFinish(a, 'secret-original', 'secret-result');
-    const t = await sendAndFinish(a, 'what does it mean', 'what does it mean');
-    const about = {
-      turnId: e,
-      task: 'Translate',
-      original: 'secret-original',
-      result: 'secret-result',
-    };
-    expect(await a.taskVariant(t, 'ask', about)).toBe(true);
-    const requestId = (chrome.runtime.sendMessage as Mock).mock.calls
-      .map((c) => c[0] as Record<string, unknown>)
-      .filter((m) => m['kind'] === 'translate:start')
-      .at(-1)?.['requestId'] as string;
-    a.applyChunk({ type: 'delta', requestId, text: 'It asks' });
-
-    late = true;
-    b.deleteTurn(e);
-    await drain();
     await a.flush();
-    expect(byId(a, e)).toBeUndefined();
-    late = false;
-    for (const changes of held.splice(0)) a.onStorageChanged(changes);
-    await drain();
-    a.applyChunk({ type: 'done', requestId, confidence: 1 });
     await drain();
 
-    const version = byId(a, t)?.variants?.at(-1);
-    expect(version).not.toHaveProperty('about');
-    expect(version?.aboutRemoved).toBe(true);
+    expect(JSON.stringify((await loadThreadResult(ORIGIN)).turns)).not.toContain('secret-result');
+    expect(byId(a, t)?.variants?.at(-1)?.about).toEqual({ turnId: e });
     expect(await a.regenerateVariant(t)).toBe(true);
     expect(JSON.stringify(lastStartOptions())).not.toContain('secret-result');
   });
 
-  it('a save that still holds the copy, before it hears of the delete, stores none', async () => {
-    const question = {
-      id: 'q',
-      role: 'user',
-      kind: 'ask',
-      status: 'idle',
-      createdAt: 3,
-      content: 'why?',
-      about: {
-        turnId: 'e',
-        task: 'Translate',
-        original: 'secret-original',
-        result: 'secret-result',
-      },
-    } as Turn;
-    await saveThread(ORIGIN, [question], {
-      knownIds: new Set(['q']),
-      deletedAt: new Map([['e', 2]]),
-    });
-    const [stored] = (await loadThreadResult(ORIGIN)).turns;
-    expect(stored).toMatchObject({ id: 'q', aboutRemoved: true });
-    expect(stored).not.toHaveProperty('about');
-  });
-
-  it('stays removed when a window that still holds the question saves first; that window then shows it plain, and Undo brings it back', async () => {
+  it('a window that saves before it hears of the delete stores no text of the reply, and Undo brings the quote back there', async () => {
     const a = await openWindow();
     // Window B hears storage late: its save runs before A's delete reaches it.
     let late = false;
@@ -776,19 +700,13 @@ describe('a copy of a reply that another window deletes', () => {
     await b.openConversation(ORIGIN);
 
     const e = await sendAndFinish(a, 'secret-original', 'secret-result');
-    const about = {
-      turnId: e,
-      task: 'Translate',
-      original: 'secret-original',
-      result: 'secret-result',
-    };
     const answer = await a.send({
       content: 'why?',
       kind: 'ask',
       sourceLang: 'auto',
       targetLang: EN,
       stream: true,
-      about,
+      about: { turnId: e },
     });
     const requestId = requestIdOf('why?');
     a.applyChunk({ type: 'delta', requestId, text: 'Because.' });
@@ -796,7 +714,6 @@ describe('a copy of a reply that another window deletes', () => {
     await a.flush();
     await drain();
     const questionId = byId(a, answer)?.attachedToTurnId ?? '';
-    expect(byId(b, questionId)?.about).toEqual(about);
 
     late = true;
     const slice = a.deleteTurn(e);
@@ -806,25 +723,19 @@ describe('a copy of a reply that another window deletes', () => {
     await drain();
 
     const stored = (await loadThreadResult(ORIGIN)).turns;
-    // B's write landed (its bookmark is stored), and it carried no copy of the deleted reply.
+    // B's write landed (its bookmark is stored), and the deleted reply is nowhere in it.
     expect(stored.find((t) => t.id === answer)?.bookmarked).toBe(true);
-    expect(stored.find((t) => t.id === questionId)).toMatchObject({ aboutRemoved: true });
-    expect(stored.find((t) => t.id === questionId)).not.toHaveProperty('about');
     expect(stored.some((t) => t.id === e)).toBe(false);
     expect(JSON.stringify(stored)).not.toContain('secret-result');
 
     late = false;
     for (const changes of held.splice(0)) b.onStorageChanged(changes);
     await drain();
-    const question = byId(b, questionId);
+    const question = byId(b, questionId) as Turn;
     expect(byId(b, e)).toBeUndefined();
-    expect(question).toMatchObject({ content: 'why?', aboutRemoved: true });
-    expect(question).not.toHaveProperty('about');
     // R2-27: the bubble renders a gone reply as a plain question, with no quote.
-    expect(
-      linkedQuote(question as UserTurnData, new Set(b.turns.map((t) => t.id))),
-    ).toBeUndefined();
-    expect(askedAbout(question as UserTurnData)).toBe('gone');
+    expect(linkedQuote(question, b.turns)).toBeUndefined();
+    expect(askedAboutFor(b.turns, byId(b, answer) as Turn, LABELS)).toBe('gone');
     (chrome.runtime.sendMessage as Mock).mockClear();
     expect(await b.regenerateVariant(answer)).toBe(true);
     expect(JSON.stringify(lastStartOptions())).not.toContain('secret-result');
@@ -835,20 +746,13 @@ describe('a copy of a reply that another window deletes', () => {
     expect(a.restoreTurns(slice)).toBe(true);
     await a.flush();
     await drain();
-    expect(byId(a, questionId)?.about).toEqual(about);
-    expect((await loadThreadResult(ORIGIN)).turns.find((t) => t.id === questionId)?.about).toEqual(
-      about,
-    );
     expect(byId(b, e)?.content).toBe('secret-result');
-    expect(byId(b, questionId)?.about).toEqual(about);
+    expect(linkedQuote(byId(b, questionId) as Turn, b.turns)?.text).toBe('secret-result');
   });
-});
 
-describe('a copy of a reply that the 300-message cap drops', () => {
-  const about = { turnId: 'a0', task: 'Translate', original: 'text 0', result: 'reply 0' };
-  /** 150 exchanges, the cap exactly; the sixth message asks about the first reply. */
-  function cappedThread(): Turn[] {
-    return Array.from({ length: MAX_TURNS_PER_THREAD / 2 }, (_, i) => {
+  it('a question whose reply the 300-message cap drops sends nothing of it, and keeps its reference', async () => {
+    // 150 exchanges, the cap exactly; the sixth message asks about the first reply.
+    const capped = Array.from({ length: MAX_TURNS_PER_THREAD / 2 }, (_, i) => {
       const asks = i === 5;
       return [
         {
@@ -858,7 +762,8 @@ describe('a copy of a reply that the 300-message cap drops', () => {
           status: 'idle',
           createdAt: 2 * i + 1,
           content: asks ? 'why?' : `text ${i}`,
-          ...(asks ? { about } : {}),
+          dispatch: { sourceLang: 'auto', targetLang: EN, stream: true },
+          ...(asks ? { about: { turnId: 'a0' } } : {}),
         },
         {
           id: `a${i}`,
@@ -871,67 +776,19 @@ describe('a copy of a reply that the 300-message cap drops', () => {
         },
       ] as Turn[];
     }).flat();
-  }
-
-  it('stays on the question when two windows at the cap each send: a trim is not a delete', async () => {
-    await saveThread(ORIGIN, cappedThread());
+    await saveThread(ORIGIN, capped);
     const a = await openWindow();
-    const b = await openWindow();
-    await sendAndFinish(b, 'from b', 'b answer');
-    // A keeps the oldest exchange B's write trimmed, so its own send trims more than one exchange.
-    expect(a.turns.length).toBeGreaterThan(MAX_TURNS_PER_THREAD);
-    await sendAndFinish(a, 'from a', 'a answer');
+    (chrome.runtime.sendMessage as Mock).mockClear();
+    expect(await a.regenerateVariant('a5')).toBe(true);
+    expect(lastStartOptions()['askAbout']).toMatchObject({ result: 'reply 0' });
+    a.cancel();
+    await drain();
 
-    expect(byId(a, 'a0')).toBeUndefined();
-    expect(byId(a, 'u5')?.about).toEqual(about);
-    const stored = (await loadThreadResult(ORIGIN)).turns.find((t) => t.id === 'u5');
-    expect(stored?.about).toEqual(about);
-    expect(stored).not.toHaveProperty('aboutRemoved');
-  });
-
-  /** A sends at the cap, which trims the first exchange, then deletes an unrelated one: u5 keeps its copy. */
-  async function trimThenDelete(a: Container): Promise<void> {
-    expect(byId(a, 'u5')?.about).toEqual(about);
     await sendAndFinish(a, 'from a', 'a answer');
     expect(byId(a, 'a0')).toBeUndefined();
-    a.deleteTurn('a100');
-    await a.flush();
-    await drain();
-    expect(byId(a, 'u5')?.about).toEqual(about);
-    const stored = (await loadThreadResult(ORIGIN)).turns.find((t) => t.id === 'u5');
-    expect(stored?.about).toEqual(about);
-  }
-
-  it('stays on the question once another window deleted and undid the reply before the trim', async () => {
-    await saveThread(ORIGIN, cappedThread());
-    const a = await openWindow();
-    const b = await openWindow();
-    const slice = b.deleteTurn('a0');
-    await b.flush();
-    await drain();
-    expect(byId(a, 'u5')).not.toHaveProperty('about');
-    if (slice === null) throw new Error('nothing deleted');
-    expect(b.restoreTurns(slice)).toBe(true);
-    await b.flush();
-    await drain();
-    await trimThenDelete(a);
-  });
-
-  it('stays on the question once this window emptied the thread, reloaded the site and undid it all before the trim', async () => {
-    await saveThread(ORIGIN, cappedThread());
-    const a = await openWindow();
-    // Only an empty thread reloads on the same site, so every exchange goes.
-    const slices = a.turns.filter((t) => t.role === 'user').map((t) => a.deleteTurn(t.id));
-    await a.flush();
-    await drain();
-    await a.openConversation(ORIGIN);
-    for (const slice of slices) {
-      if (slice === null) throw new Error('nothing deleted');
-      expect(a.restoreTurns(slice)).toBe(true);
-    }
-    await a.flush();
-    await drain();
-    expect(a.turns).toHaveLength(MAX_TURNS_PER_THREAD);
-    await trimThenDelete(a);
+    expect(byId(a, 'u5')?.about).toEqual({ turnId: 'a0' });
+    expect(await a.regenerateVariant('a5')).toBe(true);
+    expect(lastStartOptions()).not.toHaveProperty('askAbout');
+    expect(JSON.stringify(lastStartOptions())).not.toContain('reply 0');
   });
 });

@@ -226,7 +226,6 @@ describe('asking', () => {
     expect(q.text).toBe('what makes it Levantine?');
     expect(q.options['task']).toBe('ask');
     const about = q.options.askAbout;
-    expect(about?.['turnId']).toBe(reply.getAttribute('data-turn-id'));
     expect(about?.['task']).toBe('Translate');
     expect(about?.['original']).toBe('mar7aba, kifak?');
     expect(about?.['result']).toBe('Hi, how are you?');
@@ -284,7 +283,7 @@ describe('asking', () => {
     await chunk({ type: 'done', requestId: q.requestId, text: 'Because.' });
     expect(target(c)).toBe(first);
     const next = await send(c, 'and this one?');
-    expect(next.options.askAbout?.['turnId']).toBe(first.getAttribute('data-turn-id'));
+    expect(next.options.askAbout?.['result']).toBe('Hi, how are you?');
   });
 
   it('a reply picked again while the question is still being sent stays the target', async () => {
@@ -337,7 +336,7 @@ describe('asking', () => {
     expect(banner(c)).toContain('Asking about this reply');
   });
 
-  it('deleting the reply asked about deletes the copy the question kept; Undo brings it back', async () => {
+  it('deleting the reply asked about takes it out of every later request; Undo brings it back', async () => {
     const push = vi.spyOn(toastStore, 'push');
     const c = await mounted();
     const reply = await firstExchange(c);
@@ -368,7 +367,7 @@ describe('asking', () => {
     expect(starts().at(-1)?.options.askAbout?.['result']).toBe('Hi, how are you?');
   });
 
-  it('About on a version run while the reply was deleted says it sent no copy, also once Undo brought the reply back', async () => {
+  it('About on a version run while the reply was deleted says it sent nothing of it, also once Undo brought the reply back', async () => {
     const push = vi.spyOn(toastStore, 'push');
     const c = await mounted();
     await fireEvent.click(askOn(await firstExchange(c)));
@@ -396,10 +395,12 @@ describe('asking', () => {
     };
     // The reply is back and quoted above, so "no longer in this conversation" would be false here.
     expect(c.querySelector('[data-ega-ask-quote]')?.textContent).toContain('Hi, how are you?');
-    expect(await askedRow()).toBe('Not sent. The reply was deleted when this version ran.');
+    expect(await askedRow()).toBe(
+      'Not sent. The reply was no longer in this conversation when this version ran.',
+    );
     await fireEvent.click(answer.querySelector('[data-ega-variant-prev]') as HTMLElement);
     await settle();
-    // The first version did send the reply, and the Undo gave the question its copy back.
+    // The first version did send the reply, and the reply is back to read it from.
     await waitFor(() =>
       expect(answer.querySelector('[data-ega-asked-about] dd')?.textContent).toContain(
         'Hi, how are you?',
@@ -442,7 +443,7 @@ describe('asking', () => {
       return again;
     }
 
-    it('the question undone while its reply is still deleted holds no copy of that reply', async () => {
+    it('the question undone while its reply is still deleted sends and stores nothing of that reply', async () => {
       const push = vi.spyOn(toastStore, 'push');
       const c = await mounted();
       await asked(c);
@@ -916,7 +917,7 @@ describe('Ask instead', () => {
 
   it('asks the same text about the reply before it, as a version, then asks about the answer', async () => {
     const c = await mounted();
-    const { first, echoed } = await slip(c);
+    const { echoed } = await slip(c);
     const offer = echoed.querySelector<HTMLElement>('[data-ega-ask-instead]');
     expect(offer?.textContent).toBe('Ask instead');
     await fireEvent.click(offer as HTMLElement);
@@ -925,7 +926,6 @@ describe('Ask instead', () => {
     const q = starts().at(-1) as Start;
     expect(q.text).toBe('what does it mean');
     expect(q.options['task']).toBe('ask');
-    expect(q.options.askAbout?.['turnId']).toBe(first.getAttribute('data-turn-id'));
     expect(q.options.askAbout?.['result']).toBe('Hi, how are you?');
     expect(q.options['conversationHistory']).toEqual([
       { role: 'user', content: 'mar7aba, kifak?' },
@@ -1004,7 +1004,7 @@ describe('Ask instead', () => {
 
   it('More → Ask instead is the same action', async () => {
     const c = await mounted();
-    const { first } = await slip(c);
+    await slip(c);
     const more = [
       ...c.querySelectorAll<HTMLElement>('[data-ega-reply] [data-ega-action="more"]'),
     ][1];
@@ -1019,7 +1019,7 @@ describe('Ask instead', () => {
     await settle();
     const q = starts().at(-1) as Start;
     expect(q.options['task']).toBe('ask');
-    expect(q.options.askAbout?.['turnId']).toBe(first.getAttribute('data-turn-id'));
+    expect(q.options.askAbout?.['result']).toBe('Hi, how are you?');
   });
 });
 

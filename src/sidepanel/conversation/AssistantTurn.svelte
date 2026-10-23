@@ -47,7 +47,7 @@
   import { IMAGE_TURN_PLACEHOLDER } from '@/shared/constants';
   import { detectedOf, replyMetaItems, type ConfidenceSetting } from '@/shared/reply-meta';
   import type { AskedAbout } from '@/shared/ask-about';
-  import { askedAbout as askedAboutOf, replyDirection } from '../state/thread-view';
+  import { replyDirection } from '../state/thread-view';
   import ReplyMenus from './ReplyMenus.svelte';
   import TranslateIntoPopover from './TranslateIntoPopover.svelte';
 
@@ -100,8 +100,8 @@
     asked?: boolean;
     /** Briefly highlighted after a quote led here. */
     flash?: boolean;
-    /** The reply the question this answers was about, as it was sent; 'gone' once its copy was removed with that reply. */
-    questionAbout?: AskedAbout | undefined;
+    /** What a reply's shown version asked about, read from the thread only when About opens. */
+    askedAboutOf?: ((turn: Turn) => AskedAbout | undefined) | undefined;
   }
 
   const {
@@ -135,7 +135,7 @@
     onAsk,
     asked = false,
     flash = false,
-    questionAbout,
+    askedAboutOf,
   }: Props = $props();
 
   const variantCount = $derived(turn.variants?.length ?? 0);
@@ -529,9 +529,7 @@
   );
   const detailsText = $derived(sentText === IMAGE_TURN_PLACEHOLDER ? '' : sentText);
   // "Answer again as Translate" on a question sends its text alone, so only an Ask version was about the reply.
-  const askedAbout = $derived(
-    isAnswer ? (askedAboutOf(activeVariant) ?? questionAbout) : undefined,
-  );
+  const askedAbout = $derived(isAnswer ? askedAboutOf?.(turn) : undefined);
 
   // Diff only refine versions: an edited question's fresh answer against the old one is noise.
   const prevVariant = $derived(

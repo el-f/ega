@@ -8,6 +8,7 @@ import ConversationStream from '@/sidepanel/conversation/ConversationStream.svel
 import { SHIPPED_TASK_VIEWS } from '@/shared/task-view';
 import type { AskAbout } from '@/shared/ask-about';
 import type { Turn, UserTurnData } from '@/sidepanel/state/conversation';
+import { linkedQuote } from '@/sidepanel/state/thread-view';
 import { doneReply, metaText, openMenu, replyProps } from './_reply';
 
 afterEach(() => {
@@ -16,7 +17,6 @@ afterEach(() => {
 });
 
 const ABOUT: AskAbout = {
-  turnId: 'a1',
   task: 'Translate',
   languages: 'Arabizi (Levantine) → English',
   original: 'mar7aba, kifak?',
@@ -99,7 +99,10 @@ describe('an answer to a question', () => {
 
   it('About this reply lists what it was asked about under What was sent', async () => {
     const { container } = render(AssistantTurn, {
-      props: replyProps(doneReply({ kind: 'ask' }), { questionAbout: ABOUT, sentText: 'why?' }),
+      props: replyProps(doneReply({ kind: 'ask' }), {
+        askedAboutOf: () => ABOUT,
+        sentText: 'why?',
+      }),
     });
     await openMenu(container, 'more');
     await fireEvent.click(document.querySelector('[data-ega-about]') as HTMLElement);
@@ -107,29 +110,30 @@ describe('an answer to a question', () => {
     expect(row.nextElementSibling?.textContent).toBe('Hi, how are you?');
   });
 
-  it('About on an answer whose reply was deleted says so under Asked about', async () => {
-    const gone = 'A reply that is no longer in this conversation';
+  it('About says so when the reply asked about is gone, and when a version sent nothing of it', async () => {
     const cases = [
-      replyProps(doneReply({ kind: 'ask' }), { questionAbout: 'gone' }),
-      // An "Ask instead" version, or one run while the reply was deleted: it holds no copy.
-      replyProps(
-        doneReply({
-          variants: [
-            { id: 'v1', status: 'done', content: 'Hi.' },
-            { id: 'v2', status: 'done', content: 'Because.', task: 'ask', aboutRemoved: true },
-          ],
-          activeVariantIdx: 1,
-        }),
-      ),
-    ];
-    for (const props of cases) {
-      const { container, unmount } = render(AssistantTurn, { props });
-      await openMenu(container, 'more');
-      await fireEvent.click(document.querySelector('[data-ega-about]') as HTMLElement);
-      const row = await screen.findByText('Asked about');
-      expect(row.nextElementSibling?.textContent).toBe(gone);
-      unmount();
-      document.body.innerHTML = '';
+      ['gone', 'A reply that is no longer in this conversation'],
+      ['unsent', 'Not sent. The reply was no longer in this conversation when this version ran.'],
+    ] as const;
+    // An "Ask instead" version asks too, though its message was translated.
+    const askInstead = doneReply({
+      variants: [
+        { id: 'v1', status: 'done', content: 'Hi.' },
+        { id: 'v2', status: 'done', content: 'Because.', task: 'ask' },
+      ],
+      activeVariantIdx: 1,
+    });
+    for (const [asked, text] of cases) {
+      for (const turn of [doneReply({ kind: 'ask' }), askInstead]) {
+        const props = replyProps(turn, { askedAboutOf: () => asked });
+        const { container, unmount } = render(AssistantTurn, { props });
+        await openMenu(container, 'more');
+        await fireEvent.click(document.querySelector('[data-ega-about]') as HTMLElement);
+        const row = await screen.findByText('Asked about');
+        expect(row.nextElementSibling?.textContent).toBe(text);
+        unmount();
+        document.body.innerHTML = '';
+      }
     }
   });
 
@@ -143,7 +147,7 @@ describe('an answer to a question', () => {
       activeVariantIdx: 1,
     });
     const { container } = render(AssistantTurn, {
-      props: replyProps(turn, { questionAbout: ABOUT }),
+      props: replyProps(turn, { askedAboutOf: () => ABOUT }),
     });
     await openMenu(container, 'more');
     await fireEvent.click(document.querySelector('[data-ega-about]') as HTMLElement);
@@ -160,14 +164,16 @@ describe('the quote on a question', () => {
     status: 'idle',
     content: 'what makes it Levantine?',
     createdAt: 3,
-    about: ABOUT,
+    about: { turnId: 'a1' },
     ...over,
   });
+  /** The reply the question asks about, as the thread holds it. */
+  const asked = doneReply({ id: 'a1', content: ABOUT.result });
 
   it('is a button named by the quoted line, then "go to the reply"; pressing it shows that reply', async () => {
     const onQuote = vi.fn();
     const { container } = render(UserTurn, {
-      props: { turn: question(), quoted: ABOUT, onQuote },
+      props: { turn: question(), quoted: linkedQuote(question(), [asked]), onQuote },
     });
     const quote = container.querySelector<HTMLElement>('[data-ega-ask-quote]');
     expect(quote?.tagName).toBe('BUTTON');
@@ -179,7 +185,9 @@ describe('the quote on a question', () => {
   });
 
   it('marks its one-line text as the part that may end in an ellipsis, with the full text in the name', () => {
-    const { container } = render(UserTurn, { props: { turn: question(), quoted: ABOUT } });
+    const { container } = render(UserTurn, {
+      props: { turn: question(), quoted: linkedQuote(question(), [asked]) },
+    });
     const text = container.querySelector<HTMLElement>('.ega-ask-quote-text');
     expect(text?.hasAttribute('data-ega-truncates')).toBe(true);
     // The design check reads the full text off the button's name when the line is cut.
@@ -190,9 +198,10 @@ describe('the quote on a question', () => {
 
   // R2-27: a placeholder in a quote bar reads like a rendering bug, and the user who deleted the reply knows.
   it('a question with no reply left to link is a plain bubble: no quote, no placeholder', () => {
-    const { about: _about, ...rest } = question();
-    for (const turn of [question(), { ...rest, aboutRemoved: true as const }]) {
-      const { container, unmount } = render(UserTurn, { props: { turn } });
+    for (const turn of [question()]) {
+      const { container, unmount } = render(UserTurn, {
+        props: { turn, quoted: linkedQuote(turn, [turn]) },
+      });
       expect(container.querySelector('.ega-ask-quote')).toBeNull();
       expect(container.querySelector('[data-ega-user-bubble]')?.textContent.trim()).toBe(
         'what makes it Levantine?',
@@ -212,7 +221,7 @@ describe('the quote on a question', () => {
         createdAt: 1,
       },
       doneReply({ id: 'a1', content: 'Hi there', attachedToTurnId: 'u1', createdAt: 2 }),
-      question({ about: { ...ABOUT, result: 'Hi there' } }),
+      question(),
       doneReply({
         id: 'a2',
         kind: 'ask',
@@ -238,10 +247,9 @@ describe('the quote on a question', () => {
     expect(container.querySelector('[data-turn-id="a1"]')?.classList.contains('flash')).toBe(true);
   });
 
-  it('a question whose reply the storage cap dropped has no quote, but About on its answer shows what was sent', async () => {
-    // The trim keeps the question's copy, and every re-run still sends it.
+  it('a question whose reply the storage cap dropped has no quote, and About on its answer says the reply is gone', async () => {
     const turns = [
-      question({ id: 'u2', about: { ...ABOUT, turnId: 'a0' } }),
+      question({ id: 'u2', about: { turnId: 'a0' } }),
       doneReply({ id: 'a2', kind: 'ask', content: 'Because.', attachedToTurnId: 'u2' }),
     ] as Turn[];
     const { container } = render(ConversationStream, {
@@ -251,7 +259,33 @@ describe('the quote on a question', () => {
     await openMenu(container, 'more');
     await fireEvent.click(document.querySelector('[data-ega-about]') as HTMLElement);
     const row = await screen.findByText('Asked about');
-    expect(row.nextElementSibling?.textContent).toBe('Hi, how are you?');
+    expect(row.nextElementSibling?.textContent).toBe(
+      'A reply that is no longer in this conversation',
+    );
+  });
+
+  it('the quote and About read the reply live from the whole thread, filters aside', async () => {
+    const all = [
+      { id: 'u1', role: 'user', kind: 'translate', status: 'idle', content: 'hola', createdAt: 1 },
+      doneReply({ id: 'a1', content: 'Hello there', attachedToTurnId: 'u1', createdAt: 2 }),
+      question({ id: 'u2' }),
+      doneReply({ id: 'a2', kind: 'ask', content: 'Because.', attachedToTurnId: 'u2' }),
+    ] as Turn[];
+    // A search shows only the question's exchange; the reply it asks about is still in the thread.
+    const { container } = render(ConversationStream, {
+      props: {
+        turns: all.slice(2),
+        thread: all,
+        focusedTurnId: null,
+        onRetry: vi.fn(),
+        onFocusChange: vi.fn(),
+      },
+    });
+    expect(container.querySelector('[data-ega-ask-quote]')?.textContent).toBe('Hello there');
+    await openMenu(container, 'more');
+    await fireEvent.click(document.querySelector('[data-ega-about]') as HTMLElement);
+    const row = await screen.findByText('Asked about');
+    expect(row.nextElementSibling?.textContent).toBe('Hello there');
   });
 
   it('a message with no reply to quote has no quote', () => {

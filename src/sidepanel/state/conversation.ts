@@ -17,7 +17,7 @@ import {
 } from '@/shared/chat-history';
 import type { sendTranslateStart } from '@/shared/translate-ui';
 import type { AnswerNote, AnswerDetail } from '@/shared/answer/reader';
-import { capAskAbout, type AskAbout } from '@/shared/ask-about';
+import { capAskAbout, type AskAbout, type AskTarget } from '@/shared/ask-about';
 import type { AnswerSnapshot, AnswerReplyFields } from '@/shared/types';
 
 /** Every kind this build creates; saved turns can carry a newer build's task id. */
@@ -72,11 +72,9 @@ export interface Variant {
   sourceLang?: LangSelection;
   /** Task the variant ran when it differs from the turn's task — task variants. */
   task?: TaskId;
-  /** The reply an "Ask instead" version asks about; its re-runs send it again. */
-  about?: AskAbout;
-  /** The user deleted the reply this version asked about, and its copy with it. */
-  aboutRemoved?: true;
-  /** This version ran while the reply it asks about was deleted, so its request carried no copy. Undo never clears it. */
+  /** The reply an "Ask instead" version asks about; its re-runs ask about it again. */
+  about?: AskTarget;
+  /** This version's request carried no block about the reply it asks about: that reply was gone. Undo never clears it. */
   aboutUnsent?: true;
 }
 
@@ -117,10 +115,8 @@ export interface UserTurnData extends TurnBase {
   dispatch?: TurnDispatch;
   /** The text was cut to this many characters before it reached the panel. */
   trimmedTo?: number;
-  /** A question about an earlier reply: that reply's details, frozen at send. */
-  about?: AskAbout;
-  /** The user deleted the reply this question was about, and its copy with it. */
-  aboutRemoved?: true;
+  /** A question about an earlier reply: which reply and version, never their text. */
+  about?: AskTarget;
   rawAcc?: never;
   detectedLang?: never;
   detectedDetail?: never;
@@ -179,7 +175,6 @@ export interface AssistantTurnData extends TurnBase {
   dispatch?: never;
   trimmedTo?: never;
   about?: never;
-  aboutRemoved?: never;
 }
 
 /** A turn in a thread, by role: a user turn cannot carry an answer's fields, nor an answer a user turn's. */
@@ -205,7 +200,7 @@ interface AddUserTurnInput {
   dispatch?: TurnDispatch;
   taskId?: TaskId;
   trimmedTo?: number;
-  about?: AskAbout;
+  about?: AskTarget;
 }
 
 /** Append a user turn. Returns the new turn list — caller assigns. */
@@ -243,7 +238,7 @@ interface AddAssistantTurnInput {
    *  variant rail can flip back to it. */
   preservedResponse?: string;
   taskId?: TaskId;
-  /** The seed variant's request carried no copy of the reply asked about. */
+  /** The seed variant's request carried no block about the reply asked about. */
   aboutUnsent?: true;
 }
 
@@ -352,8 +347,7 @@ interface AddVariantInput {
   targetLang?: LangSelection;
   sourceLang?: LangSelection;
   task?: TaskId;
-  about?: AskAbout;
-  aboutRemoved?: true;
+  about?: AskTarget;
   aboutUnsent?: true;
 }
 
@@ -374,7 +368,6 @@ export function addVariant(turns: readonly Turn[], turnId: string, input: AddVar
     ...(input.sourceLang !== undefined ? { sourceLang: input.sourceLang } : {}),
     ...(input.task !== undefined ? { task: input.task } : {}),
     ...(input.about !== undefined ? { about: input.about } : {}),
-    ...(input.aboutRemoved === true ? { aboutRemoved: true } : {}),
     ...(input.aboutUnsent === true ? { aboutUnsent: true } : {}),
   };
   const nextVariants = [...turn.variants, variant];
@@ -466,6 +459,23 @@ export function askable(turn: Turn | undefined): boolean {
   return turn?.role === 'assistant' && turn.status === 'done' && turn.content.trim() !== '';
 }
 
+/** A question about `reply` as it shows now: the reply and its shown version. */
+export function askTarget(reply: Turn): AskTarget {
+  const v = activeVariant(reply);
+  return v === undefined ? { turnId: reply.id } : { turnId: reply.id, variantId: v.id };
+}
+
+/** The reply as version `variantId` reads; the shown version once that one is gone. */
+export function atVariant(
+  turn: AssistantTurnData,
+  variantId: string | undefined,
+): AssistantTurnData {
+  const idx = turn.variants?.findIndex((v) => v.id === variantId) ?? -1;
+  return idx < 0 || idx === turn.activeVariantIdx
+    ? turn
+    : projectVariant({ ...turn, activeVariantIdx: idx });
+}
+
 export type StartArgs = Parameters<typeof sendTranslateStart>[0];
 
 /** Why a swap would add nothing: the pair is one language, or a reply already answered it. */
@@ -483,8 +493,8 @@ export interface VariantSeed {
   targetLang?: LangSelection;
   sourceLang?: LangSelection;
   task?: TaskId;
-  /** An "Ask instead" version's reply; a sent question carries its own on the user turn. */
-  about?: AskAbout;
+  /** An "Ask instead" version's reply; a sent question keeps its own on the user turn. */
+  about?: AskTarget;
 }
 
 export interface StartOverlay {
@@ -498,6 +508,8 @@ export interface StartOverlay {
   thread: readonly Turn[] | 'none';
   /** The same request already has an answer the user wants replaced, so the router must not serve it from the cache. */
   freshAnswer?: boolean;
+  /** The block about the reply the question asks about, built from the thread at dispatch. */
+  askAbout?: AskAbout | undefined;
 }
 
 /** The turns before the user turn. Neither vision arm forwards history (router.ts), so an image gets none. */
@@ -514,8 +526,7 @@ export function buildStartArgs(userTurn: Turn, overlay: StartOverlay): StartArgs
   const task = seed.task ?? turnTaskValue(userTurn);
   const image = userTurn.imageDataUrl;
   const history = historyFor(userTurn, overlay.thread);
-  // "Answer again as Translate" on a question re-runs its text alone, so only an Ask request carries the reply.
-  const about = task === 'ask' ? (seed.about ?? userTurn.about) : undefined;
+  const about = askTargetFor(userTurn, seed) === undefined ? undefined : overlay.askAbout;
   return {
     requestId: overlay.requestId,
     text: userTurn.content,
@@ -534,9 +545,10 @@ export function buildStartArgs(userTurn: Turn, overlay: StartOverlay): StartArgs
   };
 }
 
-/** An Ask request built while its copy of the reply was removed with that reply carries none; the version it starts must say so. */
-export function sendsNoCopy(args: StartArgs, copyRemoved: boolean): boolean {
-  return copyRemoved && args.task === 'ask' && args.askAbout === undefined;
+/** The reply a request asks about: an "Ask instead" version's own, else its question's. "Answer again as Translate" on a question re-runs its text alone, so only an Ask request asks. */
+export function askTargetFor(userTurn: Turn, seed: VariantSeed = {}): AskTarget | undefined {
+  const task = seed.task ?? turnTaskValue(userTurn);
+  return task === 'ask' ? (seed.about ?? userTurn.about) : undefined;
 }
 
 function notesText(reply: AssistantTurnData): string | undefined {
@@ -556,7 +568,6 @@ export function aboutFrom(
 ): AskAbout | null {
   const notes = notesText(reply);
   return capAskAbout({
-    turnId: reply.id,
     task: labels.task,
     ...(labels.languages ? { languages: labels.languages } : {}),
     original: asked?.content ?? '',
@@ -566,10 +577,10 @@ export function aboutFrom(
 }
 
 /** Copies the turn with the active variant's fields, so a pending variant cannot show the previous body. */
-function projectVariant(turn: Turn): Turn {
+function projectVariant<T extends Turn>(turn: T): T {
   const v = activeVariant(turn);
   if (!v) return turn;
-  const next: Turn = { ...turn };
+  const next: T = { ...turn };
   mirrorVariantToTurn(next, v);
   return next;
 }
@@ -777,67 +788,6 @@ export function deleteTurnPair(turns: readonly Turn[], turnId: string): Turn[] {
     idsToRemove.add(target.attachedToTurnId);
   }
   return turns.filter((t) => !idsToRemove.has(t.id));
-}
-
-/** A copy of a deleted reply that a question or an "Ask instead" version held, so Undo can put it back. */
-export interface ForgottenAbout {
-  turnId: string;
-  variantId?: string;
-  about: AskAbout;
-}
-
-/** Deleting a reply deletes the copies questions keep of it; a question only remembers that there was one. */
-export function forgetAbout(
-  turns: readonly Turn[],
-  gone: ReadonlySet<string>,
-): { turns: Turn[]; forgotten: ForgottenAbout[] } {
-  const forgotten: ForgottenAbout[] = [];
-  if (gone.size === 0) return { turns: [...turns], forgotten };
-  const out = turns.map((t): Turn => {
-    if (t.role === 'user') {
-      if (t.about === undefined || !gone.has(t.about.turnId)) return t;
-      forgotten.push({ turnId: t.id, about: t.about });
-      const { about: _copy, ...rest } = t;
-      return { ...rest, aboutRemoved: true };
-    }
-    if (!t.variants?.some((v) => v.about !== undefined && gone.has(v.about.turnId))) return t;
-    const variants = t.variants.map((v) => {
-      if (v.about === undefined || !gone.has(v.about.turnId)) return v;
-      forgotten.push({ turnId: t.id, variantId: v.id, about: v.about });
-      const { about: _copy, ...rest } = v;
-      return { ...rest, aboutRemoved: true as const };
-    });
-    return { ...t, variants };
-  });
-  return { turns: out, forgotten };
-}
-
-/** A reply is back: each question and version that is there too gets its copy back. */
-export function rememberAbout(
-  turns: readonly Turn[],
-  forgotten: readonly ForgottenAbout[],
-): Turn[] {
-  if (forgotten.length === 0) return [...turns];
-  return turns.map((t): Turn => {
-    const mine = forgotten.filter((f) => f.turnId === t.id);
-    if (mine.length === 0) return t;
-    if (t.role === 'user') {
-      const own = mine.find((f) => f.variantId === undefined);
-      if (own === undefined || t.aboutRemoved !== true) return t;
-      const { aboutRemoved: _flag, ...rest } = t;
-      return { ...rest, about: own.about };
-    }
-    if (t.variants === undefined) return t;
-    return {
-      ...t,
-      variants: t.variants.map((v) => {
-        const back = mine.find((f) => f.variantId === v.id);
-        if (back === undefined || v.aboutRemoved !== true) return v;
-        const { aboutRemoved: _flag, ...rest } = v;
-        return { ...rest, about: back.about };
-      }),
-    };
-  });
 }
 
 /** After a trim, drops leading answers whose question was cut; an answer with no attachedToTurnId stays, and an untrimmed list is returned as is. */

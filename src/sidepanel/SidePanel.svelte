@@ -35,33 +35,26 @@
     findTask,
     materializeTasks,
     SHIPPED_TASK_VIEWS,
-    taskLabel,
     taskOn,
     type TaskId,
   } from '@/shared/task-view';
-  import { askQuote, type AskAbout } from '@/shared/ask-about';
+  import { askQuote } from '@/shared/ask-about';
   import { taskUsesTone } from '@/shared/language-prompt';
   import type { CustomTask } from '@/shared/settings-schema';
   import ConversationStream from './conversation/ConversationStream.svelte';
   import InputRow from './conversation/InputRow.svelte';
   import { createConversation } from './state/conversation.svelte';
   import { createIntake } from './state/intake';
-  import {
-    replyDirection,
-    type ComposerMode,
-    type SuggestionKind,
-    type SuggestionResult,
-  } from './state/thread-view';
+  import type { ComposerMode, SuggestionKind, SuggestionResult } from './state/thread-view';
   import { conversationLabel } from '@/shared/saved-conversations';
   import { INDEX_KEY } from './state/conversation-store';
   import {
-    aboutFrom,
     askable,
-    isImageTurn,
+    askTarget,
     visibleTurns,
     searchTurns,
     turnTaskValue,
-    type AssistantTurnData,
+    type Turn,
     type UserTurnData,
   } from './state/conversation';
   import { exportMarkdown, exportJson } from './state/conversation-export';
@@ -84,6 +77,8 @@
   // Same ceilings as the tooltip's stuck guard, read at dispatch so a settings edit applies to the next send.
   const conversation = createConversation({
     stallMs: (hasImage) => (hasImage ? imageStuckTimeoutMs(settings) : stuckTimeoutMs(settings)),
+    // A question names the reply the way its meta line does.
+    askLabels: () => ({ views: taskViews ?? SHIPPED_TASK_VIEWS, varieties }),
   });
 
   let varieties: Variety[] = $state([]);
@@ -229,7 +224,6 @@
   // One gate for New and both export items: disabled until there is a thread.
   const isEmptyThread = $derived(conversation.turns.length === 0);
 
-  const threadIds = $derived(new Set(conversation.turns.map((t) => t.id)));
   const baseTurns = $derived(visibleTurns(conversation.turns, bookmarkFilter));
   const filteredTurns = $derived(searchTurns(baseTurns, searchQuery));
   const matchCount = $derived(
@@ -336,7 +330,7 @@
     const img = sendImage;
     if (!text && !img) return;
     if (sending || conversation.inflightId !== null) return;
-    if (composerMode.kind === 'ask' && aboutOf(composerMode.turnId) === null) {
+    if (composerMode.kind === 'ask' && !askable(askedReply(composerMode.turnId))) {
       refuseQuestion(composerMode.turnId);
       return;
     }
@@ -354,7 +348,8 @@
       // A question goes out as Ask about the version shown now; an edited question stays about its reply.
       const asking = composerMode.kind === 'ask' ? composerMode.turnId : null;
       const sendTask = edited ? turnTaskValue(edited) : sendingTask;
-      const about = asking !== null ? aboutOf(asking) : edited?.about;
+      const askedNow = asking === null ? undefined : askedReply(asking);
+      const about = askedNow !== undefined ? askTarget(askedNow) : edited?.about;
       // An image goes to the OCR arm for Translate and for any task that takes no images; that arm sends no page context.
       const ocr = img !== null && (sendTask === 'translate' || !taskTakesImage(sendTask));
       const context = ocr ? undefined : await currentPageContext(sendTask);
@@ -536,26 +531,8 @@
     return `Asking about the reply: ${start}`;
   }
 
-  /** What a question about `replyId` carries: the version on screen, with the labels its meta line shows. */
-  function aboutOf(replyId: string): AskAbout | null {
-    const turns = conversation.turns;
-    const reply = turns.find(
-      (t): t is AssistantTurnData => t.role === 'assistant' && t.id === replyId,
-    );
-    if (reply?.status !== 'done') return null;
-    const asked = turns.find(
-      (t): t is UserTurnData => t.role === 'user' && t.id === reply.attachedToTurnId,
-    );
-    // An image's message is a placeholder or a caption, not text the reply was made from.
-    const image = asked !== undefined && isImageTurn(asked);
-    const replyTask = turnTaskValue(reply);
-    return aboutFrom(reply, image ? undefined : asked, {
-      task:
-        image && replyTask === 'translate'
-          ? 'Translate image'
-          : taskLabel(taskViews ?? SHIPPED_TASK_VIEWS, replyTask),
-      languages: replyDirection(reply, asked?.dispatch ?? {}, varieties),
-    });
+  function askedReply(replyId: string): Turn | undefined {
+    return conversation.turns.find((t) => t.role === 'assistant' && t.id === replyId);
   }
 
   /** A running reply can be asked about once it finishes; a failed or empty version never can. */
@@ -606,9 +583,14 @@
     const reply = turns.find((t) => t.id === turnId);
     const askedAt = turns.findIndex((t) => t.id === reply?.attachedToTurnId);
     const earlier = turns.slice(0, Math.max(0, askedAt)).filter(askable).at(-1);
-    const about = earlier === undefined ? null : aboutOf(earlier.id);
     const modeBefore = composerMode;
-    if (await conversation.taskVariant(turnId, 'ask', about ?? undefined)) {
+    if (
+      await conversation.taskVariant(
+        turnId,
+        'ask',
+        earlier === undefined ? undefined : askTarget(earlier),
+      )
+    ) {
       askAwait = { turnId, enter: true, mode: modeBefore };
     }
   }
@@ -1498,7 +1480,7 @@
       {editingTurnId}
       {askingTurnId}
       {onAsk}
-      {threadIds}
+      thread={conversation.turns}
       onClearFilters={clearFilters}
       onFocusChange={(id) => (focusedTurnId = id)}
       onClearSearch={() => {

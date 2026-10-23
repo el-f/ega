@@ -21,7 +21,7 @@
     separatorLabel,
     separatorTurnIds,
     taskLabelsOnChange,
-    askedAbout,
+    askedAboutFor,
     linkedQuote,
     type SuggestionKind,
     type SuggestionResult,
@@ -93,8 +93,8 @@
     askingTurnId?: string | null;
     /** Starts or ends Ask mode on a reply: its Ask button, or `a` on the focused reply. */
     onAsk?: (turnId: string) => void;
-    /** Every turn of the conversation, filters aside, so a quote can tell a hidden reply from a removed one. */
-    threadIds?: ReadonlySet<string>;
+    /** Every turn of the conversation, filters aside: a quote and About read the reply they ask about from it. */
+    thread?: readonly Turn[];
     /** Clears search and the bookmark filter, so a quoted reply they hide can be shown. */
     onClearFilters?: () => void;
   }
@@ -138,7 +138,7 @@
     renderWindow = 60,
     askingTurnId = null,
     onAsk,
-    threadIds,
+    thread: threadProp,
     onClearFilters,
   }: Props = $props();
 
@@ -154,15 +154,7 @@
   const userTextById = $derived(
     Object.fromEntries(turns.filter((t) => t.role === 'user').map((t) => [t.id, t.content])),
   );
-  const liveIds = $derived(threadIds ?? new Set(turns.map((t) => t.id)));
-  const askedByUserId = $derived(
-    new Map(
-      turns.flatMap((t) => {
-        const asked = t.role === 'user' ? askedAbout(t) : undefined;
-        return asked === undefined ? [] : [[t.id, asked] as const];
-      }),
-    ),
-  );
+  const thread = $derived(threadProp ?? turns);
   // A bookmark belongs to the pair (spec §5.2, F12): either half shows it, and unchecking clears both halves.
   const pairIds = $derived(
     new Map(
@@ -185,7 +177,7 @@
     for (const i of on.length > 0 ? on : [id]) onBookmark?.(i);
   }
   const separators = $derived(separatorTurnIds(turns));
-  const taskLabels = $derived(taskLabelsOnChange(turns, taskViews, liveIds));
+  const taskLabels = $derived(taskLabelsOnChange(turns, taskViews, thread));
   const positions = $derived(new Map(turns.map((t, i) => [t.id, i])));
 
   // Separator labels are computed at render; with no tick "Today" would never become "Yesterday".
@@ -645,7 +637,7 @@
               onBookmark={toggleBookmark}
               {onDelete}
               {onEdit}
-              quoted={linkedQuote(turn, liveIds)}
+              quoted={linkedQuote(turn, thread)}
               onQuote={(id) => void revealTurn(id)}
             />
           {:else}
@@ -680,9 +672,7 @@
               {onAsk}
               asked={turn.id === askingTurnId}
               flash={turn.id === flashId}
-              questionAbout={turn.attachedToTurnId
-                ? askedByUserId.get(turn.attachedToTurnId)
-                : undefined}
+              askedAboutOf={(t) => askedAboutFor(thread, t, { views: taskViews, varieties })}
             />
           {/if}
         {/each}

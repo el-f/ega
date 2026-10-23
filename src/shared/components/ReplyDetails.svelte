@@ -39,8 +39,8 @@
     confidence?: number | undefined;
     /** The change the user typed for this version ("Describe a change…"). */
     change?: string | undefined;
-    /** The earlier reply a question was about; the whole block goes into Copy as JSON. 'gone': its copy left with the
-     *  deleted reply. 'unsent': this version ran while that reply was deleted. */
+    /** The earlier reply a question was about; the whole block goes into Copy as JSON. 'gone': that reply left the
+     *  conversation. 'unsent': this version ran while it was gone. */
     askedAbout?: AskedAbout | undefined;
     /** Opens Settings, for "Turn on Record request details". */
     onOpenSettings?: (() => void) | undefined;
@@ -74,7 +74,7 @@
   const uid = $props.id();
   const ASKED_ABOUT_TEXT = {
     gone: 'A reply that is no longer in this conversation',
-    unsent: 'Not sent. The reply was deleted when this version ran.',
+    unsent: 'Not sent. The reply was no longer in this conversation when this version ran.',
   } as const;
   let showAllPage = $state(false);
   let showTried = $state(false);

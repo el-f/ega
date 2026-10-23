@@ -1,11 +1,19 @@
 // Pure view rules for the side panel thread, header list and composer chip. No I/O, no clock: callers pass `now`.
 import type { IndexEntry } from '@/shared/saved-conversations';
-import type { Turn } from './conversation';
-import { activeVariant, turnLabel, turnTaskValue } from './conversation';
-import type { TaskView } from '@/shared/task-view';
+import type { AssistantTurnData, Turn, UserTurnData } from './conversation';
+import {
+  aboutFrom,
+  activeVariant,
+  askTargetFor,
+  atVariant,
+  isImageTurn,
+  turnLabel,
+  turnTaskValue,
+} from './conversation';
+import { taskLabel, type TaskView } from '@/shared/task-view';
 import { TONE_LABELS, type Tone } from '@/shared/task-prompts';
 import { detectedOf, directionLabel } from '@/shared/reply-meta';
-import type { AskAbout, AskedAbout } from '@/shared/ask-about';
+import { askQuote, type AskAbout, type AskedAbout, type AskTarget } from '@/shared/ask-about';
 
 const MINUTE = 60_000;
 const DAY = 24 * 60 * MINUTE;
@@ -77,35 +85,75 @@ export function separatorTurnIds(turns: readonly Turn[]): ReadonlySet<string> {
   return out;
 }
 
-/** What About says a question or a version sent: its copy (which outlives the storage cap's trim of its reply),
- *  'gone' once the copy was removed with the reply, 'unsent' for a version run while the reply was deleted. */
-export function askedAbout(
-  holder:
-    | {
-        about?: AskAbout | undefined;
-        aboutRemoved?: true | undefined;
-        aboutUnsent?: true | undefined;
-      }
-    | undefined,
-): AskedAbout | undefined {
-  if (holder?.aboutUnsent === true) return 'unsent';
-  if (holder?.about !== undefined) return holder.about;
-  return holder?.aboutRemoved === true ? 'gone' : undefined;
+/** The names a reply's meta line shows: its task's, and its languages'. */
+export interface AskLabels {
+  views: readonly TaskView[];
+  varieties: readonly { id: string; label: string }[];
 }
 
-/** The quote a question's bubble links: its copy, only while that reply is still in the thread. */
+/** The reply `target` points at, as its version reads; undefined once the reply left the thread. */
+function askedReply(thread: readonly Turn[], target: AskTarget): AssistantTurnData | undefined {
+  const reply = thread.find(
+    (t): t is AssistantTurnData => t.role === 'assistant' && t.id === target.turnId,
+  );
+  return reply === undefined ? undefined : atVariant(reply, target.variantId);
+}
+
+/** What a request asking about `target` carries, built from the thread as it is now, with the labels the reply's
+ *  meta line shows. Null when that reply is gone or has no finished text, so the request carries none. */
+export function askAboutFor(
+  thread: readonly Turn[],
+  target: AskTarget,
+  labels: AskLabels,
+): AskAbout | null {
+  const reply = askedReply(thread, target);
+  if (reply?.status !== 'done') return null;
+  const asked = thread.find(
+    (t): t is UserTurnData => t.role === 'user' && t.id === reply.attachedToTurnId,
+  );
+  // An image's message is a placeholder or a caption, not text the reply was made from.
+  const image = asked !== undefined && isImageTurn(asked);
+  const replyTask = turnTaskValue(reply);
+  return aboutFrom(reply, image ? undefined : asked, {
+    task:
+      image && replyTask === 'translate' ? 'Translate image' : taskLabel(labels.views, replyTask),
+    languages: replyDirection(reply, asked?.dispatch ?? {}, labels.varieties),
+  });
+}
+
+/** What About says the shown version of `answer` asked about: the block as it is built now, 'gone' once the
+ *  reply left the thread, 'unsent' when the version's request carried none. Undefined when it asked about none. */
+export function askedAboutFor(
+  thread: readonly Turn[],
+  answer: Turn,
+  labels: AskLabels,
+): AskedAbout | undefined {
+  if (answer.role !== 'assistant') return undefined;
+  const question = thread.find((t) => t.role === 'user' && t.id === answer.attachedToTurnId);
+  const version = activeVariant(answer);
+  const target = question === undefined ? undefined : askTargetFor(question, version);
+  if (target === undefined) return undefined;
+  if (version?.aboutUnsent === true) return 'unsent';
+  return askAboutFor(thread, target, labels) ?? 'gone';
+}
+
+/** The quote a question's bubble links: the first line of the reply it asks about, read live; none once that reply left the thread. */
 export function linkedQuote(
-  holder: { about?: AskAbout | undefined },
-  live: ReadonlySet<string>,
-): AskAbout | undefined {
-  return holder.about !== undefined && live.has(holder.about.turnId) ? holder.about : undefined;
+  holder: Turn,
+  thread: readonly Turn[],
+): { turnId: string; text: string } | undefined {
+  const target = holder.role === 'user' ? holder.about : undefined;
+  const reply = target === undefined ? undefined : askedReply(thread, target);
+  return reply === undefined
+    ? undefined
+    : { turnId: reply.id, text: askQuote({ result: reply.content }) };
 }
 
 /** The task each user message names above its bubble, only where the task changes (or a first message that is not Translate). */
 export function taskLabelsOnChange(
   turns: readonly Turn[],
   views: readonly TaskView[],
-  live: ReadonlySet<string>,
+  thread: readonly Turn[],
 ): ReadonlyMap<string, string> {
   const out = new Map<string, string>();
   let prev: string | undefined;
@@ -117,7 +165,7 @@ export function taskLabelsOnChange(
     const key = `${task}|${tone ?? ''}`;
     const changed = prev === undefined ? task !== 'translate' || tone !== undefined : key !== prev;
     // A quoted question is marked by its quote; a task label would say it twice.
-    if (changed && linkedQuote(t, live) === undefined) {
+    if (changed && linkedQuote(t, thread) === undefined) {
       const base = turnLabel(t.kind === 'image-translate' ? { ...t, kind: 'translate' } : t, views);
       out.set(t.id, tone === undefined ? base : `${base} · ${TONE_LABELS[tone]}`);
     }

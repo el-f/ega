@@ -232,14 +232,9 @@ describe('a shed image drops its dispatch, a reload keeps Undo', () => {
     expect(c.turns.map((t) => t.id)).toEqual(['t1']);
   });
 
-  it('a same-site reload still knows a reply is deleted: a question undone after it gets no copy back', async () => {
+  it('a reply deleted before a same-site reload stays out of a question undone after it', async () => {
     const o = 'https://same-site-undo-about.com';
-    const about = {
-      turnId: 'a1',
-      task: 'Translate',
-      original: 'secret-original',
-      result: 'secret-result',
-    };
+    const about = { turnId: 'a1' };
     await saveThread(o, [
       userTurn('u1', 'secret-original', 10),
       {
@@ -279,10 +274,9 @@ describe('a shed image drops its dispatch, a reload keeps Undo', () => {
     await c.openConversation(o);
 
     expect(c.restoreTurns(question as NonNullable<typeof question>)).toBe(true);
-    const q = c.turns.find((t) => t.id === 'q');
-    expect(q).not.toHaveProperty('about');
-    expect(q?.aboutRemoved).toBe(true);
+    expect(c.turns.find((t) => t.id === 'q')?.about).toEqual(about);
     expect(await c.regenerateVariant('qa')).toBe(true);
+    expect(startCalls().at(-1)?.['options']).not.toHaveProperty('askAbout');
     expect(JSON.stringify(startCalls().at(-1))).not.toContain('secret-result');
   });
 });

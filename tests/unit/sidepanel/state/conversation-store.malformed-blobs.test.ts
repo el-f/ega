@@ -301,8 +301,9 @@ describe('the thread index', () => {
 });
 
 describe('the reply a question was about, as stored', () => {
-  const about = { turnId: 'a0', task: 'Translate', original: 'hola', result: 'hello' };
-  const answer = (variantAbout: unknown): Record<string, unknown> =>
+  // The older shape: a copy of the reply's text, of which a load keeps only the reply's id.
+  const copy = { turnId: 'a0', task: 'Translate', original: 'hola', result: 'hello' };
+  const answer = (variant: Record<string, unknown>): Record<string, unknown> =>
     goodTurn({
       id: 'a1',
       role: 'assistant',
@@ -311,69 +312,39 @@ describe('the reply a question was about, as stored', () => {
       attachedToTurnId: 'u1',
       variants: [
         { id: 'a1:v1', status: 'done', content: 'Hi.' },
-        { id: 'a1:v2', status: 'done', content: 'Because.', task: 'ask', about: variantAbout },
+        { id: 'a1:v2', status: 'done', content: 'Because.', task: 'ask', ...variant },
       ],
       activeVariantIdx: 1,
     });
+  const asked = (value: unknown): Record<string, unknown> =>
+    goodTurn({ id: 'u2', kind: 'ask', content: 'why?', about: value });
 
-  it('an Ask instead version keeps a usable one, capped, and loses a malformed one', async () => {
-    const long = { ...about, result: 'x'.repeat(5000) };
-    await put(blob({ turns: [goodTurn(), answer(long)] }));
-    const kept = (await loadThreadResult('https://a.com')).turns[1]?.variants?.[1]?.about;
-    expect(kept?.result).toHaveLength(2000);
-
-    await put(blob({ turns: [goodTurn(), answer({ turnId: 'a0', result: 42 })] }));
+  it('a question and an Ask instead version keep their reference, and an old copy keeps only its reply id', async () => {
+    const ref = { turnId: 'a0', variantId: 'a0:v1' };
+    await put(blob({ turns: [goodTurn(), asked(ref), answer({ about: copy })] }));
     const turns = (await loadThreadResult('https://a.com')).turns;
-    expect(turns.map((t) => t.id)).toEqual(['u1', 'a1']);
-    expect(turns[1]?.variants?.[1]).not.toHaveProperty('about');
+    expect(turns[1]?.about).toEqual(ref);
+    expect(turns[2]?.variants?.[1]?.about).toEqual({ turnId: 'a0' });
+    expect(JSON.stringify(turns)).not.toContain('hello');
   });
 
-  it('a question keeps a usable one, capped, and loses a malformed one but stays in the thread', async () => {
-    const asked = (value: unknown): Record<string, unknown> =>
-      goodTurn({ id: 'u2', kind: 'ask', content: 'why?', about: value });
-    await put(blob({ turns: [goodTurn(), asked({ ...about, result: 'x'.repeat(5000) })] }));
-    expect((await loadThreadResult('https://a.com')).turns[1]?.about?.result).toHaveLength(2000);
-
-    // The quote calls result.split, so a stored number there would break the thread's render.
-    await put(
-      blob({ turns: [goodTurn(), asked({ turnId: 'a0', task: 'Translate', result: 42 })] }),
-    );
+  it('a malformed one is dropped, and the turn stays in the thread', async () => {
+    await put(blob({ turns: [goodTurn(), asked({ task: 'Translate' }), answer({ about: 42 })] }));
     const turns = (await loadThreadResult('https://a.com')).turns;
-    expect(turns.map((t) => t.id)).toEqual(['u1', 'u2']);
+    expect(turns.map((t) => t.id)).toEqual(['u1', 'u2', 'a1']);
     expect(turns[1]).not.toHaveProperty('about');
+    expect(turns[2]?.variants?.[1]).not.toHaveProperty('about');
   });
 
-  it('keeps the removed-reply mark only as true', async () => {
-    await put(
-      blob({
-        turns: [
-          goodTurn({ id: 'u2', kind: 'ask', aboutRemoved: true }),
-          goodTurn({ id: 'u3', kind: 'ask', aboutRemoved: 'yes' }),
-        ],
-      }),
+  it('an Ask version keeps its unsent mark only as true', async () => {
+    await put(blob({ turns: [goodTurn(), answer({ aboutUnsent: true })] }));
+    expect((await loadThreadResult('https://a.com')).turns[1]?.variants?.[1]).toHaveProperty(
+      'aboutUnsent',
+      true,
     );
-    const turns = (await loadThreadResult('https://a.com')).turns;
-    expect(turns[0]?.aboutRemoved).toBe(true);
-    expect(turns[1]).not.toHaveProperty('aboutRemoved');
+    await put(blob({ turns: [goodTurn(), answer({ aboutUnsent: 'yes' })] }));
+    expect((await loadThreadResult('https://a.com')).turns[1]?.variants?.[1]).not.toHaveProperty(
+      'aboutUnsent',
+    );
   });
-
-  it.each(['aboutRemoved', 'aboutUnsent'])(
-    'an Ask version keeps its %s mark only as true',
-    async (field) => {
-      const marked = (mark: unknown): Record<string, unknown> => {
-        const t = answer(undefined);
-        const [v1, v2] = t['variants'] as Array<Record<string, unknown>>;
-        return { ...t, variants: [v1, { ...v2, [field]: mark }] };
-      };
-      await put(blob({ turns: [goodTurn(), marked(true)] }));
-      expect((await loadThreadResult('https://a.com')).turns[1]?.variants?.[1]).toHaveProperty(
-        field,
-        true,
-      );
-      await put(blob({ turns: [goodTurn(), marked('yes')] }));
-      expect((await loadThreadResult('https://a.com')).turns[1]?.variants?.[1]).not.toHaveProperty(
-        field,
-      );
-    },
-  );
 });
