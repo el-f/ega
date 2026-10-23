@@ -115,6 +115,8 @@ export interface UserTurnData extends TurnBase {
   trimmedTo?: number;
   /** A question about an earlier reply: that reply's details, frozen at send. */
   about?: AskAbout;
+  /** The user deleted the reply this question was about, and its copy with it. */
+  aboutRemoved?: true;
   rawAcc?: never;
   detectedLang?: never;
   detectedDetail?: never;
@@ -173,6 +175,7 @@ export interface AssistantTurnData extends TurnBase {
   dispatch?: never;
   trimmedTo?: never;
   about?: never;
+  aboutRemoved?: never;
 }
 
 /** A turn in a thread, by role: a user turn cannot carry an answer's fields, nor an answer a user turn's. */
@@ -293,9 +296,6 @@ export function replaceAssistantTurn(
   return out;
 }
 
-/** A result's detected languages, as a reply and its versions carry them. */
-export type Detection = Pick<Variant, 'detectedLang' | 'detectedDetail' | 'detectedLangs'>;
-
 interface AddDeliveredAssistantTurnInput {
   id: string;
   kind: string;
@@ -304,8 +304,6 @@ interface AddDeliveredAssistantTurnInput {
   /** Already-produced body (tooltip explanation / OCR result). */
   content: string;
   reply?: AnswerReplyFields;
-  /** What the tooltip detected, so the meta line and a question about it name the same languages. */
-  detected?: Detection;
 }
 
 /** Appends a done assistant turn whose body is already known. */
@@ -319,7 +317,6 @@ export function addDeliveredAssistantTurn(
     status: 'done',
     content: input.content,
     ...input.reply,
-    ...input.detected,
   };
   const turn: Turn = {
     id: input.id,
@@ -328,7 +325,6 @@ export function addDeliveredAssistantTurn(
     status: 'done',
     content: input.content,
     ...input.reply,
-    ...input.detected,
     attachedToTurnId: input.attachedToTurnId,
     variants: [seed],
     activeVariantIdx: 0,
@@ -452,6 +448,11 @@ export function turnTaskValue(turn: Turn): TaskId {
   if (v?.task !== undefined) return v.task;
   if (turn.taskId !== undefined) return turn.taskId;
   return turn.kind === 'image-translate' ? 'translate' : turn.kind;
+}
+
+/** A reply a question can be about: finished, with text. */
+export function askable(turn: Turn | undefined): boolean {
+  return turn?.role === 'assistant' && turn.status === 'done' && turn.content.trim() !== '';
 }
 
 export type StartArgs = Parameters<typeof sendTranslateStart>[0];
@@ -760,6 +761,64 @@ export function deleteTurnPair(turns: readonly Turn[], turnId: string): Turn[] {
     idsToRemove.add(target.attachedToTurnId);
   }
   return turns.filter((t) => !idsToRemove.has(t.id));
+}
+
+/** A copy of a deleted reply that a question or an "Ask instead" version held, so Undo can put it back. */
+export interface ForgottenAbout {
+  turnId: string;
+  variantId?: string;
+  about: AskAbout;
+}
+
+/** Deleting a reply deletes the copies questions keep of it; a question only remembers that there was one. */
+export function forgetAbout(
+  turns: readonly Turn[],
+  gone: readonly string[],
+): { turns: Turn[]; forgotten: ForgottenAbout[] } {
+  const forgotten: ForgottenAbout[] = [];
+  const out = turns.map((t): Turn => {
+    if (t.role === 'user') {
+      if (t.about === undefined || !gone.includes(t.about.turnId)) return t;
+      forgotten.push({ turnId: t.id, about: t.about });
+      const { about: _copy, ...rest } = t;
+      return { ...rest, aboutRemoved: true };
+    }
+    if (!t.variants?.some((v) => v.about !== undefined && gone.includes(v.about.turnId))) return t;
+    const variants = t.variants.map((v) => {
+      if (v.about === undefined || !gone.includes(v.about.turnId)) return v;
+      forgotten.push({ turnId: t.id, variantId: v.id, about: v.about });
+      const { about: _copy, ...rest } = v;
+      return rest;
+    });
+    return { ...t, variants };
+  });
+  return { turns: out, forgotten };
+}
+
+/** Undo of a delete: each question and version that still exists gets its copy back. */
+export function rememberAbout(
+  turns: readonly Turn[],
+  forgotten: readonly ForgottenAbout[],
+): Turn[] {
+  if (forgotten.length === 0) return [...turns];
+  return turns.map((t): Turn => {
+    const mine = forgotten.filter((f) => f.turnId === t.id);
+    if (mine.length === 0) return t;
+    if (t.role === 'user') {
+      const own = mine.find((f) => f.variantId === undefined);
+      if (own === undefined || t.aboutRemoved !== true) return t;
+      const { aboutRemoved: _flag, ...rest } = t;
+      return { ...rest, about: own.about };
+    }
+    if (t.variants === undefined) return t;
+    return {
+      ...t,
+      variants: t.variants.map((v) => {
+        const back = mine.find((f) => f.variantId === v.id);
+        return back !== undefined && v.about === undefined ? { ...v, about: back.about } : v;
+      }),
+    };
+  });
 }
 
 /** After a trim, drops leading answers whose question was cut; an answer with no attachedToTurnId stays, and an untrimmed list is returned as is. */

@@ -41,6 +41,7 @@ test('Ask on a tooltip result opens the panel on the exchange, asking about it, 
     translation: TRANSLATION,
     detectedLang: 'arabizi',
     detectedDetail: 'Levantine',
+    confidence: 0.93,
     times: 1,
   });
 
@@ -79,11 +80,13 @@ test('Ask on a tooltip result opens the panel on the exchange, asking about it, 
           const slot = r['ega.pendingPopupHandoff'] as Record<string, unknown> | undefined;
           return Object.values(slot ?? {}).map((e) => {
             const entry = e as Record<string, unknown>;
+            // The detection rides in the reply's fields, next to its notes and meta.
+            const reply = (entry['reply'] ?? {}) as Record<string, unknown>;
             return [
               entry['ask'],
               entry['response'],
-              entry['detectedLang'],
-              entry['detectedDetail'],
+              reply['detectedLang'],
+              reply['detectedDetail'],
             ];
           });
         }),
@@ -102,6 +105,8 @@ test('Ask on a tooltip result opens the panel on the exchange, asking about it, 
   await expect(reply.locator('[data-ega-meta-item="direction"]')).toHaveText(
     'Arabizi (Levantine) → English',
   );
+  // And the confidence it showed: one result, one meta line on both surfaces.
+  await expect(reply.locator('[data-ega-meta-item="confidence"]')).toHaveText('93% confident');
 
   // Ask mode is on for it, the field has focus, and no "pickers set" toast got in the way.
   await expect(sp.locator('[data-ega-mode-banner]')).toContainText('Asking about this reply');
@@ -114,7 +119,10 @@ test('Ask on a tooltip result opens the panel on the exchange, asking about it, 
   timeline.markStep('panel-asking');
 
   // R2-23: type at once, with no click. Keys go to whatever has focus, and the field has it.
-  const answer = mockAnthropic(ext.context, { rawText: ANSWER, times: 1 });
+  const answer = mockAnthropic(ext.context, {
+    rawText: JSON.stringify({ translation: ANSWER }),
+    times: 1,
+  });
   await sp.keyboard.type(QUESTION);
   await expect(sp.locator('#sp-text')).toHaveValue(QUESTION);
   await sp.keyboard.press('Enter');

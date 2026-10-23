@@ -52,6 +52,9 @@ test('Ask on a reply sends that reply with the question, keeps asking, links bac
     'Arabizi (Levantine) → English',
   );
   timeline.markStep('translated');
+  const textX = async (): Promise<number> =>
+    (await first.locator('.ega-answer').boundingBox())?.x ?? -1;
+  const xBefore = await textX();
 
   // A draft typed before Ask waits and comes back when the mode ends.
   const field = page.locator('#sp-text');
@@ -61,6 +64,8 @@ test('Ask on a reply sends that reply with the question, keeps asking, links bac
   await expect(banner).toContainText('Asking about this reply');
   await expect(first).toHaveAttribute('data-ega-ask-target', '');
   await expect(first.locator('[data-ega-action="ask"]')).toHaveAttribute('aria-pressed', 'true');
+  // The target's bar sits in the gutter, so the text does not move or rewrap.
+  expect(await textX()).toBe(xBefore);
   await expect(field).toBeFocused();
   await expect(field).toHaveValue('');
   await expect(field).toHaveAttribute('placeholder', 'Ask about this reply');
@@ -70,7 +75,10 @@ test('Ask on a reply sends that reply with the question, keeps asking, links bac
   timeline.markStep('ask-mode-on');
 
   // Registered later, so it answers the next call; the first mock is spent.
-  const answer = mockAnthropic(ext.context, { rawText: ANSWER, times: 1 });
+  const answer = mockAnthropic(ext.context, {
+    rawText: JSON.stringify({ translation: ANSWER }),
+    times: 1,
+  });
   await sendFromPanel(page, QUESTION);
   const last = page.locator('[data-ega-reply]').last();
   await expect(last.locator('.ega-answer')).toContainText('Levantine because', {
@@ -92,10 +100,7 @@ test('Ask on a reply sends that reply with the question, keeps asking, links bac
   const question = page.locator('.ega-user-turn').last();
   const quote = question.locator('[data-ega-ask-quote]');
   await expect(quote).toContainText(TRANSLATION);
-  // The quote's text and "Go to the reply" are flex items, so the name may have a space before the comma.
-  await expect(quote).toHaveAccessibleName(
-    /^Hi, how are you\? What are you up to\? ?, Go to the reply$/,
-  );
+  await expect(quote).toHaveAccessibleName(`${TRANSLATION}, go to the reply`);
   await expect(question.locator('[data-ega-user-bubble]')).toContainText(QUESTION);
   await expect(last.locator('[data-ega-meta-item="direction"]')).toHaveText('Answer');
 
@@ -111,14 +116,21 @@ test('Ask on a reply sends that reply with the question, keeps asking, links bac
   const more = await openReplyMenu(page, 'more', last);
   await more.locator('[data-ega-about]').click();
   await expect(last.locator('[data-ega-asked-about]')).toContainText(TRANSLATION);
+  // The answer came back in the Ask format, so About reports no format problem.
+  await expect(last.locator('[data-ega-inspector]')).not.toContainText('plain text');
   await last.locator('[data-ega-inspector]').getByRole('button', { name: /close/i }).click();
 
   // The quote leads back to the first reply, which takes focus and flashes.
+  // Under reduced motion every animation is cut to nothing, so the tint must hold without one.
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   await expect(first).not.toBeInViewport();
   await quote.click();
   await expect(first).toBeInViewport();
   await expect(first).toBeFocused();
   await expect(first).toHaveClass(/flash/);
+  expect(await first.evaluate((el) => getComputedStyle(el).backgroundColor)).not.toBe(
+    'rgba(0, 0, 0, 0)',
+  );
   timeline.markStep('quote-revealed');
 
   // × ends the mode: the composer is back on its task, with the draft.

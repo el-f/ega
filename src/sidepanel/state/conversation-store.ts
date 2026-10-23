@@ -99,6 +99,7 @@ function validateStoredTurn(t: unknown): Turn | null {
       if (about) user.about = about;
       else delete user.about;
     }
+    if (user.aboutRemoved !== true) delete user.aboutRemoved;
     return user;
   }
   const answer = withCappedVariantAbout(e as unknown as AssistantTurnData);

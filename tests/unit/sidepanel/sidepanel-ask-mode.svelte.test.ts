@@ -11,7 +11,13 @@ import { toastStore } from '@/shared/components/toastStore';
 import { writePendingPopupHandoff } from '@/shared/pending-popup-handoff';
 import type { Msg } from '@/shared/messages';
 import type { TranslationChunk } from '@/shared/types';
+import { confirmDialog } from '@/shared/components/confirmDialog';
 import { openMenu } from './_reply';
+
+vi.mock('@/shared/components/confirmDialog', () => ({
+  confirmDialog: vi.fn().mockResolvedValue(true),
+}));
+const confirmMock = confirmDialog as unknown as Mock;
 
 const tabsQuery = chrome.tabs.query as unknown as Mock;
 const sendMessage = chrome.runtime.sendMessage as Mock;
@@ -98,9 +104,30 @@ async function firstExchange(c: HTMLElement): Promise<HTMLElement> {
   return r;
 }
 
+const toasts = (push: { mock: { calls: Array<[{ message: string }]> } }): string[] =>
+  push.mock.calls.map(([m]) => m.message);
+
+/** Two finished exchanges; returns both replies. */
+async function twoExchanges(c: HTMLElement): Promise<[HTMLElement, HTMLElement]> {
+  const first = await firstExchange(c);
+  const s = await send(c, 'shu 3am ta3mel?');
+  await chunk({ type: 'done', requestId: s.requestId, text: 'What are you up to?' });
+  return [first, replies(c)[1] as HTMLElement];
+}
+
+/** Refine → Regenerate on the first reply in the thread; returns the request it started. */
+async function regenerate(c: HTMLElement): Promise<Start> {
+  await openMenu(c, 'refine');
+  await fireEvent.click(document.querySelector('[data-ega-regenerate]') as HTMLElement);
+  await settle();
+  return starts().at(-1) as Start;
+}
+
 beforeEach(async () => {
   await chrome.storage.local.clear();
   await chrome.storage.session.clear();
+  confirmMock.mockClear();
+  confirmMock.mockResolvedValue(true);
   sendMessage.mockResolvedValue({ ok: true });
   tabsQuery.mockResolvedValue([{ id: 1, url: 'https://a.test/page' }]);
 });
@@ -170,6 +197,19 @@ describe('entering Ask mode', () => {
     expect(push.mock.calls.map(([m]) => m.message)).toContain('Ask when this reply finishes.');
     expect(banner(c)).toBeNull();
   });
+
+  it('`a` on a reply that failed says nothing: it has finished, and waiting will not help', async () => {
+    const push = vi.spyOn(toastStore, 'push');
+    const c = await mounted();
+    const s = await send(c, 'mar7aba');
+    await chunk({ type: 'error', requestId: s.requestId, code: 'NETWORK', message: 'x' });
+    const failed = replies(c)[0] as HTMLElement;
+    failed.focus();
+    await fireEvent.keyDown(failed, { key: 'a' });
+    await settle();
+    expect(toasts(push)).not.toContain('Ask when this reply finishes.');
+    expect(banner(c)).toBeNull();
+  });
 });
 
 describe('asking', () => {
@@ -227,6 +267,73 @@ describe('asking', () => {
     const next = await send(c, 'say it formally');
     expect(next.options.askAbout?.['result']).toBe('It means how are you.');
     expect(next.options.askAbout?.['task']).toBe('Ask');
+  });
+
+  it('another reply picked while the answer streams stays the target when the answer ends', async () => {
+    const c = await mounted();
+    const [first, second] = await twoExchanges(c);
+    await fireEvent.click(askOn(second));
+    await settle();
+    const q = await send(c, 'why?');
+    await chunk({ type: 'delta', requestId: q.requestId, text: 'Bec' });
+    await fireEvent.click(askOn(first));
+    await settle();
+    await chunk({ type: 'done', requestId: q.requestId, text: 'Because.' });
+    expect(target(c)).toBe(first);
+    const next = await send(c, 'and this one?');
+    expect(next.options.askAbout?.['turnId']).toBe(first.getAttribute('data-turn-id'));
+  });
+
+  it('a question about a version with no answer is refused, and the typed question stays', async () => {
+    const push = vi.spyOn(toastStore, 'push');
+    const c = await mounted();
+    const reply = await firstExchange(c);
+    await fireEvent.click(askOn(reply));
+    await settle();
+    // Regenerate the reply asked about, and the new version fails.
+    const again = await regenerate(c);
+    await chunk({ type: 'error', requestId: again.requestId, code: 'NETWORK', message: 'x' });
+    expect(target(c)).toBe(reply);
+    const before = starts().length;
+
+    await type(c, 'why?');
+    await fireEvent.click(c.querySelector('[data-ega-send]') as HTMLElement);
+    await settle();
+    expect(starts()).toHaveLength(before);
+    expect(toasts(push)).toContain('This version has no answer to ask about.');
+    expect(box(c).value).toBe('why?');
+    expect(banner(c)).toContain('Asking about this reply');
+  });
+
+  it('deleting the reply asked about deletes the copy the question kept; Undo brings it back', async () => {
+    const push = vi.spyOn(toastStore, 'push');
+    const c = await mounted();
+    const reply = await firstExchange(c);
+    await fireEvent.click(askOn(reply));
+    await settle();
+    const q = await send(c, 'why?');
+    await chunk({ type: 'done', requestId: q.requestId, text: 'Because.' });
+
+    await openMenu(c, 'more');
+    await fireEvent.click(document.querySelector('[role="menu"] [data-ega-delete]') as HTMLElement);
+    await settle();
+    expect(c.querySelector('[data-ega-ask-quote-gone]')?.textContent).toBe('Reply removed');
+    // The answer's re-run asks the question alone: the deleted reply goes nowhere.
+    const again = await regenerate(c);
+    expect(again.options['task']).toBe('ask');
+    expect(again.options.askAbout).toBeUndefined();
+    expect(JSON.stringify(again.options)).not.toContain('Hi, how are you?');
+    await chunk({ type: 'done', requestId: again.requestId, text: 'Because, again.' });
+
+    const deleted = push.mock.calls.find(([m]) => m.message === 'Message and reply deleted');
+    deleted?.[0].action?.onClick();
+    await settle();
+    expect(c.querySelector('[data-ega-ask-quote]')?.textContent).toContain('Hi, how are you?');
+    const answer = replies(c).at(-1) as HTMLElement;
+    await openMenu(answer, 'refine');
+    await fireEvent.click(document.querySelector('[data-ega-regenerate]') as HTMLElement);
+    await settle();
+    expect(starts().at(-1)?.options.askAbout?.['result']).toBe('Hi, how are you?');
   });
 
   it('pressing the quote scrolls to its reply, clearing a search that hid it, and focuses it', async () => {
@@ -301,6 +408,74 @@ describe('leaving Ask mode', () => {
     await settle();
     expect(banner(c)).toBeNull();
     expect(box(c).value).toBe('my draft');
+  });
+
+  it('Done asking while the question is still being sent keeps the draft from before Ask', async () => {
+    const c = await mounted();
+    await asking(c);
+    let release: () => void = () => {};
+    sendMessage.mockImplementation((m: { kind?: string }) =>
+      m.kind === 'translate:start'
+        ? new Promise((resolve) => (release = () => resolve({ ok: true })))
+        : Promise.resolve({ ok: true }),
+    );
+    await type(c, 'why?');
+    await fireEvent.click(c.querySelector('[data-ega-send]') as HTMLElement);
+    await settle();
+    await fireEvent.click(c.querySelector('[aria-label="Done asking"]') as HTMLElement);
+    await settle();
+    release();
+    await settle();
+    expect(banner(c)).toBeNull();
+    expect(box(c).value).toBe('my draft');
+  });
+
+  it('an edit `e` refuses keeps Ask mode and the typed question', async () => {
+    const push = vi.spyOn(toastStore, 'push');
+    const c = await mounted();
+    await asking(c);
+    await type(c, 'my long question');
+    box(c).blur();
+    await fireEvent.keyDown(window, { key: 'e' });
+    await settle();
+    expect(toasts(push)).toContain('Clear the message box first to edit your last message.');
+    expect(banner(c)).toContain('Asking about this reply');
+    expect(box(c).value).toBe('my long question');
+  });
+
+  it('an older message’s edit cancelled at its confirm keeps Ask mode and the typed question', async () => {
+    const c = await mounted();
+    const [, second] = await twoExchanges(c);
+    await fireEvent.click(askOn(second));
+    await settle();
+    await type(c, 'my long question');
+    confirmMock.mockResolvedValueOnce(false);
+    await fireEvent.click(c.querySelector('.ega-user-turn [data-ega-edit]') as HTMLElement);
+    await settle();
+    expect(confirmMock).toHaveBeenCalledOnce();
+    expect(banner(c)).toContain('Asking about this reply');
+    expect(box(c).value).toBe('my long question');
+
+    // Confirmed, the edit starts: Ask mode ends first and the message fills the box.
+    await fireEvent.click(c.querySelector('.ega-user-turn [data-ega-edit]') as HTMLElement);
+    await settle();
+    expect(banner(c)).toContain('Editing your message');
+    expect(box(c).value).toBe('mar7aba, kifak?');
+  });
+
+  it('an Ask exchange that lands from elsewhere ends it too', async () => {
+    const c = await mounted();
+    await asking(c);
+    await writePendingPopupHandoff({
+      sourceText: 'what is this page about?',
+      sourceLang: 'auto',
+      targetLang: 'en',
+      task: 'ask',
+      tone: 'neutral',
+      response: 'delivered answer',
+    });
+    await waitFor(() => expect(c.textContent).toContain('delivered answer'));
+    await waitFor(() => expect(banner(c)).toBeNull());
   });
 
   it('pressing the pressed Ask leaves it and keeps focus on the button', async () => {
@@ -405,8 +580,7 @@ describe('Ask from the page tooltip', () => {
       tone: 'neutral',
       response: 'Hola, ¿qué tal?',
       ask: true,
-      detectedLang: 'arabizi',
-      detectedDetail: 'Levantine',
+      reply: { detectedLang: 'arabizi', detectedDetail: 'Levantine', confidence: 0.93 },
       ...extra,
     });
   const seeded = (c: HTMLElement): HTMLElement | undefined =>
@@ -503,6 +677,36 @@ describe('Ask instead', () => {
     expect(banner(c)).toContain('Asking about this reply');
     expect(target(c)).toBe(echoed);
     expect(echoed.querySelector('[data-ega-ask-instead]')).toBeNull();
+  });
+
+  it('text typed while the answer runs stays in the field', async () => {
+    const c = await mounted();
+    const { echoed } = await slip(c);
+    await fireEvent.click(echoed.querySelector('[data-ega-ask-instead]') as HTMLElement);
+    await settle();
+    const q = starts().at(-1) as Start;
+    box(c).focus();
+    await type(c, 'a follow-up');
+    await chunk({ type: 'done', requestId: q.requestId, text: 'It asks what kifak means.' });
+    expect(banner(c)).toContain('Asking about this reply');
+    expect(target(c)).toBe(echoed);
+    expect(box(c).value).toBe('a follow-up');
+    // Nothing is lost on the way out either: the text was the draft.
+    await fireEvent.click(c.querySelector('[aria-label="Done asking"]') as HTMLElement);
+    await settle();
+    expect(box(c).value).toBe('a follow-up');
+  });
+
+  it('a later start leaves focus on another reply alone', async () => {
+    const c = await mounted();
+    const { first, echoed } = await slip(c);
+    await fireEvent.click(echoed.querySelector('[data-ega-ask-instead]') as HTMLElement);
+    await settle();
+    const q = starts().at(-1) as Start;
+    first.focus();
+    await chunk({ type: 'done', requestId: q.requestId, text: 'It asks what kifak means.' });
+    expect(banner(c)).toContain('Asking about this reply');
+    expect(document.activeElement).toBe(first);
   });
 
   it('More → Ask instead is the same action', async () => {

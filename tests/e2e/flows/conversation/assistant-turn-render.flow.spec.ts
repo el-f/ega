@@ -55,10 +55,10 @@ test('a reply renders its streamed answer, one meta line and one action row', as
 
   await expect(actions.getByRole('button', { name: 'Copy', exact: true })).toBeVisible();
   await expect(actions.getByRole('button', { name: 'Ask about this' })).toBeVisible();
-  await expect(actions.getByRole('button', { name: 'Refine' })).toBeVisible();
+  // Regenerate leads the Refine menu, so the menu's name says so; it is no longer a button of its own.
+  await expect(actions.getByRole('button', { name: 'Regenerate or refine' })).toBeVisible();
   await expect(actions.getByRole('button', { name: 'More' })).toBeVisible();
-  // Regenerate leads the Refine menu; it is no longer a button in the row.
-  await expect(actions.getByRole('button', { name: 'Regenerate' })).toHaveCount(0);
+  await expect(actions.getByRole('button', { name: 'Regenerate', exact: true })).toHaveCount(0);
   const menu = await openReplyMenu(page, 'refine');
   await expect(menu.getByRole('menuitem').first()).toHaveText('Regenerate');
   await page.keyboard.press('Escape');

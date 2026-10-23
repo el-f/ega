@@ -327,4 +327,33 @@ describe('the reply a question was about, as stored', () => {
     expect(turns.map((t) => t.id)).toEqual(['u1', 'a1']);
     expect(turns[1]?.variants?.[1]).not.toHaveProperty('about');
   });
+
+  it('a question keeps a usable one, capped, and loses a malformed one but stays in the thread', async () => {
+    const asked = (value: unknown): Record<string, unknown> =>
+      goodTurn({ id: 'u2', kind: 'ask', content: 'why?', about: value });
+    await put(blob({ turns: [goodTurn(), asked({ ...about, result: 'x'.repeat(5000) })] }));
+    expect((await loadThreadResult('https://a.com')).turns[1]?.about?.result).toHaveLength(2000);
+
+    // The quote calls result.split, so a stored number there would break the thread's render.
+    await put(
+      blob({ turns: [goodTurn(), asked({ turnId: 'a0', task: 'Translate', result: 42 })] }),
+    );
+    const turns = (await loadThreadResult('https://a.com')).turns;
+    expect(turns.map((t) => t.id)).toEqual(['u1', 'u2']);
+    expect(turns[1]).not.toHaveProperty('about');
+  });
+
+  it('keeps the removed-reply mark only as true', async () => {
+    await put(
+      blob({
+        turns: [
+          goodTurn({ id: 'u2', kind: 'ask', aboutRemoved: true }),
+          goodTurn({ id: 'u3', kind: 'ask', aboutRemoved: 'yes' }),
+        ],
+      }),
+    );
+    const turns = (await loadThreadResult('https://a.com')).turns;
+    expect(turns[0]?.aboutRemoved).toBe(true);
+    expect(turns[1]).not.toHaveProperty('aboutRemoved');
+  });
 });

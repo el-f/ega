@@ -139,18 +139,18 @@
   {/if}
   <div class="ega-bubble-wrap">
     <div class="ega-bubble" class:editing data-ega-user-bubble>
-      {#if turn.about !== undefined && aboutGone}
+      {#if turn.aboutRemoved === true || (turn.about !== undefined && aboutGone)}
         <span class="ega-ask-quote gone" data-ega-ask-quote-gone>Reply removed</span>
       {:else if turn.about !== undefined}
         {@const replyId = turn.about.turnId}
+        <!-- A label, not a hidden span: Chrome puts a space before a hidden span's comma in the name. -->
         <button
           type="button"
           class="ega-ask-quote"
+          aria-label="{quote}, go to the reply"
           data-ega-ask-quote
           onclick={() => onQuote?.(replyId)}
-          ><span class="ega-ask-quote-text" dir="auto" data-ega-truncates>{quote}</span><span
-            class="ega-sr-only">, Go to the reply</span
-          ></button
+          ><span class="ega-ask-quote-text" dir="auto" data-ega-truncates>{quote}</span></button
         >
       {/if}
       {#if turn.imageDataUrl}
@@ -339,8 +339,9 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  /* A dimmed quote: the muted bar stays 3:1 or more on the bubble. */
   .ega-ask-quote.gone {
-    border-inline-start-color: var(--color-border);
+    border-inline-start-color: var(--color-muted);
     font-style: italic;
     cursor: default;
   }

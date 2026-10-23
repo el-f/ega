@@ -12,6 +12,8 @@ import {
   failDispatch as failDispatchPure,
   cancel as cancelPure,
   deleteTurnPair,
+  forgetAbout,
+  rememberAbout,
   dropOrphanHead,
   dropVariant as dropVariantPure,
   emptyConversation,
@@ -28,7 +30,7 @@ import {
   toggleBookmark as toggleBookmarkPure,
   truncateFrom,
   variantIdxForTarget,
-  type Detection,
+  type ForgottenAbout,
   type Turn,
   type TurnDispatch,
   type TurnKind,
@@ -121,6 +123,8 @@ export interface DeletedSlice {
   gen: number;
   /** Turn id to the moment this delete buried it, so an Undo answers that burial and no other. */
   deletedAt: ReadonlyMap<string, number>;
+  /** The copies other questions kept of the deleted reply; Undo puts them back. */
+  forgotten: readonly ForgottenAbout[];
 }
 
 export interface ConversationContainer {
@@ -211,7 +215,6 @@ export interface ConversationContainer {
     sourceText: string;
     response: string;
     reply?: AnswerReplyFields;
-    detected?: Detection;
     imageDataUrl?: string;
     imageDropped?: boolean;
     sourceLang: LangSelection;
@@ -954,7 +957,12 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     const before = state.turns;
     const index = before.findIndex((t) => willRemove.includes(t.id));
     const removed = ($state.snapshot(before) as Turn[]).filter((t) => willRemove.includes(t.id));
-    mutate((turns) => deleteTurnPair(turns, turnId), 'now');
+    let forgotten: ForgottenAbout[] = [];
+    mutate((turns) => {
+      const kept = forgetAbout(deleteTurnPair(turns, turnId), willRemove);
+      forgotten = kept.forgotten;
+      return kept.turns;
+    }, 'now');
     // eslint-disable-next-line svelte/prefer-svelte-reactivity -- a plain snapshot of stamps, never rendered.
     const stamps = new Map<string, number>();
     for (const id of willRemove) {
@@ -967,6 +975,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       origin: state.activeId,
       gen: threadGen,
       deletedAt: stamps,
+      forgotten,
     };
   }
 
@@ -977,7 +986,14 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     noteRevived(slice.removed, slice.deletedAt);
     const at = Math.min(Math.max(slice.index, 0), state.turns.length);
     noteKnownTurns(slice.removed);
-    mutate((turns) => [...turns.slice(0, at), ...slice.removed, ...turns.slice(at)], 'now');
+    mutate(
+      (turns) =>
+        rememberAbout(
+          [...turns.slice(0, at), ...slice.removed, ...turns.slice(at)],
+          slice.forgotten,
+        ),
+      'now',
+    );
     return true;
   }
 
@@ -1064,7 +1080,6 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     sourceText: string;
     response: string;
     reply?: AnswerReplyFields;
-    detected?: Detection;
     imageDataUrl?: string;
     imageDropped?: boolean;
     sourceLang: LangSelection;
@@ -1120,7 +1135,6 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
           attachedToTurnId: userId,
           content: input.response,
           ...(input.reply ? { reply: input.reply } : {}),
-          ...(input.detected ? { detected: input.detected } : {}),
           ...(input.taskId !== undefined ? { taskId: input.taskId } : {}),
         }),
       'now',

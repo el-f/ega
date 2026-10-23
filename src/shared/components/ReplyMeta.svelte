@@ -19,11 +19,20 @@
    */
   function fit(el: HTMLElement): void {
     const parts = [...el.querySelectorAll<HTMLElement>('[data-ega-meta-item]')];
-    for (const p of parts) p.classList.remove('ega-sr-only');
+    for (const p of parts) hide(p, false);
     const box = el.getBoundingClientRect();
     for (const p of parts) {
       const r = p.getBoundingClientRect();
-      if (r.top > box.top + 1 || r.right > box.right + 0.5) p.classList.add('ega-sr-only');
+      if (r.top > box.top + 1 || r.right > box.right + 0.5) hide(p, true);
+    }
+  }
+
+  /** A hidden item's button leaves the tab order too: Tab must not land on a control no one can see. */
+  function hide(p: HTMLElement, hidden: boolean): void {
+    p.classList.toggle('ega-sr-only', hidden);
+    for (const b of p.querySelectorAll('button')) {
+      if (hidden) b.tabIndex = -1;
+      else b.removeAttribute('tabindex');
     }
   }
 
@@ -48,7 +57,10 @@
       class:warn={item.warn === true}
       data-ega-meta-item={item.key}
       data-ega-direction={item.key === 'direction' ? '' : undefined}
-      >{item.text}{#if item.key === 'status' && statusAction}<button
+      >{item.text}{#if item.key === 'status' && statusAction}<span
+          class="ega-reply-meta-sep"
+          aria-hidden="true">·</span
+        ><button
           type="button"
           class="ega-reply-meta-action"
           data-ega-meta-stop={statusAction.kind === 'ask-instead' ? undefined : ''}
@@ -85,9 +97,13 @@
   .ega-reply-meta-item.warn {
     color: var(--color-warning-fg);
   }
-  /* The inline padding keeps the inset focus ring off the glyphs. */
+  /* The same dot and gaps as between items. */
+  .ega-reply-meta-sep {
+    padding-inline: var(--space-1);
+  }
+  /* The padding keeps the inset focus ring off the glyphs; the margin takes it back, so it adds no gap. */
   .ega-reply-meta-action {
-    margin-inline-start: var(--space-1);
+    margin-inline: calc(-1 * var(--space-1));
     padding: 0 var(--space-1);
     border: 0;
     background: none;

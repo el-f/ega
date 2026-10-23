@@ -37,6 +37,21 @@ function langName(
   return m && !(m[2] ?? '').includes('(') ? `${m[1]} (${m[2]})` : label;
 }
 
+/** What a result detected, as one list: the multi-language list, else the one language, else a detail with no language. */
+export function detectedOf(r: {
+  detectedLang?: string | undefined;
+  detectedDetail?: string | undefined;
+  detectedLangs?: readonly DetectedVariety[] | undefined;
+}): DetectedVariety[] {
+  if (r.detectedLangs !== undefined && r.detectedLangs.length > 0) return [...r.detectedLangs];
+  if (r.detectedLang) {
+    return [
+      r.detectedDetail ? { id: r.detectedLang, detail: r.detectedDetail } : { id: r.detectedLang },
+    ];
+  }
+  return r.detectedDetail ? [{ id: 'other', detail: r.detectedDetail }] : [];
+}
+
 export interface DirectionInput {
   /** What the model said the text was; two or more for mixed text. */
   detected?: readonly DetectedVariety[];

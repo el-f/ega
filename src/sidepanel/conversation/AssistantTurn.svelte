@@ -22,6 +22,7 @@
   import { canSpeak, pickLocalVoice, speakWith, stopSpeaking } from '../speech';
   import {
     activeVariant as activeVariantOf,
+    askable,
     isCancelledError,
     turnTaskValue,
     type SwapPair,
@@ -33,6 +34,7 @@
     notesLabel,
     taskLabel,
     taskCapabilities,
+    taskOn,
     type TaskId,
     type TaskView,
   } from '@/shared/task-view';
@@ -43,7 +45,7 @@
   import { isIsoCode, labelFor } from '@/shared/languages';
   import { openOptionsTab } from '@/shared/open-options-tab';
   import { IMAGE_TURN_PLACEHOLDER } from '@/shared/constants';
-  import { replyMetaItems, type ConfidenceSetting } from '@/shared/reply-meta';
+  import { detectedOf, replyMetaItems, type ConfidenceSetting } from '@/shared/reply-meta';
   import type { AskAbout } from '@/shared/ask-about';
   import { replyDirection } from '../state/thread-view';
   import ReplyMenus from './ReplyMenus.svelte';
@@ -171,6 +173,10 @@
   const direction = $derived(replyDirection(turn, { sourceLang, targetLang }, varieties));
   // An answer to a question has no languages to show; the line names what it is instead.
   const isAnswer = $derived(currentTaskValue === 'ask');
+  // About this reply would fall back to the sent pair ("Auto-detect → English"), so an answer names its language.
+  const detailsDirection = $derived(
+    isAnswer && answerLang !== undefined ? `Answered in ${langName(answerLang)}` : direction,
+  );
 
   const refinementBody = $derived(activeVariant?.refinementBody);
   // What made this version, as the meta line names it; a language change shows in the direction instead.
@@ -244,18 +250,15 @@
     if (partial) return 'Partial answer';
     return undefined;
   });
+  const askOn = $derived(taskOn(taskViews, 'ask'));
   // A Translate that found the text already in its own target language offers to ask it instead, once.
+  // While another reply runs the re-run would bail, so the offer waits for it.
   const alreadyIn = $derived.by(() => {
     if (turn.status !== 'done' || currentTaskValue !== 'translate' || imageTurn) return null;
     if (!canRetry || onTaskSwitch === undefined || answerTarget === undefined) return null;
-    if (!taskViews.some((v) => v.id === 'ask' && !v.disabled)) return null;
+    if (!askOn || inflight) return null;
     if ((turn.variants ?? []).some((v) => v.task === 'ask')) return null;
-    const detected =
-      turn.detectedLangs !== undefined && turn.detectedLangs.length > 0
-        ? turn.detectedLangs.map((d) => d.id)
-        : turn.detectedLang !== undefined
-          ? [turn.detectedLang]
-          : [];
+    const detected = detectedOf(turn).map((d) => d.id);
     return detected.length === 1 && detected[0] === answerTarget ? langName(answerTarget) : null;
   });
   // Any other status (reading aloud, a version loading) takes the slot first.
@@ -408,12 +411,7 @@
   // ── Action row ─────────────────────────────────────────────────────────────
   const canRerun = $derived(canRetry && onRefine !== undefined);
   // A question needs a finished result to be about; an off Ask task offers nothing.
-  const canAsk = $derived(
-    onAsk !== undefined &&
-      turn.status === 'done' &&
-      turn.content.trim() !== '' &&
-      taskViews.some((v) => v.id === 'ask' && !v.disabled),
-  );
+  const canAsk = $derived(onAsk !== undefined && askable(turn) && askOn);
   const presets = $derived<readonly RefinePreset[]>(
     imageTurn ? [] : taskCapabilities(currentTaskValue, taskViews).refinePresets,
   );
@@ -694,7 +692,7 @@
         >
       {:else if turn.content === '' && !turn.explain}
         <span class="ega-empty-answer" data-ega-empty-body
-          >No answer came back. Try Regenerate.</span
+          >No answer came back. Try Regenerate in the Refine menu.</span
         >
       {:else if mainItems}
         <ul>
@@ -815,7 +813,7 @@
           image={imageMode}
           taskLabel={taskLabel(taskViews, currentTaskValue)}
           surface="panel"
-          {direction}
+          direction={detailsDirection}
           confidence={shownConfidence}
           change={activeVariant?.refinementLabel === undefined ? refinementBody : undefined}
           {askedAbout}
@@ -835,6 +833,7 @@
 
 <style>
   .ega-reply {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: var(--space-1);
@@ -851,20 +850,26 @@
     outline: 2px solid var(--color-accent);
     outline-offset: 2px;
   }
-  /* The reply Ask mode is about: the quote's bar, not a ring, so it never reads as focus. */
-  .ega-reply.asked {
+  /* The reply Ask mode is about: the quote's straight bar, in the gutter so the text never moves; not a ring, so never focus. */
+  .ega-reply.asked::before {
+    content: '';
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: calc(-1 * (var(--space-2) + 2px));
     border-inline-start: 2px solid var(--color-accent);
-    padding-inline-start: var(--space-2);
   }
-  .ega-reply.flash {
-    animation: ega-reply-flash 1.2s step-end;
-  }
+  /* Hold the tint 1 s, then fade 200 ms. */
   @media (prefers-reduced-motion: no-preference) {
     .ega-reply.flash {
-      animation-timing-function: linear;
+      animation: ega-reply-flash 1.2s linear;
     }
   }
-  /* Hold the tint 1 s, then fade 200 ms; under reduced motion step-end drops it at once. */
+  /* The global rule cuts every animation to 0.01 ms here, so the tint holds without one; the panel drops the class at 1.2 s. */
+  @media (prefers-reduced-motion: reduce) {
+    .ega-reply.flash {
+      background-color: var(--color-accent-bg-soft);
+    }
+  }
   @keyframes ega-reply-flash {
     0%,
     83% {
@@ -875,7 +880,7 @@
     }
   }
   @media (forced-colors: active) {
-    .ega-reply.asked {
+    .ega-reply.asked::before {
       border-inline-start-color: Highlight;
     }
     .ega-reply.flash {

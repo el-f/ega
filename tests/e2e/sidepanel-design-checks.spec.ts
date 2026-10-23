@@ -386,7 +386,7 @@ const STATES: State[] = [
               kind: 'ask',
               status: 'done',
               content:
-                'It is Spanish because of “hola” and “¿qué tal?”.\n\n- Qué onda (Mexico)\n- Qué pasa (Spain)',
+                'It is Spanish because of **“hola”** and “¿qué tal?”.\n\n- Qué onda (Mexico)\n- Qué pasa (Spain)',
               createdAt: T(20),
               attachedToTurnId: 'u2',
               meta: realMeta({ historyTurns: 2 }),
@@ -395,7 +395,7 @@ const STATES: State[] = [
                   id: 'a2:v1',
                   status: 'done',
                   content:
-                    'It is Spanish because of “hola” and “¿qué tal?”.\n\n- Qué onda (Mexico)\n- Qué pasa (Spain)',
+                    'It is Spanish because of **“hola”** and “¿qué tal?”.\n\n- Qué onda (Mexico)\n- Qué pasa (Spain)',
                 },
               ],
               activeVariantIdx: 0,

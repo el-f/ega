@@ -35,7 +35,7 @@ test('sidepanel: the Refine button opens the presets from the keyboard, and Esca
   // Refine shows once the reply stops loading.
   const refine = newestReply(page).locator('[data-ega-action="refine"]');
   await expect(refine).toBeVisible({ timeout: 10_000 });
-  await expect(refine).toHaveAccessibleName('Refine');
+  await expect(refine).toHaveAccessibleName('Regenerate or refine');
   await refine.focus();
   await page.keyboard.press('Enter');
   const menu = page.getByRole('menu');

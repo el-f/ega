@@ -44,7 +44,11 @@ describe('the answer', () => {
   it('an empty answer says what to do, and keeps the normal row', async () => {
     const { container } = render(AssistantTurn, { props: replyProps(doneReply({ content: '' })) });
     expect(container.querySelector('[data-ega-empty-body]')?.textContent).toBe(
-      'No answer came back. Try Regenerate.',
+      'No answer came back. Try Regenerate in the Refine menu.',
+    );
+    // The menu the copy names is in the row, and its name says Regenerate is in it.
+    expect(container.querySelector('[data-ega-action="refine"]')?.getAttribute('aria-label')).toBe(
+      'Regenerate or refine',
     );
     // Nothing came back, so there is nothing to be confident about (V5-05).
     expect(metaText(container).some((t) => t.includes('confiden'))).toBe(false);

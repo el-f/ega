@@ -4,7 +4,7 @@ import type { Turn } from './conversation';
 import { activeVariant, turnLabel, turnTaskValue } from './conversation';
 import type { TaskView } from '@/shared/task-view';
 import { TONE_LABELS, type Tone } from '@/shared/task-prompts';
-import { directionLabel } from '@/shared/reply-meta';
+import { detectedOf, directionLabel } from '@/shared/reply-meta';
 
 const MINUTE = 60_000;
 const DAY = 24 * 60 * MINUTE;
@@ -91,7 +91,7 @@ export function taskLabelsOnChange(
     const key = `${task}|${tone ?? ''}`;
     const changed = prev === undefined ? task !== 'translate' || tone !== undefined : key !== prev;
     // A quoted question is marked by its quote; a task label would say it twice.
-    if (changed && t.about === undefined) {
+    if (changed && t.about === undefined && t.aboutRemoved !== true) {
       const base = turnLabel(t.kind === 'image-translate' ? { ...t, kind: 'translate' } : t, views);
       out.set(t.id, tone === undefined ? base : `${base} · ${TONE_LABELS[tone]}`);
     }
@@ -132,21 +132,14 @@ export function replyDirection(
   sent: { sourceLang?: string | undefined; targetLang?: string | undefined },
   varieties: readonly { id: string; label: string }[],
 ): string {
+  const task = turnTaskValue(turn);
+  // An answer to a question has no languages of its own: nothing was detected, and the sent pair is the composer's.
+  if (task === 'ask') return '';
   const v = activeVariant(turn);
   const source = v?.sourceLang ?? sent.sourceLang;
   const target = v?.targetLang ?? sent.targetLang;
-  const task = turnTaskValue(turn);
   return directionLabel({
-    detected:
-      turn.detectedLangs !== undefined && turn.detectedLangs.length > 0
-        ? turn.detectedLangs
-        : turn.detectedLang !== undefined
-          ? [
-              turn.detectedDetail !== undefined
-                ? { id: turn.detectedLang, detail: turn.detectedDetail }
-                : { id: turn.detectedLang },
-            ]
-          : [],
+    detected: detectedOf(turn),
     ...(source !== undefined ? { sourceLang: source } : {}),
     ...(target !== undefined ? { targetLang: target } : {}),
     sourceOnly: task === 'reword' || task === 'grammar',

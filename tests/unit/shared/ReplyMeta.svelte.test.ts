@@ -96,6 +96,51 @@ describe('ReplyMeta', () => {
     );
   });
 
+  it('takes a hidden item’s button out of the tab order, and puts it back once the item fits', async () => {
+    let statusRight = 260;
+    const spy = vi
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockImplementation(function (this: HTMLElement) {
+        if (this.hasAttribute('data-ega-reply-meta')) return { top: 0, right: 200 } as DOMRect;
+        const status = this.getAttribute('data-ega-meta-item') === 'status';
+        return { top: 0, right: status ? statusRight : 0 } as DOMRect;
+      });
+    const action = { label: 'Ask instead', kind: 'ask-instead' as const, onclick: vi.fn() };
+    const { container, rerender } = render(ReplyMeta, {
+      props: {
+        items: [{ key: 'status', text: 'Already in Chinese (Traditional)' }],
+        statusAction: action,
+      },
+    });
+    const button = (): HTMLButtonElement | null =>
+      container.querySelector<HTMLButtonElement>('[data-ega-ask-instead]');
+    expect(
+      container.querySelector('[data-ega-meta-item="status"]')?.classList.contains('ega-sr-only'),
+    ).toBe(true);
+    expect(button()?.tabIndex).toBe(-1);
+
+    statusRight = 150;
+    await rerender({
+      items: [{ key: 'status', text: 'Already in English' }],
+      statusAction: action,
+    });
+    spy.mockRestore();
+    expect(button()?.hasAttribute('tabindex')).toBe(false);
+  });
+
+  it('sets the status action off with the same dot as the items, outside the button', () => {
+    const { container } = render(ReplyMeta, {
+      props: {
+        items: [{ key: 'status', text: 'Reading aloud' }],
+        statusAction: { label: 'Stop', onclick: vi.fn() },
+      },
+    });
+    const sep = container.querySelector('.ega-reply-meta-sep');
+    expect(sep?.textContent).toBe('·');
+    expect(sep?.getAttribute('aria-hidden')).toBe('true');
+    expect(sep?.nextElementSibling?.textContent).toBe('Stop');
+  });
+
   // The 18px line clips everything outside it, so Stop's ring has to sit inside the button.
   it('draws Stop’s focus ring inside the one-line clip', () => {
     const src = readFileSync('src/shared/components/ReplyMeta.svelte', 'utf8');

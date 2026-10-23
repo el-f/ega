@@ -136,9 +136,9 @@
   <DropdownMenu.Root bind:open={refineOpen}>
     <DropdownMenu.Trigger
       class="ega-icon-btn variant-default size-sm"
-      aria-label="Refine"
+      aria-label="Regenerate or refine"
       aria-pressed={changing ? 'true' : undefined}
-      data-tooltip="Refine"
+      data-tooltip="Regenerate or refine"
       data-tooltip-placement="top"
       data-ega-action="refine"
       data-ega-refine-menu

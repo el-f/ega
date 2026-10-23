@@ -63,7 +63,10 @@ test('a question sent as a translation is one click away from being asked instea
   timeline.markStep('offer-shown');
 
   // Ask instead: the same text is asked about the reply before it, as a new version of this reply.
-  const answer = mockAnthropic(ext.context, { rawText: ANSWER, times: 1 });
+  const answer = mockAnthropic(ext.context, {
+    rawText: JSON.stringify({ translation: ANSWER }),
+    times: 1,
+  });
   await offer.click();
   await expect(second.locator('.ega-answer')).toContainText('Levantine because', {
     timeout: 10_000,

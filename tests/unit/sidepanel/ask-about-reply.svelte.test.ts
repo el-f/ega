@@ -72,6 +72,18 @@ describe('the Ask button', () => {
 });
 
 describe('an answer to a question', () => {
+  it('About this reply names the language it answered in, not the sent pair', async () => {
+    const { container } = render(AssistantTurn, {
+      props: replyProps(doneReply({ kind: 'ask' }), {
+        targetLang: 'en',
+      }),
+    });
+    await openMenu(container, 'more');
+    await fireEvent.click(document.querySelector('[data-ega-about]') as HTMLElement);
+    const row = await screen.findByText('Languages');
+    expect(row.nextElementSibling?.textContent).toBe('Answered in English');
+  });
+
   it('its meta line reads "Answer" and the model, not languages', () => {
     const { container } = render(AssistantTurn, { props: replyProps(doneReply({ kind: 'ask' })) });
     expect(metaText(container).slice(0, 2)).toEqual(['Answer', 'Claude Haiku 4.5']);
@@ -126,14 +138,14 @@ describe('the quote on a question', () => {
     ...over,
   });
 
-  it('is a button named by the quoted line, then "Go to the reply"; pressing it shows that reply', async () => {
+  it('is a button named by the quoted line, then "go to the reply"; pressing it shows that reply', async () => {
     const onQuote = vi.fn();
     const { container } = render(UserTurn, { props: { turn: question(), onQuote } });
     const quote = container.querySelector<HTMLElement>('[data-ega-ask-quote]');
     expect(quote?.tagName).toBe('BUTTON');
-    // Markdown is gone and only the first line shows.
-    expect(quote?.textContent).toBe('Hi, how are you?, Go to the reply');
-    expect(quote?.querySelector('.ega-sr-only')?.textContent).toBe(', Go to the reply');
+    // Markdown is gone and only the first line shows; the name starts with it and has no stray space.
+    expect(quote?.textContent).toBe('Hi, how are you?');
+    expect(quote?.getAttribute('aria-label')).toBe('Hi, how are you?, go to the reply');
     await fireEvent.click(quote as HTMLElement);
     expect(onQuote).toHaveBeenCalledWith('a1');
   });
@@ -143,7 +155,7 @@ describe('the quote on a question', () => {
     const text = container.querySelector<HTMLElement>('.ega-ask-quote-text');
     expect(text?.hasAttribute('data-ega-truncates')).toBe(true);
     // The design check reads the full text off the button's name when the line is cut.
-    expect(container.querySelector('[data-ega-ask-quote]')?.textContent).toContain(
+    expect(container.querySelector('[data-ega-ask-quote]')?.getAttribute('aria-label')).toContain(
       text?.textContent,
     );
   });
@@ -154,6 +166,12 @@ describe('the quote on a question', () => {
     const gone = container.querySelector('[data-ega-ask-quote-gone]');
     expect(gone?.tagName).toBe('SPAN');
     expect(gone?.textContent).toBe('Reply removed');
+  });
+
+  it('a question whose reply the user deleted keeps no copy of it and still reads "Reply removed"', () => {
+    const { about: _about, ...rest } = question();
+    const { container } = render(UserTurn, { props: { turn: { ...rest, aboutRemoved: true } } });
+    expect(container.querySelector('[data-ega-ask-quote-gone]')?.textContent).toBe('Reply removed');
   });
 
   it('a quoted reply outside the rendered window is shown first, then focused and flashed', async () => {
@@ -210,7 +228,7 @@ describe('"Already in" and Ask instead, on the meta line', () => {
   it('a Translate that found its text already in its target offers to ask it instead', async () => {
     const props = replyProps(echo());
     const { container } = render(AssistantTurn, { props });
-    expect(metaText(container)[0]).toBe('Already in EnglishAsk instead');
+    expect(metaText(container)[0]).toBe('Already in English·Ask instead');
     expect(offer(container)?.textContent).toBe('Ask instead');
     // "English → English" would repeat it.
     expect(container.querySelector('[data-ega-direction]')).toBeNull();
@@ -245,6 +263,11 @@ describe('"Already in" and Ask instead, on the meta line', () => {
       expect(offer(container)).toBeNull();
       unmount();
     }
+  });
+
+  it('waits while another reply runs, since the re-run would not start', () => {
+    const { container } = render(AssistantTurn, { props: replyProps(echo(), { inflight: true }) });
+    expect(offer(container)).toBeNull();
   });
 
   it('is gone once the reply has an Ask version, even paged back to the translation', () => {

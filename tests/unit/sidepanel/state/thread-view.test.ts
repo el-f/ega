@@ -135,6 +135,18 @@ describe('replyDirection', () => {
       replyDirection(reply({ kind: 'reword', detectedLang: 'es' }), { targetLang: 'en' }, []),
     ).toBe('Spanish');
   });
+
+  it('an answer to a question has none, even when a source language was picked', () => {
+    expect(replyDirection(reply({ kind: 'ask' }), { sourceLang: 'es', targetLang: 'en' }, [])).toBe(
+      '',
+    );
+  });
+
+  it('a detected detail with no language still names the source, as the tooltip does', () => {
+    expect(
+      replyDirection(reply({ detectedDetail: 'Levantine' }), { targetLang: 'en' }, []),
+    ).toContain('Levantine');
+  });
 });
 
 describe('modeChipLabel', () => {

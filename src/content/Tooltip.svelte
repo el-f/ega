@@ -8,7 +8,7 @@
   import type { TipState } from './tipState.svelte';
   import ReplyDetails from '@/shared/components/ReplyDetails.svelte';
   import ReplyMeta from '@/shared/components/ReplyMeta.svelte';
-  import { directionLabel, replyMetaItems } from '@/shared/reply-meta';
+  import { detectedOf, directionLabel, replyMetaItems } from '@/shared/reply-meta';
   import { errorCopy } from '@/shared/error-copy';
   import { formatDetectedLabel } from '@/shared/detected-label';
   import { ISO_LANGUAGES } from '@/shared/languages';
@@ -21,6 +21,7 @@
     materializeTasks,
     SHIPPED_TASK_VIEWS,
     taskCapabilities,
+    taskOn,
     type TaskId,
   } from '@/shared/task-view';
   import { taskUsesTone } from '@/shared/language-prompt';
@@ -141,7 +142,7 @@
   const canEscalatePin = $derived(mode === 'success' && !tip.imageUrl && !!onescalate);
   const canEscalateOpenImage = $derived(mode === 'success' && !!tip.imageUrl && !!onescalate);
   // Ask goes where Pin goes; an off Ask task offers nothing, as in the panel.
-  const canAsk = $derived(canEscalatePin && taskViews.some((v) => v.id === 'ask' && !v.disabled));
+  const canAsk = $derived(canEscalatePin && taskOn(taskViews, 'ask'));
 
   // Settings load before any tooltip shows; the fallbacks are the shipped tasks, where only Reword has {{tone}}.
   function usesToneFor(t: TaskId): boolean {
@@ -164,20 +165,7 @@
 
   const replyDirection = $derived(
     directionLabel({
-      ...(tip.detectedLangs?.length
-        ? { detected: tip.detectedLangs }
-        : tip.detectedLang
-          ? {
-              detected: [
-                {
-                  id: tip.detectedLang,
-                  ...(tip.detectedDetail ? { detail: tip.detectedDetail } : {}),
-                },
-              ],
-            }
-          : tip.detectedDetail
-            ? { detected: [{ id: 'other', detail: tip.detectedDetail }] }
-            : {}),
+      detected: detectedOf(tip),
       ...(direction ? { sourceLang: direction.source, targetLang: direction.target } : {}),
       sourceOnly: ranTask === 'reword' || ranTask === 'grammar',
       varieties: cachedCustomLanguages(),
