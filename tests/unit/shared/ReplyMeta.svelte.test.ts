@@ -26,6 +26,32 @@ describe('ReplyMeta', () => {
     expect(items[2]?.classList.contains('warn')).toBe(true);
   });
 
+  it('a focused Stop that turns into "Ask instead" or goes away leaves focus on the reply, not on a new action', async () => {
+    const article = document.body.appendChild(document.createElement('article'));
+    article.tabIndex = -1;
+    const stop = { label: 'Stop', onclick: vi.fn() };
+    const ask = { label: 'Ask instead', kind: 'ask-instead' as const, onclick: vi.fn() };
+    const status = [{ key: 'status' as const, text: 'Reading aloud' }];
+    const { rerender } = render(ReplyMeta, {
+      target: article,
+      props: { items: status, statusAction: stop },
+    });
+    const before = article.querySelector<HTMLElement>('.ega-reply-meta-action');
+    before?.focus();
+    await rerender({
+      items: [{ key: 'status' as const, text: 'Already in English' }],
+      statusAction: ask,
+    });
+    const after = article.querySelector<HTMLElement>('[data-ega-ask-instead]');
+    expect(after).not.toBe(before);
+    expect(document.activeElement).toBe(article);
+
+    after?.focus();
+    await rerender({ items: [], statusAction: undefined });
+    expect(document.activeElement).toBe(article);
+    article.remove();
+  });
+
   it('puts the status action inside the status item', async () => {
     const onclick = vi.fn();
     const { getByRole } = render(ReplyMeta, {

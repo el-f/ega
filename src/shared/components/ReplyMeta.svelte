@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import type { MetaItem } from '@/shared/reply-meta';
 
   interface Props {
@@ -36,6 +37,24 @@
     }
   }
 
+  // Another kind is another button, so a focused Stop never turns into "Ask instead" under the user's finger.
+  const actionKind = $derived(statusAction === undefined ? null : (statusAction.kind ?? 'stop'));
+  let actionHadFocus = false;
+  $effect.pre(() => {
+    void actionKind;
+    const a = document.activeElement;
+    actionHadFocus =
+      a !== null && a === untrack(() => line)?.querySelector('.ega-reply-meta-action');
+  });
+  // The button that had focus is gone, so focus goes to the reply around the line, not to the page.
+  $effect(() => {
+    void actionKind;
+    if (!actionHadFocus) return;
+    actionHadFocus = false;
+    const a = document.activeElement;
+    if (a === null || a === document.body) line?.closest<HTMLElement>('article')?.focus();
+  });
+
   $effect(() => {
     // Read before the guard, so a new item list or a Stop button re-fits the line.
     void items;
@@ -60,13 +79,13 @@
       >{item.text}{#if item.key === 'status' && statusAction}<span
           class="ega-reply-meta-sep"
           aria-hidden="true">·</span
-        ><button
-          type="button"
-          class="ega-reply-meta-action"
-          data-ega-meta-stop={statusAction.kind === 'ask-instead' ? undefined : ''}
-          data-ega-ask-instead={statusAction.kind === 'ask-instead' ? '' : undefined}
-          onclick={statusAction.onclick}>{statusAction.label}</button
-        >{/if}</span
+        >{#key actionKind}<button
+            type="button"
+            class="ega-reply-meta-action"
+            data-ega-meta-stop={statusAction.kind === 'ask-instead' ? undefined : ''}
+            data-ega-ask-instead={statusAction.kind === 'ask-instead' ? '' : undefined}
+            onclick={statusAction.onclick}>{statusAction.label}</button
+          >{/key}{/if}</span
     >
   {/each}
 </p>
