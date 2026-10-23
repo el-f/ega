@@ -692,8 +692,8 @@
     });
   }
 
-  // Called from the window keydown handler when focus is on the stream and the user presses 'e'.
-  function pullLastUserTurnIntoInput(): void {
+  // The pencil on the last message, and `viaKey` the window keydown handler's 'e' with focus out of a text field.
+  function pullLastUserTurnIntoInput(viaKey = false): void {
     if (conversation.inflightId !== null) {
       toastStore.push({ message: 'Edit when this reply finishes.', variant: 'warning' });
       return;
@@ -711,7 +711,7 @@
       return;
     }
     // 'e' is one bare keypress; it must not silently replace something the user typed.
-    const blocked = editBlocked(last.content, 'your last message');
+    const blocked = editBlocked(last.content, 'your last message', viaKey);
     if (blocked !== null) {
       toastStore.push({ message: blocked, variant: 'warning' });
       return;
@@ -721,12 +721,16 @@
   }
 
   /** The toast that refuses an edit of `content` because it would lose typed text; null when nothing is lost. */
-  function editBlocked(content: string, which: string): string | null {
+  function editBlocked(content: string, which: string, viaKey = false): string | null {
     const lost = (text: string): boolean => text.trim() !== '' && text !== content;
     // Ask mode ends first, as with Esc or Describe a change: the typed question goes, but sending the edit would lose the hidden draft.
     if (composerMode.kind === 'ask') {
-      return lost(draftBeforeEdit)
-        ? `Your earlier draft is waiting. Press Done asking, then clear it to edit ${which}.`
+      if (lost(draftBeforeEdit)) {
+        return `Your earlier draft is waiting. Press Esc to stop asking, then clear the draft to edit ${which}.`;
+      }
+      // The pencil is a choice; a stray 'e' typed with focus off the box must not drop the question.
+      return viaKey && lost(sourceText)
+        ? `Send or clear your question first to edit ${which}.`
         : null;
     }
     return lost(sourceText) ? `Clear the message box first to edit ${which}.` : null;
@@ -1102,7 +1106,7 @@
     if (e.key === 'e' && !e.ctrlKey && !e.metaKey && !e.altKey) {
       if (isTextEntry(e.target) || dialogOpen()) return;
       e.preventDefault();
-      pullLastUserTurnIntoInput();
+      pullLastUserTurnIntoInput(true);
       return;
     }
     // Turn navigation is delegated to ConversationStream, which owns the turns state these keys read.

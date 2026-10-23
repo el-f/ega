@@ -596,7 +596,7 @@ describe('leaving Ask mode', () => {
 
   describe('an edit, which ends Ask mode first like Esc and Describe a change', () => {
     const waiting =
-      'Your earlier draft is waiting. Press Done asking, then clear it to edit your last message.';
+      'Your earlier draft is waiting. Press Esc to stop asking, then clear the draft to edit your last message.';
     /** Ask on the only reply, with `draft` typed before and `question` typed after; focus leaves the box. */
     async function askWith(c: HTMLElement, draft: string, question: string): Promise<void> {
       const reply = await firstExchange(c);
@@ -607,13 +607,26 @@ describe('leaving Ask mode', () => {
       box(c).blur();
     }
 
-    it('drops a typed question, as Esc does, and starts', async () => {
+    it('from the pencil drops a typed question, as Esc does, and starts', async () => {
+      const c = await mounted();
+      await askWith(c, '', 'my long question');
+      await fireEvent.click(c.querySelector('.ega-user-turn [data-ega-edit]') as HTMLElement);
+      await settle();
+      expect(banner(c)).toContain('Editing your message');
+      expect(box(c).value).toBe('mar7aba, kifak?');
+    });
+
+    it('from a stray `e` keeps a typed question and says how to edit', async () => {
+      const push = vi.spyOn(toastStore, 'push');
       const c = await mounted();
       await askWith(c, '', 'my long question');
       await fireEvent.keyDown(window, { key: 'e' });
       await settle();
-      expect(banner(c)).toContain('Editing your message');
-      expect(box(c).value).toBe('mar7aba, kifak?');
+      expect(toasts(push)).toEqual([
+        'Send or clear your question first to edit your last message.',
+      ]);
+      expect(banner(c)).toContain('Asking about this reply');
+      expect(box(c).value).toBe('my long question');
     });
 
     it('is refused while the draft from before Ask waits, and the toast says how to clear the way', async () => {
@@ -627,8 +640,8 @@ describe('leaving Ask mode', () => {
         expect(banner(c)).toContain('Asking about this reply');
         expect(box(c).value).toBe(question);
 
-        // Following it: Done asking brings the draft back, and with the box cleared the edit starts.
-        await fireEvent.click(c.querySelector('[aria-label="Done asking"]') as HTMLElement);
+        // Following it: Esc brings the draft back, and with the box cleared the edit starts.
+        await fireEvent.keyDown(window, { key: 'Escape' });
         await settle();
         expect(box(c).value).toBe('my draft');
         await type(c, '');
@@ -664,7 +677,7 @@ describe('leaving Ask mode', () => {
       await settle();
       expect(confirmMock).not.toHaveBeenCalled();
       expect(toasts(push)).toContain(
-        'Your earlier draft is waiting. Press Done asking, then clear it to edit this message.',
+        'Your earlier draft is waiting. Press Esc to stop asking, then clear the draft to edit this message.',
       );
       expect(box(c).value).toBe('my long question');
     });
