@@ -264,9 +264,10 @@ const EAGER_CONTENT_BUDGET_BYTES = 156_516;
 
 /** The popup opens on every toolbar click, so its preload set is the one extension-page cost a user feels. Ratchet, like the one above. */
 // Default task select +4,858B; Ask about a reply +480B (the reply Ask icon in the lucide chunk, the handoff ask flag);
-// the handoff reply decoder +839B (only known reply fields, each of its type).
+// the handoff reply decoder +839B (only known reply fields, each of its type), then +1,806B (each note, detail
+// and meta field, since a content script writes the reply).
 // Ratchet at the measured production preload set, without extra headroom.
-const POPUP_PAGE_BUDGET_BYTES = 521_699;
+const POPUP_PAGE_BUDGET_BYTES = 523_505;
 
 function measurePagePreload(distDir: string, htmlRel: string): { files: string[]; bytes: number } {
   const htmlPath = path.join(distDir, htmlRel);

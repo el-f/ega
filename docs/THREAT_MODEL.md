@@ -134,7 +134,9 @@ itself as a data URL (`src/shared/pending-popup-handoff.ts`). A finished tooltip
 reply also brings its notes, details, structured answer, detected languages,
 confidence and reply metadata. With Record request details on, which is the
 default, that metadata holds the system prompt that was sent, glossary and rules
-included, cut to a fixed size. The tooltip's Ask sets an `ask` flag.
+included, cut to a fixed size. The tooltip's Ask sets an `ask` flag. The tooltip
+runs as a content script, so the reader rebuilds the reply field by field and drops
+any field, note or detail of the wrong type.
 The Storage shape table in `docs/PERMISSIONS.md` lists the full session storage set.
 
 ---

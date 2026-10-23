@@ -470,6 +470,83 @@ describe('pending-popup-handoff — a tooltip Ask', () => {
     expect(h?.reply).toEqual({ detectedLangs: [{ id: 'en' }], explain: 'why' });
   });
 
+  it('passes a well-formed tooltip reply through unchanged', async () => {
+    const reply = {
+      notes: [
+        { key: 'dialect', label: 'Dialect', text: 'Levantine' },
+        { key: 'words', label: 'Words', items: ['kifak', 'mar7aba'] },
+      ],
+      details: [{ key: 'score', label: 'Score', value: 3 }],
+      answer: {
+        spec: { id: 'list', version: 1, fields: [{ key: 'main', kind: 'list', role: 'main' }] },
+        fields: { main: ['Hi'] },
+      },
+      meta: {
+        backendId: 'anthropic',
+        cacheHit: false,
+        latencyMs: 900,
+        firstTokenMs: 300,
+        modelId: 'claude-haiku-4-5',
+        attempts: [{ backendId: 'anthropic', status: 'ok', latencyMs: 900 }],
+        detectedLangs: [{ id: 'arabizi', detail: 'Levantine' }],
+        answerFormat: { spec: 'list', checkedBy: 'prompt', issues: ['short'] },
+        inputTokens: 40,
+        pageContextSent: true,
+        imageArm: 'ocr',
+        instructions: 'Translate.',
+      },
+      explain: 'why',
+    };
+    expect((await planted({ reply }))?.reply).toEqual(reply);
+  });
+
+  // Notes and details render in keyed lists: an entry with no string key, or a key seen twice, throws on every render.
+  it('keeps only the entries and the meta fields the panel can render, at their types', async () => {
+    const h = await planted({
+      reply: {
+        notes: [
+          null,
+          { label: 'no key' },
+          { key: 'k1', label: 'Dialect', text: 'Levantine', items: [1] },
+          { key: 'k1', label: 'again' },
+          { key: 'k2', label: 'Words', items: ['kifak'] },
+        ],
+        details: [
+          { key: 'd1', label: 'Score', value: 3 },
+          { key: 7, label: 'x' },
+        ],
+        meta: {
+          backendId: 'anthropic',
+          cacheHit: false,
+          latencyMs: 900,
+          modelId: 7,
+          attempts: [null, { backendId: 'ollama', status: 'error', latencyMs: 5, code: 'NETWORK' }],
+          historyTurns: 'two',
+          stray: 'x',
+        },
+        answer: { spec: { fields: [null] }, fields: {} },
+      },
+    });
+    expect(h?.reply).toEqual({
+      notes: [
+        { key: 'k1', label: 'Dialect', text: 'Levantine' },
+        { key: 'k2', label: 'Words', items: ['kifak'] },
+      ],
+      details: [{ key: 'd1', label: 'Score', value: 3 }],
+      meta: {
+        backendId: 'anthropic',
+        cacheHit: false,
+        latencyMs: 900,
+        attempts: [{ backendId: 'ollama', status: 'error', latencyMs: 5, code: 'NETWORK' }],
+      },
+    });
+    const notes = Array.from({ length: 40 }, (_, i) => ({ key: `n${i}`, label: 'Note' }));
+    expect((await planted({ reply: { notes } }))?.reply?.notes).toHaveLength(32);
+    // The meta line reads these three on every render, so a meta without them goes.
+    const thin = await planted({ reply: { meta: { backendId: 'anthropic', latencyMs: 9 } } });
+    expect(thin?.reply).toEqual({});
+  });
+
   it('cuts the detection to its caps and keeps a confidence only inside 0..1', async () => {
     const many = Array.from({ length: 10 }, (_, i) => ({ id: `l${i}` }));
     const h = await planted({

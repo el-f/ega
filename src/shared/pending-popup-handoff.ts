@@ -4,7 +4,13 @@ import { TaskIdSchema } from './settings-schema';
 import type { TaskId } from './task-view';
 import { IMAGE_DATA_URL_MAX_CHARS, MAX_SELECTION_CHARS } from './constants';
 import { makeCrossContextLock } from './utils/cross-context-lock';
-import type { AnswerReplyFields, AnswerSnapshot, DetectedVariety, ResultMeta } from './types';
+import type {
+  AnswerReplyFields,
+  AnswerSnapshot,
+  DetectedVariety,
+  ResultAttempt,
+  ResultMeta,
+} from './types';
 import type { AnswerDetail, AnswerNote } from './answer/reader';
 
 export const PENDING_POPUP_HANDOFF_KEY = 'ega.pendingPopupHandoff';
@@ -19,6 +25,8 @@ const MAX_HANDOFF_FIELD_CHARS = 50_000;
 const DETECTED_ID_MAX = 128;
 const DETECTED_DETAIL_MAX = 200;
 const DETECTED_LANGS_MAX = 8;
+/** Notes and details per reply; a real answer has a handful. */
+const REPLY_ENTRIES_MAX = 32;
 
 export interface PendingPopupHandoff {
   readonly sourceText: string;
@@ -92,6 +100,114 @@ function decodeDetectedLangs(raw: unknown): DetectedVariety[] | undefined {
   return out.length > 0 ? out : undefined;
 }
 
+const text = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined);
+const count = (v: unknown): number | undefined =>
+  typeof v === 'number' && Number.isFinite(v) ? v : undefined;
+const flag = (v: unknown): boolean | undefined => (typeof v === 'boolean' ? v : undefined);
+const textList = (v: unknown): string[] | undefined =>
+  Array.isArray(v) && v.every((s) => typeof s === 'string') ? (v as string[]) : undefined;
+
+/** Notes and details render in keyed lists, so an entry with no string key, or a key seen before, would throw on every render. */
+function decodeKeyed<T>(
+  raw: unknown,
+  build: (e: Record<string, unknown>, key: string, label: string) => T,
+): T[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const e of raw as unknown[]) {
+    if (out.length === REPLY_ENTRIES_MAX) break;
+    if (!isRecord(e)) continue;
+    const key = text(e['key']);
+    const label = text(e['label']);
+    if (key === undefined || label === undefined || seen.has(key)) continue;
+    seen.add(key);
+    out.push(build(e, key, label));
+  }
+  return out.length > 0 ? out : undefined;
+}
+
+function decodeAttempts(raw: unknown): ResultAttempt[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  return (raw as unknown[]).flatMap((e): ResultAttempt[] => {
+    if (!isRecord(e)) return [];
+    const backendId = text(e['backendId']);
+    const latencyMs = count(e['latencyMs']);
+    const { status } = e;
+    if (backendId === undefined || latencyMs === undefined) return [];
+    if (status !== 'ok' && status !== 'error') return [];
+    const code = text(e['code']);
+    const message = text(e['message']);
+    return [
+      {
+        backendId: backendId as ResultAttempt['backendId'],
+        status,
+        latencyMs,
+        ...(code !== undefined ? { code } : {}),
+        ...(message !== undefined ? { message } : {}),
+      },
+    ];
+  });
+}
+
+function decodeAnswerFormat(raw: unknown): ResultMeta['answerFormat'] {
+  if (!isRecord(raw)) return undefined;
+  const spec = text(raw['spec']);
+  const { checkedBy } = raw;
+  if (spec === undefined || (checkedBy !== 'backend' && checkedBy !== 'prompt')) return undefined;
+  const issues = textList(raw['issues']);
+  return { spec, checkedBy, ...(issues !== undefined ? { issues } : {}) };
+}
+
+/** Every ResultMeta field with its decoder: a field added to the type fails the build until it gets one here. */
+const META_FIELDS: Record<keyof ResultMeta, (v: unknown) => unknown> = {
+  answerFormat: decodeAnswerFormat,
+  backendId: text,
+  cacheHit: flag,
+  latencyMs: count,
+  firstTokenMs: count,
+  attempts: decodeAttempts,
+  modelId: text,
+  sourceLang: text,
+  targetLang: text,
+  detectedLang: text,
+  detectedDetail: text,
+  detectedLangs: decodeDetectedLangs,
+  explain: text,
+  inputTokens: count,
+  outputTokens: count,
+  cacheReadTokens: count,
+  cacheWriteTokens: count,
+  reasoningTokens: count,
+  historyTurns: count,
+  pageContextSent: flag,
+  imageArm: (v) => (v === 'ocr' || v === 'task' || v === 'text' ? v : undefined),
+  instructions: text,
+  instructionsLength: count,
+};
+
+function decodeMeta(raw: unknown): ResultMeta | undefined {
+  if (!isRecord(raw)) return undefined;
+  const out = Object.fromEntries(
+    Object.entries(META_FIELDS).flatMap(([k, decode]) => {
+      const v = decode(raw[k]);
+      return v === undefined ? [] : [[k, v]];
+    }),
+  );
+  // The meta line reads these on every render.
+  return 'backendId' in out && 'cacheHit' in out && 'latencyMs' in out
+    ? (out as unknown as ResultMeta)
+    : undefined;
+}
+
+/** The About panel looks fields up by key in the spec, so a spec field that is not an object would throw. */
+function decodeAnswer(raw: unknown): AnswerSnapshot | undefined {
+  if (!isRecord(raw) || !isRecord(raw['fields']) || !isRecord(raw['spec'])) return undefined;
+  const specFields = raw['spec']['fields'];
+  if (!Array.isArray(specFields) || !specFields.every(isRecord)) return undefined;
+  return raw as unknown as AnswerSnapshot;
+}
+
 /** The panel spreads the reply onto the turn it seeds, so only known fields of the right type pass: a stray `id` or `status` would replace the turn's own. */
 function decodeReply(raw: unknown): AnswerReplyFields | undefined {
   if (!isRecord(raw) || JSON.stringify(raw).length > MAX_HANDOFF_FIELD_CHARS) return undefined;
@@ -100,13 +216,30 @@ function decodeReply(raw: unknown): AnswerReplyFields | undefined {
   const detectedLangs = decodeDetectedLangs(raw['detectedLangs']);
   const c = raw['confidence'];
   const confidence = typeof c === 'number' && c >= 0 && c <= 1 ? c : undefined;
-  const { notes, details, answer, explain, meta } = raw;
+  const notes = decodeKeyed<AnswerNote>(raw['notes'], (e, key, label) => {
+    const body = text(e['text']);
+    const items = textList(e['items']);
+    return {
+      key,
+      label,
+      ...(body !== undefined ? { text: body } : {}),
+      ...(items !== undefined ? { items } : {}),
+    };
+  });
+  const details = decodeKeyed<AnswerDetail>(raw['details'], (e, key, label) => ({
+    key,
+    label,
+    value: e['value'],
+  }));
+  const answer = decodeAnswer(raw['answer']);
+  const meta = decodeMeta(raw['meta']);
+  const { explain } = raw;
   return {
-    ...(Array.isArray(notes) ? { notes: notes as AnswerNote[] } : {}),
-    ...(Array.isArray(details) ? { details: details as AnswerDetail[] } : {}),
-    ...(isRecord(answer) ? { answer: answer as unknown as AnswerSnapshot } : {}),
+    ...(notes !== undefined ? { notes } : {}),
+    ...(details !== undefined ? { details } : {}),
+    ...(answer !== undefined ? { answer } : {}),
     ...(typeof explain === 'string' ? { explain } : {}),
-    ...(isRecord(meta) ? { meta: meta as unknown as ResultMeta } : {}),
+    ...(meta !== undefined ? { meta } : {}),
     ...(detectedLang !== undefined ? { detectedLang } : {}),
     ...(detectedDetail !== undefined ? { detectedDetail } : {}),
     ...(detectedLangs !== undefined ? { detectedLangs } : {}),

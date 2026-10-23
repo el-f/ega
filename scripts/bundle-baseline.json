@@ -37,7 +37,7 @@
   },
   {
     "name": "command-registry",
-    "bytes": 30843
+    "bytes": 30967
   },
   {
     "name": "custom-tasks-state.svelte",
@@ -69,11 +69,11 @@
   },
   {
     "name": "index",
-    "bytes": 126739
+    "bytes": 126836
   },
   {
     "name": "index.html",
-    "bytes": 482790
+    "bytes": 483015
   },
   {
     "name": "index.ts",
@@ -133,7 +133,7 @@
   },
   {
     "name": "pending-popup-handoff",
-    "bytes": 3091
+    "bytes": 4897
   },
   {
     "name": "perf-history",
