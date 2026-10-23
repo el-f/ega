@@ -1,7 +1,11 @@
 // Token-budgeted message history for the side panel's follow-up sends. Pure — no Svelte, no chrome.*.
+import { IMAGE_TURN_PLACEHOLDER } from './constants';
 
 /** Token budget for the conversation history sent with each request. */
 export const CHAT_HISTORY_TOKEN_BUDGET = 4000;
+
+/** The image marker is a render token, not words the user sent, so the model reads what happened instead. */
+const HISTORY_IMAGE_TEXT = '(sent an image)';
 
 /** Minimal structural contract: only the fields assemblePromptHistory reads. */
 export interface ConversationTurnLike {
@@ -52,7 +56,10 @@ export function assemblePromptHistory(
       // An unfinished exchange is not usable context, and counting it would make the label flicker mid-answer.
       const next = turns[i + 1];
       if (next?.role === 'assistant' && next.status !== 'done') continue;
-      mapped.push({ role: 'user', content: t.content });
+      mapped.push({
+        role: 'user',
+        content: t.content === IMAGE_TURN_PLACEHOLDER ? HISTORY_IMAGE_TEXT : t.content,
+      });
     } else if (t.status === 'done' && t.content.length > 0) {
       mapped.push({ role: 'assistant', content: t.content });
     }
