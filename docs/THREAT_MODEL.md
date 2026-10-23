@@ -130,7 +130,9 @@ nothing.
 One more store lives only until you close the browser: `chrome.storage.session`.
 Its slot `ega.pendingPopupHandoff` carries the most: the text you sent, the
 model's answer, the explain brief, text read out of an image, and the image
-itself as a data URL (`src/shared/pending-popup-handoff.ts`).
+itself as a data URL (`src/shared/pending-popup-handoff.ts`). A finished tooltip
+reply also brings its notes, details, detected languages and confidence, and the
+tooltip's Ask sets an `ask` flag.
 The Storage shape table in `docs/PERMISSIONS.md` lists the full session storage set.
 
 ---
@@ -168,6 +170,25 @@ turn — untrusted label, `"""` block, `escapeFence` on the body — before it r
 wire (`src/shared/prompts.ts#fenceHistoryTurn`, applied at
 `src/background/index.ts#boundedOptions`). `boundedOptions` also cuts each turn to 2000
 characters and keeps only the last `MAX_HISTORY_TURNS` (40).
+
+### Prompt injection from a reply you ask about
+
+A question about a reply sends that reply's details: its result (model output that
+page text can steer), the original page text, its notes and its detected dialect. A
+hostile page can plant instructions in any of them.
+
+**Defense:** `src/shared/prompts.ts#renderAskAboutBlock` fences each value with
+`escapeFence` and names the block as untrusted data. The task name is one line, so
+it is inline-escaped (`escapeInline`). The block always goes in the user message,
+never in the system prompt. The service worker caps it again at the trust boundary
+(`src/background/index.ts#boundedOptions` → `src/shared/ask-about.ts#capAskAbout`),
+and a stored question's copy is checked again on load
+(`src/sidepanel/state/conversation-store.ts#validateStoredTurn`).
+
+**Accepted risk:** "Ask instead" shows on any Translate reply that found its text
+already in the target language, including text handed over from a page. One click
+then sends that page text as the question. You see the text in the bubble before
+you click, the answer renders no images, and links show their host.
 
 ### Prompt injection from your own presets and glossary
 

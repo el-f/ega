@@ -171,10 +171,19 @@ that reply's details: its task, its languages and detected dialect, the text you
 answer and its notes (`src/shared/ask-about.ts`). Each is cut to a fixed size and fenced as
 untrusted data (`src/shared/prompts.ts#renderAskAboutBlock`). The usual history goes too.
 
-- The details are copied onto your question when you send it and saved with the conversation. A
-  new version of the answer (Regenerate, Refine, Retry) sends them again, with the history before
-  the question. Other new versions send no history, as before.
-- "Answer again as" another task sends only your question's text.
+- The details are copied onto your question when you send it and saved with the conversation.
+- Every new version of an answer to a question sends them again, with the history before the
+  question: Regenerate, Refine, Describe a change, Retry, Translate into and Swap.
+- "Answer again as" a task other than Ask sends your question's text alone.
+- "Ask instead" on a reply's meta line, and More → "Answer again as" → "Ask instead", ask that
+  reply's text about the newest earlier reply that has an answer. They send that earlier reply's
+  details and the history.
+- "Notes" are the reply's notes, or its explanation when it has no notes.
+- Deleting a reply also deletes the copy saved on each question about it
+  (`src/sidepanel/state/conversation.ts#forgetAbout`). Undo puts the copy back. After the delete,
+  a new version of such a question sends the question and the history only. When a conversation
+  passes 300 messages and its oldest ones drop off, the copies stay, so the questions keep their
+  context.
 - In the tooltip, "Ask about this" opens the side panel. Nothing is sent until you type a
   question and send it.
 
