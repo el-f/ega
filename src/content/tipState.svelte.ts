@@ -290,11 +290,12 @@ function buildTooltipProps(o: OpenOpts, state: TipState): ComponentProps<typeof 
                 ...(state.answer ? { answer: state.answer } : {}),
                 ...(state.meta ? { meta: state.meta } : {}),
                 ...(state.explain ? { explain: state.explain } : {}),
+                // The seeded reply shows the direction this tooltip showed, and a question about it sends that.
+                ...(state.detectedLang ? { detectedLang: state.detectedLang } : {}),
+                ...(state.detectedDetail ? { detectedDetail: state.detectedDetail } : {}),
+                ...(state.detectedLangs?.length ? { detectedLangs: state.detectedLangs } : {}),
+                ...(state.confidence !== undefined ? { confidence: state.confidence } : {}),
               },
-              // The seeded reply shows the direction this tooltip showed, and a question about it sends that.
-              ...(state.detectedLang ? { detectedLang: state.detectedLang } : {}),
-              ...(state.detectedDetail ? { detectedDetail: state.detectedDetail } : {}),
-              ...(state.detectedLangs ? { detectedLangs: state.detectedLangs } : {}),
             }
           : {}),
         ...(ask ? { ask } : {}),

@@ -131,7 +131,7 @@ describe('Pin to side panel from a tooltip that is still streaming', () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
-  it('Ask hands off the finished reply with the ask flag and what it detected', async () => {
+  it('Ask hands off the finished reply with the ask flag, what it detected and how sure it was', async () => {
     sendMessage.mockResolvedValue({ ok: true });
     await openStreaming(vi.fn());
     finishTooltipDirect('r1', 'Hi, how are you?', 0.9, {
@@ -147,9 +147,12 @@ describe('Pin to side panel from a tooltip that is still streaming', () => {
         sourceText: 'hola',
         response: 'Hi, how are you?',
         ask: true,
-        detectedLang: 'arabizi',
-        detectedDetail: 'Levantine',
-        detectedLangs: [{ id: 'arabizi', detail: 'Levantine' }],
+        reply: {
+          detectedLang: 'arabizi',
+          detectedDetail: 'Levantine',
+          detectedLangs: [{ id: 'arabizi', detail: 'Levantine' }],
+          confidence: 0.9,
+        },
       },
     });
     await vi.waitFor(() => expect(wraps().length).toBe(0));
@@ -164,7 +167,9 @@ describe('Pin to side panel from a tooltip that is still streaming', () => {
     await vi.waitFor(() => expect(sendMessage).toHaveBeenCalled());
     const handoff = (sendMessage.mock.calls.at(-1)?.[0] as { handoff: Record<string, unknown> })
       .handoff;
-    expect(handoff).toMatchObject({ detectedLang: 'arabizi', detectedDetail: 'Levantine' });
+    expect(handoff).toMatchObject({
+      reply: { detectedLang: 'arabizi', detectedDetail: 'Levantine' },
+    });
     expect(handoff['ask']).toBeUndefined();
   });
 
@@ -175,7 +180,7 @@ describe('Pin to side panel from a tooltip that is still streaming', () => {
     await vi.waitFor(() => expect(sendMessage).toHaveBeenCalled());
     const handoff = (sendMessage.mock.calls.at(-1)?.[0] as { handoff: Record<string, unknown> })
       .handoff;
-    expect(Object.keys(handoff).filter((k) => k.startsWith('detected'))).toEqual([]);
+    expect(handoff['reply']).toBeUndefined();
   });
 
   it('an Ask the worker could not open keeps the tooltip and says so', async () => {

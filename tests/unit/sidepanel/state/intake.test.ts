@@ -170,8 +170,7 @@ describe('a tooltip Ask handoff', () => {
     task: 'translate',
     tone: 'neutral',
     response: 'Hola, ¿qué tal?',
-    detectedLang: 'arabizi',
-    detectedDetail: 'Levantine',
+    reply: { detectedLang: 'arabizi', detectedDetail: 'Levantine', confidence: 0.93 },
   } as const;
   const pickerToast = (push: MockInstance<typeof toastStore.push>): boolean =>
     push.mock.calls.some(([t]) => /Language, task and tone set/.test(t.message));
@@ -188,6 +187,7 @@ describe('a tooltip Ask handoff', () => {
       content: 'Hola, ¿qué tal?',
       detectedLang: 'arabizi',
       detectedDetail: 'Levantine',
+      confidence: 0.93,
     });
     expect(askAbout).toHaveBeenCalledExactlyOnceWith(reply?.id);
     expect(pickers().targetLang).toBe('es');
@@ -211,10 +211,18 @@ describe('a tooltip Ask handoff', () => {
 
   it('an Ask whose reply must still run is sent, and reports nothing to ask about', async () => {
     const { intake, conversation, askAbout } = await intakeFor(7);
-    const { response: _unused, ...unfinished } = handoff;
+    const { response: _unused, reply: _reply, ...unfinished } = handoff;
     await writePendingPopupHandoff({ ...unfinished, ask: true });
     await intake.drainPopupHandoffs();
 
+    // The message landed and went out as a plain request, not a question about anything.
+    expect(conversation.turns.map((t) => t.content)).toContain('mar7aba, kifak?');
+    const start = (chrome.runtime.sendMessage as Mock).mock.calls
+      .map(([m]) => m as { kind?: string; text?: string; options?: Record<string, unknown> })
+      .filter((m) => m.kind === 'translate:start')
+      .at(-1);
+    expect(start?.text).toBe('mar7aba, kifak?');
+    expect(start?.options?.['askAbout']).toBeUndefined();
     expect(conversation.turns.at(-1)?.status).not.toBe('done');
     expect(askAbout).not.toHaveBeenCalled();
     conversation.cancel();

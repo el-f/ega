@@ -4,7 +4,7 @@ import { TaskIdSchema } from './settings-schema';
 import type { TaskId } from './task-view';
 import { IMAGE_DATA_URL_MAX_CHARS, MAX_SELECTION_CHARS } from './constants';
 import { makeCrossContextLock } from './utils/cross-context-lock';
-import type { AnswerReplyFields, DetectedVariety } from './types';
+import type { AnswerReplyFields } from './types';
 
 export const PENDING_POPUP_HANDOFF_KEY = 'ega.pendingPopupHandoff';
 
@@ -13,11 +13,6 @@ export const MAX_HANDOFF_AGE_MS = 60_000;
 
 /** Per-field cap so a corrupt storage.session entry can't flood sidepanel state. */
 const MAX_HANDOFF_FIELD_CHARS = 50_000;
-
-/** A detection is a label on the meta line and in a question's about block, so it stays short. */
-const DETECTED_ID_MAX = 128;
-const DETECTED_DETAIL_MAX = 200;
-const DETECTED_LANGS_MAX = 8;
 
 export interface PendingPopupHandoff {
   readonly sourceText: string;
@@ -38,10 +33,6 @@ export interface PendingPopupHandoff {
   readonly reply?: AnswerReplyFields;
   /** The tooltip's Ask: the panel lands the finished reply, then asks about it. */
   readonly ask?: true;
-  /** What the tooltip result detected, so the seeded reply shows the direction the tooltip showed. */
-  readonly detectedLang?: string;
-  readonly detectedDetail?: string;
-  readonly detectedLangs?: DetectedVariety[];
   /** Set by the reader when `sourceText` was cut to MAX_SELECTION_CHARS, so the panel can say so. */
   readonly trimmed?: boolean;
   /** Set by the reader when `imageDataUrl` was over IMAGE_DATA_URL_MAX_CHARS and dropped, so the panel can say so. */
@@ -70,26 +61,6 @@ function compareKeys(a: string, b: string): number {
   if (byTs !== 0 && !Number.isNaN(byTs)) return byTs;
   const byCounter = Number(ca) - Number(cb);
   return Number.isNaN(byCounter) ? 0 : byCounter;
-}
-
-function shortText(raw: unknown, max: number): string | undefined {
-  return typeof raw === 'string' && raw.length > 0 && raw.length <= max ? raw : undefined;
-}
-
-/** Malformed entries are skipped and the list is cut to its cap; nothing usable left drops the field. */
-function decodeDetectedLangs(raw: unknown): DetectedVariety[] | undefined {
-  if (!Array.isArray(raw)) return undefined;
-  const out: DetectedVariety[] = [];
-  for (const entry of raw as unknown[]) {
-    if (out.length === DETECTED_LANGS_MAX) break;
-    if (entry === null || typeof entry !== 'object') continue;
-    const e = entry as Record<string, unknown>;
-    const id = shortText(e['id'], DETECTED_ID_MAX);
-    if (id === undefined) continue;
-    const detail = shortText(e['detail'], DETECTED_DETAIL_MAX);
-    out.push(detail !== undefined ? { id, detail } : { id });
-  }
-  return out.length > 0 ? out : undefined;
 }
 
 function decodeEntry(raw: unknown, now: number): PendingPopupHandoff | null {
@@ -131,9 +102,6 @@ function decodeEntry(raw: unknown, now: number): PendingPopupHandoff | null {
       ? (replyRaw as AnswerReplyFields)
       : undefined;
   const windowId = typeof r['windowId'] === 'number' ? r['windowId'] : undefined;
-  const detectedLang = shortText(r['detectedLang'], DETECTED_ID_MAX);
-  const detectedDetail = shortText(r['detectedDetail'], DETECTED_DETAIL_MAX);
-  const detectedLangs = decodeDetectedLangs(r['detectedLangs']);
   return {
     sourceText,
     sourceLang: r['sourceLang'],
@@ -150,9 +118,6 @@ function decodeEntry(raw: unknown, now: number): PendingPopupHandoff | null {
     ...(explain !== undefined ? { explain } : {}),
     ...(reply !== undefined ? { reply } : {}),
     ...(r['ask'] === true ? { ask: true } : {}),
-    ...(detectedLang !== undefined ? { detectedLang } : {}),
-    ...(detectedDetail !== undefined ? { detectedDetail } : {}),
-    ...(detectedLangs !== undefined ? { detectedLangs } : {}),
     ...(windowId !== undefined ? { windowId } : {}),
   };
 }

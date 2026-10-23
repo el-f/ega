@@ -12,12 +12,17 @@ export interface AnswerSnapshot {
   spec: AnswerSpec;
   fields: Record<string, unknown>;
 }
+/** A finished tooltip reply's fields, spread onto the reply the side panel seeds, so both show the same meta line. */
 export interface AnswerReplyFields {
   notes?: AnswerNote[];
   details?: AnswerDetail[];
   answer?: AnswerSnapshot;
   explain?: string;
   meta?: ResultMeta;
+  detectedLang?: string;
+  detectedDetail?: string;
+  detectedLangs?: DetectedVariety[];
+  confidence?: number;
 }
 
 export type { BackendId, LangPresetId, LangSelection };

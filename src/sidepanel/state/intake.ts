@@ -7,7 +7,6 @@ import { openOptionsTab } from '@/shared/open-options-tab';
 import { selectionTrimmedMessage } from '@/shared/selection-cap-copy';
 import { asLangSelection } from '@/shared/brands';
 import { debugCatch } from '@/shared/logger';
-import { omitUndef } from '@/shared/utils/omitUndef';
 import { isSafeRenderImageSrc } from '@/shared/image-url-guard';
 import { toastStore } from '@/shared/components/toastStore';
 import { hasKnownKind, isFromOwnBackground, type Msg } from '@/shared/messages';
@@ -231,11 +230,6 @@ export function createIntake(deps: IntakeDeps): Intake {
       handoff.imageDataUrl !== undefined ||
       handoff.imageDropped === true
     ) {
-      const detected = omitUndef({
-        detectedLang: handoff.detectedLang,
-        detectedDetail: handoff.detectedDetail,
-        detectedLangs: handoff.detectedLangs,
-      });
       const replyId = conversation.seedDeliveredTurn({
         // An OCR result is not a Task-shaped turn: refine and retry would both no-op on it.
         kind:
@@ -249,7 +243,6 @@ export function createIntake(deps: IntakeDeps): Intake {
         ...(handoff.trimmed ? { trimmedTo: handoff.sourceText.length } : {}),
         response: handoff.response ?? handoff.ocrText ?? '',
         ...(handoff.reply ? { reply: handoff.reply } : {}),
-        detected,
         ...(handoff.imageDataUrl ? { imageDataUrl: handoff.imageDataUrl } : {}),
         ...(handoff.imageDropped ? { imageDropped: true } : {}),
         sourceLang: asLangSelection(handoff.sourceLang),

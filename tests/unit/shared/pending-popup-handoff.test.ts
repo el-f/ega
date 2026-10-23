@@ -399,7 +399,7 @@ describe('pending-popup-handoff — a send is answered by its own window', () =>
   });
 });
 
-describe('pending-popup-handoff — a tooltip Ask and what it detected', () => {
+describe('pending-popup-handoff — a tooltip Ask', () => {
   beforeEach(async () => {
     await chrome.storage.session.remove(PENDING_POPUP_HANDOFF_KEY);
   });
@@ -424,7 +424,7 @@ describe('pending-popup-handoff — a tooltip Ask and what it detected', () => {
     return out[0];
   };
 
-  it('carries the ask flag and the detection through write and drain', async () => {
+  it('carries the ask flag, and the detection inside the reply, through write and drain', async () => {
     await writePendingPopupHandoff({
       sourceText: 'mar7aba',
       sourceLang: 'auto',
@@ -433,16 +433,22 @@ describe('pending-popup-handoff — a tooltip Ask and what it detected', () => {
       tone: 'neutral',
       response: 'Hello',
       ask: true,
-      detectedLang: 'arabizi',
-      detectedDetail: 'Levantine',
-      detectedLangs: [{ id: 'arabizi', detail: 'Levantine' }, { id: 'en' }],
+      reply: {
+        detectedLang: 'arabizi',
+        detectedDetail: 'Levantine',
+        detectedLangs: [{ id: 'arabizi', detail: 'Levantine' }, { id: 'en' }],
+        confidence: 0.93,
+      },
     });
     const [h] = await drainPendingPopupHandoff();
     expect(h).toMatchObject({
       ask: true,
-      detectedLang: 'arabizi',
-      detectedDetail: 'Levantine',
-      detectedLangs: [{ id: 'arabizi', detail: 'Levantine' }, { id: 'en' }],
+      reply: {
+        detectedLang: 'arabizi',
+        detectedDetail: 'Levantine',
+        detectedLangs: [{ id: 'arabizi', detail: 'Levantine' }, { id: 'en' }],
+        confidence: 0.93,
+      },
     });
   });
 
@@ -450,41 +456,6 @@ describe('pending-popup-handoff — a tooltip Ask and what it detected', () => {
     for (const ask of ['true', 1, {}, false]) {
       expect((await planted({ ask }))?.ask).toBeUndefined();
     }
-  });
-
-  it('drops a detected language or detail that is not a short string', async () => {
-    const h = await planted({ detectedLang: 42, detectedDetail: 'x'.repeat(201) });
-    expect(h?.detectedLang).toBeUndefined();
-    expect(h?.detectedDetail).toBeUndefined();
-    const long = await planted({ detectedLang: 'x'.repeat(129), detectedDetail: '' });
-    expect(long?.detectedLang).toBeUndefined();
-    expect(long?.detectedDetail).toBeUndefined();
-  });
-
-  it('keeps only well-formed detection entries, each detail capped, at most eight', async () => {
-    const h = await planted({
-      detectedLangs: [
-        { id: 'arabizi', detail: 'Levantine' },
-        { id: 'en', detail: 'x'.repeat(201) },
-        { id: '' },
-        { id: 7 },
-        'fr',
-        null,
-        ...Array.from({ length: 10 }, (_, i) => ({ id: `v${i}` })),
-      ],
-    });
-    expect(h?.detectedLangs?.[0]).toEqual({ id: 'arabizi', detail: 'Levantine' });
-    expect(h?.detectedLangs?.[1]).toEqual({ id: 'en' });
-    expect(h?.detectedLangs?.slice(2).map((d) => d.id)).toEqual([
-      'v0',
-      'v1',
-      'v2',
-      'v3',
-      'v4',
-      'v5',
-    ]);
-    expect((await planted({ detectedLangs: 'arabizi' }))?.detectedLangs).toBeUndefined();
-    expect((await planted({ detectedLangs: [{ id: 3 }] }))?.detectedLangs).toBeUndefined();
   });
 });
 

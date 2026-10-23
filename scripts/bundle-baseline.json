@@ -25,7 +25,7 @@
   },
   {
     "name": "cancel-token",
-    "bytes": 28390
+    "bytes": 28385
   },
   {
     "name": "Checkbox",
@@ -69,11 +69,11 @@
   },
   {
     "name": "index",
-    "bytes": 126711
+    "bytes": 126852
   },
   {
     "name": "index.html",
-    "bytes": 480934
+    "bytes": 482072
   },
   {
     "name": "index.ts",
@@ -105,11 +105,11 @@
   },
   {
     "name": "Markdown",
-    "bytes": 4364
+    "bytes": 4435
   },
   {
     "name": "menu-focus",
-    "bytes": 4371
+    "bytes": 4883
   },
   {
     "name": "open-options-tab",
@@ -133,7 +133,7 @@
   },
   {
     "name": "pending-popup-handoff",
-    "bytes": 2772
+    "bytes": 2252
   },
   {
     "name": "perf-history",
@@ -217,7 +217,7 @@
   },
   {
     "name": "task-view",
-    "bytes": 4098
+    "bytes": 4169
   },
   {
     "name": "tasks",
@@ -245,7 +245,7 @@
   },
   {
     "name": "tipState.svelte",
-    "bytes": 57338
+    "bytes": 57042
   },
   {
     "name": "toast",

@@ -117,23 +117,28 @@ describe('createConversation().seedDeliveredTurn', () => {
     expect(await c.refine({ turnId: imageAnswer.id, refinementBody: 'shorter' })).toBe(false);
   });
 
-  it('keeps what the tooltip detected on the reply and its first version, and returns the reply id', () => {
+  it('keeps what the tooltip detected, and how sure it was, on the reply and its first version, and returns the reply id', () => {
     const c = createConversation();
     const id = c.seedDeliveredTurn({
       kind: 'translate',
       sourceText: 'mar7aba',
       response: 'Hello',
-      detected: {
+      reply: {
         detectedLang: 'arabizi',
         detectedDetail: 'Levantine',
         detectedLangs: [{ id: 'arabizi', detail: 'Levantine' }],
+        confidence: 0.93,
       },
       ...DISPATCH,
     });
     const assistant = c.turns.find((t) => t.role === 'assistant');
     if (assistant?.role !== 'assistant') throw new Error('no assistant turn');
     expect(id).toBe(assistant.id);
-    expect(assistant).toMatchObject({ detectedLang: 'arabizi', detectedDetail: 'Levantine' });
+    expect(assistant).toMatchObject({
+      detectedLang: 'arabizi',
+      detectedDetail: 'Levantine',
+      confidence: 0.93,
+    });
     expect(assistant.variants?.[0]).toMatchObject({
       detectedLang: 'arabizi',
       detectedDetail: 'Levantine',
