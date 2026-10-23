@@ -4,7 +4,7 @@
 
 - Each user message is a UserTurn; each backend reply is an AssistantTurn. Turns are ordered; a finished reply can gain versions (Regenerate, a Refine preset, "Describe a change…", Translate into, Swap, Answer again as) shown with the version pager, and turns can be bookmarked or deleted.
 - "Try again" on a failed reply replaces that reply in place; Regenerate on a finished reply adds a new version beside it. Neither appends a UserTurn.
-- While a reply streams, the composer's Send becomes Stop, and the header's More menu offers "Stop all requests"; a finished reply shows one action row: Copy, Regenerate, Refine and More (Read aloud, About this reply, Answer again as, Bookmark, Delete).
+- While a reply streams, the composer's Send becomes Stop, and the header's More menu offers "Stop all requests"; a finished reply shows one action row: Copy, Ask, Refine and More (Refine starts with Regenerate; More holds Read aloud, About this reply, Answer again as, Bookmark, Delete).
 
 ## Rendering
 

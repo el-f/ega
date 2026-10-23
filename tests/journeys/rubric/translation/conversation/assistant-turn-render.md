@@ -9,11 +9,11 @@
 
 - Step 1: the reply mounts with three static skeleton bars and "Translating…" in its meta slot; the action row's 28px is reserved.
 - Step 2: streamed content lands progressively as plain text with a caret.
-- Step 3: on stream end, the caret goes and Markdown renders; the meta line fills in (direction, model, and "87% confident" last when the confidence setting shows it), and the action row appears: Copy, Regenerate, Refine and More. More → "About this reply" opens the details: backend, model, cache hit, time and the instructions sent.
+- Step 3: on stream end, the caret goes and Markdown renders; the meta line fills in (direction, model, and "87% confident" last when the confidence setting shows it), and the action row appears: Copy, Ask, Refine and More. Refine opens with Regenerate as its first item. More → "About this reply" opens the details: backend, model, cache hit, time and the instructions sent.
 
 ## Visible affordances
 
-- Copy, Regenerate, Refine and More appear only on completion (never during the stream).
+- Copy, Ask, Refine and More appear only on completion (never during the stream).
 - While in flight, the composer's Send becomes Stop; the reply keeps its caret.
 
 ## Failure-mode expectations

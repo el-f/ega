@@ -242,6 +242,22 @@ export function assertRequestShape(
   expect(matches, reasons.join('\n') || 'partial match failed').toBe(true);
 }
 
+/** An Anthropic request body split into the last user message (what the task prompt built) and the earlier messages (the history). */
+export function anthropicPrompt(body: string | null): { user: string; before: string[] } {
+  expect(body, 'mock never captured a request body').not.toBeNull();
+  const messages = (
+    JSON.parse(body as string) as {
+      messages: { content: string | { type: string; text?: string }[] }[];
+    }
+  ).messages;
+  const text = (c: (typeof messages)[number]['content']): string =>
+    typeof c === 'string' ? c : c.map((b) => b.text ?? '').join('');
+  return {
+    user: text(messages.at(-1)?.content ?? ''),
+    before: messages.slice(0, -1).map((m) => text(m.content)),
+  };
+}
+
 export interface CrossSurfaceMessage {
   channel: string;
   payload: unknown;

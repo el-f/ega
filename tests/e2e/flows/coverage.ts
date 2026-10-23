@@ -445,6 +445,18 @@ export const COVERAGE: readonly Family[] = [
               'External image-translate turn completes → thumbnail + Regenerate; Refine offers only the language items',
             flows: ['sidepanel/image-turn-no-refine-chips.flow.spec.ts'],
           },
+          {
+            id: 'ask-about-reply',
+            description:
+              'Ask on a reply → the question carries that reply and its detected dialect, the answer links back with a quote, the composer keeps asking until ×',
+            flows: ['sidepanel/ask-about-reply.flow.spec.ts'],
+          },
+          {
+            id: 'ask-instead',
+            description:
+              'A Translate reply already in the target language offers "Ask instead"; it asks the same text about the reply before it, as a new version',
+            flows: ['sidepanel/ask-instead.flow.spec.ts'],
+          },
         ],
       },
       {
@@ -1574,6 +1586,14 @@ export const COVERAGE: readonly Family[] = [
               'Tooltip detected source lang carried into sidepanel handoff and first turn',
             flows: [
               'integration/tooltip-sidepanel-escalation/tooltip-escalation-preserves-lang.flow.spec.ts',
+            ],
+          },
+          {
+            id: 'tooltip-ask-in-sidepanel',
+            description:
+              'Tooltip Ask → the panel opens on the exchange with Ask mode on for it; the question carries the detected dialect',
+            flows: [
+              'integration/tooltip-sidepanel-escalation/tooltip-ask-in-sidepanel.flow.spec.ts',
             ],
           },
           {

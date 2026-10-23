@@ -5,7 +5,11 @@
   },
   {
     "name": "AnswerNotes",
-    "bytes": 21646
+    "bytes": 22050
+  },
+  {
+    "name": "ask-about",
+    "bytes": 3138
   },
   {
     "name": "batch-progress",
@@ -17,11 +21,11 @@
   },
   {
     "name": "bubble-menu",
-    "bytes": 7175
+    "bytes": 7272
   },
   {
     "name": "cancel-token",
-    "bytes": 27995
+    "bytes": 28390
   },
   {
     "name": "Checkbox",
@@ -33,7 +37,7 @@
   },
   {
     "name": "command-registry",
-    "bytes": 30592
+    "bytes": 30843
   },
   {
     "name": "custom-tasks-state.svelte",
@@ -65,15 +69,15 @@
   },
   {
     "name": "index",
-    "bytes": 124672
+    "bytes": 126711
   },
   {
     "name": "index.html",
-    "bytes": 472658
+    "bytes": 480934
   },
   {
     "name": "index.ts",
-    "bytes": 45667
+    "bytes": 45796
   },
   {
     "name": "index.ts-loader",
@@ -105,7 +109,7 @@
   },
   {
     "name": "menu-focus",
-    "bytes": 4245
+    "bytes": 4371
   },
   {
     "name": "open-options-tab",
@@ -129,7 +133,7 @@
   },
   {
     "name": "pending-popup-handoff",
-    "bytes": 2226
+    "bytes": 2772
   },
   {
     "name": "perf-history",
@@ -160,10 +164,6 @@
     "bytes": 3578
   },
   {
-    "name": "reply-instructions",
-    "bytes": 2275
-  },
-  {
     "name": "request-state",
     "bytes": 1369
   },
@@ -177,7 +177,7 @@
   },
   {
     "name": "safe-regex",
-    "bytes": 23630
+    "bytes": 23631
   },
   {
     "name": "safety",
@@ -245,7 +245,7 @@
   },
   {
     "name": "tipState.svelte",
-    "bytes": 56473
+    "bytes": 57338
   },
   {
     "name": "toast",
@@ -265,11 +265,11 @@
   },
   {
     "name": "translate-handlers",
-    "bytes": 6154
+    "bytes": 6145
   },
   {
     "name": "translate-ui",
-    "bytes": 2986
+    "bytes": 3025
   },
   {
     "name": "vendor-bits-ui",
@@ -285,7 +285,7 @@
   },
   {
     "name": "vendor-lucide",
-    "bytes": 26272
+    "bytes": 26654
   },
   {
     "name": "vendor-marked",

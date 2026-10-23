@@ -1,6 +1,12 @@
 /* coverage: translation.sidepanel.regenerate-skips-cache */
 import { test, expect } from '@playwright/test';
-import { launchExtension, mockAnthropic, seedSettings, type ExtensionHandle } from '../../helpers';
+import {
+  launchExtension,
+  mockAnthropic,
+  openReplyMenu,
+  seedSettings,
+  type ExtensionHandle,
+} from '../../helpers';
 import { createTimeline } from '../_harness';
 
 let ext: ExtensionHandle;
@@ -38,8 +44,8 @@ test('Regenerate on a finished answer asks the model again instead of replaying 
 
   // Registered later, so it answers the next call; the first mock is spent.
   const second = mockAnthropic(ext.context, { translation: 'Second answer.' });
-  await turn.hover();
-  await turn.getByRole('button', { name: 'Regenerate', exact: true }).click();
+  const menu = await openReplyMenu(page, 'refine', turn);
+  await menu.getByRole('menuitem', { name: 'Regenerate', exact: true }).click();
   timeline.markStep('regenerate-clicked');
 
   await expect(page.locator('[data-ega-variant-nav] .ega-pager-count')).toHaveText('2/2', {

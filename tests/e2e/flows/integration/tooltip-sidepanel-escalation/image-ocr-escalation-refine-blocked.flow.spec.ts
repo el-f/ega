@@ -100,10 +100,11 @@ test('image OCR sidepanel seed shows its image and Regenerate, and Refine offers
   await expect(menu.locator('[data-ega-translate-into-other]')).toBeVisible();
   await expect(menu.locator('[data-ega-refine-preset]')).toHaveCount(0);
   await expect(menu.locator('[data-ega-describe-change]')).toHaveCount(0);
+  // Regenerate leads the Refine menu, so the seeded turn can still re-run.
+  await expect(menu.locator('[data-ega-regenerate]')).toBeVisible();
   await sp.keyboard.press('Escape');
   timeline.markStep('presets-absent');
 
-  await expect(sp.locator('[data-ega-regenerate]')).toBeVisible();
   await expect(sp.locator('.ega-imgprev img')).toHaveJSProperty('complete', true);
   expect(
     await sp.locator('.ega-imgprev img').evaluate((img) => (img as HTMLImageElement).naturalWidth),

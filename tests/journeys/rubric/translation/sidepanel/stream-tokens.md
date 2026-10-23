@@ -10,7 +10,7 @@
 
 - Step 1: the reply appears with three static skeleton bars and "Translating…" in its meta slot.
 - Step 2: tokens land progressively as plain text with a caret; the thread follows the reply while its top stays in view, and never jumps back to the top.
-- Step 3: the stream completes; the caret goes, Markdown renders, and Copy, Regenerate, Refine and More appear in the reserved row (nothing moves).
+- Step 3: the stream completes; the caret goes, Markdown renders, and Copy, Ask, Refine and More appear in the reserved row (nothing moves).
 
 ## Visible affordances
 

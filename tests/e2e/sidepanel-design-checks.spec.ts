@@ -336,6 +336,75 @@ const STATES: State[] = [
       return sp;
     },
   },
+  {
+    // The banner chip, the bar on the reply asked about and the pressed Ask button, all at once.
+    name: 'ask-mode',
+    build: async () => {
+      const sp = await panelWith([{ id: SITE, turns: FIRST_PAIR }]);
+      const target = newestReply(sp);
+      await target.locator('[data-ega-action="ask"]').click();
+      await sp.locator('[data-ega-mode-banner]').waitFor({ state: 'visible' });
+      await expect(target).toHaveAttribute('data-ega-ask-target', '');
+      await expect(target.locator('[data-ega-action="ask"]')).toHaveAttribute(
+        'aria-pressed',
+        'true',
+      );
+      return sp;
+    },
+  },
+  {
+    // A sent question with its quote (long enough to be cut at every width) and the Ask answer under it.
+    name: 'ask-quote',
+    build: () => {
+      const about = {
+        turnId: 'a1',
+        task: 'Translate',
+        languages: 'Spanish → English',
+        original: 'hola amigo, ¿qué tal?',
+        result:
+          'Hi, friend. How are you? I have not seen you for a long time, so tell me everything.',
+      };
+      return panelWith([
+        {
+          id: SITE,
+          turns: [
+            user('u1', about.original, T(30)),
+            reply('a1', 'u1', T(30), { content: about.result }),
+            user(
+              'u2',
+              'What makes it Spanish, and what are some other ways to greet a friend?',
+              T(20),
+              {
+                kind: 'ask',
+                about,
+              },
+            ),
+            // An answer has no detection and no confidence, so it is built here and not with reply().
+            {
+              id: 'a2',
+              role: 'assistant',
+              kind: 'ask',
+              status: 'done',
+              content:
+                'It is Spanish because of “hola” and “¿qué tal?”.\n\n- Qué onda (Mexico)\n- Qué pasa (Spain)',
+              createdAt: T(20),
+              attachedToTurnId: 'u2',
+              meta: realMeta({ historyTurns: 2 }),
+              variants: [
+                {
+                  id: 'a2:v1',
+                  status: 'done',
+                  content:
+                    'It is Spanish because of “hola” and “¿qué tal?”.\n\n- Qué onda (Mexico)\n- Qué pasa (Spain)',
+                },
+              ],
+              activeVariantIdx: 0,
+            },
+          ],
+        },
+      ]);
+    },
+  },
 ];
 
 const CHECKS = [
@@ -621,7 +690,7 @@ test('check 5 focus never lands on body after an action', async () => {
     timeout: 10_000,
   });
 
-  await newestReply(sp).locator('[data-ega-action="regenerate"]').click();
+  await (await openReplyMenu(sp, 'refine')).locator('[data-ega-regenerate]').click();
   await expectFocus('Regenerate', '[data-ega-reply]');
   await expect(newestReply(sp).locator('.ega-pager-count')).toHaveText('2/2', {
     timeout: 10_000,
@@ -647,6 +716,12 @@ test('check 5 focus never lands on body after an action', async () => {
   await expect(newestReply(sp).locator('.ega-pager-count')).toHaveText('5/5', {
     timeout: 10_000,
   });
+
+  // Ask takes focus into the field, and leaving the mode keeps it there.
+  await newestReply(sp).locator('[data-ega-action="ask"]').click();
+  await expectFocus('Ask', 'textarea');
+  await sp.locator('[data-ega-mode-banner]').getByRole('button', { name: 'Done asking' }).click();
+  await expectFocus('Done asking', 'textarea');
 
   // Delete the first message: focus moves to the next message, and Undo puts it back on the restored one.
   const first = sp.locator('[data-ega-user-turn]').first();
