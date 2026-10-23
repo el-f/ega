@@ -212,13 +212,17 @@ Masked patterns: Anthropic keys, OpenAI keys, Google API keys, GitHub tokens, AW
 Slack tokens, Stripe keys, npm tokens, JWTs, PEM private-key blocks, `Bearer` tokens, e-mail
 addresses, card numbers that pass a Luhn check.
 
-Two things this does **not** cover, both on purpose:
+Three things this does **not** cover, all on purpose:
 
 - **The text you asked to translate is never masked.** Masking it would break the translation.
 - **Replayed conversation history is never masked.** The scrubber runs on the page-context
   fields only (`src/shared/redact.ts#redactContext`). A secret that reached an earlier turn as
   selected text goes out again, unmasked, with every later send from that site's panel. "New
   conversation" is the way to drop it.
+- **A question about a reply sends that reply again, unmasked.** The reply's text, answer and
+  notes go in the question's details (`src/shared/ask-about.ts`). The copy saved on the question
+  stays after the reply drops out of the 300-message history, so every new version of the answer
+  sends it again. Deleting the reply is the way to drop it.
 
 ## Where it goes
 
