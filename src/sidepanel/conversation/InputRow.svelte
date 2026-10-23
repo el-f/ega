@@ -871,5 +871,10 @@
     .ega-send {
       border-color: ButtonText;
     }
+    /* The chip is a tint only, which this mode drops; an outline adds no size, so the row does not move. */
+    .ega-mode-banner {
+      outline: 1px solid Highlight;
+      outline-offset: 1px;
+    }
   }
 </style>

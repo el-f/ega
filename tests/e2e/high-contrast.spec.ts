@@ -5,6 +5,7 @@ import {
   mockAnthropic,
   seedSettings,
   selectArabiziParagraph,
+  sendFromPanel,
   waitForTestHooks,
   type ExtensionHandle,
 } from './helpers';
@@ -136,6 +137,126 @@ test('side panel: the streaming skeleton bar keeps a border', async () => {
       return `${s.borderTopStyle} ${s.borderTopWidth}`;
     }),
   ).toBe('solid 1px');
+});
+
+/** A system color as this page resolves it: Chromium maps the keyword to the mode's palette only while forced colors are active. */
+async function systemColor(page: Page, keyword: string): Promise<string> {
+  return page.evaluate((k) => {
+    const probe = document.createElement('span');
+    probe.style.color = k;
+    document.body.append(probe);
+    const c = getComputedStyle(probe).color;
+    probe.remove();
+    return c;
+  }, keyword);
+}
+
+/** An edge a mark draws, as the style engine computes it: `style width color`. */
+const barOf = (el: Locator, pseudo: '::before' | null = null): Promise<string> =>
+  el.evaluate((n, p) => {
+    const s = getComputedStyle(n, p);
+    return `${s.borderInlineStartStyle} ${s.borderInlineStartWidth} ${s.borderInlineStartColor}`;
+  }, pseudo);
+
+/** A ring a mark draws: `style width color`. */
+const ringOf = (el: Locator): Promise<string> =>
+  el.evaluate((n) => {
+    const s = getComputedStyle(n);
+    return `${s.outlineStyle} ${s.outlineWidth} ${s.outlineColor}`;
+  });
+
+test('side panel Ask: the target bar, quote bar, pressed Ask, banner chip and reveal flash stay visible', async () => {
+  await seedSettings(ext.context, ext.extensionId, {
+    anthropicApiKey: 'sk-test',
+    streaming: true,
+    cacheEnabled: false,
+  });
+  mockAnthropic(ext.context, { translation: 'Hi, how are you?', times: 1 });
+  const page = await ext.context.newPage();
+  await page.setViewportSize({ width: 400, height: 760 });
+  await page.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
+  await sendFromPanel(page, 'mar7aba, kifak?');
+  const first = page.locator('[data-ega-reply]').first();
+  await expect(first.locator('.ega-answer')).toContainText('Hi, how are you?', { timeout: 10_000 });
+  await first.locator('[data-ega-action="ask"]').click();
+  // Registered later, so it answers the next call; the first mock is spent.
+  mockAnthropic(ext.context, {
+    rawText: JSON.stringify({ translation: 'Because of kifak.' }),
+    times: 1,
+  });
+  await sendFromPanel(page, 'what makes it Levantine?');
+  const last = page.locator('[data-ega-reply]').last();
+  await expect(last.locator('.ega-answer')).toContainText('Because of kifak.', {
+    timeout: 10_000,
+  });
+  // The answer is the target now, and the question above it quotes the first reply.
+  await expect(last).toHaveAttribute('data-ega-ask-target', '');
+  const quote = page.locator('[data-ega-ask-quote]');
+  const pressed = last.locator('[data-ega-action="ask"]');
+  await expect(pressed).toHaveAttribute('aria-pressed', 'true');
+  const banner = page.locator('[data-ega-mode-banner]');
+  await expect(banner).toBeVisible();
+
+  // The flash lasts 1.2 s. The blur drops any focus ring, so only the flash can draw; the wait lets the 0.01 ms transition of reduced motion land.
+  const flashRing = async (): Promise<string> => {
+    const read = first.evaluate(
+      (el) =>
+        new Promise<string>((resolve, reject) => {
+          const timer = setTimeout(() => reject(new Error('the reply never flashed')), 4_000);
+          const done = (): void => {
+            clearTimeout(timer);
+            obs.disconnect();
+            (el as HTMLElement).blur();
+            setTimeout(() => {
+              if (!el.classList.contains('flash'))
+                return reject(new Error('the flash ended first'));
+              const s = getComputedStyle(el);
+              resolve(`${s.outlineStyle} ${s.outlineWidth} ${s.outlineColor}`);
+            }, 100);
+          };
+          const obs = new MutationObserver(() => el.classList.contains('flash') && done());
+          obs.observe(el, { attributes: true, attributeFilter: ['class'] });
+          if (el.classList.contains('flash')) done();
+        }),
+    );
+    await quote.click();
+    const ring = await read;
+    await expect(first).not.toHaveClass(/flash/);
+    return ring;
+  };
+
+  // Positive control: without the mode the bars are the accent color, and no outline marks the chip, the pressed button or the flash.
+  const accent = await page.evaluate(() => {
+    const probe = document.createElement('span');
+    probe.style.color = 'var(--color-accent)';
+    document.body.append(probe);
+    const c = getComputedStyle(probe).color;
+    probe.remove();
+    return c;
+  });
+  await page.emulateMedia({ forcedColors: 'none', reducedMotion: 'reduce' });
+  expect(await barOf(last, '::before')).toBe(`solid 2px ${accent}`);
+  expect(await barOf(quote)).toBe(`solid 2px ${accent}`);
+  expect(await ringOf(pressed)).toMatch(/^none /);
+  expect(await ringOf(banner)).toMatch(/^none /);
+  expect(await flashRing()).toMatch(/^none /);
+
+  // The pointer stays on the quote after its click, and the mode draws a hovered button with a Highlight border of its own.
+  await page.mouse.move(0, 0);
+  await page.emulateMedia({ forcedColors: 'active', reducedMotion: 'reduce' });
+  const highlight = await systemColor(page, 'Highlight');
+  expect(highlight).not.toBe(await systemColor(page, 'Canvas'));
+  expect(await barOf(last, '::before'), 'target bar').toBe(`solid 2px ${highlight}`);
+  expect(await barOf(quote), 'quote bar').toBe(`solid 2px ${highlight}`);
+  expect(await ringOf(pressed), 'pressed Ask').toBe(`solid 2px ${highlight}`);
+  expect(await ringOf(banner), 'banner chip').toBe(`solid 1px ${highlight}`);
+  // Both motion settings: neither the reduced-motion rule nor the keyframes may decide whether the flash shows.
+  for (const reducedMotion of ['reduce', 'no-preference'] as const) {
+    await page.emulateMedia({ forcedColors: 'active', reducedMotion });
+    expect(await flashRing(), `reveal flash, motion ${reducedMotion}`).toBe(
+      `solid 2px ${highlight}`,
+    );
+  }
 });
 
 test('tooltip: the loading shimmer keeps a border inside the shadow root', async () => {

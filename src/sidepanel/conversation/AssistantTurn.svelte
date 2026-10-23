@@ -891,6 +891,7 @@
     .ega-reply.flash {
       animation: none;
       outline: 2px solid Highlight;
+      outline-offset: 2px;
     }
   }
   .ega-answer {
