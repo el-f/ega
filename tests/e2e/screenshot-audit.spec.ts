@@ -2104,7 +2104,7 @@ test.describe('Sidepanel redesign', () => {
       },
     ]);
     await matrix(empty, 'empty-answer', 'the model sent back nothing', [
-      '"No answer came back. Try Regenerate in the Refine menu." muted, with the normal action row',
+      '"No answer came back. Try Regenerate." muted, with the normal action row',
     ]);
     await empty.close();
   });

@@ -697,7 +697,7 @@
         >
       {:else if turn.content === '' && !turn.explain}
         <span class="ega-empty-answer" data-ega-empty-body
-          >No answer came back. Try Regenerate in the Refine menu.</span
+          >No answer came back. Try Regenerate.</span
         >
       {:else if mainItems}
         <ul>
