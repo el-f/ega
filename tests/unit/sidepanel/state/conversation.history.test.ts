@@ -86,6 +86,32 @@ describe('send() — conversationHistory assembly', () => {
     // The third send's own text must NOT appear in the history.
     expect(history.some((h) => h.content === 'adios')).toBe(false);
   });
+
+  it('an earlier image message reads as an image, not as the "[image]" render marker', async () => {
+    const c = createConversation();
+    await c.send({
+      content: '[image]',
+      kind: 'image-translate',
+      imageDataUrl: 'data:image/png;base64,iVBORw0KGgo=',
+      sourceLang: 'auto',
+      targetLang: en,
+      stream: false,
+    });
+    completeAssistant(c, 'Hello there');
+    (chrome.runtime.sendMessage as Mock).mockClear();
+    await c.send({
+      content: 'what does it say?',
+      kind: 'translate',
+      sourceLang: 'auto',
+      targetLang: en,
+      stream: false,
+    });
+    const msg = (chrome.runtime.sendMessage as Mock).mock.calls[0]?.[0];
+    expect(msg.options.conversationHistory).toEqual([
+      { role: 'user', content: '(sent an image)' },
+      { role: 'assistant', content: 'Hello there' },
+    ]);
+  });
 });
 
 describe('retry() — conversationHistory assembly', () => {

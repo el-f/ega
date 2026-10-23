@@ -496,8 +496,18 @@ function historyFor(userTurn: Turn, thread: readonly Turn[] | 'none'): ChatTurn[
   if (thread === 'none' || userTurn.imageDataUrl !== undefined) return [];
   const at = thread.findIndex((t) => t.id === userTurn.id);
   if (at < 0) return [];
-  return assemblePromptHistory(thread.slice(0, at), { budgetTokens: CHAT_HISTORY_TOKEN_BUDGET });
+  // The image marker is a render token, not words the user sent, so the model reads what happened instead.
+  const earlier = thread
+    .slice(0, at)
+    .map((t) =>
+      t.role === 'user' && t.content === IMAGE_TURN_PLACEHOLDER
+        ? { ...t, content: HISTORY_IMAGE_TEXT }
+        : t,
+    );
+  return assemblePromptHistory(earlier, { budgetTokens: CHAT_HISTORY_TOKEN_BUDGET });
 }
+
+const HISTORY_IMAGE_TEXT = '(sent an image)';
 
 /** The one place that decides what a request carries; send, retry and every variant build theirs here. */
 export function buildStartArgs(userTurn: Turn, overlay: StartOverlay): StartArgs {
