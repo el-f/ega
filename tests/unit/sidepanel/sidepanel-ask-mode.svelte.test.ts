@@ -1282,7 +1282,6 @@ describe('Ask mode while an answer runs, under a filter, across conversations an
     await fireEvent.click(askOn(reply));
     await settle();
     await type(c, 'a question I never sent');
-    await new Promise((r) => setTimeout(r, 300));
     first.unmount();
     await settle();
     const stored = JSON.stringify(await chrome.storage.session.get(null));
