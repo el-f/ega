@@ -128,9 +128,8 @@ test('Ask on a reply sends that reply with the question, keeps asking, links bac
   await expect(first).toBeInViewport();
   await expect(first).toBeFocused();
   await expect(first).toHaveClass(/flash/);
-  expect(await first.evaluate((el) => getComputedStyle(el).backgroundColor)).not.toBe(
-    'rgba(0, 0, 0, 0)',
-  );
+  // Polls: the global reduced-motion rule still runs a 0.01 ms transition, so the first read can be transparent.
+  await expect(first).not.toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   timeline.markStep('quote-revealed');
 
   // × ends the mode: the composer is back on its task, with the draft.
