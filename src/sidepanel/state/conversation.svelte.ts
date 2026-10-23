@@ -123,8 +123,6 @@ export interface DeletedSlice {
   gen: number;
   /** Turn id to the moment this delete buried it, so an Undo answers that burial and no other. */
   deletedAt: ReadonlyMap<string, number>;
-  /** The copies other questions kept of the deleted reply; Undo puts them back. */
-  forgotten: readonly ForgottenAbout[];
 }
 
 export interface ConversationContainer {
@@ -957,12 +955,8 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     const before = state.turns;
     const index = before.findIndex((t) => willRemove.includes(t.id));
     const removed = ($state.snapshot(before) as Turn[]).filter((t) => willRemove.includes(t.id));
-    let forgotten: ForgottenAbout[] = [];
-    mutate((turns) => {
-      const kept = forgetAbout(deleteTurnPair(turns, turnId), willRemove);
-      forgotten = kept.forgotten;
-      return kept.turns;
-    }, 'now');
+    mutate((turns) => deleteTurnPair(turns, turnId), 'none');
+    mutate(settleAbout, 'now');
     // eslint-disable-next-line svelte/prefer-svelte-reactivity -- a plain snapshot of stamps, never rendered.
     const stamps = new Map<string, number>();
     for (const id of willRemove) {
@@ -975,7 +969,6 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       origin: state.activeId,
       gen: threadGen,
       deletedAt: stamps,
-      forgotten,
     };
   }
 
@@ -984,17 +977,38 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     if (slice.removed.length === 0 || slice.origin !== state.activeId) return false;
     if (slice.gen !== threadGen) return false;
     noteRevived(slice.removed, slice.deletedAt);
-    const at = Math.min(Math.max(slice.index, 0), state.turns.length);
+    // Another Undo may have run since, so the index is a hint: the slice never lands before an older turn or after a newer one.
+    const first = slice.removed[0]?.createdAt ?? 0;
+    const last = slice.removed.at(-1)?.createdAt ?? 0;
+    const older = state.turns.reduce((n, t, i) => (t.createdAt < first ? i + 1 : n), 0);
+    const newer = state.turns.findIndex((t) => t.createdAt > last);
+    const at = Math.min(Math.max(slice.index, older, 0), newer < 0 ? state.turns.length : newer);
     noteKnownTurns(slice.removed);
     mutate(
-      (turns) =>
-        rememberAbout(
-          [...turns.slice(0, at), ...slice.removed, ...turns.slice(at)],
-          slice.forgotten,
-        ),
+      (turns) => settleAbout([...turns.slice(0, at), ...slice.removed, ...turns.slice(at)]),
       'now',
     );
     return true;
+  }
+
+  /** Copies of deleted replies that questions and versions gave up, kept until their reply comes back. Memory only. */
+  let parkedAbout: ForgottenAbout[] = [];
+  /** Ids another window deleted, seen when its write was merged in. */
+  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- read by settleAbout, never rendered.
+  const foreignBuried = new Set<string>();
+
+  /** A copy never outlives its reply: parked while it is deleted, back once reply and holder are both here, in any order. */
+  function settleAbout(turns: Turn[]): Turn[] {
+    // eslint-disable-next-line svelte/prefer-svelte-reactivity -- plain lookups, never rendered.
+    const present = new Set(turns.map((t) => t.id));
+    // eslint-disable-next-line svelte/prefer-svelte-reactivity -- a plain argument, never rendered.
+    const gone = new Set([...deletedAt.keys(), ...foreignBuried].filter((id) => !present.has(id)));
+    const { turns: kept, forgotten } = forgetAbout(turns, gone);
+    const parked = [...parkedAbout, ...forgotten];
+    const back = (f: ForgottenAbout): boolean =>
+      present.has(f.about.turnId) && present.has(f.turnId);
+    parkedAbout = parked.filter((f) => !back(f));
+    return rememberAbout(kept, parked.filter(back));
   }
 
   function toggleBookmark(turnId: string): void {
@@ -1472,7 +1486,10 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
         seededDuringLoad.length > 0 ? 'debounce' : 'none',
       );
       // A same-site reload keeps the thread a DeletedSlice came from, so its Undo still applies.
-      if (originChanged) threadGen++;
+      if (originChanged) {
+        threadGen++;
+        parkedAbout = [];
+      }
       trimNoticed = false;
       refusedNoticed = false;
       knownIds.clear();
@@ -1480,6 +1497,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       // Tombstones belong to the thread that recorded them.
       deletedAt.clear();
       revivedAt.clear();
+      foreignBuried.clear();
       // A seed appended mid-load owns inflightId/requestId — keep them so its chunks still route.
       if (seededDuringLoad.length === 0) {
         clearStall();
@@ -1507,7 +1525,9 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       revivedAt,
       ...(seenClearedAt !== undefined ? { seenClearedAt } : {}),
     });
-    state.turns = turns;
+    for (const id of buriedIds) foreignBuried.add(id);
+    // The turn this window streams into is kept whole, so its copy of a reply buried there goes here.
+    state.turns = settleAbout(turns);
     seenClearedAt = stored.clearedAt;
     // Their removal, so their Undo must be able to bring the turn back through the foreign path.
     for (const id of buriedIds) knownIds.delete(id);
@@ -1593,6 +1613,8 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     knownIds.clear();
     deletedAt.clear();
     revivedAt.clear();
+    foreignBuried.clear();
+    parkedAbout = [];
     watchAdoptedAnswers();
   }
 

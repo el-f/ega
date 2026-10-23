@@ -773,19 +773,20 @@ export interface ForgottenAbout {
 /** Deleting a reply deletes the copies questions keep of it; a question only remembers that there was one. */
 export function forgetAbout(
   turns: readonly Turn[],
-  gone: readonly string[],
+  gone: ReadonlySet<string>,
 ): { turns: Turn[]; forgotten: ForgottenAbout[] } {
   const forgotten: ForgottenAbout[] = [];
+  if (gone.size === 0) return { turns: [...turns], forgotten };
   const out = turns.map((t): Turn => {
     if (t.role === 'user') {
-      if (t.about === undefined || !gone.includes(t.about.turnId)) return t;
+      if (t.about === undefined || !gone.has(t.about.turnId)) return t;
       forgotten.push({ turnId: t.id, about: t.about });
       const { about: _copy, ...rest } = t;
       return { ...rest, aboutRemoved: true };
     }
-    if (!t.variants?.some((v) => v.about !== undefined && gone.includes(v.about.turnId))) return t;
+    if (!t.variants?.some((v) => v.about !== undefined && gone.has(v.about.turnId))) return t;
     const variants = t.variants.map((v) => {
-      if (v.about === undefined || !gone.includes(v.about.turnId)) return v;
+      if (v.about === undefined || !gone.has(v.about.turnId)) return v;
       forgotten.push({ turnId: t.id, variantId: v.id, about: v.about });
       const { about: _copy, ...rest } = v;
       return rest;
@@ -795,7 +796,7 @@ export function forgetAbout(
   return { turns: out, forgotten };
 }
 
-/** Undo of a delete: each question and version that still exists gets its copy back. */
+/** A reply is back: each question and version that is there too gets its copy back. */
 export function rememberAbout(
   turns: readonly Turn[],
   forgotten: readonly ForgottenAbout[],

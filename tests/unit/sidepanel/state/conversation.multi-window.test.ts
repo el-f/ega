@@ -641,3 +641,68 @@ describe('an answer adopted from a window that went away', () => {
     expect(byId(b, assistantId)?.content).toBe('live');
   });
 });
+
+describe('a copy of a reply that another window deletes', () => {
+  /** Window A's last `translate:start` options: what a re-run would send. */
+  function lastStartOptions(): Record<string, unknown> {
+    const starts = (chrome.runtime.sendMessage as Mock).mock.calls
+      .map((c) => c[0] as Record<string, unknown>)
+      .filter((m) => m['kind'] === 'translate:start');
+    return (starts.at(-1)?.['options'] ?? {}) as Record<string, unknown>;
+  }
+
+  it('is not written back by the window streaming an "Ask instead" version about it, nor sent again', async () => {
+    const a = await openWindow();
+    const b = await openWindow();
+    const e = await sendAndFinish(a, 'secret-original', 'secret-result');
+    const t = await sendAndFinish(a, 'what does it mean', 'what does it mean');
+    const about = {
+      turnId: e,
+      task: 'Translate',
+      original: 'secret-original',
+      result: 'secret-result',
+    };
+    expect(await a.taskVariant(t, 'ask', about)).toBe(true);
+    const requestId = (chrome.runtime.sendMessage as Mock).mock.calls
+      .map((c) => c[0] as Record<string, unknown>)
+      .filter((m) => m['kind'] === 'translate:start')
+      .at(-1)?.['requestId'] as string;
+    a.applyChunk({ type: 'delta', requestId, text: 'It asks' });
+    await a.flush();
+    await drain();
+
+    b.deleteTurn(e);
+    await drain();
+    a.applyChunk({ type: 'done', requestId, confidence: 1 });
+    await drain();
+
+    const stored = JSON.stringify((await loadThreadResult(ORIGIN)).turns);
+    expect(stored).not.toContain('secret-result');
+    expect(await a.regenerateVariant(t)).toBe(true);
+    expect(JSON.stringify(lastStartOptions())).not.toContain('secret-result');
+  });
+
+  it('a save that still holds the copy, before it hears of the delete, stores none', async () => {
+    const question = {
+      id: 'q',
+      role: 'user',
+      kind: 'ask',
+      status: 'idle',
+      createdAt: 3,
+      content: 'why?',
+      about: {
+        turnId: 'e',
+        task: 'Translate',
+        original: 'secret-original',
+        result: 'secret-result',
+      },
+    } as Turn;
+    await saveThread(ORIGIN, [question], {
+      knownIds: new Set(['q']),
+      deletedAt: new Map([['e', 2]]),
+    });
+    const [stored] = (await loadThreadResult(ORIGIN)).turns;
+    expect(stored).toMatchObject({ id: 'q', aboutRemoved: true });
+    expect(stored).not.toHaveProperty('about');
+  });
+});

@@ -336,6 +336,86 @@ describe('asking', () => {
     expect(starts().at(-1)?.options.askAbout?.['result']).toBe('Hi, how are you?');
   });
 
+  describe('two deletes, undone one at a time', () => {
+    /** A reply, then a question about it with its answer "Because.". */
+    async function asked(c: HTMLElement): Promise<void> {
+      await fireEvent.click(askOn(await firstExchange(c)));
+      await settle();
+      const q = await send(c, 'why?');
+      await chunk({ type: 'done', requestId: q.requestId, text: 'Because.' });
+    }
+    /** Deletes the exchange of the message at `index`, from its own More menu. */
+    async function deleteMessage(c: HTMLElement, index: number): Promise<void> {
+      const more = c.querySelectorAll<HTMLElement>('[data-ega-user-turn] [data-ega-action="more"]');
+      await fireEvent.keyDown(more[index] as HTMLElement, { key: 'Enter' });
+      const del = await waitFor(() => {
+        const el = document.querySelector<HTMLElement>('[role="menu"] [data-ega-delete]');
+        if (!el) throw new Error('menu not open');
+        return el;
+      });
+      await fireEvent.click(del);
+      await settle();
+    }
+    const undos = (push: { mock: { calls: unknown[][] } }): Array<() => void> =>
+      (push.mock.calls as Array<[{ action?: { label: string; onClick: () => void } }]>)
+        .filter(([m]) => m.action?.label === 'Undo')
+        .map(([m]) => (m.action as { onClick: () => void }).onClick);
+    /** Regenerate on the answer "Because.", finished, so the next one can run; returns its request. */
+    async function regenerateAnswer(c: HTMLElement): Promise<Start> {
+      const answer = replies(c).find((r) => r.textContent.includes('Because')) as HTMLElement;
+      await openMenu(answer, 'refine');
+      await fireEvent.click(document.querySelector('[data-ega-regenerate]') as HTMLElement);
+      await settle();
+      const again = starts().at(-1) as Start;
+      await chunk({ type: 'done', requestId: again.requestId, text: 'Because, again.' });
+      return again;
+    }
+
+    it('the question undone while its reply is still deleted holds no copy of that reply', async () => {
+      const push = vi.spyOn(toastStore, 'push');
+      const c = await mounted();
+      await asked(c);
+      await deleteMessage(c, 1);
+      await deleteMessage(c, 0);
+      const [undoQuestion, undoReply] = undos(push);
+      undoQuestion?.();
+      await settle();
+
+      expect(c.textContent).toContain('why?');
+      expect(c.querySelector('[data-ega-ask-quote]')).toBeNull();
+      expect(JSON.stringify(await chrome.storage.local.get(null))).not.toContain(
+        'Hi, how are you?',
+      );
+      const again = await regenerateAnswer(c);
+      expect(JSON.stringify(again.options)).not.toContain('Hi, how are you?');
+
+      undoReply?.();
+      await settle();
+      expect(c.querySelector('[data-ega-ask-quote]')?.textContent).toContain('Hi, how are you?');
+      expect((await regenerateAnswer(c)).options.askAbout?.['result']).toBe('Hi, how are you?');
+    });
+
+    it('the reply undone before its question: the question comes back after it, with its quote', async () => {
+      const push = vi.spyOn(toastStore, 'push');
+      const c = await mounted();
+      await asked(c);
+      await deleteMessage(c, 0);
+      await deleteMessage(c, 0);
+      const [undoReply, undoQuestion] = undos(push);
+      undoReply?.();
+      await settle();
+      undoQuestion?.();
+      await settle();
+
+      expect(replies(c).map((r) => r.textContent.includes('Hi, how are you?'))).toEqual([
+        true,
+        false,
+      ]);
+      expect(c.querySelector('[data-ega-ask-quote]')?.textContent).toContain('Hi, how are you?');
+      expect((await regenerateAnswer(c)).options.askAbout?.['result']).toBe('Hi, how are you?');
+    });
+  });
+
   it('pressing the quote scrolls to its reply, clearing a search that hid it, and focuses it', async () => {
     const c = await mounted();
     const reply = await firstExchange(c);

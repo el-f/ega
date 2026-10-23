@@ -20,6 +20,7 @@ import { INSTRUCTIONS_KEPT_REPLIES } from '@/shared/reply-instructions';
 import type { ResultMeta } from '@/shared/types';
 import {
   dropOrphanHead,
+  forgetAbout,
   type AssistantTurnData,
   type Turn,
   type UserTurnData,
@@ -808,14 +809,17 @@ async function saveThreadLocked(
   ]);
   const live = turns.filter((t) => !buried.has(t.id));
   const refused = turns.filter((t) => buried.has(t.id)).map((t) => t.id);
-  const base =
+  // Every write passes here, so a window that still holds a copy of a reply another window deleted cannot store it.
+  const { turns: base } = forgetAbout(
     knownIds !== undefined
       ? mergeTurnsById(
           stored.turns.filter((t) => !buried.has(t.id)),
           live,
           knownIds,
         )
-      : live;
+      : live,
+    buried,
+  );
   const trimmed =
     base.length > MAX_TURNS_PER_THREAD
       ? dropOrphanHead(base.slice(-MAX_TURNS_PER_THREAD), base)
