@@ -4,7 +4,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, fireEvent, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import AssistantTurn from '@/sidepanel/conversation/AssistantTurn.svelte';
-import { doneReply, meta, metaText, replyProps } from './_reply';
+import { doneReply, meta, metaText, openMenu, replyProps } from './_reply';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -41,14 +41,17 @@ describe('the answer', () => {
     expect(container.querySelector('.ega-md')).toBeNull();
   });
 
-  it('an empty answer says what to do, and keeps the normal row', () => {
+  it('an empty answer says what to do, and keeps the normal row', async () => {
     const { container } = render(AssistantTurn, { props: replyProps(doneReply({ content: '' })) });
     expect(container.querySelector('[data-ega-empty-body]')?.textContent).toBe(
       'No answer came back. Try Regenerate.',
     );
-    expect(container.querySelector('[data-ega-regenerate]')).not.toBeNull();
     // Nothing came back, so there is nothing to be confident about (V5-05).
     expect(metaText(container).some((t) => t.includes('confiden'))).toBe(false);
+    // Nothing to ask about either; Regenerate is where the line says, first in Refine.
+    expect(container.querySelector('[data-ega-action="ask"]')).toBeNull();
+    const menu = await openMenu(container, 'refine');
+    expect(menu.querySelector('[data-ega-regenerate]')).not.toBeNull();
   });
 
   it('notes sit under the answer with a sentence-case label', () => {
@@ -173,13 +176,13 @@ describe('the meta line', () => {
 });
 
 describe('the action row', () => {
-  it('is one toolbar of Copy, Regenerate, Refine and More, with one tab stop', async () => {
+  it('is one toolbar of Copy, Ask, Refine and More, with one tab stop', async () => {
     const { container } = render(AssistantTurn, { props: replyProps(doneReply()) });
     const row = container.querySelector('[role="toolbar"][aria-label="Reply actions"]');
     const keys = Array.from(row?.querySelectorAll('[data-ega-action]') ?? []).map((b) =>
       b.getAttribute('data-ega-action'),
     );
-    expect(keys).toEqual(['copy', 'regenerate', 'refine', 'more']);
+    expect(keys).toEqual(['copy', 'ask', 'refine', 'more']);
     const stops = Array.from(row?.querySelectorAll('[data-ega-action]') ?? []).filter(
       (b) => b.getAttribute('tabindex') === '0',
     );
@@ -190,24 +193,28 @@ describe('the action row', () => {
     expect(document.activeElement?.getAttribute('data-ega-action')).toBe('more');
   });
 
-  it('Regenerate adds a version; while another reply runs it stays focusable and says why', async () => {
+  it('Regenerate leads the Refine menu; while another reply runs it stays and says why', async () => {
     const props = replyProps(doneReply());
-    const { container, rerender } = render(AssistantTurn, { props });
-    await fireEvent.click(container.querySelector('[data-ega-regenerate]') as HTMLElement);
+    const { container } = render(AssistantTurn, { props });
+    let menu = await openMenu(container, 'refine');
+    const first = menu.querySelector('[role^="menuitem"]');
+    expect(first?.textContent.trim()).toBe('Regenerate');
+    await fireEvent.click(first as HTMLElement);
     expect(props.onRegenerate).toHaveBeenCalledWith('a1');
-    await rerender({ ...props, inflight: true });
-    const btn = container.querySelector('[data-ega-regenerate]') as HTMLElement;
-    expect(btn.getAttribute('aria-disabled')).toBe('true');
-    expect(btn.getAttribute('aria-label')).toBe('Regenerate (wait for the current reply)');
-    await fireEvent.click(btn);
+    document.body.innerHTML = '';
+    const busy = render(AssistantTurn, { props: { ...props, inflight: true } });
+    menu = await openMenu(busy.container, 'refine');
+    const item = menu.querySelector('[data-ega-regenerate]') as HTMLElement;
+    expect(item.getAttribute('aria-disabled')).toBe('true');
+    expect(menu.textContent).toContain('Wait for the current reply to finish.');
+    await fireEvent.click(item);
     expect(props.onRegenerate).toHaveBeenCalledTimes(1);
   });
 
-  it('a reply with nothing to replay has no Regenerate and no Refine', () => {
+  it('a reply with nothing to replay has no Refine, so no Regenerate', () => {
     const { container } = render(AssistantTurn, {
       props: replyProps(doneReply(), { canRetry: false }),
     });
-    expect(container.querySelector('[data-ega-regenerate]')).toBeNull();
     expect(container.querySelector('[data-ega-action="refine"]')).toBeNull();
     expect(container.querySelector('[data-ega-action="more"]')).not.toBeNull();
   });

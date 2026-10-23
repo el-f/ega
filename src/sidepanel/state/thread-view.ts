@@ -1,19 +1,21 @@
 // Pure view rules for the side panel thread, header list and composer chip. No I/O, no clock: callers pass `now`.
 import type { IndexEntry } from '@/shared/saved-conversations';
 import type { Turn } from './conversation';
-import { turnLabel } from './conversation';
+import { activeVariant, turnLabel, turnTaskValue } from './conversation';
 import type { TaskView } from '@/shared/task-view';
 import { TONE_LABELS, type Tone } from '@/shared/task-prompts';
+import { directionLabel } from '@/shared/reply-meta';
 
 const MINUTE = 60_000;
 const DAY = 24 * 60 * MINUTE;
 
-/** What the next Send does: a new message, a replacement for one, or a change to one reply.
+/** What the next Send does: a new message, a replacement for one, a change to one reply, or a question about one.
  *  An edit keeps `lastId`, the newest message when it began: a newer one means the thread moved on. */
 export type ComposerMode =
   | { kind: 'send' }
   | { kind: 'edit'; turnId: string; lastId: string }
-  | { kind: 'refine'; turnId: string };
+  | { kind: 'refine'; turnId: string }
+  | { kind: 'ask'; turnId: string };
 
 /** The empty panel's three suggestions. */
 export type SuggestionKind = 'translate-selection' | 'explain-selection' | 'translate-page';
@@ -88,7 +90,8 @@ export function taskLabelsOnChange(
     const tone = usesTone && t.tone !== undefined && t.tone !== 'neutral' ? t.tone : undefined;
     const key = `${task}|${tone ?? ''}`;
     const changed = prev === undefined ? task !== 'translate' || tone !== undefined : key !== prev;
-    if (changed) {
+    // A quoted question is marked by its quote; a task label would say it twice.
+    if (changed && t.about === undefined) {
       const base = turnLabel(t.kind === 'image-translate' ? { ...t, kind: 'translate' } : t, views);
       out.set(t.id, tone === undefined ? base : `${base} · ${TONE_LABELS[tone]}`);
     }
@@ -107,17 +110,48 @@ export interface ModeChipInput {
   tone?: Tone | undefined;
   /** An attached image goes to the image reader, whatever task is picked. */
   imageToTranslate?: boolean;
+  /** Ask answers in the target, but the chip names only the task; its accessible name says the language. */
+  asks?: boolean;
 }
 
-/** The composer chip: "Translate → English", "Translate · Spanish → English", "Reword · Casual", "Translate image → English". */
+/** The composer chip: "Translate → English", "Translate · Spanish → English", "Reword · Casual", "Translate image → English", "Ask". */
 export function modeChipLabel(i: ModeChipInput): string {
   if (i.imageToTranslate === true) return `Translate image → ${i.target}`;
+  if (i.asks === true) return i.taskLabel;
   const tone = i.tone !== undefined && i.tone !== 'neutral' ? ` · ${TONE_LABELS[i.tone]}` : '';
   if (!i.answersInTarget) {
     return i.source === undefined ? `${i.taskLabel}${tone}` : `${i.taskLabel} · ${i.source}${tone}`;
   }
   if (i.source === undefined) return `${i.taskLabel} → ${i.target}${tone}`;
   return `${i.taskLabel} · ${i.source} → ${i.target}${tone}`;
+}
+
+/** A reply's meta-line direction, "Arabizi (Levantine) → English": the shown version's languages over the pair `sent` asked for. */
+export function replyDirection(
+  turn: Turn,
+  sent: { sourceLang?: string | undefined; targetLang?: string | undefined },
+  varieties: readonly { id: string; label: string }[],
+): string {
+  const v = activeVariant(turn);
+  const source = v?.sourceLang ?? sent.sourceLang;
+  const target = v?.targetLang ?? sent.targetLang;
+  const task = turnTaskValue(turn);
+  return directionLabel({
+    detected:
+      turn.detectedLangs !== undefined && turn.detectedLangs.length > 0
+        ? turn.detectedLangs
+        : turn.detectedLang !== undefined
+          ? [
+              turn.detectedDetail !== undefined
+                ? { id: turn.detectedLang, detail: turn.detectedDetail }
+                : { id: turn.detectedLang },
+            ]
+          : [],
+    ...(source !== undefined ? { sourceLang: source } : {}),
+    ...(target !== undefined ? { targetLang: target } : {}),
+    sourceOnly: task === 'reword' || task === 'grammar',
+    varieties,
+  });
 }
 
 /** What the swap button does, or null when it cannot act (then it is not shown). Auto-detect swaps with the newest reply's language. */

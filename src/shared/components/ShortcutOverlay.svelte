@@ -122,6 +122,10 @@
               <dt>Regenerate the focused reply</dt>
               <dd><Kbd>r</Kbd></dd>
             </div>
+            <div class="shortcut-row">
+              <dt>Ask about the focused reply</dt>
+              <dd><Kbd>a</Kbd></dd>
+            </div>
           {:else}
             <div class="shortcut-row">
               <dt>Send to the side panel (in the popup)</dt>

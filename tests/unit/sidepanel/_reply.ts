@@ -59,6 +59,7 @@ export function replyProps(turn: AssistantTurnData, over: Record<string, unknown
     onTaskSwitch: vi.fn(),
     onTranslateInto: vi.fn(),
     onDescribeChange: vi.fn(),
+    onAsk: vi.fn(),
     isLatest: true,
     sourceLang: 'auto' as never,
     targetLang: 'en' as never,

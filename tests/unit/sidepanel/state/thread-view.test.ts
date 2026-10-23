@@ -4,6 +4,7 @@ import {
   conversationTitle,
   listTime,
   modeChipLabel,
+  replyDirection,
   separatorLabel,
   separatorTurnIds,
   swapResult,
@@ -87,6 +88,53 @@ describe('taskLabelsOnChange', () => {
       taskLabelsOnChange([user('x', 1, { kind: 'summarize' })], SHIPPED_TASK_VIEWS).get('x'),
     ).toBe('Summarize');
   });
+
+  it('a quoted question has no label: its quote already says it is a question', () => {
+    const about = { turnId: 'a1', task: 'Translate', original: 'hola', result: 'hello' };
+    const turns = [
+      user('u1', 1),
+      user('u2', 2, { kind: 'ask', about }),
+      user('u3', 3, { kind: 'translate' }),
+    ];
+    expect(Object.fromEntries(taskLabelsOnChange(turns, SHIPPED_TASK_VIEWS))).toEqual({
+      u3: 'Translate',
+    });
+  });
+});
+
+describe('replyDirection', () => {
+  const reply = (over: Partial<Turn> = {}): Turn =>
+    ({
+      id: 'a1',
+      role: 'assistant',
+      kind: 'translate',
+      status: 'done',
+      createdAt: 2,
+      content: 'Hello',
+      ...over,
+    }) as Turn;
+
+  it('names the detected language over the sent source, then the target', () => {
+    expect(replyDirection(reply({ detectedLang: 'es' }), { targetLang: 'en' }, [])).toBe(
+      'Spanish → English',
+    );
+    expect(replyDirection(reply(), { sourceLang: 'fr', targetLang: 'en' }, [])).toBe(
+      'French → English',
+    );
+    expect(replyDirection(reply(), { sourceLang: 'auto', targetLang: 'en' }, [])).toBe('');
+  });
+
+  it('a version answered in another language names that one; Reword names only the source', () => {
+    const swapped = reply({
+      detectedLang: 'es',
+      variants: [{ id: 'v1', status: 'done', content: 'Hola', targetLang: 'fr' as never }],
+      activeVariantIdx: 0,
+    });
+    expect(replyDirection(swapped, { targetLang: 'en' }, [])).toBe('Spanish → French');
+    expect(
+      replyDirection(reply({ kind: 'reword', detectedLang: 'es' }), { targetLang: 'en' }, []),
+    ).toBe('Spanish');
+  });
 });
 
 describe('modeChipLabel', () => {
@@ -108,6 +156,11 @@ describe('modeChipLabel', () => {
     expect(modeChipLabel({ ...base, taskLabel: 'Summarize', imageToTranslate: true })).toBe(
       'Translate image → English',
     );
+  });
+
+  it('Ask names no language on the chip', () => {
+    expect(modeChipLabel({ ...base, taskLabel: 'Ask', asks: true })).toBe('Ask');
+    expect(modeChipLabel({ ...base, taskLabel: 'Ask', asks: true, source: 'Spanish' })).toBe('Ask');
   });
 });
 

@@ -13,7 +13,7 @@ export interface AskAbout {
   notes?: string;
 }
 
-export const ASK_ABOUT_CAPS = {
+const ASK_ABOUT_CAPS = {
   turnId: 200,
   task: 120,
   languages: 120,
@@ -54,8 +54,22 @@ export function capAskAbout(x: unknown): AskAbout | null {
   };
 }
 
-/** The quote a question shows: the result's first line. */
+/** One line of Markdown as plain text: no heading, list or quote marker, no emphasis or code marks, links as their text. */
+function plainLine(line: string): string {
+  return line
+    .replace(/^\s*(?:#{1,6}\s+|[-*+]\s+|\d+[.)]\s+|>\s?)+/, '')
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/\*\*|__|~~|[*`]/g, '')
+    .trim();
+}
+
+/** The quote a question shows: the result's first line of text, Markdown removed. */
 export function askQuote(a: Pick<AskAbout, 'result'>): string {
-  const first = a.result.split('\n').find((l) => l.trim() !== '') ?? '';
-  return clip(first.trim(), QUOTE_MAX);
+  const first =
+    a.result
+      .split('\n')
+      .filter((l) => !/^\s*(?:```|~~~)/.test(l))
+      .map(plainLine)
+      .find((l) => l !== '') ?? '';
+  return clip(first, QUOTE_MAX);
 }

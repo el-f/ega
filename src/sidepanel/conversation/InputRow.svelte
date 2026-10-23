@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tick } from 'svelte';
+  import { tick, untrack } from 'svelte';
   import { DropdownMenu } from 'bits-ui';
   import { debugCatch } from '@/shared/logger';
   import { toastStore } from '@/shared/components/toastStore';
@@ -13,6 +13,7 @@
   import Mic from '@lucide/svelte/icons/mic';
   import Pencil from '@lucide/svelte/icons/pencil';
   import WandSparkles from '@lucide/svelte/icons/wand-sparkles';
+  import MessageCircleReply from '@lucide/svelte/icons/message-circle-reply';
   import ChevronDown from '@lucide/svelte/icons/chevron-down';
   import type { Variety } from '@/shared/types';
   import type { Tone } from '@/shared/task-prompts';
@@ -76,6 +77,10 @@
     /** Prior conversation turns, for the earlier-messages count. */
     turns: readonly ConversationTurnLike[];
     mode: ComposerMode;
+    /** In Ask mode, "Asking about the reply: {its start}", for the field's description. */
+    askLine?: string;
+    /** Said once in the composer's live region; a new object says it again. */
+    announce?: { text: string } | null;
     onCancelMode: () => void;
     onContextLevelChange: (level: 'minimal' | 'rich') => void;
     onAttachImage: (dataUrl: string) => void;
@@ -102,6 +107,8 @@
     inflight,
     turns,
     mode,
+    askLine = '',
+    announce = null,
     onCancelMode,
     onContextLevelChange,
     onAttachImage,
@@ -210,9 +217,34 @@
       target: langName(targetLang),
       tone: usesTone ? tone : undefined,
       imageToTranslate,
+      asks: task === 'ask',
     }),
   );
-  const chipName = $derived(`${chipLabel.replaceAll('→', 'to')}, change task and language`);
+  // "Ask" names no language on the chip, so its name does.
+  const chipSays = $derived(
+    task === 'ask' && !imageToTranslate
+      ? `${chipLabel}, answers in ${langName(targetLang)}`
+      : chipLabel.replaceAll('→', 'to'),
+  );
+  const chipName = $derived(`${chipSays}, change task and language`);
+
+  // The composer's own live region: a question mode starting, moving or ending is news only here.
+  let modeSaid = $state('');
+  function sayMode(text: string): void {
+    // Cleared first, so the same words twice are read twice.
+    modeSaid = '';
+    void tick().then(() => (modeSaid = text));
+  }
+  $effect(() => {
+    const a = announce;
+    if (a !== null) untrack(() => sayMode(a.text));
+  });
+  let lastKind = untrack(() => mode.kind);
+  $effect(() => {
+    const kind = mode.kind;
+    if (lastKind === 'ask' && kind === 'send') untrack(() => sayMode(`Back to ${chipSays}`));
+    lastKind = kind;
+  });
   const swap = $derived(
     swapResult(
       sourceLang,
@@ -247,9 +279,11 @@
   const placeholder = $derived(
     mode.kind === 'refine'
       ? 'Describe the change'
-      : nextImage
-        ? 'Add a note (optional)'
-        : 'Type, paste, or drop an image',
+      : mode.kind === 'ask'
+        ? 'Ask about this reply'
+        : nextImage
+          ? 'Add a note (optional)'
+          : 'Type, paste, or drop an image',
   );
 
   function trySend(): void {
@@ -300,7 +334,9 @@
         message:
           mode.kind === 'refine'
             ? "Images can't be part of a change."
-            : "Images can't be part of an edit.",
+            : mode.kind === 'ask'
+              ? "Images can't be part of a question."
+              : "Images can't be part of an edit.",
         variant: 'warning',
       });
       return;
@@ -431,14 +467,20 @@
         >
       </button>
     {:else}
+      {@const banner =
+        mode.kind === 'edit'
+          ? { icon: Pencil, text: 'Editing your message', x: 'Cancel editing' }
+          : mode.kind === 'ask'
+            ? { icon: MessageCircleReply, text: 'Asking about this reply', x: 'Done asking' }
+            : { icon: WandSparkles, text: 'Changing this reply', x: 'Cancel change' }}
       <span class="ega-mode-banner" data-ega-mode-banner>
-        <Icon icon={mode.kind === 'edit' ? Pencil : WandSparkles} size={16} />
-        <span>{mode.kind === 'edit' ? 'Editing your message' : 'Changing this reply'}</span>
+        <Icon icon={banner.icon} size={16} />
+        <span>{banner.text}</span>
         <button
           type="button"
           class="ega-mode-banner-x"
-          aria-label={mode.kind === 'edit' ? 'Cancel editing' : 'Cancel change'}
-          data-tooltip={mode.kind === 'edit' ? 'Cancel editing (Esc)' : 'Cancel change (Esc)'}
+          aria-label={banner.x}
+          data-tooltip="{banner.x} (Esc)"
           data-tooltip-placement="top"
           onclick={onCancelMode}><Icon icon={X} size={16} /></button
         >
@@ -543,7 +585,9 @@
       class="ega-input-textarea"
       dir="auto"
       aria-label="Message"
-      aria-describedby={overCap ? 'sp-count' : undefined}
+      aria-describedby={[mode.kind === 'ask' ? 'sp-ask-line' : '', overCap ? 'sp-count' : '']
+        .filter(Boolean)
+        .join(' ') || undefined}
       {placeholder}
       rows="1"
       bind:this={textareaEl}
@@ -583,6 +627,8 @@
     </p>
   {/if}
   <span class="ega-sr-only" role="status" aria-live="polite">{recognizing ? listening : ''}</span>
+  <span class="ega-sr-only" role="status" aria-live="polite" data-ega-mode-said>{modeSaid}</span>
+  {#if mode.kind === 'ask'}<span class="ega-sr-only" id="sp-ask-line">{askLine}</span>{/if}
 
   <!-- Value resets after each pick so re-selecting the same file refires the change event. -->
   <input

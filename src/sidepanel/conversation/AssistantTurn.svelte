@@ -14,7 +14,7 @@
   import Icon from '@/shared/ui/Icon.svelte';
   import Copy from '@lucide/svelte/icons/copy';
   import Check from '@lucide/svelte/icons/check';
-  import RefreshCw from '@lucide/svelte/icons/refresh-cw';
+  import MessageCircleReply from '@lucide/svelte/icons/message-circle-reply';
   import CircleAlert from '@lucide/svelte/icons/circle-alert';
   import ChevronLeft from '@lucide/svelte/icons/chevron-left';
   import ChevronRight from '@lucide/svelte/icons/chevron-right';
@@ -43,7 +43,9 @@
   import { isIsoCode, labelFor } from '@/shared/languages';
   import { openOptionsTab } from '@/shared/open-options-tab';
   import { IMAGE_TURN_PLACEHOLDER } from '@/shared/constants';
-  import { directionLabel, replyMetaItems, type ConfidenceSetting } from '@/shared/reply-meta';
+  import { replyMetaItems, type ConfidenceSetting } from '@/shared/reply-meta';
+  import type { AskAbout } from '@/shared/ask-about';
+  import { replyDirection } from '../state/thread-view';
   import ReplyMenus from './ReplyMenus.svelte';
   import TranslateIntoPopover from './TranslateIntoPopover.svelte';
 
@@ -90,6 +92,14 @@
     sentText?: string;
     /** The "Record request details" switch, for About on a reply that has no record. */
     recordsDetails?: boolean | undefined;
+    /** Starts Ask mode on this reply, or ends it when this reply is the one asked about. */
+    onAsk?: ((turnId: string) => void) | undefined;
+    /** Ask mode is asking about this reply. */
+    asked?: boolean;
+    /** Briefly highlighted after a quote led here. */
+    flash?: boolean;
+    /** The reply the question this answers was about, as it was sent. */
+    questionAbout?: AskAbout | undefined;
   }
 
   const {
@@ -120,6 +130,10 @@
     composerTarget,
     sentText = '',
     recordsDetails,
+    onAsk,
+    asked = false,
+    flash = false,
+    questionAbout,
   }: Props = $props();
 
   const variantCount = $derived(turn.variants?.length ?? 0);
@@ -142,7 +156,6 @@
 
   // The input language is the one the model named, else the one the send named; a swap version keeps its own.
   const answerTarget = $derived(activeVariant?.targetLang ?? targetLang);
-  const answerSource = $derived(activeVariant?.sourceLang ?? sourceLang);
   // Reword and Grammar answer in the input's language, which a swap version never re-sends.
   const answerLang = $derived(
     replyLang(currentTaskValue, answerTarget, turn.detectedLang ?? sourceLang, taskViews),
@@ -155,30 +168,17 @@
   const notesTag = $derived(langTag(answerTarget) ?? '');
   const mainItems = $derived(mainAnswerItems(turn.answer));
 
-  const direction = $derived(
-    directionLabel({
-      detected:
-        turn.detectedLangs !== undefined && turn.detectedLangs.length > 0
-          ? turn.detectedLangs
-          : turn.detectedLang !== undefined
-            ? [
-                turn.detectedDetail !== undefined
-                  ? { id: turn.detectedLang, detail: turn.detectedDetail }
-                  : { id: turn.detectedLang },
-              ]
-            : [],
-      ...(answerSource !== undefined ? { sourceLang: answerSource } : {}),
-      ...(answerTarget !== undefined ? { targetLang: answerTarget } : {}),
-      sourceOnly: currentTaskValue === 'reword' || currentTaskValue === 'grammar',
-      varieties,
-    }),
-  );
+  const direction = $derived(replyDirection(turn, { sourceLang, targetLang }, varieties));
+  // An answer to a question has no languages to show; the line names what it is instead.
+  const isAnswer = $derived(currentTaskValue === 'ask');
 
   const refinementBody = $derived(activeVariant?.refinementBody);
   // What made this version, as the meta line names it; a language change shows in the direction instead.
   const versionLabel = $derived.by(() => {
     if (refinementBody !== undefined) return activeVariant?.refinementLabel ?? 'Your change';
-    if (activeVariant?.task !== undefined) return `As ${taskLabel(taskViews, activeVariant.task)}`;
+    if (activeVariant?.task !== undefined && !isAnswer) {
+      return `As ${taskLabel(taskViews, activeVariant.task)}`;
+    }
     return undefined;
   });
 
@@ -253,7 +253,7 @@
       ...(statusText !== undefined ? { status: statusText } : {}),
       bookmarked: isBookmarked,
       meta: answering ? undefined : turn.meta,
-      direction: answering ? '' : direction,
+      direction: answering ? '' : isAnswer ? 'Answer' : direction,
       ...(versionLabel !== undefined && !answering ? { version: versionLabel } : {}),
       confidence: shownConfidence,
       confidenceSetting: confidence,
@@ -380,11 +380,19 @@
   });
 
   const srLabel = $derived(
-    variantCount > 1 ? `Ega reply, version ${activeIdx + 1} of ${variantCount}` : 'Ega reply',
+    (variantCount > 1 ? `Ega reply, version ${activeIdx + 1} of ${variantCount}` : 'Ega reply') +
+      (asked ? ', asked about' : ''),
   );
 
   // ── Action row ─────────────────────────────────────────────────────────────
   const canRerun = $derived(canRetry && onRefine !== undefined);
+  // A question needs a finished result to be about; an off Ask task offers nothing.
+  const canAsk = $derived(
+    onAsk !== undefined &&
+      turn.status === 'done' &&
+      turn.content.trim() !== '' &&
+      taskViews.some((v) => v.id === 'ask' && !v.disabled),
+  );
   const presets = $derived<readonly RefinePreset[]>(
     imageTurn ? [] : taskCapabilities(currentTaskValue, taskViews).refinePresets,
   );
@@ -416,7 +424,7 @@
   // One tab stop for the row; arrows move inside it. Hidden items are left out, never disabled ones.
   const actionKeys = $derived<readonly string[]>([
     'copy',
-    ...(canRetry ? ['regenerate'] : []),
+    ...(canAsk ? ['ask'] : []),
     ...(canRerun ? ['refine'] : []),
     'more',
     ...(variantCount > 1 ? ['prev', 'next'] : []),
@@ -501,6 +509,8 @@
     ),
   );
   const detailsText = $derived(sentText === IMAGE_TURN_PLACEHOLDER ? '' : sentText);
+  // "Answer again as Translate" on a question sends its text alone, so only an Ask version was about the reply.
+  const askedAbout = $derived(isAnswer ? questionAbout : undefined);
 
   // Diff only refine versions: an edited question's fresh answer against the old one is noise.
   const prevVariant = $derived(
@@ -559,11 +569,14 @@
 <article
   class="ega-reply"
   class:focused
+  class:asked
+  class:flash
   class:older={!isLatest}
   tabindex="-1"
   aria-label={srLabel}
   data-turn-id={turn.id}
   data-ega-reply
+  data-ega-ask-target={asked ? '' : undefined}
   bind:this={articleEl}
 >
   {#if turn.status === 'error' && turn.error}
@@ -705,21 +718,17 @@
           dataAttrs={{ 'data-ega-action': 'copy', tabindex: tab('copy') }}
           onclick={() => void copyReply()}
         />
-        {#if canRetry}
+        {#if canAsk}
           <IconButton
-            icon={RefreshCw}
-            ariaLabel={inflight ? 'Regenerate (wait for the current reply)' : 'Regenerate'}
-            tooltip="Regenerate"
+            icon={MessageCircleReply}
+            ariaLabel="Ask about this"
             size="sm"
             dataAttrs={{
-              'data-ega-regenerate': 'true',
-              'data-ega-action': 'regenerate',
-              tabindex: tab('regenerate'),
-              ...(inflight ? { 'aria-disabled': 'true' } : {}),
+              'data-ega-action': 'ask',
+              'aria-pressed': asked ? 'true' : 'false',
+              tabindex: tab('ask'),
             }}
-            onclick={() => {
-              if (!inflight) onRegenerate?.(turn.id);
-            }}
+            onclick={() => onAsk?.(turn.id)}
           />
         {/if}
         <ReplyMenus
@@ -727,6 +736,9 @@
           refineTab={tab('refine')}
           moreTab={tab('more')}
           {canRerun}
+          onRegenerate={canRetry && onRegenerate !== undefined
+            ? () => onRegenerate(turn.id)
+            : undefined}
           busy={inflight}
           {presets}
           canDescribe={!imageTurn}
@@ -779,6 +791,7 @@
           {direction}
           confidence={shownConfidence}
           change={activeVariant?.refinementLabel === undefined ? refinementBody : undefined}
+          {askedAbout}
           {recordsDetails}
           onOpenSettings={() => openOptionsTab('advanced')}
           onClose={() => void setAbout(false)}
@@ -810,6 +823,38 @@
   .ega-reply:focus-visible {
     outline: 2px solid var(--color-accent);
     outline-offset: 2px;
+  }
+  /* The reply Ask mode is about: the quote's bar, not a ring, so it never reads as focus. */
+  .ega-reply.asked {
+    border-inline-start: 2px solid var(--color-accent);
+    padding-inline-start: var(--space-2);
+  }
+  .ega-reply.flash {
+    animation: ega-reply-flash 1.2s step-end;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .ega-reply.flash {
+      animation-timing-function: linear;
+    }
+  }
+  /* Hold the tint 1 s, then fade 200 ms; under reduced motion step-end drops it at once. */
+  @keyframes ega-reply-flash {
+    0%,
+    83% {
+      background-color: var(--color-accent-bg-soft);
+    }
+    100% {
+      background-color: transparent;
+    }
+  }
+  @media (forced-colors: active) {
+    .ega-reply.asked {
+      border-inline-start-color: Highlight;
+    }
+    .ega-reply.flash {
+      animation: none;
+      outline: 2px solid Highlight;
+    }
   }
   .ega-answer {
     font-size: var(--fs-md);

@@ -87,6 +87,14 @@
     recordsDetails?: boolean | undefined;
     /** Turns mounted at once; older ones mount via "Show earlier" so a 300-turn restore is not one Markdown pass. */
     renderWindow?: number;
+    /** The reply Ask mode is about. */
+    askingTurnId?: string | null;
+    /** Starts or ends Ask mode on a reply: its Ask button, or `a` on the focused reply. */
+    onAsk?: (turnId: string) => void;
+    /** Every turn of the conversation, filters aside, so a quote can tell a hidden reply from a removed one. */
+    threadIds?: ReadonlySet<string>;
+    /** Clears search and the bookmark filter, so a quoted reply they hide can be shown. */
+    onClearFilters?: () => void;
   }
 
   const {
@@ -126,6 +134,10 @@
     composerTarget,
     recordsDetails,
     renderWindow = 60,
+    askingTurnId = null,
+    onAsk,
+    threadIds,
+    onClearFilters,
   }: Props = $props();
 
   let shownBeyondWindow = $state(0);
@@ -140,6 +152,10 @@
   const userTextById = $derived(
     Object.fromEntries(turns.filter((t) => t.role === 'user').map((t) => [t.id, t.content])),
   );
+  const aboutByUserId = $derived(
+    new Map(turns.flatMap((t) => (t.role === 'user' && t.about ? [[t.id, t.about] as const] : []))),
+  );
+  const liveIds = $derived(threadIds ?? new Set(turns.map((t) => t.id)));
   // A bookmark belongs to the pair (spec §5.2, F12): either half shows it, and unchecking clears both halves.
   const pairIds = $derived(
     new Map(
@@ -432,6 +448,33 @@
     el.scrollTo({ top: el.scrollHeight, behavior: reducedMotion() ? 'auto' : 'smooth' });
   }
 
+  let flashId = $state<string | null>(null);
+  let flashTimer: ReturnType<typeof setTimeout> | undefined;
+  $effect(() => () => clearTimeout(flashTimer));
+
+  /** A quote leads to its reply: a filter or the render window that hides it gives way, then it scrolls, flashes and takes focus. */
+  async function revealTurn(id: string): Promise<void> {
+    if (!turns.some((t) => t.id === id)) {
+      onClearFilters?.();
+      await tick();
+    }
+    const at = turns.findIndex((t) => t.id === id);
+    if (at < 0) return;
+    if (at < hiddenCount) {
+      shownBeyondWindow += hiddenCount - at;
+      await tick();
+    }
+    const el = scroller?.querySelector<HTMLElement>(`[data-turn-id="${CSS.escape(id)}"]`);
+    if (!el) return;
+    el.scrollIntoView({ block: 'center', behavior: reducedMotion() ? 'auto' : 'smooth' });
+    clearTimeout(flashTimer);
+    flashId = null;
+    await tick();
+    flashId = id;
+    flashTimer = setTimeout(() => (flashId = null), 1200);
+    el.focus({ preventScroll: true });
+  }
+
   // Registering a window listener here too would give two competing owners.
   $effect(() => {
     onRegisterKeydownHandler?.(handleKeydown);
@@ -486,6 +529,13 @@
       if (turn?.role === 'assistant') {
         e.preventDefault();
         onRetry(turn.id);
+      }
+    }
+    if (e.key === 'a' && !e.ctrlKey && !e.metaKey && !e.altKey && focusedTurnId) {
+      const turn = windowTurns.find((t) => t.id === focusedTurnId);
+      if (turn?.role === 'assistant') {
+        e.preventDefault();
+        onAsk?.(turn.id);
       }
     }
   }
@@ -588,6 +638,8 @@
               onBookmark={toggleBookmark}
               {onDelete}
               {onEdit}
+              aboutGone={turn.about !== undefined && !liveIds.has(turn.about.turnId)}
+              onQuote={(id) => void revealTurn(id)}
             />
           {:else}
             <AssistantTurn
@@ -618,6 +670,12 @@
               {taskViews}
               {composerTarget}
               {recordsDetails}
+              {onAsk}
+              asked={turn.id === askingTurnId}
+              flash={turn.id === flashId}
+              questionAbout={turn.attachedToTurnId
+                ? aboutByUserId.get(turn.attachedToTurnId)
+                : undefined}
             />
           {/if}
         {/each}

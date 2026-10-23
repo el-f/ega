@@ -30,13 +30,14 @@ describe('the tab stop follows a click', () => {
         onRetry: vi.fn(),
         onRefine: vi.fn(),
         onRegenerate: vi.fn(),
+        onAsk: vi.fn(),
         isLatest: true,
       },
     });
-    const regenerate = container.querySelector<HTMLElement>('[data-ega-action="regenerate"]');
-    regenerate?.focus();
-    await fireEvent.click(regenerate as HTMLElement);
-    await fireEvent.keyDown(regenerate as HTMLElement, { key: 'ArrowRight' });
+    const ask = container.querySelector<HTMLElement>('[data-ega-action="ask"]');
+    ask?.focus();
+    await fireEvent.click(ask as HTMLElement);
+    await fireEvent.keyDown(ask as HTMLElement, { key: 'ArrowRight' });
     await tick();
     expect(document.activeElement?.getAttribute('data-ega-action')).toBe('refine');
   });
@@ -50,6 +51,7 @@ describe('the panel names its own keys', () => {
     expect(overlay).toMatch(/Move between messages/);
     expect(overlay).toMatch(/Jump to the message box/);
     expect(overlay).toMatch(/Regenerate the focused reply/);
+    expect(overlay).toMatch(/Ask about the focused reply/);
     expect(overlay).toMatch(/Send to the side panel \(in the popup\)/);
     expect(overlay).not.toMatch(/Translate \(in popup textarea\)/);
   });

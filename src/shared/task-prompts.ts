@@ -60,7 +60,7 @@ export const TASK_GERUND: Record<Task, string> = {
   reword: 'Rewording',
   grammar: 'Fixing grammar',
   'suggest-replies': 'Drafting replies',
-  ask: 'Thinking',
+  ask: 'Answering',
 };
 
 /** The loading label for any task id; a custom task reads "Working". */

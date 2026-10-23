@@ -12,6 +12,7 @@
   import { modelDisplayName } from '@/shared/model-names';
   import { redactContext } from '@/shared/redact';
   import { MAX_INSTRUCTIONS_CHARS } from '@/shared/reply-instructions';
+  import { askQuote, type AskAbout } from '@/shared/ask-about';
 
   interface Props {
     /** Absent when result details are off in Settings, or the reply carried none. */
@@ -38,6 +39,8 @@
     confidence?: number | undefined;
     /** The change the user typed for this version ("Describe a change…"). */
     change?: string | undefined;
+    /** The earlier reply a question was about; the whole block goes into Copy as JSON. */
+    askedAbout?: AskAbout | undefined;
     /** Opens Settings, for "Turn on Record request details". */
     onOpenSettings?: (() => void) | undefined;
     /** The "Record request details" switch. On, a reply with no record says only that; unknown keeps the hint. */
@@ -60,6 +63,7 @@
     direction,
     confidence,
     change,
+    askedAbout,
     onOpenSettings,
     recordsDetails,
     onClose,
@@ -171,6 +175,7 @@
       task: image === 'ocr' ? 'Image prompt (built in)' : taskLabel,
       page: image === 'ocr' ? null : (page ?? null),
       ...(change !== undefined && change !== '' ? { change } : {}),
+      ...(askedAbout !== undefined ? { askedAbout } : {}),
       result: meta ?? null,
       ...(answer ? { answer } : {}),
       ...(details.length ? { fields: details } : {}),
@@ -298,6 +303,12 @@
           <dd class="rd-quote rd-rule" dir="auto" lang={valueLang}>{sentText}</dd>
         {/if}
       </div>
+      {#if askedAbout !== undefined}
+        <div class="rd-row rd-row-block" data-ega-asked-about>
+          <dt>Asked about</dt>
+          <dd class="rd-quote rd-rule" dir="auto">{askQuote(askedAbout)}</dd>
+        </div>
+      {/if}
       {#if historyLine}
         <div class="rd-row">
           <dt>Earlier messages</dt>
