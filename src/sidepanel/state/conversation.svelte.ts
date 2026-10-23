@@ -977,12 +977,16 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     if (slice.removed.length === 0 || slice.origin !== state.activeId) return false;
     if (slice.gen !== threadGen) return false;
     noteRevived(slice.removed, slice.deletedAt);
-    // Another Undo may have run since, so the index is a hint: the slice never lands before an older turn or after a newer one.
-    const first = slice.removed[0]?.createdAt ?? 0;
-    const last = slice.removed.at(-1)?.createdAt ?? 0;
-    const older = state.turns.reduce((n, t, i) => (t.createdAt < first ? i + 1 : n), 0);
-    const newer = state.turns.findIndex((t) => t.createdAt > last);
-    const at = Math.min(Math.max(slice.index, older, 0), newer < 0 ? state.turns.length : newer);
+    // The index is only a hint after other Undos; messages, not replies, set the order, since a retry makes a reply newer.
+    const sent = (slice.removed.find((t) => t.role === 'user') ?? slice.removed[0])?.createdAt ?? 0;
+    const len = state.turns.length;
+    const users = state.turns.flatMap((t, i) =>
+      t.role === 'user' ? [{ i, at: t.createdAt }] : [],
+    );
+    const prev = users.filter((u) => u.at < sent).at(-1);
+    const lower = prev === undefined ? 0 : (users.find((u) => u.i > prev.i)?.i ?? len);
+    const upper = users.find((u) => u.at > sent)?.i ?? len;
+    const at = Math.min(Math.max(slice.index, lower, 0), upper, len);
     noteKnownTurns(slice.removed);
     mutate(
       (turns) => settleAbout([...turns.slice(0, at), ...slice.removed, ...turns.slice(at)]),

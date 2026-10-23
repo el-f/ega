@@ -66,6 +66,51 @@ describe('Undo after the thread in memory was replaced', () => {
     expect(c.turns.map((t) => t.id)).toEqual(['t2']);
   });
 
+  describe('where a slice goes back', () => {
+    const reply = (id: string, of: string, createdAt: number): Turn => ({
+      id,
+      role: 'assistant',
+      kind: 'translate',
+      status: 'done',
+      createdAt,
+      content: id,
+      attachedToTurnId: of,
+    });
+    const ids = (c: ReturnType<typeof createConversation>): string[] => c.turns.map((t) => t.id);
+
+    it('after the reply it asks about, when the reply was undone first', async () => {
+      const o = 'https://undo-order.com';
+      await saveThread(o, [
+        userTurn('u1', 'one', 10),
+        reply('a1', 'u1', 11),
+        userTurn('u2', 'two', 20),
+        reply('a2', 'u2', 21),
+      ]);
+      const c = createConversation();
+      await c.openConversation(o);
+      const first = c.deleteTurn('u1');
+      const second = c.deleteTurn('u2');
+      expect(c.restoreTurns(first as NonNullable<typeof first>)).toBe(true);
+      expect(c.restoreTurns(second as NonNullable<typeof second>)).toBe(true);
+      expect(ids(c)).toEqual(['u1', 'a1', 'u2', 'a2']);
+    });
+
+    it('in its place next to a retried reply, which is newer than the messages after it', async () => {
+      const o = 'https://undo-retried.com';
+      await saveThread(o, [
+        userTurn('u1', 'one', 10),
+        reply('a1-retried', 'u1', 50),
+        userTurn('u2', 'two', 20),
+        reply('a2', 'u2', 21),
+      ]);
+      const c = createConversation();
+      await c.openConversation(o);
+      const slice = c.deleteTurn('u2');
+      expect(c.restoreTurns(slice as NonNullable<typeof slice>)).toBe(true);
+      expect(ids(c)).toEqual(['u1', 'a1-retried', 'u2', 'a2']);
+    });
+  });
+
   it('still restores while the thread is the one the delete came from', async () => {
     const o = 'https://undo-ok.com';
     await saveThread(o, [userTurn('t1', 'one', 10), userTurn('t2', 'two', 20)]);
