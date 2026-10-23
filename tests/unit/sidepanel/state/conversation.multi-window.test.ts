@@ -2,7 +2,8 @@ import { describe, it, expect, beforeEach, afterEach, vi, type Mock } from 'vite
 import { createConversation } from '@/sidepanel/state/conversation.svelte';
 import { loadThreadResult, saveThread } from '@/sidepanel/state/conversation-store';
 import { asLangIdUnsafe } from '@/shared/brands';
-import type { Turn } from '@/sidepanel/state/conversation';
+import { askedAbout } from '@/sidepanel/state/thread-view';
+import type { Turn, UserTurnData } from '@/sidepanel/state/conversation';
 
 type Container = ReturnType<typeof createConversation>;
 type Changes = Record<string, chrome.storage.StorageChange>;
@@ -706,5 +707,85 @@ describe('a copy of a reply that another window deletes', () => {
     const [stored] = (await loadThreadResult(ORIGIN)).turns;
     expect(stored).toMatchObject({ id: 'q', aboutRemoved: true });
     expect(stored).not.toHaveProperty('about');
+  });
+
+  it('stays removed when a window that still holds the question saves first; that window then shows it plain, and Undo brings it back', async () => {
+    const a = await openWindow();
+    // Window B hears storage late: its save runs before A's delete reaches it.
+    let late = false;
+    const held: Changes[] = [];
+    const b = createConversation();
+    const listener = (changes: Changes, area: string): void => {
+      if (area !== 'local') return;
+      if (late) held.push(changes);
+      else b.onStorageChanged(changes);
+    };
+    chrome.storage.onChanged.addListener(listener);
+    listeners.push(listener);
+    await b.openConversation(ORIGIN);
+
+    const e = await sendAndFinish(a, 'secret-original', 'secret-result');
+    const about = {
+      turnId: e,
+      task: 'Translate',
+      original: 'secret-original',
+      result: 'secret-result',
+    };
+    const answer = await a.send({
+      content: 'why?',
+      kind: 'ask',
+      sourceLang: 'auto',
+      targetLang: EN,
+      stream: true,
+      about,
+    });
+    const requestId = requestIdOf('why?');
+    a.applyChunk({ type: 'delta', requestId, text: 'Because.' });
+    a.applyChunk({ type: 'done', requestId, confidence: 1 });
+    await a.flush();
+    await drain();
+    const questionId = byId(a, answer)?.attachedToTurnId ?? '';
+    expect(byId(b, questionId)?.about).toEqual(about);
+
+    late = true;
+    const slice = a.deleteTurn(e);
+    await drain();
+    b.toggleBookmark(answer);
+    await b.flush();
+    await drain();
+
+    const stored = (await loadThreadResult(ORIGIN)).turns;
+    // B's write landed (its bookmark is stored), and it carried no copy of the deleted reply.
+    expect(stored.find((t) => t.id === answer)?.bookmarked).toBe(true);
+    expect(stored.find((t) => t.id === questionId)).toMatchObject({ aboutRemoved: true });
+    expect(stored.find((t) => t.id === questionId)).not.toHaveProperty('about');
+    expect(stored.some((t) => t.id === e)).toBe(false);
+    expect(JSON.stringify(stored)).not.toContain('secret-result');
+
+    late = false;
+    for (const changes of held.splice(0)) b.onStorageChanged(changes);
+    await drain();
+    const question = byId(b, questionId);
+    expect(byId(b, e)).toBeUndefined();
+    expect(question).toMatchObject({ content: 'why?', aboutRemoved: true });
+    expect(question).not.toHaveProperty('about');
+    // R2-27: the bubble renders a gone reply as a plain question, with no quote.
+    expect(askedAbout(question as UserTurnData, new Set(b.turns.map((t) => t.id)))).toBe('gone');
+    (chrome.runtime.sendMessage as Mock).mockClear();
+    expect(await b.regenerateVariant(answer)).toBe(true);
+    expect(JSON.stringify(lastStartOptions())).not.toContain('secret-result');
+    b.cancel();
+    await drain();
+
+    if (slice === null) throw new Error('nothing deleted');
+    expect(a.restoreTurns(slice)).toBe(true);
+    await a.flush();
+    await drain();
+    expect(byId(a, questionId)?.about).toEqual(about);
+    expect((await loadThreadResult(ORIGIN)).turns.find((t) => t.id === questionId)?.about).toEqual(
+      about,
+    );
+    expect(byId(b, e)?.content).toBe('secret-result');
+    expect(byId(b, questionId)?.about).toEqual(about);
   });
 });
