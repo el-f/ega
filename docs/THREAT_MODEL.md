@@ -131,8 +131,10 @@ One more store lives only until you close the browser: `chrome.storage.session`.
 Its slot `ega.pendingPopupHandoff` carries the most: the text you sent, the
 model's answer, the explain brief, text read out of an image, and the image
 itself as a data URL (`src/shared/pending-popup-handoff.ts`). A finished tooltip
-reply also brings its notes, details, detected languages and confidence, and the
-tooltip's Ask sets an `ask` flag.
+reply also brings its notes, details, structured answer, detected languages,
+confidence and reply metadata. With Record request details on, which is the
+default, that metadata holds the system prompt that was sent, glossary and rules
+included, cut to a fixed size. The tooltip's Ask sets an `ask` flag.
 The Storage shape table in `docs/PERMISSIONS.md` lists the full session storage set.
 
 ---
