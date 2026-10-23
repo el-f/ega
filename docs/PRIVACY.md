@@ -164,6 +164,20 @@ the history when the turn has a picture (`src/sidepanel/state/conversation.ts#bu
 An image answer opened in the panel from the right-click menu arrives finished, so it is not a
 send at all and carries nothing.
 
+### A question about a reply sends that reply again
+
+"Ask about this" on a reply, in the side panel or in the page tooltip, sends your question with
+that reply's details: its task, its languages and detected dialect, the text you sent for it, its
+answer and its notes (`src/shared/ask-about.ts`). Each is cut to a fixed size and fenced as
+untrusted data (`src/shared/prompts.ts#renderAskAboutBlock`). The usual history goes too.
+
+- The details are copied onto your question when you send it and saved with the conversation. A
+  new version of the answer (Regenerate, Refine, Retry) sends them again, with the history before
+  the question. Other new versions send no history, as before.
+- "Answer again as" another task sends only your question's text.
+- In the tooltip, "Ask about this" opens the side panel. Nothing is sent until you type a
+  question and send it.
+
 "Ega ▸ Translate in side panel" ships enabled by default
 (`src/shared/context-menu.ts#DEFAULT_CONTEXT_MENU_ITEMS`). The image items land their answer in
 the panel too by default (each image item's "Opens in", Settings → Selection and picker → Right-click menu), which adds it to
