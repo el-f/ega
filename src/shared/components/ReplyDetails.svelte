@@ -12,7 +12,7 @@
   import { modelDisplayName } from '@/shared/model-names';
   import { redactContext } from '@/shared/redact';
   import { MAX_INSTRUCTIONS_CHARS } from '@/shared/reply-instructions';
-  import { askQuote, type AskAbout } from '@/shared/ask-about';
+  import { askQuote, type AskedAbout } from '@/shared/ask-about';
 
   interface Props {
     /** Absent when result details are off in Settings, or the reply carried none. */
@@ -39,8 +39,9 @@
     confidence?: number | undefined;
     /** The change the user typed for this version ("Describe a change…"). */
     change?: string | undefined;
-    /** The earlier reply a question was about; the whole block goes into Copy as JSON. 'gone': that reply left the thread. */
-    askedAbout?: AskAbout | 'gone' | undefined;
+    /** The earlier reply a question was about; the whole block goes into Copy as JSON. 'gone': its copy left with the
+     *  deleted reply. 'unsent': this version ran while that reply was deleted. */
+    askedAbout?: AskedAbout | undefined;
     /** Opens Settings, for "Turn on Record request details". */
     onOpenSettings?: (() => void) | undefined;
     /** The "Record request details" switch. On, a reply with no record says only that; unknown keeps the hint. */
@@ -71,7 +72,10 @@
   }: Props = $props();
 
   const uid = $props.id();
-  const ASKED_ABOUT_GONE = 'A reply that is no longer in this conversation';
+  const ASKED_ABOUT_TEXT = {
+    gone: 'A reply that is no longer in this conversation',
+    unsent: 'Not sent. The reply was deleted when this version ran.',
+  } as const;
   let showAllPage = $state(false);
   let showTried = $state(false);
   let showInstructions = $state(false);
@@ -177,7 +181,7 @@
       page: image === 'ocr' ? null : (page ?? null),
       ...(change !== undefined && change !== '' ? { change } : {}),
       ...(askedAbout !== undefined
-        ? { askedAbout: askedAbout === 'gone' ? ASKED_ABOUT_GONE : askedAbout }
+        ? { askedAbout: typeof askedAbout === 'string' ? ASKED_ABOUT_TEXT[askedAbout] : askedAbout }
         : {}),
       result: meta ?? null,
       ...(answer ? { answer } : {}),
@@ -309,8 +313,8 @@
       {#if askedAbout !== undefined}
         <div class="rd-row rd-row-block" data-ega-asked-about>
           <dt>Asked about</dt>
-          {#if askedAbout === 'gone'}
-            <dd>{ASKED_ABOUT_GONE}</dd>
+          {#if typeof askedAbout === 'string'}
+            <dd>{ASKED_ABOUT_TEXT[askedAbout]}</dd>
           {:else}
             <dd class="rd-quote rd-rule" dir="auto">{askQuote(askedAbout)}</dd>
           {/if}

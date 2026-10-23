@@ -22,6 +22,7 @@
     separatorTurnIds,
     taskLabelsOnChange,
     askedAbout,
+    linkedQuote,
     type SuggestionKind,
     type SuggestionResult,
   } from '../state/thread-view';
@@ -35,7 +36,6 @@
   } from '@/shared/task-view';
   import type { LangSelection, Variety } from '@/shared/types';
   import type { ConfidenceSetting } from '@/shared/reply-meta';
-  import type { AskAbout } from '@/shared/ask-about';
 
   interface Props {
     turns: readonly Turn[];
@@ -163,11 +163,6 @@
       }),
     ),
   );
-  /** The bubble's quote and the task label read the same rule: a quote only links a reply still in the thread. */
-  function quotedBy(turn: Turn): AskAbout | undefined {
-    const asked = askedAbout(turn, liveIds);
-    return asked === 'gone' ? undefined : asked;
-  }
   // A bookmark belongs to the pair (spec §5.2, F12): either half shows it, and unchecking clears both halves.
   const pairIds = $derived(
     new Map(
@@ -650,7 +645,7 @@
               onBookmark={toggleBookmark}
               {onDelete}
               {onEdit}
-              quoted={quotedBy(turn)}
+              quoted={linkedQuote(turn, liveIds)}
               onQuote={(id) => void revealTurn(id)}
             />
           {:else}

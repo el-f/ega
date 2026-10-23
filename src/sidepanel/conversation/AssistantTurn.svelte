@@ -46,7 +46,7 @@
   import { openOptionsTab } from '@/shared/open-options-tab';
   import { IMAGE_TURN_PLACEHOLDER } from '@/shared/constants';
   import { detectedOf, replyMetaItems, type ConfidenceSetting } from '@/shared/reply-meta';
-  import type { AskAbout } from '@/shared/ask-about';
+  import type { AskedAbout } from '@/shared/ask-about';
   import { askedAbout as askedAboutOf, replyDirection } from '../state/thread-view';
   import ReplyMenus from './ReplyMenus.svelte';
   import TranslateIntoPopover from './TranslateIntoPopover.svelte';
@@ -101,7 +101,7 @@
     /** Briefly highlighted after a quote led here. */
     flash?: boolean;
     /** The reply the question this answers was about, as it was sent; 'gone' once its copy was removed with that reply. */
-    questionAbout?: AskAbout | 'gone' | undefined;
+    questionAbout?: AskedAbout | undefined;
   }
 
   const {

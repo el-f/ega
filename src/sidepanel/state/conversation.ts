@@ -76,6 +76,8 @@ export interface Variant {
   about?: AskAbout;
   /** The user deleted the reply this version asked about, and its copy with it. */
   aboutRemoved?: true;
+  /** This version ran while the reply it asks about was deleted, so its request carried no copy. Undo never clears it. */
+  aboutUnsent?: true;
 }
 
 /** Language pair + streaming preference of a user turn; its page context lives
@@ -241,6 +243,8 @@ interface AddAssistantTurnInput {
    *  variant rail can flip back to it. */
   preservedResponse?: string;
   taskId?: TaskId;
+  /** The seed variant's request carried no copy of the reply asked about. */
+  aboutUnsent?: true;
 }
 
 function pendingAssistantTurn(input: AddAssistantTurnInput): Turn {
@@ -261,6 +265,7 @@ function pendingAssistantTurn(input: AddAssistantTurnInput): Turn {
     rawAcc: '',
     // The mirror deletes turn.explain whenever the variant has none, so a pinned explanation must ride along.
     ...(input.explain !== undefined ? { explain: input.explain } : {}),
+    ...(input.aboutUnsent === true ? { aboutUnsent: true } : {}),
   };
   return {
     id: input.id,
@@ -349,6 +354,7 @@ interface AddVariantInput {
   task?: TaskId;
   about?: AskAbout;
   aboutRemoved?: true;
+  aboutUnsent?: true;
 }
 
 /** Appends a sibling variant and makes it active; no-op on a non-assistant turn or one without variants. */
@@ -369,6 +375,7 @@ export function addVariant(turns: readonly Turn[], turnId: string, input: AddVar
     ...(input.task !== undefined ? { task: input.task } : {}),
     ...(input.about !== undefined ? { about: input.about } : {}),
     ...(input.aboutRemoved === true ? { aboutRemoved: true } : {}),
+    ...(input.aboutUnsent === true ? { aboutUnsent: true } : {}),
   };
   const nextVariants = [...turn.variants, variant];
   const nextTurn: Turn = projectVariant({
@@ -525,6 +532,11 @@ export function buildStartArgs(userTurn: Turn, overlay: StartOverlay): StartArgs
     ...(image !== undefined ? { imageUrl: image } : {}),
     ...(overlay.freshAnswer ? { freshAnswer: true } : {}),
   };
+}
+
+/** An Ask request built while its copy of the reply was removed with that reply carries none; the version it starts must say so. */
+export function sendsNoCopy(args: StartArgs, copyRemoved: boolean): boolean {
+  return copyRemoved && args.task === 'ask' && args.askAbout === undefined;
 }
 
 function notesText(reply: AssistantTurnData): string | undefined {

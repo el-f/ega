@@ -13,6 +13,10 @@ export interface AskAbout {
   notes?: string;
 }
 
+/** What an answer's About says it was asked about: the copy sent, 'gone' once that copy left with a deleted reply,
+ *  'unsent' for a version run while the reply was deleted. */
+export type AskedAbout = AskAbout | 'gone' | 'unsent';
+
 const ASK_ABOUT_CAPS = {
   turnId: 200,
   task: 120,

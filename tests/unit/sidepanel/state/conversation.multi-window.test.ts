@@ -6,7 +6,7 @@ import {
   saveThread,
 } from '@/sidepanel/state/conversation-store';
 import { asLangIdUnsafe } from '@/shared/brands';
-import { askedAbout } from '@/sidepanel/state/thread-view';
+import { askedAbout, linkedQuote } from '@/sidepanel/state/thread-view';
 import type { Turn, UserTurnData } from '@/sidepanel/state/conversation';
 
 type Container = ReturnType<typeof createConversation>;
@@ -821,7 +821,10 @@ describe('a copy of a reply that another window deletes', () => {
     expect(question).toMatchObject({ content: 'why?', aboutRemoved: true });
     expect(question).not.toHaveProperty('about');
     // R2-27: the bubble renders a gone reply as a plain question, with no quote.
-    expect(askedAbout(question as UserTurnData, new Set(b.turns.map((t) => t.id)))).toBe('gone');
+    expect(
+      linkedQuote(question as UserTurnData, new Set(b.turns.map((t) => t.id))),
+    ).toBeUndefined();
+    expect(askedAbout(question as UserTurnData)).toBe('gone');
     (chrome.runtime.sendMessage as Mock).mockClear();
     expect(await b.regenerateVariant(answer)).toBe(true);
     expect(JSON.stringify(lastStartOptions())).not.toContain('secret-result');

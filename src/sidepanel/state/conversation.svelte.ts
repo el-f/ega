@@ -27,6 +27,7 @@ import {
   openVariantIds,
   replaceAssistantTurn,
   selectVariant as selectVariantPure,
+  sendsNoCopy,
   toggleBookmark as toggleBookmarkPure,
   truncateFrom,
   variantIdxForTarget,
@@ -653,6 +654,8 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     const requestId = uuid();
     // Only a failure counts: the done branch above is Regenerate, not a retry.
     const retries = settled?.status === 'error' ? (settled.retries ?? 0) + 1 : 0;
+    // History is the turns before the message, so the replace below does not change what this sends.
+    const args = buildStartArgs(source, { requestId, reuse, tone, context, thread: state.turns });
     // A replace is a delete plus an insert: without the tombstone another window writes the dead turn back.
     noteRemoved([assistantId]);
     mutate(
@@ -666,6 +669,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
           ...(context !== undefined ? { contextSent: context } : {}),
           // The tooltip's explanation came with the seed, not the stream, so the retry keeps it.
           ...(settled?.explain !== undefined ? { explain: settled.explain } : {}),
+          ...(sendsNoCopy(args, source.aboutRemoved === true) ? { aboutUnsent: true } : {}),
         }),
       'debounce',
     );
@@ -675,9 +679,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     noteOwnedRequest(requestId);
     armStall(requestId, source.imageDataUrl !== undefined);
     try {
-      await sendTranslateStart(
-        buildStartArgs(source, { requestId, reuse, tone, context, thread: state.turns }),
-      );
+      await sendTranslateStart(args);
     } catch (e) {
       failDispatch(nextAssistantId, requestId, e);
     }
@@ -699,7 +701,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     const answered = (turn.variants ?? []).some(
       (v) => v.id !== failed.id && v.status === 'done' && sameRequest(seedOf(v), seed),
     );
-    await dispatchVariant(turn.id, seed, answered);
+    await dispatchVariant(turn.id, seed, { freshAnswer: answered, from: failed });
   }
 
   /** The label only names a refine in the UI; every other seed field reaches the request. */
@@ -745,11 +747,12 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     return userTurn.dispatch ?? state.lastDispatch;
   }
 
-  /** Appends a pending sibling variant carrying `seed` and replays the user turn with it. `freshAnswer` skips the router's cached answer. */
+  /** Appends a pending sibling variant carrying `seed` and replays the user turn with it. `freshAnswer` skips the
+   *  router's cached answer; `from` is the version the seed came from. */
   async function dispatchVariant(
     turnId: string,
     seed: VariantSeed,
-    freshAnswer = false,
+    { freshAnswer = false, from }: { freshAnswer?: boolean; from?: Variant | undefined } = {},
   ): Promise<boolean> {
     if (state.inflightId !== null || ownedByBackground(turnId)) return false;
     const target = resolveVariantTarget(turnId);
@@ -759,38 +762,44 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     const variantId = uuid();
     const requestId = uuid();
     const asks = (seed.task ?? turnTaskValue(userTurn)) === 'ask';
-    // Run while the question's reply is deleted, it sends no copy; an Undo later must not make its About show one.
-    const aboutRemoved = asks && seed.about === undefined && userTurn.aboutRemoved === true;
+    // The user turn's captured tone wins, so a later picker change does not apply backwards.
+    const tone = userTurn.tone ?? state.lastDispatch?.tone;
+    // A variant re-answers this one exchange with no earlier turns, except a question: it means nothing without them.
+    const args = buildStartArgs(userTurn, {
+      requestId,
+      reuse,
+      seed,
+      tone,
+      context,
+      thread: asks ? state.turns : 'none',
+      freshAnswer,
+    });
+    // Run while its reply is deleted, it sends no copy, so its About must not show one after Undo.
+    const unsent = sendsNoCopy(args, userTurn.aboutRemoved === true || from?.aboutRemoved === true);
+    // An "Ask instead" version keeps its copy on itself: a re-run of it gets the parked copy back with the same Undo.
+    const parked =
+      unsent && from?.aboutRemoved === true
+        ? parkedAbout.find((f) => f.turnId === turnId && f.variantId === from.id)
+        : undefined;
     mutate(
       (turns) =>
         addVariantPure(turns, turnId, {
           id: variantId,
           ...seed,
-          ...(aboutRemoved ? { aboutRemoved } : {}),
+          ...(unsent ? { aboutUnsent: true } : {}),
+          ...(parked !== undefined ? { aboutRemoved: true } : {}),
         }),
       'debounce',
     );
+    if (parked !== undefined) parkedAbout.push({ turnId, variantId, about: parked.about });
     state.inflightId = turnId;
     state.inflightVariantId = variantId;
     // A variant targets an existing mid-history turn, so inflightId is that turn's id, not a new last turn.
     state.requestId = requestId;
     noteOwnedRequest(requestId);
     armStall(requestId, userTurn.imageDataUrl !== undefined);
-    // The user turn's captured tone wins, so a later picker change does not apply backwards.
-    const tone = userTurn.tone ?? state.lastDispatch?.tone;
     try {
-      // A variant re-answers this one exchange with no earlier turns, except a question: it means nothing without them.
-      await sendTranslateStart(
-        buildStartArgs(userTurn, {
-          requestId,
-          reuse,
-          seed,
-          tone,
-          context,
-          thread: asks ? state.turns : 'none',
-          freshAnswer,
-        }),
-      );
+      await sendTranslateStart(args);
     } catch (e) {
       failDispatch(turnId, requestId, e, variantId);
     }
@@ -805,16 +814,13 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     const { turnId, refinementBody, refinementLabel } = args;
     // A refine re-runs the version on screen: its task and languages, with this refinement in place of its own.
     const shown = state.turns.find((t) => t.id === turnId);
-    const {
-      refinementBody: _body,
-      refinementLabel: _label,
-      ...base
-    } = seedOf(shown ? activeVariant(shown) : undefined);
-    return dispatchVariant(turnId, {
-      ...base,
-      refinementBody,
-      ...(refinementLabel !== undefined ? { refinementLabel } : {}),
-    });
+    const from = shown ? activeVariant(shown) : undefined;
+    const { refinementBody: _body, refinementLabel: _label, ...base } = seedOf(from);
+    return dispatchVariant(
+      turnId,
+      { ...base, refinementBody, ...(refinementLabel !== undefined ? { refinementLabel } : {}) },
+      { from },
+    );
   }
 
   /** The source a swap replays: the dispatch's own, or the language the model reported for an 'auto' send. */
@@ -923,7 +929,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       selectVariant(assistantId, existing);
       return true;
     }
-    const ok = await dispatchVariant(assistantId, { targetLang, ...carried });
+    const ok = await dispatchVariant(assistantId, { targetLang, ...carried }, { from: active });
     if (ok) langChangeRequestId = state.requestId;
     return ok;
   }
@@ -1032,7 +1038,8 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     const turn = state.turns.find((t) => t.id === turnId);
     // Re-rolls the answer on screen: a swap, a language change, a task or a refine runs as itself again.
     // The same request has a cached answer (the one on screen), so without freshAnswer the router hands it back unchanged.
-    return dispatchVariant(turnId, seedOf(turn ? activeVariant(turn) : undefined), true);
+    const from = turn ? activeVariant(turn) : undefined;
+    return dispatchVariant(turnId, seedOf(from), { freshAnswer: true, from });
   }
 
   function editFrom(userTurnId: string): string | null {

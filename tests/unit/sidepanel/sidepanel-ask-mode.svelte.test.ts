@@ -368,7 +368,7 @@ describe('asking', () => {
     expect(starts().at(-1)?.options.askAbout?.['result']).toBe('Hi, how are you?');
   });
 
-  it('About on a version run while the reply was deleted still says so after Undo: it sent no copy', async () => {
+  it('About on a version run while the reply was deleted says it sent no copy, also once Undo brought the reply back', async () => {
     const push = vi.spyOn(toastStore, 'push');
     const c = await mounted();
     await fireEvent.click(askOn(await firstExchange(c)));
@@ -394,7 +394,9 @@ describe('asking', () => {
         return row.textContent;
       });
     };
-    expect(await askedRow()).toBe('A reply that is no longer in this conversation');
+    // The reply is back and quoted above, so "no longer in this conversation" would be false here.
+    expect(c.querySelector('[data-ega-ask-quote]')?.textContent).toContain('Hi, how are you?');
+    expect(await askedRow()).toBe('Not sent. The reply was deleted when this version ran.');
     await fireEvent.click(answer.querySelector('[data-ega-variant-prev]') as HTMLElement);
     await settle();
     // The first version did send the reply, and the Undo gave the question its copy back.

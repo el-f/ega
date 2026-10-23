@@ -121,16 +121,18 @@ function validateStoredTurn(t: unknown): Turn | null {
 
 /** An "Ask instead" version keeps the reply it asked about; a malformed one is dropped, as on a user turn. */
 function withCappedVariantAbout(t: AssistantTurnData): AssistantTurnData {
-  const asked = (v: Variant): boolean => v.about !== undefined || v.aboutRemoved !== undefined;
+  const asked = (v: Variant): boolean =>
+    v.about !== undefined || v.aboutRemoved !== undefined || v.aboutUnsent !== undefined;
   if (!Array.isArray(t.variants) || !t.variants.some(asked)) return t;
   return {
     ...t,
-    variants: t.variants.map(({ about, aboutRemoved, ...v }) => {
+    variants: t.variants.map(({ about, aboutRemoved, aboutUnsent, ...v }) => {
       const capped = about === undefined ? null : capAskAbout(about);
       return {
         ...v,
         ...(capped ? { about: capped } : {}),
         ...(aboutRemoved === true ? { aboutRemoved } : {}),
+        ...(aboutUnsent === true ? { aboutUnsent } : {}),
       };
     }),
   };

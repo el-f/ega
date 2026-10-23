@@ -3,6 +3,7 @@ import {
   askedAbout,
   SEPARATOR_GAP_MS,
   conversationTitle,
+  linkedQuote,
   listTime,
   modeChipLabel,
   replyDirection,
@@ -80,13 +81,15 @@ describe('taskLabelsOnChange', () => {
       user('u4', 4, { kind: 'reword', tone: 'casual' }),
       user('u5', 5, { kind: 'reword', tone: 'neutral' }),
     ];
-    expect(Object.fromEntries(taskLabelsOnChange(turns, SHIPPED_TASK_VIEWS))).toEqual({
+    expect(Object.fromEntries(taskLabelsOnChange(turns, SHIPPED_TASK_VIEWS, new Set()))).toEqual({
       u2: 'Explain',
       u4: 'Reword · Casual',
       u5: 'Reword',
     });
     expect(
-      taskLabelsOnChange([user('x', 1, { kind: 'summarize' })], SHIPPED_TASK_VIEWS).get('x'),
+      taskLabelsOnChange([user('x', 1, { kind: 'summarize' })], SHIPPED_TASK_VIEWS, new Set()).get(
+        'x',
+      ),
     ).toBe('Summarize');
   });
 
@@ -97,9 +100,9 @@ describe('taskLabelsOnChange', () => {
       user('u2', 2, { kind: 'ask', about }),
       user('u3', 3, { kind: 'translate' }),
     ];
-    expect(Object.fromEntries(taskLabelsOnChange(turns, SHIPPED_TASK_VIEWS))).toEqual({
-      u3: 'Translate',
-    });
+    expect(
+      Object.fromEntries(taskLabelsOnChange(turns, SHIPPED_TASK_VIEWS, new Set(['a1']))),
+    ).toEqual({ u3: 'Translate' });
   });
 
   it('a question whose reply left the thread shows no quote, so it is labelled like any question', () => {
@@ -116,17 +119,25 @@ describe('taskLabelsOnChange', () => {
 
 describe('askedAbout', () => {
   const about = { turnId: 'a1', task: 'Translate', original: 'hola', result: 'hello' };
-  it('is the copy while its reply is here, and gone once it left or its copy was removed', () => {
-    expect(askedAbout({ about }, new Set(['a1']))).toBe(about);
-    expect(askedAbout({ about }, new Set())).toBe('gone');
-    expect(askedAbout({ aboutRemoved: true }, new Set(['a1']))).toBe('gone');
-    expect(askedAbout({}, new Set())).toBeUndefined();
+  it('is what was sent: the copy, which outlives a trim of its reply, gone once the copy was removed', () => {
+    expect(askedAbout({ about })).toBe(about);
+    expect(askedAbout({ aboutRemoved: true })).toBe('gone');
+    expect(askedAbout({})).toBeUndefined();
     expect(askedAbout(undefined)).toBeUndefined();
   });
 
-  it('with no thread to look in, is what was sent: a copy whose reply was trimmed is still the copy', () => {
-    expect(askedAbout({ about })).toBe(about);
-    expect(askedAbout({ aboutRemoved: true })).toBe('gone');
+  it('is unsent for a version run while its reply was deleted, even once Undo gave it the copy', () => {
+    expect(askedAbout({ aboutUnsent: true })).toBe('unsent');
+    expect(askedAbout({ about, aboutUnsent: true })).toBe('unsent');
+  });
+});
+
+describe('linkedQuote', () => {
+  const about = { turnId: 'a1', task: 'Translate', original: 'hola', result: 'hello' };
+  it('is the copy only while its reply is in the thread', () => {
+    expect(linkedQuote({ about }, new Set(['a1']))).toBe(about);
+    expect(linkedQuote({ about }, new Set())).toBeUndefined();
+    expect(linkedQuote({}, new Set(['a1']))).toBeUndefined();
   });
 });
 

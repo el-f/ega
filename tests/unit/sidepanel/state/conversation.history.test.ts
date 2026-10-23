@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, type Mock } from 'vitest';
 import { createConversation } from '@/sidepanel/state/conversation.svelte';
 import { asLangIdUnsafe } from '@/shared/brands';
+import { activeVariant, type Variant } from '@/sidepanel/state/conversation';
+import { askedAbout } from '@/sidepanel/state/thread-view';
 
 const en = asLangIdUnsafe('en');
 
@@ -254,6 +256,93 @@ describe('retry() — conversationHistory assembly', () => {
     const plain = (chrome.runtime.sendMessage as Mock).mock.calls[0]?.[0];
     expect('askAbout' in plain.options).toBe(false);
     expect('conversationHistory' in plain.options).toBe(false);
+  });
+
+  describe('a re-run while the reply asked about is deleted', () => {
+    const lastStart = (): { options: Record<string, unknown> } =>
+      (chrome.runtime.sendMessage as Mock).mock.calls
+        .map((c) => c[0] as { kind: string; options: Record<string, unknown> })
+        .filter((m) => m.kind === 'translate:start')
+        .at(-1) as { options: Record<string, unknown> };
+    const shown = (c: ReturnType<typeof createConversation>, id: string): Variant | undefined => {
+      const t = c.turns.find((x) => x.id === id);
+      return t === undefined ? undefined : activeVariant(t);
+    };
+
+    async function exchange(
+      c: ReturnType<typeof createConversation>,
+      content: string,
+      answer: string,
+    ): Promise<string> {
+      const id = await c.send({
+        content,
+        kind: 'translate',
+        sourceLang: 'auto',
+        targetLang: en,
+        stream: false,
+      });
+      completeAssistant(c, answer);
+      return id;
+    }
+
+    it('an "Ask instead" version re-run says it sent no copy, and gets the copy back with Undo', async () => {
+      const c = createConversation();
+      const e = await exchange(c, 'secret-original', 'secret-result');
+      const t = await exchange(c, 'what does it mean', 'what does it mean');
+      const about = {
+        turnId: e,
+        task: 'Translate',
+        original: 'secret-original',
+        result: 'secret-result',
+      };
+      expect(await c.taskVariant(t, 'ask', about)).toBe(true);
+      completeAssistant(c, 'It asks.');
+      const slice = c.deleteTurn(e);
+      expect(await c.regenerateVariant(t)).toBe(true);
+      expect(lastStart().options['task']).toBe('ask');
+      expect(lastStart().options).not.toHaveProperty('askAbout');
+      completeAssistant(c, 'It asks, again.');
+      expect(askedAbout(shown(c, t))).toBe('unsent');
+
+      if (slice === null) throw new Error('nothing deleted');
+      expect(c.restoreTurns(slice)).toBe(true);
+      // It still sent nothing, but its own re-runs ask about the reply again.
+      expect(askedAbout(shown(c, t))).toBe('unsent');
+      expect(await c.regenerateVariant(t)).toBe(true);
+      expect(lastStart().options['askAbout']).toEqual(about);
+    });
+
+    it('a Retry of a failed answer to a question says it sent no copy, even once Undo brings the reply back', async () => {
+      const c = createConversation();
+      const e = await exchange(c, 'secret-original', 'secret-result');
+      const about = {
+        turnId: e,
+        task: 'Translate',
+        original: 'secret-original',
+        result: 'secret-result',
+      };
+      const failed = await c.send({
+        content: 'why?',
+        kind: 'ask',
+        sourceLang: 'auto',
+        targetLang: en,
+        stream: false,
+        about,
+      });
+      c.applyChunk({ type: 'error', requestId: lastRequestId(), code: 'NETWORK', message: 'x' });
+      const question = c.turns.find((x) => x.id === failed)?.attachedToTurnId;
+      const slice = c.deleteTurn(e);
+      await c.retry(failed);
+      expect(lastStart().options['task']).toBe('ask');
+      expect(lastStart().options).not.toHaveProperty('askAbout');
+      const answer = c.turns.find((x) => x.role === 'assistant' && x.attachedToTurnId === question);
+      expect(askedAbout(shown(c, answer?.id ?? ''))).toBe('unsent');
+
+      if (slice === null) throw new Error('nothing deleted');
+      expect(c.restoreTurns(slice)).toBe(true);
+      expect(c.turns.find((x) => x.id === question)?.about).toEqual(about);
+      expect(askedAbout(shown(c, answer?.id ?? ''))).toBe('unsent');
+    });
   });
 
   it('a refine variant sends no history, by choice, even with earlier exchanges', async () => {

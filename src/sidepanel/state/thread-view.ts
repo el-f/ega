@@ -5,7 +5,7 @@ import { activeVariant, turnLabel, turnTaskValue } from './conversation';
 import type { TaskView } from '@/shared/task-view';
 import { TONE_LABELS, type Tone } from '@/shared/task-prompts';
 import { detectedOf, directionLabel } from '@/shared/reply-meta';
-import type { AskAbout } from '@/shared/ask-about';
+import type { AskAbout, AskedAbout } from '@/shared/ask-about';
 
 const MINUTE = 60_000;
 const DAY = 24 * 60 * MINUTE;
@@ -77,24 +77,35 @@ export function separatorTurnIds(turns: readonly Turn[]): ReadonlySet<string> {
   return out;
 }
 
-/** What a question or an "Ask instead" version asked about, 'gone' once its copy was removed with the reply.
- *  With `live`, the quote the bubble links: also 'gone' once the reply left the thread. Without it, what a request
- *  sends and About shows: a copy outlives the storage cap's trim of its reply. */
+/** What About says a question or a version sent: its copy (which outlives the storage cap's trim of its reply),
+ *  'gone' once the copy was removed with the reply, 'unsent' for a version run while the reply was deleted. */
 export function askedAbout(
-  holder: { about?: AskAbout | undefined; aboutRemoved?: true | undefined } | undefined,
-  live?: ReadonlySet<string>,
-): AskAbout | 'gone' | undefined {
-  if (holder?.about !== undefined) {
-    return live === undefined || live.has(holder.about.turnId) ? holder.about : 'gone';
-  }
+  holder:
+    | {
+        about?: AskAbout | undefined;
+        aboutRemoved?: true | undefined;
+        aboutUnsent?: true | undefined;
+      }
+    | undefined,
+): AskedAbout | undefined {
+  if (holder?.aboutUnsent === true) return 'unsent';
+  if (holder?.about !== undefined) return holder.about;
   return holder?.aboutRemoved === true ? 'gone' : undefined;
+}
+
+/** The quote a question's bubble links: its copy, only while that reply is still in the thread. */
+export function linkedQuote(
+  holder: { about?: AskAbout | undefined },
+  live: ReadonlySet<string>,
+): AskAbout | undefined {
+  return holder.about !== undefined && live.has(holder.about.turnId) ? holder.about : undefined;
 }
 
 /** The task each user message names above its bubble, only where the task changes (or a first message that is not Translate). */
 export function taskLabelsOnChange(
   turns: readonly Turn[],
   views: readonly TaskView[],
-  live?: ReadonlySet<string>,
+  live: ReadonlySet<string>,
 ): ReadonlyMap<string, string> {
   const out = new Map<string, string>();
   let prev: string | undefined;
@@ -106,8 +117,7 @@ export function taskLabelsOnChange(
     const key = `${task}|${tone ?? ''}`;
     const changed = prev === undefined ? task !== 'translate' || tone !== undefined : key !== prev;
     // A quoted question is marked by its quote; a task label would say it twice.
-    const asked = askedAbout(t, live);
-    if (changed && (asked === undefined || asked === 'gone')) {
+    if (changed && linkedQuote(t, live) === undefined) {
       const base = turnLabel(t.kind === 'image-translate' ? { ...t, kind: 'translate' } : t, views);
       out.set(t.id, tone === undefined ? base : `${base} · ${TONE_LABELS[tone]}`);
     }
