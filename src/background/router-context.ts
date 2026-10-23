@@ -271,6 +271,7 @@ export function buildSystemAndUser(
     glossaryBlock: renderGlossaryBlock(ctx.glossaryEntries),
     rulesBlock: ctx.rulesBlock,
     ...(req.options.refinement !== undefined ? { refinement: req.options.refinement } : {}),
+    ...(req.options.askAbout !== undefined ? { askAbout: req.options.askAbout } : {}),
     contextBlockIfNoSlot: ctx.contextBlockIfNoSlot,
     ...(ctx.contract ? { contract: ctx.contract } : {}),
     ...(ctx.format ? { format: ctx.format } : {}),

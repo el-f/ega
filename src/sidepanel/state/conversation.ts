@@ -17,6 +17,7 @@ import {
 } from '@/shared/chat-history';
 import type { sendTranslateStart } from '@/shared/translate-ui';
 import type { AnswerNote, AnswerDetail } from '@/shared/answer/reader';
+import { capAskAbout, type AskAbout } from '@/shared/ask-about';
 import type { AnswerSnapshot, AnswerReplyFields } from '@/shared/types';
 
 /** Every kind this build creates; saved turns can carry a newer build's task id. */
@@ -110,6 +111,8 @@ export interface UserTurnData extends TurnBase {
   dispatch?: TurnDispatch;
   /** The text was cut to this many characters before it reached the panel. */
   trimmedTo?: number;
+  /** A question about an earlier reply: that reply's details, frozen at send. */
+  about?: AskAbout;
   rawAcc?: never;
   detectedLang?: never;
   detectedDetail?: never;
@@ -167,6 +170,7 @@ export interface AssistantTurnData extends TurnBase {
   tone?: never;
   dispatch?: never;
   trimmedTo?: never;
+  about?: never;
 }
 
 /** A turn in a thread, by role: a user turn cannot carry an answer's fields, nor an answer a user turn's. */
@@ -467,6 +471,8 @@ export interface StartOverlay {
   thread: readonly Turn[] | 'none';
   /** The same request already has an answer the user wants replaced, so the router must not serve it from the cache. */
   freshAnswer?: boolean;
+  /** A variant that asks about an earlier reply; a sent question carries its own on the user turn. */
+  about?: AskAbout;
 }
 
 /** The turns before the user turn. Neither vision arm forwards history (router.ts), so an image gets none. */
@@ -483,6 +489,7 @@ export function buildStartArgs(userTurn: Turn, overlay: StartOverlay): StartArgs
   const task = seed.task ?? turnTaskValue(userTurn);
   const image = userTurn.imageDataUrl;
   const history = historyFor(userTurn, overlay.thread);
+  const about = overlay.about ?? userTurn.about;
   return {
     requestId: overlay.requestId,
     text: userTurn.content,
@@ -495,9 +502,36 @@ export function buildStartArgs(userTurn: Turn, overlay: StartOverlay): StartArgs
     ...(overlay.context ? { context: overlay.context } : {}),
     ...(seed.refinementBody !== undefined ? { refinement: seed.refinementBody } : {}),
     ...(history.length > 0 ? { conversationHistory: history } : {}),
+    ...(about !== undefined ? { askAbout: about } : {}),
     ...(image !== undefined ? { imageUrl: image } : {}),
     ...(overlay.freshAnswer ? { freshAnswer: true } : {}),
   };
+}
+
+function notesText(reply: AssistantTurnData): string | undefined {
+  const parts = (reply.notes ?? []).flatMap((n) => {
+    const body = n.text ?? n.items?.join('; ') ?? '';
+    return body === '' ? [] : [`${n.label}: ${body}`];
+  });
+  if (parts.length > 0) return parts.join('\n');
+  return reply.explain;
+}
+
+/** What a question about `reply` carries. The labels are the ones its meta line shows, so the model reads what the user read. */
+export function aboutFrom(
+  reply: AssistantTurnData,
+  asked: UserTurnData | undefined,
+  labels: { task: string; languages?: string | undefined },
+): AskAbout | null {
+  const notes = notesText(reply);
+  return capAskAbout({
+    turnId: reply.id,
+    task: labels.task,
+    ...(labels.languages ? { languages: labels.languages } : {}),
+    original: asked?.content ?? '',
+    result: reply.content,
+    ...(notes ? { notes } : {}),
+  });
 }
 
 /** Copies the turn with the active variant's fields, so a pending variant cannot show the previous body. */

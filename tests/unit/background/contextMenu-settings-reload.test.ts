@@ -437,6 +437,42 @@ describe('translate:start — inbound page context is capped at the trust bounda
       expect(t.content).not.toContain('sure """');
     }
   });
+
+  it('caps the earlier result a question is about, and drops one that is not usable', async () => {
+    const send = (requestId: string, askAbout: unknown): void =>
+      chromeMock.runtime.onMessage.emit(
+        {
+          kind: 'translate:start',
+          requestId,
+          text: 'why?',
+          sourceLang: 'auto',
+          targetLang: 'en',
+          options: { stream: false, explain: false, task: 'ask', askAbout },
+        },
+        { id: chromeMock.runtime.id, tab: { id: 1 } } as unknown as chrome.runtime.MessageSender,
+        () => {},
+      );
+    send('about-1', {
+      turnId: 't1',
+      task: 'Translate',
+      original: 'o'.repeat(5000),
+      result: 'r'.repeat(5000),
+      notes: 'n'.repeat(5000),
+      extra: 'dropped',
+    });
+    send('about-2', { turnId: 't1', task: 'Translate', result: 42 });
+    await flushAsync();
+
+    const about = (i: number) =>
+      (handleTranslateMock.mock.calls[i]?.[0] as { options: { askAbout?: Record<string, string> } })
+        .options.askAbout;
+    const capped = about(0);
+    expect(capped?.['original']).toHaveLength(2000);
+    expect(capped?.['result']).toHaveLength(2000);
+    expect(capped?.['notes']).toHaveLength(1000);
+    expect(capped).not.toHaveProperty('extra');
+    expect(about(1)).toBeUndefined();
+  });
 });
 
 describe('custom-task change → flush and rebuild the menu', () => {

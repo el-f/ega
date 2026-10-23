@@ -1,4 +1,5 @@
 import type { BackendId, LangSelection, PageContext } from '@/shared/types';
+import type { AskAbout } from './ask-about';
 import type { Tone } from '@/shared/task-prompts';
 import type { TaskId } from '@/shared/task-view';
 import type { ChatTurn } from '@/shared/chat-history';
@@ -57,6 +58,8 @@ export async function sendTranslateStart(args: {
   refinement?: string;
   /** Prior conversation turns, oldest-first. Absent on the first send. */
   conversationHistory?: ChatTurn[];
+  /** The earlier result the question is about. */
+  askAbout?: AskAbout;
   /** Attached image (data: or http(s) URL). Routes through a vision backend. */
   imageUrl?: string;
   /** Regenerate: skip the cached answer to this same request. */
@@ -77,6 +80,7 @@ export async function sendTranslateStart(args: {
       ...(args.tone ? { tone: args.tone } : {}),
       ...(args.refinement ? { refinement: args.refinement } : {}),
       ...(args.conversationHistory ? { conversationHistory: args.conversationHistory } : {}),
+      ...(args.askAbout ? { askAbout: args.askAbout } : {}),
       ...(args.imageUrl ? { imageUrl: args.imageUrl } : {}),
       ...(args.freshAnswer ? { freshAnswer: true } : {}),
     },

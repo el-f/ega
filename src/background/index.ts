@@ -32,6 +32,7 @@ import type { PageContext, Settings } from '@/shared/types';
 import { parseSettingsPatch, resolveModelId } from '@/shared/settings-schema';
 import { assertNever } from '@/shared/invariants';
 import { MAX_SELECTION_CHARS } from '@/shared/constants';
+import { capAskAbout } from '@/shared/ask-about';
 import { dispatchImageTranslate } from './imageTranslateDispatch';
 import { openSidePanelWithHandoff, type OpenSidePanelHandoff } from './openSidePanelHandoff';
 import { writePendingPopupHandoff } from '@/shared/pending-popup-handoff';
@@ -218,10 +219,13 @@ function boundedOptions(o: TranslateStartOptions): TranslateStartOptions {
     )
     .slice(-MAX_HISTORY_TURNS)
     .map((t) => fenceHistoryTurn({ role: t.role, content: cap(t.content) }));
+  const { askAbout: rawAbout, ...rest } = o;
+  const askAbout = rawAbout === undefined ? null : capAskAbout(rawAbout);
   return {
-    ...o,
+    ...rest,
     ...(typeof o.refinement === 'string' ? { refinement: cap(o.refinement) } : {}),
     ...(o.conversationHistory !== undefined ? { conversationHistory: history } : {}),
+    ...(askAbout !== null ? { askAbout } : {}),
   };
 }
 

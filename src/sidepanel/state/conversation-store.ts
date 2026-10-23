@@ -1,4 +1,5 @@
 // One thread per origin under its own key, so a streaming delta's save rewrites just that thread.
+import { capAskAbout } from '@/shared/ask-about';
 import { withConversationLock } from '@/shared/conversation-lock';
 import {
   CONV_STORE_VERSION,
@@ -93,6 +94,11 @@ function validateStoredTurn(t: unknown): Turn | null {
     const user = { ...(e as unknown as UserTurnData), status: 'idle' as const };
     // Rendered as a count, so anything but a positive integer is dropped rather than shown.
     if (!(Number.isInteger(user.trimmedTo) && (user.trimmedTo ?? 0) > 0)) delete user.trimmedTo;
+    if (user.about !== undefined) {
+      const about = capAskAbout(user.about);
+      if (about) user.about = about;
+      else delete user.about;
+    }
     return user;
   }
   const answer = e as unknown as AssistantTurnData;

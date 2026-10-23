@@ -1,4 +1,5 @@
 import type { Tone } from './task-prompts';
+import type { AskAbout } from './ask-about';
 import type { TaskId } from './task-view';
 import type { VarietyEditFromSchema } from './settings-schema';
 import type { BackendId, LangPresetId, LangSelection } from './brands';
@@ -82,6 +83,8 @@ export interface TranslationRequest {
     imageUrl?: string;
     /** Prior conversation turns, oldest-first. Absent on the first turn. */
     conversationHistory?: ChatTurn[];
+    /** The earlier result a side panel question is about: in the prompt and so in the cache key. */
+    askAbout?: AskAbout;
     /** One block of a page translate. The audit log keeps only a few of these, so a page cannot evict every interactive row. */
     batch?: boolean;
     /** The user asked for a new answer: skip the cached one and any run in flight for the same key; the new answer replaces the cached one. Not in the prompt or the key. */
