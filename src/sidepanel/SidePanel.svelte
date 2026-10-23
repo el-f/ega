@@ -1597,6 +1597,7 @@
   onClose={() => (shortcutsOpen = false)}
   shortcut={settings?.shortcut}
   pickerShortcut={settings?.pickerShortcut}
+  askOn={askEnabled}
 />
 
 <ToastHost

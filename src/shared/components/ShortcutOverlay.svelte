@@ -13,6 +13,8 @@
     /** The user's live bindings. Both are rebindable in Options. */
     shortcut?: string | undefined;
     pickerShortcut?: string | undefined;
+    /** The Ask task is on, so `a` has something to start. */
+    askOn?: boolean;
   }
   let {
     open,
@@ -20,6 +22,7 @@
     surface = 'options',
     shortcut = DEFAULT_SETTINGS.shortcut,
     pickerShortcut = DEFAULT_SETTINGS.pickerShortcut,
+    askOn = true,
   }: Props = $props();
   const mac = isMacLike();
   const isOptions = $derived(surface === 'options');
@@ -122,10 +125,12 @@
               <dt>Regenerate the focused reply</dt>
               <dd><Kbd>r</Kbd></dd>
             </div>
-            <div class="shortcut-row">
-              <dt>Ask about the focused reply</dt>
-              <dd><Kbd>a</Kbd></dd>
-            </div>
+            {#if askOn}
+              <div class="shortcut-row">
+                <dt>Ask about the focused reply</dt>
+                <dd><Kbd>a</Kbd></dd>
+              </div>
+            {/if}
           {:else}
             <div class="shortcut-row">
               <dt>Send to the side panel (in the popup)</dt>
