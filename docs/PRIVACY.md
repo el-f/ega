@@ -171,7 +171,8 @@ that reply's details: its task, its languages and detected dialect, the text you
 answer and its notes (`src/shared/ask-about.ts`). Each is cut to a fixed size and fenced as
 untrusted data (`src/shared/prompts.ts#renderAskAboutBlock`). The usual history goes too.
 
-- The details are copied onto your question when you send it and saved with the conversation.
+- Your question saves only which reply it asks about, never a copy of that reply. Each request
+  reads the details from the reply as it is in the conversation at that moment.
 - Every new version of an answer to a question sends them again, with the history before the
   question: Regenerate, Refine, Describe a change, Retry, Translate into and Swap.
 - "Answer again as" a task other than Ask sends your question's text alone.
@@ -179,11 +180,11 @@ untrusted data (`src/shared/prompts.ts#renderAskAboutBlock`). The usual history 
   reply's text about the newest earlier reply that has an answer. They send that earlier reply's
   details and the history.
 - "Notes" are the reply's notes, or its explanation when it has no notes.
-- Deleting a reply also deletes the copy saved on each question about it
-  (`src/sidepanel/state/conversation.ts#forgetAbout`). Undo puts the copy back. After the delete,
-  a new version of such a question sends the question and the history only. When a conversation
-  passes 300 messages and its oldest ones drop off, the copies stay, so the questions keep their
-  context. Deleting such a question, or its answer, drops its copy.
+- Deleting a reply removes it from every later request at once
+  (`src/sidepanel/state/thread-view.ts#askAboutFor`). A new version of a question about it sends
+  the question and the history only. The same holds when the reply drops off because the
+  conversation passed 300 messages, or another window deleted it. Undo of the delete brings the
+  reply back, and later requests send it again.
 - In the tooltip, "Ask about this" opens the side panel. Nothing is sent until you type a
   question and send it.
 
@@ -219,11 +220,9 @@ Three things this does **not** cover, all on purpose:
   fields only (`src/shared/redact.ts#redactContext`). A secret that reached an earlier turn as
   selected text goes out again, unmasked, with every later send from that site's panel. "New
   conversation" is the way to drop it.
-- **A question about a reply sends that reply again, unmasked.** The question keeps a copy of the
-  reply's original text, result and notes (`src/shared/ask-about.ts`). The copy stays after the
-  reply drops off the saved conversation (the 300-message limit), so every new version of the
-  answer sends it again. To drop it, delete the reply while it is still in the conversation. Once
-  the reply has dropped off, delete the question or its answer, or start a New conversation.
+- **A question about a reply sends that reply again, unmasked.** Each request reads the reply's
+  original text, result and notes from the conversation (`src/shared/ask-about.ts`). Delete the
+  reply to stop that.
 
 ## Where it goes
 

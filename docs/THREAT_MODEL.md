@@ -187,9 +187,10 @@ hostile page can plant instructions in any of them.
 `escapeFence` and names the block as untrusted data. The task name is one line, so
 it is inline-escaped (`escapeInline`). The block always goes in the user message,
 never in the system prompt. The service worker caps it again at the trust boundary
-(`src/background/index.ts#boundedOptions` → `src/shared/ask-about.ts#capAskAbout`),
-and a stored question's copy is checked again on load
-(`src/sidepanel/state/conversation-store.ts#validateStoredTurn`).
+(`src/background/index.ts#boundedOptions` → `src/shared/ask-about.ts#capAskAbout`).
+A stored question keeps no copy of the reply, only which reply it asks about, and that
+reference is checked on load (`src/shared/ask-about.ts#askTargetOf`). So a deleted reply
+reaches no later request.
 
 **Accepted risk:** "Ask instead" shows on any Translate reply that found its text
 already in the target language, including text handed over from a page. One click
