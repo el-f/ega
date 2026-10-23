@@ -452,6 +452,39 @@ describe('pending-popup-handoff — a tooltip Ask', () => {
     });
   });
 
+  it('keeps only the known reply fields of the right type, so none can replace the seeded turn', async () => {
+    const h = await planted({
+      reply: {
+        detectedLang: 5,
+        detectedLangs: [{ id: 7 }, { id: 'en', detail: 3 }],
+        confidence: 'high',
+        status: 'error',
+        id: 'x',
+        content: 'not the reply',
+        about: { turnId: 'a0' },
+        notes: 'a note',
+        meta: [],
+        explain: 'why',
+      },
+    });
+    expect(h?.reply).toEqual({ detectedLangs: [{ id: 'en' }], explain: 'why' });
+  });
+
+  it('cuts the detection to its caps and keeps a confidence only inside 0..1', async () => {
+    const many = Array.from({ length: 10 }, (_, i) => ({ id: `l${i}` }));
+    const h = await planted({
+      reply: {
+        detectedLang: 'x'.repeat(129),
+        detectedDetail: 'Levantine',
+        detectedLangs: many,
+        confidence: 1.5,
+      },
+    });
+    expect(h?.reply).toEqual({ detectedDetail: 'Levantine', detectedLangs: many.slice(0, 8) });
+    expect((await planted({ reply: { confidence: Number.NaN } }))?.reply).toEqual({});
+    expect((await planted({ reply: { confidence: 0.93 } }))?.reply).toEqual({ confidence: 0.93 });
+  });
+
   it('keeps the message and drops an ask flag that is not exactly true', async () => {
     for (const ask of ['true', 1, {}, false]) {
       expect((await planted({ ask }))?.ask).toBeUndefined();

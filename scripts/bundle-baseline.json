@@ -5,7 +5,7 @@
   },
   {
     "name": "AnswerNotes",
-    "bytes": 22050
+    "bytes": 22263
   },
   {
     "name": "ask-about",
@@ -69,11 +69,11 @@
   },
   {
     "name": "index",
-    "bytes": 126852
+    "bytes": 126739
   },
   {
     "name": "index.html",
-    "bytes": 482072
+    "bytes": 482790
   },
   {
     "name": "index.ts",
@@ -109,7 +109,7 @@
   },
   {
     "name": "menu-focus",
-    "bytes": 4883
+    "bytes": 5274
   },
   {
     "name": "open-options-tab",
@@ -133,7 +133,7 @@
   },
   {
     "name": "pending-popup-handoff",
-    "bytes": 2252
+    "bytes": 3091
   },
   {
     "name": "perf-history",

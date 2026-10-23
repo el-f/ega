@@ -4,7 +4,8 @@ import { TaskIdSchema } from './settings-schema';
 import type { TaskId } from './task-view';
 import { IMAGE_DATA_URL_MAX_CHARS, MAX_SELECTION_CHARS } from './constants';
 import { makeCrossContextLock } from './utils/cross-context-lock';
-import type { AnswerReplyFields } from './types';
+import type { AnswerReplyFields, AnswerSnapshot, DetectedVariety, ResultMeta } from './types';
+import type { AnswerDetail, AnswerNote } from './answer/reader';
 
 export const PENDING_POPUP_HANDOFF_KEY = 'ega.pendingPopupHandoff';
 
@@ -13,6 +14,11 @@ export const MAX_HANDOFF_AGE_MS = 60_000;
 
 /** Per-field cap so a corrupt storage.session entry can't flood sidepanel state. */
 const MAX_HANDOFF_FIELD_CHARS = 50_000;
+
+/** A detection is a label on the meta line and in a question's about block, so it stays short. */
+const DETECTED_ID_MAX = 128;
+const DETECTED_DETAIL_MAX = 200;
+const DETECTED_LANGS_MAX = 8;
 
 export interface PendingPopupHandoff {
   readonly sourceText: string;
@@ -63,6 +69,51 @@ function compareKeys(a: string, b: string): number {
   return Number.isNaN(byCounter) ? 0 : byCounter;
 }
 
+function shortText(raw: unknown, max: number): string | undefined {
+  return typeof raw === 'string' && raw.length > 0 && raw.length <= max ? raw : undefined;
+}
+
+function isRecord(x: unknown): x is Record<string, unknown> {
+  return x !== null && typeof x === 'object' && !Array.isArray(x);
+}
+
+/** Malformed entries are skipped and the list is cut to its cap; nothing usable left drops the field. */
+function decodeDetectedLangs(raw: unknown): DetectedVariety[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const out: DetectedVariety[] = [];
+  for (const entry of raw as unknown[]) {
+    if (out.length === DETECTED_LANGS_MAX) break;
+    if (!isRecord(entry)) continue;
+    const id = shortText(entry['id'], DETECTED_ID_MAX);
+    if (id === undefined) continue;
+    const detail = shortText(entry['detail'], DETECTED_DETAIL_MAX);
+    out.push(detail !== undefined ? { id, detail } : { id });
+  }
+  return out.length > 0 ? out : undefined;
+}
+
+/** The panel spreads the reply onto the turn it seeds, so only known fields of the right type pass: a stray `id` or `status` would replace the turn's own. */
+function decodeReply(raw: unknown): AnswerReplyFields | undefined {
+  if (!isRecord(raw) || JSON.stringify(raw).length > MAX_HANDOFF_FIELD_CHARS) return undefined;
+  const detectedLang = shortText(raw['detectedLang'], DETECTED_ID_MAX);
+  const detectedDetail = shortText(raw['detectedDetail'], DETECTED_DETAIL_MAX);
+  const detectedLangs = decodeDetectedLangs(raw['detectedLangs']);
+  const c = raw['confidence'];
+  const confidence = typeof c === 'number' && c >= 0 && c <= 1 ? c : undefined;
+  const { notes, details, answer, explain, meta } = raw;
+  return {
+    ...(Array.isArray(notes) ? { notes: notes as AnswerNote[] } : {}),
+    ...(Array.isArray(details) ? { details: details as AnswerDetail[] } : {}),
+    ...(isRecord(answer) ? { answer: answer as unknown as AnswerSnapshot } : {}),
+    ...(typeof explain === 'string' ? { explain } : {}),
+    ...(isRecord(meta) ? { meta: meta as unknown as ResultMeta } : {}),
+    ...(detectedLang !== undefined ? { detectedLang } : {}),
+    ...(detectedDetail !== undefined ? { detectedDetail } : {}),
+    ...(detectedLangs !== undefined ? { detectedLangs } : {}),
+    ...(confidence !== undefined ? { confidence } : {}),
+  };
+}
+
 function decodeEntry(raw: unknown, now: number): PendingPopupHandoff | null {
   if (raw === null || typeof raw !== 'object') return null;
   const r = raw as Record<string, unknown>;
@@ -92,15 +143,7 @@ function decodeEntry(raw: unknown, now: number): PendingPopupHandoff | null {
   const imageDropped = typeof rawImage === 'string' && imageDataUrl === undefined;
   const ocrText = optStr('ocrText');
   const explain = optStr('explain');
-  const replyRaw = r['reply'];
-  // A completed reply is written by the worker; bound its size just like response.
-  const reply =
-    replyRaw !== null &&
-    typeof replyRaw === 'object' &&
-    !Array.isArray(replyRaw) &&
-    JSON.stringify(replyRaw).length <= MAX_HANDOFF_FIELD_CHARS
-      ? (replyRaw as AnswerReplyFields)
-      : undefined;
+  const reply = decodeReply(r['reply']);
   const windowId = typeof r['windowId'] === 'number' ? r['windowId'] : undefined;
   return {
     sourceText,
