@@ -723,10 +723,10 @@
   /** The toast that refuses an edit of `content` because it would lose typed text; null when nothing is lost. */
   function editBlocked(content: string, which: string): string | null {
     const lost = (text: string): boolean => text.trim() !== '' && text !== content;
-    // Leaving Ask mode drops the question in the box, and sending the edit drops the draft saved before Ask.
+    // Ask mode ends first, as with Esc or Describe a change: the typed question goes, but sending the edit would lose the hidden draft.
     if (composerMode.kind === 'ask') {
-      return lost(sourceText) || lost(draftBeforeEdit)
-        ? `Finish asking first to edit ${which}.`
+      return lost(draftBeforeEdit)
+        ? `Your earlier draft is waiting. Press Done asking, then clear it to edit ${which}.`
         : null;
     }
     return lost(sourceText) ? `Clear the message box first to edit ${which}.` : null;

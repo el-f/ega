@@ -592,8 +592,9 @@ describe('leaving Ask mode', () => {
     expect(box(c).value).toBe('my draft');
   });
 
-  describe('an edit, which would lose a typed question or the draft from before Ask', () => {
-    const finish = 'Finish asking first to edit your last message.';
+  describe('an edit, which ends Ask mode first like Esc and Describe a change', () => {
+    const waiting =
+      'Your earlier draft is waiting. Press Done asking, then clear it to edit your last message.';
     /** Ask on the only reply, with `draft` typed before and `question` typed after; focus leaves the box. */
     async function askWith(c: HTMLElement, draft: string, question: string): Promise<void> {
       const reply = await firstExchange(c);
@@ -604,32 +605,40 @@ describe('leaving Ask mode', () => {
       box(c).blur();
     }
 
-    it('is refused while a question is typed, with or without a draft, and the question stays', async () => {
-      for (const draft of ['my draft', '']) {
+    it('drops a typed question, as Esc does, and starts', async () => {
+      const c = await mounted();
+      await askWith(c, '', 'my long question');
+      await fireEvent.keyDown(window, { key: 'e' });
+      await settle();
+      expect(banner(c)).toContain('Editing your message');
+      expect(box(c).value).toBe('mar7aba, kifak?');
+    });
+
+    it('is refused while the draft from before Ask waits, and the toast says how to clear the way', async () => {
+      for (const question of ['my long question', '']) {
         const push = vi.spyOn(toastStore, 'push');
         const c = await mounted();
-        await askWith(c, draft, 'my long question');
-        await fireEvent.keyDown(window, { key: 'e' });
+        await askWith(c, 'my draft', question);
+        await fireEvent.click(c.querySelector('.ega-user-turn [data-ega-edit]') as HTMLElement);
         await settle();
-        expect(toasts(push)).toContain(finish);
+        expect(toasts(push)).toEqual([waiting]);
         expect(banner(c)).toContain('Asking about this reply');
-        expect(box(c).value).toBe('my long question');
+        expect(box(c).value).toBe(question);
+
+        // Following it: Done asking brings the draft back, and with the box cleared the edit starts.
+        await fireEvent.click(c.querySelector('[aria-label="Done asking"]') as HTMLElement);
+        await settle();
+        expect(box(c).value).toBe('my draft');
+        await type(c, '');
+        await fireEvent.click(c.querySelector('.ega-user-turn [data-ega-edit]') as HTMLElement);
+        await settle();
+        expect(banner(c)).toContain('Editing your message');
+        expect(toasts(push)).toEqual([waiting]);
         push.mockRestore();
         document.body.innerHTML = '';
         await chrome.storage.local.clear();
         await chrome.storage.session.clear();
       }
-    });
-
-    it('is refused with an empty box while the draft from before Ask waits, and says so', async () => {
-      const push = vi.spyOn(toastStore, 'push');
-      const c = await mounted();
-      await askWith(c, 'my draft', '');
-      await fireEvent.click(c.querySelector('.ega-user-turn [data-ega-edit]') as HTMLElement);
-      await settle();
-      expect(toasts(push)).toContain(finish);
-      expect(toasts(push).filter((m) => m.startsWith('Clear the message box'))).toEqual([]);
-      expect(banner(c)).toContain('Asking about this reply');
     });
 
     it('starts when nothing typed would be lost', async () => {
@@ -641,17 +650,20 @@ describe('leaving Ask mode', () => {
       expect(box(c).value).toBe('mar7aba, kifak?');
     });
 
-    it('of an older message is refused while a question is typed, before any confirm', async () => {
+    it('of an older message is refused while the draft from before Ask waits, before any confirm', async () => {
       const push = vi.spyOn(toastStore, 'push');
       const c = await mounted();
       const [, second] = await twoExchanges(c);
+      await type(c, 'my draft');
       await fireEvent.click(askOn(second));
       await settle();
       await type(c, 'my long question');
       await fireEvent.click(c.querySelector('.ega-user-turn [data-ega-edit]') as HTMLElement);
       await settle();
       expect(confirmMock).not.toHaveBeenCalled();
-      expect(toasts(push)).toContain('Finish asking first to edit this message.');
+      expect(toasts(push)).toContain(
+        'Your earlier draft is waiting. Press Done asking, then clear it to edit this message.',
+      );
       expect(box(c).value).toBe('my long question');
     });
   });
