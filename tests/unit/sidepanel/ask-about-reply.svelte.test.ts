@@ -138,6 +138,16 @@ describe('the quote on a question', () => {
     expect(onQuote).toHaveBeenCalledWith('a1');
   });
 
+  it('marks its one-line text as the part that may end in an ellipsis, with the full text in the name', () => {
+    const { container } = render(UserTurn, { props: { turn: question() } });
+    const text = container.querySelector<HTMLElement>('.ega-ask-quote-text');
+    expect(text?.hasAttribute('data-ega-truncates')).toBe(true);
+    // The design check reads the full text off the button's name when the line is cut.
+    expect(container.querySelector('[data-ega-ask-quote]')?.textContent).toContain(
+      text?.textContent,
+    );
+  });
+
   it('a removed reply reads "Reply removed", as plain text', () => {
     const { container } = render(UserTurn, { props: { turn: question(), aboutGone: true } });
     expect(container.querySelector('[data-ega-ask-quote]')).toBeNull();

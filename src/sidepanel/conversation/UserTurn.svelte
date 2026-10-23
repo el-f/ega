@@ -148,8 +148,8 @@
           class="ega-ask-quote"
           data-ega-ask-quote
           onclick={() => onQuote?.(replyId)}
-          ><span class="ega-ask-quote-text" dir="auto">{quote}</span><span class="ega-sr-only"
-            >, Go to the reply</span
+          ><span class="ega-ask-quote-text" dir="auto" data-ega-truncates>{quote}</span><span
+            class="ega-sr-only">, Go to the reply</span
           ></button
         >
       {/if}
