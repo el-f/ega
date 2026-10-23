@@ -888,4 +888,50 @@ describe('a copy of a reply that the 300-message cap drops', () => {
     expect(stored?.about).toEqual(about);
     expect(stored).not.toHaveProperty('aboutRemoved');
   });
+
+  /** A sends at the cap, which trims the first exchange, then deletes an unrelated one: u5 keeps its copy. */
+  async function trimThenDelete(a: Container): Promise<void> {
+    expect(byId(a, 'u5')?.about).toEqual(about);
+    await sendAndFinish(a, 'from a', 'a answer');
+    expect(byId(a, 'a0')).toBeUndefined();
+    a.deleteTurn('a100');
+    await a.flush();
+    await drain();
+    expect(byId(a, 'u5')?.about).toEqual(about);
+    const stored = (await loadThreadResult(ORIGIN)).turns.find((t) => t.id === 'u5');
+    expect(stored?.about).toEqual(about);
+  }
+
+  it('stays on the question once another window deleted and undid the reply before the trim', async () => {
+    await saveThread(ORIGIN, cappedThread());
+    const a = await openWindow();
+    const b = await openWindow();
+    const slice = b.deleteTurn('a0');
+    await b.flush();
+    await drain();
+    expect(byId(a, 'u5')).not.toHaveProperty('about');
+    if (slice === null) throw new Error('nothing deleted');
+    expect(b.restoreTurns(slice)).toBe(true);
+    await b.flush();
+    await drain();
+    await trimThenDelete(a);
+  });
+
+  it('stays on the question once this window emptied the thread, reloaded the site and undid it all before the trim', async () => {
+    await saveThread(ORIGIN, cappedThread());
+    const a = await openWindow();
+    // Only an empty thread reloads on the same site, so every exchange goes.
+    const slices = a.turns.filter((t) => t.role === 'user').map((t) => a.deleteTurn(t.id));
+    await a.flush();
+    await drain();
+    await a.openConversation(ORIGIN);
+    for (const slice of slices) {
+      if (slice === null) throw new Error('nothing deleted');
+      expect(a.restoreTurns(slice)).toBe(true);
+    }
+    await a.flush();
+    await drain();
+    expect(a.turns).toHaveLength(MAX_TURNS_PER_THREAD);
+    await trimThenDelete(a);
+  });
 });

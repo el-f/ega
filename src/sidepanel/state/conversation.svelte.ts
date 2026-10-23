@@ -1011,7 +1011,8 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
 
   /** Copies of deleted replies that questions and versions gave up, kept until their reply comes back. Memory only. */
   let parkedAbout: ForgottenAbout[] = [];
-  /** Ids another window deleted, seen when its write was merged in. */
+  /** Ids deleted outside this window's own tombstones: by another window, by a save it refused, or here before a
+   *  same-site reload. Each counts as deleted only while it is away; once back, it leaves. */
   // eslint-disable-next-line svelte/prefer-svelte-reactivity -- read by settleAbout, never rendered.
   const foreignBuried = new Set<string>();
 
@@ -1019,6 +1020,8 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
   function settleAbout(turns: Turn[]): Turn[] {
     // eslint-disable-next-line svelte/prefer-svelte-reactivity -- plain lookups, never rendered.
     const present = new Set(turns.map((t) => t.id));
+    // A reply that came back is no longer deleted: a later trim of it must not read as a delete.
+    for (const id of present) foreignBuried.delete(id);
     // eslint-disable-next-line svelte/prefer-svelte-reactivity -- a plain argument, never rendered.
     const gone = new Set([...deletedAt.keys(), ...foreignBuried].filter((id) => !present.has(id)));
     const { turns: kept, forgotten } = forgetAbout(turns, gone);
