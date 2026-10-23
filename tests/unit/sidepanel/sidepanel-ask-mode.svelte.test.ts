@@ -394,6 +394,76 @@ describe('leaving Ask mode', () => {
   });
 });
 
+describe('Ask from the page tooltip', () => {
+  /** What the tooltip's Ask writes: a finished Levantine reply, into Spanish so the pickers move. */
+  const fromTooltip = (extra: Record<string, unknown> = {}): Promise<void> =>
+    writePendingPopupHandoff({
+      sourceText: 'mar7aba, kifak?',
+      sourceLang: 'auto',
+      targetLang: 'es',
+      task: 'translate',
+      tone: 'neutral',
+      response: 'Hola, ¿qué tal?',
+      ask: true,
+      detectedLang: 'arabizi',
+      detectedDetail: 'Levantine',
+      ...extra,
+    });
+  const seeded = (c: HTMLElement): HTMLElement | undefined =>
+    replies(c).find((r) => r.textContent.includes('Hola, ¿qué tal?'));
+
+  it('lands the exchange and asks about it, focus in the field, the pickers set with no toast', async () => {
+    const push = vi.spyOn(toastStore, 'push');
+    await fromTooltip();
+    const c = await mounted();
+    await waitFor(() => expect(banner(c)).toContain('Asking about this reply'));
+    const reply = seeded(c);
+    expect(target(c)).toBe(reply);
+    expect(reply?.textContent).toContain('Levantine');
+    expect(document.activeElement).toBe(box(c));
+    await waitFor(() => expect(said(c)).toBe('Asking about the reply: Hola, ¿qué tal?'));
+    expect(push.mock.calls.map(([m]) => m.message)).not.toContainEqual(
+      expect.stringMatching(/Language, task and tone set/),
+    );
+
+    const q = await send(c, 'what makes it Levantine?');
+    expect(q.options['task']).toBe('ask');
+    expect(q.options.askAbout?.['original']).toBe('mar7aba, kifak?');
+    expect(String(q.options.askAbout?.['languages'])).toContain('Levantine');
+    expect(String(q.options.askAbout?.['languages'])).toContain('Spanish');
+  });
+
+  it('while asking, it moves the question to the new reply; the typed text stays', async () => {
+    const c = await mounted();
+    const first = await firstExchange(c);
+    await type(c, 'my draft');
+    await fireEvent.click(askOn(first));
+    await settle();
+    await type(c, 'half a question');
+    await fromTooltip();
+    await waitFor(() => expect(target(c)).toBe(seeded(c)));
+    await settle();
+    expect(banner(c)).toContain('Asking about this reply');
+    expect(box(c).value).toBe('half a question');
+    await fireEvent.click(c.querySelector('[aria-label="Done asking"]') as HTMLElement);
+    await settle();
+    expect(box(c).value).toBe('my draft');
+  });
+
+  it('during a described change only the exchange lands', async () => {
+    const c = await mounted();
+    await firstExchange(c);
+    await openMenu(c, 'refine');
+    await fireEvent.click(document.querySelector('[data-ega-describe-change]') as HTMLElement);
+    await settle();
+    await fromTooltip();
+    await waitFor(() => expect(seeded(c)).toBeDefined());
+    await settle();
+    expect(banner(c)).toContain('Changing this reply');
+    expect(target(c)).toBeNull();
+  });
+});
+
 describe('Ask instead', () => {
   /** A first reply, then a question typed in Translate that came back unchanged. */
   async function slip(c: HTMLElement): Promise<{ first: HTMLElement; echoed: HTMLElement }> {

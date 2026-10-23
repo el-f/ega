@@ -50,19 +50,28 @@ function setup(extra: Partial<TipState> = {}) {
 beforeEach(() => setSettings(DEFAULT_SETTINGS));
 
 describe('tooltip reply redesign', () => {
-  it('offers one row with at most five actions and always has Close', () => {
+  it('offers one row with at most six actions and always has Close', () => {
     const { container, getByRole } = setup();
     const row = container.querySelector('[data-ega-tooltip-actions]');
     expect(row).not.toBeNull();
     if (!row) throw new Error('No action row');
     expect([...row.querySelectorAll('button')].map((b) => b.getAttribute('aria-label'))).toEqual([
       'Copy translation',
+      'Ask about this in the side panel',
       'Regenerate',
       'Refine',
       'Open in side panel',
       'More',
     ]);
     expect(getByRole('button', { name: 'Close' })).toBeTruthy();
+  });
+
+  it('Ask hands the finished reply to the side panel to be asked about', async () => {
+    const { getByRole, onescalate } = setup();
+    const ask = getByRole('button', { name: 'Ask about this in the side panel' });
+    expect(ask.getAttribute('data-tooltip')).toBe('Ask about this in the side panel');
+    await fireEvent.click(ask);
+    expect(onescalate).toHaveBeenCalledExactlyOnceWith('pin', true);
   });
 
   it('uses the shared meta line above the action row, including low-confidence wording', () => {

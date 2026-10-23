@@ -28,6 +28,7 @@ import {
   toggleBookmark as toggleBookmarkPure,
   truncateFrom,
   variantIdxForTarget,
+  type Detection,
   type Turn,
   type TurnDispatch,
   type TurnKind,
@@ -204,12 +205,13 @@ export interface ConversationContainer {
     dispatch?: TurnDispatch,
     task?: TaskId,
   ) => void;
-  /** Land a tooltip payload as a completed exchange — no dispatch. */
+  /** Land a tooltip payload as a completed exchange — no dispatch. Returns the reply's id. */
   seedDeliveredTurn: (input: {
     kind: TurnKind;
     sourceText: string;
     response: string;
     reply?: AnswerReplyFields;
+    detected?: Detection;
     imageDataUrl?: string;
     imageDropped?: boolean;
     sourceLang: LangSelection;
@@ -217,7 +219,7 @@ export interface ConversationContainer {
     stream: boolean;
     tone?: Tone;
     trimmedTo?: number;
-  }) => void;
+  }) => string;
 }
 
 /** What a toast calls the conversation's site. */
@@ -1062,6 +1064,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     sourceText: string;
     response: string;
     reply?: AnswerReplyFields;
+    detected?: Detection;
     imageDataUrl?: string;
     imageDropped?: boolean;
     sourceLang: LangSelection;
@@ -1070,7 +1073,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     tone?: Tone;
     taskId?: TaskId;
     trimmedTo?: number;
-  }): void {
+  }): string {
     // A delivered pair is terminal and takes no slot, so a stream already running keeps streaming.
     const userId = uuid();
     const assistantId = uuid();
@@ -1117,10 +1120,12 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
           attachedToTurnId: userId,
           content: input.response,
           ...(input.reply ? { reply: input.reply } : {}),
+          ...(input.detected ? { detected: input.detected } : {}),
           ...(input.taskId !== undefined ? { taskId: input.taskId } : {}),
         }),
       'now',
     );
+    return assistantId;
   }
 
   const PERSIST_DEBOUNCE_MS = 400;

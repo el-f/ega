@@ -554,8 +554,9 @@
       flushDraftSave();
       draftBeforeEdit = sourceText;
       sourceText = '';
-      askKnownUsers = new Set(conversation.turns.filter((t) => t.role === 'user').map((t) => t.id));
     }
+    // Every message there now came before this Ask, including a tooltip Ask's own exchange.
+    askKnownUsers = new Set(conversation.turns.filter((t) => t.role === 'user').map((t) => t.id));
     composerMode = { kind: 'ask', turnId };
     askSaid = { text: askLineFor(turnId) };
     await tick();
@@ -600,6 +601,14 @@
       toastStore.push({ message: 'Ask when this reply finishes.', variant: 'warning' });
       return;
     }
+    void startAsk(turnId);
+  }
+
+  /** A tooltip Ask landed this reply: ask about it, as its Ask button would. An edit or a described change keeps the composer. */
+  function askAboutHandoff(turnId: string): void {
+    if (!askEnabled || composerMode.kind === 'edit' || composerMode.kind === 'refine') return;
+    const reply = conversation.turns.find((t) => t.id === turnId);
+    if (reply?.status !== 'done' || reply.content.trim() === '') return;
     void startAsk(turnId);
   }
 
@@ -775,6 +784,7 @@
     pageContext: currentPageContext,
     clearFilters,
     followSite,
+    askAbout: askAboutHandoff,
     attachImage: (src) => {
       // An image would turn the edited text into an image send, or wait unseen behind a described change.
       const refusedInMode = (): boolean => {

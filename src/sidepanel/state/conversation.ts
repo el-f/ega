@@ -293,6 +293,9 @@ export function replaceAssistantTurn(
   return out;
 }
 
+/** A result's detected languages, as a reply and its versions carry them. */
+export type Detection = Pick<Variant, 'detectedLang' | 'detectedDetail' | 'detectedLangs'>;
+
 interface AddDeliveredAssistantTurnInput {
   id: string;
   kind: string;
@@ -301,6 +304,8 @@ interface AddDeliveredAssistantTurnInput {
   /** Already-produced body (tooltip explanation / OCR result). */
   content: string;
   reply?: AnswerReplyFields;
+  /** What the tooltip detected, so the meta line and a question about it name the same languages. */
+  detected?: Detection;
 }
 
 /** Appends a done assistant turn whose body is already known. */
@@ -314,6 +319,7 @@ export function addDeliveredAssistantTurn(
     status: 'done',
     content: input.content,
     ...input.reply,
+    ...input.detected,
   };
   const turn: Turn = {
     id: input.id,
@@ -322,6 +328,7 @@ export function addDeliveredAssistantTurn(
     status: 'done',
     content: input.content,
     ...input.reply,
+    ...input.detected,
     attachedToTurnId: input.attachedToTurnId,
     variants: [seed],
     activeVariantIdx: 0,

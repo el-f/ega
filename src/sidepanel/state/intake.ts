@@ -7,6 +7,7 @@ import { openOptionsTab } from '@/shared/open-options-tab';
 import { selectionTrimmedMessage } from '@/shared/selection-cap-copy';
 import { asLangSelection } from '@/shared/brands';
 import { debugCatch } from '@/shared/logger';
+import { omitUndef } from '@/shared/utils/omitUndef';
 import { isSafeRenderImageSrc } from '@/shared/image-url-guard';
 import { toastStore } from '@/shared/components/toastStore';
 import { hasKnownKind, isFromOwnBackground, type Msg } from '@/shared/messages';
@@ -41,6 +42,8 @@ export interface IntakeDeps {
   clearFilters: () => void;
   /** Puts an image in the composer, unsent, and focuses it. */
   attachImage: (src: string) => void;
+  /** A tooltip Ask landed this finished reply; the panel decides whether its composer can ask about it now. */
+  askAbout: (replyId: string) => void;
   /** The panel's own tab follow, so the toasts about the conversation it leaves close too. */
   followSite: (site: string) => Promise<boolean>;
   /** Settles when the panel's first follow of the tab is over; until then the tab's site is unknown. */
@@ -228,7 +231,12 @@ export function createIntake(deps: IntakeDeps): Intake {
       handoff.imageDataUrl !== undefined ||
       handoff.imageDropped === true
     ) {
-      conversation.seedDeliveredTurn({
+      const detected = omitUndef({
+        detectedLang: handoff.detectedLang,
+        detectedDetail: handoff.detectedDetail,
+        detectedLangs: handoff.detectedLangs,
+      });
+      const replyId = conversation.seedDeliveredTurn({
         // An OCR result is not a Task-shaped turn: refine and retry would both no-op on it.
         kind:
           handoff.imageDataUrl === undefined && handoff.imageDropped !== true
@@ -241,6 +249,7 @@ export function createIntake(deps: IntakeDeps): Intake {
         ...(handoff.trimmed ? { trimmedTo: handoff.sourceText.length } : {}),
         response: handoff.response ?? handoff.ocrText ?? '',
         ...(handoff.reply ? { reply: handoff.reply } : {}),
+        detected,
         ...(handoff.imageDataUrl ? { imageDataUrl: handoff.imageDataUrl } : {}),
         ...(handoff.imageDropped ? { imageDropped: true } : {}),
         sourceLang: asLangSelection(handoff.sourceLang),
@@ -248,8 +257,10 @@ export function createIntake(deps: IntakeDeps): Intake {
         stream: deps.streaming(),
         tone: handoff.tone,
       });
+      if (handoff.ask === true) deps.askAbout(replyId);
       return;
     }
+    // An Ask needs a finished reply to be about; one that still has to run lands as a plain handoff.
     warnIfStoppingInflight();
     await sendHandoff(handoff, handoffKind, handoffTaskId);
   }
@@ -258,6 +269,8 @@ export function createIntake(deps: IntakeDeps): Intake {
     try {
       await deps.firstFollow;
       const before = deps.pickers();
+      // An Ask hides the chip the pickers feed, so a toast about them would name a change no one can see.
+      let asked = false;
       for (const handoff of await drainPendingPopupHandoff(await getPanelWindowId())) {
         if (handoff.attachImage === true) {
           // A failed tooltip image waits in the composer: the user picks the task, then sends.
@@ -269,6 +282,7 @@ export function createIntake(deps: IntakeDeps): Intake {
         if (handoff.sourceText.trim().length === 0) continue;
         deps.clearFilters();
         if (!noteHandoffLosses(handoff)) continue;
+        if (handoff.ask === true) asked = true;
         await landHandoff(handoff);
       }
       const after = deps.pickers();
@@ -277,7 +291,7 @@ export function createIntake(deps: IntakeDeps): Intake {
         before.targetLang !== after.targetLang ||
         before.task !== after.task ||
         before.tone !== after.tone;
-      if (!moved) return;
+      if (!moved || asked) return;
       toastStore.push({
         message: 'Language, task and tone set from your selection',
         variant: 'info',

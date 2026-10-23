@@ -58,8 +58,8 @@
     onexplain: () => void;
     /** Absent on surfaces that cannot open Settings, so no Settings link renders. */
     onopenoptions?: (tab?: SettingsTab) => void;
-    /** Tooltip → sidepanel handoff; the parent assembles the payload. */
-    onescalate?: (kind: 'continue' | 'pin' | 'open-image' | 'open-panel') => void;
+    /** Tooltip → sidepanel handoff; the parent assembles the payload. `ask` asks about the reply it lands. */
+    onescalate?: (kind: 'continue' | 'pin' | 'open-image' | 'open-panel', ask?: true) => void;
   }
 
   let {
@@ -140,6 +140,8 @@
   // Image results get the open-image escalation instead; every text success can pin.
   const canEscalatePin = $derived(mode === 'success' && !tip.imageUrl && !!onescalate);
   const canEscalateOpenImage = $derived(mode === 'success' && !!tip.imageUrl && !!onescalate);
+  // Ask goes where Pin goes; an off Ask task offers nothing, as in the panel.
+  const canAsk = $derived(canEscalatePin && taskViews.some((v) => v.id === 'ask' && !v.disabled));
 
   // Settings load before any tooltip shows; the fallbacks are the shipped tasks, where only Reword has {{tone}}.
   function usesToneFor(t: TaskId): boolean {
@@ -386,6 +388,7 @@
       onToggleDetails={(open) => (detailsOpen = open)}
       onToggleErrorDetails={() => (errorDetailsOpen = !errorDetailsOpen)}
       onOpenOptions={onopenoptions}
+      onAsk={canAsk ? () => onescalate?.('pin', true) : undefined}
       onEscalate={onescalate
         ? () =>
             onescalate(

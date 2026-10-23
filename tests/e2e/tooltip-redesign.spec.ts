@@ -54,7 +54,8 @@ for (const theme of ['light', 'dark']) {
     }, info) => {
       const { page } = await open(width, theme);
       const row = page.locator('[data-ega-tooltip-actions]');
-      await expect(row.getByRole('button')).toHaveCount(5);
+      // Copy, Ask, Regenerate, Refine, Open in side panel, More: 6 x 32 + 5 x 4 = 212 of the 246 px content box.
+      await expect(row.getByRole('button')).toHaveCount(6);
       const rects = await row.getByRole('button').evaluateAll((buttons) =>
         buttons.map((b) => {
           const r = b.getBoundingClientRect();

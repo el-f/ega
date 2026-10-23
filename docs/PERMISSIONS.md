@@ -290,7 +290,8 @@ Opens the side panel. Four kinds of trigger, every one started by your click:
   need a bigger surface than the tooltip,
 - the tooltip's escalate buttons — **Continue in side panel** on an error,
   **Pin to side panel** on an explain result, and **Open in side panel** on an
-  image result or a failed image.
+  image result or a failed image,
+- the tooltip's **Ask about this in the side panel** on a finished text result.
 
 Every trigger that carries text or an image with it writes the handoff slot described
 under `storage` above, so the panel opens with your text already in it. A failed

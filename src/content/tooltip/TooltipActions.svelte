@@ -7,6 +7,7 @@
   import WandSparkles from '@lucide/svelte/icons/wand-sparkles';
   import Ellipsis from '@lucide/svelte/icons/ellipsis';
   import PanelRightOpen from '@lucide/svelte/icons/panel-right-open';
+  import MessageCircleReply from '@lucide/svelte/icons/message-circle-reply';
   import Icon from '@/shared/ui/Icon.svelte';
   import type { TipState } from '../tipState.svelte';
   import { taskCapabilities, type TaskView } from '@/shared/task-view';
@@ -42,6 +43,8 @@
     onToggleDetails: (open: boolean) => void;
     onToggleErrorDetails: () => void;
     onEscalate?: (() => void) | undefined;
+    /** Opens the side panel asking about this reply; shown once the reply has settled. */
+    onAsk?: (() => void) | undefined;
     onOpenOptions?: ((tab?: SettingsTab) => void) | undefined;
   }
   const {
@@ -70,6 +73,7 @@
     onToggleDetails,
     onToggleErrorDetails,
     onEscalate,
+    onAsk,
     onOpenOptions,
   }: Props = $props();
   let toolbar: HTMLDivElement | undefined = $state();
@@ -193,6 +197,17 @@
         aria-label="Copy translation"
         data-tooltip={tip.copied ? 'Copied' : 'Copy'}
         onclick={onCopy}><Icon icon={tip.copied ? Check : Copy} size={16} /></button
+      >
+    {/if}
+    {#if !busy && onAsk}
+      <button
+        class="icon-btn"
+        aria-label="Ask about this in the side panel"
+        data-ega-tooltip-ask
+        data-tooltip="Ask about this in the side panel"
+        onclick={(e) => {
+          if (isUserGesture(e)) onAsk?.();
+        }}><Icon icon={MessageCircleReply} size={16} /></button
       >
     {/if}
     {#if !busy && onRegenerate}

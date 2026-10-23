@@ -263,9 +263,9 @@ function measureDist(distDir: string): BundleEntry[] {
 const EAGER_CONTENT_BUDGET_BYTES = 156_516;
 
 /** The popup opens on every toolbar click, so its preload set is the one extension-page cost a user feels. Ratchet, like the one above. */
-// The Default task select adds 4,858B; the reply's Ask icon adds 384B to the shared lucide chunk.
+// Default task select +4,858B, reply Ask icon +384B (lucide chunk), tooltip Ask handoff checks +546B.
 // Ratchet at the measured production preload set, without extra headroom.
-const POPUP_PAGE_BUDGET_BYTES = 520_764;
+const POPUP_PAGE_BUDGET_BYTES = 521_309;
 
 function measurePagePreload(distDir: string, htmlRel: string): { files: string[]; bytes: number } {
   const htmlPath = path.join(distDir, htmlRel);

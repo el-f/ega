@@ -399,6 +399,95 @@ describe('pending-popup-handoff — a send is answered by its own window', () =>
   });
 });
 
+describe('pending-popup-handoff — a tooltip Ask and what it detected', () => {
+  beforeEach(async () => {
+    await chrome.storage.session.remove(PENDING_POPUP_HANDOFF_KEY);
+  });
+
+  const planted = async (extra: Record<string, unknown>) => {
+    await chrome.storage.session.set({
+      [PENDING_POPUP_HANDOFF_KEY]: {
+        k1: {
+          sourceText: 'mar7aba',
+          sourceLang: 'auto',
+          targetLang: 'en',
+          task: 'translate',
+          tone: 'neutral',
+          ts: Date.now(),
+          response: 'Hello',
+          ...extra,
+        },
+      },
+    });
+    const out = await drainPendingPopupHandoff();
+    expect(out).toHaveLength(1);
+    return out[0];
+  };
+
+  it('carries the ask flag and the detection through write and drain', async () => {
+    await writePendingPopupHandoff({
+      sourceText: 'mar7aba',
+      sourceLang: 'auto',
+      targetLang: 'en',
+      task: 'translate',
+      tone: 'neutral',
+      response: 'Hello',
+      ask: true,
+      detectedLang: 'arabizi',
+      detectedDetail: 'Levantine',
+      detectedLangs: [{ id: 'arabizi', detail: 'Levantine' }, { id: 'en' }],
+    });
+    const [h] = await drainPendingPopupHandoff();
+    expect(h).toMatchObject({
+      ask: true,
+      detectedLang: 'arabizi',
+      detectedDetail: 'Levantine',
+      detectedLangs: [{ id: 'arabizi', detail: 'Levantine' }, { id: 'en' }],
+    });
+  });
+
+  it('keeps the message and drops an ask flag that is not exactly true', async () => {
+    for (const ask of ['true', 1, {}, false]) {
+      expect((await planted({ ask }))?.ask).toBeUndefined();
+    }
+  });
+
+  it('drops a detected language or detail that is not a short string', async () => {
+    const h = await planted({ detectedLang: 42, detectedDetail: 'x'.repeat(201) });
+    expect(h?.detectedLang).toBeUndefined();
+    expect(h?.detectedDetail).toBeUndefined();
+    const long = await planted({ detectedLang: 'x'.repeat(129), detectedDetail: '' });
+    expect(long?.detectedLang).toBeUndefined();
+    expect(long?.detectedDetail).toBeUndefined();
+  });
+
+  it('keeps only well-formed detection entries, each detail capped, at most eight', async () => {
+    const h = await planted({
+      detectedLangs: [
+        { id: 'arabizi', detail: 'Levantine' },
+        { id: 'en', detail: 'x'.repeat(201) },
+        { id: '' },
+        { id: 7 },
+        'fr',
+        null,
+        ...Array.from({ length: 10 }, (_, i) => ({ id: `v${i}` })),
+      ],
+    });
+    expect(h?.detectedLangs?.[0]).toEqual({ id: 'arabizi', detail: 'Levantine' });
+    expect(h?.detectedLangs?.[1]).toEqual({ id: 'en' });
+    expect(h?.detectedLangs?.slice(2).map((d) => d.id)).toEqual([
+      'v0',
+      'v1',
+      'v2',
+      'v3',
+      'v4',
+      'v5',
+    ]);
+    expect((await planted({ detectedLangs: 'arabizi' }))?.detectedLangs).toBeUndefined();
+    expect((await planted({ detectedLangs: [{ id: 3 }] }))?.detectedLangs).toBeUndefined();
+  });
+});
+
 describe('image size', () => {
   it('keeps an image up to the store cap and flags a larger one as dropped instead of losing it silently', async () => {
     await writePendingPopupHandoff({

@@ -19,6 +19,7 @@ interface TipState {
   srcText: string;
   body: string;
   loading: boolean;
+  stopped?: boolean;
   confidence?: number;
   confidencePill: boolean;
   detectedLang?: string;
@@ -913,6 +914,55 @@ describe('Pin to side panel — every text success can pin', () => {
       error: { code: 'NETWORK', message: 'offline' },
     });
     expect(container.querySelector('button[data-ega-escalate="pin"]')).toBeNull();
+  });
+});
+
+describe('Ask about this in the side panel — only on a settled text result', () => {
+  const ask = (container: HTMLElement): Element | null =>
+    container.querySelector('button[data-ega-tooltip-ask]');
+  function mountAskable(tipOverrides: Partial<TipState>, withEscalate = true) {
+    return render(Tooltip, {
+      props: {
+        tip: baseTip(tipOverrides),
+        clickOutsideDismiss: true,
+        showSource: false,
+        ...handlers(),
+        ...(withEscalate ? { onescalate: vi.fn() } : {}),
+      },
+    });
+  }
+
+  it('shows on a finished text result, where Open in side panel shows', () => {
+    const { container } = mountAskable({ body: 'Hola' });
+    expect(ask(container)?.getAttribute('aria-label')).toBe('Ask about this in the side panel');
+    expect(container.querySelector('button[data-ega-escalate="pin"]')).toBeTruthy();
+  });
+
+  it('hides while the answer still streams, though Open in side panel shows', () => {
+    const { container } = mountAskable({ body: 'Hol', loading: true, settled: false });
+    expect(container.querySelector('button[data-ega-escalate="pin"]')).toBeTruthy();
+    expect(ask(container)).toBeNull();
+  });
+
+  it.each([
+    ['an error', { srcText: 'Hola', error: { code: 'NETWORK' as const, message: 'offline' } }],
+    ['a stop', { body: 'Hol', stopped: true, settled: false }],
+    ['an image result', { body: 'Sign text', imageUrl: 'https://example.test/sign.png' }],
+  ])('hides on %s', (_name, state) => {
+    expect(ask(mountAskable(state).container)).toBeNull();
+  });
+
+  it('hides when the surface cannot hand off', () => {
+    expect(ask(mountAskable({ body: 'Hola' }, false).container)).toBeNull();
+  });
+
+  it('hides when the Ask task is turned off', () => {
+    setSettings({ ...DEFAULT_SETTINGS, disabledTasks: ['ask'] });
+    try {
+      expect(ask(mountAskable({ body: 'Hola' }).container)).toBeNull();
+    } finally {
+      setSettings({ ...DEFAULT_SETTINGS });
+    }
   });
 });
 
