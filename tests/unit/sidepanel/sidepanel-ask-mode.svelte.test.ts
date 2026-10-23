@@ -284,6 +284,35 @@ describe('asking', () => {
     expect(next.options.askAbout?.['turnId']).toBe(first.getAttribute('data-turn-id'));
   });
 
+  it('a reply picked again while the question is still being sent stays the target', async () => {
+    const c = await mounted();
+    const [first, second] = await twoExchanges(c);
+    await fireEvent.click(askOn(first));
+    await settle();
+    let release: () => void = () => {};
+    sendMessage.mockImplementation((m: { kind?: string }) =>
+      m.kind === 'translate:start'
+        ? new Promise((resolve) => (release = () => resolve({ ok: true })))
+        : Promise.resolve({ ok: true }),
+    );
+    await type(c, 'why?');
+    await fireEvent.click(c.querySelector('[data-ega-send]') as HTMLElement);
+    await settle();
+    // A, then B, then A again: the last pick is newer than the question, though it names the same reply.
+    await fireEvent.click(askOn(second));
+    await settle();
+    await fireEvent.click(askOn(first));
+    await settle();
+    release();
+    await settle();
+    await chunk({
+      type: 'done',
+      requestId: (starts().at(-1) as Start).requestId,
+      text: 'Because.',
+    });
+    expect(target(c)).toBe(first);
+  });
+
   it('a question about a version with no answer is refused, and the typed question stays', async () => {
     const push = vi.spyOn(toastStore, 'push');
     const c = await mounted();
@@ -523,37 +552,110 @@ describe('leaving Ask mode', () => {
     expect(box(c).value).toBe('my draft');
   });
 
-  it('an edit `e` refuses keeps Ask mode and the typed question', async () => {
-    const push = vi.spyOn(toastStore, 'push');
-    const c = await mounted();
-    await asking(c);
-    await type(c, 'my long question');
-    box(c).blur();
-    await fireEvent.keyDown(window, { key: 'e' });
-    await settle();
-    expect(toasts(push)).toContain('Clear the message box first to edit your last message.');
-    expect(banner(c)).toContain('Asking about this reply');
-    expect(box(c).value).toBe('my long question');
+  describe('an edit, which would lose a typed question or the draft from before Ask', () => {
+    const finish = 'Finish asking first to edit your last message.';
+    /** Ask on the only reply, with `draft` typed before and `question` typed after; focus leaves the box. */
+    async function askWith(c: HTMLElement, draft: string, question: string): Promise<void> {
+      const reply = await firstExchange(c);
+      await type(c, draft);
+      await fireEvent.click(askOn(reply));
+      await settle();
+      await type(c, question);
+      box(c).blur();
+    }
+
+    it('is refused while a question is typed, with or without a draft, and the question stays', async () => {
+      for (const draft of ['my draft', '']) {
+        const push = vi.spyOn(toastStore, 'push');
+        const c = await mounted();
+        await askWith(c, draft, 'my long question');
+        await fireEvent.keyDown(window, { key: 'e' });
+        await settle();
+        expect(toasts(push)).toContain(finish);
+        expect(banner(c)).toContain('Asking about this reply');
+        expect(box(c).value).toBe('my long question');
+        push.mockRestore();
+        document.body.innerHTML = '';
+        await chrome.storage.local.clear();
+        await chrome.storage.session.clear();
+      }
+    });
+
+    it('is refused with an empty box while the draft from before Ask waits, and says so', async () => {
+      const push = vi.spyOn(toastStore, 'push');
+      const c = await mounted();
+      await askWith(c, 'my draft', '');
+      await fireEvent.click(c.querySelector('.ega-user-turn [data-ega-edit]') as HTMLElement);
+      await settle();
+      expect(toasts(push)).toContain(finish);
+      expect(toasts(push).filter((m) => m.startsWith('Clear the message box'))).toEqual([]);
+      expect(banner(c)).toContain('Asking about this reply');
+    });
+
+    it('starts when nothing typed would be lost', async () => {
+      const c = await mounted();
+      await askWith(c, '', '');
+      await fireEvent.keyDown(window, { key: 'e' });
+      await settle();
+      expect(banner(c)).toContain('Editing your message');
+      expect(box(c).value).toBe('mar7aba, kifak?');
+    });
+
+    it('of an older message is refused while a question is typed, before any confirm', async () => {
+      const push = vi.spyOn(toastStore, 'push');
+      const c = await mounted();
+      const [, second] = await twoExchanges(c);
+      await fireEvent.click(askOn(second));
+      await settle();
+      await type(c, 'my long question');
+      await fireEvent.click(c.querySelector('.ega-user-turn [data-ega-edit]') as HTMLElement);
+      await settle();
+      expect(confirmMock).not.toHaveBeenCalled();
+      expect(toasts(push)).toContain('Finish asking first to edit this message.');
+      expect(box(c).value).toBe('my long question');
+    });
   });
 
-  it('an older message’s edit cancelled at its confirm keeps Ask mode and the typed question', async () => {
+  it('an older message’s edit cancelled at its confirm keeps Ask mode', async () => {
     const c = await mounted();
     const [, second] = await twoExchanges(c);
     await fireEvent.click(askOn(second));
     await settle();
-    await type(c, 'my long question');
     confirmMock.mockResolvedValueOnce(false);
     await fireEvent.click(c.querySelector('.ega-user-turn [data-ega-edit]') as HTMLElement);
     await settle();
     expect(confirmMock).toHaveBeenCalledOnce();
     expect(banner(c)).toContain('Asking about this reply');
-    expect(box(c).value).toBe('my long question');
 
     // Confirmed, the edit starts: Ask mode ends first and the message fills the box.
     await fireEvent.click(c.querySelector('.ega-user-turn [data-ega-edit]') as HTMLElement);
     await settle();
     expect(banner(c)).toContain('Editing your message');
     expect(box(c).value).toBe('mar7aba, kifak?');
+  });
+
+  it('an Undo of a delete made before Ask began keeps Ask mode and the typed question', async () => {
+    const push = vi.spyOn(toastStore, 'push');
+    const c = await mounted();
+    const [first] = await twoExchanges(c);
+    const more = c.querySelectorAll<HTMLElement>('[data-ega-user-turn] [data-ega-action="more"]');
+    await fireEvent.keyDown(more[1] as HTMLElement, { key: 'Enter' });
+    await fireEvent.click(
+      await waitFor(() => {
+        const el = document.querySelector<HTMLElement>('[role="menu"] [data-ega-delete]');
+        if (!el) throw new Error('menu not open');
+        return el;
+      }),
+    );
+    await settle();
+    await fireEvent.click(askOn(first));
+    await settle();
+    await type(c, 'my question');
+    push.mock.calls.find(([m]) => m.message === 'Message and reply deleted')?.[0].action?.onClick();
+    await settle();
+    expect(replies(c)).toHaveLength(2);
+    expect(banner(c)).toContain('Asking about this reply');
+    expect(box(c).value).toBe('my question');
   });
 
   it('an Ask exchange that lands from elsewhere ends it too', async () => {
@@ -800,6 +902,22 @@ describe('Ask instead', () => {
     await chunk({ type: 'done', requestId: q.requestId, text: 'It asks what kifak means.' });
     const sent = await send(c, 'a follow-up');
     expect(sent.options['task']).toBe('ask');
+    await fireEvent.click(c.querySelector('[aria-label="Done asking"]') as HTMLElement);
+    await settle();
+    expect(box(c).value).toBe('');
+  });
+
+  it('text typed meanwhile, then extended and sent, is no draft either, in the box or in storage', async () => {
+    const c = await mounted();
+    const { echoed } = await slip(c);
+    await fireEvent.click(echoed.querySelector('[data-ega-ask-instead]') as HTMLElement);
+    await settle();
+    const q = starts().at(-1) as Start;
+    await type(c, 'a fol');
+    await chunk({ type: 'done', requestId: q.requestId, text: 'It asks what kifak means.' });
+    const sent = await send(c, 'a follow-up');
+    expect(sent.options['task']).toBe('ask');
+    expect(JSON.stringify(await chrome.storage.session.get(null))).not.toContain('a fol');
     await fireEvent.click(c.querySelector('[aria-label="Done asking"]') as HTMLElement);
     await settle();
     expect(box(c).value).toBe('');

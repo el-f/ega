@@ -359,6 +359,12 @@
       const ocr = img !== null && (sendTask === 'translate' || !taskTakesImage(sendTask));
       const context = ocr ? undefined : await currentPageContext(sendTask);
       if (conversation.activeId !== originBefore || composerMode !== modeBefore) return;
+      if (asking !== null && draftInBox) {
+        // A later start kept the box's text as the draft too; whatever goes out now is the question, not a draft.
+        draftInBox = false;
+        draftBeforeEdit = '';
+        saveDraftNow('');
+      }
       // The previous turn is in the composer, so drop it or the re-send appends a duplicate.
       let preservedResponse: string | undefined;
       if (editingTurnId !== null) {
@@ -397,12 +403,9 @@
       if (asking !== null) {
         const question = conversation.turns.find((t) => t.id === answerId)?.attachedToTurnId;
         if (question !== undefined) askKnownUsers = new Set([...askKnownUsers, question]);
-        // A later start kept the typed text as the draft too; once it goes out as the question, it is no draft.
-        if (composerMode.kind === 'ask' && draftBeforeEdit.trim() === text) draftBeforeEdit = '';
+        // The mode follows the answer once it lands done with text (R2-3).
+        askAwait = { turnId: answerId, enter: false, mode: modeBefore };
       }
-      // The mode follows the answer once it lands done with text (R2-3); ×, or another reply picked meanwhile, wins.
-      if (asking !== null && composerMode.kind === 'ask' && composerMode.turnId === asking)
-        askAwait = { turnId: answerId, enter: false };
       // Leaving Ask mode during the send put the earlier draft back; only the sent question goes.
       if (asking === null || composerMode.kind === 'ask') sourceText = '';
       if (img !== null) {
@@ -498,7 +501,7 @@
     } else if (composerMode.kind === 'ask') {
       // Ask mode ends first: the typed question goes, the draft saved before it stays saved.
       sourceText = '';
-      askAwait = null;
+      draftInBox = false;
     }
     composerMode = { kind: 'refine', turnId };
     await tick();
@@ -513,8 +516,10 @@
   }
 
   // ── Ask mode: each send is a question about one reply, until the user is done asking ──
-  /** The answer Ask mode waits on: it moves there (or, for "Ask instead", starts there) once it ends done with text. */
-  let askAwait = $state<{ turnId: string; enter: boolean } | null>(null);
+  /** The answer Ask mode waits on, with the mode the wait began in: a mode picked since then wins over the answer. */
+  let askAwait = $state.raw<{ turnId: string; enter: boolean; mode: ComposerMode } | null>(null);
+  /** A later start left the typed text in the box, and the draft holds the same text. */
+  let draftInBox = false;
   /** Said in the composer's live region; a new object repeats the same words. */
   let askSaid = $state<{ text: string } | null>(null);
   /** User turns there when Ask mode began, so a message that lands from elsewhere ends it. */
@@ -573,9 +578,8 @@
       flushDraftSave();
       draftBeforeEdit = sourceText;
       if (!later) sourceText = '';
+      draftInBox = later;
     }
-    // A pick made now wins over an answer still on its way.
-    askAwait = null;
     // Every message there now came before this Ask, including a tooltip Ask's own exchange.
     askKnownUsers = new Set(conversation.turns.filter((t) => t.role === 'user').map((t) => t.id));
     composerMode = { kind: 'ask', turnId };
@@ -593,7 +597,7 @@
     composerMode = { kind: 'send' };
     sourceText = draftBeforeEdit;
     draftBeforeEdit = '';
-    askAwait = null;
+    draftInBox = false;
   }
 
   /** "Ask instead" (meta line or More): this reply's text asked about the newest earlier finished reply, as a new version. Ask mode follows the answer. */
@@ -605,8 +609,7 @@
     const about = earlier === undefined ? null : aboutOf(earlier.id);
     const modeBefore = composerMode;
     if (await conversation.taskVariant(turnId, 'ask', about ?? undefined)) {
-      // A mode the user picked during the dispatch wins over the answer this one waits for.
-      if (composerMode === modeBefore) askAwait = { turnId, enter: true };
+      askAwait = { turnId, enter: true, mode: modeBefore };
     }
   }
 
@@ -656,7 +659,8 @@
     const ready = askable(turn);
     if (wait === null || status === 'pending' || status === 'streaming') return;
     askAwait = null;
-    if (!ready || turn === undefined || turnTaskValue(turn) !== 'ask') return;
+    // A mode picked since the wait began (another reply, Done asking, an edit) wins over the answer.
+    if (mode !== wait.mode || !ready || turn === undefined || turnTaskValue(turn) !== 'ask') return;
     if (mode.kind === 'ask') {
       composerMode = { kind: 'ask', turnId: wait.turnId };
       askSaid = { text: 'Now asking about the new answer' };
@@ -707,20 +711,25 @@
       return;
     }
     // 'e' is one bare keypress; it must not silently replace something the user typed.
-    if (heldDraft().trim() && heldDraft() !== last.content) {
-      toastStore.push({
-        message: 'Clear the message box first to edit your last message.',
-        variant: 'warning',
-      });
+    const blocked = editBlocked(last.content, 'your last message');
+    if (blocked !== null) {
+      toastStore.push({ message: blocked, variant: 'warning' });
       return;
     }
     leaveAsk();
     enterEdit(last.id, last.content);
   }
 
-  /** What an edit would replace: in Ask mode the box holds a question, and the draft from before it waits. */
-  function heldDraft(): string {
-    return composerMode.kind === 'ask' ? draftBeforeEdit : sourceText;
+  /** The toast that refuses an edit of `content` because it would lose typed text; null when nothing is lost. */
+  function editBlocked(content: string, which: string): string | null {
+    const lost = (text: string): boolean => text.trim() !== '' && text !== content;
+    // Leaving Ask mode drops the question in the box, and sending the edit drops the draft saved before Ask.
+    if (composerMode.kind === 'ask') {
+      return lost(sourceText) || lost(draftBeforeEdit)
+        ? `Finish asking first to edit ${which}.`
+        : null;
+    }
+    return lost(sourceText) ? `Clear the message box first to edit ${which}.` : null;
   }
 
   /** The composer takes the message text; the draft waits, and leaving the mode puts it back. */
@@ -759,11 +768,9 @@
     if (turnIdx === -1) return;
     // The old message's text replaces the composer, so a draft the user typed must not be lost to it.
     const content = conversation.turns[turnIdx]?.content ?? '';
-    if (heldDraft().trim() && heldDraft() !== content) {
-      toastStore.push({
-        message: 'Clear the message box first to edit this message.',
-        variant: 'warning',
-      });
+    const blocked = editBlocked(content, 'this message');
+    if (blocked !== null) {
+      toastStore.push({ message: blocked, variant: 'warning' });
       return;
     }
     const later = conversation.turns.length - turnIdx - 1;
@@ -1011,6 +1018,9 @@
       action: {
         label: 'Undo',
         onClick: () => {
+          // The user's own Undo is no message from elsewhere, so it does not end Ask mode.
+          const back = slice.removed.filter((t) => t.role === 'user').map((t) => t.id);
+          askKnownUsers = new Set([...askKnownUsers, ...back]);
           if (!conversation.restoreTurns(slice)) {
             toastStore.push({
               message: "Can't undo. This conversation is no longer open.",
