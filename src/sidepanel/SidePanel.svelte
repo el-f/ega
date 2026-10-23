@@ -397,6 +397,8 @@
       if (asking !== null) {
         const question = conversation.turns.find((t) => t.id === answerId)?.attachedToTurnId;
         if (question !== undefined) askKnownUsers = new Set([...askKnownUsers, question]);
+        // A later start kept the typed text as the draft too; once it goes out as the question, it is no draft.
+        if (composerMode.kind === 'ask' && draftBeforeEdit.trim() === text) draftBeforeEdit = '';
       }
       // The mode follows the answer once it lands done with text (R2-3); ×, or another reply picked meanwhile, wins.
       if (asking !== null && composerMode.kind === 'ask' && composerMode.turnId === asking)

@@ -697,6 +697,21 @@ describe('Ask instead', () => {
     expect(box(c).value).toBe('a follow-up');
   });
 
+  it('text typed meanwhile and then sent as the question does not come back after Done asking', async () => {
+    const c = await mounted();
+    const { echoed } = await slip(c);
+    await fireEvent.click(echoed.querySelector('[data-ega-ask-instead]') as HTMLElement);
+    await settle();
+    const q = starts().at(-1) as Start;
+    await type(c, 'a follow-up');
+    await chunk({ type: 'done', requestId: q.requestId, text: 'It asks what kifak means.' });
+    const sent = await send(c, 'a follow-up');
+    expect(sent.options['task']).toBe('ask');
+    await fireEvent.click(c.querySelector('[aria-label="Done asking"]') as HTMLElement);
+    await settle();
+    expect(box(c).value).toBe('');
+  });
+
   it('a later start leaves focus on another reply alone', async () => {
     const c = await mounted();
     const { first, echoed } = await slip(c);
