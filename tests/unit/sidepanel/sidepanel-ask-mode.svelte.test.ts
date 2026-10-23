@@ -317,7 +317,7 @@ describe('asking', () => {
     await openMenu(c, 'more');
     await fireEvent.click(document.querySelector('[role="menu"] [data-ega-delete]') as HTMLElement);
     await settle();
-    expect(c.querySelector('[data-ega-ask-quote-gone]')?.textContent).toBe('Reply removed');
+    expect(c.querySelector('[data-ega-ask-quote]')).toBeNull();
     // The answer's re-run asks the question alone: the deleted reply goes nowhere.
     const again = await regenerate(c);
     expect(again.options['task']).toBe('ask');
@@ -439,7 +439,8 @@ describe('asking', () => {
     expect(shown?.classList.contains('flash')).toBe(true);
   });
 
-  it('a quote whose reply was deleted reads "Reply removed"', async () => {
+  it('a question whose reply was deleted is a plain bubble, and About on its answer says the reply is gone', async () => {
+    const push = vi.spyOn(toastStore, 'push');
     const c = await mounted();
     const reply = await firstExchange(c);
     await fireEvent.click(askOn(reply));
@@ -450,8 +451,20 @@ describe('asking', () => {
     await openMenu(c, 'more');
     await fireEvent.click(document.querySelector('[role="menu"] [data-ega-delete]') as HTMLElement);
     await settle();
-    expect(c.querySelector('[data-ega-ask-quote]')).toBeNull();
-    expect(c.querySelector('[data-ega-ask-quote-gone]')?.textContent).toBe('Reply removed');
+    const bubble = c.querySelector('[data-ega-user-bubble]');
+    expect(bubble?.querySelector('.ega-ask-quote')).toBeNull();
+    expect(bubble?.textContent.trim()).toBe('why?');
+    await openMenu(c, 'more');
+    await fireEvent.click(document.querySelector('[data-ega-about]') as HTMLElement);
+    await waitFor(() =>
+      expect(c.querySelector('[data-ega-asked-about] dd')?.textContent).toBe(
+        'A reply that is no longer in this conversation',
+      ),
+    );
+
+    push.mock.calls.find(([m]) => m.message === 'Message and reply deleted')?.[0].action?.onClick();
+    await settle();
+    expect(c.querySelector('[data-ega-ask-quote]')?.textContent).toContain('Hi, how are you?');
   });
 });
 

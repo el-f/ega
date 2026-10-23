@@ -21,6 +21,7 @@
     separatorLabel,
     separatorTurnIds,
     taskLabelsOnChange,
+    askedAbout,
     type SuggestionKind,
     type SuggestionResult,
   } from '../state/thread-view';
@@ -152,10 +153,15 @@
   const userTextById = $derived(
     Object.fromEntries(turns.filter((t) => t.role === 'user').map((t) => [t.id, t.content])),
   );
-  const aboutByUserId = $derived(
-    new Map(turns.flatMap((t) => (t.role === 'user' && t.about ? [[t.id, t.about] as const] : []))),
-  );
   const liveIds = $derived(threadIds ?? new Set(turns.map((t) => t.id)));
+  const askedByUserId = $derived(
+    new Map(
+      turns.flatMap((t) => {
+        const asked = t.role === 'user' ? askedAbout(t, liveIds) : undefined;
+        return asked === undefined ? [] : [[t.id, asked] as const];
+      }),
+    ),
+  );
   // A bookmark belongs to the pair (spec §5.2, F12): either half shows it, and unchecking clears both halves.
   const pairIds = $derived(
     new Map(
@@ -178,7 +184,7 @@
     for (const i of on.length > 0 ? on : [id]) onBookmark?.(i);
   }
   const separators = $derived(separatorTurnIds(turns));
-  const taskLabels = $derived(taskLabelsOnChange(turns, taskViews));
+  const taskLabels = $derived(taskLabelsOnChange(turns, taskViews, liveIds));
   const positions = $derived(new Map(turns.map((t, i) => [t.id, i])));
 
   // Separator labels are computed at render; with no tick "Today" would never become "Yesterday".
@@ -674,8 +680,9 @@
               asked={turn.id === askingTurnId}
               flash={turn.id === flashId}
               questionAbout={turn.attachedToTurnId
-                ? aboutByUserId.get(turn.attachedToTurnId)
+                ? askedByUserId.get(turn.attachedToTurnId)
                 : undefined}
+              threadIds={liveIds}
             />
           {/if}
         {/each}

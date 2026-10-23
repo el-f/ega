@@ -5,6 +5,7 @@ import { activeVariant, turnLabel, turnTaskValue } from './conversation';
 import type { TaskView } from '@/shared/task-view';
 import { TONE_LABELS, type Tone } from '@/shared/task-prompts';
 import { detectedOf, directionLabel } from '@/shared/reply-meta';
+import type { AskAbout } from '@/shared/ask-about';
 
 const MINUTE = 60_000;
 const DAY = 24 * 60 * MINUTE;
@@ -76,10 +77,22 @@ export function separatorTurnIds(turns: readonly Turn[]): ReadonlySet<string> {
   return out;
 }
 
+/** What a question or an "Ask instead" version asked about: the reply's copy while that reply is in `live`, 'gone' once it is not. */
+export function askedAbout(
+  holder: { about?: AskAbout | undefined; aboutRemoved?: true | undefined } | undefined,
+  live?: ReadonlySet<string>,
+): AskAbout | 'gone' | undefined {
+  if (holder?.about !== undefined) {
+    return live === undefined || live.has(holder.about.turnId) ? holder.about : 'gone';
+  }
+  return holder?.aboutRemoved === true ? 'gone' : undefined;
+}
+
 /** The task each user message names above its bubble, only where the task changes (or a first message that is not Translate). */
 export function taskLabelsOnChange(
   turns: readonly Turn[],
   views: readonly TaskView[],
+  live?: ReadonlySet<string>,
 ): ReadonlyMap<string, string> {
   const out = new Map<string, string>();
   let prev: string | undefined;
@@ -91,7 +104,8 @@ export function taskLabelsOnChange(
     const key = `${task}|${tone ?? ''}`;
     const changed = prev === undefined ? task !== 'translate' || tone !== undefined : key !== prev;
     // A quoted question is marked by its quote; a task label would say it twice.
-    if (changed && t.about === undefined && t.aboutRemoved !== true) {
+    const asked = askedAbout(t, live);
+    if (changed && (asked === undefined || asked === 'gone')) {
       const base = turnLabel(t.kind === 'image-translate' ? { ...t, kind: 'translate' } : t, views);
       out.set(t.id, tone === undefined ? base : `${base} · ${TONE_LABELS[tone]}`);
     }

@@ -356,4 +356,20 @@ describe('the reply a question was about, as stored', () => {
     expect(turns[0]?.aboutRemoved).toBe(true);
     expect(turns[1]).not.toHaveProperty('aboutRemoved');
   });
+
+  it('an Ask instead version keeps its removed-reply mark only as true', async () => {
+    const marked = (mark: unknown): Record<string, unknown> => {
+      const t = answer(undefined);
+      const [v1, v2] = t['variants'] as Array<Record<string, unknown>>;
+      return { ...t, variants: [v1, { ...v2, aboutRemoved: mark }] };
+    };
+    await put(blob({ turns: [goodTurn(), marked(true)] }));
+    expect((await loadThreadResult('https://a.com')).turns[1]?.variants?.[1]?.aboutRemoved).toBe(
+      true,
+    );
+    await put(blob({ turns: [goodTurn(), marked('yes')] }));
+    expect((await loadThreadResult('https://a.com')).turns[1]?.variants?.[1]).not.toHaveProperty(
+      'aboutRemoved',
+    );
+  });
 });

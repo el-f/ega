@@ -36,7 +36,7 @@
     onEdit?: ((id: string) => void) | undefined;
     /** True while a reply is streaming; editing would truncate under the running turn. */
     inflight?: boolean;
-    /** The reply this question quotes is no longer in the conversation. */
+    /** The reply this question quotes is no longer in the conversation, so it shows no quote. */
     aboutGone?: boolean;
     /** Shows the quoted reply. */
     onQuote?: ((replyId: string) => void) | undefined;
@@ -139,9 +139,8 @@
   {/if}
   <div class="ega-bubble-wrap">
     <div class="ega-bubble" class:editing data-ega-user-bubble>
-      {#if turn.aboutRemoved === true || (turn.about !== undefined && aboutGone)}
-        <span class="ega-ask-quote gone" data-ega-ask-quote-gone>Reply removed</span>
-      {:else if turn.about !== undefined}
+      <!-- A reply that left the thread leaves no mark: the bubble is a plain question. -->
+      {#if turn.about !== undefined && !aboutGone}
         {@const replyId = turn.about.turnId}
         <!-- A label, not a hidden span: Chrome puts a space before a hidden span's comma in the name. -->
         <button
@@ -338,12 +337,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-  /* A dimmed quote: the muted bar stays 3:1 or more on the bubble. */
-  .ega-ask-quote.gone {
-    border-inline-start-color: var(--color-muted);
-    font-style: italic;
-    cursor: default;
   }
   @media (forced-colors: active) {
     .ega-ask-quote {

@@ -143,13 +143,18 @@ test('Ask on a reply sends that reply with the question, keeps asking, links bac
   await expect(page.locator('[data-ega-mode-said]')).toContainText('Back to');
   timeline.markStep('done-asking');
 
-  // Delete the first message: the question keeps its quote, now as plain text.
+  // Delete the first message: the question is a plain bubble, and About on its answer says the reply is gone.
   const original = page.locator('.ega-user-turn').first();
   await original.hover();
   await original.locator('[data-ega-action="more"]').click();
   await page.locator('[data-ega-delete]').click();
   await expect(page.locator('[data-ega-reply]')).toHaveCount(1);
-  await expect(page.locator('[data-ega-ask-quote-gone]')).toHaveText('Reply removed');
-  await expect(page.locator('[data-ega-ask-quote]')).toHaveCount(0);
+  await expect(page.locator('.ega-ask-quote')).toHaveCount(0);
+  await expect(question.locator('[data-ega-user-bubble]')).toHaveText(QUESTION);
+  const after = await openReplyMenu(page, 'more', last);
+  await after.locator('[data-ega-about]').click();
+  await expect(last.locator('[data-ega-asked-about]')).toContainText(
+    'A reply that is no longer in this conversation',
+  );
   timeline.markStep('quote-gone');
 });

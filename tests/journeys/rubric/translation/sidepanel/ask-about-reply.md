@@ -14,7 +14,7 @@
 - Step 4: the composer keeps asking, now about the answer; the bar moves to the answer. The answer's meta line reads "Answer", with no languages and no confidence.
 - Step 5 (press the quote): the thread scrolls to the first reply, the reply flashes briefly and takes focus.
 - Step 6 (×): the banner goes, the composer is back on its task ("Translate → English") with the earlier draft restored, and focus stays in the field.
-- Step 7 (the first message is deleted): the quote on the question reads "Reply removed" in plain text, and is not a button.
+- Step 7 (the first message is deleted): the question is a plain bubble with no quote and no placeholder. About this reply on its answer shows "Asked about: A reply that is no longer in this conversation".
 
 ## Visible affordances
 

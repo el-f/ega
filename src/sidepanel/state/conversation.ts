@@ -74,6 +74,8 @@ export interface Variant {
   task?: TaskId;
   /** The reply an "Ask instead" version asks about; its re-runs send it again. */
   about?: AskAbout;
+  /** The user deleted the reply this version asked about, and its copy with it. */
+  aboutRemoved?: true;
 }
 
 /** Language pair + streaming preference of a user turn; its page context lives
@@ -789,7 +791,7 @@ export function forgetAbout(
       if (v.about === undefined || !gone.has(v.about.turnId)) return v;
       forgotten.push({ turnId: t.id, variantId: v.id, about: v.about });
       const { about: _copy, ...rest } = v;
-      return rest;
+      return { ...rest, aboutRemoved: true as const };
     });
     return { ...t, variants };
   });
@@ -816,7 +818,9 @@ export function rememberAbout(
       ...t,
       variants: t.variants.map((v) => {
         const back = mine.find((f) => f.variantId === v.id);
-        return back !== undefined && v.about === undefined ? { ...v, about: back.about } : v;
+        if (back === undefined || v.aboutRemoved !== true) return v;
+        const { aboutRemoved: _flag, ...rest } = v;
+        return { ...rest, about: back.about };
       }),
     };
   });

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  askedAbout,
   SEPARATOR_GAP_MS,
   conversationTitle,
   listTime,
@@ -99,6 +100,28 @@ describe('taskLabelsOnChange', () => {
     expect(Object.fromEntries(taskLabelsOnChange(turns, SHIPPED_TASK_VIEWS))).toEqual({
       u3: 'Translate',
     });
+  });
+
+  it('a question whose reply left the thread shows no quote, so it is labelled like any question', () => {
+    const about = { turnId: 'a1', task: 'Translate', original: 'hola', result: 'hello' };
+    const turns = [user('u2', 2, { kind: 'ask', about }), user('u3', 3, { kind: 'ask' })];
+    const live = new Set(['u2', 'u3']);
+    expect(Object.fromEntries(taskLabelsOnChange(turns, SHIPPED_TASK_VIEWS, live))).toEqual({
+      u2: 'Ask',
+    });
+    const removed = [user('u2', 2, { kind: 'ask', aboutRemoved: true })];
+    expect(taskLabelsOnChange(removed, SHIPPED_TASK_VIEWS, live).get('u2')).toBe('Ask');
+  });
+});
+
+describe('askedAbout', () => {
+  const about = { turnId: 'a1', task: 'Translate', original: 'hola', result: 'hello' };
+  it('is the copy while its reply is here, and gone once it left or its copy was removed', () => {
+    expect(askedAbout({ about }, new Set(['a1']))).toBe(about);
+    expect(askedAbout({ about }, new Set())).toBe('gone');
+    expect(askedAbout({ aboutRemoved: true }, new Set(['a1']))).toBe('gone');
+    expect(askedAbout({}, new Set())).toBeUndefined();
+    expect(askedAbout(undefined)).toBeUndefined();
   });
 });
 

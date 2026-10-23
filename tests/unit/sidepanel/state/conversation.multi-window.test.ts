@@ -678,6 +678,8 @@ describe('a copy of a reply that another window deletes', () => {
 
     const stored = JSON.stringify((await loadThreadResult(ORIGIN)).turns);
     expect(stored).not.toContain('secret-result');
+    // The version still says it asked about a reply, so its About can say that reply is gone.
+    expect(byId(a, t)?.variants?.at(-1)?.aboutRemoved).toBe(true);
     expect(await a.regenerateVariant(t)).toBe(true);
     expect(JSON.stringify(lastStartOptions())).not.toContain('secret-result');
   });

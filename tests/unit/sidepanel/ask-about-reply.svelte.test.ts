@@ -107,6 +107,48 @@ describe('an answer to a question', () => {
     expect(row.nextElementSibling?.textContent).toBe('Hi, how are you?');
   });
 
+  it('About on an answer whose reply left the thread says so under Asked about', async () => {
+    const gone = 'A reply that is no longer in this conversation';
+    const cases = [
+      replyProps(doneReply({ kind: 'ask' }), { questionAbout: 'gone' }),
+      // An "Ask instead" version: its copy was removed, or its reply was dropped by the storage cap.
+      replyProps(
+        doneReply({
+          variants: [
+            { id: 'v1', status: 'done', content: 'Hi.' },
+            { id: 'v2', status: 'done', content: 'Because.', task: 'ask', aboutRemoved: true },
+          ],
+          activeVariantIdx: 1,
+        }),
+      ),
+      replyProps(
+        doneReply({
+          variants: [
+            { id: 'v1', status: 'done', content: 'Hi.' },
+            {
+              id: 'v2',
+              status: 'done',
+              content: 'Because.',
+              task: 'ask',
+              about: { ...ABOUT, turnId: 'a0' },
+            },
+          ],
+          activeVariantIdx: 1,
+        }),
+        { threadIds: new Set(['u1', 'a1']) },
+      ),
+    ];
+    for (const props of cases) {
+      const { container, unmount } = render(AssistantTurn, { props });
+      await openMenu(container, 'more');
+      await fireEvent.click(document.querySelector('[data-ega-about]') as HTMLElement);
+      const row = await screen.findByText('Asked about');
+      expect(row.nextElementSibling?.textContent).toBe(gone);
+      unmount();
+      document.body.innerHTML = '';
+    }
+  });
+
   it('a version re-run as another task was not about the reply, so About does not say it was', async () => {
     const turn = doneReply({
       kind: 'ask',
@@ -160,18 +202,17 @@ describe('the quote on a question', () => {
     );
   });
 
-  it('a removed reply reads "Reply removed", as plain text', () => {
-    const { container } = render(UserTurn, { props: { turn: question(), aboutGone: true } });
-    expect(container.querySelector('[data-ega-ask-quote]')).toBeNull();
-    const gone = container.querySelector('[data-ega-ask-quote-gone]');
-    expect(gone?.tagName).toBe('SPAN');
-    expect(gone?.textContent).toBe('Reply removed');
-  });
-
-  it('a question whose reply the user deleted keeps no copy of it and still reads "Reply removed"', () => {
+  // R2-27: a placeholder in a quote bar reads like a rendering bug, and the user who deleted the reply knows.
+  it('a question whose reply left the thread is a plain bubble: no quote, no placeholder', () => {
     const { about: _about, ...rest } = question();
-    const { container } = render(UserTurn, { props: { turn: { ...rest, aboutRemoved: true } } });
-    expect(container.querySelector('[data-ega-ask-quote-gone]')?.textContent).toBe('Reply removed');
+    for (const turn of [question(), { ...rest, aboutRemoved: true as const }]) {
+      const { container, unmount } = render(UserTurn, { props: { turn, aboutGone: true } });
+      expect(container.querySelector('.ega-ask-quote')).toBeNull();
+      expect(container.querySelector('[data-ega-user-bubble]')?.textContent.trim()).toBe(
+        'what makes it Levantine?',
+      );
+      unmount();
+    }
   });
 
   it('a quoted reply outside the rendered window is shown first, then focused and flashed', async () => {
@@ -214,7 +255,7 @@ describe('the quote on a question', () => {
   it('a message with no reply to quote has no quote', () => {
     const { about: _about, ...plain } = question();
     const { container } = render(UserTurn, { props: { turn: plain } });
-    expect(container.querySelector('[data-ega-ask-quote], [data-ega-ask-quote-gone]')).toBeNull();
+    expect(container.querySelector('.ega-ask-quote')).toBeNull();
   });
 });
 
