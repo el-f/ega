@@ -168,7 +168,7 @@ export function renderAskAboutBlock(a: AskAbout): string {
   return [
     ASK_ABOUT_LABEL,
     `Task: ${escapeInline(a.task)}`,
-    a.languages !== undefined ? `Languages: ${escapeInline(a.languages)}` : '',
+    a.languages !== undefined ? fenced('Languages', a.languages) : '',
     a.original !== '' ? fenced('Original text', a.original) : '',
     fenced('Result', a.result),
     a.notes !== undefined ? fenced('Notes', a.notes) : '',

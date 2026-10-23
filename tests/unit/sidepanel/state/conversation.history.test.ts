@@ -138,6 +138,45 @@ describe('retry() — conversationHistory assembly', () => {
     expect(history.some((h) => h.content === 'adios')).toBe(false);
   });
 
+  it('a new version of an answer to a question resends the earlier turns and the reply it was about', async () => {
+    const c = createConversation();
+    await c.send({
+      content: 'mar7aba',
+      kind: 'translate',
+      sourceLang: 'auto',
+      targetLang: en,
+      stream: false,
+    });
+    completeAssistant(c, 'hello');
+    const about = {
+      turnId: 'a1',
+      task: 'Translate',
+      original: 'mar7aba',
+      result: 'hello',
+    };
+    const answerId = await c.send({
+      content: 'why?',
+      kind: 'ask',
+      sourceLang: 'auto',
+      targetLang: en,
+      stream: false,
+      about,
+    });
+    const first = (chrome.runtime.sendMessage as Mock).mock.calls.at(-1)?.[0];
+    expect(first.options.askAbout).toEqual(about);
+    completeAssistant(c, 'because');
+
+    (chrome.runtime.sendMessage as Mock).mockClear();
+    await c.regenerateVariant(answerId);
+
+    const msg = (chrome.runtime.sendMessage as Mock).mock.calls[0]?.[0];
+    expect(msg.options.askAbout).toEqual(about);
+    expect(msg.options.conversationHistory).toEqual([
+      { role: 'user', content: 'mar7aba' },
+      { role: 'assistant', content: 'hello' },
+    ]);
+  });
+
   it('a refine variant sends no history, by choice, even with earlier exchanges', async () => {
     const c = createConversation();
     await c.send({

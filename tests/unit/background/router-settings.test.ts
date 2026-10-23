@@ -256,7 +256,7 @@ describe('router — buildPrompt receives the reword tone', () => {
     );
     const user = captured.user[0] ?? '';
     expect(user).toContain('The question is about this earlier result');
-    expect(user).toContain('Languages: Arabizi (Levantine) → English');
+    expect(user).toContain('Languages:\n"""\nArabizi (Levantine) → English\n"""');
     expect(user).toContain('Result:\n"""\nHi, how are you?\n"""');
     expect(user).toContain('Notes:\n"""\nkifak is Levantine\n"""');
     expect(user).not.toContain('kifak? """');

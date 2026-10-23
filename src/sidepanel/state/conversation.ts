@@ -196,6 +196,7 @@ interface AddUserTurnInput {
   dispatch?: TurnDispatch;
   taskId?: TaskId;
   trimmedTo?: number;
+  about?: AskAbout;
 }
 
 /** Append a user turn. Returns the new turn list — caller assigns. */
@@ -212,6 +213,7 @@ export function addUserTurn(turns: readonly Turn[], input: AddUserTurnInput): Tu
     ...(input.dispatch !== undefined ? { dispatch: input.dispatch } : {}),
     ...(input.taskId !== undefined ? { taskId: input.taskId } : {}),
     ...(input.trimmedTo !== undefined ? { trimmedTo: input.trimmedTo } : {}),
+    ...(input.about !== undefined ? { about: input.about } : {}),
   };
   return [...turns, turn];
 }
@@ -489,7 +491,8 @@ export function buildStartArgs(userTurn: Turn, overlay: StartOverlay): StartArgs
   const task = seed.task ?? turnTaskValue(userTurn);
   const image = userTurn.imageDataUrl;
   const history = historyFor(userTurn, overlay.thread);
-  const about = overlay.about ?? userTurn.about;
+  // "Answer again as Translate" on a question re-runs its text alone, so only an Ask request carries the reply.
+  const about = task === 'ask' ? (overlay.about ?? userTurn.about) : undefined;
   return {
     requestId: overlay.requestId,
     text: userTurn.content,

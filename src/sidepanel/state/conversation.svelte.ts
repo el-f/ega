@@ -2,6 +2,7 @@
 
 import {
   activeVariant,
+  turnTaskValue,
   addAssistantTurn,
   addDeliveredAssistantTurn,
   addUserTurn as addUserTurnPure,
@@ -73,6 +74,7 @@ import { toastStore } from '@/shared/components/toastStore';
 import { makeAsyncLock } from '@/shared/utils/async-lock';
 import { isSafeRenderImageSrc } from '@/shared/image-url-guard';
 import { uuid } from '@/shared/uuid';
+import type { AskAbout } from '@/shared/ask-about';
 import { IMAGE_TURN_PLACEHOLDER } from '@/shared/constants';
 import type { LangSelection, PageContext, TranslationChunk } from '@/shared/types';
 import type { Tone } from '@/shared/task-prompts';
@@ -103,6 +105,8 @@ interface DispatchInput {
   taskId?: TaskId;
   /** The text was cut to this many characters on its way in. */
   trimmedTo?: number;
+  /** A question about an earlier reply. */
+  about?: AskAbout;
 }
 
 /** What `deleteTurn` removed, so the caller can offer Undo. */
@@ -352,6 +356,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       ...(input.tone ? { tone: input.tone } : {}),
       ...(input.taskId !== undefined ? { taskId: input.taskId } : {}),
       ...(input.trimmedTo !== undefined ? { trimmedTo: input.trimmedTo } : {}),
+      ...(input.about !== undefined ? { about: input.about } : {}),
     });
     const userTurn = userTurns[userTurns.length - 1];
     if (userTurn === undefined) throw new Error('addUserTurn returned no turn');
@@ -743,6 +748,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     turnId: string,
     seed: VariantSeed,
     freshAnswer = false,
+    about?: AskAbout,
   ): Promise<boolean> {
     if (state.inflightId !== null || ownedByBackground(turnId)) return false;
     const target = resolveVariantTarget(turnId);
@@ -761,7 +767,8 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     // The user turn's captured tone wins, so a later picker change does not apply backwards.
     const tone = userTurn.tone ?? state.lastDispatch?.tone;
     try {
-      // Deliberate: a variant re-answers this one exchange, with no earlier turns.
+      // A variant re-answers this one exchange with no earlier turns, except a question: it means nothing without them.
+      const asks = (seed.task ?? turnTaskValue(userTurn)) === 'ask';
       await sendTranslateStart(
         buildStartArgs(userTurn, {
           requestId,
@@ -769,8 +776,9 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
           seed,
           tone,
           context,
-          thread: 'none',
+          thread: asks ? state.turns : 'none',
           freshAnswer,
+          ...(about ? { about } : {}),
         }),
       );
     } catch (e) {
