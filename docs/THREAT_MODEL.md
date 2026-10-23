@@ -135,8 +135,10 @@ reply also brings its notes, details, structured answer, detected languages,
 confidence and reply metadata. With Record request details on, which is the
 default, that metadata holds the system prompt that was sent, glossary and rules
 included, cut to a fixed size. The tooltip's Ask sets an `ask` flag. The tooltip
-runs as a content script, so the reader rebuilds the reply field by field and drops
-any field, note or detail of the wrong type.
+runs as a content script, so the reader rebuilds the notes, details, detected
+languages, confidence and metadata field by field, and drops any of the wrong type.
+Two parts are kept as sent: a detail's value, and the structured answer, which is
+only checked for shape (an object whose spec lists its fields as objects).
 The Storage shape table in `docs/PERMISSIONS.md` lists the full session storage set.
 
 ---

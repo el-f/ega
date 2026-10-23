@@ -183,7 +183,7 @@ untrusted data (`src/shared/prompts.ts#renderAskAboutBlock`). The usual history 
   (`src/sidepanel/state/conversation.ts#forgetAbout`). Undo puts the copy back. After the delete,
   a new version of such a question sends the question and the history only. When a conversation
   passes 300 messages and its oldest ones drop off, the copies stay, so the questions keep their
-  context.
+  context. Deleting such a question, or its answer, drops its copy.
 - In the tooltip, "Ask about this" opens the side panel. Nothing is sent until you type a
   question and send it.
 
@@ -219,10 +219,11 @@ Three things this does **not** cover, all on purpose:
   fields only (`src/shared/redact.ts#redactContext`). A secret that reached an earlier turn as
   selected text goes out again, unmasked, with every later send from that site's panel. "New
   conversation" is the way to drop it.
-- **A question about a reply sends that reply again, unmasked.** The reply's text, answer and
-  notes go in the question's details (`src/shared/ask-about.ts`). The copy saved on the question
-  stays after the reply drops out of the 300-message history, so every new version of the answer
-  sends it again. Deleting the reply is the way to drop it.
+- **A question about a reply sends that reply again, unmasked.** The question keeps a copy of the
+  reply's original text, result and notes (`src/shared/ask-about.ts`). The copy stays after the
+  reply drops off the saved conversation (the 300-message limit), so every new version of the
+  answer sends it again. To drop it, delete the reply while it is still in the conversation. Once
+  the reply has dropped off, delete the question or its answer, or start a New conversation.
 
 ## Where it goes
 
