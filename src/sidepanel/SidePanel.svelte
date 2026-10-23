@@ -573,6 +573,21 @@
     askAwait = null;
   }
 
+  /** "Ask instead" (meta line or More): this reply's text asked about the newest earlier finished reply, as a new version. Ask mode follows the answer. */
+  async function askInstead(turnId: string): Promise<void> {
+    const turns = conversation.turns;
+    const reply = turns.find((t) => t.id === turnId);
+    const askedAt = turns.findIndex((t) => t.id === reply?.attachedToTurnId);
+    const earlier = turns
+      .slice(0, Math.max(0, askedAt))
+      .filter((t) => t.role === 'assistant' && t.status === 'done' && t.content.trim() !== '')
+      .at(-1);
+    const about = earlier === undefined ? null : aboutOf(earlier.id);
+    if (await conversation.taskVariant(turnId, 'ask', about ?? undefined)) {
+      askAwait = { turnId, enter: true };
+    }
+  }
+
   /** The reply's Ask button and `a`: the reply asked about now is a toggle; one still running cannot be asked about. */
   function onAsk(turnId: string): void {
     if (!askEnabled) return;
@@ -1452,7 +1467,8 @@
       onRefine={(args) => onRefine(args)}
       onSelectVariant={(turnId, idx) => conversation.selectVariant(turnId, idx)}
       onSwap={(id) => void conversation.swapVariant(id)}
-      onTaskSwitch={(id, t) => void conversation.taskVariant(id, t)}
+      onTaskSwitch={(id, t) =>
+        void (t === 'ask' ? askInstead(id) : conversation.taskVariant(id, t))}
       swapPairFor={(id) => conversation.swapPair(id)}
       onTranslateInto={(id, lang) => void conversation.langVariant(id, lang)}
       onDescribeChange={(id) => void onDescribeChange(id)}

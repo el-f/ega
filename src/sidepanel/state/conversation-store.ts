@@ -101,7 +101,7 @@ function validateStoredTurn(t: unknown): Turn | null {
     }
     return user;
   }
-  const answer = e as unknown as AssistantTurnData;
+  const answer = withCappedVariantAbout(e as unknown as AssistantTurnData);
   const rawStatus = e['status'] as string;
   if (VALID_STATUSES.has(rawStatus)) {
     return remirrorInstructions(
@@ -115,6 +115,18 @@ function validateStoredTurn(t: unknown): Turn | null {
       error: { code: 'interrupted', message: 'The panel reloaded before this finished.' },
     }),
   );
+}
+
+/** An "Ask instead" version keeps the reply it asked about; a malformed one is dropped, as on a user turn. */
+function withCappedVariantAbout(t: AssistantTurnData): AssistantTurnData {
+  if (!Array.isArray(t.variants) || !t.variants.some((v) => v.about !== undefined)) return t;
+  return {
+    ...t,
+    variants: t.variants.map(({ about, ...v }) => {
+      const capped = about === undefined ? null : capAskAbout(about);
+      return capped ? { ...v, about: capped } : v;
+    }),
+  };
 }
 
 type InstructionFields = Pick<ResultMeta, 'instructions' | 'instructionsLength'>;

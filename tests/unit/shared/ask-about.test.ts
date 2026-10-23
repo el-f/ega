@@ -141,8 +141,7 @@ describe('the request of a question', () => {
       requestId: 'r1',
       reuse,
       thread: 'none',
-      seed: { task: 'ask' },
-      about: other,
+      seed: { task: 'ask', about: other },
     });
     expect(args.askAbout).toEqual(other);
   });

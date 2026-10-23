@@ -244,16 +244,37 @@
     if (partial) return 'Partial answer';
     return undefined;
   });
+  // A Translate that found the text already in its own target language offers to ask it instead, once.
+  const alreadyIn = $derived.by(() => {
+    if (turn.status !== 'done' || currentTaskValue !== 'translate' || imageTurn) return null;
+    if (!canRetry || onTaskSwitch === undefined || answerTarget === undefined) return null;
+    if (!taskViews.some((v) => v.id === 'ask' && !v.disabled)) return null;
+    if ((turn.variants ?? []).some((v) => v.task === 'ask')) return null;
+    const detected =
+      turn.detectedLangs !== undefined && turn.detectedLangs.length > 0
+        ? turn.detectedLangs.map((d) => d.id)
+        : turn.detectedLang !== undefined
+          ? [turn.detectedLang]
+          : [];
+    return detected.length === 1 && detected[0] === answerTarget ? langName(answerTarget) : null;
+  });
+  // Any other status (reading aloud, a version loading) takes the slot first.
+  const offer = $derived(statusText === undefined ? alreadyIn : null);
   // An empty or failed answer has nothing to be confident about (V5-05).
   const shownConfidence = $derived(
     answering || turn.status === 'error' || turn.content === '' ? undefined : turn.confidence,
   );
   const metaItems = $derived(
     replyMetaItems({
-      ...(statusText !== undefined ? { status: statusText } : {}),
+      ...(offer !== null
+        ? { status: `Already in ${offer}` }
+        : statusText !== undefined
+          ? { status: statusText }
+          : {}),
       bookmarked: isBookmarked,
       meta: answering ? undefined : turn.meta,
-      direction: answering ? '' : isAnswer ? 'Answer' : direction,
+      // "English → English" would repeat the offer.
+      direction: answering || offer !== null ? '' : isAnswer ? 'Answer' : direction,
       ...(versionLabel !== undefined && !answering ? { version: versionLabel } : {}),
       confidence: shownConfidence,
       confidenceSetting: confidence,
@@ -510,7 +531,7 @@
   );
   const detailsText = $derived(sentText === IMAGE_TURN_PLACEHOLDER ? '' : sentText);
   // "Answer again as Translate" on a question sends its text alone, so only an Ask version was about the reply.
-  const askedAbout = $derived(isAnswer ? questionAbout : undefined);
+  const askedAbout = $derived(isAnswer ? (activeVariant?.about ?? questionAbout) : undefined);
 
   // Diff only refine versions: an edited question's fresh answer against the old one is noise.
   const prevVariant = $derived(
@@ -699,7 +720,13 @@
       items={metaItems}
       statusAction={speaking && transient === null
         ? { label: 'Stop', onclick: () => void toggleSpeech() }
-        : undefined}
+        : offer !== null
+          ? {
+              label: 'Ask instead',
+              kind: 'ask-instead',
+              onclick: () => onTaskSwitch?.(turn.id, 'ask'),
+            }
+          : undefined}
     />
     {#if turn.status === 'done'}
       <div

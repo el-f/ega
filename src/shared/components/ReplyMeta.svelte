@@ -3,8 +3,9 @@
 
   interface Props {
     items: readonly MetaItem[];
-    /** A text button after the status item, e.g. "Stop" while reading aloud. The only control the line holds. */
-    statusAction?: { label: string; onclick: () => void } | undefined;
+    /** A text button after the status item: "Stop" while reading aloud, or "Ask instead". The only control the line holds. */
+    statusAction?:
+      { label: string; onclick: () => void; kind?: 'stop' | 'ask-instead' } | undefined;
   }
 
   const { items, statusAction }: Props = $props();
@@ -50,7 +51,8 @@
       >{item.text}{#if item.key === 'status' && statusAction}<button
           type="button"
           class="ega-reply-meta-action"
-          data-ega-meta-stop
+          data-ega-meta-stop={statusAction.kind === 'ask-instead' ? undefined : ''}
+          data-ega-ask-instead={statusAction.kind === 'ask-instead' ? '' : undefined}
           onclick={statusAction.onclick}>{statusAction.label}</button
         >{/if}</span
     >

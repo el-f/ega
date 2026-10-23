@@ -149,8 +149,8 @@ export interface ConversationContainer {
   swapPair: (turnId: string) => SwapPair | null;
   /** Re-dispatch with source and target langs swapped. False when `swapPair` is null or blocked. */
   swapVariant: (turnId: string) => Promise<boolean>;
-  /** Re-dispatch the turn with a different task. False when inflight or unresolvable. */
-  taskVariant: (turnId: string, task: TaskId) => Promise<boolean>;
+  /** Re-dispatch the turn with a different task; Ask also sends `about` and the earlier turns. False when inflight or unresolvable. */
+  taskVariant: (turnId: string, task: TaskId, about?: AskAbout) => Promise<boolean>;
   /** Answer the reply `turnId` in `targetLang`: flips to a done variant already in that language,
    *  else dispatches one. A second pick replaces its own still-streaming variant. False when nothing changed. */
   langVariant: (turnId: string, targetLang: LangSelection) => Promise<boolean>;
@@ -711,13 +711,14 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
   /** The modifiers a variant ran with, so a re-run of it asks the same question. */
   function seedOf(v: Variant | undefined): VariantSeed {
     if (v === undefined) return {};
-    const { refinementBody, refinementLabel, targetLang, sourceLang, task } = v;
+    const { refinementBody, refinementLabel, targetLang, sourceLang, task, about } = v;
     return {
       ...(refinementBody !== undefined ? { refinementBody } : {}),
       ...(refinementLabel !== undefined ? { refinementLabel } : {}),
       ...(targetLang !== undefined ? { targetLang } : {}),
       ...(sourceLang !== undefined ? { sourceLang } : {}),
       ...(task !== undefined ? { task } : {}),
+      ...(about !== undefined ? { about } : {}),
     };
   }
 
@@ -748,7 +749,6 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     turnId: string,
     seed: VariantSeed,
     freshAnswer = false,
-    about?: AskAbout,
   ): Promise<boolean> {
     if (state.inflightId !== null || ownedByBackground(turnId)) return false;
     const target = resolveVariantTarget(turnId);
@@ -778,7 +778,6 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
           context,
           thread: asks ? state.turns : 'none',
           freshAnswer,
-          ...(about ? { about } : {}),
         }),
       );
     } catch (e) {
@@ -852,7 +851,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     return dispatchVariant(turnId, { sourceLang: pair.sourceLang, targetLang: pair.targetLang });
   }
 
-  async function taskVariant(turnId: string, task: TaskId): Promise<boolean> {
+  async function taskVariant(turnId: string, task: TaskId, about?: AskAbout): Promise<boolean> {
     // Another task for the version on screen keeps the languages it was answered in.
     const shown = state.turns.find((t) => t.id === turnId);
     const { targetLang, sourceLang } = seedOf(shown ? activeVariant(shown) : undefined);
@@ -860,6 +859,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       ...(targetLang !== undefined ? { targetLang } : {}),
       ...(sourceLang !== undefined ? { sourceLang } : {}),
       task,
+      ...(task === 'ask' && about !== undefined ? { about } : {}),
     });
   }
 
@@ -904,6 +904,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       ...(active?.refinementBody !== undefined ? { refinementBody: active.refinementBody } : {}),
       ...(active?.refinementLabel !== undefined ? { refinementLabel: active.refinementLabel } : {}),
       ...(active?.task !== undefined ? { task: active.task } : {}),
+      ...(active?.about !== undefined ? { about: active.about } : {}),
     };
     if (active?.status === 'done' && (active.targetLang ?? original) === targetLang) return false;
     const existing = variantIdxForTarget(target.assistant, original, targetLang, carried);

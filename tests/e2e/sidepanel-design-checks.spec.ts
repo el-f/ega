@@ -431,7 +431,7 @@ async function layoutFindings(sp: Page): Promise<{ check: number; what: string }
         (b) =>
           shown(b) &&
           b.closest('[data-ega-inspector]') === null &&
-          !b.matches('[data-ega-meta-stop]'),
+          !b.matches('[data-ega-meta-stop], [data-ega-ask-instead]'),
       );
       const rows = new Set(buttons.map((b) => Math.round((rect(b).top + rect(b).height / 2) / 8)));
       if (rows.size > 1) add(3, `${describe(r)} has buttons on ${rows.size} rows`);
@@ -502,8 +502,9 @@ async function layoutFindings(sp: Page): Promise<{ check: number; what: string }
     for (const el of document.querySelectorAll(
       'button, a[href], select, input:not([type=hidden]), [role=menuitem], [role=menuitemcheckbox], [role=radio], [role=option], [role=tab]',
     )) {
-      // The meta line's Stop is a text button inside a one-line, 18px line (check 9); the spec keeps it there.
-      if (!shown(el) || !ours(el) || el.matches('[data-ega-meta-stop]')) continue;
+      // The meta line's Stop and Ask instead are text buttons inside a one-line, 18px line (check 9); the spec keeps them there.
+      if (!shown(el) || !ours(el) || el.matches('[data-ega-meta-stop], [data-ega-ask-instead]'))
+        continue;
       const r = rect(el);
       const empty = el.closest('[data-ega-sidepanel-empty], [data-ega-empty-state]') !== null;
       const min = empty || el.matches('[data-ega-send], [data-ega-add]') ? 32 : 28;

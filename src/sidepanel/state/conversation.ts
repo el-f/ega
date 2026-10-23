@@ -72,6 +72,8 @@ export interface Variant {
   sourceLang?: LangSelection;
   /** Task the variant ran when it differs from the turn's task — task variants. */
   task?: TaskId;
+  /** The reply an "Ask instead" version asks about; its re-runs send it again. */
+  about?: AskAbout;
 }
 
 /** Language pair + streaming preference of a user turn; its page context lives
@@ -340,6 +342,7 @@ interface AddVariantInput {
   targetLang?: LangSelection;
   sourceLang?: LangSelection;
   task?: TaskId;
+  about?: AskAbout;
 }
 
 /** Appends a sibling variant and makes it active; no-op on a non-assistant turn or one without variants. */
@@ -358,6 +361,7 @@ export function addVariant(turns: readonly Turn[], turnId: string, input: AddVar
     ...(input.targetLang !== undefined ? { targetLang: input.targetLang } : {}),
     ...(input.sourceLang !== undefined ? { sourceLang: input.sourceLang } : {}),
     ...(input.task !== undefined ? { task: input.task } : {}),
+    ...(input.about !== undefined ? { about: input.about } : {}),
   };
   const nextVariants = [...turn.variants, variant];
   const nextTurn: Turn = projectVariant({
@@ -460,6 +464,8 @@ export interface VariantSeed {
   targetLang?: LangSelection;
   sourceLang?: LangSelection;
   task?: TaskId;
+  /** An "Ask instead" version's reply; a sent question carries its own on the user turn. */
+  about?: AskAbout;
 }
 
 export interface StartOverlay {
@@ -473,8 +479,6 @@ export interface StartOverlay {
   thread: readonly Turn[] | 'none';
   /** The same request already has an answer the user wants replaced, so the router must not serve it from the cache. */
   freshAnswer?: boolean;
-  /** A variant that asks about an earlier reply; a sent question carries its own on the user turn. */
-  about?: AskAbout;
 }
 
 /** The turns before the user turn. Neither vision arm forwards history (router.ts), so an image gets none. */
@@ -492,7 +496,7 @@ export function buildStartArgs(userTurn: Turn, overlay: StartOverlay): StartArgs
   const image = userTurn.imageDataUrl;
   const history = historyFor(userTurn, overlay.thread);
   // "Answer again as Translate" on a question re-runs its text alone, so only an Ask request carries the reply.
-  const about = task === 'ask' ? (overlay.about ?? userTurn.about) : undefined;
+  const about = task === 'ask' ? (seed.about ?? userTurn.about) : undefined;
   return {
     requestId: overlay.requestId,
     text: userTurn.content,

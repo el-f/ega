@@ -189,3 +189,77 @@ describe('the quote on a question', () => {
     expect(container.querySelector('[data-ega-ask-quote], [data-ega-ask-quote-gone]')).toBeNull();
   });
 });
+
+describe('"Already in" and Ask instead, on the meta line', () => {
+  const offer = (c: HTMLElement): HTMLElement | null =>
+    c.querySelector<HTMLElement>('[data-ega-ask-instead]');
+  // The text came back in the language it was sent to.
+  const echo = (over: Parameters<typeof doneReply>[0] = {}) =>
+    doneReply({ content: 'what does it mean', detectedLang: 'en', ...over });
+
+  it('a Translate that found its text already in its target offers to ask it instead', async () => {
+    const props = replyProps(echo());
+    const { container } = render(AssistantTurn, { props });
+    expect(metaText(container)[0]).toBe('Already in EnglishAsk instead');
+    expect(offer(container)?.textContent).toBe('Ask instead');
+    // "English → English" would repeat it.
+    expect(container.querySelector('[data-ega-direction]')).toBeNull();
+    expect(container.querySelector('[data-ega-meta-stop]')).toBeNull();
+    await fireEvent.click(offer(container) as HTMLElement);
+    expect(props.onTaskSwitch).toHaveBeenCalledWith('a1', 'ask');
+  });
+
+  it('is not offered when the text was in another language, or in more than one', () => {
+    for (const turn of [
+      echo({ detectedLang: 'es' }),
+      echo({
+        detectedLangs: [{ id: 'en' }, { id: 'arabizi' }] as never,
+      }),
+    ]) {
+      const { container, unmount } = render(AssistantTurn, { props: replyProps(turn) });
+      expect(offer(container)).toBeNull();
+      unmount();
+    }
+  });
+
+  it('is not offered on another task, an image, a reply with nothing to replay, or with Ask off', () => {
+    const off = SHIPPED_TASK_VIEWS.map((v) => (v.id === 'ask' ? { ...v, disabled: true } : v));
+    const cases = [
+      replyProps(echo({ kind: 'explain' })),
+      replyProps(echo({ kind: 'image-translate' }), { hasImage: true }),
+      replyProps(echo(), { canRetry: false }),
+      replyProps(echo(), { taskViews: off }),
+    ];
+    for (const props of cases) {
+      const { container, unmount } = render(AssistantTurn, { props });
+      expect(offer(container)).toBeNull();
+      unmount();
+    }
+  });
+
+  it('is gone once the reply has an Ask version, even paged back to the translation', () => {
+    const turn = echo({
+      variants: [
+        { id: 'v1', status: 'done', content: 'what does it mean', detectedLang: 'en' },
+        { id: 'v2', status: 'done', content: 'It asks for a meaning.', task: 'ask' },
+      ],
+      activeVariantIdx: 0,
+    });
+    const { container } = render(AssistantTurn, { props: replyProps(turn) });
+    expect(offer(container)).toBeNull();
+    expect(metaText(container)[0]).toBe('English → English');
+  });
+
+  it('another status takes the slot first', () => {
+    const turn = echo({
+      variants: [
+        { id: 'v1', status: 'done', content: 'what does it mean', detectedLang: 'en' },
+        { id: 'v2', status: 'pending', content: '', refinementBody: 'Make outputs shorter.' },
+      ],
+      activeVariantIdx: 0,
+    });
+    const { container } = render(AssistantTurn, { props: replyProps(turn) });
+    expect(metaText(container)[0]).toBe('Version 2 loading…');
+    expect(offer(container)).toBeNull();
+  });
+});

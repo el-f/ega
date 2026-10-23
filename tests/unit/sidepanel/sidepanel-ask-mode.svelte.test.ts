@@ -393,3 +393,65 @@ describe('leaving Ask mode', () => {
     expect(box(c).value).toBe('my draft');
   });
 });
+
+describe('Ask instead', () => {
+  /** A first reply, then a question typed in Translate that came back unchanged. */
+  async function slip(c: HTMLElement): Promise<{ first: HTMLElement; echoed: HTMLElement }> {
+    const first = await firstExchange(c);
+    const s = await send(c, 'what does it mean');
+    await chunk({
+      type: 'done',
+      requestId: s.requestId,
+      text: 'what does it mean',
+      detectedLang: 'en',
+    });
+    return { first, echoed: replies(c)[1] as HTMLElement };
+  }
+
+  it('asks the same text about the reply before it, as a version, then asks about the answer', async () => {
+    const c = await mounted();
+    const { first, echoed } = await slip(c);
+    const offer = echoed.querySelector<HTMLElement>('[data-ega-ask-instead]');
+    expect(offer?.textContent).toBe('Ask instead');
+    await fireEvent.click(offer as HTMLElement);
+    await settle();
+
+    const q = starts().at(-1) as Start;
+    expect(q.text).toBe('what does it mean');
+    expect(q.options['task']).toBe('ask');
+    expect(q.options.askAbout?.['turnId']).toBe(first.getAttribute('data-turn-id'));
+    expect(q.options.askAbout?.['result']).toBe('Hi, how are you?');
+    expect(q.options['conversationHistory']).toEqual([
+      { role: 'user', content: 'mar7aba, kifak?' },
+      { role: 'assistant', content: 'Hi, how are you?' },
+    ]);
+    // Not in Ask mode until the answer lands done with text.
+    expect(banner(c)).toBeNull();
+
+    await chunk({ type: 'done', requestId: q.requestId, text: 'It asks what kifak means.' });
+    expect(echoed.querySelector('.ega-pager-count')?.textContent).toBe('2/2');
+    expect(banner(c)).toContain('Asking about this reply');
+    expect(target(c)).toBe(echoed);
+    expect(echoed.querySelector('[data-ega-ask-instead]')).toBeNull();
+  });
+
+  it('More → Ask instead is the same action', async () => {
+    const c = await mounted();
+    const { first } = await slip(c);
+    const more = [
+      ...c.querySelectorAll<HTMLElement>('[data-ega-reply] [data-ega-action="more"]'),
+    ][1];
+    await fireEvent.keyDown(more as HTMLElement, { key: 'Enter' });
+    const item = await waitFor(() => {
+      const el = document.querySelector<HTMLElement>('[data-ega-answer-again="ask"]');
+      if (!el) throw new Error('menu not open');
+      return el;
+    });
+    expect(item.textContent.trim()).toBe('Ask instead');
+    await fireEvent.click(item);
+    await settle();
+    const q = starts().at(-1) as Start;
+    expect(q.options['task']).toBe('ask');
+    expect(q.options.askAbout?.['turnId']).toBe(first.getAttribute('data-turn-id'));
+  });
+});

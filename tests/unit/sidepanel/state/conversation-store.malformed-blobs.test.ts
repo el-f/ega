@@ -299,3 +299,32 @@ describe('the thread index', () => {
     expect(after.threads.map((t) => t.origin)).toEqual(['https://a.com']);
   });
 });
+
+describe('the reply a question was about, as stored', () => {
+  const about = { turnId: 'a0', task: 'Translate', original: 'hola', result: 'hello' };
+  const answer = (variantAbout: unknown): Record<string, unknown> =>
+    goodTurn({
+      id: 'a1',
+      role: 'assistant',
+      status: 'done',
+      content: 'Because.',
+      attachedToTurnId: 'u1',
+      variants: [
+        { id: 'a1:v1', status: 'done', content: 'Hi.' },
+        { id: 'a1:v2', status: 'done', content: 'Because.', task: 'ask', about: variantAbout },
+      ],
+      activeVariantIdx: 1,
+    });
+
+  it('an Ask instead version keeps a usable one, capped, and loses a malformed one', async () => {
+    const long = { ...about, result: 'x'.repeat(5000) };
+    await put(blob({ turns: [goodTurn(), answer(long)] }));
+    const kept = (await loadThreadResult('https://a.com')).turns[1]?.variants?.[1]?.about;
+    expect(kept?.result).toHaveLength(2000);
+
+    await put(blob({ turns: [goodTurn(), answer({ turnId: 'a0', result: 42 })] }));
+    const turns = (await loadThreadResult('https://a.com')).turns;
+    expect(turns.map((t) => t.id)).toEqual(['u1', 'a1']);
+    expect(turns[1]?.variants?.[1]).not.toHaveProperty('about');
+  });
+});

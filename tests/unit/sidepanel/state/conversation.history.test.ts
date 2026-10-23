@@ -177,6 +177,59 @@ describe('retry() — conversationHistory assembly', () => {
     ]);
   });
 
+  it('"Ask instead" asks the text about the earlier reply with the history, and its re-runs keep both', async () => {
+    const c = createConversation();
+    await c.send({
+      content: 'mar7aba',
+      kind: 'translate',
+      sourceLang: 'auto',
+      targetLang: en,
+      stream: false,
+    });
+    completeAssistant(c, 'hello');
+    const translated = await c.send({
+      content: 'what does it mean',
+      kind: 'translate',
+      sourceLang: 'auto',
+      targetLang: en,
+      stream: false,
+    });
+    completeAssistant(c, 'what does it mean');
+    const about = { turnId: 'a1', task: 'Translate', original: 'mar7aba', result: 'hello' };
+    const history = [
+      { role: 'user', content: 'mar7aba' },
+      { role: 'assistant', content: 'hello' },
+    ];
+
+    (chrome.runtime.sendMessage as Mock).mockClear();
+    expect(await c.taskVariant(translated, 'ask', about)).toBe(true);
+    const asked = (chrome.runtime.sendMessage as Mock).mock.calls[0]?.[0];
+    expect(asked.text).toBe('what does it mean');
+    expect(asked.options.task).toBe('ask');
+    expect(asked.options.askAbout).toEqual(about);
+    expect(asked.options.conversationHistory).toEqual(history);
+    completeAssistant(c, 'It asks what a word means.');
+
+    // The about block lives on the version, so Regenerate and a language change send it again.
+    (chrome.runtime.sendMessage as Mock).mockClear();
+    await c.regenerateVariant(translated);
+    const again = (chrome.runtime.sendMessage as Mock).mock.calls[0]?.[0];
+    expect(again.options.askAbout).toEqual(about);
+    expect(again.options.conversationHistory).toEqual(history);
+    completeAssistant(c, 'It asks for a meaning.');
+    (chrome.runtime.sendMessage as Mock).mockClear();
+    await c.langVariant(translated, asLangIdUnsafe('fr'));
+    expect((chrome.runtime.sendMessage as Mock).mock.calls[0]?.[0].options.askAbout).toEqual(about);
+    completeAssistant(c, 'Il demande un sens.');
+
+    // Answered again as Translate, the text goes alone.
+    (chrome.runtime.sendMessage as Mock).mockClear();
+    await c.taskVariant(translated, 'translate');
+    const plain = (chrome.runtime.sendMessage as Mock).mock.calls[0]?.[0];
+    expect('askAbout' in plain.options).toBe(false);
+    expect('conversationHistory' in plain.options).toBe(false);
+  });
+
   it('a refine variant sends no history, by choice, even with earlier exchanges', async () => {
     const c = createConversation();
     await c.send({
