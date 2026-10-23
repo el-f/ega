@@ -77,7 +77,9 @@ export function separatorTurnIds(turns: readonly Turn[]): ReadonlySet<string> {
   return out;
 }
 
-/** What a question or an "Ask instead" version asked about: the reply's copy while that reply is in `live`, 'gone' once it is not. */
+/** What a question or an "Ask instead" version asked about, 'gone' once its copy was removed with the reply.
+ *  With `live`, the quote the bubble links: also 'gone' once the reply left the thread. Without it, what a request
+ *  sends and About shows: a copy outlives the storage cap's trim of its reply. */
 export function askedAbout(
   holder: { about?: AskAbout | undefined; aboutRemoved?: true | undefined } | undefined,
   live?: ReadonlySet<string>,

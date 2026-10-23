@@ -11,7 +11,7 @@
   import Pencil from '@lucide/svelte/icons/pencil';
   import Ellipsis from '@lucide/svelte/icons/ellipsis';
   import { isImageTurn, type Turn } from '../state/conversation';
-  import { askQuote } from '@/shared/ask-about';
+  import { askQuote, type AskAbout } from '@/shared/ask-about';
   import { IMAGE_TURN_PLACEHOLDER } from '@/shared/constants';
   import { outsidePressFocus } from '@/shared/menu-focus';
 
@@ -36,8 +36,8 @@
     onEdit?: ((id: string) => void) | undefined;
     /** True while a reply is streaming; editing would truncate under the running turn. */
     inflight?: boolean;
-    /** The reply this question quotes is no longer in the conversation, so it shows no quote. */
-    aboutGone?: boolean;
+    /** The reply this question links to; undefined once that reply left the conversation, so it shows no quote. */
+    quoted?: AskAbout | undefined;
     /** Shows the quoted reply. */
     onQuote?: ((replyId: string) => void) | undefined;
   }
@@ -55,11 +55,11 @@
     onDelete,
     onEdit,
     inflight = false,
-    aboutGone = false,
+    quoted,
     onQuote,
   }: Props = $props();
   const menuFocus = outsidePressFocus();
-  const quote = $derived(turn.about !== undefined ? askQuote(turn.about) : '');
+  const quote = $derived(quoted !== undefined ? askQuote(quoted) : '');
 
   // The marker is a render token, not text the user wrote: nothing to show and nothing to copy.
   const hasText = $derived(turn.content !== '' && turn.content !== IMAGE_TURN_PLACEHOLDER);
@@ -140,8 +140,8 @@
   <div class="ega-bubble-wrap">
     <div class="ega-bubble" class:editing data-ega-user-bubble>
       <!-- A reply that left the thread leaves no mark: the bubble is a plain question. -->
-      {#if turn.about !== undefined && !aboutGone}
-        {@const replyId = turn.about.turnId}
+      {#if quoted !== undefined}
+        {@const replyId = quoted.turnId}
         <!-- A label, not a hidden span: Chrome puts a space before a hidden span's comma in the name. -->
         <button
           type="button"

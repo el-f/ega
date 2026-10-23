@@ -100,10 +100,8 @@
     asked?: boolean;
     /** Briefly highlighted after a quote led here. */
     flash?: boolean;
-    /** The reply the question this answers was about, as it was sent; 'gone' once that reply left the thread. */
+    /** The reply the question this answers was about, as it was sent; 'gone' once its copy was removed with that reply. */
     questionAbout?: AskAbout | 'gone' | undefined;
-    /** Every turn of the conversation, so an "Ask instead" version can tell its reply left. */
-    threadIds?: ReadonlySet<string> | undefined;
   }
 
   const {
@@ -138,7 +136,6 @@
     asked = false,
     flash = false,
     questionAbout,
-    threadIds,
   }: Props = $props();
 
   const variantCount = $derived(turn.variants?.length ?? 0);
@@ -533,7 +530,7 @@
   const detailsText = $derived(sentText === IMAGE_TURN_PLACEHOLDER ? '' : sentText);
   // "Answer again as Translate" on a question sends its text alone, so only an Ask version was about the reply.
   const askedAbout = $derived(
-    isAnswer ? (askedAboutOf(activeVariant, threadIds) ?? questionAbout) : undefined,
+    isAnswer ? (askedAboutOf(activeVariant) ?? questionAbout) : undefined,
   );
 
   // Diff only refine versions: an edited question's fresh answer against the old one is noise.

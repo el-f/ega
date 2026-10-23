@@ -123,6 +123,11 @@ describe('askedAbout', () => {
     expect(askedAbout({}, new Set())).toBeUndefined();
     expect(askedAbout(undefined)).toBeUndefined();
   });
+
+  it('with no thread to look in, is what was sent: a copy whose reply was trimmed is still the copy', () => {
+    expect(askedAbout({ about })).toBe(about);
+    expect(askedAbout({ aboutRemoved: true })).toBe('gone');
+  });
 });
 
 describe('replyDirection', () => {

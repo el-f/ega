@@ -107,11 +107,11 @@ describe('an answer to a question', () => {
     expect(row.nextElementSibling?.textContent).toBe('Hi, how are you?');
   });
 
-  it('About on an answer whose reply left the thread says so under Asked about', async () => {
+  it('About on an answer whose reply was deleted says so under Asked about', async () => {
     const gone = 'A reply that is no longer in this conversation';
     const cases = [
       replyProps(doneReply({ kind: 'ask' }), { questionAbout: 'gone' }),
-      // An "Ask instead" version: its copy was removed, or its reply was dropped by the storage cap.
+      // An "Ask instead" version, or one run while the reply was deleted: it holds no copy.
       replyProps(
         doneReply({
           variants: [
@@ -120,22 +120,6 @@ describe('an answer to a question', () => {
           ],
           activeVariantIdx: 1,
         }),
-      ),
-      replyProps(
-        doneReply({
-          variants: [
-            { id: 'v1', status: 'done', content: 'Hi.' },
-            {
-              id: 'v2',
-              status: 'done',
-              content: 'Because.',
-              task: 'ask',
-              about: { ...ABOUT, turnId: 'a0' },
-            },
-          ],
-          activeVariantIdx: 1,
-        }),
-        { threadIds: new Set(['u1', 'a1']) },
       ),
     ];
     for (const props of cases) {
@@ -182,7 +166,9 @@ describe('the quote on a question', () => {
 
   it('is a button named by the quoted line, then "go to the reply"; pressing it shows that reply', async () => {
     const onQuote = vi.fn();
-    const { container } = render(UserTurn, { props: { turn: question(), onQuote } });
+    const { container } = render(UserTurn, {
+      props: { turn: question(), quoted: ABOUT, onQuote },
+    });
     const quote = container.querySelector<HTMLElement>('[data-ega-ask-quote]');
     expect(quote?.tagName).toBe('BUTTON');
     // Markdown is gone and only the first line shows; the name starts with it and has no stray space.
@@ -193,7 +179,7 @@ describe('the quote on a question', () => {
   });
 
   it('marks its one-line text as the part that may end in an ellipsis, with the full text in the name', () => {
-    const { container } = render(UserTurn, { props: { turn: question() } });
+    const { container } = render(UserTurn, { props: { turn: question(), quoted: ABOUT } });
     const text = container.querySelector<HTMLElement>('.ega-ask-quote-text');
     expect(text?.hasAttribute('data-ega-truncates')).toBe(true);
     // The design check reads the full text off the button's name when the line is cut.
@@ -203,10 +189,10 @@ describe('the quote on a question', () => {
   });
 
   // R2-27: a placeholder in a quote bar reads like a rendering bug, and the user who deleted the reply knows.
-  it('a question whose reply left the thread is a plain bubble: no quote, no placeholder', () => {
+  it('a question with no reply left to link is a plain bubble: no quote, no placeholder', () => {
     const { about: _about, ...rest } = question();
     for (const turn of [question(), { ...rest, aboutRemoved: true as const }]) {
-      const { container, unmount } = render(UserTurn, { props: { turn, aboutGone: true } });
+      const { container, unmount } = render(UserTurn, { props: { turn } });
       expect(container.querySelector('.ega-ask-quote')).toBeNull();
       expect(container.querySelector('[data-ega-user-bubble]')?.textContent.trim()).toBe(
         'what makes it Levantine?',
@@ -250,6 +236,22 @@ describe('the quote on a question', () => {
       expect(document.activeElement).toBe(container.querySelector('[data-turn-id="a1"]')),
     );
     expect(container.querySelector('[data-turn-id="a1"]')?.classList.contains('flash')).toBe(true);
+  });
+
+  it('a question whose reply the storage cap dropped has no quote, but About on its answer shows what was sent', async () => {
+    // The trim keeps the question's copy, and every re-run still sends it.
+    const turns = [
+      question({ id: 'u2', about: { ...ABOUT, turnId: 'a0' } }),
+      doneReply({ id: 'a2', kind: 'ask', content: 'Because.', attachedToTurnId: 'u2' }),
+    ] as Turn[];
+    const { container } = render(ConversationStream, {
+      props: { turns, focusedTurnId: null, onRetry: vi.fn(), onFocusChange: vi.fn() },
+    });
+    expect(container.querySelector('[data-ega-ask-quote]')).toBeNull();
+    await openMenu(container, 'more');
+    await fireEvent.click(document.querySelector('[data-ega-about]') as HTMLElement);
+    const row = await screen.findByText('Asked about');
+    expect(row.nextElementSibling?.textContent).toBe('Hi, how are you?');
   });
 
   it('a message with no reply to quote has no quote', () => {
