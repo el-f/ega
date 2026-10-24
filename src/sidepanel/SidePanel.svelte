@@ -593,16 +593,12 @@
         ? undefined
         : turns.slice(0, Math.max(0, askedAt)).filter(askable).at(-1);
     const modeBefore = composerMode;
-    if (
-      await conversation.taskVariant(
-        turnId,
-        'ask',
-        earlier === undefined ? undefined : askTarget(earlier),
-      )
-    ) {
-      const variantId = conversation.turns.find((t) => t.id === turnId)?.variants?.at(-1)?.id;
-      askAwait = { turnId, variantId, enter: true, mode: modeBefore };
-    }
+    const variantId = await conversation.taskVariant(
+      turnId,
+      'ask',
+      earlier === undefined ? undefined : askTarget(earlier),
+    );
+    if (variantId !== null) askAwait = { turnId, variantId, enter: true, mode: modeBefore };
   }
 
   /** The reply's Ask button and `a`: the reply asked about now is a toggle; one still running says to wait. */

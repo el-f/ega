@@ -152,8 +152,8 @@ export interface ConversationContainer {
   swapPair: (turnId: string) => SwapPair | null;
   /** Re-dispatch with source and target langs swapped. False when `swapPair` is null or blocked. */
   swapVariant: (turnId: string) => Promise<boolean>;
-  /** Re-dispatch the turn with a different task; Ask also asks about `about` and sends the earlier turns. False when inflight or unresolvable. */
-  taskVariant: (turnId: string, task: TaskId, about?: AskTarget) => Promise<boolean>;
+  /** Re-dispatch the turn with a different task; Ask also asks about `about` and sends the earlier turns. The new version's id; null when inflight or unresolvable. */
+  taskVariant: (turnId: string, task: TaskId, about?: AskTarget) => Promise<string | null>;
   /** Answer the reply `turnId` in `targetLang`: flips to a done variant already in that language,
    *  else dispatches one. A second pick replaces its own still-streaming variant. False when nothing changed. */
   langVariant: (turnId: string, targetLang: LangSelection) => Promise<boolean>;
@@ -781,15 +781,15 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     return userTurn.dispatch ?? state.lastDispatch;
   }
 
-  /** Appends a pending sibling variant carrying `seed` and replays the user turn with it. `freshAnswer` skips the router's cached answer. */
+  /** Appends a pending sibling variant carrying `seed` and replays the user turn with it; returns its id, or null when nothing started. `freshAnswer` skips the router's cached answer. */
   async function dispatchVariant(
     turnId: string,
     seed: VariantSeed,
     freshAnswer = false,
-  ): Promise<boolean> {
-    if (state.inflightId !== null || ownedByBackground(turnId)) return false;
+  ): Promise<string | null> {
+    if (state.inflightId !== null || ownedByBackground(turnId)) return null;
     const target = resolveVariantTarget(turnId);
-    if (target === null) return false;
+    if (target === null) return null;
     const { assistant, userTurn, reuse } = target;
     const context = assistant.contextSent;
     const variantId = uuid();
@@ -829,7 +829,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     } catch (e) {
       failDispatch(turnId, requestId, e, variantId);
     }
-    return true;
+    return variantId;
   }
 
   async function refine(args: {
@@ -845,11 +845,12 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       refinementLabel: _label,
       ...base
     } = seedOf(shown ? activeVariant(shown) : undefined);
-    return dispatchVariant(turnId, {
+    const started = await dispatchVariant(turnId, {
       ...base,
       refinementBody,
       ...(refinementLabel !== undefined ? { refinementLabel } : {}),
     });
+    return started !== null;
   }
 
   /** The source a swap replays: the dispatch's own, or the language the model reported for an 'auto' send. */
@@ -894,10 +895,18 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
   async function swapVariant(turnId: string): Promise<boolean> {
     const pair = swapPair(turnId);
     if (pair === null || pair.blocked !== undefined) return false;
-    return dispatchVariant(turnId, { sourceLang: pair.sourceLang, targetLang: pair.targetLang });
+    const started = await dispatchVariant(turnId, {
+      sourceLang: pair.sourceLang,
+      targetLang: pair.targetLang,
+    });
+    return started !== null;
   }
 
-  async function taskVariant(turnId: string, task: TaskId, about?: AskTarget): Promise<boolean> {
+  async function taskVariant(
+    turnId: string,
+    task: TaskId,
+    about?: AskTarget,
+  ): Promise<string | null> {
     // Another task for the version on screen keeps the languages it was answered in.
     const shown = state.turns.find((t) => t.id === turnId);
     const { targetLang, sourceLang } = seedOf(shown ? activeVariant(shown) : undefined);
@@ -958,7 +967,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       selectVariant(assistantId, existing);
       return true;
     }
-    const ok = await dispatchVariant(assistantId, { targetLang, ...carried });
+    const ok = (await dispatchVariant(assistantId, { targetLang, ...carried })) !== null;
     if (ok) langChangeRequestId = state.requestId;
     return ok;
   }
@@ -1043,7 +1052,12 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     const turn = state.turns.find((t) => t.id === turnId);
     // Re-rolls the answer on screen: a swap, a language change, a task or a refine runs as itself again.
     // The same request has a cached answer (the one on screen), so without freshAnswer the router hands it back unchanged.
-    return dispatchVariant(turnId, seedOf(turn ? activeVariant(turn) : undefined), true);
+    const started = await dispatchVariant(
+      turnId,
+      seedOf(turn ? activeVariant(turn) : undefined),
+      true,
+    );
+    return started !== null;
   }
 
   function editFrom(userTurnId: string): string | null {

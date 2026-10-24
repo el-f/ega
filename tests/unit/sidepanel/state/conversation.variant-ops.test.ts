@@ -381,7 +381,7 @@ describe('createConversation().regenerateVariant re-rolls the shown answer', () 
     expect(await c.swapVariant(assistantId)).toBe(true);
     expect(lastStartOptions()['freshAnswer']).toBeUndefined();
     finish();
-    expect(await c.taskVariant(assistantId, 'summarize')).toBe(true);
+    expect(await c.taskVariant(assistantId, 'summarize')).not.toBeNull();
     expect(lastStartOptions()['freshAnswer']).toBeUndefined();
     finish();
     expect(await c.refine({ turnId: assistantId, refinementBody: 'Shorter.' })).toBe(true);
@@ -468,7 +468,7 @@ describe('createConversation().regenerateVariant re-rolls the shown answer', () 
   it('a shown task variant re-runs that task', async () => {
     const c = createConversation();
     const assistantId = await sendAndDrain(c);
-    expect(await c.taskVariant(assistantId, 'explain')).toBe(true);
+    expect(await c.taskVariant(assistantId, 'explain')).not.toBeNull();
     c.applyChunk({ type: 'done', requestId: lastStart()['requestId'] as string });
 
     expect(await c.regenerateVariant(assistantId)).toBe(true);
@@ -525,11 +525,12 @@ describe('createConversation().taskVariant', () => {
     const startsBefore = startCalls().length;
     const result = await c.taskVariant(assistantId, 'summarize');
 
-    expect(result).toBe(true);
     expect(startCalls().length).toBe(startsBefore + 1);
 
     const assistant = c.turns.find((t) => t.id === assistantId);
     expect(assistant?.variants?.length).toBe(2);
+    // The id of the version it started, so a caller can wait on that version.
+    expect(result).toBe(assistant?.variants?.[1]?.id);
 
     const opts = lastStartOptions();
     expect(opts['task']).toBe('summarize');
@@ -547,7 +548,7 @@ describe('createConversation().taskVariant', () => {
     expect(lastStartOptions()['refinement']).toBeUndefined();
   });
 
-  it('returns false while another dispatch is inflight', async () => {
+  it('returns null while another dispatch is inflight', async () => {
     const c = createConversation();
     await c.send({
       content: 'hola',
@@ -562,7 +563,7 @@ describe('createConversation().taskVariant', () => {
     const startsBefore = startCalls().length;
     const result = await c.taskVariant(assistant.id, 'summarize');
 
-    expect(result).toBe(false);
+    expect(result).toBeNull();
     expect(startCalls().length).toBe(startsBefore);
   });
 });

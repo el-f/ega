@@ -664,7 +664,7 @@ describe('a reply that a question asks about, removed in another window or by th
     const b = await openWindow();
     const e = await sendAndFinish(a, 'secret-original', 'secret-result');
     const t = await sendAndFinish(a, 'what does it mean', 'what does it mean');
-    expect(await a.taskVariant(t, 'ask', { turnId: e })).toBe(true);
+    expect(await a.taskVariant(t, 'ask', { turnId: e })).not.toBeNull();
     const requestId = (chrome.runtime.sendMessage as Mock).mock.calls
       .map((c) => c[0] as Record<string, unknown>)
       .filter((m) => m['kind'] === 'translate:start')

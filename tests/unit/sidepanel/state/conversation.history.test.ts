@@ -264,7 +264,7 @@ describe('retry() — conversationHistory assembly', () => {
     ];
 
     (chrome.runtime.sendMessage as Mock).mockClear();
-    expect(await c.taskVariant(translated, 'ask', { turnId: reply })).toBe(true);
+    expect(await c.taskVariant(translated, 'ask', { turnId: reply })).not.toBeNull();
     const asked = (chrome.runtime.sendMessage as Mock).mock.calls[0]?.[0];
     expect(asked.text).toBe('what does it mean');
     expect(asked.options.task).toBe('ask');
@@ -297,7 +297,7 @@ describe('retry() — conversationHistory assembly', () => {
       const c = createConversation();
       const e = await exchange(c, 'secret-original', 'secret-result');
       const t = await exchange(c, 'what does it mean', 'what does it mean');
-      expect(await c.taskVariant(t, 'ask', { turnId: e })).toBe(true);
+      expect(await c.taskVariant(t, 'ask', { turnId: e })).not.toBeNull();
       completeAssistant(c, 'It asks.');
       const slice = c.deleteTurn(e);
       expect(await c.regenerateVariant(t)).toBe(true);
