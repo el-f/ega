@@ -93,6 +93,19 @@ describe('AssistantTurn — read the answer aloud', () => {
     expect(reading(container)).toBe(true);
   });
 
+  // Both labels share one cell, so the item keeps the width of the longer one (R63).
+  it('the menu item turns into Stop reading and holds both labels', async () => {
+    const { container } = render(AssistantTurn, {
+      props: { turn: doneTurn(), onRetry: vi.fn(), targetLang: asLangSelection('es') },
+    });
+    await press(container);
+    await openMenu(container, 'more');
+    const item = document.querySelector<HTMLElement>('[data-ega-speak]');
+    expect(item?.textContent.trim()).toBe('Stop reading');
+    const sizers = [...(item?.querySelectorAll('[data-label]') ?? [])];
+    expect(sizers.map((s) => s.getAttribute('data-label'))).toEqual(['Read aloud', 'Stop reading']);
+  });
+
   it('waits for the voice list when the browser has not loaded it yet', async () => {
     voices = [];
     const { container } = render(AssistantTurn, {

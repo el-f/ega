@@ -110,13 +110,38 @@ describe('an error reply', () => {
     expect(props.onRetry).not.toHaveBeenCalled();
   });
 
-  it('while another reply runs, Try again says why and does nothing', async () => {
-    const props = replyProps(failed('NETWORK', 'x'), { inflight: true });
-    const { container } = render(AssistantTurn, { props });
-    const btn = container.querySelector('[data-ega-retry]') as HTMLElement;
-    expect(btn.textContent.trim()).toBe('Try again (wait for the current reply)');
-    await fireEvent.click(btn);
-    expect(props.onRetry).not.toHaveBeenCalled();
+  // The countdown holds its longest label, so a tick moves nothing beside it (R63).
+  it('a countdown keeps the width of a two-digit count; a plain error holds no sizer', () => {
+    const sizers = (c: HTMLElement): (string | null)[] =>
+      [...c.querySelectorAll('[data-ega-retry] [data-label]')].map((s) =>
+        s.getAttribute('data-label'),
+      );
+    const limited = render(AssistantTurn, {
+      props: replyProps(
+        failed('RATE_LIMIT', 'HTTP 429', {
+          error: { code: 'RATE_LIMIT', message: 'HTTP 429', retryUntil: Date.now() + 5_000 },
+        }),
+      ),
+    });
+    expect(sizers(limited.container)).toEqual(['Try again', 'Try again in 00 s']);
+    document.body.innerHTML = '';
+    const plain = render(AssistantTurn, { props: replyProps(failed('NETWORK', 'x')) });
+    expect(sizers(plain.container)).toEqual([]);
+  });
+
+  // The long reason would set the button's width for one state (R63), so only its name carries it.
+  it('while another reply runs, Try again keeps its label, says why in its name and does nothing', async () => {
+    for (const code of ['NETWORK', 'ABORTED']) {
+      const props = replyProps(failed(code, 'x'), { inflight: true });
+      const { container } = render(AssistantTurn, { props });
+      const btn = container.querySelector('[data-ega-retry]') as HTMLElement;
+      expect(btn.textContent.trim()).toBe('Try again');
+      expect(btn.getAttribute('aria-label')).toBe('Try again (wait for the current reply)');
+      expect(btn.getAttribute('aria-disabled')).toBe('true');
+      await fireEvent.click(btn);
+      expect(props.onRetry).not.toHaveBeenCalled();
+      document.body.innerHTML = '';
+    }
   });
 
   it('a reply with nothing to replay offers no Try again', () => {

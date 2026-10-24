@@ -96,6 +96,25 @@ test('About this reply shows the instructions that were sent, as plain text', as
   await expect(details).toHaveCount(0);
   await expect(reply.locator('[data-ega-action="more"]')).toBeFocused();
   timeline.markStep('about-closed');
+
+  // The menu item keeps the check's place while off, so checking it moves nothing (R63).
+  const label = (await openReplyMenu(sp, 'more'))
+    .getByRole('menuitemcheckbox', { name: 'About this reply' })
+    .locator('.sp-menu-label');
+  await expectSameWidth(
+    label,
+    async () => {
+      await label.click();
+      await expect(details).toBeVisible();
+      await openReplyMenu(sp, 'more');
+      await expect(sp.getByRole('menuitemcheckbox', { name: 'About this reply' })).toHaveAttribute(
+        'aria-checked',
+        'true',
+      );
+    },
+    'About this reply checked',
+  );
+  await sp.keyboard.press('Escape');
 });
 
 test('with request details off, About says the instructions were not recorded', async () => {

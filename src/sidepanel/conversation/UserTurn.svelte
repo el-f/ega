@@ -207,11 +207,9 @@
               onCheckedChange={() => onBookmark?.(turn.id)}
               data-ega-bookmark
             >
-              {#snippet children({ checked })}
-                <Icon icon={Star} size={16} />
-                <span class="sp-menu-label">Bookmark</span>
-                {#if checked}<Icon icon={Check} size={16} />{/if}
-              {/snippet}
+              <Icon icon={Star} size={16} />
+              <span class="sp-menu-label">Bookmark</span>
+              <Icon icon={Check} size={16} class="sp-menu-check" />
             </DropdownMenu.CheckboxItem>
             <DropdownMenu.Item
               class="sp-menu-item sp-menu-danger"

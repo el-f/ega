@@ -2,6 +2,7 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
 import { tick } from 'svelte';
+import { readFileSync } from 'node:fs';
 import SidePanel from '@/sidepanel/SidePanel.svelte';
 import { bookmarkFilterOn, openHeaderMenu, pickHeaderMenuItem } from './_header-menu';
 
@@ -23,6 +24,20 @@ describe('SidePanel header — bookmark filter', () => {
     const item = document.querySelector('[data-ega-bookmark-filter]');
     expect(item?.getAttribute('role')).toBe('menuitemcheckbox');
     expect(item?.getAttribute('aria-checked')).toBe('false');
+  });
+
+  // jsdom has no layout: the check is in the item while off, and the panel's menu rule only hides it (R63).
+  it('keeps the check in place while off, so a toggle does not resize the menu', async () => {
+    const { container } = render(SidePanel);
+    await tick();
+    await openHeaderMenu(container);
+    const item = document.querySelector('[data-ega-bookmark-filter]');
+    expect(item?.getAttribute('data-state')).toBe('unchecked');
+    expect(item?.querySelector('.sp-menu-check svg')).not.toBeNull();
+    const css = readFileSync('src/sidepanel/HeaderMoreMenu.svelte', 'utf8');
+    expect(css).toMatch(
+      /:global\(\.sp-menu-item\[data-state='unchecked'\] \.sp-menu-check\) \{\s*visibility: hidden;/,
+    );
   });
 
   it('turns on from the menu and off again from the menu', async () => {

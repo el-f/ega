@@ -261,6 +261,13 @@ describe('versions', () => {
     );
   });
 
+  // 1/12 to 10/12 would widen the count and move the next arrow (R63).
+  it('the count holds the width of the last version', () => {
+    const { container } = render(AssistantTurn, { props: replyProps(three()) });
+    const sizers = container.querySelectorAll('.ega-pager-count [data-label]');
+    expect([...sizers].map((s) => s.getAttribute('data-label'))).toEqual(['3/3']);
+  });
+
   it('pages both ways and marks the ends', async () => {
     const props = replyProps(three());
     const { container, rerender } = render(AssistantTurn, { props });

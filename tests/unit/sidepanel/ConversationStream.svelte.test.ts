@@ -101,6 +101,22 @@ describe('the thread', () => {
     expect(container.querySelectorAll('[data-turn-id]')).toHaveLength(70);
   });
 
+  // A press that leaves more to show keeps the pill's width: it holds the first, widest count (R63).
+  it('Show earlier holds the label of the first count after a press', async () => {
+    const turns = Array.from({ length: 5 }, (_, i) => u(`u${i}`, `m${i}`, i));
+    const { container } = render(ConversationStream, {
+      props: { ...base, renderWindow: 2, turns },
+    });
+    const more = container.querySelector<HTMLElement>('[data-ega-show-earlier]');
+    const sizer = (): string | null | undefined =>
+      more?.querySelector('[data-label]')?.getAttribute('data-label');
+    expect(more?.textContent.trim()).toBe('Show 3 earlier messages');
+    expect(sizer()).toBe('Show 3 earlier messages');
+    await fireEvent.click(more as HTMLElement);
+    expect(more?.textContent.trim()).toBe('Show 1 earlier message');
+    expect(sizer()).toBe('Show 3 earlier messages');
+  });
+
   // The last batch removes the button that was pressed; the cursor goes to the first message it showed (spec §8.5).
   it('moves focus to the first message shown when Show earlier goes away, and keeps it while one stays', async () => {
     // A window of 2 keeps this to a few turns; at the real 60 each render took about a second.

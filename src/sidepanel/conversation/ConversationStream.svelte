@@ -4,6 +4,7 @@
   import AssistantTurn from './AssistantTurn.svelte';
   import EmptySuggestions from './EmptySuggestions.svelte';
   import EmptyState from '@/shared/components/EmptyState.svelte';
+  import StableLabel from '@/shared/ui/StableLabel.svelte';
   import SearchX from '@lucide/svelte/icons/search-x';
   import Star from '@lucide/svelte/icons/star';
   import ArrowDown from '@lucide/svelte/icons/arrow-down';
@@ -131,6 +132,8 @@
   let shownBeyondWindow = $state(0);
   const hiddenCount = $derived(Math.max(0, turns.length - renderWindow - shownBeyondWindow));
   const windowTurns = $derived(hiddenCount > 0 ? turns.slice(hiddenCount) : turns);
+  const earlierLabel = (n: number): string =>
+    `Show ${n} earlier ${n === 1 ? 'message' : 'messages'}`;
 
   // One pass per turns change; a per-turn scan would make mount O(n²).
   const retryableIds = $derived(retryableTurnIds(turns));
@@ -563,7 +566,11 @@
             data-ega-show-earlier
             onclick={() => void showEarlier()}
           >
-            Show {hiddenCount} earlier {hiddenCount === 1 ? 'message' : 'messages'}
+            <!-- The first count is the widest, so a press that leaves more to show keeps the pill's width (R63). -->
+            <StableLabel
+              current={earlierLabel(hiddenCount)}
+              labels={[earlierLabel(turns.length - renderWindow)]}
+            />
           </button>
         {/if}
         {#each windowTurns as turn (turn.id)}
@@ -693,6 +700,7 @@
     color: var(--color-fg);
     font-family: inherit;
     font-size: var(--fs-sm);
+    font-variant-numeric: tabular-nums;
     cursor: pointer;
   }
   .ega-show-earlier:hover {
