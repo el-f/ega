@@ -531,9 +531,9 @@
 
   function askLineFor(turnId: string): string {
     const reply = conversation.turns.find((t) => t.id === turnId);
-    const start = Array.from(askQuote(reply?.content ?? ''))
-      .slice(0, 60)
-      .join('');
+    // Ask mode outlives its reply only when the cap trims it while its question is answered.
+    if (reply === undefined) return 'Asking about a reply removed to save space';
+    const start = Array.from(askQuote(reply.content)).slice(0, 60).join('');
     return `Asking about the reply: ${start}`;
   }
 

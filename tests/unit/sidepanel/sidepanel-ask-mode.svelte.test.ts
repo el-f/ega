@@ -1492,6 +1492,12 @@ describe('Ask mode while an answer runs, under a filter, across conversations an
 });
 
 describe("the store's size cap", () => {
+  /** The message box's hidden description while Ask mode is on (R2-15). */
+  const askLine = (c: HTMLElement): string | undefined =>
+    box(c).getAttribute('aria-describedby')?.split(' ').includes('sp-ask-line')
+      ? c.querySelector('#sp-ask-line')?.textContent
+      : undefined;
+
   it('a question whose save trims the reply it asks about keeps Ask mode, which then moves to the answer', async () => {
     await nearTheByteCap('https://a.test');
     const c = await mounted();
@@ -1504,6 +1510,7 @@ describe("the store's size cap", () => {
       timeout: 3000,
     });
     expect(banner(c)).toContain('Asking about this reply');
+    expect(askLine(c)).toBe('Asking about a reply removed to save space');
     expect(box(c).value).toBe('');
 
     await chunk({ type: 'done', requestId: q.requestId, text: 'Because.' });
@@ -1545,6 +1552,7 @@ describe("the store's size cap", () => {
     expect(q.options.askAbout?.['result']).toBe('reply 0');
     expect(c.querySelector('[data-turn-id="a0"]')).toBeNull();
     expect(banner(c)).toContain('Asking about this reply');
+    expect(askLine(c)).toBe('Asking about a reply removed to save space');
 
     await chunk({ type: 'done', requestId: q.requestId, text: 'Because.' });
     expect(target(c)).toBe(replies(c).at(-1));
