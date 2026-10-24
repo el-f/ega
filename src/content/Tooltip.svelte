@@ -8,7 +8,12 @@
   import type { TipState } from './tipState.svelte';
   import ReplyDetails from '@/shared/components/ReplyDetails.svelte';
   import ReplyMeta from '@/shared/components/ReplyMeta.svelte';
-  import { directionLabel, replyMetaItems } from '@/shared/reply-meta';
+  import {
+    detectedVarieties,
+    directionLabel,
+    replyMetaItems,
+    type DirectionInput,
+  } from '@/shared/reply-meta';
   import { errorCopy } from '@/shared/error-copy';
   import { formatDetectedLabel } from '@/shared/detected-label';
   import { ISO_LANGUAGES } from '@/shared/languages';
@@ -160,31 +165,18 @@
   );
   const notesLang = $derived(langTag(direction?.target) ?? '');
 
-  const replyDirection = $derived(
-    directionLabel({
-      ...(tip.detectedLangs?.length
-        ? { detected: tip.detectedLangs }
-        : tip.detectedLang
-          ? {
-              detected: [
-                {
-                  id: tip.detectedLang,
-                  ...(tip.detectedDetail ? { detail: tip.detectedDetail } : {}),
-                },
-              ],
-            }
-          : tip.detectedDetail
-            ? { detected: [{ id: 'other', detail: tip.detectedDetail }] }
-            : {}),
-      ...(direction ? { sourceLang: direction.source, targetLang: direction.target } : {}),
-      sourceOnly: ranTask === 'reword' || ranTask === 'grammar',
-      varieties: cachedCustomLanguages(),
-    }),
-  );
+  const directionInput = $derived<DirectionInput>({
+    detected: detectedVarieties(tip),
+    ...(direction ? { sourceLang: direction.source, targetLang: direction.target } : {}),
+    sourceOnly: ranTask === 'reword' || ranTask === 'grammar',
+    varieties: cachedCustomLanguages(),
+  });
+  // About names every language in full; the one-line meta cuts each name.
+  const replyDirection = $derived(directionLabel(directionInput));
   const metaItems = $derived(
     replyMetaItems({
       meta: tip.meta,
-      direction: replyDirection,
+      direction: directionLabel({ ...directionInput, short: true }),
       confidence: tip.confidence,
       confidenceSetting: { show: tip.confidencePill, threshold: tip.confidencePillThreshold ?? 0 },
       ...(!tip.error && tip.settled !== true

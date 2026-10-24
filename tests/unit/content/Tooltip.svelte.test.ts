@@ -297,6 +297,33 @@ describe('Tooltip smoke', () => {
     expect(meta?.textContent).toContain('Venetian Italian');
   });
 
+  it('a cue-word detail from an older reply is cut on the meta line and whole in About', async () => {
+    const detail = 'Levantine (kifak, shu, 3am, ktir, 3njad)';
+    const { container } = render(Tooltip, {
+      props: {
+        tip: baseTip({
+          body: 'hi',
+          detectedLang: 'arabizi',
+          detectedDetail: detail,
+          meta: { backendId: asBackendIdUnsafe('anthropic'), cacheHit: false, latencyMs: 250 },
+        }),
+        clickOutsideDismiss: true,
+        showSource: false,
+        direction: { source: 'auto', target: 'en' },
+        ...handlers(),
+      },
+    });
+    expect(container.querySelector('[data-ega-meta-item="direction"]')?.textContent).toBe(
+      'Arabizi — Levantine (kifak, shu… → English',
+    );
+    const about = (await menu(container, 'More')).querySelector('[role="menuitemcheckbox"]');
+    if (!about) throw new Error('No About item');
+    await fireEvent.click(about);
+    expect(container.querySelector('.reply-details')?.textContent).toContain(
+      `Arabizi — ${detail} → English`,
+    );
+  });
+
   it('combines mixed languages in one shared direction item', async () => {
     const { container } = mountWith({
       body: 'hi',

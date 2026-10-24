@@ -4,7 +4,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, fireEvent, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import AssistantTurn from '@/sidepanel/conversation/AssistantTurn.svelte';
-import { doneReply, meta, metaText, replyProps } from './_reply';
+import { doneReply, meta, metaText, openMenu, replyProps } from './_reply';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -136,6 +136,41 @@ describe('the meta line', () => {
   it('reads direction, model and confidence, in that order', () => {
     const { container } = render(AssistantTurn, { props: replyProps(doneReply()) });
     expect(metaText(container)).toEqual(['Spanish → English', 'Claude Haiku 4.5', '93% confident']);
+  });
+
+  it('cuts a cue-word detail from an older reply, and About keeps it whole', async () => {
+    const detail = 'Levantine (kifak, shu, 3am, ktir, 3njad)';
+    const { container } = render(AssistantTurn, {
+      props: replyProps(doneReply({ detectedLang: 'arabizi', detectedDetail: detail })),
+    });
+    expect(metaText(container)[0]).toBe('Arabizi — Levantine (kifak, shu… → English');
+    await openMenu(container, 'more');
+    await fireEvent.click(document.querySelector('[data-ega-about]') as HTMLElement);
+    const about = await waitFor(() => {
+      const el = container.querySelector<HTMLElement>('[data-ega-inspector]');
+      if (!el) throw new Error('About not open');
+      return el;
+    });
+    expect(about.textContent).toContain(`Arabizi — ${detail} → English`);
+  });
+
+  it('names both languages of mixed text', () => {
+    const { container } = render(AssistantTurn, {
+      props: replyProps(
+        doneReply({
+          detectedLang: 'arabizi',
+          detectedLangs: [{ id: 'arabizi', detail: 'Levantine' }, { id: 'en' }],
+        }),
+      ),
+    });
+    expect(metaText(container)[0]).toBe('Arabizi (Levantine) + English → English');
+  });
+
+  it('names a detail that came with no language', () => {
+    const turn = doneReply({ detectedDetail: 'Venetian Italian' });
+    delete turn.detectedLang;
+    const { container } = render(AssistantTurn, { props: replyProps(turn) });
+    expect(metaText(container)[0]).toBe('Venetian Italian → English');
   });
 
   it('follows the confidence setting: off hides it, below the threshold hides it', () => {

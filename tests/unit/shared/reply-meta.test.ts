@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import fc from 'fast-check';
 import {
   confidenceItem,
+  detectedVarieties,
   directionLabel,
   replyMetaItems,
   type ReplyMetaInput,
@@ -45,6 +46,47 @@ describe('directionLabel', () => {
   it('falls back to the source the request named, and to nothing for Auto-detect', () => {
     expect(directionLabel({ sourceLang: 'es', targetLang: 'en' })).toBe('Spanish → English');
     expect(directionLabel({ sourceLang: 'auto', targetLang: 'en' })).toBe('');
+  });
+
+  // A reply stored before the short-tag rule can carry the cue words as its detail.
+  it('cuts a long name for the meta line, never the target, and keeps the full one', () => {
+    const input = {
+      detected: [{ id: 'arabizi', detail: 'Levantine (kifak, shu, 3am, ktir, 3njad)' }],
+      targetLang: 'en',
+    };
+    expect(directionLabel(input)).toBe(
+      'Arabizi — Levantine (kifak, shu, 3am, ktir, 3njad) → English',
+    );
+    const short = directionLabel({ ...input, short: true });
+    expect(short).toBe('Arabizi — Levantine (kifak, shu… → English');
+    expect(short.split(' → ')[0]?.length).toBeLessThanOrEqual(32);
+  });
+
+  it('names both languages of mixed text, short or full, when they fit', () => {
+    const input = {
+      detected: [{ id: 'arabizi', detail: 'Levantine' }, { id: 'en' }],
+      targetLang: 'en',
+    };
+    expect(directionLabel(input)).toBe('Arabizi (Levantine) + English → English');
+    expect(directionLabel({ ...input, short: true })).toBe(
+      'Arabizi (Levantine) + English → English',
+    );
+  });
+
+  it('reads the detected list from a reply, a detail alone as its own name', () => {
+    expect(detectedVarieties({ detectedLang: 'arabizi', detectedDetail: 'Levantine' })).toEqual([
+      { id: 'arabizi', detail: 'Levantine' },
+    ]);
+    expect(detectedVarieties({ detectedDetail: 'Venetian Italian' })).toEqual([
+      { id: 'other', detail: 'Venetian Italian' },
+    ]);
+    expect(
+      detectedVarieties({
+        detectedLang: 'arabizi',
+        detectedLangs: [{ id: 'arabizi' }, { id: 'en' }],
+      }),
+    ).toEqual([{ id: 'arabizi' }, { id: 'en' }]);
+    expect(detectedVarieties({})).toEqual([]);
   });
 
   it('shows only the source for a task that answers in it', () => {

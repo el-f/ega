@@ -46,25 +46,50 @@ export interface DirectionInput {
   /** Reword and Grammar answer in the input's language, so only the source shows. */
   sourceOnly?: boolean;
   varieties?: readonly VarietyLike[];
+  /** The one-line meta: each name is cut at META_NAME_MAX characters. About shows the full line. */
+  short?: boolean;
+}
+
+/** A model-written detail (or an older reply's cue-word list) must not push the target off the meta line. */
+const META_NAME_MAX = 32;
+
+function shortName(name: string): string {
+  if (name.length <= META_NAME_MAX) return name;
+  return name.slice(0, META_NAME_MAX - 1).replace(/[\s,;:(—–-]+$/u, '') + '…';
+}
+
+/** A reply's detection fields as one list; a detail with no language is the name itself ("other"). */
+export function detectedVarieties(r: {
+  detectedLang?: string | undefined;
+  detectedDetail?: string | undefined;
+  detectedLangs?: readonly DetectedVariety[] | undefined;
+}): DetectedVariety[] {
+  if (r.detectedLangs !== undefined && r.detectedLangs.length > 0) return [...r.detectedLangs];
+  const detail = r.detectedDetail !== undefined && r.detectedDetail !== '' ? r.detectedDetail : '';
+  const id = r.detectedLang !== undefined && r.detectedLang !== '' ? r.detectedLang : 'other';
+  if (id === 'other' && detail === '') return [];
+  return [detail !== '' ? { id, detail } : { id }];
 }
 
 /** "Arabizi (Levantine) → English", "Arabizi + English → Hebrew", past two names "+1". Empty when nothing is known. */
 export function directionLabel(input: DirectionInput): string {
   const varieties = input.varieties ?? [];
-  const names = (input.detected ?? [])
-    .map((d) => langName(d.id, d.detail, varieties))
-    .filter((n) => n !== '');
+  const name = (id: string, detail?: string): string => {
+    const full = langName(id, detail, varieties);
+    return input.short === true ? shortName(full) : full;
+  };
+  const names = (input.detected ?? []).map((d) => name(d.id, d.detail)).filter((n) => n !== '');
   let from: string;
   if (names.length > 0) {
     from = names.slice(0, 2).join(' + ') + (names.length > 2 ? ` +${names.length - 2}` : '');
   } else if (input.sourceLang !== undefined && input.sourceLang !== 'auto') {
-    from = langName(input.sourceLang, undefined, varieties);
+    from = name(input.sourceLang);
   } else {
     return '';
   }
   if (input.sourceOnly === true) return from;
   if (input.targetLang === undefined || input.targetLang === '') return from;
-  return `${from} → ${langName(input.targetLang, undefined, varieties)}`;
+  return `${from} → ${name(input.targetLang)}`;
 }
 
 export interface ConfidenceSetting {

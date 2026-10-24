@@ -19,6 +19,7 @@
 
 - An answer with no detected fields shows no pill at all, not an empty one.
 - A detail that only repeats the language name is dropped, so the pill never reads "Arabizi — Arabizi".
+- A language name longer than 32 characters (an older reply's list of cue words) is cut with "…" on the meta line, and the target still shows; About this reply shows the full name.
 
 ## Cautions
 
