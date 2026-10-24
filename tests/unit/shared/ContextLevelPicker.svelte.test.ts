@@ -2,6 +2,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
 import ContextLevelPicker from '@/shared/components/ContextLevelPicker.svelte';
+import { readFileSync } from 'node:fs';
 
 describe('ContextLevelPicker', () => {
   it('renders two toggle buttons labeled Minimal / Rich', () => {
@@ -36,11 +37,20 @@ describe('ContextLevelPicker', () => {
 
 // The task chips mark the picked one with a check; the page-info buttons say it the same way, not by colour alone.
 describe('ContextLevelPicker picked mark', () => {
-  it('draws a check on the pressed button only', () => {
+  it('shows the check on the pressed button only, and keeps its slot on the other (R63)', () => {
     const { getByRole } = render(ContextLevelPicker, {
       props: { value: 'rich', onchange: vi.fn() },
     });
-    expect(getByRole('button', { name: /^Rich$/ }).querySelector('svg')).not.toBeNull();
-    expect(getByRole('button', { name: /^Minimal$/ }).querySelector('svg')).toBeNull();
+    const rich = getByRole('button', { name: /^Rich$/ });
+    const minimal = getByRole('button', { name: /^Minimal$/ });
+    expect(rich.classList.contains('active')).toBe(true);
+    expect(minimal.classList.contains('active')).toBe(false);
+    // Both carry the icon, so a pick does not resize the group; CSS hides it on the one not pressed.
+    expect(rich.querySelector(':scope > svg')).not.toBeNull();
+    expect(minimal.querySelector(':scope > svg')).not.toBeNull();
+    const src = readFileSync('src/shared/components/ContextLevelPicker.svelte', 'utf8');
+    expect(src).toMatch(
+      /\.ctx-level-toggle button:not\(\.active\) > :global\(svg\) \{\s*visibility: hidden;/,
+    );
   });
 });

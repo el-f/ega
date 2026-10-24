@@ -134,6 +134,31 @@ describe('BackendPopover — the chain, in order, each with a plain status', () 
     ).toBe('How to start');
   });
 
+  it('every row keeps the widest fix slot, with or without a fix, so the probe landing does not rewrap it (R63)', async () => {
+    const { rerender } = render(BackendPopover, {
+      props: { ...DEFAULT_PROPS, anchor: makeAnchor(), probe: null },
+    });
+    const slotsHeld = (rows: HTMLElement[]): (string | null)[][] =>
+      rows.map((r) =>
+        [...r.querySelectorAll('.fix-slot > [data-label]')].map((s) =>
+          s.getAttribute('data-label'),
+        ),
+      );
+    const before = await waitForRows();
+    expect(before.every((r) => r.querySelector('.fix-slot button') === null)).toBe(true);
+    const all = ['Add key', 'How to start', 'Check settings'];
+    expect(slotsHeld(before)).toEqual(before.map(() => all));
+    await rerender({ ...DEFAULT_PROPS, anchor: makeAnchor(), probe: makeProbe({ native: false }) });
+    const after = await waitForRows();
+    const native = after.find((r) => /Claude Code or Codex/.test(String(r.textContent)));
+    expect(native?.querySelector('.fix-slot button')?.textContent).toBe('How to start');
+    expect(slotsHeld(after)).toEqual(after.map(() => all));
+    for (const s of document.body.querySelectorAll('.fix-slot > [data-label]')) {
+      expect(s.getAttribute('aria-hidden')).toBe('true');
+      expect(s.textContent).toBe('');
+    }
+  });
+
   it('labels every registered backend from the registry, never a raw id', async () => {
     render(BackendPopover, {
       props: {

@@ -68,6 +68,10 @@ describe('ShortcutInput — label prop', () => {
     });
     const btn = container.querySelector('[data-ega-shortcut-record]') as HTMLButtonElement;
     expect(btn.getAttribute('aria-pressed')).toBe('false');
+    // Record and Cancel hold one width, so Clear beside it does not move (R63).
+    expect(
+      [...btn.querySelectorAll('[data-label]')].map((s) => s.getAttribute('data-label')),
+    ).toEqual(['Record', 'Cancel']);
 
     await fireEvent.click(btn);
 

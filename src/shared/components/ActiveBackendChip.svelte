@@ -97,6 +97,24 @@
   // With no backend the chip opens Options in a tab: nothing expands, so it claims no popup.
   const opensPopover = $derived(resolvedId !== null || checking);
 
+  const SET_UP = 'Set up backend';
+  const label = $derived(!opensPopover ? SET_UP : checking ? 'Checking' : (backendName ?? ''));
+  // Every label a probe can land on before a setting changes: any key-less backend ahead of the first keyed-and-ready one (R63).
+  const heldLabels = $derived.by(() => {
+    const names: string[] = [];
+    let keyed = false;
+    for (const id of chain) {
+      const needsKey = backendNeedsKey(id);
+      if (needsKey && !backendHasRequiredKey(id, settings)) continue;
+      names.push(backendLabel(id));
+      if (needsKey) {
+        keyed = true;
+        break;
+      }
+    }
+    return [...(probeDecides ? ['Checking'] : []), ...names, ...(keyed ? [] : [SET_UP])];
+  });
+
   function isProbeResult(r: unknown): r is ProbeResult {
     if (r === null || typeof r !== 'object') return false;
     const a = (r as { available?: unknown }).available;
@@ -182,12 +200,17 @@
   aria-expanded={opensPopover ? popoverOpen : undefined}
   onclick={onClick}
 >
-  {#if !opensPopover}
-    <span class="chip-name">Set up backend</span>
-  {:else}
-    <span class="chip-dot" class:on={!checking} aria-hidden="true"></span>
-    <span class="chip-name">{checking ? 'Checking' : backendName}</span>
-  {/if}
+  <!-- Every label the chip can show holds its width (.ega-stable in tokens.css), so the probe landing does not resize it. -->
+  <span class="ega-stable">
+    <span class="chip-current">
+      {#if opensPopover}<span class="chip-dot" class:on={!checking} aria-hidden="true"></span>{/if}
+      <span class="chip-name">{label}</span>
+    </span>
+    {#each heldLabels as held, i (i)}
+      <span class="chip-sizer" class:has-dot={held !== SET_UP} aria-hidden="true" data-label={held}
+      ></span>
+    {/each}
+  </span>
 </button>
 
 {#if resolvedId !== null || popoverOpen}
@@ -209,7 +232,6 @@
     flex-shrink: 0;
     display: inline-flex;
     align-items: center;
-    gap: var(--space-2);
     box-sizing: border-box;
     block-size: 28px;
     padding: 0 var(--space-2);
@@ -241,6 +263,15 @@
     color: var(--color-warning-fg);
     border-style: dashed;
   }
+  .chip-current {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+  /* The dot's box plus its gap, kept on every label that shows the dot. */
+  .chip-sizer.has-dot {
+    padding-inline-start: calc(8px + var(--space-2));
+  }
   .chip-dot {
     flex-shrink: 0;
     inline-size: 8px;
@@ -258,7 +289,8 @@
       padding: 0;
       justify-content: center;
     }
-    .active-backend-chip:not(.empty) .chip-name {
+    .active-backend-chip:not(.empty) .chip-name,
+    .active-backend-chip:not(.empty) .chip-sizer {
       display: none;
     }
   }

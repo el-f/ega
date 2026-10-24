@@ -52,7 +52,7 @@
           onclick={() => selectLevel(lvl.id)}
         >
           <!-- The check, not only the colour, says which level is picked, as on the task chips. -->
-          {#if value === lvl.id}<Check size={16} aria-hidden="true" />{/if}{lvl.label}
+          <Check size={16} aria-hidden="true" />{lvl.label}
         </button>
       {/each}
     </div>
@@ -104,6 +104,10 @@
     font-size: var(--fs-sm);
     line-height: var(--lh-body);
     cursor: pointer;
+  }
+  /* The check keeps its slot while unpicked, so a pick does not resize the group (R63). */
+  .ctx-level-toggle button:not(.active) > :global(svg) {
+    visibility: hidden;
   }
   .ctx-level-toggle button + button {
     border-inline-start-color: var(--color-control-border);

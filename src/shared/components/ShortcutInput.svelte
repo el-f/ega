@@ -115,6 +115,7 @@
     variant="secondary"
     size="sm"
     ariaLabel={recording ? 'Cancel recording' : ariaLabel}
+    labels={['Record', 'Cancel']}
     {ariaDisabled}
     {disabled}
     {...recordDescribedBy === undefined ? {} : { describedBy: recordDescribedBy }}

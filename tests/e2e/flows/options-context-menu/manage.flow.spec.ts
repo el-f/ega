@@ -1,6 +1,7 @@
 /* coverage: options.context-menu.manage */
 import { test, expect } from '@playwright/test';
 import { launchExtension, readStorage, type ExtensionHandle } from '../../helpers';
+import { expectSameWidth } from '../_harness';
 
 let ext: ExtensionHandle;
 
@@ -64,9 +65,17 @@ test('manage: groups, add an image action, move inside a group, reset then undo'
   // The shared ShortcutInput marks its Record button, which the card's error line points at.
   await expect(record).toHaveAttribute('data-ega-shortcut-record');
   await record.focus();
-  await page.keyboard.press('Enter');
   const recording = page.getByRole('button', { name: 'Cancel recording' });
-  await expect(recording).toHaveAttribute('aria-pressed', 'true');
+  // One locator for both names: Record and Cancel keep one width, so Clear beside it does not move (R63).
+  await expectSameWidth(
+    page.getByRole('button', { name: /^(Record Translate selection shortcut|Cancel recording)$/ }),
+    async () => {
+      await page.keyboard.press('Enter');
+      await expect(recording).toHaveAttribute('aria-pressed', 'true');
+      await expect(recording).toHaveText('Cancel');
+    },
+    'Record -> Cancel',
+  );
   await expect(recording).toHaveAttribute('data-ega-owns-escape');
   await expect(bubble).toBeVisible();
   await page.keyboard.press('Escape');

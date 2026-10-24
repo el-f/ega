@@ -1,7 +1,7 @@
 /* coverage: sidepanel.composer.mode-popover */
 import { test, expect, type Page } from '@playwright/test';
 import { launchExtension, seedSettings, type ExtensionHandle } from '../../../helpers';
-import { createTimeline } from '../../_harness';
+import { createTimeline, expectSameWidth } from '../../_harness';
 
 let ext: ExtensionHandle;
 
@@ -41,7 +41,22 @@ test('the mode chip opens Next message, and each pick applies at once', async ()
   timeline.markStep('popover-open');
 
   // A task pick applies at once and the popover stays open; Reword brings its tone row.
-  await popover.locator('[data-ega-task="reword"]').click();
+  // Every chip keeps the check's slot, so neither chip changes width and the row does not rewrap (R63).
+  const reword = popover.locator('[data-ega-task="reword"]');
+  const translate = popover.locator('[data-ega-task="translate"]');
+  await expectSameWidth(
+    translate,
+    () =>
+      expectSameWidth(
+        reword,
+        async () => {
+          await reword.click();
+          await expect(reword).toHaveAttribute('aria-checked', 'true');
+        },
+        'Reword picked',
+      ),
+    'Translate unpicked',
+  );
   await expect(popover).toBeVisible();
   await expect(chip).toHaveText('Reword');
   const tone = popover.locator('[data-ega-tone-select]');
@@ -62,10 +77,20 @@ test('the mode chip opens Next message, and each pick applies at once', async ()
   timeline.markStep('languages-swapped');
 
   // The page info level is a Settings value: the pick is saved at once.
-  await popover.getByRole('button', { name: 'Rich' }).click();
-  await expect(popover.getByRole('button', { name: 'Rich' })).toHaveAttribute(
-    'aria-pressed',
-    'true',
+  // Both levels keep the check's slot, so the pick does not resize the group (R63).
+  const rich = popover.getByRole('button', { name: 'Rich' });
+  await expectSameWidth(
+    popover.getByRole('button', { name: 'Minimal' }),
+    () =>
+      expectSameWidth(
+        rich,
+        async () => {
+          await rich.click();
+          await expect(rich).toHaveAttribute('aria-pressed', 'true');
+        },
+        'Rich picked',
+      ),
+    'Minimal unpicked',
   );
   await expect
     .poll(

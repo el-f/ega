@@ -8,7 +8,7 @@ import {
   waitForTestHooks,
   type ExtensionHandle,
 } from '../../helpers';
-import { createTimeline, waitForVisibleText } from '../_harness';
+import { createTimeline, expectSameWidth, waitForVisibleText } from '../_harness';
 
 let ext: ExtensionHandle;
 
@@ -75,19 +75,18 @@ test('Context icon button reveals the captured PageContext entries', async () =>
   expect(marked.length).toBeGreaterThan(0);
 
   // Every page field opens on request, the full address among them.
-  const allFields = await page.evaluate(() => {
-    const host = document.querySelector('#ega-shadow-host');
-    const root = (host as HTMLElement | null)?.shadowRoot;
-    const more = Array.from(
-      root?.querySelectorAll<HTMLButtonElement>('[data-ega-inspector] .rd-link') ?? [],
-    ).find((b) => b.textContent.trim() === 'Show all page info');
-    more?.click();
-    return new Promise<string>((resolve) =>
-      setTimeout(
-        () => resolve(root?.querySelector('[data-ega-context-all]')?.textContent ?? ''),
-        100,
-      ),
-    );
-  });
-  expect(allFields).toContain('Address');
+  const showAll = page.locator('[data-ega-inspector] [data-ega-context-preview] button.rd-link');
+  await expect(showAll).toHaveText('Show all page info');
+  // The link keeps its underline inside the label stack, which is an atomic inline.
+  await expect(showAll.locator('.ega-stable')).toHaveCSS('text-decoration-line', 'underline');
+  // Show all page info and Show less keep one width in the tooltip's shadow root (R63).
+  await expectSameWidth(
+    showAll,
+    async () => {
+      await showAll.click();
+      await expect(showAll).toHaveText('Show less');
+    },
+    'Show all page info -> Show less',
+  );
+  await expect(page.locator('[data-ega-context-all]')).toContainText('Address');
 });

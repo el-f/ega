@@ -1,7 +1,7 @@
 /* coverage: options.tasks.switches-persist */
 import { test, expect } from '@playwright/test';
 import { launchExtension, readStorage, type ExtensionHandle } from '../../helpers';
-import { createTimeline } from '../_harness';
+import { createTimeline, expectSameWidth } from '../_harness';
 import type { Settings } from '../../../../src/shared/types';
 
 let ext: ExtensionHandle;
@@ -27,7 +27,21 @@ test('the task dialog writes effort, page context and glossary, and shows them a
   const summarize = async (): Promise<unknown> =>
     (await readStorage<Settings>(ext.context, ext.extensionId, 'ega.settings'))?.taskOverrides
       .summarize;
-  await dialog.locator('[data-ega-task-effort] [data-ega-effort-value="high"]').click();
+  // Every item holds its bold width, so picking High does not widen it or the group (R63).
+  const high = dialog.locator('[data-ega-task-effort] [data-ega-effort-value="high"]');
+  await expectSameWidth(
+    dialog.locator('[data-ega-task-effort]'),
+    () =>
+      expectSameWidth(
+        high,
+        async () => {
+          await high.click();
+          await expect(high).toHaveAttribute('aria-checked', 'true');
+        },
+        'High picked',
+      ),
+    'Effort group',
+  );
   await expect.poll(summarize, { timeout: 5_000 }).toEqual({ effort: 'high' });
   const pageContext = dialog.locator('[data-ega-task-page-context]');
   await pageContext.click();

@@ -1,6 +1,7 @@
 <script lang="ts" generics="T extends string">
   /** Pick one of 2-5 short choices: a radio group (arrows move and select), sized to its content. */
   import { RadioGroup } from 'bits-ui';
+  import StableLabel from './StableLabel.svelte';
 
   interface Option {
     value: T;
@@ -47,7 +48,7 @@
         <RadioGroup.Item value={option.value} {...itemAttr ? { [itemAttr]: option.value } : {}}>
           {#snippet child({ props: itemProps, checked })}
             <button {...itemProps} class="ega-segmented-item" class:active={checked}>
-              {option.label}
+              <StableLabel current={option.label} labels={[option.label]} />
             </button>
           {/snippet}
         </RadioGroup.Item>
@@ -88,6 +89,10 @@
     background: var(--color-accent-bg-soft);
     color: var(--color-fg);
     box-shadow: inset 0 0 0 1px var(--color-accent);
+    font-weight: 600;
+  }
+  /* Every item holds its label's bold width, so a pick does not resize the group (R63). */
+  .ega-segmented-item :global(.ega-stable > [data-label]) {
     font-weight: 600;
   }
   .ega-segmented-item:hover:not(.active) {

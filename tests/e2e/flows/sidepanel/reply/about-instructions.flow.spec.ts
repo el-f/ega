@@ -9,7 +9,7 @@ import {
   sendFromPanel,
   type ExtensionHandle,
 } from '../../../helpers';
-import { createTimeline } from '../../_harness';
+import { createTimeline, expectSameWidth } from '../../_harness';
 
 let ext: ExtensionHandle;
 
@@ -58,8 +58,16 @@ test('About this reply shows the instructions that were sent, as plain text', as
 
   const disclosure = details.getByRole('button', { name: /^Instructions sent/ });
   await expect(disclosure).toHaveAttribute('aria-expanded', 'false');
-  await disclosure.click();
-  await expect(disclosure).toHaveAttribute('aria-expanded', 'true');
+  // The arrow flips inside a held width, so the character count beside it does not move (R63).
+  await expectSameWidth(
+    disclosure,
+    async () => {
+      await disclosure.click();
+      await expect(disclosure).toHaveAttribute('aria-expanded', 'true');
+      await expect(disclosure).toHaveText('Instructions sent ▾');
+    },
+    'Instructions sent ▸ -> ▾',
+  );
   const shown = details.getByLabel('Instructions sent', { exact: true });
   await expect(shown).toBeVisible();
 
@@ -70,6 +78,18 @@ test('About this reply shows the instructions that were sent, as plain text', as
   expect(sent).toContain(text.trim().slice(0, 200));
   await expect(details.locator('[data-ega-instructions]')).toContainText(/\d[\d,]* characters/);
   timeline.markStep('instructions-shown');
+
+  // Copy as JSON holds the width of Copied, so the footer does not move (R63).
+  await ext.context.grantPermissions(['clipboard-write']);
+  const copy = details.getByRole('button', { name: /^(Copy as JSON|Copied)$/ });
+  await expectSameWidth(
+    copy,
+    async () => {
+      await copy.click();
+      await expect(copy).toHaveText('Copied');
+    },
+    'Copy as JSON -> Copied',
+  );
 
   // Closing returns focus to the More button the section was opened from.
   await details.getByRole('button', { name: 'Close' }).click();

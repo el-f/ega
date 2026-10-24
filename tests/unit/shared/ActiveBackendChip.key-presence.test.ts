@@ -163,3 +163,50 @@ describe('ActiveBackendChip — key-less backends need the probe', () => {
     expect(probeMock).not.toHaveBeenCalled();
   });
 });
+
+// jsdom has no layout: these check which labels hold the chip's width, so the probe landing does not resize it.
+describe('ActiveBackendChip — one width before and after the probe (R63)', () => {
+  const held = (container: Element): (string | null)[] =>
+    [...container.querySelectorAll('.chip-sizer')].map((s) => s.getAttribute('data-label'));
+
+  it('holds Checking, every key-less name ahead of the first keyed one, and that name', async () => {
+    probeMock.mockReturnValue(new Promise(() => {}));
+    const s = parseSettings({
+      backendOrder: ['native', 'openai', 'ollama', 'anthropic', 'gemini'],
+      disabledBackends: [],
+      anthropicApiKey: 'test-key',
+      geminiApiKey: 'test-key',
+    });
+    const { container } = render(ActiveBackendChip, { props: { settings: s, onJump: () => {} } });
+    await tick();
+    // The keyed one names the chip until the probe says a key-less one ahead of it is up.
+    expect(container.querySelector('.chip-name')?.textContent).toBe('Anthropic');
+    expect(held(container)).toEqual(['Checking', 'Claude Code or Codex', 'Ollama', 'Anthropic']);
+    for (const sizer of container.querySelectorAll('.chip-sizer')) {
+      expect(sizer.getAttribute('aria-hidden')).toBe('true');
+      expect(sizer.classList.contains('has-dot')).toBe(true);
+    }
+  });
+
+  it('holds Set up backend, without the dot room, when no keyed backend is ready', async () => {
+    probeMock.mockResolvedValue({ available: { native: false }, active: null });
+    const s = parseSettings({ backendOrder: ['native', 'anthropic'], disabledBackends: [] });
+    const { container } = render(ActiveBackendChip, { props: { settings: s, onJump: () => {} } });
+    expect(held(container)).toEqual(['Checking', 'Claude Code or Codex', 'Set up backend']);
+    await waitFor(() => {
+      expect(container.querySelector('.chip-name')?.textContent).toBe('Set up backend');
+    });
+    const setUp = container.querySelector('.chip-sizer[data-label="Set up backend"]');
+    expect(setUp?.classList.contains('has-dot')).toBe(false);
+  });
+
+  it('holds only the name when a keyed backend leads, since nothing can change it', () => {
+    const s = parseSettings({
+      backendOrder: ['anthropic', 'native'],
+      disabledBackends: [],
+      anthropicApiKey: 'test-key',
+    });
+    const { container } = render(ActiveBackendChip, { props: { settings: s, onJump: () => {} } });
+    expect(held(container)).toEqual(['Anthropic']);
+  });
+});
