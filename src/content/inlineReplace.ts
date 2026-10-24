@@ -2,6 +2,7 @@ import { ensurePageStyles } from './page-styles';
 import type { ErrCode } from '@/shared/types';
 import { langTag, markLang, replyLang } from '@/shared/lang-tag';
 import { materializeTasks } from '@/shared/task-view';
+import { soleFencedCode } from '@/shared/answer-presentation';
 import { currentSettings } from './settings-cache';
 import { cachedCustomTasks } from './customs-cache';
 import {
@@ -111,7 +112,7 @@ export function appendInlineDelta(requestId: string, delta: string, replace?: tr
   clearTimeout(e.stuckTimerId);
   e.stuckTimerId = armStuckGuard(requestId, e.stuckMs);
   e.visibleText = replace ? delta : e.visibleText + delta;
-  renderProgress(e.wrapper, e.visibleText, e.lang);
+  renderProgress(e.wrapper, soleFencedCode(e.visibleText) ?? e.visibleText, e.lang);
 }
 
 function settledWrappers(): HTMLElement[] {
@@ -138,7 +139,9 @@ export function finishInline(requestId: string, meta?: DoneMeta): void {
   const e = entries.get(requestId);
   if (!e) return;
   const { wrapper, originalText, lang } = e;
-  const text = meta?.text ?? e.visibleText;
+  const raw = meta?.text ?? e.visibleText;
+  // The page shows text, so a code answer goes in without its fence lines.
+  const text = soleFencedCode(raw) ?? raw;
   // A `done` with no text is a failure the user can retry from, not a shimmer that never ends.
   if (text.length === 0) {
     errorInline(requestId, { code: 'EMPTY', message: 'The backend returned no text.' });

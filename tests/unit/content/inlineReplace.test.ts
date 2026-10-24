@@ -108,6 +108,39 @@ describe('inlineReplace', () => {
     expect(p.textContent).toBe(text);
   });
 
+  // The Translate prompt asks for code as one fenced block; the page shows text, so the fence lines stay out.
+  it('puts a code answer into the page without its fence lines, streaming and settled', () => {
+    const p = byId('p');
+    const original = p.textContent;
+    openInline({
+      requestId: 'r1',
+      range: rangeOver(firstChildOf(p), 0, original.length),
+      stuckTimeoutMs: INLINE_STUCK_MS,
+    });
+    appendInlineDelta('r1', '```js\n');
+    expect(p.textContent).toBe(original);
+    appendInlineDelta('r1', '// hi\nlet a = 1;');
+    expect(p.textContent).toBe('// hi\nlet a = 1;');
+    finishInline('r1', { text: '```js\n// hi\nlet a = 1;\n```' });
+    const wrap = p.querySelector('[data-ega-replaced="r1"]') as HTMLElement;
+    expect(wrap.textContent).toBe('// hi\nlet a = 1;');
+    wrap.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    wrap.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    expect(wrap.textContent).toBe('// hi\nlet a = 1;');
+  });
+
+  it('keeps a prose answer with a fence in it as it came', () => {
+    const p = byId('p');
+    openInline({
+      requestId: 'r1',
+      range: rangeOver(firstChildOf(p), 0, textLen(p)),
+      stuckTimeoutMs: INLINE_STUCK_MS,
+    });
+    const text = 'Run this:\n```js\nlet a = 1;\n```';
+    finishInline('r1', { text });
+    expect(p.textContent).toBe(text);
+  });
+
   it('keeps the original visible until the worker sends visible answer text', () => {
     // An empty inline span has no visual presence — the user sees the selection vanish.
     const p = byId('p');
