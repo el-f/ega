@@ -1,8 +1,7 @@
-// Pure view rules for the side panel thread, header list and composer chip. No I/O, no clock: callers pass `now`.
+// Pure rules for the side panel thread, header list, composer chip and the block a question sends. No I/O, no clock: callers pass `now`.
 import type { IndexEntry } from '@/shared/saved-conversations';
 import type { AssistantTurnData, Turn, UserTurnData } from './conversation';
 import {
-  aboutFrom,
   activeVariant,
   askTargetFor,
   atVariant,
@@ -13,7 +12,13 @@ import {
 import { taskLabel, type TaskView } from '@/shared/task-view';
 import { TONE_LABELS, type Tone } from '@/shared/task-prompts';
 import { detectedOf, directionLabel } from '@/shared/reply-meta';
-import { askQuote, type AskAbout, type AskedAbout, type AskTarget } from '@/shared/ask-about';
+import {
+  askQuote,
+  capAskAbout,
+  type AskAbout,
+  type AskedAbout,
+  type AskTarget,
+} from '@/shared/ask-about';
 
 const MINUTE = 60_000;
 const DAY = 24 * 60 * MINUTE;
@@ -114,11 +119,23 @@ export function askAboutFor(
   // An image's message is a placeholder or a caption, not text the reply was made from.
   const image = asked !== undefined && isImageTurn(asked);
   const replyTask = turnTaskValue(reply);
-  return aboutFrom(reply, image ? undefined : asked, {
+  return capAskAbout({
     task:
       image && replyTask === 'translate' ? 'Translate image' : taskLabel(labels.views, replyTask),
     languages: replyDirection(reply, asked?.dispatch ?? {}, labels.varieties),
+    original: image ? '' : (asked?.content ?? ''),
+    result: reply.content,
+    notes: notesText(reply),
   });
+}
+
+/** A reply's notes as "label: text" lines, else its explanation. */
+function notesText(reply: AssistantTurnData): string | undefined {
+  const parts = (reply.notes ?? []).flatMap((n) => {
+    const body = n.text ?? n.items?.join('; ') ?? '';
+    return body === '' ? [] : [`${n.label}: ${body}`];
+  });
+  return parts.length > 0 ? parts.join('\n') : reply.explain;
 }
 
 /** What About says the shown version of `answer` asked about: the block as it is built now, 'gone' once the

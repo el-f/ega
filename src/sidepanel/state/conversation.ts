@@ -17,7 +17,7 @@ import {
 } from '@/shared/chat-history';
 import type { sendTranslateStart } from '@/shared/translate-ui';
 import type { AnswerNote, AnswerDetail } from '@/shared/answer/reader';
-import { capAskAbout, type AskAbout, type AskTarget } from '@/shared/ask-about';
+import type { AskAbout, AskTarget } from '@/shared/ask-about';
 import type { AnswerSnapshot, AnswerReplyFields } from '@/shared/types';
 
 /** Every kind this build creates; saved turns can carry a newer build's task id. */
@@ -549,31 +549,6 @@ export function buildStartArgs(userTurn: Turn, overlay: StartOverlay): StartArgs
 export function askTargetFor(userTurn: Turn, seed: VariantSeed = {}): AskTarget | undefined {
   const task = seed.task ?? turnTaskValue(userTurn);
   return task === 'ask' ? (seed.about ?? userTurn.about) : undefined;
-}
-
-function notesText(reply: AssistantTurnData): string | undefined {
-  const parts = (reply.notes ?? []).flatMap((n) => {
-    const body = n.text ?? n.items?.join('; ') ?? '';
-    return body === '' ? [] : [`${n.label}: ${body}`];
-  });
-  if (parts.length > 0) return parts.join('\n');
-  return reply.explain;
-}
-
-/** What a question about `reply` carries. The labels are the ones its meta line shows, so the model reads what the user read. */
-export function aboutFrom(
-  reply: AssistantTurnData,
-  asked: UserTurnData | undefined,
-  labels: { task: string; languages?: string | undefined },
-): AskAbout | null {
-  const notes = notesText(reply);
-  return capAskAbout({
-    task: labels.task,
-    ...(labels.languages ? { languages: labels.languages } : {}),
-    original: asked?.content ?? '',
-    result: reply.content,
-    ...(notes ? { notes } : {}),
-  });
 }
 
 /** Copies the turn with the active variant's fields, so a pending variant cannot show the previous body. */

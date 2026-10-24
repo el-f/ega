@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 import { askQuote, askTargetOf, capAskAbout, type AskAbout } from '@/shared/ask-about';
 import { renderAskAboutBlock } from '@/shared/prompts';
 import {
-  aboutFrom,
   buildStartArgs,
   type AssistantTurnData,
   type Turn,
@@ -122,30 +121,6 @@ function question(over: Partial<UserTurnData> = {}): UserTurnData {
   };
 }
 
-describe('aboutFrom', () => {
-  it('takes the reply, the message it answered and the labels the meta line shows', () => {
-    expect(
-      aboutFrom(reply(), question(), {
-        task: 'Translate',
-        languages: 'Arabizi (Levantine) → English',
-      }),
-    ).toEqual(ABOUT);
-  });
-
-  it('sends the notes as label and text, and the explain blurb when there are no notes', () => {
-    const withNotes = aboutFrom(
-      reply({ notes: [{ key: 'n', label: 'Context & subtext', text: 'kifak is Levantine' }] }),
-      question(),
-      { task: 'Explain' },
-    );
-    expect(withNotes?.notes).toBe('Context & subtext: kifak is Levantine');
-    const withExplain = aboutFrom(reply({ explain: 'casual greeting' }), question(), {
-      task: 'Explain',
-    });
-    expect(withExplain?.notes).toBe('casual greeting');
-  });
-});
-
 describe('askAboutFor, the block built from the thread at dispatch', () => {
   /** A reply with two versions; the second is shown. */
   const twoVersions = reply({
@@ -188,6 +163,21 @@ describe('askAboutFor, the block built from the thread at dispatch', () => {
     const about = askAboutFor(image, { turnId: 'a1' }, LABELS);
     expect(about?.task).toBe('Translate image');
     expect(about?.original).toBe('');
+  });
+
+  it('sends the notes as label and text, and the explanation when there are no notes', () => {
+    const noted = reply({
+      notes: [
+        { key: 'n', label: 'Context & subtext', text: 'kifak is Levantine' },
+        { key: 'w', label: 'Words', items: ['kifak', 'mar7aba'] },
+      ],
+    });
+    expect(askAboutFor(thread(noted), { turnId: 'a1' }, LABELS)?.notes).toBe(
+      'Context & subtext: kifak is Levantine\nWords: kifak; mar7aba',
+    );
+    const explained = reply({ explain: 'casual greeting' });
+    expect(askAboutFor(thread(explained), { turnId: 'a1' }, LABELS)?.notes).toBe('casual greeting');
+    expect(askAboutFor(thread(reply()), { turnId: 'a1' }, LABELS)).not.toHaveProperty('notes');
   });
 });
 
