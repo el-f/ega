@@ -1,7 +1,7 @@
 /* coverage: options.backends.ollama-test-stop-unload */
 import { test, expect } from '@playwright/test';
 import { launchExtension, onlyBackends, seedSettings, type ExtensionHandle } from '../../helpers';
-import { createTimeline } from '../_harness';
+import { createTimeline, expectSameWidth } from '../_harness';
 
 let ext: ExtensionHandle;
 
@@ -62,20 +62,33 @@ test('Ollama Test now shows the model load, Stop drops it, and Unload frees a lo
   timeline.markStep('card-open');
 
   const testBtn = page.getByTestId('backend-card-test-ollama');
-  await testBtn.click();
-  await expect(card.locator('[data-ega-test-progress]')).toHaveText(
-    `Loading ${MODEL} into memory...`,
-    { timeout: 10_000 },
+  // Test now and Stop keep one width, so the status line beside the button does not move (R63).
+  await expectSameWidth(
+    testBtn,
+    async () => {
+      await testBtn.click();
+      await expect(card.locator('[data-ega-test-progress]')).toHaveText(
+        `Loading ${MODEL} into memory...`,
+        { timeout: 10_000 },
+      );
+      await expect(card.locator('[data-ega-test-clock]')).toHaveText(/^0:0\d$/);
+      await expect(testBtn).toHaveText('Stop');
+    },
+    'Test now -> Stop',
   );
-  await expect(card.locator('[data-ega-test-clock]')).toHaveText(/^0:0\d$/);
-  await expect(testBtn).toHaveText('Stop');
   timeline.markStep('loading-visible');
 
-  await testBtn.click();
-  await expect(card.locator('[data-ega-test-note]')).toHaveText('Test stopped.', {
-    timeout: 5_000,
-  });
-  await expect(testBtn).toHaveText('Test now');
+  await expectSameWidth(
+    testBtn,
+    async () => {
+      await testBtn.click();
+      await expect(card.locator('[data-ega-test-note]')).toHaveText('Test stopped.', {
+        timeout: 5_000,
+      });
+      await expect(testBtn).toHaveText('Test now');
+    },
+    'Stop -> Test now',
+  );
   await expect(testBtn).toBeFocused();
   releaseChat();
   timeline.markStep('stopped');

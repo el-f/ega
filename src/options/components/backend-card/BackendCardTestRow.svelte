@@ -102,13 +102,14 @@
 <div class="be-test" data-ega-backend-test={id}>
   <h3 class="be-test-title">Test connection</h3>
   <div class="be-test-row">
-    <!-- One button for Test now and Stop, so focus stays on it; not the shared `loading`, which hides the label. -->
+    <!-- One button for Test now and Stop, so focus stays on it; `busy`, not `loading`, which hides the label. -->
     <Button
       variant="secondary"
-      ariaDisabled={testRunning && !stoppable}
+      labels={['Test now', 'Testing...', 'Stop']}
+      busy={testRunning && !stoppable}
       dataAttrs={{ 'data-testid': `backend-card-test-${id}` }}
       onclick={() => (stoppable ? onStop?.() : onTest())}
-      >{#if stoppable}Stop{:else if testRunning}<InlineSpinner />Testing...{:else}Test now{/if}</Button
+      >{stoppable ? 'Stop' : testRunning ? 'Testing...' : 'Test now'}</Button
     >
     {#if memoryLine && onUnload && !testRunning}
       <Button

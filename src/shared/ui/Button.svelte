@@ -28,6 +28,10 @@
     ariaDisabled?: boolean;
     /** Id of the visible line that says why, or what the button does. */
     describedBy?: string;
+    /** Every label the button can show. It keeps the width of the widest, so a label change does not move the row (R63). */
+    labels?: readonly string[];
+    /** A spinner before the label; the label stays readable and the Tab stop stays (unlike `loading`), and the click does nothing. With `labels`, every label keeps room for the spinner, so pass it as false too. */
+    busy?: boolean;
   }
 
   let {
@@ -48,9 +52,12 @@
     onblur,
     ariaDisabled = false,
     describedBy,
+    labels,
+    busy,
   }: Props = $props();
 
   const isDisabled = $derived(disabled || loading);
+  const inert = $derived(ariaDisabled || busy === true);
   // Icon size scales with the button size so the glyph optical-aligns
   // with the label x-height across sm/md/lg.
   const iconSize = $derived<16 | 20 | 24>(size === 'sm' ? 16 : size === 'lg' ? 24 : 20);
@@ -62,13 +69,13 @@
   class:is-loading={loading}
   data-variant={variant}
   disabled={isDisabled}
-  aria-busy={loading}
+  aria-busy={loading || busy === true}
   {title}
   aria-label={ariaLabel}
-  aria-disabled={ariaDisabled ? 'true' : undefined}
+  aria-disabled={inert ? 'true' : undefined}
   aria-describedby={describedBy}
   {...dataAttrs ?? {}}
-  onclick={ariaDisabled ? undefined : onclick}
+  onclick={inert ? undefined : onclick}
   {onkeydown}
   {onblur}
 >
@@ -80,7 +87,27 @@
   {:else if leadingIcon}
     <Icon icon={leadingIcon} size={iconSize} />
   {/if}
-  <span class="ega-btn-label">{@render children()}</span>
+  {#snippet current()}{#if busy}<span
+        class="ega-btn-spinner"
+        aria-hidden="true"
+        data-ega-inline-spinner
+      ></span>{/if}{@render children()}{/snippet}
+  {#if labels}
+    <!-- The hidden labels draw their text from data-label, so it stays out of textContent and the accessible name. -->
+    <span class="ega-btn-label is-stack">
+      <span class="ega-btn-current">{@render current()}</span>
+      {#each labels as label, i (i)}
+        <span
+          class="ega-btn-sizer"
+          class:has-spinner={busy !== undefined}
+          aria-hidden="true"
+          data-label={label}
+        ></span>
+      {/each}
+    </span>
+  {:else}
+    <span class="ega-btn-label">{@render current()}</span>
+  {/if}
 </button>
 
 <style>
@@ -135,6 +162,42 @@
   @keyframes ega-btn-spin {
     to {
       transform: rotate(360deg);
+    }
+  }
+  /* `labels`: one grid cell holds every label, so the button keeps the widest one's width (R63). */
+  .is-stack {
+    display: inline-grid;
+    justify-items: center;
+    align-items: center;
+  }
+  .is-stack > * {
+    grid-area: 1 / 1;
+  }
+  .ega-btn-sizer {
+    visibility: hidden;
+  }
+  .ega-btn-sizer::before {
+    content: attr(data-label);
+  }
+  /* `busy`: the spinner's box plus its gap, kept on every label. */
+  .ega-btn-sizer.has-spinner {
+    padding-inline-start: calc(12px + var(--space-2));
+  }
+  .ega-btn-spinner {
+    display: inline-block;
+    box-sizing: border-box;
+    inline-size: 12px;
+    block-size: 12px;
+    margin-inline-end: var(--space-2);
+    border: 2px solid currentColor;
+    border-block-start-color: transparent;
+    border-radius: 50%;
+    vertical-align: -2px;
+    animation: ega-btn-spin 600ms linear infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ega-btn-spinner {
+      animation: none;
     }
   }
   /* Sizes */

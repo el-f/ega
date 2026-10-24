@@ -41,6 +41,20 @@ describe('the page error chip', () => {
     expect(retry).toHaveBeenCalledOnce();
   });
 
+  it('a settings chip that can turn into Try again keeps the wider label width, hidden from readers (R63)', () => {
+    const host = mountErrorChip({ code: 'AUTH', message: '401' }, { onRetry: vi.fn() });
+    const button = host.shadowRoot?.querySelector<HTMLButtonElement>('[data-ega-chip-settings]');
+    const sizers = [...(button?.querySelectorAll('[data-label]') ?? [])];
+    expect(sizers.map((s) => s.getAttribute('data-label'))).toEqual(['Open settings', 'Try again']);
+    expect(sizers.every((s) => s.getAttribute('aria-hidden') === 'true')).toBe(true);
+    expect(button?.textContent).toBe('Open settings');
+    expect(css(host)).toContain('.ega-stable>*{grid-area:1/1}');
+    expect(css(host)).toContain('.ega-stable>[data-label]{visibility:hidden}');
+    // Try again alone never swaps, so it holds no other width.
+    const retry = mountErrorChip({ code: 'UNKNOWN', message: 'x' }, { onRetry: vi.fn() });
+    expect(retry.shadowRoot?.querySelectorAll('[data-label]')).toHaveLength(0);
+  });
+
   it('dropping Try again keeps Open settings, and a chip left with no button gets its end padding', () => {
     const settings = mountErrorChip({ code: 'AUTH', message: '401' }, { onRetry: vi.fn() });
     dropChipRetry(settings);

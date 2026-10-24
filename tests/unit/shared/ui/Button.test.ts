@@ -184,3 +184,85 @@ describe('Button ariaDisabled', () => {
     expect(clicks).toBe(1);
   });
 });
+
+describe('Button labels (R63)', () => {
+  const labels = ['Test now', 'Testing...', 'Stop'];
+
+  it('renders every label as a hidden sizer, and only the current label names the button', () => {
+    const { getByRole } = render(Button, { props: { labels, children: textSnippet('Stop') } });
+    const btn = getByRole('button', { name: 'Stop' });
+    const sizers = [...btn.querySelectorAll('.ega-btn-sizer')];
+    expect(sizers.map((s) => s.getAttribute('data-label'))).toEqual(labels);
+    for (const s of sizers) {
+      expect(s.getAttribute('aria-hidden')).toBe('true');
+      // The text comes from CSS, so textContent and the accessible name see the current label only.
+      expect(s.textContent).toBe('');
+    }
+    expect(btn.textContent.trim()).toBe('Stop');
+    expect(btn.querySelector('.ega-btn-current')?.textContent).toBe('Stop');
+  });
+
+  it('stacks the labels in one hidden grid cell', () => {
+    const source = readFileSync(resolve(process.cwd(), 'src/shared/ui/Button.svelte'), 'utf8');
+    expect(source).toMatch(/\.is-stack > \*\s*\{\s*grid-area: 1 \/ 1;/);
+    expect(source).toMatch(/\.ega-btn-sizer\s*\{\s*visibility: hidden;/);
+    expect(source).toMatch(/\.ega-btn-sizer::before\s*\{\s*content: attr\(data-label\);/);
+  });
+
+  it('keeps the icon outside the stack and the 32px md height', () => {
+    const { getByRole } = render(Button, {
+      props: {
+        iconKind: 'import',
+        labels: ['Download', 'Downloaded'],
+        children: textSnippet('Download'),
+      },
+    });
+    const btn = getByRole('button', { name: 'Download' });
+    expect(btn.querySelector('.is-stack [data-action-icon]')).toBeNull();
+    expect(btn.querySelector(':scope > [data-action-icon]')).not.toBeNull();
+    expect(btn.classList.contains('size-md')).toBe(true);
+  });
+
+  it('busy shows a spinner beside the readable label, keeps the Tab stop and ignores the click', async () => {
+    let clicks = 0;
+    const { getByRole, rerender } = render(Button, {
+      props: { labels, busy: false, onclick: () => clicks++, children: textSnippet('Test now') },
+    });
+    const btn = getByRole('button') as HTMLButtonElement;
+    // Every label keeps room for the spinner, so the busy state is no wider.
+    for (const s of btn.querySelectorAll('.ega-btn-sizer')) {
+      expect(s.classList.contains('has-spinner')).toBe(true);
+    }
+    expect(btn.querySelector('[data-ega-inline-spinner]')).toBeNull();
+    await rerender({
+      labels,
+      busy: true,
+      onclick: () => clicks++,
+      children: textSnippet('Testing...'),
+    });
+    expect(btn.querySelector('.ega-btn-current [data-ega-inline-spinner]')).not.toBeNull();
+    expect(getByRole('button', { name: 'Testing...' })).toBe(btn);
+    expect(btn.getAttribute('aria-busy')).toBe('true');
+    expect(btn.getAttribute('aria-disabled')).toBe('true');
+    expect(btn.disabled).toBe(false);
+    await fireEvent.click(btn);
+    expect(clicks).toBe(0);
+  });
+
+  it('a button with no busy state reserves no spinner room', () => {
+    const { getByRole } = render(Button, {
+      props: { labels: ['Copy', 'Copied'], children: textSnippet('Copy') },
+    });
+    const sizers = getByRole('button').querySelectorAll('.ega-btn-sizer');
+    expect([...sizers].some((s) => s.classList.contains('has-spinner'))).toBe(false);
+  });
+
+  it('loading keeps the stack in place under the spinner', () => {
+    const { getByRole } = render(Button, {
+      props: { labels, loading: true, children: textSnippet('Test now') },
+    });
+    const btn = getByRole('button');
+    expect(btn.classList.contains('is-loading')).toBe(true);
+    expect(btn.querySelectorAll('.ega-btn-sizer')).toHaveLength(3);
+  });
+});

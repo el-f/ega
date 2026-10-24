@@ -1,6 +1,6 @@
 /** Flow-test harness. One journey per file: mark a latency, assert visible DOM. `egaTest` peeks are setup only. */
 
-import { expect, type Page, type BrowserContext } from '@playwright/test';
+import { expect, type Page, type BrowserContext, type Locator } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 export interface StepTiming {
@@ -105,6 +105,18 @@ export async function assertStaysStable<T>(
     if (Date.now() >= deadline) break;
     await new Promise((r) => setTimeout(r, intervalMs));
   } while (Date.now() < deadline);
+}
+
+/** Runs `change` (a click plus the wait for the new state) and fails when it moved the control's width (R63). */
+export async function expectSameWidth(
+  control: Locator,
+  change: () => Promise<void>,
+  label = 'control',
+): Promise<void> {
+  const before = (await control.boundingBox())?.width;
+  expect(before, `${label} is not on screen before the change`).toBeGreaterThan(0);
+  await change();
+  expect((await control.boundingBox())?.width, `${label} changed width`).toBe(before);
 }
 
 export interface FocusStop {
