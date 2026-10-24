@@ -1012,6 +1012,9 @@
   function focusAfterDelete(at: number): void {
     void tick().then(() =>
       setTimeout(() => {
+        // Focus that landed somewhere meanwhile stays: a retried reply focuses its new article.
+        const held = document.activeElement;
+        if (held !== null && held !== document.body) return;
         const turns = conversation.turns;
         const next = turns.slice(at).find((t) => t.role === 'user');
         const prev = turns
