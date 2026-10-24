@@ -1355,6 +1355,70 @@ describe('Ask mode while an answer runs, under a filter, across conversations an
       ([m]) => m['kind'] === 'translate:cancel',
     );
 
+  /** Asks about the reply from a typed draft; the answer has started streaming. */
+  async function askingFromDraft(c: HTMLElement, reply: HTMLElement): Promise<Start> {
+    await type(c, 'my draft');
+    await fireEvent.click(askOn(reply));
+    await settle();
+    const q = await send(c, 'why?');
+    await chunk({ type: 'delta', requestId: q.requestId, text: 'Bec' });
+    return q;
+  }
+
+  async function expectLeftForGood(
+    c: HTMLElement,
+    q: Start,
+    push: { mock: { calls: Array<[{ message: string }]> } },
+  ): Promise<void> {
+    expect(banner(c)).toBeNull();
+    expect(box(c).value).toBe('my draft');
+    expect(toasts(push).filter((m) => /ask/i.test(m))).toEqual([]);
+    await chunk({ type: 'done', requestId: q.requestId, text: 'Because.' });
+    expect(banner(c)).toBeNull();
+    expect(target(c)).toBeNull();
+  }
+
+  // R2-12: a delete is no trim, so it ends the mode while the question's answer runs too.
+  it('deleting the reply asked about while its answer streams ends it and restores the draft', async () => {
+    const push = vi.spyOn(toastStore, 'push');
+    const c = await mounted();
+    const q = await askingFromDraft(c, await firstExchange(c));
+    await openMenu(c, 'more');
+    await fireEvent.click(document.querySelector('[role="menu"] [data-ega-delete]') as HTMLElement);
+    await settle();
+    await expectLeftForGood(c, q, push);
+  });
+
+  it('another window deleting the reply asked about while its answer streams ends it too', async () => {
+    await saveThread('https://a.test', [
+      { id: 'u0', role: 'user', kind: 'translate', status: 'idle', createdAt: 1, content: 'hola' },
+      {
+        id: 'a0',
+        role: 'assistant',
+        kind: 'translate',
+        status: 'done',
+        createdAt: 2,
+        content: 'Hello.',
+        attachedToTurnId: 'u0',
+      },
+    ]);
+    const push = vi.spyOn(toastStore, 'push');
+    const c = await mounted();
+    const q = await askingFromDraft(c, replies(c)[0] as HTMLElement);
+    // The other window loaded the pair, deleted it, and saved.
+    await saveThread('https://a.test', [], {
+      knownIds: new Set(['u0', 'a0']),
+      deletedAt: new Map([
+        ['u0', Date.now()],
+        ['a0', Date.now()],
+      ]),
+      writer: 'another-window',
+    });
+    await settle();
+    expect(c.querySelector('[data-turn-id="a0"]')).toBeNull();
+    await expectLeftForGood(c, q, push);
+  });
+
   // R2-11: Esc stops the running answer first, and Ask mode stays.
   it('Esc while the answer streams stops it and keeps asking about the same reply', async () => {
     const c = await mounted();
