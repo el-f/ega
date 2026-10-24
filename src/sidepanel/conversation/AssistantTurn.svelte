@@ -3,7 +3,7 @@
   import { debugCatch } from '@/shared/logger';
   import ReplyDetails from '@/shared/components/ReplyDetails.svelte';
   import AnswerNotes from '@/shared/components/AnswerNotes.svelte';
-  import { mainAnswerItems } from '@/shared/answer-presentation';
+  import { mainAnswerItems, soleFencedCode } from '@/shared/answer-presentation';
   import ReplyMeta from '@/shared/components/ReplyMeta.svelte';
   import { imageModeOf } from '@/shared/components/reply-details';
   import DiffFadeText from '@/shared/components/DiffFadeText.svelte';
@@ -212,7 +212,7 @@
       );
       return;
     }
-    speakWith(voice, turn.content, () => {
+    speakWith(voice, plainAnswer, () => {
       if (run === speechRun) speaking = false;
     });
   }
@@ -233,6 +233,8 @@
     if (speaking) stopSpeaking();
   });
 
+  // Copy and Read aloud take the code that shows, not the fence lines around it.
+  const plainAnswer = $derived(soleFencedCode(turn.content) ?? turn.content);
   const partial = $derived(turn.status === 'error' && turn.content !== '');
   const statusText = $derived.by(() => {
     if (answering) return `${taskCapabilities(currentTaskValue, taskViews).gerund}…`;
@@ -468,7 +470,7 @@
   async function copyReply(): Promise<void> {
     if (!turn.content) return;
     try {
-      await navigator.clipboard.writeText(turn.content);
+      await navigator.clipboard.writeText(plainAnswer);
       copied = true;
       setTimeout(() => (copied = false), 1500);
     } catch (e) {

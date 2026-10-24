@@ -311,6 +311,14 @@ describe('the action row', () => {
     await fireEvent.click(again.container.querySelector('[data-ega-action="copy"]') as HTMLElement);
     await waitFor(() => expect(metaText(again.container)[0]).toBe("Couldn't copy. Try again."));
   });
+
+  it('Copy of a code answer writes the code without its fence lines', async () => {
+    const write = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined);
+    const content = '```html\n<body>\n    <p id="c1">Hello</p>\n</body>\n```';
+    const { container } = render(AssistantTurn, { props: replyProps(doneReply({ content })) });
+    await fireEvent.click(container.querySelector('[data-ega-action="copy"]') as HTMLElement);
+    expect(write).toHaveBeenCalledWith('<body>\n    <p id="c1">Hello</p>\n</body>');
+  });
 });
 
 describe('versions', () => {
