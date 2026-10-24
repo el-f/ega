@@ -7,7 +7,7 @@ import UserTurn from '@/sidepanel/conversation/UserTurn.svelte';
 import ConversationStream from '@/sidepanel/conversation/ConversationStream.svelte';
 import { SHIPPED_TASK_VIEWS } from '@/shared/task-view';
 import type { AskAbout } from '@/shared/ask-about';
-import type { Turn, UserTurnData } from '@/sidepanel/state/conversation';
+import type { Turn, UserTurnData, Variant } from '@/sidepanel/state/conversation';
 import { askedAboutFor, linkedQuote } from '@/sidepanel/state/thread-view';
 import { doneReply, metaText, openMenu, replyProps } from './_reply';
 
@@ -111,30 +111,55 @@ describe('an answer to a question', () => {
     expect(row.nextElementSibling?.textContent).toBe('Hi, how are you?');
   });
 
-  it('About says so when the reply asked about is gone, and when a version sent nothing of it', async () => {
-    const cases = [
-      ['gone', 'A reply that is no longer in this conversation'],
-      ['unsent', 'Not sent. The reply was no longer in this conversation when this version ran.'],
-    ] as const;
-    // An "Ask instead" version asks too, though its message was translated.
-    const askInstead = doneReply({
-      variants: [
-        { id: 'v1', status: 'done', content: 'Hi.' },
-        { id: 'v2', status: 'done', content: 'Because.', task: 'ask' },
-      ],
-      activeVariantIdx: 1,
+  it('About on a question’s answer and on an "Ask instead" version names the reply, or says it is gone or was not sent', async () => {
+    const earlier = doneReply({ id: 'a0', attachedToTurnId: 'u0', content: '**Hi**, friend.' });
+    const message = (id: string, over: Partial<UserTurnData> = {}): UserTurnData => ({
+      id,
+      role: 'user',
+      kind: 'translate',
+      status: 'idle',
+      content: 'what does it mean',
+      createdAt: 2,
+      ...over,
     });
-    for (const [asked, text] of cases) {
-      for (const turn of [doneReply({ kind: 'ask' }), askInstead]) {
-        const props = replyProps(turn, { askedAboutOf: () => asked });
-        const { container, unmount } = render(AssistantTurn, { props });
-        await openMenu(container, 'more');
-        await fireEvent.click(document.querySelector('[data-ega-about]') as HTMLElement);
-        const row = await screen.findByText('Asked about');
-        expect(row.nextElementSibling?.textContent).toBe(text);
-        unmount();
-        document.body.innerHTML = '';
-      }
+    // An "Ask instead" version asks too, though its message was translated: its own `about` names the reply.
+    const askInstead: Partial<Variant> = { task: 'ask', about: { turnId: 'a0' } };
+    const asked = message('u1', { kind: 'ask', about: { turnId: 'a0' } });
+    const gone = 'A reply that is no longer in this conversation';
+    const unsent = 'Not sent. The reply was no longer in this conversation when this version ran.';
+    const cases: Array<[UserTurnData, Partial<Variant>, boolean, string]> = [
+      [message('u1'), askInstead, true, 'Hi, friend.'],
+      [asked, {}, true, 'Hi, friend.'],
+      [message('u1'), askInstead, false, gone],
+      [asked, {}, false, gone],
+      [message('u1'), { ...askInstead, aboutUnsent: true }, true, unsent],
+    ];
+    const labels = { views: SHIPPED_TASK_VIEWS, varieties: [] };
+    for (const [q, version, kept, text] of cases) {
+      // The second version is the one shown.
+      const turn = doneReply({
+        attachedToTurnId: 'u1',
+        variants: [
+          { id: 'v1', status: 'done', content: 'what does it mean' },
+          { id: 'v2', status: 'done', content: 'Because.', ...version },
+        ],
+        activeVariantIdx: 1,
+      });
+      const thread: Turn[] = [
+        ...(kept ? [message('u0', { content: 'hola' }), earlier] : []),
+        q,
+        turn,
+      ];
+      const props = replyProps(turn, {
+        askedAboutOf: (t: Turn) => askedAboutFor(thread, t, labels),
+      });
+      const { container, unmount } = render(AssistantTurn, { props });
+      await openMenu(container, 'more');
+      await fireEvent.click(document.querySelector('[data-ega-about]') as HTMLElement);
+      const row = await screen.findByText('Asked about');
+      expect(row.nextElementSibling?.textContent).toBe(text);
+      unmount();
+      document.body.innerHTML = '';
     }
   });
 
