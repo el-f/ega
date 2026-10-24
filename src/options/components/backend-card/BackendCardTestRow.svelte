@@ -119,7 +119,8 @@
       <p class="be-fail-text">{failure.body}</p>
       {#if nextStep}<p class="be-fail-text" data-ega-test-next>{nextStep}</p>{/if}
       {#if failure.detail}
-        <Disclosure label="Details">
+        <!-- A config error is fixed from the CLI's own message, so it starts open. -->
+        <Disclosure label="Details" open={failure.id === 'NATIVE_CLI_CONFIG'}>
           <p class="be-testresult be-detail">
             {failure.detail}{#if testErrCode}<br /><span class="be-code">Code: {testErrCode}</span
               >{/if}

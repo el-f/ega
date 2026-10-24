@@ -83,6 +83,37 @@ describe('BackendCardTestRow', () => {
     expect(container.querySelector('[data-ega-test-next]')?.textContent.trim()).toBe(next);
   });
 
+  it('a CLI config failure names the config file as the cause and shows the CLI message open', () => {
+    const said = 'Error loading config.toml: invalid transport\nin `mcp_servers.cua_repl`';
+    const { container } = render(BackendCardTestRow, {
+      props: props({
+        id: asBackendIdUnsafe('native'),
+        testResult: `CLI config error: ${said}`,
+        testErrCode: 'NATIVE_CLI_CONFIG',
+      }),
+    });
+    const failure = container.querySelector('[data-ega-test-failure]');
+    expect(failure?.getAttribute('data-ega-test-failure')).toBe('NATIVE_CLI_CONFIG');
+    expect(failure?.querySelector('.be-fail-title')?.textContent.trim()).toBe('CLI config error');
+    expect(failure?.querySelector('.be-fail-text')?.textContent.trim()).toBe(
+      'The CLI could not read its config file. Fix the file its message names, then try again.',
+    );
+    // The old copy blamed a missing or logged-out CLI, which was not the cause.
+    expect(failure?.textContent).not.toMatch(/installed and logged in/);
+    expect(container.querySelector('[data-ega-test-next]')).toBeNull();
+    const details = failure?.querySelector('details');
+    expect(details?.open).toBe(true);
+    expect(details?.textContent).toContain('Error loading config.toml: invalid transport');
+    expect(details?.textContent).toContain('Code: NATIVE_CLI_CONFIG');
+  });
+
+  it('other failures keep Details closed', () => {
+    const { container } = render(BackendCardTestRow, {
+      props: props({ testResult: 'HTTP 401 invalid x-api-key', testErrCode: 'AUTH' }),
+    });
+    expect(container.querySelector('details')?.open).toBe(false);
+  });
+
   it('an Ollama 403 says Ollama blocked Ega, with copy-ready steps behind Show steps', async () => {
     const write = vi.fn(async () => {});
     Object.assign(navigator, { clipboard: { writeText: write } });

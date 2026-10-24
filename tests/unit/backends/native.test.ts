@@ -397,6 +397,7 @@ describe('NativeBackend', () => {
     'SERVER',
     'NETWORK',
     'NATIVE_SPAWN_FAIL',
+    'NATIVE_CLI_CONFIG',
     'UNSUPPORTED',
   ] as const)('preserves the %s error code from a host frame', async (code) => {
     const sess = setupPortManager();

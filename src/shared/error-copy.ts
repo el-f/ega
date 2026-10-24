@@ -101,6 +101,12 @@ export const ERROR_COPY: Readonly<Record<ErrorCopyId, CopyRow>> = {
     body: 'The Ega helper app could not start the model.',
     actions: ['open-settings', 'try-again'],
   },
+  // No Open settings: the fix is a file outside Ega, and the CLI's message (Details) names it.
+  NATIVE_CLI_CONFIG: {
+    title: 'CLI config error',
+    body: 'The CLI could not read its config file. Fix the file its message names, then try again.',
+    actions: ['try-again'],
+  },
   PARSE: {
     title: 'Wrong format',
     body: '{Backend} did not answer in the format this task asks for.',

@@ -228,7 +228,7 @@ describe('TooltipBody', () => {
     });
 
     it('stays hidden for codes no setting can fix', () => {
-      for (const code of ['NETWORK', 'TIMEOUT', 'PARSE', 'UNKNOWN'] as const) {
+      for (const code of ['NETWORK', 'TIMEOUT', 'PARSE', 'UNKNOWN', 'NATIVE_CLI_CONFIG'] as const) {
         expect(optionsTabForMessage('', code), code).toBeUndefined();
         expect(ctaFor(code), code).toBeNull();
       }

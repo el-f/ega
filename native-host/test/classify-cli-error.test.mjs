@@ -76,6 +76,33 @@ test('maps transport failures to TIMEOUT and NETWORK', () => {
   assert.equal(classifyCliError('connect ECONNREFUSED 127.0.0.1:1234'), 'NETWORK');
 });
 
+test('maps a CLI that cannot read its own config file to NATIVE_CLI_CONFIG', () => {
+  // codex-cli 0.162.1 stderr: the user's config.toml held a plugin MCP server with no command.
+  assert.equal(
+    classifyCliError(
+      'WARNING: proceeding, even though we could not create PATH aliases\nError loading config.toml: invalid transport\nin `mcp_servers.cua_repl`\n',
+    ),
+    'NATIVE_CLI_CONFIG',
+  );
+  // A TOML syntax error ends on the caret line, so the whole tail decides.
+  assert.equal(
+    classifyCliError(
+      'Error loading config.toml:\nC:\\Users\\me\\.codex\\config.toml:1:10: unclosed array, expected `]`\n  |\n1 | model = [\n  |          ^',
+    ),
+    'NATIVE_CLI_CONFIG',
+  );
+  // A config problem that names a word another row matches is still a config problem.
+  assert.equal(
+    classifyCliError('Error loading config.toml: unsupported value for `model_provider`'),
+    'NATIVE_CLI_CONFIG',
+  );
+  // claude 2.1.288 with a --settings path that does not exist.
+  assert.equal(
+    classifyCliError('Error: Settings file not found: C:\\no\\such\\settings.json'),
+    'NATIVE_CLI_CONFIG',
+  );
+});
+
 test('leaves unrecognised text UNKNOWN rather than guessing retryable', () => {
   assert.equal(classifyCliError('something went sideways'), 'UNKNOWN');
   assert.equal(classifyCliError(''), 'UNKNOWN');
@@ -91,6 +118,7 @@ test('every produced code is one the extension knows', () => {
     'REQUEST',
     'NATIVE_NOT_INSTALLED',
     'NATIVE_SPAWN_FAIL',
+    'NATIVE_CLI_CONFIG',
     'ABORTED',
     'TIMEOUT',
     'PARSE',
@@ -105,6 +133,7 @@ test('every produced code is one the extension knows', () => {
     'invalid model',
     'timed out',
     'socket hang up',
+    'Error loading config.toml: bad',
     'gibberish',
   ];
   for (const s of samples) assert.ok(known.has(classifyCliError(s)), `${s} -> unknown vocabulary`);
