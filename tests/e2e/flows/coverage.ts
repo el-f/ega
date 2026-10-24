@@ -117,6 +117,12 @@ export const COVERAGE: readonly Family[] = [
             flows: ['tooltip/detected-language-pill.flow.spec.ts'],
           },
           {
+            id: 'code-answer',
+            description:
+              'An answer that is one fenced code block shows as code, without its fence lines',
+            flows: ['tooltip/code-answer.flow.spec.ts'],
+          },
+          {
             id: 'inspector-drawer',
             description: 'Details panel opens with how the reply was answered',
             flows: ['tooltip/inspector-drawer.flow.spec.ts'],
