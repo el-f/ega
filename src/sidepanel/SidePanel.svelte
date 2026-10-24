@@ -958,6 +958,22 @@
     if (id !== null && !conversation.turns.some((t) => t.id === id)) focusedTurnId = null;
   });
 
+  /** The thread as the effect below last saw it, so it knows where a removed message stood. */
+  let turnsBefore: readonly Turn[] = [];
+  // A message that leaves this thread with focus inside it (the store's trim, another window's delete) moves focus on as a delete does.
+  $effect.pre(() => {
+    const turns = conversation.turns;
+    const before = turnsBefore;
+    turnsBefore = turns;
+    const held = document.activeElement?.closest('[data-turn-id]')?.getAttribute('data-turn-id');
+    if (held == null || turns.some((t) => t.id === held)) return;
+    const kept = (t: Turn): boolean => turns.some((k) => k.id === t.id);
+    // A whole new thread (another conversation, New) is no removal from this one.
+    if (!before.some(kept)) return;
+    const at = before.findIndex((t) => t.id === held);
+    focusAfterDelete(before.slice(0, Math.max(0, at)).filter(kept).length);
+  });
+
   /** Focuses a message's article and makes it the j/k/r one; false when it is not on screen. */
   function focusTurn(id: string | undefined): boolean {
     if (id === undefined) return false;

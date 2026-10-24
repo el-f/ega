@@ -9,6 +9,7 @@ import { saveThread } from '@/sidepanel/state/conversation-store';
 import type { Turn } from '@/sidepanel/state/conversation';
 import { openMenu } from './_reply';
 import { bookmarkFilterOn, pickHeaderMenuItem } from './_header-menu';
+import { nearTheByteCap } from './_near-cap';
 
 const tabsQuery = chrome.tabs.query as unknown as Mock;
 
@@ -178,5 +179,33 @@ describe('SidePanel — focus never falls to the page body', () => {
     await waitFor(() =>
       expect(document.activeElement?.textContent.trim()).toBe('Show all messages'),
     );
+  });
+
+  it('a reply the size cap trims while it has focus hands focus to the next message', async () => {
+    await nearTheByteCap('https://a.test');
+    const { container } = render(SidePanel);
+    await waitFor(() => expect(turnIds(container)).toEqual(['u0', 'a0', 'u1', 'a1']));
+    const oldest = container.querySelector<HTMLElement>('[data-turn-id="a0"]') as HTMLElement;
+    oldest.focus();
+    await fireEvent.keyDown(oldest, { key: 'r' });
+    const start = await waitFor(() => {
+      const s = (chrome.runtime.sendMessage as Mock).mock.calls
+        .map(([m]) => m as { kind: string; requestId: string })
+        .find((m) => m.kind === 'translate:start');
+      if (!s) throw new Error('no regenerate');
+      return s;
+    });
+    // The longer answer is what takes the thread past the cap.
+    (chrome.runtime.onMessage as unknown as { emit: (...a: unknown[]) => void }).emit(
+      {
+        kind: 'translate:chunk',
+        chunk: { type: 'done', requestId: start.requestId, text: 'x'.repeat(2000) },
+      },
+      { id: chrome.runtime.id },
+      () => {},
+    );
+
+    await waitFor(() => expect(turnIds(container)).toEqual(['u1', 'a1']), { timeout: 3000 });
+    await waitFor(() => expect(document.activeElement?.getAttribute('data-turn-id')).toBe('u1'));
   });
 });
