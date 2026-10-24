@@ -70,6 +70,27 @@ describe('the answer', () => {
     expect(reply.textContent).toContain('<h2>n</h2>');
   });
 
+  it.each([
+    ['a code answer', '```html\n<h1>Comment thread fixture</h1>\n```', null],
+    [
+      'a half-prose answer',
+      'The page title:\n\n```html\n<h1>Comment thread fixture</h1>\n```',
+      'The page title:',
+    ],
+  ])('renders %s through Markdown: the fence is a code block', async (_name, content, prose) => {
+    const { container } = render(AssistantTurn, {
+      props: replyProps(doneReply({ content }), { sentText: '<h1>Comment thread fixture</h1>' }),
+    });
+    const answer = container.querySelector('.ega-answer') as HTMLElement;
+    await waitFor(() => expect(answer.querySelector('.ega-md pre > code')).not.toBeNull());
+    expect(answer.querySelector('pre > code')?.textContent).toContain(
+      '<h1>Comment thread fixture</h1>',
+    );
+    expect(answer.querySelector('h1')).toBeNull();
+    expect(answer.textContent).not.toContain('```');
+    expect(answer.querySelector('.ega-md > p')?.textContent ?? null).toBe(prose);
+  });
+
   it('notes sit under the answer with a sentence-case label', () => {
     const turn = doneReply({ kind: 'explain', explain: 'Levantine slang.' });
     const { container } = render(AssistantTurn, { props: replyProps(turn) });

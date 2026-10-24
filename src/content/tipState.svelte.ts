@@ -12,6 +12,7 @@ import type { AnswerNote, AnswerDetail } from '@/shared/answer/reader';
 import type { AnswerSnapshot } from '@/shared/types';
 import type { SettingsTab } from '@/shared/settings-tabs';
 import { stuckTimeoutMs } from '@/shared/stuck-timeout';
+import { soleFencedCode } from '@/shared/answer-presentation';
 import { escalateToSidepanel, type EscalationKind } from './tooltip/handoff';
 import { showToast } from './toast';
 
@@ -258,7 +259,7 @@ function buildTooltipProps(o: OpenOpts, state: TipState): ComponentProps<typeof 
     ...(o.onTargetChange ? { ontargetchange: (target: string) => o.onTargetChange?.(target) } : {}),
     oncopy: () => {
       void navigator.clipboard
-        .writeText(state.body)
+        .writeText(soleFencedCode(state.body) ?? state.body)
         .then(() => {
           state.copied = true;
           setTimeout(() => {

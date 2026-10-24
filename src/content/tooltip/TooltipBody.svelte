@@ -11,7 +11,7 @@
   } from '@/shared/task-view';
   import { diffWords, type DiffOp } from '@/shared/diff-words';
   import AnswerNotes from '@/shared/components/AnswerNotes.svelte';
-  import { mainAnswerItems } from '@/shared/answer-presentation';
+  import { mainAnswerItems, soleFencedCode } from '@/shared/answer-presentation';
   import type { AnswerNote } from '@/shared/answer/reader';
   import type { AnswerSnapshot } from '@/shared/types';
 
@@ -75,9 +75,13 @@
     errorDetailsOpen = false,
   }: Props = $props();
 
+  // The body is plain text, so an answer that is one fenced block shows its code without the fence lines.
+  const code = $derived(soleFencedCode(body));
+  const shown = $derived(code ?? body);
+
   // Skip the diff on an error frame: that body has its own rendering and the diff spans fight its danger tone.
   const diffOps: DiffOp[] = $derived.by(() => {
-    if (!settled || !diffAgainst || diffAgainst === body || error) return [];
+    if (!settled || !diffAgainst || diffAgainst === body || error || code !== null) return [];
     if (!body) return [];
     return diffWords(diffAgainst, body);
   });
@@ -112,14 +116,14 @@
   });
 
   // `loading` flips false on the first token, so announcing before `settled` repeats every token.
-  const announcedBody = $derived(settled && !error ? body : '');
+  const announcedBody = $derived(settled && !error ? shown : '');
   // The same split the side panel uses: a heading, the sentence that says what to do, and the provider's words behind Details.
   const errorParts = $derived(
     error ? errorCopy(error.code, error.message, { image: imageUrl !== undefined }) : undefined,
   );
   const liveMessage = $derived(
     stopped
-      ? `Stopped. ${body || 'No answer yet.'}`
+      ? `Stopped. ${shown || 'No answer yet.'}`
       : errorParts
         ? `${errorParts.title}. ${errorParts.body}`
         : announcedBody,
@@ -161,7 +165,7 @@
 {:else if error}
   {#if body}
     <!-- Keep whatever streamed in before the error, so the user can still read and copy it. -->
-    <div class="body" dir="auto" lang={bodyLang}>{body}</div>
+    <div class="body" class:code={code !== null} dir="auto" lang={bodyLang}>{shown}</div>
     <div class="src tooltip-error-line">
       {errorParts?.title}: {errorParts?.body} (partial result above)
     </div>
@@ -193,6 +197,7 @@
 {:else}
   <div
     class="body"
+    class:code={code !== null}
     class:body-diff={showDiff}
     class:body-diff-faded={faded}
     dir="auto"
@@ -212,7 +217,7 @@
           {#each mainItems as item, i (i)}<li>{item}</li>{/each}
         </ul>
       {:else}
-        {body}
+        {shown}
       {/if}
     {:else if !loading}
       <span class="empty-body">

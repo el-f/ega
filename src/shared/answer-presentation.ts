@@ -33,6 +33,23 @@ export function mainAnswerItems(answer: unknown): string[] | undefined {
     : undefined;
 }
 
+/** The code in an answer that is exactly one fenced block, closed or still arriving; null for any other answer. */
+export function soleFencedCode(answer: string): string | null {
+  const lines = answer.trim().split('\n');
+  const open = lines[0] ?? '';
+  const fence = /^(?:`{3,}|~{3,})/.exec(open)?.[0];
+  // A backtick in the info string makes the line inline code, not a fence.
+  if (fence === undefined || (fence[0] === '`' && open.slice(fence.length).includes('`')))
+    return null;
+  const closes = (line: string): boolean => {
+    const t = line.trim();
+    return t.length >= fence.length && t === (fence[0] ?? '').repeat(t.length);
+  };
+  const close = lines.findIndex((line, i) => i > 0 && closes(line));
+  if (close !== -1 && close !== lines.length - 1) return null;
+  return lines.slice(1, close === -1 ? undefined : close).join('\n');
+}
+
 export function answerDetailText(value: unknown, kind?: AnswerField['kind']): string {
   if (typeof value === 'boolean') return value ? 'Yes' : 'No';
   if (typeof value === 'string') return value;

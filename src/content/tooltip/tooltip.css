@@ -223,6 +223,11 @@
   white-space: pre-wrap;
   word-break: break-word;
 }
+/* An answer that is one fenced code block, shown without its fence lines. */
+.tooltip .body.code {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+}
 /* Word diff after a re-translate; .body-diff-faded fades it out after 4s (instant under reduced motion). */
 .tooltip .body-diff .diff-eq {
   /* Plain text — inherit body color. */
