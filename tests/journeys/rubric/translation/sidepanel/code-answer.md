@@ -15,7 +15,7 @@
 ## Visible affordances
 
 - The code block uses the same box as any Markdown code block in an answer.
-- The panel never scrolls sideways.
+- A code line wider than the panel scrolls inside the code block; the code block never runs past the panel edge.
 
 ## Failure-mode expectations
 

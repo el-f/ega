@@ -73,6 +73,10 @@ test('code sent to the panel comes back as a code block with its tags as text, a
   await expect(code).toContainText('<p id="c1">Hello my dear, how are you?');
   expect(await code.evaluate((el) => getComputedStyle(el).fontFamily)).toMatch(/mono/i);
   expect(await code.evaluate((el) => el.textContent.replace(/\n$/, ''))).toBe(CODE);
+  // textContent keeps the newlines whatever the CSS does; white-space decides whether they show.
+  expect(await code.evaluate((el) => getComputedStyle(el.closest('pre') ?? el).whiteSpace)).toMatch(
+    /^pre/,
+  );
 
   // Both languages on one line, whole, inside the meta row.
   const direction = turn.locator('[data-ega-meta-item="direction"]');
@@ -88,12 +92,23 @@ test('code sent to the panel comes back as a code block with its tags as text, a
       return {
         past: r.right - (meta?.right ?? 0),
         lines: Math.round(r.height / Number.parseFloat(getComputedStyle(el).lineHeight)),
-        scroll: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      };
+    });
+    // The stream clips sideways, so a code block wider than the panel would be cut, not scrolled.
+    const box = await code.evaluate((el) => {
+      const pre = el.closest('pre');
+      const stream = el.closest('.ega-conv-stream');
+      return {
+        past:
+          (pre?.getBoundingClientRect().right ?? Infinity) -
+          (stream?.getBoundingClientRect().right ?? 0),
+        overflowX: pre ? getComputedStyle(pre).overflowX : '',
       };
     });
     expect(shown.past, `${width}px`).toBeLessThanOrEqual(0.5);
     expect(shown.lines, `${width}px`).toBe(1);
-    expect(shown.scroll, `${width}px`).toBeLessThanOrEqual(0);
+    expect(box.past, `${width}px`).toBeLessThanOrEqual(0.5);
+    expect(box.overflowX, `${width}px`).toBe('auto');
     await expect(direction).toHaveText(DIRECTION);
   }
   timeline.markStep('code-shown');
