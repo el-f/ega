@@ -619,7 +619,8 @@
 .tooltip .body {
   /* Keep a readable answer line when About consumes the remaining space. */
   min-block-size: 1lh;
-  max-block-size: 40vh;
+  /* repositionIfOverflow lifts it to none when the card has to cover the selection. */
+  max-block-size: var(--ega-tooltip-body-max-block-size, 40vh);
   overflow: auto;
   overflow-wrap: anywhere;
 }

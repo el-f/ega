@@ -281,3 +281,15 @@ describe('bubble placement — cost on a large page', () => {
     expect(reads()).toBeLessThanOrEqual(12);
   });
 });
+
+describe('bubble placement — viewport edges', () => {
+  it('a selection that ends above the viewport keeps the bubble inside it', () => {
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 1000 });
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1280 });
+    (document as unknown as { elementsFromPoint: () => Element[] }).elementsFromPoint = () => [];
+
+    showBubble({ rect: rect(-200, -150), queued: 0, onClick: vi.fn() });
+
+    expect(bubbleTop()).toBe(4);
+  });
+});

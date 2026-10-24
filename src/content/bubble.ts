@@ -132,7 +132,7 @@ function placeBubble(rect: DOMRect, rtl: boolean): { left: number; top: number }
     (below + BUBBLE_HEIGHT > window.innerHeight - 8 || covers(below, true)) &&
     above >= 4 &&
     !covers(above, false);
-  return { left, top: goAbove ? above : Math.min(window.innerHeight - 32, below) };
+  return { left, top: goAbove ? above : Math.max(4, Math.min(window.innerHeight - 32, below)) };
 }
 
 function directionKey(d: BubbleOpts['direction']): string {

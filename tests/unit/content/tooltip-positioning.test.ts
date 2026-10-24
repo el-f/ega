@@ -1,6 +1,11 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { positionFromRect, repositionIfOverflow, type TipState } from '@/content/tipState.svelte';
+import {
+  MIN_TOOLTIP_BLOCK,
+  positionFromRect,
+  repositionIfOverflow,
+  type TipState,
+} from '@/content/tipState.svelte';
 
 function rect(x: number, y: number, w: number, h: number): DOMRect {
   return {
@@ -140,4 +145,88 @@ describe('tooltip positioning — repositionIfOverflow', () => {
     // Below has ~280px, above ~200px — below wins: 220 + 8 gap, body scrolls internally.
     expect(state.top).toBe(228);
   });
+});
+
+describe('tooltip positioning — an anchor that leaves no room on either side', () => {
+  const heightLimit = (el: HTMLElement): number =>
+    Number.parseFloat(el.style.getPropertyValue('--ega-tooltip-max-block-size'));
+
+  it.each([
+    ['taller than the viewport', 800, -100, 1500],
+    ['the whole GitHub code-view textarea', 900, 81, 861],
+    ['a file end close to the viewport bottom', 800, -20, 760],
+  ])(
+    '%s: the card stays inside the viewport, at least at its floor height',
+    (_name, vh, top, bottom) => {
+      mockViewport(1280, vh);
+      const card = elementWithRect(rect(100, 0, 360, 300));
+      const state = makeState();
+      repositionIfOverflow(state, card, rect(100, top, 300, bottom - top));
+      const cap = heightLimit(card);
+      expect(state.top).toBeGreaterThanOrEqual(20);
+      expect(state.top + Math.min(300, cap)).toBeLessThanOrEqual(vh - 20);
+      expect(cap).toBeLessThanOrEqual(vh - 40);
+      expect(cap).toBeGreaterThanOrEqual(MIN_TOOLTIP_BLOCK);
+    },
+  );
+
+  // Ctrl+A in GitHub's code view: the card covers the selection, so a long answer gets the viewport, not the floor.
+  it('a long card that has to cover the selection gets the viewport height, inside it', () => {
+    mockViewport(1280, 900);
+    const card = elementWithRect(rect(100, 0, 360, 600));
+    const state = makeState();
+    repositionIfOverflow(state, card, rect(100, 81, 300, 780));
+    expect(heightLimit(card)).toBe(860);
+    expect(state.top).toBeGreaterThanOrEqual(20);
+    expect(state.top + 600).toBeLessThanOrEqual(880);
+    // The answer drops its own 40vh cap, so it fills the card instead of scrolling after 360px.
+    expect(card.style.getPropertyValue('--ega-tooltip-body-max-block-size')).toBe('none');
+  });
+
+  it('a side that holds the floor keeps the card beside the selection, scrolling inside', () => {
+    mockViewport(1280, 900);
+    const card = elementWithRect(rect(100, 0, 360, 600));
+    const state = makeState();
+    repositionIfOverflow(state, card, rect(100, 81, 300, 780));
+    repositionIfOverflow(state, card, rect(100, 450, 300, 100));
+    // 322px below, 422px above: the card goes above at that height and ends before the text at 450.
+    expect(heightLimit(card)).toBe(422);
+    expect(state.top).toBe(20);
+    // Beside the selection the answer keeps its 40vh cap, even after an earlier cover lifted it.
+    expect(card.style.getPropertyValue('--ega-tooltip-body-max-block-size')).toBe('');
+  });
+
+  it('an anchor wholly above the viewport is still followed off-screen', () => {
+    mockViewport(1280, 800);
+    const card = elementWithRect(rect(100, 0, 360, 300));
+    const state = makeState();
+    repositionIfOverflow(state, card, rect(100, -300, 300, 200));
+    expect(state.top).toBe(-92);
+    expect(heightLimit(card)).toBeLessThanOrEqual(760);
+  });
+
+  it('an anchor wholly below the viewport keeps its unclamped placement', () => {
+    mockViewport(1280, 800);
+    const card = elementWithRect(rect(100, 0, 360, 300));
+    const state = makeState();
+    repositionIfOverflow(state, card, rect(100, 900, 300, 50));
+    expect(state.top).toBe(592);
+    expect(heightLimit(card)).toBeLessThanOrEqual(760);
+  });
+});
+
+describe('tooltip positioning — an anchor leaving the top edge', () => {
+  it.each([16, 12, 6, 0, -4])(
+    'the card moves with an anchor whose bottom is at %ipx, with no jump',
+    (bottom) => {
+      mockViewport(1280, 800);
+      const state = makeState();
+      repositionIfOverflow(
+        state,
+        elementWithRect(rect(100, 0, 360, 300)),
+        rect(100, bottom - 20, 300, 20),
+      );
+      expect(state.top).toBe(bottom + 8);
+    },
+  );
 });

@@ -127,6 +127,8 @@ function entryFor(requestId: string): Entry | undefined {
 }
 
 const VIEWPORT_SAFE_MARGIN = 20;
+/** The card's min-content: chrome, top bar, one body line, meta and actions. */
+export const MIN_TOOLTIP_BLOCK = 200;
 
 export function positionFromRect(r: DOMRect): { left: number; top: number } {
   const top = r.bottom + 10;
@@ -134,7 +136,7 @@ export function positionFromRect(r: DOMRect): { left: number; top: number } {
   return { left, top };
 }
 
-/** Pins to whichever side has more room; never clamps to a viewport corner. */
+/** Pins to whichever side has more room; when neither fits, overlaps the anchor inside the viewport. */
 export function repositionIfOverflow(state: TipState, element: HTMLElement, anchor: DOMRect): void {
   const rect = element.getBoundingClientRect();
   const vh = window.innerHeight;
@@ -148,7 +150,11 @@ export function repositionIfOverflow(state: TipState, element: HTMLElement, anch
 
   // About grows within the space beside the selection. A viewport-sized cap alone can still extend below it.
   const below = needed <= spaceBelow || (needed > spaceAbove && spaceBelow >= spaceAbove);
-  const available = Math.max(0, below ? spaceBelow : spaceAbove);
+  // No side holds the card's fixed rows: it covers the anchor anyway, so it gets the viewport, not a 200px floor.
+  const viewportCap = Math.max(0, vh - 2 * VIEWPORT_SAFE_MARGIN);
+  const side = below ? spaceBelow : spaceAbove;
+  const covers = side < MIN_TOOLTIP_BLOCK;
+  const available = covers ? viewportCap : Math.min(viewportCap, side);
   const style = element.ownerDocument.defaultView?.getComputedStyle(element);
   const chrome = [
     style?.paddingTop,
@@ -160,20 +166,22 @@ export function repositionIfOverflow(state: TipState, element: HTMLElement, anch
   // height limit on the reply so positioning cannot erase the scroll constraint.
   const reply = element.querySelector<HTMLElement>('.tooltip-reply') ?? element;
   reply.style.setProperty('--ega-tooltip-max-block-size', `${Math.max(0, available - chrome)}px`);
+  // A card that covers the selection hides nothing more by growing, so its answer drops the 40vh cap and fills it.
+  if (covers) reply.style.setProperty('--ega-tooltip-body-max-block-size', 'none');
+  else reply.style.removeProperty('--ega-tooltip-body-max-block-size');
 
-  if (needed <= spaceBelow) {
-    state.top = anchor.bottom + gap;
-    return;
-  }
-  if (needed <= spaceAbove) {
-    state.top = anchor.top - needed - gap;
-    return;
-  }
-  if (spaceBelow >= spaceAbove) {
-    state.top = anchor.bottom + gap;
-  } else {
-    state.top = Math.max(gap, anchor.top - needed - gap);
-  }
+  let top: number;
+  if (needed <= spaceBelow) top = anchor.bottom + gap;
+  else if (needed <= spaceAbove) top = anchor.top - needed - gap;
+  else if (spaceBelow >= spaceAbove) top = anchor.bottom + gap;
+  else top = Math.max(gap, anchor.top - needed - gap);
+  // Followed off-screen from where the clamp stops biting, so the card never jumps (scroll-tracks rubric).
+  const anchorVisible =
+    anchor.bottom + gap > VIEWPORT_SAFE_MARGIN && anchor.top - gap < vh - VIEWPORT_SAFE_MARGIN;
+  const h = Math.min(needed, available);
+  state.top = anchorVisible
+    ? Math.max(VIEWPORT_SAFE_MARGIN, Math.min(top, vh - h - VIEWPORT_SAFE_MARGIN))
+    : top;
 }
 
 function createTooltipAnchor(requestId: string): HTMLDivElement {

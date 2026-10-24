@@ -260,7 +260,8 @@ function measureDist(distDir: string): BundleEntry[] {
 
 /** Static imports plus module-scope import() chunks: both load on every page. A ratchet: raise or lower it in the commit that earns it. */
 // The bubble menu's Run task wiring adds 555B; the task list itself loads when the menu opens.
-const EAGER_CONTENT_BUDGET_BYTES = 156_516;
+// Clamping the bubble's top edge inside the viewport adds 12B.
+const EAGER_CONTENT_BUDGET_BYTES = 156_528;
 
 /** The popup opens on every toolbar click, so its preload set is the one extension-page cost a user feels. Ratchet, like the one above. */
 // The Default task select adds 4,858B: Select and the merged task list.

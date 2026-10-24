@@ -5,6 +5,7 @@
 - Selection bubble appears within 200ms of selection-change.
 - Tooltip mounts within 350ms of bubble click.
 - Tooltip opens below the selection and flips above when it does not fit below (20px viewport margin); horizontally it stays inside the viewport.
+- When neither side fits, the card overlaps the selection inside the viewport.
 
 ## Close affordances
 
