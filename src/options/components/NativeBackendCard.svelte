@@ -125,6 +125,13 @@
     savedNhInstallOpen = nhInstallOpen;
   });
 
+  /** Every install-steps summary; the summary keeps the widest one's width, so the probe landing does not resize it (R63). */
+  const INSTALL_SUMMARY = {
+    missing: 'Show install steps',
+    outdated: 'Show update steps',
+    installed: 'Reinstall or uninstall',
+  } as const;
+
   const nhState: 'probing' | 'installed' | 'outdated' | 'missing' = $derived.by(() => {
     if (nhRaw === 'idle' || nhRaw === 'probing') return 'probing';
     if (nhRaw === 'outdated') return 'outdated';
@@ -361,11 +368,10 @@
 
       <CollapsibleInstallPanel
         bind:open={nhInstallOpen}
-        summaryLabel={nhState === 'installed'
-          ? 'Reinstall or uninstall'
-          : nhState === 'outdated'
-            ? 'Show update steps'
-            : 'Show install steps'}
+        summaryLabel={INSTALL_SUMMARY[
+          nhState === 'installed' || nhState === 'outdated' ? nhState : 'missing'
+        ]}
+        summaryLabels={Object.values(INSTALL_SUMMARY)}
         defaultPlatform={nhPlatform}
         commands={nhCommands}
         recheckHint={nhState !== 'installed'

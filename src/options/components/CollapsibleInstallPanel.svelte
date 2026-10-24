@@ -15,6 +15,8 @@
     open: boolean;
     /** Heading inside the install-command <summary>. */
     summaryLabel: string;
+    /** Every label the summary can show; it keeps the widest one's width (R63). */
+    summaryLabels?: readonly string[];
     /** Detected platform. Drives which command is shown by default. */
     defaultPlatform: Platform;
     /** Install and uninstall scripts per OS; the install script already contains the extension id. */
@@ -29,6 +31,7 @@
   let {
     open = $bindable(),
     summaryLabel,
+    summaryLabels = [],
     defaultPlatform,
     commands,
     recheckHint,
@@ -80,7 +83,14 @@
   <details class="install-panel" bind:open data-testid="nh-install-panel">
     <summary class="install-summary">
       <span class="install-summary-chevron" aria-hidden="true"></span>
-      <span class="install-summary-label">{summaryLabel}</span>
+      <!-- One grid cell holds every label; the hidden ones draw from data-label, so they stay out of the text. -->
+      <span class="install-summary-label"
+        ><span>{summaryLabel}</span>{#each summaryLabels as label, i (i)}<span
+            class="install-summary-sizer"
+            aria-hidden="true"
+            data-label={label}
+          ></span>{/each}</span
+      >
     </summary>
 
     <div class="install-body">
@@ -229,6 +239,16 @@
   }
   .install-summary-label {
     flex: 1 1 auto;
+    display: inline-grid;
+  }
+  .install-summary-label > * {
+    grid-area: 1 / 1;
+  }
+  .install-summary-sizer {
+    visibility: hidden;
+  }
+  .install-summary-sizer::before {
+    content: attr(data-label);
   }
   .install-body {
     display: flex;
