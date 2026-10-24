@@ -528,8 +528,7 @@
     ),
   );
   const detailsText = $derived(sentText === IMAGE_TURN_PLACEHOLDER ? '' : sentText);
-  // "Answer again as Translate" on a question sends its text alone, so only an Ask version was about the reply.
-  const askedAbout = $derived(isAnswer ? askedAboutOf?.(turn) : undefined);
+  const askedAbout = $derived(askedAboutOf?.(turn));
 
   // Diff only refine versions: an edited question's fresh answer against the old one is noise.
   const prevVariant = $derived(

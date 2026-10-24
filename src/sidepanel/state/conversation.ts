@@ -508,7 +508,7 @@ export interface StartOverlay {
   thread: readonly Turn[] | 'none';
   /** The same request already has an answer the user wants replaced, so the router must not serve it from the cache. */
   freshAnswer?: boolean;
-  /** The block about the reply the question asks about, built from the thread at dispatch. */
+  /** The block about the reply an Ask request asks about, built from the thread at dispatch; passed through as given. */
   askAbout?: AskAbout | undefined;
 }
 
@@ -520,13 +520,12 @@ function historyFor(userTurn: Turn, thread: readonly Turn[] | 'none'): ChatTurn[
   return assemblePromptHistory(thread.slice(0, at), { budgetTokens: CHAT_HISTORY_TOKEN_BUDGET });
 }
 
-/** The one place that decides what a request carries; send, retry and every variant build theirs here. */
+/** The one place that builds a request; send, retry and every variant use it. An Ask request's block comes in `askAbout`. */
 export function buildStartArgs(userTurn: Turn, overlay: StartOverlay): StartArgs {
   const { seed = {}, reuse } = overlay;
   const task = seed.task ?? turnTaskValue(userTurn);
   const image = userTurn.imageDataUrl;
   const history = historyFor(userTurn, overlay.thread);
-  const about = askTargetFor(userTurn, seed) === undefined ? undefined : overlay.askAbout;
   return {
     requestId: overlay.requestId,
     text: userTurn.content,
@@ -539,7 +538,7 @@ export function buildStartArgs(userTurn: Turn, overlay: StartOverlay): StartArgs
     ...(overlay.context ? { context: overlay.context } : {}),
     ...(seed.refinementBody !== undefined ? { refinement: seed.refinementBody } : {}),
     ...(history.length > 0 ? { conversationHistory: history } : {}),
-    ...(about !== undefined ? { askAbout: about } : {}),
+    ...(overlay.askAbout !== undefined ? { askAbout: overlay.askAbout } : {}),
     ...(image !== undefined ? { imageUrl: image } : {}),
     ...(overlay.freshAnswer ? { freshAnswer: true } : {}),
   };

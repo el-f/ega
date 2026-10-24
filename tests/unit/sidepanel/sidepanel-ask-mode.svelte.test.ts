@@ -1205,6 +1205,13 @@ describe('re-runs of an answer to a question', () => {
     expect(again.options['task']).toBeUndefined();
     expect(again.options.askAbout).toBeUndefined();
     expect(again.options['conversationHistory']).toBeUndefined();
+
+    // About on that version names no reply: it asked about none.
+    await chunk({ type: 'done', requestId: again.requestId, text: 'What are you up to?' });
+    await openMenu(answer(c), 'more');
+    await fireEvent.click(document.querySelector('[data-ega-about]') as HTMLElement);
+    await waitFor(() => expect(answer(c).querySelector('[data-ega-inspector]')).not.toBeNull());
+    expect(answer(c).querySelector('[data-ega-asked-about]')).toBeNull();
   });
 });
 

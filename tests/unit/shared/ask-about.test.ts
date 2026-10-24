@@ -272,25 +272,4 @@ describe('the request of a question', () => {
     expect(args.askAbout).toEqual(ABOUT);
     expect(args.task).toBe('ask');
   });
-
-  it('a question re-run as another task sends its text alone', () => {
-    const args = buildStartArgs(question({ kind: 'ask', about: { turnId: 'a1' } }), {
-      requestId: 'r1',
-      reuse,
-      thread: 'none',
-      seed: { task: 'translate' },
-      askAbout: ABOUT,
-    });
-    expect('askAbout' in args).toBe(false);
-  });
-
-  it('a plain message carries none', () => {
-    const args = buildStartArgs(question(), {
-      requestId: 'r1',
-      reuse,
-      thread: 'none',
-      askAbout: ABOUT,
-    });
-    expect('askAbout' in args).toBe(false);
-  });
 });
