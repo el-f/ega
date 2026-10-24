@@ -59,6 +59,18 @@
   }: Props = $props();
   const menuFocus = outsidePressFocus();
 
+  let articleEl: HTMLElement | null = $state(null);
+  // The quote goes once its reply leaves the thread (another window's delete, the store's trim), so focus on it
+  // moves to this message, as j/k would, not to the page body.
+  $effect.pre(() => {
+    if (
+      quoted === undefined &&
+      articleEl?.querySelector('[data-ega-ask-quote]')?.contains(document.activeElement)
+    ) {
+      articleEl.focus();
+    }
+  });
+
   // The marker is a render token, not text the user wrote: nothing to show and nothing to copy.
   const hasText = $derived(turn.content !== '' && turn.content !== IMAGE_TURN_PLACEHOLDER);
   // The time moved to the day separators, so the name is the text itself.
@@ -124,6 +136,7 @@
 </script>
 
 <article
+  bind:this={articleEl}
   class="ega-user-turn"
   class:focused
   class:after-sep={afterSeparator}

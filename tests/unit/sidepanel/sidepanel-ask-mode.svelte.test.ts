@@ -1724,6 +1724,58 @@ describe('Ask mode ended from elsewhere while focus is on Done asking', () => {
   });
 });
 
+// R11 and R2-27: a question's quote goes once its reply leaves the thread, so focus on it moves to the question.
+it("another window deleting a reply moves focus from its question's quote to the question", async () => {
+  const exchange: Turn[] = [
+    { id: 'u0', role: 'user', kind: 'translate', status: 'idle', createdAt: 1, content: 'hola' },
+    {
+      id: 'a0',
+      role: 'assistant',
+      kind: 'translate',
+      status: 'done',
+      createdAt: 2,
+      content: 'Hello.',
+      attachedToTurnId: 'u0',
+    },
+  ];
+  const asked: Turn[] = [
+    {
+      id: 'u1',
+      role: 'user',
+      kind: 'ask',
+      status: 'idle',
+      createdAt: 3,
+      content: 'why?',
+      about: { turnId: 'a0' },
+    },
+    {
+      id: 'a1',
+      role: 'assistant',
+      kind: 'ask',
+      status: 'done',
+      createdAt: 4,
+      content: 'Because.',
+      attachedToTurnId: 'u1',
+    },
+  ];
+  await saveThread('https://a.test', [...exchange, ...asked]);
+  const c = await mounted();
+  const quote = c.querySelector<HTMLElement>('[data-ega-ask-quote]') as HTMLElement;
+  quote.focus();
+  expect(document.activeElement).toBe(quote);
+  await saveThread('https://a.test', asked, {
+    knownIds: new Set(['u0', 'a0', 'u1', 'a1']),
+    deletedAt: new Map([
+      ['u0', Date.now()],
+      ['a0', Date.now()],
+    ]),
+    writer: 'another-window',
+  });
+  await settle();
+  expect(c.querySelector('[data-ega-ask-quote]')).toBeNull();
+  expect(document.activeElement).toBe(c.querySelector('[data-turn-id="u1"]'));
+});
+
 describe('the shortcut sheet', () => {
   const sheetTerms = (): string[] =>
     Array.from(document.querySelectorAll('.shortcut-row dt')).map((d) => d.textContent);
