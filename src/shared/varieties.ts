@@ -109,8 +109,18 @@ export async function listVarieties(opts?: { enabledOnly?: boolean }): Promise<V
 }
 
 export async function updateVariety(id: string, patch: VarietyEdit): Promise<void> {
+  const shipped = BUILT_IN_PRESETS.find((p) => p.id === id)?.autoDetect;
+  // The probe is timed, so a loaded machine can call any pattern slow; a built-in's own pattern is trusted and pruned anyway.
+  const isShipped =
+    shipped !== undefined &&
+    patch.autoDetect?.regex === shipped.regex &&
+    patch.autoDetect.flags === shipped.flags;
   // 'slow-pattern' is a message the Languages tab turns into its own copy.
-  if (patch.autoDetect && isSlowPattern(patch.autoDetect.regex, patch.autoDetect.flags)) {
+  if (
+    patch.autoDetect &&
+    !isShipped &&
+    isSlowPattern(patch.autoDetect.regex, patch.autoDetect.flags)
+  ) {
     throw new Error('slow-pattern');
   }
   const builtin = BUILT_IN_PRESETS.some((p) => p.id === id);
