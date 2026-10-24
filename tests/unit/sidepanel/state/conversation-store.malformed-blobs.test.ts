@@ -301,8 +301,6 @@ describe('the thread index', () => {
 });
 
 describe('the reply a question was about, as stored', () => {
-  // The older shape: a copy of the reply's text, of which a load keeps only the reply's id.
-  const copy = { turnId: 'a0', task: 'Translate', original: 'hola', result: 'hello' };
   const answer = (variant: Record<string, unknown>): Record<string, unknown> =>
     goodTurn({
       id: 'a1',
@@ -319,18 +317,21 @@ describe('the reply a question was about, as stored', () => {
   const asked = (value: unknown): Record<string, unknown> =>
     goodTurn({ id: 'u2', kind: 'ask', content: 'why?', about: value });
 
-  it('a question and an Ask instead version keep their reference, and an old copy keeps only its reply id', async () => {
+  it('a question and an Ask instead version keep their reference, and no other field', async () => {
     const ref = { turnId: 'a0', variantId: 'a0:v1' };
-    await put(blob({ turns: [goodTurn(), asked(ref), answer({ about: copy })] }));
+    await put(
+      blob({
+        turns: [
+          goodTurn(),
+          asked({ ...ref, result: 'hello' }),
+          answer({ about: { turnId: 'a0', result: 'hello' } }),
+        ],
+      }),
+    );
     const turns = (await loadThreadResult('https://a.com')).turns;
     expect(turns[1]?.about).toEqual(ref);
     expect(turns[2]?.variants?.[1]?.about).toEqual({ turnId: 'a0' });
     expect(JSON.stringify(turns)).not.toContain('hello');
-
-    await put(blob({ turns: [goodTurn(), asked(copy)] }));
-    const old = (await loadThreadResult('https://a.com')).turns;
-    expect(old[1]?.about).toEqual({ turnId: 'a0' });
-    expect(JSON.stringify(old)).not.toContain('hello');
   });
 
   it('a malformed one is dropped, and the turn stays in the thread', async () => {

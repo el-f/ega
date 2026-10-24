@@ -22,8 +22,8 @@ const ABOUT: AskAbout = {
 const LABELS = { views: SHIPPED_TASK_VIEWS, varieties: [] };
 
 describe('capAskAbout', () => {
-  it('keeps a usable value and drops fields it does not know, a reply id among them', () => {
-    expect(capAskAbout({ ...ABOUT, turnId: 'a1', extra: 1 })).toEqual(ABOUT);
+  it('keeps a usable value and drops fields it does not know', () => {
+    expect(capAskAbout({ ...ABOUT, extra: 1 })).toEqual(ABOUT);
   });
 
   it('needs a task and a result', () => {
@@ -51,10 +51,6 @@ describe('askTargetOf, a stored reference', () => {
       turnId: 'a1',
       variantId: 'a1:v1',
     });
-  });
-
-  it("an older build's copy keeps only its reply's id, never the reply's text", () => {
-    expect(askTargetOf({ turnId: 'a1', ...ABOUT })).toEqual({ turnId: 'a1' });
   });
 
   it('is null without a usable reply id; a bad version id is dropped', () => {
@@ -234,7 +230,7 @@ describe('the quote and About, read live from the thread', () => {
       ],
       activeVariantIdx: 1,
     });
-    // An older build's copy kept no version id; a byte-shrunk reply loses the one it had.
+    // A reply with no versions gives no version id, and a byte shrink drops the one it had.
     for (const about of [{ turnId: 'a1' }, { turnId: 'a1', variantId: 'gone-id' }]) {
       const q = { ...asked, about };
       const thread = [question(), regenerating, q, answer];

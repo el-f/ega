@@ -67,7 +67,7 @@ export function capAskAbout(x: unknown): AskAbout | null {
   };
 }
 
-/** A stored reference, checked. An older build's copy carries its reply's id, so it keeps only that. */
+/** A stored reference, checked; any other field is dropped. */
 export function askTargetOf(x: unknown): AskTarget | null {
   if (x === null || typeof x !== 'object') return null;
   const o = x as Record<string, unknown>;
