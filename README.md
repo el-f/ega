@@ -303,9 +303,9 @@ first line — `// @vitest-environment jsdom` — because building a jsdom for e
 file cost more than every test in the suite put together.
 
 Vitest keeps transformed modules in `node_modules/.experimental-vitest-cache`, so a
-second run of one test file takes seconds. It clears that folder by itself only when
-`pnpm-lock.yaml` changes. After any other dependency change, or a change to
-`vite.config.ts` or `svelte.config.js`, delete the folder (or run `pnpm vitest --clearCache`).
+second run of one test file takes seconds. Its key covers `pnpm-lock.yaml` and
+`vite.config.ts`, not `tsconfig.json` or `svelte.config.js`. After a change to either of those,
+or a dependency change outside the lockfile, delete the folder (or run `pnpm vitest --clearCache`).
 
 **Stack:** Svelte 5 runes · TypeScript strict · Vite · Vitest · Playwright · Chrome
 MV3 · pnpm · Node 22.

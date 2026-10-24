@@ -96,7 +96,7 @@ export default defineConfig({
     unstubGlobals: true,
     setupFiles: ['tests/setup.ts'],
     alias: { 'bits-ui': path.resolve(__dirname, 'tests/mocks/bits-ui-slim.ts') },
-    // Transformed modules persist in node_modules/.experimental-vitest-cache; vitest clears it on a lockfile change only.
+    // Transformed modules persist in node_modules/.experimental-vitest-cache; the key misses tsconfig.json and svelte.config.js (README).
     experimental: { fsModuleCache: true },
     coverage: {
       provider: 'v8',
