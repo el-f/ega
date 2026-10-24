@@ -158,16 +158,14 @@ export function askedAboutFor(
   return askAboutFor(thread, target, labels) ?? 'gone';
 }
 
-/** The quote a question's bubble links: the first line of the reply it asks about, read live; none once that reply
- *  left the thread, or when that line has no text to name the link by. */
+/** The quote a question's bubble links: the first line of the reply it asks about, read live; none once that reply left the thread. */
 export function linkedQuote(
   holder: Turn,
   thread: readonly Turn[],
 ): { turnId: string; text: string } | undefined {
   const target = holder.role === 'user' ? holder.about : undefined;
   const reply = target === undefined ? undefined : askedReply(thread, target);
-  const text = reply === undefined ? '' : askQuote(reply.content);
-  return reply === undefined || text === '' ? undefined : { turnId: reply.id, text };
+  return reply === undefined ? undefined : { turnId: reply.id, text: askQuote(reply.content) };
 }
 
 /** The task each user message names above its bubble, only where the task changes (or a first message that is not Translate). */

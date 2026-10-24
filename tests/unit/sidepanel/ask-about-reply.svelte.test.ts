@@ -36,13 +36,14 @@ describe('the Ask button', () => {
     expect(props.onAsk).toHaveBeenCalledWith('a1');
   });
 
-  it('is not offered while the reply runs, after it failed or stopped, or when it is empty', () => {
+  it('is not offered while the reply runs, after it failed or stopped, or when it has no text to quote', () => {
     const cases = [
       doneReply({ status: 'pending', content: '' }),
       doneReply({ status: 'streaming', content: 'Hel' }),
       doneReply({ status: 'error', content: '', error: { code: 'NETWORK', message: 'x' } }),
       doneReply({ status: 'error', content: 'Hel', error: { code: 'ABORTED', message: '' } }),
       doneReply({ content: '' }),
+      doneReply({ content: '* * *' }),
     ];
     for (const turn of cases) {
       const { container, unmount } = render(AssistantTurn, { props: replyProps(turn) });

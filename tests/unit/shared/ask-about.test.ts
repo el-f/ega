@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { askQuote, askTargetOf, capAskAbout, type AskAbout } from '@/shared/ask-about';
 import { renderAskAboutBlock } from '@/shared/prompts';
 import {
+  askable,
   buildStartArgs,
   type AssistantTurnData,
   type Turn,
@@ -254,8 +255,17 @@ describe('the quote and About, read live from the thread', () => {
     expect(askedAboutFor(thread, answer, LABELS)).toBe('gone');
   });
 
-  it('a reply whose first line has no text gives no quote, so the link never has an empty name', () => {
-    expect(linkedQuote(asked, [question(), reply({ content: '```\n```' }), asked])).toBeUndefined();
+  it('a reply with no line of text to quote is not asked about: no quote, no block, About says it is gone', () => {
+    for (const content of ['```\n```', '* * *', '![](x)']) {
+      const blank = reply({ content });
+      const thread = [question(), blank, asked, answer];
+      expect(askable(blank)).toBe(false);
+      expect(linkedQuote(asked, thread)).toBeUndefined();
+      expect(askAboutFor(thread, { turnId: 'a1' }, LABELS)).toBeNull();
+      expect(askedAboutFor(thread, answer, LABELS)).toBe('gone');
+    }
+    // A rule line under a heading still has text to quote.
+    expect(askable(reply({ content: '---\nHi' }))).toBe(true);
   });
 });
 

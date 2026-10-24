@@ -17,7 +17,7 @@ import {
 } from '@/shared/chat-history';
 import type { sendTranslateStart } from '@/shared/translate-ui';
 import type { AnswerNote, AnswerDetail } from '@/shared/answer/reader';
-import type { AskAbout, AskTarget } from '@/shared/ask-about';
+import { askQuote, type AskAbout, type AskTarget } from '@/shared/ask-about';
 import type { AnswerSnapshot, AnswerReplyFields } from '@/shared/types';
 
 /** Every kind this build creates; saved turns can carry a newer build's task id. */
@@ -454,9 +454,9 @@ export function turnTaskValue(turn: Turn): TaskId {
   return turn.kind === 'image-translate' ? 'translate' : turn.kind;
 }
 
-/** A reply a question can be about: finished, with text. */
+/** A reply a question can be about: finished, with a line of text its quote can show. */
 export function askable(turn: Turn | undefined): boolean {
-  return turn?.role === 'assistant' && turn.status === 'done' && turn.content.trim() !== '';
+  return turn?.role === 'assistant' && turn.status === 'done' && askQuote(turn.content) !== '';
 }
 
 /** A question about `reply` as it shows now: the reply and its shown version. */
