@@ -1394,27 +1394,33 @@ test('Confirm dialog — delete all data (dark)', async () => {
   const page = await ext.context.newPage();
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
   await page.waitForLoadState('networkidle');
-  await page.locator('#tab-about').click();
-  await page.getByRole('button', { name: 'Delete all data' }).click();
+  await page.locator('#tab-advanced').click();
+  await page.locator('[data-ega-subtab="data"]').click();
+  await page.locator('[data-ega-delete-all]').click();
   const dialog = page.getByRole('dialog');
-  await dialog.locator('#confirm-input').fill('DELETE');
-  await expect(dialog.getByRole('button', { name: 'Delete all data' })).toBeEnabled();
+  await dialog.locator('[data-ega-delete-all-field]').fill('DELETE');
+  await expect(page.locator('[data-ega-delete-all-confirm]')).toBeEnabled();
   await applyThemeOnPage(page, 'dark');
   await page.waitForTimeout(200); // wait for dialog entrance animation (no observable end state)
-  await shot(page, 'confirm-delete-all-data-dark', {
-    surface: 'options',
-    state: 'confirm-delete-all-data',
-    theme: 'dark',
-    userAction:
-      'user clicked Delete all data on the About tab and typed DELETE — danger confirm dialog open',
-    expectations: [
-      'modal dialog titled "Delete all data" with the list of what gets deleted',
-      'type-to-confirm field holds DELETE',
-      'Delete all data CTA uses the danger tone and is enabled, its label readable dark text on red',
-      'secondary Cancel reachable',
-      'scrim covers the About tab behind it',
-    ],
-  });
+  await shot(
+    page,
+    'confirm-delete-all-data-dark',
+    {
+      surface: 'options',
+      state: 'confirm-delete-all-data',
+      theme: 'dark',
+      userAction:
+        'user clicked Delete all data on Advanced → Data and typed DELETE — danger confirm dialog open',
+      expectations: [
+        'modal dialog titled "Delete all data" with the list of what gets deleted',
+        'type-to-confirm field holds DELETE',
+        'Delete all data CTA uses the danger tone and is enabled, its label readable dark text on red',
+        'secondary Cancel reachable',
+        'scrim covers the Advanced tab behind it',
+      ],
+    },
+    { overlay: true, viewportOnly: true },
+  );
   await page.keyboard.press('Escape');
   await expect(dialog).toBeHidden();
   await page.close();
