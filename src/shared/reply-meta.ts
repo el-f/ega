@@ -54,8 +54,15 @@ export interface DirectionInput {
 const META_NAME_MAX = 32;
 
 function shortName(name: string): string {
-  if (name.length <= META_NAME_MAX) return name;
-  return name.slice(0, META_NAME_MAX - 1).replace(/[\s,;:(—–-]+$/u, '') + '…';
+  // Code points, so a cut never splits an emoji in a custom language's label.
+  const chars = [...name];
+  if (chars.length <= META_NAME_MAX) return name;
+  return (
+    chars
+      .slice(0, META_NAME_MAX - 1)
+      .join('')
+      .replace(/[\s,;:(—–-]+$/u, '') + '…'
+  );
 }
 
 /** A reply's detection fields as one list; a detail with no language is the name itself ("other"). */

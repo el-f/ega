@@ -62,6 +62,13 @@ describe('directionLabel', () => {
     expect(short.split(' → ')[0]?.length).toBeLessThanOrEqual(32);
   });
 
+  it('never cuts a name inside an emoji', () => {
+    const detail = 'a'.repeat(30) + '😀😀😀';
+    expect(directionLabel({ detected: [{ id: 'other', detail }], short: true })).toBe(
+      'a'.repeat(30) + '😀…',
+    );
+  });
+
   it('names both languages of mixed text, short or full, when they fit', () => {
     const input = {
       detected: [{ id: 'arabizi', detail: 'Levantine' }, { id: 'en' }],
