@@ -776,6 +776,18 @@ export const COVERAGE: readonly Family[] = [
               'Ctrl+, → select result → Advanced opens at correct sub-tab + target card flashes',
             flows: ['options-shell/deep-link-settings-search.flow.spec.ts'],
           },
+          {
+            id: 'label-swap-no-layout-shift',
+            description:
+              'Test now -> Testing... -> Test now moves and resizes no button in the card',
+            flows: ['options-shell/label-swap-no-layout-shift.flow.spec.ts'],
+          },
+          {
+            id: 'selected-state-no-layout-shift',
+            description:
+              'Picking an Effort segment or a nav tab moves no button; the pick shows by fill and is stored',
+            flows: ['options-shell/selected-state-no-layout-shift.flow.spec.ts'],
+          },
         ],
       },
       {
