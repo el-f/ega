@@ -756,8 +756,8 @@ export interface SaveThreadOptions {
 export interface SaveThreadResult {
   /** Another conversation was deleted to make room, so the caller can say which. */
   evicted?: EvictedConversation;
-  /** Oldest turns the 300-turn and 512 KB caps dropped from this write. Absent when nothing was trimmed. */
-  droppedTurns?: number;
+  /** Ids of the oldest turns the 300-turn and 512 KB caps dropped from this write. Absent when nothing was trimmed. */
+  droppedIds?: string[];
   /** The write only fit once every image payload was dropped; memory still holds them. */
   shedImages?: boolean;
   /** Turns the caller still shows that a tombstone kept out of the write. Absent when none. */
@@ -827,7 +827,8 @@ async function saveThreadLocked(
   const sized = fitThreadBytes(leanInstructions(trimmed).map(capTurnSize));
   const capped = sized.map((s) => s.turn);
   // `base` is already post-tombstone and post-merge, so a deliberate delete never counts here.
-  const droppedTurns = base.length - capped.length;
+  const keptIds = new Set(capped.map((t) => t.id));
+  const droppedIds = base.filter((t) => !keptIds.has(t.id)).map((t) => t.id);
 
   const writeThread = async (ts: Turn[]): Promise<void> => {
     const thread: StoredThread = {
@@ -881,7 +882,7 @@ async function saveThreadLocked(
   const evicted = evictedQuota ?? indexEvicted[0];
   return {
     ...(evicted !== undefined ? { evicted } : {}),
-    ...(droppedTurns > 0 ? { droppedTurns } : {}),
+    ...(droppedIds.length > 0 ? { droppedIds } : {}),
     ...(shedImages ? { shedImages } : {}),
     ...(refused.length > 0 ? { refusedIds: refused } : {}),
   };

@@ -84,7 +84,7 @@ describe('the per-thread turn cap', () => {
     expect(stored).toHaveLength(MAX_TURNS_PER_THREAD);
     expect(stored.at(-1)?.id).toBe(many.at(-1)?.id);
     expect(stored.map((t) => t.id)).not.toContain('t0000');
-    expect(result.droppedTurns).toBe(25);
+    expect(result.droppedIds).toEqual(many.slice(0, 25).map((t) => t.id));
   });
 
   it('keeps a thread exactly at the cap whole, and reports nothing dropped', async () => {
@@ -96,7 +96,7 @@ describe('the per-thread turn cap', () => {
     const result = await saveThread(ORIGIN, exact);
 
     expect((await loadThreadResult(ORIGIN)).turns).toHaveLength(MAX_TURNS_PER_THREAD);
-    expect(result.droppedTurns).toBeUndefined();
+    expect(result.droppedIds).toBeUndefined();
   });
 });
 

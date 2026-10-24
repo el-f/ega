@@ -510,8 +510,8 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       r?.shedImages === true
         ? `Storage is nearly full. Images were removed from the conversation for ${site} to keep the text.`
         : null,
-      r?.droppedTurns !== undefined
-        ? `${r.droppedTurns} older message${r.droppedTurns === 1 ? ' was' : 's were'} removed from the conversation for ${site} to save space.`
+      r?.droppedIds !== undefined
+        ? `${r.droppedIds.length} older message${r.droppedIds.length === 1 ? ' was' : 's were'} removed from the conversation for ${site} to save space.`
         : null,
     ];
     for (const message of notes) {
@@ -1258,7 +1258,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     noteKnownTurns(snap);
     // Copies: a load that clears the live sets while this write waits for the lock must not empty its tombstones.
     /* eslint-disable svelte/prefer-svelte-reactivity -- plain snapshots handed to storage, never rendered. */
-    const { evicted, droppedTurns, shedImages, refusedIds } = await saveThread(target, snap, {
+    const { evicted, droppedIds, shedImages, refusedIds } = await saveThread(target, snap, {
       knownIds: new Set(knownIds),
       deletedAt: new Map(deletedAt),
       revivedAt: new Map(revivedAt),
@@ -1296,10 +1296,16 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     }
     if (evicted !== undefined)
       toastStore.push({ message: evictedMessage(evicted), variant: 'warning' });
-    if (droppedTurns !== undefined && !trimNoticed) {
+    if (droppedIds !== undefined && target === state.activeId) {
+      // The store's trim, not this window's delete, so no tombstone; a reply kept here would still be quoted and sent.
+      state.turns = state.turns.filter((t) => !droppedIds.includes(t.id));
+      if (state.inflightId !== null && droppedIds.includes(state.inflightId)) cancel();
+    }
+    if (droppedIds !== undefined && !trimNoticed) {
       trimNoticed = true;
+      const n = droppedIds.length;
       toastStore.push({
-        message: `${droppedTurns} older message${droppedTurns === 1 ? ' was' : 's were'} removed to save space.`,
+        message: `${n} older message${n === 1 ? ' was' : 's were'} removed to save space.`,
         variant: 'warning',
       });
     }

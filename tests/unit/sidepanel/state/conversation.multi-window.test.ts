@@ -750,9 +750,9 @@ describe('a reply that a question asks about, removed in another window or by th
     expect(linkedQuote(byId(b, questionId) as Turn, b.turns)?.text).toBe('secret-result');
   });
 
-  it('a question whose reply the 300-message cap drops sends nothing of it, and keeps its reference', async () => {
-    // 150 exchanges, the cap exactly; the sixth message asks about the first reply.
-    const capped = Array.from({ length: MAX_TURNS_PER_THREAD / 2 }, (_, i) => {
+  /** 150 exchanges, the cap exactly; the sixth message asks about the first reply. */
+  function atTheCap(): Turn[] {
+    return Array.from({ length: MAX_TURNS_PER_THREAD / 2 }, (_, i) => {
       const asks = i === 5;
       return [
         {
@@ -776,7 +776,10 @@ describe('a reply that a question asks about, removed in another window or by th
         },
       ] as Turn[];
     }).flat();
-    await saveThread(ORIGIN, capped);
+  }
+
+  it('a question whose reply the 300-message cap drops sends nothing of it, and keeps its reference', async () => {
+    await saveThread(ORIGIN, atTheCap());
     const a = await openWindow();
     (chrome.runtime.sendMessage as Mock).mockClear();
     expect(await a.regenerateVariant('a5')).toBe(true);
@@ -787,6 +790,52 @@ describe('a reply that a question asks about, removed in another window or by th
     await sendAndFinish(a, 'from a', 'a answer');
     expect(byId(a, 'a0')).toBeUndefined();
     expect(byId(a, 'u5')?.about).toEqual({ turnId: 'a0' });
+    expect(await a.regenerateVariant('a5')).toBe(true);
+    expect(lastStartOptions()).not.toHaveProperty('askAbout');
+    expect(JSON.stringify(lastStartOptions())).not.toContain('reply 0');
+  });
+
+  it('a question sent at the cap carries the reply its own send trims, and About then says the reply is gone', async () => {
+    await saveThread(ORIGIN, atTheCap());
+    const a = await openWindow();
+    (chrome.runtime.sendMessage as Mock).mockClear();
+    const answer = await a.send({
+      content: 'and the first one?',
+      kind: 'ask',
+      sourceLang: 'auto',
+      targetLang: EN,
+      stream: true,
+      about: { turnId: 'a0' },
+    });
+    expect(lastStartOptions()['askAbout']).toMatchObject({ result: 'reply 0' });
+    const requestId = requestIdOf('and the first one?');
+    a.applyChunk({ type: 'delta', requestId, text: 'Because.' });
+    a.applyChunk({ type: 'done', requestId, confidence: 1 });
+    await a.flush();
+    await drain();
+
+    expect(byId(a, 'a0')).toBeUndefined();
+    expect(askedAboutFor(a.turns, byId(a, answer) as Turn, LABELS)).toBe('gone');
+  });
+
+  it('a reply the store trims when a handed-off exchange lands leaves this window too: no quote, nothing sent', async () => {
+    await saveThread(ORIGIN, atTheCap());
+    const a = await openWindow();
+    a.seedDeliveredTurn({
+      kind: 'translate',
+      sourceText: 'from the page',
+      response: 'page answer',
+      sourceLang: 'auto',
+      targetLang: EN,
+      stream: true,
+    });
+    await a.flush();
+    await drain();
+
+    expect((await loadThreadResult(ORIGIN)).turns.some((t) => t.id === 'a0')).toBe(false);
+    expect(byId(a, 'a0')).toBeUndefined();
+    expect(linkedQuote(byId(a, 'u5') as Turn, a.turns)).toBeUndefined();
+    (chrome.runtime.sendMessage as Mock).mockClear();
     expect(await a.regenerateVariant('a5')).toBe(true);
     expect(lastStartOptions()).not.toHaveProperty('askAbout');
     expect(JSON.stringify(lastStartOptions())).not.toContain('reply 0');
