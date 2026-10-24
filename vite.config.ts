@@ -95,6 +95,7 @@ export default defineConfig({
     restoreMocks: true,
     unstubGlobals: true,
     setupFiles: ['tests/setup.ts'],
+    alias: { 'bits-ui': path.resolve(__dirname, 'tests/mocks/bits-ui-slim.ts') },
     // Transformed modules persist in node_modules/.experimental-vitest-cache; vitest clears it on a lockfile change only.
     experimental: { fsModuleCache: true },
     coverage: {

@@ -17,7 +17,8 @@
         "src/sidepanel/main.ts!",
         "tests/**/*.test.ts",
         "tests/e2e/**/*.spec.ts",
-        "tests/setup.ts"
+        "tests/setup.ts",
+        "tests/mocks/bits-ui-slim.ts"
       ],
       "project": [
         "src/**/*.ts",
