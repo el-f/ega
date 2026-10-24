@@ -101,7 +101,7 @@ describe('errorTooltip honors retryAfterMs', () => {
     await flush();
     expect(retryBtn()?.textContent.trim()).toBe('Retry in 5s');
     // The countdown holds two digits' width, so a tick from 10s to 9s moves nothing.
-    expect(retrySizers()).toEqual(['Retry', 'Stop', 'Retry in 00s']);
+    expect(retrySizers()).toEqual(['Retry in 00s']);
 
     vi.advanceTimersByTime(2_000);
     await flush();
@@ -111,6 +111,8 @@ describe('errorTooltip honors retryAfterMs', () => {
     await flush();
     expect(retryBtn()?.textContent.trim()).toBe('Retry');
     expect(retryBtn()?.hasAttribute('disabled')).toBe(false);
+    // Retry keeps the countdown's width after it ends, so the last tick moves nothing either.
+    expect(retrySizers()).toEqual(['Retry in 00s']);
   });
 
   it('renders no countdown when the error carries no retryAfterMs', async () => {
@@ -119,6 +121,6 @@ describe('errorTooltip honors retryAfterMs', () => {
     errorTooltip('a', { code: 'RATE_LIMIT', message: 'HTTP 429' });
     await flush();
     expect(retryBtn()?.textContent.trim()).toBe('Retry');
-    expect(retrySizers()).toEqual(['Retry', 'Stop']);
+    expect(retrySizers()).toEqual([]);
   });
 });

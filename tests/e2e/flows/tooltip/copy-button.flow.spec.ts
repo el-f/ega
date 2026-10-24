@@ -1,5 +1,5 @@
 /* coverage: translation.tooltip.copy-button */
-import { test, expect } from '@playwright/test';
+import { test, expect, type Locator } from '@playwright/test';
 import {
   launchExtension,
   seedSettings,
@@ -21,7 +21,8 @@ test.beforeEach(async () => {
     shortcut: 'Ctrl+Shift+L',
     tooltipClickOutside: false,
   });
-  mockAnthropic(ext.context, { translation: 'Welcome, how are you?' });
+  // The delay keeps the busy row on screen long enough to measure it.
+  mockAnthropic(ext.context, { translation: 'Welcome, how are you?', delayMs: 1000 });
 });
 
 test.afterEach(async () => {
@@ -38,8 +39,35 @@ test('copy button writes translation to clipboard and flips icon to Copied', asy
   await page.keyboard.press('Control+Shift+L');
   timeline.markStep('translate-fired');
 
+  // The busy row keeps the settled row's slots: Copy waits disabled in its place, and Stop holds the
+  // slot Regenerate and Refine take, so nothing in the row moves when the reply lands (R63).
+  const actions = page.locator('.tooltip [data-ega-tooltip-actions]');
+  const copy = page.locator('.tooltip button[aria-label="Copy translation"]');
+  const stop = page.locator('.tooltip [data-ega-tooltip-stop]');
+  const offset = async (button: Locator): Promise<{ start: number; end: number }> => {
+    const [row, box] = await Promise.all([actions.boundingBox(), button.boundingBox()]);
+    if (!row || !box) throw new Error('the action row or the button is not on screen');
+    return { start: box.x - row.x, end: box.x + box.width - row.x };
+  };
+  await expect(stop).toBeVisible();
+  await expect(copy).toBeDisabled();
+  const busyCopy = await offset(copy);
+  const busyStop = await offset(stop);
+  timeline.markStep('busy-row-measured');
+
   await waitForVisibleText(page, '.tooltip .body', 'Welcome, how are you?');
+  await expect(page.locator('.tooltip button[aria-label="Regenerate"]')).toBeVisible();
   timeline.markStep('body-visible');
+  const settledCopy = await offset(copy);
+  expect(settledCopy.start, 'Copy moved when the reply landed').toBeCloseTo(busyCopy.start, 1);
+  expect(settledCopy.end, 'Copy changed width').toBeCloseTo(busyCopy.end, 1);
+  const regenerate = await offset(page.locator('.tooltip button[aria-label="Regenerate"]'));
+  const refine = await offset(page.locator('.tooltip button[aria-label="Refine"]'));
+  expect(regenerate.start, 'Regenerate does not start where Stop did').toBeCloseTo(
+    busyStop.start,
+    1,
+  );
+  expect(refine.end, 'Refine does not end where Stop did').toBeCloseTo(busyStop.end, 1);
 
   await page.locator('.tooltip button[aria-label="Copy translation"]').click();
   timeline.markStep('copy-clicked');

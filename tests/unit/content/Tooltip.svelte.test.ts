@@ -148,16 +148,39 @@ describe('Tooltip smoke', () => {
   it('Stop, Retry and Details hold every label they can show, hidden from readers (R63)', () => {
     const sizers = (b: Element | null): (string | null)[] =>
       [...(b?.querySelectorAll('[data-label]') ?? [])].map((s) => s.getAttribute('data-label'));
-    const busy = mountWith({ loading: true, body: '' });
-    // A stop or an error puts Retry in Stop's place, so both hold both widths.
-    expect(sizers(busy.getByRole('button', { name: 'Stop' }))).toEqual(['Stop', 'Retry']);
     const failed = mountWith({
       error: { code: 'RATE_LIMIT', message: 'Wait a moment.\nHTTP 429 {"error":"rate_limited"}' },
     });
-    expect(sizers(failed.container.querySelector('[data-ega-retry]'))).toEqual(['Retry', 'Stop']);
+    // With no countdown, Retry only ever says Retry.
+    expect(sizers(failed.container.querySelector('[data-ega-retry]'))).toEqual([]);
     const details = failed.getByRole('button', { name: 'Details ▸' });
     expect(sizers(details)).toEqual(['Details ▸', 'Details ▾']);
     expect(details.textContent.trim()).toBe('Details ▸');
+  });
+
+  it('a busy row keeps the settled row slots: Copy waits disabled, and Stop holds the icon slots (R63)', () => {
+    const names = (el: HTMLElement): (string | null)[] =>
+      [...(el.querySelector('[data-ega-tooltip-actions]')?.querySelectorAll('button') ?? [])].map(
+        (b) => b.getAttribute('aria-label') ?? b.textContent.trim(),
+      );
+    const copyIn = (el: HTMLElement): HTMLButtonElement | null =>
+      el.querySelector<HTMLButtonElement>('button[aria-label="Copy translation"]');
+    const slots = (el: HTMLElement): string | undefined =>
+      el
+        .querySelector<HTMLElement>('[data-ega-tooltip-stop]')
+        ?.style.getPropertyValue('--ega-stop-slots');
+    const busy = mountWith({ loading: true, body: '' });
+    expect(names(busy.container)).toEqual(['Copy translation', 'Stop', 'More']);
+    expect(copyIn(busy.container)?.disabled).toBe(true);
+    // Regenerate and Refine take Stop's slot on settle, so Stop holds two icon widths.
+    expect(slots(busy.container)).toBe('2');
+    const streaming = mountWith({ loading: false, body: 'half', settled: false });
+    expect(copyIn(streaming.container)?.disabled).toBe(false);
+    const done = mountWith({ body: 'whole' });
+    expect(names(done.container)).toEqual(['Copy translation', 'Regenerate', 'Refine', 'More']);
+    // An image reply has no Refine, so Stop holds one icon slot.
+    const image = mountWith({ loading: true, body: '', imageUrl: 'data:image/png;base64,AA==' });
+    expect(slots(image.container)).toBe('1');
   });
 
   it('pre-stream shimmer includes a "Translating..." label for clarity', () => {

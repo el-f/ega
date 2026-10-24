@@ -53,6 +53,10 @@
   const settingsFirst = $derived(failure?.actions[0] === 'open-settings');
   // After a settings change Try again leads, and Open settings stays beside it.
   const showSettings = $derived(settingsFirst || failure?.settingsChanged === true);
+  // A settings change swaps the two in place, so with both shown each holds both widths (R63).
+  const swapLabels = $derived(
+    showSettings && failure?.actions.includes('try-again') ? ['Open settings', 'Try again'] : [],
+  );
   // The line runs while work is in flight; a page waiting on scroll has nothing in flight.
   const working = $derived(phase === 'running' || phase === 'paused');
   const max = $derived(Math.max(0, p.total - p.waiting));
@@ -267,7 +271,7 @@
         {:else}
           {#if failure && settingsFirst}
             <button type="button" class="btn first" onclick={user(onOpenSettings)}
-              >Open settings</button
+              ><StableLabel current="Open settings" labels={swapLabels} /></button
             >
           {/if}
           {#if failure && failure.actions.includes('try-again')}
@@ -277,11 +281,14 @@
               class:first={!settingsFirst}
               aria-label="Try again, {p.failed} failed {p.failed === 1 ? 'area' : 'areas'}"
               data-ega-batch-retry
-              onclick={user(onRetryFailed)}>Try again</button
+              onclick={user(onRetryFailed)}
+              ><StableLabel current="Try again" labels={swapLabels} /></button
             >
           {/if}
           {#if failure && showSettings && !settingsFirst}
-            <button type="button" class="btn" onclick={user(onOpenSettings)}>Open settings</button>
+            <button type="button" class="btn" onclick={user(onOpenSettings)}
+              ><StableLabel current="Open settings" labels={swapLabels} /></button
+            >
           {/if}
           {#if translated > 0}
             <button

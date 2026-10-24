@@ -95,11 +95,12 @@
     mode === 'error' && optionsTab !== undefined && !!onOpenOptions && showRetry && !!tip.body,
   );
   const detailsInMore = $derived(mode === 'error' && optionsTab !== undefined && !!onOpenOptions);
-  // A stop or an error puts Retry in Stop's place, so both hold both widths; a countdown also holds its own (R63).
+  // A countdown holds its longest label, so a tick never moves the actions beside Retry (R63).
   // shortcut: two tabular digits fit tipState's 60 s Retry-After cap; widen the sizer if that cap grows.
-  const retryLabels = $derived(
-    tip.retryRemainingSec === undefined ? ['Retry', 'Stop'] : ['Retry', 'Stop', 'Retry in 00s'],
-  );
+  const retryLabels = $derived(tip.retryRemainingSec === undefined ? [] : ['Retry in 00s']);
+  // Regenerate and Refine take Stop's slot when the reply settles; Stop holds their width, so Copy and More stay put (R63).
+  // shortcut: with one icon (an image reply has no Refine) Stop stays a few px wider than it; hold that too if it shows.
+  const settleIcons = $derived((onRegenerate ? 1 : 0) + (onRefine && !tip.imageUrl ? 1 : 0));
 
   // An open shadow root also accepts page-dispatched events; those must never start a request.
   function guard(e: Event): void {
@@ -199,17 +200,22 @@
       >
     {/if}
   {:else}
-    {#if busy}<button class="tooltip-text-action" onclick={onCancel}
-        ><StableLabel current="Stop" labels={['Stop', 'Retry']} /></button
-      >{/if}
-    {#if tip.body}
+    <!-- Copy shows from the start, disabled until the first words arrive, so their arrival moves nothing (R63). -->
+    {#if tip.body || busy}
       <button
         class="icon-btn"
         aria-label="Copy translation"
         data-tooltip={tip.copied ? 'Copied' : 'Copy'}
+        disabled={!tip.body}
         onclick={onCopy}><Icon icon={tip.copied ? Check : Copy} size={16} /></button
       >
     {/if}
+    {#if busy}<button
+        class="tooltip-text-action"
+        data-ega-tooltip-stop
+        style:--ega-stop-slots={settleIcons}
+        onclick={onCancel}>Stop</button
+      >{/if}
     {#if !busy && onRegenerate}
       <button
         class="icon-btn"

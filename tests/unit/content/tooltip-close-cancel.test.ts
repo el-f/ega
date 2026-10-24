@@ -92,7 +92,7 @@ describe('the tooltip close and cancel buttons reach the caller', () => {
     });
     await mounted();
 
-    await click('.actions button');
+    await click('[data-ega-tooltip-stop]');
     expect(onCancel).toHaveBeenCalledTimes(1);
     expect(wraps().length).toBe(1);
     await vi.waitFor(() =>

@@ -50,7 +50,7 @@ test('Stop aborts the request and retains a neutral retryable tooltip', async ()
         await page.evaluate(() => {
           const host = document.querySelector('#ega-shadow-host');
           const root = (host as HTMLElement | null)?.shadowRoot;
-          return root?.querySelector('.tooltip .actions button')?.textContent.trim() ?? '';
+          return root?.querySelector('.tooltip [data-ega-tooltip-stop]')?.textContent.trim() ?? '';
         }),
       { timeout: 5_000 },
     )
