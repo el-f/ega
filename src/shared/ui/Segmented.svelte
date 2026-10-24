@@ -88,7 +88,6 @@
     background: var(--color-accent-bg-soft);
     color: var(--color-fg);
     box-shadow: inset 0 0 0 1px var(--color-accent);
-    font-weight: 600;
   }
   .ega-segmented-item:hover:not(.active) {
     color: var(--color-fg);

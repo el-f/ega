@@ -205,7 +205,6 @@
   .options-nav-item.active {
     background: var(--color-bg-hover);
     color: var(--color-fg);
-    font-weight: 600;
   }
   .options-nav-item.active::before {
     opacity: 1;
