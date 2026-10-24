@@ -150,6 +150,10 @@ describe('askAboutFor, the block built from the thread at dispatch', () => {
   it("reads the reply's shown version once the named one is gone", () => {
     const about = askAboutFor(thread(), { turnId: 'a1', variantId: 'a1:v9' }, LABELS);
     expect(about?.result).toBe('Hello, friend.');
+    // Shown, not newest: paged back to the first version, that one is read.
+    const pagedBack = { ...twoVersions, content: 'Hi, how are you?', activeVariantIdx: 0 };
+    const back = askAboutFor(thread(pagedBack), { turnId: 'a1', variantId: 'a1:v9' }, LABELS);
+    expect(back?.result).toBe('Hi, how are you?');
   });
 
   it('is null once the reply left the thread, or when its version has no finished text', () => {
@@ -217,6 +221,41 @@ describe('the quote and About, read live from the thread', () => {
       ],
     };
     expect(askedAboutFor([question(), reply(), asked, unsent], unsent, LABELS)).toBe('unsent');
+  });
+
+  it('a lost version id while the reply regenerates: the quote and About read its newest finished version', () => {
+    const regenerating = reply({
+      status: 'pending',
+      content: '',
+      variants: [
+        { id: 'a1:v1', status: 'done', content: 'Hi there' },
+        { id: 'a1:v2', status: 'pending', content: '' },
+      ],
+      activeVariantIdx: 1,
+    });
+    // An older build's copy kept no version id; a byte-shrunk reply loses the one it had.
+    for (const about of [{ turnId: 'a1' }, { turnId: 'a1', variantId: 'gone-id' }]) {
+      const q = { ...asked, about };
+      const thread = [question(), regenerating, q, answer];
+      expect(linkedQuote(q, thread)).toEqual({ turnId: 'a1', text: 'Hi there' });
+      expect(askedAboutFor(thread, answer, LABELS)).toMatchObject({ result: 'Hi there' });
+    }
+  });
+
+  it('a reply with no finished version gives no quote, and About says it is gone, never one without the other', () => {
+    const failed = reply({
+      status: 'error',
+      content: 'Hel',
+      variants: [{ id: 'a1:v1', status: 'error', content: 'Hel' }],
+      activeVariantIdx: 0,
+    });
+    const thread = [question(), failed, asked, answer];
+    expect(linkedQuote(asked, thread)).toBeUndefined();
+    expect(askedAboutFor(thread, answer, LABELS)).toBe('gone');
+  });
+
+  it('a reply whose first line has no text gives no quote, so the link never has an empty name', () => {
+    expect(linkedQuote(asked, [question(), reply({ content: '```\n```' }), asked])).toBeUndefined();
   });
 });
 

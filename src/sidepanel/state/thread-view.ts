@@ -3,6 +3,7 @@ import type { IndexEntry } from '@/shared/saved-conversations';
 import type { AssistantTurnData, Turn, UserTurnData } from './conversation';
 import {
   activeVariant,
+  askable,
   askTargetFor,
   atVariant,
   isImageTurn,
@@ -96,12 +97,15 @@ export interface AskLabels {
   varieties: readonly { id: string; label: string }[];
 }
 
-/** The reply `target` points at, as its version reads; undefined once the reply left the thread. */
+/** The reply `target` points at, as the named version reads (the shown one once it is gone), else as its newest
+ *  finished one. Undefined once the reply left the thread or has no finished text, so the quote and the block agree. */
 function askedReply(thread: readonly Turn[], target: AskTarget): AssistantTurnData | undefined {
   const reply = thread.find(
     (t): t is AssistantTurnData => t.role === 'assistant' && t.id === target.turnId,
   );
-  return reply === undefined ? undefined : atVariant(reply, target.variantId);
+  if (reply === undefined) return undefined;
+  const newestFirst = [...(reply.variants ?? [])].reverse().map((v) => atVariant(reply, v.id));
+  return [atVariant(reply, target.variantId), ...newestFirst].find(askable);
 }
 
 /** What a request asking about `target` carries, built from the thread as it is now, with the labels the reply's
@@ -112,7 +116,7 @@ export function askAboutFor(
   labels: AskLabels,
 ): AskAbout | null {
   const reply = askedReply(thread, target);
-  if (reply?.status !== 'done') return null;
+  if (reply === undefined) return null;
   const asked = thread.find(
     (t): t is UserTurnData => t.role === 'user' && t.id === reply.attachedToTurnId,
   );
@@ -154,14 +158,16 @@ export function askedAboutFor(
   return askAboutFor(thread, target, labels) ?? 'gone';
 }
 
-/** The quote a question's bubble links: the first line of the reply it asks about, read live; none once that reply left the thread. */
+/** The quote a question's bubble links: the first line of the reply it asks about, read live; none once that reply
+ *  left the thread, or when that line has no text to name the link by. */
 export function linkedQuote(
   holder: Turn,
   thread: readonly Turn[],
 ): { turnId: string; text: string } | undefined {
   const target = holder.role === 'user' ? holder.about : undefined;
   const reply = target === undefined ? undefined : askedReply(thread, target);
-  return reply === undefined ? undefined : { turnId: reply.id, text: askQuote(reply.content) };
+  const text = reply === undefined ? '' : askQuote(reply.content);
+  return reply === undefined || text === '' ? undefined : { turnId: reply.id, text };
 }
 
 /** The task each user message names above its bubble, only where the task changes (or a first message that is not Translate). */
