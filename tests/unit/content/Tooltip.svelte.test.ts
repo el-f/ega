@@ -145,6 +145,21 @@ describe('Tooltip smoke', () => {
     expect(hasCancel(done.container)).toBe(false);
   });
 
+  it('Stop, Retry and Details hold every label they can show, hidden from readers (R63)', () => {
+    const sizers = (b: Element | null): (string | null)[] =>
+      [...(b?.querySelectorAll('[data-label]') ?? [])].map((s) => s.getAttribute('data-label'));
+    const busy = mountWith({ loading: true, body: '' });
+    // A stop or an error puts Retry in Stop's place, so both hold both widths.
+    expect(sizers(busy.getByRole('button', { name: 'Stop' }))).toEqual(['Stop', 'Retry']);
+    const failed = mountWith({
+      error: { code: 'RATE_LIMIT', message: 'Wait a moment.\nHTTP 429 {"error":"rate_limited"}' },
+    });
+    expect(sizers(failed.container.querySelector('[data-ega-retry]'))).toEqual(['Retry', 'Stop']);
+    const details = failed.getByRole('button', { name: 'Details ▸' });
+    expect(sizers(details)).toEqual(['Details ▸', 'Details ▾']);
+    expect(details.textContent.trim()).toBe('Details ▸');
+  });
+
   it('pre-stream shimmer includes a "Translating..." label for clarity', () => {
     const { container } = mountWith({ body: '', loading: true });
     const label = container.textContent;

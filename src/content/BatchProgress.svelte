@@ -1,6 +1,7 @@
 <script lang="ts">
   import { tick } from 'svelte';
   import BrandMark from '@/shared/components/BrandMark.svelte';
+  import StableLabel from './StableLabel.svelte';
   import { pillPhase, pillStatus, type PageProgress } from './page-translate-v2/progress';
   import { roving } from './roving';
   import { isUserGesture } from './user-gesture';
@@ -227,7 +228,10 @@
             type="button"
             class="btn"
             onclick={user(() => void copyDetails(failure.details.join('\n')))}
-            >{copied ? 'Copied' : 'Copy'}</button
+            ><StableLabel
+              current={copied ? 'Copied' : 'Copy'}
+              labels={['Copy', 'Copied']}
+            /></button
           >
         </div>
         <!-- A region that scrolls must take focus, or the keyboard cannot reach its last lines. -->

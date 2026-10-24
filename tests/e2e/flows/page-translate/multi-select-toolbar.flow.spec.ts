@@ -8,7 +8,7 @@ import {
   waitForTestHooks,
   type ExtensionHandle,
 } from '../../helpers';
-import { createTimeline } from '../_harness';
+import { createTimeline, expectSameWidth } from '../_harness';
 
 let ext: ExtensionHandle;
 
@@ -74,14 +74,22 @@ test('the translate-areas toolbar drives picking, and the document itself is nev
   await expect(page.locator('[data-ega-ms-translate]')).not.toHaveAttribute('aria-disabled');
 
   // The mode segments are radios that report the current choice.
-  await expect(page.locator('[data-ega-ms-mode="inplace"]')).toHaveAttribute(
-    'aria-checked',
-    'true',
-  );
-  await page.locator('[data-ega-ms-mode="bilingual"]').click();
-  await expect(page.locator('[data-ega-ms-mode="bilingual"]')).toHaveAttribute(
-    'aria-checked',
-    'true',
+  const replace = page.locator('[data-ega-ms-mode="inplace"]');
+  const both = page.locator('[data-ega-ms-mode="bilingual"]');
+  await expect(replace).toHaveAttribute('aria-checked', 'true');
+  // The bold chosen segment widens neither segment, so a choice moves no neighbour (R63).
+  await expectSameWidth(
+    replace,
+    () =>
+      expectSameWidth(
+        both,
+        async () => {
+          await both.click();
+          await expect(both).toHaveAttribute('aria-checked', 'true');
+        },
+        'Show both',
+      ),
+    'Replace text',
   );
   timeline.markStep('mode-switched');
 

@@ -15,6 +15,7 @@
   import { answerAgainLabel } from '@/shared/refine-presets';
   import { outsidePressFocus } from '@/shared/menu-focus';
   import { isUserGesture } from '../user-gesture';
+  import StableLabel from '../StableLabel.svelte';
 
   interface Props {
     tip: TipState;
@@ -94,6 +95,11 @@
     mode === 'error' && optionsTab !== undefined && !!onOpenOptions && showRetry && !!tip.body,
   );
   const detailsInMore = $derived(mode === 'error' && optionsTab !== undefined && !!onOpenOptions);
+  // A stop or an error puts Retry in Stop's place, so both hold both widths; a countdown also holds its own (R63).
+  // shortcut: two tabular digits fit tipState's 60 s Retry-After cap; widen the sizer if that cap grows.
+  const retryLabels = $derived(
+    tip.retryRemainingSec === undefined ? ['Retry', 'Stop'] : ['Retry', 'Stop', 'Retry in 00s'],
+  );
 
   // An open shadow root also accepts page-dispatched events; those must never start a request.
   function guard(e: Event): void {
@@ -154,9 +160,12 @@
           if (isUserGesture(e)) onRetry?.();
         }}
       >
-        {tip.retryBlocked && (tip.retryRemainingSec ?? 0) > 0
-          ? 'Retry in ' + tip.retryRemainingSec + 's'
-          : 'Retry'}
+        <StableLabel
+          current={tip.retryBlocked && (tip.retryRemainingSec ?? 0) > 0
+            ? 'Retry in ' + tip.retryRemainingSec + 's'
+            : 'Retry'}
+          labels={retryLabels}
+        />
       </button>
     {/if}
     {#if tip.body}
@@ -171,7 +180,11 @@
       <button
         class="tooltip-text-action"
         aria-expanded={errorDetailsOpen}
-        onclick={onToggleErrorDetails}>Details {errorDetailsOpen ? '▾' : '▸'}</button
+        onclick={onToggleErrorDetails}
+        ><StableLabel
+          current={errorDetailsOpen ? 'Details ▾' : 'Details ▸'}
+          labels={['Details ▸', 'Details ▾']}
+        /></button
       >
     {/if}
     {#if canEscalate && onEscalate && !escalationInMore}
@@ -186,7 +199,9 @@
       >
     {/if}
   {:else}
-    {#if busy}<button class="tooltip-text-action" onclick={onCancel}>Stop</button>{/if}
+    {#if busy}<button class="tooltip-text-action" onclick={onCancel}
+        ><StableLabel current="Stop" labels={['Stop', 'Retry']} /></button
+      >{/if}
     {#if tip.body}
       <button
         class="icon-btn"

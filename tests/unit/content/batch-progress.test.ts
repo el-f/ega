@@ -449,6 +449,10 @@ describe('the pill — states, the More menu and Error details', () => {
     menuItem('Show error details')?.click();
     flushSync();
     const copy = q('[data-ega-batch-details] button') as HTMLButtonElement;
+    // Both labels hold the width, so Copied does not move the details header (R63).
+    expect(
+      [...copy.querySelectorAll('[data-label]')].map((s) => s.getAttribute('data-label')),
+    ).toEqual(['Copy', 'Copied']);
     vi.useFakeTimers();
     copy.click();
     await vi.advanceTimersByTimeAsync(0);

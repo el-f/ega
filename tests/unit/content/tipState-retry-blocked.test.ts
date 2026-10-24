@@ -48,6 +48,13 @@ function retryBtn(): HTMLButtonElement | null {
   return getContainer().querySelector<HTMLButtonElement>('.tooltip [data-ega-retry]');
 }
 
+/** The labels Retry holds the width of (R63). */
+function retrySizers(): (string | null)[] {
+  return [...(retryBtn()?.querySelectorAll('[data-label]') ?? [])].map((s) =>
+    s.getAttribute('data-label'),
+  );
+}
+
 async function flush(): Promise<void> {
   await Promise.resolve();
   await Promise.resolve();
@@ -93,6 +100,8 @@ describe('errorTooltip honors retryAfterMs', () => {
     errorTooltip('a', { code: 'RATE_LIMIT', message: 'HTTP 429', retryAfterMs: 5_000 });
     await flush();
     expect(retryBtn()?.textContent.trim()).toBe('Retry in 5s');
+    // The countdown holds two digits' width, so a tick from 10s to 9s moves nothing.
+    expect(retrySizers()).toEqual(['Retry', 'Stop', 'Retry in 00s']);
 
     vi.advanceTimersByTime(2_000);
     await flush();
@@ -110,5 +119,6 @@ describe('errorTooltip honors retryAfterMs', () => {
     errorTooltip('a', { code: 'RATE_LIMIT', message: 'HTTP 429' });
     await flush();
     expect(retryBtn()?.textContent.trim()).toBe('Retry');
+    expect(retrySizers()).toEqual(['Retry', 'Stop']);
   });
 });

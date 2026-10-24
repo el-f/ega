@@ -661,6 +661,10 @@
   flex-shrink: 0;
   white-space: nowrap;
 }
+/* Every count has the sizer's width, so the Retry countdown never moves the actions beside it (R63). */
+.tooltip .actions [data-ega-retry] {
+  font-variant-numeric: tabular-nums;
+}
 .tooltip .actions .tooltip-text-action:hover,
 .tooltip .actions .tooltip-fix:hover {
   text-decoration: none;

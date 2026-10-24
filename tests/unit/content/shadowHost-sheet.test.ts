@@ -1,9 +1,16 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from 'vitest';
 import { ensureShadowSheet, getShadowRoot } from '@/content/shadowHost';
+import { STABLE_LABEL_CSS } from '@/content/stable-label';
 
 afterEach(() => {
   document.getElementById('ega-shadow-host')?.remove();
+});
+
+describe('the root sheet', () => {
+  it('carries the StableLabel rules, so every surface in the root keeps its widest label (R63)', () => {
+    expect(getShadowRoot().querySelector('style')?.textContent).toContain(STABLE_LABEL_CSS);
+  });
 });
 
 describe('ensureShadowSheet', () => {
