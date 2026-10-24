@@ -99,6 +99,36 @@ test('code sent to the panel comes back as a code block with its tags as text, a
   timeline.markStep('code-shown');
 });
 
+test('code whose first comment was translated into Hebrew still reads left to right', async () => {
+  const { turn } = await sendSource('```js\n// הגדרות כלליות\nconst x = 1;\n```');
+  const code = turn.locator('.ega-answer pre code');
+  await expect(code).toContainText('const x = 1;', { timeout: 10_000 });
+  const laid = await code.evaluate((el) => {
+    const pre = el.closest('pre');
+    // The code element holds the block as one text node.
+    const text = el.firstChild;
+    const at = (needle: string): number => {
+      const start = text?.textContent?.indexOf(needle) ?? -1;
+      if (!text || start === -1) return Number.NaN;
+      const range = document.createRange();
+      range.setStart(text, start);
+      range.setEnd(text, start + needle.length);
+      return range.getBoundingClientRect().left;
+    };
+    return {
+      direction: pre ? getComputedStyle(pre).direction : '',
+      constLeft: at('const'),
+      semiLeft: at(';'),
+      preLeft: pre?.getBoundingClientRect().left ?? Number.NaN,
+      preRight: pre?.getBoundingClientRect().right ?? Number.NaN,
+    };
+  });
+  expect(laid.direction).toBe('ltr');
+  // The line starts at the left edge and its semicolon comes after the statement.
+  expect(laid.constLeft - laid.preLeft).toBeLessThan((laid.preRight - laid.preLeft) / 2);
+  expect(laid.semiLeft).toBeGreaterThan(laid.constLeft);
+});
+
 test('a model that skips the fence still gets no element from the answer tags', async () => {
   const { turn } = await sendSource(CODE);
   const answer = turn.locator('.ega-answer');
