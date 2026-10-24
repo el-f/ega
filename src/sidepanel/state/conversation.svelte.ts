@@ -125,6 +125,12 @@ export interface DeletedSlice {
   deletedAt: ReadonlyMap<string, number>;
 }
 
+/** The answer a re-run started: its turn, and its version when the re-run added one. */
+export interface StartedAnswer {
+  turnId: string;
+  variantId?: string;
+}
+
 export interface ConversationContainer {
   /** Reactive list of turns. */
   readonly turns: Turn[];
@@ -140,8 +146,8 @@ export interface ConversationContainer {
   applyChunk: (c: TranslationChunk) => void;
   /** Abort the currently inflight assistant turn. */
   cancel: () => void;
-  /** Re-dispatch the user turn that produced the given assistant id. */
-  retry: (assistantId: string) => Promise<void>;
+  /** Re-dispatch the user turn that produced the given assistant id. The answer it started; null when nothing started. */
+  retry: (assistantId: string) => Promise<StartedAnswer | null>;
   /** Re-dispatch as a sibling variant; `refinementBody` reaches the prompt and the cache key, never advanced.rules. */
   refine: (args: {
     turnId: string;
@@ -618,14 +624,14 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     mutate((turns) => [...cancelPure(turns, inflightId, variantId)], 'now');
   }
 
-  async function retry(assistantId: string): Promise<void> {
+  async function retry(assistantId: string): Promise<StartedAnswer | null> {
     if (state.inflightId !== null || ownedByBackground(assistantId)) {
       // Retrying mid-stream would clobber inflightId/requestId and strand both turns.
       toastStore.push({
         message: 'Wait for the current reply to finish, then retry.',
         variant: 'warning',
       });
-      return;
+      return null;
     }
     const settled = state.turns.find((t) => t.id === assistantId);
     // The `r` key reaches this function without the gates the Retry button applies.
@@ -641,7 +647,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
               : `${errCodeLabel(known)} — this reply cannot be retried. Send the message again.`,
           variant: 'warning',
         });
-        return;
+        return null;
       }
       const until = settled.error.retryUntil;
       if (until !== undefined && until > Date.now()) {
@@ -653,23 +659,22 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
           // Each press refreshes one toast; its countdown still ends at the same retryUntil.
           key: 'retry-wait',
         });
-        return;
+        return null;
       }
     }
     // A settled answer and its refinements are the user's; re-answer beside them, never over them.
     if (settled?.role === 'assistant' && settled.status === 'done') {
-      await regenerateVariant(assistantId);
-      return;
+      const variantId = await regenerate(assistantId);
+      return variantId === null ? null : { turnId: assistantId, variantId };
     }
     // A failed sibling retries with its own modifiers beside the answers that survived, never over them.
     if (settled?.role === 'assistant' && settled.variants && settled.variants.length > 1) {
-      await retryVariant(settled);
-      return;
+      return retryVariant(settled);
     }
     const source = findRetryTarget(state.turns, assistantId);
-    if (!source) return;
+    if (!source) return null;
     const reuse = replayDispatch(source);
-    if (reuse === null) return;
+    if (reuse === null) return null;
     const tone = source.tone ?? state.lastDispatch?.tone;
     const context = state.turns.find((t) => t.id === assistantId)?.contextSent;
     // Retry means redo THIS assistant: re-attach to the same user turn, never append one.
@@ -715,11 +720,12 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     } catch (e) {
       failDispatch(nextAssistantId, requestId, e);
     }
+    return { turnId: nextAssistantId };
   }
 
-  async function retryVariant(turn: Turn): Promise<void> {
+  async function retryVariant(turn: Turn): Promise<StartedAnswer | null> {
     const failed = activeVariant(turn);
-    if (failed === undefined) return;
+    if (failed === undefined) return null;
     const retried = (turn.retries ?? 0) + 1;
     mutate(
       (turns) =>
@@ -733,7 +739,8 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     const answered = (turn.variants ?? []).some(
       (v) => v.id !== failed.id && v.status === 'done' && sameRequest(seedOf(v), seed),
     );
-    await dispatchVariant(turn.id, seed, answered);
+    const variantId = await dispatchVariant(turn.id, seed, answered);
+    return variantId === null ? null : { turnId: turn.id, variantId };
   }
 
   /** The label only names a refine in the UI; every other seed field reaches the request. */
@@ -1046,16 +1053,16 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
   }
 
   async function regenerateVariant(turnId: string): Promise<boolean> {
+    return (await regenerate(turnId)) !== null;
+  }
+
+  /** The new version's id, or null when nothing started. */
+  async function regenerate(turnId: string): Promise<string | null> {
     // A stored turn the byte cap shrank gets its v1 back at load (conversation-store), so no rebuild here.
     const turn = state.turns.find((t) => t.id === turnId);
     // Re-rolls the answer on screen: a swap, a language change, a task or a refine runs as itself again.
     // The same request has a cached answer (the one on screen), so without freshAnswer the router hands it back unchanged.
-    const started = await dispatchVariant(
-      turnId,
-      seedOf(turn ? activeVariant(turn) : undefined),
-      true,
-    );
-    return started !== null;
+    return dispatchVariant(turnId, seedOf(turn ? activeVariant(turn) : undefined), true);
   }
 
   function editFrom(userTurnId: string): string | null {

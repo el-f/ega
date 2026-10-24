@@ -1110,6 +1110,27 @@ describe('Ask instead', () => {
     expect(document.activeElement).toBe(first);
   });
 
+  it('a failed answer, retried, still starts Ask mode when the retry lands, paged away or not', async () => {
+    const c = await mounted();
+    const { echoed } = await slip(c);
+    await fireEvent.click(echoed.querySelector('[data-ega-ask-instead]') as HTMLElement);
+    await settle();
+    const q = starts().at(-1) as Start;
+    await chunk({ type: 'error', requestId: q.requestId, code: 'NETWORK', message: 'x' });
+    await fireEvent.click(echoed.querySelector('[data-ega-retry]') as HTMLElement);
+    await settle();
+    const retried = starts().at(-1) as Start;
+    expect(retried.options['task']).toBe('ask');
+    // The wait holds the retried version, not the one on screen.
+    await chunk({ type: 'delta', requestId: retried.requestId, text: 'It asks' });
+    await fireEvent.click(echoed.querySelector('[data-ega-variant-prev]') as HTMLElement);
+    await settle();
+    expect(echoed.querySelector('.ega-pager-count')?.textContent).toBe('1/2');
+    await chunk({ type: 'done', requestId: retried.requestId, text: 'It asks what kifak means.' });
+    expect(banner(c)).toContain('Asking about this reply');
+    expect(target(c)).toBe(echoed);
+  });
+
   it('More → Ask instead is the same action', async () => {
     const c = await mounted();
     await slip(c);
@@ -1284,6 +1305,21 @@ describe('re-runs of an answer to a question', () => {
       expect(r.options.askAbout?.['result']).toBe('Hi, how are you?');
       expect(r.options['conversationHistory']).toEqual(history);
     }
+  });
+
+  // D3: a Retry asks the same question again, so its answer moves the mark like a first try that worked.
+  it('a failed answer, retried, moves the mark to the retried answer once it is done', async () => {
+    const c = await mounted();
+    const q = await question(c);
+    await chunk({ type: 'error', requestId: q.requestId, code: 'NETWORK', message: 'x' });
+    await fireEvent.click(answer(c).querySelector('[data-ega-retry]') as HTMLElement);
+    await settle();
+    const retried = starts().at(-1) as Start;
+    await chunk({ type: 'done', requestId: retried.requestId, text: 'Because.' });
+    expect(target(c)).toBe(answer(c));
+    await waitFor(() => expect(said(c)).toBe('Now asking about the new answer'));
+    const next = await send(c, 'and then?');
+    expect(next.options.askAbout?.['result']).toBe('Because.');
   });
 
   // R2-14: pasted text is asked, and "Translate instead" on its answer sends the text alone.

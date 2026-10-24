@@ -651,6 +651,8 @@
     const status = turn?.status;
     const ready = askable(turn);
     if (wait === null || status === 'pending' || status === 'streaming') return;
+    // A failed or stopped answer waits for its Retry while the mode stays (retryAnswer).
+    if (status === 'error' && mode === wait.mode) return;
     askAwait = null;
     // A mode picked since the wait began (another reply, Done asking, an edit) wins over the answer.
     if (mode !== wait.mode || !ready || turn === undefined || turnTaskValue(turn) !== 'ask') return;
@@ -661,6 +663,14 @@
       void startAsk(wait.turnId, true);
     }
   });
+
+  /** Retry, or `r`: a Retry swaps the answer for a new turn or version, so a wait on the failed one moves to it. */
+  async function retryAnswer(id: string): Promise<void> {
+    const wait = askAwait;
+    const started = await conversation.retry(id);
+    if (wait?.turnId !== id || started === null) return;
+    askAwait = { ...wait, turnId: started.turnId, variantId: started.variantId };
+  }
 
   function cancelMode(): void {
     if (composerMode.kind === 'refine') leaveRefine();
@@ -1524,7 +1534,7 @@
       recordsDetails={settings?.captureResultMeta !== false}
       onRetry={(id) => {
         toastStore.closeSticky();
-        void conversation.retry(id);
+        void retryAnswer(id);
       }}
       onRefine={(args) => onRefine(args)}
       onSelectVariant={(turnId, idx) => conversation.selectVariant(turnId, idx)}
