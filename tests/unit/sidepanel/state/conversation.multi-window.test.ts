@@ -9,6 +9,7 @@ import { asLangIdUnsafe } from '@/shared/brands';
 import { askedAboutFor, linkedQuote } from '@/sidepanel/state/thread-view';
 import { SHIPPED_TASK_VIEWS } from '@/shared/task-view';
 import type { Turn } from '@/sidepanel/state/conversation';
+import { toastStore } from '@/shared/components/toastStore';
 
 type Container = ReturnType<typeof createConversation>;
 type Changes = Record<string, chrome.storage.StorageChange>;
@@ -839,5 +840,74 @@ describe('a reply that a question asks about, removed in another window or by th
     expect(await a.regenerateVariant('a5')).toBe(true);
     expect(lastStartOptions()).not.toHaveProperty('askAbout');
     expect(JSON.stringify(lastStartOptions())).not.toContain('reply 0');
+  });
+
+  it('a reply the store trims in one window leaves the other at once: no quote, nothing sent', async () => {
+    await saveThread(ORIGIN, atTheCap());
+    const a = await openWindow();
+    const b = await openWindow();
+    a.seedDeliveredTurn({
+      kind: 'translate',
+      sourceText: 'from the page',
+      response: 'page answer',
+      sourceLang: 'auto',
+      targetLang: EN,
+      stream: true,
+    });
+    await a.flush();
+    await drain();
+
+    expect(byId(b, 'a0')).toBeUndefined();
+    expect(linkedQuote(byId(b, 'u5') as Turn, b.turns)).toBeUndefined();
+    (chrome.runtime.sendMessage as Mock).mockClear();
+    expect(await b.regenerateVariant('a5')).toBe(true);
+    expect(lastStartOptions()).not.toHaveProperty('askAbout');
+    expect(JSON.stringify(lastStartOptions())).not.toContain('reply 0');
+  });
+
+  it("a save that read the thread before this window's own trim says nothing of another window", async () => {
+    const push = vi.spyOn(toastStore, 'push');
+    await saveThread(ORIGIN, atTheCap());
+    const a = await openWindow();
+    a.seedDeliveredTurn({
+      kind: 'translate',
+      sourceText: 'from the page',
+      response: 'page answer',
+      sourceLang: 'auto',
+      targetLang: EN,
+      stream: true,
+    });
+    // Reads the thread while the handoff's own save, which trims it, still waits.
+    await a.flush();
+    await drain();
+
+    expect(byId(a, 'a0')).toBeUndefined();
+    const said = push.mock.calls.map(([m]) => m.message);
+    expect(said).toContain('2 older messages were removed to save space.');
+    expect(said.filter((m) => m.startsWith('Another window'))).toEqual([]);
+  });
+
+  it('a trim of the reply this window is re-running stops that request', async () => {
+    await saveThread(ORIGIN, atTheCap());
+    const a = await openWindow();
+    (chrome.runtime.sendMessage as Mock).mockClear();
+    expect(await a.regenerateVariant('a0')).toBe(true);
+    const requestId = (chrome.runtime.sendMessage as Mock).mock.calls
+      .map((c) => c[0] as Record<string, unknown>)
+      .find((m) => m['kind'] === 'translate:start')?.['requestId'] as string;
+    // The handoff's own save is the only one, so the trim alone has to stop the request.
+    a.seedDeliveredTurn({
+      kind: 'translate',
+      sourceText: 'from the page',
+      response: 'page answer',
+      sourceLang: 'auto',
+      targetLang: EN,
+      stream: true,
+    });
+    await drain();
+
+    expect(byId(a, 'a0')).toBeUndefined();
+    expect(a.inflightId).toBeNull();
+    expect(cancelledRequests()).toContain(requestId);
   });
 });

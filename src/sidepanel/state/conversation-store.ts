@@ -829,6 +829,11 @@ async function saveThreadLocked(
   // `base` is already post-tombstone and post-merge, so a deliberate delete never counts here.
   const keptIds = new Set(capped.map((t) => t.id));
   const droppedIds = base.filter((t) => !keptIds.has(t.id)).map((t) => t.id);
+  // A trimmed turn is buried like a deleted one, or another window keeps quoting and sending it.
+  const written =
+    droppedIds.length === 0
+      ? tombstones
+      : mergeTombstones(tombstones, { deletedAt: new Map(droppedIds.map((id) => [id, now])) });
 
   const writeThread = async (ts: Turn[]): Promise<void> => {
     const thread: StoredThread = {
@@ -836,7 +841,7 @@ async function saveThreadLocked(
       origin,
       turns: ts,
       updatedAt: now,
-      ...(tombstones.length > 0 ? { tombstones } : {}),
+      ...(written.length > 0 ? { tombstones: written } : {}),
       ...(options.writer !== undefined ? { writer: options.writer } : {}),
       ...(stored.clearedAt !== undefined ? { clearedAt: stored.clearedAt } : {}),
     };

@@ -183,8 +183,9 @@ untrusted data (`src/shared/prompts.ts#renderAskAboutBlock`). The usual history 
 - Deleting a reply removes it from every later request at once
   (`src/sidepanel/state/thread-view.ts#askAboutFor`). A new version of a question about it sends
   the question and the history only. The same holds when the reply drops off because the
-  conversation passed 300 messages or 512 KB, or another window deleted it. The panel removes a
-  dropped reply when the conversation is saved (`src/sidepanel/state/conversation.svelte.ts#persist`).
+  conversation passed 300 messages or 512 KB, or another window deleted it. The save that drops a
+  reply also marks it deleted, so every open window removes it
+  (`src/sidepanel/state/conversation-store.ts#saveThread`).
   Undo of the delete brings the reply back, and later requests send it again.
 - In the tooltip, "Ask about this" opens the side panel. Nothing is sent until you type a
   question and send it.

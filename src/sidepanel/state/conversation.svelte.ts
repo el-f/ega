@@ -166,6 +166,8 @@ export interface ConversationContainer {
   /** Remove a turn and its linked pair. Cancels the inflight dispatch when it is in
    *  the removed set. Returns the removed slice so the caller can offer Undo. */
   deleteTurn: (turnId: string) => DeletedSlice | null;
+  /** True when the store's caps dropped this turn from the thread: it left with no delete. */
+  trimmed: (turnId: string) => boolean;
   /** Put a slice back at its old index. False when the thread moved on and nothing was restored. */
   restoreTurns: (slice: DeletedSlice) => boolean;
   /** Flip `bookmarked` on the turn. Drives the ★-only filter. */
@@ -395,13 +397,12 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       ...(aboutUnsent ? { aboutUnsent } : {}),
     });
     // Mirror the store's cap so the in-memory array stays bounded.
-    mutate(
-      () =>
-        withAssistant.length > MAX_TURNS_PER_THREAD
-          ? dropOrphanHead(withAssistant.slice(-MAX_TURNS_PER_THREAD), withAssistant)
-          : withAssistant,
-      'debounce',
-    );
+    const capped =
+      withAssistant.length > MAX_TURNS_PER_THREAD
+        ? dropOrphanHead(withAssistant.slice(-MAX_TURNS_PER_THREAD), withAssistant)
+        : withAssistant;
+    noteTrimmed(withAssistant.slice(0, withAssistant.length - capped.length).map((t) => t.id));
+    mutate(() => capped, 'debounce');
     state.inflightId = assistantId;
     state.inflightVariantId = `${assistantId}:v1`;
     state.requestId = requestId;
@@ -1197,6 +1198,16 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
    *  that stamp goes, so one Undo cannot clear another window's delete. */
   // eslint-disable-next-line svelte/prefer-svelte-reactivity
   const revivedAt = new Map<string, number>();
+  /** Ids the store's caps dropped from this thread: gone with no delete, which Ask mode and the toasts must tell apart. */
+  // eslint-disable-next-line svelte/prefer-svelte-reactivity
+  const trimmedIds = new Set<string>();
+
+  function noteTrimmed(ids: readonly string[]): void {
+    for (const id of ids) {
+      trimmedIds.add(id);
+      capSet(trimmedIds);
+    }
+  }
 
   function capSet(s: {
     size: number;
@@ -1284,11 +1295,13 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       state.turns = state.turns.filter((t) => !refusedIds.includes(t.id));
       for (const id of refusedIds) knownIds.delete(id);
       if (state.inflightId !== null && refusedIds.includes(state.inflightId)) cancel();
-      if (!refusedNoticed) {
+      // A save that read the thread before this window's own trim landed is refused that trim: no other window did it.
+      const foreign = refusedIds.filter((id) => !trimmedIds.has(id));
+      if (foreign.length > 0 && !refusedNoticed) {
         refusedNoticed = true;
         toastStore.push({
           message: `Another window changed this conversation. ${
-            refusedIds.length === 1 ? 'One message was' : `${refusedIds.length} messages were`
+            foreign.length === 1 ? 'One message was' : `${foreign.length} messages were`
           } removed here to match.`,
           variant: 'warning',
         });
@@ -1297,7 +1310,8 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     if (evicted !== undefined)
       toastStore.push({ message: evictedMessage(evicted), variant: 'warning' });
     if (droppedIds !== undefined && target === state.activeId) {
-      // The store's trim, not this window's delete, so no tombstone; a reply kept here would still be quoted and sent.
+      // The store buried its trim for the other windows; this one hears no echo of its own write.
+      noteTrimmed(droppedIds);
       state.turns = state.turns.filter((t) => !droppedIds.includes(t.id));
       if (state.inflightId !== null && droppedIds.includes(state.inflightId)) cancel();
     }
@@ -1515,6 +1529,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       trimNoticed = false;
       refusedNoticed = false;
       knownIds.clear();
+      trimmedIds.clear();
       noteKnownTurns(state.turns);
       // Tombstones belong to the thread that recorded them.
       deletedAt.clear();
@@ -1630,6 +1645,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     state.lastDispatch = null;
     state.saveFailed = false;
     knownIds.clear();
+    trimmedIds.clear();
     deletedAt.clear();
     revivedAt.clear();
     watchAdoptedAnswers();
@@ -1676,6 +1692,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     lastUserTurn,
     dropLastUserExchange,
     deleteTurn,
+    trimmed: (turnId) => trimmedIds.has(turnId),
     restoreTurns,
     toggleBookmark,
     regenerateVariant,
