@@ -185,8 +185,7 @@ untrusted data (`src/shared/prompts.ts#renderAskAboutBlock`). The usual history 
   the question and the history only. The same holds when the reply drops off because the
   conversation passed 300 messages or 512 KB, or another window deleted it. The panel removes a
   dropped reply when the conversation is saved (`src/sidepanel/state/conversation.svelte.ts#persist`).
-  Undo of the delete brings the
-  reply back, and later requests send it again.
+  Undo of the delete brings the reply back, and later requests send it again.
 - In the tooltip, "Ask about this" opens the side panel. Nothing is sent until you type a
   question and send it.
 
