@@ -95,6 +95,8 @@ export default defineConfig({
     restoreMocks: true,
     unstubGlobals: true,
     setupFiles: ['tests/setup.ts'],
+    // Transformed modules persist in node_modules/.experimental-vitest-cache; vitest clears it on a lockfile change only.
+    experimental: { fsModuleCache: true },
     coverage: {
       provider: 'v8',
       // vitest thresholds are aggregate OR per-file, never both — json-summary feeds the per-file floor in scripts/coverage-floor.ts.
