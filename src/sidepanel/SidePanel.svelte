@@ -531,9 +531,9 @@
 
   function askLineFor(turnId: string): string {
     const reply = conversation.turns.find((t) => t.id === turnId);
-    // Ask mode outlives its reply only when the cap trims it while its question is answered.
-    if (reply === undefined) return 'Asking about a reply removed to save space';
-    const start = Array.from(askQuote(reply.content)).slice(0, 60).join('');
+    const start = Array.from(askQuote(reply?.content ?? ''))
+      .slice(0, 60)
+      .join('');
     return `Asking about the reply: ${start}`;
   }
 
@@ -626,20 +626,16 @@
     void startAsk(turnId);
   }
 
-  // The reply asked about left (deleted, another conversation opened), or a message landed from elsewhere.
+  // The reply asked about left by any path (a delete here or in another window, the caps' trim, another conversation opened), or a message landed from elsewhere.
   $effect(() => {
     const mode = composerMode;
     const turns = conversation.turns;
-    const wait = askAwait;
     const newestUser = turns.filter((t) => t.role === 'user').at(-1);
     if (mode.kind !== 'ask') return;
     const gone = !turns.some((t) => t.id === mode.turnId);
-    // A trim of the reply while its question is sent or answered is no leaving: the mode moves on to the answer.
-    const trimmedWhileAsking =
-      conversation.trimmed(mode.turnId) && (sending || wait?.mode === mode);
     // A question this composer is sending is not known yet; sendTurn records it before `sending` drops.
     const landed = !sending && newestUser !== undefined && !askKnownUsers.has(newestUser.id);
-    if ((gone && !trimmedWhileAsking) || landed) leaveAsk();
+    if (gone || landed) leaveAsk();
   });
 
   // An answer Ask mode waits on ends: done with text moves the mode to it, anything else leaves it where it was.

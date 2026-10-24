@@ -111,6 +111,20 @@ async function firstExchange(c: HTMLElement): Promise<HTMLElement> {
 const toasts = (push: { mock: { calls: Array<[{ message: string }]> } }): string[] =>
   push.mock.calls.map(([m]) => m.message);
 
+/** R2-12: Ask mode ended with no toast of its own, the pre-Ask draft is back, and the answer landing does not bring the mode back. */
+async function expectLeftForGood(
+  c: HTMLElement,
+  q: Start,
+  push: { mock: { calls: Array<[{ message: string }]> } },
+): Promise<void> {
+  expect(banner(c)).toBeNull();
+  expect(box(c).value).toBe('my draft');
+  expect(toasts(push).filter((m) => /ask/i.test(m))).toEqual([]);
+  await chunk({ type: 'done', requestId: q.requestId, text: 'Because.' });
+  expect(banner(c)).toBeNull();
+  expect(target(c)).toBeNull();
+}
+
 /** Two finished exchanges; returns both replies. */
 async function twoExchanges(c: HTMLElement): Promise<[HTMLElement, HTMLElement]> {
   const first = await firstExchange(c);
@@ -1365,20 +1379,7 @@ describe('Ask mode while an answer runs, under a filter, across conversations an
     return q;
   }
 
-  async function expectLeftForGood(
-    c: HTMLElement,
-    q: Start,
-    push: { mock: { calls: Array<[{ message: string }]> } },
-  ): Promise<void> {
-    expect(banner(c)).toBeNull();
-    expect(box(c).value).toBe('my draft');
-    expect(toasts(push).filter((m) => /ask/i.test(m))).toEqual([]);
-    await chunk({ type: 'done', requestId: q.requestId, text: 'Because.' });
-    expect(banner(c)).toBeNull();
-    expect(target(c)).toBeNull();
-  }
-
-  // R2-12: a delete is no trim, so it ends the mode while the question's answer runs too.
+  // R2-12: a delete ends the mode while the question's answer runs too.
   it('deleting the reply asked about while its answer streams ends it and restores the draft', async () => {
     const push = vi.spyOn(toastStore, 'push');
     const c = await mounted();
@@ -1555,14 +1556,10 @@ describe('Ask mode while an answer runs, under a filter, across conversations an
   });
 });
 
+// R2-12: a reply the caps drop is gone like a deleted one, so Ask mode ends the same way.
 describe("the store's size cap", () => {
-  /** The message box's hidden description while Ask mode is on (R2-15). */
-  const askLine = (c: HTMLElement): string | undefined =>
-    box(c).getAttribute('aria-describedby')?.split(' ').includes('sp-ask-line')
-      ? c.querySelector('#sp-ask-line')?.textContent
-      : undefined;
-
-  it('a question whose save trims the reply it asks about keeps Ask mode, which then moves to the answer', async () => {
+  it('a question whose save trims the reply it asks about ends Ask mode and restores the draft, like a delete', async () => {
+    const push = vi.spyOn(toastStore, 'push');
     await nearTheByteCap('https://a.test');
     const c = await mounted();
     await type(c, 'my draft');
@@ -1573,19 +1570,15 @@ describe("the store's size cap", () => {
     await waitFor(() => expect(c.querySelector('[data-turn-id="a0"]')).toBeNull(), {
       timeout: 3000,
     });
-    expect(banner(c)).toContain('Asking about this reply');
-    expect(askLine(c)).toBe('Asking about a reply removed to save space');
-    expect(box(c).value).toBe('');
-
-    await chunk({ type: 'done', requestId: q.requestId, text: 'Because.' });
-    expect(banner(c)).toContain('Asking about this reply');
-    expect(target(c)).toBe(replies(c).at(-1));
-    await waitFor(() => expect(said(c)).toBe('Now asking about the new answer'));
-    expect(box(c).value).toBe('');
+    await settle();
+    // The cap's own notice: the reply left by a trim, not a delete.
+    expect(toasts(push)).toContain('2 older messages were removed to save space.');
+    await expectLeftForGood(c, q, push);
   });
 
   // 300 stored messages make the mount slow, so this one gets more time.
-  it('a question at 300 messages that trims the reply it asks about keeps Ask mode too', async () => {
+  it('a question at 300 messages that trims the reply it asks about ends Ask mode too', async () => {
+    const push = vi.spyOn(toastStore, 'push');
     const exchanges = Array.from({ length: MAX_TURNS_PER_THREAD / 2 }, (_, i) => [
       { id: `u${i}`, role: 'user', kind: 'translate', status: 'idle', createdAt: 2 * i + 1 },
       {
@@ -1610,17 +1603,13 @@ describe("the store's size cap", () => {
       target: { value: 'reply 0' },
     });
     await settle();
+    await type(c, 'my draft');
     await fireEvent.click(askOn(c.querySelector<HTMLElement>('[data-turn-id="a0"]') ?? undefined));
     await settle();
     const q = await send(c, 'and the first one?');
     expect(q.options.askAbout?.['result']).toBe('reply 0');
     expect(c.querySelector('[data-turn-id="a0"]')).toBeNull();
-    expect(banner(c)).toContain('Asking about this reply');
-    expect(askLine(c)).toBe('Asking about a reply removed to save space');
-
-    await chunk({ type: 'done', requestId: q.requestId, text: 'Because.' });
-    expect(target(c)).toBe(replies(c).at(-1));
-    await waitFor(() => expect(said(c)).toBe('Now asking about the new answer'));
+    await expectLeftForGood(c, q, push);
   }, 20_000);
 });
 

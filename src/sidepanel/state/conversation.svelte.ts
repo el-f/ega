@@ -166,8 +166,6 @@ export interface ConversationContainer {
   /** Remove a turn and its linked pair. Cancels the inflight dispatch when it is in
    *  the removed set. Returns the removed slice so the caller can offer Undo. */
   deleteTurn: (turnId: string) => DeletedSlice | null;
-  /** True when the store's caps dropped this turn from the thread: it left with no delete. */
-  trimmed: (turnId: string) => boolean;
   /** Put a slice back at its old index. False when the thread moved on and nothing was restored. */
   restoreTurns: (slice: DeletedSlice) => boolean;
   /** Flip `bookmarked` on the turn. Drives the ★-only filter. */
@@ -1215,7 +1213,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
    *  that stamp goes, so one Undo cannot clear another window's delete. */
   // eslint-disable-next-line svelte/prefer-svelte-reactivity
   const revivedAt = new Map<string, number>();
-  /** Ids the store's caps dropped from this thread: gone with no delete, which Ask mode and the toasts must tell apart. */
+  /** Ids the store's caps dropped from this thread: gone with no delete, which the toasts must tell apart. */
   // eslint-disable-next-line svelte/prefer-svelte-reactivity
   const trimmedIds = new Set<string>();
 
@@ -1709,7 +1707,6 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     lastUserTurn,
     dropLastUserExchange,
     deleteTurn,
-    trimmed: (turnId) => trimmedIds.has(turnId),
     restoreTurns,
     toggleBookmark,
     regenerateVariant,
