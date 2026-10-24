@@ -1,7 +1,7 @@
 /* coverage: translation.popup.source-lang-pick */
 import { test, expect } from '@playwright/test';
 import { launchExtension, seedSettings, type ExtensionHandle } from '../../helpers';
-import { createTimeline } from '../_harness';
+import { createTimeline, expectSameWidth } from '../_harness';
 
 // The popup never translates inline — the picker only drives the handoff payload that seeds the sidepanel turn.
 
@@ -40,9 +40,26 @@ test('source picker change persists into the pendingPopupHandoff', async () => {
   timeline.markStep('popup-opened');
 
   const src = popup.locator('#pop-lang');
+  const tgt = popup.locator('#pop-target');
+  const swap = popup.getByRole('button', { name: 'Swap languages' });
   await expect(src).toBeVisible({ timeout: 5_000 });
-  await src.selectOption('es');
-  await expect(src).toHaveValue('es');
+  await expect(src).toHaveValue('auto');
+  await expect(swap).toBeHidden();
+  // Swap shows up in a slot kept for it, so neither picker changes width (R63).
+  await expectSameWidth(
+    src,
+    () =>
+      expectSameWidth(
+        tgt,
+        async () => {
+          await src.selectOption('es');
+          await expect(src).toHaveValue('es');
+          await expect(swap).toBeVisible();
+        },
+        'To picker',
+      ),
+    'From picker',
+  );
   timeline.markStep('source-picked');
 
   await popup.getByRole('textbox', { name: 'Translate in the side panel' }).fill('hola mundo');

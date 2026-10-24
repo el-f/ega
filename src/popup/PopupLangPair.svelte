@@ -26,7 +26,7 @@
 
 <div class="popup-langs" role="group" aria-labelledby="pop-langs-label">
   <span id="pop-langs-label" class="group-label">Default languages</span>
-  <div class="popup-lang-pair" class:with-swap={sourceLang !== 'auto'} data-ega-lang-pair>
+  <div class="popup-lang-pair" data-ega-lang-pair>
     <label class="lang-label" for="pop-lang">
       <span class="ega-sr-only">From</span>
       <LanguagePicker
@@ -37,10 +37,11 @@
         onchange={setSource}
       />
     </label>
-    <!-- Hidden, never disabled, while From is Auto-detect: 'auto' has no place in the target slot. -->
-    {#if sourceLang !== 'auto'}
+    <!-- Hidden, never disabled, while From is Auto-detect: 'auto' has no place in the target slot.
+         It keeps its slot, so picking a source does not resize the pickers (R63). -->
+    <span class="swap" style:visibility={sourceLang === 'auto' ? 'hidden' : undefined}>
       <IconButton icon={ArrowLeftRight} ariaLabel="Swap languages" size="sm" onclick={onSwap} />
-    {/if}
+    </span>
     <label class="lang-label" for="pop-target">
       <span class="ega-sr-only">To</span>
       <LanguagePicker id="pop-target" {varieties} value={targetLang} onchange={setTarget} />
@@ -60,12 +61,12 @@
   }
   .popup-lang-pair {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
     align-items: center;
     gap: var(--space-2);
   }
-  .popup-lang-pair.with-swap {
-    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  .swap {
+    display: flex;
   }
   .lang-label {
     min-width: 0;

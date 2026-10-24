@@ -2,6 +2,7 @@
   import Info from '@lucide/svelte/icons/info';
   import Icon from '@/shared/ui/Icon.svelte';
   import Checkbox from '@/shared/ui/Checkbox.svelte';
+  import StableLabel from '@/shared/ui/StableLabel.svelte';
   import type { HeldBack } from '@/shared/messages';
   import { heldBackText, type PopupPageState } from './page-state';
 
@@ -13,6 +14,8 @@
     heldBack: HeldBack | undefined;
     /** The default task's name when it is not Translate; Translate anyway runs that task, so it names it. */
     taskName?: string | null;
+    /** Every task the default can switch to while the popup is open; the action holds the widest name's width (R63). */
+    taskNames?: readonly string[];
     /** A page action waits for the page to finish loading. */
     waiting?: boolean;
     /** Id the page actions point their aria-describedby at. */
@@ -29,6 +32,7 @@
     siteOn,
     heldBack,
     taskName = null,
+    taskNames = [],
     waiting = false,
     statusId,
     onSiteChange,
@@ -51,6 +55,13 @@
         return null;
     }
   });
+
+  // A custom task name runs to 40 characters. Held at full width it would push every shorter name onto a line of
+  // its own, so a name past this length shows cut, and the button's name keeps it whole (R63).
+  const NAME_MAX = 16;
+  const shown = (name: string): string =>
+    name.length > NAME_MAX ? `${name.slice(0, NAME_MAX - 1).trimEnd()}…` : name;
+  const anywayTask = $derived(taskName ?? 'Translate');
 </script>
 
 {#if showSwitch || status}
@@ -79,8 +90,16 @@
           <p class="status-text">
             <span id={statusId}>{status.text}</span>
             {#if status.action === 'anyway'}
-              <button type="button" class="status-action" onclick={onTranslateAnyway}
-                >{taskName ?? 'Translate'} anyway</button
+              <button
+                type="button"
+                class="status-action"
+                aria-label={anywayTask.length > NAME_MAX ? `${anywayTask} anyway` : undefined}
+                onclick={onTranslateAnyway}
+                ><StableLabel
+                  current={`${shown(anywayTask)} anyway`}
+                  labels={taskNames.map((n) => `${shown(n)} anyway`)}
+                  start
+                /></button
               >
             {:else if status.action === 'reload'}
               <button type="button" class="status-action" onclick={onReload}>Reload page</button>

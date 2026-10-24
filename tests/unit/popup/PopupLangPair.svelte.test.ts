@@ -2,6 +2,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { preset, sel } from '@tests/_helpers/lang';
 import { render, fireEvent } from '@testing-library/svelte';
+import { readFileSync } from 'node:fs';
 import PopupLangPair from '@/popup/PopupLangPair.svelte';
 import type { Variety } from '@/shared/types';
 
@@ -50,6 +51,17 @@ describe('PopupLangPair', () => {
   it('hides swap while From is Auto-detect, and shows it once a source is picked', () => {
     const { queryByRole } = render(PopupLangPair, { props: base });
     expect(queryByRole('button', { name: /Swap/ })).toBeNull();
+  });
+
+  it('keeps the hidden swap button in its slot, so picking a source does not resize the pickers (R63)', () => {
+    const { container, queryByRole } = render(PopupLangPair, { props: base });
+    // In the grid but invisible: no name, no Tab stop, and its column keeps its width.
+    expect(container.querySelector('[aria-label="Swap languages"]')).not.toBeNull();
+    expect(queryByRole('button', { name: /Swap/ })).toBeNull();
+    const source = readFileSync('src/popup/PopupLangPair.svelte', 'utf8');
+    expect(source).toMatch(
+      /\.popup-lang-pair \{[^}]*grid-template-columns: minmax\(0, 1fr\) auto minmax\(0, 1fr\);/,
+    );
   });
 
   it('swap button fires onSwap', async () => {

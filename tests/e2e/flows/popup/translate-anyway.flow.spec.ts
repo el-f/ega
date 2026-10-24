@@ -9,7 +9,7 @@ import {
   waitForTestHooks,
   type ExtensionHandle,
 } from '../../helpers';
-import { createTimeline } from '../_harness';
+import { createTimeline, expectSameWidth } from '../_harness';
 
 let ext: ExtensionHandle;
 
@@ -66,6 +66,27 @@ test('the popup names why the bubble stayed hidden, and Translate anyway opens t
     timeout: 10_000,
   });
   timeline.markStep('reason-shown');
+
+  // A new default task renames the action; it keeps one width, so the sentence around it does not reflow (R63).
+  const anyway = popup.getByRole('button', { name: /anyway$/ });
+  const task = popup.locator('#pop-task');
+  await expectSameWidth(
+    anyway,
+    async () => {
+      await task.selectOption('suggest-replies');
+      await expect(anyway).toHaveText('Reply ideas anyway');
+    },
+    'Translate anyway -> Reply ideas anyway',
+  );
+  await expectSameWidth(
+    anyway,
+    async () => {
+      await task.selectOption('translate');
+      await expect(anyway).toHaveText('Translate anyway');
+    },
+    'Reply ideas anyway -> Translate anyway',
+  );
+  timeline.markStep('task-switched');
 
   await popup.getByRole('button', { name: 'Translate anyway' }).click();
   await expect
