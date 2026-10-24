@@ -364,6 +364,27 @@ describe('TooltipBody', () => {
       expect(failed.container.querySelector('.body.code')?.textContent).toBe('let a = 1;');
     });
 
+    // Code reads left to right; dir="auto" would flip it when a translated comment comes first.
+    it('left to right even when its first words are Hebrew or Arabic', () => {
+      const rtl = '// שלום עולם\nlet a = 1;';
+      const { container } = render(TooltipBody, {
+        props: { ...props, body: '```js\n' + rtl + '\n```' },
+      });
+      expect(container.querySelector('.body.code')?.getAttribute('dir')).toBe('ltr');
+      document.body.innerHTML = '';
+      const failed = render(TooltipBody, {
+        props: {
+          ...props,
+          body: '```js\n' + rtl,
+          error: { code: 'NETWORK' as const, message: 'offline' },
+        },
+      });
+      expect(failed.container.querySelector('.body.code')?.getAttribute('dir')).toBe('ltr');
+      document.body.innerHTML = '';
+      const prose = render(TooltipBody, { props: { ...props, body: 'שלום עולם' } });
+      expect(prose.container.querySelector('.body')?.getAttribute('dir')).toBe('auto');
+    });
+
     it('with no word diff after a re-run', () => {
       const { container } = render(TooltipBody, {
         props: { ...props, body: '```js\nlet b = 2;\n```', diffAgainst: '```js\nlet a = 1;\n```' },

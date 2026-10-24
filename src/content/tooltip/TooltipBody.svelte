@@ -78,6 +78,8 @@
   // The body is plain text, so an answer that is one fenced block shows its code without the fence lines.
   const code = $derived(soleFencedCode(body));
   const shown = $derived(code ?? body);
+  // Code reads left to right; dir=auto would flip it when a translated comment comes first.
+  const bodyDir = $derived(code === null ? 'auto' : 'ltr');
 
   // Skip the diff on an error frame: that body has its own rendering and the diff spans fight its danger tone.
   const diffOps: DiffOp[] = $derived.by(() => {
@@ -165,7 +167,7 @@
 {:else if error}
   {#if body}
     <!-- Keep whatever streamed in before the error, so the user can still read and copy it. -->
-    <div class="body" class:code={code !== null} dir="auto" lang={bodyLang}>{shown}</div>
+    <div class="body" class:code={code !== null} dir={bodyDir} lang={bodyLang}>{shown}</div>
     <div class="src tooltip-error-line">
       {errorParts?.title}: {errorParts?.body} (partial result above)
     </div>
@@ -200,7 +202,7 @@
     class:code={code !== null}
     class:body-diff={showDiff}
     class:body-diff-faded={faded}
-    dir="auto"
+    dir={bodyDir}
     lang={body ? bodyLang : undefined}
     aria-hidden={announcedBody !== ''}
   >
