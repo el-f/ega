@@ -8,7 +8,7 @@ import ConversationStream from '@/sidepanel/conversation/ConversationStream.svel
 import { SHIPPED_TASK_VIEWS } from '@/shared/task-view';
 import type { AskAbout } from '@/shared/ask-about';
 import type { Turn, UserTurnData } from '@/sidepanel/state/conversation';
-import { linkedQuote } from '@/sidepanel/state/thread-view';
+import { askedAboutFor, linkedQuote } from '@/sidepanel/state/thread-view';
 import { doneReply, metaText, openMenu, replyProps } from './_reply';
 
 afterEach(() => {
@@ -139,15 +139,28 @@ describe('an answer to a question', () => {
 
   it('a version re-run as another task was not about the reply, so About does not say it was', async () => {
     const turn = doneReply({
+      id: 'a2',
       kind: 'ask',
+      attachedToTurnId: 'u2',
       variants: [
         { id: 'v1', status: 'done', content: 'Because.' },
         { id: 'v2', status: 'done', content: 'Hello, friend.', task: 'translate' },
       ],
       activeVariantIdx: 1,
     });
+    const question: UserTurnData = {
+      id: 'u2',
+      role: 'user',
+      kind: 'ask',
+      status: 'idle',
+      content: 'why?',
+      createdAt: 2,
+      about: { turnId: 'a1' },
+    };
+    const thread: Turn[] = [doneReply(), question, turn];
+    const labels = { views: SHIPPED_TASK_VIEWS, varieties: [] };
     const { container } = render(AssistantTurn, {
-      props: replyProps(turn, { askedAboutOf: () => ABOUT }),
+      props: replyProps(turn, { askedAboutOf: (t: Turn) => askedAboutFor(thread, t, labels) }),
     });
     await openMenu(container, 'more');
     await fireEvent.click(document.querySelector('[data-ega-about]') as HTMLElement);
