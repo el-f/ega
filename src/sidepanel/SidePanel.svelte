@@ -577,12 +577,15 @@
     draftInBox = false;
   }
 
-  /** "Ask instead" (meta line or More): this reply's text asked about the newest earlier finished reply, as a new version. Ask mode follows the answer. */
+  /** "Ask instead" (meta line or More): this reply's text asked as a new version, about the reply its question quotes, else the newest earlier finished one. Ask mode follows the answer. */
   async function askInstead(turnId: string): Promise<void> {
     const turns = conversation.turns;
     const reply = turns.find((t) => t.id === turnId);
     const askedAt = turns.findIndex((t) => t.id === reply?.attachedToTurnId);
-    const earlier = turns.slice(0, Math.max(0, askedAt)).filter(askable).at(-1);
+    const earlier =
+      turns[askedAt]?.about !== undefined
+        ? undefined
+        : turns.slice(0, Math.max(0, askedAt)).filter(askable).at(-1);
     const modeBefore = composerMode;
     if (
       await conversation.taskVariant(

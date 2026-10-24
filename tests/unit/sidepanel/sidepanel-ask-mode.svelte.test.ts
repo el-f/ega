@@ -1289,6 +1289,38 @@ describe('re-runs of an answer to a question', () => {
     await waitFor(() => expect(answer(c).querySelector('[data-ega-inspector]')).not.toBeNull());
     expect(answer(c).querySelector('[data-ega-asked-about]')).toBeNull();
   });
+
+  it('Ask instead on its Translate version asks about the reply its quote shows, not the newest one', async () => {
+    const c = await mounted();
+    const [first] = await twoExchanges(c);
+    await fireEvent.click(askOn(first));
+    await settle();
+    const q = await send(c, 'why?');
+    await chunk({ type: 'done', requestId: q.requestId, text: 'Because.' });
+    await openMenu(answer(c), 'more');
+    await fireEvent.click(
+      document.querySelector('[data-ega-answer-again="translate"]') as HTMLElement,
+    );
+    await settle();
+    await chunk({ type: 'done', requestId: (starts().at(-1) as Start).requestId, text: 'Why?' });
+
+    await openMenu(answer(c), 'more');
+    await fireEvent.click(document.querySelector('[data-ega-answer-again="ask"]') as HTMLElement);
+    await settle();
+    const again = starts().at(-1) as Start;
+    expect(again.options['task']).toBe('ask');
+    expect(again.options.askAbout?.['result']).toBe('Hi, how are you?');
+    await chunk({ type: 'done', requestId: again.requestId, text: 'Because, again.' });
+    const quote = [...c.querySelectorAll('[data-ega-ask-quote]')].at(-1);
+    expect(quote?.textContent).toContain('Hi, how are you?');
+    await openMenu(answer(c), 'more');
+    await fireEvent.click(document.querySelector('[data-ega-about]') as HTMLElement);
+    await waitFor(() =>
+      expect(answer(c).querySelector('[data-ega-asked-about] dd')?.textContent).toBe(
+        'Hi, how are you?',
+      ),
+    );
+  });
 });
 
 describe('Ask mode while an answer runs, under a filter, across conversations and a close', () => {
