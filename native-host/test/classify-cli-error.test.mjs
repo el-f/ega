@@ -77,14 +77,14 @@ test('maps transport failures to TIMEOUT and NETWORK', () => {
 });
 
 test('maps a CLI that cannot read its own config file to NATIVE_CLI_CONFIG', () => {
-  // codex-cli 0.162.1 stderr: the user's config.toml held a plugin MCP server with no command.
+  // codex-cli 0.162.1 stderr when a `-c mcp_servers.<name>.enabled=false` override names a server no loaded config defines.
   assert.equal(
     classifyCliError(
       'WARNING: proceeding, even though we could not create PATH aliases\nError loading config.toml: invalid transport\nin `mcp_servers.cua_repl`\n',
     ),
     'NATIVE_CLI_CONFIG',
   );
-  // A TOML syntax error ends on the caret line, so the whole tail decides.
+  // Classifier-only (Ega's --ignore-user-config never reads this file): the error ends on the caret line, so the whole tail decides.
   assert.equal(
     classifyCliError(
       'Error loading config.toml:\nC:\\Users\\me\\.codex\\config.toml:1:10: unclosed array, expected `]`\n  |\n1 | model = [\n  |          ^',

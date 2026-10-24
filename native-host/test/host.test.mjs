@@ -2165,7 +2165,7 @@ test('a codex translate that fails reports the CLI error text and its class, not
 });
 
 test('a codex that cannot read its config file fails as NATIVE_CLI_CONFIG with its own words', async () => {
-  // codex-cli 0.162.1 stderr for a config.toml MCP server with no command; it exits before any JSON.
+  // codex-cli 0.162.1 stderr when a `-c mcp_servers.<name>` override names no loaded server; it exits before any JSON.
   const said = 'Error loading config.toml: invalid transport\nin `mcp_servers.cua_repl`';
   const fixture = writeFixture(
     'ega-host.fake-codex-bad-config.mjs',
