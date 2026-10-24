@@ -314,7 +314,7 @@ describe('Tooltip smoke', () => {
       },
     });
     expect(container.querySelector('[data-ega-meta-item="direction"]')?.textContent).toBe(
-      'Arabizi — Levantine (kifak, shu… → English',
+      'Arabizi — Levantine (kifak, shu, 3am… → English',
     );
     const about = (await menu(container, 'More')).querySelector('[role="menuitemcheckbox"]');
     if (!about) throw new Error('No About item');

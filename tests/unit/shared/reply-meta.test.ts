@@ -58,14 +58,48 @@ describe('directionLabel', () => {
       'Arabizi — Levantine (kifak, shu, 3am, ktir, 3njad) → English',
     );
     const short = directionLabel({ ...input, short: true });
-    expect(short).toBe('Arabizi — Levantine (kifak, shu… → English');
-    expect(short.split(' → ')[0]?.length).toBeLessThanOrEqual(32);
+    expect(short).toBe('Arabizi — Levantine (kifak, shu, 3am… → English');
+    expect(short.length).toBeLessThanOrEqual(48);
   });
 
-  it('never cuts a name inside an emoji', () => {
-    const detail = 'a'.repeat(30) + '😀😀😀';
+  // A flag, a skin tone and a family are each one emoji made of several code points.
+  it.each(['😀', '🇮🇱', '👍🏽', '👨‍👩‍👧'])('never cuts a name inside the emoji %s', (emoji) => {
+    const detail = 'a'.repeat(46) + emoji.repeat(3);
     expect(directionLabel({ detected: [{ id: 'other', detail }], short: true })).toBe(
-      'a'.repeat(30) + '😀…',
+      'a'.repeat(46) + emoji + '…',
+    );
+  });
+
+  it('cuts mixed text as one part at a word, so the target stays on the line', () => {
+    const input = {
+      detected: [
+        { id: 'other', detail: 'Romanized Hindi with Bhojpuri words' },
+        { id: 'other', detail: 'Nigerian Pidgin English dialect text' },
+      ],
+      targetLang: 'en',
+    };
+    const short = directionLabel({ ...input, short: true });
+    expect(short).toBe('Romanized Hindi with Bhojpuri words… → English');
+    expect(short.length).toBeLessThanOrEqual(48);
+    expect(directionLabel(input)).toBe(
+      'Romanized Hindi with Bhojpuri words + Nigerian Pidgin English dialect text → English',
+    );
+  });
+
+  it('cuts a long custom target too, and the source gets what is left', () => {
+    const short = directionLabel({
+      detected: [{ id: 'arabizi', detail: 'Levantine' }],
+      targetLang: 'custom-long',
+      varieties: [{ id: 'custom-long', label: 'Very Long Custom Language Name For Testing Here' }],
+      short: true,
+    });
+    expect(short).toBe('Arabizi… → Very Long Custom Language Name…');
+  });
+
+  it('keeps a hard cut when the long name is one word', () => {
+    const detail = 'x'.repeat(60);
+    expect(directionLabel({ detected: [{ id: 'other', detail }], short: true })).toBe(
+      'x'.repeat(47) + '…',
     );
   });
 

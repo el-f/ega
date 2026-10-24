@@ -46,23 +46,31 @@ export interface DirectionInput {
   /** Reword and Grammar answer in the input's language, so only the source shows. */
   sourceOnly?: boolean;
   varieties?: readonly VarietyLike[];
-  /** The one-line meta: each name is cut at META_NAME_MAX characters. About shows the full line. */
+  /** The one-line meta: the whole direction is cut at META_DIRECTION_MAX characters, the target last. About shows the full line. */
   short?: boolean;
 }
 
-/** A model-written detail (or an older reply's cue-word list) must not push the target off the meta line. */
-const META_NAME_MAX = 32;
+/** A model-written detail (or an older reply's cue-word list) must not push the direction off the meta line at 320px. */
+const META_DIRECTION_MAX = 48;
+/** A custom target language's label leaves the source part some room. */
+const META_TARGET_MAX = 32;
+const ARROW = ' → ';
 
-function shortName(name: string): string {
-  // Code points, so a cut never splits an emoji in a custom language's label.
-  const chars = [...name];
-  if (chars.length <= META_NAME_MAX) return name;
-  return (
-    chars
-      .slice(0, META_NAME_MAX - 1)
-      .join('')
-      .replace(/[\s,;:(—–-]+$/u, '') + '…'
+function shortName(name: string, max: number): string {
+  if (name.length <= max) return name;
+  // Graphemes, so a cut never splits a flag or a skin-tone emoji in a custom language's label.
+  const chars = Array.from(
+    new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(name),
+    (s) => s.segment,
   );
+  if (chars.length <= max) return name;
+  let head = chars.slice(0, max - 1).join('');
+  // Drop a word the cut would leave half shown, unless it is the only word.
+  if (/[\p{L}\p{N}]/u.test(chars[max - 1] ?? '')) {
+    const whole = head.replace(/[\p{L}\p{M}\p{N}]+$/u, '');
+    if (whole.trim() !== '') head = whole;
+  }
+  return head.replace(/[\s,;:(—–+-]+$/u, '') + '…';
 }
 
 /** A reply's detection fields as one list; a detail with no language is the name itself ("other"). */
@@ -81,22 +89,25 @@ export function detectedVarieties(r: {
 /** "Arabizi (Levantine) → English", "Arabizi + English → Hebrew", past two names "+1". Empty when nothing is known. */
 export function directionLabel(input: DirectionInput): string {
   const varieties = input.varieties ?? [];
-  const name = (id: string, detail?: string): string => {
-    const full = langName(id, detail, varieties);
-    return input.short === true ? shortName(full) : full;
-  };
-  const names = (input.detected ?? []).map((d) => name(d.id, d.detail)).filter((n) => n !== '');
+  const names = (input.detected ?? [])
+    .map((d) => langName(d.id, d.detail, varieties))
+    .filter((n) => n !== '');
   let from: string;
   if (names.length > 0) {
     from = names.slice(0, 2).join(' + ') + (names.length > 2 ? ` +${names.length - 2}` : '');
   } else if (input.sourceLang !== undefined && input.sourceLang !== 'auto') {
-    from = name(input.sourceLang);
+    from = langName(input.sourceLang, undefined, varieties);
   } else {
     return '';
   }
-  if (input.sourceOnly === true) return from;
-  if (input.targetLang === undefined || input.targetLang === '') return from;
-  return `${from} → ${name(input.targetLang)}`;
+  const to =
+    input.sourceOnly === true || input.targetLang === undefined || input.targetLang === ''
+      ? ''
+      : langName(input.targetLang, undefined, varieties);
+  if (input.short !== true) return to === '' ? from : from + ARROW + to;
+  if (to === '') return shortName(from, META_DIRECTION_MAX);
+  const shortTo = shortName(to, META_TARGET_MAX);
+  return shortName(from, META_DIRECTION_MAX - ARROW.length - shortTo.length) + ARROW + shortTo;
 }
 
 export interface ConfidenceSetting {

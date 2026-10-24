@@ -143,7 +143,7 @@ describe('the meta line', () => {
     const { container } = render(AssistantTurn, {
       props: replyProps(doneReply({ detectedLang: 'arabizi', detectedDetail: detail })),
     });
-    expect(metaText(container)[0]).toBe('Arabizi — Levantine (kifak, shu… → English');
+    expect(metaText(container)[0]).toBe('Arabizi — Levantine (kifak, shu, 3am… → English');
     await openMenu(container, 'more');
     await fireEvent.click(document.querySelector('[data-ega-about]') as HTMLElement);
     const about = await waitFor(() => {
