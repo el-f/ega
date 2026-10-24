@@ -95,18 +95,7 @@ export function loadMarkdownRenderer(): Promise<MarkdownRenderer> {
     const DOMPurify = dompurifyMod.default;
     // Model output is text, never markup: raw HTML shows as its source (a block as a code block).
     const renderer = new Renderer();
-    // A GFM table cell cannot hold a newline, so a bare <br> there is the table's own line break.
-    let inCell = false;
-    renderer.tablecell = function (t) {
-      inCell = true;
-      try {
-        return Renderer.prototype.tablecell.call(this, t);
-      } finally {
-        inCell = false;
-      }
-    };
     renderer.html = function (t) {
-      if (inCell && /^<br\s*\/?>$/i.test(t.raw)) return '<br>';
       return t.block
         ? this.code({ type: 'code', raw: t.raw, text: t.text })
         : this.text({ type: 'text', raw: t.raw, text: t.text });

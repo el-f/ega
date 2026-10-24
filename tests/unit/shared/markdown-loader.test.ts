@@ -61,17 +61,15 @@ describe('loadMarkdownRenderer', () => {
     }
   });
 
-  // A GFM table cell cannot hold a newline, so models break its lines with <br>.
-  it('a bare <br> in a table cell breaks the line; any other <br> stays text', async () => {
+  // No exception for <br>: a table cell shows it as text like everywhere else.
+  it('shows a raw <br> as text, in a table cell too', async () => {
     const render = await loadMarkdownRenderer();
     const table = dom(render('| a | b |\n| --- | --- |\n| one<br>two | x<br/>y |'));
     const cells = table.querySelectorAll('td');
-    expect(cells[0]?.querySelectorAll('br')).toHaveLength(1);
-    expect(cells[1]?.querySelectorAll('br')).toHaveLength(1);
-    expect(table.textContent).not.toContain('<br');
-    const withAttr = dom(render('| a |\n| --- |\n| one<br class="x">two |'));
-    expect(withAttr.querySelector('td br')).toBeNull();
-    expect(withAttr.querySelector('td')?.textContent).toContain('<br class="x">');
+    expect(cells).toHaveLength(2);
+    expect(table.querySelector('td br')).toBeNull();
+    expect(cells[0]?.textContent).toBe('one<br>two');
+    expect(cells[1]?.textContent).toBe('x<br/>y');
     for (const src of ['Hello<br>World', '- item one<br/>more']) {
       const out = dom(render(src));
       expect(out.querySelector('br'), src).toBeNull();
