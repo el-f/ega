@@ -41,7 +41,7 @@ import {
 } from './lib/protocol-codex.mjs';
 
 // Bumped on any protocol or behavior change; the options page compares it against
-// EXPECTED_HOST_VERSION and prompts a re-install.
+// EXPECTED_HOST_VERSION and prompts a re-install. After a bump, run `pnpm host:lock`.
 const HOST_VERSION = 5;
 
 // Chrome never passes this flag, so the hooks below cannot be turned on in an
