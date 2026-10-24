@@ -204,4 +204,14 @@ describe('the Linux OLLAMA_ORIGINS steps', () => {
     expect(text).toMatch(/Environment="OLLAMA_ORIGINS=chrome-extension:\/\//);
     expect(text).toContain('sudo systemctl daemon-reload && sudo systemctl restart ollama');
   });
+
+  it('Copy holds the width of Copied, so the origin beside it does not move (R63)', () => {
+    const { getByRole } = render(OllamaOriginSteps, {
+      props: { origin: 'chrome-extension://abc' },
+    });
+    const copy = getByRole('button', { name: 'Copy' });
+    expect(
+      [...copy.querySelectorAll('[data-label]')].map((s) => s.getAttribute('data-label')),
+    ).toEqual(['Copy', 'Copied']);
+  });
 });

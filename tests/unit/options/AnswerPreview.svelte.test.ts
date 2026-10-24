@@ -78,8 +78,13 @@ describe('answer preview', () => {
     expect(view.getByRole('button', { name: 'Try it' }).getAttribute('aria-disabled')).toBe('true');
     expect(view.getByText('Add sample text to try this task.')).toBeTruthy();
     await fireEvent.input(input, { target: { value: 'My sample' } });
-    await fireEvent.click(view.getByRole('button', { name: 'Try it' }));
-    await waitFor(() => expect(view.getByRole('button', { name: 'Stop' })).toBeTruthy());
+    const tryIt = view.getByRole('button', { name: 'Try it' });
+    // One button holds both labels' width, and Stop is the same element, so focus stays (R63).
+    expect(
+      [...tryIt.querySelectorAll('[data-label]')].map((s) => s.getAttribute('data-label')),
+    ).toEqual(['Try it', 'Stop']);
+    await fireEvent.click(tryIt);
+    await waitFor(() => expect(view.getByRole('button', { name: 'Stop' })).toBe(tryIt));
     const request = send.mock.calls[0]?.[0];
     await fireEvent.click(view.getByRole('button', { name: 'Stop' }));
     expect(send.mock.calls[1]?.[0]).toMatchObject({

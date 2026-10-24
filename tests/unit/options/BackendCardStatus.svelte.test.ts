@@ -32,6 +32,12 @@ describe('BackendCardStatus vocabulary', () => {
       props: { ...base, kind, beStatus, ...extra },
     });
     expect(word(container)).toBe(expected);
+    // The pill holds the width of every word its kind can show, so the route tag after it does not move (R63).
+    const held = [...container.querySelectorAll('.be-pill-sizer')].map((s) =>
+      s.getAttribute('data-label'),
+    );
+    expect(held).toContain(expected);
+    expect(held).toContain('Checking...');
     // One pill, no coloured dot.
     expect(container.querySelectorAll('[data-ega-backend-status]')).toHaveLength(1);
     expect(container.querySelector('.be-dot')).toBeNull();

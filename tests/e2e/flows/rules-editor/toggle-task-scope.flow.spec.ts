@@ -2,7 +2,7 @@
 import { test, expect } from '@playwright/test';
 import { launchExtension, readStorage, seedSettings, type ExtensionHandle } from '../../helpers';
 import type { Settings } from '../../../../src/shared/types';
-import { createTimeline } from '../_harness';
+import { createTimeline, expectSameWidth } from '../_harness';
 
 const SEED_ID = 'flow-toggle-scope-001';
 
@@ -49,14 +49,37 @@ test('turning the last task off turns All tasks back on, with no error toast', a
   const row = page.locator(`[data-ega-rule-row][data-rule-id="${SEED_ID}"]`);
   await expect(row).toBeVisible({ timeout: 5_000 });
 
-  await row.locator('[data-ega-rule-edit]').click();
+  const edit = row.locator('[data-ega-rule-edit]');
+  // Edit and Close keep one width, so the rule text beside it does not reflow (R63).
+  await expectSameWidth(
+    edit,
+    async () => {
+      await edit.click();
+      await expect(edit).toHaveText('Close');
+    },
+    'Edit -> Close',
+  );
   const translate = row.locator('[data-ega-rule-scope-task="translate"]');
   const all = row.locator('[data-ega-rule-scope-all]');
   await expect(translate).toHaveAttribute('aria-pressed', 'true');
   await expect(all).toHaveAttribute('aria-pressed', 'false');
   timeline.markStep('chip-visible');
 
-  await translate.click();
+  // The check keeps its slot on both chips, so a press moves neither (R63).
+  await expectSameWidth(
+    all,
+    () =>
+      expectSameWidth(
+        translate,
+        async () => {
+          await translate.click();
+          await expect(all).toHaveAttribute('aria-pressed', 'true');
+          await expect(translate).toHaveAttribute('aria-pressed', 'false');
+        },
+        'task chip turned off',
+      ),
+    'All tasks turned on',
+  );
   timeline.markStep('all-tasks-picked');
 
   await expect

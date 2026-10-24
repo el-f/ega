@@ -63,7 +63,8 @@
     border-radius: var(--radius-md);
   }
   :global(.adv-sub-tab) {
-    flex: 1 1 auto;
+    /* Equal shares, not content-sized: an "N changed" chip that appears does not resize the tabs (R63). */
+    flex: 1 1 0;
     padding: var(--space-2) var(--space-3);
     background: transparent;
     color: var(--color-fg-subtle);

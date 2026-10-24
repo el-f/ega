@@ -174,6 +174,9 @@ describe('SettingsSearch — combobox ARIA on input element', () => {
     await fireEvent.input(input, { target: { value: 'zzqqxx' } });
     expect(getByText('No setting matches "zzqqxx"')).toBeTruthy();
     const clear = getByRole('button', { name: 'Clear search' });
+    expect(
+      [...clear.querySelectorAll('[data-label]')].map((s) => s.getAttribute('data-label')),
+    ).toEqual(['Show all', 'Clear search']);
     clear.focus();
     await fireEvent.click(clear);
     await waitFor(() => expect((getByRole('combobox') as HTMLInputElement).value).toBe(''));
@@ -616,6 +619,11 @@ describe('SettingsSearch — Changed-only empty state', () => {
     const empty = container.querySelector('.ss-empty');
     expect(empty?.textContent).toContain('No changed setting matches "temperature"');
     expect(empty?.textContent).toContain('Show all');
+    // Show all and Clear search swap in one place, so each holds both widths (R63).
+    const held = [...(empty?.querySelectorAll('button [data-label]') ?? [])].map((s) =>
+      s.getAttribute('data-label'),
+    );
+    expect(held).toEqual(['Show all', 'Clear search']);
   });
 });
 

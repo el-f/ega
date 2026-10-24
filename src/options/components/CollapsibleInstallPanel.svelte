@@ -149,7 +149,12 @@
 
       <div class="install-actions">
         <!-- Secondary: the view keeps one filled primary (C-6). -->
-        <Button variant="secondary" iconKind="import" onclick={downloadInstaller}>
+        <Button
+          variant="secondary"
+          iconKind="import"
+          labels={['Download .cmd installer', 'Download .sh installer', 'Downloaded']}
+          onclick={downloadInstaller}
+        >
           {downloaded ? 'Downloaded' : `Download ${installerLabel}`}
         </Button>
         {#if recheckHint}<small class="install-hint">{recheckHint}</small>{/if}

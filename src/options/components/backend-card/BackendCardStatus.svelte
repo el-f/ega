@@ -45,26 +45,41 @@
     icon: typeof Check;
   };
 
+  const CHECKING: Pill = { word: 'Checking...', variant: 'muted', icon: LoaderCircle };
+  /** Every pill a kind can show, after Checking...; the pill keeps the widest word's width (R63). */
+  const PILLS = {
+    cloud: {
+      setup: { word: 'Needs setup', variant: 'warning', icon: AlertTriangle },
+      failed: { word: 'Test failed', variant: 'danger', icon: CircleX },
+      verified: { word: 'Verified', variant: 'success', icon: Check },
+      saved: { word: 'Key saved', variant: 'default', icon: KeyRound },
+    },
+    native: {
+      missing: { word: 'Not installed', variant: 'danger', icon: CircleX },
+      outdated: { word: 'Update needed', variant: 'warning', icon: AlertTriangle },
+      installed: { word: 'Installed', variant: 'success', icon: Check },
+    },
+    local: {
+      running: { word: 'Running', variant: 'success', icon: Check },
+      stopped: { word: 'Not running', variant: 'danger', icon: CircleX },
+    },
+  } satisfies Record<BackendKind, Record<string, Pill>>;
+
   const pill = $derived.by((): Pill => {
-    if (beStatus === 'unknown')
-      return { word: 'Checking...', variant: 'muted', icon: LoaderCircle };
+    if (beStatus === 'unknown') return CHECKING;
     if (kind === 'cloud') {
-      if (beStatus === 'needs-config')
-        return { word: 'Needs setup', variant: 'warning', icon: AlertTriangle };
-      if (testFailed) return { word: 'Test failed', variant: 'danger', icon: CircleX };
-      if (verifiedAt !== null) return { word: 'Verified', variant: 'success', icon: Check };
-      return { word: 'Key saved', variant: 'default', icon: KeyRound };
+      if (beStatus === 'needs-config') return PILLS.cloud.setup;
+      if (testFailed) return PILLS.cloud.failed;
+      if (verifiedAt !== null) return PILLS.cloud.verified;
+      return PILLS.cloud.saved;
     }
     if (kind === 'native') {
-      if (beStatus !== 'ready') return { word: 'Not installed', variant: 'danger', icon: CircleX };
-      return outdated
-        ? { word: 'Update needed', variant: 'warning', icon: AlertTriangle }
-        : { word: 'Installed', variant: 'success', icon: Check };
+      if (beStatus !== 'ready') return PILLS.native.missing;
+      return outdated ? PILLS.native.outdated : PILLS.native.installed;
     }
-    return beStatus === 'ready'
-      ? { word: 'Running', variant: 'success', icon: Check }
-      : { word: 'Not running', variant: 'danger', icon: CircleX };
+    return beStatus === 'ready' ? PILLS.local.running : PILLS.local.stopped;
   });
+  const words = $derived([CHECKING, ...Object.values<Pill>(PILLS[kind])].map((p) => p.word));
 
   function ago(at: number): string {
     const minutes = Math.round((Date.now() - at) / 60_000);
@@ -94,9 +109,16 @@
 {#if !supportsImage}<span class="be-text-only">Text only</span>{/if}
 <span class="be-pill" data-ega-backend-status={pill.word}>
   <Badge variant={pill.variant} icon={pill.icon}>
-    {pill.word}{#if pill.word === 'Verified' && verifiedAt !== null}<span class="ega-sr-only"
-        >{` ${ago(verifiedAt)}`}</span
-      >{/if}
+    <!-- One grid cell holds every word; the hidden ones draw from data-label, so they stay out of the text. -->
+    <span class="be-pill-words">
+      <span
+        >{pill.word}{#if pill.word === 'Verified' && verifiedAt !== null}<span class="ega-sr-only"
+            >{` ${ago(verifiedAt)}`}</span
+          >{/if}</span
+      >
+      {#each words as w (w)}<span class="be-pill-sizer" aria-hidden="true" data-label={w}
+        ></span>{/each}
+    </span>
   </Badge>
 </span>
 {#if routeText !== null}
@@ -118,6 +140,18 @@
   }
   .be-pill {
     display: inline-flex;
+  }
+  .be-pill-words {
+    display: inline-grid;
+  }
+  .be-pill-words > * {
+    grid-area: 1 / 1;
+  }
+  .be-pill-sizer {
+    visibility: hidden;
+  }
+  .be-pill-sizer::before {
+    content: attr(data-label);
   }
   .be-route {
     font-size: var(--fs-base);

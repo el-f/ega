@@ -11,7 +11,6 @@
   import Button from '@/shared/ui/Button.svelte';
   import OllamaOriginSteps from './backend-card/OllamaOriginSteps.svelte';
   import Disclosure from './Disclosure.svelte';
-  import InlineSpinner from './InlineSpinner.svelte';
   import {
     isOllamaCloudName,
     ollamaModelLabel,
@@ -158,12 +157,14 @@
           oninput={(e) => onModelChange((e.currentTarget as HTMLInputElement).value)}
         />
       {/if}
-      <!-- Like Test now: the shared `loading` hides the label and drops focus. -->
+      <!-- Like Test now: `busy`, not `loading`, which hides the label and drops focus. -->
       <Button
         variant="secondary"
-        ariaDisabled={ollamaDiscovering}
+        labels={['Discover models', 'Discovering...']}
+        busy={ollamaDiscovering}
+        dataAttrs={{ 'data-ega-ollama-discover': true }}
         onclick={() => void discoverOllamaModels(settings.ollamaUrl ?? DEFAULT_OLLAMA_URL)}
-        >{#if ollamaDiscovering}<InlineSpinner />Discovering...{:else}Discover models{/if}</Button
+        >{ollamaDiscovering ? 'Discovering...' : 'Discover models'}</Button
       >
     </div>
     {#if isOllamaCloudName(settings.model.ollama) || ollamaDiscovered?.some((r) => r.cloud && r.name === settings.model.ollama)}

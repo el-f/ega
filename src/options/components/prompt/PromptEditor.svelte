@@ -365,11 +365,11 @@
     font-size: var(--fs-base);
     cursor: pointer;
   }
+  /* Weight is constant across states: a bold active tab widens and moves the tab beside it (R63). */
   .pe-tab.active {
     background: var(--color-accent-bg-soft);
     box-shadow: inset 0 0 0 1px var(--color-accent);
     color: var(--color-fg);
-    font-weight: 600;
   }
   .pe-tab:focus-visible {
     outline: 2px solid var(--color-accent);
