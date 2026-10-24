@@ -1066,6 +1066,23 @@ describe('Ask instead', () => {
     expect(box(c).value).toBe('');
   });
 
+  it('paging back to the translation while the answer runs still starts Ask mode when it lands', async () => {
+    const c = await mounted();
+    const { echoed } = await slip(c);
+    await fireEvent.click(echoed.querySelector('[data-ega-ask-instead]') as HTMLElement);
+    await settle();
+    const q = starts().at(-1) as Start;
+    await chunk({ type: 'delta', requestId: q.requestId, text: 'It asks' });
+    await fireEvent.click(echoed.querySelector('[data-ega-variant-prev]') as HTMLElement);
+    await settle();
+    expect(echoed.querySelector('.ega-pager-count')?.textContent).toBe('1/2');
+    expect(banner(c)).toBeNull();
+
+    await chunk({ type: 'done', requestId: q.requestId, text: 'It asks what kifak means.' });
+    expect(banner(c)).toContain('Asking about this reply');
+    expect(target(c)).toBe(echoed);
+  });
+
   it('a later start leaves focus on another reply alone', async () => {
     const c = await mounted();
     const { first, echoed } = await slip(c);

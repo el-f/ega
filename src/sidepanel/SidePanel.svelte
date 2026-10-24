@@ -51,6 +51,7 @@
   import {
     askable,
     askTarget,
+    atVariant,
     visibleTurns,
     searchTurns,
     turnTaskValue,
@@ -511,8 +512,13 @@
   }
 
   // ── Ask mode: each send is a question about one reply, until the user is done asking ──
-  /** The answer Ask mode waits on, with the mode the wait began in: a mode picked since then wins over the answer. */
-  let askAwait = $state.raw<{ turnId: string; enter: boolean; mode: ComposerMode } | null>(null);
+  /** The answer and version Ask mode waits on, with the mode the wait began in: a mode picked since then wins, paging does not. */
+  let askAwait = $state.raw<{
+    turnId: string;
+    variantId?: string | undefined;
+    enter: boolean;
+    mode: ComposerMode;
+  } | null>(null);
   /** A later start left the typed text in the box, and the draft holds the same text. */
   let draftInBox = false;
   /** Said in the composer's live region; a new object repeats the same words. */
@@ -594,7 +600,8 @@
         earlier === undefined ? undefined : askTarget(earlier),
       )
     ) {
-      askAwait = { turnId, enter: true, mode: modeBefore };
+      const variantId = conversation.turns.find((t) => t.id === turnId)?.variants?.at(-1)?.id;
+      askAwait = { turnId, variantId, enter: true, mode: modeBefore };
     }
   }
 
@@ -639,7 +646,8 @@
   $effect(() => {
     const wait = askAwait;
     const mode = composerMode;
-    const turn = wait === null ? undefined : conversation.turns.find((t) => t.id === wait.turnId);
+    const reply = wait === null ? undefined : conversation.turns.find((t) => t.id === wait.turnId);
+    const turn = reply?.role === 'assistant' ? atVariant(reply, wait?.variantId) : reply;
     const status = turn?.status;
     const ready = askable(turn);
     if (wait === null || status === 'pending' || status === 'streaming') return;
