@@ -86,6 +86,12 @@ export const COVERAGE: readonly Family[] = [
             flows: ['tooltip/scroll-tracks.flow.spec.ts'],
           },
           {
+            id: 'field-selection-in-viewport',
+            description:
+              'A selection inside a text field (GitHub code view) anchors the tooltip and bubble to the selected lines, inside the viewport',
+            flows: ['tooltip/field-selection-in-viewport.flow.spec.ts'],
+          },
+          {
             id: 'theme-respects',
             description: 'Tooltip honors light/dark/system theme',
             flows: ['tooltip/theme-respects.flow.spec.ts'],
