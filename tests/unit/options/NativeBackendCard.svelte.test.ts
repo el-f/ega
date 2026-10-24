@@ -5,6 +5,7 @@ import type { Mock } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import NativeBackendCard from '@/options/components/NativeBackendCard.svelte';
+import { EXPECTED_HOST_VERSION } from '@/options/nativeHostInstall';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import type { Settings } from '@/shared/types';
 
@@ -207,11 +208,11 @@ describe('NativeBackendCard', () => {
 
   it('installed: the version in words, then how the next answer starts', async () => {
     const ctor = chrome.runtime.connectNative as unknown as Mock;
-    ctor.mockReturnValue(healthyPort(4));
+    ctor.mockReturnValue(healthyPort(EXPECTED_HOST_VERSION));
     const { container } = render(NativeBackendCard, baseProps());
     await settled(container, 'installed');
     expect(container.querySelector('[data-testid="nh-status-pill"]')?.textContent.trim()).toBe(
-      'Installed, version 4',
+      `Installed, version ${EXPECTED_HOST_VERSION}`,
     );
     expect(container.querySelector('.nh-line')?.textContent).toBe(
       'The first translation starts Claude Code',
