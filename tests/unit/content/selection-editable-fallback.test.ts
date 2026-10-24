@@ -198,6 +198,18 @@ describe('a textarea selection anchors to the selected text', () => {
     expect(mirror?.textContent.startsWith('line 34')).toBe(true);
   });
 
+  it('a code view mirrors only the selected lines, so a long file after them still measures', () => {
+    const stub = stubMirror(() => box(120, 140));
+    restore = stub.restore;
+    const ta = codeView(`${LINES}\n${'x'.repeat(25_000)}`);
+    const at = LINES.indexOf('line 1 ');
+    ta.setSelectionRange(at + 2, at + 6);
+    const r = selectionRectOf(around(ta));
+    expect([r.top, r.bottom]).toEqual([120, 140]);
+    expect(stub.mirrors).toHaveLength(1);
+    expect(stub.mirrors[0]?.textContent).toBe('line 1 mar7aba habibi');
+  });
+
   it('a wrapping field with line-height normal mirrors from its own top', () => {
     const stub = stubMirror(() => box(300, 320));
     restore = stub.restore;
