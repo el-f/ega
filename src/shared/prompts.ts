@@ -24,6 +24,10 @@ export const TONE_PHRASE: Record<Tone, string> = {
 const DETAIL_RULE =
   'Tag only what the words themselves show, in "detectedLang", "detectedDetail" and every "detectedLangs" entry: name a country or city only when the text has a word used only there; when the words are shared across dialects, give the broader group (e.g. "Levantine") or leave the sub-variety out. Never infer it from the topic, names or page context.';
 
+/** Translate only, in the detection slot: built in code, so an unedited stored template still matches the default. */
+const CODE_BLOCK_RULE =
+  'For code or markup, "translation" is that code as one fenced block with a language tag: translate only its human-language text (comments, strings, text between tags) and change nothing else.';
+
 export const DEFAULT_TEMPLATE = DEFAULT_PROMPT_TEMPLATE;
 
 export interface BuildCtx {
@@ -184,6 +188,9 @@ export function buildPrompt(req: TranslationRequest, ctx: BuildCtx): BuiltPrompt
   const auto = req.sourceLang === 'auto';
   const task = req.options.task ?? 'translate';
   const detectsLanguage = task === 'translate' || task === 'explain';
+  // Page blocks go back into the page as text; the options Preview builds Explain as translate + explain.
+  const codeRule =
+    task === 'translate' && !explain && req.options.batch !== true ? `${CODE_BLOCK_RULE}\n` : '';
 
   const candidatesBlock = auto ? renderCandidates(ctx.candidates) : '';
 
@@ -221,11 +228,12 @@ export function buildPrompt(req: TranslationRequest, ctx: BuildCtx): BuiltPrompt
     // Only Translate and Explain ask for detection fields, including a selected source language.
     detectiveInstr: !detectsLanguage
       ? ''
-      : auto
-        ? candidatesBlock
-          ? `Detect the language or variety of the text. If it matches one of the CANDIDATES below, put that id in "detectedLang"; if it is an ordinary language none of them describe, use "other" and name the language in "detectedDetail". Add a short sub-variety tag in "detectedDetail" when meaningful. ${DETAIL_RULE} Then translate accordingly.\n\n${candidatesBlock}`
-          : `Detect the language or variety of the text and return it in "detectedLang"; add a short descriptive sub-variety tag in "detectedDetail" when meaningful. ${DETAIL_RULE}`
-        : `Confirm the variety: put "${escapeInline(req.sourceLang)}" in "detectedLang" (${label} is the assumed default). Only if the text clearly is not ${label}, put "other" there and name the language in "detectedDetail". Add a short descriptive sub-variety tag in "detectedDetail" when meaningful (dialect, era, regional marker). ${DETAIL_RULE}`,
+      : codeRule +
+        (auto
+          ? candidatesBlock
+            ? `Detect the language or variety of the text. If it matches one of the CANDIDATES below, put that id in "detectedLang"; if it is an ordinary language none of them describe, use "other" and name the language in "detectedDetail". Add a short sub-variety tag in "detectedDetail" when meaningful. ${DETAIL_RULE} Then translate accordingly.\n\n${candidatesBlock}`
+            : `Detect the language or variety of the text and return it in "detectedLang"; add a short descriptive sub-variety tag in "detectedDetail" when meaningful. ${DETAIL_RULE}`
+          : `Confirm the variety: put "${escapeInline(req.sourceLang)}" in "detectedLang" (${label} is the assumed default). Only if the text clearly is not ${label}, put "other" there and name the language in "detectedDetail". Add a short descriptive sub-variety tag in "detectedDetail" when meaningful (dialect, era, regional marker). ${DETAIL_RULE}`),
     tone: ctx.tone ? TONE_PHRASE[ctx.tone] : '',
   };
 
