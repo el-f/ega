@@ -154,6 +154,70 @@ describe('hover-lint', () => {
     expect(v[0]?.prop).toBe('height');
   });
 
+  it('flags a weight change on every selected-type state', () => {
+    const states = [
+      `[aria-pressed='true']`,
+      '[aria-selected="true"]',
+      '[aria-expanded=true]',
+      '[aria-current]',
+      `[aria-checked='true']`,
+      '[data-state="on"]',
+      ':checked',
+      ':disabled',
+      '.active',
+      '.is-open',
+    ];
+    for (const s of states) {
+      const v = lintCss(`.a${s} { font-weight: 600; }`, 'x.css');
+      expect(
+        v.map((x) => x.prop),
+        s,
+      ).toEqual(['font-weight']);
+    }
+  });
+
+  it('flags padding, margin, border width and max-height on a selected state', () => {
+    const src = `
+<style>
+  .tab.active { padding-inline: 12px; margin-top: 2px; border-width: 2px; max-height: 9rem; }
+</style>`;
+    const v = lintSvelte(src, 'x.svelte');
+    expect(v.map((x) => x.prop)).toEqual([
+      'padding-inline',
+      'margin-top',
+      'border-width',
+      'max-height',
+    ]);
+  });
+
+  it('allows paint and an inset shadow on a selected state', () => {
+    const src = `
+<style>
+  .seg.active {
+    background: var(--color-accent-bg-soft);
+    color: var(--color-fg);
+    border-color: var(--color-accent);
+    box-shadow: inset 0 0 0 1px var(--color-accent);
+  }
+  [aria-expanded='true'] + .panel { display: block; }
+</style>`;
+    expect(lintSvelte(src, 'x.svelte')).toEqual([]);
+  });
+
+  it('does not read a longer class name as a state', () => {
+    const src = `.activeRow { font-weight: 600; } .active-tab { padding: 4px; } .this-is-x { margin: 0; }`;
+    expect(lintCss(src, 'x.css')).toEqual([]);
+  });
+
+  it('exempts a selected state whose base rule is out of flow', () => {
+    const src = `
+<style>
+  .badge { position: absolute; }
+  .badge.active { padding: 4px; }
+</style>`;
+    expect(lintSvelte(src, 'x.svelte')).toEqual([]);
+  });
+
   it('ignores CSS outside a <style> block in a Svelte file', () => {
     const src = `
 <script lang="ts">
