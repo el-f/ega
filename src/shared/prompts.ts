@@ -20,9 +20,9 @@ export const TONE_PHRASE: Record<Tone, string> = {
     'direct and blunt — drop hedges, one idea per sentence, prefer strong verbs over abstract nouns',
 };
 
-/** Models otherwise name a country from a pan-dialect phrase, or from the page's topic. */
+/** Models otherwise name a country from a pan-dialect phrase or the page's topic, put the cue words in the tag, and leave the target-language part of mixed text unnamed. */
 const DETAIL_RULE =
-  'Tag only what the words themselves show, in "detectedLang", "detectedDetail" and every "detectedLangs" entry: name a country or city only when the text has a word used only there; when the words are shared across dialects, give the broader group (e.g. "Levantine") or leave the sub-variety out. Never infer it from the topic, names or page context.';
+  'Tag only what the words themselves show, in "detectedLang", "detectedDetail" and every "detectedLangs" entry: name a country or city only when the text has a word used only there; when the words are shared across dialects, give the broader group (e.g. "Levantine") or leave the sub-variety out. Never infer it from the topic, names or page context. Each tag is at most 3 words, never the words that show it. For mixed text, list each language in "detectedLangs", the target language too.';
 
 /** Translate only, in the detection slot: built in code, so an unedited stored template still matches the default. */
 const CODE_BLOCK_RULE =

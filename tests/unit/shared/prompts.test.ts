@@ -154,6 +154,39 @@ describe('buildPrompt', () => {
     }
   });
 
+  // A model tagged mixed Arabizi + English as "Levantine (kifak, shu, 3am, ktir, 3njad)" alone.
+  it('every detection branch asks for a short tag and names each language of mixed text', () => {
+    const arabizi = getPreset('arabizi');
+    if (!arabizi) throw new Error('expected arabizi preset');
+    const detecting = [
+      buildPrompt(baseReq(), { preset: arabizi, template: DEFAULT_TEMPLATE }),
+      buildPrompt(baseReq({ sourceLang: 'auto' }), {
+        preset: undefined,
+        template: DEFAULT_TEMPLATE,
+        candidates: [arabizi],
+      }),
+      buildPrompt(baseReq({ sourceLang: 'auto' }), {
+        preset: undefined,
+        template: DEFAULT_TEMPLATE,
+      }),
+      buildPrompt(baseReq({ options: { stream: true, explain: true, task: 'explain' } }), {
+        preset: arabizi,
+        template: DEFAULT_TEMPLATE,
+      }),
+    ];
+    for (const p of detecting) {
+      expect(p.system).toContain('Each tag is at most 3 words, never the words that show it.');
+      expect(p.system).toContain(
+        'For mixed text, list each language in "detectedLangs", the target language too.',
+      );
+    }
+    const summary = buildPrompt(
+      baseReq({ options: { stream: true, explain: false, task: 'summarize' } }),
+      { preset: undefined, template: buildTaskTemplate('summarize') },
+    );
+    expect(summary.system).not.toMatch(/at most 3 words|For mixed text/);
+  });
+
   describe('code and markup come back as one fenced block', () => {
     const CODE_RULE =
       /code or markup, "translation" is that code as one fenced block with a language tag/;
