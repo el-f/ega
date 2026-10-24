@@ -4,8 +4,12 @@
     "bytes": 57310
   },
   {
+    "name": "answer-presentation",
+    "bytes": 1027
+  },
+  {
     "name": "AnswerNotes",
-    "bytes": 21646
+    "bytes": 21650
   },
   {
     "name": "batch-progress",
@@ -13,15 +17,15 @@
   },
   {
     "name": "bubble",
-    "bytes": 5272
+    "bytes": 5284
   },
   {
     "name": "bubble-menu",
-    "bytes": 7175
+    "bytes": 7272
   },
   {
     "name": "cancel-token",
-    "bytes": 27995
+    "bytes": 28416
   },
   {
     "name": "Checkbox",
@@ -69,11 +73,11 @@
   },
   {
     "name": "index.html",
-    "bytes": 472658
+    "bytes": 472622
   },
   {
     "name": "index.ts",
-    "bytes": 45667
+    "bytes": 45665
   },
   {
     "name": "index.ts-loader",
@@ -81,7 +85,7 @@
   },
   {
     "name": "inlineReplace",
-    "bytes": 4575
+    "bytes": 4647
   },
   {
     "name": "invariants",
@@ -93,7 +97,7 @@
   },
   {
     "name": "language-prompt",
-    "bytes": 1138
+    "bytes": 471
   },
   {
     "name": "languages",
@@ -101,11 +105,11 @@
   },
   {
     "name": "Markdown",
-    "bytes": 4364
+    "bytes": 4747
   },
   {
     "name": "menu-focus",
-    "bytes": 4245
+    "bytes": 4706
   },
   {
     "name": "open-options-tab",
@@ -209,7 +213,7 @@
   },
   {
     "name": "src-content-index.ts",
-    "bytes": 35563
+    "bytes": 37911
   },
   {
     "name": "stuck-timeout",
@@ -225,7 +229,7 @@
   },
   {
     "name": "Tasks",
-    "bytes": 50021
+    "bytes": 50030
   },
   {
     "name": "TaskUsageRow",
@@ -245,7 +249,7 @@
   },
   {
     "name": "tipState.svelte",
-    "bytes": 56473
+    "bytes": 56797
   },
   {
     "name": "toast",
@@ -265,7 +269,7 @@
   },
   {
     "name": "translate-handlers",
-    "bytes": 6154
+    "bytes": 6196
   },
   {
     "name": "translate-ui",

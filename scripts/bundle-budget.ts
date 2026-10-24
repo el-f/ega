@@ -262,7 +262,8 @@ function measureDist(distDir: string): BundleEntry[] {
 // The bubble menu's Run task wiring adds 555B; the task list itself loads when the menu opens.
 // Clamping the bubble's top edge inside the viewport adds 12B.
 // The textarea selection mirror adds 2,312B: the bubble measures a field selection right before it shows.
-const EAGER_CONTENT_BUDGET_BYTES = 158_840;
+// Inline replace and the tooltip share the code-answer helper, so its chunk joins two preload lists: 78B.
+const EAGER_CONTENT_BUDGET_BYTES = 158_918;
 
 /** The popup opens on every toolbar click, so its preload set is the one extension-page cost a user feels. Ratchet, like the one above. */
 // The Default task select adds 4,858B: Select and the merged task list.
