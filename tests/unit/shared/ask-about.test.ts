@@ -68,16 +68,16 @@ describe('askTargetOf, a stored reference', () => {
 
 describe('askQuote', () => {
   it('is the first non-empty line of the result', () => {
-    expect(askQuote({ result: '\n  Hi there\nsecond' })).toBe('Hi there');
-    expect(askQuote({ result: 'x'.repeat(500) })).toHaveLength(200);
+    expect(askQuote('\n  Hi there\nsecond')).toBe('Hi there');
+    expect(askQuote('x'.repeat(500))).toHaveLength(200);
   });
 
   it('is plain text: Markdown marks, fences and link targets are gone', () => {
-    expect(askQuote({ result: '## **Hi** there' })).toBe('Hi there');
-    expect(askQuote({ result: '- `kifak` means [how are you](https://x.test)' })).toBe(
+    expect(askQuote('## **Hi** there')).toBe('Hi there');
+    expect(askQuote('- `kifak` means [how are you](https://x.test)')).toBe(
       'kifak means how are you',
     );
-    expect(askQuote({ result: '```\n> snake_case stays\n```' })).toBe('snake_case stays');
+    expect(askQuote('```\n> snake_case stays\n```')).toBe('snake_case stays');
   });
 });
 

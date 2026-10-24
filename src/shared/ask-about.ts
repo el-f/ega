@@ -86,10 +86,10 @@ function plainLine(line: string): string {
     .trim();
 }
 
-/** The quote a question shows: the result's first line of text, Markdown removed. */
-export function askQuote(a: Pick<AskAbout, 'result'>): string {
+/** The quote a question shows: a reply's first line of text, Markdown removed. */
+export function askQuote(result: string): string {
   const first =
-    a.result
+    result
       .split('\n')
       .filter((l) => !/^\s*(?:```|~~~)/.test(l))
       .map(plainLine)

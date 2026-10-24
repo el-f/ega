@@ -525,7 +525,7 @@
 
   function askLineFor(turnId: string): string {
     const reply = conversation.turns.find((t) => t.id === turnId);
-    const start = Array.from(askQuote({ result: reply?.content ?? '' }))
+    const start = Array.from(askQuote(reply?.content ?? ''))
       .slice(0, 60)
       .join('');
     return `Asking about the reply: ${start}`;

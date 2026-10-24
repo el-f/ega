@@ -144,9 +144,7 @@ export function linkedQuote(
 ): { turnId: string; text: string } | undefined {
   const target = holder.role === 'user' ? holder.about : undefined;
   const reply = target === undefined ? undefined : askedReply(thread, target);
-  return reply === undefined
-    ? undefined
-    : { turnId: reply.id, text: askQuote({ result: reply.content }) };
+  return reply === undefined ? undefined : { turnId: reply.id, text: askQuote(reply.content) };
 }
 
 /** The task each user message names above its bubble, only where the task changes (or a first message that is not Translate). */

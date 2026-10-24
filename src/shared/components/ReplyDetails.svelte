@@ -316,7 +316,7 @@
           {#if typeof askedAbout === 'string'}
             <dd>{ASKED_ABOUT_TEXT[askedAbout]}</dd>
           {:else}
-            <dd class="rd-quote rd-rule" dir="auto">{askQuote(askedAbout)}</dd>
+            <dd class="rd-quote rd-rule" dir="auto">{askQuote(askedAbout.result)}</dd>
           {/if}
         </div>
       {/if}
