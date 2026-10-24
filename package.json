@@ -18,7 +18,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "lint": "eslint --max-warnings 0 .",
+    "lint": "eslint --cache-location node_modules/.cache/eslint-full --max-warnings 0 .",
     "lint:deadcode": "knip",
     "lint:tokens": "tsx scripts/token-lint.ts",
     "lint:shadow-css": "tsx scripts/shadow-css-lint.ts",
