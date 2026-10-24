@@ -635,7 +635,11 @@
     const gone = !turns.some((t) => t.id === mode.turnId);
     // A question this composer is sending is not known yet; sendTurn records it before `sending` drops.
     const landed = !sending && newestUser !== undefined && !askKnownUsers.has(newestUser.id);
-    if (gone || landed) leaveAsk();
+    if (!gone && !landed) return;
+    // Done asking goes with its banner, so focus on it moves to the field, as its own press does.
+    const onBanner = document.activeElement?.closest('[data-ega-mode-banner]') != null;
+    leaveAsk();
+    if (onBanner) focusComposer();
   });
 
   // An answer Ask mode waits on ends: done with text moves the mode to it, anything else leaves it where it was.

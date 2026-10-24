@@ -1613,6 +1613,81 @@ describe("the store's size cap", () => {
   }, 20_000);
 });
 
+// R11: focus never drops to body. Done asking goes with its banner, so focus on it moves to the field, as its own press does.
+describe('Ask mode ended from elsewhere while focus is on Done asking', () => {
+  const doneAsking = (c: HTMLElement): HTMLElement =>
+    c.querySelector<HTMLElement>('[aria-label="Done asking"]') as HTMLElement;
+  function focusDoneAsking(c: HTMLElement): void {
+    doneAsking(c).focus();
+    expect(document.activeElement).toBe(doneAsking(c));
+  }
+
+  it('another window deleting the reply moves focus to the field', async () => {
+    await saveThread('https://a.test', [
+      { id: 'u0', role: 'user', kind: 'translate', status: 'idle', createdAt: 1, content: 'hola' },
+      {
+        id: 'a0',
+        role: 'assistant',
+        kind: 'translate',
+        status: 'done',
+        createdAt: 2,
+        content: 'Hello.',
+        attachedToTurnId: 'u0',
+      },
+    ]);
+    const c = await mounted();
+    await fireEvent.click(askOn(replies(c)[0]));
+    await settle();
+    focusDoneAsking(c);
+    await saveThread('https://a.test', [], {
+      knownIds: new Set(['u0', 'a0']),
+      deletedAt: new Map([
+        ['u0', Date.now()],
+        ['a0', Date.now()],
+      ]),
+      writer: 'another-window',
+    });
+    await settle();
+    expect(banner(c)).toBeNull();
+    expect(document.activeElement).toBe(box(c));
+  });
+
+  it('the size cap trimming the reply while its answer streams moves focus to the field', async () => {
+    await nearTheByteCap('https://a.test');
+    const c = await mounted();
+    await fireEvent.click(askOn(replies(c)[0]));
+    await settle();
+    const q = await send(c, 'why?');
+    await chunk({ type: 'delta', requestId: q.requestId, text: 'Bec' });
+    expect(banner(c)).toContain('Asking about this reply');
+    focusDoneAsking(c);
+    await waitFor(() => expect(c.querySelector('[data-turn-id="a0"]')).toBeNull(), {
+      timeout: 3000,
+    });
+    await settle();
+    expect(banner(c)).toBeNull();
+    expect(document.activeElement).toBe(box(c));
+  });
+
+  it('an Ask exchange landing from elsewhere moves focus to the field', async () => {
+    const c = await mounted();
+    await fireEvent.click(askOn(await firstExchange(c)));
+    await settle();
+    focusDoneAsking(c);
+    await writePendingPopupHandoff({
+      sourceText: 'what is this page about?',
+      sourceLang: 'auto',
+      targetLang: 'en',
+      task: 'ask',
+      tone: 'neutral',
+      response: 'delivered answer',
+    });
+    await waitFor(() => expect(banner(c)).toBeNull());
+    await settle();
+    expect(document.activeElement).toBe(box(c));
+  });
+});
+
 describe('the shortcut sheet', () => {
   const sheetTerms = (): string[] =>
     Array.from(document.querySelectorAll('.shortcut-row dt')).map((d) => d.textContent);
