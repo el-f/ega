@@ -538,6 +538,82 @@ describe('asking', () => {
     await settle();
     expect(c.querySelector('[data-ega-ask-quote]')?.textContent).toContain('Hi, how are you?');
   });
+
+  describe('an edited question', () => {
+    /** A reply, a question about it with its answer "Because.". */
+    async function asked(c: HTMLElement): Promise<void> {
+      await fireEvent.click(askOn(await firstExchange(c)));
+      await settle();
+      const q = await send(c, 'why?');
+      await chunk({ type: 'done', requestId: q.requestId, text: 'Because.' });
+    }
+    /** The pencil on the question, then the new text sent; returns its request. */
+    async function editQuestion(c: HTMLElement): Promise<Start> {
+      const pencils = c.querySelectorAll<HTMLElement>('.ega-user-turn [data-ega-edit]');
+      await fireEvent.click(pencils[pencils.length - 1] as HTMLElement);
+      await settle();
+      expect(box(c).value).toBe('why?');
+      return send(c, 'why so casual?');
+    }
+    const question = (c: HTMLElement): HTMLElement | undefined =>
+      [...c.querySelectorAll<HTMLElement>('[data-ega-user-turn]')].at(-1);
+    async function askedRow(c: HTMLElement): Promise<string> {
+      const answer = replies(c).at(-1) as HTMLElement;
+      await openMenu(answer, 'more');
+      await fireEvent.click(document.querySelector('[data-ega-about]') as HTMLElement);
+      return waitFor(() => {
+        const row = answer.querySelector('[data-ega-asked-about] dd');
+        if (!row) throw new Error('About not open');
+        return row.textContent;
+      });
+    }
+
+    it('stays about its reply: the re-send carries the reply, and the bubble keeps the quote', async () => {
+      const c = await mounted();
+      await asked(c);
+      const edited = await editQuestion(c);
+      expect(edited.text).toBe('why so casual?');
+      expect(edited.options['task']).toBe('ask');
+      expect(edited.options.askAbout?.['result']).toBe('Hi, how are you?');
+      expect(question(c)?.textContent).toContain('why so casual?');
+      expect(question(c)?.querySelector('[data-ega-ask-quote]')?.textContent).toContain(
+        'Hi, how are you?',
+      );
+    });
+
+    it('whose reply was deleted sends nothing of it, and About says so, also after Undo', async () => {
+      const push = vi.spyOn(toastStore, 'push');
+      const c = await mounted();
+      await asked(c);
+      await openMenu(c, 'more');
+      await fireEvent.click(
+        document.querySelector('[role="menu"] [data-ega-delete]') as HTMLElement,
+      );
+      await settle();
+      const edited = await editQuestion(c);
+      expect(edited.options['task']).toBe('ask');
+      expect(edited.options.askAbout).toBeUndefined();
+      expect(JSON.stringify(edited.options)).not.toContain('Hi, how are you?');
+      await chunk({ type: 'done', requestId: edited.requestId, text: 'Because, casually.' });
+      const unsent =
+        'Not sent. The reply was no longer in this conversation when this version ran.';
+      expect(await askedRow(c)).toBe(unsent);
+
+      push.mock.calls
+        .find(([m]) => m.message === 'Message and reply deleted')?.[0]
+        .action?.onClick();
+      await settle();
+      expect(question(c)?.querySelector('[data-ega-ask-quote]')?.textContent).toContain(
+        'Hi, how are you?',
+      );
+      // About is still open, and with the reply back it still says nothing of it was sent.
+      await waitFor(() =>
+        expect(replies(c).at(-1)?.querySelector('[data-ega-asked-about] dd')?.textContent).toBe(
+          unsent,
+        ),
+      );
+    });
+  });
 });
 
 describe('leaving Ask mode', () => {
