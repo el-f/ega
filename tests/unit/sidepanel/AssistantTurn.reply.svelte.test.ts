@@ -51,6 +51,25 @@ describe('the answer', () => {
     expect(metaText(container).some((t) => t.includes('confiden'))).toBe(false);
   });
 
+  it('shows raw HTML in a prose answer and its notes as text', async () => {
+    const turn = doneReply({
+      content: '<h1>Title</h1>',
+      notes: [{ key: 'n', label: 'Note', text: '<h2>n</h2>' }],
+    });
+    const { container } = render(AssistantTurn, {
+      props: replyProps(turn, { sentText: 'mar7aba habibi' }),
+    });
+    const reply = container.querySelector('[data-ega-reply]') as HTMLElement;
+    // The fallback <pre> shows the text raw, so wait for both Markdown passes to land.
+    await waitFor(() => {
+      expect(reply.querySelectorAll('.ega-md')).toHaveLength(2);
+      expect(reply.querySelector('.ega-md-fallback')).toBeNull();
+    });
+    expect(reply.querySelector('h1, h2')).toBeNull();
+    expect(reply.textContent).toContain('<h1>Title</h1>');
+    expect(reply.textContent).toContain('<h2>n</h2>');
+  });
+
   it('notes sit under the answer with a sentence-case label', () => {
     const turn = doneReply({ kind: 'explain', explain: 'Levantine slang.' });
     const { container } = render(AssistantTurn, { props: replyProps(turn) });

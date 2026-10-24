@@ -88,9 +88,34 @@ function harden(root: Element): void {
 export function loadMarkdownRenderer(): Promise<MarkdownRenderer> {
   if (markdownLoaderInternal.cached) return markdownLoaderInternal.cached;
   const p = (async (): Promise<MarkdownRenderer> => {
-    const [{ marked }, dompurifyMod] = await Promise.all([import('marked'), import('dompurify')]);
+    const [{ marked, Renderer }, dompurifyMod] = await Promise.all([
+      import('marked'),
+      import('dompurify'),
+    ]);
     const DOMPurify = dompurifyMod.default;
-    marked.setOptions({ breaks: true, gfm: true });
+    // Model output is text, never markup: raw HTML shows as its source (a block as a code block).
+    const renderer = new Renderer();
+    // A GFM table cell cannot hold a newline, so a bare <br> there is the table's own line break.
+    let inCell = false;
+    renderer.tablecell = function (t) {
+      inCell = true;
+      try {
+        return Renderer.prototype.tablecell.call(this, t);
+      } finally {
+        inCell = false;
+      }
+    };
+    renderer.html = function (t) {
+      if (inCell && /^<br\s*\/?>$/i.test(t.raw)) return '<br>';
+      return t.block
+        ? this.code({ type: 'code', raw: t.raw, text: t.text })
+        : this.text({ type: 'text', raw: t.raw, text: t.text });
+    };
+    // marked passes the text after an inline <pre> or <script> through unescaped.
+    renderer.text = function (t) {
+      return Renderer.prototype.text.call(this, t.type === 'text' ? { ...t, escaped: false } : t);
+    };
+    marked.setOptions({ breaks: true, gfm: true, renderer });
     return (raw: string): string => {
       const html = marked.parse(raw, { async: false }) as string;
       // Harden inside DOMPurify's inert document: an <img> adopted into the live one fetches before harden can drop it.
