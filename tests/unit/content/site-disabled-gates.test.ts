@@ -6,6 +6,7 @@ import { STORAGE_KEYS } from '@/shared/constants';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import { ensureSettings, resetSettingsCacheForTest } from '@/content/settings-cache';
 import { flushAsync } from '@tests/_helpers/async';
+import * as accum from '@/content/accumulator';
 // Static so the lazy tooltip import resolves off the warm module graph, not mid-teardown.
 import '@/content/tipState.svelte';
 
@@ -222,5 +223,63 @@ describe('settings not loaded yet — the pull handlers fail closed', () => {
     expect(await ask({ kind: 'ega:get-page-context', level: 'minimal' })).toEqual({
       context: null,
     });
+  });
+});
+
+// The queue outlives a site toggle: a selection queued while the site was on can be sent after it is turned off.
+describe('a queued send from a textarea', () => {
+  async function sendQueued(sitePrefs: Record<string, unknown>, queued = true): Promise<Mock> {
+    await seed(sitePrefs);
+    resetSettingsCacheForTest();
+    (chromeMock.runtime.sendMessage as Mock).mockImplementation(workerReply);
+    showToastMock.mockClear();
+    if (queued) accum.add({ text: 'queued words', rect: RECT });
+    const ta = document.createElement('textarea');
+    ta.value = 'first line\nsecond line\nthird line';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.setSelectionRange(11, 22);
+    // The mirror that measures the field text is the only node this path appends under <html>.
+    const append = vi.spyOn(document.documentElement, 'append');
+    await ensureSettings();
+    chromeMock.runtime.onMessage.emit(
+      { kind: 'hotkey:translate' },
+      { id: chromeMock.runtime.id },
+      () => {},
+    );
+    return append as unknown as Mock;
+  }
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    accum.clear();
+  });
+
+  it('measures the field text where the site is on', async () => {
+    const append = await sendQueued({});
+    await vi.waitFor(() => expect(sentKinds()).toContain('translate:start'));
+    expect(append).toHaveBeenCalledTimes(1);
+  });
+
+  it('lays out no copy of the field text once the site is off, and says why', async () => {
+    const append = await sendQueued({ 'http://localhost:3000': { disabled: true } });
+    await vi.waitFor(() => expect(showToastMock).toHaveBeenCalledWith(SITE_OFF, expect.anything()));
+    expect(append).not.toHaveBeenCalled();
+    expect(sentKinds()).not.toContain('translate:start');
+    expect(accum.size()).toBe(0);
+  });
+
+  // With nothing queued, the field is measured in startTranslateText: only line order keeps it after the gate.
+  it('without a queue, measures the field text where the site is on', async () => {
+    const append = await sendQueued({}, false);
+    await vi.waitFor(() => expect(sentKinds()).toContain('translate:start'));
+    expect(append).toHaveBeenCalledTimes(1);
+  });
+
+  it('without a queue, lays out no copy of the field text once the site is off', async () => {
+    const append = await sendQueued({ 'http://localhost:3000': { disabled: true } }, false);
+    await vi.waitFor(() => expect(showToastMock).toHaveBeenCalledWith(SITE_OFF, expect.anything()));
+    expect(append).not.toHaveBeenCalled();
+    expect(sentKinds()).not.toContain('translate:start');
   });
 });

@@ -19,8 +19,8 @@ interface OpenOpts {
   requestId: string;
   srcText: string;
   rect: DOMRect;
-  /** Live anchor for repositioning; callers without one fall back to mount-time `rect`. */
-  range?: Range;
+  /** Live anchor for repositioning, measured once per request; callers without one fall back to mount-time `rect`. */
+  anchor?: () => DOMRect;
   confidencePill?: boolean;
   /** Hide pill when `confidence < threshold`. */
   confidencePillThreshold?: number;
@@ -319,14 +319,14 @@ function installRepositioning(
   state: TipState,
   requestId: string,
   rect: DOMRect,
-  range: Range | undefined,
+  track: (() => DOMRect) | undefined,
 ): void {
   queueMicrotask(() => {
     const rootEl = anchor.querySelector<HTMLElement>('.tooltip');
     if (!rootEl) return;
     // getBoundingClientRect is viewport-relative, so scroll must re-read it, not just resize.
     const getAnchorRect = (): DOMRect => {
-      const live = range?.getBoundingClientRect();
+      const live = track?.();
       return live && live.width + live.height > 0 ? live : rect;
     };
     const repos = (): void => repositionIfOverflow(state, rootEl, getAnchorRect());
@@ -400,7 +400,7 @@ export function openTooltip(o: OpenOpts): void {
       finished: false,
     },
   };
-  installRepositioning(anchor, state, o.requestId, o.rect, o.range);
+  installRepositioning(anchor, state, o.requestId, o.rect, o.anchor);
 }
 
 export function appendDelta(requestId: string, delta: string, replace?: true): void {

@@ -159,4 +159,43 @@ describe('Translate anyway from the popup', () => {
       expect(req?.range).toBeDefined();
     });
   });
+
+  it('a kept textarea selection anchors on the selected text, not the whole field', async () => {
+    const { pending } = await import('@/content/request-state');
+    document.body.innerHTML = '';
+    const ta = document.createElement('textarea');
+    ta.value = `intro line\n${ENGLISH}\nlast line`;
+    ta.getBoundingClientRect = () => new DOMRect(0, 100, 800, 700);
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.setSelectionRange(11, 11 + ENGLISH.length);
+    document.dispatchEvent(new Event('selectionchange'));
+    await vi.waitFor(async () => expect((await ask()).heldBack).toEqual({ reason: 'english' }), {
+      timeout: 5000,
+    });
+    // Opening the popup takes focus from the page; the textarea keeps its selection offsets.
+    ta.blur();
+    // In Chromium the kept range, which wraps the field, reports the field's box.
+    vi.spyOn(Range.prototype, 'getBoundingClientRect').mockReturnValue(
+      new DOMRect(0, 100, 800, 700),
+    );
+    vi.spyOn(HTMLSpanElement.prototype, 'getBoundingClientRect').mockReturnValue(
+      new DOMRect(30, 500, 200, 20),
+    );
+    chromeMock.runtime.onMessage.emit(
+      { kind: 'ctx:translate-selection', text: ENGLISH },
+      { id: chromeMock.runtime.id },
+      () => {},
+    );
+    await vi.waitFor(() => {
+      const req = [...pending.values()].filter((r) => r.text === ENGLISH).at(-1);
+      expect(req?.range).toBeDefined();
+    });
+    // The card measures the kept text when it opens: 8px under the text's 500..520 box, not under the field.
+    const { peekContainer } = await import('@/content/shadowHost');
+    await vi.waitFor(() => {
+      const tip = peekContainer()?.querySelector<HTMLElement>('.tooltip');
+      expect(tip?.style.top).toBe('528px');
+    });
+  });
 });

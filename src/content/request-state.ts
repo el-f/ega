@@ -16,6 +16,8 @@ export interface PendingReq {
   /** What was asked for before detection resolved `auto`; the per-site memo stores this, never the detected variety. */
   requestedDirection?: { source: LangSelection; target: LangSelection };
   range?: Range;
+  /** The tooltip's live anchor: measured once, after the gates, and kept by every reopen of this request. */
+  anchor?: () => DOMRect;
   context?: NonNullable<Extract<Msg, { kind: 'translate:start' }>['context']>;
   task?: TaskId;
   tone?: Tone;
