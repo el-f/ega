@@ -206,9 +206,9 @@ export function readAnswer(
       issues.push('Used the only unclaimed text field as the answer.');
     }
   }
-  // Models sometimes double-encode their JSON in the main string. Unwrap once, never recursively.
+  // Models sometimes double-encode their JSON in the main string. Unwrap once; a fenced main is code, never an envelope.
   const encoded = mainKey === undefined ? undefined : object[mainKey];
-  if (typeof encoded === 'string') {
+  if (typeof encoded === 'string' && !/^\s*```/.test(encoded)) {
     const nested = envelope(encoded, spec)?.value;
     if (
       nested &&
