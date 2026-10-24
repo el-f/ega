@@ -326,6 +326,11 @@ describe('the reply a question was about, as stored', () => {
     expect(turns[1]?.about).toEqual(ref);
     expect(turns[2]?.variants?.[1]?.about).toEqual({ turnId: 'a0' });
     expect(JSON.stringify(turns)).not.toContain('hello');
+
+    await put(blob({ turns: [goodTurn(), asked(copy)] }));
+    const old = (await loadThreadResult('https://a.com')).turns;
+    expect(old[1]?.about).toEqual({ turnId: 'a0' });
+    expect(JSON.stringify(old)).not.toContain('hello');
   });
 
   it('a malformed one is dropped, and the turn stays in the thread', async () => {
