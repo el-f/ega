@@ -634,12 +634,16 @@
   $effect(() => {
     const mode = composerMode;
     const turns = conversation.turns;
+    const wait = askAwait;
     const newestUser = turns.filter((t) => t.role === 'user').at(-1);
     if (mode.kind !== 'ask') return;
     const gone = !turns.some((t) => t.id === mode.turnId);
+    // A trim of the reply while its question is sent or answered is no leaving: the mode moves on to the answer.
+    const trimmedWhileAsking =
+      conversation.trimmed(mode.turnId) && (sending || wait?.mode === mode);
     // A question this composer is sending is not known yet; sendTurn records it before `sending` drops.
     const landed = !sending && newestUser !== undefined && !askKnownUsers.has(newestUser.id);
-    if (gone || landed) leaveAsk();
+    if ((gone && !trimmedWhileAsking) || landed) leaveAsk();
   });
 
   // An answer Ask mode waits on ends: done with text moves the mode to it, anything else leaves it where it was.

@@ -5,7 +5,7 @@ import type { Mock } from 'vitest';
 import { render, fireEvent, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import SidePanel from '@/sidepanel/SidePanel.svelte';
-import { saveThread } from '@/sidepanel/state/conversation-store';
+import { MAX_TURNS_PER_THREAD, saveThread } from '@/sidepanel/state/conversation-store';
 import type { Turn } from '@/sidepanel/state/conversation';
 import { toastStore } from '@/shared/components/toastStore';
 import { writePendingPopupHandoff } from '@/shared/pending-popup-handoff';
@@ -13,6 +13,7 @@ import type { Msg } from '@/shared/messages';
 import type { TranslationChunk } from '@/shared/types';
 import { confirmDialog } from '@/shared/components/confirmDialog';
 import { openMenu } from './_reply';
+import { nearTheByteCap } from './_near-cap';
 import { pickHeaderMenuItem } from './_header-menu';
 import { IMAGE_TURN_PLACEHOLDER } from '@/shared/constants';
 import { updateSettings } from '@/shared/storage';
@@ -1488,6 +1489,67 @@ describe('Ask mode while an answer runs, under a filter, across conversations an
     expect(box(again).value).toBe('my draft');
     expect(banner(again)).toBeNull();
   });
+});
+
+describe("the store's size cap", () => {
+  it('a question whose save trims the reply it asks about keeps Ask mode, which then moves to the answer', async () => {
+    await nearTheByteCap('https://a.test');
+    const c = await mounted();
+    await type(c, 'my draft');
+    await fireEvent.click(askOn(replies(c)[0]));
+    await settle();
+    const q = await send(c, 'why?');
+    expect(q.options['task']).toBe('ask');
+    await waitFor(() => expect(c.querySelector('[data-turn-id="a0"]')).toBeNull(), {
+      timeout: 3000,
+    });
+    expect(banner(c)).toContain('Asking about this reply');
+    expect(box(c).value).toBe('');
+
+    await chunk({ type: 'done', requestId: q.requestId, text: 'Because.' });
+    expect(banner(c)).toContain('Asking about this reply');
+    expect(target(c)).toBe(replies(c).at(-1));
+    await waitFor(() => expect(said(c)).toBe('Now asking about the new answer'));
+    expect(box(c).value).toBe('');
+  });
+
+  // 300 stored messages make the mount slow, so this one gets more time.
+  it('a question at 300 messages that trims the reply it asks about keeps Ask mode too', async () => {
+    const exchanges = Array.from({ length: MAX_TURNS_PER_THREAD / 2 }, (_, i) => [
+      { id: `u${i}`, role: 'user', kind: 'translate', status: 'idle', createdAt: 2 * i + 1 },
+      {
+        id: `a${i}`,
+        role: 'assistant',
+        kind: 'translate',
+        status: 'done',
+        createdAt: 2 * i + 2,
+        content: `reply ${i}`,
+        attachedToTurnId: `u${i}`,
+      },
+    ]);
+    await saveThread(
+      'https://a.test',
+      exchanges.flat().map((t) => ({ content: `text ${t.id}`, ...t })) as Turn[],
+    );
+    const c = await mounted();
+    // A search brings the oldest reply on screen without drawing all 300 messages.
+    await fireEvent.click(c.querySelector('[data-ega-search-toggle]') as HTMLElement);
+    await settle();
+    await fireEvent.input(c.querySelector('[data-ega-search]') as HTMLInputElement, {
+      target: { value: 'reply 0' },
+    });
+    await settle();
+    await fireEvent.click(askOn(c.querySelector<HTMLElement>('[data-turn-id="a0"]') ?? undefined));
+    await settle();
+    const q = await send(c, 'and the first one?');
+    expect(q.options.askAbout?.['result']).toBe('reply 0');
+    expect(c.querySelector('[data-turn-id="a0"]')).toBeNull();
+    expect(banner(c)).toContain('Asking about this reply');
+
+    await chunk({ type: 'done', requestId: q.requestId, text: 'Because.' });
+    expect(target(c)).toBe(replies(c).at(-1));
+    await waitFor(() => expect(said(c)).toBe('Now asking about the new answer'));
+  }, 20_000);
 });
 
 describe('the shortcut sheet', () => {
