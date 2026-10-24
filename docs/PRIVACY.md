@@ -168,8 +168,9 @@ send at all and carries nothing.
 
 "Ask about this" on a reply, in the side panel or in the page tooltip, sends your question with
 that reply's details: its task, its languages and detected dialect, the text you sent for it, its
-answer and its notes (`src/shared/ask-about.ts`). Each is cut to a fixed size and fenced as
-untrusted data (`src/shared/prompts.ts#renderAskAboutBlock`). The usual history goes too.
+answer and its notes (`src/shared/ask-about.ts`). Each is cut to a fixed size. The task name is
+escaped to one line, and the rest is fenced as untrusted data
+(`src/shared/prompts.ts#renderAskAboutBlock`). The usual history goes too.
 
 - Your question saves only which reply it asks about, never a copy of that reply. Each request
   reads the details from the reply as it is in the conversation at that moment.
@@ -178,7 +179,8 @@ untrusted data (`src/shared/prompts.ts#renderAskAboutBlock`). The usual history 
 - "Answer again as" a task other than Ask sends your question's text alone.
 - "Ask instead" on a reply's meta line, and More → "Answer again as" → "Ask instead", ask that
   reply's text about the newest earlier reply that has an answer. They send that earlier reply's
-  details and the history.
+  details and the history. On an answer to a question, they ask about the reply that question
+  asks about instead, and send nothing of a reply when that reply is gone.
 - "Notes" are the reply's notes, or its explanation when it has no notes.
 - Deleting a reply removes it from every later request at once
   (`src/sidepanel/state/thread-view.ts#askAboutFor`). A new version of a question about it sends
@@ -223,8 +225,8 @@ Three things this does **not** cover, all on purpose:
   selected text goes out again, unmasked, with every later send from that site's panel. "New
   conversation" is the way to drop it.
 - **A question about a reply sends that reply again, unmasked.** Each request reads the reply's
-  original text, result and notes from the conversation (`src/shared/ask-about.ts`). Delete the
-  reply to stop that.
+  original text, result and notes from the conversation
+  (`src/sidepanel/state/thread-view.ts#askAboutFor`). Delete the reply to stop that.
 
 ## Where it goes
 
