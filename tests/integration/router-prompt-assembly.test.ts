@@ -449,6 +449,17 @@ describe('router — prompt assembly', () => {
     expect(ruled.keys[0]).not.toBe(plain.keys[0]);
   });
 
+  it('asks a selection for code as one fenced block, but not Explain or a page block', async () => {
+    const rule = 'For code or markup, "translation" is that code as one fenced block';
+    const selection = await run({ req: mkReq({}) });
+    const explain = await run({ req: mkReq({ options: { task: 'explain' } }) });
+    const pageBlock = await run({ req: mkReq({ options: { batch: true } }) });
+    expect(selection.system).toContain(rule);
+    expect(explain.system).not.toContain(rule);
+    expect(pageBlock.system).not.toContain(rule);
+    expect(pageBlock.keys[0]).not.toBe(selection.keys[0]);
+  });
+
   it('renders no CANDIDATES when the source language is already known', async () => {
     const { system } = await run({
       req: mkReq({ sourceLang: sel('fr') }),
