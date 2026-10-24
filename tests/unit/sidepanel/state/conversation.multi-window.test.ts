@@ -865,6 +865,31 @@ describe('a reply that a question asks about, removed in another window or by th
     expect(JSON.stringify(lastStartOptions())).not.toContain('reply 0');
   });
 
+  it('a reply a send at the cap trims leaves the other window too, which never writes it back', async () => {
+    await saveThread(ORIGIN, atTheCap());
+    const a = await openWindow();
+    const b = await openWindow();
+    await sendAndFinish(a, 'from a', 'a answer');
+
+    expect(byId(b, 'a0')).toBeUndefined();
+    expect(linkedQuote(byId(b, 'u5') as Turn, b.turns)).toBeUndefined();
+    // Back under the cap, a save from B would write back any trimmed reply it still held.
+    a.deleteTurn('a10');
+    await a.flush();
+    await drain();
+    b.toggleBookmark('a20');
+    await b.flush();
+    await drain();
+    expect((await loadThreadResult(ORIGIN)).turns.some((t) => t.id === 'a0')).toBe(false);
+    const reloaded = await openWindow();
+    expect(byId(reloaded, 'a0')).toBeUndefined();
+
+    (chrome.runtime.sendMessage as Mock).mockClear();
+    expect(await b.regenerateVariant('a5')).toBe(true);
+    expect(lastStartOptions()).not.toHaveProperty('askAbout');
+    expect(JSON.stringify(lastStartOptions())).not.toContain('reply 0');
+  });
+
   it("a save that read the thread before this window's own trim says nothing of another window", async () => {
     const push = vi.spyOn(toastStore, 'push');
     await saveThread(ORIGIN, atTheCap());

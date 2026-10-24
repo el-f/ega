@@ -401,7 +401,10 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       withAssistant.length > MAX_TURNS_PER_THREAD
         ? dropOrphanHead(withAssistant.slice(-MAX_TURNS_PER_THREAD), withAssistant)
         : withAssistant;
-    noteTrimmed(withAssistant.slice(0, withAssistant.length - capped.length).map((t) => t.id));
+    const dropped = withAssistant.slice(0, withAssistant.length - capped.length).map((t) => t.id);
+    noteTrimmed(dropped);
+    // The store sees known ids gone, not a trim of its own, so it buries nothing: without a tombstone another window keeps quoting and sending them.
+    noteRemoved(dropped);
     mutate(() => capped, 'debounce');
     state.inflightId = assistantId;
     state.inflightVariantId = `${assistantId}:v1`;
