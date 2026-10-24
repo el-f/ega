@@ -363,6 +363,12 @@ export const COVERAGE: readonly Family[] = [
             flows: ['sidepanel/multi-variety-cluster.flow.spec.ts'],
           },
           {
+            id: 'code-answer',
+            description:
+              'Code sent to the panel comes back as one code block with its tags as text, and the meta line names both languages',
+            flows: ['sidepanel/code-answer.flow.spec.ts'],
+          },
+          {
             id: 'multi-turn',
             description: 'Second turn retains prior context',
             flows: ['sidepanel/multi-turn.flow.spec.ts'],

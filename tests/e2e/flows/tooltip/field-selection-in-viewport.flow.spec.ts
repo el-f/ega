@@ -38,7 +38,7 @@ interface Box {
 
 /** The file view scrolled so the file ends 40px above the viewport bottom, its top above the viewport. */
 async function openScrolledCodeView(page: Page, height = 800): Promise<void> {
-  await page.setViewportSize({ width: 1200, height });
+  await page.setViewportSize({ width: 1280, height });
   await page.goto(`${ext.serverUrl}/code-view-page.html`);
   await waitForTestHooks(page);
   await page.locator('#read-only-cursor-text-area').waitFor();
