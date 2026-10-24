@@ -65,6 +65,8 @@ describe('the service worker answer reader', () => {
     '```json\n{"text": "hello", "title": "x"}\n```',
     '```json\n{"translation": "hello"}\n```',
     '```js\nconst a = {"answer": "hi"};\n```',
+    '~~~json\n{"translation": "hello"}\n~~~',
+    '~~~js\nconst a = {"answer": "hi"};\n~~~',
   ])('keeps a fenced code answer whole: %j', (code) => {
     const raw = JSON.stringify({ translation: code, confidence: 0.8 });
     expect(readAnswer(translate, raw)).toMatchObject({ kind: 'ok', main: code, issues: [] });

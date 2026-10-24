@@ -33,11 +33,14 @@ export function mainAnswerItems(answer: unknown): string[] | undefined {
     : undefined;
 }
 
+/** The opening of a Markdown code fence, matched at the start of a trimmed line. */
+export const FENCE_OPEN = /^(?:`{3,}|~{3,})/;
+
 /** The code in an answer that is exactly one fenced block, closed or still arriving; null for any other answer. */
 export function soleFencedCode(answer: string): string | null {
   const lines = answer.trim().split('\n');
   const open = lines[0] ?? '';
-  const fence = /^(?:`{3,}|~{3,})/.exec(open)?.[0];
+  const fence = FENCE_OPEN.exec(open)?.[0];
   // A backtick in the info string makes the line inline code, not a fence.
   if (fence === undefined || (fence[0] === '`' && open.slice(fence.length).includes('`')))
     return null;

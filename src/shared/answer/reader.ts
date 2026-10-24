@@ -1,5 +1,5 @@
 import * as v from 'valibot';
-import { answerDetailText } from '../answer-presentation';
+import { FENCE_OPEN, answerDetailText } from '../answer-presentation';
 import type { AnswerField, AnswerSpec } from './spec';
 import {
   createStringValueScan,
@@ -208,7 +208,7 @@ export function readAnswer(
   }
   // Models sometimes double-encode their JSON in the main string. Unwrap once; a fenced main is code, never an envelope.
   const encoded = mainKey === undefined ? undefined : object[mainKey];
-  if (typeof encoded === 'string' && !/^\s*```/.test(encoded)) {
+  if (typeof encoded === 'string' && !FENCE_OPEN.test(encoded.trimStart())) {
     const nested = envelope(encoded, spec)?.value;
     if (
       nested &&
