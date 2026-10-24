@@ -520,10 +520,15 @@ function historyFor(userTurn: Turn, thread: readonly Turn[] | 'none'): ChatTurn[
   return assemblePromptHistory(thread.slice(0, at), { budgetTokens: CHAT_HISTORY_TOKEN_BUDGET });
 }
 
+/** The task a request runs: the version's own, else its message's. The request, its block and its history all read it. */
+export function requestTask(userTurn: Turn, seed: VariantSeed = {}): TaskId {
+  return seed.task ?? turnTaskValue(userTurn);
+}
+
 /** The one place that builds a request; send, retry and every variant use it. An Ask request's block comes in `askAbout`. */
 export function buildStartArgs(userTurn: Turn, overlay: StartOverlay): StartArgs {
   const { seed = {}, reuse } = overlay;
-  const task = seed.task ?? turnTaskValue(userTurn);
+  const task = requestTask(userTurn, seed);
   const image = userTurn.imageDataUrl;
   const history = historyFor(userTurn, overlay.thread);
   return {
@@ -546,8 +551,7 @@ export function buildStartArgs(userTurn: Turn, overlay: StartOverlay): StartArgs
 
 /** The reply a request asks about: an "Ask instead" version's own, else its question's. "Answer again as Translate" on a question re-runs its text alone, so only an Ask request asks. */
 export function askTargetFor(userTurn: Turn, seed: VariantSeed = {}): AskTarget | undefined {
-  const task = seed.task ?? turnTaskValue(userTurn);
-  return task === 'ask' ? (seed.about ?? userTurn.about) : undefined;
+  return requestTask(userTurn, seed) === 'ask' ? (seed.about ?? userTurn.about) : undefined;
 }
 
 /** Copies the turn with the active variant's fields, so a pending variant cannot show the previous body. */

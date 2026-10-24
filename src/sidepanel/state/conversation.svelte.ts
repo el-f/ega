@@ -2,7 +2,7 @@
 
 import {
   activeVariant,
-  turnTaskValue,
+  requestTask,
   addAssistantTurn,
   addDeliveredAssistantTurn,
   addUserTurn as addUserTurnPure,
@@ -790,7 +790,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     const context = assistant.contextSent;
     const variantId = uuid();
     const requestId = uuid();
-    const asks = (seed.task ?? turnTaskValue(userTurn)) === 'ask';
+    const asks = requestTask(userTurn, seed) === 'ask';
     // The user turn's captured tone wins, so a later picker change does not apply backwards.
     const tone = userTurn.tone ?? state.lastDispatch?.tone;
     // A variant re-answers this one exchange with no earlier turns, except a question: it means nothing without them.
