@@ -56,7 +56,6 @@
   "data-ega-task-picker",
   "data-ega-task-row",
   "data-ega-test-next",
-  "data-ega-test-note",
   "data-ega-variant-next",
   "data-testid=\"be-row-{row.id}\"",
   "data-testid=\"local-backend-timeout-slider\"",

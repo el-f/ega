@@ -3,14 +3,19 @@ import { setFetchHandler } from '@tests/mocks/fetch';
 import { noopCancel } from '@tests/_helpers/cancel';
 import { sel } from '@tests/_helpers/lang';
 import {
+  fetchOllamaLoaded,
   fetchOllamaModelCaps,
+  findLoaded,
+  formatModelBytes,
   ollamaBaseUrl,
   ollamaEfforts,
+  ollamaMemoryLine,
   ollamaModelLabel,
   ollamaNumCtx,
   ollamaThink,
   parseOllamaTags,
   resetOllamaModelCapsForTest,
+  unloadOllamaModel,
 } from '@/shared/backends/ollama-show';
 import { OllamaBackend } from '@/shared/backends/ollama';
 import { errorCopy } from '@/shared/error-copy';
@@ -225,7 +230,7 @@ describe('the image chain', () => {
 });
 
 describe('the model picker', () => {
-  it('reads the tags Ollama lists for each model, and a cloud model by its remote host or name', () => {
+  it('names each model, and marks a cloud model by its remote host or name', () => {
     const rows = parseOllamaTags({
       models: [
         {
@@ -240,18 +245,93 @@ describe('the model picker', () => {
       ],
     });
     expect(rows.map(ollamaModelLabel)).toEqual([
-      'gemma4:e4b (vision, thinking)',
+      'gemma4:e4b',
       'qwen2.5:0.5b',
-      'gpt-oss:120b (cloud, thinking)',
+      'gpt-oss:120b (cloud)',
       'kimi-k2:1t-cloud (cloud)',
     ]);
     expect(parseOllamaTags({})).toEqual([]);
     expect(parseOllamaTags(null)).toEqual([]);
   });
 
+  it('names each local model with its size on disk; a cloud model never loads here, so it shows none', () => {
+    const rows = parseOllamaTags({
+      models: [
+        { name: 'gemma4:26b', size: 17_989_350_748, capabilities: ['vision', 'thinking'] },
+        { name: 'gemma4:e2b', size: 4_587_156_505 },
+        { name: 'qwen2.5:0.5b', size: 397_821_319 },
+        { name: 'gpt-oss:120b-cloud', size: 384 },
+        { name: 'odd', size: -1 },
+      ],
+    });
+    expect(rows.map(ollamaModelLabel)).toEqual([
+      'gemma4:26b · 18 GB',
+      'gemma4:e2b · 4.6 GB',
+      'qwen2.5:0.5b · 398 MB',
+      'gpt-oss:120b-cloud (cloud)',
+      'odd',
+    ]);
+    expect(formatModelBytes(1)).toBe('1 MB');
+  });
+
   it('keeps every request on the loopback URL the settings name', () => {
     expect(ollamaBaseUrl(' http://127.0.0.1:11434/ ')).toBe(BASE);
     expect(ollamaBaseUrl('http://192.168.1.5:11434')).toBe('http://localhost:11434');
     expect(ollamaBaseUrl(undefined)).toBe('http://localhost:11434');
+  });
+});
+
+describe('what Ollama holds in memory', () => {
+  it('reads /api/ps and finds the model, an untagged name as :latest', async () => {
+    setFetchHandler(async (url) => {
+      expect(url).toBe(`${BASE}/api/ps`);
+      return new Response(
+        JSON.stringify({
+          models: [
+            { name: 'gemma4:26b', size: 16_500_000_000, size_vram: 4_000_000_000 },
+            { name: 'llama3.2:latest', size: 3_000_000_000, size_vram: 3_000_000_000 },
+            { name: 'broken' },
+          ],
+        }),
+      );
+    });
+    const rows = await fetchOllamaLoaded(BASE, 1000);
+    expect(rows).toHaveLength(2);
+    expect(findLoaded(rows, 'llama3.2')?.name).toBe('llama3.2:latest');
+    expect(findLoaded(rows, 'gemma4:e2b')).toBeNull();
+    const big = findLoaded(rows, 'gemma4:26b');
+    if (!big) throw new Error('gemma4:26b not found');
+    expect(ollamaMemoryLine(big)).toBe('Loaded: 4.0 GB on the GPU, 13 GB in RAM');
+  });
+
+  it('says where the whole model sits when it does not split', () => {
+    expect(ollamaMemoryLine({ name: 'a', size: 3e9, sizeVram: 3e9 })).toBe(
+      'Loaded: 3.0 GB on the GPU',
+    );
+    expect(ollamaMemoryLine({ name: 'a', size: 3e9, sizeVram: 0 })).toBe('Loaded: 3.0 GB in RAM');
+  });
+
+  it('a daemon that does not answer gives null, not an empty list', async () => {
+    setFetchHandler(async () => {
+      throw new TypeError('Failed to fetch');
+    });
+    expect(await fetchOllamaLoaded(BASE, 1000)).toBeNull();
+    setFetchHandler(async () => new Response('', { status: 500 }));
+    expect(await fetchOllamaLoaded(BASE, 1000)).toBeNull();
+  });
+
+  it('unload asks Ollama to drop the model now with keep_alive 0', async () => {
+    let sent: { url: string; body: unknown } | null = null;
+    setFetchHandler(async (url, init) => {
+      sent = { url, body: JSON.parse(String(init?.body)) };
+      return new Response('{}');
+    });
+    expect(await unloadOllamaModel(BASE, 'gemma4:26b', 1000)).toBe(true);
+    expect(sent).toEqual({
+      url: `${BASE}/api/generate`,
+      body: { model: 'gemma4:26b', keep_alive: 0 },
+    });
+    setFetchHandler(async () => new Response('', { status: 404 }));
+    expect(await unloadOllamaModel(BASE, 'gemma4:26b', 1000)).toBe(false);
   });
 });

@@ -114,4 +114,56 @@ describe('BackendCardTestRow', () => {
     );
     expect(container.querySelector('[data-ega-test-failure]')).toBeNull();
   });
+  it('a running test that can stop turns the same button into Stop and says what it waits on', async () => {
+    const onStop = vi.fn();
+    const p = props({ id: asBackendIdUnsafe('ollama'), onStop });
+    const { getByTestId, container, rerender } = render(BackendCardTestRow, { props: p });
+    const btn = getByTestId('backend-card-test-ollama') as HTMLButtonElement;
+    await rerender({
+      ...p,
+      testRunning: true,
+      progress: 'Loading gemma4:26b into memory...',
+      testElapsedMs: 82_400,
+    });
+    expect(getByTestId('backend-card-test-ollama')).toBe(btn);
+    expect(btn.textContent.trim()).toBe('Stop');
+    expect(btn.getAttribute('aria-disabled')).toBeNull();
+    expect(container.querySelector('[data-ega-test-progress]')?.textContent.trim()).toBe(
+      'Loading gemma4:26b into memory...',
+    );
+    // The clock ticks every second, so screen readers skip it.
+    const clock = container.querySelector('[data-ega-test-clock]');
+    expect(clock?.textContent).toBe('1:22');
+    expect(clock?.getAttribute('aria-hidden')).toBe('true');
+    await fireEvent.click(btn);
+    expect(onStop).toHaveBeenCalledTimes(1);
+    expect(p.onTest).not.toHaveBeenCalled();
+  });
+
+  it('a loaded model shows where it sits, with Unload beside Test now when no test runs', async () => {
+    const onUnload = vi.fn();
+    const p = props({
+      id: asBackendIdUnsafe('ollama'),
+      memoryLine: 'Loaded: 4.0 GB on the GPU, 13 GB in RAM',
+      onUnload,
+    });
+    const { container, getByTestId, queryByTestId, rerender } = render(BackendCardTestRow, {
+      props: p,
+    });
+    expect(container.querySelector('[data-ega-ollama-memory]')?.textContent).toBe(
+      'Loaded: 4.0 GB on the GPU, 13 GB in RAM',
+    );
+    const unload = getByTestId('backend-card-unload-ollama');
+    expect(unload.closest('.be-test-row')).toBe(
+      getByTestId('backend-card-test-ollama').closest('.be-test-row'),
+    );
+    await fireEvent.click(unload);
+    expect(onUnload).toHaveBeenCalledTimes(1);
+    await rerender({ ...p, unloading: true });
+    expect(unload.textContent.trim()).toBe('Unloading...');
+    await fireEvent.click(unload);
+    expect(onUnload).toHaveBeenCalledTimes(1);
+    await rerender({ ...p, testRunning: true, onStop: vi.fn() });
+    expect(queryByTestId('backend-card-unload-ollama')).toBeNull();
+  });
 });

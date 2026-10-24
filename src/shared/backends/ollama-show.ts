@@ -105,40 +105,117 @@ export function ollamaNumCtx(caps: OllamaModelCaps | null): number {
 /** One `/api/tags` row, as the model picker labels it. */
 export interface OllamaTagRow {
   name: string;
-  vision: boolean;
-  thinking: boolean;
   /** A cloud model: the prompt runs on ollama.com. */
   cloud: boolean;
+  /** Bytes on disk; about what a load puts in memory. */
+  size?: number;
 }
+
+const positive = (v: unknown): v is number => typeof v === 'number' && v > 0;
 
 export function parseOllamaTags(body: unknown): OllamaTagRow[] {
   const models = (body as { models?: unknown } | null)?.models;
   if (!Array.isArray(models)) return [];
-  return models.flatMap((m: { name?: unknown; capabilities?: unknown; remote_host?: unknown }) => {
+  return models.flatMap((m: { name?: unknown; remote_host?: unknown; size?: unknown }) => {
     if (typeof m.name !== 'string' || m.name === '') return [];
-    const caps: unknown[] = Array.isArray(m.capabilities) ? m.capabilities : [];
     const remote = typeof m.remote_host === 'string' && m.remote_host !== '';
+    const cloud = remote || isOllamaCloudName(m.name);
     return [
       {
         name: m.name,
-        vision: caps.includes('vision'),
-        thinking: caps.includes('thinking'),
-        cloud: remote || isOllamaCloudName(m.name),
+        cloud,
+        // A cloud row's size is the remote model's, which never loads here.
+        ...(!cloud && positive(m.size) ? { size: m.size } : {}),
       },
     ];
   });
+}
+
+/** Decimal units, as `ollama list` prints them. */
+export function formatModelBytes(bytes: number): string {
+  if (bytes >= 1e9) {
+    const gb = bytes / 1e9;
+    return `${gb < 10 ? gb.toFixed(1) : Math.round(gb)} GB`;
+  }
+  return `${Math.max(1, Math.round(bytes / 1e6))} MB`;
+}
+
+/** One `/api/ps` row: a model Ollama holds in memory now. */
+export interface OllamaLoaded {
+  name: string;
+  size: number;
+  sizeVram: number;
+}
+
+function parseOllamaPs(body: unknown): OllamaLoaded[] {
+  const models = (body as { models?: unknown } | null)?.models;
+  if (!Array.isArray(models)) return [];
+  return models.flatMap((m: { name?: unknown; size?: unknown; size_vram?: unknown }) =>
+    typeof m.name === 'string' && positive(m.size)
+      ? [
+          {
+            name: m.name,
+            size: m.size,
+            sizeVram: Math.min(positive(m.size_vram) ? m.size_vram : 0, m.size),
+          },
+        ]
+      : [],
+  );
+}
+
+/** Null when the daemon does not answer, so a caller keeps what it last knew. */
+export async function fetchOllamaLoaded(
+  baseUrl: string,
+  timeoutMs: number,
+): Promise<OllamaLoaded[] | null> {
+  try {
+    const res = await fetch(`${baseUrl}/api/ps`, { signal: AbortSignal.timeout(timeoutMs) });
+    return res.ok ? parseOllamaPs(await res.json()) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Ollama lists an untagged name as `:latest`. */
+export function findLoaded(
+  rows: readonly OllamaLoaded[] | null,
+  model: string,
+): OllamaLoaded | null {
+  return rows?.find((r) => r.name === model || r.name === `${model}:latest`) ?? null;
+}
+
+export function ollamaMemoryLine(l: OllamaLoaded): string {
+  const ram = l.size - l.sizeVram;
+  if (ram <= 0) return `Loaded: ${formatModelBytes(l.size)} on the GPU`;
+  if (l.sizeVram === 0) return `Loaded: ${formatModelBytes(l.size)} in RAM`;
+  return `Loaded: ${formatModelBytes(l.sizeVram)} on the GPU, ${formatModelBytes(ram)} in RAM`;
+}
+
+/** `keep_alive: 0` frees the model now instead of after the 30 minutes ega asks for. */
+export async function unloadOllamaModel(
+  baseUrl: string,
+  model: string,
+  timeoutMs: number,
+): Promise<boolean> {
+  try {
+    const res = await fetch(`${baseUrl}/api/generate`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ model, keep_alive: 0 }),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
 }
 
 export function isOllamaCloudName(model: string): boolean {
   return /[:-]cloud$/i.test(model);
 }
 
-/** Ollama's own tag words, so the picker reads like `ollama list` and its site. */
+/** Name and size, or the cloud mark; a closed native select cannot wrap, so image and thinking support show on the card instead. */
 export function ollamaModelLabel(row: OllamaTagRow): string {
-  const tags = [
-    ...(row.cloud ? ['cloud'] : []),
-    ...(row.vision ? ['vision'] : []),
-    ...(row.thinking ? ['thinking'] : []),
-  ];
-  return tags.length > 0 ? `${row.name} (${tags.join(', ')})` : row.name;
+  if (row.cloud) return `${row.name} (cloud)`;
+  return row.size ? `${row.name} · ${formatModelBytes(row.size)}` : row.name;
 }

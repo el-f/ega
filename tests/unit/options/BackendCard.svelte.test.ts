@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, fireEvent } from '@testing-library/svelte';
+import { render, fireEvent, waitFor } from '@testing-library/svelte';
+import { setFetchHandler } from '@tests/mocks/fetch';
+import { resolveModelId } from '@/shared/settings-schema';
 import BackendCard from '@/options/components/BackendCard.svelte';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import type { Settings } from '@/shared/types';
@@ -592,5 +594,76 @@ describe('BackendCard — a native Test whose CLI changed while it ran', () => {
     } finally {
       if (defaultConnect) chromeMock.runtime.connectNative.mockImplementation(defaultConnect);
     }
+  });
+});
+
+describe('BackendCard shows and controls what an Ollama test loads', () => {
+  it('says the model is loading, and Stop drops the request so Ollama aborts the load', async () => {
+    const s = baseSettings();
+    const model = resolveModelId(s.model, asBackendIdUnsafe('ollama'));
+    let chatSignal: AbortSignal | undefined;
+    setFetchHandler(async (url, init) => {
+      if (url.endsWith('/api/tags')) return new Response('{"models":[]}');
+      if (url.endsWith('/api/ps')) return new Response('{"models":[]}');
+      if (url.endsWith('/api/show')) return new Response('', { status: 404 });
+      if (url.endsWith('/api/chat')) {
+        chatSignal = init?.signal ?? undefined;
+        return new Promise<Response>((_, reject) => {
+          chatSignal?.addEventListener('abort', () =>
+            reject(new DOMException('Aborted', 'AbortError')),
+          );
+        });
+      }
+      throw new Error(`unexpected ${url}`);
+    });
+    const { getByTestId, container } = render(BackendCard, {
+      props: { id: asBackendIdUnsafe('ollama'), label: 'Ollama', settings: s },
+    });
+    await waitForProbe();
+    const btn = getByTestId('backend-card-test-ollama');
+    await fireEvent.click(btn);
+    await waitFor(() => expect(chatSignal).toBeDefined());
+    expect(btn.textContent.trim()).toBe('Stop');
+    expect(container.querySelector('[data-ega-test-progress]')?.textContent.trim()).toBe(
+      `Loading ${model} into memory...`,
+    );
+    await fireEvent.click(btn);
+    expect(chatSignal?.aborted).toBe(true);
+    await waitFor(() =>
+      expect(container.querySelector('[data-ega-test-note]')?.textContent).toBe('Test stopped.'),
+    );
+    expect(btn.textContent.trim()).toBe('Test now');
+    expect(container.querySelector('[data-ega-test-failure]')).toBeNull();
+  });
+
+  it('shows where a loaded model sits, and Unload frees it with keep_alive 0', async () => {
+    const s = baseSettings();
+    const model = resolveModelId(s.model, asBackendIdUnsafe('ollama'));
+    let loaded = true;
+    const unloads: unknown[] = [];
+    setFetchHandler(async (url, init) => {
+      if (url.endsWith('/api/tags')) return new Response('{"models":[]}');
+      if (url.endsWith('/api/ps')) {
+        const models = loaded ? [{ name: model, size: 16.5e9, size_vram: 4e9 }] : [];
+        return new Response(JSON.stringify({ models }));
+      }
+      if (url.endsWith('/api/generate')) {
+        unloads.push(JSON.parse(String(init?.body)));
+        loaded = false;
+        return new Response('{}');
+      }
+      throw new Error(`unexpected ${url}`);
+    });
+    const { getByTestId, container } = render(BackendCard, {
+      props: { id: asBackendIdUnsafe('ollama'), label: 'Ollama', settings: s },
+    });
+    await waitFor(() =>
+      expect(container.querySelector('[data-ega-ollama-memory]')?.textContent).toBe(
+        'Loaded: 4.0 GB on the GPU, 13 GB in RAM',
+      ),
+    );
+    await fireEvent.click(getByTestId('backend-card-unload-ollama'));
+    await waitFor(() => expect(container.querySelector('[data-ega-ollama-memory]')).toBeNull());
+    expect(unloads).toEqual([{ model, keep_alive: 0 }]);
   });
 });
