@@ -302,6 +302,11 @@ Unit tests run in the node environment. A test that touches a DOM says so on its
 first line — `// @vitest-environment jsdom` — because building a jsdom for every
 file cost more than every test in the suite put together.
 
+Vitest keeps transformed modules in `node_modules/.experimental-vitest-cache`, so a
+second run of one test file takes seconds. Its key covers `pnpm-lock.yaml` and
+`vite.config.ts`, not `tsconfig.json` or `svelte.config.js`. After a change to either of those,
+or a dependency change outside the lockfile, delete the folder (or run `pnpm vitest --clearCache`).
+
 **Stack:** Svelte 5 runes · TypeScript strict · Vite · Vitest · Playwright · Chrome
 MV3 · pnpm · Node 22.
 

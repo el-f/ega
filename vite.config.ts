@@ -95,6 +95,9 @@ export default defineConfig({
     restoreMocks: true,
     unstubGlobals: true,
     setupFiles: ['tests/setup.ts'],
+    alias: { 'bits-ui': path.resolve(__dirname, 'tests/mocks/bits-ui-slim.ts') },
+    // Transformed modules persist in node_modules/.experimental-vitest-cache; the key misses tsconfig.json and svelte.config.js (README).
+    experimental: { fsModuleCache: true },
     coverage: {
       provider: 'v8',
       // vitest thresholds are aggregate OR per-file, never both — json-summary feeds the per-file floor in scripts/coverage-floor.ts.
