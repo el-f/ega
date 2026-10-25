@@ -48,11 +48,15 @@ describe('TaskPicker button row (0.3.9)', () => {
     expect(getByRole('radio', { name: 'Reword', checked: true })).toBeTruthy();
   });
 
-  it('every chip carries the check, shown only on the checked one, so a pick does not rewrap the row (R63)', () => {
+  it('only the checked chip draws the check; the rest hold its room as padding, so a pick does not rewrap the row (R63)', () => {
     const { getAllByRole } = render(TaskPicker, { props: { task: 'reword' } });
-    for (const r of getAllByRole('radio')) expect(r.querySelector(':scope > svg')).not.toBeNull();
+    for (const r of getAllByRole('radio')) {
+      expect(r.querySelector('svg') !== null).toBe(r.getAttribute('aria-checked') === 'true');
+    }
     const src = readFileSync('src/shared/components/TaskPicker.svelte', 'utf8');
-    expect(src).toMatch(/\.seg:not\(\.active\) > :global\(svg\) \{\s*visibility: hidden;/);
+    expect(src).toMatch(
+      /\.seg:not\(\.active\) \{\s*padding-inline: calc\(var\(--space-2\) \+ \(16px \+ var\(--space-1\)\) \/ 2\);/,
+    );
   });
 
   it('rings the checked chip in forced colors through the shared radio rule', () => {

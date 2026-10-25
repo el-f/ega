@@ -1,7 +1,7 @@
 /* coverage: sidepanel.composer.mode-popover */
 import { test, expect, type Page } from '@playwright/test';
 import { launchExtension, seedSettings, type ExtensionHandle } from '../../../helpers';
-import { createTimeline, expectSameWidth } from '../../_harness';
+import { createTimeline, expectCentered, expectSameWidth } from '../../_harness';
 
 let ext: ExtensionHandle;
 
@@ -41,9 +41,10 @@ test('the mode chip opens Next message, and each pick applies at once', async ()
   timeline.markStep('popover-open');
 
   // A task pick applies at once and the popover stays open; Reword brings its tone row.
-  // Every chip keeps the check's slot, so neither chip changes width and the row does not rewrap (R63).
+  // Unpicked chips hold the check's room as padding: no width change, no rewrap, no off-center label (R63).
   const reword = popover.locator('[data-ega-task="reword"]');
   const translate = popover.locator('[data-ega-task="translate"]');
+  await expectCentered(reword, 'Reword unpicked');
   await expectSameWidth(
     translate,
     () =>
@@ -57,6 +58,7 @@ test('the mode chip opens Next message, and each pick applies at once', async ()
       ),
     'Translate unpicked',
   );
+  await expectCentered(translate, 'Translate unpicked');
   await expect(popover).toBeVisible();
   await expect(chip).toHaveText('Reword');
   const tone = popover.locator('[data-ega-tone-select]');
@@ -77,8 +79,9 @@ test('the mode chip opens Next message, and each pick applies at once', async ()
   timeline.markStep('languages-swapped');
 
   // The page info level is a Settings value: the pick is saved at once.
-  // Both levels keep the check's slot, so the pick does not resize the group (R63).
+  // The unpicked level holds the check's room as padding, so a pick does not resize the group (R63).
   const rich = popover.getByRole('button', { name: 'Rich' });
+  await expectCentered(rich, 'Rich unpicked');
   await expectSameWidth(
     popover.getByRole('button', { name: 'Minimal' }),
     () =>
@@ -92,6 +95,7 @@ test('the mode chip opens Next message, and each pick applies at once', async ()
       ),
     'Minimal unpicked',
   );
+  await expectCentered(popover.getByRole('button', { name: 'Minimal' }), 'Minimal unpicked');
   await expect
     .poll(
       async () =>

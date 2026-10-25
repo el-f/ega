@@ -40,14 +40,14 @@
         {#each taskList as v (v.id)}
           <RadioGroup.Item value={v.id} data-ega-task={v.id}>
             {#snippet child({ props: itemProps, checked })}
-              <!-- The check, not only the colour, says which task is picked; every chip keeps its slot (R63). -->
+              <!-- The check, not only the colour, says which task is picked. -->
               <button
                 {...itemProps}
                 class="seg"
                 class:active={checked}
                 aria-disabled={unavailable.has(v.id) ? 'true' : undefined}
               >
-                <Check size={16} aria-hidden="true" />{v.label}
+                {#if checked}<Check size={16} aria-hidden="true" />{/if}{v.label}
               </button>
             {/snippet}
           </RadioGroup.Item>
@@ -105,9 +105,10 @@
     background: var(--color-accent-bg-soft);
     color: var(--color-accent-hover);
   }
-  /* The check keeps its slot while unpicked, so a pick neither widens a chip nor rewraps the row (R63). */
-  .seg:not(.active) > :global(svg) {
-    visibility: hidden;
+  /* Unpicked, the check's room (icon + gap) splits into both paddings: a pick neither widens a chip nor
+     rewraps the row, and the label sits centered (R63). */
+  .seg:not(.active) {
+    padding-inline: calc(var(--space-2) + (16px + var(--space-1)) / 2);
   }
   .seg[aria-disabled='true'] {
     color: var(--color-fg-disabled);

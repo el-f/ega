@@ -32,7 +32,7 @@
       if (!all) onchange([]);
     }}
   >
-    <Check size={14} aria-hidden="true" />All tasks
+    {#if all}<Check size={14} aria-hidden="true" />{/if}All tasks
   </button>
   {#each taskViews as v (v.id)}
     {@const on = tasks.includes(v.id)}
@@ -43,7 +43,7 @@
       data-ega-rule-scope-task={v.id}
       onclick={() => toggle(v.id)}
     >
-      <Check size={14} aria-hidden="true" />{v.label}
+      {#if on}<Check size={14} aria-hidden="true" />{/if}{v.label}
     </button>
   {/each}
   {#each gone as id (id)}
@@ -79,9 +79,10 @@
     font-size: var(--fs-base);
     cursor: pointer;
   }
-  /* The check keeps its slot while off, so pressing a chip does not move the chips after it (R63). */
-  .scope-btn[aria-pressed='false'] > :global(svg) {
-    visibility: hidden;
+  /* Off, the check's room (icon + gap) splits into both paddings: the chip keeps its width, so pressing it
+     moves no chip after it, and the label sits centered (R63). */
+  .scope-btn[aria-pressed='false'] {
+    padding-inline: calc(var(--space-3) + (14px + var(--space-1)) / 2);
   }
   .scope-btn:hover {
     background: var(--color-bg-hover);

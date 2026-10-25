@@ -2,7 +2,7 @@
 import { test, expect } from '@playwright/test';
 import { launchExtension, readStorage, seedSettings, type ExtensionHandle } from '../../helpers';
 import type { Settings } from '../../../../src/shared/types';
-import { createTimeline, expectSameWidth } from '../_harness';
+import { createTimeline, expectCentered, expectSameWidth } from '../_harness';
 
 const SEED_ID = 'flow-toggle-scope-001';
 
@@ -65,7 +65,8 @@ test('turning the last task off turns All tasks back on, with no error toast', a
   await expect(all).toHaveAttribute('aria-pressed', 'false');
   timeline.markStep('chip-visible');
 
-  // The check keeps its slot on both chips, so a press moves neither (R63).
+  // Off chips hold the check's room as padding: a press moves neither, no label sits off-center (R63).
+  await expectCentered(all, 'All tasks while off');
   await expectSameWidth(
     all,
     () =>
@@ -80,6 +81,7 @@ test('turning the last task off turns All tasks back on, with no error toast', a
       ),
     'All tasks turned on',
   );
+  await expectCentered(translate, 'Translate while off');
   timeline.markStep('all-tasks-picked');
 
   await expect

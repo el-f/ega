@@ -37,7 +37,7 @@ describe('ContextLevelPicker', () => {
 
 // The task chips mark the picked one with a check; the page-info buttons say it the same way, not by colour alone.
 describe('ContextLevelPicker picked mark', () => {
-  it('shows the check on the pressed button only, and keeps its slot on the other (R63)', () => {
+  it('shows the check on the pressed button only; the other holds its room as padding (R63)', () => {
     const { getByRole } = render(ContextLevelPicker, {
       props: { value: 'rich', onchange: vi.fn() },
     });
@@ -45,12 +45,12 @@ describe('ContextLevelPicker picked mark', () => {
     const minimal = getByRole('button', { name: /^Minimal$/ });
     expect(rich.classList.contains('active')).toBe(true);
     expect(minimal.classList.contains('active')).toBe(false);
-    // Both carry the icon, so a pick does not resize the group; CSS hides it on the one not pressed.
     expect(rich.querySelector(':scope > svg')).not.toBeNull();
-    expect(minimal.querySelector(':scope > svg')).not.toBeNull();
+    // No empty slot at rest: the unpicked button draws no icon and pads both sides by half its room.
+    expect(minimal.querySelector('svg')).toBeNull();
     const src = readFileSync('src/shared/components/ContextLevelPicker.svelte', 'utf8');
     expect(src).toMatch(
-      /\.ctx-level-toggle button:not\(\.active\) > :global\(svg\) \{\s*visibility: hidden;/,
+      /\.ctx-level-toggle button:not\(\.active\) \{\s*padding-inline: calc\(var\(--space-3\) \+ \(16px \+ var\(--space-1\)\) \/ 2\);/,
     );
   });
 });
