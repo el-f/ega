@@ -119,6 +119,71 @@ export async function expectSameWidth(
   expect((await control.boundingBox())?.width, `${label} changed width`).toBe(before);
 }
 
+/** Runs `change` and fails when any of `controls` moved or changed width, measured from `origin` when given (R63). */
+export async function expectNothingMoves(
+  controls: Record<string, Locator>,
+  change: () => Promise<void>,
+  origin?: Locator,
+): Promise<void> {
+  const measure = async (): Promise<Record<string, { x: number; width: number }>> => {
+    const base = origin ? await origin.boundingBox() : { x: 0 };
+    if (!base) throw new Error('the origin is not on screen');
+    const out: Record<string, { x: number; width: number }> = {};
+    for (const [name, control] of Object.entries(controls)) {
+      const box = await control.boundingBox();
+      if (!box) throw new Error(`${name} is not on screen`);
+      out[name] = { x: box.x - base.x, width: box.width };
+    }
+    return out;
+  };
+  const before = await measure();
+  await change();
+  const after = await measure();
+  for (const name of Object.keys(controls)) {
+    expect(after[name]?.x, `${name} moved`).toBeCloseTo(before[name]?.x ?? Number.NaN, 1);
+    expect(after[name]?.width, `${name} changed width`).toBeCloseTo(
+      before[name]?.width ?? Number.NaN,
+      1,
+    );
+  }
+}
+
+/** Fails when the visible words and icons in `box` sit off-center: a held width must not leave a gap on one side. */
+export async function expectCentered(
+  box: Locator,
+  label = 'control',
+  tolerance = 1.5,
+): Promise<void> {
+  const space = await box.evaluate((el) => {
+    const outer = el.getBoundingClientRect();
+    let left = Number.POSITIVE_INFINITY;
+    let right = Number.NEGATIVE_INFINITY;
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      let rect: DOMRect;
+      if (n.nodeType === Node.TEXT_NODE) {
+        const parent = n.parentElement;
+        // Screen-reader-only words are clipped to a pixel; they draw nothing.
+        if (!parent || n.textContent?.trim() === '' || parent.closest('.ega-sr-only')) continue;
+        if (!parent.checkVisibility({ visibilityProperty: true })) continue;
+        const range = document.createRange();
+        range.selectNodeContents(n);
+        rect = range.getBoundingClientRect();
+      } else if (n instanceof SVGSVGElement && n.checkVisibility({ visibilityProperty: true })) {
+        rect = n.getBoundingClientRect();
+      } else continue;
+      if (rect.width === 0) continue;
+      left = Math.min(left, rect.left);
+      right = Math.max(right, rect.right);
+    }
+    return { start: left - outer.left, end: outer.right - right };
+  });
+  expect(
+    Math.abs(space.start - space.end),
+    `${label} is off-center: ${space.start.toFixed(1)} px before, ${space.end.toFixed(1)} px after`,
+  ).toBeLessThanOrEqual(tolerance);
+}
+
 export interface FocusStop {
   /** aria-label, else id, else trimmed text: enough to name the stop in a failure. */
   name: string;

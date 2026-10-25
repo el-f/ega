@@ -1,7 +1,7 @@
 /* coverage: options.context-menu.manage */
 import { test, expect } from '@playwright/test';
 import { launchExtension, readStorage, type ExtensionHandle } from '../../helpers';
-import { expectSameWidth } from '../_harness';
+import { expectNothingMoves } from '../_harness';
 
 let ext: ExtensionHandle;
 
@@ -66,15 +66,19 @@ test('manage: groups, add an image action, move inside a group, reset then undo'
   await expect(record).toHaveAttribute('data-ega-shortcut-record');
   await record.focus();
   const recording = page.getByRole('button', { name: 'Cancel recording' });
-  // One locator for both names: Record and Cancel keep one width, so Clear beside it does not move (R63).
-  await expectSameWidth(
-    page.getByRole('button', { name: /^(Record Translate selection shortcut|Cancel recording)$/ }),
+  // One locator for both names; the readout holds "Press keys...", so Record and Clear stay put (R63).
+  await expectNothingMoves(
+    {
+      'Record -> Cancel': page.getByRole('button', {
+        name: /^(Record Translate selection shortcut|Cancel recording)$/,
+      }),
+      Clear: page.getByRole('button', { name: 'Clear Translate selection shortcut' }),
+    },
     async () => {
       await page.keyboard.press('Enter');
       await expect(recording).toHaveAttribute('aria-pressed', 'true');
       await expect(recording).toHaveText('Cancel');
     },
-    'Record -> Cancel',
   );
   await expect(recording).toHaveAttribute('data-ega-owns-escape');
   await expect(bubble).toBeVisible();

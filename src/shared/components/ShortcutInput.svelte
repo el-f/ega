@@ -1,5 +1,6 @@
 <script lang="ts">
   import Button from '@/shared/ui/Button.svelte';
+  import StableLabel from '@/shared/ui/StableLabel.svelte';
   import { id as makeId } from '@/shared/uuid';
   import { validateKeyCombo } from '@/shared/utils/keyCombo';
 
@@ -109,7 +110,13 @@
   class:is-disabled={disabled || ariaDisabled}
   bind:this={root}
 >
-  <kbd class="combo">{recording ? 'Press keys...' : value || '—'}</kbd>
+  <!-- The readout holds both its texts, so Record and Clear beside it stay put when recording starts (R63). -->
+  <kbd class="combo"
+    ><StableLabel
+      current={recording ? 'Press keys...' : value || '—'}
+      labels={['Press keys...', value || '—']}
+    /></kbd
+  >
   <span class="ega-sr-only" id={valueId}>Current shortcut: {value || 'None'}.</span>
   <Button
     variant="secondary"
@@ -164,7 +171,7 @@
   /* A read-only value, not a control: no edge, so it never looks like a button beside Record. */
   .combo {
     display: inline-block;
-    /* Fits "Press keys..." and a 12-char combo, so recording never widens the box under the cursor. */
+    /* A floor for short combos; the StableLabel inside holds "Press keys..." and the current combo. */
     min-width: calc(12ch + var(--space-2) * 2);
     padding: var(--space-1) var(--space-2);
     border-radius: var(--radius-sm);
