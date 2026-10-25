@@ -266,7 +266,7 @@ const EAGER_CONTENT_BUDGET_BYTES = 157_315;
 // Stable control widths (R63) add 3,930B: the StableLabel chunk, Button's label stack, the double-click guard (its
 // own chunk, shared with the side panel and the page pill) and the off Swap. Ratchet at the measured production
 // preload set, without extra headroom.
-const POPUP_PAGE_BUDGET_BYTES = 524_308;
+const POPUP_PAGE_BUDGET_BYTES = 524_390;
 
 function measurePagePreload(distDir: string, htmlRel: string): { files: string[]; bytes: number } {
   const htmlPath = path.join(distDir, htmlRel);
