@@ -19,9 +19,8 @@ pre-commit:
       glob: '*.{ts,js,mjs,svelte}'
       run: pnpm exec eslint --cache --cache-strategy content --max-warnings 0 .
     typecheck:
-      # TS half of `pnpm typecheck` (~18s); `--incremental` measured no faster after an edit, and a commit always follows one.
-      # The svelte-check half runs pre-push (~19s, too slow for commit).
-      # Only fires when TS-ish files are staged.
+      # TS half of `pnpm typecheck` (~18s): kept at commit despite the ~5s rule, so a staged type error fails here.
+      # svelte-check (~19s) runs pre-push because it also compiles every .svelte file. `--incremental` measured no faster.
       glob: '*.{ts,svelte}'
       run: pnpm tsc --noEmit
     lint-tokens:
