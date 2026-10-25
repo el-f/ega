@@ -14,6 +14,7 @@ import { assertStaysStable, createTimeline, expectNothingMoves } from '../_harne
 const MOCK_DELAY_MS = 1500;
 
 let ext: ExtensionHandle;
+let mock: ReturnType<typeof mockAnthropic>;
 
 test.beforeEach(async () => {
   ext = await launchExtension();
@@ -23,7 +24,7 @@ test.beforeEach(async () => {
     shortcut: 'Ctrl+Shift+L',
     tooltipClickOutside: false,
   });
-  mockAnthropic(ext.context, {
+  mock = mockAnthropic(ext.context, {
     translation: 'Welcome, how are you?',
     confidence: 0.95,
     delayMs: MOCK_DELAY_MS,
@@ -132,5 +133,41 @@ test('Stop aborts the request and retains a neutral retryable tooltip', async ()
       }),
     true,
     { windowMs: MOCK_DELAY_MS + 500, message: 'late SSE must not re-mount the canceled tooltip' },
+  );
+});
+
+// Stop turns into Retry in place, so the second click of a real double-click lands on Retry.
+test('a double-click on Stop stops the reply and does not start it again', async () => {
+  const page = await ext.context.newPage();
+  await page.goto(`${ext.serverUrl}/selection-page.html`);
+  await waitForTestHooks(page);
+  await page.locator('body').focus();
+  await selectArabiziParagraph(page);
+  await page.keyboard.press('Control+Shift+L');
+
+  const button = page.locator('.tooltip .tooltip-stop-retry');
+  await expect(button).toHaveText('Stop');
+  const stopBox = await button.boundingBox();
+  if (!stopBox) throw new Error('Stop has no box');
+  // The top edge, so the second click still lands on the button if the row shifts on Stop.
+  const at = { x: stopBox.x + stopBox.width / 2, y: stopBox.y + 2 };
+  await page.mouse.dblclick(at.x, at.y);
+
+  const status = page.locator('.tooltip [data-ega-meta-item="status"]');
+  await expect(status).toHaveText('Stopped');
+  await expect(button).toHaveText('Retry');
+  // Positive control: the double-click point is on Retry, so a second click that acted would have retried.
+  const retryBox = await button.boundingBox();
+  if (!retryBox) throw new Error('Retry has no box');
+  expect(at.y).toBeGreaterThanOrEqual(retryBox.y);
+  expect(at.y).toBeLessThanOrEqual(retryBox.y + retryBox.height);
+
+  await assertStaysStable(
+    async () => ({
+      calls: mock.calls(),
+      status: await status.textContent({ timeout: 500 }).catch(() => null),
+    }),
+    { calls: 1, status: 'Stopped' },
+    { windowMs: MOCK_DELAY_MS + 500, message: 'the second click must not send the request again' },
   );
 });

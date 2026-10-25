@@ -221,6 +221,8 @@
         data-ega-retry={busy ? undefined : true}
         style:--ega-stop-slots={settleIcons}
         onclick={(e) => {
+          // The second click of a double-click lands on the other label (Stop became Retry, or a new reply's Stop), so it does nothing.
+          if (e.detail > 1) return;
           if (busy) onCancel();
           else if (isUserGesture(e)) onRetry?.();
         }}><StableLabel current={busy ? 'Stop' : 'Retry'} labels={['Stop', 'Retry']} /></button

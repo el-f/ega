@@ -36,6 +36,7 @@ interface TipState {
   retryBlocked?: boolean;
   loadingLabel?: string;
   settled?: boolean;
+  stopped?: boolean;
 }
 
 function baseTip(overrides: Partial<TipState> = {}): TipState {
@@ -181,6 +182,32 @@ describe('Tooltip smoke', () => {
     // An image reply has no Refine, so Stop holds one icon slot.
     const image = mountWith({ loading: true, body: '', imageUrl: 'data:image/png;base64,AA==' });
     expect(slots(image.container)).toBe('1');
+  });
+
+  // Stop turns into Retry in place, so the second click of a double-click on Stop lands on Retry.
+  it('the second click of a double-click on Stop does not retry', async () => {
+    const t = mountWith({ loading: false, body: 'half', settled: false });
+    const button = (): HTMLElement => t.getByRole('button', { name: /^(Stop|Retry)$/ });
+    await fireEvent.click(button(), { detail: 1 });
+    expect(t.oncancel).toHaveBeenCalledTimes(1);
+    await t.rerender({ tip: baseTip({ body: 'half', settled: false, stopped: true }) });
+    expect(button().textContent.trim()).toBe('Retry');
+    await fireEvent.click(button(), { detail: 2 });
+    expect(t.onretry).not.toHaveBeenCalled();
+    // A new click, by mouse (detail 1) or by keyboard (detail 0), still retries.
+    await fireEvent.click(button(), { detail: 1 });
+    await fireEvent.click(button(), { detail: 0 });
+    expect(t.onretry).toHaveBeenCalledTimes(2);
+  });
+
+  // Retry opens a new reply whose Stop sits where Retry was, so the second click of a double-click on Retry lands on Stop.
+  it('the second click of a double-click on Retry does not stop the new reply', async () => {
+    const t = mountWith({ loading: false, body: 'half', settled: false });
+    const stop = t.getByRole('button', { name: 'Stop' });
+    await fireEvent.click(stop, { detail: 2 });
+    expect(t.oncancel).not.toHaveBeenCalled();
+    await fireEvent.click(stop, { detail: 1 });
+    expect(t.oncancel).toHaveBeenCalledTimes(1);
   });
 
   it('pre-stream shimmer includes a "Translating..." label for clarity', () => {
