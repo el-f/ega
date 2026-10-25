@@ -1175,6 +1175,12 @@ export const COVERAGE: readonly Family[] = [
             flows: ['options-backends/test-button-fires.flow.spec.ts'],
           },
           {
+            id: 'ollama-test-stop-unload',
+            description:
+              'Ollama Test now → "Loading <model> into memory..." with a clock → Stop → "Test stopped."; a loaded model shows GPU/RAM use → Unload model frees it',
+            flows: ['options-backends/ollama-test-stop-unload.flow.spec.ts'],
+          },
+          {
             id: 'api-key-show-hide',
             description:
               'Expand cloud provider → Eye → key reveals (type=text) → EyeOff → masked (type=password)',

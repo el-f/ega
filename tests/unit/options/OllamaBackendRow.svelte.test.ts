@@ -162,15 +162,13 @@ describe('the discovered model list', () => {
     ],
   };
 
-  it('labels each model with what it can do, as Ollama tags it', async () => {
+  it('labels each local model by name and a cloud model as cloud', async () => {
     setFetchHandler(async () => Response.json(tags));
     const { getByRole, findByRole } = render(OllamaBackendRow, { props: props('gemma4:e4b') });
     await fireEvent.click(getByRole('button', { name: 'Discover models' }));
-    await findByRole('option', { name: 'gemma4:e4b (vision, thinking)', hidden: true });
+    await findByRole('option', { name: 'gemma4:e4b', hidden: true });
     expect(getByRole('option', { name: 'llama3.2:3b', hidden: true })).toBeTruthy();
-    expect(
-      getByRole('option', { name: 'gpt-oss:120b (cloud, thinking)', hidden: true }),
-    ).toBeTruthy();
+    expect(getByRole('option', { name: 'gpt-oss:120b (cloud)', hidden: true })).toBeTruthy();
   });
 
   it('names the picker for screen readers and counts cloud rows apart', async () => {

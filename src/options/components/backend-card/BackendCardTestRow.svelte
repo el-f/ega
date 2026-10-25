@@ -25,6 +25,15 @@
     /** The value OLLAMA_ORIGINS must hold for Ega, for the 403 steps. */
     ollamaOrigin?: string;
     onTest: () => void;
+    /** Set when the running test can be stopped; the button turns into Stop. */
+    onStop?: (() => void) | undefined;
+    /** What the running test waits on, e.g. a model load. */
+    progress?: string | null;
+    testElapsedMs?: number | null;
+    /** Ollama-only: what the model holds in memory now. */
+    memoryLine?: string | null;
+    onUnload?: (() => void) | undefined;
+    unloading?: boolean;
   }
 
   const {
@@ -39,10 +48,21 @@
     ollama403,
     ollamaOrigin = '',
     onTest,
+    onStop,
+    progress = null,
+    testElapsedMs = null,
+    memoryLine = null,
+    onUnload,
+    unloading = false,
   }: Props = $props();
 
   const seconds = (ms: number): string =>
     ms >= 1000 ? `${(ms / 1000).toFixed(1)} s` : `${Math.max(1, Math.round(ms))} ms`;
+  const clock = (ms: number): string => {
+    const s = Math.floor(ms / 1000);
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  };
+  const stoppable = $derived(testRunning && onStop !== undefined);
 
   const failure = $derived(
     !testSucceeded && testResult !== null && !testRunning
@@ -82,20 +102,40 @@
 <div class="be-test" data-ega-backend-test={id}>
   <h3 class="be-test-title">Test connection</h3>
   <div class="be-test-row">
-    <!-- Not the shared `loading`: it hides the label and drops focus; the spec wants a spinner and "Testing...". -->
+    <!-- One button for Test now and Stop, so focus stays on it; not the shared `loading`, which hides the label. -->
     <Button
       variant="secondary"
-      ariaDisabled={testRunning}
+      ariaDisabled={testRunning && !stoppable}
       dataAttrs={{ 'data-testid': `backend-card-test-${id}` }}
-      onclick={onTest}
-      >{#if testRunning}<InlineSpinner />Testing...{:else}Test now{/if}</Button
+      onclick={() => (stoppable ? onStop?.() : onTest())}
+      >{#if stoppable}Stop{:else if testRunning}<InlineSpinner />Testing...{:else}Test now{/if}</Button
     >
+    {#if memoryLine && onUnload && !testRunning}
+      <Button
+        variant="ghost"
+        ariaDisabled={unloading}
+        dataAttrs={{ 'data-testid': `backend-card-unload-${id}` }}
+        onclick={onUnload}
+        >{#if unloading}<InlineSpinner />Unloading...{:else}Unload model{/if}</Button
+      >
+    {/if}
     <span class="be-test-status" role="status" aria-live="polite">
-      {#if testSucceeded && testLatencyMs !== null}
+      {#if stoppable}
+        <span class="be-test-note" data-ega-test-progress
+          ><InlineSpinner />{progress ?? 'Testing...'}</span
+        >{#if testElapsedMs !== null}
+          <!-- Ticks every second, so screen readers skip it. -->
+          <span class="be-latency be-clock" aria-hidden="true" data-ega-test-clock
+            >{clock(testElapsedMs)}</span
+          >{/if}
+      {:else if testSucceeded && testLatencyMs !== null}
         <span class="be-latency">Answered in {seconds(testLatencyMs)}</span>
       {/if}
     </span>
   </div>
+  {#if memoryLine}
+    <p class="be-test-note" data-ega-ollama-memory>{memoryLine}</p>
+  {/if}
   {#if testSucceeded && testResult}
     <p class="be-testresult" data-ega-test-answer>{testResult}</p>
   {/if}
@@ -159,6 +199,9 @@
     font-size: var(--fs-base);
     color: var(--color-muted);
     font-variant-numeric: tabular-nums;
+  }
+  .be-clock {
+    margin-inline-start: var(--space-2);
   }
   .be-testresult {
     margin: 0;

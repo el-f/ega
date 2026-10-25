@@ -11,7 +11,18 @@
   import { probeNativeHost } from '../probeNativeHost';
   import { onNativeProbe } from '../native-probe-events';
   import { createCancelToken } from '@/shared/cancel-token';
-  import { DEFAULT_TRANSLATE_TIMEOUT_MS } from '@/shared/constants';
+  import {
+    DEFAULT_LOCAL_BACKEND_TIMEOUT_MS,
+    DEFAULT_TRANSLATE_TIMEOUT_MS,
+  } from '@/shared/constants';
+  import {
+    fetchOllamaLoaded,
+    findLoaded,
+    ollamaBaseUrl,
+    ollamaMemoryLine,
+    unloadOllamaModel,
+    type OllamaLoaded,
+  } from '@/shared/backends/ollama-show';
   import { sendMsg } from '@/shared/messages';
   import type { Snippet } from 'svelte';
   import CollapsibleCard from '@/shared/components/CollapsibleCard.svelte';
@@ -56,6 +67,48 @@
   let verifiedAt: number | null = $state(null);
   let nativeOutdated = $state(false);
   const testFailed = $derived(!testRunning && testResult !== null && !testSucceeded);
+  let stopTest: (() => void) | null = $state(null);
+  let testStartedAt: number | null = $state(null);
+  let now = $state(0);
+  const testElapsedMs = $derived(testStartedAt === null ? null : now - testStartedAt);
+
+  // Ollama loads the model on the first request, which can fill the GPU and RAM; /api/ps shows how far it got.
+  let ollamaPs: OllamaLoaded[] | null = $state(null);
+  let unloading = $state(false);
+  const ollamaModel = $derived(id === 'ollama' ? resolveModelId(settings.model, id) : '');
+  const ollamaLoaded = $derived(id === 'ollama' ? findLoaded(ollamaPs, ollamaModel) : null);
+  const memoryLine = $derived(ollamaLoaded ? ollamaMemoryLine(ollamaLoaded) : null);
+  const progress = $derived(
+    id !== 'ollama' || ollamaPs === null
+      ? null
+      : ollamaLoaded
+        ? 'Waiting for the answer...'
+        : `Loading ${ollamaModel} into memory...`,
+  );
+  const localTimeoutMs = $derived(
+    settings.localBackendTimeoutMs ?? DEFAULT_LOCAL_BACKEND_TIMEOUT_MS,
+  );
+  let psGen = 0;
+  async function refreshPs(): Promise<void> {
+    if (id !== 'ollama') return;
+    const gen = ++psGen;
+    const rows = await fetchOllamaLoaded(ollamaBaseUrl(settings.ollamaUrl), localTimeoutMs);
+    if (gen === psGen) ollamaPs = rows;
+  }
+
+  async function unload(): Promise<void> {
+    const name = ollamaLoaded?.name;
+    if (!name) return;
+    unloading = true;
+    testNote = null;
+    try {
+      const ok = await unloadOllamaModel(ollamaBaseUrl(settings.ollamaUrl), name, localTimeoutMs);
+      if (!ok) testNote = 'Ollama did not unload the model. Try again.';
+      await refreshPs();
+    } finally {
+      unloading = false;
+    }
+  }
 
   // The route is drawn from these answers, so every row reports its own probe.
   $effect(() => {
@@ -145,6 +198,7 @@
     }
     const myGen = ++probeGen;
     const cfg = buildBackendConfig(settings);
+    void refreshPs();
     void checkAvailable(backend, cfg)
       .then((ok) => {
         if (myGen !== probeGen) return;
@@ -200,6 +254,20 @@
     testRunning = true;
     testErrCode = null;
     testNote = null;
+    // Native's CLI runs in the service worker, which this page cannot cancel.
+    const stop = new AbortController();
+    if (id !== 'native') stopTest = () => stop.abort();
+    const whenStopped = new Promise<false>((r) =>
+      stop.signal.addEventListener('abort', () => r(false), { once: true }),
+    );
+    now = performance.now();
+    testStartedAt = now;
+    let ticks = 0;
+    const tick = setInterval(() => {
+      now = performance.now();
+      if (++ticks % 2 === 0) void refreshPs();
+    }, 1000);
+    void refreshPs();
     // A result belongs to the settings it ran with; one that lands after an edit says nothing about the new value.
     const startKey = testKey;
     const settingsMoved = (): boolean => {
@@ -225,9 +293,13 @@
       const probeStart = performance.now();
       let available: boolean;
       try {
-        available = await checkAvailable(backend, cfg, true);
+        available = await Promise.race([checkAvailable(backend, cfg, true), whenStopped]);
       } catch {
         available = false;
+      }
+      if (stop.signal.aborted) {
+        testNote = 'Test stopped.';
+        return;
       }
       if (settingsMoved()) return;
       // A local server's own request error names the address and the fix, so it runs even when the probe failed.
@@ -323,7 +395,10 @@
           user: TEST_PROMPT_TEXT,
           stream: false,
           cancel: createCancelToken(
-            AbortSignal.timeout(settings.translateTimeoutMs ?? DEFAULT_TRANSLATE_TIMEOUT_MS),
+            AbortSignal.any([
+              AbortSignal.timeout(settings.translateTimeoutMs ?? DEFAULT_TRANSLATE_TIMEOUT_MS),
+              stop.signal,
+            ]),
           ).token,
           config: testCfg,
           onChunk: (c) => {
@@ -338,6 +413,12 @@
         });
       } catch (e) {
         errMsg = (e as Error).message;
+      }
+      // Dropping the request is what makes Ollama abort a model load.
+      if (stop.signal.aborted) {
+        auditTest('', { code: 'ABORTED', message: 'cancelled' });
+        testNote = 'Test stopped.';
+        return;
       }
       const endAt = performance.now();
       let result: string;
@@ -371,7 +452,11 @@
       testErrCode = testSucceeded ? null : (errCode ?? 'UNKNOWN');
       void recordTest(testSucceeded);
     } finally {
+      clearInterval(tick);
       testRunning = false;
+      stopTest = null;
+      testStartedAt = null;
+      void refreshPs();
     }
   }
 </script>
@@ -408,6 +493,12 @@
         {ollama403}
         {ollamaOrigin}
         onTest={runTest}
+        onStop={stopTest ?? undefined}
+        {progress}
+        {testElapsedMs}
+        {memoryLine}
+        onUnload={id === 'ollama' ? unload : undefined}
+        {unloading}
       />
     </div>
   </CollapsibleCard>
