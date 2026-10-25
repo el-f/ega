@@ -1,6 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import type { Settings } from '@/shared/types';
+  import type { BackendId, Settings } from '@/shared/types';
   import { computeBackendOrder } from '@/shared/backends/select';
   import { backendLabel } from '@/shared/backends/provider-profiles';
   import { BACKEND_IDS } from '@/shared/provider-ids';
@@ -38,26 +38,26 @@
     ),
   );
 
-  // Key presence readies a cloud backend; a key-less backend (native, ollama) counts only once the probe saw it reachable.
-  const resolvedId = $derived.by(() => {
+  // The backends the chip can land on, in order: every key-less one (the probe decides) up to and including the
+  // first keyed one that has its key, which always resolves. A keyed backend without a key never does.
+  const candidates = $derived.by(() => {
+    const out: BackendId[] = [];
     for (const id of chain) {
-      if (backendNeedsKey(id)) {
-        if (backendHasRequiredKey(id, settings)) return id;
-      } else if (probe?.available[id] === true) {
-        return id;
-      }
+      const needsKey = backendNeedsKey(id);
+      if (needsKey && !backendHasRequiredKey(id, settings)) continue;
+      out.push(id);
+      if (needsKey) break;
     }
-    return null;
+    return out;
   });
 
+  // Key presence readies a cloud backend; a key-less backend (native, ollama) counts only once the probe saw it reachable.
+  const resolvedId = $derived(
+    candidates.find((id) => backendNeedsKey(id) || probe?.available[id] === true) ?? null,
+  );
+
   // True when a key-less backend sits ahead of every keyed-and-ready one, so reachability decides the name.
-  const probeDecides = $derived.by(() => {
-    for (const id of chain) {
-      if (!backendNeedsKey(id)) return true;
-      if (backendHasRequiredKey(id, settings)) return false;
-    }
-    return false;
-  });
+  const probeDecides = $derived(candidates[0] !== undefined && !backendNeedsKey(candidates[0]));
 
   const checking = $derived(resolvedId === null && probeDecides && probe === null);
 
@@ -99,21 +99,12 @@
 
   const SET_UP = 'Set up backend';
   const label = $derived(!opensPopover ? SET_UP : checking ? 'Checking' : (backendName ?? ''));
-  // Every label a probe can land on before a setting changes: any key-less backend ahead of the first keyed-and-ready one (R63).
-  const heldLabels = $derived.by(() => {
-    const names: string[] = [];
-    let keyed = false;
-    for (const id of chain) {
-      const needsKey = backendNeedsKey(id);
-      if (needsKey && !backendHasRequiredKey(id, settings)) continue;
-      names.push(backendLabel(id));
-      if (needsKey) {
-        keyed = true;
-        break;
-      }
-    }
-    return [...(probeDecides ? ['Checking'] : []), ...names, ...(keyed ? [] : [SET_UP])];
-  });
+  // Every label a probe can land on before a setting changes (R63).
+  const heldLabels = $derived([
+    ...(probeDecides ? ['Checking'] : []),
+    ...candidates.map((id) => backendLabel(id)),
+    ...(candidates.some((id) => backendNeedsKey(id)) ? [] : [SET_UP]),
+  ]);
 
   function isProbeResult(r: unknown): r is ProbeResult {
     if (r === null || typeof r !== 'object') return false;
