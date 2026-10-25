@@ -92,7 +92,7 @@ describe('the tooltip close and cancel buttons reach the caller', () => {
     });
     await mounted();
 
-    await click('.actions button');
+    await click('[data-ega-tooltip-stop]');
     expect(onCancel).toHaveBeenCalledTimes(1);
     expect(wraps().length).toBe(1);
     await vi.waitFor(() =>
@@ -102,6 +102,25 @@ describe('the tooltip close and cancel buttons reach the caller', () => {
     );
     expect(getContainer().querySelector('[data-ega-retry]')).not.toBeNull();
     expect(getContainer().querySelector('.tooltip-error-body')).toBeNull();
+  });
+
+  // Stop and Retry are one button, so the keyboard user who pressed Stop is still on it, now as Retry.
+  it('focus stays on the Stop button, which becomes Retry', async () => {
+    openTooltip({
+      requestId: 'r3',
+      srcText: 'hello',
+      rect: rect(50, 50, 100, 20),
+      onCancel: vi.fn(),
+      onRetry: vi.fn(),
+    });
+    await mounted();
+    const stop = getContainer().querySelector<HTMLElement>('[data-ega-tooltip-stop]');
+    if (!stop) throw new Error('no Stop');
+    stop.focus();
+    await click('[data-ega-tooltip-stop]');
+    await vi.waitFor(() => expect(stop.hasAttribute('data-ega-retry')).toBe(true));
+    expect(stop.isConnected).toBe(true);
+    expect((stop.getRootNode() as ShadowRoot | Document).activeElement).toBe(stop);
   });
 });
 

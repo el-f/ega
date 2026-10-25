@@ -51,6 +51,18 @@ describe('CollapsibleInstallPanel', () => {
     expect(codeblock?.textContent).toContain('powershell -c install');
   });
 
+  // The summary keeps its widest label through the shared StableLabel (.ega-stable), not a copy of its rules.
+  it('holds the summary label with the shared StableLabel', () => {
+    const { container } = render(CollapsibleInstallPanel, { props: baseProps });
+    const stack = container.querySelector('summary .ega-stable.is-start');
+    expect(stack?.firstElementChild?.textContent).toBe('Install command');
+    const src = readFileSync(
+      resolve(process.cwd(), 'src/options/components/CollapsibleInstallPanel.svelte'),
+      'utf8',
+    );
+    expect(src).not.toMatch(/install-summary-(label|sizer)/);
+  });
+
   it('keeps the install body collapsed when open=false', () => {
     const { container } = render(CollapsibleInstallPanel, {
       props: { ...baseProps, open: false },
@@ -154,4 +166,19 @@ describe('CollapsibleInstallPanel — running the downloaded script', () => {
     const download = getByRole('button', { name: /^Download / });
     expect(download.getAttribute('data-variant')).toBe('secondary');
   });
+
+  it.each(['windows', 'linux'] as const)(
+    'on %s, the download label is one of the labels the button holds the width of (R63)',
+    (platform) => {
+      const { getByRole } = render(CollapsibleInstallPanel, {
+        props: { ...baseProps, defaultPlatform: platform },
+      });
+      const download = getByRole('button', { name: /^Download / });
+      const held = [...download.querySelectorAll('[data-label]')].map((s) =>
+        s.getAttribute('data-label'),
+      );
+      expect(held).toEqual(['Download .cmd installer', 'Download .sh installer', 'Downloaded']);
+      expect(held).toContain(download.textContent.trim());
+    },
+  );
 });

@@ -918,6 +918,69 @@ describe('Popup — Translate anyway names the task it runs', () => {
     }
   });
 
+  it('the action holds every task name the popup can switch to, so a new default keeps its width (R63)', async () => {
+    await chrome.storage.local.set({
+      'ega.settings': { anthropicApiKey: 'test-key', disabledTasks: ['grammar'] },
+    });
+    onTab('https://example.com/', (msg) =>
+      msg.kind === 'ega:get-selection' ? { text: 'hello there', heldBack } : { ok: true },
+    );
+    const { findByRole } = render(Popup);
+    const action = await findByRole('button', { name: 'Translate anyway' });
+    const held = (): (string | null)[] =>
+      [...action.querySelectorAll('[data-label]')].map((s) => s.getAttribute('data-label'));
+    // Each enabled task, in the Default task select's order; an off task never shows, so it holds no width.
+    await vi.waitFor(() =>
+      expect(held()).toEqual([
+        'Translate anyway',
+        'Explain anyway',
+        'Summarize anyway',
+        'Reword anyway',
+        'Reply ideas anyway',
+        'Ask anyway',
+      ]),
+    );
+    expect(action.textContent.trim()).toBe('Translate anyway');
+  });
+
+  it('a long custom name shows cut at a word; the hover hint keeps it whole', async () => {
+    await chrome.storage.local.set({
+      'ega.customTasks': [
+        {
+          id: 'long-one',
+          label: 'Rewrite as a polite formal email',
+          system: '',
+          user: 'Rewrite: {{text}}',
+          output: 'plain',
+          pageContext: false,
+          image: false,
+          glossary: false,
+          createdAt: 1,
+        },
+      ],
+      'ega.settings': { anthropicApiKey: 'test-key', defaultTask: 'long-one' },
+    });
+    onTab('https://example.com/', (msg) =>
+      msg.kind === 'ega:get-selection' ? { text: 'hello there', heldBack } : { ok: true },
+    );
+    try {
+      const { findByRole } = render(Popup);
+      // Cut at a word, and the visible text is the whole name, so a voice user can say it (WCAG 2.5.3).
+      const action = await findByRole('button', { name: 'Rewrite as a… anyway' });
+      expect(action.textContent.trim()).toBe('Rewrite as a… anyway');
+      expect(action.getAttribute('aria-label')).toBeNull();
+      // Sighted users read the full name on hover.
+      expect(action.getAttribute('title')).toBe('Rewrite as a polite formal email anyway');
+      await vi.waitFor(() =>
+        expect(
+          [...action.querySelectorAll('[data-label]')].map((x) => x.getAttribute('data-label')),
+        ).toContain('Rewrite as a… anyway'),
+      );
+    } finally {
+      await chrome.storage.local.remove('ega.customTasks');
+    }
+  });
+
   it('a custom default task goes by its own name', async () => {
     await chrome.storage.local.set({
       'ega.customTasks': [

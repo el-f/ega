@@ -6,6 +6,7 @@
   import { Tabs } from 'bits-ui';
   import IconButton from '@/shared/ui/IconButton.svelte';
   import Button from '@/shared/ui/Button.svelte';
+  import StableLabel from '@/shared/ui/StableLabel.svelte';
   import Copy from '@lucide/svelte/icons/copy';
   import Check from '@lucide/svelte/icons/check';
   import type { Platform } from '../nativeHostInstall';
@@ -15,6 +16,8 @@
     open: boolean;
     /** Heading inside the install-command <summary>. */
     summaryLabel: string;
+    /** Every label the summary can show; it keeps the widest one's width (R63). */
+    summaryLabels?: readonly string[];
     /** Detected platform. Drives which command is shown by default. */
     defaultPlatform: Platform;
     /** Install and uninstall scripts per OS; the install script already contains the extension id. */
@@ -29,6 +32,7 @@
   let {
     open = $bindable(),
     summaryLabel,
+    summaryLabels = [],
     defaultPlatform,
     commands,
     recheckHint,
@@ -80,7 +84,8 @@
   <details class="install-panel" bind:open data-testid="nh-install-panel">
     <summary class="install-summary">
       <span class="install-summary-chevron" aria-hidden="true"></span>
-      <span class="install-summary-label">{summaryLabel}</span>
+      <!-- Holds the widest label, so the summary keeps one width when it changes (R63). -->
+      <StableLabel current={summaryLabel} labels={summaryLabels} start />
     </summary>
 
     <div class="install-body">
@@ -149,7 +154,12 @@
 
       <div class="install-actions">
         <!-- Secondary: the view keeps one filled primary (C-6). -->
-        <Button variant="secondary" iconKind="import" onclick={downloadInstaller}>
+        <Button
+          variant="secondary"
+          iconKind="import"
+          labels={['Download .cmd installer', 'Download .sh installer', 'Downloaded']}
+          onclick={downloadInstaller}
+        >
           {downloaded ? 'Downloaded' : `Download ${installerLabel}`}
         </Button>
         {#if recheckHint}<small class="install-hint">{recheckHint}</small>{/if}
@@ -221,9 +231,6 @@
   .install-panel[open] > .install-summary > .install-summary-chevron,
   .install-uninstall[open] > .install-uninstall-summary > .install-summary-chevron {
     transform: rotate(45deg);
-  }
-  .install-summary-label {
-    flex: 1 1 auto;
   }
   .install-body {
     display: flex;

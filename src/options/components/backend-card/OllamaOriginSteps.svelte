@@ -28,7 +28,7 @@
   </p>
   <div class="oo-origin">
     <code>{origin}</code>
-    <Button variant="secondary" size="sm" onclick={() => void copy()}
+    <Button variant="secondary" size="sm" labels={['Copy', 'Copied']} onclick={() => void copy()}
       >{copied ? 'Copied' : 'Copy'}</Button
     >
   </div>

@@ -1,7 +1,7 @@
 /* coverage: sidepanel.composer.mode-popover */
 import { test, expect, type Page } from '@playwright/test';
 import { launchExtension, seedSettings, type ExtensionHandle } from '../../../helpers';
-import { createTimeline } from '../../_harness';
+import { createTimeline, expectCentered, expectSameWidth } from '../../_harness';
 
 let ext: ExtensionHandle;
 
@@ -41,7 +41,24 @@ test('the mode chip opens Next message, and each pick applies at once', async ()
   timeline.markStep('popover-open');
 
   // A task pick applies at once and the popover stays open; Reword brings its tone row.
-  await popover.locator('[data-ega-task="reword"]').click();
+  // Unpicked chips hold the check's room as padding: no width change, no rewrap, no off-center label (R63).
+  const reword = popover.locator('[data-ega-task="reword"]');
+  const translate = popover.locator('[data-ega-task="translate"]');
+  await expectCentered(reword, 'Reword unpicked');
+  await expectSameWidth(
+    translate,
+    () =>
+      expectSameWidth(
+        reword,
+        async () => {
+          await reword.click();
+          await expect(reword).toHaveAttribute('aria-checked', 'true');
+        },
+        'Reword picked',
+      ),
+    'Translate unpicked',
+  );
+  await expectCentered(translate, 'Translate unpicked');
   await expect(popover).toBeVisible();
   await expect(chip).toHaveText('Reword');
   const tone = popover.locator('[data-ega-tone-select]');
@@ -62,11 +79,23 @@ test('the mode chip opens Next message, and each pick applies at once', async ()
   timeline.markStep('languages-swapped');
 
   // The page info level is a Settings value: the pick is saved at once.
-  await popover.getByRole('button', { name: 'Rich' }).click();
-  await expect(popover.getByRole('button', { name: 'Rich' })).toHaveAttribute(
-    'aria-pressed',
-    'true',
+  // The unpicked level holds the check's room as padding, so a pick does not resize the group (R63).
+  const rich = popover.getByRole('button', { name: 'Rich' });
+  await expectCentered(rich, 'Rich unpicked');
+  await expectSameWidth(
+    popover.getByRole('button', { name: 'Minimal' }),
+    () =>
+      expectSameWidth(
+        rich,
+        async () => {
+          await rich.click();
+          await expect(rich).toHaveAttribute('aria-pressed', 'true');
+        },
+        'Rich picked',
+      ),
+    'Minimal unpicked',
   );
+  await expectCentered(popover.getByRole('button', { name: 'Minimal' }), 'Minimal unpicked');
   await expect
     .poll(
       async () =>

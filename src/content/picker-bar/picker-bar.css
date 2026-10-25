@@ -122,6 +122,10 @@
   background: var(--color-accent-bg-hover);
   border-color: var(--color-accent);
 }
+/* Each segment holds its label's bold width, so choosing one widens nothing and moves no neighbour (R63). */
+.ega-picker-bar .modes [data-label] {
+  font-weight: 600;
+}
 .ega-picker-bar .translate {
   background: var(--color-accent);
   border-color: var(--color-accent);

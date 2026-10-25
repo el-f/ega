@@ -11,6 +11,7 @@
   import { langTag, replyLang } from '@/shared/lang-tag';
   import IconButton from '@/shared/ui/IconButton.svelte';
   import Button from '@/shared/ui/Button.svelte';
+  import StableLabel from '@/shared/ui/StableLabel.svelte';
   import Icon from '@/shared/ui/Icon.svelte';
   import Copy from '@lucide/svelte/icons/copy';
   import Check from '@lucide/svelte/icons/check';
@@ -42,7 +43,7 @@
   import { ALL_ERR_CODES, type ErrCode, type LangSelection, type Variety } from '@/shared/types';
   import { isIsoCode, labelFor } from '@/shared/languages';
   import { openOptionsTab } from '@/shared/open-options-tab';
-  import { IMAGE_TURN_PLACEHOLDER } from '@/shared/constants';
+  import { IMAGE_TURN_PLACEHOLDER, RETRY_AFTER_MAX_MS } from '@/shared/constants';
   import { directionLabel, replyMetaItems, type ConfidenceSetting } from '@/shared/reply-meta';
   import ReplyMenus from './ReplyMenus.svelte';
   import TranslateIntoPopover from './TranslateIntoPopover.svelte';
@@ -313,6 +314,7 @@
     if (until === undefined) return 0;
     return Math.max(0, Math.ceil((until - nowMs) / 1000));
   });
+  const retryWaiting = $derived(retryWaitSec > 0 || inflight);
   $effect(() => {
     const until = turn.error?.retryUntil;
     nowMs = Date.now();
@@ -334,15 +336,27 @@
       );
       return;
     }
-    if (retryWaitSec > 0 || inflight) return;
+    if (retryWaiting) return;
     onRetry(turn.id);
   }
 
-  function errorActionName(a: ErrorAction): string {
-    if (a !== 'try-again') return errorActionLabel(a);
-    if (retryWaitSec > 0) return errorActionLabel(a, retryWaitSec);
-    return inflight ? 'Try again (wait for the current reply)' : 'Try again';
-  }
+  // Try again holds one width (R63); while another reply runs its name and hover hint say why, as the long label would crowd 256px (D56).
+  const retryProps = $derived({
+    ...(inflight && retryWaitSec === 0
+      ? {
+          ariaLabel: 'Try again (wait for the current reply)',
+          title: 'Try again (wait for the current reply)',
+        }
+      : {}),
+    // The sizer holds the full Retry-After cap, so a tick never resizes the button.
+    ...(turn.error?.retryUntil !== undefined
+      ? { labels: ['Try again', errorActionLabel('try-again', RETRY_AFTER_MAX_MS / 1000)] }
+      : {}),
+    dataAttrs: {
+      'data-ega-retry': 'true',
+      ...(retryWaiting ? { 'aria-disabled': 'true' } : {}),
+    },
+  });
 
   // ── Focus on a re-run or a version change ──────────────────────────────────
   // A re-run or a state change unmounts the focused button (each state draws its own pager); focus would drop to <body>.
@@ -537,7 +551,13 @@
         if (activeIdx > 0) onSelectVariant?.(turn.id, activeIdx - 1);
       }}
     />
-    <span class="ega-pager-count" aria-hidden="true">{activeIdx + 1}/{variantCount}</span>
+    <!-- The last version's count is the widest, so paging past 9 moves neither arrow (R63). -->
+    <span class="ega-pager-count" aria-hidden="true"
+      ><StableLabel
+        current={`${activeIdx + 1}/${variantCount}`}
+        labels={[`${variantCount}/${variantCount}`]}
+      /></span
+    >
     <span class="ega-sr-only" aria-live="polite">Version {activeIdx + 1} of {variantCount}</span>
     <IconButton
       icon={ChevronRight}
@@ -582,8 +602,9 @@
             <Button
               variant="ghost"
               size="sm"
-              dataAttrs={{ 'data-ega-retry': 'true' }}
-              onclick={() => runErrorAction('try-again')}>{errorActionName('try-again')}</Button
+              {...retryProps}
+              onclick={() => runErrorAction('try-again')}
+              >{errorActionLabel('try-again', retryWaitSec)}</Button
             >
           {/if}
           {#if variantCount > 1}{@render pager(false)}{/if}
@@ -608,17 +629,13 @@
             />
           {/if}
           {#each errorActions as a, i (a)}
-            {@const waiting = a === 'try-again' && (retryWaitSec > 0 || inflight)}
             <Button
               variant={i === 0 ? 'secondary' : 'ghost'}
               size="sm"
-              dataAttrs={{
-                ...(a === 'try-again'
-                  ? { 'data-ega-retry': 'true' }
-                  : { 'data-ega-sidepanel-open-options': 'true' }),
-                ...(waiting ? { 'aria-disabled': 'true' } : {}),
-              }}
-              onclick={() => runErrorAction(a)}>{errorActionName(a)}</Button
+              {...a === 'try-again'
+                ? retryProps
+                : { dataAttrs: { 'data-ega-sidepanel-open-options': 'true' } }}
+              onclick={() => runErrorAction(a)}>{errorActionLabel(a, retryWaitSec)}</Button
             >
           {/each}
           {#if copy.detail !== undefined}
@@ -709,7 +726,6 @@
           <IconButton
             icon={RefreshCw}
             ariaLabel={inflight ? 'Regenerate (wait for the current reply)' : 'Regenerate'}
-            tooltip="Regenerate"
             size="sm"
             dataAttrs={{
               'data-ega-regenerate': 'true',
@@ -960,6 +976,10 @@
   .ega-error-actions :global(.ega-btn[aria-disabled='true']) {
     color: var(--color-muted);
     cursor: var(--cursor-disabled);
+  }
+  /* Every digit is one width, so the countdown's sizer holds every count (R63). */
+  .ega-error-actions :global([data-ega-retry]) {
+    font-variant-numeric: tabular-nums;
   }
   .ega-error-actions :global([data-ega-error-details][aria-expanded='true']) {
     color: var(--color-accent-hover);

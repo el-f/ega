@@ -9,7 +9,7 @@ import {
   waitForTestHooks,
   type ExtensionHandle,
 } from '../../helpers';
-import { createTimeline } from '../_harness';
+import { createTimeline, expectSameWidth } from '../_harness';
 
 let ext: ExtensionHandle;
 
@@ -74,4 +74,16 @@ test('tone picker switch re-runs and updates the prompt tone modifier', async ()
   expect(secondBody).toBeTruthy();
   expect(secondBody).toMatch(/direct and blunt/);
   expect(secondBody).not.toMatch(/plain neutral/);
+
+  // A task with no tone drops the Tone select; the Task select beside it keeps its width (R63).
+  const taskSelect = page.locator('select[data-ega-task-select]');
+  await expectSameWidth(
+    taskSelect,
+    async () => {
+      expect(await egaTest<boolean>(page, 'setTooltipSelect', 'task:translate')).toBe(true);
+      await expect(page.locator('select[data-ega-tone-select]')).toHaveCount(0);
+    },
+    'Task select',
+  );
+  timeline.markStep('tone-select-gone');
 });

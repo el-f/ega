@@ -8,7 +8,7 @@ import {
   waitForTestHooks,
   type ExtensionHandle,
 } from '../../helpers';
-import { createTimeline, waitForVisibleText } from '../_harness';
+import { createTimeline, expectNothingMoves, waitForVisibleText } from '../_harness';
 
 // The result message is sent from an extension page — same sender semantics as the real dispatchImageTranslate.
 
@@ -60,13 +60,25 @@ test('image-translate result mounts a tooltip with source image + translation bo
     .toBe(true);
   timeline.markStep('loading-visible');
 
-  await sendImageTranslateResult(opts, handle, {
-    translation: 'Hello image text',
-    confidence: 0.91,
-  });
-  timeline.markStep('dispatched');
-
-  await waitForVisibleText(page, '.tooltip .body', 'Hello image text');
+  // Regenerate takes Stop's one slot, so Copy and the icons after it stay put (R63).
+  const actions = page.locator('.tooltip [data-ega-tooltip-actions]');
+  await expectNothingMoves(
+    {
+      Copy: actions.locator('button[aria-label^="Copy"]'),
+      'Open in side panel': actions.locator('button[aria-label^="Open in side panel"]'),
+      More: actions.locator('[aria-label="More"]'),
+    },
+    async () => {
+      await sendImageTranslateResult(opts, handle, {
+        translation: 'Hello image text',
+        confidence: 0.91,
+      });
+      timeline.markStep('dispatched');
+      await waitForVisibleText(page, '.tooltip .body', 'Hello image text');
+      await expect(actions.locator('[aria-label="Regenerate"]')).toBeVisible();
+    },
+    actions,
+  );
 
   const imgInfo = await page.evaluate(() => {
     const host = document.querySelector('#ega-shadow-host');

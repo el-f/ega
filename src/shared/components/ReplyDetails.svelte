@@ -6,6 +6,7 @@
   import { aroundText, shortUrl } from './reply-details';
   import X from '@lucide/svelte/icons/x';
   import IconButton from '@/shared/ui/IconButton.svelte';
+  import StableLabel from '@/shared/ui/StableLabel.svelte';
   import { backendLabel } from '@/shared/backends/provider-profiles';
   import { errorCopy } from '@/shared/error-copy';
   import { formatDetectedLabel } from '@/shared/detected-label';
@@ -239,6 +240,7 @@
     </dl>
     {#if attempts.length > 1}
       <div class="rd-tried">
+        <!-- Each toggle in this panel holds the width of every label it shows, so a click moves nothing beside it (R63). -->
         <button
           type="button"
           class="rd-link rd-disclosure"
@@ -246,7 +248,14 @@
           aria-controls="{uid}-tried"
           onclick={() => (showTried = !showTried)}
         >
-          Backends tried ({attempts.length}) {showTried ? '▾' : '▸'}
+          <StableLabel
+            current={`Backends tried (${attempts.length}) ${showTried ? '▾' : '▸'}`}
+            labels={[
+              `Backends tried (${attempts.length}) ▸`,
+              `Backends tried (${attempts.length}) ▾`,
+            ]}
+            start
+          />
         </button>
         {#if showTried}
           <ol class="rd-attempts" id="{uid}-tried">
@@ -339,7 +348,11 @@
               aria-expanded={showAllPage}
               onclick={() => (showAllPage = !showAllPage)}
             >
-              {showAllPage ? 'Show less' : 'Show all page info'}
+              <StableLabel
+                current={showAllPage ? 'Show less' : 'Show all page info'}
+                labels={['Show all page info', 'Show less']}
+                start
+              />
             </button>
           </dd>
         {/if}
@@ -361,7 +374,11 @@
           aria-controls="{uid}-instr"
           onclick={() => (showInstructions = !showInstructions)}
         >
-          Instructions sent {showInstructions ? '▾' : '▸'}
+          <StableLabel
+            current={showInstructions ? 'Instructions sent ▾' : 'Instructions sent ▸'}
+            labels={['Instructions sent ▸', 'Instructions sent ▾']}
+            start
+          />
         </button>
         <span class="rd-muted">{count(instructionsTotal)} characters</span>
       {:else}
@@ -401,7 +418,11 @@
 
   <footer class="rd-foot">
     <button type="button" class="rd-copy rd-action" onclick={() => void copyJson()}>
-      {copied ? 'Copied' : 'Copy as JSON'}
+      <StableLabel
+        current={copied ? 'Copied' : 'Copy as JSON'}
+        labels={['Copy as JSON', 'Copied']}
+        start
+      />
     </button>
     <span class="ega-sr-only" role="status" aria-live="polite">{copied ? 'Copied' : ''}</span>
   </footer>

@@ -566,11 +566,13 @@
   z-index: var(--ega-layer-label);
   max-width: 220px;
 }
+/* One answer line tall, like the body that replaces it (.tooltip .body min-block-size: 1lh), so Stop, the first words
+   or "No answer yet." do not move the meta and the actions (R63). */
 .shimmer-wrap {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-2) 0;
+  min-block-size: 1lh;
 }
 .shimmer {
   flex: 0 0 120px;
@@ -660,6 +662,22 @@
 .tooltip .actions .tooltip-fix {
   flex-shrink: 0;
   white-space: nowrap;
+}
+/* Every count has the sizer's width, so the Retry countdown never moves the actions beside it (R63). */
+.tooltip .actions [data-ega-retry] {
+  font-variant-numeric: tabular-nums;
+}
+/* Stop and Retry are as wide as the 32px icons that take the slot when the reply settles, gaps included (R63). */
+.tooltip .actions .tooltip-stop-retry {
+  box-sizing: border-box;
+  min-inline-size: calc(
+    var(--ega-stop-slots, 0) * 32px + (var(--ega-stop-slots, 0) - 1) * var(--space-1)
+  );
+}
+/* One slot: a text Stop is wider than the 32px icon, so it drops its side padding; "Retry" still fits inside. */
+.tooltip .actions .tooltip-stop-retry.one-slot {
+  inline-size: 32px;
+  padding-inline: 0;
 }
 .tooltip .actions .tooltip-text-action:hover,
 .tooltip .actions .tooltip-fix:hover {
@@ -768,11 +786,12 @@
     color var(--motion-fast) var(--ease-out);
   font: inherit;
 }
-.ega-icon-btn:disabled {
+.ega-icon-btn:disabled,
+.ega-icon-btn[aria-disabled='true'] {
   cursor: not-allowed;
   opacity: 0.55;
 }
-.ega-icon-btn:not(:disabled):hover {
+.ega-icon-btn:not(:disabled, [aria-disabled='true']):hover {
   background: var(--color-bg-hover);
   color: var(--color-fg);
 }
@@ -791,11 +810,11 @@
 .ega-icon-btn.variant-primary {
   color: var(--color-accent);
 }
-.ega-icon-btn.variant-primary:not(:disabled):hover {
+.ega-icon-btn.variant-primary:not(:disabled, [aria-disabled='true']):hover {
   background: var(--color-accent-bg-hover);
 }
-.ega-icon-btn.variant-danger:not(:disabled):hover,
-.ega-icon-btn.variant-danger:not(:disabled):focus-visible {
+.ega-icon-btn.variant-danger:not(:disabled, [aria-disabled='true']):hover,
+.ega-icon-btn.variant-danger:not(:disabled, [aria-disabled='true']):focus-visible {
   color: var(--color-danger-fg);
   background: var(--color-danger-bg-soft);
 }

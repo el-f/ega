@@ -1,6 +1,7 @@
 <script lang="ts">
   import { DropdownMenu } from 'bits-ui';
   import Icon from '@/shared/ui/Icon.svelte';
+  import StableLabel from '@/shared/ui/StableLabel.svelte';
   import WandSparkles from '@lucide/svelte/icons/wand-sparkles';
   import Ellipsis from '@lucide/svelte/icons/ellipsis';
   import Check from '@lucide/svelte/icons/check';
@@ -185,10 +186,8 @@
             onCheckedChange={(v) => onShowChanges(v)}
             data-ega-show-changes
           >
-            {#snippet children({ checked })}
-              <span class="sp-menu-label">Show changes</span>
-              {#if checked}<Icon icon={Check} size={16} />{/if}
-            {/snippet}
+            <span class="sp-menu-label">Show changes</span>
+            <Icon icon={Check} size={16} class="sp-menu-check" />
           </DropdownMenu.CheckboxItem>
         {/if}
       </DropdownMenu.Content>
@@ -219,7 +218,13 @@
       {#if speakable}
         <DropdownMenu.Item class="sp-menu-item" onSelect={onSpeak} data-ega-speak>
           <Icon icon={speaking ? CircleStop : Volume2} size={16} />
-          <span class="sp-menu-label">{speaking ? 'Stop reading' : 'Read aloud'}</span>
+          <span class="sp-menu-label"
+            ><StableLabel
+              current={speaking ? 'Stop reading' : 'Read aloud'}
+              labels={['Read aloud', 'Stop reading']}
+              start
+            /></span
+          >
         </DropdownMenu.Item>
       {/if}
       <DropdownMenu.CheckboxItem
@@ -228,11 +233,9 @@
         onCheckedChange={(v) => onAbout(v)}
         data-ega-about
       >
-        {#snippet children({ checked })}
-          {#if speakable}<span class="sp-menu-icon-slot" aria-hidden="true"></span>{/if}
-          <span class="sp-menu-label">About this reply</span>
-          {#if checked}<Icon icon={Check} size={16} />{/if}
-        {/snippet}
+        {#if speakable}<span class="sp-menu-icon-slot" aria-hidden="true"></span>{/if}
+        <span class="sp-menu-label">About this reply</span>
+        <Icon icon={Check} size={16} class="sp-menu-check" />
       </DropdownMenu.CheckboxItem>
       {#if answerAgain.length > 0}
         <DropdownMenu.Separator class="sp-menu-sep" />
@@ -259,11 +262,9 @@
         onCheckedChange={onBookmark}
         data-ega-bookmark
       >
-        {#snippet children({ checked })}
-          <Icon icon={Star} size={16} />
-          <span class="sp-menu-label">Bookmark</span>
-          {#if checked}<Icon icon={Check} size={16} />{/if}
-        {/snippet}
+        <Icon icon={Star} size={16} />
+        <span class="sp-menu-label">Bookmark</span>
+        <Icon icon={Check} size={16} class="sp-menu-check" />
       </DropdownMenu.CheckboxItem>
       <!-- Last, not first: a keyboard open lands on the first item, and a second Enter must not delete. -->
       <DropdownMenu.Item class="sp-menu-item sp-menu-danger" onSelect={onDelete} data-ega-delete>

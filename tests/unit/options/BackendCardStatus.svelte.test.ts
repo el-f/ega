@@ -32,6 +32,29 @@ describe('BackendCardStatus vocabulary', () => {
       props: { ...base, kind, beStatus, ...extra },
     });
     expect(word(container)).toBe(expected);
+    // Every pill holds the width of every word any kind can show, so the route tag after it does not move and a
+    // column of cards shows pills of one width (R63).
+    const held = [...container.querySelectorAll('.be-pill-sizer')].map((s) =>
+      s.getAttribute('data-label'),
+    );
+    expect(new Set(held)).toEqual(
+      new Set([
+        'Checking...',
+        'Needs setup',
+        'Test failed',
+        'Verified',
+        'Key saved',
+        'Not installed',
+        'Update needed',
+        'Installed',
+        'Running',
+        'Not running',
+      ]),
+    );
+    // The icon sits in the centered face with the word, so a short word leaves no gap on one side.
+    expect(
+      container.querySelector('.ega-stable > .be-pill-face > .be-pill-icon svg'),
+    ).not.toBeNull();
     // One pill, no coloured dot.
     expect(container.querySelectorAll('[data-ega-backend-status]')).toHaveLength(1);
     expect(container.querySelector('.be-dot')).toBeNull();

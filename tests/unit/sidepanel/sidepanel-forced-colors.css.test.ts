@@ -101,7 +101,7 @@ describe('delete is not the loudest thing at rest', () => {
     const src = read('src/shared/ui/IconButton.svelte');
     expect(src).not.toMatch(/\.ega-icon-btn\.variant-danger\)\s*\{[^}]*color:/);
     expect(src).toMatch(
-      /variant-danger:not\(:disabled\):focus-visible\)[\s\S]{0,80}color:\s*var\(--color-danger-fg\)/,
+      /variant-danger:not\(:disabled, \[aria-disabled='true'\]\):focus-visible\)[\s\S]{0,80}color:\s*var\(--color-danger-fg\)/,
     );
   });
 });

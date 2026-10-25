@@ -33,6 +33,7 @@ export function mountShadowHost(): HTMLDivElement {
   // Open mode: the tree holds only visible UI, and tests probe it via host.shadowRoot.
   root = host.attachShadow({ mode: 'open' });
   const style = document.createElement('style');
+  // shadow.css imports tokens.css, so StableLabel's .ega-stable rules come with it.
   style.textContent = css;
   root.appendChild(style);
   const container = document.createElement('div');

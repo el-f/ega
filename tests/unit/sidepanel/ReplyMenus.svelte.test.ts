@@ -300,6 +300,17 @@ describe('More', () => {
     expect(line.querySelector('button')).toBeNull();
   });
 
+  // The check is drawn on every check item and only hidden while off, so a toggle moves nothing (R63).
+  it('About and Bookmark keep the check in place while off', async () => {
+    const { container } = render(AssistantTurn, { props: replyProps(doneReply()) });
+    await openMenu(container, 'more');
+    for (const sel of ['[data-ega-about]', '[data-ega-bookmark]']) {
+      const item = document.querySelector(sel);
+      expect(item?.getAttribute('data-state')).toBe('unchecked');
+      expect(item?.querySelector('.sp-menu-check svg')).not.toBeNull();
+    }
+  });
+
   it('Bookmark and Delete act on this reply', async () => {
     const props = replyProps(doneReply());
     const { container } = render(AssistantTurn, { props });

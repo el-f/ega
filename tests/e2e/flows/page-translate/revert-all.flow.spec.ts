@@ -9,7 +9,7 @@ import {
   type ExtensionHandle,
   pickAreasAndTranslate,
 } from '../../helpers';
-import { createTimeline } from '../_harness';
+import { createTimeline, expectSameWidth } from '../_harness';
 
 let ext: ExtensionHandle;
 
@@ -52,13 +52,20 @@ test('after settle, Show original toggles the view instead of destroying it', as
   // The batch settles shortly after the last block completes.
   await expect(original).toHaveAttribute('aria-pressed', 'false', { timeout: 10_000 });
 
-  await original.click();
+  // Pressed is a fill, not a new label or weight, so the button keeps its width (R63).
+  await expectSameWidth(
+    original,
+    async () => {
+      await original.click();
+      await expect(original).toHaveAttribute('aria-pressed', 'true');
+    },
+    'Show original',
+  );
   timeline.markStep('show-original-clicked');
 
   // Translations are hidden, not destroyed; the same button, pressed, is the way back.
   await expect.poll(allSiblingsHidden, { timeout: 5_000 }).toBe(true);
   expect((await egaTest<number>(page, 'pageV2TxCount')) ?? 0).toBe(2);
-  await expect(original).toHaveAttribute('aria-pressed', 'true');
 
   await original.click();
   timeline.markStep('show-translation-clicked');

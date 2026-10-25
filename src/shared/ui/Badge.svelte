@@ -1,25 +1,20 @@
 <script lang="ts">
-  /** A status pill: sentence case, an optional icon plus a word. No coloured dot; the word carries the state. */
-  import type { Component, Snippet } from 'svelte';
+  /** A status pill: sentence case, a word that carries the state. No coloured dot. A pill with an icon draws it in its
+   *  children (BackendCardStatus), so the icon size has one owner. */
+  import type { Snippet } from 'svelte';
 
   type Variant = 'default' | 'success' | 'warning' | 'danger' | 'muted';
-  type LucideIcon = Component<{ size?: number | string; strokeWidth?: number | string }>;
 
   interface Props {
     children: Snippet;
     variant?: Variant;
-    icon?: LucideIcon;
     dataAttrs?: Record<string, string | number | boolean | undefined>;
   }
 
-  let { children, variant = 'default', icon, dataAttrs }: Props = $props();
+  let { children, variant = 'default', dataAttrs }: Props = $props();
 </script>
 
 <span class="ega-badge variant-{variant}" {...dataAttrs ?? {}}>
-  {#if icon}
-    {@const IconC = icon}
-    <span class="ega-badge-icon" aria-hidden="true"><IconC size={14} strokeWidth={2} /></span>
-  {/if}
   {@render children()}
 </span>
 
@@ -36,9 +31,6 @@
     border: 1px solid transparent;
     line-height: var(--lh-body);
     white-space: nowrap;
-  }
-  .ega-badge-icon {
-    display: inline-flex;
   }
   .variant-default {
     background: var(--color-bg-elevated);

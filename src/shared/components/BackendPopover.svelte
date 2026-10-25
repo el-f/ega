@@ -86,6 +86,7 @@
     'not-running': 'How to start',
     'cant-connect': 'Check settings',
   };
+  const FIXES = Object.values(FIX_TEXT).filter((f) => f !== undefined);
 
   function dotState(status: RowStatus): 'on' | 'off' | 'idle' {
     if (status === 'in-use' || status === 'ready') return 'on';
@@ -108,14 +109,18 @@
               <span class="chain-label">{backendLabel(id)}</span>
               <span class="chain-status">{STATUS_TEXT[status]}</span>
             </span>
-            {#if fix !== undefined}
-              <button
-                type="button"
-                class="setup-btn"
-                aria-label={`${fix}: ${backendLabel(id)}`}
-                onclick={onManageClick}>{fix}</button
-              >
-            {/if}
+            <!-- Every row keeps the widest fix's slot, so a probe that adds or drops one does not rewrap the row (R63). -->
+            <span class="ega-stable fix-slot">
+              {#if fix !== undefined}
+                <button
+                  type="button"
+                  class="setup-btn"
+                  aria-label={`${fix}: ${backendLabel(id)}`}
+                  onclick={onManageClick}>{fix}</button
+                >
+              {/if}
+              {#each FIXES as f (f)}<span aria-hidden="true" data-label={f}></span>{/each}
+            </span>
           </li>
         {/each}
       </ol>
@@ -193,6 +198,10 @@
   }
   .dot.off {
     background: var(--color-dot-off);
+  }
+  .fix-slot {
+    flex-shrink: 0;
+    justify-items: end;
   }
   .footer-row {
     display: flex;

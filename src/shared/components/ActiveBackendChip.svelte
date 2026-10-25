@@ -1,6 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import type { Settings } from '@/shared/types';
+  import type { BackendId, Settings } from '@/shared/types';
   import { computeBackendOrder } from '@/shared/backends/select';
   import { backendLabel } from '@/shared/backends/provider-profiles';
   import { BACKEND_IDS } from '@/shared/provider-ids';
@@ -38,26 +38,26 @@
     ),
   );
 
-  // Key presence readies a cloud backend; a key-less backend (native, ollama) counts only once the probe saw it reachable.
-  const resolvedId = $derived.by(() => {
+  // The backends the chip can land on, in order: every key-less one (the probe decides) up to and including the
+  // first keyed one that has its key, which always resolves. A keyed backend without a key never does.
+  const candidates = $derived.by(() => {
+    const out: BackendId[] = [];
     for (const id of chain) {
-      if (backendNeedsKey(id)) {
-        if (backendHasRequiredKey(id, settings)) return id;
-      } else if (probe?.available[id] === true) {
-        return id;
-      }
+      const needsKey = backendNeedsKey(id);
+      if (needsKey && !backendHasRequiredKey(id, settings)) continue;
+      out.push(id);
+      if (needsKey) break;
     }
-    return null;
+    return out;
   });
 
+  // Key presence readies a cloud backend; a key-less backend (native, ollama) counts only once the probe saw it reachable.
+  const resolvedId = $derived(
+    candidates.find((id) => backendNeedsKey(id) || probe?.available[id] === true) ?? null,
+  );
+
   // True when a key-less backend sits ahead of every keyed-and-ready one, so reachability decides the name.
-  const probeDecides = $derived.by(() => {
-    for (const id of chain) {
-      if (!backendNeedsKey(id)) return true;
-      if (backendHasRequiredKey(id, settings)) return false;
-    }
-    return false;
-  });
+  const probeDecides = $derived(candidates[0] !== undefined && !backendNeedsKey(candidates[0]));
 
   const checking = $derived(resolvedId === null && probeDecides && probe === null);
 
@@ -96,6 +96,15 @@
   );
   // With no backend the chip opens Options in a tab: nothing expands, so it claims no popup.
   const opensPopover = $derived(resolvedId !== null || checking);
+
+  const SET_UP = 'Set up backend';
+  const label = $derived(!opensPopover ? SET_UP : checking ? 'Checking' : (backendName ?? ''));
+  // Every label a probe can land on before a setting changes (R63).
+  const heldLabels = $derived([
+    ...(probeDecides ? ['Checking'] : []),
+    ...candidates.map((id) => backendLabel(id)),
+    ...(candidates.some((id) => backendNeedsKey(id)) ? [] : [SET_UP]),
+  ]);
 
   function isProbeResult(r: unknown): r is ProbeResult {
     if (r === null || typeof r !== 'object') return false;
@@ -182,12 +191,17 @@
   aria-expanded={opensPopover ? popoverOpen : undefined}
   onclick={onClick}
 >
-  {#if !opensPopover}
-    <span class="chip-name">Set up backend</span>
-  {:else}
-    <span class="chip-dot" class:on={!checking} aria-hidden="true"></span>
-    <span class="chip-name">{checking ? 'Checking' : backendName}</span>
-  {/if}
+  <!-- Every label the chip can show holds its width (.ega-stable in tokens.css), so the probe landing does not resize it. -->
+  <span class="ega-stable">
+    <span class="chip-current">
+      {#if opensPopover}<span class="chip-dot" class:on={!checking} aria-hidden="true"></span>{/if}
+      <span class="chip-name">{label}</span>
+    </span>
+    {#each heldLabels as held, i (i)}
+      <span class="chip-sizer" class:has-dot={held !== SET_UP} aria-hidden="true" data-label={held}
+      ></span>
+    {/each}
+  </span>
 </button>
 
 {#if resolvedId !== null || popoverOpen}
@@ -209,7 +223,6 @@
     flex-shrink: 0;
     display: inline-flex;
     align-items: center;
-    gap: var(--space-2);
     box-sizing: border-box;
     block-size: 28px;
     padding: 0 var(--space-2);
@@ -241,6 +254,15 @@
     color: var(--color-warning-fg);
     border-style: dashed;
   }
+  .chip-current {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+  /* The dot's box plus its gap, kept on every label that shows the dot. */
+  .chip-sizer.has-dot {
+    padding-inline-start: calc(8px + var(--space-2));
+  }
   .chip-dot {
     flex-shrink: 0;
     inline-size: 8px;
@@ -258,7 +280,8 @@
       padding: 0;
       justify-content: center;
     }
-    .active-backend-chip:not(.empty) .chip-name {
+    .active-backend-chip:not(.empty) .chip-name,
+    .active-backend-chip:not(.empty) .chip-sizer {
       display: none;
     }
   }

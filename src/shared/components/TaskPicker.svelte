@@ -21,6 +21,8 @@
   function stopNavKeys(e: KeyboardEvent): void {
     if (NAV_KEYS.has(e.key)) e.stopPropagation();
   }
+  // The check icon size; also the room an unpicked chip keeps for it (.ega-check-chip in tokens.css).
+  const CHECK = 16;
 </script>
 
 <div class="ega-task-picker" data-ega-task-picker>
@@ -43,11 +45,12 @@
               <!-- The check, not only the colour, says which task is picked. -->
               <button
                 {...itemProps}
-                class="seg"
+                class="seg ega-check-chip"
                 class:active={checked}
+                style:--chip-check="{CHECK}px"
                 aria-disabled={unavailable.has(v.id) ? 'true' : undefined}
               >
-                {#if checked}<Check size={16} aria-hidden="true" />{/if}{v.label}
+                {#if checked}<Check size={CHECK} aria-hidden="true" />{/if}{v.label}
               </button>
             {/snippet}
           </RadioGroup.Item>
@@ -79,7 +82,8 @@
     gap: var(--space-1);
     box-sizing: border-box;
     min-block-size: 28px;
-    padding: var(--space-1) var(--space-2);
+    --chip-pad: var(--space-2);
+    padding-block: var(--space-1);
     font-family: inherit;
     font-size: var(--fs-sm);
     line-height: var(--lh-body);

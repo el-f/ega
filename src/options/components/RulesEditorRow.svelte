@@ -65,6 +65,7 @@
       variant="ghost"
       size="sm"
       ariaLabel={`${open ? 'Close' : 'Edit'} rule: ${shortBody}`}
+      labels={['Edit', 'Close']}
       dataAttrs={{
         'data-ega-rule-edit': true,
         'aria-expanded': open ? 'true' : 'false',

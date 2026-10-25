@@ -572,6 +572,7 @@
         {siteOn}
         heldBack={pageReply?.heldBack}
         taskName={anywayTask}
+        taskNames={taskOptions.map((t) => t.label)}
         waiting={waitingForPage}
         statusId={STATUS_ID}
         onSiteChange={(on) => void onSiteChange(on)}

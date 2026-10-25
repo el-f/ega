@@ -204,6 +204,12 @@ describe('NativeBackendCard', () => {
     expect(body?.querySelectorAll('.ega-badge, [class*="pill"]')).toHaveLength(0);
     expect(body?.textContent).not.toMatch(/starts the CLI|Cold/);
     expect(body?.querySelector('summary')?.textContent.trim()).toBe('Show install steps');
+    // The summary holds every label the probe can give it, so the probe landing does not resize it (R63).
+    expect(
+      [...(body?.querySelectorAll('summary [data-label]') ?? [])].map((s) =>
+        s.getAttribute('data-label'),
+      ),
+    ).toEqual(['Show install steps', 'Show update steps', 'Reinstall or uninstall']);
   });
 
   it('installed: the version in words, then how the next answer starts', async () => {
@@ -217,6 +223,9 @@ describe('NativeBackendCard', () => {
     expect(container.querySelector('.nh-line')?.textContent).toBe(
       'The first translation starts Claude Code',
     );
+    const summary = container.querySelector('[data-testid="nh-install-panel"] > summary');
+    expect(summary?.textContent.trim()).toBe('Reinstall or uninstall');
+    expect(summary?.querySelector('[data-label="Reinstall or uninstall"]')).not.toBeNull();
   });
 
   it('does NOT render a persistent-session toggle', () => {

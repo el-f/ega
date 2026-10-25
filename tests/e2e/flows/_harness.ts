@@ -1,6 +1,6 @@
 /** Flow-test harness. One journey per file: mark a latency, assert visible DOM. `egaTest` peeks are setup only. */
 
-import { expect, type Page, type BrowserContext } from '@playwright/test';
+import { expect, type Page, type BrowserContext, type Locator } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 export interface StepTiming {
@@ -105,6 +105,94 @@ export async function assertStaysStable<T>(
     if (Date.now() >= deadline) break;
     await new Promise((r) => setTimeout(r, intervalMs));
   } while (Date.now() < deadline);
+}
+
+/** Runs `change` (a click plus the wait for the new state) and fails when it moved the control's width (R63). */
+export async function expectSameWidth(
+  control: Locator,
+  change: () => Promise<void>,
+  label = 'control',
+): Promise<void> {
+  const before = (await control.boundingBox())?.width;
+  expect(before, `${label} is not on screen before the change`).toBeGreaterThan(0);
+  await change();
+  expect((await control.boundingBox())?.width, `${label} changed width`).toBe(before);
+}
+
+/** Runs `change` and fails when any of `controls` moved (either axis) or changed width, measured from `origin` when given (R63). */
+export async function expectNothingMoves(
+  controls: Record<string, Locator>,
+  change: () => Promise<void>,
+  origin?: Locator,
+): Promise<void> {
+  const measure = async (): Promise<Record<string, { x: number; y: number; width: number }>> => {
+    // A surface that is still sliding in reads a fraction of a pixel off, so measure once its entrance has ended.
+    await (origin ?? Object.values(controls)[0])?.evaluate(async (el) => {
+      const landing = (el.getRootNode() as Document | ShadowRoot)
+        .getAnimations()
+        .filter((a) => a.effect?.getTiming().iterations !== Number.POSITIVE_INFINITY);
+      await Promise.all(landing.map(async (a) => a.finished.catch(() => undefined)));
+    });
+    const base = origin ? await origin.boundingBox() : { x: 0, y: 0 };
+    if (!base) throw new Error('the origin is not on screen');
+    const out: Record<string, { x: number; y: number; width: number }> = {};
+    for (const [name, control] of Object.entries(controls)) {
+      const box = await control.boundingBox();
+      if (!box) throw new Error(`${name} is not on screen`);
+      out[name] = { x: box.x - base.x, y: box.y - base.y, width: box.width };
+    }
+    return out;
+  };
+  const before = await measure();
+  await change();
+  const after = await measure();
+  for (const name of Object.keys(controls)) {
+    expect(after[name]?.x, `${name} moved`).toBeCloseTo(before[name]?.x ?? Number.NaN, 1);
+    expect(after[name]?.y, `${name} moved up or down`).toBeCloseTo(
+      before[name]?.y ?? Number.NaN,
+      1,
+    );
+    expect(after[name]?.width, `${name} changed width`).toBeCloseTo(
+      before[name]?.width ?? Number.NaN,
+      1,
+    );
+  }
+}
+
+/** Fails when the visible words and icons in `box` sit off-center: a held width must not leave a gap on one side. */
+export async function expectCentered(
+  box: Locator,
+  label = 'control',
+  tolerance = 1.5,
+): Promise<void> {
+  const space = await box.evaluate((el) => {
+    const outer = el.getBoundingClientRect();
+    let left = Number.POSITIVE_INFINITY;
+    let right = Number.NEGATIVE_INFINITY;
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      let rect: DOMRect;
+      if (n.nodeType === Node.TEXT_NODE) {
+        const parent = n.parentElement;
+        // Screen-reader-only words are clipped to a pixel; they draw nothing.
+        if (!parent || n.textContent?.trim() === '' || parent.closest('.ega-sr-only')) continue;
+        if (!parent.checkVisibility({ visibilityProperty: true })) continue;
+        const range = document.createRange();
+        range.selectNodeContents(n);
+        rect = range.getBoundingClientRect();
+      } else if (n instanceof SVGSVGElement && n.checkVisibility({ visibilityProperty: true })) {
+        rect = n.getBoundingClientRect();
+      } else continue;
+      if (rect.width === 0) continue;
+      left = Math.min(left, rect.left);
+      right = Math.max(right, rect.right);
+    }
+    return { start: left - outer.left, end: outer.right - right };
+  });
+  expect(
+    Math.abs(space.start - space.end),
+    `${label} is off-center: ${space.start.toFixed(1)} px before, ${space.end.toFixed(1)} px after`,
+  ).toBeLessThanOrEqual(tolerance);
 }
 
 export interface FocusStop {

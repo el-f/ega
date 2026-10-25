@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import { render } from '@testing-library/svelte';
 import Badge from '@/shared/ui/Badge.svelte';
-import Check from '@lucide/svelte/icons/check';
+import { readFileSync } from 'node:fs';
 import { textSnippet } from './_helpers';
 
 describe('Badge', () => {
@@ -23,12 +23,16 @@ describe('Badge', () => {
     expect(container.querySelector('.variant-success')).not.toBeNull();
   });
 
-  it('carries its state in words with an optional icon, never a coloured dot', () => {
-    const { container } = render(Badge, {
-      props: { icon: Check, children: textSnippet('Verified') },
-    });
-    expect(container.querySelector('.ega-badge-icon svg')).not.toBeNull();
-    expect(container.querySelector('.ega-badge-icon')?.getAttribute('aria-hidden')).toBe('true');
+  it('carries its state in words, never a coloured dot', () => {
+    const { container } = render(Badge, { props: { children: textSnippet('Verified') } });
+    expect(container.querySelector('svg')).toBeNull();
     expect(container.textContent.trim()).toBe('Verified');
+  });
+
+  // The status pill draws its own icon at PILL_ICON; a second icon path here would be a second size to keep in step.
+  it('has no icon prop of its own', () => {
+    expect(readFileSync('src/shared/ui/Badge.svelte', 'utf8')).not.toMatch(
+      /\bicon\??:|ega-badge-icon/,
+    );
   });
 });

@@ -8,7 +8,7 @@ import {
   type ExtensionHandle,
 } from '../../helpers';
 import type { Settings } from '../../../../src/shared/types';
-import { createTimeline } from '../_harness';
+import { createTimeline, expectSameWidth } from '../_harness';
 
 let ext: ExtensionHandle;
 
@@ -29,8 +29,11 @@ test.afterEach(async () => {
 test('Ollama URL edit persists to storage; Discover models shows result or error', async () => {
   const timeline = createTimeline();
 
-  // Mock the Ollama /api/tags endpoint to return a model list.
+  // Mock the Ollama /api/tags endpoint to return a model list; it holds until released, so Discovering... can be measured.
+  let releaseTags: () => void = () => {};
+  const tagsHeld = new Promise<void>((r) => (releaseTags = r));
   await ext.context.route(`${CUSTOM_URL}/api/tags`, async (route) => {
+    await tagsHeld;
     await route.fulfill({
       status: 200,
       headers: {
@@ -85,9 +88,18 @@ test('Ollama URL edit persists to storage; Discover models shows result or error
   timeline.markStep('url-persisted');
 
   // Click "Discover models".
-  const discoverBtn = card.getByRole('button', { name: /Discover models/i });
-  await expect(discoverBtn).toBeVisible({ timeout: 3_000 });
-  await discoverBtn.click();
+  const discoverBtn = card.locator('[data-ega-ollama-discover]');
+  await expect(discoverBtn).toHaveText('Discover models', { timeout: 3_000 });
+  // Discover models and Discovering... keep one width, so the model field beside it does not move (R63).
+  await expectSameWidth(
+    discoverBtn,
+    async () => {
+      await discoverBtn.click();
+      await expect(discoverBtn).toHaveText('Discovering...');
+    },
+    'Discover models -> Discovering...',
+  );
+  releaseTags();
   timeline.markStep('discover-clicked');
 
   // Either: model list renders ("Found N local models") OR an error renders.

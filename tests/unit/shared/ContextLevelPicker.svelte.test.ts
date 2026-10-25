@@ -36,11 +36,21 @@ describe('ContextLevelPicker', () => {
 
 // The task chips mark the picked one with a check; the page-info buttons say it the same way, not by colour alone.
 describe('ContextLevelPicker picked mark', () => {
-  it('draws a check on the pressed button only', () => {
+  it('shows the check on the pressed button only; the other holds its room as padding (R63)', () => {
     const { getByRole } = render(ContextLevelPicker, {
       props: { value: 'rich', onchange: vi.fn() },
     });
-    expect(getByRole('button', { name: /^Rich$/ }).querySelector('svg')).not.toBeNull();
-    expect(getByRole('button', { name: /^Minimal$/ }).querySelector('svg')).toBeNull();
+    const rich = getByRole('button', { name: /^Rich$/ });
+    const minimal = getByRole('button', { name: /^Minimal$/ });
+    expect(rich.classList.contains('active')).toBe(true);
+    expect(minimal.classList.contains('active')).toBe(false);
+    expect(rich.querySelector(':scope > svg')).not.toBeNull();
+    // No empty slot at rest: the unpicked button draws no icon and pads both sides by half its room.
+    expect(minimal.querySelector('svg')).toBeNull();
+    // The shared .ega-check-chip rule pads it, from the same size the check icon is drawn at.
+    expect(minimal.classList.contains('ega-check-chip')).toBe(true);
+    expect(minimal.style.getPropertyValue('--chip-check')).toBe(
+      `${rich.querySelector('svg')?.getAttribute('width')}px`,
+    );
   });
 });

@@ -462,6 +462,8 @@ export function handleImageTranslatePending(
     },
     onClose: cancel,
     onRetry: () => retryImageTranslate(msg.imageUrl, msg.task),
+    // The result's tooltip offers Regenerate in Stop's place; naming it here lets Stop hold that one icon slot (R63).
+    onRegenerate: () => retryImageTranslate(msg.imageUrl, msg.task),
   });
 }
 

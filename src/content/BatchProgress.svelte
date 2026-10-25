@@ -1,9 +1,11 @@
 <script lang="ts">
   import { tick } from 'svelte';
   import BrandMark from '@/shared/components/BrandMark.svelte';
+  import StableLabel from '@/shared/ui/StableLabel.svelte';
   import { pillPhase, pillStatus, type PageProgress } from './page-translate-v2/progress';
   import { roving } from './roving';
   import { isUserGesture } from './user-gesture';
+  import { repeatClickGuard } from '@/shared/ui/repeat-click';
 
   interface Props {
     initial: PageProgress;
@@ -52,6 +54,10 @@
   const settingsFirst = $derived(failure?.actions[0] === 'open-settings');
   // After a settings change Try again leads, and Open settings stays beside it.
   const showSettings = $derived(settingsFirst || failure?.settingsChanged === true);
+  // A settings change swaps the two in place, so with both shown each holds both widths (R63).
+  const swapLabels = $derived(
+    showSettings && failure?.actions.includes('try-again') ? ['Open settings', 'Try again'] : [],
+  );
   // The line runs while work is in flight; a page waiting on scroll has nothing in flight.
   const working = $derived(phase === 'running' || phase === 'paused');
   const max = $derived(Math.max(0, p.total - p.waiting));
@@ -112,6 +118,14 @@
   function user(run: () => void): (e: Event) => void {
     return (e) => {
       if (isUserGesture(e)) run();
+    };
+  }
+
+  // The settled actions take Stop's place, so the rest of a double-click on Stop must not press one of them.
+  const isRepeat = repeatClickGuard();
+  function rowAction(run: () => void): (e: MouseEvent) => void {
+    return (e) => {
+      if (isUserGesture(e) && !isRepeat(e)) run();
     };
   }
 
@@ -227,7 +241,10 @@
             type="button"
             class="btn"
             onclick={user(() => void copyDetails(failure.details.join('\n')))}
-            >{copied ? 'Copied' : 'Copy'}</button
+            ><StableLabel
+              current={copied ? 'Copied' : 'Copy'}
+              labels={['Copy', 'Copied']}
+            /></button
           >
         </div>
         <!-- A region that scrolls must take focus, or the keyboard cannot reach its last lines. -->
@@ -257,13 +274,13 @@
       <span class="ega-sr-only" role="status" data-ega-batch-live>{live}</span>
       <div class="actions" role="toolbar" aria-label="Page translation actions" use:roving>
         {#if !settled}
-          <button type="button" class="btn" data-ega-batch-cancel onclick={user(onStop)}
+          <button type="button" class="btn" data-ega-batch-cancel onclick={rowAction(onStop)}
             >Stop</button
           >
         {:else}
           {#if failure && settingsFirst}
-            <button type="button" class="btn first" onclick={user(onOpenSettings)}
-              >Open settings</button
+            <button type="button" class="btn first" onclick={rowAction(onOpenSettings)}
+              ><StableLabel current="Open settings" labels={swapLabels} /></button
             >
           {/if}
           {#if failure && failure.actions.includes('try-again')}
@@ -273,11 +290,14 @@
               class:first={!settingsFirst}
               aria-label="Try again, {p.failed} failed {p.failed === 1 ? 'area' : 'areas'}"
               data-ega-batch-retry
-              onclick={user(onRetryFailed)}>Try again</button
+              onclick={rowAction(onRetryFailed)}
+              ><StableLabel current="Try again" labels={swapLabels} /></button
             >
           {/if}
           {#if failure && showSettings && !settingsFirst}
-            <button type="button" class="btn" onclick={user(onOpenSettings)}>Open settings</button>
+            <button type="button" class="btn" onclick={rowAction(onOpenSettings)}
+              ><StableLabel current="Open settings" labels={swapLabels} /></button
+            >
           {/if}
           {#if translated > 0}
             <button
@@ -285,7 +305,7 @@
               class="btn"
               aria-pressed={showingOriginal}
               data-ega-batch-original
-              onclick={user(toggleOriginal)}>Show original</button
+              onclick={rowAction(toggleOriginal)}>Show original</button
             >
           {/if}
           <button
@@ -296,7 +316,7 @@
             aria-expanded={menuOpen}
             data-ega-batch-more
             onclick={(e) => {
-              if (isUserGesture(e)) void openMenu(e.detail === 0);
+              if (isUserGesture(e) && !isRepeat(e)) void openMenu(e.detail === 0);
             }}
             onkeydown={moreKey}
           >

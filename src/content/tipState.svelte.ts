@@ -12,6 +12,7 @@ import type { AnswerNote, AnswerDetail } from '@/shared/answer/reader';
 import type { AnswerSnapshot } from '@/shared/types';
 import type { SettingsTab } from '@/shared/settings-tabs';
 import { stuckTimeoutMs } from '@/shared/stuck-timeout';
+import { RETRY_AFTER_MAX_MS } from '@/shared/constants';
 import { escalateToSidepanel, type EscalationKind } from './tooltip/handoff';
 import { showToast } from './toast';
 
@@ -236,12 +237,11 @@ function buildTooltipProps(o: OpenOpts, state: TipState): ComponentProps<typeof 
       if (o.onCancel) o.onCancel();
       else stopRequestStream(o.requestId);
       errorTooltip(o.requestId, { code: 'ABORTED', message: 'Stopped' });
+      // Stop turns into Retry in place and keeps focus; with no Retry the button is gone, so focus goes to Close.
       void tick().then(() => {
-        const entry = entryFor(o.requestId);
-        const action =
-          entry?.anchor.querySelector<HTMLElement>('[data-ega-retry]') ??
-          entry?.anchor.querySelector<HTMLElement>('.tooltip-close');
-        action?.focus();
+        const anchor = entryFor(o.requestId)?.anchor;
+        if (anchor?.querySelector('[data-ega-retry]')) return;
+        anchor?.querySelector<HTMLElement>('.tooltip-close')?.focus();
       });
     },
     ...(o.onRetry ? { onretry: () => o.onRetry?.() } : {}),
@@ -474,7 +474,7 @@ export function errorTooltip(
   else e.state.error = { code: errInfo.code, message: errInfo.message };
   // Honor the server's Retry-After: Retry stays disabled, with a live countdown, until the window passes.
   if (errInfo.retryAfterMs !== undefined && errInfo.retryAfterMs > 0) {
-    const waitMs = Math.min(errInfo.retryAfterMs, 60_000);
+    const waitMs = Math.min(errInfo.retryAfterMs, RETRY_AFTER_MAX_MS);
     const deadline = Date.now() + waitMs;
     e.state.retryBlocked = true;
     e.state.retryRemainingSec = Math.ceil(waitMs / 1000);

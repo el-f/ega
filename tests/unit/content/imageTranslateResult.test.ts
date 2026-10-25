@@ -395,6 +395,10 @@ describe('handleImageTranslatePending — loading tooltip mounts immediately', (
     await tick();
     const buttons = Array.from(getContainer().querySelectorAll('button'));
     expect(buttons.some((b) => b.textContent.trim() === 'Stop')).toBe(true);
+    // The result brings Regenerate into Stop's slot, so Stop already holds exactly one icon's width (R63).
+    expect(
+      getContainer().querySelector('.tooltip-stop-retry')?.classList.contains('one-slot'),
+    ).toBe(true);
   });
 
   it('the later result replaces the loading tooltip in place', async () => {

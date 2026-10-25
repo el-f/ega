@@ -369,7 +369,8 @@
       canEscalate={canEscalateContinue ||
         canEscalatePin ||
         canEscalateOpenImage ||
-        (mode === 'error' && !!tip.imageUrl && !!onescalate)}
+        (mode === 'error' && !!tip.imageUrl && !!onescalate) ||
+        (mode === 'loading' && !!onescalate)}
       changing={editing !== null}
       onCancel={oncancel}
       onCopy={oncopy}

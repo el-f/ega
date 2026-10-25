@@ -15,7 +15,7 @@
 
 - Copy button has `aria-label="Copy translation"` ("Copy partial translation" on an error with partial text).
 - Hover state visible.
-- No copy button before the first token; once text streams in, copy is enabled and copies the text so far.
+- Before the first token, copy shows disabled in its place, so the row does not move when text arrives (R63); once text streams in, copy is enabled and copies the text so far.
 
 ## Failure-mode expectations
 

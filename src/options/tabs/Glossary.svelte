@@ -513,6 +513,7 @@
                 variant="ghost"
                 size="sm"
                 ariaLabel={`${open ? 'Close' : 'Edit'} entry ${e.term}`}
+                labels={['Edit', 'Close']}
                 dataAttrs={{
                   'data-ega-glossary-edit': true,
                   'aria-expanded': open ? 'true' : 'false',

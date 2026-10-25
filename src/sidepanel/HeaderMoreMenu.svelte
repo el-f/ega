@@ -58,11 +58,9 @@
         bind:checked={bookmarkFilter}
         data-ega-bookmark-filter
       >
-        {#snippet children({ checked })}
-          <Icon icon={StarIcon} size={16} />
-          <span class="sp-menu-label">Show bookmarked only</span>
-          {#if checked}<Icon icon={CheckIcon} size={16} />{/if}
-        {/snippet}
+        <Icon icon={StarIcon} size={16} />
+        <span class="sp-menu-label">Show bookmarked only</span>
+        <Icon icon={CheckIcon} size={16} class="sp-menu-check" />
       </DropdownMenu.CheckboxItem>
       <DropdownMenu.Separator class="sp-menu-sep" />
       <!-- aria-disabled, not bits' disabled: the item stays in the arrow order so its note is read. -->
@@ -175,6 +173,10 @@
   /* An item with no icon keeps the icon's place, so labels line up in a menu that mixes both. */
   :global(.sp-menu-icon-slot) {
     flex: 0 0 16px;
+  }
+  /* A check item keeps the check's place while off, so a toggle never resizes the menu (R63). */
+  :global(.sp-menu-item[data-state='unchecked'] .sp-menu-check) {
+    visibility: hidden;
   }
   :global(.sp-menu-label) {
     flex: 1 1 auto;

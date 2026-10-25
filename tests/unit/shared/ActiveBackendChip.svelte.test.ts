@@ -7,6 +7,7 @@ import { parseSettings } from '@/shared/settings-schema';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import ActiveBackendChip from '@/shared/components/ActiveBackendChip.svelte';
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 // The model shows on each reply; the chip names the backend only, and never cuts the name (P1-5, SP2-02).
 describe('ActiveBackendChip — name only, never cut', () => {
@@ -87,5 +88,16 @@ describe('ActiveBackendChip — the first click', () => {
     // The probe never answers in this test, so an await-then-open click would leave it closed.
     expect(probeAsked).toBe(true);
     expect(chip.getAttribute('aria-expanded')).toBe('true');
+  });
+});
+
+// One walk of the chain feeds the resolved name, the probe rule and the held labels, so they cannot drift apart.
+describe('ActiveBackendChip — one resolve rule', () => {
+  it('walks the backend chain once', () => {
+    const source = readFileSync(
+      resolve(process.cwd(), 'src/shared/components/ActiveBackendChip.svelte'),
+      'utf8',
+    );
+    expect(source.match(/for \(const id of chain\)/g)).toHaveLength(1);
   });
 });

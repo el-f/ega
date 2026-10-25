@@ -26,6 +26,13 @@ function button(name: string): HTMLButtonElement | null {
   return all.find((b) => (b.getAttribute('aria-label') ?? b.textContent.trim()) === name) ?? null;
 }
 
+/** The labels a pill button holds the width of (R63). */
+function sizers(name: string): (string | null)[] {
+  return [...(button(name)?.querySelectorAll('[data-label]') ?? [])].map((s) =>
+    s.getAttribute('data-label'),
+  );
+}
+
 function shadowActive(): Element | null {
   return document.getElementById('ega-shadow-host')?.shadowRoot?.activeElement ?? null;
 }
@@ -179,6 +186,36 @@ describe('the page-translate pill', () => {
     expect(close).toHaveBeenCalledOnce();
   });
 
+  // The settled actions take Stop's place, so the rest of a double-click on Stop must not act on them (P11).
+  it('the second click of a double-click on Stop does not press what took its place', () => {
+    const click = (name: string, detail: number): void => {
+      button(name)?.dispatchEvent(new MouseEvent('click', { bubbles: true, detail }));
+      flushSync();
+    };
+    const h = show();
+    const toggle = vi.fn();
+    const retry = vi.fn();
+    h.setOnToggleOriginal(toggle);
+    h.setOnRetryFailed(retry);
+    click('Stop', 1);
+    expect(h.stop).toHaveBeenCalledOnce();
+    h.update({
+      ...settled,
+      done: 7,
+      failed: 3,
+      failure: { body: 'Stopped.', actions: ['try-again'], tab: 'backends', details: [] },
+    });
+    flushSync();
+    for (const name of ['Try again, 3 failed areas', 'Show original', 'More']) click(name, 2);
+    expect(retry).not.toHaveBeenCalled();
+    expect(toggle).not.toHaveBeenCalled();
+    expect(q('[role="menu"]')).toBeNull();
+    // A new click, by mouse (detail 1) or by keyboard (detail 0), still acts.
+    click('Show original', 1);
+    click('Show original', 0);
+    expect(toggle).toHaveBeenCalledTimes(2);
+  });
+
   it('failures: the cause sentence, Try again with the count in its name, and Error details from More', async () => {
     const h = show();
     const retry = vi.fn();
@@ -200,6 +237,8 @@ describe('the page-translate pill', () => {
     const tryAgain = button('Try again, 2 failed areas');
     expect(tryAgain?.textContent.trim()).toBe('Try again');
     expect(tryAgain?.classList.contains('first')).toBe(true);
+    // Alone, Try again never swaps with Open settings, so it holds no other width.
+    expect(sizers('Try again, 2 failed areas')).toEqual([]);
     tryAgain?.click();
     expect(retry).toHaveBeenCalledOnce();
     // The raw text never shows until the user asks for it.
@@ -234,6 +273,9 @@ describe('the page-translate pill', () => {
     );
     // Nothing was translated, so there is no other view to show.
     expect(buttons).toEqual(['Open settings', 'Try again, 10 failed areas', 'More', 'Close bar']);
+    // A settings change swaps the two in place, so each holds both widths (R63).
+    expect(sizers('Open settings')).toEqual(['Open settings', 'Try again']);
+    expect(sizers('Try again, 10 failed areas')).toEqual(['Open settings', 'Try again']);
     button('Open settings')?.click();
     expect(send).toHaveBeenCalledWith({ kind: 'ui:open-options', tab: 'backends' });
   });
@@ -366,6 +408,8 @@ describe('the pill — states, the More menu and Error details', () => {
       (b) => b.getAttribute('aria-label') ?? b.textContent.trim(),
     );
     expect(names).toEqual(['Try again, 10 failed areas', 'Open settings', 'More', 'Close bar']);
+    expect(sizers('Try again, 10 failed areas')).toEqual(['Open settings', 'Try again']);
+    expect(sizers('Open settings')).toEqual(['Open settings', 'Try again']);
     expect(button('Try again, 10 failed areas')?.classList.contains('first')).toBe(true);
   });
 
@@ -449,6 +493,10 @@ describe('the pill — states, the More menu and Error details', () => {
     menuItem('Show error details')?.click();
     flushSync();
     const copy = q('[data-ega-batch-details] button') as HTMLButtonElement;
+    // Both labels hold the width, so Copied does not move the details header (R63).
+    expect(
+      [...copy.querySelectorAll('[data-label]')].map((s) => s.getAttribute('data-label')),
+    ).toEqual(['Copy', 'Copied']);
     vi.useFakeTimers();
     copy.click();
     await vi.advanceTimersByTimeAsync(0);

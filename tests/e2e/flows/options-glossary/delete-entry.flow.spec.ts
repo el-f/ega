@@ -1,7 +1,7 @@
 /* coverage: options.glossary.delete-entry */
 import { test, expect } from '@playwright/test';
 import { launchExtension, readStorage, seedSettings, type ExtensionHandle } from '../../helpers';
-import { createTimeline } from '../_harness';
+import { createTimeline, expectSameWidth } from '../_harness';
 import type { Settings } from '../../../../src/shared/types';
 
 let ext: ExtensionHandle;
@@ -30,8 +30,16 @@ test('Delete entry in the open row removes the glossary entry from storage', asy
 
   const edit = list.locator('[data-ega-glossary-edit]').first();
   await expect(edit).toHaveAccessibleName('Edit entry DeleteMe');
-  await edit.click();
-  await expect(edit).toHaveAttribute('aria-expanded', 'true');
+  // Edit and Close keep one width, so the entry row's right edge does not move (R63).
+  await expectSameWidth(
+    edit,
+    async () => {
+      await edit.click();
+      await expect(edit).toHaveAttribute('aria-expanded', 'true');
+      await expect(edit).toHaveText('Close');
+    },
+    'Edit -> Close',
+  );
   const editor = page.locator('[data-ega-glossary-editor]');
   await expect(editor.getByLabel('Term')).toBeFocused();
   const deleteBtn = editor.locator('button[aria-label="Delete entry DeleteMe"]');

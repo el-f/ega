@@ -3,6 +3,7 @@
   import { isUserGesture } from '../user-gesture';
   import type { RenderMode } from '../page-translate-v2/store';
   import { roving } from '../roving';
+  import StableLabel from '@/shared/ui/StableLabel.svelte';
 
   interface Props {
     /** Pick element translates one block; Choose areas collects several, then Translate sends them. */
@@ -146,14 +147,16 @@
           role="radio"
           aria-checked={mode === 'inplace'}
           data-ega-ms-mode="inplace"
-          onclick={selectMode('inplace')}>Replace text</button
+          onclick={selectMode('inplace')}
+          ><StableLabel current="Replace text" labels={['Replace text']} /></button
         >
         <button
           type="button"
           role="radio"
           aria-checked={mode === 'bilingual'}
           data-ega-ms-mode="bilingual"
-          onclick={selectMode('bilingual')}>Show both</button
+          onclick={selectMode('bilingual')}
+          ><StableLabel current="Show both" labels={['Show both']} /></button
         >
       </div>
       <button

@@ -36,6 +36,7 @@ interface TipState {
   retryBlocked?: boolean;
   loadingLabel?: string;
   settled?: boolean;
+  stopped?: boolean;
 }
 
 function baseTip(overrides: Partial<TipState> = {}): TipState {
@@ -143,6 +144,93 @@ describe('Tooltip smoke', () => {
 
     const done = mountWith({ loading: false, body: 'a whole sentence', settled: true });
     expect(hasCancel(done.container)).toBe(false);
+  });
+
+  it('Stop, Retry and Details hold every label they can show, hidden from readers (R63)', () => {
+    const sizers = (b: Element | null): (string | null)[] =>
+      [...(b?.querySelectorAll('[data-label]') ?? [])].map((s) => s.getAttribute('data-label'));
+    const failed = mountWith({
+      error: { code: 'RATE_LIMIT', message: 'Wait a moment.\nHTTP 429 {"error":"rate_limited"}' },
+    });
+    // With no countdown, Retry only ever says Retry.
+    expect(sizers(failed.container.querySelector('[data-ega-retry]'))).toEqual([]);
+    const details = failed.getByRole('button', { name: 'Details ▸' });
+    expect(sizers(details)).toEqual(['Details ▸', 'Details ▾']);
+    expect(details.textContent.trim()).toBe('Details ▸');
+  });
+
+  it('a busy row keeps the settled row slots: Copy waits disabled, and Stop holds the icon slots (R63)', () => {
+    const names = (el: HTMLElement): (string | null)[] =>
+      [...(el.querySelector('[data-ega-tooltip-actions]')?.querySelectorAll('button') ?? [])].map(
+        (b) => b.getAttribute('aria-label') ?? b.textContent.trim(),
+      );
+    const copyIn = (el: HTMLElement): HTMLButtonElement | null =>
+      el.querySelector<HTMLButtonElement>('button[aria-label="Copy translation"]');
+    const slots = (el: HTMLElement): string | undefined =>
+      el
+        .querySelector<HTMLElement>('[data-ega-tooltip-stop]')
+        ?.style.getPropertyValue('--ega-stop-slots');
+    const busy = mountWith({ loading: true, body: '' });
+    expect(names(busy.container)).toEqual(['Copy translation', 'Stop', 'More']);
+    expect(copyIn(busy.container)?.disabled).toBe(true);
+    // Regenerate and Refine take Stop's slot on settle, so Stop holds two icon widths.
+    expect(slots(busy.container)).toBe('2');
+    const streaming = mountWith({ loading: false, body: 'half', settled: false });
+    expect(copyIn(streaming.container)?.disabled).toBe(false);
+    const done = mountWith({ body: 'whole' });
+    expect(names(done.container)).toEqual(['Copy translation', 'Regenerate', 'Refine', 'More']);
+    // An image reply has no Refine, so Stop holds one icon slot.
+    const image = mountWith({ loading: true, body: '', imageUrl: 'data:image/png;base64,AA==' });
+    expect(slots(image.container)).toBe('1');
+    // A text Stop is wider than one icon, so in one slot it takes the icon's exact width.
+    expect(
+      image.container.querySelector('.tooltip-stop-retry')?.classList.contains('one-slot'),
+    ).toBe(true);
+    expect(
+      busy.container.querySelector('.tooltip-stop-retry')?.classList.contains('one-slot'),
+    ).toBe(false);
+  });
+
+  // Stop turns into Retry in place, so the second click of a double-click on Stop lands on Retry.
+  it('the second click of a double-click on Stop does not retry', async () => {
+    const t = mountWith({ loading: false, body: 'half', settled: false });
+    const button = (): HTMLElement => t.getByRole('button', { name: /^(Stop|Retry)$/ });
+    await fireEvent.click(button(), { detail: 1 });
+    expect(t.oncancel).toHaveBeenCalledTimes(1);
+    await t.rerender({ tip: baseTip({ body: 'half', settled: false, stopped: true }) });
+    expect(button().textContent.trim()).toBe('Retry');
+    await fireEvent.click(button(), { detail: 2 });
+    expect(t.onretry).not.toHaveBeenCalled();
+    // A new click, by mouse (detail 1) or by keyboard (detail 0), still retries.
+    await fireEvent.click(button(), { detail: 1 });
+    await fireEvent.click(button(), { detail: 0 });
+    expect(t.onretry).toHaveBeenCalledTimes(2);
+  });
+
+  // The browser counts a click run past two; a click after the double-click window still acts (P10).
+  it('a third quick click on Stop/Retry retries once the double-click window has passed', async () => {
+    const t = mountWith({ loading: false, body: 'half', settled: false });
+    const button = (): HTMLElement => t.getByRole('button', { name: /^(Stop|Retry)$/ });
+    const now = vi.spyOn(Date, 'now').mockReturnValue(20_000);
+    await fireEvent.click(button(), { detail: 1 });
+    await t.rerender({ tip: baseTip({ body: 'half', settled: false, stopped: true }) });
+    now.mockReturnValue(20_200);
+    await fireEvent.click(button(), { detail: 2 });
+    expect(t.onretry).not.toHaveBeenCalled();
+    now.mockReturnValue(20_500);
+    await fireEvent.click(button(), { detail: 3 });
+    expect(t.onretry).toHaveBeenCalledTimes(1);
+    now.mockRestore();
+  });
+
+  // Retry opens a new reply whose Stop sits where Retry was, so the second click of a double-click on Retry lands on Stop.
+  it('the second click of a double-click on Retry does not stop the new reply', async () => {
+    const t = mountWith({ loading: false, body: 'half', settled: false });
+    const stop = t.getByRole('button', { name: 'Stop' });
+    await fireEvent.click(stop, { detail: 2 });
+    expect(t.oncancel).not.toHaveBeenCalled();
+    await fireEvent.click(stop, { detail: 1 });
+    expect(t.oncancel).toHaveBeenCalledTimes(1);
   });
 
   it('pre-stream shimmer includes a "Translating..." label for clarity', () => {

@@ -179,14 +179,15 @@
   {#if disabledReason}<p id="{uid}-problem" class="ap-hint" data-ega-disabled-reason>
       {disabledReason}
     </p>{/if}
-  {#if runningId !== null}<Button variant="secondary" onclick={stop}>Stop</Button>{:else}
-    <Button
-      variant="secondary"
-      ariaDisabled={disabledReason !== null}
-      {...disabledReason !== null ? { describedBy: `${uid}-problem` } : {}}
-      onclick={() => void run()}>Try it</Button
-    >
-  {/if}
+  <!-- One button for Try it and Stop, so focus stays on it and its width holds (R63). -->
+  <Button
+    variant="secondary"
+    labels={['Try it', 'Stop']}
+    ariaDisabled={runningId === null && disabledReason !== null}
+    {...runningId === null && disabledReason !== null ? { describedBy: `${uid}-problem` } : {}}
+    onclick={() => (runningId !== null ? stop() : void run())}
+    >{runningId !== null ? 'Stop' : 'Try it'}</Button
+  >
 </section>
 
 <style>

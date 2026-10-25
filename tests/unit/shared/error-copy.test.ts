@@ -3,6 +3,7 @@ import {
   ERROR_COPY,
   SETTINGS_CHANGED_BODY,
   errorActionLabel,
+  retryLabel,
   errorCopy,
   type ErrorCopyId,
 } from '@/shared/error-copy';
@@ -230,5 +231,13 @@ describe('errorActionLabel', () => {
     expect(errorActionLabel('try-again', 0)).toBe('Try again');
     expect(errorActionLabel('open-settings')).toBe('Open settings');
     expect(errorActionLabel('open-in-side-panel')).toBe('Open in side panel');
+  });
+});
+
+describe('retryLabel', () => {
+  it('is the in-page Retry, with the seconds left while a Retry-After window runs', () => {
+    expect(retryLabel()).toBe('Retry');
+    expect(retryLabel(0)).toBe('Retry');
+    expect(retryLabel(7)).toBe('Retry in 7s');
   });
 });

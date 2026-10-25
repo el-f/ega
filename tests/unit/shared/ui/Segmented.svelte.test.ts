@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import Segmented from '@/shared/ui/Segmented.svelte';
+import { readFileSync } from 'node:fs';
 
 type Effort = 'off' | 'low' | 'medium' | 'high';
 
@@ -87,5 +88,22 @@ describe('Segmented', () => {
     expect(onchange).toHaveBeenCalledTimes(1);
     expect(onchange).toHaveBeenCalledWith(to);
     expect(document.activeElement).toBe(option(to));
+  });
+
+  // jsdom has no layout, so the weights are read from the source: the active item is bold, so every item holds its bold width.
+  it('every item holds its own label at the active weight, so a pick does not resize the group (R63)', () => {
+    const { getAllByRole } = setup('medium');
+    for (const r of getAllByRole('radio')) {
+      const sizer = r.querySelector('.ega-stable > [data-label]');
+      expect(sizer?.getAttribute('data-label')).toBe(r.textContent);
+      expect(sizer?.getAttribute('aria-hidden')).toBe('true');
+    }
+    const src = readFileSync('src/shared/ui/Segmented.svelte', 'utf8');
+    const weight = (selector: string): string | undefined =>
+      new RegExp(`${selector} \\{[^}]*font-weight: (\\d+);`).exec(src)?.[1];
+    expect(weight('\\.ega-segmented-item\\.active')).toBe('600');
+    expect(weight('\\.ega-segmented-item :global\\(\\.ega-stable > \\[data-label\\]\\)')).toBe(
+      '600',
+    );
   });
 });

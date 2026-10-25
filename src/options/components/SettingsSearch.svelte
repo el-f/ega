@@ -299,10 +299,17 @@
           <div class="ss-empty" role="status">
             {#if unfilteredHasMatches}
               <span>No changed setting matches "{query.trim()}"</span>
-              <Button variant="ghost" onclick={() => (modifiedOnly = false)}>Show all</Button>
+              <!-- Both actions hold one width, so a swap between them does not resize the button (R63). -->
+              <Button
+                variant="ghost"
+                labels={['Show all', 'Clear search']}
+                onclick={() => (modifiedOnly = false)}>Show all</Button
+              >
             {:else}
               <span>No setting matches "{query.trim()}"</span>
-              <Button variant="ghost" onclick={clearSearch}>Clear search</Button>
+              <Button variant="ghost" labels={['Show all', 'Clear search']} onclick={clearSearch}
+                >Clear search</Button
+              >
             {/if}
           </div>
         {/if}

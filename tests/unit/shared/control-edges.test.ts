@@ -49,4 +49,12 @@ describe('segmented controls mark the selected segment like Segmented', () => {
       expect(active).toContain(want);
     }
   });
+
+  // Bold marks the picked tab as in Segmented; the bold sizer keeps the tab's width when it is picked (R63).
+  it('the prompt tabs keep Segmented bold, held at its width', () => {
+    const file = 'src/options/components/prompt/PromptEditor.svelte';
+    expect(effort).toMatch(/font-weight: 600;/);
+    expect(rule(file, '.pe-tab.active')).toMatch(/font-weight: 600;/);
+    expect(rule(file, '.pe-tab :global(.ega-stable > [data-label])')).toMatch(/font-weight: 600;/);
+  });
 });

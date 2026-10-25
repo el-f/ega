@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
-import { render, fireEvent } from '@testing-library/svelte';
+import { render, fireEvent, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import ReplyDetails from '@/shared/components/ReplyDetails.svelte';
 import { aroundText, shortUrl } from '@/shared/components/reply-details';
@@ -312,6 +312,43 @@ describe('ReplyDetails — what was sent', () => {
     const { getByRole, onClose } = setup();
     await fireEvent.click(getByRole('button', { name: 'Close' }));
     expect(onClose).toHaveBeenCalledOnce();
+  });
+});
+
+describe('ReplyDetails — every toggle keeps one width (R63)', () => {
+  const held = (button: Element | null | undefined): (string | null)[] =>
+    [...(button?.querySelectorAll('[data-label]') ?? [])].map((s) => s.getAttribute('data-label'));
+
+  it('each toggle holds every label it shows, at the start of its line, and stays the same button', async () => {
+    vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined);
+    const { container, getByRole } = setup({
+      meta: meta({
+        instructions: 'You are a translator.',
+        attempts: [
+          { backendId: asBackendIdUnsafe('anthropic'), status: 'error', latencyMs: 10 },
+          { backendId: asBackendIdUnsafe('gemini'), status: 'ok', latencyMs: 20 },
+        ],
+      }),
+    });
+    expect(held(container.querySelector('.rd-tried button'))).toEqual([
+      'Backends tried (2) ▸',
+      'Backends tried (2) ▾',
+    ]);
+    expect(held(container.querySelector('[data-ega-instructions] button'))).toEqual([
+      'Instructions sent ▸',
+      'Instructions sent ▾',
+    ]);
+    const showAll = getByRole('button', { name: 'Show all page info' });
+    expect(held(showAll)).toEqual(['Show all page info', 'Show less']);
+    await fireEvent.click(showAll);
+    expect(getByRole('button', { name: 'Show less' })).toBe(showAll);
+    const copy = getByRole('button', { name: 'Copy as JSON' });
+    expect(held(copy)).toEqual(['Copy as JSON', 'Copied']);
+    await fireEvent.click(copy);
+    await waitFor(() => expect(copy.textContent.trim()).toBe('Copied'));
+    const stacks = [...container.querySelectorAll('.ega-stable')];
+    expect(stacks).toHaveLength(4);
+    for (const stack of stacks) expect(stack.classList.contains('is-start')).toBe(true);
   });
 });
 

@@ -4,6 +4,7 @@ import type { SettingsTab } from '@/shared/settings-tabs';
 import { isUserGesture } from './user-gesture';
 import { sendMsg } from '@/shared/messages';
 import { debugCatch } from '@/shared/logger';
+import { STABLE_LABEL_CSS, stableLabel } from './stable-label';
 
 // Its own shadow root keeps the host page's font and button styles off it; one fixed red (6.2:1 under white) reads on any page background.
 // The chip's English reads left to right on an RTL page too; the host keeps the page's direction, so its margin still faces the text.
@@ -16,7 +17,8 @@ button:hover{background:rgb(255 255 255 / .15)}
 button:focus-visible{outline:2px solid #fff;outline-offset:0;box-shadow:0 0 0 4px #b3242a}
 .sr{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-@media (forced-colors:active){.chip{border:1px solid CanvasText}}`;
+@media (forced-colors:active){.chip{border:1px solid CanvasText}}
+${STABLE_LABEL_CSS}`;
 
 let chipSeq = 0;
 
@@ -33,11 +35,13 @@ function chipButton(
   icon: string,
   describedBy: string,
   run: () => void,
+  labels: readonly string[],
 ): HTMLButtonElement {
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.setAttribute('aria-describedby', describedBy);
-  btn.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${icon}</svg>${label}`;
+  btn.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${icon}</svg>`;
+  btn.append(stableLabel(label, labels));
   // The button lives in the page's own DOM, so a page script can click it; only a real click acts.
   btn.onclick = (e) => {
     if (isUserGesture(e)) run();
@@ -86,13 +90,22 @@ export function mountErrorChip(
   const changed = opts.settingsChanged === true;
   const retry =
     opts.onRetry && (changed || actions.includes('try-again')) ? opts.onRetry : undefined;
+  // A settings change remounts this chip with Try again in Open settings' place; both labels hold the width (R63).
+  const labels =
+    actions[0] === 'open-settings' && opts.onRetry ? ['Open settings', 'Try again'] : [];
   if (copy && actions[0] === 'open-settings' && !(changed && retry)) {
     const { tab } = copy;
-    const btn = chipButton('Open settings', SETTINGS_ICON, title.id, () => void openSettings(tab));
+    const btn = chipButton(
+      'Open settings',
+      SETTINGS_ICON,
+      title.id,
+      () => void openSettings(tab),
+      labels,
+    );
     btn.setAttribute('data-ega-chip-settings', '');
     chip.append(btn);
   } else if (retry) {
-    const btn = chipButton('Try again', RETRY_ICON, title.id, retry);
+    const btn = chipButton('Try again', RETRY_ICON, title.id, retry, labels);
     btn.setAttribute('data-ega-retry-block', '');
     chip.append(btn);
   } else {

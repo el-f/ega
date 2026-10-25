@@ -24,6 +24,10 @@ describe('BackendCardTestRow', () => {
     const { getByTestId, rerender } = render(BackendCardTestRow, { props: p });
     const btn = getByTestId('backend-card-test-anthropic') as HTMLButtonElement;
     expect(btn.textContent.trim()).toBe('Test now');
+    // All three labels hold the button's width, so the row does not move (R63).
+    expect(
+      [...btn.querySelectorAll('[data-label]')].map((s) => s.getAttribute('data-label')),
+    ).toEqual(['Test now', 'Testing...', 'Stop']);
     await fireEvent.click(btn);
     expect(p.onTest).toHaveBeenCalledTimes(1);
     await rerender({ ...p, testRunning: true });
@@ -194,6 +198,12 @@ describe('BackendCardTestRow', () => {
     expect(onUnload).toHaveBeenCalledTimes(1);
     await rerender({ ...p, unloading: true });
     expect(unload.textContent.trim()).toBe('Unloading...');
+    // Both labels hold the width, with room for the spinner, so the status after it stays put (R63).
+    expect(
+      [...unload.querySelectorAll('[data-label]')].map((s) => s.getAttribute('data-label')),
+    ).toEqual(['Unload model', 'Unloading...']);
+    expect(unload.querySelectorAll('.has-spinner')).toHaveLength(2);
+    expect(unload.querySelector('[data-ega-inline-spinner]')).not.toBeNull();
     await fireEvent.click(unload);
     expect(onUnload).toHaveBeenCalledTimes(1);
     await rerender({ ...p, testRunning: true, onStop: vi.fn() });

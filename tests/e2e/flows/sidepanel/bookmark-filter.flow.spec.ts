@@ -8,6 +8,7 @@ import {
   sendFromPanel,
   type ExtensionHandle,
 } from '../../helpers';
+import { expectSameWidth } from '../_harness';
 
 let ext: ExtensionHandle;
 
@@ -31,10 +32,22 @@ test('the header More menu turns the bookmark filter on and Show all turns it of
   });
 
   // With nothing bookmarked the filter says so and offers the way back.
-  await page.locator('[data-ega-header-more]').click();
-  await page.getByRole('menuitemcheckbox', { name: 'Show bookmarked only' }).click();
+  // A check item keeps the check's place while off, so its label keeps one width (R63).
+  const more = page.locator('[data-ega-header-more]');
+  const item = page.getByRole('menuitemcheckbox', { name: 'Show bookmarked only' });
   const empty = page.locator('[data-ega-empty-state]');
-  await expect(empty).toContainText('No bookmarked messages');
+  await more.click();
+  await expectSameWidth(
+    item.locator('.sp-menu-label'),
+    async () => {
+      await item.click();
+      await expect(empty).toContainText('No bookmarked messages');
+      await more.click();
+      await expect(item).toHaveAttribute('aria-checked', 'true');
+    },
+    'Show bookmarked only checked',
+  );
+  await page.keyboard.press('Escape');
   await empty.getByRole('button', { name: 'Show all messages' }).click();
   await expect(page.locator('[data-ega-user-turn]')).toHaveCount(1);
 
@@ -42,11 +55,20 @@ test('the header More menu turns the bookmark filter on and Show all turns it of
   const message = page.locator('[data-ega-user-turn]').first();
   await message.hover();
   await message.locator('[data-ega-action="more"]').click();
-  await page.getByRole('menuitemcheckbox', { name: 'Bookmark', exact: true }).click();
+  const messageItem = page.getByRole('menuitemcheckbox', { name: 'Bookmark', exact: true });
+  await expectSameWidth(
+    messageItem.locator('.sp-menu-label'),
+    async () => {
+      await messageItem.click();
+      await message.hover();
+      await message.locator('[data-ega-action="more"]').click();
+      await expect(messageItem).toHaveAttribute('aria-checked', 'true');
+    },
+    'message Bookmark checked',
+  );
+  await page.keyboard.press('Escape');
 
-  const more = page.locator('[data-ega-header-more]');
   await more.click();
-  const item = page.getByRole('menuitemcheckbox', { name: 'Show bookmarked only' });
   await expect(item).toHaveAttribute('aria-checked', 'false');
   await item.click();
 
@@ -68,8 +90,17 @@ test('the header More menu turns the bookmark filter on and Show all turns it of
   const replyItem = menu.getByRole('menuitemcheckbox', { name: 'Bookmark', exact: true });
   await expect(replyItem).toHaveAttribute('aria-checked', 'true');
   // Unchecking it on the reply clears the pair, so the message's menu shows it unchecked too.
-  await replyItem.click();
-  await expect(reply.locator('[data-ega-reply-meta]')).not.toContainText('Bookmarked');
+  await expectSameWidth(
+    replyItem.locator('.sp-menu-label'),
+    async () => {
+      await replyItem.click();
+      await expect(reply.locator('[data-ega-reply-meta]')).not.toContainText('Bookmarked');
+      await openReplyMenu(page, 'more', reply);
+      await expect(replyItem).toHaveAttribute('aria-checked', 'false');
+    },
+    'reply Bookmark unchecked',
+  );
+  await page.keyboard.press('Escape');
   await message.hover();
   await message.locator('[data-ega-action="more"]').click();
   await expect(

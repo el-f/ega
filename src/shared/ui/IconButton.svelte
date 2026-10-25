@@ -90,11 +90,13 @@
       background var(--motion-fast) var(--ease-out),
       color var(--motion-fast) var(--ease-out);
   }
-  :global(.ega-icon-btn:disabled) {
+  /* One off look for disabled and aria-disabled (off but focusable, with its reason in the name); hover leaves it alone. */
+  :global(.ega-icon-btn:disabled),
+  :global(.ega-icon-btn[aria-disabled='true']) {
     cursor: not-allowed;
     opacity: 0.55;
   }
-  :global(.ega-icon-btn:not(:disabled):hover) {
+  :global(.ega-icon-btn:not(:disabled, [aria-disabled='true']):hover) {
     background: var(--color-bg-hover);
     color: var(--color-fg);
   }
@@ -113,12 +115,12 @@
   :global(.ega-icon-btn.variant-primary) {
     color: var(--color-accent);
   }
-  :global(.ega-icon-btn.variant-primary:not(:disabled):hover) {
+  :global(.ega-icon-btn.variant-primary:not(:disabled, [aria-disabled='true']):hover) {
     background: var(--color-accent-bg-hover);
   }
   /* Rests muted like every sibling; the trash glyph carries the meaning, red is the commitment cue. */
-  :global(.ega-icon-btn.variant-danger:not(:disabled):hover),
-  :global(.ega-icon-btn.variant-danger:not(:disabled):focus-visible) {
+  :global(.ega-icon-btn.variant-danger:not(:disabled, [aria-disabled='true']):hover),
+  :global(.ega-icon-btn.variant-danger:not(:disabled, [aria-disabled='true']):focus-visible) {
     color: var(--color-danger-fg);
     background: var(--color-danger-bg-soft);
   }

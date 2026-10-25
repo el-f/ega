@@ -199,6 +199,13 @@ describe('the action row', () => {
     const btn = container.querySelector('[data-ega-regenerate]') as HTMLElement;
     expect(btn.getAttribute('aria-disabled')).toBe('true');
     expect(btn.getAttribute('aria-label')).toBe('Regenerate (wait for the current reply)');
+    // Sighted users get the same reason in the hover and focus hint.
+    await fireEvent.focus(btn);
+    await waitFor(() =>
+      expect(document.querySelector('.ega-icon-btn-tooltip')?.textContent.trim()).toBe(
+        'Regenerate (wait for the current reply)',
+      ),
+    );
     await fireEvent.click(btn);
     expect(props.onRegenerate).toHaveBeenCalledTimes(1);
   });
@@ -259,6 +266,13 @@ describe('versions', () => {
     expect(container.querySelector('[data-ega-reply]')?.getAttribute('aria-label')).toBe(
       'Ega reply, version 2 of 3',
     );
+  });
+
+  // 1/12 to 10/12 would widen the count and move the next arrow (R63).
+  it('the count holds the width of the last version', () => {
+    const { container } = render(AssistantTurn, { props: replyProps(three()) });
+    const sizers = container.querySelectorAll('.ega-pager-count [data-label]');
+    expect([...sizers].map((s) => s.getAttribute('data-label'))).toEqual(['3/3']);
   });
 
   it('pages both ways and marks the ends', async () => {

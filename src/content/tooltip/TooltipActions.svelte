@@ -15,6 +15,10 @@
   import { answerAgainLabel } from '@/shared/refine-presets';
   import { outsidePressFocus } from '@/shared/menu-focus';
   import { isUserGesture } from '../user-gesture';
+  import { repeatClickGuard } from '@/shared/ui/repeat-click';
+  import { retryLabel } from '@/shared/error-copy';
+  import { RETRY_AFTER_MAX_MS } from '@/shared/constants';
+  import StableLabel from '@/shared/ui/StableLabel.svelte';
 
   interface Props {
     tip: TipState;
@@ -94,6 +98,17 @@
     mode === 'error' && optionsTab !== undefined && !!onOpenOptions && showRetry && !!tip.body,
   );
   const detailsInMore = $derived(mode === 'error' && optionsTab !== undefined && !!onOpenOptions);
+  // A countdown holds its longest label, the full Retry-After cap, so a tick never moves the actions beside Retry (R63).
+  const retryLabels = $derived(
+    tip.retryRemainingSec === undefined ? [] : [retryLabel(RETRY_AFTER_MAX_MS / 1000)],
+  );
+  // Regenerate and Refine take Stop's slot when the reply settles, and Retry takes it when it is stopped; Stop holds
+  // their width, so Copy and More stay put (R63). With one icon (an image reply has no Refine) Stop is exactly its width.
+  const settleIcons = $derived((onRegenerate ? 1 : 0) + (onRefine && !tip.imageUrl ? 1 : 0));
+  // Stop becomes Retry in place, and Retry a new reply's Stop, so the rest of a double-click must not act on the new label.
+  const isRepeat = repeatClickGuard();
+  // Before the first words there is nothing to open; the button holds its place, off, so More stays put (R63).
+  const escalateWait = $derived(mode === 'loading');
 
   // An open shadow root also accepts page-dispatched events; those must never start a request.
   function guard(e: Event): void {
@@ -135,7 +150,8 @@
 {/snippet}
 
 <div class="actions" data-ega-tooltip-actions bind:this={toolbar}>
-  {#if mode === 'error'}
+  <!-- A stopped reply keeps the busy row's layout: Retry takes Stop's place, so nothing moves on Stop (R63). -->
+  {#if mode === 'error' && !tip.stopped}
     {#if optionsTab !== undefined && onOpenOptions}
       <button
         class="tooltip-fix"
@@ -154,9 +170,10 @@
           if (isUserGesture(e)) onRetry?.();
         }}
       >
-        {tip.retryBlocked && (tip.retryRemainingSec ?? 0) > 0
-          ? 'Retry in ' + tip.retryRemainingSec + 's'
-          : 'Retry'}
+        <StableLabel
+          current={retryLabel(tip.retryBlocked ? tip.retryRemainingSec : undefined)}
+          labels={retryLabels}
+        />
       </button>
     {/if}
     {#if tip.body}
@@ -171,7 +188,11 @@
       <button
         class="tooltip-text-action"
         aria-expanded={errorDetailsOpen}
-        onclick={onToggleErrorDetails}>Details {errorDetailsOpen ? '▾' : '▸'}</button
+        onclick={onToggleErrorDetails}
+        ><StableLabel
+          current={errorDetailsOpen ? 'Details ▾' : 'Details ▸'}
+          labels={['Details ▸', 'Details ▾']}
+        /></button
       >
     {/if}
     {#if canEscalate && onEscalate && !escalationInMore}
@@ -186,16 +207,30 @@
       >
     {/if}
   {:else}
-    {#if busy}<button class="tooltip-text-action" onclick={onCancel}>Stop</button>{/if}
-    {#if tip.body}
+    <!-- Copy shows from the start, disabled until the first words arrive, so their arrival moves nothing (R63). -->
+    {#if tip.body || busy || tip.stopped}
       <button
         class="icon-btn"
-        aria-label="Copy translation"
+        aria-label={tip.stopped ? 'Copy partial translation' : 'Copy translation'}
         data-tooltip={tip.copied ? 'Copied' : 'Copy'}
+        disabled={!tip.body}
         onclick={onCopy}><Icon icon={tip.copied ? Check : Copy} size={16} /></button
       >
     {/if}
-    {#if !busy && onRegenerate}
+    <!-- One button for Stop and Retry, so focus stays on it when Stop is pressed. -->
+    {#if busy || (tip.stopped && showRetry)}<button
+        class="tooltip-text-action tooltip-stop-retry"
+        class:one-slot={settleIcons === 1}
+        data-ega-tooltip-stop={busy || undefined}
+        data-ega-retry={busy ? undefined : true}
+        style:--ega-stop-slots={settleIcons}
+        onclick={(e) => {
+          if (isRepeat(e)) return;
+          if (busy) onCancel();
+          else if (isUserGesture(e)) onRetry?.();
+        }}><StableLabel current={busy ? 'Stop' : 'Retry'} labels={['Stop', 'Retry']} /></button
+      >{/if}
+    {#if !busy && !tip.stopped && onRegenerate}
       <button
         class="icon-btn"
         aria-label="Regenerate"
@@ -205,7 +240,7 @@
         }}><Icon icon={RotateCcw} size={16} /></button
       >
     {/if}
-    {#if !busy && onRefine && !tip.imageUrl}
+    {#if !busy && !tip.stopped && onRefine && !tip.imageUrl}
       <DropdownMenu.Root bind:open={refineOpen}>
         <DropdownMenu.Trigger
           class="icon-btn"
@@ -263,13 +298,19 @@
       </DropdownMenu.Root>
     {/if}
     {#if canEscalate && onEscalate}
+      <!-- No data-ega-escalate while off: tests and hooks wait on it as the sign the button works. -->
       <button
         class="icon-btn"
-        aria-label="Open in side panel"
-        data-ega-escalate={escalationKind}
-        data-tooltip="Open in side panel"
+        aria-label={escalateWait
+          ? 'Open in side panel — Wait for the reply to start.'
+          : 'Open in side panel'}
+        aria-disabled={escalateWait ? 'true' : undefined}
+        data-ega-escalate={escalateWait ? undefined : escalationKind}
+        data-tooltip={escalateWait
+          ? 'Open in side panel once the reply starts'
+          : 'Open in side panel'}
         onclick={(e) => {
-          if (isUserGesture(e)) onEscalate?.();
+          if (!escalateWait && isUserGesture(e)) onEscalate?.();
         }}><Icon icon={PanelRightOpen} size={16} /></button
       >
     {/if}

@@ -152,6 +152,11 @@ export const ERROR_COPY: Readonly<Record<ErrorCopyId, CopyRow>> = {
 /** Replaces the body while a settings-fixable error shows and any setting changes; Try again then leads. */
 export const SETTINGS_CHANGED_BODY = 'Settings changed. Try again to use them.';
 
+/** The in-page Retry, with the seconds left while a Retry-After window runs. */
+export function retryLabel(secondsLeft?: number): string {
+  return secondsLeft !== undefined && secondsLeft > 0 ? `Retry in ${secondsLeft}s` : 'Retry';
+}
+
 export function errorActionLabel(action: ErrorAction, cooldownSeconds?: number): string {
   switch (action) {
     case 'try-again':
