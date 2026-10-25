@@ -310,12 +310,13 @@ function handleSelectionChange(): void {
         : eff.direction;
     const block = info.range.commonAncestorContainer;
     // A field's own direction, not its parent's: the range wraps the field.
-    const blockEl =
-      wrappedField(info.range) ?? (block instanceof Element ? block : block.parentElement);
+    const field = wrappedField(info.range);
+    const blockEl = field ?? (block instanceof Element ? block : block.parentElement);
     // After every gate: a field selection's text is measured in a mirror the page can see.
     const shown = { ...info, rect: selectionRectOf(info.range) };
     showBubble({
       rect: shown.rect,
+      field,
       ...(blockEl && getComputedStyle(blockEl).direction === 'rtl' ? { rtl: true } : {}),
       queued: accum.size(),
       direction: displayDirection,

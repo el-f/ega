@@ -21,6 +21,8 @@ interface BubbleOpts {
   firstRun?: boolean;
   /** The selection's block runs right to left: the bubble lines up with its right edge. */
   rtl?: boolean;
+  /** The form control the selection is in; the space check looks past it at the page drawn under it. */
+  field?: Element | null;
   onClick: (e: MouseEvent) => void;
   /** The menu's Run task list: every task that is on, read when the menu opens. */
   listTasks?: () => Promise<readonly MenuMod.MenuTask[]>;
@@ -98,7 +100,11 @@ function ownTextInBand(down: boolean, top: number, x0: number, x1: number): bool
 }
 
 /** `left` is the bubble's inline-start edge: its left side, or its right side on a right-to-left block. */
-function placeBubble(rect: DOMRect, rtl: boolean): { left: number; top: number } {
+function placeBubble(
+  rect: DOMRect,
+  rtl: boolean,
+  field: Element | null,
+): { left: number; top: number } {
   // Below the last line; above the first when below covers text or leaves the viewport and above covers none.
   const below = rect.bottom + 4;
   const above = rect.top - BUBBLE_HEIGHT - 4;
@@ -113,10 +119,10 @@ function placeBubble(rect: DOMRect, rtl: boolean): { left: number; top: number }
     ownTextInBand(down, top, x0, x1) ||
     // Then what the page draws there, which page order can miss (floats, columns, positioned boxes).
     [top + 2, top + BUBBLE_HEIGHT / 2, top + BUBBLE_HEIGHT - 2].some((y) => {
-      // An open bubble or tooltip hits as our host, which holds no page text; look past it.
+      // Look past our host and the field: neither holds page text, and a code view's clear field covers its lines.
       const hit = document
         .elementsFromPoint(probeX, Math.min(window.innerHeight - 4, Math.max(0, y)))
-        .find((el) => el !== getShadowHostElement());
+        .find((el) => el !== getShadowHostElement() && el !== field);
       if (!hit) return false;
       // An element that reaches the selection holds it, and the own walk read its lines; a probe between blocks hits <body>.
       const r = hit.getBoundingClientRect();
@@ -159,7 +165,7 @@ function moveMounted(opts: BubbleOpts, left: number, top: number): boolean {
 }
 
 export function showBubble(opts: BubbleOpts): void {
-  const { left, top } = placeBubble(opts.rect, opts.rtl === true);
+  const { left, top } = placeBubble(opts.rect, opts.rtl === true, opts.field ?? null);
   if (moveMounted(opts, left, top)) {
     currentOnClick = opts.onClick;
     currentTasks = opts;

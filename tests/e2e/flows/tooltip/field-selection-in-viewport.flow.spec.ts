@@ -264,6 +264,56 @@ test('the selection bubble sits next to the selected code lines, inside the view
   expect(gap).toBeLessThanOrEqual(20);
 });
 
+// Past the 32 text nodes the page-order walk reads: only a look through the clear field sees line 33.
+test('a code-view selection with code on the next line and room above puts the bubble above, off that line', async () => {
+  const page = await ext.context.newPage();
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto(`${ext.serverUrl}/code-view-page.html`);
+  await waitForTestHooks(page);
+  await page.locator('#read-only-cursor-text-area').waitFor();
+  // Line 32 is `    <h1>Comment thread fixture</h1>`; lines 30 and 31 end left of column 12, line 33 runs past it.
+  const at = await page.evaluate(() => {
+    const line = document.getElementById('LC32');
+    const text = line?.firstChild;
+    if (!line || !(text instanceof Text)) throw new Error('no line 32');
+    line.scrollIntoView({ block: 'center' });
+    const r = document.createRange();
+    r.setStart(text, 12);
+    r.setEnd(text, 13);
+    const first = r.getBoundingClientRect();
+    r.setStart(text, text.length - 1);
+    r.setEnd(text, text.length);
+    return { x0: first.left + 1, x1: r.getBoundingClientRect().right + 20, y: first.top + 10 };
+  });
+  await page.mouse.move(at.x0, at.y);
+  await page.mouse.down();
+  await page.mouse.move(at.x1, at.y, { steps: 8 });
+  await page.mouse.up();
+  const selected = await page.evaluate(() => {
+    const ta = document.activeElement;
+    return ta instanceof HTMLTextAreaElement
+      ? ta.value.slice(ta.selectionStart, ta.selectionEnd)
+      : '';
+  });
+  expect(selected).toBe('ent thread fixture</h1>');
+
+  await expect
+    .poll(async () => (await egaTest<number>(page, 'bubbleCount')) ?? 0, { timeout: 5_000 })
+    .toBeGreaterThan(0);
+  const b = await egaTest<{ top: number; bottom: number }>(page, 'bubbleRect');
+  if (!b) throw new Error('no bubble');
+  const lines = await page.evaluate(() => {
+    const box = (id: string): Box => {
+      const r = document.getElementById(id)?.getBoundingClientRect();
+      return { top: r?.top ?? NaN, bottom: r?.bottom ?? NaN };
+    };
+    return { own: box('LC32'), next: box('LC33') };
+  });
+  expect(b.bottom <= lines.next.top || b.top >= lines.next.bottom).toBe(true);
+  expect(b.bottom).toBeLessThanOrEqual(lines.own.top);
+  expect(lines.own.top - b.bottom).toBeLessThanOrEqual(20);
+});
+
 test('a word picked in a wrapping comment box puts the bubble under that word, not under the box', async () => {
   const page = await ext.context.newPage();
   await page.goto(`${ext.serverUrl}/code-view-page.html`);
