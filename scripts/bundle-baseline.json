@@ -5,11 +5,15 @@
   },
   {
     "name": "answer-presentation",
-    "bytes": 1027
+    "bytes": 1037
   },
   {
     "name": "AnswerNotes",
-    "bytes": 22192
+    "bytes": 22923
+  },
+  {
+    "name": "ask-about",
+    "bytes": 3337
   },
   {
     "name": "batch-progress",
@@ -17,7 +21,7 @@
   },
   {
     "name": "bubble",
-    "bytes": 5284
+    "bytes": 5307
   },
   {
     "name": "bubble-menu",
@@ -25,7 +29,7 @@
   },
   {
     "name": "cancel-token",
-    "bytes": 28416
+    "bytes": 28820
   },
   {
     "name": "Checkbox",
@@ -53,7 +57,7 @@
   },
   {
     "name": "error-copy",
-    "bytes": 5307
+    "bytes": 5578
   },
   {
     "name": "Glossary",
@@ -69,15 +73,15 @@
   },
   {
     "name": "index",
-    "bytes": 126499
+    "bytes": 128647
   },
   {
     "name": "index.html",
-    "bytes": 477374
+    "bytes": 489579
   },
   {
     "name": "index.ts",
-    "bytes": 45660
+    "bytes": 45798
   },
   {
     "name": "index.ts-loader",
@@ -105,15 +109,15 @@
   },
   {
     "name": "Markdown",
-    "bytes": 4747
+    "bytes": 4699
   },
   {
     "name": "menu-focus",
-    "bytes": 4706
+    "bytes": 5777
   },
   {
     "name": "open-options-tab",
-    "bytes": 50986
+    "bytes": 51102
   },
   {
     "name": "page-chip",
@@ -125,7 +129,7 @@
   },
   {
     "name": "page-translate-v2",
-    "bytes": 29994
+    "bytes": 30014
   },
   {
     "name": "pending-conversation-open",
@@ -145,7 +149,7 @@
   },
   {
     "name": "picker-bar",
-    "bytes": 9688
+    "bytes": 9672
   },
   {
     "name": "picker-overlay",
@@ -168,10 +172,6 @@
     "bytes": 128
   },
   {
-    "name": "reply-instructions",
-    "bytes": 2275
-  },
-  {
     "name": "request-state",
     "bytes": 1369
   },
@@ -185,7 +185,7 @@
   },
   {
     "name": "safe-regex",
-    "bytes": 23646
+    "bytes": 23647
   },
   {
     "name": "safety",
@@ -217,7 +217,7 @@
   },
   {
     "name": "src-content-index.ts",
-    "bytes": 35671
+    "bytes": 38030
   },
   {
     "name": "StableLabel",
@@ -237,7 +237,7 @@
   },
   {
     "name": "Tasks",
-    "bytes": 49963
+    "bytes": 49972
   },
   {
     "name": "TaskUsageRow",
@@ -257,7 +257,7 @@
   },
   {
     "name": "tipState.svelte",
-    "bytes": 58034
+    "bytes": 59267
   },
   {
     "name": "toast",
@@ -277,7 +277,7 @@
   },
   {
     "name": "translate-handlers",
-    "bytes": 6217
+    "bytes": 6250
   },
   {
     "name": "translate-ui",
