@@ -98,7 +98,8 @@
   // A countdown holds its longest label, so a tick never moves the actions beside Retry (R63).
   // shortcut: two tabular digits fit tipState's 60 s Retry-After cap; widen the sizer if that cap grows.
   const retryLabels = $derived(tip.retryRemainingSec === undefined ? [] : ['Retry in 00s']);
-  // Regenerate and Refine take Stop's slot when the reply settles; Stop holds their width, so Copy and More stay put (R63).
+  // Regenerate and Refine take Stop's slot when the reply settles, and Retry takes it when it is stopped; Stop holds
+  // their width, so Copy and More stay put (R63).
   // shortcut: with one icon (an image reply has no Refine) Stop stays a few px wider than it; hold that too if it shows.
   const settleIcons = $derived((onRegenerate ? 1 : 0) + (onRefine && !tip.imageUrl ? 1 : 0));
   // Before the first words there is nothing to open; the button holds its place, off, so More stays put (R63).
@@ -144,7 +145,8 @@
 {/snippet}
 
 <div class="actions" data-ega-tooltip-actions bind:this={toolbar}>
-  {#if mode === 'error'}
+  <!-- A stopped reply keeps the busy row's layout: Retry takes Stop's place, so nothing moves on Stop (R63). -->
+  {#if mode === 'error' && !tip.stopped}
     {#if optionsTab !== undefined && onOpenOptions}
       <button
         class="tooltip-fix"
@@ -203,22 +205,27 @@
     {/if}
   {:else}
     <!-- Copy shows from the start, disabled until the first words arrive, so their arrival moves nothing (R63). -->
-    {#if tip.body || busy}
+    {#if tip.body || busy || tip.stopped}
       <button
         class="icon-btn"
-        aria-label="Copy translation"
+        aria-label={tip.stopped ? 'Copy partial translation' : 'Copy translation'}
         data-tooltip={tip.copied ? 'Copied' : 'Copy'}
         disabled={!tip.body}
         onclick={onCopy}><Icon icon={tip.copied ? Check : Copy} size={16} /></button
       >
     {/if}
-    {#if busy}<button
-        class="tooltip-text-action"
-        data-ega-tooltip-stop
+    <!-- One button for Stop and Retry, so focus stays on it when Stop is pressed. -->
+    {#if busy || (tip.stopped && showRetry)}<button
+        class="tooltip-text-action tooltip-stop-retry"
+        data-ega-tooltip-stop={busy || undefined}
+        data-ega-retry={busy ? undefined : true}
         style:--ega-stop-slots={settleIcons}
-        onclick={onCancel}>Stop</button
+        onclick={(e) => {
+          if (busy) onCancel();
+          else if (isUserGesture(e)) onRetry?.();
+        }}><StableLabel current={busy ? 'Stop' : 'Retry'} labels={['Stop', 'Retry']} /></button
       >{/if}
-    {#if !busy && onRegenerate}
+    {#if !busy && !tip.stopped && onRegenerate}
       <button
         class="icon-btn"
         aria-label="Regenerate"
@@ -228,7 +235,7 @@
         }}><Icon icon={RotateCcw} size={16} /></button
       >
     {/if}
-    {#if !busy && onRefine && !tip.imageUrl}
+    {#if !busy && !tip.stopped && onRefine && !tip.imageUrl}
       <DropdownMenu.Root bind:open={refineOpen}>
         <DropdownMenu.Trigger
           class="icon-btn"

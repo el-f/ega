@@ -8,7 +8,7 @@ import {
   waitForTestHooks,
   type ExtensionHandle,
 } from '../../helpers';
-import { assertStaysStable, createTimeline } from '../_harness';
+import { assertStaysStable, createTimeline, expectNothingMoves } from '../_harness';
 
 // The mock is slowed so the loading row stays on screen long enough to click Cancel.
 const MOCK_DELAY_MS = 1500;
@@ -83,28 +83,44 @@ test('Stop aborts the request and retains a neutral retryable tooltip', async ()
     );
   }
 
-  await page.evaluate(() => {
-    const host = document.querySelector('#ega-shadow-host');
-    const root = (host as HTMLElement | null)?.shadowRoot;
-    const btn = Array.from(
-      root?.querySelectorAll<HTMLButtonElement>('.tooltip .actions button') ?? [],
-    ).find((b) => b.textContent.trim() === 'Stop');
-    if (!btn) throw new Error('cancel button missing');
-    btn.click();
-  });
-  timeline.markStep('cancel-clicked');
+  // Retry takes Stop's place at Stop's width, and Copy and the icons after it stay put (R63).
+  const actions = page.locator('.tooltip [data-ega-tooltip-actions]');
+  await expectNothingMoves(
+    {
+      Copy: actions.locator('button[aria-label^="Copy"]'),
+      'Stop -> Retry': actions.locator('.tooltip-stop-retry'),
+      'Open in side panel': actions.locator('button[aria-label^="Open in side panel"]'),
+      More: actions.locator('[aria-label="More"]'),
+    },
+    async () => {
+      await page.evaluate(() => {
+        const host = document.querySelector('#ega-shadow-host');
+        const root = (host as HTMLElement | null)?.shadowRoot;
+        const btn = Array.from(
+          root?.querySelectorAll<HTMLButtonElement>('.tooltip .actions button') ?? [],
+        ).find((b) => b.textContent.trim() === 'Stop');
+        if (!btn) throw new Error('cancel button missing');
+        btn.click();
+      });
+      timeline.markStep('cancel-clicked');
 
-  await expect
-    .poll(
-      async () =>
-        await page.evaluate(() => {
-          const host = document.querySelector('#ega-shadow-host');
-          const root = (host as HTMLElement | null)?.shadowRoot;
-          return root?.querySelector('[data-ega-meta-item="status"]')?.textContent === 'Stopped';
-        }),
-      { timeout: 3_000 },
-    )
-    .toBe(true);
+      await expect
+        .poll(
+          async () =>
+            await page.evaluate(() => {
+              const host = document.querySelector('#ega-shadow-host');
+              const root = (host as HTMLElement | null)?.shadowRoot;
+              return (
+                root?.querySelector('[data-ega-meta-item="status"]')?.textContent === 'Stopped'
+              );
+            }),
+          { timeout: 3_000 },
+        )
+        .toBe(true);
+      await expect(actions.locator('.tooltip-stop-retry')).toHaveText('Retry');
+    },
+    actions,
+  );
 
   // Sample past the mock delay: the SSE lands after cancel and must not re-mount the tooltip.
   await assertStaysStable(

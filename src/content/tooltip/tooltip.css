@@ -665,8 +665,8 @@
 .tooltip .actions [data-ega-retry] {
   font-variant-numeric: tabular-nums;
 }
-/* Stop is as wide as the 32px icons that take its slot when the reply settles, gaps included (R63). */
-.tooltip .actions [data-ega-tooltip-stop] {
+/* Stop and Retry are as wide as the 32px icons that take the slot when the reply settles, gaps included (R63). */
+.tooltip .actions .tooltip-stop-retry {
   box-sizing: border-box;
   min-inline-size: calc(
     var(--ega-stop-slots, 0) * 32px + (var(--ega-stop-slots, 0) - 1) * var(--space-1)
