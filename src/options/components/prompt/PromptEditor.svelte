@@ -370,6 +370,7 @@
     background: var(--color-accent-bg-soft);
     box-shadow: inset 0 0 0 1px var(--color-accent);
     color: var(--color-fg);
+    font-weight: 600; /* hover-lint-allow: the sizer below holds the bold width */
   }
   /* Each tab holds its label's bold width, like Segmented, so a pick does not move the tab beside it (R63). */
   .pe-tab :global(.ega-stable > [data-label]) {

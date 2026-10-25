@@ -89,6 +89,7 @@
     background: var(--color-accent-bg-soft);
     color: var(--color-fg);
     box-shadow: inset 0 0 0 1px var(--color-accent);
+    font-weight: 600; /* hover-lint-allow: the sizer below holds the bold width */
   }
   /* Every item holds its label's bold width, so a pick does not resize the group (R63). */
   .ega-segmented-item :global(.ega-stable > [data-label]) {

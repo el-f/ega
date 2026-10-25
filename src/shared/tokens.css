@@ -523,7 +523,7 @@ button:focus:not(:focus-visible) {
 .ega-check-chip {
   padding-inline: var(--chip-pad);
 }
+/* prettier-ignore */
 .ega-check-chip:not([aria-pressed='true'], [aria-checked='true'], .active) {
-  /* prettier-ignore */
   padding-inline: calc(var(--chip-pad) + (var(--chip-check) + var(--space-1)) / 2); /* hover-lint-allow: holds the check's room */
 }
