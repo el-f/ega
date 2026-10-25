@@ -48,7 +48,7 @@
   /** Badge's icon size; each sizer leaves room for it and the gap, so the face centers whole. */
   const PILL_ICON = 14;
   const CHECKING: Pill = { word: 'Checking...', variant: 'muted', icon: LoaderCircle };
-  /** Every pill a kind can show, after Checking...; the pill keeps the widest word's width (R63). */
+  /** Every pill a kind can show, after Checking.... */
   const PILLS = {
     cloud: {
       setup: { word: 'Needs setup', variant: 'warning', icon: AlertTriangle },
@@ -81,7 +81,10 @@
     }
     return beStatus === 'ready' ? PILLS.local.running : PILLS.local.stopped;
   });
-  const words = $derived([CHECKING, ...Object.values<Pill>(PILLS[kind])].map((p) => p.word));
+  // Every pill of every kind holds the widest word's width, so a state change moves nothing and the cards' pills match (R63).
+  const WORDS = [CHECKING, ...Object.values(PILLS).flatMap((k) => Object.values<Pill>(k))].map(
+    (p) => p.word,
+  );
 
   function ago(at: number): string {
     const minutes = Math.round((Date.now() - at) / 60_000);
@@ -120,7 +123,7 @@
             >{` ${ago(verifiedAt)}`}</span
           >{/if}</span
       >
-      {#each words as w (w)}<span class="be-pill-sizer" aria-hidden="true" data-label={w}
+      {#each WORDS as w (w)}<span class="be-pill-sizer" aria-hidden="true" data-label={w}
         ></span>{/each}
     </span>
   </Badge>
