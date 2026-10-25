@@ -41,14 +41,13 @@
       />
     </label>
     <!-- Shown but off while From is Auto-detect: hiding it left a hole between the pickers, and removing it
-         would resize them (R63). aria-disabled keeps the Tab stop; the name and the tooltip say why. -->
+         would resize them (R63). aria-disabled keeps the Tab stop; the name says why, and the tooltip shows the name. -->
     <span class="swap">
       <IconButton
         icon={ArrowLeftRight}
         ariaLabel={swapOff
           ? 'Swap languages (needs a source language, not Auto-detect)'
           : 'Swap languages'}
-        {...swapOff ? { tooltip: 'Swap needs a source language, not Auto-detect' } : {}}
         size="sm"
         dataAttrs={swapOff ? { 'aria-disabled': 'true' } : {}}
         onclick={() => {
@@ -81,12 +80,6 @@
   }
   .swap {
     display: flex;
-  }
-  /* The same off look as Swap on the Languages tab. */
-  .swap :global(.ega-icon-btn[aria-disabled='true']) {
-    opacity: 0.55;
-    cursor: not-allowed;
-    background: transparent;
   }
   .lang-label {
     min-width: 0;

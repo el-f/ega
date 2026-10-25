@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
 import { preset, sel } from '@tests/_helpers/lang';
-import { render, fireEvent } from '@testing-library/svelte';
+import { render, fireEvent, waitFor } from '@testing-library/svelte';
 import { readFileSync } from 'node:fs';
 import PopupLangPair from '@/popup/PopupLangPair.svelte';
 import type { Variety } from '@/shared/types';
@@ -62,6 +62,19 @@ describe('PopupLangPair', () => {
     const source = readFileSync('src/popup/PopupLangPair.svelte', 'utf8');
     expect(source).toMatch(
       /\.popup-lang-pair \{[^}]*grid-template-columns: minmax\(0, 1fr\) auto minmax\(0, 1fr\);/,
+    );
+  });
+
+  // One wording: the hint shows the name, so a screen reader does not hear the reason twice in two forms.
+  it('the off swap hint repeats its name, and the off look comes from IconButton', async () => {
+    const { getByRole } = render(PopupLangPair, { props: base });
+    const name = 'Swap languages (needs a source language, not Auto-detect)';
+    await fireEvent.focus(getByRole('button', { name }));
+    await waitFor(() =>
+      expect(document.querySelector('.ega-icon-btn-tooltip')?.textContent.trim()).toBe(name),
+    );
+    expect(readFileSync('src/popup/PopupLangPair.svelte', 'utf8')).not.toMatch(
+      /aria-disabled='true'\]/,
     );
   });
 

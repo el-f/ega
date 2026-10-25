@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { render, fireEvent } from '@testing-library/svelte';
 import { Copy } from '@lucide/svelte';
 import IconButton from '@/shared/ui/IconButton.svelte';
@@ -70,5 +71,20 @@ describe('IconButton', () => {
     });
     await fireEvent.click(getByRole('button'));
     expect(clicked).toBe(true);
+  });
+});
+
+// aria-disabled keeps the Tab stop for a button that says why it is off; it must look off and ignore hover like :disabled.
+describe('IconButton off look', () => {
+  const css = readFileSync('src/shared/ui/IconButton.svelte', 'utf8');
+  it('gives aria-disabled the disabled look', () => {
+    expect(css).toMatch(
+      /:global\(\.ega-icon-btn:disabled\),\s*:global\(\.ega-icon-btn\[aria-disabled='true'\]\) \{\s*cursor: not-allowed;\s*opacity: 0\.55;/,
+    );
+  });
+  it('no hover rule reaches an off button', () => {
+    const hovers = css.split('\n').filter((l) => l.includes(':hover'));
+    expect(hovers.length).toBeGreaterThan(0);
+    for (const h of hovers) expect(h).toContain(":not(:disabled, [aria-disabled='true'])");
   });
 });

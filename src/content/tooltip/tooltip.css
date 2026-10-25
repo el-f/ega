@@ -779,11 +779,12 @@
     color var(--motion-fast) var(--ease-out);
   font: inherit;
 }
-.ega-icon-btn:disabled {
+.ega-icon-btn:disabled,
+.ega-icon-btn[aria-disabled='true'] {
   cursor: not-allowed;
   opacity: 0.55;
 }
-.ega-icon-btn:not(:disabled):hover {
+.ega-icon-btn:not(:disabled, [aria-disabled='true']):hover {
   background: var(--color-bg-hover);
   color: var(--color-fg);
 }
@@ -802,11 +803,11 @@
 .ega-icon-btn.variant-primary {
   color: var(--color-accent);
 }
-.ega-icon-btn.variant-primary:not(:disabled):hover {
+.ega-icon-btn.variant-primary:not(:disabled, [aria-disabled='true']):hover {
   background: var(--color-accent-bg-hover);
 }
-.ega-icon-btn.variant-danger:not(:disabled):hover,
-.ega-icon-btn.variant-danger:not(:disabled):focus-visible {
+.ega-icon-btn.variant-danger:not(:disabled, [aria-disabled='true']):hover,
+.ega-icon-btn.variant-danger:not(:disabled, [aria-disabled='true']):focus-visible {
   color: var(--color-danger-fg);
   background: var(--color-danger-bg-soft);
 }
