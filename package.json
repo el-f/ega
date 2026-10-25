@@ -39,6 +39,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:host": "pnpm --filter ega-native-host test",
+    "host:lock": "node scripts/host-version-lock.mjs",
     "test:all": "pnpm test && pnpm test:host",
     "test:all:cov": "pnpm test:cov && pnpm coverage:floor && pnpm test:host",
     "coverage:floor": "tsx scripts/coverage-floor.ts",

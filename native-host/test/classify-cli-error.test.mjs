@@ -76,6 +76,51 @@ test('maps transport failures to TIMEOUT and NETWORK', () => {
   assert.equal(classifyCliError('connect ECONNREFUSED 127.0.0.1:1234'), 'NETWORK');
 });
 
+test('maps a CLI that cannot read its own config file to NATIVE_CLI_CONFIG', () => {
+  // codex-cli 0.162.1 stderr when a `-c mcp_servers.<name>.enabled=false` override names a server no loaded config defines.
+  assert.equal(
+    classifyCliError(
+      'WARNING: proceeding, even though we could not create PATH aliases\nError loading config.toml: invalid transport\nin `mcp_servers.cua_repl`\n',
+    ),
+    'NATIVE_CLI_CONFIG',
+  );
+  // Classifier-only (Ega's --ignore-user-config never reads this file): the error ends on the caret line, so the whole tail decides.
+  assert.equal(
+    classifyCliError(
+      'Error loading config.toml:\nC:\\Users\\me\\.codex\\config.toml:1:10: unclosed array, expected `]`\n  |\n1 | model = [\n  |          ^',
+    ),
+    'NATIVE_CLI_CONFIG',
+  );
+  // A config problem that names a word another row matches is still a config problem.
+  assert.equal(
+    classifyCliError('Error loading config.toml: unsupported value for `model_provider`'),
+    'NATIVE_CLI_CONFIG',
+  );
+});
+
+test('a config error whose last line names another row is still NATIVE_CLI_CONFIG', () => {
+  for (const tail of [
+    'in `mcp_servers.network-tools`',
+    'in `mcp_servers.timeout-helper`',
+    '/x/config.toml:1:10: x\n1 | network = [',
+  ]) {
+    assert.equal(
+      classifyCliError(`Error loading config.toml: invalid transport\n${tail}`),
+      'NATIVE_CLI_CONFIG',
+      tail,
+    );
+  }
+});
+
+test('leaves config wording Ega cannot trigger to the other rows', () => {
+  // claude's `Settings file not found` needs --settings <path>, which Ega never passes.
+  assert.equal(
+    classifyCliError('Error: Settings file not found: C:\\no\\such\\settings.json'),
+    'UNKNOWN',
+  );
+  assert.equal(classifyCliError('Error loading configuration: 429 rate limit'), 'RATE_LIMIT');
+});
+
 test('leaves unrecognised text UNKNOWN rather than guessing retryable', () => {
   assert.equal(classifyCliError('something went sideways'), 'UNKNOWN');
   assert.equal(classifyCliError(''), 'UNKNOWN');
@@ -91,6 +136,7 @@ test('every produced code is one the extension knows', () => {
     'REQUEST',
     'NATIVE_NOT_INSTALLED',
     'NATIVE_SPAWN_FAIL',
+    'NATIVE_CLI_CONFIG',
     'ABORTED',
     'TIMEOUT',
     'PARSE',
@@ -105,6 +151,7 @@ test('every produced code is one the extension knows', () => {
     'invalid model',
     'timed out',
     'socket hang up',
+    'Error loading config.toml: bad',
     'gibberish',
   ];
   for (const s of samples) assert.ok(known.has(classifyCliError(s)), `${s} -> unknown vocabulary`);

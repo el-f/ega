@@ -2164,6 +2164,38 @@ test('a codex translate that fails reports the CLI error text and its class, not
   }
 });
 
+test('a codex that cannot read its config file fails as NATIVE_CLI_CONFIG with its own words', async () => {
+  // codex-cli 0.162.1 stderr when a `-c mcp_servers.<name>` override names no loaded server; it exits before any JSON.
+  const said = 'Error loading config.toml: invalid transport\nin `mcp_servers.cua_repl`';
+  const fixture = writeFixture(
+    'ega-host.fake-codex-bad-config.mjs',
+    [
+      `if (process.argv[2] === 'mcp') { process.stdout.write('[]'); process.exit(0); }`,
+      `process.stdin.resume();`,
+      `process.stdin.on('end', () => process.stderr.write(${JSON.stringify(said + '\n')}, () => process.exit(1)));`,
+      '',
+    ].join('\n'),
+  );
+  try {
+    const p = spawnHostWithFakes({ codex: fixture });
+    const chunks = [];
+    p.stdout.on('data', (c) => chunks.push(c));
+    p.stdin.write(
+      encode({ v: 1, id: 'cx-cfg', kind: 'translate', backend: 'codex', prompt: { user: 'hi' } }),
+    );
+    const terminal = await waitForFrame(chunks, isTerminal('cx-cfg'));
+    p.stdin.end();
+    try {
+      p.kill();
+    } catch {}
+    assert.equal(terminal?.type, 'error', `expected an error; got ${JSON.stringify(terminal)}`);
+    assert.equal(terminal.code, 'NATIVE_CLI_CONFIG');
+    assert.equal(terminal.message, said);
+  } finally {
+    rmSync(fixture, { force: true });
+  }
+});
+
 test('the image prompt hands the CLI only the attachment the host wrote, same as the text path', async () => {
   const fixture = writeFixture(
     'ega-host.fake-claude-img-echo.mjs',

@@ -20,6 +20,7 @@ describe('errCodeLabel', () => {
     REQUEST: true,
     NATIVE_NOT_INSTALLED: true,
     NATIVE_SPAWN_FAIL: true,
+    NATIVE_CLI_CONFIG: true,
     ABORTED: true,
     TIMEOUT: true,
     PARSE: true,

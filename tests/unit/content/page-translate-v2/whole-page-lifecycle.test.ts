@@ -258,6 +258,35 @@ describe('whole-page session — failures', () => {
     expect(r.updates.at(-1)?.failure?.actions[0]).toBe('open-settings');
   });
 
+  it.each(['AUTH', 'NATIVE_SPAWN_FAIL', 'NATIVE_CLI_CONFIG'])(
+    '%s stops sending: the next block in view does not go out',
+    async (code) => {
+      const els = page();
+      const r = rig();
+      await runWholePageTranslate(r.d);
+      band(els.slice(0, 3));
+      await flush();
+      fail(r.sent[0]?.id, code);
+      await flush();
+      band(els.slice(3, 7));
+      await flush();
+      expect(r.sent).toHaveLength(3);
+    },
+  );
+
+  it('a retryable failure keeps sending, so the stop above is the code and not the setup', async () => {
+    const els = page();
+    const r = rig();
+    await runWholePageTranslate(r.d);
+    band(els.slice(0, 3));
+    await flush();
+    fail(r.sent[0]?.id, 'NETWORK');
+    await flush();
+    band(els.slice(3, 7));
+    await flush();
+    expect(r.sent.length).toBeGreaterThan(3);
+  });
+
   it('Stop during a rate-limit pause takes the pause off the pill', async () => {
     const els = page();
     const r = rig();

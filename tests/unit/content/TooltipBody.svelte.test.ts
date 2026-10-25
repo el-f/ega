@@ -221,7 +221,13 @@ describe('TooltipBody', () => {
     }
 
     it('renders for every code the shared map can send to a settings tab', () => {
-      for (const code of ['AUTH', 'QUOTA', 'NATIVE_NOT_INSTALLED', 'NATIVE_SPAWN_FAIL'] as const) {
+      for (const code of [
+        'AUTH',
+        'QUOTA',
+        'NATIVE_NOT_INSTALLED',
+        'NATIVE_SPAWN_FAIL',
+        'NATIVE_CLI_CONFIG',
+      ] as const) {
         expect(optionsTabForMessage('', code), code).toBeDefined();
         expect(ctaFor(code), code).not.toBeNull();
       }

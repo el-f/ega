@@ -101,6 +101,12 @@ export const ERROR_COPY: Readonly<Record<ErrorCopyId, CopyRow>> = {
     body: 'The Ega helper app could not start the model.',
     actions: ['open-settings', 'try-again'],
   },
+  // Not the user's file (Ega's runs skip it): a system config or an Ega override; Backends has the reinstall.
+  NATIVE_CLI_CONFIG: {
+    title: 'CLI config error',
+    body: 'The CLI could not load its settings: a system-wide config, or a setting Ega passes, is invalid.',
+    actions: ['open-settings', 'try-again'],
+  },
   PARSE: {
     title: 'Wrong format',
     body: '{Backend} did not answer in the format this task asks for.',
