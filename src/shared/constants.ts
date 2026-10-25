@@ -15,6 +15,9 @@ export const DEFAULT_LOCAL_SERVER_URL = 'http://127.0.0.1:1234';
 
 export const MAX_SELECTION_CHARS = 2000;
 
+/** The longest server Retry-After wait Ega honors, so a huge value cannot park Retry for minutes. Countdown sizers hold this many seconds. */
+export const RETRY_AFTER_MAX_MS = 60_000;
+
 /** Stands in for the turn content when an image is sent with no notes. */
 export const IMAGE_TURN_PLACEHOLDER = '[image]';
 /** Longest image data URL a turn, a draft or a popup handoff keeps; chrome.storage.local gives the whole extension 10 MB. */

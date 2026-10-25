@@ -123,7 +123,7 @@ describe('an error reply', () => {
         }),
       ),
     });
-    expect(sizers(limited.container)).toEqual(['Try again', 'Try again in 00 s']);
+    expect(sizers(limited.container)).toEqual(['Try again', 'Try again in 60 s']);
     document.body.innerHTML = '';
     const plain = render(AssistantTurn, { props: replyProps(failed('NETWORK', 'x')) });
     expect(sizers(plain.container)).toEqual([]);
@@ -137,6 +137,8 @@ describe('an error reply', () => {
       const btn = container.querySelector('[data-ega-retry]') as HTMLElement;
       expect(btn.textContent.trim()).toBe('Try again');
       expect(btn.getAttribute('aria-label')).toBe('Try again (wait for the current reply)');
+      // Sighted users get the reason on hover, as the label stays short.
+      expect(btn.getAttribute('title')).toBe('Try again (wait for the current reply)');
       expect(btn.getAttribute('aria-disabled')).toBe('true');
       await fireEvent.click(btn);
       expect(props.onRetry).not.toHaveBeenCalled();

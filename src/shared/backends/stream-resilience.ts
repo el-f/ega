@@ -1,3 +1,5 @@
+import { RETRY_AFTER_MAX_MS } from '@/shared/constants';
+
 /** Stream helpers shared by every streaming backend, kept here so no backend imports a sibling. */
 
 /** Aborts a stream that goes silent (proxy hang, half-open socket) long before the wall-clock timeout. */
@@ -58,9 +60,6 @@ export function idleAbort(userSignal: AbortSignal | undefined): {
   const signal = userSignal ? AbortSignal.any([userSignal, ctrl.signal]) : ctrl.signal;
   return { signal, abort: () => ctrl.abort() };
 }
-
-// Clamp a server Retry-After hint so a huge value (or far-future date) can't freeze the batch for minutes or overflow a 32-bit setTimeout.
-const RETRY_AFTER_MAX_MS = 60_000;
 
 /** Both Retry-After forms to ms; past dates clamp to 0, huge values to RETRY_AFTER_MAX_MS; undefined = no hint. */
 export function parseRetryAfterMs(header: string | null): number | undefined {

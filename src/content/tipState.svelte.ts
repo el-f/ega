@@ -12,6 +12,7 @@ import type { AnswerNote, AnswerDetail } from '@/shared/answer/reader';
 import type { AnswerSnapshot } from '@/shared/types';
 import type { SettingsTab } from '@/shared/settings-tabs';
 import { stuckTimeoutMs } from '@/shared/stuck-timeout';
+import { RETRY_AFTER_MAX_MS } from '@/shared/constants';
 import { escalateToSidepanel, type EscalationKind } from './tooltip/handoff';
 import { showToast } from './toast';
 
@@ -474,7 +475,7 @@ export function errorTooltip(
   else e.state.error = { code: errInfo.code, message: errInfo.message };
   // Honor the server's Retry-After: Retry stays disabled, with a live countdown, until the window passes.
   if (errInfo.retryAfterMs !== undefined && errInfo.retryAfterMs > 0) {
-    const waitMs = Math.min(errInfo.retryAfterMs, 60_000);
+    const waitMs = Math.min(errInfo.retryAfterMs, RETRY_AFTER_MAX_MS);
     const deadline = Date.now() + waitMs;
     e.state.retryBlocked = true;
     e.state.retryRemainingSec = Math.ceil(waitMs / 1000);

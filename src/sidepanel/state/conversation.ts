@@ -1,6 +1,6 @@
 // Every helper returns a new turn list except `applyChunkPure`, which mutates to keep the per-delta render cost down.
 
-import { IMAGE_TURN_PLACEHOLDER } from '@/shared/constants';
+import { IMAGE_TURN_PLACEHOLDER, RETRY_AFTER_MAX_MS } from '@/shared/constants';
 import { ALL_TASKS, TASK_LABELS, type Tone } from '@/shared/task-prompts';
 import { taskLabel, type TaskId, type TaskView } from '@/shared/task-view';
 import {
@@ -564,12 +564,12 @@ function applyChunkToVariant(variant: Variant, c: TranslationChunk): void {
   }
 }
 
-// Same 60s cap as the tooltip, so a bogus Retry-After cannot park the button forever.
+// Same cap as the tooltip, so a bogus Retry-After cannot park the button forever.
 function retryWindow(
   c: Extract<TranslationChunk, { type: 'error' }>,
 ): { retryUntil: number } | Record<string, never> {
   return c.retryAfterMs !== undefined && c.retryAfterMs > 0
-    ? { retryUntil: Date.now() + Math.min(c.retryAfterMs, 60_000) }
+    ? { retryUntil: Date.now() + Math.min(c.retryAfterMs, RETRY_AFTER_MAX_MS) }
     : {};
 }
 

@@ -43,7 +43,7 @@
   import { ALL_ERR_CODES, type ErrCode, type LangSelection, type Variety } from '@/shared/types';
   import { isIsoCode, labelFor } from '@/shared/languages';
   import { openOptionsTab } from '@/shared/open-options-tab';
-  import { IMAGE_TURN_PLACEHOLDER } from '@/shared/constants';
+  import { IMAGE_TURN_PLACEHOLDER, RETRY_AFTER_MAX_MS } from '@/shared/constants';
   import { directionLabel, replyMetaItems, type ConfidenceSetting } from '@/shared/reply-meta';
   import ReplyMenus from './ReplyMenus.svelte';
   import TranslateIntoPopover from './TranslateIntoPopover.svelte';
@@ -340,13 +340,18 @@
     onRetry(turn.id);
   }
 
-  // Try again holds one width (R63); while another reply runs only its name says why, as the long label would crowd 256px (D56).
+  // Try again holds one width (R63); while another reply runs its name and hover hint say why, as the long label would crowd 256px (D56).
   const retryProps = $derived({
     ...(inflight && retryWaitSec === 0
-      ? { ariaLabel: 'Try again (wait for the current reply)' }
+      ? {
+          ariaLabel: 'Try again (wait for the current reply)',
+          title: 'Try again (wait for the current reply)',
+        }
       : {}),
-    // shortcut: two tabular digits fit retryWindow's 60 s Retry-After cap; widen the sizer if that cap grows.
-    ...(turn.error?.retryUntil !== undefined ? { labels: ['Try again', 'Try again in 00 s'] } : {}),
+    // The sizer holds the full Retry-After cap, so a tick never resizes the button.
+    ...(turn.error?.retryUntil !== undefined
+      ? { labels: ['Try again', errorActionLabel('try-again', RETRY_AFTER_MAX_MS / 1000)] }
+      : {}),
     dataAttrs: {
       'data-ega-retry': 'true',
       ...(retryWaiting ? { 'aria-disabled': 'true' } : {}),
@@ -721,7 +726,6 @@
           <IconButton
             icon={RefreshCw}
             ariaLabel={inflight ? 'Regenerate (wait for the current reply)' : 'Regenerate'}
-            tooltip="Regenerate"
             size="sm"
             dataAttrs={{
               'data-ega-regenerate': 'true',

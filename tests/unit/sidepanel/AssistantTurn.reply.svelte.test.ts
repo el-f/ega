@@ -199,6 +199,13 @@ describe('the action row', () => {
     const btn = container.querySelector('[data-ega-regenerate]') as HTMLElement;
     expect(btn.getAttribute('aria-disabled')).toBe('true');
     expect(btn.getAttribute('aria-label')).toBe('Regenerate (wait for the current reply)');
+    // Sighted users get the same reason in the hover and focus hint.
+    await fireEvent.focus(btn);
+    await waitFor(() =>
+      expect(document.querySelector('.ega-icon-btn-tooltip')?.textContent.trim()).toBe(
+        'Regenerate (wait for the current reply)',
+      ),
+    );
     await fireEvent.click(btn);
     expect(props.onRegenerate).toHaveBeenCalledTimes(1);
   });
