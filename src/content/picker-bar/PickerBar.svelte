@@ -3,7 +3,7 @@
   import { isUserGesture } from '../user-gesture';
   import type { RenderMode } from '../page-translate-v2/store';
   import { roving } from '../roving';
-  import StableLabel from '../StableLabel.svelte';
+  import StableLabel from '@/shared/ui/StableLabel.svelte';
 
   interface Props {
     /** Pick element translates one block; Choose areas collects several, then Translate sends them. */

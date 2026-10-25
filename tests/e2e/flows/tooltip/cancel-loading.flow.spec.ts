@@ -84,7 +84,8 @@ test('Stop aborts the request and retains a neutral retryable tooltip', async ()
     );
   }
 
-  // Retry takes Stop's place at Stop's width, and Copy and the icons after it stay put (R63).
+  // Retry takes Stop's place at Stop's width, and Copy and the icons after it stay put (R63). Measured from the
+  // tooltip's edge, so a body that shrinks on Stop and lifts the row fails too.
   const actions = page.locator('.tooltip [data-ega-tooltip-actions]');
   await expectNothingMoves(
     {
@@ -94,15 +95,9 @@ test('Stop aborts the request and retains a neutral retryable tooltip', async ()
       More: actions.locator('[aria-label="More"]'),
     },
     async () => {
-      await page.evaluate(() => {
-        const host = document.querySelector('#ega-shadow-host');
-        const root = (host as HTMLElement | null)?.shadowRoot;
-        const btn = Array.from(
-          root?.querySelectorAll<HTMLButtonElement>('.tooltip .actions button') ?? [],
-        ).find((b) => b.textContent.trim() === 'Stop');
-        if (!btn) throw new Error('cancel button missing');
-        btn.click();
-      });
+      // By keyboard: Stop and Retry are one button, so focus stays on it when it turns into Retry.
+      await actions.locator('.tooltip-stop-retry').focus();
+      await page.keyboard.press('Enter');
       timeline.markStep('cancel-clicked');
 
       await expect
@@ -119,8 +114,9 @@ test('Stop aborts the request and retains a neutral retryable tooltip', async ()
         )
         .toBe(true);
       await expect(actions.locator('.tooltip-stop-retry')).toHaveText('Retry');
+      await expect(actions.locator('.tooltip-stop-retry')).toBeFocused();
     },
-    actions,
+    page.locator('.tooltip'),
   );
 
   // Sample past the mock delay: the SSE lands after cancel and must not re-mount the tooltip.
@@ -147,10 +143,11 @@ test('a double-click on Stop stops the reply and does not start it again', async
 
   const button = page.locator('.tooltip .tooltip-stop-retry');
   await expect(button).toHaveText('Stop');
+  // The request must be on the wire first, or a fast Stop cancels it before the mock ever counts it.
+  await expect.poll(() => mock.calls(), { timeout: 5_000 }).toBe(1);
   const stopBox = await button.boundingBox();
   if (!stopBox) throw new Error('Stop has no box');
-  // The top edge, so the second click still lands on the button if the row shifts on Stop.
-  const at = { x: stopBox.x + stopBox.width / 2, y: stopBox.y + 2 };
+  const at = { x: stopBox.x + stopBox.width / 2, y: stopBox.y + stopBox.height / 2 };
   await page.mouse.dblclick(at.x, at.y);
 
   const status = page.locator('.tooltip [data-ega-meta-item="status"]');

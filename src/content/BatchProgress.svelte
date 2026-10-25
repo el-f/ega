@@ -1,7 +1,7 @@
 <script lang="ts">
   import { tick } from 'svelte';
   import BrandMark from '@/shared/components/BrandMark.svelte';
-  import StableLabel from './StableLabel.svelte';
+  import StableLabel from '@/shared/ui/StableLabel.svelte';
   import { pillPhase, pillStatus, type PageProgress } from './page-translate-v2/progress';
   import { roving } from './roving';
   import { isUserGesture } from './user-gesture';

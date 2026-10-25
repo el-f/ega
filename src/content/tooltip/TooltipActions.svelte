@@ -15,7 +15,10 @@
   import { answerAgainLabel } from '@/shared/refine-presets';
   import { outsidePressFocus } from '@/shared/menu-focus';
   import { isUserGesture } from '../user-gesture';
-  import StableLabel from '../StableLabel.svelte';
+  import { repeatClickGuard } from '@/shared/ui/repeat-click';
+  import { retryLabel } from '@/shared/error-copy';
+  import { RETRY_AFTER_MAX_MS } from '@/shared/constants';
+  import StableLabel from '@/shared/ui/StableLabel.svelte';
 
   interface Props {
     tip: TipState;
@@ -95,13 +98,15 @@
     mode === 'error' && optionsTab !== undefined && !!onOpenOptions && showRetry && !!tip.body,
   );
   const detailsInMore = $derived(mode === 'error' && optionsTab !== undefined && !!onOpenOptions);
-  // A countdown holds its longest label, so a tick never moves the actions beside Retry (R63).
-  // shortcut: two tabular digits fit tipState's 60 s Retry-After cap; widen the sizer if that cap grows.
-  const retryLabels = $derived(tip.retryRemainingSec === undefined ? [] : ['Retry in 00s']);
+  // A countdown holds its longest label, the full Retry-After cap, so a tick never moves the actions beside Retry (R63).
+  const retryLabels = $derived(
+    tip.retryRemainingSec === undefined ? [] : [retryLabel(RETRY_AFTER_MAX_MS / 1000)],
+  );
   // Regenerate and Refine take Stop's slot when the reply settles, and Retry takes it when it is stopped; Stop holds
-  // their width, so Copy and More stay put (R63).
-  // shortcut: with one icon (an image reply has no Refine) Stop stays a few px wider than it; hold that too if it shows.
+  // their width, so Copy and More stay put (R63). With one icon (an image reply has no Refine) Stop is exactly its width.
   const settleIcons = $derived((onRegenerate ? 1 : 0) + (onRefine && !tip.imageUrl ? 1 : 0));
+  // Stop becomes Retry in place, and Retry a new reply's Stop, so the rest of a double-click must not act on the new label.
+  const isRepeat = repeatClickGuard();
   // Before the first words there is nothing to open; the button holds its place, off, so More stays put (R63).
   const escalateWait = $derived(mode === 'loading');
 
@@ -166,9 +171,7 @@
         }}
       >
         <StableLabel
-          current={tip.retryBlocked && (tip.retryRemainingSec ?? 0) > 0
-            ? 'Retry in ' + tip.retryRemainingSec + 's'
-            : 'Retry'}
+          current={retryLabel(tip.retryBlocked ? tip.retryRemainingSec : undefined)}
           labels={retryLabels}
         />
       </button>
@@ -217,12 +220,12 @@
     <!-- One button for Stop and Retry, so focus stays on it when Stop is pressed. -->
     {#if busy || (tip.stopped && showRetry)}<button
         class="tooltip-text-action tooltip-stop-retry"
+        class:one-slot={settleIcons === 1}
         data-ega-tooltip-stop={busy || undefined}
         data-ega-retry={busy ? undefined : true}
         style:--ega-stop-slots={settleIcons}
         onclick={(e) => {
-          // The second click of a double-click lands on the other label (Stop became Retry, or a new reply's Stop), so it does nothing.
-          if (e.detail > 1) return;
+          if (isRepeat(e)) return;
           if (busy) onCancel();
           else if (isUserGesture(e)) onRetry?.();
         }}><StableLabel current={busy ? 'Stop' : 'Retry'} labels={['Stop', 'Retry']} /></button

@@ -566,11 +566,13 @@
   z-index: var(--ega-layer-label);
   max-width: 220px;
 }
+/* One answer line tall, like the body that replaces it (.tooltip .body min-block-size: 1lh), so Stop, the first words
+   or "No answer yet." do not move the meta and the actions (R63). */
 .shimmer-wrap {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-2) 0;
+  min-block-size: 1lh;
 }
 .shimmer {
   flex: 0 0 120px;
@@ -671,6 +673,11 @@
   min-inline-size: calc(
     var(--ega-stop-slots, 0) * 32px + (var(--ega-stop-slots, 0) - 1) * var(--space-1)
   );
+}
+/* One slot: a text Stop is wider than the 32px icon, so it drops its side padding; "Retry" still fits inside. */
+.tooltip .actions .tooltip-stop-retry.one-slot {
+  inline-size: 32px;
+  padding-inline: 0;
 }
 .tooltip .actions .tooltip-text-action:hover,
 .tooltip .actions .tooltip-fix:hover {

@@ -237,12 +237,11 @@ function buildTooltipProps(o: OpenOpts, state: TipState): ComponentProps<typeof 
       if (o.onCancel) o.onCancel();
       else stopRequestStream(o.requestId);
       errorTooltip(o.requestId, { code: 'ABORTED', message: 'Stopped' });
+      // Stop turns into Retry in place and keeps focus; with no Retry the button is gone, so focus goes to Close.
       void tick().then(() => {
-        const entry = entryFor(o.requestId);
-        const action =
-          entry?.anchor.querySelector<HTMLElement>('[data-ega-retry]') ??
-          entry?.anchor.querySelector<HTMLElement>('.tooltip-close');
-        action?.focus();
+        const anchor = entryFor(o.requestId)?.anchor;
+        if (anchor?.querySelector('[data-ega-retry]')) return;
+        anchor?.querySelector<HTMLElement>('.tooltip-close')?.focus();
       });
     },
     ...(o.onRetry ? { onretry: () => o.onRetry?.() } : {}),

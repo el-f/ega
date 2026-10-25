@@ -119,20 +119,27 @@ export async function expectSameWidth(
   expect((await control.boundingBox())?.width, `${label} changed width`).toBe(before);
 }
 
-/** Runs `change` and fails when any of `controls` moved or changed width, measured from `origin` when given (R63). */
+/** Runs `change` and fails when any of `controls` moved (either axis) or changed width, measured from `origin` when given (R63). */
 export async function expectNothingMoves(
   controls: Record<string, Locator>,
   change: () => Promise<void>,
   origin?: Locator,
 ): Promise<void> {
-  const measure = async (): Promise<Record<string, { x: number; width: number }>> => {
-    const base = origin ? await origin.boundingBox() : { x: 0 };
+  const measure = async (): Promise<Record<string, { x: number; y: number; width: number }>> => {
+    // A surface that is still sliding in reads a fraction of a pixel off, so measure once its entrance has ended.
+    await (origin ?? Object.values(controls)[0])?.evaluate(async (el) => {
+      const landing = (el.getRootNode() as Document | ShadowRoot)
+        .getAnimations()
+        .filter((a) => a.effect?.getTiming().iterations !== Number.POSITIVE_INFINITY);
+      await Promise.all(landing.map(async (a) => a.finished.catch(() => undefined)));
+    });
+    const base = origin ? await origin.boundingBox() : { x: 0, y: 0 };
     if (!base) throw new Error('the origin is not on screen');
-    const out: Record<string, { x: number; width: number }> = {};
+    const out: Record<string, { x: number; y: number; width: number }> = {};
     for (const [name, control] of Object.entries(controls)) {
       const box = await control.boundingBox();
       if (!box) throw new Error(`${name} is not on screen`);
-      out[name] = { x: box.x - base.x, width: box.width };
+      out[name] = { x: box.x - base.x, y: box.y - base.y, width: box.width };
     }
     return out;
   };
@@ -141,6 +148,10 @@ export async function expectNothingMoves(
   const after = await measure();
   for (const name of Object.keys(controls)) {
     expect(after[name]?.x, `${name} moved`).toBeCloseTo(before[name]?.x ?? Number.NaN, 1);
+    expect(after[name]?.y, `${name} moved up or down`).toBeCloseTo(
+      before[name]?.y ?? Number.NaN,
+      1,
+    );
     expect(after[name]?.width, `${name} changed width`).toBeCloseTo(
       before[name]?.width ?? Number.NaN,
       1,

@@ -1,15 +1,25 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import shadowCss from '@/content/shadow.css?inline';
 import { ensureShadowSheet, getShadowRoot } from '@/content/shadowHost';
-import { STABLE_LABEL_CSS } from '@/content/stable-label';
 
 afterEach(() => {
   document.getElementById('ega-shadow-host')?.remove();
 });
 
 describe('the root sheet', () => {
-  it('carries the StableLabel rules, so every surface in the root keeps its widest label (R63)', () => {
-    expect(getShadowRoot().querySelector('style')?.textContent).toContain(STABLE_LABEL_CSS);
+  // shadow.css imports tokens.css, which holds .ega-stable; a second copy would only drift.
+  it('carries the StableLabel rules once, from tokens.css (R63)', () => {
+    const sheet = getShadowRoot().querySelector('style')?.textContent ?? '';
+    expect(sheet).toBe(shadowCss);
+    expect(readFileSync(resolve(process.cwd(), 'src/content/shadow.css'), 'utf8')).toMatch(
+      /^@import '\.\.\/shared\/tokens\.css';/,
+    );
+    expect(readFileSync(resolve(process.cwd(), 'src/shared/tokens.css'), 'utf8')).toMatch(
+      /\.ega-stable > \[data-label\]::before\s*\{\s*content: attr\(data-label\);/,
+    );
   });
 });
 

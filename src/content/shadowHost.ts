@@ -1,5 +1,4 @@
 import css from './shadow.css?inline';
-import { STABLE_LABEL_CSS } from './stable-label';
 
 const HOST_ID = 'ega-shadow-host';
 let host: HTMLDivElement | null = null;
@@ -34,8 +33,8 @@ export function mountShadowHost(): HTMLDivElement {
   // Open mode: the tree holds only visible UI, and tests probe it via host.shadowRoot.
   root = host.attachShadow({ mode: 'open' });
   const style = document.createElement('style');
-  // StableLabel.svelte renders the stack; its rules ship with the page chip's, from one string.
-  style.textContent = css + STABLE_LABEL_CSS;
+  // shadow.css imports tokens.css, so StableLabel's .ega-stable rules come with it.
+  style.textContent = css;
   root.appendChild(style);
   const container = document.createElement('div');
   container.className = 'ega-root';

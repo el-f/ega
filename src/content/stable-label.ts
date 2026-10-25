@@ -1,4 +1,4 @@
-/** Page-DOM version of the shared Button's `labels` (R63): every label sits in one grid cell, so a label swap keeps the widest one's width. */
+/** Page-DOM version of the shared Button's `labels` (R63) for the page chip, whose shadow root has no tokens.css: every label sits in one grid cell, so a label swap keeps the widest one's width. */
 export const STABLE_LABEL_CSS =
   '.ega-stable{display:inline-grid;justify-items:center}.ega-stable>*{grid-area:1/1}.ega-stable>[data-label]{visibility:hidden}.ega-stable>[data-label]::before{content:attr(data-label)}';
 

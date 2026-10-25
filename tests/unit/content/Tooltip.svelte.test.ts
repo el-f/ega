@@ -182,6 +182,13 @@ describe('Tooltip smoke', () => {
     // An image reply has no Refine, so Stop holds one icon slot.
     const image = mountWith({ loading: true, body: '', imageUrl: 'data:image/png;base64,AA==' });
     expect(slots(image.container)).toBe('1');
+    // A text Stop is wider than one icon, so in one slot it takes the icon's exact width.
+    expect(
+      image.container.querySelector('.tooltip-stop-retry')?.classList.contains('one-slot'),
+    ).toBe(true);
+    expect(
+      busy.container.querySelector('.tooltip-stop-retry')?.classList.contains('one-slot'),
+    ).toBe(false);
   });
 
   // Stop turns into Retry in place, so the second click of a double-click on Stop lands on Retry.
@@ -198,6 +205,22 @@ describe('Tooltip smoke', () => {
     await fireEvent.click(button(), { detail: 1 });
     await fireEvent.click(button(), { detail: 0 });
     expect(t.onretry).toHaveBeenCalledTimes(2);
+  });
+
+  // The browser counts a click run past two; a click after the double-click window still acts (P10).
+  it('a third quick click on Stop/Retry retries once the double-click window has passed', async () => {
+    const t = mountWith({ loading: false, body: 'half', settled: false });
+    const button = (): HTMLElement => t.getByRole('button', { name: /^(Stop|Retry)$/ });
+    const now = vi.spyOn(Date, 'now').mockReturnValue(20_000);
+    await fireEvent.click(button(), { detail: 1 });
+    await t.rerender({ tip: baseTip({ body: 'half', settled: false, stopped: true }) });
+    now.mockReturnValue(20_200);
+    await fireEvent.click(button(), { detail: 2 });
+    expect(t.onretry).not.toHaveBeenCalled();
+    now.mockReturnValue(20_500);
+    await fireEvent.click(button(), { detail: 3 });
+    expect(t.onretry).toHaveBeenCalledTimes(1);
+    now.mockRestore();
   });
 
   // Retry opens a new reply whose Stop sits where Retry was, so the second click of a double-click on Retry lands on Stop.
