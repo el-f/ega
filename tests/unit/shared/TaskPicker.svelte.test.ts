@@ -48,12 +48,12 @@ describe('TaskPicker button row (0.3.9)', () => {
     expect(getByRole('radio', { name: 'Reword', checked: true })).toBeTruthy();
   });
 
-  it('only the checked chip draws the check; the rest hold its room as padding, so a pick does not rewrap the row (R63)', () => {
+  it('only the checked chip draws the check; the rest hold its room at both ends, so a pick does not rewrap the row (R63)', () => {
     const { getAllByRole } = render(TaskPicker, { props: { task: 'reword' } });
     for (const r of getAllByRole('radio')) {
       expect(r.querySelector('svg') !== null).toBe(r.getAttribute('aria-checked') === 'true');
     }
-    // The shared .ega-check-chip rule pads them, from the same size the check icon is drawn at.
+    // The shared .ega-check-chip rule holds their room, from the same size the check icon is drawn at.
     const checked = getAllByRole('radio').find((r) => r.getAttribute('aria-checked') === 'true');
     const size = checked?.querySelector('svg')?.getAttribute('width');
     for (const r of getAllByRole('radio')) {

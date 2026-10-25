@@ -517,12 +517,15 @@ button:focus:not(:focus-visible) {
   justify-items: start;
 }
 
-/* A chip that draws a check only when picked. Unpicked, the check's room (icon + gap) splits into both paddings, so a
-   pick neither resizes it nor moves what follows, and the label sits centered (R63). The chip sets --chip-pad, and
-   --chip-check from the number it passes to <Check size>; its own rules set no padding-inline. */
+/* A chip that draws a check only when picked. Unpicked, an empty box at each end holds half the check's room, so a pick
+   neither resizes it nor moves what follows, the label sits centered (R63), and padding stays on the scale. The chip
+   sets --chip-pad, a gap of --space-1, and --chip-check from the number it passes to <Check size>. */
 .ega-check-chip {
   padding-inline: var(--chip-pad);
 }
-.ega-check-chip:not([aria-pressed='true'], [aria-checked='true'], .active) {
-  padding-inline: calc(var(--chip-pad) + (var(--chip-check) + var(--space-1)) / 2);
+.ega-check-chip:not([aria-pressed='true'], [aria-checked='true'], .active)::before,
+.ega-check-chip:not([aria-pressed='true'], [aria-checked='true'], .active)::after {
+  content: '';
+  flex: none;
+  inline-size: calc((var(--chip-check) - var(--space-1)) / 2);
 }

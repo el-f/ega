@@ -65,7 +65,7 @@ test('turning the last task off turns All tasks back on, with no error toast', a
   await expect(all).toHaveAttribute('aria-pressed', 'false');
   timeline.markStep('chip-visible');
 
-  // Off chips hold the check's room as padding: a press moves neither, no label sits off-center (R63).
+  // Off chips hold the check's room at both ends: a press moves neither, no label sits off-center (R63).
   await expectCentered(all, 'All tasks while off');
   await expectSameWidth(
     all,
