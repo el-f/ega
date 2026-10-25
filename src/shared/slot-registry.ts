@@ -111,9 +111,10 @@ export const SLOT_REGISTRY: Readonly<Record<string, SlotSpec>> = Object.freeze({
   detectiveInstr: {
     name: 'detectiveInstr',
     label: 'Language detection',
-    meaning: 'Asks the model to name the language it sees',
+    meaning: 'Asks the model to name the language it sees; on Translate, to send code back as code',
     offered: true,
-    description: 'Detection instructions (auto mode adds candidates).',
+    description:
+      'Detection instructions (auto mode adds candidates); Translate adds the code-block rule.',
     required: false,
     source: 'instruction',
     example: 'Detect which informal language …',

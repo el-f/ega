@@ -336,4 +336,79 @@ describe('TooltipBody', () => {
       expect(container.querySelector('.tooltip-error-panel')).toBeNull();
     });
   });
+
+  describe('an answer that is one fenced block shows as code', () => {
+    const code = '<h1>Comment thread fixture</h1>\n  <p id="c1">hi, how are you?</p>\n\n\tdone';
+    const props = { loading: false, settled: true, task: 'translate' as const };
+
+    it('in the code font, without the fence lines, its whitespace kept', () => {
+      const { container } = render(TooltipBody, {
+        props: { ...props, body: '```html\n' + code + '\n```\n' },
+      });
+      const body = container.querySelector('.body');
+      expect(body?.classList.contains('code')).toBe(true);
+      expect(body?.textContent).toBe(code);
+      expect(container.querySelector('[data-ega-tooltip-live]')?.textContent).toBe(code);
+      const css = readFileSync('src/content/tooltip/tooltip.css', 'utf8');
+      expect(css).toMatch(/\.tooltip \.body\.code\s*\{[^}]*font-family:\s*var\(--font-mono\)/);
+      expect(css).toMatch(/\.tooltip \.body\s*\{[^}]*white-space:\s*pre-wrap/);
+    });
+
+    it('while it streams, and when the reply fails part way', () => {
+      const streaming = render(TooltipBody, {
+        props: { ...props, settled: false, body: '~~~python\nprint("hi")\n' },
+      });
+      expect(streaming.container.querySelector('.body.code')?.textContent).toBe('print("hi")');
+      document.body.innerHTML = '';
+      const failed = render(TooltipBody, {
+        props: {
+          ...props,
+          body: '```js\nlet a = 1;',
+          error: { code: 'NETWORK' as const, message: 'offline' },
+        },
+      });
+      expect(failed.container.querySelector('.body.code')?.textContent).toBe('let a = 1;');
+    });
+
+    // Code reads left to right; dir="auto" would flip it when a translated comment comes first.
+    it('left to right even when its first words are Hebrew or Arabic', () => {
+      const rtl = '// שלום עולם\nlet a = 1;';
+      const { container } = render(TooltipBody, {
+        props: { ...props, body: '```js\n' + rtl + '\n```' },
+      });
+      expect(container.querySelector('.body.code')?.getAttribute('dir')).toBe('ltr');
+      document.body.innerHTML = '';
+      const failed = render(TooltipBody, {
+        props: {
+          ...props,
+          body: '```js\n' + rtl,
+          error: { code: 'NETWORK' as const, message: 'offline' },
+        },
+      });
+      expect(failed.container.querySelector('.body.code')?.getAttribute('dir')).toBe('ltr');
+      document.body.innerHTML = '';
+      const prose = render(TooltipBody, { props: { ...props, body: 'שלום עולם' } });
+      expect(prose.container.querySelector('.body')?.getAttribute('dir')).toBe('auto');
+    });
+
+    it('with no word diff after a re-run', () => {
+      const { container } = render(TooltipBody, {
+        props: { ...props, body: '```js\nlet b = 2;\n```', diffAgainst: '```js\nlet a = 1;\n```' },
+      });
+      expect(container.querySelector('[data-ega-diff]')).toBeNull();
+      expect(container.querySelector('.body.code')?.textContent).toBe('let b = 2;');
+    });
+
+    it.each([
+      'Hello, friend.',
+      'Use `let` here.',
+      'Here is the code:\n```js\nlet a = 1;\n```',
+      '```js\nlet a = 1;\n```\nThat sets a.',
+      '```js\nlet a = 1;\n```\n```js\nlet b = 2;\n```',
+    ])('leaves any other answer as plain text: %j', (body) => {
+      const { container } = render(TooltipBody, { props: { ...props, body } });
+      expect(container.querySelector('.body.code')).toBeNull();
+      expect(container.querySelector('.body')?.textContent).toBe(body);
+    });
+  });
 });

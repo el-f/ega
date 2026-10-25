@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import fc from 'fast-check';
 import {
   confidenceItem,
+  detectedVarieties,
   directionLabel,
   replyMetaItems,
   type ReplyMetaInput,
@@ -45,6 +46,88 @@ describe('directionLabel', () => {
   it('falls back to the source the request named, and to nothing for Auto-detect', () => {
     expect(directionLabel({ sourceLang: 'es', targetLang: 'en' })).toBe('Spanish → English');
     expect(directionLabel({ sourceLang: 'auto', targetLang: 'en' })).toBe('');
+  });
+
+  // A reply stored before the short-tag rule can carry the cue words as its detail.
+  it('cuts a long name for the meta line, never the target, and keeps the full one', () => {
+    const input = {
+      detected: [{ id: 'arabizi', detail: 'Levantine (kifak, shu, 3am, ktir, 3njad)' }],
+      targetLang: 'en',
+    };
+    expect(directionLabel(input)).toBe(
+      'Arabizi — Levantine (kifak, shu, 3am, ktir, 3njad) → English',
+    );
+    const short = directionLabel({ ...input, short: true });
+    expect(short).toBe('Arabizi — Levantine (kifak, shu, 3am… → English');
+    expect(short.length).toBeLessThanOrEqual(48);
+  });
+
+  // A flag, a skin tone and a family are each one emoji made of several code points.
+  it.each(['😀', '🇮🇱', '👍🏽', '👨‍👩‍👧'])('never cuts a name inside the emoji %s', (emoji) => {
+    const detail = 'a'.repeat(46) + emoji.repeat(3);
+    expect(directionLabel({ detected: [{ id: 'other', detail }], short: true })).toBe(
+      'a'.repeat(46) + emoji + '…',
+    );
+  });
+
+  it('cuts mixed text as one part at a word, so the target stays on the line', () => {
+    const input = {
+      detected: [
+        { id: 'other', detail: 'Romanized Hindi with Bhojpuri words' },
+        { id: 'other', detail: 'Nigerian Pidgin English dialect text' },
+      ],
+      targetLang: 'en',
+    };
+    const short = directionLabel({ ...input, short: true });
+    expect(short).toBe('Romanized Hindi with Bhojpuri words… → English');
+    expect(short.length).toBeLessThanOrEqual(48);
+    expect(directionLabel(input)).toBe(
+      'Romanized Hindi with Bhojpuri words + Nigerian Pidgin English dialect text → English',
+    );
+  });
+
+  it('cuts a long custom target too, and the source gets what is left', () => {
+    const short = directionLabel({
+      detected: [{ id: 'arabizi', detail: 'Levantine' }],
+      targetLang: 'custom-long',
+      varieties: [{ id: 'custom-long', label: 'Very Long Custom Language Name For Testing Here' }],
+      short: true,
+    });
+    expect(short).toBe('Arabizi… → Very Long Custom Language Name…');
+  });
+
+  it('keeps a hard cut when the long name is one word', () => {
+    const detail = 'x'.repeat(60);
+    expect(directionLabel({ detected: [{ id: 'other', detail }], short: true })).toBe(
+      'x'.repeat(47) + '…',
+    );
+  });
+
+  it('names both languages of mixed text, short or full, when they fit', () => {
+    const input = {
+      detected: [{ id: 'arabizi', detail: 'Levantine' }, { id: 'en' }],
+      targetLang: 'en',
+    };
+    expect(directionLabel(input)).toBe('Arabizi (Levantine) + English → English');
+    expect(directionLabel({ ...input, short: true })).toBe(
+      'Arabizi (Levantine) + English → English',
+    );
+  });
+
+  it('reads the detected list from a reply, a detail alone as its own name', () => {
+    expect(detectedVarieties({ detectedLang: 'arabizi', detectedDetail: 'Levantine' })).toEqual([
+      { id: 'arabizi', detail: 'Levantine' },
+    ]);
+    expect(detectedVarieties({ detectedDetail: 'Venetian Italian' })).toEqual([
+      { id: 'other', detail: 'Venetian Italian' },
+    ]);
+    expect(
+      detectedVarieties({
+        detectedLang: 'arabizi',
+        detectedLangs: [{ id: 'arabizi' }, { id: 'en' }],
+      }),
+    ).toEqual([{ id: 'arabizi' }, { id: 'en' }]);
+    expect(detectedVarieties({})).toEqual([]);
   });
 
   it('shows only the source for a task that answers in it', () => {

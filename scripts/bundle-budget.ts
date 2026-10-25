@@ -260,7 +260,10 @@ function measureDist(distDir: string): BundleEntry[] {
 
 /** Static imports plus module-scope import() chunks: both load on every page. A ratchet: raise or lower it in the commit that earns it. */
 // Stable control widths (R63) add 799B: the shadow root's stable-label rules and the page chip's label stack.
-const EAGER_CONTENT_BUDGET_BYTES = 157_315;
+// Clamping the bubble's top edge inside the viewport adds 12B.
+// The textarea selection mirror adds 2,312B: the bubble measures a field selection right before it shows.
+// Inline replace and the tooltip share the code-answer helper, so its chunk joins two preload lists: 78B.
+const EAGER_CONTENT_BUDGET_BYTES = 159_717;
 
 /** The popup opens on every toolbar click, so its preload set is the one extension-page cost a user feels. Ratchet, like the one above. */
 // Stable control widths (R63) add 3,930B: the StableLabel chunk, Button's label stack, the double-click guard (its

@@ -281,3 +281,26 @@ describe('bubble placement — cost on a large page', () => {
     expect(reads()).toBeLessThanOrEqual(12);
   });
 });
+
+describe('bubble placement — viewport edges', () => {
+  it('a selection that ends above the viewport keeps the bubble inside it', () => {
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 1000 });
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1280 });
+    (document as unknown as { elementsFromPoint: () => Element[] }).elementsFromPoint = () => [];
+
+    showBubble({ rect: rect(-200, -150), queued: 0, onClick: vi.fn() });
+
+    expect(bubbleTop()).toBe(4);
+  });
+
+  it('a selection that ends at the window bottom puts the bubble above, over the line before it, not over its own last line', () => {
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 1000 });
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1280 });
+    // The unselected line above the selection is where the bubble goes above.
+    probeHit(rect(920, 948), 'previous line');
+
+    showBubble({ rect: rect(950, 980), queued: 0, onClick: vi.fn() });
+
+    expect(bubbleTop()).toBe(918);
+  });
+});

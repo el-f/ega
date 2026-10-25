@@ -106,6 +106,18 @@ describe('AssistantTurn — read the answer aloud', () => {
     expect(sizers.map((s) => s.getAttribute('data-label'))).toEqual(['Read aloud', 'Stop reading']);
   });
 
+  it('reads a code answer without its fence lines', async () => {
+    const { container } = render(AssistantTurn, {
+      props: {
+        turn: doneTurn({ content: '```js\n// hola amigo\nconst x = 1;\n```' }),
+        onRetry: vi.fn(),
+        targetLang: asLangSelection('es'),
+      },
+    });
+    await press(container);
+    expect(spoken[0]?.text).toBe('// hola amigo\nconst x = 1;');
+  });
+
   it('waits for the voice list when the browser has not loaded it yet', async () => {
     voices = [];
     const { container } = render(AssistantTurn, {

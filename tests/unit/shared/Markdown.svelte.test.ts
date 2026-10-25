@@ -33,15 +33,13 @@ describe('Markdown.svelte', () => {
     expect(code?.textContent).toContain('const x = 1');
   });
 
-  it('strips <script> tags so injected JS does not execute', async () => {
+  it('shows a <script> tag as text, so injected JS does not run', async () => {
     const malicious = 'Hello <script>window.__ega_pwned = true;</script> world';
     const { container } = render(Markdown, { props: { text: malicious } });
     await waitForReady(container);
     expect(container.querySelector('script')).toBeNull();
     expect((window as unknown as { __ega_pwned?: boolean }).__ega_pwned).toBeUndefined();
-    // The textual "Hello world" still surfaces (sanitizer strips the tag, not the surrounding text).
-    expect(container.textContent).toContain('Hello');
-    expect(container.textContent).toContain('world');
+    expect(container.textContent).toContain(malicious);
   });
 
   it('allows data:image/png;base64 in <img src>', async () => {

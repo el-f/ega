@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Ega Code View Fixture</title>
+    <style>
+      /* Modeled on GitHub's file view: code lines, and a transparent read-only textarea over them that takes the selection. */
+      body {
+        margin: 0;
+        font:
+          14px/1.5 system-ui,
+          sans-serif;
+      }
+      header {
+        height: 400px;
+        padding: 16px;
+      }
+      /* A plain comment box: it wraps, and its line-height is normal. */
+      #comment {
+        width: 320px;
+        font:
+          14px system-ui,
+          sans-serif;
+      }
+      footer {
+        height: 600px;
+      }
+      #code {
+        position: relative;
+        margin: 0 16px;
+        padding: 2px 0;
+        border: 1px solid #d0d7de;
+      }
+      .line,
+      #read-only-cursor-text-area {
+        font:
+          12px/20px ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          Consolas,
+          monospace;
+        white-space: pre;
+      }
+      .line {
+        position: relative;
+        height: 20px;
+        padding-left: 92px;
+      }
+      .line::before {
+        content: attr(data-line);
+        position: absolute;
+        left: 0;
+        width: 60px;
+        text-align: right;
+        color: #6e7781;
+      }
+      #read-only-cursor-text-area {
+        position: absolute;
+        inset: 0;
+        box-sizing: border-box;
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        border: 0;
+        padding: 2px 8px 2px 92px;
+        resize: none;
+        background: transparent;
+        color: transparent;
+        outline: none;
+        overflow: auto hidden;
+        z-index: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>tests/e2e/fixtures/batch-page.html</h1>
+      <textarea id="comment" rows="8" aria-label="comment">
+mar7aba habibi, kifak? shu 3am ta3mel? yalla ma3ak shi 7elow ktir 3njad. kif 7alak w shu akhbarak al-yom 7abibi? el jaw ktir 7elo lyom, yalla nrou7 3al ba7er ba3d el shoghol.</textarea>
+    </header>
+    <div id="code"></div>
+    <footer></footer>
+    <script>
+      // The file the owner selected on GitHub, laid out as code lines with the textarea over them.
+      fetch('batch-page.html')
+        .then((r) => r.text())
+        .then((text) => {
+          const source = text.replace(/\r/g, '').replace(/\n$/, '');
+          const code = document.getElementById('code');
+          source.split('\n').forEach((line, i) => {
+            const div = document.createElement('div');
+            div.className = 'line';
+            div.id = `LC${i + 1}`;
+            div.dataset.line = String(i + 1);
+            div.textContent = line;
+            code.append(div);
+          });
+          const ta = document.createElement('textarea');
+          ta.id = 'read-only-cursor-text-area';
+          ta.setAttribute('aria-readonly', 'true');
+          ta.setAttribute('inputmode', 'none');
+          ta.setAttribute('aria-label', 'file content');
+          ta.spellcheck = false;
+          ta.value = source;
+          code.append(ta);
+        });
+    </script>
+  </body>
+</html>

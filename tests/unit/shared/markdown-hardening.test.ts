@@ -61,32 +61,37 @@ describe('sanitizer allowlist', () => {
     ]);
   });
 
-  it('drops class, so a reply cannot borrow a global class such as ega-sr-only', async () => {
-    const render = await loadMarkdownRenderer();
-    const out = render('<p class="ega-sr-only">hidden</p>');
-    expect(out).toContain('hidden');
-    expect(out).not.toContain('ega-sr-only');
-    expect(out).not.toContain('class=');
-  });
-
   it('a fenced code block still renders as pre > code', async () => {
     const render = await loadMarkdownRenderer();
     expect(render('```js\nlet x = 1;\n```')).toMatch(/<pre><code>let x = 1;/);
   });
 
-  const stripped: Array<[string, string]> = [
+  // `p` with a class: a reply could otherwise borrow a global class such as .ega-sr-only.
+  const asText: Array<[string, string]> = [
+    ['svg', '<svg onload="window.__svgpwn=1"><circle r="10"/></svg>'],
+    ['img', '<img src="x" onerror="alert(1)">'],
+    ['math', '<math><mrow><mi>x</mi></mrow></math>'],
     ['iframe', '<iframe src="https://evil.example/"></iframe>'],
     ['object', '<object data="https://evil.example/x.swf"></object>'],
     ['embed', '<embed src="https://evil.example/x.swf">'],
     ['form', '<form action="https://evil.example/"><button>send</button></form>'],
     ['input', '<input name="password" value="x">'],
     ['style', '<style>body { display: none }</style>'],
+    ['p', '<p class="ega-sr-only">hidden</p>'],
   ];
 
-  for (const [tag, markup] of stripped) {
-    it(`strips <${tag}>`, async () => {
+  for (const [tag, markup] of asText) {
+    it(`shows raw <${tag}> as its source, never as an element`, async () => {
       const render = await loadMarkdownRenderer();
-      expect(render(markup)).not.toContain(`<${tag}`);
+      const root = document.createElement('div');
+      root.innerHTML = render(markup);
+      expect(root.querySelector(tag)).toBeNull();
+      const els = Array.from(root.querySelectorAll('*'));
+      expect(els.flatMap((el) => el.getAttributeNames()).filter((a) => a.startsWith('on'))).toEqual(
+        [],
+      );
+      expect(root.querySelector('[class]')).toBeNull();
+      expect(root.textContent).toContain(markup);
     });
   }
 });

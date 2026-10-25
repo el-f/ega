@@ -223,6 +223,11 @@
   white-space: pre-wrap;
   word-break: break-word;
 }
+/* An answer that is one fenced code block, shown without its fence lines. */
+.tooltip .body.code {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+}
 /* Word diff after a re-translate; .body-diff-faded fades it out after 4s (instant under reduced motion). */
 .tooltip .body-diff .diff-eq {
   /* Plain text — inherit body color. */
@@ -621,7 +626,8 @@
 .tooltip .body {
   /* Keep a readable answer line when About consumes the remaining space. */
   min-block-size: 1lh;
-  max-block-size: 40vh;
+  /* repositionIfOverflow lifts it to none when the card has to cover the selection. */
+  max-block-size: var(--ega-tooltip-body-max-block-size, 40vh);
   overflow: auto;
   overflow-wrap: anywhere;
 }

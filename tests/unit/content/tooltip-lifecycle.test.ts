@@ -92,7 +92,7 @@ describe('tooltip lifecycle — only one tooltip at a time', () => {
 });
 
 describe('tooltip lifecycle — anchor refresh from the live Range', () => {
-  it('OpenOpts accepts a `range` and the tooltip subsequently tracks it on subsequent renders', async () => {
+  it('OpenOpts accepts an `anchor` and the tooltip tracks it on later renders', async () => {
     // The fake Range returns a moving rect — the page scrolls under the tooltip.
     let liveRect = rect(50, 50, 200, 20);
     const fakeRange = {
@@ -103,7 +103,7 @@ describe('tooltip lifecycle — anchor refresh from the live Range', () => {
       requestId: 'a',
       srcText: 'hello',
       rect: rect(50, 50, 200, 20),
-      range: fakeRange,
+      anchor: () => fakeRange.getBoundingClientRect(),
     });
     // Flush openTooltip's queueMicrotask.
     await Promise.resolve();
@@ -125,7 +125,7 @@ describe('tooltip lifecycle — anchor refresh from the live Range', () => {
     expect(tipEl.style.left).toBe(`${expectedAfter}px`);
   });
 
-  it('explain follow-up that re-opens with a fresh requestId KEEPS the live range — anchor stays attached after Explain', async () => {
+  it('explain follow-up that re-opens with a fresh requestId KEEPS the live anchor', async () => {
     let liveRect = rect(40, 40, 100, 20);
     const fakeRange = {
       getBoundingClientRect: () => liveRect,
@@ -135,17 +135,17 @@ describe('tooltip lifecycle — anchor refresh from the live Range', () => {
       requestId: 'a',
       srcText: 'hi',
       rect: rect(40, 40, 100, 20),
-      range: fakeRange,
+      anchor: () => fakeRange.getBoundingClientRect(),
     });
     await Promise.resolve();
     await Promise.resolve();
 
-    // Explain re-opens under a new id with the same range.
+    // Explain re-opens under a new id with the same anchor.
     openTooltip({
       requestId: 'b',
       srcText: 'hi',
       rect: rect(40, 40, 100, 20),
-      range: fakeRange,
+      anchor: () => fakeRange.getBoundingClientRect(),
     });
     await Promise.resolve();
     await Promise.resolve();
@@ -166,7 +166,7 @@ describe('tooltip lifecycle — anchor refresh from the live Range', () => {
     expect(tipEl.style.top).not.toBe('70px');
   });
 
-  it('without a range, falls back to the captured rect (image and popup translates)', async () => {
+  it('without an anchor, falls back to the captured rect (image and popup translates)', async () => {
     openTooltip({
       requestId: 'a',
       srcText: 'hi',

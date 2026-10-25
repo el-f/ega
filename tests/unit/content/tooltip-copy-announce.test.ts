@@ -68,6 +68,17 @@ describe('copying a translation is announced to screen readers', () => {
     expect(announced()).toBe('Copied');
   });
 
+  it('copies a code answer as the code it shows, without the fence lines', async () => {
+    openTooltip({ requestId: 'c3', srcText: '<b>mar7aba</b>', rect: rect() });
+    finishTooltipDirect('c3', '```html\n<b>hello</b>\n```');
+    await Promise.resolve();
+
+    copyButton().click();
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith('<b>hello</b>');
+  });
+
   it('keeps the button name describing the action, not the result', async () => {
     openTooltip({ requestId: 'c2', srcText: 'hola', rect: rect() });
     finishTooltipDirect('c2', 'hello');

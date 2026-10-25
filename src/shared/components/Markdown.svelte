@@ -63,7 +63,9 @@
   .ega-md :global(p:last-child) {
     margin-bottom: 0;
   }
+  /* Code reads left to right; dir=auto above would flip it when a translated RTL comment comes first. */
   .ega-md :global(pre) {
+    direction: ltr;
     background: var(--color-bg-sunken);
     border: 1px solid var(--color-border-subtle);
     border-radius: var(--radius-sm);

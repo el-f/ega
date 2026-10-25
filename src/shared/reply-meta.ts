@@ -46,6 +46,44 @@ export interface DirectionInput {
   /** Reword and Grammar answer in the input's language, so only the source shows. */
   sourceOnly?: boolean;
   varieties?: readonly VarietyLike[];
+  /** The one-line meta: the whole direction is cut at META_DIRECTION_MAX characters, the target last. About shows the full line. */
+  short?: boolean;
+}
+
+/** A model-written detail (or an older reply's cue-word list) must not push the direction off the meta line at 320px. */
+const META_DIRECTION_MAX = 48;
+/** A custom target language's label leaves the source part some room. */
+const META_TARGET_MAX = 32;
+const ARROW = ' → ';
+
+function shortName(name: string, max: number): string {
+  if (name.length <= max) return name;
+  // Graphemes, so a cut never splits a flag or a skin-tone emoji in a custom language's label.
+  const chars = Array.from(
+    new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(name),
+    (s) => s.segment,
+  );
+  if (chars.length <= max) return name;
+  let head = chars.slice(0, max - 1).join('');
+  // Drop a word the cut would leave half shown, unless it is the only word.
+  if (/[\p{L}\p{N}]/u.test(chars[max - 1] ?? '')) {
+    const whole = head.replace(/[\p{L}\p{M}\p{N}]+$/u, '');
+    if (whole.trim() !== '') head = whole;
+  }
+  return head.replace(/[\s,;:(—–+-]+$/u, '') + '…';
+}
+
+/** A reply's detection fields as one list; a detail with no language is the name itself ("other"). */
+export function detectedVarieties(r: {
+  detectedLang?: string | undefined;
+  detectedDetail?: string | undefined;
+  detectedLangs?: readonly DetectedVariety[] | undefined;
+}): DetectedVariety[] {
+  if (r.detectedLangs !== undefined && r.detectedLangs.length > 0) return [...r.detectedLangs];
+  const detail = r.detectedDetail !== undefined && r.detectedDetail !== '' ? r.detectedDetail : '';
+  const id = r.detectedLang !== undefined && r.detectedLang !== '' ? r.detectedLang : 'other';
+  if (id === 'other' && detail === '') return [];
+  return [detail !== '' ? { id, detail } : { id }];
 }
 
 /** "Arabizi (Levantine) → English", "Arabizi + English → Hebrew", past two names "+1". Empty when nothing is known. */
@@ -62,9 +100,14 @@ export function directionLabel(input: DirectionInput): string {
   } else {
     return '';
   }
-  if (input.sourceOnly === true) return from;
-  if (input.targetLang === undefined || input.targetLang === '') return from;
-  return `${from} → ${langName(input.targetLang, undefined, varieties)}`;
+  const to =
+    input.sourceOnly === true || input.targetLang === undefined || input.targetLang === ''
+      ? ''
+      : langName(input.targetLang, undefined, varieties);
+  if (input.short !== true) return to === '' ? from : from + ARROW + to;
+  if (to === '') return shortName(from, META_DIRECTION_MAX);
+  const shortTo = shortName(to, META_TARGET_MAX);
+  return shortName(from, META_DIRECTION_MAX - ARROW.length - shortTo.length) + ARROW + shortTo;
 }
 
 export interface ConfidenceSetting {

@@ -86,6 +86,12 @@ export const COVERAGE: readonly Family[] = [
             flows: ['tooltip/scroll-tracks.flow.spec.ts'],
           },
           {
+            id: 'field-selection-in-viewport',
+            description:
+              'A selection inside a text field (GitHub code view) anchors the tooltip and bubble to the selected lines, inside the viewport',
+            flows: ['tooltip/field-selection-in-viewport.flow.spec.ts'],
+          },
+          {
             id: 'theme-respects',
             description: 'Tooltip honors light/dark/system theme',
             flows: ['tooltip/theme-respects.flow.spec.ts'],
@@ -109,6 +115,12 @@ export const COVERAGE: readonly Family[] = [
             id: 'detected-language-pill',
             description: 'One detected language renders one pill: preset label + detail',
             flows: ['tooltip/detected-language-pill.flow.spec.ts'],
+          },
+          {
+            id: 'code-answer',
+            description:
+              'An answer that is one fenced code block shows as code, without its fence lines',
+            flows: ['tooltip/code-answer.flow.spec.ts'],
           },
           {
             id: 'inspector-drawer',
@@ -349,6 +361,12 @@ export const COVERAGE: readonly Family[] = [
             id: 'multi-variety-cluster',
             description: 'Multi-variety detection names every variety in the reply meta line',
             flows: ['sidepanel/multi-variety-cluster.flow.spec.ts'],
+          },
+          {
+            id: 'code-answer',
+            description:
+              'Code sent to the panel comes back as one code block with its tags as text, and the meta line names both languages',
+            flows: ['sidepanel/code-answer.flow.spec.ts'],
           },
           {
             id: 'multi-turn',

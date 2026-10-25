@@ -70,6 +70,25 @@ describe('answer preview', () => {
     await waitFor(() => expect(view.queryByText('Actual item')).toBeNull());
     expect(view.getByText('First sample item')).toBeTruthy();
   });
+  it('shows raw HTML in a reply and its notes as text', async () => {
+    send.mockResolvedValueOnce({
+      type: 'done',
+      requestId: 'test',
+      text: '<h1>x</h1>',
+      notes: [{ key: 'n', label: 'Note', text: '<h2>n</h2>' }],
+    });
+    const view = render(AnswerPreview, { draft, spec, s: parseSettings({}) });
+    await fireEvent.click(view.getByRole('button', { name: 'Try it' }));
+    const card = view.container.querySelector('.ap-card') as HTMLElement;
+    // The fallback <pre> shows the text raw, so wait for both Markdown passes to land.
+    await waitFor(() => {
+      expect(card.querySelectorAll('.ega-md')).toHaveLength(2);
+      expect(card.querySelector('.ega-md-fallback')).toBeNull();
+    });
+    expect(card.querySelector('h1, h2')).toBeNull();
+    expect(card.textContent).toContain('<h1>x</h1>');
+    expect(card.textContent).toContain('<h2>n</h2>');
+  });
   it('explains an empty sample and stops an in-flight test', async () => {
     send.mockImplementation(() => new Promise(() => {}));
     const view = render(AnswerPreview, { draft, spec, s: parseSettings({}) });

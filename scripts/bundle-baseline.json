@@ -4,6 +4,10 @@
     "bytes": 57311
   },
   {
+    "name": "answer-presentation",
+    "bytes": 1027
+  },
+  {
     "name": "AnswerNotes",
     "bytes": 22192
   },
@@ -13,7 +17,7 @@
   },
   {
     "name": "bubble",
-    "bytes": 5272
+    "bytes": 5284
   },
   {
     "name": "bubble-menu",
@@ -21,7 +25,7 @@
   },
   {
     "name": "cancel-token",
-    "bytes": 27995
+    "bytes": 28416
   },
   {
     "name": "Checkbox",
@@ -81,7 +85,7 @@
   },
   {
     "name": "inlineReplace",
-    "bytes": 4575
+    "bytes": 4647
   },
   {
     "name": "invariants",
@@ -93,7 +97,7 @@
   },
   {
     "name": "language-prompt",
-    "bytes": 1138
+    "bytes": 471
   },
   {
     "name": "languages",
@@ -101,11 +105,11 @@
   },
   {
     "name": "Markdown",
-    "bytes": 4364
+    "bytes": 4747
   },
   {
     "name": "menu-focus",
-    "bytes": 4245
+    "bytes": 4706
   },
   {
     "name": "open-options-tab",

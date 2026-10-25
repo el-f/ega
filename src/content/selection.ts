@@ -44,6 +44,115 @@ export function isEditableRange(range: Range): boolean {
   return false;
 }
 
+/** The form control a `selectNode(field)` range wraps: how a field selection travels. */
+export function wrappedField(range: Range): HTMLInputElement | HTMLTextAreaElement | null {
+  const c = range.startContainer;
+  if (c !== range.endContainer || range.endOffset - range.startOffset !== 1) return null;
+  const n = c.childNodes[range.startOffset];
+  return n instanceof HTMLInputElement || n instanceof HTMLTextAreaElement ? n : null;
+}
+
+/** Every computed property that moves text inside a field's content box. */
+const MIRRORED = [
+  'padding-top',
+  'padding-right',
+  'padding-bottom',
+  'padding-left',
+  'font-family',
+  'font-size',
+  'font-weight',
+  'font-style',
+  'font-variant',
+  'font-stretch',
+  'letter-spacing',
+  'word-spacing',
+  'line-height',
+  'text-transform',
+  'text-indent',
+  'tab-size',
+  'white-space',
+  'word-break',
+  'overflow-wrap',
+  'direction',
+  'unicode-bidi',
+  'text-align',
+];
+/** The mirror lays out on every bubble shown during a drag; past this the field box is the anchor. */
+const MIRROR_MAX_CHARS = 20_000;
+
+/** The selected text's box relative to the field's box, as if the field were not scrolled; null when collapsed or too big to mirror. */
+function textareaTextOffset(field: HTMLTextAreaElement): DOMRect | null {
+  const { selectionStart: start, selectionEnd: end, value } = field;
+  if (start === end) return null;
+  const cs = getComputedStyle(field);
+  // A code view never wraps, so only the selected lines need layout; a wrapping field lays out everything before them.
+  const pre = cs.whiteSpace === 'pre' && cs.lineHeight.endsWith('px');
+  const from = pre && start > 0 ? value.lastIndexOf('\n', start - 1) + 1 : 0;
+  const nl = value.indexOf('\n', end);
+  const to = nl === -1 ? value.length : nl;
+  if (to - from > MIRROR_MAX_CHARS) return null;
+  let rows = 0;
+  for (let i = value.indexOf('\n'); i !== -1 && i < from; i = value.indexOf('\n', i + 1)) rows++;
+  // A wrapping field's line-height may be `normal`, which is no number: its mirror starts at row 0.
+  const skipped = pre ? rows * Number.parseFloat(cs.lineHeight) : 0;
+  const fr = field.getBoundingClientRect();
+  const m = document.createElement('div');
+  m.style.setProperty('all', 'unset');
+  for (const p of MIRRORED) m.style.setProperty(p, cs.getPropertyValue(p));
+  Object.assign(m.style, {
+    position: 'fixed',
+    visibility: 'hidden',
+    pointerEvents: 'none',
+    display: 'block',
+    boxSizing: 'content-box',
+    margin: '0',
+    border: '0',
+    left: `${fr.left + field.clientLeft}px`,
+    top: `${fr.top + field.clientTop + skipped}px`,
+    width: `${Math.max(0, field.clientWidth - Number.parseFloat(cs.paddingLeft || '0') - Number.parseFloat(cs.paddingRight || '0'))}px`,
+  });
+  const span = document.createElement('span');
+  // A page rule such as `span { padding: 4px }` must not move it.
+  span.style.setProperty('all', 'unset');
+  span.textContent = value.slice(start, end);
+  // The rest of the last line keeps its soft-wrap points where the field has them.
+  m.append(value.slice(from, start), span, value.slice(end, to));
+  // The page sees this node, so callers measure only after the sensitive-field and site-off gates.
+  document.documentElement.append(m);
+  try {
+    const r = span.getBoundingClientRect();
+    return new DOMRect(r.left - fr.left, r.top - fr.top, r.width, r.height);
+  } finally {
+    m.remove();
+  }
+}
+
+/** The offset placed on the field's current box and scroll, clipped to the field. */
+function placeInField(field: HTMLTextAreaElement, off: DOMRect): DOMRect {
+  const fr = field.getBoundingClientRect();
+  const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v));
+  const left = clamp(fr.left + off.left - field.scrollLeft, fr.left, fr.right);
+  const right = clamp(fr.left + off.right - field.scrollLeft, fr.left, fr.right);
+  const top = clamp(fr.top + off.top - field.scrollTop, fr.top, fr.bottom);
+  const bottom = clamp(fr.top + off.bottom - field.scrollTop, fr.top, fr.bottom);
+  return new DOMRect(left, top, right - left, bottom - top);
+}
+
+/** Measures now and follows the page after: a textarea selection keeps its place in the field, so a scroll lays out
+ *  nothing and a later caret move or selection in the field does not move it. Any other range reads its own box. */
+export function trackSelectionRect(range: Range): () => DOMRect {
+  const field = wrappedField(range);
+  const off = field instanceof HTMLTextAreaElement ? textareaTextOffset(field) : null;
+  return field instanceof HTMLTextAreaElement && off
+    ? () => placeInField(field, off)
+    : () => range.getBoundingClientRect();
+}
+
+/** A range's box now; a range that wraps one textarea measures its selected text. Lays out a mirror: call after the gates. */
+export function selectionRectOf(range: Range): DOMRect {
+  return trackSelectionRect(range)();
+}
+
 const BLOCK_TAGS = new Set([
   'ADDRESS',
   'ARTICLE',
@@ -247,6 +356,7 @@ function getEditableSelectionInfo(userCap?: number, includeContext = true): Sele
   const value = field.value;
   const text = value.slice(start, end).trim();
   if (!text) return null;
+  // The field box: measuring the text lays out page DOM, so it waits for the gates (selectionRectOf on this range).
   const rect = field.getBoundingClientRect();
   // A Range can't point inside a form control, so anchor it at the element.
   const range = document.createRange();

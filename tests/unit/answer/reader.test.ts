@@ -59,6 +59,25 @@ describe('the service worker answer reader', () => {
       ),
     ).toMatchObject({ kind: 'ok', main: 'Hello', fields: { confidence: 0.8 } });
   });
+  // The Translate prompt asks for code as one fenced block; code that holds an answer key is still the answer.
+  it.each([
+    '```html\n<h1>Hello</h1>\n<p>hi</p>\n```',
+    '```json\n{"text": "hello", "title": "x"}\n```',
+    '```json\n{"translation": "hello"}\n```',
+    '```js\nconst a = {"answer": "hi"};\n```',
+    '~~~json\n{"translation": "hello"}\n~~~',
+    '~~~js\nconst a = {"answer": "hi"};\n~~~',
+  ])('keeps a fenced code answer whole: %j', (code) => {
+    const raw = JSON.stringify({ translation: code, confidence: 0.8 });
+    expect(readAnswer(translate, raw)).toMatchObject({ kind: 'ok', main: code, issues: [] });
+    const projector = createAnswerProjector(translate);
+    let visible = '';
+    for (const ch of raw) {
+      const delta = projector.push(ch);
+      if (delta) visible = delta.replace ? delta.text : visible + delta.text;
+    }
+    expect(visible).toBe(code);
+  });
   it.each([
     [0.85, 0.85],
     ['0.85', 0.85],

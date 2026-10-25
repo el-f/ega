@@ -4,7 +4,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, fireEvent, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import AssistantTurn from '@/sidepanel/conversation/AssistantTurn.svelte';
-import { doneReply, meta, metaText, replyProps } from './_reply';
+import { doneReply, meta, metaText, openMenu, replyProps } from './_reply';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -49,6 +49,46 @@ describe('the answer', () => {
     expect(container.querySelector('[data-ega-regenerate]')).not.toBeNull();
     // Nothing came back, so there is nothing to be confident about (V5-05).
     expect(metaText(container).some((t) => t.includes('confiden'))).toBe(false);
+  });
+
+  it('shows raw HTML in a prose answer and its notes as text', async () => {
+    const turn = doneReply({
+      content: '<h1>Title</h1>',
+      notes: [{ key: 'n', label: 'Note', text: '<h2>n</h2>' }],
+    });
+    const { container } = render(AssistantTurn, {
+      props: replyProps(turn, { sentText: 'mar7aba habibi' }),
+    });
+    const reply = container.querySelector('[data-ega-reply]') as HTMLElement;
+    // The fallback <pre> shows the text raw, so wait for both Markdown passes to land.
+    await waitFor(() => {
+      expect(reply.querySelectorAll('.ega-md')).toHaveLength(2);
+      expect(reply.querySelector('.ega-md-fallback')).toBeNull();
+    });
+    expect(reply.querySelector('h1, h2')).toBeNull();
+    expect(reply.textContent).toContain('<h1>Title</h1>');
+    expect(reply.textContent).toContain('<h2>n</h2>');
+  });
+
+  it.each([
+    ['a code answer', '```html\n<h1>Comment thread fixture</h1>\n```', null],
+    [
+      'a half-prose answer',
+      'The page title:\n\n```html\n<h1>Comment thread fixture</h1>\n```',
+      'The page title:',
+    ],
+  ])('renders %s through Markdown: the fence is a code block', async (_name, content, prose) => {
+    const { container } = render(AssistantTurn, {
+      props: replyProps(doneReply({ content }), { sentText: '<h1>Comment thread fixture</h1>' }),
+    });
+    const answer = container.querySelector('.ega-answer') as HTMLElement;
+    await waitFor(() => expect(answer.querySelector('.ega-md pre > code')).not.toBeNull());
+    expect(answer.querySelector('pre > code')?.textContent).toContain(
+      '<h1>Comment thread fixture</h1>',
+    );
+    expect(answer.querySelector('h1')).toBeNull();
+    expect(answer.textContent).not.toContain('```');
+    expect(answer.querySelector('.ega-md > p')?.textContent ?? null).toBe(prose);
   });
 
   it('notes sit under the answer with a sentence-case label', () => {
@@ -96,6 +136,41 @@ describe('the meta line', () => {
   it('reads direction, model and confidence, in that order', () => {
     const { container } = render(AssistantTurn, { props: replyProps(doneReply()) });
     expect(metaText(container)).toEqual(['Spanish → English', 'Claude Haiku 4.5', '93% confident']);
+  });
+
+  it('cuts a cue-word detail from an older reply, and About keeps it whole', async () => {
+    const detail = 'Levantine (kifak, shu, 3am, ktir, 3njad)';
+    const { container } = render(AssistantTurn, {
+      props: replyProps(doneReply({ detectedLang: 'arabizi', detectedDetail: detail })),
+    });
+    expect(metaText(container)[0]).toBe('Arabizi — Levantine (kifak, shu, 3am… → English');
+    await openMenu(container, 'more');
+    await fireEvent.click(document.querySelector('[data-ega-about]') as HTMLElement);
+    const about = await waitFor(() => {
+      const el = container.querySelector<HTMLElement>('[data-ega-inspector]');
+      if (!el) throw new Error('About not open');
+      return el;
+    });
+    expect(about.textContent).toContain(`Arabizi — ${detail} → English`);
+  });
+
+  it('names both languages of mixed text', () => {
+    const { container } = render(AssistantTurn, {
+      props: replyProps(
+        doneReply({
+          detectedLang: 'arabizi',
+          detectedLangs: [{ id: 'arabizi', detail: 'Levantine' }, { id: 'en' }],
+        }),
+      ),
+    });
+    expect(metaText(container)[0]).toBe('Arabizi (Levantine) + English → English');
+  });
+
+  it('names a detail that came with no language', () => {
+    const turn = doneReply({ detectedDetail: 'Venetian Italian' });
+    delete turn.detectedLang;
+    const { container } = render(AssistantTurn, { props: replyProps(turn) });
+    expect(metaText(container)[0]).toBe('Venetian Italian → English');
   });
 
   it('follows the confidence setting: off hides it, below the threshold hides it', () => {
@@ -242,6 +317,14 @@ describe('the action row', () => {
     const again = render(AssistantTurn, { props: replyProps(doneReply()) });
     await fireEvent.click(again.container.querySelector('[data-ega-action="copy"]') as HTMLElement);
     await waitFor(() => expect(metaText(again.container)[0]).toBe("Couldn't copy. Try again."));
+  });
+
+  it('Copy of a code answer writes the code without its fence lines', async () => {
+    const write = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined);
+    const content = '```html\n<body>\n    <p id="c1">Hello</p>\n</body>\n```';
+    const { container } = render(AssistantTurn, { props: replyProps(doneReply({ content })) });
+    await fireEvent.click(container.querySelector('[data-ega-action="copy"]') as HTMLElement);
+    expect(write).toHaveBeenCalledWith('<body>\n    <p id="c1">Hello</p>\n</body>');
   });
 });
 

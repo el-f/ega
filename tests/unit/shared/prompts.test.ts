@@ -154,6 +154,104 @@ describe('buildPrompt', () => {
     }
   });
 
+  // A model tagged mixed Arabizi + English as "Levantine (kifak, shu, 3am, ktir, 3njad)" alone.
+  it('every detection branch asks for a short tag and names each language of mixed text', () => {
+    const arabizi = getPreset('arabizi');
+    if (!arabizi) throw new Error('expected arabizi preset');
+    const detecting = [
+      buildPrompt(baseReq(), { preset: arabizi, template: DEFAULT_TEMPLATE }),
+      buildPrompt(baseReq({ sourceLang: 'auto' }), {
+        preset: undefined,
+        template: DEFAULT_TEMPLATE,
+        candidates: [arabizi],
+      }),
+      buildPrompt(baseReq({ sourceLang: 'auto' }), {
+        preset: undefined,
+        template: DEFAULT_TEMPLATE,
+      }),
+      buildPrompt(baseReq({ options: { stream: true, explain: true, task: 'explain' } }), {
+        preset: arabizi,
+        template: DEFAULT_TEMPLATE,
+      }),
+    ];
+    for (const p of detecting) {
+      expect(p.system).toContain('Each tag is at most 3 words, never the words that show it.');
+      expect(p.system).toContain(
+        'For mixed text, list each language in "detectedLangs", the target language too.',
+      );
+    }
+    const summary = buildPrompt(
+      baseReq({ options: { stream: true, explain: false, task: 'summarize' } }),
+      { preset: undefined, template: buildTaskTemplate('summarize') },
+    );
+    expect(summary.system).not.toMatch(/at most 3 words|For mixed text/);
+  });
+
+  describe('code and markup come back as one fenced block', () => {
+    const CODE_RULE =
+      /code or markup, "translation" is that code as one fenced block with a language tag/;
+    const arabizi = getPreset('arabizi');
+
+    it('every Translate detection branch asks for it, right before the detection text', () => {
+      const prompts = [
+        buildPrompt(baseReq(), { preset: arabizi, template: DEFAULT_TEMPLATE }),
+        buildPrompt(baseReq({ sourceLang: 'auto' }), {
+          preset: undefined,
+          template: DEFAULT_TEMPLATE,
+          ...(arabizi ? { candidates: [arabizi] } : {}),
+        }),
+        buildPrompt(baseReq({ sourceLang: 'auto' }), {
+          preset: undefined,
+          template: DEFAULT_TEMPLATE,
+        }),
+      ];
+      for (const p of prompts) {
+        expect(p.system).toMatch(CODE_RULE);
+        expect(p.system).toMatch(/translate only its human-language text/);
+        expect(p.system).toMatch(/change nothing else/);
+        expect(p.system.indexOf('code or markup')).toBeLessThan(p.system.indexOf('"detectedLang"'));
+        // The untrusted-data fence stays first and unchanged.
+        expect(p.system.startsWith(`${UNTRUSTED_DATA_INSTRUCTION}\n\n`)).toBe(true);
+      }
+    });
+
+    it('Explain, page translate, other tasks and a template without the detection slot do not', () => {
+      const tasks = ALL_TASKS.filter((t) => t !== 'translate' && t !== 'explain');
+      const others = tasks.map((task) =>
+        buildPrompt(baseReq({ options: { stream: true, explain: false, task } }), {
+          preset: undefined,
+          template: buildTaskTemplate(task),
+        }),
+      );
+      const explain = buildPrompt(
+        baseReq({ options: { stream: true, explain: true, task: 'explain' } }),
+        {
+          preset: arabizi,
+          template: DEFAULT_TEMPLATE,
+        },
+      );
+      // The options Preview builds Explain as Translate with the explain flag.
+      const preview = buildPrompt(baseReq({ options: { stream: true, explain: true } }), {
+        preset: arabizi,
+        template: DEFAULT_TEMPLATE,
+      });
+      // Page blocks go back into the page as text, so a fence would show on the page.
+      const batch = buildPrompt(
+        baseReq({ options: { stream: true, explain: false, batch: true } }),
+        {
+          preset: arabizi,
+          template: DEFAULT_TEMPLATE,
+        },
+      );
+      const noSlot = buildPrompt(baseReq(), {
+        preset: arabizi,
+        template: { system: 'Translate {{langLabel}} into {{targetLangLabel}}.', user: '{{text}}' },
+      });
+      for (const p of [...others, explain, preview, batch, noSlot])
+        expect(p.system).not.toMatch(CODE_RULE);
+    });
+  });
+
   // "Refine" invited a free-text dialect ("Jordanian Arabic") into detectedLang, which the pill shows verbatim.
   it('a chosen variety asks for its id or "other" in detectedLang, not a refinement', () => {
     const p = buildPrompt(baseReq({ sourceLang: sel('arabizi') }), {

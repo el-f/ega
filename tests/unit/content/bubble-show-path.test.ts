@@ -9,6 +9,7 @@ import { peekContainer } from '@/content/shadowHost';
 import { hideBubble } from '@/content/bubble';
 import { resetCustomLanguagesCache } from '@/content/customs-cache';
 import type { Settings } from '@/shared/types';
+import { drainAsync } from '@tests/_helpers/async';
 
 await import('@/content/index');
 
@@ -145,6 +146,56 @@ describe('where the bubble goes, from the page it reads', () => {
     window.getSelection()?.addRange(r);
     document.dispatchEvent(new Event('selectionchange'));
     expect((await mountedBubble()).classList.contains('is-rtl')).toBe(true);
+  });
+
+  it('a right-to-left field on a left-to-right page lines up with the selection right edge', async () => {
+    await seed({ bubbleFirstRunSeen: true });
+    document.body.innerHTML =
+      '<div><textarea id="ta" style="direction: rtl">shalom olam ma shlomcha</textarea></div>';
+    const ta = document.getElementById('ta') as HTMLTextAreaElement;
+    ta.focus();
+    ta.setSelectionRange(0, 11);
+    document.dispatchEvent(new Event('selectionchange'));
+    expect((await mountedBubble()).classList.contains('is-rtl')).toBe(true);
+  });
+
+  // Measuring a field selection lays its text out in a node under <html>, which the page can see.
+  it('a secret field gets no mirror on the page; a plain one gets it only when the bubble shows', async () => {
+    await seed({ bubbleFirstRunSeen: true });
+    const added: string[] = [];
+    const watch = new MutationObserver((records) => {
+      for (const r of records) for (const n of r.addedNodes) added.push(n.textContent ?? '');
+    });
+    watch.observe(document.documentElement, { childList: true });
+    const select = (name: string): void => {
+      document.body.innerHTML = `<textarea name="${name}">alpha bravo charlie delta echo foxtrot</textarea>`;
+      const ta = document.querySelector('textarea') as HTMLTextAreaElement;
+      ta.focus();
+      ta.setSelectionRange(6, 30);
+      document.dispatchEvent(new Event('selectionchange'));
+    };
+    const mirrored = (): number => added.filter((t) => t.includes('alpha bravo')).length;
+
+    const flush = (): void => {
+      added.push(
+        ...watch.takeRecords().flatMap((r) => [...r.addedNodes].map((n) => n.textContent ?? '')),
+      );
+    };
+
+    select('recovery-phrase');
+    // The sensitive gate runs before the handler's first await; jsdom's own selectionchange events follow in a task.
+    await new Promise((r) => setTimeout(r, 0));
+    await drainAsync();
+    flush();
+    expect(peekContainer()?.querySelector('.bubble-group') ?? null).toBeNull();
+    expect(mirrored()).toBe(0);
+
+    // The positive control: the same field without the secret name is measured once the bubble shows.
+    select('comment');
+    await mountedBubble();
+    flush();
+    watch.disconnect();
+    expect(mirrored()).toBeGreaterThan(0);
   });
 
   it('a left-to-right block keeps the left edge', async () => {

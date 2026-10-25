@@ -1,7 +1,13 @@
 import './stored-changes-boot';
 import { getShadowHostElement, onShadowHostMounted } from './shadowHost';
 import { installTestHooks } from './testHooks';
-import { getSelectionInfo, isEditableRange } from './selection';
+import {
+  getSelectionInfo,
+  isEditableRange,
+  selectionRectOf,
+  trackSelectionRect,
+  wrappedField,
+} from './selection';
 import { isSensitiveRange, isSensitiveTarget, selectionIsSensitive } from './safety';
 import { showBubble, hideBubble, loadBubbleMenu } from './bubble';
 import { looksLikeEnglish } from './looks-like-english';
@@ -303,16 +309,21 @@ function handleSelectionChange(): void {
           }
         : eff.direction;
     const block = info.range.commonAncestorContainer;
-    const blockEl = block instanceof Element ? block : block.parentElement;
+    // A field's own direction, not its parent's: the range wraps the field.
+    const field = wrappedField(info.range);
+    const blockEl = field ?? (block instanceof Element ? block : block.parentElement);
+    // After every gate: a field selection's text is measured in a mirror the page can see.
+    const shown = { ...info, rect: selectionRectOf(info.range) };
     showBubble({
-      rect: info.rect,
+      rect: shown.rect,
+      field,
       ...(blockEl && getComputedStyle(blockEl).direction === 'rtl' ? { rtl: true } : {}),
       queued: accum.size(),
       direction: displayDirection,
       ...(task !== null ? { task } : {}),
       ...(isFirstRun ? { firstRun: true } : {}),
       onClick: (e) => {
-        void handleBubbleClick(e, info).catch((err) =>
+        void handleBubbleClick(e, shown).catch((err) =>
           reportEntryFailure(err, 'content.bubbleClick'),
         );
       },
@@ -731,7 +742,8 @@ export async function startTranslateText(
     direction: resolvedDirection,
     requestedDirection: direction,
     ...(context ? { context } : {}),
-    ...(range ? { range } : {}),
+    // After the gates, once: a reopen keeps this, so a later click in the field cannot move the card.
+    ...(range ? { range, anchor: trackSelectionRect(range) } : {}),
     task: taskOverride ?? runnableDefaultTask(s),
     tone: s.defaultTone,
   };
@@ -776,6 +788,7 @@ let queueExplained = false;
 function keptSelectionInfo(text: string | undefined): ReturnType<typeof getSelectionInfo> {
   const kept = recentSelectionFresh();
   if (text === undefined || kept?.range === undefined || kept.text !== text) return null;
+  // The field box for a field: startTranslateText measures the selected text after the gates.
   const rect = kept.range.getBoundingClientRect();
   if (rect.width + rect.height === 0) return null;
   return { text, rect, range: kept.range, beforeText: '', afterText: '' };
@@ -798,9 +811,16 @@ async function startTranslateSelection(
   }
   const queued = accum.list();
   if (queued.length > 0) {
+    // The queue outlives a site toggle, so the site-off gate runs here, before the mirror lays out field text.
+    if (resolveEffective(await ensureSettings(), location.origin).disabled) {
+      accum.clear();
+      hideBubble();
+      showSiteOffToast();
+      return;
+    }
     // Use last entry's rect plus current selection (if any) for tooltip anchor.
     const currentText = overrideText ?? info?.text ?? '';
-    const currentRect = info?.rect;
+    const currentRect = info ? selectionRectOf(info.range) : undefined;
     const parts = [...queued.map((q) => q.text), ...(currentText ? [currentText] : [])];
     if (parts.length === 0) {
       accum.clear();

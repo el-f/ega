@@ -3,7 +3,7 @@
   import { debugCatch } from '@/shared/logger';
   import ReplyDetails from '@/shared/components/ReplyDetails.svelte';
   import AnswerNotes from '@/shared/components/AnswerNotes.svelte';
-  import { mainAnswerItems } from '@/shared/answer-presentation';
+  import { mainAnswerItems, soleFencedCode } from '@/shared/answer-presentation';
   import ReplyMeta from '@/shared/components/ReplyMeta.svelte';
   import { imageModeOf } from '@/shared/components/reply-details';
   import DiffFadeText from '@/shared/components/DiffFadeText.svelte';
@@ -44,7 +44,13 @@
   import { isIsoCode, labelFor } from '@/shared/languages';
   import { openOptionsTab } from '@/shared/open-options-tab';
   import { IMAGE_TURN_PLACEHOLDER, RETRY_AFTER_MAX_MS } from '@/shared/constants';
-  import { directionLabel, replyMetaItems, type ConfidenceSetting } from '@/shared/reply-meta';
+  import {
+    detectedVarieties,
+    directionLabel,
+    replyMetaItems,
+    type ConfidenceSetting,
+    type DirectionInput,
+  } from '@/shared/reply-meta';
   import ReplyMenus from './ReplyMenus.svelte';
   import TranslateIntoPopover from './TranslateIntoPopover.svelte';
 
@@ -156,24 +162,16 @@
   const notesTag = $derived(langTag(answerTarget) ?? '');
   const mainItems = $derived(mainAnswerItems(turn.answer));
 
-  const direction = $derived(
-    directionLabel({
-      detected:
-        turn.detectedLangs !== undefined && turn.detectedLangs.length > 0
-          ? turn.detectedLangs
-          : turn.detectedLang !== undefined
-            ? [
-                turn.detectedDetail !== undefined
-                  ? { id: turn.detectedLang, detail: turn.detectedDetail }
-                  : { id: turn.detectedLang },
-              ]
-            : [],
-      ...(answerSource !== undefined ? { sourceLang: answerSource } : {}),
-      ...(answerTarget !== undefined ? { targetLang: answerTarget } : {}),
-      sourceOnly: currentTaskValue === 'reword' || currentTaskValue === 'grammar',
-      varieties,
-    }),
-  );
+  const directionInput = $derived<DirectionInput>({
+    detected: detectedVarieties(turn),
+    ...(answerSource !== undefined ? { sourceLang: answerSource } : {}),
+    ...(answerTarget !== undefined ? { targetLang: answerTarget } : {}),
+    sourceOnly: currentTaskValue === 'reword' || currentTaskValue === 'grammar',
+    varieties,
+  });
+  // About names every language in full; the one-line meta cuts each name.
+  const direction = $derived(directionLabel(directionInput));
+  const metaDirection = $derived(directionLabel({ ...directionInput, short: true }));
 
   const refinementBody = $derived(activeVariant?.refinementBody);
   // What made this version, as the meta line names it; a language change shows in the direction instead.
@@ -215,7 +213,7 @@
       );
       return;
     }
-    speakWith(voice, turn.content, () => {
+    speakWith(voice, plainAnswer, () => {
       if (run === speechRun) speaking = false;
     });
   }
@@ -236,6 +234,8 @@
     if (speaking) stopSpeaking();
   });
 
+  // Copy and Read aloud take the code that shows, not the fence lines around it.
+  const plainAnswer = $derived(soleFencedCode(turn.content) ?? turn.content);
   const partial = $derived(turn.status === 'error' && turn.content !== '');
   const statusText = $derived.by(() => {
     if (answering) return `${taskCapabilities(currentTaskValue, taskViews).gerund}…`;
@@ -254,7 +254,7 @@
       ...(statusText !== undefined ? { status: statusText } : {}),
       bookmarked: isBookmarked,
       meta: answering ? undefined : turn.meta,
-      direction: answering ? '' : direction,
+      direction: answering ? '' : metaDirection,
       ...(versionLabel !== undefined && !answering ? { version: versionLabel } : {}),
       confidence: shownConfidence,
       confidenceSetting: confidence,
@@ -484,7 +484,7 @@
   async function copyReply(): Promise<void> {
     if (!turn.content) return;
     try {
-      await navigator.clipboard.writeText(turn.content);
+      await navigator.clipboard.writeText(plainAnswer);
       copied = true;
       setTimeout(() => (copied = false), 1500);
     } catch (e) {

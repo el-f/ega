@@ -127,7 +127,7 @@ export function buildTooltipOpenOpts(
     requestId: reqId,
     srcText: req.text,
     rect: req.rect,
-    ...(req.range ? { range: req.range } : {}),
+    ...(req.anchor ? { anchor: req.anchor } : {}),
     confidencePill: s.confidencePill,
     ...omitUndef({ confidencePillThreshold: s.confidencePillThreshold }),
     clickOutsideDismiss: s.tooltipClickOutside,
