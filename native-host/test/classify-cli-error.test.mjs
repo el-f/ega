@@ -98,6 +98,20 @@ test('maps a CLI that cannot read its own config file to NATIVE_CLI_CONFIG', () 
   );
 });
 
+test('a config error whose last line names another row is still NATIVE_CLI_CONFIG', () => {
+  for (const tail of [
+    'in `mcp_servers.network-tools`',
+    'in `mcp_servers.timeout-helper`',
+    '/x/config.toml:1:10: x\n1 | network = [',
+  ]) {
+    assert.equal(
+      classifyCliError(`Error loading config.toml: invalid transport\n${tail}`),
+      'NATIVE_CLI_CONFIG',
+      tail,
+    );
+  }
+});
+
 test('leaves config wording Ega cannot trigger to the other rows', () => {
   // claude's `Settings file not found` needs --settings <path>, which Ega never passes.
   assert.equal(

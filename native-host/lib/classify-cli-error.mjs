@@ -1,8 +1,9 @@
 /** Maps CLI failure text onto the ErrCode list in src/shared/types.ts. Unmatched text stays UNKNOWN on purpose: NETWORK would make terminal failures retryable and rotatable. */
 
+// codex-cli 0.162.1 exits on `Error loading config.toml: <why>`; the quoted config can name words later rows match.
+const CLI_CONFIG = /\berror loading config\.toml\b/i;
+
 const PATTERNS = [
-  // First, as the quoted config can hold words later rows match: codex-cli 0.162.1 exits on `Error loading config.toml: <why>`.
-  [/\berror loading config\.toml\b/i, 'NATIVE_CLI_CONFIG'],
   [
     /\b(429|rate[ _-]?limit|too many requests|slow down|temporarily limiting requests)\b/i,
     'RATE_LIMIT',
@@ -31,6 +32,8 @@ const PATTERNS = [
 /** @param {string | undefined} message @returns {string} an ErrCode */
 export function classifyCliError(message) {
   if (typeof message !== 'string' || message.length === 0) return 'UNKNOWN';
+  // Whole message first: the config error's own last line can be a server name or a source line.
+  if (CLI_CONFIG.test(message)) return 'NATIVE_CLI_CONFIG';
   // The last line is the exit reason; earlier lines are progress and warnings that name other failures.
   const lines = message.split(/\r?\n/).filter((l) => l.trim().length > 0);
   const last = lines.length > 0 ? lines[lines.length - 1] : '';
