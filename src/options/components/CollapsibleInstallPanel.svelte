@@ -6,6 +6,7 @@
   import { Tabs } from 'bits-ui';
   import IconButton from '@/shared/ui/IconButton.svelte';
   import Button from '@/shared/ui/Button.svelte';
+  import StableLabel from '@/shared/ui/StableLabel.svelte';
   import Copy from '@lucide/svelte/icons/copy';
   import Check from '@lucide/svelte/icons/check';
   import type { Platform } from '../nativeHostInstall';
@@ -83,14 +84,8 @@
   <details class="install-panel" bind:open data-testid="nh-install-panel">
     <summary class="install-summary">
       <span class="install-summary-chevron" aria-hidden="true"></span>
-      <!-- One grid cell holds every label; the hidden ones draw from data-label, so they stay out of the text. -->
-      <span class="install-summary-label"
-        ><span>{summaryLabel}</span>{#each summaryLabels as label, i (i)}<span
-            class="install-summary-sizer"
-            aria-hidden="true"
-            data-label={label}
-          ></span>{/each}</span
-      >
+      <!-- Holds the widest label, so the summary keeps one width when it changes (R63). -->
+      <StableLabel current={summaryLabel} labels={summaryLabels} start />
     </summary>
 
     <div class="install-body">
@@ -236,19 +231,6 @@
   .install-panel[open] > .install-summary > .install-summary-chevron,
   .install-uninstall[open] > .install-uninstall-summary > .install-summary-chevron {
     transform: rotate(45deg);
-  }
-  .install-summary-label {
-    flex: 1 1 auto;
-    display: inline-grid;
-  }
-  .install-summary-label > * {
-    grid-area: 1 / 1;
-  }
-  .install-summary-sizer {
-    visibility: hidden;
-  }
-  .install-summary-sizer::before {
-    content: attr(data-label);
   }
   .install-body {
     display: flex;

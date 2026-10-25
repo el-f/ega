@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { render, fireEvent } from '@testing-library/svelte';
@@ -202,11 +202,13 @@ describe('Button labels (R63)', () => {
     expect(btn.querySelector('.ega-btn-current')?.textContent).toBe('Stop');
   });
 
-  it('stacks the labels in one hidden grid cell', () => {
+  // One copy of the stacking rules: .ega-stable in tokens.css, shared with StableLabel.
+  it('stacks the labels in one hidden grid cell with the shared .ega-stable rules', () => {
+    const { getByRole } = render(Button, { props: { labels, children: textSnippet('Stop') } });
+    const stack = getByRole('button').querySelector('.ega-btn-label');
+    expect(stack?.classList.contains('ega-stable')).toBe(true);
     const source = readFileSync(resolve(process.cwd(), 'src/shared/ui/Button.svelte'), 'utf8');
-    expect(source).toMatch(/\.is-stack > \*\s*\{\s*grid-area: 1 \/ 1;/);
-    expect(source).toMatch(/\.ega-btn-sizer\s*\{\s*visibility: hidden;/);
-    expect(source).toMatch(/\.ega-btn-sizer::before\s*\{\s*content: attr\(data-label\);/);
+    expect(source).not.toMatch(/grid-area|content: attr\(data-label\)/);
   });
 
   it('keeps the icon outside the stack and the 32px md height', () => {
@@ -218,7 +220,7 @@ describe('Button labels (R63)', () => {
       },
     });
     const btn = getByRole('button', { name: 'Download' });
-    expect(btn.querySelector('.is-stack [data-action-icon]')).toBeNull();
+    expect(btn.querySelector('.ega-stable [data-action-icon]')).toBeNull();
     expect(btn.querySelector(':scope > [data-action-icon]')).not.toBeNull();
     expect(btn.classList.contains('size-md')).toBe(true);
   });
@@ -264,5 +266,49 @@ describe('Button labels (R63)', () => {
     const btn = getByRole('button');
     expect(btn.classList.contains('is-loading')).toBe(true);
     expect(btn.querySelectorAll('.ega-btn-sizer')).toHaveLength(3);
+  });
+});
+
+// Test now becomes Stop in place, so the second click of a double-click would stop the test it just started.
+describe('Button labels ignore the rest of a double-click', () => {
+  afterEach(() => vi.restoreAllMocks());
+  const at = (ms: number): void => void vi.spyOn(Date, 'now').mockReturnValue(ms);
+
+  it('acts on the first click, drops the second, and acts again once the window passes', async () => {
+    let clicks = 0;
+    const { getByRole } = render(Button, {
+      props: {
+        labels: ['Test now', 'Stop'],
+        onclick: () => clicks++,
+        children: textSnippet('Test now'),
+      },
+    });
+    const btn = getByRole('button');
+    at(10_000);
+    await fireEvent.click(btn, { detail: 1 });
+    at(10_150);
+    await fireEvent.click(btn, { detail: 2 });
+    expect(clicks).toBe(1);
+    at(10_600);
+    await fireEvent.click(btn, { detail: 3 });
+    // A keyboard press has detail 0 and always acts.
+    await fireEvent.click(btn, { detail: 0 });
+    expect(clicks).toBe(3);
+  });
+
+  it('a button with one label, or none, acts on every click', async () => {
+    let clicks = 0;
+    const one = render(Button, {
+      props: { labels: ['Save'], onclick: () => clicks++, children: textSnippet('Save') },
+    });
+    await fireEvent.click(one.getByRole('button'), { detail: 1 });
+    await fireEvent.click(one.getByRole('button'), { detail: 2 });
+    one.unmount();
+    const none = render(Button, {
+      props: { onclick: () => clicks++, children: textSnippet('Go') },
+    });
+    await fireEvent.click(none.getByRole('button'), { detail: 1 });
+    await fireEvent.click(none.getByRole('button'), { detail: 2 });
+    expect(clicks).toBe(4);
   });
 });

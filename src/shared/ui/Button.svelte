@@ -2,6 +2,7 @@
   import type { Component, Snippet } from 'svelte';
   import Icon from './Icon.svelte';
   import { ICON_REGISTRY, type ActionKind } from './action-icons';
+  import { repeatClickGuard } from './repeat-click';
 
   type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
   type Size = 'sm' | 'md' | 'lg';
@@ -28,7 +29,7 @@
     ariaDisabled?: boolean;
     /** Id of the visible line that says why, or what the button does. */
     describedBy?: string;
-    /** Every label the button can show. It keeps the width of the widest, so a label change does not move the row (R63). */
+    /** Every label the button can show. It keeps the width of the widest, so a label change does not move the row (R63). With two or more, the rest of a double-click is ignored (repeat-click.ts). */
     labels?: readonly string[];
     /** A spinner before the label; the label stays readable and the Tab stop stays (unlike `loading`), and the click does nothing. With `labels`, every label keeps room for the spinner, so pass it as false too. */
     busy?: boolean;
@@ -58,6 +59,16 @@
 
   const isDisabled = $derived(disabled || loading);
   const inert = $derived(ariaDisabled || busy === true);
+  // A button with more than one label flips its action in place, so the second click of a double-click would undo the first.
+  const flips = $derived((labels?.length ?? 0) > 1);
+  const isRepeat = repeatClickGuard();
+  function flipClick(e: MouseEvent): void {
+    if (isRepeat(e)) {
+      e.preventDefault();
+      return;
+    }
+    onclick?.(e);
+  }
   // Icon size scales with the button size so the glyph optical-aligns
   // with the label x-height across sm/md/lg.
   const iconSize = $derived<16 | 20 | 24>(size === 'sm' ? 16 : size === 'lg' ? 24 : 20);
@@ -75,7 +86,7 @@
   aria-disabled={inert ? 'true' : undefined}
   aria-describedby={describedBy}
   {...dataAttrs ?? {}}
-  onclick={inert ? undefined : onclick}
+  onclick={inert ? undefined : flips ? flipClick : onclick}
   {onkeydown}
   {onblur}
 >
@@ -93,8 +104,8 @@
         data-ega-inline-spinner
       ></span>{/if}{@render children()}{/snippet}
   {#if labels}
-    <!-- The hidden labels draw their text from data-label, so it stays out of textContent and the accessible name. -->
-    <span class="ega-btn-label is-stack">
+    <!-- .ega-stable (tokens.css): the hidden labels draw their text from data-label, so it stays out of textContent and the accessible name. -->
+    <span class="ega-btn-label ega-stable">
       <span class="ega-btn-current">{@render current()}</span>
       {#each labels as label, i (i)}
         <span
@@ -163,21 +174,6 @@
     to {
       transform: rotate(360deg);
     }
-  }
-  /* `labels`: one grid cell holds every label, so the button keeps the widest one's width (R63). */
-  .is-stack {
-    display: inline-grid;
-    justify-items: center;
-    align-items: center;
-  }
-  .is-stack > * {
-    grid-area: 1 / 1;
-  }
-  .ega-btn-sizer {
-    visibility: hidden;
-  }
-  .ega-btn-sizer::before {
-    content: attr(data-label);
   }
   /* `busy`: the spinner's box plus its gap, kept on every label. */
   .ega-btn-sizer.has-spinner {

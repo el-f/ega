@@ -51,6 +51,18 @@ describe('CollapsibleInstallPanel', () => {
     expect(codeblock?.textContent).toContain('powershell -c install');
   });
 
+  // The summary keeps its widest label through the shared StableLabel (.ega-stable), not a copy of its rules.
+  it('holds the summary label with the shared StableLabel', () => {
+    const { container } = render(CollapsibleInstallPanel, { props: baseProps });
+    const stack = container.querySelector('summary .ega-stable.is-start');
+    expect(stack?.firstElementChild?.textContent).toBe('Install command');
+    const src = readFileSync(
+      resolve(process.cwd(), 'src/options/components/CollapsibleInstallPanel.svelte'),
+      'utf8',
+    );
+    expect(src).not.toMatch(/install-summary-(label|sizer)/);
+  });
+
   it('keeps the install body collapsed when open=false', () => {
     const { container } = render(CollapsibleInstallPanel, {
       props: { ...baseProps, open: false },
