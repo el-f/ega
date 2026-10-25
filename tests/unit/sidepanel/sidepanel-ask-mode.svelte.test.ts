@@ -32,11 +32,19 @@ type Start = {
   options: Record<string, unknown> & { askAbout?: Record<string, unknown> };
 };
 
+/** Twelve macrotask hops with no timer wait, for promise chains and storage round trips. */
+async function drain(): Promise<void> {
+  for (let i = 0; i < 12; i++) await new Promise((r) => setImmediate(r));
+}
+
+/**
+ * Drains, lets due zero-delay timers fire (focus after a delete), then drains what they started.
+ * One timer hop, not twelve: on Windows each costs a ~16 ms clock tick, ~190 ms per settle with no work.
+ */
 async function settle(): Promise<void> {
-  for (let i = 0; i < 12; i++) {
-    await Promise.resolve();
-    await new Promise((r) => setTimeout(r, 0));
-  }
+  await drain();
+  await new Promise((r) => setTimeout(r, 0));
+  await drain();
   await tick();
 }
 
@@ -499,9 +507,10 @@ describe('asking', () => {
 
       expect(c.textContent).toContain('why?');
       expect(c.querySelector('[data-ega-ask-quote]')).toBeNull();
-      expect(JSON.stringify(await chrome.storage.local.get(null))).not.toContain(
-        'Hi, how are you?',
-      );
+      // The undone question is stored, so the save ran before the reply's absence is read.
+      const stored = JSON.stringify(await chrome.storage.local.get(null));
+      expect(stored).toContain('why?');
+      expect(stored).not.toContain('Hi, how are you?');
       const again = await regenerateAnswer(c);
       expect(JSON.stringify(again.options)).not.toContain('Hi, how are you?');
 
