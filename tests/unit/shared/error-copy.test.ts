@@ -7,6 +7,7 @@ import {
   type ErrorCopyId,
 } from '@/shared/error-copy';
 import { ALL_ERR_CODES } from '@/shared/types';
+import { optionsTabForMessage } from '@/shared/error-policy';
 import { emitMaxTokensError, httpErrorMessage } from '@/shared/backends/transportError';
 
 /** What a transport writes for an HTTP error, from the real helper. */
@@ -37,6 +38,12 @@ describe('ERROR_COPY rows', () => {
     expect(row.title).not.toMatch(FORBIDDEN);
     expect(row.body).not.toMatch(FORBIDDEN);
     expect(row.body.endsWith('.')).toBe(true);
+  });
+
+  it('a code the policy sends to a settings tab offers Open settings on every surface', () => {
+    const tabbed = ALL_ERR_CODES.filter((c) => optionsTabForMessage('', c) !== undefined);
+    const missing = tabbed.filter((c) => !errorCopy(c, '')?.actions.includes('open-settings'));
+    expect(missing).toEqual([]);
   });
 
   it('the settings-changed line is plain too', () => {

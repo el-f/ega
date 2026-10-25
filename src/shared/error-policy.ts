@@ -23,7 +23,7 @@ export const ERR_POLICY: Record<ErrCode, ErrPolicy> = {
   NATIVE_NOT_INSTALLED: { retryable: false, rotate: true, optionsTab: 'backends' },
   NATIVE_SPAWN_FAIL: { retryable: false, rotate: true, optionsTab: 'backends' },
   // The cause is a system config or a setting Ega passes, not the user's file; another backend may still answer.
-  NATIVE_CLI_CONFIG: { retryable: false, rotate: true },
+  NATIVE_CLI_CONFIG: { retryable: false, rotate: true, optionsTab: 'backends' },
   NO_BACKEND: { retryable: false, rotate: false, optionsTab: 'backends' },
   // One REQUEST covers max-tokens (Translate), an unknown model id (Backends) and an oversize request
   // (no setting at all), so the message decides the tab, not the code.

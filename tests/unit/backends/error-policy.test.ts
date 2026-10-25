@@ -21,7 +21,7 @@ describe('ERR_POLICY — orthogonal retryable / rotate table', () => {
     QUOTA: { retryable: false, rotate: true, optionsTab: 'backends' },
     NATIVE_NOT_INSTALLED: { retryable: false, rotate: true, optionsTab: 'backends' },
     NATIVE_SPAWN_FAIL: { retryable: false, rotate: true, optionsTab: 'backends' },
-    NATIVE_CLI_CONFIG: { retryable: false, rotate: true },
+    NATIVE_CLI_CONFIG: { retryable: false, rotate: true, optionsTab: 'backends' },
     NO_BACKEND: { retryable: false, rotate: false, optionsTab: 'backends' },
     REQUEST: { retryable: false, rotate: false },
     PARSE: { retryable: true, rotate: true, maxAttempts: 2 },
@@ -119,6 +119,7 @@ describe('the options tab per code — one map for every surface that offers "Op
       'QUOTA',
       'NATIVE_NOT_INSTALLED',
       'NATIVE_SPAWN_FAIL',
+      'NATIVE_CLI_CONFIG',
       'NO_BACKEND',
       'UNSUPPORTED',
     ] as const) {
