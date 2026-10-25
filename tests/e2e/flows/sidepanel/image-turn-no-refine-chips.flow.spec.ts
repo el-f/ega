@@ -70,11 +70,11 @@ test('external image-translate turn shows its image and Regenerate, and Refine o
   await expect(menu.locator('[data-ega-translate-into-other]')).toBeVisible();
   await expect(menu.locator('[data-ega-refine-preset]')).toHaveCount(0);
   await expect(menu.locator('[data-ega-describe-change]')).toHaveCount(0);
+  // The seed records a dispatch on the user turn, so the vision pass can re-run: Regenerate leads the menu.
+  await expect(menu.locator('[data-ega-regenerate]')).toBeVisible();
   await sp.keyboard.press('Escape');
   timeline.markStep('no-refine-presets');
 
-  // The seed records a dispatch on the user turn, so the vision pass can re-run.
-  await expect(sp.locator('[data-ega-regenerate]')).toBeVisible();
   await expect(sp.locator('.ega-imgprev img')).toHaveJSProperty('complete', true);
   expect(
     await sp.locator('.ega-imgprev img').evaluate((img) => (img as HTMLImageElement).naturalWidth),

@@ -12,7 +12,7 @@
 
 ## Visible affordances
 
-- Regenerate sits in the assistant turn's action row, revealed on hover or focus.
+- Regenerate is the first item of the Refine menu in the assistant turn's action row, revealed on hover or focus.
 - The variant counter and prev/next arrows appear once the second variant exists.
 
 ## Failure-mode expectations

@@ -17,6 +17,7 @@ import {
 } from '@/shared/chat-history';
 import type { sendTranslateStart } from '@/shared/translate-ui';
 import type { AnswerNote, AnswerDetail } from '@/shared/answer/reader';
+import { askQuote, type AskAbout, type AskTarget } from '@/shared/ask-about';
 import type { AnswerSnapshot, AnswerReplyFields } from '@/shared/types';
 
 /** Every kind this build creates; saved turns can carry a newer build's task id. */
@@ -71,6 +72,10 @@ export interface Variant {
   sourceLang?: LangSelection;
   /** Task the variant ran when it differs from the turn's task — task variants. */
   task?: TaskId;
+  /** The reply an "Ask instead" version asks about; its re-runs ask about it again. */
+  about?: AskTarget;
+  /** This version's request carried no block about the reply it asks about: that reply was gone. Undo never clears it. */
+  aboutUnsent?: true;
 }
 
 /** Language pair + streaming preference of a user turn; its page context lives
@@ -110,6 +115,8 @@ export interface UserTurnData extends TurnBase {
   dispatch?: TurnDispatch;
   /** The text was cut to this many characters before it reached the panel. */
   trimmedTo?: number;
+  /** A question about an earlier reply: which reply and version, never their text. */
+  about?: AskTarget;
   rawAcc?: never;
   detectedLang?: never;
   detectedDetail?: never;
@@ -167,6 +174,7 @@ export interface AssistantTurnData extends TurnBase {
   tone?: never;
   dispatch?: never;
   trimmedTo?: never;
+  about?: never;
 }
 
 /** A turn in a thread, by role: a user turn cannot carry an answer's fields, nor an answer a user turn's. */
@@ -192,6 +200,7 @@ interface AddUserTurnInput {
   dispatch?: TurnDispatch;
   taskId?: TaskId;
   trimmedTo?: number;
+  about?: AskTarget;
 }
 
 /** Append a user turn. Returns the new turn list — caller assigns. */
@@ -208,6 +217,7 @@ export function addUserTurn(turns: readonly Turn[], input: AddUserTurnInput): Tu
     ...(input.dispatch !== undefined ? { dispatch: input.dispatch } : {}),
     ...(input.taskId !== undefined ? { taskId: input.taskId } : {}),
     ...(input.trimmedTo !== undefined ? { trimmedTo: input.trimmedTo } : {}),
+    ...(input.about !== undefined ? { about: input.about } : {}),
   };
   return [...turns, turn];
 }
@@ -228,6 +238,8 @@ interface AddAssistantTurnInput {
    *  variant rail can flip back to it. */
   preservedResponse?: string;
   taskId?: TaskId;
+  /** The seed variant's request carried no block about the reply asked about. */
+  aboutUnsent?: true;
 }
 
 function pendingAssistantTurn(input: AddAssistantTurnInput): Turn {
@@ -248,6 +260,7 @@ function pendingAssistantTurn(input: AddAssistantTurnInput): Turn {
     rawAcc: '',
     // The mirror deletes turn.explain whenever the variant has none, so a pinned explanation must ride along.
     ...(input.explain !== undefined ? { explain: input.explain } : {}),
+    ...(input.aboutUnsent === true ? { aboutUnsent: true } : {}),
   };
   return {
     id: input.id,
@@ -334,6 +347,8 @@ interface AddVariantInput {
   targetLang?: LangSelection;
   sourceLang?: LangSelection;
   task?: TaskId;
+  about?: AskTarget;
+  aboutUnsent?: true;
 }
 
 /** Appends a sibling variant and makes it active; no-op on a non-assistant turn or one without variants. */
@@ -352,6 +367,8 @@ export function addVariant(turns: readonly Turn[], turnId: string, input: AddVar
     ...(input.targetLang !== undefined ? { targetLang: input.targetLang } : {}),
     ...(input.sourceLang !== undefined ? { sourceLang: input.sourceLang } : {}),
     ...(input.task !== undefined ? { task: input.task } : {}),
+    ...(input.about !== undefined ? { about: input.about } : {}),
+    ...(input.aboutUnsent === true ? { aboutUnsent: true } : {}),
   };
   const nextVariants = [...turn.variants, variant];
   const nextTurn: Turn = projectVariant({
@@ -437,6 +454,28 @@ export function turnTaskValue(turn: Turn): TaskId {
   return turn.kind === 'image-translate' ? 'translate' : turn.kind;
 }
 
+/** A reply a question can be about: finished, with a line of text its quote can show. */
+export function askable(turn: Turn | undefined): boolean {
+  return turn?.role === 'assistant' && turn.status === 'done' && askQuote(turn.content) !== '';
+}
+
+/** A question about `reply` as it shows now: the reply and its shown version. */
+export function askTarget(reply: Turn): AskTarget {
+  const v = activeVariant(reply);
+  return v === undefined ? { turnId: reply.id } : { turnId: reply.id, variantId: v.id };
+}
+
+/** The reply as version `variantId` reads; the shown version once that one is gone. */
+export function atVariant(
+  turn: AssistantTurnData,
+  variantId: string | undefined,
+): AssistantTurnData {
+  const idx = turn.variants?.findIndex((v) => v.id === variantId) ?? -1;
+  return idx < 0 || idx === turn.activeVariantIdx
+    ? turn
+    : projectVariant({ ...turn, activeVariantIdx: idx });
+}
+
 export type StartArgs = Parameters<typeof sendTranslateStart>[0];
 
 /** Why a swap would add nothing: the pair is one language, or a reply already answered it. */
@@ -454,6 +493,8 @@ export interface VariantSeed {
   targetLang?: LangSelection;
   sourceLang?: LangSelection;
   task?: TaskId;
+  /** An "Ask instead" version's reply; a sent question keeps its own on the user turn. */
+  about?: AskTarget;
 }
 
 export interface StartOverlay {
@@ -467,6 +508,8 @@ export interface StartOverlay {
   thread: readonly Turn[] | 'none';
   /** The same request already has an answer the user wants replaced, so the router must not serve it from the cache. */
   freshAnswer?: boolean;
+  /** The block about the reply an Ask request asks about, built from the thread at dispatch; passed through as given. */
+  askAbout?: AskAbout | undefined;
 }
 
 /** The turns before the user turn. Neither vision arm forwards history (router.ts), so an image gets none. */
@@ -477,10 +520,15 @@ function historyFor(userTurn: Turn, thread: readonly Turn[] | 'none'): ChatTurn[
   return assemblePromptHistory(thread.slice(0, at), { budgetTokens: CHAT_HISTORY_TOKEN_BUDGET });
 }
 
-/** The one place that decides what a request carries; send, retry and every variant build theirs here. */
+/** The task a request runs: the version's own, else its message's. The request, its block and its history all read it. */
+export function requestTask(userTurn: Turn, seed: VariantSeed = {}): TaskId {
+  return seed.task ?? turnTaskValue(userTurn);
+}
+
+/** The one place that builds a request; send, retry and every variant use it. An Ask request's block comes in `askAbout`. */
 export function buildStartArgs(userTurn: Turn, overlay: StartOverlay): StartArgs {
   const { seed = {}, reuse } = overlay;
-  const task = seed.task ?? turnTaskValue(userTurn);
+  const task = requestTask(userTurn, seed);
   const image = userTurn.imageDataUrl;
   const history = historyFor(userTurn, overlay.thread);
   return {
@@ -495,16 +543,22 @@ export function buildStartArgs(userTurn: Turn, overlay: StartOverlay): StartArgs
     ...(overlay.context ? { context: overlay.context } : {}),
     ...(seed.refinementBody !== undefined ? { refinement: seed.refinementBody } : {}),
     ...(history.length > 0 ? { conversationHistory: history } : {}),
+    ...(overlay.askAbout !== undefined ? { askAbout: overlay.askAbout } : {}),
     ...(image !== undefined ? { imageUrl: image } : {}),
     ...(overlay.freshAnswer ? { freshAnswer: true } : {}),
   };
 }
 
+/** The reply a request asks about: an "Ask instead" version's own, else its question's. "Answer again as Translate" on a question re-runs its text alone, so only an Ask request asks. */
+export function askTargetFor(userTurn: Turn, seed: VariantSeed = {}): AskTarget | undefined {
+  return requestTask(userTurn, seed) === 'ask' ? (seed.about ?? userTurn.about) : undefined;
+}
+
 /** Copies the turn with the active variant's fields, so a pending variant cannot show the previous body. */
-function projectVariant(turn: Turn): Turn {
+function projectVariant<T extends Turn>(turn: T): T {
   const v = activeVariant(turn);
   if (!v) return turn;
-  const next: Turn = { ...turn };
+  const next: T = { ...turn };
   mirrorVariantToTurn(next, v);
   return next;
 }

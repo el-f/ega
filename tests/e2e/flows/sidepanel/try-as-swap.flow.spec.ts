@@ -77,7 +77,8 @@ test('Refine → Swap re-answers the reply the other way, from the keyboard', as
   const trigger = turn.locator('[data-ega-action="refine"]');
   await trigger.focus();
   await page.keyboard.press('Enter');
-  await expect(page.locator('[data-ega-refine-preset]').first()).toBeFocused();
+  // A keyboard open lands on the first item, which is Regenerate.
+  await expect(page.locator('[data-ega-regenerate]')).toBeFocused();
   await page.keyboard.press('End');
   const swap = page.locator('[data-ega-swap-item]');
   await expect(swap).toBeFocused();

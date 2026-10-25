@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, type Mock } from 'vitest';
+import { describe, it, expect, vi, type Mock, type MockInstance } from 'vitest';
 import { createIntake, type Pickers } from '@/sidepanel/state/intake';
 import { createConversation } from '@/sidepanel/state/conversation.svelte';
 import { toastStore } from '@/shared/components/toastStore';
@@ -25,6 +25,8 @@ async function intakeFor(
 ): Promise<{
   intake: ReturnType<typeof createIntake>;
   conversation: ReturnType<typeof createConversation>;
+  askAbout: Mock<(replyId: string) => void>;
+  pickers: () => Pickers;
 }> {
   (chrome.runtime.sendMessage as Mock).mockResolvedValue({ ok: true });
   const conversation = createConversation();
@@ -34,8 +36,10 @@ async function intakeFor(
     task: 'translate',
     tone: 'neutral',
   };
+  const askAbout = vi.fn<(replyId: string) => void>();
   const intake = createIntake({
     conversation,
+    askAbout,
     panelWindowId: () => panelWindowId,
     streaming: () => true,
     pickers: () => pickers,
@@ -49,7 +53,7 @@ async function intakeFor(
   });
   // One turn of the queue: the intake learns that a settled first follow is over.
   await Promise.resolve();
-  return { intake, conversation };
+  return { intake, conversation, askAbout, pickers: () => pickers };
 }
 
 const seed = (windowId: number): unknown => ({
@@ -154,5 +158,74 @@ describe('panel intake, without mounting the panel', () => {
 
     expect(conversation.activeSite).toBe('https://a.test');
     expect(conversation.turns.map((t) => t.content)).toEqual(['hola', 'texto', 'text']);
+  });
+});
+
+describe('a tooltip Ask handoff', () => {
+  const handoff = {
+    sourceText: 'mar7aba, kifak?',
+    sourceLang: 'auto',
+    // The pickers start on English; a handoff into Spanish moves them.
+    targetLang: 'es',
+    task: 'translate',
+    tone: 'neutral',
+    response: 'Hola, ¿qué tal?',
+    reply: { detectedLang: 'arabizi', detectedDetail: 'Levantine', confidence: 0.93 },
+  } as const;
+  const pickerToast = (push: MockInstance<typeof toastStore.push>): boolean =>
+    push.mock.calls.some(([t]) => /Language, task and tone set/.test(t.message));
+
+  it('seeds the detection and reports the seeded reply, setting the pickers without a toast', async () => {
+    const push = vi.spyOn(toastStore, 'push');
+    const { intake, conversation, askAbout, pickers } = await intakeFor(7);
+    await writePendingPopupHandoff({ ...handoff, ask: true });
+    await intake.drainPopupHandoffs();
+
+    const reply = conversation.turns.at(-1);
+    expect(reply).toMatchObject({
+      role: 'assistant',
+      content: 'Hola, ¿qué tal?',
+      detectedLang: 'arabizi',
+      detectedDetail: 'Levantine',
+      confidence: 0.93,
+    });
+    expect(askAbout).toHaveBeenCalledExactlyOnceWith(reply?.id);
+    expect(pickers().targetLang).toBe('es');
+    expect(pickerToast(push)).toBe(false);
+    push.mockRestore();
+    await conversation.flush();
+  });
+
+  it('a plain handoff seeds the detection too, reports nothing, and says the pickers moved', async () => {
+    const push = vi.spyOn(toastStore, 'push');
+    const { intake, conversation, askAbout } = await intakeFor(7);
+    await writePendingPopupHandoff(handoff);
+    await intake.drainPopupHandoffs();
+
+    expect(conversation.turns.at(-1)).toMatchObject({ detectedDetail: 'Levantine' });
+    expect(askAbout).not.toHaveBeenCalled();
+    expect(pickerToast(push)).toBe(true);
+    push.mockRestore();
+    await conversation.flush();
+  });
+
+  it('an Ask whose reply must still run is sent, and reports nothing to ask about', async () => {
+    const { intake, conversation, askAbout } = await intakeFor(7);
+    const { response: _unused, reply: _reply, ...unfinished } = handoff;
+    await writePendingPopupHandoff({ ...unfinished, ask: true });
+    await intake.drainPopupHandoffs();
+
+    // The message landed and went out as a plain request, not a question about anything.
+    expect(conversation.turns.map((t) => t.content)).toContain('mar7aba, kifak?');
+    const start = (chrome.runtime.sendMessage as Mock).mock.calls
+      .map(([m]) => m as { kind?: string; text?: string; options?: Record<string, unknown> })
+      .filter((m) => m.kind === 'translate:start')
+      .at(-1);
+    expect(start?.text).toBe('mar7aba, kifak?');
+    expect(start?.options?.['askAbout']).toBeUndefined();
+    expect(conversation.turns.at(-1)?.status).not.toBe('done');
+    expect(askAbout).not.toHaveBeenCalled();
+    conversation.cancel();
+    await conversation.flush();
   });
 });

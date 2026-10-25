@@ -130,7 +130,15 @@ nothing.
 One more store lives only until you close the browser: `chrome.storage.session`.
 Its slot `ega.pendingPopupHandoff` carries the most: the text you sent, the
 model's answer, the explain brief, text read out of an image, and the image
-itself as a data URL (`src/shared/pending-popup-handoff.ts`).
+itself as a data URL (`src/shared/pending-popup-handoff.ts`). A finished tooltip
+reply also brings its notes, details, structured answer, detected languages,
+confidence and reply metadata. With Record request details on, which is the
+default, that metadata holds the system prompt that was sent, glossary and rules
+included, cut to a fixed size. The tooltip's Ask sets an `ask` flag. The tooltip
+runs as a content script, so the reader rebuilds the notes, details, detected
+languages, confidence and metadata field by field, and drops any of the wrong type.
+Two parts are kept as sent: a detail's value, and the structured answer, which is
+only checked for shape (an object whose spec lists its fields as objects).
 The Storage shape table in `docs/PERMISSIONS.md` lists the full session storage set.
 
 ---
@@ -168,6 +176,27 @@ turn — untrusted label, `"""` block, `escapeFence` on the body — before it r
 wire (`src/shared/prompts.ts#fenceHistoryTurn`, applied at
 `src/background/index.ts#boundedOptions`). `boundedOptions` also cuts each turn to 2000
 characters and keeps only the last `MAX_HISTORY_TURNS` (40).
+
+### Prompt injection from a reply you ask about
+
+A question about a reply sends that reply's details: its result (model output that
+page text can steer), the original page text, its notes and its detected dialect. A
+hostile page can plant instructions in any of them.
+
+**Defense:** `src/shared/prompts.ts#renderAskAboutBlock` fences each value with
+`escapeFence` and names the block as untrusted data. The task name is one line, so
+it is inline-escaped (`escapeInline`). The block always goes in the user message,
+never in the system prompt. The service worker caps it again at the trust boundary
+(`src/background/index.ts#boundedOptions` → `src/shared/ask-about.ts#capAskAbout`).
+A stored question keeps no copy of the reply, only which reply it asks about, and that
+reference is checked on load (`src/shared/ask-about.ts#askTargetOf`). So a deleted reply
+reaches no later request.
+
+**Accepted risk:** "Ask instead" shows on any Translate reply that found its text
+already in the target language, including text handed over from a page. One click
+then sends that page text as the question. You see the text in the bubble before
+you click, the answer fetches no images (only inline base64 raster images render;
+remote and SVG images show as text), and links show their host.
 
 ### Prompt injection from your own presets and glossary
 

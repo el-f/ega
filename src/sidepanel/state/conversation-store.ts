@@ -1,4 +1,5 @@
 // One thread per origin under its own key, so a streaming delta's save rewrites just that thread.
+import { askTargetOf } from '@/shared/ask-about';
 import { withConversationLock } from '@/shared/conversation-lock';
 import {
   CONV_STORE_VERSION,
@@ -93,9 +94,14 @@ function validateStoredTurn(t: unknown): Turn | null {
     const user = { ...(e as unknown as UserTurnData), status: 'idle' as const };
     // Rendered as a count, so anything but a positive integer is dropped rather than shown.
     if (!(Number.isInteger(user.trimmedTo) && (user.trimmedTo ?? 0) > 0)) delete user.trimmedTo;
+    if (user.about !== undefined) {
+      const about = askTargetOf(user.about);
+      if (about) user.about = about;
+      else delete user.about;
+    }
     return user;
   }
-  const answer = e as unknown as AssistantTurnData;
+  const answer = withAskTargets(e as unknown as AssistantTurnData);
   const rawStatus = e['status'] as string;
   if (VALID_STATUSES.has(rawStatus)) {
     return remirrorInstructions(
@@ -109,6 +115,23 @@ function validateStoredTurn(t: unknown): Turn | null {
       error: { code: 'interrupted', message: 'The panel reloaded before this finished.' },
     }),
   );
+}
+
+/** An "Ask instead" version keeps which reply it asks about, as a user turn does; a malformed one is dropped. */
+function withAskTargets(t: AssistantTurnData): AssistantTurnData {
+  const asked = (v: Variant): boolean => v.about !== undefined || v.aboutUnsent !== undefined;
+  if (!Array.isArray(t.variants) || !t.variants.some(asked)) return t;
+  return {
+    ...t,
+    variants: t.variants.map(({ about, aboutUnsent, ...v }) => {
+      const target = about === undefined ? null : askTargetOf(about);
+      return {
+        ...v,
+        ...(target ? { about: target } : {}),
+        ...(aboutUnsent === true ? { aboutUnsent } : {}),
+      };
+    }),
+  };
 }
 
 type InstructionFields = Pick<ResultMeta, 'instructions' | 'instructionsLength'>;
@@ -733,8 +756,8 @@ export interface SaveThreadOptions {
 export interface SaveThreadResult {
   /** Another conversation was deleted to make room, so the caller can say which. */
   evicted?: EvictedConversation;
-  /** Oldest turns the 300-turn and 512 KB caps dropped from this write. Absent when nothing was trimmed. */
-  droppedTurns?: number;
+  /** Ids of the oldest turns the 300-turn and 512 KB caps dropped from this write. Absent when nothing was trimmed. */
+  droppedIds?: string[];
   /** The write only fit once every image payload was dropped; memory still holds them. */
   shedImages?: boolean;
   /** Turns the caller still shows that a tombstone kept out of the write. Absent when none. */
@@ -804,7 +827,13 @@ async function saveThreadLocked(
   const sized = fitThreadBytes(leanInstructions(trimmed).map(capTurnSize));
   const capped = sized.map((s) => s.turn);
   // `base` is already post-tombstone and post-merge, so a deliberate delete never counts here.
-  const droppedTurns = base.length - capped.length;
+  const keptIds = new Set(capped.map((t) => t.id));
+  const droppedIds = base.filter((t) => !keptIds.has(t.id)).map((t) => t.id);
+  // A trimmed turn is buried like a deleted one, or another window keeps quoting and sending it.
+  const written =
+    droppedIds.length === 0
+      ? tombstones
+      : mergeTombstones(tombstones, { deletedAt: new Map(droppedIds.map((id) => [id, now])) });
 
   const writeThread = async (ts: Turn[]): Promise<void> => {
     const thread: StoredThread = {
@@ -812,7 +841,7 @@ async function saveThreadLocked(
       origin,
       turns: ts,
       updatedAt: now,
-      ...(tombstones.length > 0 ? { tombstones } : {}),
+      ...(written.length > 0 ? { tombstones: written } : {}),
       ...(options.writer !== undefined ? { writer: options.writer } : {}),
       ...(stored.clearedAt !== undefined ? { clearedAt: stored.clearedAt } : {}),
     };
@@ -858,7 +887,7 @@ async function saveThreadLocked(
   const evicted = evictedQuota ?? indexEvicted[0];
   return {
     ...(evicted !== undefined ? { evicted } : {}),
-    ...(droppedTurns > 0 ? { droppedTurns } : {}),
+    ...(droppedIds.length > 0 ? { droppedIds } : {}),
     ...(shedImages ? { shedImages } : {}),
     ...(refused.length > 0 ? { refusedIds: refused } : {}),
   };

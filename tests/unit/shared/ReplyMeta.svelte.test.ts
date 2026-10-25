@@ -26,6 +26,32 @@ describe('ReplyMeta', () => {
     expect(items[2]?.classList.contains('warn')).toBe(true);
   });
 
+  it('a focused Stop that turns into "Ask instead" or goes away leaves focus on the reply, not on a new action', async () => {
+    const article = document.body.appendChild(document.createElement('article'));
+    article.tabIndex = -1;
+    const stop = { label: 'Stop', onclick: vi.fn() };
+    const ask = { label: 'Ask instead', kind: 'ask-instead' as const, onclick: vi.fn() };
+    const status = [{ key: 'status' as const, text: 'Reading aloud' }];
+    const { rerender } = render(ReplyMeta, {
+      target: article,
+      props: { items: status, statusAction: stop },
+    });
+    const before = article.querySelector<HTMLElement>('.ega-reply-meta-action');
+    before?.focus();
+    await rerender({
+      items: [{ key: 'status' as const, text: 'Already in English' }],
+      statusAction: ask,
+    });
+    const after = article.querySelector<HTMLElement>('[data-ega-ask-instead]');
+    expect(after).not.toBe(before);
+    expect(document.activeElement).toBe(article);
+
+    after?.focus();
+    await rerender({ items: [], statusAction: undefined });
+    expect(document.activeElement).toBe(article);
+    article.remove();
+  });
+
   it('puts the status action inside the status item', async () => {
     const onclick = vi.fn();
     const { getByRole } = render(ReplyMeta, {
@@ -94,6 +120,51 @@ describe('ReplyMeta', () => {
     expect(container.querySelector('[data-ega-meta-item="model"]')?.textContent).toBe(
       'Claude Haiku 4.5',
     );
+  });
+
+  it('takes a hidden item’s button out of the tab order, and puts it back once the item fits', async () => {
+    let statusRight = 260;
+    const spy = vi
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockImplementation(function (this: HTMLElement) {
+        if (this.hasAttribute('data-ega-reply-meta')) return { top: 0, right: 200 } as DOMRect;
+        const status = this.getAttribute('data-ega-meta-item') === 'status';
+        return { top: 0, right: status ? statusRight : 0 } as DOMRect;
+      });
+    const action = { label: 'Ask instead', kind: 'ask-instead' as const, onclick: vi.fn() };
+    const { container, rerender } = render(ReplyMeta, {
+      props: {
+        items: [{ key: 'status', text: 'Already in Chinese (Traditional)' }],
+        statusAction: action,
+      },
+    });
+    const button = (): HTMLButtonElement | null =>
+      container.querySelector<HTMLButtonElement>('[data-ega-ask-instead]');
+    expect(
+      container.querySelector('[data-ega-meta-item="status"]')?.classList.contains('ega-sr-only'),
+    ).toBe(true);
+    expect(button()?.tabIndex).toBe(-1);
+
+    statusRight = 150;
+    await rerender({
+      items: [{ key: 'status', text: 'Already in English' }],
+      statusAction: action,
+    });
+    spy.mockRestore();
+    expect(button()?.hasAttribute('tabindex')).toBe(false);
+  });
+
+  it('sets the status action off with the same dot as the items, outside the button', () => {
+    const { container } = render(ReplyMeta, {
+      props: {
+        items: [{ key: 'status', text: 'Reading aloud' }],
+        statusAction: { label: 'Stop', onclick: vi.fn() },
+      },
+    });
+    const sep = container.querySelector('.ega-reply-meta-sep');
+    expect(sep?.textContent).toBe('·');
+    expect(sep?.getAttribute('aria-hidden')).toBe('true');
+    expect(sep?.nextElementSibling?.textContent).toBe('Stop');
   });
 
   // The 18px line clips everything outside it, so Stop's ring has to sit inside the button.

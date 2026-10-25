@@ -5,8 +5,7 @@ import { sendMsg } from '@/shared/messages';
 import { IMAGE_TURN_PLACEHOLDER } from '@/shared/constants';
 import { currentSettings } from '@/content/settings-cache';
 import { canHandOffImage } from '@/shared/image-url-guard';
-import type { ErrCode } from '@/shared/types';
-import type { AnswerReplyFields } from '@/shared/types';
+import type { AnswerReplyFields, ErrCode } from '@/shared/types';
 import { closeStickyToast, showToast } from '../toast';
 
 export type EscalationKind = 'continue' | 'pin' | 'open-image' | 'open-panel';
@@ -29,6 +28,8 @@ export interface EscalateArgs {
   reply?: AnswerReplyFields;
   /** Open-panel mode — the code the image failed with. */
   errorCode?: ErrCode;
+  /** The tooltip's Ask: the panel asks about the reply it lands. */
+  ask?: true;
 }
 
 const IMAGE_LEFT_BEHIND = "Attach the image in the side panel. Ega can't pass this one along.";
@@ -94,6 +95,7 @@ export async function escalateToSidepanel(args: EscalateArgs): Promise<boolean> 
         ...(args.ocrText ? { ocrText: args.ocrText } : {}),
         ...(args.explain ? { explain: args.explain } : {}),
         ...(args.reply ? { reply: args.reply } : {}),
+        ...(args.ask ? { ask: true } : {}),
       },
     });
     return reply?.ok === true;

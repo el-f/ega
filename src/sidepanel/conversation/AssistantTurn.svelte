@@ -15,7 +15,7 @@
   import Icon from '@/shared/ui/Icon.svelte';
   import Copy from '@lucide/svelte/icons/copy';
   import Check from '@lucide/svelte/icons/check';
-  import RefreshCw from '@lucide/svelte/icons/refresh-cw';
+  import MessageCircleReply from '@lucide/svelte/icons/message-circle-reply';
   import CircleAlert from '@lucide/svelte/icons/circle-alert';
   import ChevronLeft from '@lucide/svelte/icons/chevron-left';
   import ChevronRight from '@lucide/svelte/icons/chevron-right';
@@ -23,6 +23,7 @@
   import { canSpeak, pickLocalVoice, speakWith, stopSpeaking } from '../speech';
   import {
     activeVariant as activeVariantOf,
+    askable,
     isCancelledError,
     turnTaskValue,
     type SwapPair,
@@ -34,6 +35,7 @@
     notesLabel,
     taskLabel,
     taskCapabilities,
+    taskOn,
     type TaskId,
     type TaskView,
   } from '@/shared/task-view';
@@ -44,13 +46,9 @@
   import { isIsoCode, labelFor } from '@/shared/languages';
   import { openOptionsTab } from '@/shared/open-options-tab';
   import { IMAGE_TURN_PLACEHOLDER, RETRY_AFTER_MAX_MS } from '@/shared/constants';
-  import {
-    detectedVarieties,
-    directionLabel,
-    replyMetaItems,
-    type ConfidenceSetting,
-    type DirectionInput,
-  } from '@/shared/reply-meta';
+  import { detectedVarieties, replyMetaItems, type ConfidenceSetting } from '@/shared/reply-meta';
+  import type { AskedAbout } from '@/shared/ask-about';
+  import { replyDirection } from '../state/thread-view';
   import ReplyMenus from './ReplyMenus.svelte';
   import TranslateIntoPopover from './TranslateIntoPopover.svelte';
 
@@ -97,6 +95,14 @@
     sentText?: string;
     /** The "Record request details" switch, for About on a reply that has no record. */
     recordsDetails?: boolean | undefined;
+    /** Starts Ask mode on this reply, or ends it when this reply is the one asked about. */
+    onAsk?: ((turnId: string) => void) | undefined;
+    /** Ask mode is asking about this reply. */
+    asked?: boolean;
+    /** Briefly highlighted after a quote led here. */
+    flash?: boolean;
+    /** What a reply's shown version asked about, read from the thread only when About opens. */
+    askedAboutOf?: ((turn: Turn) => AskedAbout | undefined) | undefined;
   }
 
   const {
@@ -127,6 +133,10 @@
     composerTarget,
     sentText = '',
     recordsDetails,
+    onAsk,
+    asked = false,
+    flash = false,
+    askedAboutOf,
   }: Props = $props();
 
   const variantCount = $derived(turn.variants?.length ?? 0);
@@ -149,7 +159,6 @@
 
   // The input language is the one the model named, else the one the send named; a swap version keeps its own.
   const answerTarget = $derived(activeVariant?.targetLang ?? targetLang);
-  const answerSource = $derived(activeVariant?.sourceLang ?? sourceLang);
   // Reword and Grammar answer in the input's language, which a swap version never re-sends.
   const answerLang = $derived(
     replyLang(currentTaskValue, answerTarget, turn.detectedLang ?? sourceLang, taskViews),
@@ -162,22 +171,25 @@
   const notesTag = $derived(langTag(answerTarget) ?? '');
   const mainItems = $derived(mainAnswerItems(turn.answer));
 
-  const directionInput = $derived<DirectionInput>({
-    detected: detectedVarieties(turn),
-    ...(answerSource !== undefined ? { sourceLang: answerSource } : {}),
-    ...(answerTarget !== undefined ? { targetLang: answerTarget } : {}),
-    sourceOnly: currentTaskValue === 'reword' || currentTaskValue === 'grammar',
-    varieties,
-  });
   // About names every language in full; the one-line meta cuts each name.
-  const direction = $derived(directionLabel(directionInput));
-  const metaDirection = $derived(directionLabel({ ...directionInput, short: true }));
+  const direction = $derived(replyDirection(turn, { sourceLang, targetLang }, varieties));
+  const metaDirection = $derived(
+    replyDirection(turn, { sourceLang, targetLang }, varieties, { short: true }),
+  );
+  // An answer to a question has no languages to show; the line names what it is instead.
+  const isAnswer = $derived(currentTaskValue === 'ask');
+  // About this reply would fall back to the sent pair ("Auto-detect → English"), so an answer names its language.
+  const detailsDirection = $derived(
+    isAnswer && answerLang !== undefined ? `Answered in ${langName(answerLang)}` : direction,
+  );
 
   const refinementBody = $derived(activeVariant?.refinementBody);
   // What made this version, as the meta line names it; a language change shows in the direction instead.
   const versionLabel = $derived.by(() => {
     if (refinementBody !== undefined) return activeVariant?.refinementLabel ?? 'Your change';
-    if (activeVariant?.task !== undefined) return `As ${taskLabel(taskViews, activeVariant.task)}`;
+    if (activeVariant?.task !== undefined && !isAnswer) {
+      return `As ${taskLabel(taskViews, activeVariant.task)}`;
+    }
     return undefined;
   });
 
@@ -245,16 +257,34 @@
     if (partial) return 'Partial answer';
     return undefined;
   });
+  const askOn = $derived(taskOn(taskViews, 'ask'));
+  // A Translate that found the text already in its own target language offers to ask it instead, once.
+  // While another reply runs the re-run would bail, so the offer waits for it.
+  const alreadyIn = $derived.by(() => {
+    if (turn.status !== 'done' || currentTaskValue !== 'translate' || imageTurn) return null;
+    if (!canRetry || onTaskSwitch === undefined || answerTarget === undefined) return null;
+    if (!askOn || inflight) return null;
+    if ((turn.variants ?? []).some((v) => v.task === 'ask')) return null;
+    const detected = detectedVarieties(turn).map((d) => d.id);
+    return detected.length === 1 && detected[0] === answerTarget ? langName(answerTarget) : null;
+  });
+  // Any other status (reading aloud, a version loading) takes the slot first.
+  const offer = $derived(statusText === undefined ? alreadyIn : null);
   // An empty or failed answer has nothing to be confident about (V5-05).
   const shownConfidence = $derived(
     answering || turn.status === 'error' || turn.content === '' ? undefined : turn.confidence,
   );
   const metaItems = $derived(
     replyMetaItems({
-      ...(statusText !== undefined ? { status: statusText } : {}),
+      ...(offer !== null
+        ? { status: `Already in ${offer}` }
+        : statusText !== undefined
+          ? { status: statusText }
+          : {}),
       bookmarked: isBookmarked,
       meta: answering ? undefined : turn.meta,
-      direction: answering ? '' : metaDirection,
+      // "English → English" would repeat the offer.
+      direction: answering || offer !== null ? '' : isAnswer ? 'Answer' : metaDirection,
       ...(versionLabel !== undefined && !answering ? { version: versionLabel } : {}),
       confidence: shownConfidence,
       confidenceSetting: confidence,
@@ -394,11 +424,14 @@
   });
 
   const srLabel = $derived(
-    variantCount > 1 ? `Ega reply, version ${activeIdx + 1} of ${variantCount}` : 'Ega reply',
+    (variantCount > 1 ? `Ega reply, version ${activeIdx + 1} of ${variantCount}` : 'Ega reply') +
+      (asked ? ', asked about' : ''),
   );
 
   // ── Action row ─────────────────────────────────────────────────────────────
   const canRerun = $derived(canRetry && onRefine !== undefined);
+  // A question needs a finished result to be about; an off Ask task offers nothing.
+  const canAsk = $derived(onAsk !== undefined && askable(turn) && askOn);
   const presets = $derived<readonly RefinePreset[]>(
     imageTurn ? [] : taskCapabilities(currentTaskValue, taskViews).refinePresets,
   );
@@ -430,7 +463,7 @@
   // One tab stop for the row; arrows move inside it. Hidden items are left out, never disabled ones.
   const actionKeys = $derived<readonly string[]>([
     'copy',
-    ...(canRetry ? ['regenerate'] : []),
+    ...(canAsk ? ['ask'] : []),
     ...(canRerun ? ['refine'] : []),
     'more',
     ...(variantCount > 1 ? ['prev', 'next'] : []),
@@ -515,6 +548,7 @@
     ),
   );
   const detailsText = $derived(sentText === IMAGE_TURN_PLACEHOLDER ? '' : sentText);
+  const askedAbout = $derived(askedAboutOf?.(turn));
 
   // Diff only refine versions: an edited question's fresh answer against the old one is noise.
   const prevVariant = $derived(
@@ -579,11 +613,14 @@
 <article
   class="ega-reply"
   class:focused
+  class:asked
+  class:flash
   class:older={!isLatest}
   tabindex="-1"
   aria-label={srLabel}
   data-turn-id={turn.id}
   data-ega-reply
+  data-ega-ask-target={asked ? '' : undefined}
   bind:this={articleEl}
 >
   {#if turn.status === 'error' && turn.error}
@@ -703,7 +740,13 @@
       items={metaItems}
       statusAction={speaking && transient === null
         ? { label: 'Stop', onclick: () => void toggleSpeech() }
-        : undefined}
+        : offer !== null
+          ? {
+              label: 'Ask instead',
+              kind: 'ask-instead',
+              onclick: () => onTaskSwitch?.(turn.id, 'ask'),
+            }
+          : undefined}
     />
     {#if turn.status === 'done'}
       <div
@@ -722,20 +765,17 @@
           dataAttrs={{ 'data-ega-action': 'copy', tabindex: tab('copy') }}
           onclick={() => void copyReply()}
         />
-        {#if canRetry}
+        {#if canAsk}
           <IconButton
-            icon={RefreshCw}
-            ariaLabel={inflight ? 'Regenerate (wait for the current reply)' : 'Regenerate'}
+            icon={MessageCircleReply}
+            ariaLabel="Ask about this"
             size="sm"
             dataAttrs={{
-              'data-ega-regenerate': 'true',
-              'data-ega-action': 'regenerate',
-              tabindex: tab('regenerate'),
-              ...(inflight ? { 'aria-disabled': 'true' } : {}),
+              'data-ega-action': 'ask',
+              'aria-pressed': asked ? 'true' : 'false',
+              tabindex: tab('ask'),
             }}
-            onclick={() => {
-              if (!inflight) onRegenerate?.(turn.id);
-            }}
+            onclick={() => onAsk?.(turn.id)}
           />
         {/if}
         <ReplyMenus
@@ -743,6 +783,9 @@
           refineTab={tab('refine')}
           moreTab={tab('more')}
           {canRerun}
+          onRegenerate={canRetry && onRegenerate !== undefined
+            ? () => onRegenerate(turn.id)
+            : undefined}
           busy={inflight}
           {presets}
           canDescribe={!imageTurn}
@@ -792,9 +835,10 @@
           image={imageMode}
           taskLabel={taskLabel(taskViews, currentTaskValue)}
           surface="panel"
-          {direction}
+          direction={detailsDirection}
           confidence={shownConfidence}
           change={activeVariant?.refinementLabel === undefined ? refinementBody : undefined}
+          {askedAbout}
           {recordsDetails}
           onOpenSettings={() => openOptionsTab('advanced')}
           onClose={() => void setAbout(false)}
@@ -811,6 +855,7 @@
 
 <style>
   .ega-reply {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: var(--space-1);
@@ -826,6 +871,45 @@
   .ega-reply:focus-visible {
     outline: 2px solid var(--color-accent);
     outline-offset: 2px;
+  }
+  /* The reply Ask mode is about: the quote's straight bar, in the gutter so the text never moves; not a ring, so never focus. */
+  .ega-reply.asked::before {
+    content: '';
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: calc(-1 * (var(--space-2) + 2px));
+    border-inline-start: 2px solid var(--color-accent);
+  }
+  /* Hold the tint 1 s, then fade 200 ms. */
+  @media (prefers-reduced-motion: no-preference) {
+    .ega-reply.flash {
+      animation: ega-reply-flash 1.2s linear;
+    }
+  }
+  /* The global rule cuts every animation to 0.01 ms here, so the tint holds without one; the panel drops the class at 1.2 s. */
+  @media (prefers-reduced-motion: reduce) {
+    .ega-reply.flash {
+      background-color: var(--color-accent-bg-soft);
+    }
+  }
+  @keyframes ega-reply-flash {
+    0%,
+    83% {
+      background-color: var(--color-accent-bg-soft);
+    }
+    100% {
+      background-color: transparent;
+    }
+  }
+  @media (forced-colors: active) {
+    .ega-reply.asked::before {
+      border-inline-start-color: Highlight;
+    }
+    .ega-reply.flash {
+      animation: none;
+      outline: 2px solid Highlight;
+      outline-offset: 2px;
+    }
   }
   .ega-answer {
     font-size: var(--fs-md);

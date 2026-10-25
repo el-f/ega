@@ -18,7 +18,7 @@ async function settledBounds(page: Page, width: number): Promise<void> {
 
 async function actionBounds(page: Page, width: number): Promise<void> {
   const buttons = page.locator('[data-ega-tooltip-actions]').getByRole('button');
-  expect(await buttons.count()).toBeLessThanOrEqual(5);
+  expect(await buttons.count()).toBeLessThanOrEqual(6);
   const bounds = await buttons.evaluateAll((items) =>
     items.map((item) => {
       const box = item.getBoundingClientRect();

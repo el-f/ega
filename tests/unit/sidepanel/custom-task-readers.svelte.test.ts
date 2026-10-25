@@ -71,7 +71,9 @@ describe('a custom-task turn', () => {
   });
 
   it('the thread names the task with its tone over the message, and the export names it', () => {
-    expect(taskLabelsOnChange([userTurn], views).get(userTurn.id)).toBe('Tweet summary · Formal');
+    expect(taskLabelsOnChange([userTurn], views, [userTurn]).get(userTurn.id)).toBe(
+      'Tweet summary · Formal',
+    );
     expect(exportMarkdown([userTurn], views)).toContain('**You (Tweet summary):**');
   });
 

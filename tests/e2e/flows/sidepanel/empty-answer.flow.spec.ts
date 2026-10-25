@@ -1,6 +1,12 @@
 /* coverage: translation.sidepanel.empty-answer */
 import { test, expect } from '@playwright/test';
-import { launchExtension, mockAnthropic, seedSettings, type ExtensionHandle } from '../../helpers';
+import {
+  launchExtension,
+  mockAnthropic,
+  openReplyMenu,
+  seedSettings,
+  type ExtensionHandle,
+} from '../../helpers';
 import { createTimeline } from '../_harness';
 
 let ext: ExtensionHandle;
@@ -40,10 +46,9 @@ test('a reply that comes back empty says so instead of rendering a blank turn', 
   await expect(page.locator('[data-ega-error]')).toHaveCount(0);
   await expect(page.locator('.ega-skeleton')).toHaveCount(0);
 
-  // The text points at Regenerate, so Regenerate has to be there.
-  await expect(
-    page.locator('[data-ega-reply]').getByRole('button', { name: 'Regenerate', exact: true }),
-  ).toBeVisible();
+  // The text points at Regenerate, so Regenerate has to be there: the first item of the Refine menu.
+  const menu = await openReplyMenu(page, 'refine');
+  await expect(menu.getByRole('menuitem', { name: 'Regenerate', exact: true })).toBeVisible();
 });
 
 test('a reply with text renders no empty-answer notice', async () => {

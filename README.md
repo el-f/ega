@@ -139,7 +139,7 @@ list offers deletion for its current site. Settings → Advanced → Data lets y
 any saved conversation in the side panel, delete individual conversations, or delete all.
 
 <p align="center">
-  <img src="docs/media/sidepanel.png" alt="Ega's side panel in dark mode on example.com with two exchanges: an Arabizi line and a slang line, each answered with one meta line (Arabizi (Levantine) → English · 95% confident, Gen-Z slang → English · 95% confident), and Copy, Regenerate, Refine and More under the latest answer" width="360">
+  <img src="docs/media/sidepanel.png" alt="Ega's side panel in dark mode on example.com with two exchanges: an Arabizi line and a slang line, each answered with one meta line (Arabizi (Levantine) → English · 95% confident, Gen-Z slang → English · 95% confident), and Copy, Ask, Refine and More under the latest answer" width="360">
 </p>
 
 ## Backends

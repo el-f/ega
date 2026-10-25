@@ -7,6 +7,7 @@
   import WandSparkles from '@lucide/svelte/icons/wand-sparkles';
   import Ellipsis from '@lucide/svelte/icons/ellipsis';
   import PanelRightOpen from '@lucide/svelte/icons/panel-right-open';
+  import MessageCircleReply from '@lucide/svelte/icons/message-circle-reply';
   import Icon from '@/shared/ui/Icon.svelte';
   import type { TipState } from '../tipState.svelte';
   import { taskCapabilities, type TaskView } from '@/shared/task-view';
@@ -46,6 +47,8 @@
     onToggleDetails: (open: boolean) => void;
     onToggleErrorDetails: () => void;
     onEscalate?: (() => void) | undefined;
+    /** Opens the side panel asking about this reply; shown once the reply has settled. */
+    onAsk?: (() => void) | undefined;
     onOpenOptions?: ((tab?: SettingsTab) => void) | undefined;
   }
   const {
@@ -74,6 +77,7 @@
     onToggleDetails,
     onToggleErrorDetails,
     onEscalate,
+    onAsk,
     onOpenOptions,
   }: Props = $props();
   let toolbar: HTMLDivElement | undefined = $state();
@@ -102,9 +106,11 @@
   const retryLabels = $derived(
     tip.retryRemainingSec === undefined ? [] : [retryLabel(RETRY_AFTER_MAX_MS / 1000)],
   );
-  // Regenerate and Refine take Stop's slot when the reply settles, and Retry takes it when it is stopped; Stop holds
+  // Ask, Regenerate and Refine take Stop's slot when the reply settles, and Retry takes it when it is stopped; Stop holds
   // their width, so Copy and More stay put (R63). With one icon (an image reply has no Refine) Stop is exactly its width.
-  const settleIcons = $derived((onRegenerate ? 1 : 0) + (onRefine && !tip.imageUrl ? 1 : 0));
+  const settleIcons = $derived(
+    (onAsk ? 1 : 0) + (onRegenerate ? 1 : 0) + (onRefine && !tip.imageUrl ? 1 : 0),
+  );
   // Stop becomes Retry in place, and Retry a new reply's Stop, so the rest of a double-click must not act on the new label.
   const isRepeat = repeatClickGuard();
   // Before the first words there is nothing to open; the button holds its place, off, so More stays put (R63).
@@ -230,6 +236,17 @@
           else if (isUserGesture(e)) onRetry?.();
         }}><StableLabel current={busy ? 'Stop' : 'Retry'} labels={['Stop', 'Retry']} /></button
       >{/if}
+    {#if !busy && !tip.stopped && onAsk}
+      <button
+        class="icon-btn"
+        aria-label="Ask about this in the side panel"
+        data-ega-tooltip-ask
+        data-tooltip="Ask about this in the side panel"
+        onclick={(e) => {
+          if (isUserGesture(e)) onAsk?.();
+        }}><Icon icon={MessageCircleReply} size={16} /></button
+      >
+    {/if}
     {#if !busy && !tip.stopped && onRegenerate}
       <button
         class="icon-btn"

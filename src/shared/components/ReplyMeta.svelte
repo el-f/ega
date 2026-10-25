@@ -1,10 +1,12 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import type { MetaItem } from '@/shared/reply-meta';
 
   interface Props {
     items: readonly MetaItem[];
-    /** A text button after the status item, e.g. "Stop" while reading aloud. The only control the line holds. */
-    statusAction?: { label: string; onclick: () => void } | undefined;
+    /** A text button after the status item: "Stop" while reading aloud, or "Ask instead". The only control the line holds. */
+    statusAction?:
+      { label: string; onclick: () => void; kind?: 'stop' | 'ask-instead' } | undefined;
   }
 
   const { items, statusAction }: Props = $props();
@@ -18,13 +20,40 @@
    */
   function fit(el: HTMLElement): void {
     const parts = [...el.querySelectorAll<HTMLElement>('[data-ega-meta-item]')];
-    for (const p of parts) p.classList.remove('ega-sr-only');
+    for (const p of parts) hide(p, false);
     const box = el.getBoundingClientRect();
     for (const p of parts) {
       const r = p.getBoundingClientRect();
-      if (r.top > box.top + 1 || r.right > box.right + 0.5) p.classList.add('ega-sr-only');
+      if (r.top > box.top + 1 || r.right > box.right + 0.5) hide(p, true);
     }
   }
+
+  /** A hidden item's button leaves the tab order too: Tab must not land on a control no one can see. */
+  function hide(p: HTMLElement, hidden: boolean): void {
+    p.classList.toggle('ega-sr-only', hidden);
+    for (const b of p.querySelectorAll('button')) {
+      if (hidden) b.tabIndex = -1;
+      else b.removeAttribute('tabindex');
+    }
+  }
+
+  // Another kind is another button, so a focused Stop never turns into "Ask instead" under the user's finger.
+  const actionKind = $derived(statusAction === undefined ? null : (statusAction.kind ?? 'stop'));
+  let actionHadFocus = false;
+  $effect.pre(() => {
+    void actionKind;
+    const a = document.activeElement;
+    actionHadFocus =
+      a !== null && a === untrack(() => line)?.querySelector('.ega-reply-meta-action');
+  });
+  // The button that had focus is gone, so focus goes to the reply around the line, not to the page.
+  $effect(() => {
+    void actionKind;
+    if (!actionHadFocus) return;
+    actionHadFocus = false;
+    const a = document.activeElement;
+    if (a === null || a === document.body) line?.closest<HTMLElement>('article')?.focus();
+  });
 
   $effect(() => {
     // Read before the guard, so a new item list or a Stop button re-fits the line.
@@ -47,12 +76,16 @@
       class:warn={item.warn === true}
       data-ega-meta-item={item.key}
       data-ega-direction={item.key === 'direction' ? '' : undefined}
-      >{item.text}{#if item.key === 'status' && statusAction}<button
-          type="button"
-          class="ega-reply-meta-action"
-          data-ega-meta-stop
-          onclick={statusAction.onclick}>{statusAction.label}</button
-        >{/if}</span
+      >{item.text}{#if item.key === 'status' && statusAction}<span
+          class="ega-reply-meta-sep"
+          aria-hidden="true">·</span
+        >{#key actionKind}<button
+            type="button"
+            class="ega-reply-meta-action"
+            data-ega-meta-stop={statusAction.kind === 'ask-instead' ? undefined : ''}
+            data-ega-ask-instead={statusAction.kind === 'ask-instead' ? '' : undefined}
+            onclick={statusAction.onclick}>{statusAction.label}</button
+          >{/key}{/if}</span
     >
   {/each}
 </p>
@@ -83,9 +116,13 @@
   .ega-reply-meta-item.warn {
     color: var(--color-warning-fg);
   }
-  /* The inline padding keeps the inset focus ring off the glyphs. */
+  /* The same dot and gaps as between items. */
+  .ega-reply-meta-sep {
+    padding-inline: var(--space-1);
+  }
+  /* The padding keeps the inset focus ring off the glyphs; the margin takes it back, so it adds no gap. */
   .ega-reply-meta-action {
-    margin-inline-start: var(--space-1);
+    margin-inline: calc(-1 * var(--space-1));
     padding: 0 var(--space-1);
     border: 0;
     background: none;

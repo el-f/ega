@@ -9,6 +9,7 @@ import { saveThread } from '@/sidepanel/state/conversation-store';
 import { toastStore } from '@/shared/components/toastStore';
 import type { Turn } from '@/sidepanel/state/conversation';
 import type { Msg } from '@/shared/messages';
+import { openMenu } from './_reply';
 
 const tabsQuery = chrome.tabs.query as unknown as Mock;
 const sendMessage = chrome.runtime.sendMessage as Mock;
@@ -133,10 +134,12 @@ describe('SidePanel — X14 toast lifetimes', () => {
       kind: 'translate:chunk',
       chunk: { type: 'done', requestId: lastRequestId(), confidence: 0.9 },
     } as Msg);
-    const regenerate = await button(container, '[data-ega-regenerate]');
+    await button(container, '[data-ega-reply] [data-ega-action="refine"]');
+    const menu = await openMenu(container, 'refine');
+    const regenerate = menu.querySelector<HTMLElement>('[data-ega-regenerate]');
     sticky.mockClear();
 
-    await fireEvent.click(regenerate);
+    await fireEvent.click(regenerate as HTMLElement);
     expect(sticky).toHaveBeenCalledTimes(1);
   });
 

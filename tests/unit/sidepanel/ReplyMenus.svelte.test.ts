@@ -15,12 +15,13 @@ const items = (menu: HTMLElement): string[] =>
   Array.from(menu.querySelectorAll('[role^="menuitem"]')).map((i) => i.textContent.trim());
 
 describe('Refine', () => {
-  it('offers the task presets, Describe a change and the language items', async () => {
+  it('offers Regenerate first, then the task presets, Describe a change and the language items', async () => {
     const { container } = render(AssistantTurn, {
       props: replyProps(doneReply(), { composerTarget: 'fr' }),
     });
     const menu = await openMenu(container, 'refine');
     expect(items(menu)).toEqual([
+      'Regenerate',
       'Shorter',
       'Less formal',
       'Keep slang',
@@ -46,7 +47,7 @@ describe('Refine', () => {
 
   it('presets follow the task; a custom task gets none but can still describe a change', async () => {
     const ex = render(AssistantTurn, { props: replyProps(doneReply({ kind: 'explain' })) });
-    expect(items(await openMenu(ex.container, 'refine')).slice(0, 2)).toEqual([
+    expect(items(await openMenu(ex.container, 'refine')).slice(1, 3)).toEqual([
       'Shorter',
       'Simpler',
     ]);
@@ -54,7 +55,7 @@ describe('Refine', () => {
     const custom = render(AssistantTurn, {
       props: replyProps(doneReply({ taskId: 'c-tweet' })),
     });
-    expect(items(await openMenu(custom.container, 'refine'))[0]).toBe('Describe a change…');
+    expect(items(await openMenu(custom.container, 'refine'))[1]).toBe('Describe a change…');
   });
 
   it('offers "Translate into" only when the composer target differs from this reply', async () => {
@@ -200,13 +201,13 @@ describe('Refine', () => {
     expect(props.onRefine).not.toHaveBeenCalled();
   });
 
-  it('an image reply offers only the language items', async () => {
+  it('an image reply offers only Regenerate and the language items', async () => {
     const { container } = render(AssistantTurn, {
       props: replyProps(doneReply({ kind: 'image-translate' }), { hasImage: true }),
     });
-    expect(items(await openMenu(container, 'refine'))).toEqual([
-      'Translate into another language…',
-    ]);
+    const menu = await openMenu(container, 'refine');
+    expect(items(menu)).toEqual(['Regenerate', 'Translate into another language…']);
+    expect(menu.querySelectorAll('[role="separator"]')).toHaveLength(1);
   });
 });
 

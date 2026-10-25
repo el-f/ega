@@ -164,6 +164,34 @@ the history when the turn has a picture (`src/sidepanel/state/conversation.ts#bu
 An image answer opened in the panel from the right-click menu arrives finished, so it is not a
 send at all and carries nothing.
 
+### A question about a reply sends that reply again
+
+"Ask about this" on a reply, in the side panel or in the page tooltip, sends your question with
+that reply's details: its task, its languages and detected dialect, the text you sent for it, its
+answer and its notes (`src/shared/ask-about.ts`). Each is cut to a fixed size. The task name is
+escaped to one line, and the rest is fenced as untrusted data
+(`src/shared/prompts.ts#renderAskAboutBlock`). The usual history goes too.
+
+- Your question saves only which reply it asks about, never a copy of that reply. Each request
+  reads the details from the reply as it is in the conversation at that moment.
+- Every new version of an answer to a question sends them again, with the history before the
+  question: Regenerate, Refine, Describe a change, Retry, Translate into and Swap.
+- "Answer again as" a task other than Ask sends your question's text alone.
+- "Ask instead" on a reply's meta line, and More → "Answer again as" → "Ask instead", ask that
+  reply's text about the newest earlier reply that has an answer. They send that earlier reply's
+  details and the history. On an answer to a question, they ask about the reply that question
+  asks about instead, and send nothing of a reply when that reply is gone.
+- "Notes" are the reply's notes, or its explanation when it has no notes.
+- Deleting a reply removes it from every later request at once
+  (`src/sidepanel/state/thread-view.ts#askAboutFor`). A new version of a question about it sends
+  the question and the history only. The same holds when the reply drops off because the
+  conversation passed 300 messages or 512 KB, or another window deleted it. The save that drops a
+  reply also marks it deleted, so every open window removes it
+  (`src/sidepanel/state/conversation-store.ts#saveThread`).
+  Undo of the delete brings the reply back, and later requests send it again.
+- In the tooltip, "Ask about this" opens the side panel. Nothing is sent until you type a
+  question and send it.
+
 "Ega ▸ Translate in side panel" ships enabled by default
 (`src/shared/context-menu.ts#DEFAULT_CONTEXT_MENU_ITEMS`). The image items land their answer in
 the panel too by default (each image item's "Opens in", Settings → Selection and picker → Right-click menu), which adds it to
@@ -189,13 +217,16 @@ Masked patterns: Anthropic keys, OpenAI keys, Google API keys, GitHub tokens, AW
 Slack tokens, Stripe keys, npm tokens, JWTs, PEM private-key blocks, `Bearer` tokens, e-mail
 addresses, card numbers that pass a Luhn check.
 
-Two things this does **not** cover, both on purpose:
+Three things this does **not** cover, all on purpose:
 
 - **The text you asked to translate is never masked.** Masking it would break the translation.
 - **Replayed conversation history is never masked.** The scrubber runs on the page-context
   fields only (`src/shared/redact.ts#redactContext`). A secret that reached an earlier turn as
   selected text goes out again, unmasked, with every later send from that site's panel. "New
   conversation" is the way to drop it.
+- **A question about a reply sends that reply again, unmasked.** Each request reads the reply's
+  original text, result and notes from the conversation
+  (`src/sidepanel/state/thread-view.ts#askAboutFor`). Delete the reply to stop that.
 
 ## Where it goes
 

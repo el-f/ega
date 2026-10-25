@@ -215,6 +215,11 @@ export function taskCapabilities(id: string, views: readonly TaskView[] = SHIPPE
   );
 }
 
+/** The list has the task and it is switched on. */
+export function taskOn(views: readonly TaskView[], id: string): boolean {
+  return views.some((v) => v.id === id && !v.disabled);
+}
+
 /** A built-in id, or the id of a task the list still has. */
 export function taskExists(views: readonly TaskView[], id: string): boolean {
   return views.some((x) => x.id === id) || builtInTask(id) !== null;

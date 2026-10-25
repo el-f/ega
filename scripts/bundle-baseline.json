@@ -37,7 +37,7 @@
   },
   {
     "name": "command-registry",
-    "bytes": 30592
+    "bytes": 30967
   },
   {
     "name": "custom-tasks-state.svelte",
@@ -133,7 +133,7 @@
   },
   {
     "name": "pending-popup-handoff",
-    "bytes": 2226
+    "bytes": 4897
   },
   {
     "name": "perf-history",
@@ -229,7 +229,7 @@
   },
   {
     "name": "task-view",
-    "bytes": 4098
+    "bytes": 4169
   },
   {
     "name": "tasks",
@@ -281,7 +281,7 @@
   },
   {
     "name": "translate-ui",
-    "bytes": 2986
+    "bytes": 3025
   },
   {
     "name": "vendor-bits-ui",
@@ -297,7 +297,7 @@
   },
   {
     "name": "vendor-lucide",
-    "bytes": 26272
+    "bytes": 26654
   },
   {
     "name": "vendor-marked",

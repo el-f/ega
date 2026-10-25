@@ -121,6 +121,11 @@
   .ega-md :global(a) {
     color: var(--color-accent);
   }
+  /* The browser's bold is 700; the surfaces use 400 and 600 only. */
+  .ega-md :global(strong),
+  .ega-md :global(b) {
+    font-weight: 600;
+  }
   .ega-md :global(h1),
   .ega-md :global(h2),
   .ega-md :global(h3),

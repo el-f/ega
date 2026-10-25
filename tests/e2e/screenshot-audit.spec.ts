@@ -2139,7 +2139,7 @@ test.describe('Sidepanel redesign', () => {
       'refine-menu',
       'Refine open on the newest reply, composer target French',
       [
-        'presets for the task, "Describe a change…", "Translate into French", "Translate into another language…"',
+        '"Regenerate" and a separator, then presets for the task, "Describe a change…", "Translate into French", "Translate into another language…"',
       ],
       { perShot: (p) => openReplyMenu(p, 'refine') },
     );

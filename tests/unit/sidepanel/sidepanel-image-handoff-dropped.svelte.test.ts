@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { Mock } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/svelte';
+import { render, waitFor, within } from '@testing-library/svelte';
 import SidePanel from '@/sidepanel/SidePanel.svelte';
 import { writePendingPopupHandoff } from '@/shared/pending-popup-handoff';
 import {
@@ -11,6 +11,7 @@ import {
 } from '@/shared/constants';
 import type { Msg } from '@/shared/messages';
 import { drainAsync } from '@tests/_helpers/async';
+import { openMenu } from './_reply';
 
 const sendMessage = chrome.runtime.sendMessage as Mock;
 
@@ -62,7 +63,9 @@ describe('SidePanel — an image tooltip handoff whose image was too large', () 
     const { container } = render(SidePanel);
 
     await waitFor(() => expect(container.textContent).toContain('Exit only'));
-    expect(screen.queryByRole('button', { name: 'Regenerate' })).toBeNull();
+    // Regenerate leads the Refine menu, which a reply with nothing to replay does not show.
+    expect(container.querySelector('[data-ega-reply] [data-ega-action="more"]')).not.toBeNull();
+    expect(container.querySelector('[data-ega-reply] [data-ega-action="refine"]')).toBeNull();
   });
 
   it('still offers Regenerate on a finished text handoff', async () => {
@@ -78,9 +81,8 @@ describe('SidePanel — an image tooltip handoff whose image was too large', () 
     const { container } = render(SidePanel);
 
     await waitFor(() => expect(container.textContent).toContain('Exit only'));
-    await waitFor(() =>
-      expect(screen.queryByRole('button', { name: 'Regenerate' })).not.toBeNull(),
-    );
+    const menu = await openMenu(container, 'refine');
+    expect(within(menu).queryByRole('menuitem', { name: 'Regenerate' })).not.toBeNull();
   });
 
   it('adds no turn and sends nothing when the image was dropped and no answer came with it', async () => {

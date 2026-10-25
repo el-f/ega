@@ -195,7 +195,7 @@ describe('a re-run of a version in another language keeps that language', () => 
     expect(await c.langVariant(assistantId, FR)).toBe(true);
     drain(c);
 
-    expect(await c.taskVariant(assistantId, 'summarize')).toBe(true);
+    expect(await c.taskVariant(assistantId, 'summarize')).not.toBeNull();
     expect(lastStart()['targetLang']).toBe(FR);
   });
 });

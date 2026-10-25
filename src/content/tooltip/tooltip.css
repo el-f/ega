@@ -1135,9 +1135,13 @@
 .ega-reply-meta-item.warn {
   color: var(--color-warning-fg);
 }
-/* The inline padding keeps the inset focus ring off the glyphs. */
+/* The same dot and gaps as between items. */
+.ega-reply-meta-sep {
+  padding-inline: var(--space-1);
+}
+/* The padding keeps the inset focus ring off the glyphs; the margin takes it back, so it adds no gap. */
 .ega-reply-meta-action {
-  margin-inline-start: var(--space-1);
+  margin-inline: calc(-1 * var(--space-1));
   padding: 0 var(--space-1);
   border: 0;
   background: none;

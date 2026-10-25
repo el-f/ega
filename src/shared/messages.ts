@@ -1,3 +1,4 @@
+import type { AskAbout } from './ask-about';
 import type {
   CustomLanguage,
   DetectedVariety,
@@ -63,6 +64,8 @@ export type Msg =
         imageUrl?: string;
         /** Prior conversation turns, oldest-first. Absent on the first turn. */
         conversationHistory?: ChatTurn[];
+        /** See TranslationRequest.options.askAbout. */
+        askAbout?: AskAbout;
         /** One block of a page translate (see TranslationRequest.options.batch). */
         batch?: boolean;
         /** Skip the cached answer (see TranslationRequest.options.freshAnswer). */

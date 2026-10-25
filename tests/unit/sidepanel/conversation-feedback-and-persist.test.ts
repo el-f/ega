@@ -102,7 +102,7 @@ describe('the store says what it dropped and what it could not read', () => {
       deletedAt: new Map(),
       revivedAt: new Map(),
     });
-    expect(res.droppedTurns).toBe(4);
+    expect(res.droppedIds).toEqual(['t0', 't1', 't2', 't3']);
   });
 
   it('tells the panel when the tab site’s stored thread cannot be read', async () => {

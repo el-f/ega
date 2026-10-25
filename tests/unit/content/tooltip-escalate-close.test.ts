@@ -72,6 +72,15 @@ async function openStreaming(onClose: () => void): Promise<void> {
   });
 }
 
+/** The Ask button shows only once the answer settles, so it doubles as the wait for that render. */
+function settledAsk(): Promise<HTMLButtonElement> {
+  return vi.waitFor(() => {
+    const b = getContainer().querySelector<HTMLButtonElement>('[data-ega-tooltip-ask]');
+    if (!b) throw new Error('no Ask button');
+    return b;
+  });
+}
+
 function pin(): void {
   getContainer().querySelector<HTMLButtonElement>('[data-ega-escalate="pin"]')?.click();
 }
@@ -119,6 +128,74 @@ describe('Pin to side panel from a tooltip that is still streaming', () => {
       );
     });
     expect(wraps().length).toBe(1);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('Ask hands off the finished reply with the ask flag, what it detected and how sure it was', async () => {
+    sendMessage.mockResolvedValue({ ok: true });
+    await openStreaming(vi.fn());
+    finishTooltipDirect('r1', 'Hi, how are you?', 0.9, {
+      detectedLang: 'arabizi',
+      detectedDetail: 'Levantine',
+      detectedLangs: [{ id: 'arabizi', detail: 'Levantine' }],
+    });
+    (await settledAsk()).click();
+    await vi.waitFor(() => expect(sendMessage).toHaveBeenCalled());
+    expect(sendMessage.mock.calls.at(-1)?.[0]).toMatchObject({
+      kind: 'ui:open-sidepanel',
+      handoff: {
+        sourceText: 'hola',
+        response: 'Hi, how are you?',
+        ask: true,
+        reply: {
+          detectedLang: 'arabizi',
+          detectedDetail: 'Levantine',
+          detectedLangs: [{ id: 'arabizi', detail: 'Levantine' }],
+          confidence: 0.9,
+        },
+      },
+    });
+    await vi.waitFor(() => expect(wraps().length).toBe(0));
+  });
+
+  it('Open in side panel carries the detection too, but no ask flag', async () => {
+    sendMessage.mockResolvedValue({ ok: true });
+    await openStreaming(vi.fn());
+    finishTooltipDirect('r1', 'Hi', 0.9, { detectedLang: 'arabizi', detectedDetail: 'Levantine' });
+    await settledAsk();
+    pin();
+    await vi.waitFor(() => expect(sendMessage).toHaveBeenCalled());
+    const handoff = (sendMessage.mock.calls.at(-1)?.[0] as { handoff: Record<string, unknown> })
+      .handoff;
+    expect(handoff).toMatchObject({
+      reply: { detectedLang: 'arabizi', detectedDetail: 'Levantine' },
+    });
+    expect(handoff['ask']).toBeUndefined();
+  });
+
+  it('a pin while the answer streams sends no detection: the panel runs it again', async () => {
+    sendMessage.mockResolvedValue({ ok: true });
+    await openStreaming(vi.fn());
+    pin();
+    await vi.waitFor(() => expect(sendMessage).toHaveBeenCalled());
+    const handoff = (sendMessage.mock.calls.at(-1)?.[0] as { handoff: Record<string, unknown> })
+      .handoff;
+    expect(handoff['reply']).toBeUndefined();
+  });
+
+  it('an Ask the worker could not open keeps the tooltip and says so', async () => {
+    sendMessage.mockResolvedValue({ ok: false });
+    const onClose = vi.fn();
+    await openStreaming(onClose);
+    finishTooltipDirect('r1', 'Hi', 0.9);
+    (await settledAsk()).click();
+    await vi.waitFor(() => {
+      expect(getContainer().querySelector('[data-ega-toast-wrap]')?.textContent).toContain(
+        "Ega couldn't open the side panel. Try again.",
+      );
+    });
+    expect(wraps().length).toBe(1);
+    expect(getContainer().textContent).toContain('Hi');
     expect(onClose).not.toHaveBeenCalled();
   });
 

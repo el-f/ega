@@ -271,7 +271,7 @@ function buildTooltipProps(o: OpenOpts, state: TipState): ComponentProps<typeof 
     },
     onexplain: () => o.onExplain?.(),
     ...(o.onOpenOptions ? { onopenoptions: (tab?: SettingsTab) => o.onOpenOptions?.(tab) } : {}),
-    onescalate: (kind: EscalationKind): void => {
+    onescalate: (kind: EscalationKind, ask?: true): void => {
       void escalateToSidepanel({
         subKind: kind,
         text: state.srcText,
@@ -299,9 +299,15 @@ function buildTooltipProps(o: OpenOpts, state: TipState): ComponentProps<typeof 
                 ...(state.answer ? { answer: state.answer } : {}),
                 ...(state.meta ? { meta: state.meta } : {}),
                 ...(state.explain ? { explain: state.explain } : {}),
+                // The seeded reply shows the direction this tooltip showed, and a question about it sends that.
+                ...(state.detectedLang ? { detectedLang: state.detectedLang } : {}),
+                ...(state.detectedDetail ? { detectedDetail: state.detectedDetail } : {}),
+                ...(state.detectedLangs?.length ? { detectedLangs: state.detectedLangs } : {}),
+                ...(state.confidence !== undefined ? { confidence: state.confidence } : {}),
               },
             }
           : {}),
+        ...(ask ? { ask } : {}),
       }).then((opened) => {
         if (!opened) {
           showToast("Ega couldn't open the side panel. Try again.", { kind: 'error' });

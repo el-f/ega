@@ -7,7 +7,7 @@
 ## State expectations
 
 - Step 1: a turn is in flight; the backend finishes with an empty translation.
-- Step 2: the assistant slot shows a muted notice ("No reply came back. Click Regenerate, or check the model in Settings → Backends.") instead of a blank card; Regenerate stays available.
+- Step 2: the assistant slot shows a muted notice ("No answer came back. Try Regenerate.") instead of a blank card; Regenerate stays available as the first item of the menu named "Regenerate or refine".
 - Step 3: a later reply with text renders normally with no notice.
 
 ## Visible affordances

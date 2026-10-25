@@ -270,7 +270,10 @@ const EAGER_CONTENT_BUDGET_BYTES = 159_717;
 // own chunk, shared with the side panel and the page pill) and the off Swap. Ratchet at the measured production
 // preload set, without extra headroom.
 // The varieties.ts shipped-pattern check adds 116B.
-const POPUP_PAGE_BUDGET_BYTES = 524_424;
+// Ask about a reply +480B (the reply Ask icon in the lucide chunk, the handoff ask flag);
+// the handoff reply decoder +839B (only known reply fields, each of its type), then +1,806B (each note, detail
+// and meta field, since a content script writes the reply).
+const POPUP_PAGE_BUDGET_BYTES = 527_549;
 
 function measurePagePreload(distDir: string, htmlRel: string): { files: string[]; bytes: number } {
   const htmlPath = path.join(distDir, htmlRel);

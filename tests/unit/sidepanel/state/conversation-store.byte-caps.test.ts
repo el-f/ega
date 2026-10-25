@@ -106,6 +106,20 @@ describe('the whole-thread cap', () => {
     expect(ids).not.toContain('t00');
   });
 
+  it('reports the turns it dropped, so the panel can drop them too', async () => {
+    await chrome.storage.local.remove(threadKey(ORIGIN));
+    const big = 'y'.repeat(60_000);
+    const turns = Array.from({ length: 20 }, (_, i) =>
+      userTurn(`t${String(i).padStart(2, '0')}`, { content: big, createdAt: i + 1 }),
+    );
+
+    const { droppedIds } = await saveThread(ORIGIN, turns);
+    const kept = new Set((await loadThreadResult(ORIGIN)).turns.map((t) => t.id));
+
+    expect(kept.size).toBeLessThan(turns.length);
+    expect(droppedIds).toEqual(turns.filter((t) => !kept.has(t.id)).map((t) => t.id));
+  });
+
   it('keeps a thread that sits under the budget whole', async () => {
     const turns = Array.from({ length: 5 }, (_, i) =>
       userTurn(`t${String(i)}`, { content: 'z'.repeat(1000), createdAt: i + 1 }),

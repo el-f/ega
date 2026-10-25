@@ -35,6 +35,10 @@
     onEdit?: ((id: string) => void) | undefined;
     /** True while a reply is streaming; editing would truncate under the running turn. */
     inflight?: boolean;
+    /** The reply this question links to and its first line; undefined once that reply left the conversation, so it shows no quote. */
+    quoted?: { turnId: string; text: string } | undefined;
+    /** Shows the quoted reply. */
+    onQuote?: ((replyId: string) => void) | undefined;
   }
 
   const {
@@ -50,8 +54,22 @@
     onDelete,
     onEdit,
     inflight = false,
+    quoted,
+    onQuote,
   }: Props = $props();
   const menuFocus = outsidePressFocus();
+
+  let articleEl: HTMLElement | null = $state(null);
+  // The quote goes once its reply leaves the thread (another window's delete, the store's trim), so focus on it
+  // moves to this message, as j/k would, not to the page body.
+  $effect.pre(() => {
+    if (
+      quoted === undefined &&
+      articleEl?.querySelector('[data-ega-ask-quote]')?.contains(document.activeElement)
+    ) {
+      articleEl.focus();
+    }
+  });
 
   // The marker is a render token, not text the user wrote: nothing to show and nothing to copy.
   const hasText = $derived(turn.content !== '' && turn.content !== IMAGE_TURN_PLACEHOLDER);
@@ -118,6 +136,7 @@
 </script>
 
 <article
+  bind:this={articleEl}
   class="ega-user-turn"
   class:focused
   class:after-sep={afterSeparator}
@@ -131,6 +150,20 @@
   {/if}
   <div class="ega-bubble-wrap">
     <div class="ega-bubble" class:editing data-ega-user-bubble>
+      <!-- A reply that left the thread leaves no mark: the bubble is a plain question. -->
+      {#if quoted !== undefined}
+        {@const replyId = quoted.turnId}
+        <!-- A label, not a hidden span: Chrome puts a space before a hidden span's comma in the name. -->
+        <button
+          type="button"
+          class="ega-ask-quote"
+          aria-label="{quoted.text}, go to the reply"
+          data-ega-ask-quote
+          onclick={() => onQuote?.(replyId)}
+          ><span class="ega-ask-quote-text" dir="auto" data-ega-truncates>{quoted.text}</span
+          ></button
+        >
+      {/if}
       {#if turn.imageDataUrl}
         <ImagePreview src={turn.imageDataUrl} alt="Your image" />
       {:else if isImageTurn(turn)}
@@ -284,6 +317,42 @@
     font-size: var(--fs-sm);
     color: var(--color-muted);
   }
+  /* One line with the reply's bar; the bubble grows to it up to its 85% cap, then it ends in an ellipsis. */
+  .ega-ask-quote {
+    display: flex;
+    align-items: center;
+    box-sizing: border-box;
+    min-inline-size: 0;
+    min-block-size: 28px;
+    padding: 0 0 0 var(--space-2);
+    border: 0;
+    border-inline-start: 2px solid var(--color-accent);
+    background: none;
+    color: var(--color-muted);
+    font: inherit;
+    font-size: var(--fs-sm);
+    line-height: var(--lh-body);
+    text-align: start;
+    cursor: pointer;
+  }
+  .ega-ask-quote:hover {
+    color: var(--color-fg);
+  }
+  .ega-ask-quote:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+  .ega-ask-quote-text {
+    min-inline-size: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  @media (forced-colors: active) {
+    .ega-ask-quote {
+      border-inline-start-color: Highlight;
+    }
+  }
   .ega-user-toolbar {
     display: flex;
     align-items: center;
@@ -314,6 +383,16 @@
     }
     .ega-user-turn.after-sep > .ega-bubble-wrap:first-child {
       margin-block-start: calc(var(--space-5) - var(--space-2));
+    }
+    /* A quote fills the bubble's top, so the toolbar rises its whole height above the bubble, and the room grows to match. */
+    .ega-bubble-wrap:has(> .ega-bubble > .ega-ask-quote) > .ega-user-toolbar {
+      inset-block-start: calc(-1 * (var(--space-5) + var(--space-3)));
+    }
+    .ega-user-turn > .ega-bubble-wrap:has(> .ega-bubble > .ega-ask-quote):first-child {
+      margin-block-start: var(--space-3);
+    }
+    .ega-user-turn.after-sep > .ega-bubble-wrap:has(> .ega-bubble > .ega-ask-quote):first-child {
+      margin-block-start: var(--space-6);
     }
     .ega-user-turn:hover .ega-user-toolbar,
     .ega-user-turn:focus-within .ega-user-toolbar,

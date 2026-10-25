@@ -14,7 +14,7 @@
 ## Visible affordances
 
 - The items stay in the arrow-key order and read as unavailable, so the user sees why nothing happens.
-- Regenerate is `aria-disabled` too, named "Regenerate (wait for the current reply)".
+- The Regenerate item in the Refine menu is `aria-disabled` too, with the same reason.
 
 ## Failure-mode expectations
 

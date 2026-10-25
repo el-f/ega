@@ -399,6 +399,176 @@ describe('pending-popup-handoff — a send is answered by its own window', () =>
   });
 });
 
+describe('pending-popup-handoff — a tooltip Ask', () => {
+  beforeEach(async () => {
+    await chrome.storage.session.remove(PENDING_POPUP_HANDOFF_KEY);
+  });
+
+  const planted = async (extra: Record<string, unknown>) => {
+    await chrome.storage.session.set({
+      [PENDING_POPUP_HANDOFF_KEY]: {
+        k1: {
+          sourceText: 'mar7aba',
+          sourceLang: 'auto',
+          targetLang: 'en',
+          task: 'translate',
+          tone: 'neutral',
+          ts: Date.now(),
+          response: 'Hello',
+          ...extra,
+        },
+      },
+    });
+    const out = await drainPendingPopupHandoff();
+    expect(out).toHaveLength(1);
+    return out[0];
+  };
+
+  it('carries the ask flag, and the detection inside the reply, through write and drain', async () => {
+    await writePendingPopupHandoff({
+      sourceText: 'mar7aba',
+      sourceLang: 'auto',
+      targetLang: 'en',
+      task: 'translate',
+      tone: 'neutral',
+      response: 'Hello',
+      ask: true,
+      reply: {
+        detectedLang: 'arabizi',
+        detectedDetail: 'Levantine',
+        detectedLangs: [{ id: 'arabizi', detail: 'Levantine' }, { id: 'en' }],
+        confidence: 0.93,
+      },
+    });
+    const [h] = await drainPendingPopupHandoff();
+    expect(h).toMatchObject({
+      ask: true,
+      reply: {
+        detectedLang: 'arabizi',
+        detectedDetail: 'Levantine',
+        detectedLangs: [{ id: 'arabizi', detail: 'Levantine' }, { id: 'en' }],
+        confidence: 0.93,
+      },
+    });
+  });
+
+  it('keeps only the known reply fields of the right type, so none can replace the seeded turn', async () => {
+    const h = await planted({
+      reply: {
+        detectedLang: 5,
+        detectedLangs: [{ id: 7 }, { id: 'en', detail: 3 }],
+        confidence: 'high',
+        status: 'error',
+        id: 'x',
+        content: 'not the reply',
+        about: { turnId: 'a0' },
+        notes: 'a note',
+        meta: [],
+        explain: 'why',
+      },
+    });
+    expect(h?.reply).toEqual({ detectedLangs: [{ id: 'en' }], explain: 'why' });
+  });
+
+  it('passes a well-formed tooltip reply through unchanged', async () => {
+    const reply = {
+      notes: [
+        { key: 'dialect', label: 'Dialect', text: 'Levantine' },
+        { key: 'words', label: 'Words', items: ['kifak', 'mar7aba'] },
+      ],
+      details: [{ key: 'score', label: 'Score', value: 3 }],
+      answer: {
+        spec: { id: 'list', version: 1, fields: [{ key: 'main', kind: 'list', role: 'main' }] },
+        fields: { main: ['Hi'] },
+      },
+      meta: {
+        backendId: 'anthropic',
+        cacheHit: false,
+        latencyMs: 900,
+        firstTokenMs: 300,
+        modelId: 'claude-haiku-4-5',
+        attempts: [{ backendId: 'anthropic', status: 'ok', latencyMs: 900 }],
+        detectedLangs: [{ id: 'arabizi', detail: 'Levantine' }],
+        answerFormat: { spec: 'list', checkedBy: 'prompt', issues: ['short'] },
+        inputTokens: 40,
+        pageContextSent: true,
+        imageArm: 'ocr',
+        instructions: 'Translate.',
+      },
+      explain: 'why',
+    };
+    expect((await planted({ reply }))?.reply).toEqual(reply);
+  });
+
+  // Notes and details render in keyed lists: an entry with no string key, or a key seen twice, throws on every render.
+  it('keeps only the entries and the meta fields the panel can render, at their types', async () => {
+    const h = await planted({
+      reply: {
+        notes: [
+          null,
+          { label: 'no key' },
+          { key: 'k1', label: 'Dialect', text: 'Levantine', items: [1] },
+          { key: 'k1', label: 'again' },
+          { key: 'k2', label: 'Words', items: ['kifak'] },
+        ],
+        details: [
+          { key: 'd1', label: 'Score', value: 3 },
+          { key: 7, label: 'x' },
+        ],
+        meta: {
+          backendId: 'anthropic',
+          cacheHit: false,
+          latencyMs: 900,
+          modelId: 7,
+          attempts: [null, { backendId: 'ollama', status: 'error', latencyMs: 5, code: 'NETWORK' }],
+          historyTurns: 'two',
+          stray: 'x',
+        },
+        answer: { spec: { fields: [null] }, fields: {} },
+      },
+    });
+    expect(h?.reply).toEqual({
+      notes: [
+        { key: 'k1', label: 'Dialect', text: 'Levantine' },
+        { key: 'k2', label: 'Words', items: ['kifak'] },
+      ],
+      details: [{ key: 'd1', label: 'Score', value: 3 }],
+      meta: {
+        backendId: 'anthropic',
+        cacheHit: false,
+        latencyMs: 900,
+        attempts: [{ backendId: 'ollama', status: 'error', latencyMs: 5, code: 'NETWORK' }],
+      },
+    });
+    const notes = Array.from({ length: 40 }, (_, i) => ({ key: `n${i}`, label: 'Note' }));
+    expect((await planted({ reply: { notes } }))?.reply?.notes).toHaveLength(32);
+    // The meta line reads these three on every render, so a meta without them goes.
+    const thin = await planted({ reply: { meta: { backendId: 'anthropic', latencyMs: 9 } } });
+    expect(thin?.reply).toEqual({});
+  });
+
+  it('cuts the detection to its caps and keeps a confidence only inside 0..1', async () => {
+    const many = Array.from({ length: 10 }, (_, i) => ({ id: `l${i}` }));
+    const h = await planted({
+      reply: {
+        detectedLang: 'x'.repeat(129),
+        detectedDetail: 'Levantine',
+        detectedLangs: many,
+        confidence: 1.5,
+      },
+    });
+    expect(h?.reply).toEqual({ detectedDetail: 'Levantine', detectedLangs: many.slice(0, 8) });
+    expect((await planted({ reply: { confidence: Number.NaN } }))?.reply).toEqual({});
+    expect((await planted({ reply: { confidence: 0.93 } }))?.reply).toEqual({ confidence: 0.93 });
+  });
+
+  it('keeps the message and drops an ask flag that is not exactly true', async () => {
+    for (const ask of ['true', 1, {}, false]) {
+      expect((await planted({ ask }))?.ask).toBeUndefined();
+    }
+  });
+});
+
 describe('image size', () => {
   it('keeps an image up to the store cap and flags a larger one as dropped instead of losing it silently', async () => {
     await writePendingPopupHandoff({

@@ -31,7 +31,14 @@
   import { sendTabMsg } from '@/shared/messages';
   import AppShell from '@/shared/ui/AppShell.svelte';
   import { builtInTask, runnableDefaultTask, type Tone } from '@/shared/task-prompts';
-  import { findTask, materializeTasks, type TaskId } from '@/shared/task-view';
+  import {
+    findTask,
+    materializeTasks,
+    SHIPPED_TASK_VIEWS,
+    taskOn,
+    type TaskId,
+  } from '@/shared/task-view';
+  import { askQuote } from '@/shared/ask-about';
   import { taskUsesTone } from '@/shared/language-prompt';
   import type { CustomTask } from '@/shared/settings-schema';
   import ConversationStream from './conversation/ConversationStream.svelte';
@@ -42,9 +49,14 @@
   import { conversationLabel } from '@/shared/saved-conversations';
   import { INDEX_KEY } from './state/conversation-store';
   import {
+    askable,
+    activeVariant,
+    askTarget,
+    atVariant,
     visibleTurns,
     searchTurns,
     turnTaskValue,
+    type Turn,
     type UserTurnData,
   } from './state/conversation';
   import { exportMarkdown, exportJson } from './state/conversation-export';
@@ -67,6 +79,8 @@
   // Same ceilings as the tooltip's stuck guard, read at dispatch so a settings edit applies to the next send.
   const conversation = createConversation({
     stallMs: (hasImage) => (hasImage ? imageStuckTimeoutMs(settings) : stuckTimeoutMs(settings)),
+    // A question names the reply the way its meta line does.
+    askLabels: () => ({ views: taskViews ?? SHIPPED_TASK_VIEWS, varieties }),
   });
 
   let varieties: Variety[] = $state([]);
@@ -167,9 +181,13 @@
   // An edit sends words only, so an image waiting in the composer goes with the next new message.
   const sendImage = $derived(composerMode.kind === 'send' ? attachedImage : null);
   const toOcr = $derived(sendImage !== null && (task === 'translate' || !takesImage));
+  // Ask mode sends a question whatever the picker holds.
+  const sendingTask = $derived<TaskId>(composerMode.kind === 'ask' ? 'ask' : task);
   const usesTone = $derived(
     !toOcr &&
-      (settings ? taskUsesTone(settings, customTasks, task, sourceLang) : task === 'reword'),
+      (settings
+        ? taskUsesTone(settings, customTasks, sendingTask, sourceLang)
+        : sendingTask === 'reword'),
   );
   function loadCustomTasks(): void {
     const read = ++customTasksRead;
@@ -289,7 +307,7 @@
     conversation.turns.find((t): t is UserTurnData => t.role === 'user' && t.id === editingTurnId),
   );
   const pageInfoGoes = $derived(
-    !toOcr && pageInfoGoesFor(editedTurn ? turnTaskValue(editedTurn) : task),
+    !toOcr && pageInfoGoesFor(editedTurn ? turnTaskValue(editedTurn) : sendingTask),
   );
 
   // inflightId only flips after the context-collection await, so a fast double send would dispatch twice.
@@ -314,6 +332,10 @@
     const img = sendImage;
     if (!text && !img) return;
     if (sending || conversation.inflightId !== null) return;
+    if (composerMode.kind === 'ask' && !askable(askedReply(composerMode.turnId))) {
+      refuseQuestion(composerMode.turnId);
+      return;
+    }
     sendStarted();
     sending = true;
     clearFilters();
@@ -325,11 +347,21 @@
       const edited = conversation.turns.find(
         (t): t is UserTurnData => t.role === 'user' && t.id === editingTurnId,
       );
-      const sendTask = edited ? turnTaskValue(edited) : task;
+      // A question goes out as Ask about the version shown now; an edited question stays about its reply.
+      const asking = composerMode.kind === 'ask' ? composerMode.turnId : null;
+      const sendTask = edited ? turnTaskValue(edited) : sendingTask;
+      const askedNow = asking === null ? undefined : askedReply(asking);
+      const about = askedNow !== undefined ? askTarget(askedNow) : edited?.about;
       // An image goes to the OCR arm for Translate and for any task that takes no images; that arm sends no page context.
       const ocr = img !== null && (sendTask === 'translate' || !taskTakesImage(sendTask));
       const context = ocr ? undefined : await currentPageContext(sendTask);
       if (conversation.activeId !== originBefore || composerMode !== modeBefore) return;
+      if (asking !== null && draftInBox) {
+        // A later start kept the box's text as the draft too; whatever goes out now is the question, not a draft.
+        draftInBox = false;
+        draftBeforeEdit = '';
+        saveDraftNow('');
+      }
       // The previous turn is in the composer, so drop it or the re-send appends a duplicate.
       let preservedResponse: string | undefined;
       if (editingTurnId !== null) {
@@ -352,7 +384,7 @@
       const builtIn = builtInTask(sendTask);
       const kind = ocr ? 'image-translate' : (builtIn ?? 'translate');
       const sendTone = edited ? edited.tone : usesTone ? tone : undefined;
-      await conversation.send({
+      const answerId = await conversation.send({
         content,
         kind,
         ...(builtIn === null && !ocr ? { taskId: sendTask } : {}),
@@ -363,8 +395,16 @@
         stream: streamingPref,
         ...(sendTone !== undefined ? { tone: sendTone } : {}),
         ...(context !== undefined ? { context } : {}),
+        ...(about ? { about } : {}),
       });
-      sourceText = '';
+      if (asking !== null) {
+        const question = conversation.turns.find((t) => t.id === answerId)?.attachedToTurnId;
+        if (question !== undefined) askKnownUsers = new Set([...askKnownUsers, question]);
+        // The mode follows the answer once it lands done with text (R2-3).
+        askAwait = { turnId: answerId, enter: false, mode: modeBefore };
+      }
+      // Leaving Ask mode during the send put the earlier draft back; only the sent question goes.
+      if (asking === null || composerMode.kind === 'ask') sourceText = '';
       if (img !== null) {
         attachedImage = null;
         void clearComposerDraftImage();
@@ -455,6 +495,10 @@
       flushDraftSave();
       draftBeforeEdit = sourceText;
       sourceText = '';
+    } else if (composerMode.kind === 'ask') {
+      // Ask mode ends first: the typed question goes, the draft saved before it stays saved.
+      sourceText = '';
+      draftInBox = false;
     }
     composerMode = { kind: 'refine', turnId };
     await tick();
@@ -468,8 +512,174 @@
     draftBeforeEdit = '';
   }
 
+  // ── Ask mode: each send is a question about one reply, until the user is done asking ──
+  /** The answer and version Ask mode waits on, with the mode the wait began in: a mode picked since then wins, paging does not. */
+  let askAwait = $state.raw<{
+    turnId: string;
+    variantId?: string | undefined;
+    enter: boolean;
+    mode: ComposerMode;
+  } | null>(null);
+  /** A later start left the typed text in the box, and the draft holds the same text. */
+  let draftInBox = false;
+  /** Said in the composer's live region; a new object repeats the same words. */
+  let askSaid = $state<{ text: string } | null>(null);
+  /** User turns there when Ask mode began, so a message that lands from elsewhere ends it. */
+  let askKnownUsers: ReadonlySet<string> = new Set();
+  const askingTurnId = $derived(composerMode.kind === 'ask' ? composerMode.turnId : null);
+  const askLine = $derived(askingTurnId !== null ? askLineFor(askingTurnId) : '');
+  const askEnabled = $derived(taskOn(taskViews ?? SHIPPED_TASK_VIEWS, 'ask'));
+
+  function askLineFor(turnId: string): string {
+    const reply = conversation.turns.find((t) => t.id === turnId);
+    const start = Array.from(askQuote(reply?.content ?? ''))
+      .slice(0, 60)
+      .join('');
+    return `Asking about the reply: ${start}`;
+  }
+
+  function askedReply(replyId: string): Turn | undefined {
+    return conversation.turns.find((t) => t.role === 'assistant' && t.id === replyId);
+  }
+
+  /** A running reply can be asked about once it finishes; a failed or empty version never can. */
+  function refuseQuestion(replyId: string): void {
+    const status = conversation.turns.find((t) => t.id === replyId)?.status;
+    toastStore.push({
+      message:
+        status === 'pending' || status === 'streaming'
+          ? 'Ask when this reply finishes.'
+          : 'This version has no answer to ask about.',
+      variant: 'warning',
+    });
+  }
+
+  /** Ask about a reply; the draft waits. A `later` start (an "Ask instead" answer landing) keeps text typed meanwhile and takes focus only from nowhere or that reply. */
+  async function startAsk(turnId: string, later = false): Promise<void> {
+    if (composerMode.kind === 'edit' && !(await cancelEditing())) return;
+    if (composerMode.kind === 'refine') leaveRefine();
+    if (composerMode.kind === 'send') {
+      flushDraftSave();
+      draftBeforeEdit = sourceText;
+      if (!later) sourceText = '';
+      draftInBox = later;
+    }
+    // Every message there now came before this Ask, including a tooltip Ask's own exchange.
+    askKnownUsers = new Set(conversation.turns.filter((t) => t.role === 'user').map((t) => t.id));
+    composerMode = { kind: 'ask', turnId };
+    askSaid = { text: askLineFor(turnId) };
+    await tick();
+    const reply = document.querySelector<HTMLElement>(`[data-turn-id="${CSS.escape(turnId)}"]`);
+    const held = document.activeElement;
+    if (later && held !== null && held !== document.body && !reply?.contains(held)) return;
+    reply?.scrollIntoView({ block: 'nearest' });
+    focusComposer();
+  }
+
+  function leaveAsk(): void {
+    if (composerMode.kind !== 'ask') return;
+    composerMode = { kind: 'send' };
+    sourceText = draftBeforeEdit;
+    draftBeforeEdit = '';
+    draftInBox = false;
+  }
+
+  /** "Ask instead" (meta line or More): this reply's text asked as a new version, about the reply its question quotes, else the newest earlier finished one. Ask mode follows the answer. */
+  async function askInstead(turnId: string): Promise<void> {
+    const turns = conversation.turns;
+    const reply = turns.find((t) => t.id === turnId);
+    const askedAt = turns.findIndex((t) => t.id === reply?.attachedToTurnId);
+    const earlier =
+      turns[askedAt]?.about !== undefined
+        ? undefined
+        : turns.slice(0, Math.max(0, askedAt)).filter(askable).at(-1);
+    const modeBefore = composerMode;
+    const variantId = await conversation.taskVariant(
+      turnId,
+      'ask',
+      earlier === undefined ? undefined : askTarget(earlier),
+    );
+    if (variantId !== null) askAwait = { turnId, variantId, enter: true, mode: modeBefore };
+  }
+
+  /** The reply's Ask button and `a`: the reply asked about now is a toggle; one still running says to wait. */
+  function onAsk(turnId: string): void {
+    if (!askEnabled) return;
+    if (composerMode.kind === 'ask' && composerMode.turnId === turnId) {
+      leaveAsk();
+      return;
+    }
+    const reply = conversation.turns.find((t) => t.id === turnId);
+    if (askable(reply)) {
+      void startAsk(turnId);
+      return;
+    }
+    // A failed, stopped or empty reply has finished: waiting would never make it askable.
+    if (reply?.status === 'pending' || reply?.status === 'streaming') {
+      toastStore.push({ message: 'Ask when this reply finishes.', variant: 'warning' });
+    }
+  }
+
+  /** A tooltip Ask landed this reply: ask about it, as its Ask button would. An edit or a described change keeps the composer. */
+  function askAboutHandoff(turnId: string): void {
+    if (!askEnabled || composerMode.kind === 'edit' || composerMode.kind === 'refine') return;
+    if (!askable(conversation.turns.find((t) => t.id === turnId))) return;
+    void startAsk(turnId);
+  }
+
+  // The reply asked about left by any path (a delete here or in another window, the caps' trim, another conversation opened), or a message landed from elsewhere.
+  $effect(() => {
+    const mode = composerMode;
+    const turns = conversation.turns;
+    const newestUser = turns.filter((t) => t.role === 'user').at(-1);
+    if (mode.kind !== 'ask') return;
+    const gone = !turns.some((t) => t.id === mode.turnId);
+    // A question this composer is sending is not known yet; sendTurn records it before `sending` drops.
+    const landed = !sending && newestUser !== undefined && !askKnownUsers.has(newestUser.id);
+    if (!gone && !landed) return;
+    // Done asking goes with its banner, so focus on it moves to the field, as its own press does.
+    const onBanner = document.activeElement?.closest('[data-ega-mode-banner]') != null;
+    leaveAsk();
+    if (onBanner) focusComposer();
+  });
+
+  // An answer Ask mode waits on ends: done with text moves the mode to it, anything else leaves it where it was.
+  $effect(() => {
+    const wait = askAwait;
+    const mode = composerMode;
+    const reply = wait === null ? undefined : conversation.turns.find((t) => t.id === wait.turnId);
+    const turn = reply?.role === 'assistant' ? atVariant(reply, wait?.variantId) : reply;
+    const status = turn?.status;
+    const ready = askable(turn);
+    if (wait === null || status === 'pending' || status === 'streaming') return;
+    // A failed, stopped or empty answer waits for its Retry or Regenerate while the mode stays (retryAnswer).
+    if ((status === 'error' || (status === 'done' && !ready)) && mode === wait.mode) return;
+    askAwait = null;
+    // A mode picked since the wait began (another reply, Done asking, an edit) wins over the answer.
+    if (mode !== wait.mode || !ready || turn === undefined || turnTaskValue(turn) !== 'ask') return;
+    if (mode.kind === 'ask') {
+      composerMode = { kind: 'ask', turnId: wait.turnId };
+      askSaid = { text: 'Now asking about the new answer' };
+    } else if (wait.enter && mode.kind === 'send') {
+      void startAsk(wait.turnId, true);
+    }
+  });
+
+  /** Retry, Regenerate or `r`: a re-run swaps the answer for a new turn or version, so a wait on the shown one moves to it. */
+  async function retryAnswer(id: string): Promise<void> {
+    const wait = askAwait;
+    const reply = conversation.turns.find((t) => t.id === id);
+    const shown = reply === undefined ? undefined : activeVariant(reply)?.id;
+    const started = await conversation.retry(id);
+    if (wait?.turnId !== id || started === null) return;
+    // A re-run of another version of the waited reply leaves the wait on its own version.
+    if (wait.variantId !== undefined && shown !== wait.variantId) return;
+    askAwait = { ...wait, turnId: started.turnId, variantId: started.variantId };
+  }
+
   function cancelMode(): void {
     if (composerMode.kind === 'refine') leaveRefine();
+    else if (composerMode.kind === 'ask') leaveAsk();
     else if (composerMode.kind === 'edit') void cancelEditing();
     focusComposer();
   }
@@ -490,8 +700,8 @@
     });
   }
 
-  // Called from the window keydown handler when focus is on the stream and the user presses 'e'.
-  function pullLastUserTurnIntoInput(): void {
+  // The pencil on the last message, and `viaKey` the window keydown handler's 'e' with focus out of a text field.
+  function pullLastUserTurnIntoInput(viaKey = false): void {
     if (conversation.inflightId !== null) {
       toastStore.push({ message: 'Edit when this reply finishes.', variant: 'warning' });
       return;
@@ -509,14 +719,29 @@
       return;
     }
     // 'e' is one bare keypress; it must not silently replace something the user typed.
-    if (sourceText.trim() && sourceText !== last.content) {
-      toastStore.push({
-        message: 'Clear the message box first to edit your last message.',
-        variant: 'warning',
-      });
+    const blocked = editBlocked(last.content, 'your last message', viaKey);
+    if (blocked !== null) {
+      toastStore.push({ message: blocked, variant: 'warning' });
       return;
     }
+    leaveAsk();
     enterEdit(last.id, last.content);
+  }
+
+  /** The toast that refuses an edit of `content` because it would lose typed text; null when nothing is lost. */
+  function editBlocked(content: string, which: string, viaKey = false): string | null {
+    const lost = (text: string): boolean => text.trim() !== '' && text !== content;
+    // Ask mode ends first, as with Esc or Describe a change: the typed question goes, but sending the edit would lose the hidden draft.
+    if (composerMode.kind === 'ask') {
+      if (lost(draftBeforeEdit)) {
+        return `Your earlier draft is waiting. Press Esc to stop asking, then clear the draft to edit ${which}.`;
+      }
+      // The pencil is a choice; a stray 'e' typed with focus off the box must not drop the question.
+      return viaKey && lost(sourceText)
+        ? `Send or clear your question first to edit ${which}.`
+        : null;
+    }
+    return lost(sourceText) ? `Clear the message box first to edit ${which}.` : null;
   }
 
   /** The composer takes the message text; the draft waits, and leaving the mode puts it back. */
@@ -528,9 +753,9 @@
     void tick().then(focusComposer);
   }
 
-  /** An edit or a described change holds the composer until it is sent or cancelled. */
+  /** An edit or a described change holds the composer until it is sent or cancelled; Ask mode gives way to an edit once it starts. */
   function refusedForMode(): boolean {
-    if (composerMode.kind === 'send') return false;
+    if (composerMode.kind === 'send' || composerMode.kind === 'ask') return false;
     toastStore.push({
       message:
         composerMode.kind === 'refine'
@@ -555,11 +780,9 @@
     if (turnIdx === -1) return;
     // The old message's text replaces the composer, so a draft the user typed must not be lost to it.
     const content = conversation.turns[turnIdx]?.content ?? '';
-    if (sourceText.trim() && sourceText !== content) {
-      toastStore.push({
-        message: 'Clear the message box first to edit this message.',
-        variant: 'warning',
-      });
+    const blocked = editBlocked(content, 'this message');
+    if (blocked !== null) {
+      toastStore.push({ message: blocked, variant: 'warning' });
       return;
     }
     const later = conversation.turns.length - turnIdx - 1;
@@ -574,11 +797,12 @@
     // The confirm stays open while the thread can move: a reply, another mode or a delete since then wins.
     if (
       conversation.inflightId !== null ||
-      composerMode.kind !== 'send' ||
+      (composerMode.kind !== 'send' && composerMode.kind !== 'ask') ||
       !conversation.turns.some((t) => t.id === turnId)
     ) {
       return;
     }
+    leaveAsk();
     enterEdit(turnId, content);
   }
 
@@ -605,6 +829,7 @@
     pageContext: currentPageContext,
     clearFilters,
     followSite,
+    askAbout: askAboutHandoff,
     attachImage: (src) => {
       // An image would turn the edited text into an image send, or wait unseen behind a described change.
       const refusedInMode = (): boolean => {
@@ -613,7 +838,9 @@
           message:
             composerMode.kind === 'refine'
               ? "The page image wasn't attached because you're changing a reply."
-              : "The page image wasn't attached because you're editing a message.",
+              : composerMode.kind === 'ask'
+                ? "The page image wasn't attached because you're asking about a reply."
+                : "The page image wasn't attached because you're editing a message.",
           variant: 'warning',
         });
         return true;
@@ -742,6 +969,22 @@
     if (id !== null && !conversation.turns.some((t) => t.id === id)) focusedTurnId = null;
   });
 
+  /** The thread as the effect below last saw it, so it knows where a removed message stood. */
+  let turnsBefore: readonly Turn[] = [];
+  // A message that leaves this thread with focus inside it (the store's trim, another window's delete) moves focus on as a delete does.
+  $effect.pre(() => {
+    const turns = conversation.turns;
+    const before = turnsBefore;
+    turnsBefore = turns;
+    const held = document.activeElement?.closest('[data-turn-id]')?.getAttribute('data-turn-id');
+    if (held == null || turns.some((t) => t.id === held)) return;
+    const kept = (t: Turn): boolean => turns.some((k) => k.id === t.id);
+    // A whole new thread (another conversation, New) is no removal from this one.
+    if (!before.some(kept)) return;
+    const at = before.findIndex((t) => t.id === held);
+    focusAfterDelete(before.slice(0, Math.max(0, at)).filter(kept).length);
+  });
+
   /** Focuses a message's article and makes it the j/k/r one; false when it is not on screen. */
   function focusTurn(id: string | undefined): boolean {
     if (id === undefined) return false;
@@ -780,6 +1023,9 @@
   function focusAfterDelete(at: number): void {
     void tick().then(() =>
       setTimeout(() => {
+        // Focus that landed somewhere meanwhile stays: a retried reply focuses its new article.
+        const held = document.activeElement;
+        if (held !== null && held !== document.body) return;
         const turns = conversation.turns;
         const next = turns.slice(at).find((t) => t.role === 'user');
         const prev = turns
@@ -803,6 +1049,9 @@
       action: {
         label: 'Undo',
         onClick: () => {
+          // The user's own Undo is no message from elsewhere, so it does not end Ask mode.
+          const back = slice.removed.filter((t) => t.role === 'user').map((t) => t.id);
+          askKnownUsers = new Set([...askKnownUsers, ...back]);
           if (!conversation.restoreTurns(slice)) {
             toastStore.push({
               message: "Can't undo. This conversation is no longer open.",
@@ -884,7 +1133,7 @@
     if (e.key === 'e' && !e.ctrlKey && !e.metaKey && !e.altKey) {
       if (isTextEntry(e.target) || dialogOpen()) return;
       e.preventDefault();
-      pullLastUserTurnIntoInput();
+      pullLastUserTurnIntoInput(true);
       return;
     }
     // Turn navigation is delegated to ConversationStream, which owns the turns state these keys read.
@@ -1033,10 +1282,16 @@
     // "Delete all data" clears storage, and the panel would otherwise write its live thread straight back.
     const indexChange = changes[INDEX_KEY];
     if (indexChange !== undefined && indexChange.newValue === undefined) {
+      // Ask mode ends as on a delete: the draft from before Ask comes back, and focus on its banner moves to the field.
+      const onBanner =
+        composerMode.kind === 'ask' &&
+        document.activeElement?.closest('[data-ega-mode-banner]') != null;
+      leaveAsk();
       forgetPendingDeletes();
       conversation.resetAfterPurge();
       focusedTurnId = null;
       composerMode = { kind: 'send' };
+      if (onBanner) focusComposer();
     }
   }
 
@@ -1101,6 +1356,7 @@
     const previous = await conversation.startNewConversation();
     focusedTurnId = null;
     leaveRefine();
+    leaveAsk();
     composerMode = { kind: 'send' };
     draftBeforeEdit = '';
     await tick();
@@ -1273,6 +1529,10 @@
       composerTarget={targetLang}
       changingTurnId={composerMode.kind === 'refine' ? composerMode.turnId : null}
       {editingTurnId}
+      {askingTurnId}
+      {onAsk}
+      thread={conversation.turns}
+      onClearFilters={clearFilters}
       onFocusChange={(id) => (focusedTurnId = id)}
       onClearSearch={() => {
         searchQuery = '';
@@ -1285,12 +1545,13 @@
       recordsDetails={settings?.captureResultMeta !== false}
       onRetry={(id) => {
         toastStore.closeSticky();
-        void conversation.retry(id);
+        void retryAnswer(id);
       }}
       onRefine={(args) => onRefine(args)}
       onSelectVariant={(turnId, idx) => conversation.selectVariant(turnId, idx)}
       onSwap={(id) => void conversation.swapVariant(id)}
-      onTaskSwitch={(id, t) => void conversation.taskVariant(id, t)}
+      onTaskSwitch={(id, t) =>
+        void (t === 'ask' ? askInstead(id) : conversation.taskVariant(id, t))}
       swapPairFor={(id) => conversation.swapPair(id)}
       onTranslateInto={(id, lang) => void conversation.langVariant(id, lang)}
       onDescribeChange={(id) => void onDescribeChange(id)}
@@ -1299,7 +1560,7 @@
       }}
       onRegenerate={(id) => {
         toastStore.closeSticky();
-        void conversation.regenerateVariant(id);
+        void retryAnswer(id);
       }}
       onBookmark={onToggleBookmark}
       onDelete={onDeleteTurn}
@@ -1345,6 +1606,8 @@
         turns={conversation.turns}
         inflight={conversation.inflightId !== null}
         mode={composerMode}
+        {askLine}
+        announce={askSaid}
         onCancelMode={cancelMode}
         onContextLevelChange={(level) => void setPageContextLevel(level)}
         onAttachImage={attachComposerImage}
@@ -1371,6 +1634,7 @@
   onClose={() => (shortcutsOpen = false)}
   shortcut={settings?.shortcut}
   pickerShortcut={settings?.pickerShortcut}
+  askOn={askEnabled}
 />
 
 <ToastHost

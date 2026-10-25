@@ -22,6 +22,8 @@
     separatorLabel,
     separatorTurnIds,
     taskLabelsOnChange,
+    askedAboutFor,
+    linkedQuote,
     type SuggestionKind,
     type SuggestionResult,
   } from '../state/thread-view';
@@ -88,6 +90,14 @@
     recordsDetails?: boolean | undefined;
     /** Turns mounted at once; older ones mount via "Show earlier" so a 300-turn restore is not one Markdown pass. */
     renderWindow?: number;
+    /** The reply Ask mode is about. */
+    askingTurnId?: string | null;
+    /** Starts or ends Ask mode on a reply: its Ask button, or `a` on the focused reply. */
+    onAsk?: (turnId: string) => void;
+    /** Every turn of the conversation, filters aside: a quote and About read the reply they ask about from it. */
+    thread?: readonly Turn[];
+    /** Clears search and the bookmark filter, so a quoted reply they hide can be shown. */
+    onClearFilters?: () => void;
   }
 
   const {
@@ -127,6 +137,10 @@
     composerTarget,
     recordsDetails,
     renderWindow = 60,
+    askingTurnId = null,
+    onAsk,
+    thread: threadProp,
+    onClearFilters,
   }: Props = $props();
 
   let shownBeyondWindow = $state(0);
@@ -143,6 +157,7 @@
   const userTextById = $derived(
     Object.fromEntries(turns.filter((t) => t.role === 'user').map((t) => [t.id, t.content])),
   );
+  const thread = $derived(threadProp ?? turns);
   // A bookmark belongs to the pair (spec §5.2, F12): either half shows it, and unchecking clears both halves.
   const pairIds = $derived(
     new Map(
@@ -165,7 +180,7 @@
     for (const i of on.length > 0 ? on : [id]) onBookmark?.(i);
   }
   const separators = $derived(separatorTurnIds(turns));
-  const taskLabels = $derived(taskLabelsOnChange(turns, taskViews));
+  const taskLabels = $derived(taskLabelsOnChange(turns, taskViews, thread));
   const positions = $derived(new Map(turns.map((t, i) => [t.id, i])));
 
   // Separator labels are computed at render; with no tick "Today" would never become "Yesterday".
@@ -435,6 +450,33 @@
     el.scrollTo({ top: el.scrollHeight, behavior: reducedMotion() ? 'auto' : 'smooth' });
   }
 
+  let flashId = $state<string | null>(null);
+  let flashTimer: ReturnType<typeof setTimeout> | undefined;
+  $effect(() => () => clearTimeout(flashTimer));
+
+  /** A quote leads to its reply: a filter or the render window that hides it gives way, then it scrolls, flashes and takes focus. */
+  async function revealTurn(id: string): Promise<void> {
+    if (!turns.some((t) => t.id === id)) {
+      onClearFilters?.();
+      await tick();
+    }
+    const at = turns.findIndex((t) => t.id === id);
+    if (at < 0) return;
+    if (at < hiddenCount) {
+      shownBeyondWindow += hiddenCount - at;
+      await tick();
+    }
+    const el = scroller?.querySelector<HTMLElement>(`[data-turn-id="${CSS.escape(id)}"]`);
+    if (!el) return;
+    el.scrollIntoView({ block: 'center', behavior: reducedMotion() ? 'auto' : 'smooth' });
+    clearTimeout(flashTimer);
+    flashId = null;
+    await tick();
+    flashId = id;
+    flashTimer = setTimeout(() => (flashId = null), 1200);
+    el.focus({ preventScroll: true });
+  }
+
   // Registering a window listener here too would give two competing owners.
   $effect(() => {
     onRegisterKeydownHandler?.(handleKeydown);
@@ -489,6 +531,13 @@
       if (turn?.role === 'assistant') {
         e.preventDefault();
         onRetry(turn.id);
+      }
+    }
+    if (e.key === 'a' && !e.ctrlKey && !e.metaKey && !e.altKey && focusedTurnId) {
+      const turn = windowTurns.find((t) => t.id === focusedTurnId);
+      if (turn?.role === 'assistant') {
+        e.preventDefault();
+        onAsk?.(turn.id);
       }
     }
   }
@@ -595,6 +644,8 @@
               onBookmark={toggleBookmark}
               {onDelete}
               {onEdit}
+              quoted={linkedQuote(turn, thread)}
+              onQuote={(id) => void revealTurn(id)}
             />
           {:else}
             <AssistantTurn
@@ -625,6 +676,10 @@
               {taskViews}
               {composerTarget}
               {recordsDetails}
+              {onAsk}
+              asked={turn.id === askingTurnId}
+              flash={turn.id === flashId}
+              askedAboutOf={(t) => askedAboutFor(thread, t, { views: taskViews, varieties })}
             />
           {/if}
         {/each}

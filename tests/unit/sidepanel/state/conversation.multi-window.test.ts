@@ -1,8 +1,15 @@
 import { describe, it, expect, beforeEach, afterEach, vi, type Mock } from 'vitest';
 import { createConversation } from '@/sidepanel/state/conversation.svelte';
-import { loadThreadResult, saveThread } from '@/sidepanel/state/conversation-store';
+import {
+  loadThreadResult,
+  MAX_TURNS_PER_THREAD,
+  saveThread,
+} from '@/sidepanel/state/conversation-store';
 import { asLangIdUnsafe } from '@/shared/brands';
+import { askedAboutFor, linkedQuote } from '@/sidepanel/state/thread-view';
+import { SHIPPED_TASK_VIEWS } from '@/shared/task-view';
 import type { Turn } from '@/sidepanel/state/conversation';
+import { toastStore } from '@/shared/components/toastStore';
 
 type Container = ReturnType<typeof createConversation>;
 type Changes = Record<string, chrome.storage.StorageChange>;
@@ -639,5 +646,293 @@ describe('an answer adopted from a window that went away', () => {
 
     expect(byId(b, assistantId)?.status).toBe('done');
     expect(byId(b, assistantId)?.content).toBe('live');
+  });
+});
+
+describe('a reply that a question asks about, removed in another window or by the cap', () => {
+  /** This window's last `translate:start` options: what its last re-run sent. */
+  function lastStartOptions(): Record<string, unknown> {
+    const starts = (chrome.runtime.sendMessage as Mock).mock.calls
+      .map((c) => c[0] as Record<string, unknown>)
+      .filter((m) => m['kind'] === 'translate:start');
+    return (starts.at(-1)?.['options'] ?? {}) as Record<string, unknown>;
+  }
+  const LABELS = { views: SHIPPED_TASK_VIEWS, varieties: [] };
+
+  it('another window’s delete reaches the "Ask instead" version this window streams: its re-run sends nothing of the reply', async () => {
+    const a = await openWindow();
+    const b = await openWindow();
+    const e = await sendAndFinish(a, 'secret-original', 'secret-result');
+    const t = await sendAndFinish(a, 'what does it mean', 'what does it mean');
+    expect(await a.taskVariant(t, 'ask', { turnId: e })).not.toBeNull();
+    const requestId = (chrome.runtime.sendMessage as Mock).mock.calls
+      .map((c) => c[0] as Record<string, unknown>)
+      .filter((m) => m['kind'] === 'translate:start')
+      .at(-1)?.['requestId'] as string;
+    a.applyChunk({ type: 'delta', requestId, text: 'It asks' });
+    await a.flush();
+    await drain();
+
+    b.deleteTurn(e);
+    await drain();
+    a.applyChunk({ type: 'done', requestId, confidence: 1 });
+    await a.flush();
+    await drain();
+
+    expect(JSON.stringify((await loadThreadResult(ORIGIN)).turns)).not.toContain('secret-result');
+    expect(byId(a, t)?.variants?.at(-1)?.about).toEqual({ turnId: e });
+    expect(await a.regenerateVariant(t)).toBe(true);
+    expect(JSON.stringify(lastStartOptions())).not.toContain('secret-result');
+  });
+
+  it('a window that saves before it hears of the delete stores no text of the reply, and Undo brings the quote back there', async () => {
+    const a = await openWindow();
+    // Window B hears storage late: its save runs before A's delete reaches it.
+    let late = false;
+    const held: Changes[] = [];
+    const b = createConversation();
+    const listener = (changes: Changes, area: string): void => {
+      if (area !== 'local') return;
+      if (late) held.push(changes);
+      else b.onStorageChanged(changes);
+    };
+    chrome.storage.onChanged.addListener(listener);
+    listeners.push(listener);
+    await b.openConversation(ORIGIN);
+
+    const e = await sendAndFinish(a, 'secret-original', 'secret-result');
+    const answer = await a.send({
+      content: 'why?',
+      kind: 'ask',
+      sourceLang: 'auto',
+      targetLang: EN,
+      stream: true,
+      about: { turnId: e },
+    });
+    const requestId = requestIdOf('why?');
+    a.applyChunk({ type: 'delta', requestId, text: 'Because.' });
+    a.applyChunk({ type: 'done', requestId, confidence: 1 });
+    await a.flush();
+    await drain();
+    const questionId = byId(a, answer)?.attachedToTurnId ?? '';
+
+    late = true;
+    const slice = a.deleteTurn(e);
+    await drain();
+    b.toggleBookmark(answer);
+    await b.flush();
+    await drain();
+
+    const stored = (await loadThreadResult(ORIGIN)).turns;
+    // B's write landed (its bookmark is stored), and the deleted reply is nowhere in it.
+    expect(stored.find((t) => t.id === answer)?.bookmarked).toBe(true);
+    expect(stored.some((t) => t.id === e)).toBe(false);
+    expect(JSON.stringify(stored)).not.toContain('secret-result');
+
+    late = false;
+    for (const changes of held.splice(0)) b.onStorageChanged(changes);
+    await drain();
+    const question = byId(b, questionId) as Turn;
+    expect(byId(b, e)).toBeUndefined();
+    // R2-27: the bubble renders a gone reply as a plain question, with no quote.
+    expect(linkedQuote(question, b.turns)).toBeUndefined();
+    expect(askedAboutFor(b.turns, byId(b, answer) as Turn, LABELS)).toBe('gone');
+    (chrome.runtime.sendMessage as Mock).mockClear();
+    expect(await b.regenerateVariant(answer)).toBe(true);
+    expect(JSON.stringify(lastStartOptions())).not.toContain('secret-result');
+    b.cancel();
+    await drain();
+
+    if (slice === null) throw new Error('nothing deleted');
+    expect(a.restoreTurns(slice)).toBe(true);
+    await a.flush();
+    await drain();
+    expect(byId(b, e)?.content).toBe('secret-result');
+    expect(linkedQuote(byId(b, questionId) as Turn, b.turns)?.text).toBe('secret-result');
+  });
+
+  /** 150 exchanges, the cap exactly; the sixth message asks about the first reply. */
+  function atTheCap(): Turn[] {
+    return Array.from({ length: MAX_TURNS_PER_THREAD / 2 }, (_, i) => {
+      const asks = i === 5;
+      return [
+        {
+          id: `u${i}`,
+          role: 'user',
+          kind: asks ? 'ask' : 'translate',
+          status: 'idle',
+          createdAt: 2 * i + 1,
+          content: asks ? 'why?' : `text ${i}`,
+          dispatch: { sourceLang: 'auto', targetLang: EN, stream: true },
+          ...(asks ? { about: { turnId: 'a0' } } : {}),
+        },
+        {
+          id: `a${i}`,
+          role: 'assistant',
+          kind: asks ? 'ask' : 'translate',
+          status: 'done',
+          createdAt: 2 * i + 2,
+          content: `reply ${i}`,
+          attachedToTurnId: `u${i}`,
+        },
+      ] as Turn[];
+    }).flat();
+  }
+
+  it('a question whose reply the 300-message cap drops sends nothing of it, and keeps its reference', async () => {
+    await saveThread(ORIGIN, atTheCap());
+    const a = await openWindow();
+    (chrome.runtime.sendMessage as Mock).mockClear();
+    expect(await a.regenerateVariant('a5')).toBe(true);
+    expect(lastStartOptions()['askAbout']).toMatchObject({ result: 'reply 0' });
+    a.cancel();
+    await drain();
+
+    await sendAndFinish(a, 'from a', 'a answer');
+    expect(byId(a, 'a0')).toBeUndefined();
+    expect(byId(a, 'u5')?.about).toEqual({ turnId: 'a0' });
+    expect(await a.regenerateVariant('a5')).toBe(true);
+    expect(lastStartOptions()).not.toHaveProperty('askAbout');
+    expect(JSON.stringify(lastStartOptions())).not.toContain('reply 0');
+  });
+
+  it('a question sent at the cap carries the reply its own send trims, and About then says the reply is gone', async () => {
+    await saveThread(ORIGIN, atTheCap());
+    const a = await openWindow();
+    (chrome.runtime.sendMessage as Mock).mockClear();
+    const answer = await a.send({
+      content: 'and the first one?',
+      kind: 'ask',
+      sourceLang: 'auto',
+      targetLang: EN,
+      stream: true,
+      about: { turnId: 'a0' },
+    });
+    expect(lastStartOptions()['askAbout']).toMatchObject({ result: 'reply 0' });
+    const requestId = requestIdOf('and the first one?');
+    a.applyChunk({ type: 'delta', requestId, text: 'Because.' });
+    a.applyChunk({ type: 'done', requestId, confidence: 1 });
+    await a.flush();
+    await drain();
+
+    expect(byId(a, 'a0')).toBeUndefined();
+    expect(askedAboutFor(a.turns, byId(a, answer) as Turn, LABELS)).toBe('gone');
+  });
+
+  it('a reply the store trims when a handed-off exchange lands leaves this window too: no quote, nothing sent', async () => {
+    await saveThread(ORIGIN, atTheCap());
+    const a = await openWindow();
+    a.seedDeliveredTurn({
+      kind: 'translate',
+      sourceText: 'from the page',
+      response: 'page answer',
+      sourceLang: 'auto',
+      targetLang: EN,
+      stream: true,
+    });
+    await a.flush();
+    await drain();
+
+    expect((await loadThreadResult(ORIGIN)).turns.some((t) => t.id === 'a0')).toBe(false);
+    expect(byId(a, 'a0')).toBeUndefined();
+    expect(linkedQuote(byId(a, 'u5') as Turn, a.turns)).toBeUndefined();
+    (chrome.runtime.sendMessage as Mock).mockClear();
+    expect(await a.regenerateVariant('a5')).toBe(true);
+    expect(lastStartOptions()).not.toHaveProperty('askAbout');
+    expect(JSON.stringify(lastStartOptions())).not.toContain('reply 0');
+  });
+
+  it('a reply the store trims in one window leaves the other at once: no quote, nothing sent', async () => {
+    await saveThread(ORIGIN, atTheCap());
+    const a = await openWindow();
+    const b = await openWindow();
+    a.seedDeliveredTurn({
+      kind: 'translate',
+      sourceText: 'from the page',
+      response: 'page answer',
+      sourceLang: 'auto',
+      targetLang: EN,
+      stream: true,
+    });
+    await a.flush();
+    await drain();
+
+    expect(byId(b, 'a0')).toBeUndefined();
+    expect(linkedQuote(byId(b, 'u5') as Turn, b.turns)).toBeUndefined();
+    (chrome.runtime.sendMessage as Mock).mockClear();
+    expect(await b.regenerateVariant('a5')).toBe(true);
+    expect(lastStartOptions()).not.toHaveProperty('askAbout');
+    expect(JSON.stringify(lastStartOptions())).not.toContain('reply 0');
+  });
+
+  it('a reply a send at the cap trims leaves the other window too, which never writes it back', async () => {
+    await saveThread(ORIGIN, atTheCap());
+    const a = await openWindow();
+    const b = await openWindow();
+    await sendAndFinish(a, 'from a', 'a answer');
+
+    expect(byId(b, 'a0')).toBeUndefined();
+    expect(linkedQuote(byId(b, 'u5') as Turn, b.turns)).toBeUndefined();
+    // Back under the cap, a save from B would write back any trimmed reply it still held.
+    a.deleteTurn('a10');
+    await a.flush();
+    await drain();
+    b.toggleBookmark('a20');
+    await b.flush();
+    await drain();
+    expect((await loadThreadResult(ORIGIN)).turns.some((t) => t.id === 'a0')).toBe(false);
+    const reloaded = await openWindow();
+    expect(byId(reloaded, 'a0')).toBeUndefined();
+
+    (chrome.runtime.sendMessage as Mock).mockClear();
+    expect(await b.regenerateVariant('a5')).toBe(true);
+    expect(lastStartOptions()).not.toHaveProperty('askAbout');
+    expect(JSON.stringify(lastStartOptions())).not.toContain('reply 0');
+  });
+
+  it("a save that read the thread before this window's own trim says nothing of another window", async () => {
+    const push = vi.spyOn(toastStore, 'push');
+    await saveThread(ORIGIN, atTheCap());
+    const a = await openWindow();
+    a.seedDeliveredTurn({
+      kind: 'translate',
+      sourceText: 'from the page',
+      response: 'page answer',
+      sourceLang: 'auto',
+      targetLang: EN,
+      stream: true,
+    });
+    // Reads the thread while the handoff's own save, which trims it, still waits.
+    await a.flush();
+    await drain();
+
+    expect(byId(a, 'a0')).toBeUndefined();
+    const said = push.mock.calls.map(([m]) => m.message);
+    expect(said).toContain('2 older messages were removed to save space.');
+    expect(said.filter((m) => m.startsWith('Another window'))).toEqual([]);
+  });
+
+  it('a trim of the reply this window is re-running stops that request', async () => {
+    await saveThread(ORIGIN, atTheCap());
+    const a = await openWindow();
+    (chrome.runtime.sendMessage as Mock).mockClear();
+    expect(await a.regenerateVariant('a0')).toBe(true);
+    const requestId = (chrome.runtime.sendMessage as Mock).mock.calls
+      .map((c) => c[0] as Record<string, unknown>)
+      .find((m) => m['kind'] === 'translate:start')?.['requestId'] as string;
+    // The handoff's own save is the only one, so the trim alone has to stop the request.
+    a.seedDeliveredTurn({
+      kind: 'translate',
+      sourceText: 'from the page',
+      response: 'page answer',
+      sourceLang: 'auto',
+      targetLang: EN,
+      stream: true,
+    });
+    await drain();
+
+    expect(byId(a, 'a0')).toBeUndefined();
+    expect(a.inflightId).toBeNull();
+    expect(cancelledRequests()).toContain(requestId);
   });
 });

@@ -42,11 +42,11 @@ describe('assemblePromptHistory', () => {
     expect(h).toEqual<ChatTurn[]>([]);
   });
 
-  it('image user turns become a text marker, not dropped', () => {
+  it('an image message reads as one, not as the "[image]" render marker, and is not dropped', () => {
     const img: ConversationTurnLike = { role: 'user', status: 'idle', content: '[image]' };
     const turns: ConversationTurnLike[] = [img, a('sign text', 'done')];
     const h = assemblePromptHistory(turns, { budgetTokens: 1000 });
-    expect(h[0]).toEqual({ role: 'user', content: '[image]' });
+    expect(h[0]).toEqual({ role: 'user', content: '(sent an image)' });
     expect(h[1]).toEqual({ role: 'assistant', content: 'sign text' });
   });
 
@@ -108,6 +108,12 @@ describe('chatContextLabel', () => {
     const label = chatContextLabel(turns, { budgetTokens: 1000 });
     expect(label).not.toContain('context');
     expect(label).toMatch(/^Using /);
+  });
+
+  it('counts an image message at the size it is sent, so it never promises a message the request trims', () => {
+    // 1998 + 1000 + 3 + 1000 tokens: "(sent an image)" is 3, so the first message no longer fits.
+    const turns = [u('a'.repeat(7992)), a('b'.repeat(4000)), u('[image]'), a('c'.repeat(4000))];
+    expect(chatContextLabel(turns, { budgetTokens: 4000 })).toBe('Using 2 earlier messages');
   });
 
   it('reflects token-budget trim in the label', () => {

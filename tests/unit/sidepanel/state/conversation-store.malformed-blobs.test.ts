@@ -299,3 +299,58 @@ describe('the thread index', () => {
     expect(after.threads.map((t) => t.origin)).toEqual(['https://a.com']);
   });
 });
+
+describe('the reply a question was about, as stored', () => {
+  const answer = (variant: Record<string, unknown>): Record<string, unknown> =>
+    goodTurn({
+      id: 'a1',
+      role: 'assistant',
+      status: 'done',
+      content: 'Because.',
+      attachedToTurnId: 'u1',
+      variants: [
+        { id: 'a1:v1', status: 'done', content: 'Hi.' },
+        { id: 'a1:v2', status: 'done', content: 'Because.', task: 'ask', ...variant },
+      ],
+      activeVariantIdx: 1,
+    });
+  const asked = (value: unknown): Record<string, unknown> =>
+    goodTurn({ id: 'u2', kind: 'ask', content: 'why?', about: value });
+
+  it('a question and an Ask instead version keep their reference, and no other field', async () => {
+    const ref = { turnId: 'a0', variantId: 'a0:v1' };
+    await put(
+      blob({
+        turns: [
+          goodTurn(),
+          asked({ ...ref, result: 'hello' }),
+          answer({ about: { turnId: 'a0', result: 'hello' } }),
+        ],
+      }),
+    );
+    const turns = (await loadThreadResult('https://a.com')).turns;
+    expect(turns[1]?.about).toEqual(ref);
+    expect(turns[2]?.variants?.[1]?.about).toEqual({ turnId: 'a0' });
+    expect(JSON.stringify(turns)).not.toContain('hello');
+  });
+
+  it('a malformed one is dropped, and the turn stays in the thread', async () => {
+    await put(blob({ turns: [goodTurn(), asked({ task: 'Translate' }), answer({ about: 42 })] }));
+    const turns = (await loadThreadResult('https://a.com')).turns;
+    expect(turns.map((t) => t.id)).toEqual(['u1', 'u2', 'a1']);
+    expect(turns[1]).not.toHaveProperty('about');
+    expect(turns[2]?.variants?.[1]).not.toHaveProperty('about');
+  });
+
+  it('an Ask version keeps its unsent mark only as true', async () => {
+    await put(blob({ turns: [goodTurn(), answer({ aboutUnsent: true })] }));
+    expect((await loadThreadResult('https://a.com')).turns[1]?.variants?.[1]).toHaveProperty(
+      'aboutUnsent',
+      true,
+    );
+    await put(blob({ turns: [goodTurn(), answer({ aboutUnsent: 'yes' })] }));
+    expect((await loadThreadResult('https://a.com')).turns[1]?.variants?.[1]).not.toHaveProperty(
+      'aboutUnsent',
+    );
+  });
+});

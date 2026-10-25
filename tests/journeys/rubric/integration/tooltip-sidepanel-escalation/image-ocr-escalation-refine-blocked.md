@@ -13,7 +13,7 @@
 ## Visible affordances
 
 - The seeded image turn renders the source image thumbnail above the OCR/translated body.
-- The standard action row (Copy, Regenerate, Refine and More) still renders; More's "Answer again as" lists only the tasks that read images.
+- The standard action row (Copy, Ask, Refine and More) still renders, and Refine starts with Regenerate; More's "Answer again as" lists only the tasks that read images.
 
 ## Failure-mode expectations
 

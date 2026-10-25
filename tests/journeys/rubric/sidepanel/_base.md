@@ -6,7 +6,7 @@ The side panel after the 2026-10 redesign. Grade against `translation/sidepanel/
 
 - Header: one row with the site title (opens the conversations list), the backend status chip, New, Search and More. New and Search show only when the thread has messages.
 - Composer: one input with three controls: the mode chip ("Next message"), Add (+) and Send. Nothing else sits in or around it.
-- Each reply reads answer first, then one muted meta line, then one action row (Copy, Regenerate, Refine, More, and the version pager when there are versions).
+- Each reply reads answer first, then one muted meta line, then one action row (Copy, Ask, Refine, More, and the version pager when there are versions). Regenerate is the first item of the Refine menu.
 
 ## Behaviour
 

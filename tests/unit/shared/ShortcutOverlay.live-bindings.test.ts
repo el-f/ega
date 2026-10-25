@@ -107,3 +107,21 @@ describe('ShortcutOverlay lists the keys each surface really has', () => {
     );
   });
 });
+
+describe('ShortcutOverlay lists only keys that do something', () => {
+  const terms = (container: HTMLElement): string[] =>
+    Array.from(container.querySelectorAll('.shortcut-row dt')).map((d) => d.textContent);
+
+  it('names `a` in the side panel only while the Ask task is on', () => {
+    const on = render(ShortcutOverlay, {
+      props: { open: true, onClose: () => {}, surface: 'sidepanel' },
+    });
+    expect(terms(on.container as HTMLElement)).toContain('Ask about the focused reply');
+    on.unmount();
+    const off = render(ShortcutOverlay, {
+      props: { open: true, onClose: () => {}, surface: 'sidepanel', askOn: false },
+    });
+    expect(terms(off.container as HTMLElement)).not.toContain('Ask about the focused reply');
+    expect(terms(off.container as HTMLElement)).toContain('Regenerate the focused reply');
+  });
+});

@@ -19,6 +19,8 @@
     moreTab: number;
     /** False when the reply has no send to replay: the Refine menu is not shown. */
     canRerun: boolean;
+    /** Regenerate leads the Refine menu: every item there makes a new version. */
+    onRegenerate?: (() => void) | undefined;
     /** Another reply runs, so a re-run would bail: the items stay, marked, with the reason. */
     busy: boolean;
     presets: readonly RefinePreset[];
@@ -59,6 +61,7 @@
     refineTab,
     moreTab,
     canRerun,
+    onRegenerate,
     busy,
     presets,
     canDescribe,
@@ -134,9 +137,9 @@
   <DropdownMenu.Root bind:open={refineOpen}>
     <DropdownMenu.Trigger
       class="ega-icon-btn variant-default size-sm"
-      aria-label="Refine"
+      aria-label="Regenerate or refine"
       aria-pressed={changing ? 'true' : undefined}
-      data-tooltip="Refine"
+      data-tooltip="Regenerate or refine"
       data-tooltip-placement="top"
       data-ega-action="refine"
       data-ega-refine-menu
@@ -154,6 +157,12 @@
         sideOffset={6}
       >
         {@render busyLine()}
+        {#if onRegenerate !== undefined}
+          {@render rerunItem('Regenerate', onRegenerate, { 'data-ega-regenerate': '' })}
+          {#if presets.length > 0 || canDescribe || canTranslate}
+            <DropdownMenu.Separator class="sp-menu-sep" />
+          {/if}
+        {/if}
         {#each presets as p (p.id)}
           {@render rerunItem(p.label, () => onPreset(p), { 'data-ega-refine-preset': p.id })}
         {/each}

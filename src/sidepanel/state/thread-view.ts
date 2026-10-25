@@ -1,19 +1,36 @@
-// Pure view rules for the side panel thread, header list and composer chip. No I/O, no clock: callers pass `now`.
+// Pure rules for the side panel thread, header list, composer chip and the block a question sends. No I/O, no clock: callers pass `now`.
 import type { IndexEntry } from '@/shared/saved-conversations';
-import type { Turn } from './conversation';
-import { turnLabel } from './conversation';
-import type { TaskView } from '@/shared/task-view';
+import type { AssistantTurnData, Turn, UserTurnData } from './conversation';
+import {
+  activeVariant,
+  askable,
+  askTargetFor,
+  atVariant,
+  isImageTurn,
+  turnLabel,
+  turnTaskValue,
+} from './conversation';
+import { taskLabel, type TaskView } from '@/shared/task-view';
 import { TONE_LABELS, type Tone } from '@/shared/task-prompts';
+import { detectedVarieties, directionLabel } from '@/shared/reply-meta';
+import {
+  askQuote,
+  capAskAbout,
+  type AskAbout,
+  type AskedAbout,
+  type AskTarget,
+} from '@/shared/ask-about';
 
 const MINUTE = 60_000;
 const DAY = 24 * 60 * MINUTE;
 
-/** What the next Send does: a new message, a replacement for one, or a change to one reply.
+/** What the next Send does: a new message, a replacement for one, a change to one reply, or a question about one.
  *  An edit keeps `lastId`, the newest message when it began: a newer one means the thread moved on. */
 export type ComposerMode =
   | { kind: 'send' }
   | { kind: 'edit'; turnId: string; lastId: string }
-  | { kind: 'refine'; turnId: string };
+  | { kind: 'refine'; turnId: string }
+  | { kind: 'ask'; turnId: string };
 
 /** The empty panel's three suggestions. */
 export type SuggestionKind = 'translate-selection' | 'explain-selection' | 'translate-page';
@@ -74,10 +91,88 @@ export function separatorTurnIds(turns: readonly Turn[]): ReadonlySet<string> {
   return out;
 }
 
+/** The names a reply's meta line shows: its task's, and its languages'. */
+export interface AskLabels {
+  views: readonly TaskView[];
+  varieties: readonly { id: string; label: string }[];
+}
+
+/** The reply `target` points at, as the named version reads (the shown one once it is gone), else as its newest
+ *  finished one. Undefined once the reply left the thread or has no finished text, so the quote and the block agree. */
+function askedReply(thread: readonly Turn[], target: AskTarget): AssistantTurnData | undefined {
+  const reply = thread.find(
+    (t): t is AssistantTurnData => t.role === 'assistant' && t.id === target.turnId,
+  );
+  if (reply === undefined) return undefined;
+  const newestFirst = [...(reply.variants ?? [])].reverse().map((v) => atVariant(reply, v.id));
+  return [atVariant(reply, target.variantId), ...newestFirst].find(askable);
+}
+
+/** What a request asking about `target` carries, built from the thread as it is now, with the labels the reply's
+ *  meta line shows. Null when that reply is gone or has no finished text, so the request carries none. */
+export function askAboutFor(
+  thread: readonly Turn[],
+  target: AskTarget,
+  labels: AskLabels,
+): AskAbout | null {
+  const reply = askedReply(thread, target);
+  if (reply === undefined) return null;
+  const asked = thread.find(
+    (t): t is UserTurnData => t.role === 'user' && t.id === reply.attachedToTurnId,
+  );
+  // An image's message is a placeholder or a caption, not text the reply was made from.
+  const image = asked !== undefined && isImageTurn(asked);
+  const replyTask = turnTaskValue(reply);
+  return capAskAbout({
+    task:
+      image && replyTask === 'translate' ? 'Translate image' : taskLabel(labels.views, replyTask),
+    languages: replyDirection(reply, asked?.dispatch ?? {}, labels.varieties),
+    original: image ? '' : (asked?.content ?? ''),
+    result: reply.content,
+    notes: notesText(reply),
+  });
+}
+
+/** A reply's notes as "label: text" lines, else its explanation. */
+function notesText(reply: AssistantTurnData): string | undefined {
+  const parts = (reply.notes ?? []).flatMap((n) => {
+    const body = n.text ?? n.items?.join('; ') ?? '';
+    return body === '' ? [] : [`${n.label}: ${body}`];
+  });
+  return parts.length > 0 ? parts.join('\n') : reply.explain;
+}
+
+/** What About says the shown version of `answer` asked about: the block as it is built now, 'gone' once the
+ *  reply left the thread, 'unsent' when the version's request carried none. Undefined when it asked about none. */
+export function askedAboutFor(
+  thread: readonly Turn[],
+  answer: Turn,
+  labels: AskLabels,
+): AskedAbout | undefined {
+  if (answer.role !== 'assistant') return undefined;
+  const question = thread.find((t) => t.role === 'user' && t.id === answer.attachedToTurnId);
+  const version = activeVariant(answer);
+  const target = question === undefined ? undefined : askTargetFor(question, version);
+  if (target === undefined) return undefined;
+  if (version?.aboutUnsent === true) return 'unsent';
+  return askAboutFor(thread, target, labels) ?? 'gone';
+}
+
+/** The quote a question's bubble links: the first line of the reply it asks about, read live; none once that reply left the thread. */
+export function linkedQuote(
+  holder: Turn,
+  thread: readonly Turn[],
+): { turnId: string; text: string } | undefined {
+  const target = holder.role === 'user' ? holder.about : undefined;
+  const reply = target === undefined ? undefined : askedReply(thread, target);
+  return reply === undefined ? undefined : { turnId: reply.id, text: askQuote(reply.content) };
+}
+
 /** The task each user message names above its bubble, only where the task changes (or a first message that is not Translate). */
 export function taskLabelsOnChange(
   turns: readonly Turn[],
   views: readonly TaskView[],
+  thread: readonly Turn[],
 ): ReadonlyMap<string, string> {
   const out = new Map<string, string>();
   let prev: string | undefined;
@@ -88,7 +183,8 @@ export function taskLabelsOnChange(
     const tone = usesTone && t.tone !== undefined && t.tone !== 'neutral' ? t.tone : undefined;
     const key = `${task}|${tone ?? ''}`;
     const changed = prev === undefined ? task !== 'translate' || tone !== undefined : key !== prev;
-    if (changed) {
+    // A quoted question is marked by its quote; a task label would say it twice.
+    if (changed && linkedQuote(t, thread) === undefined) {
       const base = turnLabel(t.kind === 'image-translate' ? { ...t, kind: 'translate' } : t, views);
       out.set(t.id, tone === undefined ? base : `${base} · ${TONE_LABELS[tone]}`);
     }
@@ -107,17 +203,43 @@ export interface ModeChipInput {
   tone?: Tone | undefined;
   /** An attached image goes to the image reader, whatever task is picked. */
   imageToTranslate?: boolean;
+  /** Ask answers in the target, but the chip names only the task; its accessible name says the language. */
+  asks?: boolean;
 }
 
-/** The composer chip: "Translate → English", "Translate · Spanish → English", "Reword · Casual", "Translate image → English". */
+/** The composer chip: "Translate → English", "Translate · Spanish → English", "Reword · Casual", "Translate image → English", "Ask". */
 export function modeChipLabel(i: ModeChipInput): string {
   if (i.imageToTranslate === true) return `Translate image → ${i.target}`;
+  if (i.asks === true) return i.taskLabel;
   const tone = i.tone !== undefined && i.tone !== 'neutral' ? ` · ${TONE_LABELS[i.tone]}` : '';
   if (!i.answersInTarget) {
     return i.source === undefined ? `${i.taskLabel}${tone}` : `${i.taskLabel} · ${i.source}${tone}`;
   }
   if (i.source === undefined) return `${i.taskLabel} → ${i.target}${tone}`;
   return `${i.taskLabel} · ${i.source} → ${i.target}${tone}`;
+}
+
+/** A reply's meta-line direction, "Arabizi (Levantine) → English": the shown version's languages over the pair `sent` asked for. */
+export function replyDirection(
+  turn: Turn,
+  sent: { sourceLang?: string | undefined; targetLang?: string | undefined },
+  varieties: readonly { id: string; label: string }[],
+  opts: { short?: boolean } = {},
+): string {
+  const task = turnTaskValue(turn);
+  // An answer to a question has no languages of its own: nothing was detected, and the sent pair is the composer's.
+  if (task === 'ask') return '';
+  const v = activeVariant(turn);
+  const source = v?.sourceLang ?? sent.sourceLang;
+  const target = v?.targetLang ?? sent.targetLang;
+  return directionLabel({
+    detected: detectedVarieties(turn),
+    ...(source !== undefined ? { sourceLang: source } : {}),
+    ...(target !== undefined ? { targetLang: target } : {}),
+    sourceOnly: task === 'reword' || task === 'grammar',
+    varieties,
+    ...(opts.short === true ? { short: true } : {}),
+  });
 }
 
 /** What the swap button does, or null when it cannot act (then it is not shown). Auto-detect swaps with the newest reply's language. */

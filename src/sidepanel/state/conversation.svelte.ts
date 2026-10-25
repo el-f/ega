@@ -2,6 +2,7 @@
 
 import {
   activeVariant,
+  requestTask,
   addAssistantTurn,
   addDeliveredAssistantTurn,
   addUserTurn as addUserTurnPure,
@@ -24,6 +25,7 @@ import {
   openVariantIds,
   replaceAssistantTurn,
   selectVariant as selectVariantPure,
+  askTargetFor,
   toggleBookmark as toggleBookmarkPure,
   truncateFrom,
   variantIdxForTarget,
@@ -73,6 +75,9 @@ import { toastStore } from '@/shared/components/toastStore';
 import { makeAsyncLock } from '@/shared/utils/async-lock';
 import { isSafeRenderImageSrc } from '@/shared/image-url-guard';
 import { uuid } from '@/shared/uuid';
+import type { AskAbout, AskTarget } from '@/shared/ask-about';
+import { askAboutFor, type AskLabels } from './thread-view';
+import { SHIPPED_TASK_VIEWS } from '@/shared/task-view';
 import { IMAGE_TURN_PLACEHOLDER } from '@/shared/constants';
 import type { LangSelection, PageContext, TranslationChunk } from '@/shared/types';
 import type { Tone } from '@/shared/task-prompts';
@@ -103,6 +108,8 @@ interface DispatchInput {
   taskId?: TaskId;
   /** The text was cut to this many characters on its way in. */
   trimmedTo?: number;
+  /** A question about an earlier reply. */
+  about?: AskTarget;
 }
 
 /** What `deleteTurn` removed, so the caller can offer Undo. */
@@ -116,6 +123,12 @@ export interface DeletedSlice {
   gen: number;
   /** Turn id to the moment this delete buried it, so an Undo answers that burial and no other. */
   deletedAt: ReadonlyMap<string, number>;
+}
+
+/** The answer a re-run started: its turn, and its version when the re-run added one. */
+export interface StartedAnswer {
+  turnId: string;
+  variantId?: string;
 }
 
 export interface ConversationContainer {
@@ -133,8 +146,8 @@ export interface ConversationContainer {
   applyChunk: (c: TranslationChunk) => void;
   /** Abort the currently inflight assistant turn. */
   cancel: () => void;
-  /** Re-dispatch the user turn that produced the given assistant id. */
-  retry: (assistantId: string) => Promise<void>;
+  /** Re-dispatch the user turn that produced the given assistant id. The answer it started; null when nothing started. */
+  retry: (assistantId: string) => Promise<StartedAnswer | null>;
   /** Re-dispatch as a sibling variant; `refinementBody` reaches the prompt and the cache key, never advanced.rules. */
   refine: (args: {
     turnId: string;
@@ -145,8 +158,8 @@ export interface ConversationContainer {
   swapPair: (turnId: string) => SwapPair | null;
   /** Re-dispatch with source and target langs swapped. False when `swapPair` is null or blocked. */
   swapVariant: (turnId: string) => Promise<boolean>;
-  /** Re-dispatch the turn with a different task. False when inflight or unresolvable. */
-  taskVariant: (turnId: string, task: TaskId) => Promise<boolean>;
+  /** Re-dispatch the turn with a different task; Ask also asks about `about` and sends the earlier turns. The new version's id; null when inflight or unresolvable. */
+  taskVariant: (turnId: string, task: TaskId, about?: AskTarget) => Promise<string | null>;
   /** Answer the reply `turnId` in `targetLang`: flips to a done variant already in that language,
    *  else dispatches one. A second pick replaces its own still-streaming variant. False when nothing changed. */
   langVariant: (turnId: string, targetLang: LangSelection) => Promise<boolean>;
@@ -200,7 +213,7 @@ export interface ConversationContainer {
     dispatch?: TurnDispatch,
     task?: TaskId,
   ) => void;
-  /** Land a tooltip payload as a completed exchange — no dispatch. */
+  /** Land a tooltip payload as a completed exchange — no dispatch. Returns the reply's id. */
   seedDeliveredTurn: (input: {
     kind: TurnKind;
     sourceText: string;
@@ -213,7 +226,7 @@ export interface ConversationContainer {
     stream: boolean;
     tone?: Tone;
     trimmedTo?: number;
-  }) => void;
+  }) => string;
 }
 
 /** What a toast calls the conversation's site. */
@@ -237,7 +250,11 @@ const DELETED_ID_CAP = MAX_TURNS_PER_THREAD;
 export interface ConversationOptions {
   /** Silence budget before a streaming turn is failed as TIMEOUT; the flag picks the vision budget. */
   stallMs?: (hasImage: boolean) => number;
+  /** The names the panel shows on a reply, read at each dispatch so a question names what the user reads. */
+  askLabels?: () => AskLabels;
 }
+
+const SHIPPED_LABELS: AskLabels = { views: SHIPPED_TASK_VIEWS, varieties: [] };
 
 const STALL_MESSAGE = 'The reply stopped arriving. Send it again.';
 const ADOPTED_STALL_MESSAGE = 'The window that sent this stopped before it finished.';
@@ -318,6 +335,19 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     return raw !== undefined && isSafeRenderImageSrc(raw) ? raw : undefined;
   }
 
+  /** What a request carries about the reply its question asks about, built now from `turns` (D58). A reply that
+   *  is gone gives no block, and the version that request starts says so. */
+  function aboutFor(
+    userTurn: Turn,
+    seed: VariantSeed | undefined,
+    turns: readonly Turn[],
+  ): { askAbout?: AskAbout; aboutUnsent?: true } {
+    const target = askTargetFor(userTurn, seed);
+    if (target === undefined) return {};
+    const about = askAboutFor(turns, target, opts.askLabels?.() ?? SHIPPED_LABELS);
+    return about === null ? { aboutUnsent: true } : { askAbout: about };
+  }
+
   /** The start message never reached the background: fail the turn so it is retryable, not stuck loading. */
   function failDispatch(turnId: string, requestId: string, e: unknown, variantId?: string): void {
     debugCatch(e, 'conversation.failDispatch');
@@ -352,9 +382,12 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       ...(input.tone ? { tone: input.tone } : {}),
       ...(input.taskId !== undefined ? { taskId: input.taskId } : {}),
       ...(input.trimmedTo !== undefined ? { trimmedTo: input.trimmedTo } : {}),
+      ...(input.about !== undefined ? { about: input.about } : {}),
     });
     const userTurn = userTurns[userTurns.length - 1];
     if (userTurn === undefined) throw new Error('addUserTurn returned no turn');
+    // Built from the thread the user sent into, before this send's trim can drop the reply.
+    const { askAbout, aboutUnsent } = aboutFor(userTurn, undefined, userTurns);
     const withAssistant = addAssistantTurn(userTurns, {
       id: assistantId,
       kind: input.kind,
@@ -365,15 +398,18 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       ...(input.preservedResponse !== undefined
         ? { preservedResponse: input.preservedResponse }
         : {}),
+      ...(aboutUnsent ? { aboutUnsent } : {}),
     });
     // Mirror the store's cap so the in-memory array stays bounded.
-    mutate(
-      () =>
-        withAssistant.length > MAX_TURNS_PER_THREAD
-          ? dropOrphanHead(withAssistant.slice(-MAX_TURNS_PER_THREAD), withAssistant)
-          : withAssistant,
-      'debounce',
-    );
+    const capped =
+      withAssistant.length > MAX_TURNS_PER_THREAD
+        ? dropOrphanHead(withAssistant.slice(-MAX_TURNS_PER_THREAD), withAssistant)
+        : withAssistant;
+    const dropped = withAssistant.slice(0, withAssistant.length - capped.length).map((t) => t.id);
+    noteTrimmed(dropped);
+    // The store sees known ids gone, not a trim of its own, so it buries nothing: without a tombstone another window keeps quoting and sending them.
+    noteRemoved(dropped);
+    mutate(() => capped, 'debounce');
     state.inflightId = assistantId;
     state.inflightVariantId = `${assistantId}:v1`;
     state.requestId = requestId;
@@ -388,6 +424,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
           tone: input.tone,
           context: input.context,
           thread: state.turns,
+          askAbout,
         }),
       );
     } catch (e) {
@@ -481,8 +518,8 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       r?.shedImages === true
         ? `Storage is nearly full. Images were removed from the conversation for ${site} to keep the text.`
         : null,
-      r?.droppedTurns !== undefined
-        ? `${r.droppedTurns} older message${r.droppedTurns === 1 ? ' was' : 's were'} removed from the conversation for ${site} to save space.`
+      r?.droppedIds !== undefined
+        ? `${r.droppedIds.length} older message${r.droppedIds.length === 1 ? ' was' : 's were'} removed from the conversation for ${site} to save space.`
         : null,
     ];
     for (const message of notes) {
@@ -587,14 +624,14 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     mutate((turns) => [...cancelPure(turns, inflightId, variantId)], 'now');
   }
 
-  async function retry(assistantId: string): Promise<void> {
+  async function retry(assistantId: string): Promise<StartedAnswer | null> {
     if (state.inflightId !== null || ownedByBackground(assistantId)) {
       // Retrying mid-stream would clobber inflightId/requestId and strand both turns.
       toastStore.push({
         message: 'Wait for the current reply to finish, then retry.',
         variant: 'warning',
       });
-      return;
+      return null;
     }
     const settled = state.turns.find((t) => t.id === assistantId);
     // The `r` key reaches this function without the gates the Retry button applies.
@@ -610,7 +647,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
               : `${errCodeLabel(known)} — this reply cannot be retried. Send the message again.`,
           variant: 'warning',
         });
-        return;
+        return null;
       }
       const until = settled.error.retryUntil;
       if (until !== undefined && until > Date.now()) {
@@ -622,23 +659,22 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
           // Each press refreshes one toast; its countdown still ends at the same retryUntil.
           key: 'retry-wait',
         });
-        return;
+        return null;
       }
     }
     // A settled answer and its refinements are the user's; re-answer beside them, never over them.
     if (settled?.role === 'assistant' && settled.status === 'done') {
-      await regenerateVariant(assistantId);
-      return;
+      const variantId = await regenerate(assistantId);
+      return variantId === null ? null : { turnId: assistantId, variantId };
     }
     // A failed sibling retries with its own modifiers beside the answers that survived, never over them.
     if (settled?.role === 'assistant' && settled.variants && settled.variants.length > 1) {
-      await retryVariant(settled);
-      return;
+      return retryVariant(settled);
     }
     const source = findRetryTarget(state.turns, assistantId);
-    if (!source) return;
+    if (!source) return null;
     const reuse = replayDispatch(source);
-    if (reuse === null) return;
+    if (reuse === null) return null;
     const tone = source.tone ?? state.lastDispatch?.tone;
     const context = state.turns.find((t) => t.id === assistantId)?.contextSent;
     // Retry means redo THIS assistant: re-attach to the same user turn, never append one.
@@ -647,6 +683,16 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     const requestId = uuid();
     // Only a failure counts: the done branch above is Regenerate, not a retry.
     const retries = settled?.status === 'error' ? (settled.retries ?? 0) + 1 : 0;
+    // History is the turns before the message, so the replace below does not change what this sends.
+    const { askAbout, aboutUnsent } = aboutFor(source, undefined, state.turns);
+    const args = buildStartArgs(source, {
+      requestId,
+      reuse,
+      tone,
+      context,
+      thread: state.turns,
+      askAbout,
+    });
     // A replace is a delete plus an insert: without the tombstone another window writes the dead turn back.
     noteRemoved([assistantId]);
     mutate(
@@ -660,6 +706,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
           ...(context !== undefined ? { contextSent: context } : {}),
           // The tooltip's explanation came with the seed, not the stream, so the retry keeps it.
           ...(settled?.explain !== undefined ? { explain: settled.explain } : {}),
+          ...(aboutUnsent ? { aboutUnsent } : {}),
         }),
       'debounce',
     );
@@ -669,17 +716,16 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     noteOwnedRequest(requestId);
     armStall(requestId, source.imageDataUrl !== undefined);
     try {
-      await sendTranslateStart(
-        buildStartArgs(source, { requestId, reuse, tone, context, thread: state.turns }),
-      );
+      await sendTranslateStart(args);
     } catch (e) {
       failDispatch(nextAssistantId, requestId, e);
     }
+    return { turnId: nextAssistantId };
   }
 
-  async function retryVariant(turn: Turn): Promise<void> {
+  async function retryVariant(turn: Turn): Promise<StartedAnswer | null> {
     const failed = activeVariant(turn);
-    if (failed === undefined) return;
+    if (failed === undefined) return null;
     const retried = (turn.retries ?? 0) + 1;
     mutate(
       (turns) =>
@@ -693,7 +739,8 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     const answered = (turn.variants ?? []).some(
       (v) => v.id !== failed.id && v.status === 'done' && sameRequest(seedOf(v), seed),
     );
-    await dispatchVariant(turn.id, seed, answered);
+    const variantId = await dispatchVariant(turn.id, seed, answered);
+    return variantId === null ? null : { turnId: turn.id, variantId };
   }
 
   /** The label only names a refine in the UI; every other seed field reaches the request. */
@@ -706,13 +753,14 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
   /** The modifiers a variant ran with, so a re-run of it asks the same question. */
   function seedOf(v: Variant | undefined): VariantSeed {
     if (v === undefined) return {};
-    const { refinementBody, refinementLabel, targetLang, sourceLang, task } = v;
+    const { refinementBody, refinementLabel, targetLang, sourceLang, task, about } = v;
     return {
       ...(refinementBody !== undefined ? { refinementBody } : {}),
       ...(refinementLabel !== undefined ? { refinementLabel } : {}),
       ...(targetLang !== undefined ? { targetLang } : {}),
       ...(sourceLang !== undefined ? { sourceLang } : {}),
       ...(task !== undefined ? { task } : {}),
+      ...(about !== undefined ? { about } : {}),
     };
   }
 
@@ -738,45 +786,55 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     return userTurn.dispatch ?? state.lastDispatch;
   }
 
-  /** Appends a pending sibling variant carrying `seed` and replays the user turn with it. `freshAnswer` skips the router's cached answer. */
+  /** Appends a pending sibling variant carrying `seed` and replays the user turn with it; returns its id, or null when nothing started. `freshAnswer` skips the router's cached answer. */
   async function dispatchVariant(
     turnId: string,
     seed: VariantSeed,
     freshAnswer = false,
-  ): Promise<boolean> {
-    if (state.inflightId !== null || ownedByBackground(turnId)) return false;
+  ): Promise<string | null> {
+    if (state.inflightId !== null || ownedByBackground(turnId)) return null;
     const target = resolveVariantTarget(turnId);
-    if (target === null) return false;
+    if (target === null) return null;
     const { assistant, userTurn, reuse } = target;
     const context = assistant.contextSent;
     const variantId = uuid();
     const requestId = uuid();
-    mutate((turns) => addVariantPure(turns, turnId, { id: variantId, ...seed }), 'debounce');
+    const asks = requestTask(userTurn, seed) === 'ask';
+    // The user turn's captured tone wins, so a later picker change does not apply backwards.
+    const tone = userTurn.tone ?? state.lastDispatch?.tone;
+    // A variant re-answers this one exchange with no earlier turns, except a question: it means nothing without them.
+    const { askAbout, aboutUnsent } = aboutFor(userTurn, seed, state.turns);
+    const args = buildStartArgs(userTurn, {
+      requestId,
+      reuse,
+      seed,
+      tone,
+      context,
+      thread: asks ? state.turns : 'none',
+      freshAnswer,
+      askAbout,
+    });
+    mutate(
+      (turns) =>
+        addVariantPure(turns, turnId, {
+          id: variantId,
+          ...seed,
+          ...(aboutUnsent ? { aboutUnsent } : {}),
+        }),
+      'debounce',
+    );
     state.inflightId = turnId;
     state.inflightVariantId = variantId;
     // A variant targets an existing mid-history turn, so inflightId is that turn's id, not a new last turn.
     state.requestId = requestId;
     noteOwnedRequest(requestId);
     armStall(requestId, userTurn.imageDataUrl !== undefined);
-    // The user turn's captured tone wins, so a later picker change does not apply backwards.
-    const tone = userTurn.tone ?? state.lastDispatch?.tone;
     try {
-      // Deliberate: a variant re-answers this one exchange, with no earlier turns.
-      await sendTranslateStart(
-        buildStartArgs(userTurn, {
-          requestId,
-          reuse,
-          seed,
-          tone,
-          context,
-          thread: 'none',
-          freshAnswer,
-        }),
-      );
+      await sendTranslateStart(args);
     } catch (e) {
       failDispatch(turnId, requestId, e, variantId);
     }
-    return true;
+    return variantId;
   }
 
   async function refine(args: {
@@ -792,11 +850,12 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       refinementLabel: _label,
       ...base
     } = seedOf(shown ? activeVariant(shown) : undefined);
-    return dispatchVariant(turnId, {
+    const started = await dispatchVariant(turnId, {
       ...base,
       refinementBody,
       ...(refinementLabel !== undefined ? { refinementLabel } : {}),
     });
+    return started !== null;
   }
 
   /** The source a swap replays: the dispatch's own, or the language the model reported for an 'auto' send. */
@@ -841,10 +900,18 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
   async function swapVariant(turnId: string): Promise<boolean> {
     const pair = swapPair(turnId);
     if (pair === null || pair.blocked !== undefined) return false;
-    return dispatchVariant(turnId, { sourceLang: pair.sourceLang, targetLang: pair.targetLang });
+    const started = await dispatchVariant(turnId, {
+      sourceLang: pair.sourceLang,
+      targetLang: pair.targetLang,
+    });
+    return started !== null;
   }
 
-  async function taskVariant(turnId: string, task: TaskId): Promise<boolean> {
+  async function taskVariant(
+    turnId: string,
+    task: TaskId,
+    about?: AskTarget,
+  ): Promise<string | null> {
     // Another task for the version on screen keeps the languages it was answered in.
     const shown = state.turns.find((t) => t.id === turnId);
     const { targetLang, sourceLang } = seedOf(shown ? activeVariant(shown) : undefined);
@@ -852,6 +919,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       ...(targetLang !== undefined ? { targetLang } : {}),
       ...(sourceLang !== undefined ? { sourceLang } : {}),
       task,
+      ...(task === 'ask' && about !== undefined ? { about } : {}),
     });
   }
 
@@ -896,6 +964,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       ...(active?.refinementBody !== undefined ? { refinementBody: active.refinementBody } : {}),
       ...(active?.refinementLabel !== undefined ? { refinementLabel: active.refinementLabel } : {}),
       ...(active?.task !== undefined ? { task: active.task } : {}),
+      ...(active?.about !== undefined ? { about: active.about } : {}),
     };
     if (active?.status === 'done' && (active.targetLang ?? original) === targetLang) return false;
     const existing = variantIdxForTarget(target.assistant, original, targetLang, carried);
@@ -903,7 +972,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       selectVariant(assistantId, existing);
       return true;
     }
-    const ok = await dispatchVariant(assistantId, { targetLang, ...carried });
+    const ok = (await dispatchVariant(assistantId, { targetLang, ...carried })) !== null;
     if (ok) langChangeRequestId = state.requestId;
     return ok;
   }
@@ -964,7 +1033,16 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     if (slice.removed.length === 0 || slice.origin !== state.activeId) return false;
     if (slice.gen !== threadGen) return false;
     noteRevived(slice.removed, slice.deletedAt);
-    const at = Math.min(Math.max(slice.index, 0), state.turns.length);
+    // The index is only a hint after other Undos; messages, not replies, set the order, since a retry makes a reply newer.
+    const sent = (slice.removed.find((t) => t.role === 'user') ?? slice.removed[0])?.createdAt ?? 0;
+    const len = state.turns.length;
+    const users = state.turns.flatMap((t, i) =>
+      t.role === 'user' ? [{ i, at: t.createdAt }] : [],
+    );
+    const prev = users.filter((u) => u.at < sent).at(-1);
+    const lower = prev === undefined ? 0 : (users.find((u) => u.i > prev.i)?.i ?? len);
+    const upper = users.find((u) => u.at > sent)?.i ?? len;
+    const at = Math.min(Math.max(slice.index, lower, 0), upper, len);
     noteKnownTurns(slice.removed);
     mutate((turns) => [...turns.slice(0, at), ...slice.removed, ...turns.slice(at)], 'now');
     return true;
@@ -975,6 +1053,11 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
   }
 
   async function regenerateVariant(turnId: string): Promise<boolean> {
+    return (await regenerate(turnId)) !== null;
+  }
+
+  /** The new version's id, or null when nothing started. */
+  async function regenerate(turnId: string): Promise<string | null> {
     // A stored turn the byte cap shrank gets its v1 back at load (conversation-store), so no rebuild here.
     const turn = state.turns.find((t) => t.id === turnId);
     // Re-rolls the answer on screen: a swap, a language change, a task or a refine runs as itself again.
@@ -1061,7 +1144,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     tone?: Tone;
     taskId?: TaskId;
     trimmedTo?: number;
-  }): void {
+  }): string {
     // A delivered pair is terminal and takes no slot, so a stream already running keeps streaming.
     const userId = uuid();
     const assistantId = uuid();
@@ -1112,6 +1195,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
         }),
       'now',
     );
+    return assistantId;
   }
 
   const PERSIST_DEBOUNCE_MS = 400;
@@ -1136,6 +1220,16 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
    *  that stamp goes, so one Undo cannot clear another window's delete. */
   // eslint-disable-next-line svelte/prefer-svelte-reactivity
   const revivedAt = new Map<string, number>();
+  /** Ids the store's caps dropped from this thread: gone with no delete, which the toasts must tell apart. */
+  // eslint-disable-next-line svelte/prefer-svelte-reactivity
+  const trimmedIds = new Set<string>();
+
+  function noteTrimmed(ids: readonly string[]): void {
+    for (const id of ids) {
+      trimmedIds.add(id);
+      capSet(trimmedIds);
+    }
+  }
 
   function capSet(s: {
     size: number;
@@ -1197,7 +1291,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     noteKnownTurns(snap);
     // Copies: a load that clears the live sets while this write waits for the lock must not empty its tombstones.
     /* eslint-disable svelte/prefer-svelte-reactivity -- plain snapshots handed to storage, never rendered. */
-    const { evicted, droppedTurns, shedImages, refusedIds } = await saveThread(target, snap, {
+    const { evicted, droppedIds, shedImages, refusedIds } = await saveThread(target, snap, {
       knownIds: new Set(knownIds),
       deletedAt: new Map(deletedAt),
       revivedAt: new Map(revivedAt),
@@ -1223,11 +1317,13 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       state.turns = state.turns.filter((t) => !refusedIds.includes(t.id));
       for (const id of refusedIds) knownIds.delete(id);
       if (state.inflightId !== null && refusedIds.includes(state.inflightId)) cancel();
-      if (!refusedNoticed) {
+      // A save that read the thread before this window's own trim landed is refused that trim: no other window did it.
+      const foreign = refusedIds.filter((id) => !trimmedIds.has(id));
+      if (foreign.length > 0 && !refusedNoticed) {
         refusedNoticed = true;
         toastStore.push({
           message: `Another window changed this conversation. ${
-            refusedIds.length === 1 ? 'One message was' : `${refusedIds.length} messages were`
+            foreign.length === 1 ? 'One message was' : `${foreign.length} messages were`
           } removed here to match.`,
           variant: 'warning',
         });
@@ -1235,10 +1331,17 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     }
     if (evicted !== undefined)
       toastStore.push({ message: evictedMessage(evicted), variant: 'warning' });
-    if (droppedTurns !== undefined && !trimNoticed) {
+    if (droppedIds !== undefined && target === state.activeId) {
+      // The store buried its trim for the other windows; this one hears no echo of its own write.
+      noteTrimmed(droppedIds);
+      state.turns = state.turns.filter((t) => !droppedIds.includes(t.id));
+      if (state.inflightId !== null && droppedIds.includes(state.inflightId)) cancel();
+    }
+    if (droppedIds !== undefined && !trimNoticed) {
       trimNoticed = true;
+      const n = droppedIds.length;
       toastStore.push({
-        message: `${droppedTurns} older message${droppedTurns === 1 ? ' was' : 's were'} removed to save space.`,
+        message: `${n} older message${n === 1 ? ' was' : 's were'} removed to save space.`,
         variant: 'warning',
       });
     }
@@ -1448,6 +1551,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       trimNoticed = false;
       refusedNoticed = false;
       knownIds.clear();
+      trimmedIds.clear();
       noteKnownTurns(state.turns);
       // Tombstones belong to the thread that recorded them.
       deletedAt.clear();
@@ -1563,6 +1667,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     state.lastDispatch = null;
     state.saveFailed = false;
     knownIds.clear();
+    trimmedIds.clear();
     deletedAt.clear();
     revivedAt.clear();
     watchAdoptedAnswers();

@@ -4,6 +4,7 @@ import {
   conversationTitle,
   listTime,
   modeChipLabel,
+  replyDirection,
   separatorLabel,
   separatorTurnIds,
   swapResult,
@@ -78,14 +79,92 @@ describe('taskLabelsOnChange', () => {
       user('u4', 4, { kind: 'reword', tone: 'casual' }),
       user('u5', 5, { kind: 'reword', tone: 'neutral' }),
     ];
-    expect(Object.fromEntries(taskLabelsOnChange(turns, SHIPPED_TASK_VIEWS))).toEqual({
+    expect(Object.fromEntries(taskLabelsOnChange(turns, SHIPPED_TASK_VIEWS, turns))).toEqual({
       u2: 'Explain',
       u4: 'Reword · Casual',
       u5: 'Reword',
     });
     expect(
-      taskLabelsOnChange([user('x', 1, { kind: 'summarize' })], SHIPPED_TASK_VIEWS).get('x'),
+      taskLabelsOnChange([user('x', 1, { kind: 'summarize' })], SHIPPED_TASK_VIEWS, []).get('x'),
     ).toBe('Summarize');
+  });
+
+  const reply = {
+    id: 'a1',
+    role: 'assistant',
+    kind: 'translate',
+    status: 'done',
+    createdAt: 1,
+    content: 'hello',
+  } as Turn;
+
+  it('a quoted question has no label: its quote already says it is a question', () => {
+    const turns = [
+      user('u1', 1),
+      reply,
+      user('u2', 2, { kind: 'ask', about: { turnId: 'a1' } }),
+      user('u3', 3, { kind: 'translate' }),
+    ];
+    expect(Object.fromEntries(taskLabelsOnChange(turns, SHIPPED_TASK_VIEWS, turns))).toEqual({
+      u3: 'Translate',
+    });
+  });
+
+  it('a question whose reply left the thread shows no quote, so it is labelled like any question', () => {
+    const turns = [
+      user('u2', 2, { kind: 'ask', about: { turnId: 'a1' } }),
+      user('u3', 3, { kind: 'ask' }),
+    ];
+    expect(Object.fromEntries(taskLabelsOnChange(turns, SHIPPED_TASK_VIEWS, turns))).toEqual({
+      u2: 'Ask',
+    });
+  });
+});
+
+describe('replyDirection', () => {
+  const reply = (over: Partial<Turn> = {}): Turn =>
+    ({
+      id: 'a1',
+      role: 'assistant',
+      kind: 'translate',
+      status: 'done',
+      createdAt: 2,
+      content: 'Hello',
+      ...over,
+    }) as Turn;
+
+  it('names the detected language over the sent source, then the target', () => {
+    expect(replyDirection(reply({ detectedLang: 'es' }), { targetLang: 'en' }, [])).toBe(
+      'Spanish → English',
+    );
+    expect(replyDirection(reply(), { sourceLang: 'fr', targetLang: 'en' }, [])).toBe(
+      'French → English',
+    );
+    expect(replyDirection(reply(), { sourceLang: 'auto', targetLang: 'en' }, [])).toBe('');
+  });
+
+  it('a version answered in another language names that one; Reword names only the source', () => {
+    const swapped = reply({
+      detectedLang: 'es',
+      variants: [{ id: 'v1', status: 'done', content: 'Hola', targetLang: 'fr' as never }],
+      activeVariantIdx: 0,
+    });
+    expect(replyDirection(swapped, { targetLang: 'en' }, [])).toBe('Spanish → French');
+    expect(
+      replyDirection(reply({ kind: 'reword', detectedLang: 'es' }), { targetLang: 'en' }, []),
+    ).toBe('Spanish');
+  });
+
+  it('an answer to a question has none, even when a source language was picked', () => {
+    expect(replyDirection(reply({ kind: 'ask' }), { sourceLang: 'es', targetLang: 'en' }, [])).toBe(
+      '',
+    );
+  });
+
+  it('a detected detail with no language still names the source, as the tooltip does', () => {
+    expect(
+      replyDirection(reply({ detectedDetail: 'Levantine' }), { targetLang: 'en' }, []),
+    ).toContain('Levantine');
   });
 });
 
@@ -108,6 +187,11 @@ describe('modeChipLabel', () => {
     expect(modeChipLabel({ ...base, taskLabel: 'Summarize', imageToTranslate: true })).toBe(
       'Translate image → English',
     );
+  });
+
+  it('Ask names no language on the chip', () => {
+    expect(modeChipLabel({ ...base, taskLabel: 'Ask', asks: true })).toBe('Ask');
+    expect(modeChipLabel({ ...base, taskLabel: 'Ask', asks: true, source: 'Spanish' })).toBe('Ask');
   });
 });
 

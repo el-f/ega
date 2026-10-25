@@ -35,15 +35,16 @@ test('sidepanel: the Refine button opens the presets from the keyboard, and Esca
   // Refine shows once the reply stops loading.
   const refine = newestReply(page).locator('[data-ega-action="refine"]');
   await expect(refine).toBeVisible({ timeout: 10_000 });
-  await expect(refine).toHaveAccessibleName('Refine');
+  await expect(refine).toHaveAccessibleName('Regenerate or refine');
   await refine.focus();
   await page.keyboard.press('Enter');
   const menu = page.getByRole('menu');
   await expect(menu).toBeVisible();
   await expect(refine).toHaveAttribute('aria-expanded', 'true');
-  // A keyboard open lands on the first preset.
-  await expect(menu.locator('[data-ega-refine-preset="shorter"]')).toBeFocused();
+  // A keyboard open lands on the first item, Regenerate; the presets follow it.
+  await expect(menu.locator('[data-ega-regenerate]')).toBeFocused();
   await expect(menu.getByRole('menuitem')).toHaveText([
+    'Regenerate',
     'Shorter',
     'Less formal',
     'Keep slang',

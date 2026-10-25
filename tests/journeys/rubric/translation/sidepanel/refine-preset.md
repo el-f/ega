@@ -7,7 +7,7 @@
 
 ## State expectations
 
-- Step 1: a reply has finished; its action row shows Copy, Regenerate, Refine and More. Refine opens a menu whose first items are the task's presets (Translate: "Shorter", "Less formal", "Keep slang"), then "Describe a change…". A keyboard open lands on the first preset.
+- Step 1: a reply has finished; its action row shows Copy, Ask, Refine and More. Refine opens a menu that starts with Regenerate, then the task's presets (Translate: "Shorter", "Less formal", "Keep slang"), then "Describe a change…". A keyboard open lands on the first item.
 - Step 2 (pick a preset): the menu closes, focus moves to the reply, and the reply gains a new version (pager 2/2) that streams the refinement of the same message. Version 1 stays reachable with the pager.
 - Step 3: the finished version names the preset in its meta line (for example "Shorter").
 
