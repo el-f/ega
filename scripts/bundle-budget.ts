@@ -259,13 +259,13 @@ function measureDist(distDir: string): BundleEntry[] {
 }
 
 /** Static imports plus module-scope import() chunks: both load on every page. A ratchet: raise or lower it in the commit that earns it. */
-// The bubble menu's Run task wiring adds 555B; the task list itself loads when the menu opens.
-const EAGER_CONTENT_BUDGET_BYTES = 156_516;
+// Stable control widths (R63) add 799B: the shadow root's stable-label rules and the page chip's label stack.
+const EAGER_CONTENT_BUDGET_BYTES = 157_315;
 
 /** The popup opens on every toolbar click, so its preload set is the one extension-page cost a user feels. Ratchet, like the one above. */
-// The Default task select adds 4,858B: Select and the merged task list.
+// Stable control widths (R63) add 3,300B: the StableLabel chunk and Button's label stack.
 // Ratchet at the measured production preload set, without extra headroom.
-const POPUP_PAGE_BUDGET_BYTES = 520_380;
+const POPUP_PAGE_BUDGET_BYTES = 523_678;
 
 function measurePagePreload(distDir: string, htmlRel: string): { files: string[]; bytes: number } {
   const htmlPath = path.join(distDir, htmlRel);
