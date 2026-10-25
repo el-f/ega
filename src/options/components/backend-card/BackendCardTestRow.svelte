@@ -114,10 +114,11 @@
     {#if memoryLine && onUnload && !testRunning}
       <Button
         variant="ghost"
+        labels={['Unload model', 'Unloading...']}
+        busy={unloading}
         ariaDisabled={unloading}
         dataAttrs={{ 'data-testid': `backend-card-unload-${id}` }}
-        onclick={onUnload}
-        >{#if unloading}<InlineSpinner />Unloading...{:else}Unload model{/if}</Button
+        onclick={onUnload}>{unloading ? 'Unloading...' : 'Unload model'}</Button
       >
     {/if}
     <span class="be-test-status" role="status" aria-live="polite">

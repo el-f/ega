@@ -165,6 +165,12 @@ describe('BackendCardTestRow', () => {
     expect(onUnload).toHaveBeenCalledTimes(1);
     await rerender({ ...p, unloading: true });
     expect(unload.textContent.trim()).toBe('Unloading...');
+    // Both labels hold the width, with room for the spinner, so the status after it stays put (R63).
+    expect(
+      [...unload.querySelectorAll('[data-label]')].map((s) => s.getAttribute('data-label')),
+    ).toEqual(['Unload model', 'Unloading...']);
+    expect(unload.querySelectorAll('.has-spinner')).toHaveLength(2);
+    expect(unload.querySelector('[data-ega-inline-spinner]')).not.toBeNull();
     await fireEvent.click(unload);
     expect(onUnload).toHaveBeenCalledTimes(1);
     await rerender({ ...p, testRunning: true, onStop: vi.fn() });
