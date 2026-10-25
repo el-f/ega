@@ -4,6 +4,7 @@ export interface HostLock {
 }
 export const LOCK_URL: URL;
 export function hostSourceHash(source: string): string;
+export function currentLock(): HostLock;
 export function nextLock(
   current: HostLock,
   previous: HostLock | null,

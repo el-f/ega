@@ -29,7 +29,7 @@ export function nextLock(current, previous, sameVersion) {
 }
 
 // The same inputs src/options/nativeHostInstall.ts bundles.
-function currentLock() {
+export function currentLock() {
   const read = (p) => readFileSync(new URL(`../native-host/${p}`, import.meta.url), 'utf8');
   const host = read('ega-host.mjs');
   const bundled = bundleHostSource(host, {

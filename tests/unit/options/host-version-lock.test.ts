@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { bundledHostSource, EXPECTED_HOST_VERSION } from '@/options/nativeHostInstall';
 import {
   LOCK_URL,
+  currentLock,
   hostSourceHash,
   nextLock,
   type HostLock,
@@ -20,6 +21,12 @@ describe('native-host/host-version.lock.json', () => {
     const verdict = nextLock(current, lock, false);
     if ('error' in verdict) throw new Error(verdict.error);
     expect(current, 'the lock is out of date: run pnpm host:lock').toEqual(lock);
+  });
+
+  it('pnpm host:lock hashes the same files the extension bundles', () => {
+    expect(currentLock(), 'scripts/host-version-lock.mjs reads a different file list').toEqual(
+      current,
+    );
   });
 });
 
