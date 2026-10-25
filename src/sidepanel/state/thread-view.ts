@@ -120,7 +120,7 @@ export function modeChipLabel(i: ModeChipInput): string {
   return `${i.taskLabel} · ${i.source} → ${i.target}${tone}`;
 }
 
-/** What the swap button does, or null when it cannot act (then it is not shown). Auto-detect swaps with the newest reply's language. */
+/** What the swap button does, or null when it cannot act (then it shows off). Auto-detect swaps with the newest reply's language. */
 export function swapResult(
   source: string,
   target: string,

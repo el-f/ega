@@ -59,7 +59,7 @@ describe('Next message popover', () => {
     expect((await popover()).querySelector('[data-ega-tone-select]')).not.toBeNull();
   });
 
-  it('a swap that can act trades the languages; none is rendered when it cannot', async () => {
+  it('a swap that can act trades the languages', async () => {
     const { component } = render(ModePopover, {
       props: props({ sourceLang: 'es', swap: { source: 'en', target: 'es' } }),
     });
@@ -71,6 +71,28 @@ describe('Next message popover', () => {
     expect((document.querySelector('#sp-conv-target') as HTMLSelectElement).value).toBe('es');
     void component;
   });
+
+  // R63: removing it would resize From and To, so it shows off with its reason.
+  it.each([
+    ['auto', 'en', 'needs a source language, not Auto-detect'],
+    ['es', 'es', 'needs two different languages'],
+  ])(
+    'a swap that cannot act (From %s, To %s) stays on screen, off, and says why',
+    async (sourceLang, targetLang, why) => {
+      render(ModePopover, { props: props({ sourceLang, targetLang, swap: null }) });
+      const swap = (await popover()).querySelector<HTMLElement>('[data-ega-swap]');
+      expect(swap?.getAttribute('aria-label')).toBe(`Swap languages (${why})`);
+      expect(swap?.getAttribute('aria-disabled')).toBe('true');
+      expect(swap?.hasAttribute('disabled')).toBe(false);
+      await fireEvent.click(swap as HTMLElement);
+      expect((document.querySelector('#sp-conv-source') as HTMLSelectElement).value).toBe(
+        sourceLang,
+      );
+      expect((document.querySelector('#sp-conv-target') as HTMLSelectElement).value).toBe(
+        targetLang,
+      );
+    },
+  );
 
   it('with an image, tasks that cannot read it are marked and a note says why', async () => {
     const blocked = new Set(SHIPPED_TASK_VIEWS.filter((v) => !v.image).map((v) => v.id));
@@ -123,23 +145,15 @@ describe('the Tone select lines up with From and To', () => {
 
   it('one label column for From, To and Tone', () => {
     expect(src).toMatch(/\.mp-langs\s*\{[^}]*grid-template-columns:\s*var\(--mp-label-w\)/);
-    expect(src).toMatch(
-      /\.mp-tone\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*var\(--mp-label-w\) minmax\(0, 1fr\);/,
-    );
+    expect(src).toMatch(/\.mp-tone\s*\{[^}]*display:\s*grid;/);
   });
 
   // A margin of 28px plus the gap is off the spacing scale (design check 6); an empty grid column is not spacing.
-  it('the Tone select stops where the swap column starts, when there is one', async () => {
+  it('the Tone select stops where the swap column starts', () => {
     expect(src).toMatch(
-      /\.mp-tone\.beside-swap\s*\{\s*grid-template-columns:\s*var\(--mp-label-w\) minmax\(0, 1fr\) 28px;/,
+      /\.mp-tone\s*\{[^}]*grid-template-columns:\s*var\(--mp-label-w\) minmax\(0, 1fr\) 28px;/,
     );
     expect(src).not.toMatch(/margin-inline-end:\s*calc\(28px/);
-    render(ModePopover, {
-      props: props({ task: 'reword', usesTone: true, swap: { source: 'en', target: 'es' } }),
-    });
-    expect((await popover()).querySelector('.mp-tone')?.classList.contains('beside-swap')).toBe(
-      true,
-    );
   });
 });
 

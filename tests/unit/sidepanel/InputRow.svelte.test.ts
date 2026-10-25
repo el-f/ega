@@ -196,8 +196,8 @@ describe('row A: the mode chip and what goes with the next send', () => {
     expect(pop.textContent).toContain('Language');
     expect(document.querySelector('#sp-conv-source')).not.toBeNull();
     expect(document.querySelector('#sp-conv-target')).not.toBeNull();
-    // Auto-detect with no reply to swap from: the swap is not rendered at all.
-    expect(document.querySelector('[data-ega-swap]')).toBeNull();
+    // Auto-detect with no reply to swap from: the swap shows off.
+    expect(document.querySelector('[data-ega-swap]')?.getAttribute('aria-disabled')).toBe('true');
   });
 
   it('swap trades both languages, even though the swap itself changes with the source', async () => {

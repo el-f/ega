@@ -22,7 +22,7 @@
     varieties: readonly Variety[];
     /** The task's prompt has a tone slot. */
     usesTone: boolean;
-    /** What swap would set; null hides the button, so there is no disabled control to explain. */
+    /** What swap would set; null shows the button off, with the reason in its name and tooltip. */
     swap: { source: string; target: string } | null;
     /** Tasks an attached image cannot go to; null when no image is attached. */
     imageBlocked: ReadonlySet<TaskId> | null;
@@ -60,6 +60,14 @@
   const imageNote = $derived(
     new Intl.ListFormat('en', { style: 'long', type: 'conjunction' }).format(imageTasks),
   );
+  // Why swap is off: 'auto' has no place in the target slot, and one language swaps into itself.
+  const swapOffReason = $derived(
+    swap !== null
+      ? null
+      : sourceLang === 'auto'
+        ? 'needs a source language, not Auto-detect'
+        : 'needs two different languages',
+  );
 </script>
 
 <Popover {open} {anchor} {onClose} placement="top-start" title="Next message">
@@ -78,7 +86,7 @@
 
     <section class="mp-section" aria-labelledby="mp-lang">
       <h2 class="mp-label" id="mp-lang">Language</h2>
-      <div class="mp-langs" class:with-swap={swap !== null}>
+      <div class="mp-langs">
         <label class="mp-row-label" for="sp-conv-source">From</label>
         <LanguagePicker
           id="sp-conv-source"
@@ -87,30 +95,36 @@
           suppressAriaLabel
           bind:value={sourceLang}
         />
-        {#if swap !== null}
-          <span class="mp-swap">
-            <IconButton
-              icon={ArrowUpDown}
-              ariaLabel="Swap languages"
-              size="sm"
-              dataAttrs={{ 'data-ega-swap': 'true' }}
-              onclick={() => {
-                // Read once: setting the source recomputes `swap` in the parent before the target is read.
-                const next = swap;
-                if (next === null) return;
-                sourceLang = next.source;
-                targetLang = next.target;
-              }}
-            />
-          </span>
-        {/if}
+        <!-- Shown but off when it cannot act: removing it would resize From and To (R63).
+             aria-disabled keeps the Tab stop; the name and the tooltip say why. -->
+        <span class="mp-swap">
+          <IconButton
+            icon={ArrowUpDown}
+            ariaLabel={swapOffReason === null
+              ? 'Swap languages'
+              : `Swap languages (${swapOffReason})`}
+            {...swapOffReason === null ? {} : { tooltip: `Swap ${swapOffReason}` }}
+            size="sm"
+            dataAttrs={{
+              'data-ega-swap': 'true',
+              ...(swapOffReason === null ? {} : { 'aria-disabled': 'true' }),
+            }}
+            onclick={() => {
+              // Read once: setting the source recomputes `swap` in the parent before the target is read.
+              const next = swap;
+              if (next === null) return;
+              sourceLang = next.source;
+              targetLang = next.target;
+            }}
+          />
+        </span>
         <label class="mp-row-label" for="sp-conv-target">To</label>
         <LanguagePicker id="sp-conv-target" {varieties} suppressAriaLabel bind:value={targetLang} />
       </div>
     </section>
 
     {#if usesTone}
-      <section class="mp-section mp-tone" class:beside-swap={swap !== null}>
+      <section class="mp-section mp-tone">
         <label class="mp-row-label" for="sp-tone">Tone</label>
         <Select
           id="sp-tone"
@@ -183,22 +197,14 @@
   }
   .mp-langs {
     display: grid;
-    grid-template-columns: var(--mp-label-w) minmax(0, 1fr);
+    grid-template-columns: var(--mp-label-w) minmax(0, 1fr) auto;
     align-items: center;
     gap: var(--space-1) var(--space-2);
-  }
-  .mp-langs.with-swap {
-    grid-template-columns: var(--mp-label-w) minmax(0, 1fr) auto;
   }
   .mp-row-label {
     color: var(--color-muted);
   }
-  /* Fixed columns: auto-placement would move To into a free third column and squeeze its picker into the label column. */
-  .mp-langs .mp-row-label {
-    grid-column: 1;
-  }
   .mp-langs :global(.ega-lang-picker) {
-    grid-column: 2;
     min-inline-size: 0;
     inline-size: 100%;
   }
@@ -214,15 +220,18 @@
     grid-column: 3;
     grid-row: 1 / span 2;
   }
-  .mp-tone {
-    display: grid;
-    grid-template-columns: var(--mp-label-w) minmax(0, 1fr);
-    align-items: center;
-    gap: var(--space-2);
+  /* The same off look as Swap on the Languages tab. */
+  .mp-swap :global(.ega-icon-btn[aria-disabled='true']) {
+    opacity: 0.55;
+    cursor: not-allowed;
+    background: transparent;
   }
   /* The rows above keep a column for the 28px swap button; an empty one here ends Tone where From and To end. */
-  .mp-tone.beside-swap {
+  .mp-tone {
+    display: grid;
     grid-template-columns: var(--mp-label-w) minmax(0, 1fr) 28px;
+    align-items: center;
+    gap: var(--space-2);
   }
   .mp-tone :global(.ega-select-wrap) {
     min-inline-size: 0;
