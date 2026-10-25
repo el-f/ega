@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import ShortcutInput from '@/shared/components/ShortcutInput.svelte';
 
 /** The caption is a <span>, not <label for>: a label on the Record button would start recording on a caption click. */
@@ -92,6 +94,27 @@ describe('ShortcutInput — label prop', () => {
 
     await fireEvent.click(btn);
     expect(combo.textContent).toBe('Ctrl+Shift+L');
+  });
+
+  // A longer combo saved after recording must not widen the readout and move Record and Clear (R63).
+  it('holds the longest usual combo, so saving one does not widen the readout', () => {
+    const { container } = render(ShortcutInput, {
+      props: { value: 'Ctrl+Q', ariaLabel: 'Record keyboard shortcut', onchange: vi.fn() },
+    });
+    const held = [...container.querySelectorAll('.combo [data-label]')].map((s) =>
+      s.getAttribute('data-label'),
+    );
+    expect(held).toContain('Ctrl+Shift+Alt+F12');
+    expect(held).toContain('Press keys...');
+  });
+
+  // The held labels set the width; a min-width floor under them never applies.
+  it('has no min-width floor on the readout', () => {
+    const source = readFileSync(
+      resolve(process.cwd(), 'src/shared/components/ShortcutInput.svelte'),
+      'utf8',
+    );
+    expect(/\.combo \{[^}]*min-width/.test(source)).toBe(false);
   });
 });
 

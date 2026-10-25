@@ -36,6 +36,8 @@
     error = null,
   }: Props = $props();
 
+  // Three modifiers and an F key; the readout is monospace, so only the length counts.
+  const LONGEST_COMBO = 'Ctrl+Shift+Alt+F12';
   let recording = $state(false);
   let root: HTMLDivElement | null = $state(null);
   const errorId = makeId('ega-shortcut-error');
@@ -110,11 +112,12 @@
   class:is-disabled={disabled || ariaDisabled}
   bind:this={root}
 >
-  <!-- The readout holds both its texts, so Record and Clear beside it stay put when recording starts (R63). -->
+  <!-- The readout holds its texts and the longest usual combo, so Record and Clear beside it stay put when recording
+       starts or a longer combo is saved (R63). -->
   <kbd class="combo"
     ><StableLabel
       current={recording ? 'Press keys...' : value || '—'}
-      labels={['Press keys...', value || '—']}
+      labels={['Press keys...', LONGEST_COMBO, value || '—']}
     /></kbd
   >
   <span class="ega-sr-only" id={valueId}>Current shortcut: {value || 'None'}.</span>
@@ -171,8 +174,6 @@
   /* A read-only value, not a control: no edge, so it never looks like a button beside Record. */
   .combo {
     display: inline-block;
-    /* A floor for short combos; the StableLabel inside holds "Press keys..." and the current combo. */
-    min-width: calc(12ch + var(--space-2) * 2);
     padding: var(--space-1) var(--space-2);
     border-radius: var(--radius-sm);
     color: var(--color-fg);
