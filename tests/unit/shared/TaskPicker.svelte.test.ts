@@ -53,10 +53,13 @@ describe('TaskPicker button row (0.3.9)', () => {
     for (const r of getAllByRole('radio')) {
       expect(r.querySelector('svg') !== null).toBe(r.getAttribute('aria-checked') === 'true');
     }
-    const src = readFileSync('src/shared/components/TaskPicker.svelte', 'utf8');
-    expect(src).toMatch(
-      /\.seg:not\(\.active\) \{\s*padding-inline: calc\(var\(--space-2\) \+ \(16px \+ var\(--space-1\)\) \/ 2\);/,
-    );
+    // The shared .ega-check-chip rule pads them, from the same size the check icon is drawn at.
+    const checked = getAllByRole('radio').find((r) => r.getAttribute('aria-checked') === 'true');
+    const size = checked?.querySelector('svg')?.getAttribute('width');
+    for (const r of getAllByRole('radio')) {
+      expect(r.classList.contains('ega-check-chip')).toBe(true);
+      expect(r.style.getPropertyValue('--chip-check')).toBe(`${size}px`);
+    }
   });
 
   it('rings the checked chip in forced colors through the shared radio rule', () => {

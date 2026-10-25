@@ -2,7 +2,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
 import ContextLevelPicker from '@/shared/components/ContextLevelPicker.svelte';
-import { readFileSync } from 'node:fs';
 
 describe('ContextLevelPicker', () => {
   it('renders two toggle buttons labeled Minimal / Rich', () => {
@@ -48,9 +47,10 @@ describe('ContextLevelPicker picked mark', () => {
     expect(rich.querySelector(':scope > svg')).not.toBeNull();
     // No empty slot at rest: the unpicked button draws no icon and pads both sides by half its room.
     expect(minimal.querySelector('svg')).toBeNull();
-    const src = readFileSync('src/shared/components/ContextLevelPicker.svelte', 'utf8');
-    expect(src).toMatch(
-      /\.ctx-level-toggle button:not\(\.active\) \{\s*padding-inline: calc\(var\(--space-3\) \+ \(16px \+ var\(--space-1\)\) \/ 2\);/,
+    // The shared .ega-check-chip rule pads it, from the same size the check icon is drawn at.
+    expect(minimal.classList.contains('ega-check-chip')).toBe(true);
+    expect(minimal.style.getPropertyValue('--chip-check')).toBe(
+      `${rich.querySelector('svg')?.getAttribute('width')}px`,
     );
   });
 });

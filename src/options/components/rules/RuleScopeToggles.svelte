@@ -20,41 +20,46 @@
   function toggle(id: string): void {
     onchange(tasks.includes(id) ? tasks.filter((t) => t !== id) : [...tasks, id]);
   }
+  // The check icon size; also the room an unpressed chip keeps for it (.ega-check-chip in tokens.css).
+  const CHECK = 14;
 </script>
 
 <div class="scope" role="group" aria-labelledby={labelId}>
   <button
     type="button"
-    class="scope-btn"
+    class="scope-btn ega-check-chip"
+    style:--chip-check="{CHECK}px"
     aria-pressed={all}
     data-ega-rule-scope-all
     onclick={() => {
       if (!all) onchange([]);
     }}
   >
-    {#if all}<Check size={14} aria-hidden="true" />{/if}All tasks
+    {#if all}<Check size={CHECK} aria-hidden="true" />{/if}All tasks
   </button>
   {#each taskViews as v (v.id)}
     {@const on = tasks.includes(v.id)}
     <button
       type="button"
-      class="scope-btn"
+      class="scope-btn ega-check-chip"
+      style:--chip-check="{CHECK}px"
       aria-pressed={on}
       data-ega-rule-scope-task={v.id}
       onclick={() => toggle(v.id)}
     >
-      {#if on}<Check size={14} aria-hidden="true" />{/if}{v.label}
+      {#if on}<Check size={CHECK} aria-hidden="true" />{/if}{v.label}
     </button>
   {/each}
   {#each gone as id (id)}
     <button
       type="button"
-      class="scope-btn"
+      class="scope-btn ega-check-chip"
+      style:--chip-check="{CHECK}px"
       aria-pressed="true"
       data-ega-rule-scope-task={id}
       onclick={() => toggle(id)}
     >
-      <Check size={14} aria-hidden="true" />Deleted task
+      <Check size={CHECK} aria-hidden="true" />Deleted task
     </button>
   {/each}
 </div>
@@ -70,7 +75,8 @@
     align-items: center;
     gap: var(--space-1);
     min-height: 32px;
-    padding: 0 var(--space-3);
+    --chip-pad: var(--space-3);
+    padding-block: 0;
     border: 1px solid var(--color-control-border);
     border-radius: var(--radius-pill);
     background: var(--color-bg-elevated);
@@ -78,11 +84,6 @@
     font: inherit;
     font-size: var(--fs-base);
     cursor: pointer;
-  }
-  /* Off, the check's room (icon + gap) splits into both paddings: the chip keeps its width, so pressing it
-     moves no chip after it, and the label sits centered (R63). */
-  .scope-btn[aria-pressed='false'] {
-    padding-inline: calc(var(--space-3) + (14px + var(--space-1)) / 2);
   }
   .scope-btn:hover {
     background: var(--color-bg-hover);

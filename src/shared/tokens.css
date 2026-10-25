@@ -516,3 +516,13 @@ button:focus:not(:focus-visible) {
 .ega-stable.is-start {
   justify-items: start;
 }
+
+/* A chip that draws a check only when picked. Unpicked, the check's room (icon + gap) splits into both paddings, so a
+   pick neither resizes it nor moves what follows, and the label sits centered (R63). The chip sets --chip-pad, and
+   --chip-check from the number it passes to <Check size>; its own rules set no padding-inline. */
+.ega-check-chip {
+  padding-inline: var(--chip-pad);
+}
+.ega-check-chip:not([aria-pressed='true'], [aria-checked='true'], .active) {
+  padding-inline: calc(var(--chip-pad) + (var(--chip-check) + var(--space-1)) / 2);
+}
