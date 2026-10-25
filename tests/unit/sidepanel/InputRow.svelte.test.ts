@@ -91,6 +91,24 @@ describe('Send and Stop', () => {
     await fireEvent.click(send(container));
     expect(props.onCancel).toHaveBeenCalledTimes(1);
   });
+
+  // Send turns into Stop in place, so the second click of a double-click on Send lands on Stop (P11).
+  it('the second click of a double-click on Send does not stop the reply it started', async () => {
+    const props = { ...composerProps(), value: 'hola' };
+    const { container, rerender } = render(InputRow, { props });
+    await fireEvent.click(send(container), { detail: 1 });
+    expect(props.onSend).toHaveBeenCalledTimes(1);
+    await rerender({ ...props, inflight: true });
+    send(container).focus();
+    await fireEvent.click(send(container), { detail: 2 });
+    expect(props.onCancel).not.toHaveBeenCalled();
+    // The dropped click still hands focus to the box, as every click on this button does.
+    expect(document.activeElement).toBe(textarea(container));
+    // A new click, by mouse (detail 1) or by keyboard (detail 0), still stops it.
+    await fireEvent.click(send(container), { detail: 1 });
+    await fireEvent.click(send(container), { detail: 0 });
+    expect(props.onCancel).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe('the length cap', () => {

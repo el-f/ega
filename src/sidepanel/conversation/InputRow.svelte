@@ -26,6 +26,7 @@
   import { modeChipLabel, swapResult, type ComposerMode } from '../state/thread-view';
   import ModePopover from './ModePopover.svelte';
   import { outsidePressFocus } from '@/shared/menu-focus';
+  import { repeatClickGuard } from '@/shared/ui/repeat-click';
 
   interface SpeechRecognitionLike {
     lang: string;
@@ -121,6 +122,7 @@
   let recognizing = $state(false);
   let listening = $state('');
   let recog: SpeechRecognitionLike | null = null;
+  const isRepeat = repeatClickGuard();
 
   // 'auto' and preset ids are not BCP-47; without a real code the recognizer falls back to the page's lang.
   const dictationLang = $derived(isIsoCode(sourceLang) ? sourceLang : navigator.language);
@@ -563,9 +565,12 @@
       data-tooltip={inflight ? 'Stop (Esc)' : 'Send (Enter)'}
       data-tooltip-placement="top-end"
       data-ega-send
-      onclick={() => {
-        if (inflight) onCancel();
-        else if (ready) onSend();
+      onclick={(e) => {
+        // Send turns into Stop in place, so the rest of a double-click on Send must not stop the reply it started.
+        if (!isRepeat(e)) {
+          if (inflight) onCancel();
+          else if (ready) onSend();
+        }
         // The next message is typed in the box, so focus goes there, not to a button that changed meaning.
         textareaEl?.focus();
       }}

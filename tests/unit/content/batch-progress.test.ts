@@ -186,6 +186,36 @@ describe('the page-translate pill', () => {
     expect(close).toHaveBeenCalledOnce();
   });
 
+  // The settled actions take Stop's place, so the rest of a double-click on Stop must not act on them (P11).
+  it('the second click of a double-click on Stop does not press what took its place', () => {
+    const click = (name: string, detail: number): void => {
+      button(name)?.dispatchEvent(new MouseEvent('click', { bubbles: true, detail }));
+      flushSync();
+    };
+    const h = show();
+    const toggle = vi.fn();
+    const retry = vi.fn();
+    h.setOnToggleOriginal(toggle);
+    h.setOnRetryFailed(retry);
+    click('Stop', 1);
+    expect(h.stop).toHaveBeenCalledOnce();
+    h.update({
+      ...settled,
+      done: 7,
+      failed: 3,
+      failure: { body: 'Stopped.', actions: ['try-again'], tab: 'backends', details: [] },
+    });
+    flushSync();
+    for (const name of ['Try again, 3 failed areas', 'Show original', 'More']) click(name, 2);
+    expect(retry).not.toHaveBeenCalled();
+    expect(toggle).not.toHaveBeenCalled();
+    expect(q('[role="menu"]')).toBeNull();
+    // A new click, by mouse (detail 1) or by keyboard (detail 0), still acts.
+    click('Show original', 1);
+    click('Show original', 0);
+    expect(toggle).toHaveBeenCalledTimes(2);
+  });
+
   it('failures: the cause sentence, Try again with the count in its name, and Error details from More', async () => {
     const h = show();
     const retry = vi.fn();
