@@ -19,6 +19,9 @@
   function setSource(v: string): void {
     if (v !== sourceLang) onSourceChange(v);
   }
+  // 'auto' is valid only as a source, so swapping it into the target slot would leave To blank.
+  const swapOff = $derived(sourceLang === 'auto');
+
   function setTarget(v: string): void {
     if (v !== targetLang) onTargetChange(v);
   }
@@ -37,10 +40,21 @@
         onchange={setSource}
       />
     </label>
-    <!-- Hidden, never disabled, while From is Auto-detect: 'auto' has no place in the target slot.
-         It keeps its slot, so picking a source does not resize the pickers (R63). -->
-    <span class="swap" style:visibility={sourceLang === 'auto' ? 'hidden' : undefined}>
-      <IconButton icon={ArrowLeftRight} ariaLabel="Swap languages" size="sm" onclick={onSwap} />
+    <!-- Shown but off while From is Auto-detect: hiding it left a hole between the pickers, and removing it
+         would resize them (R63). aria-disabled keeps the Tab stop; the name and the tooltip say why. -->
+    <span class="swap">
+      <IconButton
+        icon={ArrowLeftRight}
+        ariaLabel={swapOff
+          ? 'Swap languages (needs a source language, not Auto-detect)'
+          : 'Swap languages'}
+        {...swapOff ? { tooltip: 'Swap needs a source language, not Auto-detect' } : {}}
+        size="sm"
+        dataAttrs={swapOff ? { 'aria-disabled': 'true' } : {}}
+        onclick={() => {
+          if (!swapOff) onSwap();
+        }}
+      />
     </span>
     <label class="lang-label" for="pop-target">
       <span class="ega-sr-only">To</span>
@@ -67,6 +81,12 @@
   }
   .swap {
     display: flex;
+  }
+  /* The same off look as Swap on the Languages tab. */
+  .swap :global(.ega-icon-btn[aria-disabled='true']) {
+    opacity: 0.55;
+    cursor: not-allowed;
+    background: transparent;
   }
   .lang-label {
     min-width: 0;

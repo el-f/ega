@@ -64,12 +64,13 @@ test('Tab walks the popup top to bottom with a visible ring; Esc closes the back
     if (stop === null) break;
     stops.push(stop);
   }
-  // Swap is hidden while the source is auto; the four page tools are one stop.
+  // Swap stays a stop while the source is auto, off with its reason; the four page tools are one stop.
   expect(stops.map((s) => s.name)).toEqual([
     expect.stringMatching(/^Anthropic is ready/),
     'Open settings',
     `Ega on ${host}`,
     'Source language',
+    'Swap languages (needs a source language, not Auto-detect)',
     'Target language',
     'pop-task',
     'Translate page',
