@@ -9,6 +9,7 @@
   import InfoTip from '@/shared/ui/InfoTip.svelte';
   import Button from '@/shared/ui/Button.svelte';
   import Segmented from '@/shared/ui/Segmented.svelte';
+  import StableLabel from '@/shared/ui/StableLabel.svelte';
   import { CHAT_HISTORY_TOKEN_BUDGET } from '@/shared/chat-history';
   import { expandSnippets, SLOT_RE } from '@/shared/snippets';
   import { hasAnswerFormat, readsPageContext, stripStandardFormat } from '@/shared/prompts';
@@ -155,7 +156,7 @@
         tabindex={view === 'edit' ? 0 : -1}
         data-ega-prompt-tab="edit"
         onclick={() => (view = 'edit')}
-        onkeydown={tabKeys}>Edit</button
+        onkeydown={tabKeys}><StableLabel current="Edit" labels={['Edit']} /></button
       >
       <button
         type="button"
@@ -167,7 +168,7 @@
         tabindex={view === 'preview' ? 0 : -1}
         data-ega-prompt-tab="preview"
         onclick={() => (view = 'preview')}
-        onkeydown={tabKeys}>Preview</button
+        onkeydown={tabKeys}><StableLabel current="Preview" labels={['Preview']} /></button
       >
     </div>
     {#if view === 'edit'}
@@ -365,11 +366,15 @@
     font-size: var(--fs-base);
     cursor: pointer;
   }
-  /* Weight is constant across states: a bold active tab widens and moves the tab beside it (R63). */
   .pe-tab.active {
     background: var(--color-accent-bg-soft);
     box-shadow: inset 0 0 0 1px var(--color-accent);
     color: var(--color-fg);
+    font-weight: 600;
+  }
+  /* Each tab holds its label's bold width, like Segmented, so a pick does not move the tab beside it (R63). */
+  .pe-tab :global(.ega-stable > [data-label]) {
+    font-weight: 600;
   }
   .pe-tab:focus-visible {
     outline: 2px solid var(--color-accent);

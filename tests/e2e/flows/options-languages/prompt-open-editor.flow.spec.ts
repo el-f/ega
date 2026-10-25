@@ -32,7 +32,7 @@ test('Use its own prompt opens the shared prompt editor inside the language dial
   await expect(preview).toBeVisible();
   timeline.markStep('editor-open');
 
-  // The active tab is not bold, so picking Preview does not widen it or move Edit (R63).
+  // The active tab is bold, held at its bold width, so picking Preview does not widen it or move Edit (R63).
   await expectSameWidth(
     preview,
     async () => {
