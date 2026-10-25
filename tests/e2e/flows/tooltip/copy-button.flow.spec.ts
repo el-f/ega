@@ -39,11 +39,13 @@ test('copy button writes translation to clipboard and flips icon to Copied', asy
   await page.keyboard.press('Control+Shift+L');
   timeline.markStep('translate-fired');
 
-  // The busy row keeps the settled row's slots: Copy waits disabled in its place, and Stop holds the
-  // slot Regenerate and Refine take, so nothing in the row moves when the reply lands (R63).
+  // The busy row keeps the settled row's slots: Copy and Open in side panel wait off in their places, and
+  // Stop holds the slot Regenerate and Refine take, so nothing in the row moves when the reply lands (R63).
   const actions = page.locator('.tooltip [data-ega-tooltip-actions]');
   const copy = page.locator('.tooltip button[aria-label="Copy translation"]');
   const stop = page.locator('.tooltip [data-ega-tooltip-stop]');
+  const escalate = page.locator('.tooltip button[aria-label^="Open in side panel"]');
+  const more = page.locator('.tooltip [data-ega-tooltip-actions] [aria-label="More"]');
   const offset = async (button: Locator): Promise<{ start: number; end: number }> => {
     const [row, box] = await Promise.all([actions.boundingBox(), button.boundingBox()]);
     if (!row || !box) throw new Error('the action row or the button is not on screen');
@@ -53,6 +55,9 @@ test('copy button writes translation to clipboard and flips icon to Copied', asy
   await expect(copy).toBeDisabled();
   const busyCopy = await offset(copy);
   const busyStop = await offset(stop);
+  await expect(escalate).toHaveAttribute('aria-disabled', 'true');
+  const busyEscalate = await offset(escalate);
+  const busyMore = await offset(more);
   timeline.markStep('busy-row-measured');
 
   await waitForVisibleText(page, '.tooltip .body', 'Welcome, how are you?');
@@ -68,6 +73,14 @@ test('copy button writes translation to clipboard and flips icon to Copied', asy
     1,
   );
   expect(refine.end, 'Refine does not end where Stop did').toBeCloseTo(busyStop.end, 1);
+  await expect(escalate).not.toHaveAttribute('aria-disabled');
+  for (const [name, busy, now] of [
+    ['Open in side panel', busyEscalate, await offset(escalate)],
+    ['More', busyMore, await offset(more)],
+  ] as const) {
+    expect(now.start, `${name} moved when the reply landed`).toBeCloseTo(busy.start, 1);
+    expect(now.end, `${name} changed width`).toBeCloseTo(busy.end, 1);
+  }
 
   await page.locator('.tooltip button[aria-label="Copy translation"]').click();
   timeline.markStep('copy-clicked');

@@ -101,6 +101,8 @@
   // Regenerate and Refine take Stop's slot when the reply settles; Stop holds their width, so Copy and More stay put (R63).
   // shortcut: with one icon (an image reply has no Refine) Stop stays a few px wider than it; hold that too if it shows.
   const settleIcons = $derived((onRegenerate ? 1 : 0) + (onRefine && !tip.imageUrl ? 1 : 0));
+  // Before the first words there is nothing to open; the button holds its place, off, so More stays put (R63).
+  const escalateWait = $derived(mode === 'loading');
 
   // An open shadow root also accepts page-dispatched events; those must never start a request.
   function guard(e: Event): void {
@@ -284,13 +286,19 @@
       </DropdownMenu.Root>
     {/if}
     {#if canEscalate && onEscalate}
+      <!-- No data-ega-escalate while off: tests and hooks wait on it as the sign the button works. -->
       <button
         class="icon-btn"
-        aria-label="Open in side panel"
-        data-ega-escalate={escalationKind}
-        data-tooltip="Open in side panel"
+        aria-label={escalateWait
+          ? 'Open in side panel — Wait for the reply to start.'
+          : 'Open in side panel'}
+        aria-disabled={escalateWait ? 'true' : undefined}
+        data-ega-escalate={escalateWait ? undefined : escalationKind}
+        data-tooltip={escalateWait
+          ? 'Open in side panel once the reply starts'
+          : 'Open in side panel'}
         onclick={(e) => {
-          if (isUserGesture(e)) onEscalate?.();
+          if (!escalateWait && isUserGesture(e)) onEscalate?.();
         }}><Icon icon={PanelRightOpen} size={16} /></button
       >
     {/if}
