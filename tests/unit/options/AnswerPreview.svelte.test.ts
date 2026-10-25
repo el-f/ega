@@ -93,4 +93,22 @@ describe('answer preview', () => {
     });
     expect(view.getByText('Stopped')).toBeTruthy();
   });
+  it('Stop still works after the sample is cleared during a run', async () => {
+    send.mockImplementation(() => new Promise(() => {}));
+    const view = render(AnswerPreview, { draft, spec, s: parseSettings({}) });
+    const tryIt = view.getByRole('button', { name: 'Try it' });
+    await fireEvent.click(tryIt);
+    await waitFor(() => expect(view.getByRole('button', { name: 'Stop' })).toBe(tryIt));
+    await fireEvent.input(view.getByLabelText('Sample text'), { target: { value: '' } });
+    const stop = view.getByRole('button', { name: 'Stop' });
+    // The empty-sample reason is for Try it; a running test must stay stoppable.
+    expect(stop.getAttribute('aria-disabled')).toBeNull();
+    expect(stop.getAttribute('aria-describedby')).toBeNull();
+    const request = send.mock.calls[0]?.[0];
+    await fireEvent.click(stop);
+    expect(send.mock.calls[1]?.[0]).toMatchObject({
+      kind: 'translate:cancel',
+      requestId: request && 'requestId' in request ? request.requestId : '',
+    });
+  });
 });
