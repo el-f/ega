@@ -57,10 +57,15 @@
   });
 
   // A custom task name runs to 40 characters. Held at full width it would push every shorter name onto a line of
-  // its own, so a name past this length shows cut, and the button's name keeps it whole (R63).
+  // its own, so a name past this length shows cut at a word, and the hover hint shows it whole (R63). The visible
+  // text is also the button's name, so a voice user can say what they see (WCAG 2.5.3).
   const NAME_MAX = 16;
-  const shown = (name: string): string =>
-    name.length > NAME_MAX ? `${name.slice(0, NAME_MAX - 1).trimEnd()}…` : name;
+  const shown = (name: string): string => {
+    if (name.length <= NAME_MAX) return name;
+    const cut = name.slice(0, NAME_MAX - 1);
+    const word = cut.lastIndexOf(' ');
+    return `${(word > 0 ? cut.slice(0, word) : cut).trimEnd()}…`;
+  };
   const anywayTask = $derived(taskName ?? 'Translate');
 </script>
 
@@ -93,7 +98,7 @@
               <button
                 type="button"
                 class="status-action"
-                aria-label={anywayTask.length > NAME_MAX ? `${anywayTask} anyway` : undefined}
+                title={anywayTask.length > NAME_MAX ? `${anywayTask} anyway` : undefined}
                 onclick={onTranslateAnyway}
                 ><StableLabel
                   current={`${shown(anywayTask)} anyway`}

@@ -943,7 +943,7 @@ describe('Popup — Translate anyway names the task it runs', () => {
     expect(action.textContent.trim()).toBe('Translate anyway');
   });
 
-  it('a long custom name shows cut, so it cannot hold every label at its width; the name stays whole', async () => {
+  it('a long custom name shows cut at a word; the hover hint keeps it whole', async () => {
     await chrome.storage.local.set({
       'ega.customTasks': [
         {
@@ -965,14 +965,16 @@ describe('Popup — Translate anyway names the task it runs', () => {
     );
     try {
       const { findByRole } = render(Popup);
-      const action = await findByRole('button', {
-        name: 'Rewrite as a polite formal email anyway',
-      });
-      expect(action.textContent.trim()).toBe('Rewrite as a po… anyway');
+      // Cut at a word, and the visible text is the whole name, so a voice user can say it (WCAG 2.5.3).
+      const action = await findByRole('button', { name: 'Rewrite as a… anyway' });
+      expect(action.textContent.trim()).toBe('Rewrite as a… anyway');
+      expect(action.getAttribute('aria-label')).toBeNull();
+      // Sighted users read the full name on hover.
+      expect(action.getAttribute('title')).toBe('Rewrite as a polite formal email anyway');
       await vi.waitFor(() =>
         expect(
           [...action.querySelectorAll('[data-label]')].map((x) => x.getAttribute('data-label')),
-        ).toContain('Rewrite as a po… anyway'),
+        ).toContain('Rewrite as a… anyway'),
       );
     } finally {
       await chrome.storage.local.remove('ega.customTasks');
