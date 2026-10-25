@@ -195,7 +195,8 @@ reaches no later request.
 **Accepted risk:** "Ask instead" shows on any Translate reply that found its text
 already in the target language, including text handed over from a page. One click
 then sends that page text as the question. You see the text in the bubble before
-you click, the answer renders no images, and links show their host.
+you click, the answer fetches no images (only inline base64 raster images render;
+remote and SVG images show as text), and links show their host.
 
 ### Prompt injection from your own presets and glossary
 
