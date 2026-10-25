@@ -3,7 +3,15 @@ export type KeyComboResult = { ok: true; normalized: string } | { ok: false; err
 
 const VALID_MODS = new Set(['ctrl', 'control', 'shift', 'alt', 'option', 'cmd', 'meta', 'command']);
 
-const NAMED_KEY = /^(?:Enter|Escape|Space|Tab|F[1-9]|F1[0-2])$/i;
+/** The keys longer than one character that a shortcut may end in. */
+export const NAMED_KEYS: readonly string[] = [
+  'Enter',
+  'Escape',
+  'Space',
+  'Tab',
+  ...Array.from({ length: 12 }, (_, i) => `F${i + 1}`),
+];
+const NAMED_KEY = new Set(NAMED_KEYS.map((k) => k.toLowerCase()));
 
 export function validateKeyCombo(raw: string): KeyComboResult {
   const trimmed = raw.trim();
@@ -29,7 +37,7 @@ export function validateKeyCombo(raw: string): KeyComboResult {
       return { ok: false, error: `Unknown modifier: ${m}` };
     }
   }
-  if (key.length !== 1 && !NAMED_KEY.test(key)) {
+  if (key.length !== 1 && !NAMED_KEY.has(key.toLowerCase())) {
     return {
       ok: false,
       error: 'The key must be one character, or Enter, Escape, Space, Tab or F1–F12.',

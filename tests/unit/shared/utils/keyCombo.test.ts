@@ -51,4 +51,10 @@ describe('validateKeyCombo', () => {
     const r = validateKeyCombo('Ctrl+Foo');
     expect(r.ok).toBe(false);
   });
+
+  it('takes F1 to F12 in any case, and no other F key', () => {
+    expect(validateKeyCombo('Ctrl+f1')).toEqual({ ok: true, normalized: 'Ctrl+F1' });
+    expect(validateKeyCombo('Ctrl+F12').ok).toBe(true);
+    for (const key of ['F0', 'F13', 'F01']) expect(validateKeyCombo(`Ctrl+${key}`).ok).toBe(false);
+  });
 });

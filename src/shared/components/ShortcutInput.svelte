@@ -2,7 +2,7 @@
   import Button from '@/shared/ui/Button.svelte';
   import StableLabel from '@/shared/ui/StableLabel.svelte';
   import { id as makeId } from '@/shared/uuid';
-  import { validateKeyCombo } from '@/shared/utils/keyCombo';
+  import { NAMED_KEYS, validateKeyCombo } from '@/shared/utils/keyCombo';
 
   interface Props {
     value: string;
@@ -36,8 +36,18 @@
     error = null,
   }: Props = $props();
 
-  // Three modifiers and an F key; the readout is monospace, so only the length counts.
-  const LONGEST_COMBO = 'Ctrl+Shift+Alt+F12';
+  // The modifiers format() writes, in its order.
+  const MODIFIERS = [
+    ['ctrlKey', 'Ctrl'],
+    ['shiftKey', 'Shift'],
+    ['altKey', 'Alt'],
+    ['metaKey', 'Command'],
+  ] as const;
+  // Every modifier and the longest named key; the readout is monospace, so only the length counts.
+  const LONGEST_COMBO = [
+    ...MODIFIERS.map(([, name]) => name),
+    NAMED_KEYS.reduce((a, b) => (b.length > a.length ? b : a)).toUpperCase(),
+  ].join('+');
   let recording = $state(false);
   let root: HTMLDivElement | null = $state(null);
   const errorId = makeId('ega-shortcut-error');
@@ -61,14 +71,9 @@
   function format(e: KeyboardEvent): string | null {
     const k = keyToken(e.key);
     if (k === null) return null;
-    const parts: string[] = [];
-    if (e.ctrlKey) parts.push('Ctrl');
-    if (e.shiftKey) parts.push('Shift');
-    if (e.altKey) parts.push('Alt');
-    if (e.metaKey) parts.push('Command');
+    const parts = MODIFIERS.filter(([flag]) => e[flag]).map(([, name]) => name);
     if (parts.length === 0) return null;
-    parts.push(k);
-    return parts.join('+');
+    return [...parts, k].join('+');
   }
 
   function onKey(e: KeyboardEvent): void {
@@ -112,10 +117,11 @@
   class:is-disabled={disabled || ariaDisabled}
   bind:this={root}
 >
-  <!-- The readout holds its texts and the longest usual combo, so Record and Clear beside it stay put when recording
-       starts or a longer combo is saved (R63). -->
+  <!-- The readout holds its texts and the longest combo it can show, so Record and Clear beside it stay put when recording
+       starts or a longer combo is saved (R63). The value starts at its edge, in line with the row's other values. -->
   <kbd class="combo"
     ><StableLabel
+      start
       current={recording ? 'Press keys...' : value || '—'}
       labels={['Press keys...', LONGEST_COMBO, value || '—']}
     /></kbd
@@ -179,7 +185,6 @@
     color: var(--color-fg);
     font-family: var(--font-mono);
     font-size: var(--fs-sm);
-    text-align: center;
   }
   .is-recording .combo {
     background: var(--color-accent-bg-soft);

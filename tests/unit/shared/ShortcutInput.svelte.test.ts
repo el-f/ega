@@ -4,6 +4,7 @@ import { render, fireEvent } from '@testing-library/svelte';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import ShortcutInput from '@/shared/components/ShortcutInput.svelte';
+import { validateKeyCombo } from '@/shared/utils/keyCombo';
 
 /** The caption is a <span>, not <label for>: a label on the Record button would start recording on a caption click. */
 describe('ShortcutInput — label prop', () => {
@@ -96,16 +97,49 @@ describe('ShortcutInput — label prop', () => {
     expect(combo.textContent).toBe('Ctrl+Shift+L');
   });
 
-  // A longer combo saved after recording must not widen the readout and move Record and Clear (R63).
-  it('holds the longest usual combo, so saving one does not widen the readout', () => {
+  // Recording must not widen the readout and move Record and Clear (R63).
+  it('holds Press keys... beside the value', () => {
     const { container } = render(ShortcutInput, {
       props: { value: 'Ctrl+Q', ariaLabel: 'Record keyboard shortcut', onchange: vi.fn() },
     });
     const held = [...container.querySelectorAll('.combo [data-label]')].map((s) =>
       s.getAttribute('data-label'),
     );
-    expect(held).toContain('Ctrl+Shift+Alt+F12');
     expect(held).toContain('Press keys...');
+  });
+
+  // The readout is monospace, so a held label at least as long as any value keeps Record and Clear still (R63, P2).
+  it('holds a label as long as the longest combo the recorder saves or the validator accepts', async () => {
+    const onchange = vi.fn();
+    const { container, getByRole } = render(ShortcutInput, {
+      props: { value: '', ariaLabel: 'Record keyboard shortcut', onchange },
+    });
+    const record = getByRole('button', { name: 'Record keyboard shortcut' });
+    const all = { ctrlKey: true, shiftKey: true, altKey: true, metaKey: true };
+    for (const key of ['k', ' ', 'Enter', 'Tab', 'F12']) {
+      await fireEvent.click(record);
+      await fireEvent.keyDown(record, { key, ...all });
+    }
+    const saved = onchange.mock.calls.map(([v]) => v as string);
+    expect(saved).toContain('Ctrl+Shift+Alt+Command+ENTER');
+    const stored = validateKeyCombo('Ctrl+Shift+Alt+Command+Escape');
+    if (stored.ok) saved.push(stored.normalized);
+    const longest = Math.max(
+      ...[...container.querySelectorAll('.combo [data-label]')].map(
+        (s) => s.getAttribute('data-label')?.length ?? 0,
+      ),
+    );
+    for (const v of saved) expect(longest).toBeGreaterThanOrEqual(v.length);
+  });
+
+  // The held width is about twice a usual combo; centred, the value would float away from the row's edge.
+  it('starts the value at the edge of its held width', () => {
+    const { container } = render(ShortcutInput, {
+      props: { value: 'Ctrl+Shift+L', ariaLabel: 'Record keyboard shortcut', onchange: vi.fn() },
+    });
+    expect(container.querySelector('.combo > .ega-stable')?.classList.contains('is-start')).toBe(
+      true,
+    );
   });
 
   // The held labels set the width; a min-width floor under them never applies.
