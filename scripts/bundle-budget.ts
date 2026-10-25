@@ -263,9 +263,9 @@ function measureDist(distDir: string): BundleEntry[] {
 const EAGER_CONTENT_BUDGET_BYTES = 157_315;
 
 /** The popup opens on every toolbar click, so its preload set is the one extension-page cost a user feels. Ratchet, like the one above. */
-// Stable control widths (R63) add 3,598B: the StableLabel chunk, Button's label stack and the off Swap.
-// Ratchet at the measured production preload set, without extra headroom.
-const POPUP_PAGE_BUDGET_BYTES = 523_976;
+// Stable control widths (R63) add 3,888B: the StableLabel chunk, Button's label stack and double-click guard,
+// and the off Swap. Ratchet at the measured production preload set, without extra headroom.
+const POPUP_PAGE_BUDGET_BYTES = 524_266;
 
 function measurePagePreload(distDir: string, htmlRel: string): { files: string[]; bytes: number } {
   const htmlPath = path.join(distDir, htmlRel);
