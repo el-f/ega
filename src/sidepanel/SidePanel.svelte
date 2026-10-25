@@ -50,6 +50,7 @@
   import { INDEX_KEY } from './state/conversation-store';
   import {
     askable,
+    activeVariant,
     askTarget,
     atVariant,
     visibleTurns,
@@ -651,8 +652,8 @@
     const status = turn?.status;
     const ready = askable(turn);
     if (wait === null || status === 'pending' || status === 'streaming') return;
-    // A failed or stopped answer waits for its Retry while the mode stays (retryAnswer).
-    if (status === 'error' && mode === wait.mode) return;
+    // A failed, stopped or empty answer waits for its Retry or Regenerate while the mode stays (retryAnswer).
+    if ((status === 'error' || (status === 'done' && !ready)) && mode === wait.mode) return;
     askAwait = null;
     // A mode picked since the wait began (another reply, Done asking, an edit) wins over the answer.
     if (mode !== wait.mode || !ready || turn === undefined || turnTaskValue(turn) !== 'ask') return;
@@ -664,11 +665,15 @@
     }
   });
 
-  /** Retry, or `r`: a Retry swaps the answer for a new turn or version, so a wait on the failed one moves to it. */
+  /** Retry, Regenerate or `r`: a re-run swaps the answer for a new turn or version, so a wait on the shown one moves to it. */
   async function retryAnswer(id: string): Promise<void> {
     const wait = askAwait;
+    const reply = conversation.turns.find((t) => t.id === id);
+    const shown = reply === undefined ? undefined : activeVariant(reply)?.id;
     const started = await conversation.retry(id);
     if (wait?.turnId !== id || started === null) return;
+    // A re-run of another version of the waited reply leaves the wait on its own version.
+    if (wait.variantId !== undefined && shown !== wait.variantId) return;
     askAwait = { ...wait, turnId: started.turnId, variantId: started.variantId };
   }
 
@@ -1277,10 +1282,16 @@
     // "Delete all data" clears storage, and the panel would otherwise write its live thread straight back.
     const indexChange = changes[INDEX_KEY];
     if (indexChange !== undefined && indexChange.newValue === undefined) {
+      // Ask mode ends as on a delete: the draft from before Ask comes back, and focus on its banner moves to the field.
+      const onBanner =
+        composerMode.kind === 'ask' &&
+        document.activeElement?.closest('[data-ega-mode-banner]') != null;
+      leaveAsk();
       forgetPendingDeletes();
       conversation.resetAfterPurge();
       focusedTurnId = null;
       composerMode = { kind: 'send' };
+      if (onBanner) focusComposer();
     }
   }
 
@@ -1549,7 +1560,7 @@
       }}
       onRegenerate={(id) => {
         toastStore.closeSticky();
-        void conversation.regenerateVariant(id);
+        void retryAnswer(id);
       }}
       onBookmark={onToggleBookmark}
       onDelete={onDeleteTurn}

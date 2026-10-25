@@ -286,6 +286,35 @@ describe('asking', () => {
     expect(next.options.askAbout?.['task']).toBe('Ask');
   });
 
+  it('an answer that came back empty moves the mark once its Regenerate lands with text, paged away or not', async () => {
+    const c = await mounted();
+    const reply = await firstExchange(c);
+    await fireEvent.click(askOn(reply));
+    await settle();
+    const q = await send(c, 'why?');
+    await chunk({ type: 'done', requestId: q.requestId, text: '' });
+    const answer = replies(c).at(-1) as HTMLElement;
+    expect(answer.querySelector('[data-ega-empty-body]')).not.toBeNull();
+    expect(target(c)).toBe(reply);
+
+    await openMenu(answer, 'refine');
+    await fireEvent.click(document.querySelector('[data-ega-regenerate]') as HTMLElement);
+    await settle();
+    const again = starts().at(-1) as Start;
+    expect(again.requestId).not.toBe(q.requestId);
+    // The wait holds the new version, not the empty one on screen.
+    await chunk({ type: 'delta', requestId: again.requestId, text: 'Bec' });
+    await fireEvent.click(answer.querySelector('[data-ega-variant-prev]') as HTMLElement);
+    await settle();
+    expect(answer.querySelector('.ega-pager-count')?.textContent).toBe('1/2');
+    await chunk({ type: 'done', requestId: again.requestId, text: 'Because.' });
+    expect(target(c)).toBe(answer);
+    await fireEvent.click(answer.querySelector('[data-ega-variant-next]') as HTMLElement);
+    await settle();
+    const next = await send(c, 'and then?');
+    expect(next.options.askAbout?.['result']).toBe('Because.');
+  });
+
   it('another reply picked while the answer streams stays the target when the answer ends', async () => {
     const c = await mounted();
     const [first, second] = await twoExchanges(c);
@@ -1131,6 +1160,41 @@ describe('Ask instead', () => {
     expect(target(c)).toBe(echoed);
   });
 
+  it('a Regenerate of the Translate version leaves the wait on the failed answer, whose Retry still starts Ask mode', async () => {
+    const c = await mounted();
+    const { echoed } = await slip(c);
+    await fireEvent.click(echoed.querySelector('[data-ega-ask-instead]') as HTMLElement);
+    await settle();
+    const q = starts().at(-1) as Start;
+    await chunk({ type: 'error', requestId: q.requestId, code: 'NETWORK', message: 'x' });
+    await fireEvent.click(echoed.querySelector('[data-ega-variant-prev]') as HTMLElement);
+    await settle();
+    expect(echoed.querySelector('.ega-pager-count')?.textContent).toBe('1/2');
+    await openMenu(echoed, 'refine');
+    await fireEvent.click(document.querySelector('[data-ega-regenerate]') as HTMLElement);
+    await settle();
+    const regenerated = starts().at(-1) as Start;
+    expect(regenerated.options['task']).not.toBe('ask');
+    await chunk({
+      type: 'done',
+      requestId: regenerated.requestId,
+      text: 'what does it mean',
+      detectedLang: 'en',
+    });
+    expect(banner(c)).toBeNull();
+
+    await fireEvent.click(echoed.querySelector('[data-ega-variant-prev]') as HTMLElement);
+    await settle();
+    expect(echoed.querySelector('.ega-pager-count')?.textContent).toBe('2/3');
+    await fireEvent.click(echoed.querySelector('[data-ega-retry]') as HTMLElement);
+    await settle();
+    const retried = starts().at(-1) as Start;
+    expect(retried.options['task']).toBe('ask');
+    await chunk({ type: 'done', requestId: retried.requestId, text: 'It asks what kifak means.' });
+    expect(banner(c)).toContain('Asking about this reply');
+    expect(target(c)).toBe(echoed);
+  });
+
   it('More → Ask instead is the same action', async () => {
     const c = await mounted();
     await slip(c);
@@ -1320,6 +1384,31 @@ describe('re-runs of an answer to a question', () => {
     await waitFor(() => expect(said(c)).toBe('Now asking about the new answer'));
     const next = await send(c, 'and then?');
     expect(next.options.askAbout?.['result']).toBe('Because.');
+  });
+
+  it('a Retry of an older failed reply leaves the wait on the failed answer; its own Retry moves the mark', async () => {
+    const c = await mounted();
+    const reply = await firstExchange(c);
+    const older = await send(c, 'hola');
+    await chunk({ type: 'error', requestId: older.requestId, code: 'NETWORK', message: 'x' });
+    await fireEvent.click(askOn(reply));
+    await settle();
+    const q = await send(c, 'why?');
+    await chunk({ type: 'error', requestId: q.requestId, code: 'NETWORK', message: 'x' });
+
+    await fireEvent.click(replies(c)[1]?.querySelector('[data-ega-retry]') as HTMLElement);
+    await settle();
+    const olderAgain = starts().at(-1) as Start;
+    expect(olderAgain.text).toBe('hola');
+    await chunk({ type: 'done', requestId: olderAgain.requestId, text: 'Hello.' });
+    expect(target(c)).toBe(reply);
+
+    await fireEvent.click(answer(c).querySelector('[data-ega-retry]') as HTMLElement);
+    await settle();
+    const retried = starts().at(-1) as Start;
+    expect(retried.options['task']).toBe('ask');
+    await chunk({ type: 'done', requestId: retried.requestId, text: 'Because.' });
+    expect(target(c)).toBe(answer(c));
   });
 
   // R2-14: pasted text is asked, and "Translate instead" on its answer sends the text alone.
@@ -1693,16 +1782,86 @@ describe('Ask mode ended from elsewhere while focus is on Done asking', () => {
     const c = await mounted();
     await fireEvent.click(askOn(replies(c)[0]));
     await settle();
-    const q = await send(c, 'why?');
-    await chunk({ type: 'delta', requestId: q.requestId, text: 'Bec' });
-    expect(banner(c)).toContain('Asking about this reply');
+    await type(c, 'why?');
+    await fireEvent.click(c.querySelector('[data-ega-send]') as HTMLElement);
+    // Send focuses the field, and the save it schedules trims the reply 400 ms later: move focus before any wait.
     focusDoneAsking(c);
+    await settle();
+    const q = starts().at(-1) as Start;
+    await chunk({ type: 'delta', requestId: q.requestId, text: 'Bec' });
     await waitFor(() => expect(c.querySelector('[data-turn-id="a0"]')).toBeNull(), {
       timeout: 3000,
     });
     await settle();
     expect(banner(c)).toBeNull();
     expect(document.activeElement).toBe(box(c));
+  });
+
+  it('Delete all data in another tab ends it, puts the draft back and moves focus to the field', async () => {
+    await saveThread('https://a.test', [
+      { id: 'u0', role: 'user', kind: 'translate', status: 'idle', createdAt: 1, content: 'hola' },
+      {
+        id: 'a0',
+        role: 'assistant',
+        kind: 'translate',
+        status: 'done',
+        createdAt: 2,
+        content: 'Hello.',
+        attachedToTurnId: 'u0',
+      },
+    ]);
+    const c = await mounted();
+    await type(c, 'my draft');
+    await fireEvent.click(askOn(replies(c)[0]));
+    await settle();
+    await type(c, 'why?');
+    focusDoneAsking(c);
+    await chrome.storage.local.clear();
+    await settle();
+    expect(c.querySelector('[data-turn-id="a0"]')).toBeNull();
+    expect(banner(c)).toBeNull();
+    expect(box(c).value).toBe('my draft');
+    expect(document.activeElement).toBe(box(c));
+  });
+
+  it('focus on another reply stays there when another window deletes the reply asked about', async () => {
+    const exchange = (n: number): Turn[] => [
+      {
+        id: `u${n}`,
+        role: 'user',
+        kind: 'translate',
+        status: 'idle',
+        createdAt: 2 * n + 1,
+        content: `hola ${n}`,
+      },
+      {
+        id: `a${n}`,
+        role: 'assistant',
+        kind: 'translate',
+        status: 'done',
+        createdAt: 2 * n + 2,
+        content: `Hello ${n}.`,
+        attachedToTurnId: `u${n}`,
+      },
+    ];
+    await saveThread('https://a.test', [...exchange(0), ...exchange(1)]);
+    const c = await mounted();
+    await fireEvent.click(askOn(replies(c)[0]));
+    await settle();
+    const other = c.querySelector<HTMLElement>('[data-turn-id="a1"]') as HTMLElement;
+    other.focus();
+    expect(document.activeElement).toBe(other);
+    await saveThread('https://a.test', exchange(1), {
+      knownIds: new Set(['u0', 'a0', 'u1', 'a1']),
+      deletedAt: new Map([
+        ['u0', Date.now()],
+        ['a0', Date.now()],
+      ]),
+      writer: 'another-window',
+    });
+    await settle();
+    expect(banner(c)).toBeNull();
+    expect(document.activeElement).toBe(other);
   });
 
   it('an Ask exchange landing from elsewhere moves focus to the field', async () => {
