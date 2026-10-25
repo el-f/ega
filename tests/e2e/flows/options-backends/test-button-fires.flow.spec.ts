@@ -1,7 +1,7 @@
 /* coverage: options.backends.test-button-fires */
 import { test, expect } from '@playwright/test';
 import { launchExtension, seedSettings, mockAnthropic, type ExtensionHandle } from '../../helpers';
-import { createTimeline, expectSameWidth } from '../_harness';
+import { createTimeline, expectCentered, expectSameWidth } from '../_harness';
 
 let ext: ExtensionHandle;
 
@@ -37,6 +37,8 @@ test('Test now says how fast the backend answered, shows the answer, and the pil
   await expect(testBtn).toBeEnabled({ timeout: 5_000 });
   const pill = card.locator('[data-ega-backend-status]');
   await expect(pill).toHaveAttribute('data-ega-backend-status', 'Key saved', { timeout: 5_000 });
+  // The held width splits evenly around the icon and word, so a short word leaves no gap on one side.
+  await expectCentered(pill.locator('.ega-badge'), 'Key saved pill');
   // The pill holds every word it can show, so Key saved -> Verified does not move the route tag (R63).
   await expectSameWidth(
     pill,
@@ -55,6 +57,7 @@ test('Test now says how fast the backend answered, shows the answer, and the pil
     },
     'Key saved -> Verified',
   );
+  await expectCentered(pill.locator('.ega-badge'), 'Verified pill');
   timeline.markStep('result-visible');
 
   // Verified is stored for this key, so it survives a reload.

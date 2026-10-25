@@ -38,6 +38,10 @@ describe('BackendCardStatus vocabulary', () => {
     );
     expect(held).toContain(expected);
     expect(held).toContain('Checking...');
+    // The icon sits in the centered face with the word, so a short word leaves no gap on one side.
+    expect(
+      container.querySelector('.ega-stable > .be-pill-face > .be-pill-icon svg'),
+    ).not.toBeNull();
     // One pill, no coloured dot.
     expect(container.querySelectorAll('[data-ega-backend-status]')).toHaveLength(1);
     expect(container.querySelector('.be-dot')).toBeNull();

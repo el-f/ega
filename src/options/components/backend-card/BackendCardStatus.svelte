@@ -45,6 +45,8 @@
     icon: typeof Check;
   };
 
+  /** Badge's icon size; each sizer leaves room for it and the gap, so the face centers whole. */
+  const PILL_ICON = 14;
   const CHECKING: Pill = { word: 'Checking...', variant: 'muted', icon: LoaderCircle };
   /** Every pill a kind can show, after Checking...; the pill keeps the widest word's width (R63). */
   const PILLS = {
@@ -107,11 +109,13 @@
 </script>
 
 {#if !supportsImage}<span class="be-text-only">Text only</span>{/if}
-<span class="be-pill" data-ega-backend-status={pill.word}>
-  <Badge variant={pill.variant} icon={pill.icon}>
-    <!-- One grid cell holds every word; the hidden ones draw from data-label, so they stay out of the text. -->
-    <span class="be-pill-words">
-      <span
+<span class="be-pill" data-ega-backend-status={pill.word} style:--be-pill-icon="{PILL_ICON}px">
+  <Badge variant={pill.variant}>
+    <!-- Icon and word center as one face over hidden sizers; data-label keeps those out of the text. -->
+    <span class="ega-stable">
+      <span class="be-pill-face"
+        ><span class="be-pill-icon" aria-hidden="true"
+          ><pill.icon size={PILL_ICON} strokeWidth={2} /></span
         >{pill.word}{#if pill.word === 'Verified' && verifiedAt !== null}<span class="ega-sr-only"
             >{` ${ago(verifiedAt)}`}</span
           >{/if}</span
@@ -141,17 +145,16 @@
   .be-pill {
     display: inline-flex;
   }
-  .be-pill-words {
-    display: inline-grid;
+  .be-pill-face,
+  .be-pill-icon {
+    display: inline-flex;
+    align-items: center;
   }
-  .be-pill-words > * {
-    grid-area: 1 / 1;
+  .be-pill-face {
+    gap: var(--space-1);
   }
   .be-pill-sizer {
-    visibility: hidden;
-  }
-  .be-pill-sizer::before {
-    content: attr(data-label);
+    padding-inline-start: calc(var(--be-pill-icon) + var(--space-1));
   }
   .be-route {
     font-size: var(--fs-base);
