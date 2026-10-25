@@ -146,10 +146,9 @@
   // Image results get the open-image escalation instead; every text success can pin.
   const canEscalatePin = $derived(mode === 'success' && !tip.imageUrl && !!onescalate);
   const canEscalateOpenImage = $derived(mode === 'success' && !!tip.imageUrl && !!onescalate);
-  // Ask goes where Pin goes; an off Ask task offers nothing, as in the panel. Set while loading too, so Stop holds its slot.
-  const canAsk = $derived(
-    mode !== 'error' && !tip.imageUrl && !!onescalate && taskOn(taskViews, 'ask'),
-  );
+  // Ask goes where Pin goes; an off Ask task offers nothing, as in the panel. Set while busy or stopped too, so
+  // Stop and Retry hold its slot (R63); the button itself shows only on a settled reply.
+  const canAsk = $derived(!tip.error && !tip.imageUrl && !!onescalate && taskOn(taskViews, 'ask'));
 
   // Settings load before any tooltip shows; the fallbacks are the shipped tasks, where only Reword has {{tone}}.
   function usesToneFor(t: TaskId): boolean {

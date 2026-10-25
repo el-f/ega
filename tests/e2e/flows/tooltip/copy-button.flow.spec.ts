@@ -40,7 +40,7 @@ test('copy button writes translation to clipboard and flips icon to Copied', asy
   timeline.markStep('translate-fired');
 
   // The busy row keeps the settled row's slots: Copy and Open in side panel wait off in their places, and
-  // Stop holds the slot Regenerate and Refine take, so nothing in the row moves when the reply lands (R63).
+  // Stop holds the slot Ask, Regenerate and Refine take, so nothing in the row moves when the reply lands (R63).
   const actions = page.locator('.tooltip [data-ega-tooltip-actions]');
   const copy = page.locator('.tooltip button[aria-label="Copy translation"]');
   const stop = page.locator('.tooltip [data-ega-tooltip-stop]');
@@ -66,12 +66,9 @@ test('copy button writes translation to clipboard and flips icon to Copied', asy
   const settledCopy = await offset(copy);
   expect(settledCopy.start, 'Copy moved when the reply landed').toBeCloseTo(busyCopy.start, 1);
   expect(settledCopy.end, 'Copy changed width').toBeCloseTo(busyCopy.end, 1);
-  const regenerate = await offset(page.locator('.tooltip button[aria-label="Regenerate"]'));
+  const ask = await offset(page.locator('.tooltip button[data-ega-tooltip-ask]'));
   const refine = await offset(page.locator('.tooltip button[aria-label="Refine"]'));
-  expect(regenerate.start, 'Regenerate does not start where Stop did').toBeCloseTo(
-    busyStop.start,
-    1,
-  );
+  expect(ask.start, 'Ask does not start where Stop did').toBeCloseTo(busyStop.start, 1);
   expect(refine.end, 'Refine does not end where Stop did').toBeCloseTo(busyStop.end, 1);
   await expect(escalate).not.toHaveAttribute('aria-disabled');
   for (const [name, busy, now] of [

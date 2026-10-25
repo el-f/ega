@@ -1066,13 +1066,14 @@ describe('Ask about this in the side panel — only on a settled text result', (
     expect(ask(mountAskable(state).container)).toBeNull();
   });
 
-  it('Stop holds the Ask slot too, before and after the first words (R63)', () => {
+  it('Stop and Retry hold the Ask slot too, so Stop -> Retry keeps its width (R63)', () => {
     const slots = (c: HTMLElement): string | undefined =>
       c
-        .querySelector<HTMLElement>('[data-ega-tooltip-stop]')
+        .querySelector<HTMLElement>('.tooltip-stop-retry')
         ?.style.getPropertyValue('--ega-stop-slots');
     expect(slots(mountAskable({ body: '', loading: true }).container)).toBe('3');
     expect(slots(mountAskable({ body: 'Hol', loading: true, settled: false }).container)).toBe('3');
+    expect(slots(mountAskable({ body: 'Hol', stopped: true, settled: false }).container)).toBe('3');
   });
 
   it('hides when the surface cannot hand off', () => {
