@@ -86,6 +86,63 @@ test('the mode chip opens Next message, and each pick applies at once', async ()
   timeline.markStep('popover-closed');
 });
 
+// R9: at 320-400px no select in the popover is cut; with From on Auto-detect there is no swap, and To once fell to 34px.
+test('every popover select fits its picked name at 320 and 400 px, with or without swap', async () => {
+  await seedSettings(ext.context, ext.extensionId, { anthropicApiKey: 'sk-test' });
+  const seeder = await ext.context.newPage();
+  await seeder.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
+  await seeder.evaluate(async () => {
+    const at = Date.now();
+    await chrome.storage.local.set({
+      'ega.customLanguages': [
+        { id: 'arabizi-lev', label: 'Arabizi (Levantine)', hint: '', examples: [], createdAt: at },
+        { id: 'pt-br', label: 'Portuguese (Brazil)', hint: '', examples: [], createdAt: at },
+      ],
+    });
+  });
+  await seeder.close();
+  const sp = await openPanel();
+  await sp.locator('[data-ega-mode-chip]').click();
+  const popover = sp.locator('[data-ega-mode-popover]');
+  await popover.locator('#sp-conv-target').selectOption('pt-br');
+
+  const cut = (): Promise<string[]> =>
+    popover.locator('select').evaluateAll((selects) => {
+      const ctx = document.createElement('canvas').getContext('2d');
+      if (ctx === null) throw new Error('no 2d context');
+      return selects.flatMap((s) => {
+        const select = s as HTMLSelectElement;
+        const css = getComputedStyle(select);
+        ctx.font = `${css.fontWeight} ${css.fontSize} ${css.fontFamily}`;
+        const label = select.selectedOptions[0]?.textContent ?? '';
+        const room =
+          select.clientWidth -
+          Number.parseFloat(css.paddingLeft) -
+          Number.parseFloat(css.paddingRight);
+        const need = ctx.measureText(label).width;
+        return select.scrollWidth > select.clientWidth || need > room
+          ? [`#${select.id} "${label}": needs ${Math.ceil(need)}px, has ${Math.floor(room)}px`]
+          : [];
+      });
+    });
+
+  for (const width of [320, 400]) {
+    await sp.setViewportSize({ width, height: 760 });
+    // A resize can close the popover.
+    if ((await popover.count()) === 0) await sp.locator('[data-ega-mode-chip]').click();
+    for (const [task, source] of [
+      ['translate', 'auto'],
+      ['translate', 'arabizi-lev'],
+      ['reword', 'arabizi-lev'],
+    ] as const) {
+      await popover.locator(`[data-ega-task="${task}"]`).click();
+      await popover.locator('#sp-conv-source').selectOption(source);
+      await expect(popover.locator('[data-ega-swap]')).toHaveCount(source === 'auto' ? 0 : 1);
+      expect.soft(await cut(), `${task}, From ${source}, at ${width}px`).toEqual([]);
+    }
+  }
+});
+
 test('with page info off in Settings the popover says so and links to Settings', async () => {
   await seedSettings(ext.context, ext.extensionId, {
     anthropicApiKey: 'sk-test',

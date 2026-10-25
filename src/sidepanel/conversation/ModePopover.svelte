@@ -78,7 +78,7 @@
 
     <section class="mp-section" aria-labelledby="mp-lang">
       <h2 class="mp-label" id="mp-lang">Language</h2>
-      <div class="mp-langs">
+      <div class="mp-langs" class:with-swap={swap !== null}>
         <label class="mp-row-label" for="sp-conv-source">From</label>
         <LanguagePicker
           id="sp-conv-source"
@@ -183,14 +183,22 @@
   }
   .mp-langs {
     display: grid;
-    grid-template-columns: var(--mp-label-w) minmax(0, 1fr) auto;
+    grid-template-columns: var(--mp-label-w) minmax(0, 1fr);
     align-items: center;
     gap: var(--space-1) var(--space-2);
+  }
+  .mp-langs.with-swap {
+    grid-template-columns: var(--mp-label-w) minmax(0, 1fr) auto;
   }
   .mp-row-label {
     color: var(--color-muted);
   }
+  /* Fixed columns: auto-placement would move To into a free third column and squeeze its picker into the label column. */
+  .mp-langs .mp-row-label {
+    grid-column: 1;
+  }
   .mp-langs :global(.ega-lang-picker) {
+    grid-column: 2;
     min-inline-size: 0;
     inline-size: 100%;
   }
