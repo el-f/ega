@@ -264,6 +264,35 @@ test('the selection bubble sits next to the selected code lines, inside the view
   expect(gap).toBeLessThanOrEqual(20);
 });
 
+test('a code-view selection that ends 20px above the window bottom puts the bubble above, off every selected line', async () => {
+  const page = await ext.context.newPage();
+  await openScrolledCodeView(page);
+  // No room below; above, the bubble covers line 32, which holds code.
+  await page.evaluate(() => {
+    const r = document.getElementById('LC36')?.getBoundingClientRect();
+    if (!r) throw new Error('no line 36');
+    window.scrollBy(0, r.bottom - (window.innerHeight - 20));
+  });
+  await dragLastArabiziLines(page);
+
+  await expect
+    .poll(async () => (await egaTest<number>(page, 'bubbleCount')) ?? 0, { timeout: 5_000 })
+    .toBeGreaterThan(0);
+  const b = await egaTest<{ top: number; bottom: number; innerHeight: number }>(page, 'bubbleRect');
+  if (!b) throw new Error('no bubble');
+  const lines = await page.evaluate(() =>
+    ['LC33', 'LC34', 'LC35', 'LC36'].map((id) => {
+      const r = document.getElementById(id)?.getBoundingClientRect();
+      return { id, top: r?.top ?? NaN, bottom: r?.bottom ?? NaN };
+    }),
+  );
+  expect(lines[3]?.bottom).toBeCloseTo(b.innerHeight - 20, 0);
+  expect(b.top).toBeGreaterThanOrEqual(0);
+  for (const line of lines) {
+    expect(b.bottom <= line.top + 1 || b.top >= line.bottom - 1, line.id).toBe(true);
+  }
+});
+
 // Past the 32 text nodes the page-order walk reads: only a look through the clear field sees line 33.
 test('a code-view selection with code on the next line and room above puts the bubble above, off that line', async () => {
   const page = await ext.context.newPage();

@@ -105,7 +105,7 @@ function placeBubble(
   rtl: boolean,
   field: Element | null,
 ): { left: number; top: number } {
-  // Below the last line; above the first when below covers text or leaves the viewport and above covers none.
+  // Below the last line; above the first when below leaves the viewport, or covers text where above covers none.
   const below = rect.bottom + 4;
   const above = rect.top - BUBBLE_HEIGHT - 4;
   const anchorX = rtl ? rect.right : rect.left;
@@ -133,11 +133,11 @@ function placeBubble(
       const walker = document.createTreeWalker(hit, NodeFilter.SHOW_TEXT);
       return textInBand(walker, down ? walker.nextNode() : walker.lastChild(), down, top, x0, x1);
     });
-  // The space above is probed only when the bubble cannot stay below.
+  // No room below: covering a line above beats the clamp, which covers the selection's last line. Above is probed only when below covers text.
   const goAbove =
-    (below + BUBBLE_HEIGHT > window.innerHeight - 8 || covers(below, true)) &&
     above >= 4 &&
-    !covers(above, false);
+    (below + BUBBLE_HEIGHT > window.innerHeight - 8 ||
+      (covers(below, true) && !covers(above, false)));
   return { left, top: goAbove ? above : Math.max(4, Math.min(window.innerHeight - 32, below)) };
 }
 
