@@ -41,7 +41,7 @@ test('the mode chip opens Next message, and each pick applies at once', async ()
   timeline.markStep('popover-open');
 
   // A task pick applies at once and the popover stays open; Reword brings its tone row.
-  // Unpicked chips hold the check's room as padding: no width change, no rewrap, no off-center label (R63).
+  // Unpicked chips hold the check's room at both ends: no width change, no rewrap, no off-center label (R63).
   const reword = popover.locator('[data-ega-task="reword"]');
   const translate = popover.locator('[data-ega-task="translate"]');
   await expectCentered(reword, 'Reword unpicked');
@@ -79,7 +79,7 @@ test('the mode chip opens Next message, and each pick applies at once', async ()
   timeline.markStep('languages-swapped');
 
   // The page info level is a Settings value: the pick is saved at once.
-  // The unpicked level holds the check's room as padding, so a pick does not resize the group (R63).
+  // The unpicked level holds the check's room at both ends, so a pick does not resize the group (R63).
   const rich = popover.getByRole('button', { name: 'Rich' });
   await expectCentered(rich, 'Rich unpicked');
   await expectSameWidth(
