@@ -1172,7 +1172,7 @@
   }
   /* A radio group sits lower in its row than a select, so its label does too. */
   .cm-field-label.is-radio {
-    padding-block-start: var(--space-3);
+    padding-block-start: var(--space-3); /* hover-lint-allow: a fixed variant */
   }
   /* A plain value line sits on its label's line: no paragraph margin, the label's top padding. */
   .cm-static-value {
@@ -1219,7 +1219,7 @@
     }
     .cm-field-label,
     .cm-field-label.is-radio {
-      padding-block-start: 0;
+      padding-block-start: 0; /* hover-lint-allow: a fixed variant */
     }
     .cm-kind,
     .cm-handle {

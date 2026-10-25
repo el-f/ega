@@ -369,7 +369,6 @@
     background: var(--color-accent-bg-soft);
     box-shadow: inset 0 0 0 1px var(--color-accent);
     color: var(--color-fg);
-    font-weight: 600;
   }
   .pe-tab:focus-visible {
     outline: 2px solid var(--color-accent);

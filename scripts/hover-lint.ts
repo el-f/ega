@@ -2,10 +2,16 @@ import { readFile, readdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-// Pointer/focus state must not resize an in-flow element — siblings below it jump.
+// Pointer, focus and selected-type states must not resize an in-flow element — siblings jump.
 
-const STATE_RE = /:(?:hover|focus-within|focus-visible|focus|active)\b/;
+const POINTER_RE = /:(?:hover|focus-within|focus-visible|focus|active)\b/;
 const STATE_PSEUDO_RE = /:(?:hover|focus-within|focus-visible|focus|active)\b/g;
+const SELECTED_SRC =
+  '\\[(?:aria-(?:pressed|selected|expanded|current|checked)|data-state)(?:[~|^$*]?=[^\\]]*)?\\]' +
+  '|:(?:checked|disabled)\\b|\\.active(?![\\w-])|\\.is-[\\w-]+';
+const SELECTED_RE = new RegExp(SELECTED_SRC);
+const SELECTED_TOKEN_RE = new RegExp(SELECTED_SRC, 'g');
+const STATE_RE = new RegExp(`${POINTER_RE.source}|${SELECTED_SRC}`);
 const FUNCTIONAL_PSEUDO_RE = /:(?:not|is|where|has)\([^)]*\)/g;
 const PSEUDO_EL_RE = /::?(?:before|after)\b/;
 const ALLOW_MARKER = 'hover-lint-allow';
@@ -28,6 +34,18 @@ const REFLOW_PROP_RE = new RegExp(
       'white-space|text-transform|writing-mode',
       'zoom|aspect-ratio|columns|column-count|column-width',
       'top|right|bottom|left|inset(?:-(?:inline|block))?(?:-(?:start|end))?',
+    ].join('|') +
+    ')$',
+);
+
+// Selected-type states may show or hide content (display), so only control-resizing props count.
+const SELECTED_PROP_RE = new RegExp(
+  '^(?:' +
+    [
+      'font-weight',
+      '(?:padding|margin)(?:-(?:top|right|bottom|left|inline|block)(?:-(?:start|end))?)?',
+      'border(?:-(?:top|right|bottom|left|inline|block)(?:-(?:start|end))?)?-width',
+      'max-height',
     ].join('|') +
     ')$',
 );
@@ -55,7 +73,8 @@ function outOfFlowKey(selector: string): string | null {
   const bare = last
     .replace(new RegExp(PSEUDO_EL_RE.source, 'g'), '')
     .replace(FUNCTIONAL_PSEUDO_RE, '')
-    .replace(STATE_PSEUDO_RE, '');
+    .replace(STATE_PSEUDO_RE, '')
+    .replace(SELECTED_TOKEN_RE, '');
   const head = /^(?:\[[^\]]*\]|[.#]?[\w-]+|\*)/.exec(bare)?.[0] ?? '';
   return head ? head + pseudoEl : null;
 }
@@ -122,14 +141,19 @@ function scanCss(css: string, offset: number, source: string, file: string): Vio
 
   const out: Violation[] = [];
   for (const r of rules) {
-    if (!STATE_RE.test(r.selector)) continue;
+    const propRe = POINTER_RE.test(r.selector)
+      ? REFLOW_PROP_RE
+      : SELECTED_RE.test(r.selector)
+        ? SELECTED_PROP_RE
+        : null;
+    if (!propRe) continue;
     if (r.selector.split(',').every((sel) => outOfFlow.has(outOfFlowKey(sel) ?? ' '))) continue;
 
     const declRe = /(?:^|[;{])\s*([-a-z]+)\s*:/g;
     let m: RegExpExecArray | null;
     while ((m = declRe.exec(r.body)) !== null) {
       const prop = m[1] ?? '';
-      if (!REFLOW_PROP_RE.test(prop)) continue;
+      if (!propRe.test(prop)) continue;
       const absIndex = offset + r.bodyStart + m.index + m[0].indexOf(prop);
       const line = lineOf(source, absIndex);
       if (origLines[line - 1]?.includes(ALLOW_MARKER)) continue;
@@ -190,7 +214,9 @@ async function main(): Promise<void> {
   }
 
   if (violations.length > 0) {
-    console.error('✗ Hover-lint: pointer/focus state resizes elements in normal flow.');
+    console.error(
+      '✗ Hover-lint: a pointer, focus or selected state resizes elements in normal flow.',
+    );
     console.error('  Reserve the space at rest, take the element out of flow, or add');
     console.error('  `/* hover-lint-allow: reason */` on the line.');
     for (const v of violations) {

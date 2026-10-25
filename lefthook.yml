@@ -31,8 +31,8 @@ pre-commit:
       glob: 'src/**/*.{svelte,css}'
       run: pnpm lint:shadow-css
     lint-hover:
-      # Ban :hover/:focus/:active rules that resize an in-flow element — the
-      # siblings below jump as the cursor crosses them. See scripts/hover-lint.ts.
+      # Ban :hover/:focus/:active and selected/pressed/expanded/checked rules that
+      # resize an in-flow element — its siblings jump. See scripts/hover-lint.ts.
       glob: 'src/**/*.{svelte,css}'
       run: pnpm lint:hover
     lint-reactivity:

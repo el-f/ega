@@ -117,11 +117,10 @@
 .ega-picker-bar .modes [role='radio'] {
   font-weight: 400;
 }
-/* The chosen segment shows by more than color: a fill, the accent edge and the heavier weight. */
+/* The chosen segment shows by more than color: a fill and the accent edge. Same weight, so no shift. */
 .ega-picker-bar .modes [aria-checked='true'] {
   background: var(--color-accent-bg-hover);
   border-color: var(--color-accent);
-  font-weight: 600;
 }
 .ega-picker-bar .translate {
   background: var(--color-accent);
