@@ -96,11 +96,15 @@ test('maps a CLI that cannot read its own config file to NATIVE_CLI_CONFIG', () 
     classifyCliError('Error loading config.toml: unsupported value for `model_provider`'),
     'NATIVE_CLI_CONFIG',
   );
-  // claude 2.1.288 with a --settings path that does not exist.
+});
+
+test('leaves config wording Ega cannot trigger to the other rows', () => {
+  // claude's `Settings file not found` needs --settings <path>, which Ega never passes.
   assert.equal(
     classifyCliError('Error: Settings file not found: C:\\no\\such\\settings.json'),
-    'NATIVE_CLI_CONFIG',
+    'UNKNOWN',
   );
+  assert.equal(classifyCliError('Error loading configuration: 429 rate limit'), 'RATE_LIMIT');
 });
 
 test('leaves unrecognised text UNKNOWN rather than guessing retryable', () => {

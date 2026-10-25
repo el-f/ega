@@ -1,11 +1,8 @@
 /** Maps CLI failure text onto the ErrCode list in src/shared/types.ts. Unmatched text stays UNKNOWN on purpose: NETWORK would make terminal failures retryable and rotatable. */
 
 const PATTERNS = [
-  // First, as the quoted config can hold words later rows match: codex-cli 0.162.1 exits on `Error loading config.toml: <why>`, claude 2.1.288 on `Settings file not found: <path>`.
-  [
-    /\berror loading (?:config\.toml|configuration)\b|\bsettings file not found\b/i,
-    'NATIVE_CLI_CONFIG',
-  ],
+  // First, as the quoted config can hold words later rows match: codex-cli 0.162.1 exits on `Error loading config.toml: <why>`.
+  [/\berror loading config\.toml\b/i, 'NATIVE_CLI_CONFIG'],
   [
     /\b(429|rate[ _-]?limit|too many requests|slow down|temporarily limiting requests)\b/i,
     'RATE_LIMIT',
