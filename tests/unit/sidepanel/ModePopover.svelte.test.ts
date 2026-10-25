@@ -19,7 +19,8 @@ function props(over: Record<string, unknown> = {}) {
     taskViews: SHIPPED_TASK_VIEWS,
     varieties: [],
     usesTone: false,
-    swap: null as { source: string; target: string } | null,
+    swap: { off: 'Swap needs a reply to detect its language' } as
+      { source: string; target: string } | { off: string },
     imageBlocked: null as ReadonlySet<string> | null,
     contextEnabled: true,
     taskSendsPage: true,
@@ -66,22 +67,33 @@ describe('Next message popover', () => {
     const p = await popover();
     const swap = p.querySelector<HTMLElement>('[data-ega-swap]');
     expect(swap?.getAttribute('aria-label')).toBe('Swap languages');
+    // Positive control for the off case: a live swap keeps its tooltip.
+    expect(swap?.hasAttribute('data-tooltip-trigger')).toBe(true);
     await fireEvent.click(swap as HTMLElement);
     expect((document.querySelector('#sp-conv-source') as HTMLSelectElement).value).toBe('en');
     expect((document.querySelector('#sp-conv-target') as HTMLSelectElement).value).toBe('es');
     void component;
   });
 
-  // R63: removing it would resize From and To, so it shows off with its reason.
+  // R63: removing it would resize From and To, so it shows off. R4: like Options, the reason is a visible
+  // line the button points at; a tooltip would add its own description, so the reason would be read twice.
   it.each([
-    ['auto', 'en', 'needs a source language, not Auto-detect'],
-    ['es', 'es', 'needs two different languages'],
+    ['auto', 'en', 'Swap needs a reply to detect its language'],
+    ['es', 'es', 'Swap needs two different languages'],
   ])(
-    'a swap that cannot act (From %s, To %s) stays on screen, off, and says why',
+    'a swap that cannot act (From %s, To %s) stays on screen, off, and says why once',
     async (sourceLang, targetLang, why) => {
-      render(ModePopover, { props: props({ sourceLang, targetLang, swap: null }) });
-      const swap = (await popover()).querySelector<HTMLElement>('[data-ega-swap]');
-      expect(swap?.getAttribute('aria-label')).toBe(`Swap languages (${why})`);
+      render(ModePopover, { props: props({ sourceLang, targetLang, swap: { off: why } }) });
+      const p = await popover();
+      const swap = p.querySelector<HTMLElement>('[data-ega-swap]');
+      expect(swap?.getAttribute('aria-label')).toBe('Swap languages');
+      swap?.focus();
+      await fireEvent.focus(swap as HTMLElement);
+      const describedBy = swap?.getAttribute('aria-describedby') ?? '';
+      const note = document.getElementById(describedBy);
+      expect(note?.textContent.trim()).toBe(why);
+      expect(p.contains(note)).toBe(true);
+      expect(swap?.hasAttribute('data-tooltip-trigger')).toBe(false);
       expect(swap?.getAttribute('aria-disabled')).toBe('true');
       expect(swap?.hasAttribute('disabled')).toBe(false);
       await fireEvent.click(swap as HTMLElement);

@@ -67,15 +67,16 @@ describe('SidePanel — j moves the real focus, not only a ring', () => {
   });
 });
 
-describe('a blocked swap button says why in its label', () => {
-  it('the composer swap stays on screen when it cannot act, off, with the reason in its label', async () => {
+describe('a blocked swap button says why', () => {
+  it('the composer swap stays on screen when it cannot act, off, and points at its reason', async () => {
     const { container } = render(SidePanel);
     await openModePopover(container);
     // Auto-detect and no reply yet: nothing to swap with.
     const swap = document.querySelector('[data-ega-swap]');
     expect(swap?.getAttribute('aria-disabled')).toBe('true');
-    expect(swap?.getAttribute('aria-label')).toBe(
-      'Swap languages (needs a source language, not Auto-detect)',
+    expect(swap?.getAttribute('aria-label')).toBe('Swap languages');
+    expect(document.getElementById(swap?.getAttribute('aria-describedby') ?? '')?.textContent).toBe(
+      'Swap needs a reply to detect its language',
     );
   });
 

@@ -112,11 +112,17 @@ describe('modeChipLabel', () => {
 });
 
 describe('swapResult', () => {
-  it('trades a real pair, uses the detected language for Auto-detect, and gives up otherwise', () => {
-    expect(swapResult('es', 'en', undefined)).toEqual({ source: 'en', target: 'es' });
-    expect(swapResult('auto', 'en', 'es')).toEqual({ source: 'en', target: 'es' });
-    expect(swapResult('auto', 'en', undefined)).toBeNull();
-    expect(swapResult('auto', 'en', 'en')).toBeNull();
-    expect(swapResult('en', 'en', undefined)).toBeNull();
+  it('trades a real pair, and uses the detected language for Auto-detect', () => {
+    expect(swapResult('es', 'en', undefined, 'English')).toEqual({ source: 'en', target: 'es' });
+    expect(swapResult('auto', 'en', 'es', 'English')).toEqual({ source: 'en', target: 'es' });
+  });
+
+  // The reason names the real cause: Auto-detect itself is fine once a reply is in another language.
+  it.each([
+    ['auto', 'en', undefined, 'Swap needs a reply to detect its language'],
+    ['auto', 'en', 'en', 'Swap: the reply is already in English'],
+    ['en', 'en', undefined, 'Swap needs two different languages'],
+  ] as const)('From %s, To %s, reply in %s: off, because "%s"', (source, target, detected, off) => {
+    expect(swapResult(source, target, detected, 'English')).toEqual({ off });
   });
 });

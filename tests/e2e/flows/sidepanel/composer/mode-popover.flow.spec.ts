@@ -60,9 +60,11 @@ test('the mode chip opens Next message, and each pick applies at once', async ()
   await sp.keyboard.press('Tab');
   await expect(swap).toBeFocused();
   await expect(swap).toHaveAttribute('aria-disabled', 'true');
-  await expect(swap).toHaveAccessibleName(
-    'Swap languages (needs a source language, not Auto-detect)',
-  );
+  // The reason is read once, as the description; a tooltip opened by focus would add a second copy.
+  await expect(swap).toHaveAccessibleName('Swap languages');
+  await sp.waitForTimeout(600); // past the tooltip's open delay
+  await expect(swap).toHaveAccessibleDescription('Swap needs a reply to detect its language');
+  await expect(popover.getByText('Swap needs a reply to detect its language')).toBeVisible();
   await sp.keyboard.press('Enter');
   await sp.keyboard.press('Space');
   await swap.click({ force: true }); // force: Playwright waits for an aria-disabled button to turn on

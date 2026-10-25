@@ -22,8 +22,8 @@
     varieties: readonly Variety[];
     /** The task's prompt has a tone slot. */
     usesTone: boolean;
-    /** What swap would set; null shows the button off, with the reason in its name and tooltip. */
-    swap: { source: string; target: string } | null;
+    /** What swap would set, or why it cannot act: then the button shows off and points at the reason. */
+    swap: { source: string; target: string } | { off: string };
     /** Tasks an attached image cannot go to; null when no image is attached. */
     imageBlocked: ReadonlySet<TaskId> | null;
     /** Page info is on in Settings. */
@@ -60,14 +60,7 @@
   const imageNote = $derived(
     new Intl.ListFormat('en', { style: 'long', type: 'conjunction' }).format(imageTasks),
   );
-  // Why swap is off: 'auto' has no place in the target slot, and one language swaps into itself.
-  const swapOffReason = $derived(
-    swap !== null
-      ? null
-      : sourceLang === 'auto'
-        ? 'needs a source language, not Auto-detect'
-        : 'needs two different languages',
-  );
+  const swapOff = $derived('off' in swap ? swap.off : null);
 </script>
 
 <Popover {open} {anchor} {onClose} placement="top-start" title="Next message">
@@ -96,23 +89,24 @@
           bind:value={sourceLang}
         />
         <!-- Shown but off when it cannot act: removing it would resize From and To (R63).
-             aria-disabled keeps the Tab stop; the name and the tooltip say why. -->
+             aria-disabled keeps the Tab stop; the line below says why, as on the Languages tab. A tooltip
+             would put its own id in aria-describedby while the button has focus, so the off button has none. -->
         <span class="mp-swap">
           <IconButton
             icon={ArrowUpDown}
-            ariaLabel={swapOffReason === null
-              ? 'Swap languages'
-              : `Swap languages (${swapOffReason})`}
-            {...swapOffReason === null ? {} : { tooltip: `Swap ${swapOffReason}` }}
+            ariaLabel="Swap languages"
+            {...swapOff === null ? {} : { tooltip: '' }}
             size="sm"
             dataAttrs={{
               'data-ega-swap': 'true',
-              ...(swapOffReason === null ? {} : { 'aria-disabled': 'true' }),
+              ...(swapOff === null
+                ? {}
+                : { 'aria-disabled': 'true', 'aria-describedby': 'mp-swap-why' }),
             }}
             onclick={() => {
               // Read once: setting the source recomputes `swap` in the parent before the target is read.
               const next = swap;
-              if (next === null) return;
+              if ('off' in next) return;
               sourceLang = next.source;
               targetLang = next.target;
             }}
@@ -121,6 +115,9 @@
         <label class="mp-row-label" for="sp-conv-target">To</label>
         <LanguagePicker id="sp-conv-target" {varieties} suppressAriaLabel bind:value={targetLang} />
       </div>
+      {#if swapOff !== null}
+        <p class="mp-note" id="mp-swap-why">{swapOff}</p>
+      {/if}
     </section>
 
     {#if usesTone}

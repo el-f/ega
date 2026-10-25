@@ -200,6 +200,23 @@ describe('row A: the mode chip and what goes with the next send', () => {
     expect(document.querySelector('[data-ega-swap]')?.getAttribute('aria-disabled')).toBe('true');
   });
 
+  // On Auto-detect the reason comes from the reply: Auto-detect is not the problem once a reply exists.
+  it('an off swap names the real cause when the reply is already in the target language', async () => {
+    const { container } = render(InputRow, {
+      props: { ...composerProps(), detectedLang: 'en' },
+    });
+    await fireEvent.click(container.querySelector('[data-ega-mode-chip]') as HTMLElement);
+    const swap = await waitFor(() => {
+      const b = document.querySelector<HTMLElement>('[data-ega-swap]');
+      if (!b) throw new Error('swap not rendered');
+      return b;
+    });
+    expect(swap.getAttribute('aria-disabled')).toBe('true');
+    expect(document.getElementById(swap.getAttribute('aria-describedby') ?? '')?.textContent).toBe(
+      'Swap: the reply is already in English',
+    );
+  });
+
   it('swap trades both languages, even though the swap itself changes with the source', async () => {
     const { container } = render(InputRow, { props: { ...composerProps(), sourceLang: 'es' } });
     await fireEvent.click(container.querySelector('[data-ega-mode-chip]') as HTMLElement);
