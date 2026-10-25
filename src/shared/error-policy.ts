@@ -22,7 +22,7 @@ export const ERR_POLICY: Record<ErrCode, ErrPolicy> = {
   QUOTA: { retryable: false, rotate: true, optionsTab: 'backends' },
   NATIVE_NOT_INSTALLED: { retryable: false, rotate: true, optionsTab: 'backends' },
   NATIVE_SPAWN_FAIL: { retryable: false, rotate: true, optionsTab: 'backends' },
-  // The fix is in the CLI's own config file, not in an Ega setting; another backend may still answer.
+  // The cause is a system config or a setting Ega passes, not the user's file; another backend may still answer.
   NATIVE_CLI_CONFIG: { retryable: false, rotate: true },
   NO_BACKEND: { retryable: false, rotate: false, optionsTab: 'backends' },
   // One REQUEST covers max-tokens (Translate), an unknown model id (Backends) and an oversize request

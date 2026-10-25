@@ -112,7 +112,7 @@ interface Failure {
   settingsChanged?: boolean;
 }
 
-/** Failures no later block gets past until a setting (or the CLI's config file) changes, by catalog row: the session stops sending. */
+/** Failures no later block gets past until a setting changes, by catalog row: the session stops sending. */
 const SETTINGS_STOPS = new Set<string>([
   'AUTH',
   'QUOTA',
