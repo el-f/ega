@@ -15,9 +15,7 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-test('Test now -> Testing... keeps every button of the test row in place', async () => {
-  // Known defect on master: the button grows 78 -> 97 px. Branch fix/stable-button-width fixes it; drop this line then.
-  test.fail(true, 'Test now resizes across its labels until fix/stable-button-width (R63) merges');
+test('Test now -> Stop keeps every button of the test row in place', async () => {
   const timeline = createTimeline();
   // The delay holds the running state long enough to measure it.
   mockAnthropic(ext.context, { translation: 'Hello', delayMs: 1_500 });
@@ -38,9 +36,9 @@ test('Test now -> Testing... keeps every button of the test row in place', async
     card,
     async () => {
       await testBtn.click();
-      await expect(testBtn).toContainText('Testing...', { timeout: 5_000 });
+      await expect(testBtn).toContainText('Stop', { timeout: 5_000 });
     },
-    'Test now -> Testing...',
+    'Test now -> Stop',
   );
   timeline.markStep('running-measured');
 
@@ -51,7 +49,7 @@ test('Test now -> Testing... keeps every button of the test row in place', async
       await expect(card.locator('.be-latency')).toContainText('Answered in', { timeout: 15_000 });
       await expect(testBtn).toHaveText('Test now');
     },
-    'Testing... -> Test now',
+    'Stop -> Test now',
   );
   timeline.markStep('result-visible');
 

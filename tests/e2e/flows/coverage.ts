@@ -808,8 +808,7 @@ export const COVERAGE: readonly Family[] = [
           },
           {
             id: 'label-swap-no-layout-shift',
-            description:
-              'Test now -> Testing... -> Test now moves and resizes no button in the card',
+            description: 'Test now -> Stop -> Test now moves and resizes no button in the card',
             flows: ['options-shell/label-swap-no-layout-shift.flow.spec.ts'],
           },
           {

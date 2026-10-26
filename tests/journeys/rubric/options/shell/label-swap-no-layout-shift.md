@@ -2,13 +2,13 @@
 
 ## Latency budgets
 
-- Test now click -> "Testing..." label: <= 1 frame.
+- Test now click -> "Stop" label: <= 1 frame.
 - Mocked answer -> "Answered in" line and the idle label: <= 200ms after the reply lands.
 
 ## State expectations
 
 - Step 1: the backend card is open; the button reads "Test now".
-- Step 2 (click): the same button reads "Testing..." with a spinner.
+- Step 2 (click): the same button reads "Stop"; "Testing..." with a spinner shows beside it.
 - Step 3: the button reads "Test now" again; "Answered in" shows beside it.
 
 ## Visible affordances
