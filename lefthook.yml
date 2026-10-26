@@ -56,6 +56,9 @@ commit-msg:
 
 pre-push:
   commands:
+    format-check:
+      # CI and `pnpm verify` run it, so without it a green push could still fail CI.
+      run: pnpm format:check
     vitest:
       run: pnpm vitest run --reporter=dot
     svelte-check:

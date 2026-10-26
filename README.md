@@ -295,7 +295,7 @@ The install check runs the real installer against a temporary folder. On Windows
 saves your own `com.ega.host` registry entries first and puts them back when it ends.
 
 Commits follow Conventional Commits. lefthook runs the fast checks on commit; on push
-it runs both test suites, svelte-check, and the doc-link, notices, dead-code,
+it runs a format check, both test suites, svelte-check, and the doc-link, notices, dead-code,
 bundle-budget, flow-coverage and affordance gates, so a push takes several minutes.
 
 Unit tests run in the node environment. A test that touches a DOM says so on its
