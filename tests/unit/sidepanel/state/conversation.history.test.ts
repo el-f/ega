@@ -408,6 +408,24 @@ describe('retry() — conversationHistory assembly', () => {
       ]);
     });
 
+    it('an "Ask instead" version after a question carries the question and its answer, and so does its Retry', async () => {
+      const c = createConversation();
+      const reply = await translatedThenAsked(c);
+      const t = await exchange(c, 'test', 'test');
+      const all = [ORIGINAL, TRANSLATION, QUESTION, ANSWER];
+
+      (chrome.runtime.sendMessage as Mock).mockClear();
+      expect(await c.taskVariant(t, 'ask', { turnId: reply })).not.toBeNull();
+      expect(startFor('test').options['task']).toBe('ask');
+      expect(startFor('test').options['conversationHistory']).toEqual(all);
+      c.applyChunk({ type: 'error', requestId: lastRequestId(), code: 'NETWORK', message: 'x' });
+
+      (chrome.runtime.sendMessage as Mock).mockClear();
+      expect(await c.retry(t)).not.toBeNull();
+      expect(startFor('test').options['task']).toBe('ask');
+      expect(startFor('test').options['conversationHistory']).toEqual(all);
+    });
+
     it('a Retry of a failed Translate after a question sends the same earlier exchange', async () => {
       const c = createConversation();
       await translatedThenAsked(c);
