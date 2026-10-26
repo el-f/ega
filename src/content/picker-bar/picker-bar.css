@@ -117,10 +117,11 @@
 .ega-picker-bar .modes [role='radio'] {
   font-weight: 400;
 }
-/* The chosen segment shows by more than color: a fill and the accent edge. Same weight, so no shift. */
+/* The chosen segment shows by more than color: a fill, the accent edge and the heavier weight. */
 .ega-picker-bar .modes [aria-checked='true'] {
   background: var(--color-accent-bg-hover);
   border-color: var(--color-accent);
+  font-weight: 600; /* hover-lint-allow: the [data-label] sizer below holds the bold width */
 }
 /* Each segment holds its label's bold width, so choosing one widens nothing and moves no neighbour (R63). */
 .ega-picker-bar .modes [data-label] {

@@ -19,6 +19,8 @@
 </script>
 
 <script lang="ts">
+  import StableLabel from '@/shared/ui/StableLabel.svelte';
+
   interface Props {
     items: readonly NavItem[];
     /** Items whose `group` is missing or unknown render first, under no heading. */
@@ -104,7 +106,9 @@
             <span class="options-nav-icon" aria-hidden="true">
               <Icon size={16} strokeWidth={1.75} />
             </span>
-            <span class="options-nav-label">{item.label}</span>
+            <span class="options-nav-label"
+              ><StableLabel current={item.label} labels={[item.label]} start /></span
+            >
           </button>
         {/each}
       </div>
@@ -205,6 +209,11 @@
   .options-nav-item.active {
     background: var(--color-bg-hover);
     color: var(--color-fg);
+    font-weight: 600; /* hover-lint-allow: the sizer below holds the bold width */
+  }
+  /* Each label holds its bold width and height, so a pick neither re-wraps it nor moves the row below (R63). */
+  .options-nav-label :global(.ega-stable > [data-label]) {
+    font-weight: 600;
   }
   .options-nav-item.active::before {
     opacity: 1;

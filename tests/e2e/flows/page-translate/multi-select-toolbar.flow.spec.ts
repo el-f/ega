@@ -1,5 +1,5 @@
 /* coverage: vision.page-translate.multi-select-toolbar */
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Locator, type Page } from '@playwright/test';
 import {
   egaTest,
   launchExtension,
@@ -91,6 +91,10 @@ test('the translate-areas toolbar drives picking, and the document itself is nev
       ),
     'Replace text',
   );
+  const weight = (l: Locator): Promise<string> =>
+    l.evaluate((el) => getComputedStyle(el).fontWeight);
+  expect(await weight(both)).toBe('600');
+  expect(await weight(replace)).toBe('400');
   timeline.markStep('mode-switched');
 
   // Exit leaves the page untouched.
