@@ -69,6 +69,8 @@ describe('Next message popover', () => {
     expect(swap?.getAttribute('aria-label')).toBe('Swap languages');
     // Positive control for the off case: a live swap keeps its tooltip.
     expect(swap?.hasAttribute('data-tooltip-trigger')).toBe(true);
+    expect(swap?.hasAttribute('aria-describedby')).toBe(false);
+    expect(document.getElementById('mp-swap-why')).toBeNull();
     await fireEvent.click(swap as HTMLElement);
     expect((document.querySelector('#sp-conv-source') as HTMLSelectElement).value).toBe('en');
     expect((document.querySelector('#sp-conv-target') as HTMLSelectElement).value).toBe('es');
@@ -105,6 +107,24 @@ describe('Next message popover', () => {
       );
     },
   );
+
+  // R63: the popover grows upward, so a reason line that came and went moved From and To by its height.
+  it('keeps the reason line when Swap turns on, empty and pointed at by nothing', async () => {
+    const { rerender } = render(ModePopover, { props: props() });
+    const section = (await popover()).querySelector('section[aria-labelledby="mp-lang"]');
+    const shape = () => [...(section?.children ?? [])].map((c) => c.tagName);
+    const off = shape();
+    const line = section?.lastElementChild;
+    expect(line?.textContent.trim()).toBe('Swap needs a reply to detect its language');
+    await rerender({ sourceLang: 'es', swap: { source: 'en', target: 'es' } });
+    expect(shape()).toEqual(off);
+    expect(section?.lastElementChild).toBe(line);
+    // Nothing for a screen reader to land on: no text, no child, no id.
+    expect(line?.textContent).toBe('');
+    expect(line?.children).toHaveLength(0);
+    expect(document.getElementById('mp-swap-why')).toBeNull();
+    expect(section?.querySelector('[data-ega-swap]')?.hasAttribute('aria-describedby')).toBe(false);
+  });
 
   it('with an image, tasks that cannot read it are marked and a note says why', async () => {
     const blocked = new Set(SHIPPED_TASK_VIEWS.filter((v) => !v.image).map((v) => v.id));

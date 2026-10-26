@@ -77,6 +77,8 @@ test('the mode chip opens Next message, and each pick applies at once', async ()
   await expect(chip).toHaveText('Translate · Spanish → English');
   await expect(swap).not.toHaveAttribute('aria-disabled');
   await expect(swap).toHaveAccessibleName('Swap languages');
+  await expect(swap).not.toHaveAttribute('aria-describedby');
+  await expect(popover.getByText('Swap needs a reply to detect its language')).toHaveCount(0);
   await swap.click();
   await expect(popover.locator('#sp-conv-source')).toHaveValue('en');
   await expect(popover.locator('#sp-conv-target')).toHaveValue('es');
@@ -108,7 +110,7 @@ test('the mode chip opens Next message, and each pick applies at once', async ()
   timeline.markStep('popover-closed');
 });
 
-// R9: at 320-400px no select in the popover is cut; To once fell to 34px. R63: From and To keep their box on Auto-detect.
+// R9: at 320-400px no select in the popover is cut; To once fell to 34px. R63: From and To keep their box when Swap turns off.
 test('every popover select fits its picked name at 320 and 400 px, and From and To never move', async () => {
   await seedSettings(ext.context, ext.extensionId, { anthropicApiKey: 'sk-test' });
   const seeder = await ext.context.newPage();
@@ -166,16 +168,22 @@ test('every popover select fits its picked name at 320 and 400 px, and From and 
       else await expect(swap).not.toHaveAttribute('aria-disabled');
       expect.soft(await cut(), `${task}, From ${source}, at ${width}px`).toEqual([]);
       if (task === 'translate') {
+        // Two frames: the popover takes its new place on the frame after its content changes height.
+        await sp.evaluate(
+          () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))),
+        );
+        // Height above the chip: at 320 px the longer chip label wraps and moves the chip itself.
+        const chipTop = (await sp.locator('[data-ega-mode-chip]').boundingBox())?.y ?? Number.NaN;
         const at = await Promise.all(
           ['#sp-conv-source', '#sp-conv-target'].map(async (id) => {
             const b = await popover.locator(id).boundingBox();
-            return `${id} x=${b?.x} w=${b?.width}`;
+            return `${id} x=${b?.x} w=${b?.width} above chip=${chipTop - (b?.y ?? Number.NaN)}`;
           }),
         );
         boxes[source] = at.join(', ');
       }
     }
-    // R63: Swap stays in its column, so From and To keep their place and width on Auto-detect.
+    // R63: Swap stays in its column and its reason line keeps its height, so From and To keep their box.
     expect.soft(boxes['auto'], `From and To at ${width}px`).toBe(boxes['arabizi-lev']);
   }
 });

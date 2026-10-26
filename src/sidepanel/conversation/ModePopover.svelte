@@ -115,9 +115,12 @@
         <label class="mp-row-label" for="sp-conv-target">To</label>
         <LanguagePicker id="sp-conv-target" {varieties} suppressAriaLabel bind:value={targetLang} />
       </div>
-      {#if swapOff !== null}
-        <p class="mp-note" id="mp-swap-why">{swapOff}</p>
-      {/if}
+      <!-- Kept, empty, while Swap is on: the popover grows upward, so a line that comes and goes moves From and To. -->
+      <div class="mp-swap-why">
+        {#if swapOff !== null}
+          <p class="mp-note" id="mp-swap-why">{swapOff}</p>
+        {/if}
+      </div>
     </section>
 
     {#if usesTone}
@@ -222,6 +225,9 @@
     opacity: 0.55;
     cursor: not-allowed;
     background: transparent;
+  }
+  .mp-swap-why {
+    min-block-size: 1lh;
   }
   /* The rows above keep a column for the 28px swap button; an empty one here ends Tone where From and To end. */
   .mp-tone {
