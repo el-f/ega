@@ -512,6 +512,7 @@
   .be-panel {
     min-inline-size: 0;
     inline-size: var(--be-expanded-width, auto);
+    margin-inline-start: var(--be-expanded-start, 0);
     background: var(--color-bg);
     border-inline-start: 2px solid var(--color-accent-soft);
     border-radius: var(--radius-lg);

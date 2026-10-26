@@ -12,6 +12,7 @@ import {
   seedSettings,
   sendFromPanel,
   type ExtensionHandle,
+  WIDE_FONT_CSS,
 } from './helpers';
 import { DEFAULT_SETTINGS } from '../../src/shared/settings-defaults';
 import {
@@ -874,7 +875,6 @@ test('check 5 focus never lands on body after an action', async () => {
   await sp.close();
 });
 
-// CI draws DejaVu Sans, 14-22% wider than Segoe UI: Verdana with a little letter-spacing covers the wide end (DejaVu where Verdana is missing).
 test('an error row keeps one line at 256 in a font as wide as DejaVu Sans', async () => {
   test.setTimeout(120_000);
   const NET = { code: 'NETWORK', message: 'fetch failed', backendId: 'anthropic' };
@@ -926,10 +926,7 @@ test('an error row keeps one line at 256 in a font as wide as DejaVu Sans', asyn
       1.22,
     );
   }
-  await sp.addStyleTag({
-    content:
-      'body, body * { font-family: Verdana, "DejaVu Sans", sans-serif !important; letter-spacing: 0.03em !important; }',
-  });
+  await sp.addStyleTag({ content: WIDE_FONT_CSS });
   for (const size of [
     { width: 256, height: 608 },
     { width: 320, height: 760 },

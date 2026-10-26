@@ -18,6 +18,10 @@ const FIXTURES_DIR = path.join(__dirname, 'fixtures');
 const ALL_BACKEND_IDS = [...CLOUD_PROVIDER_IDS, 'ollama', 'localserver', 'native'] as const;
 type E2eBackendId = (typeof ALL_BACKEND_IDS)[number];
 
+/** CI draws DejaVu Sans, 14-22% wider than Segoe UI: Verdana with a little letter-spacing covers the wide end (DejaVu where Verdana is missing). */
+export const WIDE_FONT_CSS =
+  'body, body * { font-family: Verdana, "DejaVu Sans", sans-serif !important; letter-spacing: 0.03em !important; }';
+
 /** Seed fragment that enables exactly `active`, in that order, and disables every other registered backend. */
 export function onlyBackends(...active: E2eBackendId[]): {
   backendOrder: E2eBackendId[];

@@ -408,6 +408,13 @@
     /* The expanded form reaches beneath the header actions, after the 32px drag gutter. */
     --be-expanded-width: calc(100cqi - var(--space-6) - var(--space-2));
   }
+  /* Narrow: the form takes the gutter's room too, so a button's widest label fits at 320 in DejaVu Sans. */
+  @media (max-width: 640px) {
+    .be-row {
+      --be-expanded-start: calc(-1 * (var(--space-6) + var(--space-2)));
+      --be-expanded-width: 100cqi;
+    }
+  }
   .be-row + .be-row {
     border-top: 1px solid var(--color-border-subtle);
   }

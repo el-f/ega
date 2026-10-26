@@ -1,5 +1,11 @@
 import { test, expect } from '@playwright/test';
-import { launchExtension, onlyBackends, seedSettings, type ExtensionHandle } from './helpers';
+import {
+  launchExtension,
+  onlyBackends,
+  seedSettings,
+  WIDE_FONT_CSS,
+  type ExtensionHandle,
+} from './helpers';
 import { DEFAULT_SETTINGS } from '../../src/shared/settings-defaults';
 import { CLOUD_PROVIDER_IDS } from '../../src/shared/provider-ids';
 
@@ -61,6 +67,15 @@ test('Backends tab: every card starts collapsed, including one that needs setup'
 
 test('expanded backend forms use the row width and keep controls inside at narrow widths', async () => {
   test.setTimeout(60_000);
+  // A loaded model shows Unload model too, which reserves the room of its wider "Unloading...".
+  await ext.context.route('http://localhost:11434/api/ps', (route) =>
+    route.fulfill({
+      headers: { 'content-type': 'application/json', 'access-control-allow-origin': '*' },
+      body: JSON.stringify({
+        models: [{ name: DEFAULT_SETTINGS.model.ollama, size: 5e9, size_vram: 5e9 }],
+      }),
+    }),
+  );
   await seedSettings(ext.context, ext.extensionId, {
     ...onlyBackends('anthropic', 'ollama', 'localserver', 'native'),
     anthropicApiKey: 'test-key',
@@ -70,12 +85,15 @@ test('expanded backend forms use the row width and keep controls inside at narro
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
   await page.getByRole('tab', { name: /^Backends$/ }).click();
+  await page.addStyleTag({ content: WIDE_FONT_CSS });
   for (const width of [400, 320]) {
     await page.setViewportSize({ width, height: 800 });
     for (const id of ['anthropic', 'ollama', 'localserver', 'native']) {
       const card = page.locator(`details[data-backend-id="${id}"]`);
       await card.locator(':scope > summary').click();
       await expect(card).toHaveAttribute('open', '');
+      if (id === 'ollama')
+        await expect(card.getByTestId('backend-card-unload-ollama')).toBeVisible();
       const layout = await card.locator('.be-panel').evaluate((panel) => {
         const bounds = panel.getBoundingClientRect();
         const rowEl = panel.closest('[data-testid^="be-row-"]');
@@ -87,7 +105,7 @@ test('expanded backend forms use the row width and keep controls inside at narro
             const r = el.getBoundingClientRect();
             return r.left < bounds.left || r.right > bounds.right;
           })
-          .map((el) => el.getAttribute('aria-label') ?? el.tagName);
+          .map((el) => el.getAttribute('aria-label') ?? (el.textContent.trim() || el.tagName));
         return { right: bounds.right, rowRight: row.right, escaped };
       });
       expect(layout.right, `${width} ${id}: full row width`).toBeCloseTo(layout.rowRight, 0);
