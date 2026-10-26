@@ -154,8 +154,10 @@ your next request, unless you start a new one.
   text replayed from an old turn cannot act as an instruction.
 - An answer is sent only after it finishes. A question whose answer never finished is left out
   too, however it failed — the pair goes or stays together.
-- A question you asked with Ask, and its answer, go only with a later Ask request. Any other task
-  leaves the pair out (`src/sidepanel/state/conversation.ts#historySource`).
+- The shown answer decides which later requests carry a pair. When it is an Ask answer, the
+  message and its answer go only with a later Ask request, and any other task leaves them out
+  (`src/sidepanel/state/conversation.ts#historySource`). So a message shown as its "Ask instead"
+  answer goes only with Ask, and a question answered again as Translate goes with every task.
 - Use "New conversation" in the side panel to start an empty conversation before you send. The
   earlier conversation stays saved, but its messages are not sent with the new one.
 

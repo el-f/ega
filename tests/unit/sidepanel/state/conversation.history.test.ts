@@ -443,6 +443,30 @@ describe('retry() — conversationHistory assembly', () => {
         { role: 'assistant', content: 'thanks' },
       ]);
     });
+
+    it('a question shown as its "Answer again as Translate" version goes with a later Translate', async () => {
+      const c = createConversation();
+      const reply = await exchange(c, ORIGINAL.content, TRANSLATION.content);
+      const answer = await c.send({
+        content: QUESTION.content,
+        kind: 'ask',
+        sourceLang: 'auto',
+        targetLang: en,
+        stream: false,
+        about: { turnId: reply },
+      });
+      completeAssistant(c, ANSWER.content);
+      expect(await c.taskVariant(answer, 'translate')).not.toBeNull();
+      completeAssistant(c, 'Levantine only?');
+
+      await send(c, 'test');
+      expect(startFor('test').options['conversationHistory']).toEqual([
+        ORIGINAL,
+        TRANSLATION,
+        QUESTION,
+        { role: 'assistant', content: 'Levantine only?' },
+      ]);
+    });
   });
 
   it('a refine variant sends no history, by choice, even with earlier exchanges', async () => {
