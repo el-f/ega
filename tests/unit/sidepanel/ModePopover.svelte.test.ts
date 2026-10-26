@@ -19,7 +19,8 @@ function props(over: Record<string, unknown> = {}) {
     taskViews: SHIPPED_TASK_VIEWS,
     varieties: [],
     usesTone: false,
-    swap: null as { source: string; target: string } | null,
+    swap: { off: 'Swap needs a reply to detect its language' } as
+      { source: string; target: string } | { off: string },
     imageBlocked: null as ReadonlySet<string> | null,
     contextEnabled: true,
     taskSendsPage: true,
@@ -59,17 +60,70 @@ describe('Next message popover', () => {
     expect((await popover()).querySelector('[data-ega-tone-select]')).not.toBeNull();
   });
 
-  it('a swap that can act trades the languages; none is rendered when it cannot', async () => {
+  it('a swap that can act trades the languages', async () => {
     const { component } = render(ModePopover, {
       props: props({ sourceLang: 'es', swap: { source: 'en', target: 'es' } }),
     });
     const p = await popover();
     const swap = p.querySelector<HTMLElement>('[data-ega-swap]');
     expect(swap?.getAttribute('aria-label')).toBe('Swap languages');
+    // Positive control for the off case: a live swap keeps its tooltip.
+    expect(swap?.hasAttribute('data-tooltip-trigger')).toBe(true);
+    expect(swap?.hasAttribute('aria-describedby')).toBe(false);
+    expect(document.getElementById('mp-swap-why')).toBeNull();
     await fireEvent.click(swap as HTMLElement);
     expect((document.querySelector('#sp-conv-source') as HTMLSelectElement).value).toBe('en');
     expect((document.querySelector('#sp-conv-target') as HTMLSelectElement).value).toBe('es');
     void component;
+  });
+
+  // R63: removing it would resize From and To, so it shows off. R4: like Options, the reason is a visible
+  // line the button points at; a tooltip would add its own description, so the reason would be read twice.
+  it.each([
+    ['auto', 'en', 'Swap needs a reply to detect its language'],
+    ['es', 'es', 'Swap needs two different languages'],
+  ])(
+    'a swap that cannot act (From %s, To %s) stays on screen, off, and says why once',
+    async (sourceLang, targetLang, why) => {
+      render(ModePopover, { props: props({ sourceLang, targetLang, swap: { off: why } }) });
+      const p = await popover();
+      const swap = p.querySelector<HTMLElement>('[data-ega-swap]');
+      expect(swap?.getAttribute('aria-label')).toBe('Swap languages');
+      swap?.focus();
+      await fireEvent.focus(swap as HTMLElement);
+      const describedBy = swap?.getAttribute('aria-describedby') ?? '';
+      const note = document.getElementById(describedBy);
+      expect(note?.textContent.trim()).toBe(why);
+      expect(p.contains(note)).toBe(true);
+      expect(swap?.hasAttribute('data-tooltip-trigger')).toBe(false);
+      expect(swap?.getAttribute('aria-disabled')).toBe('true');
+      expect(swap?.hasAttribute('disabled')).toBe(false);
+      await fireEvent.click(swap as HTMLElement);
+      expect((document.querySelector('#sp-conv-source') as HTMLSelectElement).value).toBe(
+        sourceLang,
+      );
+      expect((document.querySelector('#sp-conv-target') as HTMLSelectElement).value).toBe(
+        targetLang,
+      );
+    },
+  );
+
+  // R63: the popover grows upward, so a reason line that came and went moved From and To by its height.
+  it('keeps the reason line when Swap turns on, empty and pointed at by nothing', async () => {
+    const { rerender } = render(ModePopover, { props: props() });
+    const section = (await popover()).querySelector('section[aria-labelledby="mp-lang"]');
+    const shape = () => [...(section?.children ?? [])].map((c) => c.tagName);
+    const off = shape();
+    const line = section?.lastElementChild;
+    expect(line?.textContent.trim()).toBe('Swap needs a reply to detect its language');
+    await rerender({ sourceLang: 'es', swap: { source: 'en', target: 'es' } });
+    expect(shape()).toEqual(off);
+    expect(section?.lastElementChild).toBe(line);
+    // Nothing for a screen reader to land on: no text, no child, no id.
+    expect(line?.textContent).toBe('');
+    expect(line?.children).toHaveLength(0);
+    expect(document.getElementById('mp-swap-why')).toBeNull();
+    expect(section?.querySelector('[data-ega-swap]')?.hasAttribute('aria-describedby')).toBe(false);
   });
 
   it('with an image, tasks that cannot read it are marked and a note says why', async () => {
@@ -123,23 +177,15 @@ describe('the Tone select lines up with From and To', () => {
 
   it('one label column for From, To and Tone', () => {
     expect(src).toMatch(/\.mp-langs\s*\{[^}]*grid-template-columns:\s*var\(--mp-label-w\)/);
-    expect(src).toMatch(
-      /\.mp-tone\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*var\(--mp-label-w\) minmax\(0, 1fr\);/,
-    );
+    expect(src).toMatch(/\.mp-tone\s*\{[^}]*display:\s*grid;/);
   });
 
   // A margin of 28px plus the gap is off the spacing scale (design check 6); an empty grid column is not spacing.
-  it('the Tone select stops where the swap column starts, when there is one', async () => {
+  it('the Tone select stops where the swap column starts', () => {
     expect(src).toMatch(
-      /\.mp-tone\.beside-swap\s*\{\s*grid-template-columns:\s*var\(--mp-label-w\) minmax\(0, 1fr\) 28px;/,
+      /\.mp-tone\s*\{[^}]*grid-template-columns:\s*var\(--mp-label-w\) minmax\(0, 1fr\) 28px;/,
     );
     expect(src).not.toMatch(/margin-inline-end:\s*calc\(28px/);
-    render(ModePopover, {
-      props: props({ task: 'reword', usesTone: true, swap: { source: 'en', target: 'es' } }),
-    });
-    expect((await popover()).querySelector('.mp-tone')?.classList.contains('beside-swap')).toBe(
-      true,
-    );
   });
 });
 

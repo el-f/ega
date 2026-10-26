@@ -242,13 +242,19 @@ export function replyDirection(
   });
 }
 
-/** What the swap button does, or null when it cannot act (then it is not shown). Auto-detect swaps with the newest reply's language. */
+/** What the swap button does, or why it cannot act (then it shows off). Auto-detect swaps with the newest reply's language. */
 export function swapResult(
   source: string,
   target: string,
   detected: string | undefined,
-): { source: string; target: string } | null {
-  if (source !== 'auto') return source === target ? null : { source: target, target: source };
-  if (detected === undefined || detected === target) return null;
+  targetName: string,
+): { source: string; target: string } | { off: string } {
+  if (source !== 'auto') {
+    return source === target
+      ? { off: 'Swap needs two different languages' }
+      : { source: target, target: source };
+  }
+  if (detected === undefined) return { off: 'Swap needs a reply to detect its language' };
+  if (detected === target) return { off: `Swap: the reply is already in ${targetName}` };
   return { source: target, target: detected };
 }

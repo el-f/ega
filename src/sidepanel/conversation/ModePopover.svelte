@@ -22,8 +22,8 @@
     varieties: readonly Variety[];
     /** The task's prompt has a tone slot. */
     usesTone: boolean;
-    /** What swap would set; null hides the button, so there is no disabled control to explain. */
-    swap: { source: string; target: string } | null;
+    /** What swap would set, or why it cannot act: then the button shows off and points at the reason. */
+    swap: { source: string; target: string } | { off: string };
     /** Tasks an attached image cannot go to; null when no image is attached. */
     imageBlocked: ReadonlySet<TaskId> | null;
     /** Page info is on in Settings. */
@@ -60,6 +60,7 @@
   const imageNote = $derived(
     new Intl.ListFormat('en', { style: 'long', type: 'conjunction' }).format(imageTasks),
   );
+  const swapOff = $derived('off' in swap ? swap.off : null);
 </script>
 
 <Popover {open} {anchor} {onClose} placement="top-start" title="Next message">
@@ -87,30 +88,43 @@
           suppressAriaLabel
           bind:value={sourceLang}
         />
-        {#if swap !== null}
-          <span class="mp-swap">
-            <IconButton
-              icon={ArrowUpDown}
-              ariaLabel="Swap languages"
-              size="sm"
-              dataAttrs={{ 'data-ega-swap': 'true' }}
-              onclick={() => {
-                // Read once: setting the source recomputes `swap` in the parent before the target is read.
-                const next = swap;
-                if (next === null) return;
-                sourceLang = next.source;
-                targetLang = next.target;
-              }}
-            />
-          </span>
-        {/if}
+        <!-- Shown but off when it cannot act: removing it would resize From and To (R63).
+             aria-disabled keeps the Tab stop; the line below says why, as on the Languages tab. A tooltip
+             would put its own id in aria-describedby while the button has focus, so the off button has none. -->
+        <span class="mp-swap">
+          <IconButton
+            icon={ArrowUpDown}
+            ariaLabel="Swap languages"
+            {...swapOff === null ? {} : { tooltip: '' }}
+            size="sm"
+            dataAttrs={{
+              'data-ega-swap': 'true',
+              ...(swapOff === null
+                ? {}
+                : { 'aria-disabled': 'true', 'aria-describedby': 'mp-swap-why' }),
+            }}
+            onclick={() => {
+              // Read once: setting the source recomputes `swap` in the parent before the target is read.
+              const next = swap;
+              if ('off' in next) return;
+              sourceLang = next.source;
+              targetLang = next.target;
+            }}
+          />
+        </span>
         <label class="mp-row-label" for="sp-conv-target">To</label>
         <LanguagePicker id="sp-conv-target" {varieties} suppressAriaLabel bind:value={targetLang} />
+      </div>
+      <!-- Kept, empty, while Swap is on: the popover grows upward, so a line that comes and goes moves From and To. -->
+      <div class="mp-swap-why">
+        {#if swapOff !== null}
+          <p class="mp-note" id="mp-swap-why">{swapOff}</p>
+        {/if}
       </div>
     </section>
 
     {#if usesTone}
-      <section class="mp-section mp-tone" class:beside-swap={swap !== null}>
+      <section class="mp-section mp-tone">
         <label class="mp-row-label" for="sp-tone">Tone</label>
         <Select
           id="sp-tone"
@@ -206,15 +220,21 @@
     grid-column: 3;
     grid-row: 1 / span 2;
   }
-  .mp-tone {
-    display: grid;
-    grid-template-columns: var(--mp-label-w) minmax(0, 1fr);
-    align-items: center;
-    gap: var(--space-2);
+  /* The same off look as Swap on the Languages tab. */
+  .mp-swap :global(.ega-icon-btn[aria-disabled='true']) {
+    opacity: 0.55;
+    cursor: not-allowed;
+    background: transparent;
+  }
+  .mp-swap-why {
+    min-block-size: 1lh;
   }
   /* The rows above keep a column for the 28px swap button; an empty one here ends Tone where From and To end. */
-  .mp-tone.beside-swap {
+  .mp-tone {
+    display: grid;
     grid-template-columns: var(--mp-label-w) minmax(0, 1fr) 28px;
+    align-items: center;
+    gap: var(--space-2);
   }
   .mp-tone :global(.ega-select-wrap) {
     min-inline-size: 0;
