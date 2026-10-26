@@ -19,7 +19,7 @@ const ROOT_FILES = new Set([
 ]);
 
 /** Docs that must match master. Everything else is skipped. */
-const LIVE_DOC_GLOBS = ['README.md', 'docs/*.md'];
+const LIVE_DOC_GLOBS = ['README.md', 'CLAUDE.md', 'docs/*.md'];
 
 export interface Issue {
   line: number;
