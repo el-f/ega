@@ -576,6 +576,11 @@ test('Tooltip — loading + error', async () => {
   // 2s holds the shimmer long enough for the poll plus the screenshot.
   await resetRoutes(ext.context);
   mockAnthropic(ext.context, { translation: 'Welcome! How are you doing?', delayMs: 2000 });
+  // An earlier test translates this paragraph in the same context; a cached answer skips the shimmer.
+  const optionsPage = await ext.context.newPage();
+  await optionsPage.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
+  await optionsPage.evaluate(() => chrome.runtime.sendMessage({ kind: 'cache:clear' }));
+  await optionsPage.close();
   const loadingPage = await ext.context.newPage();
   await loadingPage.goto(`${ext.serverUrl}/selection-page.html`);
   await waitForTestHooks(loadingPage);
