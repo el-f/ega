@@ -22,4 +22,5 @@
 ## Cautions
 
 - Copy places the answer as the model wrote it (Markdown source, no rendered HTML); the notes block is not copied.
+- An answer that is exactly one fenced code block is the exception: Copy places only the code that shows, without the fence lines.
 - Copy keeps focus on the button; it is a side effect, not a navigation.
