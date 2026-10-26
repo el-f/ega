@@ -161,4 +161,20 @@ test('Ask on a reply sends that reply with the question, keeps asking, links bac
     'A reply that is no longer in this conversation',
   );
   timeline.markStep('quote-gone');
+
+  // Translate after the question: earlier translations go as earlier messages, the question and its answer do not.
+  const replies = page.locator('[data-ega-reply]');
+  mockAnthropic(ext.context, { translation: 'Thanks', times: 1 });
+  await sendFromPanel(page, 'shukran');
+  await expect(replies.last().locator('.ega-answer')).toContainText('Thanks', { timeout: 10_000 });
+  const plain = mockAnthropic(ext.context, { translation: 'Come on', times: 1 });
+  await sendFromPanel(page, 'yalla');
+  await expect(replies.last().locator('.ega-answer')).toContainText('Come on', { timeout: 10_000 });
+  const translated = anthropicPrompt(plain.lastRequestBody());
+  expect(translated.user).toContain('TEXT:\n"""\nyalla\n"""');
+  expect(translated.before).toHaveLength(2);
+  expect(translated.before[0]).toContain('shukran');
+  expect(translated.before[1]).toContain('Thanks');
+  expect(translated.before.join('\n')).not.toContain(QUESTION);
+  timeline.markStep('translate-after-question');
 });

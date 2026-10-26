@@ -348,6 +348,103 @@ describe('retry() — conversationHistory assembly', () => {
     });
   });
 
+  describe('a question and its answer go only with a question', () => {
+    const ORIGINAL = { role: 'user', content: 'ya ibn el kalb, kifak' };
+    const TRANSLATION = { role: 'assistant', content: 'Hello, you son of a bitch.' };
+    const QUESTION = { role: 'user', content: 'levantive only?' };
+    const ANSWER = { role: 'assistant', content: 'Yes. They are Levantine slang.' };
+    const startFor = (text: string): { options: Record<string, unknown> } =>
+      (chrome.runtime.sendMessage as Mock).mock.calls
+        .map((c) => c[0] as { kind: string; text: string; options: Record<string, unknown> })
+        .filter((m) => m.kind === 'translate:start' && m.text === text)
+        .at(-1) as { options: Record<string, unknown> };
+    const send = (
+      c: ReturnType<typeof createConversation>,
+      content: string,
+      kind: 'translate' | 'explain' = 'translate',
+    ) => c.send({ content, kind, sourceLang: 'auto', targetLang: en, stream: false });
+
+    /** The owner's thread: a translation, then a question about it, both answered. Returns the translation's id. */
+    async function translatedThenAsked(c: ReturnType<typeof createConversation>): Promise<string> {
+      const reply = await exchange(c, ORIGINAL.content, TRANSLATION.content);
+      await c.send({
+        content: QUESTION.content,
+        kind: 'ask',
+        sourceLang: 'auto',
+        targetLang: en,
+        stream: false,
+        about: { turnId: reply, variantId: `${reply}:v1` },
+      });
+      completeAssistant(c, ANSWER.content);
+      return reply;
+    }
+
+    it.each(['translate', 'explain'] as const)(
+      'after a question, a %s send carries the earlier exchange, not the question or its answer',
+      async (kind) => {
+        const c = createConversation();
+        await translatedThenAsked(c);
+        await send(c, 'test', kind);
+        expect(startFor('test').options['conversationHistory']).toEqual([ORIGINAL, TRANSLATION]);
+      },
+    );
+
+    it('a question sent after it still carries every earlier turn', async () => {
+      const c = createConversation();
+      const reply = await translatedThenAsked(c);
+      await c.send({
+        content: 'and Egyptian?',
+        kind: 'ask',
+        sourceLang: 'auto',
+        targetLang: en,
+        stream: false,
+        about: { turnId: reply },
+      });
+      expect(startFor('and Egyptian?').options['conversationHistory']).toEqual([
+        ORIGINAL,
+        TRANSLATION,
+        QUESTION,
+        ANSWER,
+      ]);
+    });
+
+    it('a Retry of a failed Translate after a question sends the same earlier exchange', async () => {
+      const c = createConversation();
+      await translatedThenAsked(c);
+      const failed = await send(c, 'test');
+      c.applyChunk({ type: 'error', requestId: lastRequestId(), code: 'NETWORK', message: 'x' });
+      (chrome.runtime.sendMessage as Mock).mockClear();
+      await c.retry(failed);
+      expect(startFor('test').options['conversationHistory']).toEqual([ORIGINAL, TRANSLATION]);
+    });
+
+    it('a reply shown as its "Ask instead" answer is left out, and goes again once its translation is shown', async () => {
+      const c = createConversation();
+      const reply = await exchange(c, 'mar7aba', 'hello');
+      const asked = await exchange(c, 'what does it mean', 'what does it mean');
+      expect(await c.taskVariant(asked, 'ask', { turnId: reply })).not.toBeNull();
+      completeAssistant(c, 'It asks what a word means.');
+      const first = [
+        { role: 'user', content: 'mar7aba' },
+        { role: 'assistant', content: 'hello' },
+      ];
+
+      await send(c, 'shukran');
+      expect(startFor('shukran').options['conversationHistory']).toEqual(first);
+      completeAssistant(c, 'thanks');
+
+      c.selectVariant(asked, 0);
+      await send(c, 'yalla');
+      expect(startFor('yalla').options['conversationHistory']).toEqual([
+        ...first,
+        { role: 'user', content: 'what does it mean' },
+        { role: 'assistant', content: 'what does it mean' },
+        { role: 'user', content: 'shukran' },
+        { role: 'assistant', content: 'thanks' },
+      ]);
+    });
+  });
+
   it('a refine variant sends no history, by choice, even with earlier exchanges', async () => {
     const c = createConversation();
     await c.send({

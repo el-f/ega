@@ -23,7 +23,7 @@
   import { attachedImageProblem } from '@/shared/image-url-guard';
   import { isIsoCode, labelFor } from '@/shared/languages';
   import { replyLang } from '@/shared/lang-tag';
-  import type { ConversationTurnLike } from '@/shared/chat-history';
+  import { historySource, turnTaskValue, type Turn } from '../state/conversation';
   import { modeChipLabel, swapResult, type ComposerMode } from '../state/thread-view';
   import ModePopover from './ModePopover.svelte';
   import { outsidePressFocus } from '@/shared/menu-focus';
@@ -76,7 +76,7 @@
     /** True while a reply runs: Send becomes Stop. */
     inflight: boolean;
     /** Prior conversation turns, for the earlier-messages count. */
-    turns: readonly ConversationTurnLike[];
+    turns: readonly Turn[];
     mode: ComposerMode;
     /** In Ask mode, "Asking about the reply: {its start}", for the field's description. */
     askLine?: string;
@@ -256,12 +256,16 @@
     ),
   );
 
-  // An edit replaces the edited message and what follows it, so those are not history.
+  // An edit replaces the edited message and what follows it, so those are not history, and it resends as its own task.
   const historyTurns = $derived.by(() => {
-    if (mode.kind !== 'edit') return turns;
+    const sendTask = mode.kind === 'ask' ? 'ask' : task;
+    if (mode.kind !== 'edit') return historySource(turns, sendTask);
     const editId = mode.turnId;
-    const at = turns.findIndex((t) => 'id' in t && t.id === editId);
-    return at < 0 ? turns : turns.slice(0, at);
+    const at = turns.findIndex((t) => t.id === editId);
+    const edited = turns[at];
+    return edited === undefined
+      ? historySource(turns, sendTask)
+      : historySource(turns.slice(0, at), turnTaskValue(edited));
   });
 
   // An image send carries no history, so the count would promise context that is not sent.

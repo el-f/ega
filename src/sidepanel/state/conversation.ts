@@ -512,12 +512,30 @@ export interface StartOverlay {
   askAbout?: AskAbout | undefined;
 }
 
+/** The earlier turns a request running `task` replays. A question and its answer read as a question only in an Ask
+ *  request, so any other task leaves both out, or a translator takes the question for its text. The shown version decides. */
+export function historySource(turns: readonly Turn[], task: TaskId): readonly Turn[] {
+  if (task === 'ask') return turns;
+  const answers = new Map(
+    turns.flatMap((t) =>
+      t.role === 'assistant' && t.attachedToTurnId !== undefined
+        ? [[t.attachedToTurnId, t] as const]
+        : [],
+    ),
+  );
+  return turns.filter(
+    (t) => turnTaskValue(t.role === 'user' ? (answers.get(t.id) ?? t) : t) !== 'ask',
+  );
+}
+
 /** The turns before the user turn. Neither vision arm forwards history (router.ts), so an image gets none. */
-function historyFor(userTurn: Turn, thread: readonly Turn[] | 'none'): ChatTurn[] {
+function historyFor(userTurn: Turn, thread: readonly Turn[] | 'none', task: TaskId): ChatTurn[] {
   if (thread === 'none' || userTurn.imageDataUrl !== undefined) return [];
   const at = thread.findIndex((t) => t.id === userTurn.id);
   if (at < 0) return [];
-  return assemblePromptHistory(thread.slice(0, at), { budgetTokens: CHAT_HISTORY_TOKEN_BUDGET });
+  return assemblePromptHistory(historySource(thread.slice(0, at), task), {
+    budgetTokens: CHAT_HISTORY_TOKEN_BUDGET,
+  });
 }
 
 /** The task a request runs: the version's own, else its message's. The request, its block and its history all read it. */
@@ -530,7 +548,7 @@ export function buildStartArgs(userTurn: Turn, overlay: StartOverlay): StartArgs
   const { seed = {}, reuse } = overlay;
   const task = requestTask(userTurn, seed);
   const image = userTurn.imageDataUrl;
-  const history = historyFor(userTurn, overlay.thread);
+  const history = historyFor(userTurn, overlay.thread, task);
   return {
     requestId: overlay.requestId,
     text: userTurn.content,

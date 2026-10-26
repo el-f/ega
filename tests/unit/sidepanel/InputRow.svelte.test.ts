@@ -4,6 +4,7 @@ import { render, fireEvent, waitFor } from '@testing-library/svelte';
 import InputRow from '@/sidepanel/conversation/InputRow.svelte';
 import { toastStore } from '@/shared/components/toastStore';
 import { MAX_SELECTION_CHARS } from '@/shared/constants';
+import type { Turn } from '@/sidepanel/state/conversation';
 import { composerProps } from './_composer';
 
 const PIXEL =
@@ -24,6 +25,24 @@ function textarea(c: HTMLElement): HTMLTextAreaElement {
 }
 const send = (c: HTMLElement): HTMLButtonElement =>
   c.querySelector<HTMLButtonElement>('[data-ega-send]') as HTMLButtonElement;
+
+const said = (id: string, content: string, kind = 'translate'): Turn => ({
+  id,
+  role: 'user',
+  kind,
+  status: 'idle',
+  content,
+  createdAt: 1,
+});
+const answered = (id: string, to: string, content: string, kind = 'translate'): Turn => ({
+  id,
+  role: 'assistant',
+  kind,
+  status: 'done',
+  content,
+  createdAt: 1,
+  attachedToTurnId: to,
+});
 
 describe('composer keys', () => {
   it('Enter sends; Shift+Enter and an IME composition do not', async () => {
@@ -164,10 +183,7 @@ describe('row A: the mode chip and what goes with the next send', () => {
     const props = {
       ...composerProps(),
       pageInfoGoes: true,
-      turns: [
-        { role: 'user' as const, content: 'hola', status: 'idle' as const },
-        { role: 'assistant' as const, content: 'hello', status: 'done' as const },
-      ],
+      turns: [said('u1', 'hola'), answered('a1', 'u1', 'hello')],
     };
     const { container, rerender } = render(InputRow, { props });
     expect(container.querySelector('[data-ega-next-send]')?.textContent).toMatch(
@@ -184,10 +200,10 @@ describe('row A: the mode chip and what goes with the next send', () => {
 
   it('in edit mode, counts only the messages before the one being edited', () => {
     const turns = [
-      { id: 'u1', role: 'user' as const, content: 'hola', status: 'idle' as const },
-      { id: 'a1', role: 'assistant' as const, content: 'hello', status: 'done' as const },
-      { id: 'u2', role: 'user' as const, content: 'adios', status: 'idle' as const },
-      { id: 'a2', role: 'assistant' as const, content: 'bye', status: 'done' as const },
+      said('u1', 'hola'),
+      answered('a1', 'u1', 'hello'),
+      said('u2', 'adios'),
+      answered('a2', 'u2', 'bye'),
     ];
     // The send replaces the edited message and its reply, so they go out as the message, not as history.
     const { container } = render(InputRow, {
@@ -200,6 +216,47 @@ describe('row A: the mode chip and what goes with the next send', () => {
     expect(container.querySelector('[data-ega-next-send]')?.textContent).toContain(
       '2 earlier messages',
     );
+  });
+
+  describe('a question and its answer count only for a question', () => {
+    const asked = [
+      said('u1', 'ya ibn el kalb, kifak'),
+      answered('a1', 'u1', 'Hello, you son of a bitch.'),
+      said('u2', 'levantive only?', 'ask'),
+      answered('a2', 'u2', 'Yes. They are Levantine slang.', 'ask'),
+    ];
+    const label = (c: HTMLElement): string =>
+      c.querySelector('[data-ega-next-send]')?.textContent ?? '';
+
+    it('a Translate counts the translation only; a question counts every turn', () => {
+      const { container } = render(InputRow, { props: { ...composerProps(), turns: asked } });
+      expect(label(container)).toContain('2 earlier messages');
+      document.body.innerHTML = '';
+      const ask = render(InputRow, {
+        props: {
+          ...composerProps(),
+          turns: asked,
+          mode: { kind: 'ask' as const, turnId: 'a1' },
+        },
+      });
+      expect(label(ask.container)).toContain('4 earlier messages');
+    });
+
+    it('an edited question counts the earlier question, whatever the chip says', () => {
+      const turns = [
+        ...asked,
+        said('u3', 'and Egyptian?', 'ask'),
+        answered('a3', 'u3', 'No.', 'ask'),
+      ];
+      const { container } = render(InputRow, {
+        props: {
+          ...composerProps(),
+          turns,
+          mode: { kind: 'edit' as const, turnId: 'u3', lastId: 'u3' },
+        },
+      });
+      expect(label(container)).toContain('4 earlier messages');
+    });
   });
 
   it('the chip opens the Next message popover with Task and Language', async () => {
