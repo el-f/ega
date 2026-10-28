@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy, tick, untrack } from 'svelte';
+  import { onDestroy, untrack } from 'svelte';
   import Trash from '@lucide/svelte/icons/trash-2';
   import type { PromptTemplate, Settings, Variety } from '@/shared/types';
   import {
@@ -26,9 +26,7 @@
   import { validateSpec, type AnswerField } from '@/shared/answer/spec';
   import type { StoredAnswerSpec } from '@/shared/custom-answer-schema';
   import AnswerFieldsEditor from './AnswerFieldsEditor.svelte';
-  import { fieldErrors, repairStoredFields } from '@/options/answer-fields';
-  import * as v from 'valibot';
-  import { storedAnswerV1Schema } from '@/shared/custom-answer-schema';
+  import { fieldErrors } from '@/options/answer-fields';
   import AnswerPreview from './AnswerPreview.svelte';
   import ReplySection from './ReplySection.svelte';
   import { embedsOwnFormat, convertOwnFormat } from '@/options/own-answer-format';
@@ -80,33 +78,13 @@
   });
   let output = $state<'plain' | 'card'>(initial?.output ?? 'plain');
   let answer = $state<StoredAnswerSpec | undefined>(initial?.answer);
-  const storedFields: unknown[] | undefined =
-    initial?.answer?.v === 1 && Array.isArray(initial.answer['fields'])
-      ? initial.answer['fields']
-      : undefined;
-  // Saved fields the row check refuses run as the shape preset; the dialog shows that preset and says why.
-  const unread = storedFields !== undefined && !v.is(storedAnswerV1Schema, initial?.answer);
-  const unreadLabels = (storedFields ?? []).flatMap((f) =>
-    typeof f === 'object' &&
-    f !== null &&
-    'label' in f &&
-    typeof f.label === 'string' &&
-    f.label.trim()
-      ? [f.label]
-      : [],
-  );
-  /** undefined: nothing to say; null: Ega cannot rebuild them; a list: the fields with keys rebuilt. */
-  let unreadFields = $state<AnswerField[] | null | undefined>(
-    unread ? repairStoredFields(storedFields) : undefined,
-  );
+  // Opens on the shape that runs; only a task's own fields get a custom: spec id.
+  const saved = customAnswerSpec(initial ?? { output: 'plain' });
+  const ownSaved = saved.id.startsWith('custom:');
   let answerMode = $state<'plain' | 'card' | 'fields'>(
-    storedFields !== undefined && !unread ? 'fields' : (initial?.output ?? 'plain'),
+    ownSaved ? 'fields' : (initial?.output ?? 'plain'),
   );
-  let ownFields = $state<AnswerField[]>(
-    untrack(() =>
-      answerMode === 'fields' ? [...customAnswerSpec(initial ?? { output: 'plain' }).fields] : [],
-    ),
-  );
+  let ownFields = $state<AnswerField[]>(ownSaved ? [...saved.fields] : []);
   let answersIn = $state<'input' | 'target'>(initial?.answersIn ?? 'target');
   let effort = $state<'' | TaskEffort>(initial?.effort ?? '');
   let pageContext = $state(initial?.pageContext ?? false);
@@ -126,8 +104,7 @@
     system: prompt.system,
     user: prompt.user,
     output: answerOutput(answer, output),
-    // Unread saved fields stay stored, but runs use the shape preset, so Try and Preview do too.
-    ...(answer !== undefined && unreadFields === undefined ? { answer } : {}),
+    ...(answer !== undefined ? { answer } : {}),
     answersIn,
     pageContext,
     image,
@@ -249,10 +226,7 @@
 
   function setAnswerMode(next: string): void {
     if (next !== 'plain' && next !== 'card' && next !== 'fields') return;
-    const kept = unreadFields;
-    unreadFields = undefined;
     if (next === 'fields') {
-      if (ownFields.length === 0 && kept) ownFields = kept;
       if (ownFields.length === 0)
         ownFields = answerSpec.fields.map((f) => ({
           ...f,
@@ -282,20 +256,6 @@
       return;
     }
     saver.later('answer', write({ answer, output }));
-  }
-
-  // The button leaves with its notice, so focus goes to the first field instead of the dialog (K-9).
-  async function useMyFields(): Promise<void> {
-    const fields = unreadFields;
-    unreadFields = undefined;
-    if (!fields) return;
-    answerMode = 'fields';
-    setFields(fields);
-    void saver.flush();
-    await tick();
-    document
-      .querySelector<HTMLElement>('[data-ega-custom-task-dialog] [data-ega-answer-field] button')
-      ?.focus();
   }
 
   async function convertInstructions(): Promise<void> {
@@ -551,21 +511,6 @@
           dataAttrs={{ 'aria-labelledby': `${uid}-reply-language` }}
         />
       </div>
-      {#if unreadFields !== undefined}
-        <div class="ct-own-format">
-          <p class="ct-hint">
-            Ega could not read the saved fields{#each unreadLabels as name, i (i)}{i === 0
-                ? ' ('
-                : ', '}<bdi>{name}</bdi>{/each}{unreadLabels.length > 0 ? ')' : ''}, so this task
-            runs as {output === 'card' ? 'Answer with notes' : 'Answer only'}.
-          </p>
-          {#if unreadFields}<div>
-              <Button variant="secondary" size="sm" onclick={() => void useMyFields()}
-                >Use my fields</Button
-              >
-            </div>{/if}
-        </div>
-      {/if}
       {#if answerMode === 'fields'}
         <AnswerFieldsEditor fields={ownFields} onchange={setFields} />
       {/if}
@@ -632,10 +577,6 @@
 </Dialog>
 
 <style>
-  .ct-own-format {
-    display: grid;
-    gap: var(--space-2);
-  }
   .custom-task {
     display: flex;
     flex-direction: column;
