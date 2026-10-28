@@ -1,7 +1,7 @@
 import { BUILT_IN_PRESETS } from '@/shared/presets';
 import { CUSTOM_PATTERN_INPUT_CAP, safeCount } from '@/shared/safe-regex';
 import type { CustomLanguage, LangPreset, LangSelection, Settings } from '@/shared/types';
-import { looksLikeEnglish } from './looks-like-english';
+import { ENGLISH_WORDS } from './english-words';
 
 type AutoDetect = NonNullable<LangPreset['autoDetect']>;
 
@@ -70,18 +70,49 @@ function leetScore(text: string): number {
 
 const LETTER = /\p{L}/gu;
 const LATIN = /\p{Script=Latin}/u;
-// The words without digits decide only when there are this many and they outnumber the digit words.
-const MIN_PLAIN_WORDS = 3;
+const WORD = /[\p{L}\d]+/gu;
 
-/** Arabizi and leetspeak are Latin text: a digit word inside Hebrew or English text ("md5sum", "log4j") is a name. */
-function readsAsDigitSpelling(text: string): boolean {
+const SHIPPED_ARABIZI = BUILT_IN_PRESETS.find((p) => p.id === 'arabizi')?.autoDetect;
+// The shipped pattern is fast on any input, so it runs once per word.
+const ARABIZI_WORD =
+  SHIPPED_ARABIZI && new RegExp(`^(?:${SHIPPED_ARABIZI.regex})$`, SHIPPED_ARABIZI.flags);
+// A digit beside a vowel stands for a consonant ("7abibi", "ta3mel"); between consonants it is as often a name ("md5sum").
+const DIGIT_BESIDE_VOWEL = /[aeiou][235-9]|[235-9][aeiou]/i;
+// A formula or a product code: "CH3COOH", "CO2e".
+const TWO_CAPITALS = /\p{Lu}.*\p{Lu}/u;
+// Common Arabizi words without a digit. Not "w": English writes "w/" for "with".
+const ARABIZI_WORDS: ReadonlySet<string> = new Set(
+  'ana enta inta enti inti howa huwa hiya heya ya shu sho shou esh eish wesh eh leh lesh leish ma mesh mish msh mush la bas ktir kteer kter awy awi gedan wayed wayid wa el il al fi fe mn kan kanet kont bel bil fil lal yalla yallah wallah wallahi walla inshallah allah habibi habibti hbibi yani yaani khalas tamam mashi akeed akid tayeb tayyeb bukra bokra bachir lissa lessa halla hala hek heik keda kida keef kif kifak kifik ezayak ezay izzay shlonak shlonik helw kwayes wala lakan lakin aya shi shay wain wen wein fein fen emta imta kam ahla ahlan marhaba salam shukran wach nta nti dak dyal bzaf mzyan labas ghadi da di dah zalame yom youm beit'.split(
+    ' ',
+  ),
+);
+// One Arabizi-shaped word between consonants needs one more Arabizi word beside it.
+const MIN_ARABIZI = 2;
+
+interface WordCount {
+  arabizi: number;
+  english: number;
+}
+
+/** An Arabizi-shaped word counts 2 with its digit beside a vowel, else 1; a common Arabizi or English word counts 1. */
+function countWords(text: string): WordCount {
+  let arabizi = 0;
+  let english = 0;
+  for (const word of text.match(WORD) ?? []) {
+    const w = word.toLowerCase();
+    if (/\d/.test(w)) {
+      if (ARABIZI_WORD?.test(w) && !TWO_CAPITALS.test(word))
+        arabizi += DIGIT_BESIDE_VOWEL.test(w) ? 2 : 1;
+    } else if (ARABIZI_WORDS.has(w)) arabizi++;
+    else if (ENGLISH_WORDS.has(w)) english++;
+  }
+  return { arabizi, english };
+}
+
+/** Arabizi and leetspeak are Latin text: a digit word inside Hebrew text ("md5sum", "log4j") is a name. */
+function mostlyLatin(text: string): boolean {
   const letters = text.match(LETTER) ?? [];
-  if (letters.filter((ch) => LATIN.test(ch)).length * 2 < letters.length) return false;
-  const words = text.split(/\s+/).filter((w) => /\p{L}/u.test(w));
-  const plain = words.filter((w) => !/\d/.test(w));
-  // One English particle does not make a line English: "ok ya 7abibi" is Arabizi.
-  if (plain.length < MIN_PLAIN_WORDS || plain.length * 2 <= words.length) return true;
-  return !looksLikeEnglish(plain.join(' '));
+  return letters.filter((ch) => LATIN.test(ch)).length * 2 >= letters.length;
 }
 
 /** An explicit language skips the detector — the user already chose. */
@@ -97,20 +128,28 @@ export function resolveSourceLang(
 export function detectLang(text: string, opts: DetectOpts = {}): LangPreset | undefined {
   if (text.length < 4) return undefined;
   const list = candidates(opts);
-  let spelling: boolean | undefined;
-  const isSpelling = (): boolean => (spelling ??= readsAsDigitSpelling(text));
+  let counted: WordCount | null | undefined;
+  // null: not Latin text, so neither Arabizi nor leetspeak.
+  const count = (): WordCount | null => {
+    if (counted === undefined) counted = mostlyLatin(text) ? countWords(text) : null;
+    return counted;
+  };
   // Leetspeak ships no regex of its own, so its digit set is scored here and has to beat Arabizi's own count.
   const leet = list.find((p) => p.id === 'leetspeak');
   if (leet) {
     const leetHits = leetScore(text);
     const arabizi = list.find((p) => p.id === 'arabizi');
     const arabiziHits = arabizi?.autoDetect ? autoDetectHits(text, arabizi.autoDetect) : 0;
-    if (leetHits >= 2 && leetHits >= arabiziHits && isSpelling()) return leet;
+    const words = leetHits >= 2 && leetHits >= arabiziHits ? count() : null;
+    if (words && leetHits > words.english) return leet;
   }
   for (const p of list) {
     if (!p.autoDetect || !matchesAutoDetect(text, p.autoDetect)) continue;
-    // A user's own pattern is trusted as written.
-    if (SHIPPED_PATTERNS.has(p.autoDetect) && !isSpelling()) continue;
+    // A user's own pattern is trusted as written; the shipped one needs the words around it to agree.
+    if (SHIPPED_PATTERNS.has(p.autoDetect)) {
+      const words = count();
+      if (!words || words.arabizi < MIN_ARABIZI || words.arabizi <= words.english) continue;
+    }
     return p;
   }
   return undefined;

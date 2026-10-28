@@ -1,0 +1,82 @@
+// @vitest-environment node
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { detectLang } from '@/content/detect';
+import { lexiconCacheInternal, loadEnglishLexicon } from '@/content/looks-like-english';
+import {
+  ARABIZI_LINES,
+  ENGLISH_LINES,
+  LEET_LINES,
+  OTHER_SCRIPT_LINES,
+} from '@tests/fixtures/detect-corpus';
+
+type Want = 'arabizi' | 'leetspeak' | undefined;
+
+const CORPUS: readonly (readonly [string, Want])[] = [
+  ...ARABIZI_LINES.map((t) => [t, 'arabizi'] as const),
+  ...LEET_LINES.map((t) => [t, 'leetspeak'] as const),
+  ...ENGLISH_LINES.map((t) => [t, undefined] as const),
+  ...OTHER_SCRIPT_LINES.map((t) => [t, undefined] as const),
+];
+
+const SHORT_WORD =
+  'the shipped pattern skips a digit word with two letters or a final digit: English writes 3am, 5pm and mp3 the same way';
+const TIE = 'the English words tie the Arabizi or leet evidence, so the line goes out as auto';
+const LEET_SCORE = 'fewer than two leet words: "0mg", "s0" and "4m" read as a unit or a version';
+const DIGIT_FIRST =
+  'a digit first and a consonant after it ("3melt", "2deret") does not match the shipped pattern';
+
+/** Each line the detector gets wrong, with the reason. The bubble still shows for every Arabizi line here. */
+const ACCEPTED_MISSES: ReadonlyMap<string, string> = new Map([
+  ['rou7 nem ya zalame', SHORT_WORD],
+  ['wain ra7 el 7in?', SHORT_WORD],
+  ['bro wen enta? 3am estanak', SHORT_WORD],
+  ['hi, kifak? 3am fakker fik', SHORT_WORD],
+  ['el exam kan 9a3b wallah', SHORT_WORD],
+  ['3am fakker ruh 3al gym', SHORT_WORD],
+  ['mabrouk 3al wazife el jdide', SHORT_WORD],
+  ['9ar lna zaman ma shefnak', SHORT_WORD],
+  ['kan9leb 3lik f darna', DIGIT_FIRST],
+  ['lol shu 3melt?', DIGIT_FIRST],
+  ['sorry ma 2deret ejeh', DIGIT_FIRST],
+  ['wallahi ma 3reft', DIGIT_FIRST],
+  ['I am so ta3ban today ya 3am', TIE],
+  ['pwn3d by a n00b lol', TIE],
+  ['0mg u r s0 l4m3', LEET_SCORE],
+  ['u r s0 n00b', LEET_SCORE],
+  ['1 4m 7h3 b357', LEET_SCORE],
+]);
+
+const classify = (): (string | undefined)[] => CORPUS.map(([text]) => detectLang(text)?.id);
+
+describe('the detector on the labeled corpus', () => {
+  it('has enough lines of each kind', () => {
+    expect(ARABIZI_LINES.length).toBeGreaterThanOrEqual(60);
+    expect(ENGLISH_LINES.length).toBeGreaterThanOrEqual(60);
+    expect(LEET_LINES.length).toBeGreaterThanOrEqual(15);
+  });
+
+  it('gets every line right except the accepted misses', () => {
+    const got = classify();
+    const misses = CORPUS.filter(([, want], i) => got[i] !== want).map(([text]) => text);
+    expect(misses.sort()).toEqual([...ACCEPTED_MISSES.keys()].sort());
+  });
+
+  describe('with the English lexicon loaded', () => {
+    let before: (string | undefined)[] = [];
+    beforeAll(async () => {
+      before = classify();
+      await loadEnglishLexicon();
+    });
+    afterAll(() => {
+      lexiconCacheInternal.mod = null;
+      lexiconCacheInternal.promise = null;
+    });
+
+    it('gives the same answer for every line', () => {
+      expect(lexiconCacheInternal.mod).not.toBeNull();
+      const after = classify();
+      const changed = CORPUS.filter((_, i) => after[i] !== before[i]).map(([text]) => text);
+      expect(changed).toEqual([]);
+    });
+  });
+});
