@@ -4,6 +4,13 @@ import fc from 'fast-check';
 import { nothingToTranslate } from '@/shared/nothing-to-translate';
 
 describe('nothingToTranslate', () => {
+  it('answers a long paste with no spaces at once (no backtracking on every start)', () => {
+    const t0 = performance.now();
+    expect(nothingToTranslate('a'.repeat(250_000))).toBe(false);
+    expect(nothingToTranslate('x'.repeat(2_000))).toBe(false);
+    expect(performance.now() - t0).toBeLessThan(500);
+  });
+
   it.each([
     'https://example.com/a/b?q=hello&lang=fr#top',
     'www.example.org/path',
