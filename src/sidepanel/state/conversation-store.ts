@@ -14,6 +14,7 @@ import {
   threadKey,
   type IndexEntry,
 } from '@/shared/saved-conversations';
+import { debugCatch } from '@/shared/logger';
 import { omitUndef } from '@/shared/utils/omitUndef';
 import { IMAGE_DATA_URL_MAX_CHARS } from '@/shared/constants';
 import { INSTRUCTIONS_KEPT_REPLIES } from '@/shared/reply-instructions';
@@ -558,20 +559,38 @@ function shedForQuota(turns: readonly Turn[]): Turn[] | null {
   return lean.some((t, i) => t !== turns[i]) ? lean : null;
 }
 
+interface Eviction {
+  evicted: EvictedConversation;
+  /** Writes the thread and its row back, for when the space it freed was not enough. */
+  restore: () => Promise<void>;
+}
+
 /** Deletes the first OTHER thread in eviction order and names it.
  *  Never our own: the blob we are about to write would be left unlisted. */
-async function evictOldestOtherThread(origin: string): Promise<EvictedConversation | undefined> {
+async function evictOldestOtherThread(origin: string): Promise<Eviction | undefined> {
   const index = await readIndex();
   const victim = index.threads.filter((t) => t.origin !== origin).sort(evictionOrder)[0];
   if (!victim) return undefined;
-  await chrome.storage.local.remove(threadKey(victim.origin));
+  const key = threadKey(victim.origin);
+  const blob: unknown = (await chrome.storage.local.get(key))[key];
+  await chrome.storage.local.remove(key);
   await chrome.storage.local.set({
     [INDEX_KEY]: {
       version: CONV_STORE_VERSION,
       threads: index.threads.filter((t) => t.origin !== victim.origin),
     },
   });
-  return evictedOf(victim);
+  const restore = async (): Promise<void> => {
+    const now = await readIndex();
+    await chrome.storage.local.set({
+      ...(blob !== undefined ? { [key]: blob } : {}),
+      [INDEX_KEY]: {
+        version: CONV_STORE_VERSION,
+        threads: [...now.threads.filter((t) => t.origin !== victim.origin), victim],
+      },
+    });
+  };
+  return { evicted: evictedOf(victim), restore };
 }
 
 export function isQuotaError(e: unknown): boolean {
@@ -901,8 +920,17 @@ async function saveThreadLocked(
       }
     }
     if (!shedImages) {
-      evictedQuota = await evictOldestOtherThread(origin);
-      await writeThread(capped);
+      const eviction = await evictOldestOtherThread(origin);
+      try {
+        await writeThread(capped);
+      } catch (retryError) {
+        // The space did not help, so the conversation comes back; else every save deletes one more.
+        await eviction?.restore().catch((restoreError: unknown) => {
+          debugCatch(restoreError, 'conversation-store.restoreEvicted');
+        });
+        throw retryError;
+      }
+      evictedQuota = eviction?.evicted;
     }
   }
 

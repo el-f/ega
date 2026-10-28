@@ -142,6 +142,34 @@ describe('quota eviction order', () => {
   });
 });
 
+describe('an eviction that does not make room', () => {
+  it('puts the conversation back, so repeated saves delete nothing', async () => {
+    const others = ['https://a.com', 'https://b.com', 'https://c.com', 'https://d.com'];
+    await seedThreads(others.map((origin, i) => ({ origin, updatedAt: 1000 + i })));
+    const before = await chrome.storage.local.get(others.map(threadKey));
+
+    const originalSet = chrome.storage.local.set.bind(chrome.storage.local);
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
+    vi.spyOn(chrome.storage.local, 'set').mockImplementation((items) => {
+      const record = items as Record<string, unknown>;
+      // Other data holds the quota: this thread never fits, whatever is removed.
+      if (threadKey('https://writer.com') in record) {
+        return Promise.reject(new Error('QUOTA_BYTES quota exceeded'));
+      }
+      return originalSet(record);
+    });
+
+    for (let i = 0; i < 3; i++) {
+      await expect(saveThread('https://writer.com', [userTurn('w')])).rejects.toThrow(
+        'QUOTA_BYTES',
+      );
+    }
+
+    expect(await chrome.storage.local.get(others.map(threadKey))).toEqual(before);
+    expect((await indexOrigins()).filter((o) => others.includes(o)).sort()).toEqual(others);
+  });
+});
+
 describe('the write that retries without images', () => {
   it('evicts another thread when the leaner write is refused too', async () => {
     await seedThreads([{ origin: 'https://victim.com', updatedAt: 1000 }]);
