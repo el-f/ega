@@ -58,31 +58,23 @@ export function readHeadingTrail(
     return raw.length > maxLen ? raw.slice(0, maxLen) : raw;
   }
 
+  function isBeforeOrContainsAnchor(h: Element): boolean {
+    const rel = h.compareDocumentPosition(anchor);
+    const mask = Node.DOCUMENT_POSITION_FOLLOWING | Node.DOCUMENT_POSITION_CONTAINED_BY;
+    return (rel & mask) !== 0 || h === anchor;
+  }
+
+  /** The last heading child (or header/hgroup grandchild) at or before the anchor: the one that labels it. */
   function headingBeforeAnchor(el: Element): Element | null {
-    for (const child of Array.from(el.children)) {
-      if (HEADING_TAG_SET.has(child.tagName)) {
-        const rel = child.compareDocumentPosition(anchor);
-        const isBeforeOrContainsAnchor =
-          (rel & Node.DOCUMENT_POSITION_FOLLOWING) !== 0 ||
-          (rel & Node.DOCUMENT_POSITION_CONTAINED_BY) !== 0 ||
-          child === anchor;
-        if (isBeforeOrContainsAnchor) return child;
-      }
+    let nearest: Element | null = null;
+    for (const child of el.children) {
       // One level only, never the full subtree: a querySelectorAll per ancestor goes quadratic on big DOMs.
-      if (child.tagName === 'HEADER' || child.tagName === 'HGROUP') {
-        for (const grand of Array.from(child.children)) {
-          if (HEADING_TAG_SET.has(grand.tagName)) {
-            const rel = grand.compareDocumentPosition(anchor);
-            const isBeforeOrContainsAnchor =
-              (rel & Node.DOCUMENT_POSITION_FOLLOWING) !== 0 ||
-              (rel & Node.DOCUMENT_POSITION_CONTAINED_BY) !== 0 ||
-              grand === anchor;
-            if (isBeforeOrContainsAnchor) return grand;
-          }
-        }
+      const wraps = child.tagName === 'HEADER' || child.tagName === 'HGROUP';
+      for (const h of wraps ? child.children : [child]) {
+        if (HEADING_TAG_SET.has(h.tagName) && isBeforeOrContainsAnchor(h)) nearest = h;
       }
     }
-    return null;
+    return nearest;
   }
 
   while (el) {
