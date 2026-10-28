@@ -610,9 +610,10 @@ export function createRouter(deps: RouterDeps) {
         // A run that already answered is left alone: the fsm ignores this and the sink drops it.
         timedOut();
       }
-      // A cloud backend's ABORTED chunk lands after the abort race resolves, so the row would read as a blank success.
+      // A cloud backend's ABORTED lands after this returns, too late for the row and for a caller that buffers (the image tooltip).
       if (fsm.state() === 'attempting' && cancelToken?.reason === 'user') {
         fsm.send({ type: 'error', code: 'ABORTED', message: 'cancelled' });
+        onChunk({ type: 'error', requestId: req.id, code: 'ABORTED', message: 'cancelled' });
       }
 
       const lastAttempt = attemptLog[attemptLog.length - 1];
