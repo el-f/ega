@@ -10,6 +10,7 @@ import {
 } from './base';
 import { fetchOpenAICompatibleModels } from './discoverShared';
 import { iterSseDataPayloads } from './sseParser';
+import { streamIdleTimeoutMs } from './stream-resilience';
 import { CONTEXT_FULL_MESSAGE, emitMissingKeyError } from './transportError';
 import { OCR_SYSTEM_PROMPT, OCR_USER_INSTRUCTION } from '../ocr-prompt';
 import type { BackendId, TranslationChunk } from '../types';
@@ -212,12 +213,14 @@ export class OpenAICompatBackend implements TranslationBackend {
     requestId: string,
     cancel: CancelToken,
     key: string,
+    config: BackendConfig,
     stream: boolean,
     payload: Record<string, unknown>,
     onChunk: (c: TranslationChunk) => void,
     answerFormat?: AnswerFormatRequest,
   ): Promise<void> {
     const model = String(payload['model'] ?? '');
+    const effort = resolveEffort(this.id, model, config.advanced.effort ?? 'off');
     const listedSchema =
       this.id === 'openrouter' && answerFormat !== undefined
         ? await fetchOpenRouterSchema(model, OPENROUTER_LIST_TIMEOUT_MS)
@@ -240,6 +243,7 @@ export class OpenAICompatBackend implements TranslationBackend {
         },
         listedSchema,
       ),
+      idleTimeoutMs: streamIdleTimeoutMs(effort),
       stream,
       label: this.profile.label,
       requestId,
@@ -261,6 +265,7 @@ export class OpenAICompatBackend implements TranslationBackend {
       a.req.id,
       a.cancel,
       key,
+      a.config,
       a.stream,
       {
         model,
@@ -287,6 +292,7 @@ export class OpenAICompatBackend implements TranslationBackend {
       a.requestId,
       a.cancel,
       key,
+      a.config,
       true,
       {
         model,

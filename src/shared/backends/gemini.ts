@@ -12,6 +12,7 @@ import type { TranslationChunk, BackendId } from '../types';
 import { OCR_SYSTEM_PROMPT, OCR_USER_INSTRUCTION } from '../ocr-prompt';
 import { DEFAULT_MODEL } from '@/shared/settings-defaults';
 import { iterSseDataPayloads } from './sseParser';
+import { streamIdleTimeoutMs } from './stream-resilience';
 import { classifyHttpError, emitMissingKeyError, httpErrorMessage } from './transportError';
 import { asBackendIdUnsafe } from '../brands';
 import type { CancelToken } from '@/shared/cancel-token';
@@ -208,6 +209,7 @@ export class GeminiBackend implements TranslationBackend {
     answerFormat?: AnswerFormatRequest,
   ): Promise<void> {
     const model = resolveModelId(config.model, 'gemini');
+    const effort = resolveEffort('gemini', model, config.advanced.effort ?? 'off');
     return runStreamingChat({
       url: `${BASE_URL}/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`,
       headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
@@ -218,14 +220,12 @@ export class GeminiBackend implements TranslationBackend {
           ...(resolveSamplingSupport('gemini', model).temperature
             ? { temperature: config.advanced.temperature }
             : {}),
-          maxOutputTokens: geminiMaxOutputTokens(
-            config.advanced.maxTokens,
-            resolveEffort('gemini', model, config.advanced.effort ?? 'off'),
-          ),
+          maxOutputTokens: geminiMaxOutputTokens(config.advanced.maxTokens, effort),
           responseMimeType: 'application/json',
           ...thinkingConfigFor(model, config.advanced.effort),
         },
       }),
+      idleTimeoutMs: streamIdleTimeoutMs(effort),
       stream: true,
       label: LABEL,
       requestId,

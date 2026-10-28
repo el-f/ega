@@ -223,7 +223,7 @@ export function emitMissingKeyError(
 /** The raw throw ("Failed to fetch", "NetworkError when attempting…") says nothing a user can act on. */
 const TRANSPORT_MESSAGE: Record<TransportErrorCode, string> = {
   ABORTED: 'cancelled',
-  // No Settings clause: the one live source is the fixed STREAM_IDLE_TIMEOUT_MS watchdog, and error-policy.ts optionsTabForMessage turns "Settings → X" into a CTA.
+  // No Settings clause: the one live source is the stream idle watchdog, and error-policy.ts optionsTabForMessage turns "Settings → X" into a CTA.
   TIMEOUT: 'The backend took too long to answer. Try again.',
   NETWORK: 'Could not reach the backend. Check your internet connection.',
   AUTH: 'The backend refused the connection. Check the API key, or the allowed origins of a local server.',
