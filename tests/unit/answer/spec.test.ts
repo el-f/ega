@@ -175,6 +175,47 @@ describe('generated formats and provider schemas', () => {
     expect(rendered.text).toContain('Keep');
     expect(rendered.text).toContain('Change');
   });
+  it('adds a field line only when it says more than the key, and never a doubled period', () => {
+    const rendered = renderFormat({
+      ...custom,
+      fields: [
+        { ...main, guide: 'The reply to send.' },
+        { key: 'points', label: 'Points', kind: 'list', role: 'notes', required: false },
+        {
+          key: 'field3',
+          label: 'Sarcastic',
+          kind: 'yesno',
+          role: 'details',
+          required: false,
+          guide: ' ',
+        },
+        {
+          key: 'decision',
+          label: 'Decision',
+          kind: 'choice',
+          role: 'details',
+          required: true,
+          choices: ['Keep', 'Change'],
+        },
+        { key: 'title', label: 'Title', kind: 'text', role: 'notes', required: true, maxChars: 60 },
+      ],
+    });
+    expect(rendered.text.split('\n')).toEqual([
+      'Return JSON ONLY: {"answer": <string>, "points"?: <array of strings>, "field3"?: <boolean>, "decision": <"Keep" or "Change">, "title": <string>}.',
+      '"answer" (Answer): The reply to send.',
+      '"field3" (Sarcastic): boolean.',
+      '"decision" (Decision): "Keep" or "Change".',
+      '"title" (Title): at most 60 characters.',
+      'A "?" after a key marks an optional field: leave it out when it does not apply.',
+    ]);
+  });
+  it('a preset switched to own fields keeps its rules', () => {
+    const { pinned: _pinned, ...fields } = CUSTOM_PRESETS['answer-notes'];
+    const text = renderFormat(fields).text;
+    expect(text).toContain('"answer" (Answer): your answer.');
+    expect(text).toContain('"explain" (Notes): short notes.');
+    expect(text).toContain('leave it out when it does not apply');
+  });
   it('strict schemas require optional fields as nullable values', () => {
     const schema = toJsonSchema(custom, { dialect: 'openai-strict' });
     expect(schema.additionalProperties).toBe(false);

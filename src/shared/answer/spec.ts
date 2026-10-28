@@ -207,6 +207,13 @@ export const CUSTOM_PRESETS = {
   ]),
 } as const satisfies Record<string, AnswerSpec>;
 
+const lettersOf = (text: string): string => text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+
+/** A key and a name that differ only in case, spaces and punctuation, so "Key points" names key_points. */
+export function sameName(key: string, name: string): boolean {
+  return lettersOf(key) === lettersOf(name);
+}
+
 /** Only a built-in id reaches here; custom tasks carry their own spec or preset. */
 export function answerSpecFor(id: string): AnswerSpec {
   if (Object.hasOwn(BUILT_INS, id)) return BUILT_INS[id as keyof typeof BUILT_INS];

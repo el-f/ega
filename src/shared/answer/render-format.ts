@@ -1,4 +1,4 @@
-import type { AnswerField, AnswerSpec } from './spec';
+import { sameName, type AnswerField, type AnswerSpec } from './spec';
 
 function shape(field: AnswerField): string {
   if (field.kind === 'list') return 'array of strings';
@@ -8,6 +8,18 @@ function shape(field: AnswerField): string {
     return (field.choices ?? []).map((c) => JSON.stringify(c)).join(' or ');
   if (field.kind === 'languages') return 'array of {id: string, detail?: string}';
   return field.kind === 'language' ? 'language code or label' : 'string';
+}
+
+/** What the JSON line cannot say about a field; null when the key already says it all. */
+function fieldLine(field: AnswerField): string | null {
+  const guide = field.guide?.trim().replace(/\.+$/, '') ?? '';
+  const parts = [
+    guide !== '' ? guide : field.kind === 'choice' ? shape(field) : '',
+    field.maxChars === undefined ? '' : `at most ${field.maxChars} characters`,
+  ].filter(Boolean);
+  // A generated key such as field1 still needs its name next to it.
+  if (parts.length === 0 && sameName(field.key, field.label)) return null;
+  return `${JSON.stringify(field.key)} (${field.label}): ${parts.length ? parts.join('; ') : shape(field)}.`;
 }
 
 /** Pinned formats keep the pre-slot bytes and their original join, including Explain's slot. */
@@ -27,7 +39,10 @@ export function renderFormat(
   ];
   const text = [
     `Return JSON ONLY: {${ordered.map((f) => `${JSON.stringify(f.key)}${f.required ? '' : '?'}: <${shape(f)}>`).join(', ')}}.`,
-    ...ordered.map((f) => `${JSON.stringify(f.key)} (${f.label}): ${f.guide ?? shape(f)}.`),
+    ...ordered.flatMap((f) => fieldLine(f) ?? []),
+    ...(ordered.some((f) => !f.required)
+      ? ['A "?" after a key marks an optional field: leave it out when it does not apply.']
+      : []),
     ...(spec.rules ?? []),
   ].join('\n');
   return { text, sep: spec.join === 'after-build' ? '\n\n' : '\n', join: spec.join };

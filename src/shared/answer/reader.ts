@@ -1,6 +1,6 @@
 import * as v from 'valibot';
 import { answerDetailText } from '../answer-presentation';
-import type { AnswerField, AnswerSpec } from './spec';
+import { sameName, type AnswerField, type AnswerSpec } from './spec';
 import { createStringValueScan, parseLenientSpan, parseJsonResponse } from './legacy-reader';
 
 export interface AnswerNote {
@@ -40,8 +40,6 @@ export interface ReadAnswerOptions {
 const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 /** A detected language is a short label; the popup handoff drops longer ids too. */
 const DETECTED_ID_MAX = 128;
-/** A key or label reduced to its letters and digits, so "Key points" names key_points. */
-const nameOf = (text: string): string => text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
 const record = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
@@ -140,7 +138,7 @@ function fieldKeys(
   for (const field of others) {
     if (keys.has(field.key)) continue;
     const key = Object.keys(object).find(
-      (k) => !taken.has(k) && !UNSAFE_KEYS.has(k) && nameOf(k) === nameOf(field.label),
+      (k) => !taken.has(k) && !UNSAFE_KEYS.has(k) && sameName(k, field.label),
     );
     if (key === undefined) continue;
     keys.set(field.key, key);
