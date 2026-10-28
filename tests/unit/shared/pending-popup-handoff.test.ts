@@ -399,6 +399,25 @@ describe('pending-popup-handoff — a send is answered by its own window', () =>
     expect((await drainPendingPopupHandoff(9)).map((h) => h.sourceText)).toEqual(['legacy']);
   });
 
+  it('keeps the cut and dropped-image marks of a queued entry when the queue is rewritten', async () => {
+    const big = `data:image/png;base64,${'A'.repeat(IMAGE_DATA_URL_MAX_CHARS + 1)}`;
+    await writePendingPopupHandoff({
+      ...base,
+      sourceText: 'x'.repeat(MAX_SELECTION_CHARS + 5),
+      windowId: 2,
+    });
+    await writePendingPopupHandoff({ ...base, sourceText: 'img', imageDataUrl: big, windowId: 2 });
+    // Both rewrites store what the reader returned: a later write, and a drain that leaves window 2's entries.
+    await writePendingPopupHandoff({ ...base, sourceText: 'mine', windowId: 1 });
+    await drainPendingPopupHandoff(1);
+
+    const out = await drainPendingPopupHandoff(2);
+    expect(out.map((h) => [h.sourceText.length, h.trimmed, h.imageDropped])).toEqual([
+      [MAX_SELECTION_CHARS, true, undefined],
+      [3, undefined, true],
+    ]);
+  });
+
   it('drains everything when the caller has no window id', async () => {
     await writePendingPopupHandoff({ ...base, sourceText: 'a', windowId: 1 });
     await writePendingPopupHandoff({ ...base, sourceText: 'b', windowId: 2 });
