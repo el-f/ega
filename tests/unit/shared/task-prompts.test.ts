@@ -3,6 +3,7 @@ import { ALL_TASKS, ALL_TONES, TASK_GERUND, TASK_LABELS, TONE_LABELS } from '@/s
 import { buildTaskTemplate, answerFormatFor } from '@/shared/task-template';
 import { FORMAT_MARKER } from '@/shared/answer/formats-v1';
 import { answerSpecFor } from '@/shared/answer/spec';
+import { TONE_PHRASE } from '@/shared/prompts';
 import { TASK_DESCRIPTIONS } from '@/options/task-descriptions';
 
 // Mostly structural contracts; the output-language block pins a few guard phrases on purpose, so rewording those lines breaks it.
@@ -68,6 +69,12 @@ describe('buildTaskTemplate — contract', () => {
     it('reword template uses the {{tone}} slot — resolution deferred to buildPrompt', () => {
       const t = buildTaskTemplate('reword');
       expect(t.system).toContain('{{tone}}');
+    });
+
+    // The tone phrase has its own dashes and commas, so inside "in a … tone" it garbled the sentence.
+    it.each(ALL_TONES)('the %s tone phrase gets a sentence of its own', (tone) => {
+      expect(buildTaskTemplate('reword').system).toContain('Tone: {{tone}}.');
+      expect(TONE_PHRASE[tone]).not.toMatch(/\.$/);
     });
   });
 

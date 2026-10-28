@@ -33,7 +33,8 @@ export function buildTaskTemplate(task: Task): PromptTemplate {
     // single-source (TONE_PHRASE) and lets snippet/slot pre-pass apply.
     return {
       system: [
-        'Rewrite the text in a {{tone}} tone, keeping the SAME language as the input — restyle only, never translate.',
+        'Rewrite the text, keeping the SAME language as the input. Restyle only, never translate.',
+        'Tone: {{tone}}.',
         'Preserve the exact factual content — do not add information, do not remove information, do not elaborate. Only restyle the existing content.',
         'Write the "explain" note in {{targetLangLabel}}.',
       ].join(' '),
@@ -80,13 +81,19 @@ export function buildTaskTemplate(task: Task): PromptTemplate {
   throw new Error(`buildTaskTemplate should not be called for task=${String(task)}`);
 }
 
+/** System halves from answer spec v1 that differ from today's; v9 rows still hold them. */
+const SYSTEMS_V1: Partial<Record<OwnPromptTask, string>> = {
+  reword:
+    'Rewrite the text in a {{tone}} tone, keeping the SAME language as the input — restyle only, never translate. Preserve the exact factual content — do not add information, do not remove information, do not elaborate. Only restyle the existing content. Write the "explain" note in {{targetLangLabel}}.',
+};
+
 /** Every system half Ega shipped for a task with its own prompt, bare and with each format: a stored copy is not an edit. */
 export function shippedSystems(task: OwnPromptTask): string[] {
   const { system } = buildTaskTemplate(task);
-  return [
-    system,
-    ...[TASK_FORMATS[task], TASK_FORMATS_V1[task]].map((f) => system + f.sep + f.text),
-  ];
+  const now = TASK_FORMATS[task];
+  const v1 = TASK_FORMATS_V1[task];
+  const oldSystem = SYSTEMS_V1[task] ?? system;
+  return [system, system + now.sep + now.text, oldSystem, oldSystem + v1.sep + v1.text];
 }
 
 /** The prompt a built-in with its own prompt runs: each half is the user's edit, else the shipped half. */
