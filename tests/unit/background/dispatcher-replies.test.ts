@@ -1,10 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { chromeMock, resetChromeMock } from '@tests/mocks/chrome';
 import { STORAGE_KEYS } from '@/shared/constants';
+import { HISTORY_CUT_MARKER, MAX_HISTORY_TURN_CHARS } from '@/shared/chat-history';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import type { Msg, MsgReply } from '@/shared/messages';
 import type { TranslationRequest } from '@/shared/types';
 import { loadThreadResult, saveThread } from '@/sidepanel/state/conversation-store';
+import { isWellFormed } from '@tests/_helpers/well-formed';
 
 const backendIds = [...DEFAULT_SETTINGS.backendOrder];
 
@@ -103,8 +105,11 @@ describe('background dispatcher replies', () => {
     const fromPage = await ask({ kind: 'settings:update', patch: { anthropicApiKey: 'sk-ant-x' } });
     expect(fromPage).toMatchObject({ ok: true, settings: { anthropicApiKey: 'sk-ant-x' } });
 
-    const fromTab = await ask({ kind: 'settings:update', patch: { theme: 'dark' } }, TAB_SENDER);
-    expect(fromTab).toMatchObject({ ok: true, settings: { theme: 'dark' } });
+    const fromTab = await ask(
+      { kind: 'settings:update', patch: { bubbleFirstRunSeen: true } },
+      TAB_SENDER,
+    );
+    expect(fromTab).toMatchObject({ ok: true, settings: { bubbleFirstRunSeen: true } });
     expect((fromTab as { settings?: Record<string, unknown> }).settings).not.toHaveProperty(
       'anthropicApiKey',
     );
@@ -200,6 +205,74 @@ describe('background dispatcher replies', () => {
   });
 });
 
+// A content script can be steered by its page, so it may write only the flags content code writes.
+describe('a content script cannot write the settings an extension page owns', () => {
+  const PAGE_TAB = {
+    id: chromeMock.runtime.id,
+    tab: { id: 7, windowId: 1 },
+    url: 'https://evil.example/path',
+  };
+  const ownOrigin = 'https://evil.example';
+
+  async function stored(): Promise<Record<string, unknown>> {
+    const r = await chromeMock.storage.local.get(STORAGE_KEYS.settings);
+    return r[STORAGE_KEYS.settings] as Record<string, unknown>;
+  }
+
+  it.each([
+    ['an API key', { openaiApiKey: 'sk-attacker' }],
+    ['the theme', { theme: 'dark' }],
+    ['another site row', { sitePrefs: { 'https://bank.example': { disabled: false } } }],
+    ['two site rows', { sitePrefs: { [ownOrigin]: { disabled: true }, 'https://b.example': { disabled: false } } }],
+    ['an allowed flag plus a key', { bubbleFirstRunSeen: true, openaiApiKey: 'sk-x' }],
+  ])('refuses %s from a tab, and writes nothing', async (_label, patch) => {
+    const before = await stored();
+    expect(await ask({ kind: 'settings:update', patch }, PAGE_TAB)).toEqual({
+      ok: false,
+      reason: 'schema',
+    });
+    expect(await stored()).toEqual(before);
+  });
+
+  it('accepts the content flags and its own site row', async () => {
+    const reply = await ask(
+      {
+        kind: 'settings:update',
+        patch: {
+          smartBubbleBannerShown: true,
+          pageTranslateMode: 'bilingual',
+          sitePrefs: { [ownOrigin]: { disabled: true } },
+        },
+      },
+      PAGE_TAB,
+    );
+    expect(reply).toMatchObject({ ok: true, settings: { pageTranslateMode: 'bilingual' } });
+    expect((await stored())['sitePrefs']).toMatchObject({ [ownOrigin]: { disabled: true } });
+  });
+
+  it('native:test and audit:clear answer a tab with a refusal', async () => {
+    const { handleNativeTest } = await import('@/background/native-test');
+    vi.mocked(handleNativeTest).mockClear();
+    const reply = await ask(
+      {
+        kind: 'native:test',
+        cfg: { id: 'native' } as never,
+        text: 'hi',
+        sourceLang: 'auto',
+        targetLang: 'en',
+      },
+      PAGE_TAB,
+    );
+    expect(reply).toEqual({ ok: false, error: 'forbidden' });
+    expect(handleNativeTest).not.toHaveBeenCalled();
+
+    await chromeMock.storage.local.set({ egaAuditLog: { entries: [{ id: 'keep' }] } });
+    expect(await ask({ kind: 'audit:clear' }, PAGE_TAB)).toEqual({ ok: false });
+    const after = (await chromeMock.storage.local.get('egaAuditLog')) as Record<string, unknown>;
+    expect(after['egaAuditLog']).toEqual({ entries: [{ id: 'keep' }] });
+  });
+});
+
 // The popup and side panel ask the SW for the probe: a probe in the page would open a second native host.
 describe('backend:probe-all', () => {
   it('replies with the SW-side probe result', async () => {
@@ -253,6 +326,78 @@ describe('translate:start pageHost', () => {
     await vi.waitFor(() => expect(routerMock.handleTranslate).toHaveBeenCalledTimes(1));
     const [req] = routerMock.handleTranslate.mock.calls[0] as [{ pageHost?: string }];
     expect(req.pageHost).toBeUndefined();
+  });
+
+  // The panel sends no page context when page info is off, and site rules must still apply.
+  it.each([
+    ['the side panel names its site', PAGE_SENDER, 'https://www.example.com', 'www.example.com'],
+    ['the general conversation names none', PAGE_SENDER, 'general', undefined],
+    [
+      'a content script cannot name another site',
+      { id: chromeMock.runtime.id, tab: { id: 7, windowId: 1, url: 'https://own.example/a' } },
+      'https://bank.example',
+      'own.example',
+    ],
+    [
+      'a content script whose tab url Chrome hides cannot name one either',
+      { id: chromeMock.runtime.id, tab: { id: 7, windowId: 1 }, url: 'https://own.example/a' },
+      'https://bank.example',
+      undefined,
+    ],
+  ])('%s', async (_label, sender, siteOrigin, host) => {
+    routerMock.handleTranslate.mockClear();
+    await ask(
+      {
+        kind: 'translate:start',
+        requestId: 'rh3',
+        text: 'salam',
+        sourceLang: 'auto',
+        siteOrigin,
+        options: { stream: true, explain: false },
+      },
+      sender,
+    );
+    await vi.waitFor(() => expect(routerMock.handleTranslate).toHaveBeenCalledTimes(1));
+    const [req] = routerMock.handleTranslate.mock.calls[0] as [{ pageHost?: string }];
+    expect(req.pageHost).toBe(host);
+  });
+});
+
+// A cut at a fixed index can leave half an emoji, which JSON writes as a lone `\ud83d` into the request body.
+describe('translate:start caps never cut inside an emoji', () => {
+  it('the text, history, refinement and page context stay well formed', async () => {
+    routerMock.handleTranslate.mockClear();
+    const long = `${'a'.repeat(1999)}😀 and the tail`;
+    // History cuts earlier, to leave room for the marker, so its emoji sits on that cut instead.
+    const keep = MAX_HISTORY_TURN_CHARS - HISTORY_CUT_MARKER.length - 1;
+    const longTurn = `${'a'.repeat(keep)}😀 and the tail`;
+    await ask(
+      {
+        kind: 'translate:start',
+        requestId: 'rs1',
+        text: long,
+        sourceLang: 'auto',
+        context: { pageTitle: long, headingTrail: [long] },
+        options: {
+          stream: true,
+          explain: false,
+          refinement: long,
+          conversationHistory: [
+            { role: 'user', content: longTurn },
+            { role: 'assistant', content: longTurn },
+          ],
+        },
+      },
+      PAGE_SENDER,
+    );
+    await vi.waitFor(() => expect(routerMock.handleTranslate).toHaveBeenCalledTimes(1));
+    const [req] = routerMock.handleTranslate.mock.calls[0] as [TranslationRequest];
+    expect(req.text).toBe('a'.repeat(1999));
+    // JSON.stringify writes a whole pair as is and only a lone surrogate as an escape.
+    expect(JSON.stringify(req)).not.toMatch(/\\ud[89a-f][0-9a-f]{2}/);
+    const sentTurn = req.options.conversationHistory?.[1]?.content ?? '';
+    expect(sentTurn).toContain(`${'a'.repeat(keep)}${HISTORY_CUT_MARKER}`);
+    expect(isWellFormed(sentTurn)).toBe(true);
   });
 });
 

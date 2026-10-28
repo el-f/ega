@@ -1,7 +1,7 @@
 // I1-I3: a reply records the system prompt it was sent with, cut at 6,000 characters, and only where it is shown.
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { sel } from '@tests/_helpers/lang';
-import { createRouter, cutAtCodePoint } from '@/background/router';
+import { createRouter } from '@/background/router';
 import { baseDeps } from '@tests/_helpers/router';
 import {
   makeDoneChunk,
@@ -159,13 +159,5 @@ describe('ResultMeta.instructions', () => {
     await run(settings(longPrompt(7000)));
     expect(getPerfEntries().length).toBeGreaterThan(0);
     expect(getPerfEntries().some((e) => 'instructions' in e)).toBe(false);
-  });
-});
-
-describe('cutAtCodePoint', () => {
-  it('never ends inside a surrogate pair', () => {
-    expect(cutAtCodePoint('ab😀cd', 3)).toBe('ab');
-    expect(cutAtCodePoint('ab😀cd', 4)).toBe('ab😀');
-    expect(cutAtCodePoint('abc', 10)).toBe('abc');
   });
 });

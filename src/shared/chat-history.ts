@@ -1,8 +1,19 @@
 // Token-budgeted message history for the side panel's follow-up sends. Pure — no Svelte, no chrome.*.
-import { IMAGE_TURN_PLACEHOLDER } from './constants';
+import { IMAGE_TURN_PLACEHOLDER, MAX_SELECTION_CHARS } from './constants';
+import { capText } from './text-cap';
 
 /** Token budget for the conversation history sent with each request. */
 export const CHAT_HISTORY_TOKEN_BUDGET = 4000;
+
+/** Per-message cap for replayed history. The worker cuts with the same function, so the label counts what is sent. */
+export const MAX_HISTORY_TURN_CHARS = MAX_SELECTION_CHARS;
+export const HISTORY_CUT_MARKER = '…[cut]';
+
+/** A history message at the size it is sent; the marker tells the model the text goes on. */
+export function capHistoryContent(s: string): string {
+  if (s.length <= MAX_HISTORY_TURN_CHARS) return s;
+  return capText(s, MAX_HISTORY_TURN_CHARS - HISTORY_CUT_MARKER.length) + HISTORY_CUT_MARKER;
+}
 
 /** The image marker is a render token, not words the user sent, so the model reads what happened instead. */
 const HISTORY_IMAGE_TEXT = '(sent an image)';
@@ -58,10 +69,11 @@ export function assemblePromptHistory(
       if (next?.role === 'assistant' && next.status !== 'done') continue;
       mapped.push({
         role: 'user',
-        content: t.content === IMAGE_TURN_PLACEHOLDER ? HISTORY_IMAGE_TEXT : t.content,
+        content:
+          t.content === IMAGE_TURN_PLACEHOLDER ? HISTORY_IMAGE_TEXT : capHistoryContent(t.content),
       });
     } else if (t.status === 'done' && t.content.length > 0) {
-      mapped.push({ role: 'assistant', content: t.content });
+      mapped.push({ role: 'assistant', content: capHistoryContent(t.content) });
     }
   }
   // Tail-trim: walk from the end accumulating tokens until the budget is hit.

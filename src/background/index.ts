@@ -26,13 +26,14 @@ import { createLogger, debugCatch } from '@/shared/logger';
 import { asLangIdUnsafe } from '@/shared/brands';
 import { hasKnownKind, type Msg, type MsgReply } from '@/shared/messages';
 import { readForContent } from './content-reads';
-import type { ChatTurn } from '@/shared/chat-history';
+import { capHistoryContent, type ChatTurn } from '@/shared/chat-history';
 import { fenceHistoryTurn } from '@/shared/prompts';
 import type { PageContext, Settings } from '@/shared/types';
 import { parseSettingsPatch, resolveModelId } from '@/shared/settings-schema';
 import { assertNever } from '@/shared/invariants';
 import { MAX_SELECTION_CHARS } from '@/shared/constants';
 import { capAskAbout } from '@/shared/ask-about';
+import { capText } from '@/shared/text-cap';
 import { dispatchImageTranslate } from './imageTranslateDispatch';
 import { openSidePanelWithHandoff, type OpenSidePanelHandoff } from './openSidePanelHandoff';
 import { writePendingPopupHandoff } from '@/shared/pending-popup-handoff';
@@ -93,6 +94,15 @@ function hostOf(url: string | undefined): string | undefined {
     return undefined;
   }
 }
+
+function originOf(url: string | undefined): string | undefined {
+  if (!url) return undefined;
+  try {
+    return new URL(url).origin;
+  } catch {
+    return undefined;
+  }
+}
 /** Owning tab per in-flight request; the entry is dropped when the request ends. */
 const requestTab = new Map<string, number>();
 
@@ -122,8 +132,7 @@ void maybePreWarmNative();
 const MAX_HEADING_TRAIL_ENTRIES = 10;
 export const MAX_HISTORY_TURNS = 40;
 
-const cap = (v: string): string =>
-  v.length > MAX_SELECTION_CHARS ? v.slice(0, MAX_SELECTION_CHARS) : v;
+const cap = (v: string): string => capText(v, MAX_SELECTION_CHARS);
 
 function withoutApiKeys(s: Settings): Settings {
   const copy: Record<string, unknown> = { ...s };
@@ -218,7 +227,7 @@ function boundedOptions(o: TranslateStartOptions): TranslateStartOptions {
         typeof (t as ChatTurn).content === 'string',
     )
     .slice(-MAX_HISTORY_TURNS)
-    .map((t) => fenceHistoryTurn({ role: t.role, content: cap(t.content) }));
+    .map((t) => fenceHistoryTurn({ role: t.role, content: capHistoryContent(t.content) }));
   const { askAbout: rawAbout, ...rest } = o;
   const askAbout = rawAbout === undefined ? null : capAskAbout(rawAbout);
   return {
@@ -258,6 +267,22 @@ const MENU_SETTINGS_KEYS = [
 
 function asRecord(v: unknown): Record<string, unknown> | null {
   return typeof v === 'object' && v !== null ? (v as Record<string, unknown>) : null;
+}
+
+// What content code writes (bubble, banner, page translate, direction memo); everything else is the extension pages'.
+const CONTENT_SETTINGS_KEYS = new Set([
+  'bubbleFirstRunSeen',
+  'smartBubbleBannerShown',
+  'pageTranslateMode',
+  'sitePrefs',
+]);
+
+/** A content script may write its own site's row only; `sitePrefs` is keyed by origin. */
+function contentMayWrite(patch: Record<string, unknown>, senderUrl: string | undefined): boolean {
+  if (!Object.keys(patch).every((k) => CONTENT_SETTINGS_KEYS.has(k))) return false;
+  if (!('sitePrefs' in patch)) return true;
+  const rows = Object.keys(asRecord(patch['sitePrefs']) ?? {});
+  return rows.length === 1 && rows[0] === originOf(senderUrl);
 }
 
 function keyChanged(a: Record<string, unknown>, b: Record<string, unknown>, k: string): boolean {
@@ -395,8 +420,7 @@ chrome.runtime.onMessage.addListener((rawMsg, sender, sendResponse) => {
       };
       // Don't trust caller — content script caps at MAX_SELECTION_CHARS,
       // but an injected message could bypass.
-      const boundedText =
-        msg.text.length > MAX_SELECTION_CHARS ? msg.text.slice(0, MAX_SELECTION_CHARS) : msg.text;
+      const boundedText = cap(msg.text);
       void (async () => {
         let targetLang = msg.targetLang;
         if (!targetLang) {
@@ -407,8 +431,8 @@ chrome.runtime.onMessage.addListener((rawMsg, sender, sendResponse) => {
             targetLang = asLangIdUnsafe('en');
           }
         }
-        // Only a tab has a page host; a popup or side-panel sender is an extension URL and falls back to context.pageUrl.
-        const pageHost = hostOf(sender.tab?.url);
+        // A content script's host is its tab's; a popup or side panel names its site, else context.pageUrl decides.
+        const pageHost = isExtensionPage(sender) ? hostOf(msg.siteOrigin) : hostOf(sender.tab?.url);
         return router.handleTranslate(
           {
             id: msg.requestId,
@@ -457,6 +481,10 @@ chrome.runtime.onMessage.addListener((rawMsg, sender, sendResponse) => {
           const cleaned: Record<string, unknown> = {};
           for (const [k, v] of Object.entries(parsed)) {
             if (v !== undefined) cleaned[k] = v;
+          }
+          if (!isExtensionPage(sender) && !contentMayWrite(cleaned, sender.url)) {
+            reply(msg.kind, { ok: false, reason: 'schema' });
+            return;
           }
           let merged;
           try {
@@ -562,6 +590,11 @@ chrome.runtime.onMessage.addListener((rawMsg, sender, sendResponse) => {
       return false;
     }
     case 'native:test': {
+      // It runs the CLI with a caller-supplied config, so only the options page may ask.
+      if (!isExtensionPage(sender)) {
+        reply(msg.kind, { ok: false, error: 'forbidden' });
+        return false;
+      }
       // Spawn through the SW's port-manager, or the diagnostic chip never sees the
       // session frame and reads Cold after a successful test.
       void handleNativeTest(msg, (r) => reply('native:test', r), {
@@ -594,6 +627,10 @@ chrome.runtime.onMessage.addListener((rawMsg, sender, sendResponse) => {
       reply(msg.kind, { ok: true });
       return false;
     case 'audit:clear':
+      if (!isExtensionPage(sender)) {
+        reply(msg.kind, { ok: false });
+        return false;
+      }
       void clearAuditLog().then(
         () => reply(msg.kind, { ok: true }),
         (e: unknown) => {

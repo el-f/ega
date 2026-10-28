@@ -51,6 +51,8 @@ export type Msg =
       /** Absent ⇒ `settings.defaultTargetLang`; 'auto' ⇒ whatever variety the LLM detects. */
       targetLang?: LangSelection;
       context?: PageContext;
+      /** The conversation's site origin, so site rules apply with page info off. Read from extension pages only. */
+      siteOrigin?: string;
       options: {
         stream: boolean;
         explain: boolean;

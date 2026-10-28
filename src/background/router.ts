@@ -56,13 +56,7 @@ import {
   TRANSLATE_TIMED_OUT,
   type ChunkSink,
 } from './router-chunks';
-
-/** The first `max` characters, never ending inside a surrogate pair. */
-export function cutAtCodePoint(text: string, max: number): string {
-  if (text.length <= max) return text;
-  const end = /[\uD800-\uDBFF]/.test(text.charAt(max - 1)) ? max - 1 : max;
-  return text.slice(0, end);
-}
+import { capText } from '@/shared/text-cap';
 
 export interface RouterDeps {
   /** A draft test produces an ephemeral reply, without audit or performance records. */
@@ -307,7 +301,7 @@ export function createRouter(deps: RouterDeps) {
     /** About this reply shows what was sent. Page blocks have no such view, so they carry none. */
     function withInstructions(meta: ResultMeta): ResultMeta {
       if (reqOptions.batch === true || sentSystem === '') return meta;
-      const cut = cutAtCodePoint(sentSystem, MAX_INSTRUCTIONS_CHARS);
+      const cut = capText(sentSystem, MAX_INSTRUCTIONS_CHARS);
       return {
         ...meta,
         instructions: cut,
@@ -497,7 +491,7 @@ export function createRouter(deps: RouterDeps) {
         visionUrl !== undefined && requestedTask === 'translate' && !reqOptions.explain
           ? buildOcrPrompt(
               targetLabelFor(s, ctx.customs, String(req.targetLang)),
-              imageText.trim().slice(0, IMAGE_NOTE_CAP) || undefined,
+              capText(imageText.trim(), IMAGE_NOTE_CAP) || undefined,
             )
           : visionUrl !== undefined
             ? buildSystemAndUser({ ...ctx, reqView: { ...reqView, text: imageText } }, req)
@@ -616,9 +610,10 @@ export function createRouter(deps: RouterDeps) {
         // A run that already answered is left alone: the fsm ignores this and the sink drops it.
         timedOut();
       }
-      // A cloud backend's ABORTED chunk lands after the abort race resolves, so the row would read as a blank success.
+      // A cloud backend's ABORTED lands after this returns, too late for the row and for a caller that buffers (the image tooltip).
       if (fsm.state() === 'attempting' && cancelToken?.reason === 'user') {
         fsm.send({ type: 'error', code: 'ABORTED', message: 'cancelled' });
+        onChunk({ type: 'error', requestId: req.id, code: 'ABORTED', message: 'cancelled' });
       }
 
       const lastAttempt = attemptLog[attemptLog.length - 1];
