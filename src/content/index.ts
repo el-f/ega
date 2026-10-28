@@ -44,6 +44,7 @@ import {
 } from './request-state';
 import { omitUndef } from '@/shared/utils/omitUndef';
 import { capText } from '@/shared/text-cap';
+import { selectionTrimmedMessage } from '@/shared/selection-cap-copy';
 import { NOTHING_TO_TRANSLATE_NOTICE, nothingToTranslate } from '@/shared/nothing-to-translate';
 import {
   fireTranslate,
@@ -835,7 +836,7 @@ async function startTranslateSelection(
       accum.clear();
       return;
     }
-    const { text: joined, dropped } = accum.joinCapped(parts, MAX_SELECTION_CHARS);
+    const { text: joined, dropped, cut } = accum.joinCapped(parts, MAX_SELECTION_CHARS);
     const lastQueued = queued[queued.length - 1];
     const anchorRect = currentRect ?? lastQueued?.rect;
     if (!anchorRect) {
@@ -843,11 +844,13 @@ async function startTranslateSelection(
       return;
     }
     accum.clear();
-    if (dropped > 0) {
-      showToast(
-        `Sent ${parts.length - dropped} of ${parts.length} selections. The rest didn't fit.`,
-      );
-    }
+    const notices = [
+      dropped > 0
+        ? `Sent ${parts.length - dropped} of ${parts.length} selections. The rest didn't fit.`
+        : '',
+      cut ? selectionTrimmedMessage('selection') : '',
+    ];
+    showToast(notices.filter(Boolean).join(' '));
     await startTranslateText(
       joined,
       anchorRect,

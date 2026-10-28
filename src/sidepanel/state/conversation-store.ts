@@ -16,6 +16,7 @@ import {
 } from '@/shared/saved-conversations';
 import { debugCatch } from '@/shared/logger';
 import { omitUndef } from '@/shared/utils/omitUndef';
+import { capText } from '@/shared/text-cap';
 import { IMAGE_DATA_URL_MAX_CHARS } from '@/shared/constants';
 import { INSTRUCTIONS_KEPT_REPLIES } from '@/shared/reply-instructions';
 import type { ResultMeta } from '@/shared/types';
@@ -433,7 +434,7 @@ function estimateBytes(value: unknown): number {
 
 /** The other versions are the part that can go. The shown one stays: its task, Ask target and languages live only there. */
 function shrinkTurn(t: Turn): Turn {
-  const lean: Turn = { ...t, content: t.content.slice(0, MAX_TURN_CONTENT_CHARS) };
+  const lean: Turn = { ...t, content: capText(t.content, MAX_TURN_CONTENT_CHARS) };
   delete lean.rawAcc;
   const shown = t.variants?.[t.activeVariantIdx ?? 0];
   if (shown === undefined) {
@@ -443,7 +444,7 @@ function shrinkTurn(t: Turn): Turn {
   }
   const { rawAcc: _raw, ...kept } = shown;
   void _raw;
-  lean.variants = [{ ...kept, content: shown.content.slice(0, MAX_TURN_CONTENT_CHARS) }];
+  lean.variants = [{ ...kept, content: capText(shown.content, MAX_TURN_CONTENT_CHARS) }];
   lean.activeVariantIdx = 0;
   return lean;
 }

@@ -11,6 +11,7 @@ import {
   inlineCount,
 } from '@/content/inlineReplace';
 import { joinCapped } from '@/content/accumulator';
+import { isWellFormed } from '@tests/_helpers/well-formed';
 import { mountShadowHost, getContainer, getShadowRoot } from '@/content/shadowHost';
 import { showBatchProgress, isBatchProgressActive } from '@/content/batch-progress';
 import { showBubble, hideBubble } from '@/content/bubble';
@@ -139,13 +140,26 @@ describe('a queued join says what did not fit', () => {
   });
 
   it('drops nothing when everything fits', () => {
-    expect(joinCapped(['one', 'two'], 2000)).toEqual({ text: 'one\n\n---\n\ntwo', dropped: 0 });
+    expect(joinCapped(['one', 'two'], 2000)).toEqual({
+      text: 'one\n\n---\n\ntwo',
+      dropped: 0,
+      cut: false,
+    });
   });
 
   it('still sends a lone over-cap selection, truncated', () => {
-    const { text, dropped } = joinCapped(['x'.repeat(3000)], 2000);
+    const { text, dropped, cut } = joinCapped(['x'.repeat(3000)], 2000);
     expect(dropped).toBe(0);
+    expect(cut).toBe(true);
     expect(text).toHaveLength(2000);
+  });
+
+  it('never cuts an emoji in half', () => {
+    // The emoji sits across the cap: a plain slice keeps only its first half, a lone surrogate.
+    const { text, cut } = joinCapped([`${'x'.repeat(1999)}😀 more`], 2000);
+    expect(cut).toBe(true);
+    expect(text).toBe('x'.repeat(1999));
+    expect(isWellFormed(text)).toBe(true);
   });
 });
 

@@ -19,6 +19,7 @@ import {
 } from '@/sidepanel/state/conversation';
 import { asLangIdUnsafe } from '@/shared/brands';
 import { userTurn } from '@tests/_helpers/turns';
+import { isWellFormed } from '@tests/_helpers/well-formed';
 
 function sizeOf(x: unknown): number {
   return JSON.stringify(x).length;
@@ -59,6 +60,28 @@ describe('byte caps', () => {
     expect(loaded).toHaveLength(1);
     expect(sizeOf(loaded[0])).toBeLessThanOrEqual(MAX_TURN_BYTES);
     expect(loaded[0]?.id).toBe('big');
+  });
+
+  it('shrinks an oversized turn without cutting an emoji in half', async () => {
+    // The emoji sits across the 20,000-char cut: a plain slice keeps only its first half.
+    const content = `${'y'.repeat(19_999)}😀${'y'.repeat(400 * 1024)}`;
+    const huge: Turn = {
+      createdAt: 1,
+      id: 'big',
+      role: 'assistant',
+      kind: 'translate',
+      status: 'done',
+      content,
+      attachedToTurnId: 'u1',
+      variants: [{ id: 'big:v1', status: 'done', content }],
+      activeVariantIdx: 0,
+    };
+    await saveThread('https://huge-emoji.com', [huge]);
+    const back = (await loadThreadResult('https://huge-emoji.com')).turns[0];
+    for (const text of [back?.content, back?.variants?.[0]?.content]) {
+      expect(text?.length).toBe(19_999);
+      expect(isWellFormed(text ?? '')).toBe(true);
+    }
   });
 
   it('evicts the oldest thread when all threads together pass the total budget', async () => {
