@@ -145,6 +145,53 @@ describe('the meta line', () => {
     expect(metaText(container)).toEqual(['Spanish → English', 'Claude Haiku 4.5', '93% confident']);
   });
 
+  it('a link the panel answered itself says so, with no languages and no Regenerate', async () => {
+    const link = 'https://example.com/docs';
+    const {
+      confidence: _c,
+      meta: _m,
+      detectedLang: _d,
+      ...turn
+    } = doneReply({
+      content: link,
+      variants: [{ id: 'a1:v1', status: 'done', content: link, nothingToTranslate: true }],
+    });
+    const { container } = render(AssistantTurn, {
+      props: replyProps(turn, { sourceLang: 'es', recordsDetails: true }),
+    });
+    expect(metaText(container)).toEqual(['Nothing to translate']);
+    expect(container.querySelector('.ega-answer')?.textContent).toContain(link);
+    const menu = await openMenu(container, 'refine');
+    expect(menu.querySelector('[data-ega-regenerate]')).toBeNull();
+  });
+
+  it('a link the panel answered itself has no About, which would say it was sent', async () => {
+    const link = 'https://example.com/docs';
+    const v1 = { id: 'a1:v1', status: 'done' as const, content: 'Hello, friend.', meta: meta() };
+    const v2 = {
+      id: 'a1:v2',
+      status: 'done' as const,
+      content: link,
+      nothingToTranslate: true as const,
+    };
+    const modelReply = doneReply({ variants: [v1, v2], activeVariantIdx: 0 });
+    const { meta: _m, confidence: _c, detectedLang: _d, ...rest } = modelReply;
+    const localReply = { ...rest, content: link, activeVariantIdx: 1 };
+    const { container, rerender } = render(AssistantTurn, {
+      props: replyProps(modelReply, { recordsDetails: false }),
+    });
+    await openMenu(container, 'more');
+    await fireEvent.click(document.querySelector('[data-ega-about]') as HTMLElement);
+    await waitFor(() => expect(container.querySelector('[data-ega-inspector]')).not.toBeNull());
+
+    // Flipping to the local version hides About opened on the model one.
+    await rerender({ turn: localReply });
+    expect(container.querySelector('[data-ega-inspector]')).toBeNull();
+    const menu = await openMenu(container, 'more');
+    expect(menu.querySelector('[data-ega-about]')).toBeNull();
+    expect(menu.textContent).not.toContain('About this reply');
+  });
+
   it('cuts a cue-word detail from an older reply, and About keeps it whole', async () => {
     const detail = 'Levantine (kifak, shu, 3am, ktir, 3njad)';
     const { container } = render(AssistantTurn, {

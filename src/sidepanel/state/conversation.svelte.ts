@@ -2,6 +2,8 @@
 
 import {
   activeVariant,
+  answerAsIs,
+  answersAsIs,
   requestTask,
   addAssistantTurn,
   addDeliveredAssistantTurn,
@@ -388,6 +390,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     if (userTurn === undefined) throw new Error('addUserTurn returned no turn');
     // Built from the thread the user sent into, before this send's trim can drop the reply.
     const { askAbout, aboutUnsent } = aboutFor(userTurn, undefined, userTurns);
+    const asIs = answersAsIs(userTurn);
     const withAssistant = addAssistantTurn(userTurns, {
       id: assistantId,
       kind: input.kind,
@@ -409,13 +412,17 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     noteTrimmed(dropped);
     // The store sees known ids gone, not a trim of its own, so it buries nothing: without a tombstone another window keeps quoting and sending them.
     noteRemoved(dropped);
+    state.lastDispatch = input;
+    if (asIs) {
+      mutate(() => answerAsIs(capped, assistantId, `${assistantId}:v1`, input.content), 'now');
+      return assistantId;
+    }
     mutate(() => capped, 'debounce');
     state.inflightId = assistantId;
     state.inflightVariantId = `${assistantId}:v1`;
     state.requestId = requestId;
     noteOwnedRequest(requestId);
     armStall(requestId, safeImg !== undefined);
-    state.lastDispatch = input;
     try {
       await sendTranslateStart(
         buildStartArgs(userTurn, {
@@ -625,7 +632,10 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
   }
 
   async function retry(assistantId: string): Promise<StartedAnswer | null> {
-    if (state.inflightId !== null || ownedByBackground(assistantId)) {
+    const settled = state.turns.find((t) => t.id === assistantId);
+    // An open version with no slot here is another window's live answer: a re-run would bury it.
+    const answering = settled !== undefined && openVariantIds(settled).length > 0;
+    if (state.inflightId !== null || ownedByBackground(assistantId) || answering) {
       // Retrying mid-stream would clobber inflightId/requestId and strand both turns.
       toastStore.push({
         message: 'Wait for the current reply to finish, then retry.',
@@ -633,7 +643,6 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       });
       return null;
     }
-    const settled = state.turns.find((t) => t.id === assistantId);
     // The `r` key reaches this function without the gates the Retry button applies.
     if (settled?.role === 'assistant' && settled.status === 'error' && settled.error) {
       const raw = settled.error.code;
@@ -725,7 +734,8 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
 
   async function retryVariant(turn: Turn): Promise<StartedAnswer | null> {
     const failed = activeVariant(turn);
-    if (failed === undefined) return null;
+    // Checked before the drop: a version with nothing to replay must stay, not vanish with nothing sent.
+    if (failed === undefined || resolveVariantTarget(turn.id) === null) return null;
     const retried = (turn.retries ?? 0) + 1;
     mutate(
       (turns) =>
@@ -779,10 +789,8 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
 
   /** The turn's own dispatch, else the panel-wide one: a restored thread has no lastDispatch, but its turns carry their own. */
   function replayDispatch(userTurn: Turn): TurnDispatch | null {
-    // An image turn whose image is gone would send the placeholder as text, whatever dispatch it borrows.
-    if (userTurn.content === IMAGE_TURN_PLACEHOLDER && userTurn.imageDataUrl === undefined) {
-      return null;
-    }
+    // An image turn whose image is gone would send its placeholder or caption as text, whatever dispatch it borrows.
+    if (isImageTurn(userTurn) && userTurn.imageDataUrl === undefined) return null;
     return userTurn.dispatch ?? state.lastDispatch;
   }
 
@@ -798,6 +806,19 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     const { assistant, userTurn, reuse } = target;
     const context = assistant.contextSent;
     const variantId = uuid();
+    if (answersAsIs(userTurn, seed)) {
+      mutate(
+        (turns) =>
+          answerAsIs(
+            addVariantPure(turns, turnId, { id: variantId, ...seed }),
+            turnId,
+            variantId,
+            userTurn.content,
+          ),
+        'now',
+      );
+      return variantId;
+    }
     const requestId = uuid();
     const asks = requestTask(userTurn, seed) === 'ask';
     // The user turn's captured tone wins, so a later picker change does not apply backwards.
@@ -925,6 +946,8 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
 
   /** Request id of the language-change variant in flight, so a second pick replaces it instead of bailing. */
   let langChangeRequestId: string | null = null;
+  /** The version that language pick re-answers. */
+  let langChangeFrom: string | null = null;
   /** A thread at the cap drops a turn on every save, so the notice fires once per loaded thread. */
   let trimNoticed = false;
   let shedNoticed = false;
@@ -950,9 +973,17 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       }
       // The user changed their mind mid-stream: the half answer in the old language is noise, not a variant.
       const abandoned = state.inflightVariantId;
+      const turn = state.turns.find((t) => t.id === assistantId);
+      // Dropping the shown version shows the one before it, which need not be the one the first pick re-answered.
+      const back = turn && activeVariant(turn)?.id === abandoned ? langChangeFrom : null;
       cancel();
       if (abandoned !== null) {
-        mutate((turns) => dropVariantPure(turns, assistantId, abandoned), 'none');
+        mutate((turns) => {
+          const dropped = dropVariantPure(turns, assistantId, abandoned);
+          const shown = dropped.find((t) => t.id === assistantId);
+          const at = shown?.variants?.findIndex((v) => v.id === back) ?? -1;
+          return at < 0 ? dropped : selectVariantPure(dropped, assistantId, at);
+        }, 'none');
       }
     }
     const target = resolveVariantTarget(assistantId);
@@ -972,8 +1003,12 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       selectVariant(assistantId, existing);
       return true;
     }
+    const from = active?.id ?? null;
     const ok = (await dispatchVariant(assistantId, { targetLang, ...carried })) !== null;
-    if (ok) langChangeRequestId = state.requestId;
+    if (ok) {
+      langChangeRequestId = state.requestId;
+      langChangeFrom = from;
+    }
     return ok;
   }
 
@@ -1060,6 +1095,8 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
   async function regenerate(turnId: string): Promise<string | null> {
     // A stored turn the byte cap shrank gets its v1 back at load (conversation-store), so no rebuild here.
     const turn = state.turns.find((t) => t.id === turnId);
+    // The text itself is the answer, so a re-roll can only add a copy of it.
+    if (turn !== undefined && activeVariant(turn)?.nothingToTranslate === true) return null;
     // Re-rolls the answer on screen: a swap, a language change, a task or a refine runs as itself again.
     // The same request has a cached answer (the one on screen), so without freshAnswer the router hands it back unchanged.
     return dispatchVariant(turnId, seedOf(turn ? activeVariant(turn) : undefined), true);

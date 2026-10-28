@@ -131,6 +131,57 @@ describe('createConversation().langVariant', () => {
     expect(a?.status).toBe('pending');
   });
 
+  describe('a second pick on a reply with several versions', () => {
+    /** v1 plain, v2 "As Summarize", then the reader flips back to v1 and picks French. */
+    async function frenchFromV1(): Promise<{
+      c: ReturnType<typeof createConversation>;
+      id: string;
+    }> {
+      const c = createConversation();
+      const id = await sendAndDrain(c);
+      expect(await c.taskVariant(id, 'summarize')).not.toBeNull();
+      drain(c);
+      c.selectVariant(id, 0);
+      expect(await c.langVariant(id, FR)).toBe(true);
+      expect(lastStart()['options']).not.toHaveProperty('task');
+      return { c, id };
+    }
+
+    it('re-answers the version it was picked from, not the newest older one', async () => {
+      const { c, id } = await frenchFromV1();
+
+      expect(await c.langVariant(id, DE)).toBe(true);
+
+      expect(lastStart()['targetLang']).toBe(DE);
+      expect(lastStart()['options']).not.toHaveProperty('task');
+      const a = c.turns.find((t) => t.id === id);
+      expect(a?.variants?.map((v) => [v.task, v.targetLang])).toEqual([
+        [undefined, undefined],
+        ['summarize', undefined],
+        [undefined, DE],
+      ]);
+    });
+
+    it('a pick back to the first language shows that version and sends nothing', async () => {
+      const { c, id } = await frenchFromV1();
+      const before = calls('translate:start').length;
+
+      await c.langVariant(id, EN);
+
+      expect(calls('translate:start').length).toBe(before);
+      expect(c.turns.find((t) => t.id === id)?.activeVariantIdx).toBe(0);
+    });
+
+    it('re-answers the version on screen when the reader flipped to it mid-stream', async () => {
+      const { c, id } = await frenchFromV1();
+      c.selectVariant(id, 1);
+
+      expect(await c.langVariant(id, DE)).toBe(true);
+
+      expect((lastStart()['options'] as Record<string, unknown>)['task']).toBe('summarize');
+    });
+  });
+
   it('returns false for a reply that is not in the thread', async () => {
     const c = createConversation();
     expect(await c.langVariant('missing', FR)).toBe(false);

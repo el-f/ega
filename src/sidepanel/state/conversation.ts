@@ -18,6 +18,7 @@ import {
 import type { sendTranslateStart } from '@/shared/translate-ui';
 import type { AnswerNote, AnswerDetail } from '@/shared/answer/reader';
 import { askQuote, type AskAbout, type AskTarget } from '@/shared/ask-about';
+import { nothingToTranslate } from '@/shared/nothing-to-translate';
 import type { AnswerSnapshot, AnswerReplyFields } from '@/shared/types';
 
 /** Every kind this build creates; saved turns can carry a newer build's task id. */
@@ -76,6 +77,8 @@ export interface Variant {
   about?: AskTarget;
   /** This version's request carried no block about the reply it asks about: that reply was gone. Undo never clears it. */
   aboutUnsent?: true;
+  /** A Translate of only links, numbers or symbols: the panel answered with the text itself and sent nothing. */
+  nothingToTranslate?: true;
 }
 
 /** Language pair + streaming preference of a user turn; its page context lives
@@ -292,9 +295,15 @@ export function replaceAssistantTurn(
   input: AddAssistantTurnInput,
 ): Turn[] {
   const idx = turns.findIndex((t) => t.id === oldId);
-  if (idx < 0) return addAssistantTurn(turns, input);
+  const old = turns[idx];
+  if (old === undefined) return addAssistantTurn(turns, input);
   const out = [...turns];
-  out[idx] = pendingAssistantTurn(input);
+  // Another window slots the new id in by createdAt, so a fresh stamp would move it below later turns.
+  out[idx] = {
+    ...pendingAssistantTurn(input),
+    createdAt: old.createdAt,
+    ...(old.bookmarked === true ? { bookmarked: true } : {}),
+  };
   return out;
 }
 
@@ -541,6 +550,34 @@ function historyFor(userTurn: Turn, thread: readonly Turn[] | 'none', task: Task
 /** The task a request runs: the version's own, else its message's. The request, its block and its history all read it. */
 export function requestTask(userTurn: Turn, seed: VariantSeed = {}): TaskId {
   return seed.task ?? turnTaskValue(userTurn);
+}
+
+/** A request the panel answers itself: a Translate of only links, numbers or symbols, with no typed change. */
+export function answersAsIs(userTurn: Turn, seed: VariantSeed = {}): boolean {
+  return (
+    requestTask(userTurn, seed) === 'translate' &&
+    seed.refinementBody === undefined &&
+    !isImageTurn(userTurn) &&
+    nothingToTranslate(userTurn.content)
+  );
+}
+
+/** Settles version `variantId` with `text`, sent nowhere, for a request `answersAsIs` allows. */
+export function answerAsIs(
+  turns: readonly Turn[],
+  turnId: string,
+  variantId: string,
+  text: string,
+): Turn[] {
+  return turns.map((t) => {
+    if (t.id !== turnId || t.variants === undefined) return t;
+    const variants = t.variants.map((v): Variant => {
+      if (v.id !== variantId) return v;
+      const { rawAcc: _raw, ...rest } = v;
+      return { ...rest, status: 'done', content: text, nothingToTranslate: true };
+    });
+    return projectVariant({ ...t, variants });
+  });
 }
 
 /** The one place that builds a request; send, retry and every variant use it. An Ask request's block comes in `askAbout`. */

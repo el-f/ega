@@ -50,7 +50,8 @@
     onSwap: () => void;
     onShowChanges: (on: boolean) => void;
     onSpeak: () => void;
-    onAbout: (open: boolean) => void;
+    /** Absent for a reply the panel answered itself: no request was sent, so About has nothing to tell. */
+    onAbout?: ((open: boolean) => void) | undefined;
     onAnswerAgain: (task: string) => void;
     onBookmark: () => void;
     onDelete: () => void;
@@ -236,16 +237,18 @@
           >
         </DropdownMenu.Item>
       {/if}
-      <DropdownMenu.CheckboxItem
-        class="sp-menu-item"
-        checked={aboutOpen}
-        onCheckedChange={(v) => onAbout(v)}
-        data-ega-about
-      >
-        {#if speakable}<span class="sp-menu-icon-slot" aria-hidden="true"></span>{/if}
-        <span class="sp-menu-label">About this reply</span>
-        <Icon icon={Check} size={16} class="sp-menu-check" />
-      </DropdownMenu.CheckboxItem>
+      {#if onAbout !== undefined}
+        <DropdownMenu.CheckboxItem
+          class="sp-menu-item"
+          checked={aboutOpen}
+          onCheckedChange={(v) => onAbout(v)}
+          data-ega-about
+        >
+          {#if speakable}<span class="sp-menu-icon-slot" aria-hidden="true"></span>{/if}
+          <span class="sp-menu-label">About this reply</span>
+          <Icon icon={Check} size={16} class="sp-menu-check" />
+        </DropdownMenu.CheckboxItem>
+      {/if}
       {#if answerAgain.length > 0}
         <DropdownMenu.Separator class="sp-menu-sep" />
         <DropdownMenu.Group aria-labelledby="rm-again-{turnId}">

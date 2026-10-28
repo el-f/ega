@@ -146,6 +146,8 @@
   const imageTurn = $derived(hasImage || turn.kind === 'image-translate');
   const currentTaskValue = $derived(turnTaskValue(turn));
   const answering = $derived(turn.status === 'pending' || turn.status === 'streaming');
+  // The panel gave the text back without a request: no languages were read, and a re-roll gives the same text.
+  const asIs = $derived(activeVariant?.nothingToTranslate === true);
 
   // A version only mirrors onto the turn while it is active, so a sibling streams out of sight.
   const hiddenBusyIdx = $derived.by(() => {
@@ -255,6 +257,7 @@
     if (speaking) return 'Reading aloud';
     if (hiddenBusyIdx >= 0) return `Version ${hiddenBusyIdx + 1} loading…`;
     if (partial) return 'Partial answer';
+    if (asIs) return 'Nothing to translate';
     return undefined;
   });
   const askOn = $derived(taskOn(taskViews, 'ask'));
@@ -284,7 +287,7 @@
       bookmarked: isBookmarked,
       meta: answering ? undefined : turn.meta,
       // "English → English" would repeat the offer.
-      direction: answering || offer !== null ? '' : isAnswer ? 'Answer' : metaDirection,
+      direction: answering || offer !== null || asIs ? '' : isAnswer ? 'Answer' : metaDirection,
       ...(versionLabel !== undefined && !answering ? { version: versionLabel } : {}),
       confidence: shownConfidence,
       confidenceSetting: confidence,
@@ -783,7 +786,7 @@
           refineTab={tab('refine')}
           moreTab={tab('more')}
           {canRerun}
-          onRegenerate={canRetry && onRegenerate !== undefined
+          onRegenerate={canRetry && onRegenerate !== undefined && !asIs
             ? () => onRegenerate(turn.id)
             : undefined}
           busy={inflight}
@@ -808,7 +811,7 @@
           onSwap={() => onSwap?.(turn.id)}
           onShowChanges={(on) => (showChanges = on)}
           onSpeak={() => void toggleSpeech()}
-          onAbout={(open) => void setAbout(open)}
+          onAbout={asIs ? undefined : (open) => void setAbout(open)}
           onAnswerAgain={(task) => onTaskSwitch?.(turn.id, task)}
           onBookmark={() => onBookmark?.(turn.id)}
           onDelete={() => onDelete?.(turn.id)}
@@ -825,7 +828,8 @@
           onTranslate={translateTo}
         />
       {/if}
-      {#if aboutOpen}
+      <!-- About opened on another version hides while a version the panel answered itself shows: nothing was sent. -->
+      {#if aboutOpen && !asIs}
         <ReplyDetails
           meta={turn.meta}
           details={turn.details}

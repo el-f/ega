@@ -110,6 +110,23 @@ describe('ConversationStream — one announcer, not the whole thread', () => {
     expect(container.querySelector('[data-ega-stream-live]')?.textContent).toBe('done text');
   });
 
+  it('says a link came back as it was, not only the link', async () => {
+    const link = 'https://example.com/docs';
+    const { container, rerender } = render(ConversationStream, { props: props() });
+    await tick();
+    const local: AssistantTurnData = {
+      ...a('a2', link, 'u2', 'done', 2_000),
+      variants: [{ id: 'a2:v1', status: 'done', content: link, nothingToTranslate: true }],
+      activeVariantIdx: 0,
+    };
+    const turns = [u('u1', 'hi'), a('a1', 'the reply', 'u1'), u('u2', link, 2_000), local];
+    await rerender(props({ turns }));
+    await tick();
+    expect(container.querySelector('[data-ega-stream-live]')?.textContent).toBe(
+      `Nothing to translate: ${link}`,
+    );
+  });
+
   // The panel mounts the stream before its first storage read; the thread that loads is old news, not a new answer.
   it('does not read out a restored thread that lands after mount', async () => {
     const { container, rerender } = render(ConversationStream, {
