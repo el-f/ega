@@ -13,7 +13,7 @@ function banKey(pattern: string, flags: string): string {
 interface SafeTestOptions {
   /** Override the input cap — tests only. */
   inputCap?: number;
-  /** Override the ban threshold — tests only. */
+  /** Override the ban threshold; Infinity turns the timing ban off. */
   banThresholdMs?: number;
   /** Injectable clock — tests use fake timers that don't advance
    *  performance.now(); a test can supply `Date.now` or a stub. */

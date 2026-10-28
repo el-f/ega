@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { detectLang, resolveSourceLang } from '@/content/detect';
 import { preset, sel } from '@tests/_helpers/lang';
 import type { CustomLanguage } from '@/shared/types';
@@ -117,5 +117,39 @@ describe('resolveSourceLang (default-language select)', () => {
     expect(resolveSourceLang('nuqneH nuqDaq please', 'auto', { customs: [KLINGON] })).toBe(
       KLINGON.id,
     );
+  });
+});
+
+// The ban is process-wide, so these run last in the file.
+describe('a slow regex run', () => {
+  const QAPLA: CustomLanguage = {
+    ...KLINGON,
+    id: preset('5a1d9c3e-7b2f-4e6a-9d8c-0f1e2d3c4b5a'),
+    autoDetect: { regex: '\\bqapla\\w*\\b', flags: 'i', minScore: 1 },
+  };
+
+  /** Every clock read is 60 ms after the last, so each regex run takes longer than the ban threshold. */
+  function slowClock(): void {
+    let t = 0;
+    vi.spyOn(performance, 'now').mockImplementation(() => (t += 60));
+  }
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('still bans a slow custom pattern', () => {
+    expect(detectLang('qapla qaplaH', { customs: [QAPLA] })?.id).toBe(QAPLA.id);
+    slowClock();
+    detectLang('qapla qaplaH', { customs: [QAPLA] });
+    vi.restoreAllMocks();
+    expect(detectLang('qapla qaplaH', { customs: [QAPLA] })).toBeUndefined();
+  });
+
+  it('never bans the shipped Arabizi pattern', () => {
+    slowClock();
+    expect(detectLang('mar7aba, kifak? shu 3am ta3mel?')?.id).toBe('arabizi');
+    vi.restoreAllMocks();
+    expect(detectLang('keef 7alak ya 7abibi')?.id).toBe('arabizi');
   });
 });

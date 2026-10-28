@@ -20,7 +20,10 @@ function autoDetectHits(text: string, ad: AutoDetect): number {
     ad.regex,
     typeof ad.flags === 'string' ? ad.flags : '',
     text,
-    SHIPPED_PATTERNS.has(ad) ? {} : { inputCap: CUSTOM_PATTERN_INPUT_CAP },
+    // A shipped pattern is fast on any input, so a slow run is a busy thread, not the pattern.
+    SHIPPED_PATTERNS.has(ad)
+      ? { banThresholdMs: Infinity }
+      : { inputCap: CUSTOM_PATTERN_INPUT_CAP },
   );
 }
 
