@@ -2,6 +2,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { detectLang } from '@/content/detect';
 import { lexiconCacheInternal, loadEnglishLexicon } from '@/content/looks-like-english';
+import { shouldShowBubbleWithReason } from '@/content/should-show-bubble';
+import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import {
   ARABIZI_LINES,
   ENGLISH_LINES,
@@ -22,10 +24,8 @@ const SHORT_WORD =
   'the shipped pattern skips a digit word with two letters or a final digit: English writes 3am, 5pm and mp3 the same way';
 const TIE = 'the English words tie the Arabizi or leet evidence, so the line goes out as auto';
 const LEET_SCORE = 'fewer than two leet words: "0mg", "s0" and "4m" read as a unit or a version';
-const DIGIT_FIRST =
-  'a digit first and a consonant after it ("3melt", "2deret") does not match the shipped pattern';
 
-/** Each line the detector gets wrong, with the reason. The bubble still shows for every Arabizi line here. */
+/** Each line the detector gets wrong, with the reason. */
 const ACCEPTED_MISSES: ReadonlyMap<string, string> = new Map([
   ['rou7 nem ya zalame', SHORT_WORD],
   ['wain ra7 el 7in?', SHORT_WORD],
@@ -35,10 +35,6 @@ const ACCEPTED_MISSES: ReadonlyMap<string, string> = new Map([
   ['3am fakker ruh 3al gym', SHORT_WORD],
   ['mabrouk 3al wazife el jdide', SHORT_WORD],
   ['9ar lna zaman ma shefnak', SHORT_WORD],
-  ['kan9leb 3lik f darna', DIGIT_FIRST],
-  ['lol shu 3melt?', DIGIT_FIRST],
-  ['sorry ma 2deret ejeh', DIGIT_FIRST],
-  ['wallahi ma 3reft', DIGIT_FIRST],
   ['I am so ta3ban today ya 3am', TIE],
   ['pwn3d by a n00b lol', TIE],
   ['0mg u r s0 l4m3', LEET_SCORE],
@@ -59,6 +55,14 @@ describe('the detector on the labeled corpus', () => {
     const got = classify();
     const misses = CORPUS.filter(([, want], i) => got[i] !== want).map(([text]) => text);
     expect(misses.sort()).toEqual([...ACCEPTED_MISSES.keys()].sort());
+  });
+
+  it('still shows the bubble on each line it misses', () => {
+    const smart = { ...DEFAULT_SETTINGS, bubbleMode: 'smart' as const };
+    const hidden = [...ACCEPTED_MISSES.keys()].filter(
+      (text) => !shouldShowBubbleWithReason({ text }, smart, []).show,
+    );
+    expect(hidden).toEqual([]);
   });
 
   describe('with the English lexicon loaded', () => {
