@@ -104,6 +104,8 @@ export type Msg =
   | { kind: 'page:chooseAreas' }
   /** Popup or content → SW: set (never toggle) Ega on or off for a site. A content script's own URL wins over `url`. */
   | { kind: 'site:set-enabled'; enabled: boolean; url?: string }
+  /** Content → SW: remember this pair on the sender's site row; the SW sets it on the stored row under the settings lock. */
+  | { kind: 'site:memo-direction'; direction: { source: LangSelection; target: LangSelection } }
   | { kind: 'ctx:translate-selection'; text?: string; task?: TaskId; targetLang?: LangSelection }
   | { kind: 'hotkey:translate' }
   | { kind: 'picker:enter' }
@@ -216,6 +218,7 @@ export interface MsgReply {
   'page:translateAll': { ok: true };
   'page:chooseAreas': { ok: true };
   'site:set-enabled': { ok: boolean };
+  'site:memo-direction': PatchAck;
   'ctx:translate-selection': { ok: true };
   'hotkey:translate': { ok: true };
   'picker:enter': { ok: true };
@@ -274,6 +277,7 @@ const ALL_KINDS = [
   'page:translateAll',
   'page:chooseAreas',
   'site:set-enabled',
+  'site:memo-direction',
   'ctx:translate-selection',
   'hotkey:translate',
   'picker:enter',
