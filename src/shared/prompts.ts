@@ -298,9 +298,9 @@ export function readsPageContext(
   );
 }
 
-/** The system half already carries an answer format, typed in or inside a snippet. */
-export function hasAnswerFormat(system: string, snippets: Record<string, string>): boolean {
-  return resolveSnippets(system, snippets).includes(FORMAT_MARKER);
+/** The text already carries an answer format in any case, typed in or inside a snippet. */
+export function hasAnswerFormat(text: string, snippets: Record<string, string>): boolean {
+  return resolveSnippets(text, snippets).toLowerCase().includes(FORMAT_MARKER.toLowerCase());
 }
 
 /** The template with its answer format joined on, unless the text already holds one. Raw text, before the slot pass. */
@@ -319,7 +319,7 @@ export function withAnswerFormat(
       : tpl.system.replace(v1.text, () => format.text);
     return { ...tpl, system };
   }
-  if (hasAnswerFormat(tpl.system, snippets)) return tpl;
+  if (hasAnswerFormat(tpl.system, snippets) || hasAnswerFormat(tpl.user, snippets)) return tpl;
   return { ...tpl, system: tpl.system + format.sep + format.text };
 }
 

@@ -121,6 +121,17 @@ describe('answer format: edited prompts', () => {
     expect(hasAnswerFormat('x @@fmt@@', {})).toBe(false);
   });
 
+  it("T-F6: a format typed in another case, or in the Message, counts as the prompt's own", async () => {
+    for (const edit of [
+      { system: 'Be short. Return JSON only: {"summary": <string>}.' },
+      { system: 'Be short.', user: 'TEXT: {{text}}\nreturn json only: {"summary": <string>}.' },
+    ]) {
+      const p = await sent(mkSettings({ taskOverrides: { summarize: edit } }), req('summarize'));
+      const all = `${p.system}\n${p.user}`.toLowerCase();
+      expect(count(all, FORMAT_MARKER.toLowerCase()), edit.system).toBe(1);
+    }
+  });
+
   it('T-F7: the built system holds the marker at least once and the format at most once more than the text did', () => {
     const snippetName = fc.constantFrom('a', 'b');
     fc.assert(
