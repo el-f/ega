@@ -4,6 +4,7 @@ import { TaskIdSchema } from './settings-schema';
 import type { TaskId } from './task-view';
 import { IMAGE_DATA_URL_MAX_CHARS, MAX_SELECTION_CHARS } from './constants';
 import { makeCrossContextLock } from './utils/cross-context-lock';
+import { capText } from './text-cap';
 import type {
   AnswerReplyFields,
   AnswerSnapshot,
@@ -253,7 +254,7 @@ function decodeEntry(raw: unknown, now: number): PendingPopupHandoff | null {
   if (typeof r['sourceText'] !== 'string') return null;
   // Clamp instead of reject: dropping the entry would silently lose the user's message.
   const trimmed = r['sourceText'].length > MAX_SELECTION_CHARS;
-  const sourceText = trimmed ? r['sourceText'].slice(0, MAX_SELECTION_CHARS) : r['sourceText'];
+  const sourceText = capText(r['sourceText'], MAX_SELECTION_CHARS);
   if (typeof r['sourceLang'] !== 'string') return null;
   if (typeof r['targetLang'] !== 'string') return null;
   if (!v.is(TaskIdSchema, r['task'])) return null;

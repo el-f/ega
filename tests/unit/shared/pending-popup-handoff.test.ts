@@ -265,6 +265,24 @@ describe('pending-popup-handoff', () => {
     expect(out[0]?.trimmed).toBe(true);
   });
 
+  it('drain clamps between graphemes, so an emoji on the cap is dropped whole', async () => {
+    await chrome.storage.session.set({
+      [PENDING_POPUP_HANDOFF_KEY]: {
+        'forged-1': {
+          sourceText: `${'x'.repeat(MAX_SELECTION_CHARS - 1)}😀 tail`,
+          sourceLang: 'auto',
+          targetLang: 'en',
+          task: 'translate',
+          tone: 'neutral',
+          ts: Date.now(),
+        },
+      },
+    });
+    const out = await drainPendingPopupHandoff();
+    expect(out[0]?.sourceText).toBe('x'.repeat(MAX_SELECTION_CHARS - 1));
+    expect(out[0]?.trimmed).toBe(true);
+  });
+
   it('forwards optional response / imageDataUrl / ocrText through write+drain', async () => {
     await writePendingPopupHandoff({
       sourceText: 'bonjour',

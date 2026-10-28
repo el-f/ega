@@ -21,6 +21,7 @@
   import { debugCatch } from '@/shared/logger';
   import { MAX_SELECTION_CHARS, settingsSaveFailedMessage } from '@/shared/constants';
   import { selectionTrimmedMessage } from '@/shared/selection-cap-copy';
+  import { capText } from '@/shared/text-cap';
   import {
     activeTab,
     NO_RECEIVER,
@@ -285,7 +286,7 @@
       return;
     }
     // The handoff validator rejects anything longer, so an unclamped clipboard opens an empty panel instead.
-    const trimmed = full.slice(0, MAX_SELECTION_CHARS);
+    const trimmed = capText(full, MAX_SELECTION_CHARS);
     const wasTrimmed = trimmed.length < full.length;
     if (wasTrimmed) {
       toastStore.push({ message: selectionTrimmedMessage('clipboard'), variant: 'warning' });
@@ -318,7 +319,7 @@
     const full = freeformText.trim();
     if (full.length === 0) return;
     // The handoff validator rejects anything longer, so an unclamped send opens an empty panel instead.
-    const text = full.slice(0, MAX_SELECTION_CHARS);
+    const text = capText(full, MAX_SELECTION_CHARS);
     const wasTrimmed = text.length < full.length;
     if (wasTrimmed) {
       toastStore.push({

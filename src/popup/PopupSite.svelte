@@ -4,6 +4,7 @@
   import Checkbox from '@/shared/ui/Checkbox.svelte';
   import StableLabel from '@/shared/ui/StableLabel.svelte';
   import type { HeldBack } from '@/shared/messages';
+  import { capText } from '@/shared/text-cap';
   import { heldBackText, type PopupPageState } from './page-state';
 
   interface Props {
@@ -62,7 +63,7 @@
   const NAME_MAX = 16;
   const shown = (name: string): string => {
     if (name.length <= NAME_MAX) return name;
-    const cut = name.slice(0, NAME_MAX - 1);
+    const cut = capText(name, NAME_MAX - 1);
     const word = cut.lastIndexOf(' ');
     return `${(word > 0 ? cut.slice(0, word) : cut).trimEnd()}…`;
   };
