@@ -145,6 +145,26 @@ describe('the meta line', () => {
     expect(metaText(container)).toEqual(['Spanish → English', 'Claude Haiku 4.5', '93% confident']);
   });
 
+  it('a link the panel answered itself says so, with no languages and no Regenerate', async () => {
+    const link = 'https://example.com/docs';
+    const {
+      confidence: _c,
+      meta: _m,
+      detectedLang: _d,
+      ...turn
+    } = doneReply({
+      content: link,
+      variants: [{ id: 'a1:v1', status: 'done', content: link, nothingToTranslate: true }],
+    });
+    const { container } = render(AssistantTurn, {
+      props: replyProps(turn, { sourceLang: 'es', recordsDetails: true }),
+    });
+    expect(metaText(container)).toEqual(['Nothing to translate']);
+    expect(container.querySelector('.ega-answer')?.textContent).toContain(link);
+    const menu = await openMenu(container, 'refine');
+    expect(menu.querySelector('[data-ega-regenerate]')).toBeNull();
+  });
+
   it('cuts a cue-word detail from an older reply, and About keeps it whole', async () => {
     const detail = 'Levantine (kifak, shu, 3am, ktir, 3njad)';
     const { container } = render(AssistantTurn, {

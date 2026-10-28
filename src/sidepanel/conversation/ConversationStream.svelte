@@ -356,6 +356,7 @@
   /** Same words the reply shows on screen, so the announcement and the panel agree. */
   function settledText(t: Turn | null): string {
     if (!t) return '';
+    if (activeVariant(t)?.nothingToTranslate === true) return `Nothing to translate: ${t.content}`;
     if (!t.error) return t.content;
     if (isCancelledError(t.error.code)) return 'Stopped';
     if (t.error.code === 'interrupted')

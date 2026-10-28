@@ -56,6 +56,21 @@ test('conversation stream updates live when a translation completes', async () =
   await expect(page.locator('.ega-answer').first()).toContainText('Hello');
 });
 
+test('a link alone comes back as it is, with no request and no confidence', async () => {
+  const api = mockAnthropic(ext.context, { translation: 'Hello, welcome!' });
+  const page = await ext.context.newPage();
+  await page.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
+
+  const link = 'https://example.com/docs?id=42';
+  await page.locator('#sp-text').fill(link);
+  await page.locator('#sp-text').press('Enter');
+
+  const reply = page.locator('[data-ega-reply]');
+  await expect(reply.locator('.ega-answer')).toContainText(link, { timeout: 10_000 });
+  await expect(reply.locator('[data-ega-meta-item]')).toHaveText(['Nothing to translate']);
+  expect(api.calls()).toBe(0);
+});
+
 test('two translations produce two assistant turns in the stream', async () => {
   mockAnthropic(ext.context, { translation: 'Hello, welcome!' });
   const page = await ext.context.newPage();

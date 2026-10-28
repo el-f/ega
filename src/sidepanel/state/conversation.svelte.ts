@@ -2,6 +2,8 @@
 
 import {
   activeVariant,
+  answerAsIs,
+  answersAsIs,
   requestTask,
   addAssistantTurn,
   addDeliveredAssistantTurn,
@@ -388,12 +390,13 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     if (userTurn === undefined) throw new Error('addUserTurn returned no turn');
     // Built from the thread the user sent into, before this send's trim can drop the reply.
     const { askAbout, aboutUnsent } = aboutFor(userTurn, undefined, userTurns);
+    const asIs = answersAsIs(userTurn);
     const withAssistant = addAssistantTurn(userTurns, {
       id: assistantId,
       kind: input.kind,
       attachedToTurnId: userId,
       ...(input.taskId !== undefined ? { taskId: input.taskId } : {}),
-      ...(input.context !== undefined ? { contextSent: input.context } : {}),
+      ...(input.context !== undefined && !asIs ? { contextSent: input.context } : {}),
       ...(input.explain ? { explain: input.explain } : {}),
       ...(input.preservedResponse !== undefined
         ? { preservedResponse: input.preservedResponse }
@@ -409,13 +412,17 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     noteTrimmed(dropped);
     // The store sees known ids gone, not a trim of its own, so it buries nothing: without a tombstone another window keeps quoting and sending them.
     noteRemoved(dropped);
+    state.lastDispatch = input;
+    if (asIs) {
+      mutate(() => answerAsIs(capped, assistantId, `${assistantId}:v1`, input.content), 'now');
+      return assistantId;
+    }
     mutate(() => capped, 'debounce');
     state.inflightId = assistantId;
     state.inflightVariantId = `${assistantId}:v1`;
     state.requestId = requestId;
     noteOwnedRequest(requestId);
     armStall(requestId, safeImg !== undefined);
-    state.lastDispatch = input;
     try {
       await sendTranslateStart(
         buildStartArgs(userTurn, {
@@ -799,6 +806,19 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     const { assistant, userTurn, reuse } = target;
     const context = assistant.contextSent;
     const variantId = uuid();
+    if (answersAsIs(userTurn, seed)) {
+      mutate(
+        (turns) =>
+          answerAsIs(
+            addVariantPure(turns, turnId, { id: variantId, ...seed }),
+            turnId,
+            variantId,
+            userTurn.content,
+          ),
+        'now',
+      );
+      return variantId;
+    }
     const requestId = uuid();
     const asks = requestTask(userTurn, seed) === 'ask';
     // The user turn's captured tone wins, so a later picker change does not apply backwards.
@@ -1075,6 +1095,8 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
   async function regenerate(turnId: string): Promise<string | null> {
     // A stored turn the byte cap shrank gets its v1 back at load (conversation-store), so no rebuild here.
     const turn = state.turns.find((t) => t.id === turnId);
+    // The text itself is the answer, so a re-roll can only add a copy of it.
+    if (turn !== undefined && activeVariant(turn)?.nothingToTranslate === true) return null;
     // Re-rolls the answer on screen: a swap, a language change, a task or a refine runs as itself again.
     // The same request has a cached answer (the one on screen), so without freshAnswer the router hands it back unchanged.
     return dispatchVariant(turnId, seedOf(turn ? activeVariant(turn) : undefined), true);
