@@ -1,5 +1,6 @@
 import type { ErrCode, TranslationChunk } from '../types';
 import { debugCatch } from '../logger';
+import { capText } from '../text-cap';
 
 export type TransportErrorCode = 'ABORTED' | 'TIMEOUT' | 'NETWORK' | 'AUTH';
 
@@ -81,7 +82,7 @@ function sanitizeErrorBody(body: string): string {
     .replace(/[\x00-\x1F\x7F]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
-  return cleaned.length > ERROR_BODY_TAIL ? cleaned.slice(0, ERROR_BODY_TAIL) : cleaned;
+  return capText(cleaned, ERROR_BODY_TAIL);
 }
 
 /** Providers answer with `{error:{message}}` (Gemini, OpenAI), `{error:"…"}` (Ollama) or Mistral's top-level `message`. Anything else is not worth showing. */
