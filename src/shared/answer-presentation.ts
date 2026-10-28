@@ -34,7 +34,7 @@ export function mainAnswerItems(answer: unknown): string[] | undefined {
 }
 
 /** The opening of a Markdown code fence, matched at the start of a trimmed line. */
-export const FENCE_OPEN = /^(?:`{3,}|~{3,})/;
+const FENCE_OPEN = /^(?:`{3,}|~{3,})/;
 
 /** The code in an answer that is exactly one fenced block, closed or still arriving; null for any other answer. */
 export function soleFencedCode(answer: string): string | null {

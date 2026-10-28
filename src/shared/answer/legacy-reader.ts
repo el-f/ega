@@ -116,7 +116,7 @@ export function parseLenientSpan(c: string): { value: unknown; end: number; repa
   }
 }
 
-export function parseLenient(c: string): unknown {
+function parseLenient(c: string): unknown {
   return parseLenientSpan(c).value;
 }
 
@@ -310,7 +310,7 @@ export function createStringValueScan(key = 'translation'): {
 }
 
 /** Last non-blank character. `trimEnd()` copies the whole accumulator on every delta. */
-export function lastNonBlank(s: string): string {
+function lastNonBlank(s: string): string {
   for (let i = s.length - 1; i >= 0; i--) {
     const c = s[i];
     if (c !== ' ' && c !== '\n' && c !== '\t' && c !== '\r') return c ?? '';
