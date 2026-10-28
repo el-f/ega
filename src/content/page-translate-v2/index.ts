@@ -920,6 +920,11 @@ function halt(sess: Session): void {
     for (const element of sess.deferred.values()) sess.dropped.add(element);
     for (const block of sess.pending) sess.dropped.add(block.element);
   }
+  // A retried block waits in `pending` with its old entry; left in the store, it reads as held and is never taken again.
+  for (const block of sess.pending) {
+    sess.store.delete(block.id);
+    sess.retrying.delete(block.id);
+  }
   sess.deferred.clear();
   sess.pending = [];
   sess.total -= unstarted;

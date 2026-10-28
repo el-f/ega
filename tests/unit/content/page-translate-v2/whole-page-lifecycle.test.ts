@@ -287,6 +287,40 @@ describe('whole-page session — failures', () => {
     expect(r.sent.length).toBeGreaterThan(3);
   });
 
+  it('Stop while retried areas wait for a slot lets the next press send them again', async () => {
+    const all = page();
+    for (const el of all.slice(3)) el.remove();
+    const els = all.slice(0, 3);
+    const [, t1, t2] = els.map((e) => e.textContent);
+    const r = rig(1);
+    await runWholePageTranslate(r.d);
+    band(els);
+    await flush();
+    for (let i = 0; i < 3; i++) {
+      fail(r.sent[i]?.id, 'UNKNOWN');
+      await flush();
+    }
+    expect(r.sent).toHaveLength(3);
+    // The press retries every failed area: one goes out, two wait for the one slot.
+    await runWholePageTranslate(r.d);
+    await flush();
+    expect(r.sent).toHaveLength(4);
+    r.stop();
+    finishAll(r, 3);
+    await flush();
+
+    expect(await runWholePageTranslate(r.d)).toBe(true);
+    band(els);
+    await flush();
+    finishAll(r, 4);
+    await flush();
+    finishAll(r, 5);
+    await flush();
+    expect(r.sent.slice(4).map((s) => s.text)).toEqual([t1, t2]);
+    expect(r.sent).toHaveLength(6);
+    expect(r.updates.at(-1)).toMatchObject({ settled: true, done: 3, failed: 0, total: 3, skipped: 0 });
+  });
+
   it('Stop during a rate-limit pause takes the pause off the pill', async () => {
     const els = page();
     const r = rig();
