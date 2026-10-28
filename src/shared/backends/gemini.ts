@@ -13,7 +13,12 @@ import { OCR_SYSTEM_PROMPT, OCR_USER_INSTRUCTION } from '../ocr-prompt';
 import { DEFAULT_MODEL } from '@/shared/settings-defaults';
 import { iterSseDataPayloads } from './sseParser';
 import { streamIdleTimeoutMs } from './stream-resilience';
-import { classifyHttpError, emitMissingKeyError, httpErrorMessage } from './transportError';
+import {
+  classifyHttpError,
+  classifyHttpStatus,
+  emitMissingKeyError,
+  httpErrorMessage,
+} from './transportError';
 import { asBackendIdUnsafe } from '../brands';
 import type { CancelToken } from '@/shared/cancel-token';
 import { getCloudProfile } from './provider-profiles';
@@ -34,6 +39,7 @@ interface GeminiBody {
     finishReason?: string;
   }>;
   promptFeedback?: { blockReason?: string };
+  error?: { code?: number; status?: string; message?: string };
   usageMetadata?: {
     promptTokenCount?: number;
     candidatesTokenCount?: number;
@@ -94,6 +100,15 @@ function finishEvent(reason: string, field: 'finishReason' | 'blockReason'): Str
 
 /** Gemini can send multi-part frames — reading only parts[0] drops the trailing text. */
 function* bodyEvents(j: GeminiBody): Generator<StreamEvent> {
+  // An error after the 200 header carries the HTTP code it would have had, which says if a retry can help.
+  if (j.error) {
+    yield {
+      type: 'error',
+      code: typeof j.error.code === 'number' ? classifyHttpStatus(j.error.code) : 'SERVER',
+      message: j.error.message ?? `${LABEL} reported a stream error.`,
+    };
+    return;
+  }
   const cand = j.candidates?.[0];
   let combined = '';
   // `p.text` on a null part throws and kills the whole stream generator.

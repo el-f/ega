@@ -14,7 +14,8 @@ import {
   type TranslationBackend,
 } from '@/shared/backends/base';
 import { createAnswerProjector, hasHebrewPoints } from '@/shared/answer/reader';
-import { answerSpecFor, type AnswerSpec } from '@/shared/answer/spec';
+import { capText } from '@/shared/text-cap';
+import { answerSpecFor, META_KEYS, type AnswerSpec } from '@/shared/answer/spec';
 import type { ChatTurn } from '@/shared/chat-history';
 import { optionsTabForMessage, shouldRotate } from '@/shared/error-policy';
 import { errCodeLabel } from '@/shared/err-labels';
@@ -179,16 +180,28 @@ export async function runTranslateAttempt(
               ? 'No answer came back.'
               : 'The model did not answer in the format this task asks for.' +
                 (formatSettings ? ' Check this task in Settings → Tasks.' : '') +
-                `\nRaw answer:\n${answer.raw.slice(0, 2000)}`,
+                `\nRaw answer:\n${capText(answer.raw, 2000)}`,
         });
         return;
       }
       attemptState.ended = true;
+      // A custom row saved before validateSpec refused these keys still runs: they are answer fields, not metadata.
+      const notesExplain = answerSpec.fields.some(
+        (f) => f.key === 'explain' && f.kind === 'text' && f.role === 'notes',
+      );
+      const metaFields =
+        answerSpec.join === 'after-build'
+          ? Object.fromEntries(
+              Object.entries(answer.fields).filter(
+                ([key]) => !META_KEYS.includes(key) && (key !== 'explain' || notesExplain),
+              ),
+            )
+          : answer.fields;
       const parsed = {
         ...c,
         ...makeDoneChunk(
           reqId,
-          { ...answer.fields, translation: answer.main } as ParsedResult,
+          { ...metaFields, translation: answer.main } as ParsedResult,
           c.usage,
         ),
         text: answer.main,
@@ -239,7 +252,7 @@ export async function runTranslateAttempt(
         backendId: backend.id,
         status: 'error',
         code: c.code,
-        message: c.message.slice(0, 400),
+        message: capText(c.message, 400),
         latencyMs: Math.round(errAt - attemptStart),
       });
       // The UI has seen nothing to take back. Retry only once, inside the same wall clock.
@@ -304,7 +317,7 @@ export async function runTranslateAttempt(
         backendId: backend.id,
         status: 'error',
         code: 'UNKNOWN',
-        message: message.slice(0, 400),
+        message: capText(message, 400),
         latencyMs: Math.round(performance.now() - attemptStart),
       });
       // sawDeltas mutates inside the onChunk closure, which TS cannot see from the outer `let = false`.

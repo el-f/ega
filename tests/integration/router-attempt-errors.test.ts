@@ -301,3 +301,40 @@ describe('router-attempt — synthesized terminal', () => {
     expect(r.outcome.kind).toBe('final_error_emitted');
   });
 });
+
+describe('router-attempt — cut text keeps whole characters', () => {
+  const brokenTail = (text: string) => /[\uD800-\uDBFF]$/.test(text);
+
+  it('the raw-answer excerpt stops before an emoji that crosses the cap', async () => {
+    const raw = '{' + 'x'.repeat(1998) + '😀 tail';
+    const r = await run({
+      translate: async ({ onChunk }) => {
+        onChunk({ type: 'delta', requestId: 'r1', text: raw });
+        onChunk({ type: 'done', requestId: 'r1' });
+      },
+    });
+    const message = r.errors[0]?.message ?? '';
+    expect(message).toContain('Raw answer:\n{x');
+    expect(message.endsWith('x'.repeat(1998))).toBe(true);
+  });
+
+  it('the attempt log stops before an emoji that crosses its cap', async () => {
+    const message = 'x'.repeat(399) + '😀 tail';
+    const r = await run({
+      translate: async ({ onChunk }) => {
+        onChunk({ type: 'error', requestId: 'r1', code: 'REQUEST', message });
+      },
+    });
+    expect(r.attemptLog[0]?.message).toBe('x'.repeat(399));
+    expect(brokenTail(r.attemptLog[0]?.message ?? '')).toBe(false);
+  });
+
+  it('the throw log stops before an emoji that crosses its cap', async () => {
+    const r = await run({
+      translate: async () => {
+        throw new Error('x'.repeat(399) + '😀 tail');
+      },
+    });
+    expect(r.attemptLog[0]?.message).toBe('x'.repeat(399));
+  });
+});

@@ -172,6 +172,14 @@ describe('httpErrorMessage', () => {
     expect(detail).toHaveLength(200);
   });
 
+  it('cuts a long provider detail before an emoji that crosses the cap', () => {
+    const body = JSON.stringify({ error: { message: 'x'.repeat(199) + '😀 tail' } });
+
+    const detail = httpErrorMessage('anthropic', res(500), body).split(': ').pop() ?? '';
+
+    expect(detail).toBe('x'.repeat(199));
+  });
+
   it('keeps a short provider detail whole', () => {
     const body = JSON.stringify({ error: { message: 'model is overloaded' } });
 

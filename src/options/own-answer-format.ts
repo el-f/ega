@@ -1,5 +1,5 @@
 import type { PromptTemplate } from '@/shared/types';
-import type { AnswerField } from '@/shared/answer/spec';
+import { META_KEYS, type AnswerField } from '@/shared/answer/spec';
 
 export interface OwnAnswerFormat {
   half: 'system' | 'user';
@@ -24,7 +24,9 @@ export function embedsOwnFormat(prompt: PromptTemplate): OwnAnswerFormat | null 
     if (
       keys.some(
         (key) =>
-          !/^[a-z]\w{0,31}$/.test(key) || ['__proto__', 'constructor', 'prototype'].includes(key),
+          !/^[a-z]\w{0,31}$/.test(key) ||
+          ['__proto__', 'constructor', 'prototype'].includes(key) ||
+          META_KEYS.includes(key),
       )
     )
       continue;

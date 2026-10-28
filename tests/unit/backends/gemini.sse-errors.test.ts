@@ -215,4 +215,33 @@ describe('Gemini finish and block reasons (enum read off ai.google.dev 2026-10-0
       'REQUEST',
     );
   });
+
+  it.each([
+    [429, 'RESOURCE_EXHAUSTED', 'RATE_LIMIT'],
+    [400, 'INVALID_ARGUMENT', 'REQUEST'],
+    [403, 'PERMISSION_DENIED', 'AUTH'],
+    [503, 'UNAVAILABLE', 'SERVER'],
+  ])('an in-stream %i %s error frame is %s with its message', async (code, status, want) => {
+    const err = errorOf(await run({ error: { code, status, message: `Gemini says ${status}` } }));
+    expect(err?.code).toBe(want);
+    expect(err?.message).toBe(`Gemini says ${status}`);
+  });
+
+  it('an in-stream error frame with no code is a SERVER error', async () => {
+    expect(errorOf(await run({ error: {} }))?.code).toBe('SERVER');
+  });
+
+  it('an error body on the whole-body path is the same error', async () => {
+    setFetchHandler(async () => {
+      const res = Response.json({
+        error: { code: 429, status: 'RESOURCE_EXHAUSTED', message: 'slow down' },
+      });
+      // No readable body is the one way into the whole-body path.
+      Object.defineProperty(res, 'body', { value: null });
+      return res;
+    });
+    const chunks: TranslationChunk[] = [];
+    await new GeminiBackend().translate(mkArgs({ onChunk: (c) => chunks.push(c) }));
+    expect(errorOf(chunks)).toMatchObject({ code: 'RATE_LIMIT', message: 'slow down' });
+  });
 });

@@ -239,7 +239,7 @@ describe('OllamaBackend', () => {
     }
   });
 
-  it('an in-stream error frame on the text path stays UNKNOWN and keeps the raw message', async () => {
+  it('an in-stream error frame on the text path is SERVER, so the chain retries, and keeps the raw message', async () => {
     setFetchHandler(
       async () =>
         new Response('{"error":"context length exceeded"}\n', {
@@ -251,7 +251,7 @@ describe('OllamaBackend', () => {
     await new OllamaBackend().translate(mkArgs({ onChunk: (c) => chunks.push(c) }));
     const err = chunks.find((c) => c.type === 'error');
     if (err?.type !== 'error') throw new Error('expected an error chunk');
-    expect(err.code).toBe('UNKNOWN');
+    expect(err.code).toBe('SERVER');
     expect(err.message).toBe('context length exceeded');
   });
 
@@ -267,7 +267,7 @@ describe('OllamaBackend', () => {
     await new OllamaBackend().translate(mkArgs({ onChunk: (c) => chunks.push(c) }));
     const err = chunks.find((c) => c.type === 'error');
     if (err?.type !== 'error') throw new Error('expected an error chunk');
-    expect(err.code).toBe('UNKNOWN');
+    expect(err.code).toBe('SERVER');
     expect(err.message).toBe('model llama3.2-vision is loading');
     expect(err.message).not.toContain('llava');
   });

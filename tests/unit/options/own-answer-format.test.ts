@@ -27,6 +27,7 @@ describe('a prompt with its own answer format', () => {
       'Discuss JSON and {"example": "data"}.',
       'Return JSON {"nested": {"x": 1}}.',
       'Return JSON {"constructor": string}.',
+      'Return JSON {"answer": string, "confidence": number}.',
       `Return JSON {${Array.from({ length: 9 }, (_, i) => `"key${i}": string`).join(',')}}.`,
     ]) {
       expect(embedsOwnFormat({ system, user: '{{text}}' })).toBeNull();
