@@ -274,8 +274,9 @@ const EAGER_CONTENT_BUDGET_BYTES = 162_358;
 // Ask about a reply +480B (the reply Ask icon in the lucide chunk, the handoff ask flag);
 // the handoff reply decoder +839B (only known reply fields, each of its type), then +1,806B (each note, detail
 // and meta field, since a content script writes the reply).
-// Audit fixes add 914B: the grapheme-safe text cap and Translate anyway's links-only check with its toast.
-const POPUP_PAGE_BUDGET_BYTES = 528_545;
+// Audit fixes add 914B: the grapheme-safe text cap and Translate anyway's links-only check with its toast;
+// +32B for the length guard that keeps that check linear.
+const POPUP_PAGE_BUDGET_BYTES = 528_577;
 
 function measurePagePreload(distDir: string, htmlRel: string): { files: string[]; bytes: number } {
   const htmlPath = path.join(distDir, htmlRel);
