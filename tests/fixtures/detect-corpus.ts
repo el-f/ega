@@ -272,3 +272,17 @@ export const OTHER_SCRIPT_LINES: readonly string[] = [
   'ניסיתי את o3mini אתמול והוא מהיר',
   'שמעתי על log4j ועל log4shell בחדשות',
 ];
+
+/** Spanish, Italian, French and Portuguese with a tool name: they share "la", "el", "ya" and "ma" with Arabizi. */
+export const OTHER_LATIN_LINES: readonly string[] = [
+  'El comando md5sum funciona bien en Linux.',
+  'La versión nueva de md5sum ya está disponible.',
+  'Il file md5sum è nella cartella principale.',
+  'Le fichier md5sum est dans le dossier.',
+  'Baixe o w3schools para estudar à noite.',
+  'Ya tengo el mp3player nuevo.',
+  'El s3cmd sincroniza la copia cada noche.',
+  'Ho provato md5sum ma non funziona.',
+  "J'ai installé md5sum sur ma machine.",
+  'Eh, il mio mp3player non va.',
+];

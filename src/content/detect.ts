@@ -80,33 +80,37 @@ const ARABIZI_WORD =
 const DIGIT_BESIDE_VOWEL = /[aeiou][235-9]|[235-9][aeiou]/i;
 // A formula or a product code: "CH3COOH", "CO2e".
 const TWO_CAPITALS = /\p{Lu}.*\p{Lu}/u;
-// Common Arabizi words without a digit. Not "w": English writes "w/" for "with".
+// Common Arabizi words without a digit; they only outweigh English words. Not "w": English writes "w/" for "with".
 const ARABIZI_WORDS: ReadonlySet<string> = new Set(
   'ana enta inta enti inti howa huwa hiya heya ya shu sho shou esh eish wesh eh leh lesh leish ma mesh mish msh mush la bas ktir kteer kter awy awi gedan wayed wayid wa el il al fi fe mn kan kanet kont bel bil fil lal yalla yallah wallah wallahi walla inshallah allah habibi habibti hbibi yani yaani khalas tamam mashi akeed akid tayeb tayyeb bukra bokra bachir lissa lessa halla hala hek heik keda kida keef kif kifak kifik ezayak ezay izzay shlonak shlonik helw kwayes wala lakan lakin aya shi shay wain wen wein fein fen emta imta kam ahla ahlan marhaba salam shukran wach nta nti dak dyal bzaf mzyan labas ghadi da di dah zalame yom youm beit'.split(
     ' ',
   ),
 );
-// One Arabizi-shaped word between consonants needs one more Arabizi word beside it.
-const MIN_ARABIZI = 2;
+// From Arabizi-shaped words alone: Spanish, Italian and French share "la", "ya" and "ma" with Arabizi.
+const MIN_SHAPED = 2;
 
 interface WordCount {
+  /** Points from Arabizi-shaped words. */
+  shaped: number;
+  /** Shaped points plus common Arabizi words. */
   arabizi: number;
   english: number;
 }
 
 /** An Arabizi-shaped word counts 2 with its digit beside a vowel, else 1; a common Arabizi or English word counts 1. */
 function countWords(text: string): WordCount {
-  let arabizi = 0;
+  let shaped = 0;
+  let common = 0;
   let english = 0;
   for (const word of text.match(WORD) ?? []) {
     const w = word.toLowerCase();
     if (/\d/.test(w)) {
       if (ARABIZI_WORD?.test(w) && !TWO_CAPITALS.test(word))
-        arabizi += DIGIT_BESIDE_VOWEL.test(w) ? 2 : 1;
-    } else if (ARABIZI_WORDS.has(w)) arabizi++;
+        shaped += DIGIT_BESIDE_VOWEL.test(w) ? 2 : 1;
+    } else if (ARABIZI_WORDS.has(w)) common++;
     else if (ENGLISH_WORDS.has(w)) english++;
   }
-  return { arabizi, english };
+  return { shaped, arabizi: shaped + common, english };
 }
 
 /** Arabizi and leetspeak are Latin text: a digit word inside Hebrew text ("md5sum", "log4j") is a name. */
@@ -148,7 +152,7 @@ export function detectLang(text: string, opts: DetectOpts = {}): LangPreset | un
     // A user's own pattern is trusted as written; the shipped one needs the words around it to agree.
     if (SHIPPED_PATTERNS.has(p.autoDetect)) {
       const words = count();
-      if (!words || words.arabizi < MIN_ARABIZI || words.arabizi <= words.english) continue;
+      if (!words || words.shaped < MIN_SHAPED || words.arabizi <= words.english) continue;
     }
     return p;
   }

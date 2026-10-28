@@ -8,6 +8,7 @@ import {
   ARABIZI_LINES,
   ENGLISH_LINES,
   LEET_LINES,
+  OTHER_LATIN_LINES,
   OTHER_SCRIPT_LINES,
 } from '@tests/fixtures/detect-corpus';
 
@@ -18,12 +19,15 @@ const CORPUS: readonly (readonly [string, Want])[] = [
   ...LEET_LINES.map((t) => [t, 'leetspeak'] as const),
   ...ENGLISH_LINES.map((t) => [t, undefined] as const),
   ...OTHER_SCRIPT_LINES.map((t) => [t, undefined] as const),
+  ...OTHER_LATIN_LINES.map((t) => [t, undefined] as const),
 ];
 
 const SHORT_WORD =
   'the shipped pattern skips a digit word with two letters or a final digit: English writes 3am, 5pm and mp3 the same way';
 const TIE = 'the English words tie the Arabizi or leet evidence, so the line goes out as auto';
 const LEET_SCORE = 'fewer than two leet words: "0mg", "s0" and "4m" read as a unit or a version';
+const ONE_WEAK =
+  'one Arabizi-shaped word with no vowel beside its digit is as often a name ("7zip", "md5sum"); "ma" and "shu" do not make up the second point, as Italian and French write "ma" too';
 
 /** Each line the detector gets wrong, with the reason. */
 const ACCEPTED_MISSES: ReadonlyMap<string, string> = new Map([
@@ -35,6 +39,9 @@ const ACCEPTED_MISSES: ReadonlyMap<string, string> = new Map([
   ['3am fakker ruh 3al gym', SHORT_WORD],
   ['mabrouk 3al wazife el jdide', SHORT_WORD],
   ['9ar lna zaman ma shefnak', SHORT_WORD],
+  ['lol shu 3melt?', ONE_WEAK],
+  ['sorry ma 2deret ejeh', ONE_WEAK],
+  ['wallahi ma 3reft', ONE_WEAK],
   ['I am so ta3ban today ya 3am', TIE],
   ['pwn3d by a n00b lol', TIE],
   ['0mg u r s0 l4m3', LEET_SCORE],
