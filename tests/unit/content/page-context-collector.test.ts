@@ -160,6 +160,25 @@ describe('collectPageLevelContext (selection-less)', () => {
     expect(ctx.pageUrl).toBe('https://example.com/x');
   });
 
+  it('heading text leaves out hidden parts and scripts, on both heading paths', () => {
+    const d = makeDoc(
+      `<html><body>
+         <article>
+           <h2>Pricing<span hidden> internal note</span><script>var t = 1;</script></h2>
+           <p id="anchor">x</p>
+         </article>
+       </body></html>`,
+      'T',
+    );
+    const anchor = d.getElementById('anchor');
+    if (!anchor) throw new Error('test setup: #anchor');
+    const loc = fakeLocation('https://example.com/x');
+    expect(collectPageContext({ anchorNode: anchor }, 'rich', d, loc).headingTrail).toEqual([
+      'Pricing',
+    ]);
+    expect(collectPageLevelContext('rich', d, loc).headingTrail).toEqual(['Pricing']);
+  });
+
   it('rich level caps headingTrail at depth (3 by default)', () => {
     const d = makeDoc(
       `<html><body>

@@ -13,6 +13,7 @@ import {
 } from '@/shared/constants';
 import { omitUndef } from '@/shared/utils/omitUndef';
 import { extractPostBlockText } from './post-block';
+import { visibleText } from './selection';
 
 const HEADING_TAG_SET_PAGE = new Set(['H1', 'H2', 'H3', 'H4', 'H5', 'H6']);
 
@@ -78,7 +79,7 @@ export function collectPageContext(
   const pageDescription = rawDesc && rawDesc.length > descCap ? rawDesc.slice(0, descCap) : rawDesc;
   const siteName = readSiteName(doc);
   const headingTrail = info.anchorNode
-    ? readHeadingTrail(info.anchorNode, trailDepth, trailEntryCap)
+    ? readHeadingTrail(info.anchorNode, trailDepth, trailEntryCap, visibleText)
     : [];
   const postText = info.anchorNode
     ? extractPostBlockText(info.anchorNode, tunables.postTextCap ?? DEFAULT_POST_TEXT_CAP)
@@ -138,7 +139,7 @@ function collectTopOfPageHeadings(doc: Document, depth: number, entryCap: number
   const nodes = body.querySelectorAll('h1, h2, h3, h4, h5, h6');
   for (const node of Array.from(nodes)) {
     if (!HEADING_TAG_SET_PAGE.has(node.tagName)) continue;
-    const raw = node.textContent.replace(/\s+/g, ' ').trim();
+    const raw = visibleText(node);
     if (!raw) continue;
     const key = `${node.tagName}:${raw}`;
     if (seen.has(key)) continue;

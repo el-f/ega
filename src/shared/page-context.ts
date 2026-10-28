@@ -37,15 +37,20 @@ export function readSiteName(doc: Document): string | undefined {
 
 const HEADING_TAG_SET = new Set(['H1', 'H2', 'H3', 'H4', 'H5', 'H6']);
 
-/** The nearest heading labeling each ancestor of `anchor`, outermost first. */
-export function readHeadingTrail(anchor: Node, maxDepth = 3, maxLen = 120): string[] {
+/** The nearest heading labeling each ancestor of `anchor`, outermost first. `textOf` reads a heading's words. */
+export function readHeadingTrail(
+  anchor: Node,
+  maxDepth = 3,
+  maxLen = 120,
+  textOf: (h: Element) => string = (h) => h.textContent,
+): string[] {
   let el: Element | null =
     anchor.nodeType === Node.ELEMENT_NODE ? (anchor as Element) : (anchor.parentElement ?? null);
   const collected: string[] = [];
   const seen = new Set<string>();
 
   function takeHeadingText(h: Element): string | null {
-    const raw = h.textContent.replace(/\s+/g, ' ').trim();
+    const raw = textOf(h).replace(/\s+/g, ' ').trim();
     if (!raw) return null;
     const key = `${h.tagName}:${raw}`;
     if (seen.has(key)) return null;

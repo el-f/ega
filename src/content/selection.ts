@@ -213,7 +213,8 @@ function isSkippedElement(el: Element): boolean {
 }
 
 function createContextWalker(root: Node): TreeWalker {
-  return document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
+  const doc = root.ownerDocument ?? document;
+  return doc.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
       if (node.nodeType === Node.ELEMENT_NODE) {
         return isSkippedElement(node as Element)
@@ -255,6 +256,20 @@ function joinPieces(pieces: ContextPiece[]): string {
 
 function collapse(raw: string): string {
   return raw.replace(/\s+/g, ' ');
+}
+
+/** The words a reader sees under `root`, by the context walker's rules, on one line; stops once it holds `cap` chars. */
+export function visibleText(root: Node, cap = Number.POSITIVE_INFINITY): string {
+  const pieces: ContextPiece[] = [];
+  let total = 0;
+  const walker = createContextWalker(root);
+  for (let node = walker.nextNode(); node && total < cap; node = walker.nextNode()) {
+    const t = collapse(node.textContent ?? '');
+    if (!t) continue;
+    pieces.push({ text: t, block: nearestBlock(node) });
+    total += t.length;
+  }
+  return collapse(joinPieces(pieces)).trim();
 }
 
 /** Visible text before the selection in reading order, crossing block boundaries up to `budget` chars. */

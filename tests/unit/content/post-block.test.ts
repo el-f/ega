@@ -46,4 +46,24 @@ describe('extractPostBlockText', () => {
     expect(out).toContain('Literally 1753');
     expect(out).toContain('word');
   });
+
+  it('reads only the words a reader sees: no script, style, hidden text, draft or Ega text', () => {
+    document.body.innerHTML = `
+      <article>
+        <script type="application/ld+json">{"@type":"NewsArticle"}</script>
+        <style>.a{color:red}</style>
+        <p id="a">Visible words here</p>
+        <div hidden>hidden draft reply text</div>
+        <div contenteditable="true">my private draft</div>
+        <span data-ega-replaced="x">Ega translation</span>
+        <p>More words</p>
+      </article>`;
+    expect(extractPostBlockText(anchorTextOf('#a'), 800)).toBe('Visible words here More words');
+  });
+
+  it('counts only visible text toward the size floor', () => {
+    const state = `window.__STATE__={"user":"Dana Levi","phone":"+972501234567","pad":"${'x'.repeat(300)}"}`;
+    document.body.innerHTML = `<div><p id="a">short line</p><script>${state}</script></div>`;
+    expect(extractPostBlockText(anchorTextOf('#a'), 800)).toBeUndefined();
+  });
 });
