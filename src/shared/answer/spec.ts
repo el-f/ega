@@ -186,6 +186,14 @@ export function answerSpecFor(id: string): AnswerSpec {
   throw new Error(`Unknown built-in answer spec: ${id}`);
 }
 
+/** The done chunk reads these keys as built-in metadata, so a custom field cannot use them. */
+export const META_KEYS: readonly string[] = [
+  'confidence',
+  'detectedLang',
+  'detectedDetail',
+  'detectedLangs',
+];
+
 /** Shared by the stored-row validator and the editor. Problems name the field the user can fix. */
 export function validateSpec(spec: AnswerSpec): string[] {
   const issues: string[] = [];
@@ -214,6 +222,13 @@ export function validateSpec(spec: AnswerSpec): string[] {
     labels.add(label);
     if (field.guide !== undefined && (field.guide.length > 200 || /[\r\n]/.test(field.guide)))
       issues.push(`${prefix}: keep guidance on one line of at most 200 characters.`);
+    if (custom && META_KEYS.includes(field.key))
+      issues.push(
+        `${prefix}: the JSON key ${field.key} is kept for Ega's own data; remove this field.`,
+      );
+    // The done chunk shows explain as notes; the card preset's text note is the one safe shape.
+    if (custom && field.key === 'explain' && (field.kind !== 'text' || field.role !== 'notes'))
+      issues.push(`${prefix}: the JSON key explain must stay a text field shown in Notes.`);
     if (custom && (field.role === 'meta' || field.when !== undefined))
       issues.push(`${prefix}: metadata and conditional fields are reserved for built-in tasks.`);
     if (

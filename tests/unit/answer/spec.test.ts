@@ -63,6 +63,25 @@ describe('versioned answer specs', () => {
     ).not.toEqual([]);
     expect(validateSpec({ ...custom, fields: [{ ...main, when: 'explain' }] })).not.toEqual([]);
   });
+  it('keeps the built-in metadata keys out of custom fields', () => {
+    const extra = (field: Partial<AnswerSpec['fields'][number]>) => ({
+      ...custom,
+      fields: [
+        main,
+        { key: 'note', label: 'Note', kind: 'text', role: 'notes', required: false, ...field },
+      ] as AnswerSpec['fields'],
+    });
+    for (const key of ['confidence', 'detectedLang', 'detectedDetail', 'detectedLangs'])
+      expect(validateSpec(extra({ key }))).toContain(
+        `Note: the JSON key ${key} is kept for Ega's own data; remove this field.`,
+      );
+    // The card preset's notes field: tasks seeded from it keep working.
+    expect(validateSpec(extra({ key: 'explain' }))).toEqual([]);
+    for (const field of [{ role: 'hidden' }, { role: 'details' }, { kind: 'list' }] as const)
+      expect(validateSpec(extra({ key: 'explain', ...field }))).toContain(
+        'Note: the JSON key explain must stay a text field shown in Notes.',
+      );
+  });
   it('limits custom fields and validates keys, labels, guidance, and choices', () => {
     const changed = (field: Partial<AnswerSpec['fields'][number]>) => ({
       ...custom,
