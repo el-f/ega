@@ -237,6 +237,24 @@ describe('PromptEditor — own format notice and checks', () => {
     }
   });
 
+  it('a language prompt has no Reply list, so its notice points at the Translate task', () => {
+    const { container } = setup({
+      kind: 'language',
+      task: 'translate',
+      initial: {
+        system: `${DEFAULT_PROMPT_TEMPLATE.system}\nReturn JSON only: {"translation": <string>}.`,
+        user: DEFAULT_PROMPT_TEMPLATE.user,
+      },
+      builtIn: DEFAULT_PROMPT_TEMPLATE,
+      spec: answerSpecFor('translate'),
+    });
+    const notice = container.querySelector('[data-ega-answer-format-own]')?.textContent ?? '';
+    expect(notice).toContain(
+      'Your instructions ask for their own format. Ega reads only the parts the Translate task lists under Reply.',
+    );
+    expect(notice).not.toContain('the parts under Reply');
+  });
+
   it("a custom task shows the dialog's own notice under Instructions, in the built-in notice's box", () => {
     const { container } = setup({
       kind: 'custom',

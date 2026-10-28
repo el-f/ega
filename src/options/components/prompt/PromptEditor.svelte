@@ -217,8 +217,11 @@
       {/if}
       {#if ownFormat}
         <div class="pe-format-own" data-ega-answer-format-own>
+          <!-- The language dialog has no Reply list; the Translate task shows the one it uses. -->
           <p class="pe-format-line">
-            Your instructions ask for their own format. Ega reads only the parts under Reply.
+            Your instructions ask for their own format. {kind === 'language'
+              ? 'Ega reads only the parts the Translate task lists under Reply.'
+              : 'Ega reads only the parts under Reply.'}
           </p>
           {#if takenOut === 'empty'}
             <p class="pe-format-line">
