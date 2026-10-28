@@ -27,6 +27,16 @@ export type ReadAnswerResult =
   | { kind: 'error'; code: 'PARSE' | 'EMPTY'; raw: string };
 
 const ALIASES = ['translation', 'answer', 'result', 'output', 'text', 'response'];
+// Hebrew vowel points and cantillation marks; letters, maqaf, paseq, sof pasuq and geresh/gershayim stay.
+const HEBREW_POINTS = /[\u0591-\u05BD\u05BF\u05C1\u05C2\u05C4\u05C5\u05C7]/g;
+export const hasHebrewPoints = (text: string): boolean => text.search(HEBREW_POINTS) !== -1;
+const dropPoints = (text: string): string => text.replace(HEBREW_POINTS, '');
+
+/** `dropHebrewPoints` strips the points from the main answer, for a model that adds them unasked. */
+export interface ReadAnswerOptions {
+  explain?: boolean;
+  dropHebrewPoints?: boolean;
+}
 const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 const record = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -187,7 +197,7 @@ function normalized(field: AnswerField, raw: unknown): { value?: unknown; issue?
 export function readAnswer(
   spec: AnswerSpec,
   raw: string,
-  options: { explain?: boolean } = {},
+  options: ReadAnswerOptions = {},
 ): ReadAnswerResult {
   if (!raw.trim()) return { kind: 'error', code: 'EMPTY', raw };
   const mainField = spec.fields.find((f) => f.role === 'main');
@@ -252,10 +262,12 @@ export function readAnswer(
   }
   const mainValue = mainKey === undefined ? undefined : normalized(mainField, object[mainKey]);
   if (mainValue?.value === undefined) return { kind: 'error', code: 'PARSE', raw };
-  const main = Array.isArray(mainValue.value)
-    ? mainValue.value.join('\n')
-    : String(mainValue.value);
-  const fields: Record<string, unknown> = { [mainField.key]: mainValue.value };
+  const mainOut: unknown =
+    options.dropHebrewPoints && typeof mainValue.value === 'string'
+      ? dropPoints(mainValue.value)
+      : mainValue.value;
+  const main = Array.isArray(mainOut) ? mainOut.join('\n') : String(mainOut);
+  const fields: Record<string, unknown> = { [mainField.key]: mainOut };
   const notes: AnswerNote[] = [];
   const details: AnswerDetail[] = [];
   const used = new Set<string>(mainKey === undefined ? [] : [mainKey]);
@@ -294,7 +306,7 @@ export function readAnswer(
 
 export function createAnswerProjector(
   spec: AnswerSpec,
-  options: { explain?: boolean } = {},
+  options: ReadAnswerOptions = {},
 ): {
   push: (delta: string) => { text: string; replace?: true } | undefined;
   finish: () => ReadAnswerResult;
@@ -347,6 +359,7 @@ export function createAnswerProjector(
       // The canonical v1 scanner tolerates half-arrived Unicode and quotes exactly as before.
       if (mainKey === 'translation' && partial === null && next === '' && closed)
         next = parseJsonResponse(raw).translation;
+      if (options.dropHebrewPoints) next = dropPoints(next);
       if (next === visible) return undefined;
       const result = next.startsWith(visible)
         ? { text: next.slice(visible.length) }
