@@ -27,7 +27,7 @@ export type ReadAnswerResult =
       notes: AnswerNote[];
       details: AnswerDetail[];
       issues: string[];
-      via: 'json' | 'repaired' | 'prose' | 'partial';
+      via: 'json' | 'repaired' | 'prose';
     }
   | { kind: 'error'; code: 'PARSE' | 'EMPTY'; raw: string };
 
@@ -175,18 +175,15 @@ export function readAnswer(
   let object = found?.value;
   let via: Extract<ReadAnswerResult, { kind: 'ok' }>['via'] = found?.repaired ? 'repaired' : 'json';
   if (!object) {
-    const scanner = createStringValueScan(mainField.key);
-    const partial = scanner.feed(raw);
-    if (partial !== null) {
-      if (partial === '') return { kind: 'error', code: 'PARSE', raw };
-      object = { [mainField.key]: partial };
-      via = 'partial';
-    } else if (/^\s*[[{]/.test(raw) || /^\s*```json\b/i.test(raw))
+    // A main key with no envelope that parses is a cut or broken answer, never a finished one.
+    if (
+      createStringValueScan(mainField.key).feed(raw) !== null ||
+      /^\s*[[{]/.test(raw) ||
+      /^\s*```json\b/i.test(raw)
+    )
       return { kind: 'error', code: 'PARSE', raw };
-    else {
-      object = { [mainField.key]: raw.trim() };
-      via = 'prose';
-    }
+    object = { [mainField.key]: raw.trim() };
+    via = 'prose';
   }
   let mainKey = matchedKey(object, mainField.key);
   if (mainKey === undefined)

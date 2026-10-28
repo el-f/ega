@@ -154,6 +154,18 @@ describe('the service worker answer reader', () => {
       code: 'PARSE',
     });
   });
+  // A cut stream or a broken envelope must not be shown and cached as a finished answer.
+  it.each([
+    [answerSpecFor('ask'), '{"translation": "Step 1: open the file. Step 2: cl'],
+    [translate, '{"translation": "The meeting is moved to Thurs'],
+    [translate, '{"translation": "He shouted "Stop", "Wait" then left", "confidence": 0.9}'],
+    [custom, 'Here it is: {"answer": "Half an ans'],
+  ])('fails an envelope that never closes: %#', (spec, raw) => {
+    expect(readAnswer(spec, raw)).toMatchObject({ kind: 'error', code: 'PARSE' });
+    const projector = createAnswerProjector(spec);
+    projector.push(raw);
+    expect(projector.finish()).toMatchObject({ kind: 'error', code: 'PARSE' });
+  });
   it('preserves plain answers and fenced plain text', () => {
     for (const text of ['Hello', '```text\nHello\n```', 'Text with {braces}.'])
       expect(readAnswer(translate, text)).toMatchObject({ kind: 'ok', main: text, via: 'prose' });
