@@ -205,9 +205,9 @@ function isExtensionPage(sender: chrome.runtime.MessageSender): boolean {
   return sender.url?.startsWith(chrome.runtime.getURL('')) === true;
 }
 
-/** The audit entry records who asked. A tab means the content script; an extension page names itself in `sender.url`. */
+/** The audit entry records who asked. An extension page names itself in `sender.url`; any other tab sender is the content script. */
 function senderSurface(sender: chrome.runtime.MessageSender): AuditSurface {
-  if (sender.tab !== undefined) return 'content';
+  if (sender.tab !== undefined && !isExtensionPage(sender)) return 'content';
   const path = sender.url ?? '';
   if (path.includes('sidepanel')) return 'sidepanel';
   if (path.includes('popup')) return 'popup';

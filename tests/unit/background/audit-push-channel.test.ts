@@ -95,6 +95,18 @@ describe('audit:push — the SW is the only audit-log writer', () => {
     expect(pushAuditEntry).toHaveBeenCalledWith({ ...entry, surface: 'options' });
   });
 
+  it('tags the options page options although it opens in a tab', () => {
+    send(
+      { kind: 'audit:push', entry },
+      {
+        id: 'ega-test',
+        tab: { id: 3 } as chrome.tabs.Tab,
+        url: 'chrome-extension://ega-test/src/options/index.html',
+      },
+    );
+    expect(pushAuditEntry).toHaveBeenCalledWith({ ...entry, surface: 'options' });
+  });
+
   it('tags a side-panel sender sidepanel', () => {
     send(
       { kind: 'audit:push', entry },
