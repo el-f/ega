@@ -1,5 +1,6 @@
 import { debugCatch } from '@/shared/logger';
 import { MESSENGER_HOSTS } from '@/shared/site-presets';
+import { isSensitiveTarget } from './safety';
 
 interface SelectionInfo {
   text: string;
@@ -189,7 +190,7 @@ const BLOCK_TAGS = new Set([
   'UL',
 ]);
 
-/** Boilerplate and invisible subtrees contribute noise, not context. */
+/** Boilerplate, invisible and private subtrees (a draft, a field, `data-ega-skip`) never become context. */
 function isSkippedElement(el: Element): boolean {
   const tag = el.tagName;
   if (
@@ -206,9 +207,9 @@ function isSkippedElement(el: Element): boolean {
   if (el.hasAttribute('hidden')) return true;
   if (el.getAttribute('aria-hidden') === 'true') return true;
   if (el.id === 'ega-shadow-host' || el.hasAttribute('data-ega-replaced')) return true;
-  const style = (el as HTMLElement).style as CSSStyleDeclaration | undefined;
-  if (style && (style.display === 'none' || style.visibility === 'hidden')) return true;
-  return false;
+  if (isSensitiveTarget(el)) return true;
+  const style = el.ownerDocument.defaultView?.getComputedStyle(el);
+  return style?.display === 'none' || style?.visibility === 'hidden';
 }
 
 function createContextWalker(root: Node): TreeWalker {
