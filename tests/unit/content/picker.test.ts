@@ -8,6 +8,7 @@ vi.mock('@/content/toast', () => ({
 }));
 
 import { createPicker } from '@/content/picker';
+import { MAX_SELECTION_CHARS } from '@/shared/constants';
 import { dismissToast } from '@/content/toast';
 import { mountShadowHost } from '@/content/shadowHost';
 
@@ -81,6 +82,19 @@ describe('picker state machine', () => {
       expect.objectContaining({ text: 'hello world', element: para }),
     );
     expect(p.isActive()).toBe(false);
+  });
+
+  it('caps a long pick between graphemes, so an emoji on the cap is dropped whole', () => {
+    document.body.innerHTML = `<p id="long">${'a'.repeat(MAX_SELECTION_CHARS - 1)}😀 tail</p>`;
+    const onPick = vi.fn();
+    const p = createPicker({ onPick, onExit: vi.fn() });
+    p.enter();
+    document
+      .getElementById('long')
+      ?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    expect(onPick).toHaveBeenCalledWith(
+      expect.objectContaining({ text: 'a'.repeat(MAX_SELECTION_CHARS - 1) }),
+    );
   });
 
   it('a picked container sends no editable or data-ega-skip part inside it', () => {

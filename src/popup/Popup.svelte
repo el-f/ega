@@ -21,6 +21,8 @@
   import { debugCatch } from '@/shared/logger';
   import { MAX_SELECTION_CHARS, settingsSaveFailedMessage } from '@/shared/constants';
   import { selectionTrimmedMessage } from '@/shared/selection-cap-copy';
+  import { capText } from '@/shared/text-cap';
+  import { nothingToTranslate } from '@/shared/nothing-to-translate';
   import {
     activeTab,
     NO_RECEIVER,
@@ -215,6 +217,14 @@
   function onTranslateAnyway(): void {
     const text = pageReply?.text ?? '';
     if (text === '') return;
+    // Same rule as the side panel: a model asked to translate a link or a number can only echo it.
+    if (defaultTask === 'translate' && nothingToTranslate(text)) {
+      toastStore.push({
+        message: 'Nothing to translate: the selection is only links, numbers or symbols.',
+        variant: 'info',
+      });
+      return;
+    }
     pageAction({ kind: 'ctx:translate-selection', text }, "Ega couldn't start the translation.");
   }
 
@@ -285,7 +295,7 @@
       return;
     }
     // The handoff validator rejects anything longer, so an unclamped clipboard opens an empty panel instead.
-    const trimmed = full.slice(0, MAX_SELECTION_CHARS);
+    const trimmed = capText(full, MAX_SELECTION_CHARS);
     const wasTrimmed = trimmed.length < full.length;
     if (wasTrimmed) {
       toastStore.push({ message: selectionTrimmedMessage('clipboard'), variant: 'warning' });
@@ -318,7 +328,7 @@
     const full = freeformText.trim();
     if (full.length === 0) return;
     // The handoff validator rejects anything longer, so an unclamped send opens an empty panel instead.
-    const text = full.slice(0, MAX_SELECTION_CHARS);
+    const text = capText(full, MAX_SELECTION_CHARS);
     const wasTrimmed = text.length < full.length;
     if (wasTrimmed) {
       toastStore.push({

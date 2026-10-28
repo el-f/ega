@@ -4,8 +4,8 @@ import {
   readPageDescription,
   readSiteName,
   readHeadingTrail,
-  cutGraphemes,
 } from '@/shared/page-context';
+import { capText } from '@/shared/text-cap';
 import {
   DEFAULT_DESCRIPTION_CONTEXT_CAP,
   DEFAULT_HEADING_TRAIL_DEPTH,
@@ -21,7 +21,7 @@ const HEADING_TAG_SET_PAGE = new Set(['H1', 'H2', 'H3', 'H4', 'H5', 'H6']);
 /** A page controls `document.title`, `og:site_name` and `<html lang>`, and
  *  each rides every request — cap them like `pageDescription`. */
 function capMeta(v: string): string {
-  return cutGraphemes(v, DEFAULT_DESCRIPTION_CONTEXT_CAP);
+  return capText(v, DEFAULT_DESCRIPTION_CONTEXT_CAP);
 }
 
 const LONG_RUN = /[a-z0-9]{16,}/gi;
@@ -94,7 +94,7 @@ export function collectPageContext(
 
   const pageLang = readPageLang(doc);
   const rawDesc = readPageDescription(doc);
-  const pageDescription = rawDesc && cutGraphemes(rawDesc, descCap);
+  const pageDescription = rawDesc && capText(rawDesc, descCap);
   const siteName = readSiteName(doc);
   const headingTrail = info.anchorNode
     ? readHeadingTrail(info.anchorNode, trailDepth, trailEntryCap, visibleText)
@@ -133,7 +133,7 @@ export function collectPageLevelContext(
 
   const pageLang = readPageLang(doc);
   const rawDesc = readPageDescription(doc);
-  const pageDescription = rawDesc && cutGraphemes(rawDesc, descCap);
+  const pageDescription = rawDesc && capText(rawDesc, descCap);
   const siteName = readSiteName(doc);
   const headingTrail = collectTopOfPageHeadings(doc, trailDepth, trailEntryCap);
 
@@ -162,7 +162,7 @@ function collectTopOfPageHeadings(doc: Document, depth: number, entryCap: number
     const key = `${node.tagName}:${raw}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    out.push(cutGraphemes(raw, entryCap));
+    out.push(capText(raw, entryCap));
     if (out.length >= depth) break;
   }
   return out;

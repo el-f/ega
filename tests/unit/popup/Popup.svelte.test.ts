@@ -213,6 +213,26 @@ describe('Popup site switch and status line', () => {
     },
   );
 
+  it.each(['https://example.com/docs?id=42', '12,50 €'])(
+    'Translate anyway on %s says there is nothing to translate and asks no model',
+    async (text) => {
+      const { sent } = onTab('https://example.com/', (msg) =>
+        msg.kind === 'ega:get-selection' ? { text, heldBack: { reason: 'english' } } : { ok: true },
+      );
+      const { findByText, findByRole } = render(Popup);
+      await fireEvent.click(await findByRole('button', { name: 'Translate anyway' }));
+      expect(
+        await findByText('Nothing to translate: the selection is only links, numbers or symbols.'),
+      ).toBeTruthy();
+      await flushAsync();
+      expect(sent).toHaveBeenCalledWith(42, { kind: 'ega:get-selection' });
+      expect(sent).not.toHaveBeenCalledWith(
+        42,
+        expect.objectContaining({ kind: 'ctx:translate-selection' }),
+      );
+    },
+  );
+
   it('on a page extensions cannot run on, hides the switch and blocks the page actions', async () => {
     // What Chrome really hands an extension without the "tabs" permission there: an id, no url.
     (chrome.tabs.query as unknown as Mock).mockResolvedValue([{ id: 42, windowId: 1 }]);
@@ -456,6 +476,40 @@ describe('Popup text box', () => {
     closeSpy.mockRestore();
     Object.defineProperty(chrome, 'sidePanel', { configurable: true, value: realSidePanel });
   });
+
+  it.each(['typed', 'clipboard'])(
+    'clamps %s text between graphemes, so an emoji on the cap is dropped whole',
+    async (from) => {
+      onTab('https://example.com/');
+      const long = `${'z'.repeat(MAX_SELECTION_CHARS - 1)}😀 tail`;
+      const realSidePanel = chrome.sidePanel;
+      const sidePanelOpen = vi.fn().mockResolvedValue(undefined);
+      Object.defineProperty(chrome, 'sidePanel', {
+        configurable: true,
+        value: { open: sidePanelOpen, setPanelBehavior: vi.fn() },
+      });
+      const closeSpy = vi.spyOn(window, 'close').mockImplementation(() => undefined);
+      try {
+        const { findByRole, container } = render(Popup);
+        await mounted();
+        if (from === 'typed') {
+          const ta = container.querySelector('[data-ega-freeform-textarea]') as HTMLTextAreaElement;
+          await fireEvent.input(ta, { target: { value: long } });
+          await fireEvent.click(await findByRole('button', { name: 'Translate' }));
+        } else {
+          (navigator.clipboard.readText as unknown as Mock).mockResolvedValueOnce(long);
+          await fireEvent.click(await findByRole('button', { name: 'Translate clipboard' }));
+        }
+        await vi.waitFor(() => expect(sidePanelOpen).toHaveBeenCalled());
+        await flushAsync();
+        const entries = await handoffEntries<{ sourceText: string }>();
+        expect(entries[0]?.sourceText).toBe('z'.repeat(MAX_SELECTION_CHARS - 1));
+      } finally {
+        closeSpy.mockRestore();
+        Object.defineProperty(chrome, 'sidePanel', { configurable: true, value: realSidePanel });
+      }
+    },
+  );
 
   it('Translate is aria-disabled while the box is whitespace-only, and sends nothing', async () => {
     const open = chrome.sidePanel.open as unknown as Mock;
@@ -918,6 +972,26 @@ describe('Popup — Translate anyway names the task it runs', () => {
     }
   });
 
+  it('a default task that is not Translate still runs on a link', async () => {
+    await chrome.storage.local.set({
+      'ega.settings': { anthropicApiKey: 'test-key', defaultTask: 'explain' },
+    });
+    const link = 'https://example.com/docs?id=42';
+    const { sent } = onTab('https://example.com/', (msg) =>
+      msg.kind === 'ega:get-selection' ? { text: link, heldBack } : { ok: true },
+    );
+    const closeSpy = vi.spyOn(window, 'close').mockImplementation(() => undefined);
+    try {
+      const { findByRole } = render(Popup);
+      await fireEvent.click(await findByRole('button', { name: 'Explain anyway' }));
+      await vi.waitFor(() =>
+        expect(sent).toHaveBeenCalledWith(42, { kind: 'ctx:translate-selection', text: link }),
+      );
+    } finally {
+      closeSpy.mockRestore();
+    }
+  });
+
   it('the action holds every task name the popup can switch to, so a new default keeps its width (R63)', async () => {
     await chrome.storage.local.set({
       'ega.settings': { anthropicApiKey: 'test-key', disabledTasks: ['grammar'] },
@@ -976,6 +1050,34 @@ describe('Popup — Translate anyway names the task it runs', () => {
           [...action.querySelectorAll('[data-label]')].map((x) => x.getAttribute('data-label')),
         ).toContain('Rewrite as a… anyway'),
       );
+    } finally {
+      await chrome.storage.local.remove('ega.customTasks');
+    }
+  });
+
+  it('a long custom name cut on an emoji drops the emoji whole', async () => {
+    await chrome.storage.local.set({
+      'ega.customTasks': [
+        {
+          id: 'emoji-one',
+          label: 'Abcdefghijklmn😀 more words',
+          system: '',
+          user: 'Rewrite: {{text}}',
+          output: 'plain',
+          pageContext: false,
+          image: false,
+          glossary: false,
+          createdAt: 1,
+        },
+      ],
+      'ega.settings': { anthropicApiKey: 'test-key', defaultTask: 'emoji-one' },
+    });
+    onTab('https://example.com/', (msg) =>
+      msg.kind === 'ega:get-selection' ? { text: 'hello there', heldBack } : { ok: true },
+    );
+    try {
+      const { findByRole } = render(Popup);
+      expect(await findByRole('button', { name: 'Abcdefghijklmn… anyway' })).toBeTruthy();
     } finally {
       await chrome.storage.local.remove('ega.customTasks');
     }

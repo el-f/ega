@@ -1,5 +1,6 @@
 import { isSensitiveTarget } from './safety';
 import { MAX_SELECTION_CHARS } from '@/shared/constants';
+import { capText } from '@/shared/text-cap';
 import { showToast } from './toast';
 import { getShadowHostElement } from './shadowHost';
 import {
@@ -83,9 +84,7 @@ export function createPicker(opts: PickerOpts): PickerController {
       showToast('Nothing to translate in that element.');
       return;
     }
-    const text =
-      rawText.length > MAX_SELECTION_CHARS ? rawText.slice(0, MAX_SELECTION_CHARS) : rawText;
-    opts.onPick({ text, element: el, rect });
+    opts.onPick({ text: capText(rawText, MAX_SELECTION_CHARS), element: el, rect });
   }
 
   const onClick = (e: MouseEvent): void => {
