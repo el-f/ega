@@ -31,6 +31,7 @@ it('shows stored field labels even when no request metadata was recorded', () =>
     'Original tone',
   );
   expect(container.querySelector('[data-ega-answer-fields]')?.textContent).toContain('Formal');
+  expect(container.querySelector('[data-ega-answer-fields] h3')?.textContent).toBe('Reply fields');
 });
 
 const CONTEXT: PageContext = {
@@ -77,7 +78,8 @@ describe('ReplyDetails — result', () => {
         },
       }),
     });
-    expect(row(container, 'Answer format')).toBe(`Asked in the prompt ${message}`);
+    expect(row(container, 'Reply format')).toBe(`Asked in the prompt ${message}`);
+    expect(row(container, 'Answer format')).toBeNull();
   });
 
   it('names the backend and model, the direction, and the time', () => {

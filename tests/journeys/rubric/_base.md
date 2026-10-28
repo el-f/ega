@@ -24,7 +24,7 @@ Grade each journey on these axes. A finding is `ok`, `minor`, `major`, or `block
 
 ## Copy consistency
 
-- "Test now" everywhere, not "Test it" / "Try it" / "Run test".
+- "Test now" for checking a backend, not "Test it" / "Run test". A task's example run says "Try with <backend>", or "Try it" when Ega cannot tell which backend answers first.
 - Empty states tell the user what would normally be here.
 - Loading copy uses present continuous ("Translating...", not "Translate").
 
