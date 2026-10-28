@@ -164,6 +164,34 @@ describe('an assistant turn stored without variants', () => {
     expect(turn?.variants?.map((v) => v.id)).toEqual(['mine']);
   });
 
+  function answer(over: Record<string, unknown>): Record<string, unknown> {
+    return goodTurn({ id: 'a1', role: 'assistant', status: 'done', content: 'x', ...over });
+  }
+
+  it('drops a variant that is not an object and keeps the thread, the turn and its active version', async () => {
+    const asked = { id: 'v2', status: 'done', content: 'kept', about: { turnId: 'u1' }, meta: {} };
+    await put(blob({ turns: [goodTurn(), answer({ variants: [null, asked], activeVariantIdx: 1 })] }));
+
+    const read = await loadThreadResult('https://a.com');
+    expect(read.unreadable).toBe(false);
+    expect(read.turns.map((t) => t.id)).toEqual(['u1', 'a1']);
+    expect(read.turns[1]?.variants?.map((v) => v.id)).toEqual(['v2']);
+    expect(read.turns[1]?.activeVariantIdx).toBe(0);
+  });
+
+  it('rebuilds the variant list when it is not an array, or holds no object', async () => {
+    await put(blob({ turns: [answer({ variants: 'v1' }), answer({ id: 'a2', variants: [7] })] }));
+
+    const { turns } = await loadThreadResult('https://a.com');
+    expect(turns.map((t) => t.variants?.map((v) => v.id))).toEqual([['a1:v1'], ['a2:v1']]);
+  });
+
+  it("reads another window's write with a bad variant instead of throwing", () => {
+    const change = parseThreadChange(blob({ turns: [answer({ variants: [null] })] }), 'me');
+
+    expect(change?.turns.map((t) => t.id)).toEqual(['a1']);
+  });
+
   it('rebuilds nothing for a user turn', async () => {
     await put(blob({ turns: [goodTurn()] }));
 

@@ -103,7 +103,7 @@ function validateStoredTurn(t: unknown): Turn | null {
     }
     return user;
   }
-  const answer = withAskTargets(e as unknown as AssistantTurnData);
+  const answer = withAskTargets(withObjectVariants(e as unknown as AssistantTurnData));
   const rawStatus = e['status'] as string;
   if (VALID_STATUSES.has(rawStatus)) {
     return remirrorInstructions(
@@ -117,6 +117,21 @@ function validateStoredTurn(t: unknown): Turn | null {
       error: { code: 'interrupted', message: 'The panel reloaded before this finished.' },
     }),
   );
+}
+
+/** A variant that is not an object would throw below and cost the whole thread, so only it goes.
+ *  The active index keeps its version; with none left, withSeedVariant rebuilds one from the turn. */
+function withObjectVariants(t: AssistantTurnData): AssistantTurnData {
+  const raw: unknown = t.variants;
+  if (raw === undefined) return t;
+  const all: unknown[] = Array.isArray(raw) ? raw : [];
+  const kept = all.filter((v): v is Variant => v !== null && typeof v === 'object');
+  if (kept.length === all.length && all === raw) return t;
+  const { variants: _v, activeVariantIdx, ...rest } = t;
+  void _v;
+  if (kept.length === 0) return rest;
+  const idx = kept.indexOf(all[activeVariantIdx ?? 0] as Variant);
+  return { ...rest, variants: kept, activeVariantIdx: idx < 0 ? kept.length - 1 : idx };
 }
 
 /** An "Ask instead" version keeps which reply it asks about, as a user turn does; a malformed one is dropped. */
