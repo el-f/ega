@@ -27,7 +27,7 @@ describe('collectBlocks', () => {
       <blockquote id="q">Une citation célèbre</blockquote>
       <div id="div">Texte libre dans une div <a href="#">avec un lien</a></div>
       <p id="p">Dernier paragraphe <em>avec emphase</em></p>`;
-    expect(ids(collectBlocks(document.body, { maxChars: 2000 }))).toEqual([
+    expect(ids(collectBlocks(document.body, { maxChars: 2000 }).blocks)).toEqual([
       'h',
       'li1',
       'lip',
@@ -59,12 +59,12 @@ describe('collectBlocks', () => {
       <p data-ega-replaced="x">Déjà traduit</p>
       <div data-ega-tx>Déjà traduit aussi</div>
       <p id="long">${'mot '.repeat(30)}</p>`;
-    expect(ids(collectBlocks(document.body, { maxChars: 50 }))).toEqual(['keep']);
+    expect(ids(collectBlocks(document.body, { maxChars: 50 }).blocks)).toEqual(['keep']);
   });
 
   it('a block over the length cap keeps its container from claiming it; the container keeps its own words', () => {
     document.body.innerHTML = `<div id="d">Texte propre <p>${'mot '.repeat(30)}</p></div>`;
-    expect(ids(collectBlocks(document.body, { maxChars: 50 }))).toEqual(['d']);
+    expect(ids(collectBlocks(document.body, { maxChars: 50 }).blocks)).toEqual(['d']);
     expect(isLeadingRun(document.getElementById('d') as HTMLElement)).toBe(true);
     expect(runText(document.getElementById('d') as HTMLElement)).toBe('Texte propre');
   });
@@ -75,23 +75,42 @@ describe('collectBlocks', () => {
     const elements = document.body.querySelectorAll('*').length;
     const spy = vi.spyOn(window, 'getComputedStyle');
     try {
-      expect(collectBlocks(document.body, { maxChars: 2000 })).toEqual([]);
+      expect(collectBlocks(document.body, { maxChars: 2000 }).blocks).toEqual([]);
       expect(spy.mock.calls.length).toBeLessThanOrEqual(elements * 4);
     } finally {
       spy.mockRestore();
     }
   });
 
-  it('stops at the block cap', () => {
+  it('stops at the block cap, says so, and the blocks it already holds do not use up the next pass', () => {
     document.body.innerHTML = Array.from(
       { length: MAX_PAGE_BLOCKS + 5 },
-      (_, i) => `<p>Paragraphe numéro ${i}</p>`,
+      (_, i) => `<p id="p${i}">Paragraphe numéro ${i}</p>`,
     ).join('');
-    expect(collectBlocks(document.body, { maxChars: 2000 })).toHaveLength(MAX_PAGE_BLOCKS);
+    const first = collectBlocks(document.body, { maxChars: 2000 });
+    expect(first.blocks).toHaveLength(MAX_PAGE_BLOCKS);
+    expect(first.pastCap).toBe(true);
+    const next = collectBlocks(document.body, { maxChars: 2000, skip: new Set(first.blocks) });
+    expect(ids(next.blocks)).toEqual(['p2000', 'p2001', 'p2002', 'p2003', 'p2004']);
+    expect(next.pastCap).toBe(false);
+  });
+
+  it('a page that ends right at the cap is not past it', () => {
+    document.body.innerHTML =
+      Array.from({ length: MAX_PAGE_BLOCKS }, (_, i) => `<p>Paragraphe numéro ${i}</p>`).join('') +
+      '<footer><p>42</p></footer>';
+    expect(collectBlocks(document.body, { maxChars: 2000 }).pastCap).toBe(false);
+  });
+
+  it('counts the blocks too long to send', () => {
+    document.body.innerHTML = `<p id="a">Un paragraphe court</p><p>${'mot '.repeat(30)}</p>`;
+    const r = collectBlocks(document.body, { maxChars: 50 });
+    expect(ids(r.blocks)).toEqual(['a']);
+    expect(r.tooLong).toBe(1);
   });
 });
 
-const collect = (): HTMLElement[] => collectBlocks(document.body, { maxChars: 2000 });
+const collect = (): HTMLElement[] => collectBlocks(document.body, { maxChars: 2000 }).blocks;
 
 describe('collectBlocks — what is already translated, and what can never come near', () => {
   it('takes a container whose text sits only inside inline children', () => {

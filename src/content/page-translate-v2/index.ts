@@ -42,7 +42,7 @@ import {
   releaseOrder,
   runText,
 } from './collect';
-import { settleAnnouncement, type PageProgress } from './progress';
+import { settleAnnouncement, tooLongCopy, type PageProgress } from './progress';
 
 // A free-tier backend rate-limits a many-block batch fast, so transient failures retry with jittered exponential backoff.
 const PAGE_RETRY_MAX_ATTEMPTS = 3;
@@ -146,6 +146,12 @@ interface Session {
   dropped: Set<Element>;
   /** Choose areas resumed only part of a stopped page; its settled copy must retain the full denominator. */
   partialSelection: boolean;
+  /** Whole page: the last pass stopped at the block cap, so the page has blocks no pass took yet. */
+  pastCap: boolean;
+  /** Whole page: blocks the last pass left out as too long to send. */
+  tooLong: number;
+  /** Whole page: blocks that read as the target language; a later pass for the same target skips them. */
+  inTarget: WeakSet<Element>;
   pending: Block[];
   /** Whole page: blocks not yet near the viewport, by id. */
   deferred: Map<string, HTMLElement>;
@@ -259,13 +265,17 @@ export async function runWholePageTranslate(deps: PageV2Deps): Promise<boolean> 
       showToast('Nothing to translate on this page.');
       return false;
     }
-    const elements = collectBlocks(document.body, { maxChars: MAX_SELECTION_CHARS });
-    if (elements.length === 0) {
-      showToast('Nothing to translate on this page.');
+    const found = collectBlocks(document.body, { maxChars: MAX_SELECTION_CHARS });
+    if (found.blocks.length === 0) {
+      showToast(
+        found.tooLong > 0 ? tooLongCopy(found.tooLong) : 'Nothing to translate on this page.',
+      );
       return false;
     }
-    const created = await createSession(deps, [], mode, elements.length);
-    watch(created, elements);
+    const created = await createSession(deps, [], mode, found.blocks.length);
+    created.pastCap = found.pastCap;
+    created.tooLong = found.tooLong;
+    watch(created, found.blocks);
     report(created);
     return true;
   } finally {
@@ -349,16 +359,21 @@ function recollect(sess: Session): number {
     sess.total--;
   });
   const held = heldIds(sess);
-  const elements = collectBlocks(document.body, { maxChars: MAX_SELECTION_CHARS }).filter(
-    (el) => !held.has(el),
-  );
-  sess.total += elements.length;
-  watch(sess, elements);
-  return elements.length;
+  // Held and target-language blocks are not taken again, so they leave the cap's room to blocks past it.
+  const found = collectBlocks(document.body, {
+    maxChars: MAX_SELECTION_CHARS,
+    skip: { has: (el) => held.has(el) || sess.inTarget.has(el) },
+  });
+  sess.pastCap = found.pastCap;
+  sess.tooLong = found.tooLong;
+  sess.total += found.blocks.length;
+  watch(sess, found.blocks);
+  return found.blocks.length;
 }
 
 /** A later press joins the session on the page, with that press's direction and mode, on the translated view. */
 function adopt(sess: Session, deps: PageV2Deps, mode: RenderMode): void {
+  if (deps.target !== sess.deps.target) sess.inTarget = new WeakSet();
   sess.deps = deps;
   sess.lang = langTag(deps.target);
   sess.targetName = isoName(deps.target);
@@ -484,6 +499,8 @@ function release(sess: Session, id: string): void {
   const isTarget = sess.deps.isTargetLanguage?.(text) ?? readsAsTarget(sess, text);
   if (!hasWords(text) || text.length > MAX_SELECTION_CHARS || isTarget) {
     // Gone from the page or already in the target language: not an area, so it leaves the count.
+    if (hasWords(text) && text.length > MAX_SELECTION_CHARS) sess.tooLong++;
+    else if (hasWords(text)) sess.inTarget.add(element);
     sess.observer?.unobserve(element);
     sess.total--;
     return;
@@ -545,6 +562,9 @@ async function createSession(
     skipped: 0,
     dropped: new Set(),
     partialSelection: false,
+    pastCap: false,
+    tooLong: 0,
+    inTarget: new WeakSet(),
     pending: [...blocks],
     deferred: new Map(),
     index: new Map(),
@@ -719,6 +739,8 @@ function snapshot(sess: Session): PageProgress {
     queued: sess.pending.length,
     skipped: sess.skipped,
     ...(sess.partialSelection ? { partialSelection: true } : {}),
+    ...(sess.pastCap ? { pastCap: true } : {}),
+    ...(sess.tooLong > 0 ? { tooLong: sess.tooLong } : {}),
     settled: isSettled(sess),
     showingOriginal: sess.showingGlobalOriginal,
     ...(sess.cooldownUntil > Date.now() ? { pausedUntil: sess.cooldownUntil } : {}),

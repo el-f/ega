@@ -1,5 +1,6 @@
 import type { ErrorAction } from '@/shared/error-copy';
 import type { SettingsTab } from '@/shared/settings-tabs';
+import { MAX_SELECTION_CHARS } from '@/shared/constants';
 
 /** What the session tells the pill; the pill derives every word and button from it. */
 export interface PageProgress {
@@ -18,6 +19,10 @@ export interface PageProgress {
   skipped: number;
   /** Choose areas resumed only a subset of the stopped areas. */
   partialSelection?: boolean;
+  /** Whole page: the page has more blocks than one pass takes; a second press takes the rest. */
+  pastCap?: boolean;
+  /** Whole page: blocks left out as too long to send. */
+  tooLong?: number;
   /** Every block is finished or dropped. */
   settled: boolean;
   /** The page shows its own text (Show original pressed); the session owns it, so a press can switch it back. */
@@ -73,6 +78,10 @@ export function pillStatus(p: PageProgress, now: number): string {
 }
 
 function settledStatus(p: PageProgress): string {
+  return [settledHead(p), ...leftOut(p)].join(' ');
+}
+
+function settledHead(p: PageProgress): string {
   const picked = p.total + p.skipped;
   const translated = p.done - p.failed;
   if (p.failed > 0) {
@@ -86,15 +95,32 @@ function settledStatus(p: PageProgress): string {
   if (p.skipped > 0) {
     return `${p.partialSelection ? '' : 'Stopped. '}Translated ${translated} of ${picked} ${areas(picked)}.`;
   }
-  return p.target ? `Page translated to ${p.target}` : 'Page translated';
+  if (p.pastCap) return `Translated ${translated} ${areas(translated)}.`;
+  const done = p.target ? `Page translated to ${p.target}` : 'Page translated';
+  return p.tooLong ? `${done}.` : done;
+}
+
+/** What the pass left out, so a settled pill never reads as the whole page. */
+function leftOut(p: PageProgress): string[] {
+  const out = p.tooLong ? [tooLongCopy(p.tooLong)] : [];
+  if (p.pastCap) out.push('Press Translate page again for the rest.');
+  return out;
+}
+
+export function tooLongCopy(n: number): string {
+  return `Left out ${n} ${areas(n)} over ${MAX_SELECTION_CHARS.toLocaleString('en-US')} characters.`;
 }
 
 /** The one polite announcement when the session settles. */
 export function settleAnnouncement(p: PageProgress): string {
+  return [announceHead(p), ...leftOut(p)].join(' ');
+}
+
+function announceHead(p: PageProgress): string {
   const picked = p.total + p.skipped;
   if (p.failed > 0) return `Couldn't translate ${p.failed} of ${picked} ${areas(picked)}.`;
   if (p.skipped > 0) {
     return `${p.partialSelection ? '' : 'Stopped. '}Translated ${p.done - p.failed} of ${picked}.`;
   }
-  return 'Page translated.';
+  return p.pastCap ? `Translated ${p.done} ${areas(p.done)}.` : 'Page translated.';
 }

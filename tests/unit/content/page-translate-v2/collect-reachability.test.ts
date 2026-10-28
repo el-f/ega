@@ -16,7 +16,7 @@ function box(id: string, left: number, top: number, width = 300, height = 40): v
 }
 
 function collected(): string[] {
-  return collectBlocks(document.body, { maxChars: 2000 }).map((el) => el.id);
+  return collectBlocks(document.body, { maxChars: 2000 }).blocks.map((el) => el.id);
 }
 
 beforeEach(() => {

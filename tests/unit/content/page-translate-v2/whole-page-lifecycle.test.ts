@@ -26,6 +26,7 @@ import {
   rig,
 } from '@tests/_helpers/page-translate';
 import { pillStatus } from '@/content/page-translate-v2/progress';
+import { MAX_PAGE_BLOCKS } from '@/content/page-translate-v2/collect';
 
 const N = 12;
 function page(): HTMLElement[] {
@@ -189,6 +190,57 @@ describe('whole-page session — blocks the page removes', () => {
     document.body.innerHTML = '<p>Otra página</p>';
     await vi.waitFor(() => expect(isPageV2Active()).toBe(false), { timeout: 2000 });
     expect(r.dismissed()).toBe(1);
+  });
+
+  it('past the block cap the pill asks for a second press, and that press takes every block left', async () => {
+    const count = MAX_PAGE_BLOCKS + 100;
+    document.body.innerHTML =
+      Array.from({ length: count }, (_, i) => `<p id="p${i}">これは${i}番目の段落です。</p>`).join('') +
+      `<p>${'長い文です。'.repeat(400)}</p>`;
+    const r = rig(10);
+    await runWholePageTranslate(r.d);
+    band(Array.from({ length: 10 }, (_, i) => document.getElementById(`p${i}`) as HTMLElement));
+    await flush();
+    finishAll(r);
+    await flush();
+    expect(r.updates.at(-1)).toMatchObject({ total: MAX_PAGE_BLOCKS, pastCap: true });
+
+    await runWholePageTranslate(r.d);
+    const last = r.updates.at(-1);
+    expect(last?.total).toBe(count);
+    expect(last?.pastCap).toBeUndefined();
+    expect(last?.tooLong).toBe(1);
+    const lastBlock = document.getElementById(`p${count - 1}`) as Element;
+    expect(FakeObserver.last?.observed.has(lastBlock)).toBe(true);
+  });
+
+  it('a page whose only text is too long to send says so, not "nothing to translate"', async () => {
+    document.body.innerHTML = `<p>${'長い文です。'.repeat(400)}</p>`;
+    expect(await runWholePageTranslate(rig().d)).toBe(false);
+    expect(showToastMock).toHaveBeenCalledWith('Left out 1 area over 2,000 characters.');
+  });
+
+  it('blocks already in the target language do not use up the next pass', async () => {
+    const count = MAX_PAGE_BLOCKS + 20;
+    document.body.innerHTML = Array.from({ length: count }, (_, i) =>
+      i >= 10 && i < MAX_PAGE_BLOCKS
+        ? `<p id="p${i}">Already in the target TARGET ${i}</p>`
+        : `<p id="p${i}">これは${i}番目の段落です。</p>`,
+    ).join('');
+    const r = rig(10);
+    r.d.isTargetLanguage = (text) => text.includes('TARGET');
+    await runWholePageTranslate(r.d);
+    band(Array.from(document.querySelectorAll('p')).slice(0, MAX_PAGE_BLOCKS));
+    await flush();
+    finishAll(r);
+    await flush();
+    expect(r.updates.at(-1)).toMatchObject({ settled: true, total: 10, pastCap: true });
+
+    await runWholePageTranslate(r.d);
+    expect(r.updates.at(-1)?.total).toBe(30);
+    expect(FakeObserver.last?.observed.has(document.getElementById(`p${count - 1}`) as Element)).toBe(
+      true,
+    );
   });
 
   it('a page that swaps its whole <body> (Turbo-style navigation) closes the session and its pill', async () => {
