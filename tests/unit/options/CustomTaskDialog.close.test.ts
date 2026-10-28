@@ -343,3 +343,59 @@ describe('instructions that ask for their own format', () => {
     expect(notice()).toBeNull();
   });
 });
+
+describe('saved fields Ega cannot read', () => {
+  async function seedBroken(): Promise<void> {
+    const { STORAGE_KEYS } = await import('@/shared/constants');
+    await chrome.storage.local.set({
+      [STORAGE_KEYS.customTasks]: [
+        {
+          ...input,
+          id: 'c-broken',
+          createdAt: 1,
+          output: 'card',
+          answer: {
+            v: 1,
+            fields: [
+              { key: 'answer', label: 'Answer', kind: 'text', role: 'main', required: true },
+              { key: 'My Key', label: 'Extra', kind: 'text', role: 'notes', required: false },
+            ],
+          },
+        },
+      ],
+    });
+  }
+
+  it('say so with their names and offer to keep them, instead of a silent Notes field', async () => {
+    await seedBroken();
+    const row = (await getCustomTasks())[0];
+    open(vi.fn(), { row });
+    expect(radio('Answer with notes').getAttribute('aria-checked')).toBe('true');
+    expect(reply().textContent).toContain(
+      'Ega could not read the saved fields (Answer, Extra), so this task runs as Answer with notes.',
+    );
+    expect(document.querySelector('[data-ega-answer-fields-editor]')).toBeNull();
+    await fireEvent.click(screen.getByRole('button', { name: 'Use my fields' }));
+    expect(radio('Your own fields').getAttribute('aria-checked')).toBe('true');
+    expect(document.querySelector('[data-ega-answer-field="extra"]')?.textContent).toContain(
+      'Extra',
+    );
+    await waitFor(async () =>
+      expect((await getCustomTasks())[0]?.answer).toEqual({
+        v: 1,
+        fields: [
+          { key: 'answer', label: 'Answer', kind: 'text', role: 'main', required: true },
+          { key: 'extra', label: 'Extra', kind: 'text', role: 'notes', required: false },
+        ],
+      }),
+    );
+    expect(reply().textContent).not.toContain('could not read');
+  });
+
+  it('picking Your own fields keeps them too', async () => {
+    await seedBroken();
+    open(vi.fn(), { row: (await getCustomTasks())[0] });
+    await fireEvent.click(radio('Your own fields'));
+    expect(document.querySelector('[data-ega-answer-field="extra"]')).not.toBeNull();
+  });
+});

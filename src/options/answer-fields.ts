@@ -1,4 +1,7 @@
+import * as v from 'valibot';
 import { META_KEYS, type AnswerField } from '@/shared/answer/spec';
+import { fieldKey } from '@/shared/answer/field-key';
+import { storedAnswerV1Schema } from '@/shared/custom-answer-schema';
 
 export interface FieldError {
   name?: string;
@@ -41,4 +44,55 @@ export function fieldErrors(fields: readonly AnswerField[]): Map<string, FieldEr
     if (error.name !== undefined || error.choices !== undefined) out.set(field.key, error);
   });
   return out;
+}
+
+const KINDS = ['text', 'list', 'score', 'yesno', 'choice', 'language', 'languages'] as const;
+const ROLES = ['main', 'notes', 'details', 'hidden'] as const;
+const isOneOf = <T extends string>(list: readonly T[], x: unknown): x is T =>
+  (list as readonly unknown[]).includes(x);
+
+/** Saved fields the stored-row check refused, with each bad key rebuilt from its name; null when none can be the answer. */
+export function repairStoredFields(raw: unknown): AnswerField[] | null {
+  if (!Array.isArray(raw)) return null;
+  const fields: AnswerField[] = [];
+  for (const item of raw as unknown[]) {
+    if (typeof item !== 'object' || item === null) continue;
+    const f = item as Record<string, unknown>;
+    const label = typeof f['label'] === 'string' ? f['label'].trim() : '';
+    const { kind, role } = f;
+    if (!label || label.length > 40 || !isOneOf(KINDS, kind) || !isOneOf(ROLES, role)) continue;
+    const choices = Array.isArray(f['choices'])
+      ? f['choices'].filter((c): c is string => typeof c === 'string' && c.trim() !== '')
+      : [];
+    if (kind === 'choice' && choices.length < 2) continue;
+    const guide = f['guide'];
+    const field: AnswerField = {
+      key: typeof f['key'] === 'string' ? f['key'] : '',
+      label,
+      kind,
+      role,
+      required: role === 'main' || f['required'] === true,
+      ...(typeof guide === 'string' && guide.length <= 200 && !/[\r\n]/.test(guide)
+        ? { guide }
+        : {}),
+      ...(kind === 'choice' ? { choices: choices.slice(0, 12) } : {}),
+    };
+    if (fields.some((x) => x.label.toLowerCase() === label.toLowerCase())) continue;
+    const keys = [...fields.map((x) => x.key), field.key];
+    fields.push(
+      readable(field, keys)
+        ? field
+        : {
+            ...field,
+            key: fieldKey(
+              label,
+              fields.map((x) => x.key),
+            ),
+          },
+    );
+  }
+  const mains = fields.filter((f) => f.role === 'main');
+  if (mains.length !== 1) return null;
+  const ordered = [...mains, ...fields.filter((f) => f.role !== 'main')].slice(0, 8);
+  return v.is(storedAnswerV1Schema, { v: 1, fields: ordered }) ? ordered : null;
 }
