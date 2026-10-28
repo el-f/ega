@@ -1,5 +1,6 @@
 import type { TaskId } from '@/shared/task-view';
 import type { Msg } from '@/shared/messages';
+import type { AuditSurface } from '@/shared/audit-log';
 import type { MenuSurface } from '@/shared/context-menu';
 import type { ErrCode, Settings, TranslationChunk } from '@/shared/types';
 import { enqueuePendingImageSeed, removePendingImageSeed } from '@/shared/pending-image-seed';
@@ -19,10 +20,12 @@ export interface ImageTranslateDispatchDeps {
     handleImageTranslate: (
       req: { id: string; imageUrl: string; task?: TaskId },
       onChunk: (c: TranslationChunk) => void,
+      meta: { surface: AuditSurface },
     ) => Promise<void>;
     handleImageExplain: (
       req: { id: string; imageUrl: string },
       onChunk: (c: TranslationChunk) => void,
+      meta: { surface: AuditSurface },
     ) => Promise<void>;
   };
   broadcast: (msg: Msg) => void;
@@ -64,6 +67,8 @@ export async function dispatchImageTranslate(deps: ImageTranslateDispatchDeps): 
           if (chunk.type === 'error') failed = true;
           broadcast({ kind: 'translate:chunk', chunk });
         },
+        // The panel that seeded it shows a failure inline; another window's panel must not toast it again.
+        { surface: 'sidepanel' },
       );
     } catch (e) {
       failed = true;
@@ -108,6 +113,7 @@ export async function dispatchImageTranslate(deps: ImageTranslateDispatchDeps): 
             };
           }
         },
+        { surface: 'content' },
       );
     } catch (e) {
       logger.error('image translate (menu/tooltip) failed', e);

@@ -689,9 +689,11 @@ export function createRouter(deps: RouterDeps) {
   async function handleImageTranslate(
     req: ImageMenuRequest,
     onChunkRaw: (c: TranslationChunk) => void,
+    meta: Pick<RunMeta, 'surface'> = {},
   ): Promise<void> {
     await withTerminalGuard(req.id, onChunkRaw, async (emit) =>
       runTranslate(await imageMenuRequest(req, req.task ?? 'translate'), emit, {
+        ...meta,
         requireVision: true,
       }),
     );
@@ -700,9 +702,10 @@ export function createRouter(deps: RouterDeps) {
   async function handleImageExplain(
     req: ImageMenuRequest,
     onChunkRaw: (c: TranslationChunk) => void,
+    meta: Pick<RunMeta, 'surface'> = {},
   ): Promise<void> {
     await withTerminalGuard(req.id, onChunkRaw, async (emit) =>
-      runTranslate(await imageMenuRequest(req, 'explain'), emit, { requireVision: true }),
+      runTranslate(await imageMenuRequest(req, 'explain'), emit, { ...meta, requireVision: true }),
     );
   }
 
