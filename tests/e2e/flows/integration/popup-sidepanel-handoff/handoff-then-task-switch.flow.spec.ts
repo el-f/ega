@@ -29,8 +29,11 @@ test('handoff seeds translate turn 1; switching to reword routes turn 2 with rew
   const timeline = createTimeline();
   const bodies: string[] = [];
   await ext.context.route('https://api.anthropic.com/v1/messages', async (route) => {
-    bodies.push(route.request().postData() ?? '');
-    const json = JSON.stringify({ translation: 'OK', confidence: 1 });
+    const body = route.request().postData() ?? '';
+    bodies.push(body);
+    // Reword asks for "answer", Translate for "translation".
+    const key = /return json only: \{\\"(\w+)\\"/i.exec(body)?.[1] ?? 'translation';
+    const json = JSON.stringify({ [key]: 'OK', confidence: 1 });
     const mid = Math.max(1, Math.floor(json.length / 2));
     const first = JSON.stringify(json.slice(0, mid));
     const second = JSON.stringify(json.slice(mid));

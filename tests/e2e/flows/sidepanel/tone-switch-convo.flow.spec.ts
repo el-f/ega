@@ -23,8 +23,8 @@ test.afterEach(async () => {
   await ext.close();
 });
 
-function sseBody(translation: string): string {
-  const json = JSON.stringify({ translation, confidence: 1 });
+function sseBody(answer: string): string {
+  const json = JSON.stringify({ answer, confidence: 1 });
   return [
     `event: message_start`,
     `data: {"type":"message_start","message":{"id":"m","type":"message","role":"assistant","content":[]}}`,

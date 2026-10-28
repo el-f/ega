@@ -78,7 +78,7 @@ test('Ask on a reply sends that reply with the question, keeps asking, links bac
 
   // Registered later, so it answers the next call; the first mock is spent.
   const answer = mockAnthropic(ext.context, {
-    rawText: JSON.stringify({ translation: ANSWER }),
+    rawText: JSON.stringify({ answer: ANSWER }),
     times: 1,
   });
   await sendFromPanel(page, QUESTION);

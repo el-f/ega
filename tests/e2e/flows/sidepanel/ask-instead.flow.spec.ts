@@ -64,7 +64,7 @@ test('a question sent as a translation is one click away from being asked instea
 
   // Ask instead: the same text is asked about the reply before it, as a new version of this reply.
   const answer = mockAnthropic(ext.context, {
-    rawText: JSON.stringify({ translation: ANSWER }),
+    rawText: JSON.stringify({ answer: ANSWER }),
     times: 1,
   });
   await offer.click();

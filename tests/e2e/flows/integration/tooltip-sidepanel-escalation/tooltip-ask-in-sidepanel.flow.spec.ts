@@ -120,7 +120,7 @@ test('Ask on a tooltip result opens the panel on the exchange, asking about it, 
 
   // R2-23: type at once, with no click. Keys go to whatever has focus, and the field has it.
   const answer = mockAnthropic(ext.context, {
-    rawText: JSON.stringify({ translation: ANSWER }),
+    rawText: JSON.stringify({ answer: ANSWER }),
     times: 1,
   });
   await sp.keyboard.type(QUESTION);

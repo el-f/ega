@@ -1,4 +1,10 @@
-import { chromium, type BrowserContext, type Locator, type Page } from '@playwright/test';
+import {
+  chromium,
+  type BrowserContext,
+  type Locator,
+  type Page,
+  type Route,
+} from '@playwright/test';
 import fs from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
@@ -201,10 +207,11 @@ const CHROME_BLOCKED_PORTS = new Set([
 
 type DetectedLangs = ReadonlyArray<{ id: string; detail?: string }>;
 
-/** What a mock model answers: the JSON the prompt asks for. Optional fields stay out unless set, so the body keeps the `{translation, confidence}` shape. */
+/** What a mock model answers: the JSON the prompt asks for. Optional fields stay out unless set, so the body keeps the `{<main key>, confidence}` shape. */
 interface MockAnswer {
   /** A provider response with a custom answer schema or deliberately malformed format. */
   rawText?: string;
+  /** The main answer, sent under the key the prompt asks for. */
   translation?: string;
   confidence?: number;
   explain?: string;
@@ -217,10 +224,21 @@ interface MockAnswer {
 /** Token counts every mock reports, as each real wire does, so the inspector has usage to show. */
 export const MOCK_USAGE = { input: 42, output: 9 } as const;
 
-function answerJson(opts: MockAnswer, defaultConfidence: number): string {
+/** The main key the request's prompt asks for: "answer" for a task that does not translate. */
+function mainKeyOf(route: Route): string {
+  let body = '';
+  try {
+    body = route.request().postData() ?? '';
+  } catch {
+    // A request with no readable body gets the Translate key.
+  }
+  return /return json only: \{\\"(\w+)\\"/i.exec(body)?.[1] ?? 'translation';
+}
+
+function answerJson(opts: MockAnswer, defaultConfidence: number, mainKey = 'translation'): string {
   if (opts.rawText !== undefined) return opts.rawText;
   return JSON.stringify({
-    translation: opts.translation ?? 'Welcome, how are you?',
+    [mainKey]: opts.translation ?? 'Welcome, how are you?',
     confidence: opts.confidence ?? defaultConfidence,
     ...(opts.explain !== undefined ? { explain: opts.explain } : {}),
     ...(opts.detectedLang !== undefined ? { detectedLang: opts.detectedLang } : {}),
@@ -242,16 +260,6 @@ export function mockAnthropic(
 ): { calls: () => number; reset: () => void; lastRequestBody: () => string | null } {
   let calls = 0;
   let lastBody: string | null = null;
-  const answer = answerJson(opts, 0.93);
-  const sseBody = buildSseBody(answer);
-  const jsonBody = JSON.stringify({
-    id: 'm1',
-    type: 'message',
-    role: 'assistant',
-    content: [{ type: 'text', text: answer }],
-    stop_reason: 'end_turn',
-    usage: { input_tokens: MOCK_USAGE.input, output_tokens: MOCK_USAGE.output },
-  });
 
   void context.route(
     'https://api.anthropic.com/v1/messages',
@@ -262,6 +270,16 @@ export function mockAnthropic(
       } catch {
         lastBody = null;
       }
+      const answer = answerJson(opts, 0.93, mainKeyOf(route));
+      const sseBody = buildSseBody(answer);
+      const jsonBody = JSON.stringify({
+        id: 'm1',
+        type: 'message',
+        role: 'assistant',
+        content: [{ type: 'text', text: answer }],
+        stop_reason: 'end_turn',
+        usage: { input_tokens: MOCK_USAGE.input, output_tokens: MOCK_USAGE.output },
+      });
       let streamed = true;
       try {
         streamed = (JSON.parse(lastBody ?? '{}') as { stream?: unknown }).stream !== false;
@@ -306,7 +324,6 @@ export function mockOpenAICompat(
   opts: MockAnswer = {},
 ): { calls: () => number; reset: () => void } {
   let calls = 0;
-  const body = buildOpenAiSseBody(answerJson(opts, 0.9));
   void context.route(url, async (route) => {
     calls += 1;
     await route.fulfill({
@@ -316,7 +333,7 @@ export function mockOpenAICompat(
         'cache-control': 'no-cache',
         'access-control-allow-origin': '*',
       },
-      body,
+      body: buildOpenAiSseBody(answerJson(opts, 0.9, mainKeyOf(route))),
     });
   });
   return {
@@ -339,7 +356,6 @@ export function mockGemini(
   opts: MockAnswer = {},
 ): { calls: () => number; reset: () => void } {
   let calls = 0;
-  const body = buildGeminiSseBody(answerJson(opts, 0.9));
   void context.route(
     /https:\/\/generativelanguage\.googleapis\.com\/v1beta\/models\/.*:streamGenerateContent.*/,
     async (route) => {
@@ -351,7 +367,7 @@ export function mockGemini(
           'cache-control': 'no-cache',
           'access-control-allow-origin': '*',
         },
-        body,
+        body: buildGeminiSseBody(answerJson(opts, 0.9, mainKeyOf(route))),
       });
     },
   );

@@ -181,7 +181,7 @@ test('side panel Ask: the target bar, quote bar, pressed Ask, banner chip and re
   await first.locator('[data-ega-action="ask"]').click();
   // Registered later, so it answers the next call; the first mock is spent.
   mockAnthropic(ext.context, {
-    rawText: JSON.stringify({ translation: 'Because of kifak.' }),
+    rawText: JSON.stringify({ answer: 'Because of kifak.' }),
     times: 1,
   });
   await sendFromPanel(page, 'what makes it Levantine?');
