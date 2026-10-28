@@ -1,6 +1,7 @@
 import type { ErrCode } from '@/shared/types';
 import { ensurePageStyles } from '../page-styles';
 import { markLang } from '@/shared/lang-tag';
+import { textDir } from '../text-dir';
 import { mountErrorChip, type ChipOpts } from '../page-chip';
 import { leadingRun } from './collect';
 import type { RenderMode } from './store';
@@ -13,6 +14,12 @@ export interface MountArgs {
   lang?: string | undefined;
   /** Only the element's leading run, the words before its first inner block; the inner blocks stay as they are. */
   run?: boolean;
+}
+
+/** Marks what the box shows: the translation with its tag and direction, or with `undefined` the page's own words. */
+function markShown(el: Element, tag: string | undefined): void {
+  markLang(el, tag);
+  el.setAttribute('dir', textDir(tag));
 }
 
 /** Sticky after the first terminal: a late chunk must not re-paint a settled block. */
@@ -73,12 +80,12 @@ function attachInplaceSwap(
     translationText = wrapper.textContent;
     // Clone: the fragment itself is what `revert` puts back on the page.
     wrapper.replaceChildren(originalNodes.cloneNode(true));
-    markLang(wrapper, undefined);
+    markShown(wrapper, undefined);
   };
   const showTranslation = (): void => {
     if (translationText === null) return;
     wrapper.textContent = translationText;
-    markLang(wrapper, lang);
+    markShown(wrapper, lang);
     translationText = null;
   };
   const peek = (fn: () => void) => (): void => {
@@ -130,7 +137,7 @@ export function mountBilingual(args: MountArgs): RenderHandle {
   if (inside) sibling.setAttribute('data-ega-inside', '');
   if (run) sibling.setAttribute('data-ega-run', '');
   sibling.setAttribute('data-ega-id', args.id);
-  // dir="auto" gives an RTL translation correct bidi on an LTR page; the original keeps the page's direction.
+  // The box follows its text until the translation lands; the original keeps the page's direction.
   sibling.setAttribute('dir', 'auto');
   markLang(sibling, args.lang);
   sibling.setAttribute('data-ega-pending', '');
@@ -232,8 +239,7 @@ export function mountInplace(args: MountArgs): RenderHandle {
   wrapper.setAttribute('data-ega-replaced', args.id);
   wrapper.setAttribute('data-ega-id', args.id);
   if (run) wrapper.setAttribute('data-ega-run', '');
-  // Translation streams into this wrapper. dir="auto" gives an RTL
-  // translation correct bidi on the LTR host page.
+  // The page's words show dimmed here until the translation lands, so the wrapper follows its text until then.
   wrapper.setAttribute('dir', 'auto');
   markLang(wrapper, args.lang);
   wrapper.setAttribute('data-ega-pending', '');
@@ -272,6 +278,8 @@ function render(handle: RenderHandle): void {
   if (text.length === 0) return;
   handle.target.removeAttribute('data-ega-pending');
   handle.target.textContent = text;
+  // An RTL target reads right to left even when the translation starts with a Latin word ("iPhone 15 ...").
+  handle.target.setAttribute('dir', textDir(handle.target.getAttribute('lang')));
 }
 
 export function appendDelta(handle: RenderHandle, delta: string, replace?: true): void {
@@ -309,6 +317,6 @@ export function mountError(
   target.textContent = '';
   setPhase(handle, 'error');
   // The page's own text and our error chip are not in the target language.
-  markLang(target, undefined);
+  markShown(target, undefined);
   target.appendChild(mountErrorChip(err, opts));
 }
