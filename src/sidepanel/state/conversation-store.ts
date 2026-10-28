@@ -764,13 +764,29 @@ export interface SaveThreadResult {
   refusedIds?: string[];
 }
 
+/** Index removals this page has heard: one per "Delete all data" or "Delete all conversations". */
+let purgesHeard = 0;
+let purgeWatch = false;
+
+/** The panel resets on the same event, so a save called before it holds a snapshot of the purged thread. */
+function watchPurges(): void {
+  if (purgeWatch) return;
+  purgeWatch = true;
+  chrome.storage.local.onChanged.addListener((changes) => {
+    const change = changes[INDEX_KEY];
+    if (change !== undefined && change.newValue === undefined) purgesHeard++;
+  });
+}
+
 /** On a quota rejection this sheds its own bytes first, and only then evicts another thread. */
 export async function saveThread(
   origin: string,
   turns: Turn[],
   options: SaveThreadOptions = {},
 ): Promise<SaveThreadResult> {
-  return await writeLock(() => saveThreadLocked(origin, turns, options));
+  watchPurges();
+  const heard = purgesHeard;
+  return await writeLock(() => saveThreadLocked(origin, turns, options, heard));
 }
 
 /** Puts one settled turn back in its place in the stored thread. A turn no longer stored was
@@ -784,7 +800,12 @@ export async function settleStoredTurn(
     const stored = await readStoredThread(origin);
     if (stored.unreadable || !stored.turns.some((t) => t.id === turn.id)) return undefined;
     const next = stored.turns.map((t) => (t.id === turn.id ? turn : t));
-    return saveThreadLocked(origin, next, { knownIds: new Set(next.map((t) => t.id)), writer });
+    return saveThreadLocked(
+      origin,
+      next,
+      { knownIds: new Set(next.map((t) => t.id)), writer },
+      purgesHeard,
+    );
   });
 }
 
@@ -792,10 +813,13 @@ async function saveThreadLocked(
   origin: string,
   turns: Turn[],
   options: SaveThreadOptions,
+  heard: number,
 ): Promise<SaveThreadResult> {
   const { knownIds } = options;
   const now = Date.now();
   const stored = await readStoredThread(origin);
+  // A purge ran after the caller's snapshot. The read above gives its event time to arrive.
+  if (heard !== purgesHeard) return {};
   const tombstones = mergeTombstones(stored.tombstones, options);
   const storedIds = new Set(stored.turns.map((t) => t.id));
   const buried = new Set([
