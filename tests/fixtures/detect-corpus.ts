@@ -51,6 +51,15 @@ export const ARABIZI_LINES: readonly string[] = [
   'rabena ma3ak ya 7abibi',
   'law sama7t eb3atli el file',
   'ana 3ayez ps4 w xbox1 ya 7abibi',
+  // Only words that start with 3 or 7 and a consonant: the vowel after ayn and ha is dropped.
+  '7bibi 3mlt eh',
+  '3leik 3shan',
+  'ana 3ndi 7mmy',
+  '7bibi 3mltha',
+  '7bibi 3leik',
+  'ya 7bibi 3mlt eh',
+  'ana 3mlt keda 3shan enta',
+  'ya 7bibi 2ltlk',
   // Gulf
   'wayed 6ayeb w 7elw',
   'shlonik? 3asa 6ayba',
@@ -259,6 +268,11 @@ export const ENGLISH_LINES: readonly string[] = [
   '8bit 6pack',
   'c u 2nite, 2morrow maybe',
   'Download: 7zip.org, 9gag.com',
+  'Duration: 3hrs 7mins',
+  'Lap times: 3mins 7secs',
+  'Took 3hrs, cost 7bucks',
+  '9gag 7zip',
+  '3dmax 3dsmax',
   // Written after the rule was picked, to check it on lines it was not tuned on.
   'Download the w3schools offline version.',
   'Flash the esp32 with the new firmware.',

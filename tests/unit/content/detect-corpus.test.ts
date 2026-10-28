@@ -33,6 +33,9 @@ const LEET_SCORE = 'fewer than two leet words: "0mg", "s0" and "4m" read as a un
 const ONE_WEAK =
   'one Arabizi-shaped word with no vowel beside its digit is as often a name ("7zip", "md5sum"); "ma" and "shu" do not make up the second point, as Italian and French write "ma" too';
 
+const AYN_OR_HA_PAIR =
+  'two names that start with 3 or 7 and a consonant, with no other word, look like Egyptian "3leik 3shan"';
+
 /** Each line the detector gets wrong, with the reason. */
 const ACCEPTED_MISSES: ReadonlyMap<string, string> = new Map([
   ['rou7 nem ya zalame', SHORT_WORD],
@@ -56,6 +59,7 @@ const ACCEPTED_MISSES: ReadonlyMap<string, string> = new Map([
   ['ok t3mel', ONE_WEAK],
   ['ok w7shtni', ONE_WEAK],
   ['thanks, 3reft', ONE_WEAK],
+  ['3dmax 3dsmax', AYN_OR_HA_PAIR],
   ['I am so ta3ban today ya 3am', TIE],
   ['pwn3d by a n00b lol', TIE],
   ['0mg u r s0 l4m3', LEET_SCORE],

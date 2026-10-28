@@ -88,6 +88,8 @@ export function isArabiziShaped(word: string): boolean {
 
 // Units, texting words and names start this way too ("5mins", "2nite", "7zip"), so it counts only beside another Arabizi word.
 const DIGIT_THEN_CONSONANT = /^[235-9][b-df-hj-np-tv-z]/;
+// Chat drops the vowel after ayn and ha ("3mlt", "7bibi"); a final "s" is a unit ("3hrs", "7mins").
+const AYN_OR_HA_FIRST = /^[37].*[^s]$/;
 // Common Arabizi words without a digit; they only outweigh English words. Not "w": English writes "w/" for "with".
 const ARABIZI_WORDS: ReadonlySet<string> = new Set(
   'ana enta inta enti inti howa huwa hiya heya ya shu sho shou esh eish wesh eh leh lesh leish ma mesh mish msh mush la bas ktir kteer kter awy awi gedan wayed wayid wa el il al fi fe mn kan kanet kont bel bil fil lal yalla yallah wallah wallahi walla inshallah allah habibi habibti hbibi yani yaani khalas tamam mashi akeed akid tayeb tayyeb bukra bokra bachir lissa lessa halla hala hek heik keda kida keef kif kifak kifik ezayak ezay izzay shlonak shlonik helw kwayes wala lakan lakin aya shi shay wain wen wein fein fen emta imta kam ahla ahlan marhaba salam shukran wach nta nti dak dyal bzaf mzyan labas ghadi da di dah zalame yom youm beit'.split(
@@ -100,7 +102,7 @@ const MIN_SHAPED = 2;
 interface WordCount {
   /** Points from Arabizi-shaped words. */
   shaped: number;
-  /** Some shaped word scores 2 or does not start with a digit and a consonant. */
+  /** The shaped words look like Arabizi, not like units or names. */
   anchored: boolean;
   /** Shaped points plus common Arabizi words. */
   arabizi: number;
@@ -111,6 +113,7 @@ interface WordCount {
 function countWords(text: string): WordCount {
   let shaped = 0;
   let anchored = false;
+  let aynOrHa = 0;
   let common = 0;
   let english = 0;
   for (const word of text.match(WORD) ?? []) {
@@ -120,9 +123,12 @@ function countWords(text: string): WordCount {
       const points = DIGIT_BESIDE_VOWEL.test(w) ? 2 : 1;
       shaped += points;
       if (points === 2 || !DIGIT_THEN_CONSONANT.test(w)) anchored = true;
+      else if (AYN_OR_HA_FIRST.test(w)) aynOrHa++;
     } else if (ARABIZI_WORDS.has(w)) common++;
     else if (ENGLISH_WORDS.has(w)) english++;
   }
+  // Two 3/7-first words ("3leik 3shan"), or one beside a common Arabizi word ("ya 7bibi 2ltlk"); one alone is as often "7zip".
+  anchored ||= aynOrHa >= 2 || (aynOrHa > 0 && common > 0);
   return { shaped, anchored, arabizi: shaped + common, english };
 }
 
