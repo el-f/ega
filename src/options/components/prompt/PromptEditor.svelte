@@ -130,12 +130,17 @@
     el?.setSelectionRange(caret, caret);
   }
 
+  /** For a dialog whose format notice button just left with its notice. */
+  export function focusInstructions(): void {
+    sysEl?.focus();
+  }
+
   // The button leaves with its notice, so focus goes to Instructions instead of the dialog's X (K-9).
   async function useEgaFormat(): Promise<void> {
     if (takenOut === null || takenOut === 'empty') return;
     onChange(takenOut);
     await tick();
-    sysEl?.focus();
+    focusInstructions();
   }
 
   // Arrow keys move between the two tabs and select (one Tab stop, like a radio group).

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy, untrack } from 'svelte';
+  import { onDestroy, tick, untrack } from 'svelte';
   import Trash from '@lucide/svelte/icons/trash-2';
   import type { PromptTemplate, Settings, Variety } from '@/shared/types';
   import {
@@ -97,6 +97,7 @@
   onDestroy(() => saver.dispose());
 
   let varieties = $state.raw<Variety[]>([]);
+  let editor = $state<ReturnType<typeof PromptEditor>>();
   void listVarieties({ enabledOnly: false }).then((vs) => (varieties = vs));
 
   const draft = $derived<CustomTaskInput>({
@@ -274,10 +275,13 @@
     answer = { v: 1, fields: converted.fields };
     output = answerOutput(answer, output);
     saver.valid('answer');
-    const ok = await saver.now(
+    const saving = saver.now(
       startsRow() ? create : write({ system: prompt.system, user: prompt.user, answer, output }),
     );
-    if (!ok) return;
+    // The button leaves with its notice, so focus goes to Instructions, as for Use Ega's format (K-9).
+    await tick();
+    editor?.focusInstructions();
+    if (!(await saving)) return;
     saver.note('Turned the format into fields', () => {
       prompt = previous.prompt;
       answer = previous.answer;
@@ -548,6 +552,7 @@
     {/snippet}
     <div class="ct-prompt">
       <PromptEditor
+        bind:this={editor}
         kind="custom"
         task={taskKey}
         template={prompt}

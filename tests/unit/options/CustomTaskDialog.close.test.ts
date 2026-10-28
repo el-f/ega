@@ -354,6 +354,19 @@ describe('instructions that ask for their own format', () => {
     await waitFor(() => expect(document.querySelector('[data-ega-dialog-undo]')).toBeTruthy());
   });
 
+  it('Turn into fields leaves its notice, so focus goes to Instructions', async () => {
+    const row = await addCustomTask({
+      ...input,
+      system: 'Rewrite it. Return JSON: {"result": <the rewrite>, "why": <one reason>}.',
+    });
+    open(vi.fn(), { row });
+    const convert = button('Turn into fields') as HTMLElement;
+    convert.focus();
+    await fireEvent.click(convert);
+    await waitFor(() => expect(notice()).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(field('system')));
+  });
+
   it('the notice stays while it is true and goes once the format is gone', async () => {
     const row = await addCustomTask({ ...input, system: 'Return JSON {"tags": "..."}. Be brief.' });
     open(vi.fn(), { row });
