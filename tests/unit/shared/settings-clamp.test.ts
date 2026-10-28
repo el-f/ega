@@ -85,6 +85,10 @@ describe('clampToSchema — string', () => {
     expect(clamp(schema, 'abcdef').out).toBe('abc');
   });
 
+  it('cuts before an emoji that straddles max_length, so no lone surrogate is left', () => {
+    expect(clamp(schema, 'ab😀c').out).toBe('ab');
+  });
+
   it('keeps a string at or under max_length', () => {
     expect(clamp(schema, 'abc').out).toBe('abc');
     expect(clamp(schema, 'ab').out).toBe('ab');

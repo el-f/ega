@@ -107,6 +107,14 @@ describe('the old per-task templates and efforts', () => {
     expect(s.advanced.snippets).toEqual({});
   });
 
+  it('write out an over-long snippet cut before an emoji that straddles the cap', () => {
+    const body = `${'x'.repeat(8191)}😀`;
+    const s = read({
+      advanced: { promptTemplate: { system: '@@sig@@', user: '{{text}}' }, snippets: { sig: body } },
+    });
+    expect(s.advanced.promptTemplate.system).toBe('x'.repeat(8191));
+  });
+
   it('stay gone once the saved row is read again, so a reset after the move holds', () => {
     const once = read({ taskReasoningEfforts: { grammar: 'high' } });
     const reset = { ...once, taskOverrides: {} };

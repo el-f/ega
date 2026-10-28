@@ -6,6 +6,7 @@ import {
   type AnySchema,
   type SchemaNode,
 } from './valibot-introspect';
+import { capText } from './text-cap';
 
 export const PROTO_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
@@ -41,7 +42,7 @@ export function clampToSchema(
     case 'string': {
       if (typeof value !== 'string') return value;
       const max = bound(node, 'max_length');
-      return max !== undefined && value.length > max ? value.slice(0, max) : value;
+      return max === undefined ? value : capText(value, max);
     }
 
     case 'number': {
