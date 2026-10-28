@@ -1,19 +1,24 @@
 <script lang="ts">
   import { tick } from 'svelte';
+  import { DropdownMenu } from 'bits-ui';
   import { dragHandleZone, dragHandle } from 'svelte-dnd-action';
   import Grip from '@lucide/svelte/icons/grip-vertical';
+  import Ellipsis from '@lucide/svelte/icons/ellipsis';
   import ArrowUp from '@lucide/svelte/icons/arrow-up';
   import ArrowDown from '@lucide/svelte/icons/arrow-down';
+  import Trash from '@lucide/svelte/icons/trash-2';
   import type { AnswerField, FieldKind, FieldRole } from '@/shared/answer/spec';
+  import { describeField, KIND_NAMES, ROLE_NAMES } from '@/shared/answer/describe';
   import { fieldKey } from '@/shared/answer/field-key';
   import { useShadowSync } from '@/shared/svelte/useShadowSync.svelte';
   import { isShadowRow } from '@/shared/dnd-shadow-row';
   import { id as makeId } from '@/shared/uuid';
   import Button from '@/shared/ui/Button.svelte';
-  import IconButton from '@/shared/ui/IconButton.svelte';
+  import Icon from '@/shared/ui/Icon.svelte';
   import Input from '@/shared/ui/Input.svelte';
   import Select from '@/shared/ui/Select.svelte';
   import Checkbox from '@/shared/ui/Checkbox.svelte';
+  import RadioGroup from '@/shared/ui/RadioGroup.svelte';
 
   interface Props {
     fields: readonly AnswerField[];
@@ -22,6 +27,7 @@
   let { fields, onchange }: Props = $props();
   const uid = makeId('ega-answer-fields');
   let openId = $state<string | null>(null);
+  let addButton = $state<HTMLElement | null>(null);
   // A row keeps one id while a rename changes its key, so its open editor and focus stay.
   const ids: Record<string, string> = {};
   let nextId = 1;
@@ -33,27 +39,21 @@
     keyOf: (rows) => JSON.stringify(rows),
   });
   const main = $derived(fields.find((f) => f.role === 'main'));
-  const kinds: Array<{ value: FieldKind; label: string }> = [
-    { value: 'text', label: 'Text' },
-    { value: 'list', label: 'List' },
-    { value: 'yesno', label: 'Yes or no' },
-    { value: 'choice', label: 'One of' },
-    { value: 'score', label: 'Score (0 to 100%)' },
-  ];
-  const roles: Array<{ value: FieldRole; label: string }> = [
-    { value: 'notes', label: 'Notes' },
-    { value: 'details', label: 'About this reply only' },
-    { value: 'hidden', label: 'Not shown' },
-  ];
-  const kindLabel = (kind: FieldKind) => kinds.find((k) => k.value === kind)?.label ?? 'Text';
-  const roleLabel = (role: FieldRole) =>
-    role === 'main' ? 'Main answer' : (roles.find((r) => r.value === role)?.label ?? 'Notes');
+  const kindOption = (value: FieldKind) => ({
+    value,
+    label: value === 'score' ? `${KIND_NAMES.score} (0 to 100%)` : KIND_NAMES[value],
+  });
+  const kinds = (['text', 'list', 'yesno', 'choice', 'score'] as const).map(kindOption);
+  const mainKinds = (['text', 'list'] as const).map(kindOption);
+  const roles = (['notes', 'details', 'hidden'] as const).map((value) => ({
+    value,
+    label: ROLE_NAMES[value],
+  }));
 
   function patch(key: string, patch: Partial<AnswerField>): void {
     onchange(fields.map((f) => (f.key === key ? { ...f, ...patch } : f)));
   }
-  function rename(field: AnswerField, label: string): void {
-    if (field.role === 'main') return patch(field.key, { label });
+  function rekey(field: AnswerField, label: string, rest: Partial<AnswerField> = {}): void {
     const key = fieldKey(
       label,
       fields.filter((f) => f !== field).map((f) => f.key),
@@ -61,7 +61,18 @@
     const id = idOf(field.key);
     delete ids[field.key];
     ids[key] = id;
-    patch(field.key, { key, label });
+    patch(field.key, { ...rest, key, label });
+  }
+  function rename(field: AnswerField, label: string): void {
+    if (field.role === 'main') patch(field.key, { label });
+    else rekey(field, label);
+  }
+  // The reader shows "explain" as text notes, so a field that stops being one leaves that key.
+  function reshape(field: AnswerField, change: Partial<AnswerField>): void {
+    const next = { ...field, ...change };
+    if (field.key === 'explain' && (next.kind !== 'text' || next.role !== 'notes'))
+      rekey(field, field.label, change);
+    else patch(field.key, change);
   }
   async function add(): Promise<void> {
     if (fields.length >= 8) return;
@@ -86,6 +97,21 @@
     if (!row) return;
     rows.splice(to, 0, row);
     onchange([main, ...rows]);
+  }
+  // The deleted row takes its More button with it, so focus goes to Add field, not the page.
+  let deleted = false;
+  function remove(field: AnswerField, rowId: string): void {
+    deleted = true;
+    onchange(fields.filter((f) => f.key !== field.key));
+    if (openId === rowId) openId = null;
+    void tick().then(focusAdd);
+  }
+  const focusAdd = (): void => addButton?.querySelector<HTMLElement>('button')?.focus();
+  function afterMenu(e: Event): void {
+    if (!deleted) return;
+    deleted = false;
+    e.preventDefault();
+    focusAdd();
   }
   function finishDrag(e: CustomEvent<{ items: DragField[] }>): void {
     const byId = new Map(fields.map((f) => [idOf(f.key), f]));
@@ -122,7 +148,7 @@
   {#if main}{@render row(main, true, 0, 1)}{/if}
   <ul
     class="af-list"
-    aria-label="Additional answer fields"
+    aria-label="More fields"
     use:dragHandleZone={{
       items: shadow.items,
       type: uid,
@@ -147,7 +173,7 @@
       </li>
     {/each}
   </ul>
-  <div class="af-add">
+  <div class="af-add" bind:this={addButton}>
     <Button
       variant="secondary"
       size="sm"
@@ -163,54 +189,72 @@
 
 {#snippet row(field: AnswerField, locked: boolean, index: number, count: number)}
   {@const rowId = idOf(field.key)}
+  {@const open = openId === rowId}
+  {@const name = field.label || 'Name needed'}
   <div class="af-row" data-ega-answer-field={field.key}>
     <div class="af-summary">
-      {#if !locked}<span class="af-grip" use:pointerGrip aria-hidden="true"><Grip size={16} /></span
-        >{/if}
-      <span class="af-name">{field.label || 'Name needed'}</span>
-      <span class="af-kind"
-        >{kindLabel(field.kind)} · {roleLabel(field.role)} · {field.required
-          ? 'Always'
-          : 'When it applies'}</span
+      <span class="af-grip" aria-hidden="true"
+        >{#if !locked}<span class="af-grip-handle" use:pointerGrip><Grip size={16} /></span
+          >{/if}</span
       >
-      <Button
-        variant="ghost"
-        size="sm"
-        ariaLabel={`Edit ${field.label || 'field'}`}
-        dataAttrs={{ 'aria-expanded': openId === rowId }}
-        onclick={() => {
-          openId = openId === rowId ? null : rowId;
-        }}>Edit</Button
-      >
-      {#if !locked}
-        <IconButton
-          icon={ArrowUp}
-          size="sm"
-          ariaLabel={`Move ${field.label} up`}
-          disabled={index === 0}
-          onclick={() => move(field.key, -1)}
-        />
-        <IconButton
-          icon={ArrowDown}
-          size="sm"
-          ariaLabel={`Move ${field.label} down`}
-          disabled={index === count - 1}
-          onclick={() => move(field.key, 1)}
-        />
+      <span class="af-name">{name}</span>
+      <span class="af-line">{describeField(field)}</span>
+      <span class="af-actions">
         <Button
           variant="ghost"
           size="sm"
-          ariaLabel={`Delete ${field.label}`}
+          ariaLabel={`${open ? 'Close' : 'Edit'} ${field.label || 'field'}`}
+          labels={['Edit', 'Close']}
+          dataAttrs={{
+            'aria-expanded': open ? 'true' : 'false',
+            'aria-controls': open ? `${uid}-${rowId}-edit` : undefined,
+          }}
           onclick={() => {
-            onchange(fields.filter((f) => f.key !== field.key));
-            if (openId === rowId) openId = null;
-          }}>Delete</Button
+            openId = open ? null : rowId;
+          }}>{open ? 'Close' : 'Edit'}</Button
         >
-      {/if}
+        {#if !locked}
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger class="af-more" aria-label={`More for ${name}`}>
+              <Icon icon={Ellipsis} size={16} />
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Portal>
+              <DropdownMenu.Content
+                class="af-menu"
+                align="end"
+                sideOffset={4}
+                collisionPadding={12}
+                preventScroll={false}
+                onCloseAutoFocus={afterMenu}
+              >
+                <DropdownMenu.Item
+                  class="af-menu-item"
+                  disabled={index === 0}
+                  onSelect={() => move(field.key, -1)}
+                >
+                  <Icon icon={ArrowUp} size={16} />Move up
+                </DropdownMenu.Item>
+                <DropdownMenu.Item
+                  class="af-menu-item"
+                  disabled={index === count - 1}
+                  onSelect={() => move(field.key, 1)}
+                >
+                  <Icon icon={ArrowDown} size={16} />Move down
+                </DropdownMenu.Item>
+                <DropdownMenu.Item
+                  class="af-menu-item af-menu-danger"
+                  onSelect={() => remove(field, rowId)}
+                >
+                  <Icon icon={Trash} size={16} />Delete
+                </DropdownMenu.Item>
+              </DropdownMenu.Content>
+            </DropdownMenu.Portal>
+          </DropdownMenu.Root>
+        {/if}
+      </span>
     </div>
-    {#if openId === rowId}
-      <div class="af-edit">
-        <p class="af-hint">JSON key: <code>{field.key}</code></p>
+    {#if open}
+      <div class="af-edit" id="{uid}-{rowId}-edit">
         <Input
           id={`${uid}-${rowId}-name`}
           label="Name"
@@ -218,46 +262,65 @@
           maxlength={40}
           oninput={(e) => rename(field, (e.currentTarget as HTMLInputElement).value)}
         />
-        <Select
-          label="Kind"
-          value={field.kind}
-          options={locked ? kinds.filter((k) => k.value === 'text' || k.value === 'list') : kinds}
-          onchange={(kind) =>
-            patch(field.key, {
-              kind,
-              ...(kind === 'choice' && !field.choices ? { choices: ['Option 1', 'Option 2'] } : {}),
-            })}
-        />
-        {#if locked}<p class="af-hint">Main answer · Always filled · Stays first</p>{:else}
+        {#if locked}
+          <div class="af-choice">
+            <span class="af-label" id="{uid}-{rowId}-kind">Kind</span>
+            <RadioGroup
+              value={field.kind}
+              options={mainKinds}
+              orientation="horizontal"
+              onValueChange={(kind) =>
+                patch(field.key, { kind: kind === 'list' ? 'list' : 'text' })}
+              dataAttrs={{ 'aria-labelledby': `${uid}-${rowId}-kind` }}
+            />
+          </div>
+        {:else}
           <Select
-            label="Shows as"
-            value={field.role}
-            options={roles}
-            onchange={(role) => patch(field.key, { role })}
+            label="Kind"
+            value={field.kind}
+            options={kinds}
+            onchange={(kind) =>
+              reshape(field, {
+                kind,
+                ...(kind === 'choice' && !field.choices
+                  ? { choices: ['Option 1', 'Option 2'] }
+                  : {}),
+              })}
           />
+          {#if field.kind === 'choice'}
+            <Input
+              label="Choices, separated by commas"
+              value={field.choices?.join(', ') ?? ''}
+              oninput={(e) =>
+                patch(field.key, {
+                  choices: (e.currentTarget as HTMLInputElement).value
+                    .split(',')
+                    .map((s) => s.trim()),
+                })}
+            />
+          {/if}
+          <div class="af-choice">
+            <span class="af-label" id="{uid}-{rowId}-role">Shows as</span>
+            <RadioGroup
+              value={field.role}
+              options={roles}
+              orientation="horizontal"
+              onValueChange={(role) => reshape(field, { role: role as FieldRole })}
+              dataAttrs={{ 'aria-labelledby': `${uid}-${rowId}-role` }}
+            />
+            {#if field.role === 'hidden'}<p class="af-hint">
+                The model still writes it, which can improve the answer
+              </p>{/if}
+          </div>
           <Checkbox
-            label="Always fill it"
+            label="Required"
             checked={field.required}
             onchange={(required) => patch(field.key, { required })}
           />
         {/if}
-        {#if field.role === 'hidden'}<p class="af-hint">
-            The model still writes it, which can improve the answer.
-          </p>{/if}
-        {#if field.kind === 'choice'}
-          <Input
-            label="Choices, separated by commas"
-            value={field.choices?.join(', ') ?? ''}
-            oninput={(e) =>
-              patch(field.key, {
-                choices: (e.currentTarget as HTMLInputElement).value
-                  .split(',')
-                  .map((s) => s.trim()),
-              })}
-          />
-        {/if}
         <Input
           label="What goes here"
+          placeholder="Tell the model what to put here"
           value={field.guide ?? ''}
           maxlength={200}
           oninput={(e) => patch(field.key, { guide: (e.currentTarget as HTMLInputElement).value })}
@@ -272,8 +335,7 @@
     display: grid;
     gap: var(--space-2);
   }
-  .af-add,
-  .af-summary {
+  .af-add {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
@@ -289,33 +351,128 @@
   .af-row {
     border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
-    padding: var(--space-2);
+    padding: var(--space-1) var(--space-2);
     min-inline-size: 0;
   }
+  /* Name, line and actions on one row; below 600px the line drops under the name and the actions stay put. */
+  .af-summary {
+    display: grid;
+    grid-template-columns: 16px minmax(0, max-content) minmax(0, 1fr) auto;
+    grid-template-areas: 'grip name line actions';
+    align-items: center;
+    gap: 0 var(--space-2);
+  }
+  .af-grip {
+    grid-area: grip;
+    display: inline-flex;
+    color: var(--color-muted);
+  }
+  .af-grip-handle {
+    display: inline-flex;
+    cursor: grab;
+  }
   .af-name {
+    grid-area: name;
     font-weight: 600;
     overflow-wrap: anywhere;
   }
-  .af-kind,
-  .af-hint {
+  .af-line {
+    grid-area: line;
     color: var(--color-muted);
     font-size: var(--fs-sm);
   }
-  .af-kind {
-    flex: 1;
-    min-inline-size: 12ch;
+  .af-actions {
+    grid-area: actions;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+  }
+  @container options (max-width: 600px) {
+    .af-summary {
+      grid-template-columns: 16px minmax(0, 1fr) auto;
+      grid-template-areas:
+        'grip name actions'
+        '. line line';
+    }
   }
   .af-hint {
     margin: 0;
+    color: var(--color-muted);
+    font-size: var(--fs-sm);
+  }
+  .af-label {
+    font-size: var(--fs-sm);
+    font-weight: 500;
+  }
+  .af-choice {
+    display: grid;
+    gap: var(--space-1);
   }
   .af-edit {
     display: grid;
-    gap: var(--space-2);
-    padding-block-start: var(--space-2);
+    gap: var(--space-3);
+    padding-block: var(--space-2);
+    padding-inline-start: calc(16px + var(--space-2));
   }
-  .af-grip {
+  .af-editor :global(.af-more) {
     display: inline-flex;
-    cursor: grab;
-    color: var(--color-muted);
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-fg-subtle);
+    cursor: pointer;
+  }
+  .af-editor :global(.af-more:hover),
+  .af-editor :global(.af-more[aria-expanded='true']) {
+    background: var(--color-bg-hover);
+    color: var(--color-fg);
+  }
+  .af-editor :global(.af-more:focus-visible) {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 1px;
+  }
+  /* :global — bits renders the menu in a portal on <body>. */
+  :global(.af-menu) {
+    box-sizing: border-box;
+    min-inline-size: 160px;
+    padding: var(--space-1);
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: 0 12px 32px var(--color-shadow);
+    font-family: var(--font-ui);
+    line-height: var(--lh-body);
+    z-index: 100000;
+  }
+  :global(.af-menu-item) {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-block-size: 32px;
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-sm);
+    color: var(--color-fg);
+    font-size: var(--fs-sm);
+    cursor: pointer;
+    outline: none;
+  }
+  :global(.af-menu-item[data-highlighted]) {
+    background: var(--color-bg-hover);
+  }
+  :global(.af-menu-item:focus-visible) {
+    outline: 2px solid var(--color-accent);
+    outline-offset: -2px;
+  }
+  :global(.af-menu-item[data-disabled]) {
+    color: var(--color-fg-disabled);
+    cursor: var(--cursor-disabled);
+  }
+  :global(.af-menu-item.af-menu-danger) {
+    color: var(--color-danger-fg);
   }
 </style>
