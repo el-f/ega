@@ -381,4 +381,37 @@ describe('a reply still running when the panel follows another tab', () => {
     expect(stored.find((t) => t.id === 'u1')?.imageDataUrl).toBeUndefined();
     expect(stored.find((t) => t.id === 'u2')?.imageDataUrl).toBeDefined();
   });
+
+  it('names the conversation a failed save removed and could not put back', async () => {
+    const push = vi.spyOn(toastStore, 'push').mockImplementation(() => {});
+    const C = 'https://c.test';
+    await saveThread(C, [
+      { id: 'c1', role: 'user', kind: 'translate', status: 'idle', content: 'viejo', createdAt: 1 },
+    ]);
+    const c = panel();
+    await startOn(c, A, 'hola');
+    const requestId = requestIdOf('hola');
+    await c.openConversation(B);
+    const realSet = chrome.storage.local.set.bind(chrome.storage.local);
+    // A never fits, and C's write-back fails the same way.
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
+    vi.spyOn(chrome.storage.local, 'set').mockImplementation(((items: Record<string, unknown>) =>
+      `ega:conv:t:${A}` in items || `ega:conv:t:${C}` in items
+        ? Promise.reject(new Error('QUOTA_BYTES quota exceeded'))
+        : realSet(items)) as typeof chrome.storage.local.set);
+
+    c.applyChunk({ type: 'delta', requestId, text: 'hello' });
+    c.applyChunk({ type: 'done', requestId, confidence: 1 });
+    await drain();
+
+    expect(push).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'The answer for a.test could not be saved.' }),
+    );
+    expect(push).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'The conversation "viejo" on c.test was removed to make room.',
+        variant: 'warning',
+      }),
+    );
+  });
 });

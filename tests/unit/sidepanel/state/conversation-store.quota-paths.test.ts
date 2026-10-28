@@ -168,6 +168,49 @@ describe('an eviction that does not make room', () => {
     expect(await chrome.storage.local.get(others.map(threadKey))).toEqual(before);
     expect((await indexOrigins()).filter((o) => others.includes(o)).sort()).toEqual(others);
   });
+
+  it('names the conversation on the error when putting it back fails too', async () => {
+    await seedThreads([{ origin: 'https://victim.com', updatedAt: 1000 }]);
+    const originalSet = chrome.storage.local.set.bind(chrome.storage.local);
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
+    vi.spyOn(chrome.storage.local, 'set').mockImplementation((items) => {
+      const record = items as Record<string, unknown>;
+      // The write-back is the only write of the victim's key; it fails like the thread write.
+      if (threadKey('https://writer.com') in record || threadKey('https://victim.com') in record) {
+        return Promise.reject(new Error('QUOTA_BYTES quota exceeded'));
+      }
+      return originalSet(record);
+    });
+
+    const error: unknown = await saveThread('https://writer.com', [userTurn('w')]).catch(
+      (e: unknown) => e,
+    );
+
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).toContain('QUOTA_BYTES');
+    expect(error).toMatchObject({ evicted: { id: 'https://victim.com' } });
+    expect(await chrome.storage.local.get(threadKey('https://victim.com'))).toEqual({});
+  });
+
+  it('names nothing on the error when the conversation went back', async () => {
+    await seedThreads([{ origin: 'https://victim.com', updatedAt: 1000 }]);
+    const originalSet = chrome.storage.local.set.bind(chrome.storage.local);
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
+    vi.spyOn(chrome.storage.local, 'set').mockImplementation((items) => {
+      const record = items as Record<string, unknown>;
+      if (threadKey('https://writer.com') in record) {
+        return Promise.reject(new Error('QUOTA_BYTES quota exceeded'));
+      }
+      return originalSet(record);
+    });
+
+    const error: unknown = await saveThread('https://writer.com', [userTurn('w')]).catch(
+      (e: unknown) => e,
+    );
+
+    expect((error as Error).message).toContain('QUOTA_BYTES');
+    expect(error).not.toHaveProperty('evicted');
+  });
 });
 
 describe('the write that retries without images', () => {

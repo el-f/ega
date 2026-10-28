@@ -617,6 +617,11 @@ async function evictOldestOtherThread(origin: string): Promise<Eviction | undefi
   return { evicted: evictedOf(victim), restore };
 }
 
+/** The conversation a failed save deleted and could not put back; saveThread names it on the error. */
+export function evictedBy(e: unknown): EvictedConversation | undefined {
+  return e instanceof Error && 'evicted' in e ? (e.evicted as EvictedConversation) : undefined;
+}
+
 export function isQuotaError(e: unknown): boolean {
   if (!(e instanceof Error)) return false;
   return e.message.includes('QUOTA_BYTES') || e.message.toLowerCase().includes('quota');
@@ -958,9 +963,20 @@ async function saveThreadLocked(
         await writeThread(capped);
       } catch (retryError) {
         // The space did not help, so the conversation comes back; else every save deletes one more.
-        await eviction?.restore().catch((restoreError: unknown) => {
-          debugCatch(restoreError, 'conversation-store.restoreEvicted');
-        });
+        if (eviction !== undefined) {
+          const back = await eviction.restore().then(
+            () => true,
+            (restoreError: unknown) => {
+              debugCatch(restoreError, 'conversation-store.restoreEvicted');
+              return false;
+            },
+          );
+          // It stays deleted, so the error names it for the toast.
+          if (!back) {
+            const error = retryError instanceof Error ? retryError : new Error(String(retryError));
+            throw Object.assign(error, { evicted: eviction.evicted });
+          }
+        }
         throw retryError;
       }
       evictedQuota = eviction?.evicted;

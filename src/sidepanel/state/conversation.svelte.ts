@@ -50,6 +50,7 @@ import {
   GENERAL_ORIGIN,
   IMAGE_SHED_NOTE,
   MAX_TURNS_PER_THREAD,
+  evictedBy,
   isQuotaError,
   type SaveThreadResult,
   type EvictedConversation,
@@ -242,6 +243,13 @@ function evictedMessage(e: EvictedConversation): string {
   return e.title !== undefined
     ? `The conversation "${e.title}" on ${siteLabel(e.id)} was removed to make room.`
     : `An older conversation for ${siteLabel(e.id)} was removed to make room.`;
+}
+
+/** A failed save can still have deleted another conversation; the failure notice does not say so. */
+function noteEvictedBy(e: unknown): void {
+  const evicted = evictedBy(e);
+  if (evicted !== undefined)
+    toastStore.push({ message: evictedMessage(evicted), variant: 'warning' });
 }
 
 /** Bounded so a long session does not grow the set without limit. */
@@ -515,6 +523,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
           message: `The answer for ${siteLabel(reply.origin)} could not be saved.`,
           variant: 'danger',
         });
+        noteEvictedBy(e);
       });
   }
 
@@ -1405,6 +1414,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
   function noteSaveFailed(e: unknown): void {
     state.saveFailedQuota = isQuotaError(e);
     state.saveFailed = true;
+    noteEvictedBy(e);
   }
 
   function markDirty(): void {
