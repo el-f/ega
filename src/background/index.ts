@@ -26,7 +26,7 @@ import { createLogger, debugCatch } from '@/shared/logger';
 import { asLangIdUnsafe } from '@/shared/brands';
 import { hasKnownKind, type Msg, type MsgReply } from '@/shared/messages';
 import { readForContent } from './content-reads';
-import type { ChatTurn } from '@/shared/chat-history';
+import { capHistoryContent, type ChatTurn } from '@/shared/chat-history';
 import { fenceHistoryTurn } from '@/shared/prompts';
 import type { PageContext, Settings } from '@/shared/types';
 import { parseSettingsPatch, resolveModelId } from '@/shared/settings-schema';
@@ -227,7 +227,7 @@ function boundedOptions(o: TranslateStartOptions): TranslateStartOptions {
         typeof (t as ChatTurn).content === 'string',
     )
     .slice(-MAX_HISTORY_TURNS)
-    .map((t) => fenceHistoryTurn({ role: t.role, content: cap(t.content) }));
+    .map((t) => fenceHistoryTurn({ role: t.role, content: capHistoryContent(t.content) }));
   const { askAbout: rawAbout, ...rest } = o;
   const askAbout = rawAbout === undefined ? null : capAskAbout(rawAbout);
   return {

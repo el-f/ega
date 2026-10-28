@@ -1,11 +1,16 @@
 import { describe, it, expect } from 'vitest';
 import {
   assemblePromptHistory,
+  capHistoryContent,
+  CHAT_HISTORY_TOKEN_BUDGET,
   chatContextLabel,
+  HISTORY_CUT_MARKER,
+  MAX_HISTORY_TURN_CHARS,
   estimateTokens,
   type ChatTurn,
   type ConversationTurnLike,
 } from '@/shared/chat-history';
+import { isWellFormed } from '@tests/_helpers/well-formed';
 
 function u(content: string): ConversationTurnLike {
   return { role: 'user', status: 'idle', content };
@@ -76,6 +81,27 @@ describe('assemblePromptHistory', () => {
   });
 });
 
+// The worker cuts each replayed message to this size, so the panel counts and sends the cut version.
+describe('assemblePromptHistory — one message over the per-message cap', () => {
+  it('is cut with a marker the model sees, never inside an emoji', () => {
+    const reply = `${'a'.repeat(1999)}😀 and the tail the user asks about`;
+    const [, sent] = assemblePromptHistory([u('hola'), a(reply)], { budgetTokens: 4000 });
+    expect(sent?.content).toBe(capHistoryContent(reply));
+    expect(sent?.content.length).toBeLessThanOrEqual(MAX_HISTORY_TURN_CHARS);
+    expect(sent?.content.endsWith(HISTORY_CUT_MARKER)).toBe(true);
+    expect(sent?.content).not.toContain('tail');
+    expect(isWellFormed(sent?.content ?? '')).toBe(true);
+    expect(capHistoryContent(sent?.content ?? '')).toBe(sent?.content);
+  });
+
+  it('a long newest reply no longer drops every earlier message', () => {
+    const turns = [u('hola'), a('中'.repeat(5000))];
+    expect(chatContextLabel(turns, { budgetTokens: CHAT_HISTORY_TOKEN_BUDGET })).toBe(
+      'Using 2 earlier messages',
+    );
+  });
+});
+
 describe('chatContextLabel', () => {
   it('returns null for empty turns', () => {
     expect(chatContextLabel([], { budgetTokens: 1000 })).toBeNull();
@@ -111,9 +137,9 @@ describe('chatContextLabel', () => {
   });
 
   it('counts an image message at the size it is sent, so it never promises a message the request trims', () => {
-    // 1998 + 1000 + 3 + 1000 tokens: "(sent an image)" is 3, so the first message no longer fits.
-    const turns = [u('a'.repeat(7992)), a('b'.repeat(4000)), u('[image]'), a('c'.repeat(4000))];
-    expect(chatContextLabel(turns, { budgetTokens: 4000 })).toBe('Using 2 earlier messages');
+    // 498 + 500 + 3 + 500 tokens: "(sent an image)" is 3, so the first message no longer fits.
+    const turns = [u('a'.repeat(1992)), a('b'.repeat(2000)), u('[image]'), a('c'.repeat(2000))];
+    expect(chatContextLabel(turns, { budgetTokens: 1500 })).toBe('Using 2 earlier messages');
   });
 
   it('reflects token-budget trim in the label', () => {

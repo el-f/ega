@@ -4,6 +4,7 @@ import { DEFAULT_CONTEXT_MENU_ITEMS } from '@/shared/context-menu';
 import type { Settings } from '@/shared/types';
 import { STORAGE_KEYS, MAX_SELECTION_CHARS } from '@/shared/constants';
 import { UNTRUSTED_TURN_LABEL, fenceHistoryTurn } from '@/shared/prompts';
+import { HISTORY_CUT_MARKER, MAX_HISTORY_TURN_CHARS } from '@/shared/chat-history';
 import { refreshSiteToggleLabel } from '@/background/contextMenu';
 import { flushAsync } from '@tests/_helpers/async';
 
@@ -393,13 +394,14 @@ describe('translate:start — inbound page context is capped at the trust bounda
     const history = req.options.conversationHistory;
     expect(history.length).toBe(MAX_HISTORY_TURNS);
     const fenceOverhead = fenceHistoryTurn({ role: 'user', content: '' }).content.length;
+    const kept = MAX_HISTORY_TURN_CHARS - HISTORY_CUT_MARKER.length;
     for (const t of history) {
       expect(['user', 'assistant']).toContain(t.role);
       expect(typeof t.content).toBe('string');
-      // Exactly the cap: one x more would mean the cap never fired.
-      expect(t.content).toContain('x'.repeat(MAX_SELECTION_CHARS));
-      expect(t.content).not.toContain('x'.repeat(MAX_SELECTION_CHARS + 1));
-      expect(t.content.length).toBe(fenceOverhead + MAX_SELECTION_CHARS);
+      // Exactly the cap, marker included: one x more would mean the cap never fired.
+      expect(t.content).toContain('x'.repeat(kept) + HISTORY_CUT_MARKER);
+      expect(t.content).not.toContain('x'.repeat(kept + 1));
+      expect(t.content.length).toBe(fenceOverhead + MAX_HISTORY_TURN_CHARS);
     }
   });
 
