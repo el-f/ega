@@ -6,6 +6,7 @@ import { STORAGE_KEYS } from '@/shared/constants';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import { resetSettingsCacheForTest } from '@/content/settings-cache';
 import { flushAsync } from '@tests/_helpers/async';
+import { loadEnglishLexicon } from '@/content/looks-like-english';
 // Static, so the lazy chunks resolve off the warm module graph, not mid-teardown.
 import { cancelPageTranslateV2 } from '@/content/page-translate-v2';
 import '@/content/batch-progress';
@@ -77,7 +78,12 @@ afterEach(async () => {
 
 const FRENCH = 'Bonjour tout le monde, nous partons demain matin pour la plage.';
 
+// A selection earlier in the tab loads the full word list.
 describe('a tool name in a block already in the target language', () => {
+  beforeEach(async () => {
+    await loadEnglishLexicon();
+  });
+
   it('leaves a Hebrew block with md5sum on a Hebrew page', async () => {
     await translatePage('he', ['בדקו את הקובץ עם md5sum לפני ההתקנה', FRENCH]);
     expect(sent().map((m) => m.text)).toEqual([FRENCH]);
@@ -89,5 +95,22 @@ describe('a tool name in a block already in the target language', () => {
       FRENCH,
     ]);
     expect(sent().map((m) => m.text)).toEqual([FRENCH]);
+  }, 20_000);
+
+  // The full word list reads a digit word as foreign; once the detector rules out Arabizi, it is a name or a number.
+  it('leaves English blocks with sizes, hex values and library names on an English page', async () => {
+    await translatePage('en', [
+      'The monitor runs at 1920x1080 or 1280x720, and the old one only did 1024x768.',
+      'The dump shows 0xdeadbeef at the top of the stack, so the pointer was never set.',
+      'Everyone patched log4j quickly once the log4shell report came out.',
+      'My old mp3player and my c3po figure are still in the box.',
+      FRENCH,
+    ]);
+    expect(sent().map((m) => m.text)).toEqual([FRENCH]);
+  }, 20_000);
+
+  it('still sends an English page an Arabizi block the detector misses', async () => {
+    await translatePage('en', ['bro wen enta? 3am estanak', FRENCH]);
+    expect(sent().map((m) => m.text)).toEqual(['bro wen enta? 3am estanak', FRENCH]);
   }, 20_000);
 });

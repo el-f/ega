@@ -10,7 +10,7 @@ import {
 } from './selection';
 import { isSensitiveRange, isSensitiveTarget, selectionIsSensitive } from './safety';
 import { showBubble, hideBubble, loadBubbleMenu } from './bubble';
-import { looksLikeEnglish } from './looks-like-english';
+import { looksLikeEnglishBlock } from './looks-like-english';
 import { installSelectionRestore, uninstallSelectionRestore } from './selection-restore';
 import * as accum from './accumulator';
 import { openTooltip, finishTooltipDirect, errorTooltip, closeTooltip } from './lazy-tooltip';
@@ -679,7 +679,7 @@ async function dispatchPageTranslate(scope: 'whole' | 'areas'): Promise<void> {
     cancelRequest: (requestId) => endRequest(requestId, 'page-teardown'),
     mountProgress: (total, onCancel) => showBatchProgress(total, onCancel),
     target: eff.direction.target,
-    looksLikeEnglish,
+    looksLikeEnglish: looksLikeEnglishBlock,
     siteOff: () => {
       const s = currentSettings();
       return s !== null && resolveEffective(s, location.origin).disabled;

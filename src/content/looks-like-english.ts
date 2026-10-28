@@ -56,6 +56,13 @@ export function looksLikeEnglish(text: string): boolean {
   return hits / tokens.length >= ENGLISH_RATIO_THRESHOLD;
 }
 
+const DIGIT_WORD = /[\p{L}\d]*\d[\p{L}\d]*/gu;
+
+/** Page translate asks after detectLang ruled out Arabizi and leetspeak, so a digit word is a name or a number and does not vote. */
+export function looksLikeEnglishBlock(text: string): boolean {
+  return looksLikeEnglish(text.replace(DIGIT_WORD, ' '));
+}
+
 // Chrome 138+ ships an on-device LanguageDetector that beats the dictionary heuristic on mixed varieties; older browsers have none.
 interface LanguageDetectorSample {
   detectedLanguage: string;
