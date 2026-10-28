@@ -165,7 +165,7 @@ describe('an existing custom task', () => {
     open(vi.fn(), { row });
     expect((await getCustomTasks())[0]?.system).toBe(original.system);
     const convert = Array.from(document.querySelectorAll('button')).find(
-      (el) => el.textContent.trim() === 'Turn them into fields',
+      (el) => el.textContent.trim() === 'Turn into fields',
     );
     if (!convert) throw new Error('no conversion action');
     await fireEvent.click(convert);
@@ -286,5 +286,45 @@ describe('an existing custom task', () => {
       ),
     );
     await waitFor(() => expect(status()).toContain('Not saved: it was deleted in another window'));
+  });
+});
+
+describe('instructions that ask for their own format', () => {
+  const notice = (): HTMLElement | null =>
+    document.querySelector('[data-ega-template-system] [data-ega-answer-format-own]');
+  const button = (name: string): HTMLElement | undefined =>
+    Array.from(document.querySelectorAll<HTMLElement>('button')).find(
+      (b) => b.textContent.trim() === name,
+    );
+
+  it('show one honest notice under Instructions with Turn into fields, and no Keep my instructions', async () => {
+    const row = await addCustomTask({
+      ...input,
+      system: 'Be polite. Return JSON {"answer": string, "reason": string}.',
+    });
+    open(vi.fn(), { row });
+    expect(notice()?.textContent).toContain(
+      'Your instructions ask for their own format. Ega still adds its own, so the model gets two.',
+    );
+    expect(notice()?.contains(button('Turn into fields') ?? null)).toBe(true);
+    expect(button('Keep my instructions')).toBeUndefined();
+  });
+
+  it('a format written in words shows the notice too, with no button', async () => {
+    const row = await addCustomTask({
+      ...input,
+      system: 'Reply in markdown bullet points, nothing else.',
+    });
+    open(vi.fn(), { row });
+    expect(notice()).not.toBeNull();
+    expect(button('Turn into fields')).toBeUndefined();
+  });
+
+  it('the notice stays while it is true and goes once the format is gone', async () => {
+    const row = await addCustomTask({ ...input, system: 'Return JSON {"tags": "..."}. Be brief.' });
+    open(vi.fn(), { row });
+    expect(notice()).not.toBeNull();
+    await fireEvent.input(field('system'), { target: { value: 'Be brief.' } });
+    expect(notice()).toBeNull();
   });
 });

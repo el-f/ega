@@ -29,6 +29,7 @@
   import AnswerPreview from './AnswerPreview.svelte';
   import ReplySection from './ReplySection.svelte';
   import { embedsOwnFormat, convertOwnFormat } from '@/options/own-answer-format';
+  import { hasConflictingFormat } from '@/shared/backends/structured-output';
   import { listVarieties } from '@/shared/varieties';
   import { buildCustomPreviewPrompt, PREVIEW_SAMPLE_TEXT } from '@/options/preview-prompt';
   import { reportSaveFailure } from '@/options/storage-with-toast';
@@ -116,8 +117,8 @@
   const messageError = $derived(checkPrompt(prompt, 'custom', taskKey).messageError);
   const answerSpec = $derived(customAnswerSpec(draft, taskKey));
   const ownFormat = $derived(embedsOwnFormat(prompt));
-  const ownFormatKey = $derived(JSON.stringify(prompt));
-  let keptInstructions = $state<string | null>(null);
+  // The router turns schema checks off on the same test, so the notice shows exactly when the model gets two formats.
+  const asksOwnFormat = $derived(ownFormat !== null || hasConflictingFormat(prompt, answerSpec));
   const fieldProblems = $derived(
     answerMode === 'fields'
       ? validateSpec({
@@ -499,38 +500,6 @@
       </div>
     </div>
 
-    {#if ownFormat && keptInstructions !== ownFormatKey}
-      <div class="ct-own-format" role="status">
-        <p class="ct-hint">
-          Your instructions describe their own answer fields. Ega now sets the format here.
-        </p>
-        <div class="ct-own-actions">
-          <Button
-            variant="secondary"
-            size="sm"
-            ariaDisabled={problemOf('label') !== null || messageError !== null}
-            {...problemOf('label') !== null || messageError !== null
-              ? { describedBy: `${uid}-convert-reason` }
-              : {}}
-            onclick={() => void convertInstructions()}>Turn them into fields</Button
-          >
-          <Button
-            variant="ghost"
-            size="sm"
-            onclick={() => {
-              keptInstructions = ownFormatKey;
-            }}>Keep my instructions</Button
-          >
-        </div>
-        {#if problemOf('label') !== null || messageError !== null}<p
-            class="ct-hint"
-            id="{uid}-convert-reason"
-            data-ega-disabled-reason
-          >
-            Add a task name and a message with Selected text first.
-          </p>{/if}
-      </div>
-    {/if}
     <ReplySection rows={answerMode === 'fields' ? [] : describeReply(answerSpec)}>
       <div class="ct-grid">
         <span class="ct-label" id="{uid}-shape">Shape</span>
@@ -570,6 +539,33 @@
       {/snippet}
     </ReplySection>
 
+    {#snippet ownFormatNotice()}
+      <div class="ct-own-format" data-ega-answer-format-own>
+        <p class="ct-hint">
+          Your instructions ask for their own format. Ega still adds its own, so the model gets two.
+        </p>
+        {#if ownFormat}
+          <div>
+            <Button
+              variant="secondary"
+              size="sm"
+              ariaDisabled={problemOf('label') !== null || messageError !== null}
+              {...problemOf('label') !== null || messageError !== null
+                ? { describedBy: `${uid}-convert-reason` }
+                : {}}
+              onclick={() => void convertInstructions()}>Turn into fields</Button
+            >
+          </div>
+          {#if problemOf('label') !== null || messageError !== null}<p
+              class="ct-hint"
+              id="{uid}-convert-reason"
+              data-ega-disabled-reason
+            >
+              Add a task name and a message with Selected text first.
+            </p>{/if}
+        {/if}
+      </div>
+    {/snippet}
     <div class="ct-prompt">
       <PromptEditor
         kind="custom"
@@ -580,6 +576,7 @@
         sendsPageContext={pageContext}
         onChange={setPrompt}
         buildPreview={preview}
+        formatNotice={asksOwnFormat ? ownFormatNotice : undefined}
       />
     </div>
   </div>
@@ -602,11 +599,6 @@
 <style>
   .ct-own-format {
     display: grid;
-    gap: var(--space-2);
-  }
-  .ct-own-actions {
-    display: flex;
-    flex-wrap: wrap;
     gap: var(--space-2);
   }
   .custom-task {

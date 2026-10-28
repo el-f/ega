@@ -193,8 +193,12 @@ test('converting a prompt format is explicit and Undo restores its original inst
     .getByRole('button', { name: 'Edit Convert me' })
     .click();
   const dialog = page.locator('[data-ega-custom-task-dialog]');
-  await expect(dialog.getByRole('button', { name: 'Turn them into fields' })).toBeVisible();
-  await dialog.getByRole('button', { name: 'Turn them into fields' }).click();
+  await expect(
+    dialog.locator('[data-ega-template-system] [data-ega-answer-format-own]'),
+  ).toContainText('Ega still adds its own, so the model gets two.');
+  await expect(dialog.getByRole('button', { name: 'Keep my instructions' })).toHaveCount(0);
+  await expect(dialog.getByRole('button', { name: 'Turn into fields' })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Turn into fields' }).click();
   await expect(dialog.locator('[data-ega-answer-fields-editor]')).toContainText('Tags');
   await expect(dialog.locator('[data-ega-template-system] textarea')).toHaveValue(
     'Keep this instruction.',
