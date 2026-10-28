@@ -25,6 +25,8 @@ describe('soleFencedCode', () => {
     'a\n```\nb\n```',
     '```\na\n```\nmore',
     '```\na\n```\n```\nb\n```',
+    '~~~ Segunda parte ~~~',
+    '``` does not render here',
   ])('is null for anything else: %j', (answer) => expect(soleFencedCode(answer)).toBeNull());
 });
 

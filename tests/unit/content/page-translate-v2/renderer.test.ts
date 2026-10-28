@@ -308,6 +308,18 @@ describe('renderer — an answer the model sent as one fenced block', () => {
     finish(handle, '```html\n<b>bold</b> is used\n```');
     expect(handle.target.textContent).toBe('<b>bold</b> is used');
   });
+
+  it.each([
+    ['bilingual', mountBilingual],
+    ['inplace', mountInplace],
+  ] as const)('%s shows a heading that only looks like a fence as sent', (_, mount) => {
+    const original = block('p', '~~~ Part 2 ~~~');
+    const handle = mount({ id: 'f-2', element: original, originalText: '~~~ Part 2 ~~~' });
+    appendDelta(handle, '~~~ Segunda parte ~~~');
+    expect(handle.target.textContent).toBe('~~~ Segunda parte ~~~');
+    finish(handle, '~~~ Segunda parte ~~~');
+    expect(handle.target.textContent).toBe('~~~ Segunda parte ~~~');
+  });
 });
 
 describe('renderer — a leading run', () => {
