@@ -230,7 +230,8 @@ describe('background dispatcher replies', () => {
       systemPrompt: '',
       userPrompt: 'spoofed',
       response: '',
-      latencyMs: 1,
+      // 0, not 1: a push started before the last test's clear is dropped, which would hide a leak here.
+      latencyMs: 0,
       cacheHit: false,
     };
     const forbidden = { ok: false, error: 'forbidden' };
