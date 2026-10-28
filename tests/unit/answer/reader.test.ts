@@ -97,6 +97,44 @@ describe('the service worker answer reader', () => {
       expect(projector.finish()).toMatchObject({ kind: 'ok', main: raw });
     }
   });
+  // Chatty models without a schema wrap the answer object in a preamble and a sign-off.
+  it.each([
+    (o: string) => `Here is the translation:\n\`\`\`json\n${o}\n\`\`\`\nLet me know if you need more.`,
+    (o: string) => `Sure: ${o}.`,
+    (o: string) => `Here you go:\n\n${o}\n\nLet me know if you need anything else.`,
+  ])('reads a keyed object with chatter around it as the answer: %#', (wrap) => {
+    for (const [spec, key] of [
+      [translate, 'translation'],
+      [answerSpecFor('ask'), 'answer'],
+    ] as const) {
+      const raw = wrap(JSON.stringify({ [key]: 'hola', confidence: 0.9 }));
+      const result = readAnswer(spec, raw);
+      expect(result, raw).toMatchObject({ kind: 'ok', main: 'hola' });
+      expect(result, raw).not.toMatchObject({ via: 'prose' });
+    }
+  });
+  it('keeps streaming a fenced answer once its sign-off arrives, without a read per word', () => {
+    const signOff = '\nLet me know if you need more. '.repeat(20);
+    const raw = `Here is the translation:\n\`\`\`json\n{"translation": "hola", "confidence": 0.9}\n\`\`\`${signOff}`;
+    const projector = createAnswerProjector(translate);
+    let visible = '';
+    const observed: string[] = [];
+    const parse = vi.spyOn(JSON, 'parse');
+    try {
+      for (const ch of raw) {
+        const delta = projector.push(ch);
+        if (delta) visible = delta.replace ? delta.text : visible + delta.text;
+        observed.push(visible);
+      }
+      expect(parse.mock.calls.length).toBeLessThan(40);
+    } finally {
+      parse.mockRestore();
+    }
+    expect(observed.slice(observed.indexOf('hola'))).toEqual(
+      Array(observed.length - observed.indexOf('hola')).fill('hola'),
+    );
+    expect(projector.finish()).toMatchObject({ kind: 'ok', main: 'hola', via: 'json' });
+  });
   // The Translate prompt asks for code as one fenced block; code that holds an answer key is still the answer.
   it.each([
     '```html\n<h1>Hello</h1>\n<p>hi</p>\n```',

@@ -45,7 +45,7 @@ const record = (value: unknown): value is Record<string, unknown> =>
 
 type Envelope = { value: Record<string, unknown>; repaired: boolean };
 
-/** An object with the main key counts when it opens or ends the text, any other only as the whole text; 'prose': text follows it. */
+/** An object with the main key counts unless words follow it on its last line, any other only as the whole text; 'prose': text follows it. */
 function envelope(raw: string, spec: AnswerSpec): Envelope | 'prose' | undefined {
   const lead = raw.length - raw.trimStart().length;
   // The repair skips text before the first brace, so only a candidate that opens with a bracket can be the whole text.
@@ -84,11 +84,12 @@ function envelope(raw: string, spec: AnswerSpec): Envelope | 'prose' | undefined
       const result = { value, repaired: span.repaired };
       const has = (k: string) =>
         Object.keys(value).some((key) => key.toLowerCase() === k.toLowerCase());
+      const after = raw.slice(candidate.at + span.end);
       // Only a closing bracket or fence may follow the whole-text envelope.
-      const ends = /^\s*(?:\]\s*)?(?:```\s*)?$/.test(raw.slice(candidate.at + span.end));
+      const ends = /^\s*(?:\]\s*)?(?:```\s*)?$/.test(after);
       if (has(mainKey)) {
-        if (candidate.leading || ends) return result;
-        // A keyed object inside running prose is a quote, not the answer.
+        if (candidate.leading || !/^[^\n]*[\p{L}\p{N}]/u.test(after)) return result;
+        // A keyed object the sentence runs on after is a quote, not the answer.
         openedProse = true;
       }
       if (!candidate.leading) continue;
@@ -394,6 +395,7 @@ export function createAnswerProjector(
   let inString = false;
   let escaped = false;
   let openedAt = -1;
+  let closedAt = -1;
   let read = 0;
   const objectStart = /[[{]\s*(?:["[{]|$)/y;
   /** True when a top-level object or list closed in the new text. */
@@ -408,7 +410,10 @@ export function createAnswerProjector(
       } else if (ch === '"') inString = depth > 0;
       else if (ch === '{' || ch === '[') {
         if (depth++ === 0) openedAt = read;
-      } else if ((ch === '}' || ch === ']') && depth > 0 && --depth === 0) closed = true;
+      } else if ((ch === '}' || ch === ']') && depth > 0 && --depth === 0) {
+        closed = true;
+        closedAt = read;
+      }
     }
     return closed;
   }
@@ -434,7 +439,8 @@ export function createAnswerProjector(
         if (answer.kind === 'ok') {
           next = answer.main;
           quoted = answer.via === 'prose';
-          mayQuote = !framed && !openingFence && !quoted;
+          // Only words on the object's last line make it a quote, so a finished line settles it.
+          mayQuote = !framed && !openingFence && !quoted && !raw.slice(closedAt).includes('\n');
         }
       }
       // The canonical v1 scanner tolerates half-arrived Unicode and quotes exactly as before.
