@@ -164,6 +164,24 @@ describe('the whole-thread cap', () => {
     expect(out[6]?.imageDataUrl).toHaveLength(250_000);
   });
 
+  it('reports the images it shed, so the panel can shed them too', async () => {
+    await chrome.storage.local.remove(threadKey(ORIGIN));
+    const turns = [1, 2, 3].map((n) => imageTurn(`u${n}`, 250_000));
+
+    const { shedIds, droppedIds } = await saveThread(ORIGIN, turns);
+
+    expect(shedIds).toEqual(['u1']);
+    expect(droppedIds).toBeUndefined();
+  });
+
+  it('reports no shed when the images fit', async () => {
+    await chrome.storage.local.remove(threadKey(ORIGIN));
+
+    const result = await saveThread(ORIGIN, [imageTurn('u1', 250_000)]);
+
+    expect(result).not.toHaveProperty('shedIds');
+  });
+
   it('never stores more than the thread budget', async () => {
     const big = 'y'.repeat(60_000);
     const turns = Array.from({ length: 20 }, (_, i) =>

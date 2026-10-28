@@ -349,4 +349,36 @@ describe('a reply still running when the panel follows another tab', () => {
     );
     expect((await loadThreadResult(A)).turns.at(-1)?.content).toBe('hello');
   });
+
+  it('names the site whose older images its save removed', async () => {
+    const push = vi.spyOn(toastStore, 'push').mockImplementation(() => {});
+    const image = (id: string, createdAt: number): Turn => ({
+      id,
+      role: 'user',
+      kind: 'image-translate',
+      status: 'idle',
+      content: '[image]',
+      createdAt,
+      imageDataUrl: `data:image/png;base64,${'A'.repeat(255_000)}`,
+    });
+    // Two near-cap images fit; the long answer below pushes the thread past 512 KB.
+    await saveThread(A, [image('u1', 1), image('u2', 2)]);
+    const c = panel();
+    await startOn(c, A, 'hola');
+    const requestId = requestIdOf('hola');
+    await c.openConversation(B);
+    expect(push).not.toHaveBeenCalled();
+
+    c.applyChunk({ type: 'delta', requestId, text: 'y'.repeat(15_000) });
+    c.applyChunk({ type: 'done', requestId, confidence: 1 });
+    await drain();
+
+    expect(push).toHaveBeenCalledWith({
+      message: 'Older images were removed from the conversation for a.test to save space.',
+      variant: 'warning',
+    });
+    const stored = (await loadThreadResult(A)).turns;
+    expect(stored.find((t) => t.id === 'u1')?.imageDataUrl).toBeUndefined();
+    expect(stored.find((t) => t.id === 'u2')?.imageDataUrl).toBeDefined();
+  });
 });

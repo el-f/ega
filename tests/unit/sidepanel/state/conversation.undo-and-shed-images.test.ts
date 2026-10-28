@@ -164,6 +164,47 @@ describe('a save that only fit without images', () => {
   });
 });
 
+describe('a save the thread cap made shed older images', () => {
+  it('drops those images from memory too and says so', async () => {
+    const push = vi.spyOn(toastStore, 'push').mockImplementation(() => {});
+    const c = createConversation();
+    await c.openConversation('https://cap-shed.com');
+    const images = [1, 2, 3].map((n) => `data:image/png;base64,${String(n).repeat(200_000)}`);
+    for (const imageDataUrl of images) {
+      c.seedDeliveredTurn({
+        kind: 'image-translate',
+        sourceText: '[image]',
+        response: 'hello',
+        imageDataUrl,
+        sourceLang: 'auto',
+        targetLang: asLangIdUnsafe('en'),
+        stream: false,
+      });
+    }
+    await c.flush();
+
+    const shown = c.turns.filter((t) => t.role === 'user');
+    expect(shown.map((t) => t.imageDataUrl)).toEqual([undefined, images[1], images[2]]);
+    expect(shown[0]).toMatchObject({ content: '[image]', imageShed: true });
+    expect(c.turns.filter((t) => t.role === 'assistant').map((t) => t.content)).toEqual([
+      'hello',
+      'hello',
+      'hello',
+    ]);
+    // Two saves queued with the same snapshot both report it; one message is one toast.
+    const said = push.mock.calls.map((call) => call[0]);
+    expect(said.length).toBeGreaterThan(0);
+    expect(new Set(said.map((t) => `${t.variant}: ${t.message}`))).toEqual(
+      new Set(['warning: Older images were removed to save space.']),
+    );
+
+    // Memory now matches storage, so the next save sheds nothing and says nothing.
+    const before = push.mock.calls.length;
+    await c.flush();
+    expect(push).toHaveBeenCalledTimes(before);
+  });
+});
+
 describe('retry keeps the explanation the seed carried', () => {
   it('the replacement assistant turn still has explain after a retryable failure', async () => {
     const c = createConversation();

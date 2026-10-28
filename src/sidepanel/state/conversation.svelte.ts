@@ -525,7 +525,9 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       r?.evicted !== undefined ? evictedMessage(r.evicted) : null,
       r?.shedImages === true
         ? `Storage is nearly full. Images were removed from the conversation for ${site} to keep the text.`
-        : null,
+        : r?.shedIds !== undefined
+          ? `Older images were removed from the conversation for ${site} to save space.`
+          : null,
       r?.droppedIds !== undefined
         ? `${r.droppedIds.length} older message${r.droppedIds.length === 1 ? ' was' : 's were'} removed from the conversation for ${site} to save space.`
         : null,
@@ -1331,7 +1333,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     noteKnownTurns(snap);
     // Copies: a load that clears the live sets while this write waits for the lock must not empty its tombstones.
     /* eslint-disable svelte/prefer-svelte-reactivity -- plain snapshots handed to storage, never rendered. */
-    const { evicted, droppedIds, shedImages, refusedIds } = await saveThread(target, snap, {
+    const { evicted, droppedIds, shedIds, shedImages, refusedIds } = await saveThread(target, snap, {
       knownIds: new Set(knownIds),
       deletedAt: new Map(deletedAt),
       revivedAt: new Map(revivedAt),
@@ -1351,6 +1353,12 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
           variant: 'warning',
         });
       }
+    } else if (shedIds !== undefined && target === state.activeId) {
+      mutate(
+        (turns) => turns.map((t) => (shedIds.includes(t.id) ? stripImage(t, IMAGE_SHED_NOTE) : t)),
+        'none',
+      );
+      toastStore.push({ message: 'Older images were removed to save space.', variant: 'warning' });
     }
     if (refusedIds !== undefined && target === state.activeId) {
       // Buried by another window. Dropping the ids from knownIds lets that window bring them back.
