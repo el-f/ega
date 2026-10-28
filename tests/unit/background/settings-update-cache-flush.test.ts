@@ -62,7 +62,8 @@ function patch(p: Record<string, unknown>): Promise<unknown> {
   return new Promise((resolve) => {
     chromeMock.runtime.onMessage.emit(
       { kind: 'settings:update', patch: p },
-      { id: chromeMock.runtime.id },
+      // The options page: a content script may write only its own flags.
+      { id: chromeMock.runtime.id, url: chromeMock.runtime.getURL('src/options/index.html') },
       resolve,
     );
   });

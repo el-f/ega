@@ -93,6 +93,15 @@ function hostOf(url: string | undefined): string | undefined {
     return undefined;
   }
 }
+
+function originOf(url: string | undefined): string | undefined {
+  if (!url) return undefined;
+  try {
+    return new URL(url).origin;
+  } catch {
+    return undefined;
+  }
+}
 /** Owning tab per in-flight request; the entry is dropped when the request ends. */
 const requestTab = new Map<string, number>();
 
@@ -258,6 +267,22 @@ const MENU_SETTINGS_KEYS = [
 
 function asRecord(v: unknown): Record<string, unknown> | null {
   return typeof v === 'object' && v !== null ? (v as Record<string, unknown>) : null;
+}
+
+// What content code writes (bubble, banner, page translate, direction memo); everything else is the extension pages'.
+const CONTENT_SETTINGS_KEYS = new Set([
+  'bubbleFirstRunSeen',
+  'smartBubbleBannerShown',
+  'pageTranslateMode',
+  'sitePrefs',
+]);
+
+/** A content script may write its own site's row only; `sitePrefs` is keyed by origin. */
+function contentMayWrite(patch: Record<string, unknown>, senderUrl: string | undefined): boolean {
+  if (!Object.keys(patch).every((k) => CONTENT_SETTINGS_KEYS.has(k))) return false;
+  if (!('sitePrefs' in patch)) return true;
+  const rows = Object.keys(asRecord(patch['sitePrefs']) ?? {});
+  return rows.length === 1 && rows[0] === originOf(senderUrl);
 }
 
 function keyChanged(a: Record<string, unknown>, b: Record<string, unknown>, k: string): boolean {
@@ -458,6 +483,10 @@ chrome.runtime.onMessage.addListener((rawMsg, sender, sendResponse) => {
           for (const [k, v] of Object.entries(parsed)) {
             if (v !== undefined) cleaned[k] = v;
           }
+          if (!isExtensionPage(sender) && !contentMayWrite(cleaned, sender.url)) {
+            reply(msg.kind, { ok: false, reason: 'schema' });
+            return;
+          }
           let merged;
           try {
             merged = await updateSettings(cleaned);
@@ -562,6 +591,11 @@ chrome.runtime.onMessage.addListener((rawMsg, sender, sendResponse) => {
       return false;
     }
     case 'native:test': {
+      // It runs the CLI with a caller-supplied config, so only the options page may ask.
+      if (!isExtensionPage(sender)) {
+        reply(msg.kind, { ok: false, error: 'forbidden' });
+        return false;
+      }
       // Spawn through the SW's port-manager, or the diagnostic chip never sees the
       // session frame and reads Cold after a successful test.
       void handleNativeTest(msg, (r) => reply('native:test', r), {
@@ -594,6 +628,10 @@ chrome.runtime.onMessage.addListener((rawMsg, sender, sendResponse) => {
       reply(msg.kind, { ok: true });
       return false;
     case 'audit:clear':
+      if (!isExtensionPage(sender)) {
+        reply(msg.kind, { ok: false });
+        return false;
+      }
       void clearAuditLog().then(
         () => reply(msg.kind, { ok: true }),
         (e: unknown) => {

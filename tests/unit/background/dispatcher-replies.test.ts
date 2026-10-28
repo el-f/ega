@@ -103,8 +103,11 @@ describe('background dispatcher replies', () => {
     const fromPage = await ask({ kind: 'settings:update', patch: { anthropicApiKey: 'sk-ant-x' } });
     expect(fromPage).toMatchObject({ ok: true, settings: { anthropicApiKey: 'sk-ant-x' } });
 
-    const fromTab = await ask({ kind: 'settings:update', patch: { theme: 'dark' } }, TAB_SENDER);
-    expect(fromTab).toMatchObject({ ok: true, settings: { theme: 'dark' } });
+    const fromTab = await ask(
+      { kind: 'settings:update', patch: { bubbleFirstRunSeen: true } },
+      TAB_SENDER,
+    );
+    expect(fromTab).toMatchObject({ ok: true, settings: { bubbleFirstRunSeen: true } });
     expect((fromTab as { settings?: Record<string, unknown> }).settings).not.toHaveProperty(
       'anthropicApiKey',
     );
@@ -197,6 +200,74 @@ describe('background dispatcher replies', () => {
     expect(await ask({ kind: 'audit:clear' })).toEqual({ ok: true });
     const after = (await chromeMock.storage.local.get('egaAuditLog')) as Record<string, unknown>;
     expect(after['egaAuditLog']).toBeUndefined();
+  });
+});
+
+// A content script can be steered by its page, so it may write only the flags content code writes.
+describe('a content script cannot write the settings an extension page owns', () => {
+  const PAGE_TAB = {
+    id: chromeMock.runtime.id,
+    tab: { id: 7, windowId: 1 },
+    url: 'https://evil.example/path',
+  };
+  const ownOrigin = 'https://evil.example';
+
+  async function stored(): Promise<Record<string, unknown>> {
+    const r = await chromeMock.storage.local.get(STORAGE_KEYS.settings);
+    return r[STORAGE_KEYS.settings] as Record<string, unknown>;
+  }
+
+  it.each([
+    ['an API key', { openaiApiKey: 'sk-attacker' }],
+    ['the theme', { theme: 'dark' }],
+    ['another site row', { sitePrefs: { 'https://bank.example': { disabled: false } } }],
+    ['two site rows', { sitePrefs: { [ownOrigin]: { disabled: true }, 'https://b.example': { disabled: false } } }],
+    ['an allowed flag plus a key', { bubbleFirstRunSeen: true, openaiApiKey: 'sk-x' }],
+  ])('refuses %s from a tab, and writes nothing', async (_label, patch) => {
+    const before = await stored();
+    expect(await ask({ kind: 'settings:update', patch }, PAGE_TAB)).toEqual({
+      ok: false,
+      reason: 'schema',
+    });
+    expect(await stored()).toEqual(before);
+  });
+
+  it('accepts the content flags and its own site row', async () => {
+    const reply = await ask(
+      {
+        kind: 'settings:update',
+        patch: {
+          smartBubbleBannerShown: true,
+          pageTranslateMode: 'bilingual',
+          sitePrefs: { [ownOrigin]: { disabled: true } },
+        },
+      },
+      PAGE_TAB,
+    );
+    expect(reply).toMatchObject({ ok: true, settings: { pageTranslateMode: 'bilingual' } });
+    expect((await stored())['sitePrefs']).toMatchObject({ [ownOrigin]: { disabled: true } });
+  });
+
+  it('native:test and audit:clear answer a tab with a refusal', async () => {
+    const { handleNativeTest } = await import('@/background/native-test');
+    vi.mocked(handleNativeTest).mockClear();
+    const reply = await ask(
+      {
+        kind: 'native:test',
+        cfg: { id: 'native' } as never,
+        text: 'hi',
+        sourceLang: 'auto',
+        targetLang: 'en',
+      },
+      PAGE_TAB,
+    );
+    expect(reply).toEqual({ ok: false, error: 'forbidden' });
+    expect(handleNativeTest).not.toHaveBeenCalled();
+
+    await chromeMock.storage.local.set({ egaAuditLog: { entries: [{ id: 'keep' }] } });
+    expect(await ask({ kind: 'audit:clear' }, PAGE_TAB)).toEqual({ ok: false });
+    const after = (await chromeMock.storage.local.get('egaAuditLog')) as Record<string, unknown>;
+    expect(after['egaAuditLog']).toEqual({ entries: [{ id: 'keep' }] });
   });
 });
 
