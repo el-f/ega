@@ -125,12 +125,15 @@ export function takeOutOwnFormat(
   const exact = [format.sep + format.text, format.text].some((t) => prompt.system.includes(t));
   const own = exact ? null : embedsOwnFormat(prompt);
   if (own !== null) {
-    // An edited copy of Ega's format may run on past its first sentence (Suggest replies has two).
+    // Ega's later format sentences go with it (Suggest replies has two); the user's own sentences stay.
     const text = prompt[own.half];
-    const ega = text.slice(own.start).toLowerCase().startsWith(FORMAT_MARKER.toLowerCase());
-    const lineEnd = text.indexOf('\n', own.end);
-    const cut = ega ? { ...own, end: lineEnd < 0 ? text.length : lineEnd } : own;
-    return convertOwnFormat(prompt, cut)?.prompt ?? 'empty';
+    let end = own.end;
+    for (const sentence of format.text.split(/(?<=\.) /).slice(1)) {
+      const at = end + (/^[ \t]*/.exec(text.slice(end))?.[0].length ?? 0);
+      if (text.slice(at, at + sentence.length).toLowerCase() !== sentence.toLowerCase()) break;
+      end = at + sentence.length;
+    }
+    return convertOwnFormat(prompt, { ...own, end })?.prompt ?? 'empty';
   }
   const standard = stripStandardFormat(prompt.system, format);
   if (standard !== null) return { ...prompt, system: standard };

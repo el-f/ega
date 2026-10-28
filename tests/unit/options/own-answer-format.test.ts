@@ -172,9 +172,9 @@ describe("Use Ega's format", () => {
     });
   });
 
-  it("cuts an edited copy of Ega's format from its opener to the end of its line", () => {
+  it("cuts the later sentences of Ega's format that follow an edited copy of it", () => {
     const suggest = TASK_FORMATS['suggest-replies'];
-    const edited = suggest.text.replace('casual → neutral → polite', 'polite → casual');
+    const edited = suggest.text.replace('<reply 1>', '<a casual reply>').toLowerCase();
     const prompt = {
       system: `Suggest three replies. ${edited}\nKeep each one short.`,
       user: '{{text}}',
@@ -183,6 +183,30 @@ describe("Use Ega's format", () => {
       system: 'Suggest three replies.\nKeep each one short.',
       user: '{{text}}',
     });
+  });
+
+  it("keeps the user's own sentence after a copy of Ega's format on the same line", () => {
+    expect(
+      takeOutOwnFormat(
+        {
+          system:
+            'Summarize the text in 1-3 sentences.\nReturn JSON ONLY: {"answer": <two sentences>}. Write it for a child.',
+          user: '{{text}}',
+        },
+        format,
+      ),
+    ).toEqual({
+      system: 'Summarize the text in 1-3 sentences.\n Write it for a child.',
+      user: '{{text}}',
+    });
+    const suggest = TASK_FORMATS['suggest-replies'];
+    const edited = suggest.text.replace('<reply 1>', '<a casual reply>');
+    expect(
+      takeOutOwnFormat(
+        { system: `Suggest three replies. ${edited} Sign each one.`, user: '{{text}}' },
+        suggest,
+      ),
+    ).toEqual({ system: 'Suggest three replies.  Sign each one.', user: '{{text}}' });
   });
 
   it('cuts only the sentence of a format that does not start like Ega’s', () => {
