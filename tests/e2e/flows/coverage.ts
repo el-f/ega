@@ -672,6 +672,12 @@ export const COVERAGE: readonly Family[] = [
             flows: ['page-translate/inplace-mode-opt-in.flow.spec.ts'],
           },
           {
+            id: 'inplace-peek-original',
+            description:
+              'Replace text hides the page words in place; holding the mouse on a block shows them again',
+            flows: ['page-translate/inplace-peek-original.flow.spec.ts'],
+          },
+          {
             id: 'revert-all',
             description: 'Show original toggles the view; Remove translation restores the DOM',
             flows: ['page-translate/revert-all.flow.spec.ts'],
