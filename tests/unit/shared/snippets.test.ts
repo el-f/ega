@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolveSnippets, MAX_DEPTH } from '@/shared/snippets';
+import { expandSnippets, resolveSnippets, MAX_DEPTH, EXPANDED_MAX } from '@/shared/snippets';
 
 describe('resolveSnippets', () => {
   it('returns text unchanged when no snippet refs', () => {
@@ -33,5 +33,28 @@ describe('resolveSnippets', () => {
 
   it('MAX_DEPTH is exactly 3', () => {
     expect(MAX_DEPTH).toBe(3);
+  });
+
+  it('writes out a prompt past 16k chars in full while it stays under the cap', () => {
+    const big = 'x'.repeat(8000);
+    expect(expandSnippets('@@big@@ @@big@@ @@big@@', { big })).toBe(`${big} ${big} ${big}`);
+  });
+
+  it('stops expanding once the text passes the cap, so nested refs cannot explode', () => {
+    // 3200 refs to a body of 1638 refs: written out in full this is ~26M chars.
+    const snippets = { a: '@@b@@'.repeat(1638), b: 'yyyyy' };
+    const input = '@@a@@'.repeat(3200);
+    const out = expandSnippets(input, snippets);
+    expect(out.length).toBeGreaterThan(EXPANDED_MAX);
+    // At most one body past the cap, plus the input tail whose refs stay literal.
+    expect(out.length).toBeLessThanOrEqual(EXPANDED_MAX + 8192 + input.length);
+  });
+
+  it('a third nesting level stays bounded too', () => {
+    const snippets = { a: '@@b@@'.repeat(1638), b: '@@c@@'.repeat(1638), c: 'zzzzz' };
+    const input = '@@a@@'.repeat(3200);
+    expect(resolveSnippets(input, snippets).length).toBeLessThanOrEqual(
+      EXPANDED_MAX + 8192 + input.length,
+    );
   });
 });

@@ -1,4 +1,5 @@
 import { isSlowPattern } from '@/shared/regex-risk';
+import { EXPANDED_MAX, expandSnippets } from '@/shared/snippets';
 import { count } from '@/shared/utils/count';
 import * as valibot from 'valibot';
 import { confirmDialog } from '@/shared/components/confirmDialog';
@@ -105,11 +106,20 @@ function withoutOverlongEditPatterns(settings: Record<string, unknown>): Record<
   return { ...settings, varietyOverrides: checked };
 }
 
-/** A file's snippet map, when it is well formed; a bad one is dropped and the prompts keep their @@refs. */
-function fileSnippets(raw: unknown): { snippets?: Record<string, string> } {
+/** A file's snippet map, when it is well formed; a bad one is dropped and the prompts keep their @@refs.
+ *  A map that writes one of the file's prompts out past EXPANDED_MAX is bad too. */
+function fileSnippets(
+  raw: unknown,
+  prompts: readonly { system?: string; user?: string }[],
+): { snippets?: Record<string, string> } {
   if (raw === undefined) return {};
   const parsed = valibot.safeParse(snippetsSchema, raw);
-  return parsed.success ? { snippets: parsed.output } : {};
+  if (!parsed.success) return {};
+  const map = parsed.output;
+  const explodes = prompts.some((p) =>
+    [p.system, p.user].some((h) => h && expandSnippets(h, map).length > EXPANDED_MAX),
+  );
+  return explodes ? {} : { snippets: map };
 }
 
 const NOT_A_BACKUP = 'This file is not an Ega backup. Pick a file you exported from Ega.';
@@ -246,7 +256,7 @@ async function parseVarietiesBundle(
     ...(fileOverrides ? { varietyOverrides: cleanOverrides } : {}),
     ...(fileDisabled ? { disabledVarieties: [...cleanDisabled] } : {}),
     ...(file.v === 2 && rawTemplates ? { presetTemplates } : {}),
-    ...fileSnippets(file.snippets),
+    ...fileSnippets(file.snippets, Object.values(presetTemplates)),
     fileCounts: {
       customLanguages: rawCustoms.length,
       varietyOverrides: Object.keys(fileOverrides ?? {}).length,
@@ -352,7 +362,11 @@ function parseTasksBundle(raw: unknown): Extract<ImportBundle, { kind: 'tasks' }
     disabledTasksPresent: Array.isArray(file.disabledTasks),
     ...(file.contextMenuItems !== undefined ? { contextMenuItems } : {}),
     ...(translatePrompt !== undefined ? { translatePrompt } : {}),
-    ...fileSnippets(file.snippets),
+    ...fileSnippets(file.snippets, [
+      ...(translatePrompt ? [translatePrompt.template] : []),
+      ...Object.values(taskOverrides),
+      ...customTasks,
+    ]),
     fileCounts: {
       customTasks: file.customTasks.length,
       taskOverrides: Object.keys(fileOverrides).length,
@@ -397,7 +411,7 @@ async function parseLanguageBundle(
     language,
     patternDropped: filePattern !== undefined,
     ...(file.prompt !== undefined && prompt.success ? { prompt: prompt.output } : {}),
-    ...fileSnippets(file.snippets),
+    ...fileSnippets(file.snippets, prompt.success ? [prompt.output] : []),
     replaces: existing?.label ?? null,
     promptBroken: file.prompt !== undefined && !prompt.success,
   };

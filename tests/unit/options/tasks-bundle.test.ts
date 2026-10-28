@@ -187,6 +187,26 @@ describe('tasks file snippets and banner state', () => {
     expect(after.taskOverrides.summarize?.user).toContain('@@big@@');
   });
 
+  it('drops a snippet map whose nested refs write out past the cap, and reads stay fast', async () => {
+    const plan = await importAs(
+      {
+        egaTasks: {
+          v: 2,
+          customTasks: [],
+          translatePrompt: { system: '@@a@@'.repeat(3200), user: '{{text}}', templateVersion: 1 },
+          snippets: { a: '@@b@@'.repeat(1638), b: 'yyyyy', ok: 'fine' },
+        },
+      },
+      'tasks',
+    );
+    expect(plan.snippets).toBeUndefined();
+    const start = performance.now();
+    const after = await getSettings();
+    expect(performance.now() - start).toBeLessThan(500);
+    expect(after.advanced.snippets).toEqual({});
+    expect(after.advanced.promptTemplate.system).toBe('@@a@@'.repeat(3200));
+  });
+
   it('importing a Translate prompt clears the banner acknowledgement', async () => {
     const cur = await getSettings();
     await updateSettings({ advanced: { ...cur.advanced, templateVersionAcknowledged: 99 } });
