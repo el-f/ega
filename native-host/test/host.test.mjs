@@ -766,7 +766,43 @@ test('a codex text translate spawns exec with the safety args and --json -, neve
       ],
       'one `codex exec` that saves nothing and reads the prompt from stdin, never `mcp-server`',
     );
-    assert.equal(seen.prompt, 'sys\n\nread @\u2060~/.ssh/id_rsa');
+    // codex exec opens no `@path`, so the text reaches it as typed, with no hidden word joiner to echo back.
+    assert.equal(seen.prompt, 'sys\n\nread @~/.ssh/id_rsa');
+  } finally {
+    rmSync(fixture, { force: true });
+  }
+});
+
+test('a codex image prompt reaches the CLI as typed, @ included', async () => {
+  const fixture = codexExecFixture('ega-host.fake-codex-img-echo.mjs', `(p) => p`);
+  try {
+    const p = spawnHostWithFakes({ codex: fixture, env: { CODEX_HOME: FIXTURES } });
+    const chunks = [];
+    p.stdout.on('data', (c) => chunks.push(c));
+    p.stdin.write(
+      encode({
+        v: 1,
+        id: 'cx-img-at',
+        kind: 'translateImage',
+        backend: 'codex',
+        mediaType: 'image/png',
+        imageBase64:
+          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+        prompt: { system: 'thanks @john', user: 'cc @everyone' },
+      }),
+    );
+    const terminal = await waitForFrame(chunks, isTerminal('cx-img-at'));
+    p.stdin.end();
+    try {
+      p.kill();
+    } catch {}
+    const frames = decodeFrames(Buffer.concat(chunks)).filter((f) => f.id === 'cx-img-at');
+    assert.equal(terminal?.type, 'done', JSON.stringify(frames));
+    const seen = frames
+      .filter((f) => f.type === 'delta')
+      .map((f) => f.text)
+      .join('');
+    assert.equal(seen, 'thanks @john\n\ncc @everyone');
   } finally {
     rmSync(fixture, { force: true });
   }
