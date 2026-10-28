@@ -40,12 +40,14 @@ export interface ReadAnswerOptions {
 const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 /** A detected language is a short label; the popup handoff drops longer ids too. */
 const DETECTED_ID_MAX = 128;
+/** A key or label reduced to its letters and digits, so "Key points" names key_points. */
+const nameOf = (text: string): string => text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
 const record = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
 type Envelope = { value: Record<string, unknown>; repaired: boolean };
 
-/** An object with the main key counts anywhere, any other only as the whole text; 'prose': text follows a leading object. */
+/** An object with the main key counts when it opens or ends the text, any other only as the whole text; 'prose': text follows it. */
 function envelope(raw: string, spec: AnswerSpec): Envelope | 'prose' | undefined {
   const lead = raw.length - raw.trimStart().length;
   // The repair skips text before the first brace, so only a candidate that opens with a bracket can be the whole text.
@@ -84,10 +86,15 @@ function envelope(raw: string, spec: AnswerSpec): Envelope | 'prose' | undefined
       const result = { value, repaired: span.repaired };
       const has = (k: string) =>
         Object.keys(value).some((key) => key.toLowerCase() === k.toLowerCase());
-      if (has(mainKey)) return result;
-      if (!candidate.leading) continue;
       // Only a closing bracket or fence may follow the whole-text envelope.
-      if (!/^\s*(?:\]\s*)?(?:```\s*)?$/.test(raw.slice(candidate.at + span.end))) {
+      const ends = /^\s*(?:\]\s*)?(?:```\s*)?$/.test(raw.slice(candidate.at + span.end));
+      if (has(mainKey)) {
+        if (candidate.leading || ends) return result;
+        // A keyed object inside running prose is a quote, not the answer.
+        openedProse = true;
+      }
+      if (!candidate.leading) continue;
+      if (!ends) {
         openedProse = true;
         continue;
       }
@@ -116,8 +123,43 @@ function matchedKey(object: Record<string, unknown>, key: string): string | unde
     : Object.keys(object).find((k) => k.toLowerCase() === key.toLowerCase());
 }
 
+/** Each non-main field's key in the object: its own key in any case, else one free key named like its label. */
+function fieldKeys(
+  spec: AnswerSpec,
+  object: Record<string, unknown>,
+  mainKey: string | undefined,
+): { keys: Map<string, string>; issues: string[] } {
+  const others = spec.fields.filter((f) => f.role !== 'main');
+  const keys = new Map<string, string>();
+  for (const field of others) {
+    const key = matchedKey(object, field.key);
+    if (key !== undefined) keys.set(field.key, key);
+  }
+  const taken = new Set([...keys.values(), ...(mainKey === undefined ? [] : [mainKey])]);
+  const issues: string[] = [];
+  for (const field of others) {
+    if (keys.has(field.key)) continue;
+    const key = Object.keys(object).find(
+      (k) => !taken.has(k) && !UNSAFE_KEYS.has(k) && nameOf(k) === nameOf(field.label),
+    );
+    if (key === undefined) continue;
+    keys.set(field.key, key);
+    taken.add(key);
+    issues.push(`Read ${field.label} from "${key}".`);
+  }
+  return { keys, issues };
+}
+
 function normalized(field: AnswerField, raw: unknown): { value?: unknown; issue?: string } {
   if (raw === null || raw === undefined) return {};
+  // A blank note or language is a field the model left empty, not a value to show.
+  if (
+    typeof raw === 'string' &&
+    !raw.trim() &&
+    field.role !== 'main' &&
+    (field.kind === 'text' || field.kind === 'language')
+  )
+    return {};
   let value = raw;
   switch (field.kind) {
     case 'text':
@@ -157,6 +199,8 @@ function normalized(field: AnswerField, raw: unknown): { value?: unknown; issue?
       break;
     case 'languages': {
       if (!Array.isArray(value)) break;
+      // Strict schemas make the model send every key, so an empty list means none.
+      if (value.length === 0) return {};
       value = value.flatMap((entry) => {
         if (typeof entry === 'string' && entry)
           return entry.length <= DETECTED_ID_MAX ? [{ id: entry }] : [];
@@ -201,6 +245,14 @@ function normalized(field: AnswerField, raw: unknown): { value?: unknown; issue?
                   ),
                 );
   if (v.safeParse(schema, value).success) return { value };
+  // The main answer is never dropped for its length.
+  if (
+    field.role === 'main' &&
+    typeof value === 'string' &&
+    field.maxChars !== undefined &&
+    value.length > field.maxChars
+  )
+    return { value, issue: `${field.label}: longer than ${field.maxChars} characters.` };
   // An unexpected choice/yes-no answer remains available, with an honest issue in About this reply.
   return {
     ...(field.kind === 'choice' || field.kind === 'yesno' ? { value: raw } : {}),
@@ -233,18 +285,20 @@ export function readAnswer(
     object = { [mainField.key]: raw.trim() };
     via = 'prose';
   }
-  let mainKey = matchedKey(object, mainField.key);
-  if (mainKey === undefined)
-    for (const alias of ALIASES) {
-      mainKey = matchedKey(object, alias);
-      if (mainKey !== undefined) break;
-    }
+  const current = object;
+  let mainKey = matchedKey(current, mainField.key);
+  const taken = new Set(fieldKeys(spec, current, mainKey).keys.values());
   const issues: string[] = [];
-  if (mainKey === undefined && spec.join === 'after-build') {
-    const current = object;
-    const claimed = new Set(spec.fields.map((f) => matchedKey(current, f.key)));
+  if (mainKey === undefined) {
+    mainKey = ALIASES.map((alias) => matchedKey(current, alias)).find(
+      (key) => key !== undefined && !taken.has(key),
+    );
+    if (mainKey !== undefined)
+      issues.push(`Read the answer from "${mainKey}" instead of "${mainField.key}".`);
+  }
+  if (mainKey === undefined) {
     const unclaimed = Object.keys(current).filter(
-      (key) => !claimed.has(key) && !UNSAFE_KEYS.has(key) && typeof current[key] === 'string',
+      (key) => !taken.has(key) && !UNSAFE_KEYS.has(key) && typeof current[key] === 'string',
     );
     if (unclaimed.length === 1) {
       mainKey = unclaimed[0];
@@ -277,6 +331,9 @@ export function readAnswer(
   }
   const mainValue = mainKey === undefined ? undefined : normalized(mainField, object[mainKey]);
   if (mainValue?.value === undefined) return { kind: 'error', code: 'PARSE', raw };
+  if (mainValue.issue) issues.push(mainValue.issue);
+  const resolved = fieldKeys(spec, object, mainKey);
+  issues.push(...resolved.issues);
   const mainOut: unknown =
     options.dropHebrewPoints && typeof mainValue.value === 'string'
       ? dropPoints(mainValue.value)
@@ -288,7 +345,7 @@ export function readAnswer(
   const used = new Set<string>(mainKey === undefined ? [] : [mainKey]);
   for (const field of spec.fields) {
     if (field.role === 'main') continue;
-    const key = matchedKey(object, field.key);
+    const key = resolved.keys.get(field.key);
     if (key !== undefined) used.add(key);
     const parsed = normalized(field, key === undefined ? undefined : object[key]);
     if (parsed.issue) issues.push(parsed.issue);
@@ -328,6 +385,10 @@ export function createAnswerProjector(
 } {
   let raw = '';
   let visible = '';
+  // A keyed object the full read called a quote in prose: the live text stops following its value.
+  let quoted = false;
+  // A keyed object after prose was read as the answer; text after it can still make it a quote.
+  let mayQuote = false;
   const mainKey = spec.fields.find((f) => f.role === 'main')?.key ?? 'translation';
   const scanner = createStringValueScan(mainKey);
   // Bracket depth outside JSON strings, read once per character.
@@ -363,13 +424,20 @@ export function createAnswerProjector(
       const pendingEnvelope = depth > 0 && objectStart.test(raw);
       const framed = /^\s*[[{]/.test(raw);
       const openingFence = /^\s*```/.test(raw) || /^\s*`{1,2}\s*$/.test(raw);
-      let next = partial ?? (framed || openingFence ? '' : pendingEnvelope ? visible : raw);
+      let next =
+        (quoted ? null : partial) ??
+        (framed || openingFence ? '' : pendingEnvelope ? visible : raw);
       // A full read re-parses the whole answer, so it runs only when the envelope or a leading fence closes.
       const fenceClosed =
         openingFence && raw.slice(-16).trimEnd().endsWith('```') && !/^\s*`{1,3}\s*$/.test(raw);
-      if ((closed && (framed || partial !== null)) || fenceClosed) {
+      const textAfter = mayQuote && depth === 0 && /\S/.test(delta);
+      if ((closed && (framed || partial !== null)) || fenceClosed || textAfter) {
         const answer = readAnswer(spec, raw, options);
-        if (answer.kind === 'ok') next = answer.main;
+        if (answer.kind === 'ok') {
+          next = answer.main;
+          quoted = answer.via === 'prose';
+          mayQuote = !framed && !openingFence && !quoted;
+        }
       }
       // The canonical v1 scanner tolerates half-arrived Unicode and quotes exactly as before.
       if (mainKey === 'translation' && partial === null && next === '' && closed)

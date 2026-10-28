@@ -64,17 +64,22 @@ describe('spec reader compared with the frozen v1 results', () => {
     'F3 notes list': { text: 'hello', done: { explain: 'First note\nSecond note' } },
     'F4 percent score': { text: 'hello', done: { confidence: 0.85 } },
     'F13 nested envelope': { text: 'hello', done: {} },
+    // The only text field under another key is read as the answer, with an issue.
+    'memoized 7': { text: 'x', done: {} },
   };
-  it.each(reader)('$name: unchanged unless named F1, F3, F4 or F13', ({ name, raw, expected }) => {
-    const scrubber = createThinkScrubber();
-    const result = readAnswer(answerSpecFor('translate'), scrubber.push(raw) + scrubber.flush());
-    // Error categories change in their own slice; this comparison checks usable answers.
-    if (result.kind === 'error') expect(expected).toEqual({ error: 'SERVER' });
-    else {
-      const { translation: _translation, ...done } = result.fields;
-      expect({ text: result.main, done }).toEqual(improved[name] ?? expected);
-    }
-  });
+  it.each(reader)(
+    '$name: unchanged unless named in the improved list',
+    ({ name, raw, expected }) => {
+      const scrubber = createThinkScrubber();
+      const result = readAnswer(answerSpecFor('translate'), scrubber.push(raw) + scrubber.flush());
+      // Error categories change in their own slice; this comparison checks usable answers.
+      if (result.kind === 'error') expect(expected).toEqual({ error: 'SERVER' });
+      else {
+        const { translation: _translation, ...done } = result.fields;
+        expect({ text: result.main, done }).toEqual(improved[name] ?? expected);
+      }
+    },
+  );
 });
 
 describe('custom prompts retain frozen v1 bytes except the preset main key', () => {

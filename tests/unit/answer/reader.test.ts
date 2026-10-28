@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { answerSpecFor, type AnswerSpec } from '@/shared/answer/spec';
+import { answerSpecFor, CUSTOM_PRESETS, type AnswerSpec } from '@/shared/answer/spec';
 import { readAnswer, createAnswerProjector } from '@/shared/answer/reader';
 import * as fc from 'fast-check';
 
@@ -88,6 +88,7 @@ describe('the service worker answer reader', () => {
     '{"result": "ok"} is what the API returns on success.',
     'To build it, set {"output": "dist"} in vite.config and run pnpm build.',
     'The reply is:\n```json\n{"text": "hi"}\n```\nThen the client shows it.',
+    'Send {"answer": "yes"} to confirm the order.',
   ])('reads prose that quotes a JSON object as prose: %j', (raw) => {
     for (const spec of [answerSpecFor('ask'), answerSpecFor('summarize')]) {
       expect(readAnswer(spec, raw)).toMatchObject({ kind: 'ok', main: raw, via: 'prose' });
@@ -193,7 +194,8 @@ describe('the service worker answer reader', () => {
   });
   // A cut stream or a broken envelope must not be shown and cached as a finished answer.
   it.each([
-    [answerSpecFor('ask'), '{"translation": "Step 1: open the file. Step 2: cl'],
+    [answerSpecFor('ask'), '{"answer": "Step 1: open the file. Step 2: cl'],
+    [answerSpecFor('reword'), '{"answer": "Hello there.", "explain": "Changed the gree'],
     [translate, '{"translation": "The meeting is moved to Thurs'],
     [translate, '{"translation": "He shouted "Stop", "Wait" then left", "confidence": 0.9}'],
     [custom, 'Here it is: {"answer": "Half an ans'],
@@ -318,7 +320,8 @@ describe('visible answer projection', () => {
     'Example payload: {"name": "x"} and then a long explanation follows.',
     'The payload is {"user": "bob", "age": 3} and the server reads the user field.',
     'Set it like this:\n```json\n{"port": 8080}\n```\nThen restart the server.',
-  ])('streams prose that quotes a keyless JSON object: %j', (raw) => {
+    'The API replies {"answer": "ok"} and then closes the socket.',
+  ])('streams prose that quotes a JSON object: %j', (raw) => {
     for (const spec of [answerSpecFor('ask'), custom]) {
       const projector = createAnswerProjector(spec);
       let visible = '';
@@ -392,5 +395,96 @@ describe('visible answer projection', () => {
       ),
       { numRuns: 100 },
     );
+  });
+});
+
+describe('reading an answer that does not match its spec', () => {
+  const card = answerSpecFor('reword');
+  const own = (fields: AnswerSpec['fields']): AnswerSpec => ({ ...custom, fields });
+  const main = {
+    key: 'answer',
+    label: 'Answer',
+    kind: 'text',
+    role: 'main',
+    required: true,
+  } as const;
+
+  it('reads an alias as the main answer, and says so', () => {
+    expect(readAnswer(translate, '{"answer":"hola","confidence":0.9}')).toMatchObject({
+      kind: 'ok',
+      main: 'hola',
+      issues: ['Read the answer from "answer" instead of "translation".'],
+    });
+  });
+  it("never reads another field's key as the main answer", () => {
+    const spec = own([
+      main,
+      { key: 'text', label: 'Text', kind: 'text', role: 'notes', required: false },
+    ]);
+    const result = readAnswer(spec, '{"text":"the rewrite","result":"R"}');
+    expect(result).toMatchObject({
+      kind: 'ok',
+      main: 'R',
+      notes: [{ key: 'text', text: 'the rewrite' }],
+    });
+    expect(readAnswer(spec, '{"text":"the rewrite"}')).toMatchObject({ kind: 'error' });
+  });
+  it('matches a key the model named after a field, ignoring case, and says so', () => {
+    const spec = own([
+      main,
+      { key: 'field1', label: 'Tone', kind: 'text', role: 'notes', required: false },
+      { key: 'field2', label: 'Key points', kind: 'list', role: 'notes', required: false },
+    ]);
+    const result = readAnswer(spec, '{"answer":"hi","tone":"warm","Key points":["a","b"]}');
+    expect(result).toMatchObject({
+      kind: 'ok',
+      fields: { field1: 'warm', field2: ['a', 'b'] },
+      notes: [
+        { key: 'field1', label: 'Tone', text: 'warm' },
+        { key: 'field2', label: 'Key points', items: ['a', 'b'] },
+      ],
+      details: [],
+      issues: ['Read Tone from "tone".', 'Read Key points from "Key points".'],
+    });
+  });
+  it("reads a built-in prompt's own format through its only text field, and says so", () => {
+    expect(readAnswer(answerSpecFor('summarize'), '{"summary": "S."}')).toMatchObject({
+      kind: 'ok',
+      main: 'S.',
+      issues: ['Used the only unclaimed text field as the answer.'],
+    });
+  });
+  it('treats a blank note or language as left out', () => {
+    expect(
+      readAnswer(CUSTOM_PRESETS['answer-notes'], '{"answer":"a","explain":" "}'),
+    ).toMatchObject({
+      kind: 'ok',
+      notes: [],
+      issues: [],
+    });
+    expect(readAnswer(card, '{"answer":"a","explain":""}')).toMatchObject({
+      kind: 'ok',
+      notes: [],
+      issues: ['Notes: field missing.'],
+    });
+    expect(
+      readAnswer(translate, '{"translation":"a","confidence":0.9,"detectedLang":""}'),
+    ).toMatchObject({ kind: 'ok', fields: { translation: 'a', confidence: 0.9 }, issues: [] });
+  });
+  it('keeps a main answer over its character limit, and says so', () => {
+    const spec = own([{ ...main, maxChars: 10 }]);
+    expect(readAnswer(spec, '{"answer":"this is longer than ten"}')).toMatchObject({
+      kind: 'ok',
+      main: 'this is longer than ten',
+      issues: ['Answer: longer than 10 characters.'],
+    });
+  });
+  it('reads an empty list of source languages as left out', () => {
+    const result = readAnswer(
+      translate,
+      '{"translation":"a","confidence":0.9,"detectedLang":"en","detectedLangs":[]}',
+    );
+    expect(result).toMatchObject({ kind: 'ok', issues: [] });
+    if (result.kind === 'ok') expect(result.fields).not.toHaveProperty('detectedLangs');
   });
 });
