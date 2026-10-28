@@ -502,11 +502,11 @@ async function codexSystemMcpArgs(bin) {
   } finally {
     await rm(emptyHome, { recursive: true, force: true }).catch(() => {});
   }
-  if (r?.code !== 0) {
+  const overrides = r?.code === 0 ? codexMcpOverrides(r.stdout) : null;
+  if (!overrides) {
     // Not cached: the next request lists again.
-    process.stderr.write(
-      `[ega-host] codex mcp list failed (${r ? `exit ${r.code}` : 'no answer'})\n`,
-    );
+    const why = !r ? 'no answer' : r.code !== 0 ? `exit ${r.code}` : 'output in an unknown shape';
+    process.stderr.write(`[ega-host] codex mcp list failed (${why})\n`);
     if (await anyExists(codexSystemConfigs())) {
       throw new Error(
         'Ega could not list the MCP servers your system Codex config loads, so it does not send page text to Codex this time. Try again.',
@@ -514,7 +514,6 @@ async function codexSystemMcpArgs(bin) {
     }
     return { args: [], stillLoaded: [] };
   }
-  const overrides = codexMcpOverrides(r.stdout);
   systemMcp = { at: Date.now(), overrides };
   return overrides;
 }

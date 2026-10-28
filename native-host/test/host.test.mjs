@@ -3,7 +3,15 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { writeFileSync, rmSync, readFileSync, existsSync, readdirSync, mkdtempSync } from 'node:fs';
+import {
+  writeFileSync,
+  rmSync,
+  readFileSync,
+  existsSync,
+  readdirSync,
+  mkdtempSync,
+  mkdirSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { CODEX_INSTRUCTIONS, CODEX_SAFETY_ARGS } from '../lib/protocol-codex.mjs';
 import { CLAUDE_PROMPT_ARGS, CLAUDE_SAFETY_ARGS } from '../lib/protocol-claude.mjs';
@@ -970,6 +978,76 @@ test('a failed system MCP list is not kept: the next codex request lists again',
     rmSync(log, { force: true });
   }
 });
+
+test('a system MCP list in an unknown shape is not kept: the next codex request lists again', async () => {
+  const log = path.join(FIXTURES, 'codex-mcp-shape.log');
+  const fixture = codexExecFixture('ega-host.fake-codex-mcp-shape.mjs', `() => 'ok'`, [
+    `import { appendFileSync } from 'node:fs';`,
+    `appendFileSync(process.env.FAKE_CODEX_LOG, process.argv[2] + '\\n');`,
+  ]);
+  try {
+    const p = spawnHostWithFakes({
+      codex: fixture,
+      env: {
+        FAKE_CODEX_LOG: log,
+        FAKE_MCP_LIST: '{"servers":[{"name":"jira","enabled":true}]}',
+        ProgramData: FIXTURES,
+      },
+    });
+    const chunks = [];
+    p.stdout.on('data', (c) => chunks.push(c));
+    const ends = [];
+    for (const id of ['cx-s1', 'cx-s2']) {
+      p.stdin.write(
+        encode({ v: 1, id, kind: 'translate', backend: 'codex', prompt: { user: 'hi' } }),
+      );
+      ends.push((await waitForFrame(chunks, isTerminal(id)))?.type);
+    }
+    p.stdin.end();
+    try {
+      p.kill();
+    } catch {}
+    // No system codex config (ProgramData points at an empty folder on Windows), so an unread list lets the request through.
+    assert.deepEqual(ends, ['done', 'done']);
+    assert.deepEqual(readFileSync(log, 'utf8').trim().split('\n'), ['mcp', 'exec', 'mcp', 'exec']);
+  } finally {
+    rmSync(fixture, { force: true });
+    rmSync(log, { force: true });
+  }
+});
+
+// The host reads the system config folder from ProgramData on Windows only; /etc/codex cannot be faked.
+test(
+  'a system MCP list in an unknown shape stops the request when a system codex config exists',
+  { skip: process.platform !== 'win32' },
+  async () => {
+    const programData = mkdtempSync(path.join(tmpdir(), 'ega-programdata-'));
+    mkdirSync(path.join(programData, 'OpenAI', 'Codex'), { recursive: true });
+    writeFileSync(path.join(programData, 'OpenAI', 'Codex', 'config.toml'), '');
+    const fixture = codexExecFixture('ega-host.fake-codex-mcp-sys.mjs', `() => 'ok'`);
+    try {
+      const p = spawnHostWithFakes({
+        codex: fixture,
+        env: { ProgramData: programData, FAKE_MCP_LIST: '[{"id":"jira"}]' },
+      });
+      const chunks = [];
+      p.stdout.on('data', (c) => chunks.push(c));
+      p.stdin.write(
+        encode({ v: 1, id: 'cx-sys', kind: 'translate', backend: 'codex', prompt: { user: 'hi' } }),
+      );
+      const terminal = await waitForFrame(chunks, isTerminal('cx-sys'));
+      p.stdin.end();
+      try {
+        p.kill();
+      } catch {}
+      assert.equal(terminal?.type, 'error', JSON.stringify(terminal));
+      assert.match(terminal?.message ?? '', /could not list the MCP servers/);
+    } finally {
+      rmSync(fixture, { force: true });
+      rmSync(programData, { recursive: true, force: true });
+    }
+  },
+);
 
 test('a system MCP server is turned off by name, and one no -c path can name stops the request', async () => {
   const run = async (list, id) => {
