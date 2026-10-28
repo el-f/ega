@@ -28,6 +28,19 @@ describe('detectCategory', () => {
     expect(detectCategory("don't add headers")).toBe('never');
   });
 
+  it('reads the other common negative openers as never, before "must" claims them', () => {
+    for (const body of [
+      'Don’t translate names',
+      'Must not add notes',
+      'should not guess',
+      'Avoid slang',
+      'No emojis',
+    ]) {
+      expect(detectCategory(body), body).toBe('never');
+    }
+    expect(detectCategory('Note the tone')).toBe('unknown');
+  });
+
   it('classifies "prefer …" / "lean toward …" as prefer', () => {
     expect(detectCategory('prefer short sentences')).toBe('prefer');
     expect(detectCategory('Lean toward concise output')).toBe('prefer');
@@ -176,6 +189,16 @@ describe('renderRulesBlock', () => {
     expect(out).toContain("  - Don't translate brand names");
     expect(out).toContain('  - Always keep emoji');
     expect(out).not.toMatch(/Never: Don't|Always: Always/);
+  });
+
+  it('a Never rule with a typographic apostrophe or "Must not" gets no Never prefix', () => {
+    const out = renderRulesBlock([
+      rule({ id: '1', body: 'Don’t translate names', category: 'never' }),
+      rule({ id: '2', body: 'Must not add notes', category: 'never' }),
+    ]);
+    expect(out).toContain('  - Don’t translate names');
+    expect(out).toContain('  - Must not add notes');
+    expect(out).not.toContain('Never:');
   });
 
   it('a pasted multi-line body cannot open its own instruction line', () => {

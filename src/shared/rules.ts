@@ -7,7 +7,8 @@ export type RuleCategory = Rule['category'];
 export type Rule = RuleFromSchema;
 
 const ALWAYS_RE = /^(?:always|must|do)\b/i;
-const NEVER_RE = /^(?:never|do not|don't)\b/i;
+// The apostrophe class takes autocorrect's typographic one too.
+const NEVER_RE = /^(?:never|do not|don['’]t|must not|should not|avoid|no)\b/i;
 const PREFER_RE = /^(?:prefer|lean toward)\b/i;
 const FORMAT_RE = /^(?:format|output|return|respond in)\b/i;
 
