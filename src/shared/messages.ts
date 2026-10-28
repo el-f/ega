@@ -39,6 +39,8 @@ export type Msg =
       kind: 'task:try';
       requestId: string;
       draft: CustomTaskInput;
+      /** The saved row's id, so rules scoped to the task apply; absent before the first save. */
+      taskId?: string;
       text: string;
       sourceLang: LangSelection;
       targetLang: LangSelection;

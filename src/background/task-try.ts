@@ -32,13 +32,21 @@ export function createTaskTryHandler(
       const row = v.safeParse(customTaskSchema, { ...msg.draft, id, createdAt: Date.now() });
       if (!row.success)
         return fail('Check the task name, message and answer fields before trying it.');
+      const saved = typeof msg.taskId === 'string' ? msg.taskId : undefined;
       const router = createRouter({
         ...deps,
         record: false,
         getSettings: async () => {
           const s = await deps.getSettings();
+          // The router row has its own id; rules scoped to the saved task still apply, as in a real run.
+          const rules = s.advanced.rules.map((r) =>
+            saved !== undefined && r.scope.tasks.includes(saved)
+              ? { ...r, scope: { ...r.scope, tasks: [...r.scope.tasks, id] } }
+              : r,
+          );
           return {
             ...s,
+            advanced: { ...s.advanced, rules },
             cacheEnabled: false,
             captureResultMeta: true,
             disabledTasks: s.disabledTasks.filter((task) => task !== id),

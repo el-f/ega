@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTaskTryHandler } from '@/background/task-try';
-import { baseDeps } from '@tests/_helpers/router';
+import { baseDeps, mkSettings } from '@tests/_helpers/router';
+import { buildCustomPreviewPrompt } from '@/options/preview-prompt';
+import { materializeVarieties } from '@/shared/varieties';
 import { testManifest } from '@tests/_helpers/backend';
 import type { TranslateCallArgs, TranslationBackend } from '@/shared/backends/base';
 import type { Msg } from '@/shared/messages';
@@ -74,6 +76,42 @@ describe('trying an unsaved task', () => {
     expect(result.type === 'done' && result.meta?.instructions).toContain('Make an outline.');
     expect(audit).not.toHaveBeenCalled();
     expect(getPerfEntries()).toEqual([]);
+  });
+  it('sends the prompt the Preview shows, rules scoped to the saved task included', async () => {
+    const base = mkSettings();
+    const rule = {
+      id: 'r1',
+      body: 'Keep it short.',
+      category: 'always' as const,
+      scope: { tasks: ['saved-1'] },
+      source: 'manual' as const,
+      addedAt: '2026-01-01T00:00:00.000Z',
+      enabled: true,
+    };
+    const s = mkSettings({ advanced: { ...base.advanced, rules: [rule] } });
+    const calls: TranslateCallArgs[] = [];
+    const backend: TranslationBackend = {
+      id: asBackendIdUnsafe('anthropic'),
+      manifest: testManifest('anthropic'),
+      isAvailable: async () => true,
+      translate: async (a) => {
+        calls.push(a);
+        a.onChunk({ type: 'delta', requestId: a.req.id, text: '{"outline": ["One"]}' });
+        a.onChunk({ type: 'done', requestId: a.req.id });
+      },
+    };
+    const h = createTaskTryHandler(baseDeps({ backends: [backend], getSettings: async () => s }));
+    await h.run({ ...message, taskId: 'saved-1' }, true);
+    const preview = buildCustomPreviewPrompt(s, {
+      id: 'saved-1',
+      row: message.draft,
+      text: message.text,
+      sourceLang: 'auto',
+      targetLang: sel('en'),
+      varieties: materializeVarieties(s, []),
+    });
+    expect(preview.system).toContain('Keep it short.');
+    expect({ system: calls[0]?.system, user: calls[0]?.user }).toEqual(preview);
   });
   it('rejects content-page callers and invalid drafts before making a backend call', async () => {
     const translate = vi.fn<TranslationBackend['translate']>();
