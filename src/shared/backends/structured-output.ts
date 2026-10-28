@@ -16,8 +16,16 @@ export function hasConflictingFormat(
 ): boolean {
   // A custom task's contract always goes last and is the only shape Ega reads.
   if (spec.join === 'after-build') return false;
+  return namesOwnFormat(template, spec.pinned);
+}
+
+/** The prompt asks for an answer format of its own, besides the pinned one. */
+export function namesOwnFormat(
+  template: { system: string; user: string },
+  pinned?: { text: string },
+): boolean {
   const text = `${template.system}\n${template.user}`;
-  const rest = spec.pinned ? text.replace(spec.pinned.text, '') : text;
+  const rest = pinned ? text.replace(pinned.text, '') : text;
   return /\b(?:return|respond|output|reply|produce)\b[^.\n]{1,80}\b(?:json|plain text|markdown|xml)\b|\bjson\s+(?:only|schema)|\{\s*"[\w-]+"\s*:/i.test(
     rest,
   );

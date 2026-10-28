@@ -30,7 +30,7 @@
   import AnswerPreview from './AnswerPreview.svelte';
   import ReplySection from './ReplySection.svelte';
   import { embedsOwnFormat, convertOwnFormat } from '@/options/own-answer-format';
-  import { hasConflictingFormat } from '@/shared/backends/structured-output';
+  import { namesOwnFormat } from '@/shared/backends/structured-output';
   import { listVarieties } from '@/shared/varieties';
   import { buildCustomPreviewPrompt, PREVIEW_SAMPLE_TEXT } from '@/options/preview-prompt';
   import { reportSaveFailure } from '@/options/storage-with-toast';
@@ -116,8 +116,8 @@
   const answerSpec = $derived(customAnswerSpec(draft, taskKey));
   const ownFormat = $derived(embedsOwnFormat(prompt));
   const conversion = $derived(ownFormat ? convertOwnFormat(prompt, ownFormat) : null);
-  // The router turns schema checks off on the same test, so the notice shows exactly when the model gets two formats.
-  const asksOwnFormat = $derived(ownFormat !== null || hasConflictingFormat(prompt, answerSpec));
+  // Ega's contract always follows the instructions, so a format they name means the model gets two.
+  const asksOwnFormat = $derived(ownFormat !== null || namesOwnFormat(prompt));
   // Each field shows its own problem; the footer only points at them, so it stays one short line.
   const FIX_FIELDS = 'fix the reply fields';
   function fieldsProblem(fields: readonly AnswerField[]): string | null {
