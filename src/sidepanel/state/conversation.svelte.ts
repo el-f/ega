@@ -926,6 +926,8 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
 
   /** Request id of the language-change variant in flight, so a second pick replaces it instead of bailing. */
   let langChangeRequestId: string | null = null;
+  /** The version that language pick re-answers. */
+  let langChangeFrom: string | null = null;
   /** A thread at the cap drops a turn on every save, so the notice fires once per loaded thread. */
   let trimNoticed = false;
   let shedNoticed = false;
@@ -951,9 +953,17 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       }
       // The user changed their mind mid-stream: the half answer in the old language is noise, not a variant.
       const abandoned = state.inflightVariantId;
+      const turn = state.turns.find((t) => t.id === assistantId);
+      // Dropping the shown version shows the one before it, which need not be the one the first pick re-answered.
+      const back = turn && activeVariant(turn)?.id === abandoned ? langChangeFrom : null;
       cancel();
       if (abandoned !== null) {
-        mutate((turns) => dropVariantPure(turns, assistantId, abandoned), 'none');
+        mutate((turns) => {
+          const dropped = dropVariantPure(turns, assistantId, abandoned);
+          const shown = dropped.find((t) => t.id === assistantId);
+          const at = shown?.variants?.findIndex((v) => v.id === back) ?? -1;
+          return at < 0 ? dropped : selectVariantPure(dropped, assistantId, at);
+        }, 'none');
       }
     }
     const target = resolveVariantTarget(assistantId);
@@ -973,8 +983,12 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       selectVariant(assistantId, existing);
       return true;
     }
+    const from = active?.id ?? null;
     const ok = (await dispatchVariant(assistantId, { targetLang, ...carried })) !== null;
-    if (ok) langChangeRequestId = state.requestId;
+    if (ok) {
+      langChangeRequestId = state.requestId;
+      langChangeFrom = from;
+    }
     return ok;
   }
 
