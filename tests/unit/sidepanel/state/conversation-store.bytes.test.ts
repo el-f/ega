@@ -8,11 +8,16 @@ import {
   threadKey,
 } from '@/sidepanel/state/conversation-store';
 import {
+  activeVariant,
   addAssistantTurn,
   addUserTurn,
   applyChunk,
+  historySource,
+  turnTaskValue,
   type Turn,
+  type Variant,
 } from '@/sidepanel/state/conversation';
+import { asLangIdUnsafe } from '@/shared/brands';
 import { userTurn } from '@tests/_helpers/turns';
 
 function sizeOf(x: unknown): number {
@@ -100,6 +105,68 @@ describe('a settled answer stores its text without the raw model reply', () => {
   });
 });
 
+describe('a reply over the turn cap keeps its shown version', () => {
+  function bigVersion(id: string): Variant {
+    return { id, status: 'done', content: 'v'.repeat(160_000), rawAcc: '' };
+  }
+
+  it('an "Ask instead" version stays an Ask after the shrink, so Translate history leaves it out', async () => {
+    const asked: Variant = {
+      id: 'a1:v3',
+      status: 'done',
+      content: 'FR ANSWER',
+      rawAcc: '',
+      task: 'ask',
+      about: { turnId: 'a0' },
+      targetLang: asLangIdUnsafe('fr'),
+      refinementBody: 'shorter',
+    };
+    const a1: Turn = {
+      id: 'a1',
+      role: 'assistant',
+      kind: 'translate',
+      status: 'done',
+      createdAt: 4,
+      content: 'FR ANSWER',
+      attachedToTurnId: 'u1',
+      variants: [bigVersion('a1:v1'), bigVersion('a1:v2'), asked],
+      activeVariantIdx: 2,
+    };
+    const turns: Turn[] = [
+      { ...userTurn('u0', 'hola'), createdAt: 1 },
+      {
+        id: 'a0',
+        role: 'assistant',
+        kind: 'translate',
+        status: 'done',
+        createdAt: 2,
+        content: 'hello',
+        attachedToTurnId: 'u0',
+      },
+      { ...userTurn('u1', 'what does it mean?'), createdAt: 3 },
+      a1,
+    ];
+    expect(historySource(turns, 'translate').map((t) => t.id)).toEqual(['u0', 'a0']);
+
+    await saveThread('https://ask-shrunk.com', turns);
+    const loaded = (await loadThreadResult('https://ask-shrunk.com')).turns;
+    const back = loaded.find((t) => t.id === 'a1');
+
+    expect(sizeOf(back)).toBeLessThanOrEqual(MAX_TURN_BYTES);
+    expect(back?.variants).toHaveLength(1);
+    expect(back && activeVariant(back)).toMatchObject({
+      id: 'a1:v3',
+      content: 'FR ANSWER',
+      task: 'ask',
+      about: { turnId: 'a0' },
+      targetLang: 'fr',
+      refinementBody: 'shorter',
+    });
+    expect(back && turnTaskValue(back)).toBe('ask');
+    expect(historySource(loaded, 'translate').map((t) => t.id)).toEqual(['u0', 'a0']);
+  });
+});
+
 describe('a shrunk assistant turn gets its v1 back on load', () => {
   it('rebuilds variants[0] from the stored body, so Regenerate appends beside it instead of over it', async () => {
     const huge: Turn = {
@@ -127,13 +194,38 @@ describe('a shrunk assistant turn gets its v1 back on load', () => {
     const loaded = (await loadThreadResult('https://shrunk.com')).turns;
     const back = loaded.find((t) => t.id === 'big');
     expect(back?.variants).toHaveLength(1);
-    expect(back?.variants?.[0]).toMatchObject({
-      id: 'big:v1',
+    expect(back?.variants?.[0]).toMatchObject({ id: 'big:v1', status: 'done', explain: 'why' });
+    expect(back?.variants?.[0]?.content).toBe(back?.content);
+    expect(back?.activeVariantIdx).toBe(0);
+  });
+
+  it('rebuilds v1 for a turn an older build stored with no versions', async () => {
+    const o = 'https://old-shrunk.com';
+    const bare: Turn = {
+      createdAt: 1,
+      id: 'big',
+      role: 'assistant',
+      kind: 'translate',
       status: 'done',
+      content: 'short now',
       explain: 'why',
       confidence: 0.9,
+      attachedToTurnId: 'u',
+    };
+    await chrome.storage.local.set({
+      [threadKey(o)]: { version: 1, origin: o, updatedAt: 1, turns: [userTurn('u', 'hi'), bare] },
     });
-    expect(back?.variants?.[0]?.content).toBe(back?.content);
+    const back = (await loadThreadResult(o)).turns.find((t) => t.id === 'big');
+    expect(back?.variants).toEqual([
+      {
+        id: 'big:v1',
+        status: 'done',
+        content: 'short now',
+        rawAcc: '',
+        explain: 'why',
+        confidence: 0.9,
+      },
+    ]);
     expect(back?.activeVariantIdx).toBe(0);
   });
 });

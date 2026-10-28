@@ -14,6 +14,7 @@ import {
   threadKey,
   type IndexEntry,
 } from '@/shared/saved-conversations';
+import { debugCatch } from '@/shared/logger';
 import { omitUndef } from '@/shared/utils/omitUndef';
 import { IMAGE_DATA_URL_MAX_CHARS } from '@/shared/constants';
 import { INSTRUCTIONS_KEPT_REPLIES } from '@/shared/reply-instructions';
@@ -223,7 +224,7 @@ export function leanInstructions(
   return out;
 }
 
-/** `shrinkTurn` drops `variants` past the byte cap; every live assistant turn has a v1, so rebuild it here and nothing downstream has to special-case its absence. */
+/** Older builds' `shrinkTurn` stored turns with no `variants`; every live assistant turn has a v1, so rebuild it here and nothing downstream has to special-case its absence. */
 function withSeedVariant(t: AssistantTurnData): AssistantTurnData {
   if (t.variants !== undefined) return t;
   const seed: Variant = {
@@ -430,12 +431,20 @@ function estimateBytes(value: unknown): number {
   return encoder.encode(JSON.stringify(value)).byteLength;
 }
 
-/** The active variant already projects onto `content`, so the history is the part that can go. */
+/** The other versions are the part that can go. The shown one stays: its task, Ask target and languages live only there. */
 function shrinkTurn(t: Turn): Turn {
   const lean: Turn = { ...t, content: t.content.slice(0, MAX_TURN_CONTENT_CHARS) };
   delete lean.rawAcc;
-  delete lean.variants;
-  delete lean.activeVariantIdx;
+  const shown = t.variants?.[t.activeVariantIdx ?? 0];
+  if (shown === undefined) {
+    delete lean.variants;
+    delete lean.activeVariantIdx;
+    return lean;
+  }
+  const { rawAcc: _raw, ...kept } = shown;
+  void _raw;
+  lean.variants = [{ ...kept, content: shown.content.slice(0, MAX_TURN_CONTENT_CHARS) }];
+  lean.activeVariantIdx = 0;
   return lean;
 }
 
@@ -480,8 +489,24 @@ function serialisedArrayBytes(sized: readonly SizedTurn[]): number {
   return sized.reduce((sum, s) => sum + s.bytes, 0) + sized.length + 1;
 }
 
-/** Keeps the newest turns that fit the thread budget. */
-function fitThreadBytes(sized: SizedTurn[]): SizedTurn[] {
+/** Over the thread budget, image payloads go oldest first and their text stays. */
+function shedOldestImages(sized: SizedTurn[]): SizedTurn[] {
+  let total = sized.reduce((sum, s) => sum + s.bytes + 1, 0);
+  const out = [...sized];
+  for (let i = 0; i < out.length && total > MAX_THREAD_BYTES; i++) {
+    const s = out[i];
+    if (s?.turn.imageDataUrl === undefined) continue;
+    const turn = stripImage(s.turn, IMAGE_SHED_NOTE);
+    const bytes = estimateBytes(turn);
+    total += bytes - s.bytes;
+    out[i] = { turn, bytes };
+  }
+  return out;
+}
+
+/** Keeps the newest turns that fit the thread budget, once dropping images was not enough. */
+function fitThreadBytes(all: SizedTurn[]): SizedTurn[] {
+  const sized = shedOldestImages(all);
   let total = 0;
   for (let i = sized.length - 1; i >= 0; i--) {
     total += (sized[i]?.bytes ?? 0) + 1;
@@ -558,20 +583,38 @@ function shedForQuota(turns: readonly Turn[]): Turn[] | null {
   return lean.some((t, i) => t !== turns[i]) ? lean : null;
 }
 
+interface Eviction {
+  evicted: EvictedConversation;
+  /** Writes the thread and its row back, for when the space it freed was not enough. */
+  restore: () => Promise<void>;
+}
+
 /** Deletes the first OTHER thread in eviction order and names it.
  *  Never our own: the blob we are about to write would be left unlisted. */
-async function evictOldestOtherThread(origin: string): Promise<EvictedConversation | undefined> {
+async function evictOldestOtherThread(origin: string): Promise<Eviction | undefined> {
   const index = await readIndex();
   const victim = index.threads.filter((t) => t.origin !== origin).sort(evictionOrder)[0];
   if (!victim) return undefined;
-  await chrome.storage.local.remove(threadKey(victim.origin));
+  const key = threadKey(victim.origin);
+  const blob: unknown = (await chrome.storage.local.get(key))[key];
+  await chrome.storage.local.remove(key);
   await chrome.storage.local.set({
     [INDEX_KEY]: {
       version: CONV_STORE_VERSION,
       threads: index.threads.filter((t) => t.origin !== victim.origin),
     },
   });
-  return evictedOf(victim);
+  const restore = async (): Promise<void> => {
+    const now = await readIndex();
+    await chrome.storage.local.set({
+      ...(blob !== undefined ? { [key]: blob } : {}),
+      [INDEX_KEY]: {
+        version: CONV_STORE_VERSION,
+        threads: [...now.threads.filter((t) => t.origin !== victim.origin), victim],
+      },
+    });
+  };
+  return { evicted: evictedOf(victim), restore };
 }
 
 export function isQuotaError(e: unknown): boolean {
@@ -764,13 +807,29 @@ export interface SaveThreadResult {
   refusedIds?: string[];
 }
 
+/** Index removals this page has heard: one per "Delete all data" or "Delete all conversations". */
+let purgesHeard = 0;
+let purgeWatch = false;
+
+/** The panel resets on the same event, so a save called before it holds a snapshot of the purged thread. */
+function watchPurges(): void {
+  if (purgeWatch) return;
+  purgeWatch = true;
+  chrome.storage.local.onChanged.addListener((changes) => {
+    const change = changes[INDEX_KEY];
+    if (change !== undefined && change.newValue === undefined) purgesHeard++;
+  });
+}
+
 /** On a quota rejection this sheds its own bytes first, and only then evicts another thread. */
 export async function saveThread(
   origin: string,
   turns: Turn[],
   options: SaveThreadOptions = {},
 ): Promise<SaveThreadResult> {
-  return await writeLock(() => saveThreadLocked(origin, turns, options));
+  watchPurges();
+  const heard = purgesHeard;
+  return await writeLock(() => saveThreadLocked(origin, turns, options, heard));
 }
 
 /** Puts one settled turn back in its place in the stored thread. A turn no longer stored was
@@ -784,7 +843,12 @@ export async function settleStoredTurn(
     const stored = await readStoredThread(origin);
     if (stored.unreadable || !stored.turns.some((t) => t.id === turn.id)) return undefined;
     const next = stored.turns.map((t) => (t.id === turn.id ? turn : t));
-    return saveThreadLocked(origin, next, { knownIds: new Set(next.map((t) => t.id)), writer });
+    return saveThreadLocked(
+      origin,
+      next,
+      { knownIds: new Set(next.map((t) => t.id)), writer },
+      purgesHeard,
+    );
   });
 }
 
@@ -792,10 +856,13 @@ async function saveThreadLocked(
   origin: string,
   turns: Turn[],
   options: SaveThreadOptions,
+  heard: number,
 ): Promise<SaveThreadResult> {
   const { knownIds } = options;
   const now = Date.now();
   const stored = await readStoredThread(origin);
+  // A purge ran after the caller's snapshot. The read above gives its event time to arrive.
+  if (heard !== purgesHeard) return {};
   const tombstones = mergeTombstones(stored.tombstones, options);
   const storedIds = new Set(stored.turns.map((t) => t.id));
   const buried = new Set([
@@ -877,8 +944,17 @@ async function saveThreadLocked(
       }
     }
     if (!shedImages) {
-      evictedQuota = await evictOldestOtherThread(origin);
-      await writeThread(capped);
+      const eviction = await evictOldestOtherThread(origin);
+      try {
+        await writeThread(capped);
+      } catch (retryError) {
+        // The space did not help, so the conversation comes back; else every save deletes one more.
+        await eviction?.restore().catch((restoreError: unknown) => {
+          debugCatch(restoreError, 'conversation-store.restoreEvicted');
+        });
+        throw retryError;
+      }
+      evictedQuota = eviction?.evicted;
     }
   }
 

@@ -8,6 +8,7 @@ import {
   listSavedConversations,
   threadKey,
 } from '@/shared/saved-conversations';
+import { clearAllStorage } from '@/shared/storage';
 import { loadThreadResult, saveThread } from '@/sidepanel/state/conversation-store';
 import type { Turn } from '@/sidepanel/state/conversation';
 
@@ -105,6 +106,44 @@ describe('clearSavedConversations', () => {
 
     expect(convKeys()).toEqual([]);
     expect(chromeMock.storage.local._raw.get('ega.settings')).toEqual({ keep: true });
+  });
+});
+
+describe('a save that waits behind a purge', () => {
+  const o = 'https://purged.test';
+  const stale = [userTurn('p1', 'secret')];
+  const staleOpts = { knownIds: new Set(['p1']), writer: 'panel-a' };
+
+  it('Delete all conversations: the snapshot taken before it is not written back', async () => {
+    await saveThread(o, stale, staleOpts);
+
+    // The panel snapshotted before the purge and waits for the lock it holds.
+    await Promise.all([clearSavedConversations(), saveThread(o, stale, staleOpts)]);
+
+    expect(convKeys()).toEqual([]);
+    // A turn the panel sends after its reset is written.
+    await saveThread(o, [userTurn('n1', 'new', Date.now() + 1)], { knownIds: new Set(['n1']) });
+    expect((await loadThreadResult(o)).turns.map((t) => t.id)).toEqual(['n1']);
+  });
+
+  it('Delete all data: the snapshot taken before it is not written back', async () => {
+    await saveThread(o, stale, staleOpts);
+    const realClear = chrome.storage.local.clear.bind(chrome.storage.local);
+    let waiting: Promise<unknown> = Promise.resolve();
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
+    const spy = vi.spyOn(chrome.storage.local, 'clear').mockImplementation(async () => {
+      // The wipe holds every lock, so this save queues behind it.
+      waiting = saveThread(o, stale, staleOpts);
+      await realClear();
+    });
+    try {
+      await clearAllStorage();
+      await waiting;
+    } finally {
+      spy.mockRestore();
+    }
+
+    expect([...chromeMock.storage.local._raw.keys()]).toEqual([]);
   });
 });
 
