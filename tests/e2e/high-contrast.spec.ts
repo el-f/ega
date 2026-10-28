@@ -246,16 +246,23 @@ test('side panel Ask: the target bar, quote bar, pressed Ask, banner chip and re
   await page.emulateMedia({ forcedColors: 'active', reducedMotion: 'reduce' });
   const highlight = await systemColor(page, 'Highlight');
   expect(highlight).not.toBe(await systemColor(page, 'Canvas'));
-  expect(await barOf(last, '::before'), 'target bar').toBe(`solid 2px ${highlight}`);
-  expect(await barOf(quote), 'quote bar').toBe(`solid 2px ${highlight}`);
-  expect(await ringOf(pressed), 'pressed Ask').toBe(`solid 2px ${highlight}`);
-  expect(await ringOf(banner), 'banner chip').toBe(`solid 1px ${highlight}`);
+  // The forced-colors restyle can land a frame after emulateMedia resolves, so each read waits for it.
+  await expect
+    .poll(() => barOf(last, '::before'), { message: 'target bar' })
+    .toBe(`solid 2px ${highlight}`);
+  await expect.poll(() => barOf(quote), { message: 'quote bar' }).toBe(`solid 2px ${highlight}`);
+  await expect
+    .poll(() => ringOf(pressed), { message: 'pressed Ask' })
+    .toBe(`solid 2px ${highlight}`);
+  await expect
+    .poll(() => ringOf(banner), { message: 'banner chip' })
+    .toBe(`solid 1px ${highlight}`);
   // Both motion settings: neither the reduced-motion rule nor the keyframes may decide whether the flash shows.
   for (const reducedMotion of ['reduce', 'no-preference'] as const) {
     await page.emulateMedia({ forcedColors: 'active', reducedMotion });
-    expect(await flashRing(), `reveal flash, motion ${reducedMotion}`).toBe(
-      `solid 2px ${highlight}`,
-    );
+    await expect
+      .poll(() => flashRing(), { message: `reveal flash, motion ${reducedMotion}` })
+      .toBe(`solid 2px ${highlight}`);
   }
 });
 
