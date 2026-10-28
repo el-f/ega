@@ -470,9 +470,13 @@ describe('storage', () => {
       // A key and its "Edited" time come from the same place.
       expect(s.apiKeyEditedAt).toEqual({ anthropic: 10, openai: 2 });
 
-      await importAs({ ...oneKey, settings: { ...oneKey.settings, apiKeyEditedAt: {} } }, 'settings', {
-        includeApiKeys: false,
-      });
+      await importAs(
+        { ...oneKey, settings: { ...oneKey.settings, apiKeyEditedAt: {} } },
+        'settings',
+        {
+          includeApiKeys: false,
+        },
+      );
       expect((await getSettings()).apiKeyEditedAt).toEqual({ anthropic: 10, openai: 2 });
     });
 

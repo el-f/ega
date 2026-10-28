@@ -110,7 +110,10 @@ describe('the old per-task templates and efforts', () => {
   it('write out an over-long snippet cut before an emoji that straddles the cap', () => {
     const body = `${'x'.repeat(8191)}😀`;
     const s = read({
-      advanced: { promptTemplate: { system: '@@sig@@', user: '{{text}}' }, snippets: { sig: body } },
+      advanced: {
+        promptTemplate: { system: '@@sig@@', user: '{{text}}' },
+        snippets: { sig: body },
+      },
     });
     expect(s.advanced.promptTemplate.system).toBe('x'.repeat(8191));
   });

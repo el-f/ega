@@ -300,14 +300,17 @@ describe('renderer — an answer the model sent as one fenced block', () => {
   it.each([
     ['bilingual', mountBilingual],
     ['inplace', mountInplace],
-  ] as const)('%s shows the code without the fence lines, while it streams and after', (_, mount) => {
-    const original = block('p', '太字のタグを使います');
-    const handle = mount({ id: 'f-1', element: original, originalText: '太字のタグを使います' });
-    appendDelta(handle, '```html\n<b>bold</b> is used');
-    expect(handle.target.textContent).toBe('<b>bold</b> is used');
-    finish(handle, '```html\n<b>bold</b> is used\n```');
-    expect(handle.target.textContent).toBe('<b>bold</b> is used');
-  });
+  ] as const)(
+    '%s shows the code without the fence lines, while it streams and after',
+    (_, mount) => {
+      const original = block('p', '太字のタグを使います');
+      const handle = mount({ id: 'f-1', element: original, originalText: '太字のタグを使います' });
+      appendDelta(handle, '```html\n<b>bold</b> is used');
+      expect(handle.target.textContent).toBe('<b>bold</b> is used');
+      finish(handle, '```html\n<b>bold</b> is used\n```');
+      expect(handle.target.textContent).toBe('<b>bold</b> is used');
+    },
+  );
 
   it.each([
     ['bilingual', mountBilingual],
