@@ -1,6 +1,7 @@
 import { BUILT_IN_PRESETS } from '@/shared/presets';
 import { CUSTOM_PATTERN_INPUT_CAP, safeCount } from '@/shared/safe-regex';
 import type { CustomLanguage, LangPreset, LangSelection, Settings } from '@/shared/types';
+import { looksLikeEnglish } from './looks-like-english';
 
 type AutoDetect = NonNullable<LangPreset['autoDetect']>;
 
@@ -19,7 +20,10 @@ function autoDetectHits(text: string, ad: AutoDetect): number {
     ad.regex,
     typeof ad.flags === 'string' ? ad.flags : '',
     text,
-    SHIPPED_PATTERNS.has(ad) ? {} : { inputCap: CUSTOM_PATTERN_INPUT_CAP },
+    // A shipped pattern is fast on any input, so a slow run is a busy thread, not the pattern.
+    SHIPPED_PATTERNS.has(ad)
+      ? { banThresholdMs: Infinity }
+      : { inputCap: CUSTOM_PATTERN_INPUT_CAP },
   );
 }
 
@@ -44,15 +48,15 @@ function candidates(opts: DetectOpts): LangPreset[] {
   return list;
 }
 
-// Versions, units, model names and numeronyms carry digits too: "win10", "4k", "1st", "A380", "i18n".
-const NOT_LEET = /^(?:[a-z]*\d+|\d+[a-z]{1,2}|[a-z](\d)(?!\1)\d+[a-z])$/i;
+// Versions, units, model names, numeronyms, hex and sizes carry digits too: "win10", "4k", "1st", "A380", "i18n", "0x1F", "1920x1080".
+const NOT_LEET = /^(?:[a-z]*\d+|\d+[a-z]{1,2}|[a-z](\d)(?!\1)\d+[a-z]|0x[\da-f]+|\d+x\d+)$/i;
 
 // 0/1/4 are leet. 3/5/7 as a vowel stand-in ("pwn3d") count only beside a 0/1/4 word: "7bibi" and "m3k" are vowel-less Arabizi.
 function leetScore(text: string): number {
   let digitHits = 0;
   let vowelHits = 0;
-  for (const raw of text.split(/\s+/)) {
-    const w = raw.replace(/^[^a-z\d]+|[^a-z\d]+$/gi, '');
+  // A hyphen splits words too: "4-year-old" is a number and two words, not one leet word.
+  for (const w of text.split(/[^a-z\d]+/i)) {
     if (/^3?1337$/.test(w)) {
       digitHits++;
       continue;
@@ -62,6 +66,22 @@ function leetScore(text: string): number {
     else if (/(?<![aeiou])[357](?![aeiou])/i.test(w)) vowelHits++;
   }
   return digitHits > 0 ? digitHits + vowelHits : 0;
+}
+
+const LETTER = /\p{L}/gu;
+const LATIN = /\p{Script=Latin}/u;
+// The words without digits decide only when there are this many and they outnumber the digit words.
+const MIN_PLAIN_WORDS = 3;
+
+/** Arabizi and leetspeak are Latin text: a digit word inside Hebrew or English text ("md5sum", "log4j") is a name. */
+function readsAsDigitSpelling(text: string): boolean {
+  const letters = text.match(LETTER) ?? [];
+  if (letters.filter((ch) => LATIN.test(ch)).length * 2 < letters.length) return false;
+  const words = text.split(/\s+/).filter((w) => /\p{L}/u.test(w));
+  const plain = words.filter((w) => !/\d/.test(w));
+  // One English particle does not make a line English: "ok ya 7abibi" is Arabizi.
+  if (plain.length < MIN_PLAIN_WORDS || plain.length * 2 <= words.length) return true;
+  return !looksLikeEnglish(plain.join(' '));
 }
 
 /** An explicit language skips the detector — the user already chose. */
@@ -77,16 +97,21 @@ export function resolveSourceLang(
 export function detectLang(text: string, opts: DetectOpts = {}): LangPreset | undefined {
   if (text.length < 4) return undefined;
   const list = candidates(opts);
+  let spelling: boolean | undefined;
+  const isSpelling = (): boolean => (spelling ??= readsAsDigitSpelling(text));
   // Leetspeak ships no regex of its own, so its digit set is scored here and has to beat Arabizi's own count.
   const leet = list.find((p) => p.id === 'leetspeak');
   if (leet) {
     const leetHits = leetScore(text);
     const arabizi = list.find((p) => p.id === 'arabizi');
     const arabiziHits = arabizi?.autoDetect ? autoDetectHits(text, arabizi.autoDetect) : 0;
-    if (leetHits >= 2 && leetHits >= arabiziHits) return leet;
+    if (leetHits >= 2 && leetHits >= arabiziHits && isSpelling()) return leet;
   }
   for (const p of list) {
-    if (p.autoDetect && matchesAutoDetect(text, p.autoDetect)) return p;
+    if (!p.autoDetect || !matchesAutoDetect(text, p.autoDetect)) continue;
+    // A user's own pattern is trusted as written.
+    if (SHIPPED_PATTERNS.has(p.autoDetect) && !isSpelling()) continue;
+    return p;
   }
   return undefined;
 }

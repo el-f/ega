@@ -241,16 +241,25 @@ export async function explainTranslate(deps: HandlerDeps, originalId: string): P
   });
 }
 
+type Direction = PendingReq['direction'];
+
+/** The requested pair a swap left, keyed by the pair it made: a reopen keeps that object, a target change makes a new one. */
+const swappedFrom = new WeakMap<Direction, Direction>();
+
 /** Same task, tone, context and surface as the original; only the direction flips. The swapped source is the old target, so no detection is needed. */
 export async function swapTranslate(deps: HandlerDeps, originalId: string): Promise<void> {
   const prev = pending.get(originalId);
   if (!prev) return;
   const swapped = swapDirection(prev.direction);
+  const requested = prev.requestedDirection ?? prev.direction;
+  // Swapping back asks for the first pair again, so the site memo keeps its 'auto' source, not the detected variety.
+  const back = swappedFrom.get(requested);
+  if (!back) swappedFrom.set(swapped, requested);
   await reopenTooltip(deps, originalId, {
     noDiff: true,
     reqOverrides: {
       direction: swapped,
-      requestedDirection: swapped,
+      requestedDirection: back ?? swapped,
       sourceLang: swapped.source,
       targetLang: swapped.target,
     },
