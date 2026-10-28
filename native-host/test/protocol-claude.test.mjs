@@ -448,7 +448,13 @@ test('an answer cut at the output cap ends as REQUEST', () => {
   parse({ type: 'assistant', error: 'max_output_tokens', message: { content: [] } });
   const result = "API Error: Claude's response exceeded the 32000 output token maximum.";
   assert.deepEqual(
-    parse({ type: 'result', subtype: 'success', is_error: true, stop_reason: 'max_tokens', result }),
+    parse({
+      type: 'result',
+      subtype: 'success',
+      is_error: true,
+      stop_reason: 'max_tokens',
+      result,
+    }),
     { kind: 'error', message: result, code: 'REQUEST' },
   );
 });

@@ -615,7 +615,9 @@ function oneShotLineParser(backend) {
       parsed = JSON.parse(line);
     } catch {
       // The CLI was asked for JSON, so a plain line is noise, not answer text; log its size, never the text.
-      process.stderr.write(`[ega-host] dropped a non-JSON line from ${backend} (${line.length} chars)\n`);
+      process.stderr.write(
+        `[ega-host] dropped a non-JSON line from ${backend} (${line.length} chars)\n`,
+      );
       return [];
     }
     if (backend !== 'claude') {
