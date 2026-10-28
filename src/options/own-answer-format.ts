@@ -109,9 +109,11 @@ export function takeOutOwnFormat(
   prompt: PromptTemplate,
   format: AnswerFormat,
 ): PromptTemplate | 'empty' | null {
+  // The sentence cut goes before the standard strip, whose fallback drops every line holding the marker.
+  const exact = [format.sep + format.text, format.text].some((t) => prompt.system.includes(t));
+  const own = exact ? null : embedsOwnFormat(prompt);
+  if (own !== null) return convertOwnFormat(prompt, own)?.prompt ?? 'empty';
   const standard = stripStandardFormat(prompt.system, format);
   if (standard !== null) return { ...prompt, system: standard };
-  const own = embedsOwnFormat(prompt);
-  if (own !== null) return convertOwnFormat(prompt, own)?.prompt ?? 'empty';
   return prompt.system.includes(FORMAT_MARKER) ? 'empty' : null;
 }

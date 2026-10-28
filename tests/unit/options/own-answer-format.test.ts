@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { embedsOwnFormat, convertOwnFormat } from '@/options/own-answer-format';
+import { embedsOwnFormat, convertOwnFormat, takeOutOwnFormat } from '@/options/own-answer-format';
+import { TASK_FORMATS } from '@/shared/answer/formats-v1';
 import { validateSpec } from '@/shared/answer/spec';
 import { fieldErrors } from '@/options/answer-fields';
 
@@ -113,5 +114,33 @@ describe('a prompt with its own answer format', () => {
     ]) {
       expect(embedsOwnFormat({ system, user: '{{text}}' })).toBeNull();
     }
+  });
+});
+
+describe("Use Ega's format", () => {
+  const format = TASK_FORMATS.summarize;
+
+  it('cuts only the format sentence, never the instruction that shares its line', () => {
+    const prompt = {
+      system:
+        'Summarize the text in 1-3 sentences. Return JSON ONLY: {"summary": <string>}.\nWrite it in {{targetLangLabel}}.',
+      user: '{{text}}',
+    };
+    expect(takeOutOwnFormat(prompt, format)).toEqual({
+      system: 'Summarize the text in 1-3 sentences.\nWrite it in {{targetLangLabel}}.',
+      user: '{{text}}',
+    });
+  });
+
+  it("takes out Ega's own format bytes first, then a line that holds only the format", () => {
+    expect(
+      takeOutOwnFormat({ system: `Summarize it. ${format.text}`, user: '{{text}}' }, format),
+    ).toEqual({ system: 'Summarize it.', user: '{{text}}' });
+    expect(
+      takeOutOwnFormat(
+        { system: 'Summarize it.\nReturn JSON ONLY: {"summary": {"nested": 1}}', user: '{{text}}' },
+        format,
+      ),
+    ).toEqual({ system: 'Summarize it.', user: '{{text}}' });
   });
 });
