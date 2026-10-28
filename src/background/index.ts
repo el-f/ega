@@ -285,6 +285,24 @@ function contentMayWrite(patch: Record<string, unknown>, senderUrl: string | und
   return rows.length === 1 && rows[0] === originOf(senderUrl);
 }
 
+/** The settings:update schema checks the pair, so the memo accepts exactly what a sitePrefs patch accepts. */
+function parseDirection(
+  origin: string,
+  direction: unknown,
+): Settings['sitePrefs'][string]['lastDirection'] {
+  try {
+    const patch = parseSettingsPatch({ sitePrefs: { [origin]: { lastDirection: direction } } });
+    // The patch type is deep-partial; the schema itself requires both fields.
+    const d = patch.sitePrefs?.[origin]?.lastDirection;
+    return d?.source !== undefined && d.target !== undefined
+      ? { source: d.source, target: d.target }
+      : undefined;
+  } catch (e) {
+    debugCatch(e, 'background.site:memo-direction.schema');
+    return undefined;
+  }
+}
+
 function keyChanged(a: Record<string, unknown>, b: Record<string, unknown>, k: string): boolean {
   return JSON.stringify(a[k]) !== JSON.stringify(b[k]);
 }
@@ -534,6 +552,26 @@ chrome.runtime.onMessage.addListener((rawMsg, sender, sendResponse) => {
         .catch((e: unknown) => {
           debugCatch(e, 'background.site:set-enabled');
           reply(msg.kind, { ok: false });
+        });
+      return true;
+    }
+    case 'site:memo-direction': {
+      // Only a content script names a site: the frame it runs in.
+      const origin = sender.tab ? originOf(sender.url) : undefined;
+      const lastDirection = origin === undefined ? undefined : parseDirection(origin, msg.direction);
+      if (origin === undefined || lastDirection === undefined) {
+        reply(msg.kind, { ok: false, reason: 'schema' });
+        return false;
+      }
+      // Onto the stored row under the lock: a site-off or a source written after the tab's cache read stays.
+      replaceSitePrefs((cur) => ({
+        ...cur,
+        [origin]: { disabled: false, ...cur[origin], lastDirection },
+      }))
+        .then((next) => reply(msg.kind, { ok: true, settings: withoutApiKeys(next) }))
+        .catch((e: unknown) => {
+          debugCatch(e, 'background.site:memo-direction');
+          reply(msg.kind, { ok: false, reason: 'unknown' });
         });
       return true;
     }

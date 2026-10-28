@@ -28,7 +28,7 @@ describe('memo-direction', () => {
     });
   });
 
-  it('sends settings:update instead of writing storage itself', async () => {
+  it('sends only the direction to the SW instead of writing storage itself', async () => {
     const { memo, cache } = await freshModules();
     cache.setSettings(DEFAULT_SETTINGS as Settings);
     const setSpy = vi.spyOn(chromeMock.storage.local, 'set');
@@ -36,14 +36,34 @@ describe('memo-direction', () => {
     await memo.maybeMemoDirection({ source: ar, target: en });
 
     expect(chromeMock.runtime.sendMessage).toHaveBeenCalledWith({
-      kind: 'settings:update',
-      patch: {
-        sitePrefs: {
-          'https://example.com': { disabled: false, lastDirection: { source: ar, target: en } },
-        },
-      },
+      kind: 'site:memo-direction',
+      direction: { source: ar, target: en },
     });
     expect(setSpy).not.toHaveBeenCalled();
+  });
+
+  // The SW writes the direction onto the stored row, so a site-off the cache has not seen yet survives.
+  it('never sends the cached site row', async () => {
+    const { memo, cache } = await freshModules();
+    cache.setSettings({
+      ...DEFAULT_SETTINGS,
+      sitePrefs: { 'https://example.com': { disabled: false, defaultLang: 'fr' as LangSelection } },
+    } as Settings);
+
+    await memo.maybeMemoDirection({ source: ar, target: en });
+
+    const sent = vi.mocked(chromeMock.runtime.sendMessage).mock.calls.map((c) => c[0] as object);
+    expect(sent).toEqual([{ kind: 'site:memo-direction', direction: { source: ar, target: en } }]);
+  });
+
+  it('keeps the cache unchanged when the SW refuses', async () => {
+    const { memo, cache } = await freshModules();
+    chromeMock.runtime.sendMessage = vi.fn().mockResolvedValue({ ok: false, reason: 'schema' });
+    cache.setSettings(DEFAULT_SETTINGS as Settings);
+
+    await memo.maybeMemoDirection({ source: ar, target: en });
+
+    expect(cache.currentSettings()?.sitePrefs['https://example.com']).toBeUndefined();
   });
 
   it('reads the content cache, never chrome.storage', async () => {

@@ -10,7 +10,7 @@ import {
 } from './selection';
 import { isSensitiveRange, isSensitiveTarget, selectionIsSensitive } from './safety';
 import { showBubble, hideBubble, loadBubbleMenu } from './bubble';
-import { looksLikeEnglish } from './looks-like-english';
+import { loadEnglishLexicon, looksLikeEnglishBlock } from './looks-like-english';
 import { installSelectionRestore, uninstallSelectionRestore } from './selection-restore';
 import * as accum from './accumulator';
 import { openTooltip, finishTooltipDirect, errorTooltip, closeTooltip } from './lazy-tooltip';
@@ -43,6 +43,7 @@ import {
   type PendingReq,
 } from './request-state';
 import { omitUndef } from '@/shared/utils/omitUndef';
+import { capText } from '@/shared/text-cap';
 import {
   fireTranslate,
   buildTooltipOpenOpts,
@@ -189,7 +190,7 @@ function selectionForPopup(): string {
     // The live selection skips the gates the kept one passed, so it gets them here.
     const range = sel !== null && sel.rangeCount > 0 ? sel.getRangeAt(0) : undefined;
     if (selectionIsSensitive(range, document.activeElement)) return '';
-    return live.length > MAX_SELECTION_CHARS ? live.slice(0, MAX_SELECTION_CHARS) : live;
+    return capText(live, MAX_SELECTION_CHARS);
   }
   return recentSelectionFresh()?.text ?? '';
 }
@@ -244,7 +245,7 @@ function handleSelectionChange(): void {
     }
     // Every consumer below is bounded: a Ctrl+A selection is megabytes and no path needs more than the cap.
     const overCap = info.text.length > MAX_SELECTION_CHARS;
-    const capped = overCap ? info.text.slice(0, MAX_SELECTION_CHARS) : info.text;
+    const capped = capText(info.text, MAX_SELECTION_CHARS);
     const s = await ensureSettings();
     if (!isLatestSelectionChange(seq)) return;
     const eff = resolveEffective(s, location.origin);
@@ -264,7 +265,7 @@ function handleSelectionChange(): void {
     const decision = await shouldShowBubbleWithReasonAsync({ text: capped }, s, customs);
     if (!isLatestSelectionChange(seq)) return;
     if (isDebugFlagEnabled()) {
-      console.debug('[ega] bubble shown:', decision.show, decision.reason, capped.slice(0, 40));
+      console.debug('[ega] bubble shown:', decision.show, decision.reason, capText(capped, 40));
     }
     if (!decision.show) {
       hideBubble();
@@ -650,7 +651,8 @@ async function dispatchPageTranslate(scope: 'whole' | 'areas'): Promise<void> {
     showSiteOffToast();
     return;
   }
-  const mod = await lazyPageV2();
+  // The English check reads the full word list, so a block's verdict does not hang on an earlier selection.
+  const [mod] = await Promise.all([lazyPageV2(), loadEnglishLexicon()]);
   const { showBatchProgress } = await import('./batch-progress');
 
   const detectOpts = { settings, customs: await ensureCustomLanguages() };
@@ -679,7 +681,7 @@ async function dispatchPageTranslate(scope: 'whole' | 'areas'): Promise<void> {
     cancelRequest: (requestId) => endRequest(requestId, 'page-teardown'),
     mountProgress: (total, onCancel) => showBatchProgress(total, onCancel),
     target: eff.direction.target,
-    looksLikeEnglish,
+    looksLikeEnglish: looksLikeEnglishBlock,
     siteOff: () => {
       const s = currentSettings();
       return s !== null && resolveEffective(s, location.origin).disabled;
@@ -704,7 +706,7 @@ export async function startTranslateText(
     showSiteOffToast();
     return;
   }
-  const trimmed = text.length > MAX_SELECTION_CHARS ? text.slice(0, MAX_SELECTION_CHARS) : text;
+  const trimmed = capText(text, MAX_SELECTION_CHARS);
   const reqId = uuid();
   const direction = directionOverride ?? eff.direction;
   // The tooltip's task list reads the custom rows synchronously, so they load before it opens.
@@ -856,8 +858,7 @@ async function startTranslateSelection(
     showToast('Select some text first, then press the shortcut.');
     return;
   }
-  const text =
-    rawText.length > MAX_SELECTION_CHARS ? rawText.slice(0, MAX_SELECTION_CHARS) : rawText;
+  const text = capText(rawText, MAX_SELECTION_CHARS);
   const rect =
     info?.rect ??
     ({

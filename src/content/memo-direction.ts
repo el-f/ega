@@ -1,5 +1,5 @@
 import { createLogger } from '@/shared/logger';
-import { patchSettings } from '@/shared/settings-bus';
+import { sendMsg } from '@/shared/messages';
 import { ensureSettings, setSettings } from './settings-cache';
 import { omitUndef } from '@/shared/utils/omitUndef';
 import type { LangSelection, Settings, SitePref } from '@/shared/types';
@@ -43,16 +43,19 @@ export async function maybeMemoDirection(direction: {
     if (effectiveNow.source === direction.source && effectiveNow.target === direction.target) {
       return;
     }
-    const nextPref = memoisedSitePref(existing, direction);
-    const ack = await patchSettings({ sitePrefs: { [host]: nextPref } });
-    if (!ack.ok) {
-      log.warn('memoDirection not saved', ack.reason);
+    // Only the pair: the SW sets it on the stored row, so a site-off this cache has not seen yet stays.
+    const ack = await sendMsg({
+      kind: 'site:memo-direction',
+      direction: { source: direction.source, target: direction.target },
+    });
+    if (!ack?.ok) {
+      log.warn('memoDirection not saved', ack?.reason);
       return;
     }
 
     // The settings broadcast is asynchronous; keep the content cache in step
     // immediately so a second settled request does not issue the same patch.
-    setSettings(ack.settings ?? settingsWithMemo(s, host, nextPref));
+    setSettings(ack.settings ?? settingsWithMemo(s, host, memoisedSitePref(existing, direction)));
   } catch (e) {
     log.warn('memoDirection failed', e);
   }

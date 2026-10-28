@@ -13,10 +13,10 @@ export const BUILT_IN_PRESETS: readonly LangPreset[] = [
       { src: 'shu fi ma fi', tgt: "What's up?" },
       { src: 'ana b7ebak ktir', tgt: 'I love you a lot' },
     ],
-    // One Arabizi-shaped word is enough: "7abibi" and "ta3mel" match; "2nd", "5pm", "B2B", "md5", "page2" and "usb3" do not.
+    // "7abibi", "ta3mel" and "3reft" match; "2nd", "5pm", "B2B", "md5", "page2" and "usb3" do not. detectLang weighs the words around it.
     autoDetect: {
       regex:
-        '\\b(?![a-z\\d]*\\d\\d)(?![a-z\\d]*\\d(?:s|ish)\\b)(?=[a-z\\d]*[a-z][a-z\\d]*[a-z][a-z\\d]*[a-z])(?=[a-z\\d]*[a-z]\\b)(?:[a-z]+[2356789]|[2356789][aeiou])[a-z\\d]*\\b',
+        '\\b(?![a-z\\d]*\\d\\d)(?![a-z\\d]*\\d(?:s|ish)\\b)(?=[a-z\\d]*[a-z][a-z\\d]*[a-z][a-z\\d]*[a-z])(?=[a-z\\d]*[a-z]\\b)(?:[a-z]+[2356789]|[2356789][a-z])[a-z\\d]*\\b',
       flags: 'i',
       minScore: 1,
     },

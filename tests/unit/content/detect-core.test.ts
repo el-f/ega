@@ -1,12 +1,8 @@
 // @vitest-environment node
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { detectLang } from '@/content/detect';
 import { shouldShowBubbleWithReason } from '@/content/should-show-bubble';
-import {
-  lexiconCacheInternal,
-  loadEnglishLexicon,
-  looksLikeEnglish,
-} from '@/content/looks-like-english';
+import { looksLikeEnglish } from '@/content/looks-like-english';
 import { safeCount } from '@/shared/safe-regex';
 import { preset } from '@tests/_helpers/lang';
 import type { CustomLanguage } from '@/shared/types';
@@ -20,126 +16,11 @@ describe('the script check runs before the length gate', () => {
   });
 });
 
-// Ordinals, units, versions, hashes and identifiers carry a digit between letters too.
-describe('English with digits is not Arabizi or leetspeak', () => {
-  it.each([
-    'Our B2B and B2C sales grew in Q3',
-    'She came 2nd in the race and 3rd overall',
-    'Meet at 10am, then 2pm call, 5pm wrap',
-    'Use sha256 not md5 for the hash',
-    'The co2 levels and h2o vapour rose',
-    'Order 25kg of flour and 3kg of sugar',
-    'Grab the usb3 cable and the hdmi2 port',
-    'The p2p network and the 2fa code work',
-    'Call getUser2 and setValue3 in the code',
-    'Open page2 and file2 in the viewer',
-    'Take the 7train to 42nd street',
-    'We need i18n and l10n support',
-    'Upgrade from win10 to win11 today',
-    'Use the A380 and the B747 planes',
-    'Stream it in 4k or 1080p',
-    'I scored 1st place in the 100m race',
-    'Only 5mins left, see you 2morrow',
-    'Meet at 5ish, bring the mp3s and an iphone6s',
-  ])('%s', (text) => {
-    expect(detectLang(text)?.id).toBeUndefined();
-  });
-});
-
-// A tool, product or chemical name has the Arabizi shape; the words around it decide.
-const ENGLISH_WITH_A_NAME = [
-  'Run md5sum on the file before uploading it.',
-  'Acetic acid, CH3COOH, is the main part of vinegar.',
-  'Total emissions were 50 tCO2e last year.',
-  'I learned HTML on w3schools years ago.',
-  'My old mp3player still works fine.',
-  'c3po is my favorite droid in the films.',
-  'Load html5shiv for old browsers.',
-  'Install md5sum and s3cmd, then read the w3schools page.',
-  // Two leet-shaped names score as leetspeak; the English around them decides.
-  'log4j and log4shell were bad.',
-  'We moved off gpt4o and log4j last year.',
-  'The release notes explain how the new installer checks every download. Run md5sum on the archive, compare it with the published value, and only then unpack it into the program folder.',
-];
-
-describe('English with one Arabizi-shaped name is not Arabizi', () => {
-  it.each(ENGLISH_WITH_A_NAME)('before the lexicon loads: %s', (text) => {
-    expect(detectLang(text)?.id).toBeUndefined();
-  });
-
-  describe('with the lexicon loaded', () => {
-    beforeAll(async () => {
-      await loadEnglishLexicon();
-    });
-    afterAll(() => {
-      lexiconCacheInternal.mod = null;
-      lexiconCacheInternal.promise = null;
-    });
-    it.each(ENGLISH_WITH_A_NAME)('%s', (text) => {
-      expect(detectLang(text)?.id).toBeUndefined();
-    });
-  });
-
-  // The product call: a mostly English line goes out as auto, and the bubble still shows for its Arabizi word.
-  it('reads a mostly English line with one Arabizi word as auto, and still shows the bubble', () => {
+// The labeled lines live in tests/fixtures/detect-corpus.ts (detect-corpus.test.ts); these check the bubble too.
+describe('a mostly English line with one Arabizi word', () => {
+  it('goes out as auto, and the bubble still shows', () => {
     expect(detectLang('I love you 7abibi')?.id).toBeUndefined();
     expect(bubble('I love you 7abibi')).toEqual({ show: true, reason: 'arabizi-fallback' });
-  });
-});
-
-// One or two plain words, or fewer plain words than digit words, are too few to call the line English.
-const ARABIZI_WITH_A_PARTICLE = [
-  'ok ya 7abibi',
-  'yes 7abibi',
-  'no 3ashan',
-  'ok 3ala ra2si',
-  'so ana 3ayez a2ollak 7aga',
-  'ok so ana 3ayez a2ollak 7aga 3ashan',
-];
-
-describe('Arabizi with an English particle is Arabizi', () => {
-  it.each(ARABIZI_WITH_A_PARTICLE)('before the lexicon loads: %s', (text) => {
-    expect(detectLang(text)?.id).toBe('arabizi');
-  });
-
-  describe('with the lexicon loaded', () => {
-    beforeAll(async () => {
-      await loadEnglishLexicon();
-    });
-    afterAll(() => {
-      lexiconCacheInternal.mod = null;
-      lexiconCacheInternal.promise = null;
-    });
-    it.each(ARABIZI_WITH_A_PARTICLE)('%s', (text) => {
-      expect(detectLang(text)?.id).toBe('arabizi');
-    });
-  });
-});
-
-// Arabizi and leetspeak are written in Latin letters, so a Latin name inside Hebrew text is neither.
-describe('a Hebrew block with one Latin name is not Arabizi', () => {
-  it.each([
-    'שלום לכולם, למדתי HTML באתר w3schools לפני הרבה שנים',
-    'בדקו את הקובץ עם md5sum לפני ההתקנה',
-  ])('%s', (text) => {
-    expect(detectLang(text)?.id).toBeUndefined();
-  });
-});
-
-// A chat line usually carries one Arabizi word.
-describe('a single line of Arabizi is detected', () => {
-  it.each([
-    'ana b7ebak ktir',
-    'ya3ni shu badak',
-    '3ala rasi',
-    'mar7aba, kifak?',
-    'wayed 6ayeb w 7elw',
-    'ana 3ayez ps4 w xbox1 ya 7abibi',
-    'shu ra2yak bel galaxy s10 wala iphone11',
-    'habibi I miss you, kifak? ana b7ebak',
-    'el youm kan 7elw ktir',
-  ])('%s', (text) => {
-    expect(detectLang(text)?.id).toBe('arabizi');
   });
 });
 
@@ -149,30 +30,6 @@ describe('vowel-less Arabizi is not leetspeak', () => {
     expect(detectLang(text)?.id).not.toBe('leetspeak');
     expect(bubble(text).show).toBe(true);
   });
-});
-
-// Table cells and labels have no English words around them to decide.
-describe('numbers in compounds, hex values and screen sizes are not leetspeak', () => {
-  it.each([
-    'COVID-19 / H1N1',
-    '4-year-old, 10-year-old',
-    '1920x1080 1280x720',
-    '0x1F 0xdeadbeef',
-    'My 4-year-old and my 10-year-old love this park.',
-    'COVID-19 cases rose again, and H1N1 is back too.',
-    'Set the screen to 1920x1080 or 1280x720.',
-  ])('%s', (text) => {
-    expect(detectLang(text)?.id).toBeUndefined();
-  });
-});
-
-describe('leetspeak', () => {
-  it.each(['g3t r3kt n00b', 'sup3r l33t sk1llz', '1337 h4x0r', 'y0u 4r3 pwn3d n00b', 'l33t-h4x0r'])(
-    '%s',
-    (text) => {
-      expect(detectLang(text)?.id).toBe('leetspeak');
-    },
-  );
 });
 
 // An empty branch matches at every position.
