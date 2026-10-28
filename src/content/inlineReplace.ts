@@ -17,6 +17,7 @@ import {
 import { showToast } from './toast';
 import { peekContainer } from './shadowHost';
 import { mountErrorChip } from './page-chip';
+import { textDir } from './text-dir';
 
 /** Only in-flight translates live here; a settled one is dropped so the page can detach it. */
 interface InlineEntry {
@@ -51,7 +52,7 @@ export function openInline(opts: OpenInlineOpts): boolean {
   ensurePageStyles();
   const wrapper = document.createElement('span');
   wrapper.setAttribute('data-ega-replaced', opts.requestId);
-  // The host page is LTR; dir="auto" keeps bidi right when translating into Arabic or Hebrew.
+  // The original shows here until the answer lands, so the wrapper follows its text until then.
   wrapper.setAttribute('dir', 'auto');
 
   let original: DocumentFragment;
@@ -263,6 +264,8 @@ export function inlineCount(): number {
 function renderText(wrapper: HTMLSpanElement, text: string, lang?: string): void {
   wrapper.removeAttribute('data-ega-pending');
   markLang(wrapper, lang);
+  // An RTL answer reads right to left even when it starts with a Latin word.
+  wrapper.setAttribute('dir', textDir(lang));
   while (wrapper.firstChild) wrapper.removeChild(wrapper.firstChild);
   wrapper.textContent = text;
 }

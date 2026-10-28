@@ -275,8 +275,8 @@ describe('renderer — in-place mode', () => {
       { onRetry: () => {} },
     );
     expect(handle.target.getAttribute('data-ega-tx-state')).toBe('error');
-    // Reader sees the original, not "RATE_LIMIT: gemini: RATE_LIMIT".
-    expect(handle.target.textContent).toContain('これは元の段落です。');
+    // Reader sees the page's own words again, not "RATE_LIMIT: gemini: RATE_LIMIT".
+    expect(original.textContent).toBe('これは元の段落です。');
     expect(handle.target.textContent).not.toContain('RATE_LIMIT');
     expect(retryButton(handle.target)).not.toBeNull();
     // In-place too: the chip names the cause in the catalog's words.
@@ -312,7 +312,8 @@ describe('renderer — a leading run', () => {
     });
     expect(handle.target.hasAttribute('data-ega-run')).toBe(true);
     expect(handle.target.nextElementSibling?.tagName).toBe('UL');
-    expect(li.firstElementChild).toBe(handle.target);
+    // The run's own nodes stay in the item, hidden; the wrapper stands after them.
+    expect(handle.target.previousElementSibling?.tagName).toBe('B');
     appendDelta(handle, 'Parent item');
     finish(handle);
     expect(li.querySelector('#child')?.textContent).toBe('Hijo');
@@ -412,7 +413,7 @@ describe('renderer — pill view toggle (showOriginal / showTranslation)', () =>
     handle.showOriginal();
     expect(handle.target.querySelector('[data-ega-tx-error]')).not.toBeNull();
     expect(retryButton(handle.target)).not.toBeNull();
-    expect(handle.target.textContent).toContain('これは元の段落です。');
+    expect(original.textContent).toBe('これは元の段落です。');
   });
 });
 
@@ -433,8 +434,11 @@ describe('renderer — hover-original affordance (inplace)', () => {
     expect(handle.target.textContent).toContain('Translation text.');
     handle.target.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
     expect(handle.target.textContent).toBe('これは元の段落テキスト。');
+    // The page sheet keeps the page's own spacing while a peek shows its copy.
+    expect(handle.target.hasAttribute('data-ega-peek')).toBe(true);
     handle.target.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
     expect(handle.target.textContent).toContain('Translation text.');
+    expect(handle.target.hasAttribute('data-ega-peek')).toBe(false);
   });
 
   it('restores the translation when the pointer leaves before the button is released', () => {

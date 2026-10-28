@@ -16,6 +16,8 @@ const PAGE_DOM_SELECTORS = [
   '[data-ega-retry-block]',
   '[data-ega-tx-error]',
   '[data-ega-picking]',
+  '[data-ega-hidden]',
+  '[data-ega-peek]',
 ];
 
 describe('ensurePageStyles', () => {
@@ -267,5 +269,26 @@ describe('Choose areas — the order badge reads on any page', () => {
     expect(block).toMatch(/background: #0d74ce;/);
     expect(block).toMatch(/color: #fff;/);
     expect(block).toMatch(/max\(12px, 0\.75em\)/);
+  });
+});
+
+describe('a translation keeps the line breaks the model sent', () => {
+  function whiteSpace(attrs: string): string {
+    document.head.innerHTML = `<style>${pageCss}</style>`;
+    document.body.innerHTML = `<span id="w" ${attrs}>text</span>`;
+    const el = document.getElementById('w');
+    if (!el) throw new Error('test setup: wrapper missing');
+    return getComputedStyle(el).whiteSpace;
+  }
+
+  it('Show both and Replace text show them, once the translation is in', () => {
+    expect(whiteSpace('data-ega-tx')).toBe('pre-line');
+    expect(whiteSpace('data-ega-replaced="b" data-ega-id="b" data-ega-tx-state="ok"')).toBe('pre-line');
+  });
+
+  it("the page's own copy keeps its spacing: pending, a peek, and inline replace", () => {
+    expect(whiteSpace('data-ega-replaced="b" data-ega-id="b" data-ega-pending')).not.toBe('pre-line');
+    expect(whiteSpace('data-ega-replaced="b" data-ega-id="b" data-ega-peek')).not.toBe('pre-line');
+    expect(whiteSpace('data-ega-replaced="r" data-ega-original="x"')).not.toBe('pre-line');
   });
 });

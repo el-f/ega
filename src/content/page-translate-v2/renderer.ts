@@ -1,6 +1,7 @@
 import type { ErrCode } from '@/shared/types';
 import { ensurePageStyles } from '../page-styles';
 import { markLang } from '@/shared/lang-tag';
+import { textDir } from '../text-dir';
 import { mountErrorChip, type ChipOpts } from '../page-chip';
 import { leadingRun } from './collect';
 import type { RenderMode } from './store';
@@ -15,6 +16,12 @@ export interface MountArgs {
   run?: boolean;
 }
 
+/** Marks what the box shows: the translation with its tag and direction, or with `undefined` the page's own words. */
+function markShown(el: Element, tag: string | undefined): void {
+  markLang(el, tag);
+  el.setAttribute('dir', textDir(tag));
+}
+
 /** Sticky after the first terminal: a late chunk must not re-paint a settled block. */
 export type BlockPhase = 'streaming' | 'ok' | 'error';
 
@@ -27,7 +34,7 @@ export interface RenderHandle {
   /** Plain-text original, kept so an error can restore a readable block
    *  instead of leaving an empty or error-filled slot. */
   originalText: string;
-  /** In-place only: the block's own nodes before replacement. Restoring these keeps
+  /** In-place only: a copy of the block's own nodes, for the pending look and a peek. Showing it keeps
    *  links, emphasis and inline images that the flat text drops. */
   originalNodes?: DocumentFragment;
   revert: () => void;
@@ -73,12 +80,15 @@ function attachInplaceSwap(
     translationText = wrapper.textContent;
     // Clone: the fragment itself is what `revert` puts back on the page.
     wrapper.replaceChildren(originalNodes.cloneNode(true));
-    markLang(wrapper, undefined);
+    markShown(wrapper, undefined);
+    // The page sheet keeps the copy's own spacing, not the translation's line breaks.
+    wrapper.setAttribute('data-ega-peek', '');
   };
   const showTranslation = (): void => {
     if (translationText === null) return;
     wrapper.textContent = translationText;
-    markLang(wrapper, lang);
+    markShown(wrapper, lang);
+    wrapper.removeAttribute('data-ega-peek');
     translationText = null;
   };
   const peek = (fn: () => void) => (): void => {
@@ -130,7 +140,7 @@ export function mountBilingual(args: MountArgs): RenderHandle {
   if (inside) sibling.setAttribute('data-ega-inside', '');
   if (run) sibling.setAttribute('data-ega-run', '');
   sibling.setAttribute('data-ega-id', args.id);
-  // dir="auto" gives an RTL translation correct bidi on an LTR page; the original keeps the page's direction.
+  // The box follows its text until the translation lands; the original keeps the page's direction.
   sibling.setAttribute('dir', 'auto');
   markLang(sibling, args.lang);
   sibling.setAttribute('data-ega-pending', '');
@@ -184,47 +194,82 @@ export function clearStaleError(el: Element, run = false): void {
   }
 }
 
-/** In-place: replace the original's children (or its leading run) with a streaming wrapper keyed by
- *  the stable block id. The captured fragment drives revert. */
+/** Marks a page element Ega hides in place; the page sheet sets `display: none` on it. */
+const HIDDEN_ATTR = 'data-ega-hidden';
+
+/** Each in-place wrapper's way to show the page's own nodes again. */
+const showPageFor = new WeakMap<Element, () => void>();
+
+/**
+ * Hides a block's own nodes where they stand: a text node is emptied, an element gets Ega's hide mark. A framework
+ * that still holds them can move or remove them. Returns the undo; a text the page rewrote since keeps its new words.
+ * New words the page writes into an emptied text node would show beside the translation, so they call `onPageWrite`.
+ */
+function hideInPlace(nodes: readonly ChildNode[], onPageWrite: () => void): () => void {
+  const texts = new Map<CharacterData, string>();
+  const elements: Element[] = [];
+  for (const n of nodes) {
+    if (n.nodeType === Node.TEXT_NODE) {
+      const t = n as CharacterData;
+      texts.set(t, t.data);
+      t.data = '';
+    } else if (n instanceof Element && !n.hasAttribute(HIDDEN_ATTR)) {
+      n.setAttribute(HIDDEN_ATTR, '');
+      elements.push(n);
+    }
+  }
+  const writes = new MutationObserver((records) => {
+    if (records.some((r) => (r.target as CharacterData).data !== '')) onPageWrite();
+  });
+  for (const t of texts.keys()) writes.observe(t, { characterData: true });
+  return () => {
+    writes.disconnect();
+    for (const [t, data] of texts) if (t.data === '') t.data = data;
+    for (const el of elements) el.removeAttribute(HIDDEN_ATTR);
+    texts.clear();
+    elements.length = 0;
+  };
+}
+
+/**
+ * In-place: hide the original's children (or its leading run) where they stand and show a streaming wrapper,
+ * keyed by the stable block id, after them. The page's nodes never leave the page, so its framework keeps them.
+ */
 export function mountInplace(args: MountArgs): RenderHandle {
   ensurePageStyles();
   const host = args.element as HTMLElement;
   const run = args.run === true;
   const nodes = run ? leadingRun(host) : [...host.childNodes];
-  // The wrapper takes the run's place; the inner blocks after it stay where they are.
+  // A run's wrapper stands before the first inner block; the inner blocks stay where they are.
   const before = run ? (host.childNodes[nodes.length] ?? null) : null;
   const fragment = document.createDocumentFragment();
-  for (const n of nodes) fragment.appendChild(n);
+  for (const n of nodes) fragment.appendChild(n.cloneNode(true));
   const wrapper = document.createElement('span');
   wrapper.setAttribute('data-ega-replaced', args.id);
   wrapper.setAttribute('data-ega-id', args.id);
   if (run) wrapper.setAttribute('data-ega-run', '');
-  // Translation streams into this wrapper. dir="auto" gives an RTL
-  // translation correct bidi on the LTR host page.
+  // The page's words show dimmed here until the translation lands, so the wrapper follows its text until then.
   wrapper.setAttribute('dir', 'auto');
   markLang(wrapper, args.lang);
   wrapper.setAttribute('data-ega-pending', '');
   // The page keeps its own words, dimmed, until the translation starts to arrive.
   wrapper.appendChild(fragment.cloneNode(true));
   host.insertBefore(wrapper, before);
+  // A node the page added to the block, or one it wrote since, stays as the page left it.
+  const revert = (): void => {
+    showPage();
+    wrapper.remove();
+  };
+  // The page rewrote the block: its words come back, and with the wrapper gone the next pass takes the block again.
+  const showPage = hideInPlace(nodes, revert);
+  showPageFor.set(wrapper, showPage);
   const handle: RenderHandle = {
     id: args.id,
     mode: 'inplace',
     target: wrapper,
     originalText: args.originalText,
     originalNodes: fragment,
-    revert: () => {
-      if (run) {
-        // The run's words go back where the wrapper stands; a page that took the wrapper away re-rendered them.
-        if (wrapper.parentNode === host) wrapper.replaceWith(fragment);
-        return;
-      }
-      // The page can re-populate the block while we stream; appending then duplicates its content.
-      const ownsHost = host.childNodes.length === 1 && host.firstChild === wrapper;
-      wrapper.remove();
-      // Appending the fragment itself (not a clone) drains it, so a re-entrant revert no-ops.
-      if (ownsHost) host.appendChild(fragment);
-    },
+    revert,
     showOriginal: () => {},
     showTranslation: () => {},
     visibleText: '',
@@ -244,6 +289,8 @@ function render(handle: RenderHandle): void {
   if (text.length === 0) return;
   handle.target.removeAttribute('data-ega-pending');
   handle.target.textContent = text;
+  // An RTL target reads right to left even when the translation starts with a Latin word ("iPhone 15 ...").
+  handle.target.setAttribute('dir', textDir(handle.target.getAttribute('lang')));
 }
 
 export function appendDelta(handle: RenderHandle, delta: string, replace?: true): void {
@@ -276,14 +323,11 @@ export function mountError(
 ): void {
   if (handle.phase !== 'streaming') return;
   const { target } = handle;
-  // A raw transport error must never become the block's text; the page keeps its own words and the chip names the cause.
-  if (handle.mode === 'inplace' && handle.originalNodes) {
-    target.replaceChildren(handle.originalNodes.cloneNode(true));
-  } else {
-    target.textContent = handle.mode === 'inplace' ? handle.originalText : '';
-  }
+  // A raw transport error must never become the block's text; the page shows its own words and the chip names the cause.
+  if (handle.mode === 'inplace') showPageFor.get(target)?.();
+  target.textContent = '';
   setPhase(handle, 'error');
   // The page's own text and our error chip are not in the target language.
-  markLang(target, undefined);
+  markShown(target, undefined);
   target.appendChild(mountErrorChip(err, opts));
 }

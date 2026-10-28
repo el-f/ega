@@ -1,6 +1,6 @@
 import { isSensitiveTarget } from '../safety';
 
-// ponytail: a cap on the collection pass and its memory on spreadsheet-like pages; a second press continues past it.
+// ponytail: a cap on the collection pass and its memory on spreadsheet-like pages; a second press takes the rest.
 export const MAX_PAGE_BLOCKS = 2000;
 
 /** Elements whose text is a unit of reading. */
@@ -240,27 +240,34 @@ export function blockText(el: Element): string {
   return textOf(el.childNodes);
 }
 
-function textOf(nodes: Iterable<ChildNode>): string {
+/** Text of the nodes before line cleanup; `memo` keeps each element's part for one collection pass. */
+function rawOf(nodes: Iterable<ChildNode>, memo?: Map<Element, string>): string {
   let out = '';
-  const walk = (children: Iterable<ChildNode>): void => {
-    for (const c of children) {
-      if (c.nodeType === Node.TEXT_NODE) out += (c.nodeValue ?? '').replace(/\s+/g, ' ');
-      else if (c instanceof Element) {
-        if (c.tagName.toUpperCase() === 'BR') out += '\n';
-        else if (!skipSubtree(c)) {
-          // A block-level child starts its own line, as innerText does; a React page has no whitespace between tags.
-          // Ruby and its reading stay in the line, as they read.
-          const display = c.ownerDocument.defaultView?.getComputedStyle(c).display ?? 'inline';
-          const own = !/^(?:inline|ruby|contents)/.test(display);
-          if (own) out += '\n';
-          walk(c.childNodes);
-          if (own) out += '\n';
-        }
-      }
-    }
-  };
-  walk(nodes);
-  return out
+  for (const c of nodes) {
+    if (c.nodeType === Node.TEXT_NODE) out += (c.nodeValue ?? '').replace(/\s+/g, ' ');
+    else if (c instanceof Element) out += rawElement(c, memo);
+  }
+  return out;
+}
+
+function rawElement(c: Element, memo?: Map<Element, string>): string {
+  const seen = memo?.get(c);
+  if (seen !== undefined) return seen;
+  let out = '';
+  if (c.tagName.toUpperCase() === 'BR') out = '\n';
+  else if (!skipSubtree(c)) {
+    // A block-level child starts its own line, as innerText does; a React page has no whitespace between tags.
+    // Ruby and its reading stay in the line, as they read.
+    const display = c.ownerDocument.defaultView?.getComputedStyle(c).display ?? 'inline';
+    const own = !/^(?:inline|ruby|contents)/.test(display) ? '\n' : '';
+    out = own + rawOf(c.childNodes, memo) + own;
+  }
+  memo?.set(c, out);
+  return out;
+}
+
+function textOf(nodes: Iterable<ChildNode>, memo?: Map<Element, string>): string {
+  return rawOf(nodes, memo)
     .replace(/ *\n */g, '\n')
     .replace(/\n{2,}/g, '\n')
     .replace(/ {2,}/g, ' ')
@@ -282,37 +289,59 @@ export function keepsPageParts(el: Element, run = false): boolean {
   return false;
 }
 
+export interface CollectOpts {
+  maxChars: number;
+  /** Blocks the session already holds or judged: still blocks to their ancestors, never taken or capped again. */
+  skip?: { has(el: Element): boolean };
+}
+
+/** One pass: the blocks taken, whether the cap left more on the page, and how many were too long to send. */
+export interface Collected {
+  blocks: HTMLElement[];
+  pastCap: boolean;
+  tooLong: number;
+}
+
 /**
  * The page's text blocks in document order, innermost first: a list item that holds paragraphs gives the
  * paragraphs. Only element references are kept; the text is read when a block is released.
  */
-export function collectBlocks(root: Element, opts: { maxChars: number }): HTMLElement[] {
+export function collectBlocks(root: Element, opts: CollectOpts): Collected {
   const out: HTMLElement[] = [];
+  let pastCap = false;
+  let tooLong = 0;
   const overflow: OverflowCache = new Map();
+  // Each ancestor reads the text of the subtrees below it again; the pass reads each element once.
+  const memo = new Map<Element, string>();
+  /** Takes a block at `at`; the first block past the cap ends the pass. */
+  const take = (el: Element, at: number): boolean => {
+    if (opts.skip?.has(el)) return false;
+    if (out.length >= MAX_PAGE_BLOCKS) {
+      pastCap = true;
+      return false;
+    }
+    out.splice(at, 0, el as HTMLElement);
+    return true;
+  };
   // True when the subtree holds a block (or a block too long to take), so no ancestor claims its text.
   const visit = (el: Element): boolean => {
-    if (out.length >= MAX_PAGE_BLOCKS || skipSubtree(el)) return false;
+    if (pastCap || skipSubtree(el)) return false;
     if (isTranslated(el)) return true;
     const at = out.length;
     let inner = false;
     for (const child of el.children) if (visit(child)) inner = true;
     if (inner) {
       // The words before the first inner block go first, in page order.
-      if (takesRun(el) && out.length < MAX_PAGE_BLOCKS) {
-        out.splice(at, 0, el as HTMLElement);
-        RUNS.add(el);
-      }
+      if (takesRun(el) && take(el, at)) RUNS.add(el);
       return true;
     }
     const tag = el.tagName.toUpperCase();
     if (!BLOCK_TAGS.has(tag) && !CONTAINER_TAGS.has(tag)) return false;
-    const text = blockText(el);
+    const text = textOf(el.childNodes, memo);
     if (!hasWords(text)) return false;
-    if (text.length > opts.maxChars || outOfReach(el, overflow)) return true;
-    if (out.length < MAX_PAGE_BLOCKS) {
-      out.push(el as HTMLElement);
-      RUNS.delete(el);
-    }
+    if (outOfReach(el, overflow)) return true;
+    if (text.length > opts.maxChars) tooLong++;
+    else if (take(el, out.length)) RUNS.delete(el);
     return true;
   };
   // ponytail: only the run before the first inner block; words between or after inner blocks stay untranslated.
@@ -324,11 +353,14 @@ export function collectBlocks(root: Element, opts: { maxChars: number }): HTMLEl
     const display = el.ownerDocument.defaultView?.getComputedStyle(el).display ?? '';
     if (/flex|grid/.test(display)) return false;
     for (const c of el.children) if (isRunMark(c) && isLiveMark(c)) return false;
-    const text = textOf(run);
-    return hasWords(text) && text.length <= opts.maxChars && !outOfReach(el, overflow);
+    const text = textOf(run, memo);
+    if (!hasWords(text) || outOfReach(el, overflow)) return false;
+    if (text.length <= opts.maxChars) return true;
+    tooLong++;
+    return false;
   };
   visit(root);
-  return out;
+  return { blocks: out, pastCap, tooLong };
 }
 
 /** The order a set of newly near blocks is released in: page order, top to bottom. */

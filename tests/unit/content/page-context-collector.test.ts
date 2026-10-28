@@ -40,6 +40,42 @@ describe('collectPageContext', () => {
     expect(rich.pageUrl).toBe('https://example.com/reset');
   });
 
+  it.each([
+    [
+      'https://app.example.com/password/reset/9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
+      'https://app.example.com/password/reset/:token',
+    ],
+    [
+      'https://example.com/reset/MQ/5v1-a9f8d7e6c5b4a3f2e1d0c9b8/',
+      'https://example.com/reset/MQ/:token/',
+    ],
+    [
+      'https://example.com/invite/123e4567-e89b-12d3-a456-426614174000/accept',
+      'https://example.com/invite/:token/accept',
+    ],
+    ['https://example.com/login/Xq7_Lm2-Pz9aB4cD8eF1gH3iJ5kL', 'https://example.com/login/:token'],
+    ['https://x.com/someone/status/1712345678901234567', 'https://x.com/someone/status/:token'],
+    ['https://example.com/reset/aB3dE5gH-jK7mN9_qR2sT4', 'https://example.com/reset/:token'],
+    ['https://example.com/reset/xQwErTyU-iOpAsD_fGhJkL/', 'https://example.com/reset/:token/'],
+    ['https://example.com/i/V1StGXR8_Z5jdHi6B-myT', 'https://example.com/i/:token'],
+  ])('masks a token-like path segment: %s', (href, expected) => {
+    const d = makeDoc('<html><body></body></html>', 'T');
+    expect(collectPageContext({}, 'minimal', d, fakeLocation(href)).pageUrl).toBe(expected);
+    expect(collectPageLevelContext('minimal', d, fakeLocation(href)).pageUrl).toBe(expected);
+  });
+
+  it.each([
+    'https://example.com/blog/how-to-install-node-18-on-ubuntu-22',
+    'https://en.wikipedia.org/wiki/Internationalization',
+    'https://www.reddit.com/r/programming/comments/abc123/title_here/',
+    'https://www.youtube.com/shorts/dQw4w9WgXcQ',
+    'https://en.wikipedia.org/wiki/2024_United_States_presidential_election',
+    'https://shop.example.com/p/Apple-iPhone-15-Pro-Max-Review',
+  ])('keeps a readable path as is: %s', (href) => {
+    const d = makeDoc('<html><body></body></html>', 'T');
+    expect(collectPageContext({}, 'minimal', d, fakeLocation(href)).pageUrl).toBe(href);
+  });
+
   it('rich level adds lang, description, siteName, headingTrail', () => {
     const d = makeDoc(
       `<html lang="he-IL">
@@ -82,6 +118,27 @@ describe('collectPageContext', () => {
     );
     const ctx = collectPageContext({}, 'rich', d, fakeLocation('u'));
     expect(ctx.pageDescription?.length).toBe(200);
+  });
+
+  it('no cap leaves half an emoji: title, site name, description and headings', () => {
+    const edge = `${'z'.repeat(199)}😀tail`;
+    const d = makeDoc(
+      `<html><head><meta name="description" content="${edge}" /><meta property="og:site_name" content="${edge}" /></head>` +
+        `<body><h1>${'h'.repeat(119)}😀x</h1><p id="a">x</p></body></html>`,
+      edge,
+    );
+    const anchor = d.getElementById('a');
+    if (!anchor) throw new Error('test setup: #a');
+    const loneSurrogate = /\p{Cs}/u;
+    for (const ctx of [
+      collectPageContext({ anchorNode: anchor }, 'rich', d, fakeLocation('u')),
+      collectPageLevelContext('rich', d, fakeLocation('u')),
+    ]) {
+      for (const v of [ctx.pageTitle, ctx.siteName, ctx.pageDescription, ...(ctx.headingTrail ?? [])]) {
+        expect(v).toBeDefined();
+        expect(loneSurrogate.test(v ?? '')).toBe(false);
+      }
+    }
   });
 
   it('caps page-controlled pageTitle / siteName / pageLang at 200 chars', () => {
@@ -158,6 +215,45 @@ describe('collectPageLevelContext (selection-less)', () => {
     expect(ctx.headingTrail).toEqual(['Top', 'Section A', 'Section B']);
     expect(ctx.pageTitle).toBe('T');
     expect(ctx.pageUrl).toBe('https://example.com/x');
+  });
+
+  it('heading text leaves out hidden parts and scripts, on both heading paths', () => {
+    const d = makeDoc(
+      `<html><body>
+         <article>
+           <h2>Pricing<span hidden> internal note</span><script>var t = 1;</script></h2>
+           <p id="anchor">x</p>
+         </article>
+       </body></html>`,
+      'T',
+    );
+    const anchor = d.getElementById('anchor');
+    if (!anchor) throw new Error('test setup: #anchor');
+    const loc = fakeLocation('https://example.com/x');
+    expect(collectPageContext({ anchorNode: anchor }, 'rich', d, loc).headingTrail).toEqual([
+      'Pricing',
+    ]);
+    expect(collectPageLevelContext('rich', d, loc).headingTrail).toEqual(['Pricing']);
+  });
+
+  it('a heading inside a draft or a hidden part never reaches the trail, on both heading paths', () => {
+    const d = makeDoc(
+      `<html><body>
+         <h1>Shown</h1>
+         <div contenteditable="true"><h2>Secret draft heading</h2><p id="draft">draft</p></div>
+         <div hidden><h2>Hidden heading</h2></div>
+         <div aria-hidden="true"><h2>Aria hidden heading</h2></div>
+         <div data-ega-skip><section><h2>Skipped heading</h2><p id="skipped">x</p></section></div>
+       </body></html>`,
+      'T',
+    );
+    const loc = fakeLocation('https://example.com/x');
+    expect(collectPageLevelContext('rich', d, loc).headingTrail).toEqual(['Shown']);
+    for (const id of ['draft', 'skipped']) {
+      const anchor = d.getElementById(id);
+      if (!anchor) throw new Error(`test setup: #${id}`);
+      expect(collectPageContext({ anchorNode: anchor }, 'rich', d, loc).headingTrail).toEqual(['Shown']);
+    }
   });
 
   it('rich level caps headingTrail at depth (3 by default)', () => {

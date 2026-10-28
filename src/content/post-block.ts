@@ -1,4 +1,6 @@
 import { DEFAULT_POST_TEXT_CAP } from '@/shared/constants';
+import { cutGraphemes } from '@/shared/page-context';
+import { visibleText } from './selection';
 
 const CONTAINER_SELECTOR =
   'article, [role="article"], shreddit-post, [slot="post-container"], [data-testid="post-container"], [data-test-id="post-content"], .thing';
@@ -20,7 +22,7 @@ export function extractPostBlockText(
     let hops = 0;
     let cur = el;
     while (cur && hops < MAX_HOPS) {
-      if (cur.textContent.replace(/\s+/g, ' ').trim().length >= MIN_FALLBACK_LEN) {
+      if (visibleText(cur, MIN_FALLBACK_LEN).length >= MIN_FALLBACK_LEN) {
         container = cur;
         break;
       }
@@ -29,7 +31,7 @@ export function extractPostBlockText(
     }
   }
   if (!container) return undefined;
-  const text = container.textContent.replace(/\s+/g, ' ').trim();
+  const text = visibleText(container, cap);
   if (!text) return undefined;
-  return text.length > cap ? text.slice(0, cap) : text;
+  return cutGraphemes(text, cap);
 }

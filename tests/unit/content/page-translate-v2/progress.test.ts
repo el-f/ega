@@ -151,3 +151,28 @@ describe('settleAnnouncement', () => {
     );
   });
 });
+
+describe('areas the pass left out', () => {
+  const settled = { ...base, settled: true, done: 2000, total: 2000 };
+
+  it('past the block cap: never "Page translated", and a second press is the way on', () => {
+    expect(pillStatus({ ...settled, pastCap: true, target: 'Hebrew' }, NOW)).toBe(
+      'Translated 2000 areas. Press Translate page again for the rest.',
+    );
+    expect(settleAnnouncement({ ...settled, pastCap: true })).toBe(
+      'Translated 2000 areas. Press Translate page again for the rest.',
+    );
+  });
+
+  it('too long to send: says how many were left out', () => {
+    expect(pillStatus({ ...settled, tooLong: 1 }, NOW)).toBe(
+      'Page translated. Left out 1 area over 2,000 characters.',
+    );
+    expect(settleAnnouncement({ ...settled, tooLong: 3 })).toBe(
+      'Page translated. Left out 3 areas over 2,000 characters.',
+    );
+    expect(pillStatus({ ...settled, failed: 1, tooLong: 2 }, NOW)).toBe(
+      "Couldn't translate 1 of 2000 areas. Left out 2 areas over 2,000 characters.",
+    );
+  });
+});

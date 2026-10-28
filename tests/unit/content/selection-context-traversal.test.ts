@@ -67,6 +67,15 @@ describe('cross-block context traversal', () => {
     expect(info?.afterText.startsWith(' starts here.')).toBe(true);
   });
 
+  it('a budget edge inside an emoji drops the emoji, never leaving half of it', () => {
+    document.body.innerHTML =
+      '<p id="b">aaaaaaaaa😀bbbbbbbbb</p><p id="s">Sel</p><p id="c">ccccccccc😀dd</p>';
+    selectIn(textNode('s'), 0, 3);
+    const info = getSelectionInfo(10);
+    expect(info?.beforeText).toBe('bbbbbbbbb');
+    expect(info?.afterText).toBe('ccccccccc');
+  });
+
   it('respects the char budget on each side, keeping the text nearest the selection', () => {
     selectIn(textNode('p2'), 0, 6);
     const info = getSelectionInfo(10);
@@ -90,6 +99,29 @@ describe('traversal skips invisible and boilerplate subtrees', () => {
     selectIn(textNode('p2'), 0, 9);
     const info = getSelectionInfo();
     expect(info?.beforeText).toBe('Visible before.');
+  });
+
+  // An unsent chat draft and a part the page marked private never ride along as context.
+  it('excludes a composer draft, a data-ega-skip part and a role=textbox', () => {
+    document.body.innerHTML =
+      '<p id="m">Hola amigo mio</p>' +
+      '<p data-ega-skip>IBAN ES91</p>' +
+      '<div contenteditable="true">draft text</div>' +
+      '<div role="textbox">typed reply</div>' +
+      '<p>Visible after.</p>';
+    selectIn(textNode('m'), 0, 4);
+    const info = getSelectionInfo();
+    expect(info?.afterText).toBe(' amigo mio\nVisible after.');
+  });
+
+  it('excludes text a stylesheet hides, not only an inline style', () => {
+    document.body.innerHTML =
+      '<style>.gone{display:none}.ghost{visibility:hidden}</style>' +
+      '<p class="gone">Class-hidden text</p>' +
+      '<p class="ghost">Invisible text</p>' +
+      '<p id="p2">Selection paragraph.</p>';
+    selectIn(textNode('p2'), 0, 9);
+    expect(getSelectionInfo()?.beforeText).toBe('');
   });
 
   it("excludes the extension's own inline wrappers", () => {

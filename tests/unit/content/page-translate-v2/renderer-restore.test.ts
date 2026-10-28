@@ -45,22 +45,90 @@ describe('renderer — the bilingual sibling is never a page component', () => {
   });
 });
 
+describe('renderer — Replace text keeps the page nodes where they are', () => {
+  it('a framework can still remove or insert next to its nodes after the block is translated', () => {
+    const original = host('<p id="orig">Hallo <b>Welt</b> heute</p>');
+    const [own, bold] = [...original.childNodes];
+    const handle = mountInplace({ id: 'k11-1', element: original, originalText: 'Hallo Welt heute' });
+    finish(handle, 'Hello world today');
+    expect(own?.parentNode).toBe(original);
+    expect(bold?.parentNode).toBe(original);
+    expect(() => original.insertBefore(document.createTextNode('new '), own ?? null)).not.toThrow();
+    expect(() => own && original.removeChild(own)).not.toThrow();
+    expect(handle.target.textContent).toBe('Hello world today');
+  });
+
+  it('hides the page nodes while the translation shows, and shows them again on revert', () => {
+    const original = host('<p id="orig">Hallo <b>Welt</b> heute</p>');
+    const bold = original.querySelector('b');
+    const handle = mountInplace({ id: 'k11-2', element: original, originalText: 'Hallo Welt heute' });
+    finish(handle, 'Hello world today');
+    expect(bold?.hasAttribute('data-ega-hidden')).toBe(true);
+    expect(original.firstChild?.textContent).toBe('');
+    handle.revert();
+    expect(original.innerHTML).toBe('Hallo <b>Welt</b> heute');
+    expect(original.querySelector('b')).toBe(bold);
+  });
+
+  it('a text node the page rewrote while translated keeps its newer words on revert', () => {
+    const original = host('<p id="orig">Alt</p>');
+    const own = original.firstChild as Text;
+    const handle = mountInplace({ id: 'k11-3', element: original, originalText: 'Alt' });
+    finish(handle, 'Old');
+    own.data = 'Neu';
+    handle.revert();
+    expect(original.textContent).toBe('Neu');
+  });
+
+  it('a page update to a hidden text node never shows next to the translation', async () => {
+    const original = host('<p id="orig"><span>5</span> Kommentare von <b>Dana</b></p>');
+    const middle = original.childNodes[1] as Text;
+    const handle = mountInplace({ id: 'k11-4', element: original, originalText: '5 Kommentare von Dana' });
+    finish(handle, '5 comments by Dana');
+    expect(handle.target.isConnected).toBe(true);
+    // React, Vue and Svelte update dynamic text by setting the same node's data.
+    middle.data = ' neue Kommentare von ';
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(handle.target.isConnected).toBe(false);
+    expect(original.querySelector('[data-ega-hidden]')).toBeNull();
+    expect(original.textContent).toBe('5 neue Kommentare von Dana');
+  });
+});
+
 describe('renderer — in-place revert cannot duplicate content', () => {
-  it('skips the fragment append when the page re-populated the block mid-flight', () => {
-    const original = host('<p id="orig">元の段落テキスト</p>');
+  it('keeps a child the page added to the block, and puts the block words back', () => {
+    const original = host('<p id="orig">Guten Morgen allerseits</p>');
     const handle = mountInplace({
       id: 'dup-1',
+      element: original,
+      originalText: 'Guten Morgen allerseits',
+    });
+    finish(handle, 'Good morning everyone');
+    const badge = document.createElement('span');
+    badge.textContent = ' (edited)';
+    original.append(badge);
+
+    handle.revert();
+    expect(original.textContent).toBe('Guten Morgen allerseits (edited)');
+    expect(document.querySelector('[data-ega-replaced="dup-1"]')).toBeNull();
+  });
+
+  it('a page that replaced its own nodes mid-flight shows only its new words after revert', () => {
+    const original = host('<p id="orig">元の段落テキスト</p>');
+    const handle = mountInplace({
+      id: 'dup-3',
       element: original,
       originalText: '元の段落テキスト',
     });
     appendDelta(handle, 'X');
     finish(handle);
-    // A framework re-render puts its own node back next to our wrapper.
-    original.appendChild(document.createTextNode('framework wrote this'));
+    // A framework re-render drops its old node and writes a new one next to the wrapper.
+    const own = original.firstChild;
+    if (own) original.removeChild(own);
+    original.prepend(document.createTextNode('framework wrote this'));
 
     handle.revert();
     expect(original.textContent).toBe('framework wrote this');
-    expect(document.querySelector('[data-ega-replaced="dup-1"]')).toBeNull();
   });
 
   it('still restores the original when the wrapper is the only child', () => {
@@ -97,15 +165,19 @@ describe('renderer — the saved markup comes back, not flattened text', () => {
     expect(handle.target.querySelector('a')).not.toBeNull();
   });
 
-  it('mountError restores the links instead of a flat copy', () => {
+  it('mountError shows the page words again, links and all, with the chip after them', () => {
     const original = host(rich);
+    const link = original.querySelector('a');
     const handle = mountInplace({
       id: 'rt-2',
       element: original,
       originalText: 'read the docs now',
     });
     mountError(handle, { code: 'TIMEOUT', message: 'slow' }, { onRetry: () => {} });
-    expect(handle.target.querySelector('a')?.getAttribute('href')).toBe('https://x.test');
+    expect(original.querySelector('a')).toBe(link);
+    expect(link?.hasAttribute('data-ega-hidden')).toBe(false);
+    expect(original.firstChild?.textContent).toBe('read ');
+    expect(handle.target.textContent).toBe('');
     expect(retryButton(handle.target)).not.toBeNull();
   });
 

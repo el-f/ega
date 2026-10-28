@@ -1,5 +1,7 @@
 import { debugCatch } from '@/shared/logger';
 import { MESSENGER_HOSTS } from '@/shared/site-presets';
+import { cutGraphemes } from '@/shared/page-context';
+import { isSensitiveTarget } from './safety';
 
 interface SelectionInfo {
   text: string;
@@ -189,7 +191,7 @@ const BLOCK_TAGS = new Set([
   'UL',
 ]);
 
-/** Boilerplate and invisible subtrees contribute noise, not context. */
+/** Boilerplate, invisible and private subtrees (a draft, a field, `data-ega-skip`) never become context. */
 function isSkippedElement(el: Element): boolean {
   const tag = el.tagName;
   if (
@@ -206,13 +208,14 @@ function isSkippedElement(el: Element): boolean {
   if (el.hasAttribute('hidden')) return true;
   if (el.getAttribute('aria-hidden') === 'true') return true;
   if (el.id === 'ega-shadow-host' || el.hasAttribute('data-ega-replaced')) return true;
-  const style = (el as HTMLElement).style as CSSStyleDeclaration | undefined;
-  if (style && (style.display === 'none' || style.visibility === 'hidden')) return true;
-  return false;
+  if (isSensitiveTarget(el)) return true;
+  const style = el.ownerDocument.defaultView?.getComputedStyle(el);
+  return style?.display === 'none' || style?.visibility === 'hidden';
 }
 
 function createContextWalker(root: Node): TreeWalker {
-  return document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
+  const doc = root.ownerDocument ?? document;
+  return doc.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
       if (node.nodeType === Node.ELEMENT_NODE) {
         return isSkippedElement(node as Element)
@@ -256,6 +259,28 @@ function collapse(raw: string): string {
   return raw.replace(/\s+/g, ' ');
 }
 
+/** A TreeWalker never filters its root, so the root and its ancestors get the walker's skip rules here. */
+function isInsideSkipped(root: Node): boolean {
+  let el = root.nodeType === Node.ELEMENT_NODE ? (root as Element) : root.parentElement;
+  for (; el; el = el.parentElement) if (isSkippedElement(el)) return true;
+  return false;
+}
+
+/** The words a reader sees under `root`, by the context walker's rules, on one line; stops once it holds `cap` chars. */
+export function visibleText(root: Node, cap = Number.POSITIVE_INFINITY): string {
+  if (isInsideSkipped(root)) return '';
+  const pieces: ContextPiece[] = [];
+  let total = 0;
+  const walker = createContextWalker(root);
+  for (let node = walker.nextNode(); node && total < cap; node = walker.nextNode()) {
+    const t = collapse(node.textContent ?? '');
+    if (!t) continue;
+    pieces.push({ text: t, block: nearestBlock(node) });
+    total += t.length;
+  }
+  return collapse(joinPieces(pieces)).trim();
+}
+
 /** Visible text before the selection in reading order, crossing block boundaries up to `budget` chars. */
 function collectContextBefore(range: Range, budget: number): string {
   const root = document.body;
@@ -284,7 +309,7 @@ function collectContextBefore(range: Range, budget: number): string {
   }
   pieces.reverse();
   const joined = joinPieces(pieces);
-  return joined.length > budget ? joined.slice(joined.length - budget) : joined;
+  return cutGraphemes(joined, budget, true);
 }
 
 /** Visible text after the selection in reading order, crossing block boundaries up to `budget` chars. */
@@ -320,7 +345,7 @@ function collectContextAfter(range: Range, budget: number): string {
     total += t.length;
   }
   const joined = joinPieces(pieces);
-  return joined.length > budget ? joined.slice(0, budget) : joined;
+  return cutGraphemes(joined, budget);
 }
 
 export function getSelectionInfo(userCap?: number, includeContext = true): SelectionInfo | null {
@@ -367,7 +392,7 @@ function getEditableSelectionInfo(userCap?: number, includeContext = true): Sele
   }
   if (!includeContext) return { text, rect, range, beforeText: '', afterText: '' };
   const budget = ctxBudget(undefined, userCap);
-  const beforeText = value.slice(Math.max(0, start - budget), start);
-  const afterText = value.slice(end, end + budget);
+  const beforeText = cutGraphemes(value.slice(0, start), budget, true);
+  const afterText = cutGraphemes(value.slice(end), budget);
   return { text, rect, range, beforeText, afterText };
 }

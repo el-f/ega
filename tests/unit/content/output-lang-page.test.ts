@@ -142,4 +142,54 @@ describe('inline replace — the wrapper is marked only while it shows the trans
     errorInline('r3', { code: 'NETWORK', message: 'x' });
     expect(w.hasAttribute('lang')).toBe(false);
   });
+  it('an RTL target lays the translation out right to left, even when it starts with a Latin word', () => {
+    const w = startInline('r4', { targetLang: asLangSelection('he') });
+    expect(w.getAttribute('dir')).toBe('auto');
+    appendInlineDelta('r4', 'iPhone 15 יוצא היום.');
+    expect(w.getAttribute('dir')).toBe('rtl');
+    finishInline('r4', { confidence: 1 });
+    w.dispatchEvent(new MouseEvent('mousedown'));
+    expect(w.getAttribute('dir')).toBe('auto');
+  });
+});
+
+describe('page translate — an RTL target reads right to left, even when it starts with a Latin word', () => {
+  it('Show both: rtl once the translation shows; an error goes back to auto', () => {
+    const handle = mountBilingual({ id: 'd-1', element: block('Hello'), originalText: 'Hello', lang: 'he' });
+    appendDelta(handle, 'iPhone 15 יוצא היום.');
+    expect(handle.target.getAttribute('dir')).toBe('rtl');
+    const failed = mountBilingual({ id: 'd-2', element: block('Hi'), originalText: 'Hi', lang: 'he' });
+    mountError(failed, { code: 'NETWORK', message: 'x' });
+    expect(failed.target.getAttribute('dir')).toBe('auto');
+  });
+
+  it('Replace text: auto while the page words show (pending, peek), rtl for the translation', () => {
+    const handle = mountInplace({
+      id: 'd-3',
+      element: block('Hello world'),
+      originalText: 'Hello world',
+      lang: 'ar',
+    });
+    expect(handle.target.getAttribute('dir')).toBe('auto');
+    appendDelta(handle, 'Google تعلن اليوم');
+    finish(handle);
+    expect(handle.target.getAttribute('dir')).toBe('rtl');
+    handle.target.dispatchEvent(new MouseEvent('mousedown'));
+    expect(handle.target.getAttribute('dir')).toBe('auto');
+    handle.target.dispatchEvent(new MouseEvent('mouseup'));
+    expect(handle.target.getAttribute('dir')).toBe('rtl');
+  });
+
+  it.each([
+    ['fa', 'rtl'],
+    ['ur', 'rtl'],
+    ['yi', 'rtl'],
+    ['ar-Latn', 'auto'],
+    ['fr', 'auto'],
+    [undefined, 'auto'],
+  ])('target %s gives dir=%s', (lang, dir) => {
+    const handle = mountBilingual({ id: 'd-4', element: block('Hello'), originalText: 'Hello', lang });
+    appendDelta(handle, 'Brand X');
+    expect(handle.target.getAttribute('dir')).toBe(dir);
+  });
 });

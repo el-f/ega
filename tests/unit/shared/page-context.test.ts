@@ -5,6 +5,7 @@ import {
   readPageDescription,
   readSiteName,
   readHeadingTrail,
+  cutGraphemes,
 } from '@/shared/page-context';
 
 function makeDoc(html: string): Document {
@@ -101,6 +102,25 @@ describe('readHeadingTrail', () => {
     expect(trail).toEqual(['Top', 'Middle', 'Inner']);
   });
 
+  it('in a flat article, names the heading right above the anchor, not the first one', () => {
+    const d = makeDoc(
+      '<html><body><article><h2>Intro</h2><p>a</p><h2>Pricing</h2><p id="p">selected here</p>' +
+        '<h2>Later</h2></article></body></html>',
+    );
+    const p = d.getElementById('p');
+    if (!p) throw new Error('test setup: #p');
+    expect(readHeadingTrail(p)).toEqual(['Pricing']);
+  });
+
+  it('takes the nearest heading in a header too', () => {
+    const d = makeDoc(
+      '<html><body><section><header><h2>Old</h2><h3>New</h3></header><p id="p">x</p></section></body></html>',
+    );
+    const p = d.getElementById('p');
+    if (!p) throw new Error('test setup: #p');
+    expect(readHeadingTrail(p)).toEqual(['New']);
+  });
+
   it('returns empty array when no headings in ancestry', () => {
     const d = makeDoc('<html><body><p id="a">x</p></body></html>');
     const a = d.getElementById('a');
@@ -191,5 +211,19 @@ describe('readHeadingTrail', () => {
     expect(trail).toEqual(['Outer']);
     // jsdom is ~10x slower than a browser; a linear scan stays under 50ms, a quadratic one does not.
     expect(elapsed).toBeLessThan(50);
+  });
+});
+
+describe('cutGraphemes', () => {
+  it('cuts the start at a grapheme edge, never inside a surrogate pair or an emoji sequence', () => {
+    expect(cutGraphemes('ab😀cd', 3)).toBe('ab');
+    expect(cutGraphemes('a👨‍👩‍👧b', 4)).toBe('a');
+    expect(cutGraphemes('abcdef', 4)).toBe('abcd');
+    expect(cutGraphemes('abc', 4)).toBe('abc');
+  });
+
+  it('keeps the end with fromEnd, starting at a grapheme edge', () => {
+    expect(cutGraphemes('ab😀cd', 3, true)).toBe('cd');
+    expect(cutGraphemes('abcdef', 4, true)).toBe('cdef');
   });
 });

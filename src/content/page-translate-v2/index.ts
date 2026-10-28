@@ -42,7 +42,7 @@ import {
   releaseOrder,
   runText,
 } from './collect';
-import { settleAnnouncement, type PageProgress } from './progress';
+import { settleAnnouncement, tooLongCopy, type PageProgress } from './progress';
 
 // A free-tier backend rate-limits a many-block batch fast, so transient failures retry with jittered exponential backoff.
 const PAGE_RETRY_MAX_ATTEMPTS = 3;
@@ -146,6 +146,12 @@ interface Session {
   dropped: Set<Element>;
   /** Choose areas resumed only part of a stopped page; its settled copy must retain the full denominator. */
   partialSelection: boolean;
+  /** Whole page: the last pass stopped at the block cap, so the page has blocks no pass took yet. */
+  pastCap: boolean;
+  /** Whole page: blocks the last pass left out as too long to send. */
+  tooLong: number;
+  /** Whole page: blocks that read as the target language, by the text judged; a later pass skips each while that text stays. */
+  inTarget: WeakMap<Element, string>;
   pending: Block[];
   /** Whole page: blocks not yet near the viewport, by id. */
   deferred: Map<string, HTMLElement>;
@@ -259,13 +265,17 @@ export async function runWholePageTranslate(deps: PageV2Deps): Promise<boolean> 
       showToast('Nothing to translate on this page.');
       return false;
     }
-    const elements = collectBlocks(document.body, { maxChars: MAX_SELECTION_CHARS });
-    if (elements.length === 0) {
-      showToast('Nothing to translate on this page.');
+    const found = collectBlocks(document.body, { maxChars: MAX_SELECTION_CHARS });
+    if (found.blocks.length === 0) {
+      showToast(
+        found.tooLong > 0 ? tooLongCopy(found.tooLong) : 'Nothing to translate on this page.',
+      );
       return false;
     }
-    const created = await createSession(deps, [], mode, elements.length);
-    watch(created, elements);
+    const created = await createSession(deps, [], mode, found.blocks.length);
+    created.pastCap = found.pastCap;
+    created.tooLong = found.tooLong;
+    watch(created, found.blocks);
     report(created);
     return true;
   } finally {
@@ -342,23 +352,34 @@ function recollect(sess: Session): number {
   sess.store.forEach((entry) => {
     const id = entry.id;
     if (!sess.terminal.has(id) || sess.failed.has(id)) return;
-    if (sess.handles.get(id)?.target.isConnected !== false) return;
+    const handle = sess.handles.get(id);
+    if (handle?.target.isConnected !== false) return;
+    // Replace text hid the page's own words in place; a page that took only the wrapper away gets them back.
+    handle.revert();
     sess.store.delete(id);
     sess.handles.delete(id);
     sess.terminal.delete(id);
     sess.total--;
   });
   const held = heldIds(sess);
-  const elements = collectBlocks(document.body, { maxChars: MAX_SELECTION_CHARS }).filter(
-    (el) => !held.has(el),
-  );
-  sess.total += elements.length;
-  watch(sess, elements);
-  return elements.length;
+  // Held and target-language blocks are not taken again, so they leave the cap's room to blocks past it.
+  const found = collectBlocks(document.body, {
+    maxChars: MAX_SELECTION_CHARS,
+    skip: {
+      has: (el) =>
+        held.has(el) || (sess.inTarget.has(el) && sess.inTarget.get(el) === readBlock(el)),
+    },
+  });
+  sess.pastCap = found.pastCap;
+  sess.tooLong = found.tooLong;
+  sess.total += found.blocks.length;
+  watch(sess, found.blocks);
+  return found.blocks.length;
 }
 
 /** A later press joins the session on the page, with that press's direction and mode, on the translated view. */
 function adopt(sess: Session, deps: PageV2Deps, mode: RenderMode): void {
+  if (deps.target !== sess.deps.target) sess.inTarget = new WeakMap();
   sess.deps = deps;
   sess.lang = langTag(deps.target);
   sess.targetName = isoName(deps.target);
@@ -473,6 +494,11 @@ function readsAsTarget(sess: Session, text: string): boolean {
   return letters.length > 0 && inScript / letters.length >= 0.8;
 }
 
+/** The words a block sends: only the leading run of an element the last pass took for its run. */
+function readBlock(el: Element): string {
+  return isLeadingRun(el) ? runText(el) : blockText(el);
+}
+
 /** Reads the text at release time, so a block the page changed since collection sends what it shows now. */
 function release(sess: Session, id: string): void {
   const element = sess.deferred.get(id);
@@ -480,10 +506,12 @@ function release(sess: Session, id: string): void {
   sess.deferred.delete(id);
   // An element taken for its leading run sends only those words; its inner blocks are blocks of their own.
   const run = isLeadingRun(element);
-  const text = !element.isConnected ? '' : run ? runText(element) : blockText(element);
+  const text = !element.isConnected ? '' : readBlock(element);
   const isTarget = sess.deps.isTargetLanguage?.(text) ?? readsAsTarget(sess, text);
   if (!hasWords(text) || text.length > MAX_SELECTION_CHARS || isTarget) {
     // Gone from the page or already in the target language: not an area, so it leaves the count.
+    if (hasWords(text) && text.length > MAX_SELECTION_CHARS) sess.tooLong++;
+    else if (hasWords(text)) sess.inTarget.set(element, text);
     sess.observer?.unobserve(element);
     sess.total--;
     return;
@@ -545,6 +573,9 @@ async function createSession(
     skipped: 0,
     dropped: new Set(),
     partialSelection: false,
+    pastCap: false,
+    tooLong: 0,
+    inTarget: new WeakMap(),
     pending: [...blocks],
     deferred: new Map(),
     index: new Map(),
@@ -581,7 +612,8 @@ async function createSession(
       pump();
     }, SWEEP_DELAY_MS);
   });
-  sess.pageWatch.observe(document.body, { childList: true, subtree: true });
+  // The root, not the body: a Turbo-style navigation swaps <body> itself.
+  sess.pageWatch.observe(document.documentElement, { childList: true, subtree: true });
   active = sess;
   return sess;
 }
@@ -718,6 +750,8 @@ function snapshot(sess: Session): PageProgress {
     queued: sess.pending.length,
     skipped: sess.skipped,
     ...(sess.partialSelection ? { partialSelection: true } : {}),
+    ...(sess.pastCap ? { pastCap: true } : {}),
+    ...(sess.tooLong > 0 ? { tooLong: sess.tooLong } : {}),
     settled: isSettled(sess),
     showingOriginal: sess.showingGlobalOriginal,
     ...(sess.cooldownUntil > Date.now() ? { pausedUntil: sess.cooldownUntil } : {}),
@@ -919,6 +953,11 @@ function halt(sess: Session): void {
   if (!sess.parked) {
     for (const element of sess.deferred.values()) sess.dropped.add(element);
     for (const block of sess.pending) sess.dropped.add(block.element);
+  }
+  // A retried block waits in `pending` with its old entry; left in the store, it reads as held and is never taken again.
+  for (const block of sess.pending) {
+    sess.store.delete(block.id);
+    sess.retrying.delete(block.id);
   }
   sess.deferred.clear();
   sess.pending = [];

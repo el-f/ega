@@ -26,6 +26,7 @@ import {
   rig,
 } from '@tests/_helpers/page-translate';
 import { pillStatus } from '@/content/page-translate-v2/progress';
+import { MAX_PAGE_BLOCKS } from '@/content/page-translate-v2/collect';
 
 const N = 12;
 function page(): HTMLElement[] {
@@ -191,6 +192,121 @@ describe('whole-page session — blocks the page removes', () => {
     expect(r.dismissed()).toBe(1);
   });
 
+  it('past the block cap the pill asks for a second press, and that press takes every block left', async () => {
+    const count = MAX_PAGE_BLOCKS + 100;
+    document.body.innerHTML =
+      Array.from({ length: count }, (_, i) => `<p id="p${i}">これは${i}番目の段落です。</p>`).join('') +
+      `<p>${'長い文です。'.repeat(400)}</p>`;
+    const r = rig(10);
+    await runWholePageTranslate(r.d);
+    band(Array.from({ length: 10 }, (_, i) => document.getElementById(`p${i}`) as HTMLElement));
+    await flush();
+    finishAll(r);
+    await flush();
+    expect(r.updates.at(-1)).toMatchObject({ total: MAX_PAGE_BLOCKS, pastCap: true });
+
+    await runWholePageTranslate(r.d);
+    const last = r.updates.at(-1);
+    expect(last?.total).toBe(count);
+    expect(last?.pastCap).toBeUndefined();
+    expect(last?.tooLong).toBe(1);
+    const lastBlock = document.getElementById(`p${count - 1}`) as Element;
+    expect(FakeObserver.last?.observed.has(lastBlock)).toBe(true);
+  });
+
+  it('a page whose only text is too long to send says so, not "nothing to translate"', async () => {
+    document.body.innerHTML = `<p>${'長い文です。'.repeat(400)}</p>`;
+    expect(await runWholePageTranslate(rig().d)).toBe(false);
+    expect(showToastMock).toHaveBeenCalledWith('Left out 1 area over 2,000 characters.');
+  });
+
+  it('blocks already in the target language do not use up the next pass', async () => {
+    const count = MAX_PAGE_BLOCKS + 20;
+    document.body.innerHTML = Array.from({ length: count }, (_, i) =>
+      i >= 10 && i < MAX_PAGE_BLOCKS
+        ? `<p id="p${i}">Already in the target TARGET ${i}</p>`
+        : `<p id="p${i}">これは${i}番目の段落です。</p>`,
+    ).join('');
+    const r = rig(10);
+    r.d.isTargetLanguage = (text) => text.includes('TARGET');
+    await runWholePageTranslate(r.d);
+    band(Array.from(document.querySelectorAll('p')).slice(0, MAX_PAGE_BLOCKS));
+    await flush();
+    finishAll(r);
+    await flush();
+    expect(r.updates.at(-1)).toMatchObject({ settled: true, total: 10, pastCap: true });
+
+    await runWholePageTranslate(r.d);
+    expect(r.updates.at(-1)?.total).toBe(30);
+    expect(FakeObserver.last?.observed.has(document.getElementById(`p${count - 1}`) as Element)).toBe(
+      true,
+    );
+  });
+
+  it('a block judged in the target language is judged again once the page rewrites it', async () => {
+    document.body.innerHTML =
+      '<p id="p0">これは0番目の段落です。</p><p id="p1">Already in the target TARGET</p>' +
+      '<p id="p2">Still in the target TARGET</p>';
+    const r = rig();
+    r.d.isTargetLanguage = (text) => text.includes('TARGET');
+    await runWholePageTranslate(r.d);
+    band([...document.querySelectorAll('p')] as HTMLElement[]);
+    await flush();
+    finishAll(r);
+    await flush();
+    expect(r.sent).toHaveLength(1);
+
+    // A reused element (an SPA route, a virtual list cell) now holds foreign words.
+    const p1 = document.getElementById('p1') as HTMLElement;
+    p1.textContent = 'これは新しい段落です。';
+    await runWholePageTranslate(r.d);
+    band([p1, document.getElementById('p2') as HTMLElement]);
+    await flush();
+    expect(r.sent.map((s) => s.text)).toEqual(['これは0番目の段落です。', 'これは新しい段落です。']);
+  });
+
+  it('a translated block whose text the page updates shows the page words, and the next press takes it again', async () => {
+    document.body.innerHTML = '<p id="a"><span>5</span> 件のコメント、<b>ダナ</b>より</p>';
+    const p = document.getElementById('a') as HTMLElement;
+    const r = rig();
+    await runWholePageTranslate(r.d);
+    band([p]);
+    await flush();
+    finishAll(r);
+    await flush();
+    expect(p.querySelector('[data-ega-replaced]')).not.toBeNull();
+
+    (p.childNodes[1] as Text).data = ' 件の新しいコメント、';
+    await flush();
+    expect(p.querySelector('[data-ega-replaced]')).toBeNull();
+    await runWholePageTranslate(r.d);
+    band([p]);
+    await flush();
+    expect(r.sent).toHaveLength(2);
+    expect(r.sent[1]?.text).toContain('件の新しいコメント');
+  });
+
+  it('a page that swaps its whole <body> (Turbo-style navigation) closes the session and its pill', async () => {
+    const els = page();
+    const r = rig();
+    await runWholePageTranslate(r.d);
+    band(els.slice(0, 2));
+    await flush();
+    finishAll(r);
+    await flush();
+    // The sweep the mounts queued runs first, so only the swap itself can close the session.
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(isPageV2Active()).toBe(true);
+
+    const next = document.createElement('body');
+    next.innerHTML = '<p>Another page</p>';
+    document.documentElement.replaceChild(next, document.body);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    expect(isPageV2Active()).toBe(false);
+    expect(r.dismissed()).toBe(1);
+  });
+
   it('a route change does not cancel: translations still on the page stay', async () => {
     const els = page();
     const r = rig();
@@ -285,6 +401,40 @@ describe('whole-page session — failures', () => {
     band(els.slice(3, 7));
     await flush();
     expect(r.sent.length).toBeGreaterThan(3);
+  });
+
+  it('Stop while retried areas wait for a slot lets the next press send them again', async () => {
+    const all = page();
+    for (const el of all.slice(3)) el.remove();
+    const els = all.slice(0, 3);
+    const [, t1, t2] = els.map((e) => e.textContent);
+    const r = rig(1);
+    await runWholePageTranslate(r.d);
+    band(els);
+    await flush();
+    for (let i = 0; i < 3; i++) {
+      fail(r.sent[i]?.id, 'UNKNOWN');
+      await flush();
+    }
+    expect(r.sent).toHaveLength(3);
+    // The press retries every failed area: one goes out, two wait for the one slot.
+    await runWholePageTranslate(r.d);
+    await flush();
+    expect(r.sent).toHaveLength(4);
+    r.stop();
+    finishAll(r, 3);
+    await flush();
+
+    expect(await runWholePageTranslate(r.d)).toBe(true);
+    band(els);
+    await flush();
+    finishAll(r, 4);
+    await flush();
+    finishAll(r, 5);
+    await flush();
+    expect(r.sent.slice(4).map((s) => s.text)).toEqual([t1, t2]);
+    expect(r.sent).toHaveLength(6);
+    expect(r.updates.at(-1)).toMatchObject({ settled: true, done: 3, failed: 0, total: 3, skipped: 0 });
   });
 
   it('Stop during a rate-limit pause takes the pause off the pill', async () => {
@@ -530,6 +680,23 @@ describe('whole-page session — round 2', () => {
     band(els.slice(0, 1));
     await flush();
     expect(r.sent.at(-1)?.text).toBe('これは書き換えられた段落です。');
+  });
+
+  it('a page that takes away only the Replace text wrapper gets its own words back on the next press', async () => {
+    const els = page();
+    const text = els[0]?.textContent;
+    const r = rig();
+    await runWholePageTranslate(r.d);
+    band(els.slice(0, 1));
+    await flush();
+    finishAll(r);
+    await flush();
+    els[0]?.querySelector('[data-ega-replaced]')?.remove();
+    await runWholePageTranslate(r.d);
+    expect(els[0]?.textContent).toBe(text);
+    band(els.slice(0, 1));
+    await flush();
+    expect(r.sent.at(-1)?.text).toBe(text);
   });
 
   it('a settings stop parks the rest instead of stopping it, and Try again after the fix picks the page up again', async () => {

@@ -74,9 +74,10 @@ describe('renderer — the block phase', () => {
   });
 
   it('a late delta or done after an error keeps the chip and the retry button', () => {
+    const page = host(rich);
     const handle = mountInplace({
       id: 'ph-4',
-      element: host(rich),
+      element: page,
       originalText: 'read the docs now',
     });
     mountError(handle, { code: 'TIMEOUT', message: 'slow' }, { onRetry: () => {} });
@@ -87,7 +88,8 @@ describe('renderer — the block phase', () => {
     expect(handle.phase).toBe('error');
     expect(handle.target.querySelector('[data-ega-tx-error]')).not.toBeNull();
     expect(retryButton(handle.target)).not.toBeNull();
-    expect(handle.target.querySelector('a')?.getAttribute('href')).toBe('https://x.test');
+    expect(handle.target.textContent).toBe('');
+    expect(page.querySelector('a:not([data-ega-hidden])')?.getAttribute('href')).toBe('https://x.test');
   });
 
   it('a peek before the block settles is a no-op', () => {

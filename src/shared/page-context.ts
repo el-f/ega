@@ -1,5 +1,19 @@
 // Missing or malformed input returns undefined or [], never throws.
 
+let graphemes: Intl.Segmenter | undefined;
+
+/** At most `max` code units of `text`, cut at a grapheme edge so no emoji or surrogate pair splits; `fromEnd` keeps the end. */
+export function cutGraphemes(text: string, max: number, fromEnd = false): string {
+  if (text.length <= max) return text;
+  if (max <= 0) return '';
+  graphemes ??= new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+  const segments = graphemes.segment(text);
+  if (!fromEnd) return text.slice(0, segments.containing(max)?.index ?? max);
+  const from = text.length - max;
+  const at = segments.containing(from);
+  return text.slice(at && at.index < from ? at.index + at.segment.length : from);
+}
+
 function metaContent(doc: Document, selector: string): string | undefined {
   const el = doc.querySelector(selector);
   const raw = el?.getAttribute('content');
@@ -37,47 +51,44 @@ export function readSiteName(doc: Document): string | undefined {
 
 const HEADING_TAG_SET = new Set(['H1', 'H2', 'H3', 'H4', 'H5', 'H6']);
 
-/** The nearest heading labeling each ancestor of `anchor`, outermost first. */
-export function readHeadingTrail(anchor: Node, maxDepth = 3, maxLen = 120): string[] {
+/** The nearest heading labeling each ancestor of `anchor`, outermost first. `textOf` reads a heading's words. */
+export function readHeadingTrail(
+  anchor: Node,
+  maxDepth = 3,
+  maxLen = 120,
+  textOf: (h: Element) => string = (h) => h.textContent,
+): string[] {
   let el: Element | null =
     anchor.nodeType === Node.ELEMENT_NODE ? (anchor as Element) : (anchor.parentElement ?? null);
   const collected: string[] = [];
   const seen = new Set<string>();
 
   function takeHeadingText(h: Element): string | null {
-    const raw = h.textContent.replace(/\s+/g, ' ').trim();
+    const raw = textOf(h).replace(/\s+/g, ' ').trim();
     if (!raw) return null;
     const key = `${h.tagName}:${raw}`;
     if (seen.has(key)) return null;
     seen.add(key);
-    return raw.length > maxLen ? raw.slice(0, maxLen) : raw;
+    return cutGraphemes(raw, maxLen);
   }
 
+  function isBeforeOrContainsAnchor(h: Element): boolean {
+    const rel = h.compareDocumentPosition(anchor);
+    const mask = Node.DOCUMENT_POSITION_FOLLOWING | Node.DOCUMENT_POSITION_CONTAINED_BY;
+    return (rel & mask) !== 0 || h === anchor;
+  }
+
+  /** The last heading child (or header/hgroup grandchild) at or before the anchor: the one that labels it. */
   function headingBeforeAnchor(el: Element): Element | null {
-    for (const child of Array.from(el.children)) {
-      if (HEADING_TAG_SET.has(child.tagName)) {
-        const rel = child.compareDocumentPosition(anchor);
-        const isBeforeOrContainsAnchor =
-          (rel & Node.DOCUMENT_POSITION_FOLLOWING) !== 0 ||
-          (rel & Node.DOCUMENT_POSITION_CONTAINED_BY) !== 0 ||
-          child === anchor;
-        if (isBeforeOrContainsAnchor) return child;
-      }
+    let nearest: Element | null = null;
+    for (const child of el.children) {
       // One level only, never the full subtree: a querySelectorAll per ancestor goes quadratic on big DOMs.
-      if (child.tagName === 'HEADER' || child.tagName === 'HGROUP') {
-        for (const grand of Array.from(child.children)) {
-          if (HEADING_TAG_SET.has(grand.tagName)) {
-            const rel = grand.compareDocumentPosition(anchor);
-            const isBeforeOrContainsAnchor =
-              (rel & Node.DOCUMENT_POSITION_FOLLOWING) !== 0 ||
-              (rel & Node.DOCUMENT_POSITION_CONTAINED_BY) !== 0 ||
-              grand === anchor;
-            if (isBeforeOrContainsAnchor) return grand;
-          }
-        }
+      const wraps = child.tagName === 'HEADER' || child.tagName === 'HGROUP';
+      for (const h of wraps ? child.children : [child]) {
+        if (HEADING_TAG_SET.has(h.tagName) && isBeforeOrContainsAnchor(h)) nearest = h;
       }
     }
-    return null;
+    return nearest;
   }
 
   while (el) {

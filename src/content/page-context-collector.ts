@@ -4,6 +4,7 @@ import {
   readPageDescription,
   readSiteName,
   readHeadingTrail,
+  cutGraphemes,
 } from '@/shared/page-context';
 import {
   DEFAULT_DESCRIPTION_CONTEXT_CAP,
@@ -13,22 +14,40 @@ import {
 } from '@/shared/constants';
 import { omitUndef } from '@/shared/utils/omitUndef';
 import { extractPostBlockText } from './post-block';
+import { visibleText } from './selection';
 
 const HEADING_TAG_SET_PAGE = new Set(['H1', 'H2', 'H3', 'H4', 'H5', 'H6']);
 
 /** A page controls `document.title`, `og:site_name` and `<html lang>`, and
  *  each rides every request — cap them like `pageDescription`. */
 function capMeta(v: string): string {
-  return v.length > DEFAULT_DESCRIPTION_CONTEXT_CAP
-    ? v.slice(0, DEFAULT_DESCRIPTION_CONTEXT_CAP)
-    : v;
+  return cutGraphemes(v, DEFAULT_DESCRIPTION_CONTEXT_CAP);
 }
 
-/** Origin + path only: query strings carry tokens, reset codes and search terms that must not reach the LLM. An href that does not parse passes through as is. */
+const LONG_RUN = /[a-z0-9]{16,}/gi;
+const UUID = /[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}/i;
+const BASE64URL_RUN = /[\w-]{20,}/g;
+/** lower-to-upper, letter-to-digit or digit-to-letter: rare inside slug words ("Svelte_5", "iPhone-15"), common in random tokens. */
+const CLASS_CHANGE = /[a-z](?=[A-Z])|[a-zA-Z](?=\d)|\d(?=[a-zA-Z])/g;
+
+/** A reset, invite or magic-link token: 16+ letters and digits in a row holding a digit, a UUID, or 20+ base64url characters in a row with 3+ class changes (token_urlsafe, nanoid). Slugs stay. */
+function isTokenSegment(segment: string): boolean {
+  return (
+    UUID.test(segment) ||
+    (segment.match(LONG_RUN) ?? []).some((run) => /\d/.test(run)) ||
+    (segment.match(BASE64URL_RUN) ?? []).some((run) => (run.match(CLASS_CHANGE) ?? []).length >= 3)
+  );
+}
+
+/** Origin + path only, a token-like segment as `:token`: query strings carry tokens and search terms that must not reach the LLM. An href that does not parse passes through as is. */
 function safePageUrl(href: string): string {
   try {
     const u = new URL(href);
-    return u.origin + u.pathname;
+    const path = u.pathname
+      .split('/')
+      .map((s) => (isTokenSegment(s) ? ':token' : s))
+      .join('/');
+    return u.origin + path;
   } catch {
     return href;
   }
@@ -75,10 +94,10 @@ export function collectPageContext(
 
   const pageLang = readPageLang(doc);
   const rawDesc = readPageDescription(doc);
-  const pageDescription = rawDesc && rawDesc.length > descCap ? rawDesc.slice(0, descCap) : rawDesc;
+  const pageDescription = rawDesc && cutGraphemes(rawDesc, descCap);
   const siteName = readSiteName(doc);
   const headingTrail = info.anchorNode
-    ? readHeadingTrail(info.anchorNode, trailDepth, trailEntryCap)
+    ? readHeadingTrail(info.anchorNode, trailDepth, trailEntryCap, visibleText)
     : [];
   const postText = info.anchorNode
     ? extractPostBlockText(info.anchorNode, tunables.postTextCap ?? DEFAULT_POST_TEXT_CAP)
@@ -114,7 +133,7 @@ export function collectPageLevelContext(
 
   const pageLang = readPageLang(doc);
   const rawDesc = readPageDescription(doc);
-  const pageDescription = rawDesc && rawDesc.length > descCap ? rawDesc.slice(0, descCap) : rawDesc;
+  const pageDescription = rawDesc && cutGraphemes(rawDesc, descCap);
   const siteName = readSiteName(doc);
   const headingTrail = collectTopOfPageHeadings(doc, trailDepth, trailEntryCap);
 
@@ -138,12 +157,12 @@ function collectTopOfPageHeadings(doc: Document, depth: number, entryCap: number
   const nodes = body.querySelectorAll('h1, h2, h3, h4, h5, h6');
   for (const node of Array.from(nodes)) {
     if (!HEADING_TAG_SET_PAGE.has(node.tagName)) continue;
-    const raw = node.textContent.replace(/\s+/g, ' ').trim();
+    const raw = visibleText(node);
     if (!raw) continue;
     const key = `${node.tagName}:${raw}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    out.push(raw.length > entryCap ? raw.slice(0, entryCap) : raw);
+    out.push(cutGraphemes(raw, entryCap));
     if (out.length >= depth) break;
   }
   return out;
