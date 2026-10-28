@@ -87,7 +87,11 @@
   // Saved fields the row check refuses run as the shape preset; the dialog shows that preset and says why.
   const unread = storedFields !== undefined && !v.is(storedAnswerV1Schema, initial?.answer);
   const unreadLabels = (storedFields ?? []).flatMap((f) =>
-    typeof f === 'object' && f !== null && 'label' in f && typeof f.label === 'string'
+    typeof f === 'object' &&
+    f !== null &&
+    'label' in f &&
+    typeof f.label === 'string' &&
+    f.label.trim()
       ? [f.label]
       : [],
   );
@@ -556,11 +560,10 @@
       {#if unreadFields !== undefined}
         <div class="ct-own-format">
           <p class="ct-hint">
-            Ega could not read the saved fields ({#each unreadLabels as name, i (i)}{i > 0
-                ? ', '
-                : ''}<bdi>{name}</bdi>{/each}), so this task runs as {output === 'card'
-              ? 'Answer with notes'
-              : 'Answer only'}.
+            Ega could not read the saved fields{#each unreadLabels as name, i (i)}{i === 0
+                ? ' ('
+                : ', '}<bdi>{name}</bdi>{/each}{unreadLabels.length > 0 ? ')' : ''}, so this task
+            runs as {output === 'card' ? 'Answer with notes' : 'Answer only'}.
           </p>
           {#if unreadFields}<div>
               <Button variant="secondary" size="sm" onclick={() => void useMyFields()}

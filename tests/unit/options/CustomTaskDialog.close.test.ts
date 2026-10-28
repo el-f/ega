@@ -46,6 +46,8 @@ function radio(name: string): HTMLElement {
   return el;
 }
 const reply = (): HTMLElement => screen.getByRole('region', { name: 'Reply' });
+// As the page shows it: a line break in the markup reads as one space.
+const replyText = (): string => reply().textContent.replace(/\s+/g, ' ');
 const parts = (): string[] =>
   [...reply().querySelectorAll('dt')].map(
     (dt) => `${dt.textContent.trim()}: ${dt.nextElementSibling?.textContent.trim()}`,
@@ -388,7 +390,7 @@ describe('saved fields Ega cannot read', () => {
     const row = (await getCustomTasks())[0];
     open(vi.fn(), { row });
     expect(radio('Answer with notes').getAttribute('aria-checked')).toBe('true');
-    expect(reply().textContent).toContain(
+    expect(replyText()).toContain(
       'Ega could not read the saved fields (Answer, Extra), so this task runs as Answer with notes.',
     );
     expect(document.querySelector('[data-ega-answer-fields-editor]')).toBeNull();
@@ -435,6 +437,31 @@ describe('saved fields Ega cannot read', () => {
       expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Edit Answer' })),
     );
     expect(use.isConnected).toBe(false);
+  });
+
+  it('saved fields with no names are not listed as empty parentheses', async () => {
+    const { STORAGE_KEYS } = await import('@/shared/constants');
+    await chrome.storage.local.set({
+      [STORAGE_KEYS.customTasks]: [
+        {
+          ...input,
+          id: 'c-nameless',
+          createdAt: 1,
+          answer: {
+            v: 1,
+            fields: [
+              { key: 'a', kind: 'text', role: 'main', required: true },
+              { key: 'b', label: ' ', kind: 'text', role: 'notes', required: false },
+            ],
+          },
+        },
+      ],
+    });
+    open(vi.fn(), { row: (await getCustomTasks())[0] });
+    expect(replyText()).toContain(
+      'Ega could not read the saved fields, so this task runs as Answer only.',
+    );
+    expect(reply().textContent).not.toContain('(');
   });
 
   it('picking Your own fields keeps them too', async () => {
