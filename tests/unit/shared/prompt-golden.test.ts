@@ -1,5 +1,5 @@
 import { V9_FULL_PROMPT_TEMPLATE } from '@/shared/prompt-defaults';
-/** T-F1: prompts Ega sends with no user edits, recorded on v9; EGA_WRITE_GOLDEN=1 re-records on a commit that changes no prompt. */
+/** T-F1: prompts Ega sends with no user edits; EGA_WRITE_GOLDEN=1 re-records prompt-golden.json on a commit that changes no prompt. */
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -16,7 +16,10 @@ import { DEFAULT_PROMPT_TEMPLATE } from '@/shared/settings-schema';
 import { asLangPresetIdUnsafe } from '@/shared/brands';
 import type { CustomLanguage, Settings, TranslationRequest } from '@/shared/types';
 
-const FIXTURE = fileURLToPath(new URL('../../fixtures/prompt-golden-v9.json', import.meta.url));
+const FIXTURE = fileURLToPath(new URL('../../fixtures/prompt-golden.json', import.meta.url));
+// Never re-recorded: the literal v9 bytes, so Translate and Explain can prove they did not move.
+const FROZEN_V9 = fileURLToPath(new URL('../../fixtures/prompt-golden-v9.json', import.meta.url));
+const TRANSLATE_CASE = /^(?:translate|explain|image:explain|preview:translate)\b/;
 const silent = { debug() {}, info() {}, warn() {}, error() {} };
 
 // A hint that ends in a space: appending after the trim would lose it, so this guards the join point.
@@ -130,8 +133,8 @@ async function goldenCases(): Promise<Record<string, { system: string; user: str
   return out;
 }
 
-describe('golden prompts (v9, no user edits)', () => {
-  it('every unedited prompt is byte-identical to the recorded v9 build', async () => {
+describe('golden prompts (no user edits)', () => {
+  it('every unedited prompt is byte-identical to the recorded build', async () => {
     const actual = await goldenCases();
     if (process.env['EGA_WRITE_GOLDEN'] === '1' || !existsSync(FIXTURE)) {
       writeFileSync(FIXTURE, JSON.stringify(actual, null, 2) + '\n');
@@ -139,6 +142,14 @@ describe('golden prompts (v9, no user edits)', () => {
     const recorded = JSON.parse(readFileSync(FIXTURE, 'utf8')) as typeof actual;
     expect(Object.keys(actual).sort()).toEqual(Object.keys(recorded).sort());
     for (const k of Object.keys(recorded)) expect(actual[k], k).toEqual(recorded[k]);
+  });
+
+  it('Translate and Explain still send the frozen v9 bytes', async () => {
+    const actual = await goldenCases();
+    const v9 = JSON.parse(readFileSync(FROZEN_V9, 'utf8')) as typeof actual;
+    const cases = Object.keys(v9).filter((k) => TRANSLATE_CASE.test(k));
+    expect(cases.length).toBeGreaterThan(10);
+    for (const k of cases) expect(actual[k], k).toEqual(v9[k]);
   });
 });
 
