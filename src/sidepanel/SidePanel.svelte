@@ -370,7 +370,9 @@
             (t) => t.role === 'assistant' && t.attachedToTurnId === editingTurnId,
           );
           if (prior?.status === 'done' && prior.content && edited) {
-            preservedResponse = { content: prior.content, message: edited.content };
+            // A version kept by an earlier edit answered its own message, not the one being edited.
+            const message = activeVariant(prior)?.answeredMessage ?? edited.content;
+            preservedResponse = { content: prior.content, message };
           }
           conversation.dropLastUserExchange();
         } else {

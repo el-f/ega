@@ -1253,6 +1253,34 @@ describe('the version and the task a question is about', () => {
     expect(reply.textContent).toContain('Hello, how are you?');
   });
 
+  it('an answer kept by an edit made while it was shown is still asked about with its own message', async () => {
+    const c = await mounted();
+    await firstExchange(c);
+    const edit = async (text: string): Promise<void> => {
+      await fireEvent.click(c.querySelector('.ega-user-turn [data-ega-edit]') as HTMLElement);
+      await settle();
+      const s = await send(c, text);
+      await chunk({ type: 'done', requestId: s.requestId, text: `${text}, answered` });
+    };
+    const showFirst = async (): Promise<HTMLElement> => {
+      const reply = replies(c)[0] as HTMLElement;
+      await fireEvent.click(reply.querySelector('[data-ega-variant-prev]') as HTMLElement);
+      await settle();
+      expect(reply.querySelector('.ega-pager-count')?.textContent).toBe('1/2');
+      expect(reply.textContent).toContain('Hi, how are you?');
+      return reply;
+    };
+    await edit('ahlan');
+    await showFirst();
+    await edit('ahlan ya sa7bi');
+
+    await fireEvent.click(askOn(await showFirst()));
+    await settle();
+    const q = await send(c, 'why?');
+    expect(q.options.askAbout?.['result']).toBe('Hi, how are you?');
+    expect(q.options.askAbout?.['original']).toBe('mar7aba, kifak?');
+  });
+
   const image = 'data:image/png;base64,iVBORw0KGgo=';
   const dispatch = { sourceLang: 'auto', targetLang: 'en', stream: true };
   // S1-1 and R2-10: every finished reply can be asked about, and its about block names its task.
