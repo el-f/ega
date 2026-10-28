@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { chromeMock, resetChromeMock } from '../../mocks/chrome';
 import { STORAGE_KEYS } from '@/shared/constants';
 import { confirmDialog } from '@/shared/components/confirmDialog';
-import { getCustomLanguages, getSettings } from '@/shared/storage';
+import { getCustomLanguages, getSettings, updateSettings } from '@/shared/storage';
 import { exportAll } from '@/shared/storage/backup';
 import { DETECT_PATTERN_MAX, VARIETY_HINT_MAX } from '@/shared/settings-schema';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
@@ -389,7 +389,7 @@ describe('importBundleFile — a languages file is read as leniently as a tasks 
     expect((await getCustomLanguages()).map((c) => c.id)).toEqual(['imported-test-id']);
   });
 
-  it('drops a detection pattern over its limit instead of cutting it', async () => {
+  it('drops a detection pattern over its limit, as it drops every file pattern', async () => {
     const lang = VARIETIES.egaVarieties.customLanguages[0];
     const status = await importBundleFile(
       fileOf({
@@ -411,9 +411,46 @@ describe('importBundleFile — a languages file is read as leniently as a tasks 
       }),
       'varieties',
     );
-    expect(status?.msg).toMatch(/Skipped 2 broken entries/);
+    expect(status?.msg).toMatch(/Did not import 2 detection patterns\./);
     expect((await getCustomLanguages())[0]?.autoDetect).toBeUndefined();
     expect((await getSettings()).varietyOverrides).toEqual({ arabizi: { hint: 'h' } });
+  });
+
+  it("never imports a file's detection pattern, keeps your own for an id you have, and says so", async () => {
+    const lang = VARIETIES.egaVarieties.customLanguages[0];
+    const mine = { regex: 'mine', flags: 'i', minScore: 1 };
+    const myArabizi = { regex: 'zz', flags: 'i', minScore: 2 };
+    await chromeMock.storage.local.set({
+      [STORAGE_KEYS.customLanguages]: [{ ...lang, id: 'my-lang', autoDetect: mine }],
+    });
+    await updateSettings({ varietyOverrides: { arabizi: { autoDetect: myArabizi } } });
+    const grabby = { regex: '.', flags: 'u', minScore: 0 };
+    const status = await importBundleFile(
+      fileOf({
+        egaVarieties: {
+          ...VARIETIES.egaVarieties,
+          customLanguages: [
+            { ...lang, label: 'Grabby', autoDetect: grabby },
+            { ...lang, id: 'my-lang', autoDetect: grabby },
+          ],
+          varietyOverrides: { arabizi: { hint: 'h', autoDetect: grabby } },
+        },
+      }),
+      'varieties',
+    );
+    expect(confirmDialog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.stringContaining('The detection patterns in the file are not imported'),
+      }),
+    );
+    expect(status?.msg).toMatch(/Did not import 3 detection patterns\./);
+    expect((await getCustomLanguages()).map((c) => [c.id, c.autoDetect])).toEqual([
+      ['imported-test-id', undefined],
+      ['my-lang', mine],
+    ]);
+    expect((await getSettings()).varietyOverrides).toEqual({
+      arabizi: { hint: 'h', autoDetect: myArabizi },
+    });
   });
 
   it('a map or list of the wrong type counts as one broken part', async () => {
