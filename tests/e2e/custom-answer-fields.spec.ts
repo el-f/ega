@@ -12,6 +12,7 @@ import {
   setNextMessage,
   type ExtensionHandle,
 } from './helpers';
+import { expectSameWidth } from './flows/_harness';
 
 const fields = [
   { key: 'answer', label: 'Outline', kind: 'list', role: 'main', required: true },
@@ -127,8 +128,17 @@ for (const { theme, width } of [
       path: info.outputPath(`answer-editor-${theme}-${width}.png`),
     });
     const preview = dialog.locator('[data-ega-answer-preview]');
-    await preview.getByRole('button', { name: 'Try it' }).click();
-    await expect(preview.getByText('All fields came back')).toBeVisible();
+    await preview.locator('[data-ega-example-reply]').click();
+    await expect(preview.getByText('Example values, not a real reply')).toBeVisible();
+    const tryIt = preview.getByRole('button', { name: 'Try with Anthropic' });
+    await expectSameWidth(
+      tryIt,
+      async () => {
+        await tryIt.click();
+        await expect(preview.getByText('All required fields came back')).toBeVisible();
+      },
+      'Try',
+    );
     await expect(preview.locator('li', { hasText: 'First useful item' })).toBeVisible();
     expect(mock.calls()).toBe(1);
     await preview.scrollIntoViewIfNeeded();
@@ -155,7 +165,7 @@ test('a wrong-format reply retries once and names the task format problem', asyn
   await expect(page.locator('.tooltip').getByRole('button', { name: /settings/i })).toBeVisible();
 });
 
-test('Try it shows a friendly format error and keeps diagnostics in Details', async ({
+test('Try shows a friendly format error and keeps diagnostics in Details', async ({
   browserName: _browserName,
 }, info) => {
   const mock = mockAnthropic(ext.context, { rawText: '{"wrong":17}' });
@@ -167,8 +177,9 @@ test('Try it shows a friendly format error and keeps diagnostics in Details', as
     .getByRole('button', { name: 'Edit Outline' })
     .click();
   const preview = page.locator('[data-ega-answer-preview]');
-  await preview.getByRole('button', { name: 'Try it' }).click();
-  await expect(preview.getByRole('status')).toContainText('Wrong format');
+  await preview.locator('[data-ega-example-reply]').click();
+  await preview.getByRole('button', { name: 'Try with Anthropic' }).click();
+  await expect(preview.locator('.ap-card').getByRole('status')).toContainText('Wrong format');
   await expect(preview.locator('pre')).not.toBeVisible();
   await preview.locator('summary').click();
   await expect(preview.locator('pre')).toContainText('wrong');

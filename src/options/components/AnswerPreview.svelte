@@ -8,10 +8,16 @@
   import { sendMsg } from '@/shared/messages';
   import { uuid } from '@/shared/uuid';
   import { errorCopy } from '@/shared/error-copy';
+  import { computeBackendOrder } from '@/shared/backends/select';
+  import { getRegisteredBackendIds } from '@/shared/backends/registry';
+  import { backendHasRequiredKey, backendNeedsKey } from '@/shared/backends/key-presence';
+  import { backendLabel } from '@/shared/backends/provider-profiles';
   import { PREVIEW_SAMPLE_TEXT } from '@/options/preview-prompt';
   import AnswerNotes from '@/shared/components/AnswerNotes.svelte';
   import ReplyDetails from '@/shared/components/ReplyDetails.svelte';
   import Markdown from '@/shared/components/Markdown.svelte';
+  import ChevronRight from '@lucide/svelte/icons/chevron-right';
+  import ChevronDown from '@lucide/svelte/icons/chevron-down';
   import Button from '@/shared/ui/Button.svelte';
   import Input from '@/shared/ui/Input.svelte';
 
@@ -22,13 +28,17 @@
     problem?: string | null;
   }
   let { spec, draft, s, problem = null }: Props = $props();
+  let open = $state(false);
   let text = $state(PREVIEW_SAMPLE_TEXT);
   let runningId = $state<string | null>(null);
   let terminal = $state<Extract<TranslationChunk, { type: 'done' | 'error' }> | null>(null);
   let detailsOpen = $state(false);
-  const disabledReason = $derived(
-    problem ?? (!text.trim() ? 'Add sample text to try this task.' : null),
-  );
+  // Shown only after a click: Try is never disabled (R37).
+  let why = $state('');
+  const reason = $derived.by(() => {
+    const need = problem ?? (!text.trim() ? 'Add sample text to try this task.' : null);
+    return need === null ? null : need[0]?.toUpperCase() + need.slice(1);
+  });
   $effect(() => {
     JSON.stringify(draft);
     untrack(() => {
@@ -39,6 +49,15 @@
     });
   });
   const uid = $props.id();
+  // A cloud row with a key answers first; a local row above it may too, and only a probe can tell, so it goes unnamed.
+  const firstBackend = $derived.by(() => {
+    for (const id of computeBackendOrder(s, getRegisteredBackendIds())) {
+      if (!backendNeedsKey(id)) return null;
+      if (backendHasRequiredKey(id, s)) return backendLabel(id);
+    }
+    return null;
+  });
+  const tryLabel = $derived(firstBackend === null ? 'Try it' : `Try with ${firstBackend}`);
   const previewError = $derived(
     terminal?.type === 'error' ? errorCopy(terminal.code, terminal.message) : null,
   );
@@ -47,20 +66,20 @@
       spec.fields.map((field) => [
         field.key,
         field.kind === 'list'
-          ? ['First sample item', 'Second sample item']
+          ? ['Example item', 'Another example item']
           : field.kind === 'score'
             ? 0.85
             : field.kind === 'yesno'
               ? true
               : field.kind === 'choice'
-                ? (field.choices?.[0] ?? 'Sample choice')
+                ? (field.choices?.[0] ?? 'Example choice')
                 : field.kind === 'languages'
                   ? [{ id: 'en' }]
                   : field.kind === 'language'
                     ? 'en'
                     : field.role === 'main'
-                      ? 'Your answer appears here'
-                      : `Sample ${field.label.toLowerCase()}`,
+                      ? 'Example answer'
+                      : `Example ${field.label.toLowerCase()}`,
       ]),
     );
     return readAnswer(spec, JSON.stringify(values));
@@ -82,11 +101,16 @@
     const issues = terminal.meta?.answerFormat?.issues;
     if (issues?.length) return issues[0] ?? '';
     const answer = terminal.answer;
-    const missing = answer?.spec.fields.find((f) => answer.fields[f.key] === undefined);
-    return missing ? `${missing.label} was empty` : 'All fields came back';
+    // A field the model may leave out is not missing when it is left out.
+    const missing = answer?.spec.fields.find(
+      (f) => f.required && f.when === undefined && answer.fields[f.key] === undefined,
+    );
+    return missing ? `${missing.label} was empty` : 'All required fields came back';
   });
   async function run(): Promise<void> {
-    if (problem || !text.trim() || runningId !== null) return;
+    if (runningId !== null) return;
+    why = reason ?? '';
+    if (reason !== null) return;
     const requestId = uuid();
     runningId = requestId;
     terminal = null;
@@ -131,79 +155,93 @@
   });
 </script>
 
-<section class="ap-preview" aria-labelledby="{uid}-title" data-ega-answer-preview>
-  <h3 id="{uid}-title">Answer preview</h3>
-  <p class="ap-hint">Sample values update as you edit. Try it sends your sample to a backend.</p>
-  <div class="ap-card" aria-busy={runningId !== null}>
-    {#if runningId !== null}<p role="status">
-        Trying your task…
-      </p>{:else if terminal?.type === 'error'}
-      {#if previewError}
-        <p role="status"><strong>{previewError.title}</strong>: {previewError.body}</p>
-        {#if previewError.detail}<details>
-            <summary>Details</summary>
-            <pre>{previewError.detail}</pre>
-          </details>{/if}
-      {:else}<p role="status">Stopped</p>{/if}
-    {:else}
-      {#if items}<ul>
-          {#each items as item, i (i)}<li>{item}</li>{/each}
-        </ul>{:else}<Markdown text={shown.text} />{/if}
-      <AnswerNotes notes={shown.notes}
-        >{#snippet renderText(text: string)}<Markdown {text} />{/snippet}</AnswerNotes
-      >
-      {#if checkLine}<p class="ap-check" role="status">{checkLine}</p>{/if}
-    {/if}
-    {#if terminal?.type === 'done'}
-      <Button
-        variant="ghost"
-        size="sm"
-        onclick={() => {
-          detailsOpen = !detailsOpen;
-        }}>About this reply</Button
-      >
-      {#if detailsOpen}<ReplyDetails
-          meta={terminal.meta}
-          answer={terminal.answer}
-          details={terminal.details}
-          sentText={text}
-          taskLabel={draft.label || 'Your task'}
-          surface="panel"
-          onClose={() => {
-            detailsOpen = false;
-          }}
-        />{/if}
-    {/if}
+<div class="ap-preview" data-ega-answer-preview>
+  <div>
+    <Button
+      variant="ghost"
+      size="sm"
+      leadingIcon={open ? ChevronDown : ChevronRight}
+      dataAttrs={{
+        'aria-expanded': open ? 'true' : 'false',
+        'aria-controls': open ? `${uid}-body` : undefined,
+        'data-ega-example-reply': true,
+      }}
+      onclick={() => (open = !open)}>Example reply</Button
+    >
   </div>
-  <Input label="Sample text" bind:value={text} maxlength={2000} />
-  {#if disabledReason}<p id="{uid}-problem" class="ap-hint" data-ega-disabled-reason>
-      {disabledReason}
-    </p>{/if}
-  <!-- One button for Try it and Stop, so focus stays on it and its width holds (R63). -->
-  <Button
-    variant="secondary"
-    labels={['Try it', 'Stop']}
-    ariaDisabled={runningId === null && disabledReason !== null}
-    {...runningId === null && disabledReason !== null ? { describedBy: `${uid}-problem` } : {}}
-    onclick={() => (runningId !== null ? stop() : void run())}
-    >{runningId !== null ? 'Stop' : 'Try it'}</Button
-  >
-</section>
+  {#if open}
+    <div class="ap-body" id="{uid}-body">
+      {#if terminal === null && runningId === null}
+        <p class="ap-hint">Example values, not a real reply</p>
+      {/if}
+      <div class="ap-card" aria-busy={runningId !== null}>
+        {#if runningId !== null}<p role="status">
+            Trying your task…
+          </p>{:else if terminal?.type === 'error'}
+          {#if previewError}
+            <p role="status"><strong>{previewError.title}</strong>: {previewError.body}</p>
+            {#if previewError.detail}<details>
+                <summary>Details</summary>
+                <pre>{previewError.detail}</pre>
+              </details>{/if}
+          {:else}<p role="status">Stopped</p>{/if}
+        {:else}
+          {#if items}<ul>
+              {#each items as item, i (i)}<li>{item}</li>{/each}
+            </ul>{:else}<Markdown text={shown.text} />{/if}
+          <AnswerNotes notes={shown.notes}
+            >{#snippet renderText(text: string)}<Markdown {text} />{/snippet}</AnswerNotes
+          >
+          {#if checkLine}<p class="ap-check" role="status">{checkLine}</p>{/if}
+        {/if}
+        {#if terminal?.type === 'done'}
+          <Button
+            variant="ghost"
+            size="sm"
+            onclick={() => {
+              detailsOpen = !detailsOpen;
+            }}>About this reply</Button
+          >
+          {#if detailsOpen}<ReplyDetails
+              meta={terminal.meta}
+              answer={terminal.answer}
+              details={terminal.details}
+              sentText={text}
+              taskLabel={draft.label || 'Your task'}
+              surface="panel"
+              onClose={() => {
+                detailsOpen = false;
+              }}
+            />{/if}
+        {/if}
+      </div>
+      <Input label="Sample text" bind:value={text} maxlength={2000} />
+      <p class="ap-hint ap-why" role="status" id="{uid}-why">{runningId === null ? why : ''}</p>
+      <!-- One button for Try and Stop, so focus stays on it and its width holds (R63). -->
+      <Button
+        variant="secondary"
+        labels={[tryLabel, 'Stop']}
+        {...why && runningId === null ? { describedBy: `${uid}-why` } : {}}
+        onclick={() => (runningId !== null ? stop() : void run())}
+        >{runningId !== null ? 'Stop' : tryLabel}</Button
+      >
+    </div>
+  {/if}
+</div>
 
 <style>
-  .ap-preview {
+  .ap-preview,
+  .ap-body {
     display: grid;
     gap: var(--space-2);
-  }
-  h3 {
-    margin: 0;
-    font-size: var(--fs-base);
-    font-weight: 600;
   }
   .ap-hint {
     margin: 0;
     color: var(--color-muted);
     font-size: var(--fs-sm);
+  }
+  .ap-why:empty {
+    display: none;
   }
   .ap-card {
     border: 1px solid var(--color-border);
@@ -231,7 +269,7 @@
     color: var(--color-muted);
     font-size: var(--fs-sm);
   }
-  .ap-preview > :global(.ega-btn) {
+  .ap-body > :global(.ega-btn) {
     justify-self: start;
   }
 </style>
