@@ -188,7 +188,12 @@ export class CliSessionManager {
       }
       this.#killEntry(existing);
       this.#drop(existing);
-      this.#endAll(existing, { kind: 'error', message: 'CLI session restarted for a new model' });
+      // The requests were fine, so the code must let the router run them again.
+      this.#endAll(existing, {
+        kind: 'error',
+        code: 'NETWORK',
+        message: 'CLI session restarted for a new model',
+      });
     }
     const adapter = makeAdapter(provider);
     const resolved = typeof this.#resolveBin === 'function' ? this.#resolveBin(adapter.bin) : null;

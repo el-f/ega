@@ -668,7 +668,9 @@ test('a model switch ends the requests the outgoing child still owned', async ()
   const f = makeSpawnFactory();
   const mgr = new CliSessionManager({ spawn: f.spawn, idleTimeoutMs: 10_000 });
   const framesA = [];
+  const framesQueued = [];
   mgr.send('claude', { user: 'q' }, (e) => framesA.push(e), 'ext-1', 'claude-opus-4-5');
+  mgr.send('claude', { user: 'q' }, (e) => framesQueued.push(e), 'ext-1b', 'claude-opus-4-5');
   mgr.send('claude', { user: 'q' }, () => {}, 'ext-2', 'claude-haiku-4-5');
   await nextTick();
   assert.equal(
@@ -677,6 +679,8 @@ test('a model switch ends the requests the outgoing child still owned', async ()
     `expected one terminal for the dropped request: ${JSON.stringify(framesA)}`,
   );
   assert.equal(framesA[0].kind, 'error');
+  // Nothing was wrong with these requests, so the router may run them again.
+  assert.deepEqual([...codes(framesA), ...codes(framesQueued)], ['NETWORK', 'NETWORK']);
   mgr.closeAll();
 });
 
