@@ -7,7 +7,8 @@ export type RuleCategory = Rule['category'];
 export type Rule = RuleFromSchema;
 
 const ALWAYS_RE = /^(?:always|must|do)\b/i;
-const NEVER_RE = /^(?:never|do not|don't)\b/i;
+// The apostrophe class takes autocorrect's typographic one too.
+const NEVER_RE = /^(?:never|do not|don['’]t|must not|should not|avoid|no)\b/i;
 const PREFER_RE = /^(?:prefer|lean toward)\b/i;
 const FORMAT_RE = /^(?:format|output|return|respond in)\b/i;
 
@@ -25,20 +26,24 @@ export function ruleCategoryLabel(c: RuleCategory): string {
   return c === 'unknown' ? 'other' : c;
 }
 
+/** `*.example.com` and `.example.com` mean what `example.com` already covers. */
+const LEADING_WILDCARD = /^\*?\./;
+
 /** `example.com` covers `www.example.com`; the stored entry is a host, never a URL. */
 export function siteMatches(site: string, host: string): boolean {
-  const s = site.toLowerCase();
+  // An older build stored a typed wildcard as is.
+  const s = site.toLowerCase().replace(LEADING_WILDCARD, '');
   const h = host.toLowerCase();
   return h === s || h.endsWith(`.${s}`);
 }
 
-/** What the editor stores for a typed site: the host of a URL, lowercase, no `www.`. */
+/** What the editor stores for a typed site: the host of a URL, lowercase, no leading `*.` or `www.`. */
 export function normaliseSiteEntry(raw: string): string {
   const trimmed = raw.trim().toLowerCase();
   if (trimmed === '') return '';
   try {
     const host = new URL(trimmed.includes('://') ? trimmed : `https://${trimmed}`).hostname;
-    return host.replace(/^www\./, '');
+    return host.replace(LEADING_WILDCARD, '').replace(/^www\./, '');
   } catch {
     return trimmed;
   }

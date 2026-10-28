@@ -68,6 +68,8 @@ type VarietiesPlan = {
   presetTemplates?: Record<string, LanguagePrompt>;
   /** Merged into the current snippets, so a prompt's @@refs still resolve. */
   snippets?: Record<string, string>;
+  /** Detection patterns the file had; a shared one is never imported, and your own for that id stays. */
+  patternsDropped: number;
   /** Raw counts from the file, for the confirm copy. */
   fileCounts: { customLanguages: number; varietyOverrides: number; presetTemplates: number };
   result: VarietiesImportResult;

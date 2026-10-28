@@ -1,8 +1,14 @@
 import { isSlowPattern } from '@/shared/regex-risk';
+import { EXPANDED_MAX, expandSnippets } from '@/shared/snippets';
 import { count } from '@/shared/utils/count';
 import * as valibot from 'valibot';
 import { confirmDialog } from '@/shared/components/confirmDialog';
-import { getCustomLanguages, getCustomTasks, readCustomLanguages } from '@/shared/storage';
+import {
+  getCustomLanguages,
+  getCustomTasks,
+  getSettings,
+  readCustomLanguages,
+} from '@/shared/storage';
 import {
   importBundle,
   type GlossaryMerge,
@@ -105,11 +111,20 @@ function withoutOverlongEditPatterns(settings: Record<string, unknown>): Record<
   return { ...settings, varietyOverrides: checked };
 }
 
-/** A file's snippet map, when it is well formed; a bad one is dropped and the prompts keep their @@refs. */
-function fileSnippets(raw: unknown): { snippets?: Record<string, string> } {
+/** A file's snippet map, when it is well formed; a bad one is dropped and the prompts keep their @@refs.
+ *  A map that writes one of the file's prompts out past EXPANDED_MAX is bad too. */
+function fileSnippets(
+  raw: unknown,
+  prompts: readonly { system?: string; user?: string }[],
+): { snippets?: Record<string, string> } {
   if (raw === undefined) return {};
   const parsed = valibot.safeParse(snippetsSchema, raw);
-  return parsed.success ? { snippets: parsed.output } : {};
+  if (!parsed.success) return {};
+  const map = parsed.output;
+  const explodes = prompts.some((p) =>
+    [p.system, p.user].some((h) => h && expandSnippets(h, map).length > EXPANDED_MAX),
+  );
+  return explodes ? {} : { snippets: map };
 }
 
 const NOT_A_BACKUP = 'This file is not an Ega backup. Pick a file you exported from Ega.';
@@ -155,24 +170,31 @@ async function parseVarietiesBundle(
     skippedBroken++;
     return undefined;
   }
-  /** A pattern over its cap is dropped, not cut, and counted. */
-  function withPatternChecked(row: Record<string, unknown>): Record<string, unknown> {
-    const checked = withoutOverlongDetect(row);
-    if (checked !== row) skippedBroken++;
-    return checked;
+  const own = (await readCustomLanguages()) ?? [];
+  const ownIds = new Set(own.map((c) => c.id));
+  const ownEdits = (await getSettings()).varietyOverrides;
+  let patternsDropped = 0;
+  /** As in the one-language file, the file's pattern never comes in: a shared one could claim the Auto-detect text of every page. Your own pattern for the id stays. */
+  function withOwnPattern(
+    row: Record<string, unknown>,
+    mine: CustomLanguage['autoDetect'],
+  ): Record<string, unknown> {
+    const { autoDetect: filePattern, ...rest } = row;
+    if (filePattern !== undefined) patternsDropped++;
+    return mine ? { ...rest, autoDetect: mine } : rest;
   }
 
   // Clamped and stamped as the full backup does, so a long field is cut rather than the row dropped.
   const customLanguages: CustomLanguage[] = [];
   const incomingCustomIds = new Set<string>();
-  const ownIds = await ownLanguageIds();
   let droppedCollidingCustoms = 0;
   let droppedCodeLikeCustoms = 0;
   for (const entry of rawCustoms) {
     if (customLanguages.length >= CUSTOM_LANGUAGES_MAX) break;
     const stamped = isPlainObject(entry)
-      ? withPatternChecked(
+      ? withOwnPattern(
           typeof entry['createdAt'] === 'number' ? entry : { ...entry, createdAt: Date.now() },
+          own.find((c) => c.id === entry['id'])?.autoDetect,
         )
       : entry;
     const result = valibot.safeParse(
@@ -207,7 +229,9 @@ async function parseVarietiesBundle(
       droppedDanglingOverrides.push(id);
       continue;
     }
-    const checked = isPlainObject(rawEdit) ? withPatternChecked(rawEdit) : rawEdit;
+    const checked = isPlainObject(rawEdit)
+      ? withOwnPattern(rawEdit, ownEdits[id]?.autoDetect)
+      : rawEdit;
     const edit = valibot.safeParse(varietyEditSchema, clampToSchema(varietyEditSchema, checked));
     if (!edit.success) {
       skippedBroken++;
@@ -246,7 +270,8 @@ async function parseVarietiesBundle(
     ...(fileOverrides ? { varietyOverrides: cleanOverrides } : {}),
     ...(fileDisabled ? { disabledVarieties: [...cleanDisabled] } : {}),
     ...(file.v === 2 && rawTemplates ? { presetTemplates } : {}),
-    ...fileSnippets(file.snippets),
+    ...fileSnippets(file.snippets, Object.values(presetTemplates)),
+    patternsDropped,
     fileCounts: {
       customLanguages: rawCustoms.length,
       varietyOverrides: Object.keys(fileOverrides ?? {}).length,
@@ -352,7 +377,11 @@ function parseTasksBundle(raw: unknown): Extract<ImportBundle, { kind: 'tasks' }
     disabledTasksPresent: Array.isArray(file.disabledTasks),
     ...(file.contextMenuItems !== undefined ? { contextMenuItems } : {}),
     ...(translatePrompt !== undefined ? { translatePrompt } : {}),
-    ...fileSnippets(file.snippets),
+    ...fileSnippets(file.snippets, [
+      ...(translatePrompt ? [translatePrompt.template] : []),
+      ...Object.values(taskOverrides),
+      ...customTasks,
+    ]),
     fileCounts: {
       customTasks: file.customTasks.length,
       taskOverrides: Object.keys(fileOverrides).length,
@@ -397,7 +426,7 @@ async function parseLanguageBundle(
     language,
     patternDropped: filePattern !== undefined,
     ...(file.prompt !== undefined && prompt.success ? { prompt: prompt.output } : {}),
-    ...fileSnippets(file.snippets),
+    ...fileSnippets(file.snippets, prompt.success ? [prompt.output] : []),
     replaces: existing?.label ?? null,
     promptBroken: file.prompt !== undefined && !prompt.success,
   };
@@ -507,6 +536,8 @@ function listOf(items: readonly string[]): string {
     : `${items.slice(0, -1).join(', ')} and ${items.at(-1) ?? ''}`;
 }
 
+const PATTERNS_DROPPED =
+  ' The detection patterns in the file are not imported, because a shared pattern could claim text on every page. A language you already have keeps its own pattern.';
 const PATTERN_DROPPED =
   ' Its detection pattern is not imported, because a shared pattern could claim text on every page. Add one in the Languages tab if you want Auto-detect to pick it.';
 
@@ -568,6 +599,7 @@ async function confirmImport(
           `The file contains ${count(bundle.fileCounts.customLanguages, 'custom language')}, ` +
           `${count(bundle.fileCounts.varietyOverrides, 'override')} and ` +
           `${count(bundle.fileCounts.presetTemplates, 'language prompt')}. Importing replaces your ${listOf(replaced)}.` +
+          (bundle.patternsDropped > 0 ? PATTERNS_DROPPED : '') +
           ' Glossary entries for a custom language the file does not have are removed too. This cannot be undone.',
         confirmLabel: 'Replace',
       });
@@ -652,6 +684,9 @@ function summary(bundle: ImportBundle, merge: GlossaryMerge | undefined): string
           : '') +
         (r.droppedCodeLikeCustoms > 0
           ? ` Dropped ${count(r.droppedCodeLikeCustoms, 'custom entry', 'custom entries')} whose id reads as a language code.`
+          : '') +
+        (bundle.patternsDropped > 0
+          ? ` Did not import ${count(bundle.patternsDropped, 'detection pattern')}.`
           : '')
       );
     }

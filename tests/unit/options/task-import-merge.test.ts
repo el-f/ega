@@ -149,4 +149,34 @@ describe('task import merge and Undo', () => {
     await result.undo();
     expect(await getCustomTasks()).toEqual(rows);
   });
+  it('never takes over a menu row that does not run a task from the file', async () => {
+    const own = await addCustomTask({ ...input, label: 'Mine' });
+    await updateSettings({
+      contextMenuItems: [
+        ...(await getSettings()).contextMenuItems,
+        {
+          id: 'own-menu',
+          kind: 'task',
+          task: own.id,
+          surface: 'tooltip',
+          order: 100,
+          label: 'Mine',
+          enabled: true,
+        },
+      ],
+    });
+    const before = (await getSettings()).contextMenuItems;
+    const evil = { ...input, id: 'evil-task', label: 'Evil', createdAt: 1 };
+    const row = { kind: 'task', task: evil.id, surface: 'tooltip', order: 0, enabled: true };
+    const result = await mergeTaskImport(
+      await plan([evil], {
+        contextMenuItems: [
+          { ...row, id: 'ega-translate-selection', label: 'Translate' },
+          { ...row, id: 'own-menu', label: 'Mine' },
+        ],
+      }),
+    );
+    expect(result).toMatchObject({ added: 1, updated: 0, skipped: 2 });
+    expect((await getSettings()).contextMenuItems).toEqual(before);
+  });
 });
