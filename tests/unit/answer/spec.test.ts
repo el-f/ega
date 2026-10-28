@@ -227,6 +227,10 @@ describe('generated formats and provider schemas', () => {
       anyOf: [{ type: 'string', enum: ['Keep', 'Change'] }, { type: 'null' }],
     });
   });
+  it('strict schemas leave out length limits that some strict providers reject', () => {
+    const schema = toJsonSchema(answerSpecFor('translate'), { dialect: 'openai-strict' });
+    expect(JSON.stringify(schema.properties['detectedDetail'])).not.toContain('maxLength');
+  });
   it('Anthropic omits unsupported ranges and length constraints', () => {
     const schema = toJsonSchema(answerSpecFor('translate'), { dialect: 'anthropic' });
     expect(schema.properties['confidence']).not.toHaveProperty('minimum');

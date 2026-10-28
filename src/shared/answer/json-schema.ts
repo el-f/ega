@@ -58,7 +58,7 @@ function fieldSchema(field: AnswerField, dialect: SchemaDialect): JsonSchema {
       schema = {
         type: 'string',
         ...(field.maxChars !== undefined &&
-        !['anthropic', 'gemini', 'gemini-legacy'].includes(dialect)
+        !['anthropic', 'gemini', 'gemini-legacy', 'openai-strict'].includes(dialect)
           ? { maxLength: field.maxChars }
           : {}),
       };
