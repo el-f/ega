@@ -8,6 +8,7 @@ import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import { asBackendIdUnsafe } from '@/shared/brands';
 import { testManifest } from '@tests/_helpers/backend';
 import { baseDeps as routerDeps } from '@tests/_helpers/router';
+import { clearAuditLog, readAuditLog } from '@/shared/audit-log';
 
 const bid = (s: string) => asBackendIdUnsafe(s);
 
@@ -489,5 +490,35 @@ describe('image-translate surface routing', () => {
     expect(logger.error).toHaveBeenCalled();
     // No sidepanel seed on tooltip path.
     expect(broadcast).not.toHaveBeenCalled();
+  });
+});
+
+// The panel skips a 'sidepanel' row it does not own, so another window's panel shows no second error.
+describe('the audit row names where an image request shows its answer', () => {
+  beforeEach(async () => {
+    await clearAuditLog();
+  });
+
+  it.each([
+    ['sidepanel', 'sidepanel'],
+    ['tooltip', 'content'],
+  ] as const)('a %s request is audited as %s', async (surface, audited) => {
+    const getSettings = async (): Promise<Settings> => mkSettings();
+    const router = createRouter(baseDeps({ getSettings }));
+
+    await dispatchImageTranslate({
+      tabId: 1,
+      imageUrl: IMAGE_URL,
+      surface,
+      getSettings,
+      router,
+      broadcast: vi.fn(),
+      sendToTab: vi.fn(),
+      logger: { error: vi.fn() },
+    });
+
+    await vi.waitFor(async () => {
+      expect((await readAuditLog()).map((e) => e.surface)).toEqual([audited]);
+    });
   });
 });

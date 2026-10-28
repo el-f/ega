@@ -58,7 +58,10 @@ describe('site:memo-direction', () => {
       [STORAGE_KEYS.settings]: {
         ...DEFAULT_SETTINGS,
         anthropicApiKey: 'sk-ant',
-        sitePrefs: { [SITE]: { disabled: true, defaultLang: 'fr' } },
+        sitePrefs: {
+          [SITE]: { disabled: true, defaultLang: 'fr' },
+          'https://other.example': { disabled: true },
+        },
       },
     });
 
@@ -72,6 +75,8 @@ describe('site:memo-direction', () => {
     expect(ack.ok).toBe(true);
     expect(ack.settings?.sitePrefs[SITE]?.lastDirection).toEqual(DIRECTION);
     expect(ack.settings).not.toHaveProperty('anthropicApiKey');
+    // The page learns nothing about the other sites the user set up.
+    expect(Object.keys(ack.settings?.sitePrefs ?? {})).toEqual([SITE]);
   });
 
   it('starts a row for a site that has none', async () => {

@@ -11,7 +11,7 @@ import type { BackendConfig } from '@/shared/backends/base';
 import type { Logger } from '@/shared/logger';
 import { buildBackendConfig } from '@/shared/backends/build-config';
 import { DEFAULT_STREAMING_FLUSH_MS } from '@/shared/constants';
-import { buildTaskPrompt, readsPageContext } from '@/shared/prompts';
+import { buildTaskPrompt, escapeInline, readsPageContext } from '@/shared/prompts';
 import { customAnswerSpec, customAnswerContract } from '@/shared/answer/custom';
 import { labelFor } from '@/shared/languages';
 import { redactContext } from '@/shared/redact';
@@ -58,9 +58,10 @@ function hostFromUrl(req: TranslationRequest): string | undefined {
 }
 
 /** Label a prompt should use for a target id: the variety's own label when the id names
- *  one, else the ISO name. Never the bare id — "en" reads as a code to the model. */
+ *  one, else the ISO name. Never the bare id — "en" reads as a code to the model.
+ *  Single-line, since the OCR prompt puts it inline and a custom label is user-authored. */
 export function targetLabelFor(s: Settings, customs: CustomLanguage[], id: string): string {
-  return findVarietyRaw(s, customs, id)?.label ?? labelFor(id);
+  return escapeInline(findVarietyRaw(s, customs, id)?.label ?? labelFor(id));
 }
 
 export interface TranslateCtx {
