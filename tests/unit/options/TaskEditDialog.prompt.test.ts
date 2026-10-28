@@ -5,7 +5,7 @@ import { resetChromeMock } from '@tests/mocks/chrome';
 import TaskEditDialog from '@/options/components/TaskEditDialog.svelte';
 import { getSettings, updateSettings } from '@/shared/storage';
 import { buildTaskTemplate } from '@/shared/task-template';
-import { TASK_FORMATS } from '@/shared/answer/formats-v1';
+import { TASK_FORMATS_V1 } from '@/shared/answer/formats-v1';
 import { DEFAULT_PROMPT_TEMPLATE } from '@/shared/settings-schema';
 import { TEXT_SAVE_DELAY_MS } from '@/options/components/dialog-saver.svelte';
 import type { Task } from '@/shared/task-prompts';
@@ -114,7 +114,7 @@ describe('the prompt inside a task dialog saves as you type', () => {
 
   it('a stored prompt with its own format line shows it is kept, and nothing is rewritten on open', async () => {
     // Edited before the format left the editable text: the user's own words, then the old format line.
-    const legacy = 'Summarize in one line. ' + TASK_FORMATS.summarize.text;
+    const legacy = 'Summarize in one line. ' + TASK_FORMATS_V1.summarize.text;
     await updateSettings({ taskOverrides: { summarize: { system: legacy } } });
     const onClose = vi.fn();
     await open('summarize', onClose);

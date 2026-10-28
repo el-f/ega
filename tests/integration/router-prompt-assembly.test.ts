@@ -145,7 +145,7 @@ describe('router — task template lookup', () => {
       },
     });
     expect(system).toBe(
-      UNTRUSTED_DATA_INSTRUCTION + '\n\nSUM-OVERRIDE-SYS ' + TASK_FORMATS.summarize.text,
+      UNTRUSTED_DATA_INSTRUCTION + '\n\nSUM-OVERRIDE-SYS\n' + TASK_FORMATS.summarize.text,
     );
     expect(user).toBe('SUM-OVERRIDE-USR hello world');
   });
@@ -260,7 +260,7 @@ describe('router — prompt assembly', () => {
       settings: { taskOverrides: { reword: tpl } },
     });
     expect(
-      reworded.system.endsWith(`TONE=[${TONE_PHRASE.formal}] ${TASK_FORMATS.reword.text}`),
+      reworded.system.endsWith(`TONE=[${TONE_PHRASE.formal}]\n${TASK_FORMATS.reword.text}`),
     ).toBe(true);
     const translated = await run({
       req: mkReq({ options: { task: 'translate' } }),

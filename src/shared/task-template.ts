@@ -1,7 +1,12 @@
 /** Prompt text for the worker and extension pages; never imported by the content UI. */
 import type { PromptTemplate, Settings } from './types';
 import type { Task } from './task-prompts';
-import type { AnswerFormat } from './answer/formats-v1';
+import {
+  TASK_FORMATS,
+  TASK_FORMATS_V1,
+  type AnswerFormat,
+  type OwnPromptTask,
+} from './answer/formats-v1';
 import { answerSpecFor } from './answer/spec';
 import { renderFormat } from './answer/render-format';
 
@@ -73,6 +78,15 @@ export function buildTaskTemplate(task: Task): PromptTemplate {
   }
   // translate and explain fall through: the router rewrites explain to translate + options.explain.
   throw new Error(`buildTaskTemplate should not be called for task=${String(task)}`);
+}
+
+/** Every system half Ega shipped for a task with its own prompt, bare and with each format: a stored copy is not an edit. */
+export function shippedSystems(task: OwnPromptTask): string[] {
+  const { system } = buildTaskTemplate(task);
+  return [
+    system,
+    ...[TASK_FORMATS[task], TASK_FORMATS_V1[task]].map((f) => system + f.sep + f.text),
+  ];
 }
 
 /** The prompt a built-in with its own prompt runs: each half is the user's edit, else the shipped half. */

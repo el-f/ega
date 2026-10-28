@@ -38,6 +38,15 @@ describe('versioned answer specs', () => {
     expect(validateSpec(spec)).toEqual([]);
     expect(renderFormat(spec)).toMatchObject({ join: 'after-build', sep: '\n\n' });
   });
+  it.each(['summarize', 'reword', 'grammar', 'suggest-replies', 'ask'])(
+    '%s reads its main answer from "answer" under spec version 2',
+    (task) => {
+      const spec = answerSpecFor(task);
+      expect(spec.version).toBe(2);
+      expect(spec.fields.find((f) => f.role === 'main')?.key).toBe('answer');
+      expect(spec.pinned?.sep).toBe('\n');
+    },
+  );
   it('Translate and Explain share the detection contract', () => {
     expect(answerSpecFor('explain')).toBe(answerSpecFor('translate'));
     const regular = toJsonSchema(answerSpecFor('translate'));

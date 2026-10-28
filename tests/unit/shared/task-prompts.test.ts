@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { ALL_TASKS, ALL_TONES, TASK_GERUND, TASK_LABELS, TONE_LABELS } from '@/shared/task-prompts';
 import { buildTaskTemplate, answerFormatFor } from '@/shared/task-template';
 import { FORMAT_MARKER } from '@/shared/answer/formats-v1';
+import { answerSpecFor } from '@/shared/answer/spec';
 import { TASK_DESCRIPTIONS } from '@/options/task-descriptions';
 
 // Mostly structural contracts; the output-language block pins a few guard phrases on purpose, so rewording those lines breaks it.
@@ -46,12 +47,21 @@ describe('buildTaskTemplate — contract', () => {
     );
 
     it.each(CALLABLE_TASKS)(
-      '%s has a JSON answer format with at least a "translation" field, kept out of the editable text',
+      '%s has a JSON answer format with an "answer" field, kept out of the editable text',
       (task) => {
-        expect(answerFormatFor(task).text).toMatch(/^Return JSON ONLY: .*"translation"/);
+        expect(answerFormatFor(task).text).toMatch(/^Return JSON ONLY: \{"answer": /);
         expect(buildTaskTemplate(task).system).not.toContain(FORMAT_MARKER);
       },
     );
+
+    // The key pushed Grammar and Reword toward translating; only the translating tasks keep it.
+    it.each(CALLABLE_TASKS)('%s never names "translation" in its answer format', (task) => {
+      expect(answerFormatFor(task).text).not.toMatch(/translation/i);
+    });
+
+    it.each(['translate', 'explain', 'ocr'] as const)('%s keeps the "translation" key', (task) => {
+      expect(answerSpecFor(task).fields.find((f) => f.role === 'main')?.key).toBe('translation');
+    });
   });
 
   describe('reword tones', () => {
@@ -69,9 +79,9 @@ describe('buildTaskTemplate — contract', () => {
       expect(tpl.system).toContain('{{targetLangLabel}}');
     });
 
-    it('JSON contract carries translation, and no explain field', () => {
+    it('JSON contract carries answer, and no explain field', () => {
       const format = answerFormatFor('suggest-replies').text;
-      expect(format).toMatch(/"translation"/);
+      expect(format).toMatch(/"answer"/);
       // Nothing parsed the tone list, so the literal "casual | neutral | polite" reached the user as the explanation.
       expect(format + tpl.system).not.toMatch(/"explain"/);
     });

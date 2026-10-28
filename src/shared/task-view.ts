@@ -99,7 +99,7 @@ const CUSTOM_PRESENTATION = {
 };
 
 /** Translate and Explain run the language template; every other built-in has a prompt of its own. */
-export function hasOwnPrompt(t: Task): boolean {
+export function hasOwnPrompt(t: Task): t is Exclude<Task, 'translate' | 'explain'> {
   return t !== 'translate' && t !== 'explain';
 }
 

@@ -1,4 +1,4 @@
-// Pinned v1 format bytes. Change only with an explicit answer-spec version decision.
+// Pinned format bytes. Change only with an explicit answer-spec version decision, and keep the old bytes below.
 import type { Task } from '../task-prompts';
 
 /** The JSON answer contract a built-in prompt ends with; the builder appends it after the editable text. */
@@ -11,9 +11,31 @@ export interface AnswerFormat {
 /** Every answer format starts with this, so a prompt that holds it already carries a format. */
 export const FORMAT_MARKER = 'Return JSON ONLY';
 
-type OwnPromptTask = Exclude<Task, 'translate' | 'explain'>;
+export type OwnPromptTask = Exclude<Task, 'translate' | 'explain'>;
 
+/** Answer spec v2: tasks that do not translate read their answer from "answer". */
 export const TASK_FORMATS: Readonly<Record<OwnPromptTask, AnswerFormat>> = {
+  summarize: { text: 'Return JSON ONLY: {"answer": <your summary as a string>}.', sep: '\n' },
+  reword: {
+    text: 'Return JSON ONLY: {"answer": <your rewrite as a string, in the input\'s language>, "explain": <one short sentence naming the tone and what changed; if the text already has this tone, say so>}.',
+    sep: '\n',
+  },
+  grammar: {
+    text: 'Return JSON ONLY: {"answer": <corrected text as a string>, "explain": <newline-separated list of corrections, one per line, format: "was X → now Y (reason)"; if nothing needed fixing, one line saying so>}.',
+    sep: '\n',
+  },
+  'suggest-replies': {
+    text: [
+      'Return JSON ONLY: {"answer": "<reply 1>\\n\\n<reply 2>\\n\\n<reply 3>"}.',
+      'The three replies MUST be separated by a blank line in the answer field, in the order casual → neutral → polite.',
+    ].join(' '),
+    sep: '\n',
+  },
+  ask: { text: 'Return JSON ONLY: {"answer": <your answer as a string>}.', sep: '\n' },
+};
+
+/** Answer spec v1 bytes: stored prompts and v9 rows still hold them. */
+export const TASK_FORMATS_V1: Readonly<Record<OwnPromptTask, AnswerFormat>> = {
   summarize: { text: 'Return JSON ONLY: {"translation": <your summary as a string>}.', sep: ' ' },
   reword: {
     text: 'Return JSON ONLY: {"translation": <your rewrite as a string>, "explain": <one short sentence naming the tone and what changed>}.',
@@ -32,6 +54,14 @@ export const TASK_FORMATS: Readonly<Record<OwnPromptTask, AnswerFormat>> = {
   },
   ask: { text: 'Return JSON ONLY: {"translation": <your answer as a string>}.', sep: ' ' },
 };
+
+/** The v1 format that a current task format replaced, if any. */
+export function replacedFormat(format: Pick<AnswerFormat, 'text'>): AnswerFormat | undefined {
+  const task = (Object.keys(TASK_FORMATS) as OwnPromptTask[]).find(
+    (t) => TASK_FORMATS[t].text === format.text,
+  );
+  return task && TASK_FORMATS_V1[task];
+}
 
 /** The Translate prompt's format: the JSON line, then how to fill detectedDetail and detectedLangs. */
 export const TRANSLATE_FORMAT: AnswerFormat = {

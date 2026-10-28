@@ -10,8 +10,8 @@ import { buildPreviewPrompt, PREVIEW_SAMPLE_TEXT } from '@/options/preview-promp
 import { materializeVarieties } from '@/shared/varieties';
 import { ownTaskPrompt } from '@/shared/task-template';
 import { ALL_TONES, type Task, type Tone } from '@/shared/task-prompts';
-import { answerFormatFor, buildTaskTemplate } from '@/shared/task-template';
-import { FORMAT_MARKER } from '@/shared/answer/formats-v1';
+import { answerFormatFor, buildTaskTemplate, shippedSystems } from '@/shared/task-template';
+import { FORMAT_MARKER, type OwnPromptTask } from '@/shared/answer/formats-v1';
 import { DEFAULT_PROMPT_TEMPLATE } from '@/shared/settings-schema';
 import { asLangPresetIdUnsafe } from '@/shared/brands';
 import type { CustomLanguage, Settings, TranslationRequest } from '@/shared/types';
@@ -65,8 +65,13 @@ async function routerPrompt(
   return buildSystemAndUser({ ...ctx, reqView: { ...ctx.reqView, text: '' } }, r);
 }
 
-const OWN_PROMPT_TASKS: readonly Task[] = ['summarize', 'grammar', 'suggest-replies', 'ask'];
-const OWN_PROMPT_TASKS_ALL: readonly Task[] = [...OWN_PROMPT_TASKS, 'reword'];
+const OWN_PROMPT_TASKS: readonly OwnPromptTask[] = [
+  'summarize',
+  'grammar',
+  'suggest-replies',
+  'ask',
+];
+const OWN_PROMPT_TASKS_ALL: readonly OwnPromptTask[] = [...OWN_PROMPT_TASKS, 'reword'];
 
 async function goldenCases(): Promise<Record<string, { system: string; user: string }>> {
   const s = mkSettings();
@@ -158,17 +163,24 @@ const TEMPLATES = fileURLToPath(
 );
 
 describe('shipped templates (v9)', () => {
-  it('T-F0: each shipped template plus its answer format is the recorded v9 text', () => {
-    const joined = (task: Task, tpl: { system: string; user: string }) => {
-      const f = answerFormatFor(task);
-      expect(tpl.system).not.toContain(FORMAT_MARKER);
-      return { system: tpl.system + f.sep + f.text, user: tpl.user };
+  const v9 = JSON.parse(readFileSync(TEMPLATES, 'utf8')) as Record<
+    string,
+    { system: string; user: string }
+  >;
+  it('T-F0: the shipped Translate template plus its answer format is the recorded v9 text', () => {
+    const f = answerFormatFor('translate');
+    expect(DEFAULT_PROMPT_TEMPLATE.system).not.toContain(FORMAT_MARKER);
+    const joined = {
+      system: DEFAULT_PROMPT_TEMPLATE.system + f.sep + f.text,
+      user: DEFAULT_PROMPT_TEMPLATE.user,
     };
-    const actual = {
-      translate: joined('translate', DEFAULT_PROMPT_TEMPLATE),
-      ...Object.fromEntries(OWN_PROMPT_TASKS_ALL.map((t) => [t, joined(t, buildTaskTemplate(t))])),
-    };
-    expect(actual).toEqual(JSON.parse(readFileSync(TEMPLATES, 'utf8')));
-    expect(V9_FULL_PROMPT_TEMPLATE).toEqual(actual.translate);
+    expect(joined).toEqual(v9['translate']);
+    expect(V9_FULL_PROMPT_TEMPLATE).toEqual(joined);
+  });
+  it.each(OWN_PROMPT_TASKS_ALL)('T-F0: a stored v9 %s row reads as the shipped prompt', (task) => {
+    const shipped = buildTaskTemplate(task);
+    expect(shipped.system).not.toContain(FORMAT_MARKER);
+    expect(shippedSystems(task)).toContain(v9[task]?.system);
+    expect(shipped.user).toBe(v9[task]?.user);
   });
 });

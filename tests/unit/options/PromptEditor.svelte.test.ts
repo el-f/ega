@@ -4,7 +4,7 @@ import { render, fireEvent, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import Harness from '@tests/_helpers/PromptEditorHarness.svelte';
 import { buildTaskTemplate } from '@/shared/task-template';
-import { TASK_FORMATS, TRANSLATE_FORMAT } from '@/shared/answer/formats-v1';
+import { TASK_FORMATS, TASK_FORMATS_V1, TRANSLATE_FORMAT } from '@/shared/answer/formats-v1';
 import { DEFAULT_PROMPT_TEMPLATE } from '@/shared/settings-schema';
 import { PLAIN_CONTRACT } from '@/shared/answer/formats-v1';
 import type { PromptTemplate } from '@/shared/types';
@@ -144,7 +144,7 @@ describe('PromptEditor — answer format and checks', () => {
 
   it('a prompt that holds its own format line says Ega uses it, and the button takes it out', async () => {
     const legacy = {
-      system: buildTaskTemplate('summarize').system + ' ' + TASK_FORMATS.summarize.text,
+      system: buildTaskTemplate('summarize').system + ' ' + TASK_FORMATS_V1.summarize.text,
       user: buildTaskTemplate('summarize').user,
     };
     const { container, getByRole, onChange } = setup({ initial: legacy });
@@ -158,7 +158,7 @@ describe('PromptEditor — answer format and checks', () => {
 
   it('Use the standard format leaves with its block, so focus goes to Instructions, not the dialog X', async () => {
     const legacy = {
-      system: buildTaskTemplate('summarize').system + ' ' + TASK_FORMATS.summarize.text,
+      system: buildTaskTemplate('summarize').system + ' ' + TASK_FORMATS_V1.summarize.text,
       user: buildTaskTemplate('summarize').user,
     };
     const { getByRole, field } = setup({ initial: legacy });
