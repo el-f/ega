@@ -31,12 +31,13 @@ interface OllamaFrame {
   eval_count?: number;
 }
 
-/** A text-only model reports "model does not support images" in the error field — only the image call can hit that. */
+/** A text-only model reports "model does not support images" in the error field — only the image call can hit that.
+ *  Any other error line is the server failing mid-answer, like the HTTP 500 it sends before the header. */
 function errorEvent(error: string, model: string, vision: boolean): StreamEvent {
   const needsVision = vision && /image|vision|multimodal/i.test(error);
   return {
     type: 'error',
-    code: needsVision ? 'UNSUPPORTED' : 'UNKNOWN',
+    code: needsVision ? 'UNSUPPORTED' : 'SERVER',
     message: needsVision
       ? `Model "${model}" doesn't support images. Pull a vision model: ollama pull gemma4 (or qwen2.5vl, llama3.2-vision).`
       : error,
