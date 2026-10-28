@@ -64,6 +64,16 @@ describe('Latin, Cyrillic and Greek terms must start a word', () => {
     expect(filterGlossaryForRequest([entry({ term })], ctx(text))).toHaveLength(1);
   });
 
+  // CJK and Thai write Latin words with no space; Hebrew joins a prefix letter to them.
+  it.each([
+    ['iPhone', '我的iPhone坏了'],
+    ['Rust', 'このRustのコード'],
+    ['Rust', 'ใช้Rustดี'],
+    ['Rust', 'בRust'],
+  ])('"%s" fires right after a letter of another script in "%s"', (term, text) => {
+    expect(filterGlossaryForRequest([entry({ term })], ctx(text))).toHaveLength(1);
+  });
+
   it('keeps substring matching for Hebrew, where prefix letters join the word', () => {
     expect(filterGlossaryForRequest([entry({ term: 'בינה' })], ctx('והבינה עובדת'))).toHaveLength(
       1,

@@ -30,11 +30,12 @@ export function filterGlossaryForRequest(
   return out;
 }
 
-/** Short all-Latin terms ('AI', 'US') need whole-word edges. Other Latin, Cyrillic and Greek terms must start a word, but may end inside one, so 'wallet' hits 'wallets' and 'Rust' misses 'trust'. Every other script substring-matches: CJK and Thai have no word edges, and Hebrew and Arabic join prefix letters to the word. */
+/** Short all-Latin terms ('AI', 'US') need whole-word edges. Other Latin, Cyrillic and Greek terms must start a word, but may end inside one, so 'wallet' hits 'wallets' and 'Rust' misses 'trust'. Only a letter of those scripts blocks the start, so 'Rust' still hits 'このRust'. Every other script substring-matches: CJK and Thai have no word edges, and Hebrew and Arabic join prefix letters to the word. */
 const WORD_EDGE_MAX = 3;
 const ALL_LATIN_LETTERS = /^[A-Z]+$/i;
 const STARTS_WORD_SCRIPT = /^[\p{Script=Latin}\p{Script=Cyrillic}\p{Script=Greek}]/u;
-const WORD_CHAR = /[\p{L}\p{M}\p{N}_]/u;
+// Inherited covers the shared combining accents; a Thai or Devanagari mark has its own script.
+const WORD_CHAR = /[\p{Script=Latin}\p{Script=Cyrillic}\p{Script=Greek}\p{Script=Inherited}\p{N}_]/u;
 
 function termAppears(haystack: string, term: string, caseSensitive: boolean): boolean {
   if (term === '') return false;
