@@ -134,7 +134,12 @@ describe('collectPageContext', () => {
       collectPageContext({ anchorNode: anchor }, 'rich', d, fakeLocation('u')),
       collectPageLevelContext('rich', d, fakeLocation('u')),
     ]) {
-      for (const v of [ctx.pageTitle, ctx.siteName, ctx.pageDescription, ...(ctx.headingTrail ?? [])]) {
+      for (const v of [
+        ctx.pageTitle,
+        ctx.siteName,
+        ctx.pageDescription,
+        ...(ctx.headingTrail ?? []),
+      ]) {
         expect(v).toBeDefined();
         expect(loneSurrogate.test(v ?? '')).toBe(false);
       }
@@ -252,7 +257,9 @@ describe('collectPageLevelContext (selection-less)', () => {
     for (const id of ['draft', 'skipped']) {
       const anchor = d.getElementById(id);
       if (!anchor) throw new Error(`test setup: #${id}`);
-      expect(collectPageContext({ anchorNode: anchor }, 'rich', d, loc).headingTrail).toEqual(['Shown']);
+      expect(collectPageContext({ anchorNode: anchor }, 'rich', d, loc).headingTrail).toEqual([
+        'Shown',
+      ]);
     }
   });
 

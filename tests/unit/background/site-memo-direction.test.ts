@@ -25,7 +25,10 @@ await import('@/background/index');
 
 const SITE = 'https://example.com';
 const CONTENT = { id: chromeMock.runtime.id, url: `${SITE}/a/b`, tab: { id: 3, url: SITE } };
-const POPUP = { id: chromeMock.runtime.id, url: 'chrome-extension://ega-test/src/popup/index.html' };
+const POPUP = {
+  id: chromeMock.runtime.id,
+  url: 'chrome-extension://ega-test/src/popup/index.html',
+};
 const DIRECTION = { source: 'arabizi', target: 'en' };
 
 function memo(direction: unknown, sender: object): Promise<MsgReply['site:memo-direction']> {

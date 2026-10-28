@@ -283,11 +283,15 @@ describe('a translation keeps the line breaks the model sent', () => {
 
   it('Show both and Replace text show them, once the translation is in', () => {
     expect(whiteSpace('data-ega-tx')).toBe('pre-line');
-    expect(whiteSpace('data-ega-replaced="b" data-ega-id="b" data-ega-tx-state="ok"')).toBe('pre-line');
+    expect(whiteSpace('data-ega-replaced="b" data-ega-id="b" data-ega-tx-state="ok"')).toBe(
+      'pre-line',
+    );
   });
 
   it("the page's own copy keeps its spacing: pending, a peek, and inline replace", () => {
-    expect(whiteSpace('data-ega-replaced="b" data-ega-id="b" data-ega-pending')).not.toBe('pre-line');
+    expect(whiteSpace('data-ega-replaced="b" data-ega-id="b" data-ega-pending')).not.toBe(
+      'pre-line',
+    );
     expect(whiteSpace('data-ega-replaced="b" data-ega-id="b" data-ega-peek')).not.toBe('pre-line');
     expect(whiteSpace('data-ega-replaced="r" data-ega-original="x"')).not.toBe('pre-line');
   });

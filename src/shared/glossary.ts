@@ -35,7 +35,8 @@ const WORD_EDGE_MAX = 3;
 const ALL_LATIN_LETTERS = /^[A-Z]+$/i;
 const STARTS_WORD_SCRIPT = /^[\p{Script=Latin}\p{Script=Cyrillic}\p{Script=Greek}]/u;
 // Inherited covers the shared combining accents; a Thai or Devanagari mark has its own script.
-const WORD_CHAR = /[\p{Script=Latin}\p{Script=Cyrillic}\p{Script=Greek}\p{Script=Inherited}\p{N}_]/u;
+const WORD_CHAR =
+  /[\p{Script=Latin}\p{Script=Cyrillic}\p{Script=Greek}\p{Script=Inherited}\p{N}_]/u;
 
 function termAppears(haystack: string, term: string, caseSensitive: boolean): boolean {
   if (term === '') return false;

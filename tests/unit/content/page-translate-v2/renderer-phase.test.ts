@@ -89,7 +89,9 @@ describe('renderer — the block phase', () => {
     expect(handle.target.querySelector('[data-ega-tx-error]')).not.toBeNull();
     expect(retryButton(handle.target)).not.toBeNull();
     expect(handle.target.textContent).toBe('');
-    expect(page.querySelector('a:not([data-ega-hidden])')?.getAttribute('href')).toBe('https://x.test');
+    expect(page.querySelector('a:not([data-ega-hidden])')?.getAttribute('href')).toBe(
+      'https://x.test',
+    );
   });
 
   it('a peek before the block settles is a no-op', () => {

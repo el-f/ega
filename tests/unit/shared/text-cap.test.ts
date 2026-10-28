@@ -35,16 +35,12 @@ describe('capText', () => {
 
   it('gives a well-formed prefix within the cap for any well-formed text', () => {
     fc.assert(
-      fc.property(
-        fc.string({ unit: 'grapheme', maxLength: 60 }),
-        fc.nat({ max: 80 }),
-        (s, max) => {
-          const cut = capText(s, max);
-          expect(cut.length).toBeLessThanOrEqual(max);
-          expect(s.startsWith(cut)).toBe(true);
-          expect(isWellFormed(cut)).toBe(true);
-        },
-      ),
+      fc.property(fc.string({ unit: 'grapheme', maxLength: 60 }), fc.nat({ max: 80 }), (s, max) => {
+        const cut = capText(s, max);
+        expect(cut.length).toBeLessThanOrEqual(max);
+        expect(s.startsWith(cut)).toBe(true);
+        expect(isWellFormed(cut)).toBe(true);
+      }),
     );
   });
 });
@@ -79,16 +75,12 @@ describe('capTextFromEnd', () => {
 
   it('gives a well-formed suffix within the cap for any well-formed text', () => {
     fc.assert(
-      fc.property(
-        fc.string({ unit: 'grapheme', maxLength: 60 }),
-        fc.nat({ max: 80 }),
-        (s, max) => {
-          const cut = capTextFromEnd(s, max);
-          expect(cut.length).toBeLessThanOrEqual(max);
-          expect(s.endsWith(cut)).toBe(true);
-          expect(isWellFormed(cut)).toBe(true);
-        },
-      ),
+      fc.property(fc.string({ unit: 'grapheme', maxLength: 60 }), fc.nat({ max: 80 }), (s, max) => {
+        const cut = capTextFromEnd(s, max);
+        expect(cut.length).toBeLessThanOrEqual(max);
+        expect(s.endsWith(cut)).toBe(true);
+        expect(isWellFormed(cut)).toBe(true);
+      }),
     );
   });
 });

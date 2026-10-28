@@ -1,5 +1,15 @@
 /** Scripts written right to left: Arabic, Hebrew, Thaana, Syriac, N'Ko, Adlam, Hanifi Rohingya, Mandaic, Samaritan. */
-const RTL_SCRIPTS = new Set(['Arab', 'Hebr', 'Thaa', 'Syrc', 'Nkoo', 'Adlm', 'Rohg', 'Mand', 'Samr']);
+const RTL_SCRIPTS = new Set([
+  'Arab',
+  'Hebr',
+  'Thaa',
+  'Syrc',
+  'Nkoo',
+  'Adlm',
+  'Rohg',
+  'Mand',
+  'Samr',
+]);
 
 /**
  * `rtl` for a language tag whose likely script reads right to left, so a translation that starts with a Latin

@@ -558,7 +558,8 @@ chrome.runtime.onMessage.addListener((rawMsg, sender, sendResponse) => {
     case 'site:memo-direction': {
       // Only a content script names a site: the frame it runs in.
       const origin = sender.tab ? originOf(sender.url) : undefined;
-      const lastDirection = origin === undefined ? undefined : parseDirection(origin, msg.direction);
+      const lastDirection =
+        origin === undefined ? undefined : parseDirection(origin, msg.direction);
       if (origin === undefined || lastDirection === undefined) {
         reply(msg.kind, { ok: false, reason: 'schema' });
         return false;

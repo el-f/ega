@@ -72,7 +72,8 @@ describe('extractPostBlockText', () => {
       <div contenteditable="true"><p id="a">${draft}</p></div>
       <div hidden><p id="h">${draft}</p></div>
       <article data-ega-skip><p id="s">${draft}</p></article>`;
-    for (const id of ['#a', '#h', '#s']) expect(extractPostBlockText(anchorTextOf(id), 800)).toBeUndefined();
+    for (const id of ['#a', '#h', '#s'])
+      expect(extractPostBlockText(anchorTextOf(id), 800)).toBeUndefined();
   });
 
   it('counts only visible text toward the size floor', () => {

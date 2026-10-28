@@ -223,7 +223,10 @@ describe('a content script cannot write the settings an extension page owns', ()
     ['an API key', { openaiApiKey: 'sk-attacker' }],
     ['the theme', { theme: 'dark' }],
     ['another site row', { sitePrefs: { 'https://bank.example': { disabled: false } } }],
-    ['two site rows', { sitePrefs: { [ownOrigin]: { disabled: true }, 'https://b.example': { disabled: false } } }],
+    [
+      'two site rows',
+      { sitePrefs: { [ownOrigin]: { disabled: true }, 'https://b.example': { disabled: false } } },
+    ],
     ['an allowed flag plus a key', { bubbleFirstRunSeen: true, openaiApiKey: 'sk-x' }],
   ])('refuses %s from a tab, and writes nothing', async (_label, patch) => {
     const before = await stored();

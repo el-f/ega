@@ -30,7 +30,12 @@ function lateAbortVision(): TranslationBackend & { entered: Promise<void> } {
         args.cancel.signal.addEventListener('abort', () => setTimeout(resolve, 0), { once: true });
       });
       await new Promise((r) => setTimeout(r, 0));
-      args.onChunk({ type: 'error', requestId: args.requestId, code: 'ABORTED', message: 'aborted' });
+      args.onChunk({
+        type: 'error',
+        requestId: args.requestId,
+        code: 'ABORTED',
+        message: 'aborted',
+      });
     },
   };
 }

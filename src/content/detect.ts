@@ -171,12 +171,7 @@ export function detectLang(text: string, opts: DetectOpts = {}): LangPreset | un
     // A user's own pattern is trusted as written; the shipped one needs the words around it to agree.
     if (SHIPPED_PATTERNS.has(p.autoDetect)) {
       const words = count();
-      if (
-        !words ||
-        !words.anchored ||
-        words.shaped < MIN_SHAPED ||
-        words.arabizi <= words.english
-      )
+      if (!words || !words.anchored || words.shaped < MIN_SHAPED || words.arabizi <= words.english)
         continue;
     }
     return p;

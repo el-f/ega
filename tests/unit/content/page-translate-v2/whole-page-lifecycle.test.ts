@@ -195,8 +195,9 @@ describe('whole-page session — blocks the page removes', () => {
   it('past the block cap the pill asks for a second press, and that press takes every block left', async () => {
     const count = MAX_PAGE_BLOCKS + 100;
     document.body.innerHTML =
-      Array.from({ length: count }, (_, i) => `<p id="p${i}">これは${i}番目の段落です。</p>`).join('') +
-      `<p>${'長い文です。'.repeat(400)}</p>`;
+      Array.from({ length: count }, (_, i) => `<p id="p${i}">これは${i}番目の段落です。</p>`).join(
+        '',
+      ) + `<p>${'長い文です。'.repeat(400)}</p>`;
     const r = rig(10);
     await runWholePageTranslate(r.d);
     band(Array.from({ length: 10 }, (_, i) => document.getElementById(`p${i}`) as HTMLElement));
@@ -238,9 +239,9 @@ describe('whole-page session — blocks the page removes', () => {
 
     await runWholePageTranslate(r.d);
     expect(r.updates.at(-1)?.total).toBe(30);
-    expect(FakeObserver.last?.observed.has(document.getElementById(`p${count - 1}`) as Element)).toBe(
-      true,
-    );
+    expect(
+      FakeObserver.last?.observed.has(document.getElementById(`p${count - 1}`) as Element),
+    ).toBe(true);
   });
 
   it('a block judged in the target language is judged again once the page rewrites it', async () => {
@@ -262,7 +263,10 @@ describe('whole-page session — blocks the page removes', () => {
     await runWholePageTranslate(r.d);
     band([p1, document.getElementById('p2') as HTMLElement]);
     await flush();
-    expect(r.sent.map((s) => s.text)).toEqual(['これは0番目の段落です。', 'これは新しい段落です。']);
+    expect(r.sent.map((s) => s.text)).toEqual([
+      'これは0番目の段落です。',
+      'これは新しい段落です。',
+    ]);
   });
 
   it('a translated block whose text the page updates shows the page words, and the next press takes it again', async () => {
@@ -439,7 +443,13 @@ describe('whole-page session — failures', () => {
     await flush();
     expect(r.sent.slice(4).map((s) => s.text)).toEqual([t1, t2]);
     expect(r.sent).toHaveLength(6);
-    expect(r.updates.at(-1)).toMatchObject({ settled: true, done: 3, failed: 0, total: 3, skipped: 0 });
+    expect(r.updates.at(-1)).toMatchObject({
+      settled: true,
+      done: 3,
+      failed: 0,
+      total: 3,
+      skipped: 0,
+    });
   });
 
   it('Stop during a rate-limit pause takes the pause off the pill', async () => {

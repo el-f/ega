@@ -117,7 +117,13 @@ describe('the detector on the labeled corpus', () => {
     });
 
     it('still lets page translate skip a short English block with one tool name', () => {
-      const short = ['Run md5sum now', 'Check the md5sum', 's3cmd docs', 'md5sum usage', 'c3po figure'];
+      const short = [
+        'Run md5sum now',
+        'Check the md5sum',
+        's3cmd docs',
+        'md5sum usage',
+        'c3po figure',
+      ];
       expect(short.every((t) => ENGLISH_LINES.includes(t))).toBe(true);
       expect(short.filter((t) => !pageSkips(t))).toEqual([]);
     });

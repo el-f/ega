@@ -70,7 +70,10 @@ describe('collectBlocks', () => {
   });
 
   it('reads a subtree with no words once, not again for every ancestor', () => {
-    const rows = Array.from({ length: 30 }, (_, i) => `<div><span>${i}</span><span>$4.99</span></div>`);
+    const rows = Array.from(
+      { length: 30 },
+      (_, i) => `<div><span>${i}</span><span>$4.99</span></div>`,
+    );
     document.body.innerHTML = `${'<div>'.repeat(12)}${rows.join('')}${'</div>'.repeat(12)}`;
     const elements = document.body.querySelectorAll('*').length;
     const spy = vi.spyOn(window, 'getComputedStyle');

@@ -1365,13 +1365,17 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     noteKnownTurns(snap);
     // Copies: a load that clears the live sets while this write waits for the lock must not empty its tombstones.
     /* eslint-disable svelte/prefer-svelte-reactivity -- plain snapshots handed to storage, never rendered. */
-    const { evicted, droppedIds, shedIds, shedImages, refusedIds } = await saveThread(target, snap, {
-      knownIds: new Set(knownIds),
-      deletedAt: new Map(deletedAt),
-      revivedAt: new Map(revivedAt),
-      writer,
-      ...(seenClearedAt !== undefined ? { seenClearedAt } : {}),
-    });
+    const { evicted, droppedIds, shedIds, shedImages, refusedIds } = await saveThread(
+      target,
+      snap,
+      {
+        knownIds: new Set(knownIds),
+        deletedAt: new Map(deletedAt),
+        revivedAt: new Map(revivedAt),
+        writer,
+        ...(seenClearedAt !== undefined ? { seenClearedAt } : {}),
+      },
+    );
     /* eslint-enable svelte/prefer-svelte-reactivity */
     state.saveFailed = false;
     // Storage holds the text-only thread now; the panel must show the same, or the next save sheds again.

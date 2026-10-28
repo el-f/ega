@@ -107,9 +107,7 @@ describe('picker state machine', () => {
     document
       .getElementById('c')
       ?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-    expect(onPick).toHaveBeenCalledWith(
-      expect.objectContaining({ text: 'Bonjour tout le monde' }),
-    );
+    expect(onPick).toHaveBeenCalledWith(expect.objectContaining({ text: 'Bonjour tout le monde' }));
   });
 
   it('click on a sensitive (password) input picks nothing and adds no toast: the bar already says why', () => {
