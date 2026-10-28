@@ -6,6 +6,7 @@ import { loadThreadResult, saveThread } from '@/sidepanel/state/conversation-sto
 import { writePendingPopupHandoff } from '@/shared/pending-popup-handoff';
 import type { Turn } from '@/sidepanel/state/conversation';
 import { drainAsync } from '@tests/_helpers/async';
+import type { PageContext } from '@/shared/types';
 
 const WORKER = { id: 'ega-test' } as chrome.runtime.MessageSender;
 
@@ -22,6 +23,7 @@ function deferred(): { promise: Promise<void>; resolve: () => void } {
 async function intakeFor(
   panelWindowId: number | undefined,
   firstFollow: Promise<void> = Promise.resolve(),
+  pageContext: () => Promise<PageContext | null> = () => Promise.resolve(null),
 ): Promise<{
   intake: ReturnType<typeof createIntake>;
   conversation: ReturnType<typeof createConversation>;
@@ -45,7 +47,7 @@ async function intakeFor(
     pickers: () => pickers,
     setPickers: (p) => (pickers = p),
     runnableTask: (t) => t,
-    pageContext: () => Promise.resolve(null),
+    pageContext,
     clearFilters: () => {},
     attachImage: () => {},
     followSite: (site) => conversation.followSite(site),
@@ -158,6 +160,39 @@ describe('panel intake, without mounting the panel', () => {
 
     expect(conversation.activeSite).toBe('https://a.test');
     expect(conversation.turns.map((t) => t.content)).toEqual(['hola', 'texto', 'text']);
+  });
+
+  it('sends a handoff into its own conversation, without the page read, when the tab changes during that read', async () => {
+    await saveThread('https://a.test', [user('a1', 'hola')]);
+    await saveThread('https://b.test', [user('b1', 'hallo')]);
+    let duringRead = (): Promise<unknown> => Promise.resolve();
+    const { intake, conversation } = await intakeFor(7, Promise.resolve(), async () => {
+      await duringRead();
+      return { pageUrl: 'https://b.test/', pageTitle: 'B' };
+    });
+    await conversation.followSite('https://a.test');
+    duringRead = () => conversation.followSite('https://b.test');
+    await writePendingPopupHandoff({
+      sourceText: 'texto',
+      sourceLang: 'auto',
+      targetLang: 'en',
+      task: 'translate',
+      tone: 'neutral',
+    });
+
+    await intake.drainPopupHandoffs();
+
+    expect(conversation.activeSite).toBe('https://a.test');
+    expect(conversation.turns.map((t) => t.content).slice(0, 2)).toEqual(['hola', 'texto']);
+    const start = (chrome.runtime.sendMessage as Mock).mock.calls
+      .map(([m]) => m as { kind?: string; text?: string; context?: unknown })
+      .filter((m) => m.kind === 'translate:start')
+      .at(-1);
+    expect(start?.text).toBe('texto');
+    expect(start?.context).toBeFalsy();
+    conversation.cancel();
+    await conversation.flush();
+    expect((await loadThreadResult('https://b.test')).turns.map((t) => t.id)).toEqual(['b1']);
   });
 });
 

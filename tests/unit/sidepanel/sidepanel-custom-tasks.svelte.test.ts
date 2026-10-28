@@ -316,4 +316,30 @@ describe('SidePanel page context, positive control', () => {
     await waitFor(() => expect(starts()).toHaveLength(1));
     expect(starts()[0]?.context).toEqual({ pageUrl: 'https://x.test/a', pageTitle: 'X' });
   });
+
+  it("reads the page of its own window's tab, not the tab of the window focused last", async () => {
+    // The mock panel lives in window 1; another window holds the focus.
+    (chrome.tabs.query as Mock).mockImplementation((q: chrome.tabs.QueryInfo) =>
+      Promise.resolve([
+        q.windowId === 1 ? { id: 7, url: 'https://x.test/a' } : { id: 99, url: 'https://x.test/b' },
+      ]),
+    );
+    (chrome.tabs.sendMessage as Mock).mockResolvedValue({
+      context: { pageUrl: 'https://x.test/a', pageTitle: 'X' },
+    });
+    const { container } = render(SidePanel);
+    const text = await waitFor(() => {
+      const el = container.querySelector<HTMLTextAreaElement>('#sp-text');
+      if (!el) throw new Error('no composer');
+      return el;
+    });
+    await fireEvent.input(text, { target: { value: 'hola' } });
+    await tick();
+    container.querySelector<HTMLButtonElement>('.ega-send')?.click();
+    await waitFor(() => expect(starts()).toHaveLength(1));
+    const asked = (chrome.tabs.sendMessage as Mock).mock.calls
+      .filter(([, m]) => (m as { kind?: string }).kind === 'ega:get-page-context')
+      .map(([tabId]) => tabId as number);
+    expect(asked).toEqual([7]);
+  });
 });

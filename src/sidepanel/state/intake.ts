@@ -181,6 +181,12 @@ export function createIntake(deps: IntakeDeps): Intake {
     kind: Task,
     taskId: TaskId | undefined,
   ): Promise<void> {
+    const id = conversation.activeId;
+    const tab = conversation.tabSite;
+    const context = await deps.pageContext(taskId ?? kind);
+    // The tab changed during the read: the text still belongs here, and the page read may be the new tab's.
+    const moved = conversation.tabSite !== tab;
+    if (conversation.activeId !== id) await conversation.openConversation(id);
     await conversation.send({
       content: handoff.sourceText,
       kind,
@@ -189,7 +195,7 @@ export function createIntake(deps: IntakeDeps): Intake {
       targetLang: asLangSelection(handoff.targetLang),
       stream: deps.streaming(),
       tone: handoff.tone,
-      context: await deps.pageContext(taskId ?? kind),
+      context: moved ? null : context,
       ...(handoff.explain ? { explain: handoff.explain } : {}),
       ...(handoff.trimmed ? { trimmedTo: handoff.sourceText.length } : {}),
     });
