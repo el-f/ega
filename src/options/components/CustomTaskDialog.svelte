@@ -122,7 +122,8 @@
     system: prompt.system,
     user: prompt.user,
     output: answerOutput(answer, output),
-    ...(answer !== undefined ? { answer } : {}),
+    // Unread saved fields stay stored, but runs use the shape preset, so Try and Preview do too.
+    ...(answer !== undefined && unreadFields === undefined ? { answer } : {}),
     answersIn,
     pageContext,
     image,

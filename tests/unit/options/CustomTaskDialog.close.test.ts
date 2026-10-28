@@ -5,7 +5,8 @@ import { resetChromeMock } from '@tests/mocks/chrome';
 import CustomTaskDialog from '@/options/components/CustomTaskDialog.svelte';
 import { confirmDialog } from '@/shared/components/confirmDialog';
 import { toastStore } from '@/shared/components/toastStore';
-import { parseSettings } from '@/shared/settings-schema';
+import * as v from 'valibot';
+import { customTaskSchema, parseSettings } from '@/shared/settings-schema';
 import { addCustomTask } from '@/shared/tasks';
 import { getCustomTasks, getSettings } from '@/shared/storage';
 import { TEXT_SAVE_DELAY_MS } from '@/options/components/dialog-saver.svelte';
@@ -406,6 +407,22 @@ describe('saved fields Ega cannot read', () => {
       }),
     );
     expect(reply().textContent).not.toContain('could not read');
+  });
+
+  it('Try runs the shape the notice names, so it is not refused for the unread fields', async () => {
+    await seedBroken();
+    open(vi.fn(), { row: (await getCustomTasks())[0] });
+    const sent = vi.mocked(chrome.runtime.sendMessage);
+    await fireEvent.click(screen.getByRole('button', { name: 'Example reply' }));
+    await fireEvent.click(screen.getByRole('button', { name: /^Try/ }));
+    const tried = (): Record<string, unknown> | undefined =>
+      sent.mock.calls
+        .map(([m]) => m as unknown as Record<string, unknown>)
+        .find((m) => m['kind'] === 'task:try');
+    await waitFor(() => expect(tried()).toBeDefined());
+    const draft = tried()?.['draft'] as Record<string, unknown>;
+    expect(v.is(customTaskSchema, { ...draft, id: 'preview-1', createdAt: 1 })).toBe(true);
+    expect(draft['output']).toBe('card');
   });
 
   it('picking Your own fields keeps them too', async () => {
