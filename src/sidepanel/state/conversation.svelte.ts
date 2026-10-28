@@ -625,7 +625,10 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
   }
 
   async function retry(assistantId: string): Promise<StartedAnswer | null> {
-    if (state.inflightId !== null || ownedByBackground(assistantId)) {
+    const settled = state.turns.find((t) => t.id === assistantId);
+    // An open version with no slot here is another window's live answer: a re-run would bury it.
+    const answering = settled !== undefined && openVariantIds(settled).length > 0;
+    if (state.inflightId !== null || ownedByBackground(assistantId) || answering) {
       // Retrying mid-stream would clobber inflightId/requestId and strand both turns.
       toastStore.push({
         message: 'Wait for the current reply to finish, then retry.',
@@ -633,7 +636,6 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       });
       return null;
     }
-    const settled = state.turns.find((t) => t.id === assistantId);
     // The `r` key reaches this function without the gates the Retry button applies.
     if (settled?.role === 'assistant' && settled.status === 'error' && settled.error) {
       const raw = settled.error.code;

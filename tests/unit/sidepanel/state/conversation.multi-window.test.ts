@@ -216,6 +216,12 @@ describe('two side-panel windows on one origin', () => {
 });
 
 /** Every `translate:cancel` this test file has seen, for asserting a stream really was stopped. */
+function startsSent(): number {
+  return (chrome.runtime.sendMessage as Mock).mock.calls.filter(
+    (c) => (c[0] as Record<string, unknown>)['kind'] === 'translate:start',
+  ).length;
+}
+
 function cancelledRequests(): string[] {
   return (chrome.runtime.sendMessage as Mock).mock.calls
     .map((c) => c[0] as Record<string, unknown>)
@@ -934,5 +940,65 @@ describe('a reply that a question asks about, removed in another window or by th
     expect(byId(a, 'a0')).toBeUndefined();
     expect(a.inflightId).toBeNull();
     expect(cancelledRequests()).toContain(requestId);
+  });
+});
+
+describe('a retry of a reply another window is still answering', () => {
+  // `r` reaches retry() on any focused reply, a streaming one included.
+  it("A's retry of a reply B is still streaming leaves B's answer alone", async () => {
+    const push = vi.spyOn(toastStore, 'push');
+    const a = await openWindow();
+    const b = await openWindow();
+    const assistantId = await b.send({
+      content: 'live',
+      kind: 'translate',
+      sourceLang: 'auto',
+      targetLang: EN,
+      stream: true,
+    });
+    const requestId = requestIdOf('live');
+    b.applyChunk({ type: 'delta', requestId, text: 'half' });
+    await b.flush();
+    await drain();
+    expect(byId(a, assistantId)?.status).toBe('streaming');
+    const starts = startsSent();
+
+    expect(await a.retry(assistantId)).toBeNull();
+    await a.flush();
+    await drain();
+
+    expect(startsSent()).toBe(starts);
+    expect(cancelledRequests()).not.toContain(requestId);
+    expect(b.inflightId).toBe(assistantId);
+    expect(byId(b, assistantId)?.content).toBe('half');
+    expect(push.mock.calls.map(([m]) => m.message)).toContain(
+      'Wait for the current reply to finish, then retry.',
+    );
+  });
+
+  // An edit-last re-send keeps the old answer as v0, so the live version is a sibling, not the whole turn.
+  it("A's retry of a version B is still streaming does not drop that version", async () => {
+    const a = await openWindow();
+    const b = await openWindow();
+    const assistantId = await b.send({
+      content: 'dos',
+      kind: 'translate',
+      sourceLang: 'auto',
+      targetLang: EN,
+      stream: true,
+      preservedResponse: 'two (old)',
+    });
+    await b.flush();
+    await drain();
+    expect(byId(a, assistantId)?.variants?.map((v) => v.status)).toEqual(['done', 'pending']);
+    const starts = startsSent();
+
+    expect(await a.retry(assistantId)).toBeNull();
+    await a.flush();
+    await drain();
+
+    expect(startsSent()).toBe(starts);
+    expect(b.inflightId).toBe(assistantId);
+    expect(byId(b, assistantId)?.variants?.map((v) => v.status)).toEqual(['done', 'pending']);
   });
 });
