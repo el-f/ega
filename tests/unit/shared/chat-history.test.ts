@@ -84,9 +84,11 @@ describe('assemblePromptHistory', () => {
 // The worker cuts each replayed message to this size, so the panel counts and sends the cut version.
 describe('assemblePromptHistory — one message over the per-message cap', () => {
   it('is cut with a marker the model sees, never inside an emoji', () => {
-    const reply = `${'a'.repeat(1999)}😀 and the tail the user asks about`;
+    // The emoji straddles the cut index, so a plain slice would keep its high surrogate.
+    const keep = MAX_HISTORY_TURN_CHARS - HISTORY_CUT_MARKER.length - 1;
+    const reply = `${'a'.repeat(keep)}😀 and the tail the user asks about`;
     const [, sent] = assemblePromptHistory([u('hola'), a(reply)], { budgetTokens: 4000 });
-    expect(sent?.content).toBe(capHistoryContent(reply));
+    expect(sent?.content).toBe(`${'a'.repeat(keep)}${HISTORY_CUT_MARKER}`);
     expect(sent?.content.length).toBeLessThanOrEqual(MAX_HISTORY_TURN_CHARS);
     expect(sent?.content.endsWith(HISTORY_CUT_MARKER)).toBe(true);
     expect(sent?.content).not.toContain('tail');

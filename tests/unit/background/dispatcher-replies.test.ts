@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { chromeMock, resetChromeMock } from '@tests/mocks/chrome';
 import { STORAGE_KEYS } from '@/shared/constants';
+import { HISTORY_CUT_MARKER, MAX_HISTORY_TURN_CHARS } from '@/shared/chat-history';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import type { Msg, MsgReply } from '@/shared/messages';
 import type { TranslationRequest } from '@/shared/types';
@@ -367,6 +368,9 @@ describe('translate:start caps never cut inside an emoji', () => {
   it('the text, history, refinement and page context stay well formed', async () => {
     routerMock.handleTranslate.mockClear();
     const long = `${'a'.repeat(1999)}😀 and the tail`;
+    // History cuts earlier, to leave room for the marker, so its emoji sits on that cut instead.
+    const keep = MAX_HISTORY_TURN_CHARS - HISTORY_CUT_MARKER.length - 1;
+    const longTurn = `${'a'.repeat(keep)}😀 and the tail`;
     await ask(
       {
         kind: 'translate:start',
@@ -379,8 +383,8 @@ describe('translate:start caps never cut inside an emoji', () => {
           explain: false,
           refinement: long,
           conversationHistory: [
-            { role: 'user', content: long },
-            { role: 'assistant', content: long },
+            { role: 'user', content: longTurn },
+            { role: 'assistant', content: longTurn },
           ],
         },
       },
@@ -391,7 +395,9 @@ describe('translate:start caps never cut inside an emoji', () => {
     expect(req.text).toBe('a'.repeat(1999));
     // JSON.stringify writes a whole pair as is and only a lone surrogate as an escape.
     expect(JSON.stringify(req)).not.toMatch(/\\ud[89a-f][0-9a-f]{2}/);
-    expect(isWellFormed(req.options.conversationHistory?.[1]?.content ?? '')).toBe(true);
+    const sentTurn = req.options.conversationHistory?.[1]?.content ?? '';
+    expect(sentTurn).toContain(`${'a'.repeat(keep)}${HISTORY_CUT_MARKER}`);
+    expect(isWellFormed(sentTurn)).toBe(true);
   });
 });
 
