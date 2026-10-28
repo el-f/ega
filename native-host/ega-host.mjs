@@ -614,8 +614,9 @@ function oneShotLineParser(backend) {
     try {
       parsed = JSON.parse(line);
     } catch {
-      // The CLI was asked for JSON, so a plain line is its own output — pass it through.
-      return [{ kind: 'delta', text: line }];
+      // The CLI was asked for JSON, so a plain line is noise, not answer text; log its size, never the text.
+      process.stderr.write(`[ega-host] dropped a non-JSON line from ${backend} (${line.length} chars)\n`);
+      return [];
     }
     if (backend !== 'claude') {
       const failure = codexErrorFromFrame(parsed);

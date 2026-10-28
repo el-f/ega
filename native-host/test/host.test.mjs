@@ -773,6 +773,39 @@ test('a codex text translate spawns exec with the safety args and --json -, neve
   }
 });
 
+test('a non-JSON stdout line from a one-shot CLI never becomes answer text', async () => {
+  const fixture = codexExecFixture(`ega-host.fake-codex-plain-line.mjs`, `() => 'hola'`, [
+    `if (process.argv[2] !== 'mcp') process.stdout.write('stray page text\\n');`,
+  ]);
+  try {
+    const p = spawnHostWithFakes({ codex: fixture, env: { CODEX_HOME: FIXTURES } });
+    const chunks = [];
+    const errChunks = [];
+    p.stdout.on('data', (c) => chunks.push(c));
+    p.stderr.on('data', (c) => errChunks.push(c));
+    p.stdin.write(
+      encode({ v: 1, id: 'cx-plain', kind: 'translate', backend: 'codex', prompt: { user: 'hi' } }),
+    );
+    const terminal = await waitForFrame(chunks, isTerminal('cx-plain'));
+    p.stdin.end();
+    try {
+      p.kill();
+    } catch {}
+    const frames = decodeFrames(Buffer.concat(chunks)).filter((f) => f.id === 'cx-plain');
+    assert.equal(terminal?.type, 'done', JSON.stringify(frames));
+    const text = frames
+      .filter((f) => f.type === 'delta')
+      .map((f) => f.text)
+      .join('');
+    assert.equal(text, 'hola');
+    const logged = Buffer.concat(errChunks).toString('utf8');
+    assert.match(logged, /\[ega-host\] dropped a non-JSON line/);
+    assert.doesNotMatch(logged, /stray page text/, 'the log line must not carry the text');
+  } finally {
+    rmSync(fixture, { force: true });
+  }
+});
+
 test('a codex image prompt reaches the CLI as typed, @ included', async () => {
   const fixture = codexExecFixture('ega-host.fake-codex-img-echo.mjs', `(p) => p`);
   try {
