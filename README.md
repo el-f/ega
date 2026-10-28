@@ -123,9 +123,10 @@ and Disable Ega on this site. Add the other tasks at Settings → Selection and 
 an image offers Translate, Explain and your own tasks that have **Reads images** on.
 No other task reaches the vision model.
 
-Custom tasks can answer with text, notes, or **Your own fields**. Choose up to eight fields,
-including a main text or list answer, then choose which extra fields appear as notes or under
-**About this reply**. **Try it** sends sample text to your configured backend without adding a
+A custom task's **Reply** section offers **Answer only**, **Answer with notes** or **Your own
+fields**. Your own fields hold up to eight reply fields: one main text or list answer, and extra
+fields shown as notes or under **About this reply**. **Example reply** shows sample values, and its
+**Try** button sends your sample text to the backend that answers first, without adding a
 conversation. Task imports add or update matching tasks, keep unrelated tasks, and offer **Undo**.
 
 <p align="center">
