@@ -243,6 +243,28 @@ describe('whole-page session — blocks the page removes', () => {
     );
   });
 
+  it('a block judged in the target language is judged again once the page rewrites it', async () => {
+    document.body.innerHTML =
+      '<p id="p0">これは0番目の段落です。</p><p id="p1">Already in the target TARGET</p>' +
+      '<p id="p2">Still in the target TARGET</p>';
+    const r = rig();
+    r.d.isTargetLanguage = (text) => text.includes('TARGET');
+    await runWholePageTranslate(r.d);
+    band([...document.querySelectorAll('p')] as HTMLElement[]);
+    await flush();
+    finishAll(r);
+    await flush();
+    expect(r.sent).toHaveLength(1);
+
+    // A reused element (an SPA route, a virtual list cell) now holds foreign words.
+    const p1 = document.getElementById('p1') as HTMLElement;
+    p1.textContent = 'これは新しい段落です。';
+    await runWholePageTranslate(r.d);
+    band([p1, document.getElementById('p2') as HTMLElement]);
+    await flush();
+    expect(r.sent.map((s) => s.text)).toEqual(['これは0番目の段落です。', 'これは新しい段落です。']);
+  });
+
   it('a page that swaps its whole <body> (Turbo-style navigation) closes the session and its pill', async () => {
     const els = page();
     const r = rig();

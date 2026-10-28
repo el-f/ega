@@ -150,8 +150,8 @@ interface Session {
   pastCap: boolean;
   /** Whole page: blocks the last pass left out as too long to send. */
   tooLong: number;
-  /** Whole page: blocks that read as the target language; a later pass for the same target skips them. */
-  inTarget: WeakSet<Element>;
+  /** Whole page: blocks that read as the target language, by the text judged; a later pass skips each while that text stays. */
+  inTarget: WeakMap<Element, string>;
   pending: Block[];
   /** Whole page: blocks not yet near the viewport, by id. */
   deferred: Map<string, HTMLElement>;
@@ -365,7 +365,10 @@ function recollect(sess: Session): number {
   // Held and target-language blocks are not taken again, so they leave the cap's room to blocks past it.
   const found = collectBlocks(document.body, {
     maxChars: MAX_SELECTION_CHARS,
-    skip: { has: (el) => held.has(el) || sess.inTarget.has(el) },
+    skip: {
+      has: (el) =>
+        held.has(el) || (sess.inTarget.has(el) && sess.inTarget.get(el) === readBlock(el)),
+    },
   });
   sess.pastCap = found.pastCap;
   sess.tooLong = found.tooLong;
@@ -376,7 +379,7 @@ function recollect(sess: Session): number {
 
 /** A later press joins the session on the page, with that press's direction and mode, on the translated view. */
 function adopt(sess: Session, deps: PageV2Deps, mode: RenderMode): void {
-  if (deps.target !== sess.deps.target) sess.inTarget = new WeakSet();
+  if (deps.target !== sess.deps.target) sess.inTarget = new WeakMap();
   sess.deps = deps;
   sess.lang = langTag(deps.target);
   sess.targetName = isoName(deps.target);
@@ -491,6 +494,11 @@ function readsAsTarget(sess: Session, text: string): boolean {
   return letters.length > 0 && inScript / letters.length >= 0.8;
 }
 
+/** The words a block sends: only the leading run of an element the last pass took for its run. */
+function readBlock(el: Element): string {
+  return isLeadingRun(el) ? runText(el) : blockText(el);
+}
+
 /** Reads the text at release time, so a block the page changed since collection sends what it shows now. */
 function release(sess: Session, id: string): void {
   const element = sess.deferred.get(id);
@@ -498,12 +506,12 @@ function release(sess: Session, id: string): void {
   sess.deferred.delete(id);
   // An element taken for its leading run sends only those words; its inner blocks are blocks of their own.
   const run = isLeadingRun(element);
-  const text = !element.isConnected ? '' : run ? runText(element) : blockText(element);
+  const text = !element.isConnected ? '' : readBlock(element);
   const isTarget = sess.deps.isTargetLanguage?.(text) ?? readsAsTarget(sess, text);
   if (!hasWords(text) || text.length > MAX_SELECTION_CHARS || isTarget) {
     // Gone from the page or already in the target language: not an area, so it leaves the count.
     if (hasWords(text) && text.length > MAX_SELECTION_CHARS) sess.tooLong++;
-    else if (hasWords(text)) sess.inTarget.add(element);
+    else if (hasWords(text)) sess.inTarget.set(element, text);
     sess.observer?.unobserve(element);
     sess.total--;
     return;
@@ -567,7 +575,7 @@ async function createSession(
     partialSelection: false,
     pastCap: false,
     tooLong: 0,
-    inTarget: new WeakSet(),
+    inTarget: new WeakMap(),
     pending: [...blocks],
     deferred: new Map(),
     index: new Map(),
