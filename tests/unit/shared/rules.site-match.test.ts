@@ -39,6 +39,19 @@ describe('normaliseSiteEntry', () => {
     expect(normaliseSiteEntry('example.com:8080')).toBe('example.com');
     expect(normaliseSiteEntry('')).toBe('');
   });
+
+  it('drops a leading "*." or "." — a site already covers its subdomains', () => {
+    expect(normaliseSiteEntry('*.example.com')).toBe('example.com');
+    expect(normaliseSiteEntry('.Example.com')).toBe('example.com');
+    expect(normaliseSiteEntry('https://*.www.example.com/x')).toBe('example.com');
+  });
+});
+
+describe('a wildcard site stored by an older build', () => {
+  it.each(['*.example.com', '.example.com'])('%s applies on www.example.com', (site) => {
+    expect(filterRulesForRequest([rule([site])], 'translate', 'www.example.com')).toHaveLength(1);
+    expect(filterRulesForRequest([rule([site])], 'translate', 'notexample.com')).toHaveLength(0);
+  });
 });
 
 describe('filterRulesForRequest with a site scope', () => {
