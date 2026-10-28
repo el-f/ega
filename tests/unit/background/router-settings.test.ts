@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { fakeReply } from '@tests/_helpers/reply';
 import { sel } from '@tests/_helpers/lang';
 import { createRouter } from '@/background/router';
 import { TranslationCache } from '@/background/cache';
@@ -37,7 +38,7 @@ function okBackend(
       onChunk({
         type: 'delta',
         requestId: req.id,
-        text: JSON.stringify({ translation: 'OK', confidence: 0.9 }),
+        text: fakeReply(system, 'OK', { confidence: 0.9 }),
       });
       onChunk(makeDoneChunk(req.id, { translation: 'OK', confidence: 0.9 }));
     },

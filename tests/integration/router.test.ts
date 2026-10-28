@@ -448,7 +448,7 @@ describe('router translate flow', () => {
       isAvailable: async () => true,
       translate: async ({ system, onChunk, req }) => {
         seenSystem = system;
-        onChunk({ type: 'delta', requestId: req.id, text: '{"translation":"ok","confidence":1}' });
+        onChunk({ type: 'delta', requestId: req.id, text: '{"answer":"ok"}' });
         onChunk({ type: 'done', requestId: req.id, confidence: 1 });
       },
     };
@@ -486,7 +486,7 @@ describe('router translate flow', () => {
       isAvailable: async () => true,
       translate: async ({ system, onChunk, req }) => {
         seenSystem = system;
-        onChunk({ type: 'delta', requestId: req.id, text: '{"translation":"ok","confidence":1}' });
+        onChunk({ type: 'delta', requestId: req.id, text: '{"answer":"ok"}' });
         onChunk({ type: 'done', requestId: req.id, confidence: 1 });
       },
     };

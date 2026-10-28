@@ -112,7 +112,7 @@ describe('router — a custom task', () => {
     const calls: TranslateCallArgs[] = [];
     const translate = vi.fn(async (args: TranslateCallArgs) => {
       calls.push(args);
-      args.onChunk({ type: 'delta', requestId: args.req.id, text: '{"translation":"short"}' });
+      args.onChunk({ type: 'delta', requestId: args.req.id, text: '{"answer":"short"}' });
       args.onChunk({ type: 'done', requestId: args.req.id });
     });
     const backend: TranslationBackend = {
@@ -160,7 +160,7 @@ describe('router — the contract line', () => {
         args.onChunk({
           type: 'delta',
           requestId: args.req.id,
-          text: '{"translation":"ok","confidence":1}',
+          text: '{"answer":"ok"}',
         });
         args.onChunk({ type: 'done', requestId: args.req.id });
       }),
@@ -210,7 +210,7 @@ describe('router — a custom task reads its own switches', () => {
         args.onChunk({
           type: 'delta',
           requestId: args.req.id,
-          text: '{"translation":"ok","confidence":1}',
+          text: '{"answer":"ok"}',
         });
         args.onChunk({ type: 'done', requestId: args.req.id });
       }),
@@ -305,7 +305,7 @@ describe('router — a failed custom-task read', () => {
         args.onChunk({
           type: 'delta',
           requestId: args.req.id,
-          text: '{"translation":"ok","confidence":1}',
+          text: '{"answer":"ok"}',
         });
         args.onChunk({ type: 'done', requestId: args.req.id });
       }),

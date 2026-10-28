@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { fakeReply } from '@tests/_helpers/reply';
 import { sel, preset as presetId } from '@tests/_helpers/lang';
 import { createRouter } from '@/background/router';
 import { makeDoneChunk, type BackendConfig, type TranslationBackend } from '@/shared/backends/base';
@@ -18,8 +19,8 @@ function visionBackend(): TranslationBackend & { ocrPrompts: string[] } {
     manifest: testManifest('anthropic', true),
     isAvailable: async () => true,
     ocrPrompts,
-    translate: async ({ req, onChunk }) => {
-      onChunk({ type: 'delta', requestId: req.id, text: JSON.stringify({ translation: 'TEXT' }) });
+    translate: async ({ req, system, onChunk }) => {
+      onChunk({ type: 'delta', requestId: req.id, text: fakeReply(system, 'TEXT') });
       onChunk(makeDoneChunk(req.id, { translation: 'TEXT', confidence: 1 }));
     },
     translateImage: async ({ requestId, system, onChunk }) => {

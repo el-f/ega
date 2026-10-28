@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { fakeReply } from '@tests/_helpers/reply';
 import { sel } from '@tests/_helpers/lang';
 import { createRouter } from '@/background/router';
 import { baseDeps } from '@tests/_helpers/router';
@@ -17,12 +18,12 @@ function fakeBackend(): TranslationBackend {
     id: bid('anthropic'),
     manifest: testManifest('anthropic'),
     isAvailable: async () => true,
-    translate: async ({ req, onChunk }) => {
+    translate: async ({ req, system, onChunk }) => {
       // Emit a single delta + done so the router's `completed` branch fires.
       onChunk({
         type: 'delta',
         requestId: req.id,
-        text: JSON.stringify({ translation: 'Welcome', confidence: 0.9 }),
+        text: fakeReply(system, 'Welcome', { confidence: 0.9 }),
       });
       onChunk(makeDoneChunk(req.id, { translation: 'Welcome', confidence: 0.9 }));
     },
