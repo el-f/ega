@@ -5,7 +5,12 @@ import { spawn as realSpawn } from 'node:child_process';
 import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { CliSessionManager, killTree, windowsSafeSpawn } from '../lib/cli-session.mjs';
+import {
+  CliSessionManager,
+  killTree,
+  sanitiseModel,
+  windowsSafeSpawn,
+} from '../lib/cli-session.mjs';
 import { CLAUDE_PROMPT_ARGS } from '../lib/protocol-claude.mjs';
 
 function makeFakeChild() {
@@ -606,6 +611,19 @@ test('the model id reaches the claude spawn args', () => {
   assert.ok(i >= 0, `expected --model in ${JSON.stringify(args)}`);
   assert.equal(args[i + 1], 'claude-opus-4-5');
   mgr.closeAll();
+});
+
+test('a claude model id with a context suffix like [1m] reaches the spawn args', () => {
+  const f = makeSpawnFactory();
+  const mgr = new CliSessionManager({ spawn: f.spawn, idleTimeoutMs: 10_000 });
+  mgr.send('claude', { user: 'q' }, () => {}, 'ext-1', 'sonnet[1m]');
+  const args = f.calls[0].args;
+  assert.equal(args[args.indexOf('--model') + 1], 'sonnet[1m]', JSON.stringify(args));
+  mgr.closeAll();
+  assert.equal(sanitiseModel('claude-opus-4-5[1m]'), 'claude-opus-4-5[1m]');
+  for (const bad of ['sonnet[1m', 'sonnet]', '[1m]', 'sonnet[1m][2m]', 'sonnet[1 m]']) {
+    assert.equal(sanitiseModel(bad), '', bad);
+  }
 });
 
 test('a rejected model id never reaches argv', () => {

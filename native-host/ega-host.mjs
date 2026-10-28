@@ -114,6 +114,19 @@ function argsWithModel(backend, baseArgs, model) {
   return [...baseArgs, '--model', m];
 }
 
+// A dropped id would run the CLI default while the extension labels the answer with the typed id.
+function rejectUnsafeModel(msg) {
+  if (msg.model === undefined || msg.model === '' || sanitiseModel(msg.model)) return false;
+  sendFrame({
+    v: 1,
+    id: msg.id,
+    type: 'error',
+    code: 'REQUEST',
+    message: `Ega cannot pass the model id "${String(msg.model).slice(0, 80)}" to the CLI. Use letters, digits and . _ - /, with an optional suffix such as [1m].`,
+  });
+  return true;
+}
+
 /** PATH (+PATHEXT) walk so Windows spawns a .cmd without shell:true (saves 100-300ms); cached; null = not on PATH. */
 const cliPathCache = new Map();
 const IS_WIN = process.platform === 'win32';
@@ -815,6 +828,9 @@ readStdinFrames((msg) => {
     // `inline` throws from inside the dispatch, the next tick throws from outside it.
     if (msg.inline) boom();
     setImmediate(boom);
+    return;
+  }
+  if ((msg.kind === 'translate' || msg.kind === 'translateImage') && rejectUnsafeModel(msg)) {
     return;
   }
   if (msg.kind === 'translate') {

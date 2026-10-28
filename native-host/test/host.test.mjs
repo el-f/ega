@@ -1049,6 +1049,43 @@ test(
   },
 );
 
+test('a model id the host cannot pass to the CLI ends the request as REQUEST, with no CLI run', async () => {
+  const log = path.join(FIXTURES, 'model-reject.log');
+  const fixture = codexExecFixture('ega-host.fake-codex-model.mjs', `() => 'ok'`, [
+    `import { appendFileSync } from 'node:fs';`,
+    `appendFileSync(process.env.FAKE_CODEX_LOG, process.argv[2] + '\\n');`,
+  ]);
+  try {
+    const p = spawnHostWithFakes({ codex: fixture, claude: fixture, env: { FAKE_CODEX_LOG: log } });
+    const chunks = [];
+    p.stdout.on('data', (c) => chunks.push(c));
+    const frames = [
+      { kind: 'translate', backend: 'claude', model: 'sonnet 1m' },
+      { kind: 'translate', backend: 'codex', model: 'gpt;x' },
+      { kind: 'translateImage', backend: 'codex', model: 'a'.repeat(81), imageBase64: 'AAAA' },
+    ];
+    const ends = [];
+    for (const [i, f] of frames.entries()) {
+      const id = `bad-model-${i}`;
+      p.stdin.write(encode({ v: 1, id, prompt: { user: 'hi' }, ...f }));
+      ends.push(await waitForFrame(chunks, isTerminal(id)));
+    }
+    p.stdin.end();
+    try {
+      p.kill();
+    } catch {}
+    for (const end of ends) {
+      assert.equal(end?.type, 'error', JSON.stringify(end));
+      assert.equal(end?.code, 'REQUEST', JSON.stringify(end));
+      assert.match(end?.message ?? '', /model id/);
+    }
+    assert.equal(existsSync(log), false, 'no CLI was started');
+  } finally {
+    rmSync(fixture, { force: true });
+    rmSync(log, { force: true });
+  }
+});
+
 test('a system MCP server is turned off by name, and one no -c path can name stops the request', async () => {
   const run = async (list, id) => {
     const fixture = codexExecFixture(

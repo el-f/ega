@@ -91,7 +91,8 @@ function startupFailureMessage(provider, tail) {
 
 // The wire is JSON so argv-injection is not the surface, but a pasted
 // `foo --dangerously-skip-permissions` would still split into two argv entries.
-const MODEL_ID_OK = /^[\w./-]{1,80}$/;
+// claude names a context-window variant with a suffix: `sonnet[1m]`. cmd.exe reads no brackets as syntax.
+const MODEL_ID_OK = /^[\w./-]{1,80}(?:\[\w{1,16}\])?$/;
 
 /** @param {unknown} raw @returns {string} the id, or '' when it is not safe to forward */
 export function sanitiseModel(raw) {
