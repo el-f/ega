@@ -241,6 +241,13 @@ export const ENGLISH_LINES: readonly string[] = [
   'Grab the 3dprint files.',
   'See you 2morrow at 5',
   'The 2way radio is broken.',
+  // Two units, texting words or names that start with a digit, and few English words around them.
+  '5mins left, 3hrs total',
+  'Wait 2mins or 5mins',
+  '5ghz wifi 2ghz band',
+  '8bit 6pack',
+  'c u 2nite, 2morrow maybe',
+  'Download: 7zip.org, 9gag.com',
   // Written after the rule was picked, to check it on lines it was not tuned on.
   'Download the w3schools offline version.',
   'Flash the esp32 with the new firmware.',
