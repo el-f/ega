@@ -396,6 +396,20 @@ describe('router — prompt assembly', () => {
     expect(grammar.system).not.toContain(renderGlossaryBlock(glossary));
   });
 
+  it('a glossary turned on for a same-language task never asks for translations', async () => {
+    const glossary: GlossaryEntry[] = [
+      { term: 'hello', translation: 'howdy', caseSensitive: false },
+    ];
+    const tpl = { system: 'SYS-BODY', user: '{{text}}' };
+    const grammar = await run({
+      req: mkReq({ options: { task: 'grammar' } }),
+      settings: { glossary, taskOverrides: { grammar: { ...tpl, glossary: true } } },
+    });
+    expect(grammar.system).toContain('"hello" → "howdy"');
+    expect(grammar.system.split('SYS-BODY')[0]).not.toMatch(/translat/i);
+    expect(grammar.system).toContain(renderGlossaryBlock(glossary, { sameLanguage: true }));
+  });
+
   it('says how many rules the budget dropped, not just that it dropped some', async () => {
     const body = 'x'.repeat(490);
     const rules: Rule[] = Array.from({ length: 40 }, (_, i) => ({

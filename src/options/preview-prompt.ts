@@ -71,7 +71,7 @@ export function buildCustomPreviewPrompt(
       tone: s.defaultTone,
       snippets: {},
     },
-    glossaryBlock: renderGlossaryBlock(glossary),
+    glossaryBlock: renderGlossaryBlock(glossary, { sameLanguage: row.answersIn === 'input' }),
     rulesBlock: renderRulesBlock(
       clampRulesToBudget(
         filterRulesForRequest(s.advanced.rules, input.id, undefined),
@@ -126,7 +126,7 @@ export function buildPreviewPrompt(
       tone: s.defaultTone,
       snippets: s.advanced.snippets,
     },
-    glossaryBlock: renderGlossaryBlock(glossary),
+    glossaryBlock: renderGlossaryBlock(glossary, { sameLanguage: view.answersIn === 'input' }),
     rulesBlock: renderRulesBlock(rules),
     format: answerFormatFor(task),
   });

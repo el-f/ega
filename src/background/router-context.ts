@@ -274,7 +274,9 @@ export function buildSystemAndUser(
       tone: ctx.tone,
       snippets: ctx.snippets,
     },
-    glossaryBlock: renderGlossaryBlock(ctx.glossaryEntries),
+    glossaryBlock: renderGlossaryBlock(ctx.glossaryEntries, {
+      sameLanguage: ctx.view.answersIn === 'input',
+    }),
     rulesBlock: ctx.rulesBlock,
     ...(req.options.refinement !== undefined ? { refinement: req.options.refinement } : {}),
     ...(req.options.askAbout !== undefined ? { askAbout: req.options.askAbout } : {}),

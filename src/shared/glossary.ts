@@ -60,12 +60,15 @@ function termAppears(haystack: string, term: string, caseSensitive: boolean): bo
 }
 
 /** Only the filtered entries, never the whole glossary; '' when empty. */
-export function renderGlossaryBlock(entries: readonly GlossaryEntry[]): string {
+export function renderGlossaryBlock(
+  entries: readonly GlossaryEntry[],
+  options: { sameLanguage?: boolean } = {},
+): string {
   if (entries.length === 0) return '';
   const lines = entries.map((e) => `  - ${quoteInline(e.term)} → ${quoteInline(e.translation)}`);
-  return (
-    'GLOSSARY (use these specific translations for these terms — override your default rendering):\n' +
-    lines.join('\n') +
-    '\n'
-  );
+  // "Translations" pushed Reword and Grammar to translate the text.
+  const heading = options.sameLanguage
+    ? 'GLOSSARY (use this wording for these terms; keep the text in its own language):\n'
+    : 'GLOSSARY (use these specific translations for these terms — override your default rendering):\n';
+  return heading + lines.join('\n') + '\n';
 }
