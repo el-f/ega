@@ -74,6 +74,17 @@ test('maps a CLI too old for the safety flags to REQUEST', () => {
 test('maps transport failures to TIMEOUT and NETWORK', () => {
   assert.equal(classifyCliError('deadline exceeded after 60s'), 'TIMEOUT');
   assert.equal(classifyCliError('connect ECONNREFUSED 127.0.0.1:1234'), 'NETWORK');
+  // codex (Rust) wording on Linux/macOS and on Windows; the bare word "refused" must not make these REQUEST.
+  assert.equal(
+    classifyCliError('tcp connect error: Connection refused (os error 111)'),
+    'NETWORK',
+  );
+  assert.equal(
+    classifyCliError(
+      'error sending request: tcp connect error: No connection could be made because the target machine actively refused it. (os error 10061)',
+    ),
+    'NETWORK',
+  );
 });
 
 test('maps a CLI that cannot read its own config file to NATIVE_CLI_CONFIG', () => {

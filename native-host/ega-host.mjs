@@ -19,6 +19,7 @@ import { randomUUID } from 'node:crypto';
 import process from 'node:process';
 import {
   CliSessionManager,
+  DEFAULT_REQUEST_TIMEOUT_MS,
   killTree,
   sanitiseModel,
   windowsSafeSpawn,
@@ -49,7 +50,7 @@ const HOST_VERSION = 5;
 const TEST_MODE = process.argv.includes('--ega-test');
 
 // Max wait for a CLI child's terminal frame, per one-shot child and per session request once it reaches the head of the queue.
-const CHILD_TIMEOUT_MS = Number(process.env.EGA_HOST_TIMEOUT_MS) || 90_000;
+const CHILD_TIMEOUT_MS = Number(process.env.EGA_HOST_TIMEOUT_MS) || DEFAULT_REQUEST_TIMEOUT_MS;
 // Under the extension's 30 s first-frame and idle limits, which a reasoning model can outthink.
 const KEEPALIVE_MS = Number(process.env.EGA_HOST_KEEPALIVE_MS) || 10_000;
 
@@ -112,6 +113,19 @@ function argsWithModel(backend, baseArgs, model) {
     }
   }
   return [...baseArgs, '--model', m];
+}
+
+// A dropped id would run the CLI default while the extension labels the answer with the typed id.
+function rejectUnsafeModel(msg) {
+  if (msg.model === undefined || msg.model === '' || sanitiseModel(msg.model)) return false;
+  sendFrame({
+    v: 1,
+    id: msg.id,
+    type: 'error',
+    code: 'REQUEST',
+    message: `Ega cannot pass the model id "${String(msg.model).slice(0, 80)}" to the CLI. Start with a letter or digit, then use letters, digits and . _ - / : @, with an optional suffix such as [1m].`,
+  });
+  return true;
 }
 
 /** PATH (+PATHEXT) walk so Windows spawns a .cmd without shell:true (saves 100-300ms); cached; null = not on PATH. */
@@ -502,11 +516,11 @@ async function codexSystemMcpArgs(bin) {
   } finally {
     await rm(emptyHome, { recursive: true, force: true }).catch(() => {});
   }
-  if (r?.code !== 0) {
+  const overrides = r?.code === 0 ? codexMcpOverrides(r.stdout) : null;
+  if (!overrides) {
     // Not cached: the next request lists again.
-    process.stderr.write(
-      `[ega-host] codex mcp list failed (${r ? `exit ${r.code}` : 'no answer'})\n`,
-    );
+    const why = !r ? 'no answer' : r.code !== 0 ? `exit ${r.code}` : 'output in an unknown shape';
+    process.stderr.write(`[ega-host] codex mcp list failed (${why})\n`);
     if (await anyExists(codexSystemConfigs())) {
       throw new Error(
         'Ega could not list the MCP servers your system Codex config loads, so it does not send page text to Codex this time. Try again.',
@@ -514,7 +528,6 @@ async function codexSystemMcpArgs(bin) {
     }
     return { args: [], stillLoaded: [] };
   }
-  const overrides = codexMcpOverrides(r.stdout);
   systemMcp = { at: Date.now(), overrides };
   return overrides;
 }
@@ -816,6 +829,9 @@ readStdinFrames((msg) => {
     // `inline` throws from inside the dispatch, the next tick throws from outside it.
     if (msg.inline) boom();
     setImmediate(boom);
+    return;
+  }
+  if ((msg.kind === 'translate' || msg.kind === 'translateImage') && rejectUnsafeModel(msg)) {
     return;
   }
   if (msg.kind === 'translate') {

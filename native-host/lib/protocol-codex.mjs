@@ -65,20 +65,21 @@ const MCP_NAME_OK = /^[\w:@/-]+$/;
 
 /**
  * `-c` overrides that turn off every enabled server in `codex mcp list --json` output.
- * @param {string} listJson @returns {{ args: string[], stillLoaded: string[] }} `stillLoaded` names the servers no override can address
+ * @param {string} listJson @returns {{ args: string[], stillLoaded: string[] } | null} null when the output is not an array of named servers, since an unread shape could hide a loaded one; `stillLoaded` names the servers no override can address
  */
 export function codexMcpOverrides(listJson) {
   let list;
   try {
     list = JSON.parse(listJson);
   } catch {
-    return { args: [], stillLoaded: [] };
+    return null;
   }
+  if (!Array.isArray(list) || !list.every((e) => e && typeof e.name === 'string')) return null;
   const args = [];
   const stillLoaded = [];
-  for (const entry of Array.isArray(list) ? list : []) {
-    if (!entry || typeof entry !== 'object' || entry.enabled !== true) continue;
-    if (typeof entry.name !== 'string') continue;
+  for (const entry of list) {
+    // Only an explicit false is off: a codex that leaves the field out must not leave its server on.
+    if (entry.enabled === false) continue;
     if (MCP_NAME_OK.test(entry.name)) args.push('-c', `mcp_servers.${entry.name}.enabled=false`);
     else stillLoaded.push(entry.name);
   }

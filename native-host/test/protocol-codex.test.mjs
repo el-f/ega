@@ -172,11 +172,30 @@ test('codexMcpOverrides turns off every enabled, addressable server and names th
         { name: 'jira', enabled: true },
         { name: 'off', enabled: false },
         { name: 'corp.tools', enabled: true },
-        { name: 7, enabled: true },
       ]),
     ),
     { args: ['-c', 'mcp_servers.jira.enabled=false'], stillLoaded: ['corp.tools'] },
   );
-  assert.deepEqual(codexMcpOverrides('not json'), { args: [], stillLoaded: [] });
-  assert.deepEqual(codexMcpOverrides('{}'), { args: [], stillLoaded: [] });
+  assert.deepEqual(codexMcpOverrides('[]'), { args: [], stillLoaded: [] });
+});
+
+test('codexMcpOverrides counts a server with no enabled field as loaded', () => {
+  assert.deepEqual(codexMcpOverrides(JSON.stringify([{ name: 'jira' }])), {
+    args: ['-c', 'mcp_servers.jira.enabled=false'],
+    stillLoaded: [],
+  });
+});
+
+test('codexMcpOverrides returns null for output it cannot read, so the caller fails closed', () => {
+  for (const text of [
+    'not json',
+    '{}',
+    '{"servers":[{"name":"jira","enabled":true}]}',
+    'warning: something\n[{"name":"jira","enabled":true}]',
+    '[{"name":7,"enabled":true}]',
+    '[null]',
+    '',
+  ]) {
+    assert.equal(codexMcpOverrides(text), null, JSON.stringify(text));
+  }
 });
