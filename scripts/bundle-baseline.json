@@ -5,7 +5,7 @@
   },
   {
     "name": "answer-presentation",
-    "bytes": 1037
+    "bytes": 1035
   },
   {
     "name": "AnswerNotes",
@@ -13,7 +13,7 @@
   },
   {
     "name": "ask-about",
-    "bytes": 3337
+    "bytes": 3380
   },
   {
     "name": "batch-progress",
@@ -29,7 +29,7 @@
   },
   {
     "name": "cancel-token",
-    "bytes": 28820
+    "bytes": 29993
   },
   {
     "name": "Checkbox",
@@ -41,7 +41,7 @@
   },
   {
     "name": "command-registry",
-    "bytes": 30967
+    "bytes": 30081
   },
   {
     "name": "custom-tasks-state.svelte",
@@ -61,7 +61,7 @@
   },
   {
     "name": "Glossary",
-    "bytes": 31315
+    "bytes": 31985
   },
   {
     "name": "IconButton",
@@ -73,15 +73,15 @@
   },
   {
     "name": "index",
-    "bytes": 128952
+    "bytes": 129226
   },
   {
     "name": "index.html",
-    "bytes": 490002
+    "bytes": 496092
   },
   {
     "name": "index.ts",
-    "bytes": 45798
+    "bytes": 46956
   },
   {
     "name": "index.ts-loader",
@@ -89,11 +89,11 @@
   },
   {
     "name": "inlineReplace",
-    "bytes": 4647
+    "bytes": 4680
   },
   {
     "name": "invariants",
-    "bytes": 51746
+    "bytes": 53296
   },
   {
     "name": "lang-tag",
@@ -116,20 +116,20 @@
     "bytes": 5777
   },
   {
-    "name": "open-options-tab",
-    "bytes": 51102
+    "name": "nothing-to-translate",
+    "bytes": 13342
   },
   {
-    "name": "page-chip",
-    "bytes": 3636
+    "name": "open-options-tab",
+    "bytes": 51096
   },
   {
     "name": "page-styles",
-    "bytes": 1969
+    "bytes": 2118
   },
   {
     "name": "page-translate-v2",
-    "bytes": 30014
+    "bytes": 26291
   },
   {
     "name": "pending-conversation-open",
@@ -137,7 +137,7 @@
   },
   {
     "name": "pending-popup-handoff",
-    "bytes": 4897
+    "bytes": 4883
   },
   {
     "name": "perf-history",
@@ -145,11 +145,11 @@
   },
   {
     "name": "picker",
-    "bytes": 3185
+    "bytes": 8178
   },
   {
     "name": "picker-bar",
-    "bytes": 9672
+    "bytes": 9688
   },
   {
     "name": "picker-overlay",
@@ -161,7 +161,7 @@
   },
   {
     "name": "progress",
-    "bytes": 1208
+    "bytes": 1688
   },
   {
     "name": "provider-profiles",
@@ -185,7 +185,7 @@
   },
   {
     "name": "safe-regex",
-    "bytes": 23647
+    "bytes": 24160
   },
   {
     "name": "safety",
@@ -196,12 +196,8 @@
     "bytes": 4394
   },
   {
-    "name": "selection-cap-copy",
-    "bytes": 13191
-  },
-  {
     "name": "SelectionBubble",
-    "bytes": 36965
+    "bytes": 36966
   },
   {
     "name": "settings-bus",
@@ -217,7 +213,7 @@
   },
   {
     "name": "src-content-index.ts",
-    "bytes": 38030
+    "bytes": 40138
   },
   {
     "name": "StableLabel",
@@ -229,7 +225,7 @@
   },
   {
     "name": "task-view",
-    "bytes": 4169
+    "bytes": 4291
   },
   {
     "name": "tasks",
@@ -237,7 +233,7 @@
   },
   {
     "name": "Tasks",
-    "bytes": 49972
+    "bytes": 49973
   },
   {
     "name": "TaskUsageRow",
@@ -246,6 +242,10 @@
   {
     "name": "templates-handlers",
     "bytes": 856
+  },
+  {
+    "name": "text-dir",
+    "bytes": 3864
   },
   {
     "name": "theme",
@@ -257,7 +257,7 @@
   },
   {
     "name": "tipState.svelte",
-    "bytes": 59265
+    "bytes": 59267
   },
   {
     "name": "toast",
@@ -277,11 +277,11 @@
   },
   {
     "name": "translate-handlers",
-    "bytes": 6250
+    "bytes": 6332
   },
   {
     "name": "translate-ui",
-    "bytes": 3025
+    "bytes": 3070
   },
   {
     "name": "vendor-bits-ui",
@@ -293,7 +293,7 @@
   },
   {
     "name": "vendor-dompurify",
-    "bytes": 28153
+    "bytes": 29151
   },
   {
     "name": "vendor-lucide",
