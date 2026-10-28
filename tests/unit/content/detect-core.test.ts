@@ -87,6 +87,35 @@ describe('English with one Arabizi-shaped name is not Arabizi', () => {
   });
 });
 
+// One or two plain words, or fewer plain words than digit words, are too few to call the line English.
+const ARABIZI_WITH_A_PARTICLE = [
+  'ok ya 7abibi',
+  'yes 7abibi',
+  'no 3ashan',
+  'ok 3ala ra2si',
+  'so ana 3ayez a2ollak 7aga',
+  'ok so ana 3ayez a2ollak 7aga 3ashan',
+];
+
+describe('Arabizi with an English particle is Arabizi', () => {
+  it.each(ARABIZI_WITH_A_PARTICLE)('before the lexicon loads: %s', (text) => {
+    expect(detectLang(text)?.id).toBe('arabizi');
+  });
+
+  describe('with the lexicon loaded', () => {
+    beforeAll(async () => {
+      await loadEnglishLexicon();
+    });
+    afterAll(() => {
+      lexiconCacheInternal.mod = null;
+      lexiconCacheInternal.promise = null;
+    });
+    it.each(ARABIZI_WITH_A_PARTICLE)('%s', (text) => {
+      expect(detectLang(text)?.id).toBe('arabizi');
+    });
+  });
+});
+
 // Arabizi and leetspeak are written in Latin letters, so a Latin name inside Hebrew text is neither.
 describe('a Hebrew block with one Latin name is not Arabizi', () => {
   it.each([

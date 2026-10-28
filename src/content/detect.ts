@@ -70,16 +70,18 @@ function leetScore(text: string): number {
 
 const LETTER = /\p{L}/gu;
 const LATIN = /\p{Script=Latin}/u;
+// The words without digits decide only when there are this many and they outnumber the digit words.
+const MIN_PLAIN_WORDS = 3;
 
 /** Arabizi and leetspeak are Latin text: a digit word inside Hebrew or English text ("md5sum", "log4j") is a name. */
 function readsAsDigitSpelling(text: string): boolean {
   const letters = text.match(LETTER) ?? [];
   if (letters.filter((ch) => LATIN.test(ch)).length * 2 < letters.length) return false;
-  const rest = text
-    .split(/\s+/)
-    .filter((w) => !/\d/.test(w))
-    .join(' ');
-  return !/\p{L}/u.test(rest) || !looksLikeEnglish(rest);
+  const words = text.split(/\s+/).filter((w) => /\p{L}/u.test(w));
+  const plain = words.filter((w) => !/\d/.test(w));
+  // One English particle does not make a line English: "ok ya 7abibi" is Arabizi.
+  if (plain.length < MIN_PLAIN_WORDS || plain.length * 2 <= words.length) return true;
+  return !looksLikeEnglish(plain.join(' '));
 }
 
 /** An explicit language skips the detector — the user already chose. */
