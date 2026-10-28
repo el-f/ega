@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy, untrack } from 'svelte';
+  import { onDestroy, tick, untrack } from 'svelte';
   import Trash from '@lucide/svelte/icons/trash-2';
   import type { PromptTemplate, Settings, Variety } from '@/shared/types';
   import {
@@ -280,13 +280,18 @@
     saver.later('answer', write({ answer, output }));
   }
 
-  function useMyFields(): void {
+  // The button leaves with its notice, so focus goes to the first field instead of the dialog (K-9).
+  async function useMyFields(): Promise<void> {
     const fields = unreadFields;
     unreadFields = undefined;
     if (!fields) return;
     answerMode = 'fields';
     setFields(fields);
     void saver.flush();
+    await tick();
+    document
+      .querySelector<HTMLElement>('[data-ega-custom-task-dialog] [data-ega-answer-field] button')
+      ?.focus();
   }
 
   async function convertInstructions(): Promise<void> {
@@ -558,7 +563,9 @@
               : 'Answer only'}.
           </p>
           {#if unreadFields}<div>
-              <Button variant="secondary" size="sm" onclick={useMyFields}>Use my fields</Button>
+              <Button variant="secondary" size="sm" onclick={() => void useMyFields()}
+                >Use my fields</Button
+              >
             </div>{/if}
         </div>
       {/if}

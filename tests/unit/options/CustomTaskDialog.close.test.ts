@@ -425,6 +425,18 @@ describe('saved fields Ega cannot read', () => {
     expect(draft['output']).toBe('card');
   });
 
+  it('Use my fields leaves with its notice, so focus goes to the first field, not the dialog', async () => {
+    await seedBroken();
+    open(vi.fn(), { row: (await getCustomTasks())[0] });
+    const use = screen.getByRole('button', { name: 'Use my fields' });
+    use.focus();
+    await fireEvent.click(use);
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Edit Answer' })),
+    );
+    expect(use.isConnected).toBe(false);
+  });
+
   it('picking Your own fields keeps them too', async () => {
     await seedBroken();
     open(vi.fn(), { row: (await getCustomTasks())[0] });
