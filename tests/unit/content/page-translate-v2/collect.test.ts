@@ -5,7 +5,6 @@ import {
   blockText,
   collectBlocks,
   isLeadingRun,
-  MAX_PAGE_BLOCKS,
   releaseOrder,
   runText,
 } from '@/content/page-translate-v2/collect';
@@ -87,22 +86,26 @@ describe('collectBlocks', () => {
 
   it('stops at the block cap, says so, and the blocks it already holds do not use up the next pass', () => {
     document.body.innerHTML = Array.from(
-      { length: MAX_PAGE_BLOCKS + 5 },
+      { length: 25 },
       (_, i) => `<p id="p${i}">Paragraphe numéro ${i}</p>`,
     ).join('');
-    const first = collectBlocks(document.body, { maxChars: 2000 });
-    expect(first.blocks).toHaveLength(MAX_PAGE_BLOCKS);
+    const first = collectBlocks(document.body, { maxChars: 2000, maxBlocks: 20 });
+    expect(first.blocks).toHaveLength(20);
     expect(first.pastCap).toBe(true);
-    const next = collectBlocks(document.body, { maxChars: 2000, skip: new Set(first.blocks) });
-    expect(ids(next.blocks)).toEqual(['p2000', 'p2001', 'p2002', 'p2003', 'p2004']);
+    const next = collectBlocks(document.body, {
+      maxChars: 2000,
+      maxBlocks: 20,
+      skip: new Set(first.blocks),
+    });
+    expect(ids(next.blocks)).toEqual(['p20', 'p21', 'p22', 'p23', 'p24']);
     expect(next.pastCap).toBe(false);
   });
 
   it('a page that ends right at the cap is not past it', () => {
     document.body.innerHTML =
-      Array.from({ length: MAX_PAGE_BLOCKS }, (_, i) => `<p>Paragraphe numéro ${i}</p>`).join('') +
+      Array.from({ length: 20 }, (_, i) => `<p>Paragraphe numéro ${i}</p>`).join('') +
       '<footer><p>42</p></footer>';
-    expect(collectBlocks(document.body, { maxChars: 2000 }).pastCap).toBe(false);
+    expect(collectBlocks(document.body, { maxChars: 2000, maxBlocks: 20 }).pastCap).toBe(false);
   });
 
   it('counts the blocks too long to send', () => {

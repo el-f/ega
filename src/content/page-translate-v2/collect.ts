@@ -1,7 +1,7 @@
 import { isSensitiveTarget } from '../safety';
 
 // ponytail: a cap on the collection pass and its memory on spreadsheet-like pages; a second press takes the rest.
-export const MAX_PAGE_BLOCKS = 2000;
+const MAX_PAGE_BLOCKS = 2000;
 
 /** Elements whose text is a unit of reading. */
 const BLOCK_TAGS = new Set([
@@ -291,6 +291,8 @@ export function keepsPageParts(el: Element, run = false): boolean {
 
 export interface CollectOpts {
   maxChars: number;
+  /** Blocks one pass takes; defaults to MAX_PAGE_BLOCKS. */
+  maxBlocks?: number | undefined;
   /** Blocks the session already holds or judged: still blocks to their ancestors, never taken or capped again. */
   skip?: { has(el: Element): boolean };
 }
@@ -308,6 +310,7 @@ export interface Collected {
  */
 export function collectBlocks(root: Element, opts: CollectOpts): Collected {
   const out: HTMLElement[] = [];
+  const maxBlocks = opts.maxBlocks ?? MAX_PAGE_BLOCKS;
   let pastCap = false;
   let tooLong = 0;
   const overflow: OverflowCache = new Map();
@@ -316,7 +319,7 @@ export function collectBlocks(root: Element, opts: CollectOpts): Collected {
   /** Takes a block at `at`; the first block past the cap ends the pass. */
   const take = (el: Element, at: number): boolean => {
     if (opts.skip?.has(el)) return false;
-    if (out.length >= MAX_PAGE_BLOCKS) {
+    if (out.length >= maxBlocks) {
       pastCap = true;
       return false;
     }

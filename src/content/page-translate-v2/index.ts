@@ -73,6 +73,8 @@ export interface PageV2Deps {
   detectLang?: (text: string) => string | undefined;
   /** Whole page only: true when a block already reads as the target language, so it is not sent. Defaults to the page's detectors. */
   isTargetLanguage?: (text: string) => boolean;
+  /** Whole page only: blocks one collection pass takes. Defaults to collect's MAX_PAGE_BLOCKS. */
+  maxBlocks?: number;
   /** The English word-list check, passed in so the page's eager chunk keeps it. */
   looksLikeEnglish?: (text: string) => boolean;
 
@@ -265,7 +267,10 @@ export async function runWholePageTranslate(deps: PageV2Deps): Promise<boolean> 
       showToast('Nothing to translate on this page.');
       return false;
     }
-    const found = collectBlocks(document.body, { maxChars: MAX_SELECTION_CHARS });
+    const found = collectBlocks(document.body, {
+      maxChars: MAX_SELECTION_CHARS,
+      maxBlocks: deps.maxBlocks,
+    });
     if (found.blocks.length === 0) {
       showToast(
         found.tooLong > 0 ? tooLongCopy(found.tooLong) : 'Nothing to translate on this page.',
@@ -365,6 +370,7 @@ function recollect(sess: Session): number {
   // Held and target-language blocks are not taken again, so they leave the cap's room to blocks past it.
   const found = collectBlocks(document.body, {
     maxChars: MAX_SELECTION_CHARS,
+    maxBlocks: sess.deps.maxBlocks,
     skip: {
       has: (el) =>
         held.has(el) || (sess.inTarget.has(el) && sess.inTarget.get(el) === readBlock(el)),
