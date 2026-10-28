@@ -10,7 +10,7 @@ import {
 } from './selection';
 import { isSensitiveRange, isSensitiveTarget, selectionIsSensitive } from './safety';
 import { showBubble, hideBubble, loadBubbleMenu } from './bubble';
-import { looksLikeEnglishBlock } from './looks-like-english';
+import { loadEnglishLexicon, looksLikeEnglishBlock } from './looks-like-english';
 import { installSelectionRestore, uninstallSelectionRestore } from './selection-restore';
 import * as accum from './accumulator';
 import { openTooltip, finishTooltipDirect, errorTooltip, closeTooltip } from './lazy-tooltip';
@@ -650,7 +650,8 @@ async function dispatchPageTranslate(scope: 'whole' | 'areas'): Promise<void> {
     showSiteOffToast();
     return;
   }
-  const mod = await lazyPageV2();
+  // The English check reads the full word list, so a block's verdict does not hang on an earlier selection.
+  const [mod] = await Promise.all([lazyPageV2(), loadEnglishLexicon()]);
   const { showBatchProgress } = await import('./batch-progress');
 
   const detectOpts = { settings, customs: await ensureCustomLanguages() };

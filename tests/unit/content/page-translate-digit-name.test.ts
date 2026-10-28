@@ -6,7 +6,7 @@ import { STORAGE_KEYS } from '@/shared/constants';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import { resetSettingsCacheForTest } from '@/content/settings-cache';
 import { flushAsync } from '@tests/_helpers/async';
-import { loadEnglishLexicon } from '@/content/looks-like-english';
+import { lexiconCacheInternal, loadEnglishLexicon } from '@/content/looks-like-english';
 // Static, so the lazy chunks resolve off the warm module graph, not mid-teardown.
 import { cancelPageTranslateV2 } from '@/content/page-translate-v2';
 import '@/content/batch-progress';
@@ -77,6 +77,22 @@ afterEach(async () => {
 });
 
 const FRENCH = 'Bonjour tout le monde, nous partons demain matin pour la plage.';
+
+// Only a selection loaded the full English word list; the short fallback list calls this line foreign.
+describe('the English check in a tab that never loaded the word list', () => {
+  beforeEach(() => {
+    lexiconCacheInternal.mod = null;
+    lexiconCacheInternal.promise = null;
+  });
+
+  it('leaves an English news block on an English page', async () => {
+    await translatePage('en', [
+      'Researchers found that coffee drinkers slept less but reported feeling sharper.',
+      FRENCH,
+    ]);
+    expect(sent().map((m) => m.text)).toEqual([FRENCH]);
+  }, 20_000);
+});
 
 // A selection earlier in the tab loads the full word list.
 describe('a tool name in a block already in the target language', () => {
