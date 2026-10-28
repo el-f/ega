@@ -62,5 +62,7 @@ export function answerDetailText(value: unknown, kind?: AnswerField['kind']): st
   if (typeof value === 'number')
     return kind === 'score' ? `${Math.round(value * 100)}%` : String(value);
   if (value === undefined) return '';
+  if (Array.isArray(value) && value.every((item) => typeof item === 'string'))
+    return value.join('\n');
   return JSON.stringify(value);
 }

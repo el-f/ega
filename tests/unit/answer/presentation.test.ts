@@ -43,6 +43,10 @@ describe('typed answer presentation', () => {
     expect(answerDetailText(true, 'yesno')).toBe('Yes');
     expect(answerDetailText(0.85, 'text')).toBe('0.85');
   });
+  it('shows a list of strings one item per line, not as JSON', () => {
+    expect(answerDetailText(['a', 'b'], 'list')).toBe('a\nb');
+    expect(answerDetailText([{ id: 'en' }], 'languages')).toBe('[{"id":"en"}]');
+  });
   it('ignores malformed snapshots restored from older storage', () => {
     for (const answer of [{}, { spec: {} }, { spec: { fields: [null] } }]) {
       expect(mainAnswerItems(answer as unknown as AnswerSnapshot)).toBeUndefined();
