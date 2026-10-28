@@ -16,6 +16,7 @@ import type { TranslateCallArgs } from '@/shared/backends/base';
 import { mkSettings } from '@tests/_helpers/router';
 import { sel } from '@tests/_helpers/lang';
 import { noopCancel } from '@tests/_helpers/cancel';
+import type { TranslationChunk } from '@/shared/types';
 
 // Exercise the prepared request shapes; production enables only live-verified providers.
 vi.mock('@/shared/backends/schema-gates', () => ({
@@ -248,6 +249,38 @@ describe('native answer schemas', () => {
     expect(payloads[1]?.['output_config']).toEqual({ effort: 'low' });
     expect(payloads[2]?.['output_config']).toEqual({ effort: 'low' });
     expect(checked).toBe(0);
+  });
+
+  // require_parameters makes OpenRouter refuse with 404 when no allowed provider takes every sent parameter.
+  it('retries an OpenRouter 404 "No endpoints found" once without the schema', async () => {
+    const chats: Record<string, unknown>[] = [];
+    setFetchHandler(async (url, init) => {
+      if (url.includes('/api/v1/models'))
+        return Response.json({
+          data: [{ id: 'provider/yes', supported_parameters: ['structured_outputs'] }],
+        });
+      chats.push(JSON.parse(String(init?.body)));
+      return chats.length === 1
+        ? new Response(
+            '{"error":{"message":"No endpoints found that can handle the requested parameters.","code":404}}',
+            { status: 404 },
+          )
+        : Response.json({ choices: [{ message: { content: '{"translation":"Hello"}' } }] });
+    });
+    const chunks: TranslationChunk[] = [];
+    const args = mkArgs({ stream: false, onChunk: (c) => chunks.push(c) });
+    args.config.apiKeys.openrouter = 'test-key';
+    args.config.model.openrouter = 'provider/yes';
+    await makeOpenAICompatBackend('openrouter').translate({
+      ...args,
+      answerFormat: { spec: TRANSLATE_SPEC, explain: false },
+    });
+    expect(chats).toHaveLength(2);
+    expect(chats[0]?.['response_format']).toHaveProperty('type', 'json_schema');
+    expect(chats[1]?.['response_format']).toBeUndefined();
+    expect(chats[1]?.['provider']).toBeUndefined();
+    expect(chunks.find((c) => c.type === 'done')).toBeDefined();
+    expect(structuredOutput('openrouter', 'provider/yes')).toBeNull();
   });
 
   it('does not retry an unrelated 400 or remember it as a schema failure', async () => {
