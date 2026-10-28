@@ -361,6 +361,8 @@ function dropWiped(sess: Session): void {
     sess.store.delete(id);
     sess.handles.delete(id);
     sess.terminal.delete(id);
+    // The picker gives a chosen element the same id again, so a re-send must not inherit the old count.
+    sess.attempts.delete(id);
     sess.total--;
   });
 }
