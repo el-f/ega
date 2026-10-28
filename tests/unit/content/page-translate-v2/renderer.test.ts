@@ -320,6 +320,17 @@ describe('renderer — an answer the model sent as one fenced block', () => {
     finish(handle, '~~~ Segunda parte ~~~');
     expect(handle.target.textContent).toBe('~~~ Segunda parte ~~~');
   });
+
+  it.each([
+    ['bilingual', mountBilingual],
+    ['inplace', mountInplace],
+  ] as const)('%s shows a one-line heading that opens like code once it settles', (_, mount) => {
+    const original = block('p', '~~~ Epilogue');
+    const handle = mount({ id: 'f-3', element: original, originalText: '~~~ Epilogue' });
+    appendDelta(handle, '~~~ Epilog');
+    finish(handle);
+    expect(handle.target.textContent).toBe('~~~ Epilog');
+  });
 });
 
 describe('renderer — a leading run', () => {

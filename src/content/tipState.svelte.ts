@@ -261,7 +261,7 @@ function buildTooltipProps(o: OpenOpts, state: TipState): ComponentProps<typeof 
     ...(o.onTargetChange ? { ontargetchange: (target: string) => o.onTargetChange?.(target) } : {}),
     oncopy: () => {
       void navigator.clipboard
-        .writeText(soleFencedCode(state.body) ?? state.body)
+        .writeText(soleFencedCode(state.body, true) ?? state.body)
         .then(() => {
           state.copied = true;
           setTimeout(() => {

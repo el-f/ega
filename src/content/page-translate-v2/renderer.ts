@@ -284,10 +284,10 @@ export function mountInplace(args: MountArgs): RenderHandle {
   return handle;
 }
 
-function render(handle: RenderHandle): void {
+function render(handle: RenderHandle, settled = false): void {
   if (handle.phase !== 'streaming') return;
   // The prompt asks for code or markup as one fenced block; the page shows the code, not the fence.
-  const text = soleFencedCode(handle.visibleText) ?? handle.visibleText;
+  const text = soleFencedCode(handle.visibleText, settled) ?? handle.visibleText;
   if (text.length === 0) return;
   handle.target.removeAttribute('data-ega-pending');
   handle.target.textContent = text;
@@ -304,7 +304,7 @@ export function appendDelta(handle: RenderHandle, delta: string, replace?: true)
 export function finish(handle: RenderHandle, text?: string): void {
   if (handle.phase !== 'streaming') return;
   if (text !== undefined) handle.visibleText = text;
-  render(handle);
+  render(handle, true);
   setPhase(handle, 'ok');
 }
 

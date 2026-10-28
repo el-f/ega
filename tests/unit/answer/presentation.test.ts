@@ -28,6 +28,13 @@ describe('soleFencedCode', () => {
     '~~~ Segunda parte ~~~',
     '``` does not render here',
   ])('is null for anything else: %j', (answer) => expect(soleFencedCode(answer)).toBeNull());
+  it.each(['~~~ Epilog', '```js', '```\n```'])(
+    'reads a settled answer with no code line as text, but waits while it streams: %j',
+    (answer) => {
+      expect(soleFencedCode(answer, true)).toBeNull();
+      expect(soleFencedCode(answer)).toBe('');
+    },
+  );
 });
 
 describe('typed answer presentation', () => {

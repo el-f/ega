@@ -142,7 +142,7 @@ export function finishInline(requestId: string, meta?: DoneMeta): void {
   const { wrapper, originalText, lang } = e;
   const raw = meta?.text ?? e.visibleText;
   // The page shows text, so a code answer goes in without its fence lines.
-  const text = soleFencedCode(raw) ?? raw;
+  const text = soleFencedCode(raw, true) ?? raw;
   // A `done` with no text is a failure the user can retry from, not a shimmer that never ends.
   if (text.length === 0) {
     errorInline(requestId, { code: 'EMPTY', message: 'The backend returned no text.' });

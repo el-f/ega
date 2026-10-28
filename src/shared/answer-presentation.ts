@@ -36,8 +36,11 @@ export function mainAnswerItems(answer: unknown): string[] | undefined {
 /** The opening of a Markdown code fence, matched at the start of a trimmed line. */
 const FENCE_OPEN = /^(?:`{3,}|~{3,})/;
 
-/** The code in an answer that is exactly one fenced block, closed or still arriving; null for any other answer. */
-export function soleFencedCode(answer: string): string | null {
+/**
+ * The code in an answer that is exactly one fenced block, closed or still arriving; null for any other answer.
+ * A `settled` answer with no code line is text ("~~~ Epilog"); while streaming it may be an opener still arriving.
+ */
+export function soleFencedCode(answer: string, settled = false): string | null {
   const lines = answer.trim().split('\n');
   const open = lines[0] ?? '';
   const fence = FENCE_OPEN.exec(open)?.[0];
@@ -49,7 +52,8 @@ export function soleFencedCode(answer: string): string | null {
   };
   const close = lines.findIndex((line, i) => i > 0 && closes(line));
   if (close !== -1 && close !== lines.length - 1) return null;
-  return lines.slice(1, close === -1 ? undefined : close).join('\n');
+  const code = lines.slice(1, close === -1 ? undefined : close).join('\n');
+  return settled && code === '' ? null : code;
 }
 
 export function answerDetailText(value: unknown, kind?: AnswerField['kind']): string {

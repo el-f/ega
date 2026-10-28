@@ -76,7 +76,7 @@
   }: Props = $props();
 
   // The body is plain text, so an answer that is one fenced block shows its code without the fence lines.
-  const code = $derived(soleFencedCode(body));
+  const code = $derived(soleFencedCode(body, settled === true));
   const shown = $derived(code ?? body);
   // Code reads left to right; dir=auto would flip it when a translated comment comes first.
   const bodyDir = $derived(code === null ? 'auto' : 'ltr');

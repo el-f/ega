@@ -249,7 +249,7 @@
   });
 
   // Copy and Read aloud take the code that shows, not the fence lines around it.
-  const plainAnswer = $derived(soleFencedCode(turn.content) ?? turn.content);
+  const plainAnswer = $derived(soleFencedCode(turn.content, !answering) ?? turn.content);
   const partial = $derived(turn.status === 'error' && turn.content !== '');
   const statusText = $derived.by(() => {
     if (answering) return `${taskCapabilities(currentTaskValue, taskViews).gerund}…`;
