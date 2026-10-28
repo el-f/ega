@@ -30,9 +30,11 @@ export function filterGlossaryForRequest(
   return out;
 }
 
-/** Short all-Latin terms ('AI', 'US') need whole-word edges; longer or non-Latin terms (CJK has no word edges) substring-match, so 'wallet' hits 'wallets'. */
+/** Short all-Latin terms ('AI', 'US') need whole-word edges. Other Latin, Cyrillic and Greek terms must start a word, but may end inside one, so 'wallet' hits 'wallets' and 'Rust' misses 'trust'. Every other script substring-matches: CJK and Thai have no word edges, and Hebrew and Arabic join prefix letters to the word. */
 const WORD_EDGE_MAX = 3;
 const ALL_LATIN_LETTERS = /^[A-Z]+$/i;
+const STARTS_WORD_SCRIPT = /^[\p{Script=Latin}\p{Script=Cyrillic}\p{Script=Greek}]/u;
+const WORD_CHAR = /[\p{L}\p{M}\p{N}_]/u;
 
 function termAppears(haystack: string, term: string, caseSensitive: boolean): boolean {
   if (term === '') return false;
@@ -44,8 +46,15 @@ function termAppears(haystack: string, term: string, caseSensitive: boolean): bo
     );
     return re.test(haystack);
   }
-  if (caseSensitive) return haystack.includes(term);
-  return haystack.toLowerCase().includes(term.toLowerCase());
+  const hay = caseSensitive ? haystack : haystack.toLowerCase();
+  const needle = caseSensitive ? term : term.toLowerCase();
+  if (!STARTS_WORD_SCRIPT.test(term)) return hay.includes(needle);
+  for (let i = hay.indexOf(needle); i >= 0; i = hay.indexOf(needle, i + 1)) {
+    // The last code point before the hit; the two-unit slice keeps a surrogate pair whole.
+    const before = [...hay.slice(Math.max(0, i - 2), i)].pop() ?? '';
+    if (!WORD_CHAR.test(before)) return true;
+  }
+  return false;
 }
 
 /** Only the filtered entries, never the whole glossary; '' when empty. */

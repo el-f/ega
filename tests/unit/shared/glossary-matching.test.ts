@@ -44,6 +44,33 @@ describe('short Latin terms need whole-word edges', () => {
   });
 });
 
+describe('Latin, Cyrillic and Greek terms must start a word', () => {
+  it.each([
+    ['Rust', 'I trust you'],
+    ['Mail', 'Open Gmail'],
+    ['ИИ', 'Мы купили две линии'],
+    ['λόγος', 'ο διάλόγος'],
+  ])('"%s" does not fire inside "%s"', (term, text) => {
+    expect(filterGlossaryForRequest([entry({ term })], ctx(text))).toHaveLength(0);
+  });
+
+  it.each([
+    ['Rust', 'Rust is fast'],
+    ['Mail', 'check the mailbox'],
+    ['ИИ', 'Новый ИИ вышел'],
+    ['C++', 'I write C++ daily'],
+    ['Rust', 'trust, then (Rust)'],
+  ])('"%s" fires in "%s"', (term, text) => {
+    expect(filterGlossaryForRequest([entry({ term })], ctx(text))).toHaveLength(1);
+  });
+
+  it('keeps substring matching for Hebrew, where prefix letters join the word', () => {
+    expect(filterGlossaryForRequest([entry({ term: 'בינה' })], ctx('והבינה עובדת'))).toHaveLength(
+      1,
+    );
+  });
+});
+
 describe('both sides are NFC-normalized before matching', () => {
   const composed = 'café';
   const decomposed = 'café';
