@@ -222,7 +222,7 @@
       {/if}
       {#if meta.answerFormat}
         <div class="rd-row rd-row-block">
-          <dt>Answer format</dt>
+          <dt>Reply format</dt>
           <dd>
             {meta.answerFormat.checkedBy === 'backend'
               ? `Checked by ${backendLabel(meta.backendId)}`
@@ -287,7 +287,7 @@
 
   {#if details.length > 0}
     <div class="rd-sent" data-ega-answer-fields>
-      <h3 class="rd-sub">Answer fields</h3>
+      <h3 class="rd-sub">Reply fields</h3>
       <dl class="rd-rows">
         {#each details as field (field.key)}
           <div class="rd-row rd-row-block">

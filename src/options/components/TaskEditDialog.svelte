@@ -8,7 +8,9 @@
     EFFORT_LEVELS,
     type TaskEffort,
   } from '@/shared/settings-schema';
-  import { answerFormatFor, buildTaskTemplate } from '@/shared/task-template';
+  import { buildTaskTemplate } from '@/shared/task-template';
+  import { answerSpecFor } from '@/shared/answer/spec';
+  import { describeReply } from '@/shared/answer/describe';
   import { TASK_LABELS, type Task } from '@/shared/task-prompts';
   import { builtInTaskView, hasOwnPrompt } from '@/shared/task-view';
   import { ownTaskPrompt } from '@/shared/task-template';
@@ -22,6 +24,7 @@
   import { toastStore } from '@/shared/components/toastStore';
   import { reportSaveFailure } from '@/options/storage-with-toast';
   import PromptEditor from '@/options/components/prompt/PromptEditor.svelte';
+  import ReplySection from '@/options/components/ReplySection.svelte';
   import { checkPrompt } from '@/options/components/prompt/prompt-checks';
   import TemplateVersionBanner from '@/options/components/TemplateVersionBanner.svelte';
   import TemplateDiffModal from '@/options/components/TemplateDiffModal.svelte';
@@ -67,6 +70,8 @@
   // The dialog owns the draft; a write that lands later never overwrites what is being typed.
   let draft = $state<PromptTemplate>(untrack(() => storedPrompt(s)));
   const promptKind = $derived(task === 'translate' ? ('translate' as const) : ('task' as const));
+  const spec = $derived(answerSpecFor(task));
+  const replyRows = $derived(describeReply(spec, { explain: task === 'explain' }));
   const invalid = $derived(
     ownPrompt || isTranslate ? checkPrompt(draft, promptKind, task).messageError !== null : false,
   );
@@ -290,14 +295,16 @@
           inputAttrs={{ 'data-ega-task-glossary': true }}
           onchange={(on) => write(() => updateTask(task, { glossary: on }))}
         />
+        {#if view.image}<p class="te-fact">Reads images</p>{/if}
       </div>
-
-      <span class="te-label">Answers</span>
-      <p class="te-facts" data-ega-task-facts>
-        {view.output === 'card' ? 'Answer with notes' : 'Answer only'} ·
-        {view.image ? 'Reads images' : 'Text only'}
-      </p>
     </div>
+
+    <ReplySection
+      rows={replyRows}
+      {...isTranslate || ownPrompt
+        ? {}
+        : { previewNote: "The Translate prompt's Preview shows the exact text sent." }}
+    />
 
     <div class="te-prompt">
       {#if isTranslate || ownPrompt}
@@ -306,7 +313,7 @@
           {task}
           template={draft}
           {builtIn}
-          format={answerFormatFor(task)}
+          {spec}
           snippets={s.advanced.snippets}
           sendsPageContext={view.pageContext && s.contextEnabled}
           onChange={onPromptChange}
@@ -397,12 +404,12 @@
   .te-indent {
     padding-inline-start: calc(16px + var(--space-2));
   }
-  .te-facts {
+  /* A fact, not a setting: it lines up with the checkbox labels above it. */
+  .te-fact {
     margin: 0;
-    min-height: 32px;
-    display: flex;
-    align-items: center;
+    padding-inline-start: calc(16px + var(--space-2));
     font-size: var(--fs-base);
+    line-height: var(--lh-body);
   }
   .te-prompt {
     display: flex;

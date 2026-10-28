@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } from 'vitest';
 import { render, fireEvent, waitFor } from '@testing-library/svelte';
-import { tick } from 'svelte';
+import { createRawSnippet, tick } from 'svelte';
 import Harness from '@tests/_helpers/PromptEditorHarness.svelte';
 import { buildTaskTemplate } from '@/shared/task-template';
-import { TASK_FORMATS, TRANSLATE_FORMAT } from '@/shared/answer/formats-v1';
+import { TASK_FORMATS } from '@/shared/answer/formats-v1';
+import { answerSpecFor } from '@/shared/answer/spec';
+import { ALL_TASKS } from '@/shared/task-prompts';
 import { DEFAULT_PROMPT_TEMPLATE } from '@/shared/settings-schema';
-import { PLAIN_CONTRACT } from '@/shared/answer/formats-v1';
 import type { PromptTemplate } from '@/shared/types';
 
 const settle = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
@@ -30,7 +31,7 @@ function setup(over: Record<string, unknown> = {}) {
       task: 'summarize',
       initial: summarize,
       builtIn: summarize,
-      format: TASK_FORMATS.summarize,
+      spec: answerSpecFor('summarize'),
       snippets: {},
       sendsPageContext: false,
       buildPreview,
@@ -72,7 +73,6 @@ describe('PromptEditor — variables', () => {
       kind: 'custom',
       task: 'custom-1',
       builtIn: null,
-      format: PLAIN_CONTRACT,
       initial: { system: 'Write a haiku.', user: '{{text}}' },
     });
     await openPicker(container);
@@ -87,7 +87,7 @@ describe('PromptEditor — variables', () => {
       task: 'translate',
       initial: DEFAULT_PROMPT_TEMPLATE,
       builtIn: DEFAULT_PROMPT_TEMPLATE,
-      format: TRANSLATE_FORMAT,
+      spec: answerSpecFor('translate'),
     });
     await openPicker(container);
     const names = [...document.querySelectorAll('[data-ega-variable]')].map((r) =>
@@ -133,16 +133,29 @@ describe('PromptEditor — variables', () => {
   });
 });
 
-describe('PromptEditor — answer format and checks', () => {
-  it('shows the task format read-only between Instructions and Message', () => {
-    const { container } = setup();
-    const block = container.querySelector('[data-ega-answer-format]');
-    expect(block?.getAttribute('role')).toBe('group');
-    expect(block?.textContent).toContain(TASK_FORMATS.summarize.text);
-    expect(block?.querySelector('textarea, input')).toBeNull();
+describe('PromptEditor — own format notice and checks', () => {
+  it('Edit holds no format block: the exact text is the Reply format part of Preview', async () => {
+    const format = TASK_FORMATS.summarize.text;
+    const { container, getByRole } = setup({
+      buildPreview: (draft: PromptTemplate) => ({
+        system: `${draft.system} ${format}`,
+        user: draft.user,
+      }),
+    });
+    expect(container.querySelector('[data-ega-answer-format]')).toBeNull();
+    expect(container.querySelector('[role="tabpanel"]:not([hidden])')?.textContent).not.toContain(
+      'Return JSON',
+    );
+    await fireEvent.click(getByRole('tab', { name: 'Preview' }));
+    await waitFor(() =>
+      expect(container.querySelector('[data-ega-preview-format]')?.textContent).toBe(format),
+    );
+    const system = container.querySelector('[data-ega-preview-system]')?.textContent ?? '';
+    expect(system).toBe(buildTaskTemplate('summarize').system);
+    expect(getByRole('heading', { name: 'Reply format' })).toBeTruthy();
   });
 
-  it('a prompt that holds its own format line says Ega uses it, and the button takes it out', async () => {
+  it("a prompt that holds its own format says Ega reads the Reply parts, and Use Ega's format takes it out", async () => {
     const legacy = {
       system:
         buildTaskTemplate('summarize').system +
@@ -151,21 +164,25 @@ describe('PromptEditor — answer format and checks', () => {
       user: buildTaskTemplate('summarize').user,
     };
     const { container, getByRole, onChange } = setup({ initial: legacy });
-    expect(container.querySelector('[data-ega-answer-format-own]')?.textContent).toContain(
-      'Your instructions include their own answer format, so Ega uses that one.',
+    const notice = container.querySelector(
+      '[data-ega-template-system] [data-ega-answer-format-own]',
     );
-    await fireEvent.click(getByRole('button', { name: 'Use the standard format' }));
+    expect(notice?.textContent).toContain(
+      'Your instructions ask for their own format. Ega reads only the parts under Reply.',
+    );
+    expect(notice?.textContent).not.toContain('Ega uses that one');
+    await fireEvent.click(getByRole('button', { name: "Use Ega's format" }));
     expect(onChange).toHaveBeenLastCalledWith(buildTaskTemplate('summarize'));
     expect(container.querySelector('[data-ega-answer-format-own]')).toBeNull();
   });
 
-  it('Use the standard format leaves with its block, so focus goes to Instructions, not the dialog X', async () => {
+  it("Use Ega's format leaves with its notice, so focus goes to Instructions, not the dialog X", async () => {
     const legacy = {
       system: buildTaskTemplate('summarize').system + ' ' + TASK_FORMATS.summarize.text,
       user: buildTaskTemplate('summarize').user,
     };
     const { getByRole, field } = setup({ initial: legacy });
-    const button = getByRole('button', { name: 'Use the standard format' });
+    const button = getByRole('button', { name: "Use Ega's format" });
     button.focus();
     await fireEvent.click(button);
     await tick();
@@ -173,18 +190,88 @@ describe('PromptEditor — answer format and checks', () => {
     expect(document.activeElement).toBe(field('system'));
   });
 
-  it('a custom task shows its fixed contract and never the legacy line', () => {
+  it('an own format in any case, in either half, shows the notice and can be taken out', async () => {
+    const shipped = buildTaskTemplate('summarize');
+    for (const initial of [
+      { system: `${shipped.system}\nReturn JSON only: {"summary": <string>}.`, user: shipped.user },
+      { system: shipped.system, user: `${shipped.user}\nRespond with JSON {"summary": "..."}` },
+    ]) {
+      const { container, getByRole, onChange, unmount } = setup({ initial });
+      expect(container.querySelector('[data-ega-answer-format-own]')).not.toBeNull();
+      await fireEvent.click(getByRole('button', { name: "Use Ega's format" }));
+      const next = onChange.mock.lastCall?.[0];
+      expect(`${next?.system}\n${next?.user}`).not.toMatch(/summary"/);
+      expect(next?.system).toContain('Summarize the text');
+      unmount();
+    }
+  });
+
+  it('an own format written in words shows the notice with no button', () => {
+    const shipped = buildTaskTemplate('summarize');
+    const { container, queryByRole } = setup({
+      initial: { system: `${shipped.system} Reply in markdown only.`, user: shipped.user },
+    });
+    expect(container.querySelector('[data-ega-answer-format-own]')).not.toBeNull();
+    expect(queryByRole('button', { name: "Use Ega's format" })).toBeNull();
+  });
+
+  it('a prompt that is only its format says it cannot be taken out', () => {
+    const { container, queryByRole } = setup({
+      initial: { system: TASK_FORMATS.summarize.text, user: '{{text}}' },
+    });
+    expect(queryByRole('button', { name: "Use Ega's format" })).toBeNull();
+    expect(container.querySelector('[data-ega-answer-format-own]')?.textContent).toContain(
+      'Ega cannot take it out without leaving the instructions empty',
+    );
+  });
+
+  it('no shipped prompt shows the own-format notice', () => {
+    for (const task of ALL_TASKS.filter((t) => t !== 'explain')) {
+      const shipped = task === 'translate' ? DEFAULT_PROMPT_TEMPLATE : buildTaskTemplate(task);
+      const { container, unmount } = setup({
+        kind: task === 'translate' ? 'translate' : 'task',
+        task,
+        initial: shipped,
+        builtIn: shipped,
+        spec: answerSpecFor(task),
+      });
+      expect(container.querySelector('[data-ega-answer-format-own]'), task).toBeNull();
+      unmount();
+    }
+  });
+
+  it('a language prompt has no Reply list, so its notice points at the Translate task', () => {
+    const { container } = setup({
+      kind: 'language',
+      task: 'translate',
+      initial: {
+        system: `${DEFAULT_PROMPT_TEMPLATE.system}\nReturn JSON only: {"translation": <string>}.`,
+        user: DEFAULT_PROMPT_TEMPLATE.user,
+      },
+      builtIn: DEFAULT_PROMPT_TEMPLATE,
+      spec: answerSpecFor('translate'),
+    });
+    const notice = container.querySelector('[data-ega-answer-format-own]')?.textContent ?? '';
+    expect(notice).toContain(
+      'Your instructions ask for their own format. Ega reads only the parts the Translate task lists under Reply.',
+    );
+    expect(notice).not.toContain('the parts under Reply');
+  });
+
+  it("a custom task shows the dialog's own notice under Instructions, in the built-in notice's box", () => {
     const { container } = setup({
       kind: 'custom',
       task: 'custom-1',
       builtIn: null,
-      format: PLAIN_CONTRACT,
+      spec: undefined,
       initial: { system: 'Return JSON ONLY: my own', user: '{{text}}' },
+      formatNotice: createRawSnippet(() => ({ render: () => '<p data-ega-test-notice>mine</p>' })),
     });
-    expect(container.querySelector('[data-ega-answer-format]')?.textContent).toContain(
-      PLAIN_CONTRACT,
-    );
-    expect(container.querySelector('[data-ega-answer-format-own]')).toBeNull();
+    const box = container.querySelector('[data-ega-template-system] [data-ega-answer-format-own]');
+    expect(box?.querySelector('[data-ega-test-notice]')).not.toBeNull();
+    expect(box?.className).toContain('pe-format-own');
+    expect(box?.textContent).not.toContain('Ega reads only the parts under Reply');
+    expect(container.querySelector('[data-ega-answer-format]')).toBeNull();
   });
 
   it('a Message without the selected text shows the error under it, tied to the field', async () => {
@@ -256,7 +343,7 @@ describe('PromptEditor — Edit and Preview', () => {
       task: 'translate',
       initial: DEFAULT_PROMPT_TEMPLATE,
       builtIn: DEFAULT_PROMPT_TEMPLATE,
-      format: TRANSLATE_FORMAT,
+      spec: answerSpecFor('translate'),
     });
     await fireEvent.click(translate.getByRole('tab', { name: 'Preview' }));
     await fireEvent.click(translate.getByRole('radio', { name: 'Explain' }));

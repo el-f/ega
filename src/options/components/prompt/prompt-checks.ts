@@ -1,6 +1,7 @@
 import { builtInTask } from '@/shared/task-prompts';
 import { isBuiltInSlot, SLOT_REGISTRY, slotsFor, type SlotSpec } from '@/shared/slot-registry';
 import { SLOT_RE } from '@/shared/snippets';
+import { FORMAT_MARKER } from '@/shared/answer/formats-v1';
 import type { PromptTemplate } from '@/shared/types';
 
 /** Which prompt the editor holds; it decides the variables on offer and the answer format shown. */
@@ -39,6 +40,13 @@ export function variablesFor(kind: PromptKind, task: string): PromptVariables {
         reason: reasonFor(slot, kind),
       })),
   };
+}
+
+/** The built system text and the reply format Ega added at its end; format is null when there is none. */
+export function splitReplyFormat(system: string): { system: string; format: string | null } {
+  const at = system.lastIndexOf(FORMAT_MARKER);
+  if (at < 0) return { system, format: null };
+  return { system: system.slice(0, at).trimEnd(), format: system.slice(at) };
 }
 
 export interface PromptChecks {

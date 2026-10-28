@@ -36,10 +36,9 @@ test('a new task from the Tasks tab shows in the Next message popover and the to
   await options.locator('[data-ega-empty-state]').getByRole('button', { name: 'New task' }).click();
   const dialog = options.locator('[data-ega-custom-task-dialog]');
   await expect(dialog).toBeVisible({ timeout: 5_000 });
-  await expect(dialog.locator('[data-ega-answer-format]')).toContainText(
-    'Return JSON ONLY: {"answer": <your answer as a string>}.',
-  );
-  await expect(dialog.locator('[data-ega-answer-format]')).not.toContainText('"translation"');
+  const reply = dialog.locator('[data-ega-reply-section]');
+  await expect(reply).toContainText('the main text');
+  await expect(reply).not.toContainText('JSON');
   await expect(options.locator('[data-ega-dialog-status]')).toHaveText('Not saved yet: add a name');
   await dialog.locator('[data-ega-custom-task-name]').fill('Tweet summary');
   const sys = dialog.locator('[data-ega-template-system] textarea');
@@ -51,9 +50,7 @@ test('a new task from the Tasks tab shows in the Next message popover and the to
   await expect(sys).toHaveValue('Summarize as one tweet.{{targetLangLabel}}');
   await dialog.locator('[data-ega-template-user] textarea').fill('Thread: {{text}}');
   await dialog.locator('[data-ega-custom-task-output]').getByText('Answer with notes').click();
-  await expect(dialog.locator('[data-ega-answer-format]')).toContainText(
-    'Return JSON ONLY: {"answer": <your answer as a string>, "explain":',
-  );
+  await expect(reply).toContainText('short notes, only when there is something to note');
   await dialog.locator('[data-ega-custom-task-effort] [data-ega-effort-value="low"]').click();
   await dialog.locator('[data-ega-custom-task-page-context]').check();
   await dialog.locator('[data-ega-custom-task-image]').check();
@@ -61,6 +58,9 @@ test('a new task from the Tasks tab shows in the Next message popover and the to
   await dialog.getByRole('tab', { name: 'Preview' }).click();
   await expect(dialog.locator('[data-ega-preview-system]')).toContainText(
     'Summarize as one tweet.',
+  );
+  await expect(dialog.locator('[data-ega-preview-format]')).toContainText(
+    'Return JSON ONLY: {"answer": <your answer as a string>, "explain":',
   );
   await expect(dialog.locator('[data-ega-preview-history]')).toBeVisible();
   await expect(dialog.locator('[data-ega-preview-user]')).toContainText('Thread:');

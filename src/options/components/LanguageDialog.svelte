@@ -14,7 +14,7 @@
     VARIETY_HINT_MAX,
     VARIETY_LABEL_MAX,
   } from '@/shared/settings-schema';
-  import { answerFormatFor } from '@/shared/task-template';
+  import { answerSpecFor } from '@/shared/answer/spec';
   import { languagePrompt } from '@/shared/language-prompt';
   import { addCustomVariety, listVarieties, resetVariety, updateVariety } from '@/shared/varieties';
   import { replaceSettings } from '@/shared/storage';
@@ -781,7 +781,7 @@
               task="translate"
               template={promptDraft}
               builtIn={s.advanced.promptTemplate}
-              format={answerFormatFor('translate')}
+              spec={answerSpecFor('translate')}
               snippets={s.advanced.snippets}
               sendsPageContext={s.contextEnabled}
               onChange={onPromptChange}

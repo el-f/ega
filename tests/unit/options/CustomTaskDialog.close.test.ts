@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fireEvent, render, waitFor } from '@testing-library/svelte';
+import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { resetChromeMock } from '@tests/mocks/chrome';
 import CustomTaskDialog from '@/options/components/CustomTaskDialog.svelte';
 import { confirmDialog } from '@/shared/components/confirmDialog';
 import { toastStore } from '@/shared/components/toastStore';
-import { parseSettings } from '@/shared/settings-schema';
+import * as v from 'valibot';
+import { customTaskSchema, parseSettings } from '@/shared/settings-schema';
 import { addCustomTask } from '@/shared/tasks';
 import { getCustomTasks, getSettings } from '@/shared/storage';
 import { TEXT_SAVE_DELAY_MS } from '@/options/components/dialog-saver.svelte';
@@ -37,6 +38,21 @@ const done = (): HTMLElement => document.querySelector('[data-ega-dialog-done]')
 const status = (): string =>
   document.querySelector('[data-ega-dialog-status]')?.textContent.trim() ?? '';
 
+function radio(name: string): HTMLElement {
+  const el = Array.from(document.querySelectorAll<HTMLElement>('label'))
+    .find((l) => l.textContent.trim() === name)
+    ?.querySelector<HTMLElement>('[role="radio"]');
+  if (!el) throw new Error(`no ${name} radio`);
+  return el;
+}
+const reply = (): HTMLElement => screen.getByRole('region', { name: 'Reply' });
+// As the page shows it: a line break in the markup reads as one space.
+const replyText = (): string => reply().textContent.replace(/\s+/g, ' ');
+const parts = (): string[] =>
+  [...reply().querySelectorAll('dt')].map(
+    (dt) => `${dt.textContent.trim()}: ${dt.nextElementSibling?.textContent.trim()}`,
+  );
+
 const input = {
   label: 'Polite reply',
   system: 'Turn it into a polite reply.',
@@ -53,22 +69,39 @@ beforeEach(() => {
 });
 
 describe('a new custom task', () => {
-  it('shows answer as the field for the default Answer only format', () => {
+  it('says in Reply what the answer holds, above the prompt, and keeps the exact text for Preview', async () => {
     open();
-    const format = document.querySelector('[data-ega-answer-format]');
-    expect(format?.textContent).toContain(
-      'Return JSON ONLY: {"answer": <your answer as a string>}',
+    expect(parts()).toEqual(['Answer: the main text']);
+    expect(document.querySelector('[data-ega-answer-format]')).toBeNull();
+    expect(reply().textContent).not.toMatch(/JSON|"answer"|key/);
+    const prompt = document.querySelector('[data-ega-prompt-editor]') as HTMLElement;
+    expect(reply().compareDocumentPosition(prompt) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    await fireEvent.click(screen.getByRole('tab', { name: 'Preview' }));
+    await waitFor(() =>
+      expect(document.querySelector('[data-ega-preview-format]')?.textContent).toBe(
+        'Return JSON ONLY: {"answer": <your answer as a string>}.',
+      ),
     );
-    expect(format?.textContent).not.toContain('"translation"');
+  });
+  it('Shape and Language sit in Reply; Answer with notes lists the notes and saves', async () => {
+    const row = await addCustomTask(input);
+    open(vi.fn(), { row });
+    expect(reply().contains(radio('Answer with notes'))).toBe(true);
+    expect(reply().contains(radio('Target language'))).toBe(true);
+    await fireEvent.click(radio('Answer with notes'));
+    expect(parts()).toEqual([
+      'Answer: the main text',
+      'Notes: short notes, only when there is something to note',
+    ]);
+    await waitFor(async () =>
+      expect((await getCustomTasks())[0]?.answer).toEqual({ v: 1, preset: 'answer-notes' }),
+    );
   });
   it('saves the reply language independently without overwriting the prompt', async () => {
     const row = await addCustomTask(input);
     open(vi.fn(), { row });
-    const same = Array.from(document.querySelectorAll<HTMLElement>('label'))
-      .find((el) => el.textContent.includes('Same as input'))
-      ?.querySelector<HTMLElement>('[role="radio"]');
-    expect(same).toBeDefined();
-    if (!same) throw new Error('no same-language option');
+    expect(document.body.textContent).not.toContain('Match the language your prompt asks for');
+    const same = radio('Same as the text');
     await fireEvent.click(same);
     await waitFor(async () => expect((await getCustomTasks())[0]?.answersIn).toBe('input'));
     expect((await getCustomTasks())[0]?.system).toBe(input.system);
@@ -135,7 +168,7 @@ describe('an existing custom task', () => {
     open(vi.fn(), { row });
     expect((await getCustomTasks())[0]?.system).toBe(original.system);
     const convert = Array.from(document.querySelectorAll('button')).find(
-      (el) => el.textContent.trim() === 'Turn them into fields',
+      (el) => el.textContent.trim() === 'Turn into fields',
     );
     if (!convert) throw new Error('no conversion action');
     await fireEvent.click(convert);
@@ -171,16 +204,15 @@ describe('an existing custom task', () => {
       '[data-ega-answer-field="reason"] input',
     ) as HTMLInputElement;
     await fireEvent.input(fieldName, { target: { value: '' } });
-    expect(status()).toContain('Not saved:');
+    expect(status()).toBe('Not saved');
+    expect(document.querySelector('[data-ega-answer-fields-editor]')?.textContent).toContain(
+      'Add a name',
+    );
     confirm.mockResolvedValueOnce(false);
     await fireEvent.click(done());
     await waitFor(() => expect(confirm).toHaveBeenCalled());
-    expect(confirm.mock.calls[0]?.[0].body).toContain('the answer fields');
-    const preset = Array.from(document.querySelectorAll('label'))
-      .find((el) => el.textContent.trim() === 'Answer only')
-      ?.querySelector('[role="radio"]');
-    if (!preset) throw new Error('no Answer only radio');
-    await fireEvent.click(preset);
+    expect(confirm.mock.calls[0]?.[0].body).toContain('the reply fields');
+    await fireEvent.click(radio('Answer only'));
     await waitFor(async () =>
       expect((await getCustomTasks())[0]?.answer).toEqual({ v: 1, preset: 'answer-only' }),
     );
@@ -260,5 +292,198 @@ describe('an existing custom task', () => {
       ),
     );
     await waitFor(() => expect(status()).toContain('Not saved: it was deleted in another window'));
+  });
+});
+
+describe('instructions that ask for their own format', () => {
+  const notice = (): HTMLElement | null =>
+    document.querySelector('[data-ega-template-system] [data-ega-answer-format-own]');
+  const button = (name: string): HTMLElement | undefined =>
+    Array.from(document.querySelectorAll<HTMLElement>('button')).find(
+      (b) => b.textContent.trim() === name,
+    );
+
+  it('show one honest notice under Instructions with Turn into fields, and no Keep my instructions', async () => {
+    const row = await addCustomTask({
+      ...input,
+      system: 'Be polite. Return JSON {"answer": string, "reason": string}.',
+    });
+    open(vi.fn(), { row });
+    expect(notice()?.textContent).toContain(
+      'Your instructions ask for their own format. Ega still adds its own, so the model gets two.',
+    );
+    expect(notice()?.contains(button('Turn into fields') ?? null)).toBe(true);
+    expect(button('Keep my instructions')).toBeUndefined();
+  });
+
+  it('a format written in words shows the notice too, with no button', async () => {
+    const row = await addCustomTask({
+      ...input,
+      system: 'Reply in markdown bullet points, nothing else.',
+    });
+    open(vi.fn(), { row });
+    expect(notice()).not.toBeNull();
+    expect(button('Turn into fields')).toBeUndefined();
+  });
+
+  it('a format that is all of the instructions cannot be turned into fields, and says why', async () => {
+    const row = await addCustomTask({
+      ...input,
+      system: 'Return JSON {"answer": string, "tags": string}.',
+    });
+    open(vi.fn(), { row });
+    expect(button('Turn into fields')).toBeUndefined();
+    expect(notice()?.textContent).toContain(
+      'Ega cannot take it out without leaving the instructions empty',
+    );
+  });
+
+  it('Turn into fields with two fields of one name marks them and saves only the prompt', async () => {
+    const row = await addCustomTask({
+      ...input,
+      system: 'Be polite. Return JSON {"answer": string, "toneA": string, "tone_a": string}.',
+    });
+    open(vi.fn(), { row });
+    await fireEvent.click(button('Turn into fields') as HTMLElement);
+    expect(document.querySelector('[data-ega-answer-fields-editor]')?.textContent).toContain(
+      'Two fields have this name',
+    );
+    expect(status()).toBe('Not saved');
+    await waitFor(async () => expect((await getCustomTasks())[0]?.system).toBe('Be polite.'));
+    expect((await getCustomTasks())[0]?.answer).toEqual(row.answer);
+    expect(status()).toBe('Not saved');
+  });
+
+  it('the notice stays while it is true and goes once the format is gone', async () => {
+    const row = await addCustomTask({ ...input, system: 'Return JSON {"tags": "..."}. Be brief.' });
+    open(vi.fn(), { row });
+    expect(notice()).not.toBeNull();
+    await fireEvent.input(field('system'), { target: { value: 'Be brief.' } });
+    expect(notice()).toBeNull();
+  });
+});
+
+describe('saved fields Ega cannot read', () => {
+  async function seedBroken(): Promise<void> {
+    const { STORAGE_KEYS } = await import('@/shared/constants');
+    await chrome.storage.local.set({
+      [STORAGE_KEYS.customTasks]: [
+        {
+          ...input,
+          id: 'c-broken',
+          createdAt: 1,
+          output: 'card',
+          answer: {
+            v: 1,
+            fields: [
+              { key: 'answer', label: 'Answer', kind: 'text', role: 'main', required: true },
+              { key: 'My Key', label: 'Extra', kind: 'text', role: 'notes', required: false },
+            ],
+          },
+        },
+      ],
+    });
+  }
+
+  it('say so with their names and offer to keep them, instead of a silent Notes field', async () => {
+    await seedBroken();
+    const row = (await getCustomTasks())[0];
+    open(vi.fn(), { row });
+    expect(radio('Answer with notes').getAttribute('aria-checked')).toBe('true');
+    expect(replyText()).toContain(
+      'Ega could not read the saved fields (Answer, Extra), so this task runs as Answer with notes.',
+    );
+    expect(document.querySelector('[data-ega-answer-fields-editor]')).toBeNull();
+    await fireEvent.click(screen.getByRole('button', { name: 'Use my fields' }));
+    expect(radio('Your own fields').getAttribute('aria-checked')).toBe('true');
+    expect(document.querySelector('[data-ega-answer-field="extra"]')?.textContent).toContain(
+      'Extra',
+    );
+    await waitFor(async () =>
+      expect((await getCustomTasks())[0]?.answer).toEqual({
+        v: 1,
+        fields: [
+          { key: 'answer', label: 'Answer', kind: 'text', role: 'main', required: true },
+          { key: 'extra', label: 'Extra', kind: 'text', role: 'notes', required: false },
+        ],
+      }),
+    );
+    expect(reply().textContent).not.toContain('could not read');
+  });
+
+  it('Try runs the shape the notice names, so it is not refused for the unread fields', async () => {
+    await seedBroken();
+    open(vi.fn(), { row: (await getCustomTasks())[0] });
+    const sent = vi.mocked(chrome.runtime.sendMessage);
+    await fireEvent.click(screen.getByRole('button', { name: 'Example reply' }));
+    await fireEvent.click(screen.getByRole('button', { name: /^Try/ }));
+    const tried = (): Record<string, unknown> | undefined =>
+      sent.mock.calls
+        .map(([m]) => m as unknown as Record<string, unknown>)
+        .find((m) => m['kind'] === 'task:try');
+    await waitFor(() => expect(tried()).toBeDefined());
+    const draft = tried()?.['draft'] as Record<string, unknown>;
+    expect(v.is(customTaskSchema, { ...draft, id: 'preview-1', createdAt: 1 })).toBe(true);
+    expect(draft['output']).toBe('card');
+  });
+
+  it('Use my fields leaves with its notice, so focus goes to the first field, not the dialog', async () => {
+    await seedBroken();
+    open(vi.fn(), { row: (await getCustomTasks())[0] });
+    const use = screen.getByRole('button', { name: 'Use my fields' });
+    use.focus();
+    await fireEvent.click(use);
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Edit Answer' })),
+    );
+    expect(use.isConnected).toBe(false);
+  });
+
+  it('saved fields with no names are not listed as empty parentheses', async () => {
+    const { STORAGE_KEYS } = await import('@/shared/constants');
+    await chrome.storage.local.set({
+      [STORAGE_KEYS.customTasks]: [
+        {
+          ...input,
+          id: 'c-nameless',
+          createdAt: 1,
+          answer: {
+            v: 1,
+            fields: [
+              { key: 'a', kind: 'text', role: 'main', required: true },
+              { key: 'b', label: ' ', kind: 'text', role: 'notes', required: false },
+            ],
+          },
+        },
+      ],
+    });
+    open(vi.fn(), { row: (await getCustomTasks())[0] });
+    expect(replyText()).toContain(
+      'Ega could not read the saved fields, so this task runs as Answer only.',
+    );
+    expect(reply().textContent).not.toContain('(');
+  });
+
+  it('picking Your own fields keeps them too', async () => {
+    await seedBroken();
+    open(vi.fn(), { row: (await getCustomTasks())[0] });
+    await fireEvent.click(radio('Your own fields'));
+    expect(document.querySelector('[data-ega-answer-field="extra"]')).not.toBeNull();
+  });
+});
+
+describe('the footer while a reply field needs a fix', () => {
+  it('a new task says only "Not saved", and Try still says what is missing', async () => {
+    open();
+    await fireEvent.input(nameInput(), { target: { value: 'Review' } });
+    await fireEvent.click(radio('Your own fields'));
+    await fireEvent.click(screen.getByRole('button', { name: 'Add field' }));
+    await fireEvent.input(screen.getAllByLabelText('Name').at(-1) as HTMLElement, {
+      target: { value: 'Answer' },
+    });
+    expect(status()).toMatch(/^Not saved( yet)?$/);
+    await fireEvent.click(screen.getByRole('button', { name: 'Example reply' }));
+    await fireEvent.click(screen.getByRole('button', { name: /^Try/ }));
+    expect(screen.getByText('Fix the reply fields')).toBeTruthy();
   });
 });

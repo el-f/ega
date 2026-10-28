@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy, untrack } from 'svelte';
+  import { onDestroy, tick, untrack } from 'svelte';
   import Trash from '@lucide/svelte/icons/trash-2';
   import type { PromptTemplate, Settings, Variety } from '@/shared/types';
   import {
@@ -21,12 +21,18 @@
     type CustomTaskInput,
     type CustomTaskPatch,
   } from '@/shared/tasks';
-  import { customAnswerSpec, customAnswerContract, answerOutput } from '@/shared/answer/custom';
+  import { customAnswerSpec, answerOutput } from '@/shared/answer/custom';
+  import { describeReply } from '@/shared/answer/describe';
   import { validateSpec, type AnswerField } from '@/shared/answer/spec';
   import type { StoredAnswerSpec } from '@/shared/custom-answer-schema';
   import AnswerFieldsEditor from './AnswerFieldsEditor.svelte';
+  import { fieldErrors, repairStoredFields } from '@/options/answer-fields';
+  import * as v from 'valibot';
+  import { storedAnswerV1Schema } from '@/shared/custom-answer-schema';
   import AnswerPreview from './AnswerPreview.svelte';
+  import ReplySection from './ReplySection.svelte';
   import { embedsOwnFormat, convertOwnFormat } from '@/options/own-answer-format';
+  import { hasConflictingFormat } from '@/shared/backends/structured-output';
   import { listVarieties } from '@/shared/varieties';
   import { buildCustomPreviewPrompt, PREVIEW_SAMPLE_TEXT } from '@/options/preview-prompt';
   import { reportSaveFailure } from '@/options/storage-with-toast';
@@ -74,10 +80,27 @@
   });
   let output = $state<'plain' | 'card'>(initial?.output ?? 'plain');
   let answer = $state<StoredAnswerSpec | undefined>(initial?.answer);
-  let answerMode = $state<'plain' | 'card' | 'fields'>(
+  const storedFields: unknown[] | undefined =
     initial?.answer?.v === 1 && Array.isArray(initial.answer['fields'])
-      ? 'fields'
-      : (initial?.output ?? 'plain'),
+      ? initial.answer['fields']
+      : undefined;
+  // Saved fields the row check refuses run as the shape preset; the dialog shows that preset and says why.
+  const unread = storedFields !== undefined && !v.is(storedAnswerV1Schema, initial?.answer);
+  const unreadLabels = (storedFields ?? []).flatMap((f) =>
+    typeof f === 'object' &&
+    f !== null &&
+    'label' in f &&
+    typeof f.label === 'string' &&
+    f.label.trim()
+      ? [f.label]
+      : [],
+  );
+  /** undefined: nothing to say; null: Ega cannot rebuild them; a list: the fields with keys rebuilt. */
+  let unreadFields = $state<AnswerField[] | null | undefined>(
+    unread ? repairStoredFields(storedFields) : undefined,
+  );
+  let answerMode = $state<'plain' | 'card' | 'fields'>(
+    storedFields !== undefined && !unread ? 'fields' : (initial?.output ?? 'plain'),
   );
   let ownFields = $state<AnswerField[]>(
     untrack(() =>
@@ -103,7 +126,8 @@
     system: prompt.system,
     user: prompt.user,
     output: answerOutput(answer, output),
-    ...(answer !== undefined ? { answer } : {}),
+    // Unread saved fields stay stored, but runs use the shape preset, so Try and Preview do too.
+    ...(answer !== undefined && unreadFields === undefined ? { answer } : {}),
     answersIn,
     pageContext,
     image,
@@ -114,32 +138,16 @@
   const messageError = $derived(checkPrompt(prompt, 'custom', taskKey).messageError);
   const answerSpec = $derived(customAnswerSpec(draft, taskKey));
   const ownFormat = $derived(embedsOwnFormat(prompt));
-  const ownFormatKey = $derived(JSON.stringify(prompt));
-  let keptInstructions = $state<string | null>(null);
-  const fieldProblems = $derived(
-    answerMode === 'fields'
-      ? validateSpec({
-          id: `custom:${taskKey}`,
-          version: 1,
-          fields: ownFields,
-          join: 'after-build',
-        })
-      : [],
-  );
-  const duplicateNames = $derived(
-    new Set(ownFields.map((f) => f.label.trim().toLowerCase())).size !== ownFields.length,
-  );
-  const answerProblem = $derived(
-    answerMode !== 'fields'
-      ? null
-      : ownFields.some((f) => !f.label.trim())
-        ? 'Each field needs a name.'
-        : duplicateNames
-          ? 'Two fields cannot share a name.'
-          : ownFields.some((f) => f.kind === 'choice' && (f.choices?.length ?? 0) < 2)
-            ? 'Add at least two choices.'
-            : (fieldProblems[0] ?? null),
-  );
+  const conversion = $derived(ownFormat ? convertOwnFormat(prompt, ownFormat) : null);
+  // The router turns schema checks off on the same test, so the notice shows exactly when the model gets two formats.
+  const asksOwnFormat = $derived(ownFormat !== null || hasConflictingFormat(prompt, answerSpec));
+  // Each field shows its own problem; the footer only points at them, so it stays one short line.
+  const FIX_FIELDS = 'fix the reply fields';
+  function fieldsProblem(fields: readonly AnswerField[]): string | null {
+    const spec = { id: `custom:${taskKey}`, version: 1, fields, join: 'after-build' } as const;
+    return fieldErrors(fields).size > 0 || validateSpec(spec).length > 0 ? FIX_FIELDS : null;
+  }
+  const answerProblem = $derived(answerMode === 'fields' ? fieldsProblem(ownFields) : null);
 
   type TextField = 'label' | 'prompt';
   /** Why a text field cannot be saved as typed, in the status line's words; null when it can. */
@@ -241,7 +249,10 @@
 
   function setAnswerMode(next: string): void {
     if (next !== 'plain' && next !== 'card' && next !== 'fields') return;
+    const kept = unreadFields;
+    unreadFields = undefined;
     if (next === 'fields') {
+      if (ownFields.length === 0 && kept) ownFields = kept;
       if (ownFields.length === 0)
         ownFields = answerSpec.fields.map((f) => ({
           ...f,
@@ -261,16 +272,8 @@
     ownFields = fields;
     answer = { v: 1, fields };
     output = fields.some((f) => f.role === 'notes') ? 'card' : 'plain';
-    const issues = validateSpec({
-      id: `custom:${taskKey}`,
-      version: 1,
-      fields,
-      join: 'after-build',
-    });
-    const duplicates =
-      new Set(fields.map((f) => f.label.trim().toLowerCase())).size !== fields.length;
-    if (issues.length || duplicates) {
-      saver.invalid('answer', answerProblem ?? issues[0] ?? 'Two fields cannot share a name.');
+    if (fieldsProblem(fields) !== null) {
+      saver.invalid('answer', '');
       return;
     }
     saver.valid('answer');
@@ -281,8 +284,23 @@
     saver.later('answer', write({ answer, output }));
   }
 
+  // The button leaves with its notice, so focus goes to the first field instead of the dialog (K-9).
+  async function useMyFields(): Promise<void> {
+    const fields = unreadFields;
+    unreadFields = undefined;
+    if (!fields) return;
+    answerMode = 'fields';
+    setFields(fields);
+    void saver.flush();
+    await tick();
+    document
+      .querySelector<HTMLElement>('[data-ega-custom-task-dialog] [data-ega-answer-field] button')
+      ?.focus();
+  }
+
   async function convertInstructions(): Promise<void> {
-    if (!ownFormat) return;
+    const converted = conversion;
+    if (converted === null) return;
     const previous = {
       prompt: { ...prompt },
       answer,
@@ -290,9 +308,14 @@
       mode: answerMode,
       fields: [...ownFields],
     };
-    const converted = convertOwnFormat(prompt, ownFormat);
     prompt = converted.prompt;
     answerMode = 'fields';
+    if (fieldsProblem(converted.fields) !== null) {
+      // Each part saves on its own, as if typed: the prompt now, the fields once fixed.
+      setFields(converted.fields);
+      saveText('prompt');
+      return;
+    }
     ownFields = converted.fields;
     answer = { v: 1, fields: converted.fields };
     output = answerOutput(answer, output);
@@ -301,7 +324,7 @@
       startsRow() ? create : write({ system: prompt.system, user: prompt.user, answer, output }),
     );
     if (!ok) return;
-    saver.note('Turned the format into answer fields', () => {
+    saver.note('Turned the format into fields', () => {
       prompt = previous.prompt;
       answer = previous.answer;
       output = previous.output;
@@ -390,7 +413,7 @@
         const fields = (['label', 'prompt'] as const)
           .filter((f) => problemOf(f) !== null)
           .map((f) => FIELD_NAMES[f]);
-        if (answerProblem !== null) fields.push('the answer fields');
+        if (answerProblem !== null) fields.push('the reply fields');
         if (!(await confirmCloseWithout(fields))) return;
       }
       onClose();
@@ -414,7 +437,14 @@
     { value: '' as const, label: 'Default' },
     ...EFFORT_LEVELS.map((e) => ({ value: e, label: EFFORT_LABEL[e] })),
   ]);
-  const idleText = $derived(rowId === null && blocker !== null ? `Not saved yet: ${blocker}` : '');
+  // The fields name their own problem; a reason here would wrap the footer at 400px and move Done.
+  const idleText = $derived(
+    rowId === null && blocker !== null
+      ? blocker === FIX_FIELDS
+        ? 'Not saved yet'
+        : `Not saved yet: ${blocker}`
+      : '',
+  );
 </script>
 
 <Dialog
@@ -441,37 +471,6 @@
         dataAttrs={{ 'data-ega-custom-task-name': true }}
         oninput={(e) => setLabel((e.currentTarget as HTMLInputElement).value)}
       />
-
-      <span class="ct-label" id="{uid}-answers">Answers</span>
-      <RadioGroup
-        value={answerMode}
-        options={[
-          { value: 'plain', label: 'Answer only' },
-          { value: 'card', label: 'Answer with notes' },
-          { value: 'fields', label: 'Your own fields' },
-        ]}
-        onValueChange={setAnswerMode}
-        orientation="horizontal"
-        dataAttrs={{ 'data-ega-custom-task-output': true, 'aria-labelledby': `${uid}-answers` }}
-      />
-
-      <span class="ct-label" id="{uid}-reply-language">Answer language</span>
-      <div class="ct-control">
-        <RadioGroup
-          value={answersIn}
-          options={[
-            { value: 'target', label: 'To language' },
-            { value: 'input', label: 'Same as input' },
-          ]}
-          onValueChange={(v) => {
-            answersIn = v === 'input' ? 'input' : 'target';
-            saveNow({ answersIn });
-          }}
-          orientation="horizontal"
-          dataAttrs={{ 'aria-labelledby': `${uid}-reply-language` }}
-        />
-        <p class="ct-hint" data-ega-hint>Match the language your prompt asks for</p>
-      </div>
 
       <span class="ct-label" id="{uid}-effort">Effort</span>
       <div class="ct-control" data-ega-custom-task-effort>
@@ -528,12 +527,67 @@
       </div>
     </div>
 
-    {#if ownFormat && keptInstructions !== ownFormatKey}
-      <div class="ct-own-format" role="status">
-        <p class="ct-hint">
-          Your instructions describe their own answer fields. Ega now sets the format here.
-        </p>
-        <div class="ct-own-actions">
+    <ReplySection rows={answerMode === 'fields' ? [] : describeReply(answerSpec)}>
+      <div class="ct-grid">
+        <span class="ct-label" id="{uid}-shape">Shape</span>
+        <RadioGroup
+          value={answerMode}
+          options={[
+            { value: 'plain', label: 'Answer only' },
+            { value: 'card', label: 'Answer with notes' },
+            { value: 'fields', label: 'Your own fields' },
+          ]}
+          onValueChange={setAnswerMode}
+          orientation="horizontal"
+          dataAttrs={{ 'data-ega-custom-task-output': true, 'aria-labelledby': `${uid}-shape` }}
+        />
+
+        <span class="ct-label" id="{uid}-reply-language">Language</span>
+        <RadioGroup
+          value={answersIn}
+          options={[
+            { value: 'target', label: 'Target language' },
+            { value: 'input', label: 'Same as the text' },
+          ]}
+          onValueChange={(v) => {
+            answersIn = v === 'input' ? 'input' : 'target';
+            saveNow({ answersIn });
+          }}
+          orientation="horizontal"
+          dataAttrs={{ 'aria-labelledby': `${uid}-reply-language` }}
+        />
+      </div>
+      {#if unreadFields !== undefined}
+        <div class="ct-own-format">
+          <p class="ct-hint">
+            Ega could not read the saved fields{#each unreadLabels as name, i (i)}{i === 0
+                ? ' ('
+                : ', '}<bdi>{name}</bdi>{/each}{unreadLabels.length > 0 ? ')' : ''}, so this task
+            runs as {output === 'card' ? 'Answer with notes' : 'Answer only'}.
+          </p>
+          {#if unreadFields}<div>
+              <Button variant="secondary" size="sm" onclick={() => void useMyFields()}
+                >Use my fields</Button
+              >
+            </div>{/if}
+        </div>
+      {/if}
+      {#if answerMode === 'fields'}
+        <AnswerFieldsEditor fields={ownFields} onchange={setFields} />
+      {/if}
+      {#snippet after()}
+        <AnswerPreview spec={answerSpec} {draft} {s} problem={blocker} />
+      {/snippet}
+    </ReplySection>
+
+    {#snippet ownFormatNotice()}
+      <p class="ct-hint">
+        Your instructions ask for their own format. Ega still adds its own, so the model gets two.
+      </p>
+      {#if ownFormat && conversion === null}
+        <p class="ct-hint">Ega cannot take it out without leaving the instructions empty</p>
+      {:else if conversion}
+        <div>
           <Button
             variant="secondary"
             size="sm"
@@ -541,14 +595,7 @@
             {...problemOf('label') !== null || messageError !== null
               ? { describedBy: `${uid}-convert-reason` }
               : {}}
-            onclick={() => void convertInstructions()}>Turn them into fields</Button
-          >
-          <Button
-            variant="ghost"
-            size="sm"
-            onclick={() => {
-              keptInstructions = ownFormatKey;
-            }}>Keep my instructions</Button
+            onclick={() => void convertInstructions()}>Turn into fields</Button
           >
         </div>
         {#if problemOf('label') !== null || messageError !== null}<p
@@ -558,27 +605,21 @@
           >
             Add a task name and a message with Selected text first.
           </p>{/if}
-      </div>
-    {/if}
-    {#if answerMode === 'fields'}
-      <AnswerFieldsEditor fields={ownFields} onchange={setFields} />
-      {#if answerProblem}<p class="ct-hint" role="status">{answerProblem}</p>{/if}
-    {/if}
-
+      {/if}
+    {/snippet}
     <div class="ct-prompt">
       <PromptEditor
         kind="custom"
         task={taskKey}
         template={prompt}
         builtIn={null}
-        format={customAnswerContract(draft, taskKey)}
         snippets={{}}
         sendsPageContext={pageContext}
         onChange={setPrompt}
         buildPreview={preview}
+        formatNotice={asksOwnFormat ? ownFormatNotice : undefined}
       />
     </div>
-    <AnswerPreview spec={answerSpec} {draft} {s} problem={blocker} />
   </div>
   {#snippet actions()}
     <span class="ct-foot-start">
@@ -599,11 +640,6 @@
 <style>
   .ct-own-format {
     display: grid;
-    gap: var(--space-2);
-  }
-  .ct-own-actions {
-    display: flex;
-    flex-wrap: wrap;
     gap: var(--space-2);
   }
   .custom-task {

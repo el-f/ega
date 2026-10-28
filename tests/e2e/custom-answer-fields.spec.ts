@@ -12,6 +12,7 @@ import {
   setNextMessage,
   type ExtensionHandle,
 } from './helpers';
+import { expectNothingMoves, expectSameWidth } from './flows/_harness';
 
 const fields = [
   { key: 'answer', label: 'Outline', kind: 'list', role: 'main', required: true },
@@ -127,8 +128,17 @@ for (const { theme, width } of [
       path: info.outputPath(`answer-editor-${theme}-${width}.png`),
     });
     const preview = dialog.locator('[data-ega-answer-preview]');
-    await preview.getByRole('button', { name: 'Try it' }).click();
-    await expect(preview.getByText('All fields came back')).toBeVisible();
+    await preview.locator('[data-ega-example-reply]').click();
+    await expect(preview.getByText('Example values, not a real reply')).toBeVisible();
+    const tryIt = preview.getByRole('button', { name: 'Try with Anthropic' });
+    await expectSameWidth(
+      tryIt,
+      async () => {
+        await tryIt.click();
+        await expect(preview.getByText('All required fields came back')).toBeVisible();
+      },
+      'Try',
+    );
     await expect(preview.locator('li', { hasText: 'First useful item' })).toBeVisible();
     expect(mock.calls()).toBe(1);
     await preview.scrollIntoViewIfNeeded();
@@ -139,6 +149,13 @@ for (const { theme, width } of [
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
       width,
     );
+    // A field problem shows at the field; the footer stays one short line, so Done does not move (R63).
+    await dialog.getByRole('button', { name: 'Edit Key points' }).click();
+    await expectNothingMoves({ done: page.locator('[data-ega-dialog-done]') }, async () => {
+      await dialog.locator('[data-ega-answer-field="points"] input').first().fill('Outline');
+      await expect(page.locator('[data-ega-dialog-status]')).toHaveText('Not saved');
+    });
+    await expect(dialog.getByText('Two fields have this name').first()).toBeVisible();
   });
 }
 
@@ -155,7 +172,7 @@ test('a wrong-format reply retries once and names the task format problem', asyn
   await expect(page.locator('.tooltip').getByRole('button', { name: /settings/i })).toBeVisible();
 });
 
-test('Try it shows a friendly format error and keeps diagnostics in Details', async ({
+test('Try shows a friendly format error and keeps diagnostics in Details', async ({
   browserName: _browserName,
 }, info) => {
   const mock = mockAnthropic(ext.context, { rawText: '{"wrong":17}' });
@@ -167,8 +184,9 @@ test('Try it shows a friendly format error and keeps diagnostics in Details', as
     .getByRole('button', { name: 'Edit Outline' })
     .click();
   const preview = page.locator('[data-ega-answer-preview]');
-  await preview.getByRole('button', { name: 'Try it' }).click();
-  await expect(preview.getByRole('status')).toContainText('Wrong format');
+  await preview.locator('[data-ega-example-reply]').click();
+  await preview.getByRole('button', { name: 'Try with Anthropic' }).click();
+  await expect(preview.locator('.ap-card').getByRole('status')).toContainText('Wrong format');
   await expect(preview.locator('pre')).not.toBeVisible();
   await preview.locator('summary').click();
   await expect(preview.locator('pre')).toContainText('wrong');
@@ -193,8 +211,12 @@ test('converting a prompt format is explicit and Undo restores its original inst
     .getByRole('button', { name: 'Edit Convert me' })
     .click();
   const dialog = page.locator('[data-ega-custom-task-dialog]');
-  await expect(dialog.getByRole('button', { name: 'Turn them into fields' })).toBeVisible();
-  await dialog.getByRole('button', { name: 'Turn them into fields' }).click();
+  await expect(
+    dialog.locator('[data-ega-template-system] [data-ega-answer-format-own]'),
+  ).toContainText('Ega still adds its own, so the model gets two.');
+  await expect(dialog.getByRole('button', { name: 'Keep my instructions' })).toHaveCount(0);
+  await expect(dialog.getByRole('button', { name: 'Turn into fields' })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Turn into fields' }).click();
   await expect(dialog.locator('[data-ega-answer-fields-editor]')).toContainText('Tags');
   await expect(dialog.locator('[data-ega-template-system] textarea')).toHaveValue(
     'Keep this instruction.',

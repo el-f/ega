@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { fireEvent, render, waitFor } from '@testing-library/svelte';
+import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { resetChromeMock } from '@tests/mocks/chrome';
 import TaskEditDialog from '@/options/components/TaskEditDialog.svelte';
 import { getSettings, updateSettings } from '@/shared/storage';
@@ -175,5 +175,55 @@ describe('Explain', () => {
     );
     await fireEvent.click(btn as HTMLElement);
     expect(onSwitchTask).toHaveBeenCalledWith('translate');
+  });
+});
+
+describe('the Reply section', () => {
+  const reply = (): HTMLElement => screen.getByRole('region', { name: 'Reply' });
+  const parts = (): string[] =>
+    [...reply().querySelectorAll('dt')].map(
+      (dt) => `${dt.textContent.trim()}: ${dt.nextElementSibling?.textContent.trim()}`,
+    );
+
+  it('says in plain words what Summarize returns, above the prompt, with no Answers row', async () => {
+    await open('summarize');
+    expect(parts()).toEqual(['Answer: the summary']);
+    expect(document.querySelector('[data-ega-task-facts]')).toBeNull();
+    const prompt = el('[data-ega-prompt-editor]');
+    expect(reply().compareDocumentPosition(prompt) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const edit = el('[data-ega-task-dialog]');
+    expect(edit.textContent).not.toMatch(/Return JSON|"translation"|Answers/);
+    expect(screen.getByRole('group', { name: 'Inputs' }).textContent).not.toContain('Reads images');
+  });
+
+  it('Explain lists its notes as always there, and Reads images sits under Inputs', async () => {
+    await open('explain');
+    expect(parts()).toContain('Context & subtext: shown under it');
+    expect(screen.getByRole('group', { name: 'Inputs' }).textContent).toContain('Reads images');
+  });
+
+  it('Translate says its notes come only with Explain', async () => {
+    await open('translate');
+    expect(parts()).toContain('Context & subtext: only when you run Explain');
+    expect(parts()[0]).toBe('Answer: the translation');
+  });
+
+  it('the (i) on Reply says Preview has the exact text', async () => {
+    await open('grammar');
+    await fireEvent.click(screen.getByRole('button', { name: 'About the reply' }));
+    await waitFor(() =>
+      expect(document.body.textContent).toContain('Preview shows the exact text sent.'),
+    );
+  });
+
+  it("Explain has no Preview, so its (i) points at the Translate prompt's", async () => {
+    await open('explain');
+    await fireEvent.click(screen.getByRole('button', { name: 'About the reply' }));
+    await waitFor(() =>
+      expect(document.body.textContent).toContain(
+        "The Translate prompt's Preview shows the exact text sent.",
+      ),
+    );
+    expect(screen.queryByRole('tab', { name: 'Preview' })).toBeNull();
   });
 });

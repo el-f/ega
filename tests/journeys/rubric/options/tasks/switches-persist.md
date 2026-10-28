@@ -13,7 +13,7 @@
 ## Visible affordances
 
 - Effort is one segmented control: Default, Off, Low, Medium, High, with the line "Default for this task is <level>" under it.
-- Settings come first and the prompt second; the answer shape and images line ("Answer only · Text only") are text, not controls.
+- Settings come first, then Reply (the parts in plain words, text, not controls), then the prompt.
 
 ## Failure-mode expectations
 

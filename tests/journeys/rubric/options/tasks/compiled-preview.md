@@ -7,8 +7,8 @@
 ## State expectations
 
 - Step 1: in a task dialog (Translate here), the prompt section has an "Edit | Preview" tab pair next to its title.
-- Step 2 (Preview): the fields give way, in the same place, to the prompt as Ega sends it: "System", "Earlier messages", "Message".
-- Step 3: the System part ends with the answer format the builder appends ("Return JSON ONLY ..."); Edit brings the fields back with the caret where it was.
+- Step 2 (Preview): the fields give way, in the same place, to the prompt as Ega sends it: "System", "Reply format", "Earlier messages", "Message".
+- Step 3: "Reply format" holds the format the builder appends ("Return JSON ONLY ..."), and System no longer repeats it; Edit brings the fields back with the caret where it was.
 
 ## Visible affordances
 

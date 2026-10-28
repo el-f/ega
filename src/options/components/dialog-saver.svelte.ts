@@ -111,11 +111,11 @@ export function createDialogSaver() {
     },
     /** Saves every waiting edit at once (blur, close, Export). */
     flush,
-    /** A field that is not valid is not saved; the footer names it until it is fixed or saved. */
+    /** A field that is not valid is not saved; the footer names it until it is fixed or saved. An empty message, for a field that shows its own reason, reads "Not saved". */
     invalid(field: string, message: string): void {
       touch(field);
       pending.delete(field);
-      hold(field, `Not saved: ${message}`);
+      hold(field, message ? `Not saved: ${message}` : 'Not saved');
       generation += 1;
       status = { kind: 'idle' };
     },
