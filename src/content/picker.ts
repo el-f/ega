@@ -11,6 +11,7 @@ import {
 } from './pick-cursor';
 import { isUserGesture } from './user-gesture';
 import { ensurePageStyles } from './page-styles';
+import { blockText } from './page-translate-v2/collect';
 
 const PICKING_ATTR = 'data-ega-picking';
 export const PRIVATE_FIELD_REASON =
@@ -73,9 +74,8 @@ export function createPicker(opts: PickerOpts): PickerController {
   };
 
   function pick(el: Element): void {
-    // innerText respects display:none but is undefined in jsdom, so both fallbacks run despite the non-null types.
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    const rawText = ((el as HTMLElement).innerText ?? el.textContent ?? '').trim();
+    // The Choose areas text rules: a field, a draft or a data-ega-skip part inside the element stays out.
+    const rawText = blockText(el);
     // A click on an element with no text still ends the mode, or the overlay stays up with nothing to translate.
     const rect = el.getBoundingClientRect();
     exit();

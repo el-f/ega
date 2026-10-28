@@ -83,6 +83,21 @@ describe('picker state machine', () => {
     expect(p.isActive()).toBe(false);
   });
 
+  it('a picked container sends no editable or data-ega-skip part inside it', () => {
+    document.body.innerHTML =
+      '<div id="c"><p>Bonjour tout le monde</p><span data-ega-skip>IBAN ES91 2100 0418</span>' +
+      '<div contenteditable="true">my private draft</div><div role="textbox">typed reply</div></div>';
+    const onPick = vi.fn();
+    const p = createPicker({ onPick, onExit: vi.fn() });
+    p.enter();
+    document
+      .getElementById('c')
+      ?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    expect(onPick).toHaveBeenCalledWith(
+      expect.objectContaining({ text: 'Bonjour tout le monde' }),
+    );
+  });
+
   it('click on a sensitive (password) input picks nothing and adds no toast: the bar already says why', () => {
     mockEnvironment();
     const onPick = vi.fn();
