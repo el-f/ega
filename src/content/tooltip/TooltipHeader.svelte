@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from 'svelte';
   import type { Tone } from '@/shared/task-prompts';
   import { ALL_TONES, TONE_LABELS, builtInTask } from '@/shared/task-prompts';
   import { SHIPPED_TASK_VIEWS, taskLabel, type TaskId, type TaskView } from '@/shared/task-view';
@@ -12,7 +13,8 @@
     usesTone: boolean;
     /** Every task, on or off; the current task, when off or deleted, shows disabled. */
     views?: readonly TaskView[] | undefined;
-    onTaskChange: (task: TaskId, tone: Tone) => void;
+    /** False when the switch is declined. */
+    onTaskChange: (task: TaskId, tone: Tone) => boolean;
   }
 
   let { task, tone, usesTone, views = SHIPPED_TASK_VIEWS, onTaskChange }: Props = $props();
@@ -33,6 +35,13 @@
   );
   const taskValue = $derived(taskOptions[shown.findIndex((o) => o.id === task)]?.value ?? task);
   const toneOptions = $derived(ALL_TONES.map((t) => ({ value: t, label: TONE_LABELS[t] })));
+
+  function switchTo(e: Event, t: TaskId, tn: Tone, current: () => string): void {
+    if (!isUserGesture(e) || onTaskChange(t, tn)) return;
+    const select = e.target as HTMLSelectElement;
+    // Select keeps its own copy of the pick, so a declined switch puts back the value the tooltip shows.
+    void tick().then(() => (select.value = current()));
+  }
 </script>
 
 <!-- Selects, not a segmented button bar: the tooltip header is too narrow for one. -->
@@ -46,7 +55,7 @@
     selectAttrs={{ 'data-ega-task-select': '' }}
     onchange={(v, e) => {
       const picked = shown[taskOptions.findIndex((o) => o.value === v)];
-      if (picked && isUserGesture(e)) onTaskChange(picked.id, tone);
+      if (picked) switchTo(e, picked.id, tone, () => taskValue);
     }}
   />
   {#if usesTone}
@@ -57,9 +66,7 @@
       ariaLabel="Tone"
       selectClass="tone-select"
       selectAttrs={{ 'data-ega-tone-select': '' }}
-      onchange={(tn, e) => {
-        if (isUserGesture(e)) onTaskChange(task, tn);
-      }}
+      onchange={(tn, e) => switchTo(e, task, tn, () => tone)}
     />
   {/if}
 </div>

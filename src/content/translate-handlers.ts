@@ -146,7 +146,13 @@ export function buildTooltipOpenOpts(
       loadingLabel: extra.loadingLabel,
     }),
     onTaskChange: (t, tn) => {
+      // The same check startTranslateText makes: another task may take a link, Translate can only echo it.
+      if (t === 'translate' && nothingToTranslate(req.text)) {
+        showToast(NOTHING_TO_TRANSLATE_NOTICE);
+        return false;
+      }
       void retranslateWithTask(deps, reqId, t, tn);
+      return true;
     },
     onRetry: () => void retryTranslate(deps, reqId),
     onRegenerate: () =>
@@ -229,12 +235,6 @@ export async function retranslateWithTask(
   task: TaskId,
   tone: Tone,
 ): Promise<void> {
-  const text = pending.get(originalId)?.text;
-  // The same check startTranslateText makes: another task may take a link, Translate can only echo it.
-  if (task === 'translate' && text !== undefined && nothingToTranslate(text)) {
-    showToast(NOTHING_TO_TRANSLATE_NOTICE);
-    return;
-  }
   await reopenTooltip(deps, originalId, { explain: false, reqOverrides: { task, tone } });
 }
 
