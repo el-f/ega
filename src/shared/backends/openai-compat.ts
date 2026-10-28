@@ -10,7 +10,7 @@ import {
 } from './base';
 import { fetchOpenAICompatibleModels } from './discoverShared';
 import { iterSseDataPayloads } from './sseParser';
-import { emitMissingKeyError } from './transportError';
+import { CONTEXT_FULL_MESSAGE, emitMissingKeyError } from './transportError';
 import { OCR_SYSTEM_PROMPT, OCR_USER_INSTRUCTION } from '../ocr-prompt';
 import type { BackendId, TranslationChunk } from '../types';
 import { asBackendIdUnsafe } from '../brands';
@@ -60,6 +60,9 @@ function stopEvent(finish: string | null | undefined, label: string): StreamEven
       message: `${label} stopped the answer early (${finish}). Try again.`,
     };
   }
+  // Mistral's stop when the context fills; `length` is the answer limit.
+  if (finish === 'model_length')
+    return { type: 'error', code: 'REQUEST', message: CONTEXT_FULL_MESSAGE };
   return { type: 'stop', reason: finish === 'length' ? 'max_tokens' : 'end' };
 }
 

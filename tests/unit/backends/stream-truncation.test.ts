@@ -198,3 +198,62 @@ describe('stream end without a terminal frame is an error, not a success', () =>
     expect(done).not.toHaveProperty('confidence');
   });
 });
+
+// Anthropic (Sonnet 4.5+) and Mistral name a full context window in their own stop reasons.
+describe('a context-window stop is a cut answer, not a done', () => {
+  function expectContextFull(chunks: TranslationChunk[]): void {
+    expect(chunks.find((c) => c.type === 'done')).toBeUndefined();
+    const err = chunks.find((c) => c.type === 'error');
+    expect(err).toMatchObject({ type: 'error', code: 'REQUEST' });
+    if (err?.type === 'error') expect(err.message).toContain('context');
+  }
+
+  it('Anthropic stream: stop_reason model_context_window_exceeded', async () => {
+    setFetchHandler(async () =>
+      sse(
+        'data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"{\\"translation\\":\\"half"}}\n\n' +
+          'data: {"type":"message_delta","delta":{"stop_reason":"model_context_window_exceeded"}}\n\n' +
+          'data: {"type":"message_stop"}\n\n',
+      ),
+    );
+    expectContextFull(await runFor(new AnthropicBackend()));
+  });
+
+  it('Anthropic JSON: stop_reason model_context_window_exceeded', async () => {
+    setFetchHandler(async () =>
+      Response.json({
+        content: [{ type: 'text', text: '{"translation":"half' }],
+        stop_reason: 'model_context_window_exceeded',
+      }),
+    );
+    const chunks: TranslationChunk[] = [];
+    await new AnthropicBackend().translate(
+      mkArgs({ stream: false, onChunk: (c) => chunks.push(c) }),
+    );
+    expectContextFull(chunks);
+  });
+
+  it('OpenAI-compatible stream: finish_reason model_length', async () => {
+    setFetchHandler(async () =>
+      sse(
+        'data: {"choices":[{"delta":{"content":"{\\"translation\\":\\"half"}}]}\n\n' +
+          'data: {"choices":[{"delta":{},"finish_reason":"model_length"}]}\n\n' +
+          'data: [DONE]\n\n',
+      ),
+    );
+    expectContextFull(await runFor(makeOpenAICompatBackend('openai')));
+  });
+
+  it('OpenAI-compatible JSON: finish_reason model_length', async () => {
+    setFetchHandler(async () =>
+      Response.json({
+        choices: [{ message: { content: '{"translation":"half' }, finish_reason: 'model_length' }],
+      }),
+    );
+    const chunks: TranslationChunk[] = [];
+    await makeOpenAICompatBackend('openai').translate(
+      mkArgs({ stream: false, onChunk: (c) => chunks.push(c) }),
+    );
+    expectContextFull(chunks);
+  });
+});

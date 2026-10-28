@@ -15,7 +15,7 @@ import { asBackendIdUnsafe } from '../brands';
 import { getCloudProfile } from './provider-profiles';
 import { resolveModelId } from '../settings-schema';
 import { iterSseDataPayloads } from './sseParser';
-import { emitMissingKeyError } from './transportError';
+import { CONTEXT_FULL_MESSAGE, emitMissingKeyError } from './transportError';
 import { resolveEffort, resolveSamplingSupport, withReasoningHeadroom } from './sampling-caps';
 import { structuredChatPayload, type AnswerFormatRequest } from './structured-output';
 
@@ -91,6 +91,8 @@ function stopEvent(reason: string | null | undefined): StreamEvent {
       message: 'The backend refused to answer this text. Reword it, or use another backend.',
     };
   }
+  if (reason === 'model_context_window_exceeded')
+    return { type: 'error', code: 'REQUEST', message: CONTEXT_FULL_MESSAGE };
   return { type: 'stop', reason: reason === 'max_tokens' ? 'max_tokens' : 'end' };
 }
 
@@ -110,7 +112,7 @@ async function* fromSse(bytes: AsyncIterable<Uint8Array>): AsyncGenerator<Stream
     } else if (j.type === 'message_delta') {
       yield* usageEvent(j.usage);
       const reason = j.delta?.stop_reason;
-      if (reason === 'max_tokens' || reason === 'refusal') yield stopEvent(reason);
+      if (reason) yield stopEvent(reason);
     } else if (j.type === 'message_stop') {
       yield stopEvent('end');
     } else if (j.type === 'error') {

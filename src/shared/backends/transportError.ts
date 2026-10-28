@@ -175,6 +175,10 @@ export function emitMaxTokensError(
   });
 }
 
+/** A stop reason that says the context filled up mid-answer. REQUEST, like max tokens: a cut answer is never a done. */
+export const CONTEXT_FULL_MESSAGE =
+  "The text, the earlier messages and the answer filled the model's context. Select less text, or start a new conversation in the side panel.";
+
 /** A stream that ended cleanly but carried no text at all — worth another backend. */
 export function emitEmptyAnswerError(
   onChunk: (c: TranslationChunk) => void,
