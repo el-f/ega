@@ -38,6 +38,7 @@ it('shows a list field one item per line, in the panel and in the tooltip', () =
   const { container } = render(ReplyDetails, {
     props: {
       sentText: 'hello',
+      taskLabel: 'Tips',
       surface: 'panel',
       onClose: () => {},
       details: [{ key: 'tips', label: 'Tips', value: ['Be brief', 'Say thanks'] }],
