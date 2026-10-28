@@ -27,7 +27,7 @@ export interface RenderHandle {
   /** Plain-text original, kept so an error can restore a readable block
    *  instead of leaving an empty or error-filled slot. */
   originalText: string;
-  /** In-place only: the block's own nodes before replacement. Restoring these keeps
+  /** In-place only: a copy of the block's own nodes, for the pending look and a peek. Showing it keeps
    *  links, emphasis and inline images that the flat text drops. */
   originalNodes?: DocumentFragment;
   revert: () => void;
@@ -184,17 +184,50 @@ export function clearStaleError(el: Element, run = false): void {
   }
 }
 
-/** In-place: replace the original's children (or its leading run) with a streaming wrapper keyed by
- *  the stable block id. The captured fragment drives revert. */
+/** Marks a page element Ega hides in place; the page sheet sets `display: none` on it. */
+const HIDDEN_ATTR = 'data-ega-hidden';
+
+/** Each in-place wrapper's way to show the page's own nodes again. */
+const showPageFor = new WeakMap<Element, () => void>();
+
+/**
+ * Hides a block's own nodes where they stand: a text node is emptied, an element gets Ega's hide mark. A framework
+ * that still holds them can move or remove them. Returns the undo; a text the page rewrote since keeps its new words.
+ */
+function hideInPlace(nodes: readonly ChildNode[]): () => void {
+  const texts = new Map<CharacterData, string>();
+  const elements: Element[] = [];
+  for (const n of nodes) {
+    if (n.nodeType === Node.TEXT_NODE) {
+      const t = n as CharacterData;
+      texts.set(t, t.data);
+      t.data = '';
+    } else if (n instanceof Element && !n.hasAttribute(HIDDEN_ATTR)) {
+      n.setAttribute(HIDDEN_ATTR, '');
+      elements.push(n);
+    }
+  }
+  return () => {
+    for (const [t, data] of texts) if (t.data === '') t.data = data;
+    for (const el of elements) el.removeAttribute(HIDDEN_ATTR);
+    texts.clear();
+    elements.length = 0;
+  };
+}
+
+/**
+ * In-place: hide the original's children (or its leading run) where they stand and show a streaming wrapper,
+ * keyed by the stable block id, after them. The page's nodes never leave the page, so its framework keeps them.
+ */
 export function mountInplace(args: MountArgs): RenderHandle {
   ensurePageStyles();
   const host = args.element as HTMLElement;
   const run = args.run === true;
   const nodes = run ? leadingRun(host) : [...host.childNodes];
-  // The wrapper takes the run's place; the inner blocks after it stay where they are.
+  // A run's wrapper stands before the first inner block; the inner blocks stay where they are.
   const before = run ? (host.childNodes[nodes.length] ?? null) : null;
   const fragment = document.createDocumentFragment();
-  for (const n of nodes) fragment.appendChild(n);
+  for (const n of nodes) fragment.appendChild(n.cloneNode(true));
   const wrapper = document.createElement('span');
   wrapper.setAttribute('data-ega-replaced', args.id);
   wrapper.setAttribute('data-ega-id', args.id);
@@ -207,23 +240,18 @@ export function mountInplace(args: MountArgs): RenderHandle {
   // The page keeps its own words, dimmed, until the translation starts to arrive.
   wrapper.appendChild(fragment.cloneNode(true));
   host.insertBefore(wrapper, before);
+  const showPage = hideInPlace(nodes);
+  showPageFor.set(wrapper, showPage);
   const handle: RenderHandle = {
     id: args.id,
     mode: 'inplace',
     target: wrapper,
     originalText: args.originalText,
     originalNodes: fragment,
+    // A node the page added to the block, or one it wrote since, stays as the page left it.
     revert: () => {
-      if (run) {
-        // The run's words go back where the wrapper stands; a page that took the wrapper away re-rendered them.
-        if (wrapper.parentNode === host) wrapper.replaceWith(fragment);
-        return;
-      }
-      // The page can re-populate the block while we stream; appending then duplicates its content.
-      const ownsHost = host.childNodes.length === 1 && host.firstChild === wrapper;
+      showPage();
       wrapper.remove();
-      // Appending the fragment itself (not a clone) drains it, so a re-entrant revert no-ops.
-      if (ownsHost) host.appendChild(fragment);
     },
     showOriginal: () => {},
     showTranslation: () => {},
@@ -276,12 +304,9 @@ export function mountError(
 ): void {
   if (handle.phase !== 'streaming') return;
   const { target } = handle;
-  // A raw transport error must never become the block's text; the page keeps its own words and the chip names the cause.
-  if (handle.mode === 'inplace' && handle.originalNodes) {
-    target.replaceChildren(handle.originalNodes.cloneNode(true));
-  } else {
-    target.textContent = handle.mode === 'inplace' ? handle.originalText : '';
-  }
+  // A raw transport error must never become the block's text; the page shows its own words and the chip names the cause.
+  if (handle.mode === 'inplace') showPageFor.get(target)?.();
+  target.textContent = '';
   setPhase(handle, 'error');
   // The page's own text and our error chip are not in the target language.
   markLang(target, undefined);

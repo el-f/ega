@@ -352,7 +352,10 @@ function recollect(sess: Session): number {
   sess.store.forEach((entry) => {
     const id = entry.id;
     if (!sess.terminal.has(id) || sess.failed.has(id)) return;
-    if (sess.handles.get(id)?.target.isConnected !== false) return;
+    const handle = sess.handles.get(id);
+    if (handle?.target.isConnected !== false) return;
+    // Replace text hid the page's own words in place; a page that took only the wrapper away gets them back.
+    handle.revert();
     sess.store.delete(id);
     sess.handles.delete(id);
     sess.terminal.delete(id);

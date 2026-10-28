@@ -35,6 +35,10 @@
     transform: rotate(360deg);
   }
 }
+/* Replace text hides the page's own element in place; !important beats a page rule that sets its display. */
+[data-ega-hidden] {
+  display: none !important;
+}
 /* A settled page-translate block drops the tint after a pause, so a long page is not a wall of blue. */
 [data-ega-replaced][data-ega-tx-state='ok'] {
   background-color: transparent;

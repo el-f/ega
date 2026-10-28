@@ -16,6 +16,7 @@ const PAGE_DOM_SELECTORS = [
   '[data-ega-retry-block]',
   '[data-ega-tx-error]',
   '[data-ega-picking]',
+  '[data-ega-hidden]',
 ];
 
 describe('ensurePageStyles', () => {

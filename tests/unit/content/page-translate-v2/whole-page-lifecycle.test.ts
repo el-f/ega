@@ -639,6 +639,23 @@ describe('whole-page session — round 2', () => {
     expect(r.sent.at(-1)?.text).toBe('これは書き換えられた段落です。');
   });
 
+  it('a page that takes away only the Replace text wrapper gets its own words back on the next press', async () => {
+    const els = page();
+    const text = els[0]?.textContent;
+    const r = rig();
+    await runWholePageTranslate(r.d);
+    band(els.slice(0, 1));
+    await flush();
+    finishAll(r);
+    await flush();
+    els[0]?.querySelector('[data-ega-replaced]')?.remove();
+    await runWholePageTranslate(r.d);
+    expect(els[0]?.textContent).toBe(text);
+    band(els.slice(0, 1));
+    await flush();
+    expect(r.sent.at(-1)?.text).toBe(text);
+  });
+
   it('a settings stop parks the rest instead of stopping it, and Try again after the fix picks the page up again', async () => {
     const els = page();
     const r = rig();
