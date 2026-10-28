@@ -73,6 +73,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   for (const l of listeners) chrome.storage.onChanged.removeListener(l);
   listeners.length = 0;
 });
@@ -385,7 +386,8 @@ describe('two windows re-reading each other over one storage', () => {
     const first = await sendAndFail(a, 'one');
     await sendAndFinish(a, 'two', 'dos');
     // Another turn's stamp must differ from the retry's, or the order is right by chance.
-    await new Promise((r) => setTimeout(r, 5));
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(Date.now() + 1000);
 
     const started = await a.retry(first);
     if (started === null) throw new Error('retry started nothing');
