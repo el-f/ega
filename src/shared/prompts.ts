@@ -356,7 +356,8 @@ export function stripStandardFormat(system: string, format: AnswerFormat): strin
   }
   const formatLines = new Set(format.text.split('\n'));
   const lines = system.split('\n');
-  const kept = lines.filter((l) => !l.includes(FORMAT_MARKER) && !formatLines.has(l));
+  const marker = FORMAT_MARKER.toLowerCase();
+  const kept = lines.filter((l) => !l.toLowerCase().includes(marker) && !formatLines.has(l));
   if (kept.length === lines.length || !kept.some((l) => l.trim().length > 0)) return null;
   return kept.join('\n');
 }

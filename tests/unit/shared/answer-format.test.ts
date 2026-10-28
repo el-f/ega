@@ -335,6 +335,13 @@ describe('answer format: Preview and the editor action', () => {
     expect(
       stripStandardFormat('Be short. Return JSON ONLY: {"x": 1}.', TASK_FORMATS.summarize),
     ).toBe(null);
+    // hasAnswerFormat ignores case, so the line it found must also be the line removed.
+    expect(
+      stripStandardFormat(
+        'Be short.\nReturn JSON only: {"summary": <string>}.',
+        TASK_FORMATS.summarize,
+      ),
+    ).toBe('Be short.');
     expect(stripStandardFormat(TASK_FORMATS.summarize.text, TASK_FORMATS.summarize)).toBe(null);
     expect(stripStandardFormat('No format here.', TASK_FORMATS.summarize)).toBe(null);
   });
