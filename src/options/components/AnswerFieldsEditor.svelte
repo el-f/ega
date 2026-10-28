@@ -7,9 +7,10 @@
   import ArrowUp from '@lucide/svelte/icons/arrow-up';
   import ArrowDown from '@lucide/svelte/icons/arrow-down';
   import Trash from '@lucide/svelte/icons/trash-2';
-  import type { AnswerField, FieldKind, FieldRole } from '@/shared/answer/spec';
+  import type { AnswerField, FieldKind } from '@/shared/answer/spec';
   import { describeField, KIND_NAMES, ROLE_NAMES } from '@/shared/answer/describe';
   import { fieldKey } from '@/shared/answer/field-key';
+  import { fieldErrors } from '@/options/answer-fields';
   import { useShadowSync } from '@/shared/svelte/useShadowSync.svelte';
   import { isShadowRow } from '@/shared/dnd-shadow-row';
   import { id as makeId } from '@/shared/uuid';
@@ -39,6 +40,7 @@
     keyOf: (rows) => JSON.stringify(rows),
   });
   const main = $derived(fields.find((f) => f.role === 'main'));
+  const errors = $derived(fieldErrors(fields));
   const kindOption = (value: FieldKind) => ({
     value,
     label: value === 'score' ? `${KIND_NAMES.score} (0 to 100%)` : KIND_NAMES[value],
@@ -191,7 +193,9 @@
   {@const rowId = idOf(field.key)}
   {@const open = openId === rowId}
   {@const name = field.label || 'Name needed'}
-  <div class="af-row" data-ega-answer-field={field.key}>
+  {@const error = errors.get(field.key)}
+  {@const errId = `${uid}-${rowId}-err`}
+  <div class="af-row" class:af-invalid={error !== undefined} data-ega-answer-field={field.key}>
     <div class="af-summary">
       <span class="af-grip" aria-hidden="true"
         >{#if !locked}<span class="af-grip-handle" use:pointerGrip><Grip size={16} /></span
@@ -253,15 +257,22 @@
         {/if}
       </span>
     </div>
+    {#if error && !open}<p class="af-error" id={errId}>{error.name ?? error.choices}</p>{/if}
     {#if open}
       <div class="af-edit" id="{uid}-{rowId}-edit">
-        <Input
-          id={`${uid}-${rowId}-name`}
-          label="Name"
-          value={field.label}
-          maxlength={40}
-          oninput={(e) => rename(field, (e.currentTarget as HTMLInputElement).value)}
-        />
+        <div class="af-field">
+          <Input
+            id={`${uid}-${rowId}-name`}
+            label="Name"
+            value={field.label}
+            maxlength={40}
+            oninput={(e) => rename(field, (e.currentTarget as HTMLInputElement).value)}
+            dataAttrs={error?.name
+              ? { 'aria-invalid': 'true', 'aria-describedby': `${errId}-name` }
+              : {}}
+          />
+          {#if error?.name}<p class="af-error" id="{errId}-name">{error.name}</p>{/if}
+        </div>
         {#if locked}
           <div class="af-choice">
             <span class="af-label" id="{uid}-{rowId}-kind">Kind</span>
@@ -288,16 +299,24 @@
               })}
           />
           {#if field.kind === 'choice'}
-            <Input
-              label="Choices, separated by commas"
-              value={field.choices?.join(', ') ?? ''}
-              oninput={(e) =>
-                patch(field.key, {
-                  choices: (e.currentTarget as HTMLInputElement).value
-                    .split(',')
-                    .map((s) => s.trim()),
-                })}
-            />
+            <div class="af-field">
+              <Input
+                label="Choices, separated by commas"
+                value={field.choices?.join(', ') ?? ''}
+                oninput={(e) =>
+                  patch(field.key, {
+                    choices: (e.currentTarget as HTMLInputElement).value
+                      .split(',')
+                      .map((s) => s.trim()),
+                  })}
+                dataAttrs={error?.choices
+                  ? { 'aria-invalid': 'true', 'aria-describedby': `${errId}-choices` }
+                  : {}}
+              />
+              {#if error?.choices}<p class="af-error" id="{errId}-choices">
+                  {error.choices}
+                </p>{/if}
+            </div>
           {/if}
           <div class="af-choice">
             <span class="af-label" id="{uid}-{rowId}-role">Shows as</span>
@@ -305,7 +324,10 @@
               value={field.role}
               options={roles}
               orientation="horizontal"
-              onValueChange={(role) => reshape(field, { role: role as FieldRole })}
+              onValueChange={(value) => {
+                const role = roles.find((r) => r.value === value)?.value;
+                if (role) reshape(field, { role });
+              }}
               dataAttrs={{ 'aria-labelledby': `${uid}-${rowId}-role` }}
             />
             {#if field.role === 'hidden'}<p class="af-hint">
@@ -395,10 +417,25 @@
         '. line line';
     }
   }
-  .af-hint {
+  .af-hint,
+  .af-error {
     margin: 0;
     color: var(--color-muted);
     font-size: var(--fs-sm);
+  }
+  .af-error {
+    color: var(--color-danger-fg);
+  }
+  .af-row.af-invalid {
+    border-color: var(--color-danger);
+  }
+  .af-field {
+    display: grid;
+    gap: var(--space-1);
+  }
+  /* Input draws its border on the row around the input. */
+  .af-field :global(.ega-input-row:has(input[aria-invalid='true'])) {
+    border-color: var(--color-danger);
   }
   .af-label {
     font-size: var(--fs-sm);

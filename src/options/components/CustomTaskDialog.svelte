@@ -26,6 +26,7 @@
   import { validateSpec, type AnswerField } from '@/shared/answer/spec';
   import type { StoredAnswerSpec } from '@/shared/custom-answer-schema';
   import AnswerFieldsEditor from './AnswerFieldsEditor.svelte';
+  import { fieldErrors } from '@/options/answer-fields';
   import AnswerPreview from './AnswerPreview.svelte';
   import ReplySection from './ReplySection.svelte';
   import { embedsOwnFormat, convertOwnFormat } from '@/options/own-answer-format';
@@ -120,30 +121,13 @@
   const conversion = $derived(ownFormat ? convertOwnFormat(prompt, ownFormat) : null);
   // The router turns schema checks off on the same test, so the notice shows exactly when the model gets two formats.
   const asksOwnFormat = $derived(ownFormat !== null || hasConflictingFormat(prompt, answerSpec));
-  const fieldProblems = $derived(
-    answerMode === 'fields'
-      ? validateSpec({
-          id: `custom:${taskKey}`,
-          version: 1,
-          fields: ownFields,
-          join: 'after-build',
-        })
-      : [],
-  );
-  const duplicateNames = $derived(
-    new Set(ownFields.map((f) => f.label.trim().toLowerCase())).size !== ownFields.length,
-  );
-  const answerProblem = $derived(
-    answerMode !== 'fields'
-      ? null
-      : ownFields.some((f) => !f.label.trim())
-        ? 'Each field needs a name.'
-        : duplicateNames
-          ? 'Two fields cannot share a name.'
-          : ownFields.some((f) => f.kind === 'choice' && (f.choices?.length ?? 0) < 2)
-            ? 'Add at least two choices.'
-            : (fieldProblems[0] ?? null),
-  );
+  // Each field shows its own problem; the footer only points at them, so it stays one short line.
+  const FIX_FIELDS = 'fix the reply fields';
+  function fieldsProblem(fields: readonly AnswerField[]): string | null {
+    const spec = { id: `custom:${taskKey}`, version: 1, fields, join: 'after-build' } as const;
+    return fieldErrors(fields).size > 0 || validateSpec(spec).length > 0 ? FIX_FIELDS : null;
+  }
+  const answerProblem = $derived(answerMode === 'fields' ? fieldsProblem(ownFields) : null);
 
   type TextField = 'label' | 'prompt';
   /** Why a text field cannot be saved as typed, in the status line's words; null when it can. */
@@ -265,16 +249,8 @@
     ownFields = fields;
     answer = { v: 1, fields };
     output = fields.some((f) => f.role === 'notes') ? 'card' : 'plain';
-    const issues = validateSpec({
-      id: `custom:${taskKey}`,
-      version: 1,
-      fields,
-      join: 'after-build',
-    });
-    const duplicates =
-      new Set(fields.map((f) => f.label.trim().toLowerCase())).size !== fields.length;
-    if (issues.length || duplicates) {
-      saver.invalid('answer', answerProblem ?? issues[0] ?? 'Two fields cannot share a name.');
+    if (fieldsProblem(fields) !== null) {
+      saver.invalid('answer', FIX_FIELDS);
       return;
     }
     saver.valid('answer');
@@ -394,7 +370,7 @@
         const fields = (['label', 'prompt'] as const)
           .filter((f) => problemOf(f) !== null)
           .map((f) => FIELD_NAMES[f]);
-        if (answerProblem !== null) fields.push('the answer fields');
+        if (answerProblem !== null) fields.push('the reply fields');
         if (!(await confirmCloseWithout(fields))) return;
       }
       onClose();
@@ -533,7 +509,6 @@
       </div>
       {#if answerMode === 'fields'}
         <AnswerFieldsEditor fields={ownFields} onchange={setFields} />
-        {#if answerProblem}<p class="ct-hint" role="status">{answerProblem}</p>{/if}
       {/if}
       {#snippet after()}
         <AnswerPreview spec={answerSpec} {draft} {s} problem={blocker} />

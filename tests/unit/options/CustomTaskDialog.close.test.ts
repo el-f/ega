@@ -201,11 +201,14 @@ describe('an existing custom task', () => {
       '[data-ega-answer-field="reason"] input',
     ) as HTMLInputElement;
     await fireEvent.input(fieldName, { target: { value: '' } });
-    expect(status()).toContain('Not saved:');
+    expect(status()).toBe('Not saved: fix the reply fields');
+    expect(document.querySelector('[data-ega-answer-fields-editor]')?.textContent).toContain(
+      'Add a name',
+    );
     confirm.mockResolvedValueOnce(false);
     await fireEvent.click(done());
     await waitFor(() => expect(confirm).toHaveBeenCalled());
-    expect(confirm.mock.calls[0]?.[0].body).toContain('the answer fields');
+    expect(confirm.mock.calls[0]?.[0].body).toContain('the reply fields');
     await fireEvent.click(radio('Answer only'));
     await waitFor(async () =>
       expect((await getCustomTasks())[0]?.answer).toEqual({ v: 1, preset: 'answer-only' }),

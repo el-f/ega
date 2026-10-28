@@ -232,3 +232,51 @@ describe('the field editor', () => {
     await waitFor(() => expect(onchange).not.toHaveBeenCalled());
   });
 });
+
+describe('a field that needs a fix says so at the field', () => {
+  it('marks both fields that share a name, under each row and under the open name box', async () => {
+    const { view } = live([
+      main,
+      { ...note('tone'), label: 'Tone' },
+      { ...note('tone2'), label: 'tone' },
+    ]);
+    for (const key of ['tone', 'tone2'])
+      expect(document.querySelector(`[data-ega-answer-field="${key}"]`)?.textContent).toContain(
+        'Two fields have this name',
+      );
+    await fireEvent.click(view.getByRole('button', { name: 'Edit Tone' }));
+    const name = view.getByLabelText('Name');
+    expect(name.getAttribute('aria-invalid')).toBe('true');
+    expect(document.getElementById(name.getAttribute('aria-describedby') ?? '')?.textContent).toBe(
+      'Two fields have this name',
+    );
+  });
+
+  it('an empty name and too few choices show under their inputs', async () => {
+    const { view } = live([main, { ...note('tone'), label: 'Tone' }]);
+    await fireEvent.click(view.getByRole('button', { name: 'Edit Tone' }));
+    await fireEvent.change(view.getByLabelText('Kind'), { target: { value: 'choice' } });
+    const choices = view.getByLabelText('Choices, separated by commas');
+    await fireEvent.input(choices, { target: { value: 'Formal' } });
+    expect(choices.getAttribute('aria-invalid')).toBe('true');
+    expect(
+      document.getElementById(choices.getAttribute('aria-describedby') ?? '')?.textContent,
+    ).toBe('Add 2 to 12 different choices');
+    const name = view.getByLabelText('Name');
+    await fireEvent.input(name, { target: { value: '' } });
+    expect(document.getElementById(name.getAttribute('aria-describedby') ?? '')?.textContent).toBe(
+      'Add a name',
+    );
+  });
+
+  it('a saved key Ega cannot use asks for a name edit, and the edit fixes it', async () => {
+    const { view, fields } = live([main, { ...note('confidence'), label: 'Extra' }]);
+    expect(document.querySelector('[data-ega-answer-field="confidence"]')?.textContent).toContain(
+      'Edit the name so Ega can read this field',
+    );
+    await fireEvent.click(view.getByRole('button', { name: 'Edit Extra' }));
+    await fireEvent.input(view.getByLabelText('Name'), { target: { value: 'Extra' } });
+    expect(fields()[1]?.key).toBe('extra');
+    expect(view.container.textContent).not.toContain('Edit the name so Ega can read this field');
+  });
+});
