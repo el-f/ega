@@ -184,6 +184,15 @@ describe('the field editor', () => {
     expect(document.activeElement).toBe(name);
   });
 
+  it('a rename that builds the same key keeps it, so the prompt line does not change', async () => {
+    const { view, fields } = live([main, { ...note('tone'), label: 'Tone' }]);
+    await fireEvent.click(view.getByRole('button', { name: 'Edit Tone' }));
+    for (const value of ['tone', 'Tone ', 'Tone:']) {
+      await fireEvent.input(view.getByLabelText('Name'), { target: { value } });
+      expect(fields()[1]).toMatchObject({ key: 'tone', label: value });
+    }
+  });
+
   it('a main answer keeps its key when renamed', async () => {
     const { view, fields } = live([main, note('tone')]);
     await fireEvent.click(view.getByRole('button', { name: 'Edit Answer' }));

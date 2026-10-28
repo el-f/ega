@@ -56,9 +56,10 @@
     onchange(fields.map((f) => (f.key === key ? { ...f, ...patch } : f)));
   }
   function rekey(field: AnswerField, label: string, rest: Partial<AnswerField> = {}): void {
+    // By key: the rendered row is a copy, never the same object as its field.
     const key = fieldKey(
       label,
-      fields.filter((f) => f !== field).map((f) => f.key),
+      fields.filter((f) => f.key !== field.key).map((f) => f.key),
     );
     const id = idOf(field.key);
     delete ids[field.key];
