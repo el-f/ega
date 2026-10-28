@@ -224,7 +224,7 @@ export function leanInstructions(
   return out;
 }
 
-/** `shrinkTurn` drops `variants` past the byte cap; every live assistant turn has a v1, so rebuild it here and nothing downstream has to special-case its absence. */
+/** Older builds' `shrinkTurn` stored turns with no `variants`; every live assistant turn has a v1, so rebuild it here and nothing downstream has to special-case its absence. */
 function withSeedVariant(t: AssistantTurnData): AssistantTurnData {
   if (t.variants !== undefined) return t;
   const seed: Variant = {
@@ -431,12 +431,20 @@ function estimateBytes(value: unknown): number {
   return encoder.encode(JSON.stringify(value)).byteLength;
 }
 
-/** The active variant already projects onto `content`, so the history is the part that can go. */
+/** The other versions are the part that can go. The shown one stays: its task, Ask target and languages live only there. */
 function shrinkTurn(t: Turn): Turn {
   const lean: Turn = { ...t, content: t.content.slice(0, MAX_TURN_CONTENT_CHARS) };
   delete lean.rawAcc;
-  delete lean.variants;
-  delete lean.activeVariantIdx;
+  const shown = t.variants?.[t.activeVariantIdx ?? 0];
+  if (shown === undefined) {
+    delete lean.variants;
+    delete lean.activeVariantIdx;
+    return lean;
+  }
+  const { rawAcc: _raw, ...kept } = shown;
+  void _raw;
+  lean.variants = [{ ...kept, content: shown.content.slice(0, MAX_TURN_CONTENT_CHARS) }];
+  lean.activeVariantIdx = 0;
   return lean;
 }
 
