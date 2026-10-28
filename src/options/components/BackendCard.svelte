@@ -7,6 +7,7 @@
   import type { BackendConfig, TranslationBackend } from '@/shared/backends/base';
   import { readAnswer } from '@/shared/answer/reader';
   import { answerSpecFor } from '@/shared/answer/spec';
+  import { capText } from '@/shared/text-cap';
   import { createThinkScrubber } from '@/shared/backends/think-scrubber';
   import { probeNativeHost } from '../probeNativeHost';
   import { onNativeProbe } from '../native-probe-events';
@@ -359,7 +360,7 @@
         const succeeded = reply?.ok === true && answer?.kind === 'ok';
         const result =
           answer?.kind === 'ok'
-            ? answer.main.trim().slice(0, 200) || '(empty result)'
+            ? capText(answer.main.trim(), 200) || '(empty result)'
             : answer?.kind === 'error'
               ? 'The answer was not in a readable format. Try the test again.'
               : (reply?.error ??
@@ -433,7 +434,7 @@
           scrub.push(accumulated) + scrub.flush(),
         );
         if (answer.kind === 'ok') {
-          result = answer.main.trim().slice(0, 200) || '(empty result)';
+          result = capText(answer.main.trim(), 200) || '(empty result)';
           auditTest(result);
         } else {
           errCode = answer.code === 'EMPTY' ? 'SERVER' : 'PARSE';

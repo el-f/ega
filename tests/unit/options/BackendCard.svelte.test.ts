@@ -137,6 +137,35 @@ describe('BackendCard key status', () => {
     }
   });
 
+  it('cuts a long test answer before an emoji that crosses the cap', async () => {
+    const s = baseSettings();
+    s.anthropicApiKey = 'sk-ant-test';
+    const backend = resolveBackend(asBackendIdUnsafe('anthropic'));
+    if (!backend) throw new Error('anthropic backend not registered');
+    const origAvailable = backend.isAvailable;
+    const origTranslate = backend.translate;
+    backend.isAvailable = async () => true;
+    backend.translate = async ({ req, onChunk }) => {
+      onChunk({ type: 'delta', requestId: req.id, text: 'x'.repeat(199) + '😀 tail' });
+      onChunk({ type: 'done', requestId: req.id });
+    };
+    try {
+      const { container } = render(BackendCard, {
+        props: { id: asBackendIdUnsafe('anthropic'), label: 'Anthropic', settings: s },
+      });
+      await waitForProbe();
+      container.querySelector<HTMLButtonElement>('[data-testid^="backend-card-test-"]')?.click();
+      await waitForProbe();
+      const text = container.textContent;
+      expect(text).toContain('x'.repeat(199));
+      expect(text).not.toContain('tail');
+      expect(text).not.toMatch(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/);
+    } finally {
+      backend.isAvailable = origAvailable;
+      backend.translate = origTranslate;
+    }
+  });
+
   it('does not show "Verified" for a key that changed while the test ran', async () => {
     const s = baseSettings();
     s.anthropicApiKey = 'sk-ant-a';
