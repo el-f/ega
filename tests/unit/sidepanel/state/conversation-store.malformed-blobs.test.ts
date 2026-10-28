@@ -325,6 +325,15 @@ describe('the thread index', () => {
 
     expect((await chrome.storage.local.get(INDEX_KEY))[INDEX_KEY]).toEqual(future);
   });
+
+  it('writes no thread under an index this build cannot read, where nothing would list it', async () => {
+    const future = { version: 99, threads: [{ origin: 'https://kept.com', bytes: 10 }] };
+    await chrome.storage.local.set({ [INDEX_KEY]: future });
+
+    await expect(saveThread('https://a.com', [goodTurn() as never])).rejects.toThrow(/index/i);
+
+    expect(await chrome.storage.local.get(threadKey('https://a.com'))).toEqual({});
+  });
 });
 
 describe('the reply a question was about, as stored', () => {

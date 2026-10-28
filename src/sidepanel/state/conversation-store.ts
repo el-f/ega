@@ -559,13 +559,16 @@ function evictedOf(e: IndexEntry): EvictedConversation {
   return e.title !== undefined ? { id: e.origin, title: e.title } : { id: e.origin };
 }
 
+/** A stored index this build cannot parse, most likely a newer build's. */
+class UnreadableIndexError extends Error {}
+
 /** Adds or replaces entries, evicts past the conversation and byte budgets, writes the index. */
 async function commitIndex(entries: readonly IndexEntry[]): Promise<EvictedConversation[]> {
   const raw: unknown = (await chrome.storage.local.get(INDEX_KEY))[INDEX_KEY];
   const index = raw === undefined ? null : parseIndex(raw);
   // Most likely a newer build's. A fresh index over it would unlist every conversation it holds.
   if (raw !== undefined && index === null) {
-    throw new Error('The conversation index cannot be read by this version');
+    throw new UnreadableIndexError('The conversation index cannot be read by this version');
   }
   const threads = index?.threads ?? [];
   const stored = new Map(threads.map((t) => [t.origin, t]));
@@ -963,6 +966,8 @@ async function saveThreadLocked(
       { origin, updatedAt: now, bytes: serialisedArrayBytes(sized), ...entryFacts(capped) },
     ]);
   } catch (e) {
+    // Nothing in this build could list, budget or reclaim a blob written under that index.
+    if (e instanceof UnreadableIndexError) throw e;
     // The blob below still loads by key, but nothing lists it — the caller has to hear about it.
     indexError = e;
   }
