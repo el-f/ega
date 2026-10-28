@@ -30,7 +30,11 @@ beforeEach(() => {
 
 /** Renders the preview with Example reply open, as a user sees it after one click. */
 async function shown(
-  props: Partial<{ s: ReturnType<typeof parseSettings>; spec: AnswerSpec }> = {},
+  props: Partial<{
+    s: ReturnType<typeof parseSettings>;
+    spec: AnswerSpec;
+    taskId: string | null;
+  }> = {},
 ) {
   const view = render(AnswerPreview, { draft, spec, s: parseSettings({}), ...props });
   await fireEvent.click(view.getByRole('button', { name: 'Example reply' }));
@@ -161,6 +165,19 @@ describe('a real try', () => {
     await view.rerender({ draft: { ...draft, label: 'Renamed' } });
     await waitFor(() => expect(view.queryByText('Actual item')).toBeNull());
     expect(view.getByText('Example item')).toBeTruthy();
+  });
+
+  it('Try sends the saved task id, so rules scoped to the task apply as in Preview', async () => {
+    send.mockResolvedValue({ type: 'done', requestId: 'test', text: 'x' });
+    const saved = await shown({ taskId: 'c-1' });
+    await fireEvent.click(tryButton(saved));
+    await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+    expect(send.mock.calls[0]?.[0]).toMatchObject({ kind: 'task:try', taskId: 'c-1' });
+    saved.unmount();
+    const unsaved = await shown({ taskId: null });
+    await fireEvent.click(tryButton(unsaved));
+    await waitFor(() => expect(send).toHaveBeenCalledTimes(2));
+    expect(send.mock.calls[1]?.[0]).not.toHaveProperty('taskId');
   });
 
   it('an optional field left out is not "empty"; a required one is', async () => {

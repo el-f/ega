@@ -570,7 +570,7 @@
         <AnswerFieldsEditor fields={ownFields} onchange={setFields} />
       {/if}
       {#snippet after()}
-        <AnswerPreview spec={answerSpec} {draft} {s} problem={blocker} />
+        <AnswerPreview spec={answerSpec} {draft} {s} problem={blocker} taskId={rowId} />
       {/snippet}
     </ReplySection>
 

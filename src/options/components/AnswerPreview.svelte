@@ -26,8 +26,10 @@
     draft: CustomTaskInput;
     s: Settings;
     problem?: string | null;
+    /** The saved row's id, so Try applies the task's rules as Preview does; null before the first save. */
+    taskId?: string | null;
   }
-  let { spec, draft, s, problem = null }: Props = $props();
+  let { spec, draft, s, problem = null, taskId = null }: Props = $props();
   let open = $state(false);
   let text = $state(PREVIEW_SAMPLE_TEXT);
   let runningId = $state<string | null>(null);
@@ -125,6 +127,7 @@
         requestId,
         text,
         draft,
+        ...(taskId !== null ? { taskId } : {}),
         sourceLang: 'auto',
         targetLang: s.defaultTargetLang,
       });
