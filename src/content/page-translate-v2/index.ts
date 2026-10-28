@@ -581,7 +581,8 @@ async function createSession(
       pump();
     }, SWEEP_DELAY_MS);
   });
-  sess.pageWatch.observe(document.body, { childList: true, subtree: true });
+  // The root, not the body: a Turbo-style navigation swaps <body> itself.
+  sess.pageWatch.observe(document.documentElement, { childList: true, subtree: true });
   active = sess;
   return sess;
 }

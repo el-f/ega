@@ -230,7 +230,7 @@ describe('canceling a batch', () => {
     const disconnect = vi.spyOn(MutationObserver.prototype, 'disconnect');
     twoBlocks();
     await enterAndFire(deps({ mountProgress: () => progress().handle }), ['a']);
-    const at = observe.mock.calls.findIndex(([target]) => target === document.body);
+    const at = observe.mock.calls.findIndex(([target]) => target === document.documentElement);
     const watch = observe.mock.contexts[at];
     expect(watch).toBeDefined();
 

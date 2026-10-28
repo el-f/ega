@@ -191,6 +191,27 @@ describe('whole-page session — blocks the page removes', () => {
     expect(r.dismissed()).toBe(1);
   });
 
+  it('a page that swaps its whole <body> (Turbo-style navigation) closes the session and its pill', async () => {
+    const els = page();
+    const r = rig();
+    await runWholePageTranslate(r.d);
+    band(els.slice(0, 2));
+    await flush();
+    finishAll(r);
+    await flush();
+    // The sweep the mounts queued runs first, so only the swap itself can close the session.
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(isPageV2Active()).toBe(true);
+
+    const next = document.createElement('body');
+    next.innerHTML = '<p>Another page</p>';
+    document.documentElement.replaceChild(next, document.body);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    expect(isPageV2Active()).toBe(false);
+    expect(r.dismissed()).toBe(1);
+  });
+
   it('a route change does not cancel: translations still on the page stay', async () => {
     const els = page();
     const r = rig();
