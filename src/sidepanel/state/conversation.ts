@@ -409,12 +409,12 @@ export function dropVariant(turns: readonly Turn[], turnId: string, variantId: s
   return out;
 }
 
-/** Newest done variant answering in target (no targetLang = originalTarget), or -1. */
+/** Newest done variant answering in target (no targetLang = originalTarget) with the same modifiers, or -1. */
 export function variantIdxForTarget(
   turn: Turn,
   originalTarget: LangSelection,
   target: LangSelection,
-  modifiers: { refinementBody?: string; task?: TaskId } = {},
+  modifiers: Pick<VariantSeed, 'refinementBody' | 'task' | 'sourceLang' | 'about'> = {},
 ): number {
   const variants = turn.variants ?? [];
   for (let i = variants.length - 1; i >= 0; i--) {
@@ -423,6 +423,9 @@ export function variantIdxForTarget(
     if ((v.targetLang ?? originalTarget) !== target) continue;
     if (v.refinementBody !== modifiers.refinementBody) continue;
     if (v.task !== modifiers.task) continue;
+    if (v.sourceLang !== modifiers.sourceLang) continue;
+    if (v.about?.turnId !== modifiers.about?.turnId) continue;
+    if (v.about?.variantId !== modifiers.about?.variantId) continue;
     return i;
   }
   return -1;

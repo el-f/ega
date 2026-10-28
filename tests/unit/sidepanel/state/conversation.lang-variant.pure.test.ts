@@ -111,6 +111,28 @@ describe('variantIdxForTarget', () => {
     expect(variantIdxForTarget(t, EN, EN, { refinementBody: 'other' })).toBe(-1);
   });
 
+  it('matches the reply an Ask version asks about, so a pick cannot show a question about another', () => {
+    const aboutA = { turnId: 'r1', variantId: 'r1:v1' };
+    const aboutB = { turnId: 'r2', variantId: 'r2:v1' };
+    const t = assistant(
+      [
+        v('v1', 'done', { task: 'ask', about: aboutA }),
+        v('v2', 'done', { task: 'ask', about: aboutB }),
+        v('v3', 'done', { task: 'ask', targetLang: FR, about: aboutB }),
+      ],
+      0,
+    );
+    expect(variantIdxForTarget(t, EN, FR, { task: 'ask', about: aboutA })).toBe(-1);
+    expect(variantIdxForTarget(t, EN, FR, { task: 'ask', about: { turnId: 'r2' } })).toBe(-1);
+    expect(variantIdxForTarget(t, EN, FR, { task: 'ask', about: aboutB })).toBe(2);
+  });
+
+  it('a plain pick does not show a swap version, which read the text in a forced source', () => {
+    const t = assistant([v('v1', 'done'), v('v2', 'done', { sourceLang: EN, targetLang: DE })], 0);
+    expect(variantIdxForTarget(t, EN, DE)).toBe(-1);
+    expect(variantIdxForTarget(t, EN, DE, { sourceLang: EN })).toBe(1);
+  });
+
   it('ignores variants that are not done', () => {
     const t = assistant([v('v1', 'done'), v('v2', 'error', { targetLang: FR })], 1);
     expect(variantIdxForTarget(t, EN, FR)).toBe(-1);

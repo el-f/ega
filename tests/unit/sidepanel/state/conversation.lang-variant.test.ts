@@ -223,6 +223,23 @@ describe('createConversation().swapVariant — records its target', () => {
   });
 });
 
+describe('createConversation().langVariant — a swap version is not a plain answer', () => {
+  it('a plain pick into the swapped language sends a request instead of showing the swap', async () => {
+    const c = createConversation();
+    const assistantId = await sendAndDrain(c);
+    await c.swapVariant(assistantId);
+    drain(c);
+    c.selectVariant(assistantId, 0);
+    const before = calls('translate:start').length;
+
+    expect(await c.langVariant(assistantId, ES)).toBe(true);
+
+    expect(calls('translate:start').length).toBe(before + 1);
+    expect(lastStart()['targetLang']).toBe(ES);
+    expect(lastStart()['sourceLang']).toBe(ES);
+  });
+});
+
 describe('a re-run of a version in another language keeps that language', () => {
   it('a refine preset on the French version asks for French', async () => {
     const c = createConversation();
