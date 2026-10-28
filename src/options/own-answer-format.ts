@@ -124,7 +124,14 @@ export function takeOutOwnFormat(
   // The sentence cut goes before the standard strip, whose fallback drops every line holding the marker.
   const exact = [format.sep + format.text, format.text].some((t) => prompt.system.includes(t));
   const own = exact ? null : embedsOwnFormat(prompt);
-  if (own !== null) return convertOwnFormat(prompt, own)?.prompt ?? 'empty';
+  if (own !== null) {
+    // An edited copy of Ega's format may run on past its first sentence (Suggest replies has two).
+    const text = prompt[own.half];
+    const ega = text.slice(own.start).toLowerCase().startsWith(FORMAT_MARKER.toLowerCase());
+    const lineEnd = text.indexOf('\n', own.end);
+    const cut = ega ? { ...own, end: lineEnd < 0 ? text.length : lineEnd } : own;
+    return convertOwnFormat(prompt, cut)?.prompt ?? 'empty';
+  }
   const standard = stripStandardFormat(prompt.system, format);
   if (standard !== null) return { ...prompt, system: standard };
   return prompt.system.includes(FORMAT_MARKER) ? 'empty' : null;

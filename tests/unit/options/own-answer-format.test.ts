@@ -172,9 +172,36 @@ describe("Use Ega's format", () => {
     });
   });
 
+  it("cuts an edited copy of Ega's format from its opener to the end of its line", () => {
+    const suggest = TASK_FORMATS['suggest-replies'];
+    const edited = suggest.text.replace('casual → neutral → polite', 'polite → casual');
+    const prompt = {
+      system: `Suggest three replies. ${edited}\nKeep each one short.`,
+      user: '{{text}}',
+    };
+    expect(takeOutOwnFormat(prompt, suggest)).toEqual({
+      system: 'Suggest three replies.\nKeep each one short.',
+      user: '{{text}}',
+    });
+  });
+
+  it('cuts only the sentence of a format that does not start like Ega’s', () => {
+    const prompt = {
+      system: 'Reply briefly. Return JSON {"reply": string}. Be kind.\nSign off.',
+      user: '{{text}}',
+    };
+    expect(takeOutOwnFormat(prompt, format)).toEqual({
+      system: 'Reply briefly.  Be kind.\nSign off.',
+      user: '{{text}}',
+    });
+  });
+
   it("takes out Ega's own format bytes first, then a line that holds only the format", () => {
     expect(
-      takeOutOwnFormat({ system: `Summarize it. ${format.text}`, user: '{{text}}' }, format),
+      takeOutOwnFormat(
+        { system: `Summarize it.${format.sep}${format.text}`, user: '{{text}}' },
+        format,
+      ),
     ).toEqual({ system: 'Summarize it.', user: '{{text}}' });
     expect(
       takeOutOwnFormat(
