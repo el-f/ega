@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, type Mock } from 'vitest';
 import { createConversation } from '@/sidepanel/state/conversation.svelte';
-import { loadThreadResult } from '@/sidepanel/state/conversation-store';
-import { activeVariant, type TurnKind } from '@/sidepanel/state/conversation';
+import { loadThreadResult, saveThread } from '@/sidepanel/state/conversation-store';
+import { activeVariant, type Turn, type TurnKind } from '@/sidepanel/state/conversation';
 import { asLangIdUnsafe } from '@/shared/brands';
 import type { TaskId } from '@/shared/task-view';
 import { startCalls } from '@tests/_helpers/messages';
@@ -114,6 +114,45 @@ describe('a Translate of nothing to translate is answered in the panel', () => {
 
     expect(startCalls()).toHaveLength(1);
     expect(startCalls()[0]?.['context']).toEqual(context);
+  });
+
+  it('Retry on a link that failed before the panel answered links itself answers it here', async () => {
+    const o = 'https://old-link-failure.test';
+    const failed: Turn = {
+      id: 'a1',
+      role: 'assistant',
+      kind: 'translate',
+      status: 'error',
+      createdAt: 2,
+      content: '',
+      attachedToTurnId: 'u1',
+      error: { code: 'NETWORK', message: 'offline' },
+    };
+    await saveThread(o, [
+      {
+        id: 'u1',
+        role: 'user',
+        kind: 'translate',
+        status: 'idle',
+        createdAt: 1,
+        content: LINK,
+        dispatch: { sourceLang: 'auto', targetLang: EN, stream: true },
+      },
+      failed,
+    ]);
+    const c = createConversation();
+    await c.openConversation(o);
+
+    const started = await c.retry('a1');
+
+    expect(startCalls()).toHaveLength(0);
+    expect(c.inflightId).toBeNull();
+    const reply = c.turns.find((t) => t.id === started?.turnId);
+    expect(reply).toMatchObject({ status: 'done', content: LINK, attachedToTurnId: 'u1' });
+    expect(reply && activeVariant(reply)?.nothingToTranslate).toBe(true);
+    expect(c.turns.map((t) => t.id)).toEqual(['u1', started?.turnId]);
+    await c.flush();
+    expect((await loadThreadResult(o)).turns.find((t) => t.id === 'a1')).toBeUndefined();
   });
 
   it('Regenerate and `r` add nothing: the answer cannot change', async () => {

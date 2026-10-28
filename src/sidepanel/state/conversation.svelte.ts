@@ -694,6 +694,29 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     }
     const source = findRetryTarget(state.turns, assistantId);
     if (!source) return null;
+    // Failed before the panel answered such text itself: answer it here, sent nowhere.
+    if (answersAsIs(source)) {
+      const id = uuid();
+      const context = settled?.contextSent;
+      noteRemoved([assistantId]);
+      mutate(
+        (turns) =>
+          answerAsIs(
+            replaceAssistantTurn(turns, assistantId, {
+              id,
+              kind: source.kind,
+              attachedToTurnId: source.id,
+              ...(source.taskId !== undefined ? { taskId: source.taskId } : {}),
+              ...(context !== undefined ? { contextSent: context } : {}),
+            }),
+            id,
+            `${id}:v1`,
+            source.content,
+          ),
+        'now',
+      );
+      return { turnId: id };
+    }
     const reuse = replayDispatch(source);
     if (reuse === null) return null;
     const tone = source.tone ?? state.lastDispatch?.tone;
