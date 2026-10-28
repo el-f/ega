@@ -32,7 +32,7 @@ import {
   UNKNOWN_TASK_ID,
 } from '../settings-schema';
 import { ALL_TASKS, type Task } from '../task-prompts';
-import { buildTaskTemplate, shippedSystems } from '../task-template';
+import { answerFormatFor, buildTaskTemplate } from '../task-template';
 import { BUILT_IN_TASK_SWITCHES, hasOwnPrompt } from '../task-view';
 
 /** Matches LangPresetIdSchema's cap — a custom variety id is a 36-char UUID. */
@@ -339,9 +339,10 @@ export function withoutShippedTaskFields(id: Task, edit: TaskEdit): TaskEdit {
   );
   if (hasOwnPrompt(id)) {
     const prompt = buildTaskTemplate(id);
-    // v9 rows hold the shipped text with its v1 format; dropping them runs today's shipped prompt.
-    if (edit.system !== undefined && !shippedSystems(id).includes(edit.system))
-      out.system = edit.system;
+    const format = answerFormatFor(id);
+    // The v9 shipped text held the format; it builds the same bytes as today's shipped half.
+    const shipped = [prompt.system, prompt.system + format.sep + format.text];
+    if (edit.system !== undefined && !shipped.includes(edit.system)) out.system = edit.system;
     if (edit.user !== undefined && edit.user !== prompt.user) out.user = edit.user;
   }
   if (edit.pageContext !== undefined && edit.pageContext !== shipped.pageContext) {

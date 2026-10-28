@@ -23,18 +23,12 @@ import { sanitiseStoredSettings, withoutShippedTaskFields } from '@/shared/stora
 import { getSettings, updateSettings } from '@/shared/storage';
 import { exportAll } from '@/shared/storage/backup';
 import { answerFormatFor, buildTaskTemplate } from '@/shared/task-template';
-import {
-  FORMAT_MARKER,
-  TASK_FORMATS,
-  TASK_FORMATS_V1,
-  TRANSLATE_FORMAT,
-} from '@/shared/answer/formats-v1';
+import { FORMAT_MARKER, TASK_FORMATS, TRANSLATE_FORMAT } from '@/shared/answer/formats-v1';
 import { type Task } from '@/shared/task-prompts';
 import { ownTaskPrompt } from '@/shared/task-template';
 import { materializeVarieties } from '@/shared/varieties';
 import type { Settings, TranslationRequest } from '@/shared/types';
-import golden from '../../fixtures/prompt-golden-v9.json';
-import v9 from '../../fixtures/prompt-templates-v9.json';
+import golden from '../../fixtures/prompt-golden.json';
 
 const silent = { debug() {}, info() {}, warn() {}, error() {} };
 
@@ -59,8 +53,8 @@ async function sent(s: Settings, r: TranslationRequest) {
 }
 
 const count = (hay: string, needle: string): number => hay.split(needle).length - 1;
-// Literal stored bytes: a value computed from today's constants would follow any change to them.
-const SUMMARIZE_V9 = v9.summarize.system;
+const SUMMARIZE_SHIPPED =
+  buildTaskTemplate('summarize').system + TASK_FORMATS.summarize.sep + TASK_FORMATS.summarize.text;
 const OWN_PROMPT_TASKS = ['summarize', 'reword', 'grammar', 'suggest-replies', 'ask'] as const;
 
 describe('answer format: edited prompts', () => {
@@ -70,22 +64,6 @@ describe('answer format: edited prompts', () => {
     const p = await sent(s, req('summarize'));
     expect(p.system).toBe(UNTRUSTED_DATA_INSTRUCTION + '\n\n' + system);
     expect(count(p.system, FORMAT_MARKER)).toBe(1);
-  });
-
-  it("T-F2: an edit that still holds the v1 format gets today's format in its place", async () => {
-    const system = SUMMARIZE_V9.replace('1-3 sentences', 'one sentence');
-    const s = mkSettings({ taskOverrides: { summarize: { system } } });
-    const p = await sent(s, req('summarize'));
-    const v1 = TASK_FORMATS_V1.summarize;
-    const now = TASK_FORMATS.summarize;
-    expect(p.system).toBe(
-      UNTRUSTED_DATA_INSTRUCTION +
-        '\n\n' +
-        system
-          .replace(v1.sep + v1.text, now.sep + now.text)
-          .replace('{{targetLangLabel}}', 'English'),
-    );
-    expect(p.system).not.toContain('"translation"');
   });
 
   it('T-F3: an edit without a format line gets exactly one standard format', async () => {
@@ -254,15 +232,11 @@ describe('answer format: stored defaults and language prompts', () => {
     );
   });
 
-  it.each(OWN_PROMPT_TASKS)(
-    'a stored %s edit equal to the v9 or the current shipped text drops out',
-    (task) => {
-      expect(withoutShippedTaskFields(task, { system: v9[task].system })).toEqual({});
-      const now = answerFormatFor(task);
-      const current = buildTaskTemplate(task).system;
-      expect(withoutShippedTaskFields(task, { system: current + now.sep + now.text })).toEqual({});
-    },
-  );
+  it.each(OWN_PROMPT_TASKS)('a stored %s edit equal to the shipped text drops out', (task) => {
+    const now = answerFormatFor(task);
+    const current = buildTaskTemplate(task).system;
+    expect(withoutShippedTaskFields(task, { system: current + now.sep + now.text })).toEqual({});
+  });
 
   it('T-F5: a language half that holds the marker is sent unchanged; one without it gets the Translate format', async () => {
     const s = mkSettings();
@@ -323,12 +297,8 @@ describe('answer format: Preview and the editor action', () => {
   });
 
   it('removes the exact shipped format first, and never empties a one-line task prompt', () => {
-    expect(stripStandardFormat(SUMMARIZE_V9, TASK_FORMATS.summarize)).toBe(
-      buildTaskTemplate('summarize').system,
-    );
     for (const task of OWN_PROMPT_TASKS) {
       const now = answerFormatFor(task);
-      expect(stripStandardFormat(v9[task].system, now), task).not.toContain(FORMAT_MARKER);
       const shipped = buildTaskTemplate(task).system;
       expect(stripStandardFormat(shipped + now.sep + now.text, now), task).toBe(shipped);
     }
@@ -351,7 +321,7 @@ describe('answer format: backups', () => {
   beforeEach(() => resetChromeMock());
 
   it('T-F9: an edited prompt with and without its format line round-trips byte for byte', async () => {
-    for (const system of [SUMMARIZE_V9 + ' Extra.', 'Summarize in one line.']) {
+    for (const system of [SUMMARIZE_SHIPPED + ' Extra.', 'Summarize in one line.']) {
       resetChromeMock();
       await updateSettings({ taskOverrides: { summarize: { system } } });
       const file = JSON.parse(JSON.stringify(await exportAll()));

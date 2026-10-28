@@ -7,7 +7,7 @@ import { DEFAULT_DESCRIPTION_CONTEXT_CAP } from './constants';
 import { DEFAULT_PROMPT_TEMPLATE } from './settings-defaults';
 import { labelFor } from './languages';
 import { resolveSnippets, SLOT_RE } from './snippets';
-import { FORMAT_MARKER, replacedFormat, type AnswerFormat } from './answer/formats-v1';
+import { FORMAT_MARKER, type AnswerFormat } from './answer/formats-v1';
 import { type Tone } from './task-prompts';
 
 // Here, not in task-prompts.ts: the content script loads that module, and only prompt building reads these.
@@ -331,24 +331,13 @@ function joinedFormat(
   snippets: Record<string, string>,
 ): PromptTemplate {
   if (!format) return tpl;
-  // The v1 bytes are Ega's own text, not the user's, so an edited prompt that kept them runs today's format.
-  const v1 = replacedFormat(format);
-  if (v1 && tpl.system.includes(v1.text)) {
-    const joined = tpl.system.includes(v1.sep + v1.text);
-    const system = joined
-      ? tpl.system.replace(v1.sep + v1.text, () => format.sep + format.text)
-      : tpl.system.replace(v1.text, () => format.text);
-    return { ...tpl, system };
-  }
   if (hasAnswerFormat(tpl.system, snippets) || hasAnswerFormat(tpl.user, snippets)) return tpl;
   return { ...tpl, system: tpl.system + format.sep + format.text };
 }
 
 /** "Use the standard format": the text without its own format; null when nothing but the format would remain. */
 export function stripStandardFormat(system: string, format: AnswerFormat): string | null {
-  const v1 = replacedFormat(format);
-  const exacts = [format, ...(v1 ? [v1] : [])].flatMap((f) => [f.sep + f.text, f.text]);
-  for (const exact of exacts) {
+  for (const exact of [format.sep + format.text, format.text]) {
     if (system.includes(exact)) {
       const rest = system.replace(exact, '');
       return rest.trim().length > 0 ? rest : null;

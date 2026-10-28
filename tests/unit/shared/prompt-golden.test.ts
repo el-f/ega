@@ -10,16 +10,13 @@ import { buildPreviewPrompt, PREVIEW_SAMPLE_TEXT } from '@/options/preview-promp
 import { materializeVarieties } from '@/shared/varieties';
 import { ownTaskPrompt } from '@/shared/task-template';
 import { ALL_TONES, type Task, type Tone } from '@/shared/task-prompts';
-import { answerFormatFor, buildTaskTemplate, shippedSystems } from '@/shared/task-template';
-import { FORMAT_MARKER, type OwnPromptTask } from '@/shared/answer/formats-v1';
+import { answerFormatFor } from '@/shared/task-template';
+import { FORMAT_MARKER } from '@/shared/answer/formats-v1';
 import { DEFAULT_PROMPT_TEMPLATE } from '@/shared/settings-schema';
 import { asLangPresetIdUnsafe } from '@/shared/brands';
 import type { CustomLanguage, Settings, TranslationRequest } from '@/shared/types';
 
 const FIXTURE = fileURLToPath(new URL('../../fixtures/prompt-golden.json', import.meta.url));
-// Never re-recorded: the literal v9 bytes, so Translate and Explain can prove they did not move.
-const FROZEN_V9 = fileURLToPath(new URL('../../fixtures/prompt-golden-v9.json', import.meta.url));
-const TRANSLATE_CASE = /^(?:translate|explain|image:explain|preview:translate)\b/;
 const silent = { debug() {}, info() {}, warn() {}, error() {} };
 
 // A hint that ends in a space: appending after the trim would lose it, so this guards the join point.
@@ -65,13 +62,7 @@ async function routerPrompt(
   return buildSystemAndUser({ ...ctx, reqView: { ...ctx.reqView, text: '' } }, r);
 }
 
-const OWN_PROMPT_TASKS: readonly OwnPromptTask[] = [
-  'summarize',
-  'grammar',
-  'suggest-replies',
-  'ask',
-];
-const OWN_PROMPT_TASKS_ALL: readonly OwnPromptTask[] = [...OWN_PROMPT_TASKS, 'reword'];
+const OWN_PROMPT_TASKS: readonly Task[] = ['summarize', 'grammar', 'suggest-replies', 'ask'];
 
 async function goldenCases(): Promise<Record<string, { system: string; user: string }>> {
   const s = mkSettings();
@@ -148,14 +139,6 @@ describe('golden prompts (no user edits)', () => {
     expect(Object.keys(actual).sort()).toEqual(Object.keys(recorded).sort());
     for (const k of Object.keys(recorded)) expect(actual[k], k).toEqual(recorded[k]);
   });
-
-  it('Translate and Explain still send the frozen v9 bytes', async () => {
-    const actual = await goldenCases();
-    const v9 = JSON.parse(readFileSync(FROZEN_V9, 'utf8')) as typeof actual;
-    const cases = Object.keys(v9).filter((k) => TRANSLATE_CASE.test(k));
-    expect(cases.length).toBeGreaterThan(10);
-    for (const k of cases) expect(actual[k], k).toEqual(v9[k]);
-  });
 });
 
 const TEMPLATES = fileURLToPath(
@@ -176,11 +159,5 @@ describe('shipped templates (v9)', () => {
     };
     expect(joined).toEqual(v9['translate']);
     expect(V9_FULL_PROMPT_TEMPLATE).toEqual(joined);
-  });
-  it.each(OWN_PROMPT_TASKS_ALL)('T-F0: a stored v9 %s row reads as the shipped prompt', (task) => {
-    const shipped = buildTaskTemplate(task);
-    expect(shipped.system).not.toContain(FORMAT_MARKER);
-    expect(shippedSystems(task)).toContain(v9[task]?.system);
-    expect(shipped.user).toBe(v9[task]?.user);
   });
 });

@@ -1,6 +1,5 @@
 import type { AnswerSpec } from '../answer/spec';
 import { toJsonSchema, type SchemaDialect } from '../answer/json-schema';
-import { replacedFormat } from '../answer/formats-v1';
 import { LIVE_SCHEMA_BACKENDS } from './schema-gates';
 
 export interface AnswerFormatRequest {
@@ -17,11 +16,8 @@ export function hasConflictingFormat(
 ): boolean {
   // A custom task's contract always goes last and is the only shape Ega reads.
   if (spec.join === 'after-build') return false;
-  const v1 = spec.pinned && replacedFormat(spec.pinned);
-  const rest = [spec.pinned, v1].reduce(
-    (text, format) => (format ? text.replace(format.text, '') : text),
-    `${template.system}\n${template.user}`,
-  );
+  const text = `${template.system}\n${template.user}`;
+  const rest = spec.pinned ? text.replace(spec.pinned.text, '') : text;
   return /\b(?:return|respond|output|reply|produce)\b[^.\n]{1,80}\b(?:json|plain text|markdown|xml)\b|\bjson\s+(?:only|schema)|\{\s*"[\w-]+"\s*:/i.test(
     rest,
   );

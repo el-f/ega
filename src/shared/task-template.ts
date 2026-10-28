@@ -1,12 +1,7 @@
 /** Prompt text for the worker and extension pages; never imported by the content UI. */
 import type { PromptTemplate, Settings } from './types';
 import type { Task } from './task-prompts';
-import {
-  TASK_FORMATS,
-  TASK_FORMATS_V1,
-  type AnswerFormat,
-  type OwnPromptTask,
-} from './answer/formats-v1';
+import type { AnswerFormat } from './answer/formats-v1';
 import { answerSpecFor } from './answer/spec';
 import { renderFormat } from './answer/render-format';
 
@@ -79,21 +74,6 @@ export function buildTaskTemplate(task: Task): PromptTemplate {
   }
   // translate and explain fall through: the router rewrites explain to translate + options.explain.
   throw new Error(`buildTaskTemplate should not be called for task=${String(task)}`);
-}
-
-/** System halves from answer spec v1 that differ from today's; v9 rows still hold them. */
-const SYSTEMS_V1: Partial<Record<OwnPromptTask, string>> = {
-  reword:
-    'Rewrite the text in a {{tone}} tone, keeping the SAME language as the input — restyle only, never translate. Preserve the exact factual content — do not add information, do not remove information, do not elaborate. Only restyle the existing content. Write the "explain" note in {{targetLangLabel}}.',
-};
-
-/** Every system half Ega shipped for a task with its own prompt, bare and with each format: a stored copy is not an edit. */
-export function shippedSystems(task: OwnPromptTask): string[] {
-  const { system } = buildTaskTemplate(task);
-  const now = TASK_FORMATS[task];
-  const v1 = TASK_FORMATS_V1[task];
-  const oldSystem = SYSTEMS_V1[task] ?? system;
-  return [system, system + now.sep + now.text, oldSystem, oldSystem + v1.sep + v1.text];
 }
 
 /** The prompt a built-in with its own prompt runs: each half is the user's edit, else the shipped half. */

@@ -8,8 +8,7 @@ import {
 } from '@/shared/backends/structured-output';
 import { makeOpenAICompatBackend } from '@/shared/backends/openai-compat';
 import { GeminiBackend } from '@/shared/backends/gemini';
-import { answerSpecFor, TRANSLATE_SPEC } from '@/shared/answer/spec';
-import v9 from '../../fixtures/prompt-templates-v9.json';
+import { TRANSLATE_SPEC } from '@/shared/answer/spec';
 import { resetOpenRouterReasoningForTest } from '@/shared/backends/openrouter-reasoning';
 import { setFetchHandler } from '@tests/mocks/fetch';
 import { buildBackendConfig } from '@/shared/backends/build-config';
@@ -68,14 +67,6 @@ describe('native answer schemas', () => {
       for (const spec of Object.values(CUSTOM_PRESETS))
         expect(hasConflictingFormat({ system, user: '{{text}}' }, spec), system).toBe(false);
   });
-
-  it.each(['summarize', 'reword', 'grammar', 'suggest-replies', 'ask'] as const)(
-    'a stored %s row that still holds the v1 format keeps the schema on',
-    (task) => {
-      const system = `${v9[task].system} Keep it short.`;
-      expect(hasConflictingFormat({ system, user: '{{text}}' }, answerSpecFor(task))).toBe(false);
-    },
-  );
 
   it.each(['openai', 'mistral', 'xai'] as const)(
     'sends a strict schema with unchanged prompts for %s',
