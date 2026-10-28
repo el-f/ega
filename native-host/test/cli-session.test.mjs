@@ -1234,6 +1234,38 @@ for (const [label, line] of [
   });
 }
 
+test('a CLI that Node cannot spawn is reported as not installed', async () => {
+  const f = makeSpawnFactory();
+  const mgr = new CliSessionManager({ spawn: f.spawn, idleTimeoutMs: 10_000 });
+  const frames = [];
+  mgr.send('claude', { user: 'a' }, (e) => frames.push(e), 'ext-A');
+  f.children[0]._test.failSpawn(new Error('spawn C:\\Program Files\\nodejs\\claude.exe ENOENT'));
+  await nextTick();
+  await nextTick();
+  assert.deepEqual(codes(frames), ['NATIVE_SPAWN_FAIL']);
+  assert.match(frames[0].message, /was not found\. Install it/);
+  mgr.closeAll();
+});
+
+// The CLI prints ENOENT for a file or a helper it could not open; only Node's own spawn failure means it is missing.
+for (const stderr of [
+  "Error: ENOENT: no such file or directory, open 'C:\\tmp\\ega-img-1.png'",
+  'Error: spawn rg ENOENT',
+]) {
+  test(`a one-shot that exits on "${stderr}" keeps the CLI's own words`, async () => {
+    const f = makeSpawnFactory();
+    const mgr = new CliSessionManager({ spawn: f.spawn });
+    const r = oneShot(mgr);
+    await nextTick();
+    f.children[0].stderr.emit('data', Buffer.from(`${stderr}\n`));
+    f.children[0]._test.crash(1);
+    await r.run;
+    assert.equal(terminals(r.frames).length, 1);
+    assert.doesNotMatch(r.frames[0].message, /was not found/);
+    assert.equal(r.frames[0].message, stderr);
+  });
+}
+
 // The text claude 2.1.280 prints at startup (read from its binary) when an enterprise managed-mcp.json exists.
 const MANAGED_MCP_EXIT =
   'You cannot use --strict-mcp-config when an enterprise MCP config is present\n';
