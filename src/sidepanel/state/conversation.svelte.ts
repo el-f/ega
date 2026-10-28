@@ -727,7 +727,8 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
 
   async function retryVariant(turn: Turn): Promise<StartedAnswer | null> {
     const failed = activeVariant(turn);
-    if (failed === undefined) return null;
+    // Checked before the drop: a version with nothing to replay must stay, not vanish with nothing sent.
+    if (failed === undefined || resolveVariantTarget(turn.id) === null) return null;
     const retried = (turn.retries ?? 0) + 1;
     mutate(
       (turns) =>
@@ -781,10 +782,8 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
 
   /** The turn's own dispatch, else the panel-wide one: a restored thread has no lastDispatch, but its turns carry their own. */
   function replayDispatch(userTurn: Turn): TurnDispatch | null {
-    // An image turn whose image is gone would send the placeholder as text, whatever dispatch it borrows.
-    if (userTurn.content === IMAGE_TURN_PLACEHOLDER && userTurn.imageDataUrl === undefined) {
-      return null;
-    }
+    // An image turn whose image is gone would send its placeholder or caption as text, whatever dispatch it borrows.
+    if (isImageTurn(userTurn) && userTurn.imageDataUrl === undefined) return null;
     return userTurn.dispatch ?? state.lastDispatch;
   }
 

@@ -218,6 +218,55 @@ describe('a shed image drops its dispatch, a reload keeps Undo', () => {
     expect(c.turns[0]?.dispatch).toBeUndefined();
   });
 
+  // `r` reaches retry() without the Retry button's dispatch gate, and a later send sets the panel-wide dispatch.
+  it.each([
+    ['a done answer', { status: 'done', content: 'old answer' }],
+    ['a failed answer', { status: 'error', content: '', error: { code: 'NETWORK', message: 'x' } }],
+    [
+      'a failed version beside a done one',
+      {
+        status: 'error',
+        content: '',
+        error: { code: 'NETWORK', message: 'x' },
+        variants: [
+          { id: 'a1:v1', status: 'done', content: 'old answer' },
+          { id: 'a1:v2', status: 'error', content: '', error: { code: 'NETWORK', message: 'x' } },
+        ],
+        activeVariantIdx: 1,
+      },
+    ],
+  ] as const)('a re-run of %s on a shed captioned image sends nothing', async (_, answer) => {
+    const o = 'https://shed-caption.com';
+    const shed: Turn = {
+      id: 'u1',
+      role: 'user',
+      kind: 'image-translate',
+      status: 'idle',
+      createdAt: 10,
+      content: 'look at this',
+      imageShed: true,
+    };
+    const a1 = { id: 'a1', role: 'assistant', kind: 'image-translate', createdAt: 11 };
+    await saveThread(o, [shed, { ...a1, attachedToTurnId: 'u1', ...answer } as Turn]);
+    const c = createConversation();
+    await c.openConversation(o);
+    const send = await c.send({
+      content: 'hola',
+      kind: 'translate',
+      sourceLang: asLangIdUnsafe('es'),
+      targetLang: asLangIdUnsafe('fr'),
+      stream: true,
+    });
+    c.applyChunk({ type: 'done', requestId: startCalls()[0]?.['requestId'] as string });
+    expect(c.turns.find((t) => t.id === send)?.status).toBe('done');
+    const before = c.turns.find((t) => t.id === 'a1')?.variants?.length;
+
+    expect(await c.retry('a1')).toBeNull();
+
+    expect(startCalls()).toHaveLength(1);
+    expect(c.turns.find((t) => t.id === 'a1')?.variants?.length).toBe(before);
+  });
+
   it('a same-site reload keeps Undo for a delete that emptied the thread', async () => {
     const o = 'https://same-site-undo.com';
     await saveThread(o, [userTurn('t1', 'only', 10)]);
