@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { ALL_TASKS } from '@/shared/task-prompts';
-import { answerSpecFor, CUSTOM_PRESETS, validateSpec, type AnswerSpec } from '@/shared/answer/spec';
+import {
+  answerSpecFor,
+  CUSTOM_PRESETS,
+  validateSpec,
+  type AnswerField,
+  type AnswerSpec,
+} from '@/shared/answer/spec';
 import { renderFormat } from '@/shared/answer/render-format';
 import { toJsonSchema } from '@/shared/answer/json-schema';
 
@@ -82,13 +88,13 @@ describe('versioned answer specs', () => {
     });
     for (const key of ['confidence', 'detectedLang', 'detectedDetail', 'detectedLangs'])
       expect(validateSpec(extra({ key }))).toContain(
-        `Note: the JSON key ${key} is kept for Ega's own data; remove this field.`,
+        'Note: Ega uses this name itself; rename this field.',
       );
     // The card preset's notes field: tasks seeded from it keep working.
     expect(validateSpec(extra({ key: 'explain' }))).toEqual([]);
     for (const field of [{ role: 'hidden' }, { role: 'details' }, { kind: 'list' }] as const)
       expect(validateSpec(extra({ key: 'explain', ...field }))).toContain(
-        'Note: the JSON key explain must stay a text field shown in Notes.',
+        'Note: this field must stay Text, shown in Notes.',
       );
   });
   it('limits custom fields and validates keys, labels, guidance, and choices', () => {
@@ -119,6 +125,34 @@ describe('versioned answer specs', () => {
         })),
       }),
     ).not.toEqual([]);
+  });
+});
+
+describe('problems shown under a field', () => {
+  it('use the words the editor shows, never JSON, key or spec jargon', () => {
+    const bad: AnswerField[] = [
+      { ...main, key: '1answer', label: 'a'.repeat(41), guide: 'a\nb', maxChars: 0 },
+      { key: 'confidence', label: 'Score', kind: 'score', role: 'meta', required: false },
+      { key: 'explain', label: 'Why', kind: 'list', role: 'notes', required: false },
+      {
+        key: 'pick',
+        label: 'Pick',
+        kind: 'choice',
+        role: 'notes',
+        required: false,
+        when: 'explain',
+      },
+      { key: 'pick', label: 'pick', kind: 'text', role: 'main', required: false },
+    ];
+    const issues = [
+      ...validateSpec({ ...custom, version: 0, fields: bad }),
+      ...validateSpec({ ...custom, fields: Array.from({ length: 9 }, () => main) }),
+    ];
+    expect(issues.length).toBeGreaterThanOrEqual(12);
+    for (const issue of issues)
+      expect(issue).not.toMatch(
+        /JSON|\bkey\b|\bspec\b|metadata|conditional|label|guidance|distinct/i,
+      );
   });
 });
 
@@ -165,7 +199,7 @@ describe('generated formats and provider schemas', () => {
           { key: 'note', label: main.label, kind: 'text', role: 'notes', required: false },
         ],
       }),
-    ).toContain('Answer: use a unique field name.');
+    ).toContain('Answer: two fields have this name.');
   });
   it('names every custom field in order, with its guidance and choices', () => {
     const rendered = renderFormat(custom);

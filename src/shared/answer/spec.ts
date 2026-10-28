@@ -233,8 +233,8 @@ export function validateSpec(spec: AnswerSpec): string[] {
   const issues: string[] = [];
   const custom = spec.id.startsWith('custom:') || spec.join === 'after-build';
   if (!spec.id || !Number.isInteger(spec.version) || spec.version < 1)
-    issues.push('Invalid answer spec version.');
-  if (custom && spec.fields.length > 8) issues.push('Use at most 8 answer fields.');
+    issues.push('Ega cannot read these reply fields.');
+  if (custom && spec.fields.length > 8) issues.push('Use at most 8 reply fields.');
   const mains = spec.fields.filter((f) => f.role === 'main');
   if (mains.length !== 1 || (mains[0]?.kind !== 'text' && mains[0]?.kind !== 'list'))
     issues.push('Choose one text or list field as the main answer.');
@@ -247,24 +247,22 @@ export function validateSpec(spec: AnswerSpec): string[] {
       ['constructor', 'prototype', '__proto__'].includes(field.key) ||
       keys.has(field.key)
     )
-      issues.push(`${prefix}: use a unique field key of at most 32 characters.`);
+      issues.push(`${prefix}: edit the name so Ega can read this field.`);
     keys.add(field.key);
     if (!field.label.trim() || field.label.length > 40)
-      issues.push(`${prefix}: use a label of 1 to 40 characters.`);
+      issues.push(`${prefix}: use a name of 1 to 40 characters.`);
     const label = field.label.trim().toLowerCase();
-    if (custom && labels.has(label)) issues.push(`${prefix}: use a unique field name.`);
+    if (custom && labels.has(label)) issues.push(`${prefix}: two fields have this name.`);
     labels.add(label);
     if (field.guide !== undefined && (field.guide.length > 200 || /[\r\n]/.test(field.guide)))
-      issues.push(`${prefix}: keep guidance on one line of at most 200 characters.`);
+      issues.push(`${prefix}: keep What goes here to one line of at most 200 characters.`);
     if (custom && META_KEYS.includes(field.key))
-      issues.push(
-        `${prefix}: the JSON key ${field.key} is kept for Ega's own data; remove this field.`,
-      );
+      issues.push(`${prefix}: Ega uses this name itself; rename this field.`);
     // The done chunk shows explain as notes; the card preset's text note is the one safe shape.
     if (custom && field.key === 'explain' && (field.kind !== 'text' || field.role !== 'notes'))
-      issues.push(`${prefix}: the JSON key explain must stay a text field shown in Notes.`);
+      issues.push(`${prefix}: this field must stay Text, shown in Notes.`);
     if (custom && (field.role === 'meta' || field.when !== undefined))
-      issues.push(`${prefix}: metadata and conditional fields are reserved for built-in tasks.`);
+      issues.push(`${prefix}: only Ega's built-in tasks can use this kind of field.`);
     if (
       field.kind === 'choice' &&
       (!field.choices ||
@@ -273,11 +271,11 @@ export function validateSpec(spec: AnswerSpec): string[] {
         field.choices.some((c) => !c.trim()) ||
         new Set(field.choices.map((c) => c.toLowerCase())).size !== field.choices.length)
     )
-      issues.push(`${prefix}: add 2 to 12 distinct choices.`);
+      issues.push(`${prefix}: add 2 to 12 different choices.`);
     if (field.maxChars !== undefined && (!Number.isInteger(field.maxChars) || field.maxChars < 1))
-      issues.push(`${prefix}: the character limit must be positive.`);
+      issues.push(`${prefix}: the character limit must be 1 or more.`);
     if (field.role === 'main' && (!field.required || field.when !== undefined))
-      issues.push(`${prefix}: the main answer must always be required.`);
+      issues.push(`${prefix}: the main answer must always be filled.`);
   }
   return issues;
 }
