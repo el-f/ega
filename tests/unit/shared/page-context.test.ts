@@ -5,7 +5,6 @@ import {
   readPageDescription,
   readSiteName,
   readHeadingTrail,
-  cutGraphemes,
 } from '@/shared/page-context';
 
 function makeDoc(html: string): Document {
@@ -211,19 +210,5 @@ describe('readHeadingTrail', () => {
     expect(trail).toEqual(['Outer']);
     // jsdom is ~10x slower than a browser; a linear scan stays under 50ms, a quadratic one does not.
     expect(elapsed).toBeLessThan(50);
-  });
-});
-
-describe('cutGraphemes', () => {
-  it('cuts the start at a grapheme edge, never inside a surrogate pair or an emoji sequence', () => {
-    expect(cutGraphemes('ab😀cd', 3)).toBe('ab');
-    expect(cutGraphemes('a👨‍👩‍👧b', 4)).toBe('a');
-    expect(cutGraphemes('abcdef', 4)).toBe('abcd');
-    expect(cutGraphemes('abc', 4)).toBe('abc');
-  });
-
-  it('keeps the end with fromEnd, starting at a grapheme edge', () => {
-    expect(cutGraphemes('ab😀cd', 3, true)).toBe('cd');
-    expect(cutGraphemes('abcdef', 4, true)).toBe('cdef');
   });
 });
