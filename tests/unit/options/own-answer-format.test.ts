@@ -100,6 +100,14 @@ describe('a prompt with its own answer format', () => {
     expect(fieldErrors(result?.fields ?? []).size).toBe(0);
   });
 
+  it('a long guide with no space is cut between characters, never inside an emoji', () => {
+    const emoji = String.fromCodePoint(0x1f600);
+    const result = convert(`Do it. Return JSON: {"result": <a${emoji.repeat(100)}>, "why": <x>}.`);
+    const guide = result?.fields[0]?.guide ?? '';
+    expect(guide.length).toBeLessThanOrEqual(200);
+    expect(guide).toBe(`a${emoji.repeat(99)}`);
+  });
+
   it('refuses when the format is the whole of its half', () => {
     expect(convert('Return JSON {"answer": string, "tags": string}.')).toBeNull();
   });

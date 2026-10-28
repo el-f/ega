@@ -3,6 +3,7 @@ import { META_KEYS, type AnswerField } from '@/shared/answer/spec';
 import { FORMAT_MARKER, type AnswerFormat } from '@/shared/answer/formats-v1';
 import { stripStandardFormat } from '@/shared/prompts';
 import { fieldKey } from '@/shared/answer/field-key';
+import { capText } from '@/shared/text-cap';
 
 export interface OwnAnswerFormat {
   half: 'system' | 'user';
@@ -60,7 +61,7 @@ function shapeOf(value: string): Pick<AnswerField, 'kind' | 'guide'> {
     .replace(/\s+as\s+an?\s+(?:string|array|list)$/i, '')
     .trim();
   const cut = words.lastIndexOf(' ', 200);
-  const guide = words.length <= 200 ? words : words.slice(0, cut > 0 ? cut : 200);
+  const guide = words.length <= 200 ? words : cut > 0 ? words.slice(0, cut) : capText(words, 200);
   return { kind: list ? 'list' : 'text', ...(TYPE_WORD.test(guide) ? {} : { guide }) };
 }
 
