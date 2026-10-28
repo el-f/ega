@@ -1,8 +1,12 @@
 // @vitest-environment node
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { detectLang } from '@/content/detect';
 import { shouldShowBubbleWithReason } from '@/content/should-show-bubble';
-import { looksLikeEnglish } from '@/content/looks-like-english';
+import {
+  lexiconCacheInternal,
+  loadEnglishLexicon,
+  looksLikeEnglish,
+} from '@/content/looks-like-english';
 import { safeCount } from '@/shared/safe-regex';
 import { preset } from '@tests/_helpers/lang';
 import type { CustomLanguage } from '@/shared/types';
@@ -42,6 +46,54 @@ describe('English with digits is not Arabizi or leetspeak', () => {
   });
 });
 
+// A tool, product or chemical name has the Arabizi shape; the words around it decide.
+const ENGLISH_WITH_A_NAME = [
+  'Run md5sum on the file before uploading it.',
+  'Acetic acid, CH3COOH, is the main part of vinegar.',
+  'Total emissions were 50 tCO2e last year.',
+  'I learned HTML on w3schools years ago.',
+  'My old mp3player still works fine.',
+  'c3po is my favorite droid in the films.',
+  'Load html5shiv for old browsers.',
+  'Install md5sum and s3cmd, then read the w3schools page.',
+  'The release notes explain how the new installer checks every download. Run md5sum on the archive, compare it with the published value, and only then unpack it into the program folder.',
+];
+
+describe('English with one Arabizi-shaped name is not Arabizi', () => {
+  it.each(ENGLISH_WITH_A_NAME)('before the lexicon loads: %s', (text) => {
+    expect(detectLang(text)?.id).toBeUndefined();
+  });
+
+  describe('with the lexicon loaded', () => {
+    beforeAll(async () => {
+      await loadEnglishLexicon();
+    });
+    afterAll(() => {
+      lexiconCacheInternal.mod = null;
+      lexiconCacheInternal.promise = null;
+    });
+    it.each(ENGLISH_WITH_A_NAME)('%s', (text) => {
+      expect(detectLang(text)?.id).toBeUndefined();
+    });
+  });
+
+  // The product call: a mostly English line goes out as auto, and the bubble still shows for its Arabizi word.
+  it('reads a mostly English line with one Arabizi word as auto, and still shows the bubble', () => {
+    expect(detectLang('I love you 7abibi')?.id).toBeUndefined();
+    expect(bubble('I love you 7abibi')).toEqual({ show: true, reason: 'arabizi-fallback' });
+  });
+});
+
+// Arabizi and leetspeak are written in Latin letters, so a Latin name inside Hebrew text is neither.
+describe('a Hebrew block with one Latin name is not Arabizi', () => {
+  it.each([
+    'שלום לכולם, למדתי HTML באתר w3schools לפני הרבה שנים',
+    'בדקו את הקובץ עם md5sum לפני ההתקנה',
+  ])('%s', (text) => {
+    expect(detectLang(text)?.id).toBeUndefined();
+  });
+});
+
 // A chat line usually carries one Arabizi word.
 describe('a single line of Arabizi is detected', () => {
   it.each([
@@ -52,6 +104,8 @@ describe('a single line of Arabizi is detected', () => {
     'wayed 6ayeb w 7elw',
     'ana 3ayez ps4 w xbox1 ya 7abibi',
     'shu ra2yak bel galaxy s10 wala iphone11',
+    'habibi I miss you, kifak? ana b7ebak',
+    'el youm kan 7elw ktir',
   ])('%s', (text) => {
     expect(detectLang(text)?.id).toBe('arabizi');
   });
