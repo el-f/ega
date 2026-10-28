@@ -312,7 +312,7 @@ MV3 · pnpm · Node 22.
 
 ## Status
 
-Version 0.0.1, alpha. The settings schema still changes between versions.
+Version 0.0.2, alpha. The settings schema still changes between versions.
 
 Issues, discussions and outside pull requests are off. You can read the code, use it and
 fork it under the MIT license.

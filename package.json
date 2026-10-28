@@ -1,6 +1,6 @@
 {
   "name": "ega",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "private": true,
   "description": "Chrome extension that translates Arabizi, slang, Elvish, jargon and custom languages into the language you pick, through an LLM backend you choose.",
   "license": "MIT",
