@@ -237,7 +237,7 @@ describe('PromptEditor — own format notice and checks', () => {
     }
   });
 
-  it("a custom task shows the dialog's own notice under Instructions, never the built-in one", () => {
+  it("a custom task shows the dialog's own notice under Instructions, in the built-in notice's box", () => {
     const { container } = setup({
       kind: 'custom',
       task: 'custom-1',
@@ -246,10 +246,10 @@ describe('PromptEditor — own format notice and checks', () => {
       initial: { system: 'Return JSON ONLY: my own', user: '{{text}}' },
       formatNotice: createRawSnippet(() => ({ render: () => '<p data-ega-test-notice>mine</p>' })),
     });
-    expect(
-      container.querySelector('[data-ega-template-system] [data-ega-test-notice]'),
-    ).not.toBeNull();
-    expect(container.querySelector('[data-ega-answer-format-own]')).toBeNull();
+    const box = container.querySelector('[data-ega-template-system] [data-ega-answer-format-own]');
+    expect(box?.querySelector('[data-ega-test-notice]')).not.toBeNull();
+    expect(box?.className).toContain('pe-format-own');
+    expect(box?.textContent).not.toContain('Ega reads only the parts under Reply');
     expect(container.querySelector('[data-ega-answer-format]')).toBeNull();
   });
 

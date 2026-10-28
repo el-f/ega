@@ -234,7 +234,7 @@
           {/if}
         </div>
       {:else if formatNotice}
-        {@render formatNotice()}
+        <div class="pe-format-own" data-ega-answer-format-own>{@render formatNotice()}</div>
       {/if}
     </div>
 

@@ -564,33 +564,31 @@
     </ReplySection>
 
     {#snippet ownFormatNotice()}
-      <div class="ct-own-format" data-ega-answer-format-own>
-        <p class="ct-hint">
-          Your instructions ask for their own format. Ega still adds its own, so the model gets two.
-        </p>
-        {#if ownFormat && conversion === null}
-          <p class="ct-hint">Ega cannot take it out without leaving the instructions empty</p>
-        {:else if conversion}
-          <div>
-            <Button
-              variant="secondary"
-              size="sm"
-              ariaDisabled={problemOf('label') !== null || messageError !== null}
-              {...problemOf('label') !== null || messageError !== null
-                ? { describedBy: `${uid}-convert-reason` }
-                : {}}
-              onclick={() => void convertInstructions()}>Turn into fields</Button
-            >
-          </div>
-          {#if problemOf('label') !== null || messageError !== null}<p
-              class="ct-hint"
-              id="{uid}-convert-reason"
-              data-ega-disabled-reason
-            >
-              Add a task name and a message with Selected text first.
-            </p>{/if}
-        {/if}
-      </div>
+      <p class="ct-hint">
+        Your instructions ask for their own format. Ega still adds its own, so the model gets two.
+      </p>
+      {#if ownFormat && conversion === null}
+        <p class="ct-hint">Ega cannot take it out without leaving the instructions empty</p>
+      {:else if conversion}
+        <div>
+          <Button
+            variant="secondary"
+            size="sm"
+            ariaDisabled={problemOf('label') !== null || messageError !== null}
+            {...problemOf('label') !== null || messageError !== null
+              ? { describedBy: `${uid}-convert-reason` }
+              : {}}
+            onclick={() => void convertInstructions()}>Turn into fields</Button
+          >
+        </div>
+        {#if problemOf('label') !== null || messageError !== null}<p
+            class="ct-hint"
+            id="{uid}-convert-reason"
+            data-ega-disabled-reason
+          >
+            Add a task name and a message with Selected text first.
+          </p>{/if}
+      {/if}
     {/snippet}
     <div class="ct-prompt">
       <PromptEditor
