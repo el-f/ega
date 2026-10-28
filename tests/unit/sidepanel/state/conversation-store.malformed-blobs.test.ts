@@ -194,6 +194,22 @@ describe('an assistant turn stored without variants', () => {
     expect(change?.turns.map((t) => t.id)).toEqual(['a1']);
   });
 
+  it('drops only the turn whose meta is null, and keeps the thread', async () => {
+    const nullMeta = { id: 'v1', status: 'done', content: 'x', rawAcc: '', meta: null };
+    const turns = [
+      goodTurn(),
+      answer({ variants: [nullMeta] }),
+      answer({ id: 'a2', meta: null }),
+      goodTurn({ id: 'u2' }),
+    ];
+    await put(blob({ turns }));
+
+    const read = await loadThreadResult('https://a.com');
+    expect(read.unreadable).toBe(false);
+    expect(read.turns.map((t) => t.id)).toEqual(['u1', 'u2']);
+    expect(parseThreadChange(blob({ turns }), 'me')?.turns.map((t) => t.id)).toEqual(['u1', 'u2']);
+  });
+
   it('rebuilds nothing for a user turn', async () => {
     await put(blob({ turns: [goodTurn()] }));
 

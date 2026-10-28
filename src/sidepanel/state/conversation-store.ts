@@ -369,7 +369,12 @@ function parseStoredThread(raw: unknown): ReadThread {
   if (!isReadableVersion(raw)) return emptyRead(true);
   const validated: Turn[] = [];
   for (const t of raw.turns) {
-    const valid = validateStoredTurn(t);
+    let valid: Turn | null = null;
+    try {
+      valid = validateStoredTurn(t);
+    } catch {
+      // A malformed nested field the guards do not check costs this turn, not the thread.
+    }
     if (valid !== null) validated.push(valid);
   }
   const clearedAt = Number.isFinite(raw.clearedAt) ? raw.clearedAt : undefined;
