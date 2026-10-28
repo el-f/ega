@@ -31,7 +31,7 @@ export function createTaskTryHandler(
       const id = `preview-${msg.requestId}`;
       const row = v.safeParse(customTaskSchema, { ...msg.draft, id, createdAt: Date.now() });
       if (!row.success)
-        return fail('Check the task name, message and answer fields before trying it.');
+        return fail('Check the task name, message and reply fields before trying it.');
       const saved = typeof msg.taskId === 'string' ? msg.taskId : undefined;
       const router = createRouter({
         ...deps,

@@ -118,7 +118,11 @@ describe('trying an unsaved task', () => {
     const h = handler(translate);
     expect(await h.run(message, false)).toMatchObject({ type: 'error', code: 'REQUEST' });
     expect(await h.run({ ...message, draft: { ...message.draft, label: '' } }, true)).toMatchObject(
-      { type: 'error', code: 'REQUEST' },
+      {
+        type: 'error',
+        code: 'REQUEST',
+        message: 'Check the task name, message and reply fields before trying it.',
+      },
     );
     expect(await h.run({ ...message, text: '' }, true)).toMatchObject({
       type: 'error',
