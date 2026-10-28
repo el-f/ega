@@ -5,6 +5,7 @@ import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import type { Msg, MsgReply } from '@/shared/messages';
 import type { TranslationRequest } from '@/shared/types';
 import { loadThreadResult, saveThread } from '@/sidepanel/state/conversation-store';
+import { isWellFormed } from '@tests/_helpers/well-formed';
 
 const backendIds = [...DEFAULT_SETTINGS.backendOrder];
 
@@ -324,6 +325,39 @@ describe('translate:start pageHost', () => {
     await vi.waitFor(() => expect(routerMock.handleTranslate).toHaveBeenCalledTimes(1));
     const [req] = routerMock.handleTranslate.mock.calls[0] as [{ pageHost?: string }];
     expect(req.pageHost).toBeUndefined();
+  });
+});
+
+// A cut at a fixed index can leave half an emoji, which JSON writes as a lone `\ud83d` into the request body.
+describe('translate:start caps never cut inside an emoji', () => {
+  it('the text, history, refinement and page context stay well formed', async () => {
+    routerMock.handleTranslate.mockClear();
+    const long = `${'a'.repeat(1999)}😀 and the tail`;
+    await ask(
+      {
+        kind: 'translate:start',
+        requestId: 'rs1',
+        text: long,
+        sourceLang: 'auto',
+        context: { pageTitle: long, headingTrail: [long] },
+        options: {
+          stream: true,
+          explain: false,
+          refinement: long,
+          conversationHistory: [
+            { role: 'user', content: long },
+            { role: 'assistant', content: long },
+          ],
+        },
+      },
+      PAGE_SENDER,
+    );
+    await vi.waitFor(() => expect(routerMock.handleTranslate).toHaveBeenCalledTimes(1));
+    const [req] = routerMock.handleTranslate.mock.calls[0] as [TranslationRequest];
+    expect(req.text).toBe('a'.repeat(1999));
+    // JSON.stringify writes a whole pair as is and only a lone surrogate as an escape.
+    expect(JSON.stringify(req)).not.toMatch(/\\ud[89a-f][0-9a-f]{2}/);
+    expect(isWellFormed(req.options.conversationHistory?.[1]?.content ?? '')).toBe(true);
   });
 });
 

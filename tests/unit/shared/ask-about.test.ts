@@ -12,6 +12,7 @@ import {
 import { askAboutFor, askedAboutFor, linkedQuote } from '@/sidepanel/state/thread-view';
 import { SHIPPED_TASK_VIEWS } from '@/shared/task-view';
 import { sel } from '@tests/_helpers/lang';
+import { isWellFormed } from '@tests/_helpers/well-formed';
 
 const ABOUT: AskAbout = {
   task: 'Translate',
@@ -38,6 +39,13 @@ describe('capAskAbout', () => {
     expect(out?.original).toHaveLength(2000);
     expect(out?.original.endsWith('…')).toBe(true);
     expect(out?.notes).toHaveLength(1000);
+  });
+
+  it('never cuts inside an emoji, so the prompt has no lone surrogate', () => {
+    const result = `${'r'.repeat(1998)}😀 and the tail`;
+    const out = capAskAbout({ ...ABOUT, result });
+    expect(out?.result).toBe(`${'r'.repeat(1998)}…`);
+    expect(isWellFormed(askQuote(`${'q'.repeat(198)}😀 tail`))).toBe(true);
   });
 
   it('an empty original is allowed: a handed-off reply may have none', () => {

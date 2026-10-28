@@ -1,3 +1,5 @@
+import { capText } from './text-cap';
+
 /** Which reply a question asks about: a reference, never a copy of its text (D58). Each request builds its
  *  block from the thread as it is then, so a deleted reply leaves every later request at once. */
 export interface AskTarget {
@@ -36,7 +38,7 @@ const ID_MAX = 200;
 const QUOTE_MAX = 200;
 
 function clip(v: string, max: number): string {
-  return v.length > max ? `${v.slice(0, max - 1)}…` : v;
+  return v.length > max ? `${capText(v, max - 1)}…` : v;
 }
 
 function text(v: unknown, max: number): string | undefined {

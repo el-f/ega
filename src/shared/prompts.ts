@@ -2,6 +2,7 @@ import type { LangPreset, TranslationRequest, PromptTemplate } from './types';
 import type { ChatTurn } from './chat-history';
 import type { AskAbout } from './ask-about';
 import { toSingleLine } from './utils/single-line';
+import { capText } from './text-cap';
 import { DEFAULT_DESCRIPTION_CONTEXT_CAP } from './constants';
 import { DEFAULT_PROMPT_TEMPLATE } from './settings-defaults';
 import { labelFor } from './languages';
@@ -63,7 +64,7 @@ const CANDIDATE_HINT_MAX = 500;
 
 function capOnWordBoundary(s: string, max: number): string {
   if (s.length <= max) return s;
-  const cut = s.slice(0, max);
+  const cut = capText(s, max);
   const lastSpace = cut.lastIndexOf(' ');
   return (lastSpace > 0 ? cut.slice(0, lastSpace) : cut) + '…';
 }
@@ -115,9 +116,7 @@ function renderContext(req: TranslationRequest, descCap: number, explain: boolea
   if (c.pageLang) parts.push(`Page language: ${escapeInline(c.pageLang)}`);
   if (c.siteName) parts.push(`Site: ${escapeInline(c.siteName)}`);
   if (c.pageDescription) {
-    const desc =
-      c.pageDescription.length > descCap ? c.pageDescription.slice(0, descCap) : c.pageDescription;
-    parts.push(`Description: ${quoteInline(desc)}`);
+    parts.push(`Description: ${quoteInline(capText(c.pageDescription, descCap))}`);
   }
   if (c.headingTrail && c.headingTrail.length > 0) {
     parts.push(`Section: ${c.headingTrail.map(escapeInline).join(' > ')}`);

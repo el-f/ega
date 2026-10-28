@@ -33,6 +33,7 @@ import { parseSettingsPatch, resolveModelId } from '@/shared/settings-schema';
 import { assertNever } from '@/shared/invariants';
 import { MAX_SELECTION_CHARS } from '@/shared/constants';
 import { capAskAbout } from '@/shared/ask-about';
+import { capText } from '@/shared/text-cap';
 import { dispatchImageTranslate } from './imageTranslateDispatch';
 import { openSidePanelWithHandoff, type OpenSidePanelHandoff } from './openSidePanelHandoff';
 import { writePendingPopupHandoff } from '@/shared/pending-popup-handoff';
@@ -131,8 +132,7 @@ void maybePreWarmNative();
 const MAX_HEADING_TRAIL_ENTRIES = 10;
 export const MAX_HISTORY_TURNS = 40;
 
-const cap = (v: string): string =>
-  v.length > MAX_SELECTION_CHARS ? v.slice(0, MAX_SELECTION_CHARS) : v;
+const cap = (v: string): string => capText(v, MAX_SELECTION_CHARS);
 
 function withoutApiKeys(s: Settings): Settings {
   const copy: Record<string, unknown> = { ...s };
@@ -420,8 +420,7 @@ chrome.runtime.onMessage.addListener((rawMsg, sender, sendResponse) => {
       };
       // Don't trust caller — content script caps at MAX_SELECTION_CHARS,
       // but an injected message could bypass.
-      const boundedText =
-        msg.text.length > MAX_SELECTION_CHARS ? msg.text.slice(0, MAX_SELECTION_CHARS) : msg.text;
+      const boundedText = cap(msg.text);
       void (async () => {
         let targetLang = msg.targetLang;
         if (!targetLang) {

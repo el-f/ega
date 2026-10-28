@@ -16,6 +16,7 @@ import {} from '@/shared/settings-schema';
 import { DEFAULT_PROMPT_TEMPLATE } from '@/shared/settings-defaults';
 import type { LangSelection, TranslationRequest } from '@/shared/types';
 import { getPreset } from '@/shared/presets';
+import { isWellFormed } from '@tests/_helpers/well-formed';
 
 const baseReq = (over: Partial<TranslationRequest> = {}): TranslationRequest => ({
   id: 'r1',
@@ -1006,5 +1007,28 @@ describe('renderContext — selection-source in a script without spaces', () => 
       { preset: undefined, template: DEFAULT_PROMPT_TEMPLATE },
     ).user;
     expect(user).toMatch(/Selection-source:/);
+  });
+});
+
+describe('prompt caps never cut inside an emoji', () => {
+  it('the page description and an over-long candidate hint stay well formed', () => {
+    const arabizi = getPreset('arabizi');
+    if (!arabizi) throw new Error('expected arabizi preset');
+    const p = buildPrompt(
+      baseReq({
+        sourceLang: 'auto',
+        context: { pageDescription: `${'d'.repeat(9)}😀 rest` },
+      }),
+      {
+        preset: undefined,
+        template: DEFAULT_TEMPLATE,
+        descriptionContextCap: 10,
+        candidates: [{ ...arabizi, hint: `${'h'.repeat(499)}😀 rest` }],
+      },
+    );
+    expect(p.user).toContain(`${'d'.repeat(9)}`);
+    expect(p.system).toContain(`${'h'.repeat(499)}…`);
+    expect(isWellFormed(p.user)).toBe(true);
+    expect(isWellFormed(p.system)).toBe(true);
   });
 });
