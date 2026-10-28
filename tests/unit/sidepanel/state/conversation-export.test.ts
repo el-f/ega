@@ -63,6 +63,17 @@ describe('exportMarkdown', () => {
     expect(md).toBe('**You (Translate image):** [image]\n\n**Ega:** Hola mundo');
   });
 
+  it('keeps the text typed with an image, as the JSON export and a shed turn do', () => {
+    const turns: Turn[] = [
+      userTurn({
+        kind: 'image-translate',
+        content: 'translate the sign',
+        imageDataUrl: 'data:image/png;base64,abc',
+      }),
+    ];
+    expect(exportMarkdown(turns)).toBe('**You (Translate image):** translate the sign');
+  });
+
   it('skips assistant turns with empty content', () => {
     const turns: Turn[] = [userTurn(), assistantTurn({ content: '', status: 'pending' })];
     const md = exportMarkdown(turns);
