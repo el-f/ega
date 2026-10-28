@@ -1,12 +1,7 @@
 import * as v from 'valibot';
 import { answerDetailText } from '../answer-presentation';
 import type { AnswerField, AnswerSpec } from './spec';
-import {
-  createStringValueScan,
-  lastNonBlank,
-  parseLenientSpan,
-  parseJsonResponse,
-} from './legacy-reader';
+import { createStringValueScan, parseLenientSpan, parseJsonResponse } from './legacy-reader';
 
 export interface AnswerNote {
   key: string;
@@ -315,7 +310,9 @@ export function createAnswerProjector(
   let openedAt = -1;
   let read = 0;
   const objectStart = /[[{]\s*(?:["[{]|$)/y;
-  function track(): void {
+  /** True when a top-level object or list closed in the new text. */
+  function track(): boolean {
+    let closed = false;
     for (; read < raw.length; read++) {
       const ch = raw[read];
       if (inString) {
@@ -325,27 +322,30 @@ export function createAnswerProjector(
       } else if (ch === '"') inString = depth > 0;
       else if (ch === '{' || ch === '[') {
         if (depth++ === 0) openedAt = read;
-      } else if ((ch === '}' || ch === ']') && depth > 0) depth--;
+      } else if ((ch === '}' || ch === ']') && depth > 0 && --depth === 0) closed = true;
     }
+    return closed;
   }
   return {
     push(delta) {
       raw += delta;
       const partial = scanner.feed(raw);
-      track();
+      const closed = track();
       // Hold an object opened after prose until its main key arrives or it closes, so no envelope flashes.
       objectStart.lastIndex = openedAt;
       const pendingEnvelope = depth > 0 && objectStart.test(raw);
+      const framed = /^\s*[[{]/.test(raw);
       const openingFence = /^\s*```/.test(raw) || /^\s*`{1,2}\s*$/.test(raw);
-      let next =
-        partial ?? (/^\s*[[{]/.test(raw) || openingFence ? '' : pendingEnvelope ? visible : raw);
-      const tail = lastNonBlank(raw);
-      if (tail === '}' || tail === ']' || (tail === '`' && !/^\s*`{1,3}\s*$/.test(raw))) {
+      let next = partial ?? (framed || openingFence ? '' : pendingEnvelope ? visible : raw);
+      // A full read re-parses the whole answer, so it runs only when the envelope or a leading fence closes.
+      const fenceClosed =
+        openingFence && raw.slice(-16).trimEnd().endsWith('```') && !/^\s*`{1,3}\s*$/.test(raw);
+      if ((closed && (framed || partial !== null)) || fenceClosed) {
         const answer = readAnswer(spec, raw, options);
         if (answer.kind === 'ok') next = answer.main;
       }
       // The canonical v1 scanner tolerates half-arrived Unicode and quotes exactly as before.
-      if (mainKey === 'translation' && partial === null && next === '' && tail === '}')
+      if (mainKey === 'translation' && partial === null && next === '' && closed)
         next = parseJsonResponse(raw).translation;
       if (next === visible) return undefined;
       const result = next.startsWith(visible)

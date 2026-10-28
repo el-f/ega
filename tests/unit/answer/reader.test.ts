@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { answerSpecFor, type AnswerSpec } from '@/shared/answer/spec';
 import { readAnswer, createAnswerProjector } from '@/shared/answer/reader';
 import * as fc from 'fast-check';
@@ -297,6 +297,36 @@ describe('visible answer projection', () => {
       expect(visible).toBe(raw);
       expect(projector.finish()).toMatchObject({ kind: 'ok', main: raw, via: 'prose' });
     }
+  });
+  // A full read re-parses the whole answer, so one per brace-ending delta costs the square of its length.
+  it.each([
+    [
+      'an envelope',
+      translate,
+      (code: string) => JSON.stringify({ translation: code, confidence: 0.9 }),
+    ],
+    ['prose', answerSpecFor('ask'), (code: string) => `Here is the code:\n\n${code}\n\nRun it.`],
+  ])('re-reads %s holding code a bounded number of times', (_name, spec, wrap) => {
+    const code = Array.from({ length: 200 }, (_, i) => `function f${i}() { return ${i}; }`).join(
+      '\n',
+    );
+    const raw = wrap(code);
+    const projector = createAnswerProjector(spec);
+    const parse = vi.spyOn(JSON, 'parse');
+    let visible = '';
+    try {
+      // Every delta ends at a brace, the worst case for a tail-triggered read.
+      for (const piece of raw.split(/(?<=\})/)) {
+        const delta = projector.push(piece);
+        if (delta) visible = delta.replace ? delta.text : visible + delta.text;
+      }
+      expect(parse.mock.calls.length).toBeLessThan(20);
+    } finally {
+      parse.mockRestore();
+    }
+    const answer = projector.finish();
+    expect(answer.kind === 'ok' && answer.main).toBe(spec === translate ? code : raw);
+    expect(visible).toBe(spec === translate ? code : raw);
   });
   it('keeps the final answer stable across random chunk boundaries and repairs', () => {
     fc.assert(
