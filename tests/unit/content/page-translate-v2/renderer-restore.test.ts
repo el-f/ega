@@ -79,6 +79,20 @@ describe('renderer — Replace text keeps the page nodes where they are', () => 
     handle.revert();
     expect(original.textContent).toBe('Neu');
   });
+
+  it('a page update to a hidden text node never shows next to the translation', async () => {
+    const original = host('<p id="orig"><span>5</span> Kommentare von <b>Dana</b></p>');
+    const middle = original.childNodes[1] as Text;
+    const handle = mountInplace({ id: 'k11-4', element: original, originalText: '5 Kommentare von Dana' });
+    finish(handle, '5 comments by Dana');
+    expect(handle.target.isConnected).toBe(true);
+    // React, Vue and Svelte update dynamic text by setting the same node's data.
+    middle.data = ' neue Kommentare von ';
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(handle.target.isConnected).toBe(false);
+    expect(original.querySelector('[data-ega-hidden]')).toBeNull();
+    expect(original.textContent).toBe('5 neue Kommentare von Dana');
+  });
 });
 
 describe('renderer — in-place revert cannot duplicate content', () => {

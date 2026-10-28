@@ -203,8 +203,9 @@ const showPageFor = new WeakMap<Element, () => void>();
 /**
  * Hides a block's own nodes where they stand: a text node is emptied, an element gets Ega's hide mark. A framework
  * that still holds them can move or remove them. Returns the undo; a text the page rewrote since keeps its new words.
+ * New words the page writes into an emptied text node would show beside the translation, so they call `onPageWrite`.
  */
-function hideInPlace(nodes: readonly ChildNode[]): () => void {
+function hideInPlace(nodes: readonly ChildNode[], onPageWrite: () => void): () => void {
   const texts = new Map<CharacterData, string>();
   const elements: Element[] = [];
   for (const n of nodes) {
@@ -217,7 +218,12 @@ function hideInPlace(nodes: readonly ChildNode[]): () => void {
       elements.push(n);
     }
   }
+  const writes = new MutationObserver((records) => {
+    if (records.some((r) => (r.target as CharacterData).data !== '')) onPageWrite();
+  });
+  for (const t of texts.keys()) writes.observe(t, { characterData: true });
   return () => {
+    writes.disconnect();
     for (const [t, data] of texts) if (t.data === '') t.data = data;
     for (const el of elements) el.removeAttribute(HIDDEN_ATTR);
     texts.clear();
@@ -249,7 +255,13 @@ export function mountInplace(args: MountArgs): RenderHandle {
   // The page keeps its own words, dimmed, until the translation starts to arrive.
   wrapper.appendChild(fragment.cloneNode(true));
   host.insertBefore(wrapper, before);
-  const showPage = hideInPlace(nodes);
+  // A node the page added to the block, or one it wrote since, stays as the page left it.
+  const revert = (): void => {
+    showPage();
+    wrapper.remove();
+  };
+  // The page rewrote the block: its words come back, and with the wrapper gone the next pass takes the block again.
+  const showPage = hideInPlace(nodes, revert);
   showPageFor.set(wrapper, showPage);
   const handle: RenderHandle = {
     id: args.id,
@@ -257,11 +269,7 @@ export function mountInplace(args: MountArgs): RenderHandle {
     target: wrapper,
     originalText: args.originalText,
     originalNodes: fragment,
-    // A node the page added to the block, or one it wrote since, stays as the page left it.
-    revert: () => {
-      showPage();
-      wrapper.remove();
-    },
+    revert,
     showOriginal: () => {},
     showTranslation: () => {},
     visibleText: '',

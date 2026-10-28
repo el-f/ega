@@ -265,6 +265,27 @@ describe('whole-page session — blocks the page removes', () => {
     expect(r.sent.map((s) => s.text)).toEqual(['これは0番目の段落です。', 'これは新しい段落です。']);
   });
 
+  it('a translated block whose text the page updates shows the page words, and the next press takes it again', async () => {
+    document.body.innerHTML = '<p id="a"><span>5</span> 件のコメント、<b>ダナ</b>より</p>';
+    const p = document.getElementById('a') as HTMLElement;
+    const r = rig();
+    await runWholePageTranslate(r.d);
+    band([p]);
+    await flush();
+    finishAll(r);
+    await flush();
+    expect(p.querySelector('[data-ega-replaced]')).not.toBeNull();
+
+    (p.childNodes[1] as Text).data = ' 件の新しいコメント、';
+    await flush();
+    expect(p.querySelector('[data-ega-replaced]')).toBeNull();
+    await runWholePageTranslate(r.d);
+    band([p]);
+    await flush();
+    expect(r.sent).toHaveLength(2);
+    expect(r.sent[1]?.text).toContain('件の新しいコメント');
+  });
+
   it('a page that swaps its whole <body> (Turbo-style navigation) closes the session and its pill', async () => {
     const els = page();
     const r = rig();
