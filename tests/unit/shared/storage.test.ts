@@ -442,6 +442,22 @@ describe('storage', () => {
       expect(c[0]?.examples).toHaveLength(1);
     });
 
+    it("'Use the file's keys' replaces only the keys the file has and keeps the rest", async () => {
+      await updateSettings({ anthropicApiKey: 'sk-cur-ant', openaiApiKey: 'sk-cur-oai' });
+      const keyless = JSON.parse(JSON.stringify(await exportAll({ includeApiKeys: false })));
+
+      await importAs(keyless, 'settings', { includeApiKeys: true });
+      let s = await getSettings();
+      expect(s.anthropicApiKey).toBe('sk-cur-ant');
+      expect(s.openaiApiKey).toBe('sk-cur-oai');
+
+      const oneKey = { ...keyless, settings: { ...keyless.settings, anthropicApiKey: 'sk-file-ant' } };
+      await importAs(oneKey, 'settings', { includeApiKeys: true });
+      s = await getSettings();
+      expect(s.anthropicApiKey).toBe('sk-file-ant');
+      expect(s.openaiApiKey).toBe('sk-cur-oai');
+    });
+
     it('rejects a file that carries no Ega root key', async () => {
       await expect(importAs(null, 'settings')).rejects.toThrow(/not an Ega backup/);
       await expect(importAs('nope', 'settings')).rejects.toThrow(/not an Ega backup/);

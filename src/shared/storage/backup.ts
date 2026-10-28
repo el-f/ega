@@ -374,14 +374,13 @@ export async function importBundle(
           withCustomTasksLock(async () => {
             // Copy first: the loop below writes and deletes fields the caller may still hold a reference to.
             const settings = { ...bundle.settings };
-            if (!opts.includeApiKeys) {
-              // The confirm dialog promises "use your current keys", so strip-keys mode re-attaches them before the write.
-              const current = await getSettings();
-              for (const k of BACKEND_API_KEY_FIELDS) {
-                const v = current[k];
-                if (v === undefined) delete settings[k];
-                else settings[k] = v;
-              }
+            // The dialog promises "your current keys stay": keep each one unless the user took the file's keys and it has one.
+            const current = await getSettings();
+            for (const k of BACKEND_API_KEY_FIELDS) {
+              if (opts.includeApiKeys && settings[k]) continue;
+              const v = current[k];
+              if (v === undefined) delete settings[k];
+              else settings[k] = v;
             }
             await chrome.storage.local.set({
               [STORAGE_KEYS.settings]: settings,
