@@ -88,7 +88,8 @@ export default defineConfig({
     environment: 'node',
     // Forks, not threads: Node ignores --max-old-space-size in a worker thread, so only a fork can stop a runaway file at its heap cap.
     pool: 'forks',
-    execArgv: ['--max-old-space-size=3072'],
+    // Stryker swaps in the threads pool, where Node refuses this flag (ERR_WORKER_INVALID_EXEC_ARGV) and no worker starts.
+    execArgv: process.env['STRYKER_MUTATOR_WORKER'] ? [] : ['--max-old-space-size=3072'],
     maxWorkers: 4,
     globals: true,
     // Undo every vi.spyOn and vi.stubGlobal between tests, so one test's patch cannot leak into the next.
