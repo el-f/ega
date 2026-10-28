@@ -89,6 +89,16 @@ function chainErrorMessage(
   return `${lead}\n${list}${rawAt < 0 ? '' : last.message.slice(rawAt)}`;
 }
 
+/** The parts a plain-text answer could not carry; null when the task asks only for the answer. */
+function plainTextLoss(spec: AnswerSpec, explain: boolean): string | null {
+  const lost = spec.fields
+    .filter((f) => f.role !== 'main' && (f.when !== 'explain' || explain))
+    .map((f) => f.label);
+  const last = lost.pop();
+  if (last === undefined) return null;
+  return `The model answered in plain text, without ${lost.length ? `${lost.join(', ')} or ${last}` : last}.`;
+}
+
 export async function runTranslateAttempt(
   deps: AttemptDeps,
   formatAttempt = 1,
@@ -209,13 +219,8 @@ export async function runTranslateAttempt(
         ...(answer.notes.length ? { notes: answer.notes } : {}),
         ...(answer.details.length ? { details: answer.details } : {}),
       };
-      const issues =
-        answer.via === 'prose'
-          ? [
-              ...answer.issues,
-              'The model answered in plain text, so there is no confidence or language.',
-            ]
-          : answer.issues;
+      const lost = answer.via === 'prose' ? plainTextLoss(answerSpec, reqOptions.explain) : null;
+      const issues = lost ? [...answer.issues, lost] : answer.issues;
       const answerFormat: ResultMeta['answerFormat'] = {
         spec: `${answerSpec.id}@${answerSpec.version}`,
         checkedBy: formatCheck.accepted ? 'backend' : 'prompt',

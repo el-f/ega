@@ -146,10 +146,17 @@ describe('answer format recovery', () => {
       meta: {
         answerFormat: {
           issues: expect.arrayContaining([
-            'The model answered in plain text, so there is no confidence or language.',
+            'The model answered in plain text, without Confidence, Source language, Language detail or Source languages.',
           ]),
         },
       },
     });
+  });
+
+  it('says nothing about missing parts when the task asks only for the answer', async () => {
+    const { chunks } = await run(['Plain answer'], undefined, { custom: true });
+    const done = chunks.find((c) => c.type === 'done');
+    expect(done).toMatchObject({ text: 'Plain answer' });
+    expect(done?.type === 'done' ? (done.meta?.answerFormat?.issues ?? []) : null).toEqual([]);
   });
 });
