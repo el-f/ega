@@ -285,9 +285,10 @@ function readStdinFrames(onFrame) {
 }
 
 // The claude CLI reads `@path` and `@"any path"` as file attachments even with --tools ''; a word joiner after the `@` keeps the text and names no real file.
-function neutralizeFileRefs(s) {
+// codex exec has no such attachments, so its text stays as typed and a model cannot echo the hidden joiner.
+function neutralizeFileRefs(s, provider) {
   if (typeof s !== 'string') return '';
-  return s.replaceAll(/\B@/g, '@\u2060');
+  return provider === 'claude' ? s.replaceAll(/\B@/g, '@\u2060') : s;
 }
 
 // claude emits 20-50 frames per tick; batch them. The first chunk still leaves on the next microtask.
@@ -390,8 +391,8 @@ function handleTranslate(msg) {
     });
     return;
   }
-  const system = neutralizeFileRefs(msg.prompt?.system);
-  const user = neutralizeFileRefs(msg.prompt?.user);
+  const system = neutralizeFileRefs(msg.prompt?.system, provider);
+  const user = neutralizeFileRefs(msg.prompt?.user, provider);
   // codex removed `mcp-server` and its `app-server` is experimental, so each request is one `codex exec`.
   if (provider === 'codex') {
     const prompt = system ? system + '\n\n' + user : user;
@@ -582,8 +583,8 @@ function removeFiles(files) {
 // claude takes the image as an `@path` inside the prompt; codex takes a flag.
 function imageInvocation(backend, msg, tmpPath, codexArgs = []) {
   // Same threat as the text path: page text can carry an `@<path>` the CLI would read.
-  const system = neutralizeFileRefs(msg.prompt?.system);
-  const user = neutralizeFileRefs(msg.prompt?.user ?? IMAGE_INSTRUCTION);
+  const system = neutralizeFileRefs(msg.prompt?.system, backend);
+  const user = neutralizeFileRefs(msg.prompt?.user ?? IMAGE_INSTRUCTION, backend);
   const head = system ? system + '\n\n' : '';
   const baseArgs =
     backend === 'codex'
@@ -613,8 +614,11 @@ function oneShotLineParser(backend) {
     try {
       parsed = JSON.parse(line);
     } catch {
-      // The CLI was asked for JSON, so a plain line is its own output — pass it through.
-      return [{ kind: 'delta', text: line }];
+      // The CLI was asked for JSON, so a plain line is noise, not answer text; log its size, never the text.
+      process.stderr.write(
+        `[ega-host] dropped a non-JSON line from ${backend} (${line.length} chars)\n`,
+      );
+      return [];
     }
     if (backend !== 'claude') {
       const failure = codexErrorFromFrame(parsed);

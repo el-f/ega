@@ -356,7 +356,8 @@ that opens a token, in both the system and user prompt, before they reach the CL
 `native-host/ega-host.mjs#imageInvocation`). The text reads the same to the model,
 but the CLI's quoted form no longer matches and its bare form names a file whose name
 starts with U+2060, which does not exist. An `@` with a word character in front of it,
-as in `me@example.com`, is left alone. The image path adds its own quoted
+as in `me@example.com`, is left alone. A `codex` prompt goes as typed: `codex exec` reads
+no `@` attachments. The image path adds its own quoted
 `@"<temp file>"` after this step. `native-host/test/host.test.mjs#cliFileRefs` runs the CLI's own two
 patterns over what the CLI receives.
 

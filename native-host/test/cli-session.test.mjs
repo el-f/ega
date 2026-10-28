@@ -668,7 +668,9 @@ test('a model switch ends the requests the outgoing child still owned', async ()
   const f = makeSpawnFactory();
   const mgr = new CliSessionManager({ spawn: f.spawn, idleTimeoutMs: 10_000 });
   const framesA = [];
+  const framesQueued = [];
   mgr.send('claude', { user: 'q' }, (e) => framesA.push(e), 'ext-1', 'claude-opus-4-5');
+  mgr.send('claude', { user: 'q' }, (e) => framesQueued.push(e), 'ext-1b', 'claude-opus-4-5');
   mgr.send('claude', { user: 'q' }, () => {}, 'ext-2', 'claude-haiku-4-5');
   await nextTick();
   assert.equal(
@@ -677,6 +679,8 @@ test('a model switch ends the requests the outgoing child still owned', async ()
     `expected one terminal for the dropped request: ${JSON.stringify(framesA)}`,
   );
   assert.equal(framesA[0].kind, 'error');
+  // Nothing was wrong with these requests, so the router may run them again.
+  assert.deepEqual([...codes(framesA), ...codes(framesQueued)], ['NETWORK', 'NETWORK']);
   mgr.closeAll();
 });
 
@@ -1231,6 +1235,38 @@ for (const [label, line] of [
     assert.deepEqual(codes(frames), ['NATIVE_SPAWN_FAIL']);
     assert.match(frames[0].message, /was not found\. Install it/);
     mgr.closeAll();
+  });
+}
+
+test('a CLI that Node cannot spawn is reported as not installed', async () => {
+  const f = makeSpawnFactory();
+  const mgr = new CliSessionManager({ spawn: f.spawn, idleTimeoutMs: 10_000 });
+  const frames = [];
+  mgr.send('claude', { user: 'a' }, (e) => frames.push(e), 'ext-A');
+  f.children[0]._test.failSpawn(new Error('spawn C:\\Program Files\\nodejs\\claude.exe ENOENT'));
+  await nextTick();
+  await nextTick();
+  assert.deepEqual(codes(frames), ['NATIVE_SPAWN_FAIL']);
+  assert.match(frames[0].message, /was not found\. Install it/);
+  mgr.closeAll();
+});
+
+// The CLI prints ENOENT for a file or a helper it could not open; only Node's own spawn failure means it is missing.
+for (const stderr of [
+  "Error: ENOENT: no such file or directory, open 'C:\\tmp\\ega-img-1.png'",
+  'Error: spawn rg ENOENT',
+]) {
+  test(`a one-shot that exits on "${stderr}" keeps the CLI's own words`, async () => {
+    const f = makeSpawnFactory();
+    const mgr = new CliSessionManager({ spawn: f.spawn });
+    const r = oneShot(mgr);
+    await nextTick();
+    f.children[0].stderr.emit('data', Buffer.from(`${stderr}\n`));
+    f.children[0]._test.crash(1);
+    await r.run;
+    assert.equal(terminals(r.frames).length, 1);
+    assert.doesNotMatch(r.frames[0].message, /was not found/);
+    assert.equal(r.frames[0].message, stderr);
   });
 }
 

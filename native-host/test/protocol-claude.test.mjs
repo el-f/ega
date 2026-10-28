@@ -429,19 +429,33 @@ test('a refusal stop reason is an error even on a result not marked is_error', (
   );
 });
 
+// The result text is then the cut answer itself, so it must not become the error message.
+test('a max_tokens stop reason is an error even on a result not marked is_error', () => {
+  const r = makeClaudeStreamParser()({
+    type: 'result',
+    subtype: 'success',
+    stop_reason: 'max_tokens',
+    result: 'Half an ans',
+  });
+  assert.equal(r?.kind, 'error');
+  assert.equal(r?.code, 'REQUEST');
+  assert.doesNotMatch(r?.message ?? '', /Half an ans/);
+});
+
 // The CLI turns a cut answer into an API-error turn with category max_output_tokens.
 test('an answer cut at the output cap ends as REQUEST', () => {
   const parse = makeClaudeStreamParser();
   parse({ type: 'assistant', error: 'max_output_tokens', message: { content: [] } });
-  assert.equal(
+  const result = "API Error: Claude's response exceeded the 32000 output token maximum.";
+  assert.deepEqual(
     parse({
       type: 'result',
       subtype: 'success',
       is_error: true,
       stop_reason: 'max_tokens',
-      result: "API Error: Claude's response exceeded the 32000 output token maximum.",
-    })?.code,
-    'REQUEST',
+      result,
+    }),
+    { kind: 'error', message: result, code: 'REQUEST' },
   );
 });
 

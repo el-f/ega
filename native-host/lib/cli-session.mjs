@@ -70,7 +70,8 @@ export function killTree(child, spawnImpl = nodeSpawn, isWin = process.platform 
 }
 
 // cmd.exe always exists, so a missing CLI exits 1, not ENOENT; match only cmd's unresolved-name wording, never 'cannot find the path', which the CLI also prints for a file we passed it.
-const NOT_INSTALLED = /ENOENT|is not recognized as an internal or external command/i;
+// ENOENT counts only as Node's whole spawn error: a CLI prints it too, for a file or a helper it could not open.
+const NOT_INSTALLED = /^spawn .+ ENOENT$|is not recognized as an internal or external command/i;
 // claude 2.1.280's startup exit when an organization's managed-mcp.json is present; the flag is what keeps MCP tools away from page text.
 const MANAGED_MCP = /cannot use --strict-mcp-config when an enterprise MCP config is present/i;
 // Every flag is the host's own (a model id is checked first), so a rejected one means the CLI is older than the host needs.
@@ -187,7 +188,12 @@ export class CliSessionManager {
       }
       this.#killEntry(existing);
       this.#drop(existing);
-      this.#endAll(existing, { kind: 'error', message: 'CLI session restarted for a new model' });
+      // The requests were fine, so the code must let the router run them again.
+      this.#endAll(existing, {
+        kind: 'error',
+        code: 'NETWORK',
+        message: 'CLI session restarted for a new model',
+      });
     }
     const adapter = makeAdapter(provider);
     const resolved = typeof this.#resolveBin === 'function' ? this.#resolveBin(adapter.bin) : null;
