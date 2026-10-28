@@ -103,6 +103,33 @@ describe('answer format: edited prompts', () => {
     expect(plain.system).toContain('{id: string, detail?: string}> }');
   });
 
+  it('Explain on a Translate prompt with its own format still asks for the explain field', async () => {
+    const own = 'Translate it. Return JSON ONLY: {"translation": string, "confidence": number}.';
+    const s = mkSettings();
+    const edited = {
+      ...s,
+      advanced: { ...s.advanced, promptTemplate: { system: own, user: '{{text}}' } },
+    };
+    const explain = await sent(edited, req('explain'));
+    expect(explain.system).toBe(
+      UNTRUSTED_DATA_INSTRUCTION + '\n\n' + own + '\nAdd "explain": string to the JSON answer.',
+    );
+    expect((await sent(edited, req('translate'))).system).toBe(
+      UNTRUSTED_DATA_INSTRUCTION + '\n\n' + own,
+    );
+    const slotted = {
+      ...s,
+      advanced: {
+        ...s.advanced,
+        promptTemplate: {
+          system: own.replace('number}', 'number{{explainField}}}'),
+          user: '{{text}}',
+        },
+      },
+    };
+    expect((await sent(slotted, req('explain'))).system).not.toContain('Add "explain"');
+  });
+
   it('T-F6: a snippet that expands to the marker counts as having the format', async () => {
     const s = mkSettings();
     const withSnippet: Settings = {

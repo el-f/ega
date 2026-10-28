@@ -308,6 +308,22 @@ export function withAnswerFormat(
   tpl: PromptTemplate,
   format: AnswerFormat | undefined,
   snippets: Record<string, string>,
+  explain = false,
+): PromptTemplate {
+  const out = joinedFormat(tpl, format, snippets);
+  if (!explain || !format?.text.includes(EXPLAIN_SLOT)) return out;
+  const text = resolveSnippets(`${out.system}\n${out.user}`, snippets);
+  // An own format without the Explain slot would drop the notes Explain asks for.
+  if (text.includes(EXPLAIN_SLOT) || text.includes('"explain"')) return out;
+  return { ...out, system: `${out.system}\nAdd "explain": string to the JSON answer.` };
+}
+
+const EXPLAIN_SLOT = '{{explainField}}';
+
+function joinedFormat(
+  tpl: PromptTemplate,
+  format: AnswerFormat | undefined,
+  snippets: Record<string, string>,
 ): PromptTemplate {
   if (!format) return tpl;
   // The v1 bytes are Ega's own text, not the user's, so an edited prompt that kept them runs today's format.
@@ -362,7 +378,12 @@ export function buildTaskPrompt(input: TaskPromptInput): { system: string; user:
   const { req } = input;
   const build: BuildCtx = {
     ...input.build,
-    template: withAnswerFormat(input.build.template, input.format, input.build.snippets ?? {}),
+    template: withAnswerFormat(
+      input.build.template,
+      input.format,
+      input.build.snippets ?? {},
+      req.options.explain,
+    ),
   };
   const built = buildPrompt(req, build);
   const contextBlock =
