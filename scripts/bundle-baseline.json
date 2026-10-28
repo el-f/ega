@@ -8,12 +8,8 @@
     "bytes": 57311
   },
   {
-    "name": "answer-presentation",
-    "bytes": 1035
-  },
-  {
     "name": "AnswerNotes",
-    "bytes": 22923
+    "bytes": 22876
   },
   {
     "name": "ask-about",
@@ -33,7 +29,7 @@
   },
   {
     "name": "cancel-token",
-    "bytes": 29993
+    "bytes": 30055
   },
   {
     "name": "Checkbox",
@@ -61,7 +57,7 @@
   },
   {
     "name": "error-copy",
-    "bytes": 5578
+    "bytes": 6645
   },
   {
     "name": "Glossary",
@@ -81,11 +77,11 @@
   },
   {
     "name": "index.html",
-    "bytes": 496160
+    "bytes": 498239
   },
   {
     "name": "index.ts",
-    "bytes": 46956
+    "bytes": 47352
   },
   {
     "name": "index.ts-loader",
@@ -93,11 +89,11 @@
   },
   {
     "name": "inlineReplace",
-    "bytes": 4680
+    "bytes": 4674
   },
   {
     "name": "invariants",
-    "bytes": 53296
+    "bytes": 53454
   },
   {
     "name": "lang-tag",
@@ -121,7 +117,7 @@
   },
   {
     "name": "open-options-tab",
-    "bytes": 51096
+    "bytes": 51406
   },
   {
     "name": "page-styles",
@@ -129,7 +125,7 @@
   },
   {
     "name": "page-translate-v2",
-    "bytes": 26371
+    "bytes": 26454
   },
   {
     "name": "pending-conversation-open",
@@ -137,7 +133,7 @@
   },
   {
     "name": "pending-popup-handoff",
-    "bytes": 4883
+    "bytes": 4922
   },
   {
     "name": "perf-history",
@@ -213,7 +209,7 @@
   },
   {
     "name": "src-content-index.ts",
-    "bytes": 40319
+    "bytes": 40280
   },
   {
     "name": "StableLabel",
@@ -229,11 +225,11 @@
   },
   {
     "name": "tasks",
-    "bytes": 3479
+    "bytes": 3480
   },
   {
     "name": "Tasks",
-    "bytes": 49973
+    "bytes": 49951
   },
   {
     "name": "TaskUsageRow",
@@ -257,7 +253,7 @@
   },
   {
     "name": "tipState.svelte",
-    "bytes": 59267
+    "bytes": 59329
   },
   {
     "name": "toast",
@@ -277,7 +273,7 @@
   },
   {
     "name": "translate-handlers",
-    "bytes": 6465
+    "bytes": 6395
   },
   {
     "name": "translate-ui",

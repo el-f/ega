@@ -278,7 +278,8 @@ const EAGER_CONTENT_BUDGET_BYTES = 163_150;
 // Audit fixes add 914B: the grapheme-safe text cap and Translate anyway's links-only check with its toast;
 // +32B for the length guard that keeps that check linear.
 // Sharing that notice with the page moves it into a chunk the content script also loads: +58B.
-const POPUP_PAGE_BUDGET_BYTES = 528_635;
+// The second audit-fix round adds 349B to shared code the popup loads.
+const POPUP_PAGE_BUDGET_BYTES = 528_984;
 
 function measurePagePreload(distDir: string, htmlRel: string): { files: string[]; bytes: number } {
   const htmlPath = path.join(distDir, htmlRel);
