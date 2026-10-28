@@ -32,9 +32,11 @@ export async function nearTheByteCap(origin: string, room = 150): Promise<void> 
   const used = bare.reduce((n, t) => n + encoder.encode(JSON.stringify(t)).length + 1, 0);
   const fill = MAX_THREAD_BYTES - room - used;
   const half = Math.floor(fill / 2);
+  // Words, not one 250 KB run: the link check on Send and `r` is quadratic on a run with no space.
+  const words = (n: number): string => ' word'.repeat(Math.ceil(n / 5)).slice(0, n);
   const { droppedIds } = await saveThread(origin, [
-    ...exchange(0, 'A'.repeat(half)),
-    ...exchange(1, 'A'.repeat(fill - half)),
+    ...exchange(0, words(half)),
+    ...exchange(1, words(fill - half)),
   ]);
   if (droppedIds !== undefined) throw new Error('the seed itself went over the cap');
 }
