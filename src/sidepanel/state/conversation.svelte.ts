@@ -432,6 +432,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
           context: input.context,
           thread: state.turns,
           askAbout,
+          site: siteOf(state.activeId),
         }),
       );
     } catch (e) {
@@ -701,6 +702,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       context,
       thread: state.turns,
       askAbout,
+      site: siteOf(state.activeId),
     });
     // A replace is a delete plus an insert: without the tombstone another window writes the dead turn back.
     noteRemoved([assistantId]);
@@ -834,6 +836,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       thread: asks ? state.turns : 'none',
       freshAnswer,
       askAbout,
+      site: siteOf(state.activeId),
     });
     mutate(
       (turns) =>

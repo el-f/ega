@@ -19,6 +19,7 @@ import type { sendTranslateStart } from '@/shared/translate-ui';
 import type { AnswerNote, AnswerDetail } from '@/shared/answer/reader';
 import { askQuote, type AskAbout, type AskTarget } from '@/shared/ask-about';
 import { nothingToTranslate } from '@/shared/nothing-to-translate';
+import { GENERAL_ORIGIN } from '@/shared/saved-conversations';
 import type { AnswerSnapshot, AnswerReplyFields } from '@/shared/types';
 
 /** Every kind this build creates; saved turns can carry a newer build's task id. */
@@ -519,6 +520,8 @@ export interface StartOverlay {
   freshAnswer?: boolean;
   /** The block about the reply an Ask request asks about, built from the thread at dispatch; passed through as given. */
   askAbout?: AskAbout | undefined;
+  /** The conversation's site; site rules scope by it when no page info goes. Other pages send none. */
+  site?: string;
 }
 
 /** The earlier turns a request running `task` replays. A question and its answer read as a question only in an Ask
@@ -596,6 +599,9 @@ export function buildStartArgs(userTurn: Turn, overlay: StartOverlay): StartArgs
     ...(task === 'translate' ? {} : { task }),
     ...(overlay.tone ? { tone: overlay.tone } : {}),
     ...(overlay.context ? { context: overlay.context } : {}),
+    ...(overlay.site !== undefined && overlay.site !== GENERAL_ORIGIN
+      ? { siteOrigin: overlay.site }
+      : {}),
     ...(seed.refinementBody !== undefined ? { refinement: seed.refinementBody } : {}),
     ...(history.length > 0 ? { conversationHistory: history } : {}),
     ...(overlay.askAbout !== undefined ? { askAbout: overlay.askAbout } : {}),
