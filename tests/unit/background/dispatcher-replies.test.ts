@@ -4,7 +4,7 @@ import { STORAGE_KEYS } from '@/shared/constants';
 import { HISTORY_CUT_MARKER, MAX_HISTORY_TURN_CHARS } from '@/shared/chat-history';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import type { Msg, MsgReply } from '@/shared/messages';
-import type { TranslationRequest } from '@/shared/types';
+import type { Settings, TranslationRequest } from '@/shared/types';
 import { loadThreadResult, saveThread } from '@/sidepanel/state/conversation-store';
 import { isWellFormed } from '@tests/_helpers/well-formed';
 
@@ -115,6 +115,22 @@ describe('background dispatcher replies', () => {
     );
   });
 
+  it("settings:update answers a content script with only its own site's row", async () => {
+    await chromeMock.storage.local.set({
+      [STORAGE_KEYS.settings]: {
+        ...DEFAULT_SETTINGS,
+        sitePrefs: { 'https://other.example': { disabled: true } },
+      },
+    });
+    const own = 'https://own.example';
+    const reply = await ask(
+      { kind: 'settings:update', patch: { sitePrefs: { [own]: { disabled: true } } } },
+      { ...TAB_SENDER, url: `${own}/page` },
+    );
+    expect(reply).toMatchObject({ ok: true });
+    expect(Object.keys((reply as { settings: Settings }).settings.sitePrefs)).toEqual([own]);
+  });
+
   it('settings:update refuses a patch the schema rejects', async () => {
     const reply = await ask({ kind: 'settings:update', patch: { theme: 'neon' } });
     expect(reply).toEqual({ ok: false, reason: 'schema' });
@@ -192,16 +208,45 @@ describe('background dispatcher replies', () => {
       latencyMs: 1,
       cacheHit: false,
     };
-    expect(await ask({ kind: 'audit:push', entry }, TAB_SENDER)).toEqual({ ok: true });
+    expect(await ask({ kind: 'audit:push', entry })).toEqual({ ok: true });
     await vi.waitFor(async () => {
       const stored = (await chromeMock.storage.local.get('egaAuditLog')) as {
         egaAuditLog?: { entries: { surface?: string }[] };
       };
-      expect(stored.egaAuditLog?.entries[0]?.surface).toBe('content');
+      expect(stored.egaAuditLog?.entries[0]?.surface).toBe('options');
     });
     expect(await ask({ kind: 'audit:clear' })).toEqual({ ok: true });
     const after = (await chromeMock.storage.local.get('egaAuditLog')) as Record<string, unknown>;
     expect(after['egaAuditLog']).toBeUndefined();
+  });
+
+  it('refuses audit:push, cache:clear and perf:entries from a content script', async () => {
+    const entry = {
+      task: 'translate' as const,
+      sourceLang: 'auto',
+      targetLang: 'en',
+      backend: 'unknown' as const,
+      model: '',
+      systemPrompt: '',
+      userPrompt: 'spoofed',
+      response: '',
+      latencyMs: 1,
+      cacheHit: false,
+    };
+    const forbidden = { ok: false, error: 'forbidden' };
+    cacheClearMock.mockClear();
+    expect(await ask({ kind: 'audit:push', entry }, TAB_SENDER)).toEqual(forbidden);
+    expect(await ask({ kind: 'cache:clear' }, TAB_SENDER)).toEqual(forbidden);
+    expect(await ask({ kind: 'perf:entries' }, TAB_SENDER)).toEqual(forbidden);
+    expect(cacheClearMock).not.toHaveBeenCalled();
+    // The page's push lands; a content push let through would have landed first, under the same lock.
+    await ask({ kind: 'audit:push', entry: { ...entry, userPrompt: 'real' } });
+    await vi.waitFor(async () => {
+      const stored = (await chromeMock.storage.local.get('egaAuditLog')) as {
+        egaAuditLog?: { entries: { userPrompt: string }[] };
+      };
+      expect(stored.egaAuditLog?.entries.map((e) => e.userPrompt)).toEqual(['real']);
+    });
   });
 });
 

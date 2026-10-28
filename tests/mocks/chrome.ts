@@ -104,7 +104,8 @@ async function answerContentRead(msg: unknown): Promise<unknown> {
   )
     return null;
   const { readForContent } = await import('@/background/content-reads');
-  return readForContent(kind);
+  // The worker narrows sitePrefs to the sender frame's origin; here the frame is the test document.
+  return readForContent(kind, typeof location === 'undefined' ? undefined : location.origin);
 }
 
 /** The default worker: answers content reads and applies settings writes; anything else gets { ok: true }. */

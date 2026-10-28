@@ -17,7 +17,7 @@
 
 ## Failure-mode expectations
 
-- A storage write failure on the audit append shows no toast; the service worker re-queues the rows for the next write and drops the error with no log line for the tooltip's own push — only a content-script push relayed as an `audit:push` message gets a debug-level log.
+- A storage write failure on the audit append shows no toast; the service worker re-queues the rows for the next write and drops the error with no log line for the tooltip's own push — only an options-page push relayed as an `audit:push` message gets a debug-level log.
 
 ## Cautions
 

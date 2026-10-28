@@ -1,4 +1,4 @@
-import { BACKEND_API_KEY_FIELDS, instantiateAll, resolveBackend } from '@/shared/backends/registry';
+import { instantiateAll, resolveBackend } from '@/shared/backends/registry';
 import { createRouter } from './router';
 import { createTaskTryHandler } from './task-try';
 import { TranslationCache } from './cache';
@@ -25,7 +25,7 @@ import { handleConversationsDelete } from './conversations-delete';
 import { createLogger, debugCatch } from '@/shared/logger';
 import { asLangIdUnsafe } from '@/shared/brands';
 import { hasKnownKind, type Msg, type MsgReply } from '@/shared/messages';
-import { readForContent } from './content-reads';
+import { readForContent, settingsForContent } from './content-reads';
 import { capHistoryContent, type ChatTurn } from '@/shared/chat-history';
 import { fenceHistoryTurn } from '@/shared/prompts';
 import type { PageContext, Settings } from '@/shared/types';
@@ -133,12 +133,6 @@ const MAX_HEADING_TRAIL_ENTRIES = 10;
 export const MAX_HISTORY_TURNS = 40;
 
 const cap = (v: string): string => capText(v, MAX_SELECTION_CHARS);
-
-function withoutApiKeys(s: Settings): Settings {
-  const copy: Record<string, unknown> = { ...s };
-  for (const k of BACKEND_API_KEY_FIELDS) delete copy[k];
-  return copy as unknown as Settings;
-}
 
 type TranslateStartOptions = Extract<Msg, { kind: 'translate:start' }>['options'];
 
@@ -275,6 +269,13 @@ const CONTENT_SETTINGS_KEYS = new Set([
   'smartBubbleBannerShown',
   'pageTranslateMode',
   'sitePrefs',
+]);
+
+/** Only the options page sends these. From a content script they would fake a failure toast, wipe the cache, or read every site's timings. */
+const EXTENSION_PAGE_KINDS: ReadonlySet<Msg['kind']> = new Set<Msg['kind']>([
+  'audit:push',
+  'cache:clear',
+  'perf:entries',
 ]);
 
 /** A content script may write its own site's row only; `sitePrefs` is keyed by origin. */
@@ -422,6 +423,10 @@ chrome.runtime.onMessage.addListener((rawMsg, sender, sendResponse) => {
   }
   if (!hasKnownKind(rawMsg)) return false;
   const msg = rawMsg as Msg;
+  if (EXTENSION_PAGE_KINDS.has(msg.kind) && !isExtensionPage(sender)) {
+    sendResponse({ ok: false, error: 'forbidden' });
+    return false;
+  }
   // Ties each case's answer to MsgReply[kind], so a renamed reply field fails here, not in a consumer's cast.
   const reply = <K extends Msg['kind']>(_kind: K, r: MsgReply[K]): void => sendResponse(r);
   switch (msg.kind) {
@@ -519,7 +524,8 @@ chrome.runtime.onMessage.addListener((rawMsg, sender, sendResponse) => {
           // A tab sender caches this ack as-is (settings-cache), so the worker strips the keys here.
           reply(msg.kind, {
             ok: true,
-            settings: sender.tab !== undefined ? withoutApiKeys(merged) : merged,
+            settings:
+              sender.tab !== undefined ? settingsForContent(merged, originOf(sender.url)) : merged,
           });
         } catch (e) {
           debugCatch(e, 'background.settings:update');
@@ -569,7 +575,7 @@ chrome.runtime.onMessage.addListener((rawMsg, sender, sendResponse) => {
         ...cur,
         [origin]: { disabled: false, ...cur[origin], lastDirection },
       }))
-        .then((next) => reply(msg.kind, { ok: true, settings: withoutApiKeys(next) }))
+        .then((next) => reply(msg.kind, { ok: true, settings: settingsForContent(next, origin) }))
         .catch((e: unknown) => {
           debugCatch(e, 'background.site:memo-direction');
           reply(msg.kind, { ok: false, reason: 'unknown' });
@@ -659,7 +665,7 @@ chrome.runtime.onMessage.addListener((rawMsg, sender, sendResponse) => {
       return true;
     }
     case 'audit:push':
-      // Trusted: the sender-id gate above already rejected anything outside this extension.
+      // Only an extension page gets here (EXTENSION_PAGE_KINDS), so the toast it raises is real.
       void pushAuditEntry({ ...msg.entry, surface: senderSurface(sender) }).catch((e: unknown) =>
         debugCatch(e, 'background.audit:push'),
       );
@@ -699,7 +705,7 @@ chrome.runtime.onMessage.addListener((rawMsg, sender, sendResponse) => {
     case 'content:read-languages':
     case 'content:read-tasks':
       // No reply on a failed read: the caller sees undefined and reads again on its next use.
-      readForContent(msg.kind)
+      readForContent(msg.kind, originOf(sender.url))
         .then((r) => sendResponse(r))
         .catch((e: unknown) => {
           logger.warn(`${msg.kind} failed`, e);
