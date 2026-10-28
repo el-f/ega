@@ -24,6 +24,7 @@ vi.mock('@/content/toast', () => ({
 }));
 
 await import('@/content/index');
+const { openTooltip } = await import('@/content/lazy-tooltip');
 
 const LINK = 'https://example.com/a/b?c=1';
 
@@ -89,5 +90,17 @@ describe('a Translate of only links or numbers is answered on the page', () => {
     emit({ kind: 'ctx:translate-selection', text: LINK, task: 'explain' });
     await vi.waitFor(() => expect(starts()).toHaveLength(1));
     expect(starts()[0]?.options?.task).toBe('explain');
+  });
+
+  it("the tooltip's Answer again as Translate on a link sends nothing", async () => {
+    emit({ kind: 'ctx:translate-selection', text: LINK, task: 'explain' });
+    await vi.waitFor(() => expect(starts()).toHaveLength(1));
+    const opts = vi.mocked(openTooltip).mock.calls.at(-1)?.[0];
+    if (!opts) throw new Error('test setup: the tooltip never opened');
+
+    opts.onTaskChange?.('translate', 'neutral');
+
+    await vi.waitFor(() => expect(showToastMock).toHaveBeenCalledWith(NOTHING_TO_TRANSLATE_NOTICE));
+    expect(starts()).toHaveLength(1);
   });
 });
