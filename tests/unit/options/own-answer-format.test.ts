@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { embedsOwnFormat, convertOwnFormat } from '@/options/own-answer-format';
 import { validateSpec } from '@/shared/answer/spec';
+import { fieldErrors } from '@/options/answer-fields';
 
 function convert(system: string, user = '{{text}}') {
   const prompt = { system, user };
@@ -87,6 +88,15 @@ describe('a prompt with its own answer format', () => {
         fields: result?.fields ?? [],
       }),
     ).toEqual([]);
+  });
+
+  it('a first key Ega keeps for notes is not the main key; the answer key is', () => {
+    const result = convert('Rewrite it. Return JSON: {"explain": <why>, "result": <the rewrite>}.');
+    expect(result?.fields.map((f) => [f.key, f.role])).toEqual([
+      ['answer', 'main'],
+      ['result2', 'notes'],
+    ]);
+    expect(fieldErrors(result?.fields ?? []).size).toBe(0);
   });
 
   it('refuses when the format is the whole of its half', () => {

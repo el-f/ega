@@ -10,7 +10,7 @@
   import type { AnswerField, FieldKind } from '@/shared/answer/spec';
   import { describeField, KIND_NAMES, ROLE_NAMES } from '@/shared/answer/describe';
   import { fieldKey } from '@/shared/answer/field-key';
-  import { fieldErrors } from '@/options/answer-fields';
+  import { fieldErrors, readable } from '@/options/answer-fields';
   import { useShadowSync } from '@/shared/svelte/useShadowSync.svelte';
   import { isShadowRow } from '@/shared/dnd-shadow-row';
   import { id as makeId } from '@/shared/uuid';
@@ -55,20 +55,30 @@
   function patch(key: string, patch: Partial<AnswerField>): void {
     onchange(fields.map((f) => (f.key === key ? { ...f, ...patch } : f)));
   }
-  function rekey(field: AnswerField, label: string, rest: Partial<AnswerField> = {}): void {
-    // By key: the rendered row is a copy, never the same object as its field.
-    const key = fieldKey(
-      label,
-      fields.filter((f) => f.key !== field.key).map((f) => f.key),
-    );
+  // By key: the rendered row is a copy, never the same object as its field.
+  const othersOf = (field: AnswerField): string[] =>
+    fields.filter((f) => f.key !== field.key).map((f) => f.key);
+  function moveKey(field: AnswerField, key: string, change: Partial<AnswerField>): void {
     const id = idOf(field.key);
     delete ids[field.key];
     ids[key] = id;
-    patch(field.key, { ...rest, key, label });
+    patch(field.key, { ...change, key });
   }
+  function rekey(field: AnswerField, label: string, rest: Partial<AnswerField> = {}): void {
+    moveKey(field, fieldKey(label, othersOf(field)), { ...rest, label });
+  }
+  // The main answer keeps its key, unless Ega cannot read it; then it takes the answer key.
   function rename(field: AnswerField, label: string): void {
-    if (field.role === 'main') patch(field.key, { label });
-    else rekey(field, label);
+    const others = othersOf(field);
+    if (field.role !== 'main') rekey(field, label);
+    else if (
+      readable(
+        field,
+        fields.map((f) => f.key),
+      )
+    )
+      patch(field.key, { label });
+    else moveKey(field, others.includes('answer') ? fieldKey(label, others) : 'answer', { label });
   }
   // The reader shows "explain" as text notes, so a field that stops being one leaves that key.
   function reshape(field: AnswerField, change: Partial<AnswerField>): void {

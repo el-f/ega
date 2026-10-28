@@ -75,7 +75,7 @@ export function convertOwnFormat(
     const words = key.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/_/g, ' ');
     return (words[0] ?? '').toUpperCase() + words.slice(1).toLowerCase();
   };
-  // Ega's own main keys stay the answer; otherwise the prompt's first key is.
+  // Ega's own main keys stay the answer; otherwise the prompt's first key is, unless Ega keeps it for notes.
   const at = own.keys.findIndex((key) => key === 'answer' || key === 'translation');
   const mainAt = at < 0 ? 0 : at;
   const taken: string[] = [];
@@ -83,7 +83,7 @@ export function convertOwnFormat(
     const main = i === mainAt;
     const name = main && at >= 0 ? 'Answer' : label(key);
     const field: AnswerField = {
-      key: main ? (at >= 0 ? 'answer' : key) : fieldKey(key, taken),
+      key: main ? (at >= 0 || key === 'explain' ? 'answer' : key) : fieldKey(key, taken),
       label: name,
       ...shapeOf(own.values[i] ?? ''),
       role: main ? 'main' : 'notes',

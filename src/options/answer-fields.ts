@@ -11,7 +11,7 @@ export interface FieldError {
 const UNSAFE = ['__proto__', 'constructor', 'prototype'];
 
 /** A key the reader and the stored-row check accept for this field. */
-function readable(field: AnswerField, keys: readonly string[]): boolean {
+export function readable(field: AnswerField, keys: readonly string[]): boolean {
   return (
     /^[a-z]\w{0,31}$/.test(field.key) &&
     !UNSAFE.includes(field.key) &&

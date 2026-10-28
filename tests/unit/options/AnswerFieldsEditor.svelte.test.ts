@@ -288,4 +288,15 @@ describe('a field that needs a fix says so at the field', () => {
     expect(fields()[1]?.key).toBe('extra');
     expect(view.container.textContent).not.toContain('Edit the name so Ega can read this field');
   });
+
+  it('a main answer saved under a key Ega cannot use gets the answer key on a name edit', async () => {
+    const { view, fields } = live([{ ...main, key: 'confidence' }, note('tone')]);
+    expect(document.querySelector('[data-ega-answer-field="confidence"]')?.textContent).toContain(
+      'Edit the name so Ega can read this field',
+    );
+    await fireEvent.click(view.getByRole('button', { name: 'Edit Answer' }));
+    await fireEvent.input(view.getByLabelText('Name'), { target: { value: 'Reply' } });
+    expect(fields()[0]).toMatchObject({ key: 'answer', label: 'Reply', role: 'main' });
+    expect(view.container.textContent).not.toContain('Edit the name so Ega can read this field');
+  });
 });

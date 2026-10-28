@@ -335,6 +335,22 @@ describe('instructions that ask for their own format', () => {
     );
   });
 
+  it('Turn into fields with two fields of one name marks them and saves only the prompt', async () => {
+    const row = await addCustomTask({
+      ...input,
+      system: 'Be polite. Return JSON {"answer": string, "toneA": string, "tone_a": string}.',
+    });
+    open(vi.fn(), { row });
+    await fireEvent.click(button('Turn into fields') as HTMLElement);
+    expect(document.querySelector('[data-ega-answer-fields-editor]')?.textContent).toContain(
+      'Two fields have this name',
+    );
+    expect(status()).toBe('Not saved');
+    await waitFor(async () => expect((await getCustomTasks())[0]?.system).toBe('Be polite.'));
+    expect((await getCustomTasks())[0]?.answer).toEqual(row.answer);
+    expect(status()).toBe('Not saved');
+  });
+
   it('the notice stays while it is true and goes once the format is gone', async () => {
     const row = await addCustomTask({ ...input, system: 'Return JSON {"tags": "..."}. Be brief.' });
     open(vi.fn(), { row });
