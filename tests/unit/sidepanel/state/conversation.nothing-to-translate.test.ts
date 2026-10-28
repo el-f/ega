@@ -97,6 +97,25 @@ describe('a Translate of nothing to translate is answered in the panel', () => {
     expect(startCalls()).toHaveLength(1);
   });
 
+  it('a later change carries the page info the link was sent with', async () => {
+    const c = createConversation();
+    await c.openConversation('https://local-reply.test');
+    const context = { pageTitle: 'Docs page' };
+    const id = await c.send({
+      content: LINK,
+      kind: 'translate',
+      sourceLang: 'auto',
+      targetLang: EN,
+      stream: true,
+      context,
+    });
+
+    expect(await c.refine({ turnId: id, refinementBody: 'Say what this page is.' })).toBe(true);
+
+    expect(startCalls()).toHaveLength(1);
+    expect(startCalls()[0]?.['context']).toEqual(context);
+  });
+
   it('Regenerate and `r` add nothing: the answer cannot change', async () => {
     const { c, id, reply } = await sent(LINK);
 

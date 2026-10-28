@@ -396,7 +396,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       kind: input.kind,
       attachedToTurnId: userId,
       ...(input.taskId !== undefined ? { taskId: input.taskId } : {}),
-      ...(input.context !== undefined && !asIs ? { contextSent: input.context } : {}),
+      ...(input.context !== undefined ? { contextSent: input.context } : {}),
       ...(input.explain ? { explain: input.explain } : {}),
       ...(input.preservedResponse !== undefined
         ? { preservedResponse: input.preservedResponse }
