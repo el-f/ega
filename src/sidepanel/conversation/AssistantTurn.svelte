@@ -811,7 +811,7 @@
           onSwap={() => onSwap?.(turn.id)}
           onShowChanges={(on) => (showChanges = on)}
           onSpeak={() => void toggleSpeech()}
-          onAbout={(open) => void setAbout(open)}
+          onAbout={asIs ? undefined : (open) => void setAbout(open)}
           onAnswerAgain={(task) => onTaskSwitch?.(turn.id, task)}
           onBookmark={() => onBookmark?.(turn.id)}
           onDelete={() => onDelete?.(turn.id)}
@@ -828,7 +828,8 @@
           onTranslate={translateTo}
         />
       {/if}
-      {#if aboutOpen}
+      <!-- About opened on another version hides while a version the panel answered itself shows: nothing was sent. -->
+      {#if aboutOpen && !asIs}
         <ReplyDetails
           meta={turn.meta}
           details={turn.details}
