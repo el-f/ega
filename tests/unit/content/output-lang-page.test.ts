@@ -154,7 +154,7 @@ describe('inline replace — the wrapper is marked only while it shows the trans
 });
 
 describe('page translate — an RTL target reads right to left, even when it starts with a Latin word', () => {
-  it('Show both: rtl once the translation shows; an error goes back to auto', () => {
+  it('Show both: rtl once the translation shows', () => {
     const handle = mountBilingual({
       id: 'd-1',
       element: block('Hello'),
@@ -163,14 +163,16 @@ describe('page translate — an RTL target reads right to left, even when it sta
     });
     appendDelta(handle, 'iPhone 15 יוצא היום.');
     expect(handle.target.getAttribute('dir')).toBe('rtl');
-    const failed = mountBilingual({
-      id: 'd-2',
-      element: block('Hi'),
-      originalText: 'Hi',
-      lang: 'he',
-    });
+  });
+
+  it.each([
+    ['Show both', mountBilingual],
+    ['Replace text', mountInplace],
+  ])('%s: an error box holds only the chip, so it takes the page direction', (_, mount) => {
+    const failed = mount({ id: 'd-2', element: block('Hi'), originalText: 'Hi', lang: 'he' });
+    appendDelta(failed, 'iPhone');
     mountError(failed, { code: 'NETWORK', message: 'x' });
-    expect(failed.target.getAttribute('dir')).toBe('auto');
+    expect(failed.target.hasAttribute('dir')).toBe(false);
   });
 
   it('Replace text: auto while the page words show (pending, peek), rtl for the translation', () => {

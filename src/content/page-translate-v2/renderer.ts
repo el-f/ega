@@ -328,6 +328,8 @@ export function mountError(
   target.textContent = '';
   setPhase(handle, 'error');
   // The page's own text and our error chip are not in the target language.
-  markShown(target, undefined);
+  markLang(target, undefined);
+  // No dir: the chip keeps the page's direction. dir="auto" reads ltr here, as the chip's letters sit in its shadow root.
+  target.removeAttribute('dir');
   target.appendChild(mountErrorChip(err, opts));
 }
