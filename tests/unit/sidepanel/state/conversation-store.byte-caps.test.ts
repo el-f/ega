@@ -141,21 +141,27 @@ describe('the whole-thread cap', () => {
       content,
       attachedToTurnId: of,
     });
-    const turns = [1, 2, 3].flatMap((n) => [
-      imageTurn(`u${n}`, 250_000),
-      answer(`a${n}`, `u${n}`, `answer ${n}`),
-    ]);
+    // A text exchange first, so the shed must step past text turns to reach the oldest image.
+    const turns = [
+      userTurn('t0'),
+      { ...answer('t0a', 't0', 'answer 0'), kind: 'translate' as const },
+      ...[1, 2, 3].flatMap((n) => [
+        imageTurn(`u${n}`, 250_000),
+        answer(`a${n}`, `u${n}`, `answer ${n}`),
+      ]),
+    ];
 
     const { droppedIds } = await saveThread(ORIGIN, turns);
     const out = (await loadThreadResult(ORIGIN)).turns;
 
     expect(droppedIds).toBeUndefined();
-    expect(out.map((t) => t.id)).toEqual(['u1', 'a1', 'u2', 'a2', 'u3', 'a3']);
-    expect(out[1]?.content).toBe('answer 1');
-    expect(out[0]).toMatchObject({ content: 'text for u1', imageShed: true });
-    expect(out[0]?.imageDataUrl).toBeUndefined();
-    expect(out[2]?.imageDataUrl).toHaveLength(250_000);
+    expect(out.map((t) => t.id)).toEqual(['t0', 't0a', 'u1', 'a1', 'u2', 'a2', 'u3', 'a3']);
+    expect(out[1]?.content).toBe('answer 0');
+    expect(out[3]?.content).toBe('answer 1');
+    expect(out[2]).toMatchObject({ content: 'text for u1', imageShed: true });
+    expect(out[2]?.imageDataUrl).toBeUndefined();
     expect(out[4]?.imageDataUrl).toHaveLength(250_000);
+    expect(out[6]?.imageDataUrl).toHaveLength(250_000);
   });
 
   it('never stores more than the thread budget', async () => {
