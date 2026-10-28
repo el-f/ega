@@ -236,6 +236,26 @@ describe('collectPageLevelContext (selection-less)', () => {
     expect(collectPageLevelContext('rich', d, loc).headingTrail).toEqual(['Pricing']);
   });
 
+  it('a heading inside a draft or a hidden part never reaches the trail, on both heading paths', () => {
+    const d = makeDoc(
+      `<html><body>
+         <h1>Shown</h1>
+         <div contenteditable="true"><h2>Secret draft heading</h2><p id="draft">draft</p></div>
+         <div hidden><h2>Hidden heading</h2></div>
+         <div aria-hidden="true"><h2>Aria hidden heading</h2></div>
+         <div data-ega-skip><section><h2>Skipped heading</h2><p id="skipped">x</p></section></div>
+       </body></html>`,
+      'T',
+    );
+    const loc = fakeLocation('https://example.com/x');
+    expect(collectPageLevelContext('rich', d, loc).headingTrail).toEqual(['Shown']);
+    for (const id of ['draft', 'skipped']) {
+      const anchor = d.getElementById(id);
+      if (!anchor) throw new Error(`test setup: #${id}`);
+      expect(collectPageContext({ anchorNode: anchor }, 'rich', d, loc).headingTrail).toEqual(['Shown']);
+    }
+  });
+
   it('rich level caps headingTrail at depth (3 by default)', () => {
     const d = makeDoc(
       `<html><body>

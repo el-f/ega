@@ -66,6 +66,15 @@ describe('extractPostBlockText', () => {
     expect(extractPostBlockText(anchorTextOf('#a'), 800)).toBe('Visible words here More words');
   });
 
+  it('never falls back to a draft or a hidden part around the anchor', () => {
+    const draft = 'my private draft '.repeat(20);
+    document.body.innerHTML = `
+      <div contenteditable="true"><p id="a">${draft}</p></div>
+      <div hidden><p id="h">${draft}</p></div>
+      <article data-ega-skip><p id="s">${draft}</p></article>`;
+    for (const id of ['#a', '#h', '#s']) expect(extractPostBlockText(anchorTextOf(id), 800)).toBeUndefined();
+  });
+
   it('counts only visible text toward the size floor', () => {
     const state = `window.__STATE__={"user":"Dana Levi","phone":"+972501234567","pad":"${'x'.repeat(300)}"}`;
     document.body.innerHTML = `<div><p id="a">short line</p><script>${state}</script></div>`;

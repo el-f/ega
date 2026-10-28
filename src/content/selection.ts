@@ -259,8 +259,16 @@ function collapse(raw: string): string {
   return raw.replace(/\s+/g, ' ');
 }
 
+/** A TreeWalker never filters its root, so the root and its ancestors get the walker's skip rules here. */
+function isInsideSkipped(root: Node): boolean {
+  let el = root.nodeType === Node.ELEMENT_NODE ? (root as Element) : root.parentElement;
+  for (; el; el = el.parentElement) if (isSkippedElement(el)) return true;
+  return false;
+}
+
 /** The words a reader sees under `root`, by the context walker's rules, on one line; stops once it holds `cap` chars. */
 export function visibleText(root: Node, cap = Number.POSITIVE_INFINITY): string {
+  if (isInsideSkipped(root)) return '';
   const pieces: ContextPiece[] = [];
   let total = 0;
   const walker = createContextWalker(root);
