@@ -100,6 +100,38 @@ describe('a prompt with its own answer format', () => {
     expect(fieldErrors(result?.fields ?? []).size).toBe(0);
   });
 
+  it('a name that repeats gets a number, so the fields save as they are', () => {
+    const result = convert(
+      'Do it. Return JSON {"translation": string, "keyPoints": string, "key_points": string, "answer": string}.',
+    );
+    expect(result?.fields.map((f) => f.label)).toEqual([
+      'Answer',
+      'Key points',
+      'Key points 2',
+      'Answer 2',
+    ]);
+    expect(fieldErrors(result?.fields ?? []).size).toBe(0);
+  });
+
+  it('a name is at most 40 characters, with its number kept on a repeat', () => {
+    // Both keys are 32 characters and their names differ only after the 40th character.
+    const long = 'aBcDeFgHiJkLmNoPqRsTuVwXyZaBcDe';
+    const result = convert(
+      `Do it. Return JSON {"answer": string, "${long}F": string, "${long}G": string}.`,
+    );
+    const names = result?.fields.map((f) => f.label) ?? [];
+    expect(names.every((n) => n.length <= 40)).toBe(true);
+    expect(names[2]).toMatch(/ 2$/);
+    expect(
+      validateSpec({
+        id: 'custom:t',
+        version: 1,
+        join: 'after-build',
+        fields: result?.fields ?? [],
+      }),
+    ).toEqual([]);
+  });
+
   it('a long guide with no space is cut between characters, never inside an emoji', () => {
     const emoji = String.fromCodePoint(0x1f600);
     const result = convert(`Do it. Return JSON: {"result": <a${emoji.repeat(100)}>, "why": <x>}.`);

@@ -73,8 +73,20 @@ export function convertOwnFormat(
   const rest = withoutOwnFormat(prompt, own);
   if (rest[own.half].trim() === '') return null;
   const label = (key: string): string => {
-    const words = key.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/_/g, ' ');
+    const words = key
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .replace(/_+/g, ' ')
+      .trim();
     return (words[0] ?? '').toUpperCase() + words.slice(1).toLowerCase();
+  };
+  // Names are unique and at most 40 characters, like the editor's, so the fields always save as built.
+  const names: string[] = [];
+  const unique = (name: string): string => {
+    const free = (n: string): boolean => !names.includes(n.toLowerCase());
+    let out = name.slice(0, 40).trim();
+    for (let n = 2; !free(out); n++) out = `${name.slice(0, 39 - String(n).length).trim()} ${n}`;
+    names.push(out.toLowerCase());
+    return out;
   };
   // Ega's own main keys stay the answer; otherwise the prompt's first key is, unless Ega keeps it for notes.
   const at = own.keys.findIndex((key) => key === 'answer' || key === 'translation');
@@ -82,10 +94,9 @@ export function convertOwnFormat(
   const taken: string[] = [];
   const fields = own.keys.map((key, i): AnswerField => {
     const main = i === mainAt;
-    const name = main && at >= 0 ? 'Answer' : label(key);
     const field: AnswerField = {
       key: main ? (at >= 0 || key === 'explain' ? 'answer' : key) : fieldKey(key, taken),
-      label: name,
+      label: unique(main && at >= 0 ? 'Answer' : label(key)),
       ...shapeOf(own.values[i] ?? ''),
       role: main ? 'main' : 'notes',
       required: true,

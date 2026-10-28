@@ -310,12 +310,6 @@
     };
     prompt = converted.prompt;
     answerMode = 'fields';
-    if (fieldsProblem(converted.fields) !== null) {
-      // Each part saves on its own, as if typed: the prompt now, the fields once fixed.
-      setFields(converted.fields);
-      saveText('prompt');
-      return;
-    }
     ownFields = converted.fields;
     answer = { v: 1, fields: converted.fields };
     output = answerOutput(answer, output);
