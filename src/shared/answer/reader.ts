@@ -390,6 +390,11 @@ export function createAnswerProjector(
   let mayQuote = false;
   const mainKey = spec.fields.find((f) => f.role === 'main')?.key ?? 'translation';
   const scanner = createStringValueScan(mainKey);
+  // A built-in prompt edited before the rename still asks for "translation".
+  const v1Scanner =
+    spec.join === 'template' && mainKey !== 'translation'
+      ? createStringValueScan('translation')
+      : undefined;
   // Bracket depth outside JSON strings, read once per character.
   let depth = 0;
   let inString = false;
@@ -420,7 +425,7 @@ export function createAnswerProjector(
   return {
     push(delta) {
       raw += delta;
-      const partial = scanner.feed(raw);
+      const partial = scanner.feed(raw) ?? v1Scanner?.feed(raw) ?? null;
       const closed = track();
       // Hold an object opened after prose until its main key arrives or it closes, so no envelope flashes.
       objectStart.lastIndex = openedAt;

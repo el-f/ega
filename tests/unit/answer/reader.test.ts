@@ -335,6 +335,22 @@ describe('visible answer projection', () => {
     expect(projector.push('Here it is: ')).toEqual({ text: 'Here it is: ' });
     expect(projector.push('{"translation":"Hello"}')).toEqual({ text: 'Hello', replace: true });
   });
+  // A built-in prompt edited before the rename still asks for "translation".
+  it('streams a built-in answer under the old "translation" key', () => {
+    const main = 'The council approved the new budget after a long debate.';
+    const raw = JSON.stringify({ translation: main });
+    const projector = createAnswerProjector(answerSpecFor('summarize'));
+    let visible = '';
+    const observed: string[] = [];
+    for (let at = 0; at < raw.length; at += 6) {
+      const delta = projector.push(raw.slice(at, at + 6));
+      if (delta) visible = delta.replace ? delta.text : visible + delta.text;
+      observed.push(visible);
+    }
+    expect(observed.slice(0, -1).some((text) => text.length > 0)).toBe(true);
+    expect(observed.every((text) => main.startsWith(text))).toBe(true);
+    expect(projector.finish()).toMatchObject({ kind: 'ok', main });
+  });
   it('keeps an invalid envelope invisible so the router can retry', () => {
     const projector = createAnswerProjector(translate);
     expect(projector.push('{"wrong":')).toBeUndefined();
