@@ -127,7 +127,7 @@ export function askAboutFor(
     task:
       image && replyTask === 'translate' ? 'Translate image' : taskLabel(labels.views, replyTask),
     languages: replyDirection(reply, asked?.dispatch ?? {}, labels.varieties),
-    original: image ? '' : (asked?.content ?? ''),
+    original: image ? '' : (activeVariant(reply)?.answeredMessage ?? asked?.content ?? ''),
     result: reply.content,
     notes: notesText(reply),
   });

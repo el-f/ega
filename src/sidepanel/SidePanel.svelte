@@ -363,13 +363,15 @@
         saveDraftNow('');
       }
       // The previous turn is in the composer, so drop it or the re-send appends a duplicate.
-      let preservedResponse: string | undefined;
+      let preservedResponse: { content: string; message: string } | undefined;
       if (editingTurnId !== null) {
         if (conversation.lastUserTurn()?.id === editingTurnId) {
           const prior = conversation.turns.find(
             (t) => t.role === 'assistant' && t.attachedToTurnId === editingTurnId,
           );
-          if (prior?.status === 'done' && prior.content) preservedResponse = prior.content;
+          if (prior?.status === 'done' && prior.content && edited) {
+            preservedResponse = { content: prior.content, message: edited.content };
+          }
           conversation.dropLastUserExchange();
         } else {
           // Edit from here: the message and everything after it go now, when the edit is sent.

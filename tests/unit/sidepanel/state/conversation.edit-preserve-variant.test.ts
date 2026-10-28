@@ -28,7 +28,7 @@ describe('edit-last re-send keeps the replaced answer as a variant', () => {
       sourceLang: 'auto',
       targetLang: asLangIdUnsafe('en'),
       stream: true,
-      preservedResponse: 'the old answer',
+      preservedResponse: { content: 'the old answer', message: 'old question' },
     });
 
     const assistant = c.turns.find((t) => t.role === 'assistant');
@@ -37,6 +37,8 @@ describe('edit-last re-send keeps the replaced answer as a variant', () => {
     expect(assistant.variants).toHaveLength(2);
     expect(assistant.variants?.[0]?.status).toBe('done');
     expect(assistant.variants?.[0]?.content).toBe('the old answer');
+    // An Ask about the kept answer must quote the message it answered, not the edit.
+    expect(assistant.variants?.[0]?.answeredMessage).toBe('old question');
     expect(assistant.activeVariantIdx).toBe(1);
 
     const requestId = lastRequestId();
@@ -59,7 +61,7 @@ describe('edit-last re-send keeps the replaced answer as a variant', () => {
       sourceLang: 'auto',
       targetLang: asLangIdUnsafe('en'),
       stream: true,
-      preservedResponse: 'the old answer',
+      preservedResponse: { content: 'the old answer', message: 'old question' },
     });
     const assistant = c.turns.find((t) => t.role === 'assistant');
     if (!assistant) throw new Error('assistant turn missing');

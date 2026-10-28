@@ -102,7 +102,7 @@ describe('an edit-last send that never reaches the background', () => {
       sourceLang: 'auto',
       targetLang: asLangIdUnsafe('en'),
       stream: true,
-      preservedResponse: 'the old answer',
+      preservedResponse: { content: 'the old answer', message: 'old question' },
     });
     await Promise.resolve();
     const assistantId = c.turns.at(-1)?.id ?? '';

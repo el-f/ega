@@ -161,6 +161,22 @@ describe('askAboutFor, the block built from the thread at dispatch', () => {
     expect(back?.result).toBe('Hi, how are you?');
   });
 
+  it('pairs an answer kept across an edit with the message it answered, not the edited one', () => {
+    const kept = reply({
+      content: 'Hello, friend.',
+      variants: [
+        { id: 'a1:v0', status: 'done', content: 'Hi.', answeredMessage: 'mar7aba, kifak?' },
+        { id: 'a1:v1', status: 'done', content: 'Hello, friend.' },
+      ],
+      activeVariantIdx: 1,
+    });
+    const turns: Turn[] = [question({ content: 'ahlan ya sa7bi' }), kept];
+    const about = (variantId: string): string | undefined =>
+      askAboutFor(turns, { turnId: 'a1', variantId }, LABELS)?.original;
+    expect(about('a1:v0')).toBe('mar7aba, kifak?');
+    expect(about('a1:v1')).toBe('ahlan ya sa7bi');
+  });
+
   it('is null once the reply left the thread, or when its version has no finished text', () => {
     expect(askAboutFor([question()], { turnId: 'a1' }, LABELS)).toBeNull();
     const running = reply({ status: 'streaming', content: 'Hel' });

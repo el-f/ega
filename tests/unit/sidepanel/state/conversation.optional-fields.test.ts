@@ -69,7 +69,10 @@ describe('a pending assistant turn', () => {
     expect(plain?.variants?.map((v) => v.id)).toEqual(['a1:v1']);
     expect(plain?.activeVariantIdx).toBe(0);
 
-    const [edited] = addAssistantTurn([], { ...base, preservedResponse: 'the old answer' });
+    const [edited] = addAssistantTurn([], {
+      ...base,
+      preservedResponse: { content: 'the old answer', message: 'old question' },
+    });
     expect(edited?.variants?.map((v) => v.id)).toEqual(['a1:v0', 'a1:v1']);
     expect(edited?.variants?.[0]).toMatchObject({ status: 'done', content: 'the old answer' });
     expect(edited?.activeVariantIdx).toBe(1);

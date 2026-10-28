@@ -105,8 +105,8 @@ interface DispatchInput {
   context?: PageContext | null;
   /** Explanation the tooltip already produced. A response carrying its own explain wins. */
   explain?: string;
-  /** Answer replaced by an edit-last re-send, kept as a done variant. */
-  preservedResponse?: string;
+  /** Answer replaced by an edit-last re-send and the message it answered, kept as a done variant. */
+  preservedResponse?: { content: string; message: string };
   /** A custom task's id; it runs under kind `translate`. */
   taskId?: TaskId;
   /** The text was cut to this many characters on its way in. */

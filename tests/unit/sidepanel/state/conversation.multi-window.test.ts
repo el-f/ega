@@ -1054,7 +1054,7 @@ describe('a retry of a reply another window is still answering', () => {
       sourceLang: 'auto',
       targetLang: EN,
       stream: true,
-      preservedResponse: 'two (old)',
+      preservedResponse: { content: 'two (old)', message: 'two' },
     });
     await b.flush();
     await drain();

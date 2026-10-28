@@ -80,6 +80,8 @@ export interface Variant {
   aboutUnsent?: true;
   /** A Translate of only links, numbers or symbols: the panel answered with the text itself and sent nothing. */
   nothingToTranslate?: true;
+  /** The message this version answered, when its user turn was edited since: an answer kept across an edit. */
+  answeredMessage?: string;
 }
 
 /** Language pair + streaming preference of a user turn; its page context lives
@@ -238,9 +240,9 @@ interface AddAssistantTurnInput {
   /** Explanation already produced elsewhere (tooltip Pin). Kept on the turn
    *  so a re-dispatch that returns no explain of its own does not lose it. */
   explain?: string;
-  /** Answer this turn replaces (edit-last). Kept as a done variant so the
+  /** Answer this turn replaces (edit-last), and the message it answered. Kept as a done variant so the
    *  variant rail can flip back to it. */
-  preservedResponse?: string;
+  preservedResponse?: { content: string; message: string };
   taskId?: TaskId;
   /** The seed variant's request carried no block about the reply asked about. */
   aboutUnsent?: true;
@@ -253,7 +255,8 @@ function pendingAssistantTurn(input: AddAssistantTurnInput): Turn {
           {
             id: `${input.id}:v0`,
             status: 'done',
-            content: input.preservedResponse,
+            content: input.preservedResponse.content,
+            answeredMessage: input.preservedResponse.message,
           },
         ]
       : [];
