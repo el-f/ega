@@ -2,10 +2,11 @@ import { describe, it, expect, vi, type Mock, type MockInstance } from 'vitest';
 import { createIntake, type Pickers } from '@/sidepanel/state/intake';
 import { createConversation } from '@/sidepanel/state/conversation.svelte';
 import { toastStore } from '@/shared/components/toastStore';
-import { loadThreadResult, saveThread } from '@/sidepanel/state/conversation-store';
+import { loadThreadResult, saveThread, threadKey } from '@/sidepanel/state/conversation-store';
 import { writePendingPopupHandoff } from '@/shared/pending-popup-handoff';
 import type { Turn } from '@/sidepanel/state/conversation';
 import { drainAsync } from '@tests/_helpers/async';
+import type { PageContext } from '@/shared/types';
 
 const WORKER = { id: 'ega-test' } as chrome.runtime.MessageSender;
 
@@ -22,6 +23,7 @@ function deferred(): { promise: Promise<void>; resolve: () => void } {
 async function intakeFor(
   panelWindowId: number | undefined,
   firstFollow: Promise<void> = Promise.resolve(),
+  pageContext: () => Promise<PageContext | null> = () => Promise.resolve(null),
 ): Promise<{
   intake: ReturnType<typeof createIntake>;
   conversation: ReturnType<typeof createConversation>;
@@ -45,7 +47,7 @@ async function intakeFor(
     pickers: () => pickers,
     setPickers: (p) => (pickers = p),
     runnableTask: (t) => t,
-    pageContext: () => Promise.resolve(null),
+    pageContext,
     clearFilters: () => {},
     attachImage: () => {},
     followSite: (site) => conversation.followSite(site),
@@ -158,6 +160,168 @@ describe('panel intake, without mounting the panel', () => {
 
     expect(conversation.activeSite).toBe('https://a.test');
     expect(conversation.turns.map((t) => t.content)).toEqual(['hola', 'texto', 'text']);
+  });
+
+  it('sends a handoff into its own conversation, without the page read, when the tab changes during that read', async () => {
+    await saveThread('https://a.test', [user('a1', 'hola')]);
+    await saveThread('https://b.test', [user('b1', 'hallo')]);
+    let duringRead = (): Promise<unknown> => Promise.resolve();
+    const { intake, conversation } = await intakeFor(7, Promise.resolve(), async () => {
+      await duringRead();
+      return { pageUrl: 'https://b.test/', pageTitle: 'B' };
+    });
+    await conversation.followSite('https://a.test');
+    duringRead = () => conversation.followSite('https://b.test');
+    await writePendingPopupHandoff({
+      sourceText: 'texto',
+      sourceLang: 'auto',
+      targetLang: 'en',
+      task: 'translate',
+      tone: 'neutral',
+    });
+
+    await intake.drainPopupHandoffs();
+
+    expect(conversation.activeSite).toBe('https://a.test');
+    expect(conversation.turns.map((t) => t.content).slice(0, 2)).toEqual(['hola', 'texto']);
+    const start = (chrome.runtime.sendMessage as Mock).mock.calls
+      .map(([m]) => m as { kind?: string; text?: string; context?: unknown })
+      .filter((m) => m.kind === 'translate:start')
+      .at(-1);
+    expect(start?.text).toBe('texto');
+    expect(start?.context).toBeFalsy();
+    conversation.cancel();
+    await conversation.flush();
+    expect((await loadThreadResult('https://b.test')).turns.map((t) => t.id)).toEqual(['b1']);
+  });
+
+  it('sends a handoff into its own conversation when the read ends while the tab change still loads', async () => {
+    await saveThread('https://a.test', [user('a1', 'hola')]);
+    await saveThread('https://b.test', [user('b1', 'hallo')]);
+    let duringRead = (): Promise<unknown> => Promise.resolve();
+    const { intake, conversation } = await intakeFor(7, Promise.resolve(), async () => {
+      await duringRead();
+      return { pageUrl: 'https://b.test/', pageTitle: 'B' };
+    });
+    await conversation.followSite('https://a.test');
+    // The tab change is parked in the read of b.test's thread when the page read returns.
+    const reached = deferred();
+    const hold = deferred();
+    const original = chrome.storage.local.get.bind(chrome.storage.local);
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
+    vi.spyOn(chrome.storage.local, 'get').mockImplementation((async (arg: unknown) => {
+      if (arg === threadKey('https://b.test')) {
+        reached.resolve();
+        await hold.promise;
+      }
+      return await (original as (a: unknown) => Promise<Record<string, unknown>>)(arg);
+    }) as typeof chrome.storage.local.get);
+    let follow: Promise<boolean> = Promise.resolve(false);
+    duringRead = async () => {
+      follow = conversation.followSite('https://b.test');
+      await reached.promise;
+      setTimeout(hold.resolve, 0);
+    };
+    await writePendingPopupHandoff({
+      sourceText: 'texto',
+      sourceLang: 'auto',
+      targetLang: 'en',
+      task: 'translate',
+      tone: 'neutral',
+    });
+
+    await intake.drainPopupHandoffs();
+    await follow;
+
+    expect(conversation.activeSite).toBe('https://a.test');
+    expect(conversation.turns.map((t) => t.content).slice(0, 2)).toEqual(['hola', 'texto']);
+    conversation.cancel();
+    await conversation.flush();
+    expect((await loadThreadResult('https://b.test')).turns.map((t) => t.id)).toEqual(['b1']);
+  });
+
+  it('sends a handoff into its own conversation when the tab goes away and back during the page read', async () => {
+    await saveThread('https://a.test', [user('a1', 'hola')]);
+    await saveThread('https://b.test', [user('b1', 'hallo')]);
+    let duringRead = (): Promise<unknown> => Promise.resolve();
+    const { intake, conversation } = await intakeFor(7, Promise.resolve(), async () => {
+      await duringRead();
+      return { pageUrl: 'https://a.test/', pageTitle: 'A' };
+    });
+    await conversation.followSite('https://a.test');
+    let follow: Promise<boolean> = Promise.resolve(false);
+    duringRead = async () => {
+      await conversation.followSite('https://b.test');
+      // The follow back to a.test is parked in its thread read when the page read returns.
+      const reached = deferred();
+      const hold = deferred();
+      const original = chrome.storage.local.get.bind(chrome.storage.local);
+      // eslint-disable-next-line @typescript-eslint/no-misused-promises
+      vi.spyOn(chrome.storage.local, 'get').mockImplementation((async (arg: unknown) => {
+        if (arg === threadKey('https://a.test')) {
+          reached.resolve();
+          await hold.promise;
+        }
+        return await (original as (a: unknown) => Promise<Record<string, unknown>>)(arg);
+      }) as typeof chrome.storage.local.get);
+      follow = conversation.followSite('https://a.test');
+      await reached.promise;
+      setTimeout(hold.resolve, 0);
+    };
+    await writePendingPopupHandoff({
+      sourceText: 'texto',
+      sourceLang: 'auto',
+      targetLang: 'en',
+      task: 'translate',
+      tone: 'neutral',
+    });
+
+    await intake.drainPopupHandoffs();
+    await follow;
+
+    expect(conversation.activeSite).toBe('https://a.test');
+    expect(conversation.turns.map((t) => t.content).slice(0, 2)).toEqual(['hola', 'texto']);
+    // The request carries a.test's site and history, not b.test's.
+    const starts = (chrome.runtime.sendMessage as Mock).mock.calls
+      .map(([m]) => m as { kind: string; siteOrigin?: string })
+      .filter((m) => m.kind === 'translate:start');
+    expect(starts).toHaveLength(1);
+    expect(starts[0]?.siteOrigin).toBe('https://a.test');
+    expect(JSON.stringify(starts[0])).not.toContain('hallo');
+    conversation.cancel();
+    await conversation.flush();
+    expect((await loadThreadResult('https://b.test')).turns.map((t) => t.id)).toEqual(['b1']);
+  });
+
+  it('keeps a handoff out of its conversation when that one is deleted during the page read', async () => {
+    await saveThread('https://a.test', [user('a1', 'hola')]);
+    let duringRead = (): Promise<unknown> => Promise.resolve();
+    const { intake, conversation } = await intakeFor(7, Promise.resolve(), async () => {
+      await duringRead();
+      return null;
+    });
+    await conversation.followSite('https://a.test');
+    const deleted = conversation.activeId;
+    let undo = (): void => {};
+    duringRead = async () => {
+      ({ undo } = await conversation.deleteConversation(deleted));
+    };
+    await writePendingPopupHandoff({
+      sourceText: 'texto',
+      sourceLang: 'auto',
+      targetLang: 'en',
+      task: 'translate',
+      tone: 'neutral',
+    });
+
+    await intake.drainPopupHandoffs();
+
+    expect(conversation.activeId).not.toBe(deleted);
+    expect(conversation.turns.map((t) => t.content)[0]).toBe('texto');
+    conversation.cancel();
+    await conversation.flush();
+    // The delete's timer would otherwise fire in a later test.
+    undo();
   });
 });
 

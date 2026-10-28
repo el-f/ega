@@ -253,7 +253,8 @@ function decodeEntry(raw: unknown, now: number): PendingPopupHandoff | null {
   const r = raw as Record<string, unknown>;
   if (typeof r['sourceText'] !== 'string') return null;
   // Clamp instead of reject: dropping the entry would silently lose the user's message.
-  const trimmed = r['sourceText'].length > MAX_SELECTION_CHARS;
+  // A rewrite of the queue stores the clamped text, so the mark it got then has to be read back.
+  const trimmed = r['trimmed'] === true || r['sourceText'].length > MAX_SELECTION_CHARS;
   const sourceText = capText(r['sourceText'], MAX_SELECTION_CHARS);
   if (typeof r['sourceLang'] !== 'string') return null;
   if (typeof r['targetLang'] !== 'string') return null;
@@ -274,7 +275,8 @@ function decodeEntry(raw: unknown, now: number): PendingPopupHandoff | null {
     typeof rawImage === 'string' && rawImage.length <= IMAGE_DATA_URL_MAX_CHARS
       ? rawImage
       : undefined;
-  const imageDropped = typeof rawImage === 'string' && imageDataUrl === undefined;
+  const imageDropped =
+    r['imageDropped'] === true || (typeof rawImage === 'string' && imageDataUrl === undefined);
   const ocrText = optStr('ocrText');
   const explain = optStr('explain');
   const reply = decodeReply(r['reply']);

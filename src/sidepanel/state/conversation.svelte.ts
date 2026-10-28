@@ -203,6 +203,8 @@ export interface ConversationContainer {
   readonly activeSite: string;
   /** The site of the tab the panel follows. Differs from `activeSite` while the user reads another site's conversation. */
   readonly tabSite: string;
+  /** Counts followSite calls, so a caller can tell the tab moved during an await even when it came back. */
+  readonly tabFollows: number;
   /** The panel is closing: cancel replies still finishing for threads it no longer shows. */
   stopBackground: () => void;
   /** Storage was wiped elsewhere: drop the thread from memory without writing it back. */
@@ -1478,8 +1480,11 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
   /** True once a thread has loaded, so a follower event for the same site never reloads over an empty new conversation. */
   let loadedOnce = false;
 
+  let tabFollows = 0;
+
   async function followSite(site: string): Promise<boolean> {
     state.tabSite = site;
+    tabFollows++;
     return switchLock(async () => {
       if (loadedOnce && siteOf(state.activeId) === site) return false;
       let id: string | null = null;
@@ -1780,6 +1785,9 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     },
     get tabSite() {
       return state.tabSite;
+    },
+    get tabFollows() {
+      return tabFollows;
     },
     ownsRequest: (requestId) =>
       requestId !== undefined && (ownedRequests.has(requestId) || heldChunks.has(requestId)),

@@ -103,7 +103,7 @@ function validateStoredTurn(t: unknown): Turn | null {
     }
     return user;
   }
-  const answer = withAskTargets(e as unknown as AssistantTurnData);
+  const answer = withAskTargets(withObjectVariants(e as unknown as AssistantTurnData));
   const rawStatus = e['status'] as string;
   if (VALID_STATUSES.has(rawStatus)) {
     return remirrorInstructions(
@@ -117,6 +117,21 @@ function validateStoredTurn(t: unknown): Turn | null {
       error: { code: 'interrupted', message: 'The panel reloaded before this finished.' },
     }),
   );
+}
+
+/** A variant that is not an object would throw below and cost the whole thread, so only it goes.
+ *  The active index keeps its version; with none left, withSeedVariant rebuilds one from the turn. */
+function withObjectVariants(t: AssistantTurnData): AssistantTurnData {
+  const raw: unknown = t.variants;
+  if (raw === undefined) return t;
+  const all: unknown[] = Array.isArray(raw) ? raw : [];
+  const kept = all.filter((v): v is Variant => v !== null && typeof v === 'object');
+  if (kept.length === all.length && all === raw) return t;
+  const { variants: _v, activeVariantIdx, ...rest } = t;
+  void _v;
+  if (kept.length === 0) return rest;
+  const idx = kept.indexOf(all[activeVariantIdx ?? 0] as Variant);
+  return { ...rest, variants: kept, activeVariantIdx: idx < 0 ? kept.length - 1 : idx };
 }
 
 /** An "Ask instead" version keeps which reply it asks about, as a user turn does; a malformed one is dropped. */
@@ -354,7 +369,12 @@ function parseStoredThread(raw: unknown): ReadThread {
   if (!isReadableVersion(raw)) return emptyRead(true);
   const validated: Turn[] = [];
   for (const t of raw.turns) {
-    const valid = validateStoredTurn(t);
+    let valid: Turn | null = null;
+    try {
+      valid = validateStoredTurn(t);
+    } catch {
+      // A malformed nested field the guards do not check costs this turn, not the thread.
+    }
     if (valid !== null) validated.push(valid);
   }
   const clearedAt = Number.isFinite(raw.clearedAt) ? raw.clearedAt : undefined;
@@ -544,13 +564,22 @@ function evictedOf(e: IndexEntry): EvictedConversation {
   return e.title !== undefined ? { id: e.origin, title: e.title } : { id: e.origin };
 }
 
+/** A stored index this build cannot parse, most likely a newer build's. */
+class UnreadableIndexError extends Error {}
+
 /** Adds or replaces entries, evicts past the conversation and byte budgets, writes the index. */
 async function commitIndex(entries: readonly IndexEntry[]): Promise<EvictedConversation[]> {
-  const index = await readIndex();
-  const stored = new Map(index.threads.map((t) => [t.origin, t]));
+  const raw: unknown = (await chrome.storage.local.get(INDEX_KEY))[INDEX_KEY];
+  const index = raw === undefined ? null : parseIndex(raw);
+  // Most likely a newer build's. A fresh index over it would unlist every conversation it holds.
+  if (raw !== undefined && index === null) {
+    throw new UnreadableIndexError('The conversation index cannot be read by this version');
+  }
+  const threads = index?.threads ?? [];
+  const stored = new Map(threads.map((t) => [t.origin, t]));
   const incoming = new Set(entries.map((e) => e.origin));
   const evicted: EvictedConversation[] = [];
-  const rest = index.threads.filter((t) => !incoming.has(t.origin));
+  const rest = threads.filter((t) => !incoming.has(t.origin));
   // A save never knows when the list last opened a conversation, so the stored stamp carries over.
   for (const e of entries) {
     const openedAt = stored.get(e.origin)?.openedAt;
@@ -942,6 +971,8 @@ async function saveThreadLocked(
       { origin, updatedAt: now, bytes: serialisedArrayBytes(sized), ...entryFacts(capped) },
     ]);
   } catch (e) {
+    // Nothing in this build could list, budget or reclaim a blob written under that index.
+    if (e instanceof UnreadableIndexError) throw e;
     // The blob below still loads by key, but nothing lists it — the caller has to hear about it.
     indexError = e;
   }

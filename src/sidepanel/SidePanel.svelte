@@ -275,10 +275,10 @@
   }
 
   async function collectActiveTabContext(): Promise<PageContext | null> {
+    // The panel's own window: the window focused last can be another one.
+    const tabId = await activeTabId();
+    if (!tabId) return null;
     try {
-      const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-      const tabId = tabs[0]?.id;
-      if (!tabId) return null;
       const level = pageContextLevel ?? 'minimal';
       const reply = await sendTabMsg(tabId, { kind: 'ega:get-page-context', level });
       return reply?.context ?? null;

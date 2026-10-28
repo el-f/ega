@@ -39,7 +39,8 @@ export function exportMarkdown(turns: readonly Turn[], views: readonly TaskView[
   for (const turn of turns) {
     if (turn.role === 'user') {
       const label = turnLabel(turn, views);
-      const body = turn.imageDataUrl ? IMAGE_TURN_PLACEHOLDER : turn.content;
+      // An image sent with no text already holds the placeholder as its content.
+      const body = turn.content || (turn.imageDataUrl ? IMAGE_TURN_PLACEHOLDER : '');
       if (!body) continue;
       blocks.push(`**You (${label}):** ${body}`);
     } else {
