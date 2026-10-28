@@ -63,7 +63,8 @@ function fieldSchema(field: AnswerField, dialect: SchemaDialect): JsonSchema {
           : {}),
       };
   }
-  if (field.guide) schema.description = field.guide;
+  // A generated key such as field1 means nothing to the model; the name does.
+  schema.description = field.guide?.trim() ? field.guide : field.label;
   return strict && !field.required ? { anyOf: [schema, { type: 'null' }] } : schema;
 }
 

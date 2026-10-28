@@ -112,30 +112,56 @@ const BUILT_INS = {
     version: 2,
     join: 'template',
     pinned: TASK_FORMATS.summarize,
-    fields: [ANSWER],
+    fields: [{ ...ANSWER, guide: 'your summary as a string' }],
   },
   reword: {
     id: 'reword',
     version: 2,
     join: 'template',
     pinned: TASK_FORMATS.reword,
-    fields: [ANSWER, NOTES],
+    fields: [
+      { ...ANSWER, guide: "your rewrite as a string, in the input's language" },
+      {
+        ...NOTES,
+        guide:
+          'one short sentence naming the tone and what changed; if the text already has this tone, say so',
+      },
+    ],
   },
   grammar: {
     id: 'grammar',
     version: 2,
     join: 'template',
     pinned: TASK_FORMATS.grammar,
-    fields: [ANSWER, NOTES],
+    fields: [
+      { ...ANSWER, guide: 'corrected text as a string' },
+      {
+        ...NOTES,
+        guide:
+          'newline-separated list of corrections, one per line, format: "was X → now Y (reason)"; if nothing needed fixing, one line saying so',
+      },
+    ],
   },
   'suggest-replies': {
     id: 'suggest-replies',
     version: 2,
     join: 'template',
     pinned: TASK_FORMATS['suggest-replies'],
-    fields: [ANSWER],
+    fields: [
+      {
+        ...ANSWER,
+        guide:
+          'The three replies MUST be separated by a blank line in the answer field, in the order casual → neutral → polite',
+      },
+    ],
   },
-  ask: { id: 'ask', version: 2, join: 'template', pinned: TASK_FORMATS.ask, fields: [ANSWER] },
+  ask: {
+    id: 'ask',
+    version: 2,
+    join: 'template',
+    pinned: TASK_FORMATS.ask,
+    fields: [{ ...ANSWER, guide: 'your answer as a string' }],
+  },
   ocr: {
     id: 'ocr',
     version: 1,
@@ -145,7 +171,7 @@ const BUILT_INS = {
       sep: ' ',
     },
     fields: [
-      MAIN,
+      { ...MAIN, guide: 'translation or passthrough as string' },
       {
         ...CONFIDENCE,
         guide:
@@ -157,6 +183,7 @@ const BUILT_INS = {
         kind: 'language',
         role: 'meta',
         required: true,
+        guide: 'language code or label of the source text',
       },
     ],
   },
@@ -173,10 +200,10 @@ function customPreset(id: string, text: string, fields: readonly AnswerField[]):
 }
 
 export const CUSTOM_PRESETS = {
-  'answer-only': customPreset('answer-only', PLAIN_CONTRACT, [ANSWER]),
+  'answer-only': customPreset('answer-only', PLAIN_CONTRACT, [{ ...ANSWER, guide: 'your answer' }]),
   'answer-notes': customPreset('answer-notes', CARD_CONTRACT, [
-    ANSWER,
-    { ...NOTES, required: false },
+    { ...ANSWER, guide: 'your answer' },
+    { ...NOTES, required: false, guide: 'short notes' },
   ]),
 } as const satisfies Record<string, AnswerSpec>;
 

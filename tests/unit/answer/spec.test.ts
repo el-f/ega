@@ -122,7 +122,40 @@ describe('versioned answer specs', () => {
   });
 });
 
+// The pinned text is what the model reads and the fields are what the reader and schema use, so they must agree.
+describe('pinned formats agree with their fields', () => {
+  const named = (text: string) =>
+    [...text.matchAll(/"(\w+)"(\??):/g)].map((m) => ({ key: m[1], optional: m[2] === '?' }));
+  it.each([...ALL_TASKS, 'ocr'])('%s names its keys, its optional ones and every guide', (task) => {
+    const spec = answerSpecFor(task);
+    const text = spec.pinned?.text ?? '';
+    const asked = spec.fields.filter((f) => f.when !== 'explain');
+    expect(named(text)).toEqual(asked.map((f) => ({ key: f.key, optional: !f.required })));
+    for (const f of spec.fields) if (f.guide) expect(text, f.key).toContain(f.guide);
+    if (spec.fields.some((f) => f.when === 'explain')) expect(text).toContain('{{explainField}}');
+  });
+  it.each(Object.keys(CUSTOM_PRESETS))('%s names its keys and every guide', (preset) => {
+    const spec = CUSTOM_PRESETS[preset as keyof typeof CUSTOM_PRESETS];
+    const text = spec.pinned?.text ?? '';
+    expect(named(text).map((n) => n.key)).toEqual(spec.fields.map((f) => f.key));
+    for (const f of spec.fields) expect(text, f.key).toContain(f.guide);
+  });
+});
+
 describe('generated formats and provider schemas', () => {
+  it('describes each schema field with its guide, else its name', () => {
+    const schema = toJsonSchema(
+      { ...custom, fields: [{ ...main, guide: 'The reply to send' }, ...custom.fields.slice(1)] },
+      { dialect: 'openai-strict' },
+    );
+    expect(schema.properties['answer']?.description).toBe('The reply to send');
+    expect(schema.properties['points']).toMatchObject({
+      anyOf: [{ description: 'Key points' }, { type: 'null' }],
+    });
+    for (const task of [...ALL_TASKS, 'ocr'])
+      for (const [key, property] of Object.entries(toJsonSchema(answerSpecFor(task)).properties))
+        expect(property.description, `${task}.${key}`).toBeTruthy();
+  });
   it('names duplicate custom field labels before attempting to save or preview', () => {
     expect(
       validateSpec({
