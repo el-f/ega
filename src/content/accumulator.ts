@@ -1,4 +1,5 @@
 import { debugCatch } from '@/shared/logger';
+import { capText } from '@/shared/text-cap';
 interface AccumulatedSelection {
   text: string;
   rect: DOMRect;
@@ -69,11 +70,11 @@ export function size(): number {
 
 const JOIN_SEPARATOR = '\n\n---\n\n';
 
-/** Joins queued selections up to the request cap and reports how many did not fit, so nothing is cut in silence. */
+/** Joins queued selections up to the request cap and reports how many did not fit and whether one was cut, so nothing is cut in silence. */
 export function joinCapped(
   parts: readonly string[],
   cap: number,
-): { text: string; dropped: number } {
+): { text: string; dropped: number; cut: boolean } {
   const kept: string[] = [];
   let used = 0;
   for (const part of parts) {
@@ -82,8 +83,10 @@ export function joinCapped(
     kept.push(part);
     used += cost;
   }
+  const joined = kept.join(JOIN_SEPARATOR);
   // A lone selection longer than the cap still goes out truncated — dropping it outright helps nobody.
-  return { text: kept.join(JOIN_SEPARATOR).slice(0, cap), dropped: parts.length - kept.length };
+  const text = capText(joined, cap);
+  return { text, dropped: parts.length - kept.length, cut: text.length < joined.length };
 }
 
 export function onChange(fn: () => void): () => void {

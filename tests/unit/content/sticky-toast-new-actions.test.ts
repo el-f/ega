@@ -6,6 +6,7 @@ import { STORAGE_KEYS } from '@/shared/constants';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import { ensureSettings, resetSettingsCacheForTest } from '@/content/settings-cache';
 import * as accum from '@/content/accumulator';
+import { selectionTrimmedMessage } from '@/shared/selection-cap-copy';
 // Static so the lazy tooltip import resolves off the warm module graph, not mid-teardown.
 import '@/content/tipState.svelte';
 
@@ -49,6 +50,21 @@ describe('an in-page notice that waits for the user, and the actions after it (X
       ),
     );
     expect(toastText()).toBe("Sent 1 of 2 selections. The rest didn't fit.");
+  });
+
+  it('a queued selection over the cap says it was cut', async () => {
+    accum.add({ text: 'a'.repeat(2500), rect: RECT });
+    chromeMock.runtime.onMessage.emit(
+      { kind: 'hotkey:translate' },
+      { id: chromeMock.runtime.id },
+      () => {},
+    );
+    await vi.waitFor(() =>
+      expect(chromeMock.runtime.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ kind: 'translate:start' }),
+      ),
+    );
+    expect(toastText()).toBe(selectionTrimmedMessage('selection'));
   });
 
   it.each<[string, (id: string) => Promise<void>]>([

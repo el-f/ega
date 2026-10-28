@@ -4,6 +4,10 @@ const LETTER = /\p{L}/u;
 // LINK rescans a long run with no "://" from every start position, so its cost grows with the square of the length.
 const MAX_CHECKED_CHARS = 2048;
 
+/** What Ega says instead of sending such text to a model. */
+export const NOTHING_TO_TRANSLATE_NOTICE =
+  'Nothing to translate: the selection is only links, numbers or symbols.';
+
 /** No letter is left once links and e-mail addresses are taken out: only numbers, symbols or links. */
 export function nothingToTranslate(text: string): boolean {
   if (text.length > MAX_CHECKED_CHARS) return !LETTER.test(text);

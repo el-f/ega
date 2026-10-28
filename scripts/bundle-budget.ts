@@ -264,7 +264,8 @@ function measureDist(distDir: string): BundleEntry[] {
 // The textarea selection mirror adds 2,312B: the bubble measures a field selection right before it shows.
 // Inline replace and the tooltip share the code-answer helper, so its chunk joins two preload lists: 78B.
 // Audit fixes add 2,641B: detect's Arabizi word list and count, the grapheme-safe cap, the swap's pair memo.
-const EAGER_CONTENT_BUDGET_BYTES = 162_358;
+// The page's links-only Translate check with its notice, and the queue's cut notice, add 792B.
+const EAGER_CONTENT_BUDGET_BYTES = 163_150;
 
 /** The popup opens on every toolbar click, so its preload set is the one extension-page cost a user feels. Ratchet, like the one above. */
 // Stable control widths (R63) add 3,930B: the StableLabel chunk, Button's label stack, the double-click guard (its
@@ -276,7 +277,8 @@ const EAGER_CONTENT_BUDGET_BYTES = 162_358;
 // and meta field, since a content script writes the reply).
 // Audit fixes add 914B: the grapheme-safe text cap and Translate anyway's links-only check with its toast;
 // +32B for the length guard that keeps that check linear.
-const POPUP_PAGE_BUDGET_BYTES = 528_577;
+// Sharing that notice with the page moves it into a chunk the content script also loads: +58B.
+const POPUP_PAGE_BUDGET_BYTES = 528_635;
 
 function measurePagePreload(distDir: string, htmlRel: string): { files: string[]; bytes: number } {
   const htmlPath = path.join(distDir, htmlRel);

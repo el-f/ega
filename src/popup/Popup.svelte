@@ -22,7 +22,7 @@
   import { MAX_SELECTION_CHARS, settingsSaveFailedMessage } from '@/shared/constants';
   import { selectionTrimmedMessage } from '@/shared/selection-cap-copy';
   import { capText } from '@/shared/text-cap';
-  import { nothingToTranslate } from '@/shared/nothing-to-translate';
+  import { NOTHING_TO_TRANSLATE_NOTICE, nothingToTranslate } from '@/shared/nothing-to-translate';
   import {
     activeTab,
     NO_RECEIVER,
@@ -219,10 +219,7 @@
     if (text === '') return;
     // Same rule as the side panel: a model asked to translate a link or a number can only echo it.
     if (defaultTask === 'translate' && nothingToTranslate(text)) {
-      toastStore.push({
-        message: 'Nothing to translate: the selection is only links, numbers or symbols.',
-        variant: 'info',
-      });
+      toastStore.push({ message: NOTHING_TO_TRANSLATE_NOTICE, variant: 'info' });
       return;
     }
     pageAction({ kind: 'ctx:translate-selection', text }, "Ega couldn't start the translation.");

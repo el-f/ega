@@ -28,6 +28,7 @@ import {
 } from './context-guard';
 import { imageStuckTimeoutMs, stuckTimeoutMs } from '@/shared/stuck-timeout';
 import { closeStickyToast, showToast } from './toast';
+import { NOTHING_TO_TRANSLATE_NOTICE, nothingToTranslate } from '@/shared/nothing-to-translate';
 
 const log = createLogger('cs.handlers');
 
@@ -228,6 +229,12 @@ export async function retranslateWithTask(
   task: TaskId,
   tone: Tone,
 ): Promise<void> {
+  const text = pending.get(originalId)?.text;
+  // The same check startTranslateText makes: another task may take a link, Translate can only echo it.
+  if (task === 'translate' && text !== undefined && nothingToTranslate(text)) {
+    showToast(NOTHING_TO_TRANSLATE_NOTICE);
+    return;
+  }
   await reopenTooltip(deps, originalId, { explain: false, reqOverrides: { task, tone } });
 }
 

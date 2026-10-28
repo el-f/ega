@@ -16,6 +16,7 @@ import {
 } from '@/shared/saved-conversations';
 import { debugCatch } from '@/shared/logger';
 import { omitUndef } from '@/shared/utils/omitUndef';
+import { capText } from '@/shared/text-cap';
 import { IMAGE_DATA_URL_MAX_CHARS } from '@/shared/constants';
 import { INSTRUCTIONS_KEPT_REPLIES } from '@/shared/reply-instructions';
 import type { ResultMeta } from '@/shared/types';
@@ -433,7 +434,7 @@ function estimateBytes(value: unknown): number {
 
 /** The other versions are the part that can go. The shown one stays: its task, Ask target and languages live only there. */
 function shrinkTurn(t: Turn): Turn {
-  const lean: Turn = { ...t, content: t.content.slice(0, MAX_TURN_CONTENT_CHARS) };
+  const lean: Turn = { ...t, content: capText(t.content, MAX_TURN_CONTENT_CHARS) };
   delete lean.rawAcc;
   const shown = t.variants?.[t.activeVariantIdx ?? 0];
   if (shown === undefined) {
@@ -443,7 +444,7 @@ function shrinkTurn(t: Turn): Turn {
   }
   const { rawAcc: _raw, ...kept } = shown;
   void _raw;
-  lean.variants = [{ ...kept, content: shown.content.slice(0, MAX_TURN_CONTENT_CHARS) }];
+  lean.variants = [{ ...kept, content: capText(shown.content, MAX_TURN_CONTENT_CHARS) }];
   lean.activeVariantIdx = 0;
   return lean;
 }
@@ -589,11 +590,13 @@ interface Eviction {
   restore: () => Promise<void>;
 }
 
-/** Deletes the first OTHER thread in eviction order and names it.
+/** Deletes the oldest OTHER thread that holds turns and names it; a row with only tombstones frees almost nothing.
  *  Never our own: the blob we are about to write would be left unlisted. */
 async function evictOldestOtherThread(origin: string): Promise<Eviction | undefined> {
   const index = await readIndex();
-  const victim = index.threads.filter((t) => t.origin !== origin).sort(evictionOrder)[0];
+  const victim = index.threads
+    .filter((t) => t.origin !== origin && t.bytes > EMPTY_THREAD_BYTES)
+    .sort((a, b) => a.updatedAt - b.updatedAt)[0];
   if (!victim) return undefined;
   const key = threadKey(victim.origin);
   const blob: unknown = (await chrome.storage.local.get(key))[key];
@@ -614,7 +617,9 @@ async function evictOldestOtherThread(origin: string): Promise<Eviction | undefi
       },
     });
   };
-  return { evicted: evictedOf(victim), restore };
+  // A row saved before titles were stored gets one only when the list opens, so read it off the blob.
+  const title = victim.title ?? (hasThreadShape(blob) ? entryFacts(blob.turns).title : undefined);
+  return { evicted: evictedOf(title !== undefined ? { ...victim, title } : victim), restore };
 }
 
 /** The conversation a failed save deleted and could not put back; saveThread names it on the error. */
