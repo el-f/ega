@@ -14,6 +14,7 @@ import { DEFAULT_CONTEXT_MENU_ITEMS, type ContextMenuItem } from './context-menu
 import { clampToSchema, isPlainObject, PROTO_KEYS } from './settings-clamp';
 import { expandSnippets, resolveSnippets } from './snippets';
 import { toSingleLine } from './utils/single-line';
+import { capText } from './text-cap';
 import { objectEntries, unwrapOptional, type AnySchema } from './valibot-introspect';
 import { CLOUD_PROVIDER_IDS, apiKeyField, type CloudProviderId } from './provider-ids';
 import { CLOUD_PROFILES } from './backends/provider-profiles';
@@ -757,7 +758,7 @@ function inlineSnippets(out: Record<string, unknown>): void {
           e[0].length <= SNIPPET_NAME_MAX &&
           !PROTO_KEYS.has(e[0]),
       )
-      .map(([k, body]) => [k, body.slice(0, SNIPPET_BODY_MAX)]),
+      .map(([k, body]) => [k, capText(body, SNIPPET_BODY_MAX)]),
   );
   if (Object.keys(snippets).length === 0) {
     delete adv['snippets'];

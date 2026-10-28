@@ -442,6 +442,40 @@ describe('storage', () => {
       expect(c[0]?.examples).toHaveLength(1);
     });
 
+    it("'Use the file's keys' replaces only the keys the file has and keeps the rest", async () => {
+      await updateSettings({
+        anthropicApiKey: 'sk-cur-ant',
+        openaiApiKey: 'sk-cur-oai',
+        apiKeyEditedAt: { anthropic: 1, openai: 2 },
+      });
+      const keyless = JSON.parse(JSON.stringify(await exportAll({ includeApiKeys: false })));
+
+      await importAs(keyless, 'settings', { includeApiKeys: true });
+      let s = await getSettings();
+      expect(s.anthropicApiKey).toBe('sk-cur-ant');
+      expect(s.openaiApiKey).toBe('sk-cur-oai');
+
+      const oneKey = {
+        ...keyless,
+        settings: {
+          ...keyless.settings,
+          anthropicApiKey: 'sk-file-ant',
+          apiKeyEditedAt: { anthropic: 10, openai: 20 },
+        },
+      };
+      await importAs(oneKey, 'settings', { includeApiKeys: true });
+      s = await getSettings();
+      expect(s.anthropicApiKey).toBe('sk-file-ant');
+      expect(s.openaiApiKey).toBe('sk-cur-oai');
+      // A key and its "Edited" time come from the same place.
+      expect(s.apiKeyEditedAt).toEqual({ anthropic: 10, openai: 2 });
+
+      await importAs({ ...oneKey, settings: { ...oneKey.settings, apiKeyEditedAt: {} } }, 'settings', {
+        includeApiKeys: false,
+      });
+      expect((await getSettings()).apiKeyEditedAt).toEqual({ anthropic: 10, openai: 2 });
+    });
+
     it('rejects a file that carries no Ega root key', async () => {
       await expect(importAs(null, 'settings')).rejects.toThrow(/not an Ega backup/);
       await expect(importAs('nope', 'settings')).rejects.toThrow(/not an Ega backup/);

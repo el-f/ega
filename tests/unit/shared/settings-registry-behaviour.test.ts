@@ -345,4 +345,13 @@ describe('settings-registry isModified behavior', () => {
       ).toBe(false);
     }
   });
+
+  it('the default disabled backends in backend-list order are not modified', () => {
+    const entry = SETTINGS_REGISTRY.find((e) => e.id === 'backends.disabledBackends');
+    const s = clone(DEFAULT_SETTINGS);
+    // The backend list writes the disabled set in backendOrder order after any toggle.
+    s.disabledBackends = s.backendOrder.filter((b) => s.disabledBackends.includes(b));
+    expect(s.disabledBackends).not.toEqual(DEFAULT_SETTINGS.disabledBackends);
+    expect(entry?.isModified?.(s)).toBe(false);
+  });
 });

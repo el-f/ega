@@ -323,8 +323,14 @@ export const SETTINGS_SPEC: readonly SettingEntrySpec[] = [
     tab: 'backends',
     targetSelector: '[data-ega-setting="backends.disabledBackends"]',
     type: 'group',
-    // The default list is non-empty, so compare contents, not emptiness.
-    isModified: { kind: 'jsonStringify', path: 'disabledBackends' },
+    // The default list is non-empty, so compare contents; sorted, because the backend list writes it in backendOrder order.
+    isModified: {
+      kind: 'custom',
+      paths: ['disabledBackends'],
+      fn: (s) =>
+        JSON.stringify([...s.disabledBackends].sort()) !==
+        JSON.stringify([...DEFAULT_SETTINGS.disabledBackends].sort()),
+    },
   },
   {
     id: 'backends.model',

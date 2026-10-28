@@ -8,7 +8,7 @@ import type {
   VarietiesBundle,
   VarietiesImportResult,
 } from '../types';
-import { BACKEND_API_KEY_FIELDS } from '../provider-ids';
+import { BACKEND_API_KEY_FIELDS, CLOUD_PROVIDER_IDS, apiKeyField } from '../provider-ids';
 import {
   GLOSSARY_MAX,
   type GlossaryBundle,
@@ -374,15 +374,21 @@ export async function importBundle(
           withCustomTasksLock(async () => {
             // Copy first: the loop below writes and deletes fields the caller may still hold a reference to.
             const settings = { ...bundle.settings };
-            if (!opts.includeApiKeys) {
-              // The confirm dialog promises "use your current keys", so strip-keys mode re-attaches them before the write.
-              const current = await getSettings();
-              for (const k of BACKEND_API_KEY_FIELDS) {
-                const v = current[k];
-                if (v === undefined) delete settings[k];
-                else settings[k] = v;
-              }
+            // The dialog promises "your current keys stay": keep each one unless the user took the file's keys and it has one.
+            const current = await getSettings();
+            // A kept key keeps its own edit time too, so the card's "Edited" label matches the key.
+            const editedAt = { ...settings.apiKeyEditedAt };
+            for (const id of CLOUD_PROVIDER_IDS) {
+              const k = apiKeyField(id);
+              if (opts.includeApiKeys && settings[k]) continue;
+              const v = current[k];
+              if (v === undefined) delete settings[k];
+              else settings[k] = v;
+              const t = current.apiKeyEditedAt[id];
+              if (t === undefined) delete editedAt[id];
+              else editedAt[id] = t;
             }
+            settings.apiKeyEditedAt = editedAt;
             await chrome.storage.local.set({
               [STORAGE_KEYS.settings]: settings,
               [STORAGE_KEYS.customLanguages]: bundle.customLanguages,
