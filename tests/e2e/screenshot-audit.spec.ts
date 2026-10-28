@@ -3374,11 +3374,12 @@ test('Options Tasks — your tasks and every task dialog (light + dark)', async 
     page = await openOptionsState(theme, { tab: 'tasks' });
     for (const id of TASK_IDS) {
       await openTaskDialog(page, id);
-      await expect(page.locator('[data-ega-task-facts]')).toBeVisible();
+      await expect(page.locator('[data-ega-reply-section]')).toBeVisible();
       await optShot(page, `task-dialog-${id}`, theme, {
         userAction: `user opened the ${id} task`,
         expectations: [
-          'settings first (Effort, Inputs), then the prompt or the line naming the prompt it uses',
+          'settings first (Effort, Inputs), then Reply in plain words, then the prompt or the line naming the prompt it uses',
+          'no JSON, keys or types anywhere in Edit',
           'footer fixed at the bottom',
         ],
         overlay: true,
@@ -3397,12 +3398,14 @@ test('Options Tasks — your tasks and every task dialog (light + dark)', async 
     }
 
     let dialog = await openTaskDialog(page, 'translate');
-    await expect(dialog.locator('[data-ega-answer-format]')).toBeVisible();
+    await expect(dialog.locator('[data-ega-reply-section]')).toBeVisible();
     await dialog.locator('[data-ega-prompt-tab="preview"]').click();
+    await expect(dialog.locator('[data-ega-preview-format]')).toBeVisible();
     await optShot(page, 'task-dialog-translate-preview', theme, {
       userAction: 'user pressed Preview in the Translate prompt',
       expectations: [
         'the full system and message text with sample text filled in; Edit and Preview as tabs',
+        'the reply format Ega adds sits in its own "Reply format" part',
       ],
       overlay: true,
     });
@@ -3540,7 +3543,7 @@ test('Options Tasks — your tasks and every task dialog (light + dark)', async 
     await optShot(page, 'task-dialog-answer-format-legacy', theme, {
       userAction: 'user scrolled to the prompt, which writes its own answer format line',
       expectations: [
-        'the locked Answer format notes the prompt has its own format line, with the way back to the standard one',
+        'under Instructions: "Your instructions ask for their own format. Ega reads only the parts under Reply." with Use Ega\'s format',
       ],
       overlay: true,
     });
@@ -3578,7 +3581,7 @@ test('Options Tasks — a task of your own: new, edit, invalid, preview, delete,
     await optShot(page, 'custom-task-new-empty', theme, {
       userAction: 'user pressed New task',
       expectations: [
-        'Name first, then Inputs, Answers, then the prompt; "Not saved yet" in the footer',
+        'Name, Effort and Inputs first, then Reply (Shape, Language, parts), then the prompt; "Not saved yet" in the footer',
       ],
       overlay: true,
     });

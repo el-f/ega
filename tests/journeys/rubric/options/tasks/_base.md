@@ -10,12 +10,13 @@
 
 ## Edit dialog (built-in tasks)
 
-- Edit opens a dialog titled "<Task> task" with one help line. Settings come first: Effort (Default, Off, Low, Medium, High) with "Default for this task is <level>", Inputs (Send page context, Use glossary), and the fixed facts line "Answers: Answer only · Text only". The prompt comes second, in the one prompt editor (Edit | Preview, Insert variable, the locked Answer format). Explain has no prompt of its own and offers "Edit the Translate prompt".
+- Edit opens a dialog titled "<Task> task" with one help line. Settings come first: Effort (Default, Off, Low, Medium, High) with "Default for this task is <level>", and Inputs (Send page context, Use glossary; Translate and Explain add the line "Reads images"). Then Reply with an (i): one row per part, a name and one muted line in plain words ("Answer the summary"), with no JSON, keys or types. The prompt comes last, in the one prompt editor (Edit | Preview, Insert variable); the exact reply format is only in Preview, as its own "Reply format" part. Explain has no prompt of its own and offers "Edit the Translate prompt".
+- A prompt that asks for its own format shows one notice under Instructions: "Your instructions ask for their own format. Ega reads only the parts under Reply." with "Use Ega's format" when Ega can take it out.
 - Every field saves as it changes (text after a 600 ms pause). The footer holds the "Reset task" pill (only when the task differs), a status line ("Saved", "Not saved: ...", "Back to built-in" + Undo) and Done. There is no Save button.
 
 ## Task editor (your own tasks)
 
-- New task and Edit open the same dialog: Name, Answers (Answer only / Answer with notes), Effort, Inputs (Send page context, Reads images, Use glossary, Show in right-click menu) and the same prompt editor.
+- New task and Edit open the same dialog: Name, Effort, Inputs (Send page context, Reads images, Use glossary, Show in right-click menu), then Reply (Shape: Answer only / Answer with notes / Your own fields; Language: Target language / Same as the text; the parts; Example reply), then the same prompt editor.
 - The task saves itself once it has a name and a message with the selected text; until then the footer says "Not saved yet: add a name". Delete task acts at once with an Undo toast.
 
 ## A11y

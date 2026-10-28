@@ -1,5 +1,7 @@
 import type { PromptTemplate } from '@/shared/types';
 import { META_KEYS, type AnswerField } from '@/shared/answer/spec';
+import { FORMAT_MARKER, type AnswerFormat } from '@/shared/answer/formats-v1';
+import { stripStandardFormat } from '@/shared/prompts';
 
 export interface OwnAnswerFormat {
   half: 'system' | 'user';
@@ -57,9 +59,28 @@ export function convertOwnFormat(
         required: false,
       })),
   ];
+  return { prompt: withoutOwnFormat(prompt, own), fields };
+}
+
+function withoutOwnFormat(prompt: PromptTemplate, own: OwnAnswerFormat): PromptTemplate {
   const text = prompt[own.half];
   const cleaned = (text.slice(0, own.start) + text.slice(own.end))
     .replace(/[ \t]+\n/g, '\n')
     .trim();
-  return { prompt: { ...prompt, [own.half]: cleaned }, fields };
+  return { ...prompt, [own.half]: cleaned };
+}
+
+/** "Use Ega's format": the prompt without its own format; 'empty' when only the format would be left, null when Ega cannot find it. */
+export function takeOutOwnFormat(
+  prompt: PromptTemplate,
+  format: AnswerFormat,
+): PromptTemplate | 'empty' | null {
+  const standard = stripStandardFormat(prompt.system, format);
+  if (standard !== null) return { ...prompt, system: standard };
+  const own = embedsOwnFormat(prompt);
+  if (own !== null) {
+    const rest = withoutOwnFormat(prompt, own);
+    return rest[own.half].trim() === '' ? 'empty' : rest;
+  }
+  return prompt.system.includes(FORMAT_MARKER) ? 'empty' : null;
 }

@@ -21,11 +21,13 @@
     type CustomTaskInput,
     type CustomTaskPatch,
   } from '@/shared/tasks';
-  import { customAnswerSpec, customAnswerContract, answerOutput } from '@/shared/answer/custom';
+  import { customAnswerSpec, answerOutput } from '@/shared/answer/custom';
+  import { describeReply } from '@/shared/answer/describe';
   import { validateSpec, type AnswerField } from '@/shared/answer/spec';
   import type { StoredAnswerSpec } from '@/shared/custom-answer-schema';
   import AnswerFieldsEditor from './AnswerFieldsEditor.svelte';
   import AnswerPreview from './AnswerPreview.svelte';
+  import ReplySection from './ReplySection.svelte';
   import { embedsOwnFormat, convertOwnFormat } from '@/options/own-answer-format';
   import { listVarieties } from '@/shared/varieties';
   import { buildCustomPreviewPrompt, PREVIEW_SAMPLE_TEXT } from '@/options/preview-prompt';
@@ -442,37 +444,6 @@
         oninput={(e) => setLabel((e.currentTarget as HTMLInputElement).value)}
       />
 
-      <span class="ct-label" id="{uid}-answers">Answers</span>
-      <RadioGroup
-        value={answerMode}
-        options={[
-          { value: 'plain', label: 'Answer only' },
-          { value: 'card', label: 'Answer with notes' },
-          { value: 'fields', label: 'Your own fields' },
-        ]}
-        onValueChange={setAnswerMode}
-        orientation="horizontal"
-        dataAttrs={{ 'data-ega-custom-task-output': true, 'aria-labelledby': `${uid}-answers` }}
-      />
-
-      <span class="ct-label" id="{uid}-reply-language">Answer language</span>
-      <div class="ct-control">
-        <RadioGroup
-          value={answersIn}
-          options={[
-            { value: 'target', label: 'To language' },
-            { value: 'input', label: 'Same as input' },
-          ]}
-          onValueChange={(v) => {
-            answersIn = v === 'input' ? 'input' : 'target';
-            saveNow({ answersIn });
-          }}
-          orientation="horizontal"
-          dataAttrs={{ 'aria-labelledby': `${uid}-reply-language` }}
-        />
-        <p class="ct-hint" data-ega-hint>Match the language your prompt asks for</p>
-      </div>
-
       <span class="ct-label" id="{uid}-effort">Effort</span>
       <div class="ct-control" data-ega-custom-task-effort>
         <Segmented
@@ -560,10 +531,44 @@
           </p>{/if}
       </div>
     {/if}
-    {#if answerMode === 'fields'}
-      <AnswerFieldsEditor fields={ownFields} onchange={setFields} />
-      {#if answerProblem}<p class="ct-hint" role="status">{answerProblem}</p>{/if}
-    {/if}
+    <ReplySection rows={answerMode === 'fields' ? [] : describeReply(answerSpec)}>
+      <div class="ct-grid">
+        <span class="ct-label" id="{uid}-shape">Shape</span>
+        <RadioGroup
+          value={answerMode}
+          options={[
+            { value: 'plain', label: 'Answer only' },
+            { value: 'card', label: 'Answer with notes' },
+            { value: 'fields', label: 'Your own fields' },
+          ]}
+          onValueChange={setAnswerMode}
+          orientation="horizontal"
+          dataAttrs={{ 'data-ega-custom-task-output': true, 'aria-labelledby': `${uid}-shape` }}
+        />
+
+        <span class="ct-label" id="{uid}-reply-language">Language</span>
+        <RadioGroup
+          value={answersIn}
+          options={[
+            { value: 'target', label: 'Target language' },
+            { value: 'input', label: 'Same as the text' },
+          ]}
+          onValueChange={(v) => {
+            answersIn = v === 'input' ? 'input' : 'target';
+            saveNow({ answersIn });
+          }}
+          orientation="horizontal"
+          dataAttrs={{ 'aria-labelledby': `${uid}-reply-language` }}
+        />
+      </div>
+      {#if answerMode === 'fields'}
+        <AnswerFieldsEditor fields={ownFields} onchange={setFields} />
+        {#if answerProblem}<p class="ct-hint" role="status">{answerProblem}</p>{/if}
+      {/if}
+      {#snippet after()}
+        <AnswerPreview spec={answerSpec} {draft} {s} problem={blocker} />
+      {/snippet}
+    </ReplySection>
 
     <div class="ct-prompt">
       <PromptEditor
@@ -571,14 +576,12 @@
         task={taskKey}
         template={prompt}
         builtIn={null}
-        format={customAnswerContract(draft, taskKey)}
         snippets={{}}
         sendsPageContext={pageContext}
         onChange={setPrompt}
         buildPreview={preview}
       />
     </div>
-    <AnswerPreview spec={answerSpec} {draft} {s} problem={blocker} />
   </div>
   {#snippet actions()}
     <span class="ct-foot-start">

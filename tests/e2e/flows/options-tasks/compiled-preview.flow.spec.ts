@@ -29,8 +29,11 @@ test('the Translate dialog shows the prompt as sent for a sample request', async
     'Hello world (sample text for preview).',
     { timeout: 5_000 },
   );
-  // The answer format is appended by the builder, so the preview shows it.
-  await expect(page.locator('[data-ega-preview-system]').first()).toContainText('Return JSON ONLY');
+  // The builder appends the reply format; the preview shows it in its own part.
+  await expect(page.locator('[data-ega-preview-format]').first()).toContainText('Return JSON ONLY');
+  await expect(page.locator('[data-ega-preview-system]').first()).not.toContainText(
+    'Return JSON ONLY',
+  );
   // The fields are hidden, not gone: Edit brings them back as they were.
   await page.getByRole('tab', { name: 'Edit' }).click();
   await expect(page.locator('[data-ega-template-system] textarea')).toBeVisible();

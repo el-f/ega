@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fireEvent, render, waitFor } from '@testing-library/svelte';
+import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { resetChromeMock } from '@tests/mocks/chrome';
 import CustomTaskDialog from '@/options/components/CustomTaskDialog.svelte';
 import { confirmDialog } from '@/shared/components/confirmDialog';
@@ -37,6 +37,19 @@ const done = (): HTMLElement => document.querySelector('[data-ega-dialog-done]')
 const status = (): string =>
   document.querySelector('[data-ega-dialog-status]')?.textContent.trim() ?? '';
 
+function radio(name: string): HTMLElement {
+  const el = Array.from(document.querySelectorAll<HTMLElement>('label'))
+    .find((l) => l.textContent.trim() === name)
+    ?.querySelector<HTMLElement>('[role="radio"]');
+  if (!el) throw new Error(`no ${name} radio`);
+  return el;
+}
+const reply = (): HTMLElement => screen.getByRole('region', { name: 'Reply' });
+const parts = (): string[] =>
+  [...reply().querySelectorAll('dt')].map(
+    (dt) => `${dt.textContent.trim()}: ${dt.nextElementSibling?.textContent.trim()}`,
+  );
+
 const input = {
   label: 'Polite reply',
   system: 'Turn it into a polite reply.',
@@ -53,22 +66,39 @@ beforeEach(() => {
 });
 
 describe('a new custom task', () => {
-  it('shows answer as the field for the default Answer only format', () => {
+  it('says in Reply what the answer holds, above the prompt, and keeps the exact text for Preview', async () => {
     open();
-    const format = document.querySelector('[data-ega-answer-format]');
-    expect(format?.textContent).toContain(
-      'Return JSON ONLY: {"answer": <your answer as a string>}',
+    expect(parts()).toEqual(['Answer: the main text']);
+    expect(document.querySelector('[data-ega-answer-format]')).toBeNull();
+    expect(reply().textContent).not.toMatch(/JSON|"answer"|key/);
+    const prompt = document.querySelector('[data-ega-prompt-editor]') as HTMLElement;
+    expect(reply().compareDocumentPosition(prompt) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    await fireEvent.click(screen.getByRole('tab', { name: 'Preview' }));
+    await waitFor(() =>
+      expect(document.querySelector('[data-ega-preview-format]')?.textContent).toBe(
+        'Return JSON ONLY: {"answer": <your answer as a string>}.',
+      ),
     );
-    expect(format?.textContent).not.toContain('"translation"');
+  });
+  it('Shape and Language sit in Reply; Answer with notes lists the notes and saves', async () => {
+    const row = await addCustomTask(input);
+    open(vi.fn(), { row });
+    expect(reply().contains(radio('Answer with notes'))).toBe(true);
+    expect(reply().contains(radio('Target language'))).toBe(true);
+    await fireEvent.click(radio('Answer with notes'));
+    expect(parts()).toEqual([
+      'Answer: the main text',
+      'Notes: short notes, only when there is something to note',
+    ]);
+    await waitFor(async () =>
+      expect((await getCustomTasks())[0]?.answer).toEqual({ v: 1, preset: 'answer-notes' }),
+    );
   });
   it('saves the reply language independently without overwriting the prompt', async () => {
     const row = await addCustomTask(input);
     open(vi.fn(), { row });
-    const same = Array.from(document.querySelectorAll<HTMLElement>('label'))
-      .find((el) => el.textContent.includes('Same as input'))
-      ?.querySelector<HTMLElement>('[role="radio"]');
-    expect(same).toBeDefined();
-    if (!same) throw new Error('no same-language option');
+    expect(document.body.textContent).not.toContain('Match the language your prompt asks for');
+    const same = radio('Same as the text');
     await fireEvent.click(same);
     await waitFor(async () => expect((await getCustomTasks())[0]?.answersIn).toBe('input'));
     expect((await getCustomTasks())[0]?.system).toBe(input.system);
@@ -176,11 +206,7 @@ describe('an existing custom task', () => {
     await fireEvent.click(done());
     await waitFor(() => expect(confirm).toHaveBeenCalled());
     expect(confirm.mock.calls[0]?.[0].body).toContain('the answer fields');
-    const preset = Array.from(document.querySelectorAll('label'))
-      .find((el) => el.textContent.trim() === 'Answer only')
-      ?.querySelector('[role="radio"]');
-    if (!preset) throw new Error('no Answer only radio');
-    await fireEvent.click(preset);
+    await fireEvent.click(radio('Answer only'));
     await waitFor(async () =>
       expect((await getCustomTasks())[0]?.answer).toEqual({ v: 1, preset: 'answer-only' }),
     );

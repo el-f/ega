@@ -305,7 +305,10 @@ describe('Tasks tab — your own tasks', () => {
         document.querySelector('[data-ega-custom-task-dialog] [data-ega-preview-system]')
           ?.textContent ?? '';
       expect(sys).toContain('Write a haiku.');
-      expect(sys).toContain(PLAIN_CONTRACT);
+      expect(
+        document.querySelector('[data-ega-custom-task-dialog] [data-ega-preview-format]')
+          ?.textContent,
+      ).toBe(PLAIN_CONTRACT);
     });
   });
 });

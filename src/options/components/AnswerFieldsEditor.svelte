@@ -14,7 +14,6 @@
   import Input from '@/shared/ui/Input.svelte';
   import Select from '@/shared/ui/Select.svelte';
   import Checkbox from '@/shared/ui/Checkbox.svelte';
-  import InfoTip from '@/shared/ui/InfoTip.svelte';
 
   interface Props {
     fields: readonly AnswerField[];
@@ -119,28 +118,7 @@
   }
 </script>
 
-<section class="af-editor" aria-labelledby="{uid}-title" data-ega-answer-fields-editor>
-  <div class="af-heading">
-    <h3 id="{uid}-title">Answer fields</h3>
-    <InfoTip
-      label="About answer fields"
-      text="Choose what the answer contains and where each part appears. Ega writes the format for the model, so you do not have to write JSON."
-    />
-    <Button
-      variant="secondary"
-      size="sm"
-      ariaDisabled={fields.length >= 8}
-      {...fields.length >= 8 ? { describedBy: `${uid}-cap` } : {}}
-      onclick={() => void add()}>Add field</Button
-    >
-  </div>
-  <p class="af-hint">
-    These fields define the model's response and how Ega reads it. Choose a type, whether it is
-    required, and where it appears. The answer preview below uses the same parser as your task.
-  </p>
-  {#if fields.length >= 8}<p class="af-hint" id="{uid}-cap" data-ega-disabled-reason>
-      8 fields at most
-    </p>{/if}
+<div class="af-editor" data-ega-answer-fields-editor>
   {#if main}{@render row(main, true, 0, 1)}{/if}
   <ul
     class="af-list"
@@ -169,7 +147,19 @@
       </li>
     {/each}
   </ul>
-</section>
+  <div class="af-add">
+    <Button
+      variant="secondary"
+      size="sm"
+      ariaDisabled={fields.length >= 8}
+      {...fields.length >= 8 ? { describedBy: `${uid}-cap` } : {}}
+      onclick={() => void add()}>Add field</Button
+    >
+    {#if fields.length >= 8}<p class="af-hint" id="{uid}-cap" data-ega-disabled-reason>
+        8 fields at most
+      </p>{/if}
+  </div>
+</div>
 
 {#snippet row(field: AnswerField, locked: boolean, index: number, count: number)}
   {@const rowId = idOf(field.key)}
@@ -282,20 +272,12 @@
     display: grid;
     gap: var(--space-2);
   }
-  .af-heading,
+  .af-add,
   .af-summary {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
     gap: var(--space-2);
-  }
-  .af-heading h3 {
-    margin: 0;
-    font-size: var(--fs-base);
-    font-weight: 600;
-  }
-  .af-heading :global(.ega-btn) {
-    margin-inline-start: auto;
   }
   .af-list {
     list-style: none;
