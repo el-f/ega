@@ -76,6 +76,13 @@ describe('the service worker answer reader', () => {
         issues: [],
       });
   });
+  it('keeps a translated JSON object as the main text when it lacks the main key', () => {
+    for (const inner of ['{"greeting": "Bonjour", "bye": "Au revoir"}', '{"text": "Bonjour"}']) {
+      const result = readAnswer(translate, JSON.stringify({ translation: inner }));
+      expect(result).toMatchObject({ kind: 'ok', main: inner });
+      if (result.kind === 'ok') expect(result.issues.join(' ')).not.toMatch(/Unwrapped/);
+    }
+  });
   it.each([
     'Use this config:\n{"output": "dist", "minify": true}',
     '{"result": "ok"} is what the API returns on success.',
