@@ -84,7 +84,10 @@ describe('a tool name in a block already in the target language', () => {
   }, 20_000);
 
   it('leaves an English block with md5sum on an English page', async () => {
-    await translatePage('en', ['Run md5sum on the file before you upload it to the server.', FRENCH]);
+    await translatePage('en', [
+      'Run md5sum on the file before you upload it to the server.',
+      FRENCH,
+    ]);
     expect(sent().map((m) => m.text)).toEqual([FRENCH]);
   }, 20_000);
 });
