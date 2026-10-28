@@ -193,21 +193,17 @@ export class AnthropicBackend implements TranslationBackend {
         model: modelOf(a.config),
         ...samplingFields(a.config),
         system: cachedSystem(a.system),
-        messages: a.history?.length
-          ? [
-              ...a.history.map((h) => ({ role: h.role, content: h.content })),
-              {
-                role: 'user' as const,
-                content: [
-                  {
-                    type: 'text' as const,
-                    text: a.user,
-                    cache_control: { type: 'ephemeral' as const },
-                  },
-                ],
-              },
-            ]
-          : [{ role: 'user', content: a.user }],
+        // The breakpoint sits on the last history turn: the next follow-up repeats that prefix, never this user block.
+        messages: [
+          ...(a.history ?? []).map((h, i, all) => ({
+            role: h.role,
+            content:
+              i === all.length - 1
+                ? [{ type: 'text', text: h.content, cache_control: { type: 'ephemeral' } }]
+                : h.content,
+          })),
+          { role: 'user', content: a.user },
+        ],
       },
       a.onChunk,
       a.answerFormat,
