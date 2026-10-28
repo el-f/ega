@@ -349,11 +349,8 @@ function isIdle(sess: Session): boolean {
   );
 }
 
-/**
- * Adds the page's blocks the session does not hold yet, and lets it take back a translated block whose
- * translation the page wiped by re-rendering it. Returns how many blocks it added.
- */
-function recollect(sess: Session): number {
+/** Lets the session take back a translated block whose translation the page wiped by re-rendering it. */
+function dropWiped(sess: Session): void {
   sess.store.forEach((entry) => {
     const id = entry.id;
     if (!sess.terminal.has(id) || sess.failed.has(id)) return;
@@ -364,8 +361,18 @@ function recollect(sess: Session): number {
     sess.store.delete(id);
     sess.handles.delete(id);
     sess.terminal.delete(id);
+    // The picker gives a chosen element the same id again, so a re-send must not inherit the old count.
+    sess.attempts.delete(id);
     sess.total--;
   });
+}
+
+/**
+ * Adds the page's blocks the session does not hold yet, and lets it take back a translated block whose
+ * translation the page wiped by re-rendering it. Returns how many blocks it added.
+ */
+function recollect(sess: Session): number {
+  dropWiped(sess);
   const held = heldIds(sess);
   // Held and target-language blocks are not taken again, so they leave the cap's room to blocks past it.
   const found = collectBlocks(document.body, {
@@ -665,6 +672,8 @@ async function startSession(
   selected: SelectedBlock[],
   mode: RenderMode,
 ): Promise<void> {
+  // A chosen block whose translation the page took away is not held any more, so it is sent again.
+  if (active) dropWiped(active);
   // The same text rules as Translate page: never the raw text of the chosen element.
   const blocks: Block[] = [];
   for (const b of selected) {

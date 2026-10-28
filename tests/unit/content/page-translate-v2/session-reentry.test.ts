@@ -89,6 +89,75 @@ describe('page-translate-v2 — a second run over a settled batch', () => {
     expect(document.querySelector('[data-ega-replaced]')?.textContent).toBe('One.');
   });
 
+  it.each([
+    [
+      'inplace',
+      () => {
+        const a = document.getElementById('a');
+        if (a) a.textContent = 'これは書き換えられた段落です。';
+      },
+      'これは書き換えられた段落です。',
+    ],
+    [
+      'bilingual',
+      () => document.querySelector('#a + [data-ega-tx]')?.remove(),
+      'これは最初の段落です。',
+    ],
+  ] as const)(
+    'in %s, an area whose translation the page took away is sent again when chosen',
+    async (mode, pageRerender, again) => {
+      document.body.innerHTML = '<p id="a">これは最初の段落です。</p>';
+      const sent: string[] = [];
+      let captured = '';
+      const dispatch = vi.fn((requestId: string, text: string) => {
+        captured = requestId;
+        sent.push(text);
+        return Promise.resolve();
+      });
+      const d = deps(
+        { mountProgress: () => progress().handle, dispatch },
+        { pageTranslateMode: mode },
+      );
+      await enterAndFire(d, ['a']);
+      routePageV2Chunk({ type: 'delta', requestId: captured, text: 'One.' });
+      routePageV2Chunk({ type: 'done', requestId: captured, confidence: 1 });
+      // A live feed re-renders the area, and Ega's translation goes with the old nodes.
+      pageRerender();
+
+      await enterAndFire(d, ['a']);
+      expect(sent).toEqual(['これは最初の段落です。', again]);
+    },
+  );
+
+  it('an area sent again after the page took its translation away gets the full retry budget', async () => {
+    document.body.innerHTML = '<p id="a">これは最初の段落です。</p>';
+    let captured = '';
+    const dispatch = vi.fn((requestId: string) => {
+      captured = requestId;
+      return Promise.resolve();
+    });
+    const d = deps({ mountProgress: () => progress().handle, dispatch });
+    await enterAndFire(d, ['a']);
+    routePageV2Chunk({ type: 'delta', requestId: captured, text: 'One.' });
+    routePageV2Chunk({ type: 'done', requestId: captured, confidence: 1 });
+    const a = document.getElementById('a');
+    if (a) a.textContent = 'これは書き換えられた段落です。';
+    await enterAndFire(d, ['a']);
+
+    vi.useFakeTimers();
+    try {
+      // A new block gets two backoff retries; the first send must not use one of them up.
+      for (let i = 0; i < 2; i++) {
+        routePageV2Chunk({ type: 'error', requestId: captured, code: 'NETWORK', message: 'reset' });
+        await vi.advanceTimersByTimeAsync(10_000);
+      }
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(dispatch).toHaveBeenCalledTimes(4);
+    expect(document.querySelector('[data-ega-tx-error]')).toBeNull();
+  });
+
   it('a still-running batch is left alone', async () => {
     document.body.innerHTML = '<p id="a">これは最初の段落です。</p>';
     const p = progress();

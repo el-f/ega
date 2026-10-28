@@ -50,7 +50,8 @@
     onswap?: () => void;
     /** Direction hint; disables swap when source==='auto'. */
     direction?: { source: string; target: string };
-    ontaskchange?: (task: TaskId, tone: Tone) => void;
+    /** False when the switch is declined. */
+    ontaskchange?: (task: TaskId, tone: Tone) => boolean;
     /** Drag-to-move on the non-interactive surface. */
     draggable?: boolean;
     onclose: () => void;

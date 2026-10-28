@@ -41,9 +41,8 @@ export function soleFencedCode(answer: string): string | null {
   const lines = answer.trim().split('\n');
   const open = lines[0] ?? '';
   const fence = FENCE_OPEN.exec(open)?.[0];
-  // A backtick in the info string makes the line inline code, not a fence.
-  if (fence === undefined || (fence[0] === '`' && open.slice(fence.length).includes('`')))
-    return null;
+  // Only a bare fence or one language tag opens code; "~~~ Part 2 ~~~" or "``` is code" is plain text.
+  if (fence === undefined || !/^[\w+#.-]*$/.test(open.slice(fence.length).trim())) return null;
   const closes = (line: string): boolean => {
     const t = line.trim();
     return t.length >= fence.length && t === (fence[0] ?? '').repeat(t.length);

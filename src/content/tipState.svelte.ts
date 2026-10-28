@@ -48,7 +48,8 @@ interface OpenOpts {
   /** The task whose switches the router applies: Explain for an explain-flag re-run, else `task`. */
   contextTask?: TaskId;
   tone?: Tone;
-  onTaskChange?: (task: TaskId, tone: Tone) => void;
+  /** False when the switch is declined: the answer on screen stays, so the tooltip keeps its task. */
+  onTaskChange?: (task: TaskId, tone: Tone) => boolean;
   /** When set, the tooltip shows the thumbnail and hides Explain. */
   imageUrl?: string;
   /** Body the finished translation is diffed against on a re-translate. */
@@ -232,9 +233,10 @@ function buildTooltipProps(o: OpenOpts, state: TipState): ComponentProps<typeof 
     ...(o.onTaskChange
       ? {
           ontaskchange: (t: TaskId, tn: Tone) => {
+            if (o.onTaskChange?.(t, tn) === false) return false;
             state.task = t;
             state.tone = tn;
-            o.onTaskChange?.(t, tn);
+            return true;
           },
         }
       : {}),

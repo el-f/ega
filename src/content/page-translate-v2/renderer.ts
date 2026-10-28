@@ -3,6 +3,7 @@ import { ensurePageStyles } from '../page-styles';
 import { markLang } from '@/shared/lang-tag';
 import { textDir } from '../text-dir';
 import { mountErrorChip, type ChipOpts } from '../page-chip';
+import { soleFencedCode } from '@/shared/answer-presentation';
 import { leadingRun } from './collect';
 import type { RenderMode } from './store';
 
@@ -285,7 +286,8 @@ export function mountInplace(args: MountArgs): RenderHandle {
 
 function render(handle: RenderHandle): void {
   if (handle.phase !== 'streaming') return;
-  const text = handle.visibleText;
+  // The prompt asks for code or markup as one fenced block; the page shows the code, not the fence.
+  const text = soleFencedCode(handle.visibleText) ?? handle.visibleText;
   if (text.length === 0) return;
   handle.target.removeAttribute('data-ega-pending');
   handle.target.textContent = text;

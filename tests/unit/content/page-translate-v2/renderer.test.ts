@@ -296,6 +296,32 @@ describe('renderer — in-place mode', () => {
   });
 });
 
+describe('renderer — an answer the model sent as one fenced block', () => {
+  it.each([
+    ['bilingual', mountBilingual],
+    ['inplace', mountInplace],
+  ] as const)('%s shows the code without the fence lines, while it streams and after', (_, mount) => {
+    const original = block('p', '太字のタグを使います');
+    const handle = mount({ id: 'f-1', element: original, originalText: '太字のタグを使います' });
+    appendDelta(handle, '```html\n<b>bold</b> is used');
+    expect(handle.target.textContent).toBe('<b>bold</b> is used');
+    finish(handle, '```html\n<b>bold</b> is used\n```');
+    expect(handle.target.textContent).toBe('<b>bold</b> is used');
+  });
+
+  it.each([
+    ['bilingual', mountBilingual],
+    ['inplace', mountInplace],
+  ] as const)('%s shows a heading that only looks like a fence as sent', (_, mount) => {
+    const original = block('p', '~~~ Part 2 ~~~');
+    const handle = mount({ id: 'f-2', element: original, originalText: '~~~ Part 2 ~~~' });
+    appendDelta(handle, '~~~ Segunda parte ~~~');
+    expect(handle.target.textContent).toBe('~~~ Segunda parte ~~~');
+    finish(handle, '~~~ Segunda parte ~~~');
+    expect(handle.target.textContent).toBe('~~~ Segunda parte ~~~');
+  });
+});
+
 describe('renderer — a leading run', () => {
   const html =
     '<li id="li">Elemento <b>padre</b><ul><li id="child">Hijo</li></ul><div data-ega-tx data-ega-tx-state="error">x</div></li>';
