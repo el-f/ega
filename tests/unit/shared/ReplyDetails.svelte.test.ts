@@ -6,6 +6,7 @@ import ReplyDetails from '@/shared/components/ReplyDetails.svelte';
 import { aroundText, shortUrl } from '@/shared/components/reply-details';
 import type { PageContext, ResultMeta } from '@/shared/types';
 import { asBackendIdUnsafe } from '@/shared/brands';
+import { answerSpecFor } from '@/shared/answer/spec';
 import { readFileSync } from 'node:fs';
 
 function meta(overrides: Partial<ResultMeta> = {}): ResultMeta {
@@ -331,6 +332,20 @@ describe('ReplyDetails — what was sent', () => {
     expect(copied['sentText']).toBe('mar7aba, kifak?');
     expect((copied['result'] as ResultMeta).historyTurns).toBe(2);
     expect((copied['page'] as PageContext).pageTitle).toBe('Travel notes');
+  });
+
+  it("copies the reply's fields as JSON without Ega's format text", async () => {
+    const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined);
+    const spec = answerSpecFor('summarize');
+    expect(spec.pinned).toBeDefined();
+    const { getByRole } = setup({ answer: { spec, fields: { answer: 'Short.' } } });
+    await fireEvent.click(getByRole('button', { name: 'Copy as JSON' }));
+    const copied = JSON.parse(writeText.mock.calls[0]?.[0] as string) as {
+      answer: { spec: Record<string, unknown>; fields: Record<string, unknown> };
+    };
+    expect(copied.answer.fields).toEqual({ answer: 'Short.' });
+    expect(copied.answer.spec['fields']).toEqual(spec.fields);
+    expect(copied.answer.spec).not.toHaveProperty('pinned');
   });
 
   it('closes', async () => {

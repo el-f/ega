@@ -185,7 +185,8 @@
         ? { askedAbout: typeof askedAbout === 'string' ? ASKED_ABOUT_TEXT[askedAbout] : askedAbout }
         : {}),
       result: meta ?? null,
-      ...(answer ? { answer } : {}),
+      // The fields describe the reply; Ega's pinned format text is prompt, not reply (blast-14).
+      ...(answer ? { answer: { ...answer, spec: { ...answer.spec, pinned: undefined } } } : {}),
       ...(details.length ? { fields: details } : {}),
     };
     try {
