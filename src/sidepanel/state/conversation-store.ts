@@ -617,7 +617,9 @@ async function evictOldestOtherThread(origin: string): Promise<Eviction | undefi
       },
     });
   };
-  return { evicted: evictedOf(victim), restore };
+  // A row saved before titles were stored gets one only when the list opens, so read it off the blob.
+  const title = victim.title ?? (hasThreadShape(blob) ? entryFacts(blob.turns).title : undefined);
+  return { evicted: evictedOf(title !== undefined ? { ...victim, title } : victim), restore };
 }
 
 /** The conversation a failed save deleted and could not put back; saveThread names it on the error. */
