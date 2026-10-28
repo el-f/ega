@@ -213,6 +213,26 @@ describe('Popup site switch and status line', () => {
     },
   );
 
+  it.each(['https://example.com/docs?id=42', '12,50 €'])(
+    'Translate anyway on %s says there is nothing to translate and asks no model',
+    async (text) => {
+      const { sent } = onTab('https://example.com/', (msg) =>
+        msg.kind === 'ega:get-selection' ? { text, heldBack: { reason: 'english' } } : { ok: true },
+      );
+      const { findByText, findByRole } = render(Popup);
+      await fireEvent.click(await findByRole('button', { name: 'Translate anyway' }));
+      expect(
+        await findByText('Nothing to translate: the selection is only links, numbers or symbols.'),
+      ).toBeTruthy();
+      await flushAsync();
+      expect(sent).toHaveBeenCalledWith(42, { kind: 'ega:get-selection' });
+      expect(sent).not.toHaveBeenCalledWith(
+        42,
+        expect.objectContaining({ kind: 'ctx:translate-selection' }),
+      );
+    },
+  );
+
   it('on a page extensions cannot run on, hides the switch and blocks the page actions', async () => {
     // What Chrome really hands an extension without the "tabs" permission there: an id, no url.
     (chrome.tabs.query as unknown as Mock).mockResolvedValue([{ id: 42, windowId: 1 }]);
@@ -946,6 +966,26 @@ describe('Popup — Translate anyway names the task it runs', () => {
           kind: 'ctx:translate-selection',
           text: 'hello there',
         }),
+      );
+    } finally {
+      closeSpy.mockRestore();
+    }
+  });
+
+  it('a default task that is not Translate still runs on a link', async () => {
+    await chrome.storage.local.set({
+      'ega.settings': { anthropicApiKey: 'test-key', defaultTask: 'explain' },
+    });
+    const link = 'https://example.com/docs?id=42';
+    const { sent } = onTab('https://example.com/', (msg) =>
+      msg.kind === 'ega:get-selection' ? { text: link, heldBack } : { ok: true },
+    );
+    const closeSpy = vi.spyOn(window, 'close').mockImplementation(() => undefined);
+    try {
+      const { findByRole } = render(Popup);
+      await fireEvent.click(await findByRole('button', { name: 'Explain anyway' }));
+      await vi.waitFor(() =>
+        expect(sent).toHaveBeenCalledWith(42, { kind: 'ctx:translate-selection', text: link }),
       );
     } finally {
       closeSpy.mockRestore();
