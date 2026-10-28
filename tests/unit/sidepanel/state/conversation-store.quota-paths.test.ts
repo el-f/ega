@@ -110,6 +110,83 @@ describe('quota eviction order', () => {
     expect(await chrome.storage.local.get(threadKey('https://oldest.com'))).toEqual({});
   });
 
+  it('skips a row that holds only tombstones and names the conversation it removes', async () => {
+    const ghost = 'https://ghost.com';
+    const real = 'https://real.com';
+    await chrome.storage.local.set({
+      [INDEX_KEY]: {
+        version: 1,
+        threads: [
+          // An emptied thread keeps its row for its tombstones; its turns serialize to `[]`.
+          { origin: ghost, updatedAt: 1000, bytes: 2 },
+          { origin: real, updatedAt: 2000, bytes: 32, title: 'hola amigos', messages: 1 },
+        ],
+      },
+      [threadKey(ghost)]: {
+        version: 1,
+        origin: ghost,
+        updatedAt: 1000,
+        turns: [],
+        tombstones: [{ id: 'gone', at: 900 }],
+      },
+      [threadKey(real)]: {
+        version: 1,
+        origin: real,
+        updatedAt: 2000,
+        turns: [userTurn('t-real', 'hola amigos')],
+      },
+    });
+    const ghostBlob = await chrome.storage.local.get(threadKey(ghost));
+
+    const originalSet = chrome.storage.local.set.bind(chrome.storage.local);
+    let armed = true;
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
+    vi.spyOn(chrome.storage.local, 'set').mockImplementation((items) => {
+      const record = items as Record<string, unknown>;
+      if (armed && threadKey('https://writer.com') in record) {
+        armed = false;
+        return Promise.reject(new Error('QUOTA_BYTES quota exceeded'));
+      }
+      return originalSet(record);
+    });
+
+    const result = await saveThread('https://writer.com', [userTurn('w')]);
+
+    expect(result.evicted).toEqual({ id: real, title: 'hola amigos' });
+    expect(await chrome.storage.local.get(threadKey(real))).toEqual({});
+    expect(await indexOrigins()).toContain(ghost);
+    expect(await chrome.storage.local.get(threadKey(ghost))).toEqual(ghostBlob);
+  });
+
+  it('removes nothing when the only other rows hold just tombstones', async () => {
+    const ghost = 'https://ghost.com';
+    await chrome.storage.local.set({
+      [INDEX_KEY]: { version: 1, threads: [{ origin: ghost, updatedAt: 1000, bytes: 2 }] },
+      [threadKey(ghost)]: { version: 1, origin: ghost, updatedAt: 1000, turns: [] },
+    });
+
+    const originalSet = chrome.storage.local.set.bind(chrome.storage.local);
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
+    vi.spyOn(chrome.storage.local, 'set').mockImplementation((items) => {
+      const record = items as Record<string, unknown>;
+      if (threadKey('https://writer.com') in record) {
+        return Promise.reject(new Error('QUOTA_BYTES quota exceeded'));
+      }
+      return originalSet(record);
+    });
+
+    const remove = vi.spyOn(chrome.storage.local, 'remove');
+
+    const error: unknown = await saveThread('https://writer.com', [userTurn('w')]).catch(
+      (e: unknown) => e,
+    );
+
+    expect((error as Error).message).toContain('QUOTA_BYTES');
+    expect(error).not.toHaveProperty('evicted');
+    expect(await indexOrigins()).toContain(ghost);
+    expect(remove).not.toHaveBeenCalledWith(threadKey(ghost));
+  });
+
   it('still takes the oldest when the index write failed and the stored index is out of order', async () => {
     // An index this build did not sort (an older build wrote it), and this save cannot re-sort it.
     await seedThreads([

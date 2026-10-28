@@ -590,11 +590,13 @@ interface Eviction {
   restore: () => Promise<void>;
 }
 
-/** Deletes the first OTHER thread in eviction order and names it.
+/** Deletes the oldest OTHER thread that holds turns and names it; a row with only tombstones frees almost nothing.
  *  Never our own: the blob we are about to write would be left unlisted. */
 async function evictOldestOtherThread(origin: string): Promise<Eviction | undefined> {
   const index = await readIndex();
-  const victim = index.threads.filter((t) => t.origin !== origin).sort(evictionOrder)[0];
+  const victim = index.threads
+    .filter((t) => t.origin !== origin && t.bytes > EMPTY_THREAD_BYTES)
+    .sort((a, b) => a.updatedAt - b.updatedAt)[0];
   if (!victim) return undefined;
   const key = threadKey(victim.origin);
   const blob: unknown = (await chrome.storage.local.get(key))[key];
