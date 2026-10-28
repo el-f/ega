@@ -22,12 +22,12 @@ describe('createThinkScrubber', () => {
     expect(scrub(['<think>reasoning</think>{"translation":"x"}'])).toBe('{"translation":"x"}');
   });
 
-  it('keeps text before and after a think block', () => {
-    expect(scrub(['before<think>secret</think>after'])).toBe('beforeafter');
+  it('keeps leading whitespace and the text after a think block', () => {
+    expect(scrub(['\n <think>secret</think>after'])).toBe('\n after');
   });
 
   it('handles an opening tag split across two deltas', () => {
-    expect(scrub(['...<thi', 'nk>secret</think>ok'])).toBe('...ok');
+    expect(scrub(['<thi', 'nk>secret</think>ok'])).toBe('ok');
   });
 
   it('handles a closing tag split across two deltas', () => {
@@ -37,16 +37,28 @@ describe('createThinkScrubber', () => {
   it('does not leak a partial opening tag at a boundary', () => {
     const s = createThinkScrubber();
     // First push ends mid potential-tag; must buffer, emit nothing yet.
-    expect(s.push('done<thi')).toBe('done');
+    expect(s.push(' <thi')).toBe(' ');
     expect(s.push('nk>x</think>!')).toBe('!');
   });
 
-  it('strips multiple think blocks', () => {
-    expect(scrub(['a<think>1</think>b<think>2</think>c'])).toBe('abc');
+  it('strips several think blocks before the answer', () => {
+    expect(scrub(['<think>1</think>\n<think>2</think>c'])).toBe('\nc');
   });
 
-  it('suppresses an unclosed think block to the end', () => {
-    expect(scrub(['ok<think>never closes and runs off'])).toBe('ok');
+  it('suppresses an unclosed leading think block to the end', () => {
+    expect(scrub(['<think>never closes and runs off'])).toBe('');
+  });
+
+  // Reasoning models put the scratchpad before the answer; a tag after visible text is the answer quoting it.
+  it.each([
+    '{"translation": "The <think> tag wraps the reasoning of R1 models.", "confidence": 0.9}',
+    '{"translation": "Wrap it in <reasoning>...</reasoning> tags.", "confidence": 0.9}',
+    'Les modèles écrivent <think> puis répondent.',
+    'ok<think>never closes and runs off',
+  ])('keeps a tag that comes after visible text: %s', (text) => {
+    expect(scrub([text])).toBe(text);
+    const s = createThinkScrubber();
+    expect([...text].map((ch) => s.push(ch)).join('') + s.flush()).toBe(text);
   });
 
   it('strips a <reasoning> block', () => {
@@ -72,14 +84,14 @@ describe('createThinkScrubber', () => {
 
   it('flush returns any buffered non-tag tail', () => {
     const s = createThinkScrubber();
-    expect(s.push('tail<thi')).toBe('tail');
+    expect(s.push('<thi')).toBe('');
     // Stream ended without resolving the partial tag — it was real text.
     expect(s.flush()).toBe('<thi');
   });
 
   it('flush returns empty inside an unclosed block', () => {
     const s = createThinkScrubber();
-    expect(s.push('x<think>hidden')).toBe('x');
+    expect(s.push('<think>hidden')).toBe('');
     expect(s.flush()).toBe('');
   });
 
