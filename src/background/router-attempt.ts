@@ -15,7 +15,7 @@ import {
 } from '@/shared/backends/base';
 import { createAnswerProjector, hasHebrewPoints } from '@/shared/answer/reader';
 import { capText } from '@/shared/text-cap';
-import { answerSpecFor, type AnswerSpec } from '@/shared/answer/spec';
+import { answerSpecFor, META_KEYS, type AnswerSpec } from '@/shared/answer/spec';
 import type { ChatTurn } from '@/shared/chat-history';
 import { optionsTabForMessage, shouldRotate } from '@/shared/error-policy';
 import { errCodeLabel } from '@/shared/err-labels';
@@ -185,11 +185,23 @@ export async function runTranslateAttempt(
         return;
       }
       attemptState.ended = true;
+      // A custom row saved before validateSpec refused these keys still runs: they are answer fields, not metadata.
+      const notesExplain = answerSpec.fields.some(
+        (f) => f.key === 'explain' && f.kind === 'text' && f.role === 'notes',
+      );
+      const metaFields =
+        answerSpec.join === 'after-build'
+          ? Object.fromEntries(
+              Object.entries(answer.fields).filter(
+                ([key]) => !META_KEYS.includes(key) && (key !== 'explain' || notesExplain),
+              ),
+            )
+          : answer.fields;
       const parsed = {
         ...c,
         ...makeDoneChunk(
           reqId,
-          { ...answer.fields, translation: answer.main } as ParsedResult,
+          { ...metaFields, translation: answer.main } as ParsedResult,
           c.usage,
         ),
         text: answer.main,

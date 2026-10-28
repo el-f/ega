@@ -8,7 +8,8 @@ import type { BackendId, TranslationChunk, TranslationRequest } from '@/shared/t
 import { asBackendIdUnsafe, asLangIdUnsafe } from '@/shared/brands';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import { testManifest } from '@tests/_helpers/backend';
-import { answerSpecFor } from '@/shared/answer/spec';
+import { answerSpecFor, CUSTOM_PRESETS, type AnswerSpec } from '@/shared/answer/spec';
+import { customAnswerSpec } from '@/shared/answer/custom';
 import { hasHebrewPoints } from '@/shared/answer/reader';
 
 function makeReq(): TranslationRequest {
@@ -541,5 +542,76 @@ describe('Hebrew points the source text never had', () => {
   it('keeps them for an image, whose text the worker never sees', async () => {
     const answer = 'בְּרֵאשִׁית בָּרָא אֱלֹהִים';
     expect(await translateTo('he', '', answer, {}, true)).toMatchObject({ done: answer });
+  });
+});
+
+describe('a custom answer field named like built-in metadata', () => {
+  async function doneFor(answerSpec: AnswerSpec, raw: string) {
+    const chunks: TranslationChunk[] = [];
+    const fsm = createTranslateFsm();
+    fsm.send({ type: 'start' });
+    const { token } = createCancelToken();
+    const backend = makeBackend(asBackendIdUnsafe('ollama'), async (args) => {
+      args.onChunk({ type: 'delta', requestId: 'r1', text: raw });
+      args.onChunk({ type: 'done', requestId: 'r1' });
+    });
+    await runTranslateAttempt({
+      backend,
+      isLast: true,
+      reqView: makeReq(),
+      reqOptions: makeReq().options,
+      streaming: false,
+      cfg: makeCfg(),
+      system: 'sys',
+      user: 'usr',
+      answerSpec,
+      cancel: token,
+      fsm,
+      attemptLog: [],
+      reqId: 'r1',
+      onChunk: (c) => chunks.push(c),
+      attachMeta: (c) => c,
+      logger: noopLogger,
+    });
+    return { done: chunks.find((c) => c.type === 'done'), fsm: fsm.context() };
+  }
+
+  it('stays an answer field and never becomes the done chunk metadata', async () => {
+    // A row saved before the editor refused these keys still passes the stored-row schema.
+    const spec = customAnswerSpec(
+      {
+        output: 'card',
+        answer: {
+          v: 1,
+          fields: [
+            { key: 'answer', label: 'Answer', kind: 'text', role: 'main', required: true },
+            { key: 'confidence', label: 'Sure', kind: 'text', role: 'notes', required: false },
+            { key: 'detectedLang', label: 'Lang', kind: 'text', role: 'details', required: false },
+            { key: 'explain', label: 'Why', kind: 'list', role: 'notes', required: false },
+          ],
+        },
+      },
+      't1',
+    );
+    const { done, fsm } = await doneFor(
+      spec,
+      JSON.stringify({ answer: 'Hola', confidence: '0.9', detectedLang: 'xx', explain: ['a'] }),
+    );
+    expect(done).toMatchObject({
+      text: 'Hola',
+      answer: { fields: { confidence: '0.9', detectedLang: 'xx', explain: ['a'] } },
+    });
+    expect(done).not.toHaveProperty('confidence');
+    expect(done).not.toHaveProperty('detectedLang');
+    expect(done).not.toHaveProperty('explain');
+    expect(fsm.finalConfidence).toBeUndefined();
+  });
+
+  it('keeps the card preset notes as explain', async () => {
+    const { done } = await doneFor(
+      CUSTOM_PRESETS['answer-notes'],
+      JSON.stringify({ answer: 'Hola', explain: 'Informal.' }),
+    );
+    expect(done).toMatchObject({ text: 'Hola', explain: 'Informal.' });
   });
 });
