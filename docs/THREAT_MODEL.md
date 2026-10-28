@@ -421,8 +421,14 @@ Residual risks:
 ### Argument injection into the CLI child
 
 **Defense:** the model id is the only caller-supplied value that reaches
-`argv`, and it must match `/^\w[\w.:@/-]{0,199}(?:\[\w{1,16}\])?$/` or it is dropped, and a translate request that names it is refused
-(`native-host/lib/cli-session.mjs#sanitiseModel`). Everything else in `argv` is a
+`argv`. The host passes it on only when it matches `/^\w[\w.:@/-]{0,199}(?:\[\w{1,16}\])?$/`
+(`native-host/lib/cli-session.mjs#sanitiseModel`): a letter, digit or `_` first, then up to 199
+letters, digits and `_ . : @ / -`, then an optional suffix such as `[1m]`. The first character
+keeps an id like `--flag` out. A translate or image request that names any other id is refused
+with a `REQUEST` error (`native-host/ega-host.mjs#rejectUnsafeModel`), so the CLI never answers
+with its default model under the typed name. A pre-warm drops such an id and starts the CLI
+default. Settings → Backends shows a warning under the Model field for an id the host refuses
+(`src/options/nativeModelId.ts`; a unit test keeps its pattern equal to the host's). Everything else in `argv` is a
 literal the host owns or a temp-file path it made itself, and the host never spawns through a shell — a Windows `.cmd`
 shim goes through `native-host/lib/cli-session.mjs#windowsSafeSpawn`, which quotes
 every argument itself.
@@ -433,10 +439,13 @@ every argument itself.
 allocated (`native-host/ega-host.mjs#MAX_FRAME_BYTES`). A 4 MB image encodes to about
 5.3 MB of base64, so 8 MB leaves room for the largest normal frame. On a longer frame
 the host sends a `PROTOCOL` error and exits, because the stream cannot resync. A CLI child that never finishes
-is killed after 90 seconds, or after `EGA_HOST_TIMEOUT_MS` when that is set in
-the host's own environment (`native-host/ega-host.mjs#CHILD_TIMEOUT_MS`) — the
-host runs under your own account, so that override is a local setting, not an
-attacker-reachable input. An uncaught error fails every in-flight request rather
+is killed after 330 seconds (`native-host/lib/cli-session.mjs#DEFAULT_REQUEST_TIMEOUT_MS`,
+read by `native-host/ega-host.mjs#CHILD_TIMEOUT_MS`). The clock starts per one-shot child, and
+per session request once it reaches the head of the queue. 330 seconds is the longest text or
+image timeout Settings allows (300 seconds) plus its 30-second grace, so the extension's own
+timeout ends a request first and the host limit is only a backstop. `EGA_HOST_TIMEOUT_MS` in
+the host's own environment overrides it — the host runs under your own account, so that override
+is a local setting, not an attacker-reachable input. An uncaught error fails every in-flight request rather
 than hanging the extension (`native-host/lib/cli-session.mjs#failAll`).
 
 ---
