@@ -16,7 +16,6 @@ export function buildOcrPrompt(
       `Extract any visible text in the image, in reading order (top-to-bottom, left-to-right by default; right-to-left for RTL scripts like Arabic / Hebrew). Respect column layouts — finish one column before jumping to the next.`,
       `If the extracted text is NOT in ${targetLangLabel}, translate it to ${targetLangLabel}. If it is already in ${targetLangLabel}, echo it back verbatim in the "translation" field with "detectedLang" set accordingly.`,
       'Preserve line breaks between distinct regions / speech bubbles / captions. Preserve names, numbers, handles, hashtags, URLs, and emoji verbatim.',
-      'If the image has no readable text, return {"translation": "", "confidence": 0}.',
       'The "translation" field holds ONLY the final result — pick one best rendering. Do not also show the original text, a preamble, notes, alternatives, or a label like "Translation:".',
       renderFormat(answerSpecFor('ocr')).text,
     ].join(' '),

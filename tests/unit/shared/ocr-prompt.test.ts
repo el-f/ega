@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { OCR_SYSTEM_PROMPT, OCR_USER_INSTRUCTION, buildOcrPrompt } from '@/shared/ocr-prompt';
+import { answerSpecFor } from '@/shared/answer/spec';
+import { readAnswer } from '@/shared/answer/reader';
+import { toJsonSchema } from '@/shared/answer/json-schema';
 
 describe('OCR prompts', () => {
   it('system prompt requests JSON translation+confidence shape', () => {
@@ -9,6 +12,18 @@ describe('OCR prompts', () => {
   });
   it('instruction asks for empty translation when image has no text', () => {
     expect(OCR_USER_INSTRUCTION).toMatch(/no text/i);
+  });
+
+  it('an image with no text needs no source language, and the rule is stated once', () => {
+    const spec = answerSpecFor('ocr');
+    expect(readAnswer(spec, '{"translation": "", "confidence": 0}')).toMatchObject({
+      kind: 'ok',
+      issues: [],
+    });
+    expect(toJsonSchema(spec).required).not.toContain('detectedLang');
+    const { system, user } = buildOcrPrompt();
+    expect(`${system}\n${user}`.split(/If the image has no/).length - 1).toBe(1);
+    expect(spec.version).toBe(2);
   });
 
   it('default system prompt names English as the target language', () => {

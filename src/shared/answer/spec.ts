@@ -164,10 +164,10 @@ const BUILT_INS = {
   },
   ocr: {
     id: 'ocr',
-    version: 1,
+    version: 2,
     join: 'template',
     pinned: {
-      text: 'Return JSON ONLY: {"translation": <translation or passthrough as string>, "confidence": <0..1 — 1.0 = unambiguous reading, 0.8 = one clearly dominant reading, 0.5 = partially occluded or stylised glyphs, 0.2 = heavy guessing>, "detectedLang": <language code or label of the source text>}.',
+      text: 'Return JSON ONLY: {"translation": <translation or passthrough as string>, "confidence": <0..1 — 1.0 = unambiguous reading, 0.8 = one clearly dominant reading, 0.5 = partially occluded or stylised glyphs, 0.2 = heavy guessing>, "detectedLang"?: <language code or label of the source text; leave it out when the image has no text>}.',
       sep: ' ',
     },
     fields: [
@@ -182,8 +182,8 @@ const BUILT_INS = {
         label: 'Source language',
         kind: 'language',
         role: 'meta',
-        required: true,
-        guide: 'language code or label of the source text',
+        required: false,
+        guide: 'language code or label of the source text; leave it out when the image has no text',
       },
     ],
   },
