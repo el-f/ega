@@ -489,8 +489,24 @@ function serialisedArrayBytes(sized: readonly SizedTurn[]): number {
   return sized.reduce((sum, s) => sum + s.bytes, 0) + sized.length + 1;
 }
 
-/** Keeps the newest turns that fit the thread budget. */
-function fitThreadBytes(sized: SizedTurn[]): SizedTurn[] {
+/** Over the thread budget, image payloads go oldest first and their text stays. */
+function shedOldestImages(sized: SizedTurn[]): SizedTurn[] {
+  let total = sized.reduce((sum, s) => sum + s.bytes + 1, 0);
+  const out = [...sized];
+  for (let i = 0; i < out.length && total > MAX_THREAD_BYTES; i++) {
+    const s = out[i];
+    if (s?.turn.imageDataUrl === undefined) continue;
+    const turn = stripImage(s.turn, IMAGE_SHED_NOTE);
+    const bytes = estimateBytes(turn);
+    total += bytes - s.bytes;
+    out[i] = { turn, bytes };
+  }
+  return out;
+}
+
+/** Keeps the newest turns that fit the thread budget, once dropping images was not enough. */
+function fitThreadBytes(all: SizedTurn[]): SizedTurn[] {
+  const sized = shedOldestImages(all);
   let total = 0;
   for (let i = sized.length - 1; i >= 0; i--) {
     total += (sized[i]?.bytes ?? 0) + 1;

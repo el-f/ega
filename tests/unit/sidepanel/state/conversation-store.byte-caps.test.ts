@@ -130,6 +130,34 @@ describe('the whole-thread cap', () => {
     expect(out.map((t) => t.id)).toEqual(['t0', 't1', 't2', 't3', 't4']);
   });
 
+  it('drops the oldest image before any text answer', async () => {
+    await chrome.storage.local.remove(threadKey(ORIGIN));
+    const answer = (id: string, of: string, content: string): Turn => ({
+      id,
+      role: 'assistant',
+      kind: 'image-translate',
+      status: 'done',
+      createdAt: 1,
+      content,
+      attachedToTurnId: of,
+    });
+    const turns = [1, 2, 3].flatMap((n) => [
+      imageTurn(`u${n}`, 250_000),
+      answer(`a${n}`, `u${n}`, `answer ${n}`),
+    ]);
+
+    const { droppedIds } = await saveThread(ORIGIN, turns);
+    const out = (await loadThreadResult(ORIGIN)).turns;
+
+    expect(droppedIds).toBeUndefined();
+    expect(out.map((t) => t.id)).toEqual(['u1', 'a1', 'u2', 'a2', 'u3', 'a3']);
+    expect(out[1]?.content).toBe('answer 1');
+    expect(out[0]).toMatchObject({ content: 'text for u1', imageShed: true });
+    expect(out[0]?.imageDataUrl).toBeUndefined();
+    expect(out[2]?.imageDataUrl).toHaveLength(250_000);
+    expect(out[4]?.imageDataUrl).toHaveLength(250_000);
+  });
+
   it('never stores more than the thread budget', async () => {
     const big = 'y'.repeat(60_000);
     const turns = Array.from({ length: 20 }, (_, i) =>
