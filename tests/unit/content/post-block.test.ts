@@ -34,6 +34,11 @@ describe('extractPostBlockText', () => {
     expect(out?.length).toBeLessThanOrEqual(800);
   });
 
+  it('a cap inside an emoji drops the emoji, never leaving half of it', () => {
+    document.body.innerHTML = `<article><span id="a">${'x'.repeat(799)}😀 more</span></article>`;
+    expect(extractPostBlockText(anchorTextOf('#a'), 800)).toBe('x'.repeat(799));
+  });
+
   it('returns undefined when there is no substantial container', () => {
     document.body.innerHTML = `<span id="a">hi</span>`;
     expect(extractPostBlockText(anchorTextOf('#a'), 800)).toBeUndefined();

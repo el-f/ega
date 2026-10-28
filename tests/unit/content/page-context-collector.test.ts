@@ -115,6 +115,27 @@ describe('collectPageContext', () => {
     expect(ctx.pageDescription?.length).toBe(200);
   });
 
+  it('no cap leaves half an emoji: title, site name, description and headings', () => {
+    const edge = `${'z'.repeat(199)}😀tail`;
+    const d = makeDoc(
+      `<html><head><meta name="description" content="${edge}" /><meta property="og:site_name" content="${edge}" /></head>` +
+        `<body><h1>${'h'.repeat(119)}😀x</h1><p id="a">x</p></body></html>`,
+      edge,
+    );
+    const anchor = d.getElementById('a');
+    if (!anchor) throw new Error('test setup: #a');
+    const loneSurrogate = /\p{Cs}/u;
+    for (const ctx of [
+      collectPageContext({ anchorNode: anchor }, 'rich', d, fakeLocation('u')),
+      collectPageLevelContext('rich', d, fakeLocation('u')),
+    ]) {
+      for (const v of [ctx.pageTitle, ctx.siteName, ctx.pageDescription, ...(ctx.headingTrail ?? [])]) {
+        expect(v).toBeDefined();
+        expect(loneSurrogate.test(v ?? '')).toBe(false);
+      }
+    }
+  });
+
   it('caps page-controlled pageTitle / siteName / pageLang at 200 chars', () => {
     const long = 'z'.repeat(5000);
     const d = makeDoc(

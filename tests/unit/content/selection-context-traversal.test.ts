@@ -67,6 +67,15 @@ describe('cross-block context traversal', () => {
     expect(info?.afterText.startsWith(' starts here.')).toBe(true);
   });
 
+  it('a budget edge inside an emoji drops the emoji, never leaving half of it', () => {
+    document.body.innerHTML =
+      '<p id="b">aaaaaaaaa😀bbbbbbbbb</p><p id="s">Sel</p><p id="c">ccccccccc😀dd</p>';
+    selectIn(textNode('s'), 0, 3);
+    const info = getSelectionInfo(10);
+    expect(info?.beforeText).toBe('bbbbbbbbb');
+    expect(info?.afterText).toBe('ccccccccc');
+  });
+
   it('respects the char budget on each side, keeping the text nearest the selection', () => {
     selectIn(textNode('p2'), 0, 6);
     const info = getSelectionInfo(10);

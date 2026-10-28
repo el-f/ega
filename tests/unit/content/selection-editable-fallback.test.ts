@@ -70,6 +70,18 @@ describe('getSelectionInfo — editable fallback', () => {
     expect(info?.beforeText).toContain('BEFORE');
     expect(info?.afterText).toContain('AFTER');
   });
+
+  it('a budget edge inside an emoji drops the emoji, never leaving half of it', () => {
+    const ta = document.createElement('textarea');
+    ta.value = 'aaaaaaaaa😀bbbbbbbbb SEL ccccccccc😀dd';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.setSelectionRange(21, 24); // "SEL"
+    const info = getSelectionInfo(11);
+    expect(info?.text).toBe('SEL');
+    expect(info?.beforeText).toBe('bbbbbbbbb ');
+    expect(info?.afterText).toBe(' ccccccccc');
+  });
 });
 
 function box(top: number, bottom: number, left = 100, right = 700): DOMRect {

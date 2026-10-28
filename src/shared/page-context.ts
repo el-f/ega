@@ -1,5 +1,19 @@
 // Missing or malformed input returns undefined or [], never throws.
 
+let graphemes: Intl.Segmenter | undefined;
+
+/** At most `max` code units of `text`, cut at a grapheme edge so no emoji or surrogate pair splits; `fromEnd` keeps the end. */
+export function cutGraphemes(text: string, max: number, fromEnd = false): string {
+  if (text.length <= max) return text;
+  if (max <= 0) return '';
+  graphemes ??= new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+  const segments = graphemes.segment(text);
+  if (!fromEnd) return text.slice(0, segments.containing(max)?.index ?? max);
+  const from = text.length - max;
+  const at = segments.containing(from);
+  return text.slice(at && at.index < from ? at.index + at.segment.length : from);
+}
+
 function metaContent(doc: Document, selector: string): string | undefined {
   const el = doc.querySelector(selector);
   const raw = el?.getAttribute('content');
@@ -55,7 +69,7 @@ export function readHeadingTrail(
     const key = `${h.tagName}:${raw}`;
     if (seen.has(key)) return null;
     seen.add(key);
-    return raw.length > maxLen ? raw.slice(0, maxLen) : raw;
+    return cutGraphemes(raw, maxLen);
   }
 
   function isBeforeOrContainsAnchor(h: Element): boolean {

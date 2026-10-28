@@ -1,4 +1,5 @@
 import { DEFAULT_POST_TEXT_CAP } from '@/shared/constants';
+import { cutGraphemes } from '@/shared/page-context';
 import { visibleText } from './selection';
 
 const CONTAINER_SELECTOR =
@@ -32,5 +33,5 @@ export function extractPostBlockText(
   if (!container) return undefined;
   const text = visibleText(container, cap);
   if (!text) return undefined;
-  return text.length > cap ? text.slice(0, cap) : text;
+  return cutGraphemes(text, cap);
 }

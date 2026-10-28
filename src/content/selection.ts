@@ -1,5 +1,6 @@
 import { debugCatch } from '@/shared/logger';
 import { MESSENGER_HOSTS } from '@/shared/site-presets';
+import { cutGraphemes } from '@/shared/page-context';
 import { isSensitiveTarget } from './safety';
 
 interface SelectionInfo {
@@ -300,7 +301,7 @@ function collectContextBefore(range: Range, budget: number): string {
   }
   pieces.reverse();
   const joined = joinPieces(pieces);
-  return joined.length > budget ? joined.slice(joined.length - budget) : joined;
+  return cutGraphemes(joined, budget, true);
 }
 
 /** Visible text after the selection in reading order, crossing block boundaries up to `budget` chars. */
@@ -336,7 +337,7 @@ function collectContextAfter(range: Range, budget: number): string {
     total += t.length;
   }
   const joined = joinPieces(pieces);
-  return joined.length > budget ? joined.slice(0, budget) : joined;
+  return cutGraphemes(joined, budget);
 }
 
 export function getSelectionInfo(userCap?: number, includeContext = true): SelectionInfo | null {
@@ -383,7 +384,7 @@ function getEditableSelectionInfo(userCap?: number, includeContext = true): Sele
   }
   if (!includeContext) return { text, rect, range, beforeText: '', afterText: '' };
   const budget = ctxBudget(undefined, userCap);
-  const beforeText = value.slice(Math.max(0, start - budget), start);
-  const afterText = value.slice(end, end + budget);
+  const beforeText = cutGraphemes(value.slice(0, start), budget, true);
+  const afterText = cutGraphemes(value.slice(end), budget);
   return { text, rect, range, beforeText, afterText };
 }
