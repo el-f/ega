@@ -323,6 +323,49 @@ describe('swapTranslate — ends the original before starting the swapped reques
   });
 });
 
+describe('swapTranslate — swapping back restores the requested pair', () => {
+  function only(): PendingReq {
+    const rows = [...pending.values()];
+    expect(rows).toHaveLength(1);
+    return rows[0] as PendingReq;
+  }
+
+  it('stores auto again after a second swap, not the detected variety', async () => {
+    const deps = makeDeps();
+    const req = seedPending('orig-id');
+    req.direction = { source: 'arabizi', target: 'en' } as PendingReq['direction'];
+    req.requestedDirection = { source: 'auto', target: 'en' } as PendingReq['direction'];
+
+    await swapTranslate(deps, 'orig-id');
+    const first = only();
+    expect(first.requestedDirection).toEqual({ source: 'en', target: 'arabizi' });
+
+    await retryTranslate(deps, first.id);
+    await swapTranslate(deps, only().id);
+    const back = only();
+    expect(back.direction).toEqual({ source: 'arabizi', target: 'en' });
+    expect(back.sourceLang).toBe('arabizi');
+    expect(back.requestedDirection).toEqual({ source: 'auto', target: 'en' });
+  });
+
+  it('keeps the swapped pair when the target changed between the swaps', async () => {
+    const deps = makeDeps();
+    const req = seedPending('orig-id');
+    req.direction = { source: 'arabizi', target: 'en' } as PendingReq['direction'];
+    req.requestedDirection = { source: 'auto', target: 'en' } as PendingReq['direction'];
+
+    await swapTranslate(deps, 'orig-id');
+    const first = only();
+    pending.set(first.id, {
+      ...first,
+      direction: { source: 'fr', target: 'arabizi' },
+      requestedDirection: { source: 'fr', target: 'arabizi' },
+    } as PendingReq);
+    await swapTranslate(deps, first.id);
+    expect(only().requestedDirection).toEqual({ source: 'arabizi', target: 'fr' });
+  });
+});
+
 describe('retryTranslate — an explain stays an explain', () => {
   it('re-fires with explain when the original tooltip was an explain', async () => {
     const deps = makeDeps();
