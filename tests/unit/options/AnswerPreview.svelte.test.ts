@@ -86,6 +86,23 @@ describe('Example reply', () => {
     expect(send).not.toHaveBeenCalled();
   });
 
+  it('the reason under Try goes once it is no longer true', async () => {
+    const view = await shown();
+    const sample = view.getByLabelText('Sample text');
+    await fireEvent.input(sample, { target: { value: '' } });
+    await fireEvent.click(tryButton(view));
+    expect(tryButton(view).getAttribute('aria-describedby')).not.toBeNull();
+    await fireEvent.input(sample, { target: { value: 'hello' } });
+    expect(view.queryByText('Add sample text to try this task.')).toBeNull();
+    expect(tryButton(view).getAttribute('aria-describedby')).toBeNull();
+
+    await view.rerender({ problem: 'fix the reply fields' });
+    await fireEvent.click(tryButton(view));
+    expect(view.getByText('Fix the reply fields')).toBeTruthy();
+    await view.rerender({ problem: null });
+    expect(view.queryByText('Fix the reply fields')).toBeNull();
+  });
+
   it('a task that cannot run yet says what it needs on click', async () => {
     const view = render(AnswerPreview, {
       draft,

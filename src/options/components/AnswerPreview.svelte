@@ -33,12 +33,16 @@
   let runningId = $state<string | null>(null);
   let terminal = $state<Extract<TranslationChunk, { type: 'done' | 'error' }> | null>(null);
   let detailsOpen = $state(false);
-  // Shown only after a click: Try is never disabled (R37).
-  let why = $state('');
   const reason = $derived.by(() => {
     const need = problem ?? (!text.trim() ? 'Add sample text to try this task.' : null);
     return need === null ? null : need[0]?.toUpperCase() + need.slice(1);
   });
+  // Shown only after a click (Try is never disabled, R37), and gone once the reason changes or goes.
+  let asked = $derived.by(() => {
+    void reason;
+    return false;
+  });
+  const why = $derived(asked ? (reason ?? '') : '');
   $effect(() => {
     JSON.stringify(draft);
     untrack(() => {
@@ -109,7 +113,7 @@
   });
   async function run(): Promise<void> {
     if (runningId !== null) return;
-    why = reason ?? '';
+    asked = true;
     if (reason !== null) return;
     const requestId = uuid();
     runningId = requestId;
