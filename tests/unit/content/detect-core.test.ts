@@ -119,8 +119,23 @@ describe('vowel-less Arabizi is not leetspeak', () => {
   });
 });
 
+// Table cells and labels have no English words around them to decide.
+describe('numbers in compounds, hex values and screen sizes are not leetspeak', () => {
+  it.each([
+    'COVID-19 / H1N1',
+    '4-year-old, 10-year-old',
+    '1920x1080 1280x720',
+    '0x1F 0xdeadbeef',
+    'My 4-year-old and my 10-year-old love this park.',
+    'COVID-19 cases rose again, and H1N1 is back too.',
+    'Set the screen to 1920x1080 or 1280x720.',
+  ])('%s', (text) => {
+    expect(detectLang(text)?.id).toBeUndefined();
+  });
+});
+
 describe('leetspeak', () => {
-  it.each(['g3t r3kt n00b', 'sup3r l33t sk1llz', '1337 h4x0r', 'y0u 4r3 pwn3d n00b'])(
+  it.each(['g3t r3kt n00b', 'sup3r l33t sk1llz', '1337 h4x0r', 'y0u 4r3 pwn3d n00b', 'l33t-h4x0r'])(
     '%s',
     (text) => {
       expect(detectLang(text)?.id).toBe('leetspeak');

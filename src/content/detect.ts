@@ -45,15 +45,15 @@ function candidates(opts: DetectOpts): LangPreset[] {
   return list;
 }
 
-// Versions, units, model names and numeronyms carry digits too: "win10", "4k", "1st", "A380", "i18n".
-const NOT_LEET = /^(?:[a-z]*\d+|\d+[a-z]{1,2}|[a-z](\d)(?!\1)\d+[a-z])$/i;
+// Versions, units, model names, numeronyms, hex and sizes carry digits too: "win10", "4k", "1st", "A380", "i18n", "0x1F", "1920x1080".
+const NOT_LEET = /^(?:[a-z]*\d+|\d+[a-z]{1,2}|[a-z](\d)(?!\1)\d+[a-z]|0x[\da-f]+|\d+x\d+)$/i;
 
 // 0/1/4 are leet. 3/5/7 as a vowel stand-in ("pwn3d") count only beside a 0/1/4 word: "7bibi" and "m3k" are vowel-less Arabizi.
 function leetScore(text: string): number {
   let digitHits = 0;
   let vowelHits = 0;
-  for (const raw of text.split(/\s+/)) {
-    const w = raw.replace(/^[^a-z\d]+|[^a-z\d]+$/gi, '');
+  // A hyphen splits words too: "4-year-old" is a number and two words, not one leet word.
+  for (const w of text.split(/[^a-z\d]+/i)) {
     if (/^3?1337$/.test(w)) {
       digitHits++;
       continue;
