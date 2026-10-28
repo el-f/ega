@@ -1,7 +1,7 @@
 import { META_KEYS } from './spec';
+import { ALIASES } from './reader';
 
-// A copy of the reader's main-answer aliases (reader.ts ALIASES): a field under one could be read as the answer.
-const ALIASES = ['translation', 'answer', 'result', 'output', 'text', 'response'];
+// A field under a reader alias could be read as the answer.
 const RESERVED = new Set([...META_KEYS, ...ALIASES, 'explain', 'constructor', 'prototype']);
 const MAX = 32;
 

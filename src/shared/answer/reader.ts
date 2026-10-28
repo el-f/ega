@@ -26,7 +26,8 @@ export type ReadAnswerResult =
     }
   | { kind: 'error'; code: 'PARSE' | 'EMPTY'; raw: string };
 
-const ALIASES = ['translation', 'answer', 'result', 'output', 'text', 'response'];
+/** Keys the reader takes as the main answer when the spec's own main key is missing. */
+export const ALIASES = ['translation', 'answer', 'result', 'output', 'text', 'response'];
 // Hebrew vowel points and cantillation marks; letters, maqaf, paseq, sof pasuq and geresh/gershayim stay.
 const HEBREW_POINTS = /[\u0591-\u05BD\u05BF\u05C1\u05C2\u05C4\u05C5\u05C7]/g;
 export const hasHebrewPoints = (text: string): boolean => text.search(HEBREW_POINTS) !== -1;

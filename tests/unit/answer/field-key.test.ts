@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { fieldKey } from '@/shared/answer/field-key';
 import { META_KEYS, validateSpec } from '@/shared/answer/spec';
-import { readAnswer } from '@/shared/answer/reader';
 
 const KEY = /^[a-z]\w{0,31}$/;
 
@@ -74,19 +73,5 @@ describe('a field key built from its name', () => {
     expect(
       validateSpec({ id: 'custom:t', version: 1, join: 'after-build', fields } as never),
     ).toEqual([]);
-  });
-
-  // field-key.ts keeps its own copy of the reader's alias list; each name in it must really be one.
-  it('each alias it avoids is one the reader takes as the main answer', () => {
-    const spec = {
-      id: 'probe',
-      version: 1,
-      join: 'template',
-      fields: [{ key: 'zz', label: 'Answer', kind: 'text', role: 'main', required: true }],
-    } as const;
-    for (const alias of ['translation', 'answer', 'result', 'output', 'text', 'response']) {
-      const read = readAnswer(spec, JSON.stringify({ [alias]: 'x' }));
-      expect(read.kind === 'ok' && read.main, alias).toBe('x');
-    }
   });
 });
