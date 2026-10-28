@@ -292,7 +292,7 @@
         {#each details as field (field.key)}
           <div class="rd-row rd-row-block">
             <dt>{field.label}</dt>
-            <dd dir="auto">
+            <dd class="rd-lines" dir="auto">
               {answerDetailText(
                 field.value,
                 answer?.spec?.fields?.find((f) => f.key === field.key)?.kind,
@@ -496,6 +496,10 @@
     margin: 0;
     min-width: 0;
     overflow-wrap: anywhere;
+  }
+  /* A list field arrives as one item per line. */
+  .rd-lines {
+    white-space: pre-line;
   }
   .rd-quote {
     white-space: pre-wrap;

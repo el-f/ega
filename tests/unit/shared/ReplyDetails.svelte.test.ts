@@ -34,6 +34,26 @@ it('shows stored field labels even when no request metadata was recorded', () =>
   expect(container.querySelector('[data-ega-answer-fields] h3')?.textContent).toBe('Reply fields');
 });
 
+it('shows a list field one item per line, in the panel and in the tooltip', () => {
+  const { container } = render(ReplyDetails, {
+    props: {
+      sentText: 'hello',
+      surface: 'panel',
+      onClose: () => {},
+      details: [{ key: 'tips', label: 'Tips', value: ['Be brief', 'Say thanks'] }],
+    },
+  });
+  const dd = container.querySelector('[data-ega-answer-fields] dd');
+  expect(dd?.textContent.trim()).toBe('Be brief\nSay thanks');
+  // The text holds a line break per item; only this class's white-space rule shows it as one.
+  expect(dd?.classList.contains('rd-lines')).toBe(true);
+  for (const file of [
+    'src/shared/components/ReplyDetails.svelte',
+    'src/content/tooltip/tooltip.css',
+  ])
+    expect(readFileSync(file, 'utf8'), file).toMatch(/\.rd-lines\s*\{\s*white-space:\s*pre-line;/);
+});
+
 const CONTEXT: PageContext = {
   pageTitle: 'Travel notes',
   pageUrl: 'https://example.com/forum/beirut?x=1',
