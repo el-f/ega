@@ -60,6 +60,15 @@ describe('native answer schemas', () => {
     ).toBe(true);
   });
 
+  it('a custom task with its own format keeps the schema on, since Ega adds its format last', () => {
+    for (const system of [
+      'Sum it up. Return JSON with {"summary": "...", "tags": ["..."]}.',
+      'Reply in markdown bullet points, nothing else.',
+    ])
+      for (const spec of Object.values(CUSTOM_PRESETS))
+        expect(hasConflictingFormat({ system, user: '{{text}}' }, spec), system).toBe(false);
+  });
+
   it.each(['summarize', 'reword', 'grammar', 'suggest-replies', 'ask'] as const)(
     'a stored %s row that still holds the v1 format keeps the schema on',
     (task) => {

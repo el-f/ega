@@ -10,11 +10,13 @@ export interface AnswerFormatRequest {
   onAccepted?: () => void;
 }
 
-/** An edited prompt's own format wins over native schema enforcement. */
+/** An edited built-in prompt's own format wins over native schema enforcement. */
 export function hasConflictingFormat(
   template: { system: string; user: string },
   spec: AnswerSpec,
 ): boolean {
+  // A custom task's contract always goes last and is the only shape Ega reads.
+  if (spec.join === 'after-build') return false;
   const v1 = spec.pinned && replacedFormat(spec.pinned);
   const rest = [spec.pinned, v1].reduce(
     (text, format) => (format ? text.replace(format.text, '') : text),
