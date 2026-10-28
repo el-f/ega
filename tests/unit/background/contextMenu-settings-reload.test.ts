@@ -4,7 +4,11 @@ import { DEFAULT_CONTEXT_MENU_ITEMS } from '@/shared/context-menu';
 import type { Settings } from '@/shared/types';
 import { STORAGE_KEYS, MAX_SELECTION_CHARS } from '@/shared/constants';
 import { UNTRUSTED_TURN_LABEL, fenceHistoryTurn } from '@/shared/prompts';
-import { HISTORY_CUT_MARKER, MAX_HISTORY_TURN_CHARS } from '@/shared/chat-history';
+import {
+  HISTORY_CUT_MARKER,
+  MAX_HISTORY_TURN_CHARS,
+  MAX_HISTORY_TURNS,
+} from '@/shared/chat-history';
 import { refreshSiteToggleLabel } from '@/background/contextMenu';
 import { flushAsync } from '@tests/_helpers/async';
 
@@ -93,7 +97,7 @@ vi.mock('@/background/cache', () => ({
 }));
 
 // Register the SW listeners (including the storage.onChanged listener).
-const { MAX_HISTORY_TURNS } = await import('@/background/index');
+await import('@/background/index');
 
 beforeEach(() => {
   resetChromeMock();

@@ -5,6 +5,9 @@ import { capText } from './text-cap';
 /** Token budget for the conversation history sent with each request. */
 export const CHAT_HISTORY_TOKEN_BUDGET = 4000;
 
+/** Most history messages a request carries. The worker cuts to it too, so the label counts what is sent. */
+export const MAX_HISTORY_TURNS = 40;
+
 /** Per-message cap for replayed history. The worker cuts with the same function, so the label counts what is sent. */
 export const MAX_HISTORY_TURN_CHARS = MAX_SELECTION_CHARS;
 export const HISTORY_CUT_MARKER = '…[cut]';
@@ -76,10 +79,10 @@ export function assemblePromptHistory(
       mapped.push({ role: 'assistant', content: capHistoryContent(t.content) });
     }
   }
-  // Tail-trim: walk from the end accumulating tokens until the budget is hit.
+  // Tail-trim: walk from the end accumulating tokens until the budget or the count cap is hit.
   let used = 0;
   let startIdx = mapped.length;
-  for (let i = mapped.length - 1; i >= 0; i--) {
+  for (let i = mapped.length - 1; i >= Math.max(0, mapped.length - MAX_HISTORY_TURNS); i--) {
     const cost = estimateTokens(mapped[i]?.content ?? '');
     if (used + cost > opts.budgetTokens) break;
     used += cost;

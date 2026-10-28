@@ -6,6 +6,7 @@ import {
   chatContextLabel,
   HISTORY_CUT_MARKER,
   MAX_HISTORY_TURN_CHARS,
+  MAX_HISTORY_TURNS,
   estimateTokens,
   type ChatTurn,
   type ConversationTurnLike,
@@ -68,6 +69,22 @@ describe('assemblePromptHistory', () => {
 
   it('returns [] for empty input', () => {
     expect(assemblePromptHistory([], { budgetTokens: 1000 })).toEqual([]);
+  });
+
+  it('keeps no more messages than the worker forwards, so the label counts what is sent', () => {
+    const turns = Array.from({ length: 60 }, () => [u('ok'), a('ok')]).flat();
+    const opts = { budgetTokens: CHAT_HISTORY_TOKEN_BUDGET };
+    expect(assemblePromptHistory(turns, opts)).toHaveLength(MAX_HISTORY_TURNS);
+    expect(chatContextLabel(turns, opts)).toBe(`Using ${MAX_HISTORY_TURNS} earlier messages`);
+  });
+
+  it('drops a leading answer orphaned by the count cut', () => {
+    // An empty answer is skipped, so the 41 messages here are not in pairs and the cut lands on a0.
+    const pairs = Array.from({ length: 19 }, () => [u('ok'), a('ok')]).flat();
+    const turns = [u('q0'), a('a0'), u('q1'), a(''), ...pairs];
+    const h = assemblePromptHistory(turns, { budgetTokens: CHAT_HISTORY_TOKEN_BUDGET });
+    expect(h).toHaveLength(MAX_HISTORY_TURNS - 1);
+    expect(h[0]).toEqual({ role: 'user', content: 'q1' });
   });
 
   it('drops a leading assistant turn orphaned by the budget trim', () => {

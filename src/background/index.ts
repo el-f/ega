@@ -26,7 +26,7 @@ import { createLogger, debugCatch } from '@/shared/logger';
 import { asLangIdUnsafe } from '@/shared/brands';
 import { hasKnownKind, type Msg, type MsgReply } from '@/shared/messages';
 import { readForContent } from './content-reads';
-import { capHistoryContent, type ChatTurn } from '@/shared/chat-history';
+import { capHistoryContent, MAX_HISTORY_TURNS, type ChatTurn } from '@/shared/chat-history';
 import { fenceHistoryTurn } from '@/shared/prompts';
 import type { PageContext, Settings } from '@/shared/types';
 import { parseSettingsPatch, resolveModelId } from '@/shared/settings-schema';
@@ -130,7 +130,6 @@ void maybePreWarmNative();
 
 // Matches the schema max of `headingTrailDepth`.
 const MAX_HEADING_TRAIL_ENTRIES = 10;
-export const MAX_HISTORY_TURNS = 40;
 
 const cap = (v: string): string => capText(v, MAX_SELECTION_CHARS);
 
