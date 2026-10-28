@@ -182,10 +182,10 @@ export function createIntake(deps: IntakeDeps): Intake {
     taskId: TaskId | undefined,
   ): Promise<void> {
     const id = conversation.activeId;
-    const tab = conversation.tabSite;
+    const follows = conversation.tabFollows;
     const context = await deps.pageContext(taskId ?? kind);
-    // The tab changed during the read: the text still belongs here, and the page read may be the new tab's.
-    const moved = conversation.tabSite !== tab;
+    // The tab changed during the read (even away and back): the text still belongs here, and the page read may be the new tab's.
+    const moved = conversation.tabFollows !== follows;
     // The tab move, not activeId: a follow sets activeId only when its load ends, and a user's own switch stands.
     if (moved) await conversation.openConversation(id);
     await conversation.send({
