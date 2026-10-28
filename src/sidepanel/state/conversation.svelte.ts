@@ -50,6 +50,7 @@ import {
   GENERAL_ORIGIN,
   IMAGE_SHED_NOTE,
   MAX_TURNS_PER_THREAD,
+  evictedBy,
   isQuotaError,
   type SaveThreadResult,
   type EvictedConversation,
@@ -244,6 +245,13 @@ function evictedMessage(e: EvictedConversation): string {
     : `An older conversation for ${siteLabel(e.id)} was removed to make room.`;
 }
 
+/** A failed save can still have deleted another conversation; the failure notice does not say so. */
+function noteEvictedBy(e: unknown): void {
+  const evicted = evictedBy(e);
+  if (evicted !== undefined)
+    toastStore.push({ message: evictedMessage(evicted), variant: 'warning' });
+}
+
 /** Bounded so a long session does not grow the set without limit. */
 const OWNED_REQUEST_CAP = 32;
 /** A clear of a full thread records one per turn; the store keeps the same number. */
@@ -432,6 +440,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
           context: input.context,
           thread: state.turns,
           askAbout,
+          site: siteOf(state.activeId),
         }),
       );
     } catch (e) {
@@ -514,6 +523,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
           message: `The answer for ${siteLabel(reply.origin)} could not be saved.`,
           variant: 'danger',
         });
+        noteEvictedBy(e);
       });
   }
 
@@ -524,7 +534,9 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       r?.evicted !== undefined ? evictedMessage(r.evicted) : null,
       r?.shedImages === true
         ? `Storage is nearly full. Images were removed from the conversation for ${site} to keep the text.`
-        : null,
+        : r?.shedIds !== undefined
+          ? `Older images were removed from the conversation for ${site} to save space.`
+          : null,
       r?.droppedIds !== undefined
         ? `${r.droppedIds.length} older message${r.droppedIds.length === 1 ? ' was' : 's were'} removed from the conversation for ${site} to save space.`
         : null,
@@ -682,6 +694,29 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     }
     const source = findRetryTarget(state.turns, assistantId);
     if (!source) return null;
+    // Failed before the panel answered such text itself: answer it here, sent nowhere.
+    if (answersAsIs(source)) {
+      const id = uuid();
+      const context = settled?.contextSent;
+      noteRemoved([assistantId]);
+      mutate(
+        (turns) =>
+          answerAsIs(
+            replaceAssistantTurn(turns, assistantId, {
+              id,
+              kind: source.kind,
+              attachedToTurnId: source.id,
+              ...(source.taskId !== undefined ? { taskId: source.taskId } : {}),
+              ...(context !== undefined ? { contextSent: context } : {}),
+            }),
+            id,
+            `${id}:v1`,
+            source.content,
+          ),
+        'now',
+      );
+      return { turnId: id };
+    }
     const reuse = replayDispatch(source);
     if (reuse === null) return null;
     const tone = source.tone ?? state.lastDispatch?.tone;
@@ -701,6 +736,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       context,
       thread: state.turns,
       askAbout,
+      site: siteOf(state.activeId),
     });
     // A replace is a delete plus an insert: without the tombstone another window writes the dead turn back.
     noteRemoved([assistantId]);
@@ -834,6 +870,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
       thread: asks ? state.turns : 'none',
       freshAnswer,
       askAbout,
+      site: siteOf(state.activeId),
     });
     mutate(
       (turns) =>
@@ -1328,7 +1365,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     noteKnownTurns(snap);
     // Copies: a load that clears the live sets while this write waits for the lock must not empty its tombstones.
     /* eslint-disable svelte/prefer-svelte-reactivity -- plain snapshots handed to storage, never rendered. */
-    const { evicted, droppedIds, shedImages, refusedIds } = await saveThread(target, snap, {
+    const { evicted, droppedIds, shedIds, shedImages, refusedIds } = await saveThread(target, snap, {
       knownIds: new Set(knownIds),
       deletedAt: new Map(deletedAt),
       revivedAt: new Map(revivedAt),
@@ -1348,6 +1385,12 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
           variant: 'warning',
         });
       }
+    } else if (shedIds !== undefined && target === state.activeId) {
+      mutate(
+        (turns) => turns.map((t) => (shedIds.includes(t.id) ? stripImage(t, IMAGE_SHED_NOTE) : t)),
+        'none',
+      );
+      toastStore.push({ message: 'Older images were removed to save space.', variant: 'warning' });
     }
     if (refusedIds !== undefined && target === state.activeId) {
       // Buried by another window. Dropping the ids from knownIds lets that window bring them back.
@@ -1394,6 +1437,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
   function noteSaveFailed(e: unknown): void {
     state.saveFailedQuota = isQuotaError(e);
     state.saveFailed = true;
+    noteEvictedBy(e);
   }
 
   function markDirty(): void {

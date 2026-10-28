@@ -54,6 +54,8 @@ export async function sendTranslateStart(args: {
   tone?: Tone;
   /** Page-level context. Absent for surfaces that ship none. */
   context?: PageContext;
+  /** The conversation's site origin, so site rules apply with page info off. Absent for other pages. */
+  siteOrigin?: string;
   /** Refinement for this request only — hits the system prompt and the cache key, never persisted. */
   refinement?: string;
   /** Prior conversation turns, oldest-first. Absent on the first send. */
@@ -72,6 +74,7 @@ export async function sendTranslateStart(args: {
     sourceLang: args.sourceLang,
     ...(args.targetLang ? { targetLang: args.targetLang } : {}),
     ...(args.context ? { context: args.context } : {}),
+    ...(args.siteOrigin ? { siteOrigin: args.siteOrigin } : {}),
     options: {
       stream: args.stream,
       explain: args.explain,

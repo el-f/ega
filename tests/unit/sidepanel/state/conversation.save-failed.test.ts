@@ -108,6 +108,37 @@ describe('a save that fails is visible', () => {
     );
   });
 
+  it('names the conversation a failed save deleted and could not put back', async () => {
+    const first = createConversation();
+    await first.openConversation('https://old.com');
+    seed(first);
+    await first.flush();
+
+    const c = createConversation();
+    await c.openConversation('https://new.com');
+    seed(c);
+    const push = vi.spyOn(toastStore, 'push').mockImplementation(() => {});
+    const originalSet = chrome.storage.local.set.bind(chrome.storage.local);
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
+    vi.spyOn(chrome.storage.local, 'set').mockImplementation((items) => {
+      const record = items as Record<string, unknown>;
+      // This thread never fits, and old.com's write-back fails the same way.
+      if ('ega:conv:t:https://new.com' in record || 'ega:conv:t:https://old.com' in record) {
+        return Promise.reject(new Error('QUOTA_BYTES quota exceeded'));
+      }
+      return originalSet(record);
+    });
+
+    await expect(c.flush()).rejects.toThrow(/quota/i);
+
+    expect(c.saveFailed).toBe(true);
+    expect(push).toHaveBeenCalledTimes(1);
+    expect(push.mock.calls[0]?.[0]).toMatchObject({
+      message: 'The conversation "hola" on old.com was removed to make room.',
+      variant: 'warning',
+    });
+  });
+
   it('a failed flush does not block the origin switch', async () => {
     const c = createConversation();
     await c.openConversation('https://one.com');

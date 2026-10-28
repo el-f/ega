@@ -6,6 +6,7 @@ import {
   type UserTurnData,
 } from '@/sidepanel/state/conversation';
 import { asLangIdUnsafe } from '@/shared/brands';
+import { GENERAL_ORIGIN } from '@/shared/saved-conversations';
 
 const EN = asLangIdUnsafe('en');
 const ES = asLangIdUnsafe('es');
@@ -155,5 +156,23 @@ describe('buildStartArgs — one request shape for send, retry and every variant
     });
     expect(full.tone).toBe('formal');
     expect(full.context?.pageTitle).toBe('t');
+  });
+
+  it("names the conversation's site, so site rules apply with no page info; other pages name none", () => {
+    const site = buildStartArgs(user(), {
+      requestId: 'r',
+      reuse,
+      thread: 'none',
+      site: 'https://rules.test',
+    });
+    expect(site.siteOrigin).toBe('https://rules.test');
+    expect('context' in site).toBe(false);
+    const general = buildStartArgs(user(), {
+      requestId: 'r',
+      reuse,
+      thread: 'none',
+      site: GENERAL_ORIGIN,
+    });
+    expect('siteOrigin' in general).toBe(false);
   });
 });

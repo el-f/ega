@@ -336,6 +336,49 @@ describe('two windows re-reading each other over one storage', () => {
     expect((await loadThreadResult(ORIGIN)).turns.map((t) => t.id)).not.toContain(assistantId);
   }, 20_000);
 
+  it("A's retry of an old failed link, answered in the panel, also stays buried in B", async () => {
+    const link = 'https://example.com/docs?id=42';
+    await saveThread(ORIGIN, [
+      {
+        id: 'u1',
+        role: 'user',
+        kind: 'translate',
+        status: 'idle',
+        createdAt: 1,
+        content: link,
+        dispatch: { sourceLang: 'auto', targetLang: EN, stream: true },
+      },
+      {
+        id: 'a1',
+        role: 'assistant',
+        kind: 'translate',
+        status: 'error',
+        createdAt: 2,
+        content: '',
+        attachedToTurnId: 'u1',
+        error: { code: 'NETWORK', message: 'offline' },
+      },
+    ]);
+    const a = await openWindow();
+    const b = await openWindow();
+    expect(byId(b, 'a1')?.status).toBe('error');
+
+    const started = await a.retry('a1');
+    await a.flush();
+    await drain();
+
+    // Positive control: the local answer reached B, so the next save is B's merge, not a no-op.
+    expect(started && byId(b, started.turnId)?.content).toBe(link);
+    b.toggleBookmark('u1');
+    await b.flush();
+    await drain();
+    expect(b.turns.map((t) => t.id)).not.toContain('a1');
+    expect((await loadThreadResult(ORIGIN)).turns.map((t) => t.id)).toEqual([
+      'u1',
+      started?.turnId,
+    ]);
+  }, 20_000);
+
   it("A's retry of an earlier answer keeps it under its question in B, and in B's save", async () => {
     const a = await openWindow();
     const b = await openWindow();
