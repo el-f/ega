@@ -59,7 +59,7 @@ describe('the Preview splits off the reply format the builder adds', () => {
     };
     const built = buildCustomPreviewPrompt(s, { ...request, id: 'c1', row });
     const parts = splitReplyFormat(built.system);
-    expect(parts.format).toBe(customAnswerContract(row, 'c1'));
+    expect(parts.format).toBe(`${customAnswerContract(row, 'c1')}\nAnswer in English.`);
     expect(parts.system.endsWith('Be polite.')).toBe(true);
   });
 

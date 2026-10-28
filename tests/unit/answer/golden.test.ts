@@ -82,7 +82,7 @@ describe('spec reader compared with the frozen v1 results', () => {
   );
 });
 
-describe('custom prompts retain frozen v1 bytes except the preset main key', () => {
+describe('custom prompts keep their frozen bytes, with the answer key and a language line', () => {
   it.each(prompts)('$name', ({ output, system, expected }) => {
     expect(
       buildTaskPrompt({
@@ -100,10 +100,10 @@ describe('custom prompts retain frozen v1 bytes except the preset main key', () 
       }),
     ).toEqual({
       ...expected,
-      system: expected.system.replace(
+      system: `${expected.system.replace(
         '"translation": <your answer as a string>',
         '"answer": <your answer as a string>',
-      ),
+      )}\nAnswer in English.`,
     });
   });
 });

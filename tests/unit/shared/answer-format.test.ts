@@ -199,8 +199,8 @@ describe('answer format: custom tasks', () => {
     );
     expect(await built('input')).toMatch(/\}\.\nAnswer in the same language as the text\.$/);
   });
-  it('leaves a row saved before the setting existed as it was', async () => {
-    expect(await built()).toMatch(/\{"answer": <your answer as a string>\}\.$/);
+  it('a row with no stored answer language answers in the target, as its task view says', async () => {
+    expect(await built()).toMatch(/\}\.\nAnswer in English\.$/);
   });
   it('the Preview sends the same language line', () => {
     const s = mkSettings();

@@ -364,7 +364,7 @@ export interface TaskPromptInput {
   contextBlockIfNoSlot?: boolean;
   /** A custom task's answer contract, appended after its system text. */
   contract?: string;
-  /** A custom task's answer language; a row saved before the setting has none and gets no line. */
+  /** A custom task's answer language; none means the target, as in the task view. */
   answersIn?: 'input' | 'target';
   /** A built-in's answer format, joined on when the system text does not already hold one. Never with `contract`. */
   format?: AnswerFormat;
@@ -401,11 +401,9 @@ export function buildTaskPrompt(input: TaskPromptInput): { system: string; user:
     .filter((part) => part.length > 0)
     .join('\n');
   const language =
-    input.answersIn === undefined
-      ? ''
-      : input.answersIn === 'input'
-        ? '\nAnswer in the same language as the text.'
-        : `\nAnswer in ${targetLabelOf(req, input.build)}.`;
+    input.answersIn === 'input'
+      ? '\nAnswer in the same language as the text.'
+      : `\nAnswer in ${targetLabelOf(req, input.build)}.`;
   const system = input.contract ? `${built.system}\n\n${input.contract}${language}` : built.system;
   return { system: composeSystemPrefix(input.glossaryBlock, input.rulesBlock, system), user };
 }
