@@ -288,6 +288,8 @@ export interface RunStreamingChatArgs extends RunStreamArgs {
   fromJson: (json: unknown) => Iterable<StreamEvent>;
   /** Replaces the default `!res.ok` chunk for providers whose statuses name their own fix. */
   httpError?: (res: Response, body: string) => { code: ErrCode; message: string };
+  /** Byte silence that aborts the stream; defaults to STREAM_IDLE_TIMEOUT_MS. */
+  idleTimeoutMs?: number;
 }
 
 async function* httpEvents(a: RunStreamingChatArgs): AsyncGenerator<StreamEvent> {
@@ -324,7 +326,11 @@ async function* httpEvents(a: RunStreamingChatArgs): AsyncGenerator<StreamEvent>
   if (a.stream && res.body) {
     try {
       yield* a.fromBytes(
-        withIdleTimeout(streamBytes(res.body), STREAM_IDLE_TIMEOUT_MS, idle.abort),
+        withIdleTimeout(
+          streamBytes(res.body),
+          a.idleTimeoutMs ?? STREAM_IDLE_TIMEOUT_MS,
+          idle.abort,
+        ),
       );
     } finally {
       // `body.cancel()` rejects while the reader holds the lock; aborting is what frees the socket.

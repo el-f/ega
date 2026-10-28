@@ -41,6 +41,8 @@ export interface ThinkScrubber {
 export function createThinkScrubber(opts: { gemmaChannels?: boolean } = {}): ThinkScrubber {
   const gemma = opts.gemmaChannels === true;
   let inside = false;
+  // Reasoning models write the scratchpad first, so after the first visible character no tag opens a block.
+  let answered = false;
   let buf = '';
 
   function process(): string {
@@ -77,9 +79,10 @@ export function createThinkScrubber(opts: { gemmaChannels?: boolean } = {}): Thi
         buf = buf.slice(close + 2);
         continue;
       }
-      // Outside a block: emit text up to the next `<`.
+      // Outside a block: emit text up to the next `<`. A tag after visible text is the answer quoting it.
       const lt = buf.indexOf('<');
-      if (lt === -1) {
+      if (answered || lt === -1 || buf.slice(0, lt).trim() !== '') {
+        answered ||= buf.trim() !== '';
         out += buf;
         buf = '';
         return out;
@@ -100,15 +103,12 @@ export function createThinkScrubber(opts: { gemmaChannels?: boolean } = {}): Thi
         continue;
       }
       // `<` with no `>` yet, or a non-tag `<…>`.
-      if (!buf.includes('>')) {
-        if (couldStartTag(buf, gemma)) return out; // hold; might complete into a tag
-        out += buf; // not a viable tag prefix — real text
-        buf = '';
-        return out;
-      }
-      // `<…>` that is not our open tag — emit the `<` and keep scanning.
-      out += '<';
-      buf = buf.slice(1);
+      if (!buf.includes('>') && couldStartTag(buf, gemma)) return out; // hold; might complete into a tag
+      // Not a viable tag prefix, or a `<…>` that is not our open tag: real text, so the answer has started.
+      answered = true;
+      out += buf;
+      buf = '';
+      return out;
     }
   }
 

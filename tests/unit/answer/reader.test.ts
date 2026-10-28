@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { answerSpecFor, type AnswerSpec } from '@/shared/answer/spec';
 import { readAnswer, createAnswerProjector } from '@/shared/answer/reader';
 import * as fc from 'fast-check';
@@ -58,6 +58,43 @@ describe('the service worker answer reader', () => {
         JSON.stringify({ translation: JSON.stringify({ translation: 'Hello', confidence: 0.8 }) }),
       ),
     ).toMatchObject({ kind: 'ok', main: 'Hello', fields: { confidence: 0.8 } });
+  });
+  it('keeps a JSON main whole when the outer envelope carries its own fields', () => {
+    for (const inner of [
+      JSON.stringify({ text: 'Bonjour', confidence: 0.1, detectedLang: 'xx' }),
+      JSON.stringify({ translation: 'Bonjour', confidence: 0.1, detectedLang: 'xx' }),
+    ])
+      expect(
+        readAnswer(
+          translate,
+          JSON.stringify({ translation: inner, confidence: 0.95, detectedLang: 'en' }),
+        ),
+      ).toMatchObject({
+        kind: 'ok',
+        main: inner,
+        fields: { confidence: 0.95, detectedLang: 'en' },
+        issues: [],
+      });
+  });
+  it('keeps a translated JSON object as the main text when it lacks the main key', () => {
+    for (const inner of ['{"greeting": "Bonjour", "bye": "Au revoir"}', '{"text": "Bonjour"}']) {
+      const result = readAnswer(translate, JSON.stringify({ translation: inner }));
+      expect(result).toMatchObject({ kind: 'ok', main: inner });
+      if (result.kind === 'ok') expect(result.issues.join(' ')).not.toMatch(/Unwrapped/);
+    }
+  });
+  it.each([
+    'Use this config:\n{"output": "dist", "minify": true}',
+    '{"result": "ok"} is what the API returns on success.',
+    'To build it, set {"output": "dist"} in vite.config and run pnpm build.',
+    'The reply is:\n```json\n{"text": "hi"}\n```\nThen the client shows it.',
+  ])('reads prose that quotes a JSON object as prose: %j', (raw) => {
+    for (const spec of [answerSpecFor('ask'), answerSpecFor('summarize')]) {
+      expect(readAnswer(spec, raw)).toMatchObject({ kind: 'ok', main: raw, via: 'prose' });
+      const projector = createAnswerProjector(spec);
+      for (const ch of raw) projector.push(ch);
+      expect(projector.finish()).toMatchObject({ kind: 'ok', main: raw });
+    }
   });
   // The Translate prompt asks for code as one fenced block; code that holds an answer key is still the answer.
   it.each([
@@ -154,6 +191,18 @@ describe('the service worker answer reader', () => {
       code: 'PARSE',
     });
   });
+  // A cut stream or a broken envelope must not be shown and cached as a finished answer.
+  it.each([
+    [answerSpecFor('ask'), '{"translation": "Step 1: open the file. Step 2: cl'],
+    [translate, '{"translation": "The meeting is moved to Thurs'],
+    [translate, '{"translation": "He shouted "Stop", "Wait" then left", "confidence": 0.9}'],
+    [custom, 'Here it is: {"answer": "Half an ans'],
+  ])('fails an envelope that never closes: %#', (spec, raw) => {
+    expect(readAnswer(spec, raw)).toMatchObject({ kind: 'error', code: 'PARSE' });
+    const projector = createAnswerProjector(spec);
+    projector.push(raw);
+    expect(projector.finish()).toMatchObject({ kind: 'error', code: 'PARSE' });
+  });
   it('preserves plain answers and fenced plain text', () => {
     for (const text of ['Hello', '```text\nHello\n```', 'Text with {braces}.'])
       expect(readAnswer(translate, text)).toMatchObject({ kind: 'ok', main: text, via: 'prose' });
@@ -238,6 +287,53 @@ describe('visible answer projection', () => {
     }
     expect(observed.every((text) => !/[{}"]/.test(text))).toBe(true);
     expect(visible).toBe('Hello');
+  });
+  // A prompt-only model can answer in Markdown that quotes JSON; the live text must keep up and the answer must stand.
+  it.each([
+    'Example payload: {"name": "x"} and then a long explanation follows.',
+    'The payload is {"user": "bob", "age": 3} and the server reads the user field.',
+    'Set it like this:\n```json\n{"port": 8080}\n```\nThen restart the server.',
+  ])('streams prose that quotes a keyless JSON object: %j', (raw) => {
+    for (const spec of [answerSpecFor('ask'), custom]) {
+      const projector = createAnswerProjector(spec);
+      let visible = '';
+      for (let at = 0; at < raw.length; at += 3) {
+        const delta = projector.push(raw.slice(at, at + 3));
+        if (delta) visible = delta.replace ? delta.text : visible + delta.text;
+      }
+      expect(visible).toBe(raw);
+      expect(projector.finish()).toMatchObject({ kind: 'ok', main: raw, via: 'prose' });
+    }
+  });
+  // A full read re-parses the whole answer, so one per brace-ending delta costs the square of its length.
+  it.each([
+    [
+      'an envelope',
+      translate,
+      (code: string) => JSON.stringify({ translation: code, confidence: 0.9 }),
+    ],
+    ['prose', answerSpecFor('ask'), (code: string) => `Here is the code:\n\n${code}\n\nRun it.`],
+  ])('re-reads %s holding code a bounded number of times', (_name, spec, wrap) => {
+    const code = Array.from({ length: 200 }, (_, i) => `function f${i}() { return ${i}; }`).join(
+      '\n',
+    );
+    const raw = wrap(code);
+    const projector = createAnswerProjector(spec);
+    const parse = vi.spyOn(JSON, 'parse');
+    let visible = '';
+    try {
+      // Every delta ends at a brace, the worst case for a tail-triggered read.
+      for (const piece of raw.split(/(?<=\})/)) {
+        const delta = projector.push(piece);
+        if (delta) visible = delta.replace ? delta.text : visible + delta.text;
+      }
+      expect(parse.mock.calls.length).toBeLessThan(20);
+    } finally {
+      parse.mockRestore();
+    }
+    const answer = projector.finish();
+    expect(answer.kind === 'ok' && answer.main).toBe(spec === translate ? code : raw);
+    expect(visible).toBe(spec === translate ? code : raw);
   });
   it('keeps the final answer stable across random chunk boundaries and repairs', () => {
     fc.assert(

@@ -13,7 +13,7 @@ import {
   type ParsedResult,
   type TranslationBackend,
 } from '@/shared/backends/base';
-import { createAnswerProjector } from '@/shared/answer/reader';
+import { createAnswerProjector, hasHebrewPoints } from '@/shared/answer/reader';
 import { answerSpecFor, type AnswerSpec } from '@/shared/answer/spec';
 import type { ChatTurn } from '@/shared/chat-history';
 import { optionsTabForMessage, shouldRotate } from '@/shared/error-policy';
@@ -129,7 +129,17 @@ export async function runTranslateAttempt(
         },
       }
     : undefined;
-  const projector = createAnswerProjector(answerSpec, { explain: reqOptions.explain });
+  // Some models point Hebrew unasked. Keep points when the source has them, or an image, refinement or other task may want them.
+  const dropHebrewPoints =
+    image === undefined &&
+    answerSpec.id === 'translate' &&
+    reqOptions.refinement === undefined &&
+    /^(?:he|iw)(?:-|$)/i.test(String(reqView.targetLang)) &&
+    !hasHebrewPoints(reqView.text);
+  const projector = createAnswerProjector(answerSpec, {
+    explain: reqOptions.explain,
+    dropHebrewPoints,
+  });
   const attemptStart = performance.now();
   // Every backend's deltas pass here, so stripping `<think>` once covers the visible stream and the cached final text.
   const scrubber = createThinkScrubber({ gemmaChannels: backend.id === 'localserver' });

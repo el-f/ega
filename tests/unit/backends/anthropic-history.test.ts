@@ -65,7 +65,7 @@ const mkArgs = (over: Partial<TranslateCallArgs> = {}): TranslateCallArgs => ({
 });
 
 describe('AnthropicBackend — history + cache_control', () => {
-  it('with history: prior turns precede final user message, last message carries cache_control', async () => {
+  it('with history: prior turns precede final user message, last history turn carries cache_control', async () => {
     const history: ChatTurn[] = [
       { role: 'user', content: 'h1' },
       { role: 'assistant', content: 'h2' },
@@ -75,12 +75,48 @@ describe('AnthropicBackend — history + cache_control', () => {
 
     expect(body.current?.['messages']).toEqual([
       { role: 'user', content: 'h1' },
-      { role: 'assistant', content: 'h2' },
       {
-        role: 'user',
-        content: [{ type: 'text', text: 'now', cache_control: { type: 'ephemeral' } }],
+        role: 'assistant',
+        content: [{ type: 'text', text: 'h2', cache_control: { type: 'ephemeral' } }],
       },
+      { role: 'user', content: 'now' },
     ]);
+  });
+
+  // The next request replays this exchange with the raw text, so the new user block never repeats.
+  it('marks a prefix that the next follow-up repeats exactly', async () => {
+    const texts = (messages: unknown): Array<[string, string]> =>
+      (messages as Array<{ role: string; content: string | Array<{ text: string }> }>).map((m) => [
+        m.role,
+        typeof m.content === 'string' ? m.content : m.content.map((b) => b.text).join(''),
+      ]);
+    const marked = (messages: unknown): number =>
+      (messages as Array<{ content: unknown }>).findIndex(
+        (m) => Array.isArray(m.content) && JSON.stringify(m.content).includes('cache_control'),
+      );
+    const body = captureBody();
+    const first: ChatTurn[] = [
+      { role: 'user', content: 'h1' },
+      { role: 'assistant', content: 'h2' },
+    ];
+    await new AnthropicBackend().translate(
+      mkArgs({ user: 'Translate.\n<TEXT>now</TEXT>', history: first }),
+    );
+    const turn1 = body.current?.['messages'];
+    await new AnthropicBackend().translate(
+      mkArgs({
+        user: 'Translate.\n<TEXT>next</TEXT>',
+        history: [
+          ...first,
+          { role: 'user', content: 'now' },
+          { role: 'assistant', content: 'answer' },
+        ],
+      }),
+    );
+    const turn2 = body.current?.['messages'];
+    const at = marked(turn1);
+    expect(at).toBeGreaterThanOrEqual(0);
+    expect(texts(turn2).slice(0, at + 1)).toEqual(texts(turn1).slice(0, at + 1));
   });
 
   it('without history: messages is the plain single-string form, with no cache_control', async () => {

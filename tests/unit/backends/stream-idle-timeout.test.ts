@@ -172,6 +172,70 @@ describe('stream idle-timeout (read-stall watchdog)', () => {
     if (err?.type === 'error') expect(err.code).toBe('TIMEOUT');
   });
 
+  // OpenAI and Gemini send no bytes while a model thinks, and higher effort thinks longer.
+  describe('a reasoning model at high effort', () => {
+    const highEffort = (model: Partial<typeof baseConfig.model>) => ({
+      ...baseConfig,
+      model: { ...baseConfig.model, ...model },
+      advanced: { ...baseConfig.advanced, effort: 'high' as const },
+    });
+    const backends = [
+      {
+        name: 'OpenAI',
+        make: () => makeOpenAICompatBackend('openai'),
+        config: highEffort({ openai: 'o3' }),
+        first: 'data: {"choices":[{"delta":{"role":"assistant","content":""}}]}\n\n',
+        rest: 'data: {"choices":[{"delta":{"content":"{\\"translation\\":\\"ok\\"}"},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n',
+      },
+      {
+        name: 'Gemini',
+        make: () => new GeminiBackend(),
+        config: highEffort({ gemini: 'gemini-3.8-flash' }),
+        first: 'data: {"candidates":[{"content":{"parts":[{"text":""}]}}]}\n\n',
+        rest: 'data: {"candidates":[{"content":{"parts":[{"text":"{\\"translation\\":\\"ok\\"}"}]},"finishReason":"STOP"}]}\n\n',
+      },
+    ];
+
+    it.each(backends)('$name: may think silently past the base idle window', async (b) => {
+      vi.useFakeTimers();
+      const enc = new TextEncoder();
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(enc.encode(b.first));
+          setTimeout(() => {
+            controller.enqueue(enc.encode(b.rest));
+            controller.close();
+          }, 2 * STREAM_IDLE_TIMEOUT_MS);
+        },
+      });
+      setFetchHandler(
+        async () =>
+          new Response(body, { status: 200, headers: { 'content-type': 'text/event-stream' } }),
+      );
+      const chunks: TranslationChunk[] = [];
+      const p = b.make().translate(mkArgs({ config: b.config, onChunk: (c) => chunks.push(c) }));
+      await vi.advanceTimersByTimeAsync(2 * STREAM_IDLE_TIMEOUT_MS + 100);
+      await p;
+      expect(chunks.find((c) => c.type === 'error')).toBeUndefined();
+      expect(chunks.some((c) => c.type === 'done')).toBe(true);
+    });
+
+    it.each(backends)('$name: a stall still ends in TIMEOUT', async (b) => {
+      vi.useFakeTimers();
+      const { body } = stallingBody(b.first);
+      setFetchHandler(
+        async () =>
+          new Response(body, { status: 200, headers: { 'content-type': 'text/event-stream' } }),
+      );
+      const chunks: TranslationChunk[] = [];
+      const p = b.make().translate(mkArgs({ config: b.config, onChunk: (c) => chunks.push(c) }));
+      await vi.advanceTimersByTimeAsync(1);
+      await vi.advanceTimersByTimeAsync(10 * STREAM_IDLE_TIMEOUT_MS);
+      await p;
+      expect(chunks.find((c) => c.type === 'error')).toMatchObject({ code: 'TIMEOUT' });
+    });
+  });
+
   it('does not fire when data keeps flowing (normal completion is unaffected)', async () => {
     // Real timers here: the stream completes immediately, well within the
     // idle window, so the watchdog must never trip.

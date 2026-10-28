@@ -10,7 +10,8 @@ import {
 } from './base';
 import { fetchOpenAICompatibleModels } from './discoverShared';
 import { iterSseDataPayloads } from './sseParser';
-import { emitMissingKeyError } from './transportError';
+import { streamIdleTimeoutMs } from './stream-resilience';
+import { CONTEXT_FULL_MESSAGE, emitMissingKeyError } from './transportError';
 import { OCR_SYSTEM_PROMPT, OCR_USER_INSTRUCTION } from '../ocr-prompt';
 import type { BackendId, TranslationChunk } from '../types';
 import { asBackendIdUnsafe } from '../brands';
@@ -60,6 +61,9 @@ function stopEvent(finish: string | null | undefined, label: string): StreamEven
       message: `${label} stopped the answer early (${finish}). Try again.`,
     };
   }
+  // Mistral's stop when the context fills; `length` is the answer limit.
+  if (finish === 'model_length')
+    return { type: 'error', code: 'REQUEST', message: CONTEXT_FULL_MESSAGE };
   return { type: 'stop', reason: finish === 'length' ? 'max_tokens' : 'end' };
 }
 
@@ -209,12 +213,14 @@ export class OpenAICompatBackend implements TranslationBackend {
     requestId: string,
     cancel: CancelToken,
     key: string,
+    config: BackendConfig,
     stream: boolean,
     payload: Record<string, unknown>,
     onChunk: (c: TranslationChunk) => void,
     answerFormat?: AnswerFormatRequest,
   ): Promise<void> {
     const model = String(payload['model'] ?? '');
+    const effort = resolveEffort(this.id, model, config.advanced.effort ?? 'off');
     const listedSchema =
       this.id === 'openrouter' && answerFormat !== undefined
         ? await fetchOpenRouterSchema(model, OPENROUTER_LIST_TIMEOUT_MS)
@@ -237,6 +243,7 @@ export class OpenAICompatBackend implements TranslationBackend {
         },
         listedSchema,
       ),
+      idleTimeoutMs: streamIdleTimeoutMs(effort),
       stream,
       label: this.profile.label,
       requestId,
@@ -258,6 +265,7 @@ export class OpenAICompatBackend implements TranslationBackend {
       a.req.id,
       a.cancel,
       key,
+      a.config,
       a.stream,
       {
         model,
@@ -284,6 +292,7 @@ export class OpenAICompatBackend implements TranslationBackend {
       a.requestId,
       a.cancel,
       key,
+      a.config,
       true,
       {
         model,

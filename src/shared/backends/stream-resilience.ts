@@ -1,9 +1,23 @@
 import { RETRY_AFTER_MAX_MS } from '@/shared/constants';
+import type { TaskEffort } from '@/shared/settings-schema';
 
 /** Stream helpers shared by every streaming backend, kept here so no backend imports a sibling. */
 
 /** Aborts a stream that goes silent (proxy hang, half-open socket) long before the wall-clock timeout. */
 export const STREAM_IDLE_TIMEOUT_MS = 30_000;
+
+// shortcut: fixed per-level guesses at 2x a slow time to first token; measure live streams to tune them.
+const IDLE_BY_EFFORT: Readonly<Record<TaskEffort, number>> = {
+  off: STREAM_IDLE_TIMEOUT_MS,
+  low: 60_000,
+  medium: 120_000,
+  high: 180_000,
+};
+
+/** OpenAI and Gemini send no bytes while a model thinks, so a stream that reasons gets a longer idle window. */
+export function streamIdleTimeoutMs(effort: { level: TaskEffort } | null): number {
+  return IDLE_BY_EFFORT[effort?.level ?? 'off'];
+}
 
 /** The watchdog wraps raw bytes, not parsed events: heartbeats and long reasoning phases yield bytes but no events. */
 export async function* streamBytes(body: ReadableStream<Uint8Array>): AsyncGenerator<Uint8Array> {

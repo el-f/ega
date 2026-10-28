@@ -59,8 +59,8 @@ function dropTrailingComma(out: string): string {
   return out[j] === ',' ? out.slice(0, j) + out.slice(j + 1) : out;
 }
 
-/** The first balanced object in `c`, with raw \n \r \t in strings escaped, a stray inner quote escaped and trailing commas dropped; null when the braces never balance. */
-function repairEnvelope(c: string): string | null {
+/** The first balanced object in `c`, with raw \n \r \t in strings escaped, a stray inner quote escaped and trailing commas dropped, and the index after it in `c`; null when the braces never balance. */
+function repairEnvelope(c: string): { json: string; end: number } | null {
   const start = c.indexOf('{');
   if (start === -1) return null;
   let out = '';
@@ -98,22 +98,26 @@ function repairEnvelope(c: string): string | null {
     else if (ch === '{') depth++;
     else if (ch === '}' || ch === ']') {
       out = dropTrailingComma(out);
-      if (ch === '}' && --depth === 0) return out + ch;
+      if (ch === '}' && --depth === 0) return { json: out + ch, end: i + 1 };
     }
     out += ch;
   }
   return null;
 }
 
-/** Strict first, so valid JSON is never rewritten; one repaired retry after that. */
-export function parseLenient(c: string): unknown {
+/** Strict first, so valid JSON is never rewritten; one repaired retry after that. `end` is the index after the value in `c`. */
+export function parseLenientSpan(c: string): { value: unknown; end: number; repaired: boolean } {
   try {
-    return JSON.parse(c);
+    return { value: JSON.parse(c), end: c.length, repaired: false };
   } catch (strictErr) {
     const fixed = repairEnvelope(c);
     if (fixed === null) throw strictErr;
-    return JSON.parse(fixed);
+    return { value: JSON.parse(fixed.json), end: fixed.end, repaired: true };
   }
+}
+
+export function parseLenient(c: string): unknown {
+  return parseLenientSpan(c).value;
 }
 
 function inOpenFence(body: string): boolean {

@@ -137,9 +137,11 @@ export function clearRejectedSchemas(): void {
 
 export function schemaRejection(status: number, body: string): boolean {
   return (
-    status === 400 &&
-    /\bschema\b|json_schema|output_config|response_format|responseJsonSchema|responseSchema|additionalProperties/i.test(
-      body,
-    )
+    (status === 400 &&
+      /\bschema\b|json_schema|output_config|response_format|responseJsonSchema|responseSchema|additionalProperties/i.test(
+        body,
+      )) ||
+    // OpenRouter with require_parameters: no allowed provider takes every sent parameter.
+    (status === 404 && /no endpoints found that can handle the requested parameters/i.test(body))
   );
 }

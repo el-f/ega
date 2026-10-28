@@ -8,6 +8,8 @@ import type { BackendId, TranslationChunk, TranslationRequest } from '@/shared/t
 import { asBackendIdUnsafe, asLangIdUnsafe } from '@/shared/brands';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import { testManifest } from '@tests/_helpers/backend';
+import { answerSpecFor } from '@/shared/answer/spec';
+import { hasHebrewPoints } from '@/shared/answer/reader';
 
 function makeReq(): TranslationRequest {
   return {
@@ -446,5 +448,98 @@ describe('runTranslateAttempt', () => {
     const errCalls = onChunk.mock.calls.filter((c) => (c[0] as TranslationChunk).type === 'error');
     expect(errCalls).toHaveLength(1);
     expect((errCalls[0]?.[0] as Extract<TranslationChunk, { type: 'error' }>).code).toBe('REQUEST');
+  });
+});
+
+// gpt-oss-20b points every word of a Hebrew translation, Gemini some; the source never had points.
+describe('Hebrew points the source text never had', () => {
+  async function translateTo(
+    target: string,
+    text: string,
+    answer: string,
+    options: Partial<TranslationRequest['options']> = {},
+    fromImage = false,
+  ): Promise<{ done: string | undefined; deltas: string; acc: string; pointedDelta: boolean }> {
+    const chunks: TranslationChunk[] = [];
+    const fsm = createTranslateFsm();
+    fsm.send({ type: 'start' });
+    const { token } = createCancelToken();
+    const raw = JSON.stringify({ translation: answer, confidence: 0.9 });
+    const stream = async (args: { onChunk: (c: TranslationChunk) => void }) => {
+      for (let at = 0; at < raw.length; at += 5)
+        args.onChunk({ type: 'delta', requestId: 'r1', text: raw.slice(at, at + 5) });
+      args.onChunk({ type: 'done', requestId: 'r1' });
+    };
+    const backend = { ...makeBackend(asBackendIdUnsafe('ollama'), stream), translateImage: stream };
+    const req = {
+      ...makeReq(),
+      text,
+      targetLang: asLangIdUnsafe(target),
+      options: { ...makeReq().options, stream: true, ...options },
+    };
+    await runTranslateAttempt({
+      backend,
+      isLast: true,
+      reqView: req,
+      reqOptions: req.options,
+      streaming: true,
+      cfg: makeCfg(),
+      system: 'sys',
+      user: 'usr',
+      ...(options.task ? { answerSpec: answerSpecFor(options.task) } : {}),
+      ...(fromImage ? { image: { imageBase64: 'AAAA', mediaType: 'image/png' } } : {}),
+      cancel: token,
+      fsm,
+      attemptLog: [],
+      reqId: 'r1',
+      onChunk: (c) => chunks.push(c),
+      attachMeta: (c) => c,
+      logger: noopLogger,
+    });
+    const done = chunks.find((c) => c.type === 'done');
+    let deltas = '';
+    for (const c of chunks) if (c.type === 'delta') deltas = c.replace ? c.text : deltas + c.text;
+    return {
+      done: done?.type === 'done' ? done.text : undefined,
+      deltas,
+      acc: fsm.context().acc,
+      pointedDelta: chunks.some((c) => c.type === 'delta' && hasHebrewPoints(c.text)),
+    };
+  }
+
+  it.each([
+    [
+      'gpt-oss-20b, every word pointed',
+      'Hello, how are you today? Shalom to the whole school.',
+      'שָׁלוֹם, מָה שְׁלוֹמְךָ הַיּוֹם? שָׁלוֹם לְכָל בֵּית־הַסֵּפֶר.',
+      'שלום, מה שלומך היום? שלום לכל בית־הספר.',
+    ],
+    [
+      'Gemini, some words pointed',
+      'The giraffe from the IDF base loves your house.',
+      'הַג׳ירָפָה מבסיס צה״ל אוהֶבֶת את הַבַּיִת שלך.',
+      'הג׳ירפה מבסיס צה״ל אוהבת את הבית שלך.',
+    ],
+  ])('drops them from the answer: %s', async (_name, text, answer, plain) => {
+    const result = await translateTo('he', text, answer);
+    expect(result).toEqual({ done: plain, deltas: plain, acc: plain, pointedDelta: false });
+  });
+
+  it.each([
+    ['the source is pointed', 'he', 'בְּרֵאשִׁית בָּרָא', {}],
+    ['the target is not Hebrew', 'en', 'Genesis', {}],
+    ['a refinement may ask for points', 'he', 'In the beginning', { refinement: 'with niqqud' }],
+    ['the task is not a translation', 'he', 'In the beginning', { task: 'ask' as const }],
+  ])('keeps them when %s', async (_name, target, text, options) => {
+    const answer = 'בְּרֵאשִׁית בָּרָא אֱלֹהִים';
+    expect(await translateTo(target, text, answer, options)).toMatchObject({
+      done: answer,
+      deltas: answer,
+    });
+  });
+
+  it('keeps them for an image, whose text the worker never sees', async () => {
+    const answer = 'בְּרֵאשִׁית בָּרָא אֱלֹהִים';
+    expect(await translateTo('he', '', answer, {}, true)).toMatchObject({ done: answer });
   });
 });
