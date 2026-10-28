@@ -444,7 +444,8 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
         }),
       );
     } catch (e) {
-      failDispatch(assistantId, requestId, e);
+      // The reader may have flipped to a kept answer meanwhile, so name the version that was sent.
+      failDispatch(assistantId, requestId, e, `${assistantId}:v1`);
     }
     return assistantId;
   }

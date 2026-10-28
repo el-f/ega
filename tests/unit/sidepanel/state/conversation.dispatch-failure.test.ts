@@ -82,3 +82,39 @@ describe('a dispatch that never reaches the background', () => {
     expect(c.ownsRequest('req-image')).toBe(true);
   });
 });
+
+describe('an edit-last send that never reaches the background', () => {
+  it('fails the new version even when the reader flipped to the kept answer', async () => {
+    const gate: { reject: (() => void) | null } = { reject: null };
+    sendMessage.mockImplementation((msg: { kind?: string }) => {
+      if (msg.kind === 'translate:start') {
+        return new Promise((_resolve, reject) => {
+          gate.reject = () => reject(new Error('port closed'));
+        });
+      }
+      return Promise.resolve({ ok: true });
+    });
+    const c = createConversation();
+
+    const pending = c.send({
+      content: 'edited question',
+      kind: 'translate',
+      sourceLang: 'auto',
+      targetLang: asLangIdUnsafe('en'),
+      stream: true,
+      preservedResponse: 'the old answer',
+    });
+    await Promise.resolve();
+    const assistantId = c.turns.at(-1)?.id ?? '';
+    c.selectVariant(assistantId, 0);
+    gate.reject?.();
+    await pending;
+
+    const assistant = c.turns.find((t) => t.id === assistantId);
+    expect(assistant?.variants?.map((v) => v.status)).toEqual(['done', 'error']);
+    expect(assistant?.variants?.[1]?.error?.code).toBe('dispatch-failed');
+    // The reader still sees the version they picked.
+    expect(assistant?.activeVariantIdx).toBe(0);
+    expect(assistant?.status).toBe('done');
+  });
+});
