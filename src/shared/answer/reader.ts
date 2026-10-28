@@ -1,10 +1,10 @@
 import * as v from 'valibot';
-import { FENCE_OPEN, answerDetailText } from '../answer-presentation';
+import { answerDetailText } from '../answer-presentation';
 import type { AnswerField, AnswerSpec } from './spec';
 import {
   createStringValueScan,
   lastNonBlank,
-  parseLenient,
+  parseLenientSpan,
   parseJsonResponse,
 } from './legacy-reader';
 
@@ -36,14 +36,25 @@ const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 const record = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
-function envelope(
-  raw: string,
-  spec: AnswerSpec,
-): { value: Record<string, unknown>; repaired: boolean } | undefined {
-  const candidates = [raw.trim()];
+type Envelope = { value: Record<string, unknown>; repaired: boolean };
+
+/** An object with the main key counts anywhere, any other only as the whole text; 'prose': text follows a leading object. */
+function envelope(raw: string, spec: AnswerSpec): Envelope | 'prose' | undefined {
+  const lead = raw.length - raw.trimStart().length;
+  // The repair skips text before the first brace, so only a candidate that opens with a bracket can be the whole text.
+  const candidates = [{ text: raw.trim(), at: lead, leading: /^\s*[[{]/.test(raw) }];
   const fence = /```(?:json)?([\s\S]*?)```/i.exec(raw);
-  if (fence?.[1]) candidates.unshift(fence[1].trim());
+  if (fence?.[1]) {
+    const body = fence[1];
+    const at = fence.index + fence[0].length - 3 - body.trimStart().length;
+    candidates.unshift({
+      text: body.trim(),
+      at,
+      leading: fence.index === lead && /^\s*[[{]/.test(body),
+    });
+  }
   const last = raw.lastIndexOf('}');
+  const mainKey = spec.fields.find((f) => f.role === 'main')?.key ?? 'translation';
   const keys = [...spec.fields.map((f) => f.key), ...ALIASES];
   // The first brace can belong to a prose preamble. Try later keyed objects too, with a bounded work budget.
   let tried = 0;
@@ -52,29 +63,44 @@ function envelope(
     at >= 0 && at < last && tried < 32;
     at = raw.indexOf('{', at + 1)
   ) {
-    candidates.push(raw.slice(at, last + 1));
+    candidates.push({ text: raw.slice(at, last + 1), at, leading: at === lead });
     tried++;
   }
-  let first: { value: Record<string, unknown>; repaired: boolean } | undefined;
+  let first: Envelope | undefined;
+  let openedProse = false;
   for (const candidate of candidates) {
     try {
-      let value = parseLenient(candidate);
+      const span = parseLenientSpan(candidate.text);
+      let value = span.value;
       if (Array.isArray(value) && value.length === 1) value = value[0];
       if (!record(value)) continue;
-      const result = { value, repaired: false };
-      try {
-        JSON.parse(candidate);
-      } catch {
-        result.repaired = true;
+      const result = { value, repaired: span.repaired };
+      const has = (k: string) =>
+        Object.keys(value).some((key) => key.toLowerCase() === k.toLowerCase());
+      if (has(mainKey)) return result;
+      if (!candidate.leading) continue;
+      // Only a closing bracket or fence may follow the whole-text envelope.
+      if (!/^\s*(?:\]\s*)?(?:```\s*)?$/.test(raw.slice(candidate.at + span.end))) {
+        openedProse = true;
+        continue;
       }
+      if (keys.some(has)) return result;
       first ??= result;
-      if (Object.keys(value).some((key) => keys.some((k) => k.toLowerCase() === key.toLowerCase())))
-        return result;
     } catch {
       /* Another candidate may contain the actual envelope. */
     }
   }
-  return first;
+  return first ?? (openedProse ? 'prose' : undefined);
+}
+
+/** A main string that is itself exactly one JSON object; never repaired, since the outer parse already succeeded. */
+function encodedObject(text: string): Record<string, unknown> | undefined {
+  try {
+    const value: unknown = JSON.parse(text.trim());
+    return record(value) ? value : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function matchedKey(object: Record<string, unknown>, key: string): string | undefined {
@@ -172,14 +198,16 @@ export function readAnswer(
   const mainField = spec.fields.find((f) => f.role === 'main');
   if (!mainField) return { kind: 'error', code: 'PARSE', raw };
   const found = envelope(raw, spec);
-  let object = found?.value;
-  let via: Extract<ReadAnswerResult, { kind: 'ok' }>['via'] = found?.repaired ? 'repaired' : 'json';
+  let object = typeof found === 'object' ? found.value : undefined;
+  let via: Extract<ReadAnswerResult, { kind: 'ok' }>['via'] =
+    typeof found === 'object' && found.repaired ? 'repaired' : 'json';
   if (!object) {
     // A main key with no envelope that parses is a cut or broken answer, never a finished one.
     if (
-      createStringValueScan(mainField.key).feed(raw) !== null ||
-      /^\s*[[{]/.test(raw) ||
-      /^\s*```json\b/i.test(raw)
+      found !== 'prose' &&
+      (createStringValueScan(mainField.key).feed(raw) !== null ||
+        /^\s*[[{]/.test(raw) ||
+        /^\s*```json\b/i.test(raw))
     )
       return { kind: 'error', code: 'PARSE', raw };
     object = { [mainField.key]: raw.trim() };
@@ -203,21 +231,20 @@ export function readAnswer(
       issues.push('Used the only unclaimed text field as the answer.');
     }
   }
-  // Models sometimes double-encode their JSON in the main string. Unwrap once; a fenced main is code, never an envelope.
-  const encoded = mainKey === undefined ? undefined : object[mainKey];
-  if (typeof encoded === 'string' && !FENCE_OPEN.test(encoded.trimStart())) {
-    const nested = envelope(encoded, spec)?.value;
-    if (
-      nested &&
-      (matchedKey(nested, mainField.key) !== undefined ||
-        ALIASES.some((key) => matchedKey(nested, key) !== undefined))
-    ) {
-      object = { ...object, ...nested };
-      mainKey =
-        matchedKey(nested, mainField.key) ??
-        ALIASES.map((key) => matchedKey(nested, key)).find((key) => key !== undefined);
-      issues.push('Unwrapped an answer encoded inside the main field.');
-    }
+  // Models sometimes double-encode their whole envelope in the main string. A main next to its own fields is the answer itself (JSON text).
+  const outer = object;
+  const mainRaw = mainKey === undefined ? undefined : outer[mainKey];
+  const encoded = typeof mainRaw === 'string' ? encodedObject(mainRaw) : undefined;
+  if (
+    mainKey !== undefined &&
+    encoded !== undefined &&
+    Object.hasOwn(encoded, mainField.key) &&
+    !spec.fields.some((f) => f.role !== 'main' && matchedKey(outer, f.key) !== undefined)
+  ) {
+    const { [mainKey]: _encoded, ...rest } = outer;
+    object = { ...encoded, ...rest };
+    mainKey = mainField.key;
+    issues.push('Unwrapped an answer encoded inside the main field.');
   }
   // The v1 Explain reader accepted a notes-only answer. Keep that documented compatibility case.
   if (
@@ -281,14 +308,34 @@ export function createAnswerProjector(
   let visible = '';
   const mainKey = spec.fields.find((f) => f.role === 'main')?.key ?? 'translation';
   const scanner = createStringValueScan(mainKey);
+  // Bracket depth outside JSON strings, read once per character.
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  let openedAt = -1;
+  let read = 0;
+  const objectStart = /[[{]\s*(?:["[{]|$)/y;
+  function track(): void {
+    for (; read < raw.length; read++) {
+      const ch = raw[read];
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (ch === '\\') escaped = true;
+        else if (ch === '"') inString = false;
+      } else if (ch === '"') inString = depth > 0;
+      else if (ch === '{' || ch === '[') {
+        if (depth++ === 0) openedAt = read;
+      } else if ((ch === '}' || ch === ']') && depth > 0) depth--;
+    }
+  }
   return {
     push(delta) {
       raw += delta;
       const partial = scanner.feed(raw);
-      // Hold a possible object after prose until its main field arrives. Otherwise a
-      // character-sized chunk can briefly show the envelope before the scanner sees its key.
-      const opening = raw.search(/[[{]/);
-      const pendingEnvelope = opening >= 0 && /^[[{]\s*(?:["[{]|$)/.test(raw.slice(opening));
+      track();
+      // Hold an object opened after prose until its main key arrives or it closes, so no envelope flashes.
+      objectStart.lastIndex = openedAt;
+      const pendingEnvelope = depth > 0 && objectStart.test(raw);
       const openingFence = /^\s*```/.test(raw) || /^\s*`{1,2}\s*$/.test(raw);
       let next =
         partial ?? (/^\s*[[{]/.test(raw) || openingFence ? '' : pendingEnvelope ? visible : raw);

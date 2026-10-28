@@ -59,6 +59,36 @@ describe('the service worker answer reader', () => {
       ),
     ).toMatchObject({ kind: 'ok', main: 'Hello', fields: { confidence: 0.8 } });
   });
+  it('keeps a JSON main whole when the outer envelope carries its own fields', () => {
+    for (const inner of [
+      JSON.stringify({ text: 'Bonjour', confidence: 0.1, detectedLang: 'xx' }),
+      JSON.stringify({ translation: 'Bonjour', confidence: 0.1, detectedLang: 'xx' }),
+    ])
+      expect(
+        readAnswer(
+          translate,
+          JSON.stringify({ translation: inner, confidence: 0.95, detectedLang: 'en' }),
+        ),
+      ).toMatchObject({
+        kind: 'ok',
+        main: inner,
+        fields: { confidence: 0.95, detectedLang: 'en' },
+        issues: [],
+      });
+  });
+  it.each([
+    'Use this config:\n{"output": "dist", "minify": true}',
+    '{"result": "ok"} is what the API returns on success.',
+    'To build it, set {"output": "dist"} in vite.config and run pnpm build.',
+    'The reply is:\n```json\n{"text": "hi"}\n```\nThen the client shows it.',
+  ])('reads prose that quotes a JSON object as prose: %j', (raw) => {
+    for (const spec of [answerSpecFor('ask'), answerSpecFor('summarize')]) {
+      expect(readAnswer(spec, raw)).toMatchObject({ kind: 'ok', main: raw, via: 'prose' });
+      const projector = createAnswerProjector(spec);
+      for (const ch of raw) projector.push(ch);
+      expect(projector.finish()).toMatchObject({ kind: 'ok', main: raw });
+    }
+  });
   // The Translate prompt asks for code as one fenced block; code that holds an answer key is still the answer.
   it.each([
     '```html\n<h1>Hello</h1>\n<p>hi</p>\n```',
@@ -250,6 +280,23 @@ describe('visible answer projection', () => {
     }
     expect(observed.every((text) => !/[{}"]/.test(text))).toBe(true);
     expect(visible).toBe('Hello');
+  });
+  // A prompt-only model can answer in Markdown that quotes JSON; the live text must keep up and the answer must stand.
+  it.each([
+    'Example payload: {"name": "x"} and then a long explanation follows.',
+    'The payload is {"user": "bob", "age": 3} and the server reads the user field.',
+    'Set it like this:\n```json\n{"port": 8080}\n```\nThen restart the server.',
+  ])('streams prose that quotes a keyless JSON object: %j', (raw) => {
+    for (const spec of [answerSpecFor('ask'), custom]) {
+      const projector = createAnswerProjector(spec);
+      let visible = '';
+      for (let at = 0; at < raw.length; at += 3) {
+        const delta = projector.push(raw.slice(at, at + 3));
+        if (delta) visible = delta.replace ? delta.text : visible + delta.text;
+      }
+      expect(visible).toBe(raw);
+      expect(projector.finish()).toMatchObject({ kind: 'ok', main: raw, via: 'prose' });
+    }
   });
   it('keeps the final answer stable across random chunk boundaries and repairs', () => {
     fc.assert(
