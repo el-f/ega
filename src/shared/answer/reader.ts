@@ -38,6 +38,8 @@ export interface ReadAnswerOptions {
   dropHebrewPoints?: boolean;
 }
 const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+/** A detected language is a short label; the popup handoff drops longer ids too. */
+const DETECTED_ID_MAX = 128;
 const record = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
@@ -156,8 +158,15 @@ function normalized(field: AnswerField, raw: unknown): { value?: unknown; issue?
     case 'languages': {
       if (!Array.isArray(value)) break;
       value = value.flatMap((entry) => {
-        if (typeof entry === 'string' && entry) return [{ id: entry }];
-        if (!record(entry) || typeof entry['id'] !== 'string' || !entry['id']) return [];
+        if (typeof entry === 'string' && entry)
+          return entry.length <= DETECTED_ID_MAX ? [{ id: entry }] : [];
+        if (
+          !record(entry) ||
+          typeof entry['id'] !== 'string' ||
+          !entry['id'] ||
+          entry['id'].length > DETECTED_ID_MAX
+        )
+          return [];
         const detail = entry['detail'];
         return [
           {
@@ -184,7 +193,13 @@ function normalized(field: AnswerField, raw: unknown): { value?: unknown; issue?
             ? v.picklist(field.choices ?? [])
             : field.kind === 'languages'
               ? v.array(v.looseObject({ id: v.string(), detail: v.exactOptional(v.string()) }))
-              : v.pipe(v.string(), v.maxLength(field.maxChars ?? Number.MAX_SAFE_INTEGER));
+              : v.pipe(
+                  v.string(),
+                  v.maxLength(
+                    field.maxChars ??
+                      (field.kind === 'language' ? DETECTED_ID_MAX : Number.MAX_SAFE_INTEGER),
+                  ),
+                );
   if (v.safeParse(schema, value).success) return { value };
   // An unexpected choice/yes-no answer remains available, with an honest issue in About this reply.
   return {

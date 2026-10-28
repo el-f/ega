@@ -232,6 +232,31 @@ describe('the service worker answer reader', () => {
       expect(result.issues).toContain('Language detail: unexpected text value.');
     }
   });
+  it('drops a detected language id longer than a short label', () => {
+    const long = 'x'.repeat(129);
+    const result = readAnswer(
+      translate,
+      JSON.stringify({
+        translation: 'Hello',
+        detectedLang: long,
+        detectedLangs: ['x'.repeat(128), long, { id: long }],
+      }),
+    );
+    expect(result).toMatchObject({
+      kind: 'ok',
+      fields: { detectedLangs: [{ id: 'x'.repeat(128) }] },
+    });
+    if (result.kind === 'ok') {
+      expect(result.fields).not.toHaveProperty('detectedLang');
+      expect(result.issues).toContain('Source language: unexpected language value.');
+    }
+    expect(
+      readAnswer(
+        translate,
+        JSON.stringify({ translation: 'Hello', detectedLang: 'x'.repeat(128) }),
+      ),
+    ).toMatchObject({ kind: 'ok', fields: { detectedLang: 'x'.repeat(128) } });
+  });
 });
 
 describe('visible answer projection', () => {
