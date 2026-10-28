@@ -314,17 +314,14 @@ describe('the thread index', () => {
     ]);
   });
 
-  it('reads an index this build cannot version as no index at all', async () => {
-    await chrome.storage.local.set({
-      [INDEX_KEY]: { version: 99, threads: [{ origin: 'https://gone.com', bytes: 10 }] },
-    });
+  it('fails the save rather than replace an index this build cannot read', async () => {
+    // A newer build wrote it: a fresh one-row index would unlist every conversation in it.
+    const future = { version: 99, threads: [{ origin: 'https://kept.com', bytes: 10 }] };
+    await chrome.storage.local.set({ [INDEX_KEY]: future });
 
-    await saveThread('https://a.com', []);
+    await expect(saveThread('https://a.com', [])).rejects.toThrow(/index/i);
 
-    const after = (await chrome.storage.local.get(INDEX_KEY))[INDEX_KEY] as {
-      threads: Array<{ origin: string }>;
-    };
-    expect(after.threads.map((t) => t.origin)).toEqual(['https://a.com']);
+    expect((await chrome.storage.local.get(INDEX_KEY))[INDEX_KEY]).toEqual(future);
   });
 });
 

@@ -561,11 +561,17 @@ function evictedOf(e: IndexEntry): EvictedConversation {
 
 /** Adds or replaces entries, evicts past the conversation and byte budgets, writes the index. */
 async function commitIndex(entries: readonly IndexEntry[]): Promise<EvictedConversation[]> {
-  const index = await readIndex();
-  const stored = new Map(index.threads.map((t) => [t.origin, t]));
+  const raw: unknown = (await chrome.storage.local.get(INDEX_KEY))[INDEX_KEY];
+  const index = raw === undefined ? null : parseIndex(raw);
+  // Most likely a newer build's. A fresh index over it would unlist every conversation it holds.
+  if (raw !== undefined && index === null) {
+    throw new Error('The conversation index cannot be read by this version');
+  }
+  const threads = index?.threads ?? [];
+  const stored = new Map(threads.map((t) => [t.origin, t]));
   const incoming = new Set(entries.map((e) => e.origin));
   const evicted: EvictedConversation[] = [];
-  const rest = index.threads.filter((t) => !incoming.has(t.origin));
+  const rest = threads.filter((t) => !incoming.has(t.origin));
   // A save never knows when the list last opened a conversation, so the stored stamp carries over.
   for (const e of entries) {
     const openedAt = stored.get(e.origin)?.openedAt;
