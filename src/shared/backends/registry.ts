@@ -9,7 +9,6 @@ import type { TranslationBackend } from './base';
 import { BACKEND_API_KEY_FIELDS } from '../provider-ids';
 import type { BackendId, Settings } from '../types';
 
-export { BACKEND_API_KEY_FIELDS };
 /** `satisfies` proves each derived key field is a real Settings key at compile time. */
 const _keyFieldsAreSettingsKeys = BACKEND_API_KEY_FIELDS satisfies readonly (keyof Settings)[];
 void _keyFieldsAreSettingsKeys;
