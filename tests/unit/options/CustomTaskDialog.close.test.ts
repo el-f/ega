@@ -201,7 +201,7 @@ describe('an existing custom task', () => {
       '[data-ega-answer-field="reason"] input',
     ) as HTMLInputElement;
     await fireEvent.input(fieldName, { target: { value: '' } });
-    expect(status()).toBe('Not saved: fix the reply fields');
+    expect(status()).toBe('Not saved');
     expect(document.querySelector('[data-ega-answer-fields-editor]')?.textContent).toContain(
       'Add a name',
     );
@@ -397,5 +397,21 @@ describe('saved fields Ega cannot read', () => {
     open(vi.fn(), { row: (await getCustomTasks())[0] });
     await fireEvent.click(radio('Your own fields'));
     expect(document.querySelector('[data-ega-answer-field="extra"]')).not.toBeNull();
+  });
+});
+
+describe('the footer while a reply field needs a fix', () => {
+  it('a new task says only "Not saved", and Try still says what is missing', async () => {
+    open();
+    await fireEvent.input(nameInput(), { target: { value: 'Review' } });
+    await fireEvent.click(radio('Your own fields'));
+    await fireEvent.click(screen.getByRole('button', { name: 'Add field' }));
+    await fireEvent.input(screen.getAllByLabelText('Name').at(-1) as HTMLElement, {
+      target: { value: 'Answer' },
+    });
+    expect(status()).toMatch(/^Not saved( yet)?$/);
+    await fireEvent.click(screen.getByRole('button', { name: 'Example reply' }));
+    await fireEvent.click(screen.getByRole('button', { name: /^Try/ }));
+    expect(screen.getByText('Fix the reply fields')).toBeTruthy();
   });
 });

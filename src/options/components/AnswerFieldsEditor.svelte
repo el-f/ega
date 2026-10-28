@@ -426,6 +426,10 @@
   .af-error {
     color: var(--color-danger-fg);
   }
+  /* Under the name, past the grip column. */
+  .af-row > .af-error {
+    padding-inline-start: calc(16px + var(--space-2));
+  }
   .af-row.af-invalid {
     border-color: var(--color-danger);
   }

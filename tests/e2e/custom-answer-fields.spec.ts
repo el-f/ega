@@ -12,7 +12,7 @@ import {
   setNextMessage,
   type ExtensionHandle,
 } from './helpers';
-import { expectSameWidth } from './flows/_harness';
+import { expectNothingMoves, expectSameWidth } from './flows/_harness';
 
 const fields = [
   { key: 'answer', label: 'Outline', kind: 'list', role: 'main', required: true },
@@ -149,6 +149,13 @@ for (const { theme, width } of [
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
       width,
     );
+    // A field problem shows at the field; the footer stays one short line, so Done does not move (R63).
+    await dialog.getByRole('button', { name: 'Edit Key points' }).click();
+    await expectNothingMoves({ done: page.locator('[data-ega-dialog-done]') }, async () => {
+      await dialog.locator('[data-ega-answer-field="points"] input').first().fill('Outline');
+      await expect(page.locator('[data-ega-dialog-status]')).toHaveText('Not saved');
+    });
+    await expect(dialog.getByText('Two fields have this name').first()).toBeVisible();
   });
 }
 

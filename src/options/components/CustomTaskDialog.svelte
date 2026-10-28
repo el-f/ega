@@ -268,7 +268,7 @@
     answer = { v: 1, fields };
     output = fields.some((f) => f.role === 'notes') ? 'card' : 'plain';
     if (fieldsProblem(fields) !== null) {
-      saver.invalid('answer', FIX_FIELDS);
+      saver.invalid('answer', '');
       return;
     }
     saver.valid('answer');
@@ -421,7 +421,14 @@
     { value: '' as const, label: 'Default' },
     ...EFFORT_LEVELS.map((e) => ({ value: e, label: EFFORT_LABEL[e] })),
   ]);
-  const idleText = $derived(rowId === null && blocker !== null ? `Not saved yet: ${blocker}` : '');
+  // The fields name their own problem; a reason here would wrap the footer at 400px and move Done.
+  const idleText = $derived(
+    rowId === null && blocker !== null
+      ? blocker === FIX_FIELDS
+        ? 'Not saved yet'
+        : `Not saved yet: ${blocker}`
+      : '',
+  );
 </script>
 
 <Dialog
