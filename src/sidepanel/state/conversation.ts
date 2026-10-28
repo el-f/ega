@@ -292,9 +292,15 @@ export function replaceAssistantTurn(
   input: AddAssistantTurnInput,
 ): Turn[] {
   const idx = turns.findIndex((t) => t.id === oldId);
-  if (idx < 0) return addAssistantTurn(turns, input);
+  const old = turns[idx];
+  if (old === undefined) return addAssistantTurn(turns, input);
   const out = [...turns];
-  out[idx] = pendingAssistantTurn(input);
+  // Another window slots the new id in by createdAt, so a fresh stamp would move it below later turns.
+  out[idx] = {
+    ...pendingAssistantTurn(input),
+    createdAt: old.createdAt,
+    ...(old.bookmarked === true ? { bookmarked: true } : {}),
+  };
   return out;
 }
 

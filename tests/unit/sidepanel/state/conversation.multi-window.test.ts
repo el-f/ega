@@ -336,6 +336,29 @@ describe('two windows re-reading each other over one storage', () => {
     expect((await loadThreadResult(ORIGIN)).turns.map((t) => t.id)).not.toContain(assistantId);
   }, 20_000);
 
+  it("A's retry of an earlier answer keeps it under its question in B, and in B's save", async () => {
+    const a = await openWindow();
+    const b = await openWindow();
+    const first = await sendAndFail(a, 'one');
+    await sendAndFinish(a, 'two', 'dos');
+    // Another turn's stamp must differ from the retry's, or the order is right by chance.
+    await new Promise((r) => setTimeout(r, 5));
+
+    const started = await a.retry(first);
+    if (started === null) throw new Error('retry started nothing');
+    a.applyChunk({ type: 'delta', requestId: requestIdOf('one'), text: 'RETRIED' });
+    a.applyChunk({ type: 'done', requestId: requestIdOf('one'), confidence: 1 });
+    await a.flush();
+    await drain();
+
+    const order = ['one', 'RETRIED', 'two', 'dos'];
+    expect(a.turns.map((t) => t.content)).toEqual(order);
+    expect(b.turns.map((t) => t.content)).toEqual(order);
+    b.toggleBookmark(started.turnId);
+    await drain();
+    expect((await loadThreadResult(ORIGIN)).turns.map((t) => t.content)).toEqual(order);
+  }, 20_000);
+
   it('a stored pending copy does not replace a settled turn in this window', async () => {
     const a = await openWindow();
     const assistantId = await sendAndFail(a, 'fails');

@@ -7,6 +7,7 @@ import {
   findEditableLastUserTurn,
   isImageTurn,
   findRetryTarget,
+  replaceAssistantTurn,
   truncateFrom,
 } from '@/sidepanel/state/conversation';
 import type { Turn } from '@/sidepanel/state/conversation';
@@ -170,6 +171,28 @@ describe('truncating from a turn', () => {
 
     expect(ids(out)).toEqual(ids(thread));
     expect(out).not.toBe(thread);
+  });
+});
+
+describe('a retry swaps a new answer into the old slot', () => {
+  it('keeps the slot its time and bookmark, so other windows order it under its question', () => {
+    const old: Turn = {
+      id: 'a1',
+      role: 'assistant',
+      kind: 'translate',
+      status: 'error',
+      createdAt: 5,
+      content: '',
+      attachedToTurnId: 'u1',
+      bookmarked: true,
+    };
+    const out = replaceAssistantTurn([user('u1', 4), old, user('u2', 9)], 'a1', {
+      id: 'a1b',
+      kind: 'translate',
+      attachedToTurnId: 'u1',
+    });
+    expect(out.map((t) => t.id)).toEqual(['u1', 'a1b', 'u2']);
+    expect(out[1]).toMatchObject({ status: 'pending', createdAt: 5, bookmarked: true });
   });
 });
 
