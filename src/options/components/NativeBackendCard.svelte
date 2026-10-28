@@ -33,6 +33,7 @@
   import { onNativeProbe } from '../native-probe-events';
   import { backendLabel } from '@/shared/backends/provider-profiles';
   import { listNativeModels, probeNativeCli, type CliProbe } from '../nativeHostOnce';
+  import { nativeModelIdError } from '../nativeModelId';
   import {
     NATIVE_CLI_REGISTRY,
     DEFAULT_NATIVE_CLI,
@@ -439,7 +440,7 @@
             placeholder={currentCliEntry?.modelPlaceholder ?? ''}
             options={discoveredModels}
             loading={discoverLoading}
-            error={discoverError}
+            error={nativeModelIdError(settings.model.native ?? '') ?? discoverError}
             onValueChange={(next) => void onPatchModel('native', next)}
             onDiscover={() => void refreshModels()}
           />

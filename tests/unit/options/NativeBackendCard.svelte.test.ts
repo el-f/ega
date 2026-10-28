@@ -280,3 +280,41 @@ describe('NativeBackendCard — pre-warm toggle', () => {
     expect(hint?.textContent).toBe('Faster first answer, uses some battery');
   });
 });
+
+describe('NativeBackendCard — model id the host refuses', () => {
+  beforeEach(() => {
+    resetProbeNativeHostForTest();
+  });
+
+  async function cardWithModel(native: string): Promise<HTMLElement> {
+    const ctor = chrome.runtime.connectNative as unknown as Mock;
+    ctor.mockReturnValue(healthyPort(EXPECTED_HOST_VERSION));
+    const props = baseProps();
+    props.settings.model.native = native;
+    const { container } = render(NativeBackendCard, props);
+    await settled(container, 'installed');
+    await waitFor(() => {
+      if (!container.querySelector('[data-ega-model-combobox] input')) throw new Error('no field');
+    });
+    return container;
+  }
+
+  it.each(['--dangerously-skip-permissions', 'sonnet[1m', 'gpt oss'])(
+    '%s: the field says the host cannot take it',
+    async (native) => {
+      const container = await cardWithModel(native);
+      const alert = container.querySelector('[data-ega-model-combobox] [role="alert"]');
+      expect(alert?.textContent).toBe(
+        'Ega cannot pass this model id to the CLI. Start with a letter or digit, then use letters, digits and . _ - / : @, with an optional suffix such as [1m].',
+      );
+    },
+  );
+
+  it.each(['', 'sonnet[1m]', 'claude-opus-4-5@20250929', 'anthropic.claude-v2:1', 'gpt-oss:20b'])(
+    '"%s": no warning for an id the host passes',
+    async (native) => {
+      const container = await cardWithModel(native);
+      expect(container.querySelector('[data-ega-model-combobox] [role="alert"]')).toBeNull();
+    },
+  );
+});
