@@ -80,6 +80,12 @@ const ARABIZI_WORD =
 const DIGIT_BESIDE_VOWEL = /[aeiou][235-9]|[235-9][aeiou]/i;
 // A formula or a product code: "CH3COOH", "CO2e".
 const TWO_CAPITALS = /\p{Lu}.*\p{Lu}/u;
+
+/** A digit word in the shipped Arabizi shape that is not a formula or a product code. */
+export function isArabiziShaped(word: string): boolean {
+  return ARABIZI_WORD?.test(word) === true && !TWO_CAPITALS.test(word);
+}
+
 // Units, texting words and names start this way too ("5mins", "2nite", "7zip"), so it counts only beside another Arabizi word.
 const DIGIT_THEN_CONSONANT = /^[235-9][b-df-hj-np-tv-z]/;
 // Common Arabizi words without a digit; they only outweigh English words. Not "w": English writes "w/" for "with".
@@ -110,7 +116,7 @@ function countWords(text: string): WordCount {
   for (const word of text.match(WORD) ?? []) {
     const w = word.toLowerCase();
     if (/\d/.test(w)) {
-      if (!ARABIZI_WORD?.test(w) || TWO_CAPITALS.test(word)) continue;
+      if (!isArabiziShaped(word)) continue;
       const points = DIGIT_BESIDE_VOWEL.test(w) ? 2 : 1;
       shaped += points;
       if (points === 2 || !DIGIT_THEN_CONSONANT.test(w)) anchored = true;

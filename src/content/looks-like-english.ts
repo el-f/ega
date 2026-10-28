@@ -1,4 +1,5 @@
 import { debugCatch } from '@/shared/logger';
+import { isArabiziShaped } from './detect';
 import { ENGLISH_WORDS } from './english-words';
 import type * as LexiconMod from './english-lexicon';
 
@@ -57,10 +58,21 @@ export function looksLikeEnglish(text: string): boolean {
 }
 
 const DIGIT_WORD = /[\p{L}\d]*\d[\p{L}\d]*/gu;
+// English words that Arabizi chat uses too: "ok 3reft", "sorry b7bk".
+const CHAT_WORDS: ReadonlySet<string> = new Set(
+  'ok okay lol bro sorry thanks thx yes no so hi hey omg pls please yeah'.split(' '),
+);
 
-/** Page translate asks after detectLang ruled out Arabizi and leetspeak, so a digit word is a name or a number and does not vote. */
+/** Page translate asks after detectLang named no variety, so a digit word is mostly a name or a number and does not vote. */
 export function looksLikeEnglishBlock(text: string): boolean {
-  return looksLikeEnglish(text.replace(DIGIT_WORD, ' '));
+  const plain = text.replace(DIGIT_WORD, ' ');
+  // detectLang leaves one weak Arabizi word as auto ("b7bk", "ok 3reft"); with only chat words beside it, it is not English.
+  if (
+    (text.match(DIGIT_WORD) ?? []).some(isArabiziShaped) &&
+    (plain.toLowerCase().match(/\p{L}+/gu) ?? []).every((w) => CHAT_WORDS.has(w))
+  )
+    return false;
+  return looksLikeEnglish(plain);
 }
 
 // Chrome 138+ ships an on-device LanguageDetector that beats the dictionary heuristic on mixed varieties; older browsers have none.

@@ -91,6 +91,17 @@ export const ARABIZI_LINES: readonly string[] = [
   'hi, kifak? 3am fakker fik',
   'lol enta 3abeet',
   'bro el match kan 5ara',
+  // One weak Arabizi word, alone or beside chat words: detectLang leaves it auto, page translate must still send it.
+  'b7bk',
+  '3reft',
+  'm3lsh',
+  't3mel?',
+  'w7shtni',
+  'ok 3reft',
+  'sorry b7bk',
+  'ok t3mel',
+  'ok w7shtni',
+  'thanks, 3reft',
   // English loanwords and code-switching inside Arabizi.
   'el meeting bukra 3al se3a 9',
   'ana bel office, 3am eshte8el 3al project',

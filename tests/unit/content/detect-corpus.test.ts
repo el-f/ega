@@ -1,7 +1,11 @@
 // @vitest-environment node
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { detectLang } from '@/content/detect';
-import { lexiconCacheInternal, loadEnglishLexicon } from '@/content/looks-like-english';
+import {
+  lexiconCacheInternal,
+  loadEnglishLexicon,
+  looksLikeEnglishBlock,
+} from '@/content/looks-like-english';
 import { shouldShowBubbleWithReason } from '@/content/should-show-bubble';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import {
@@ -42,6 +46,16 @@ const ACCEPTED_MISSES: ReadonlyMap<string, string> = new Map([
   ['lol shu 3melt?', ONE_WEAK],
   ['sorry ma 2deret ejeh', ONE_WEAK],
   ['wallahi ma 3reft', ONE_WEAK],
+  ['b7bk', ONE_WEAK],
+  ['3reft', ONE_WEAK],
+  ['m3lsh', ONE_WEAK],
+  ['t3mel?', ONE_WEAK],
+  ['w7shtni', ONE_WEAK],
+  ['ok 3reft', ONE_WEAK],
+  ['sorry b7bk', ONE_WEAK],
+  ['ok t3mel', ONE_WEAK],
+  ['ok w7shtni', ONE_WEAK],
+  ['thanks, 3reft', ONE_WEAK],
   ['I am so ta3ban today ya 3am', TIE],
   ['pwn3d by a n00b lol', TIE],
   ['0mg u r s0 l4m3', LEET_SCORE],
@@ -88,6 +102,20 @@ describe('the detector on the labeled corpus', () => {
       const after = classify();
       const changed = CORPUS.filter((_, i) => after[i] !== before[i]).map(([text]) => text);
       expect(changed).toEqual([]);
+    });
+
+    // Page translate with target English skips a block when detectLang names no variety and this check passes.
+    const pageSkips = (text: string): boolean =>
+      detectLang(text) === undefined && looksLikeEnglishBlock(text);
+
+    it('never lets page translate skip an Arabizi line as English', () => {
+      expect(ARABIZI_LINES.filter(pageSkips)).toEqual([]);
+    });
+
+    it('still lets page translate skip a short English block with one tool name', () => {
+      const short = ['Run md5sum now', 'Check the md5sum', 's3cmd docs', 'md5sum usage', 'c3po figure'];
+      expect(short.every((t) => ENGLISH_LINES.includes(t))).toBe(true);
+      expect(short.filter((t) => !pageSkips(t))).toEqual([]);
     });
   });
 });
