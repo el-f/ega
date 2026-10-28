@@ -76,7 +76,13 @@ export function mergeTaskImport(plan: Plan): Promise<TaskImportResult> {
           continue;
         }
         const index = menus.findIndex((current) => current.id === item.id);
-        if (index >= 0) menus[index] = item;
+        const current = menus[index];
+        // A row with this id that does not run a task from the file (a shipped row, a task of the user's) stays.
+        if (current && !('task' in current && appliedRows.has(current.task))) {
+          skipped++;
+          continue;
+        }
+        if (current) menus[index] = item;
         else if (menus.length < CONTEXT_MENU_ITEMS_MAX) menus.push(item);
         else {
           skipped++;
