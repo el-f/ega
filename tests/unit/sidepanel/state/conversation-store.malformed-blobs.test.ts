@@ -170,7 +170,9 @@ describe('an assistant turn stored without variants', () => {
 
   it('drops a variant that is not an object and keeps the thread, the turn and its active version', async () => {
     const asked = { id: 'v2', status: 'done', content: 'kept', about: { turnId: 'u1' }, meta: {} };
-    await put(blob({ turns: [goodTurn(), answer({ variants: [null, asked], activeVariantIdx: 1 })] }));
+    await put(
+      blob({ turns: [goodTurn(), answer({ variants: [null, asked], activeVariantIdx: 1 })] }),
+    );
 
     const read = await loadThreadResult('https://a.com');
     expect(read.unreadable).toBe(false);
