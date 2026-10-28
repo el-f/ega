@@ -421,7 +421,7 @@ Residual risks:
 ### Argument injection into the CLI child
 
 **Defense:** the model id is the only caller-supplied value that reaches
-`argv`, and it must match `/^[\w./-]{1,80}$/` or it is dropped
+`argv`, and it must match `/^\w[\w.:@/-]{0,199}(?:\[\w{1,16}\])?$/` or it is dropped, and a translate request that names it is refused
 (`native-host/lib/cli-session.mjs#sanitiseModel`). Everything else in `argv` is a
 literal the host owns or a temp-file path it made itself, and the host never spawns through a shell — a Windows `.cmd`
 shim goes through `native-host/lib/cli-session.mjs#windowsSafeSpawn`, which quotes

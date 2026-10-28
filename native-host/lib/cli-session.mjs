@@ -93,7 +93,8 @@ function startupFailureMessage(provider, tail) {
 // The wire is JSON so argv-injection is not the surface, but a pasted
 // `foo --dangerously-skip-permissions` would still split into two argv entries.
 // claude names a context-window variant with a suffix: `sonnet[1m]`. cmd.exe reads no brackets as syntax.
-const MODEL_ID_OK = /^[\w./-]{1,80}(?:\[\w{1,16}\])?$/;
+// Bedrock (`...-v1:0`), Vertex (`...@20250929`) and codex local (`gpt-oss:20b`) ids need ':' and '@'; a first \w keeps `--flag` out.
+const MODEL_ID_OK = /^\w[\w.:@/-]{0,199}(?:\[\w{1,16}\])?$/;
 
 /** @param {unknown} raw @returns {string} the id, or '' when it is not safe to forward */
 export function sanitiseModel(raw) {

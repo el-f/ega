@@ -626,6 +626,20 @@ test('a claude model id with a context suffix like [1m] reaches the spawn args',
   }
 });
 
+test('Bedrock, Vertex and codex local model ids survive the sanitizer; a leading dash does not', () => {
+  for (const id of [
+    'us.anthropic.claude-sonnet-4-5-20250929-v1:0',
+    'claude-sonnet-4-5@20250929',
+    'gpt-oss:20b',
+    'arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/a1b2c3d4e5f6',
+  ]) {
+    assert.equal(sanitiseModel(id), id, id);
+  }
+  for (const bad of ['--foo', '-m', '@x', ':x', 'a'.repeat(201)]) {
+    assert.equal(sanitiseModel(bad), '', bad);
+  }
+});
+
 test('a rejected model id never reaches argv', () => {
   const f = makeSpawnFactory();
   const mgr = new CliSessionManager({ spawn: f.spawn, idleTimeoutMs: 10_000 });

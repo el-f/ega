@@ -123,7 +123,7 @@ function rejectUnsafeModel(msg) {
     id: msg.id,
     type: 'error',
     code: 'REQUEST',
-    message: `Ega cannot pass the model id "${String(msg.model).slice(0, 80)}" to the CLI. Use letters, digits and . _ - /, with an optional suffix such as [1m].`,
+    message: `Ega cannot pass the model id "${String(msg.model).slice(0, 80)}" to the CLI. Start with a letter or digit, then use letters, digits and . _ - / : @, with an optional suffix such as [1m].`,
   });
   return true;
 }

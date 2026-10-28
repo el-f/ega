@@ -1062,7 +1062,7 @@ test('a model id the host cannot pass to the CLI ends the request as REQUEST, wi
     const frames = [
       { kind: 'translate', backend: 'claude', model: 'sonnet 1m' },
       { kind: 'translate', backend: 'codex', model: 'gpt;x' },
-      { kind: 'translateImage', backend: 'codex', model: 'a'.repeat(81), imageBase64: 'AAAA' },
+      { kind: 'translateImage', backend: 'codex', model: 'a'.repeat(201), imageBase64: 'AAAA' },
     ];
     const ends = [];
     for (const [i, f] of frames.entries()) {
