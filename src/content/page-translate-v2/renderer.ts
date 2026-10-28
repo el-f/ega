@@ -81,11 +81,14 @@ function attachInplaceSwap(
     // Clone: the fragment itself is what `revert` puts back on the page.
     wrapper.replaceChildren(originalNodes.cloneNode(true));
     markShown(wrapper, undefined);
+    // The page sheet keeps the copy's own spacing, not the translation's line breaks.
+    wrapper.setAttribute('data-ega-peek', '');
   };
   const showTranslation = (): void => {
     if (translationText === null) return;
     wrapper.textContent = translationText;
     markShown(wrapper, lang);
+    wrapper.removeAttribute('data-ega-peek');
     translationText = null;
   };
   const peek = (fn: () => void) => (): void => {

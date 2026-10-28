@@ -434,8 +434,11 @@ describe('renderer — hover-original affordance (inplace)', () => {
     expect(handle.target.textContent).toContain('Translation text.');
     handle.target.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
     expect(handle.target.textContent).toBe('これは元の段落テキスト。');
+    // The page sheet keeps the page's own spacing while a peek shows its copy.
+    expect(handle.target.hasAttribute('data-ega-peek')).toBe(true);
     handle.target.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
     expect(handle.target.textContent).toContain('Translation text.');
+    expect(handle.target.hasAttribute('data-ega-peek')).toBe(false);
   });
 
   it('restores the translation when the pointer leaves before the button is released', () => {
