@@ -17,14 +17,15 @@ const PATTERNS = [
     'AUTH',
   ],
   [
-    /\b(400|422|invalid model|unknown model|model not found|issue with the selected model|unsupported|content policy|refused|invalid request|bad request)\b/i,
+    // A refused CONNECTION is a transport failure (NETWORK below), not a refused request.
+    /\b(400|422|invalid model|unknown model|model not found|issue with the selected model|unsupported|content policy|(?<!connection |actively )refused|invalid request|bad request)\b/i,
     'REQUEST',
   ],
   // A CLI too old for the safety flags exits on `unknown option '--tools'`; terminal, never retry.
   [/\bunknown (option|argument|flag)\b|\bunexpected argument\b/i, 'REQUEST'],
   [/\b(timed? ?out|deadline exceeded|ETIMEDOUT)\b/i, 'TIMEOUT'],
   [
-    /\b(ENOTFOUND|ECONNREFUSED|ECONNRESET|EAI_AGAIN|EHOSTUNREACH|ENETUNREACH|socket hang up|network|connection (refused|reset|closed)|fetch failed)\b/i,
+    /\b(ENOTFOUND|ECONNREFUSED|ECONNRESET|EAI_AGAIN|EHOSTUNREACH|ENETUNREACH|socket hang up|network|connection (refused|reset|closed)|actively refused|fetch failed)\b/i,
     'NETWORK',
   ],
 ];
