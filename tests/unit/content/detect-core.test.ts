@@ -56,6 +56,9 @@ const ENGLISH_WITH_A_NAME = [
   'c3po is my favorite droid in the films.',
   'Load html5shiv for old browsers.',
   'Install md5sum and s3cmd, then read the w3schools page.',
+  // Two leet-shaped names score as leetspeak; the English around them decides.
+  'log4j and log4shell were bad.',
+  'We moved off gpt4o and log4j last year.',
   'The release notes explain how the new installer checks every download. Run md5sum on the archive, compare it with the published value, and only then unpack it into the program folder.',
 ];
 
