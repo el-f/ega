@@ -40,6 +40,37 @@ describe('collectPageContext', () => {
     expect(rich.pageUrl).toBe('https://example.com/reset');
   });
 
+  it.each([
+    [
+      'https://app.example.com/password/reset/9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
+      'https://app.example.com/password/reset/:token',
+    ],
+    [
+      'https://example.com/reset/MQ/5v1-a9f8d7e6c5b4a3f2e1d0c9b8/',
+      'https://example.com/reset/MQ/:token/',
+    ],
+    [
+      'https://example.com/invite/123e4567-e89b-12d3-a456-426614174000/accept',
+      'https://example.com/invite/:token/accept',
+    ],
+    ['https://example.com/login/Xq7_Lm2-Pz9aB4cD8eF1gH3iJ5kL', 'https://example.com/login/:token'],
+    ['https://x.com/someone/status/1712345678901234567', 'https://x.com/someone/status/:token'],
+  ])('masks a token-like path segment: %s', (href, expected) => {
+    const d = makeDoc('<html><body></body></html>', 'T');
+    expect(collectPageContext({}, 'minimal', d, fakeLocation(href)).pageUrl).toBe(expected);
+    expect(collectPageLevelContext('minimal', d, fakeLocation(href)).pageUrl).toBe(expected);
+  });
+
+  it.each([
+    'https://example.com/blog/how-to-install-node-18-on-ubuntu-22',
+    'https://en.wikipedia.org/wiki/Internationalization',
+    'https://www.reddit.com/r/programming/comments/abc123/title_here/',
+    'https://www.youtube.com/shorts/dQw4w9WgXcQ',
+  ])('keeps a readable path as is: %s', (href) => {
+    const d = makeDoc('<html><body></body></html>', 'T');
+    expect(collectPageContext({}, 'minimal', d, fakeLocation(href)).pageUrl).toBe(href);
+  });
+
   it('rich level adds lang, description, siteName, headingTrail', () => {
     const d = makeDoc(
       `<html lang="he-IL">

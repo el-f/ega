@@ -25,11 +25,23 @@ function capMeta(v: string): string {
     : v;
 }
 
-/** Origin + path only: query strings carry tokens, reset codes and search terms that must not reach the LLM. An href that does not parse passes through as is. */
+const LONG_RUN = /[a-z0-9]{16,}/gi;
+const UUID = /[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}/i;
+
+/** A reset, invite or magic-link token: 16+ letters and digits in a row holding a digit, or a UUID. Slugs stay. */
+function isTokenSegment(segment: string): boolean {
+  return UUID.test(segment) || (segment.match(LONG_RUN) ?? []).some((run) => /\d/.test(run));
+}
+
+/** Origin + path only, a token-like segment as `:token`: query strings carry tokens and search terms that must not reach the LLM. An href that does not parse passes through as is. */
 function safePageUrl(href: string): string {
   try {
     const u = new URL(href);
-    return u.origin + u.pathname;
+    const path = u.pathname
+      .split('/')
+      .map((s) => (isTokenSegment(s) ? ':token' : s))
+      .join('/');
+    return u.origin + path;
   } catch {
     return href;
   }
