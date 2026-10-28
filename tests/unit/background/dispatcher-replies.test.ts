@@ -326,6 +326,40 @@ describe('translate:start pageHost', () => {
     const [req] = routerMock.handleTranslate.mock.calls[0] as [{ pageHost?: string }];
     expect(req.pageHost).toBeUndefined();
   });
+
+  // The panel sends no page context when page info is off, and site rules must still apply.
+  it.each([
+    ['the side panel names its site', PAGE_SENDER, 'https://www.example.com', 'www.example.com'],
+    ['the general conversation names none', PAGE_SENDER, 'general', undefined],
+    [
+      'a content script cannot name another site',
+      { id: chromeMock.runtime.id, tab: { id: 7, windowId: 1, url: 'https://own.example/a' } },
+      'https://bank.example',
+      'own.example',
+    ],
+    [
+      'a content script whose tab url Chrome hides cannot name one either',
+      { id: chromeMock.runtime.id, tab: { id: 7, windowId: 1 }, url: 'https://own.example/a' },
+      'https://bank.example',
+      undefined,
+    ],
+  ])('%s', async (_label, sender, siteOrigin, host) => {
+    routerMock.handleTranslate.mockClear();
+    await ask(
+      {
+        kind: 'translate:start',
+        requestId: 'rh3',
+        text: 'salam',
+        sourceLang: 'auto',
+        siteOrigin,
+        options: { stream: true, explain: false },
+      },
+      sender,
+    );
+    await vi.waitFor(() => expect(routerMock.handleTranslate).toHaveBeenCalledTimes(1));
+    const [req] = routerMock.handleTranslate.mock.calls[0] as [{ pageHost?: string }];
+    expect(req.pageHost).toBe(host);
+  });
 });
 
 // A cut at a fixed index can leave half an emoji, which JSON writes as a lone `\ud83d` into the request body.

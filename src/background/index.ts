@@ -431,8 +431,8 @@ chrome.runtime.onMessage.addListener((rawMsg, sender, sendResponse) => {
             targetLang = asLangIdUnsafe('en');
           }
         }
-        // Only a tab has a page host; a popup or side-panel sender is an extension URL and falls back to context.pageUrl.
-        const pageHost = hostOf(sender.tab?.url);
+        // A content script's host is its tab's; a popup or side panel names its site, else context.pageUrl decides.
+        const pageHost = isExtensionPage(sender) ? hostOf(msg.siteOrigin) : hostOf(sender.tab?.url);
         return router.handleTranslate(
           {
             id: msg.requestId,
