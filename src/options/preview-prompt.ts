@@ -79,6 +79,7 @@ export function buildCustomPreviewPrompt(
       ),
     ),
     contract: customAnswerContract(row, input.id),
+    ...(row.answersIn ? { answersIn: row.answersIn } : {}),
   });
 }
 

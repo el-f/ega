@@ -6,7 +6,11 @@ import { mkSettings } from '@tests/_helpers/router';
 import { resetChromeMock } from '@tests/mocks/chrome';
 import { importAs } from '@tests/_helpers/import-bundle';
 import { createContextResolver } from '@/background/router-context';
-import { buildPreviewPrompt, PREVIEW_SAMPLE_TEXT } from '@/options/preview-prompt';
+import {
+  buildCustomPreviewPrompt,
+  buildPreviewPrompt,
+  PREVIEW_SAMPLE_TEXT,
+} from '@/options/preview-prompt';
 import {
   buildTaskPrompt,
   hasAnswerFormat,
@@ -185,6 +189,52 @@ describe('answer format: edited prompts', () => {
         },
       ),
     );
+  });
+});
+
+describe('answer format: custom tasks', () => {
+  const row = (answersIn?: 'input' | 'target') => ({
+    id: 'c1',
+    label: 'Mine',
+    system: 'Do it.',
+    user: '{{text}}',
+    output: 'plain' as const,
+    pageContext: false,
+    image: false,
+    glossary: false,
+    createdAt: 1,
+    ...(answersIn ? { answersIn } : {}),
+  });
+  const built = async (answersIn?: 'input' | 'target') => {
+    const ctx = await createContextResolver({
+      getSettings: async () => mkSettings(),
+      getCustomTasks: async () => [row(answersIn)],
+      logger: silent as never,
+      fallbackTranslateTimeoutMs: 30_000,
+    })(req('summarize', { options: { stream: false, explain: false, task: 'c1' } }), () => {});
+    return ctx.prompt.system;
+  };
+
+  it('names the answer language the task is set to, after the format', async () => {
+    expect(await built('target')).toMatch(
+      /\{"answer": <your answer as a string>\}\.\nAnswer in English\.$/,
+    );
+    expect(await built('input')).toMatch(/\}\.\nAnswer in the same language as the text\.$/);
+  });
+  it('leaves a row saved before the setting existed as it was', async () => {
+    expect(await built()).toMatch(/\{"answer": <your answer as a string>\}\.$/);
+  });
+  it('the Preview sends the same language line', () => {
+    const s = mkSettings();
+    const preview = buildCustomPreviewPrompt(s, {
+      id: 'c1',
+      row: row('input'),
+      text: PREVIEW_SAMPLE_TEXT,
+      sourceLang: sel('auto'),
+      targetLang: sel('en'),
+      varieties: materializeVarieties(s, []),
+    });
+    expect(preview.system).toMatch(/\nAnswer in the same language as the text\.$/);
   });
 });
 

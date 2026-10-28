@@ -86,6 +86,8 @@ export interface TranslateCtx {
   contextBlockIfNoSlot: boolean;
   /** A custom task's answer contract. */
   contract?: string;
+  /** A custom task's answer language, when its row stores one. */
+  answersIn?: 'input' | 'target';
   /** A built-in's answer format, joined on when its prompt holds none. */
   format?: AnswerFormat;
   /** Snippets the template expands: none for a custom task. */
@@ -218,7 +220,10 @@ export function createContextResolver(deps: ContextDeps) {
       contextBlockIfNoSlot:
         view.pageContext && (custom !== undefined || !BUILT_IN_TASK_SWITCHES[task].pageContext),
       ...(custom
-        ? { contract: customAnswerContract(custom, custom.id) }
+        ? {
+            contract: customAnswerContract(custom, custom.id),
+            ...(custom.answersIn ? { answersIn: custom.answersIn } : {}),
+          }
         : { format: answerFormatFor(task) }),
       snippets,
       glossaryEntries,
@@ -275,6 +280,7 @@ export function buildSystemAndUser(
     ...(req.options.askAbout !== undefined ? { askAbout: req.options.askAbout } : {}),
     contextBlockIfNoSlot: ctx.contextBlockIfNoSlot,
     ...(ctx.contract ? { contract: ctx.contract } : {}),
+    ...(ctx.answersIn ? { answersIn: ctx.answersIn } : {}),
     ...(ctx.format ? { format: ctx.format } : {}),
   });
 }
