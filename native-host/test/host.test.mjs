@@ -1888,7 +1888,7 @@ test('a CLI that is not installed fails the translate without crashing the host'
 });
 
 // The port is gone, so no reply can land anywhere: the CLI must be released instead of
-// running to its 90s deadline, streaming into a pipe nobody reads.
+// running to the host deadline, streaming into a pipe nobody reads.
 test('stdin closing mid-stream aborts the live translate and the host exits', async () => {
   const fixture = writeFixture(
     'ega-host.fake-claude-hang.mjs',

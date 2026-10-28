@@ -19,6 +19,7 @@ import { randomUUID } from 'node:crypto';
 import process from 'node:process';
 import {
   CliSessionManager,
+  DEFAULT_REQUEST_TIMEOUT_MS,
   killTree,
   sanitiseModel,
   windowsSafeSpawn,
@@ -49,7 +50,7 @@ const HOST_VERSION = 5;
 const TEST_MODE = process.argv.includes('--ega-test');
 
 // Max wait for a CLI child's terminal frame, per one-shot child and per session request once it reaches the head of the queue.
-const CHILD_TIMEOUT_MS = Number(process.env.EGA_HOST_TIMEOUT_MS) || 90_000;
+const CHILD_TIMEOUT_MS = Number(process.env.EGA_HOST_TIMEOUT_MS) || DEFAULT_REQUEST_TIMEOUT_MS;
 // Under the extension's 30 s first-frame and idle limits, which a reasoning model can outthink.
 const KEEPALIVE_MS = Number(process.env.EGA_HOST_KEEPALIVE_MS) || 10_000;
 

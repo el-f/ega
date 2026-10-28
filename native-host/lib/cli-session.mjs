@@ -10,7 +10,8 @@ import { classifyCliError } from './classify-cli-error.mjs';
 
 const DEFAULT_IDLE_TIMEOUT_MS = 5 * 60 * 1000;
 const DEFAULT_KILL_GRACE_MS = 3000;
-const DEFAULT_REQUEST_TIMEOUT_MS = 90_000;
+// A backstop only: above the longest text or image timeout a user can set (300 s) plus its 30 s grace, so the extension's own cancel decides.
+export const DEFAULT_REQUEST_TIMEOUT_MS = 330_000;
 // A token refresh costs one 401; a second in the same turn is a rejected login the CLI would retry for minutes.
 const AUTH_RETRIES_TO_FAIL = 2;
 
