@@ -308,7 +308,7 @@ describe('Tasks tab — your own tasks', () => {
       expect(
         document.querySelector('[data-ega-custom-task-dialog] [data-ega-preview-format]')
           ?.textContent,
-      ).toBe(PLAIN_CONTRACT);
+      ).toBe(`${PLAIN_CONTRACT}\nAnswer in English.`);
     });
   });
 });

@@ -76,7 +76,7 @@ describe('a new custom task', () => {
     await fireEvent.click(screen.getByRole('tab', { name: 'Preview' }));
     await waitFor(() =>
       expect(document.querySelector('[data-ega-preview-format]')?.textContent).toBe(
-        'Return JSON ONLY: {"answer": <your answer as a string>}.',
+        'Return JSON ONLY: {"answer": <your answer as a string>}.\nAnswer in English.',
       ),
     );
   });
