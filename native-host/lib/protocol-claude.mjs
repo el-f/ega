@@ -84,6 +84,8 @@ const CATEGORY_CODES = {
 // The Anthropic API backend's wording, so a refusal reads the same on every backend.
 const REFUSAL_MESSAGE =
   'The backend refused to answer this text. Reword it, or use another backend.';
+// No Ega setting reaches the CLI's output cap, so this names none.
+const MAX_TOKENS_MESSAGE = 'The answer hit the claude CLI output limit and stopped early.';
 
 // A plan or credit limit also arrives as rate_limit or 429, but it lasts hours, so a retry cannot help.
 const HARD_LIMIT_RE =
@@ -160,6 +162,11 @@ export function parseClaudeFrame(j) {
     // claude 2.1.280 marks a refusal is_error and words it for its own UI ("Start a new session"); the stop reason decides even if a later CLI drops the flag.
     if (j.stop_reason === 'refusal')
       return { kind: 'error', message: REFUSAL_MESSAGE, code: 'REQUEST' };
+    // A cut answer is not a finished one. Unless the CLI marks it is_error, its result text is the cut answer, not an error.
+    if (j.stop_reason === 'max_tokens') {
+      const said = j.is_error === true && typeof j.result === 'string' && j.result;
+      return { kind: 'error', message: said || MAX_TOKENS_MESSAGE, code: 'REQUEST' };
+    }
     // claude 2.x reports a failed login or a bad key as a `success` result with `is_error` set.
     if (j.subtype === 'success' && j.is_error !== true) {
       const usage = claudeUsage(j.usage);
