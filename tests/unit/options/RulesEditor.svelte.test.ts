@@ -195,6 +195,33 @@ describe('RulesEditor rows', () => {
     await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(2));
     expect(onUpdate.mock.calls[1]?.[0][0]?.scope).toEqual({ tasks: ['translate'] });
   });
+
+  it.each(['*.', 'www.*.com'])(
+    'a site "%s" is refused in place, not saved as no site or a "*"',
+    async (typed) => {
+      const { container, onUpdate } = mount([
+        rule({ id: 'r1', scope: { tasks: [], sites: ['old.com'] } }),
+      ]);
+      await openEditor(container, 'r1');
+      const sites = part(container, 'r1', '[data-ega-rule-sites]') as HTMLInputElement;
+      await fireEvent.input(sites, { target: { value: `example.com, ${typed}` } });
+      await fireEvent.blur(sites);
+      expect(onUpdate).not.toHaveBeenCalled();
+      expect(sites.getAttribute('aria-invalid')).toBe('true');
+      const why = (sites.getAttribute('aria-describedby') ?? '')
+        .split(' ')
+        .map((id) => document.getElementById(id)?.textContent)
+        .join(' ');
+      expect(why).toContain(
+        `"${typed}" is not a site. Type a site like example.com; it covers its subdomains. Leave the field empty for all sites.`,
+      );
+      await fireEvent.input(sites, { target: { value: 'example.com' } });
+      await fireEvent.blur(sites);
+      await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
+      expect(onUpdate.mock.calls[0]?.[0][0]?.scope).toEqual({ tasks: [], sites: ['example.com'] });
+      expect(sites.getAttribute('aria-invalid')).toBeNull();
+    },
+  );
 });
 
 describe('RulesEditor delete', () => {
@@ -361,6 +388,21 @@ describe('RulesEditor add', () => {
     await fireEvent.click(draft.querySelector('[data-ega-manual-submit]') as HTMLElement);
     await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
     expect(onUpdate.mock.calls[0]?.[0][0]?.category).toBe('format');
+  });
+
+  it('a site that is only "*" adds nothing, says why and focuses the sites field', async () => {
+    const { container, onUpdate } = mount([]);
+    await fireEvent.click(container.querySelector('[data-ega-rules-empty] button') as HTMLElement);
+    const draft = container.querySelector('[data-ega-rule-draft]') as HTMLElement;
+    await fireEvent.input(draft.querySelector('[data-ega-manual-body]') as HTMLElement, {
+      target: { value: 'Keep it.' },
+    });
+    const sites = draft.querySelector('[data-ega-manual-sites]') as HTMLInputElement;
+    await fireEvent.input(sites, { target: { value: '*' } });
+    await fireEvent.click(draft.querySelector('[data-ega-manual-submit]') as HTMLElement);
+    expect(onUpdate).not.toHaveBeenCalled();
+    expect(container.textContent).toContain('"*" is not a site.');
+    await waitFor(() => expect(document.activeElement).toBe(sites));
   });
 
   it('a failed add keeps the draft open with its text', async () => {

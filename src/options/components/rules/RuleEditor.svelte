@@ -10,7 +10,13 @@
   import Input from '@/shared/ui/Input.svelte';
   import Button from '@/shared/ui/Button.svelte';
   import RuleScopeToggles from './RuleScopeToggles.svelte';
-  import { RULE_TYPES, parseSites, ruleTypeLabel, type RuleDraft } from './rule-fields';
+  import {
+    RULE_TYPES,
+    badSiteEntry,
+    parseSites,
+    ruleTypeLabel,
+    type RuleDraft,
+  } from './rule-fields';
 
   interface Props {
     mode: 'add' | 'edit';
@@ -43,6 +49,7 @@
   // Add mode guesses the type from the text until the user picks one.
   let typePicked = untrack(() => mode === 'edit');
   let bodyError = $state<string | null>(null);
+  let sitesError = $state<string | null>(null);
   let saved = $state(false);
   let savedTimer: ReturnType<typeof setTimeout> | undefined;
   let root = $state<HTMLElement | null>(null);
@@ -69,10 +76,19 @@
     if (text !== null && text !== stored.body) await commit({ body: text });
   }
 
+  function checkSites(): string[] | null {
+    const bad = badSiteEntry(sitesText);
+    sitesError =
+      bad === null
+        ? null
+        : `"${bad}" is not a site. Type a site like example.com; it covers its subdomains. Leave the field empty for all sites.`;
+    return bad === null ? parseSites(sitesText) : null;
+  }
+
   async function leaveSites(): Promise<void> {
     if (mode !== 'edit') return;
-    const sites = parseSites(sitesText);
-    if (sites.join(',') !== stored.sites.join(',')) await commit({ sites });
+    const sites = checkSites();
+    if (sites !== null && sites.join(',') !== stored.sites.join(',')) await commit({ sites });
   }
 
   function pickType(next: RuleCategory): void {
@@ -88,12 +104,15 @@
 
   async function add(): Promise<void> {
     const text = checkBody();
-    if (text === null) {
+    const sites = checkSites();
+    if (text === null || sites === null) {
       await tick();
-      root?.querySelector<HTMLTextAreaElement>('textarea')?.focus();
+      root
+        ?.querySelector<HTMLElement>(text === null ? 'textarea' : '[data-ega-manual-sites]')
+        ?.focus();
       return;
     }
-    await onAdd?.({ body: text, category, tasks, sites: parseSites(sitesText) });
+    await onAdd?.({ body: text, category, tasks, sites });
   }
 
   async function onKeydown(e: KeyboardEvent): Promise<void> {
@@ -154,13 +173,21 @@
       label="Sites (optional)"
       bind:value={sitesText}
       placeholder="e.g. twitter.com, example.com"
+      oninput={() => {
+        if (sitesError !== null && badSiteEntry(sitesText) === null) sitesError = null;
+      }}
       onblur={() => void leaveSites()}
       dataAttrs={{
         [mode === 'add' ? 'data-ega-manual-sites' : 'data-ega-rule-sites']: true,
-        'aria-describedby': `${uid}-sites-hint`,
+        'aria-invalid': sitesError !== null ? 'true' : undefined,
+        'aria-describedby': sitesError !== null ? `${uid}-sites-error` : `${uid}-sites-hint`,
       }}
     />
-    <p class="re-hint" id="{uid}-sites-hint">Separate sites with commas</p>
+    {#if sitesError}
+      <p class="re-error" id="{uid}-sites-error">{sitesError}</p>
+    {:else}
+      <p class="re-hint" id="{uid}-sites-hint">Separate sites with commas</p>
+    {/if}
   </div>
   <div class="re-actions">
     {#if mode === 'add'}

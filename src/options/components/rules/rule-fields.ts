@@ -40,6 +40,19 @@ export function parseSites(raw: string): string[] {
   ];
 }
 
+/** The first typed entry that would store a `*` (it never matches) or nothing (with no site left, the rule applies everywhere). */
+export function badSiteEntry(raw: string): string | null {
+  return (
+    raw
+      .split(',')
+      .map((s) => s.trim())
+      .find((s) => {
+        const host = normaliseSiteEntry(s);
+        return s !== '' && (host === '' || host.includes('*'));
+      }) ?? null
+  );
+}
+
 /** The scope a rule stores: no `sites` key when the list is empty. */
 export function ruleScope(tasks: readonly string[], sites: readonly string[]): Rule['scope'] {
   return sites.length > 0 ? { tasks: [...tasks], sites: [...sites] } : { tasks: [...tasks] };
