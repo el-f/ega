@@ -26,10 +26,17 @@ function capMeta(v: string): string {
 
 const LONG_RUN = /[a-z0-9]{16,}/gi;
 const UUID = /[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}/i;
+const BASE64URL_RUN = /[\w-]{20,}/g;
+/** lower-to-upper, letter-to-digit or digit-to-letter: rare inside slug words ("Svelte_5", "iPhone-15"), common in random tokens. */
+const CLASS_CHANGE = /[a-z](?=[A-Z])|[a-zA-Z](?=\d)|\d(?=[a-zA-Z])/g;
 
-/** A reset, invite or magic-link token: 16+ letters and digits in a row holding a digit, or a UUID. Slugs stay. */
+/** A reset, invite or magic-link token: 16+ letters and digits in a row holding a digit, a UUID, or 20+ base64url characters in a row with 3+ class changes (token_urlsafe, nanoid). Slugs stay. */
 function isTokenSegment(segment: string): boolean {
-  return UUID.test(segment) || (segment.match(LONG_RUN) ?? []).some((run) => /\d/.test(run));
+  return (
+    UUID.test(segment) ||
+    (segment.match(LONG_RUN) ?? []).some((run) => /\d/.test(run)) ||
+    (segment.match(BASE64URL_RUN) ?? []).some((run) => (run.match(CLASS_CHANGE) ?? []).length >= 3)
+  );
 }
 
 /** Origin + path only, a token-like segment as `:token`: query strings carry tokens and search terms that must not reach the LLM. An href that does not parse passes through as is. */

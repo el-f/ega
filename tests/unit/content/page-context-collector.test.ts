@@ -55,6 +55,9 @@ describe('collectPageContext', () => {
     ],
     ['https://example.com/login/Xq7_Lm2-Pz9aB4cD8eF1gH3iJ5kL', 'https://example.com/login/:token'],
     ['https://x.com/someone/status/1712345678901234567', 'https://x.com/someone/status/:token'],
+    ['https://example.com/reset/aB3dE5gH-jK7mN9_qR2sT4', 'https://example.com/reset/:token'],
+    ['https://example.com/reset/xQwErTyU-iOpAsD_fGhJkL/', 'https://example.com/reset/:token/'],
+    ['https://example.com/i/V1StGXR8_Z5jdHi6B-myT', 'https://example.com/i/:token'],
   ])('masks a token-like path segment: %s', (href, expected) => {
     const d = makeDoc('<html><body></body></html>', 'T');
     expect(collectPageContext({}, 'minimal', d, fakeLocation(href)).pageUrl).toBe(expected);
@@ -66,6 +69,8 @@ describe('collectPageContext', () => {
     'https://en.wikipedia.org/wiki/Internationalization',
     'https://www.reddit.com/r/programming/comments/abc123/title_here/',
     'https://www.youtube.com/shorts/dQw4w9WgXcQ',
+    'https://en.wikipedia.org/wiki/2024_United_States_presidential_election',
+    'https://shop.example.com/p/Apple-iPhone-15-Pro-Max-Review',
   ])('keeps a readable path as is: %s', (href) => {
     const d = makeDoc('<html><body></body></html>', 'T');
     expect(collectPageContext({}, 'minimal', d, fakeLocation(href)).pageUrl).toBe(href);
