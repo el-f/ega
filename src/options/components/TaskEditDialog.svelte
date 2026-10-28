@@ -299,7 +299,12 @@
       </div>
     </div>
 
-    <ReplySection rows={replyRows} />
+    <ReplySection
+      rows={replyRows}
+      {...isTranslate || ownPrompt
+        ? {}
+        : { previewNote: "The Translate prompt's Preview shows the exact text sent." }}
+    />
 
     <div class="te-prompt">
       {#if isTranslate || ownPrompt}

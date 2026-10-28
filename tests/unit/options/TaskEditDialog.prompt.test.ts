@@ -215,4 +215,15 @@ describe('the Reply section', () => {
       expect(document.body.textContent).toContain('Preview shows the exact text sent.'),
     );
   });
+
+  it("Explain has no Preview, so its (i) points at the Translate prompt's", async () => {
+    await open('explain');
+    await fireEvent.click(screen.getByRole('button', { name: 'About the reply' }));
+    await waitFor(() =>
+      expect(document.body.textContent).toContain(
+        "The Translate prompt's Preview shows the exact text sent.",
+      ),
+    );
+    expect(screen.queryByRole('tab', { name: 'Preview' })).toBeNull();
+  });
 });

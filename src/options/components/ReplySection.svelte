@@ -12,9 +12,16 @@
     children?: Snippet;
     /** Under the parts: a custom task's example reply. */
     after?: Snippet;
+    /** Where the exact text sent shows, for a dialog with no Preview of its own. */
+    previewNote?: string;
   }
 
-  const { rows = [], children, after }: Props = $props();
+  const {
+    rows = [],
+    children,
+    after,
+    previewNote = 'Preview shows the exact text sent.',
+  }: Props = $props();
   const uid = makeId('ega-reply');
 </script>
 
@@ -23,7 +30,7 @@
     <h3 class="reply-title" id="{uid}-title">Reply</h3>
     <InfoTip
       label="About the reply"
-      text="Ega asks the model for these parts and shows them in the reply. Preview shows the exact text sent."
+      text={`Ega asks the model for these parts and shows them in the reply. ${previewNote}`}
     />
   </div>
   {@render children?.()}
