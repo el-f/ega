@@ -193,6 +193,25 @@ describe('the field editor', () => {
     }
   });
 
+  it('a key named like a built-in object method still gives its row a plain id', async () => {
+    const { view } = live([
+      main,
+      { ...note('valueOf'), label: 'Value of' },
+      { ...note('toString'), label: 'value of' },
+    ]);
+    for (const name of ['Value of', 'value of']) {
+      const edit = view.getByRole('button', { name: `Edit ${name}` });
+      await fireEvent.click(edit);
+      const controls = edit.getAttribute('aria-controls') ?? '';
+      expect(controls).toMatch(/^\S+$/);
+      expect(document.getElementById(controls)).not.toBeNull();
+      const described = view.getByLabelText('Name').getAttribute('aria-describedby') ?? '';
+      expect(described).toMatch(/^\S+$/);
+      expect(document.getElementById(described)?.textContent).toBe('Two fields have this name');
+      await fireEvent.click(edit);
+    }
+  });
+
   it('a main answer keeps its key when renamed', async () => {
     const { view, fields } = live([main, note('tone')]);
     await fireEvent.click(view.getByRole('button', { name: 'Edit Answer' }));

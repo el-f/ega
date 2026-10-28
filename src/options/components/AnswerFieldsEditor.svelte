@@ -30,7 +30,8 @@
   let openId = $state<string | null>(null);
   let addButton = $state<HTMLElement | null>(null);
   // A row keeps one id while a rename changes its key, so its open editor and focus stay.
-  const ids: Record<string, string> = {};
+  // No prototype: a key like valueOf must not read an inherited method.
+  const ids = Object.create(null) as Record<string, string>;
   let nextId = 1;
   const idOf = (key: string): string =>
     (ids[key] ??= Object.values(ids).includes(key) ? `${key}-${nextId++}` : key);

@@ -103,7 +103,7 @@
     const answer = terminal.answer;
     // A field the model may leave out is not missing when it is left out.
     const missing = answer?.spec.fields.find(
-      (f) => f.required && f.when === undefined && answer.fields[f.key] === undefined,
+      (f) => f.required && f.when === undefined && !Object.hasOwn(answer.fields, f.key),
     );
     return missing ? `${missing.label} was empty` : 'All required fields came back';
   });

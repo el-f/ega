@@ -169,6 +169,28 @@ describe('a real try', () => {
     await waitFor(() => expect(view.getByText('Answer was empty')).toBeTruthy());
   });
 
+  it('a required field named like a built-in object method is missing when it is left out', async () => {
+    const own = customAnswerSpec({
+      output: 'plain',
+      answer: {
+        v: 1,
+        fields: [
+          { key: 'answer', label: 'Answer', kind: 'text', role: 'main', required: true },
+          { key: 'toString', label: 'To string', kind: 'text', role: 'notes', required: true },
+        ],
+      },
+    });
+    send.mockResolvedValueOnce({
+      type: 'done',
+      requestId: 'test',
+      text: 'Hi',
+      answer: { spec: own, fields: { answer: 'Hi' } },
+    });
+    const view = await shown({ spec: own });
+    await fireEvent.click(tryButton(view));
+    await waitFor(() => expect(view.getByText('To string was empty')).toBeTruthy());
+  });
+
   it('shows raw HTML in a reply and its notes as text', async () => {
     send.mockResolvedValueOnce({
       type: 'done',
