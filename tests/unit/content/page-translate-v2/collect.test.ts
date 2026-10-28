@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import fc from 'fast-check';
 import {
   blockText,
@@ -67,6 +67,19 @@ describe('collectBlocks', () => {
     expect(ids(collectBlocks(document.body, { maxChars: 50 }))).toEqual(['d']);
     expect(isLeadingRun(document.getElementById('d') as HTMLElement)).toBe(true);
     expect(runText(document.getElementById('d') as HTMLElement)).toBe('Texte propre');
+  });
+
+  it('reads a subtree with no words once, not again for every ancestor', () => {
+    const rows = Array.from({ length: 30 }, (_, i) => `<div><span>${i}</span><span>$4.99</span></div>`);
+    document.body.innerHTML = `${'<div>'.repeat(12)}${rows.join('')}${'</div>'.repeat(12)}`;
+    const elements = document.body.querySelectorAll('*').length;
+    const spy = vi.spyOn(window, 'getComputedStyle');
+    try {
+      expect(collectBlocks(document.body, { maxChars: 2000 })).toEqual([]);
+      expect(spy.mock.calls.length).toBeLessThanOrEqual(elements * 4);
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it('stops at the block cap', () => {

@@ -240,27 +240,34 @@ export function blockText(el: Element): string {
   return textOf(el.childNodes);
 }
 
-function textOf(nodes: Iterable<ChildNode>): string {
+/** Text of the nodes before line cleanup; `memo` keeps each element's part for one collection pass. */
+function rawOf(nodes: Iterable<ChildNode>, memo?: Map<Element, string>): string {
   let out = '';
-  const walk = (children: Iterable<ChildNode>): void => {
-    for (const c of children) {
-      if (c.nodeType === Node.TEXT_NODE) out += (c.nodeValue ?? '').replace(/\s+/g, ' ');
-      else if (c instanceof Element) {
-        if (c.tagName.toUpperCase() === 'BR') out += '\n';
-        else if (!skipSubtree(c)) {
-          // A block-level child starts its own line, as innerText does; a React page has no whitespace between tags.
-          // Ruby and its reading stay in the line, as they read.
-          const display = c.ownerDocument.defaultView?.getComputedStyle(c).display ?? 'inline';
-          const own = !/^(?:inline|ruby|contents)/.test(display);
-          if (own) out += '\n';
-          walk(c.childNodes);
-          if (own) out += '\n';
-        }
-      }
-    }
-  };
-  walk(nodes);
-  return out
+  for (const c of nodes) {
+    if (c.nodeType === Node.TEXT_NODE) out += (c.nodeValue ?? '').replace(/\s+/g, ' ');
+    else if (c instanceof Element) out += rawElement(c, memo);
+  }
+  return out;
+}
+
+function rawElement(c: Element, memo?: Map<Element, string>): string {
+  const seen = memo?.get(c);
+  if (seen !== undefined) return seen;
+  let out = '';
+  if (c.tagName.toUpperCase() === 'BR') out = '\n';
+  else if (!skipSubtree(c)) {
+    // A block-level child starts its own line, as innerText does; a React page has no whitespace between tags.
+    // Ruby and its reading stay in the line, as they read.
+    const display = c.ownerDocument.defaultView?.getComputedStyle(c).display ?? 'inline';
+    const own = !/^(?:inline|ruby|contents)/.test(display) ? '\n' : '';
+    out = own + rawOf(c.childNodes, memo) + own;
+  }
+  memo?.set(c, out);
+  return out;
+}
+
+function textOf(nodes: Iterable<ChildNode>, memo?: Map<Element, string>): string {
+  return rawOf(nodes, memo)
     .replace(/ *\n */g, '\n')
     .replace(/\n{2,}/g, '\n')
     .replace(/ {2,}/g, ' ')
@@ -289,6 +296,8 @@ export function keepsPageParts(el: Element, run = false): boolean {
 export function collectBlocks(root: Element, opts: { maxChars: number }): HTMLElement[] {
   const out: HTMLElement[] = [];
   const overflow: OverflowCache = new Map();
+  // Each ancestor reads the text of the subtrees below it again; the pass reads each element once.
+  const memo = new Map<Element, string>();
   // True when the subtree holds a block (or a block too long to take), so no ancestor claims its text.
   const visit = (el: Element): boolean => {
     if (out.length >= MAX_PAGE_BLOCKS || skipSubtree(el)) return false;
@@ -306,7 +315,7 @@ export function collectBlocks(root: Element, opts: { maxChars: number }): HTMLEl
     }
     const tag = el.tagName.toUpperCase();
     if (!BLOCK_TAGS.has(tag) && !CONTAINER_TAGS.has(tag)) return false;
-    const text = blockText(el);
+    const text = textOf(el.childNodes, memo);
     if (!hasWords(text)) return false;
     if (text.length > opts.maxChars || outOfReach(el, overflow)) return true;
     if (out.length < MAX_PAGE_BLOCKS) {
@@ -324,7 +333,7 @@ export function collectBlocks(root: Element, opts: { maxChars: number }): HTMLEl
     const display = el.ownerDocument.defaultView?.getComputedStyle(el).display ?? '';
     if (/flex|grid/.test(display)) return false;
     for (const c of el.children) if (isRunMark(c) && isLiveMark(c)) return false;
-    const text = textOf(run);
+    const text = textOf(run, memo);
     return hasWords(text) && text.length <= opts.maxChars && !outOfReach(el, overflow);
   };
   visit(root);
