@@ -117,6 +117,7 @@
   const messageError = $derived(checkPrompt(prompt, 'custom', taskKey).messageError);
   const answerSpec = $derived(customAnswerSpec(draft, taskKey));
   const ownFormat = $derived(embedsOwnFormat(prompt));
+  const conversion = $derived(ownFormat ? convertOwnFormat(prompt, ownFormat) : null);
   // The router turns schema checks off on the same test, so the notice shows exactly when the model gets two formats.
   const asksOwnFormat = $derived(ownFormat !== null || hasConflictingFormat(prompt, answerSpec));
   const fieldProblems = $derived(
@@ -285,7 +286,8 @@
   }
 
   async function convertInstructions(): Promise<void> {
-    if (!ownFormat) return;
+    const converted = conversion;
+    if (converted === null) return;
     const previous = {
       prompt: { ...prompt },
       answer,
@@ -293,7 +295,6 @@
       mode: answerMode,
       fields: [...ownFields],
     };
-    const converted = convertOwnFormat(prompt, ownFormat);
     prompt = converted.prompt;
     answerMode = 'fields';
     ownFields = converted.fields;
@@ -304,7 +305,7 @@
       startsRow() ? create : write({ system: prompt.system, user: prompt.user, answer, output }),
     );
     if (!ok) return;
-    saver.note('Turned the format into answer fields', () => {
+    saver.note('Turned the format into fields', () => {
       prompt = previous.prompt;
       answer = previous.answer;
       output = previous.output;
@@ -544,7 +545,9 @@
         <p class="ct-hint">
           Your instructions ask for their own format. Ega still adds its own, so the model gets two.
         </p>
-        {#if ownFormat}
+        {#if ownFormat && conversion === null}
+          <p class="ct-hint">Ega cannot take it out without leaving the instructions empty</p>
+        {:else if conversion}
           <div>
             <Button
               variant="secondary"

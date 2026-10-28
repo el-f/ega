@@ -320,6 +320,18 @@ describe('instructions that ask for their own format', () => {
     expect(button('Turn into fields')).toBeUndefined();
   });
 
+  it('a format that is all of the instructions cannot be turned into fields, and says why', async () => {
+    const row = await addCustomTask({
+      ...input,
+      system: 'Return JSON {"answer": string, "tags": string}.',
+    });
+    open(vi.fn(), { row });
+    expect(button('Turn into fields')).toBeUndefined();
+    expect(notice()?.textContent).toContain(
+      'Ega cannot take it out without leaving the instructions empty',
+    );
+  });
+
   it('the notice stays while it is true and goes once the format is gone', async () => {
     const row = await addCustomTask({ ...input, system: 'Return JSON {"tags": "..."}. Be brief.' });
     open(vi.fn(), { row });
