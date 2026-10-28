@@ -5,6 +5,7 @@
   import ArrowUp from '@lucide/svelte/icons/arrow-up';
   import ArrowDown from '@lucide/svelte/icons/arrow-down';
   import type { AnswerField, FieldKind, FieldRole } from '@/shared/answer/spec';
+  import { fieldKey } from '@/shared/answer/field-key';
   import { useShadowSync } from '@/shared/svelte/useShadowSync.svelte';
   import { isShadowRow } from '@/shared/dnd-shadow-row';
   import { id as makeId } from '@/shared/uuid';
@@ -21,10 +22,15 @@
   }
   let { fields, onchange }: Props = $props();
   const uid = makeId('ega-answer-fields');
-  let openKey = $state<string | null>(null);
+  let openId = $state<string | null>(null);
+  // A row keeps one id while a rename changes its key, so its open editor and focus stay.
+  const ids: Record<string, string> = {};
+  let nextId = 1;
+  const idOf = (key: string): string =>
+    (ids[key] ??= Object.values(ids).includes(key) ? `${key}-${nextId++}` : key);
   type DragField = AnswerField & { id: string };
   const shadow = useShadowSync<DragField>({
-    seed: () => fields.filter((f) => f.role !== 'main').map((f) => ({ ...f, id: f.key })),
+    seed: () => fields.filter((f) => f.role !== 'main').map((f) => ({ ...f, id: idOf(f.key) })),
     keyOf: (rows) => JSON.stringify(rows),
   });
   const main = $derived(fields.find((f) => f.role === 'main'));
@@ -47,18 +53,30 @@
   function patch(key: string, patch: Partial<AnswerField>): void {
     onchange(fields.map((f) => (f.key === key ? { ...f, ...patch } : f)));
   }
+  function rename(field: AnswerField, label: string): void {
+    if (field.role === 'main') return patch(field.key, { label });
+    const key = fieldKey(
+      label,
+      fields.filter((f) => f !== field).map((f) => f.key),
+    );
+    const id = idOf(field.key);
+    delete ids[field.key];
+    ids[key] = id;
+    patch(field.key, { key, label });
+  }
   async function add(): Promise<void> {
     if (fields.length >= 8) return;
     let n = 1;
     while (fields.some((f) => f.key === `field${n}` || f.label === `Field ${n}`)) n++;
-    const key = `field${n}`;
-    onchange([
-      ...fields,
-      { key, label: `Field ${n}`, kind: 'text', role: 'notes', required: false },
-    ]);
-    openKey = key;
+    const label = `Field ${n}`;
+    const key = fieldKey(
+      label,
+      fields.map((f) => f.key),
+    );
+    onchange([...fields, { key, label, kind: 'text', role: 'notes', required: false }]);
+    openId = idOf(key);
     await tick();
-    document.getElementById(`${uid}-${key}-name`)?.focus();
+    document.getElementById(`${uid}-${openId}-name`)?.focus();
   }
   function move(key: string, direction: -1 | 1): void {
     const rows = fields.filter((f) => f.role !== 'main');
@@ -71,14 +89,14 @@
     onchange([main, ...rows]);
   }
   function finishDrag(e: CustomEvent<{ items: DragField[] }>): void {
-    const byKey = new Map(fields.map((f) => [f.key, f]));
+    const byId = new Map(fields.map((f) => [idOf(f.key), f]));
     const rows = e.detail.items
       .filter((f) => !isShadowRow(f))
       .flatMap((f) => {
-        const live = byKey.get(f.id);
+        const live = byId.get(f.id);
         return live ? [live] : [];
       });
-    shadow.items = rows.map((f) => ({ ...f, id: f.key }));
+    shadow.items = rows.map((f) => ({ ...f, id: idOf(f.key) }));
     if (main) onchange([main, ...rows]);
   }
   function pointerGrip(node: HTMLElement): { destroy: () => void } {
@@ -154,6 +172,7 @@
 </section>
 
 {#snippet row(field: AnswerField, locked: boolean, index: number, count: number)}
+  {@const rowId = idOf(field.key)}
   <div class="af-row" data-ega-answer-field={field.key}>
     <div class="af-summary">
       {#if !locked}<span class="af-grip" use:pointerGrip aria-hidden="true"><Grip size={16} /></span
@@ -168,9 +187,9 @@
         variant="ghost"
         size="sm"
         ariaLabel={`Edit ${field.label || 'field'}`}
-        dataAttrs={{ 'aria-expanded': openKey === field.key }}
+        dataAttrs={{ 'aria-expanded': openId === rowId }}
         onclick={() => {
-          openKey = openKey === field.key ? null : field.key;
+          openId = openId === rowId ? null : rowId;
         }}>Edit</Button
       >
       {#if !locked}
@@ -194,20 +213,20 @@
           ariaLabel={`Delete ${field.label}`}
           onclick={() => {
             onchange(fields.filter((f) => f.key !== field.key));
-            if (openKey === field.key) openKey = null;
+            if (openId === rowId) openId = null;
           }}>Delete</Button
         >
       {/if}
     </div>
-    {#if openKey === field.key}
+    {#if openId === rowId}
       <div class="af-edit">
         <p class="af-hint">JSON key: <code>{field.key}</code></p>
         <Input
-          id={`${uid}-${field.key}-name`}
+          id={`${uid}-${rowId}-name`}
           label="Name"
           value={field.label}
           maxlength={40}
-          oninput={(e) => patch(field.key, { label: (e.currentTarget as HTMLInputElement).value })}
+          oninput={(e) => rename(field, (e.currentTarget as HTMLInputElement).value)}
         />
         <Select
           label="Kind"

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, waitFor } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import AnswerFieldsEditor from '@/options/components/AnswerFieldsEditor.svelte';
 import type { AnswerField } from '@/shared/answer/spec';
 
@@ -111,7 +112,42 @@ describe('answer field editing', () => {
     expect(view.queryByLabelText('Shows as')).toBeNull();
     await fireEvent.click(view.getByRole('button', { name: 'Edit reason' }));
     await fireEvent.input(view.getByLabelText('Name'), { target: { value: 'Why this works' } });
-    expect(fields[1]).toMatchObject({ key: 'reason', label: 'Why this works' });
+    expect(fields[1]).toMatchObject({ key: 'whyThisWorks', label: 'Why this works' });
+  });
+  it('a renamed field takes its key from the new name, and the open name box keeps focus', async () => {
+    let fields = [main, note('field1'), note('tone')];
+    const view = render(AnswerFieldsEditor, {
+      fields,
+      onchange: (next: AnswerField[]) => {
+        fields = next;
+        void view.rerender({ fields });
+      },
+    });
+    await fireEvent.click(view.getByRole('button', { name: 'Edit field1' }));
+    const name = view.getByLabelText('Name');
+    name.focus();
+    await fireEvent.input(name, { target: { value: 'Tone' } });
+    await tick();
+    expect(fields.map((f) => f.key)).toEqual(['answer', 'tone2', 'tone']);
+    expect(document.activeElement).toBe(name);
+    expect(name.isConnected).toBe(true);
+    await fireEvent.input(name, { target: { value: 'Key points' } });
+    await tick();
+    expect(fields[1]).toMatchObject({ key: 'keyPoints', label: 'Key points' });
+    expect(document.activeElement).toBe(name);
+  });
+  it('a main answer keeps its key when renamed', async () => {
+    let fields = [main, note('tone')];
+    const view = render(AnswerFieldsEditor, {
+      fields,
+      onchange: (next: AnswerField[]) => {
+        fields = next;
+        void view.rerender({ fields });
+      },
+    });
+    await fireEvent.click(view.getByRole('button', { name: 'Edit Answer' }));
+    await fireEvent.input(view.getByLabelText('Name'), { target: { value: 'Outline' } });
+    expect(fields[0]).toMatchObject({ key: 'answer', label: 'Outline' });
   });
   it('reorders additional fields using the keyboard controls while main stays first', async () => {
     const onchange = vi.fn();
