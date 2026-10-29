@@ -99,7 +99,8 @@ describe('the service worker answer reader', () => {
   });
   // Chatty models without a schema wrap the answer object in a preamble and a sign-off.
   it.each([
-    (o: string) => `Here is the translation:\n\`\`\`json\n${o}\n\`\`\`\nLet me know if you need more.`,
+    (o: string) =>
+      `Here is the translation:\n\`\`\`json\n${o}\n\`\`\`\nLet me know if you need more.`,
     (o: string) => `Sure: ${o}.`,
     (o: string) => `Here you go:\n\n${o}\n\nLet me know if you need anything else.`,
   ])('reads a keyed object with chatter around it as the answer: %#', (wrap) => {
