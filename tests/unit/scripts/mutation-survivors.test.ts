@@ -5,6 +5,7 @@ import {
   filesUnderFloor,
   rankByFile,
   survivorsOf,
+  unrunSurvivors,
   type MutationReport,
 } from '../../../scripts/mutation-survivors';
 
@@ -134,5 +135,40 @@ describe('filesUnderFloor', () => {
 
   it('passes a file at the floor and skips one with no valid mutant', () => {
     expect(filesUnderFloor(scored, 75)).toEqual([['src/weak.ts', 33.33]]);
+  });
+});
+
+describe('unrunSurvivors', () => {
+  const at = (line: number, status: string, extra: object = {}) => ({
+    mutatorName: 'X',
+    status,
+    location: { start: { line } },
+    ...extra,
+  });
+  const report: MutationReport = {
+    files: {
+      'src/a.ts': {
+        source: '',
+        mutants: [
+          // Tests cover it, none ran: the run lost the test list, so its Survived means nothing.
+          at(3, 'Survived', { coveredBy: ['t1', 't2'], testsCompleted: 0 }),
+          // A real survivor: its covering tests ran and passed.
+          at(4, 'Survived', { coveredBy: ['t1'], testsCompleted: 1 }),
+          at(5, 'NoCoverage', { coveredBy: [], testsCompleted: 0 }),
+          at(6, 'Killed', { coveredBy: ['t1'], testsCompleted: 1 }),
+        ],
+      },
+    },
+  };
+
+  it('names only covered survivors that ran no test', () => {
+    expect(unrunSurvivors(report)).toEqual([{ file: 'src/a.ts', line: 3 }]);
+  });
+
+  it('accepts a report from an older Stryker with no per-mutant test counts', () => {
+    const old: MutationReport = {
+      files: { 'src/b.ts': { source: '', mutants: [at(1, 'Survived')] } },
+    };
+    expect(unrunSurvivors(old)).toEqual([]);
   });
 });

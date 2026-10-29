@@ -7,6 +7,8 @@ export interface Mutant {
   mutatorName: string;
   status: string;
   location: { start: { line: number } };
+  coveredBy?: string[];
+  testsCompleted?: number;
 }
 
 export interface MutationReport {
@@ -78,6 +80,17 @@ export function filesUnderFloor(report: MutationReport, floor: number): Array<[s
   return out.sort((a, b) => a[1] - b[1]);
 }
 
+/** Covered survivors that ran no test: the runner lost the test list (as vitest's fsModuleCache did), so the score is void. */
+export function unrunSurvivors(report: MutationReport): Array<{ file: string; line: number }> {
+  return Object.entries(report.files).flatMap(([file, entry]) =>
+    entry.mutants
+      .filter(
+        (m) => m.status === 'Survived' && (m.coveredBy?.length ?? 0) > 0 && m.testsCompleted === 0,
+      )
+      .map((m) => ({ file, line: m.location.start.line })),
+  );
+}
+
 const isCli =
   import.meta.url === pathToFileURL(process.argv[1] ?? '').href ||
   (process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.argv[1]);
@@ -90,6 +103,14 @@ if (isCli) {
     process.exit(2);
   }
   const report = JSON.parse(fs.readFileSync(reportPath, 'utf8')) as MutationReport;
+  const unrun = unrunSurvivors(report);
+  if (unrun.length > 0) {
+    const first = unrun[0];
+    process.stderr.write(
+      `mutation-survivors: ${unrun.length} survivor(s) ran none of the tests that cover them, so the run is broken, not the tests (first: ${first?.file}:${first?.line})\n`,
+    );
+    process.exit(1);
+  }
   const survivors = survivorsOf(report);
   const open = survivors.filter((s) => s.bucket === 'open');
 
