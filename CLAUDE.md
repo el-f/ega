@@ -14,7 +14,7 @@
   - a config file, such as `vite.config.ts` or `tsconfig.json`
   - the test setup (`tests/setup.ts`)
   - CSS that is mirrored into the shadow DOM (`src/content/shadow.css`)
-- Do not run `eslint`, `tsc` or the lint scripts before `git commit`. The commit hook runs eslint,
-  tsc and the fast lint scripts.
+- Do not run `prettier`, `eslint`, `tsc` or the lint scripts before `git commit`. The commit hook runs
+  Prettier, eslint, tsc and the fast lint scripts.
 - End-to-end (e2e) tests run in CI. Locally, run one spec at a time:
   `pnpm test:e2e tests/e2e/<name>.spec.ts`.
