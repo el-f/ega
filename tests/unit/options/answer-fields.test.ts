@@ -30,8 +30,8 @@ describe('fieldErrors names the field that needs a fix', () => {
       ),
     ).toEqual({
       field1: { name: 'Add a name' },
-      tone: { name: 'Two fields have this name' },
-      tone2: { name: 'Two fields have this name' },
+      tone: { name: 'Two fields have this name. Rename one.' },
+      tone2: { name: 'Two fields have this name. Rename one.' },
     });
   });
 

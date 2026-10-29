@@ -207,7 +207,9 @@ describe('the field editor', () => {
       expect(document.getElementById(controls)).not.toBeNull();
       const described = view.getByLabelText('Name').getAttribute('aria-describedby') ?? '';
       expect(described).toMatch(/^\S+$/);
-      expect(document.getElementById(described)?.textContent).toBe('Two fields have this name');
+      expect(document.getElementById(described)?.textContent).toBe(
+        'Two fields have this name. Rename one.',
+      );
       await fireEvent.click(edit);
     }
   });
@@ -276,7 +278,7 @@ describe('a field that needs a fix says so at the field', () => {
     const name = view.getByLabelText('Name');
     expect(name.getAttribute('aria-invalid')).toBe('true');
     expect(document.getElementById(name.getAttribute('aria-describedby') ?? '')?.textContent).toBe(
-      'Two fields have this name',
+      'Two fields have this name. Rename one.',
     );
   });
 

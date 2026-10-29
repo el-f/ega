@@ -27,7 +27,8 @@ export function fieldErrors(fields: readonly AnswerField[]): Map<string, FieldEr
     const error: FieldError = {};
     const name = names[i] ?? '';
     if (name === '') error.name = 'Add a name';
-    else if (names.filter((n) => n === name).length > 1) error.name = 'Two fields have this name';
+    else if (names.filter((n) => n === name).length > 1)
+      error.name = 'Two fields have this name. Rename one.';
     else if (!readable(field, keys)) error.name = 'Edit the name so Ega can read this field';
     const choices = field.choices ?? [];
     if (
