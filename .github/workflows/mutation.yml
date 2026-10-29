@@ -12,13 +12,13 @@ jobs:
   mutation:
     name: Mutation Testing (shard ${{ matrix.shard }})
     runs-on: ubuntu-latest
-    # A full run needs ~7 h at concurrency 2, so it runs as the shards in stryker.conf.mjs, ~2-3 h each; 350 stays under GitHub's 6h job ceiling.
+    # One job per shard in stryker.conf.mjs (2026-10-29 shards took 1h29m to 5h06m); 350 stays under GitHub's 6 h job ceiling.
     timeout-minutes: 350
     strategy:
       # A red shard must not cancel the other shards' multi-hour runs.
       fail-fast: false
       matrix:
-        shard: [1, 2, 3]
+        shard: [1, 2, 3, 4]
     env:
       STRYKER_SHARD: ${{ matrix.shard }}
       STRYKER_SHARD_TOTAL: ${{ strategy.job-total }}

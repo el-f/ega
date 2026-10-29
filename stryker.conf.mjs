@@ -17,11 +17,9 @@ const shards = [
     // Stream framing
     'src/shared/backends/sseParser.ts',
   ],
-  [
-    // Conversation persistence — user data with no trash and no server copy
-    'src/sidepanel/state/conversation.ts',
-    'src/sidepanel/state/conversation-store.ts',
-  ],
+  // Conversation persistence — user data with no trash and no server copy; one shard each (together: 5h06m of 5h50m).
+  ['src/sidepanel/state/conversation.ts'],
+  ['src/sidepanel/state/conversation-store.ts'],
   [
     // Stored-settings repair: drops dangling ids, normalizes sitePrefs origin keys, appends new backends to backendOrder, keeps or drops bad custom-language rows
     'src/shared/storage/sanitise.ts',
