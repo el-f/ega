@@ -590,6 +590,8 @@
         <Button
           variant="ghost"
           leadingIcon={Trash}
+          ariaLabel="Delete task"
+          extraClass="ct-del"
           dataAttrs={{ 'data-ega-custom-task-delete': true }}
           onclick={() => void remove()}>Delete task</Button
         >
@@ -694,6 +696,12 @@
   @container options (max-width: 600px) {
     .ct-grid {
       grid-template-columns: minmax(0, 1fr);
+    }
+  }
+  /* Only the icon, so Delete task, any status and Done stay on one footer row (R63). */
+  @container options (max-width: 360px) {
+    .ct-foot-start :global(.ct-del .ega-btn-label) {
+      display: none;
     }
   }
 </style>

@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { resetChromeMock } from '@tests/mocks/chrome';
 import CustomTaskDialog from '@/options/components/CustomTaskDialog.svelte';
@@ -434,5 +435,19 @@ describe('the footer while a reply field needs a fix', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Example reply' }));
     await fireEvent.click(screen.getByRole('button', { name: /^Try/ }));
     expect(screen.getByText('Fix the reply fields')).toBeTruthy();
+  });
+});
+
+// At 320 px "Delete task" and "Not saved" pushed Done onto a second row; the footer keeps one row (R63, R16).
+describe('the footer at a narrow width', () => {
+  it('Delete task shows only its icon below 360 px and keeps its name', async () => {
+    const row = await addCustomTask(input);
+    open(vi.fn(), { row });
+    const del = screen.getByRole('button', { name: 'Delete task' });
+    expect(del.querySelector('.ega-btn-label')?.textContent.trim()).toBe('Delete task');
+    const src = readFileSync('src/options/components/CustomTaskDialog.svelte', 'utf8');
+    const narrow = /@container options \(max-width: 360px\) \{([\s\S]*?)\n {2}\}/.exec(src)?.[1];
+    expect(narrow).toMatch(/\.ct-del \.ega-btn-label\) \{\s*display: none;\s*\}/);
+    expect(del.classList.contains('ct-del')).toBe(true);
   });
 });
