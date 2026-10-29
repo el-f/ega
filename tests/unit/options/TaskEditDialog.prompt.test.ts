@@ -220,6 +220,17 @@ describe('the Reply section', () => {
     expect(rule).not.toContain('padding-inline-start');
   });
 
+  // A plain name ran into its line ("Answer the summary"); bold splits them, as in the field editor (R4).
+  it('a part name is bold, like a field name in Your own fields', () => {
+    const weight = (file: string, selector: string): string | undefined =>
+      new RegExp(`${selector.replace(/\./g, '\\.')} \\{[^}]*font-weight: (\\d+);`).exec(
+        readFileSync(file, 'utf8'),
+      )?.[1];
+    const fieldName = weight('src/options/components/AnswerFieldsEditor.svelte', '.af-name');
+    expect(fieldName).toBe('600');
+    expect(weight('src/options/components/ReplySection.svelte', '.reply-row dt')).toBe(fieldName);
+  });
+
   it('Translate says its notes come only with Explain', async () => {
     await open('translate');
     expect(parts()).toContain('Context & subtext: only when you run Explain');

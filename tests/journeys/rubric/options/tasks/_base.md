@@ -10,7 +10,7 @@
 
 ## Edit dialog (built-in tasks)
 
-- Edit opens a dialog titled "<Task> task" with one help line. Settings come first: Effort (Default, Off, Low, Medium, High) with "Default for this task is <level>", and Inputs (Send page context, Use glossary; Translate and Explain add the muted line "Also reads images"). Then Reply with an (i): one row per part, a name and one muted line in plain words ("Answer the summary"), with no JSON, keys or types. The prompt comes last, in the one prompt editor (Edit | Preview, Insert variable); the exact reply format is only in Preview, as its own "Reply format" part. Explain has no prompt of its own and offers "Edit the Translate prompt".
+- Edit opens a dialog titled "<Task> task" with one help line. Settings come first: Effort (Default, Off, Low, Medium, High) with "Default for this task is <level>", and Inputs (Send page context, Use glossary; Translate and Explain add the muted line "Also reads images"). Then Reply with an (i): one row per part, a bold name and one muted line in plain words ("Answer" + "the summary"), with no JSON, keys or types. The prompt comes last, in the one prompt editor (Edit | Preview, Insert variable); the exact reply format is only in Preview, as its own "Reply format" part. Explain has no prompt of its own and offers "Edit the Translate prompt".
 - A prompt that asks for its own format shows one notice under Instructions: "Your instructions ask for their own format. Ega reads only the parts under Reply." with "Use Ega's format" when Ega can take it out.
 - Every field saves as it changes (text after a 600 ms pause). The footer holds the "Reset task" pill (only when the task differs), a status line ("Saved", "Not saved: ...", "Back to built-in" + Undo) and Done. There is no Save button.
 

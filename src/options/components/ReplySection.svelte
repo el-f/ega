@@ -80,8 +80,10 @@
   .reply-row {
     display: contents;
   }
+  /* Bold, like a field name in Your own fields, so the name and its line read apart. */
   .reply-row dt {
     color: var(--color-fg);
+    font-weight: 600;
   }
   .reply-row dd {
     margin: 0;
