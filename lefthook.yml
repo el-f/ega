@@ -18,6 +18,9 @@ pre-commit:
       # Content strategy: the mtime default goes cold on every branch switch or rebase (~80s vs ~6s).
       glob: '*.{ts,js,mjs,svelte}'
       run: pnpm exec eslint --cache --cache-strategy content --max-warnings 0 .
+    format:
+      # Whole tree with a content cache (~7s warm), so a format slip fails here, not at the 8-minute pre-push gate.
+      run: pnpm exec prettier --check --cache --cache-strategy content --cache-location node_modules/.cache/prettier/.prettier-cache .
     typecheck:
       # TS half of `pnpm typecheck` (~18s): kept at commit despite the ~5s rule, so a staged type error fails here.
       # svelte-check (~19s) runs pre-push because it also compiles every .svelte file. `--incremental` measured no faster.
