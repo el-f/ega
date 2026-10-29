@@ -9,7 +9,7 @@ import {
   setTaskEnabled,
   updateTask,
 } from '@/shared/tasks';
-import { DEFAULT_PROMPT_TEMPLATE } from '@/shared/settings-schema';
+import { CURRENT_TEMPLATE_VERSION, DEFAULT_PROMPT_TEMPLATE } from '@/shared/settings-schema';
 import { materializeTasks } from '@/shared/task-view';
 import { ALL_TASKS, runnableDefaultTask } from '@/shared/task-prompts';
 import { buildRegistry } from '@/shared/command-registry';
@@ -264,7 +264,10 @@ describe('resetting Translate', () => {
     const { settings, removed } = await resetTask('translate');
     expect(settings.advanced.promptTemplate).toEqual(DEFAULT_PROMPT_TEMPLATE);
     expect(settings.taskOverrides.translate).toBeUndefined();
-    expect(removed).toEqual({ edit: { effort: 'high' }, prompt: { template: mine, version: 9 } });
+    expect(removed).toEqual({
+      edit: { effort: 'high' },
+      prompt: { template: mine, version: CURRENT_TEMPLATE_VERSION },
+    });
     const back = await restoreTask('translate', removed);
     expect(back.advanced.promptTemplate).toEqual(mine);
     expect(back.taskOverrides.translate).toEqual({ effort: 'high' });

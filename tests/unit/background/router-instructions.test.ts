@@ -76,7 +76,8 @@ beforeEach(() => {
 
 describe('ResultMeta.instructions', () => {
   it('is the system prompt the backend got, with no length when it fits (I1)', async () => {
-    const done = await run(settings());
+    // A short template, so the case does not hang on how long the shipped prompt is.
+    const done = await run(settings(longPrompt(500)));
     expect(done?.type === 'done' && done.meta?.instructions).toBe(sent[0]);
     expect(sent[0]?.length).toBeGreaterThan(0);
     expect(done?.type === 'done' && 'instructionsLength' in (done.meta ?? {})).toBe(false);
@@ -92,7 +93,7 @@ describe('ResultMeta.instructions', () => {
 
   it('a cache hit carries the prompt its answer was made with (I2)', async () => {
     const cache = new TranslationCache();
-    const s = settings({ cacheEnabled: true });
+    const s = settings({ cacheEnabled: true, ...longPrompt(500) });
     await run(s, {}, cache);
     const hit = await run(s, {}, cache);
     expect(sent).toHaveLength(1);
