@@ -32,7 +32,7 @@ const SHIPPED: Readonly<Record<string, Readonly<Record<string, string>>>> = {
     confidence: 'shown as a percent',
     detectedLang: 'when the model can tell',
     detectedDetail: 'only when useful',
-    detectedLangs: 'only when the text mixes languages',
+    detectedLangs: 'each language, only when the text mixes them',
     notes: 'only when you run Explain',
   },
   summarize: { main: 'the summary' },

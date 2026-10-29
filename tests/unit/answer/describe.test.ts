@@ -27,7 +27,7 @@ describe('the reply parts of a built-in task, in plain words', () => {
       'Confidence: shown as a percent',
       'Source language: when the model can tell',
       'Language detail: only when useful',
-      'Source languages: only when the text mixes languages',
+      'Mixed languages: each language, only when the text mixes them',
       'Context & subtext: only when you run Explain',
     ]);
     expect(rows('explain', true).at(-1)).toBe('Context & subtext: shown under it');

@@ -92,7 +92,7 @@ describe('ReplyDetails — result', () => {
   it('explains prompt-only plain answers and preserves reader issues in About', () => {
     // As router-attempt.ts plainTextLoss words it for Translate.
     const message =
-      'The model answered in plain text, without Confidence, Source language, Language detail or Source languages.';
+      'The model answered in plain text, without Confidence, Source language, Language detail or Mixed languages.';
     const { container } = setup({
       meta: meta({
         answerFormat: {

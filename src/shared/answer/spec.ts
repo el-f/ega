@@ -95,7 +95,7 @@ export const TRANSLATE_SPEC = {
     },
     {
       key: 'detectedLangs',
-      label: 'Source languages',
+      label: 'Mixed languages',
       kind: 'languages',
       role: 'meta',
       required: false,

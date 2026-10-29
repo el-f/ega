@@ -146,7 +146,7 @@ describe('answer format recovery', () => {
       meta: {
         answerFormat: {
           issues: expect.arrayContaining([
-            'The model answered in plain text, without Confidence, Source language, Language detail or Source languages.',
+            'The model answered in plain text, without Confidence, Source language, Language detail or Mixed languages.',
           ]),
         },
       },
