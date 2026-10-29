@@ -35,6 +35,8 @@
     spec?: AnswerSpec | undefined;
     /** A custom task's notice under Instructions, shown while its prompt asks for its own format. */
     formatNotice?: Snippet | undefined;
+    /** In the notice's place once it is gone: what its button did, with an Undo. */
+    formatNote?: Snippet | undefined;
     snippets: Record<string, string>;
     /** The task sends page context, so the Preview notes what a page adds. */
     sendsPageContext: boolean;
@@ -52,6 +54,7 @@
     builtIn,
     spec,
     formatNotice,
+    formatNote,
     snippets,
     sendsPageContext,
     onChange,
@@ -254,6 +257,8 @@
           {@render warnIcon()}
           <div class="pe-format-body">{@render formatNotice()}</div>
         </div>
+      {:else if formatNote}
+        {@render formatNote()}
       {/if}
     </div>
 

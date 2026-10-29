@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { resetChromeMock } from '@tests/mocks/chrome';
 import CustomTaskDialog from '@/options/components/CustomTaskDialog.svelte';
 import { confirmDialog } from '@/shared/components/confirmDialog';
@@ -374,6 +374,42 @@ describe('instructions that ask for their own format', () => {
     await fireEvent.click(convert);
     await waitFor(() => expect(notice()).toBeNull());
     await waitFor(() => expect(document.activeElement).toBe(field('system')));
+  });
+
+  // Where the button was, so the footer keeps one row (R34, R63).
+  it('Turn into fields confirms under Instructions with an Undo, not in the footer', async () => {
+    const system = 'Rewrite it. Return JSON: {"result": <the rewrite>, "why": <one reason>}.';
+    const row = await addCustomTask({ ...input, system });
+    open(vi.fn(), { row });
+    await fireEvent.click(button('Turn into fields') as HTMLElement);
+    const note = await waitFor(() => {
+      const el = document.querySelector<HTMLElement>(
+        '[data-ega-template-system] [data-ega-turned-note]',
+      );
+      if (!el) throw new Error('no note under Instructions');
+      return el;
+    });
+    expect(note.querySelector('[role="status"]')?.textContent.trim()).toBe('Turned into fields');
+    await waitFor(() => expect(status()).toBe('Saved'));
+    const footer = document.querySelector('[data-ega-dialog-status]')?.parentElement;
+    expect(footer?.querySelector('[data-ega-dialog-undo]')).toBeNull();
+    await fireEvent.click(within(note).getByRole('button', { name: 'Undo' }));
+    await waitFor(async () => expect((await getCustomTasks())[0]?.system).toBe(system));
+    expect(field('system').value).toBe(system);
+    expect(document.querySelector('[data-ega-turned-note]')).toBeNull();
+    expect(button('Turn into fields')).toBeDefined();
+  });
+
+  it('a later edit ends the Undo, so it cannot take that edit back', async () => {
+    const row = await addCustomTask({
+      ...input,
+      system: 'Rewrite it. Return JSON: {"result": <the rewrite>, "why": <one reason>}.',
+    });
+    open(vi.fn(), { row });
+    await fireEvent.click(button('Turn into fields') as HTMLElement);
+    await waitFor(() => expect(document.querySelector('[data-ega-turned-note]')).not.toBeNull());
+    await fireEvent.input(field('system'), { target: { value: 'Rewrite it kindly.' } });
+    expect(document.querySelector('[data-ega-turned-note]')).toBeNull();
   });
 
   it('the notice stays while it is true and goes once the format is gone', async () => {

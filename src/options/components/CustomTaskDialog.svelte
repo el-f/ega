@@ -216,17 +216,22 @@
     void saver.now(write(patch));
   }
 
+  // The Undo of the last Turn into fields; any later change to what it puts back ends it.
+  let undoTurn = $state<(() => void) | null>(null);
+
   function setLabel(v: string): void {
     label = v;
     saveText('label');
   }
   function setPrompt(next: PromptTemplate): void {
+    undoTurn = null;
     prompt = next;
     saveText('prompt');
   }
 
   function setAnswerMode(next: string): void {
     if (next !== 'plain' && next !== 'card' && next !== 'fields') return;
+    undoTurn = null;
     if (next === 'fields') {
       if (ownFields.length === 0)
         ownFields = answerSpec.fields.map((f) => ({
@@ -244,6 +249,7 @@
     saveNow({ output, answer });
   }
   function setFields(fields: AnswerField[]): void {
+    undoTurn = null;
     ownFields = fields;
     answer = { v: 1, fields };
     output = fields.some((f) => f.role === 'notes') ? 'card' : 'plain';
@@ -278,18 +284,21 @@
     const saving = saver.now(
       startsRow() ? create : write({ system: prompt.system, user: prompt.user, answer, output }),
     );
-    // The button leaves with its notice, so focus goes to Instructions, as for Use Ega's format (K-9).
-    await tick();
-    editor?.focusInstructions();
-    if (!(await saving)) return;
-    saver.note('Turned the format into fields', () => {
+    // Said where the button was, not in the footer, so the footer keeps one row (R34, R63).
+    undoTurn = () => {
+      undoTurn = null;
       prompt = previous.prompt;
       answer = previous.answer;
       output = previous.output;
       answerMode = previous.mode;
       ownFields = previous.fields;
       void saver.now(write({ system: prompt.system, user: prompt.user, answer, output }));
-    });
+      void tick().then(() => editor?.focusInstructions());
+    };
+    // The button leaves with its notice, so focus goes to Instructions, as for Use Ega's format (K-9).
+    await tick();
+    editor?.focusInstructions();
+    if (!(await saving)) undoTurn = null;
   }
 
   // The cap counts every item, so a task already in the menu can always leave it.
@@ -551,6 +560,14 @@
           </p>{/if}
       {/if}
     {/snippet}
+    {#snippet turnedNote()}
+      <p class="ct-turned" data-ega-turned-note>
+        <span role="status">Turned into fields</span>
+        <button type="button" class="ct-undo" data-ega-dialog-undo onclick={() => undoTurn?.()}
+          >Undo</button
+        >
+      </p>
+    {/snippet}
     <div class="ct-prompt">
       <PromptEditor
         bind:this={editor}
@@ -563,6 +580,7 @@
         onChange={setPrompt}
         buildPreview={preview}
         formatNotice={asksOwnFormat ? ownFormatNotice : undefined}
+        formatNote={undoTurn ? turnedNote : undefined}
       />
     </div>
   </div>
@@ -615,6 +633,35 @@
   }
   .ct-format-line {
     margin: 0;
+  }
+  .ct-turned {
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: 32px;
+    font-size: var(--fs-base);
+    line-height: var(--lh-body);
+    color: var(--color-muted);
+  }
+  /* The footer's Undo look (DialogStatus). */
+  .ct-undo {
+    min-height: 24px;
+    padding: 0 var(--space-1);
+    border: 0;
+    background: transparent;
+    color: var(--color-accent-hover);
+    font: inherit;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+  }
+  .ct-undo:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
   }
   .ct-indent {
     padding-inline-start: calc(16px + var(--space-2));
