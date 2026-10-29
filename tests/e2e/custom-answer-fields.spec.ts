@@ -221,7 +221,10 @@ test('converting a prompt format is explicit and Undo restores its original inst
   await expect(dialog.locator('[data-ega-template-system] textarea')).toHaveValue(
     'Keep this instruction.',
   );
-  await page.locator('[data-ega-dialog-undo]').click();
+  const turned = dialog.locator('[data-ega-turned-note]');
+  await expect(turned).toContainText('Turned into fields');
+  await turned.getByRole('button', { name: 'Undo' }).click();
   await expect(dialog.locator('[data-ega-template-system] textarea')).toHaveValue(system);
+  await expect(turned).toHaveCount(0);
   await expect(dialog.locator('[data-ega-answer-fields-editor]')).toHaveCount(0);
 });
