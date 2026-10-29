@@ -46,7 +46,10 @@ describe('stryker.conf.mjs shards', () => {
 
   it('the mutation.yml matrix runs every shard, and the shards list every file once', async () => {
     const workflow = fs.readFileSync(path.join(repoRoot, '.github/workflows/mutation.yml'), 'utf8');
-    const matrix = /^\s*shard: \[([\d, ]+)\]$/m.exec(workflow)?.[1]?.split(',').map((s) => s.trim());
+    const matrix = /^\s*shard: \[([\d, ]+)\]$/m
+      .exec(workflow)?.[1]
+      ?.split(',')
+      .map((s) => s.trim());
     expect(matrix).toBeDefined();
     const parts: string[] = [];
     for (const shard of matrix ?? []) {
