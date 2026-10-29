@@ -190,7 +190,7 @@
   <div class="af-add" bind:this={addButton}>
     <Button
       variant="secondary"
-      size="sm"
+      iconKind="add"
       ariaDisabled={fields.length >= 8}
       {...fields.length >= 8 ? { describedBy: `${uid}-cap` } : {}}
       onclick={() => void add()}>Add field</Button

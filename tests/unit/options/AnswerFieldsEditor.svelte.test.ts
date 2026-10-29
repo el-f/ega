@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, waitFor, within } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import AnswerFieldsEditor from '@/options/components/AnswerFieldsEditor.svelte';
+import VariablePicker from '@/options/components/prompt/VariablePicker.svelte';
+import { variablesFor } from '@/options/components/prompt/prompt-checks';
 import type { AnswerField } from '@/shared/answer/spec';
 
 const main: AnswerField = {
@@ -44,6 +46,21 @@ async function openMore(name: string): Promise<HTMLElement> {
 
 const rowText = (key: string): string =>
   document.querySelector(`[data-ega-answer-field="${key}"] .af-summary`)?.textContent ?? '';
+
+// The dialog's two add buttons: Add field looks like Insert variable, + icon and all (R4).
+it('Add field has the + icon and the button look of Insert variable', () => {
+  const { view } = live([main]);
+  const add = view.getByRole('button', { name: 'Add field' });
+  const picker = render(VariablePicker, {
+    variables: variablesFor('custom', 'custom'),
+    used: new Set<string>(),
+    onInsert: vi.fn(),
+  });
+  const insert = picker.getByRole('button', { name: 'Insert variable' });
+  expect(add.querySelector('[data-action-icon]')?.getAttribute('data-action-icon')).toBe('add');
+  expect(insert.querySelector('[data-action-icon]')?.getAttribute('data-action-icon')).toBe('add');
+  expect(add.className).toBe(insert.className);
+});
 
 describe('a field row', () => {
   it('reads as its name and one plain line, never a key or a type', async () => {
