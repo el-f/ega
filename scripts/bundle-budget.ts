@@ -279,7 +279,8 @@ const EAGER_CONTENT_BUDGET_BYTES = 163_150;
 // +32B for the length guard that keeps that check linear.
 // Sharing that notice with the page moves it into a chunk the content script also loads: +58B.
 // The second audit-fix round adds 349B to shared code the popup loads.
-const POPUP_PAGE_BUDGET_BYTES = 528_984;
+// The answer format redesign adds 1,052B to shared answer code the popup loads.
+const POPUP_PAGE_BUDGET_BYTES = 530_036;
 
 function measurePagePreload(distDir: string, htmlRel: string): { files: string[]; bytes: number } {
   const htmlPath = path.join(distDir, htmlRel);
