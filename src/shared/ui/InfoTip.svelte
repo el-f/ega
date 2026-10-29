@@ -116,7 +116,8 @@
       side="bottom"
       align="start"
       sideOffset={6}
-      collisionPadding={8}
+      collisionBoundary={button.closest('[role="dialog"]')}
+      collisionPadding={16}
       trapFocus={false}
       class="ega-infotip"
       data-ega-infotip-text
@@ -157,8 +158,9 @@
     outline: 2px solid var(--color-accent);
     outline-offset: 1px;
   }
+  /* A dialog clips the tip, so it stays inside the dialog box (the boundary above) and no wider than the room left. */
   :global(.ega-infotip) {
-    max-width: min(320px, calc(100vw - var(--space-5)));
+    max-width: min(320px, calc(100vw - var(--space-5)), var(--bits-floating-available-width));
     padding: var(--space-2) var(--space-3);
     background: var(--color-bg-elevated);
     color: var(--color-fg);

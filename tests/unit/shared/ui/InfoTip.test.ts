@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { render, fireEvent, waitFor } from '@testing-library/svelte';
 import InfoTip from '@/shared/ui/InfoTip.svelte';
 import ShortcutInput from '@/shared/components/ShortcutInput.svelte';
@@ -151,5 +152,20 @@ describe('InfoTip — the (i) toggletip', () => {
     record.focus();
     await fireEvent.keyDown(record, { key: 'Escape' });
     expect(record.getAttribute('aria-pressed')).toBe('false');
+  });
+});
+
+// A dialog clips what overflows it, so a 320 px tip near its edge lost its border and corner (R2).
+describe('InfoTip — inside a dialog', () => {
+  it('is no wider than the room the dialog leaves it', () => {
+    const src = readFileSync('src/shared/ui/InfoTip.svelte', 'utf8');
+    const rule = /:global\(\.ega-infotip\) \{([^}]*)\}/.exec(src)?.[1] ?? '';
+    expect(rule).toMatch(/max-width: min\([^;]*var\(--bits-floating-available-width\)\);/);
+  });
+
+  it('keeps clear of the dialog edge by the dialog padding, not just the viewport', () => {
+    const src = readFileSync('src/shared/ui/InfoTip.svelte', 'utf8');
+    expect(src).toMatch(/collisionBoundary=\{button\.closest\('\[role="dialog"\]'\)\}/);
+    expect(src).toMatch(/collisionPadding=\{16\}/);
   });
 });
