@@ -598,3 +598,43 @@ describe('a failed leading run', () => {
     expect(calls.map((c) => c[2])).toEqual(['fr', 'fr']);
   });
 });
+
+describe('errors that need a setting stop the session', () => {
+  it.each([
+    ['AUTH', 'bad key'],
+    ['QUOTA', 'no credit'],
+    ['NO_BACKEND', 'none'],
+    ['NATIVE_NOT_INSTALLED', 'missing'],
+    ['NATIVE_SPAWN_FAIL', 'spawn'],
+    ['NATIVE_CLI_CONFIG', 'config'],
+    ['UNSUPPORTED', 'unsupported'],
+    ['REQUEST', 'This backend does not know this model.'],
+  ])('%s: the next block in view is not sent', async (code, message) => {
+    const els = page();
+    const r = rig();
+    await runWholePageTranslate(r.d);
+    band(els.slice(0, 3));
+    await flush();
+    fail(r, 0, code, { message });
+    await flush();
+    band(els.slice(3, 7));
+    await flush();
+    expect(r.sent).toHaveLength(3);
+  });
+
+  it.each(['UNKNOWN', 'PARSE', 'SERVER'])(
+    '%s: the next block in view is still sent',
+    async (code) => {
+      const els = page();
+      const r = rig();
+      await runWholePageTranslate(r.d);
+      band(els.slice(0, 3));
+      await flush();
+      fail(r, 0, code, { message: 'no' });
+      await flush();
+      band(els.slice(3, 7));
+      await flush();
+      expect(r.sent.length).toBeGreaterThan(3);
+    },
+  );
+});
