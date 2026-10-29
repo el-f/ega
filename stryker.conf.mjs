@@ -25,7 +25,9 @@ const shards = [
     'src/shared/storage/sanitise.ts',
     // Read-path clamp: caps strings, arrays and records and keeps prototype keys out of stored settings
     'src/shared/settings-clamp.ts',
-    // Page-translate batch session: retry budget, terminal accounting, revert
+  ],
+  [
+    // Page-translate batch session: retry budget, terminal accounting, revert (own shard: 4h21m+ shared on 2026-10-29)
     'src/content/page-translate-v2/index.ts',
     'src/content/page-translate-v2/store.ts',
   ],
