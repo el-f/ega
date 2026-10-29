@@ -219,6 +219,16 @@ describe('the Reply section', () => {
     );
   });
 
+  it('the (i) on Reply says a built-in task keeps its parts and where to choose your own', async () => {
+    await open('summarize');
+    await fireEvent.click(screen.getByRole('button', { name: 'About the reply' }));
+    await waitFor(() =>
+      expect(document.body.textContent).toContain(
+        "You cannot change a built-in task's parts. To choose your own, create a task under Your tasks.",
+      ),
+    );
+  });
+
   it("Explain has no Preview, so its (i) points at the Translate prompt's", async () => {
     await open('explain');
     await fireEvent.click(screen.getByRole('button', { name: 'About the reply' }));

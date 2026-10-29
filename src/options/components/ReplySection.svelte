@@ -14,6 +14,8 @@
     after?: Snippet;
     /** Where the exact text sent shows, for a dialog with no Preview of its own. */
     previewNote?: string;
+    /** A built-in task's parts cannot change; the (i) says where to choose your own. */
+    fixed?: boolean;
   }
 
   const {
@@ -21,7 +23,10 @@
     children,
     after,
     previewNote = 'Preview shows the exact text sent.',
+    fixed = false,
   }: Props = $props();
+  const FIXED =
+    "You cannot change a built-in task's parts. To choose your own, create a task under Your tasks. ";
   const uid = makeId('ega-reply');
 </script>
 
@@ -30,7 +35,7 @@
     <h3 class="reply-title" id="{uid}-title">Reply</h3>
     <InfoTip
       label="About the reply"
-      text={`Ega asks the model for these parts and shows them in the reply. ${previewNote}`}
+      text={`Ega asks the model for these parts and shows them in the reply. ${fixed ? FIXED : ''}${previewNote}`}
     />
   </div>
   {@render children?.()}

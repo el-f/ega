@@ -301,6 +301,7 @@
 
     <ReplySection
       rows={replyRows}
+      fixed
       {...isTranslate || ownPrompt
         ? {}
         : { previewNote: "The Translate prompt's Preview shows the exact text sent." }}

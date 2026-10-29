@@ -66,6 +66,15 @@ beforeEach(() => {
 });
 
 describe('a new custom task', () => {
+  it("the (i) on Reply does not say the parts are fixed: here they are the user's", async () => {
+    open();
+    await fireEvent.click(screen.getByRole('button', { name: 'About the reply' }));
+    await waitFor(() =>
+      expect(document.body.textContent).toContain('Preview shows the exact text sent.'),
+    );
+    expect(document.body.textContent).not.toContain('You cannot change');
+  });
+
   it('says in Reply what the answer holds, above the prompt, and keeps the exact text for Preview', async () => {
     open();
     expect(parts()).toEqual(['Answer: the main text']);
