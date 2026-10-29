@@ -458,10 +458,9 @@ function unqueue(sess: Session, id: string): void {
 
 /** The browser's name for an ISO target; a custom language's id has none, and the pill then names no target. */
 function isoName(id: string | undefined): string | undefined {
-  if (id === undefined || id === 'auto') return undefined;
+  if (id === undefined) return undefined;
   try {
-    const name = new Intl.DisplayNames(['en'], { type: 'language', fallback: 'none' }).of(id);
-    return name === id ? undefined : name;
+    return new Intl.DisplayNames(['en'], { type: 'language', fallback: 'none' }).of(id);
   } catch {
     return undefined;
   }
@@ -519,7 +518,7 @@ function release(sess: Session, id: string): void {
   sess.deferred.delete(id);
   // An element taken for its leading run sends only those words; its inner blocks are blocks of their own.
   const run = isLeadingRun(element);
-  const text = !element.isConnected ? '' : readBlock(element);
+  const text = readBlock(element);
   const isTarget = sess.deps.isTargetLanguage?.(text) ?? readsAsTarget(sess, text);
   if (!hasWords(text) || text.length > MAX_SELECTION_CHARS || isTarget) {
     // Gone from the page or already in the target language: not an area, so it leaves the count.
@@ -659,10 +658,9 @@ function leadsWithSettings(f: Failure): boolean {
 function chipOpts(
   blockId: string,
   f: Failure,
-): { onRetry: () => void; backend?: string; settingsChanged?: boolean } {
+): { onRetry: () => void; settingsChanged?: boolean } {
   return {
     onRetry: () => retryBlock(blockId),
-    ...(f.backendId ? { backend: backendLabel(f.backendId) } : {}),
     ...(f.settingsChanged ? { settingsChanged: true } : {}),
   };
 }
@@ -725,7 +723,6 @@ async function startSession(
 
 /** The failure most blocks share, in the catalog's words, with every raw message for Error details. */
 function failureCopy(sess: Session): PageProgress['failure'] {
-  if (sess.failed.size === 0) return undefined;
   const counts = new Map<ErrCode, { n: number; first: Failure; changed: boolean }>();
   for (const f of sess.failed.values()) {
     const c = counts.get(f.code);
@@ -802,7 +799,7 @@ function pump(): void {
     stopSession(sess);
     return;
   }
-  while (sess.inFlight.size < sess.concurrency && sess.pending.length > 0) {
+  while (sess.inFlight.size < sess.concurrency) {
     const block = sess.pending.shift();
     if (!block) break;
     sess.inFlight.add(block.id);
@@ -1004,7 +1001,7 @@ function closeSession(sess: Session): void {
     // Try again needs a live session; Open settings does not, so a settings error gets it back.
     const f = sess.failed.get(blockId);
     if (f?.settingsChanged) {
-      remountErrorChip(handle, f, f.backendId ? { backend: backendLabel(f.backendId) } : {});
+      remountErrorChip(handle, f, {});
       continue;
     }
     const chip = handle.target.querySelector('[data-ega-tx-error]');
