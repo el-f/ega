@@ -370,14 +370,18 @@
 {/if}
 
 <style>
+  /* One label column for the whole dialog: each grid and the Reply section take it as a subgrid. */
   .task-edit {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-5);
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: var(--space-5) var(--space-4);
+  }
+  .task-edit > :global(*) {
+    grid-column: 1 / -1;
   }
   .te-grid {
     display: grid;
-    grid-template-columns: max-content minmax(0, 1fr);
+    grid-template-columns: subgrid;
     align-items: start;
     gap: var(--space-3) var(--space-4);
   }
@@ -427,7 +431,7 @@
     gap: var(--space-3);
   }
   @container options (max-width: 600px) {
-    .te-grid {
+    .task-edit {
       grid-template-columns: minmax(0, 1fr);
     }
   }

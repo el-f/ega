@@ -53,11 +53,17 @@
 </section>
 
 <style>
+  /* A section like Prompt, on the dialog's label and control columns, so every control starts at one x. */
   .reply {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
+    display: grid;
+    grid-template-columns: subgrid;
+    row-gap: var(--space-3);
     min-width: 0;
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--color-border-subtle);
+  }
+  .reply > :global(*) {
+    grid-column: 1 / -1;
   }
   .reply-head {
     display: flex;
@@ -72,7 +78,7 @@
   .reply-rows {
     margin: 0;
     display: grid;
-    grid-template-columns: max-content minmax(0, 1fr);
+    grid-template-columns: subgrid;
     gap: var(--space-1) var(--space-4);
     font-size: var(--fs-base);
     line-height: var(--lh-body);
@@ -89,5 +95,11 @@
     margin: 0;
     color: var(--color-muted);
     overflow-wrap: anywhere;
+  }
+  /* The dialog stacks its labels here; a part keeps its name and line on one row. */
+  @container options (max-width: 600px) {
+    .reply-rows {
+      grid-template-columns: max-content minmax(0, 1fr);
+    }
   }
 </style>

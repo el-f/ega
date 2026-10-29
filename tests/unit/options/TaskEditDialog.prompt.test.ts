@@ -220,6 +220,29 @@ describe('the Reply section', () => {
     expect(rule).not.toContain('padding-inline-start');
   });
 
+  // Each grid sized its own label column, so the dialog had three control edges (R3, R14, R15).
+  it('Reply is a section with a divider, and every label grid shares the dialog columns', () => {
+    const css = (file: string, selector: string): string =>
+      new RegExp(`\\n {2}${selector.replace(/\./g, '\\.')} \\{([^}]*)\\}`).exec(
+        readFileSync(`src/options/components/${file}`, 'utf8'),
+      )?.[1] ?? '';
+    const divider = /border-top: [^;]+;/.exec(css('TaskEditDialog.svelte', '.te-prompt'))?.[0];
+    expect(divider).toBeDefined();
+    expect(css('ReplySection.svelte', '.reply')).toContain(divider);
+    for (const [file, body] of [
+      ['TaskEditDialog.svelte', '.task-edit'],
+      ['CustomTaskDialog.svelte', '.custom-task'],
+    ] as const)
+      expect(css(file, body)).toMatch(/grid-template-columns: max-content minmax\(0, 1fr\);/);
+    for (const [file, grid] of [
+      ['TaskEditDialog.svelte', '.te-grid'],
+      ['CustomTaskDialog.svelte', '.ct-grid'],
+      ['ReplySection.svelte', '.reply'],
+      ['ReplySection.svelte', '.reply-rows'],
+    ] as const)
+      expect(css(file, grid), `${file} ${grid}`).toContain('grid-template-columns: subgrid;');
+  });
+
   // A plain name ran into its line ("Answer the summary"); bold splits them, as in the field editor (R4).
   it('a part name is bold, like a field name in Your own fields', () => {
     const weight = (file: string, selector: string): string | undefined =>
