@@ -315,8 +315,8 @@ describe('instructions that ask for their own format', () => {
       system: 'Be polite. Return JSON {"answer": string, "reason": string}.',
     });
     open(vi.fn(), { row });
-    expect(notice()?.textContent).toContain(
-      'Your instructions ask for their own format. Ega still adds its own, so the model gets two.',
+    expect(notice()?.textContent.replace(/\s+/g, ' ')).toContain(
+      'Your instructions ask for their own format. Ega adds its own too, so the model gets two and may mix them.',
     );
     expect(notice()?.contains(button('Turn into fields') ?? null)).toBe(true);
     expect(button('Keep my instructions')).toBeUndefined();

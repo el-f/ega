@@ -524,11 +524,12 @@
     </ReplySection>
 
     {#snippet ownFormatNotice()}
-      <p class="ct-hint">
-        Your instructions ask for their own format. Ega still adds its own, so the model gets two.
+      <p class="ct-format-line">
+        Your instructions ask for their own format. Ega adds its own too, so the model gets two and
+        may mix them.
       </p>
       {#if ownFormat && conversion === null}
-        <p class="ct-hint">Ega cannot take it out without leaving the instructions empty</p>
+        <p class="ct-format-line">Ega cannot take it out without leaving the instructions empty</p>
       {:else if conversion}
         <div>
           <Button
@@ -611,6 +612,9 @@
     font-size: var(--fs-base);
     line-height: var(--lh-body);
     color: var(--color-muted);
+  }
+  .ct-format-line {
+    margin: 0;
   }
   .ct-indent {
     padding-inline-start: calc(16px + var(--space-2));

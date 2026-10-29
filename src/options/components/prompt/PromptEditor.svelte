@@ -5,6 +5,7 @@
    * the draft, saving and reset.
    */
   import { tick, type Snippet } from 'svelte';
+  import AlertTriangle from '@lucide/svelte/icons/alert-triangle';
   import Button from '@/shared/ui/Button.svelte';
   import Segmented from '@/shared/ui/Segmented.svelte';
   import StableLabel from '@/shared/ui/StableLabel.svelte';
@@ -155,6 +156,10 @@
   const historyBudget = CHAT_HISTORY_TOKEN_BUDGET.toLocaleString('en-US');
 </script>
 
+{#snippet warnIcon()}<span class="pe-format-icon" aria-hidden="true"
+    ><AlertTriangle size={16} strokeWidth={1.75} /></span
+  >{/snippet}
+
 <section class="pe" data-ega-prompt-editor={kind} aria-labelledby="{uid}-title">
   <div class="pe-head">
     <h3 class="pe-title" id="{uid}-title">Prompt</h3>
@@ -222,27 +227,33 @@
       {/if}
       {#if ownFormat}
         <div class="pe-format-own" data-ega-answer-format-own>
-          <!-- The language dialog has no Reply list; the Translate task shows the one it uses. -->
-          <p class="pe-format-line">
-            Your instructions ask for their own format. {kind === 'language'
-              ? 'Ega reads only the parts the Translate task lists under Reply.'
-              : 'Ega reads only the parts under Reply.'}
-          </p>
-          {#if takenOut === 'empty'}
+          {@render warnIcon()}
+          <div class="pe-format-body">
+            <!-- The language dialog has no Reply list; the Translate task shows the one it uses. -->
             <p class="pe-format-line">
-              Ega cannot take it out without leaving the instructions empty
+              Your instructions ask for their own format. {kind === 'language'
+                ? 'Ega reads only the parts the Translate task lists under Reply.'
+                : 'Ega reads only the parts under Reply.'}
             </p>
-          {:else if takenOut !== null}
-            <Button
-              variant="secondary"
-              size="sm"
-              dataAttrs={{ 'data-ega-use-standard-format': true }}
-              onclick={() => void useEgaFormat()}>Use Ega's format</Button
-            >
-          {/if}
+            {#if takenOut === 'empty'}
+              <p class="pe-format-line">
+                Ega cannot take it out without leaving the instructions empty
+              </p>
+            {:else if takenOut !== null}
+              <Button
+                variant="secondary"
+                size="sm"
+                dataAttrs={{ 'data-ega-use-standard-format': true }}
+                onclick={() => void useEgaFormat()}>Use Ega's format</Button
+              >
+            {/if}
+          </div>
         </div>
       {:else if formatNotice}
-        <div class="pe-format-own" data-ega-answer-format-own>{@render formatNotice()}</div>
+        <div class="pe-format-own" data-ega-answer-format-own>
+          {@render warnIcon()}
+          <div class="pe-format-body">{@render formatNotice()}</div>
+        </div>
       {/if}
     </div>
 
@@ -456,17 +467,38 @@
     white-space: pre-wrap;
     overflow-wrap: anywhere;
   }
+  /* A conflict to act on, so it wears the warning look of the "No backend is set up yet" banner. */
   .pe-format-own {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--color-warning-border);
+    border-radius: var(--radius-md);
+    background: var(--color-warning-bg-deep);
+    color: var(--color-warning-fg);
+    font-size: var(--fs-base);
+    line-height: var(--lh-body);
+  }
+  /* One text line high, so the icon sits on the first line. */
+  .pe-format-icon {
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+    block-size: 1lh;
+  }
+  .pe-format-body {
+    flex: 1 1 auto;
+    min-width: 0;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: var(--space-2) var(--space-3);
-    padding: var(--space-2) var(--space-3);
-    border: 1px solid transparent;
-    border-radius: var(--radius-md);
-    background: var(--color-bg-sunken);
   }
-  .pe-format-line,
+  .pe-format-line {
+    margin: 0;
+    max-inline-size: 80ch;
+  }
   .pe-note {
     margin: 0;
     max-inline-size: 80ch;

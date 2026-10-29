@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } from 'vitest';
 import { render, fireEvent, waitFor } from '@testing-library/svelte';
 import { createRawSnippet, tick } from 'svelte';
+import { readFileSync } from 'node:fs';
 import Harness from '@tests/_helpers/PromptEditorHarness.svelte';
 import { buildTaskTemplate } from '@/shared/task-template';
 import { TASK_FORMATS } from '@/shared/answer/formats-v1';
@@ -272,6 +273,31 @@ describe('PromptEditor — own format notice and checks', () => {
     expect(box?.className).toContain('pe-format-own');
     expect(box?.textContent).not.toContain('Ega reads only the parts under Reply');
     expect(container.querySelector('[data-ega-answer-format]')).toBeNull();
+  });
+
+  // A real conflict, not help text: it wears the warning look of the "No backend is set up yet" banner (R3, R10).
+  it('the own-format notice is a warning: an icon, and the banner tint and border', () => {
+    const { container } = setup({
+      kind: 'custom',
+      task: 'custom-1',
+      builtIn: null,
+      spec: undefined,
+      initial: { system: 'Return JSON ONLY: my own', user: '{{text}}' },
+      formatNotice: createRawSnippet(() => ({ render: () => '<p>mine</p>' })),
+    });
+    const box = container.querySelector('[data-ega-answer-format-own]');
+    expect(box?.querySelector('[aria-hidden="true"] svg')).not.toBeNull();
+    const rule = (file: string, selector: string): string =>
+      new RegExp(`\\n\\s*${selector.replace(/\./g, '\\.')} \\{([^}]*)\\}`).exec(
+        readFileSync(file, 'utf8'),
+      )?.[1] ?? '';
+    const banner = rule('src/options/components/StatusBar.svelte', '.status-bar');
+    const notice = rule('src/options/components/prompt/PromptEditor.svelte', '.pe-format-own');
+    for (const decl of ['border:', 'background:', 'color:']) {
+      const want = new RegExp(`${decl}[^;]*;`).exec(banner)?.[0];
+      expect(want).toMatch(/--color-warning/);
+      expect(notice).toContain(want);
+    }
   });
 
   it('a Message without the selected text shows the error under it, tied to the field', async () => {
