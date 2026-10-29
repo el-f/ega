@@ -115,16 +115,19 @@ interface Failure {
 }
 
 /** Failures no later block gets past until a setting changes, by catalog row: the session stops sending. */
-const SETTINGS_STOPS = new Set<string>([
-  'AUTH',
-  'QUOTA',
-  'REQUEST_MODEL',
-  'NO_BACKEND',
-  'NATIVE_NOT_INSTALLED',
-  'NATIVE_SPAWN_FAIL',
-  'NATIVE_CLI_CONFIG',
-  'UNSUPPORTED',
-]);
+function stopsSending(row: string | undefined): boolean {
+  const rows: (string | undefined)[] = [
+    'AUTH',
+    'QUOTA',
+    'REQUEST_MODEL',
+    'NO_BACKEND',
+    'NATIVE_NOT_INSTALLED',
+    'NATIVE_SPAWN_FAIL',
+    'NATIVE_CLI_CONFIG',
+    'UNSUPPORTED',
+  ];
+  return rows.includes(row);
+}
 
 /** A removal on the page is checked once it settles; a page that keeps changing gets at most four checks a second. */
 const SWEEP_DELAY_MS = 250;
@@ -466,12 +469,6 @@ function isoName(id: string | undefined): string | undefined {
   }
 }
 
-/** Two letters outside the Latin script: never English, whatever the word list says. */
-const NON_LATIN = /(?!\p{Script=Latin})\p{L}.*(?!\p{Script=Latin})\p{L}/u;
-
-/** Scripts several offered languages write in (Russian and Ukrainian, Arabic and Persian, Hindi and Marathi). */
-const SHARED_SCRIPTS = new Set(['Latn', 'Cyrl', 'Arab', 'Deva']);
-
 /**
  * The target's script when only that language writes in it, e.g. Hebrew, Greek, Thai or Korean.
  * ponytail: Chinese and Japanese share Han and stay unjudged, like the shared scripts; chrome.i18n.detectLanguage if that cost matters.
@@ -480,15 +477,14 @@ function targetScript(target: string | undefined): RegExp | null {
   if (target === undefined) return null;
   try {
     const script = new Intl.Locale(target).maximize().script;
-    if (script === undefined || SHARED_SCRIPTS.has(script)) return null;
+    // Scripts several offered languages write in (Russian and Ukrainian, Arabic and Persian, Hindi and Marathi).
+    if (script === undefined || ['Latn', 'Cyrl', 'Arab', 'Deva'].includes(script)) return null;
     return new RegExp(`\\p{Script=${script === 'Kore' ? 'Hangul' : script}}`, 'u');
   } catch {
     // A custom language id, or a script name the regex engine does not know (Hans, Jpan).
     return null;
   }
 }
-
-const LETTER = /\p{L}/gu;
 
 /** A block already in the target language is skipped; the English word list only judges Latin-script text. */
 function readsAsTarget(sess: Session, text: string): boolean {
@@ -497,10 +493,12 @@ function readsAsTarget(sess: Session, text: string): boolean {
   const detected = sess.deps.detectLang?.(text);
   if (detected !== undefined) return detected === target;
   if (target === 'en') {
-    return !NON_LATIN.test(text) && sess.deps.looksLikeEnglish?.(text) === true;
+    // Two letters outside the Latin script: never English, whatever the word list says.
+    const nonLatin = /(?!\p{Script=Latin})\p{L}.*(?!\p{Script=Latin})\p{L}/u;
+    return !nonLatin.test(text) && sess.deps.looksLikeEnglish?.(text) === true;
   }
   if (!sess.script) return false;
-  const letters = text.match(LETTER) ?? [];
+  const letters = text.match(/\p{L}/gu) ?? [];
   const inScript = letters.filter((ch) => sess.script?.test(ch)).length;
   // A Latin brand name or two inside the sentence does not make it foreign.
   return letters.length > 0 && inScript / letters.length >= 0.8;
@@ -1151,7 +1149,7 @@ function onChunk(sess: Session, chunk: TranslationChunk): void {
   const err = { code: chunk.code, message: chunk.message, backendId: chunk.backendId };
   mountError(handle, err, chipOpts(blockId, err));
   // Stop before this block's slot frees, or the next block goes straight into the same error.
-  if (SETTINGS_STOPS.has(errorCopy(err.code, err.message)?.id ?? '')) parkSession(sess);
+  if (stopsSending(errorCopy(err.code, err.message)?.id)) parkSession(sess);
   failBlock(sess, blockId, err);
 }
 
