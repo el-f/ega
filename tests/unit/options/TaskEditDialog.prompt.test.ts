@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { readFileSync } from 'node:fs';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { resetChromeMock } from '@tests/mocks/chrome';
 import TaskEditDialog from '@/options/components/TaskEditDialog.svelte';
 import { getSettings, updateSettings } from '@/shared/storage';
@@ -196,13 +197,27 @@ describe('the Reply section', () => {
     expect(screen.getByRole('group', { name: 'Inputs' }).textContent).not.toContain('Reads images');
   });
 
-  it('Explain lists its notes right after Answer, and Reads images sits under Inputs', async () => {
+  it('Explain lists its notes right after Answer', async () => {
     await open('explain');
     expect(parts().slice(0, 2)).toEqual([
       'Answer: the translation',
       'Context & subtext: shown under the translation',
     ]);
-    expect(screen.getByRole('group', { name: 'Inputs' }).textContent).toContain('Reads images');
+  });
+
+  // A fact, not an option: muted and on the checkboxes' edge, so it does not read as a missing checkbox (R2).
+  it('Translate and Explain say Also reads images under the checkboxes, as a muted line', async () => {
+    for (const task of ['translate', 'explain'] as const) {
+      await open(task);
+      const line = screen.getByText('Also reads images');
+      expect(screen.getByRole('group', { name: 'Inputs' }).contains(line)).toBe(true);
+      expect(line.closest('label')).toBeNull();
+      cleanup();
+    }
+    const src = readFileSync('src/options/components/TaskEditDialog.svelte', 'utf8');
+    const rule = /\.te-fact \{([^}]*)\}/.exec(src)?.[1] ?? '';
+    expect(rule).toContain('color: var(--color-muted)');
+    expect(rule).not.toContain('padding-inline-start');
   });
 
   it('Translate says its notes come only with Explain', async () => {

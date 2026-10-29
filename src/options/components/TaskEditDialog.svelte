@@ -295,7 +295,7 @@
           inputAttrs={{ 'data-ega-task-glossary': true }}
           onchange={(on) => write(() => updateTask(task, { glossary: on }))}
         />
-        {#if view.image}<p class="te-fact">Reads images</p>{/if}
+        {#if view.image}<p class="te-fact">Also reads images</p>{/if}
       </div>
     </div>
 
@@ -405,12 +405,12 @@
   .te-indent {
     padding-inline-start: calc(16px + var(--space-2));
   }
-  /* A fact, not a setting: it lines up with the checkbox labels above it. */
+  /* A fact, not a setting: muted and on the checkboxes' edge, so it does not read as a missing checkbox. */
   .te-fact {
     margin: 0;
-    padding-inline-start: calc(16px + var(--space-2));
     font-size: var(--fs-base);
     line-height: var(--lh-body);
+    color: var(--color-muted);
   }
   .te-prompt {
     display: flex;
