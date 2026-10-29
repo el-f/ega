@@ -655,10 +655,7 @@ function leadsWithSettings(f: Failure): boolean {
   return errorCopy(f.code, f.message)?.actions[0] === 'open-settings';
 }
 
-function chipOpts(
-  blockId: string,
-  f: Failure,
-): { onRetry: () => void; settingsChanged?: boolean } {
+function chipOpts(blockId: string, f: Failure): { onRetry: () => void; settingsChanged?: boolean } {
   return {
     onRetry: () => retryBlock(blockId),
     ...(f.settingsChanged ? { settingsChanged: true } : {}),
