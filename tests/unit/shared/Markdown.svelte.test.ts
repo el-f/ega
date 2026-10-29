@@ -22,6 +22,16 @@ describe('Markdown.svelte', () => {
     expect(body).not.toMatch(/color:/);
   });
 
+  // Under a pre-wrap parent (a reply note), the newline marked writes after each block drew an empty line.
+  it('collapses the whitespace between its blocks, whatever its parent sets', async () => {
+    const { container } = render(Markdown, { props: { text: 'Formal' } });
+    await waitForReady(container);
+    expect(container.querySelector('.ega-md')?.lastChild?.textContent).toMatch(/^\s*$/);
+    const src = readFileSync('src/shared/components/Markdown.svelte', 'utf8');
+    const body = /\n {2}\.ega-md \{([^}]*)\}/.exec(src)?.[1] ?? '';
+    expect(body).toContain('white-space: normal;');
+  });
+
   it('renders fenced code block as <pre><code>', async () => {
     const { container } = render(Markdown, {
       props: { text: '```js\nconst x = 1;\n```' },

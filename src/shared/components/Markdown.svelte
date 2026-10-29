@@ -53,6 +53,8 @@
     font-size: var(--ega-md-fs, var(--fs-sm));
     line-height: var(--lh-body);
     color: var(--color-fg);
+    /* The output is HTML with <br> for line breaks; under a pre-wrap parent the newline after each block drew an empty line. */
+    white-space: normal;
     /* Word-break to wrap long URLs / tokens so the bubble doesn't blow
        past its container width on terminal-like content. */
     overflow-wrap: anywhere;
