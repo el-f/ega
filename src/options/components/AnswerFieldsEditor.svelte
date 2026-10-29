@@ -266,6 +266,9 @@
               </DropdownMenu.Content>
             </DropdownMenu.Portal>
           </DropdownMenu.Root>
+        {:else}
+          <!-- The More button's room, so this row's Edit lines up with the others. -->
+          <span class="af-more-slot" aria-hidden="true"></span>
         {/if}
       </span>
     </div>
@@ -466,6 +469,9 @@
     gap: var(--space-3);
     padding-block: var(--space-2);
     padding-inline-start: calc(16px + var(--space-2));
+  }
+  .af-more-slot {
+    width: 28px;
   }
   .af-editor :global(.af-more) {
     display: inline-flex;

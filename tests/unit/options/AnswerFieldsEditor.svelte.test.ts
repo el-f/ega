@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { fireEvent, render, waitFor, within } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import AnswerFieldsEditor from '@/options/components/AnswerFieldsEditor.svelte';
@@ -63,6 +64,24 @@ it('Add field has the + icon and the button look of Insert variable', () => {
 });
 
 describe('a field row', () => {
+  // The Answer row has no More button; an empty slot its width keeps every Edit on one right edge (R15).
+  it("the Answer row keeps the More button's room, so every Edit lines up", () => {
+    live([main, note('tone')]);
+    const actions = (key: string): Element[] => [
+      ...(document.querySelector(`[data-ega-answer-field="${key}"] .af-actions`)?.children ?? []),
+    ];
+    const slot = actions('answer').at(-1);
+    expect(actions('answer')).toHaveLength(actions('tone').length);
+    expect(slot?.getAttribute('aria-hidden')).toBe('true');
+    expect(slot?.matches('button, [tabindex]')).toBe(false);
+    const src = readFileSync('src/options/components/AnswerFieldsEditor.svelte', 'utf8');
+    const width = (selector: string): string | undefined =>
+      new RegExp(`${selector.replace(/[.()]/g, '\\$&')} \\{[^}]*\\bwidth: ([^;]+);`).exec(src)?.[1];
+    expect(width('.af-more-slot')).toBeDefined();
+    expect(slot?.classList.contains('af-more-slot')).toBe(true);
+    expect(width('.af-more-slot')).toBe(width('.af-editor :global(.af-more)'));
+  });
+
   it('reads as its name and one plain line, never a key or a type', async () => {
     const points: AnswerField = { ...note('points'), label: 'Key points', kind: 'list' };
     const tone: AnswerField = {
