@@ -194,7 +194,7 @@ describe('the Reply section', () => {
     expect(reply().compareDocumentPosition(prompt) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     const edit = el('[data-ega-task-dialog]');
     expect(edit.textContent).not.toMatch(/Return JSON|"translation"|Answers/);
-    expect(screen.getByRole('group', { name: 'Inputs' }).textContent).not.toContain('Reads images');
+    expect(screen.getByRole('group', { name: 'Inputs' }).textContent).not.toMatch(/reads images/i);
   });
 
   it('Explain lists its notes right after Answer', async () => {
