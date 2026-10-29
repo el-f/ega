@@ -196,9 +196,12 @@ describe('the Reply section', () => {
     expect(screen.getByRole('group', { name: 'Inputs' }).textContent).not.toContain('Reads images');
   });
 
-  it('Explain lists its notes as always there, and Reads images sits under Inputs', async () => {
+  it('Explain lists its notes right after Answer, and Reads images sits under Inputs', async () => {
     await open('explain');
-    expect(parts()).toContain('Context & subtext: shown under it');
+    expect(parts().slice(0, 2)).toEqual([
+      'Answer: the translation',
+      'Context & subtext: shown under the translation',
+    ]);
     expect(screen.getByRole('group', { name: 'Inputs' }).textContent).toContain('Reads images');
   });
 

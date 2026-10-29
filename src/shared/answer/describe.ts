@@ -56,15 +56,20 @@ export function describeField(field: AnswerField): string {
   ].join(' · ');
 }
 
-/** The parts a spec asks the model for; with `explain`, the parts only Explain asks for show as always there. */
+/** The parts a spec asks the model for; with `explain`, the parts only Explain asks for show as always there, right after the answer. */
 export function describeReply(spec: AnswerSpec, options: { explain?: boolean } = {}): ReplyRow[] {
   const lines = SHIPPED[spec.id] ?? {};
-  return spec.fields.map((field) => {
-    const slot = field.role === 'main' || field.role === 'notes' ? field.role : field.key;
-    const line =
-      field.when === 'explain' && options.explain === true
-        ? 'shown under it'
-        : (lines[slot] ?? describeField(field));
-    return { key: field.key, label: field.label, line };
-  });
+  const explain = options.explain === true;
+  const rank = (field: AnswerField): number =>
+    field.role === 'main' ? 0 : explain && field.when === 'explain' ? 1 : 2;
+  return [...spec.fields]
+    .sort((a, b) => rank(a) - rank(b))
+    .map((field) => {
+      const slot = field.role === 'main' || field.role === 'notes' ? field.role : field.key;
+      const line =
+        explain && field.when === 'explain'
+          ? 'shown under the translation'
+          : (lines[slot] ?? describeField(field));
+      return { key: field.key, label: field.label, line };
+    });
 }

@@ -30,7 +30,17 @@ describe('the reply parts of a built-in task, in plain words', () => {
       'Mixed languages: each language, only when the text mixes them',
       'Context & subtext: only when you run Explain',
     ]);
-    expect(rows('explain', true).at(-1)).toBe('Context & subtext: shown under it');
+  });
+
+  it('Explain lists its own part right after Answer, and says where it shows', () => {
+    expect(rows('explain', true)).toEqual([
+      'Answer: the translation',
+      'Context & subtext: shown under the translation',
+      'Confidence: shown as a percent',
+      'Source language: when the model can tell',
+      'Language detail: only when useful',
+      'Mixed languages: each language, only when the text mixes them',
+    ]);
   });
 
   it('never shows a key, a type or JSON to the user', () => {
