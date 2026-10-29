@@ -638,3 +638,147 @@ describe('errors that need a setting stop the session', () => {
     },
   );
 });
+
+describe('a block the page re-rendered while the session picks more areas', () => {
+  it('keeps a block that is still being translated', async () => {
+    const els = page();
+    const r = rig();
+    await runWholePageTranslate(r.d);
+    band(els.slice(0, 1));
+    await flush();
+    (els[0] as HTMLElement).textContent = 'これは書き換えられた段落です。';
+    await enterAndFire(r.d, ['p1']);
+    expect(r.updates.at(-1)).toMatchObject({ total: 2, inFlight: 2 });
+    finishAll(r);
+    await flush();
+    expect(r.updates.at(-1)).toMatchObject({ settled: true, done: 2, total: 2 });
+  });
+
+  it('keeps a block that failed, so its error still counts', async () => {
+    const els = page();
+    const r = rig();
+    await runWholePageTranslate(r.d);
+    band(els.slice(0, 1));
+    await flush();
+    fail(r, 0, 'UNKNOWN');
+    await flush();
+    (els[0] as HTMLElement).textContent = 'これは書き換えられた段落です。';
+    await enterAndFire(r.d, ['p1']);
+    expect(r.updates.at(-1)).toMatchObject({ total: 2, failed: 1 });
+  });
+});
+
+describe('Show original, then another press', () => {
+  it('the translation comes back and a click-and-hold on it shows the original again', async () => {
+    const els = page();
+    const r = rig();
+    let toggle: ((on: boolean) => void) | undefined;
+    r.handle.setOnToggleOriginal = (fn) => (toggle = fn);
+    await runWholePageTranslate(r.d);
+    band(els.slice(0, 1));
+    await flush();
+    finishAll(r);
+    await flush();
+    r.stop();
+    toggle?.(true);
+    await runWholePageTranslate(r.d);
+    const wrapper = els[0]?.querySelector('[data-ega-replaced]') as HTMLElement;
+    wrapper.dispatchEvent(new MouseEvent('mousedown'));
+    expect(wrapper.hasAttribute('data-ega-peek')).toBe(true);
+  });
+});
+
+describe('late events on a finished or removed session', () => {
+  it('a second done for a block that already finished changes nothing', async () => {
+    const els = page();
+    const r = rig();
+    await runWholePageTranslate(r.d);
+    band(els.slice(0, 1));
+    await flush();
+    finishAll(r);
+    await flush();
+    const before = { updates: r.updates.length, live: r.live.length };
+    routePageV2Chunk({ type: 'done', requestId: r.sent[0]?.id ?? '', text: 'T', confidence: 1 });
+    await flush();
+    expect({ updates: r.updates.length, live: r.live.length }).toEqual(before);
+  });
+
+  it('a send that fails after Remove translation shows nothing and reports nothing', async () => {
+    const els = page();
+    const r = rig();
+    let rejectSend: (e: Error) => void = () => {};
+    r.d.dispatch = vi.fn(
+      () =>
+        new Promise<void>((_, reject) => {
+          rejectSend = reject;
+        }),
+    );
+    await runWholePageTranslate(r.d);
+    band(els.slice(0, 1));
+    await flush();
+    await cancelPageTranslateV2();
+    const updates = r.updates.length;
+    rejectSend(new Error('socket closed'));
+    await flush();
+    expect(r.updates.length).toBe(updates);
+    expect(document.querySelectorAll('[data-ega-tx-error]')).toHaveLength(0);
+  });
+
+  it('an observer entry that arrives after Remove translation sends nothing and reports nothing', async () => {
+    const els = page();
+    const r = rig();
+    await runWholePageTranslate(r.d);
+    const observer = FakeObserver.last as FakeObserver;
+    await cancelPageTranslateV2();
+    const updates = r.updates.length;
+    observer.cb(
+      [{ target: els[0], isIntersecting: true } as unknown as IntersectionObserverEntry],
+      observer as unknown as IntersectionObserver,
+    );
+    await flush();
+    expect(r.sent).toHaveLength(0);
+    expect(r.updates.length).toBe(updates);
+  });
+
+  it('Stop on a session that already finished changes nothing', async () => {
+    const els = page().slice(0, 1);
+    for (let i = 1; i < N; i++) document.getElementById(`p${i}`)?.remove();
+    const r = rig();
+    await runWholePageTranslate(r.d);
+    band(els);
+    await flush();
+    finishAll(r);
+    await flush();
+    expect(r.updates.at(-1)).toMatchObject({ settled: true });
+    const updates = r.updates.length;
+    r.stop();
+    expect(r.updates.length).toBe(updates);
+  });
+});
+
+describe('a settings stop parks the rest', () => {
+  it('a block waiting out a retry is dropped without counting as stopped', async () => {
+    const els = page();
+    const r = rig();
+    await runWholePageTranslate(r.d);
+    band(els.slice(0, 2));
+    await flush();
+    fail(r, 1, 'NETWORK');
+    fail(r, 0, 'AUTH');
+    await flush();
+    expect(r.updates.at(-1)).toMatchObject({ settled: true, skipped: 0, total: 1, failed: 1 });
+  });
+
+  it('choosing one of the parked areas does not take anything off the stopped count', async () => {
+    const els = page();
+    const r = rig();
+    await runWholePageTranslate(r.d);
+    band(els.slice(0, 1));
+    await flush();
+    fail(r, 0, 'AUTH');
+    await flush();
+    expect(r.updates.at(-1)).toMatchObject({ settled: true, skipped: 0 });
+    await enterAndFire(r.d, ['p5']);
+    expect(r.updates.at(-1)?.skipped).toBe(0);
+  });
+});
