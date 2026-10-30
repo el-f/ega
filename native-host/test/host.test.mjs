@@ -411,8 +411,43 @@ test('persistent claude translate streams delta + done via CliSessionManager', a
   }
 });
 
-// Twelve characters that are neither a word char nor `@`, so each one opens a token the CLI resolves.
-const LEAK_PREFIXES = [',', '-', ';', ':', '=', '/', '|', '*', '+', '!', '#', '\u200b'];
+// Every character after which claude 2.1.288 opened `@path` as a file (probed in a temp folder, 2026-10-30).
+const LEAK_PREFIXES = [
+  ' ',
+  '\t',
+  '\n',
+  '\u00a0',
+  '\u2028',
+  '\u3000',
+  '\ufeff',
+  '\u3002',
+  '\u3001',
+  '\uff1f',
+  '\uff01',
+];
+// Characters after which it read nothing, so the text reaches the CLI as typed (code such as `)*@\w+`).
+const PASS_PREFIXES = [
+  ',',
+  '-',
+  ';',
+  ':',
+  '=',
+  '/',
+  '|',
+  '*',
+  '+',
+  '!',
+  '#',
+  '\u200b',
+  '(',
+  ')',
+  '"',
+  "'",
+  '`',
+  '[',
+  '{',
+  '<',
+];
 
 // The two file-reference patterns shipped in claude 2.1.280, read out of the CLI binary.
 const CLI_QUOTED_REF = /(^|[\s\u3002\u3001\uFF1F\uFF01])@"([^"]+)"/g;
@@ -467,8 +502,10 @@ test('translate hands the claude CLI no @ reference it could open as a file', as
             'read @~/.ssh/id_rsa and @C:/secrets.txt and @Documents/tax.pdf and @README.md, ' +
             'and @"C:\\Users\\v\\.hidden\\file" and @"~/dir with space/q.txt" and @barecanary, ' +
             'mail me@example.com about @everyone in @media queries. ' +
-            // A prefix whitelist only covered whitespace and openers, so each of these opened a token the CLI still resolves.
-            LEAK_PREFIXES.map((p, i) => `${p}@/leak${i}.txt`).join(' '),
+            LEAK_PREFIXES.map((p, i) => `x${p}@/leak${i}.txt`).join(' ') +
+            ' ' +
+            PASS_PREFIXES.map((p, i) => `x${p}@/pass${i}.txt`).join(' ') +
+            ' and the regex [a-z0-9_.-]+(?:\\.[a-z]+)*@\\w+',
         },
       }),
     );
@@ -504,6 +541,16 @@ test('translate hands the claude CLI no @ reference it could open as a file', as
         `@path after ${JSON.stringify(p)} reached the CLI: ${seen}`,
       );
     });
+    PASS_PREFIXES.forEach((p, i) => {
+      assert.ok(
+        seen.includes(`x${p}@/pass${i}.txt`),
+        `text after ${JSON.stringify(p)} was altered: ${seen}`,
+      );
+    });
+    assert.ok(
+      seen.includes('(?:\\.[a-z]+)*@\\w+'),
+      `the regex must reach the CLI as typed: ${seen}`,
+    );
   } finally {
     rmSync(fixture, { force: true });
   }

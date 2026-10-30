@@ -288,7 +288,10 @@ function readStdinFrames(onFrame) {
 // codex exec has no such attachments, so its text stays as typed and a model cannot echo the hidden joiner.
 function neutralizeFileRefs(s, provider) {
   if (typeof s !== 'string') return '';
-  return provider === 'claude' ? s.replaceAll(/\B@/g, '@\u2060') : s;
+  // Only where the CLI opens a file (start, whitespace, \u3002\u3001\uff1f\uff01; claude 2.1.288, probed 2026-10-30), so code like `)*@\w+` reaches it as typed.
+  return provider === 'claude'
+    ? s.replaceAll(/(^|[\s\u3002\u3001\uff1f\uff01])@/g, '$1@\u2060')
+    : s;
 }
 
 // claude emits 20-50 frames per tick; batch them. The first chunk still leaves on the next microtask.
