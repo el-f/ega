@@ -23,7 +23,8 @@ concurrency:
 jobs:
   release:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    # The four e2e shards run one after another here (about 10 min each on 2026-10-30), so 40 cut the v0.0.2 run off in shard 3.
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
