@@ -242,7 +242,8 @@ says what Ega defends against, and what it does not.
 
 - **Languages** — define a custom language with a hint for the model and a few examples.
 - **Tasks** — edit the prompt of each task, write tasks of your own, and turn off the ones
-  you never use. A language can have its own prompt too.
+  you never use. A language can have its own prompt too. See five
+  [example tasks](docs/custom-tasks.md) you can import in one go.
 - **Glossary** — pin terms that must always render a certain way.
 - **Rules** — plain-language instructions scoped to a task or a site.
 
