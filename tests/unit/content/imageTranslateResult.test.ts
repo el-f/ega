@@ -459,6 +459,25 @@ describe('imageAnchorRect — result lands near the clicked image', () => {
     expect(imageAnchorRect(url).left).toBe(400);
   });
 
+  it('a copy the page re-rendered after the menu click: the anchor and Regenerate take the copy in its place', async () => {
+    const url = 'https://cdn.test/feed-avatar.jpg';
+    addImage(url, {});
+    const old = addImage(url, { left: 400, right: 600, x: 400 });
+    old.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    const msg = makeMsg({ requestId: 'img-rerender', imageUrl: url });
+    await handleImageTranslatePending(pendingMsgFor(msg));
+    // A feed re-renders the second post: same picture, a new node in the same place.
+    old.remove();
+    const fresh = addImage(url, { left: 700, right: 900, x: 700 });
+    expect(imageAnchorRect(url, old).left).toBe(700);
+    handleImageTranslateResult(msg);
+    await tick();
+    getContainer().querySelector<HTMLButtonElement>('[aria-label="Regenerate"]')?.click();
+    expect(sent('image:translate')).toHaveLength(1);
+    // The worker's page read resolves the image by its source.
+    expect(clickedImage(url)).toBe(fresh);
+  });
+
   it('falls back to the viewport center when no image matches', () => {
     const r = imageAnchorRect('https://cdn.test/gone.jpg');
     expect(r.left).toBe(1280 / 2 - 50);

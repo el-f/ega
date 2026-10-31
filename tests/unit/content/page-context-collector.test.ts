@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
 import { afterEach, describe, it, expect } from 'vitest';
 import {
+  clickedImage,
   collectImageContext,
   collectPageContext,
   collectPageLevelContext,
+  pinContextMenuImage,
   rememberContextMenuTarget,
 } from '@/content/page-context-collector';
 
@@ -495,6 +497,28 @@ describe('collectImageContext (right-clicked image)', () => {
       expect(collectImageContext(IMG, 'minimal', document, loc)?.beforeText).toBe(
         'First post by Ann.',
       );
+    } finally {
+      document.removeEventListener('contextmenu', rememberContextMenuTarget, true);
+    }
+  });
+
+  it('a Retry after the page re-rendered its copy reads around the copy now in its place', () => {
+    document.body.innerHTML = `<article><img src="${IMG}"><p>Reply one.</p></article>
+      <article id="two"><p>POST TWO</p><img src="${IMG}"><p>Reply two.</p></article>`;
+    const old = document.images[1];
+    if (!old) throw new Error('second image missing');
+    document.addEventListener('contextmenu', rememberContextMenuTarget, true);
+    try {
+      old.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+      // The pending tooltip resolves the copy while it is on the page.
+      expect(clickedImage(IMG)).toBe(old);
+      // A feed re-renders the post: same picture, a new node.
+      const two = document.getElementById('two');
+      if (!two) throw new Error('post missing');
+      two.innerHTML = `<p>POST TWO</p><img src="${IMG}"><p>Reply two.</p>`;
+      // Retry pins the node its old run used.
+      pinContextMenuImage(old);
+      expect(collectImageContext(IMG, 'minimal', document, loc)?.afterText).toBe('Reply two.');
     } finally {
       document.removeEventListener('contextmenu', rememberContextMenuTarget, true);
     }

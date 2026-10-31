@@ -160,18 +160,24 @@ export function pinContextMenuImage(img: HTMLImageElement): void {
   contextMenuImage = img;
 }
 
-/** The image a menu click names by its source: the right-clicked copy, else the first with a box, else the first. */
+// Each resolved copy's place among the images with its source, to find it again once the page re-renders it in place.
+const copyIndex = new WeakMap<HTMLImageElement, number>();
+
+/** The image a menu click names by its source: `copy` (the right-clicked one by default), else the first with a box,
+ *  else the first. A `copy` the page has since re-rendered resolves to the image now in its place. */
 export function clickedImage(
   imageUrl: string,
   doc: Document = document,
+  copy: HTMLImageElement | null = contextMenuImage,
 ): HTMLImageElement | undefined {
   const named = (img: HTMLImageElement): boolean =>
     img.currentSrc === imageUrl || img.src === imageUrl;
-  if (contextMenuImage && doc.contains(contextMenuImage) && named(contextMenuImage)) {
-    return contextMenuImage;
-  }
   const matches = Array.from(doc.images).filter(named);
-  return matches.find(hasBox) ?? matches[0];
+  let at: number | undefined;
+  if (copy && named(copy)) at = doc.contains(copy) ? matches.indexOf(copy) : copyIndex.get(copy);
+  const found = at === undefined ? (matches.find(hasBox) ?? matches[0]) : matches[at];
+  if (found) copyIndex.set(found, matches.indexOf(found));
+  return found;
 }
 
 function hasBox(img: HTMLImageElement): boolean {
