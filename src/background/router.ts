@@ -728,6 +728,15 @@ export function createRouter(deps: RouterDeps) {
     }
   }
 
+  /** Counts an id as started before its run, so Cancel all reaches an image still reading its page; returns the release. */
+  function begin(reqId: string): () => void {
+    started.add(reqId);
+    return () => {
+      started.delete(reqId);
+      cancelRequested.delete(reqId);
+    };
+  }
+
   /** Aborts every tracked request (the panel's Cancel all) and returns how many it aborted. */
   function cancelAll(): number {
     let count = 0;
@@ -751,6 +760,7 @@ export function createRouter(deps: RouterDeps) {
     handleTranslate,
     handleImageTranslate,
     handleImageExplain,
+    begin,
     cancel,
     cancelAll,
     /** Bust the probe-cache so a freshly-installed backend / API key is

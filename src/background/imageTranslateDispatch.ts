@@ -46,6 +46,8 @@ export interface ImageTranslateDispatchDeps {
       onChunk: (c: TranslationChunk) => void,
       meta: { surface: AuditSurface },
     ) => Promise<void>;
+    /** Marks the request started before the page read, so Cancel all reaches it; returns the release. */
+    begin?: (requestId: string) => () => void;
   };
   broadcast: (msg: Msg) => void;
   sendToTab: (tabId: number, msg: Msg) => void;
@@ -65,6 +67,7 @@ export async function dispatchImageTranslate(deps: ImageTranslateDispatchDeps): 
   const windowScope = deps.windowId !== undefined ? { windowId: deps.windowId } : {};
   // Tracked before the page read, so a Stop or tab close during it cancels; the side panel outlives the tab and never registers.
   const releaseTab = surface !== 'sidepanel' ? deps.trackTab?.(requestId) : undefined;
+  const releaseStart = router.begin?.(requestId);
   try {
     // Vision calls run for seconds; the tab mounts its loading tooltip on this message, so it goes before the page read.
     if (surface !== 'sidepanel') {
@@ -193,6 +196,7 @@ export async function dispatchImageTranslate(deps: ImageTranslateDispatchDeps): 
     }
   } finally {
     releaseTab?.();
+    releaseStart?.();
   }
 }
 
