@@ -241,9 +241,10 @@ not for hits across pages or restarts. `src/shared/perf-history.ts` is the secon
 in-memory store, and it dies the same way: the last `PERF_BUFFER_MAX` request results,
 feeding the latency percentiles in Advanced.
 
-One user-data location sits outside the browser. During a native-CLI image translate the
-host writes the image to `ega-img-<uuid>.<ext>` in the OS temp folder, mode `0600`, and
-deletes it when the request ends — the CLI takes a file path, not bytes.
+One user-data location sits outside the browser. During a native-CLI image translate on `codex`
+the host writes the image to `ega-img-<uuid>.<ext>` in the OS temp folder, mode `0600`, and
+deletes it when the request ends — `codex` takes a file path, not bytes. `claude` gets the bytes
+on stdin, so it leaves no file.
 
 **Delete all data** clears `chrome.storage.local`, `chrome.storage.session`, the in-memory
 cache and the two Settings-page `localStorage` keys. It does not touch the two `sessionStorage`
@@ -346,11 +347,12 @@ Loopback (`127.0.0.0/8`) and private ranges such as `10.0.0.0/8` and
 image, so the browser could already reach the host.
 
 The image is then base64-encoded and sent to the backend you picked — which
-may be a local one. On the native CLI backend it also lands on disk on the way:
-the host writes the decoded picture to your OS temp folder as `ega-img-<uuid>`
-before spawning the CLI, because those CLIs take an attachment by path
+may be a local one. On the native CLI backend with `codex` it also lands on disk on
+the way: the host writes the decoded picture to your OS temp folder as `ega-img-<uuid>`
+before spawning the CLI, because `codex` takes an image by path
 (`native-host/ega-host.mjs#handleTranslateImage`). It is unlinked on completion
-and on error, but a killed host leaves the file behind.
+and on error, but a killed host leaves the file behind. `claude` reads the image on
+stdin, so nothing is written for it.
 
 **3. Backend API calls.** `<all_urls>` covers every provider, so the manifest
 does not list them one by one. The full set Ega can call:

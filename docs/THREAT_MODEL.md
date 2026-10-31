@@ -71,10 +71,11 @@ In priority order:
      Pick twenty paragraphs and the provider gets twenty paragraphs.
    - **The image path** sends the image itself, base64-encoded and up to 4 MB —
      the largest single request Ega makes — plus the text read out of it. On the
-     native CLI backend the picture is also written to the OS temp folder as
-     `ega-img-<uuid>` before the CLI starts
+     native CLI backend with `codex` the picture is also written to the OS temp folder
+     as `ega-img-<uuid>` before the CLI starts
      (`native-host/ega-host.mjs#handleTranslateImage`); deletion is best-effort, so a
-     killed host leaves it on disk.
+     killed host leaves it on disk. `claude` gets the bytes on stdin, so no file is
+     written for it.
    - **The selection plus its context halo.** At the `rich` context level Ega
      sends the page title, the URL origin and path, `<html lang>`, the meta
      description, `og:site_name`, the heading trail, the text before and after
@@ -357,8 +358,8 @@ that opens a token, in both the system and user prompt, before they reach the CL
 but the CLI's quoted form no longer matches and its bare form names a file whose name
 starts with U+2060, which does not exist. An `@` with a word character in front of it,
 as in `me@example.com`, is left alone. A `codex` prompt goes as typed: `codex exec` reads
-no `@` attachments. The image path adds its own quoted
-`@"<temp file>"` after this step. `native-host/test/host.test.mjs#cliFileRefs` runs the CLI's own two
+no `@` attachments. A `claude` image goes in as an image block in the stream-json
+message, not as an `@` path. `native-host/test/host.test.mjs#cliFileRefs` runs the CLI's own two
 patterns over what the CLI receives.
 
 ### A hostile prompt making the `claude` child use tools

@@ -1,6 +1,6 @@
 # Ega Privacy Policy
 
-_Last updated: 2026-10-02. Applies to Ega 0.0.1._
+_Last updated: 2026-10-31. Applies to Ega 0.0.1._
 
 ## Summary
 
@@ -302,7 +302,7 @@ Ega ships no other destination.
 | Translation cache                                | service-worker memory only                                                                                 | 500 entries, 5 minutes. Never written to disk; gone when the worker stops.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | Request timings                                  | service-worker memory only                                                                                 | Last 128 requests (`src/shared/perf-history.ts#PERF_BUFFER_MAX`): backend id, language pair, timings, token counts, and an error code when one failed. Not the text and not the answer. Gone when the worker stops.                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | Nine short-lived slots — see below               | `chrome.storage.session`                                                                                   | Cleared when the browser closes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| Image bytes, during native CLI image translation | a plain file in the OS temp folder, named `ega-img-*`                                                      | Written outside `chrome.storage`. Deleted when the request ends. A killed host leaves it on disk — see below.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| Image bytes, during native CLI image translation | a plain file in the OS temp folder, named `ega-img-*`                                                      | Only the `codex` CLI gets this file; `claude` reads the image on stdin. Written outside `chrome.storage`. Deleted when the request ends. A killed host leaves it on disk — see below.                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 
 All `chrome.storage.local` keys share one 10 MB budget. When a side-panel save does not fit,
 Ega drops that thread's images first, then deletes the oldest saved thread of another site and
@@ -400,10 +400,10 @@ keeps the last one in its own memory and gives it to the popup when asked
 ### The temp image file
 
 The image does reach the host program as bytes: the extension posts it base64-encoded over the
-native-messaging port (`src/shared/backends/native.ts#translateImage`). The step that needs a file is the
-next one — the `claude` and `codex` CLIs take an attachment by path, not on stdin. So the host
-decodes those bytes and writes the full image to your OS temp folder before it spawns the CLI
-(`native-host/ega-host.mjs#handleTranslateImage`).
+native-messaging port (`src/shared/backends/native.ts#translateImage`). The `claude` CLI gets those
+bytes on stdin, as an image block in its stream-json message, so no file is written. The `codex` CLI
+takes an image by path, not on stdin. So for `codex` the host decodes the bytes and writes the full
+image to your OS temp folder before it spawns the CLI (`native-host/ega-host.mjs#handleTranslateImage`).
 
 - The file holds the picture itself, not a link to it.
 - The host deletes it as soon as the CLI finishes or fails.
