@@ -48,12 +48,14 @@ Five notes on that table.
 - **A right-clicked image anchors page context at the image.** "Explain image" and the image
   tasks you write collect what a selection collects, around the image, plus the image's alt text
   and its figure caption (`src/content/page-context-collector.ts#collectImageContext`). An
-  image inside a frame is out of the page's reach, so it gets the side panel's page-level set.
-  "Translate image" sends none of it: its built-in image prompt takes no page info. A task with
-  page context off on the Tasks tab does not read the page at all. An image inside a draft or a
-  text box on the page itself sends no page context; see "Sensitive inputs Ega will not read".
-  A draft inside a frame or a shadow root is out of the page's reach too, so its image gets the
-  page-level set, never the text around the image.
+  image inside a frame or a shadow root is out of the page's reach, so it gets the side panel's
+  page-level set. When the page itself also shows the same picture, Ega anchors at that copy
+  instead and sends what it collects there: the text around that copy, its alt text and its
+  caption (`src/content/page-context-collector.ts#clickedImage`). "Translate image" sends none
+  of it: its built-in image prompt takes no page info. A task with page context off on the Tasks
+  tab does not read the page at all. An image inside a draft or a text box on the page itself
+  sends no page context; see "Sensitive inputs Ega will not read". The text of a draft inside a
+  frame or a shadow root never goes, because the page cannot reach it.
 
 ## What runs without a click
 
@@ -464,7 +466,9 @@ one-time-code fields stay blocked on every path.
 with `data-ega-skip` on it or above it, sends no page context: you picked the image, not the
 draft around it. Ega cannot find an image in a composer inside a frame or a shadow root, so it
 cannot run this check there. That image gets the page-level set: the title and the URL, and with
-"Rich" also the page language, description, site name and headings. The draft text never leaves.
+"Rich" also the page language, description, site name and headings. When the page itself also
+shows the same picture, Ega checks and reads around that copy instead, so the text around it, its
+alt text and its caption go. The draft text never leaves.
 
 "Choose areas" runs the same sensitive-field check on every click, and refuses more on top
 of it. It will not select `<html>`, `<body>` or `<head>` — replacing one of those in place
