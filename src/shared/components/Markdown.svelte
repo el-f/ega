@@ -1,6 +1,5 @@
 <script lang="ts">
-  // `marked` and DOMPurify load lazily so the shell stays light until the first turn;
-  // raw text renders in a `<pre>` meanwhile. Sanitizer config: markdown-loader.ts.
+  // The renderer loads on first use, and raw text shows in a `<pre>` until then. Sanitizer: markdown-loader.ts.
 
   import { loadMarkdownRenderer } from './markdown-loader';
   import { debugCatch } from '@/shared/logger';

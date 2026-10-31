@@ -87,6 +87,23 @@ describe('askQuote', () => {
     expect(askQuote({ content: '| a | **b** |\n|---|---|\n| 1 | 2 |' })).toBe('a b');
   });
 
+  it('shows an HTML entity in text as the panel does, and as typed in code or a plain reply', () => {
+    expect(askQuote({ content: 'Tom &amp; Jerry&#39;s &lt;3 &#x1F600; &amp;lt;' })).toBe(
+      "Tom & Jerry's <3 😀 &lt;",
+    );
+    // The panel decodes only an entity that ends in a semicolon.
+    expect(askQuote({ content: '&amp and &nosuch; &constructor;' })).toBe(
+      '&amp and &nosuch; &constructor;',
+    );
+    expect(askQuote({ content: '`&amp;` and <i title="&amp;&#39;">' })).toBe(
+      `&amp; and <i title="&'">`,
+    );
+    expect(askQuote({ content: '```\n&lt;div&gt;\n```' })).toBe('&lt;div&gt;');
+    expect(askQuote({ content: '<div>&amp;</div>' })).toBe('<div>&amp;</div>');
+    const answer = { spec: CUSTOM_PRESETS['answer-only'], fields: {} };
+    expect(askQuote({ content: 'Tom &amp; Jerry', answer })).toBe('Tom &amp; Jerry');
+  });
+
   it('quotes raw HTML by its source, as the panel shows it', () => {
     expect(askQuote({ content: '<div>\nhello\n</div>' })).toBe('<div>');
     expect(askQuote({ content: 'x <b>y</b>' })).toBe('x <b>y</b>');

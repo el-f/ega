@@ -7,18 +7,43 @@ import { MARKDOWN_OPTIONS } from '@/shared/components/markdown-loader';
 const QUOTE_MAX = 200;
 const markdown = new Marked(MARKDOWN_OPTIONS);
 
+// shortcut: six named entities and no C1 remap; add the full HTML table if replies use others.
+const NAMED = new Map([
+  ['amp', '&'],
+  ['lt', '<'],
+  ['gt', '>'],
+  ['quot', '"'],
+  ['apos', "'"],
+  ['nbsp', '\u00a0'],
+]);
+// The references marked leaves for the browser: a name or a 1-7 digit or 1-6 hex number, then a semicolon.
+const ENTITY = /&(?:#(\d{1,7})|#x([\da-f]{1,6})|(\w+));/gi;
+
+/** Text with its character references as the browser shows them. */
+function decoded(text: string): string {
+  return text.replace(ENTITY, (ref, dec?: string, hex?: string, name?: string) => {
+    if (name !== undefined) return NAMED.get(name) ?? ref;
+    const cp = dec !== undefined ? Number.parseInt(dec, 10) : Number.parseInt(hex ?? '', 16);
+    return cp === 0 || cp > 0x10ffff || (cp >= 0xd800 && cp <= 0xdfff)
+      ? '\uFFFD'
+      : String.fromCodePoint(cp);
+  });
+}
+
 /** The text a token shows in the panel: code and raw HTML as their source, Markdown marks and markers gone. */
 function shown(token: Token): string {
   // A Generic token comes only from an extension, and this lexer has none.
   const t = token as MarkedToken;
   switch (t.type) {
     case 'code':
-    case 'html':
     case 'codespan':
     case 'escape':
       return t.text;
+    case 'html':
+      // A block shows as code; inline HTML shows as text, where the browser decodes its entities.
+      return t.block ? t.text : decoded(t.text);
     case 'text':
-      return t.tokens ? inline(t.tokens) : t.text;
+      return t.tokens ? inline(t.tokens) : decoded(t.text);
     case 'heading':
     case 'paragraph':
     case 'strong':
