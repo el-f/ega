@@ -357,8 +357,8 @@ function editorFit(
   });
 }
 
-// 520px: the card opens below the selection with about 250px for its rows. 460px: the 200px floor.
-for (const height of [520, 460]) {
+// 600px: room for the whole editor in Windows and Linux fonts. 520px: about 250px for its rows. 460px: the 200px floor.
+for (const height of [600, 520, 460]) {
   test(`Describe a change in a short card keeps every row inside the card at ${height}px`, async ({
     browserName: _browserName,
   }, info) => {
@@ -372,8 +372,8 @@ for (const height of [520, 460]) {
 
     await expect.poll(() => editorFit(page)).toMatchObject({ spill: 0, inView: true });
     await page.screenshot({ path: info.outputPath(`tooltip-editor-short-${height}.png`) });
-    // Above the floor the whole editor shows; at the floor it scrolls inside the card.
-    if (height === 520) {
+    // With room the whole editor shows; in a shorter card it scrolls inside the card.
+    if (height === 600) {
       expect(await editorFit(page)).toMatchObject({ input: 'whole', apply: 'whole' });
     }
   });

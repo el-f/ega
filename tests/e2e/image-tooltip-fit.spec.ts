@@ -134,8 +134,12 @@ async function fit(page: Page, toEnd = false): Promise<Fit> {
       }
       return new DOMRect(left, top, Math.max(0, right - left), Math.max(0, bottom - top));
     };
-    const share = (el: Element): number =>
-      Math.round((100 * shown(el).height) / Math.max(1, el.getBoundingClientRect().height)) / 100;
+    // Within 1px counts as whole: Linux CI fonts land the last line a sub-pixel short of the region edge.
+    const share = (el: Element): number => {
+      const full = el.getBoundingClientRect().height;
+      const seen = shown(el).height;
+      return seen >= full - 1 ? 1 : Math.round((100 * seen) / Math.max(1, full)) / 100;
+    };
     const box = card.getBoundingClientRect();
     const outside: string[] = [];
     if (box.top < 0 || box.bottom > window.innerHeight) {
