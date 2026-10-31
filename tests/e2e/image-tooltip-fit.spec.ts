@@ -311,6 +311,15 @@ for (const { width, height } of [
     await expect.poll(() => fit(page)).toMatchObject({ outside: [], firstLine: true });
     // The preview gives way first, so neither the answer nor About is squeezed into a sliver.
     await expect.poll(() => twoLinesEach(page)).toBe('ok');
+    // The preview row adds no gap of its own, so once it shrinks to 0px no blank band stays under the title.
+    const band = await page.locator('.tooltip .tooltip-reply').evaluate((reply) => {
+      const title = reply.querySelector('.tooltip-topbar')?.getBoundingClientRect().bottom ?? NaN;
+      const preview = reply.querySelector('.tooltip-image-wrap')?.getBoundingClientRect();
+      const answer = reply.querySelector('.tooltip-scroll')?.getBoundingClientRect().top ?? NaN;
+      const gap = Number.parseFloat(getComputedStyle(reply).rowGap);
+      return Math.round(answer - title - (preview?.height ?? NaN) - gap);
+    });
+    expect(band).toBe(0);
   });
 
   test(`a loading image card keeps its rows and Stop inside the card at ${width}px`, async ({

@@ -193,6 +193,11 @@
 /* With About open the preview gives way first, so About and the answer keep readable heights. */
 .tooltip .tooltip-reply:has(> .ega-tooltip-details) .tooltip-image-wrap {
   flex-shrink: 1000000;
+  /* The image's margin stands in for the row gap, so a preview shrunk to 0px leaves no blank band under the title. */
+  margin-block-end: calc(-1 * var(--space-2));
+}
+.tooltip .tooltip-reply:has(> .ega-tooltip-details) .tooltip-image-source {
+  margin-block-end: calc(var(--space-1) + var(--space-2));
 }
 .tooltip .tooltip-image-wrap.is-loading .tooltip-image-source {
   filter: brightness(0.7);
