@@ -188,9 +188,16 @@ started it:
 The image entry records the prompt and the answer, not the image bytes. The
 picture itself is never copied into the log.
 
-Two cases write nothing, because no request was built: a backend that reports
-itself unreachable while another one in the chain answers, and a "Test now" that
-fails its availability probe.
+Four cases write nothing:
+
+- A backend that reports itself unreachable while another one in the chain
+  answers. No request was built for it.
+- A "Test now" that fails its availability probe. No request was built.
+- An image request stopped while Ega still reads the page around the picture:
+  Stop, closing the tab, **Cancel all** or **Delete all data**. It ends before
+  any backend is asked.
+- A request that was still running when you cleared Recent requests or used
+  **Delete all data**. Its row would bring back the text you deleted.
 
 Two more write a row even though no backend was called. A cache hit records the
 reply it served (`src/background/router.ts#serveFromCache`), and a translate with
