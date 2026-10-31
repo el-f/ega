@@ -90,26 +90,46 @@ export async function dispatchImageTranslate(deps: ImageTranslateDispatchDeps): 
       ...(deps.pageHost !== undefined ? { pageHost: deps.pageHost } : {}),
     };
 
-    if (surface === 'sidepanel') {
-      // A Cancel all during the page read (Delete all data wipes storage right after it) gets no seed, only the run's ABORTED.
-      if (start?.cancelled() !== true) {
-        // Queue as well as broadcast: a panel still opening drains the queue on mount.
-        await enqueuePendingImageSeed({
+    // Delete all data wipes right after Cancel all, and its audit clear keeps a row whose run starts later: write no page text.
+    const endIfCancelled = (): boolean => {
+      if (start?.cancelled() !== true) return false;
+      const error = { code: 'ABORTED', message: 'cancelled' } as const;
+      if (surface === 'sidepanel') {
+        broadcast({ kind: 'translate:chunk', chunk: { type: 'error', requestId, ...error } });
+      } else {
+        sendToTab(tabId, {
+          kind: 'content:image-translate-result',
           requestId,
+          translation: '',
           imageUrl,
           task,
-          ...sentContext,
-          ...windowScope,
-        }).catch(() => {});
-        broadcast({
-          kind: 'sidepanel:seed-image-translate',
-          requestId,
-          imageUrl,
-          task,
-          ...sentContext,
-          ...windowScope,
+          error,
         });
       }
+      return true;
+    };
+    if (endIfCancelled()) return;
+
+    if (surface === 'sidepanel') {
+      // Queue as well as broadcast: a panel still opening drains the queue on mount.
+      await enqueuePendingImageSeed({
+        requestId,
+        imageUrl,
+        task,
+        ...sentContext,
+        ...windowScope,
+      }).catch(() => {});
+      // The enqueue can wait on a mounting panel's seed lock, and the wipe does not take it.
+      if (start?.cancelled() === true) await removePendingImageSeed(requestId).catch(() => {});
+      if (endIfCancelled()) return;
+      broadcast({
+        kind: 'sidepanel:seed-image-translate',
+        requestId,
+        imageUrl,
+        task,
+        ...sentContext,
+        ...windowScope,
+      });
       let failed = false;
       try {
         await runVision(

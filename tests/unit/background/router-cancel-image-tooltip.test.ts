@@ -5,6 +5,8 @@ import { baseDeps } from '@tests/_helpers/router';
 import { testManifest } from '@tests/_helpers/backend';
 import { asBackendIdUnsafe } from '@/shared/brands';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
+import { clearAuditLog, readAuditLog } from '@/shared/audit-log';
+import { drainPendingImageSeeds } from '@/shared/pending-image-seed';
 import type { TranslateImageArgs, TranslationBackend } from '@/shared/backends/base';
 import type { Msg } from '@/shared/messages';
 import type { TranslationChunk } from '@/shared/types';
@@ -43,6 +45,23 @@ function lateAbortVision(): TranslationBackend & { entered: Promise<void> } {
 afterEach(() => {
   vi.unstubAllGlobals();
 });
+
+/** Delete all data in Advanced: Cancel all, then the storage wipe and the audit clear. */
+async function deleteAllData(router: { cancelAll: () => number }): Promise<void> {
+  expect(router.cancelAll()).toBe(1);
+  await chrome.storage.session.clear();
+  await chrome.storage.local.clear();
+  await clearAuditLog();
+}
+
+/** Nothing the wiped run writes may carry the page text: no audit row, no seed, no other key. */
+async function expectNoPageTextStored(): Promise<void> {
+  // The router writes its audit row without awaiting it; a macrotask lets that write land.
+  await new Promise((r) => setTimeout(r, 0));
+  expect(await readAuditLog()).toEqual([]);
+  expect(JSON.stringify(await chrome.storage.local.get(null))).not.toContain('SECRET');
+  expect(await chrome.storage.session.get(null)).toEqual({});
+}
 
 describe('a cancel the tooltip did not start (Cancel all, Delete all data)', () => {
   it('reaches the tooltip as Stopped, not as a blank finished answer', async () => {
@@ -155,13 +174,14 @@ describe('a cancel the tooltip did not start (Cancel all, Delete all data)', () 
       );
     });
 
-    expect(router.cancelAll()).toBe(1);
-    answerRead({ context: { pageTitle: 'Inbox' } });
+    await deleteAllData(router);
+    answerRead({ context: { pageTitle: 'Inbox', beforeText: 'SECRET text around the image' } });
     await run;
 
     expect(translateImage).not.toHaveBeenCalled();
     const result = sent.find((m) => m.kind === 'content:image-translate-result');
     expect(result).toMatchObject({ requestId: 'img-read', error: { code: 'ABORTED' } });
+    await expectNoPageTextStored();
   });
 
   it('stops a side-panel request still reading the page from writing its seed after the wipe', async () => {
@@ -211,19 +231,93 @@ describe('a cancel the tooltip did not start (Cancel all, Delete all data)', () 
       );
     });
 
-    // Delete all data: Cancel all, then the storage wipe, both while the page read is still out.
-    expect(router.cancelAll()).toBe(1);
-    await chrome.storage.session.clear();
-    answerRead({ context: { pageTitle: 'Inbox', beforeText: 'text around the image' } });
+    // Delete all data while the page read is still out.
+    await deleteAllData(router);
+    answerRead({ context: { pageTitle: 'Inbox', beforeText: 'SECRET text around the image' } });
     await run;
 
     expect(translateImage).not.toHaveBeenCalled();
-    expect(await chrome.storage.session.get(null)).toEqual({});
+    await expectNoPageTextStored();
     // No seed reaches the panel; only the terminal ABORTED goes out.
     expect(broadcast).toEqual([
       {
         kind: 'translate:chunk',
         chunk: expect.objectContaining({ type: 'error', requestId: 'img-sp', code: 'ABORTED' }),
+      },
+    ]);
+  });
+
+  it('removes a seed whose write waited on a draining panel past the wipe', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.reject(new DOMException('aborted', 'AbortError'))),
+    );
+    let answerRead: (reply: unknown) => void = () => {};
+    const tabSend = chrome.tabs.sendMessage as unknown as Mock;
+    tabSend.mockImplementation((_tabId: number, m: Msg) =>
+      m.kind === 'ega:get-page-context'
+        ? new Promise((r) => {
+            answerRead = r;
+          })
+        : Promise.resolve({ ok: true }),
+    );
+    const backend = lateAbortVision();
+    const translateImage = vi.spyOn(backend, 'translateImage');
+    const settings = {
+      ...DEFAULT_SETTINGS,
+      anthropicApiKey: 'k',
+      disabledBackends: [],
+      cacheEnabled: false,
+      contextEnabled: true,
+    };
+    const router = createRouter(
+      baseDeps({ backends: [backend], getSettings: async () => settings }),
+    );
+    const broadcast: Msg[] = [];
+    const run = dispatchImageTranslate({
+      tabId: 7,
+      imageUrl: 'https://example.com/img.png',
+      requestId: 'img-lock',
+      task: 'explain',
+      surface: 'sidepanel',
+      windowId: 1,
+      getSettings: async () => settings,
+      router,
+      broadcast: (m) => broadcast.push(m),
+      sendToTab: () => {},
+      logger: { error: () => {} },
+    });
+    await vi.waitFor(() => {
+      expect(tabSend).toHaveBeenCalledWith(
+        7,
+        expect.objectContaining({ kind: 'ega:get-page-context' }),
+      );
+    });
+
+    // The panel the same click opened drains on mount and holds the seed lock while it reads.
+    let releaseDrain: () => void = () => {};
+    const held = new Promise<Record<string, unknown>>((r) => {
+      releaseDrain = () => r({});
+    });
+    // The callback overload types get() as void; this read is the promise form.
+    const promiseArea = chrome.storage.session as unknown as { get: () => Promise<unknown> };
+    const sessionGet = vi.spyOn(promiseArea, 'get').mockReturnValueOnce(held);
+    const drain = drainPendingImageSeeds(1);
+    answerRead({ context: { pageTitle: 'Inbox', beforeText: 'SECRET text around the image' } });
+    // Dispatch passes its cancel check and waits on the lock to write the seed.
+    await new Promise((r) => setTimeout(r, 0));
+    await deleteAllData(router);
+    releaseDrain();
+    await drain;
+    await run;
+    sessionGet.mockRestore();
+
+    expect(translateImage).not.toHaveBeenCalled();
+    await expectNoPageTextStored();
+    expect(broadcast).toEqual([
+      {
+        kind: 'translate:chunk',
+        chunk: expect.objectContaining({ type: 'error', requestId: 'img-lock', code: 'ABORTED' }),
       },
     ]);
   });
