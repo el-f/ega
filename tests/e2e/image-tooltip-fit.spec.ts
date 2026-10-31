@@ -251,3 +251,21 @@ test('a long one-word custom task name wraps in the header and keeps Close on th
 
   await expect.poll(() => fit(page)).toMatchObject({ outside: [] });
 });
+
+test('long error details wrap inside the image card instead of scrolling sideways', async ({
+  browserName: _browserName,
+}, info) => {
+  const message =
+    'upstream request failed with status 502 while reading the response body from the provider gateway';
+  const { page, send } = await chartPage('light', 400, 720);
+  await send({ translation: '', task: 'c-chart', error: { code: 'NETWORK', message } });
+  await page.getByRole('button', { name: /^Details/ }).click();
+  await expect(page.locator('.tooltip .tooltip-error-details')).toHaveText(message);
+  await page.screenshot({ path: info.outputPath('image-tooltip-error-details.png') });
+
+  await expect
+    .poll(() =>
+      page.locator('.tooltip .tooltip-scroll').evaluate((el) => el.scrollWidth - el.clientWidth),
+    )
+    .toBe(0);
+});

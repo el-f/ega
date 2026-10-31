@@ -298,6 +298,9 @@
   font-weight: 600;
 }
 .tooltip .tooltip-error-details {
+  /* A <pre> keeps the provider's line breaks; it wraps so the scroll region never scrolls sideways. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   margin-top: var(--space-1);
   font-size: var(--fs-xs);
   color: var(--color-muted);
