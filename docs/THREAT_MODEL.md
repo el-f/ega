@@ -659,6 +659,12 @@ the hotkey path even though the bubble refuses it there, so the field-name
 pattern (`src/content/safety.ts#SENSITIVE_NAME_RE`) is the only thing between a
 secret pasted into a chat box and your provider.
 
+A right-clicked image does not get this exception. The user picks the image, not
+the draft around it, so the text around an image inside a `contenteditable`
+element or under `role="textbox"` would be an unsent draft. The image items run
+the whole check from the image up (`src/content/safety.ts#imageIsSensitive`)
+and send no page context there.
+
 ### Dictation sends your voice to Google
 
 The side-panel mic button uses the browser's Web Speech API
