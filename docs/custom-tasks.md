@@ -10,7 +10,7 @@ The screenshots show replies from Claude Opus 5.5 through the native host and th
 
 Right-click a photo of a bilingual sign, or select a text and its translation together, and get what the translation changed, lost or added, with a verdict (here この先 on a hotel sign means "beyond this point", not "the future").
 
-<img src="media/tasks/lost-in-translation.png" alt="Ega reply on a photo of a sign whose Japanese says the area ahead is dangerous and whose English says The future is dangerous: Changed, この先 means beyond this point here, not the future; Lost, the お願い heading; Verdict Meaning changed" width="480">
+<img src="media/tasks/lost-in-translation.png" alt="Ega reply on a photo of a sign whose Japanese says the area ahead is dangerous and whose English says The future is dangerous: Changed, この先 means beyond this point here, not the future; Lost, ので (because), so the English splits the warning into two unrelated sentences; Verdict Meaning changed" width="480">
 
 <details><summary>Prompt and fields</summary>
 
@@ -182,7 +182,7 @@ Send page context: on. Language: target language.
 
 Put your measurements in the task's instructions once, then right-click a size chart image or select a size table and get your size (here XL, because the chart gives half the chest width: 53 cm x 2 = 106 cm, 8 cm more than your chest).
 
-<img src="media/tasks/my-size.png" alt="Ega reply on a T-shirt size chart image with widths a and b in inches and cm: XL, a 53 cm x 2 = 106 cm chest, 8 cm of ease; Fit In range; Close call L, 101 cm, 3 cm over" width="480">
+<img src="media/tasks/my-size.png" alt="Ega reply on a T-shirt size chart image with widths a and b in inches and cm: XL, a 53 cm x 2 = 106 cm chest, 8 cm of ease; Fit In range; Close call L, 101 cm, only 3 cm over" width="480">
 
 <details><summary>Prompt and fields</summary>
 
