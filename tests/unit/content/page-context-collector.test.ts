@@ -4,6 +4,7 @@ import {
   collectImageContext,
   collectPageContext,
   collectPageLevelContext,
+  rememberContextMenuTarget,
 } from '@/content/page-context-collector';
 
 function makeDoc(html: string, title = ''): Document {
@@ -431,5 +432,71 @@ describe('collectImageContext (right-clicked image)', () => {
   it('an image inside a data-ega-skip region sends no page context, as a selection there sends none', () => {
     shopPage((s) => `<div data-ega-skip>${s}</div>`);
     expect(collectImageContext(IMG, 'rich', document, loc)).toBeNull();
+  });
+
+  it('data-ega-skip on the image itself sends no page context and no alt text', () => {
+    document.body.innerHTML = `<p>Around words <img data-ega-skip src="${IMG}" alt="private alt"> more</p>`;
+    expect(collectImageContext(IMG, 'rich', document, loc)).toBeNull();
+  });
+
+  // The user picked the image, not the unsent draft around it; the bubble refuses this region too.
+  it.each([
+    [
+      'contenteditable="true"',
+      `<div contenteditable="true">Dear Bob, my PIN is 4417. <img src="${IMG}"> Delete after reading.</div>`,
+    ],
+    [
+      'contenteditable=""',
+      `<div contenteditable="">Draft words <img src="${IMG}"> more draft</div>`,
+    ],
+    [
+      'contenteditable="plaintext-only"',
+      `<div contenteditable="plaintext-only">Draft <img src="${IMG}"> words</div>`,
+    ],
+    [
+      'role="textbox"',
+      `<div role="textbox">Private draft words <span><img src="${IMG}"></span> more draft</div>`,
+    ],
+    [
+      'a non-editable island in a draft',
+      `<div contenteditable="true">Draft <span contenteditable="false"><img src="${IMG}"></span> words</div>`,
+    ],
+  ])('an image inside a draft (%s) sends no page context', (_name, html) => {
+    document.body.innerHTML = `<p>Inbox</p>${html}<p>Footer</p>`;
+    expect(collectImageContext(IMG, 'rich', document, loc)).toBeNull();
+  });
+
+  it('a page that is not editable keeps its context', () => {
+    document.body.innerHTML = `<div contenteditable="false">Words before <img src="${IMG}"> words after</div>`;
+    expect(collectImageContext(IMG, 'minimal', document, loc)).toMatchObject({
+      beforeText: 'Words before ',
+      afterText: ' words after',
+    });
+  });
+
+  it("takes the image's own caption, not a nested figure's", () => {
+    document.body.innerHTML = `<figure><figure><img src="https://example.com/other.png"><figcaption>Inner other</figcaption></figure><img src="${IMG}"><figcaption>Outer caption</figcaption></figure>`;
+    expect(collectImageContext(IMG, 'minimal', document, loc)?.imageCaption).toBe('Outer caption');
+  });
+
+  it('a picture repeated on the page: the copy the user right-clicked anchors the context', () => {
+    document.body.innerHTML = `<article><p>First post by Ann.</p><img src="${IMG}"></article>
+      <article><p>Second post by Ann.</p><img src="${IMG}"><p>Its reply.</p></article>`;
+    const second = document.images[1];
+    if (!second) throw new Error('second image missing');
+    document.addEventListener('contextmenu', rememberContextMenuTarget, true);
+    try {
+      second.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+      const ctx = collectImageContext(IMG, 'minimal', document, loc);
+      expect(ctx?.beforeText).toContain('Second post by Ann.');
+      expect(ctx?.afterText).toBe('Its reply.');
+      // A later right-click on text names no image, so the menu falls back to the first copy.
+      document.querySelector('p')?.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+      expect(collectImageContext(IMG, 'minimal', document, loc)?.beforeText).toBe(
+        'First post by Ann.',
+      );
+    } finally {
+      document.removeEventListener('contextmenu', rememberContextMenuTarget, true);
+    }
   });
 });

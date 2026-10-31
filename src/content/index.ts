@@ -27,6 +27,7 @@ import {
   collectImageContext,
   collectPageContext,
   collectPageLevelContext,
+  rememberContextMenuTarget,
   type CollectPageContextTunables,
 } from './page-context-collector';
 import { perfStart, perfDump, perfRecord } from '@/shared/perf-timings';
@@ -373,11 +374,14 @@ function handleKeydown(e: KeyboardEvent): void {
   })().catch((err) => debugCatch(err, 'content.keydown'));
 }
 document.addEventListener('keydown', handleKeydown);
+// Capture phase, so a page that stops the event still tells us which image the menu is for.
+document.addEventListener('contextmenu', rememberContextMenuTarget, true);
 
 // After an extension update the injected script keeps running with a dead chrome.runtime.
 function teardownContent(): void {
   document.removeEventListener('selectionchange', handleSelectionChange);
   document.removeEventListener('keydown', handleKeydown);
+  document.removeEventListener('contextmenu', rememberContextMenuTarget, true);
   uninstallUrlWatcher();
   window.removeEventListener('beforeunload', teardownPageV2);
   window.removeEventListener('pagehide', teardownPageV2);

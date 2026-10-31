@@ -14,7 +14,7 @@ import {
 } from '@/shared/constants';
 import { omitUndef } from '@/shared/utils/omitUndef';
 import { extractPostBlockText } from './post-block';
-import { selectionIsSensitive } from './safety';
+import { imageIsSensitive } from './safety';
 import { textAround, visibleText } from './selection';
 
 const HEADING_TAG_SET_PAGE = new Set(['H1', 'H2', 'H3', 'H4', 'H5', 'H6']);
@@ -117,7 +117,7 @@ export function collectPageContext(
 }
 
 /** The selection collector anchored at a right-clicked image, plus its alt text and figure caption. An image no longer
- *  on the page gets the page-level context; one in a secret field's region or under `data-ega-skip` gets null. */
+ *  on the page gets the page-level context; one in an editor, a secret field's region or under `data-ega-skip` gets null. */
 export function collectImageContext(
   imageUrl: string,
   level: 'minimal' | 'rich',
@@ -127,12 +127,13 @@ export function collectImageContext(
 ): PageContext | null {
   const img = clickedImage(imageUrl, doc);
   if (!img) return collectPageLevelContext(level, doc, loc, tunables);
+  // Checked from the image up: the walk around it would read the region it sits in.
+  if (imageIsSensitive(img)) return null;
   const range = doc.createRange();
   range.selectNode(img);
-  // The selection's own gate: the walk around the image would read the region it sits in.
-  if (selectionIsSensitive(range, null)) return null;
   const alt = img.alt.trim();
-  const caption = img.closest('figure')?.querySelector('figcaption');
+  // A nested figure's caption belongs to its own image.
+  const caption = img.closest('figure')?.querySelector(':scope > figcaption');
   const captionText = caption ? visibleText(caption) : '';
   return {
     ...collectPageContext(
@@ -147,14 +148,24 @@ export function collectImageContext(
   };
 }
 
-/** The image a menu click names by its source: the first one with a box, else the first one. The tooltip anchors on it too. */
+let contextMenuImage: HTMLImageElement | null = null;
+
+/** A `contextmenu` listener: keeps the image under the last right-click, so a repeated picture names the copy clicked. */
+export function rememberContextMenuTarget(e: Event): void {
+  contextMenuImage = e.target instanceof HTMLImageElement ? e.target : null;
+}
+
+/** The image a menu click names by its source: the right-clicked copy, else the first with a box, else the first. */
 export function clickedImage(
   imageUrl: string,
   doc: Document = document,
 ): HTMLImageElement | undefined {
-  const matches = Array.from(doc.images).filter(
-    (img) => img.currentSrc === imageUrl || img.src === imageUrl,
-  );
+  const named = (img: HTMLImageElement): boolean =>
+    img.currentSrc === imageUrl || img.src === imageUrl;
+  if (contextMenuImage && doc.contains(contextMenuImage) && named(contextMenuImage)) {
+    return contextMenuImage;
+  }
+  const matches = Array.from(doc.images).filter(named);
   return matches.find(hasBox) ?? matches[0];
 }
 

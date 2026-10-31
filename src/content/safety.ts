@@ -51,6 +51,14 @@ export function isSensitiveRange(range: Range): boolean {
   return isSensitiveTarget(el);
 }
 
+/** isSensitiveTarget reads `role` on the element only, and `isContentEditable` exists only in a real browser. */
+const EDITOR_REGION = '[contenteditable]:not([contenteditable="false" i]), [role="textbox"]';
+
+/** A right-clicked image: the user picked the image, not the draft beside it, so any editor above refuses it. */
+export function imageIsSensitive(img: Element): boolean {
+  return isSensitiveTarget(img) || img.closest(EDITOR_REGION) !== null;
+}
+
 export function isSensitiveTarget(el: Element | null): boolean {
   if (!el) return false;
   const htmlEl = el as HTMLElement;

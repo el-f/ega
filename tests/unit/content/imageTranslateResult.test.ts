@@ -423,6 +423,13 @@ describe('imageAnchorRect — result lands near the clicked image', () => {
     expect(r.width).toBe(200);
   });
 
+  it('a picture repeated on the page: anchors at the copy the user right-clicked', () => {
+    addImage('https://cdn.test/avatar.jpg', {});
+    const second = addImage('https://cdn.test/avatar.jpg', { left: 400, right: 600, x: 400 });
+    second.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    expect(imageAnchorRect('https://cdn.test/avatar.jpg').left).toBe(400);
+  });
+
   it('falls back to the viewport center when no image matches', () => {
     const r = imageAnchorRect('https://cdn.test/gone.jpg');
     expect(r.left).toBe(1280 / 2 - 50);
