@@ -431,6 +431,14 @@ describe('imageAnchorRect — result lands near the clicked image', () => {
     expect(imageAnchorRect('https://cdn.test/avatar.jpg').left).toBe(400);
   });
 
+  it('a copy the page re-rendered since the menu click gives way to the copy now on the page', () => {
+    const url = 'https://cdn.test/feed.jpg';
+    const old = addImage(url, {});
+    old.remove();
+    addImage(url, { left: 700, right: 900, x: 700 });
+    expect(imageAnchorRect(url, old).left).toBe(700);
+  });
+
   it('a right-click elsewhere after the menu click keeps Regenerate on the copy the first run used', async () => {
     const url = 'https://cdn.test/avatar.jpg';
     addImage(url, {});
