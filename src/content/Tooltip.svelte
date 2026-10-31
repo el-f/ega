@@ -280,30 +280,32 @@
       </button>
     </div>
 
-    {#if showSource}
-      <div class="src" dir="auto" lang={pageLang}>
-        {tip.srcText.length > 140 ? tip.srcText.slice(0, 140) + '…' : tip.srcText}
-      </div>
-    {/if}
+    <div class="tooltip-scroll">
+      {#if showSource}
+        <div class="src" dir="auto" lang={pageLang}>
+          {tip.srcText.length > 140 ? tip.srcText.slice(0, 140) + '…' : tip.srcText}
+        </div>
+      {/if}
 
-    <TooltipBody
-      views={taskViews}
-      body={tip.body}
-      loading={tip.loading}
-      stopped={tip.stopped === true}
-      task={tip.task ?? 'translate'}
-      {...tip.loadingLabel !== undefined ? { loadingLabel: tip.loadingLabel } : {}}
-      {...tip.imageUrl !== undefined ? { imageUrl: tip.imageUrl } : {}}
-      {...tip.explain !== undefined ? { explain: tip.explain } : {}}
-      {...tip.notes !== undefined ? { notes: tip.notes } : {}}
-      {...tip.answer !== undefined ? { answer: tip.answer } : {}}
-      {...tip.usedImage ? { usedImage: true } : {}}
-      {...tip.error !== undefined ? { error: tip.error } : {}}
-      settled={tip.settled === true}
-      {bodyLang}
-      {notesLang}
-      {errorDetailsOpen}
-    />
+      <TooltipBody
+        views={taskViews}
+        body={tip.body}
+        loading={tip.loading}
+        stopped={tip.stopped === true}
+        task={tip.task ?? 'translate'}
+        {...tip.loadingLabel !== undefined ? { loadingLabel: tip.loadingLabel } : {}}
+        {...tip.imageUrl !== undefined ? { imageUrl: tip.imageUrl } : {}}
+        {...tip.explain !== undefined ? { explain: tip.explain } : {}}
+        {...tip.notes !== undefined ? { notes: tip.notes } : {}}
+        {...tip.answer !== undefined ? { answer: tip.answer } : {}}
+        {...tip.usedImage ? { usedImage: true } : {}}
+        {...tip.error !== undefined ? { error: tip.error } : {}}
+        settled={tip.settled === true}
+        {bodyLang}
+        {notesLang}
+        {errorDetailsOpen}
+      />
+    </div>
 
     <ReplyMeta items={metaItems} />
 

@@ -94,12 +94,16 @@ async function cardRows(page: Page): Promise<CardRows | null> {
     const tip = root?.querySelector<HTMLElement>('.tooltip');
     if (!root || !tip) return null;
     const box = tip.getBoundingClientRect();
-    const rows = ['.tooltip-topbar', '.body', '.ega-reply-meta', '.actions'].map((sel) => {
-      const r = root.querySelector(`.tooltip ${sel}`)?.getBoundingClientRect();
-      return { name: sel, top: r?.top ?? NaN, bottom: r?.bottom ?? NaN };
-    });
+    const rows = ['.tooltip-topbar', '.tooltip-scroll', '.ega-reply-meta', '.actions'].map(
+      (sel) => {
+        const r = root.querySelector(`.tooltip ${sel}`)?.getBoundingClientRect();
+        return { name: sel, top: r?.top ?? NaN, bottom: r?.bottom ?? NaN };
+      },
+    );
     // The answer renders after the card opens: a missing row means the card is not settled yet.
-    if (rows.some((row) => Number.isNaN(row.top))) return null;
+    if (rows.some((row) => Number.isNaN(row.top)) || !root.querySelector('.tooltip .body')) {
+      return null;
+    }
     return {
       card: { top: box.top, bottom: box.bottom, height: box.height },
       rows,
@@ -178,18 +182,21 @@ for (const height of [800, 500]) {
   });
 }
 
-/** The body's box and scroll height, and the card's min-content: every fixed row at its smallest, plus padding and border. */
-async function cardSizes(
-  page: Page,
-): Promise<{ bodyHeight: number; bodyScroll: number; minContent: number; innerHeight: number }> {
+/** The answer region's box and scroll height, and the card's min-content: every fixed row at its smallest, plus padding and border. */
+async function cardSizes(page: Page): Promise<{
+  answerHeight: number;
+  answerScroll: number;
+  minContent: number;
+  innerHeight: number;
+}> {
   return page.evaluate(() => {
     const root = document.querySelector('#ega-shadow-host')?.shadowRoot;
     const tip = root?.querySelector<HTMLElement>('.tooltip');
     const reply = root?.querySelector<HTMLElement>('.tooltip .tooltip-reply');
-    const body = root?.querySelector<HTMLElement>('.tooltip .body');
-    if (!tip || !reply || !body) throw new Error('no settled card');
-    const bodyHeight = body.getBoundingClientRect().height;
-    const bodyScroll = body.scrollHeight - body.clientHeight;
+    const answer = root?.querySelector<HTMLElement>('.tooltip .tooltip-scroll');
+    if (!tip || !reply || !answer) throw new Error('no settled card');
+    const answerHeight = answer.getBoundingClientRect().height;
+    const answerScroll = answer.scrollHeight - answer.clientHeight;
     const prev = reply.style.getPropertyValue('--ega-tooltip-max-block-size');
     reply.style.setProperty('--ega-tooltip-max-block-size', '0px');
     const cs = getComputedStyle(tip);
@@ -200,8 +207,8 @@ async function cardSizes(
     const bottom = root?.querySelector('.tooltip .actions')?.getBoundingClientRect().bottom ?? NaN;
     reply.style.setProperty('--ega-tooltip-max-block-size', prev);
     return {
-      bodyHeight,
-      bodyScroll,
+      answerHeight,
+      answerScroll,
       minContent: bottom - top + chrome,
       innerHeight: window.innerHeight,
     };
@@ -225,8 +232,8 @@ test('a code-view selection taller than the room on both sides opens the whole c
   const g = await translateWholeField(page);
   expectInside(g);
   const sizes = await cardSizes(page);
-  // A short answer shows whole: the body does not scroll.
-  expect(sizes.bodyScroll).toBeLessThanOrEqual(1);
+  // A short answer shows whole: nothing scrolls.
+  expect(sizes.answerScroll).toBeLessThanOrEqual(1);
   // MIN_TOOLTIP_BLOCK in src/content/tipState.svelte.ts is the card's min-content, so it must hold every fixed row.
   expect(sizes.minContent).toBeLessThanOrEqual(200);
 });
@@ -243,7 +250,7 @@ test('a long answer to that selection gets room up to the window height, not a s
   expectInside(g);
   const sizes = await cardSizes(page);
   // A card that covers the selection lifts the body's 40vh cap: the answer fills the card, up to the window.
-  expect(sizes.bodyHeight).toBeGreaterThan(0.55 * sizes.innerHeight);
+  expect(sizes.answerHeight).toBeGreaterThan(0.55 * sizes.innerHeight);
   expect(g.card.height).toBeGreaterThan(0.8 * sizes.innerHeight);
 });
 

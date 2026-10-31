@@ -124,7 +124,13 @@ test('About squeezes long notes into a scroll box instead of painting them over 
         const spills =
           notes.scrollHeight > notes.clientHeight + 1 &&
           getComputedStyle(notes).overflowY === 'visible';
-        const overlaps = notes.getBoundingClientRect().bottom > meta.getBoundingClientRect().top;
+        let bottom = notes.getBoundingClientRect().bottom;
+        for (let a = notes.parentElement; a && a !== reply; a = a.parentElement) {
+          if (getComputedStyle(a).overflowY !== 'visible') {
+            bottom = Math.min(bottom, a.getBoundingClientRect().bottom);
+          }
+        }
+        const overlaps = bottom > meta.getBoundingClientRect().top;
         return spills || overlaps ? 'overlap' : 'ok';
       }),
     )

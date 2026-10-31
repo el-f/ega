@@ -14,6 +14,8 @@ import type { AddressInfo } from 'node:net';
 import * as v from 'valibot';
 import { parseSettingsPatch } from '../../src/shared/settings-schema';
 import { CLOUD_PROVIDER_IDS } from '../../src/shared/provider-ids';
+import type { AnswerNote } from '../../src/shared/answer/reader';
+import type { AnswerSnapshot } from '../../src/shared/types';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -611,7 +613,10 @@ export async function sendImageTranslateResult(
     detectedLang?: string;
     detectedDetail?: string;
     usedImage?: boolean;
-    task?: 'translate' | 'explain';
+    /** 'translate', 'explain' or a custom task id. */
+    task?: string;
+    notes?: AnswerNote[];
+    answer?: AnswerSnapshot;
     error?: { code: string; message: string };
   },
 ): Promise<void> {

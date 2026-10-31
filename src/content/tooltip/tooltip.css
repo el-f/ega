@@ -172,6 +172,11 @@
   border-radius: var(--radius-sm);
   margin-bottom: var(--space-1);
 }
+/* Once the answer lands it reads first: the preview only shows which image it is about, in at most a quarter of the card. */
+.tooltip .tooltip-image-wrap:not(.is-loading) .tooltip-image-source {
+  --ega-preview-max: min(120px, var(--ega-tooltip-max-block-size, 100dvh) / 4);
+  max-height: var(--ega-preview-max); /* hover-lint-allow: loading ends once, not a pointer state */
+}
 .tooltip .tooltip-image-wrap {
   position: relative;
   display: inline-block;
@@ -618,23 +623,31 @@
   max-block-size: var(--ega-tooltip-max-block-size, calc(100dvh - 40px));
   min-inline-size: 0;
 }
+/* The one scroll region between the top bar and the meta line: its rows keep their height and scroll whole, so a short card never squeezes the answer and notes into slivers or paints them past its edge. */
+.tooltip .tooltip-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  /* Keeps a readable answer line when About takes the rest of the card. */
+  min-block-size: 1lh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.tooltip .tooltip-scroll > * {
+  flex-shrink: 0;
+}
 .tooltip .tooltip-topbar {
   padding: 0;
   min-block-size: 28px;
   flex-shrink: 0;
 }
 .tooltip .body {
-  /* Keep a readable answer line when About consumes the remaining space. */
+  /* One line even while empty, like the shimmer it replaces (R63). */
   min-block-size: 1lh;
   /* repositionIfOverflow lifts it to none when the card has to cover the selection. */
   max-block-size: var(--ega-tooltip-body-max-block-size, 40vh);
   overflow: auto;
   overflow-wrap: anywhere;
-}
-/* A squeezed flex item paints its overflow over the meta and actions below, so the notes scroll instead. */
-.tooltip .answer-notes {
-  min-block-size: 2lh;
-  overflow: auto;
 }
 .tooltip .explain-label {
   text-transform: none;
