@@ -269,7 +269,8 @@ function measureDist(distDir: string): BundleEntry[] {
 // Keeping drafts out of an image's page context and naming the right-clicked copy of a repeated image add 367B.
 // Keeping an image tooltip's Retry and Regenerate on the copy its first run used adds 159B.
 // Anchoring at the copy now on the page when the page re-rendered the request's copy adds 17B.
-const EAGER_CONTENT_BUDGET_BYTES = 164_408;
+// Finding a re-rendered copy again by its place among the copies of its picture adds 96B.
+const EAGER_CONTENT_BUDGET_BYTES = 164_504;
 
 /** The popup opens on every toolbar click, so its preload set is the one extension-page cost a user feels. Ratchet, like the one above. */
 // Stable control widths (R63) add 3,930B: the StableLabel chunk, Button's label stack, the double-click guard (its
