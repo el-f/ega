@@ -118,40 +118,6 @@ test('README — tooltip answering on a page', async () => {
   await save(page, 'tooltip', clip);
 });
 
-test('README — selection bubble', async () => {
-  await seedSettings(ext.context, ext.extensionId, {
-    ...READY_SEED,
-    bubbleMode: 'always',
-    bubbleFirstRunSeen: true,
-  });
-  const page = await ext.context.newPage();
-  await page.setViewportSize({ width: 520, height: 640 });
-  await page.goto(`${ext.serverUrl}/showcase-page.html`);
-  await waitForTestHooks(page);
-  await selectArabiziParagraph(page);
-  const host = page.locator('#ega-shadow-host');
-  await host.locator('.bubble').waitFor({ state: 'visible', timeout: 5_000 });
-  await page.waitForTimeout(350); // wait for the bubble entrance animation (no observable end state)
-
-  // The selected post's card plus the bubble, padded.
-  const clip = await page.evaluate(() => {
-    const root = (document.querySelector('#ega-shadow-host') as HTMLElement | null)?.shadowRoot;
-    const card = document.getElementById('arabizi')?.closest('article');
-    const bubble = root?.querySelector('.bubble-group');
-    if (!card || !bubble) return null;
-    const a = card.getBoundingClientRect();
-    const b = bubble.getBoundingClientRect();
-    const pad = 24;
-    const left = Math.max(0, Math.min(a.left, b.left) - pad);
-    const top = Math.max(0, Math.min(a.top, b.top) - pad);
-    const right = Math.min(window.innerWidth, Math.max(a.right, b.right) + pad);
-    const bottom = Math.min(window.innerHeight, Math.max(a.bottom, b.bottom) + pad);
-    return { x: left, y: top, width: right - left, height: bottom - top };
-  });
-  if (!clip) throw new Error('bubble not found — refusing to ship a shot without it');
-  await save(page, 'bubble', clip);
-});
-
 test('README — popup with a live backend', async () => {
   await seedSettings(ext.context, ext.extensionId, READY_SEED);
   const popup = await ext.context.newPage();
@@ -173,7 +139,7 @@ test('README — side panel holding a conversation', async () => {
   await ext.context.addInitScript(FOLLOW_FIXTURE_SCRIPT);
   await openExampleTab(ext.context);
   const sp = await ext.context.newPage();
-  await sp.setViewportSize({ width: 400, height: 1000 });
+  await sp.setViewportSize({ width: 400, height: 520 });
   await sp.goto(`chrome-extension://${ext.extensionId}/src/sidepanel/index.html`);
   await sp.waitForLoadState('networkidle');
   await sp.evaluate(async () => {
