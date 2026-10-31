@@ -9,6 +9,7 @@ import { closeTooltip } from '@/content/tipState.svelte';
 import { mountShadowHost, getContainer } from '@/content/shadowHost';
 import { setSettings, resetSettingsCacheForTest } from '@/content/settings-cache';
 import { pending, rendererOwner } from '@/content/request-state';
+import { resetCustomLanguagesCache } from '@/content/customs-cache';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import type { Msg } from '@/shared/messages';
 import type { ErrCode } from '@/shared/types';
@@ -49,8 +50,10 @@ function pendingMsgFor(
 }
 
 /** The worker always sends the pending frame first, so a result driven on its own tests a path production never takes. */
-function runImageTranslate(msg: Extract<Msg, { kind: 'content:image-translate-result' }>): void {
-  handleImageTranslatePending(pendingMsgFor(msg));
+async function runImageTranslate(
+  msg: Extract<Msg, { kind: 'content:image-translate-result' }>,
+): Promise<void> {
+  await handleImageTranslatePending(pendingMsgFor(msg));
   handleImageTranslateResult(msg);
 }
 
@@ -115,7 +118,7 @@ async function tick(): Promise<void> {
 
 describe('handleImageTranslateResult — success path', () => {
   it('Regenerate re-runs the same image arm without a text refinement', async () => {
-    runImageTranslate(
+    await runImageTranslate(
       makeMsg({ requestId: 'regenerate-image', imageUrl: 'https://cdn.test/sign.png' }),
     );
     await tick();
@@ -130,19 +133,19 @@ describe('handleImageTranslateResult — success path', () => {
   });
 
   it('mounts exactly one tooltip wrap', async () => {
-    runImageTranslate(makeMsg());
+    await runImageTranslate(makeMsg());
     await tick();
     expect(activeWraps().length).toBe(1);
   });
 
   it('tooltip wrap carries the requestId', async () => {
-    runImageTranslate(makeMsg({ requestId: 'req-42' }));
+    await runImageTranslate(makeMsg({ requestId: 'req-42' }));
     await tick();
     expect(activeWraps()[0]?.getAttribute('data-ega-tooltip-wrap')).toBe('req-42');
   });
 
   it('renders the image thumbnail (.tooltip-image-source)', async () => {
-    runImageTranslate(makeMsg({ imageUrl: 'https://cdn.test/img.png' }));
+    await runImageTranslate(makeMsg({ imageUrl: 'https://cdn.test/img.png' }));
     await tick();
     const img = getContainer().querySelector<HTMLImageElement>('.tooltip-image-source');
     expect(img).not.toBeNull();
@@ -150,14 +153,14 @@ describe('handleImageTranslateResult — success path', () => {
   });
 
   it('renders the translation body', async () => {
-    runImageTranslate(makeMsg({ translation: 'Translated caption' }));
+    await runImageTranslate(makeMsg({ translation: 'Translated caption' }));
     await tick();
     const body = getContainer().querySelector('.body');
     expect(body?.textContent.trim()).toBe('Translated caption');
   });
 
   it('tooltip is not in loading state (shimmer absent)', async () => {
-    runImageTranslate(makeMsg());
+    await runImageTranslate(makeMsg());
     await tick();
     const shimmer = getContainer().querySelector('.shimmer-wrap');
     expect(shimmer).toBeNull();
@@ -166,13 +169,13 @@ describe('handleImageTranslateResult — success path', () => {
 
 describe('handleImageTranslateResult — error path', () => {
   it('mounts exactly one tooltip wrap', async () => {
-    runImageTranslate(makeMsg({ error: { code: 'NETWORK', message: 'timeout' } }));
+    await runImageTranslate(makeMsg({ error: { code: 'NETWORK', message: 'timeout' } }));
     await tick();
     expect(activeWraps().length).toBe(1);
   });
 
   it('renders the error message in .body', async () => {
-    runImageTranslate(makeMsg({ error: { code: 'NETWORK', message: 'upstream timed out' } }));
+    await runImageTranslate(makeMsg({ error: { code: 'NETWORK', message: 'upstream timed out' } }));
     await tick();
     const body = getContainer().querySelector('.body');
     expect(body?.textContent).toContain('No connection');
@@ -180,7 +183,7 @@ describe('handleImageTranslateResult — error path', () => {
   });
 
   it('hides the image thumbnail on error: the error frame is text-only', async () => {
-    runImageTranslate(
+    await runImageTranslate(
       makeMsg({
         imageUrl: 'https://cdn.test/err.jpg',
         error: { code: 'QUOTA', message: 'over limit' },
@@ -198,7 +201,7 @@ describe('handleImageTranslateResult — error path', () => {
 
 describe('image error tooltip — the recovery buttons do something', () => {
   it('Retry re-dispatches the vision call under a fresh request id', async () => {
-    runImageTranslate(
+    await runImageTranslate(
       makeMsg({
         requestId: 'img-err',
         imageUrl: 'https://cdn.test/e.jpg',
@@ -221,7 +224,7 @@ describe('image error tooltip — the recovery buttons do something', () => {
   });
 
   it('the settings CTA asks the worker to open the options page', async () => {
-    runImageTranslate(makeMsg({ error: { code: 'AUTH', message: 'bad key' } }));
+    await runImageTranslate(makeMsg({ error: { code: 'AUTH', message: 'bad key' } }));
     await tick();
     const cta = getContainer().querySelector<HTMLButtonElement>('[data-ega-tooltip-error-cta]');
     expect(cta).not.toBeNull();
@@ -236,7 +239,7 @@ describe('image error tooltip — the recovery buttons do something', () => {
   });
 
   it('a Retry-After on the error keeps Retry disabled with a countdown', async () => {
-    runImageTranslate(
+    await runImageTranslate(
       makeMsg({ error: { code: 'RATE_LIMIT', message: 'slow down', retryAfterMs: 5000 } }),
     );
     await tick();
@@ -252,21 +255,21 @@ describe('handleImageTranslateResult — confidence pill honors settings', () =>
   }
 
   it('shows the pill by default for a high-confidence result', async () => {
-    runImageTranslate(makeMsg({ confidence: 0.95 }));
+    await runImageTranslate(makeMsg({ confidence: 0.95 }));
     await tick();
     expect(pill()).not.toBeNull();
   });
 
   it('hides the pill when settings.confidencePill is off', async () => {
     setSettings({ ...DEFAULT_SETTINGS, confidencePill: false });
-    runImageTranslate(makeMsg({ confidence: 0.95 }));
+    await runImageTranslate(makeMsg({ confidence: 0.95 }));
     await tick();
     expect(pill()).toBeNull();
   });
 
   it('hides the pill below settings.confidencePillThreshold', async () => {
     setSettings({ ...DEFAULT_SETTINGS, confidencePill: true, confidencePillThreshold: 0.99 });
-    runImageTranslate(makeMsg({ confidence: 0.95 }));
+    await runImageTranslate(makeMsg({ confidence: 0.95 }));
     await tick();
     expect(pill()).toBeNull();
   });
@@ -274,7 +277,7 @@ describe('handleImageTranslateResult — confidence pill honors settings', () =>
 
 describe('image Explain on the tooltip surface', () => {
   it('the loading tooltip names the explain task', async () => {
-    handleImageTranslatePending({
+    await handleImageTranslatePending({
       ...pendingMsgFor(makeMsg({ requestId: 'img-x' })),
       task: 'explain',
     });
@@ -283,7 +286,7 @@ describe('image Explain on the tooltip surface', () => {
   });
 
   it('renders the explanation under the image text, marked as read from the image', async () => {
-    runImageTranslate({
+    await runImageTranslate({
       ...makeMsg({ requestId: 'img-e', translation: 'hi' }),
       task: 'explain',
       explain: 'a greeting',
@@ -297,10 +300,54 @@ describe('image Explain on the tooltip surface', () => {
   });
 });
 
+describe('a custom image task on a page with no custom tasks loaded yet', () => {
+  it('opens the loading tooltip under the task name, never as a deleted task', async () => {
+    const chartCheck = {
+      id: 'c-chart',
+      label: 'Chart check',
+      system: 'Check the chart.',
+      user: '{{text}}',
+      output: 'plain',
+      pageContext: false,
+      image: true,
+      glossary: false,
+      createdAt: 1,
+    };
+    let release = (): void => {};
+    const read = new Promise<unknown>((resolve) => {
+      release = () => resolve([chartCheck]);
+    });
+    sendMessage.mockImplementation((m: { kind: string }) =>
+      m.kind === 'content:read-tasks' ? read : Promise.resolve({ ok: true }),
+    );
+    setSettings({ ...DEFAULT_SETTINGS });
+    resetCustomLanguagesCache();
+    const title = (): string | undefined =>
+      getContainer().querySelector('.tooltip-topbar-title')?.textContent.trim();
+    try {
+      void handleImageTranslatePending({
+        ...pendingMsgFor(makeMsg({ requestId: 'img-custom' })),
+        task: 'c-chart',
+      });
+      await vi.dynamicImportSettled();
+      await new Promise((r) => setTimeout(r, 0));
+      expect(sent('content:read-tasks')).toHaveLength(1);
+      expect(title()).not.toBe('Deleted task');
+
+      release();
+      await tick();
+      expect(title()).toBe('Chart check');
+    } finally {
+      sendMessage.mockResolvedValue({ ok: true });
+      resetCustomLanguagesCache();
+    }
+  });
+});
+
 describe('handleImageTranslateResult — single-instance invariant', () => {
   it('a second call closes the first tooltip', async () => {
-    runImageTranslate(makeMsg({ requestId: 'a' }));
-    runImageTranslate(makeMsg({ requestId: 'b' }));
+    await runImageTranslate(makeMsg({ requestId: 'a' }));
+    await runImageTranslate(makeMsg({ requestId: 'b' }));
     await tick();
     expect(activeWraps().length).toBe(1);
     expect(activeWraps()[0]?.getAttribute('data-ega-tooltip-wrap')).toBe('b');
@@ -309,12 +356,12 @@ describe('handleImageTranslateResult — single-instance invariant', () => {
 
 describe('a vision request owns its tooltip like a text request', () => {
   it('registers the request so a newer tooltip can supersede it', () => {
-    handleImageTranslatePending(pendingMsgFor(makeMsg({ requestId: 'img-owner' })));
+    void handleImageTranslatePending(pendingMsgFor(makeMsg({ requestId: 'img-owner' })));
     expect(rendererOwner.get('img-owner')).toBe('tooltip');
   });
 
   it('drops a late vision result once a newer tooltip took the surface', async () => {
-    handleImageTranslatePending(pendingMsgFor(makeMsg({ requestId: 'img-late' })));
+    await handleImageTranslatePending(pendingMsgFor(makeMsg({ requestId: 'img-late' })));
     await tick();
     // What a newer text translate does before it opens its own tooltip.
     rendererOwner.delete('img-late');
@@ -383,7 +430,7 @@ describe('handleImageTranslatePending — loading tooltip mounts immediately', (
   }
 
   it('mounts a tooltip in loading state with the image shimmer', async () => {
-    handleImageTranslatePending(pendingMsg('pend-1'));
+    await handleImageTranslatePending(pendingMsg('pend-1'));
     await tick();
     expect(activeWraps().length).toBe(1);
     expect(getContainer().querySelector('.tooltip-image-wrap.is-loading')).not.toBeNull();
@@ -391,7 +438,7 @@ describe('handleImageTranslatePending — loading tooltip mounts immediately', (
   });
 
   it('offers Stop while the vision call runs', async () => {
-    handleImageTranslatePending(pendingMsg('pend-2'));
+    await handleImageTranslatePending(pendingMsg('pend-2'));
     await tick();
     const buttons = Array.from(getContainer().querySelectorAll('button'));
     expect(buttons.some((b) => b.textContent.trim() === 'Stop')).toBe(true);
@@ -402,7 +449,7 @@ describe('handleImageTranslatePending — loading tooltip mounts immediately', (
   });
 
   it('the later result replaces the loading tooltip in place', async () => {
-    handleImageTranslatePending(pendingMsg('pend-3'));
+    await handleImageTranslatePending(pendingMsg('pend-3'));
     await tick();
     handleImageTranslateResult(makeMsg({ requestId: 'pend-3', translation: 'Done text' }));
     await tick();
@@ -411,7 +458,7 @@ describe('handleImageTranslatePending — loading tooltip mounts immediately', (
   });
 
   it('Stop retains a retryable image tooltip and suppresses the late result', async () => {
-    handleImageTranslatePending(pendingMsg('pend-4'));
+    await handleImageTranslatePending(pendingMsg('pend-4'));
     await tick();
     const cancelBtn = Array.from(getContainer().querySelectorAll('button')).find(
       (b) => b.textContent.trim() === 'Stop',
@@ -442,7 +489,7 @@ describe('image tooltips honour the click-outside setting', () => {
 
   it('stays open on an outside click when the setting is off', async () => {
     setSettings({ ...DEFAULT_SETTINGS, tooltipClickOutside: false });
-    runImageTranslate(makeMsg());
+    await runImageTranslate(makeMsg());
     await tick();
     await clickOutside();
     expect(activeWraps().length).toBe(1);
@@ -450,7 +497,7 @@ describe('image tooltips honour the click-outside setting', () => {
 
   it('closes on an outside click when the setting is on', async () => {
     setSettings({ ...DEFAULT_SETTINGS, tooltipClickOutside: true });
-    runImageTranslate(makeMsg());
+    await runImageTranslate(makeMsg());
     await tick();
     await clickOutside();
     await vi.waitFor(() => expect(activeWraps().length).toBe(0));

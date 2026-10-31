@@ -453,14 +453,18 @@ function imageTipDisplay(): { clickOutsideDismiss: boolean; draggable: boolean }
 }
 
 // Mounts the loading tooltip the moment the background starts the vision call.
-export function handleImageTranslatePending(
+export async function handleImageTranslatePending(
   msg: Extract<Msg, { kind: 'content:image-translate-pending' }>,
-): void {
+): Promise<void> {
   closeStickyToast();
   // Close drops the surface; Stop keeps a retryable reply but releases its renderer owner.
   const cancel = (): void => endRequest(msg.requestId, 'cancel');
   // Registering before the open makes the vision call a normal tooltip request: a newer one cancels it.
   beginRequest(msg.requestId, 'tooltip');
+  // The header names a custom task from the cached rows, so they load before it opens, as on the text path.
+  await ensureCustomTasks().catch(() => []);
+  // The result, a cancel or a newer tooltip landed during the read and already settled this request.
+  if (!rendererOwner.has(msg.requestId)) return;
   openTooltip({
     requestId: msg.requestId,
     srcText: '',
@@ -627,7 +631,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       sendResponse({ ok: true } satisfies MsgReply['page:translateAll' | 'page:chooseAreas']);
       return true;
     } else if (m.kind === 'content:image-translate-pending') {
-      handleImageTranslatePending(m);
+      void handleImageTranslatePending(m).catch((e) =>
+        reportEntryFailure(e, 'content.imagePending'),
+      );
       sendResponse({ ok: true } satisfies MsgReply['content:image-translate-pending']);
       return true;
     } else if (m.kind === 'content:image-translate-result') {
