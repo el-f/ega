@@ -429,7 +429,9 @@ function armReloadHint(trigger?: KeyboardEvent): void {
 
 /** Rect of the request's copy (or the one now in its place), else of the clicked image; viewport center otherwise. */
 export function imageAnchorRect(imageUrl: string, img?: HTMLImageElement): DOMRect {
-  const r = clickedImage(imageUrl, document, img)?.getBoundingClientRect();
+  const r = (
+    img?.isConnected ? img : clickedImage(imageUrl, document, img)
+  )?.getBoundingClientRect();
   if (r && r.width > 0 && r.height > 0) return r;
   const cx = window.innerWidth / 2;
   const cy = window.innerHeight / 2;
