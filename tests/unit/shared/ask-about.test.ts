@@ -82,8 +82,15 @@ describe('askQuote', () => {
     expect(askQuote({ content: '- `kifak` means [how are you](https://x.test)' })).toBe(
       'kifak means how are you',
     );
-    // A code block followed by text is Markdown: its fence lines are not text to quote.
-    expect(askQuote({ content: '```js\nconst *x*\n```\nmore' })).toBe('const x');
+  });
+
+  it('quotes a code block followed by text by its code line as the panel shows it', () => {
+    expect(askQuote({ content: '```js\nconst *x*\n```\nmore' })).toBe('const *x*');
+    expect(askQuote({ content: '~~~py\nx = a*b\n~~~\nmore' })).toBe('x = a*b');
+    expect(askQuote({ content: '```sh\n\n# install\n```\nRun it.' })).toBe('# install');
+    // Only a run of the opening mark closes the block; a backtick in the rest makes inline code.
+    expect(askQuote({ content: '```\n~~~\n```\nmore' })).toBe('~~~');
+    expect(askQuote({ content: '```x``` and *y*\nmore' })).toBe('x and y');
   });
 
   it('quotes a reply that is one fenced block by its first code line, every character kept', () => {

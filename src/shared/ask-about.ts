@@ -90,8 +90,24 @@ function plainLine(line: string): string {
     .trim();
 }
 
+/** Markdown lines as the panel shows them: fence lines dropped, code inside a block as it is, the rest plain. */
+function markdownLines(lines: string[]): string[] {
+  let fence = '';
+  return lines.flatMap((line) => {
+    const t = line.trim();
+    if (fence !== '') {
+      const closes = t.length >= fence.length && t === (fence[0] ?? '').repeat(t.length);
+      if (closes) fence = '';
+      return closes ? [] : [t];
+    }
+    // A backtick in the rest of the line makes it inline code, not a block (CommonMark).
+    fence = /^(?:`{3,}(?!.*`)|~{3,})/.exec(t)?.[0] ?? '';
+    return fence === '' ? [plainLine(line)] : [];
+  });
+}
+
 /** The quote a question shows: a reply's first line of text as the panel shows it. A Markdown reply loses its
- *  Markdown; a plain one (a custom task's answer) and one fenced block (shown as code) keep every character. */
+ *  Markdown outside code blocks; a plain one (a custom task's answer) and one fenced block keep every character. */
 export function askQuote(reply: {
   content: string;
   answer?: { spec: Pick<AnswerSpec, 'join'> } | undefined;
@@ -101,6 +117,6 @@ export function askQuote(reply: {
   const shown =
     code !== null || isPlainAnswer(reply.answer?.spec, reply.content)
       ? lines.map((l) => l.trim())
-      : lines.filter((l) => !/^\s*(?:```|~~~)/.test(l)).map(plainLine);
+      : markdownLines(lines);
   return clip(shown.find((l) => l !== '') ?? '', QUOTE_MAX);
 }
