@@ -5,12 +5,39 @@ import { render, fireEvent, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import AssistantTurn from '@/sidepanel/conversation/AssistantTurn.svelte';
 import { answerSpecFor } from '@/shared/answer/spec';
+import { loadMarkdownRenderer } from '@/shared/components/markdown-loader';
+import type { AnswerSnapshot } from '@/shared/types';
 import { doneReply, meta, metaText, openMenu, replyProps } from './_reply';
 
 afterEach(() => {
   vi.restoreAllMocks();
   document.body.innerHTML = '';
 });
+
+/** A custom task's answer: a text main answer and one text note per key. */
+function customAnswer(main: string, notes: Record<string, string> = {}): AnswerSnapshot {
+  const note = (key: string) =>
+    ({ key, label: key, kind: 'text', role: 'notes', required: true }) as const;
+  return {
+    spec: {
+      id: 'custom:break-this',
+      version: 1,
+      join: 'after-build',
+      fields: [
+        { key: 'answer', label: 'Answer', kind: 'text', role: 'main', required: true },
+        ...Object.keys(notes).map(note),
+      ],
+    },
+    fields: { answer: main, ...notes },
+  };
+}
+
+/** Every Markdown block on the page has rendered: the shared renderer loaded and its callbacks flushed. */
+async function markdownSettled(): Promise<void> {
+  await loadMarkdownRenderer();
+  await new Promise((resolve) => setTimeout(resolve));
+  await tick();
+}
 
 describe('the answer', () => {
   it('a done reply renders its text, not a card header', async () => {
@@ -78,40 +105,31 @@ describe('the answer', () => {
     expect(reply.textContent).toContain('<h2>n</h2>');
   });
 
-  it("shows a custom task's text fields exactly as the model sent them; built-in notes keep Markdown", async () => {
+  it("shows a custom task's answer and text fields exactly as the model sent them; built-in notes keep Markdown", async () => {
+    const write = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined);
     const regex = String.raw`/^\w+([\.-]?\w+)*@\w+$/`;
     const math = 'a * b * c\na*b*c';
-    const field = (key: string) =>
-      ({ key, label: key, kind: 'text', role: 'notes', required: true }) as const;
+    const main = `Main: ${regex} and a*b*c\n**second** line`;
     const custom = doneReply({
-      content: 'See the notes.',
+      content: main,
       notes: [
         { key: 'fix', label: 'Fix', text: regex },
         { key: 'math', label: 'Math', text: math },
       ],
-      answer: {
-        spec: {
-          id: 'custom:break-this',
-          version: 1,
-          join: 'after-build',
-          fields: [
-            { key: 'answer', label: 'Answer', kind: 'text', role: 'main', required: true },
-            field('fix'),
-            field('math'),
-          ],
-        },
-        fields: { answer: 'See the notes.', fix: regex, math },
-      },
+      answer: customAnswer(main, { fix: regex, math }),
     });
     const { container } = render(AssistantTurn, { props: replyProps(custom) });
-    // The answer still renders through Markdown; once it lands, a Markdown pass on the notes has too.
-    await waitFor(() => expect(container.querySelector('.ega-answer .ega-md p')).not.toBeNull());
+    await markdownSettled();
+    expect(container.querySelector('.ega-answer')?.textContent).toBe(main);
+    expect(container.querySelector('.ega-answer')?.getAttribute('dir')).toBe('auto');
     const note = (key: string) =>
       container.querySelector<HTMLElement>(`[data-ega-note="${key}"] .answer-note-text`);
     expect(note('fix')?.textContent).toBe(regex);
     expect(note('math')?.textContent).toBe(math);
     expect(note('fix')?.querySelector('[dir="auto"]')).not.toBeNull();
-    expect(container.querySelector('[data-ega-note] .ega-md, [data-ega-note] em')).toBeNull();
+    expect(container.querySelector('.ega-md, em, strong')).toBeNull();
+    await fireEvent.click(container.querySelector('[data-ega-action="copy"]') as HTMLElement);
+    expect(write).toHaveBeenCalledWith(main);
 
     document.body.innerHTML = '';
     const builtIn = render(AssistantTurn, {
@@ -128,6 +146,20 @@ describe('the answer', () => {
         builtIn.container.querySelector('[data-ega-note="explain"] .ega-md code')?.textContent,
       ).toBe('sort'),
     );
+  });
+
+  it('a custom answer that is one fenced block shows its code as a block, and Copy takes the code', async () => {
+    const write = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined);
+    const code = String.raw`const re = /^\w+([\.-]?\w+)*$/;`;
+    const content = `\`\`\`js\n${code}\n\`\`\``;
+    const { container } = render(AssistantTurn, {
+      props: replyProps(doneReply({ content, answer: customAnswer(content) })),
+    });
+    const answer = container.querySelector('.ega-answer') as HTMLElement;
+    await waitFor(() => expect(answer.querySelector('.ega-md pre > code')).not.toBeNull());
+    expect(answer.querySelector('pre > code')?.textContent.trim()).toBe(code);
+    await fireEvent.click(container.querySelector('[data-ega-action="copy"]') as HTMLElement);
+    expect(write).toHaveBeenCalledWith(code);
   });
 
   it.each([

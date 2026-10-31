@@ -2,7 +2,7 @@
   import { onDestroy, untrack } from 'svelte';
   import type { AnswerSpec } from '@/shared/answer/spec';
   import { readAnswer } from '@/shared/answer/reader';
-  import { mainAnswerItems } from '@/shared/answer-presentation';
+  import { mainAnswerItems, soleFencedCode } from '@/shared/answer-presentation';
   import type { TranslationChunk, Settings } from '@/shared/types';
   import type { CustomTaskInput } from '@/shared/tasks';
   import { sendMsg } from '@/shared/messages';
@@ -102,6 +102,8 @@
         : { text: '', notes: [], answer: undefined },
   );
   const items = $derived(mainAnswerItems(shown.answer));
+  // Plain text, as the panel shows a custom answer; one fenced block still shows as code there.
+  const plainMain = $derived(soleFencedCode(shown.text, true) === null);
   const checkLine = $derived.by(() => {
     if (terminal?.type !== 'done') return '';
     const issues = terminal.meta?.answerFormat?.issues;
@@ -193,9 +195,13 @@
               </details>{/if}
           {:else}<p role="status">Stopped</p>{/if}
         {:else}
-          {#if items}<ul>
-              {#each items as item, i (i)}<li>{item}</li>{/each}
-            </ul>{:else}<Markdown text={shown.text} />{/if}
+          <div class="ap-answer" dir="auto" data-ega-preview-answer>
+            {#if items}<ul>
+                {#each items as item, i (i)}<li>{item}</li>{/each}
+              </ul>{:else if plainMain}<span class="ap-plain">{shown.text}</span>{:else}<Markdown
+                text={shown.text}
+              />{/if}
+          </div>
           <!-- A custom task's fields are plain strings, shown as the panel and the tooltip show them. -->
           <AnswerNotes notes={shown.notes}
             >{#snippet renderText(text: string)}<div class="ap-note" dir="auto">
@@ -259,6 +265,9 @@
     padding: var(--space-3);
     overflow-wrap: anywhere;
     min-inline-size: 0;
+  }
+  .ap-plain {
+    white-space: pre-wrap;
   }
   .ap-card ul {
     margin: 0;

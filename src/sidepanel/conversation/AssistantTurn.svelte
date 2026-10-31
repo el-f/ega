@@ -173,7 +173,9 @@
   const notesTag = $derived(langTag(answerTarget) ?? '');
   const mainItems = $derived(mainAnswerItems(turn.answer));
   // A custom task's fields are plain strings, as the tooltip shows them; Ega's own notes keep Markdown.
-  const plainNotes = $derived(turn.answer?.spec.join === 'after-build');
+  const customFields = $derived(turn.answer?.spec.join === 'after-build');
+  // An answer that is one fenced block still shows as code, as the tooltip shows it; the code is exact either way.
+  const plainMain = $derived(customFields && soleFencedCode(turn.content, true) === null);
 
   // About names every language in full; the one-line meta cuts each name.
   const direction = $derived(replyDirection(turn, { sourceLang, targetLang }, varieties));
@@ -729,6 +731,8 @@
         <ul>
           {#each mainItems as item, i (i)}<li>{item}</li>{/each}
         </ul>
+      {:else if plainMain}
+        <span class="ega-plain">{turn.content}</span>
       {:else}
         <Markdown text={turn.content} />
       {/if}
@@ -740,7 +744,7 @@
           explain={turn.explain}
           fallbackLabel={notesLabel(currentTaskValue, taskViews)}
           lang={notesTag}
-          renderText={plainNotes ? plainNote : markdownNote}
+          renderText={customFields ? plainNote : markdownNote}
         />
       </div>
     {/if}

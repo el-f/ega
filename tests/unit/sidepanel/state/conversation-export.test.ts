@@ -101,6 +101,18 @@ describe('exportMarkdown', () => {
     }
   });
 
+  it("keeps a custom task's answer and notes character for character", () => {
+    const regex = String.raw`/^\w+([\.-]?\w+)*@\w+$/`;
+    const content = `Main: ${regex} a*b*c`;
+    const notes = [{ key: 'fix', label: 'Fix', text: 'a * b * c\n\\. stays' }];
+    const md = exportMarkdown([assistantTurn({ content, notes })]);
+    expect(md).toBe(`**Ega:** ${content}\n\n_Fix:_ a * b * c\n\\. stays`);
+    expect(JSON.parse(exportJson([assistantTurn({ content, notes })]))[0]).toMatchObject({
+      content,
+      notes,
+    });
+  });
+
   it('returns empty string for empty turns', () => {
     expect(exportMarkdown([])).toBe('');
   });

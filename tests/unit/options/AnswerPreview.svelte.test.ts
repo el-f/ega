@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, waitFor } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import AnswerPreview from '@/options/components/AnswerPreview.svelte';
+import { loadMarkdownRenderer } from '@/shared/components/markdown-loader';
 import { customAnswerSpec } from '@/shared/answer/custom';
 import { parseSettings } from '@/shared/settings-schema';
 import { sendMsg } from '@/shared/messages';
@@ -225,12 +227,13 @@ describe('a real try', () => {
     await waitFor(() => expect(view.getByText('To string was empty')).toBeTruthy());
   });
 
-  it('shows raw HTML in a reply as text, and its notes exactly as the model sent them', async () => {
+  it('shows a reply and its notes exactly as the model sent them, raw HTML as text', async () => {
     const regex = String.raw`/^\w+([\.-]?\w+)*@\w+$/`;
+    const main = `Main: <h1>x</h1> ${regex} a*b*c\n**second** line`;
     send.mockResolvedValueOnce({
       type: 'done',
       requestId: 'test',
-      text: '<h1>x</h1>',
+      text: main,
       notes: [
         { key: 'n', label: 'Note', text: '<h2>n</h2>' },
         { key: 'fix', label: 'Fix', text: regex },
@@ -240,13 +243,15 @@ describe('a real try', () => {
     const view = await shown();
     await fireEvent.click(tryButton(view));
     const card = view.container.querySelector('.ap-card') as HTMLElement;
-    // The fallback <pre> shows the text raw, so wait for the answer's Markdown pass to land.
-    await waitFor(() => {
-      expect(card.querySelector('.ega-md')).not.toBeNull();
-      expect(card.querySelector('.ega-md-fallback')).toBeNull();
-    });
-    expect(card.querySelector('h1, h2, em')).toBeNull();
-    expect(card.textContent).toContain('<h1>x</h1>');
+    await waitFor(() => expect(card.querySelector('[data-ega-note="n"]')).not.toBeNull());
+    // Every Markdown block has rendered once the shared renderer loaded and its callbacks flushed.
+    await loadMarkdownRenderer();
+    await new Promise((resolve) => setTimeout(resolve));
+    await tick();
+    expect(card.querySelector('.ega-md, h1, h2, em, strong')).toBeNull();
+    const answer = card.querySelector('[data-ega-preview-answer]');
+    expect(answer?.textContent).toBe(main);
+    expect(answer?.getAttribute('dir')).toBe('auto');
     const note = (key: string) => card.querySelector(`[data-ega-note="${key}"] .answer-note-text`);
     expect(note('n')?.textContent).toBe('<h2>n</h2>');
     expect(note('fix')?.textContent).toBe(regex);
