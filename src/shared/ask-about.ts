@@ -1,5 +1,5 @@
 import { capText } from './text-cap';
-import { isPlainAnswer, soleFencedCode } from './answer-presentation';
+import { closesFence, isPlainAnswer, openingFence, soleFencedCode } from './answer-presentation';
 import type { AnswerSpec } from './answer/spec';
 
 /** Which reply a question asks about: a reference, never a copy of its text (D58). Each request builds its
@@ -92,17 +92,15 @@ function plainLine(line: string): string {
 
 /** Markdown lines as the panel shows them: fence lines dropped, code inside a block as it is, the rest plain. */
 function markdownLines(lines: string[]): string[] {
-  let fence = '';
+  let fence: string | undefined;
   return lines.flatMap((line) => {
-    const t = line.trim();
-    if (fence !== '') {
-      const closes = t.length >= fence.length && t === (fence[0] ?? '').repeat(t.length);
-      if (closes) fence = '';
-      return closes ? [] : [t];
+    if (fence !== undefined) {
+      const closes = closesFence(fence, line);
+      if (closes) fence = undefined;
+      return closes ? [] : [line.trim()];
     }
-    // A backtick in the rest of the line makes it inline code, not a block (CommonMark).
-    fence = /^(?:`{3,}(?!.*`)|~{3,})/.exec(t)?.[0] ?? '';
-    return fence === '' ? [plainLine(line)] : [];
+    fence = openingFence(line);
+    return fence === undefined ? [plainLine(line)] : [];
   });
 }
 
