@@ -175,7 +175,8 @@ export function clickedImage(
   const matches = Array.from(doc.images).filter(named);
   let at: number | undefined;
   if (copy && named(copy)) at = doc.contains(copy) ? matches.indexOf(copy) : copyIndex.get(copy);
-  const found = at === undefined ? (matches.find(hasBox) ?? matches[0]) : matches[at];
+  // A re-render can leave fewer copies than the old place: fall back as if no copy were named.
+  const found = (at === undefined ? undefined : matches[at]) ?? matches.find(hasBox) ?? matches[0];
   if (found) copyIndex.set(found, matches.indexOf(found));
   return found;
 }

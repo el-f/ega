@@ -523,4 +523,25 @@ describe('collectImageContext (right-clicked image)', () => {
       document.removeEventListener('contextmenu', rememberContextMenuTarget, true);
     }
   });
+
+  it('a Retry after a re-render left fewer copies than its old place reads around the first copy', () => {
+    document.body.innerHTML = `<article><p>Post one.</p><img src="${IMG}"></article>
+      <article><p>Post two.</p><img src="${IMG}"></article>
+      <article><p>Post three.</p><img src="${IMG}"><p>Reply three.</p></article>`;
+    const old = document.images[2];
+    if (!old) throw new Error('third image missing');
+    document.addEventListener('contextmenu', rememberContextMenuTarget, true);
+    try {
+      old.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+      expect(clickedImage(IMG)).toBe(old);
+      // The feed drops the post above while the user scrolls: two copies left, the old place was the third.
+      document.body.innerHTML = `<article><p>Post two.</p><img src="${IMG}"></article>
+        <article><p>Post three.</p><img src="${IMG}"><p>Reply three.</p></article>`;
+      pinContextMenuImage(old);
+      expect(clickedImage(IMG)).toBe(document.images[0]);
+      expect(collectImageContext(IMG, 'minimal', document, loc)?.beforeText).toBe('Post two.');
+    } finally {
+      document.removeEventListener('contextmenu', rememberContextMenuTarget, true);
+    }
+  });
 });
