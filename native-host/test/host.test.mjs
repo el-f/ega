@@ -2428,10 +2428,10 @@ test('a codex that cannot read its config file fails as NATIVE_CLI_CONFIG with i
 });
 
 test('a claude image goes in the stream-json message, with no file for the CLI to open', async () => {
-  // The fake echoes its argv and stdin, so the assertions read what the CLI got.
+  // The fake echoes its argv, its stdin and the temp folder while it runs, so the assertions read what the CLI got.
   const fixture = writeFixture(
     'ega-host.fake-claude-img-echo.mjs',
-    "let buf = '';\nprocess.stdin.on('data', (c) => { buf += c.toString('utf8'); });\nprocess.stdin.on('end', () => {\n  const text = JSON.stringify({ argv: process.argv.slice(2), stdin: buf });\n  process.stdout.write(JSON.stringify({type:'assistant',message:{content:[{type:'text',text}]}}) + '\\n');\n  process.exit(0);\n});\n",
+    "import { readdirSync } from 'node:fs';\nimport { tmpdir } from 'node:os';\nlet buf = '';\nprocess.stdin.on('data', (c) => { buf += c.toString('utf8'); });\nprocess.stdin.on('end', () => {\n  const text = JSON.stringify({ argv: process.argv.slice(2), stdin: buf, tmp: readdirSync(tmpdir()) });\n  process.stdout.write(JSON.stringify({type:'assistant',message:{content:[{type:'text',text}]}}) + '\\n');\n  process.exit(0);\n});\n",
   );
   const image =
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
@@ -2485,7 +2485,13 @@ test('a claude image goes in the stream-json message, with no file for the CLI t
       textBlock.text.replaceAll('\u2060', '').includes('@everyone'),
       `the text must read the same: ${textBlock.text}`,
     );
-    assert.deepEqual(readdirSync(tmp), [], 'a claude image writes no temp file');
+    // Read while the CLI runs: the host deletes request files before its terminal frame.
+    assert.deepEqual(
+      seen.tmp.filter((name) => name.startsWith('ega-img-')),
+      [],
+      'a claude image writes no temp file',
+    );
+    assert.deepEqual(readdirSync(tmp), [], 'a claude image leaves no temp file');
   } finally {
     rmSync(fixture, { force: true });
     rmSync(tmp, { recursive: true, force: true });
