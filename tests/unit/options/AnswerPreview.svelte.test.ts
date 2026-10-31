@@ -308,4 +308,28 @@ describe('Example reply sizes', () => {
     expect(answer).toMatch(/line-height:\s*var\(--lh-body\)/);
     expect(answer).toMatch(/--ega-md-fs:\s*var\(--fs-md\)/);
   });
+
+  it('reads note lists at the note text size, in the side panel and the Example reply', () => {
+    /** The declarations of the style rule whose selector list has `selector`. */
+    const decls = (path: string, selector: string): string => {
+      const css = (readFileSync(path, 'utf8').split('<style>')[1] ?? '').replace(
+        /\/\*[\s\S]*?\*\//g,
+        '',
+      );
+      const hit = [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)].find((m) =>
+        (m[1] ?? '').split(',').some((s) => s.trim() === selector),
+      );
+      return hit?.[2] ?? '';
+    };
+    const surfaces = [
+      ['src/sidepanel/conversation/AssistantTurn.svelte', '.ega-notes-text', '.ega-note-plain'],
+      ['src/options/components/AnswerPreview.svelte', '.ap-card', '.ap-note'],
+    ];
+    for (const [path = '', notes, text = ''] of surfaces) {
+      const list = decls(path, `${notes} :global(.answer-note-items)`);
+      expect(decls(path, text)).toMatch(/font-size:\s*var\(--fs-md\)/);
+      expect(list).toMatch(/font-size:\s*var\(--fs-md\)/);
+      expect(list).toMatch(/line-height:\s*var\(--lh-body\)/);
+    }
+  });
 });

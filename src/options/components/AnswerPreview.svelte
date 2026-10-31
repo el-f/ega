@@ -290,8 +290,9 @@
     font-family: var(--font-mono);
     font-size: var(--fs-sm);
   }
-  /* The side panel's notes size, line height and color. */
-  .ap-note {
+  /* The side panel's notes size, line height and color, for note text and note lists. */
+  .ap-note,
+  .ap-card :global(.answer-note-items) {
     font-size: var(--fs-md);
     line-height: var(--lh-body);
     color: var(--color-fg);

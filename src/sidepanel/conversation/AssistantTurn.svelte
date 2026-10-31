@@ -931,8 +931,9 @@
     line-height: var(--lh-body);
     min-inline-size: 0;
   }
-  /* Plain notes read like the Markdown ones beside them. */
-  .ega-note-plain {
+  /* Plain notes and note lists read like the Markdown notes beside them. */
+  .ega-note-plain,
+  .ega-notes-text :global(.answer-note-items) {
     font-size: var(--fs-md);
     line-height: var(--lh-body);
     color: var(--color-fg);
