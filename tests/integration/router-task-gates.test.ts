@@ -57,6 +57,18 @@ describe('router — what a task takes', () => {
     expect(a.ctx.key).not.toBe(b.ctx.key);
   });
 
+  // A side-panel Retry, Regenerate or Refine replays the context its turn stored.
+  it.each(['translate', 'explain'] as const)(
+    'drops stored page context for %s once "Send page context" is off',
+    async (task) => {
+      const s = mkSettings({ contextEnabled: false });
+      const a = await build(s, request(task));
+      const b = await build(s, request(task, { context: { pageTitle: 'Title B' } }));
+      expect(a.prompt.user + a.prompt.system).not.toContain('Title A');
+      expect(a.ctx.key).toBe(b.ctx.key);
+    },
+  );
+
   it('adds a page context block for a built-in the user switched context on', async () => {
     const s = mkSettings({ taskOverrides: { summarize: { pageContext: true } } });
     const { prompt } = await build(s, request('summarize'));
