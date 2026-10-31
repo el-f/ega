@@ -51,7 +51,9 @@ Five notes on that table.
   image inside a frame is out of the page's reach, so it gets the side panel's page-level set.
   "Translate image" sends none of it: its built-in image prompt takes no page info. A task with
   page context off on the Tasks tab does not read the page at all. An image inside a draft or a
-  text box sends no page context; see "Sensitive inputs Ega will not read".
+  text box on the page itself sends no page context; see "Sensitive inputs Ega will not read".
+  A draft inside a frame or a shadow root is out of the page's reach too, so its image gets the
+  page-level set, never the text around the image.
 
 ## What runs without a click
 
@@ -458,8 +460,11 @@ pressing the shortcut translates it — you asked for it explicitly. Password, c
 one-time-code fields stay blocked on every path.
 
 **A right-clicked image applies the whole list,** from the image up
-(`src/content/safety.ts#imageIsSensitive`). An image inside a composer, or with `data-ega-skip`
-on it or above it, sends no page context: you picked the image, not the draft around it.
+(`src/content/safety.ts#imageIsSensitive`). An image inside a composer on the page itself, or
+with `data-ega-skip` on it or above it, sends no page context: you picked the image, not the
+draft around it. Ega cannot find an image in a composer inside a frame or a shadow root, so it
+cannot run this check there. That image gets the page-level set: the title and the URL, and with
+"Rich" also the page language, description, site name and headings. The draft text never leaves.
 
 "Choose areas" runs the same sensitive-field check on every click, and refuses more on top
 of it. It will not select `<html>`, `<body>` or `<head>` — replacing one of those in place

@@ -665,6 +665,13 @@ element or under `role="textbox"` would be an unsent draft. The image items run
 the whole check from the image up (`src/content/safety.ts#imageIsSensitive`)
 and send no page context there.
 
+This holds only for an image in the top document's light DOM. The content script
+runs in the top frame only, and it finds the image in `document.images`. An image
+in a frame-based rich-text editor or in a shadow-root composer is not found, so the
+check never runs. The image then gets the page-level set: the title and the URL,
+and with "Rich" also the page language, description, site name and headings. The
+draft text does not leave, but those page fields do.
+
 ### Dictation sends your voice to Google
 
 The side-panel mic button uses the browser's Web Speech API
