@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, waitFor } from '@testing-library/svelte';
+import { readFileSync } from 'node:fs';
 import { tick } from 'svelte';
 import AnswerPreview from '@/options/components/AnswerPreview.svelte';
 import { loadMarkdownRenderer } from '@/shared/components/markdown-loader';
@@ -291,5 +292,20 @@ describe('a real try', () => {
       kind: 'translate:cancel',
       requestId: request && 'requestId' in request ? request.requestId : '',
     });
+  });
+});
+
+// jsdom lays nothing out, so the rule text is the gate for the sizes.
+describe('Example reply sizes', () => {
+  const rule = (path: string, selector: string): string =>
+    new RegExp(`${selector}\\s*\\{([^}]*)\\}`).exec(readFileSync(path, 'utf8'))?.[1] ?? '';
+
+  it('reads the answer at the side panel answer size, as its notes already do', () => {
+    const panel = rule('src/sidepanel/conversation/AssistantTurn.svelte', '\\.ega-answer');
+    const answer = rule('src/options/components/AnswerPreview.svelte', '\\.ap-answer');
+    expect(panel).toMatch(/font-size:\s*var\(--fs-md\)/);
+    expect(answer).toMatch(/font-size:\s*var\(--fs-md\)/);
+    expect(answer).toMatch(/line-height:\s*var\(--lh-body\)/);
+    expect(answer).toMatch(/--ega-md-fs:\s*var\(--fs-md\)/);
   });
 });

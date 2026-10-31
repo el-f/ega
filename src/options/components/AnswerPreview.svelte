@@ -266,6 +266,12 @@
     overflow-wrap: anywhere;
     min-inline-size: 0;
   }
+  /* The side panel's answer size, so the answer never reads smaller than its notes. */
+  .ap-answer {
+    font-size: var(--fs-md);
+    line-height: var(--lh-body);
+    --ega-md-fs: var(--fs-md);
+  }
   .ap-plain {
     white-space: pre-wrap;
   }
