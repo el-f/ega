@@ -148,6 +148,29 @@ describe('the answer', () => {
     );
   });
 
+  it.each([
+    [
+      'grammar',
+      'was a*b*c → now a * b * c (spacing)\nwas foo\\.bar → now foo.bar (stray backslash)',
+    ],
+    ['reword', 'Made it formal; kept **draft** and snake_case_name as written.'],
+  ] as const)('shows %s notes exactly as the model sent them', async (task, text) => {
+    const { container } = render(AssistantTurn, {
+      props: replyProps(
+        doneReply({
+          kind: task,
+          content: 'Fixed.',
+          notes: [{ key: 'explain', label: 'Notes', text }],
+          answer: { spec: answerSpecFor(task), fields: { answer: 'Fixed.', explain: text } },
+        }),
+      ),
+    });
+    await markdownSettled();
+    const note = container.querySelector('[data-ega-note="explain"] .answer-note-text');
+    expect(note?.textContent).toBe(text);
+    expect(note?.querySelector('.ega-md, em, strong')).toBeNull();
+  });
+
   it('a custom answer that is one fenced block shows its code as a block, and Copy takes the code', async () => {
     const write = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined);
     const code = String.raw`const re = /^\w+([\.-]?\w+)*$/;`;

@@ -4,6 +4,7 @@
   import ReplyDetails from '@/shared/components/ReplyDetails.svelte';
   import AnswerNotes from '@/shared/components/AnswerNotes.svelte';
   import { mainAnswerItems, soleFencedCode } from '@/shared/answer-presentation';
+  import { TRANSLATE_SPEC } from '@/shared/answer/spec';
   import ReplyMeta from '@/shared/components/ReplyMeta.svelte';
   import { imageModeOf } from '@/shared/components/reply-details';
   import DiffFadeText from '@/shared/components/DiffFadeText.svelte';
@@ -172,10 +173,14 @@
   const answerTag = $derived(langTag(answerLang) ?? '');
   const notesTag = $derived(langTag(answerTarget) ?? '');
   const mainItems = $derived(mainAnswerItems(turn.answer));
-  // A custom task's fields are plain strings, as the tooltip shows them; Ega's own notes keep Markdown.
-  const customFields = $derived(turn.answer?.spec.join === 'after-build');
-  // An answer that is one fenced block still shows as code, as the tooltip shows it; the code is exact either way.
-  const plainMain = $derived(customFields && soleFencedCode(turn.content, true) === null);
+  // A custom task's answer is a plain string, as the tooltip shows it; one fenced block still shows as code there.
+  const plainMain = $derived(
+    turn.answer?.spec.join === 'after-build' && soleFencedCode(turn.content, true) === null,
+  );
+  // Only Explain's notes are Markdown by design; Grammar, Reword and custom notes are plain strings.
+  const markdownNotes = $derived(
+    turn.answer === undefined || turn.answer.spec.id === TRANSLATE_SPEC.id,
+  );
 
   // About names every language in full; the one-line meta cuts each name.
   const direction = $derived(replyDirection(turn, { sourceLang, targetLang }, varieties));
@@ -744,7 +749,7 @@
           explain={turn.explain}
           fallbackLabel={notesLabel(currentTaskValue, taskViews)}
           lang={notesTag}
-          renderText={customFields ? plainNote : markdownNote}
+          renderText={markdownNotes ? markdownNote : plainNote}
         />
       </div>
     {/if}
