@@ -4106,9 +4106,9 @@ test('Options Backends — the list, cloud cards, local cards and the native hos
     await page.close();
 
     for (const [state, version, cli] of [
-      ['installed', 5, { claude: 'C:/Users/me/AppData/Roaming/npm/claude.cmd', codex: null }],
-      ['outdated', 4, { claude: 'C:/Users/me/AppData/Roaming/npm/claude.cmd', codex: null }],
-      ['cli-missing', 5, { claude: null, codex: null }],
+      ['installed', 6, { claude: 'C:/Users/me/AppData/Roaming/npm/claude.cmd', codex: null }],
+      ['outdated', 5, { claude: 'C:/Users/me/AppData/Roaming/npm/claude.cmd', codex: null }],
+      ['cli-missing', 6, { claude: null, codex: null }],
     ] as const) {
       page = await openOptionsState(theme, { tab: 'backends', init: fakeNativeHost(version, cli) });
       await expandBackend(page, 'native');

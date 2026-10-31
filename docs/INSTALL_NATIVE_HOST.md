@@ -17,7 +17,7 @@ build.
 3. The row's status pill shows the current state: **Checking...** while it
    checks, then **Installed**, **Update needed** or **Not installed**. Open the
    row and the first line says the same in words, for example "Installed,
-   version 5". Once the host is installed, a second line says how the next
+   version 6". Once the host is installed, a second line says how the next
    answer starts: **The first translation starts the CLI**, **Starting the
    CLI...**, **The CLI is running, so answers start fast** or **The CLI stopped;
    the next translation starts it again**. It refreshes every five seconds and
