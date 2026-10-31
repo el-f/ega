@@ -682,7 +682,7 @@
   overflow-y: auto;
   overscroll-behavior: contain;
 }
-/* The 40vh cap holds an answer alone; notes may take the rest of the room beside the selection. */
+/* With notes the whole region, answer included, takes the room beside the selection: a 40vh answer cap would nest a second scroll box. */
 .tooltip .tooltip-scroll:has(.answer-notes) {
   max-block-size: none;
 }

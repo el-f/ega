@@ -248,7 +248,7 @@ test('long notes fill the room beside the selection, not only 40vh of it', async
   await expect(page.locator('[data-ega-explain]')).toBeVisible();
   await page.screenshot({ path: info.outputPath('tooltip-long-notes-1280.png') });
 
-  // The 40vh cap holds an answer with no notes; notes may take the rest of the card, as before the shared region.
+  // The 40vh cap holds an answer with no notes; with notes the region may take the rest of the card.
   await expect
     .poll(() =>
       page.locator('.tooltip .tooltip-scroll').evaluate((el) => {
@@ -257,6 +257,41 @@ test('long notes fill the room beside the selection, not only 40vh of it', async
       }),
     )
     .toBe('fills');
+  const box = await page.locator('.tooltip').boundingBox();
+  expect(box && box.y >= 0 && box.y + box.height <= 800).toBe(true);
+});
+
+test('a long answer with a short note fills the room in the one scroll box, like long notes', async ({
+  browserName: _browserName,
+}, info) => {
+  const sentence = 'This sentence makes the answer long enough to scroll inside the card.';
+  const { page } = await open(1280, 'light', {
+    translation: `Welcome. ${Array.from({ length: 30 }, () => sentence).join(' ')}`,
+    explain: 'Short note.',
+  });
+  await expect(page.locator('[data-ega-explain]')).toBeVisible();
+  await page.screenshot({ path: info.outputPath('tooltip-long-answer-short-note-1280.png') });
+
+  // On purpose: a 40vh cap on the answer alone would scroll it in a second box inside the region.
+  await expect
+    .poll(() =>
+      page.locator('.tooltip .tooltip-scroll').evaluate((region) => {
+        const body = region.querySelector<HTMLElement>('.body');
+        const note = region.querySelector<HTMLElement>('[data-ega-explain]');
+        if (!body || !note) return 'missing';
+        region.scrollTop = region.scrollHeight;
+        const shown = {
+          region: region.clientHeight,
+          bodyScrolls: body.scrollHeight > body.clientHeight + 1,
+          noteAtEnd:
+            note.getBoundingClientRect().bottom <= region.getBoundingClientRect().bottom + 0.5,
+        };
+        return shown.region > 0.4 * innerHeight && !shown.bodyScrolls && shown.noteAtEnd
+          ? 'ok'
+          : JSON.stringify(shown);
+      }),
+    )
+    .toBe('ok');
   const box = await page.locator('.tooltip').boundingBox();
   expect(box && box.y >= 0 && box.y + box.height <= 800).toBe(true);
 });
