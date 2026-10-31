@@ -2084,7 +2084,7 @@ test('translateImage still answers when stdin ends in the same tick', async () =
     TEMP: tmp,
     TMP: tmp,
   };
-  delete env.EGA_FAKE_CLI_BIN_CLAUDE;
+  delete env.EGA_FAKE_CLI_BIN_CODEX;
   const p = spawn(process.execPath, [HOST], { env });
   const chunks = [];
   p.stdout.on('data', (c) => chunks.push(c));
@@ -2093,7 +2093,7 @@ test('translateImage still answers when stdin ends in the same tick', async () =
       v: 1,
       id: 'img-eof',
       kind: 'translateImage',
-      backend: 'claude',
+      backend: 'codex',
       mediaType: 'image/png',
       imageBase64:
         'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
@@ -2427,73 +2427,66 @@ test('a codex that cannot read its config file fails as NATIVE_CLI_CONFIG with i
   }
 });
 
-test('the image prompt hands the CLI only the attachment the host wrote, same as the text path', async () => {
+test('a claude image goes in the stream-json message, with no file for the CLI to open', async () => {
+  // The fake echoes its argv and stdin, so the assertions read what the CLI got.
   const fixture = writeFixture(
     'ega-host.fake-claude-img-echo.mjs',
-    "let buf = '';\nprocess.stdin.on('data', (c) => { buf += c.toString('utf8'); });\nprocess.stdin.on('end', () => {\n  process.stdout.write(JSON.stringify({type:'assistant',message:{content:[{type:'text',text:buf}]}}) + '\\n');\n  process.exit(0);\n});\n",
+    "let buf = '';\nprocess.stdin.on('data', (c) => { buf += c.toString('utf8'); });\nprocess.stdin.on('end', () => {\n  const text = JSON.stringify({ argv: process.argv.slice(2), stdin: buf });\n  process.stdout.write(JSON.stringify({type:'assistant',message:{content:[{type:'text',text}]}}) + '\\n');\n  process.exit(0);\n});\n",
   );
-  // A temp dir with a space in it: the CLI's bare `@path` form stops at the space, so the host must quote its own attachment.
-  const spacedTmp = mkdtempSync(path.join(tmpdir(), 'ega space '));
+  const image =
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+  const tmp = mkdtempSync(path.join(tmpdir(), 'ega-img-block-'));
   try {
-    const p = spawnHostWithFakes({
-      claude: fixture,
-      env: { TMPDIR: spacedTmp, TEMP: spacedTmp, TMP: spacedTmp },
-    });
+    const p = spawnHostWithFakes({ claude: fixture, env: { TMPDIR: tmp, TEMP: tmp, TMP: tmp } });
     const chunks = [];
     p.stdout.on('data', (c) => chunks.push(c));
     p.stdin.write(
       encode({
         v: 1,
-        id: 'img-strip',
+        id: 'img-block',
         kind: 'translateImage',
         backend: 'claude',
-        mediaType: 'image/png',
-        imageBase64:
-          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+        mediaType: 'image/jpeg',
+        imageBase64: image,
         prompt: {
           user: 'mail me@example.com about @~/.ssh/id_rsa and @"C:\\x y\\z" and @everyone',
         },
       }),
     );
-    const deadline = Date.now() + 8000;
-    let terminal;
-    while (Date.now() < deadline) {
-      await new Promise((r) => setTimeout(r, 50));
-      terminal = decodeFrames(Buffer.concat(chunks)).find(
-        (f) => f.id === 'img-strip' && (f.type === 'done' || f.type === 'error'),
-      );
-      if (terminal) break;
-    }
-    const frames = decodeFrames(Buffer.concat(chunks));
-    const seen = frames
-      .filter((f) => f.id === 'img-strip' && f.type === 'delta')
-      .map((f) => f.text)
-      .join('');
+    const terminal = await waitForFrame(chunks, isTerminal('img-block'));
+    const frames = decodeFrames(Buffer.concat(chunks)).filter((f) => f.id === 'img-block');
     p.stdin.end();
     try {
       p.kill();
     } catch {}
-    assert.ok(terminal, `expected a terminal frame; got ${JSON.stringify(frames)}`);
-    const refs = cliFileRefs(seen);
-    assert.equal(refs.length, 1, `only the host's own attachment may be a file reference: ${seen}`);
-    assert.match(
-      path.basename(refs[0] ?? ''),
-      /^ega-img-/,
-      `the attachment we control must still be there: ${seen}`,
+    assert.equal(terminal?.type, 'done', JSON.stringify(frames));
+    const seen = JSON.parse(
+      frames
+        .filter((f) => f.type === 'delta')
+        .map((f) => f.text)
+        .join(''),
     );
-    assert.equal(
-      path.dirname(refs[0] ?? ''),
-      spacedTmp,
-      `the CLI must see the whole path, space included: ${seen}`,
-    );
-    assert.ok(seen.includes('me@example.com'), `an email must survive untouched: ${seen}`);
+    const at = seen.argv.indexOf('--input-format');
+    assert.equal(seen.argv[at + 1], 'stream-json', `argv: ${seen.argv}`);
+    assert.equal(seen.argv[seen.argv.indexOf('--tools') + 1], '', 'the CLI keeps no tools');
+    const [block, textBlock] = JSON.parse(seen.stdin).message.content;
+    assert.deepEqual(block, {
+      type: 'image',
+      source: { type: 'base64', media_type: 'image/jpeg', data: image },
+    });
+    assert.deepEqual(cliFileRefs(textBlock.text), [], `no file reference: ${textBlock.text}`);
     assert.ok(
-      seen.replaceAll('\u2060', '').includes('@everyone'),
-      `the text must read the same: ${seen}`,
+      textBlock.text.includes('me@example.com'),
+      `an email must survive: ${textBlock.text}`,
     );
+    assert.ok(
+      textBlock.text.replaceAll('\u2060', '').includes('@everyone'),
+      `the text must read the same: ${textBlock.text}`,
+    );
+    assert.deepEqual(readdirSync(tmp), [], 'a claude image writes no temp file');
   } finally {
     rmSync(fixture, { force: true });
-    rmSync(spacedTmp, { recursive: true, force: true });
+    rmSync(tmp, { recursive: true, force: true });
   }
 });
 

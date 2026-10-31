@@ -73,6 +73,20 @@ test('encodeClaudePrompt with empty system omits the separator', () => {
   assert.equal(parsed.message.content, 'hola');
 });
 
+test('encodeClaudePrompt puts an image block before the text', () => {
+  const parsed = JSON.parse(
+    encodeClaudePrompt({
+      system: 'sys',
+      user: 'u',
+      image: { mediaType: 'image/jpeg', base64: 'AAAA' },
+    }),
+  );
+  assert.deepEqual(parsed.message.content, [
+    { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: 'AAAA' } },
+    { type: 'text', text: 'sys\n\nu' },
+  ]);
+});
+
 test('parseClaudeFrame ignores system.hook_started', () => {
   assert.equal(parseClaudeFrame({ type: 'system', subtype: 'hook_started' }), null);
 });

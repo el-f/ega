@@ -39,11 +39,20 @@ export const CLAUDE_SPAWN_ARGS = [
 ];
 
 /**
- * @param {{ system?: string, user: string }} prompt
+ * @param {{ system?: string, user: string, image?: { mediaType: string, base64: string } }} prompt
  * @returns {string} single NDJSON line, no trailing newline
  */
-export function encodeClaudePrompt({ system, user }) {
-  const content = system ? `${system}\n\n${user}` : user;
+export function encodeClaudePrompt({ system, user, image }) {
+  const text = system ? `${system}\n\n${user}` : user;
+  const content = image
+    ? [
+        {
+          type: 'image',
+          source: { type: 'base64', media_type: image.mediaType, data: image.base64 },
+        },
+        { type: 'text', text },
+      ]
+    : text;
   return JSON.stringify({ type: 'user', message: { role: 'user', content } });
 }
 

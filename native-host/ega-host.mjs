@@ -28,6 +28,7 @@ import {
   CLAUDE_PROMPT_ARGS,
   CLAUDE_SAFETY_ARGS,
   claudeFrameHasToolUse,
+  encodeClaudePrompt,
   makeClaudeStreamParser,
 } from './lib/protocol-claude.mjs';
 import {
@@ -423,12 +424,13 @@ function handleTranslate(msg) {
   }
 }
 
-function extensionFromMediaType(mt) {
+function imageType(mt) {
   const clean = (mt || 'image/png').toLowerCase();
-  if (clean.includes('jpeg') || clean.includes('jpg')) return '.jpg';
-  if (clean.includes('webp')) return '.webp';
-  if (clean.includes('gif')) return '.gif';
-  return '.png';
+  if (clean.includes('jpeg') || clean.includes('jpg'))
+    return { ext: '.jpg', mediaType: 'image/jpeg' };
+  if (clean.includes('webp')) return { ext: '.webp', mediaType: 'image/webp' };
+  if (clean.includes('gif')) return { ext: '.gif', mediaType: 'image/gif' };
+  return { ext: '.png', mediaType: 'image/png' };
 }
 
 const IMAGE_INSTRUCTION =
@@ -583,28 +585,33 @@ function removeFiles(files) {
   }
 }
 
-// claude takes the image as an `@path` inside the prompt; codex takes a flag.
+// codex gets the image file as a flag; claude gets a stream-json image block, since an `@path` image over ~256 KB needs the Read tool CLAUDE_SAFETY_ARGS turns off (claude 2.1.288).
 function imageInvocation(backend, msg, tmpPath, codexArgs = []) {
   // Same threat as the text path: page text can carry an `@<path>` the CLI would read.
   const system = neutralizeFileRefs(msg.prompt?.system, backend);
   const user = neutralizeFileRefs(msg.prompt?.user ?? IMAGE_INSTRUCTION, backend);
-  const head = system ? system + '\n\n' : '';
-  const baseArgs =
-    backend === 'codex'
-      ? codexExecArgs([...codexArgs, '--image', tmpPath])
-      : // `--print` with stream-json is rejected without `--verbose`.
-        [
-          '--print',
-          '--verbose',
-          '--output-format',
-          'stream-json',
-          ...CLAUDE_SAFETY_ARGS,
-          ...CLAUDE_PROMPT_ARGS,
-        ];
+  if (backend === 'codex') {
+    const head = system ? system + '\n\n' : '';
+    return {
+      args: argsWithModel(backend, codexExecArgs([...codexArgs, '--image', tmpPath]), msg.model),
+      prompt: head + user,
+    };
+  }
+  // `--print` with stream-json is rejected without `--verbose`.
+  const args = [
+    '--print',
+    '--verbose',
+    '--input-format',
+    'stream-json',
+    '--output-format',
+    'stream-json',
+    ...CLAUDE_SAFETY_ARGS,
+    ...CLAUDE_PROMPT_ARGS,
+  ];
+  const image = { mediaType: imageType(msg.mediaType).mediaType, base64: msg.imageBase64 };
   return {
-    args: argsWithModel(backend, baseArgs, msg.model),
-    // Quoted: the CLI's bare `@path` form stops at the first space, and a temp dir can hold one.
-    prompt: backend === 'claude' ? head + user + `\n\n@"${tmpPath}"` : head + user,
+    args: argsWithModel(backend, args, msg.model),
+    prompt: encodeClaudePrompt({ system, user, image }) + '\n',
   };
 }
 
@@ -686,13 +693,12 @@ function handleTranslateImage(msg) {
     });
     return;
   }
-  const tmpPath = path.join(
-    tmpdir(),
-    `ega-img-${randomUUID()}${extensionFromMediaType(msg.mediaType)}`,
-  );
-  const bytes = Buffer.from(msg.imageBase64, 'base64');
+  const tmpPath =
+    backend === 'codex'
+      ? path.join(tmpdir(), `ega-img-${randomUUID()}${imageType(msg.mediaType).ext}`)
+      : null;
   const bin = CLI_BINS[backend];
-  const files = [tmpPath];
+  const files = tmpPath ? [tmpPath] : [];
   // The slot exists from here, so a port that closes or a cancel that lands during the
   // file write still ends this request with a terminal frame.
   void sessions.runOnce({
@@ -702,10 +708,12 @@ function handleTranslateImage(msg) {
     parseLine: oneShotLineParser(backend),
     cleanup: () => removeFiles(files),
     prepare: async () => {
-      try {
-        await writeFile(tmpPath, bytes, { mode: 0o600 });
-      } catch (e) {
-        throw new Error(`failed to write image temp file: ${e.message}`, { cause: e });
+      if (tmpPath) {
+        try {
+          await writeFile(tmpPath, Buffer.from(msg.imageBase64, 'base64'), { mode: 0o600 });
+        } catch (e) {
+          throw new Error(`failed to write image temp file: ${e.message}`, { cause: e });
+        }
       }
       // The PATH scan was warmed at module load, so this is a Map hit on the common path.
       const resolved = (await resolveCliPath(bin)) ?? bin;
