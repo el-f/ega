@@ -1,7 +1,7 @@
 {
   "egaTasks": {
     "v": 1,
-    "exportedAt": "2026-10-31T13:17:40.081Z",
+    "exportedAt": "2026-10-31T16:57:54.785Z",
     "customTasks": [
       {
         "id": "dcbc2237-997e-4d64-84d9-775bc903bdcc",
@@ -40,6 +40,72 @@
         "answersIn": "target",
         "pageContext": true,
         "image": true,
+        "glossary": false,
+        "createdAt": 1793404800000
+      },
+      {
+        "id": "477e0ecd-469e-44c2-b661-8a76048e0f8e",
+        "label": "Break this",
+        "system": "You break code snippets from web pages before someone copies them: find the one input that makes the snippet fail, and prove it with a test. You see only the SNIPPET and the PAGE CONTEXT. You cannot run code.\n\nSteps:\n1. Name the language and what the snippet promises: the page's words, else its names and comments.\n2. Try these first: nested or overlapping regex quantifiers on an input that fails at the end; NULL in NOT IN (never TRUE: FALSE for a value in the list, NULL for any other); shell quoting and word splitting; off-by-one at a boundary; empty input; integer overflow; non-ASCII text; time zones and DST; SQL or shell built by joining strings.\n3. Pick the input a real caller sends that does the most damage. Input means the rows for SQL, the files and arguments for shell. An input the page rules out does not count.\n4. Trace the snippet on that exact input, step by step, to the line that goes wrong. For SQL, give each row its own result.\n5. Write the failing test, then the one-line fix.\n\nRules:\n- Claim a break only when your trace reaches it. A step you cannot trace: drop that input and try the next.\n- Say exactly what happens and to which rows, values or files. Write \"every\", \"all\" or \"never\" only when the trace covers each case. Check each sentence of The break against the trace.\n- Never claim a break that needs a version, engine, flag, locale or setting the page does not state. A SQL column with no NOT NULL shown can hold NULL.\n- The input is exact and copy-ready: the real characters, rows or file names. A long run goes as code, like \"a\" * 30 + \"!\" in Python.\n- Never state a timing or an output you did not derive. A hang: say how the work grows per extra character.\n- Test framework: the page's, else node:test, pytest, JUnit 5, a sqlite3 script, or a bash script in a new temp folder.\n- The test copies only the code under test, asserts the right result, and fails as given. SQL and shell tests print PASS or FAIL.\n- A hang test must fail on any machine: size the input to about 10^9 steps (30 repeats for 2^n growth), and assert it ends in under 50 ms.\n- The fix passes the test and keeps every example on the page working.\n- Style, naming, speed on normal input and checks the page never promised are not breaks.\n- No break found is a good answer: The break lists the inputs that held; leave out the test and the fix.\n- Not code: The break \"Select a code snippet.\", verdict Not code, other fields left out.\n- Code, inputs and outputs stay verbatim, in plain text with no markdown fences. Prose in {{targetLangLabel}}.",
+        "user": "{{context}}\nSNIPPET:\n\"\"\"\n{{text}}\n\"\"\"",
+        "output": "card",
+        "answer": {
+          "v": 1,
+          "fields": [
+            {
+              "key": "verdict",
+              "label": "Verdict",
+              "kind": "choice",
+              "role": "notes",
+              "required": true,
+              "guide": "Breaks: your trace reaches a wrong result, crash, hang or injection. No break found: every input you traced held",
+              "choices": ["Breaks", "No break found", "Not code"]
+            },
+            {
+              "key": "theBreak",
+              "label": "The break",
+              "kind": "text",
+              "role": "main",
+              "required": true,
+              "guide": "One line under 160 characters: the exact input, what the snippet does with it and to which rows or values, what it should do. Like: ids = [] -> max(ids) raises ValueError; expected 0"
+            },
+            {
+              "key": "failingTest",
+              "label": "Failing test",
+              "kind": "text",
+              "role": "notes",
+              "required": false,
+              "guide": "Runs as pasted, at most 12 lines, line 1 a comment with the run command. Fails on the snippet as given, passes with the fix"
+            },
+            {
+              "key": "fix",
+              "label": "Fix",
+              "kind": "text",
+              "role": "notes",
+              "required": false,
+              "guide": "One line of code that replaces the broken line"
+            },
+            {
+              "key": "trace",
+              "label": "Trace",
+              "kind": "list",
+              "role": "details",
+              "required": false,
+              "guide": "2 or 3 steps on the input, one line each: the code, then the value it makes"
+            },
+            {
+              "key": "alsoBreaksOn",
+              "label": "Also breaks on",
+              "kind": "list",
+              "role": "details",
+              "required": false,
+              "guide": "At most 2 other traced breaks, one line each: the exact input, then what happens. Leave out when there are none"
+            }
+          ]
+        },
+        "answersIn": "target",
+        "pageContext": true,
+        "image": false,
         "glossary": false,
         "createdAt": 1793404800000
       },

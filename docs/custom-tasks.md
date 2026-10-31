@@ -1,6 +1,6 @@
 # Custom tasks
 
-<!-- cspell:words partir Vorbereitung über Nacht untimed Kaution Mieten Kaltmiete Warmmiete Erstbezug meublée suumo yūki תודה Gbps Mbps -->
+<!-- cspell:words partir Vorbereitung über Nacht untimed Kaution Mieten Kaltmiete Warmmiete Erstbezug meublée suumo yūki תודה Gbps Mbps pytest -->
 
 A custom task is your own prompt with your own reply fields. Select text on any page and pick the task: Ega sends the text, your instructions and the page context to your model, and the reply comes back in your fields. A task with **Reads images** on also works on an image you right-click, and it gets the page context too.
 
@@ -56,6 +56,65 @@ Compare the original and its translation in the text above or in the attached im
 | Differences | List     | Main answer | Worst first, at most 5. Flipped or Changed: "translation words" - original: "words" = meaning. Lost: original "words" = meaning. Added: "translation words". Match: one item, No meaning lost                                                                                                |
 
 Send page context: on. Reads images: on. Language: target language.
+
+</details>
+
+## Break this
+
+Select a code snippet on a page and get the one input that breaks it, a test that fails on it, and a one-line fix. Here 31 characters, `"a".repeat(30) + "!"`, hang the email check on a JavaScript form tutorial: its regex tries about 2^29 ways to split the a's before it fails. The test fails as written and passes with the fix, which deletes one `?` and still accepts the same addresses.
+
+<img src="media/tasks/break-this.png" alt="Ega reply on an email check from a JavaScript form tutorial: 30 a's and an exclamation mark make the regex backtrack about 2^29 ways and the page hangs, expected a fast false; Verdict Breaks; a node:test failing test that wants false in under 50 ms; Fix, the same regex without the question mark after each dot-or-dash class" width="480">
+
+<details><summary>Prompt and fields</summary>
+
+**Instructions**
+
+```text
+You break code snippets from web pages before someone copies them: find the one input that makes the snippet fail, and prove it with a test. You see only the SNIPPET and the PAGE CONTEXT. You cannot run code.
+
+Steps:
+1. Name the language and what the snippet promises: the page's words, else its names and comments.
+2. Try these first: nested or overlapping regex quantifiers on an input that fails at the end; NULL in NOT IN (never TRUE: FALSE for a value in the list, NULL for any other); shell quoting and word splitting; off-by-one at a boundary; empty input; integer overflow; non-ASCII text; time zones and DST; SQL or shell built by joining strings.
+3. Pick the input a real caller sends that does the most damage. Input means the rows for SQL, the files and arguments for shell. An input the page rules out does not count.
+4. Trace the snippet on that exact input, step by step, to the line that goes wrong. For SQL, give each row its own result.
+5. Write the failing test, then the one-line fix.
+
+Rules:
+- Claim a break only when your trace reaches it. A step you cannot trace: drop that input and try the next.
+- Say exactly what happens and to which rows, values or files. Write "every", "all" or "never" only when the trace covers each case. Check each sentence of The break against the trace.
+- Never claim a break that needs a version, engine, flag, locale or setting the page does not state. A SQL column with no NOT NULL shown can hold NULL.
+- The input is exact and copy-ready: the real characters, rows or file names. A long run goes as code, like "a" * 30 + "!" in Python.
+- Never state a timing or an output you did not derive. A hang: say how the work grows per extra character.
+- Test framework: the page's, else node:test, pytest, JUnit 5, a sqlite3 script, or a bash script in a new temp folder.
+- The test copies only the code under test, asserts the right result, and fails as given. SQL and shell tests print PASS or FAIL.
+- A hang test must fail on any machine: size the input to about 10^9 steps (30 repeats for 2^n growth), and assert it ends in under 50 ms.
+- The fix passes the test and keeps every example on the page working.
+- Style, naming, speed on normal input and checks the page never promised are not breaks.
+- No break found is a good answer: The break lists the inputs that held; leave out the test and the fix.
+- Not code: The break "Select a code snippet.", verdict Not code, other fields left out.
+- Code, inputs and outputs stay verbatim, in plain text with no markdown fences. Prose in {{targetLangLabel}}.
+```
+
+**Message**
+
+```text
+{{context}}
+SNIPPET:
+"""
+{{text}}
+"""
+```
+
+| Field          | Type     | Shown as                   | What goes in                                                                                                                                                                           |
+| -------------- | -------- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Verdict        | Pick one | Notes                      | Breaks: your trace reaches a wrong result, crash, hang or injection. No break found: every input you traced held. Choices: Breaks, No break found, Not code.                           |
+| The break      | Text     | Main answer                | One line under 160 characters: the exact input, what the snippet does with it and to which rows or values, what it should do. Like: ids = [] -> max(ids) raises ValueError; expected 0 |
+| Failing test   | Text     | Notes, optional            | Runs as pasted, at most 12 lines, line 1 a comment with the run command. Fails on the snippet as given, passes with the fix                                                            |
+| Fix            | Text     | Notes, optional            | One line of code that replaces the broken line                                                                                                                                         |
+| Trace          | List     | About this reply, optional | 2 or 3 steps on the input, one line each: the code, then the value it makes                                                                                                            |
+| Also breaks on | List     | About this reply, optional | At most 2 other traced breaks, one line each: the exact input, then what happens. Leave out when there are none                                                                        |
+
+Send page context: on. Language: target language.
 
 </details>
 
@@ -428,7 +487,7 @@ Send page context: on. Reads images: on. Language: target language.
 
 </details>
 
-## Import all seven
+## Import all eight
 
 Download [`custom-tasks.json`](custom-tasks.json). In Ega's Settings, open **Tasks**, press **Import tasks...** under **Backup and restore**, pick the file, and press **Import**. Your other tasks stay, and you can undo the import.
 

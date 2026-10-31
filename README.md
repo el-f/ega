@@ -27,7 +27,7 @@ LLM (a Gemini, Anthropic or OpenAI key, Ollama, LM Studio or llama-server, or a 
   panel. **Choose areas** in the popup translates only the parts you pick.
 - **Seven tasks:** Translate, Explain, Summarize, Reword, Grammar, Reply ideas and Ask. Explain is
   the one for slang: it says what the text _means_, including the reference a literal translation
-  flattens. Write your own tasks with your own reply fields; see seven
+  flattens. Write your own tasks with your own reply fields; see eight
   [example tasks](docs/custom-tasks.md) you can import in one go.
 - **The side panel** keeps your conversations per site: follow-up questions, Refine presets,
   versions of a reply, search and export.
