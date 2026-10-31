@@ -331,6 +331,51 @@ test('a loading wide image shows its caption on the image', async ({
     .toEqual({ shimmer: 'on the image', caption: 'inside the image' });
 });
 
+/** Chrome 123-128 drop position-area: drop it here too and apply the sheet's fallback block, as those versions do. */
+async function withoutPositionArea(page: Page): Promise<void> {
+  await page.locator('.tooltip').evaluate((card) => {
+    const root = card.getRootNode() as ShadowRoot;
+    const fallback = [...root.styleSheets]
+      .flatMap((sheet) => [...sheet.cssRules])
+      .find(
+        (r): r is CSSSupportsRule =>
+          r instanceof CSSSupportsRule && r.conditionText.includes('position-area'),
+      );
+    if (!fallback) throw new Error('the tooltip sheet has no fallback for position-area');
+    const style = document.createElement('style');
+    style.textContent = [
+      ...Array.from(fallback.cssRules, (r) => r.cssText),
+      '.tooltip .tooltip-image-shimmer, .tooltip .tooltip-image-caption { position-area: none !important; position-visibility: always !important; }',
+    ].join('\n');
+    root.appendChild(style);
+  });
+}
+
+for (const { name, width, height, src } of [
+  { name: 'a tall image at 400px', width: 400, height: 720, src: CHART },
+  { name: 'a wide image at 1280px', width: 1280, height: 800, src: WIDE },
+] as const) {
+  test(`with no position-area (Chrome 123-128) a loading ${name} shows no overlay beside it`, async ({
+    browserName: _browserName,
+  }, info) => {
+    const { page } = await chartPage('light', width, height, undefined, src);
+    await page.bringToFront();
+    await expect(page.locator('.tooltip .tooltip-image-wrap.is-loading')).toBeVisible();
+    await page.locator('.tooltip img').evaluate((img: HTMLImageElement) => img.decode());
+    const shimmer = page.locator('.tooltip .tooltip-image-shimmer');
+    const caption = page.locator('.tooltip .tooltip-image-caption');
+    await expect(shimmer).toBeVisible();
+    await expect(caption).toBeVisible();
+    await withoutPositionArea(page);
+    await page.screenshot({ path: info.outputPath(`image-tooltip-loading-fallback-${width}.png`) });
+
+    // Without the image as its anchor the overlay would fill the row, so neither piece shows and the rows stay put.
+    await expect(shimmer).toBeHidden();
+    await expect(caption).toBeHidden();
+    await expect.poll(() => fit(page)).toMatchObject({ outside: [], spill: 0 });
+  });
+}
+
 // Room just over the 200px floor (MIN_TOOLTIP_BLOCK) above the image: image top - 8px gap - 20px margin.
 for (const side of [201, 206]) {
   test(`an image card with ${side}px above the image keeps every row inside the card`, async ({
