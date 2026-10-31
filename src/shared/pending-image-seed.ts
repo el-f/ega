@@ -1,6 +1,6 @@
 import type { TaskId } from './task-view';
 import type { PageContext } from './types';
-import { boundPageContext } from './page-context';
+import { boundPageContext } from './page-context-bounds';
 import { STORAGE_KEYS } from './constants';
 import { makeCrossContextLock } from './utils/cross-context-lock';
 

@@ -4,7 +4,7 @@ import type { AuditSurface } from '@/shared/audit-log';
 import type { MenuSurface } from '@/shared/context-menu';
 import type { ErrCode, PageContext, Settings, TranslationChunk } from '@/shared/types';
 import { enqueuePendingImageSeed, removePendingImageSeed } from '@/shared/pending-image-seed';
-import { boundPageContext } from '@/shared/page-context';
+import { boundPageContext } from '@/shared/page-context-bounds';
 import { debugCatch } from '@/shared/logger';
 
 /** A page whose main thread is busy answers late; past this the image goes without page info. */

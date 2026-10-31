@@ -29,7 +29,7 @@ import { readForContent, settingsForContent } from './content-reads';
 import { capHistoryContent, MAX_HISTORY_TURNS, type ChatTurn } from '@/shared/chat-history';
 import { fenceHistoryTurn } from '@/shared/prompts';
 import type { Settings } from '@/shared/types';
-import { boundPageContext } from '@/shared/page-context';
+import { boundPageContext } from '@/shared/page-context-bounds';
 import { parseSettingsPatch, resolveModelId } from '@/shared/settings-schema';
 import { assertNever } from '@/shared/invariants';
 import { MAX_SELECTION_CHARS } from '@/shared/constants';

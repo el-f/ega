@@ -5,9 +5,7 @@ import {
   readPageDescription,
   readSiteName,
   readHeadingTrail,
-  boundPageContext,
 } from '@/shared/page-context';
-import { MAX_SELECTION_CHARS } from '@/shared/constants';
 
 function makeDoc(html: string): Document {
   return new DOMParser().parseFromString(html, 'text/html');
@@ -212,50 +210,5 @@ describe('readHeadingTrail', () => {
     expect(trail).toEqual(['Outer']);
     // jsdom is ~10x slower than a browser; a linear scan stays under 50ms, a quadratic one does not.
     expect(elapsed).toBeLessThan(50);
-  });
-});
-
-describe('boundPageContext (page context from a message or storage)', () => {
-  it('keeps every string field and the heading trail', () => {
-    const ctx = {
-      pageTitle: 'T',
-      pageUrl: 'https://example.com/a',
-      pageLang: 'en',
-      pageDescription: 'D',
-      siteName: 'S',
-      headingTrail: ['H1', 'H2'],
-      beforeText: 'B',
-      afterText: 'A',
-      postText: 'P',
-      imageAlt: 'Alt',
-      imageCaption: 'Caption',
-    };
-    expect(boundPageContext(ctx)).toEqual(ctx);
-  });
-
-  it('drops a field of the wrong type, an unknown key and a non-string heading', () => {
-    expect(
-      boundPageContext({
-        pageTitle: 42,
-        pageUrl: { href: 'x' },
-        headingTrail: ['ok', 7, null],
-        extra: 'x',
-        imageAlt: 'kept',
-      }),
-    ).toEqual({ headingTrail: ['ok'], imageAlt: 'kept' });
-  });
-
-  it('caps each string at the selection cap and the trail at ten entries', () => {
-    const out = boundPageContext({
-      imageCaption: 'c'.repeat(5000),
-      headingTrail: Array.from({ length: 20 }, () => 'h'.repeat(5000)),
-    });
-    expect(out?.imageCaption).toHaveLength(MAX_SELECTION_CHARS);
-    expect(out?.headingTrail).toHaveLength(10);
-    expect(out?.headingTrail?.[0]).toHaveLength(MAX_SELECTION_CHARS);
-  });
-
-  it.each([null, undefined, 'title', 3, ['x']])('reads %j as no context', (raw) => {
-    expect(boundPageContext(raw)).toBeUndefined();
   });
 });
