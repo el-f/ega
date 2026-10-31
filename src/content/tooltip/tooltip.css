@@ -792,6 +792,9 @@
   min-block-size: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
+  /* The scroll box clips at its padding edge: room for the language picker's 3px ring, given back by the margin. */
+  margin-inline: calc(-1 * var(--space-1));
+  padding-inline: var(--space-1);
 }
 .tooltip-editor form,
 .tooltip-editor label {

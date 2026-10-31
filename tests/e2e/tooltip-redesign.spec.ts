@@ -320,6 +320,47 @@ for (const height of [520, 460]) {
   });
 }
 
+// The editor scrolls, so it clips at its padding edge; the language picker draws its ring as a 3px box-shadow outside it.
+for (const theme of ['light', 'dark']) {
+  for (const width of [256, 1280]) {
+    test(`the language picker's focus ring shows whole in the editor at ${width}px in ${theme}`, async ({
+      browserName: _browserName,
+    }, info) => {
+      const { page } = await open(width, theme);
+      await page.getByRole('button', { name: 'Refine', exact: true }).click();
+      await page
+        .getByRole('menuitem', { name: 'Translate into another language…', exact: true })
+        .click();
+      const picker = page.getByLabel('Translate into', { exact: true });
+      await picker.focus();
+      await page.keyboard.press('Tab');
+      await page.keyboard.press('Shift+Tab');
+      await expect(picker).toBeFocused();
+      const room = await picker.evaluate((el) => {
+        const editor = el.closest('.tooltip-editor');
+        if (!editor) return null;
+        const clip = editor.getBoundingClientRect().left + editor.clientLeft;
+        const r = el.getBoundingClientRect();
+        const ring = Number.parseFloat(
+          /([\d.]+)px$/.exec(getComputedStyle(el).boxShadow)?.[1] ?? '0',
+        );
+        return {
+          focusVisible: el.matches(':focus-visible'),
+          ring,
+          start: Math.round(r.left - ring - clip),
+          end: Math.round(clip + editor.clientWidth - r.right - ring),
+        };
+      });
+      expect(room).toMatchObject({ focusVisible: true, ring: 3 });
+      expect(room?.start).toBeGreaterThanOrEqual(0);
+      expect(room?.end).toBeGreaterThanOrEqual(0);
+      await page
+        .locator('.tooltip')
+        .screenshot({ path: info.outputPath(`tooltip-language-ring-${width}-${theme}.png`) });
+    });
+  }
+}
+
 test('Describe a change and another language apply through the Refine editor', async () => {
   const { page, mock } = await open(256);
   await page.getByRole('button', { name: 'Refine', exact: true }).click();
