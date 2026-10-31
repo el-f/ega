@@ -262,7 +262,11 @@
         />
       {:else if tip.imageUrl}
         <span class="tooltip-topbar-title"
-          >{ranTask === 'explain' ? 'Image explanation' : 'Image translation'}</span
+          >{ranTask === 'explain'
+            ? 'Image explanation'
+            : ranTask === 'translate'
+              ? 'Image translation'
+              : taskLabel}</span
         >
       {/if}
       <button

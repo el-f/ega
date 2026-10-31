@@ -9,8 +9,13 @@ import type { Task } from '@/shared/task-prompts';
 
 import type { ResultMeta } from '@/shared/types';
 import { asBackendIdUnsafe } from '@/shared/brands';
-import { ensureCustomLanguages, resetCustomLanguagesCache } from '@/content/customs-cache';
+import {
+  ensureCustomLanguages,
+  ensureCustomTasks,
+  resetCustomLanguagesCache,
+} from '@/content/customs-cache';
 import { upsertCustomLanguage } from '@/shared/storage';
+import { STORAGE_KEYS } from '@/shared/constants';
 import { preset } from '@tests/_helpers/lang';
 import { setSettings } from '@/content/settings-cache';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
@@ -954,6 +959,33 @@ describe('Continue in side panel — only when there is text to carry', () => {
       ...state,
     });
     expect(container.querySelector('.tooltip-topbar')?.textContent).toContain('Image explanation');
+  });
+
+  it('heads a custom image task with its own name', async () => {
+    const mySize = {
+      id: 'c-size',
+      label: 'My size',
+      system: 'Pick my size from the chart.',
+      user: '{{text}}',
+      output: 'plain',
+      pageContext: false,
+      image: true,
+      glossary: false,
+      createdAt: 1,
+    };
+    await chrome.storage.local.set({ [STORAGE_KEYS.customTasks]: [mySize] });
+    resetCustomLanguagesCache();
+    await ensureCustomTasks();
+    setSettings({ ...DEFAULT_SETTINGS });
+    const { container } = mountEscalatable({
+      srcText: '',
+      imageUrl: 'https://example.test/size-chart.png',
+      contextTask: 'c-size' as Task,
+      body: 'M',
+    });
+    const title = container.querySelector('.tooltip-topbar')?.textContent ?? '';
+    expect(title).toContain('My size');
+    expect(title).not.toContain('Image translation');
   });
 
   it('hides Continue when the source text is whitespace only', () => {
