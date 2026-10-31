@@ -370,6 +370,9 @@
   min-height: 32px;
 }
 .tooltip .tooltip-topbar-title {
+  /* A custom task name can be one long word; it wraps so Close stays on the card. */
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
   font-size: var(--fs-sm);
   font-weight: 600;
   color: var(--color-muted);

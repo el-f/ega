@@ -237,3 +237,17 @@ for (const { width, height } of [
     await expect.poll(() => fit(page)).toMatchObject({ outside: [], firstLine: true });
   });
 }
+
+test('a long one-word custom task name wraps in the header and keeps Close on the card', async ({
+  browserName: _browserName,
+}, info) => {
+  // One word, just under the 40-character label cap.
+  const label = 'Bildunterschriftenuebersetzungspruefung';
+  await seedCustomTasks(ext.context, ext.extensionId, [customTask({ ...chartTask, label })]);
+  const { page, send } = await chartPage('light', 256, 720);
+  await showChartReply(page, send);
+  await expect(page.locator('.tooltip .tooltip-topbar-title')).toHaveText(label);
+  await page.screenshot({ path: info.outputPath('image-tooltip-long-label-256.png') });
+
+  await expect.poll(() => fit(page)).toMatchObject({ outside: [] });
+});
