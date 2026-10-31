@@ -27,6 +27,7 @@ import {
   collectImageContext,
   collectPageContext,
   collectPageLevelContext,
+  pinContextMenuImage,
   rememberContextMenuTarget,
   type CollectPageContextTunables,
 } from './page-context-collector';
@@ -427,8 +428,8 @@ function armReloadHint(trigger?: KeyboardEvent): void {
 }
 
 /** Rect of the clicked image when it is still in the DOM; viewport-center fallback otherwise. */
-export function imageAnchorRect(imageUrl: string): DOMRect {
-  const r = clickedImage(imageUrl)?.getBoundingClientRect();
+export function imageAnchorRect(imageUrl: string, img = clickedImage(imageUrl)): DOMRect {
+  const r = img?.getBoundingClientRect();
   if (r && r.width > 0 && r.height > 0) return r;
   const cx = window.innerWidth / 2;
   const cy = window.innerHeight / 2;
@@ -454,10 +455,16 @@ function imageTipDisplay(): { clickOutsideDismiss: boolean; draggable: boolean }
   };
 }
 
+/** The copy the open image tooltip's request was resolved to; its result and Retry reuse it, whatever was right-clicked since. */
+let tooltipImage: { requestId: string; img: HTMLImageElement | undefined } | undefined;
+
 // Mounts the loading tooltip the moment the background starts the vision call.
 export async function handleImageTranslatePending(
   msg: Extract<Msg, { kind: 'content:image-translate-pending' }>,
 ): Promise<void> {
+  // Resolved now, while the last right-click is still the menu's.
+  const img = clickedImage(msg.imageUrl);
+  tooltipImage = { requestId: msg.requestId, img };
   closeStickyToast();
   // Close drops the surface; Stop keeps a retryable reply but releases its renderer owner.
   const cancel = (): void => endRequest(msg.requestId, 'cancel');
@@ -470,7 +477,7 @@ export async function handleImageTranslatePending(
   openTooltip({
     requestId: msg.requestId,
     srcText: '',
-    rect: imageAnchorRect(msg.imageUrl),
+    rect: imageAnchorRect(msg.imageUrl, img),
     confidencePill: false,
     imageUrl: msg.imageUrl,
     ...imageTipDisplay(),
@@ -481,15 +488,16 @@ export async function handleImageTranslatePending(
       releaseRequest(msg.requestId);
     },
     onClose: cancel,
-    onRetry: () => retryImageTranslate(msg.imageUrl, msg.task),
+    onRetry: () => retryImageTranslate(msg.imageUrl, msg.task, img),
     // The result's tooltip offers Regenerate in Stop's place; naming it here lets Stop hold that one icon slot (R63).
-    onRegenerate: () => retryImageTranslate(msg.imageUrl, msg.task),
+    onRegenerate: () => retryImageTranslate(msg.imageUrl, msg.task, img),
   });
 }
 
 /** Re-runs the same vision arm under a fresh id; the background answers with a new pending + result pair.
  *  Only a tooltip-surface request lands in this tooltip, so the retry stays on the tooltip. */
-function retryImageTranslate(imageUrl: string, task?: TaskId): void {
+function retryImageTranslate(imageUrl: string, task?: TaskId, img?: HTMLImageElement): void {
+  if (img) pinContextMenuImage(img);
   sendFromEntry(
     {
       kind: 'image:translate',
@@ -509,8 +517,10 @@ export function handleImageTranslateResult(
   if (!rendererOwner.has(msg.requestId)) return;
   // The result tooltip is not a request: its Retry mints a new one, and nothing streams into it.
   releaseRequest(msg.requestId);
-  const rect = imageAnchorRect(msg.imageUrl);
-  const onRetry = (): void => retryImageTranslate(msg.imageUrl, msg.task);
+  const img =
+    tooltipImage?.requestId === msg.requestId ? tooltipImage.img : clickedImage(msg.imageUrl);
+  const rect = imageAnchorRect(msg.imageUrl, img);
+  const onRetry = (): void => retryImageTranslate(msg.imageUrl, msg.task, img);
 
   if (msg.error) {
     openTooltip({

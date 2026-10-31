@@ -155,6 +155,11 @@ export function rememberContextMenuTarget(e: Event): void {
   contextMenuImage = e.target instanceof HTMLImageElement ? e.target : null;
 }
 
+/** Points later lookups at `img`, so a Retry reads around the copy its first run used, whatever was right-clicked since. */
+export function pinContextMenuImage(img: HTMLImageElement): void {
+  contextMenuImage = img;
+}
+
 /** The image a menu click names by its source: the right-clicked copy, else the first with a box, else the first. */
 export function clickedImage(
   imageUrl: string,

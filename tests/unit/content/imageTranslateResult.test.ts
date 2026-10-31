@@ -7,6 +7,7 @@ import {
 } from '@/content/index';
 import { closeTooltip } from '@/content/tipState.svelte';
 import { mountShadowHost, getContainer } from '@/content/shadowHost';
+import { clickedImage } from '@/content/page-context-collector';
 import { setSettings, resetSettingsCacheForTest } from '@/content/settings-cache';
 import { pending, rendererOwner } from '@/content/request-state';
 import { resetCustomLanguagesCache } from '@/content/customs-cache';
@@ -428,6 +429,26 @@ describe('imageAnchorRect — result lands near the clicked image', () => {
     const second = addImage('https://cdn.test/avatar.jpg', { left: 400, right: 600, x: 400 });
     second.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
     expect(imageAnchorRect('https://cdn.test/avatar.jpg').left).toBe(400);
+  });
+
+  it('a right-click elsewhere after the menu click keeps Regenerate on the copy the first run used', async () => {
+    const url = 'https://cdn.test/avatar.jpg';
+    addImage(url, {});
+    const second = addImage(url, { left: 400, right: 600, x: 400 });
+    second.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    const msg = makeMsg({ requestId: 'img-copy-2', imageUrl: url });
+    await handleImageTranslatePending(pendingMsgFor(msg));
+    // Right-clicking the answer to copy it lands on Ega's host; a right-click on page text names no image either.
+    getContainer().dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, composed: true }));
+    const text = document.body.appendChild(document.createElement('p'));
+    text.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    handleImageTranslateResult(msg);
+    await tick();
+    getContainer().querySelector<HTMLButtonElement>('[aria-label="Regenerate"]')?.click();
+    expect(sent('image:translate')).toHaveLength(1);
+    // The worker's page read and the next tooltip's anchor both resolve the image by its source.
+    expect(clickedImage(url)).toBe(second);
+    expect(imageAnchorRect(url).left).toBe(400);
   });
 
   it('falls back to the viewport center when no image matches', () => {
