@@ -40,6 +40,14 @@ const svg = [
 ].join('');
 // Taller than wide, so the preview fills its height cap.
 const CHART = `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
+const wideSvg = [
+  '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400" viewBox="0 0 800 400">',
+  '<rect width="800" height="400" fill="#111"/>',
+  '<rect x="120" y="100" width="560" height="200" fill="#0aa"/>',
+  '</svg>',
+].join('');
+// Wider than tall, so the loading preview is wide enough for its caption.
+const WIDE = `data:image/svg+xml;base64,${Buffer.from(wideSvg).toString('base64')}`;
 
 const chartTask = {
   id: 'c-chart',
@@ -167,6 +175,38 @@ async function fit(page: Page, toEnd = false): Promise<Fit> {
   }, toEnd);
 }
 
+/** Where the loading overlay paints against the preview image: `on the image` and `inside the image` are the good results. */
+function overlay(page: Page): Promise<{ shimmer: string; caption: string }> {
+  return page.locator('.tooltip .tooltip-image-wrap').evaluate((wrap) => {
+    const root = wrap.getRootNode() as ShadowRoot;
+    const img = wrap.querySelector('.tooltip-image-source');
+    const shimmer = wrap.querySelector('.tooltip-image-shimmer');
+    const caption = wrap.querySelector('.tooltip-image-caption');
+    if (!img || !shimmer || !caption) return { shimmer: 'missing', caption: 'missing' };
+    const at = (r: DOMRect) =>
+      `x ${Math.round(r.left)}-${Math.round(r.right)} y ${Math.round(r.top)}-${Math.round(r.bottom)}`;
+    const i = img.getBoundingClientRect();
+    const s = shimmer.getBoundingClientRect();
+    const c = caption.getBoundingClientRect();
+    const covers = [s.left - i.left, s.right - i.right, s.top - i.top, s.bottom - i.bottom].every(
+      (d) => Math.abs(d) < 1,
+    );
+    const inside =
+      c.left >= i.left - 0.5 &&
+      c.right <= i.right + 0.5 &&
+      c.top >= i.top - 0.5 &&
+      c.bottom <= i.bottom + 0.5;
+    // A caption hidden by position-visibility keeps its box and reads visible to the DOM; only hit testing skips it.
+    const painted = root
+      .elementsFromPoint(c.left + c.width / 2, c.top + c.height / 2)
+      .includes(caption);
+    return {
+      shimmer: covers ? 'on the image' : `${at(s)}, image ${at(i)}`,
+      caption: !painted ? 'hidden' : inside ? 'inside the image' : `${at(c)}, image ${at(i)}`,
+    };
+  });
+}
+
 /** Below the middle and past the bottom: the card opens above the chart with less room than it needs. */
 async function chartPage(
   theme: 'light' | 'dark',
@@ -174,6 +214,7 @@ async function chartPage(
   height: number,
   // The fixture body has a 40px top margin.
   marginTop = Math.round(height * 0.45) - 40,
+  src = CHART,
 ): Promise<{ page: Page; send: (result: ImageResult) => Promise<void> }> {
   await seedSettings(ext.context, ext.extensionId, {
     anthropicApiKey: 'test-key',
@@ -195,12 +236,12 @@ async function chartPage(
       await img.decode();
       window.scrollTo(0, 0);
     },
-    { src: CHART, top: marginTop },
+    { src, top: marginTop },
   );
 
   const opts = await ext.context.newPage();
   await opts.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
-  const handle = await sendImageTranslatePending(opts, ext.serverUrl, CHART);
+  const handle = await sendImageTranslatePending(opts, ext.serverUrl, src);
   return {
     page,
     send: async (result) => {
@@ -271,8 +312,24 @@ for (const { width, height } of [
     await page.screenshot({ path: info.outputPath(`image-tooltip-loading-${width}.png`) });
 
     await expect.poll(() => fit(page)).toMatchObject({ outside: [], spill: 0 });
+    // The shrunk tall preview has no room for the caption, so it hides instead of floating beside the image.
+    await expect.poll(() => overlay(page)).toEqual({ shimmer: 'on the image', caption: 'hidden' });
   });
 }
+
+test('a loading wide image shows its caption on the image', async ({
+  browserName: _browserName,
+}, info) => {
+  const { page } = await chartPage('light', 1280, 800, undefined, WIDE);
+  await page.bringToFront();
+  await expect(page.locator('.tooltip .tooltip-image-wrap.is-loading')).toBeVisible();
+  await page.locator('.tooltip img').evaluate((img: HTMLImageElement) => img.decode());
+  await page.screenshot({ path: info.outputPath('image-tooltip-loading-wide.png') });
+
+  await expect
+    .poll(() => overlay(page))
+    .toEqual({ shimmer: 'on the image', caption: 'inside the image' });
+});
 
 // Room just over the 200px floor (MIN_TOOLTIP_BLOCK) above the image: image top - 8px gap - 20px margin.
 for (const side of [201, 206]) {

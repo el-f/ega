@@ -174,6 +174,7 @@
   object-fit: contain;
   border-radius: var(--radius-sm);
   margin-bottom: var(--space-1);
+  anchor-name: --ega-preview;
 }
 /* Once the answer lands it reads first: the preview only shows which image it is about, in at most a quarter of the card. */
 .tooltip .tooltip-image-wrap:not(.is-loading) .tooltip-image-source {
@@ -192,9 +193,16 @@
 .tooltip .tooltip-image-wrap.is-loading .tooltip-image-source {
   filter: brightness(0.7);
 }
-.tooltip .tooltip-image-shimmer {
+/* The image shrinks in a short card while its row stays full width, so the overlay sits on the image, not the row. */
+.tooltip .tooltip-image-shimmer,
+.tooltip .tooltip-image-caption {
   position: absolute;
+  position-anchor: --ega-preview;
+  position-area: center;
+}
+.tooltip .tooltip-image-shimmer {
   inset: 0;
+  place-self: stretch;
   border-radius: var(--radius-sm);
   background: linear-gradient(
     90deg,
@@ -207,10 +215,13 @@
   pointer-events: none;
 }
 .tooltip .tooltip-image-caption {
-  position: absolute;
-  left: 50%;
-  bottom: var(--space-2);
-  transform: translateX(-50%);
+  inset-inline: var(--space-2);
+  inset-block-end: var(--space-2);
+  margin-inline: auto;
+  inline-size: fit-content;
+  white-space: nowrap;
+  /* A preview too small for the caption hides it, so it never paints beside the image or over the top bar. */
+  position-visibility: no-overflow;
   padding: 2px var(--space-2);
   font-size: var(--fs-xs);
   color: var(--color-fg);
