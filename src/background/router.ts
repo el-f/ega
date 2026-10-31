@@ -176,15 +176,17 @@ export function createRouter(deps: RouterDeps) {
   async function withTerminalGuard(
     reqId: string,
     onChunkRaw: (c: TranslationChunk) => void,
-    run: (emit: (c: TranslationChunk) => void) => Promise<void>,
+    run: (emit: (c: TranslationChunk) => void, t0: number) => Promise<void>,
   ): Promise<void> {
     const sink: ChunkSink = createTerminalLatch(onChunkRaw);
     const emit = (c: TranslationChunk): void => {
       sink.emit(c);
     };
+    // Stamped when Cancel all can first reach the run: the audit clear drops a row only if it started before the clear.
+    const t0 = Date.now();
     started.add(reqId);
     try {
-      await run(emit);
+      await run(emit, t0);
     } catch (e) {
       deps.logger.error('request ended without a terminal chunk', e);
       emit({
@@ -205,13 +207,14 @@ export function createRouter(deps: RouterDeps) {
     onChunkRaw: (c: TranslationChunk) => void,
     meta: RunMeta = {},
   ): Promise<void> {
-    await withTerminalGuard(req.id, onChunkRaw, (emit) => runTranslate(req, emit, meta));
+    await withTerminalGuard(req.id, onChunkRaw, (emit, t0) => runTranslate(req, emit, meta, t0));
   }
 
   async function runTranslate(
     reqIn: TranslationRequest,
     onChunkRaw: (c: TranslationChunk) => void,
     meta: RunMeta,
+    t0: number,
   ) {
     const req = withResolvedTask(reqIn);
     // Read before the settings are: a flush landing mid-request must invalidate this run's write.
@@ -235,7 +238,6 @@ export function createRouter(deps: RouterDeps) {
     const { s, cfg, translateTimeoutMs, onChunk, requestedTask, reqOptions, reqView, key } = ctx;
     const captureMeta = s.captureResultMeta !== false;
     const metaStart = performance.now();
-    const t0 = Date.now();
     const fsm = createTranslateFsm();
 
     function emitAudit(args: {
@@ -694,11 +696,13 @@ export function createRouter(deps: RouterDeps) {
     onChunkRaw: (c: TranslationChunk) => void,
     meta: Pick<RunMeta, 'surface'> = {},
   ): Promise<void> {
-    await withTerminalGuard(req.id, onChunkRaw, async (emit) =>
-      runTranslate(await imageMenuRequest(req, req.task ?? 'translate'), emit, {
-        ...meta,
-        requireVision: true,
-      }),
+    await withTerminalGuard(req.id, onChunkRaw, async (emit, t0) =>
+      runTranslate(
+        await imageMenuRequest(req, req.task ?? 'translate'),
+        emit,
+        { ...meta, requireVision: true },
+        t0,
+      ),
     );
   }
 
@@ -707,8 +711,13 @@ export function createRouter(deps: RouterDeps) {
     onChunkRaw: (c: TranslationChunk) => void,
     meta: Pick<RunMeta, 'surface'> = {},
   ): Promise<void> {
-    await withTerminalGuard(req.id, onChunkRaw, async (emit) =>
-      runTranslate(await imageMenuRequest(req, 'explain'), emit, { ...meta, requireVision: true }),
+    await withTerminalGuard(req.id, onChunkRaw, async (emit, t0) =>
+      runTranslate(
+        await imageMenuRequest(req, 'explain'),
+        emit,
+        { ...meta, requireVision: true },
+        t0,
+      ),
     );
   }
 

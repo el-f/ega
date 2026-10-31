@@ -321,4 +321,78 @@ describe('a cancel the tooltip did not start (Cancel all, Delete all data)', () 
       },
     ]);
   });
+
+  it('writes no audit row for a run the wipe caught in its first router reads', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.reject(new DOMException('aborted', 'AbortError'))),
+    );
+    const tabSend = chrome.tabs.sendMessage as unknown as Mock;
+    tabSend.mockImplementation((_tabId: number, m: Msg) =>
+      Promise.resolve(
+        m.kind === 'ega:get-page-context'
+          ? { context: { pageTitle: 'Inbox', beforeText: 'SECRET text around the image' } }
+          : { ok: true },
+      ),
+    );
+    const settings = {
+      ...DEFAULT_SETTINGS,
+      anthropicApiKey: 'k',
+      disabledBackends: [],
+      cacheEnabled: false,
+      contextEnabled: true,
+    };
+    // The router's first settings read waits: dispatch has passed its last cancel check by then.
+    let releaseRead: () => void = () => {};
+    const readHeld = new Promise<void>((r) => {
+      releaseRead = r;
+    });
+    let signalRead: () => void = () => {};
+    const readStarted = new Promise<void>((r) => {
+      signalRead = r;
+    });
+    let routerReads = 0;
+    const router = createRouter(
+      baseDeps({
+        backends: [lateAbortVision()],
+        getSettings: async () => {
+          routerReads += 1;
+          if (routerReads === 1) {
+            signalRead();
+            await readHeld;
+          }
+          return settings;
+        },
+      }),
+    );
+    // A fixed clock, so the wipe lands strictly after the run started and not in the same millisecond.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      const sent: Msg[] = [];
+      const run = dispatchImageTranslate({
+        tabId: 7,
+        imageUrl: 'https://example.com/img.png',
+        requestId: 'img-reads',
+        task: 'explain',
+        surface: 'tooltip',
+        getSettings: async () => settings,
+        router,
+        broadcast: () => {},
+        sendToTab: (_tab, m) => sent.push(m),
+        logger: { error: () => {} },
+      });
+      await readStarted;
+
+      vi.setSystemTime(Date.now() + 1);
+      await deleteAllData(router);
+      releaseRead();
+      await run;
+
+      const result = sent.find((m) => m.kind === 'content:image-translate-result');
+      expect(result).toMatchObject({ requestId: 'img-reads', error: { code: 'ABORTED' } });
+      await expectNoPageTextStored();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
