@@ -123,8 +123,8 @@ export function createRouter(deps: RouterDeps) {
     deps.imageTranslateTimeoutMs ?? DEFAULT_IMAGE_TRANSLATE_TIMEOUT_MS;
   // Buffers a cancel that arrives before its controller registers; capped so cancels for ids that never arrive cannot grow.
   const cancelRequested = new Set<string>();
-  // Ids accepted but not yet registered in `inflight` — settings, cache and probe reads all run before registration.
-  const started = new Set<string>();
+  // Ids accepted but not yet registered in `inflight`, with when each started — settings, cache and probe reads all run before registration.
+  const started = new Map<string, number>();
   // Same cache key already running: the second request waits for the first and reads its answer instead of paying for it twice.
   const inflightByKey = new Map<string, Promise<void>>();
   const resolveBackends = createChainResolver(deps.backends, probeCache);
@@ -182,9 +182,9 @@ export function createRouter(deps: RouterDeps) {
     const emit = (c: TranslationChunk): void => {
       sink.emit(c);
     };
-    // Stamped when Cancel all can first reach the run: the audit clear drops a row only if it started before the clear.
-    const t0 = Date.now();
-    started.add(reqId);
+    // Stamped when Cancel all can first reach the run (begin(), for an image reading its page): the audit clear drops a row only if it started before the clear.
+    const t0 = started.get(reqId) ?? Date.now();
+    started.set(reqId, t0);
     try {
       await run(emit, t0);
     } catch (e) {
@@ -739,7 +739,7 @@ export function createRouter(deps: RouterDeps) {
 
   /** Counts an id as started before its run, so Cancel all reaches an image still reading its page. */
   function begin(reqId: string): { cancelled: () => boolean; release: () => void } {
-    started.add(reqId);
+    started.set(reqId, Date.now());
     return {
       // A cancel that came before the run registers waits here; the run aborts on it at registration.
       cancelled: () => cancelRequested.has(reqId),
@@ -760,7 +760,7 @@ export function createRouter(deps: RouterDeps) {
       }
     }
     // A run still reading settings or probing backends has no controller yet; buffer the cancel so its registration aborts at once.
-    for (const id of started) {
+    for (const id of started.keys()) {
       if (!inflight.has(id)) {
         cancel(id);
         count += 1;

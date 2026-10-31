@@ -396,3 +396,84 @@ describe('a cancel the tooltip did not start (Cancel all, Delete all data)', () 
     }
   });
 });
+
+describe('a Clear of the request list while an image request reads the page', () => {
+  it('drops the run audit row, which would hold the page text', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        headers: new Headers({ 'content-type': 'image/png', 'content-length': '4' }),
+        body: null,
+        arrayBuffer: async () => PNG_BYTES.buffer,
+      } as unknown as Response),
+    );
+    let answerRead: (reply: unknown) => void = () => {};
+    let signalRead: () => void = () => {};
+    const readStarted = new Promise<void>((r) => {
+      signalRead = r;
+    });
+    const tabSend = chrome.tabs.sendMessage as unknown as Mock;
+    tabSend.mockImplementation((_tabId: number, m: Msg) => {
+      if (m.kind !== 'ega:get-page-context') return Promise.resolve({ ok: true });
+      signalRead();
+      return new Promise((r) => {
+        answerRead = r;
+      });
+    });
+    const backend: TranslationBackend = {
+      id: asBackendIdUnsafe('anthropic'),
+      manifest: testManifest('anthropic', true),
+      isAvailable: async () => true,
+      translate: async () => {},
+      translateImage: async (args: TranslateImageArgs) => {
+        args.onChunk({ type: 'delta', requestId: args.requestId, text: 'Hello' });
+        args.onChunk({ type: 'done', requestId: args.requestId });
+      },
+    };
+    const settings = {
+      ...DEFAULT_SETTINGS,
+      anthropicApiKey: 'k',
+      disabledBackends: [],
+      cacheEnabled: false,
+      contextEnabled: true,
+    };
+    const router = createRouter(
+      baseDeps({ backends: [backend], getSettings: async () => settings }),
+    );
+    // A fixed clock, so the Clear lands strictly after the request started and not in the same millisecond.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      const sent: Msg[] = [];
+      const run = dispatchImageTranslate({
+        tabId: 7,
+        imageUrl: 'https://example.com/img.png',
+        requestId: 'img-clear',
+        task: 'explain',
+        surface: 'tooltip',
+        getSettings: async () => settings,
+        router,
+        broadcast: () => {},
+        sendToTab: (_tab, m) => sent.push(m),
+        logger: { error: () => {} },
+      });
+      await readStarted;
+
+      vi.setSystemTime(Date.now() + 1);
+      // The Clear button sends audit:clear alone, with no Cancel all.
+      await clearAuditLog();
+      answerRead({ context: { pageTitle: 'Inbox', beforeText: 'SECRET text around the image' } });
+      await run;
+
+      // A Clear stops no request: the answer still reaches the tooltip.
+      const result = sent.find((m) => m.kind === 'content:image-translate-result');
+      expect(result).toMatchObject({ requestId: 'img-clear', translation: 'Hello' });
+      // The router writes its audit row without awaiting it; a macrotask lets that write land.
+      await new Promise((r) => setTimeout(r, 0));
+      expect(await readAuditLog()).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
