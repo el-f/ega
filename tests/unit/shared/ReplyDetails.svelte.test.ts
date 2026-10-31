@@ -313,6 +313,18 @@ describe('ReplyDetails — what was sent', () => {
     expect(all).toContain('Image caption The back of the box');
   });
 
+  // A screen reader reads our English stand-in with an English voice, and the page text around it with the page's.
+  it('tags the [image] stand-in English inside page text in another language', () => {
+    const { container } = setup({ image: 'task', sentText: '', valueLang: 'ar' });
+    const around = container.querySelector('[data-ega-context-list]');
+    expect(around?.getAttribute('lang')).toBe('ar');
+    expect(around?.querySelector('mark')?.getAttribute('lang')).toBe('en');
+    const selection = setup({ valueLang: 'ar' }).container.querySelector(
+      '[data-ega-context-list] mark',
+    );
+    expect(selection?.hasAttribute('lang')).toBe(false);
+  });
+
   it('keeps the selection marked when Explain on a selection also sent the page image', () => {
     const { container } = setup({ image: 'task', taskLabel: 'Explain' });
     expect(container.querySelector('[data-ega-context-list] mark')?.textContent).toBe(

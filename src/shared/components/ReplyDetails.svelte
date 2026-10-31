@@ -360,7 +360,10 @@
             {#if around}
               <p class="rd-around" dir="auto" lang={valueLang} data-ega-context-list>
                 {around.before}
-                <mark>{around.sent}</mark>
+                <!-- The image stand-in is our English, not page text. -->
+                <mark lang={around.sent === IMAGE_TURN_PLACEHOLDER ? 'en' : undefined}
+                  >{around.sent}</mark
+                >
                 {around.after}
               </p>
             {/if}
