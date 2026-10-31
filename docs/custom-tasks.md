@@ -59,61 +59,6 @@ Send page context: on. Reads images: on. Language: target language.
 
 </details>
 
-## True cost
-
-Select an offer (here a German gym deal for 1 € a month) and get the total for the whole term in English: 254,40 € in year one, with the sign-up and service fees added and the math to check it.
-
-<img src="media/tasks/true-cost.png" alt="Ega tooltip on a German gym offer: 254,40 € in year one (ad: 1€/mtl.), Verdict Costs more than shown, Price goes up No, and the math 6 x 29,90€ + 6 x 1€ + 39€ sign-up fee + 2 x 15€ service fee = 254,40 €" width="480">
-
-<details><summary>Prompt and fields</summary>
-
-**Instructions**
-
-```text
-You total what an offer really costs for the time it locks the buyer in. Use only the OFFER and the PAGE CONTEXT. You have no web access.
-
-Steps:
-1. Find every stated cost: base and intro prices and the months each covers, billing cycle, minimum term, setup, activation, connection, delivery, service or booking fees, deposit, renewal price, cancel fee.
-2. Period: the minimum term; else 12 months for a weekly, 4-weekly or monthly price; else one purchase.
-3. Count each cost over the period, then add them up.
-4. Ad price: the lowest per-week, per-month or per-year price the offer shows.
-
-Rules:
-- Only numbers the text states. Never add a typical fee, tax, tip or exchange rate. Never subtract a reward, cashback, bill credit or partner offer.
-- The billing line beats the banner: "billed as $4 every 4 weeks" is 13 bills a year; "billed annually" is one bill a year.
-- "$1 for 3 months" is one payment for the 3 months; "$1/mo for 3 months" is three.
-- A cost named with no amount ("taxes and fees apply", a price that "may increase") goes in Not priced, and Real cost starts with "at least". A "from" price (ab, à partir de) also gets "at least".
-- Price goes up: Yes only when the text gives a later or renewal price above the first one. Two rates with no order stated: No.
-- The text states its own total and yours differs: end Math with (page: <its total>).
-- Copy each amount exactly, with its currency. Write totals in the page's currency and number style.
-- Several plans in the OFFER: total the first one; Real cost starts with its name.
-- A price per night, person or use with no count given: Verdict Can't total it; Real cost names the missing count.
-- No price in the OFFER: Real cost "Select an offer with its price.", Verdict Not an offer, other fields left out.
-```
-
-**Message**
-
-```text
-{{context}}
-OFFER:
-"""
-{{text}}
-"""
-```
-
-| Field         | Type      | Shown as                   | What goes in                                                                                                                                                              |
-| ------------- | --------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Real cost     | Text      | Main answer                | One line, like: $168.88 in year one (ad: $9.99/mo). Start with "at least" when the rules say so. When the price goes up, add "; then &lt;later price&gt;"                 |
-| Verdict       | Pick one  | Notes                      | As shown: the total is within 5% of the ad price x the period. Costs more than shown: above that. Choices: As shown, Costs more than shown, Can't total it, Not an offer. |
-| Price goes up | Yes or no | Notes, optional            | Yes only for a stated later or renewal price above the first one; leave out only for Not an offer                                                                         |
-| Math          | Text      | Notes, optional            | One line, the sum, like: 12 x $9.99 + $49 setup = $168.88                                                                                                                 |
-| Not priced    | List      | Notes, optional            | Costs the text names with no amount, quoted in the page's language, like "Taxes and fees apply"; at most 4                                                                |
-| Cost lines    | List      | About this reply, optional | One per cost, at most 5, under 120 characters: "words quoted in the page's language" = amount x count = subtotal                                                          |
-
-Send page context: on. Language: target language.
-
-</details>
-
 ## Real cook time
 
 Select a recipe's steps (here a Japanese bread recipe whose card says 50 min) and get the time it really takes, with every rise and chill counted: about 8 h 45 min to 10 h 45 min, so you start the day before.
@@ -296,7 +241,7 @@ Send page context: on. Language: target language.
 
 </details>
 
-## Import all five
+## Import all four
 
 Download [`custom-tasks.json`](custom-tasks.json). In Ega's Settings, open **Tasks**, press **Import tasks...** under **Backup and restore**, pick the file, and press **Import**. Your other tasks stay, and you can undo the import.
 
