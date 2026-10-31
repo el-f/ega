@@ -36,7 +36,7 @@
     usedImage?: boolean;
     /** Rendered alone, or as a note under a partial body. */
     error?: { code: ErrCode; message: string };
-    /** Source image for image-translate results. When present, the image shows above the translated text. */
+    /** Source image of an image result: picks the image error copy and the side panel way out. Tooltip draws the preview. */
     imageUrl?: string;
     /** Opens the Options surface on the tab the error names. Used by the error-recovery CTA. */
     onOpenOptions?: (tab?: SettingsTab) => void;
@@ -142,21 +142,6 @@
   data-ega-tooltip-live
   lang={error ? undefined : bodyLang}>{liveMessage}</span
 >
-
-{#if imageUrl && !error}
-  <!-- No thumbnail on the error path: a half-loaded image rect reads as an artifact, not as a failure. -->
-  <div class="tooltip-image-wrap" class:is-loading={loading}>
-    <img
-      class="tooltip-image-source"
-      src={imageUrl}
-      alt={loading ? 'Source image, being translated' : 'Source image for this translation'}
-    />
-    {#if loading}
-      <span class="tooltip-image-shimmer" aria-hidden="true"></span>
-      <span class="tooltip-image-caption">Reading text from image…</span>
-    {/if}
-  </div>
-{/if}
 
 {#if loading && !body && !error}
   <!-- A bare full-width shimmer reads as a stalled progress bar, so the pre-stream state carries a task label too. -->

@@ -41,18 +41,31 @@ const svg = [
 // Taller than wide, so the preview fills its height cap.
 const CHART = `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
 
+const chartTask = {
+  id: 'c-chart',
+  label: 'Chart check',
+  output: 'card',
+  image: true,
+  answer: { v: 1, fields },
+};
+type ImageResult = Parameters<typeof sendImageTranslateResult>[2];
+const chartResult: ImageResult = {
+  translation: looksVsIs.join('\n'),
+  task: 'c-chart',
+  notes: [
+    { key: 'verdict', label: 'Verdict', text: 'Stretches it' },
+    { key: 'headline', label: 'Honest headline', text: headline },
+  ],
+  answer: {
+    spec: { id: 'c-chart', version: 1, fields, join: 'after-build' },
+    fields: { looksVsIs, verdict: 'Stretches it', headline },
+  },
+};
+
 let ext: ExtensionHandle;
 test.beforeEach(async () => {
   ext = await launchExtension();
-  await seedCustomTasks(ext.context, ext.extensionId, [
-    customTask({
-      id: 'c-chart',
-      label: 'Chart check',
-      output: 'card',
-      image: true,
-      answer: { v: 1, fields },
-    }),
-  ]);
+  await seedCustomTasks(ext.context, ext.extensionId, [customTask(chartTask)]);
 });
 test.afterEach(async () => {
   await ext.close();
@@ -133,6 +146,60 @@ async function fit(page: Page, toEnd = false): Promise<Fit> {
   }, toEnd);
 }
 
+/** Below the middle and past the bottom: the card opens above the chart with less room than it needs. */
+async function chartPage(
+  theme: 'light' | 'dark',
+  width: number,
+  height: number,
+): Promise<{ page: Page; send: (result: ImageResult) => Promise<void> }> {
+  await seedSettings(ext.context, ext.extensionId, {
+    anthropicApiKey: 'test-key',
+    tooltipClickOutside: false,
+    imageTranslateSurface: 'tooltip',
+    theme,
+  });
+  const page = await ext.context.newPage();
+  await page.setViewportSize({ width, height });
+  await page.goto(`${ext.serverUrl}/selection-page.html`);
+  await waitForTestHooks(page);
+  await page.evaluate(
+    async ({ src, top }) => {
+      const img = document.createElement('img');
+      img.src = src;
+      img.alt = 'Chart';
+      img.style.cssText = `display:block;width:100%;height:auto;margin-top:${top}px`;
+      document.body.prepend(img);
+      await img.decode();
+      window.scrollTo(0, 0);
+    },
+    // The fixture body has a 40px top margin.
+    { src: CHART, top: Math.round(height * 0.45) - 40 },
+  );
+
+  const opts = await ext.context.newPage();
+  await opts.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
+  const handle = await sendImageTranslatePending(opts, ext.serverUrl, CHART);
+  return {
+    page,
+    send: async (result) => {
+      await sendImageTranslateResult(opts, handle, result);
+      await page.bringToFront();
+    },
+  };
+}
+
+/** Sends the chart reply and waits for the decoded preview, the last note and the end of every animation. */
+async function showChartReply(page: Page, send: (result: ImageResult) => Promise<void>) {
+  await send(chartResult);
+  const card = page.locator('.tooltip');
+  await expect(card.locator('[data-ega-note="headline"]')).toContainText(headline);
+  await expect(card.locator('.actions')).toBeVisible();
+  await card.evaluate(async (el) => {
+    await el.querySelector('img')?.decode();
+    await Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished));
+  });
+}
+
 for (const { theme, width, height } of [
   { theme: 'light', width: 1280, height: 800 },
   { theme: 'dark', width: 1280, height: 800 },
@@ -142,60 +209,31 @@ for (const { theme, width, height } of [
   test(`a tall image with a long typed-fields reply stays inside the card, ${theme} at ${width}px`, async ({
     browserName: _browserName,
   }, info) => {
-    await seedSettings(ext.context, ext.extensionId, {
-      anthropicApiKey: 'test-key',
-      tooltipClickOutside: false,
-      imageTranslateSurface: 'tooltip',
-      theme,
-    });
-    const page = await ext.context.newPage();
-    await page.setViewportSize({ width, height });
-    await page.goto(`${ext.serverUrl}/selection-page.html`);
-    await waitForTestHooks(page);
-    // Below the middle and past the bottom: the card opens above the chart with less room than it needs.
-    await page.evaluate(
-      async ({ src, top }) => {
-        const img = document.createElement('img');
-        img.src = src;
-        img.alt = 'Chart';
-        img.style.cssText = `display:block;width:100%;height:auto;margin-top:${top}px`;
-        document.body.prepend(img);
-        await img.decode();
-        window.scrollTo(0, 0);
-      },
-      // The fixture body has a 40px top margin.
-      { src: CHART, top: Math.round(height * 0.45) - 40 },
-    );
-
-    const opts = await ext.context.newPage();
-    await opts.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
-    const handle = await sendImageTranslatePending(opts, ext.serverUrl, CHART);
-    await sendImageTranslateResult(opts, handle, {
-      translation: looksVsIs.join('\n'),
-      task: 'c-chart',
-      notes: [
-        { key: 'verdict', label: 'Verdict', text: 'Stretches it' },
-        { key: 'headline', label: 'Honest headline', text: headline },
-      ],
-      answer: {
-        spec: { id: 'c-chart', version: 1, fields, join: 'after-build' },
-        fields: { looksVsIs, verdict: 'Stretches it', headline },
-      },
-    });
-    await page.bringToFront();
-
-    const card = page.locator('.tooltip');
-    await expect(card.locator('[data-ega-note="headline"]')).toContainText(headline);
-    await expect(card.locator('.actions')).toBeVisible();
-    await card.evaluate(async (el) => {
-      await el.querySelector('img')?.decode();
-      await Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished));
-    });
+    const { page, send } = await chartPage(theme, width, height);
+    await showChartReply(page, send);
     await page.screenshot({ path: info.outputPath(`image-tooltip-${theme}-${width}.png`) });
 
     await expect
       .poll(() => fit(page))
       .toMatchObject({ outside: [], firstLine: true, listAtTop: true });
     await expect.poll(() => fit(page, true)).toMatchObject({ outside: [], lastNote: 1 });
+  });
+}
+
+for (const { width, height } of [
+  { width: 1280, height: 800 },
+  { width: 400, height: 720 },
+] as const) {
+  test(`About on an image card keeps the first answer line in view at ${width}px`, async ({
+    browserName: _browserName,
+  }, info) => {
+    const { page, send } = await chartPage('light', width, height);
+    await showChartReply(page, send);
+    await page.getByRole('button', { name: 'More', exact: true }).click();
+    await page.getByRole('menuitemcheckbox', { name: 'About this reply' }).click();
+    await expect(page.locator('[data-ega-inspector]')).toBeVisible();
+    await page.screenshot({ path: info.outputPath(`image-tooltip-about-${width}.png`) });
+
+    await expect.poll(() => fit(page)).toMatchObject({ outside: [], firstLine: true });
   });
 }

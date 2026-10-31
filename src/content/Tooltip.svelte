@@ -286,6 +286,21 @@
       </div>
     {/if}
 
+    {#if tip.imageUrl && !tip.error}
+      <!-- No thumbnail on the error path: a half-loaded image rect reads as an artifact, not as a failure. -->
+      <div class="tooltip-image-wrap" class:is-loading={tip.loading}>
+        <img
+          class="tooltip-image-source"
+          src={tip.imageUrl}
+          alt={tip.loading ? 'Source image, being translated' : 'Source image for this translation'}
+        />
+        {#if tip.loading}
+          <span class="tooltip-image-shimmer" aria-hidden="true"></span>
+          <span class="tooltip-image-caption">Reading text from image…</span>
+        {/if}
+      </div>
+    {/if}
+
     <div class="tooltip-scroll">
       <TooltipBody
         views={taskViews}

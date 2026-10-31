@@ -65,31 +65,6 @@ describe('TooltipBody', () => {
     expect(container.querySelector('.body')?.textContent).toContain(body || 'No answer yet.');
   });
 
-  it('renders <img> when imageUrl prop present', () => {
-    const { container } = render(TooltipBody, {
-      props: {
-        body: 'A photo of a sign.',
-        loading: false,
-        task: 'translate',
-        imageUrl: 'https://example.test/sign.png',
-      },
-    });
-    const img = container.querySelector('img.tooltip-image-source');
-    expect(img).toBeTruthy();
-    expect(img?.getAttribute('src')).toBe('https://example.test/sign.png');
-  });
-
-  it('renders no <img> when imageUrl is absent', () => {
-    const { container } = render(TooltipBody, {
-      props: {
-        body: 'hello world',
-        loading: false,
-        task: 'translate',
-      },
-    });
-    expect(container.querySelector('img.tooltip-image-source')).toBeNull();
-  });
-
   it('does not render diff spans when settled but no prior translation is supplied', () => {
     // First translation — diffAgainst absent. The body renders as plain text.
     const { container } = render(TooltipBody, {

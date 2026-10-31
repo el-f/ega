@@ -851,6 +851,29 @@ describe('Tooltip smoke', () => {
     expect(container.querySelector('.tooltip-topbar .tooltip-close')).not.toBeNull();
   });
 
+  // A preview inside the scroll region would take the 1lh floor that keeps an answer line in view.
+  it('shows the image preview as its own row, outside the scroll region', () => {
+    const { container } = mountWith({
+      body: 'A photo of a sign.',
+      imageUrl: 'https://example.test/sign.png',
+    });
+    const img = container.querySelector('img.tooltip-image-source');
+    expect(img?.getAttribute('src')).toBe('https://example.test/sign.png');
+    expect(img?.closest('.tooltip-scroll')).toBeNull();
+    expect(container.querySelector('.tooltip-scroll .body')?.textContent).toBe(
+      'A photo of a sign.',
+    );
+  });
+
+  it('shows no preview for a text reply or a failed image', () => {
+    expect(mountWith({ body: 'hello' }).container.querySelector('img')).toBeNull();
+    const failed = mountWith({
+      imageUrl: 'https://example.test/sign.png',
+      error: { code: 'NETWORK', message: 'offline' },
+    });
+    expect(failed.container.querySelector('img')).toBeNull();
+  });
+
   it('hides Explain action when tip.imageUrl is present', () => {
     const { queryByLabelText } = mountWith({
       body: 'translation',
