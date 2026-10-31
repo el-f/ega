@@ -25,7 +25,7 @@
 .tooltip .ega-tooltip-details {
   max-height: 45vh;
   min-block-size: 0;
-  /* Gives way before the image preview, like the answer region. */
+  /* Gives way like the answer region, after the image preview that yields first while About is open. */
   flex-shrink: 1000;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -181,7 +181,7 @@
   --ega-preview-max: min(120px, var(--ega-tooltip-max-block-size, 100dvh) / 4);
   max-height: var(--ega-preview-max); /* hover-lint-allow: loading ends once, not a pointer state */
 }
-/* The one row that gives way to the rest: in a short card it shrinks after the answer and About reach their floors, so the top bar and the actions stay on the card. */
+/* The one row that gives way to the rest: in a short card it shrinks after the answer reaches its floor, so the top bar and the actions stay on the card. */
 .tooltip .tooltip-image-wrap {
   position: relative;
   display: flex;
@@ -189,6 +189,10 @@
   align-items: flex-start;
   min-block-size: 0;
   max-width: 100%;
+}
+/* With About open the preview gives way first, so About and the answer keep readable heights. */
+.tooltip .tooltip-reply:has(> .ega-tooltip-details) .tooltip-image-wrap {
+  flex-shrink: 1000000;
 }
 .tooltip .tooltip-image-wrap.is-loading .tooltip-image-source {
   filter: brightness(0.7);
@@ -666,7 +670,7 @@
   gap: var(--space-2);
   /* Keeps a readable answer line when About takes the rest of the card. */
   min-block-size: 1lh;
-  /* Gives way before the image preview, which shrinks only once this region is at its floor. */
+  /* Gives way before the image preview while About is closed. */
   flex-shrink: 1000;
   /* repositionIfOverflow lifts it to none when the card has to cover the selection. */
   max-block-size: var(--ega-tooltip-body-max-block-size, 40vh);

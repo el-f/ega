@@ -175,6 +175,17 @@ async function fit(page: Page, toEnd = false): Promise<Fit> {
   }, toEnd);
 }
 
+/** `ok` when the answer region and About each show at least two lines, else the line counts. */
+function twoLinesEach(page: Page): Promise<string> {
+  return page.locator('.tooltip').evaluate((card) => {
+    const lh = Number.parseFloat(getComputedStyle(card).lineHeight);
+    const lines = (sel: string) =>
+      Math.round((10 * (card.querySelector(sel)?.clientHeight ?? 0)) / lh) / 10;
+    const shown = { answer: lines('.tooltip-scroll'), about: lines('.ega-tooltip-details') };
+    return shown.answer >= 2 && shown.about >= 2 ? 'ok' : JSON.stringify(shown);
+  });
+}
+
 /** Where the loading overlay paints against the preview image: `on the image` and `inside the image` are the good results. */
 function overlay(page: Page): Promise<{ shimmer: string; caption: string }> {
   return page.locator('.tooltip .tooltip-image-wrap').evaluate((wrap) => {
@@ -298,6 +309,8 @@ for (const { width, height } of [
     await page.screenshot({ path: info.outputPath(`image-tooltip-about-${width}.png`) });
 
     await expect.poll(() => fit(page)).toMatchObject({ outside: [], firstLine: true });
+    // The preview gives way first, so neither the answer nor About is squeezed into a sliver.
+    await expect.poll(() => twoLinesEach(page)).toBe('ok');
   });
 
   test(`a loading image card keeps its rows and Stop inside the card at ${width}px`, async ({
