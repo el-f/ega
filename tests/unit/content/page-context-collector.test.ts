@@ -1,6 +1,10 @@
 // @vitest-environment jsdom
-import { describe, it, expect } from 'vitest';
-import { collectPageContext, collectPageLevelContext } from '@/content/page-context-collector';
+import { afterEach, describe, it, expect } from 'vitest';
+import {
+  collectImageContext,
+  collectPageContext,
+  collectPageLevelContext,
+} from '@/content/page-context-collector';
 
 function makeDoc(html: string, title = ''): Document {
   const d = new DOMParser().parseFromString(html, 'text/html');
@@ -335,5 +339,97 @@ describe('collectPageLevelContext (selection-less)', () => {
     expect(ctx.headingTrail?.length).toBe(1);
     expect(ctx.headingTrail?.[0]?.length).toBe(10);
     expect(ctx.pageDescription?.length).toBe(8);
+  });
+});
+
+describe('collectImageContext (right-clicked image)', () => {
+  const IMG = 'https://example.com/label.png';
+  const loc = fakeLocation('https://shop.example.com/item/42?ref=ad');
+
+  function shopPage(wrap = (s: string) => s): void {
+    document.documentElement.lang = 'en';
+    document.head.innerHTML =
+      '<meta name="description" content="Oat drink"><meta property="og:site_name" content="Shop">';
+    document.title = 'Oat drink 1 L, no added sugar';
+    document.body.innerHTML = wrap(
+      `<article><h1>Oat drink</h1><section><h2>Label</h2>
+         <p>Words before the photo.</p>
+         <figure><img src="${IMG}" alt="Back label with the ingredients"><figcaption>The back label</figcaption></figure>
+         <p>Words after the photo.</p>
+       </section></article>`,
+    );
+  }
+
+  afterEach(() => {
+    document.body.innerHTML = '';
+    document.head.innerHTML = '';
+    document.title = '';
+  });
+
+  it('rich: the selection collector anchored at the image, plus its alt text and caption', () => {
+    shopPage();
+    const ctx = collectImageContext(IMG, 'rich', document, loc);
+    expect(ctx).toMatchObject({
+      pageTitle: 'Oat drink 1 L, no added sugar',
+      pageUrl: 'https://shop.example.com/item/42',
+      pageLang: 'en',
+      pageDescription: 'Oat drink',
+      siteName: 'Shop',
+      headingTrail: ['Oat drink', 'Label'],
+      imageAlt: 'Back label with the ingredients',
+      imageCaption: 'The back label',
+    });
+    expect(ctx?.beforeText).toContain('Words before the photo.');
+    expect(ctx?.afterText).toContain('Words after the photo.');
+    expect(ctx?.postText).toContain('Words before the photo.');
+  });
+
+  it('minimal: title, url, the text around the image, its alt text and caption only', () => {
+    shopPage();
+    const ctx = collectImageContext(IMG, 'minimal', document, loc);
+    expect(Object.keys(ctx ?? {}).sort()).toEqual([
+      'afterText',
+      'beforeText',
+      'imageAlt',
+      'imageCaption',
+      'pageTitle',
+      'pageUrl',
+    ]);
+  });
+
+  it('an image inside a line of text gets the words right before it, not only the blocks above', () => {
+    document.body.innerHTML = `<p>Above.</p><p>Ingredients: oats <img src="${IMG}"> and water.</p>`;
+    const ctx = collectImageContext(IMG, 'minimal', document, loc);
+    expect(ctx?.beforeText).toBe('Above.\nIngredients: oats ');
+    expect(ctx?.afterText).toBe(' and water.');
+  });
+
+  it('cuts the text around the image to the selection window', () => {
+    shopPage();
+    const ctx = collectImageContext(IMG, 'minimal', document, loc, { selectionContextCap: 8 });
+    expect(ctx?.beforeText?.length).toBeLessThanOrEqual(8);
+    expect(ctx?.afterText?.length).toBeLessThanOrEqual(8);
+  });
+
+  it('caps a page-controlled alt text and caption like the other page fields', () => {
+    shopPage();
+    document.querySelector('img')?.setAttribute('alt', 'a'.repeat(500));
+    const caption = document.querySelector('figcaption');
+    if (caption) caption.textContent = 'c'.repeat(500);
+    const ctx = collectImageContext(IMG, 'minimal', document, loc);
+    expect(ctx?.imageAlt?.length).toBe(200);
+    expect(ctx?.imageCaption?.length).toBe(200);
+  });
+
+  it('an image no longer on the page gets the page-level context, with nothing around it', () => {
+    shopPage();
+    expect(collectImageContext('https://example.com/gone.png', 'rich', document, loc)).toEqual(
+      collectPageLevelContext('rich', document, loc),
+    );
+  });
+
+  it('an image inside a data-ega-skip region sends no page context, as a selection there sends none', () => {
+    shopPage((s) => `<div data-ega-skip>${s}</div>`);
+    expect(collectImageContext(IMG, 'rich', document, loc)).toBeNull();
   });
 });

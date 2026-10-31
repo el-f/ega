@@ -43,7 +43,9 @@ type Row = Record<Column, Cell> & { cap: number | null };
 /** Turns the prose cell into a class; an unknown wording fails, so a policy edit forces a test edit. */
 function normalize(cell: string): Cell {
   const c = cell.trim().toLowerCase();
-  if (/^(?:explain only|when you attach)/.test(c)) return 'conditional';
+  if (/^(?:explain only|when you attach|explain image and your image tasks only)/.test(c)) {
+    return 'conditional';
+  }
   if (c === 'page language, description, site name only') return 'meta-only';
   if (c === 'a fixed sample sentence') return 'fixed';
   if (c === 'one request per page block') return 'yes';
@@ -445,36 +447,91 @@ describe('docs/PRIVACY.md "What each surface sends"', () => {
   });
 
   describe('right-click "Translate image" / "Explain image"', () => {
-    it('sends the picture and nothing else', async () => {
-      const row = policyRow('Translate image');
+    const IMG = 'https://example.com/sign.png';
+
+    /** What the router got for one menu click, with this page's content script answering the worker. */
+    async function rightClick(task: string, settings: Settings): Promise<Record<string, unknown>> {
+      (chromeMock.tabs.sendMessage as Mock).mockImplementation((_tab: number, msg: unknown) =>
+        ask(msg as Record<string, unknown>),
+      );
       const sent: Record<string, unknown>[] = [];
-      for (const task of ['translate', 'explain'] as const) {
+      const run = (req: object): Promise<void> => {
+        sent.push({ ...req });
+        return Promise.resolve();
+      };
+      try {
         await dispatchImageTranslate({
           tabId: 1,
-          imageUrl: 'https://example.com/sign.png',
+          imageUrl: IMG,
           task,
           surface: 'tooltip',
-          getSettings: () => Promise.resolve(DEFAULT_SETTINGS),
-          router: {
-            handleImageTranslate: (req) => {
-              sent.push(req);
-              return Promise.resolve();
-            },
-            handleImageExplain: (req) => {
-              sent.push(req);
-              return Promise.resolve();
-            },
-          },
+          getSettings: () => Promise.resolve(settings),
+          router: { handleImageTranslate: run, handleImageExplain: run },
           broadcast: () => {},
           sendToTab: () => {},
           logger: { error: () => {} },
         });
+      } finally {
+        (chromeMock.tabs.sendMessage as Mock).mockResolvedValue({ ok: true });
       }
-      expect(sent).toHaveLength(2);
-      for (const req of sent) {
-        expect(Object.keys(req).sort()).toEqual(['id', 'imageUrl']);
-        expectRowMatches(row, { imageUrl: req['imageUrl'] as string });
+      expect(sent).toHaveLength(1);
+      return sent[0] as Record<string, unknown>;
+    }
+
+    function imagePage(): void {
+      richPage('bonjour');
+      const sel = document.getElementById('sel');
+      if (sel) sel.innerHTML = `<img src="${IMG}" alt="A street sign">`;
+    }
+
+    const rich = (): Settings => ({
+      ...DEFAULT_SETTINGS,
+      contextEnabled: true,
+      pageContextLevel: 'rich',
+    });
+
+    it('Translate image sends the picture and nothing else', async () => {
+      const row = policyRow('Translate image');
+      await seed({});
+      imagePage();
+      const req = await rightClick('translate', rich());
+      expect(Object.keys(req).sort()).toEqual(['id', 'imageUrl']);
+      expectRowMatches(row, { imageUrl: req['imageUrl'] as string });
+      expect(observed({ context: req['context'] as PageContext })).toMatchObject({
+        titleUrl: 'no',
+        around: 'no',
+        rich: 'no',
+      });
+    });
+
+    it('Explain image and an image task also send the page context, taken around the image', async () => {
+      const row = policyRow('Translate image');
+      for (const cell of ['titleUrl', 'around', 'rich'] as const) {
+        expect(row[cell], COLUMNS[cell]).toBe('conditional');
       }
+      await seed({});
+      imagePage();
+      for (const task of ['explain', 'c-sign-check']) {
+        const req = await rightClick(task, rich());
+        const context = req['context'] as PageContext;
+        expectRowMatches(row, { imageUrl: req['imageUrl'] as string, context });
+        expect(observed({ context }), task).toMatchObject({
+          titleUrl: 'yes',
+          around: 'yes',
+          rich: 'yes',
+        });
+        expect(context.imageAlt).toBe('A street sign');
+      }
+    });
+
+    it('sends no page context with "Send page context" off or on a site turned off', async () => {
+      await seed({ 'http://localhost:3000': { disabled: true } });
+      imagePage();
+      expect(await rightClick('explain', rich())).not.toHaveProperty('context');
+      await seed({});
+      expect(await rightClick('explain', { ...rich(), contextEnabled: false })).not.toHaveProperty(
+        'context',
+      );
     });
   });
 

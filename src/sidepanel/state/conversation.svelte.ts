@@ -217,6 +217,8 @@ export interface ConversationContainer {
     imageUrl: string,
     dispatch?: TurnDispatch,
     task?: TaskId,
+    /** The page context the worker sent with the image; About this reply reads it. */
+    context?: PageContext,
   ) => void;
   /** Land a tooltip payload as a completed exchange — no dispatch. Returns the reply's id. */
   seedDeliveredTurn: (input: {
@@ -1163,6 +1165,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
     imageUrl: string,
     dispatch?: TurnDispatch,
     task: TaskId = 'translate',
+    context?: PageContext,
   ): void {
     // The worker both broadcasts and queues a seed, so a panel mounting mid-stream hears it twice.
     if (ownedRequests.has(requestId)) return;
@@ -1192,6 +1195,7 @@ export function createConversation(opts: ConversationOptions = {}): Conversation
           kind,
           attachedToTurnId: userId,
           ...taskIdentity,
+          ...(context !== undefined ? { contextSent: context } : {}),
         }),
       'debounce',
     );

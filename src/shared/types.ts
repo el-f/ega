@@ -65,6 +65,10 @@ export interface PageContext {
   afterText?: string;
   /** Text of the post block around the selection (body, caption); rich mode only. */
   postText?: string;
+  /** A right-clicked image's alt text. */
+  imageAlt?: string;
+  /** The caption of the figure that holds a right-clicked image. */
+  imageCaption?: string;
 }
 
 export interface TranslationRequest {

@@ -80,7 +80,9 @@ In priority order:
      sends the page title, the URL origin and path, `<html lang>`, the meta
      description, `og:site_name`, the heading trail, the text before and after
      the selection, and the surrounding post block
-     (`src/content/page-context-collector.ts#collectPageContext`).
+     (`src/content/page-context-collector.ts#collectPageContext`). A right-clicked image
+     for Explain or a custom image task gets the same halo around the image, plus its alt
+     text and figure caption (`src/content/page-context-collector.ts#collectImageContext`).
 
    Sensitive on a medical, legal or work page.
 
@@ -299,7 +301,7 @@ fragment are dropped before the URL enters a prompt
   (`src/content/safety.ts#SENSITIVE_NAME_RE`).
 - Page context never reads form values at all. It reads the title, the URL
   origin and path, `<html lang>`, the meta description, `og:site_name`,
-  the heading trail, and the `textContent` of the surrounding block
+  the heading trail, a right-clicked image's `alt`, and the `textContent` of the surrounding block
   (`src/content/page-context-collector.ts#collectPageContext`, `src/content/post-block.ts`).
   `textContent` does not include what is typed into an `<input>`.
 

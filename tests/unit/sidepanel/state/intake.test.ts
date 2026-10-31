@@ -4,6 +4,7 @@ import { createConversation } from '@/sidepanel/state/conversation.svelte';
 import { toastStore } from '@/shared/components/toastStore';
 import { loadThreadResult, saveThread, threadKey } from '@/sidepanel/state/conversation-store';
 import { writePendingPopupHandoff } from '@/shared/pending-popup-handoff';
+import { enqueuePendingImageSeed } from '@/shared/pending-image-seed';
 import type { Turn } from '@/sidepanel/state/conversation';
 import { drainAsync } from '@tests/_helpers/async';
 import type { PageContext } from '@/shared/types';
@@ -73,6 +74,22 @@ describe('panel intake, without mounting the panel', () => {
     intake.onRuntimeMessage(seed(7), WORKER);
     expect(conversation.turns).toHaveLength(2);
     expect(conversation.ownsRequest('req-7')).toBe(true);
+  });
+
+  it('records the page context an image click sent on its reply, live and from the queue', async () => {
+    const context: PageContext = { pageTitle: 'Oat drink', imageAlt: 'Back label' };
+    const { intake, conversation } = await intakeFor(7);
+    intake.onRuntimeMessage({ ...(seed(7) as object), context }, WORKER);
+    expect(conversation.turns.at(-1)).toMatchObject({ role: 'assistant', contextSent: context });
+
+    await enqueuePendingImageSeed({ requestId: 'queued', imageUrl: 'a', context, windowId: 7 });
+    await intake.drainImageSeeds(7);
+    expect(conversation.turns.at(-1)).toMatchObject({ role: 'assistant', contextSent: context });
+    // A seed with no page context records none, so About says Not recorded rather than None sent.
+    intake.onRuntimeMessage({ ...(seed(7) as object), requestId: 'plain' }, WORKER);
+    await vi.waitFor(() => expect(conversation.turns).toHaveLength(6));
+    expect(conversation.turns.at(-1)).not.toHaveProperty('contextSent');
+    await conversation.flush();
   });
 
   it("toasts another surface's failure but not this panel's own", async () => {

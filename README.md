@@ -212,6 +212,8 @@ Four other things can leave your browser:
 
 - **Page context, on every translation.** It is on by default and carries the page
   title, the URL cut to origin and path, and the text on each side of your selection.
+  On an image you right-click for Explain or one of your own tasks, it carries the text
+  around the image, its alt text and its caption instead.
   Turn it off at Settings → Behavior → **Page context**.
 - **The page's image, when you press Explain.** If the page has one clearly dominant
   image, Explain downloads it and sends it with your text — even when you selected

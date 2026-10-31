@@ -23,6 +23,8 @@ import {
 } from './should-show-bubble';
 import { matchShortcut } from './hotkey';
 import {
+  clickedImage,
+  collectImageContext,
   collectPageContext,
   collectPageLevelContext,
   type CollectPageContextTunables,
@@ -422,12 +424,8 @@ function armReloadHint(trigger?: KeyboardEvent): void {
 
 /** Rect of the clicked image when it is still in the DOM; viewport-center fallback otherwise. */
 export function imageAnchorRect(imageUrl: string): DOMRect {
-  for (const img of Array.from(document.images)) {
-    if (img.currentSrc === imageUrl || img.src === imageUrl) {
-      const r = img.getBoundingClientRect();
-      if (r.width > 0 && r.height > 0) return r;
-    }
-  }
+  const r = clickedImage(imageUrl)?.getBoundingClientRect();
+  if (r && r.width > 0 && r.height > 0) return r;
   const cx = window.innerWidth / 2;
   const cy = window.innerHeight / 2;
   return {
@@ -536,6 +534,7 @@ export function handleImageTranslateResult(
     imageUrl: msg.imageUrl,
     ...imageTipDisplay(),
     ...omitUndef({ contextTask: msg.task }),
+    contextSent: msg.context ?? null,
     onRetry,
     onRegenerate: onRetry,
   });
@@ -605,6 +604,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       ? (level as 'minimal' | 'rich')
       : 'minimal';
     const s: Settings | null = currentSettings();
+    const imageUrl = (msg as { imageUrl?: unknown }).imageUrl;
     try {
       const tunables: CollectPageContextTunables = {};
       if (s?.descriptionContextCap !== undefined)
@@ -612,7 +612,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       if (s?.headingTrailDepth !== undefined) tunables.headingTrailDepth = s.headingTrailDepth;
       if (s?.headingTrailEntryCap !== undefined)
         tunables.headingTrailEntryCap = s.headingTrailEntryCap;
-      const context = collectPageLevelContext(safeLevel, document, location, tunables);
+      if (s?.selectionContextCap !== undefined)
+        tunables.selectionContextCap = s.selectionContextCap;
+      const context =
+        typeof imageUrl === 'string'
+          ? collectImageContext(imageUrl, safeLevel, document, location, tunables)
+          : collectPageLevelContext(safeLevel, document, location, tunables);
       sendResponse({ context } satisfies MsgReply['ega:get-page-context']);
     } catch (e) {
       debugCatch(e, 'content.collectPageLevelContext');

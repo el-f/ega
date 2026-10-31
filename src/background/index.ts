@@ -28,7 +28,8 @@ import { hasKnownKind, type Msg, type MsgReply } from '@/shared/messages';
 import { readForContent, settingsForContent } from './content-reads';
 import { capHistoryContent, MAX_HISTORY_TURNS, type ChatTurn } from '@/shared/chat-history';
 import { fenceHistoryTurn } from '@/shared/prompts';
-import type { PageContext, Settings } from '@/shared/types';
+import type { Settings } from '@/shared/types';
+import { boundPageContext } from '@/shared/page-context';
 import { parseSettingsPatch, resolveModelId } from '@/shared/settings-schema';
 import { assertNever } from '@/shared/invariants';
 import { MAX_SELECTION_CHARS } from '@/shared/constants';
@@ -128,9 +129,6 @@ async function maybePreWarmNative(): Promise<void> {
 }
 void maybePreWarmNative();
 
-// Matches the schema max of `headingTrailDepth`.
-const MAX_HEADING_TRAIL_ENTRIES = 10;
-
 const cap = (v: string): string => capText(v, MAX_SELECTION_CHARS);
 
 type TranslateStartOptions = Extract<Msg, { kind: 'translate:start' }>['options'];
@@ -229,23 +227,6 @@ function boundedOptions(o: TranslateStartOptions): TranslateStartOptions {
     ...(o.conversationHistory !== undefined ? { conversationHistory: history } : {}),
     ...(askAbout !== null ? { askAbout } : {}),
   };
-}
-
-/** Trust boundary: a forged translate:start can carry unbounded page-context strings into the redaction regexes and the prompt. */
-function boundedContext(c: PageContext): PageContext {
-  const out: PageContext = {};
-  if (c.pageTitle !== undefined) out.pageTitle = cap(c.pageTitle);
-  if (c.pageUrl !== undefined) out.pageUrl = cap(c.pageUrl);
-  if (c.pageLang !== undefined) out.pageLang = cap(c.pageLang);
-  if (c.pageDescription !== undefined) out.pageDescription = cap(c.pageDescription);
-  if (c.siteName !== undefined) out.siteName = cap(c.siteName);
-  if (c.headingTrail !== undefined) {
-    out.headingTrail = c.headingTrail.slice(0, MAX_HEADING_TRAIL_ENTRIES).map(cap);
-  }
-  if (c.beforeText !== undefined) out.beforeText = cap(c.beforeText);
-  if (c.afterText !== undefined) out.afterText = cap(c.afterText);
-  if (c.postText !== undefined) out.postText = cap(c.postText);
-  return out;
 }
 
 // Deny-list, not allow-list: an allow-list of prompt-shaping fields drifts as settings are added.
@@ -455,13 +436,15 @@ chrome.runtime.onMessage.addListener((rawMsg, sender, sendResponse) => {
         }
         // A content script's host is its tab's; a popup or side panel names its site, else context.pageUrl decides.
         const pageHost = isExtensionPage(sender) ? hostOf(msg.siteOrigin) : hostOf(sender.tab?.url);
+        // A forged translate:start can carry a non-string or unbounded page field into the redaction regexes and the prompt.
+        const context = boundPageContext(msg.context);
         return router.handleTranslate(
           {
             id: msg.requestId,
             text: boundedText,
             sourceLang: msg.sourceLang,
             targetLang,
-            ...(msg.context ? { context: boundedContext(msg.context) } : {}),
+            ...(context !== undefined ? { context } : {}),
             ...(pageHost !== undefined ? { pageHost } : {}),
             options: boundedOptions(msg.options),
           },
@@ -600,6 +583,7 @@ chrome.runtime.onMessage.addListener((rawMsg, sender, sendResponse) => {
       const senderTabId = sender.tab?.id;
       const imageUrl = msg.imageUrl;
       const requestId = msg.requestId;
+      const pageHost = isExtensionPage(sender) ? undefined : hostOf(sender.tab?.url);
       void (async () => {
         // An extension page has no tabId and the tooltip surface needs a real tab, so that case broadcasts instead.
         await dispatchImageTranslate({
@@ -610,6 +594,7 @@ chrome.runtime.onMessage.addListener((rawMsg, sender, sendResponse) => {
           ...(msg.surface ? { surface: msg.surface } : {}),
           ...(sender.tab?.windowId !== undefined ? { windowId: sender.tab.windowId } : {}),
           ...(senderTabId !== undefined ? { trackTab: trackRequestTab(senderTabId) } : {}),
+          ...(pageHost !== undefined ? { pageHost } : {}),
           getSettings,
           router,
           broadcast: (m) => {
@@ -820,6 +805,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
         const srcUrl = info.srcUrl;
         // A sidepanel-surface item already opened the panel synchronously above, inside the gesture window.
         const imgTask = action.task;
+        const pageHost = hostOf(tab.url);
         await dispatchImageTranslate({
           tabId,
           imageUrl: srcUrl,
@@ -827,6 +813,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
           ...(action.surface !== undefined ? { surface: action.surface } : {}),
           windowId: tab.windowId,
           trackTab: trackRequestTab(tabId),
+          ...(pageHost !== undefined ? { pageHost } : {}),
           getSettings,
           router,
           broadcast: (msg) => {

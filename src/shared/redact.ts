@@ -105,5 +105,7 @@ export function redactContext(ctx: PageContext): PageContext {
   if (ctx.beforeText !== undefined) out.beforeText = redactSecrets(ctx.beforeText);
   if (ctx.afterText !== undefined) out.afterText = redactSecrets(ctx.afterText);
   if (ctx.postText !== undefined) out.postText = redactSecrets(ctx.postText);
+  if (ctx.imageAlt !== undefined) out.imageAlt = redactSecrets(ctx.imageAlt);
+  if (ctx.imageCaption !== undefined) out.imageCaption = redactSecrets(ctx.imageCaption);
   return out;
 }

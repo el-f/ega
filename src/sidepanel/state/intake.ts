@@ -89,6 +89,7 @@ export function createIntake(deps: IntakeDeps): Intake {
     requestId: string,
     imageUrl: string,
     task: TaskId | undefined,
+    context: PageContext | undefined,
     warn = false,
   ): Promise<void> {
     if (!followed || conversation.activeSite !== conversation.tabSite) {
@@ -107,6 +108,7 @@ export function createIntake(deps: IntakeDeps): Intake {
         stream: deps.streaming(),
       },
       task,
+      context,
     );
   }
 
@@ -125,7 +127,7 @@ export function createIntake(deps: IntakeDeps): Intake {
     if (msg.windowId !== undefined && windowId !== undefined && msg.windowId !== windowId) return;
     // The mount drain may have seeded this one already; the stop warning would name its own reply.
     if (conversation.ownsRequest(msg.requestId)) return;
-    void seedImage(msg.requestId, msg.imageUrl, msg.task, true)
+    void seedImage(msg.requestId, msg.imageUrl, msg.task, msg.context, true)
       // Consume the queued copy, or a remount within 60s rebuilds this turn as a stuck spinner.
       .then(() => removePendingImageSeed(msg.requestId))
       .catch((e: unknown) => debugCatch(e, 'sidepanel.onSeedMessage'));
@@ -171,7 +173,7 @@ export function createIntake(deps: IntakeDeps): Intake {
     for (const seed of await drainPendingImageSeeds(windowId)) {
       // The live message may hold this one while the panel switches.
       if (conversation.ownsRequest(seed.requestId)) continue;
-      await seedImage(seed.requestId, seed.imageUrl, seed.task);
+      await seedImage(seed.requestId, seed.imageUrl, seed.task, seed.context);
     }
   }
 

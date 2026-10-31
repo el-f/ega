@@ -14,6 +14,7 @@
   import { redactContext } from '@/shared/redact';
   import { MAX_INSTRUCTIONS_CHARS } from '@/shared/reply-instructions';
   import type { AskedAbout } from '@/shared/ask-about';
+  import { IMAGE_TURN_PLACEHOLDER } from '@/shared/constants';
 
   interface Props {
     /** Absent when result details are off in Settings, or the reply carried none. */
@@ -89,7 +90,8 @@
 
   // The router scrubs secrets out of page info before it builds the prompt, so this shows and copies that version.
   const page = $derived(context ? redactContext(context) : context);
-  const around = $derived(aroundText(page, sentText));
+  // An image request sent no text of its own, so the image stands where the selection would.
+  const around = $derived(aroundText(page, image ? IMAGE_TURN_PLACEHOLDER : sentText));
   const pageFields = $derived.by(() => {
     if (!page) return [];
     const out: Array<{ label: string; value: string; mono?: boolean }> = [];
@@ -104,6 +106,8 @@
     if (page.postText) out.push({ label: 'Post', value: page.postText });
     if (page.beforeText) out.push({ label: 'Text before', value: page.beforeText });
     if (page.afterText) out.push({ label: 'Text after', value: page.afterText });
+    if (page.imageAlt) out.push({ label: 'Image alt text', value: page.imageAlt });
+    if (page.imageCaption) out.push({ label: 'Image caption', value: page.imageCaption });
     return out;
   });
   const pageSent = $derived(image !== 'ocr' && pageFields.length > 0);

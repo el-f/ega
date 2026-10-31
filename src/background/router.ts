@@ -87,6 +87,8 @@ export interface ImageMenuRequest {
   /** Caption or notes beside the image. */
   text?: string;
   context?: PageContext;
+  /** The tab's host, so site rules match with page info off too. */
+  pageHost?: string;
   targetLang?: string;
 }
 
@@ -677,6 +679,7 @@ export function createRouter(deps: RouterDeps) {
       sourceLang: 'auto',
       targetLang: targetLang as TranslationRequest['targetLang'],
       ...(req.context ? { context: req.context } : {}),
+      ...(req.pageHost !== undefined ? { pageHost: req.pageHost } : {}),
       options: {
         stream: false,
         explain: task === 'explain',

@@ -450,6 +450,19 @@ describe('NativeBackend.translateImage (vision)', () => {
     expect(sess.unsubscribed).toBe(true);
   });
 
+  it("posts the router's prompt as built, so a task's page context reaches the host", async () => {
+    const sess = setupPortManager();
+    const b = new NativeBackend();
+    const user = 'Listing:\nPAGE CONTEXT:\nTitle: Oat drink 1 L, no added sugar\n';
+    const p = b.translateImage({ ...mkImgArgs(), system: 'Check the label.', user });
+    sess.emit({ v: 1, id: 'img-1', type: 'done' });
+    await p;
+    expect((sess.frames[0] as Record<string, unknown>)['prompt']).toEqual({
+      system: 'Check the label.',
+      user,
+    });
+  });
+
   it('aggregates delta frames and emits a done chunk with the parsed payload', async () => {
     const sess = setupPortManager();
     const b = new NativeBackend();

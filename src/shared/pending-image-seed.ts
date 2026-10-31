@@ -1,4 +1,6 @@
 import type { TaskId } from './task-view';
+import type { PageContext } from './types';
+import { boundPageContext } from './page-context';
 import { STORAGE_KEYS } from './constants';
 import { makeCrossContextLock } from './utils/cross-context-lock';
 
@@ -12,6 +14,8 @@ export interface PendingImageSeed {
   ts?: number;
   /** Browser window the click came from; a panel in another window leaves it in the slot. */
   windowId?: number;
+  /** The page context sent with the image, so a panel that mounts late still records it on the turn. */
+  context?: PageContext;
 }
 
 export type PendingImageSeedMap = Record<string, PendingImageSeed>;
@@ -29,12 +33,14 @@ function decodeSeed(raw: Record<string, unknown>): PendingImageSeed | null {
   const ts = raw['ts'];
   const task = raw['task'];
   const windowId = raw['windowId'];
+  const context = boundPageContext(raw['context']);
   return {
     requestId: raw['requestId'],
     imageUrl: raw['imageUrl'],
     ...(typeof task === 'string' && /^[a-z0-9][\w-]{0,63}$/i.test(task) ? { task } : {}),
     ...(typeof ts === 'number' ? { ts } : {}),
     ...(typeof windowId === 'number' ? { windowId } : {}),
+    ...(context ? { context } : {}),
   };
 }
 

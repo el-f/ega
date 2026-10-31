@@ -230,6 +230,46 @@ test('translateImage with the codex backend is routed to the codex CLI, not refu
   assert.equal(terminal?.type, 'done', `the codex fake answered: ${JSON.stringify(terminal)}`);
 });
 
+test('translateImage hands the CLI the prompt the extension built, page context included', async () => {
+  const fixture = codexExecFixture('ega-host.fake-codex-img-prompt.mjs', `(p) => 'echo:' + p`);
+  const p = spawnHostWithFakes({ codex: fixture });
+  const chunks = [];
+  p.stdout.on('data', (c) => chunks.push(c));
+  p.stdin.write(
+    encode({
+      v: 1,
+      id: 'img-ctx',
+      kind: 'translateImage',
+      backend: 'codex',
+      imageBase64:
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+      mediaType: 'image/png',
+      prompt: {
+        system: 'Check the listing against the label.',
+        user: 'Listing:\nPAGE CONTEXT:\nTitle: Oat drink 1 L, no added sugar',
+      },
+    }),
+  );
+  const deadline = Date.now() + 8000;
+  let frames = [];
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 50));
+    frames = decodeFrames(Buffer.concat(chunks)).filter((f) => f.id === 'img-ctx');
+    if (frames.some((f) => f.type === 'done' || f.type === 'error')) break;
+  }
+  p.stdin.end();
+  try {
+    p.kill();
+  } catch {}
+  rmSync(fixture, { force: true });
+  const said = frames
+    .filter((f) => f.type === 'delta')
+    .map((f) => f.text)
+    .join('');
+  assert.match(said, /Check the listing against the label\./, JSON.stringify(frames));
+  assert.match(said, /Title: Oat drink 1 L, no added sugar/, JSON.stringify(frames));
+});
+
 test('translateImage writes the temp image readable only by its owner', async () => {
   // The fixture reads the real temp file the host wrote, so the mode is measured, not seeded.
   const fixture = writeFixture(

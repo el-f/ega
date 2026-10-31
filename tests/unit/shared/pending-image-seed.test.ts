@@ -23,6 +23,29 @@ describe('pending-image-seed', () => {
     expect(await drainPendingImageSeeds()).toMatchObject([{ task: 'c-image-list' }]);
   });
 
+  it('keeps the page context sent with the image, type-checked, so a late panel records it', async () => {
+    await enqueuePendingImageSeed({
+      requestId: 'ctx',
+      imageUrl: 'a',
+      context: { pageTitle: 'Shop', imageAlt: 'Label' },
+    });
+    const stored = (await chrome.storage.session.get(STORAGE_KEYS.pendingImageSeed))[
+      STORAGE_KEYS.pendingImageSeed
+    ] as Record<string, unknown>;
+    await chrome.storage.session.set({
+      [STORAGE_KEYS.pendingImageSeed]: {
+        ...stored,
+        bad: { requestId: 'bad', imageUrl: 'b', context: { pageTitle: 7 } },
+      },
+    });
+    const seeds = await drainPendingImageSeeds();
+    expect(seeds.find((s) => s.requestId === 'ctx')?.context).toEqual({
+      pageTitle: 'Shop',
+      imageAlt: 'Label',
+    });
+    expect(seeds.find((s) => s.requestId === 'bad')?.context).toEqual({});
+  });
+
   it('enqueue stores keyed by requestId; drain returns + clears', async () => {
     await enqueuePendingImageSeed({ requestId: 'r1', imageUrl: 'a' });
     const seeds = await drainPendingImageSeeds();

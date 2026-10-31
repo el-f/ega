@@ -297,7 +297,9 @@ function collectContextBefore(range: Range, budget: number): string {
     }
   }
   const walker = createContextWalker(root);
-  walker.currentNode = start;
+  // A range starting on an element (around an image) starts before its startOffset-th child, not before the element.
+  walker.currentNode =
+    start.nodeType === Node.ELEMENT_NODE ? (start.childNodes[range.startOffset] ?? start) : start;
   let visited = 0;
   while (total < budget && ++visited <= MAX_CONTEXT_NODES) {
     const node = walker.previousNode();
@@ -360,10 +362,19 @@ export function getSelectionInfo(userCap?: number, includeContext = true): Selec
   const rect = range.getBoundingClientRect();
   // The walk below is proportional to the budget; only the translate path pays for it.
   if (!includeContext) return { text, rect, range, beforeText: '', afterText: '' };
+  return { text, rect, range, ...textAround(range, userCap) };
+}
+
+/** The visible text on each side of a range, in the selection's window. */
+export function textAround(
+  range: Range,
+  userCap?: number,
+): { beforeText: string; afterText: string } {
   const budget = ctxBudget(undefined, userCap);
-  const beforeText = collectContextBefore(range, budget);
-  const afterText = collectContextAfter(range, budget);
-  return { text, rect, range, beforeText, afterText };
+  return {
+    beforeText: collectContextBefore(range, budget),
+    afterText: collectContextAfter(range, budget),
+  };
 }
 
 function getEditableSelectionInfo(userCap?: number, includeContext = true): SelectionInfo | null {

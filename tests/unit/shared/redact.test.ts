@@ -167,8 +167,12 @@ describe('redactContext — metadata fields only', () => {
       beforeText: 'before 4242424242424242',
       afterText: 'after clean text',
       postText: 'Bearer abc.DEF-123_xyz456',
+      imageAlt: 'card 4242424242424242',
+      imageCaption: 'key sk-abcDEF0123456789abcDEF01',
     };
     const out = redactContext(ctx);
+    expect(out.imageAlt).toBe('card [REDACTED]');
+    expect(out.imageCaption).toBe('key [REDACTED]');
     expect(out.pageTitle).toBe('token [REDACTED]');
     expect(out.pageUrl).not.toContain('AKIA');
     expect(out.pageLang).toBe('en');

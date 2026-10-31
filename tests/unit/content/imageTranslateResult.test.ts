@@ -13,6 +13,7 @@ import { resetCustomLanguagesCache } from '@/content/customs-cache';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import type { Msg } from '@/shared/messages';
 import type { ErrCode } from '@/shared/types';
+import { toggleTooltipAbout } from './_tooltip-menu';
 
 // The background worker sends this message only when imageTranslateSurface is 'tooltip'.
 
@@ -283,6 +284,23 @@ describe('image Explain on the tooltip surface', () => {
     });
     await tick();
     expect(getContainer().querySelector('.shimmer-label')?.textContent).toBe('Explaining…');
+  });
+
+  it('About this reply shows the page info sent with the image', async () => {
+    await runImageTranslate({
+      ...makeMsg({ requestId: 'img-ctx', translation: 'hi' }),
+      task: 'explain',
+      context: { pageTitle: 'Oat drink 1 L', beforeText: 'No added sugar.', imageAlt: 'Label' },
+    });
+    await tick();
+    await toggleTooltipAbout(getContainer());
+    const info = await vi.waitFor(() => {
+      const el = getContainer().querySelector('[data-ega-context-preview]');
+      if (!el) throw new Error('no page info row');
+      return el;
+    });
+    expect(info.textContent).toContain('Oat drink 1 L');
+    expect(info.querySelector('mark')?.textContent).toBe('[image]');
   });
 
   it('renders the explanation under the image text, marked as read from the image', async () => {

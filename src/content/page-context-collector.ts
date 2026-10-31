@@ -14,7 +14,8 @@ import {
 } from '@/shared/constants';
 import { omitUndef } from '@/shared/utils/omitUndef';
 import { extractPostBlockText } from './post-block';
-import { visibleText } from './selection';
+import { selectionIsSensitive } from './safety';
+import { textAround, visibleText } from './selection';
 
 const HEADING_TAG_SET_PAGE = new Set(['H1', 'H2', 'H3', 'H4', 'H5', 'H6']);
 
@@ -69,6 +70,8 @@ export interface CollectPageContextTunables {
   headingTrailDepth?: number;
   headingTrailEntryCap?: number;
   postTextCap?: number;
+  /** The window of text on each side of a right-clicked image; a selection gets its window from the caller. */
+  selectionContextCap?: number;
 }
 
 /** Page context for pageContextLevel: off = empty, minimal = title, url and nearby text, rich adds lang, description, site name, headings and, on a selection, the post block around it. */
@@ -111,6 +114,53 @@ export function collectPageContext(
     ...(headingTrail.length > 0 ? { headingTrail } : {}),
     ...(postText ? { postText } : {}),
   };
+}
+
+/** The selection collector anchored at a right-clicked image, plus its alt text and figure caption. An image no longer
+ *  on the page gets the page-level context; one in a secret field's region or under `data-ega-skip` gets null. */
+export function collectImageContext(
+  imageUrl: string,
+  level: 'minimal' | 'rich',
+  doc: Document = document,
+  loc: Location = location,
+  tunables: CollectPageContextTunables = {},
+): PageContext | null {
+  const img = clickedImage(imageUrl, doc);
+  if (!img) return collectPageLevelContext(level, doc, loc, tunables);
+  const range = doc.createRange();
+  range.selectNode(img);
+  // The selection's own gate: the walk around the image would read the region it sits in.
+  if (selectionIsSensitive(range, null)) return null;
+  const alt = img.alt.trim();
+  const caption = img.closest('figure')?.querySelector('figcaption');
+  const captionText = caption ? visibleText(caption) : '';
+  return {
+    ...collectPageContext(
+      { ...textAround(range, tunables.selectionContextCap), anchorNode: img },
+      level,
+      doc,
+      loc,
+      tunables,
+    ),
+    ...(alt ? { imageAlt: capMeta(alt) } : {}),
+    ...(captionText ? { imageCaption: capMeta(captionText) } : {}),
+  };
+}
+
+/** The image a menu click names by its source: the first one with a box, else the first one. The tooltip anchors on it too. */
+export function clickedImage(
+  imageUrl: string,
+  doc: Document = document,
+): HTMLImageElement | undefined {
+  const matches = Array.from(doc.images).filter(
+    (img) => img.currentSrc === imageUrl || img.src === imageUrl,
+  );
+  return matches.find(hasBox) ?? matches[0];
+}
+
+function hasBox(img: HTMLImageElement): boolean {
+  const r = img.getBoundingClientRect();
+  return r.width > 0 && r.height > 0;
 }
 
 /** For popup-typed text: no selection, so no before/after text, and headings come from the top of the page. */

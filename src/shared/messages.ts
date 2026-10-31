@@ -133,6 +133,8 @@ export type Msg =
       requestId: string;
       imageUrl: string;
       task?: TaskId;
+      /** The page context sent with the image; the turn records it for About this reply. */
+      context?: PageContext;
       /** Browser window the click came from; only that window's panel seeds the turn. */
       windowId?: number;
     }
@@ -162,6 +164,8 @@ export type Msg =
       imageUrl: string;
       /** Which vision arm ran, so Retry re-runs the same one. */
       task?: TaskId;
+      /** The page context sent with the image, for About this reply. */
+      context?: PageContext;
       error?: { code: ErrCode; message: string; retryAfterMs?: number };
     }
   /** Background → every tab: these mirrored storage keys changed; the content script re-reads them. */
@@ -172,8 +176,9 @@ export type Msg =
   | { kind: 'content:read-tasks' }
   /** Popup → content-script. Replies `{ text, heldBack? }`; an empty string means no selection. */
   | { kind: 'ega:get-selection' }
-  /** Replies `{ context: PageContext | null }`. beforeText / afterText stay empty — the popup has no selection. */
-  | { kind: 'ega:get-page-context'; level: 'minimal' | 'rich' }
+  /** Replies `{ context: PageContext | null }`. The side panel sends no `imageUrl`: no selection, so no text around.
+   *  The worker names the right-clicked image, and the context anchors there. */
+  | { kind: 'ega:get-page-context'; level: 'minimal' | 'rich'; imageUrl?: string }
   /** The options page holds its own port-manager copy, which always reports 'cold' — ask the SW instead. */
   | { kind: 'native:get-port-status' }
   /** "Test now" routes through the SW so the spawn lands in the port-manager copy the chip polls. */

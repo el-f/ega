@@ -1,9 +1,22 @@
 import type { TaskId } from '@/shared/task-view';
-import type { Msg } from '@/shared/messages';
+import { sendTabMsg, type Msg } from '@/shared/messages';
 import type { AuditSurface } from '@/shared/audit-log';
 import type { MenuSurface } from '@/shared/context-menu';
-import type { ErrCode, Settings, TranslationChunk } from '@/shared/types';
+import type { ErrCode, PageContext, Settings, TranslationChunk } from '@/shared/types';
 import { enqueuePendingImageSeed, removePendingImageSeed } from '@/shared/pending-image-seed';
+import { boundPageContext } from '@/shared/page-context';
+import { debugCatch } from '@/shared/logger';
+
+/** A page whose main thread is busy answers late; past this the image goes without page info. */
+const PAGE_CONTEXT_READ_TIMEOUT_MS = 1000;
+
+interface VisionRequest {
+  id: string;
+  imageUrl: string;
+  task?: TaskId;
+  context?: PageContext;
+  pageHost?: string;
+}
 
 export interface ImageTranslateDispatchDeps {
   tabId: number;
@@ -15,15 +28,17 @@ export interface ImageTranslateDispatchDeps {
   surface?: MenuSurface;
   /** Browser window of the click; the side-panel seed is scoped to it. */
   windowId?: number;
+  /** Host of the tab, so site rules match as they do for a text request. */
+  pageHost?: string;
   getSettings: () => Promise<Settings>;
   router: {
     handleImageTranslate: (
-      req: { id: string; imageUrl: string; task?: TaskId },
+      req: VisionRequest,
       onChunk: (c: TranslationChunk) => void,
       meta: { surface: AuditSurface },
     ) => Promise<void>;
     handleImageExplain: (
-      req: { id: string; imageUrl: string },
+      req: VisionRequest,
       onChunk: (c: TranslationChunk) => void,
       meta: { surface: AuditSurface },
     ) => Promise<void>;
@@ -44,25 +59,41 @@ export async function dispatchImageTranslate(deps: ImageTranslateDispatchDeps): 
   const task = deps.task ?? 'translate';
   const runVision = task === 'explain' ? router.handleImageExplain : router.handleImageTranslate;
   const windowScope = deps.windowId !== undefined ? { windowId: deps.windowId } : {};
+  // The built-in image prompt takes no page info, so Translate never asks; an extension page has no tab to ask.
+  const context =
+    task !== 'translate' && settings.contextEnabled && tabId >= 0
+      ? await readImageContext(tabId, imageUrl, settings.pageContextLevel)
+      : undefined;
+  const sentContext = context ? { context } : {};
+  const req: VisionRequest = {
+    id: requestId,
+    imageUrl,
+    ...(task !== 'translate' && task !== 'explain' ? { task } : {}),
+    ...sentContext,
+    ...(deps.pageHost !== undefined ? { pageHost: deps.pageHost } : {}),
+  };
 
   if (surface === 'sidepanel') {
     // Queue as well as broadcast: a panel still opening drains the queue on mount.
-    await enqueuePendingImageSeed({ requestId, imageUrl, task, ...windowScope }).catch(() => {});
+    await enqueuePendingImageSeed({
+      requestId,
+      imageUrl,
+      task,
+      ...sentContext,
+      ...windowScope,
+    }).catch(() => {});
     broadcast({
       kind: 'sidepanel:seed-image-translate',
       requestId,
       imageUrl,
       task,
+      ...sentContext,
       ...windowScope,
     });
     let failed = false;
     try {
       await runVision(
-        {
-          id: requestId,
-          imageUrl,
-          ...(task !== 'translate' && task !== 'explain' ? { task } : {}),
-        },
+        req,
         (chunk) => {
           if (chunk.type === 'error') failed = true;
           broadcast({ kind: 'translate:chunk', chunk });
@@ -97,11 +128,7 @@ export async function dispatchImageTranslate(deps: ImageTranslateDispatchDeps): 
     const releaseTab = deps.trackTab?.(requestId);
     try {
       await runVision(
-        {
-          id: requestId,
-          imageUrl,
-          ...(task !== 'translate' && task !== 'explain' ? { task } : {}),
-        },
+        req,
         (chunk) => {
           if (chunk.type === 'delta') buffered = chunk.replace ? chunk.text : buffered + chunk.text;
           if (chunk.type === 'done') done = chunk;
@@ -149,9 +176,36 @@ export async function dispatchImageTranslate(deps: ImageTranslateDispatchDeps): 
         ...(done?.answer !== undefined ? { answer: done.answer } : {}),
         ...(done?.meta !== undefined ? { meta: done.meta } : {}),
         ...(done?.usedImage === true ? { usedImage: true } : {}),
+        ...sentContext,
         imageUrl,
         task,
       });
     }
+  }
+}
+
+/** The tab's page context anchored at the image, cut and type-checked; undefined when the tab gives none. */
+async function readImageContext(
+  tabId: number,
+  imageUrl: string,
+  level: 'minimal' | 'rich',
+): Promise<PageContext | undefined> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const late = new Promise<undefined>((resolve) => {
+      timer = setTimeout(() => resolve(undefined), PAGE_CONTEXT_READ_TIMEOUT_MS);
+    });
+    const reply = await Promise.race([
+      sendTabMsg(tabId, { kind: 'ega:get-page-context', level, imageUrl }),
+      late,
+    ]);
+    const context = boundPageContext(reply?.context);
+    return context && Object.keys(context).length > 0 ? context : undefined;
+  } catch (e) {
+    // No content script (the tab needs a reload) or the tab closed: the image still goes, with no page info.
+    debugCatch(e, 'bg.image.pageContext');
+    return undefined;
+  } finally {
+    clearTimeout(timer);
   }
 }

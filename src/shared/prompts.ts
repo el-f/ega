@@ -124,6 +124,8 @@ function renderContext(req: TranslationRequest, descCap: number, explain: boolea
   if (c.beforeText) parts.push(`Before: ${quoteInline(c.beforeText)}`);
   if (c.afterText) parts.push(`After: ${quoteInline(c.afterText)}`);
   if (c.postText) parts.push(`Post: ${quoteInline(c.postText)}`);
+  if (c.imageAlt) parts.push(`Image alt text: ${quoteInline(c.imageAlt)}`);
+  if (c.imageCaption) parts.push(`Image caption: ${quoteInline(c.imageCaption)}`);
   return parts.join('\n') + '\n';
 }
 

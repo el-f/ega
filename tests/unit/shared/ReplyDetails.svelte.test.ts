@@ -297,6 +297,22 @@ describe('ReplyDetails — what was sent', () => {
     expect(around?.textContent).toContain('Everyone answered');
   });
 
+  it('shows the page info an image task sent: the image marked between the text around it, its alt text and caption', async () => {
+    const { container, getByRole } = setup({
+      image: 'task',
+      sentText: '',
+      taskLabel: 'Label check',
+      context: { ...CONTEXT, imageAlt: 'Back label', imageCaption: 'The back of the box' },
+    });
+    expect(row(container, 'Page info')).toContain('Travel notes');
+    const around = container.querySelector('[data-ega-context-list]');
+    expect(around?.querySelector('mark')?.textContent).toBe('[image]');
+    await fireEvent.click(getByRole('button', { name: 'Show all page info' }));
+    const all = container.querySelector('[data-ega-context-all]')?.textContent ?? '';
+    expect(all).toContain('Image alt text Back label');
+    expect(all).toContain('Image caption The back of the box');
+  });
+
   it('opens every page field on request', async () => {
     const { container, getByRole } = setup();
     expect(container.querySelector('[data-ega-context-all]')).toBeNull();
