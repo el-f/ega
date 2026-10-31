@@ -9,11 +9,11 @@
   },
   {
     "name": "AnswerNotes",
-    "bytes": 22971
+    "bytes": 23138
   },
   {
     "name": "ask-about",
-    "bytes": 3380
+    "bytes": 3488
   },
   {
     "name": "batch-progress",
@@ -29,7 +29,7 @@
   },
   {
     "name": "cancel-token",
-    "bytes": 31611
+    "bytes": 31728
   },
   {
     "name": "Checkbox",
@@ -77,11 +77,11 @@
   },
   {
     "name": "index.html",
-    "bytes": 501356
+    "bytes": 502244
   },
   {
     "name": "index.ts",
-    "bytes": 47845
+    "bytes": 47904
   },
   {
     "name": "index.ts-loader",
@@ -117,7 +117,7 @@
   },
   {
     "name": "open-options-tab",
-    "bytes": 52718
+    "bytes": 52178
   },
   {
     "name": "page-styles",
@@ -125,7 +125,7 @@
   },
   {
     "name": "page-translate-v2",
-    "bytes": 26454
+    "bytes": 26276
   },
   {
     "name": "pending-conversation-open",
@@ -209,7 +209,7 @@
   },
   {
     "name": "src-content-index.ts",
-    "bytes": 40280
+    "bytes": 41104
   },
   {
     "name": "StableLabel",
@@ -229,7 +229,7 @@
   },
   {
     "name": "Tasks",
-    "bytes": 59641
+    "bytes": 59645
   },
   {
     "name": "TaskUsageRow",
@@ -253,7 +253,7 @@
   },
   {
     "name": "tipState.svelte",
-    "bytes": 59360
+    "bytes": 60673
   },
   {
     "name": "toast",
@@ -277,7 +277,7 @@
   },
   {
     "name": "translate-ui",
-    "bytes": 3070
+    "bytes": 3531
   },
   {
     "name": "vendor-bits-ui",
