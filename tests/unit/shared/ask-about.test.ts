@@ -82,6 +82,8 @@ describe('askQuote', () => {
     expect(askQuote({ content: '- `kifak` means [how are you](https://x.test)' })).toBe(
       'kifak means how are you',
     );
+    // A code block followed by text is Markdown: its fence lines are not text to quote.
+    expect(askQuote({ content: '```js\nconst *x*\n```\nmore' })).toBe('const x');
   });
 
   it('quotes a reply that is one fenced block by its first code line, every character kept', () => {
