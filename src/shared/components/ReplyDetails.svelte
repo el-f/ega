@@ -90,8 +90,8 @@
 
   // The router scrubs secrets out of page info before it builds the prompt, so this shows and copies that version.
   const page = $derived(context ? redactContext(context) : context);
-  // An image request sent no text of its own, so the image stands where the selection would.
-  const around = $derived(aroundText(page, image ? IMAGE_TURN_PLACEHOLDER : sentText));
+  // A right-clicked image sends no text, so the image stands where a selection would; Explain on a selection keeps it.
+  const around = $derived(aroundText(page, sentText || (image ? IMAGE_TURN_PLACEHOLDER : '')));
   const pageFields = $derived.by(() => {
     if (!page) return [];
     const out: Array<{ label: string; value: string; mono?: boolean }> = [];

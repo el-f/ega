@@ -313,6 +313,13 @@ describe('ReplyDetails — what was sent', () => {
     expect(all).toContain('Image caption The back of the box');
   });
 
+  it('keeps the selection marked when Explain on a selection also sent the page image', () => {
+    const { container } = setup({ image: 'task', taskLabel: 'Explain' });
+    expect(container.querySelector('[data-ega-context-list] mark')?.textContent).toBe(
+      'mar7aba, kifak?',
+    );
+  });
+
   it('opens every page field on request', async () => {
     const { container, getByRole } = setup();
     expect(container.querySelector('[data-ega-context-all]')).toBeNull();
