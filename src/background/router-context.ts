@@ -162,8 +162,7 @@ export function createContextResolver(deps: ContextDeps) {
 
     // normaliseExplainRouting rewrites explain to translate for the prompt; rules, glossary, audit and the cache key read the user's task.
     const { task, options: reqOptions } = normaliseExplainRouting(req.options);
-    // A task that does not take page context drops it here, so it neither renders nor splits the cache.
-    // "Send page context" off drops it too: a side-panel Retry or Regenerate replays the context its turn stored.
+    // A task that does not take page context, or "Send page context" off, drops it here: it neither renders nor splits the cache.
     const { context: sentContext, ...reqNoContext } = req;
     // Page context is scrubbed with no toggle; the translate body is never touched, because redacting it corrupts the output.
     const reqView: TranslationRequest = {

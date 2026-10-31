@@ -63,8 +63,7 @@ export async function dispatchImageTranslate(deps: ImageTranslateDispatchDeps): 
   const task = deps.task ?? 'translate';
   const runVision = task === 'explain' ? router.handleImageExplain : router.handleImageTranslate;
   const windowScope = deps.windowId !== undefined ? { windowId: deps.windowId } : {};
-  // Tracked before the page read: a Stop or tab close during it must reach the router, which buffers an early cancel.
-  // The side-panel surface never registers: the panel outlives the tab.
+  // Tracked before the page read, so a Stop or tab close during it cancels; the side panel outlives the tab and never registers.
   const releaseTab = surface !== 'sidepanel' ? deps.trackTab?.(requestId) : undefined;
   try {
     // Vision calls run for seconds; the tab mounts its loading tooltip on this message, so it goes before the page read.
