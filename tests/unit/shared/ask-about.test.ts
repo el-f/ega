@@ -77,20 +77,31 @@ describe('askQuote', () => {
     expect(askQuote({ content: 'x'.repeat(500) })).toHaveLength(200);
   });
 
-  it('is plain text: Markdown marks, fences and link targets are gone', () => {
+  it('is plain text: Markdown marks and link targets are gone', () => {
     expect(askQuote({ content: '## **Hi** there' })).toBe('Hi there');
     expect(askQuote({ content: '- `kifak` means [how are you](https://x.test)' })).toBe(
       'kifak means how are you',
     );
-    expect(askQuote({ content: '```\n> snake_case stays\n```' })).toBe('snake_case stays');
+  });
+
+  it('quotes a reply that is one fenced block by its first code line, every character kept', () => {
+    // The panel shows the code unchanged, so its marks and markers are code, not Markdown.
+    expect(askQuote({ content: '```\n\n  > snake_case *stays*\n```' })).toBe(
+      '> snake_case *stays*',
+    );
+    const answer = { spec: CUSTOM_PRESETS['answer-only'], fields: {} };
+    expect(askQuote({ content: '```js\nconst re = /^\\w+([\\.-]?\\w+)*$/;\n```', answer })).toBe(
+      'const re = /^\\w+([\\.-]?\\w+)*$/;',
+    );
+    expect(askQuote({ content: '```py\n- x = a*b  # `note`\n```', answer })).toBe(
+      '- x = a*b  # `note`',
+    );
   });
 
   it("keeps a custom task's reply exactly as the panel shows it: its asterisks and backticks are text", () => {
     const answer = { spec: CUSTOM_PRESETS['answer-only'], fields: {} };
     expect(askQuote({ content: '\n  a*b*c and `x`  \nmore', answer })).toBe('a*b*c and `x`');
     expect(askQuote({ content: '- **not** a list', answer })).toBe('- **not** a list');
-    // A reply that is one fenced block shows as code, so its quote is the code line.
-    expect(askQuote({ content: '```js\nconst x = 1\n```', answer })).toBe('const x = 1');
   });
 });
 

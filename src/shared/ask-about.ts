@@ -1,5 +1,5 @@
 import { capText } from './text-cap';
-import { isPlainAnswer } from './answer-presentation';
+import { isPlainAnswer, soleFencedCode } from './answer-presentation';
 import type { AnswerSpec } from './answer/spec';
 
 /** Which reply a question asks about: a reference, never a copy of its text (D58). Each request builds its
@@ -91,14 +91,16 @@ function plainLine(line: string): string {
 }
 
 /** The quote a question shows: a reply's first line of text as the panel shows it. A Markdown reply loses its
- *  Markdown; a plain one (a custom task's answer) keeps every character. */
+ *  Markdown; a plain one (a custom task's answer) and one fenced block (shown as code) keep every character. */
 export function askQuote(reply: {
   content: string;
   answer?: { spec: Pick<AnswerSpec, 'join'> } | undefined;
 }): string {
-  const lines = reply.content.split('\n');
-  const shown = isPlainAnswer(reply.answer?.spec, reply.content)
-    ? lines.map((l) => l.trim())
-    : lines.filter((l) => !/^\s*(?:```|~~~)/.test(l)).map(plainLine);
+  const code = soleFencedCode(reply.content, true);
+  const lines = (code ?? reply.content).split('\n');
+  const shown =
+    code !== null || isPlainAnswer(reply.answer?.spec, reply.content)
+      ? lines.map((l) => l.trim())
+      : lines.filter((l) => !/^\s*(?:```|~~~)/.test(l)).map(plainLine);
   return clip(shown.find((l) => l !== '') ?? '', QUOTE_MAX);
 }
