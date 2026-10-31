@@ -96,6 +96,7 @@
   let change = $state('');
   let languageIndex = $state('0');
   const targetId = makeId('ega-tooltip-target');
+  const changeId = makeId('ega-tooltip-change');
   let editor: HTMLDivElement | undefined = $state();
   let root: HTMLDivElement | undefined = $state();
 
@@ -343,7 +344,9 @@
         <!-- requestSubmit() from the page creates a trusted submit event. Only an actual Apply press may send. -->
         <form onsubmit={(e) => e.preventDefault()}>
           {#if editing === 'change'}
-            <label>Describe a change<textarea bind:value={change} rows="3"></textarea></label>
+            <!-- A sibling of its label, so in a short card the input shrinks without the label overlapping it. -->
+            <label for={changeId}>Describe a change</label>
+            <textarea id={changeId} bind:value={change} rows="3"></textarea>
           {:else}
             <label for={targetId}>Translate into</label>
             <Select

@@ -262,6 +262,64 @@ test('Stop keeps keyboard focus on the retained reply recovery action', async ()
   await expect(page.locator('.tooltip')).toHaveCount(0);
 });
 
+/** Rows past the reply's edge, and how the change input and Apply show through every box that clips them. */
+function editorFit(
+  page: Page,
+): Promise<{ spill: number; inView: boolean; input: string; apply: string }> {
+  return page.locator('.tooltip').evaluate((card) => {
+    const reply = card.querySelector('.tooltip-reply');
+    const input = card.querySelector('.tooltip-editor textarea');
+    const apply = card.querySelector('.tooltip-editor-actions button');
+    if (!reply || !input || !apply) {
+      return { spill: -1, inView: false, input: 'missing', apply: 'missing' };
+    }
+    const shows = (el: Element): string => {
+      const r = el.getBoundingClientRect();
+      let { top, bottom } = r;
+      for (let a = el.parentElement; a && a !== card; a = a.parentElement) {
+        if (getComputedStyle(a).overflowY === 'visible') continue;
+        const c = a.getBoundingClientRect();
+        top = Math.max(top, c.top);
+        bottom = Math.min(bottom, c.bottom);
+      }
+      const shown = Math.max(0, bottom - top);
+      return shown >= r.height - 0.5
+        ? 'whole'
+        : `${Math.round(shown)} of ${Math.round(r.height)}px`;
+    };
+    const rowsEnd = Math.max(...[...reply.children].map((r) => r.getBoundingClientRect().bottom));
+    const box = card.getBoundingClientRect();
+    return {
+      spill: Math.max(0, Math.round(rowsEnd - reply.getBoundingClientRect().bottom)),
+      inView: box.top >= 0 && box.bottom <= window.innerHeight,
+      input: shows(input),
+      apply: shows(apply),
+    };
+  });
+}
+
+// 520px: the card opens below the selection with about 250px for its rows. 460px: the 200px floor.
+for (const height of [520, 460]) {
+  test(`Describe a change in a short card keeps every row inside the card at ${height}px`, async ({
+    browserName: _browserName,
+  }, info) => {
+    const { page } = await open(400, 'light', { height, settings: { tooltipShowSource: true } });
+    await expect(page.locator('.tooltip .src')).toBeVisible();
+    await page.getByRole('button', { name: 'Refine', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Describe a change…', exact: true }).click();
+    await expect(
+      page.getByRole('textbox', { name: 'Describe a change', exact: true }),
+    ).toBeFocused();
+
+    await expect.poll(() => editorFit(page)).toMatchObject({ spill: 0, inView: true });
+    await page.screenshot({ path: info.outputPath(`tooltip-editor-short-${height}.png`) });
+    // Above the floor the whole editor shows; at the floor it scrolls inside the card.
+    if (height === 520) {
+      expect(await editorFit(page)).toMatchObject({ input: 'whole', apply: 'whole' });
+    }
+  });
+}
+
 test('Describe a change and another language apply through the Refine editor', async () => {
   const { page, mock } = await open(256);
   await page.getByRole('button', { name: 'Refine', exact: true }).click();
