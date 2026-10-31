@@ -195,7 +195,7 @@
               </details>{/if}
           {:else}<p role="status">Stopped</p>{/if}
         {:else}
-          <div class="ap-answer" dir="auto" data-ega-preview-answer>
+          <div class="ap-answer" dir="auto">
             {#if items}<ul>
                 {#each items as item, i (i)}<li>{item}</li>{/each}
               </ul>{:else if plainMain}<span class="ap-plain">{shown.text}</span>{:else}<Markdown

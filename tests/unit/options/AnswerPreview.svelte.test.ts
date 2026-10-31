@@ -250,7 +250,7 @@ describe('a real try', () => {
     await new Promise((resolve) => setTimeout(resolve));
     await tick();
     expect(card.querySelector('.ega-md, h1, h2, em, strong')).toBeNull();
-    const answer = card.querySelector('[data-ega-preview-answer]');
+    const answer = card.querySelector('.ap-answer');
     expect(answer?.textContent).toBe(main);
     expect(answer?.getAttribute('dir')).toBe('auto');
     const note = (key: string) => card.querySelector(`[data-ega-note="${key}"] .answer-note-text`);
