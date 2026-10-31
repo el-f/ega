@@ -70,6 +70,7 @@ async function rightClickLabelCheck(s: Settings): Promise<{ system: string; user
     surface: 'tooltip',
     pageHost: 'shop.example.com',
     getSettings: async () => s,
+    getCustomTasks: async () => [labelCheck],
     router,
     broadcast: () => {},
     sendToTab: (_tab, m) => results.push(m),

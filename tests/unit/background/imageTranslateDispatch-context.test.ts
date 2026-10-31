@@ -6,6 +6,7 @@ import {
 import type { Msg } from '@/shared/messages';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import type { PageContext, Settings } from '@/shared/types';
+import type { CustomTask } from '@/shared/settings-schema';
 
 // Page context for an image request: the worker asks the tab, anchored at the image, under the text path's gates.
 
@@ -15,6 +16,22 @@ const CTX: PageContext = {
   pageUrl: 'https://shop.example.com/item/42',
   imageAlt: 'Back label',
 };
+
+/** The custom image task the harness runs; page context on, as a user who wants it sets it. */
+function labelTask(over: Partial<CustomTask> = {}): CustomTask {
+  return {
+    id: 'c-label',
+    label: 'Label check',
+    system: '',
+    user: 'Check {{text}}',
+    output: 'plain',
+    pageContext: true,
+    image: true,
+    glossary: false,
+    createdAt: 1,
+    ...over,
+  };
+}
 
 const tabSend = chrome.tabs.sendMessage as unknown as Mock;
 
@@ -52,6 +69,7 @@ function harness(over: Partial<ImageTranslateDispatchDeps> = {}, settings: Parti
     task: 'c-label',
     surface: 'tooltip',
     getSettings: async () => ({ ...DEFAULT_SETTINGS, ...settings }),
+    getCustomTasks: async () => [labelTask()],
     router: { handleImageTranslate: run, handleImageExplain: run },
     broadcast: (m) => broadcast.push(m),
     sendToTab: (_id, m) => tab.push(m),
@@ -104,6 +122,26 @@ describe('an image request carries page context like a text request', () => {
     expect(h.sent[0]?.context).toEqual({ pageTitle: 't'.repeat(2000), headingTrail: ['H'] });
   });
 
+  it('the tooltip shows its loading state before the page answers the context ask', async () => {
+    vi.useFakeTimers();
+    try {
+      tabSend.mockImplementation(() => new Promise(() => {}));
+      const h = harness();
+      const run = dispatchImageTranslate(h.deps);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(contextAsks()).toHaveLength(1);
+      expect(h.tab.map((m) => m.kind)).toEqual(['content:image-translate-pending']);
+      await vi.advanceTimersByTimeAsync(1000);
+      await run;
+      expect(h.tab.map((m) => m.kind)).toEqual([
+        'content:image-translate-pending',
+        'content:image-translate-result',
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('names the tab host, so site rules match as on the text path', async () => {
     const h = harness({ pageHost: 'shop.example.com' });
     await dispatchImageTranslate(h.deps);
@@ -133,6 +171,27 @@ describe('each off switch sends no page context', () => {
     const h = await runWith({ task: 'translate' });
     expect(contextAsks()).toEqual([]);
     expect(h.tab.at(-1)).not.toHaveProperty('context');
+  });
+
+  it("the task's own page-context switch is off: nothing is read, queued or saved", async () => {
+    const h = await runWith({
+      surface: 'sidepanel',
+      getCustomTasks: async () => [labelTask({ pageContext: false })],
+    });
+    expect(contextAsks()).toEqual([]);
+    expect(h.broadcast[0]).toMatchObject({ kind: 'sidepanel:seed-image-translate' });
+    expect(h.broadcast[0]).not.toHaveProperty('context');
+  });
+
+  it('Explain with page context turned off on the Tasks tab: the tab is never asked', async () => {
+    await runWith({ task: 'explain' }, { taskOverrides: { explain: { pageContext: false } } });
+    expect(contextAsks()).toEqual([]);
+  });
+
+  it('a custom task that no longer exists, or a failed task read: the tab is never asked', async () => {
+    await runWith({ getCustomTasks: async () => [] });
+    await runWith({ getCustomTasks: () => Promise.reject(new Error('storage gone')) });
+    expect(contextAsks()).toEqual([]);
   });
 
   it('an extension page with no tab: nothing to ask', async () => {

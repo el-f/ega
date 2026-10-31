@@ -10,6 +10,7 @@ import { flushAsync } from '@tests/_helpers/async';
 import { STORAGE_KEYS } from '@/shared/constants';
 import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 import type { PageContext, Settings } from '@/shared/types';
+import type { CustomTask } from '@/shared/settings-schema';
 import { ensureSettings, resetSettingsCacheForTest } from '@/content/settings-cache';
 import { pending } from '@/content/request-state';
 import { explainTranslate } from '@/content/translate-handlers';
@@ -450,6 +451,18 @@ describe('docs/PRIVACY.md "What each surface sends"', () => {
     const IMG = 'https://example.com/sign.png';
 
     /** What the router got for one menu click, with this page's content script answering the worker. */
+    const signCheck: CustomTask = {
+      id: 'c-sign-check',
+      label: 'Sign check',
+      createdAt: 1,
+      system: '',
+      user: 'Read the sign: {{text}}',
+      output: 'plain',
+      pageContext: true,
+      image: true,
+      glossary: false,
+    };
+
     async function rightClick(task: string, settings: Settings): Promise<Record<string, unknown>> {
       (chromeMock.tabs.sendMessage as Mock).mockImplementation((_tab: number, msg: unknown) =>
         ask(msg as Record<string, unknown>),
@@ -466,6 +479,7 @@ describe('docs/PRIVACY.md "What each surface sends"', () => {
           task,
           surface: 'tooltip',
           getSettings: () => Promise.resolve(settings),
+          getCustomTasks: () => Promise.resolve([signCheck]),
           router: { handleImageTranslate: run, handleImageExplain: run },
           broadcast: () => {},
           sendToTab: () => {},

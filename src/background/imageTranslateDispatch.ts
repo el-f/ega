@@ -1,4 +1,6 @@
-import type { TaskId } from '@/shared/task-view';
+import { findTask, type TaskId } from '@/shared/task-view';
+import { builtInTask } from '@/shared/task-prompts';
+import type { CustomTask } from '@/shared/settings-schema';
 import { sendTabMsg, type Msg } from '@/shared/messages';
 import type { AuditSurface } from '@/shared/audit-log';
 import type { MenuSurface } from '@/shared/context-menu';
@@ -31,6 +33,8 @@ export interface ImageTranslateDispatchDeps {
   /** Host of the tab, so site rules match as they do for a text request. */
   pageHost?: string;
   getSettings: () => Promise<Settings>;
+  /** Read only for a custom task, whose own page-context switch decides whether the tab is asked. */
+  getCustomTasks?: () => Promise<CustomTask[]>;
   router: {
     handleImageTranslate: (
       req: VisionRequest,
@@ -59,9 +63,16 @@ export async function dispatchImageTranslate(deps: ImageTranslateDispatchDeps): 
   const task = deps.task ?? 'translate';
   const runVision = task === 'explain' ? router.handleImageExplain : router.handleImageTranslate;
   const windowScope = deps.windowId !== undefined ? { windowId: deps.windowId } : {};
+  // Vision calls run for seconds; the tab mounts its loading tooltip on this message, so it goes before the page read.
+  if (surface !== 'sidepanel') {
+    sendToTab(tabId, { kind: 'content:image-translate-pending', requestId, imageUrl, task });
+  }
   // The built-in image prompt takes no page info, so Translate never asks; an extension page has no tab to ask.
   const context =
-    task !== 'translate' && settings.contextEnabled && tabId >= 0
+    task !== 'translate' &&
+    settings.contextEnabled &&
+    tabId >= 0 &&
+    (await taskTakesPageContext(settings, task, deps.getCustomTasks))
       ? await readImageContext(tabId, imageUrl, settings.pageContextLevel)
       : undefined;
   const sentContext = context ? { context } : {};
@@ -119,8 +130,6 @@ export async function dispatchImageTranslate(deps: ImageTranslateDispatchDeps): 
     // A failed one keeps the seed: a panel still mounting then shows the turn and its stall notice, not a blank.
     if (!failed) await removePendingImageSeed(requestId).catch(() => {});
   } else {
-    // Vision calls run for seconds; the tab mounts its loading tooltip on this message.
-    sendToTab(tabId, { kind: 'content:image-translate-pending', requestId, imageUrl, task });
     let buffered = '';
     let done: Extract<TranslationChunk, { type: 'done' }> | undefined;
     let streamError: { code: ErrCode; message: string; retryAfterMs?: number } | undefined;
@@ -182,6 +191,22 @@ export async function dispatchImageTranslate(deps: ImageTranslateDispatchDeps): 
       });
     }
   }
+}
+
+/** The task's own page-context switch, as the router reads it; a custom task that is gone or unread takes none. */
+async function taskTakesPageContext(
+  s: Settings,
+  task: TaskId,
+  getCustomTasks: (() => Promise<CustomTask[]>) | undefined,
+): Promise<boolean> {
+  const customs =
+    builtInTask(task) === null
+      ? await (getCustomTasks?.() ?? Promise.resolve<CustomTask[]>([])).catch((e: unknown) => {
+          debugCatch(e, 'bg.image.customTasks');
+          return [];
+        })
+      : [];
+  return findTask(s, customs, task)?.pageContext ?? false;
 }
 
 /** The tab's page context anchored at the image, cut and type-checked; undefined when the tab gives none. */

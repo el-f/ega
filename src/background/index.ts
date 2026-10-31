@@ -596,6 +596,7 @@ chrome.runtime.onMessage.addListener((rawMsg, sender, sendResponse) => {
           ...(senderTabId !== undefined ? { trackTab: trackRequestTab(senderTabId) } : {}),
           ...(pageHost !== undefined ? { pageHost } : {}),
           getSettings,
+          getCustomTasks,
           router,
           broadcast: (m) => {
             void chrome.runtime.sendMessage(m).catch(() => {});
@@ -815,6 +816,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
           trackTab: trackRequestTab(tabId),
           ...(pageHost !== undefined ? { pageHost } : {}),
           getSettings,
+          getCustomTasks,
           router,
           broadcast: (msg) => {
             void chrome.runtime.sendMessage(msg).catch(() => {});
