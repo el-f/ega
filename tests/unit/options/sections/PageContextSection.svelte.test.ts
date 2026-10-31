@@ -48,6 +48,17 @@ describe('PageContextSection', () => {
     expect(wrapper?.textContent).not.toContain('Rich only.');
   });
 
+  it('says each level also reads around a right-clicked image, as image tasks send it', () => {
+    const { container } = render(PageContextSection, {
+      props: makeSectionProps({ s: { contextEnabled: true } }),
+    });
+    const hint = (level: string) =>
+      container.querySelector(`[data-ega-context-level="${level}"] .choice-hint`)?.textContent;
+    expect(hint('minimal')).toContain('a right-clicked image');
+    expect(hint('minimal')).toContain("the image's alt text and caption");
+    expect(hint('rich')).toContain('the selection or image');
+  });
+
   it('fires onPatch when toggling contextEnabled', async () => {
     const onPatch = vi.fn<OnPatch>();
     const { container } = render(PageContextSection, {

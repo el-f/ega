@@ -51,12 +51,12 @@
     {
       value: 'minimal',
       label: 'Minimal',
-      hint: 'Title, address and the text around the selection',
+      hint: "Title, address and the text around the selection or a right-clicked image, plus the image's alt text and caption",
     },
     {
       value: 'rich',
       label: 'Rich',
-      hint: 'Also the description, headings and the post around the selection',
+      hint: 'Also the description, headings and the post around the selection or image',
     },
   ] as const;
 </script>
