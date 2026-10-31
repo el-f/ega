@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { chromeMock, resetChromeMock } from '@tests/mocks/chrome';
 import type { Settings, TranslationChunk } from '@/shared/types';
+import { DEFAULT_SETTINGS } from '@/shared/settings-defaults';
 
 vi.mock('@/shared/pending-popup-handoff', () => ({
   writePendingPopupHandoff: vi.fn().mockResolvedValue(undefined),
@@ -22,6 +23,7 @@ const cancelAll = vi.fn(() => 0);
 let emitChunk: ((c: TranslationChunk) => void) | null = null;
 // Never settles: the vision call is still running when the tab closes.
 const handleImageTranslate = vi.fn(() => new Promise<void>(() => {}));
+const handleImageExplain = vi.fn(() => new Promise<void>(() => {}));
 
 vi.mock('@/background/router', () => ({
   createRouter: vi.fn(() => ({
@@ -29,7 +31,7 @@ vi.mock('@/background/router', () => ({
       emitChunk = onChunk;
     }),
     handleImageTranslate,
-    handleImageExplain: vi.fn(),
+    handleImageExplain,
     cancel,
     cancelAll,
     clearProbes: vi.fn(),
@@ -52,11 +54,12 @@ vi.mock('@/shared/backends/registry', () => ({
   resolveBackend: vi.fn(),
 }));
 
-const settingsStub: Partial<Settings> = {
+const SETTINGS_STUB: Partial<Settings> = {
   contextMenuItems: [],
 
   imageTranslateSurface: 'tooltip',
 };
+const settingsStub: Partial<Settings> = { ...SETTINGS_STUB };
 
 vi.mock('@/shared/storage', () => ({
   getSettings: vi.fn().mockResolvedValue(settingsStub),
@@ -123,7 +126,8 @@ beforeEach(() => {
   resetChromeMock();
   vi.clearAllMocks();
   emitChunk = null;
-  settingsStub.imageTranslateSurface = 'tooltip';
+  for (const k of Object.keys(settingsStub)) delete settingsStub[k as keyof Settings];
+  Object.assign(settingsStub, SETTINGS_STUB);
 });
 
 describe('closing a tab cancels the requests it started', () => {
@@ -175,6 +179,68 @@ describe('closing a tab cancels the requests it started', () => {
     chromeMock.tabs.onRemoved.emit(9, { isWindowClosing: false, windowId: 1 });
 
     expect(cancel).toHaveBeenCalledWith('img-retry');
+  });
+
+  describe('while the worker still reads the page around the image', () => {
+    afterEach(() => {
+      chromeMock.tabs.sendMessage.mockImplementation(() => Promise.resolve({ ok: true }));
+    });
+
+    // Explain reads page context first; a tab that never answers holds the read open.
+    function explainWithPendingRead(requestId: string, tabId: number): void {
+      Object.assign(settingsStub, DEFAULT_SETTINGS, SETTINGS_STUB, { contextEnabled: true });
+      chromeMock.tabs.sendMessage.mockImplementation((_id: number, m: { kind?: string }) =>
+        m.kind === 'ega:get-page-context' ? new Promise(() => {}) : Promise.resolve({ ok: true }),
+      );
+      chromeMock.runtime.onMessage.emit(
+        {
+          kind: 'image:translate',
+          requestId,
+          imageUrl: 'https://i.redd.it/x.png',
+          task: 'explain',
+        },
+        {
+          id: chromeMock.runtime.id,
+          tab: { id: tabId, windowId: 1 },
+        } as chrome.runtime.MessageSender,
+        () => {},
+      );
+    }
+
+    const readAsked = (): boolean =>
+      chromeMock.tabs.sendMessage.mock.calls.some(
+        (c: unknown[]) => (c[1] as { kind?: string }).kind === 'ega:get-page-context',
+      );
+
+    it("passes the tooltip's own Stop on to the router", async () => {
+      explainWithPendingRead('img-read', 9);
+      await flush();
+      expect(readAsked()).toBe(true);
+      expect(handleImageExplain).not.toHaveBeenCalled();
+
+      chromeMock.runtime.onMessage.emit(
+        { kind: 'translate:cancel', requestId: 'img-read' },
+        {
+          id: chromeMock.runtime.id,
+          tab: { id: 9 },
+          url: 'https://site.test/page',
+        } as chrome.runtime.MessageSender,
+        () => {},
+      );
+
+      expect(cancel).toHaveBeenCalledWith('img-read');
+    });
+
+    it('cancels it when the tab closes', async () => {
+      explainWithPendingRead('img-read-close', 9);
+      await flush();
+      expect(readAsked()).toBe(true);
+      expect(handleImageExplain).not.toHaveBeenCalled();
+
+      chromeMock.tabs.onRemoved.emit(9, { isWindowClosing: false, windowId: 1 });
+
+      expect(cancel).toHaveBeenCalledWith('img-read-close');
+    });
   });
 
   it('leaves a side-panel image translate running when its tab closes', async () => {

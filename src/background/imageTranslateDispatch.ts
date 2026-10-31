@@ -63,133 +63,137 @@ export async function dispatchImageTranslate(deps: ImageTranslateDispatchDeps): 
   const task = deps.task ?? 'translate';
   const runVision = task === 'explain' ? router.handleImageExplain : router.handleImageTranslate;
   const windowScope = deps.windowId !== undefined ? { windowId: deps.windowId } : {};
-  // Vision calls run for seconds; the tab mounts its loading tooltip on this message, so it goes before the page read.
-  if (surface !== 'sidepanel') {
-    sendToTab(tabId, { kind: 'content:image-translate-pending', requestId, imageUrl, task });
-  }
-  // The built-in image prompt takes no page info, so Translate never asks; an extension page has no tab to ask.
-  const context =
-    task !== 'translate' &&
-    settings.contextEnabled &&
-    tabId >= 0 &&
-    (await taskTakesPageContext(settings, task, deps.getCustomTasks))
-      ? await readImageContext(tabId, imageUrl, settings.pageContextLevel)
-      : undefined;
-  const sentContext = context ? { context } : {};
-  const req: VisionRequest = {
-    id: requestId,
-    imageUrl,
-    ...(task !== 'translate' && task !== 'explain' ? { task } : {}),
-    ...sentContext,
-    ...(deps.pageHost !== undefined ? { pageHost: deps.pageHost } : {}),
-  };
+  // Tracked before the page read: a Stop or tab close during it must reach the router, which buffers an early cancel.
+  // The side-panel surface never registers: the panel outlives the tab.
+  const releaseTab = surface !== 'sidepanel' ? deps.trackTab?.(requestId) : undefined;
+  try {
+    // Vision calls run for seconds; the tab mounts its loading tooltip on this message, so it goes before the page read.
+    if (surface !== 'sidepanel') {
+      sendToTab(tabId, { kind: 'content:image-translate-pending', requestId, imageUrl, task });
+    }
+    // The built-in image prompt takes no page info, so Translate never asks; an extension page has no tab to ask.
+    const context =
+      task !== 'translate' &&
+      settings.contextEnabled &&
+      tabId >= 0 &&
+      (await taskTakesPageContext(settings, task, deps.getCustomTasks))
+        ? await readImageContext(tabId, imageUrl, settings.pageContextLevel)
+        : undefined;
+    const sentContext = context ? { context } : {};
+    const req: VisionRequest = {
+      id: requestId,
+      imageUrl,
+      ...(task !== 'translate' && task !== 'explain' ? { task } : {}),
+      ...sentContext,
+      ...(deps.pageHost !== undefined ? { pageHost: deps.pageHost } : {}),
+    };
 
-  if (surface === 'sidepanel') {
-    // Queue as well as broadcast: a panel still opening drains the queue on mount.
-    await enqueuePendingImageSeed({
-      requestId,
-      imageUrl,
-      task,
-      ...sentContext,
-      ...windowScope,
-    }).catch(() => {});
-    broadcast({
-      kind: 'sidepanel:seed-image-translate',
-      requestId,
-      imageUrl,
-      task,
-      ...sentContext,
-      ...windowScope,
-    });
-    let failed = false;
-    try {
-      await runVision(
-        req,
-        (chunk) => {
-          if (chunk.type === 'error') failed = true;
-          broadcast({ kind: 'translate:chunk', chunk });
-        },
-        // The panel that seeded it shows a failure inline; another window's panel must not toast it again.
-        { surface: 'sidepanel' },
-      );
-    } catch (e) {
-      failed = true;
-      logger.error('image translate (menu) failed', e);
-      // runVision threw without a terminal chunk; the seeded turn would spin forever.
+    if (surface === 'sidepanel') {
+      // Queue as well as broadcast: a panel still opening drains the queue on mount.
+      await enqueuePendingImageSeed({
+        requestId,
+        imageUrl,
+        task,
+        ...sentContext,
+        ...windowScope,
+      }).catch(() => {});
       broadcast({
-        kind: 'translate:chunk',
-        chunk: {
-          type: 'error',
-          requestId,
+        kind: 'sidepanel:seed-image-translate',
+        requestId,
+        imageUrl,
+        task,
+        ...sentContext,
+        ...windowScope,
+      });
+      let failed = false;
+      try {
+        await runVision(
+          req,
+          (chunk) => {
+            if (chunk.type === 'error') failed = true;
+            broadcast({ kind: 'translate:chunk', chunk });
+          },
+          // The panel that seeded it shows a failure inline; another window's panel must not toast it again.
+          { surface: 'sidepanel' },
+        );
+      } catch (e) {
+        failed = true;
+        logger.error('image translate (menu) failed', e);
+        // runVision threw without a terminal chunk; the seeded turn would spin forever.
+        broadcast({
+          kind: 'translate:chunk',
+          chunk: {
+            type: 'error',
+            requestId,
+            code: 'UNKNOWN',
+            message: e instanceof Error ? e.message : String(e),
+          },
+        });
+      }
+      // A finished stream's chunks are gone, so a panel opening later would rebuild a turn nothing can finish.
+      // A failed one keeps the seed: a panel still mounting then shows the turn and its stall notice, not a blank.
+      if (!failed) await removePendingImageSeed(requestId).catch(() => {});
+    } else {
+      let buffered = '';
+      let done: Extract<TranslationChunk, { type: 'done' }> | undefined;
+      let streamError: { code: ErrCode; message: string; retryAfterMs?: number } | undefined;
+      try {
+        await runVision(
+          req,
+          (chunk) => {
+            if (chunk.type === 'delta')
+              buffered = chunk.replace ? chunk.text : buffered + chunk.text;
+            if (chunk.type === 'done') done = chunk;
+            if (chunk.type === 'error') {
+              streamError = {
+                code: chunk.code,
+                message: chunk.message,
+                ...(chunk.retryAfterMs !== undefined ? { retryAfterMs: chunk.retryAfterMs } : {}),
+              };
+            }
+          },
+          { surface: 'content' },
+        );
+      } catch (e) {
+        logger.error('image translate (menu/tooltip) failed', e);
+        streamError = {
           code: 'UNKNOWN',
           message: e instanceof Error ? e.message : String(e),
-        },
-      });
+        };
+      }
+      if (streamError !== undefined) {
+        sendToTab(tabId, {
+          kind: 'content:image-translate-result',
+          requestId,
+          translation: '',
+          imageUrl,
+          task,
+          error: streamError,
+        });
+      } else {
+        const conf = done?.confidence;
+        sendToTab(tabId, {
+          kind: 'content:image-translate-result',
+          requestId,
+          translation: done?.text ?? buffered,
+          ...(conf !== undefined ? { confidence: conf } : {}),
+          ...(done?.detectedLang !== undefined ? { detectedLang: done.detectedLang } : {}),
+          ...(done?.detectedDetail !== undefined ? { detectedDetail: done.detectedDetail } : {}),
+          ...(done?.detectedLangs !== undefined ? { detectedLangs: done.detectedLangs } : {}),
+          ...(done?.explain !== undefined ? { explain: done.explain } : {}),
+          ...(done?.notes !== undefined ? { notes: done.notes } : {}),
+          ...(done?.details !== undefined ? { details: done.details } : {}),
+          ...(done?.answer !== undefined ? { answer: done.answer } : {}),
+          ...(done?.meta !== undefined ? { meta: done.meta } : {}),
+          ...(done?.usedImage === true ? { usedImage: true } : {}),
+          ...sentContext,
+          imageUrl,
+          task,
+        });
+      }
     }
-    // A finished stream's chunks are gone, so a panel opening later would rebuild a turn nothing can finish.
-    // A failed one keeps the seed: a panel still mounting then shows the turn and its stall notice, not a blank.
-    if (!failed) await removePendingImageSeed(requestId).catch(() => {});
-  } else {
-    let buffered = '';
-    let done: Extract<TranslationChunk, { type: 'done' }> | undefined;
-    let streamError: { code: ErrCode; message: string; retryAfterMs?: number } | undefined;
-    // The side-panel branch never registers: the panel outlives the tab.
-    const releaseTab = deps.trackTab?.(requestId);
-    try {
-      await runVision(
-        req,
-        (chunk) => {
-          if (chunk.type === 'delta') buffered = chunk.replace ? chunk.text : buffered + chunk.text;
-          if (chunk.type === 'done') done = chunk;
-          if (chunk.type === 'error') {
-            streamError = {
-              code: chunk.code,
-              message: chunk.message,
-              ...(chunk.retryAfterMs !== undefined ? { retryAfterMs: chunk.retryAfterMs } : {}),
-            };
-          }
-        },
-        { surface: 'content' },
-      );
-    } catch (e) {
-      logger.error('image translate (menu/tooltip) failed', e);
-      streamError = {
-        code: 'UNKNOWN',
-        message: e instanceof Error ? e.message : String(e),
-      };
-    } finally {
-      releaseTab?.();
-    }
-    if (streamError !== undefined) {
-      sendToTab(tabId, {
-        kind: 'content:image-translate-result',
-        requestId,
-        translation: '',
-        imageUrl,
-        task,
-        error: streamError,
-      });
-    } else {
-      const conf = done?.confidence;
-      sendToTab(tabId, {
-        kind: 'content:image-translate-result',
-        requestId,
-        translation: done?.text ?? buffered,
-        ...(conf !== undefined ? { confidence: conf } : {}),
-        ...(done?.detectedLang !== undefined ? { detectedLang: done.detectedLang } : {}),
-        ...(done?.detectedDetail !== undefined ? { detectedDetail: done.detectedDetail } : {}),
-        ...(done?.detectedLangs !== undefined ? { detectedLangs: done.detectedLangs } : {}),
-        ...(done?.explain !== undefined ? { explain: done.explain } : {}),
-        ...(done?.notes !== undefined ? { notes: done.notes } : {}),
-        ...(done?.details !== undefined ? { details: done.details } : {}),
-        ...(done?.answer !== undefined ? { answer: done.answer } : {}),
-        ...(done?.meta !== undefined ? { meta: done.meta } : {}),
-        ...(done?.usedImage === true ? { usedImage: true } : {}),
-        ...sentContext,
-        imageUrl,
-        task,
-      });
-    }
+  } finally {
+    releaseTab?.();
   }
 }
 
