@@ -63,6 +63,8 @@ interface Fit {
   outside: string[];
   /** The answer starts in view: its first line is not clipped. */
   firstLine: boolean;
+  /** The list starts on the body's first line, with no gap above it. */
+  listAtTop: boolean;
   /** Share of the last note's height that shows through the boxes that clip it. */
   lastNote: number;
 }
@@ -75,8 +77,9 @@ async function fit(page: Page, toEnd = false): Promise<Fit> {
       ?.shadowRoot?.querySelector<HTMLElement>('.tooltip');
     const item = card?.querySelector('.answer-main-list li');
     const note = card?.querySelector('[data-ega-note="headline"]');
-    if (!card || !item || !note) {
-      return { outside: ['no settled card'], firstLine: false, lastNote: 0 };
+    const body = item?.closest('.body');
+    if (!card || !item || !note || !body) {
+      return { outside: ['no settled card'], firstLine: false, listAtTop: false, lastNote: 0 };
     }
     if (scroll) {
       for (let a = note.parentElement; a && a !== card; a = a.parentElement) {
@@ -124,8 +127,9 @@ async function fit(page: Page, toEnd = false): Promise<Fit> {
     const firstLine =
       first.top - item.getBoundingClientRect().top < 0.5 &&
       first.height >= Number.parseFloat(getComputedStyle(item).lineHeight) - 0.5;
+    const listAtTop = item.getBoundingClientRect().top - body.getBoundingClientRect().top < 0.5;
     const noteText = note.querySelector('.answer-note-text') ?? note;
-    return { outside, firstLine, lastNote: share(noteText) };
+    return { outside, firstLine, listAtTop, lastNote: share(noteText) };
   }, toEnd);
 }
 
@@ -189,7 +193,9 @@ for (const { theme, width, height } of [
     });
     await page.screenshot({ path: info.outputPath(`image-tooltip-${theme}-${width}.png`) });
 
-    await expect.poll(() => fit(page)).toMatchObject({ outside: [], firstLine: true });
+    await expect
+      .poll(() => fit(page))
+      .toMatchObject({ outside: [], firstLine: true, listAtTop: true });
     await expect.poll(() => fit(page, true)).toMatchObject({ outside: [], lastNote: 1 });
   });
 }
