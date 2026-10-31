@@ -628,18 +628,24 @@
   max-block-size: var(--ega-tooltip-max-block-size, calc(100dvh - 40px));
   min-inline-size: 0;
 }
-/* The one scroll region between the top bar and the meta line: its rows keep their height and scroll whole, so a short card never squeezes the answer and notes into slivers or paints them past its edge. */
+/* The one scroll region above the meta line: its rows keep their height and scroll whole, so a short card never squeezes the answer and notes into slivers or paints them past its edge. */
 .tooltip .tooltip-scroll {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
   /* Keeps a readable answer line when About takes the rest of the card. */
   min-block-size: 1lh;
+  /* repositionIfOverflow lifts it to none when the card has to cover the selection. */
+  max-block-size: var(--ega-tooltip-body-max-block-size, 40vh);
   overflow-y: auto;
   overscroll-behavior: contain;
 }
 .tooltip .tooltip-scroll > * {
   flex-shrink: 0;
+}
+/* The region clips anything outside its edge, so a ring inside it sits inside the control. */
+.tooltip .tooltip-scroll :focus-visible {
+  outline-offset: -2px;
 }
 .tooltip .tooltip-topbar {
   padding: 0;
@@ -649,9 +655,6 @@
 .tooltip .body {
   /* One line even while empty, like the shimmer it replaces (R63). */
   min-block-size: 1lh;
-  /* repositionIfOverflow lifts it to none when the card has to cover the selection. */
-  max-block-size: var(--ega-tooltip-body-max-block-size, 40vh);
-  overflow: auto;
   overflow-wrap: anywhere;
 }
 .tooltip .explain-label {

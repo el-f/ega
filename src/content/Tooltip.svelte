@@ -280,13 +280,13 @@
       </button>
     </div>
 
-    <div class="tooltip-scroll">
-      {#if showSource}
-        <div class="src" dir="auto" lang={pageLang}>
-          {tip.srcText.length > 140 ? tip.srcText.slice(0, 140) + '…' : tip.srcText}
-        </div>
-      {/if}
+    {#if showSource}
+      <div class="src" dir="auto" lang={pageLang}>
+        {tip.srcText.length > 140 ? tip.srcText.slice(0, 140) + '…' : tip.srcText}
+      </div>
+    {/if}
 
+    <div class="tooltip-scroll">
       <TooltipBody
         views={taskViews}
         body={tip.body}

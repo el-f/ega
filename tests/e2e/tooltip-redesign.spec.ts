@@ -16,7 +16,18 @@ test.afterEach(async () => {
 async function open(
   width = 400,
   theme = 'light',
-  { height = 800, explain }: { height?: number; explain?: string } = {},
+  {
+    height = 800,
+    explain,
+    translation = 'Welcome, how are you?',
+    settings = {},
+  }: {
+    height?: number;
+    explain?: string;
+    /** Starts with "Welcome", which open() waits for. */
+    translation?: string;
+    settings?: Record<string, unknown>;
+  } = {},
 ): Promise<{ page: Page; mock: ReturnType<typeof mockAnthropic> }> {
   ext = await launchExtension();
   await seedSettings(ext.context, ext.extensionId, {
@@ -28,9 +39,10 @@ async function open(
     defaultLang: 'fr',
     defaultTargetLang: 'en',
     theme,
+    ...settings,
   });
   const mock = mockAnthropic(ext.context, {
-    translation: 'Welcome, how are you?',
+    translation,
     confidence: 0.4,
     ...(explain !== undefined ? { explain } : {}),
   });
@@ -45,6 +57,20 @@ async function open(
   await expect(page.locator('.tooltip .body')).toContainText('Welcome');
   await expect(page.getByRole('button', { name: 'Regenerate', exact: true })).toBeVisible();
   return { page, mock };
+}
+
+/** At least one line of the answer shows through every box that clips it. */
+function answerLineShows(page: Page): Promise<boolean> {
+  return page.locator('.tooltip .body').evaluate((body) => {
+    let { top, bottom } = body.getBoundingClientRect();
+    for (let a = body.parentElement; a && !a.classList.contains('tooltip'); a = a.parentElement) {
+      if (getComputedStyle(a).overflowY === 'visible') continue;
+      const c = a.getBoundingClientRect();
+      top = Math.max(top, c.top);
+      bottom = Math.min(bottom, c.bottom);
+    }
+    return bottom - top >= Number.parseFloat(getComputedStyle(body).lineHeight) - 0.5;
+  });
 }
 
 for (const theme of ['light', 'dark']) {
@@ -86,14 +112,7 @@ for (const theme of ['light', 'dark']) {
         })
         .toBeLessThanOrEqual(800);
       // About scrolls internally without shrinking the answer to a clipped sliver.
-      await expect
-        .poll(() =>
-          page.locator('.tooltip .body').evaluate((body) => {
-            const lineHeight = Number.parseFloat(getComputedStyle(body).lineHeight);
-            return body.clientHeight >= Math.floor(lineHeight);
-          }),
-        )
-        .toBe(true);
+      await expect.poll(() => answerLineShows(page)).toBe(true);
       await expect(page.getByRole('button', { name: 'Close', exact: true })).toHaveCount(1);
       await page.screenshot({ path: info.outputPath(`tooltip-about-${width}-${theme}.png`) });
       await page.getByRole('button', { name: 'Refine', exact: true }).click();
@@ -136,6 +155,86 @@ test('About squeezes long notes into a scroll box instead of painting them over 
     )
     .toBe('ok');
   await page.screenshot({ path: info.outputPath('tooltip-about-long-notes.png') });
+});
+
+test('About in a short card keeps an answer line in view with Show source on', async ({
+  browserName: _browserName,
+}, info) => {
+  const { page } = await open(400, 'dark', { height: 520, settings: { tooltipShowSource: true } });
+  await expect(page.locator('.tooltip .src')).toBeVisible();
+  await page.getByRole('button', { name: 'More', exact: true }).click();
+  await page.getByRole('menuitemcheckbox', { name: 'About this reply' }).click();
+  await expect(page.locator('[data-ega-inspector]')).toBeVisible();
+  await expect.poll(() => answerLineShows(page)).toBe(true);
+  await page.screenshot({ path: info.outputPath('tooltip-about-show-source.png') });
+});
+
+test('a long answer with notes scrolls in one box, and every Tab stop in the card shows its whole focus ring', async ({
+  browserName: _browserName,
+}, info) => {
+  const sentence = 'This sentence makes the answer long enough to scroll inside the card.';
+  const { page } = await open(1280, 'light', {
+    translation: `Welcome. ${Array.from({ length: 30 }, () => sentence).join(' ')}`,
+    explain: Array.from({ length: 6 }, () => 'This note adds more lines under the answer.').join(
+      ' ',
+    ),
+  });
+  await expect(page.locator('[data-ega-explain]')).toBeVisible();
+  const scrollers = (): Promise<string[]> =>
+    page
+      .locator('.tooltip')
+      .evaluate((card) =>
+        [...card.querySelectorAll('*')]
+          .filter(
+            (el) =>
+              /auto|scroll/.test(getComputedStyle(el).overflowY) &&
+              el.scrollHeight > el.clientHeight + 1,
+          )
+          .map((el) => [el.tagName.toLowerCase(), ...el.classList].join('.')),
+      );
+  await expect.poll(async () => (await scrollers()).length).toBeGreaterThan(0);
+  const boxes = await scrollers();
+
+  // Chrome makes a scroll box with nothing focusable inside a Tab stop of its own.
+  const stops: { name: string; clipped: boolean }[] = [];
+  for (let i = 0; i < 12; i++) {
+    await page.keyboard.press('Tab');
+    const stop = await page.evaluate(() => {
+      const root = document.querySelector('#ega-shadow-host')?.shadowRoot;
+      const card = root?.querySelector('.tooltip');
+      const el = root?.activeElement;
+      if (!card || !el || el === card || !card.contains(el)) return null;
+      const name = [el.tagName.toLowerCase(), ...el.classList].join('.');
+      const s = getComputedStyle(el);
+      const out =
+        s.outlineStyle === 'none'
+          ? 0
+          : Math.max(0, Number.parseFloat(s.outlineOffset) + Number.parseFloat(s.outlineWidth));
+      const r = el.getBoundingClientRect();
+      for (let a = el.parentElement; a && a !== card; a = a.parentElement) {
+        const as = getComputedStyle(a);
+        if (as.overflowX === 'visible' && as.overflowY === 'visible') continue;
+        const c = a.getBoundingClientRect();
+        if (
+          r.top - out < c.top - 0.5 ||
+          r.bottom + out > c.bottom + 0.5 ||
+          r.left - out < c.left - 0.5 ||
+          r.right + out > c.right + 0.5
+        ) {
+          return { name, clipped: true };
+        }
+      }
+      return { name, clipped: false };
+    });
+    if (stop) stops.push(stop);
+  }
+  await page.screenshot({ path: info.outputPath('tooltip-long-answer-focus.png') });
+  expect({
+    boxes,
+    clipped: stops.filter((s) => s.clipped),
+    // Proves the walk reached the scroll box, so the ring check covers it.
+    scrollBoxIsStop: stops.some((s) => s.name === 'div.tooltip-scroll'),
+  }).toEqual({ boxes: ['div.tooltip-scroll'], clipped: [], scrollBoxIsStop: true });
 });
 
 test('Regenerate bypasses the saved answer and Refine sends a per-request change', async () => {
