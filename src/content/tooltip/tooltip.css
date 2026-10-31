@@ -677,6 +677,10 @@
   overflow-y: auto;
   overscroll-behavior: contain;
 }
+/* The 40vh cap holds an answer alone; notes may take the rest of the room beside the selection. */
+.tooltip .tooltip-scroll:has(.answer-notes) {
+  max-block-size: none;
+}
 .tooltip .tooltip-scroll > * {
   flex-shrink: 0;
 }

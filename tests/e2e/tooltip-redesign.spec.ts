@@ -237,6 +237,30 @@ test('a long answer with notes scrolls in one box, and every Tab stop in the car
   }).toEqual({ boxes: ['div.tooltip-scroll'], clipped: [], scrollBoxIsStop: true });
 });
 
+test('long notes fill the room beside the selection, not only 40vh of it', async ({
+  browserName: _browserName,
+}, info) => {
+  const { page } = await open(1280, 'light', {
+    explain: Array.from({ length: 40 }, () => 'This note adds more lines under the answer.').join(
+      ' ',
+    ),
+  });
+  await expect(page.locator('[data-ega-explain]')).toBeVisible();
+  await page.screenshot({ path: info.outputPath('tooltip-long-notes-1280.png') });
+
+  // The 40vh cap holds an answer with no notes; notes may take the rest of the card, as before the shared region.
+  await expect
+    .poll(() =>
+      page.locator('.tooltip .tooltip-scroll').evaluate((el) => {
+        const tall = el.scrollHeight > el.clientHeight && el.clientHeight > 0.5 * innerHeight;
+        return tall ? 'fills' : `${el.clientHeight} of ${el.scrollHeight}px`;
+      }),
+    )
+    .toBe('fills');
+  const box = await page.locator('.tooltip').boundingBox();
+  expect(box && box.y >= 0 && box.y + box.height <= 800).toBe(true);
+});
+
 test('Regenerate bypasses the saved answer and Refine sends a per-request change', async () => {
   const { page, mock } = await open();
   const before = mock.calls();
