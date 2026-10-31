@@ -130,7 +130,7 @@ function entryFor(requestId: string): Entry | undefined {
 }
 
 const VIEWPORT_SAFE_MARGIN = 20;
-/** The card's min-content: chrome, top bar, one body line, meta and actions. */
+/** The card's min-content: chrome, top bar, one body line, meta and actions, plus an image card's preview row at about 40px. That row shrinks last, so a shorter card still fits. */
 export const MIN_TOOLTIP_BLOCK = 200;
 
 export function positionFromRect(r: DOMRect): { left: number; top: number } {

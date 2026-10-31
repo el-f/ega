@@ -80,6 +80,10 @@ interface Fit {
   listAtTop: boolean;
   /** Share of the last note's height that shows through the boxes that clip it. */
   lastNote: number;
+  /** Pixels the card's rows run past its content box, into the bottom padding or beyond. */
+  spill: number;
+  /** Height of the image preview. */
+  preview: number;
 }
 
 /** With `toEnd`, first scrolls every box around the last note to its end. */
@@ -88,13 +92,22 @@ async function fit(page: Page, toEnd = false): Promise<Fit> {
     const card = document
       .querySelector('#ega-shadow-host')
       ?.shadowRoot?.querySelector<HTMLElement>('.tooltip');
-    const item = card?.querySelector('.answer-main-list li');
-    const note = card?.querySelector('[data-ega-note="headline"]');
-    const body = item?.closest('.body');
-    if (!card || !item || !note || !body) {
-      return { outside: ['no settled card'], firstLine: false, listAtTop: false, lastNote: 0 };
+    const reply = card?.querySelector('.tooltip-reply');
+    if (!card || !reply) {
+      return {
+        outside: ['no card'],
+        firstLine: false,
+        listAtTop: false,
+        lastNote: 0,
+        spill: 0,
+        preview: 0,
+      };
     }
-    if (scroll) {
+    // Absent until the reply settles: a loading card is checked for fit only.
+    const item = card.querySelector('.answer-main-list li');
+    const note = card.querySelector('[data-ega-note="headline"]');
+    const body = item?.closest('.body');
+    if (scroll && note) {
       for (let a = note.parentElement; a && a !== card; a = a.parentElement) {
         a.scrollTop = a.scrollHeight;
       }
@@ -136,13 +149,21 @@ async function fit(page: Page, toEnd = false): Promise<Fit> {
         );
       }
     }
+    const rowsEnd = Math.max(...[...reply.children].map((r) => r.getBoundingClientRect().bottom));
+    const spill = Math.max(0, Math.round(rowsEnd - reply.getBoundingClientRect().bottom));
+    const preview = Math.round(
+      card.querySelector('.tooltip-image-source')?.getBoundingClientRect().height ?? 0,
+    );
+    if (!item || !note || !body) {
+      return { outside, firstLine: false, listAtTop: false, lastNote: 0, spill, preview };
+    }
     const first = shown(item);
     const firstLine =
       first.top - item.getBoundingClientRect().top < 0.5 &&
       first.height >= Number.parseFloat(getComputedStyle(item).lineHeight) - 0.5;
     const listAtTop = item.getBoundingClientRect().top - body.getBoundingClientRect().top < 0.5;
     const noteText = note.querySelector('.answer-note-text') ?? note;
-    return { outside, firstLine, listAtTop, lastNote: share(noteText) };
+    return { outside, firstLine, listAtTop, lastNote: share(noteText), spill, preview };
   }, toEnd);
 }
 
@@ -151,6 +172,8 @@ async function chartPage(
   theme: 'light' | 'dark',
   width: number,
   height: number,
+  // The fixture body has a 40px top margin.
+  marginTop = Math.round(height * 0.45) - 40,
 ): Promise<{ page: Page; send: (result: ImageResult) => Promise<void> }> {
   await seedSettings(ext.context, ext.extensionId, {
     anthropicApiKey: 'test-key',
@@ -172,8 +195,7 @@ async function chartPage(
       await img.decode();
       window.scrollTo(0, 0);
     },
-    // The fixture body has a 40px top margin.
-    { src: CHART, top: Math.round(height * 0.45) - 40 },
+    { src: CHART, top: marginTop },
   );
 
   const opts = await ext.context.newPage();
@@ -235,6 +257,35 @@ for (const { width, height } of [
     await page.screenshot({ path: info.outputPath(`image-tooltip-about-${width}.png`) });
 
     await expect.poll(() => fit(page)).toMatchObject({ outside: [], firstLine: true });
+  });
+
+  test(`a loading image card keeps its rows and Stop inside the card at ${width}px`, async ({
+    browserName: _browserName,
+  }, info) => {
+    const { page } = await chartPage('light', width, height);
+    await page.bringToFront();
+    const card = page.locator('.tooltip');
+    await expect(card.locator('.tooltip-image-wrap.is-loading')).toBeVisible();
+    await card.locator('img').evaluate((img: HTMLImageElement) => img.decode());
+    await expect(page.getByRole('button', { name: 'Stop', exact: true })).toBeVisible();
+    await page.screenshot({ path: info.outputPath(`image-tooltip-loading-${width}.png`) });
+
+    await expect.poll(() => fit(page)).toMatchObject({ outside: [], spill: 0 });
+  });
+}
+
+// Room just over the 200px floor (MIN_TOOLTIP_BLOCK) above the image: image top - 8px gap - 20px margin.
+for (const side of [201, 206]) {
+  test(`an image card with ${side}px above the image keeps every row inside the card`, async ({
+    browserName: _browserName,
+  }) => {
+    // The image's top margin collapses into the body's, so it is the image's top.
+    const { page, send } = await chartPage('light', 400, 720, side + 28);
+    await showChartReply(page, send);
+
+    await expect.poll(() => fit(page)).toMatchObject({ outside: [], firstLine: true, spill: 0 });
+    // MIN_TOOLTIP_BLOCK holds the preview row too: at the floor it still shows the image.
+    expect((await fit(page)).preview).toBeGreaterThanOrEqual(40);
   });
 }
 
