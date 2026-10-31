@@ -17,7 +17,8 @@ import {
 } from '@/shared/chat-history';
 import type { sendTranslateStart } from '@/shared/translate-ui';
 import type { AnswerNote, AnswerDetail } from '@/shared/answer/reader';
-import { askQuote, type AskAbout, type AskTarget } from '@/shared/ask-about';
+import type { AskAbout, AskTarget } from '@/shared/ask-about';
+import { askQuote } from './ask-quote';
 import { nothingToTranslate } from '@/shared/nothing-to-translate';
 import { GENERAL_ORIGIN } from '@/shared/saved-conversations';
 import type { AnswerSnapshot, AnswerReplyFields } from '@/shared/types';

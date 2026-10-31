@@ -38,7 +38,7 @@
     taskOn,
     type TaskId,
   } from '@/shared/task-view';
-  import { askQuote } from '@/shared/ask-about';
+  import { askQuote } from './state/ask-quote';
   import { taskUsesTone } from '@/shared/language-prompt';
   import type { CustomTask } from '@/shared/settings-schema';
   import ConversationStream from './conversation/ConversationStream.svelte';

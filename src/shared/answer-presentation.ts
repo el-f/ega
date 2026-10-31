@@ -33,17 +33,8 @@ export function mainAnswerItems(answer: unknown): string[] | undefined {
     : undefined;
 }
 
-/** The fence a Markdown line opens: a run of three or more backticks or tildes at its start. */
-export function openingFence(line: string): string | undefined {
-  // A backtick in the rest of the line makes it inline code, not a block (CommonMark).
-  return /^(?:`{3,}(?!.*`)|~{3,})/.exec(line.trim())?.[0];
-}
-
-/** Whether a line closes the block `fence` opened: only a run of the opening mark, at least as long. */
-export function closesFence(fence: string, line: string): boolean {
-  const t = line.trim();
-  return t.length >= fence.length && t === (fence[0] ?? '').repeat(t.length);
-}
+/** The opening of a Markdown code fence, matched at the start of a trimmed line. */
+const FENCE_OPEN = /^(?:`{3,}|~{3,})/;
 
 /**
  * The code in an answer that is exactly one fenced block, closed or still arriving; null for any other answer.
@@ -52,10 +43,14 @@ export function closesFence(fence: string, line: string): boolean {
 export function soleFencedCode(answer: string, settled = false): string | null {
   const lines = answer.trim().split('\n');
   const open = lines[0] ?? '';
-  const fence = openingFence(open);
+  const fence = FENCE_OPEN.exec(open)?.[0];
   // Only a bare fence or one language tag opens code; "~~~ Part 2 ~~~" or "``` is code" is plain text.
   if (fence === undefined || !/^[\w+#.-]*$/.test(open.slice(fence.length).trim())) return null;
-  const close = lines.findIndex((line, i) => i > 0 && closesFence(fence, line));
+  const closes = (line: string): boolean => {
+    const t = line.trim();
+    return t.length >= fence.length && t === (fence[0] ?? '').repeat(t.length);
+  };
+  const close = lines.findIndex((line, i) => i > 0 && closes(line));
   if (close !== -1 && close !== lines.length - 1) return null;
   const code = lines.slice(1, close === -1 ? undefined : close).join('\n');
   return settled && code === '' ? null : code;

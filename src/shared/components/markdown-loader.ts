@@ -1,5 +1,8 @@
 export type MarkdownRenderer = (raw: string) => string;
 
+/** How Ega reads Markdown, to render it and to lex it alike. */
+export const MARKDOWN_OPTIONS = { breaks: true, gfm: true } as const;
+
 // Allowlist: leaving out svg/math/foreignObject closes their mutation-XSS paths.
 export const SANITIZE_CONFIG = {
   ALLOWED_TAGS: [
@@ -104,7 +107,7 @@ export function loadMarkdownRenderer(): Promise<MarkdownRenderer> {
     renderer.text = function (t) {
       return Renderer.prototype.text.call(this, t.type === 'text' ? { ...t, escaped: false } : t);
     };
-    marked.setOptions({ breaks: true, gfm: true, renderer });
+    marked.setOptions({ ...MARKDOWN_OPTIONS, renderer });
     return (raw: string): string => {
       const html = marked.parse(raw, { async: false }) as string;
       // Harden inside DOMPurify's inert document: an <img> adopted into the live one fetches before harden can drop it.

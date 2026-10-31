@@ -13,13 +13,8 @@ import {
 import { taskLabel, type TaskView } from '@/shared/task-view';
 import { TONE_LABELS, type Tone } from '@/shared/task-prompts';
 import { detectedVarieties, directionLabel } from '@/shared/reply-meta';
-import {
-  askQuote,
-  capAskAbout,
-  type AskAbout,
-  type AskedAbout,
-  type AskTarget,
-} from '@/shared/ask-about';
+import { capAskAbout, type AskAbout, type AskedAbout, type AskTarget } from '@/shared/ask-about';
+import { askQuote } from './ask-quote';
 
 const MINUTE = 60_000;
 const DAY = 24 * 60 * MINUTE;

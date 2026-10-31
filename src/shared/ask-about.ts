@@ -1,6 +1,4 @@
 import { capText } from './text-cap';
-import { closesFence, isPlainAnswer, openingFence, soleFencedCode } from './answer-presentation';
-import type { AnswerSpec } from './answer/spec';
 
 /** Which reply a question asks about: a reference, never a copy of its text (D58). Each request builds its
  *  block from the thread as it is then, so a deleted reply leaves every later request at once. */
@@ -37,9 +35,9 @@ const ASK_ABOUT_CAPS = {
 } as const;
 
 const ID_MAX = 200;
-const QUOTE_MAX = 200;
 
-function clip(v: string, max: number): string {
+/** A value cut to `max` characters, with the cut marked. */
+export function clip(v: string, max: number): string {
   return v.length > max ? `${capText(v, max - 1)}…` : v;
 }
 
@@ -79,42 +77,4 @@ export function askTargetOf(x: unknown): AskTarget | null {
   if (turnId === undefined) return null;
   const variantId = id(o['variantId']);
   return variantId === undefined ? { turnId } : { turnId, variantId };
-}
-
-/** One line of Markdown as plain text: no heading, list or quote marker, no emphasis or code marks, links as their text. */
-function plainLine(line: string): string {
-  return line
-    .replace(/^\s*(?:#{1,6}\s+|[-*+]\s+|\d+[.)]\s+|>\s?)+/, '')
-    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
-    .replace(/\*\*|__|~~|[*`]/g, '')
-    .trim();
-}
-
-/** Markdown lines as the panel shows them: fence lines dropped, code inside a block as it is, the rest plain. */
-function markdownLines(lines: string[]): string[] {
-  let fence: string | undefined;
-  return lines.flatMap((line) => {
-    if (fence !== undefined) {
-      const closes = closesFence(fence, line);
-      if (closes) fence = undefined;
-      return closes ? [] : [line.trim()];
-    }
-    fence = openingFence(line);
-    return fence === undefined ? [plainLine(line)] : [];
-  });
-}
-
-/** The quote a question shows: a reply's first line of text as the panel shows it. A Markdown reply loses its
- *  Markdown outside code blocks; a plain one (a custom task's answer) and one fenced block keep every character. */
-export function askQuote(reply: {
-  content: string;
-  answer?: { spec: Pick<AnswerSpec, 'join'> } | undefined;
-}): string {
-  const code = soleFencedCode(reply.content, true);
-  const lines = (code ?? reply.content).split('\n');
-  const shown =
-    code !== null || isPlainAnswer(reply.answer?.spec, reply.content)
-      ? lines.map((l) => l.trim())
-      : markdownLines(lines);
-  return clip(shown.find((l) => l !== '') ?? '', QUOTE_MAX);
 }

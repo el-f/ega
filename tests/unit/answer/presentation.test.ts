@@ -28,6 +28,9 @@ describe('soleFencedCode', () => {
     '~~~ Segunda parte ~~~',
     '``` does not render here',
   ])('is null for anything else: %j', (answer) => expect(soleFencedCode(answer)).toBeNull());
+  it('closes the block only on a run of the opening mark', () => {
+    expect(soleFencedCode('```\n~~~\n```')).toBe('~~~');
+  });
   it.each(['~~~ Epilog', '```js', '```\n```'])(
     'reads a settled answer with no code line as text, but waits while it streams: %j',
     (answer) => {

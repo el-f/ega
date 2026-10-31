@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
-import { askQuote, askTargetOf, capAskAbout, type AskAbout } from '@/shared/ask-about';
+import { askTargetOf, capAskAbout, type AskAbout } from '@/shared/ask-about';
+import { askQuote } from '@/sidepanel/state/ask-quote';
 import { renderAskAboutBlock } from '@/shared/prompts';
 import { CUSTOM_PRESETS } from '@/shared/answer/spec';
 import {
@@ -82,6 +83,13 @@ describe('askQuote', () => {
     expect(askQuote({ content: '- `kifak` means [how are you](https://x.test)' })).toBe(
       'kifak means how are you',
     );
+    expect(askQuote({ content: '\\*not\\* emphasis' })).toBe('*not* emphasis');
+    expect(askQuote({ content: '| a | **b** |\n|---|---|\n| 1 | 2 |' })).toBe('a b');
+  });
+
+  it('quotes raw HTML by its source, as the panel shows it', () => {
+    expect(askQuote({ content: '<div>\nhello\n</div>' })).toBe('<div>');
+    expect(askQuote({ content: 'x <b>y</b>' })).toBe('x <b>y</b>');
   });
 
   it('quotes a code block followed by text by its code line as the panel shows it', () => {
@@ -91,6 +99,13 @@ describe('askQuote', () => {
     // Only a run of the opening mark closes the block; a backtick in the rest makes inline code.
     expect(askQuote({ content: '```\n~~~\n```\nmore' })).toBe('~~~');
     expect(askQuote({ content: '```x``` and *y*\nmore' })).toBe('x and y');
+  });
+
+  it('quotes a code block in a list item or a quote, and an indented one, by its code line', () => {
+    expect(askQuote({ content: '- ```js\n  code *x*\n  ```\nmore' })).toBe('code *x*');
+    expect(askQuote({ content: '> ```\n> *x*\n> ```\nmore' })).toBe('*x*');
+    // Four spaces make an indented code block, so the fence line is code the panel shows.
+    expect(askQuote({ content: '    ```js\n    x\n    ```' })).toBe('```js');
   });
 
   it('quotes a reply that is one fenced block by its first code line, every character kept', () => {
