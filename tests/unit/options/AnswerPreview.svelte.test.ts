@@ -225,24 +225,34 @@ describe('a real try', () => {
     await waitFor(() => expect(view.getByText('To string was empty')).toBeTruthy());
   });
 
-  it('shows raw HTML in a reply and its notes as text', async () => {
+  it('shows raw HTML in a reply as text, and its notes exactly as the model sent them', async () => {
+    const regex = String.raw`/^\w+([\.-]?\w+)*@\w+$/`;
     send.mockResolvedValueOnce({
       type: 'done',
       requestId: 'test',
       text: '<h1>x</h1>',
-      notes: [{ key: 'n', label: 'Note', text: '<h2>n</h2>' }],
+      notes: [
+        { key: 'n', label: 'Note', text: '<h2>n</h2>' },
+        { key: 'fix', label: 'Fix', text: regex },
+        { key: 'math', label: 'Math', text: 'a * b * c\na*b*c' },
+      ],
     });
     const view = await shown();
     await fireEvent.click(tryButton(view));
     const card = view.container.querySelector('.ap-card') as HTMLElement;
-    // The fallback <pre> shows the text raw, so wait for both Markdown passes to land.
+    // The fallback <pre> shows the text raw, so wait for the answer's Markdown pass to land.
     await waitFor(() => {
-      expect(card.querySelectorAll('.ega-md')).toHaveLength(2);
+      expect(card.querySelector('.ega-md')).not.toBeNull();
       expect(card.querySelector('.ega-md-fallback')).toBeNull();
     });
-    expect(card.querySelector('h1, h2')).toBeNull();
+    expect(card.querySelector('h1, h2, em')).toBeNull();
     expect(card.textContent).toContain('<h1>x</h1>');
-    expect(card.textContent).toContain('<h2>n</h2>');
+    const note = (key: string) => card.querySelector(`[data-ega-note="${key}"] .answer-note-text`);
+    expect(note('n')?.textContent).toBe('<h2>n</h2>');
+    expect(note('fix')?.textContent).toBe(regex);
+    expect(note('math')?.textContent).toBe('a * b * c\na*b*c');
+    expect(note('fix')?.querySelector('[dir="auto"]')).not.toBeNull();
+    expect(card.querySelector('[data-ega-note] .ega-md')).toBeNull();
   });
 
   it('Stop is the same button, and cancels the run', async () => {

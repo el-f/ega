@@ -172,6 +172,8 @@
   const answerTag = $derived(langTag(answerLang) ?? '');
   const notesTag = $derived(langTag(answerTarget) ?? '');
   const mainItems = $derived(mainAnswerItems(turn.answer));
+  // A custom task's fields are plain strings, as the tooltip shows them; Ega's own notes keep Markdown.
+  const plainNotes = $derived(turn.answer?.spec.join === 'after-build');
 
   // About names every language in full; the one-line meta cuts each name.
   const direction = $derived(replyDirection(turn, { sourceLang, targetLang }, varieties));
@@ -570,6 +572,10 @@
   );
 </script>
 
+{#snippet markdownNote(text: string)}<Markdown {text} />{/snippet}
+<!-- Its own dir=auto, as Markdown's block has: the English label above would set the direction otherwise. -->
+{#snippet plainNote(text: string)}<div class="ega-note-plain" dir="auto">{text}</div>{/snippet}
+
 <!-- In the action row it is part of the toolbar's one tab stop; while a version runs or failed it stands alone,
      so an earlier version can still be read. -->
 {#snippet pager(roving: boolean)}
@@ -734,9 +740,8 @@
           explain={turn.explain}
           fallbackLabel={notesLabel(currentTaskValue, taskViews)}
           lang={notesTag}
-        >
-          {#snippet renderText(text: string)}<Markdown {text} />{/snippet}
-        </AnswerNotes>
+          renderText={plainNotes ? plainNote : markdownNote}
+        />
       </div>
     {/if}
     <ReplyMeta
@@ -919,6 +924,12 @@
     font-size: var(--fs-md);
     line-height: var(--lh-body);
     min-inline-size: 0;
+  }
+  /* Plain notes read like the Markdown ones beside them. */
+  .ega-note-plain {
+    font-size: var(--fs-md);
+    line-height: var(--lh-body);
+    color: var(--color-fg);
   }
   /* Headings inside an answer stay at the answer size; the panel uses two text sizes. */
   .ega-answer :global(.ega-md h1),

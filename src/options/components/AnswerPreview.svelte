@@ -196,8 +196,11 @@
           {#if items}<ul>
               {#each items as item, i (i)}<li>{item}</li>{/each}
             </ul>{:else}<Markdown text={shown.text} />{/if}
+          <!-- A custom task's fields are plain strings, shown as the panel and the tooltip show them. -->
           <AnswerNotes notes={shown.notes}
-            >{#snippet renderText(text: string)}<Markdown {text} />{/snippet}</AnswerNotes
+            >{#snippet renderText(text: string)}<div class="ap-note" dir="auto">
+                {text}
+              </div>{/snippet}</AnswerNotes
           >
           {#if checkLine}<p class="ap-check" role="status">{checkLine}</p>{/if}
         {/if}
@@ -271,6 +274,12 @@
     overflow-wrap: anywhere;
     font-family: var(--font-mono);
     font-size: var(--fs-sm);
+  }
+  /* The side panel's notes size, line height and color. */
+  .ap-note {
+    font-size: var(--fs-md);
+    line-height: var(--lh-body);
+    color: var(--color-fg);
   }
   .ap-check {
     color: var(--color-muted);

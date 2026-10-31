@@ -4,6 +4,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, fireEvent, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import AssistantTurn from '@/sidepanel/conversation/AssistantTurn.svelte';
+import { answerSpecFor } from '@/shared/answer/spec';
 import { doneReply, meta, metaText, openMenu, replyProps } from './_reply';
 
 afterEach(() => {
@@ -75,6 +76,58 @@ describe('the answer', () => {
     expect(reply.querySelector('h1, h2')).toBeNull();
     expect(reply.textContent).toContain('<h1>Title</h1>');
     expect(reply.textContent).toContain('<h2>n</h2>');
+  });
+
+  it("shows a custom task's text fields exactly as the model sent them; built-in notes keep Markdown", async () => {
+    const regex = String.raw`/^\w+([\.-]?\w+)*@\w+$/`;
+    const math = 'a * b * c\na*b*c';
+    const field = (key: string) =>
+      ({ key, label: key, kind: 'text', role: 'notes', required: true }) as const;
+    const custom = doneReply({
+      content: 'See the notes.',
+      notes: [
+        { key: 'fix', label: 'Fix', text: regex },
+        { key: 'math', label: 'Math', text: math },
+      ],
+      answer: {
+        spec: {
+          id: 'custom:break-this',
+          version: 1,
+          join: 'after-build',
+          fields: [
+            { key: 'answer', label: 'Answer', kind: 'text', role: 'main', required: true },
+            field('fix'),
+            field('math'),
+          ],
+        },
+        fields: { answer: 'See the notes.', fix: regex, math },
+      },
+    });
+    const { container } = render(AssistantTurn, { props: replyProps(custom) });
+    // The answer still renders through Markdown; once it lands, a Markdown pass on the notes has too.
+    await waitFor(() => expect(container.querySelector('.ega-answer .ega-md p')).not.toBeNull());
+    const note = (key: string) =>
+      container.querySelector<HTMLElement>(`[data-ega-note="${key}"] .answer-note-text`);
+    expect(note('fix')?.textContent).toBe(regex);
+    expect(note('math')?.textContent).toBe(math);
+    expect(note('fix')?.querySelector('[dir="auto"]')).not.toBeNull();
+    expect(container.querySelector('[data-ega-note] .ega-md, [data-ega-note] em')).toBeNull();
+
+    document.body.innerHTML = '';
+    const builtIn = render(AssistantTurn, {
+      props: replyProps(
+        doneReply({
+          kind: 'explain',
+          notes: [{ key: 'explain', label: 'Context & subtext', text: '`sort` sorts in place.' }],
+          answer: { spec: answerSpecFor('explain'), fields: { translation: 'Hello, friend.' } },
+        }),
+      ),
+    });
+    await waitFor(() =>
+      expect(
+        builtIn.container.querySelector('[data-ega-note="explain"] .ega-md code')?.textContent,
+      ).toBe('sort'),
+    );
   });
 
   it.each([
