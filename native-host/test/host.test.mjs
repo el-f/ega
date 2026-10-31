@@ -2469,6 +2469,8 @@ test('a claude image goes in the stream-json message, with no file for the CLI t
     const at = seen.argv.indexOf('--input-format');
     assert.equal(seen.argv[at + 1], 'stream-json', `argv: ${seen.argv}`);
     assert.equal(seen.argv[seen.argv.indexOf('--tools') + 1], '', 'the CLI keeps no tools');
+    // --input-format stream-json reads NDJSON: one message line, ended by a newline.
+    assert.match(seen.stdin, /^[^\n]+\n$/, 'stdin is one NDJSON line');
     const [block, textBlock] = JSON.parse(seen.stdin).message.content;
     assert.deepEqual(block, {
       type: 'image',
