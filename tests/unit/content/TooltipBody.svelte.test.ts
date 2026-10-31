@@ -35,6 +35,26 @@ describe('TooltipBody', () => {
     );
     expect(container.textContent).not.toContain('Never shown');
   });
+  // The English label comes first, so the note's own text must pick its direction (an RTL note read LTR).
+  it('gives each note text and item list its own direction, not the label above it', () => {
+    const { container } = render(TooltipBody, {
+      props: {
+        body: 'Done',
+        loading: false,
+        task: 'custom',
+        notes: [
+          { key: 'he', label: 'Hebrew note', text: 'זה הסבר קצר.' },
+          { key: 'ar', label: 'Arabic items', items: ['ملاحظة أولى', 'ملاحظة ثانية'] },
+        ],
+      },
+    });
+    expect(
+      container.querySelector('[data-ega-note="he"] .answer-note-text')?.getAttribute('dir'),
+    ).toBe('auto');
+    expect(
+      container.querySelector('[data-ega-note="ar"] .answer-note-items')?.getAttribute('dir'),
+    ).toBe('auto');
+  });
   it.each(['', 'Hello so far'])('announces a stopped reply with partial body %j', (body) => {
     const { container } = render(TooltipBody, {
       props: { body, loading: false, stopped: true, task: 'translate' },

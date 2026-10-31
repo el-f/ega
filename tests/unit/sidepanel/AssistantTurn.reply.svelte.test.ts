@@ -126,7 +126,7 @@ describe('the answer', () => {
       container.querySelector<HTMLElement>(`[data-ega-note="${key}"] .answer-note-text`);
     expect(note('fix')?.textContent).toBe(regex);
     expect(note('math')?.textContent).toBe(math);
-    expect(note('fix')?.querySelector('[dir="auto"]')).not.toBeNull();
+    expect(note('fix')?.getAttribute('dir')).toBe('auto');
     expect(container.querySelector('.ega-md, em, strong')).toBeNull();
     await fireEvent.click(container.querySelector('[data-ega-action="copy"]') as HTMLElement);
     expect(write).toHaveBeenCalledWith(main);

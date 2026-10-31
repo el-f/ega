@@ -32,11 +32,11 @@
       {note.label}{#if usedImage}<span class="answer-note-image"> · from image</span>{/if}
     </p>
     {#if note.items}
-      <ul class="answer-note-items">
+      <ul class="answer-note-items" dir="auto">
         {#each note.items as item, i (i)}<li>{item}</li>{/each}
       </ul>
     {:else if note.text}
-      <div class="answer-note-text">
+      <div class="answer-note-text" dir="auto">
         {#if renderText}{@render renderText(note.text)}{:else}{note.text}{/if}
       </div>
     {/if}

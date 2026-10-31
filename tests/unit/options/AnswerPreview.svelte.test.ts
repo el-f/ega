@@ -256,7 +256,7 @@ describe('a real try', () => {
     expect(note('n')?.textContent).toBe('<h2>n</h2>');
     expect(note('fix')?.textContent).toBe(regex);
     expect(note('math')?.textContent).toBe('a * b * c\na*b*c');
-    expect(note('fix')?.querySelector('[dir="auto"]')).not.toBeNull();
+    expect(note('fix')?.getAttribute('dir')).toBe('auto');
     expect(card.querySelector('[data-ega-note] .ega-md')).toBeNull();
   });
 

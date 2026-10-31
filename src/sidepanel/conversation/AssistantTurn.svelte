@@ -580,8 +580,7 @@
 </script>
 
 {#snippet markdownNote(text: string)}<Markdown {text} />{/snippet}
-<!-- Its own dir=auto, as Markdown's block has: the English label above would set the direction otherwise. -->
-{#snippet plainNote(text: string)}<div class="ega-note-plain" dir="auto">{text}</div>{/snippet}
+{#snippet plainNote(text: string)}<div class="ega-note-plain">{text}</div>{/snippet}
 
 <!-- In the action row it is part of the toolbar's one tab stop; while a version runs or failed it stands alone,
      so an earlier version can still be read. -->

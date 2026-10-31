@@ -204,7 +204,7 @@
           </div>
           <!-- A custom task's fields are plain strings, shown as the panel and the tooltip show them. -->
           <AnswerNotes notes={shown.notes}
-            >{#snippet renderText(text: string)}<div class="ap-note" dir="auto">
+            >{#snippet renderText(text: string)}<div class="ap-note">
                 {text}
               </div>{/snippet}</AnswerNotes
           >
