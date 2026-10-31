@@ -728,12 +728,16 @@ export function createRouter(deps: RouterDeps) {
     }
   }
 
-  /** Counts an id as started before its run, so Cancel all reaches an image still reading its page; returns the release. */
-  function begin(reqId: string): () => void {
+  /** Counts an id as started before its run, so Cancel all reaches an image still reading its page. */
+  function begin(reqId: string): { cancelled: () => boolean; release: () => void } {
     started.add(reqId);
-    return () => {
-      started.delete(reqId);
-      cancelRequested.delete(reqId);
+    return {
+      // A cancel that came before the run registers waits here; the run aborts on it at registration.
+      cancelled: () => cancelRequested.has(reqId),
+      release: () => {
+        started.delete(reqId);
+        cancelRequested.delete(reqId);
+      },
     };
   }
 

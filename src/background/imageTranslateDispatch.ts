@@ -46,8 +46,8 @@ export interface ImageTranslateDispatchDeps {
       onChunk: (c: TranslationChunk) => void,
       meta: { surface: AuditSurface },
     ) => Promise<void>;
-    /** Marks the request started before the page read, so Cancel all reaches it; returns the release. */
-    begin?: (requestId: string) => () => void;
+    /** Marks the request started before the page read, so Cancel all reaches it. */
+    begin?: (requestId: string) => { cancelled: () => boolean; release: () => void };
   };
   broadcast: (msg: Msg) => void;
   sendToTab: (tabId: number, msg: Msg) => void;
@@ -67,7 +67,7 @@ export async function dispatchImageTranslate(deps: ImageTranslateDispatchDeps): 
   const windowScope = deps.windowId !== undefined ? { windowId: deps.windowId } : {};
   // Tracked before the page read, so a Stop or tab close during it cancels; the side panel outlives the tab and never registers.
   const releaseTab = surface !== 'sidepanel' ? deps.trackTab?.(requestId) : undefined;
-  const releaseStart = router.begin?.(requestId);
+  const start = router.begin?.(requestId);
   try {
     // Vision calls run for seconds; the tab mounts its loading tooltip on this message, so it goes before the page read.
     if (surface !== 'sidepanel') {
@@ -91,22 +91,25 @@ export async function dispatchImageTranslate(deps: ImageTranslateDispatchDeps): 
     };
 
     if (surface === 'sidepanel') {
-      // Queue as well as broadcast: a panel still opening drains the queue on mount.
-      await enqueuePendingImageSeed({
-        requestId,
-        imageUrl,
-        task,
-        ...sentContext,
-        ...windowScope,
-      }).catch(() => {});
-      broadcast({
-        kind: 'sidepanel:seed-image-translate',
-        requestId,
-        imageUrl,
-        task,
-        ...sentContext,
-        ...windowScope,
-      });
+      // A Cancel all during the page read (Delete all data wipes storage right after it) gets no seed, only the run's ABORTED.
+      if (start?.cancelled() !== true) {
+        // Queue as well as broadcast: a panel still opening drains the queue on mount.
+        await enqueuePendingImageSeed({
+          requestId,
+          imageUrl,
+          task,
+          ...sentContext,
+          ...windowScope,
+        }).catch(() => {});
+        broadcast({
+          kind: 'sidepanel:seed-image-translate',
+          requestId,
+          imageUrl,
+          task,
+          ...sentContext,
+          ...windowScope,
+        });
+      }
       let failed = false;
       try {
         await runVision(
@@ -196,7 +199,7 @@ export async function dispatchImageTranslate(deps: ImageTranslateDispatchDeps): 
     }
   } finally {
     releaseTab?.();
-    releaseStart?.();
+    start?.release();
   }
 }
 

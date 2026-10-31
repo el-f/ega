@@ -163,4 +163,68 @@ describe('a cancel the tooltip did not start (Cancel all, Delete all data)', () 
     const result = sent.find((m) => m.kind === 'content:image-translate-result');
     expect(result).toMatchObject({ requestId: 'img-read', error: { code: 'ABORTED' } });
   });
+
+  it('stops a side-panel request still reading the page from writing its seed after the wipe', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.reject(new DOMException('aborted', 'AbortError'))),
+    );
+    let answerRead: (reply: unknown) => void = () => {};
+    const tabSend = chrome.tabs.sendMessage as unknown as Mock;
+    tabSend.mockImplementation((_tabId: number, m: Msg) =>
+      m.kind === 'ega:get-page-context'
+        ? new Promise((r) => {
+            answerRead = r;
+          })
+        : Promise.resolve({ ok: true }),
+    );
+    const backend = lateAbortVision();
+    const translateImage = vi.spyOn(backend, 'translateImage');
+    const settings = {
+      ...DEFAULT_SETTINGS,
+      anthropicApiKey: 'k',
+      disabledBackends: [],
+      cacheEnabled: false,
+      contextEnabled: true,
+    };
+    const router = createRouter(
+      baseDeps({ backends: [backend], getSettings: async () => settings }),
+    );
+    const broadcast: Msg[] = [];
+    const run = dispatchImageTranslate({
+      tabId: 7,
+      imageUrl: 'https://example.com/img.png',
+      requestId: 'img-sp',
+      task: 'explain',
+      surface: 'sidepanel',
+      windowId: 1,
+      getSettings: async () => settings,
+      router,
+      broadcast: (m) => broadcast.push(m),
+      sendToTab: () => {},
+      logger: { error: () => {} },
+    });
+    await vi.waitFor(() => {
+      expect(tabSend).toHaveBeenCalledWith(
+        7,
+        expect.objectContaining({ kind: 'ega:get-page-context' }),
+      );
+    });
+
+    // Delete all data: Cancel all, then the storage wipe, both while the page read is still out.
+    expect(router.cancelAll()).toBe(1);
+    await chrome.storage.session.clear();
+    answerRead({ context: { pageTitle: 'Inbox', beforeText: 'text around the image' } });
+    await run;
+
+    expect(translateImage).not.toHaveBeenCalled();
+    expect(await chrome.storage.session.get(null)).toEqual({});
+    // No seed reaches the panel; only the terminal ABORTED goes out.
+    expect(broadcast).toEqual([
+      {
+        kind: 'translate:chunk',
+        chunk: expect.objectContaining({ type: 'error', requestId: 'img-sp', code: 'ABORTED' }),
+      },
+    ]);
+  });
 });
