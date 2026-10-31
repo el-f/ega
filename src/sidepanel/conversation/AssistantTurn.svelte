@@ -3,7 +3,7 @@
   import { debugCatch } from '@/shared/logger';
   import ReplyDetails from '@/shared/components/ReplyDetails.svelte';
   import AnswerNotes from '@/shared/components/AnswerNotes.svelte';
-  import { mainAnswerItems, soleFencedCode } from '@/shared/answer-presentation';
+  import { isPlainAnswer, mainAnswerItems, soleFencedCode } from '@/shared/answer-presentation';
   import { TRANSLATE_SPEC } from '@/shared/answer/spec';
   import ReplyMeta from '@/shared/components/ReplyMeta.svelte';
   import { imageModeOf } from '@/shared/components/reply-details';
@@ -174,9 +174,7 @@
   const notesTag = $derived(langTag(answerTarget) ?? '');
   const mainItems = $derived(mainAnswerItems(turn.answer));
   // A custom task's answer is a plain string, as the tooltip shows it; one fenced block still shows as code there.
-  const plainMain = $derived(
-    turn.answer?.spec.join === 'after-build' && soleFencedCode(turn.content, true) === null,
-  );
+  const plainMain = $derived(isPlainAnswer(turn.answer?.spec, turn.content));
   // Only Explain's notes are Markdown by design; Grammar, Reword and custom notes are plain strings.
   const markdownNotes = $derived(
     turn.answer === undefined || turn.answer.spec.id === TRANSLATE_SPEC.id,

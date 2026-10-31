@@ -155,7 +155,9 @@ export function askedAboutFor(
   const target = question === undefined ? undefined : askTargetFor(question, version);
   if (target === undefined) return undefined;
   if (version?.aboutUnsent === true) return 'unsent';
-  return askAboutFor(thread, target, labels) ?? 'gone';
+  const block = askAboutFor(thread, target, labels);
+  const reply = askedReply(thread, target);
+  return block === null || reply === undefined ? 'gone' : { block, quote: askQuote(reply) };
 }
 
 /** The quote a question's bubble links: the first line of the reply it asks about, read live; none once that reply left the thread. */
@@ -165,7 +167,7 @@ export function linkedQuote(
 ): { turnId: string; text: string } | undefined {
   const target = holder.role === 'user' ? holder.about : undefined;
   const reply = target === undefined ? undefined : askedReply(thread, target);
-  return reply === undefined ? undefined : { turnId: reply.id, text: askQuote(reply.content) };
+  return reply === undefined ? undefined : { turnId: reply.id, text: askQuote(reply) };
 }
 
 /** The task each user message names above its bubble, only where the task changes (or a first message that is not Translate). */

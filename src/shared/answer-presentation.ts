@@ -1,4 +1,4 @@
-import type { AnswerField } from './answer/spec';
+import type { AnswerField, AnswerSpec } from './answer/spec';
 
 /** Presentation only: surfaces never parse a provider's response. */
 export function mainAnswerItems(answer: unknown): string[] | undefined {
@@ -54,6 +54,11 @@ export function soleFencedCode(answer: string, settled = false): string | null {
   if (close !== -1 && close !== lines.length - 1) return null;
   const code = lines.slice(1, close === -1 ? undefined : close).join('\n');
   return settled && code === '' ? null : code;
+}
+
+/** A custom task's answer shows as plain text; an answer that is one fenced block still shows as code. */
+export function isPlainAnswer(spec: Pick<AnswerSpec, 'join'> | undefined, answer: string): boolean {
+  return spec?.join === 'after-build' && soleFencedCode(answer, true) === null;
 }
 
 export function answerDetailText(value: unknown, kind?: AnswerField['kind']): string {

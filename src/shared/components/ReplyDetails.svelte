@@ -13,7 +13,7 @@
   import { modelDisplayName } from '@/shared/model-names';
   import { redactContext } from '@/shared/redact';
   import { MAX_INSTRUCTIONS_CHARS } from '@/shared/reply-instructions';
-  import { askQuote, type AskedAbout } from '@/shared/ask-about';
+  import type { AskedAbout } from '@/shared/ask-about';
 
   interface Props {
     /** Absent when result details are off in Settings, or the reply carried none. */
@@ -182,7 +182,10 @@
       page: image === 'ocr' ? null : (page ?? null),
       ...(change !== undefined && change !== '' ? { change } : {}),
       ...(askedAbout !== undefined
-        ? { askedAbout: typeof askedAbout === 'string' ? ASKED_ABOUT_TEXT[askedAbout] : askedAbout }
+        ? {
+            askedAbout:
+              typeof askedAbout === 'string' ? ASKED_ABOUT_TEXT[askedAbout] : askedAbout.block,
+          }
         : {}),
       result: meta ?? null,
       // The fields describe the reply; Ega's pinned format text is prompt, not reply (blast-14).
@@ -326,7 +329,7 @@
           {#if typeof askedAbout === 'string'}
             <dd>{ASKED_ABOUT_TEXT[askedAbout]}</dd>
           {:else}
-            <dd class="rd-quote rd-rule" dir="auto">{askQuote(askedAbout.result)}</dd>
+            <dd class="rd-quote rd-rule" dir="auto">{askedAbout.quote}</dd>
           {/if}
         </div>
       {/if}

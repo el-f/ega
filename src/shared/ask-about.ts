@@ -1,4 +1,6 @@
 import { capText } from './text-cap';
+import { isPlainAnswer } from './answer-presentation';
+import type { AnswerSpec } from './answer/spec';
 
 /** Which reply a question asks about: a reference, never a copy of its text (D58). Each request builds its
  *  block from the thread as it is then, so a deleted reply leaves every later request at once. */
@@ -22,9 +24,9 @@ export interface AskAbout {
   notes?: string;
 }
 
-/** What an answer's About says it was asked about: the block as built from the thread now, 'gone' once the
- *  reply left the conversation, 'unsent' for a version whose request carried no block. */
-export type AskedAbout = AskAbout | 'gone' | 'unsent';
+/** What an answer's About says it was asked about: the block as built from the thread now with the reply's quote,
+ *  'gone' once the reply left the conversation, 'unsent' for a version whose request carried no block. */
+export type AskedAbout = { block: AskAbout; quote: string } | 'gone' | 'unsent';
 
 const ASK_ABOUT_CAPS = {
   task: 120,
@@ -88,13 +90,15 @@ function plainLine(line: string): string {
     .trim();
 }
 
-/** The quote a question shows: a reply's first line of text, Markdown removed. */
-export function askQuote(result: string): string {
-  const first =
-    result
-      .split('\n')
-      .filter((l) => !/^\s*(?:```|~~~)/.test(l))
-      .map(plainLine)
-      .find((l) => l !== '') ?? '';
-  return clip(first, QUOTE_MAX);
+/** The quote a question shows: a reply's first line of text as the panel shows it. A Markdown reply loses its
+ *  Markdown; a plain one (a custom task's answer) keeps every character. */
+export function askQuote(reply: {
+  content: string;
+  answer?: { spec: Pick<AnswerSpec, 'join'> } | undefined;
+}): string {
+  const lines = reply.content.split('\n');
+  const shown = isPlainAnswer(reply.answer?.spec, reply.content)
+    ? lines.map((l) => l.trim())
+    : lines.filter((l) => !/^\s*(?:```|~~~)/.test(l)).map(plainLine);
+  return clip(shown.find((l) => l !== '') ?? '', QUOTE_MAX);
 }

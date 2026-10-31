@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { askQuote, askTargetOf, capAskAbout, type AskAbout } from '@/shared/ask-about';
 import { renderAskAboutBlock } from '@/shared/prompts';
+import { CUSTOM_PRESETS } from '@/shared/answer/spec';
 import {
   askable,
   buildStartArgs,
@@ -45,7 +46,7 @@ describe('capAskAbout', () => {
     const result = `${'r'.repeat(1998)}😀 and the tail`;
     const out = capAskAbout({ ...ABOUT, result });
     expect(out?.result).toBe(`${'r'.repeat(1998)}…`);
-    expect(isWellFormed(askQuote(`${'q'.repeat(198)}😀 tail`))).toBe(true);
+    expect(isWellFormed(askQuote({ content: `${'q'.repeat(198)}😀 tail` }))).toBe(true);
   });
 
   it('an empty original is allowed: a handed-off reply may have none', () => {
@@ -72,16 +73,24 @@ describe('askTargetOf, a stored reference', () => {
 
 describe('askQuote', () => {
   it('is the first non-empty line of the result', () => {
-    expect(askQuote('\n  Hi there\nsecond')).toBe('Hi there');
-    expect(askQuote('x'.repeat(500))).toHaveLength(200);
+    expect(askQuote({ content: '\n  Hi there\nsecond' })).toBe('Hi there');
+    expect(askQuote({ content: 'x'.repeat(500) })).toHaveLength(200);
   });
 
   it('is plain text: Markdown marks, fences and link targets are gone', () => {
-    expect(askQuote('## **Hi** there')).toBe('Hi there');
-    expect(askQuote('- `kifak` means [how are you](https://x.test)')).toBe(
+    expect(askQuote({ content: '## **Hi** there' })).toBe('Hi there');
+    expect(askQuote({ content: '- `kifak` means [how are you](https://x.test)' })).toBe(
       'kifak means how are you',
     );
-    expect(askQuote('```\n> snake_case stays\n```')).toBe('snake_case stays');
+    expect(askQuote({ content: '```\n> snake_case stays\n```' })).toBe('snake_case stays');
+  });
+
+  it("keeps a custom task's reply exactly as the panel shows it: its asterisks and backticks are text", () => {
+    const answer = { spec: CUSTOM_PRESETS['answer-only'], fields: {} };
+    expect(askQuote({ content: '\n  a*b*c and `x`  \nmore', answer })).toBe('a*b*c and `x`');
+    expect(askQuote({ content: '- **not** a list', answer })).toBe('- **not** a list');
+    // A reply that is one fenced block shows as code, so its quote is the code line.
+    expect(askQuote({ content: '```js\nconst x = 1\n```', answer })).toBe('const x = 1');
   });
 });
 
@@ -228,10 +237,21 @@ describe('the quote and About, read live from the thread', () => {
 
   it('About shows the block as built now, "gone" once the reply left, and nothing for a plain answer', () => {
     expect(askedAboutFor([question(), reply(), asked, answer], answer, LABELS)).toMatchObject({
-      result: 'Hi, how are you?',
+      block: { result: 'Hi, how are you?' },
+      quote: 'Hi, how are you?',
     });
     expect(askedAboutFor([asked, answer], answer, LABELS)).toBe('gone');
     expect(askedAboutFor([question(), reply()], reply(), LABELS)).toBeUndefined();
+  });
+
+  it("a custom task's reply is quoted with every character, on the question and in About", () => {
+    const plain = { spec: CUSTOM_PRESETS['answer-only'], fields: {} };
+    const custom = reply({ content: 'a*b*c and `x`', answer: plain });
+    const thread = [question(), custom, asked, answer];
+    expect(linkedQuote(asked, thread)?.text).toBe('a*b*c and `x`');
+    expect(askedAboutFor(thread, answer, LABELS)).toMatchObject({ quote: 'a*b*c and `x`' });
+    // A rule line shows as text in a plain reply, so it can be asked about.
+    expect(askable(reply({ content: '* * *', answer: plain }))).toBe(true);
   });
 
   it('a version whose request carried no block says so, even with the reply back', () => {
@@ -259,7 +279,10 @@ describe('the quote and About, read live from the thread', () => {
       const q = { ...asked, about };
       const thread = [question(), regenerating, q, answer];
       expect(linkedQuote(q, thread)).toEqual({ turnId: 'a1', text: 'Hi there' });
-      expect(askedAboutFor(thread, answer, LABELS)).toMatchObject({ result: 'Hi there' });
+      expect(askedAboutFor(thread, answer, LABELS)).toMatchObject({
+        block: { result: 'Hi there' },
+        quote: 'Hi there',
+      });
     }
   });
 

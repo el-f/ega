@@ -101,7 +101,7 @@ describe('an answer to a question', () => {
   it('About this reply lists what it was asked about under What was sent', async () => {
     const { container } = render(AssistantTurn, {
       props: replyProps(doneReply({ kind: 'ask' }), {
-        askedAboutOf: () => ABOUT,
+        askedAboutOf: () => ({ block: ABOUT, quote: 'Hi, how are you?' }),
         sentText: 'why?',
       }),
     });
@@ -109,6 +109,48 @@ describe('an answer to a question', () => {
     await fireEvent.click(document.querySelector('[data-ega-about]') as HTMLElement);
     const row = await screen.findByText('Asked about');
     expect(row.nextElementSibling?.textContent).toBe('Hi, how are you?');
+  });
+
+  it("a custom task's reply shows in About and on the question with its asterisks and backticks", async () => {
+    const text = 'a*b*c and `x`';
+    const custom = doneReply({
+      id: 'a0',
+      attachedToTurnId: 'u0',
+      content: text,
+      answer: {
+        spec: {
+          id: 'custom:math',
+          version: 1,
+          join: 'after-build',
+          fields: [{ key: 'answer', label: 'Answer', kind: 'text', role: 'main', required: true }],
+        },
+        fields: { answer: text },
+      },
+    });
+    const question: UserTurnData = {
+      id: 'u1',
+      role: 'user',
+      kind: 'ask',
+      status: 'idle',
+      content: 'why?',
+      createdAt: 2,
+      about: { turnId: 'a0' },
+    };
+    const turn = doneReply({ kind: 'ask', attachedToTurnId: 'u1', content: 'Because.' });
+    const thread: Turn[] = [custom, question, turn];
+    const labels = { views: SHIPPED_TASK_VIEWS, varieties: [] };
+    const { container } = render(AssistantTurn, {
+      props: replyProps(turn, { askedAboutOf: (t: Turn) => askedAboutFor(thread, t, labels) }),
+    });
+    await openMenu(container, 'more');
+    await fireEvent.click(document.querySelector('[data-ega-about]') as HTMLElement);
+    const row = await screen.findByText('Asked about');
+    expect(row.nextElementSibling?.textContent).toBe(text);
+    document.body.innerHTML = '';
+    const bubble = render(UserTurn, {
+      props: { turn: question, quoted: linkedQuote(question, thread) },
+    });
+    expect(bubble.container.querySelector('[data-ega-ask-quote]')?.textContent).toBe(text);
   });
 
   it('About on a question’s answer and on an "Ask instead" version names the reply, or says it is gone or was not sent', async () => {

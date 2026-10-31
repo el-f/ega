@@ -472,7 +472,7 @@ export function turnTaskValue(turn: Turn): TaskId {
 
 /** A reply a question can be about: finished, with a line of text its quote can show. */
 export function askable(turn: Turn | undefined): boolean {
-  return turn?.role === 'assistant' && turn.status === 'done' && askQuote(turn.content) !== '';
+  return turn?.role === 'assistant' && turn.status === 'done' && askQuote(turn) !== '';
 }
 
 /** A question about `reply` as it shows now: the reply and its shown version. */
