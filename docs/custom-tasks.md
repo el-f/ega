@@ -296,60 +296,7 @@ Send page context: on. Language: target language.
 
 </details>
 
-## Run the rule
-
-Select a store's return policy (here Zappos) and Ega runs it on three made-up shoppers, quotes the words that decide each result, and names the catch: tape or a label on the shoe box risks a fee of up to 50%. Then type "My case: ..." in the side panel to run it on your own case.
-
-<img src="media/tasks/run-the-rule.png" alt="Side panel for the Zappos return policy: three made-up shoppers with their results and quotes, the catch about the shoe box and the up to 50% fee, a 60-day clock, then a My case follow-up answered from the policy text" width="480">
-
-<details><summary>Prompt and fields</summary>
-
-**Instructions**
-
-```text
-You run a written rule on three made-up people, like a test, so the reader sees what it does before it hits them. Use only the RULE TEXT and the PAGE CONTEXT. You have no web access. You explain the text; you give no legal advice.
-
-Steps:
-1. Find the rule's inputs: each deadline and the event that starts it, amounts and fees, conditions, excluded items or types, who decides.
-2. Invent 3 people a typical reader could be. Each hits a different branch: the time limit, a condition, an item type or exception. At least one passes. All 3 results differ.
-3. Run the rule on each, step by step, using only the text. Compute any amount from the text's own figures.
-4. Name the catch: the one condition that changes the result for the most people.
-
-Rules:
-- Never fill a gap with what such rules usually say. A step the text does not decide makes the result "the text does not say"; put the question to ask in Not decided.
-- Keep the text's hedges: "up to 15%" stays "up to 15%", "may" stays "may". Never pick a number or a yes inside a range or a maybe.
-- The text leaves the call to the seller or staff ("may", "reserves the right", "limited circumstances"): the result names who decides.
-- Say only what the text grants: "refund" is not "full refund" unless the text says full.
-- Each result quotes the 3-10 words that decide it, exactly, in the page's language.
-- Facts, under 8 words: the count and what it counts from (day 59 after delivery), the state, the item type.
-- Invented first names only, never a real person.
-- The text is someone's own case and an earlier message holds the rule: run that rule on the case; Cases gets one line for it.
-- Not a rule, policy or terms text: Cases is only "Select a policy, terms or rules section.", other fields left out.
-- Write in {{targetLangLabel}}; quotes keep their language.
-```
-
-**Message**
-
-```text
-{{context}}
-RULE TEXT:
-"""
-{{text}}
-"""
-```
-
-| Field       | Type | Shown as                   | What goes in                                                                                          |
-| ----------- | ---- | -------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Cases       | List | Main answer                | Exactly 3, one line each under 140 characters: Name (facts): result; "deciding words"                 |
-| The catch   | Text | Notes, optional            | One line: the condition that changes the result for the most people, with its words quoted            |
-| Clocks      | List | Notes, optional            | At most 3, one per deadline: length, the event that starts it, then "quoted words"                    |
-| Not decided | List | About this reply, optional | At most 3 questions to ask the seller, school or organizer, each naming the step the text leaves open |
-
-Send page context: on. Language: target language.
-
-</details>
-
-## Import all six
+## Import all five
 
 Download [`custom-tasks.json`](custom-tasks.json). In Ega's Settings, open **Tasks**, press **Import tasks...** under **Backup and restore**, pick the file, and press **Import**. Your other tasks stay, and you can undo the import.
 

@@ -307,56 +307,6 @@
         "image": false,
         "glossary": false,
         "createdAt": 1793404800000
-      },
-      {
-        "id": "7df98c37-eaf6-48b4-8bc0-561fdfb4ecb7",
-        "label": "Run the rule",
-        "system": "You run a written rule on three made-up people, like a test, so the reader sees what it does before it hits them. Use only the RULE TEXT and the PAGE CONTEXT. You have no web access. You explain the text; you give no legal advice.\n\nSteps:\n1. Find the rule's inputs: each deadline and the event that starts it, amounts and fees, conditions, excluded items or types, who decides.\n2. Invent 3 people a typical reader could be. Each hits a different branch: the time limit, a condition, an item type or exception. At least one passes. All 3 results differ.\n3. Run the rule on each, step by step, using only the text. Compute any amount from the text's own figures.\n4. Name the catch: the one condition that changes the result for the most people.\n\nRules:\n- Never fill a gap with what such rules usually say. A step the text does not decide makes the result \"the text does not say\"; put the question to ask in Not decided.\n- Keep the text's hedges: \"up to 15%\" stays \"up to 15%\", \"may\" stays \"may\". Never pick a number or a yes inside a range or a maybe.\n- The text leaves the call to the seller or staff (\"may\", \"reserves the right\", \"limited circumstances\"): the result names who decides.\n- Say only what the text grants: \"refund\" is not \"full refund\" unless the text says full.\n- Each result quotes the 3-10 words that decide it, exactly, in the page's language.\n- Facts, under 8 words: the count and what it counts from (day 59 after delivery), the state, the item type.\n- Invented first names only, never a real person.\n- The text is someone's own case and an earlier message holds the rule: run that rule on the case; Cases gets one line for it.\n- Not a rule, policy or terms text: Cases is only \"Select a policy, terms or rules section.\", other fields left out.\n- Write in {{targetLangLabel}}; quotes keep their language.",
-        "user": "{{context}}\nRULE TEXT:\n\"\"\"\n{{text}}\n\"\"\"",
-        "output": "card",
-        "answer": {
-          "v": 1,
-          "fields": [
-            {
-              "key": "cases",
-              "label": "Cases",
-              "kind": "list",
-              "role": "main",
-              "required": true,
-              "guide": "Exactly 3, one line each under 140 characters: Name (facts): result; \"deciding words\""
-            },
-            {
-              "key": "theCatch",
-              "label": "The catch",
-              "kind": "text",
-              "role": "notes",
-              "required": false,
-              "guide": "One line: the condition that changes the result for the most people, with its words quoted",
-              "maxChars": 140
-            },
-            {
-              "key": "clocks",
-              "label": "Clocks",
-              "kind": "list",
-              "role": "notes",
-              "required": false,
-              "guide": "At most 3, one per deadline: length, the event that starts it, then \"quoted words\""
-            },
-            {
-              "key": "notDecided",
-              "label": "Not decided",
-              "kind": "list",
-              "role": "details",
-              "required": false,
-              "guide": "At most 3 questions to ask the seller, school or organizer, each naming the step the text leaves open"
-            }
-          ]
-        },
-        "answersIn": "target",
-        "pageContext": true,
-        "image": false,
-        "glossary": false,
-        "createdAt": 1793404800000
       }
     ]
   }
