@@ -105,7 +105,7 @@
     "@vitest/coverage-v8": "^4.1.11",
     "adm-zip": "^0.6.0",
     "cspell": "^10.3.6",
-    "eslint": "^10.8.0",
+    "eslint": "^10.13.0",
     "eslint-plugin-promise": "^7.3.0",
     "eslint-plugin-regexp": "^3.1.1",
     "eslint-plugin-svelte": "^3.22.0",
@@ -126,7 +126,7 @@
     "svelte-eslint-parser": "^1.8.0",
     "tsx": "^4.23.8",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.71.0",
+    "typescript-eslint": "^8.72.1",
     "vite": "^8.3.2",
     "vitest": "^4.1.11"
   },
