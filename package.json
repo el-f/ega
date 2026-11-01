@@ -80,7 +80,7 @@
     "bits-ui": "^2.19.5",
     "dompurify": "^3.4.17",
     "marked": "^18.0.9",
-    "svelte": "^5.56.8",
+    "svelte": "^5.57.3",
     "svelte-dnd-action": "^0.9.78",
     "svelte-sonner": "~1.1.1",
     "valibot": "^1.4.2"
@@ -108,7 +108,7 @@
     "eslint": "^10.8.0",
     "eslint-plugin-promise": "^7.3.0",
     "eslint-plugin-regexp": "^3.1.1",
-    "eslint-plugin-svelte": "^3.22.0",
+    "eslint-plugin-svelte": "^3.23.1",
     "eslint-plugin-unicorn": "^76.0.0",
     "fake-indexeddb": "^6.0.0",
     "fast-check": "^4.9.0",
