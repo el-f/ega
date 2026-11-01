@@ -76,12 +76,12 @@
     "gen:third-party:check": "tsx scripts/gen-third-party.ts --check"
   },
   "dependencies": {
-    "@lucide/svelte": "^1.52.0",
-    "bits-ui": "^2.19.5",
+    "@lucide/svelte": "^1.64.0",
+    "bits-ui": "^2.20.2",
     "dompurify": "^3.4.17",
-    "marked": "^18.0.9",
+    "marked": "^18.1.2",
     "svelte": "^5.56.8",
-    "svelte-dnd-action": "^0.9.78",
+    "svelte-dnd-action": "^0.9.80",
     "svelte-sonner": "~1.1.1",
     "valibot": "^1.4.2"
   },
