@@ -9,9 +9,8 @@
 and no guarantee. Use it at your own risk, and expect rough edges.
 
 <p align="center">
-  <img src="docs/media/bubble.png" alt="A dark travel-forum page with the Arabizi line mar7aba, kifak? shu 3am ta3mel? selected, and Ega's floating Translate bubble next to the selection" width="420">
-  &nbsp;
-  <img src="docs/media/tooltip.png" alt="The same page after a click on the bubble: Ega's tooltip below the line shows Hi, how are you? What are you up to? with a 96% confidence score and the detected language, Arabizi — Levantine" width="420">
+  <img src="docs/media/bubble.png" alt="A forum post with the Arabizi line mar7aba, kifak? shu 3am ta3mel? selected, and Ega's floating Translate to English bubble under it" width="49%">
+  <img src="docs/media/tooltip.png" alt="The same post after a click on the bubble: Ega's tooltip under the line shows Hi, how are you? What are you up to?, with Arabizi (Levantine) to English and 96% confident" width="49%">
 </p>
 
 Select `mar7aba, kifak? shu 3am ta3mel?`, click the **Translate to English** bubble that appears, get **Hi,

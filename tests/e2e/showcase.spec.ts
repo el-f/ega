@@ -67,6 +67,9 @@ const READY_SEED = {
 
 type Clip = { x: number; y: number; width: number; height: number };
 
+/** CSS px from just above the Arabizi post to just under its tooltip: both README hero shots use this one strip. */
+const HERO_STRIP_HEIGHT = 250;
+
 async function save(page: Page, name: string, clip?: Clip): Promise<void> {
   await page.mouse.move(0, 2000);
   await page.waitForTimeout(60); // wait for hover styles to settle (no observable end state)
@@ -84,7 +87,8 @@ test('README — bubble on a selection, then the tooltip it opens', async () => 
   });
 
   const page = await ext.context.newPage();
-  await page.setViewportSize({ width: 960, height: 640 });
+  // Narrow, so the posts wrap inside the strip instead of running off its edge.
+  await page.setViewportSize({ width: 520, height: 800 });
   await page.goto(`${ext.serverUrl}/showcase-page.html`);
   await waitForTestHooks(page);
   await page.locator('body').focus();
@@ -92,16 +96,27 @@ test('README — bubble on a selection, then the tooltip it opens', async () => 
   const bubble = page.locator('#ega-shadow-host .bubble');
   await expect(bubble).toBeVisible({ timeout: 5_000 });
   await page.waitForTimeout(200); // wait for the bubble's 120 ms pop animation (no observable end state)
+  const strip = await page.evaluate((height) => {
+    const post = document.getElementById('arabizi')?.closest('article');
+    const main = document.querySelector('main');
+    if (!post || !main) return null;
+    const m = main.getBoundingClientRect();
+    return { x: m.left, y: post.getBoundingClientRect().top - 12, width: m.width, height };
+  }, HERO_STRIP_HEIGHT);
+  if (!strip) throw new Error('Arabizi post not found');
+  const inStrip = (box: { left: number; right: number; bottom: number }): boolean =>
+    box.left >= strip.x &&
+    box.right <= strip.x + strip.width &&
+    box.bottom + 8 <= strip.y + strip.height;
   const bubbleBox = await bubble.boundingBox();
   if (!bubbleBox) throw new Error('bubble has no box — refusing to ship a shot without it');
-  const main = await page.locator('main').boundingBox();
-  if (!main) throw new Error('page column not found');
-  await save(page, 'bubble', {
-    x: main.x,
-    y: 0,
-    width: main.width,
-    height: Math.min(640, bubbleBox.y + bubbleBox.height + 120),
-  });
+  const bubbleEdges = {
+    left: bubbleBox.x,
+    right: bubbleBox.x + bubbleBox.width,
+    bottom: bubbleBox.y + bubbleBox.height,
+  };
+  if (!inStrip(bubbleEdges)) throw new Error('the bubble is outside the hero strip');
+  await save(page, 'bubble', strip);
 
   await bubble.click();
   await page.waitForFunction(
@@ -115,20 +130,20 @@ test('README — bubble on a selection, then the tooltip it opens', async () => 
   );
   await page.waitForTimeout(350); // wait for the tooltip entrance animation (no observable end state)
 
-  const clip = await page.evaluate(() => {
+  const card = await page.evaluate(() => {
     const host = document.querySelector('#ega-shadow-host');
-    const card = (host as HTMLElement | null)?.shadowRoot?.querySelector('.tooltip');
-    const main = document.querySelector('main');
-    if (!card || !main) return null;
-    const a = card.getBoundingClientRect();
-    const b = main.getBoundingClientRect();
-    const left = Math.max(0, Math.min(a.left, b.left));
-    const right = Math.min(window.innerWidth, Math.max(a.right, b.right));
-    const bottom = Math.min(window.innerHeight, Math.max(a.bottom + 24, b.top + 320));
-    return { x: left, y: 0, width: right - left, height: bottom };
+    const r = (host as HTMLElement | null)?.shadowRoot
+      ?.querySelector('.tooltip')
+      ?.getBoundingClientRect();
+    return r ? { left: r.left, right: r.right, bottom: r.bottom } : null;
   });
-  if (!clip) throw new Error('tooltip card not found — refusing to ship a shot without it');
-  await save(page, 'tooltip', clip);
+  if (!card) throw new Error('tooltip card not found — refusing to ship a shot without it');
+  if (!inStrip(card)) {
+    throw new Error(
+      `the tooltip (${JSON.stringify(card)}) is outside the hero strip; HERO_STRIP_HEIGHT needs ${Math.ceil(card.bottom + 16 - strip.y)}`,
+    );
+  }
+  await save(page, 'tooltip', strip);
 });
 
 test('README — popup with a live backend', async () => {
