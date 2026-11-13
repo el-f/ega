@@ -9,11 +9,13 @@
 and no guarantee. Use it at your own risk, and expect rough edges.
 
 <p align="center">
-  <img src="docs/media/tooltip.png" alt="A dark travel-forum page with the Arabizi line mar7aba, kifak? shu 3am ta3mel? selected, and Ega's tooltip below it showing Hi, how are you? What are you up to? with a 96% confidence score and the detected language, Arabizi — Levantine" width="560">
+  <img src="docs/media/bubble.png" alt="A dark travel-forum page with the Arabizi line mar7aba, kifak? shu 3am ta3mel? selected, and Ega's floating Translate bubble next to the selection" width="420">
+  &nbsp;
+  <img src="docs/media/tooltip.png" alt="The same page after a click on the bubble: Ega's tooltip below the line shows Hi, how are you? What are you up to? with a 96% confidence score and the detected language, Arabizi — Levantine" width="420">
 </p>
 
-Select `mar7aba, kifak? shu 3am ta3mel?`, press `Ctrl+Shift+L`, get **Hi, how are you? What are
-you up to?** A plain translator usually gives the letters back unchanged.
+Select `mar7aba, kifak? shu 3am ta3mel?`, click the **Translate to English** bubble that appears, get **Hi,
+how are you? What are you up to?** A plain translator usually gives the letters back unchanged.
 
 It is for you if a plain translator cannot handle your language or dialect, you already have an
 LLM (a Gemini, Anthropic or OpenAI key, Ollama, LM Studio or llama-server, or a local `claude` /
@@ -40,8 +42,8 @@ LLM (a Gemini, Anthropic or OpenAI key, Ollama, LM Studio or llama-server, or a 
 
 ## Install
 
-Not on the Chrome Web Store yet. Load it unpacked. You need Node 22.22.2 or newer (24.15 or newer
-on the 24 line), pnpm 10 (`corepack enable` picks up the pinned version) and Chrome 123 or newer.
+Not on the Chrome Web Store yet. Load it unpacked. You need Node 22.22.2 or newer on the 22 line,
+24.15 or newer on the 24 line, or Node 26 and up; pnpm 10 (`corepack enable` picks up the pinned version) and Chrome 123 or newer.
 
 ```bash
 git clone https://github.com/el-f/ega.git
@@ -59,44 +61,28 @@ Open `chrome://extensions`, turn on **Developer mode**, choose **Load unpacked**
 2. **Check that the provider sits under Backends in use.** Only Anthropic, Gemini and the native
    host start enabled. Every other provider is never called until you press **Enable** on its card.
 
-Reload a tab you already had open, select text on it and press `Ctrl+Shift+L` (`Cmd+Shift+L` on
-macOS). Something not working? See [Troubleshooting](docs/TROUBLESHOOTING.md).
+Reload a tab you already had open and select a line that is not plain English: the bubble appears
+next to it. Click it. The shortcut `Ctrl+Shift+L` (`Cmd+Shift+L` on macOS) works on any selection,
+English too. Something not working? See [Troubleshooting](docs/TROUBLESHOOTING.md).
 
 ## Backends
 
-Ten cloud providers, two kinds of local server, and a bridge to a CLI you already have.
-
-| Backend             | Kind                                    | What it needs                             | Images        |
-| ------------------- | --------------------------------------- | ----------------------------------------- | ------------- |
-| Anthropic           | Cloud                                   | An API key                                | Yes           |
-| OpenAI              | Cloud                                   | An API key                                | Yes           |
-| Google Gemini       | Cloud                                   | An API key                                | Yes           |
-| OpenRouter          | Cloud                                   | An API key                                | Yes           |
-| Groq                | Cloud                                   | An API key                                | No            |
-| DeepSeek            | Cloud                                   | An API key                                | No            |
-| Together            | Cloud                                   | An API key                                | No            |
-| Mistral             | Cloud                                   | An API key                                | No            |
-| xAI                 | Cloud                                   | An API key                                | No            |
-| Fireworks           | Cloud                                   | An API key                                | No            |
-| Ollama              | Local; a cloud model runs on ollama.com | A daemon on loopback + `ollama pull`      | Vision models |
-| Local server        | Local: LM Studio or llama-server        | The server running on loopback, no key    | Vision models |
-| `claude` or `codex` | Existing CLI                            | The CLI installed and the host registered | Yes           |
+Ten cloud providers, two kinds of local server, and a bridge to a `claude` or `codex` CLI you
+already have. [`docs/BACKENDS.md`](docs/BACKENDS.md) lists each one, what it needs and whether it
+reads images.
 
 <p align="center">
-  <img src="docs/media/backends.png" alt="Ega's Settings page on the Backends tab in dark mode: Anthropic, OpenAI, Gemini and a local server under Backends in use, each with its place in the order, a status word and its route (First choice, Backup 1, Backup 2, Skipped), and Ollama and the native host under Not in use" width="820">
+  <img src="docs/media/backends.png" alt="Ega's Settings page on the Backends tab in dark mode: Anthropic, OpenAI, Gemini and a local server under Backends in use, each with its place in the order, a status word (Anthropic reads Verified after a passed test) and its route (First choice, Backup 1, Backup 2, Skipped), and Ollama and the native host under Not in use" width="820">
 </p>
 
 - **One fallback chain.** Order your enabled backends; when one fails Ega moves to the next. A
-  malformed reply, an unsupported request, or a failure after the answer started streaming stops
-  the walk instead.
-- **Images** skip every backend that cannot read them. On a right-click image with no image-capable
-  backend, Ega stops and says so.
+  malformed reply gets one more try on the same backend first. An invalid or unsupported request,
+  an unknown error, or a failure after the answer started streaming stops the walk instead.
 - **Cost:** a cloud request is billed to your own key. "Translate page" sends one request per text
   block as you scroll to it, and a failed request can go on to the next backend, which may be paid
   too. Enable only the providers you want Ega to use.
 - **The `claude` or `codex` CLI** answers through your existing login, so a plan that includes it
-  costs nothing extra; requests count against its usage limits. Set it up with
-  [`docs/INSTALL_NATIVE_HOST.md`](docs/INSTALL_NATIVE_HOST.md).
+  costs nothing extra; requests count against its usage limits.
 
 ## Make it yours
 

@@ -1,4 +1,4 @@
-import { test, type Page } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import {
   launchExtension,
   mockAnthropic,
@@ -62,7 +62,6 @@ const READY_SEED = {
   contextEnabled: true,
   streaming: true,
   defaultDisplayMode: 'tooltip' as const,
-  bubbleMode: 'never' as const,
   smartBubbleBannerShown: true,
 };
 
@@ -74,7 +73,7 @@ async function save(page: Page, name: string, clip?: Clip): Promise<void> {
   await page.screenshot({ path: path.join(MEDIA_DIR, `${name}.png`), ...(clip ? { clip } : {}) });
 }
 
-test('README — tooltip answering on a page', async () => {
+test('README — bubble on a selection, then the tooltip it opens', async () => {
   test.slow();
   await seedSettings(ext.context, ext.extensionId, READY_SEED);
   await resetRoutes(ext.context);
@@ -90,7 +89,21 @@ test('README — tooltip answering on a page', async () => {
   await waitForTestHooks(page);
   await page.locator('body').focus();
   await selectArabiziParagraph(page);
-  await page.keyboard.press('Control+Shift+L');
+  const bubble = page.locator('#ega-shadow-host .bubble');
+  await expect(bubble).toBeVisible({ timeout: 5_000 });
+  await page.waitForTimeout(200); // wait for the bubble's 120 ms pop animation (no observable end state)
+  const bubbleBox = await bubble.boundingBox();
+  if (!bubbleBox) throw new Error('bubble has no box — refusing to ship a shot without it');
+  const main = await page.locator('main').boundingBox();
+  if (!main) throw new Error('page column not found');
+  await save(page, 'bubble', {
+    x: main.x,
+    y: 0,
+    width: main.width,
+    height: Math.min(640, bubbleBox.y + bubbleBox.height + 120),
+  });
+
+  await bubble.click();
   await page.waitForFunction(
     (needle) => {
       const host = document.querySelector('#ega-shadow-host');
@@ -182,6 +195,8 @@ test('README — side panel holding a conversation', async () => {
 test('README — Backends tab with configured providers', async () => {
   test.slow();
   await seedSettings(ext.context, ext.extensionId, READY_SEED);
+  await resetRoutes(ext.context);
+  mockAnthropic(ext.context, { translation: 'Hello, how are you?' });
   // A green Ollama dot on every machine, not only where a daemon happens to run.
   await ext.context.route('http://localhost:11434/api/tags', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: '{"models":[]}' }),
@@ -191,9 +206,24 @@ test('README — Backends tab with configured providers', async () => {
   await opts.goto(`chrome-extension://${ext.extensionId}/src/options/index.html`);
   await opts.waitForLoadState('networkidle');
   await opts.locator('#tab-backends').click();
+  // A passed Test is what a set-up user has seen, so the first choice reads Verified, not Key saved.
+  const anthropic = opts.locator('details[data-backend-id="anthropic"]');
+  await anthropic.locator('summary').click();
+  await opts.getByTestId('backend-card-test-anthropic').click();
+  await expect(anthropic.locator('[data-ega-backend-status]')).toHaveAttribute(
+    'data-ega-backend-status',
+    'Verified',
+    { timeout: 15_000 },
+  );
+  await opts.reload();
+  await opts.locator('#tab-backends').click();
+  await expect(anthropic.locator('[data-ega-backend-status]')).toHaveAttribute(
+    'data-ega-backend-status',
+    'Verified',
+    { timeout: 5_000 },
+  );
   // Long enough for every card's isAvailable probe to settle, so no pill is left mid-probe.
   await opts.waitForTimeout(2500);
-  await opts.locator('[data-backend-id="anthropic"]').first().waitFor({ state: 'visible' });
   // End the shot on a whole row: the three active providers and the first three available ones.
   const bottom = await opts.evaluate(() => {
     const rows = [...document.querySelectorAll('[data-backend-id]')]
