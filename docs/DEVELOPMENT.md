@@ -1,6 +1,7 @@
 # Development
 
-Prerequisites: git, Node 22.22.2 or newer (24.15 or newer on the 24 line) and pnpm 10.
+Prerequisites: git, Node (22.22.2 or newer on the 22 line, 24.15 or newer on the 24 line, or 26 and
+up) and pnpm 10.
 
 ```bash
 pnpm i --frozen-lockfile

@@ -2,7 +2,7 @@
 
 <!-- cspell:words partir Vorbereitung über Nacht untimed Kaution Mieten Kaltmiete Warmmiete Erstbezug meublée suumo yūki תודה Gbps Mbps pytest -->
 
-A custom task is your own prompt with your own reply fields. Select text on any page and pick the task: Ega sends the text, your instructions and the page context to your model, and the reply comes back in your fields. A task with **Reads images** on also works on an image you right-click, and it gets the page context too.
+A custom task is your own prompt with your own reply fields. Select text on any page and pick the task: Ega sends the text, your instructions and the page context to your model, and the reply comes back in your fields. A task with **Reads images** on also works on an image you right-click, and it gets the page context too. Page context goes out only when both the task's **Send page context** box and the **Send page context** setting on the **Behavior** tab are on.
 
 The screenshots show replies from Claude Opus 5.5 through the native host and the `claude` CLI.
 
@@ -50,7 +50,7 @@ SELECTED TEXT (the original and its translation; empty when an image is attached
 Compare the original and its translation in the text above or in the attached image.
 ```
 
-| Field       | Type     | Shown as    | What goes in                                                                                                                                                                                                                                                                                 |
+| Field       | Kind     | Shows as    | What goes here                                                                                                                                                                                                                                                                               |
 | ----------- | -------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Verdict     | Pick one | Notes       | Would readers of each version act alike and believe the same facts? Yes: Same message. Same action, a line wrong: Small slips. Act or believe otherwise: Meaning changed. Flipped: Says the opposite. Choices: Same message, Small slips, Meaning changed, Says the opposite, Can't compare. |
 | Differences | List     | Main answer | Worst first, at most 5. Flipped or Changed: "translation words" - original: "words" = meaning. Lost: original "words" = meaning. Added: "translation words". Match: one item, No meaning lost                                                                                                |
@@ -61,7 +61,7 @@ Send page context: on. Reads images: on. Language: target language.
 
 ## Break this
 
-Select a code snippet on a page and get the one input that breaks it, a test that fails on it, and a one-line fix. Here 31 characters, `"a".repeat(30) + "!"`, hang the email check on a JavaScript form tutorial: its regex tries about 2^29 ways to split the a's before it fails. The test fails as written and passes with the fix, which deletes one `?` and still accepts the same addresses.
+Select a code snippet on a page and get the one input that breaks it, a test that fails on it, and a one-line fix. Here 31 characters, `"a".repeat(30) + "!"`, hang the email check on a JavaScript form tutorial: its regex tries about 2^29 ways to split the a's before it fails. The test fails as written and passes with the fix, which deletes the `?` after each dot-or-dash class and still accepts the same addresses.
 
 <img src="media/tasks/break-this.png" alt="Ega reply on an email check from a JavaScript form tutorial: 30 a's and an exclamation mark make the regex backtrack about 2^29 ways and the page hangs, expected a fast false; Verdict Breaks; a node:test failing test that wants false in under 50 ms; Fix, the same regex without the question mark after each dot-or-dash class" width="480">
 
@@ -105,7 +105,7 @@ SNIPPET:
 """
 ```
 
-| Field          | Type     | Shown as                   | What goes in                                                                                                                                                                           |
+| Field          | Kind     | Shows as                   | What goes here                                                                                                                                                                         |
 | -------------- | -------- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Verdict        | Pick one | Notes                      | Breaks: your trace reaches a wrong result, crash, hang or injection. No break found: every input you traced held. Choices: Breaks, No break found, Not code.                           |
 | The break      | Text     | Main answer                | One line under 160 characters: the exact input, what the snippet does with it and to which rows or values, what it should do. Like: ids = [] -> max(ids) raises ValueError; expected 0 |
@@ -172,7 +172,7 @@ NOTE OR CLAIMED MEANING FROM THE USER (often empty):
 Read the lettering in the attached image.
 ```
 
-| Field               | Type     | Shown as         | What goes in                                                                                                                                                                                                                                                                                                                           |
+| Field               | Kind     | Shows as         | What goes here                                                                                                                                                                                                                                                                                                                         |
 | ------------------- | -------- | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | What it says        | List     | Main answer      | One line per word: language, the word as written, (reading), plain meaning, e.g. Japanese: 勇気 (yūki) — courage. At most 5, problem words first. Then, if any: small print you could not read                                                                                                                                         |
 | Script and language | Text     | About this reply | Per word: script, language, the end where it starts, then each character as drawn in reading order, unclear ones as [?], e.g. Hebrew, starts right: ת-ו-ד-ה                                                                                                                                                                            |
@@ -234,9 +234,9 @@ RECIPE:
 """
 ```
 
-| Field                | Type      | Shown as                   | What goes in                                                                                                                                                                                                                  |
+| Field                | Kind      | Shows as                   | What goes here                                                                                                                                                                                                                |
 | -------------------- | --------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Real time            | Text      | Main answer                | One line, like: ~4 h 50 min, ~40 min hands-on (card: 30 min). Write short end–long end only when they differ by 30 min or more. No card time: (card: none)                                                                    |
+| Real time            | Text      | Main answer                | One line, like: ~4 h 50 min, ~40 min hands-on (card: 30 min). Write short end–long end only when they differ by 30 min or more. No card time: (card: none). At most 120 characters.                                           |
 | Time on the card     | Pick one  | Notes                      | Honest: the card time reaches 90% of your shortest total. No time given: neither the RECIPE nor the PAGE CONTEXT states one. Choices: Honest, Leaves out waiting, Leaves out hands-on time, No time given, Not a full recipe. |
 | Start the day before | Yes or no | Notes, optional            | Yes only when a step says overnight, the day before or the next day in its own words                                                                                                                                          |
 | Start early          | List      | Notes, optional            | At most 4, one line each: what — how long before — step N                                                                                                                                                                     |
@@ -296,7 +296,7 @@ Selected text (a caption or claim; may be empty):
 {{context}}
 ```
 
-| Field              | Type     | Shown as                   | What goes in                                                                                                                                                                                                |
+| Field              | Kind     | Shows as                   | What goes here                                                                                                                                                                                              |
 | ------------------ | -------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Looks vs is        | List     | Main answer                | Verdict first, then the worst trick: what is drawn (measured), then the honest size. One line per trick, not per bar. At most 4. Like: Stretches it: drawn ~4x as tall; really +3% (94 to 97)               |
 | Verdict            | Pick one | Not shown                  | Fair: no trick changes the story. Stretches it: a trick inflates a real gap. Misleading: the drawing tells a story the numbers do not. Choices: Fair, Stretches it, Misleading, Can't read it, Not a chart. |
@@ -358,11 +358,11 @@ SIZE CHART (the selected text below; when it is empty, the attached image):
 """
 ```
 
-| Field      | Type     | Shown as                   | What goes in                                                                                                                                                                                                                                    |
+| Field      | Kind     | Shows as                   | What goes here                                                                                                                                                                                                                                  |
 | ---------- | -------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Your size  | Text     | Main answer                | The size, then the chart line and the math that decide it, e.g. L: chest 98 cm is in L (97-102)                                                                                                                                                 |
+| Your size  | Text     | Main answer                | The size, then the chart line and the math that decide it, e.g. L: chest 98 cm is in L (97-102). At most 160 characters.                                                                                                                        |
 | Fit        | Pick one | Notes                      | In range: one size matches. Between sizes: two match, or yours falls between two. Outside the chart: past the first or last size. Choices: In range, Between sizes, Outside the chart, Chart has no numbers, No measurements, Not a size chart. |
-| Close call | Text     | Notes, optional            | The nearest other size, its number and why not, plus any shrink note, one line, e.g. M: 41 in = 104.1 cm, 6.1 cm over, under your 8-12                                                                                                          |
+| Close call | Text     | Notes, optional            | The nearest other size, its number and why not, plus any shrink note, one line, e.g. M: 41 in = 104.1 cm, 6.1 cm over, under your 8-12. At most 160 characters.                                                                                 |
 | Chart read | List     | About this reply, optional | At most 4 lines: units; BODY or GARMENT and the words or drawing that say so; the rows used, as printed; the fit note                                                                                                                           |
 
 Send page context: on. Reads images: on. Language: target language.
@@ -414,13 +414,13 @@ AD:
 """
 ```
 
-| Field                | Type | Shown as                   | What goes in                                                                                                                                                     |
+| Field                | Kind | Shows as                   | What goes here                                                                                                                                                   |
 | -------------------- | ---- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Monthly cost         | Text | Main answer                | One line under 60 characters: total first, then each part as amount + short term; plain digits only in the total, e.g. 175,000 yen = 17万円 rent + 5000円 管理費 |
 | One-time costs       | List | Notes, optional            | Term, amount as stated, what it is, and whether it usually comes back, e.g. 礼金 17万円 (170,000 yen): key money, a gift to the landlord, not returned           |
 | Local terms          | List | Notes, optional            | term = what it means for the renter, a few plain words, e.g. Warmmiete = rent with heating and building costs; terms already in One-time costs left out          |
 | Check before signing | List | Notes, optional            | Short checks for costs or terms not in the selection, most costly first, e.g. Agent fee (仲介手数料): find it in the listing details or ask                      |
-| Country              | Text | About this reply, optional | The country and the clues, e.g. Japan: yen (万円), suumo.jp, Japanese page                                                                                       |
+| Country              | Text | About this reply, optional | The country and the clues, e.g. Japan: yen (万円), suumo.jp, Japanese page. At most 100 characters.                                                              |
 
 Send page context: on. Language: target language.
 
@@ -475,7 +475,7 @@ Listing title or text, if any:
 {{context}}
 ```
 
-| Field             | Type     | Shown as         | What goes in                                                                                                                                                                                                                                                        |
+| Field             | Kind     | Shows as         | What goes here                                                                                                                                                                                                                                                      |
 | ----------------- | -------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Bottom line       | Text     | Main answer      | One line under 120 characters, plain words, number first. Like: Both ports share 10.5 W: the total line caps 5V/1A + 5V/2.1A at 5V/2.1A                                                                                                                             |
 | Read on the photo | List     | About this reply | Step 1: each printed line as printed, top to bottom, at most 8; 'unreadable' where too small; callouts marked (callout). Empty for Not a product photo                                                                                                              |
@@ -489,8 +489,8 @@ Send page context: on. Reads images: on. Language: target language.
 
 ## Import all eight
 
-Download [`custom-tasks.json`](custom-tasks.json). In Ega's Settings, open **Tasks**, press **Import tasks...** under **Backup and restore**, pick the file, and press **Import**. Your other tasks stay, and you can undo the import.
+Download [`custom-tasks.json`](custom-tasks.json). In Ega's Settings, open **Tasks**, press **Import tasks...** under **Backup and restore**, pick the file, and press **Import**. Your other tasks stay. Importing the file again replaces the tasks it added the first time, so your edits to them (such as your measurements in My size) are lost. Ega keeps at most 50 tasks of your own and skips the rest. You can undo the import.
 
-Lost in translation, Script check, Chart check, My size and Label check read images. To run one on an image you right-click, open **Selection and picker**, press **Add image action** under **Right-click menu**, and pick the task.
+Lost in translation, Script check, Chart check, My size and Label check read images, so they need a backend that can read images (see [Backends](BACKENDS.md)). To run one on an image you right-click, open **Selection and picker**, press **Add image action** under **Right-click menu**, and pick the task.
 
-To write your own, press **New task** on the same tab, or press **Edit** on one of these and change it.
+To write your own, press **New task** on the **Tasks** tab, or press **Edit** on one of these and change it.

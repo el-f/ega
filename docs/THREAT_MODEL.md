@@ -1,6 +1,6 @@
 # Ega threat model
 
-**Last reviewed:** 2026-10-02, against Ega 0.0.1.
+**Last reviewed:** 2026-11-13, against Ega 0.0.2.
 **Status:** Living document. Update it when the attack surface changes.
 
 This document says what Ega defends against, and what it does not. Every
@@ -14,22 +14,24 @@ line number. `pnpm lint:docs` fails when a cited file or symbol is gone.
 
 ## 1. Trust boundaries
 
-| Boundary                                  | Trust direction         | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| ----------------------------------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Page DOM → content script                 | **Untrusted → trusted** | Every page is hostile until proven otherwise. The content script runs in an isolated world; page text is data, never code.                                                                                                                                                                                                                                                                                                                                                                                  |
-| Content script → service worker           | Trusted → trusted       | Same-extension messages, checked with `src/shared/messages.ts#isFromOwnBackground`.                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| Service worker → LLM backend              | Trusted → semi-trusted  | Hosted (Anthropic, Gemini, and the 8 OpenAI-compatible providers) or local (Ollama, a local OpenAI-compatible server, native CLI). The provider sees the prompt. You chose it.                                                                                                                                                                                                                                                                                                                              |
-| Native host → local CLI child             | Trusted → semi-trusted  | The host spawns `claude` or `codex` with your own login and your own file system rights.                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| Imported tasks file or backup → settings  | **Untrusted**           | A tasks file or a full backup is JSON a stranger can hand you. A tasks file can carry task prompts, task edits and the Translate prompt that Explain and every language without its own prompt share; a full backup can also carry rules and per-language prompts. Either can carry snippets those prompts use.                                                                                                                                                                                             |
-| Imported languages file → settings        | **Untrusted**           | The Languages tab imports a languages file (`src/options/tabs/Languages.svelte#importBundleFile`). It replaces your custom languages, your edits to built-in languages and, from a version 2 file, each language's own prompt (the whole system and user template for Translate and Explain in that language). A custom language's hint and examples go into the prompt when that language is used, and its hint can reach an auto-detect prompt as a candidate (`src/shared/prompts.ts#renderCandidates`). |
-| Imported one-language file → settings     | **Untrusted**           | The same Languages tab Import also takes a file with one custom language (`src/shared/storage/backup.ts#exportLanguage` writes it). It adds that language, or replaces only the custom language with the same id, and can carry that language's own prompt for Translate and Explain. It cannot take a built-in id, or an id that reads as a language code or as Auto-detect (`src/options/import-bundle.ts#isLanguageCodeLike`), so it cannot speak for a language you did not import.                     |
-| Imported glossary file → settings         | **Untrusted**           | The Glossary tab imports a glossary file (`src/options/tabs/Glossary.svelte#importBundleFile`). It skips an entry when you already have its term for a language it could apply to, so it cannot change or remove yours, or join one of yours in a request. An added entry's term and translation go into the system prompt whenever the term appears in the text, escaped like your own entries (`src/shared/glossary.ts#renderGlossaryBlock`).                                                             |
-| `chrome.storage.local` → any surface      | Trusted                 | Local to this browser profile, never synced. Another extension with `storage` permission is Chrome's boundary, not ours.                                                                                                                                                                                                                                                                                                                                                                                    |
-| `chrome.storage.session` → content script | **None**                | The worker keeps session storage to `TRUSTED_CONTEXTS` (`src/background/index.ts`), so no content script can read the handoff slot's page text, answer and image from another site. A page's own scripts cannot either — `chrome.storage` is unreachable from page JavaScript. See `docs/PERMISSIONS.md`.                                                                                                                                                                                                   |
+| Boundary                                  | Trust direction         | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ----------------------------------------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Page DOM → content script                 | **Untrusted → trusted** | Every page is hostile until proven otherwise. The content script runs in an isolated world; page text is data, never code.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Content script → service worker           | Trusted → trusted       | The worker rejects another sender id, accepts settings and admin messages only from extension pages (`src/background/index.ts#isExtensionPage`), lets a tab cancel only its own request, and caps every payload field. The other way, a content script or the side panel accepts worker messages only through `src/shared/messages.ts#isFromOwnBackground`.                                                                                                                                                                                                                                                      |
+| Service worker → LLM backend              | Trusted → semi-trusted  | Hosted (Anthropic, Gemini, and the 8 OpenAI-compatible providers) or local (Ollama, a local OpenAI-compatible server, native CLI). The provider sees the prompt. You chose it.                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Native host → local CLI child             | Trusted → semi-trusted  | The host spawns `claude` or `codex` with your own login and your own file system rights.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Imported tasks file or backup → settings  | **Untrusted**           | A tasks file or a full backup is JSON a stranger can hand you. A tasks file can carry task prompts, task edits and the Translate prompt that Explain and every language without its own prompt share; a full backup can also carry rules and per-language prompts. Either can carry snippets those prompts use.                                                                                                                                                                                                                                                                                                  |
+| Imported languages file → settings        | **Untrusted**           | The Languages tab imports a languages file (`src/options/tabs/Languages.svelte#importBundleFile`). It replaces your custom languages, your edits to built-in languages and, from a version 2 file, each language's own prompt (the whole system and user template for Translate and Explain in that language). A custom language's hint and examples go into the prompt when that language is used, and its hint can reach an auto-detect prompt as a candidate (`src/shared/prompts.ts#renderCandidates`).                                                                                                      |
+| Imported one-language file → settings     | **Untrusted**           | The same Languages tab Import also takes a file with one custom language (`src/shared/storage/backup.ts#exportLanguage` writes it). It adds that language, or replaces only the custom language with the same id, and can carry that language's own prompt for Translate and Explain. It cannot take a built-in id, or a new id that reads as a language code or as Auto-detect (`src/options/import-bundle.ts#isLanguageCodeLike`), so it cannot speak for a language you did not import. A code-like id you already have as a custom language can be replaced. The file's detection pattern is never imported. |
+| Imported glossary file → settings         | **Untrusted**           | The Glossary tab imports a glossary file (`src/options/tabs/Glossary.svelte#importBundleFile`). It skips an entry when you already have its term for a language it could apply to, so it cannot change or remove yours, or join one of yours in a request. An added entry's term and translation go into the system prompt whenever the term appears in the text, escaped like your own entries (`src/shared/glossary.ts#renderGlossaryBlock`).                                                                                                                                                                  |
+| `chrome.storage.local` → any surface      | Trusted                 | Local to this browser profile, never synced. Another extension with `storage` permission is Chrome's boundary, not ours.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `chrome.storage.session` → content script | **None**                | The worker keeps session storage to `TRUSTED_CONTEXTS` (`src/background/index.ts`), so no content script can read the handoff slot's page text, answer and image from another site. A page's own scripts cannot either — `chrome.storage` is unreachable from page JavaScript. See `docs/PERMISSIONS.md`.                                                                                                                                                                                                                                                                                                        |
 
 The shadow root Ega mounts on the page is **open** —
 `attachShadow({ mode: 'open' })` in `src/content/shadowHost.ts#mountShadowHost`. It is a
-style and layout boundary, not a security boundary. Page script can reach
+style and layout boundary, not a security boundary. The per-block error chip that page
+translate places in the page has its own open root (`src/content/page-chip.ts`); it holds
+only an error title and two buttons. Page script can reach
 `host.shadowRoot`. No API key or stored conversation goes inside it; the one piece of your
 setup that can is the system prompt, when you expand **Instructions sent** in the tooltip
 (see "The page can read the tooltip" below). The host is built the first time
@@ -98,12 +100,13 @@ In priority order:
    conversation, 4 MB across all of them
    (`src/sidepanel/state/conversation-store.ts#MAX_TURN_BYTES`). Each turn keeps the full
    sent text, the full reply, the explain note, every earlier variant from a refine, the
-   `contextSent` page-context snapshot, and an image up to 256 KB. With **Record request
+   `contextSent` page-context snapshot, and an image whose data URL is up to 256K characters
+   (about 192 KB of image). With **Record request
    details** on, each of the 20 newest replies also keeps the system prompt it was sent
    with, up to 6,000 characters, which holds the rules and the glossary entries that
-   matched. Past a ceiling the oldest turns drop, and a turn over 300 KB is cut back to its
-   visible text, capped at 20,000 characters, losing its refine variants
-   (`src/sidepanel/state/conversation-store.ts#shrinkTurn`).
+   matched. Past a ceiling the oldest turns drop. A turn over 300 KB first loses its stored
+   system prompt; if it is still too big, its text is capped at 20,000 characters and only
+   the shown variant is kept (`src/sidepanel/state/conversation-store.ts#shrinkTurn`).
    Saving is automatic on every change and no setting turns it off.
    **New conversation** deletes nothing: the old conversation stays in the list.
    **Delete** on a conversation's row in the side panel's list (the site title) removes
@@ -276,8 +279,9 @@ Page URLs routinely carry session tokens, password-reset codes and search
 terms.
 
 **Defense:** the collector sends origin and path only. Query string and
-fragment are dropped before the URL enters a prompt
-(`src/content/page-context-collector.ts#safePageUrl`).
+fragment are dropped before the URL enters a prompt, and a path segment that looks
+like a token (a UUID, a long mix of letters and digits, random base64url) becomes
+`:token` (`src/content/page-context-collector.ts#safePageUrl`).
 
 ### Password and payment fields
 
@@ -307,8 +311,9 @@ fragment are dropped before the URL enters a prompt
 
 ### API keys syncing to your Google account
 
-**Defense:** Ega reads and writes `chrome.storage.local` only
-(`src/shared/storage.ts#getSettings`). It never touches `chrome.storage.sync`,
+**Defense:** Ega keeps settings and keys in `chrome.storage.local`
+(`src/shared/storage.ts#getSettings`) and short-lived handoffs in
+`chrome.storage.session`. It never touches `chrome.storage.sync`,
 so keys stay on this machine. Neither does any other store Ega owns: the
 conversation threads, the audit log and every `chrome.storage.session` key are
 device-local.
@@ -344,7 +349,9 @@ items. Residual: the page can still read the answer out of the open shadow root
 script can call `chrome.runtime.sendMessage`. A direct
 `fetch('http://localhost:11434/api/chat')` from page script is refused by Ollama's own
 origin check. `/api/tags` still answers, which shows the page your model list, not your
-text. Ega's Ollama calls run from the service worker.
+text. Ega's Ollama translation calls run from the service worker. The Backends tab
+also calls Ollama (the model list and a short check before a test) from the Settings
+page, which has the same extension origin.
 
 ### A hostile page exfiltrating a local file through the native host
 
@@ -543,8 +550,8 @@ The build declares its content-script JS chunks as `web_accessible_resources` fo
 `<all_urls>` with `use_dynamic_url: false` — the shape CRXJS emits. `vite.config.ts`
 removes any stylesheet from that list on purpose, and `scripts/bundle-budget.ts` fails
 the build if one comes back. The resource URLs are therefore stable, and the
-extension id is stable too, because the manifest ships a fixed public key
-(`manifest.config.ts`). Any page can `fetch` one of those URLs and learn from the
+extension id is stable too: the local build ships a fixed public key
+(`manifest.config.ts`), and a store build gets a fixed id from the Web Store. Any page can `fetch` one of those URLs and learn from the
 result whether you run Ega. `use_dynamic_url: true` would close it by rotating the
 origin per session.
 
@@ -621,7 +628,8 @@ failed).
 ### What the audit log does and does not show
 
 Every backend call writes an entry, including the image paths and the
-per-backend "Test now". The image paths write from
+per-backend "Test now", except a draft run from a task editor's **Try it** button
+(`src/background/task-try.ts`), which keeps no audit row, cache entry or conversation. The image paths write from
 the same `emitAudit` in `src/background/router.ts` as every text request: an image request
 runs the text path, so the right-click image item is covered as well.
 

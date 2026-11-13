@@ -1,11 +1,11 @@
 import { makeCrossContextLock } from './utils/cross-context-lock';
 
 /** Window-scoped intent so Settings can open an existing thread in either a new or mounted panel. */
-const PREFIX = 'ega.pendingConversationOpen:';
+const KEY_PREFIX = 'ega.pendingConversationOpen:';
 const MAX_AGE_MS = 60_000;
 const lock = makeCrossContextLock('ega:conversation-open');
 
-export const conversationOpenKey = (windowId: number): string => `${PREFIX}${windowId}`;
+export const conversationOpenKey = (windowId: number): string => `${KEY_PREFIX}${windowId}`;
 
 export function queueConversationOpen(id: string, windowId: number): Promise<void> {
   return lock(() =>

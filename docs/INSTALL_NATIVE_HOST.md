@@ -18,9 +18,10 @@ build.
    checks, then **Installed**, **Update needed** or **Not installed**. Open the
    row and the first line says the same in words, for example "Installed,
    version 6". Once the host is installed, a second line says how the next
-   answer starts: **The first translation starts the CLI**, **Starting the
-   CLI...**, **The CLI is running, so answers start fast** or **The CLI stopped;
-   the next translation starts it again**. It refreshes every five seconds and
+   answer starts. With `claude` selected it reads **The first translation
+   starts Claude Code**, **Starting Claude Code...**, **Claude Code is
+   running, so answers start fast** or **Claude Code stopped; the next
+   translation starts it again**. It refreshes every five seconds and
    is what answers "why was that translation slow". With `codex` selected the
    line reads **Codex starts once per translation** instead: codex keeps no
    child between requests, so there is nothing to be cold or warm. The stopped
@@ -96,8 +97,8 @@ Chrome closes that connection, and its CLI children go with it.
 When the native host is your active backend and `claude` is the selected CLI,
 Ega connects each time its service worker starts and asks the host to start `claude` right
 away, so the first translation skips a 7-12 second warm-up. This is on by
-default. Turn it off with **Start the native host with Chrome** in the
-Backends tab; with it off, the first translation starts `claude`. With `codex`
+default. Turn it off with **Keep the connection ready** under Startup on the
+**Claude Code or Codex** card in the Backends tab; with it off, the first translation starts `claude`. With `codex`
 the setting changes nothing: the host runs one `codex` process per translation
 and keeps none warm.
 
@@ -105,12 +106,13 @@ After that:
 
 - Ega gives up on a request after the text answer timeout (60 seconds by
   default, set in Settings → Backends), or after 30 seconds with no reply,
-  and tells the host to cancel. The host also kills any CLI child that runs
-  past 90 seconds on its own.
+  and tells the host to cancel. As a backstop, the host also stops a request
+  that is still running after 330 seconds, which is above the longest timeout
+  you can set.
 - Five minutes after the last translation the host stops the `claude` child, so
   an idle browser is not holding a process open. The host process itself stays,
-  so the line goes back to **Starting the CLI...**, not **The first translation
-  starts the CLI**, which means Ega has not connected at all yet. A `codex` process ends with its translation, so there is
+  so the line goes back to **Starting Claude Code...**, not **The first
+  translation starts Claude Code**, which means Ega has not connected at all yet. A `codex` process ends with its translation, so there is
   nothing to stop.
 
 Every launcher records the full path to `node`. On macOS and Linux it records
