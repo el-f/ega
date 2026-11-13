@@ -491,6 +491,6 @@ Send page context: on. Reads images: on. Language: target language.
 
 Download [`custom-tasks.json`](custom-tasks.json). In Ega's Settings, open **Tasks**, press **Import tasks...** under **Backup and restore**, pick the file, and press **Import**. Your other tasks stay. Importing the file again replaces the tasks it added the first time, so your edits to them (such as your measurements in My size) are lost. Ega keeps at most 50 tasks of your own and skips the rest. You can undo the import.
 
-Lost in translation, Script check, Chart check, My size and Label check read images, so they need a backend that can read images (see [Backends](BACKENDS.md)). To run one on an image you right-click, open **Selection and picker**, press **Add image action** under **Right-click menu**, and pick the task.
+Lost in translation, Script check, Chart check, My size and Label check read images, so they need a backend that can read images (see [Backends](BACKENDS.md)). To run one on an image you right-click, open **Selection and picker**, press **Add image action** under **Right-click menu**, and pick the task. A right-clicked image carries no selected text, so a task's text input (such as the note Script check reads) stays empty.
 
 To write your own, press **New task** on the **Tasks** tab, or press **Edit** on one of these and change it.

@@ -303,7 +303,7 @@ Opens the side panel. Six kinds of trigger, every one started by your click:
 - the popup — its **Open side panel** and **Translate clipboard** buttons, and sending
   typed text from the popup box,
 - the "Ega ▸ Translate in side panel" right-click item,
-- the image right-click items ("Translate image", "Explain image"), which
+- the image right-click items ("Translate image in side panel", "Explain image in side panel"), which
   need a bigger surface than the tooltip,
 - the tooltip's **Open in side panel** button, on an error, an explain result, an
   image result or a failed image,
