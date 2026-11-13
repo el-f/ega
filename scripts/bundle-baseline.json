@@ -9,11 +9,7 @@
   },
   {
     "name": "AnswerNotes",
-    "bytes": 23138
-  },
-  {
-    "name": "ask-about",
-    "bytes": 3488
+    "bytes": 23239
   },
   {
     "name": "batch-progress",
@@ -29,7 +25,7 @@
   },
   {
     "name": "cancel-token",
-    "bytes": 31728
+    "bytes": 31729
   },
   {
     "name": "Checkbox",
@@ -57,7 +53,7 @@
   },
   {
     "name": "error-copy",
-    "bytes": 6706
+    "bytes": 6776
   },
   {
     "name": "Glossary",
@@ -73,15 +69,15 @@
   },
   {
     "name": "index",
-    "bytes": 129427
+    "bytes": 129576
   },
   {
     "name": "index.html",
-    "bytes": 502244
+    "bytes": 503915
   },
   {
     "name": "index.ts",
-    "bytes": 47904
+    "bytes": 48730
   },
   {
     "name": "index.ts-loader",
@@ -109,7 +105,7 @@
   },
   {
     "name": "Markdown",
-    "bytes": 4718
+    "bytes": 4734
   },
   {
     "name": "menu-focus",
@@ -117,7 +113,7 @@
   },
   {
     "name": "open-options-tab",
-    "bytes": 52178
+    "bytes": 52187
   },
   {
     "name": "page-styles",
@@ -125,7 +121,7 @@
   },
   {
     "name": "page-translate-v2",
-    "bytes": 26276
+    "bytes": 26280
   },
   {
     "name": "pending-conversation-open",
@@ -168,6 +164,10 @@
     "bytes": 128
   },
   {
+    "name": "reply-instructions",
+    "bytes": 2383
+  },
+  {
     "name": "request-state",
     "bytes": 1369
   },
@@ -185,7 +185,7 @@
   },
   {
     "name": "safety",
-    "bytes": 1394
+    "bytes": 1525
   },
   {
     "name": "saved-conversations",
@@ -209,7 +209,7 @@
   },
   {
     "name": "src-content-index.ts",
-    "bytes": 41104
+    "bytes": 41622
   },
   {
     "name": "StableLabel",
@@ -229,7 +229,7 @@
   },
   {
     "name": "Tasks",
-    "bytes": 59645
+    "bytes": 60244
   },
   {
     "name": "TaskUsageRow",
@@ -253,7 +253,7 @@
   },
   {
     "name": "tipState.svelte",
-    "bytes": 60673
+    "bytes": 61182
   },
   {
     "name": "toast",
@@ -269,15 +269,15 @@
   },
   {
     "name": "Translate",
-    "bytes": 24927
+    "bytes": 25000
   },
   {
     "name": "translate-handlers",
-    "bytes": 6395
+    "bytes": 6404
   },
   {
     "name": "translate-ui",
-    "bytes": 3531
+    "bytes": 4321
   },
   {
     "name": "vendor-bits-ui",
@@ -297,7 +297,7 @@
   },
   {
     "name": "vendor-marked",
-    "bytes": 45437
+    "bytes": 45449
   },
   {
     "name": "vendor-svelte",
