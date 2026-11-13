@@ -228,6 +228,27 @@ export default [
     },
   },
   {
+    // A test reads a doc only through `?raw`, so the pre-push docs-tests step (scripts/doc-tests.ts) finds it.
+    files: ['tests/**/*.ts'],
+    // e2e specs never run under vitest; doc-links.test.ts hands fake doc paths to the checker.
+    ignores: ['tests/e2e/**', 'tests/unit/scripts/doc-links.test.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...[
+          'Literal[value=/(?:^|\\u002f)docs\\u002f.+\\.[A-Za-z]+$/]',
+          'TemplateElement[value.raw=/(?:^|\\u002f)docs\\u002f.+\\.[A-Za-z]+$/]',
+          'Literal[value=/(?:^|\\u002f)(?:README|CLAUDE)\\.md$/]',
+          "Literal[value='docs']",
+        ].map((selector) => ({
+          selector,
+          message:
+            "Import the doc with ?raw (import doc from '../../../docs/X.md?raw'), so the pre-push docs-tests step reruns this test when the doc changes.",
+        })),
+      ],
+    },
+  },
+  {
     // eslint-plugin-svelte 3 parses *.svelte.ts without the TS subparser, which fails on `import type`.
     files: ['**/*.svelte', '**/*.svelte.ts'],
     languageOptions: {

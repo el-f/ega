@@ -3,6 +3,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { STORAGE_KEYS } from '@/shared/constants';
+import doc from '../../../docs/PERMISSIONS.md?raw';
 
 // Pins every storage key in src/ to the Storage shape table in docs/PERMISSIONS.md.
 
@@ -32,7 +33,6 @@ const codeKeys = [
   .filter((k) => !NOT_STORAGE.has(k))
   .sort();
 
-const doc = readFileSync(path.join(ROOT, 'docs/PERMISSIONS.md'), 'utf8');
 const section = doc.slice(doc.indexOf('## Storage shape'));
 const tableKeys = section
   .slice(0, section.indexOf('\n## ', 1))

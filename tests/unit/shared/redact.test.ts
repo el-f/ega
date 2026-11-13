@@ -1,11 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { redactSecrets, redactContext, REDACTED_PATTERN_LABELS } from '@/shared/redact';
 import { buildPrompt, DEFAULT_TEMPLATE } from '@/shared/prompts';
 import { sel } from '@tests/_helpers/lang';
 import { getPreset } from '@/shared/presets';
 import type { PageContext, TranslationRequest } from '@/shared/types';
+import doc from '../../../docs/PRIVACY.md?raw';
 
 // Build token-like fixtures at runtime so secretlint does not flag the source.
 const mk = (prefix: string, body: string): string => prefix + body;
@@ -117,7 +116,6 @@ describe('redactSecrets — key formats the providers ship today', () => {
 
 describe('docs/PRIVACY.md lists exactly what the redact table masks', () => {
   it('renders the label list from the table — a new pattern fails the doc until it lands there', () => {
-    const doc = readFileSync(resolve(__dirname, '../../../docs/PRIVACY.md'), 'utf8');
     const flat = doc.replace(/\s+/g, ' ');
     expect(flat).toContain(`Masked patterns: ${REDACTED_PATTERN_LABELS.join(', ')}.`);
   });

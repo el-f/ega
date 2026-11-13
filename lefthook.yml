@@ -57,22 +57,31 @@ commit-msg:
       run: pnpm exec commitlint --edit {1}
 
 pre-push:
+  # A docs-only push skips every `exclude: *docs` command; `--all-files` (the done gate) still runs them all.
   commands:
     format-check:
       # CI and `pnpm verify` run it, so without it a green push could still fail CI.
       run: pnpm format:check
+    docs-tests:
+      # The unit tests that import a doc with `?raw`, the one way eslint.config.js lets a test read it.
+      glob: &docs ['README.md', 'CLAUDE.md', 'docs/**']
+      run: pnpm test:docs
     vitest:
+      exclude: *docs
       run: pnpm vitest run --reporter=dot
     svelte-check:
       # The .svelte half of `pnpm typecheck`. ~19s, so it lives here and not in
       # pre-commit. Without it the SFCs get no type checking before CI.
+      exclude: *docs
       run: pnpm exec svelte-check --threshold warning
     test-host:
       # native-host has its own node:test suite that `pnpm vitest` never sees.
+      exclude: *docs
       run: pnpm test:host
     coverage-flows:
       # Mirror of the release-gate flow-coverage check. Drift here means a spec's
       # `coverage:` marker disagrees with tests/e2e/flows/coverage.ts.
+      exclude: *docs
       run: pnpm coverage:flows
     lint-docs:
       # Living docs cite code as `path#symbol`. Fails when the file or the symbol is
@@ -82,6 +91,7 @@ pre-push:
     third-party-notices:
       # THIRD_PARTY.md ships inside the zip, so a dependency change without a regen
       # means the packaged extension carries the wrong notices. Runs in ~1s.
+      exclude: *docs
       run: pnpm gen:third-party:check
     bundle-budget:
       # `pnpm bundle:budget` rebuilds, then runs six checks.
@@ -92,13 +102,16 @@ pre-push:
       # web-accessible stylesheet (both reach every page a user visits), the eager
       # content-script and popup preload byte budgets, and the total bytes of all chunks
       # within 10% of the baseline total. No `|| true` — that swallowed them.
+      exclude: *docs
       run: pnpm bundle:budget --warn-only
     lint-deadcode:
       # Hard gate: the corpus is at zero findings, so any new dead export fails the push.
+      exclude: *docs
       run: pnpm exec knip --reporter=compact --include=files,exports
     affordance-audit:
       # Hard gate, ratchet-shaped. Fails on a NEW user-facing affordance (data-ega-* /
       # data-testid) in src/ with no flow spec and no baseline entry, AND on a baseline
       # entry that is now covered or deleted. `--update-baseline` only prunes, so it can
       # never turn this green; freezing new debt takes the explicit `--accept-drift`.
+      exclude: *docs
       run: pnpm audit:affordances

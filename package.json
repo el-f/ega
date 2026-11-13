@@ -28,6 +28,7 @@
     "lint:secrets:full": "secretlint --secretlintignore .gitignore \"**/*\"",
     "lint:spelling": "cspell --no-progress \"docs/*.md\" \"README.md\" \"CLAUDE.md\"",
     "lint:docs": "tsx scripts/doc-links.ts",
+    "test:docs": "tsx scripts/doc-tests.ts",
     "lint:actions": "node scripts/lint-actions.mjs",
     "coverage:flows": "tsx scripts/flow-coverage.ts",
     "audit:affordances": "tsx scripts/affordance-audit.ts",

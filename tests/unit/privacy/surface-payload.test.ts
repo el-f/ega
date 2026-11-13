@@ -1,9 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
 import type { Mock } from 'vitest';
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { render } from '@testing-library/svelte';
 import { chromeMock, workerReply } from '@tests/mocks/chrome';
 import { flushAsync } from '@tests/_helpers/async';
@@ -23,11 +20,9 @@ import { dispatchImageTranslate } from '@/background/imageTranslateDispatch';
 import BackendCard from '@/options/components/BackendCard.svelte';
 import { resolveBackend } from '@/shared/backends/registry';
 import { asBackendIdUnsafe, asLangIdUnsafe } from '@/shared/brands';
+import POLICY from '../../../docs/PRIVACY.md?raw';
 
 // Pins docs/PRIVACY.md "What each surface sends" to each surface's real request; "Saved in a thread" is local, not checked.
-
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
-const POLICY = readFileSync(path.join(ROOT, 'docs/PRIVACY.md'), 'utf8');
 
 type Cell = 'yes' | 'no' | 'fixed' | 'meta-only' | 'conditional';
 const COLUMNS = {
