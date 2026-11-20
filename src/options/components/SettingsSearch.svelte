@@ -131,9 +131,21 @@
     );
   }
 
-  // A new result list puts the selection back on its first row.
+  let selected = $state('');
+  function firstOptionValue(): string {
+    const [section, first] = query.trim()
+      ? ['result', visibleResults[0]]
+      : modifiedOnly
+        ? ['changed', changedEntries[0]]
+        : recentEntries.length > 0
+          ? ['recent', recentEntries[0]]
+          : ['popular', POPULAR_ENTRIES[0]];
+    return first ? `${section}:${first.id}` : '';
+  }
+
+  // A new list puts the selection on its first row: bits keeps a selected row that is still in the list.
   $effect(() => {
-    void visibleResults;
+    selected = firstOptionValue();
     scrollOptionIntoView('[role="option"]');
   });
 
@@ -197,7 +209,7 @@
 {/snippet}
 
 <Dialog {open} label="Search settings" {onClose} size="lg" position="top">
-  <Command.Root shouldFilter={false} loop vimBindings={false}>
+  <Command.Root shouldFilter={false} loop vimBindings={false} bind:value={selected}>
     {#snippet child({ props: rootProps })}
       <div {...plainRoot(rootProps)} class="ss-root">
         <div class="ss-input-row">
