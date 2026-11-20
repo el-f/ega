@@ -271,8 +271,8 @@ function measureDist(distDir: string): BundleEntry[] {
 // Anchoring at the copy now on the page when the page re-rendered the request's copy adds 17B.
 // Finding a re-rendered copy again by its place among the copies of its picture adds 96B.
 // Rebasing onto master's plain custom answers adds 19B to the shared answer chunk.
-// The 2026-11-21 dependency bumps (svelte 5.57.3, bits-ui 2.21.0 and the rest of dependabot #6-#11) add 287B.
-const EAGER_CONTENT_BUDGET_BYTES = 164_810;
+// The 2026-11-21 dependency bumps (svelte 5.57.3 and the rest of dependabot #6-#11, bits-ui held at 2.19.5) add 216B.
+const EAGER_CONTENT_BUDGET_BYTES = 164_739;
 
 /** The popup opens on every toolbar click, so its preload set is the one extension-page cost a user feels. Ratchet, like the one above. */
 // Stable control widths (R63) add 3,930B: the StableLabel chunk, Button's label stack, the double-click guard (its
@@ -287,8 +287,8 @@ const EAGER_CONTENT_BUDGET_BYTES = 164_810;
 // Sharing that notice with the page moves it into a chunk the content script also loads: +58B.
 // The second audit-fix round adds 349B to shared code the popup loads.
 // The answer format redesign adds 1,052B to shared answer code the popup loads.
-// The 2026-11-21 dependency bumps add 7,182B, mostly bits-ui 2.21.0 (+4,791B) and @lucide/svelte 1.73.0 (+1,041B).
-const POPUP_PAGE_BUDGET_BYTES = 537_218;
+// The 2026-11-21 dependency bumps add 2,252B, 1,041B of it @lucide/svelte 1.73.0 (bits-ui held at 2.19.5).
+const POPUP_PAGE_BUDGET_BYTES = 532_288;
 
 function measurePagePreload(distDir: string, htmlRel: string): { files: string[]; bytes: number } {
   const htmlPath = path.join(distDir, htmlRel);
