@@ -79,7 +79,8 @@ export async function openMenu(
   if (!trigger) throw new Error(`${action} trigger missing`);
   await fireEvent.keyDown(trigger, { key: 'Enter' });
   return waitFor(() => {
-    const menu = document.querySelector<HTMLElement>('[role="menu"]');
+    // A menu that just closed stays mounted until the next animation frame (bits-ui 2.21).
+    const menu = document.querySelector<HTMLElement>('[role="menu"][data-state="open"]');
     if (!menu) throw new Error('menu not open');
     return menu;
   });
